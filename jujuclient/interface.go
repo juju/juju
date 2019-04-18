@@ -43,6 +43,9 @@ type ControllerDetails struct {
 	// runs in. This will be empty for clouds without regions.
 	CloudRegion string `yaml:"region,omitempty"`
 
+	// CloudType is the type of the cloud that this controller runs in.
+	CloudType string `yaml:"type,omitempty"`
+
 	// AgentVersion is the version of the agent running on this controller.
 	// While this isn't strictly needed to connect to a controller, it is used
 	// in formatting show-controller output where this struct is also used.
@@ -182,6 +185,12 @@ type ControllerGetter interface {
 	// If there exists no controller with the specified name, an error
 	// satisfying errors.IsNotFound will be returned.
 	ControllerByName(controllerName string) (*ControllerDetails, error)
+
+	// ControllerByAPIEndpoints returns the details and name of the
+	// controller where the set of API endpoints contains any of the
+	// provided endpoints. If no controller can be located, an error
+	// satisfying errors.IsNotFound will be returned.
+	ControllerByAPIEndpoints(endpoints ...string) (*ControllerDetails, string, error)
 
 	// CurrentController returns the name of the current controller.
 	// If there is no current controller, an error satisfying

@@ -4,10 +4,9 @@
 package caasoperatorprovisioner_test
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -17,7 +16,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 var _ = gc.Suite(&CAASProvisionerSuite{})
@@ -123,8 +121,8 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoDefault(c *gc.C) {
 	result, err := s.api.OperatorProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfo{
-		ImagePath:    fmt.Sprintf("jujusolutions/jujud-operator:%s", version.Current.String()),
-		Version:      version.Current,
+		ImagePath:    "jujusolutions/jujud-operator:2.6-beta3",
+		Version:      version.MustParse("2.6-beta3"),
 		APIAddresses: []string{"10.0.0.1:1"},
 		Tags: map[string]string{
 			"juju-model-uuid":      coretesting.ModelTag.Id(),
@@ -149,8 +147,8 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
 	result, err := s.api.OperatorProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfo{
-		ImagePath:    s.st.operatorRepo + "/jujud-operator:" + version.Current.String(),
-		Version:      version.Current,
+		ImagePath:    s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3",
+		Version:      version.MustParse("2.6-beta3"),
 		APIAddresses: []string{"10.0.0.1:1"},
 		Tags: map[string]string{
 			"juju-model-uuid":      coretesting.ModelTag.Id(),
@@ -176,8 +174,8 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStoragePool(c *gc.C
 	result, err := s.api.OperatorProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfo{
-		ImagePath:    s.st.operatorRepo + "/jujud-operator:" + version.Current.String(),
-		Version:      version.Current,
+		ImagePath:    s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3",
+		Version:      version.MustParse("2.6-beta3"),
 		APIAddresses: []string{"10.0.0.1:1"},
 		Tags: map[string]string{
 			"juju-model-uuid":      coretesting.ModelTag.Id(),

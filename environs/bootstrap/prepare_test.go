@@ -74,6 +74,7 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foundController.ControllerUUID, gc.DeepEquals, controllerCfg.ControllerUUID())
 	c.Assert(foundController.Cloud, gc.Equals, "dummy")
+	c.Assert(foundController.CloudType, gc.Equals, "dummy")
 
 	// Check that bootstrap config was written
 	bootstrapCfg, err := controllerStore.BootstrapConfigForController(cfg.Name())

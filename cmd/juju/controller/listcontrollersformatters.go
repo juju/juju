@@ -38,7 +38,7 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh
 		fmt.Fprintln(writer, "Use --refresh option with this command to see the latest information.")
 		fmt.Fprintln(writer)
 	}
-	w.Println("Controller", "Model", "User", "Access", "Cloud/Region", "Models", "Machines", "HA", "Version")
+	w.Println("Controller", "Model", "User", "Access", "Cloud/Region", "Models", "Nodes", "HA", "Version")
 	tw.SetColumnAlignRight(5)
 	tw.SetColumnAlignRight(6)
 	tw.SetColumnAlignRight(7)
@@ -85,6 +85,9 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh
 		machineCount := noValueDisplay
 		if c.MachineCount != nil && *c.MachineCount > 0 {
 			machineCount = fmt.Sprintf("%d", *c.MachineCount)
+		}
+		if c.NodeCount != nil && *c.NodeCount > 0 {
+			machineCount = fmt.Sprintf("%d", *c.NodeCount)
 		}
 		modelCount := noValueDisplay
 		if c.ModelCount != nil && *c.ModelCount > 0 {

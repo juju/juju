@@ -38,14 +38,14 @@ type Logger interface {
 type Config struct {
 	Facade InstanceMutaterAPI
 
-	// Logger is the logger for this worker.
+	// Logger is the Logger for this worker.
 	Logger Logger
 
 	Broker environs.LXDProfiler
 
 	AgentConfig agent.Config
 
-	// Tag is the current mutaterMachine tag
+	// Tag is the current MutaterMachine tag
 	Tag names.Tag
 
 	// GetMachineWatcher allows the worker to watch different "machines"
@@ -162,14 +162,6 @@ func (w *mutaterWorker) loop() error {
 		machines:    make(map[names.MachineTag]chan struct{}),
 		machineDead: make(chan instancemutater.MutaterMachine),
 	}
-	defer func() {
-		// TODO(fwereade): is this a home-grown sync.WaitGroup or something?
-		// strongly suspect these mutaterMachine goroutines could be managed rather
-		// less opaquely if we made them all workers.
-		for len(m.machines) > 0 {
-			delete(m.machines, (<-m.machineDead).Tag())
-		}
-	}()
 	for {
 		select {
 		case <-m.context.dying():
@@ -201,30 +193,30 @@ func (w *mutaterWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-// Stop stops the upgradeseriesworker and returns any
+// Stop stops the instancemutaterworker and returns any
 // error it encountered when running.
 func (w *mutaterWorker) Stop() error {
 	w.Kill()
 	return w.Wait()
 }
 
-// newMachineContext is part of the updaterContext interface.
-func (w *mutaterWorker) newMachineContext() machineContext {
+// newMachineContext is part of the mutaterContext interface.
+func (w *mutaterWorker) newMachineContext() MachineContext {
 	return w
 }
 
-// getMachine is part of the machineContext interface.
+// getMachine is part of the MachineContext interface.
 func (w *mutaterWorker) getMachine(tag names.MachineTag) (instancemutater.MutaterMachine, error) {
 	m, err := w.facade.Machine(tag)
 	return m, err
 }
 
-// getBroker is part of the machineContext interface.
+// getBroker is part of the MachineContext interface.
 func (w *mutaterWorker) getBroker() environs.LXDProfiler {
 	return w.broker
 }
 
-// getRequiredLXDProfiles part of the machineContext interface.
+// getRequiredLXDProfiles part of the MachineContext interface.
 func (w *mutaterWorker) getRequiredLXDProfiles(modelName string) []string {
 	return w.getRequiredLXDProfilesFunc(modelName)
 }

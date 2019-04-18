@@ -616,10 +616,18 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	// it is obvious the min units count is changing.
 	minUnitsOp := minUnitsTriggerOp(op.unit.st, op.unit.ApplicationName())
 	cleanupOp := newCleanupOp(cleanupDyingUnit, op.unit.doc.Name, op.DestroyStorage, op.Force)
+
+	// If we're forcing destruction the assertion shouldn't be that
+	// life is alive, but that it's what we think it is now.
+	assertion := isAliveDoc
+	if op.Force {
+		assertion = bson.D{{"life", op.unit.doc.Life}}
+	}
+
 	setDyingOp := txn.Op{
 		C:      unitsC,
 		Id:     op.unit.doc.DocID,
-		Assert: isAliveDoc,
+		Assert: assertion,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}
 	setDyingOps := func(dyingErr error) ([]txn.Op, error) {

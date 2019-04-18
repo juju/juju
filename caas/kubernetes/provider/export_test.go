@@ -36,8 +36,9 @@ var (
 )
 
 type (
-	KubernetesClient  = kubernetesClient
-	KubernetesWatcher = kubernetesWatcher
+	KubernetesClient      = kubernetesClient
+	KubernetesWatcher     = kubernetesWatcher
+	ControllerServiceSpec = controllerServiceSpec
 )
 
 type ControllerStackerForTest interface {
@@ -45,6 +46,7 @@ type ControllerStackerForTest interface {
 	GetAgentConfigContent(*gc.C) string
 	GetSharedSecretAndSSLKey(*gc.C) (string, string)
 	GetStorageSize() resource.Quantity
+	GetControllerSvcSpec(string) (*controllerServiceSpec, error)
 }
 
 func (cs controllerStack) GetAgentConfigContent(c *gc.C) string {
@@ -61,6 +63,10 @@ func (cs controllerStack) GetSharedSecretAndSSLKey(c *gc.C) (string, string) {
 
 func (cs controllerStack) GetStorageSize() resource.Quantity {
 	return cs.storageSize
+}
+
+func (cs controllerStack) GetControllerSvcSpec(cloudType string) (*controllerServiceSpec, error) {
+	return cs.getControllerSvcSpec(cloudType)
 }
 
 func NewcontrollerStackForTest(ctx environs.BootstrapContext, stackName, storageClass string, broker *kubernetesClient, pcfg *podcfg.ControllerPodConfig) (ControllerStackerForTest, error) {

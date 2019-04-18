@@ -3,6 +3,11 @@
 
 package provider
 
+import (
+	"github.com/juju/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+)
+
 // ClusterQueryError represents an issue when querying a cluster.
 type ClusterQueryError struct {
 	Message string
@@ -51,5 +56,12 @@ func (e NoRecommendedStorageError) StorageProvider() string {
 // IsNoRecommendedStorageError returns true if err is a NoRecommendedStorageError
 func IsNoRecommendedStorageError(err error) bool {
 	_, ok := err.(NoRecommendedStorageError)
+	return ok
+}
+
+// MaskError is used to signify that an error
+// should not be reported back to the caller.
+func MaskError(err error) bool {
+	_, ok := errors.Cause(err).(*k8serrors.StatusError)
 	return ok
 }

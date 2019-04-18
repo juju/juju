@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"net"
 	"net/http"
@@ -153,6 +154,103 @@ func (s *apiclientSuite) TestDialAPIMultipleError(c *gc.C) {
 	_, _, err := api.DialAPI(info, api.DialOpts{})
 	c.Assert(err, gc.ErrorMatches, `unable to connect to API: .*`)
 	c.Assert(atomic.LoadInt32(&count), gc.Equals, int32(3))
+}
+
+func (s *apiclientSuite) TestVerifyCA(c *gc.C) {
+	decodedCACert, _ := pem.Decode([]byte(jtesting.CACert))
+	serverCertWithoutCA, _ := tls.X509KeyPair([]byte(jtesting.ServerCert), []byte(jtesting.ServerKey))
+	serverCertWithSelfSignedCA, _ := tls.X509KeyPair([]byte(jtesting.ServerCert), []byte(jtesting.ServerKey))
+	serverCertWithSelfSignedCA.Certificate = append(serverCertWithSelfSignedCA.Certificate, decodedCACert.Bytes)
+
+	specs := []struct {
+		descr        string
+		serverCert   tls.Certificate
+		verifyCA     func(host, endpoint string, caCert *x509.Certificate) error
+		expConnCount int32
+		errRegex     string
+	}{
+		{
+			descr:      "VerifyCA provided but server does not present a CA cert",
+			serverCert: serverCertWithoutCA,
+			verifyCA: func(host, endpoint string, caCert *x509.Certificate) error {
+				return errors.New("VerifyCA should not be called")
+			},
+			// Dial tries to fetch CAs, doesn't find any and
+			// proceeds with the connection to the servers. This
+			// would be the case where we connect to an older juju
+			// controller.
+			expConnCount: 6,
+			errRegex:     `unable to connect to API: .*`,
+		},
+		{
+			descr:      "no VerifyCA provided",
+			serverCert: serverCertWithSelfSignedCA,
+			// Dial connects to all servers
+			expConnCount: 3,
+			errRegex:     `unable to connect to API: .*`,
+		},
+		{
+			descr:      "VerifyCA that always rejects certs",
+			serverCert: serverCertWithSelfSignedCA,
+			verifyCA: func(host, endpoint string, caCert *x509.Certificate) error {
+				return errors.New("CA not trusted")
+			},
+			// Dial aborts after fetching CAs
+			expConnCount: 3,
+			errRegex:     "CA not trusted",
+		},
+		{
+			descr:      "VerifyCA that always accepts certs",
+			serverCert: serverCertWithSelfSignedCA,
+			verifyCA: func(host, endpoint string, caCert *x509.Certificate) error {
+				return nil
+			},
+			// Dial fetches CAs and then proceeds with the connection to the servers
+			expConnCount: 6,
+			errRegex:     `unable to connect to API: .*`,
+		},
+	}
+
+	info := s.APIInfo(c)
+	for specIndex, spec := range specs {
+		c.Logf("test %d: %s", specIndex, spec.descr)
+
+		// connCount holds the number of times we've accepted a connection.
+		var connCount int32
+		var addrs []string
+		tlsConf := &tls.Config{
+			Certificates: []tls.Certificate{spec.serverCert},
+		}
+		for i := 0; i < 3; i++ {
+			listener, err := tls.Listen("tcp", "127.0.0.1:0", tlsConf)
+			c.Assert(err, jc.ErrorIsNil)
+			defer listener.Close()
+			addrs = append(addrs, listener.Addr().String())
+			go func() {
+				buf := make([]byte, 4)
+				for {
+					client, err := listener.Accept()
+					if err != nil {
+						return
+					}
+					atomic.AddInt32(&connCount, 1)
+
+					// Do a dummy read to prevent the connection from
+					// closing before the client can access the certs.
+					_, _ = client.Read(buf)
+					_ = client.Close()
+				}
+			}()
+		}
+
+		connCount = 0
+		info.Addrs = addrs
+		_, _, err := api.DialAPI(info, api.DialOpts{
+			VerifyCA: spec.verifyCA,
+		})
+		c.Assert(err, gc.ErrorMatches, spec.errRegex)
+		c.Assert(atomic.LoadInt32(&connCount), gc.Equals, spec.expConnCount)
+	}
 }
 
 func (s *apiclientSuite) TestOpen(c *gc.C) {

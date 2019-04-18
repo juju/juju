@@ -204,13 +204,14 @@ var getDisksTests = []struct {
 	error    error
 }{
 	{"trusty", gce.UbuntuImageBasePath, nil},
+	{"bionic", "/tmp/", nil}, // --config base-image-path=/tmp/
 	{"win2012r2", gce.WindowsImageBasePath, nil},
 	{"arch", "", errors.New("os Arch is not supported on the gce provider")},
 }
 
 func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 	for _, test := range getDisksTests {
-		diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, test.Series, "32f7d570-5bac-4b72-b169-250c24a94b2b", false)
+		diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, test.Series, "32f7d570-5bac-4b72-b169-250c24a94b2b", test.basePath)
 		if test.error != nil {
 			c.Assert(err, gc.Equals, err)
 		} else {
@@ -233,11 +234,41 @@ func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 		}
 	}
 
-	diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, "trusty", "32f7d570-5bac-4b72-b169-250c24a94b2b", true)
+	diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, "trusty", "32f7d570-5bac-4b72-b169-250c24a94b2b", gce.UbuntuDailyImageBasePath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(diskSpecs, gc.HasLen, 1)
 	spec := diskSpecs[0]
 	c.Assert(spec.ImageURL, gc.Equals, gce.UbuntuDailyImageBasePath+s.spec.Image.Id)
+}
+
+func (s *environBrokerSuite) TestSettingImageStreamsViaConfig(c *gc.C) {
+	s.FakeConn.Inst = s.BaseInstance
+	s.UpdateConfig(c, map[string]interface{}{"image-stream": "released"})
+	result, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.NotNil)
+	c.Check(c.GetTestLog(), jc.Contains, gce.UbuntuImageBasePath)
+}
+
+func (s *environBrokerSuite) TestSettingImageStreamsViaConfigToDaily(c *gc.C) {
+	s.FakeConn.Inst = s.BaseInstance
+	s.UpdateConfig(c, map[string]interface{}{"image-stream": "daily"})
+	result, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.NotNil)
+	c.Check(c.GetTestLog(), jc.Contains, gce.UbuntuDailyImageBasePath)
+}
+
+func (s *environBrokerSuite) TestSettingBaseImagePathOverwritesImageStreams(c *gc.C) {
+	s.FakeConn.Inst = s.BaseInstance
+	s.UpdateConfig(c, map[string]interface{}{
+		"image-stream":    "daily",
+		"base-image-path": "/opt/custom-builds/",
+	})
+	result, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.NotNil)
+	c.Check(c.GetTestLog(), jc.Contains, "/opt/custom-builds/")
 }
 
 func (s *environBrokerSuite) TestGetHardwareCharacteristics(c *gc.C) {

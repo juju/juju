@@ -17,9 +17,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cloud"
-	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -48,18 +46,18 @@ type KubeCloudStorageParams struct {
 }
 
 // CloudFromKubeConfig attempts to extract a cloud and credential details from the provided Kubeconfig.
-func CloudFromKubeConfig(reader io.Reader, cloudParams KubeCloudParams) (cloud.Cloud, jujucloud.Credential, string, error) {
+func CloudFromKubeConfig(reader io.Reader, cloudParams KubeCloudParams) (cloud.Cloud, cloud.Credential, string, error) {
 	return newCloudCredentialFromKubeConfig(reader, cloudParams)
 }
 
-func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudParams) (jujucloud.Cloud, jujucloud.Credential, string, error) {
+func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudParams) (cloud.Cloud, cloud.Credential, string, error) {
 	// Get Cloud (incl. endpoint) and credential details from the kubeconfig details.
-	var credential jujucloud.Credential
+	var credential cloud.Credential
 	var context clientconfig.Context
-	fail := func(e error) (jujucloud.Cloud, jujucloud.Credential, string, error) {
-		return jujucloud.Cloud{}, credential, "", e
+	fail := func(e error) (cloud.Cloud, cloud.Credential, string, error) {
+		return cloud.Cloud{}, credential, "", e
 	}
-	newCloud := jujucloud.Cloud{
+	newCloud := cloud.Cloud{
 		Name:            cloudParams.CaasName,
 		Type:            cloudParams.CaasType,
 		HostCloudRegion: cloudParams.HostCloudRegion,
@@ -81,7 +79,7 @@ func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudPar
 	context = caasConfig.Contexts[reflect.ValueOf(caasConfig.Contexts).MapKeys()[0].Interface().(string)]
 
 	credential = caasConfig.Credentials[context.CredentialName]
-	newCloud.AuthTypes = []jujucloud.AuthType{credential.AuthType()}
+	newCloud.AuthTypes = []cloud.AuthType{credential.AuthType()}
 	currentCloud := caasConfig.Clouds[context.CloudName]
 	newCloud.Endpoint = currentCloud.Endpoint
 
@@ -94,7 +92,7 @@ func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudPar
 }
 
 // UpdateKubeCloudWithStorage updates the passed Cloud with storage details retrieved from the clouds' cluster.
-func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, credential jujucloud.Credential, storageParams KubeCloudStorageParams) (string, error) {
+func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudStorageParams) (string, error) {
 	fail := func(e error) (string, error) {
 		return "", e
 	}
@@ -103,11 +101,19 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, credential jujucloud.Cred
 	clusterMetadata, err := storageParams.GetClusterMetadataFunc(storageParams.MetadataChecker)
 
 	if err != nil || clusterMetadata == nil {
-		return fail(ClusterQueryError{Message: err.Error()})
+		// err will be nil if user hit Ctrl+C.
+		msg := "cannot get cluster metadata"
+		if err != nil {
+			msg = err.Error()
+		}
+		return fail(ClusterQueryError{Message: msg})
 	}
 
 	if storageParams.HostCloudRegion == "" && clusterMetadata.Regions != nil && clusterMetadata.Regions.Size() > 0 {
-		storageParams.HostCloudRegion = clusterMetadata.Cloud + "/" + clusterMetadata.Regions.SortedValues()[0]
+		storageParams.HostCloudRegion = cloud.BuildHostCloudRegion(
+			clusterMetadata.Cloud,
+			clusterMetadata.Regions.SortedValues()[0],
+		)
 	}
 	if storageParams.HostCloudRegion == "" {
 		return fail(ClusterQueryError{})
@@ -117,38 +123,52 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, credential jujucloud.Cred
 		return fail(errors.Annotatef(err, "validating cloud region %q", storageParams.HostCloudRegion))
 	}
 	k8sCloud.HostCloudRegion = storageParams.HostCloudRegion
-	k8sCloud.Regions = []jujucloud.Region{{
+	k8sCloud.Regions = []cloud.Region{{
 		Name: region,
 	}}
 
 	// If the user has not specified storage, check that the cluster has Juju's opinionated defaults.
-	cloudType := strings.Split(storageParams.HostCloudRegion, "/")[0]
+	cloudType := cloud.SplitHostCloudRegion(storageParams.HostCloudRegion)[0]
 	err = storageParams.MetadataChecker.CheckDefaultWorkloadStorage(cloudType, clusterMetadata.NominatedStorageClass)
-	if errors.IsNotFound(err) {
-		return fail(UnknownClusterError{CloudName: cloudType})
-	}
-	if storageParams.WorkloadStorage == "" && caas.IsNonPreferredStorageError(err) {
-		npse := err.(*caas.NonPreferredStorageError)
-		return fail(NoRecommendedStorageError{Message: err.Error(), ProviderName: npse.Name})
-	}
-	if err != nil && !caas.IsNonPreferredStorageError(err) {
-		return fail(errors.Trace(err))
-	}
 
-	// If no storage class exists, we need to create one with the opinionated defaults.
+	if storageParams.WorkloadStorage == "" {
+		if errors.IsNotFound(err) {
+			return fail(UnknownClusterError{CloudName: cloudType})
+		}
+		if caas.IsNonPreferredStorageError(err) {
+			npse := err.(*caas.NonPreferredStorageError)
+			return fail(NoRecommendedStorageError{Message: err.Error(), ProviderName: npse.Name})
+		}
+		if err != nil {
+			return fail(errors.Trace(err))
+		}
+	}
+	// If no storage class exists, we need to create one with the opinionated defaults,
+	// or use an existing one.
 	var storageMsg string
-	if storageParams.WorkloadStorage != "" && caas.IsNonPreferredStorageError(err) {
-		preferredStorage := errors.Cause(err).(*caas.NonPreferredStorageError).PreferredStorage
+	if storageParams.WorkloadStorage != "" {
+		var (
+			provisioner string
+			params      map[string]string
+		)
+		nonPreferredStorageErr, ok := errors.Cause(err).(*caas.NonPreferredStorageError)
+		if ok {
+			provisioner = nonPreferredStorageErr.Provisioner
+			params = nonPreferredStorageErr.Parameters
+		}
 		sp, err := storageParams.MetadataChecker.EnsureStorageProvisioner(caas.StorageProvisioner{
 			Name:        storageParams.WorkloadStorage,
-			Provisioner: preferredStorage.Provisioner,
-			Parameters:  preferredStorage.Parameters,
+			Provisioner: provisioner,
+			Parameters:  params,
 		})
+		if errors.IsNotFound(err) {
+			return fail(errors.Wrap(err, errors.NotFoundf("storage class %q", storageParams.WorkloadStorage)))
+		}
 		if err != nil {
 			return fail(errors.Annotatef(err, "creating storage class %q", storageParams.WorkloadStorage))
 		}
-		if sp.Provisioner == preferredStorage.Provisioner {
-			storageMsg = fmt.Sprintf(" with %s default storage", preferredStorage.Name)
+		if nonPreferredStorageErr != nil && sp.Provisioner == provisioner {
+			storageMsg = fmt.Sprintf(" with %s default storage", nonPreferredStorageErr.Name)
 			if storageParams.WorkloadStorage != "" {
 				storageMsg = fmt.Sprintf("%s provisioned\nby the existing %q storage class", storageMsg, storageParams.WorkloadStorage)
 			}
@@ -164,6 +184,7 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, credential jujucloud.Cred
 	var operatorStorageName string
 	if clusterMetadata.OperatorStorageClass != nil {
 		operatorStorageName = clusterMetadata.OperatorStorageClass.Name
+		storageMsg += "."
 	} else {
 		operatorStorageName = storageParams.WorkloadStorage
 		if storageMsg == "" {
@@ -171,7 +192,7 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, credential jujucloud.Cred
 		} else {
 			storageMsg += "\n"
 		}
-		storageMsg += fmt.Sprintf("operator storage provisioned by the workload storage class")
+		storageMsg += fmt.Sprintf("operator storage provisioned by the workload storage class.")
 	}
 
 	if k8sCloud.Config == nil {
@@ -183,10 +204,6 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, credential jujucloud.Cred
 	if _, ok := k8sCloud.Config[OperatorStorageKey]; !ok {
 		k8sCloud.Config[OperatorStorageKey] = operatorStorageName
 	}
-	if _, ok := k8sCloud.Config[bootstrap.ControllerServiceTypeKey]; !ok {
-		k8sCloud.Config[bootstrap.ControllerServiceTypeKey] = clusterMetadata.PreferredServiceType
-	}
-
 	return storageMsg, nil
 }
 
@@ -200,7 +217,7 @@ func ParseCloudRegion(cloudRegion string) (string, string, error) {
 }
 
 // BaseKubeCloudOpenParams provides a basic OpenParams for a cluster
-func BaseKubeCloudOpenParams(cloud jujucloud.Cloud, credential jujucloud.Credential) (environs.OpenParams, error) {
+func BaseKubeCloudOpenParams(cloud cloud.Cloud, credential cloud.Credential) (environs.OpenParams, error) {
 	// To get a k8s client, we need a config with minimal information.
 	// It's not used unless operating on a real model but we need to supply it.
 	uuid, err := utils.NewUUID()
@@ -268,7 +285,7 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 			return clusterMetadata, nil
 		},
 	}
-	_, err = UpdateKubeCloudWithStorage(&mk8sCloud, credential, storageUpdateParams)
+	_, err = UpdateKubeCloudWithStorage(&mk8sCloud, storageUpdateParams)
 	if err != nil {
 		return cloud.Cloud{}, errors.Trace(err)
 	}
@@ -308,7 +325,14 @@ func microK8sStatus(cmdRunner CommandRunner) (microk8sStatus, error) {
 		return status, errors.Trace(err)
 	}
 	if result.Code != 0 {
-		return status, errors.New(string(result.Stderr))
+		msg := string(result.Stderr)
+		if msg == "" {
+			msg = string(result.Stdout)
+		}
+		if msg == "" {
+			msg = "unknown error running microk8s.status"
+		}
+		return status, errors.New(msg)
 	}
 
 	err = yaml.Unmarshal(result.Stdout, &status)

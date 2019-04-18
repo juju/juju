@@ -38,6 +38,8 @@ type Application struct {
 
 // CharmURL returns the charm url string for this application.
 func (a *Application) CharmURL() string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	return a.details.CharmURL
 }
 

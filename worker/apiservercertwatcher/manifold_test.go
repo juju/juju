@@ -115,6 +115,7 @@ func (s *ManifoldSuite) TestCertUpdated(c *gc.C) {
 	c.Assert(cert.Leaf, gc.NotNil)
 
 	// Update the certificate.
+	s.agent.conf.setCACert(coretesting.OtherCACert)
 	s.agent.conf.setCert(coretesting.CACert, coretesting.CAKey)
 	s.agentConfigChanged.Set(0)
 
@@ -123,6 +124,12 @@ func (s *ManifoldSuite) TestCertUpdated(c *gc.C) {
 		if cert_ == cert {
 			continue
 		}
+
+		// The CA cert will be appended after the server cert.
+		c.Assert(len(cert_.Certificate), gc.Equals, 2)
+		caCertBytes := cert_.Certificate[len(cert_.Certificate)-1]
+		c.Assert(caCertBytes, gc.Not(gc.DeepEquals), cert_.Leaf.Raw)
+		c.Assert(caCertBytes, gc.DeepEquals, coretesting.OtherCACertX509.Raw)
 		return
 	}
 	c.Fatal("timed out waiting for the certificate to change")
@@ -176,9 +183,10 @@ func (ma *mockAgent) CurrentConfig() agent.Config {
 type mockConfig struct {
 	agent.Config
 
-	mu    sync.Mutex
-	info  *params.StateServingInfo
-	addrs []string
+	mu     sync.Mutex
+	info   *params.StateServingInfo
+	addrs  []string
+	caCert string
 }
 
 func (mc *mockConfig) setCert(cert, key string) {
@@ -189,6 +197,18 @@ func (mc *mockConfig) setCert(cert, key string) {
 	}
 	mc.info.Cert = cert
 	mc.info.PrivateKey = key
+}
+
+func (mc *mockConfig) setCACert(cert string) {
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+	mc.caCert = cert
+}
+
+func (mc *mockConfig) CACert() string {
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+	return mc.caCert
 }
 
 func (mc *mockConfig) StateServingInfo() (params.StateServingInfo, bool) {

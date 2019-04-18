@@ -69,11 +69,11 @@ func (s *cmdCurrentControllerSuite) TestControllerListCommand(c *gc.C) {
 	expectedOutput := `
 Use --refresh option with this command to see the latest information.
 
-Controller  Model       User   Access     Cloud/Region        Models  Machines  HA  Version
-ctrlOne     -           -      -                                   -         -   -  (unknown)  
-ctrlThree*  -           -      -                                   -         -   -  (unknown)  
-ctrlTwo     -           -      -                                   -         -   -  (unknown)  
-kontroll    controller  admin  superuser  dummy/dummy-region       1         -   -  (unknown)  
+Controller  Model       User   Access     Cloud/Region        Models  Nodes  HA  Version
+ctrlOne     -           -      -                                   -      -   -  (unknown)  
+ctrlThree*  -           -      -                                   -      -   -  (unknown)  
+ctrlTwo     -           -      -                                   -      -   -  (unknown)  
+kontroll    controller  admin  superuser  dummy/dummy-region       1      -   -  (unknown)  
 
 `[1:]
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, expectedOutput)

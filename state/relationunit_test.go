@@ -1254,6 +1254,17 @@ func (prr *ProReqRelation) watches() []*state.RelationScopeWatcher {
 	}
 }
 
+func (prr *ProReqRelation) allEnterScope(c *gc.C) {
+	err := prr.pru0.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = prr.pru1.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = prr.rru0.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = prr.rru1.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func addRU(c *gc.C, app *state.Application, rel *state.Relation, principal *state.Unit) (*state.Unit, *state.RelationUnit) {
 	// Given the application app in the relation rel, add a unit of app and create
 	// a RelationUnit with rel. If principal is supplied, app is assumed to be

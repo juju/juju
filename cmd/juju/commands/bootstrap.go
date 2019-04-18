@@ -618,7 +618,6 @@ to create a new model to deploy k8s workloads.
 		RegionInheritedConfig:     cloud.RegionConfig,
 		AdminSecret:               config.bootstrap.AdminSecret,
 		CAPrivateKey:              config.bootstrap.CAPrivateKey,
-		ControllerServiceType:     config.bootstrap.ControllerServiceType,
 		JujuDbSnapPath:            c.JujuDbSnapPath,
 		JujuDbSnapAssertionsPath:  c.JujuDbSnapAssertionsPath,
 		DialOpts: environs.BootstrapDialOpts{

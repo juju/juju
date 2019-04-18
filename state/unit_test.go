@@ -2316,6 +2316,49 @@ func (s *UnitSuite) TestWorkloadVersion(c *gc.C) {
 	c.Check(version, gc.Equals, "3.combined")
 }
 
+func (s *UnitSuite) TestDestroyWithForceWorksOnDyingUnit(c *gc.C) {
+	// Ensure that a cleanup is scheduled if we force destroy a unit
+	// that's already dying.
+	ch := state.AddTestingCharm(c, s.State, "dummy")
+	app := state.AddTestingApplication(c, s.State, "alexandrite", ch)
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	// Assign the unit to a machine and set the agent status so
+	// removal can't be short-circuited.
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.SetAgentStatus(status.StatusInfo{
+		Status: status.Idle,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(unit.Life(), gc.Equals, state.Dying)
+
+	needsCleanup, err := s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(needsCleanup, gc.Equals, true)
+
+	err = s.State.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	needsCleanup, err = s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(needsCleanup, gc.Equals, false)
+
+	// Force-destroying the unit should schedule a cleanup so we get a
+	// chance for the fallback force-cleanup to run.
+	opErrs, err := unit.DestroyWithForce(true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(opErrs, gc.IsNil)
+
+	// We scheduled the dying unit cleanup again even though the unit was dying already.
+	needsCleanup, err = s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(needsCleanup, gc.Equals, true)
+}
+
 func unitMachine(c *gc.C, st *state.State, u *state.Unit) *state.Machine {
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)

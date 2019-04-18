@@ -6,6 +6,7 @@ package api
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"net"
 	"net/url"
 	"time"
@@ -174,6 +175,12 @@ type DialOpts struct {
 	// Clock is used as a time source for retries.
 	// If it is nil, clock.WallClock will be used.
 	Clock clock.Clock
+
+	// VerifyCA is an optional callback that is invoked by the dialer when
+	// the remote server presents a CA certificate that cannot be
+	// automatically verified. If the callback returns a non-nil error then
+	// the connection attempt will be aborted.
+	VerifyCA func(host, endpoint string, caCert *x509.Certificate) error
 }
 
 // IPAddrResolver implements a resolved from host name to the

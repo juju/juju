@@ -234,6 +234,7 @@ type CountedEntity string
 const (
 	Machines CountedEntity = "machines"
 	Cores    CountedEntity = "cores"
+	Units    CountedEntity = "units"
 )
 
 // ModelSLAInfo describes the SLA info for a model.

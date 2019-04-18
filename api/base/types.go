@@ -28,11 +28,13 @@ type UserModel struct {
 type ModelStatus struct {
 	UUID               string
 	Life               string
+	ModelType          model.ModelType
 	Owner              string
 	TotalMachineCount  int
 	CoreCount          int
 	HostedMachineCount int
 	ApplicationCount   int
+	UnitCount          int
 	Machines           []Machine
 	Volumes            []Volume
 	Filesystems        []Filesystem

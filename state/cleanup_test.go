@@ -6,6 +6,7 @@ package state_test
 import (
 	"bytes"
 	"sort"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -466,14 +468,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 
 	// Create active units (in relation scope, with subordinates).
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
-	err = prr.pru0.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = prr.pru1.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = prr.rru0.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = prr.rru1.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	prr.allEnterScope(c)
 
 	// Assign the various units to machines.
 	err = prr.pu0.AssignToMachine(machine)
@@ -944,6 +939,219 @@ func (s *CleanupSuite) TestCleanupIDSanity(c *gc.C) {
 	s.assertCleanupRuns(c)
 }
 
+func (s *CleanupSuite) TestDyingUnitWithForceSchedulesForceFallback(c *gc.C) {
+	ch := s.AddTestingCharm(c, "mysql")
+	application := s.AddTestingApplication(c, "mysql", ch)
+	unit, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = unit.SetAgentStatus(status.StatusInfo{
+		Status: status.Idle,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	opErrs, err := unit.DestroyWithForce(true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(opErrs, gc.IsNil)
+
+	// The unit should be dying, and there's a deferred cleanup to
+	// endeaden it.
+	assertUnitLife(c, unit, state.Dying)
+
+	s.assertNeedsCleanup(c)
+	// dyingUnit
+	s.assertCleanupRuns(c)
+
+	s.Clock.Advance(time.Minute)
+	// forceDestroyedUnit
+	s.assertCleanupRuns(c)
+
+	assertUnitLife(c, unit, state.Dead)
+
+	s.Clock.Advance(time.Minute)
+	// forceRemoveUnit
+	s.assertCleanupRuns(c)
+
+	assertUnitRemoved(c, unit)
+	// After this there are two cleanups remaining: removedUnit,
+	// dyingMachine.
+	s.assertCleanupCount(c, 2)
+}
+
+func (s *CleanupSuite) TestForceDestroyUnitDestroysSubordinates(c *gc.C) {
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+	prr.allEnterScope(c)
+	for _, principal := range []*state.Unit{prr.pu0, prr.pu1} {
+		err := s.State.AssignUnit(principal, state.AssignCleanEmpty)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	for _, unit := range []*state.Unit{prr.pu0, prr.pu1, prr.ru0, prr.ru1} {
+		err := unit.SetAgentStatus(status.StatusInfo{
+			Status: status.Idle,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	unit := prr.pu0
+	subordinate := prr.ru0
+
+	opErrs, err := unit.DestroyWithForce(true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(opErrs, gc.IsNil)
+
+	assertUnitLife(c, unit, state.Dying)
+	assertUnitLife(c, subordinate, state.Alive)
+
+	s.assertNeedsCleanup(c)
+	// dyingUnit(mysql/0)
+	s.assertCleanupRuns(c)
+
+	s.Clock.Advance(time.Minute)
+	// forceDestroyedUnit(mysql/0) triggers destruction of the subordinate that
+	// needs to run - it fails because the subordinates haven't yet
+	// been removed.
+	s.assertCleanupRuns(c)
+
+	assertUnitLife(c, subordinate, state.Dying)
+	assertUnitLife(c, unit, state.Dying)
+
+	// dyingUnit(logging/0) runs and schedules the force cleanup.
+	s.assertCleanupRuns(c)
+	// forceDestroyedUnit(logging/0) sets it to dead.
+	s.assertCleanupRuns(c)
+
+	assertUnitLife(c, subordinate, state.Dead)
+	assertUnitLife(c, unit, state.Dying)
+
+	// forceRemoveUnit(logging/0) runs
+	s.assertCleanupRuns(c)
+	assertUnitRemoved(c, subordinate)
+
+	// Now forceDestroyUnit(mysql/0) can run successfully and endeaden
+	// unit.
+	s.assertCleanupRuns(c)
+	assertUnitLife(c, unit, state.Dead)
+
+	// forceRemoveUnit
+	s.assertCleanupRuns(c)
+
+	assertUnitRemoved(c, unit)
+	// After this there are two cleanups remaining: removedUnit,
+	// dyingMachine.
+	s.assertCleanupCount(c, 2)
+}
+
+func (s *CleanupSuite) TestForceDestroyUnitLeavesRelations(c *gc.C) {
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+	prr.allEnterScope(c)
+	for _, unit := range []*state.Unit{prr.pu0, prr.pu1, prr.ru0, prr.ru1} {
+		err := s.State.AssignUnit(unit, state.AssignCleanEmpty)
+		c.Assert(err, jc.ErrorIsNil)
+		err = unit.SetAgentStatus(status.StatusInfo{
+			Status: status.Idle,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	unit := prr.pu0
+	opErrs, err := unit.DestroyWithForce(true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(opErrs, gc.IsNil)
+
+	assertUnitLife(c, unit, state.Dying)
+	assertUnitInScope(c, unit, prr.rel, true)
+
+	// dyingUnit schedules forceDestroyedUnit
+	s.assertCleanupRuns(c)
+	// ...which leaves the scope for its relations.
+	s.assertCleanupRuns(c)
+
+	assertUnitLife(c, unit, state.Dead)
+	assertUnitInScope(c, unit, prr.rel, false)
+
+	// forceRemoveUnit
+	s.assertCleanupRuns(c)
+
+	assertUnitRemoved(c, unit)
+	// After this there are two cleanups remaining: removedUnit,
+	// dyingMachine.
+	s.assertCleanupCount(c, 2)
+}
+
+func (s *CleanupSuite) TestForceDestroyUnitRemovesStorageAttachments(c *gc.C) {
+	s.assertDoesNotNeedCleanup(c)
+
+	ch := s.AddTestingCharm(c, "storage-block")
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons("loop", 1024, 1),
+	}
+	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
+	u, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.SetAgentStatus(status.StatusInfo{
+		Status: status.Idle,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// this tag matches the storage instance created for the unit above.
+	storageTag := names.NewStorageTag("data/0")
+
+	sa, err := s.storageBackend.StorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sa.Life(), gc.Equals, state.Alive)
+
+	// Ensure there's a volume on the machine hosting the unit so the
+	// attachment removal can't be short-circuited.
+	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	volume, err := s.storageBackend.StorageInstanceVolume(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.storageBackend.SetVolumeInfo(
+		volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.storageBackend.SetVolumeAttachmentInfo(
+		machine.MachineTag(),
+		volume.VolumeTag(),
+		state.VolumeAttachmentInfo{DeviceName: "sdc"},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// destroy unit and run cleanups
+	opErrs, err := u.DestroyWithForce(true)
+	c.Assert(opErrs, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCleanupRuns(c)
+
+	// After running the cleanup, the attachment should still be
+	// around because volume was attached.
+	_, err = s.storageBackend.StorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// So now run the forceDestroyedUnit cleanup...
+	s.assertCleanupRuns(c)
+
+	// ...and the storage instance should be gone.
+	// After running the cleanup, the attachment should still be
+	// around because volume was attached.
+	_, err = s.storageBackend.StorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// forceRemoveUnit
+	s.assertCleanupRuns(c)
+
+	assertUnitRemoved(c, u)
+	// After this there are two cleanups remaining: removedUnit,
+	// dyingMachine.
+	s.assertCleanupCount(c, 2)
+}
+
 func (s *CleanupSuite) assertCleanupRuns(c *gc.C) {
 	err := s.State.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
@@ -969,4 +1177,23 @@ func (s *CleanupSuite) assertCleanupCount(c *gc.C, count int) {
 		s.assertCleanupRuns(c)
 	}
 	s.assertDoesNotNeedCleanup(c)
+}
+
+func assertUnitLife(c *gc.C, unit *state.Unit, expected state.Life) {
+	err := unit.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.Life(), gc.Equals, expected)
+}
+
+func assertUnitRemoved(c *gc.C, unit *state.Unit) {
+	err := unit.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func assertUnitInScope(c *gc.C, unit *state.Unit, rel *state.Relation, expected bool) {
+	ru, err := rel.Unit(unit)
+	c.Assert(err, jc.ErrorIsNil)
+	inscope, err := ru.InScope()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(inscope, gc.Equals, expected)
 }

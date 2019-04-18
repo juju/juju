@@ -74,6 +74,15 @@ controllers:
     api-endpoints: [this-is-one-of-many-api-endpoints]
     cloud: prodstack
     ca-cert: this-is-a-ca-cert
+  k8s-controller:
+    uuid: this-is-a-k8s-uuid
+    api-endpoints: [this-is-one-of-many-k8s-api-endpoints]
+    cloud: microk8s
+    region: localhost
+    type: kubernetes
+    ca-cert: this-is-a-k8s-ca-cert
+    machine-count: 3
+    agent-version: 6.6.6
 current-controller: mallards
 `
 
@@ -94,6 +103,15 @@ controllers:
         uuid: def
         type: iaas
     current-model: admin/my-model
+  k8s-controller:
+    models:
+      controller:
+        uuid: xyz
+        type: caas
+      my-k8s-model:
+        uuid: def
+        type: caas
+    current-model: admin/my-k8s-model
 `
 
 const testAccountsYaml = `
@@ -105,6 +123,10 @@ controllers:
     user: admin
     password: hunter2
   mallards:
+    user: admin
+    password: hunter2
+    last-known-access: superuser
+  k8s-controller:
     user: admin
     password: hunter2
     last-known-access: superuser

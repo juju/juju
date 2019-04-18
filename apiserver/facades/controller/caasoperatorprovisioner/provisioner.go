@@ -4,6 +4,8 @@
 package caasoperatorprovisioner
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -19,7 +21,6 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/version"
 )
 
 type API struct {
@@ -92,9 +93,6 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 		return params.OperatorProvisioningInfo{}, err
 	}
 
-	vers := version.Current
-	vers.Build = 0
-
 	model, err := a.state.Model()
 	if err != nil {
 		return params.OperatorProvisioningInfo{}, errors.Trace(err)
@@ -103,6 +101,14 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 	if err != nil {
 		return params.OperatorProvisioningInfo{}, errors.Trace(err)
 	}
+
+	vers, ok := modelConfig.AgentVersion()
+	if !ok {
+		return params.OperatorProvisioningInfo{}, errors.NewNotValid(nil,
+			fmt.Sprintf("agent version is missing in model config %q", modelConfig.Name()),
+		)
+	}
+	vers.Build = 0
 
 	imagePath := podcfg.GetJujuOCIImagePath(cfg, vers)
 	storageClassName, _ := modelConfig.AllAttrs()[provider.OperatorStorageKey].(string)

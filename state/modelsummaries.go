@@ -69,6 +69,7 @@ type ModelSummary struct {
 
 	MachineCount int64
 	CoreCount    int64
+	UnitCount    int64
 
 	// Needs Migration collection
 	// Do we need all the Migration fields?
@@ -257,6 +258,10 @@ func (p *modelSummaryProcessor) fillInMachineSummary() error {
 		// There was a lot of data that was collected from things like Machine.Status.
 		// However, if we're just aggregating the counts, we don't care about any of that.
 		details := &p.summaries[idx]
+		// CAAS models don't have machines.
+		if details.Type == ModelTypeCAAS {
+			continue
+		}
 		details.MachineCount++
 		machineIds = append(machineIds, doc.ModelUUID+":"+doc.Id)
 	}
@@ -279,6 +284,34 @@ func (p *modelSummaryProcessor) fillInMachineSummary() error {
 		if instData.CpuCores != nil {
 			details.CoreCount += int64(*instData.CpuCores)
 		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (p *modelSummaryProcessor) fillInApplicationSummary() error {
+	units, closer := p.st.db().GetRawCollection(unitsC)
+	defer closer()
+	query := units.Find(bson.M{
+		"model-uuid": bson.M{"$in": p.modelUUIDs},
+		"life":       Alive,
+	})
+	query.Select(bson.M{"life": 1, "model-uuid": 1})
+	iter := query.Iter()
+	defer iter.Close()
+	var doc unitDoc
+	for iter.Next(&doc) {
+		if doc.Life != Alive {
+			continue
+		}
+		idx, ok := p.indexByUUID[doc.ModelUUID]
+		if !ok {
+			continue
+		}
+		details := &p.summaries[idx]
+		details.UnitCount++
 	}
 	if err := iter.Close(); err != nil {
 		return errors.Trace(err)

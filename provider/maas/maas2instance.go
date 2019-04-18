@@ -47,6 +47,14 @@ func (mi *maas2Instance) hardwareCharacteristics() (*instance.HardwareCharacteri
 	return hc, nil
 }
 
+func (mi *maas2Instance) displayName() (string, error) {
+	hostname := mi.machine.Hostname()
+	if hostname != "" {
+		return hostname, nil
+	}
+	return mi.machine.FQDN(), nil
+}
+
 func (mi *maas2Instance) String() string {
 	return fmt.Sprintf("%s:%s", mi.machine.Hostname(), mi.machine.SystemID())
 }

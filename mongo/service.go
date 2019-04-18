@@ -224,7 +224,7 @@ type ConfigArgs struct {
 type configArgsConverter map[string]string
 
 func (conf configArgsConverter) asCommandLineArguments() string {
-	command := make([]string, len(conf)*2)
+	command := make([]string, 0, len(conf)*2)
 	for key, value := range conf {
 		if len(key) >= 2 {
 			key = "--" + key
@@ -246,7 +246,7 @@ func (conf configArgsConverter) asCommandLineArguments() string {
 
 func (conf configArgsConverter) asMongoDbConfigurationFileFormat() string {
 	pathArgs := set.NewStrings("dbpath", "logpath", "sslPEMKeyFile", "keyFile")
-	command := make([]string, len(conf))
+	command := make([]string, 0, len(conf))
 	for key, value := range conf {
 		if len(key) == 0 {
 			continue

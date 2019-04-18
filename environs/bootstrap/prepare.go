@@ -230,6 +230,7 @@ func prepare(
 	}
 	details.ControllerDetails.Cloud = args.Cloud.Name
 	details.ControllerDetails.CloudRegion = args.Cloud.Region
+	details.ControllerDetails.CloudType = args.Cloud.Type
 	details.BootstrapConfig.CloudType = args.Cloud.Type
 	details.BootstrapConfig.Cloud = args.Cloud.Name
 	details.BootstrapConfig.CloudRegion = args.Cloud.Region

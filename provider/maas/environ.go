@@ -1050,6 +1050,7 @@ func (env *maasEnviron) StartInstance(
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
+	var displayName string
 	var interfaces []network.InterfaceInfo
 	if !env.usingMAAS2() {
 		inst1 := inst.(*maas1Instance)
@@ -1068,6 +1069,10 @@ func (env *maasEnviron) StartInstance(
 			return nil, common.ZoneIndependentError(err)
 		}
 		env.tagInstance1(inst1, args.InstanceConfig)
+		displayName, err = inst1.displayName()
+		if err != nil {
+			return nil, common.ZoneIndependentError(err)
+		}
 	} else {
 		inst2 := inst.(*maas2Instance)
 		startedInst, err := env.startNode2(*inst2, series, userdata)
@@ -1083,6 +1088,11 @@ func (env *maasEnviron) StartInstance(
 			return nil, common.ZoneIndependentError(err)
 		}
 		env.tagInstance2(inst2, args.InstanceConfig)
+
+		displayName, err = inst2.displayName()
+		if err != nil {
+			return nil, common.ZoneIndependentError(err)
+		}
 	}
 	logger.Debugf("started instance %q", inst.Id())
 
@@ -1105,7 +1115,7 @@ func (env *maasEnviron) StartInstance(
 	}
 
 	return &environs.StartInstanceResult{
-		DisplayName:       hostname,
+		DisplayName:       displayName,
 		Instance:          inst,
 		Hardware:          hc,
 		NetworkInfo:       interfaces,
