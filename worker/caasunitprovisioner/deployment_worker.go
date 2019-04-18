@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -166,6 +167,11 @@ func (w *deploymentWorker) loop() error {
 		}
 		err = w.broker.EnsureService(w.application, w.provisioningStatusSetter.SetOperatorStatus, serviceParams, currentScale, appConfig)
 		if err != nil {
+			// Some errors we don't want to exit the worker.
+			if provider.MaskError(err) {
+				logger.Errorf(err.Error())
+				continue
+			}
 			return errors.Trace(err)
 		}
 		logger.Debugf("created/updated deployment for %s for %v units", w.application, currentScale)
