@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -22,14 +23,28 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/network"
 )
 
 var errNoNameSpecified = errors.New("no name specified")
+
+type modelMigratedError string
+
+func (e modelMigratedError) Error() string {
+	return string(e)
+}
+
+// IsModelMigratedError returns true if err is of type modelMigratedError.
+func IsModelMigratedError(err error) bool {
+	_, ok := errors.Cause(err).(modelMigratedError)
+	return ok
+}
 
 // Command extends cmd.Command with a closeContext method.
 // It is implicitly implemented by any type that embeds CommandBase.
@@ -156,6 +171,10 @@ func (c *CommandBase) NewAPIRoot(
 	if modelName != "" && params.ErrCode(err) == params.CodeModelNotFound {
 		return nil, c.missingModelError(store, controllerName, modelName)
 	}
+	if redirErr, ok := errors.Cause(err).(*api.RedirectError); ok {
+		return nil, c.modelMigratedError(store, modelName, redirErr)
+	}
+
 	return conn, err
 }
 
@@ -189,6 +208,38 @@ func (c *CommandBase) missingModelError(store jujuclient.ClientStore, controller
 	// First, we'll try and clean up the missing model from the local cache.
 	c.RemoveModelFromClientStore(store, controllerName, modelName)
 	return errors.Errorf("model %q has been removed from the controller, run 'juju models' and switch to one of them.", modelName)
+}
+
+func (c *CommandBase) modelMigratedError(store jujuclient.ClientStore, modelName string, redirErr *api.RedirectError) error {
+	// Check if this is a known controller
+	allEndpoints := network.HostPortsToStrings(network.CollapseHostPorts(redirErr.Servers))
+	_, existingName, err := store.ControllerByAPIEndpoints(allEndpoints...)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	if existingName != "" {
+		mErr := fmt.Sprintf(`Model %q has been migrated to controller %q.
+To access it run 'juju switch %s:%s'.`, modelName, existingName, existingName, modelName)
+
+		return modelMigratedError(mErr)
+	}
+
+	// CACerts are always valid so no error checking is required here.
+	fingerprint, _ := cert.Fingerprint(redirErr.CACert)
+
+	var loginCmds []string
+	for _, endpoint := range allEndpoints {
+		loginCmds = append(loginCmds, fmt.Sprintf("  'juju login %s -c new-controller'", endpoint))
+	}
+
+	mErr := fmt.Sprintf(`Model %q has been migrated to another controller.
+To access it run one of the following commands:
+%s
+
+New controller fingerprint [%s]`, modelName, strings.Join(loginCmds, "\n"), fingerprint)
+
+	return modelMigratedError(mErr)
 }
 
 // NewAPIConnectionParams returns a juju.NewAPIConnectionParams with the

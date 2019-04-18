@@ -16,11 +16,13 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -97,6 +99,55 @@ func (s *BaseCommandSuite) TestUnknownModelNotCurrentCanRemoveCachedCurrent(c *g
 	baseCmd := new(modelcmd.ModelCommandBase)
 	baseCmd.CanClearCurrentModel = true
 	s.assertUnknownModel(c, baseCmd, "admin/goodmodel", "admin/goodmodel")
+}
+
+func (s *BaseCommandSuite) TestMigratedModelErrorHandling(c *gc.C) {
+	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
+		nhp := network.NewHostPorts(5555, "1.2.3.4")
+		redirErr := &api.RedirectError{
+			CACert:  coretesting.CACert,
+			Servers: [][]network.HostPort{nhp},
+		}
+		return nil, errors.Trace(redirErr)
+	}
+
+	baseCmd := new(modelcmd.ModelCommandBase)
+	baseCmd.SetClientStore(s.store)
+	baseCmd.SetAPIOpen(apiOpen)
+	modelcmd.InitContexts(&cmd.Context{Stderr: ioutil.Discard}, baseCmd)
+	modelcmd.SetRunStarted(baseCmd)
+	baseCmd.SetModelName("foo:admin/badmodel", false)
+
+	fingerprint, _ := cert.Fingerprint(coretesting.CACert)
+
+	// Model has been migrated to a controller which does not exist in the
+	// local cache. User should be prompted to login to the new controller.
+	_, err := baseCmd.NewAPIRoot()
+	expErr := `Model "admin/badmodel" has been migrated to another controller.
+To access it run one of the following commands:
+  'juju login 1.2.3.4:5555 -c new-controller'
+
+New controller fingerprint [` + fingerprint + `]`
+
+	c.Assert(err, gc.Not(gc.IsNil))
+	c.Assert(err.Error(), gc.Equals, expErr)
+
+	// Model has been migrated to a controller which does exist in the local
+	// cache. This can happen if we have 2 users A and B (on separate machines)
+	// and:
+	// - both A and B have SRC and DST controllers in their local cache
+	// - A migrates the model from SRC -> DST
+	// - B tries to invoke any model-related command on SRC for the migrated model.
+	s.store.Controllers["bar"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"1.2.3.4:5555"},
+	}
+
+	_, err = baseCmd.NewAPIRoot()
+	expErr = `Model "admin/badmodel" has been migrated to controller "bar".
+To access it run 'juju switch bar:admin/badmodel'.`
+
+	c.Assert(err, gc.Not(gc.IsNil))
+	c.Assert(err.Error(), gc.Equals, expErr)
 }
 
 type NewGetBootstrapConfigParamsFuncSuite struct {
