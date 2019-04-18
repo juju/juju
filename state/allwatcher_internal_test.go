@@ -2363,7 +2363,9 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 		func(c *gc.C, st *State) changeTestCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
-			err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "", "fake_nonce", nil)
+
+			hc := &instance.HardwareCharacteristics{}
+			err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "", "fake_nonce", hc)
 			c.Assert(err, jc.ErrorIsNil)
 
 			profiles := []string{"default, juju-default"}
@@ -2382,9 +2384,10 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.MachineInfo{
-						ModelUUID:     st.ModelUUID(),
-						Id:            "0",
-						CharmProfiles: profiles,
+						ModelUUID:               st.ModelUUID(),
+						Id:                      "0",
+						CharmProfiles:           profiles,
+						HardwareCharacteristics: hc,
 					}}}
 		},
 	}
