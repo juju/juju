@@ -172,8 +172,9 @@ func newState(
 	sstxn := featureflag.Enabled(feature.MongoDbSSTXN)
 	if sstxn {
 		if !txn.SupportsServerSideTransactions(mongodb) {
-			logger.Warningf("user requested server-side transactions, but they are not supported\n"+
-				" consider using the '%s' feature flag", feature.MongoDbSnap)
+			logger.Warningf("User requested server-side transactions, but they are not supported.\n"+
+				" Falling back to client-side transactions.\n"+
+				" Consider using the '%s' feature flag", feature.MongoDbSnap)
 			sstxn = false
 		} else {
 			logger.Infof("using server-side transactions")
