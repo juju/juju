@@ -187,8 +187,9 @@ func (s *NewAPIClientSuite) TestWithRedirect(c *gc.C) {
 			c.Check(apiInfo.Addrs, jc.DeepEquals, []string{"0.1.2.3:5678"})
 			c.Check(apiInfo.CACert, gc.Equals, "certificate")
 			return nil, errors.Trace(&api.RedirectError{
-				Servers: [][]network.HostPort{mustParseHostPorts(redirHPs)},
-				CACert:  "alternative CA cert",
+				Servers:        [][]network.HostPort{mustParseHostPorts(redirHPs)},
+				CACert:         "alternative CA cert",
+				FollowRedirect: true,
 			})
 		case 2:
 			c.Check(apiInfo.Addrs, jc.DeepEquals, []string{"0.0.9.9:1234", "0.0.9.10:1235"})
