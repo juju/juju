@@ -56,18 +56,35 @@ them an opportunity to shut down cleanly.
 
 Examples:
 
-Remove machine number 5 which has no running units or containers:
+- Remove machine 5:
 
     juju remove-machine 5
 
-Remove machine 6 and any running units or containers:
+  This returns an error if the machine has live units or containers.
+  Either stop them manually and retry the command, or add the --force flag.
 
-    juju remove-machine 6 --force
-    
-Remove machine 7 from the Juju model but do not stop 
-the corresponding cloud instance:
+- Remove machine 5 with running units or containers:
+
+    juju remove-machine 5 --force
+
+  To prevent Juju from waiting until each step has successfully completed
+  before proceeding to the next one, add --no-wait to --force.
+
+- Remove machine 5 with multiple live units or containers as fast as
+  possible:
+
+    juju remove-machine 5 --force --no-wait
+
+  The --no-wait flag avoids waiting for one step to finish before proceeding
+  to the next one.
+
+- Remove machine 7 from the Juju model but do not stop
+  the corresponding cloud instance:
 
     juju remove-machine 7 --keep-instance
+
+  Once removed from the model, Juju will no longer have access to the 
+  cloud instance. To shut it down, use the provider's console directly.
 
 See also:
     add-machine
@@ -87,6 +104,7 @@ func (c *removeCommand) Info() *cmd.Info {
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.Force, "force", false, "Completely remove a machine and all its dependencies")
+	f.BoolVar(&c.NoWait, "no-wait", false, "Avoid waiting for each step to complete through the removal process. Has no effect unless --force is specified.")
 	f.BoolVar(&c.KeepInstance, "keep-instance", false, "Do not stop the running cloud instance")
 }
 
@@ -172,7 +190,11 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	var maxWait *time.Duration
-	if !c.NoWait { // sorry about the double negative
+	if c.NoWait {
+		if !c.Force {
+			return errors.NotValidf("--no-wait without --force")
+		}
+	} else { // sorry about the double negative
 		oneMinute := time.Minute
 		maxWait = &oneMinute
 	}

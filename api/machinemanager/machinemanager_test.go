@@ -6,6 +6,7 @@ package machinemanager_test
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -206,7 +207,8 @@ func (s *MachinemanagerSuite) TestDestroyMachinesWithParams(c *gc.C) {
 		*out = params.DestroyMachineResults{Results: expectedResults}
 		return nil
 	})
-	results, err := client.DestroyMachinesWithParams(true, true, "0", "0/lxd/1")
+	var noWait time.Duration
+	results, err := client.DestroyMachinesWithParams(true, true, &noWait, "0", "0/lxd/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }

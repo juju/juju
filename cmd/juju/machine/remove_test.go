@@ -4,6 +4,8 @@
 package machine_test
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
@@ -43,6 +45,7 @@ func (s *RemoveMachineSuite) TestInit(c *gc.C) {
 		machines    []string
 		force       bool
 		keep        bool
+		noWait      bool
 		errorString string
 	}{
 		{
@@ -66,6 +69,16 @@ func (s *RemoveMachineSuite) TestInit(c *gc.C) {
 			machines: []string{"1", "2"},
 			keep:     true,
 		}, {
+			args:     []string{"1", "--force", "--no-wait"},
+			machines: []string{"1"},
+			force:    true,
+			noWait:   true,
+		}, {
+			args:     []string{"1", "2", "--force", "--no-wait"},
+			machines: []string{"1", "2"},
+			force:    true,
+			noWait:   true,
+		}, {
 			args:        []string{"lxd"},
 			errorString: `invalid machine id "lxd"`,
 		}, {
@@ -80,6 +93,7 @@ func (s *RemoveMachineSuite) TestInit(c *gc.C) {
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(removeCmd.Force, gc.Equals, test.force)
 			c.Check(removeCmd.KeepInstance, gc.Equals, test.keep)
+			c.Check(removeCmd.NoWait, gc.Equals, test.noWait)
 			c.Check(removeCmd.MachineIds, jc.DeepEquals, test.machines)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errorString)
@@ -186,7 +200,7 @@ func (f *fakeRemoveMachineAPI) ForceDestroyMachines(machines ...string) ([]param
 	return f.destroyMachines(machines)
 }
 
-func (f *fakeRemoveMachineAPI) DestroyMachinesWithParams(force, keep bool, machines ...string) ([]params.DestroyMachineResult, error) {
+func (f *fakeRemoveMachineAPI) DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	f.forced = force
 	f.keep = keep
 	return f.destroyMachines(machines)
