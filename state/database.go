@@ -187,8 +187,7 @@ func (schema CollectionSchema) Create(
 ) error {
 	for name, info := range schema {
 		rawCollection := db.C(name)
-		var spec *mgo.CollectionInfo
-		if spec = info.explicitCreate; spec != nil {
+		if spec := info.explicitCreate; spec != nil {
 			// We allow the max txn log collection size to be overridden by the user.
 			if name == txnLogC && settings != nil {
 				maxSize := settings.MaxTxnLogSizeMB()
@@ -197,13 +196,16 @@ func (schema CollectionSchema) Create(
 					spec.MaxBytes = maxSize * 1024 * 1024
 				}
 			}
+			if err := createCollection(rawCollection, spec); err != nil {
+				return mongo.MaybeUnauthorizedf(err, "cannot create collection %q", name)
+			}
 		} else {
-			// We explicitly create all collections because mgo 4.0 w/ server-side transactions
-			// must have the collections exist before we can run any txns on them.
-			spec = &mgo.CollectionInfo{}
-		}
-		if err := createCollection(rawCollection, &mgo.CollectionInfo{}); err != nil {
-			return mongo.MaybeUnauthorizedf(err, "cannot create collection %q", name)
+			// With server-side transactions, we need to create all the collections
+			// outside of a transaction (we don't want to create the collection
+			// as a side-effect.)
+			if err := createCollection(rawCollection, &mgo.CollectionInfo{}); err != nil {
+				return mongo.MaybeUnauthorizedf(err, "cannot create collection %q", name)
+			}
 		}
 		for _, index := range info.indexes {
 			if err := rawCollection.EnsureIndex(index); err != nil {
