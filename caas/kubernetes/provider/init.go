@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/caas"
 )
 
-var k8sCloudCheckers map[string]k8slabels.Selector
+var k8sCloudCheckers map[string][]k8slabels.Selector
 var jujuPreferredWorkloadStorage map[string]caas.PreferredStorage
 var jujuPreferredOperatorStorage map[string]caas.PreferredStorage
 
@@ -52,18 +52,39 @@ func init() {
 // compileK8sCloudCheckers compiles/validates the collection of
 // k8s node selector requirement definitions used for detecting
 // cloud provider from node labels.
-func compileK8sCloudCheckers() map[string]k8slabels.Selector {
-	return map[string]k8slabels.Selector{
-		caas.K8sCloudGCE: newLabelRequirements(
-			requirementParams{"cloud.google.com/gke-nodepool", selection.Exists, nil},
-			requirementParams{"cloud.google.com/gke-os-distribution", selection.Exists, nil},
-		),
-		caas.K8sCloudEC2: newLabelRequirements(
-			requirementParams{"manufacturer", selection.Equals, []string{"amazon_ec2"}},
-		),
-		caas.K8sCloudAzure: newLabelRequirements(
-			requirementParams{"kubernetes.azure.com/cluster", selection.Exists, nil},
-		),
+func compileK8sCloudCheckers() map[string][]k8slabels.Selector {
+	return map[string][]k8slabels.Selector{
+		caas.K8sCloudGCE: {
+			// GKE.
+			newLabelRequirements(
+				requirementParams{"cloud.google.com/gke-nodepool", selection.Exists, nil},
+				requirementParams{"cloud.google.com/gke-os-distribution", selection.Exists, nil},
+			),
+			// CDK on GCE.
+			newLabelRequirements(
+				requirementParams{"juju.io/cloud", selection.Equals, []string{"gce"}},
+			),
+		},
+		caas.K8sCloudEC2: {
+			// EKS.
+			newLabelRequirements(
+				requirementParams{"manufacturer", selection.Equals, []string{"amazon_ec2"}},
+			),
+			// CDK on AWS.
+			newLabelRequirements(
+				requirementParams{"juju.io/cloud", selection.Equals, []string{"ec2"}},
+			),
+		},
+		caas.K8sCloudAzure: {
+			// AKS.
+			newLabelRequirements(
+				requirementParams{"kubernetes.azure.com/cluster", selection.Exists, nil},
+			),
+			// CDK on Azure.
+			newLabelRequirements(
+				requirementParams{"juju.io/cloud", selection.Equals, []string{"azure"}},
+			),
+		},
 		// format - cloudType: requirements.
 	}
 }

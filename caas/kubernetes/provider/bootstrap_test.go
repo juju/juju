@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
+	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/mongo"
@@ -57,7 +58,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.controllerUUID = "9bec388c-d264-4cde-8b29-3e675959157a"
 
 	s.controllerCfg = testing.FakeControllerConfig()
-	pcfg, err := podcfg.NewBootstrapControllerPodConfig(s.controllerCfg, controllerName, "bionic", "ClusterIP")
+	pcfg, err := podcfg.NewBootstrapControllerPodConfig(s.controllerCfg, controllerName, "bionic")
 	c.Assert(err, jc.ErrorIsNil)
 
 	pcfg.JujuVersion = jujuversion.Current
@@ -138,6 +139,43 @@ func (s *bootstrapSuite) TestControllerCorelation(c *gc.C) {
 	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-1")
 }
 
+func (s *bootstrapSuite) TestGetControllerSvcSpec(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	for cloudType, out := range map[string]*provider.ControllerServiceSpec{
+		"azure": {
+			ServiceType: core.ServiceTypeLoadBalancer,
+		},
+		"ec2": {
+			ServiceType: core.ServiceTypeLoadBalancer,
+			Annotations: k8sannotations.New(nil).
+				Add("service.beta.kubernetes.io/aws-load-balancer-backend-protocol", "tcp"),
+		},
+		"gce": {
+			ServiceType: core.ServiceTypeLoadBalancer,
+		},
+		"microk8s": {
+			ServiceType: core.ServiceTypeClusterIP,
+		},
+		"openstack": {
+			ServiceType: core.ServiceTypeLoadBalancer,
+		},
+		"maas": {
+			ServiceType: core.ServiceTypeLoadBalancer,
+		},
+		"lxd": {
+			ServiceType: core.ServiceTypeClusterIP,
+		},
+		"unknown-cloud": {
+			ServiceType: core.ServiceTypeLoadBalancer,
+		},
+	} {
+		spec, _ := s.controllerStackerGetter().GetControllerSvcSpec(cloudType)
+		c.Check(spec, jc.DeepEquals, out)
+	}
+}
+
 func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -194,7 +232,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"juju-app": "juju-controller-test"},
-			Type:     core.ServiceType("ClusterIP"),
+			Type:     core.ServiceType("LoadBalancer"),
 			Ports: []core.ServicePort{
 				{
 					Name:       "api-server",
@@ -214,7 +252,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"juju-app": "juju-controller-test"},
-			Type:     core.ServiceType("ClusterIP"),
+			Type:     core.ServiceType("LoadBalancer"),
 			Ports: []core.ServicePort{
 				{
 					Name:       "api-server",
@@ -222,7 +260,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 					Port:       int32(APIPort),
 				},
 			},
-			ClusterIP: svcPublicIP,
+			LoadBalancerIP: svcPublicIP,
 		},
 	}
 

@@ -101,9 +101,6 @@ type ControllerPodConfig struct {
 // for a new juju caas pod. This is only relevant for the bootstrap pod.
 type BootstrapConfig struct {
 	instancecfg.BootstrapConfig
-
-	// ControllerServiceType is the service type to use for a k8s controller.
-	ControllerServiceType string
 }
 
 // ControllerConfig represents controller-specific initialization information
@@ -264,9 +261,9 @@ func (cfg *ControllerPodConfig) verifyBootstrapConfig() (err error) {
 	if cfg.APIInfo.Tag != nil || cfg.Controller.MongoInfo.Tag != nil {
 		return errors.New("entity tag must be nil when bootstrapping")
 	}
-	if cfg.Bootstrap.ControllerServiceType == "" {
+	if cfg.Bootstrap.ControllerCloud.HostCloudRegion == "" {
 		return errors.New(`
-controller service type is missing.
+host cloud region is missing.
 The k8s cloud definition might be stale, please try to re-import the k8s cloud using
     juju add-k8s <cloud-name> --cluster-name <cluster-name> --local
 
@@ -382,9 +379,7 @@ func NewControllerPodConfig(
 func NewBootstrapControllerPodConfig(
 	config controller.Config,
 	controllerName,
-	series,
-	controllerServiceType string,
-
+	series string,
 ) (*ControllerPodConfig, error) {
 	// For a bootstrap pod, the caller must provide the state.Info
 	// and the api.Info. The machine id must *always* be "0".
@@ -418,7 +413,6 @@ func NewBootstrapControllerPodConfig(
 				BootstrapMachineConstraints: constraints.Value{Mem: &mem},
 			},
 		},
-		ControllerServiceType: controllerServiceType,
 	}
 
 	pcfg.Jobs = []multiwatcher.MachineJob{

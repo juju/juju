@@ -19,13 +19,6 @@ import (
 	"github.com/juju/juju/caas"
 )
 
-var preferredControllerServiceTypes = map[string]core.ServiceType{
-	caas.K8sCloudAzure:    core.ServiceTypeLoadBalancer,
-	caas.K8sCloudEC2:      core.ServiceTypeLoadBalancer,
-	caas.K8sCloudGCE:      core.ServiceTypeLoadBalancer,
-	caas.K8sCloudMicrok8s: core.ServiceTypeClusterIP,
-}
-
 // newLabelRequirements creates a list of k8s node label requirements.
 // This should be called inside package init function to panic earlier
 // if there is a invalid requirement definition.
@@ -52,10 +45,12 @@ type requirementParams struct {
 const regionLabelName = "failure-domain.beta.kubernetes.io/region"
 
 func getCloudRegionFromNodeMeta(node core.Node) (string, string) {
-	for k, checker := range k8sCloudCheckers {
-		if checker.Matches(k8slabels.Set(node.GetLabels())) {
-			region := node.Labels[regionLabelName]
-			return k, region
+	for cloudType, checkers := range k8sCloudCheckers {
+		for _, checker := range checkers {
+			if checker.Matches(k8slabels.Set(node.GetLabels())) {
+				region := node.Labels[regionLabelName]
+				return cloudType, region
+			}
 		}
 	}
 	// TODO - add microk8s node label check when available
@@ -90,12 +85,6 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot determine cluster region")
 	}
-
-	serviceType := core.ServiceTypeLoadBalancer
-	if v, ok := preferredControllerServiceTypes[result.Cloud]; ok {
-		serviceType = v
-	}
-	result.PreferredServiceType = string(serviceType)
 
 	if storageClass != "" {
 		sc, err := k.StorageV1().StorageClasses().Get(storageClass, v1.GetOptions{IncludeUninitialized: true})

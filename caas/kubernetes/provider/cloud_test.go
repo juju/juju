@@ -138,7 +138,7 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *gc.C) {
 		CACertificates:  []string{""},
 		Endpoint:        "http://1.1.1.1:8080",
 		HostCloudRegion: fmt.Sprintf("%s/%s", caas.K8sCloudMicrok8s, caas.Microk8sRegion),
-		Config:          map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": "", "controller-service-type": ""},
+		Config:          map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": ""},
 		Regions:         []jujucloud.Region{{Name: caas.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
 	})
 }
@@ -151,7 +151,7 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8sAlreadyStorage(c *gc.C) {
 		CACertificates:  []string{""},
 		Endpoint:        "http://1.1.1.1:8080",
 		HostCloudRegion: fmt.Sprintf("%s/%s", caas.K8sCloudMicrok8s, caas.Microk8sRegion),
-		Config:          map[string]interface{}{"operator-storage": "something-else", "workload-storage": "", "controller-service-type": ""},
+		Config:          map[string]interface{}{"operator-storage": "something-else", "workload-storage": ""},
 		Regions:         []jujucloud.Region{{Name: caas.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
 	}
 
@@ -173,7 +173,7 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8sAlreadyStorage(c *gc.C) {
 		CACertificates:  []string{""},
 		Endpoint:        "http://1.1.1.1:8080",
 		HostCloudRegion: fmt.Sprintf("%s/%s", caas.K8sCloudMicrok8s, caas.Microk8sRegion),
-		Config:          map[string]interface{}{"operator-storage": "something-else", "workload-storage": "", "controller-service-type": ""},
+		Config:          map[string]interface{}{"operator-storage": "something-else", "workload-storage": ""},
 		Regions:         []jujucloud.Region{{Name: caas.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
 	})
 }
