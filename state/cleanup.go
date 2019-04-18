@@ -686,7 +686,7 @@ func (st *State) cleanupForceRemoveUnit(unitId string) error {
 	}
 	opErrs, err := unit.RemoveWithForce(true)
 	if len(opErrs) != 0 {
-		logger.Warningf("errors encountered force-removing unit %q: %v", opErrs)
+		logger.Warningf("errors encountered force-removing unit %q: %v", unitId, opErrs)
 	}
 	return errors.Trace(err)
 }
