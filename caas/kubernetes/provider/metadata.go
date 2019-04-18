@@ -45,11 +45,11 @@ type requirementParams struct {
 const regionLabelName = "failure-domain.beta.kubernetes.io/region"
 
 func getCloudRegionFromNodeMeta(node core.Node) (string, string) {
-	for k, checkers := range k8sCloudCheckers {
+	for cloudType, checkers := range k8sCloudCheckers {
 		for _, checker := range checkers {
 			if checker.Matches(k8slabels.Set(node.GetLabels())) {
 				region := node.Labels[regionLabelName]
-				return k, region
+				return cloudType, region
 			}
 		}
 	}
