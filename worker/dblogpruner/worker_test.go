@@ -12,7 +12,6 @@ import (
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -144,13 +143,22 @@ func (s *suite) TestPrunesOldLogs(c *gc.C) {
 	c.Fatal("pruning didn't happen as expected")
 }
 
+type storageEngine struct {
+	Name string `bson:"name"`
+}
+type serverStatus struct {
+	StorageEngine storageEngine `bson:"storageEngine"`
+}
+
 func (s *suite) TestPrunesLogsBySize(c *gc.C) {
 	s.setupState(c, "999h", "2M")
+	var res serverStatus
+	err := s.Session.Run(bson.M{"serverStatus": 1}, &res)
+	c.Assert(err, jc.ErrorIsNil)
 	startingLogCount := 25000
-	// On some of the architectures, the logs collection is much
-	// smaller than amd64, so we need more logs to get the right size.
-	switch arch.HostArch() {
-	case arch.S390X, arch.PPC64EL, arch.ARM64:
+	// wiredTiger compresses the size on disk by default, so it takes more
+	// effort to get the logs to be pruned.
+	if res.StorageEngine.Name == "wiredTiger" {
 		startingLogCount *= 2
 	}
 	s.addLogs(c, time.Now(), "stuff", startingLogCount)
