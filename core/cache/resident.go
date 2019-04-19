@@ -63,10 +63,13 @@ func newResidentManager() *residentManager {
 // new creates a uniquely identified type-agnostic cache resident,
 // registers it in the internal map, then returns it.
 func (m *residentManager) new() *resident {
+	id := m.residentCount.next()
+
 	r := &resident{
-		id:      m.residentCount.next(),
-		manager: m,
-		workers: make(map[uint64]worker.Worker),
+		id:             id,
+		deregister:     func() { m.deregister(id) },
+		nextResourceId: func() uint64 { return m.resourceCount.next() },
+		workers:        make(map[uint64]worker.Worker),
 	}
 	m.residents[r.id] = r
 	return r
@@ -90,10 +93,11 @@ type resident struct {
 	// and is a candidate for removal.
 	stale bool
 
-	// manager is the resident manager that is responsible for this resource.
-	// If the resident is being evicted, it deregisters from the manager.
-	// TODO (manadart 2019-04-16): Maybe?
-	manager *residentManager
+	// deregister removes this resident from the manager that instantiated it.
+	deregister func()
+
+	// nextResourceId is a factory method for acquiring unique resource IDs.
+	nextResourceId func() uint64
 
 	// workers are resources that must be cleaned up when a resident is to be
 	// evicted from the cache.
@@ -109,19 +113,20 @@ type resident struct {
 // TODO (manadart 2019-04-16): Handle case where registration is called
 // on a stale resident.
 func (r *resident) registerWorker(w worker.Worker) func() {
-	id := r.manager.resourceCount.next()
+	id := r.nextResourceId()
 	r.mu.Lock()
 	r.workers[id] = w
 	r.mu.Unlock()
 	return func() { r.deregisterWorker(id) }
 }
 
-// evict cleans up
+// evict cleans up any resources created by this resident,
+// then deregisters it.
 func (r *resident) evict() error {
 	if err := r.cleanup(); err != nil {
 		return errors.Trace(err)
 	}
-	r.manager.deregister(r.id)
+	r.deregister()
 	return nil
 }
 
