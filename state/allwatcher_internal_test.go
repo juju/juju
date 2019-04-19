@@ -1025,9 +1025,55 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	wpTime := s.state.clock().Now()
 
 	// Look for the state changes from the allwatcher.
-	deltas = tw.All(6)
+	deltas = tw.All(7)
+
+	expectedRemoveMachineEntity := &multiwatcher.MachineInfo{
+		ModelUUID: s.state.ModelUUID(),
+		Id:        "1",
+	}
+
+	// checkDeltasEqual sets removals to nil before comparing the deltas.
+	// Perhaps because, the multiwatcher.*Info{} is very different once it's
+	// converted to multiwatcher.Remove*{} and contains only the modelUUID,
+	// and an "Id" depending on the thing being removed.  For the model
+	// cache, we do want to ensure the correct removals are being seen,
+	// so check here.
+	for _, d := range deltas {
+		if d.Removed {
+			// This is a very specific check for the recent call to
+			// m1.Remove()
+			obtainedMachine, ok := d.Entity.(*multiwatcher.MachineInfo)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(obtainedMachine.ModelUUID, gc.Equals, expectedRemoveMachineEntity.ModelUUID)
+			c.Assert(obtainedMachine.Id, gc.Equals, expectedRemoveMachineEntity.Id)
+		}
+	}
 
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
+		Entity: &multiwatcher.MachineInfo{
+			ModelUUID:  s.state.ModelUUID(),
+			Id:         "0",
+			InstanceId: "",
+			AgentStatus: multiwatcher.StatusInfo{
+				Current: status.Pending,
+				Data:    map[string]interface{}{},
+				Since:   &now,
+			},
+			InstanceStatus: multiwatcher.StatusInfo{
+				Current: status.Pending,
+				Data:    map[string]interface{}{},
+				Since:   &now,
+			},
+			Life:                    multiwatcher.Life("alive"),
+			Series:                  "trusty",
+			Jobs:                    []multiwatcher.MachineJob{JobManageModel.ToParams()},
+			Addresses:               []multiwatcher.Address{},
+			HardwareCharacteristics: &instance.HardwareCharacteristics{},
+			CharmProfiles:           []string{},
+			HasVote:                 false,
+			WantsVote:               true,
+		},
+	}, {
 		Entity: &multiwatcher.MachineInfo{
 			ModelUUID:  s.state.ModelUUID(),
 			Id:         "0",
@@ -1053,10 +1099,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}, {
 		Removed: true,
-		Entity: &multiwatcher.MachineInfo{
-			ModelUUID: s.state.ModelUUID(),
-			Id:        "1",
-		},
+		Entity:  expectedRemoveMachineEntity,
 	}, {
 		Entity: &multiwatcher.MachineInfo{
 			ModelUUID: s.state.ModelUUID(),
@@ -1920,9 +1963,55 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 
 	// Look for the state changes from the allwatcher.
 	later := st2.clock().Now()
-	deltas = tw.All(8)
+	deltas = tw.All(9)
 
-	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
+	expectedRemoveMachineEntity := &multiwatcher.MachineInfo{
+		ModelUUID: st1.ModelUUID(),
+		Id:        "0",
+	}
+
+	// checkDeltasEqual sets removals to nil before comparing the deltas.
+	// Perhaps because, the multiwatcher.*Info{} is very different once it's
+	// converted to multiwatcher.Remove*{} and contains only the modelUUID,
+	// and an "Id" depending on the thing being removed.  For the model
+	// cache, we do want to ensure the correct removals are being seen,
+	// so check here.
+	for _, d := range deltas {
+		if d.Removed {
+			// This is a very specific check for the recent call to
+			// m10.Remove()
+			obtainedMachine, ok := d.Entity.(*multiwatcher.MachineInfo)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(obtainedMachine.ModelUUID, gc.Equals, expectedRemoveMachineEntity.ModelUUID)
+			c.Assert(obtainedMachine.Id, gc.Equals, expectedRemoveMachineEntity.Id)
+		}
+	}
+
+	expectedDeltas := []multiwatcher.Delta{{
+		Entity: &multiwatcher.MachineInfo{
+			ModelUUID:  st0.ModelUUID(),
+			Id:         "0",
+			InstanceId: "",
+			AgentStatus: multiwatcher.StatusInfo{
+				Current: status.Pending,
+				Data:    map[string]interface{}{},
+				Since:   &now,
+			},
+			InstanceStatus: multiwatcher.StatusInfo{
+				Current: status.Pending,
+				Data:    map[string]interface{}{},
+				Since:   &now,
+			},
+			Life:                    multiwatcher.Life("alive"),
+			Series:                  "trusty",
+			Jobs:                    []multiwatcher.MachineJob{JobManageModel.ToParams()},
+			Addresses:               []multiwatcher.Address{},
+			HardwareCharacteristics: &instance.HardwareCharacteristics{},
+			CharmProfiles:           []string{},
+			HasVote:                 false,
+			WantsVote:               true,
+		},
+	}, {
 		Entity: &multiwatcher.MachineInfo{
 			ModelUUID:  st0.ModelUUID(),
 			Id:         "0",
@@ -1945,12 +2034,6 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			CharmProfiles:           []string{},
 			HasVote:                 false,
 			WantsVote:               true,
-		},
-	}, {
-		Removed: true,
-		Entity: &multiwatcher.MachineInfo{
-			ModelUUID: st1.ModelUUID(),
-			Id:        "0",
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
@@ -1979,6 +2062,9 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			CharmURL:  "local:quantal/quantal-wordpress-3",
 			Life:      multiwatcher.Life("alive"),
 		},
+	}, {
+		Removed: true,
+		Entity:  expectedRemoveMachineEntity,
 	}, {
 		Entity: &multiwatcher.ApplicationInfo{
 			ModelUUID: st1.ModelUUID(),
@@ -2053,7 +2139,9 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			HasVote:   false,
 			WantsVote: false,
 		},
-	}})
+	}}
+
+	checkDeltasEqual(c, deltas, expectedDeltas)
 }
 
 // The testChange* funcs are extracted so the test cases can be used
@@ -2341,6 +2429,53 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 							Data:    make(map[string]interface{}),
 							Since:   &now,
 						},
+					}}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			return changeTestCase{
+				about: "no change if instanceData is not in backing",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.MachineInfo{
+					ModelUUID: st.ModelUUID(),
+					Id:        "0",
+				}},
+				change: watcher.Change{
+					C:  "instanceData",
+					Id: st.docID("0"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.MachineInfo{
+						ModelUUID: st.ModelUUID(),
+						Id:        "0",
+					}}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			m, err := st.AddMachine("quantal", JobHostUnits)
+			c.Assert(err, jc.ErrorIsNil)
+
+			hc := &instance.HardwareCharacteristics{}
+			err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "", "fake_nonce", hc)
+			c.Assert(err, jc.ErrorIsNil)
+
+			profiles := []string{"default, juju-default"}
+			err = m.SetCharmProfiles(profiles)
+			c.Assert(err, jc.ErrorIsNil)
+
+			return changeTestCase{
+				about: "instanceData is changed (CharmProfiles) if the machine exists in the store",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.MachineInfo{
+					ModelUUID: st.ModelUUID(),
+					Id:        "0",
+				}},
+				change: watcher.Change{
+					C:  "instanceData",
+					Id: st.docID("0"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.MachineInfo{
+						ModelUUID:               st.ModelUUID(),
+						Id:                      "0",
+						CharmProfiles:           profiles,
+						HardwareCharacteristics: hc,
 					}}}
 		},
 	}
