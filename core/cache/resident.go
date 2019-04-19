@@ -17,7 +17,7 @@ import (
 // All cached entities aside from the parent controller should include
 // the "resident" type as a base.
 // Each resident monitors resources that it creates and is responsible for
-// cleanup up when it is to be evicted from the cache.
+// cleaning up when it is to be evicted from the cache.
 // This design meets resource management requirements multi-directionally:
 //   1. Resources (such as watchers) that are stopped or otherwise destroyed
 //      by their upstream owners need to be deregistered from their residents.
@@ -145,6 +145,8 @@ func (r *resident) cleanupWorkers() error {
 
 // cleanupWorker stops and deregisters the worker with the input ID.
 // If no such worker is found, an error is returned.
+// Note that the deregistration method should have been added the the worker's
+// tomb cleanup method - stopping the worker cleanly is enough to deregister.
 func (r *resident) cleanupWorker(id uint64) error {
 	w, ok := r.workers[id]
 	if !ok {
@@ -154,7 +156,6 @@ func (r *resident) cleanupWorker(id uint64) error {
 	if err := worker.Stop(w); err != nil {
 		return errors.Trace(err)
 	}
-	r.deregisterWorker(id)
 	return nil
 }
 

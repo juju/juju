@@ -89,8 +89,11 @@ func (s *residentSuite) TestResidentWorkerConcurrentRegisterCleanup(c *gc.C) {
 		c.Errorf("expected correctly registered workers, got %v", r.workers)
 	}
 
-	// Call cleanup, which should stop and deregister the workers.
+	// Call cleanup, which should stop the workers.
 	c.Assert(r.cleanup(), jc.ErrorIsNil)
+
+	r.deregisterWorker(1)
+	r.deregisterWorker(2)
 	c.Check(r.workers, gc.HasLen, 0)
 }
 
