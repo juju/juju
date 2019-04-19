@@ -16,16 +16,21 @@ const (
 	applicationConfigChange = "application-config-change"
 )
 
-func newApplication(metrics *ControllerGauges, hub *pubsub.SimpleHub) *Application {
+func newApplication(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *Application {
 	a := &Application{
-		metrics: metrics,
-		hub:     hub,
+		Resident: res,
+		metrics:  metrics,
+		hub:      hub,
 	}
 	return a
 }
 
 // Application represents an application in a model.
 type Application struct {
+	// Resident identifies the application as a type-agnostic cached entity
+	// and tracks resources that it is responsible for cleaning up.
+	*Resident
+
 	// Link to model?
 	metrics *ControllerGauges
 	hub     *pubsub.SimpleHub
@@ -57,7 +62,8 @@ func (a *Application) Config() map[string]interface{} {
 
 // WatchConfig creates a watcher for the application config.
 func (a *Application) WatchConfig(keys ...string) *ConfigWatcher {
-	return newConfigWatcher(keys, a.hashCache, a.hub, a.topic(applicationConfigChange))
+	w := newConfigWatcher(keys, a.hashCache, a.hub, a.topic(applicationConfigChange), a.Resident)
+	return w
 }
 
 // appCharmUrlChange contains an appName and it's charm URL.  To be used
@@ -71,7 +77,10 @@ func (a *Application) setDetails(details ApplicationChange) {
 	a.mu.Lock()
 
 	if a.details.CharmURL != details.CharmURL {
-		a.hub.Publish(a.modelTopic(applicationCharmURLChange), appCharmUrlChange{appName: a.details.Name, chURL: details.CharmURL})
+		a.hub.Publish(
+			a.modelTopic(applicationCharmURLChange),
+			appCharmUrlChange{appName: a.details.Name, chURL: details.CharmURL},
+		)
 	}
 
 	a.details = details

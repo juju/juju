@@ -16,17 +16,17 @@ import (
 )
 
 type ModelSuite struct {
-	entitySuite
+	cache.EntitySuite
 }
 
 var _ = gc.Suite(&ModelSuite{})
 
 func (s *ModelSuite) SetUpTest(c *gc.C) {
-	s.entitySuite.SetUpTest(c)
+	s.EntitySuite.SetUpTest(c)
 }
 
 func (s *ModelSuite) TestReport(c *gc.C) {
-	m := s.newModel(modelChange)
+	m := s.NewModel(modelChange)
 	c.Assert(m.Report(), jc.DeepEquals, map[string]interface{}{
 		"name":              "model-owner/test-model",
 		"life":              life.Value("alive"),
@@ -38,7 +38,7 @@ func (s *ModelSuite) TestReport(c *gc.C) {
 }
 
 func (s *ModelSuite) TestConfig(c *gc.C) {
-	m := s.newModel(modelChange)
+	m := s.NewModel(modelChange)
 	c.Assert(m.Config(), jc.DeepEquals, map[string]interface{}{
 		"key":     "value",
 		"another": "foo",
@@ -46,24 +46,24 @@ func (s *ModelSuite) TestConfig(c *gc.C) {
 }
 
 func (s *ModelSuite) TestNewModelGeneratesHash(c *gc.C) {
-	s.newModel(modelChange)
-	c.Check(testutil.ToFloat64(s.gauges.ModelHashCacheMiss), gc.Equals, float64(1))
+	s.NewModel(modelChange)
+	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheMiss), gc.Equals, float64(1))
 }
 
 func (s *ModelSuite) TestModelConfigIncrementsReadCount(c *gc.C) {
-	m := s.newModel(modelChange)
-	c.Check(testutil.ToFloat64(s.gauges.ModelConfigReads), gc.Equals, float64(0))
+	m := s.NewModel(modelChange)
+	c.Check(testutil.ToFloat64(s.Gauges.ModelConfigReads), gc.Equals, float64(0))
 	m.Config()
-	c.Check(testutil.ToFloat64(s.gauges.ModelConfigReads), gc.Equals, float64(1))
+	c.Check(testutil.ToFloat64(s.Gauges.ModelConfigReads), gc.Equals, float64(1))
 	m.Config()
-	c.Check(testutil.ToFloat64(s.gauges.ModelConfigReads), gc.Equals, float64(2))
+	c.Check(testutil.ToFloat64(s.Gauges.ModelConfigReads), gc.Equals, float64(2))
 }
 
 // Some of the tested behaviour in the following methods is specific to the
 // watcher, but using a cached model avoids the need to put scaffolding code in
 // export_test.go to create a watcher in isolation.
 func (s *ModelSuite) TestConfigWatcherStops(c *gc.C) {
-	m := s.newModel(modelChange)
+	m := s.NewModel(modelChange)
 	w := m.WatchConfig()
 	wc := NewNotifyWatcherC(c, w)
 	// Sends initial event.
@@ -72,7 +72,7 @@ func (s *ModelSuite) TestConfigWatcherStops(c *gc.C) {
 }
 
 func (s *ModelSuite) TestConfigWatcherChange(c *gc.C) {
-	m := s.newModel(modelChange)
+	m := s.NewModel(modelChange)
 	w := m.WatchConfig()
 	defer workertest.CleanKill(c, w)
 	wc := NewNotifyWatcherC(c, w)
@@ -88,14 +88,14 @@ func (s *ModelSuite) TestConfigWatcherChange(c *gc.C) {
 	wc.AssertOneChange()
 
 	// The hash is generated each time we set the details.
-	c.Check(testutil.ToFloat64(s.gauges.ModelHashCacheMiss), gc.Equals, float64(2))
+	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheMiss), gc.Equals, float64(2))
 
 	// The value is retrieved from the cache when the watcher is created and notified.
-	c.Check(testutil.ToFloat64(s.gauges.ModelHashCacheHit), gc.Equals, float64(2))
+	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheHit), gc.Equals, float64(2))
 }
 
 func (s *ModelSuite) TestConfigWatcherOneValue(c *gc.C) {
-	m := s.newModel(modelChange)
+	m := s.NewModel(modelChange)
 	w := m.WatchConfig("key")
 	defer workertest.CleanKill(c, w)
 	wc := NewNotifyWatcherC(c, w)
@@ -113,9 +113,17 @@ func (s *ModelSuite) TestConfigWatcherOneValue(c *gc.C) {
 }
 
 func (s *ModelSuite) TestConfigWatcherOneValueOtherChange(c *gc.C) {
-	m := s.newModel(modelChange)
+	m := s.NewModel(modelChange)
 	w := m.WatchConfig("key")
-	defer workertest.CleanKill(c, w)
+
+	// The worker is the first and only resource (1).
+	resourceId := uint64(1)
+	s.AssertWorkerResource(c, m.Resident, resourceId, true)
+	defer func() {
+		workertest.CleanKill(c, w)
+		s.AssertWorkerResource(c, m.Resident, resourceId, false)
+	}()
+
 	wc := NewNotifyWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange()
@@ -131,7 +139,7 @@ func (s *ModelSuite) TestConfigWatcherOneValueOtherChange(c *gc.C) {
 }
 
 func (s *ModelSuite) TestConfigWatcherSameValuesCacheHit(c *gc.C) {
-	m := s.newModel(modelChange)
+	m := s.NewModel(modelChange)
 
 	w := m.WatchConfig("key", "another")
 	defer workertest.CleanKill(c, w)
@@ -140,32 +148,32 @@ func (s *ModelSuite) TestConfigWatcherSameValuesCacheHit(c *gc.C) {
 	defer workertest.CleanKill(c, w2)
 
 	// One cache miss for the "all" hash, and one for the specific fields.
-	c.Check(testutil.ToFloat64(s.gauges.ModelHashCacheMiss), gc.Equals, float64(2))
+	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheMiss), gc.Equals, float64(2))
 
 	// Specific field hash should get a hit despite the field ordering.
-	c.Check(testutil.ToFloat64(s.gauges.ModelHashCacheHit), gc.Equals, float64(1))
+	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheHit), gc.Equals, float64(1))
 }
 
 func (s *ModelSuite) TestApplicationNotFoundError(c *gc.C) {
-	m := s.newModel(modelChange)
+	m := s.NewModel(modelChange)
 	_, err := m.Application("nope")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *ModelSuite) TestCharmNotFoundError(c *gc.C) {
-	m := s.newModel(modelChange)
+	m := s.NewModel(modelChange)
 	_, err := m.Charm("nope")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *ModelSuite) TestMachineNotFoundError(c *gc.C) {
-	m := s.newModel(modelChange)
+	m := s.NewModel(modelChange)
 	_, err := m.Machine("nope")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *ModelSuite) TestUnitNotFoundError(c *gc.C) {
-	m := s.newModel(modelChange)
+	m := s.NewModel(modelChange)
 	_, err := m.Unit("nope")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
@@ -180,7 +188,12 @@ func (s *ControllerSuite) TestWatchMachineStops(c *gc.C) {
 	wc := NewStringsWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange([]string{machineChange.Id})
+
+	// The worker is the first and only resource (1).
+	resourceId := uint64(1)
+	s.AssertWorkerResource(c, m.Resident, resourceId, true)
 	wc.AssertStops()
+	s.AssertWorkerResource(c, m.Resident, resourceId, false)
 }
 
 func (s *ControllerSuite) TestWatchMachineAddMachine(c *gc.C) {

@@ -114,7 +114,9 @@ type ConfigWatcher struct {
 // newConfigWatcher returns a new watcher for the input config keys
 // with a baseline hash of their config values from the input hash cache.
 // As per the cache requirements, hashes are only generated from sorted keys.
-func newConfigWatcher(keys []string, cache *hashCache, hub *pubsub.SimpleHub, topic string) *ConfigWatcher {
+func newConfigWatcher(
+	keys []string, cache *hashCache, hub *pubsub.SimpleHub, topic string, res *Resident,
+) *ConfigWatcher {
 	sort.Strings(keys)
 
 	w := &ConfigWatcher{
@@ -124,10 +126,12 @@ func newConfigWatcher(keys []string, cache *hashCache, hub *pubsub.SimpleHub, to
 		hash: cache.getHash(keys),
 	}
 
+	deregister := res.registerWorker(w)
 	unsub := hub.Subscribe(topic, w.configChanged)
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
 		unsub()
+		deregister()
 		return nil
 	})
 

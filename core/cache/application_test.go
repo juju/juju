@@ -1,5 +1,6 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+
 package cache_test
 
 import (
@@ -14,30 +15,37 @@ import (
 )
 
 type ApplicationSuite struct {
-	entitySuite
+	cache.EntitySuite
 }
 
 var _ = gc.Suite(&ApplicationSuite{})
 
 func (s *ApplicationSuite) SetUpTest(c *gc.C) {
-	s.entitySuite.SetUpTest(c)
+	s.EntitySuite.SetUpTest(c)
 }
 
 func (s *ApplicationSuite) TestConfigIncrementsReadCount(c *gc.C) {
-	m := s.newApplication(appChange)
-	c.Check(testutil.ToFloat64(s.gauges.ApplicationConfigReads), gc.Equals, float64(0))
+	m := s.NewApplication(appChange)
+	c.Check(testutil.ToFloat64(s.Gauges.ApplicationConfigReads), gc.Equals, float64(0))
 	m.Config()
-	c.Check(testutil.ToFloat64(s.gauges.ApplicationConfigReads), gc.Equals, float64(1))
+	c.Check(testutil.ToFloat64(s.Gauges.ApplicationConfigReads), gc.Equals, float64(1))
 	m.Config()
-	c.Check(testutil.ToFloat64(s.gauges.ApplicationConfigReads), gc.Equals, float64(2))
+	c.Check(testutil.ToFloat64(s.Gauges.ApplicationConfigReads), gc.Equals, float64(2))
 }
 
 // See model_test.go for other config watcher tests.
 // Here we just check that WatchConfig is wired up properly.
 func (s *ApplicationSuite) TestConfigWatcherChange(c *gc.C) {
-	a := s.newApplication(appChange)
+	a := s.NewApplication(appChange)
 	w := a.WatchConfig()
-	defer workertest.CleanKill(c, w)
+
+	// The worker is the first and only resource (1).
+	resourceId := uint64(1)
+	s.AssertWorkerResource(c, a.Resident, resourceId, true)
+	defer func() {
+		workertest.CleanKill(c, w)
+		s.AssertWorkerResource(c, a.Resident, resourceId, false)
+	}()
 
 	wc := NewNotifyWatcherC(c, w)
 	// Sends initial event.
@@ -49,16 +57,10 @@ func (s *ApplicationSuite) TestConfigWatcherChange(c *gc.C) {
 	wc.AssertOneChange()
 
 	// The hash is generated each time we set the details.
-	c.Check(testutil.ToFloat64(s.gauges.ApplicationHashCacheMiss), gc.Equals, float64(2))
+	c.Check(testutil.ToFloat64(s.Gauges.ApplicationHashCacheMiss), gc.Equals, float64(2))
 
 	// The value is retrieved from the cache when the watcher is created and notified.
-	c.Check(testutil.ToFloat64(s.gauges.ApplicationHashCacheHit), gc.Equals, float64(2))
-}
-
-func (s *ApplicationSuite) newApplication(details cache.ApplicationChange) *cache.Application {
-	a := cache.NewApplication(s.gauges, s.hub)
-	a.SetDetails(details)
-	return a
+	c.Check(testutil.ToFloat64(s.Gauges.ApplicationHashCacheHit), gc.Equals, float64(2))
 }
 
 var appChange = cache.ApplicationChange{

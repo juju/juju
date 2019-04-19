@@ -10,13 +10,13 @@ import (
 )
 
 type UnitSuite struct {
-	entitySuite
+	cache.EntitySuite
 }
 
 var _ = gc.Suite(&UnitSuite{})
 
 func (s *UnitSuite) SetUpTest(c *gc.C) {
-	s.entitySuite.SetUpTest(c)
+	s.EntitySuite.SetUpTest(c)
 }
 
 var unitChange = cache.UnitChange{

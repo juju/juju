@@ -15,15 +15,20 @@ import (
 	"github.com/juju/juju/core/instance"
 )
 
-func newMachine(model *Model) *Machine {
+func newMachine(model *Model, res *Resident) *Machine {
 	m := &Machine{
-		model: model,
+		Resident: res,
+		model:    model,
 	}
 	return m
 }
 
 // Machine represents a machine in a model.
 type Machine struct {
+	// Resident identifies the machine as a type-agnostic cached entity
+	// and tracks resources that it is responsible for cleaning up.
+	*Resident
+
 	model *Model
 	mu    sync.Mutex
 
@@ -101,14 +106,17 @@ func (m *Machine) WatchContainers() (*PredicateStringsWatcher, error) {
 	}
 
 	w := newPredicateStringsWatcher(regexpPredicate(compiled), machines...)
+	deregister := m.registerWorker(w)
 	unsub := m.model.hub.Subscribe(m.modelTopic(modelAddRemoveMachine), w.changed)
 
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
 		unsub()
+		deregister()
 		return nil
 	})
 
+	m.registerWorker(w)
 	return w, nil
 }
 
@@ -167,6 +175,7 @@ func (m *Machine) WatchApplicationLXDProfiles() (*MachineAppLXDProfileWatcher, e
 		}
 		applications[appName] = info
 	}
+
 	w := newMachineAppLXDProfileWatcher(MachineAppLXDProfileConfig{
 		appTopic:     m.model.topic(applicationCharmURLChange),
 		unitTopic:    m.model.topic(modelUnitLXDProfileChange),
@@ -175,6 +184,7 @@ func (m *Machine) WatchApplicationLXDProfiles() (*MachineAppLXDProfileWatcher, e
 		modeler:      m.model,
 		metrics:      m.model.metrics,
 		hub:          m.model.hub,
+		resident:     m.Resident,
 	})
 	return w, nil
 }

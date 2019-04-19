@@ -3,18 +3,6 @@
 
 package cache
 
-var (
-	CreateControllerGauges = createControllerGauges
-	NewApplication         = newApplication
-	NewModel               = newModel
-)
-
-// Expose Remove* for testing.
-
-func (m *Model) RemoveMachine(details RemoveMachine) {
-	m.removeMachine(details)
-}
-
 // Expose SetDetails for testing.
 
 func (a *Application) SetDetails(details ApplicationChange) {
@@ -27,28 +15,32 @@ func (m *Model) SetDetails(details ModelChange) {
 
 // Expose Remove* for testing
 
-func (m *Model) RemoveCharm(ch RemoveCharm) {
-	m.removeCharm(ch)
+func (m *Model) RemoveCharm(ch RemoveCharm) error {
+	return m.removeCharm(ch)
 }
 
-func (m *Model) RemoveUnit(ch RemoveUnit) {
-	m.removeUnit(ch)
+func (m *Model) RemoveUnit(ch RemoveUnit) error {
+	return m.removeUnit(ch)
+}
+
+func (m *Model) RemoveMachine(details RemoveMachine) error {
+	return m.removeMachine(details)
 }
 
 // Expose Update* for testing.
 
-func (m *Model) UpdateMachine(details MachineChange) {
-	m.updateMachine(details)
+func (m *Model) UpdateMachine(details MachineChange, manager *residentManager) {
+	m.updateMachine(details, manager)
 }
 
-func (m *Model) UpdateUnit(details UnitChange) {
-	m.updateUnit(details)
+func (m *Model) UpdateUnit(details UnitChange, manager *residentManager) {
+	m.updateUnit(details, manager)
 }
 
-func (m *Model) UpdateApplication(details ApplicationChange) {
-	m.updateApplication(details)
+func (m *Model) UpdateApplication(details ApplicationChange, manager *residentManager) {
+	m.updateApplication(details, manager)
 }
 
-func (m *Model) UpdateCharm(details CharmChange) {
-	m.updateCharm(details)
+func (m *Model) UpdateCharm(details CharmChange, manager *residentManager) {
+	m.updateCharm(details, manager)
 }

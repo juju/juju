@@ -18,7 +18,7 @@ import (
 )
 
 type machineSuite struct {
-	entitySuite
+	cache.EntitySuite
 
 	model    *cache.Model
 	machine0 *cache.Machine
@@ -28,8 +28,8 @@ type machineSuite struct {
 var _ = gc.Suite(&machineSuite{})
 
 func (s *machineSuite) SetUpTest(c *gc.C) {
-	s.entitySuite.SetUpTest(c)
-	s.model = s.newModel(modelChange)
+	s.EntitySuite.SetUpTest(c)
+	s.model = s.NewModel(modelChange)
 }
 
 func (s *machineSuite) TestInstanceId(c *gc.C) {
@@ -44,7 +44,7 @@ func (s *machineSuite) TestEmptyInstanceId(c *gc.C) {
 	mc := cache.MachineChange{
 		Id: "0",
 	}
-	s.model.UpdateMachine(mc)
+	s.model.UpdateMachine(mc, s.Manager)
 
 	machine, err := s.model.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -58,7 +58,7 @@ func (s *machineSuite) TestCharmProfiles(c *gc.C) {
 		Id:            "0",
 		CharmProfiles: []string{"charm-profile-1"},
 	}
-	s.model.UpdateMachine(mc)
+	s.model.UpdateMachine(mc, s.Manager)
 
 	machine, err := s.model.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -86,7 +86,7 @@ func (s *machineSuite) TestUnitsSubordinate(c *gc.C) {
 	uc.Application = "test5"
 	uc.Principal = "test1/0"
 	uc.Subordinate = true
-	s.model.UpdateUnit(uc)
+	s.model.UpdateUnit(uc, s.Manager)
 	unit, err := s.model.Unit(uc.Name)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedUnits = append(expectedUnits, unit)
@@ -118,7 +118,12 @@ func (s *machineSuite) TestUnitsTwoMachines(c *gc.C) {
 
 func (s *machineSuite) TestWatchContainersStops(c *gc.C) {
 	s.setupMachine0WithContainerWatcher(c, false)
+
+	// The worker is the first and only resource (1).
+	resourceId := uint64(1)
+	s.AssertWorkerResource(c, s.machine0.Resident, resourceId, true)
 	s.wc0.AssertStops()
+	s.AssertWorkerResource(c, s.machine0.Resident, resourceId, false)
 }
 
 func (s *machineSuite) TestWatchContainersStartWithContainer(c *gc.C) {
@@ -131,7 +136,7 @@ func (s *machineSuite) TestWatchContainersAddContainer(c *gc.C) {
 	// Add a container to the machine
 	mc := machineChange
 	mc.Id = "0/lxd/0"
-	s.model.UpdateMachine(mc)
+	s.model.UpdateMachine(mc, s.Manager)
 	s.wc0.AssertOneChange([]string{mc.Id})
 }
 
@@ -141,7 +146,7 @@ func (s *machineSuite) TestWatchContainersOnlyThisMachinesAddContainers(c *gc.C)
 	// Add a container to a different machine
 	mc := machineChange
 	mc.Id = "1/lxd/0"
-	s.model.UpdateMachine(mc)
+	s.model.UpdateMachine(mc, s.Manager)
 	s.wc0.AssertNoChange()
 }
 
@@ -153,7 +158,7 @@ func (s *machineSuite) TestWatchContainersOnlyThisMachinesRemoveContainers(c *gc
 		ModelUUID: modelChange.ModelUUID,
 		Id:        "1/lxd/0",
 	}
-	s.model.RemoveMachine(rm)
+	c.Assert(s.model.RemoveMachine(rm), jc.ErrorIsNil)
 	s.wc0.AssertNoChange()
 }
 
@@ -165,12 +170,12 @@ func (s *machineSuite) TestWatchContainersRemoveContainer(c *gc.C) {
 		ModelUUID: modelChange.ModelUUID,
 		Id:        "0/lxd/0",
 	}
-	s.model.RemoveMachine(rm)
+	c.Assert(s.model.RemoveMachine(rm), jc.ErrorIsNil)
 	s.wc0.AssertOneChange([]string{rm.Id})
 }
 
 func (s *machineSuite) setupMachine0(c *gc.C) {
-	s.model.UpdateMachine(machineChange)
+	s.model.UpdateMachine(machineChange, s.Manager)
 	machine, err := s.model.Machine(machineChange.Id)
 	c.Assert(err, jc.ErrorIsNil)
 	s.machine0 = machine
@@ -201,13 +206,13 @@ func (s *machineSuite) setupMachine0Container(c *gc.C) {
 	// Add a container to the machine
 	mc := machineChange
 	mc.Id = "0/lxd/0"
-	s.model.UpdateMachine(mc)
+	s.model.UpdateMachine(mc, s.Manager)
 }
 
 func (s *machineSuite) setupMachineWithUnits(c *gc.C, machineId string, apps []string) (*cache.Machine, []*cache.Unit) {
 	mc := machineChange
 	mc.Id = machineId
-	s.model.UpdateMachine(mc)
+	s.model.UpdateMachine(mc, s.Manager)
 	machine, err := s.model.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -217,7 +222,7 @@ func (s *machineSuite) setupMachineWithUnits(c *gc.C, machineId string, apps []s
 		uc.MachineId = machineId
 		uc.Name = name + "/" + machineId
 		uc.Application = name
-		s.model.UpdateUnit(uc)
+		s.model.UpdateUnit(uc, s.Manager)
 		unit, err := s.model.Unit(uc.Name)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit

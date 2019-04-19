@@ -11,14 +11,10 @@ import (
 )
 
 type CharmSuite struct {
-	entitySuite
+	cache.EntitySuite
 }
 
 var _ = gc.Suite(&CharmSuite{})
-
-func (s *CharmSuite) SetUpTest(c *gc.C) {
-	s.entitySuite.SetUpTest(c)
-}
 
 var charmChange = cache.CharmChange{
 	ModelUUID: "model-uuid",
