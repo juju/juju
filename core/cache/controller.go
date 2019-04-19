@@ -229,12 +229,12 @@ func (c *Controller) removeMachine(ch RemoveMachine) error {
 	return errors.Trace(c.removeResident(ch.ModelUUID, func(m *Model) error { return m.removeMachine(ch) }))
 }
 
-func (c *Controller) removeResident(modelUUID string, delete func(m *Model) error) error {
+func (c *Controller) removeResident(modelUUID string, removeFrom func(m *Model) error) error {
 	c.mu.Lock()
 
 	var err error
 	if model, ok := c.models[modelUUID]; ok {
-		err = delete(model)
+		err = removeFrom(model)
 	}
 
 	c.mu.Unlock()
