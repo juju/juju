@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 
 	"github.com/juju/juju/core/lxdprofile"
@@ -38,38 +39,106 @@ type appInfo struct {
 }
 
 type MachineAppLXDProfileConfig struct {
-	appTopic     string
-	unitTopic    string
-	machineId    string
-	applications map[string]appInfo
-	modeler      MachineAppModeler
-	metrics      *ControllerGauges
-	hub          *pubsub.SimpleHub
-	resident     *Resident
+	appTopic        string
+	unitAddTopic    string
+	unitRemoveTopic string
+	machine         *Machine
+	modeler         MachineAppModeler
+	metrics         *ControllerGauges
+	hub             *pubsub.SimpleHub
+	resident        *Resident
 }
 
-func newMachineAppLXDProfileWatcher(config MachineAppLXDProfileConfig) *MachineAppLXDProfileWatcher {
+func newMachineAppLXDProfileWatcher(config MachineAppLXDProfileConfig) (*MachineAppLXDProfileWatcher, error) {
 	w := &MachineAppLXDProfileWatcher{
 		notifyWatcherBase: newNotifyWatcherBase(),
-		applications:      config.applications,
 		modeler:           config.modeler,
-		machineId:         config.machineId,
 		metrics:           config.metrics,
 	}
 
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	deregister := config.resident.registerWorker(w)
 	unsubApp := config.hub.Subscribe(config.appTopic, w.applicationCharmURLChange)
-	unsubUnit := config.hub.Subscribe(config.unitTopic, w.unitChange)
+	unsubUnitAdd := config.hub.Subscribe(config.unitAddTopic, w.addUnit)
+	unsubUnitRemove := config.hub.Subscribe(config.unitRemoveTopic, w.removeUnit)
+	unsubFns := func() {
+		unsubUnitRemove()
+		unsubUnitAdd()
+		unsubApp()
+		deregister()
+	}
+
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-		unsubApp()
-		unsubUnit()
-		deregister()
+		unsubFns()
 		return nil
 	})
 
-	logger.Tracef("started MachineAppLXDProfileWatcher for machine-%s with %#v", config.machineId, config.applications)
-	return w
+	err := w.init(config.machine)
+	if err != nil {
+		unsubFns()
+		return nil, errors.Trace(err)
+	}
+
+	logger.Tracef("started MachineAppLXDProfileWatcher for machine-%s with %#v", w.machineId, w.applications)
+	return w, nil
+}
+
+// init sets up the initial data used to determine when a notify occurs.
+func (w *MachineAppLXDProfileWatcher) init(machine *Machine) error {
+	units, err := machine.Units()
+	if err != nil {
+		return errors.Annotatef(err, "failed to get units to start MachineAppLXDProfileWatcher")
+	}
+
+	applications := make(map[string]appInfo)
+	for _, unit := range units {
+		appName := unit.Application()
+		unitName := unit.Name()
+		_, found := applications[appName]
+		if found {
+			applications[appName].units.Add(unitName)
+			continue
+		}
+
+		app, err := w.modeler.Application(appName)
+		if errors.IsNotFound(err) {
+			// This is unlikely, but could happen because Units()
+			// added the parent'd machine id to subordinates.
+			// If the unit has no machineId, it will be added
+			// to what is watched when the machineId is assigned.
+			// Otherwise return an error.
+			if unit.MachineId() != "" {
+				return errors.Errorf("programming error, unit %s has machineId but not application", unitName)
+			}
+			logger.Errorf("unit %s has no application, nor machine id, start watching when machine id assigned.", unitName)
+			w.metrics.LXDProfileChangeError.Inc()
+			continue
+		}
+
+		chURL := app.CharmURL()
+		info := appInfo{
+			charmURL: chURL,
+			units:    set.NewStrings(unitName),
+		}
+
+		ch, err := w.modeler.Charm(chURL)
+		if err != nil {
+			return err
+		}
+		lxdProfile := ch.LXDProfile()
+		if !lxdProfile.Empty() {
+			info.charmProfile = lxdProfile
+		}
+
+		applications[appName] = info
+	}
+
+	w.applications = applications
+	w.machineId = machine.Id()
+	return nil
 }
 
 // applicationCharmURLChange sends a notification if what is saved for its
@@ -122,18 +191,16 @@ func (w *MachineAppLXDProfileWatcher) applicationCharmURLChange(topic string, va
 	logger.Tracef("end of application charm url change %#v", w.applications)
 }
 
-// unitChange modifies the map of applications being watched when a unit is
-// added or removed from the machine.  Notification is sent if:
-//     1. A new unit whose charm has an lxd profile is added.
-//     2. A unit being removed has a profile and other units
-//        exist on the machine.
-func (w *MachineAppLXDProfileWatcher) unitChange(topic string, value interface{}) {
+// addUnit modifies the map of applications being watched when a unit is
+// added to the machine.  Notification is sent if a new unit whose charm has
+// an lxd profile is added.
+func (w *MachineAppLXDProfileWatcher) addUnit(topic string, value interface{}) {
 	w.notifyWatcherBase.mu.Lock()
 	var notify bool
 	defer func(notify *bool) {
 		w.notifyWatcherBase.mu.Unlock()
 		if *notify {
-			logger.Tracef("notifying due to add/remove unit requires lxd profile change machine-%s", w.machineId)
+			logger.Tracef("notifying due to add unit requires lxd profile change machine-%s", w.machineId)
 			w.notify()
 			w.metrics.LXDProfileChangeHit.Inc()
 		} else {
@@ -141,44 +208,40 @@ func (w *MachineAppLXDProfileWatcher) unitChange(topic string, value interface{}
 		}
 	}(&notify)
 
-	names, okString := value.([]string)
 	unit, okUnit := value.(*Unit)
-	switch {
-	case okString:
-		logger.Tracef("stop watching %q on machine-%s", names, w.machineId)
-		notify = w.removeUnit(names)
-	case okUnit:
-		isSubordinate := unit.Subordinate()
-		unitMachineId := unit.MachineId()
-		unitName := unit.Name()
+	if !okUnit {
+		w.logError("programming error, value not of type *Unit")
+		return
+	}
+	isSubordinate := unit.Subordinate()
+	unitMachineId := unit.MachineId()
+	unitName := unit.Name()
 
-		switch {
-		case unitMachineId == "" && !isSubordinate:
-			logger.Tracef("%s has no machineId and not a sub", unitName)
+	switch {
+	case unitMachineId == "" && !isSubordinate:
+		logger.Tracef("%s has no machineId and not a sub", unitName)
+		return
+	case isSubordinate:
+		principal, err := w.modeler.Unit(unit.Principal())
+		if err != nil {
+			logger.Tracef("unit %s is subordinate, principal %s not found", unitName, unit.Principal())
 			return
-		case isSubordinate:
-			principal, err := w.modeler.Unit(unit.Principal())
-			if err != nil {
-				logger.Tracef("unit %s is subordinate, principal %s not found", unitName, unit.Principal())
-				return
-			}
-			if w.machineId != principal.MachineId() {
-				logger.Tracef("watching unit changes on machine-%s not machine-%s", w.machineId, unitMachineId)
-				return
-			}
-		case w.machineId != unitMachineId:
+		}
+		if w.machineId != principal.MachineId() {
 			logger.Tracef("watching unit changes on machine-%s not machine-%s", w.machineId, unitMachineId)
 			return
 		}
-		logger.Tracef("start watching %q on machine-%s", unitName, w.machineId)
-		notify = w.addUnit(unit)
-	default:
-		w.logError("programming error, value not of type *Unit or []string")
+	case w.machineId != unitMachineId:
+		logger.Tracef("watching unit changes on machine-%s not machine-%s", w.machineId, unitMachineId)
+		return
 	}
+	logger.Tracef("start watching %q on machine-%s", unitName, w.machineId)
+	notify = w.add(unit)
+
 	logger.Debugf("end of unit change %#v", w.applications)
 }
 
-func (w *MachineAppLXDProfileWatcher) addUnit(unit *Unit) bool {
+func (w *MachineAppLXDProfileWatcher) add(unit *Unit) bool {
 	unitName := unit.Name()
 	appName := unit.Application()
 
@@ -218,35 +281,51 @@ func (w *MachineAppLXDProfileWatcher) addUnit(unit *Unit) bool {
 	return false
 }
 
-func (w *MachineAppLXDProfileWatcher) removeUnit(names []string) bool {
-	if len(names) != 2 {
-		w.logError("programming error, 2 values not provided")
-		return false
+// removeUnit modifies the map of applications being watched when a unit is
+// removed from the machine.  Notification is sent if a unit being removed
+// has a profile and other units exist on the machine.
+func (w *MachineAppLXDProfileWatcher) removeUnit(topic string, value interface{}) {
+	w.notifyWatcherBase.mu.Lock()
+	var notify bool
+	defer func(notify *bool) {
+		w.notifyWatcherBase.mu.Unlock()
+		if *notify {
+			logger.Tracef("notifying due to remove unit requires lxd profile change machine-%s", w.machineId)
+			w.notify()
+			w.metrics.LXDProfileChangeHit.Inc()
+		} else {
+			w.metrics.LXDProfileChangeMiss.Inc()
+		}
+	}(&notify)
+
+	rUnit, ok := value.(unitLXDProfileRemove)
+	if !ok {
+		w.logError("programming error, value not of type unitLXDProfileRemove")
+		return
 	}
-	unitName, appName := names[0], names[1]
-	app, ok := w.applications[appName]
+
+	app, ok := w.applications[rUnit.appName]
 	if !ok {
 		w.logError("programming error, unit removed before being added, application name not found")
-		return false
+		return
 	}
-	if !app.units.Contains(unitName) {
-		w.logError("unit not being watched for machine")
-		return false
+	if !app.units.Contains(rUnit.name) {
+		return
 	}
 	profile := app.charmProfile
-	app.units.Remove(unitName)
+	app.units.Remove(rUnit.name)
 	if app.units.Size() == 0 {
 		// the application has no more units on this machine,
 		// stop watching it.
-		delete(w.applications, appName)
+		delete(w.applications, rUnit.appName)
 	}
 	// If there are additional units on the machine and the current
 	// application has an lxd profile, notify so it can be removed
 	// from the machine.
 	if len(w.applications) > 0 && !profile.Empty() {
-		return true
+		notify = true
 	}
-	return false
+	return
 }
 
 func (w *MachineAppLXDProfileWatcher) logError(msg string) {

@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"sync"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -128,65 +127,16 @@ func (m *Machine) WatchContainers() (*PredicateStringsWatcher, error) {
 //     3. The lxdprofile of an application with a unit on this
 //        machine is added, removed, or exists.
 func (m *Machine) WatchApplicationLXDProfiles() (*MachineAppLXDProfileWatcher, error) {
-	units, err := m.Units()
-	if err != nil {
-		return nil, errors.Annotatef(err, "failed to get units to start MachineAppLXDProfileWatcher")
-	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	applications := make(map[string]appInfo)
-	for _, unit := range units {
-		appName := unit.Application()
-		unitName := unit.Name()
-		_, found := applications[appName]
-		if found {
-			applications[appName].units.Add(unitName)
-			continue
-		}
-
-		app, err := m.model.Application(appName)
-		if errors.IsNotFound(err) {
-			// This is unlikely, but could happen.
-			// If the unit has no machineId, it will be added
-			// to what is watched when the machineId is assigned.
-			// Otherwise return an error.
-			if unit.MachineId() != "" {
-				return nil, errors.Errorf("programming error, unit %s has machineId but not application", unitName)
-			}
-			logger.Errorf("unit %s has no application, nor machine id, start watching when machine id assigned.", unitName)
-			m.model.metrics.LXDProfileChangeError.Inc()
-			continue
-		}
-
-		chURL := app.CharmURL()
-		info := appInfo{
-			charmURL: chURL,
-			units:    set.NewStrings(unitName),
-		}
-
-		ch, found := m.model.charms[chURL]
-		if found {
-			lxdProfile := ch.LXDProfile()
-			if !lxdProfile.Empty() {
-				info.charmProfile = lxdProfile
-			}
-		}
-		applications[appName] = info
-	}
-
-	w := newMachineAppLXDProfileWatcher(MachineAppLXDProfileConfig{
-		appTopic:     m.model.topic(applicationCharmURLChange),
-		unitTopic:    m.model.topic(modelUnitLXDProfileChange),
-		machineId:    m.details.Id,
-		applications: applications,
-		modeler:      m.model,
-		metrics:      m.model.metrics,
-		hub:          m.model.hub,
-		resident:     m.Resident,
+	return newMachineAppLXDProfileWatcher(MachineAppLXDProfileConfig{
+		appTopic:        m.model.topic(applicationCharmURLChange),
+		unitAddTopic:    m.model.topic(modelUnitLXDProfileAdd),
+		unitRemoveTopic: m.model.topic(modelUnitLXDProfileRemove),
+		machine:         m,
+		modeler:         m.model,
+		metrics:         m.model.metrics,
+		hub:             m.model.hub,
+		resident:        m.Resident,
 	})
-	return w, nil
 }
 
 func (m *Machine) containerRegexp() (*regexp.Regexp, error) {

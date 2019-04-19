@@ -18,9 +18,12 @@ const (
 	modelAddRemoveMachine = "model-add-remove-machine"
 	// model config has changed.
 	modelConfigChange = "model-config-change"
-	// a unit in the model has been changed such than a lxd profile change
+	// a unit in the model has been added such than a lxd profile change
 	// maybe be necessary has been made.
-	modelUnitLXDProfileChange = "model-unit-lxd-profile-change"
+	modelUnitLXDProfileAdd = "model-unit-lxd-profile-add"
+	// a unit in the model has been removed such than a lxd profile change
+	// maybe be necessary has been made.
+	modelUnitLXDProfileRemove = "model-unit-remove"
 )
 
 func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *Model {
@@ -260,13 +263,20 @@ func (m *Model) updateUnit(ch UnitChange, rm *residentManager) {
 	m.mu.Unlock()
 }
 
+// unitLXDProfileRemove contains an appName and it's charm URL.  To be used
+// when publishing for modelUnitLXDProfileRemove.
+type unitLXDProfileRemove struct {
+	name    string
+	appName string
+}
+
 // removeUnit removes the unit from the model.
 func (m *Model) removeUnit(ch RemoveUnit) error {
 	defer m.doLocked()()
 
 	unit, ok := m.units[ch.Name]
 	if ok {
-		m.hub.Publish(m.topic(modelUnitLXDProfileChange), []string{ch.Name, unit.details.Application})
+		m.hub.Publish(m.topic(modelUnitLXDProfileRemove), unitLXDProfileRemove{name: ch.Name, appName: unit.details.Application})
 		if err := unit.evict(); err != nil {
 			return errors.Trace(err)
 		}
