@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/juju/errors"
+
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -95,6 +97,33 @@ func (s *residentSuite) TestResidentWorkerConcurrentRegisterCleanup(c *gc.C) {
 	r.deregisterWorker(1)
 	r.deregisterWorker(2)
 	c.Check(r.workers, gc.HasLen, 0)
+}
+
+func (s *residentSuite) TestResidentWorkerCleanupErrors(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// Stop attempted for all workers, 2 fail, 1 succeeds.
+	w1 := mocks.NewMockWorker(ctrl)
+	w1.EXPECT().Kill()
+	w1.EXPECT().Wait().Return(errors.New("biff"))
+
+	w2 := mocks.NewMockWorker(ctrl)
+	w2.EXPECT().Kill()
+	w2.EXPECT().Wait().Return(errors.New("thwack"))
+
+	w3 := mocks.NewMockWorker(ctrl)
+	w3.EXPECT().Kill()
+	w3.EXPECT().Wait().Return(nil)
+
+	r := s.manager.new()
+	_ = r.registerWorker(w1)
+	_ = r.registerWorker(w2)
+	_ = r.registerWorker(w3)
+
+	err := r.cleanup()
+	c.Assert(err, gc.ErrorMatches, "(.|\n|\t)*biff(.|\n|\t)*thwack")
+	c.Assert(err, gc.Not(gc.ErrorMatches), "worker 3")
 }
 
 func (s *residentSuite) TestResidentWorkerConcurrentDeregister(c *gc.C) {

@@ -4,6 +4,7 @@
 package cache
 
 import (
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -134,16 +135,21 @@ func (r *resident) evict() error {
 // being evicted from the cache.
 // Note that this method does not deregister the resident from the manager.
 func (r *resident) cleanup() error {
-	return errors.Trace(r.cleanupWorkers())
+	return errors.Annotatef(r.cleanupWorkers(), "cleaning up cache resident %d:", r.id)
 }
 
 // cleanupWorkers calls "Stop" on all registered workers
 // and removes them from the internal map.
 func (r *resident) cleanupWorkers() error {
+	var errs []string
 	for id := range r.workers {
 		if err := r.cleanupWorker(id); err != nil {
-			return errors.Annotatef(err, "cleaning up worker %d for cache resident %d", id, r.id)
+			errs = append(errs, errors.Annotatef(err, "worker %d", id).Error())
 		}
+	}
+
+	if len(errs) != 0 {
+		return errors.Errorf("worker cleanup errors:\n\t%s", strings.Join(errs, "\n\t"))
 	}
 	return nil
 }
