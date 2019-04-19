@@ -114,7 +114,7 @@ class TestWaitApplicationNotPresent(TestCase):
         self.assertItemsEqual(
             [('foo', 'still-present')],
             not_present.iter_blocking_state(client.get_status()))
-        client.remove_service('foo')
+        client.remove_application('foo')
         self.assertItemsEqual(
             [], not_present.iter_blocking_state(client.get_status()))
 

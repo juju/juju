@@ -1115,7 +1115,7 @@ class TestModelClient(ClientTest):
         env = ModelClient(
             JujuData('foo', {'type': 'lxd'}), '1.234-76', None)
         with patch_juju_call(env) as mock_juju:
-            env.remove_service('mondogb')
+            env.remove_application('mondogb')
         mock_juju.assert_called_with('remove-application', ('mondogb',))
 
     def test_status_until_always_runs_once(self):

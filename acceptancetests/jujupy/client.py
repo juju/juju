@@ -561,10 +561,10 @@ class ModelClient:
     bootstrap_replaces = frozenset(['agent-version'])
 
     # What feature flags have existed that CI used.
-    known_feature_flags = frozenset(['actions', 'migration'])
+    known_feature_flags = frozenset(['actions', 'migration', 'developer-mode'])
 
     # What feature flags are used by this version of the juju client.
-    used_feature_flags = frozenset(['migration'])
+    used_feature_flags = frozenset(['migration', 'developer-mode'])
 
     destroy_model_command = 'destroy-model'
 
@@ -1340,7 +1340,7 @@ class ModelClient:
             args = args + ('--revision', resvision)
         self.juju('upgrade-charm', args)
 
-    def remove_service(self, service):
+    def remove_application(self, service):
         self.juju('remove-application', (service,))
 
     @classmethod

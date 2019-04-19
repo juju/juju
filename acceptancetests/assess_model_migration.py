@@ -476,7 +476,7 @@ def ensure_migration_rolls_back_on_failure(source_client, dest_client):
         test_model.wait_for_started()
         assert_deployed_charm_is_responding(test_model)
         ensure_model_is_functional(test_model, application)
-    test_model.remove_service(application)
+    test_model.remove_application(application)
     log.info('SUCCESS: migration rolled back.')
 
 

@@ -51,7 +51,7 @@ def ensure_removing_primary_succeeds(client):
     assert_subordinate_unit_operational(
         test_model, primary_app_name='dummy-sink')
 
-    test_model.remove_service('dummy-source')
+    test_model.remove_application('dummy-source')
 
     # dummy-source must be removed
     assert_service_is_removed(test_model, 'dummy-source', timeout=180)

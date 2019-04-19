@@ -44,8 +44,8 @@ def test_disabled(client, command, args, include_e=True):
     try:
         if command == 'deploy':
             client.deploy(args)
-        elif command == 'remove-service':
-            client.remove_service(args)
+        elif command == 'remove-application':
+            client.remove_application(args)
         else:
             client.juju(command, args, include_e=include_e)
         raise JujuAssertionError()
@@ -89,7 +89,7 @@ def assess_block_remove_object(client, charm_series):
         ('-y', client.env.environment), include_e=False)
     # Adding and relating are not blocked.
     deploy_dummy_stack(client, charm_series)
-    test_disabled(client, 'remove-service', 'dummy-source')
+    test_disabled(client, 'remove-application', 'dummy-source')
     test_disabled(client, 'remove-unit', ('dummy-source/1',))
     test_disabled(client, 'remove-relation', ('dummy-source', 'dummy-sink'))
 
@@ -103,13 +103,13 @@ def assess_block_all_changes(client, charm_series):
         raise JujuAssertionError(block_list)
     test_disabled(client, 'add-relation', ('dummy-source', 'dummy-sink'))
     test_disabled(client, 'unexpose', ('dummy-sink',))
-    test_disabled(client, 'remove-service', 'dummy-sink')
+    test_disabled(client, 'remove-application', 'dummy-sink')
     client.enable_command(client.command_set_all)
     client.juju('unexpose', ('dummy-sink',))
     client.disable_command(client.command_set_all)
     test_disabled(client, 'expose', ('dummy-sink',))
     client.enable_command(client.command_set_all)
-    client.remove_service('dummy-sink')
+    client.remove_application('dummy-sink')
     client.wait_for_started()
     client.disable_command(client.command_set_all)
     test_disabled(client, 'deploy', ('dummy-sink',))
@@ -126,9 +126,9 @@ def assess_unblock(client, type):
     if block_list != make_block_list(client, []):
         raise JujuAssertionError(block_list)
     if type == client.destroy_model_command:
-        client.remove_service('dummy-source')
+        client.remove_application('dummy-source')
         client.wait_for_started()
-        client.remove_service('dummy-sink')
+        client.remove_application('dummy-sink')
         client.wait_for_started()
 
 
