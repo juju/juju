@@ -6,6 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -97,12 +98,27 @@ func setMinUnitsOps(app *Application, minUnits int) []txn.Op {
 	return ops
 }
 
+// doesMinUnitsExits checks if the minUnits doc exists in the database.
+func doesMinUnitsExist(unit *Unit) (bool, error) {
+	minUnits, closer := unit.st.db().GetCollection(minUnitsC)
+	defer closer()
+	var result bson.D
+	err := minUnits.FindId(unit.ApplicationName()).Select(bson.M{"_id": 1}).One(&result)
+	if err == nil {
+		return true, nil
+	} else if err == mgo.ErrNotFound {
+		return false, nil
+	} else {
+		return false, errors.Trace(err)
+	}
+}
+
 // minUnitsTriggerOp returns the operation required to increase the minimum
-// units revno for the application in MongoDB, ignoring the case of document not
-// existing. This is included in the operations performed when a unit is
+// units revno for the application in MongoDB. Note that this doesn't mean the
+// minimum number of units is changing, just the evaluation revno is being
+// incremented, so things maintaining stasis will wake up and respond.
+// This is included in the operations performed when a unit is
 // destroyed: if the document exists, then we need to update the Revno.
-// If the application does not require a minimum number of units, then the
-// operation is a noop.
 func minUnitsTriggerOp(st *State, applicationname string) txn.Op {
 	return txn.Op{
 		C:      minUnitsC,

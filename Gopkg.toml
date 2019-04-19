@@ -114,7 +114,7 @@
   name = "github.com/juju/romulus"
 
 [[constraint]]
-  revision = "472a3e8b2073fb3cd67c12d2bc5f3cd28e5f4116"
+  revision = "6570bd8f8541d15ce654437084f8edcd7b76637b"
   name = "github.com/juju/testing"
 
 [[constraint]]
@@ -343,8 +343,8 @@
   revision = "9b925afd677234e4146dde3cb1a11e187cbed64e"
 
 [[constraint]]
+  revision = "5f348e78887d8757a402c7bb81e707c3b244c6da"
   name = "github.com/juju/txn"
-  revision = "90cbb53292a84c397765581432d543d6faa404a4"
 
 [[override]]
   name = "github.com/juju/usso"
@@ -516,8 +516,8 @@
 
 [[constraint]]
   name = "gopkg.in/mgo.v2"
-  revision = "9ecfba03d10a21015af9bbd42aa0512dc0cf9514"
   source = "github.com/juju/mgo"
+  branch = "master"
 
 [[constraint]]
   name = "gopkg.in/natefinch/lumberjack.v2"

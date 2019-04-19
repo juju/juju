@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/peergrouper"
 )
 
 // dblogSuite tests that logs flow correctly from the machine and unit
@@ -139,23 +138,16 @@ func (s *dblogSuite) waitForLogs(c *gc.C, entityTag names.Tag) bool {
 // mongo on bionic to have issues, see note below.
 type debugLogDbSuite struct {
 	agenttest.AgentSuite
+	origReplicaSet bool
 }
 
 func (s *debugLogDbSuite) SetUpSuite(c *gc.C) {
-	// Restart mongod with the replicaset enabled.
-	mongod := jujutesting.MgoServer
-	mongod.Params = []string{"--replSet", "juju"}
-	mongod.Restart()
-
-	// Initiate the replicaset.
-	info := mongod.DialInfo()
-	args := peergrouper.InitiateMongoParams{
-		DialInfo:       info,
-		MemberHostPort: mongod.Addr(),
+	// Ensure mongod has replicaset enabled.
+	s.origReplicaSet = jujutesting.MgoServer.EnableReplicaSet
+	if !s.origReplicaSet {
+		jujutesting.MgoServer.EnableReplicaSet = true
+		jujutesting.MgoServer.Restart()
 	}
-	err := peergrouper.InitiateMongoServer(args)
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.AgentSuite.SetUpSuite(c)
 }
 
@@ -163,10 +155,10 @@ func (s *debugLogDbSuite) TearDownSuite(c *gc.C) {
 	// Restart mongod without the replicaset enabled so as not to
 	// affect other tests that rely on this mongod instance in this
 	// package.
-	mongod := jujutesting.MgoServer
-	mongod.Params = []string{}
-	mongod.Restart()
-
+	if !s.origReplicaSet {
+		jujutesting.MgoServer.EnableReplicaSet = false
+		jujutesting.MgoServer.Restart()
+	}
 	s.AgentSuite.TearDownSuite(c)
 }
 
@@ -184,7 +176,7 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 	defer dbLogger.Close()
 
 	t := time.Date(2015, 6, 23, 13, 8, 49, 0, time.UTC)
-	dbLogger.Log([]state.LogRecord{{
+	err := dbLogger.Log([]state.LogRecord{{
 		Time:     t,
 		Entity:   names.NewMachineTag("99"),
 		Version:  version.Current,
@@ -201,6 +193,7 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 		Level:    loggo.ERROR,
 		Message:  "no it isn't",
 	}})
+	c.Assert(err, jc.ErrorIsNil)
 
 	messages := make(chan common.LogMessage)
 	go func(numMessages int) {
@@ -241,7 +234,7 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 	})
 
 	// Now write and observe another log. This should be read from the oplog.
-	dbLogger.Log([]state.LogRecord{{
+	err = dbLogger.Log([]state.LogRecord{{
 		Time:     t.Add(2 * time.Second),
 		Entity:   names.NewMachineTag("99"),
 		Version:  version.Current,
@@ -258,6 +251,7 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 		Location:  "no.go:3",
 		Message:   "beep beep",
 	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // NOTE: do not merge with debugLogDbSuite1
@@ -276,7 +270,7 @@ func (s *debugLogDbSuite2) TestLogsUsesStartTime(c *gc.C) {
 	t2 := time.Date(2015, 6, 23, 13, 8, 51, 50, time.UTC)
 	t3 := t1.Add(2 * time.Second)
 	t4 := t1.Add(4 * time.Second)
-	dbLogger.Log([]state.LogRecord{{
+	err := dbLogger.Log([]state.LogRecord{{
 		Time:     t1,
 		Entity:   entity,
 		Version:  version,
@@ -309,6 +303,7 @@ func (s *debugLogDbSuite2) TestLogsUsesStartTime(c *gc.C) {
 		Level:    loggo.WARNING,
 		Message:  "cold war kids",
 	}})
+	c.Assert(err, jc.ErrorIsNil)
 
 	client := s.APIState.Client()
 	logMessages, err := client.WatchDebugLog(common.DebugLogParams{

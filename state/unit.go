@@ -611,6 +611,9 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	// lose much time and (2) by maintaining this restriction, I can reduce
 	// the number of tests that have to change and defer that improvement to
 	// its own CL.
+
+	// if the minUnits document exists, we need to increment the revno so that
+	// it is obvious the min units count is changing.
 	minUnitsOp := minUnitsTriggerOp(op.unit.st, op.unit.ApplicationName())
 	cleanupOp := newCleanupOp(cleanupDyingUnit, op.unit.doc.Name, op.DestroyStorage, op.Force)
 
@@ -638,7 +641,15 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 		if dyingErr != nil {
 			op.AddError(errors.Errorf("force destroying dying unit %v despite error %v", op.unit.Name(), dyingErr))
 		}
-		return []txn.Op{setDyingOp, cleanupOp, minUnitsOp}, nil
+		ops := []txn.Op{setDyingOp, cleanupOp}
+		minUnitsExists, err := doesMinUnitsExist(op.unit)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if minUnitsExists {
+			ops = append(ops, minUnitsOp)
+		}
+		return ops, nil
 	}
 	if op.unit.doc.Principal != "" {
 		return setDyingOps(nil)

@@ -199,6 +199,13 @@ func (schema CollectionSchema) Create(
 			if err := createCollection(rawCollection, spec); err != nil {
 				return mongo.MaybeUnauthorizedf(err, "cannot create collection %q", name)
 			}
+		} else {
+			// With server-side transactions, we need to create all the collections
+			// outside of a transaction (we don't want to create the collection
+			// as a side-effect.)
+			if err := createCollection(rawCollection, &mgo.CollectionInfo{}); err != nil {
+				return mongo.MaybeUnauthorizedf(err, "cannot create collection %q", name)
+			}
 		}
 		for _, index := range info.indexes {
 			if err := rawCollection.EnsureIndex(index); err != nil {
@@ -242,6 +249,10 @@ type database struct {
 	// resulting from Copy.
 	ownSession bool
 
+	// serverSideTransactions can be set to request that we use server-side
+	// transactions instead of client-side transactions when applying changes
+	serverSideTransactions bool
+
 	// runTransactionObserver is passed on to txn.TransactionRunner, to be
 	// invoked after calls to Run and RunTransaction.
 	runTransactionObserver RunTransactionObserverFunc
@@ -257,12 +268,13 @@ type RunTransactionObserverFunc func(dbName, modelUUID string, ops []txn.Op, err
 func (db *database) copySession(modelUUID string) (*database, SessionCloser) {
 	session := db.raw.Session.Copy()
 	return &database{
-		raw:        db.raw.With(session),
-		schema:     db.schema,
-		modelUUID:  modelUUID,
-		runner:     db.runner,
-		ownSession: true,
-		clock:      db.clock,
+		raw:                    db.raw.With(session),
+		schema:                 db.schema,
+		modelUUID:              modelUUID,
+		runner:                 db.runner,
+		ownSession:             true,
+		serverSideTransactions: db.serverSideTransactions,
+		clock:                  db.clock,
 	}, session.Close
 }
 
@@ -356,6 +368,7 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 			Database:               raw,
 			RunTransactionObserver: observer,
 			Clock:                  db.clock,
+			ServerSideTransactions: db.serverSideTransactions,
 		}
 		runner = jujutxn.NewRunner(params)
 	}

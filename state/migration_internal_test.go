@@ -196,6 +196,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// Volume attachment plans are ignored if missing. A missing collection
 		// simply defaults to the old code path.
 		volumeAttachmentPlanC,
+
+		// Resources are transferred separately
+		"storedResources",
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE

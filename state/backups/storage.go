@@ -206,7 +206,10 @@ func newStorageDBWrapper(db *mgo.Database, metaColl, modelUUID string) *storageD
 	db = db.With(session)
 
 	coll := db.C(metaColl)
-	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
+	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{
+		Database:               db,
+		ServerSideTransactions: false,
+	})
 	dbWrap := storageDBWrapper{
 		session:   session,
 		db:        db,
@@ -285,7 +288,10 @@ func (b *storageDBWrapper) Copy() *storageDBWrapper {
 
 	coll := b.metaColl.With(session)
 	db := coll.Database
-	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
+	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{
+		Database:               db,
+		ServerSideTransactions: false,
+	})
 	dbWrap := storageDBWrapper{
 		session:   session,
 		db:        db,
