@@ -107,7 +107,7 @@ func (c *Controller) loop() error {
 			}
 
 			if err != nil {
-				return errors.Trace(err)
+				logger.Errorf("processing cache change: %s", err.Error())
 			}
 		}
 	}
