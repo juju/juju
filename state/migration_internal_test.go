@@ -197,8 +197,8 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// simply defaults to the old code path.
 		volumeAttachmentPlanC,
 
-                // Resources are transferred separately
-                "storedResources",
+		// Resources are transferred separately
+		"storedResources",
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
