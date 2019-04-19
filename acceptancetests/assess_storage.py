@@ -329,7 +329,7 @@ def assess_storage(client, charm_series):
     expected = make_expected_ls(client, 'data/0', 'dummy-storage-fs/0')
     check_storage_list(client, expected)
     log.info('Filesystem rootfs PASSED')
-    client.remove_service('dummy-storage-fs')
+    client.remove_application('dummy-storage-fs')
 
     log.info('Assessing block loop disk 1')
     assess_deploy_storage(client, charm_series,
@@ -343,7 +343,7 @@ def assess_storage(client, charm_series):
     expected_block2 = make_expected_disk(client, 2, 'dummy-storage-lp/0')
     check_storage_list(client, expected_block2)
     log.info('Block loop disk 2 PASSED')
-    client.remove_service('dummy-storage-lp')
+    client.remove_application('dummy-storage-lp')
 
     log.info('Assessing filesystem tmpfs')
     assess_deploy_storage(client, charm_series,
@@ -351,7 +351,7 @@ def assess_storage(client, charm_series):
     expected = make_expected_ls(client, 'data/3', 'dummy-storage-tp/0')
     check_storage_list(client, expected)
     log.info('Filesystem tmpfs PASSED')
-    client.remove_service('dummy-storage-tp')
+    client.remove_application('dummy-storage-tp')
 
     log.info('Assessing filesystem')
     assess_deploy_storage(client, charm_series,
@@ -360,7 +360,7 @@ def assess_storage(client, charm_series):
     check_storage_list(client, expected)
     log.info('Filesystem tmpfs PASSED')
 
-    client.remove_service('dummy-storage-np')
+    client.remove_application('dummy-storage-np')
     # persistent storage feature requires Juju 2.3+
     # data/4 is persistent in Juju 2.3+, detach is required before removal,
     # it needs to be removed otherwise will interfere the next test result.
@@ -378,7 +378,7 @@ def assess_storage(client, charm_series):
     expected = make_expected_ls(client, 'data/5', 'dummy-storage-mp/0')
     check_storage_list(client, expected)
     log.info('Multiple filesystem, block, rootfs, loop PASSED')
-    client.remove_service('dummy-storage-mp')
+    client.remove_application('dummy-storage-mp')
     log.info('All storage tests PASSED')
 
 

@@ -201,10 +201,10 @@ class AssessNetworkHealth:
         log.info('Cleaning up deployed test charms and models.')
         if self.expose_test_charms:
             for charm in self.expose_test_charms:
-                client.remove_service(charm)
+                client.remove_application(charm)
             return
         for series in self.existing_series:
-            client.remove_service('network-health-{}'.format(series))
+            client.remove_application('network-health-{}'.format(series))
 
     def get_unit_info(self, client):
         """Gets the machine or container interface info.
@@ -375,7 +375,7 @@ class AssessNetworkHealth:
         """
         for series in self.existing_series:
             alias = 'network-health-{}'.format(series)
-            client.remove_service(alias)
+            client.remove_application(alias)
         for series in self.existing_series:
             alias = 'network-health-{}'.format(series)
             client.wait_for(WaitApplicationNotPresent(alias))

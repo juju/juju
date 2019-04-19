@@ -1085,6 +1085,10 @@ class BootstrapManager:
                         raise
                 dump_env_logs_known_hosts(
                     client, artifacts_dir, runtime_config, known_hosts)
+                # Add in a db dump for good measure.
+                dump_db = os.path.join(artifacts_dir, "dump-db.yaml")
+                client.juju('dump-db', ('--output', dump_db))
+
 
     @contextmanager
     def top_context(self):
