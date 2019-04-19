@@ -715,7 +715,7 @@ class ModelClient:
         """
         self.env = env
         if _backend is None:
-            _backend = self.default_backend(full_path, version, set(), debug,
+            _backend = self.default_backend(full_path, version, frozenset(['developer-mode']), debug,
                                             soft_deadline)
         self._backend = _backend
         if version != _backend.version:
