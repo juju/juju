@@ -84,7 +84,7 @@ func (c *Controller) loop() error {
 			case ModelChange:
 				c.updateModel(ch)
 			case RemoveModel:
-				c.removeModel(ch)
+				err = c.removeModel(ch)
 			case ApplicationChange:
 				c.updateApplication(ch)
 			case RemoveApplication:
@@ -171,10 +171,18 @@ func (c *Controller) updateModel(ch ModelChange) {
 }
 
 // removeModel removes the model from the cache.
-func (c *Controller) removeModel(ch RemoveModel) {
+func (c *Controller) removeModel(ch RemoveModel) error {
 	c.mu.Lock()
-	delete(c.models, ch.ModelUUID)
-	c.mu.Unlock()
+	defer c.mu.Unlock()
+
+	mod, ok := c.models[ch.ModelUUID]
+	if ok {
+		if err := mod.evict(); err != nil {
+			return errors.Trace(err)
+		}
+		delete(c.models, ch.ModelUUID)
+	}
+	return nil
 }
 
 // updateApplication adds or updates the application in the specified model.
