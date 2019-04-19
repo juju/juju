@@ -15,9 +15,9 @@ import (
 	"github.com/juju/juju/core/instance"
 )
 
-func newMachine(model *Model, res *resident) *Machine {
+func newMachine(model *Model, res *Resident) *Machine {
 	m := &Machine{
-		resident: res,
+		Resident: res,
 		model:    model,
 	}
 	return m
@@ -25,9 +25,9 @@ func newMachine(model *Model, res *resident) *Machine {
 
 // Machine represents a machine in a model.
 type Machine struct {
-	// resident identifies the machine as a type-agnostic cached entity
+	// Resident identifies the machine as a type-agnostic cached entity
 	// and tracks resources that it is responsible for cleaning up.
-	*resident
+	*Resident
 
 	model *Model
 	mu    sync.Mutex
@@ -182,7 +182,7 @@ func (m *Machine) WatchApplicationLXDProfiles() (*MachineAppLXDProfileWatcher, e
 		modeler:      m.model,
 		metrics:      m.model.metrics,
 		hub:          m.model.hub,
-		resident:     m.resident,
+		resident:     m.Resident,
 	})
 	return w, nil
 }

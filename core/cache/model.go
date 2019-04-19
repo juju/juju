@@ -23,9 +23,9 @@ const (
 	modelUnitLXDProfileChange = "model-unit-lxd-profile-change"
 )
 
-func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *resident) *Model {
+func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *Model {
 	m := &Model{
-		resident: res,
+		Resident: res,
 		metrics:  metrics,
 		// TODO: consider a separate hub per model for better scalability
 		// when many models.
@@ -41,9 +41,9 @@ func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *resident) *
 // Model is a cached model in the controller. The model is kept up to
 // date with changes flowing into the cached controller.
 type Model struct {
-	// resident identifies the model as a type-agnostic cached entity
+	// Resident identifies the model as a type-agnostic cached entity
 	// and tracks resources that it is responsible for cleaning up.
-	*resident
+	*Resident
 
 	metrics *ControllerGauges
 	hub     *pubsub.SimpleHub
@@ -77,7 +77,7 @@ func (m *Model) Name() string {
 
 // WatchConfig creates a watcher for the model config.
 func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
-	return newConfigWatcher(keys, m.hashCache, m.hub, m.topic(modelConfigChange), m.resident)
+	return newConfigWatcher(keys, m.hashCache, m.hub, m.topic(modelConfigChange), m.Resident)
 }
 
 // Report returns information that is used in the dependency engine report.

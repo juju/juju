@@ -68,17 +68,26 @@ func (s *ControllerSuite) TestAddModel(c *gc.C) {
 			"machine-count":     0,
 			"unit-count":        0,
 		}})
+
+	// The model has the first ID and is registered.
+	mod, err := controller.Model(modelChange.ModelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AssertResident(c, mod.CacheId(), true)
 }
 
 func (s *ControllerSuite) TestRemoveModel(c *gc.C) {
 	controller, events := s.new(c)
 	s.processChange(c, modelChange, events)
 
+	mod, err := controller.Model(modelChange.ModelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
 	remove := cache.RemoveModel{ModelUUID: modelChange.ModelUUID}
 	s.processChange(c, remove, events)
 
 	c.Check(controller.ModelUUIDs(), gc.HasLen, 0)
 	c.Check(controller.Report(), gc.HasLen, 0)
+	s.AssertResident(c, mod.CacheId(), false)
 }
 
 func (s *ControllerSuite) TestAddApplication(c *gc.C) {
@@ -92,11 +101,18 @@ func (s *ControllerSuite) TestAddApplication(c *gc.C) {
 	app, err := mod.Application(appChange.Name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(app, gc.NotNil)
+
+	s.AssertResident(c, app.CacheId(), true)
 }
 
 func (s *ControllerSuite) TestRemoveApplication(c *gc.C) {
 	controller, events := s.new(c)
 	s.processChange(c, appChange, events)
+
+	mod, err := controller.Model(modelChange.ModelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	app, err := mod.Application(appChange.Name)
+	c.Assert(err, jc.ErrorIsNil)
 
 	remove := cache.RemoveApplication{
 		ModelUUID: modelChange.ModelUUID,
@@ -104,9 +120,9 @@ func (s *ControllerSuite) TestRemoveApplication(c *gc.C) {
 	}
 	s.processChange(c, remove, events)
 
-	mod, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mod.Report()["application-count"], gc.Equals, 0)
+	s.AssertResident(c, app.CacheId(), false)
 }
 
 func (s *ControllerSuite) TestAddCharm(c *gc.C) {
@@ -117,14 +133,20 @@ func (s *ControllerSuite) TestAddCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mod.Report()["charm-count"], gc.Equals, 1)
 
-	app, err := mod.Charm(charmChange.CharmURL)
+	ch, err := mod.Charm(charmChange.CharmURL)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(app, gc.NotNil)
+	c.Check(ch, gc.NotNil)
+	s.AssertResident(c, ch.CacheId(), true)
 }
 
 func (s *ControllerSuite) TestRemoveCharm(c *gc.C) {
 	controller, events := s.new(c)
 	s.processChange(c, charmChange, events)
+
+	mod, err := controller.Model(modelChange.ModelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	ch, err := mod.Charm(charmChange.CharmURL)
+	c.Assert(err, jc.ErrorIsNil)
 
 	remove := cache.RemoveCharm{
 		ModelUUID: modelChange.ModelUUID,
@@ -132,9 +154,8 @@ func (s *ControllerSuite) TestRemoveCharm(c *gc.C) {
 	}
 	s.processChange(c, remove, events)
 
-	mod, err := controller.Model(modelChange.ModelUUID)
-	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mod.Report()["charm-count"], gc.Equals, 0)
+	s.AssertResident(c, ch.CacheId(), false)
 }
 
 func (s *ControllerSuite) TestAddMachine(c *gc.C) {
@@ -145,14 +166,20 @@ func (s *ControllerSuite) TestAddMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mod.Report()["machine-count"], gc.Equals, 1)
 
-	app, err := mod.Machine(machineChange.Id)
+	machine, err := mod.Machine(machineChange.Id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(app, gc.NotNil)
+	c.Check(machine, gc.NotNil)
+	s.AssertResident(c, machine.CacheId(), true)
 }
 
 func (s *ControllerSuite) TestRemoveMachine(c *gc.C) {
 	controller, events := s.new(c)
 	s.processChange(c, machineChange, events)
+
+	mod, err := controller.Model(machineChange.ModelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := mod.Machine(machineChange.Id)
+	c.Assert(err, jc.ErrorIsNil)
 
 	remove := cache.RemoveMachine{
 		ModelUUID: machineChange.ModelUUID,
@@ -160,9 +187,8 @@ func (s *ControllerSuite) TestRemoveMachine(c *gc.C) {
 	}
 	s.processChange(c, remove, events)
 
-	mod, err := controller.Model(machineChange.ModelUUID)
-	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mod.Report()["machine-count"], gc.Equals, 0)
+	s.AssertResident(c, machine.CacheId(), false)
 }
 
 func (s *ControllerSuite) TestAddUnit(c *gc.C) {
@@ -173,14 +199,20 @@ func (s *ControllerSuite) TestAddUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mod.Report()["unit-count"], gc.Equals, 1)
 
-	app, err := mod.Unit(unitChange.Name)
+	unit, err := mod.Unit(unitChange.Name)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(app, gc.NotNil)
+	c.Check(unit, gc.NotNil)
+	s.AssertResident(c, unit.CacheId(), true)
 }
 
 func (s *ControllerSuite) TestRemoveUnit(c *gc.C) {
 	controller, events := s.new(c)
 	s.processChange(c, unitChange, events)
+
+	mod, err := controller.Model(modelChange.ModelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	unit, err := mod.Unit(unitChange.Name)
+	c.Assert(err, jc.ErrorIsNil)
 
 	remove := cache.RemoveUnit{
 		ModelUUID: modelChange.ModelUUID,
@@ -188,14 +220,13 @@ func (s *ControllerSuite) TestRemoveUnit(c *gc.C) {
 	}
 	s.processChange(c, remove, events)
 
-	mod, err := controller.Model(modelChange.ModelUUID)
-	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mod.Report()["unit-count"], gc.Equals, 0)
+	s.AssertResident(c, unit.CacheId(), false)
 }
 
 func (s *ControllerSuite) new(c *gc.C) (*cache.Controller, <-chan interface{}) {
 	events := s.captureEvents(c)
-	controller, err := cache.NewController(s.config)
+	controller, err := s.NewController(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, controller) })
 	return controller, events

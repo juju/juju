@@ -43,7 +43,7 @@ func (s *residentSuite) TestManagerNewIdentifiedResources(c *gc.C) {
 	// and that they are registered with the manager.
 	c.Check(r1.id, gc.Equals, uint64(1))
 	c.Check(r2.id, gc.Equals, uint64(2))
-	c.Check(s.manager.residents, gc.DeepEquals, map[uint64]*resident{1: r1, 2: r2})
+	c.Check(s.manager.residents, gc.DeepEquals, map[uint64]*Resident{1: r1, 2: r2})
 }
 
 func (s *residentSuite) TestManagerDeregister(c *gc.C) {

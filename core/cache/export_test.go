@@ -7,12 +7,6 @@ var (
 	NewApplication = newApplication
 )
 
-// Expose Remove* for testing.
-
-func (m *Model) RemoveMachine(details RemoveMachine) {
-	m.removeMachine(details)
-}
-
 // Expose SetDetails for testing.
 
 func (a *Application) SetDetails(details ApplicationChange) {
@@ -25,12 +19,16 @@ func (m *Model) SetDetails(details ModelChange) {
 
 // Expose Remove* for testing
 
-func (m *Model) RemoveCharm(ch RemoveCharm) {
-	m.removeCharm(ch)
+func (m *Model) RemoveCharm(ch RemoveCharm) error {
+	return m.removeCharm(ch)
 }
 
-func (m *Model) RemoveUnit(ch RemoveUnit) {
-	m.removeUnit(ch)
+func (m *Model) RemoveUnit(ch RemoveUnit) error {
+	return m.removeUnit(ch)
+}
+
+func (m *Model) RemoveMachine(details RemoveMachine) error {
+	return m.removeMachine(details)
 }
 
 // Expose Update* for testing.

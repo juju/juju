@@ -55,11 +55,17 @@ type Controller struct {
 // The changes channel is what is used to supply the cache with the changes
 // in order for the cache to be kept up to date.
 func NewController(config ControllerConfig) (*Controller, error) {
+	c, err := newController(config, newResidentManager())
+	return c, errors.Trace(err)
+}
+
+// newController is the internal constructor that allows supply of a manager.
+func newController(config ControllerConfig, manager *residentManager) (*Controller, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	c := &Controller{
-		manager: newResidentManager(),
+		manager: manager,
 		config:  config,
 		models:  make(map[string]*Model),
 		hub: pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{

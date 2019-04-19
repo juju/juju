@@ -16,9 +16,9 @@ const (
 	applicationConfigChange = "application-config-change"
 )
 
-func newApplication(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *resident) *Application {
+func newApplication(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *Application {
 	a := &Application{
-		resident: res,
+		Resident: res,
 		metrics:  metrics,
 		hub:      hub,
 	}
@@ -27,9 +27,9 @@ func newApplication(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *resid
 
 // Application represents an application in a model.
 type Application struct {
-	// resident identifies the application as a type-agnostic cached entity
+	// Resident identifies the application as a type-agnostic cached entity
 	// and tracks resources that it is responsible for cleaning up.
-	*resident
+	*Resident
 
 	// Link to model?
 	metrics *ControllerGauges
@@ -62,7 +62,7 @@ func (a *Application) Config() map[string]interface{} {
 
 // WatchConfig creates a watcher for the application config.
 func (a *Application) WatchConfig(keys ...string) *ConfigWatcher {
-	w := newConfigWatcher(keys, a.hashCache, a.hub, a.topic(applicationConfigChange), a.resident)
+	w := newConfigWatcher(keys, a.hashCache, a.hub, a.topic(applicationConfigChange), a.Resident)
 	return w
 }
 

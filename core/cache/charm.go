@@ -11,9 +11,9 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 )
 
-func newCharm(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *resident) *Charm {
+func newCharm(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *Charm {
 	c := &Charm{
-		resident: res,
+		Resident: res,
 		metrics:  metrics,
 		hub:      hub,
 	}
@@ -22,9 +22,9 @@ func newCharm(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *resident) *
 
 // Charm represents an charm in a model.
 type Charm struct {
-	// resident identifies the charm as a type-agnostic cached entity
+	// Resident identifies the charm as a type-agnostic cached entity
 	// and tracks resources that it is responsible for cleaning up.
-	*resident
+	*Resident
 
 	// Link to model?
 	metrics *ControllerGauges

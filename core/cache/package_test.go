@@ -32,8 +32,17 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Manager = newResidentManager()
 }
 
-func (s *BaseSuite) NewResident() *resident {
+func (s *BaseSuite) NewController(config ControllerConfig) (*Controller, error) {
+	return newController(config, s.Manager)
+}
+
+func (s *BaseSuite) NewResident() *Resident {
 	return s.Manager.new()
+}
+
+func (s *BaseSuite) AssertResident(c *gc.C, id uint64, expectPresent bool) {
+	_, present := s.Manager.residents[id]
+	c.Assert(present, gc.Equals, expectPresent)
 }
 
 // entitySuite is the base suite for testing cached entities

@@ -115,7 +115,7 @@ type ConfigWatcher struct {
 // with a baseline hash of their config values from the input hash cache.
 // As per the cache requirements, hashes are only generated from sorted keys.
 func newConfigWatcher(
-	keys []string, cache *hashCache, hub *pubsub.SimpleHub, topic string, res *resident,
+	keys []string, cache *hashCache, hub *pubsub.SimpleHub, topic string, res *Resident,
 ) *ConfigWatcher {
 	sort.Strings(keys)
 

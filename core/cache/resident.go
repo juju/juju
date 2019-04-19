@@ -13,7 +13,7 @@ import (
 )
 
 // The cached controller includes a "residentManager", which supplies new
-// cache "resident" instances, monitors their life cycles and is the source
+// cache "Resident" instances, monitors their life cycles and is the source
 // of unique identifiers for residents and resources.
 // All cached entities aside from the parent controller should include
 // the "resident" type as a base.
@@ -33,10 +33,13 @@ import (
 // counter supplies monotonically increasing unique identifiers.
 type counter uint64
 
+// next returns the next identifier, incrementing the counter.
 func (c *counter) next() uint64 {
 	return atomic.AddUint64((*uint64)(c), 1)
 }
 
+// last returns the current value of the counter.
+// Used for testing and diagnostics.
 func (c *counter) last() uint64 {
 	return atomic.LoadUint64((*uint64)(c))
 }
@@ -47,7 +50,7 @@ type residentManager struct {
 	residentCount *counter
 	resourceCount *counter
 
-	residents map[uint64]*resident
+	residents map[uint64]*Resident
 }
 
 func newResidentManager() *residentManager {
@@ -57,16 +60,16 @@ func newResidentManager() *residentManager {
 	return &residentManager{
 		residentCount: &residentC,
 		resourceCount: &resourceC,
-		residents:     make(map[uint64]*resident),
+		residents:     make(map[uint64]*Resident),
 	}
 }
 
 // new creates a uniquely identified type-agnostic cache resident,
 // registers it in the internal map, then returns it.
-func (m *residentManager) new() *resident {
+func (m *residentManager) new() *Resident {
 	id := m.residentCount.next()
 
-	r := &resident{
+	r := &Resident{
 		id:             id,
 		deregister:     func() { m.deregister(id) },
 		nextResourceId: func() uint64 { return m.resourceCount.next() },
@@ -84,8 +87,8 @@ func (m *residentManager) deregister(id uint64) {
 	delete(m.residents, id)
 }
 
-// resident is the base class for entities managed in the cache.
-type resident struct {
+// Resident is the base class for entities managed in the cache.
+type Resident struct {
 	// id uniquely identifies this resident among all
 	// that were supplied by the same resident manager.
 	id uint64
@@ -108,12 +111,17 @@ type resident struct {
 	mu      sync.Mutex
 }
 
+// CacheId returns the unique ID for this cache resident.
+func (r *Resident) CacheId() uint64 {
+	return r.id
+}
+
 // registerWorker is used to indicate that the input worker needs to be stopped
 // when this resident is evicted from the cache.
 // The deregistration method is returned.
 // TODO (manadart 2019-04-16): Handle case where registration is called
 // on a stale resident.
-func (r *resident) registerWorker(w worker.Worker) func() {
+func (r *Resident) registerWorker(w worker.Worker) func() {
 	id := r.nextResourceId()
 	r.mu.Lock()
 	r.workers[id] = w
@@ -123,7 +131,7 @@ func (r *resident) registerWorker(w worker.Worker) func() {
 
 // evict cleans up any resources created by this resident,
 // then deregisters it.
-func (r *resident) evict() error {
+func (r *Resident) evict() error {
 	if err := r.cleanup(); err != nil {
 		return errors.Trace(err)
 	}
@@ -134,13 +142,13 @@ func (r *resident) evict() error {
 // cleanup performs all resource maintenance associated with a resident
 // being evicted from the cache.
 // Note that this method does not deregister the resident from the manager.
-func (r *resident) cleanup() error {
+func (r *Resident) cleanup() error {
 	return errors.Annotatef(r.cleanupWorkers(), "cleaning up cache resident %d:", r.id)
 }
 
 // cleanupWorkers calls "Stop" on all registered workers
 // and removes them from the internal map.
-func (r *resident) cleanupWorkers() error {
+func (r *Resident) cleanupWorkers() error {
 	var errs []string
 	for id := range r.workers {
 		if err := r.cleanupWorker(id); err != nil {
@@ -158,7 +166,7 @@ func (r *resident) cleanupWorkers() error {
 // If no such worker is found, an error is returned.
 // Note that the deregistration method should have been added the the worker's
 // tomb cleanup method - stopping the worker cleanly is enough to deregister.
-func (r *resident) cleanupWorker(id uint64) error {
+func (r *Resident) cleanupWorker(id uint64) error {
 	w, ok := r.workers[id]
 	if !ok {
 		return errors.Errorf("worker %d not found", id)
@@ -173,7 +181,7 @@ func (r *resident) cleanupWorker(id uint64) error {
 // deregisterWorker informs the resident that we no longer care about this
 // worker. We expect this call to come from workers stopped by other actors
 // other than the resident, so we ensure Goroutine safety.
-func (r *resident) deregisterWorker(id uint64) {
+func (r *Resident) deregisterWorker(id uint64) {
 	r.mu.Lock()
 	delete(r.workers, id)
 	r.mu.Unlock()

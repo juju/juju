@@ -45,7 +45,7 @@ type MachineAppLXDProfileConfig struct {
 	modeler      MachineAppModeler
 	metrics      *ControllerGauges
 	hub          *pubsub.SimpleHub
-	resident     *resident
+	resident     *Resident
 }
 
 func newMachineAppLXDProfileWatcher(config MachineAppLXDProfileConfig) *MachineAppLXDProfileWatcher {

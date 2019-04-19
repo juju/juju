@@ -11,9 +11,9 @@ import (
 
 // Unit represents a unit in a cached model.
 type Unit struct {
-	// resident identifies the unit as a type-agnostic cached entity
+	// Resident identifies the unit as a type-agnostic cached entity
 	// and tracks resources that it is responsible for cleaning up.
-	*resident
+	*Resident
 
 	metrics *ControllerGauges
 	hub     *pubsub.SimpleHub
@@ -23,9 +23,9 @@ type Unit struct {
 	configHash string
 }
 
-func newUnit(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *resident) *Unit {
+func newUnit(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *Unit {
 	u := &Unit{
-		resident: res,
+		Resident: res,
 		metrics:  metrics,
 		hub:      hub,
 	}
