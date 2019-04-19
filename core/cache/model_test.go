@@ -115,7 +115,15 @@ func (s *ModelSuite) TestConfigWatcherOneValue(c *gc.C) {
 func (s *ModelSuite) TestConfigWatcherOneValueOtherChange(c *gc.C) {
 	m := s.NewModel(modelChange)
 	w := m.WatchConfig("key")
-	defer workertest.CleanKill(c, w)
+
+	// The worker is the first and only resource (1).
+	resourceId := uint64(1)
+	s.AssertWorkerResource(c, m.Resident, resourceId, true)
+	defer func() {
+		workertest.CleanKill(c, w)
+		s.AssertWorkerResource(c, m.Resident, resourceId, false)
+	}()
+
 	wc := NewNotifyWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange()
@@ -180,7 +188,12 @@ func (s *ControllerSuite) TestWatchMachineStops(c *gc.C) {
 	wc := NewStringsWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange([]string{machineChange.Id})
+
+	// The worker is the first and only resource (1).
+	resourceId := uint64(1)
+	s.AssertWorkerResource(c, m.Resident, resourceId, true)
 	wc.AssertStops()
+	s.AssertWorkerResource(c, m.Resident, resourceId, false)
 }
 
 func (s *ControllerSuite) TestWatchMachineAddMachine(c *gc.C) {

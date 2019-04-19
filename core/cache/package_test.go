@@ -72,6 +72,17 @@ func (s *EntitySuite) NewModel(details ModelChange) *Model {
 	return m
 }
 
+func (s *EntitySuite) NewApplication(details ApplicationChange) *Application {
+	a := newApplication(s.Gauges, s.Hub, s.NewResident())
+	a.SetDetails(details)
+	return a
+}
+
+func (s *BaseSuite) AssertWorkerResource(c *gc.C, resident *Resident, id uint64, expectPresent bool) {
+	_, present := resident.workers[id]
+	c.Assert(present, gc.Equals, expectPresent)
+}
+
 type ImportSuite struct{}
 
 var _ = gc.Suite(&ImportSuite{})

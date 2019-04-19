@@ -29,7 +29,13 @@ func (s *lxdProfileWatcherSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcher(c *gc.C) {
-	defer workertest.CleanKill(c, s.assertStartOneMachineWatcher(c))
+	w := s.assertStartOneMachineWatcher(c)
+
+	// The worker is the first and only resource (1).
+	resourceId := uint64(1)
+	s.AssertWorkerResource(c, s.machine0.Resident, resourceId, true)
+	workertest.CleanKill(c, w)
+	s.AssertWorkerResource(c, s.machine0.Resident, resourceId, false)
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherError(c *gc.C) {
@@ -154,11 +160,11 @@ func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherRemoveUnitWithPr
 	s.assertChangeValidateMetrics(c, s.wc0.AssertNoChange, 0, 0, 1)
 
 	// Remove the original unit which has a profile.
-	s.model.RemoveUnit(
+	c.Assert(s.model.RemoveUnit(
 		cache.RemoveUnit{
 			ModelUUID: "model-uuid",
 			Name:      "application-name/0",
-		})
+		}), jc.ErrorIsNil)
 	s.assertChangeValidateMetrics(c, s.wc0.AssertOneChange, 0, 1, 1)
 }
 
@@ -168,7 +174,7 @@ func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherRemoveOnlyUnit(c
 		ModelUUID: "model-uuid",
 		Name:      "application-name/0",
 	}
-	s.model.RemoveUnit(ru)
+	c.Assert(s.model.RemoveUnit(ru), jc.ErrorIsNil)
 	s.assertChangeValidateMetrics(c, s.wc0.AssertNoChange, 0, 0, 1)
 }
 
@@ -178,7 +184,7 @@ func (s *lxdProfileWatcherSuite) TestMachineAppLXDProfileWatcherRemoveUnitWrongM
 		ModelUUID: "model-uuid",
 		Name:      "do-not-watch/2",
 	}
-	s.model.RemoveUnit(ru)
+	c.Assert(s.model.RemoveUnit(ru), jc.ErrorIsNil)
 	s.assertChangeValidateMetrics(c, s.wc0.AssertNoChange, 0, 0, 0)
 }
 

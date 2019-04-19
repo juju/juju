@@ -118,7 +118,12 @@ func (s *machineSuite) TestUnitsTwoMachines(c *gc.C) {
 
 func (s *machineSuite) TestWatchContainersStops(c *gc.C) {
 	s.setupMachine0WithContainerWatcher(c, false)
+
+	// The worker is the first and only resource (1).
+	resourceId := uint64(1)
+	s.AssertWorkerResource(c, s.machine0.Resident, resourceId, true)
 	s.wc0.AssertStops()
+	s.AssertWorkerResource(c, s.machine0.Resident, resourceId, false)
 }
 
 func (s *machineSuite) TestWatchContainersStartWithContainer(c *gc.C) {
@@ -153,7 +158,7 @@ func (s *machineSuite) TestWatchContainersOnlyThisMachinesRemoveContainers(c *gc
 		ModelUUID: modelChange.ModelUUID,
 		Id:        "1/lxd/0",
 	}
-	s.model.RemoveMachine(rm)
+	c.Assert(s.model.RemoveMachine(rm), jc.ErrorIsNil)
 	s.wc0.AssertNoChange()
 }
 
@@ -165,7 +170,7 @@ func (s *machineSuite) TestWatchContainersRemoveContainer(c *gc.C) {
 		ModelUUID: modelChange.ModelUUID,
 		Id:        "0/lxd/0",
 	}
-	s.model.RemoveMachine(rm)
+	c.Assert(s.model.RemoveMachine(rm), jc.ErrorIsNil)
 	s.wc0.AssertOneChange([]string{rm.Id})
 }
 

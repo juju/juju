@@ -106,11 +106,13 @@ func (m *Machine) WatchContainers() (*PredicateStringsWatcher, error) {
 	}
 
 	w := newPredicateStringsWatcher(regexpPredicate(compiled), machines...)
+	deregister := m.registerWorker(w)
 	unsub := m.model.hub.Subscribe(m.modelTopic(modelAddRemoveMachine), w.changed)
 
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
 		unsub()
+		deregister()
 		return nil
 	})
 

@@ -122,7 +122,7 @@ func (s *residentSuite) TestResidentWorkerCleanupErrors(c *gc.C) {
 	_ = r.registerWorker(w3)
 
 	err := r.cleanup()
-	c.Assert(err, gc.ErrorMatches, "(.|\n|\t)*biff(.|\n|\t)*thwack")
+	c.Assert(err, gc.ErrorMatches, "(.|\n|\t)*(biff|thwack)(.|\n|\t)*(biff|thwack)")
 	c.Assert(err, gc.Not(gc.ErrorMatches), "worker 3")
 }
 

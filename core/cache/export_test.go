@@ -3,10 +3,6 @@
 
 package cache
 
-var (
-	NewApplication = newApplication
-)
-
 // Expose SetDetails for testing.
 
 func (a *Application) SetDetails(details ApplicationChange) {
