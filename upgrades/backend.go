@@ -62,6 +62,7 @@ type StateBackend interface {
 	UpdateKubernetesStorageConfig() error
 	EnsureDefaultModificationStatus() error
 	EnsureApplicationDeviceConstraints() error
+	RemoveInstanceCharmProfileDataCollection() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -238,4 +239,8 @@ func (s stateBackend) EnsureDefaultModificationStatus() error {
 
 func (s stateBackend) EnsureApplicationDeviceConstraints() error {
 	return state.EnsureApplicationDeviceConstraints(s.pool)
+}
+
+func (s stateBackend) RemoveInstanceCharmProfileDataCollection() error {
+	return state.RemoveInstanceCharmProfileDataCollection(s.pool)
 }

@@ -3105,6 +3105,23 @@ func (s *upgradesSuite) makeApplication(c *gc.C, uuid, name string, life Life) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *upgradesSuite) TestRemoveInstanceCharmProfileDataCollection(c *gc.C) {
+	db := s.state.MongoSession().DB(jujuDB)
+	db.C("instanceCharmProfileData")
+	err := RemoveInstanceCharmProfileDataCollection(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradesSuite) TestRemoveInstanceCharmProfileDataCollectionNoCollection(c *gc.C) {
+	db := s.state.MongoSession().DB(jujuDB)
+	cols, err := db.CollectionNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(set.NewStrings(cols...).Contains("instanceCharmProfileData"), jc.IsFalse)
+
+	err = RemoveInstanceCharmProfileDataCollection(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }
