@@ -255,9 +255,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 
 		seenUpgradeSeriesChange bool
 		upgradeSeriesChanges    watcher.NotifyChannel
-
-		seenLXDProfileChange bool
-		lxdProfileChanges    watcher.StringsChannel
 	)
 
 	// CAAS models don't use an application watcher
@@ -289,16 +286,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			return errors.Trace(err)
 		}
 		upgradeSeriesChanges = upgradeSeriesw.Changes()
-		requiredEvents++
-
-		lxdProfilew, err := w.unit.WatchUnitLXDProfileUpgradeNotifications()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := w.catacomb.Add(lxdProfilew); err != nil {
-			return errors.Trace(err)
-		}
-		lxdProfileChanges = lxdProfilew.Changes()
 		requiredEvents++
 	}
 
@@ -447,19 +434,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenUpgradeSeriesChange)
-
-		case changes, ok := <-lxdProfileChanges:
-			logger.Debugf("got lxd profile change")
-			if !ok {
-				return errors.New("lxd profile watcher closed")
-			}
-			if len(changes) != 1 {
-				return errors.New("expected one change in lxd profile watcher")
-			}
-			if err := w.lxdProfileStatusChanged(changes[0]); err != nil {
-				return errors.Trace(err)
-			}
-			observedEvent(&seenLXDProfileChange)
 
 		case hashes, ok := <-addressesChanges:
 			logger.Debugf("got address change: ok=%t, hashes=%v", ok, hashes)
@@ -615,14 +589,6 @@ func (w *RemoteStateWatcher) updateStatusChanged() {
 	w.mu.Lock()
 	w.current.UpdateStatusVersion++
 	w.mu.Unlock()
-}
-
-func (w *RemoteStateWatcher) lxdProfileStatusChanged(status string) error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	w.current.UpgradeCharmProfileStatus = status
-	return nil
 }
 
 // commandsChanged is called when a command is enqueued.

@@ -24,7 +24,6 @@ type ResolverConfig struct {
 	StartRetryHookTimer func()
 	StopRetryHookTimer  func()
 	UpgradeSeries       resolver.Resolver
-	UpgradeCharmProfile resolver.Resolver
 	Leadership          resolver.Resolver
 	Actions             resolver.Resolver
 	Relations           resolver.Resolver
@@ -68,14 +67,6 @@ func (s *uniterResolver) NextOp(
 	if localState.Kind == operation.Upgrade {
 		if localState.Conflicted {
 			return s.nextOpConflicted(localState, remoteState, opFactory)
-		}
-		op, err = s.config.UpgradeCharmProfile.NextOp(localState, remoteState, opFactory)
-		if errors.Cause(err) != resolver.ErrNoOperation {
-			if errors.Cause(err) == resolver.ErrDoNotProceed {
-				logger.Tracef("waiting for profile to be applied, charm upgrade")
-				return nil, resolver.ErrNoOperation
-			}
-			return op, err
 		}
 		// continue upgrading the charm
 		logger.Infof("resuming charm upgrade")
@@ -288,18 +279,6 @@ func (s *uniterResolver) nextOp(
 	// inform the uniter workers to run the upgrade hook.
 	if charmModified(localState, remoteState) {
 		if s.config.ModelType == model.IAAS {
-			if *localState.CharmURL != *remoteState.CharmURL {
-				op, err := s.config.UpgradeCharmProfile.NextOp(localState, remoteState, opFactory)
-				if errors.Cause(err) != resolver.ErrNoOperation {
-					if errors.Cause(err) == resolver.ErrDoNotProceed {
-						logger.Tracef("waiting for profile to be applied, charm modified")
-						return nil, resolver.ErrNoOperation
-					}
-					return op, err
-				}
-				// continue upgrading the charm
-				logger.Infof("resuming charm modified")
-			}
 			return opFactory.NewUpgrade(remoteState.CharmURL)
 		}
 		return opFactory.NewNoOpUpgrade(remoteState.CharmURL)

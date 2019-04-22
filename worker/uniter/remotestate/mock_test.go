@@ -207,7 +207,6 @@ type mockUnit struct {
 	storageWatcher                   *mockStringsWatcher
 	actionWatcher                    *mockStringsWatcher
 	relationsWatcher                 *mockStringsWatcher
-	upgradeLXDProfileUpgradeWatcher  *mockStringsWatcher
 }
 
 func (u *mockUnit) Life() params.Life {
@@ -268,10 +267,6 @@ func (u *mockUnit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 
 func (u *mockUnit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus) error {
 	return nil
-}
-
-func (u *mockUnit) WatchUnitLXDProfileUpgradeNotifications() (watcher.StringsWatcher, error) {
-	return u.upgradeLXDProfileUpgradeWatcher, nil
 }
 
 type mockApplication struct {
