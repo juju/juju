@@ -324,7 +324,7 @@
 
 [[constraint]]
   name = "github.com/juju/pubsub"
-  revision = "5ff05f703d2531147fb927125eea0d61cf4179e5"
+  revision = "c1f7536b9cc692693a90ba07381488591441b5cf"
 
 [[constraint]]
   name = "github.com/juju/ratelimit"
