@@ -18,6 +18,7 @@ type MachineAppLXDProfileWatcher struct {
 
 	metrics *ControllerGauges
 
+	initialized  chan struct{}
 	applications map[string]appInfo // unit names for each application
 	machineId    string
 
@@ -52,35 +53,33 @@ type MachineAppLXDProfileConfig struct {
 func newMachineAppLXDProfileWatcher(config MachineAppLXDProfileConfig) (*MachineAppLXDProfileWatcher, error) {
 	w := &MachineAppLXDProfileWatcher{
 		notifyWatcherBase: newNotifyWatcherBase(),
-		modeler:           config.modeler,
 		metrics:           config.metrics,
+		initialized:       make(chan struct{}),
+		applications:      make(map[string]appInfo),
+		machineId:         config.machine.Id(),
+		modeler:           config.modeler,
 	}
-
-	w.mu.Lock()
-	defer w.mu.Unlock()
 
 	deregister := config.resident.registerWorker(w)
-	unsubApp := config.hub.Subscribe(config.appTopic, w.applicationCharmURLChange)
-	unsubUnitAdd := config.hub.Subscribe(config.unitAddTopic, w.addUnit)
-	unsubUnitRemove := config.hub.Subscribe(config.unitRemoveTopic, w.removeUnit)
-	unsubFns := func() {
-		unsubUnitRemove()
-		unsubUnitAdd()
-		unsubApp()
-		deregister()
-	}
+	multi := config.hub.NewMultiplexer()
+	multi.Add(config.appTopic, w.applicationCharmURLChange)
+	multi.Add(config.unitAddTopic, w.addUnit)
+	multi.Add(config.unitRemoveTopic, w.removeUnit)
 
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-		unsubFns()
+		multi.Unsubscribe()
+		deregister()
 		return nil
 	})
 
 	err := w.init(config.machine)
 	if err != nil {
-		unsubFns()
+		// Stop the watcher, which unsubcribes above.
+		_ = w.Stop()
 		return nil, errors.Trace(err)
 	}
+	close(w.initialized)
 
 	logger.Tracef("started MachineAppLXDProfileWatcher for machine-%s with %#v", w.machineId, w.applications)
 	return w, nil
@@ -93,13 +92,12 @@ func (w *MachineAppLXDProfileWatcher) init(machine *Machine) error {
 		return errors.Annotatef(err, "failed to get units to start MachineAppLXDProfileWatcher")
 	}
 
-	applications := make(map[string]appInfo)
 	for _, unit := range units {
 		appName := unit.Application()
 		unitName := unit.Name()
-		_, found := applications[appName]
-		if found {
-			applications[appName].units.Add(unitName)
+
+		if info, found := w.applications[appName]; found {
+			info.units.Add(unitName)
 			continue
 		}
 
@@ -133,11 +131,8 @@ func (w *MachineAppLXDProfileWatcher) init(machine *Machine) error {
 			info.charmProfile = lxdProfile
 		}
 
-		applications[appName] = info
+		w.applications[appName] = info
 	}
-
-	w.applications = applications
-	w.machineId = machine.Id()
 	return nil
 }
 
@@ -145,10 +140,14 @@ func (w *MachineAppLXDProfileWatcher) init(machine *Machine) error {
 // charm lxdprofile changes.  No notification is sent if the profile pointer
 // begins and ends as nil.
 func (w *MachineAppLXDProfileWatcher) applicationCharmURLChange(topic string, value interface{}) {
-	w.notifyWatcherBase.mu.Lock()
+	// We don't want to respond to any events until we have been fully initialized.
+	select {
+	case <-w.initialized:
+	case <-w.tomb.Dying():
+		return
+	}
 	var notify bool
 	defer func(notify *bool) {
-		w.notifyWatcherBase.mu.Unlock()
 		if *notify {
 			w.notify()
 			w.metrics.LXDProfileChangeHit.Inc()
@@ -195,10 +194,14 @@ func (w *MachineAppLXDProfileWatcher) applicationCharmURLChange(topic string, va
 // added to the machine.  Notification is sent if a new unit whose charm has
 // an lxd profile is added.
 func (w *MachineAppLXDProfileWatcher) addUnit(topic string, value interface{}) {
-	w.notifyWatcherBase.mu.Lock()
+	// We don't want to respond to any events until we have been fully initialized.
+	select {
+	case <-w.initialized:
+	case <-w.tomb.Dying():
+		return
+	}
 	var notify bool
 	defer func(notify *bool) {
-		w.notifyWatcherBase.mu.Unlock()
 		if *notify {
 			logger.Tracef("notifying due to add unit requires lxd profile change machine-%s", w.machineId)
 			w.notify()
@@ -285,10 +288,14 @@ func (w *MachineAppLXDProfileWatcher) add(unit *Unit) bool {
 // removed from the machine.  Notification is sent if a unit being removed
 // has a profile and other units exist on the machine.
 func (w *MachineAppLXDProfileWatcher) removeUnit(topic string, value interface{}) {
-	w.notifyWatcherBase.mu.Lock()
+	// We don't want to respond to any events until we have been fully initialized.
+	select {
+	case <-w.initialized:
+	case <-w.tomb.Dying():
+		return
+	}
 	var notify bool
 	defer func(notify *bool) {
-		w.notifyWatcherBase.mu.Unlock()
 		if *notify {
 			logger.Tracef("notifying due to remove unit requires lxd profile change machine-%s", w.machineId)
 			w.notify()
