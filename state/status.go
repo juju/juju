@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/mongo/utils"
 )
 
-type displayStatusFunc func(unitStatus status.StatusInfo, containerStatus status.StatusInfo) status.StatusInfo
+type displayStatusFunc func(unitStatus status.StatusInfo, containerStatus status.StatusInfo, expectWorkload bool) status.StatusInfo
 
 // ModelStatus holds all the current status values for a given model
 // and offers accessors for the various parts of a model.
@@ -87,11 +87,15 @@ func (m *ModelStatus) Application(appName string, unitNames []string) (status.St
 		return status.StatusInfo{}, err
 	}
 	appStatus := doc.asStatusInfo()
+	expectWorkload, err := expectWorkload(m.model.st, appName)
+	if err != nil {
+		return status.StatusInfo{}, errors.Trace(err)
+	}
 	if doc.NeverSet {
 		// Get the status for the agents, and derive a status from that.
 		var unitStatuses []status.StatusInfo
 		for _, name := range unitNames {
-			unitStatus, err := m.UnitWorkload(name)
+			unitStatus, err := m.UnitWorkload(name, expectWorkload)
 			if err != nil {
 				return status.StatusInfo{}, errors.Annotatef(err, "deriving application status from %q", name)
 			}
@@ -110,7 +114,7 @@ func (m *ModelStatus) Application(appName string, unitNames []string) (status.St
 	if err != nil {
 		return status.StatusInfo{}, errors.Trace(err)
 	}
-	return caasApplicationDisplayStatus(appStatus, operatorStatusDoc.asStatusInfo()), nil
+	return caasApplicationDisplayStatus(appStatus, operatorStatusDoc.asStatusInfo(), expectWorkload), nil
 }
 
 // MachineAgent returns the status of the machine agent.
@@ -164,7 +168,7 @@ func (m *ModelStatus) UnitAgent(unitName string) (status.StatusInfo, error) {
 }
 
 // UnitWorkload returns the status of the unit's workload.
-func (m *ModelStatus) UnitWorkload(unitName string) (status.StatusInfo, error) {
+func (m *ModelStatus) UnitWorkload(unitName string, expectWorkload bool) (status.StatusInfo, error) {
 	// We do horrible things with unit status.
 	// See notes in unit.go.
 	info, err := m.getStatus(unitAgentGlobalKey(unitName), "unit")
@@ -190,10 +194,15 @@ func (m *ModelStatus) UnitWorkload(unitName string) (status.StatusInfo, error) {
 	if err != nil && !errors.IsNotFound(err) {
 		return info, err
 	}
-	return caasUnitDisplayStatus(info, containerInfo), nil
+	return caasUnitDisplayStatus(info, containerInfo, expectWorkload), nil
 }
 
-func caasUnitDisplayStatus(unitStatus status.StatusInfo, containerStatus status.StatusInfo) status.StatusInfo {
+func isStatusModified(unitStatus status.StatusInfo) bool {
+	return (unitStatus.Status != "" && unitStatus.Status != status.Waiting) ||
+		(unitStatus.Message != status.MessageWaitForContainer && unitStatus.Message != status.MessageInitializingAgent)
+}
+
+func caasUnitDisplayStatus(unitStatus status.StatusInfo, containerStatus status.StatusInfo, expectWorkload bool) status.StatusInfo {
 	if unitStatus.Status == status.Terminated {
 		return unitStatus
 	}
@@ -204,14 +213,18 @@ func caasUnitDisplayStatus(unitStatus status.StatusInfo, containerStatus status.
 		// No container update received from k8s yet.
 		// Unit may have set status, (though final status
 		// can only be active if a container status has come through).
-		if unitStatus.Status != "" && unitStatus.Status != status.Active {
+		if isStatusModified(unitStatus) && (unitStatus.Status != status.Active || !expectWorkload) {
 			return unitStatus
+		}
+		message := unitStatus.Message
+		if expectWorkload {
+			message = status.MessageWaitForContainer
 		}
 
 		// If no unit status set, assume still allocating.
 		return status.StatusInfo{
 			Status:  status.Waiting,
-			Message: status.MessageWaitForContainer,
+			Message: message,
 		}
 	}
 	if unitStatus.Status != status.Active && unitStatus.Status != status.Waiting && unitStatus.Status != status.Blocked {
@@ -233,7 +246,7 @@ func caasUnitDisplayStatus(unitStatus status.StatusInfo, containerStatus status.
 		}
 	case status.Running:
 		// Unit hasn't moved from initial state.
-		if unitStatus.Status == status.Waiting && unitStatus.Message == status.MessageWaitForContainer {
+		if !isStatusModified(unitStatus) {
 			return containerStatus
 		}
 	}
@@ -241,12 +254,15 @@ func caasUnitDisplayStatus(unitStatus status.StatusInfo, containerStatus status.
 }
 
 // caasApplicationDisplayStatus determines which of the two statuses to use when displaying application status in a CAAS model.
-func caasApplicationDisplayStatus(applicationStatus, operatorStatus status.StatusInfo) status.StatusInfo {
+func caasApplicationDisplayStatus(applicationStatus, operatorStatus status.StatusInfo, expectWorkload bool) status.StatusInfo {
 	if applicationStatus.Status == status.Terminated {
 		return applicationStatus
 	}
 	// Only interested in the operator status if it's not running/active.
 	if operatorStatus.Status != status.Running && operatorStatus.Status != status.Active {
+		if operatorStatus.Status == status.Waiting && !expectWorkload {
+			operatorStatus.Message = status.MessageInitializingAgent
+		}
 		return operatorStatus
 	}
 
@@ -254,8 +270,8 @@ func caasApplicationDisplayStatus(applicationStatus, operatorStatus status.Statu
 }
 
 // caasHistoryRewriteDoc determines which status should be stored as history.
-func caasHistoryRewriteDoc(jujuStatus, caasStatus status.StatusInfo, displayStatus displayStatusFunc, clock clock.Clock) (*statusDoc, error) {
-	modifiedStatus := displayStatus(jujuStatus, caasStatus)
+func caasHistoryRewriteDoc(jujuStatus, caasStatus status.StatusInfo, expectWorkload bool, displayStatus displayStatusFunc, clock clock.Clock) (*statusDoc, error) {
+	modifiedStatus := displayStatus(jujuStatus, caasStatus, expectWorkload)
 	if modifiedStatus.Status == jujuStatus.Status && modifiedStatus.Message == jujuStatus.Message {
 		return nil, nil
 	}

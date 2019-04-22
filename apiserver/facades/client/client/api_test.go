@@ -107,7 +107,6 @@ var scenarioStatus = &params.FullStatus{
 		Version:     "1.2.3",
 		ModelStatus: params.DetailedStatus{
 			Status: "available",
-			Data:   map[string]interface{}{},
 		},
 		SLA: "unsupported",
 	},
@@ -117,15 +116,12 @@ var scenarioStatus = &params.FullStatus{
 			InstanceId: instance.Id("i-machine-0"),
 			AgentStatus: params.DetailedStatus{
 				Status: "started",
-				Data:   make(map[string]interface{}),
 			},
 			InstanceStatus: params.DetailedStatus{
 				Status: status.Pending.String(),
-				Data:   make(map[string]interface{}),
 			},
 			ModificationStatus: params.DetailedStatus{
 				Status: status.Idle.String(),
-				Data:   make(map[string]interface{}),
 			},
 			Series:     "quantal",
 			Containers: map[string]params.MachineStatus{},
@@ -138,15 +134,12 @@ var scenarioStatus = &params.FullStatus{
 			InstanceId: instance.Id("i-machine-1"),
 			AgentStatus: params.DetailedStatus{
 				Status: "started",
-				Data:   make(map[string]interface{}),
 			},
 			InstanceStatus: params.DetailedStatus{
 				Status: status.Pending.String(),
-				Data:   make(map[string]interface{}),
 			},
 			ModificationStatus: params.DetailedStatus{
 				Status: status.Idle.String(),
-				Data:   make(map[string]interface{}),
 			},
 			Series:     "quantal",
 			Containers: map[string]params.MachineStatus{},
@@ -159,15 +152,12 @@ var scenarioStatus = &params.FullStatus{
 			InstanceId: instance.Id("i-machine-2"),
 			AgentStatus: params.DetailedStatus{
 				Status: "started",
-				Data:   make(map[string]interface{}),
 			},
 			InstanceStatus: params.DetailedStatus{
 				Status: status.Pending.String(),
-				Data:   make(map[string]interface{}),
 			},
 			ModificationStatus: params.DetailedStatus{
 				Status: status.Idle.String(),
-				Data:   make(map[string]interface{}),
 			},
 			Series:      "quantal",
 			Constraints: "mem=1024M",
@@ -189,7 +179,6 @@ var scenarioStatus = &params.FullStatus{
 			Relations: map[string][]string{},
 			Status: params.DetailedStatus{
 				Status: status.Unknown.String(),
-				Data:   map[string]interface{}{},
 			},
 		},
 	},
@@ -219,7 +208,6 @@ var scenarioStatus = &params.FullStatus{
 			Status: params.DetailedStatus{
 				Status: "waiting",
 				Info:   "waiting for machine",
-				Data:   map[string]interface{}{},
 			},
 			EndpointBindings: map[string]string{
 				"info":              "",
@@ -236,7 +224,6 @@ var scenarioStatus = &params.FullStatus{
 			Status: params.DetailedStatus{
 				Status: "waiting",
 				Info:   "waiting for machine",
-				Data:   map[string]interface{}{},
 			},
 			EndpointBindings: map[string]string{
 				"server":         "",
@@ -265,7 +252,6 @@ var scenarioStatus = &params.FullStatus{
 					},
 					AgentStatus: params.DetailedStatus{
 						Status: "idle",
-						Data:   make(map[string]interface{}),
 					},
 					Machine: "1",
 					Subordinates: map[string]params.UnitStatus{
@@ -273,11 +259,9 @@ var scenarioStatus = &params.FullStatus{
 							WorkloadStatus: params.DetailedStatus{
 								Status: "waiting",
 								Info:   "waiting for machine",
-								Data:   make(map[string]interface{}),
 							},
 							AgentStatus: params.DetailedStatus{
 								Status: "allocating",
-								Data:   map[string]interface{}{},
 							},
 						},
 					},
@@ -286,12 +270,10 @@ var scenarioStatus = &params.FullStatus{
 					WorkloadStatus: params.DetailedStatus{
 						Status: "waiting",
 						Info:   "waiting for machine",
-						Data:   make(map[string]interface{}),
 					},
 					AgentStatus: params.DetailedStatus{
 						Status: "allocating",
 						Info:   "",
-						Data:   make(map[string]interface{}),
 					},
 
 					Machine: "2",
@@ -300,12 +282,10 @@ var scenarioStatus = &params.FullStatus{
 							WorkloadStatus: params.DetailedStatus{
 								Status: "waiting",
 								Info:   "waiting for machine",
-								Data:   make(map[string]interface{}),
 							},
 							AgentStatus: params.DetailedStatus{
 								Status: "allocating",
 								Info:   "",
-								Data:   make(map[string]interface{}),
 							},
 						},
 					},
@@ -346,7 +326,6 @@ var scenarioStatus = &params.FullStatus{
 			Status: params.DetailedStatus{
 				Status: "joining",
 				Info:   "",
-				Data:   make(map[string]interface{}),
 			},
 		},
 	},

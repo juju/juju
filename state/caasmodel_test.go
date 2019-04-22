@@ -309,6 +309,27 @@ func (s *CAASModelSuite) TestContainers(c *gc.C) {
 	c.Assert(unitNames, jc.SameContents, []string{app.Name() + "/0", app.Name() + "/1"})
 }
 
+func (s *CAASModelSuite) TestUnitStatusNoPodSpec(c *gc.C) {
+	m, st := s.newCAASModel(c)
+	f := factory.NewFactory(st, s.StatePool)
+	unit := f.MakeUnit(c, &factory.UnitParams{
+		Status: &status.StatusInfo{
+			Status:  status.Waiting,
+			Message: status.MessageInitializingAgent,
+		},
+	})
+
+	msWorkload := unitWorkloadStatus(c, m, unit.Name(), false)
+	c.Check(msWorkload.Message, gc.Equals, "agent initializing")
+	c.Check(msWorkload.Status, gc.Equals, status.Waiting)
+
+	err := unit.SetStatus(status.StatusInfo{Status: status.Active, Message: "running"})
+	c.Assert(err, jc.ErrorIsNil)
+	msWorkload = unitWorkloadStatus(c, m, unit.Name(), false)
+	c.Check(msWorkload.Message, gc.Equals, "running")
+	c.Check(msWorkload.Status, gc.Equals, status.Active)
+}
+
 func (s *CAASModelSuite) TestCloudContainerStatus(c *gc.C) {
 	m, st := s.newCAASModel(c)
 	f := factory.NewFactory(st, s.StatePool)
@@ -321,37 +342,37 @@ func (s *CAASModelSuite) TestCloudContainerStatus(c *gc.C) {
 
 	// Cloud container overrides Allocating unit
 	setCloudContainerStatus(c, unit, status.Allocating, "k8s allocating")
-	msWorkload := unitWorkloadStatus(c, m, unit.Name())
+	msWorkload := unitWorkloadStatus(c, m, unit.Name(), true)
 	c.Check(msWorkload.Message, gc.Equals, "k8s allocating")
 	c.Check(msWorkload.Status, gc.Equals, status.Allocating)
 
 	// Cloud container error overrides unit status
 	setCloudContainerStatus(c, unit, status.Error, "k8s charm error")
-	msWorkload = unitWorkloadStatus(c, m, unit.Name())
+	msWorkload = unitWorkloadStatus(c, m, unit.Name(), true)
 	c.Check(msWorkload.Message, gc.Equals, "k8s charm error")
 	c.Check(msWorkload.Status, gc.Equals, status.Error)
 
 	// Unit status must be used.
 	setCloudContainerStatus(c, unit, status.Running, "k8s idle")
-	msWorkload = unitWorkloadStatus(c, m, unit.Name())
+	msWorkload = unitWorkloadStatus(c, m, unit.Name(), true)
 	c.Check(msWorkload.Message, gc.Equals, "Unit Active")
 	c.Check(msWorkload.Status, gc.Equals, status.Active)
 
 	// Cloud container overrides
 	setCloudContainerStatus(c, unit, status.Blocked, "POD storage issue")
-	msWorkload = unitWorkloadStatus(c, m, unit.Name())
+	msWorkload = unitWorkloadStatus(c, m, unit.Name(), true)
 	c.Check(msWorkload.Message, gc.Equals, "POD storage issue")
 	c.Check(msWorkload.Status, gc.Equals, status.Blocked)
 
 	// Cloud container overrides
 	setCloudContainerStatus(c, unit, status.Waiting, "Building the bits")
-	msWorkload = unitWorkloadStatus(c, m, unit.Name())
+	msWorkload = unitWorkloadStatus(c, m, unit.Name(), true)
 	c.Check(msWorkload.Message, gc.Equals, "Building the bits")
 	c.Check(msWorkload.Status, gc.Equals, status.Waiting)
 
 	// Cloud container overrides
 	setCloudContainerStatus(c, unit, status.Running, "Bits have been built")
-	msWorkload = unitWorkloadStatus(c, m, unit.Name())
+	msWorkload = unitWorkloadStatus(c, m, unit.Name(), true)
 	c.Check(msWorkload.Message, gc.Equals, "Unit Active")
 	c.Check(msWorkload.Status, gc.Equals, status.Active)
 }
@@ -361,19 +382,20 @@ func (s *CAASModelSuite) TestCloudContainerHistoryOverwrite(c *gc.C) {
 	f := factory.NewFactory(st, s.StatePool)
 	unit := f.MakeUnit(c, &factory.UnitParams{})
 
-	workloadStatus := unitWorkloadStatus(c, m, unit.Name())
+	workloadStatus := unitWorkloadStatus(c, m, unit.Name(), true)
 	c.Assert(workloadStatus.Message, gc.Equals, status.MessageWaitForContainer)
 	c.Assert(workloadStatus.Status, gc.Equals, status.Waiting)
 	statusHistory, err := unit.StatusHistory(status.StatusHistoryFilter{Size: 10})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusHistory, gc.HasLen, 1)
-	c.Assert(statusHistory[0].Message, gc.Equals, status.MessageWaitForContainer)
+	c.Assert(statusHistory[0].Message, gc.Equals, status.MessageInitializingAgent)
 	c.Assert(statusHistory[0].Status, gc.Equals, status.Waiting)
 
-	unit.SetStatus(status.StatusInfo{
+	err = unit.SetStatus(status.StatusInfo{
 		Status:  status.Active,
 		Message: "Unit Active",
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	unitStatus, err := unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitStatus.Message, gc.Equals, "Unit Active")
@@ -383,7 +405,7 @@ func (s *CAASModelSuite) TestCloudContainerHistoryOverwrite(c *gc.C) {
 	// as waiting for container, once we set cloud container status as active
 	// it must show active from the unit (incl. history)
 	setCloudContainerStatus(c, unit, status.Running, "Container Active")
-	workloadStatus = unitWorkloadStatus(c, m, unit.Name())
+	workloadStatus = unitWorkloadStatus(c, m, unit.Name(), true)
 	c.Assert(workloadStatus.Message, gc.Equals, "Unit Active")
 	c.Assert(workloadStatus.Status, gc.Equals, status.Active)
 	statusHistory, err = unit.StatusHistory(status.StatusHistoryFilter{Size: 10})
@@ -391,14 +413,15 @@ func (s *CAASModelSuite) TestCloudContainerHistoryOverwrite(c *gc.C) {
 	c.Assert(statusHistory, gc.HasLen, 2)
 	c.Assert(statusHistory[0].Message, gc.Equals, "Unit Active")
 	c.Assert(statusHistory[0].Status, gc.Equals, status.Active)
-	c.Assert(statusHistory[1].Message, gc.Equals, status.MessageWaitForContainer)
+	c.Assert(statusHistory[1].Message, gc.Equals, status.MessageInitializingAgent)
 	c.Assert(statusHistory[1].Status, gc.Equals, status.Waiting)
 
-	unit.SetStatus(status.StatusInfo{
+	err = unit.SetStatus(status.StatusInfo{
 		Status:  status.Waiting,
 		Message: "This is a different message",
 	})
-	workloadStatus = unitWorkloadStatus(c, m, unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	workloadStatus = unitWorkloadStatus(c, m, unit.Name(), true)
 	c.Assert(workloadStatus.Message, gc.Equals, "This is a different message")
 	c.Assert(workloadStatus.Status, gc.Equals, status.Waiting)
 	statusHistory, err = unit.StatusHistory(status.StatusHistoryFilter{Size: 10})
@@ -408,14 +431,14 @@ func (s *CAASModelSuite) TestCloudContainerHistoryOverwrite(c *gc.C) {
 	c.Assert(statusHistory[0].Status, gc.Equals, status.Waiting)
 	c.Assert(statusHistory[1].Message, gc.Equals, "Unit Active")
 	c.Assert(statusHistory[1].Status, gc.Equals, status.Active)
-	c.Assert(statusHistory[2].Message, gc.Equals, status.MessageWaitForContainer)
+	c.Assert(statusHistory[2].Message, gc.Equals, status.MessageInitializingAgent)
 	c.Assert(statusHistory[2].Status, gc.Equals, status.Waiting)
 }
 
-func unitWorkloadStatus(c *gc.C, model *state.CAASModel, unitName string) status.StatusInfo {
+func unitWorkloadStatus(c *gc.C, model *state.CAASModel, unitName string, expectWorkload bool) status.StatusInfo {
 	ms, err := model.LoadModelStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	msWorkload, err := ms.UnitWorkload(unitName)
+	msWorkload, err := ms.UnitWorkload(unitName, expectWorkload)
 	c.Assert(err, jc.ErrorIsNil)
 	return msWorkload
 }
@@ -441,14 +464,16 @@ func (s *CAASModelSuite) TestApplicationOperatorStatusOverwriteError(c *gc.C) {
 		Series: "kubernetes",
 	})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
-	app.SetOperatorStatus(status.StatusInfo{
+	err := app.SetOperatorStatus(status.StatusInfo{
 		Status:  status.Error,
 		Message: "operator error",
 	})
-	app.SetStatus(status.StatusInfo{
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.SetStatus(status.StatusInfo{
 		Status:  status.Active,
 		Message: "app active",
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	ms, err := m.LoadModelStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	appStatus, err := ms.Application("gitlab", []string{"gitlab/0"})
@@ -467,18 +492,48 @@ func (s *CAASModelSuite) TestApplicationOperatorStatusOverwriteRunning(c *gc.C) 
 	})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
-	app.SetOperatorStatus(status.StatusInfo{
+	err := app.SetOperatorStatus(status.StatusInfo{
 		Status:  status.Running,
 		Message: "operator running",
 	})
-	app.SetStatus(status.StatusInfo{
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.SetStatus(status.StatusInfo{
 		Status:  status.Active,
 		Message: "app active",
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	ms, err := m.LoadModelStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	appStatus, err := ms.Application("gitlab", []string{"gitlab/0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(appStatus.Message, gc.Equals, "app active")
 	c.Check(appStatus.Status, gc.Equals, status.Active)
+}
+
+func (s *CAASModelSuite) TestApplicationNoPodSpec(c *gc.C) {
+	m, st := s.newCAASModel(c)
+	f := factory.NewFactory(st, s.StatePool)
+	f.MakeUnit(c, &factory.UnitParams{})
+	ch := f.MakeCharm(c, &factory.CharmParams{
+		Name:   "gitlab",
+		Series: "kubernetes",
+	})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
+
+	err := app.SetOperatorStatus(status.StatusInfo{
+		Status:  status.Waiting,
+		Message: status.MessageWaitForContainer,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.SetStatus(status.StatusInfo{
+		Status:  status.Active,
+		Message: "app active",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	ms, err := m.LoadModelStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	appStatus, err := ms.Application("gitlab", []string{"gitlab/0"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(appStatus.Message, gc.Equals, "agent initializing")
+	c.Check(appStatus.Status, gc.Equals, status.Waiting)
 }

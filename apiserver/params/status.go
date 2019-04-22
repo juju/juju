@@ -133,7 +133,7 @@ type LXDProfile struct {
 
 // ApplicationStatus holds status info about an application.
 type ApplicationStatus struct {
-	Err              error                  `json:"err,omitempty"`
+	Err              *Error                 `json:"err,omitempty"`
 	Charm            string                 `json:"charm"`
 	Series           string                 `json:"series"`
 	Exposed          bool                   `json:"exposed"`
@@ -157,7 +157,7 @@ type ApplicationStatus struct {
 
 // RemoteApplicationStatus holds status info about a remote application.
 type RemoteApplicationStatus struct {
-	Err       error               `json:"err,omitempty"`
+	Err       *Error              `json:"err,omitempty"`
 	OfferURL  string              `json:"offer-url"`
 	OfferName string              `json:"offer-name"`
 	Endpoints []RemoteEndpoint    `json:"endpoints"`
@@ -168,7 +168,7 @@ type RemoteApplicationStatus struct {
 
 // ApplicationOfferStatus holds status info about an application offer.
 type ApplicationOfferStatus struct {
-	Err                  error                     `json:"err,omitempty"`
+	Err                  *Error                    `json:"err,omitempty"`
 	OfferName            string                    `json:"offer-name"`
 	ApplicationName      string                    `json:"application-name"`
 	CharmURL             string                    `json:"charm"`
