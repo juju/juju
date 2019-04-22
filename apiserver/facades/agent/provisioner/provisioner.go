@@ -313,26 +313,13 @@ func (p *ProvisionerAPI) WatchAllContainers(args params.WatchContainers) (params
 	return p.WatchContainers(args)
 }
 
-// WatchContainersCharmProfiles starts a StringsWatcher to notify when
-// the provisioner should update the charm profiles used by a container on
-// the given machine.
-//
-// Remove in juju 3, this is for compatibility of provisioner using APIV7.
-// It's required for the worker to start, and for the former
-// processProfileChanges, which will no longer be used in APIv9.
-// Code in apiserver application SetCharm() will prevent APIv8
-// models from upgrading charm with profiles and causing issues.
-func (p *ProvisionerAPIV7) WatchContainersCharmProfiles(args params.WatchContainers) (params.StringsWatchResults, error) {
-	return p.WatchContainers(args)
-}
-
 // WatchContainersCharmProfiles starts a StringsWatcher to  notifies when
 // the provisioner should update the charm profiles used by a container on
 // the given machine.
 //
-// Remove in juju 3, this is for compatibility of provisioner using APIV8.
-// It's required for the worker to start, and for the former
-// processProfileChanges, which will no longer be used in APIv9.
+// Remove in juju 3, this is for compatibility of provisioner using
+// APIV7 or APIV8. It is required for the worker to start, and for
+// the former processProfileChanges, which will no longer be used in APIv9.
 // Code in apiserver application SetCharm() will prevent APIv8
 // models from upgrading charm with profiles and causing issues.
 func (p *ProvisionerAPIV8) WatchContainersCharmProfiles(args params.WatchContainers) (params.StringsWatchResults, error) {
@@ -851,9 +838,9 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 // WatchModelMachinesCharmProfiles returns a StringsWatcher that notifies when
 // the provisioner should update the charm profiles used by a machine.
 //
-// Remove in juju 3, this is for compatibility of provisioner using APIV8.
-// It's required for the worker to start, and for the former
-// processProfileChanges, which will no longer be used in APIv9.
+// Remove in juju 3, this is for compatibility of provisioner using
+// APIV7 or APIV8. It is required for the worker to start, and for
+// the former processProfileChanges, which will no longer be used in APIv9.
 // Code in apiserver application SetCharm() will prevent APIv8
 // models from upgrading charm with profiles and causing issues.
 func (p *ProvisionerAPIV8) WatchModelMachinesCharmProfiles() (params.StringsWatchResult, error) {
@@ -1521,28 +1508,15 @@ func (a *ProvisionerAPI) CACert() (params.BytesResult, error) {
 }
 
 // CharmProfileChangeInfo retrieves the info necessary to change a charm
-// profile used by a machine. If there is more than 1 set of data,
-// an error is returned.  Required for 2.5.0 agents to interact with 2.5.2+
-//
-// Remove in juju 3, this is for compatibility of provisioner using APIV7.
-// It's required for the worker to start, and for the former
-// processProfileChanges, which will no longer be used in APIv9.
-// Code in apiserver application SetCharm() will prevent APIv8
-// models from upgrading charm with profiles and causing issues.
-func (p *ProvisionerAPIV7) CharmProfileChangeInfo(args params.ProfileArgs) (params.ProfileChangeResults, error) {
-	return params.ProfileChangeResults{}, nil
-}
-
-// CharmProfileChangeInfo retrieves the info necessary to change a charm
 // profile used by a machine.
 //
-// Remove in juju 3, this is for compatibility of provisioner using APIV7.
-// It's required for the worker to start, and for the former
-// processProfileChanges, which will no longer be used in APIv9.
+// Remove in juju 3, this is for compatibility of provisioner using
+// APIV7 or APIV8. It is required for the worker to start, and for
+// the former processProfileChanges, which will no longer be used in APIv9.
 // Code in apiserver application SetCharm() will prevent APIv8
 // models from upgrading charm with profiles and causing issues.
 func (p *ProvisionerAPIV8) CharmProfileChangeInfo(args params.ProfileArgs) (params.ProfileChangeResults, error) {
-	return params.ProfileChangeResults{}, nil
+	return params.ProfileChangeResults{}, errors.NewNotSupported(nil, "CharmProfileChangeInfo")
 }
 
 // SetCharmProfiles records the given slice of charm profile names.
@@ -1577,36 +1551,9 @@ func (p *ProvisionerAPI) setOneMachineCharmProfiles(machineTag string, profiles 
 // Remove in juju 3. Upgrading existing charm profiles is now handled
 // in the instance mutater worker.  This is for compatibility only with
 // older provisioners.
-func (p *ProvisionerAPIV7) SetUpgradeCharmProfileComplete(args params.SetProfileUpgradeCompleteArgs) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Args)),
-	}
-	return results, nil
-}
-
-// SetUpgradeCharmProfileComplete recorded that the result of updating
-// the machine's charm profile(s)
-//
-// Remove in juju 3. Upgrading existing charm profiles is now handled
-// in the instance mutater worker.  This is for compatibility only with
-// older provisioners.
 func (p *ProvisionerAPIV8) SetUpgradeCharmProfileComplete(args params.SetProfileUpgradeCompleteArgs) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
-	}
-	return results, nil
-}
-
-// RemoveUpgradeCharmProfileData completely removes the single instance charm profile
-// data for a machine, even if the machine is dead.  If there is more than 1 set of data,
-// an error is returned.  Required for 2.5.0 agents to interact with 2.5.2+
-//
-// Remove in juju 3. Upgrading existing charm profiles is now handled
-// in the instance mutater worker.  This is for compatibility only with
-// older provisioners.
-func (p *ProvisionerAPIV7) RemoveUpgradeCharmProfileData(args params.Entities) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
 	return results, nil
 }
