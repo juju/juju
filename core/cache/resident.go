@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
@@ -101,7 +102,7 @@ func (m *residentManager) sweep() error {
 
 			select {
 			case m.removals <- r.removalMessage:
-			default:
+			case <-time.After(10 * time.Second):
 				return errors.New("unable to progress cache sweep")
 			}
 		}

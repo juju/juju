@@ -6,6 +6,9 @@ package cache
 import (
 	"reflect"
 	"sync"
+	"time"
+
+	"github.com/juju/juju/testing"
 
 	"github.com/juju/errors"
 
@@ -22,10 +25,6 @@ type residentSuite struct {
 }
 
 var _ = gc.Suite(&residentSuite{})
-
-func (s *residentSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-}
 
 func (s *residentSuite) TestManagerNewIdentifiedResources(c *gc.C) {
 	r1 := s.Manager.new()
@@ -45,6 +44,44 @@ func (s *residentSuite) TestManagerDeregister(c *gc.C) {
 	r1 := s.Manager.new()
 	c.Assert(r1.evict(), jc.ErrorIsNil)
 	c.Check(s.Manager.residents, gc.HasLen, 0)
+}
+
+func (s *residentSuite) TestManagerMarkAndSweepSendsRemovalMessagesForStaleResidents(c *gc.C) {
+	r1 := s.Manager.new()
+	r2 := s.Manager.new()
+
+	r1.removalMessage = struct{}{}
+	r2.removalMessage = struct{}{}
+
+	// Sets r1 and r2 to be stale, but we freshen up one.
+	s.Manager.mark()
+	r1.stale = false
+
+	// Consume all the messages from the manager's removals channel.
+	var msgCount int
+	done := make(chan struct{}, 1)
+	go func() {
+		timeout := time.After(testing.LongWait)
+		for {
+			select {
+			case _, ok := <-s.Changes:
+				if !ok {
+					done <- struct{}{}
+					return
+				}
+				msgCount++
+			case <-timeout:
+				c.Fatal("did not finish receiving removal messages")
+			}
+		}
+	}()
+
+	c.Assert(s.Manager.sweep(), jc.ErrorIsNil)
+	close(s.Changes)
+	<-done
+
+	// A single message was sent for the stale resident.
+	c.Assert(msgCount, gc.Equals, 1)
 }
 
 func (s *residentSuite) TestResidentWorkerConcurrentRegisterCleanup(c *gc.C) {
