@@ -12,7 +12,3 @@ func NewPrepareOrGetContext(result params.MachineNetworkConfigResults, maintain 
 func NewContainerProfileContext(result params.ContainerProfileResults, modelName string) *containerProfileContext {
 	return &containerProfileContext{result: result, modelName: modelName}
 }
-
-func MachineChangeProfileChangeInfo(machine ProfileMachine, st ProfileBackend, unitName string) (params.ProfileChangeResult, error) {
-	return machineChangeProfileChangeInfo(machine, st, unitName)
-}

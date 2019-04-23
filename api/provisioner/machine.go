@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -62,9 +61,6 @@ type MachineProvisioner interface {
 	// SetModificationStatus sets the status of the machine changes whilst it's
 	// running. Example of this could be LXD profiles being applied.
 	SetModificationStatus(status status.Status, message string, data map[string]interface{}) error
-
-	// ModificationStatus returns the status of the machine changes
-	ModificationStatus() (status.Status, string, error)
 
 	// EnsureDead sets the machine lifecycle to Dead if it is Alive or
 	// Dying. It does nothing otherwise.
@@ -124,25 +120,8 @@ type MachineProvisioner interface {
 	// SupportedContainers returns a list of containers supported by this machine.
 	SupportedContainers() ([]instance.ContainerType, bool, error)
 
-	// WatchContainers returns a StringsWatcher that notifies of
-	// changes to the upgrade charm profile charm url for all
-	// containers of the specified type  on the machine.
-	WatchContainersCharmProfiles(ctype instance.ContainerType) (watcher.StringsWatcher, error)
-
-	// CharmProfileChangeInfo retrieves the info necessary to change a charm
-	// profile used by a machine, for the given unit.
-	CharmProfileChangeInfo(string) (CharmProfileChangeInfo, error)
-
 	// SetCharmProfiles records the given slice of charm profile names.
 	SetCharmProfiles([]string) error
-
-	// SetUpgradeCharmProfileComplete records the result of updating
-	// the machine's charm profile(s), for the given unit.
-	SetUpgradeCharmProfileComplete(unitName string, message string) error
-
-	// RemoveUpgradeCharmProfileData completely removes the instance charm profile
-	// data for a machine and the given unit, even if the machine is dead.
-	RemoveUpgradeCharmProfileData(string) error
 }
 
 // Machine represents a juju machine as seen by the provisioner worker.
@@ -302,27 +281,6 @@ func (m *Machine) SetModificationStatus(status status.Status, info string, data 
 		return err
 	}
 	return result.OneError()
-}
-
-// ModificationStatus implements MachineProvisioner.ModificationStatus.
-func (m *Machine) ModificationStatus() (status.Status, string, error) {
-	var results params.StatusResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag.String()}},
-	}
-	err := m.st.facade.FacadeCall("ModificationStatus", args, &results)
-	if err != nil {
-		return "", "", err
-	}
-	if len(results.Results) != 1 {
-		return "", "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return "", "", result.Error
-	}
-	// TODO(stickupkid) add status validation.
-	return status.Status(result.Status), result.Info, nil
 }
 
 // EnsureDead implements MachineProvisioner.EnsureDead.
@@ -548,42 +506,6 @@ func (m *Machine) WatchAllContainers() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-// WatchContainers implements MachineProvisioner.WatchContainersCharmProfiles.
-func (m *Machine) WatchContainersCharmProfiles(ctype instance.ContainerType) (watcher.StringsWatcher, error) {
-	if string(ctype) == "" {
-		return nil, fmt.Errorf("container type must be specified")
-	}
-	supported := false
-	for _, c := range instance.ContainerTypes {
-		if ctype == c {
-			supported = true
-			break
-		}
-	}
-	if !supported {
-		return nil, fmt.Errorf("unsupported container type %q", ctype)
-	}
-	var results params.StringsWatchResults
-	args := params.WatchContainers{
-		Params: []params.WatchContainer{
-			{MachineTag: m.tag.String(), ContainerType: string(ctype)},
-		},
-	}
-	err := m.st.facade.FacadeCall("WatchContainersCharmProfiles", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := apiwatcher.NewStringsWatcher(m.st.facade.RawAPICaller(), result)
-	return w, nil
-}
-
 // SetSupportedContainers implements MachineProvisioner.SetSupportedContainers.
 func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerType) error {
 	var results params.ErrorResults
@@ -634,48 +556,6 @@ func (m *Machine) SupportedContainers() ([]instance.ContainerType, bool, error) 
 	return result.ContainerTypes, result.Determined, nil
 }
 
-type CharmProfileChangeInfo struct {
-	OldProfileName string
-	NewProfileName string
-	LXDProfile     *charm.LXDProfile
-	Subordinate    bool
-}
-
-// CharmProfileChangeInfo implements MachineProvisioner.CharmProfileChangeInfo.
-func (m *Machine) CharmProfileChangeInfo(unitName string) (CharmProfileChangeInfo, error) {
-	var results params.ProfileChangeResults
-	args := params.ProfileArgs{
-		Args: []params.ProfileArg{
-			{
-				Entity:   params.Entity{Tag: m.tag.String()},
-				UnitName: unitName,
-			},
-		},
-	}
-	err := m.st.facade.FacadeCall("CharmProfileChangeInfo", args, &results)
-	if err != nil {
-		return CharmProfileChangeInfo{}, err
-	}
-	if len(results.Results) != 1 {
-		return CharmProfileChangeInfo{}, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return CharmProfileChangeInfo{}, result.Error
-	}
-	var profile *charm.LXDProfile
-	if result.Profile != nil {
-		p := charm.LXDProfile(*result.Profile)
-		profile = &p
-	}
-	return CharmProfileChangeInfo{
-		OldProfileName: result.OldProfileName,
-		NewProfileName: result.NewProfileName,
-		LXDProfile:     profile,
-		Subordinate:    result.Subordinate,
-	}, nil
-}
-
 // SetCharmProfiles implements MachineProvisioner.SetCharmProfiles.
 func (m *Machine) SetCharmProfiles(profiles []string) error {
 	var results params.ErrorResults
@@ -688,57 +568,6 @@ func (m *Machine) SetCharmProfiles(profiles []string) error {
 		},
 	}
 	err := m.st.facade.FacadeCall("SetCharmProfiles", args, &results)
-	if err != nil {
-		return err
-	}
-	if len(results.Results) != 1 {
-		return fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return result.Error
-	}
-	return nil
-}
-
-// SetUpgradeCharmProfileComplete implements MachineProvisioner.SetUpgradeCharmProfileComplete.
-func (m *Machine) SetUpgradeCharmProfileComplete(unitName, message string) error {
-	var results params.ErrorResults
-	args := params.SetProfileUpgradeCompleteArgs{
-		Args: []params.SetProfileUpgradeCompleteArg{
-			{
-				Entity:   params.Entity{Tag: m.tag.String()},
-				UnitName: unitName,
-				Message:  message,
-			},
-		},
-	}
-	err := m.st.facade.FacadeCall("SetUpgradeCharmProfileComplete", args, &results)
-	if err != nil {
-		return err
-	}
-	if len(results.Results) != 1 {
-		return fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return result.Error
-	}
-	return nil
-}
-
-// RemoveUpgradeCharmProfileData implements MachineProvisioner.RemoveUpgradeCharmProfileData.
-func (m *Machine) RemoveUpgradeCharmProfileData(unitName string) error {
-	var results params.ErrorResults
-	args := params.ProfileArgs{
-		Args: []params.ProfileArg{
-			{
-				Entity:   params.Entity{Tag: m.tag.String()},
-				UnitName: unitName,
-			},
-		},
-	}
-	err := m.st.facade.FacadeCall("RemoveUpgradeCharmProfileData", args, &results)
 	if err != nil {
 		return err
 	}

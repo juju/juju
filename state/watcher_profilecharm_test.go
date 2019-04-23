@@ -9,13 +9,11 @@ import (
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/mocks"
 	"github.com/juju/juju/state/watcher"
@@ -119,103 +117,6 @@ func (s *watchLXDProfileUpgradeBaseSuite) assertChangesSent(c *gc.C, done chan s
 	}
 }
 
-// Current tests for the WatchLXDProfileUpgradeNotifications for machines and
-// units.
-
-type instanceCharmProfileWatcherSuite struct {
-	watchLXDProfileUpgradeBaseSuite
-}
-
-var _ = gc.Suite(&instanceCharmProfileWatcherSuite{})
-
-func (s *instanceCharmProfileWatcherSuite) TestFullWatch(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	done := make(chan struct{})
-	w := s.workerForScenario(c,
-		s.expectInitialCollectionInstanceField(lxdprofile.EmptyStatus),
-		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
-			{Revno: 0},
-			{Revno: 1},
-		}, done),
-		s.expectLoop,
-		s.expectMergeCollectionInstanceField(lxdprofile.NotKnownStatus),
-		s.expectMergeCollectionInstanceField(lxdprofile.NotKnownStatus),
-		s.expectLoop,
-	)
-
-	s.assertChangesSent(c, done, s.close)
-	s.assertChanges(c, w, []string{lxdprofile.NotKnownStatus}, noop)
-	s.cleanKill(c, w)
-	s.assertWatcherChangesClosed(c, w)
-}
-
-func (s *instanceCharmProfileWatcherSuite) TestFullWatchWithNoStatusChange(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	done := make(chan struct{})
-	w := s.workerForScenario(c,
-		s.expectInitialCollectionInstanceField(lxdprofile.NotKnownStatus),
-		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
-			{Revno: 0},
-		}, done),
-		s.expectLoop,
-		s.expectMergeCollectionInstanceField(lxdprofile.NotKnownStatus),
-		s.expectLoop,
-	)
-
-	s.assertChangesSent(c, done, noop)
-	s.assertChanges(c, w, []string{lxdprofile.NotKnownStatus}, noop)
-	s.assertNoChanges(c, w)
-	s.close()
-
-	s.cleanKill(c, w)
-	s.assertWatcherChangesClosed(c, w)
-}
-
-func (s *instanceCharmProfileWatcherSuite) workerForScenario(c *gc.C, behaviours ...func()) state.StringsWatcher {
-	for _, b := range behaviours {
-		b()
-	}
-
-	return state.NewInstanceCharmProfileDataWatcher(s.modelBackend, "1")
-}
-
-func (s *instanceCharmProfileWatcherSuite) expectInitialCollectionInstanceField(state string) func() {
-	return func() {
-		s.database.EXPECT().GetCollection("instanceCharmProfileData").Return(s.collection, noop)
-		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
-		s.query.EXPECT().One(gomock.Any()).SetArg(0, map[string]interface{}{
-			"upgradecharmprofilecomplete": state,
-		}).Return(nil)
-	}
-}
-
-func (s *instanceCharmProfileWatcherSuite) expectLoopCollectionFilterAndNotify(changes []watcher.Change, done chan struct{}) func() {
-	return func() {
-		do := func(collection string, ch chan<- watcher.Change, filter func(interface{}) bool) {
-			go func() {
-				for _, change := range changes {
-					ch <- change
-				}
-				done <- struct{}{}
-			}()
-		}
-		s.watcher.EXPECT().WatchCollectionWithFilter("instanceCharmProfileData", gomock.Any(), gomock.Any()).Do(do)
-		s.watcher.EXPECT().UnwatchCollection("instanceCharmProfileData", gomock.Any())
-	}
-}
-
-func (s *instanceCharmProfileWatcherSuite) expectMergeCollectionInstanceField(state string) func() {
-	return func() {
-		s.database.EXPECT().GetCollection("instanceCharmProfileData").Return(s.collection, noop)
-		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
-		s.query.EXPECT().One(gomock.Any()).SetArg(0, map[string]interface{}{
-			"upgradecharmprofilecomplete": state,
-		}).Return(nil)
-	}
-}
-
 // Compatibility testing the new feature, which essentially watches the
 // application for any new changes to the charmURL. If this changes in any way,
 // the profile returns lxdprofile.NotRequiredStatus. This is so the uniter lxd
@@ -229,7 +130,6 @@ type instanceCharmProfileWatcherCompatibilitySuite struct {
 var _ = gc.Suite(&instanceCharmProfileWatcherCompatibilitySuite{})
 
 func (s *instanceCharmProfileWatcherCompatibilitySuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.InstanceMutater)
 	s.watchLXDProfileUpgradeBaseSuite.SetUpTest(c)
 }
 
@@ -238,14 +138,14 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) TestFullWatch(c *gc.C) {
 
 	done := make(chan struct{})
 	w := s.workerForScenario(c,
-		s.expectInitialCollectionInstanceField(charm.MustParseURL("cs:~user/series/name-0")),
+		s.expectInitialCollectionInstanceField("cs:~user/series/name-0"),
 		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
 			{Revno: 0},
 			{Revno: 1},
 		}, done),
 		s.expectLoop,
-		s.expectMergeCollectionInstanceField(charm.MustParseURL("cs:~user/series/name-1")),
-		s.expectMergeCollectionInstanceField(charm.MustParseURL("cs:~user/series/name-1")),
+		s.expectMergeCollectionInstanceField("cs:~user/series/name-1"),
+		s.expectMergeCollectionInstanceField("cs:~user/series/name-1"),
 		s.expectLoop,
 	)
 
@@ -260,12 +160,12 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) TestFullWatchWithNoStatu
 
 	done := make(chan struct{})
 	w := s.workerForScenario(c,
-		s.expectInitialCollectionInstanceField(charm.MustParseURL("cs:~user/series/name-0")),
+		s.expectInitialCollectionInstanceField("cs:~user/series/name-0"),
 		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
 			{Revno: 0},
 		}, done),
 		s.expectLoop,
-		s.expectMergeCollectionInstanceField(charm.MustParseURL("cs:~user/series/name-0")),
+		s.expectMergeCollectionInstanceField("cs:~user/series/name-0"),
 		s.expectLoop,
 	)
 
@@ -286,7 +186,7 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) workerForScenario(c *gc.
 	return state.NewInstanceCharmProfileDataCompatibilityWatcher(s.modelBackend, "1")
 }
 
-func (s *instanceCharmProfileWatcherCompatibilitySuite) expectInitialCollectionInstanceField(url *charm.URL) func() {
+func (s *instanceCharmProfileWatcherCompatibilitySuite) expectInitialCollectionInstanceField(url string) func() {
 	return func() {
 		s.database.EXPECT().GetCollection("applications").Return(s.collection, noop)
 		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
@@ -311,7 +211,7 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) expectLoopCollectionFilt
 	}
 }
 
-func (s *instanceCharmProfileWatcherCompatibilitySuite) expectMergeCollectionInstanceField(url *charm.URL) func() {
+func (s *instanceCharmProfileWatcherCompatibilitySuite) expectMergeCollectionInstanceField(url string) func() {
 	return func() {
 		s.database.EXPECT().GetCollection("applications").Return(s.collection, noop)
 		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)

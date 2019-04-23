@@ -87,18 +87,6 @@ func (mr *MockMutaterMachineMockRecorder) Refresh() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockMutaterMachine)(nil).Refresh))
 }
 
-// RemoveUpgradeCharmProfileData mocks base method
-func (m *MockMutaterMachine) RemoveUpgradeCharmProfileData(arg0 string) error {
-	ret := m.ctrl.Call(m, "RemoveUpgradeCharmProfileData", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveUpgradeCharmProfileData indicates an expected call of RemoveUpgradeCharmProfileData
-func (mr *MockMutaterMachineMockRecorder) RemoveUpgradeCharmProfileData(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUpgradeCharmProfileData", reflect.TypeOf((*MockMutaterMachine)(nil).RemoveUpgradeCharmProfileData), arg0)
-}
-
 // SetCharmProfiles mocks base method
 func (m *MockMutaterMachine) SetCharmProfiles(arg0 []string) error {
 	ret := m.ctrl.Call(m, "SetCharmProfiles", arg0)
@@ -121,18 +109,6 @@ func (m *MockMutaterMachine) SetModificationStatus(arg0 status.Status, arg1 stri
 // SetModificationStatus indicates an expected call of SetModificationStatus
 func (mr *MockMutaterMachineMockRecorder) SetModificationStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModificationStatus", reflect.TypeOf((*MockMutaterMachine)(nil).SetModificationStatus), arg0, arg1, arg2)
-}
-
-// SetUpgradeCharmProfileComplete mocks base method
-func (m *MockMutaterMachine) SetUpgradeCharmProfileComplete(arg0, arg1 string) error {
-	ret := m.ctrl.Call(m, "SetUpgradeCharmProfileComplete", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetUpgradeCharmProfileComplete indicates an expected call of SetUpgradeCharmProfileComplete
-func (mr *MockMutaterMachineMockRecorder) SetUpgradeCharmProfileComplete(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUpgradeCharmProfileComplete", reflect.TypeOf((*MockMutaterMachine)(nil).SetUpgradeCharmProfileComplete), arg0, arg1)
 }
 
 // Tag mocks base method

@@ -57,7 +57,3 @@ const MongoDbSnap = "mongodb-snap"
 // MongoDbSnap tells Juju to use server-side transactions. It does nothing if
 // MongoDbSnap is not also enabled.
 const MongoDbSSTXN = "mongodb-sstxn"
-
-// InstanceMutater tells juju to use the InstanceMutater watcher for managing profiles
-// on existing machines.
-const InstanceMutater = "instance-mutater"

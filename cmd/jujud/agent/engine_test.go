@@ -38,6 +38,7 @@ var (
 		"compute-provisioner",
 		"environ-tracker",
 		"firewaller",
+		"instance-mutater",
 		"instance-poller",
 		"machine-undertaker",      // tertiary dependency: will be inactive because migration workers will be inactive
 		"metric-worker",           // tertiary dependency: will be inactive because migration workers will be inactive
@@ -59,6 +60,7 @@ var (
 		"compute-provisioner",
 		"environ-tracker",
 		"firewaller",
+		"instance-mutater",
 		"instance-poller",
 		"log-forwarder",
 		"machine-undertaker",

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
@@ -38,7 +37,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -935,30 +933,27 @@ func (api *APIBase) setCharmWithAgentValidation(
 	// is too low (i.e. less than the 2.6.0 epoch), then show an error
 	// message that the operator should upgrade to receive the latest
 	// LXD Profile changes.
-	if featureflag.Enabled(feature.InstanceMutater) {
-		// Ensure that we only check agent versions of a charm when we have a
-		// non-empty profile. So this check will only be run in the following
-		// scenarios; adding a profile, upgrading a profile. Removal of a
-		// profile, that had an existing charm, will check if there is currently
-		// an existing charm and if so, run the check.
-		// Checking that is possible, but that would require asking every unit
-		// machines what profiles they currently have and matching with the
-		// incoming update. This could be very costly when you have lots of
-		// machines.
-		currentCharm, _, err := application.Charm()
-		if err != nil {
-			logger.Debugf("Unable to locate current charm: %v", err)
-		}
-		if lxdprofile.NotEmpty(lxdCharmProfiler{Charm: currentCharm}) ||
-			lxdprofile.NotEmpty(lxdCharmProfiler{Charm: newCharm}) {
-			if err := validateAgentVersions(application, api.model); err != nil {
-				return errors.Trace(err)
-			}
+
+	// Ensure that we only check agent versions of a charm when we have a
+	// non-empty profile. So this check will only be run in the following
+	// scenarios; adding a profile, upgrading a profile. Removal of a
+	// profile, that had an existing charm, will check if there is currently
+	// an existing charm and if so, run the check.
+	// Checking that is possible, but that would require asking every unit
+	// machines what profiles they currently have and matching with the
+	// incoming update. This could be very costly when you have lots of
+	// machines.
+	currentCharm, _, err := application.Charm()
+	if err != nil {
+		logger.Debugf("Unable to locate current charm: %v", err)
+	}
+	if lxdprofile.NotEmpty(lxdCharmProfiler{Charm: currentCharm}) ||
+		lxdprofile.NotEmpty(lxdCharmProfiler{Charm: newCharm}) {
+		if err := validateAgentVersions(application, api.model); err != nil {
+			return errors.Trace(err)
 		}
 	}
-	if err := application.SetCharmProfile(url); err != nil {
-		return errors.Annotatef(err, "unable to set charm profile")
-	}
+
 	return api.applicationSetCharm(params, newCharm)
 }
 

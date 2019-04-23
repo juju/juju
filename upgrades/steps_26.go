@@ -13,5 +13,12 @@ func stateStepsFor26() []Step {
 				return context.State().UpdateKubernetesStorageConfig()
 			},
 		},
+		&upgradeStep{
+			description: "remove instanceCharmProfileData collection",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().RemoveInstanceCharmProfileDataCollection()
+			},
+		},
 	}
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -37,7 +36,6 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
@@ -83,7 +81,6 @@ func NewProvisionerTask(
 	toolsFinder ToolsFinder,
 	machineWatcher watcher.StringsWatcher,
 	retryWatcher watcher.NotifyWatcher,
-	profileWatcher watcher.StringsWatcher,
 	broker environs.InstanceBroker,
 	auth authentication.AuthenticationProvider,
 	imageStream string,
@@ -97,7 +94,6 @@ func NewProvisionerTask(
 		retryChanges = retryWatcher.Changes()
 		workers = append(workers, retryWatcher)
 	}
-	profileChanges := profileWatcher.Changes()
 	task := &provisionerTask{
 		controllerUUID:             controllerUUID,
 		machineTag:                 machineTag,
@@ -106,7 +102,6 @@ func NewProvisionerTask(
 		toolsFinder:                toolsFinder,
 		machineChanges:             machineChanges,
 		retryChanges:               retryChanges,
-		profileChanges:             profileChanges,
 		broker:                     broker,
 		auth:                       auth,
 		harvestMode:                harvestMode,
@@ -142,7 +137,6 @@ type provisionerTask struct {
 	toolsFinder                ToolsFinder
 	machineChanges             watcher.StringsChannel
 	retryChanges               watcher.NotifyChannel
-	profileChanges             watcher.StringsChannel
 	broker                     environs.InstanceBroker
 	catacomb                   catacomb.Catacomb
 	auth                       authentication.AuthenticationProvider
@@ -210,15 +204,6 @@ func (task *provisionerTask) loop() error {
 		case <-task.retryChanges:
 			if err := task.processMachinesWithTransientErrors(); err != nil {
 				return errors.Annotate(err, "failed to process machines with transient errors")
-			}
-		case ids, ok := <-task.profileChanges:
-			if !ok {
-				return errors.New("profile watcher closed channel")
-			}
-			if !featureflag.Enabled(feature.InstanceMutater) {
-				if err := task.processProfileChanges(ids); err != nil {
-					return errors.Annotate(err, "failed to process updated charm profiles")
-				}
 			}
 		}
 	}
@@ -337,191 +322,6 @@ func (task *provisionerTask) processMachines(ids []string) error {
 
 	// Start an instance for the pending ones
 	return task.startMachines(pending)
-}
-
-// processProfileChanges adds, removes, or updates lxc profiles changes to
-// existing machines, if supported by the machine's broker.
-//
-// If this action is triggered by a charm upgrade, the instance charm profile
-// data doc is always created.  Allowing the uniter to determine if the
-// profile upgrade is in a terminal state before proceeding with charm
-// upgrade itself.
-//
-// If this action is triggered by a new 2nd unit added to an existing machine,
-// clean up of the instance charm profile data doc happens here in the case
-// of lxd profile support in the machine's broker.
-//
-// If the broker does not support lxd profiles, it is harder to determine if
-// the instance charm profile data doc should be cleaned up.  Therefore it
-// gets set to NotSupportedStatus, which then is deleted by the uniter at
-// it's installation.
-func (task *provisionerTask) processProfileChanges(ids []string) error {
-	logger.Tracef("processProfileChanges(%v)", ids)
-	if len(ids) == 0 {
-		// TODO: (hml) 2018-11-29
-		// This shouldn't be triggered, until that's fixed
-		// short circuit here when there's nothing to process.
-		return nil
-	}
-
-	machineTags := make([]names.MachineTag, len(ids))
-	unitNames := make([]string, len(ids))
-	for i, id := range ids {
-		machineId, unitName, err := machineIdAndUnitName(id)
-		if err != nil {
-			return errors.Annotatef(err, "failed to parse ids: %v", ids)
-		}
-		machineTags[i] = names.NewMachineTag(machineId)
-		unitNames[i] = unitName
-	}
-	machines, err := task.machineGetter.Machines(machineTags...)
-	if err != nil {
-		return errors.Annotatef(err, "failed to get machines %v", ids)
-	}
-	profileBroker, ok := task.broker.(environs.LXDProfiler)
-	if !ok {
-		logger.Debugf("Attempting to update the profile of a machine that doesn't support profiles")
-		profileUpgradeNotSupported(machines, unitNames)
-		return nil
-	}
-	for i, mResult := range machines {
-		if mResult.Err != nil {
-			return errors.Annotatef(err, "failed to get machine %v", machineTags[i])
-		}
-		m := mResult.Machine
-		removeDoc, err := processOneProfileChange(m, profileBroker, unitNames[i])
-		// The machine is not provisioned yet, therefore we can continue and
-		// the profile will be applied when the machine is provisioned.
-		if err != nil && (errors.IsNotProvisioned(err) || errors.IsNotValid(err)) {
-			// If the machine is not valid, then continue onwards.
-			continue
-		}
-		if removeDoc {
-			if err != nil {
-				logger.Errorf("cannot upgrade machine's lxd profile: %s", err.Error())
-			}
-			if err := m.RemoveUpgradeCharmProfileData(unitNames[i]); err != nil {
-				logger.Errorf("cannot remove subordinates upgrade charm profile data: %s", err.Error())
-			}
-		} else if err != nil {
-			logger.Errorf("cannot upgrade machine's lxd profile: %s", err.Error())
-			if err2 := m.SetUpgradeCharmProfileComplete(unitNames[i], lxdprofile.AnnotateErrorStatus(err)); err2 != nil {
-				return errors.Annotatef(err2, "cannot set error status for instance charm profile data for machine %q", m)
-			}
-			// If Error, SetInstanceStatus in the provisioner api will also call
-			// SetStatus.
-			errMsg := fmt.Sprintf("cannot upgrade machine's lxd profile: %s", err.Error())
-			if err2 := m.SetInstanceStatus(status.Error, errMsg, nil); err2 != nil {
-				return errors.Annotatef(err2, "cannot set status for machine %q", m)
-			}
-			if err2 := m.SetModificationStatus(status.Error, errMsg, nil); err2 != nil {
-				return errors.Annotatef(err2, "cannot set error status for machine %q", m)
-			}
-		} else {
-			if err2 := m.SetUpgradeCharmProfileComplete(unitNames[i], lxdprofile.SuccessStatus); err2 != nil {
-				return errors.Annotatef(err2, "cannot set success status for instance charm profile data for machine %q", m)
-			}
-
-			// Clean up any residual errors in the machine status from a previous
-			// upgrade charm profile failure.
-			if err2 := m.SetInstanceStatus(status.Running, "Running", nil); err2 != nil {
-				return errors.Annotatef(err2, "cannot set status for machine %q", m)
-			}
-			if err2 := m.SetStatus(status.Started, "", nil); err2 != nil {
-				return errors.Annotatef(err2, "cannot set status for machine %q agent", m)
-			}
-			if err2 := m.SetModificationStatus(status.Applied, "", nil); err2 != nil {
-				return errors.Annotatef(err2, "cannot set status for machine %q modification status", m)
-			}
-
-		}
-	}
-	return nil
-}
-
-func machineIdAndUnitName(id string) (string, string, error) {
-	parts := strings.Split(id, "#")
-	if len(parts) != 2 {
-		return "", "", errors.Errorf("%q not in machine#unit format", id)
-	}
-	return parts[0], parts[1], nil
-}
-
-func profileUpgradeNotSupported(machines []apiprovisioner.MachineResult, appNames []string) {
-	for i, mResult := range machines {
-		if err := mResult.Machine.SetUpgradeCharmProfileComplete(appNames[i], lxdprofile.NotSupportedStatus); err != nil {
-			logger.Errorf("cannot set not supported status for instance charm profile data: %s", err.Error())
-		}
-	}
-}
-
-func processOneProfileChange(
-	m apiprovisioner.MachineProvisioner,
-	profileBroker environs.LXDProfiler,
-	unitName string,
-) (bool, error) {
-	ident := m.Id()
-	logger.Tracef("processOneMachineProfileChange(%s) %s", ident, unitName)
-	// We need to check for the life of the machine here, as the machine
-	// might have been dying when the watcher fired, but is now dead by
-	// the time this is triggered. We still want to clean up dying machines
-	// of the charm profile data, so that the we don't leave any orphan
-	// documents. If the machine is dead, we can't clean up the document
-	// as the machine is dead and we'll return an error doing so.
-	if m.Life() == params.Dead {
-		// Machine is dead, continue onwards as we can't do anything in this
-		// position.
-		logger.Tracef("failed to process profile changes as the machine is dead %q", ident)
-		return false, errors.NotValidf("machine %q", ident)
-	}
-	if machineStatus, _, err := m.InstanceStatus(); err != nil {
-		return false, errors.Annotatef(err, "failed to get machine status %q", ident)
-	} else if machineStatus != status.Running {
-		if _, err := m.InstanceId(); err != nil && params.IsCodeNotProvisioned(err) {
-			logger.Tracef("Attempting to apply a profile to a machine that isn't provisioned %q", ident)
-			// We can remove the instance charm profile data here, knowning that
-			// the ProvisionerAPI will attempt to write it when getting
-			// the machine lxd profile names.
-			if err := m.RemoveUpgradeCharmProfileData(unitName); err != nil {
-				logger.Tracef("cannot remove machine upgrade charm profile data: %s", err.Error())
-			}
-			// There is nothing we can do with this machine at this point. The
-			// profiles will be applied when the machine is provisioned.
-			return false, errors.NotProvisionedf("machine %q", ident)
-		}
-	}
-	// Set the modification status to idle, that way we have a baseline for
-	// future changes.
-	if err := m.SetModificationStatus(status.Idle, "", nil); err != nil {
-		return false, errors.Annotatef(err, "cannot set status for machine %q modification status", m)
-	}
-	info, err := m.CharmProfileChangeInfo(unitName)
-	if err != nil {
-		return false, err
-	}
-	instId, err := m.InstanceId()
-	if err != nil {
-		return false, err
-	}
-	newProfiles, err := profileBroker.ReplaceOrAddInstanceProfile(string(instId), info.OldProfileName, info.NewProfileName, info.LXDProfile)
-	if err != nil {
-		return false, err
-	}
-	// newProfiles:
-	//   default
-	//   juju-<model>      <-- not included on containers
-	//   juju-<model>-<application>-<charm-revision>
-	if len(newProfiles) > 1 && newProfiles[0] == "default" {
-		newProfiles = newProfiles[1:]
-	}
-	if len(newProfiles) > 1 {
-		// Remove if not juju-<model>-<application>-<charm-revision>
-		if _, err = lxdprofile.ProfileRevision(newProfiles[0]); err != nil {
-			newProfiles = newProfiles[1:]
-		}
-	}
-	initialAddOfSubordinateProfile := info.Subordinate && info.OldProfileName == ""
-	return initialAddOfSubordinateProfile, m.SetCharmProfiles(newProfiles)
 }
 
 func instanceIds(instances []instances.Instance) []string {

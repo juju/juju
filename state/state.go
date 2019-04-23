@@ -1815,30 +1815,8 @@ func (st *State) addMachineWithPlacement(unit *Unit, data *placementData) (*Mach
 	case directivePlacement:
 		return nil, errors.NotSupportedf("programming error: directly adding a machine for %s with a non-machine placement directive", unit.Name())
 	default:
-		// Otherwise use an existing machine.
-		if err = st.maybeApplyCharmProfileToMachine(unit, machine); err != nil {
-			return nil, err
-		}
 		return machine, nil
 	}
-}
-
-func (st *State) maybeApplyCharmProfileToMachine(unit *Unit, machine *Machine) error {
-	app, err := unit.Application()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	ch, _, err := app.Charm()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	profile := ch.LXDProfile()
-	if profile == nil || (profile != nil && profile.Empty()) {
-		// no profile to add
-		return nil
-	}
-	logger.Tracef("Set up to add new charm profile to existing machine %s for %s", machine.Id(), unit.Name())
-	return machine.SetUpgradeCharmProfile(unit.Name(), ch.URL().String())
 }
 
 // Application returns a application state by name.

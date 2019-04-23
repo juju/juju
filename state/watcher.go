@@ -16,7 +16,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/featureflag"
 	"github.com/kr/pretty"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
@@ -26,7 +25,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
 
@@ -800,211 +798,6 @@ func (w *minUnitsWatcher) loop() (err error) {
 }
 
 func (w *minUnitsWatcher) Changes() <-chan []string {
-	return w.out
-}
-
-// WatchContainersCharmProfiles starts a StringsWatcher to notify when
-// the provisioner should update the charm profiles used by any container on
-// the machine.
-//
-// This is needed for compatibility with ProvisionerAPIV7 related to container
-// provisioning on a machine.
-func (m *Machine) WatchContainersCharmProfiles(ctype instance.ContainerType) (StringsWatcher, error) {
-	isChildRegexp := fmt.Sprintf("^%s/%s/%s#%s$", m.doc.DocID, ctype, names.NumberSnippet, names.UnitSnippet)
-	return m.st.watchCharmProfiles(isChildRegexp, true)
-}
-
-// WatchModelMachinesCharmProfiles returns a StringsWatcher that notifies of
-// changes to the upgrade charm profile charm url for a machine.
-func (st *State) WatchModelMachinesCharmProfilesNewFormat() (StringsWatcher, error) {
-	isMachineRegexp := fmt.Sprintf("^%s:%s#%s$", st.ModelUUID(), names.NumberSnippet, names.UnitSnippet)
-	return st.watchCharmProfiles(isMachineRegexp, false)
-}
-
-// WatchContainersCharmProfiles starts a StringsWatcher to notify when
-// the provisioner should update the charm profiles used by any container on
-// the machine.
-func (m *Machine) WatchContainersCharmProfilesNewFormat(ctype instance.ContainerType) (StringsWatcher, error) {
-	isChildRegexp := fmt.Sprintf("^%s/%s/%s#%s$", m.doc.DocID, ctype, names.NumberSnippet, names.UnitSnippet)
-	return m.st.watchCharmProfiles(isChildRegexp, false)
-}
-
-func (st *State) watchCharmProfiles(regExp string, useMachineId bool) (StringsWatcher, error) {
-	members := bson.D{{"_id", bson.D{{"$regex", regExp}}}}
-	compiled, err := regexp.Compile(regExp)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	filter := func(key interface{}) bool {
-		k, ok := key.(string)
-		if !ok {
-			return false
-		}
-		_, err := st.strictLocalID(k)
-		if err != nil {
-			return false
-		}
-		return compiled.MatchString(k)
-	}
-	var accessor profileAccessorFunc
-	if useMachineId {
-		accessor = func(doc instanceCharmProfileData) (string, string) {
-			return doc.UpgradeCharmProfileCharmURL, doc.MachineId
-		}
-	} else {
-		accessor = func(doc instanceCharmProfileData) (string, string) {
-			return doc.UpgradeCharmProfileCharmURL, st.localID(doc.DocID)
-		}
-	}
-	completed := func(doc instanceCharmProfileData) bool {
-		return lxdprofile.UpgradeStatusTerminal(doc.UpgradeCharmProfileComplete)
-	}
-	return newModelFieldChangeWatcher(st, members, filter, accessor, completed), nil
-}
-
-type profileAccessorFunc func(doc instanceCharmProfileData) (string, string)
-
-// modelFieldChangeWatcher notifies about charm changes where a
-// machine or container's field may need to be changed. At startup, the
-// watcher gathers current values for a machine's field, no events are returned.
-// Events are generated when there are changes to a machine or container's
-// field.
-type modelFieldChangeWatcher struct {
-	commonWatcher
-	// members is used to select the initial set of interesting entities.
-	members bson.D
-	// filter returns true, if the entity should be watched
-	filter func(key interface{}) bool
-	// accessor is used to extract the field from the instance charm profile
-	// data doc in a generic way.  The second value returned, is what to pass
-	// as the string from the watcher.
-	accessor profileAccessorFunc
-	// completed is used to determine if the state watched for has
-	// occurred
-	completed func(instanceCharmProfileData) bool
-	known     map[string]string
-	out       chan []string
-}
-
-var _ Watcher = (*modelFieldChangeWatcher)(nil)
-
-func newModelFieldChangeWatcher(
-	backend modelBackend,
-	members bson.D,
-	filter func(key interface{}) bool,
-	accessor profileAccessorFunc,
-	completed func(instanceCharmProfileData) bool,
-) StringsWatcher {
-	w := &modelFieldChangeWatcher{
-		commonWatcher: newCommonWatcher(backend),
-		members:       members,
-		filter:        filter,
-		accessor:      accessor,
-		completed:     completed,
-		known:         make(map[string]string),
-		out:           make(chan []string),
-	}
-	w.tomb.Go(func() error {
-		defer close(w.out)
-		return w.loop()
-	})
-	return w
-}
-
-func (w *modelFieldChangeWatcher) initial() (set.Strings, error) {
-	collection, closer := w.db.GetCollection(instanceCharmProfileDataC)
-	defer closer()
-
-	var doc instanceCharmProfileData
-	watchSet := make(set.Strings)
-	iter := collection.Find(w.members).Iter()
-	for iter.Next(&doc) {
-		// If no members criteria is specified, use the filter
-		// to reject any unsuitable initial elements.
-		if w.members == nil && w.filter != nil && !w.filter(doc.DocID) {
-			continue
-		}
-
-		if w.completed(doc) {
-			logger.Tracef("field change NOT watching %s", doc.DocID)
-			continue
-		}
-
-		docField, returnID := w.accessor(doc)
-		docId := w.backend.localID(doc.DocID)
-		w.known[docId] = docField
-		watchSet.Add(returnID)
-	}
-	if watchSet.Size() > 0 {
-		logger.Debugf("started field change watching %s", watchSet.Values())
-	}
-	return watchSet, iter.Close()
-}
-
-func (w *modelFieldChangeWatcher) merge(watchSet set.Strings, change watcher.Change) error {
-	docId := w.backend.localID(change.Id.(string))
-	if change.Revno == -1 {
-		if _, ok := w.known[docId]; ok {
-			logger.Tracef("stopped field change watching for %q", docId)
-		}
-		delete(w.known, docId)
-		return nil
-	}
-
-	collection, closer := w.db.GetCollection(instanceCharmProfileDataC)
-	defer closer()
-
-	var doc instanceCharmProfileData
-	if err := collection.FindId(change.Id).One(&doc); err != nil {
-		return err
-	}
-
-	// get the document field from the accessor
-	docField, returnField := w.accessor(doc)
-
-	// check the field before adding to the docId
-	field, isKnown := w.known[docId]
-	w.known[docId] = docField
-	if !w.completed(doc) && (!isKnown || docField != field) {
-		logger.Debugf("added field change watching for %q", docId)
-		watchSet.Add(returnField)
-	}
-	return nil
-}
-
-func (w *modelFieldChangeWatcher) loop() error {
-	ch := make(chan watcher.Change)
-	w.watcher.WatchCollectionWithFilter(instanceCharmProfileDataC, ch, w.filter)
-	defer w.watcher.UnwatchCollection(instanceCharmProfileDataC, ch)
-
-	watchSet, err := w.initial()
-	if err != nil {
-		return err
-	}
-
-	out := w.out
-	for {
-		select {
-		case <-w.watcher.Dead():
-			return stateWatcherDeadError(w.watcher.Err())
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case change := <-ch:
-			if err = w.merge(watchSet, change); err != nil {
-				return err
-			}
-			if !watchSet.IsEmpty() {
-				out = w.out
-			}
-		case out <- watchSet.Values():
-			out = nil
-			watchSet = set.NewStrings()
-		}
-	}
-}
-
-func (w *modelFieldChangeWatcher) Changes() <-chan []string {
 	return w.out
 }
 
@@ -2031,66 +1824,24 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 // upgrade completed field that is specific to an application name.  Used by
 // UniterAPI v9.
 func (m *Machine) WatchLXDProfileUpgradeNotifications(applicationName string) (StringsWatcher, error) {
-	if featureflag.Enabled(feature.InstanceMutater) {
-		app, err := m.st.Application(applicationName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		watchDocId := app.doc.DocID
-		return watchInstanceCharmProfileCompatibilityData(m.st, watchDocId), nil
-	}
-
-	// The following is the old way to watch lxd profile upgrade notifications.
-	// It's been ear marked for deprecation, but until the feature is complete
-	// this will continue to work in the existing manor.
-	unitName, err := m.LXDProfileUpgradeUnitToWatch(applicationName)
+	app, err := m.st.Application(applicationName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	watchDocId := m.instanceCharmProfileDataId(unitName)
-	return watchInstanceCharmProfileData(m.st, watchDocId), nil
+	watchDocId := app.doc.DocID
+	return watchInstanceCharmProfileCompatibilityData(m.st, watchDocId), nil
 }
 
 // WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
 // of a lxd profile upgrade by monitoring changes on the unit machine's lxd profile
 // upgrade completed field that is specific to itself.
 func (u *Unit) WatchLXDProfileUpgradeNotifications() (StringsWatcher, error) {
-	if featureflag.Enabled(feature.InstanceMutater) {
-		app, err := u.Application()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		watchDocId := app.doc.DocID
-		return watchInstanceCharmProfileCompatibilityData(u.st, watchDocId), nil
-	}
-
-	// The following is the old way to watch lxd profile upgrade notifications.
-	// It's been ear marked for deprecation, but until the feature is complete
-	// this will continue to work in the existing manor.
-	m, err := u.machine()
+	app, err := u.Application()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	watchDocId := m.instanceCharmProfileDataId(u.doc.Name)
-	return watchInstanceCharmProfileData(m.st, watchDocId), nil
-}
-
-func watchInstanceCharmProfileData(backend modelBackend, watchDocId string) StringsWatcher {
-	initial := lxdprofile.NotKnownStatus
-	members := bson.D{{"_id", watchDocId}}
-	collection := instanceCharmProfileDataC
-	filter := func(id interface{}) bool {
-		return id.(string) == watchDocId
-	}
-	extract := func(data map[string]interface{}) (string, error) {
-		if value, ok := data["upgradecharmprofilecomplete"]; ok {
-			if complete, ok := value.(string); ok {
-				return complete, nil
-			}
-		}
-		return initial, errors.NotValidf("instanceCharmProfileData type")
-	}
-	return newDocumentFieldWatcher(backend, collection, members, initial, filter, extract, nil)
+	watchDocId := app.doc.DocID
+	return watchInstanceCharmProfileCompatibilityData(u.st, watchDocId), nil
 }
 
 func watchInstanceCharmProfileCompatibilityData(backend modelBackend, watchDocId string) StringsWatcher {
@@ -2102,8 +1853,8 @@ func watchInstanceCharmProfileCompatibilityData(backend modelBackend, watchDocId
 	}
 	extract := func(data map[string]interface{}) (string, error) {
 		if value, ok := data["charmurl"]; ok {
-			if url, ok := value.(*charm.URL); ok {
-				return url.String(), nil
+			if url, ok := value.(string); ok {
+				return url, nil
 			}
 		}
 		return initial, errors.NotValidf("applicationDoc type")

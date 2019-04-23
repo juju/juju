@@ -84,23 +84,22 @@ type mockApplication struct {
 	jtesting.Stub
 	application.Application
 
-	bindings                 map[string]string
-	charm                    *mockCharm
-	curl                     *charm.URL
-	endpoints                []state.Endpoint
-	name                     string
-	scale                    int
-	subordinate              bool
-	series                   string
-	units                    []*mockUnit
-	addedUnit                mockUnit
-	config                   coreapplication.ConfigAttributes
-	lxdProfileUpgradeChanges chan struct{}
-	constraints              constraints.Value
-	channel                  csparams.Channel
-	exposed                  bool
-	remote                   bool
-	agentTools               *tools.Tools
+	bindings    map[string]string
+	charm       *mockCharm
+	curl        *charm.URL
+	endpoints   []state.Endpoint
+	name        string
+	scale       int
+	subordinate bool
+	series      string
+	units       []*mockUnit
+	addedUnit   mockUnit
+	config      coreapplication.ConfigAttributes
+	constraints constraints.Value
+	channel     csparams.Channel
+	exposed     bool
+	remote      bool
+	agentTools  *tools.Tools
 }
 
 func (m *mockApplication) Name() string {
@@ -153,11 +152,6 @@ func (a *mockApplication) AllUnits() ([]application.Unit, error) {
 		units[i] = a.units[i]
 	}
 	return units, nil
-}
-
-func (a *mockApplication) SetCharmProfile(charmURL string) error {
-	a.MethodCall(a, "SetCharmProfile", charmURL)
-	return a.NextErr()
 }
 
 func (a *mockApplication) SetCharm(cfg state.SetCharmConfig) error {
@@ -239,11 +233,6 @@ func (a *mockApplication) UpdateCharmConfig(branchName string, settings charm.Se
 func (a *mockApplication) SetExposed() error {
 	a.MethodCall(a, "SetExposed")
 	return a.NextErr()
-}
-
-func (a *mockApplication) WatchLXDProfileUpgradeNotifications() (state.NotifyWatcher, error) {
-	a.MethodCall(a, "WatchLXDProfileUpgradeNotifications")
-	return &mockNotifyWatcher{ch: a.lxdProfileUpgradeChanges}, a.NextErr()
 }
 
 func (a *mockApplication) IsExposed() bool {
@@ -472,8 +461,7 @@ func (m *mockModel) AgentVersion() (version.Number, error) {
 type mockMachine struct {
 	jtesting.Stub
 
-	id                          string
-	upgradeCharmProfileComplete string
+	id string
 }
 
 func (m *mockMachine) IsLockedForSeriesUpgrade() (bool, error) {
@@ -489,16 +477,6 @@ func (m *mockMachine) IsParentLockedForSeriesUpgrade() (bool, error) {
 func (m *mockMachine) Id() string {
 	m.MethodCall(m, "Id")
 	return m.id
-}
-
-func (m *mockMachine) UpgradeCharmProfileComplete(appName string) (string, error) {
-	m.MethodCall(m, "UpgradeCharmProfileComplete", appName)
-	return m.upgradeCharmProfileComplete, m.NextErr()
-}
-
-func (m *mockMachine) RemoveUpgradeCharmProfileData(appName string) error {
-	m.MethodCall(m, "RemoveUpgradeCharmProfileData", appName)
-	return m.NextErr()
 }
 
 func (m *mockBackend) InferEndpoints(endpoints ...string) ([]state.Endpoint, error) {

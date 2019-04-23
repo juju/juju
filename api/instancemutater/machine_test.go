@@ -67,68 +67,6 @@ func (s *instanceMutaterMachineSuite) TestSetCharmProfilesError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "failed")
 }
 
-func (s *instanceMutaterMachineSuite) TestSetUpgradeCharmProfileCompleteSuccess(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	m := s.machineForScenario(c,
-		s.expectSetUpgradeCharmProfileCompleteFacadeCall,
-	)
-
-	err := m.SetUpgradeCharmProfileComplete(s.unitName, s.message)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *instanceMutaterMachineSuite) TestSetUpgradeCharmProfileCompleteError(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	m := s.machineForScenario(c,
-		s.expectSetUpgradeCharmProfileCompleteFacadeCallReturnsError(errors.New("failed")),
-	)
-
-	err := m.SetUpgradeCharmProfileComplete(s.unitName, s.message)
-	c.Assert(err, gc.ErrorMatches, "failed")
-}
-
-func (s *instanceMutaterMachineSuite) TestSetUpgradeCharmProfileCompleteErrorExpectedOne(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	m := s.machineForScenario(c,
-		s.expectSetUpgradeCharmProfileCompleteFacadeCallReturnsTwoErrors,
-	)
-
-	err := m.SetUpgradeCharmProfileComplete(s.unitName, s.message)
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
-}
-
-func (s *instanceMutaterMachineSuite) TestWatchUnitsSuccess(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	results := params.StringsWatchResults{Results: []params.StringsWatchResult{{
-		StringsWatcherId: "1",
-		Error:            nil,
-	}}}
-
-	aExp := s.apiCaller.EXPECT()
-	aExp.BestFacadeVersion("StringsWatcher").Return(1)
-	aExp.APICall("StringsWatcher", 1, "1", "Next", nil, gomock.Any()).Return(nil).MinTimes(1)
-
-	fExp := s.fCaller.EXPECT()
-	fExp.FacadeCall("WatchUnits", s.args, gomock.Any()).SetArg(2, results).Return(nil)
-	fExp.RawAPICaller().Return(s.apiCaller)
-
-	ch, err := s.setupMachine().WatchUnits()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// watch for the changes
-	for i := 0; i < 2; i++ {
-		select {
-		case <-ch.Changes():
-		case <-time.After(jujutesting.LongWait):
-			c.Fail()
-		}
-	}
-}
-
 func (s *instanceMutaterMachineSuite) TestWatchApplicationLXDProfiles(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -327,41 +265,6 @@ func (s *instanceMutaterMachineSuite) expectSetCharmProfilesFacadeCallReturnsErr
 		fExp := s.fCaller.EXPECT()
 		fExp.FacadeCall("SetCharmProfiles", args, gomock.Any()).SetArg(2, results).Return(nil)
 	}
-}
-
-func (s *instanceMutaterMachineSuite) expectSetUpgradeCharmProfileCompleteFacadeCall() {
-	results := params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}}
-	args := s.setUpSetProfileUpgradeCompleteArgs()
-
-	fExp := s.fCaller.EXPECT()
-	fExp.FacadeCall("SetUpgradeCharmProfileComplete", args, gomock.Any()).SetArg(2, results).Return(nil)
-}
-
-func (s *instanceMutaterMachineSuite) expectSetUpgradeCharmProfileCompleteFacadeCallReturnsError(err error) func() {
-	return func() {
-		results := params.ErrorResults{
-			Results: []params.ErrorResult{
-				{Error: &params.Error{Message: err.Error()}},
-			},
-		}
-		args := s.setUpSetProfileUpgradeCompleteArgs()
-
-		fExp := s.fCaller.EXPECT()
-		fExp.FacadeCall("SetUpgradeCharmProfileComplete", args, gomock.Any()).SetArg(2, results).Return(nil)
-	}
-}
-
-func (s *instanceMutaterMachineSuite) expectSetUpgradeCharmProfileCompleteFacadeCallReturnsTwoErrors() {
-	results := params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: nil},
-			{Error: nil},
-		},
-	}
-	args := s.setUpSetProfileUpgradeCompleteArgs()
-
-	fExp := s.fCaller.EXPECT()
-	fExp.FacadeCall("SetUpgradeCharmProfileComplete", args, gomock.Any()).SetArg(2, results).Return(nil)
 }
 
 func (s *instanceMutaterMachineSuite) expectSetModificationFacadeCall(status status.Status, info string, data map[string]interface{}) func() {

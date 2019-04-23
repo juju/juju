@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -603,120 +602,6 @@ func (s *UnitSuite) TestRemoveUnitMachineNoFastForwardDestroy(c *gc.C) {
 	}
 }
 
-func (s *UnitSuite) TestRemoveUnitMachineNoDestroyCharmProfile(c *gc.C) {
-	charmWithProfile := s.AddTestingCharm(c, "lxd-profile")
-	applicationWithProfile := s.AddTestingApplication(c, "lxd-profile", charmWithProfile)
-
-	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	target, err := s.application.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(target.AssignToMachine(host), gc.IsNil)
-
-	colocated, err := applicationWithProfile.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(colocated.AssignToMachine(host), gc.IsNil)
-
-	// Set a profile name on the machine, destroyHostOps will only
-	// set up to remove a profile from the machine it if it exists.
-	profileName := lxdprofile.Name("default", colocated.Name(), charmWithProfile.Revision())
-	host.SetCharmProfiles([]string{profileName})
-	c.Assert(colocated.Destroy(), gc.IsNil)
-	assertLife(c, host, state.Alive)
-
-	chCharmURL, err := host.UpgradeCharmProfileCharmURL(colocated.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(chCharmURL, gc.Equals, "")
-
-	c.Assert(host.Destroy(), gc.NotNil)
-}
-
-func (s *UnitSuite) TestRemoveUnitMachineNoDestroyCharmProfileErrorToIdle(c *gc.C) {
-	charmWithProfile := s.AddTestingCharm(c, "lxd-profile")
-	applicationWithProfile := s.AddTestingApplication(c, "lxd-profile", charmWithProfile)
-
-	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	target, err := s.application.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(target.AssignToMachine(host), gc.IsNil)
-
-	colocated, err := applicationWithProfile.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(colocated.AssignToMachine(host), gc.IsNil)
-
-	// Set a machine modification status of failed so we can check that it's cleared
-	// when the unit is removed from the machine.
-	now := coretesting.ZeroTime()
-	sInfo := status.StatusInfo{
-		Status:  status.Error,
-		Message: "failme",
-		Since:   &now,
-	}
-	c.Assert(host.SetModificationStatus(sInfo), jc.ErrorIsNil)
-
-	c.Assert(colocated.Destroy(), gc.IsNil)
-	assertLife(c, host, state.Alive)
-
-	machineStatus, err := host.ModificationStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineStatus.Status, gc.DeepEquals, status.Idle)
-	c.Assert(machineStatus.Message, gc.DeepEquals, "")
-}
-
-func (s *UnitSuite) TestRemoveUnitMachineNoDestroyCharmProfileErrorToApplied(c *gc.C) {
-	charmWithProfile := s.AddTestingCharm(c, "lxd-profile")
-	applicationWithProfile := s.AddTestingApplication(c, "lxd-profile", charmWithProfile)
-	applicationWithProfile2 := s.AddTestingApplication(c, "lxd-profile-alt", charmWithProfile)
-
-	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	target, err := s.application.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(target.AssignToMachine(host), gc.IsNil)
-
-	colocated, err := applicationWithProfile.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(colocated.AssignToMachine(host), gc.IsNil)
-
-	colocated2, err := applicationWithProfile2.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(colocated2.AssignToMachine(host), gc.IsNil)
-
-	// Set a machine modification status of failed so we can check that it's cleared
-	// when the unit is removed from the machine.
-	now := coretesting.ZeroTime()
-	sInfo := status.StatusInfo{
-		Status:  status.Error,
-		Message: "failme",
-		Since:   &now,
-	}
-	c.Assert(host.SetModificationStatus(sInfo), jc.ErrorIsNil)
-
-	// Set a profile name on the machine, destroyHostOps will only
-	// set up to remove a profile from the machine it if it exists.
-	// And so the machine modification status is set to Applied.
-	profileName := lxdprofile.Name("default", colocated2.Name(), charmWithProfile.Revision())
-	host.SetCharmProfiles([]string{profileName})
-
-	c.Assert(colocated.Destroy(), gc.IsNil)
-	assertLife(c, host, state.Alive)
-
-	machineStatus, err := host.ModificationStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineStatus.Status, gc.DeepEquals, status.Applied)
-	c.Assert(machineStatus.Message, gc.DeepEquals, "")
-}
-
 func (s *UnitSuite) TestRemoveUnitMachineNoDestroy(c *gc.C) {
 	charmWithOut := s.AddTestingCharm(c, "mysql")
 	applicationWithOutProfile := s.AddTestingApplication(c, "mysql", charmWithOut)
@@ -736,42 +621,7 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroy(c *gc.C) {
 	c.Assert(colocated.Destroy(), gc.IsNil)
 	assertLife(c, host, state.Alive)
 
-	// "", nil is equivalent to IsNotFound, which is what we
-	// expect here
-	chCharmURL, err := host.UpgradeCharmProfileCharmURL(colocated.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(chCharmURL, gc.Equals, "")
-
 	c.Assert(host.Destroy(), gc.NotNil)
-}
-
-func (s *UnitSuite) TestRemoveUnitMachineDestroyCleanUpProfileDoc(c *gc.C) {
-	charmWithProfile := s.AddTestingCharm(c, "lxd-profile")
-	applicationWithProfile := s.AddTestingApplication(c, "lxd-profile", charmWithProfile)
-
-	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	unit, err := applicationWithProfile.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.AssignToMachine(host), gc.IsNil)
-
-	// create a instanceCharmProfileData which hasn't been completed
-	// to check it's been deleted.
-	err = host.SetUpgradeCharmProfile(unit.Name(), charmWithProfile.URL().String())
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(unit.Destroy(), gc.IsNil)
-	assertLife(c, host, state.Dying)
-
-	// "", nil is equivalent to IsNotFound, which is what we
-	// expect here
-	host.Refresh()
-	chCharmURL, err := host.UpgradeCharmProfileCharmURL(unit.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(chCharmURL, gc.Equals, "")
 }
 
 func (s *UnitSuite) setMachineVote(c *gc.C, id string, hasVote bool) {

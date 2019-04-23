@@ -122,32 +122,3 @@ func (s *lxdProfileSuite) TestWatchUnitLXDProfileUpgradeNotifications(c *gc.C) {
 		},
 	})
 }
-
-func (s *lxdProfileSuite) TestRemoveUpgradeCharmProfileDataUnitTag(c *gc.C) {
-	api, ctrl, mockBackend := s.assertBackendAPI(c, s.unitTag1)
-	defer ctrl.Finish()
-
-	mockMachine1 := mocks.NewMockLXDProfileMachine(ctrl)
-	mockUnit1 := mocks.NewMockLXDProfileUnit(ctrl)
-
-	mockBackend.EXPECT().Machine(s.machineTag1.Id()).Return(mockMachine1, nil)
-	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit1, nil).Times(2)
-	mockMachine1.EXPECT().RemoveUpgradeCharmProfileData("mysql/1").Return(nil)
-	mockUnit1.EXPECT().AssignedMachineId().Return(s.machineTag1.Id(), nil)
-	mockUnit1.EXPECT().Name().Return("mysql/1")
-
-	args := params.Entities{
-		Entities: []params.Entity{
-			{Tag: names.NewUnitTag("mysql/2").String()},
-			{Tag: s.unitTag1.String()},
-		},
-	}
-	watches, err := api.RemoveUpgradeCharmProfileData(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(watches, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
-			{Error: nil},
-		},
-	})
-}

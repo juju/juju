@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -28,6 +29,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -396,6 +398,7 @@ func (FakeAgentConfig) CheckArgs([]string) error { return nil }
 // to allow model workers to run.
 type minModelWorkersEnviron struct {
 	environs.Environ
+	environs.LXDProfiler
 }
 
 func (e *minModelWorkersEnviron) Config() *config.Config {
@@ -417,4 +420,20 @@ func (e *minModelWorkersEnviron) AllInstances(context.ProviderCallContext) ([]in
 
 func (e *minModelWorkersEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	return nil, nil
+}
+
+func (env *minModelWorkersEnviron) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
+	return nil
+}
+
+func (env *minModelWorkersEnviron) LXDProfileNames(containerName string) ([]string, error) {
+	return nil, nil
+}
+
+func (env *minModelWorkersEnviron) ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile string, put *charm.LXDProfile) ([]string, error) {
+	return []string{newProfile}, nil
+}
+
+func (env *minModelWorkersEnviron) AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
+	return profilesNames, nil
 }

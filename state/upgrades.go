@@ -2086,3 +2086,18 @@ func EnsureApplicationDeviceConstraints(pool *StatePool) error {
 	}
 	return nil
 }
+
+// RemoveInstanceCharmProfileDataCollection removes the
+// instanceCharmProfileData collection on upgrade.
+func RemoveInstanceCharmProfileDataCollection(pool *StatePool) error {
+	db := pool.SystemState().MongoSession().DB(jujuDB)
+	instanceCharmProfileData := db.C("instanceCharmProfileData")
+	if err := instanceCharmProfileData.DropCollection(); err != nil {
+		// If the namespace is already missing, that's fine.
+		if isMgoNamespaceNotFound(err) {
+			return nil
+		}
+		return errors.Annotate(err, "failed to drop instanceCharmProfileData collection")
+	}
+	return nil
+}

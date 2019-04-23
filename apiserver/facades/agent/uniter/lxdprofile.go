@@ -25,7 +25,6 @@ type LXDProfileBackend interface {
 // LXDProfileMachine describes machine-receiver state methods
 // for executing a lxd profile upgrade.
 type LXDProfileMachine interface {
-	RemoveUpgradeCharmProfileData(string) error
 	WatchLXDProfileUpgradeNotifications(string) (state.StringsWatcher, error)
 }
 
@@ -227,21 +226,15 @@ func (u *LXDProfileAPI) RemoveUpgradeCharmProfileData(args params.Entities) (par
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		machine, err := u.getMachine(tag)
+		_, err = u.getMachine(tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		unit, err := u.getUnit(tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		err = machine.RemoveUpgradeCharmProfileData(unit.Name())
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
+		// TODO (hml) 2019-04-19
+		// Removing call to machine.RemoveUpgradeCharmProfileData from
+		// state.  2nd pass is to remove it and other charm profile
+		// functionality from the uniter.
 	}
 	return result, nil
 }

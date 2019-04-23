@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -151,9 +150,8 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 				addedUnit: mockUnit{
 					tag: names.NewUnitTag("postgresql/99"),
 				},
-				lxdProfileUpgradeChanges: make(chan struct{}),
-				constraints:              constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
-				channel:                  csparams.DevelopmentChannel,
+				constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
+				channel:     csparams.DevelopmentChannel,
 				bindings: map[string]string{
 					"juju-info": "myspace",
 				},
@@ -186,10 +184,9 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 				addedUnit: mockUnit{
 					tag: names.NewUnitTag("postgresql-subordinate/99"),
 				},
-				lxdProfileUpgradeChanges: make(chan struct{}),
-				constraints:              constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
-				channel:                  csparams.DevelopmentChannel,
-				agentTools:               agentTools,
+				constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
+				channel:     csparams.DevelopmentChannel,
+				agentTools:  agentTools,
 			},
 			"redis": {
 				name:        "redis",
@@ -222,9 +219,8 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 				addedUnit: mockUnit{
 					tag: names.NewUnitTag("redis/99"),
 				},
-				lxdProfileUpgradeChanges: make(chan struct{}),
-				constraints:              constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
-				channel:                  csparams.DevelopmentChannel,
+				constraints: constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G"),
+				channel:     csparams.DevelopmentChannel,
 				bindings: map[string]string{
 					"juju-info": "myspace",
 				},
@@ -274,10 +270,6 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 			"pgdata/0": {detachable: true},
 			"pgdata/1": {detachable: false},
 		},
-		machines: map[string]*mockMachine{
-			"machine-0": {id: "0", upgradeCharmProfileComplete: ""},
-			"machine-1": {id: "1", upgradeCharmProfileComplete: "not required"},
-		},
 	}
 	s.blockChecker = mockBlockChecker{}
 	s.setAPIUser(c, names.NewUserTag("admin"))
@@ -305,9 +297,7 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "SetCharmProfile", "SetCharm")
-	app.CheckCall(c, 0, "SetCharmProfile", "cs:postgresql")
-	app.CheckCall(c, 1, "SetCharm", state.SetCharmConfig{
+	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
 		Charm: &state.Charm{},
 		StorageConstraints: map[string]state.StorageConstraints{
 			"a": {},
@@ -328,9 +318,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	s.backend.charm.CheckCallNames(c, "Config")
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "SetCharmProfile", "SetCharm")
-	app.CheckCall(c, 0, "SetCharmProfile", "cs:postgresql")
-	app.CheckCall(c, 1, "SetCharm", state.SetCharmConfig{
+	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
 		Charm:          &state.Charm{},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
@@ -349,17 +337,13 @@ postgresql:
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	s.backend.charm.CheckCallNames(c, "Config")
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "SetCharmProfile", "SetCharm")
-	app.CheckCall(c, 0, "SetCharmProfile", "cs:postgresql")
-	app.CheckCall(c, 1, "SetCharm", state.SetCharmConfig{
+	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
 		Charm:          &state.Charm{},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
 }
 
 func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) {
-	s.SetFeatureFlags(feature.InstanceMutater)
-
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:postgresql",
@@ -369,17 +353,14 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	s.backend.charm.CheckCallNames(c, "Config")
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "Charm", "AgentTools", "SetCharmProfile", "SetCharm")
-	app.CheckCall(c, 2, "SetCharmProfile", "cs:postgresql")
-	app.CheckCall(c, 3, "SetCharm", state.SetCharmConfig{
+	app.CheckCallNames(c, "Charm", "AgentTools", "SetCharm")
+	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
 		Charm:          &state.Charm{},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
 }
 
 func (s *ApplicationSuite) TestLXDProfileSetCharmWithOldAgentVersion(c *gc.C) {
-	s.SetFeatureFlags(feature.InstanceMutater)
-
 	// Patch the mock model to always be behind the epoch.
 	s.model.cfg["agent-version"] = "2.5.0"
 
@@ -397,8 +378,6 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithOldAgentVersion(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
-	s.SetFeatureFlags(feature.InstanceMutater)
-
 	// Patch the mock backend charm profile to have an empty value, so that it
 	// shows how SetCharm profile works with empty profiles.
 	s.backend.charm.lxdProfile = &charm.LXDProfile{}
@@ -412,9 +391,8 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	s.backend.charm.CheckCallNames(c, "Config")
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "Charm", "AgentTools", "SetCharmProfile", "SetCharm")
-	app.CheckCall(c, 2, "SetCharmProfile", "cs:postgresql")
-	app.CheckCall(c, 3, "SetCharm", state.SetCharmConfig{
+	app.CheckCallNames(c, "Charm", "AgentTools", "SetCharm")
+	app.CheckCall(c, 2, "SetCharm", state.SetCharmConfig{
 		Charm:          &state.Charm{},
 		ConfigSettings: charm.Settings{"stringOption": "value"},
 	})
