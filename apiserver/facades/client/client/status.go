@@ -1043,7 +1043,15 @@ func (context *statusContext) processApplication(application *state.Application)
 	}
 	units := context.allAppsUnitsCharmBindings.units[application.Name()]
 	if application.IsPrincipal() {
-		processedStatus.Units = context.processUnits(units, applicationCharm.URL().String())
+		expectWorkload := true
+		if cm, err := context.model.CAASModel(); err == nil {
+			_, err = cm.PodSpec(application.ApplicationTag())
+			if err != nil && !errors.IsNotFound(err) {
+				return params.ApplicationStatus{Err: common.ServerError(err)}
+			}
+			expectWorkload = err == nil
+		}
+		processedStatus.Units = context.processUnits(units, applicationCharm.URL().String(), expectWorkload)
 	}
 	var unitNames []string
 	for _, unit := range units {
@@ -1137,7 +1145,7 @@ func (context *statusContext) processRemoteApplication(application *state.Remote
 	status.OfferName = application.Name()
 	eps, err := application.Endpoints()
 	if err != nil {
-		status.Err = err
+		status.Err = common.ServerError(err)
 		return
 	}
 	status.Endpoints = make([]params.RemoteEndpoint, len(eps))
@@ -1152,7 +1160,7 @@ func (context *statusContext) processRemoteApplication(application *state.Remote
 
 	status.Relations, err = context.processRemoteApplicationRelations(application)
 	if err != nil {
-		status.Err = err
+		status.Err = common.ServerError(err)
 		return
 	}
 	applicationStatus, err := application.Status()
@@ -1172,7 +1180,7 @@ func (context *statusContext) processOffers() map[string]params.ApplicationOffer
 	offers := make(map[string]params.ApplicationOfferStatus)
 	for name, offer := range context.offers {
 		offerStatus := params.ApplicationOfferStatus{
-			Err:                  offer.err,
+			Err:                  common.ServerError(offer.err),
 			ApplicationName:      offer.ApplicationName,
 			OfferName:            offer.OfferName,
 			CharmURL:             offer.charmURL,
@@ -1213,15 +1221,15 @@ func (context *statusContext) processUnitMeterStatuses(units map[string]*state.U
 	return nil
 }
 
-func (context *statusContext) processUnits(units map[string]*state.Unit, applicationCharm string) map[string]params.UnitStatus {
+func (context *statusContext) processUnits(units map[string]*state.Unit, applicationCharm string, expectWorkload bool) map[string]params.UnitStatus {
 	unitsMap := make(map[string]params.UnitStatus)
 	for _, unit := range units {
-		unitsMap[unit.Name()] = context.processUnit(unit, applicationCharm)
+		unitsMap[unit.Name()] = context.processUnit(unit, applicationCharm, expectWorkload)
 	}
 	return unitsMap
 }
 
-func (context *statusContext) processUnit(unit *state.Unit, applicationCharm string) params.UnitStatus {
+func (context *statusContext) processUnit(unit *state.Unit, applicationCharm string, expectWorkload bool) params.UnitStatus {
 	var result params.UnitStatus
 	if unit.ShouldBeAssigned() {
 		addr, err := unit.PublicAddress()
@@ -1262,7 +1270,7 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 		logger.Debugf("error fetching workload version: %v", err)
 	}
 
-	result.AgentStatus, result.WorkloadStatus = context.processUnitAndAgentStatus(unit)
+	result.AgentStatus, result.WorkloadStatus = context.processUnitAndAgentStatus(unit, expectWorkload)
 
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
 		result.Subordinates = make(map[string]params.UnitStatus)
@@ -1270,7 +1278,7 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 			subUnit := context.unitByName(name)
 			// subUnit may be nil if subordinate was filtered out.
 			if subUnit != nil {
-				result.Subordinates[name] = context.processUnit(subUnit, applicationCharm)
+				result.Subordinates[name] = context.processUnit(subUnit, applicationCharm, true)
 			}
 		}
 	}
@@ -1360,7 +1368,8 @@ type lifer interface {
 // TODO: cache presence as well.
 type contextUnit struct {
 	*state.Unit
-	context *statusContext
+	expectWorkload bool
+	context        *statusContext
 }
 
 // AgentStatus implements UnitStatusGetter.
@@ -1370,12 +1379,12 @@ func (c *contextUnit) AgentStatus() (status.StatusInfo, error) {
 
 // Status implements UnitStatusGetter.
 func (c *contextUnit) Status() (status.StatusInfo, error) {
-	return c.context.status.UnitWorkload(c.Name())
+	return c.context.status.UnitWorkload(c.Name(), c.expectWorkload)
 }
 
 // processUnitAndAgentStatus retrieves status information for both unit and unitAgents.
-func (c *statusContext) processUnitAndAgentStatus(unit *state.Unit) (agentStatus, workloadStatus params.DetailedStatus) {
-	wrapped := &contextUnit{unit, c}
+func (c *statusContext) processUnitAndAgentStatus(unit *state.Unit, expectWorkload bool) (agentStatus, workloadStatus params.DetailedStatus) {
+	wrapped := &contextUnit{unit, expectWorkload, c}
 	agent, workload := c.presence.UnitStatus(wrapped)
 	populateStatusFromStatusInfoAndErr(&agentStatus, agent.Status, agent.Err)
 	populateStatusFromStatusInfoAndErr(&workloadStatus, workload.Status, workload.Err)

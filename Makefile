@@ -23,6 +23,15 @@ else
 	CHECK_ARGS =
 endif
 
+# Compile with debug flags if requested.
+ifeq ($(DEBUG_JUJU), 1)
+    COMPILE_FLAGS = -gcflags "all=-N -l"
+    LINK_FLAGS =
+else
+    COMPILE_FLAGS =
+    LINK_FLAGS = -ldflags "-s -w"
+endif
+
 define DEPENDENCIES
   ca-certificates
   bzip2
@@ -68,11 +77,11 @@ clean:
 	go clean -n -r --cache --testcache $(PROJECT_PACKAGES)
 
 go-install:
-	@echo 'go install -ldflags "-s -w" -v $$PROJECT_PACKAGES'
-	@go install -ldflags "-s -w" -v $(PROJECT_PACKAGES)
+	@echo 'go install $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$PROJECT_PACKAGES'
+	@go install $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(PROJECT_PACKAGES)
 
 go-build:
-	@go build $(PROJECT_PACKAGES)
+	@go build $(COMPILE_FLAGS) $(PROJECT_PACKAGES)
 
 else # --------------------------------
 

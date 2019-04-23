@@ -230,7 +230,7 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 	}
 
 	out := applicationStatus{
-		Err:              application.Err,
+		Err:              typedNilCheck(application.Err),
 		Charm:            application.Charm,
 		Series:           application.Series,
 		OS:               osInfo,
@@ -266,7 +266,7 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 
 func (sf *statusFormatter) formatRemoteApplication(name string, application params.RemoteApplicationStatus) remoteApplicationStatus {
 	out := remoteApplicationStatus{
-		Err:        application.Err,
+		Err:        typedNilCheck(application.Err),
 		OfferURL:   application.OfferURL,
 		Life:       application.Life,
 		Relations:  application.Relations,
@@ -354,7 +354,7 @@ func (sf *statusFormatter) getRemoteApplicationStatusInfo(application params.Rem
 
 func (sf *statusFormatter) formatOffer(name string, offer params.ApplicationOfferStatus) offerStatus {
 	out := offerStatus{
-		Err:                  offer.Err,
+		Err:                  typedNilCheck(offer.Err),
 		ApplicationName:      offer.ApplicationName,
 		CharmURL:             offer.CharmURL,
 		ActiveConnectedCount: offer.ActiveConnectedCount,

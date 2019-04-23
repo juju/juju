@@ -1663,7 +1663,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	}
 	unitStatusDoc := &statusDoc{
 		Status:     status.Waiting,
-		StatusInfo: status.MessageWaitForContainer,
+		StatusInfo: status.MessageInitializingAgent,
 		Updated:    now.UnixNano(),
 	}
 	meterStatus := &meterStatusDoc{Code: MeterNotSet.String()}
@@ -2543,6 +2543,23 @@ func (a *Application) Status() (status.StatusInfo, error) {
 	return getStatus(a.st.db(), a.globalKey(), "application")
 }
 
+func expectWorkload(st *State, appName string) (bool, error) {
+	m, err := st.Model()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	cm, err := m.CAASModel()
+	if err != nil {
+		// IAAS models alway have a unit workload.
+		return true, nil
+	}
+	_, err = cm.PodSpec(names.NewApplicationTag(appName))
+	if err != nil && !errors.IsNotFound(err) {
+		return false, errors.Trace(err)
+	}
+	return err == nil, nil
+}
+
 // SetStatus sets the status for the application.
 func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 	if !status.ValidWorkloadStatus(statusInfo.Status) {
@@ -2559,8 +2576,12 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 		// info coming from the operator pod as well; It may need to
 		// override what is set here.
 		operatorStatus, err := getStatus(a.st.db(), applicationGlobalOperatorKey(a.Name()), "operator")
+		expectWorkload, err := expectWorkload(a.st, a.Name())
+		if err != nil {
+			return errors.Trace(err)
+		}
 		if err == nil {
-			newHistory, err = caasHistoryRewriteDoc(statusInfo, operatorStatus, caasApplicationDisplayStatus, a.st.clock())
+			newHistory, err = caasHistoryRewriteDoc(statusInfo, operatorStatus, expectWorkload, caasApplicationDisplayStatus, a.st.clock())
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -2606,7 +2627,11 @@ func (a *Application) SetOperatorStatus(sInfo status.StatusInfo) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	historyDoc, err := caasHistoryRewriteDoc(appStatus, sInfo, caasApplicationDisplayStatus, a.st.clock())
+	expectWorkload, err := expectWorkload(a.st, a.Name())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	historyDoc, err := caasHistoryRewriteDoc(appStatus, sInfo, expectWorkload, caasApplicationDisplayStatus, a.st.clock())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -2951,7 +2976,7 @@ func (op *AddUnitOperation) Done(err error) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		newHistory, err := caasHistoryRewriteDoc(unitStatus, *op.props.CloudContainerStatus, caasUnitDisplayStatus, op.application.st.clock())
+		newHistory, err := caasHistoryRewriteDoc(unitStatus, *op.props.CloudContainerStatus, true, caasUnitDisplayStatus, op.application.st.clock())
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -2088,7 +2088,7 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 	us.Since = nil
 	c.Assert(us, jc.DeepEquals, status.StatusInfo{
 		Status:  status.Waiting,
-		Message: "waiting for container",
+		Message: status.MessageInitializingAgent,
 		Data:    map[string]interface{}{},
 	})
 	as, err := unitZero.AgentStatus()
@@ -3765,7 +3765,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	statusInfo, err = u.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Waiting)
-	c.Assert(statusInfo.Message, gc.Equals, "waiting for container")
+	c.Assert(statusInfo.Message, gc.Equals, "agent initializing")
 	statusInfo, err = state.GetCloudContainerStatus(s.caasSt, u.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Running)
@@ -3782,7 +3782,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	unitHistory, err = u.StatusHistory(status.StatusHistoryFilter{Size: 10})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitHistory[0].Status, gc.Equals, status.Waiting)
-	c.Assert(unitHistory[0].Message, gc.Equals, status.MessageWaitForContainer)
+	c.Assert(unitHistory[0].Message, gc.Equals, status.MessageInitializingAgent)
 
 	u, ok = unitsById["add-never-cloud-container"]
 	c.Assert(ok, jc.IsTrue)
@@ -3791,7 +3791,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	unitHistory, err = u.StatusHistory(status.StatusHistoryFilter{Size: 10})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitHistory[0].Status, gc.Equals, status.Waiting)
-	c.Assert(unitHistory[0].Message, gc.Equals, status.MessageWaitForContainer)
+	c.Assert(unitHistory[0].Message, gc.Equals, status.MessageInitializingAgent)
 
 	u, ok = unitsById["new-unit-uuid"]
 	info, ok = containerInfoById["new-unit-uuid"]
@@ -3810,7 +3810,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	statusInfo, err = u.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Waiting)
-	c.Assert(statusInfo.Message, gc.Equals, status.MessageWaitForContainer)
+	c.Assert(statusInfo.Message, gc.Equals, status.MessageInitializingAgent)
 	statusInfo, err = state.GetCloudContainerStatus(s.caasSt, u.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Running)

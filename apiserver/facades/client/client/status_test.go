@@ -19,8 +19,11 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -667,4 +670,154 @@ func (s *statusUpgradeUnitSuite) TestUpdateRevisions(c *gc.C) {
 	serviceStatus, ok = status.Applications["mysql"]
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(serviceStatus.CanUpgradeTo, gc.Equals, "cs:quantal/mysql-23")
+}
+
+type CAASStatusSuite struct {
+	baseSuite
+
+	app *state.Application
+}
+
+var _ = gc.Suite(&CAASStatusSuite{})
+
+func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
+	s.baseSuite.SetUpTest(c)
+
+	// Set up a CAAS model to replace the IAAS one.
+	st := s.Factory.MakeCAASModel(c, nil)
+	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
+	// Close the state pool before the state object itself.
+	s.StatePool.Close()
+	s.StatePool = nil
+	err := s.State.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	s.State = st
+	s.Factory = factory.NewFactory(s.State, nil)
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	s.Model = m
+
+	hp, err := st.APIHostPortsForClients()
+	c.Assert(err, jc.ErrorIsNil)
+	var addrs []network.Address
+	for _, server := range hp {
+		for _, nhp := range server {
+			addrs = append(addrs, nhp.Address)
+		}
+	}
+
+	apiAddrs := network.HostPortsToStrings(
+		network.AddressesWithPort(addrs, s.ControllerConfig.APIPort()),
+	)
+	modelTag := names.NewModelTag(st.ModelUUID())
+	apiInfo := &api.Info{Addrs: apiAddrs, CACert: coretesting.CACert, ModelTag: modelTag}
+	apiInfo.Tag = s.AdminUserTag(c)
+	apiInfo.Password = jujutesting.AdminSecret
+	s.APIState, err = api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch := s.Factory.MakeCharm(c, &factory.CharmParams{
+		Series: "kubernetes",
+	})
+	s.app = s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: ch,
+	})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.app})
+}
+
+func (s *CAASStatusSuite) TestStatusOperatorNotReady(c *gc.C) {
+	client := s.APIState.Client()
+
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Applications, gc.HasLen, 1)
+	clearSinceTimes(status)
+	s.assertUnitStatus(c, status.Applications[s.app.Name()], "waiting", "agent initializing")
+}
+
+func (s *CAASStatusSuite) TestStatusPodSpecNotSet(c *gc.C) {
+	client := s.APIState.Client()
+	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})
+	c.Assert(err, jc.ErrorIsNil)
+
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Applications, gc.HasLen, 1)
+	clearSinceTimes(status)
+	s.assertUnitStatus(c, status.Applications[s.app.Name()], "waiting", "agent initializing")
+}
+
+func (s *CAASStatusSuite) TestStatusPodSpecSet(c *gc.C) {
+	client := s.APIState.Client()
+	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})
+	c.Assert(err, jc.ErrorIsNil)
+	cm, err := s.Model.CAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	spec := `
+containers:
+  - name: gitlab
+    image: gitlab/latest
+`[1:]
+	err = cm.SetPodSpec(s.app.ApplicationTag(), spec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Applications, gc.HasLen, 1)
+	clearSinceTimes(status)
+	s.assertUnitStatus(c, status.Applications[s.app.Name()], "waiting", "waiting for container")
+}
+
+func (s *CAASStatusSuite) TestStatusCloudContainerSet(c *gc.C) {
+	client := s.APIState.Client()
+	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})
+	c.Assert(err, jc.ErrorIsNil)
+
+	u, err := s.app.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	var updateUnits state.UpdateUnitsOperation
+	updateUnits.Updates = []*state.UpdateUnitOperation{
+		u[0].UpdateOperation(state.UnitUpdateProperties{
+			CloudContainerStatus: &status.StatusInfo{Status: status.Blocked, Message: "blocked"},
+		})}
+	err = s.app.UpdateUnits(&updateUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Applications, gc.HasLen, 1)
+	clearSinceTimes(status)
+	s.assertUnitStatus(c, status.Applications[s.app.Name()], "blocked", "blocked")
+}
+
+func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.ApplicationStatus, status, info string) {
+	curl, _ := s.app.CharmURL()
+	workloadVersion := ""
+	if info != "agent initializing" && info != "blocked" {
+		workloadVersion = "gitlab/latest"
+	}
+	c.Assert(appStatus, jc.DeepEquals, params.ApplicationStatus{
+		Charm:           curl.String(),
+		Series:          "kubernetes",
+		WorkloadVersion: workloadVersion,
+		Relations:       map[string][]string{},
+		SubordinateTo:   []string{},
+		Units: map[string]params.UnitStatus{
+			s.app.Name() + "/0": {
+				AgentStatus: params.DetailedStatus{
+					Status: "allocating",
+				},
+				WorkloadStatus: params.DetailedStatus{
+					Status: status,
+					Info:   info,
+				},
+			},
+		},
+		Status: params.DetailedStatus{
+			Status: status,
+			Info:   info,
+		},
+		EndpointBindings: map[string]string{"server": "", "server-admin": ""},
+	})
 }
