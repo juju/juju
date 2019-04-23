@@ -4,6 +4,8 @@
 package application
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -33,6 +35,8 @@ type removeUnitCommand struct {
 
 	unknownModel bool
 	Force        bool
+	NoWait       bool
+	fs           *gnuflag.FlagSet
 }
 
 const removeUnitDoc = `
@@ -70,6 +74,11 @@ all operational errors. In these rare cases, use --force option but note
 that --force will remove a unit and, potentially, its machine without 
 given them the opportunity to shutdown cleanly.
 
+Unit removal is a multi-step process. Under normal circumstances, Juju will not
+proceed to a next step until the current step finished. 
+However, when using --force, users can also specify --no-wait to progress through steps 
+without delay waiting for each step to complete.
+
 Examples:
 
     juju remove-unit wordpress/2 wordpress/3 wordpress/4
@@ -77,6 +86,8 @@ Examples:
     juju remove-unit wordpress/2 --destroy-storage
  
     juju remove-unit wordpress/2 --force
+
+    juju remove-unit wordpress/2 --force --no-wait
 
 See also:
     remove-application
@@ -97,6 +108,8 @@ func (c *removeUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumUnits, "num-units", 0, "Number of units to remove (kubernetes models only)")
 	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to the unit")
 	f.BoolVar(&c.Force, "force", false, "Completely remove an application and all its dependencies")
+	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through application removal without waiting for each individual step to complete")
+	c.fs = f
 }
 
 func (c *removeUnitCommand) Init(args []string) error {
@@ -183,12 +196,12 @@ func (c *removeUnitCommand) unitsHaveStorage(unitNames []string) (bool, error) {
 	}
 	defer client.Close()
 
-	storage, err := client.ListStorageDetails()
+	storages, err := client.ListStorageDetails()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
 	namesSet := set.NewStrings(unitNames...)
-	for _, s := range storage {
+	for _, s := range storages {
 		if s.OwnerTag == "" {
 			continue
 		}
@@ -206,6 +219,19 @@ func (c *removeUnitCommand) unitsHaveStorage(unitNames []string) (bool, error) {
 // Run connects to the environment specified on the command line and destroys
 // units therein.
 func (c *removeUnitCommand) Run(ctx *cmd.Context) error {
+	noWaitSet := false
+	forceSet := false
+	c.fs.Visit(func(flag *gnuflag.Flag) {
+		if flag.Name == "no-wait" {
+			noWaitSet = true
+		} else if flag.Name == "force" {
+			forceSet = true
+		}
+	})
+	if !forceSet && noWaitSet {
+		return errors.NotValidf("--no-wait without --force")
+	}
+
 	client, apiVersion, err := c.getAPI()
 	if err != nil {
 		return err
@@ -242,10 +268,22 @@ func (c *removeUnitCommand) removeUnitsDeprecated(ctx *cmd.Context, client Remov
 }
 
 func (c *removeUnitCommand) removeUnits(ctx *cmd.Context, client RemoveApplicationAPI) error {
+	var maxWait *time.Duration
+	if c.Force {
+		if c.NoWait {
+			zeroSec := 0 * time.Second
+			maxWait = &zeroSec
+		} else {
+			oneMin := 1 * time.Minute
+			maxWait = &oneMin
+		}
+	}
+
 	results, err := client.DestroyUnits(application.DestroyUnitsParams{
 		Units:          c.EntityNames,
 		DestroyStorage: c.DestroyStorage,
 		Force:          c.Force,
+		MaxWait:        maxWait,
 	})
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockRemove)

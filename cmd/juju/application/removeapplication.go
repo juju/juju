@@ -4,6 +4,8 @@
 package application
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -36,6 +38,8 @@ type removeApplicationCommand struct {
 	ApplicationNames []string
 	DestroyStorage   bool
 	Force            bool
+	NoWait           bool
+	fs               *gnuflag.FlagSet
 }
 
 var helpSummaryRmApp = `
@@ -58,9 +62,15 @@ all operational errors. In these rare cases, use --force option but note
 that --force will also remove all units of the application, its subordinates
 and, potentially, machines without given them the opportunity to shutdown cleanly.
 
+Application removal is a multi-step process. Under normal circumstances, Juju will not
+proceed to a next step until the current step finished. 
+However, when using --force, users can also specify --no-wait to progress through steps 
+without delay waiting for each step to complete.
+
 Examples:
     juju remove-application hadoop
     juju remove-application --force hadoop
+    juju remove-application --force --no-wait hadoop
     juju remove-application -m test-model mariadb`[1:]
 
 func (c *removeApplicationCommand) Info() *cmd.Info {
@@ -76,6 +86,8 @@ func (c *removeApplicationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to application units")
 	f.BoolVar(&c.Force, "force", false, "Completely remove an application and all its dependencies")
+	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through application removal without waiting for each individual step to complete")
+	c.fs = f
 }
 
 func (c *removeApplicationCommand) Init(args []string) error {
@@ -131,12 +143,12 @@ func (c *removeApplicationCommand) applicationsHaveStorage(appNames []string) (b
 	}
 	defer client.Close()
 
-	storage, err := client.ListStorageDetails()
+	storages, err := client.ListStorageDetails()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
 	namesSet := set.NewStrings(appNames...)
-	for _, s := range storage {
+	for _, s := range storages {
 		if s.OwnerTag == "" {
 			continue
 		}
@@ -159,6 +171,19 @@ func (c *removeApplicationCommand) applicationsHaveStorage(appNames []string) (b
 }
 
 func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {
+	noWaitSet := false
+	forceSet := false
+	c.fs.Visit(func(flag *gnuflag.Flag) {
+		if flag.Name == "no-wait" {
+			noWaitSet = true
+		} else if flag.Name == "force" {
+			forceSet = true
+		}
+	})
+	if !forceSet && noWaitSet {
+		return errors.NotValidf("--no-wait without --force")
+	}
+
 	client, apiVersion, err := c.newAPIFunc()
 	if err != nil {
 		return err
@@ -193,10 +218,22 @@ func (c *removeApplicationCommand) removeApplications(
 	ctx *cmd.Context,
 	client RemoveApplicationAPI,
 ) error {
+	var maxWait *time.Duration
+	if c.Force {
+		if c.NoWait {
+			zeroSec := 0 * time.Second
+			maxWait = &zeroSec
+		} else {
+			oneMin := 1 * time.Minute
+			maxWait = &oneMin
+		}
+	}
+
 	results, err := client.DestroyApplications(application.DestroyApplicationsParams{
 		Applications:   c.ApplicationNames,
 		DestroyStorage: c.DestroyStorage,
 		Force:          c.Force,
+		MaxWait:        maxWait,
 	})
 	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
 		return errors.Trace(err)

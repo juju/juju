@@ -8,6 +8,8 @@
 package application
 
 import (
+	"time"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -453,6 +455,11 @@ type DestroyUnitsParams struct {
 	// Force controls whether or not the removal of applications
 	// will be forced, i.e. ignore removal errors.
 	Force bool
+
+	// MaxWait specifies the amount of time that each step in unit removal
+	// will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration
 }
 
 // DestroyUnits decreases the number of units dedicated to one or more
@@ -475,6 +482,7 @@ func (c *Client) DestroyUnits(in DestroyUnitsParams) ([]params.DestroyUnitResult
 			UnitTag:        names.NewUnitTag(name).String(),
 			DestroyStorage: in.DestroyStorage,
 			Force:          in.Force,
+			MaxWait:        in.MaxWait,
 		})
 	}
 	if len(argsV5.Units) == 0 {
@@ -536,6 +544,11 @@ type DestroyApplicationsParams struct {
 	// Force controls whether or not the removal of applications
 	// will be forced, i.e. ignore removal errors.
 	Force bool
+
+	// MaxWait specifies the amount of time that each step in application removal
+	// will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration
 }
 
 // DestroyApplications destroys the given applications.
@@ -557,6 +570,7 @@ func (c *Client) DestroyApplications(in DestroyApplicationsParams) ([]params.Des
 			ApplicationTag: names.NewApplicationTag(name).String(),
 			DestroyStorage: in.DestroyStorage,
 			Force:          in.Force,
+			MaxWait:        in.MaxWait,
 		})
 	}
 	if len(argsV5.Applications) == 0 {
