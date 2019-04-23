@@ -4,12 +4,12 @@
 package application
 
 import (
-	"github.com/juju/gnuflag"
 	"strconv"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/application"
 	jujucmd "github.com/juju/juju/cmd"

@@ -4,12 +4,13 @@
 package application
 
 import (
+	"time"
+
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"time"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
