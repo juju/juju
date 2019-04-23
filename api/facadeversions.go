@@ -62,7 +62,7 @@ var facadeVersions = map[string]int{
 	"LogForwarding":                1,
 	"Logger":                       1,
 	"MachineActions":               1,
-	"MachineManager":               5,
+	"MachineManager":               6,
 	"MachineUndertaker":            1,
 	"Machiner":                     1,
 	"MeterStatus":                  1,

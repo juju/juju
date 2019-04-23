@@ -4,6 +4,8 @@
 package machine
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -30,29 +32,33 @@ type removeCommand struct {
 	MachineIds   []string
 	Force        bool
 	KeepInstance bool
+	NoWait       bool
+	fs           *gnuflag.FlagSet
 }
 
 const destroyMachineDoc = `
 Machines are specified by their numbers, which may be retrieved from the
 output of ` + "`juju status`." + `
+
+It is possible to remove machine from Juju model without affecting
+the corresponding cloud instnace by using --keep-instance option.
+
 Machines responsible for the model cannot be removed.
+
 Machines running units or containers can be removed using the '--force'
 option; this will also remove those units and containers without giving
 them an opportunity to shut down cleanly.
 
+Machine removal is a multi-step process. Under normal circumstances, Juju will not
+proceed to a next step until the current step finished. 
+However, when using --force, users can also specify --no-wait to progress through steps 
+without delay waiting for each step to complete.
+
 Examples:
 
-Remove machine number 5 which has no running units or containers:
-
     juju remove-machine 5
-
-Remove machine 6 and any running units or containers:
-
     juju remove-machine 6 --force
-    
-Remove machine 7 from the Juju model but do not stop 
-the corresponding cloud instance:
-
+    juju remove-machine 6 --force --no-wait
     juju remove-machine 7 --keep-instance
 
 See also:
@@ -74,6 +80,8 @@ func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.Force, "force", false, "Completely remove a machine and all its dependencies")
 	f.BoolVar(&c.KeepInstance, "keep-instance", false, "Do not stop the running cloud instance")
+	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through machine removal without waiting for each individual step to complete")
+	c.fs = f
 }
 
 func (c *removeCommand) Init(args []string) error {
@@ -91,8 +99,8 @@ func (c *removeCommand) Init(args []string) error {
 
 type RemoveMachineAPI interface {
 	DestroyMachines(machines ...string) ([]params.DestroyMachineResult, error)
-	ForceDestroyMachines(machines ...string) ([]params.DestroyMachineResult, error)
-	DestroyMachinesWithParams(force, keep bool, machines ...string) ([]params.DestroyMachineResult, error)
+	ForceDestroyMachines(maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
+	DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
 	Close() error
 }
 
@@ -106,11 +114,11 @@ func (a removeMachineAdapter) DestroyMachines(machines ...string) ([]params.Dest
 	return a.destroyMachines(a.Client.DestroyMachines, machines)
 }
 
-func (a removeMachineAdapter) ForceDestroyMachines(machines ...string) ([]params.DestroyMachineResult, error) {
+func (a removeMachineAdapter) ForceDestroyMachines(maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	return a.destroyMachines(a.Client.ForceDestroyMachines, machines)
 }
 
-func (a removeMachineAdapter) DestroyMachinesWithParams(force, keep bool, machines ...string) ([]params.DestroyMachineResult, error) {
+func (a removeMachineAdapter) DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	return a.destroyMachines(a.Client.ForceDestroyMachines, machines)
 }
 
@@ -151,6 +159,26 @@ func (c *removeCommand) getRemoveMachineAPI() (RemoveMachineAPI, error) {
 
 // Run implements Command.Run.
 func (c *removeCommand) Run(ctx *cmd.Context) error {
+	noWaitSet := false
+	forceSet := false
+	c.fs.Visit(func(flag *gnuflag.Flag) {
+		if flag.Name == "no-wait" {
+			noWaitSet = true
+		} else if flag.Name == "force" {
+			forceSet = true
+		}
+	})
+	if !forceSet && noWaitSet {
+		return errors.NotValidf("--no-wait without --force")
+	}
+	var maxWait *time.Duration
+	if c.Force {
+		if c.NoWait {
+			zeroSec := 0 * time.Second
+			maxWait = &zeroSec
+		}
+	}
+
 	client, err := c.getRemoveMachineAPI()
 	if err != nil {
 		return err
@@ -158,14 +186,15 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	var results []params.DestroyMachineResult
+
 	if c.KeepInstance {
-		results, err = client.DestroyMachinesWithParams(c.Force, c.KeepInstance, c.MachineIds...)
+		results, err = client.DestroyMachinesWithParams(c.Force, c.KeepInstance, maxWait, c.MachineIds...)
 	} else {
-		destroy := client.DestroyMachines
 		if c.Force {
-			destroy = client.ForceDestroyMachines
+			results, err = client.ForceDestroyMachines(maxWait, c.MachineIds...)
+		} else {
+			results, err = client.DestroyMachines(c.MachineIds...)
 		}
-		results, err = destroy(c.MachineIds...)
 	}
 	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
 		return err
