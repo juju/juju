@@ -1246,11 +1246,20 @@ func (k *kubernetesClient) EnsureService(
 	return nil
 }
 
-// Upgrade sets the OCI image for the app to the specified version.
+// Upgrade sets the OCI image for the app's operator to the specified version.
 func (k *kubernetesClient) Upgrade(appName string, vers version.Number) error {
-	deploymentName := k.deploymentName(appName)
+	var resourceName string
+	if appName == JujuControllerStackName {
+		// upgrading controller.
+		resourceName = appName
+	} else {
+		// upgrading operator.
+		resourceName = k.operatorName(appName)
+	}
+	logger.Debugf("Upgrading %q", resourceName)
+
 	statefulsets := k.AppsV1().StatefulSets(k.namespace)
-	existingStatefulSet, err := statefulsets.Get(deploymentName, v1.GetOptions{IncludeUninitialized: true})
+	existingStatefulSet, err := statefulsets.Get(resourceName, v1.GetOptions{IncludeUninitialized: true})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
 	}

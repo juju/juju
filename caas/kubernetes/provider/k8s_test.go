@@ -1831,12 +1831,12 @@ func (s *K8sBrokerSuite) TestWatchService(c *gc.C) {
 	}
 }
 
-func (s *K8sBrokerSuite) TestUpgrade(c *gc.C) {
+func (s *K8sBrokerSuite) TestUpgradeController(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	ss := apps.StatefulSet{
-		ObjectMeta: v1.ObjectMeta{Name: "test"},
+		ObjectMeta: v1.ObjectMeta{Name: "controller"},
 		Spec: apps.StatefulSetSpec{
 			Template: core.PodTemplateSpec{
 				Spec: core.PodSpec{
@@ -1851,14 +1851,59 @@ func (s *K8sBrokerSuite) TestUpgrade(c *gc.C) {
 	updated := ss
 	updated.Spec.Template.Spec.Containers[1].Image = "juju-operator:6.6.6"
 	gomock.InOrder(
-		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockStatefulSets.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockStatefulSets.EXPECT().Get("controller", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(&ss, nil),
 		s.mockStatefulSets.EXPECT().Update(&updated).Times(1).
 			Return(nil, nil),
 	)
 
-	err := s.broker.Upgrade("test", version.MustParse("6.6.6"))
+	err := s.broker.Upgrade("controller", version.MustParse("6.6.6"))
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestUpgradeOperator(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	ss := apps.StatefulSet{
+		ObjectMeta: v1.ObjectMeta{Name: "test-app-operator"},
+		Spec: apps.StatefulSetSpec{
+			Template: core.PodTemplateSpec{
+				Spec: core.PodSpec{
+					Containers: []core.Container{
+						{Image: "foo"},
+						{Image: "jujud-operator:1.1.1"},
+					},
+				},
+			},
+		},
+	}
+	updated := ss
+	updated.Spec.Template.Spec.Containers[1].Image = "juju-operator:6.6.6"
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-test-app", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Get("test-app-operator", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(&ss, nil),
+		s.mockStatefulSets.EXPECT().Update(&updated).Times(1).
+			Return(nil, nil),
+	)
+
+	err := s.broker.Upgrade("test-app", version.MustParse("6.6.6"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestUpgradeNotSupported(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-test-app", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Get("test-app-operator", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+	)
+
+	err := s.broker.Upgrade("test-app", version.MustParse("6.6.6"))
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
