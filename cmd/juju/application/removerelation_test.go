@@ -72,14 +72,14 @@ func (s *RemoveRelationSuite) TestRemoveRelationIdOldServer(c *gc.C) {
 func (s *RemoveRelationSuite) TestRemoveRelationSuccess(c *gc.C) {
 	err := s.runRemoveRelation(c, "application1", "application2")
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockAPI.CheckCall(c, 0, "DestroyRelation", []string{"application1", "application2"})
+	s.mockAPI.CheckCall(c, 0, "DestroyRelation", (*bool)(nil), (*time.Duration)(nil), []string{"application1", "application2"})
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
 func (s *RemoveRelationSuite) TestRemoveRelationIdSuccess(c *gc.C) {
 	err := s.runRemoveRelation(c, "123")
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockAPI.CheckCall(c, 0, "DestroyRelationId", 123)
+	s.mockAPI.CheckCall(c, 0, "DestroyRelationId", 123, (*bool)(nil), (*time.Duration)(nil))
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
@@ -88,7 +88,7 @@ func (s *RemoveRelationSuite) TestRemoveRelationFail(c *gc.C) {
 	s.mockAPI.SetErrors(errors.New(msg))
 	err := s.runRemoveRelation(c, "application1", "application2")
 	c.Assert(err, gc.ErrorMatches, msg)
-	s.mockAPI.CheckCall(c, 0, "DestroyRelation", []string{"application1", "application2"})
+	s.mockAPI.CheckCall(c, 0, "DestroyRelation", (*bool)(nil), (*time.Duration)(nil), []string{"application1", "application2"})
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
@@ -96,7 +96,7 @@ func (s *RemoveRelationSuite) TestRemoveRelationBlocked(c *gc.C) {
 	s.mockAPI.SetErrors(common.OperationBlockedError("TestRemoveRelationBlocked"))
 	err := s.runRemoveRelation(c, "application1", "application2")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestRemoveRelationBlocked.*")
-	s.mockAPI.CheckCall(c, 0, "DestroyRelation", []string{"application1", "application2"})
+	s.mockAPI.CheckCall(c, 0, "DestroyRelation", (*bool)(nil), (*time.Duration)(nil), []string{"application1", "application2"})
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
