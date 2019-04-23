@@ -369,12 +369,19 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	// If the application has no units, and all its known relations will be
 	// removed, the application can also be removed.
 	if op.app.doc.UnitCount == 0 && op.app.doc.RelationCount == removeCount {
-		hasLastRefs := bson.D{{"life", Alive}, {"unitcount", 0}, {"relationcount", removeCount}}
+		// If we're forcing destruction the assertion shouldn't be that
+		// life is alive, but that it's what we think it is now.
+		assertion := isAliveDoc
+		if op.Force {
+			assertion = bson.D{{"life", op.app.doc.Life}}
+		}
+
+		assertion = append(assertion, bson.D{{"unitcount", 0}, {"relationcount", removeCount}}...)
 		// When forced, this call will return operations to remove this
 		// application and accumulate all operational errors encountered in the operation.
 		// If the 'force' is not set and the call came across some errors,
 		// these errors will be fatal and no operations will be returned.
-		removeOps, err := op.app.removeOps(hasLastRefs, &op.ForcedOperation)
+		removeOps, err := op.app.removeOps(assertion, &op.ForcedOperation)
 		if err != nil {
 			if !op.Force {
 				return nil, errors.Trace(err)
