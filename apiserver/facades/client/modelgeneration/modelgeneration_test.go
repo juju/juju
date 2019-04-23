@@ -44,10 +44,7 @@ func (s *modelGenerationSuite) TearDownTest(c *gc.C) {
 func (s *modelGenerationSuite) TestAddBranchInvalidNameError(c *gc.C) {
 	defer s.setupModelGenerationAPI(c, nil).Finish()
 
-	arg := params.BranchArg{
-		BranchName: model.GenerationMaster,
-		Model:      params.Entity{Tag: names.NewModelTag(s.modelUUID).String()},
-	}
+	arg := params.BranchArg{BranchName: model.GenerationMaster}
 	result, err := s.api.AddBranch(arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.NotNil)
@@ -66,7 +63,6 @@ func (s *modelGenerationSuite) TestAddBranchSuccess(c *gc.C) {
 
 func (s *modelGenerationSuite) TestTrackBranchEntityTypeError(c *gc.C) {
 	arg := params.BranchTrackArg{
-		Model:      params.Entity{Tag: names.NewModelTag(s.modelUUID).String()},
 		BranchName: s.newBranchName,
 		Entities: []params.Entity{
 			{Tag: names.NewUnitTag("mysql/0").String()},
@@ -95,7 +91,6 @@ func (s *modelGenerationSuite) TestTrackBranchEntityTypeError(c *gc.C) {
 
 func (s *modelGenerationSuite) TestTrackBranchSuccess(c *gc.C) {
 	arg := params.BranchTrackArg{
-		Model:      params.Entity{Tag: names.NewModelTag(s.modelUUID).String()},
 		BranchName: s.newBranchName,
 		Entities: []params.Entity{
 			{Tag: names.NewUnitTag("mysql/0").String()},
@@ -258,8 +253,5 @@ func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C, fn setupFunc) *g
 }
 
 func (s *modelGenerationSuite) newBranchArg() params.BranchArg {
-	return params.BranchArg{
-		BranchName: s.newBranchName,
-		Model:      params.Entity{Tag: names.NewModelTag(s.modelUUID).String()},
-	}
+	return params.BranchArg{BranchName: s.newBranchName}
 }
