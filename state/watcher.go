@@ -1877,7 +1877,7 @@ type documentFieldWatcher struct {
 	// docId is used to select the initial interesting entities.
 	collection   string
 	members      bson.D
-	known        string
+	known        *string
 	initialKnown string
 	filter       func(interface{}) bool
 	extract      func(map[string]interface{}) (string, error)
@@ -1925,14 +1925,16 @@ func (w *documentFieldWatcher) initial() error {
 			field = newField
 		}
 	}
-	w.known = field
+	w.known = &field
 
 	logger.Tracef("Started watching %s for %v: %q", w.collection, w.members, field)
 	return nil
 }
 
 func (w *documentFieldWatcher) merge(change watcher.Change) (bool, error) {
-	if change.Revno == -1 {
+	// we care about change.Revno equalling -1 as we want to know about
+	// documents being deleted.
+	if w.known == nil {
 		return false, nil
 	}
 	col, closer := w.db.GetCollection(w.collection)
@@ -1953,8 +1955,8 @@ func (w *documentFieldWatcher) merge(change watcher.Change) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if w.known != currentField {
-		w.known = currentField
+	if *w.known != currentField {
+		w.known = &currentField
 
 		logger.Tracef("Changes in watching %s for %v: %q", w.collection, w.members, currentField)
 		return true, nil
@@ -1974,9 +1976,9 @@ func (w *documentFieldWatcher) loop() error {
 
 	out := w.out
 	for {
-		value := w.known
+		value := *w.known
 		if w.transform != nil {
-			value = w.transform(w.known)
+			value = w.transform(value)
 		}
 		select {
 		case <-w.watcher.Dead():
