@@ -83,6 +83,12 @@ const (
 
 	// Upgrading is a special case where mongo is being upgraded.
 	Upgrading StorageEngine = "Upgrading"
+
+	// SnapTrack is the track to get the juju-db snap from
+	SnapTrack = "latest"
+
+	// SnapRisk is which juju-db snap to use i.e. stable or edge.
+	SnapRisk = "stable"
 )
 
 // Version represents the major.minor version of the running mongo.
@@ -664,6 +670,10 @@ func installPackage(pkg string, pacconfer config.PackagingConfigurer, pacman man
 	return pacman.Install(pkg)
 }
 
+func getSnapChannel() string {
+	return fmt.Sprintf("%s/%s", SnapTrack, SnapRisk)
+}
+
 func installMongod(operatingsystem string, numaCtl bool, dataDir string) error {
 	if featureflag.Enabled(feature.MongoDbSnap) {
 		snapName := ServiceName
@@ -684,7 +694,7 @@ func installMongod(operatingsystem string, numaCtl bool, dataDir string) error {
 		prerequisites := []snap.App{snap.NewApp("core")}
 		backgroundServices := []snap.BackgroundService{{"daemon", true}}
 		conf := common.Conf{Desc: ServiceName + " snap"}
-		service, err := snap.NewService(snapName, ServiceName, conf, snap.Command, "edge", "jailmode", backgroundServices, prerequisites)
+		service, err := snap.NewService(snapName, ServiceName, conf, snap.Command, getSnapChannel(), "", backgroundServices, prerequisites)
 		if err != nil {
 			return errors.Trace(err)
 		}
