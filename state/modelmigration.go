@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/permission"
 )
 
 // This file contains functionality for managing the state documents
@@ -93,6 +94,10 @@ type ModelMigration interface {
 	// Refresh updates the contents of the ModelMigration from the
 	// underlying state.
 	Refresh() error
+
+	// ModelUserAccess returns the type of access that the given tag had to
+	// the model prior to it being migrated.
+	ModelUserAccess(names.Tag) permission.Access
 }
 
 // MinionReports indicates the sets of agents whose migration minion
@@ -151,6 +156,14 @@ type modelMigDoc struct {
 	// TargetMacaroons holds the macaroons to use with TargetAuthTag
 	// when authenticating.
 	TargetMacaroons string `bson:"target-macaroons,omitempty"`
+
+	// The list of users and their access-level to the model being migrated.
+	ModelUsers []modelMigUserDoc `bson:"model-users,omitempty"`
+}
+
+type modelMigUserDoc struct {
+	UserID string            `bson:"user_id"`
+	Access permission.Access `bson:"access"`
 }
 
 // modelMigStatusDoc tracks the progress of a migration attempt for a
@@ -604,6 +617,18 @@ func (mig *modelMigration) Refresh() error {
 	return nil
 }
 
+// ModelUserAccess implements ModelMigration.
+func (mig *modelMigration) ModelUserAccess(tag names.Tag) permission.Access {
+	id := tag.Id()
+	for _, user := range mig.doc.ModelUsers {
+		if user.UserID == id {
+			return user.Access
+		}
+	}
+
+	return permission.NoAccess
+}
+
 // MigrationSpec holds the information required to create a
 // ModelMigration instance.
 type MigrationSpec struct {
@@ -670,6 +695,11 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			return nil, errors.Trace(err)
 		}
 
+		userDocs, err := modelUserDocs(model)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		id := fmt.Sprintf("%s:%d", modelUUID, attempt)
 		doc = modelMigDoc{
 			Id:               id,
@@ -682,6 +712,7 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			TargetAuthTag:    spec.TargetInfo.AuthTag.String(),
 			TargetPassword:   spec.TargetInfo.Password,
 			TargetMacaroons:  macsJSON,
+			ModelUsers:       userDocs,
 		}
 
 		statusDoc = modelMigStatusDoc{
@@ -729,6 +760,23 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 	}, nil
 }
 
+func modelUserDocs(m *Model) ([]modelMigUserDoc, error) {
+	users, err := m.Users()
+	if err != nil {
+		return nil, err
+	}
+
+	var docs []modelMigUserDoc
+	for _, user := range users {
+		docs = append(docs, modelMigUserDoc{
+			UserID: user.UserTag.Id(),
+			Access: user.Access,
+		})
+	}
+
+	return docs, nil
+}
+
 func macaroonsToJSON(m []macaroon.Slice) (string, error) {
 	if len(m) == 0 {
 		return "", nil
@@ -758,24 +806,19 @@ func checkTargetController(st *State, targetControllerTag names.ControllerTag) e
 	return nil
 }
 
-// LatestMigration returns the most recent ModelMigration for a model
-// (if any).
+// LatestMigration returns the most recent ModelMigration (if any) for a model
+// that has not been removed from the state. Callers interested in
+// ModelMigrations for models that have been removed after a successful
+// migration to another controller should use LatestRemovedModelMigration
+// instead.
 func (st *State) LatestMigration() (ModelMigration, error) {
-	migColl, closer := st.db().GetCollection(migrationsC)
-	defer closer()
-	query := migColl.Find(bson.M{"model-uuid": st.ModelUUID()})
-	query = query.Sort("-attempt").Limit(1)
-	mig, err := st.migrationFromQuery(query)
+	mig, phase, err := st.latestMigration()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 
 	// Hide previous migrations for models which have been migrated
 	// away from a model and then migrated back.
-	phase, err := mig.Phase()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	if phase == migration.DONE {
 		model, err := st.Model()
 		if err != nil {
@@ -789,8 +832,48 @@ func (st *State) LatestMigration() (ModelMigration, error) {
 	return mig, nil
 }
 
+// LatestRemovedModelMigration returns the most recent ModelMigration (if any)
+// for a model that has been removed from the state after a successful
+// migration to another controller.
+func (st *State) LatestRemovedModelMigration() (ModelMigration, error) {
+	mig, phase, err := st.latestMigration()
+	if err != nil {
+		return nil, err
+	}
+
+	// Return NotFound if the model still exists or the migration is not
+	// flagged as completed.
+	model, _ := st.Model()
+	if phase != migration.DONE || model != nil {
+		return nil, errors.NotFoundf("migration")
+	}
+
+	return mig, nil
+}
+
+// latestMigration returns the most recent ModelMigration for a model
+// (if any).
+func (st *State) latestMigration() (ModelMigration, migration.Phase, error) {
+	migColl, closer := st.db().GetCollection(migrationsC)
+	defer closer()
+	query := migColl.Find(bson.M{"model-uuid": st.ModelUUID()})
+	query = query.Sort("-attempt").Limit(1)
+	mig, err := st.migrationFromQuery(query)
+	if err != nil {
+		return nil, migration.UNKNOWN, errors.Trace(err)
+	}
+
+	// Hide previous migrations for models which have been migrated
+	// away from a model and then migrated back.
+	phase, err := mig.Phase()
+	if err != nil {
+		return nil, migration.UNKNOWN, errors.Trace(err)
+	}
+	return mig, phase, nil
+}
+
 // Migration retrieves a specific ModelMigration by its id. See also
-// LatestMigration.
+// LatestMigration and LatestCompletedMigration.
 func (st *State) Migration(id string) (ModelMigration, error) {
 	migColl, closer := st.db().GetCollection(migrationsC)
 	defer closer()

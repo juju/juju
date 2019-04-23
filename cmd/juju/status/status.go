@@ -255,14 +255,14 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 
 	// Always attempt to get the status at least once, and retry if it fails.
 	status, err := c.getStatus()
-	if err != nil {
+	if err != nil && !modelcmd.IsModelMigratedError(err) {
 		for i := 0; i < c.retryCount; i++ {
 			// fun bit - make sure a new api connection is used for each new call
 			c.SetModelAPI(nil)
 			// Wait for a bit before retries.
 			<-c.clock.After(c.retryDelay)
 			status, err = c.getStatus()
-			if err == nil {
+			if err == nil || modelcmd.IsModelMigratedError(err) {
 				break
 			}
 		}

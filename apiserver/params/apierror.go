@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/network"
 	"github.com/juju/loggo"
 	"gopkg.in/macaroon.v2-unstable"
 )
@@ -92,6 +93,20 @@ type DischargeRequiredErrorInfo struct {
 
 // AsMap encodes the error info as a map that can be attached to an Error.
 func (e DischargeRequiredErrorInfo) AsMap() map[string]interface{} {
+	return serializeToMap(e)
+}
+
+// RedirectErrorInfo provides additional information for Redirect errors.
+type RedirectErrorInfo struct {
+	// Servers holds the sets of addresses of the redirected servers.
+	Servers [][]network.HostPort `json:"servers"`
+
+	// CACert holds the certificate of the remote server.
+	CACert string `json:"ca-cert"`
+}
+
+// AsMap encodes the error info as a map that can be attached to an Error.
+func (e RedirectErrorInfo) AsMap() map[string]interface{} {
 	return serializeToMap(e)
 }
 

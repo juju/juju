@@ -6,7 +6,9 @@ package api_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v2-unstable"
@@ -14,9 +16,12 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/api/usermanager"
+	"github.com/juju/juju/core/migration"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -132,6 +137,52 @@ func (s *stateSuite) TestLoginSetsControllerAccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	conn := s.OpenAPIAs(c, usertag, "ro-password")
 	c.Assert(conn.ControllerAccess(), gc.Equals, "login")
+}
+
+func (s *stateSuite) TestLoginToMigratedModel(c *gc.C) {
+	modelOwner := s.Factory.MakeUser(c, &factory.UserParams{
+		Password: "secret",
+	})
+	modelState := s.Factory.MakeModel(c, &factory.ModelParams{
+		Owner: modelOwner.UserTag(),
+	})
+	defer modelState.Close()
+	model, err := modelState.Model()
+
+	// Migrate the model and delete it from the state
+	mig, err := modelState.CreateMigration(state.MigrationSpec{
+		InitiatedBy: names.NewUserTag("admin"),
+		TargetInfo: migration.TargetInfo{
+			ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),
+			Addrs:         []string{"1.2.3.4:5555"},
+			CACert:        coretesting.CACert,
+			AuthTag:       names.NewUserTag("user2"),
+			Password:      "secret",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	phases := []migration.Phase{migration.IMPORT, migration.VALIDATION, migration.SUCCESS, migration.LOGTRANSFER, migration.REAP, migration.DONE}
+	for _, phase := range phases {
+		c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
+	}
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(modelState.RemoveDyingModel(), jc.ErrorIsNil)
+
+	// Attempt to open an API connection to the migrated model as a user
+	// that had access to the model before it got migrated.
+	info := s.APIInfo(c)
+	info.ModelTag = model.ModelTag()
+	info.Tag = modelOwner.Tag()
+	info.Password = "secret"
+	_, err = api.Open(info, api.DialOpts{})
+
+	redirErr, ok := errors.Cause(err).(*api.RedirectError)
+	c.Assert(ok, gc.Equals, true)
+
+	nhp := network.NewHostPorts(5555, "1.2.3.4")
+	c.Assert(redirErr.Servers, jc.DeepEquals, [][]network.HostPort{nhp})
+	c.Assert(redirErr.CACert, gc.Equals, coretesting.CACert)
+	c.Assert(redirErr.FollowRedirect, gc.Equals, false)
 }
 
 func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {

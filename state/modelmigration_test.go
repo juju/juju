@@ -16,6 +16,7 @@ import (
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing/factory"
@@ -317,6 +318,32 @@ func (s *MigrationSuite) TestLatestMigrationWithPrevious(c *gc.C) {
 	phase, err := migNextb.Phase()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(phase, gc.Equals, migration.QUIESCE)
+}
+
+func (s *MigrationSuite) TestLatestRemovedModelMigration(c *gc.C) {
+	model, err := s.State2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	mig1, err := s.State2.CreateMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Cycle through the phases and complete the migration
+	phases := []migration.Phase{migration.IMPORT, migration.VALIDATION, migration.SUCCESS, migration.LOGTRANSFER, migration.REAP, migration.DONE}
+	for _, phase := range phases {
+		c.Assert(mig1.SetPhase(phase), jc.ErrorIsNil)
+	}
+
+	// LatestRemovedModelMigration should fail as the model docs are still there
+	_, err = s.State2.LatestRemovedModelMigration()
+	c.Assert(errors.IsNotFound(err), gc.Equals, true)
+
+	// Delete the model and check that we get back the MigrationModel
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(s.State2.RemoveDyingModel(), jc.ErrorIsNil)
+
+	mig2, err := s.State2.LatestRemovedModelMigration()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mig2, jc.DeepEquals, mig1)
 }
 
 func (s *MigrationSuite) TestMigration(c *gc.C) {
@@ -803,6 +830,29 @@ func (s *MigrationSuite) TestWatchMinionReportsMultiModel(c *gc.C) {
 	c.Assert(mig3.SubmitMinionReport(names.NewMachineTag("0"), migration.QUIESCE, true), jc.ErrorIsNil)
 	wc.AssertNoChange()
 	wc3.AssertOneChange()
+}
+
+func (s *MigrationSuite) TestModelUserAccess(c *gc.C) {
+	model, err := s.State2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeNone)
+
+	// Get users that had access to the model before the migration
+	modelUsers, err := model.Users()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(modelUsers), gc.Not(gc.Equals), 0)
+
+	mig, err := s.State2.CreateMigration(s.stdSpec)
+
+	for _, modelUser := range modelUsers {
+		c.Logf("check that migration doc lists user %q having permission %q", modelUser.UserTag, modelUser.Access)
+		perm := mig.ModelUserAccess(modelUser.UserTag)
+		c.Assert(perm, gc.Equals, modelUser.Access)
+	}
+
+	// Querying for any other user should yield permission.NoAccess
+	perm := mig.ModelUserAccess(names.NewUserTag("bogus"))
+	c.Assert(perm, gc.Equals, permission.NoAccess)
 }
 
 func (s *MigrationSuite) createStatusWatcher(c *gc.C, st *state.State) (

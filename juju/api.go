@@ -68,7 +68,7 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 	st, err := args.OpenAPI(apiInfo, args.DialOpts)
 	if err != nil {
 		redirErr, ok := errors.Cause(err).(*api.RedirectError)
-		if !ok {
+		if !ok || !redirErr.FollowRedirect {
 			return nil, errors.Trace(err)
 		}
 		// We've been told to connect to a different API server,

@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/rpc"
 )
 
 // Login authenticates as the entity with the given name and password
@@ -61,21 +62,35 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 	}
 	err := st.APICall("Admin", 3, "", "Login", request, &result)
 	if err != nil {
-		var resp params.RedirectInfoResult
-		if params.IsRedirect(err) {
-			// We've been asked to redirect. Find out the redirection info.
-			// If the rpc packet allowed us to return arbitrary information in
-			// an error, we'd probably put this information in the Login response,
-			// but we can't do that currently.
-			if err := st.APICall("Admin", 3, "", "RedirectInfo", nil, &resp); err != nil {
-				return errors.Annotatef(err, "cannot get redirect addresses")
-			}
-			return &RedirectError{
-				Servers: params.NetworkHostsPorts(resp.Servers),
-				CACert:  resp.CACert,
+		if !params.IsRedirect(err) {
+			return errors.Trace(err)
+		}
+
+		if rpcErr, ok := errors.Cause(err).(*rpc.RequestError); ok {
+			var redirInfo params.RedirectErrorInfo
+			err := rpcErr.UnmarshalInfo(&redirInfo)
+			if err == nil && redirInfo.CACert != "" && len(redirInfo.Servers) != 0 {
+				return &RedirectError{
+					Servers:        redirInfo.Servers,
+					CACert:         redirInfo.CACert,
+					FollowRedirect: false, // user-action required
+				}
 			}
 		}
-		return errors.Trace(err)
+
+		// We've been asked to redirect. Find out the redirection info.
+		// If the rpc packet allowed us to return arbitrary information in
+		// an error, we'd probably put this information in the Login response,
+		// but we can't do that currently.
+		var resp params.RedirectInfoResult
+		if err := st.APICall("Admin", 3, "", "RedirectInfo", nil, &resp); err != nil {
+			return errors.Annotatef(err, "cannot get redirect addresses")
+		}
+		return &RedirectError{
+			Servers:        params.NetworkHostsPorts(resp.Servers),
+			CACert:         resp.CACert,
+			FollowRedirect: true, // JAAS-type redirect
+		}
 	}
 	if result.DischargeRequired != nil {
 		// The result contains a discharge-required

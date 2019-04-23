@@ -179,14 +179,14 @@ func (s *apiclientSuite) TestVerifyCA(c *gc.C) {
 			// proceeds with the connection to the servers. This
 			// would be the case where we connect to an older juju
 			// controller.
-			expConnCount: 6,
+			expConnCount: 2,
 			errRegex:     `unable to connect to API: .*`,
 		},
 		{
 			descr:      "no VerifyCA provided",
 			serverCert: serverCertWithSelfSignedCA,
 			// Dial connects to all servers
-			expConnCount: 3,
+			expConnCount: 1,
 			errRegex:     `unable to connect to API: .*`,
 		},
 		{
@@ -196,7 +196,7 @@ func (s *apiclientSuite) TestVerifyCA(c *gc.C) {
 				return errors.New("CA not trusted")
 			},
 			// Dial aborts after fetching CAs
-			expConnCount: 3,
+			expConnCount: 1,
 			errRegex:     "CA not trusted",
 		},
 		{
@@ -206,7 +206,7 @@ func (s *apiclientSuite) TestVerifyCA(c *gc.C) {
 				return nil
 			},
 			// Dial fetches CAs and then proceeds with the connection to the servers
-			expConnCount: 6,
+			expConnCount: 2,
 			errRegex:     `unable to connect to API: .*`,
 		},
 	}
@@ -217,35 +217,32 @@ func (s *apiclientSuite) TestVerifyCA(c *gc.C) {
 
 		// connCount holds the number of times we've accepted a connection.
 		var connCount int32
-		var addrs []string
 		tlsConf := &tls.Config{
 			Certificates: []tls.Certificate{spec.serverCert},
 		}
-		for i := 0; i < 3; i++ {
-			listener, err := tls.Listen("tcp", "127.0.0.1:0", tlsConf)
-			c.Assert(err, jc.ErrorIsNil)
-			defer listener.Close()
-			addrs = append(addrs, listener.Addr().String())
-			go func() {
-				buf := make([]byte, 4)
-				for {
-					client, err := listener.Accept()
-					if err != nil {
-						return
-					}
-					atomic.AddInt32(&connCount, 1)
 
-					// Do a dummy read to prevent the connection from
-					// closing before the client can access the certs.
-					_, _ = client.Read(buf)
-					_ = client.Close()
+		listener, err := tls.Listen("tcp", "127.0.0.1:0", tlsConf)
+		c.Assert(err, jc.ErrorIsNil)
+		defer listener.Close()
+		go func() {
+			buf := make([]byte, 4)
+			for {
+				client, err := listener.Accept()
+				if err != nil {
+					return
 				}
-			}()
-		}
+				atomic.AddInt32(&connCount, 1)
+
+				// Do a dummy read to prevent the connection from
+				// closing before the client can access the certs.
+				_, _ = client.Read(buf)
+				_ = client.Close()
+			}
+		}()
 
 		connCount = 0
-		info.Addrs = addrs
-		_, _, err := api.DialAPI(info, api.DialOpts{
+		info.Addrs = []string{listener.Addr().String()}
+		_, _, err = api.DialAPI(info, api.DialOpts{
 			VerifyCA: spec.verifyCA,
 		})
 		c.Assert(err, gc.ErrorMatches, spec.errRegex)
@@ -692,8 +689,9 @@ func (s *apiclientSuite) TestOpenWithRedirect(c *gc.C) {
 
 	hps, _ := network.ParseHostPorts(redirectToHosts...)
 	c.Assert(errors.Cause(err), jc.DeepEquals, &api.RedirectError{
-		Servers: [][]network.HostPort{hps},
-		CACert:  redirectToCACert,
+		Servers:        [][]network.HostPort{hps},
+		CACert:         redirectToCACert,
+		FollowRedirect: true,
 	})
 }
 

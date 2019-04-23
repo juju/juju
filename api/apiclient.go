@@ -164,6 +164,10 @@ type RedirectError struct {
 
 	// CACert holds the certificate of the remote server.
 	CACert string
+
+	// FollowRedirect is set to true for cases like JAAS where the client
+	// needs to automatically follow the redirect to the new controller.
+	FollowRedirect bool
 }
 
 func (e *RedirectError) Error() string {
