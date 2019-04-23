@@ -645,17 +645,6 @@ func (u *Unit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reason s
 	return u.st.SetUpgradeSeriesUnitStatus(status, reason)
 }
 
-// WatchLXDProfileUpgradeNotifications returns a StringsWatcher for observing the
-// state of a lxd profile upgrade
-func (u *Unit) WatchUnitLXDProfileUpgradeNotifications() (watcher.StringsWatcher, error) {
-	return u.st.WatchUnitLXDProfileUpgradeNotifications()
-}
-
-// RemoveUpgradeCharmProfileData removes the upgrade charm profile data
-func (u *Unit) RemoveUpgradeCharmProfileData() error {
-	return u.st.RemoveUpgradeCharmProfileData()
-}
-
 // RequestReboot sets the reboot flag for its machine agent
 func (u *Unit) RequestReboot() error {
 	machineId, err := u.AssignedMachine()
