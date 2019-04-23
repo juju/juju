@@ -1400,15 +1400,6 @@ func (p *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.ErrorR
 	return result, nil
 }
 
-// ModificationStatus isn't on the v7 or lower API.
-func (p *ProvisionerAPIV7) ModificationStatus(_, _ struct{}) {}
-
-// ModificationStatus returns the modification status for each given entity.
-// Only machine tags are accepted.
-func (p *ProvisionerAPIV8) ModificationStatus(args params.Entities) (params.StatusResults, error) {
-	return params.StatusResults{}, errors.NewNotSupported(nil, "not used")
-}
-
 // SetModificationStatus isn't on the v7 or lower API.
 func (p *ProvisionerAPIV7) SetModificationStatus(_, _ struct{}) {}
 
