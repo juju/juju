@@ -14,42 +14,37 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/mocks"
 )
 
 type residentSuite struct {
-	testing.BaseSuite
-
-	manager *residentManager
+	BaseSuite
 }
 
 var _ = gc.Suite(&residentSuite{})
 
 func (s *residentSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-
-	s.manager = newResidentManager()
 }
 
 func (s *residentSuite) TestManagerNewIdentifiedResources(c *gc.C) {
-	r1 := s.manager.new()
-	r2 := s.manager.new()
+	r1 := s.Manager.new()
+	r2 := s.Manager.new()
 
 	// Check that the count is what we expect.
-	c.Check(s.manager.residentCount.last(), gc.Equals, uint64(2))
+	c.Check(s.Manager.residentCount.last(), gc.Equals, uint64(2))
 
 	// Check that the residents have IDs,
 	// and that they are registered with the manager.
 	c.Check(r1.id, gc.Equals, uint64(1))
 	c.Check(r2.id, gc.Equals, uint64(2))
-	c.Check(s.manager.residents, gc.DeepEquals, map[uint64]*Resident{1: r1, 2: r2})
+	c.Check(s.Manager.residents, gc.DeepEquals, map[uint64]*Resident{1: r1, 2: r2})
 }
 
 func (s *residentSuite) TestManagerDeregister(c *gc.C) {
-	r1 := s.manager.new()
+	r1 := s.Manager.new()
 	c.Assert(r1.evict(), jc.ErrorIsNil)
-	c.Check(s.manager.residents, gc.HasLen, 0)
+	c.Check(s.Manager.residents, gc.HasLen, 0)
 }
 
 func (s *residentSuite) TestResidentWorkerConcurrentRegisterCleanup(c *gc.C) {
@@ -64,7 +59,7 @@ func (s *residentSuite) TestResidentWorkerConcurrentRegisterCleanup(c *gc.C) {
 	w2.EXPECT().Kill()
 	w2.EXPECT().Wait().Return(nil)
 
-	r := s.manager.new()
+	r := s.Manager.new()
 
 	// Register some workers concurrently.
 	wg := sync.WaitGroup{}
@@ -80,7 +75,7 @@ func (s *residentSuite) TestResidentWorkerConcurrentRegisterCleanup(c *gc.C) {
 	wg.Wait()
 
 	// Check that the count is what we expect.
-	c.Check(s.manager.resourceCount.last(), gc.Equals, uint64(2))
+	c.Check(s.Manager.resourceCount.last(), gc.Equals, uint64(2))
 
 	// Check that the workers have IDs,
 	// and that they are registered with the resident.
@@ -116,7 +111,7 @@ func (s *residentSuite) TestResidentWorkerCleanupErrors(c *gc.C) {
 	w3.EXPECT().Kill()
 	w3.EXPECT().Wait().Return(nil)
 
-	r := s.manager.new()
+	r := s.Manager.new()
 	_ = r.registerWorker(w1)
 	_ = r.registerWorker(w2)
 	_ = r.registerWorker(w3)
@@ -130,7 +125,7 @@ func (s *residentSuite) TestResidentWorkerConcurrentDeregister(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	r := s.manager.new()
+	r := s.Manager.new()
 
 	// Note that we do not expect deregister to stop the worker.
 	deregister1 := r.registerWorker(mocks.NewMockWorker(ctrl))

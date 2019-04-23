@@ -17,35 +17,24 @@ import (
 
 type ControllerSuite struct {
 	cache.BaseSuite
-
-	changes chan interface{}
-	config  cache.ControllerConfig
 }
 
 var _ = gc.Suite(&ControllerSuite{})
 
-func (s *ControllerSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.changes = make(chan interface{})
-	s.config = cache.ControllerConfig{
-		Changes: s.changes,
-	}
-}
-
 func (s *ControllerSuite) TestConfigValid(c *gc.C) {
-	err := s.config.Validate()
+	err := s.Config.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ControllerSuite) TestConfigMissingChanges(c *gc.C) {
-	s.config.Changes = nil
-	err := s.config.Validate()
+	s.Config.Changes = nil
+	err := s.Config.Validate()
 	c.Check(err, gc.ErrorMatches, "nil Changes not valid")
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *ControllerSuite) TestController(c *gc.C) {
-	controller, err := cache.NewController(s.config)
+	controller, err := s.NewController()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(controller.ModelUUIDs(), gc.HasLen, 0)
@@ -226,7 +215,7 @@ func (s *ControllerSuite) TestRemoveUnit(c *gc.C) {
 
 func (s *ControllerSuite) new(c *gc.C) (*cache.Controller, <-chan interface{}) {
 	events := s.captureEvents(c)
-	controller, err := s.NewController(s.config)
+	controller, err := s.NewController()
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, controller) })
 	return controller, events
@@ -234,7 +223,7 @@ func (s *ControllerSuite) new(c *gc.C) (*cache.Controller, <-chan interface{}) {
 
 func (s *ControllerSuite) captureEvents(c *gc.C) <-chan interface{} {
 	events := make(chan interface{})
-	s.config.Notify = func(change interface{}) {
+	s.Config.Notify = func(change interface{}) {
 		send := false
 		switch change.(type) {
 		case cache.ModelChange:
@@ -274,7 +263,7 @@ func (s *ControllerSuite) captureEvents(c *gc.C) <-chan interface{} {
 
 func (s *ControllerSuite) processChange(c *gc.C, change interface{}, notify <-chan interface{}) {
 	select {
-	case s.changes <- change:
+	case s.Changes <- change:
 	case <-time.After(testing.LongWait):
 		c.Fatalf("controller did not read change")
 	}

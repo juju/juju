@@ -15,10 +15,6 @@ type UnitSuite struct {
 
 var _ = gc.Suite(&UnitSuite{})
 
-func (s *UnitSuite) SetUpTest(c *gc.C) {
-	s.EntitySuite.SetUpTest(c)
-}
-
 var unitChange = cache.UnitChange{
 	ModelUUID:      "model-uuid",
 	Name:           "application-name/0",

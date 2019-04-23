@@ -20,10 +20,6 @@ type ApplicationSuite struct {
 
 var _ = gc.Suite(&ApplicationSuite{})
 
-func (s *ApplicationSuite) SetUpTest(c *gc.C) {
-	s.EntitySuite.SetUpTest(c)
-}
-
 func (s *ApplicationSuite) TestConfigIncrementsReadCount(c *gc.C) {
 	m := s.NewApplication(appChange)
 	c.Check(testutil.ToFloat64(s.Gauges.ApplicationConfigReads), gc.Equals, float64(0))

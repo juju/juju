@@ -23,17 +23,21 @@ func TestPackage(t *testing.T) {
 type BaseSuite struct {
 	jujutesting.IsolationSuite
 
+	Changes chan interface{}
+	Config  ControllerConfig
 	Manager *residentManager
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.Manager = newResidentManager()
+	s.Changes = make(chan interface{})
+	s.Config = ControllerConfig{Changes: s.Changes}
+	s.Manager = newResidentManager(s.Changes)
 }
 
-func (s *BaseSuite) NewController(config ControllerConfig) (*Controller, error) {
-	return newController(config, s.Manager)
+func (s *BaseSuite) NewController() (*Controller, error) {
+	return newController(s.Config, s.Manager)
 }
 
 func (s *BaseSuite) NewResident() *Resident {

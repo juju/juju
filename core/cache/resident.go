@@ -51,9 +51,13 @@ type residentManager struct {
 	resourceCount *counter
 
 	residents map[uint64]*Resident
+
+	// removals is the channel on which remove messages are sent.
+	// It will generally be the the cached controller's "changes" channel.
+	removals chan<- interface{}
 }
 
-func newResidentManager() *residentManager {
+func newResidentManager(removals chan<- interface{}) *residentManager {
 	residentC := counter(0)
 	resourceC := counter(0)
 
@@ -61,6 +65,7 @@ func newResidentManager() *residentManager {
 		residentCount: &residentC,
 		resourceCount: &resourceC,
 		residents:     make(map[uint64]*Resident),
+		removals:      removals,
 	}
 }
 
@@ -79,8 +84,29 @@ func (m *residentManager) new() *Resident {
 	return r
 }
 
-func (m *residentManager) evict(id uint64) {
-	// TODO (manadart 2019-04-17): TBC when the mark/sweep logic is added.
+// mark sets all of the manager's residents to be stale.
+func (m *residentManager) mark() {
+	for _, r := range m.residents {
+		r.stale = true
+	}
+}
+
+func (m *residentManager) sweep() error {
+	for _, r := range m.residents {
+		if r.stale {
+			if r.removalMessage == nil {
+				logger.Warningf("cache resident %d has no removal message; skipping eviction", r.id)
+				continue
+			}
+
+			select {
+			case m.removals <- r.removalMessage:
+			default:
+				return errors.New("unable to progress cache sweep")
+			}
+		}
+	}
+	return nil
 }
 
 func (m *residentManager) deregister(id uint64) {
@@ -102,6 +128,11 @@ type Resident struct {
 
 	// nextResourceId is a factory method for acquiring unique resource IDs.
 	nextResourceId func() uint64
+
+	// removalMessage is a message that will be recognised by the cached
+	// controller, for removing the resident's specific type from the cache.
+	// See changes.go for the types of messages.
+	removalMessage interface{}
 
 	// workers are resources that must be cleaned up when a resident is to be
 	// evicted from the cache.

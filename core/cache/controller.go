@@ -20,7 +20,7 @@ import (
 type ControllerConfig struct {
 	// Changes from the event source come over this channel.
 	// The changes channel must be non-nil.
-	Changes <-chan interface{}
+	Changes chan interface{}
 
 	// Notify is a callback function used primarily for testing, and is
 	// called by the controller main processing loop after processing a change.
@@ -42,8 +42,9 @@ type Controller struct {
 	// from a type-agnostic viewpoint.
 	manager *residentManager
 
-	config ControllerConfig
-	models map[string]*Model
+	changes <-chan interface{}
+	notify  func(interface{})
+	models  map[string]*Model
 
 	tomb    tomb.Tomb
 	mu      sync.Mutex
@@ -55,7 +56,7 @@ type Controller struct {
 // The changes channel is what is used to supply the cache with the changes
 // in order for the cache to be kept up to date.
 func NewController(config ControllerConfig) (*Controller, error) {
-	c, err := newController(config, newResidentManager())
+	c, err := newController(config, newResidentManager(config.Changes))
 	return c, errors.Trace(err)
 }
 
@@ -66,7 +67,8 @@ func newController(config ControllerConfig, manager *residentManager) (*Controll
 	}
 	c := &Controller{
 		manager: manager,
-		config:  config,
+		changes: config.Changes,
+		notify:  config.Notify,
 		models:  make(map[string]*Model),
 		hub: pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
 			// TODO: (thumper) add a get child method to loggers.
@@ -83,7 +85,7 @@ func (c *Controller) loop() error {
 		select {
 		case <-c.tomb.Dying():
 			return nil
-		case change := <-c.config.Changes:
+		case change := <-c.changes:
 			var err error
 
 			switch ch := change.(type) {
@@ -108,8 +110,8 @@ func (c *Controller) loop() error {
 			case RemoveUnit:
 				err = c.removeUnit(ch)
 			}
-			if c.config.Notify != nil {
-				c.config.Notify(change)
+			if c.notify != nil {
+				c.notify(change)
 			}
 
 			if err != nil {
