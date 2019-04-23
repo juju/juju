@@ -659,11 +659,11 @@
   revision = "5f8741c297b47cba29f747c67f2e31e7c2a36ecb"
 
 [[projects]]
-  digest = "1:009e2a6e84e7b6dd187f85e0f26e29e8be0f1154aeaa630c1b24cc0e24b2be3f"
+  digest = "1:bf94c2e0c1883db31d977da789dcb3c81e37e2b2d7a97936b9242acc4c7006a6"
   name = "github.com/juju/pubsub"
   packages = ["."]
   pruneopts = ""
-  revision = "5ff05f703d2531147fb927125eea0d61cf4179e5"
+  revision = "c1f7536b9cc692693a90ba07381488591441b5cf"
 
 [[projects]]
   digest = "1:fbafcd485d270fc069d738bdcbfa3e03676936f837d4b2708f7ba80fa90e1c5a"
