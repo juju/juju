@@ -4,6 +4,7 @@
 package cache
 
 import (
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -92,11 +93,25 @@ func (m *residentManager) mark() {
 	}
 }
 
+// sweep removes stale cache residents in descending order of ID.
+// Because the IDs are supplied in increasing order, this ensures
+// we never remove a resident's model before the resident itself.
 func (m *residentManager) sweep() error {
-	for _, r := range m.residents {
+	// Create a descending order slice of IDs.
+	residentIds := make([]uint64, len(m.residents))
+	i := 0
+	for id := range m.residents {
+		residentIds[i] = id
+		i++
+	}
+	sort.Sort(uint64Reverse(residentIds))
+
+	// Read the map "leaves-first" and evict stale residents.
+	for _, id := range residentIds {
+		r := m.residents[id]
 		if r.stale {
 			if r.removalMessage == nil {
-				logger.Warningf("cache resident %d has no removal message; skipping eviction", r.id)
+				logger.Warningf("cache resident %d has no removal message; skipping eviction", id)
 				continue
 			}
 
@@ -218,3 +233,10 @@ func (r *Resident) deregisterWorker(id uint64) {
 	delete(r.workers, id)
 	r.mu.Unlock()
 }
+
+// unint64Reverse facilitates sorting of a slice in *descending* order.
+type uint64Reverse []uint64
+
+func (p uint64Reverse) Len() int           { return len(p) }
+func (p uint64Reverse) Less(i, j int) bool { return p[i] > p[j] }
+func (p uint64Reverse) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }

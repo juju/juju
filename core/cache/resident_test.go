@@ -49,27 +49,31 @@ func (s *residentSuite) TestManagerDeregister(c *gc.C) {
 func (s *residentSuite) TestManagerMarkAndSweepSendsRemovalMessagesForStaleResidents(c *gc.C) {
 	r1 := s.Manager.new()
 	r2 := s.Manager.new()
+	r3 := s.Manager.new()
+	r4 := s.Manager.new()
 
-	r1.removalMessage = struct{}{}
-	r2.removalMessage = struct{}{}
+	r1.removalMessage = 1
+	r2.removalMessage = 2
+	r3.removalMessage = 3
+	r4.removalMessage = 4
 
-	// Sets r1 and r2 to be stale, but we freshen up one.
+	// Sets all 4 to be stale, but we freshen up one.
 	s.Manager.mark()
 	r1.stale = false
 
 	// Consume all the messages from the manager's removals channel.
-	var msgCount int
+	var removals []interface{}
 	done := make(chan struct{}, 1)
 	go func() {
 		timeout := time.After(testing.LongWait)
 		for {
 			select {
-			case _, ok := <-s.Changes:
+			case msg, ok := <-s.Changes:
 				if !ok {
 					done <- struct{}{}
 					return
 				}
-				msgCount++
+				removals = append(removals, msg)
 			case <-timeout:
 				c.Fatal("did not finish receiving removal messages")
 			}
@@ -80,8 +84,8 @@ func (s *residentSuite) TestManagerMarkAndSweepSendsRemovalMessagesForStaleResid
 	close(s.Changes)
 	<-done
 
-	// A single message was sent for the stale resident.
-	c.Assert(msgCount, gc.Equals, 1)
+	// Stale resident messages were received in descending order.
+	c.Assert(removals, gc.DeepEquals, []interface{}{4, 3, 2})
 }
 
 func (s *residentSuite) TestResidentWorkerConcurrentRegisterCleanup(c *gc.C) {

@@ -252,6 +252,7 @@ func (c *Controller) removeResident(modelUUID string, removeFrom func(m *Model) 
 // It is likely that we will receive a change update for the model before we
 // get an update for one of its entities, but the cache needs to be resilient
 // enough to make sure that we can handle when this is not the case.
+// No model retrieved by this method is ever considered to be stale.
 func (c *Controller) ensureModel(modelUUID string) *Model {
 	c.mu.Lock()
 
@@ -259,6 +260,8 @@ func (c *Controller) ensureModel(modelUUID string) *Model {
 	if !found {
 		model = newModel(c.metrics, c.hub, c.manager.new())
 		c.models[modelUUID] = model
+	} else {
+		model.stale = false
 	}
 
 	c.mu.Unlock()
