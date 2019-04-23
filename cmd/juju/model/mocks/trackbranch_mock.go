@@ -45,13 +45,13 @@ func (mr *MockTrackBranchCommandAPIMockRecorder) Close() *gomock.Call {
 }
 
 // TrackBranch mocks base method
-func (m *MockTrackBranchCommandAPI) TrackBranch(arg0, arg1 string, arg2 []string) error {
-	ret := m.ctrl.Call(m, "TrackBranch", arg0, arg1, arg2)
+func (m *MockTrackBranchCommandAPI) TrackBranch(arg0 string, arg1 []string) error {
+	ret := m.ctrl.Call(m, "TrackBranch", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // TrackBranch indicates an expected call of TrackBranch
-func (mr *MockTrackBranchCommandAPIMockRecorder) TrackBranch(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TrackBranch", reflect.TypeOf((*MockTrackBranchCommandAPI)(nil).TrackBranch), arg0, arg1, arg2)
+func (mr *MockTrackBranchCommandAPIMockRecorder) TrackBranch(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TrackBranch", reflect.TypeOf((*MockTrackBranchCommandAPI)(nil).TrackBranch), arg0, arg1)
 }

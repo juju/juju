@@ -1133,7 +1133,6 @@ type SetProfileUpgradeCompleteArg struct {
 
 // BranchArg represents an in-flight branch via its model and branch name.
 type BranchArg struct {
-	Model      Entity `json:"model"`
 	BranchName string `json:"branch"`
 }
 
@@ -1150,7 +1149,6 @@ type BranchInfoArgs struct {
 // BranchTrackArg identifies an in-flight branch and a collection of
 // entities that should be set to track changes made under the branch.
 type BranchTrackArg struct {
-	Model      Entity   `json:"model"`
 	BranchName string   `json:"branch"`
 	Entities   []Entity `json:"entities"`
 }

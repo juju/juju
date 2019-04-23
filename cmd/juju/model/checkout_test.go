@@ -46,7 +46,7 @@ func (s *checkoutSuite) TestRunCommandBranchExists(c *gc.C) {
 	ctrl, api := setUpSwitchMocks(c)
 	defer ctrl.Finish()
 
-	api.EXPECT().HasActiveBranch(gomock.Any(), s.branchName).Return(true, nil)
+	api.EXPECT().HasActiveBranch(s.branchName).Return(true, nil)
 
 	ctx, err := s.runCommand(c, api, s.branchName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -62,7 +62,7 @@ func (s *checkoutSuite) TestRunCommandNoBranchError(c *gc.C) {
 	ctrl, api := setUpSwitchMocks(c)
 	defer ctrl.Finish()
 
-	api.EXPECT().HasActiveBranch(gomock.Any(), s.branchName).Return(false, nil)
+	api.EXPECT().HasActiveBranch(s.branchName).Return(false, nil)
 
 	_, err := s.runCommand(c, api, s.branchName)
 	c.Assert(err, gc.ErrorMatches, `this model has no active branch "`+s.branchName+`"`)

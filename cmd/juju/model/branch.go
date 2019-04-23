@@ -60,7 +60,9 @@ type branchCommand struct {
 //go:generate mockgen -package mocks -destination ./mocks/branch_mock.go github.com/juju/juju/cmd/juju/model BranchCommandAPI
 type BranchCommandAPI interface {
 	Close() error
-	AddBranch(string, string) error
+
+	// AddBranch adds a new branch to the model.
+	AddBranch(branchName string) error
 }
 
 // Info implements part of the cmd.Command interface.
@@ -113,17 +115,11 @@ func (c *branchCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = client.Close() }()
 
-	_, modelDetails, err := c.ModelCommandBase.ModelDetails()
-	if err != nil {
-		return errors.Annotate(err, "getting model details")
-	}
-
-	if err = client.AddBranch(modelDetails.ModelUUID, c.branchName); err != nil {
+	if err = client.AddBranch(c.branchName); err != nil {
 		return err
 	}
 
-	// Now update the model store with the 'next' generation for this
-	// model.
+	// Update the model store with the new active branch for this model.
 	if err = c.SetActiveBranch(c.branchName); err != nil {
 		return err
 	}

@@ -36,7 +36,7 @@ func (s *commitSuite) TestRunCommandAborted(c *gc.C) {
 	ctrl, api := setUpCancelMocks(c)
 	defer ctrl.Finish()
 
-	api.EXPECT().CommitBranch(gomock.Any(), s.branchName).Return(0, nil)
+	api.EXPECT().CommitBranch(s.branchName).Return(0, nil)
 
 	ctx, err := s.runCommand(c, api)
 	c.Assert(err, jc.ErrorIsNil)
@@ -56,7 +56,7 @@ func (s *commitSuite) TestRunCommandCommitted(c *gc.C) {
 	ctrl, api := setUpCancelMocks(c)
 	defer ctrl.Finish()
 
-	api.EXPECT().CommitBranch(gomock.Any(), s.branchName).Return(3, nil)
+	api.EXPECT().CommitBranch(s.branchName).Return(3, nil)
 
 	ctx, err := s.runCommand(c, api)
 	c.Assert(err, jc.ErrorIsNil)
@@ -76,7 +76,7 @@ func (s *commitSuite) TestRunCommandFail(c *gc.C) {
 	ctrl, api := setUpCancelMocks(c)
 	defer ctrl.Finish()
 
-	api.EXPECT().CommitBranch(gomock.Any(), s.branchName).Return(0, errors.Errorf("fail"))
+	api.EXPECT().CommitBranch(s.branchName).Return(0, errors.Errorf("fail"))
 
 	_, err := s.runCommand(c, api)
 	c.Assert(err, gc.ErrorMatches, "fail")

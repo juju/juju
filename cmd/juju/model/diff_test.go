@@ -57,7 +57,7 @@ func (s *diffSuite) TestRunCommandNextGenExists(c *gc.C) {
 			}},
 		},
 	}
-	s.api.EXPECT().BranchInfo(gomock.Any(), s.branchName, true, gomock.Any()).Return(result, nil)
+	s.api.EXPECT().BranchInfo(s.branchName, true, gomock.Any()).Return(result, nil)
 
 	ctx, err := s.runCommand(c)
 	c.Assert(err, jc.ErrorIsNil)
@@ -81,7 +81,7 @@ new-branch:
 func (s *diffSuite) TestRunCommandAPIError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.api.EXPECT().BranchInfo(gomock.Any(), s.branchName, true, gomock.Any()).Return(nil, errors.New("boom"))
+	s.api.EXPECT().BranchInfo(s.branchName, true, gomock.Any()).Return(nil, errors.New("boom"))
 
 	_, err := s.runCommand(c)
 	c.Assert(err, gc.ErrorMatches, "boom")

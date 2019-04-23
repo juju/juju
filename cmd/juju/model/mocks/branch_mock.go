@@ -33,15 +33,15 @@ func (m *MockBranchCommandAPI) EXPECT() *MockBranchCommandAPIMockRecorder {
 }
 
 // AddBranch mocks base method
-func (m *MockBranchCommandAPI) AddBranch(arg0, arg1 string) error {
-	ret := m.ctrl.Call(m, "AddBranch", arg0, arg1)
+func (m *MockBranchCommandAPI) AddBranch(arg0 string) error {
+	ret := m.ctrl.Call(m, "AddBranch", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddBranch indicates an expected call of AddBranch
-func (mr *MockBranchCommandAPIMockRecorder) AddBranch(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddBranch", reflect.TypeOf((*MockBranchCommandAPI)(nil).AddBranch), arg0, arg1)
+func (mr *MockBranchCommandAPIMockRecorder) AddBranch(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddBranch", reflect.TypeOf((*MockBranchCommandAPI)(nil).AddBranch), arg0)
 }
 
 // Close mocks base method

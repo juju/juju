@@ -54,7 +54,12 @@ type commitCommand struct {
 //go:generate mockgen -package mocks -destination ./mocks/commit_mock.go github.com/juju/juju/cmd/juju/model CommitCommandAPI
 type CommitCommandAPI interface {
 	Close() error
-	CommitBranch(string, string) (int, error)
+
+	// CommitBranch commits the branch with the input name to the model,
+	// effectively completing it and applying
+	// all branch changes across the model.
+	// The new generation ID of the model is returned.
+	CommitBranch(branchName string) (int, error)
 }
 
 // Info implements part of the cmd.Command interface.
@@ -104,12 +109,7 @@ func (c *commitCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = client.Close() }()
 
-	_, modelDetails, err := c.ModelCommandBase.ModelDetails()
-	if err != nil {
-		return errors.Annotate(err, "getting model details")
-	}
-
-	newGenId, err := client.CommitBranch(modelDetails.ModelUUID, c.branchName)
+	newGenId, err := client.CommitBranch(c.branchName)
 	if err != nil {
 		return err
 	}

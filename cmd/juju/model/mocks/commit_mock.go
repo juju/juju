@@ -45,14 +45,14 @@ func (mr *MockCommitCommandAPIMockRecorder) Close() *gomock.Call {
 }
 
 // CommitBranch mocks base method
-func (m *MockCommitCommandAPI) CommitBranch(arg0, arg1 string) (int, error) {
-	ret := m.ctrl.Call(m, "CommitBranch", arg0, arg1)
+func (m *MockCommitCommandAPI) CommitBranch(arg0 string) (int, error) {
+	ret := m.ctrl.Call(m, "CommitBranch", arg0)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CommitBranch indicates an expected call of CommitBranch
-func (mr *MockCommitCommandAPIMockRecorder) CommitBranch(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitBranch", reflect.TypeOf((*MockCommitCommandAPI)(nil).CommitBranch), arg0, arg1)
+func (mr *MockCommitCommandAPIMockRecorder) CommitBranch(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitBranch", reflect.TypeOf((*MockCommitCommandAPI)(nil).CommitBranch), arg0)
 }
