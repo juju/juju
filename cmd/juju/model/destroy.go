@@ -329,9 +329,6 @@ upgrade the controller to version 2.3 or greater.
 		if c.NoWait {
 			zeroSec := 0 * time.Second
 			maxWait = &zeroSec
-		} else {
-			oneMin := 1 * time.Minute
-			maxWait = &oneMin
 		}
 	}
 	modelTag := names.NewModelTag(modelDetails.ModelUUID)

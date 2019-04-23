@@ -273,9 +273,6 @@ func (c *removeUnitCommand) removeUnits(ctx *cmd.Context, client RemoveApplicati
 		if c.NoWait {
 			zeroSec := 0 * time.Second
 			maxWait = &zeroSec
-		} else {
-			oneMin := 1 * time.Minute
-			maxWait = &oneMin
 		}
 	}
 

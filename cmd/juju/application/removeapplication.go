@@ -223,9 +223,6 @@ func (c *removeApplicationCommand) removeApplications(
 		if c.NoWait {
 			zeroSec := 0 * time.Second
 			maxWait = &zeroSec
-		} else {
-			oneMin := 1 * time.Minute
-			maxWait = &oneMin
 		}
 	}
 
