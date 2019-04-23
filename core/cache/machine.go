@@ -151,6 +151,8 @@ func (m *Machine) modelTopic(suffix string) string {
 func (m *Machine) setDetails(details MachineChange) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	m.stale = false
 	m.details = details
 
 	configHash, err := hash(details.Config)

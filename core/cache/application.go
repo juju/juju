@@ -76,6 +76,8 @@ type appCharmUrlChange struct {
 func (a *Application) setDetails(details ApplicationChange) {
 	a.mu.Lock()
 
+	a.stale = false
+
 	if a.details.CharmURL != details.CharmURL {
 		a.hub.Publish(
 			a.modelTopic(applicationCharmURLChange),

@@ -43,6 +43,9 @@ func (c *Charm) LXDProfile() lxdprofile.Profile {
 
 func (c *Charm) setDetails(details CharmChange) {
 	c.mu.Lock()
+
+	c.stale = false
 	c.details = details
+
 	c.mu.Unlock()
 }

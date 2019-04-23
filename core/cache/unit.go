@@ -77,6 +77,8 @@ func (u *Unit) CharmURL() string {
 func (u *Unit) setDetails(details UnitChange) {
 	u.mu.Lock()
 
+	u.stale = false
+
 	machineChange := u.details.MachineId != details.MachineId
 	u.details = details
 	if machineChange || u.details.Subordinate {
