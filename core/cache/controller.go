@@ -171,9 +171,7 @@ func (c *Controller) Model(uuid string) (*Model, error) {
 // updateModel will add or update the model details as
 // described in the ModelChange.
 func (c *Controller) updateModel(ch ModelChange) {
-	c.mu.Lock()
 	c.ensureModel(ch.ModelUUID).setDetails(ch)
-	c.mu.Unlock()
 }
 
 // removeModel removes the model from the cache.
@@ -193,9 +191,7 @@ func (c *Controller) removeModel(ch RemoveModel) error {
 
 // updateApplication adds or updates the application in the specified model.
 func (c *Controller) updateApplication(ch ApplicationChange) {
-	c.mu.Lock()
 	c.ensureModel(ch.ModelUUID).updateApplication(ch, c.manager)
-	c.mu.Unlock()
 }
 
 // removeApplication removes the application for the cached model.
@@ -206,9 +202,7 @@ func (c *Controller) removeApplication(ch RemoveApplication) error {
 }
 
 func (c *Controller) updateCharm(ch CharmChange) {
-	c.mu.Lock()
 	c.ensureModel(ch.ModelUUID).updateCharm(ch, c.manager)
-	c.mu.Unlock()
 }
 
 func (c *Controller) removeCharm(ch RemoveCharm) error {
@@ -217,9 +211,7 @@ func (c *Controller) removeCharm(ch RemoveCharm) error {
 
 // updateUnit adds or updates the unit in the specified model.
 func (c *Controller) updateUnit(ch UnitChange) {
-	c.mu.Lock()
 	c.ensureModel(ch.ModelUUID).updateUnit(ch, c.manager)
-	c.mu.Unlock()
 }
 
 // removeUnit removes the unit from the cached model.
@@ -231,9 +223,7 @@ func (c *Controller) removeUnit(ch RemoveUnit) error {
 
 // updateMachine adds or updates the machine in the specified model.
 func (c *Controller) updateMachine(ch MachineChange) {
-	c.mu.Lock()
 	c.ensureModel(ch.ModelUUID).updateMachine(ch, c.manager)
-	c.mu.Unlock()
 }
 
 // removeMachine removes the machine from the cached model.
@@ -261,10 +251,14 @@ func (c *Controller) removeResident(modelUUID string, removeFrom func(m *Model) 
 // get an update for one of its entities, but the cache needs to be resilient
 // enough to make sure that we can handle when this is not the case.
 func (c *Controller) ensureModel(modelUUID string) *Model {
+	c.mu.Lock()
+
 	model, found := c.models[modelUUID]
 	if !found {
 		model = newModel(c.metrics, c.hub, c.manager.new())
 		c.models[modelUUID] = model
 	}
+
+	c.mu.Unlock()
 	return model
 }
