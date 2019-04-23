@@ -607,35 +607,70 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 }
 
 func (s *applicationSuite) TestDestroyRelation(c *gc.C) {
-	called := false
-	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
-		c.Assert(request, gc.Equals, "DestroyRelation")
-		c.Assert(a, jc.DeepEquals, params.DestroyRelation{
-			Endpoints: []string{"ep1", "ep2"},
+	false_ := false
+	true_ := true
+	zero := time.Minute * 1
+	for _, t := range []struct {
+		force   *bool
+		maxWait *time.Duration
+	}{
+		{},
+		{force: &true_},
+		{force: &false_},
+		{maxWait: &zero},
+		{force: &false_, maxWait: &zero},
+		{force: &true_, maxWait: &zero},
+	} {
+		called := false
+		client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "DestroyRelation")
+			c.Assert(a, jc.DeepEquals, params.DestroyRelation{
+				Endpoints: []string{"ep1", "ep2"},
+				Force:     t.force,
+				MaxWait:   t.maxWait,
+			})
+			c.Assert(response, gc.IsNil)
+			called = true
+			return nil
 		})
-		c.Assert(response, gc.IsNil)
-		called = true
-		return nil
-	})
-	err := client.DestroyRelation("ep1", "ep2")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+
+		err := client.DestroyRelation(t.force, t.maxWait, "ep1", "ep2")
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(called, jc.IsTrue)
+	}
 }
 
 func (s *applicationSuite) TestDestroyRelationId(c *gc.C) {
-	called := false
-	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
-		c.Assert(request, gc.Equals, "DestroyRelation")
-		c.Assert(a, jc.DeepEquals, params.DestroyRelation{
-			RelationId: 123,
+	false_ := false
+	true_ := true
+	zero := time.Minute * 1
+	for _, t := range []struct {
+		force   *bool
+		maxWait *time.Duration
+	}{
+		{},
+		{force: &true_},
+		{force: &false_},
+		{maxWait: &zero},
+		{force: &false_, maxWait: &zero},
+		{force: &true_, maxWait: &zero},
+	} {
+		called := false
+		client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+			c.Assert(request, gc.Equals, "DestroyRelation")
+			c.Assert(a, jc.DeepEquals, params.DestroyRelation{
+				RelationId: 123,
+				Force:      t.force,
+				MaxWait:    t.maxWait,
+			})
+			c.Assert(response, gc.IsNil)
+			called = true
+			return nil
 		})
-		c.Assert(response, gc.IsNil)
-		called = true
-		return nil
-	})
-	err := client.DestroyRelationId(123)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+		err := client.DestroyRelationId(123, t.force, t.maxWait)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(called, jc.IsTrue)
+	}
 }
 
 func (s *applicationSuite) TestSetRelationSuspended(c *gc.C) {

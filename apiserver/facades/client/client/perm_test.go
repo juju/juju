@@ -5,6 +5,7 @@ package client_test
 
 import (
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -200,7 +201,7 @@ func opClientAddRelation(c *gc.C, st api.Connection, mst *state.State) (func(), 
 }
 
 func opClientDestroyRelation(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := application.NewClient(st).DestroyRelation("nosuch1", "nosuch2")
+	err := application.NewClient(st).DestroyRelation((*bool)(nil), (*time.Duration)(nil), "nosuch1", "nosuch2")
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}

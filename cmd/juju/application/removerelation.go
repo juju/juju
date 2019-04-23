@@ -5,9 +5,11 @@ package application
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/application"
 	jujucmd "github.com/juju/juju/cmd"
@@ -33,9 +35,22 @@ The relation is specified using the relation endpoint names, eg
 It is also possible to specify the relation ID, if known. This is useful to
 terminate a relation originating from a different model, where only the ID is known. 
 
+Sometimes, the removal of the relation may fail as Juju encounters errors
+and failures that need to be dealt with before a relation can be removed.
+However, at times, there is a need to remove a relation ignoring
+all operational errors. In these rare cases, use --force option but note 
+that --force will remove a relation without giving it the opportunity to be removed cleanly.
+
+Relation removal is a multi-step process. Under normal circumstances, Juju will not
+proceed to a next step until the current step finished. 
+However, when using --force, users can also specify --no-wait to progress through steps 
+without delay waiting for each step to complete.
+
 Examples:
     juju remove-relation mysql wordpress
     juju remove-relation 4
+    juju remove-relation 4 --force
+    juju remove-relation 4 --force --no-wait
 
 In the case of multiple relations, the relation name should be specified
 at least once - the following examples will all have the same effect:
@@ -50,16 +65,16 @@ See also:
 
 // NewRemoveRelationCommand returns a command to remove a relation between 2 applications.
 func NewRemoveRelationCommand() cmd.Command {
-	cmd := &removeRelationCommand{}
-	cmd.newAPIFunc = func() (ApplicationDestroyRelationAPI, error) {
-		root, err := cmd.NewAPIRoot()
+	command := &removeRelationCommand{}
+	command.newAPIFunc = func() (ApplicationDestroyRelationAPI, error) {
+		root, err := command.NewAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return application.NewClient(root), nil
 
 	}
-	return modelcmd.Wrap(cmd)
+	return modelcmd.Wrap(command)
 }
 
 // removeRelationCommand causes an existing application relation to be shut down.
@@ -68,6 +83,9 @@ type removeRelationCommand struct {
 	RelationId int
 	Endpoints  []string
 	newAPIFunc func() (ApplicationDestroyRelationAPI, error)
+	Force      bool
+	NoWait     bool
+	fs         *gnuflag.FlagSet
 }
 
 func (c *removeRelationCommand) Info() *cmd.Info {
@@ -93,15 +111,44 @@ func (c *removeRelationCommand) Init(args []string) (err error) {
 	return nil
 }
 
+func (c *removeRelationCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
+	f.BoolVar(&c.Force, "force", false, "Force remove a relation")
+	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through relation removal without waiting for each individual step to complete")
+	c.fs = f
+}
+
 // ApplicationDestroyRelationAPI defines the API methods that application remove relation command uses.
 type ApplicationDestroyRelationAPI interface {
 	Close() error
 	BestAPIVersion() int
-	DestroyRelation(endpoints ...string) error
-	DestroyRelationId(relationId int) error
+	DestroyRelation(force *bool, maxWait *time.Duration, endpoints ...string) error
+	DestroyRelationId(relationId int, force *bool, maxWait *time.Duration) error
 }
 
 func (c *removeRelationCommand) Run(_ *cmd.Context) error {
+	noWaitSet := false
+	forceSet := false
+	c.fs.Visit(func(flag *gnuflag.Flag) {
+		if flag.Name == "no-wait" {
+			noWaitSet = true
+		} else if flag.Name == "force" {
+			forceSet = true
+		}
+	})
+	if !forceSet && noWaitSet {
+		return errors.NotValidf("--no-wait without --force")
+	}
+	var maxWait *time.Duration
+	var force *bool
+	if c.Force {
+		force = &c.Force
+		if c.NoWait {
+			zeroSec := 0 * time.Second
+			maxWait = &zeroSec
+		}
+	}
+
 	client, err := c.newAPIFunc()
 	if err != nil {
 		return err
@@ -111,9 +158,9 @@ func (c *removeRelationCommand) Run(_ *cmd.Context) error {
 		return errors.New("removing a relation using its ID is not supported by this version of Juju")
 	}
 	if len(c.Endpoints) > 0 {
-		err = client.DestroyRelation(c.Endpoints...)
+		err = client.DestroyRelation(force, maxWait, c.Endpoints...)
 	} else {
-		err = client.DestroyRelationId(c.RelationId)
+		err = client.DestroyRelationId(c.RelationId, force, maxWait)
 	}
 	return block.ProcessBlockedError(err, block.BlockRemove)
 }
