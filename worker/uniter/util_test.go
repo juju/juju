@@ -416,7 +416,6 @@ type createUniter struct {
 func (s createUniter) step(c *gc.C, ctx *context) {
 	step(c, ctx, ensureStateWorker{})
 	step(c, ctx, createApplicationAndUnit{})
-	//step(c, ctx, createApplicationAndUnit{applicationName: "wordpress"})
 	if s.minion {
 		step(c, ctx, forceMinion{})
 	}
