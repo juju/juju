@@ -51,7 +51,7 @@ See also:
 //go:generate mockgen -package mocks -destination ./mocks/diff_mock.go github.com/juju/juju/cmd/juju/model DiffCommandAPI
 type DiffCommandAPI interface {
 	Close() error
-	BranchInfo(string, string, bool, func(time.Time) string) (model.GenerationSummaries, error)
+	BranchInfo(string, bool, func(time.Time) string) (model.GenerationSummaries, error)
 }
 
 // diffCommand supplies the "diff" CLI command used to show information about
@@ -136,17 +136,12 @@ func (c *diffCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = client.Close() }()
 
-	_, modelDetails, err := c.ModelCommandBase.ModelDetails()
-	if err != nil {
-		return errors.Annotate(err, "getting model details")
-	}
-
 	// Partially apply our time format
 	formatTime := func(t time.Time) string {
 		return common.FormatTime(&t, c.isoTime)
 	}
 
-	deltas, err := client.BranchInfo(modelDetails.ModelUUID, c.branchName, c.detailed, formatTime)
+	deltas, err := client.BranchInfo(c.branchName, c.detailed, formatTime)
 	if err != nil {
 		return errors.Trace(err)
 	}

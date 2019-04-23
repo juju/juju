@@ -41,7 +41,7 @@ func (s *branchSuite) TestRunCommand(c *gc.C) {
 	ctrl, api := setUpMocks(c)
 	defer ctrl.Finish()
 
-	api.EXPECT().AddBranch(gomock.Any(), s.branchName).Return(nil)
+	api.EXPECT().AddBranch(s.branchName).Return(nil)
 
 	ctx, err := s.runCommand(c, api)
 	c.Assert(err, jc.ErrorIsNil)
@@ -58,7 +58,7 @@ func (s *branchSuite) TestRunCommandFail(c *gc.C) {
 	ctrl, api := setUpMocks(c)
 	defer ctrl.Finish()
 
-	api.EXPECT().AddBranch(gomock.Any(), s.branchName).Return(errors.Errorf("fail"))
+	api.EXPECT().AddBranch(s.branchName).Return(errors.Errorf("fail"))
 
 	_, err := s.runCommand(c, api)
 	c.Assert(err, gc.ErrorMatches, "fail")

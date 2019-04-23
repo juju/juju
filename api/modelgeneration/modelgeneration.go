@@ -29,9 +29,9 @@ func NewClient(st base.APICallCloser) *Client {
 }
 
 // AddBranch adds a new branch to the model.
-func (c *Client) AddBranch(modelUUID, branchName string) error {
+func (c *Client) AddBranch(branchName string) error {
 	var result params.ErrorResult
-	err := c.facade.FacadeCall("AddBranch", argForBranch(modelUUID, branchName), &result)
+	err := c.facade.FacadeCall("AddBranch", argForBranch(branchName), &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -44,9 +44,9 @@ func (c *Client) AddBranch(modelUUID, branchName string) error {
 // CommitBranch commits the branch with the input name to the model,
 // effectively completing it and applying all branch changes across the model.
 // The new generation ID of the model is returned.
-func (c *Client) CommitBranch(modelUUID, branchName string) (int, error) {
+func (c *Client) CommitBranch(branchName string) (int, error) {
 	var result params.IntResult
-	err := c.facade.FacadeCall("CommitBranch", argForBranch(modelUUID, branchName), &result)
+	err := c.facade.FacadeCall("CommitBranch", argForBranch(branchName), &result)
 	if err != nil {
 		return 0, errors.Trace(err)
 	}
@@ -58,10 +58,9 @@ func (c *Client) CommitBranch(modelUUID, branchName string) (int, error) {
 
 // TrackBranch sets the input units and/or applications to track changes made
 // under the input branch name.
-func (c *Client) TrackBranch(modelUUID, branchName string, entities []string) error {
+func (c *Client) TrackBranch(branchName string, entities []string) error {
 	var result params.ErrorResults
 	arg := params.BranchTrackArg{
-		Model:      argForModel(modelUUID),
 		BranchName: branchName,
 	}
 	if len(entities) == 0 {
@@ -92,9 +91,9 @@ func (c *Client) TrackBranch(modelUUID, branchName string, entities []string) er
 
 // HasActiveBranch returns true if the model has an "in-flight" branch with
 // the input name.
-func (c *Client) HasActiveBranch(modelUUID, branchName string) (bool, error) {
+func (c *Client) HasActiveBranch(branchName string) (bool, error) {
 	var result params.BoolResult
-	err := c.facade.FacadeCall("HasActiveBranch", argForBranch(modelUUID, branchName), &result)
+	err := c.facade.FacadeCall("HasActiveBranch", argForBranch(branchName), &result)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -109,7 +108,7 @@ func (c *Client) HasActiveBranch(modelUUID, branchName string) (bool, error) {
 // for that branch is returned.
 // Supplying true for detailed returns extra unit detail for the branch.
 func (c *Client) BranchInfo(
-	modelUUID, branchName string, detailed bool, formatTime func(time.Time) string,
+	branchName string, detailed bool, formatTime func(time.Time) string,
 ) (model.GenerationSummaries, error) {
 	arg := params.BranchInfoArgs{Detailed: detailed}
 	if branchName != "" {
@@ -127,15 +126,10 @@ func (c *Client) BranchInfo(
 	return generationInfoFromResult(result, detailed, formatTime), nil
 }
 
-func argForBranch(modelUUID, branchName string) params.BranchArg {
+func argForBranch(branchName string) params.BranchArg {
 	return params.BranchArg{
-		Model:      argForModel(modelUUID),
 		BranchName: branchName,
 	}
-}
-
-func argForModel(modelUUID string) params.Entity {
-	return params.Entity{Tag: names.NewModelTag(modelUUID).String()}
 }
 
 func generationInfoFromResult(

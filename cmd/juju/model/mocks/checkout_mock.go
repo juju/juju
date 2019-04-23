@@ -45,14 +45,14 @@ func (mr *MockCheckoutCommandAPIMockRecorder) Close() *gomock.Call {
 }
 
 // HasActiveBranch mocks base method
-func (m *MockCheckoutCommandAPI) HasActiveBranch(arg0, arg1 string) (bool, error) {
-	ret := m.ctrl.Call(m, "HasActiveBranch", arg0, arg1)
+func (m *MockCheckoutCommandAPI) HasActiveBranch(arg0 string) (bool, error) {
+	ret := m.ctrl.Call(m, "HasActiveBranch", arg0)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // HasActiveBranch indicates an expected call of HasActiveBranch
-func (mr *MockCheckoutCommandAPIMockRecorder) HasActiveBranch(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasActiveBranch", reflect.TypeOf((*MockCheckoutCommandAPI)(nil).HasActiveBranch), arg0, arg1)
+func (mr *MockCheckoutCommandAPIMockRecorder) HasActiveBranch(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasActiveBranch", reflect.TypeOf((*MockCheckoutCommandAPI)(nil).HasActiveBranch), arg0)
 }

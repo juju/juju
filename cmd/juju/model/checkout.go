@@ -58,7 +58,7 @@ type checkoutCommand struct {
 //go:generate mockgen -package mocks -destination ./mocks/checkout_mock.go github.com/juju/juju/cmd/juju/model CheckoutCommandAPI
 type CheckoutCommandAPI interface {
 	Close() error
-	HasActiveBranch(string, string) (bool, error)
+	HasActiveBranch(string) (bool, error)
 }
 
 // Info implements part of the cmd.Command interface.
@@ -111,11 +111,7 @@ func (c *checkoutCommand) Run(ctx *cmd.Context) error {
 		}
 		defer func() { _ = client.Close() }()
 
-		_, modelDetails, err := c.ModelDetails()
-		if err != nil {
-			return errors.Annotate(err, "getting model details")
-		}
-		hasBranch, err := client.HasActiveBranch(modelDetails.ModelUUID, c.branchName)
+		hasBranch, err := client.HasActiveBranch(c.branchName)
 		if err != nil {
 			return errors.Annotate(err, "checking for active branch")
 		}

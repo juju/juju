@@ -59,7 +59,7 @@ func (s *trackBranchSuite) TestRunCommand(c *gc.C) {
 	mockController, api := setUpAdvanceMocks(c)
 	defer mockController.Finish()
 
-	api.EXPECT().TrackBranch(gomock.Any(), s.branchName, []string{"ubuntu/0", "redis"}).Return(nil)
+	api.EXPECT().TrackBranch(s.branchName, []string{"ubuntu/0", "redis"}).Return(nil)
 
 	_, err := s.runCommand(c, api, s.branchName, "ubuntu/0", "redis")
 	c.Assert(err, jc.ErrorIsNil)
@@ -69,7 +69,7 @@ func (s *trackBranchSuite) TestRunCommandFail(c *gc.C) {
 	ctrl, api := setUpAdvanceMocks(c)
 	defer ctrl.Finish()
 
-	api.EXPECT().TrackBranch(gomock.Any(), s.branchName, []string{"ubuntu/0"}).Return(errors.Errorf("fail"))
+	api.EXPECT().TrackBranch(s.branchName, []string{"ubuntu/0"}).Return(errors.Errorf("fail"))
 
 	_, err := s.runCommand(c, api, s.branchName, "ubuntu/0")
 	c.Assert(err, gc.ErrorMatches, "fail")
