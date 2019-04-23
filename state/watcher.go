@@ -1864,6 +1864,11 @@ func watchInstanceCharmProfileCompatibilityData(backend modelBackend, watchDocId
 	return newDocumentFieldWatcher(backend, collection, document, members, initial, filter, extract, transform)
 }
 
+// *Deprecated* Although this watcher seems fairly admirable in terms of what
+// it does, it unfortunately does things at the wrong level. With the
+// consequence of wiring up complex structures on something that wasn't intended
+// from the outset for it to do.
+//
 // documentFieldWatcher notifies about any changes to a document field
 // specifically, the watcher looks for changes to a document field, and records
 // the current document field (known value). If the document doesn't exist an
