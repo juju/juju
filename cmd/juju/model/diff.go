@@ -51,7 +51,12 @@ See also:
 //go:generate mockgen -package mocks -destination ./mocks/diff_mock.go github.com/juju/juju/cmd/juju/model DiffCommandAPI
 type DiffCommandAPI interface {
 	Close() error
-	BranchInfo(string, bool, func(time.Time) string) (model.GenerationSummaries, error)
+
+	// BranchInfo returns information about "in-flight" branches.
+	// If a non-empty string is supplied for branch name,
+	// then only information for that branch is returned.
+	// Supplying true for detailed returns extra unit detail for the branch.
+	BranchInfo(branchName string, detailed bool, formatTime func(time.Time) string) (model.GenerationSummaries, error)
 }
 
 // diffCommand supplies the "diff" CLI command used to show information about

@@ -57,7 +57,10 @@ type trackBranchCommand struct {
 //go:generate mockgen -package mocks -destination ./mocks/trackbranch_mock.go github.com/juju/juju/cmd/juju/model TrackBranchCommandAPI
 type TrackBranchCommandAPI interface {
 	Close() error
-	TrackBranch(string, []string) error
+
+	// TrackBranch sets the input units and/or applications
+	// to track changes made under the input branch name.
+	TrackBranch(branchName string, entities []string) error
 }
 
 // Info implements part of the cmd.Command interface.

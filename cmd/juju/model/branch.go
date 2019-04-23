@@ -60,7 +60,9 @@ type branchCommand struct {
 //go:generate mockgen -package mocks -destination ./mocks/branch_mock.go github.com/juju/juju/cmd/juju/model BranchCommandAPI
 type BranchCommandAPI interface {
 	Close() error
-	AddBranch(string) error
+
+	// AddBranch adds a new branch to the model.
+	AddBranch(branchName string) error
 }
 
 // Info implements part of the cmd.Command interface.

@@ -58,7 +58,9 @@ type checkoutCommand struct {
 //go:generate mockgen -package mocks -destination ./mocks/checkout_mock.go github.com/juju/juju/cmd/juju/model CheckoutCommandAPI
 type CheckoutCommandAPI interface {
 	Close() error
-	HasActiveBranch(string) (bool, error)
+	// HasActiveBranch returns true if the model has an
+	// "in-flight" branch with the input name.
+	HasActiveBranch(branchName string) (bool, error)
 }
 
 // Info implements part of the cmd.Command interface.

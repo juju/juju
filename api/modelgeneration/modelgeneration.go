@@ -56,8 +56,8 @@ func (c *Client) CommitBranch(branchName string) (int, error) {
 	return result.Result, nil
 }
 
-// TrackBranch sets the input units and/or applications to track changes made
-// under the input branch name.
+// TrackBranch sets the input units and/or applications
+// to track changes made under the input branch name.
 func (c *Client) TrackBranch(branchName string, entities []string) error {
 	var result params.ErrorResults
 	arg := params.BranchTrackArg{
@@ -89,8 +89,8 @@ func (c *Client) TrackBranch(branchName string, entities []string) error {
 	return nil
 }
 
-// HasActiveBranch returns true if the model has an "in-flight" branch with
-// the input name.
+// HasActiveBranch returns true if the model has an
+// "in-flight" branch with the input name.
 func (c *Client) HasActiveBranch(branchName string) (bool, error) {
 	var result params.BoolResult
 	err := c.facade.FacadeCall("HasActiveBranch", argForBranch(branchName), &result)
@@ -104,8 +104,8 @@ func (c *Client) HasActiveBranch(branchName string) (bool, error) {
 }
 
 // BranchInfo returns information about "in-flight" branches.
-// If a non-empty string is supplied for branch name, then only information
-// for that branch is returned.
+// If a non-empty string is supplied for branch name,
+// then only information for that branch is returned.
 // Supplying true for detailed returns extra unit detail for the branch.
 func (c *Client) BranchInfo(
 	branchName string, detailed bool, formatTime func(time.Time) string,
