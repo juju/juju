@@ -131,6 +131,15 @@ type AddRelationResults struct {
 type DestroyRelation struct {
 	Endpoints  []string `json:"endpoints,omitempty"`
 	RelationId int      `json:"relation-id"`
+
+	// Force specifies whether relation destruction will be forced, i.e.
+	// keep going despite operational errors.
+	Force *bool `json:"force,omitempty"`
+
+	// MaxWait specifies the amount of time that each step in relation destroy process
+	// will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration `json:"max-wait,omitempty"`
 }
 
 // RelationStatusArgs holds the parameters for updating the status

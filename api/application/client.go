@@ -790,14 +790,22 @@ func (c *Client) AddRelation(endpoints, viaCIDRs []string) (*params.AddRelationR
 }
 
 // DestroyRelation removes the relation between the specified endpoints.
-func (c *Client) DestroyRelation(endpoints ...string) error {
-	args := params.DestroyRelation{Endpoints: endpoints}
+func (c *Client) DestroyRelation(force *bool, maxWait *time.Duration, endpoints ...string) error {
+	args := params.DestroyRelation{
+		Endpoints: endpoints,
+		Force:     force,
+		MaxWait:   maxWait,
+	}
 	return c.facade.FacadeCall("DestroyRelation", args, nil)
 }
 
 // DestroyRelationId removes the relation with the specified id.
-func (c *Client) DestroyRelationId(relationId int) error {
-	args := params.DestroyRelation{RelationId: relationId}
+func (c *Client) DestroyRelationId(relationId int, force *bool, maxWait *time.Duration) error {
+	args := params.DestroyRelation{
+		RelationId: relationId,
+		Force:      force,
+		MaxWait:    maxWait,
+	}
 	return c.facade.FacadeCall("DestroyRelation", args, nil)
 }
 
