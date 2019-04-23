@@ -141,6 +141,11 @@ func (s *RemoveApplicationSuite) TestInvalidArgs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid application name "invalid:name"`)
 }
 
+func (s *RemoveApplicationSuite) TestNoWaitWithoutForce(c *gc.C) {
+	_, err := runRemoveApplication(c, "gargleblaster", "--no-wait")
+	c.Assert(err, gc.ErrorMatches, `--no-wait without --force not valid`)
+}
+
 type RemoveCharmStoreCharmsSuite struct {
 	legacyCharmStoreSuite
 	ctx *cmd.Context
