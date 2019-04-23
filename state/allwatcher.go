@@ -426,6 +426,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 		Name:        u.Name,
 		Application: u.Application,
 		Series:      u.Series,
+		Life:        multiwatcher.Life(u.Life.String()),
 		MachineId:   u.MachineId,
 		Principal:   u.Principal,
 		Subordinate: u.Principal != "",

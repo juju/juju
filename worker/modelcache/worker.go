@@ -297,6 +297,7 @@ func (c *cacheWorker) translate(d multiwatcher.Delta) interface{} {
 			Application:    value.Application,
 			Series:         value.Series,
 			CharmURL:       value.CharmURL,
+			Life:           life.Value(value.Life),
 			PublicAddress:  value.PublicAddress,
 			PrivateAddress: value.PrivateAddress,
 			MachineId:      value.MachineId,

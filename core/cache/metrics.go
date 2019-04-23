@@ -18,14 +18,25 @@ const (
 	controllerAccessLabel = "controller_access"
 	domainLabel           = "domain"
 	agentStatusLabel      = "agent_status"
-	machineStatusLabel    = "machine_status"
+	instanceStatusLabel   = "instance_status"
+	workloadStatusLabel   = "workload_status"
 )
 
 var (
 	machineLabelNames = []string{
 		agentStatusLabel,
 		lifeLabel,
-		machineStatusLabel,
+		instanceStatusLabel,
+	}
+
+	applicationLabelNames = []string{
+		lifeLabel,
+	}
+
+	unitLabelNames = []string{
+		agentStatusLabel,
+		lifeLabel,
+		workloadStatusLabel,
 	}
 
 	modelLabelNames = []string{
@@ -150,9 +161,11 @@ type Collector struct {
 	scrapeDuration prometheus.Gauge
 	scrapeErrors   prometheus.Gauge
 
-	models   *prometheus.GaugeVec
-	machines *prometheus.GaugeVec
-	users    *prometheus.GaugeVec
+	models       *prometheus.GaugeVec
+	machines     *prometheus.GaugeVec
+	applications *prometheus.GaugeVec
+	units        *prometheus.GaugeVec
+	users        *prometheus.GaugeVec
 }
 
 // NewMetricsCollector returns a new Collector.
@@ -190,6 +203,22 @@ func NewMetricsCollector(controller *Controller) *Collector {
 			},
 			machineLabelNames,
 		),
+		applications: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: metricsNamespace,
+				Name:      "applications",
+				Help:      "Number of applications managed by the controller.",
+			},
+			applicationLabelNames,
+		),
+		units: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: metricsNamespace,
+				Name:      "units",
+				Help:      "Number of units managed by the controller.",
+			},
+			unitLabelNames,
+		),
 		users: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: metricsNamespace,
@@ -203,8 +232,10 @@ func NewMetricsCollector(controller *Controller) *Collector {
 
 // Describe is part of the prometheus.Collector interface.
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
-	c.machines.Describe(ch)
 	c.models.Describe(ch)
+	c.machines.Describe(ch)
+	c.applications.Describe(ch)
+	c.units.Describe(ch)
 	c.users.Describe(ch)
 
 	c.scrapeErrors.Describe(ch)
@@ -219,15 +250,19 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.scrapeErrors.Set(0)
 	defer c.scrapeErrors.Collect(ch)
 
-	c.machines.Reset()
 	c.models.Reset()
+	c.machines.Reset()
+	c.applications.Reset()
+	c.units.Reset()
 	c.users.Reset()
 
 	c.updateMetrics()
 
 	c.controller.metrics.Collect(ch)
-	c.machines.Collect(ch)
 	c.models.Collect(ch)
+	c.machines.Collect(ch)
+	c.applications.Collect(ch)
+	c.units.Collect(ch)
 	c.users.Collect(ch)
 }
 
@@ -249,8 +284,28 @@ func (c *Collector) updateModelMetrics(modelUUID string) {
 		logger.Debugf("error getting model: %v", err)
 		return
 	}
+	model.mu.Lock()
+	defer model.mu.Unlock()
 
-	// TODO: add machines, applications and units.
+	for _, machine := range model.machines {
+		c.machines.With(prometheus.Labels{
+			agentStatusLabel:    string(machine.details.AgentStatus.Status),
+			lifeLabel:           string(machine.details.Life),
+			instanceStatusLabel: string(machine.details.InstanceStatus.Status),
+		}).Inc()
+	}
+	for _, app := range model.applications {
+		c.applications.With(prometheus.Labels{
+			lifeLabel: string(app.details.Life),
+		}).Inc()
+	}
+	for _, unit := range model.units {
+		c.units.With(prometheus.Labels{
+			agentStatusLabel:    string(unit.details.AgentStatus.Status),
+			lifeLabel:           string(unit.details.Life),
+			instanceStatusLabel: string(unit.details.WorkloadStatus.Status),
+		}).Inc()
+	}
 
 	c.models.With(prometheus.Labels{
 		lifeLabel:   string(model.details.Life),

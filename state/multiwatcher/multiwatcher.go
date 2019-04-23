@@ -297,6 +297,7 @@ type UnitInfo struct {
 	Application    string      `json:"application"`
 	Series         string      `json:"series"`
 	CharmURL       string      `json:"charm-url"`
+	Life           Life        `json:"life"`
 	PublicAddress  string      `json:"public-address"`
 	PrivateAddress string      `json:"private-address"`
 	MachineId      string      `json:"machine-id"`
