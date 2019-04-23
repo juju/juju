@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/service/common"
@@ -24,7 +23,7 @@ const (
 	// Command is a path to the snap binary, or to one that can be detected by os.Exec
 	Command = "snap"
 
-	defaultConfinementPolicy = "jailmode"
+	defaultConfinementPolicy = ""
 	defaultChannel           = "stable"
 )
 
@@ -34,12 +33,6 @@ var (
 	// snapNameRe is derived from https://github.com/snapcore/snapcraft/blob/a2ef08109d86259a0748446f41bce5205d00a922/schema/snapcraft.yaml#L81-106
 	// but does not test for "--"
 	snapNameRe = regexp.MustCompile("^[a-z0-9][a-z0-9-]{0,39}[^-]$")
-
-	// ConfinementPolicies represents the legal flags for installing a snap
-	ConfinementPolicies = set.NewStrings("devmode", "classic", "jailmode")
-
-	// Channels represents the legal channels for installing a snap
-	Channels = set.NewStrings("edge", "beta", "candidate", "stable")
 )
 
 // BackgroundService represents the a service that snaps define.
@@ -81,16 +74,6 @@ type App struct {
 
 func (a *App) Validate() error {
 	var validationErrors = []error{}
-
-	if !Channels.Contains(a.Channel) {
-		err := errors.NotValidf("%v is not a supported Channel (supported: %v)", a.Channel, Channels)
-		validationErrors = append(validationErrors, err)
-	}
-
-	if !ConfinementPolicies.Contains(a.ConfinementPolicy) {
-		err := errors.NotValidf("%v is not a supported ConfinementPolicy of running snaps (supported: %v)", a.ConfinementPolicy, ConfinementPolicies)
-		validationErrors = append(validationErrors, err)
-	}
 
 	if !snapNameRe.MatchString(a.Name) {
 		err := errors.NotValidf("app.Name")
@@ -371,27 +354,35 @@ func (s Service) Installed() (bool, error) {
 // InstallCommands is part of the service.Service interface
 func (s Service) InstallCommands() ([]string, error) {
 	commands := make([]string, 0, 1+len(s.app.Prerequisites))
+	confinementPolicy := confimentParameterAsString(s.app.ConfinementPolicy)
 
 	for _, prerequisite := range s.app.Prerequisites {
-		command := fmt.Sprintf("%v install --%v --%v %v",
+		command := fmt.Sprintf("%v install --channel=%v %v %v",
 			s.executable,
 			prerequisite.Channel,
-			prerequisite.ConfinementPolicy,
+			confinementPolicy,
 			prerequisite.Name,
 		)
 		logger.Infof("preparing command: %v", command)
 		commands = append(commands, command)
 	}
 
-	command := fmt.Sprintf("%v install --%v --%v %v",
+	command := fmt.Sprintf("%v install --channel=%v %v %v",
 		s.executable,
 		s.app.Channel,
-		s.app.ConfinementPolicy,
+		confinementPolicy,
 		s.app.Name,
 	)
 	logger.Infof("preparing command: %v", command)
 	commands = append(commands, command)
 	return commands, nil
+}
+
+func confimentParameterAsString(confinementPolicy string) string {
+	if confinementPolicy != "" {
+		return fmt.Sprintf("--%v", confinementPolicy)
+	}
+	return ""
 }
 
 // StartCommands returns a slice of strings. that are
