@@ -147,6 +147,11 @@ removing unit unit/2 failed: unit "unit/2" does not exist
 `[1:])
 }
 
+func (s *RemoveUnitSuite) TestRemoveUnitNoWaitWithouForce(c *gc.C) {
+	_, err := s.runRemoveUnit(c, "unit/0", "--no-wait")
+	c.Assert(err, gc.ErrorMatches, `--no-wait without --force not valid`)
+}
+
 func (s *RemoveUnitSuite) TestBlockRemoveUnit(c *gc.C) {
 	// Block operation
 	s.fake.err = common.OperationBlockedError("TestBlockRemoveUnit")

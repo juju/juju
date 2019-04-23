@@ -4,6 +4,8 @@
 package application_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -344,12 +346,13 @@ func (s *applicationSuite) TestDestroyApplications(c *gc.C) {
 			DestroyedUnits:   []params.Entity{{Tag: "unit-bar-1"}},
 		},
 	}}
+	delay := 1 * time.Minute
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		c.Assert(request, gc.Equals, "DestroyApplication")
 		c.Assert(a, jc.DeepEquals, params.DestroyApplicationsParams{
 			Applications: []params.DestroyApplicationParams{
-				{ApplicationTag: "application-foo", Force: true},
-				{ApplicationTag: "application-bar", Force: true},
+				{ApplicationTag: "application-foo", Force: true, MaxWait: &delay},
+				{ApplicationTag: "application-bar", Force: true, MaxWait: &delay},
 			},
 		})
 		c.Assert(response, gc.FitsTypeOf, &params.DestroyApplicationResults{})
@@ -360,6 +363,7 @@ func (s *applicationSuite) TestDestroyApplications(c *gc.C) {
 	results, err := client.DestroyApplications(application.DestroyApplicationsParams{
 		Applications: []string{"foo", "bar"},
 		Force:        true,
+		MaxWait:      &delay,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expectedResults)
@@ -462,12 +466,13 @@ func (s *applicationSuite) TestDestroyUnits(c *gc.C) {
 			DetachedStorage:  []params.Entity{{Tag: "storage-pgdata-1"}},
 		},
 	}}
+	delay := 1 * time.Minute
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		c.Assert(request, gc.Equals, "DestroyUnit")
 		c.Assert(a, jc.DeepEquals, params.DestroyUnitsParams{
 			Units: []params.DestroyUnitParams{
-				{UnitTag: "unit-foo-0", Force: true},
-				{UnitTag: "unit-bar-1", Force: true},
+				{UnitTag: "unit-foo-0", Force: true, MaxWait: &delay},
+				{UnitTag: "unit-bar-1", Force: true, MaxWait: &delay},
 			},
 		})
 		c.Assert(response, gc.FitsTypeOf, &params.DestroyUnitResults{})
@@ -476,8 +481,9 @@ func (s *applicationSuite) TestDestroyUnits(c *gc.C) {
 		return nil
 	})
 	results, err := client.DestroyUnits(application.DestroyUnitsParams{
-		Units: []string{"foo/0", "bar/1"},
-		Force: true,
+		Units:   []string{"foo/0", "bar/1"},
+		Force:   true,
+		MaxWait: &delay,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expectedResults)

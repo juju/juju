@@ -414,13 +414,18 @@ type DestroyUnitParams struct {
 
 	// Force controls whether or not the destruction of an application
 	// will be forced, i.e. ignore operational errors.
-	Force bool
+	Force bool `json:"force"`
 
 	// Errors contains errors encountered while applying this operation.
 	// Generally, these are non-fatal errors that have been encountered
 	// during, say, force. They may not have prevented the operation from being
 	// aborted but the user might still want to know about them.
-	Errors []error
+	Errors []error `json:"errors,omitempty"`
+
+	// MaxWait specifies the amount of time that each step in unit removal
+	// will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration `json:"max-wait,omitempty"`
 }
 
 // Creds holds credentials for identifying an entity.

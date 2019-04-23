@@ -217,9 +217,8 @@ func (s *DestroySuite) TestDestroyWithForce(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	force := true
-	maxWait := 1 * time.Minute
 	s.stub.CheckCalls(c, []jutesting.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), &force, &maxWait}},
+		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), &force, (*time.Duration)(nil)}},
 	})
 }
 
