@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
@@ -57,6 +56,11 @@ type residentManager struct {
 	// removals is the channel on which remove messages are sent.
 	// It will generally be the the cached controller's "changes" channel.
 	removals chan<- interface{}
+
+	// done tells us that the manager's owner is going away.
+	// This will generally correspond with the cached controller's
+	// tomb.Dying channel.
+	done <-chan struct{}
 }
 
 func newResidentManager(removals chan<- interface{}) *residentManager {
@@ -96,7 +100,7 @@ func (m *residentManager) mark() {
 // sweep removes stale cache residents in descending order of ID.
 // Because the IDs are supplied in increasing order, this ensures
 // we never remove a resident's model before the resident itself.
-func (m *residentManager) sweep() error {
+func (m *residentManager) sweep() {
 	// Create a descending order slice of IDs.
 	residentIds := make([]uint64, len(m.residents))
 	i := 0
@@ -106,7 +110,7 @@ func (m *residentManager) sweep() error {
 	}
 	sort.Sort(uint64Reverse(residentIds))
 
-	// Read the map "leaves-first" and evict stale residents.
+	// Read the map LIFO and evict stale residents.
 	for _, id := range residentIds {
 		r := m.residents[id]
 		if r.stale {
@@ -117,12 +121,12 @@ func (m *residentManager) sweep() error {
 
 			select {
 			case m.removals <- r.removalMessage:
-			case <-time.After(10 * time.Second):
-				return errors.New("unable to progress cache sweep")
+			case <-m.done:
+				logger.Debugf("aborting cache sweep")
+				return
 			}
 		}
 	}
-	return nil
 }
 
 func (m *residentManager) deregister(id uint64) {

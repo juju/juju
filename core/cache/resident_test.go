@@ -80,7 +80,7 @@ func (s *residentSuite) TestManagerMarkAndSweepSendsRemovalMessagesForStaleResid
 		}
 	}()
 
-	c.Assert(s.Manager.sweep(), jc.ErrorIsNil)
+	s.Manager.sweep()
 	close(s.Changes)
 	<-done
 

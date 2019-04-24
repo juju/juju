@@ -65,6 +65,7 @@ func newController(config ControllerConfig, manager *residentManager) (*Controll
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	c := &Controller{
 		manager: manager,
 		changes: config.Changes,
@@ -76,6 +77,8 @@ func newController(config ControllerConfig, manager *residentManager) (*Controll
 		}),
 		metrics: createControllerGauges(),
 	}
+
+	manager.done = c.tomb.Dying()
 	c.tomb.Go(c.loop)
 	return c, nil
 }
@@ -252,7 +255,7 @@ func (c *Controller) removeResident(modelUUID string, removeFrom func(m *Model) 
 // It is likely that we will receive a change update for the model before we
 // get an update for one of its entities, but the cache needs to be resilient
 // enough to make sure that we can handle when this is not the case.
-// No model retrieved by this method is ever considered to be stale.
+// No model returned by this method is ever considered to be stale.
 func (c *Controller) ensureModel(modelUUID string) *Model {
 	c.mu.Lock()
 
