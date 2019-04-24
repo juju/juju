@@ -1851,13 +1851,12 @@ func watchInstanceCharmProfileCompatibilityData(backend modelBackend, watchDocId
 	filter := func(id interface{}) bool {
 		return id.(string) == watchDocId
 	}
-	extract := func(data map[string]interface{}) (string, error) {
-		if value, ok := data["charmurl"]; ok {
-			if url, ok := value.(string); ok {
-				return url, nil
-			}
+	extract := func(query documentFieldWatcherQuery) (string, error) {
+		var doc applicationDoc
+		if err := query.One(&doc); err != nil {
+			return "", err
 		}
-		return initial, errors.NotValidf("applicationDoc type")
+		return doc.CharmURL.String(), nil
 	}
 	transform := func(value string) string {
 		return lxdprofile.NotRequiredStatus
@@ -1865,6 +1864,11 @@ func watchInstanceCharmProfileCompatibilityData(backend modelBackend, watchDocId
 	return newDocumentFieldWatcher(backend, collection, members, initial, filter, extract, transform)
 }
 
+// *Deprecated* Although this watcher seems fairly admirable in terms of what
+// it does, it unfortunately does things at the wrong level. With the
+// consequence of wiring up complex structures on something that wasn't intended
+// from the outset for it to do.
+//
 // documentFieldWatcher notifies about any changes to a document field
 // specifically, the watcher looks for changes to a document field, and records
 // the current document field (known value). If the document doesn't exist an
@@ -1877,12 +1881,18 @@ type documentFieldWatcher struct {
 	// docId is used to select the initial interesting entities.
 	collection   string
 	members      bson.D
-	known        string
+	known        *string
 	initialKnown string
 	filter       func(interface{}) bool
-	extract      func(map[string]interface{}) (string, error)
+	extract      func(documentFieldWatcherQuery) (string, error)
 	transform    func(string) string
 	out          chan []string
+}
+
+// documentFieldWatcherQuery is a point of use interface, to prevent the leaking
+// of query interface out of the core watcher.
+type documentFieldWatcherQuery interface {
+	One(result interface{}) (err error)
 }
 
 var _ Watcher = (*documentFieldWatcher)(nil)
@@ -1893,7 +1903,7 @@ func newDocumentFieldWatcher(
 	members bson.D,
 	initialKnown string,
 	filter func(interface{}) bool,
-	extract func(map[string]interface{}) (string, error),
+	extract func(documentFieldWatcherQuery) (string, error),
 	transform func(string) string,
 ) StringsWatcher {
 	w := &documentFieldWatcher{
@@ -1919,42 +1929,45 @@ func (w *documentFieldWatcher) initial() error {
 
 	field := w.initialKnown
 
-	var data map[string]interface{}
-	if err := col.Find(w.members).One(&data); err == nil {
-		if newField, err := w.extract(data); err == nil {
-			field = newField
-		}
+	if newField, err := w.extract(col.Find(w.members)); err == nil {
+		field = newField
 	}
-	w.known = field
+	w.known = &field
 
 	logger.Tracef("Started watching %s for %v: %q", w.collection, w.members, field)
 	return nil
 }
 
 func (w *documentFieldWatcher) merge(change watcher.Change) (bool, error) {
+	// we care about change.Revno equalling -1 as we want to know about
+	// documents being deleted.
 	if change.Revno == -1 {
+		// treat this as the document being deleted
+		if w.known != nil {
+			w.known = nil
+			return true, nil
+		}
 		return false, nil
 	}
 	col, closer := w.db.GetCollection(w.collection)
 	defer closer()
 
-	var data map[string]interface{}
-	if err := col.Find(w.members).One(&data); err != nil {
+	// check the field before adding it to the known value
+	currentField, err := w.extract(col.Find(w.members))
+	if err != nil {
 		if err != mgo.ErrNotFound {
 			logger.Debugf("%s NOT mgo err not found", w.collection)
 			return false, err
 		}
-		logger.Tracef("%s for %v: mgo err not found", w.collection, w.members)
+		// treat this as the document being deleted
+		if w.known != nil {
+			w.known = nil
+			return true, nil
+		}
 		return false, nil
 	}
-
-	// check the field before adding it to the known value
-	currentField, err := w.extract(data)
-	if err != nil {
-		return false, err
-	}
-	if w.known != currentField {
-		w.known = currentField
+	if w.known == nil || *w.known != currentField {
+		w.known = &currentField
 
 		logger.Tracef("Changes in watching %s for %v: %q", w.collection, w.members, currentField)
 		return true, nil
@@ -1974,9 +1987,12 @@ func (w *documentFieldWatcher) loop() error {
 
 	out := w.out
 	for {
-		value := w.known
+		var value string
+		if w.known != nil {
+			value = *w.known
+		}
 		if w.transform != nil {
-			value = w.transform(w.known)
+			value = w.transform(value)
 		}
 		select {
 		case <-w.watcher.Dead():

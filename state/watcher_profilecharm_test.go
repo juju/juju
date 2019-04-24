@@ -9,6 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 	"gopkg.in/mgo.v2/bson"
@@ -140,6 +141,7 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) TestFullWatch(c *gc.C) {
 	w := s.workerForScenario(c,
 		s.expectInitialCollectionInstanceField("cs:~user/series/name-0"),
 		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
+			{Revno: -1},
 			{Revno: 0},
 			{Revno: 1},
 		}, done),
@@ -190,8 +192,8 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) expectInitialCollectionI
 	return func() {
 		s.database.EXPECT().GetCollection("applications").Return(s.collection, noop)
 		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
-		s.query.EXPECT().One(gomock.Any()).SetArg(0, map[string]interface{}{
-			"charmurl": url,
+		s.query.EXPECT().One(gomock.Any()).SetArg(0, state.ApplicationDoc{
+			CharmURL: charm.MustParseURL(url),
 		}).Return(nil)
 	}
 }
@@ -215,8 +217,8 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) expectMergeCollectionIns
 	return func() {
 		s.database.EXPECT().GetCollection("applications").Return(s.collection, noop)
 		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
-		s.query.EXPECT().One(gomock.Any()).SetArg(0, map[string]interface{}{
-			"charmurl": url,
+		s.query.EXPECT().One(gomock.Any()).SetArg(0, state.ApplicationDoc{
+			CharmURL: charm.MustParseURL(url),
 		}).Return(nil)
 	}
 }
