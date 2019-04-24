@@ -140,6 +140,7 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) TestFullWatch(c *gc.C) {
 	w := s.workerForScenario(c,
 		s.expectInitialCollectionInstanceField("cs:~user/series/name-0"),
 		s.expectLoopCollectionFilterAndNotify([]watcher.Change{
+			{Revno: -1},
 			{Revno: 0},
 			{Revno: 1},
 		}, done),

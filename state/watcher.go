@@ -1943,7 +1943,12 @@ func (w *documentFieldWatcher) initial() error {
 func (w *documentFieldWatcher) merge(change watcher.Change) (bool, error) {
 	// we care about change.Revno equalling -1 as we want to know about
 	// documents being deleted.
-	if w.known == nil {
+	if change.Revno == -1 {
+		// treat this as the document being deleted
+		if w.known != nil {
+			w.known = nil
+			return true, nil
+		}
 		return false, nil
 	}
 	col, closer := w.db.GetCollection(w.collection)
@@ -1955,7 +1960,11 @@ func (w *documentFieldWatcher) merge(change watcher.Change) (bool, error) {
 			logger.Debugf("%s NOT mgo err not found", w.collection)
 			return false, err
 		}
-		logger.Tracef("%s for %v: mgo err not found", w.collection, w.members)
+		// treat this as the document being deleted
+		if w.known != nil {
+			w.known = nil
+			return true, nil
+		}
 		return false, nil
 	}
 
@@ -1964,7 +1973,7 @@ func (w *documentFieldWatcher) merge(change watcher.Change) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if *w.known != currentField {
+	if w.known == nil || *w.known != currentField {
 		w.known = &currentField
 
 		logger.Tracef("Changes in watching %s for %v: %q", w.collection, w.members, currentField)
@@ -1985,7 +1994,10 @@ func (w *documentFieldWatcher) loop() error {
 
 	out := w.out
 	for {
-		value := *w.known
+		var value string
+		if w.known != nil {
+			value = *w.known
+		}
 		if w.transform != nil {
 			value = w.transform(value)
 		}
