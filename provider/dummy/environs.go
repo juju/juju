@@ -926,8 +926,10 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			}
 
 			modelCache, err := modelcache.NewWorker(modelcache.Config{
-				Logger:               loggo.GetLogger("dummy"),
-				StatePool:            statePool,
+				Logger: loggo.GetLogger("dummy"),
+				WatcherFactory: func() modelcache.BackingWatcher {
+					return statePool.SystemState().WatchAllModels(statePool)
+				},
 				PrometheusRegisterer: noopRegisterer{},
 				Cleanup:              func() {},
 			})

@@ -6,8 +6,6 @@ package modelcache_test
 import (
 	"time"
 
-	"github.com/juju/juju/testing/factory"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -21,6 +19,7 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/modelcache"
 )
 
@@ -38,9 +37,12 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.notify = nil
 	s.logger = loggo.GetLogger("test")
 	s.logger.SetLogLevel(loggo.TRACE)
+
 	s.config = modelcache.Config{
-		Logger:               s.logger,
-		StatePool:            s.StatePool,
+		Logger: s.logger,
+		WatcherFactory: func() modelcache.BackingWatcher {
+			return s.StatePool.SystemState().WatchAllModels(s.StatePool)
+		},
 		PrometheusRegisterer: noopRegisterer{},
 		Cleanup:              func() {},
 	}
@@ -53,11 +55,11 @@ func (s *WorkerSuite) TestConfigMissingLogger(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "missing logger not valid")
 }
 
-func (s *WorkerSuite) TestConfigMissingStatePool(c *gc.C) {
-	s.config.StatePool = nil
+func (s *WorkerSuite) TestConfigMissingWatcherFactory(c *gc.C) {
+	s.config.WatcherFactory = nil
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "missing state pool not valid")
+	c.Check(err, gc.ErrorMatches, "missing watcher factory not valid")
 }
 
 func (s *WorkerSuite) TestConfigMissingRegisterer(c *gc.C) {

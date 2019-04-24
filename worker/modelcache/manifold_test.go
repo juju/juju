@@ -83,8 +83,8 @@ func (s *ManifoldSuite) TestConfigValidationMissingNewWorker(c *gc.C) {
 func (s *ManifoldSuite) TestManifoldCallsValidate(c *gc.C) {
 	context := dt.StubContext(nil, map[string]interface{}{})
 	s.config.Logger = nil
-	worker, err := s.manifold().Start(context)
-	c.Check(worker, gc.IsNil)
+	w, err := s.manifold().Start(context)
+	c.Check(w, gc.IsNil)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, `missing Logger not valid`)
 }
@@ -94,8 +94,8 @@ func (s *ManifoldSuite) TestAgentMissing(c *gc.C) {
 		"state": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold().Start(context)
-	c.Check(worker, gc.IsNil)
+	w, err := s.manifold().Start(context)
+	c.Check(w, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
 
@@ -111,12 +111,12 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *gc.C) {
 		"state": tracker,
 	})
 
-	worker, err := s.manifold().Start(context)
+	w, err := s.manifold().Start(context)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(worker, gc.NotNil)
+	c.Check(w, gc.NotNil)
 
 	c.Check(config.Validate(), jc.ErrorIsNil)
-	c.Check(config.StatePool, gc.Equals, tracker.pool())
+	c.Check(config.WatcherFactory, gc.NotNil)
 	c.Check(config.Logger, gc.Equals, s.config.Logger)
 	c.Check(config.PrometheusRegisterer, gc.Equals, s.config.PrometheusRegisterer)
 
