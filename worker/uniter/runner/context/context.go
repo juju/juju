@@ -519,9 +519,8 @@ func (ctx *HookContext) SetPodSpec(specYaml string) error {
 		return errors.Annotatef(err, "cannot determine leadership")
 	}
 	if !isLeader {
-		// TODO(caas) - race - initial unit is sometimes not recognised as the leader
 		logger.Warningf("%v is not the leader but is setting application pod spec", entityName)
-		//return ErrIsNotLeader
+		return ErrIsNotLeader
 	}
 	entityName = ctx.unit.ApplicationName()
 	return ctx.state.SetPodSpec(entityName, specYaml)
