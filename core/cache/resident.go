@@ -96,10 +96,12 @@ func (m *residentManager) new() *Resident {
 }
 
 // mark sets all of the manager's residents to be stale.
-func (m *residentManager) mark() {
+// The boolean return indicates if there were any residents to mark.
+func (m *residentManager) mark() bool {
 	for _, r := range m.residents {
 		r.setStale(true)
 	}
+	return len(m.residents) > 0
 }
 
 // sweep removes stale cache residents in descending order of ID.

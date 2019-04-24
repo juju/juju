@@ -236,7 +236,7 @@ func (s *ControllerSuite) TestMarkAndSweep(c *gc.C) {
 		done <- struct{}{}
 	}()
 
-	controller.Mark()
+	c.Assert(controller.Mark(), jc.IsTrue)
 	controller.Sweep()
 	<-done
 

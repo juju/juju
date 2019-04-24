@@ -125,8 +125,9 @@ func (c *Controller) loop() error {
 }
 
 // Mark updates all cached entities to indicate they are stale.
-func (c *Controller) Mark() {
-	c.manager.mark()
+// Returns true unless there were no entities to mark.
+func (c *Controller) Mark() bool {
+	return c.manager.mark()
 }
 
 // Sweep evicts any stale entities from the cache,
