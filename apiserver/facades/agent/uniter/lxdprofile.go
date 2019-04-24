@@ -207,36 +207,12 @@ func (u *LXDProfileAPI) watchOneChangeLXDProfileUpgradeNotifications(machine LXD
 // RemoveUpgradeCharmProfileData is intended to clean up the LXDProfile status
 // to ensure that we start from a clean slate.
 func (u *LXDProfileAPI) RemoveUpgradeCharmProfileData(args params.Entities) (params.ErrorResults, error) {
-	u.logger.Tracef("Starting RemoveUpgradeCharmProfileData with %+v", args)
-	result := params.ErrorResults{
+	// This is a canned response for V9 of the API, so that clients will still
+	// be supported and the error for each param entity is nil, along with the
+	// call.
+	return params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-
-		if !canAccess(tag) {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		_, err = u.getMachine(tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		// TODO (hml) 2019-04-19
-		// Removing call to machine.RemoveUpgradeCharmProfileData from
-		// state.  2nd pass is to remove it and other charm profile
-		// functionality from the uniter.
-	}
-	return result, nil
+	}, nil
 }
 
 func (u *LXDProfileAPI) getMachine(tag names.Tag) (LXDProfileMachine, error) {

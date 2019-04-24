@@ -68,10 +68,16 @@ type UniterAPI struct {
 	cloudSpec       cloudspec.CloudSpecAPI
 }
 
-// UniterAPI implements the latest version (v11) of the Uniter API,
+// UniterAPIV11 implements the latest version (v12) of the Uniter API,
+// with RemoveUpgradeCharmProfileData as NotSupproted.
+type UniterAPIV11 struct {
+	UniterAPI
+}
+
+// UniterAPIV10 implements the latest version (v11) of the Uniter API,
 // which adds WatchUnitLXDProfileUpgradeNotifications.
 type UniterAPIV10 struct {
-	UniterAPI
+	UniterAPIV11
 }
 
 // UniterAPIV9 adds WatchConfigSettingsHash, WatchTrustConfigSettingsHash,
@@ -280,14 +286,25 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 	}, nil
 }
 
-// NewUniterAPIV10 creates an instance of the V10 uniter API.
-func NewUniterAPIV10(context facade.Context) (*UniterAPIV10, error) {
+// NewUniterAPIV11 creates an instance of the V11 uniter API.
+func NewUniterAPIV11(context facade.Context) (*UniterAPIV11, error) {
 	uniterAPI, err := NewUniterAPI(context)
 	if err != nil {
 		return nil, err
 	}
-	return &UniterAPIV10{
+	return &UniterAPIV11{
 		UniterAPI: *uniterAPI,
+	}, nil
+}
+
+// NewUniterAPIV10 creates an instance of the V10 uniter API.
+func NewUniterAPIV10(context facade.Context) (*UniterAPIV10, error) {
+	uniterAPI, err := NewUniterAPIV11(context)
+	if err != nil {
+		return nil, err
+	}
+	return &UniterAPIV10{
+		UniterAPIV11: *uniterAPI,
 	}, nil
 }
 
@@ -2891,3 +2908,7 @@ func (u *UniterAPI) CloudAPIVersion() (params.StringResult, error) {
 	result.Result = apiVersion
 	return result, err
 }
+
+// RemoveUpgradeCharmProfileData isn't on the v11 API.
+// Note this overwrites the embedded LXDProfileAPI
+func (u *UniterAPI) RemoveUpgradeCharmProfileData(_, _ struct{}) {}
