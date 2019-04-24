@@ -59,7 +59,7 @@ func (s *residentSuite) TestManagerMarkAndSweepSendsRemovalMessagesForStaleResid
 
 	// Sets all 4 to be stale, but we freshen up one.
 	s.Manager.mark()
-	r1.stale = false
+	r1.setStale(false)
 
 	// Consume all the messages from the manager's removals channel.
 	var removals []interface{}
@@ -80,7 +80,7 @@ func (s *residentSuite) TestManagerMarkAndSweepSendsRemovalMessagesForStaleResid
 		}
 	}()
 
-	s.Manager.sweep()
+	<-s.Manager.sweep()
 	close(s.Changes)
 	<-done
 

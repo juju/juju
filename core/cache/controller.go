@@ -78,7 +78,7 @@ func newController(config ControllerConfig, manager *residentManager) (*Controll
 		metrics: createControllerGauges(),
 	}
 
-	manager.done = c.tomb.Dying()
+	manager.dying = c.tomb.Dying()
 	c.tomb.Go(c.loop)
 	return c, nil
 }
@@ -122,6 +122,17 @@ func (c *Controller) loop() error {
 			}
 		}
 	}
+}
+
+// Mark updates all cached entities to indicate they are stale.
+func (c *Controller) Mark() {
+	c.manager.mark()
+}
+
+// Sweep evicts any stale entities from the cache,
+// cleaning up resources that they are responsible for.
+func (c *Controller) Sweep() {
+	<-c.manager.sweep()
 }
 
 // Report returns information that is used in the dependency engine report.
@@ -264,7 +275,7 @@ func (c *Controller) ensureModel(modelUUID string) *Model {
 		model = newModel(c.metrics, c.hub, c.manager.new())
 		c.models[modelUUID] = model
 	} else {
-		model.stale = false
+		model.setStale(false)
 	}
 
 	c.mu.Unlock()

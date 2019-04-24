@@ -152,7 +152,15 @@ func (m *Machine) setDetails(details MachineChange) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.stale = false
+	// If this is the first receipt of details, set the removal message.
+	if m.details.Id == "" {
+		m.removalMessage = RemoveMachine{
+			ModelUUID: details.ModelUUID,
+			Id:        details.Id,
+		}
+	}
+
+	m.setStale(false)
 	m.details = details
 
 	configHash, err := hash(details.Config)

@@ -213,6 +213,34 @@ func (s *ControllerSuite) TestRemoveUnit(c *gc.C) {
 	s.AssertResident(c, unit.CacheId(), false)
 }
 
+func (s *ControllerSuite) TestMarkAndSweep(c *gc.C) {
+	controller, events := s.new(c)
+
+	// Note that the model change is processed last.
+	s.processChange(c, charmChange, events)
+	s.processChange(c, appChange, events)
+	s.processChange(c, machineChange, events)
+	s.processChange(c, unitChange, events)
+	s.processChange(c, modelChange, events)
+
+	done := make(chan struct{})
+	go func() {
+		// Removals are congruent with FILO.
+		// Model is last because models are added if they do not exist,
+		// when we first get a delta for one of their entities.
+		c.Check(s.nextChange(c, events), gc.FitsTypeOf, cache.RemoveUnit{})
+		c.Check(s.nextChange(c, events), gc.FitsTypeOf, cache.RemoveMachine{})
+		c.Check(s.nextChange(c, events), gc.FitsTypeOf, cache.RemoveApplication{})
+		c.Check(s.nextChange(c, events), gc.FitsTypeOf, cache.RemoveCharm{})
+		c.Check(s.nextChange(c, events), gc.FitsTypeOf, cache.RemoveModel{})
+		done <- struct{}{}
+	}()
+
+	controller.Mark()
+	controller.Sweep()
+	<-done
+}
+
 func (s *ControllerSuite) new(c *gc.C) (*cache.Controller, <-chan interface{}) {
 	events := s.captureEvents(c)
 	controller, err := s.NewController()

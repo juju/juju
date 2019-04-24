@@ -28,8 +28,6 @@ import (
 //   3. If the multi-watcher supplying deltas to the cache is restarted,
 //      The controller itself must mark and sweep, evicting stale residents and
 //      cleaning up their resources.
-// Where possible the manager and residents eschew responsibility for Goroutine
-// safety. The types into which they are embedded should handle this.
 
 // counter supplies monotonically increasing unique identifiers.
 type counter uint64
@@ -51,16 +49,19 @@ type residentManager struct {
 	residentCount *counter
 	resourceCount *counter
 
+	// residents are all the residents of the cache indexed by ID.
+	// Access to this map should be Goroutine-safe.
 	residents map[uint64]*Resident
+	mu        sync.Mutex
 
 	// removals is the channel on which remove messages are sent.
 	// It will generally be the the cached controller's "changes" channel.
 	removals chan<- interface{}
 
-	// done tells us that the manager's owner is going away.
+	// dying tells us that the manager's owner is going away.
 	// This will generally correspond with the cached controller's
 	// tomb.Dying channel.
-	done <-chan struct{}
+	dying <-chan struct{}
 }
 
 func newResidentManager(removals chan<- interface{}) *residentManager {
@@ -86,51 +87,75 @@ func (m *residentManager) new() *Resident {
 		nextResourceId: func() uint64 { return m.resourceCount.next() },
 		workers:        make(map[uint64]worker.Worker),
 	}
+
+	m.mu.Lock()
 	m.residents[r.id] = r
+	m.mu.Unlock()
+
 	return r
 }
 
 // mark sets all of the manager's residents to be stale.
 func (m *residentManager) mark() {
 	for _, r := range m.residents {
-		r.stale = true
+		r.setStale(true)
 	}
 }
 
 // sweep removes stale cache residents in descending order of ID.
-// Because the IDs are supplied in increasing order, this ensures
-// we never remove a resident's model before the resident itself.
-func (m *residentManager) sweep() {
-	// Create a descending order slice of IDs.
-	residentIds := make([]uint64, len(m.residents))
-	i := 0
-	for id := range m.residents {
-		residentIds[i] = id
-		i++
-	}
-	sort.Sort(uint64Reverse(residentIds))
+func (m *residentManager) sweep() <-chan struct{} {
+	removalIds, removalMessages := m.evictions()
 
-	// Read the map LIFO and evict stale residents.
-	for _, id := range residentIds {
-		r := m.residents[id]
-		if r.stale {
+	finished := make(chan struct{})
+
+	go func() {
+	loop:
+		for _, id := range removalIds {
+			select {
+			case m.removals <- removalMessages[id]:
+			case <-m.dying:
+				logger.Debugf("aborting cache sweep")
+				break loop
+			}
+		}
+		close(finished)
+	}()
+
+	return finished
+}
+
+// evictions iterates over the cache residents and generates a map of
+// eviction messages and a slice for determining order of eviction.
+// Because the IDs are supplied in increasing order,
+// this ensures we never remove a resident's model before the resident itself.
+func (m *residentManager) evictions() ([]uint64, map[uint64]interface{}) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Create a descending order slice of stale IDs,
+	// and a map of resident removal messages.
+	var removalIds []uint64
+	removalMessages := make(map[uint64]interface{})
+	for id, r := range m.residents {
+		if r.isStale() {
 			if r.removalMessage == nil {
 				logger.Warningf("cache resident %d has no removal message; skipping eviction", id)
 				continue
 			}
 
-			select {
-			case m.removals <- r.removalMessage:
-			case <-m.done:
-				logger.Debugf("aborting cache sweep")
-				return
-			}
+			removalIds = append(removalIds, id)
+			removalMessages[id] = r.removalMessage
 		}
 	}
+	sort.Sort(uint64Reverse(removalIds))
+
+	return removalIds, removalMessages
 }
 
 func (m *residentManager) deregister(id uint64) {
+	m.mu.Lock()
 	delete(m.residents, id)
+	m.mu.Unlock()
 }
 
 // Resident is the base class for entities managed in the cache.
@@ -197,12 +222,13 @@ func (r *Resident) cleanup() error {
 	return errors.Annotatef(r.cleanupWorkers(), "cleaning up cache resident %d:", r.id)
 }
 
-// cleanupWorkers calls "Stop" on all registered workers
-// and removes them from the internal map.
+// cleanupWorkers calls "Stop" on all registered workers.
+// Note that the deregistration method should have been added the the worker's
+// tomb cleanup method - stopping the worker cleanly is enough to deregister.
 func (r *Resident) cleanupWorkers() error {
 	var errs []string
-	for id := range r.workers {
-		if err := r.cleanupWorker(id); err != nil {
+	for id, w := range r.workers {
+		if err := worker.Stop(w); err != nil {
 			errs = append(errs, errors.Annotatef(err, "worker %d", id).Error())
 		}
 	}
@@ -213,28 +239,24 @@ func (r *Resident) cleanupWorkers() error {
 	return nil
 }
 
-// cleanupWorker stops and deregisters the worker with the input ID.
-// If no such worker is found, an error is returned.
-// Note that the deregistration method should have been added the the worker's
-// tomb cleanup method - stopping the worker cleanly is enough to deregister.
-func (r *Resident) cleanupWorker(id uint64) error {
-	w, ok := r.workers[id]
-	if !ok {
-		return errors.Errorf("worker %d not found", id)
-	}
-
-	if err := worker.Stop(w); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 // deregisterWorker informs the resident that we no longer care about this
 // worker. We expect this call to come from workers stopped by other actors
 // other than the resident, so we ensure Goroutine safety.
 func (r *Resident) deregisterWorker(id uint64) {
 	r.mu.Lock()
 	delete(r.workers, id)
+	r.mu.Unlock()
+}
+
+func (r *Resident) isStale() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.stale
+}
+
+func (r *Resident) setStale(stale bool) {
+	r.mu.Lock()
+	r.stale = stale
 	r.mu.Unlock()
 }
 

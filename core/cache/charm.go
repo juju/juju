@@ -44,7 +44,15 @@ func (c *Charm) LXDProfile() lxdprofile.Profile {
 func (c *Charm) setDetails(details CharmChange) {
 	c.mu.Lock()
 
-	c.stale = false
+	// If this is the first receipt of details, set the removal message.
+	if c.details.CharmURL == "" {
+		c.removalMessage = RemoveCharm{
+			ModelUUID: details.ModelUUID,
+			CharmURL:  details.CharmURL,
+		}
+	}
+
+	c.setStale(false)
 	c.details = details
 
 	c.mu.Unlock()
