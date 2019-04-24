@@ -1848,7 +1848,9 @@ func watchInstanceCharmProfileCompatibilityData(backend modelBackend, watchDocId
 	initial := ""
 	members := bson.D{{"_id", watchDocId}}
 	collection := applicationsC
-	document := applicationDoc{}
+	document := func() interface{} {
+		return applicationDoc{}
+	}
 	filter := func(id interface{}) bool {
 		return id.(string) == watchDocId
 	}
@@ -1880,7 +1882,7 @@ type documentFieldWatcher struct {
 	commonWatcher
 	// docId is used to select the initial interesting entities.
 	collection   string
-	document     interface{}
+	document     func() interface{}
 	members      bson.D
 	known        *string
 	initialKnown string
@@ -1895,7 +1897,7 @@ var _ Watcher = (*documentFieldWatcher)(nil)
 func newDocumentFieldWatcher(
 	backend modelBackend,
 	collection string,
-	document interface{},
+	document func() interface{},
 	members bson.D,
 	initialKnown string,
 	filter func(interface{}) bool,
@@ -1926,7 +1928,7 @@ func (w *documentFieldWatcher) initial() error {
 
 	field := w.initialKnown
 
-	data := w.document
+	data := w.document()
 	if err := col.Find(w.members).One(&data); err == nil {
 		if newField, err := w.extract(data); err == nil {
 			field = newField
@@ -1947,7 +1949,7 @@ func (w *documentFieldWatcher) merge(change watcher.Change) (bool, error) {
 	col, closer := w.db.GetCollection(w.collection)
 	defer closer()
 
-	data := w.document
+	data := w.document()
 	if err := col.Find(w.members).One(&data); err != nil {
 		if err != mgo.ErrNotFound {
 			logger.Debugf("%s NOT mgo err not found", w.collection)

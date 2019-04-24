@@ -190,8 +190,8 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) expectInitialCollectionI
 	return func() {
 		s.database.EXPECT().GetCollection("applications").Return(s.collection, noop)
 		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
-		s.query.EXPECT().One(gomock.Any()).SetArg(0, map[string]interface{}{
-			"charmurl": url,
+		s.query.EXPECT().One(gomock.Any()).SetArg(0, state.ApplicationDoc{
+			CharmURL: url,
 		}).Return(nil)
 	}
 }
@@ -215,8 +215,8 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) expectMergeCollectionIns
 	return func() {
 		s.database.EXPECT().GetCollection("applications").Return(s.collection, noop)
 		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
-		s.query.EXPECT().One(gomock.Any()).SetArg(0, map[string]interface{}{
-			"charmurl": url,
+		s.query.EXPECT().One(gomock.Any()).SetArg(0, state.ApplicationDoc{
+			CharmURL: url,
 		}).Return(nil)
 	}
 }
