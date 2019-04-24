@@ -4,6 +4,8 @@
 package machine_test
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
@@ -94,6 +96,11 @@ func (s *RemoveMachineSuite) TestRemove(c *gc.C) {
 	c.Assert(s.fake.machines, jc.DeepEquals, []string{"1", "2/lxd/1"})
 }
 
+func (s *RemoveMachineSuite) TestRemoveNoWaitWithoutForce(c *gc.C) {
+	_, err := s.run(c, "1", "--no-wait")
+	c.Assert(err, gc.ErrorMatches, `--no-wait without --force not valid`)
+}
+
 func (s *RemoveMachineSuite) TestRemoveOutput(c *gc.C) {
 	s.fake.results = []params.DestroyMachineResult{{
 		Error: &params.Error{
@@ -181,12 +188,7 @@ func (f *fakeRemoveMachineAPI) DestroyMachines(machines ...string) ([]params.Des
 	return f.destroyMachines(machines)
 }
 
-func (f *fakeRemoveMachineAPI) ForceDestroyMachines(machines ...string) ([]params.DestroyMachineResult, error) {
-	f.forced = true
-	return f.destroyMachines(machines)
-}
-
-func (f *fakeRemoveMachineAPI) DestroyMachinesWithParams(force, keep bool, machines ...string) ([]params.DestroyMachineResult, error) {
+func (f *fakeRemoveMachineAPI) DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	f.forced = force
 	f.keep = keep
 	return f.destroyMachines(machines)

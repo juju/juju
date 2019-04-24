@@ -4,6 +4,8 @@
 package machinemanager
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -53,6 +55,8 @@ func (client *Client) DestroyMachines(machines ...string) ([]params.DestroyMachi
 
 // ForceDestroyMachines removes a given set of machines and all
 // associated units.
+// TODO (anastasiamac 2019-4-24) From Juju 3.0 this call will be removed in favour of DestroyMachinesWithParams.
+// Also from ModelManger v6 this call is less useful as it ignores MaxWait customisation.
 func (client *Client) ForceDestroyMachines(machines ...string) ([]params.DestroyMachineResult, error) {
 	return client.destroyMachines("ForceDestroyMachine", machines)
 }
@@ -60,11 +64,14 @@ func (client *Client) ForceDestroyMachines(machines ...string) ([]params.Destroy
 // DestroyMachinesWithParams removes the given set of machines, the semantics of which
 // is determined by the force and keep parameters.
 // TODO(wallyworld) - for Juju 3.0, this should be the preferred api to use.
-func (client *Client) DestroyMachinesWithParams(force, keep bool, machines ...string) ([]params.DestroyMachineResult, error) {
+func (client *Client) DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	args := params.DestroyMachinesParams{
 		Force:       force,
 		Keep:        keep,
 		MachineTags: make([]string, 0, len(machines)),
+	}
+	if client.BestAPIVersion() > 5 {
+		args.MaxWait = maxWait
 	}
 	allResults := make([]params.DestroyMachineResult, len(machines))
 	index := make([]int, 0, len(machines))

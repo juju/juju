@@ -222,6 +222,7 @@ func AllFacades() *facade.Registry {
 	reg("MachineManager", 3, machinemanager.NewFacade)   // Adds DestroyMachine and ForceDestroyMachine.
 	reg("MachineManager", 4, machinemanager.NewFacadeV4) // Adds DestroyMachineWithParams.
 	reg("MachineManager", 5, machinemanager.NewFacadeV5) // Adds UpgradeSeriesPrepare, removes UpdateMachineSeries.
+	reg("MachineManager", 6, machinemanager.NewFacadeV6) // DestroyMachinesWithParams gains maxWait.
 
 	reg("MachineUndertaker", 1, machineundertaker.NewFacade)
 	reg("Machiner", 1, machine.NewMachinerAPI)
