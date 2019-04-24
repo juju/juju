@@ -70,6 +70,8 @@ var (
 
 type (
 	CharmDoc       charmDoc
+	ApplicationDoc = applicationDoc
+
 	StorageBackend = storageBackend
 	DeviceBackend  = deviceBackend
 )
