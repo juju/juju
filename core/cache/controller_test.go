@@ -239,6 +239,8 @@ func (s *ControllerSuite) TestMarkAndSweep(c *gc.C) {
 	controller.Mark()
 	controller.Sweep()
 	<-done
+
+	s.AssertNoResidents(c)
 }
 
 func (s *ControllerSuite) new(c *gc.C) (*cache.Controller, <-chan interface{}) {

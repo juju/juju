@@ -49,6 +49,10 @@ func (s *BaseSuite) AssertResident(c *gc.C, id uint64, expectPresent bool) {
 	c.Assert(present, gc.Equals, expectPresent)
 }
 
+func (s *BaseSuite) AssertNoResidents(c *gc.C) {
+	c.Assert(s.Manager.residents, gc.HasLen, 0)
+}
+
 // entitySuite is the base suite for testing cached entities
 // (models, applications, machines).
 type EntitySuite struct {
