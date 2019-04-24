@@ -45,7 +45,8 @@ The "entity" is the source of the message: a machine or unit. The names for
 machines and units can be seen in the output of `[1:] + "`juju status`" + `.
 
 The '--include' and '--exclude' options filter by entity. The entity can be
-a machine, unit, or application.
+a machine, unit, or application for IAAS model, but can be application only
+for k8s model.
 
 The '--include-module' and '--exclude-module' options filter by (dotted)
 logging module name. The module name can be truncated such that all loggers
