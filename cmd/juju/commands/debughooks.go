@@ -50,6 +50,7 @@ func (c *debugHooksCommand) Info() *cmd.Info {
 		Args:    "<unit name> [hook or action names]",
 		Purpose: "Launch a tmux session to debug hooks and/or actions.",
 		Doc:     debugHooksDoc,
+		Aliases: []string{"debug-hook"},
 	})
 }
 
