@@ -1848,21 +1848,20 @@ func watchInstanceCharmProfileCompatibilityData(backend modelBackend, watchDocId
 	initial := ""
 	members := bson.D{{"_id", watchDocId}}
 	collection := applicationsC
+	document := applicationDoc{}
 	filter := func(id interface{}) bool {
 		return id.(string) == watchDocId
 	}
-	extract := func(data map[string]interface{}) (string, error) {
-		if value, ok := data["charmurl"]; ok {
-			if url, ok := value.(string); ok {
-				return url, nil
-			}
+	extract := func(data interface{}) (string, error) {
+		if doc, ok := data.(applicationDoc); ok {
+			return doc.CharmURL.String(), nil
 		}
 		return initial, errors.NotValidf("applicationDoc type")
 	}
 	transform := func(value string) string {
 		return lxdprofile.NotRequiredStatus
 	}
-	return newDocumentFieldWatcher(backend, collection, members, initial, filter, extract, transform)
+	return newDocumentFieldWatcher(backend, collection, document, members, initial, filter, extract, transform)
 }
 
 // documentFieldWatcher notifies about any changes to a document field
@@ -1876,11 +1875,12 @@ type documentFieldWatcher struct {
 	commonWatcher
 	// docId is used to select the initial interesting entities.
 	collection   string
+	document     interface{}
 	members      bson.D
 	known        *string
 	initialKnown string
 	filter       func(interface{}) bool
-	extract      func(map[string]interface{}) (string, error)
+	extract      func(interface{}) (string, error)
 	transform    func(string) string
 	out          chan []string
 }
@@ -1890,15 +1890,17 @@ var _ Watcher = (*documentFieldWatcher)(nil)
 func newDocumentFieldWatcher(
 	backend modelBackend,
 	collection string,
+	document interface{},
 	members bson.D,
 	initialKnown string,
 	filter func(interface{}) bool,
-	extract func(map[string]interface{}) (string, error),
+	extract func(interface{}) (string, error),
 	transform func(string) string,
 ) StringsWatcher {
 	w := &documentFieldWatcher{
 		commonWatcher: newCommonWatcher(backend),
 		collection:    collection,
+		document:      document,
 		members:       members,
 		initialKnown:  initialKnown,
 		filter:        filter,
@@ -1919,7 +1921,7 @@ func (w *documentFieldWatcher) initial() error {
 
 	field := w.initialKnown
 
-	var data map[string]interface{}
+	data := w.document
 	if err := col.Find(w.members).One(&data); err == nil {
 		if newField, err := w.extract(data); err == nil {
 			field = newField
@@ -1940,7 +1942,7 @@ func (w *documentFieldWatcher) merge(change watcher.Change) (bool, error) {
 	col, closer := w.db.GetCollection(w.collection)
 	defer closer()
 
-	var data map[string]interface{}
+	data := w.document
 	if err := col.Find(w.members).One(&data); err != nil {
 		if err != mgo.ErrNotFound {
 			logger.Debugf("%s NOT mgo err not found", w.collection)
