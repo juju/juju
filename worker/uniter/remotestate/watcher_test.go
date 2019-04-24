@@ -273,7 +273,6 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	if s.modelType == model.IAAS {
 		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
 		assertOneChange()
-		assertOneChange()
 	}
 	s.st.unit.application.forceUpgrade = true
 	s.applicationWatcher.changes <- struct{}{}
