@@ -430,12 +430,6 @@ type DestroyUnitParams struct {
 	// will be forced, i.e. ignore operational errors.
 	Force bool `json:"force"`
 
-	// Errors contains errors encountered while applying this operation.
-	// Generally, these are non-fatal errors that have been encountered
-	// during, say, force. They may not have prevented the operation from being
-	// aborted but the user might still want to know about them.
-	Errors []error `json:"errors,omitempty"`
-
 	// MaxWait specifies the amount of time that each step in unit removal
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
