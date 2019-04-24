@@ -1848,22 +1848,20 @@ func watchInstanceCharmProfileCompatibilityData(backend modelBackend, watchDocId
 	initial := ""
 	members := bson.D{{"_id", watchDocId}}
 	collection := applicationsC
-	document := func() interface{} {
-		return applicationDoc{}
-	}
 	filter := func(id interface{}) bool {
 		return id.(string) == watchDocId
 	}
-	extract := func(data interface{}) (string, error) {
-		if doc, ok := data.(applicationDoc); ok {
-			return doc.CharmURL.String(), nil
+	extract := func(query documentFieldWatcherQuery) (string, error) {
+		var doc applicationDoc
+		if err := query.One(&doc); err != nil {
+			return "", err
 		}
-		return initial, errors.NotValidf("applicationDoc type")
+		return doc.CharmURL.String(), nil
 	}
 	transform := func(value string) string {
 		return lxdprofile.NotRequiredStatus
 	}
-	return newDocumentFieldWatcher(backend, collection, document, members, initial, filter, extract, transform)
+	return newDocumentFieldWatcher(backend, collection, members, initial, filter, extract, transform)
 }
 
 // *Deprecated* Although this watcher seems fairly admirable in terms of what
@@ -1882,14 +1880,19 @@ type documentFieldWatcher struct {
 	commonWatcher
 	// docId is used to select the initial interesting entities.
 	collection   string
-	document     func() interface{}
 	members      bson.D
 	known        *string
 	initialKnown string
 	filter       func(interface{}) bool
-	extract      func(interface{}) (string, error)
+	extract      func(documentFieldWatcherQuery) (string, error)
 	transform    func(string) string
 	out          chan []string
+}
+
+// documentFieldWatcherQuery is a point of use interface, to prevent the leaking
+// of query interface out of the core watcher.
+type documentFieldWatcherQuery interface {
+	One(result interface{}) (err error)
 }
 
 var _ Watcher = (*documentFieldWatcher)(nil)
@@ -1897,17 +1900,15 @@ var _ Watcher = (*documentFieldWatcher)(nil)
 func newDocumentFieldWatcher(
 	backend modelBackend,
 	collection string,
-	document func() interface{},
 	members bson.D,
 	initialKnown string,
 	filter func(interface{}) bool,
-	extract func(interface{}) (string, error),
+	extract func(documentFieldWatcherQuery) (string, error),
 	transform func(string) string,
 ) StringsWatcher {
 	w := &documentFieldWatcher{
 		commonWatcher: newCommonWatcher(backend),
 		collection:    collection,
-		document:      document,
 		members:       members,
 		initialKnown:  initialKnown,
 		filter:        filter,
@@ -1928,11 +1929,8 @@ func (w *documentFieldWatcher) initial() error {
 
 	field := w.initialKnown
 
-	data := w.document()
-	if err := col.Find(w.members).One(&data); err == nil {
-		if newField, err := w.extract(data); err == nil {
-			field = newField
-		}
+	if newField, err := w.extract(col.Find(w.members)); err == nil {
+		field = newField
 	}
 	w.known = &field
 
@@ -1954,8 +1952,9 @@ func (w *documentFieldWatcher) merge(change watcher.Change) (bool, error) {
 	col, closer := w.db.GetCollection(w.collection)
 	defer closer()
 
-	data := w.document()
-	if err := col.Find(w.members).One(&data); err != nil {
+	// check the field before adding it to the known value
+	currentField, err := w.extract(col.Find(w.members))
+	if err != nil {
 		if err != mgo.ErrNotFound {
 			logger.Debugf("%s NOT mgo err not found", w.collection)
 			return false, err
@@ -1966,12 +1965,6 @@ func (w *documentFieldWatcher) merge(change watcher.Change) (bool, error) {
 			return true, nil
 		}
 		return false, nil
-	}
-
-	// check the field before adding it to the known value
-	currentField, err := w.extract(data)
-	if err != nil {
-		return false, err
 	}
 	if w.known == nil || *w.known != currentField {
 		w.known = &currentField
