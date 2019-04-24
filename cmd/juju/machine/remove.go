@@ -98,8 +98,8 @@ func (c *removeCommand) Init(args []string) error {
 }
 
 type RemoveMachineAPI interface {
+	// TODO (anastasiamac 2019-4-24) From Juju 3.0 this call will be removed in favour of DestroyMachinesWithParams.
 	DestroyMachines(machines ...string) ([]params.DestroyMachineResult, error)
-	ForceDestroyMachines(maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
 	DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error)
 	Close() error
 }
@@ -112,10 +112,6 @@ type removeMachineAdapter struct {
 
 func (a removeMachineAdapter) DestroyMachines(machines ...string) ([]params.DestroyMachineResult, error) {
 	return a.destroyMachines(a.Client.DestroyMachines, machines)
-}
-
-func (a removeMachineAdapter) ForceDestroyMachines(maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
-	return a.destroyMachines(a.Client.ForceDestroyMachines, machines)
 }
 
 func (a removeMachineAdapter) DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
@@ -187,14 +183,10 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 
 	var results []params.DestroyMachineResult
 
-	if c.KeepInstance {
+	if c.KeepInstance || c.Force {
 		results, err = client.DestroyMachinesWithParams(c.Force, c.KeepInstance, maxWait, c.MachineIds...)
 	} else {
-		if c.Force {
-			results, err = client.ForceDestroyMachines(maxWait, c.MachineIds...)
-		} else {
-			results, err = client.DestroyMachines(c.MachineIds...)
-		}
+		results, err = client.DestroyMachines(c.MachineIds...)
 	}
 	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
 		return err

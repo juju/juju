@@ -262,17 +262,6 @@ type DestroyMachinesParams struct {
 	MaxWait *time.Duration `json:"max-wait,omitempty"`
 }
 
-// ForceDestroyMachinesParams holds parameters for the ForceDestroyMachines call.
-type ForceDestroyMachinesParams struct {
-	// Machines holds machines to force destroy.
-	Machines Entities `json:"machines"`
-
-	// MaxWait specifies the amount of time that each step in machine destroy process
-	// will wait before forcing the next step to kick-off. This parameter
-	// only makes sense in combination with 'force' set to 'true'.
-	MaxWait *time.Duration `json:"max-wait,omitempty"`
-}
-
 // UpdateSeriesArg holds the parameters for updating the series for the
 // specified application or machine. For Application, only known by facade
 // version 5 and greater. For MachineManger, only known by facade version

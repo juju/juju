@@ -263,18 +263,14 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 
 // DestroyMachine removes a set of machines from the model.
 func (mm *MachineManagerAPI) DestroyMachine(args params.Entities) (params.DestroyMachineResults, error) {
-	return mm.destroyMachine(args, false, false, (*time.Duration)(nil))
+	return mm.destroyMachine(args, false, false, nil)
 }
 
 // ForceDestroyMachine forcibly removes a set of machines from the model.
-func (mm *MachineManagerAPI) ForceDestroyMachine(in params.ForceDestroyMachinesParams) (params.DestroyMachineResults, error) {
-	return mm.destroyMachine(in.Machines, true, false, in.MaxWait)
-}
-
-// ForceDestroyMachine forcibly removes a set of machines from the model.
-// v5 and prior versions did not support MaxWait.
-func (mm *MachineManagerAPIV5) ForceDestroyMachine(args params.Entities) (params.DestroyMachineResults, error) {
-	return mm.destroyMachine(args, true, false, (*time.Duration)(nil))
+// TODO (anastasiamac 2019-4-24) From Juju 3.0 this call will be removed in favour of DestroyMachinesWithParams.
+// Also from ModelManger v6 this call is less useful as it does not support MaxWait customisation.
+func (mm *MachineManagerAPI) ForceDestroyMachine(args params.Entities) (params.DestroyMachineResults, error) {
+	return mm.destroyMachine(args, true, false, nil)
 }
 
 // DestroyMachineWithParams removes a set of machines from the model.
@@ -284,7 +280,7 @@ func (mm *MachineManagerAPIV5) DestroyMachineWithParams(args params.DestroyMachi
 	for i, tag := range args.MachineTags {
 		entities.Entities[i].Tag = tag
 	}
-	return mm.destroyMachine(entities, args.Force, args.Keep, (*time.Duration)(nil))
+	return mm.destroyMachine(entities, args.Force, args.Keep, nil)
 }
 
 // DestroyMachineWithParams removes a set of machines from the model.

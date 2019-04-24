@@ -188,11 +188,6 @@ func (f *fakeRemoveMachineAPI) DestroyMachines(machines ...string) ([]params.Des
 	return f.destroyMachines(machines)
 }
 
-func (f *fakeRemoveMachineAPI) ForceDestroyMachines(maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
-	f.forced = true
-	return f.destroyMachines(machines)
-}
-
 func (f *fakeRemoveMachineAPI) DestroyMachinesWithParams(force, keep bool, maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
 	f.forced = force
 	f.keep = keep

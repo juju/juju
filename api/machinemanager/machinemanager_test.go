@@ -119,74 +119,18 @@ func (s *MachinemanagerSuite) TestAddMachinesResultCountInvalid(c *gc.C) {
 }
 
 func (s *MachinemanagerSuite) TestDestroyMachines(c *gc.C) {
-	client, expected := s.clientToTestDestroyMachines(c, 5, "DestroyMachine", params.Entities{
-		Entities: []params.Entity{
-			{Tag: "machine-0"},
-			{Tag: "machine-0-lxd-1"},
-		},
-	})
-	results, err := client.DestroyMachines("0", "0/lxd/1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, expected)
+	s.testDestroyMachines(c, "DestroyMachine", (*machinemanager.Client).DestroyMachines)
 }
 
-func (s *MachinemanagerSuite) TestForceDestroyMachinesV5NilWait(c *gc.C) {
-	client, expected := s.clientToTestDestroyMachines(c, 5, "ForceDestroyMachine", params.Entities{
-		Entities: []params.Entity{
-			{Tag: "machine-0"},
-			{Tag: "machine-0-lxd-1"},
-		},
-	})
-	results, err := client.ForceDestroyMachines((*time.Duration)(nil), "0", "0/lxd/1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, expected)
+func (s *MachinemanagerSuite) TestForceDestroyMachines(c *gc.C) {
+	s.testDestroyMachines(c, "ForceDestroyMachine", (*machinemanager.Client).ForceDestroyMachines)
 }
 
-func (s *MachinemanagerSuite) TestForceDestroyMachinesV5NoWait(c *gc.C) {
-	client, expected := s.clientToTestDestroyMachines(c, 5, "ForceDestroyMachine", params.Entities{
-		Entities: []params.Entity{
-			{Tag: "machine-0"},
-			{Tag: "machine-0-lxd-1"},
-		},
-	})
-	noWait := 0 * time.Second
-	results, err := client.ForceDestroyMachines(&noWait, "0", "0/lxd/1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, expected)
-}
-
-func (s *MachinemanagerSuite) TestForceDestroyMachinesNilWait(c *gc.C) {
-	expectedIn := params.ForceDestroyMachinesParams{
-		Machines: params.Entities{
-			Entities: []params.Entity{
-				{Tag: "machine-0"},
-				{Tag: "machine-0-lxd-1"},
-			},
-		}}
-	client, expected := s.clientToTestDestroyMachines(c, 6, "ForceDestroyMachine", expectedIn)
-	results, err := client.ForceDestroyMachines((*time.Duration)(nil), "0", "0/lxd/1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, expected)
-}
-
-func (s *MachinemanagerSuite) TestForceDestroyMachinesNoWait(c *gc.C) {
-	noWait := 0 * time.Second
-	expectedIn := params.ForceDestroyMachinesParams{
-		Machines: params.Entities{
-			Entities: []params.Entity{
-				{Tag: "machine-0"},
-				{Tag: "machine-0-lxd-1"},
-			},
-		},
-		MaxWait: &noWait,
-	}
-	client, expected := s.clientToTestDestroyMachines(c, 6, "ForceDestroyMachine", expectedIn)
-	results, err := client.ForceDestroyMachines(&noWait, "0", "0/lxd/1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, expected)
-}
-
-func (s *MachinemanagerSuite) clientToTestDestroyMachines(c *gc.C, v int, methodName string, expectedIn interface{}) (*machinemanager.Client, []params.DestroyMachineResult) {
+func (s *MachinemanagerSuite) testDestroyMachines(
+	c *gc.C,
+	methodName string,
+	method func(*machinemanager.Client, ...string) ([]params.DestroyMachineResult, error),
+) {
 	expectedResults := []params.DestroyMachineResult{{
 		Error: &params.Error{Message: "boo"},
 	}, {
@@ -196,20 +140,22 @@ func (s *MachinemanagerSuite) clientToTestDestroyMachines(c *gc.C, v int, method
 			DetachedStorage:  []params.Entity{{Tag: "storage-pgdata-1"}},
 		},
 	}}
-	client := machinemanager.NewClient(
-		basetesting.BestVersionCaller{
-			BestVersion: v,
-			APICallerFunc: basetesting.APICallerFunc(
-				func(objType string, version int, id, request string, a, response interface{}) error {
-					c.Assert(request, gc.Equals, methodName)
-					c.Assert(version, gc.Equals, v)
-					c.Assert(a, jc.DeepEquals, expectedIn)
-					c.Assert(response, gc.FitsTypeOf, &params.DestroyMachineResults{})
-					out := response.(*params.DestroyMachineResults)
-					*out = params.DestroyMachineResults{Results: expectedResults}
-					return nil
-				})})
-	return client, expectedResults
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		c.Assert(request, gc.Equals, methodName)
+		c.Assert(a, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{
+				{Tag: "machine-0"},
+				{Tag: "machine-0-lxd-1"},
+			},
+		})
+		c.Assert(response, gc.FitsTypeOf, &params.DestroyMachineResults{})
+		out := response.(*params.DestroyMachineResults)
+		*out = params.DestroyMachineResults{Results: expectedResults}
+		return nil
+	})
+	results, err := method(client, "0", "0/lxd/1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, expectedResults)
 }
 
 func (s *MachinemanagerSuite) TestDestroyMachinesArity(c *gc.C) {

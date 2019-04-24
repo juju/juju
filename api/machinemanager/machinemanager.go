@@ -50,49 +50,15 @@ func (client *Client) AddMachines(machineParams []params.AddMachineParams) ([]pa
 
 // DestroyMachines removes a given set of machines.
 func (client *Client) DestroyMachines(machines ...string) ([]params.DestroyMachineResult, error) {
-	in, index, results := client.entitiesFromMachines(machines)
-	if len(in.Entities) > 0 {
-		var result params.DestroyMachineResults
-		if err := client.facade.FacadeCall("DestroyMachine", in, &result); err != nil {
-			return nil, errors.Trace(err)
-		}
-		if n := len(result.Results); n != len(in.Entities) {
-			return nil, errors.Errorf("expected %d result(s), got %d", len(in.Entities), n)
-		}
-		for i, result := range result.Results {
-			results[index[i]] = result
-		}
-	}
-	return results, nil
+	return client.destroyMachines("DestroyMachine", machines)
 }
 
 // ForceDestroyMachines removes a given set of machines and all
 // associated units.
-func (client *Client) ForceDestroyMachines(maxWait *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
-	entities, index, results := client.entitiesFromMachines(machines)
-	if len(entities.Entities) > 0 {
-		var result params.DestroyMachineResults
-		if client.BestAPIVersion() < 6 {
-			if err := client.facade.FacadeCall("ForceDestroyMachine", entities, &result); err != nil {
-				return nil, errors.Trace(err)
-			}
-		} else {
-			in := params.ForceDestroyMachinesParams{
-				Machines: entities,
-				MaxWait:  maxWait,
-			}
-			if err := client.facade.FacadeCall("ForceDestroyMachine", in, &result); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-		if n := len(result.Results); n != len(entities.Entities) {
-			return nil, errors.Errorf("expected %d result(s), got %d", len(entities.Entities), n)
-		}
-		for i, result := range result.Results {
-			results[index[i]] = result
-		}
-	}
-	return results, nil
+// TODO (anastasiamac 2019-4-24) From Juju 3.0 this call will be removed in favour of DestroyMachinesWithParams.
+// Also from ModelManger v6 this call is less useful as it ignores MaxWait customisation.
+func (client *Client) ForceDestroyMachines(machines ...string) ([]params.DestroyMachineResult, error) {
+	return client.destroyMachines("ForceDestroyMachine", machines)
 }
 
 // DestroyMachinesWithParams removes the given set of machines, the semantics of which
@@ -134,7 +100,7 @@ func (client *Client) DestroyMachinesWithParams(force, keep bool, maxWait *time.
 	return allResults, nil
 }
 
-func (client *Client) entitiesFromMachines(machines []string) (params.Entities, []int, []params.DestroyMachineResult) {
+func (client *Client) destroyMachines(method string, machines []string) ([]params.DestroyMachineResult, error) {
 	args := params.Entities{
 		Entities: make([]params.Entity, 0, len(machines)),
 	}
@@ -152,7 +118,19 @@ func (client *Client) entitiesFromMachines(machines []string) (params.Entities, 
 			Tag: names.NewMachineTag(machineId).String(),
 		})
 	}
-	return args, index, allResults
+	if len(args.Entities) > 0 {
+		var result params.DestroyMachineResults
+		if err := client.facade.FacadeCall(method, args, &result); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if n := len(result.Results); n != len(args.Entities) {
+			return nil, errors.Errorf("expected %d result(s), got %d", len(args.Entities), n)
+		}
+		for i, result := range result.Results {
+			allResults[index[i]] = result
+		}
+	}
+	return allResults, nil
 }
 
 // UpgradeSeriesPrepare notifies the controller that a series upgrade is taking

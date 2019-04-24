@@ -168,71 +168,11 @@ func (s *MachineManagerSuite) TestDestroyMachine(c *gc.C) {
 	})
 }
 
-func (s *MachineManagerSuite) TestForceDestroyMachineV5(c *gc.C) {
-	s.st.machines["0"] = &mockMachine{}
-	apiv5 := s.apiV5()
-	results, err := apiv5.ForceDestroyMachine(params.Entities{
-		Entities: []params.Entity{{Tag: "machine-0"}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
-		Results: []params.DestroyMachineResult{{
-			Info: &params.DestroyMachineInfo{
-				DestroyedUnits: []params.Entity{
-					{"unit-foo-0"},
-					{"unit-foo-1"},
-					{"unit-foo-2"},
-				},
-				DetachedStorage: []params.Entity{
-					{"storage-disks-0"},
-				},
-				DestroyedStorage: []params.Entity{
-					{"storage-disks-1"},
-				},
-			},
-		}},
-	})
-}
-
 func (s *MachineManagerSuite) TestForceDestroyMachine(c *gc.C) {
 	s.st.machines["0"] = &mockMachine{}
-	in := params.ForceDestroyMachinesParams{
-		Machines: params.Entities{
-			Entities: []params.Entity{{Tag: "machine-0"}},
-		},
-		// This will have nil wait thus will use system default delay between cleanup operations.
-	}
-	results, err := s.api.ForceDestroyMachine(in)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
-		Results: []params.DestroyMachineResult{{
-			Info: &params.DestroyMachineInfo{
-				DestroyedUnits: []params.Entity{
-					{"unit-foo-0"},
-					{"unit-foo-1"},
-					{"unit-foo-2"},
-				},
-				DetachedStorage: []params.Entity{
-					{"storage-disks-0"},
-				},
-				DestroyedStorage: []params.Entity{
-					{"storage-disks-1"},
-				},
-			},
-		}},
+	results, err := s.api.ForceDestroyMachine(params.Entities{
+		Entities: []params.Entity{{Tag: "machine-0"}},
 	})
-}
-
-func (s *MachineManagerSuite) TestForceDestroyMachineNoWait(c *gc.C) {
-	s.st.machines["0"] = &mockMachine{}
-	noWait := 0 * time.Second
-	in := params.ForceDestroyMachinesParams{
-		Machines: params.Entities{
-			Entities: []params.Entity{{Tag: "machine-0"}},
-		},
-		MaxWait: &noWait,
-	}
-	results, err := s.api.ForceDestroyMachine(in)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
 		Results: []params.DestroyMachineResult{{
@@ -404,7 +344,7 @@ func (s *MachineManagerSuite) TestDestroyMachineFailedSomeStorageRetrievalManyMa
 	)
 }
 
-func (s *MachineManagerSuite) TestDestroyMachineWithParams(c *gc.C) {
+func (s *MachineManagerSuite) TestDestroyMachineWithParamsV4(c *gc.C) {
 	apiV4 := s.machineManagerAPIV4()
 	s.st.machines["0"] = &mockMachine{}
 	results, err := apiV4.DestroyMachineWithParams(params.DestroyMachinesParams{
@@ -435,67 +375,69 @@ func (s *MachineManagerSuite) TestDestroyMachineWithParams(c *gc.C) {
 	})
 }
 
-func (s *MachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *gc.C) {
+func (s *MachineManagerSuite) assertDestroyMachineWithParams(c *gc.C, in params.DestroyMachinesParams, out params.DestroyMachineResults) {
 	s.st.machines["0"] = &mockMachine{}
-	noWait := 0 * time.Second
-	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
-		Keep:        true,
-		Force:       true,
-		MachineTags: []string{"machine-0"},
-		MaxWait:     &noWait,
-	})
+	results, err := s.api.DestroyMachineWithParams(in)
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := s.st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.(*mockMachine).keep, jc.IsTrue)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
-		Results: []params.DestroyMachineResult{{
-			Info: &params.DestroyMachineInfo{
-				DestroyedUnits: []params.Entity{
-					{"unit-foo-0"},
-					{"unit-foo-1"},
-					{"unit-foo-2"},
+	c.Assert(results, jc.DeepEquals, out)
+}
+
+func (s *MachineManagerSuite) TestDestroyMachineWithParamsNoWait(c *gc.C) {
+	noWait := 0 * time.Second
+	s.assertDestroyMachineWithParams(c,
+		params.DestroyMachinesParams{
+			Keep:        true,
+			Force:       true,
+			MachineTags: []string{"machine-0"},
+			MaxWait:     &noWait,
+		},
+		params.DestroyMachineResults{
+			Results: []params.DestroyMachineResult{{
+				Info: &params.DestroyMachineInfo{
+					DestroyedUnits: []params.Entity{
+						{"unit-foo-0"},
+						{"unit-foo-1"},
+						{"unit-foo-2"},
+					},
+					DetachedStorage: []params.Entity{
+						{"storage-disks-0"},
+					},
+					DestroyedStorage: []params.Entity{
+						{"storage-disks-1"},
+					},
 				},
-				DetachedStorage: []params.Entity{
-					{"storage-disks-0"},
-				},
-				DestroyedStorage: []params.Entity{
-					{"storage-disks-1"},
-				},
-			},
-		}},
-	})
+			}},
+		})
 }
 
 func (s *MachineManagerSuite) TestDestroyMachineWithParamsNilWait(c *gc.C) {
-	s.st.machines["0"] = &mockMachine{}
-	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
-		Keep:        true,
-		Force:       true,
-		MachineTags: []string{"machine-0"},
-		// This will use max wait of system default for delay between cleanup operations.
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	m, err := s.st.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.(*mockMachine).keep, jc.IsTrue)
-	c.Assert(results, jc.DeepEquals, params.DestroyMachineResults{
-		Results: []params.DestroyMachineResult{{
-			Info: &params.DestroyMachineInfo{
-				DestroyedUnits: []params.Entity{
-					{"unit-foo-0"},
-					{"unit-foo-1"},
-					{"unit-foo-2"},
+	s.assertDestroyMachineWithParams(c,
+		params.DestroyMachinesParams{
+			Keep:        true,
+			Force:       true,
+			MachineTags: []string{"machine-0"},
+			// This will use max wait of system default for delay between cleanup operations.
+		},
+		params.DestroyMachineResults{
+			Results: []params.DestroyMachineResult{{
+				Info: &params.DestroyMachineInfo{
+					DestroyedUnits: []params.Entity{
+						{"unit-foo-0"},
+						{"unit-foo-1"},
+						{"unit-foo-2"},
+					},
+					DetachedStorage: []params.Entity{
+						{"storage-disks-0"},
+					},
+					DestroyedStorage: []params.Entity{
+						{"storage-disks-1"},
+					},
 				},
-				DetachedStorage: []params.Entity{
-					{"storage-disks-0"},
-				},
-				DestroyedStorage: []params.Entity{
-					{"storage-disks-1"},
-				},
-			},
-		}},
-	})
+			}},
+		})
 }
 
 func (s *MachineManagerSuite) setupUpgradeSeries(c *gc.C) {
