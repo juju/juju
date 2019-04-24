@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/api/common"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 )
 
 // defaultLineCount is the default number of lines to
@@ -78,7 +79,7 @@ Show all juju.worker.uniter logging module messages that are also unit
 wordpress/0 messages, and then show any new log messages which match the
 filter:
 
-    juju debug-log --replay 
+    juju debug-log --replay
         --include-module juju.worker.uniter \
         --include unit-wordpress-0
 
@@ -88,14 +89,14 @@ machine-3 or machine-4, and then stop:
     juju debug-log --replay --no-tail
         --include-module juju.worker.uniter \
         --exclude machine-3 \
-        --exclude machine-4 
+        --exclude machine-4
 
 To see all WARNING and ERROR messages and then continue showing any
 new WARNING and ERROR messages as they are logged:
 
     juju debug-log --replay --level WARNING
 
-See also: 
+See also:
     status
     ssh`
 
@@ -186,12 +187,17 @@ func (c *debugLogCommand) Init(args []string) error {
 	if c.ms {
 		c.format = c.format + ".000"
 	}
-	c.params.IncludeEntity = c.processEntities(c.params.IncludeEntity)
-	c.params.ExcludeEntity = c.processEntities(c.params.ExcludeEntity)
+	modelType, err := c.ModelType()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	isCaas := modelType == model.CAAS
+	c.params.IncludeEntity = c.processEntities(isCaas, c.params.IncludeEntity)
+	c.params.ExcludeEntity = c.processEntities(isCaas, c.params.ExcludeEntity)
 	return cmd.CheckEmpty(args)
 }
 
-func (c *debugLogCommand) processEntities(entities []string) []string {
+func (c *debugLogCommand) processEntities(isCAAS bool, entities []string) []string {
 	if entities == nil {
 		return nil
 	}
@@ -215,7 +221,11 @@ func (c *debugLogCommand) processEntities(entities []string) []string {
 				// no-op pass through
 			} else if names.IsValidApplication(entity) {
 				// Assume that the entity refers to an application.
-				entity = names.UnitTagKind + "-" + entity + "-*"
+				if isCAAS {
+					entity = names.NewApplicationTag(entity).String()
+				} else {
+					entity = names.UnitTagKind + "-" + entity + "-*"
+				}
 			}
 		}
 		result[i] = entity
