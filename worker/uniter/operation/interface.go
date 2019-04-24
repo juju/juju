@@ -85,10 +85,6 @@ type Factory interface {
 	// status of a units upgrade series.
 	NewNoOpFinishUpgradeSeries() (Operation, error)
 
-	// NewFinishUpgradeCharmProfile simply cleans up the state of the unit
-	// of a upgrade charm profile.
-	NewFinishUpgradeCharmProfile(charmURL *corecharm.URL) (Operation, error)
-
 	// NewRevertUpgrade creates an operation to clear the unit's resolved flag,
 	// and execute an upgrade to the supplied charm that is careful to excise
 	// remnants of a previously failed upgrade to a different charm.
@@ -182,10 +178,6 @@ type Callbacks interface {
 	// upgrade series hook code completes and, for display purposes, to
 	// supply a reason as to why it is making the change.
 	SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reason string) error
-
-	// RemoveUpgradeCharmProfileData is intended to clean up the LXDProfile status
-	// to ensure that we start from a clean slate.
-	RemoveUpgradeCharmProfileData() error
 }
 
 // StorageUpdater is an interface used for updating local knowledge of storage

@@ -9,7 +9,6 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/hooks"
 
-	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -57,20 +56,6 @@ func (s *resolverOpFactory) NewNoOpFinishUpgradeSeries() (operation.Operation, e
 	}
 	f := func(*operation.State) {
 		s.LocalState.UpgradeSeriesStatus = model.UpgradeSeriesNotStarted
-	}
-	op = onCommitWrapper{op, f}
-	return op, nil
-}
-
-// NewFinishUpgradeCharmProfile completes the process of a charm profile, by
-// setting the local state to a not known state.
-func (s *resolverOpFactory) NewFinishUpgradeCharmProfile(charmURL *charm.URL) (operation.Operation, error) {
-	op, err := s.Factory.NewFinishUpgradeCharmProfile(charmURL)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	f := func(*operation.State) {
-		s.LocalState.UpgradeCharmProfileStatus = lxdprofile.NotKnownStatus
 	}
 	op = onCommitWrapper{op, f}
 	return op, nil
@@ -141,7 +126,6 @@ func (s *resolverOpFactory) wrapUpgradeOp(op operation.Operation, charmURL *char
 		s.LocalState.Restart = true
 		s.LocalState.Conflicted = false
 		s.LocalState.CharmModifiedVersion = charmModifiedVersion
-		s.LocalState.UpgradeCharmProfileStatus = lxdprofile.EmptyStatus
 	}}
 }
 

@@ -13,7 +13,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter"
 	uniteractions "github.com/juju/juju/worker/uniter/actions"
@@ -24,7 +23,6 @@ import (
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
 	"github.com/juju/juju/worker/uniter/storage"
-	"github.com/juju/juju/worker/uniter/upgradecharmprofile"
 	"github.com/juju/juju/worker/uniter/upgradeseries"
 )
 
@@ -91,7 +89,6 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 		StopRetryHookTimer:  func() { s.stub.AddCall("StopRetryHookTimer") },
 		ShouldRetryHooks:    true,
 		UpgradeSeries:       upgradeseries.NewResolver(),
-		UpgradeCharmProfile: upgradecharmprofile.NewResolver(),
 		Leadership:          leadership.NewResolver(),
 		Actions:             uniteractions.NewResolver(),
 		Relations:           relation.NewRelationsResolver(&dummyRelations{}),
@@ -135,74 +132,6 @@ func (s *resolverSuite) TestNotStartedNotInstalled(c *gc.C) {
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run install hook")
-}
-
-func (s *iaasResolverSuite) TestCharmModifiedTakesPrecedenceOverRelationsChanges(c *gc.C) {
-	localState := resolver.LocalState{
-		CharmModifiedVersion: s.charmModifiedVersion,
-		CharmURL:             s.charmURL,
-		State: operation.State{
-			Kind:      operation.Continue,
-			Installed: true,
-			Started:   true,
-		},
-	}
-	s.remoteState.CharmModifiedVersion = s.charmModifiedVersion + 1
-	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.NotRequiredStatus
-	// Change relation state (to simulate simultaneous change remote state update)
-	s.remoteState.Relations = map[int]remotestate.RelationSnapshot{0: {}}
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "upgrade to cs:precise/mysql-2")
-}
-
-func (s *iaasResolverSuite) TestCharmModifiedUpgradeProfileWaitsEmptyContinuesSuccess(c *gc.C) {
-	localState := resolver.LocalState{
-		CharmModifiedVersion: s.charmModifiedVersion,
-		CharmURL:             s.charmURL,
-		State: operation.State{
-			Kind:      operation.Continue,
-			Installed: true,
-			Started:   true,
-		},
-	}
-
-	// Set the profile upgrade EmptyStatus, indicating incomplete, and
-	// the upgrade will wait.
-	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.EmptyStatus
-	s.remoteState.CharmURL = charm.MustParseURL("cs:precise/mysql-3")
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
-	c.Assert(err, gc.ErrorMatches, "no operations")
-	c.Assert(op, gc.IsNil)
-
-	// Set the profile upgrade to success and watch the upgrade succeed.
-	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.SuccessStatus
-	op, err = s.resolver.NextOp(localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "upgrade to cs:precise/mysql-3")
-}
-
-func (s *iaasResolverSuite) TestCharmModifiedUpgradeProfileFailsOnError(c *gc.C) {
-	localState := resolver.LocalState{
-		CharmModifiedVersion: s.charmModifiedVersion,
-		CharmURL:             s.charmURL,
-		State: operation.State{
-			Kind:      operation.Continue,
-			Installed: true,
-			Started:   true,
-		},
-	}
-
-	// Set the profile upgrade ErrorStatus, indicating profile upgrade
-	// failure, and the upgrade will remove the profile upgrade doc.
-	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.ErrorStatus
-	s.remoteState.CharmURL = charm.MustParseURL("cs:precise/mysql-3")
-
-	// Change relation state (to simulate simultaneous change remote state update)
-	s.remoteState.Relations = map[int]remotestate.RelationSnapshot{0: {}}
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "finish upgrade charm profile")
 }
 
 func (s *iaasResolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
@@ -276,74 +205,6 @@ func (s *iaasResolverSuite) TestUniterIdlesWhenRemoteStateIsUpgradeSeriesComplet
 	s.remoteState.UpgradeSeriesStatus = model.UpgradeSeriesPrepareCompleted
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
-}
-
-func (s *iaasResolverSuite) TestUpgradeCharmProfileWhenNotRequired(c *gc.C) {
-	localState := resolver.LocalState{
-		CharmModifiedVersion:      s.charmModifiedVersion,
-		CharmURL:                  s.charmURL,
-		UpgradeCharmProfileStatus: lxdprofile.NotRequiredStatus,
-		State: operation.State{
-			Kind:      operation.Upgrade,
-			Installed: true,
-			Started:   true,
-		},
-	}
-	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.NotRequiredStatus
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "upgrade to cs:precise/mysql-2")
-}
-
-func (s *iaasResolverSuite) TestUpgradeCharmProfileWhenSuccess(c *gc.C) {
-	localState := resolver.LocalState{
-		CharmModifiedVersion:      s.charmModifiedVersion,
-		CharmURL:                  s.charmURL,
-		UpgradeCharmProfileStatus: lxdprofile.SuccessStatus,
-		State: operation.State{
-			Kind:      operation.Upgrade,
-			Installed: true,
-			Started:   true,
-		},
-	}
-	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.SuccessStatus
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "upgrade to cs:precise/mysql-2")
-}
-
-func (s *iaasResolverSuite) TestUpgradeCharmProfileWhenErrorState(c *gc.C) {
-	localState := resolver.LocalState{
-		CharmModifiedVersion:      s.charmModifiedVersion,
-		CharmURL:                  s.charmURL,
-		UpgradeCharmProfileStatus: lxdprofile.ErrorStatus,
-		State: operation.State{
-			Kind:      operation.Upgrade,
-			Installed: true,
-			Started:   true,
-		},
-	}
-	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.ErrorStatus
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "finish upgrade charm profile")
-}
-
-func (s *iaasResolverSuite) TestUpgradeCharmProfileWhenLocalStateIsNotErroredState(c *gc.C) {
-	localState := resolver.LocalState{
-		CharmModifiedVersion:      s.charmModifiedVersion,
-		CharmURL:                  s.charmURL,
-		UpgradeCharmProfileStatus: lxdprofile.NotRequiredStatus,
-		State: operation.State{
-			Kind:      operation.Upgrade,
-			Installed: true,
-			Started:   true,
-		},
-	}
-	s.remoteState.UpgradeCharmProfileStatus = lxdprofile.ErrorStatus
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "finish upgrade charm profile")
 }
 
 func (s *resolverSuite) TestHookErrorDoesNotStartRetryTimerIfShouldRetryFalse(c *gc.C) {

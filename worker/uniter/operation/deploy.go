@@ -51,17 +51,6 @@ func (d *deploy) Prepare(state State) (*State, error) {
 	if err := d.checkAlreadyDone(state); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if d.kind == Install {
-		// When a 2nd principal or subordinate unit having an lxd profile,
-		// is added to a machine, it is installed on the machine via the same
-		// mechanism as a charm upgrade with a profile.  However there is not
-		// a watcher waiting for the instanceCharmProfileData doc status to
-		// go into a terminal state so it can be deleted.
-		//
-		if err := d.callbacks.RemoveUpgradeCharmProfileData(); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
 	info, err := d.callbacks.GetArchiveInfo(d.charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -90,12 +79,6 @@ func (d *deploy) Execute(state State) (*State, error) {
 		return nil, NewDeployConflictError(d.charmURL)
 	} else if err != nil {
 		return nil, errors.Trace(err)
-	}
-	// Ensure that we always clean up the LXD profile status before Upgrade.
-	if d.kind == Upgrade && !d.revert && !d.resolved {
-		if err := d.callbacks.RemoveUpgradeCharmProfileData(); err != nil {
-			return nil, errors.Trace(err)
-		}
 	}
 	return d.getState(state, Done), nil
 }
