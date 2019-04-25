@@ -237,14 +237,15 @@ func (s *ControllerSuite) TestMarkAndSweep(c *gc.C) {
 		c.Check(s.nextChange(c, events), gc.FitsTypeOf, cache.RemoveApplication{})
 		c.Check(s.nextChange(c, events), gc.FitsTypeOf, cache.RemoveCharm{})
 		c.Check(s.nextChange(c, events), gc.FitsTypeOf, cache.RemoveModel{})
-		done <- struct{}{}
+		close(done)
 	}()
 
-	// No need to guard the channel read here.
-	// One of the calls to "nextChange" in the Goroutine above will time out if
-	// the cache sweep is not progressing.
 	controller.Sweep()
-	<-done
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timeout waiting for sweep removal messages")
+	}
 
 	c.Assert(controller.Marked(), jc.IsFalse)
 	s.AssertNoResidents(c)

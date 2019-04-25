@@ -68,7 +68,7 @@ func (s *residentSuite) TestManagerMarkAndSweepSendsRemovalMessagesForStaleResid
 			select {
 			case msg, ok := <-s.Changes:
 				if !ok {
-					done <- struct{}{}
+					close(done)
 					return
 				}
 				removals = append(removals, msg)
@@ -78,9 +78,17 @@ func (s *residentSuite) TestManagerMarkAndSweepSendsRemovalMessagesForStaleResid
 		}
 	}()
 
-	<-s.Manager.sweep()
+	select {
+	case <-s.Manager.sweep():
+	case <-time.After(testing.LongWait):
+		c.Fatal("timeout waiting for sweep to complete")
+	}
 	close(s.Changes)
-	<-done
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timeout waiting for sweep removal messages")
+	}
 
 	// Stale resident messages were received in descending order.
 	c.Assert(removals, gc.DeepEquals, []interface{}{4, 3, 2})
