@@ -4,13 +4,20 @@
 package commands
 
 import (
+	"strings"
+
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/api/usermanager"
+	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
@@ -30,10 +37,22 @@ type migrateCommand struct {
 	// Overridden by tests
 	newAPIRoot func(jujuclient.ClientStore, string, string) (api.Connection, error)
 	migAPI     migrateAPI
+	modelAPI   modelInfoAPI
+	userAPI    userListAPI
 }
 
 type migrateAPI interface {
 	InitiateMigration(spec controller.MigrationSpec) (string, error)
+	Close() error
+}
+
+type modelInfoAPI interface {
+	ModelInfo([]names.ModelTag) ([]params.ModelInfoResult, error)
+	Close() error
+}
+
+type userListAPI interface {
+	UserInfo([]string, usermanager.IncludeDisabled) ([]params.UserInfo, error)
 	Close() error
 }
 
@@ -108,6 +127,9 @@ func (c *migrateCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	spec.ModelUUID = uuids[0]
+	if err := c.checkMigrationFeasibility(spec); err != nil {
+		return err
+	}
 	api, err := c.getMigrationAPI()
 	if err != nil {
 		return err
@@ -166,6 +188,35 @@ func (c *migrateCommand) getMigrationAPI() (migrateAPI, error) {
 	return controller.NewClient(apiRoot), nil
 }
 
+func (c *migrateCommand) getModelAPI() (modelInfoAPI, error) {
+	if c.modelAPI != nil {
+		return c.modelAPI, nil
+	}
+
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return nil, err
+	}
+
+	apiRoot, err := c.newAPIRoot(c.ClientStore(), controllerName, "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelmanager.NewClient(apiRoot), nil
+}
+
+func (c *migrateCommand) getTargetControllerUserAPI() (userListAPI, error) {
+	if c.userAPI != nil {
+		return c.userAPI, nil
+	}
+
+	apiRoot, err := c.newAPIRoot(c.ClientStore(), c.targetController, "")
+	if err != nil {
+		return nil, errors.Annotate(err, "connecting to target controller")
+	}
+	return usermanager.NewClient(apiRoot), nil
+}
+
 func (c *migrateCommand) getTargetControllerMacaroons() ([]macaroon.Slice, error) {
 	jar, err := c.CommandBase.CookieJar(c.ClientStore(), c.targetController)
 	if err != nil {
@@ -183,4 +234,81 @@ func (c *migrateCommand) getTargetControllerMacaroons() ([]macaroon.Slice, error
 	}
 	defer api.Close()
 	return httpbakery.MacaroonsForURL(jar, api.CookieURL()), nil
+}
+
+func (c *migrateCommand) checkMigrationFeasibility(spec *controller.MigrationSpec) error {
+	var (
+		srcControllerName, srcModelName string
+		srcUsers, dstUsers              set.Strings
+		err                             error
+	)
+
+	if srcControllerName, err = c.ControllerName(); err != nil {
+		return err
+	}
+	if srcModelName, err = c.ModelName(); err != nil {
+		return err
+	}
+	if srcUsers, err = c.getModelUsers(names.NewModelTag(spec.ModelUUID)); err != nil {
+		return err
+	}
+	if dstUsers, err = c.getTargetControllerUsers(); err != nil {
+		return err
+	}
+
+	if missing := srcUsers.Difference(dstUsers); missing.Size() != 0 {
+		return errors.Errorf(`cannot initiate migration of model "%s:%s" to controller %q as some of the
+model's users do not exist in the target controller. To resolve this issue you can
+either migrate the following list of users to %q or remove them from "%s:%s":
+  - %s`,
+			srcControllerName, srcModelName, c.targetController,
+			c.targetController, srcControllerName, srcModelName,
+			strings.Join(missing.Values(), "\n  - "),
+		)
+	}
+
+	return nil
+}
+
+func (c *migrateCommand) getModelUsers(modelTag names.ModelTag) (set.Strings, error) {
+	api, err := c.getModelAPI()
+	if err != nil {
+		return nil, err
+	}
+	defer api.Close()
+
+	infoRes, err := api.ModelInfo([]names.ModelTag{modelTag})
+	if err != nil {
+		return nil, err
+	}
+
+	if infoRes[0].Error != nil {
+		return nil, infoRes[0].Error
+	}
+
+	users := set.NewStrings()
+	for _, user := range infoRes[0].Result.Users {
+		users.Add(user.UserName)
+	}
+	return users, nil
+}
+
+func (c *migrateCommand) getTargetControllerUsers() (set.Strings, error) {
+	api, err := c.getTargetControllerUserAPI()
+	if err != nil {
+		return nil, err
+	}
+	defer api.Close()
+
+	userInfo, err := api.UserInfo(nil, usermanager.AllUsers)
+	if err != nil {
+		return nil, errors.Annotate(err, "looking up model users in target controller")
+	}
+
+	users := set.NewStrings()
+	for _, user := range userInfo {
+		users.Add(user.Username)
+	}
+
+	return users, nil
 }

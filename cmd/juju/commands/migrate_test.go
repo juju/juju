@@ -12,6 +12,7 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/macaroon.v2-unstable"
 
@@ -19,6 +20,8 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
 	apitesting "github.com/juju/juju/api/testing"
+	"github.com/juju/juju/api/usermanager"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
@@ -30,6 +33,7 @@ type MigrateSuite struct {
 	api                 *fakeMigrateAPI
 	targetControllerAPI *fakeTargetControllerAPI
 	modelAPI            *fakeModelAPI
+	userAPI             *fakeUserAPI
 	store               *jujuclient.MemStore
 	password            string
 }
@@ -75,6 +79,14 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.api = &fakeMigrateAPI{}
+
+	userList := []params.ModelUserInfo{
+		{
+			UserName:    "admin",
+			DisplayName: "admin",
+			Access:      params.ModelAdminAccess,
+		},
+	}
 	s.modelAPI = &fakeModelAPI{
 		models: []base.UserModel{{
 			Name:  "model",
@@ -91,7 +103,46 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 			UUID:  "prod-2-uuid",
 			Type:  model.IAAS,
 			Owner: "sourceuser",
+		}, {
+			Name:  "model-with-extra-local-users",
+			UUID:  "extra-local-users-uuid",
+			Type:  model.IAAS,
+			Owner: "sourceuser",
 		}},
+		modelInfo: []params.ModelInfo{
+			{
+				Name:  "model",
+				UUID:  modelUUID,
+				Users: userList,
+			},
+			{
+				Name:  "production",
+				UUID:  "prod-1-uuid",
+				Users: userList,
+			},
+			{
+				Name:  "production",
+				UUID:  "prod-2-uuid",
+				Users: userList,
+			},
+			{
+				Name: "model-with-extra-local-users",
+				UUID: "extra-local-users-uuid",
+				Users: append(userList, params.ModelUserInfo{
+					UserName:    "foo",
+					DisplayName: "foo",
+					Access:      params.ModelReadAccess,
+				}),
+			},
+		},
+	}
+
+	s.userAPI = &fakeUserAPI{
+		users: []params.UserInfo{
+			{
+				Username: "admin",
+			},
+		},
 	}
 
 	mac0, err := macaroon.New([]byte("secret0"), []byte("id0"), "location0")
@@ -205,6 +256,17 @@ func (s *MigrateSuite) TestMultipleModelMatch(c *gc.C) {
 	})
 }
 
+func (s *MigrateSuite) TestLocalUserMissingFromTarget(c *gc.C) {
+	cmd := s.makeCommand()
+
+	_, err := cmdtesting.RunCommand(c, cmd, "model-with-extra-local-users", "target")
+	c.Assert(err, gc.Not(gc.IsNil))
+	c.Assert(err.Error(), gc.Equals, `cannot initiate migration of model "source:model-with-extra-local-users" to controller "target" as some of the
+model's users do not exist in the target controller. To resolve this issue you can
+either migrate the following list of users to "target" or remove them from "source:model-with-extra-local-users":
+  - foo`)
+}
+
 func (s *MigrateSuite) TestSpecifyOwner(c *gc.C) {
 	ctx, err := s.makeAndRun(c, "alpha/production", "target")
 	c.Assert(err, jc.ErrorIsNil)
@@ -229,6 +291,8 @@ func (s *MigrateSuite) makeCommand() modelcmd.ModelCommand {
 	cmd.SetModelAPI(s.modelAPI)
 	inner := modelcmd.InnerCommand(cmd).(*migrateCommand)
 	inner.migAPI = s.api
+	inner.modelAPI = s.modelAPI
+	inner.userAPI = s.userAPI
 	inner.newAPIRoot = func(jujuclient.ClientStore, string, string) (api.Connection, error) {
 		return s.targetControllerAPI, nil
 	}
@@ -236,7 +300,8 @@ func (s *MigrateSuite) makeCommand() modelcmd.ModelCommand {
 }
 
 type fakeMigrateAPI struct {
-	specSeen *controller.MigrationSpec
+	specSeen    *controller.MigrationSpec
+	identityURL string
 }
 
 func (a *fakeMigrateAPI) InitiateMigration(spec controller.MigrationSpec) (string, error) {
@@ -249,15 +314,56 @@ func (*fakeMigrateAPI) Close() error {
 }
 
 type fakeModelAPI struct {
-	models []base.UserModel
+	models    []base.UserModel
+	modelInfo []params.ModelInfo
 }
 
 func (m *fakeModelAPI) ListModels(user string) ([]base.UserModel, error) {
 	return m.models, nil
 }
 
+func (m *fakeModelAPI) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, error) {
+	var (
+		mi  *params.ModelInfo
+		err *params.Error
+	)
+
+	modelUUID := tags[0].Id()
+	for _, model := range m.modelInfo {
+		if model.UUID == modelUUID {
+			mi = &model
+			break
+		}
+	}
+
+	if mi == nil {
+		err = &params.Error{
+			Code: params.CodeNotFound,
+		}
+	}
+
+	return []params.ModelInfoResult{
+		{
+			Result: mi,
+			Error:  err,
+		},
+	}, nil
+}
+
 func (m *fakeModelAPI) Close() error {
 	return nil
+}
+
+type fakeUserAPI struct {
+	users []params.UserInfo
+}
+
+func (*fakeUserAPI) Close() error {
+	return nil
+}
+
+func (a *fakeUserAPI) UserInfo(_ []string, _ usermanager.IncludeDisabled) ([]params.UserInfo, error) {
+	return a.users, nil
 }
 
 type fakeTargetControllerAPI struct {
