@@ -70,15 +70,13 @@ type UniterAPI struct {
 }
 
 // UniterAPIV11 implements the latest version (v11) of the Uniter API,
-// which adds WatchUnitLXDProfileUpgradeNotifications and adds CloudAPIVersion.
+// which adds CloudAPIVersion.
 type UniterAPIV11 struct {
 	*LXDProfileAPI
 	UniterAPI
 }
 
-// UniterAPIV10 adds WatchConfigSettingsHash, WatchTrustConfigSettingsHash,
-// WatchUnitAddressesHash, WatchLXDProfileUpgradeNotifications, and
-// RemoveUpgradeCharmProfileData.
+// UniterAPIV10 adds WatchUnitLXDProfileUpgradeNotifications and
 type UniterAPIV10 struct {
 	// LXDProfileAPI is removed from a UniterAPI embedded struct to UniterAPIV10
 	// embedded struct removing it completely from future API versions.
@@ -86,7 +84,9 @@ type UniterAPIV10 struct {
 	UniterAPIV11
 }
 
-// UniterAPIV9 adds LXDProfileAPI
+// UniterAPIV9 adds WatchConfigSettingsHash, WatchTrustConfigSettingsHash,
+// WatchUnitAddressesHash and LXDProfileAPI, which includes
+// WatchLXDProfileUpgradeNotifications and RemoveUpgradeCharmProfileData
 type UniterAPIV9 struct {
 	// LXDProfileAPI is removed from a UniterAPI embedded struct to UniterAPIV9
 	// embedded struct removing it completely from future API versions.
