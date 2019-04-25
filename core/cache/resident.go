@@ -50,7 +50,7 @@ type residentManager struct {
 	resourceCount *counter
 
 	// residents are all the residents of the cache indexed by ID.
-	// Access to this map should be Goroutine-safe.
+	// Access to this map should be protected by the Mutex below.
 	residents map[uint64]*Resident
 	mu        sync.Mutex
 
@@ -187,7 +187,7 @@ type Resident struct {
 	// workers are resources that must be cleaned up when a resident is to be
 	// evicted from the cache.
 	// Obvious examples are watchers created by the resident.
-	// Access to this map should be Goroutine-safe.
+	// Access to this map should be protected with the Mutex below.
 	workers map[uint64]worker.Worker
 	mu      sync.Mutex
 }
