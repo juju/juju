@@ -237,15 +237,6 @@ func (broker *lxdBroker) MaybeWriteLXDProfile(pName string, put *charm.LXDProfil
 	return profileMgr.MaybeWriteLXDProfile(pName, put)
 }
 
-// ReplaceOrAddInstanceProfile implements environs.LXDProfiler.
-func (broker *lxdBroker) ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile string, put *charm.LXDProfile) ([]string, error) {
-	profileMgr, ok := broker.manager.(container.LXDProfileManager)
-	if !ok {
-		return []string{}, nil
-	}
-	return profileMgr.ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile, put)
-}
-
 // AssignLXDProfiles implements environs.LXDProfiler.
 func (broker *lxdBroker) AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) ([]string, error) {
 	profileMgr, ok := broker.manager.(container.LXDProfileManager)

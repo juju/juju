@@ -323,28 +323,6 @@ func (m *containerManager) LXDProfileNames(containerName string) ([]string, erro
 	return m.server.GetContainerProfiles(containerName)
 }
 
-// TODO: HML 2-apr-2019
-// remove when provisioner_task processProfileChanges() is
-// removed.
-// ReplaceOrAddLXDProfile implements environs.LXDProfiler.
-func (m *containerManager) ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile string, put *charm.LXDProfile) ([]string, error) {
-	if put != nil {
-		if err := m.MaybeWriteLXDProfile(newProfile, put); err != nil {
-			return []string{}, errors.Trace(err)
-		}
-	}
-	if err := m.server.ReplaceOrAddContainerProfile(instId, oldProfile, newProfile); err != nil {
-		return []string{}, errors.Trace(err)
-	}
-	if oldProfile != "" {
-		if err := m.server.DeleteProfile(oldProfile); err != nil {
-			// most likely the failure is because the profile is already in use
-			logger.Debugf("failed to delete profile %q: %s", oldProfile, err)
-		}
-	}
-	return m.LXDProfileNames(instId)
-}
-
 // AssignLXDProfiles implements environs.LXDProfiler.
 func (m *containerManager) AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
 	report := func(err error) ([]string, error) {

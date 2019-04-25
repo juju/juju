@@ -430,10 +430,6 @@ func (env *minModelWorkersEnviron) LXDProfileNames(containerName string) ([]stri
 	return nil, nil
 }
 
-func (env *minModelWorkersEnviron) ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile string, put *charm.LXDProfile) ([]string, error) {
-	return []string{newProfile}, nil
-}
-
 func (env *minModelWorkersEnviron) AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
 	return profilesNames, nil
 }
