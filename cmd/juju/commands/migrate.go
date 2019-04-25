@@ -25,13 +25,16 @@ func newMigrateCommand() modelcmd.ModelCommand {
 // migrateCommand initiates a model migration.
 type migrateCommand struct {
 	modelcmd.ModelCommandBase
-	newAPIRoot       func(jujuclient.ClientStore, string, string) (api.Connection, error)
-	api              migrateAPI
 	targetController string
+
+	// Overridden by tests
+	newAPIRoot func(jujuclient.ClientStore, string, string) (api.Connection, error)
+	migAPI     migrateAPI
 }
 
 type migrateAPI interface {
 	InitiateMigration(spec controller.MigrationSpec) (string, error)
+	Close() error
 }
 
 const migrateDoc = `
@@ -90,6 +93,34 @@ func (c *migrateCommand) Init(args []string) error {
 	return nil
 }
 
+// Run implements cmd.Command.
+func (c *migrateCommand) Run(ctx *cmd.Context) error {
+	spec, err := c.getMigrationSpec()
+	if err != nil {
+		return err
+	}
+	modelName, err := c.ModelName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	uuids, err := c.ModelUUIDs([]string{modelName})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	spec.ModelUUID = uuids[0]
+	api, err := c.getMigrationAPI()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = api.Close() }()
+	id, err := api.InitiateMigration(*spec)
+	if err != nil {
+		return err
+	}
+	ctx.Infof("Migration started with ID %q", id)
+	return nil
+}
+
 func (c *migrateCommand) getMigrationSpec() (*controller.MigrationSpec, error) {
 	store := c.ClientStore()
 
@@ -122,41 +153,16 @@ func (c *migrateCommand) getMigrationSpec() (*controller.MigrationSpec, error) {
 	}, nil
 }
 
-// Run implements cmd.Command.
-func (c *migrateCommand) Run(ctx *cmd.Context) error {
-	spec, err := c.getMigrationSpec()
-	if err != nil {
-		return err
+func (c *migrateCommand) getMigrationAPI() (migrateAPI, error) {
+	if c.migAPI != nil {
+		return c.migAPI, nil
 	}
-	modelName, err := c.ModelName()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	uuids, err := c.ModelUUIDs([]string{modelName})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	spec.ModelUUID = uuids[0]
-	api, err := c.getAPI()
-	if err != nil {
-		return err
-	}
-	id, err := api.InitiateMigration(*spec)
-	if err != nil {
-		return err
-	}
-	ctx.Infof("Migration started with ID %q", id)
-	return nil
-}
 
-func (c *migrateCommand) getAPI() (migrateAPI, error) {
-	if c.api != nil {
-		return c.api, nil
-	}
-	apiRoot, err := c.NewControllerAPIRoot()
+	apiRoot, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return controller.NewClient(apiRoot), nil
 }
 

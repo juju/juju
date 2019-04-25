@@ -228,7 +228,7 @@ func (s *MigrateSuite) makeCommand() modelcmd.ModelCommand {
 	cmd.SetClientStore(s.store)
 	cmd.SetModelAPI(s.modelAPI)
 	inner := modelcmd.InnerCommand(cmd).(*migrateCommand)
-	inner.api = s.api
+	inner.migAPI = s.api
 	inner.newAPIRoot = func(jujuclient.ClientStore, string, string) (api.Connection, error) {
 		return s.targetControllerAPI, nil
 	}
@@ -242,6 +242,10 @@ type fakeMigrateAPI struct {
 func (a *fakeMigrateAPI) InitiateMigration(spec controller.MigrationSpec) (string, error) {
 	a.specSeen = &spec
 	return "uuid:0", nil
+}
+
+func (*fakeMigrateAPI) Close() error {
+	return nil
 }
 
 type fakeModelAPI struct {
