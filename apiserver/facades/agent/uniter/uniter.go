@@ -36,8 +36,10 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// UniterAPI implements the latest version (v11) of the Uniter API,
-// which adds CloudAPIVersion.
+// UniterAPI implements the latest version (v12) of the Uniter API,
+// Removes the embedded LXDProfileAPI, which in turn removes the following;
+// RemoveUpgradeCharmProfileData, WatchUnitLXDProfileUpgradeNotifications
+// and WatchLXDProfileUpgradeNotifications
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -67,16 +69,16 @@ type UniterAPI struct {
 	cloudSpec       cloudspec.CloudSpecAPI
 }
 
-// UniterAPIV11 implements the latest version (v12) of the Uniter API,
-// Removes the embedded LXDProfileAPI, which in turn removes the following;
-// RemoveUpgradeCharmProfileData, WatchUnitLXDProfileUpgradeNotifications
-// and WatchLXDProfileUpgradeNotifications
+// UniterAPIV11 implements the latest version (v11) of the Uniter API,
+// which adds WatchUnitLXDProfileUpgradeNotifications and adds CloudAPIVersion.
 type UniterAPIV11 struct {
+	*LXDProfileAPI
 	UniterAPI
 }
 
-// UniterAPIV10 implements the latest version (v11) of the Uniter API,
-// which adds WatchUnitLXDProfileUpgradeNotifications.
+// UniterAPIV10 adds WatchConfigSettingsHash, WatchTrustConfigSettingsHash,
+// WatchUnitAddressesHash, WatchLXDProfileUpgradeNotifications, and
+// RemoveUpgradeCharmProfileData.
 type UniterAPIV10 struct {
 	// LXDProfileAPI is removed from a UniterAPI embedded struct to UniterAPIV10
 	// embedded struct removing it completely from future API versions.
@@ -84,9 +86,7 @@ type UniterAPIV10 struct {
 	UniterAPIV11
 }
 
-// UniterAPIV9 adds WatchConfigSettingsHash, WatchTrustConfigSettingsHash,
-// WatchUnitAddressesHash, WatchLXDProfileUpgradeNotifications, and
-// RemoveUpgradeCharmProfileData.
+// UniterAPIV9 adds LXDProfileAPI
 type UniterAPIV9 struct {
 	// LXDProfileAPI is removed from a UniterAPI embedded struct to UniterAPIV9
 	// embedded struct removing it completely from future API versions.
@@ -303,8 +303,13 @@ func NewUniterAPIV11(context facade.Context) (*UniterAPIV11, error) {
 	if err != nil {
 		return nil, err
 	}
+	authorizer := context.Auth()
+	st := context.State()
+	resources := context.Resources()
+	accessUnit := unitAccessor(authorizer, st)
 	return &UniterAPIV11{
-		UniterAPI: *uniterAPI,
+		LXDProfileAPI: NewExternalLXDProfileAPI(st, resources, authorizer, accessUnit, logger),
+		UniterAPI:     *uniterAPI,
 	}, nil
 }
 
@@ -314,12 +319,9 @@ func NewUniterAPIV10(context facade.Context) (*UniterAPIV10, error) {
 	if err != nil {
 		return nil, err
 	}
-	authorizer := context.Auth()
-	st := context.State()
-	resources := context.Resources()
-	accessUnit := unitAccessor(authorizer, st)
+
 	return &UniterAPIV10{
-		LXDProfileAPI: NewExternalLXDProfileAPI(st, resources, authorizer, accessUnit, logger),
+		LXDProfileAPI: uniterAPI.LXDProfileAPI,
 		UniterAPIV11:  *uniterAPI,
 	}, nil
 }
