@@ -121,7 +121,7 @@ func (u *LXDProfileAPI) WatchUnitLXDProfileUpgradeNotifications(args params.Enti
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		unit, err := u.getUnit(tag)
+		unit, err := u.getLXDProfileUnit(tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -174,7 +174,7 @@ func (u *LXDProfileAPI) WatchLXDProfileUpgradeNotifications(args params.LXDProfi
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		machine, err := u.getMachine(tag)
+		machine, err := u.getLXDProfileMachine(tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -207,39 +207,15 @@ func (u *LXDProfileAPI) watchOneChangeLXDProfileUpgradeNotifications(machine LXD
 // RemoveUpgradeCharmProfileData is intended to clean up the LXDProfile status
 // to ensure that we start from a clean slate.
 func (u *LXDProfileAPI) RemoveUpgradeCharmProfileData(args params.Entities) (params.ErrorResults, error) {
-	u.logger.Tracef("Starting RemoveUpgradeCharmProfileData with %+v", args)
-	result := params.ErrorResults{
+	// This is a canned response for V9 of the API, so that clients will still
+	// be supported and the error for each params entity is nil, along with the
+	// call.
+	return params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-
-		if !canAccess(tag) {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		_, err = u.getMachine(tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		// TODO (hml) 2019-04-19
-		// Removing call to machine.RemoveUpgradeCharmProfileData from
-		// state.  2nd pass is to remove it and other charm profile
-		// functionality from the uniter.
-	}
-	return result, nil
+	}, nil
 }
 
-func (u *LXDProfileAPI) getMachine(tag names.Tag) (LXDProfileMachine, error) {
+func (u *LXDProfileAPI) getLXDProfileMachine(tag names.Tag) (LXDProfileMachine, error) {
 	var id string
 	if tag.Kind() != names.UnitTagKind {
 		return nil, errors.Errorf("not a unit tag")
@@ -255,6 +231,6 @@ func (u *LXDProfileAPI) getMachine(tag names.Tag) (LXDProfileMachine, error) {
 	return u.backend.Machine(id)
 }
 
-func (u *LXDProfileAPI) getUnit(tag names.Tag) (LXDProfileUnit, error) {
+func (u *LXDProfileAPI) getLXDProfileUnit(tag names.Tag) (LXDProfileUnit, error) {
 	return u.backend.Unit(tag.Id())
 }

@@ -36,8 +36,10 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// UniterAPI implements the latest version (v11) of the Uniter API,
-// which adds CloudAPIVersion.
+// UniterAPI implements the latest version (v12) of the Uniter API,
+// Removes the embedded LXDProfileAPI, which in turn removes the following;
+// RemoveUpgradeCharmProfileData, WatchUnitLXDProfileUpgradeNotifications
+// and WatchLXDProfileUpgradeNotifications
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -47,7 +49,6 @@ type UniterAPI struct {
 	*common.ModelWatcher
 	*common.RebootRequester
 	*common.UpgradeSeriesAPI
-	*LXDProfileAPI
 	*leadershipapiserver.LeadershipSettingsAccessor
 	meterstatus.MeterStatus
 	m                   *state.Model
@@ -68,16 +69,28 @@ type UniterAPI struct {
 	cloudSpec       cloudspec.CloudSpecAPI
 }
 
-// UniterAPI implements the latest version (v11) of the Uniter API,
-// which adds WatchUnitLXDProfileUpgradeNotifications.
-type UniterAPIV10 struct {
+// UniterAPIV11 implements the latest version (v11) of the Uniter API,
+// which adds CloudAPIVersion.
+type UniterAPIV11 struct {
+	*LXDProfileAPI
 	UniterAPI
 }
 
+// UniterAPIV10 adds WatchUnitLXDProfileUpgradeNotifications and
+type UniterAPIV10 struct {
+	// LXDProfileAPI is removed from a UniterAPI embedded struct to UniterAPIV10
+	// embedded struct removing it completely from future API versions.
+	*LXDProfileAPI
+	UniterAPIV11
+}
+
 // UniterAPIV9 adds WatchConfigSettingsHash, WatchTrustConfigSettingsHash,
-// WatchUnitAddressesHash, WatchLXDProfileUpgradeNotifications, and
-// RemoveUpgradeCharmProfileData.
+// WatchUnitAddressesHash and LXDProfileAPI, which includes
+// WatchLXDProfileUpgradeNotifications and RemoveUpgradeCharmProfileData
 type UniterAPIV9 struct {
+	// LXDProfileAPI is removed from a UniterAPI embedded struct to UniterAPIV9
+	// embedded struct removing it completely from future API versions.
+	*LXDProfileAPI
 	UniterAPIV10
 }
 
@@ -112,19 +125,9 @@ type UniterAPIV4 struct {
 	UniterAPIV5
 }
 
-// NewUniterAPI creates a new instance of the core Uniter API.
-func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
-	authorizer := context.Auth()
-	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
-		return nil, common.ErrPerm
-	}
-	st := context.State()
-	resources := context.Resources()
-	leadershipChecker, err := context.LeadershipChecker()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	accessUnit := func() (common.AuthFunc, error) {
+// unitAccessor creates a accessUnit function for accessing a unit
+func unitAccessor(authorizer facade.Authorizer, st *state.State) common.GetAuthFunc {
+	return func() (common.AuthFunc, error) {
 		switch tag := authorizer.GetAuthTag().(type) {
 		case names.ApplicationTag:
 			// If called by an application agent, any of the units
@@ -152,6 +155,21 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		default:
 			return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
 		}
+	}
+}
+
+// NewUniterAPI creates a new instance of the core Uniter API.
+func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
+	authorizer := context.Auth()
+	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
+		return nil, common.ErrPerm
+	}
+	st := context.State()
+	resources := context.Resources()
+	accessUnit := unitAccessor(authorizer, st)
+	leadershipChecker, err := context.LeadershipChecker()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	accessApplication := func() (common.AuthFunc, error) {
 		switch tag := authorizer.GetAuthTag().(type) {
@@ -259,7 +277,6 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		ModelWatcher:               common.NewModelWatcher(m, resources, authorizer),
 		RebootRequester:            common.NewRebootRequester(st, accessMachine),
 		UpgradeSeriesAPI:           common.NewExternalUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
-		LXDProfileAPI:              NewExternalLXDProfileAPI(st, resources, authorizer, accessUnit, logger),
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
 		MeterStatus:                msAPI,
 		// TODO(fwereade): so *every* unit should be allowed to get/set its
@@ -280,14 +297,32 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 	}, nil
 }
 
-// NewUniterAPIV10 creates an instance of the V10 uniter API.
-func NewUniterAPIV10(context facade.Context) (*UniterAPIV10, error) {
+// NewUniterAPIV11 creates an instance of the V11 uniter API.
+func NewUniterAPIV11(context facade.Context) (*UniterAPIV11, error) {
 	uniterAPI, err := NewUniterAPI(context)
 	if err != nil {
 		return nil, err
 	}
+	authorizer := context.Auth()
+	st := context.State()
+	resources := context.Resources()
+	accessUnit := unitAccessor(authorizer, st)
+	return &UniterAPIV11{
+		LXDProfileAPI: NewExternalLXDProfileAPI(st, resources, authorizer, accessUnit, logger),
+		UniterAPI:     *uniterAPI,
+	}, nil
+}
+
+// NewUniterAPIV10 creates an instance of the V10 uniter API.
+func NewUniterAPIV10(context facade.Context) (*UniterAPIV10, error) {
+	uniterAPI, err := NewUniterAPIV11(context)
+	if err != nil {
+		return nil, err
+	}
+
 	return &UniterAPIV10{
-		UniterAPI: *uniterAPI,
+		LXDProfileAPI: uniterAPI.LXDProfileAPI,
+		UniterAPIV11:  *uniterAPI,
 	}, nil
 }
 
@@ -298,7 +333,8 @@ func NewUniterAPIV9(context facade.Context) (*UniterAPIV9, error) {
 		return nil, err
 	}
 	return &UniterAPIV9{
-		UniterAPIV10: *uniterAPI,
+		LXDProfileAPI: uniterAPI.LXDProfileAPI,
+		UniterAPIV10:  *uniterAPI,
 	}, nil
 }
 
