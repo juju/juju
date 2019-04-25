@@ -45,8 +45,8 @@ The "entity" is the source of the message: a machine or unit. The names for
 machines and units can be seen in the output of `[1:] + "`juju status`" + `.
 
 The '--include' and '--exclude' options filter by entity. The entity can be
-a machine, unit, or application for IAAS model, but can be application only
-for k8s model.
+a machine, unit, or application for vm models, but can be application only
+for k8s models.
 
 The '--include-module' and '--exclude-module' options filter by (dotted)
 logging module name. The module name can be truncated such that all loggers
@@ -71,6 +71,10 @@ Include only unit mysql/0 messages; show a maximum of 50 lines; and then
 exit:
 
     juju debug-log -T --include unit-mysql-0 --lines 50
+
+Include only k8s application gitlab-k8s messages:
+
+    juju debug-log --include gitlab-k8s
 
 Show all messages from unit apache2/3 or machine 1 and then exit:
 
