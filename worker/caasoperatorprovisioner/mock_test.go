@@ -120,6 +120,7 @@ type mockBroker struct {
 	testing.Stub
 	caas.Broker
 	operatorExists bool
+	terminating    bool
 }
 
 func (m *mockBroker) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) error {
@@ -127,9 +128,9 @@ func (m *mockBroker) EnsureOperator(appName, agentPath string, config *caas.Oper
 	return m.NextErr()
 }
 
-func (m *mockBroker) OperatorExists(appName string) (bool, error) {
+func (m *mockBroker) OperatorExists(appName string) (caas.OperatorState, error) {
 	m.MethodCall(m, "OperatorExists", appName)
-	return m.operatorExists, m.NextErr()
+	return caas.OperatorState{Exists: m.operatorExists, Terminating: m.terminating}, m.NextErr()
 }
 
 func (m *mockBroker) DeleteOperator(appName string) error {

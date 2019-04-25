@@ -4,6 +4,7 @@
 package caasoperatorprovisioner
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -19,6 +20,7 @@ type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
 	BrokerName    string
+	ClockName     string
 
 	NewWorker func(Config) (worker.Worker, error)
 }
@@ -33,6 +35,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.BrokerName == "" {
 		return errors.NotValidf("empty BrokerName")
+	}
+	if config.ClockName == "" {
+		return errors.NotValidf("empty ClockName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -55,6 +60,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var clock clock.Clock
+	if err := context.Get(config.ClockName, &clock); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var broker caas.Broker
 	if err := context.Get(config.BrokerName, &broker); err != nil {
 		return nil, errors.Trace(err)
@@ -72,6 +82,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Broker:      broker,
 		ModelTag:    modelTag,
 		AgentConfig: agentConfig,
+		Clock:       clock,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -87,6 +98,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.APICallerName,
 			config.BrokerName,
+			config.ClockName,
 		},
 		Start: config.start,
 	}

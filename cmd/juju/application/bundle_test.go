@@ -85,7 +85,6 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployKubernetesBundleSuccess(c *gc.C) {
-	// Set up a CAAS model to replace the IAAS one.
 	unregister := caas.RegisterContainerProvider("kubernetes-test", &fakeProvider{})
 	s.AddCleanup(func(_ *gc.C) { unregister() })
 

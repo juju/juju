@@ -361,7 +361,11 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	ids, err := c.upgradeResources(apiRoot, charmsClient, resourceLister, chID, csMac)
+	meta, err := getMetaResources(chID.URL, charmsClient)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ids, err := c.upgradeResources(apiRoot, resourceLister, chID, csMac, meta)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -395,17 +399,16 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 // DeployResources should accept a resource-specific client instead.
 func (c *upgradeCharmCommand) upgradeResources(
 	apiRoot base.APICallCloser,
-	charmsClient CharmClient,
 	resourceLister ResourceLister,
 	chID charmstore.CharmID,
 	csMac *macaroon.Macaroon,
+	meta map[string]charmresource.Meta,
 ) (map[string]string, error) {
 	filtered, err := getUpgradeResources(
-		charmsClient,
 		resourceLister,
 		c.ApplicationName,
-		chID.URL,
 		c.Resources,
+		meta,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -428,16 +431,11 @@ func (c *upgradeCharmCommand) upgradeResources(
 }
 
 func getUpgradeResources(
-	charmsClient CharmClient,
 	resourceLister ResourceLister,
 	applicationID string,
-	charmURL *charm.URL,
 	cliResources map[string]string,
+	meta map[string]charmresource.Meta,
 ) (map[string]charmresource.Meta, error) {
-	meta, err := getMetaResources(charmURL, charmsClient)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	if len(meta) == 0 {
 		return nil, nil
 	}

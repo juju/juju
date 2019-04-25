@@ -5,9 +5,12 @@ package caasoperatorprovisioner
 
 import (
 	"strings"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -39,6 +42,7 @@ type Config struct {
 	Broker      caas.Broker
 	ModelTag    names.ModelTag
 	AgentConfig agent.Config
+	Clock       clock.Clock
 }
 
 // NewProvisionerWorker starts and returns a new CAAS provisioner worker.
@@ -48,6 +52,7 @@ func NewProvisionerWorker(config Config) (worker.Worker, error) {
 		broker:            config.Broker,
 		modelTag:          config.ModelTag,
 		agentConfig:       config.AgentConfig,
+		clock:             config.Clock,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &p.catacomb,
@@ -60,6 +65,7 @@ type provisioner struct {
 	catacomb          catacomb.Catacomb
 	provisionerFacade CAASProvisionerFacade
 	broker            caas.Broker
+	clock             clock.Clock
 
 	modelTag    names.ModelTag
 	agentConfig agent.Config
@@ -124,19 +130,56 @@ func (p *provisioner) loop() error {
 	}
 }
 
+func (p *provisioner) waitForOperatorTerminated(app string) error {
+	tryAgain := errors.New("try again")
+	existsFunc := func() error {
+		opState, err := p.broker.OperatorExists(app)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !opState.Exists {
+			return nil
+		}
+		if opState.Exists && !opState.Terminating {
+			return errors.Errorf("operator %q should be terminating but is now running", app)
+		}
+		return tryAgain
+	}
+	retryCallArgs := retry.CallArgs{
+		Attempts:    60,
+		Delay:       3 * time.Second,
+		MaxDuration: 3 * time.Minute,
+		Clock:       p.clock,
+		Func:        existsFunc,
+		IsFatalError: func(err error) bool {
+			return err != tryAgain
+		},
+	}
+	return errors.Trace(retry.Call(retryCallArgs))
+}
+
 // ensureOperators creates operator pods for the specified app names -> api passwords.
 func (p *provisioner) ensureOperators(apps []string) error {
 	var appPasswords []apicaasprovisioner.ApplicationPassword
 	operatorConfig := make([]*caas.OperatorConfig, len(apps))
 	for i, app := range apps {
-		exists, err := p.broker.OperatorExists(app)
+		opState, err := p.broker.OperatorExists(app)
 		if err != nil {
 			return errors.Annotatef(err, "failed to find operator for %q", app)
+		}
+		if opState.Exists && opState.Terminating {
+			// We can't deploy an app while a previous version is terminating.
+			// TODO(caas) - the remove application process should block until app terminated
+			// TODO(caas) - consider making this async, but ok for now as it's a corner case
+			if err := p.waitForOperatorTerminated(app); err != nil {
+				return errors.Annotatef(err, "operator for %q was terminating and there was an error waiting for it to stop", app)
+			}
+			opState.Exists = false
 		}
 		// If the operator does not exist already, we need to create an initial
 		// password for it.
 		var password string
-		if !exists {
+		if !opState.Exists {
 			if password, err = utils.RandomPassword(); err != nil {
 				return errors.Trace(err)
 			}

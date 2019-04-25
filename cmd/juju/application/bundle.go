@@ -20,6 +20,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/kr/pretty"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/names.v2"
@@ -496,11 +497,19 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	return nil
 }
 
-func (h *bundleHandler) makeResourceMap(storeResources map[string]int, localResources map[string]string) map[string]string {
+func (h *bundleHandler) makeResourceMap(meta map[string]resource.Meta, storeResources map[string]int, localResources map[string]string) map[string]string {
 	resources := make(map[string]string)
 	for resName, path := range localResources {
+		// The resource may be a relative path, convert to absolute path.
+		// NB for OCI image resources, path could be a yaml file but it may
+		// also just be a docker registry path.
+		maybePath := path
 		if !filepath.IsAbs(path) {
-			path = filepath.Clean(filepath.Join(h.bundleDir, path))
+			maybePath = filepath.Clean(filepath.Join(h.bundleDir, path))
+		}
+		_, err := os.Stat(maybePath)
+		if err == nil || meta[resName].Type == resource.TypeFile {
+			path = maybePath
 		}
 		resources[resName] = path
 	}
@@ -583,11 +592,11 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 			deviceConstraints[k] = cons
 		}
 	}
-	resources := h.makeResourceMap(p.Resources, p.LocalResources)
 	charmInfo, err := h.api.CharmInfo(ch)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	resources := h.makeResourceMap(charmInfo.Meta.Resources, p.Resources, p.LocalResources)
 
 	if err := lxdprofile.ValidateLXDProfile(lxdCharmInfoProfiler{
 		CharmInfo: charmInfo,
@@ -876,13 +885,17 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	}
 	macaroon := h.macaroons[cURL]
 
-	resources := h.makeResourceMap(p.Resources, p.LocalResources)
+	meta, err := getMetaResources(cURL, h.api)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	resources := h.makeResourceMap(meta, p.Resources, p.LocalResources)
 
 	resourceLister, err := resourceadapters.NewAPIClient(h.api)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	filtered, err := getUpgradeResources(h.api, resourceLister, p.Application, cURL, resources)
+	filtered, err := getUpgradeResources(resourceLister, p.Application, resources, meta)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -18,7 +18,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/charmstore"
-	resources "github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/resources"
 )
 
 // DeployClient exposes the functionality of the resources API needed

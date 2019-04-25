@@ -475,18 +475,22 @@ func (k *kubernetesClient) deleteSecret(secretName string) error {
 	return errors.Trace(err)
 }
 
-// OperatorExists returns true if the operator for the specified
-// application exists.
-func (k *kubernetesClient) OperatorExists(appName string) (bool, error) {
+// OperatorExists indicates if the operator for the specified
+// application exists, and whether the operator is terminating.
+func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, error) {
+	var result caas.OperatorState
+
 	statefulsets := k.AppsV1().StatefulSets(k.namespace)
-	_, err := statefulsets.Get(k.operatorName(appName), v1.GetOptions{IncludeUninitialized: true})
+	operator, err := statefulsets.Get(k.operatorName(appName), v1.GetOptions{IncludeUninitialized: true})
 	if k8serrors.IsNotFound(err) {
-		return false, nil
+		return result, nil
 	}
 	if err != nil {
-		return false, errors.Trace(err)
+		return result, errors.Trace(err)
 	}
-	return true, nil
+	result.Exists = true
+	result.Terminating = operator.DeletionTimestamp != nil
+	return result, nil
 }
 
 // EnsureOperator creates or updates an operator pod with the given application
