@@ -98,9 +98,12 @@ func (m *residentManager) new() *Resident {
 // mark sets all of the manager's residents to be stale.
 // The boolean return indicates if there were any residents to mark.
 func (m *residentManager) mark() bool {
+	m.mu.Lock()
 	for _, r := range m.residents {
 		r.setStale(true)
 	}
+	m.mu.Unlock()
+
 	return len(m.residents) > 0
 }
 
