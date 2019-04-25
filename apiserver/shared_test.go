@@ -39,8 +39,10 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
-		Logger:               loggo.GetLogger("test"),
-		StatePool:            s.StatePool,
+		Logger: loggo.GetLogger("test"),
+		WatcherFactory: func() modelcache.BackingWatcher {
+			return s.StatePool.SystemState().WatchAllModels(s.StatePool)
+		},
 		PrometheusRegisterer: noopRegisterer{},
 		Cleanup:              func() {},
 	})
