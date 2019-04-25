@@ -45,7 +45,7 @@ func (c *Charm) setDetails(details CharmChange) {
 	c.mu.Lock()
 
 	// If this is the first receipt of details, set the removal message.
-	if c.details.CharmURL == "" {
+	if c.removalMessage == nil {
 		c.removalMessage = RemoveCharm{
 			ModelUUID: details.ModelUUID,
 			CharmURL:  details.CharmURL,

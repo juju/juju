@@ -153,7 +153,7 @@ func (m *Machine) setDetails(details MachineChange) {
 	defer m.mu.Unlock()
 
 	// If this is the first receipt of details, set the removal message.
-	if m.details.Id == "" {
+	if m.removalMessage == nil {
 		m.removalMessage = RemoveMachine{
 			ModelUUID: details.ModelUUID,
 			Id:        details.Id,

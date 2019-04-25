@@ -78,7 +78,7 @@ func (u *Unit) setDetails(details UnitChange) {
 	u.mu.Lock()
 
 	// If this is the first receipt of details, set the removal message.
-	if u.details.Name == "" {
+	if u.removalMessage == nil {
 		u.removalMessage = RemoveUnit{
 			ModelUUID: details.ModelUUID,
 			Name:      details.Name,

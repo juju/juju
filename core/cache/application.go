@@ -77,7 +77,7 @@ func (a *Application) setDetails(details ApplicationChange) {
 	a.mu.Lock()
 
 	// If this is the first receipt of details, set the removal message.
-	if a.details.Name == "" {
+	if a.removalMessage == nil {
 		a.removalMessage = RemoveApplication{
 			ModelUUID: details.ModelUUID,
 			Name:      details.Name,

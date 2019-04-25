@@ -328,7 +328,7 @@ func (m *Model) setDetails(details ModelChange) {
 	m.mu.Lock()
 
 	// If this is the first receipt of details, set the removal message.
-	if m.details.ModelUUID == "" {
+	if m.removalMessage == nil {
 		m.removalMessage = RemoveModel{
 			ModelUUID: details.ModelUUID,
 		}
