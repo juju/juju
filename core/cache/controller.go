@@ -143,7 +143,10 @@ func (c *Controller) Marked() bool {
 // cleaning up resources that they are responsible for.
 func (c *Controller) Sweep() {
 	if c.marked {
-		<-c.manager.sweep()
+		select {
+		case <-c.manager.sweep():
+		case <-c.tomb.Dying():
+		}
 	}
 	c.marked = false
 }
