@@ -36,13 +36,14 @@ type migrateCommand struct {
 
 	// Overridden by tests
 	newAPIRoot func(jujuclient.ClientStore, string, string) (api.Connection, error)
-	migAPI     migrateAPI
+	migAPI     map[string]migrateAPI
 	modelAPI   modelInfoAPI
 	userAPI    userListAPI
 }
 
 type migrateAPI interface {
 	InitiateMigration(spec controller.MigrationSpec) (string, error)
+	IdentityProviderURL() (string, error)
 	Close() error
 }
 
@@ -130,7 +131,11 @@ func (c *migrateCommand) Run(ctx *cmd.Context) error {
 	if err := c.checkMigrationFeasibility(spec); err != nil {
 		return err
 	}
-	api, err := c.getMigrationAPI()
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return err
+	}
+	api, err := c.getMigrationAPI(controllerName)
 	if err != nil {
 		return err
 	}
@@ -175,12 +180,12 @@ func (c *migrateCommand) getMigrationSpec() (*controller.MigrationSpec, error) {
 	}, nil
 }
 
-func (c *migrateCommand) getMigrationAPI() (migrateAPI, error) {
-	if c.migAPI != nil {
-		return c.migAPI, nil
+func (c *migrateCommand) getMigrationAPI(controllerName string) (migrateAPI, error) {
+	if c.migAPI != nil && c.migAPI[controllerName] != nil {
+		return c.migAPI[controllerName], nil
 	}
 
-	apiRoot, err := c.NewAPIRoot()
+	apiRoot, err := c.newAPIRoot(c.ClientStore(), controllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -256,6 +261,67 @@ func (c *migrateCommand) checkMigrationFeasibility(spec *controller.MigrationSpe
 		return err
 	}
 
+	// If external users have access to this model we can only allow the
+	// migration to proceed if:
+	// - the local users from src exist in the dst, and
+	// - both controllers are configured with the same identity provider URL
+	srcExtUsers := filterSet(srcUsers, func(u string) bool {
+		return strings.Contains(u, "@")
+	})
+
+	if srcExtUsers.Size() != 0 {
+		srcIdentityURL, err := c.getIdentityProviderURL(srcControllerName)
+		if err != nil {
+			return errors.Annotate(err, "looking up source controller identity provider URL")
+		}
+
+		dstIdentityURL, err := c.getIdentityProviderURL(c.targetController)
+		if err != nil {
+			return errors.Annotate(err, "looking up target controller identity provider URL")
+		}
+
+		localSrcUsers := srcUsers.Difference(srcExtUsers)
+
+		// In this case external user lookups will most likely not work.
+		// Display an appropriate error message depending on whether
+		// the local users are present in dst or not.
+		if srcIdentityURL != dstIdentityURL {
+			missing := localSrcUsers.Difference(dstUsers)
+			if missing.Size() == 0 {
+				return errors.Errorf(`cannot initiate migration of model "%s:%s" to controller %q as
+external users have been granted access to the model and the two controllers have
+different identity provider configurations. To resolve this issue you can remove
+the following list of external users from "%s:%s":
+  - %s`,
+					srcControllerName, srcModelName, c.targetController,
+					srcControllerName, srcModelName,
+					strings.Join(srcExtUsers.Values(), "\n  - "),
+				)
+			}
+
+			return errors.Errorf(`cannot initiate migration of model "%s:%s" to controller %q as
+external users have been granted access to the model and the two controllers have
+different identity provider configurations. Additionally, some of the model's local
+users do not exist in the target controller. To resolve this issue you need to remove
+the following external users from "%s:%s":
+  - %s
+
+and either migrate the following list of local users to %q or remove them from "%s:%s":
+  - %s`,
+				srcControllerName, srcModelName, c.targetController,
+				srcControllerName, srcModelName,
+				strings.Join(srcExtUsers.Values(), "\n  - "),
+				c.targetController, srcControllerName, srcModelName,
+				strings.Join(localSrcUsers.Difference(dstUsers).Values(), "\n  - "),
+			)
+
+		}
+
+		// External user lookups will work out of the box. We only need
+		// to ensure that the local model users are present in dst
+		srcUsers = localSrcUsers
+	}
+
 	if missing := srcUsers.Difference(dstUsers); missing.Size() != 0 {
 		return errors.Errorf(`cannot initiate migration of model "%s:%s" to controller %q as some of the
 model's users do not exist in the target controller. To resolve this issue you can
@@ -268,6 +334,16 @@ either migrate the following list of users to %q or remove them from "%s:%s":
 	}
 
 	return nil
+}
+
+func (c *migrateCommand) getIdentityProviderURL(controllerName string) (string, error) {
+	api, err := c.getMigrationAPI(controllerName)
+	if err != nil {
+		return "", err
+	}
+	defer api.Close()
+
+	return api.IdentityProviderURL()
 }
 
 func (c *migrateCommand) getModelUsers(modelTag names.ModelTag) (set.Strings, error) {
@@ -311,4 +387,15 @@ func (c *migrateCommand) getTargetControllerUsers() (set.Strings, error) {
 	}
 
 	return users, nil
+}
+
+func filterSet(s set.Strings, keep func(string) bool) set.Strings {
+	out := set.NewStrings()
+	for _, v := range s.Values() {
+		if keep(v) {
+			out.Add(v)
+		}
+	}
+
+	return out
 }
