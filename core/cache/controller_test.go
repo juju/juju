@@ -223,6 +223,10 @@ func (s *ControllerSuite) TestMarkAndSweep(c *gc.C) {
 	s.processChange(c, unitChange, events)
 	s.processChange(c, modelChange, events)
 
+	c.Assert(controller.Marked(), jc.IsFalse)
+	controller.Mark()
+	c.Assert(controller.Marked(), jc.IsTrue)
+
 	done := make(chan struct{})
 	go func() {
 		// Removals are congruent with FILO.
@@ -236,14 +240,13 @@ func (s *ControllerSuite) TestMarkAndSweep(c *gc.C) {
 		done <- struct{}{}
 	}()
 
-	c.Assert(controller.Marked(), jc.IsFalse)
-	controller.Mark()
-	c.Assert(controller.Marked(), jc.IsTrue)
-
+	// No need to guard the channel read here.
+	// One of the calls to "nextChange" in the Goroutine above will time out if
+	// the cache sweep is not progressing.
 	controller.Sweep()
 	<-done
-	c.Assert(controller.Marked(), jc.IsFalse)
 
+	c.Assert(controller.Marked(), jc.IsFalse)
 	s.AssertNoResidents(c)
 }
 
