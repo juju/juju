@@ -100,7 +100,7 @@ func NewProviderCredentials(getter func(CommandRunner) (cloud.Cloud, jujucloud.C
 }
 
 func StorageProvider(k8sClient kubernetes.Interface, namespace string) storage.Provider {
-	return &storageProvider{&kubernetesClient{Interface: k8sClient, namespace: namespace}}
+	return &storageProvider{&kubernetesClient{clientUnlocked: k8sClient, namespace: namespace}}
 }
 
 func GetStorageClass(cfg *storageConfig) string {
