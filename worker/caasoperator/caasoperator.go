@@ -24,6 +24,7 @@ import (
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	jujunames "github.com/juju/juju/juju/names"
 	jujuversion "github.com/juju/juju/version"
@@ -418,6 +419,7 @@ func (op *caasOperator) loop() (err error) {
 				}
 
 				params := op.config.UniterParams
+				params.ModelType = model.CAAS
 				params.UnitTag = unitTag
 				params.UniterFacade = op.config.UniterFacadeFunc(unitTag)
 				params.LeadershipTracker = op.config.LeadershipTrackerFunc(unitTag)
