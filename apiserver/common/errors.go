@@ -95,6 +95,9 @@ type RedirectError struct {
 
 	// CACert holds the certificate of the remote server.
 	CACert string `json:"ca-cert"`
+
+	// An optional alias for the controller where the model got redirected to.
+	ControllerAlias string `json:"controller-alias,omitempty"`
 }
 
 // Error implements the error interface.
@@ -283,8 +286,9 @@ func ServerError(err error) *params.Error {
 		redirErr := errors.Cause(err).(*RedirectError)
 		code = params.CodeRedirect
 		info = params.RedirectErrorInfo{
-			Servers: redirErr.Servers,
-			CACert:  redirErr.CACert,
+			Servers:         redirErr.Servers,
+			CACert:          redirErr.CACert,
+			ControllerAlias: redirErr.ControllerAlias,
 		}.AsMap()
 	default:
 		code = params.ErrCode(err)

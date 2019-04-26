@@ -692,11 +692,12 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	mig, err := modelState.CreateMigration(state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
-			ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),
-			Addrs:         []string{"1.2.3.4:5555"},
-			CACert:        coretesting.CACert,
-			AuthTag:       names.NewUserTag("user2"),
-			Password:      "secret",
+			ControllerTag:   names.NewControllerTag(utils.MustNewUUID().String()),
+			ControllerAlias: "target",
+			Addrs:           []string{"1.2.3.4:5555"},
+			CACert:          coretesting.CACert,
+			AuthTag:         names.NewUserTag("user2"),
+			Password:        "secret",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -725,6 +726,7 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	c.Assert(redirErr.Servers, jc.DeepEquals, [][]network.HostPort{nhp})
 	c.Assert(redirErr.CACert, gc.Equals, coretesting.CACert)
 	c.Assert(redirErr.FollowRedirect, gc.Equals, false)
+	c.Assert(redirErr.ControllerAlias, gc.Equals, "target")
 
 	// Attempt to open an API connection to the migrated model as a user
 	// that had NO access to the model before it got migrated. The server
