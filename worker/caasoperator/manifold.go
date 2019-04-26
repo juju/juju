@@ -17,7 +17,6 @@ import (
 	apileadership "github.com/juju/juju/api/leadership"
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	coreleadership "github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/leadership"
@@ -135,7 +134,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			newUniterFunc := func(unitTag names.UnitTag) *apiuniter.State {
 				return apiuniter.NewState(apiCaller, unitTag)
 			}
-			leadershipTrackerFunc := func(unitTag names.UnitTag) coreleadership.Tracker {
+			leadershipTrackerFunc := func(unitTag names.UnitTag) uniter.LeadershipTrackerWorker {
 				claimer := apileadership.NewClient(apiCaller)
 				return leadership.NewTracker(unitTag, claimer, clock, config.LeadershipGuarantee)
 			}
