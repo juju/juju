@@ -147,12 +147,13 @@ func (s *MigrateSuite) TestSuccess(c *gc.C) {
 
 	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Migration started with ID \"uuid:0\"\n")
 	c.Check(s.api.specSeen, jc.DeepEquals, &controller.MigrationSpec{
-		ModelUUID:            modelUUID,
-		TargetControllerUUID: targetControllerUUID,
-		TargetAddrs:          []string{"1.2.3.4:5"},
-		TargetCACert:         "cert",
-		TargetUser:           "targetuser",
-		TargetPassword:       "secret",
+		ModelUUID:             modelUUID,
+		TargetControllerUUID:  targetControllerUUID,
+		TargetControllerAlias: "target",
+		TargetAddrs:           []string{"1.2.3.4:5"},
+		TargetCACert:          "cert",
+		TargetUser:            "targetuser",
+		TargetPassword:        "secret",
 	})
 }
 
@@ -173,11 +174,12 @@ func (s *MigrateSuite) TestSuccessMacaroons(c *gc.C) {
 	s.api.specSeen.TargetMacaroons = nil
 	apitesting.MacaroonsEqual(c, macs, s.targetControllerAPI.macaroons)
 	c.Check(s.api.specSeen, jc.DeepEquals, &controller.MigrationSpec{
-		ModelUUID:            modelUUID,
-		TargetControllerUUID: targetControllerUUID,
-		TargetAddrs:          []string{"1.2.3.4:5"},
-		TargetCACert:         "cert",
-		TargetUser:           "targetuser",
+		ModelUUID:             modelUUID,
+		TargetControllerUUID:  targetControllerUUID,
+		TargetControllerAlias: "target",
+		TargetAddrs:           []string{"1.2.3.4:5"},
+		TargetCACert:          "cert",
+		TargetUser:            "targetuser",
 	})
 }
 
@@ -196,12 +198,13 @@ func (s *MigrateSuite) TestMultipleModelMatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Migration started with ID \"uuid:0\"\n")
 	c.Check(s.api.specSeen, jc.DeepEquals, &controller.MigrationSpec{
-		ModelUUID:            "prod-2-uuid",
-		TargetControllerUUID: targetControllerUUID,
-		TargetAddrs:          []string{"1.2.3.4:5"},
-		TargetCACert:         "cert",
-		TargetUser:           "targetuser",
-		TargetPassword:       "secret",
+		ModelUUID:             "prod-2-uuid",
+		TargetControllerUUID:  targetControllerUUID,
+		TargetControllerAlias: "target",
+		TargetAddrs:           []string{"1.2.3.4:5"},
+		TargetCACert:          "cert",
+		TargetUser:            "targetuser",
+		TargetPassword:        "secret",
 	})
 }
 

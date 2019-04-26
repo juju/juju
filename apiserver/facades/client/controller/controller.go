@@ -536,12 +536,13 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 		}
 	}
 	targetInfo := coremigration.TargetInfo{
-		ControllerTag: controllerTag,
-		Addrs:         specTarget.Addrs,
-		CACert:        specTarget.CACert,
-		AuthTag:       authTag,
-		Password:      specTarget.Password,
-		Macaroons:     macs,
+		ControllerTag:   controllerTag,
+		ControllerAlias: specTarget.ControllerAlias,
+		Addrs:           specTarget.Addrs,
+		CACert:          specTarget.CACert,
+		AuthTag:         authTag,
+		Password:        specTarget.Password,
+		Macaroons:       macs,
 	}
 
 	// Check if the migration is likely to succeed.

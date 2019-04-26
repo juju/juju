@@ -260,13 +260,14 @@ func (c *Client) ConfigSet(values map[string]interface{}) error {
 // MigrationSpec holds the details required to start the migration of
 // a single model.
 type MigrationSpec struct {
-	ModelUUID            string
-	TargetControllerUUID string
-	TargetAddrs          []string
-	TargetCACert         string
-	TargetUser           string
-	TargetPassword       string
-	TargetMacaroons      []macaroon.Slice
+	ModelUUID             string
+	TargetControllerUUID  string
+	TargetControllerAlias string
+	TargetAddrs           []string
+	TargetCACert          string
+	TargetUser            string
+	TargetPassword        string
+	TargetMacaroons       []macaroon.Slice
 }
 
 // Validate performs sanity checks on the migration configuration it
@@ -310,12 +311,13 @@ func (c *Client) InitiateMigration(spec MigrationSpec) (string, error) {
 		Specs: []params.MigrationSpec{{
 			ModelTag: names.NewModelTag(spec.ModelUUID).String(),
 			TargetInfo: params.MigrationTargetInfo{
-				ControllerTag: names.NewControllerTag(spec.TargetControllerUUID).String(),
-				Addrs:         spec.TargetAddrs,
-				CACert:        spec.TargetCACert,
-				AuthTag:       names.NewUserTag(spec.TargetUser).String(),
-				Password:      spec.TargetPassword,
-				Macaroons:     macsJSON,
+				ControllerTag:   names.NewControllerTag(spec.TargetControllerUUID).String(),
+				ControllerAlias: spec.TargetControllerAlias,
+				Addrs:           spec.TargetAddrs,
+				CACert:          spec.TargetCACert,
+				AuthTag:         names.NewUserTag(spec.TargetUser).String(),
+				Password:        spec.TargetPassword,
+				Macaroons:       macsJSON,
 			},
 		}},
 	}
