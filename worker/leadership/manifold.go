@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/leadership"
-	coreleadership "github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/worker/uniter"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
@@ -79,7 +79,7 @@ func outputFunc(in worker.Worker, out interface{}) error {
 	if inWorker == nil {
 		return errors.Errorf("expected *Tracker input; got %T", in)
 	}
-	outPointer, _ := out.(*coreleadership.Tracker)
+	outPointer, _ := out.(*uniter.LeadershipTrackerWorker)
 	if outPointer == nil {
 		return errors.Errorf("expected *leadership.Tracker output; got %T", out)
 	}

@@ -1551,6 +1551,14 @@ type mockLeaderTracker struct {
 	waiting  []chan struct{}
 }
 
+func (mock *mockLeaderTracker) Kill() {
+	return
+}
+
+func (mock *mockLeaderTracker) Wait() error {
+	return nil
+}
+
 func (mock *mockLeaderTracker) ApplicationName() string {
 	return mock.ctx.application.Name()
 }
