@@ -323,7 +323,7 @@ func (s *MigrateSuite) TestUserMissingFromTarget(c *gc.C) {
 			srcModel: "model-with-extra-local-users",
 			expErr: `cannot initiate migration of model "source:model-with-extra-local-users" to controller "target" as some of the
 model's users do not exist in the target controller. To resolve this issue you can
-either migrate the following list of users to "target" or remove them from "source:model-with-extra-local-users":
+either add the following list of users to "target" or remove them from "source:model-with-extra-local-users":
   - foo`,
 		},
 		{
@@ -335,7 +335,7 @@ either migrate the following list of users to "target" or remove them from "sour
 			dstIdentityURL: "https://api.jujucharms.com/identity",
 			expErr: `cannot initiate migration of model "source:model-with-extra-users" to controller "target" as some of the
 model's users do not exist in the target controller. To resolve this issue you can
-either migrate the following list of users to "target" or remove them from "source:model-with-extra-users":
+either add the following list of users to "target" or remove them from "source:model-with-extra-users":
   - bar`,
 		},
 		{
@@ -378,7 +378,7 @@ users do not exist in the target controller. To resolve this issue you need to r
 the following external users from "source:model-with-extra-users":
   - foo@external
 
-and either migrate the following list of local users to "target" or remove them from "source:model-with-extra-users":
+and either add the following list of local users to "target" or remove them from "source:model-with-extra-users":
   - bar`,
 		},
 	}

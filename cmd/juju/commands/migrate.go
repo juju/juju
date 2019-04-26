@@ -306,7 +306,7 @@ users do not exist in the target controller. To resolve this issue you need to r
 the following external users from "%s:%s":
   - %s
 
-and either migrate the following list of local users to %q or remove them from "%s:%s":
+and either add the following list of local users to %q or remove them from "%s:%s":
   - %s`,
 				srcControllerName, srcModelName, c.targetController,
 				srcControllerName, srcModelName,
@@ -325,7 +325,7 @@ and either migrate the following list of local users to %q or remove them from "
 	if missing := srcUsers.Difference(dstUsers); missing.Size() != 0 {
 		return errors.Errorf(`cannot initiate migration of model "%s:%s" to controller %q as some of the
 model's users do not exist in the target controller. To resolve this issue you can
-either migrate the following list of users to %q or remove them from "%s:%s":
+either add the following list of users to %q or remove them from "%s:%s":
   - %s`,
 			srcControllerName, srcModelName, c.targetController,
 			c.targetController, srcControllerName, srcModelName,
