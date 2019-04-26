@@ -30,6 +30,7 @@ func (s *ManifoldConfigSuite) validConfig() caasoperatorprovisioner.ManifoldConf
 		AgentName:     "agent",
 		APICallerName: "api-caller",
 		BrokerName:    "broker",
+		ClockName:     "clock",
 		NewWorker: func(config caasoperatorprovisioner.Config) (worker.Worker, error) {
 			return nil, nil
 		},
@@ -53,6 +54,11 @@ func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *gc.C) {
 func (s *ManifoldConfigSuite) TestMissingBrokerName(c *gc.C) {
 	s.config.BrokerName = ""
 	s.checkNotValid(c, "empty BrokerName not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingClockName(c *gc.C) {
+	s.config.ClockName = ""
+	s.checkNotValid(c, "empty ClockName not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingNewWorker(c *gc.C) {

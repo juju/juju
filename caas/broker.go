@@ -91,6 +91,15 @@ type ServiceParams struct {
 	Devices []devices.KubernetesDeviceParams
 }
 
+// OperatorState is returned by the OperatorExists call.
+type OperatorState struct {
+	// Exists is true if the operator exists in the cluster.
+	Exists bool
+
+	// Terminating is true if the operator is in Terminating state.
+	Terminating bool
+}
+
 // Broker instances interact with the CAAS substrate.
 type Broker interface {
 	// Provider returns the ContainerEnvironProvider that created this Broker.
@@ -103,9 +112,9 @@ type Broker interface {
 	// a charm for the specified application.
 	EnsureOperator(appName, agentPath string, config *OperatorConfig) error
 
-	// OperatorExists returns true if the operator for the specified
-	// application exists.
-	OperatorExists(appName string) (bool, error)
+	// OperatorExists indicates if the operator for the specified
+	// application exists, and whether the operator is terminating.
+	OperatorExists(appName string) (OperatorState, error)
 
 	// DeleteOperator deletes the specified operator.
 	DeleteOperator(appName string) error

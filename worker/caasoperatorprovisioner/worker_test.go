@@ -7,7 +7,9 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
+	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -33,6 +35,7 @@ type CAASProvisionerSuite struct {
 	provisionerFacade *mockProvisionerFacade
 	caasClient        *mockBroker
 	agentConfig       agent.Config
+	clock             *testclock.Clock
 	modelTag          names.ModelTag
 }
 
@@ -44,6 +47,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	s.caasClient = &mockBroker{}
 	s.agentConfig = &mockAgentConfig{}
 	s.modelTag = coretesting.ModelTag
+	s.clock = testclock.NewClock(time.Now())
 }
 
 func (s *CAASProvisionerSuite) waitForWorkerStubCalls(c *gc.C, expected []jujutesting.StubCall) {
@@ -67,6 +71,7 @@ func (s *CAASProvisionerSuite) assertWorker(c *gc.C) worker.Worker {
 		Broker:      s.caasClient,
 		ModelTag:    s.modelTag,
 		AgentConfig: s.agentConfig,
+		Clock:       s.clock,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
@@ -82,23 +87,42 @@ func (s *CAASProvisionerSuite) TestWorkerStarts(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists bool) {
+func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, terminating bool) {
+	s.caasClient.terminating = terminating
 	s.provisionerFacade.life = "alive"
 	s.provisionerFacade.applicationsWatcher.changes <- []string{"myapp"}
 
+	expectedCalls := 2
+	if terminating {
+		expectedCalls = 4
+	}
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		if len(s.caasClient.Calls()) == 2 {
+		nrCalls := len(s.caasClient.Calls())
+		if nrCalls >= expectedCalls {
 			break
 		}
+		if nrCalls > 0 {
+			s.caasClient.operatorExists = false
+			s.caasClient.terminating = false
+			s.clock.Advance(4 * time.Second)
+		}
 	}
-	s.caasClient.CheckCallNames(c, "OperatorExists", "EnsureOperator")
-	c.Assert(s.caasClient.Calls(), gc.HasLen, 2)
+	callNames := []string{"OperatorExists", "EnsureOperator"}
+	if terminating {
+		callNames = []string{"OperatorExists", "OperatorExists", "OperatorExists", "EnsureOperator"}
+	}
+	s.caasClient.CheckCallNames(c, callNames...)
+	c.Assert(s.caasClient.Calls(), gc.HasLen, expectedCalls)
 
 	args := s.caasClient.Calls()[0].Args
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0], gc.Equals, "myapp")
 
-	args = s.caasClient.Calls()[1].Args
+	ensureIndex := 1
+	if terminating {
+		ensureIndex = 3
+	}
+	args = s.caasClient.Calls()[ensureIndex].Args
 	c.Assert(args, gc.HasLen, 3)
 	c.Assert(args[0], gc.Equals, "myapp")
 	c.Assert(args[1], gc.Equals, "/var/lib/juju")
@@ -114,7 +138,7 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists bool) {
 		Attributes:   map[string]interface{}{"key": "value"},
 	})
 
-	if !exists {
+	if !exists || terminating {
 		agentFile := filepath.Join(c.MkDir(), "agent.config")
 		err := ioutil.WriteFile(agentFile, config.AgentConf, 0644)
 		c.Assert(err, jc.ErrorIsNil)
@@ -134,7 +158,7 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists bool) {
 		}
 	}
 
-	if exists {
+	if exists && !terminating {
 		s.provisionerFacade.stub.CheckCallNames(c, "Life", "OperatorProvisioningInfo")
 		c.Assert(s.provisionerFacade.stub.Calls()[0].Args[0], gc.Equals, "myapp")
 		return
@@ -153,7 +177,7 @@ func (s *CAASProvisionerSuite) TestNewApplicationCreatesNewOperator(c *gc.C) {
 	w := s.assertWorker(c)
 	defer workertest.CleanKill(c, w)
 
-	s.assertOperatorCreated(c, false)
+	s.assertOperatorCreated(c, false, false)
 }
 
 func (s *CAASProvisionerSuite) TestNewApplicationUpdatesOperator(c *gc.C) {
@@ -161,14 +185,22 @@ func (s *CAASProvisionerSuite) TestNewApplicationUpdatesOperator(c *gc.C) {
 	w := s.assertWorker(c)
 	defer workertest.CleanKill(c, w)
 
-	s.assertOperatorCreated(c, true)
+	s.assertOperatorCreated(c, true, false)
+}
+
+func (s *CAASProvisionerSuite) TestNewApplicationWaitsOperatorTerminated(c *gc.C) {
+	s.caasClient.operatorExists = true
+	w := s.assertWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.assertOperatorCreated(c, true, true)
 }
 
 func (s *CAASProvisionerSuite) TestApplicationDeletedRemovesOperator(c *gc.C) {
 	w := s.assertWorker(c)
 	defer workertest.CleanKill(c, w)
 
-	s.assertOperatorCreated(c, false)
+	s.assertOperatorCreated(c, false, false)
 	s.caasClient.ResetCalls()
 	s.provisionerFacade.stub.SetErrors(errors.NotFoundf("myapp"))
 	s.provisionerFacade.life = "dead"

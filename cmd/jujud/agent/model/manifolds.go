@@ -449,6 +449,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 				AgentName:     agentName,
 				APICallerName: apiCallerName,
 				BrokerName:    caasBrokerTrackerName,
+				ClockName:     clockName,
 				NewWorker:     caasoperatorprovisioner.NewProvisionerWorker,
 			},
 		)),

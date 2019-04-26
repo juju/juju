@@ -5,5 +5,7 @@ applications:
         scale: 1
     mariadb:
         charm: mariadb
+        resources:
+            mysql_image: mariadb:latest
 relations:
     - ["gitlab:db", "mariadb:server"]
