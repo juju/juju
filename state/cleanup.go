@@ -364,7 +364,7 @@ func (st *State) cleanupStorageForDyingModel(cleanupArgs []bson.Raw) (err error)
 	}
 
 	destroyStorage := sb.DestroyStorageInstance
-	if args.DestroyStorage != nil && !*args.DestroyStorage {
+	if args.DestroyStorage == nil || !*args.DestroyStorage {
 		destroyStorage = sb.ReleaseStorageInstance
 	}
 

@@ -110,7 +110,7 @@ func destroyModel(st ModelManagerBackend, args state.DestroyModelParams) error {
 		return errors.Trace(err)
 	}
 	if err := model.Destroy(args); err != nil {
-		if args.Force != nil && !*args.Force {
+		if args.Force == nil || !*args.Force {
 			return errors.Trace(err)
 		}
 		logger.Warningf("failed destroying model %v: %v", model.UUID(), err)
