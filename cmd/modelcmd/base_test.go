@@ -102,11 +102,19 @@ func (s *BaseCommandSuite) TestUnknownModelNotCurrentCanRemoveCachedCurrent(c *g
 }
 
 func (s *BaseCommandSuite) TestMigratedModelErrorHandling(c *gc.C) {
+	var callCount int
 	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
+		var alias string
+		if callCount > 0 {
+			alias = "brand-new-controller"
+		}
+		callCount++
+
 		nhp := network.NewHostPorts(5555, "1.2.3.4")
 		redirErr := &api.RedirectError{
-			CACert:  coretesting.CACert,
-			Servers: [][]network.HostPort{nhp},
+			CACert:          coretesting.CACert,
+			Servers:         [][]network.HostPort{nhp},
+			ControllerAlias: alias,
 		}
 		return nil, errors.Trace(redirErr)
 	}
@@ -119,35 +127,56 @@ func (s *BaseCommandSuite) TestMigratedModelErrorHandling(c *gc.C) {
 	baseCmd.SetModelName("foo:admin/badmodel", false)
 
 	fingerprint, _ := cert.Fingerprint(coretesting.CACert)
-
-	// Model has been migrated to a controller which does not exist in the
-	// local cache. User should be prompted to login to the new controller.
-	_, err := baseCmd.NewAPIRoot()
-	expErr := `Model "admin/badmodel" has been migrated to another controller.
-To access it run one of the following commands:
+	specs := []struct {
+		descr   string
+		expErr  string
+		setupFn func()
+	}{
+		{
+			descr: "model migration document does not contain a controller alias (simulate an older controller)",
+			expErr: `Model "admin/badmodel" has been migrated to another controller.
+To access it run one of the following commands (you can replace the -c argument with your own preferred controller name):
   'juju login 1.2.3.4:5555 -c new-controller'
 
-New controller fingerprint [` + fingerprint + `]`
+New controller fingerprint [` + fingerprint + `]`,
+		},
+		{
+			descr: "model migration document contains a controller alias",
+			expErr: `Model "admin/badmodel" has been migrated to another controller.
+To access it run one of the following commands (you can replace the -c argument with your own preferred controller name):
+  'juju login 1.2.3.4:5555 -c brand-new-controller'
 
-	c.Assert(err, gc.Not(gc.IsNil))
-	c.Assert(err.Error(), gc.Equals, expErr)
-
-	// Model has been migrated to a controller which does exist in the local
-	// cache. This can happen if we have 2 users A and B (on separate machines)
-	// and:
-	// - both A and B have SRC and DST controllers in their local cache
-	// - A migrates the model from SRC -> DST
-	// - B tries to invoke any model-related command on SRC for the migrated model.
-	s.store.Controllers["bar"] = jujuclient.ControllerDetails{
-		APIEndpoints: []string{"1.2.3.4:5555"},
+New controller fingerprint [` + fingerprint + `]`,
+		},
+		{
+			descr: "model migration docuemnt contains a controller alias but we already know the controller locally by a different name",
+			expErr: `Model "admin/badmodel" has been migrated to controller "bar".
+To access it run 'juju switch bar:admin/badmodel'.`,
+			setupFn: func() {
+				// Model has been migrated to a controller which does exist in the local
+				// cache. This can happen if we have 2 users A and B (on separate machines)
+				// and:
+				// - both A and B have SRC and DST controllers in their local cache
+				// - A migrates the model from SRC -> DST
+				// - B tries to invoke any model-related command on SRC for the migrated model.
+				s.store.Controllers["bar"] = jujuclient.ControllerDetails{
+					APIEndpoints: []string{"1.2.3.4:5555"},
+				}
+			},
+		},
 	}
 
-	_, err = baseCmd.NewAPIRoot()
-	expErr = `Model "admin/badmodel" has been migrated to controller "bar".
-To access it run 'juju switch bar:admin/badmodel'.`
+	for specIndex, spec := range specs {
+		c.Logf("test %d: %s", specIndex, spec.descr)
 
-	c.Assert(err, gc.Not(gc.IsNil))
-	c.Assert(err.Error(), gc.Equals, expErr)
+		if spec.setupFn != nil {
+			spec.setupFn()
+		}
+
+		_, err := baseCmd.NewAPIRoot()
+		c.Assert(err, gc.Not(gc.IsNil))
+		c.Assert(err.Error(), gc.Equals, spec.expErr)
+	}
 }
 
 type NewGetBootstrapConfigParamsFuncSuite struct {

@@ -228,13 +228,18 @@ To access it run 'juju switch %s:%s'.`, modelName, existingName, existingName, m
 	// CACerts are always valid so no error checking is required here.
 	fingerprint, _ := cert.Fingerprint(redirErr.CACert)
 
+	ctrlAlias := "new-controller"
+	if redirErr.ControllerAlias != "" {
+		ctrlAlias = redirErr.ControllerAlias
+	}
+
 	var loginCmds []string
 	for _, endpoint := range allEndpoints {
-		loginCmds = append(loginCmds, fmt.Sprintf("  'juju login %s -c new-controller'", endpoint))
+		loginCmds = append(loginCmds, fmt.Sprintf("  'juju login %s -c %s'", endpoint, ctrlAlias))
 	}
 
 	mErr := fmt.Sprintf(`Model %q has been migrated to another controller.
-To access it run one of the following commands:
+To access it run one of the following commands (you can replace the -c argument with your own preferred controller name):
 %s
 
 New controller fingerprint [%s]`, modelName, strings.Join(loginCmds, "\n"), fingerprint)

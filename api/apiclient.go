@@ -168,6 +168,11 @@ type RedirectError struct {
 	// FollowRedirect is set to true for cases like JAAS where the client
 	// needs to automatically follow the redirect to the new controller.
 	FollowRedirect bool
+
+	// An optional alias for the controller the model got redirected to. It
+	// can be used by the client to present the user with a more meaningful
+	// juju login -c XYZ command
+	ControllerAlias string
 }
 
 func (e *RedirectError) Error() string {
