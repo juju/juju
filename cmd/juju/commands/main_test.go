@@ -448,6 +448,7 @@ var commandNames = []string{
 	"create-storage-pool",
 	"create-wallet",
 	"credentials",
+	"debug-hook",
 	"debug-hooks",
 	"debug-log",
 	"deploy",
