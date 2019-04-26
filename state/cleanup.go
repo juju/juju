@@ -312,10 +312,10 @@ func (st *State) cleanupMachinesForDyingModel(cleanupArgs []bson.Raw) (err error
 		}
 		manual, err := m.IsManual()
 		if err != nil {
-			// TODO (anastasiamac 2019-4-24) we should not break out here but continue with other machines.
+			// TODO (force 2019-4-24) we should not break out here but continue with other machines.
 			return errors.Trace(err)
 		}
-		// TODO (anastasiamac 2019-04-26) Should this always be ForceDestroy or only when
+		// TODO (force 2019-04-26) Should this always be ForceDestroy or only when
 		// 'destroy-model --force' is specified?...
 		destroy := m.ForceDestroy
 		if manual {
@@ -330,11 +330,11 @@ func (st *State) cleanupMachinesForDyingModel(cleanupArgs []bson.Raw) (err error
 		if err := destroy(); err != nil {
 			if manual {
 				// Since we cannot delete a manual machine, we cannot proceed with model destruction even if it is forced.
-				// TODO (anastasiamac 2019-4-24) However, we should not break out here but continue with other machines.
+				// TODO (force 2019-4-24) However, we should not break out here but continue with other machines.
 				return errors.Trace(errors.Annotatef(err, "could not destroy manual machine %v", m.Id()))
 			}
 			err = errors.Annotatef(err, "while destroying machine %v is", m.Id())
-			// TODO (anastasiamac 2019-4-24) we should not break out here but continue with other machines.
+			// TODO (force 2019-4-24) we should not break out here but continue with other machines.
 			if !force {
 				return errors.Trace(err)
 			}
@@ -442,7 +442,7 @@ func (st *State) removeRemoteApplicationsForDyingModel(args DestroyModelParams) 
 
 	force := args.Force != nil && *args.Force
 	for iter.Next(&remoteApp.doc) {
-		// TODO (anastasiamac 2019-4-24) There may be some operational errors.
+		// TODO (force 2019-4-24) There may be some operational errors.
 		// Do something with with them.
 		if _, err := remoteApp.DestroyWithForce(force); err != nil {
 			return errors.Trace(err)

@@ -1198,7 +1198,7 @@ func (m *Model) destroyOps(
 				if errors.IsNotFound(err) {
 					continue
 				}
-				// TODO (anastasiamac 2019-4-24) we should not break out here but
+				// TODO (force 2019-4-24) we should not break out here but
 				// continue with other models.
 				return nil, errors.Trace(err)
 			}
@@ -1206,7 +1206,7 @@ func (m *Model) destroyOps(
 
 			model, err := newSt.Model()
 			if err != nil {
-				// TODO (anastasiamac 2019-4-24) we should not break out here but
+				// TODO (force 2019-4-24) we should not break out here but
 				// continue with other models.
 				return nil, errors.Trace(err)
 			}
@@ -1234,7 +1234,7 @@ func (m *Model) destroyOps(
 				aliveEmpty++
 			default:
 				if !IsModelNotEmptyError(err) {
-					// TODO (anastasiamac 2019-4-24) we should not break out here but
+					// TODO (force 2019-4-24) we should not break out here but
 					// continue with other models.
 					return nil, errors.Trace(err)
 				}
@@ -1262,13 +1262,15 @@ func (m *Model) destroyOps(
 		)
 	}
 
+	assert := isAliveDoc
+	if force {
+		assert = bson.D{{"life", m.Life()}}
+	}
 	var ops []txn.Op
 	modelOp := txn.Op{
-		C:  modelsC,
-		Id: modelUUID,
-		// TODO (anastasiamac 2019-4-24) when forcing, we might just consider if the document exists
-		//  instead of checking Life.
-		Assert: isAliveDoc,
+		C:      modelsC,
+		Id:     modelUUID,
+		Assert: assert,
 	}
 	if !destroyingController {
 		modelOp.Update = bson.D{
