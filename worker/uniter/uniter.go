@@ -45,7 +45,13 @@ import (
 	"github.com/juju/juju/worker/uniter/upgradeseries"
 )
 
-var logger = loggo.GetLogger("juju.worker.uniter")
+var (
+	logger = loggo.GetLogger("juju.worker.uniter")
+
+	// ErrCAASUnitDead is the error returned from terminate or init
+	// if the unit is Dead.
+	ErrCAASUnitDead = errors.New("unit dead")
+)
 
 // A UniterExecutionObserver gets the appropriate methods called when a hook
 // is executed and either succeeds or fails.  Missing hooks don't get reported
@@ -116,6 +122,7 @@ type Uniter struct {
 type UniterParams struct {
 	UniterFacade         *uniter.State
 	UnitTag              names.UnitTag
+	ModelType            model.ModelType
 	LeadershipTracker    leadership.Tracker
 	DataDir              string
 	Downloader           charm.Downloader
@@ -158,10 +165,10 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 	if translateResolverErr == nil {
 		translateResolverErr = func(err error) error { return err }
 	}
-
 	u := &Uniter{
 		st:                   uniterParams.UniterFacade,
 		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
+		modelType:            uniterParams.ModelType,
 		hookLock:             uniterParams.MachineLock,
 		leadershipTracker:    uniterParams.LeadershipTracker,
 		charmDirGuard:        uniterParams.CharmDirGuard,
@@ -190,10 +197,17 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 
 func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	if err := u.init(unitTag); err != nil {
-		if err == jworker.ErrTerminateAgent {
+		switch cause := errors.Cause(err); cause {
+		case resolver.ErrLoopAborted:
+			return u.catacomb.ErrDying()
+		case ErrCAASUnitDead:
+			// Normal exit from the loop as we don't want it restarted.
+			return nil
+		case jworker.ErrTerminateAgent:
 			return err
+		default:
+			return errors.Annotatef(err, "failed to initialize uniter for %q", unitTag)
 		}
-		return errors.Annotatef(err, "failed to initialize uniter for %q", unitTag)
 	}
 	logger.Infof("unit %q started", u.unit)
 
@@ -395,6 +409,11 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		}
 	}
 
+	// If this is a CAAS unit, then dead errors are fairly normal ways to exit
+	// the uniter main loop, but the actual agent needs to keep running.
+	if errors.Cause(err) == ErrCAASUnitDead {
+		err = nil
+	}
 	logger.Infof("unit %q shutting down: %s", u.unit, err)
 	return err
 }
@@ -437,13 +456,20 @@ func (u *Uniter) terminate() error {
 // For IAAS models, we want to terminate the agent, as each unit is run by
 // an individual agent for that unit.
 func (u *Uniter) stopUnitError() error {
-	if u.modelType == model.IAAS {
-		return jworker.ErrTerminateAgent
+	logger.Debugf("u.modelType: %s", u.modelType)
+	if u.modelType == model.CAAS {
+		return ErrCAASUnitDead
 	}
-	return nil
+	return jworker.ErrTerminateAgent
 }
 
 func (u *Uniter) init(unitTag names.UnitTag) (err error) {
+	switch u.modelType {
+	case model.IAAS, model.CAAS:
+		// known types, all good
+	default:
+		return errors.Errorf("unknown model type %q", u.modelType)
+	}
 	u.unit, err = u.st.Unit(unitTag)
 	if err != nil {
 		return err
@@ -493,11 +519,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	u.commands = runcommands.NewCommands()
 	u.commandChannel = make(chan string)
 
-	m, err := u.st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	u.modelType = m.ModelType
 	storageAttachments, err := storage.NewAttachments(
 		u.st, unitTag, u.paths.State.StorageDir, u.catacomb.Dying(),
 	)
