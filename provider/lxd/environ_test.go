@@ -424,26 +424,6 @@ func (s *environProfileSuite) TestLXDProfileNames(c *gc.C) {
 	})
 }
 
-func (s *environProfileSuite) TestReplaceOrAddInstanceProfile(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	instId := "testme"
-	old := "old-profile"
-	new := "new-profile"
-
-	s.expectReplaceOrAddInstanceProfile(instId, old, new)
-
-	put := &charm.LXDProfile{
-		Config: map[string]string{
-			"security.nesting": "true",
-		},
-		Description: "test profile",
-	}
-	obtained, err := s.lxdEnv.ReplaceOrAddInstanceProfile(instId, old, new, put)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, []string{"default", "juju-default", new})
-}
-
 func (s *environProfileSuite) TestAssignLXDProfiles(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -524,14 +504,6 @@ func (s *environProfileSuite) expectMaybeWriteLXDProfile(hasProfile bool, name s
 			},
 		}).Return(nil)
 	}
-}
-
-func (s *environProfileSuite) expectReplaceOrAddInstanceProfile(instId, old, new string) {
-	s.expectMaybeWriteLXDProfile(false, new)
-	exp := s.svr.EXPECT()
-	exp.ReplaceOrAddContainerProfile(instId, old, new)
-	exp.DeleteProfile(old)
-	exp.GetContainerProfiles(instId).Return([]string{"default", "juju-default", new}, nil)
 }
 
 func (s *environProfileSuite) expectAssignLXDProfiles(instId, old, new string, oldProfiles, newProfiles []string, updateErr error) {

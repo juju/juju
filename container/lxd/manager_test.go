@@ -536,31 +536,6 @@ func (s *managerSuite) TestMaybeWriteLXDProfile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *managerSuite) TestReplaceOrAddInstanceProfile(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-	s.expectUpdateOp(ctrl, "Updating container", nil)
-
-	old := "old-profile"
-	new := "new-profile"
-	newProfiles := []string{"default", "juju-default", new}
-	put := charm.LXDProfile{
-		Config: map[string]string{
-			"security.nesting": "true",
-		},
-		Description: "test profile",
-	}
-	s.expectUpdateContainerProfiles(old, new, newProfiles, lxdapi.ProfilePut(put))
-
-	s.makeManager(c)
-	proMgr, ok := s.manager.(container.LXDProfileManager)
-	c.Assert(ok, jc.IsTrue)
-
-	obtained, err := proMgr.ReplaceOrAddInstanceProfile("testme", old, new, &put)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, newProfiles)
-}
-
 func (s *managerSuite) TestAssignLXDProfiles(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()

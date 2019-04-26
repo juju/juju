@@ -76,19 +76,6 @@ func (mr *MockLXDProfilerMockRecorder) MaybeWriteLXDProfile(arg0, arg1 interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MaybeWriteLXDProfile", reflect.TypeOf((*MockLXDProfiler)(nil).MaybeWriteLXDProfile), arg0, arg1)
 }
 
-// ReplaceOrAddInstanceProfile mocks base method
-func (m *MockLXDProfiler) ReplaceOrAddInstanceProfile(arg0, arg1, arg2 string, arg3 *charm_v6.LXDProfile) ([]string, error) {
-	ret := m.ctrl.Call(m, "ReplaceOrAddInstanceProfile", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ReplaceOrAddInstanceProfile indicates an expected call of ReplaceOrAddInstanceProfile
-func (mr *MockLXDProfilerMockRecorder) ReplaceOrAddInstanceProfile(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplaceOrAddInstanceProfile", reflect.TypeOf((*MockLXDProfiler)(nil).ReplaceOrAddInstanceProfile), arg0, arg1, arg2, arg3)
-}
-
 // MockInstanceBroker is a mock of InstanceBroker interface
 type MockInstanceBroker struct {
 	ctrl     *gomock.Controller

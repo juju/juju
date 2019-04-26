@@ -1908,11 +1908,6 @@ func (env *environ) LXDProfileNames(containerName string) ([]string, error) {
 	return nil, nil
 }
 
-// ReplaceOrAddInstanceProfile implements environs.LXDProfiler.
-func (env *environ) ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile string, put *charm.LXDProfile) ([]string, error) {
-	return []string{newProfile}, nil
-}
-
 // AssignLXDProfiles implements environs.LXDProfiler.
 func (env *environ) AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
 	return profilesNames, nil

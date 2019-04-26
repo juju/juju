@@ -91,17 +91,6 @@ type LXDProfileManager interface {
 	// MaybeWriteLXDProfile, write given LXDProfile to machine if not already
 	// there.
 	MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error
-
-	// TODO: HML 2-apr-2019
-	// remove when provisioner_task processProfileChanges() is
-	// removed.
-	//
-	// ReplaceOrAddInstanceProfile replaces, adds, a charm profile to
-	// the given instance and returns a slice of LXD profiles applied
-	// to the instance. Replace happens inplace in the current order of
-	// applied profiles. If the LXDProfile ptr is nil, replace becomes
-	// remove.
-	ReplaceOrAddInstanceProfile(instId, oldProfile, newProfile string, put *charm.LXDProfile) ([]string, error)
 }
 
 // LXDProfileNameRetriever defines an interface for dealing with lxd profile
