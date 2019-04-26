@@ -66,13 +66,14 @@ func (w *notifyWatcherBase) Changes() <-chan struct{} {
 // Kill is part of the worker.Worker interface.
 func (w *notifyWatcherBase) Kill() {
 	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	if w.closed {
-		w.mu.Unlock()
 		return
 	}
+
 	w.closed = true
 	close(w.changes)
-	w.mu.Unlock()
 	w.tomb.Kill(nil)
 }
 
@@ -196,13 +197,14 @@ func (w *stringsWatcherBase) Changes() <-chan []string {
 // Kill is part of the worker.Worker interface.
 func (w *stringsWatcherBase) Kill() {
 	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	if w.closed {
-		w.mu.Unlock()
 		return
 	}
+
 	w.closed = true
 	close(w.changes)
-	w.mu.Unlock()
 	w.tomb.Kill(nil)
 }
 

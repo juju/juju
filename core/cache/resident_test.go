@@ -6,10 +6,10 @@ package cache
 import (
 	"reflect"
 	"sync"
-
-	"github.com/juju/errors"
+	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
@@ -19,37 +19,82 @@ import (
 )
 
 type residentSuite struct {
-	testing.BaseSuite
-
-	manager *residentManager
+	BaseSuite
 }
 
 var _ = gc.Suite(&residentSuite{})
 
-func (s *residentSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-
-	s.manager = newResidentManager()
-}
-
 func (s *residentSuite) TestManagerNewIdentifiedResources(c *gc.C) {
-	r1 := s.manager.new()
-	r2 := s.manager.new()
+	r1 := s.Manager.new()
+	r2 := s.Manager.new()
 
 	// Check that the count is what we expect.
-	c.Check(s.manager.residentCount.last(), gc.Equals, uint64(2))
+	c.Check(s.Manager.residentCount.last(), gc.Equals, uint64(2))
 
 	// Check that the residents have IDs,
 	// and that they are registered with the manager.
 	c.Check(r1.id, gc.Equals, uint64(1))
 	c.Check(r2.id, gc.Equals, uint64(2))
-	c.Check(s.manager.residents, gc.DeepEquals, map[uint64]*Resident{1: r1, 2: r2})
+	c.Check(s.Manager.residents, gc.DeepEquals, map[uint64]*Resident{1: r1, 2: r2})
 }
 
 func (s *residentSuite) TestManagerDeregister(c *gc.C) {
-	r1 := s.manager.new()
+	r1 := s.Manager.new()
 	c.Assert(r1.evict(), jc.ErrorIsNil)
-	c.Check(s.manager.residents, gc.HasLen, 0)
+	c.Check(s.Manager.residents, gc.HasLen, 0)
+}
+
+func (s *residentSuite) TestManagerMarkAndSweepSendsRemovalMessagesForStaleResidents(c *gc.C) {
+	r1 := s.Manager.new()
+	r2 := s.Manager.new()
+	r3 := s.Manager.new()
+	r4 := s.Manager.new()
+
+	r1.removalMessage = 1
+	r2.removalMessage = 2
+	r3.removalMessage = 3
+	r4.removalMessage = 4
+
+	// Sets all 4 to be stale, but we freshen up one.
+	c.Assert(s.Manager.isMarked(), jc.IsFalse)
+	s.Manager.mark()
+	c.Assert(s.Manager.isMarked(), jc.IsTrue)
+	r1.setStale(false)
+
+	// Consume all the messages from the manager's removals channel.
+	var removals []interface{}
+	done := make(chan struct{})
+	go func() {
+		timeout := time.After(testing.LongWait)
+		for {
+			select {
+			case msg, ok := <-s.Changes:
+				if !ok {
+					close(done)
+					return
+				}
+				removals = append(removals, msg)
+			case <-timeout:
+				c.Fatal("did not finish receiving removal messages")
+			}
+		}
+	}()
+
+	select {
+	case <-s.Manager.sweep():
+	case <-time.After(testing.LongWait):
+		c.Fatal("timeout waiting for sweep to complete")
+	}
+	close(s.Changes)
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timeout waiting for sweep removal messages")
+	}
+
+	// Stale resident messages were received in descending order.
+	c.Assert(removals, gc.DeepEquals, []interface{}{4, 3, 2})
+	c.Assert(s.Manager.isMarked(), jc.IsFalse)
 }
 
 func (s *residentSuite) TestResidentWorkerConcurrentRegisterCleanup(c *gc.C) {
@@ -64,7 +109,7 @@ func (s *residentSuite) TestResidentWorkerConcurrentRegisterCleanup(c *gc.C) {
 	w2.EXPECT().Kill()
 	w2.EXPECT().Wait().Return(nil)
 
-	r := s.manager.new()
+	r := s.Manager.new()
 
 	// Register some workers concurrently.
 	wg := sync.WaitGroup{}
@@ -80,7 +125,7 @@ func (s *residentSuite) TestResidentWorkerConcurrentRegisterCleanup(c *gc.C) {
 	wg.Wait()
 
 	// Check that the count is what we expect.
-	c.Check(s.manager.resourceCount.last(), gc.Equals, uint64(2))
+	c.Check(s.Manager.resourceCount.last(), gc.Equals, uint64(2))
 
 	// Check that the workers have IDs,
 	// and that they are registered with the resident.
@@ -116,7 +161,7 @@ func (s *residentSuite) TestResidentWorkerCleanupErrors(c *gc.C) {
 	w3.EXPECT().Kill()
 	w3.EXPECT().Wait().Return(nil)
 
-	r := s.manager.new()
+	r := s.Manager.new()
 	_ = r.registerWorker(w1)
 	_ = r.registerWorker(w2)
 	_ = r.registerWorker(w3)
@@ -130,7 +175,7 @@ func (s *residentSuite) TestResidentWorkerConcurrentDeregister(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	r := s.manager.new()
+	r := s.Manager.new()
 
 	// Note that we do not expect deregister to stop the worker.
 	deregister1 := r.registerWorker(mocks.NewMockWorker(ctrl))

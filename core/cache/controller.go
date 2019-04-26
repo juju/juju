@@ -20,7 +20,7 @@ import (
 type ControllerConfig struct {
 	// Changes from the event source come over this channel.
 	// The changes channel must be non-nil.
-	Changes <-chan interface{}
+	Changes chan interface{}
 
 	// Notify is a callback function used primarily for testing, and is
 	// called by the controller main processing loop after processing a change.
@@ -42,8 +42,9 @@ type Controller struct {
 	// from a type-agnostic viewpoint.
 	manager *residentManager
 
-	config ControllerConfig
-	models map[string]*Model
+	changes <-chan interface{}
+	notify  func(interface{})
+	models  map[string]*Model
 
 	tomb    tomb.Tomb
 	mu      sync.Mutex
@@ -55,7 +56,7 @@ type Controller struct {
 // The changes channel is what is used to supply the cache with the changes
 // in order for the cache to be kept up to date.
 func NewController(config ControllerConfig) (*Controller, error) {
-	c, err := newController(config, newResidentManager())
+	c, err := newController(config, newResidentManager(config.Changes))
 	return c, errors.Trace(err)
 }
 
@@ -64,9 +65,11 @@ func newController(config ControllerConfig, manager *residentManager) (*Controll
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	c := &Controller{
 		manager: manager,
-		config:  config,
+		changes: config.Changes,
+		notify:  config.Notify,
 		models:  make(map[string]*Model),
 		hub: pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
 			// TODO: (thumper) add a get child method to loggers.
@@ -74,6 +77,8 @@ func newController(config ControllerConfig, manager *residentManager) (*Controll
 		}),
 		metrics: createControllerGauges(),
 	}
+
+	manager.dying = c.tomb.Dying()
 	c.tomb.Go(c.loop)
 	return c, nil
 }
@@ -83,7 +88,7 @@ func (c *Controller) loop() error {
 		select {
 		case <-c.tomb.Dying():
 			return nil
-		case change := <-c.config.Changes:
+		case change := <-c.changes:
 			var err error
 
 			switch ch := change.(type) {
@@ -108,14 +113,28 @@ func (c *Controller) loop() error {
 			case RemoveUnit:
 				err = c.removeUnit(ch)
 			}
-			if c.config.Notify != nil {
-				c.config.Notify(change)
+			if c.notify != nil {
+				c.notify(change)
 			}
 
 			if err != nil {
 				logger.Errorf("processing cache change: %s", err.Error())
 			}
 		}
+	}
+}
+
+// Mark updates all cached entities to indicate they are stale.
+func (c *Controller) Mark() {
+	c.manager.mark()
+}
+
+// Sweep evicts any stale entities from the cache,
+// cleaning up resources that they are responsible for.
+func (c *Controller) Sweep() {
+	select {
+	case <-c.manager.sweep():
+	case <-c.tomb.Dying():
 	}
 }
 
@@ -171,9 +190,7 @@ func (c *Controller) Model(uuid string) (*Model, error) {
 // updateModel will add or update the model details as
 // described in the ModelChange.
 func (c *Controller) updateModel(ch ModelChange) {
-	c.mu.Lock()
 	c.ensureModel(ch.ModelUUID).setDetails(ch)
-	c.mu.Unlock()
 }
 
 // removeModel removes the model from the cache.
@@ -193,9 +210,7 @@ func (c *Controller) removeModel(ch RemoveModel) error {
 
 // updateApplication adds or updates the application in the specified model.
 func (c *Controller) updateApplication(ch ApplicationChange) {
-	c.mu.Lock()
 	c.ensureModel(ch.ModelUUID).updateApplication(ch, c.manager)
-	c.mu.Unlock()
 }
 
 // removeApplication removes the application for the cached model.
@@ -206,9 +221,7 @@ func (c *Controller) removeApplication(ch RemoveApplication) error {
 }
 
 func (c *Controller) updateCharm(ch CharmChange) {
-	c.mu.Lock()
 	c.ensureModel(ch.ModelUUID).updateCharm(ch, c.manager)
-	c.mu.Unlock()
 }
 
 func (c *Controller) removeCharm(ch RemoveCharm) error {
@@ -217,9 +230,7 @@ func (c *Controller) removeCharm(ch RemoveCharm) error {
 
 // updateUnit adds or updates the unit in the specified model.
 func (c *Controller) updateUnit(ch UnitChange) {
-	c.mu.Lock()
 	c.ensureModel(ch.ModelUUID).updateUnit(ch, c.manager)
-	c.mu.Unlock()
 }
 
 // removeUnit removes the unit from the cached model.
@@ -231,9 +242,7 @@ func (c *Controller) removeUnit(ch RemoveUnit) error {
 
 // updateMachine adds or updates the machine in the specified model.
 func (c *Controller) updateMachine(ch MachineChange) {
-	c.mu.Lock()
 	c.ensureModel(ch.ModelUUID).updateMachine(ch, c.manager)
-	c.mu.Unlock()
 }
 
 // removeMachine removes the machine from the cached model.
@@ -260,11 +269,18 @@ func (c *Controller) removeResident(modelUUID string, removeFrom func(m *Model) 
 // It is likely that we will receive a change update for the model before we
 // get an update for one of its entities, but the cache needs to be resilient
 // enough to make sure that we can handle when this is not the case.
+// No model returned by this method is ever considered to be stale.
 func (c *Controller) ensureModel(modelUUID string) *Model {
+	c.mu.Lock()
+
 	model, found := c.models[modelUUID]
 	if !found {
 		model = newModel(c.metrics, c.hub, c.manager.new())
 		c.models[modelUUID] = model
+	} else {
+		model.setStale(false)
 	}
+
+	c.mu.Unlock()
 	return model
 }

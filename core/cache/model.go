@@ -327,7 +327,16 @@ func modelTopic(modelUUID, suffix string) string {
 func (m *Model) setDetails(details ModelChange) {
 	m.mu.Lock()
 
+	// If this is the first receipt of details, set the removal message.
+	if m.removalMessage == nil {
+		m.removalMessage = RemoveModel{
+			ModelUUID: details.ModelUUID,
+		}
+	}
+
+	m.setStale(false)
 	m.details = details
+
 	hashCache, configHash := newHashCache(details.Config, m.metrics.ModelHashCacheHit, m.metrics.ModelHashCacheMiss)
 	if configHash != m.configHash {
 		m.configHash = configHash

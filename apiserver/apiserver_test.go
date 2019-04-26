@@ -78,8 +78,10 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 	s.mux = apiserverhttp.NewMux()
 
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
-		Logger:               loggo.GetLogger("test"),
-		StatePool:            s.StatePool,
+		Logger: loggo.GetLogger("test"),
+		WatcherFactory: func() modelcache.BackingWatcher {
+			return s.StatePool.SystemState().WatchAllModels(s.StatePool)
+		},
 		PrometheusRegisterer: noopRegisterer{},
 		Cleanup:              func() {},
 	})

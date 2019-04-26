@@ -77,6 +77,16 @@ func (u *Unit) CharmURL() string {
 func (u *Unit) setDetails(details UnitChange) {
 	u.mu.Lock()
 
+	// If this is the first receipt of details, set the removal message.
+	if u.removalMessage == nil {
+		u.removalMessage = RemoveUnit{
+			ModelUUID: details.ModelUUID,
+			Name:      details.Name,
+		}
+	}
+
+	u.setStale(false)
+
 	machineChange := u.details.MachineId != details.MachineId
 	u.details = details
 	if machineChange || u.details.Subordinate {

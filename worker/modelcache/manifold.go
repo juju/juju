@@ -72,21 +72,19 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	statePool, err := stTracker.Use()
+	pool, err := stTracker.Use()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	w, err := config.NewWorker(Config{
 		Logger:               config.Logger,
-		StatePool:            statePool,
+		WatcherFactory:       func() BackingWatcher { return pool.SystemState().WatchAllModels(pool) },
 		PrometheusRegisterer: config.PrometheusRegisterer,
-		Cleanup: func() {
-			stTracker.Done()
-		},
+		Cleanup:              func() { _ = stTracker.Done() },
 	})
 	if err != nil {
-		stTracker.Done()
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 	return w, nil

@@ -21,10 +21,6 @@ type ModelSuite struct {
 
 var _ = gc.Suite(&ModelSuite{})
 
-func (s *ModelSuite) SetUpTest(c *gc.C) {
-	s.EntitySuite.SetUpTest(c)
-}
-
 func (s *ModelSuite) TestReport(c *gc.C) {
 	m := s.NewModel(modelChange)
 	c.Assert(m.Report(), jc.DeepEquals, map[string]interface{}{
@@ -279,7 +275,7 @@ func (s *ControllerSuite) TestWatchMachineGatherMachines(c *gc.C) {
 
 func (s *ControllerSuite) newWithMachine(c *gc.C) (*cache.Controller, <-chan interface{}) {
 	events := s.captureEvents(c)
-	controller, err := cache.NewController(s.config)
+	controller, err := s.NewController()
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, controller) })
 	s.processChange(c, modelChange, events)

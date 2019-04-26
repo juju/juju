@@ -76,6 +76,16 @@ type appCharmUrlChange struct {
 func (a *Application) setDetails(details ApplicationChange) {
 	a.mu.Lock()
 
+	// If this is the first receipt of details, set the removal message.
+	if a.removalMessage == nil {
+		a.removalMessage = RemoveApplication{
+			ModelUUID: details.ModelUUID,
+			Name:      details.Name,
+		}
+	}
+
+	a.setStale(false)
+
 	if a.details.CharmURL != details.CharmURL {
 		a.hub.Publish(
 			a.modelTopic(applicationCharmURLChange),

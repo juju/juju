@@ -21,16 +21,29 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 )
 
+// BackingWatcher describes watcher methods that supply deltas from state to
+// this worker. In-theatre it is satisfied by a state.Multiwatcher.
+type BackingWatcher interface {
+	Next() ([]multiwatcher.Delta, error)
+	Stop() error
+}
+
 // Config describes the necessary fields for NewWorker.
 type Config struct {
 	Logger               Logger
-	StatePool            *state.StatePool
 	PrometheusRegisterer prometheus.Registerer
 	Cleanup              func()
+
 	// Notify is used primarily for testing, and is passed through
 	// to the cache.Controller. It is called every time the controller
 	// processes an event.
 	Notify func(interface{})
+
+	// WatcherFactory supplies the watcher that supplies deltas from state.
+	// We use a factory because we do not allow the worker loop to be crashed
+	// by a watcher that stops in an error state.
+	// Watcher acquisition my occur multiple times during a worker life-cycle.
+	WatcherFactory func() BackingWatcher
 }
 
 // Validate ensures all the necessary values are specified
@@ -38,8 +51,8 @@ func (c *Config) Validate() error {
 	if c.Logger == nil {
 		return errors.NotValidf("missing logger")
 	}
-	if c.StatePool == nil {
-		return errors.NotValidf("missing state pool")
+	if c.WatcherFactory == nil {
+		return errors.NotValidf("missing watcher factory")
 	}
 	if c.PrometheusRegisterer == nil {
 		return errors.NotValidf("missing prometheus registerer")
@@ -55,7 +68,7 @@ type cacheWorker struct {
 	catacomb   catacomb.Catacomb
 	controller *cache.Controller
 	changes    chan interface{}
-	watcher    *state.Multiwatcher
+	watcher    BackingWatcher
 	mu         sync.Mutex
 }
 
@@ -95,7 +108,6 @@ func (c *cacheWorker) Report() map[string]interface{} {
 
 func (c *cacheWorker) loop() error {
 	defer c.config.Cleanup()
-	pool := c.config.StatePool
 
 	allWatcherStarts := prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: "juju_worker_modelcache",
@@ -110,18 +122,12 @@ func (c *cacheWorker) loop() error {
 	defer c.config.PrometheusRegisterer.Unregister(collector)
 
 	watcherChanges := make(chan []multiwatcher.Delta)
-	// This worker needs to be robust with respect to the multiwatcher
-	// errors. If we get an unexpected error we should get a new allWatcher.
+	// This worker needs to be robust with respect to the multiwatcher errors.
+	// If we get an unexpected error we should get a new allWatcher.
 	// We don't want a weird error in the multiwatcher taking down the apiserver,
 	// which is what would happen if this worker errors out.
-	// We do need to consider cache invalidation for multiwatcher entities
-	// that may be in our cache but when we restart the watcher, they aren't there.
-	// Cache invalidation is a hard problem, but here at least we should perhaps
-	// be able to do some form of mark and sweep. When we create a new watcher
-	// we should mark entities in the controller, and when we are done with the
-	// first call to Next(), which returns the state of the world, we can issue
-	// a sweep to remove anything that wasn't updated since the Mark.
-	// TODO: This is left for upcoming work.
+	// The cached controller takes care of invalidation
+	// via its own mark/sweep logic.
 	var wg sync.WaitGroup
 	wg.Add(1)
 	defer func() {
@@ -134,6 +140,7 @@ func (c *cacheWorker) loop() error {
 		c.mu.Unlock()
 		wg.Wait()
 	}()
+
 	go func() {
 		// Ensure we don't leave the main loop until the goroutine is done.
 		defer wg.Done()
@@ -146,19 +153,23 @@ func (c *cacheWorker) loop() error {
 			default:
 				// Continue through.
 			}
+
+			// Each time the watcher is restarted,
+			// mark the cache residents as stale.
+			c.controller.Mark()
+
 			allWatcherStarts.Inc()
-			watcher := pool.SystemState().WatchAllModels(pool)
-			c.watcher = watcher
+			c.watcher = c.config.WatcherFactory()
 			c.mu.Unlock()
 
-			err := c.processWatcher(watcher, watcherChanges)
+			err := c.processWatcher(watcherChanges)
 			if err == nil {
 				// We are done, so exit
-				_ = watcher.Stop()
+				_ = c.watcher.Stop()
 				return
 			}
 			c.config.Logger.Errorf("watcher error, %v, getting new watcher", err)
-			_ = watcher.Stop()
+			_ = c.watcher.Stop()
 		}
 	}()
 
@@ -181,13 +192,16 @@ func (c *cacheWorker) loop() error {
 					}
 				}
 			}
+
+			// Evict any stale residents.
+			c.controller.Sweep()
 		}
 	}
 }
 
-func (c *cacheWorker) processWatcher(w *state.Multiwatcher, watcherChanges chan<- []multiwatcher.Delta) error {
+func (c *cacheWorker) processWatcher(watcherChanges chan<- []multiwatcher.Delta) error {
 	for {
-		deltas, err := w.Next()
+		deltas, err := c.watcher.Next()
 		if err != nil {
 			if errors.Cause(err) == state.ErrStopped {
 				return nil

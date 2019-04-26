@@ -23,17 +23,21 @@ func TestPackage(t *testing.T) {
 type BaseSuite struct {
 	jujutesting.IsolationSuite
 
+	Changes chan interface{}
+	Config  ControllerConfig
 	Manager *residentManager
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.Manager = newResidentManager()
+	s.Changes = make(chan interface{})
+	s.Config = ControllerConfig{Changes: s.Changes}
+	s.Manager = newResidentManager(s.Changes)
 }
 
-func (s *BaseSuite) NewController(config ControllerConfig) (*Controller, error) {
-	return newController(config, s.Manager)
+func (s *BaseSuite) NewController() (*Controller, error) {
+	return newController(s.Config, s.Manager)
 }
 
 func (s *BaseSuite) NewResident() *Resident {
@@ -43,6 +47,10 @@ func (s *BaseSuite) NewResident() *Resident {
 func (s *BaseSuite) AssertResident(c *gc.C, id uint64, expectPresent bool) {
 	_, present := s.Manager.residents[id]
 	c.Assert(present, gc.Equals, expectPresent)
+}
+
+func (s *BaseSuite) AssertNoResidents(c *gc.C) {
+	c.Assert(s.Manager.residents, gc.HasLen, 0)
 }
 
 // entitySuite is the base suite for testing cached entities
