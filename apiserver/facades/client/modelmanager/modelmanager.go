@@ -985,7 +985,7 @@ func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params
 		Results: make([]params.ErrorResult, len(args.Models)),
 	}
 
-	destroyModel := func(modelUUID string, destroyStorage *bool) error {
+	destroyModel := func(modelUUID string, destroyStorage, force *bool, maxWait *time.Duration) error {
 		st, releaseSt, err := m.state.GetBackend(modelUUID)
 		if err != nil {
 			return errors.Trace(err)
@@ -1006,7 +1006,7 @@ func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params
 			}
 		}
 
-		return errors.Trace(common.DestroyModel(st, destroyStorage))
+		return errors.Trace(common.DestroyModel(st, destroyStorage, force, maxWait))
 	}
 
 	for i, arg := range args.Models {
@@ -1015,7 +1015,7 @@ func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		if err := destroyModel(tag.Id(), arg.DestroyStorage); err != nil {
+		if err := destroyModel(tag.Id(), arg.DestroyStorage, arg.Force, arg.MaxWait); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}

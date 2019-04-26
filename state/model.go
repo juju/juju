@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
@@ -634,11 +635,11 @@ func (m *Model) Owner() names.UserTag {
 
 // Status returns the status of the model.
 func (m *Model) Status() (status.StatusInfo, error) {
-	status, err := getStatus(m.st.db(), m.globalKey(), "model")
+	modelStatus, err := getStatus(m.st.db(), m.globalKey(), "model")
 	if err != nil {
-		return status, err
+		return modelStatus, err
 	}
-	return status, nil
+	return modelStatus, nil
 }
 
 // localID returns the local id value by stripping off the model uuid prefix
@@ -969,6 +970,15 @@ type DestroyModelParams struct {
 	// models), an error satisfying IsHasPersistentStorageError
 	// will be returned.
 	DestroyStorage *bool
+
+	// Force specifies whether model destruction will be forced, i.e.
+	// keep going despite operational errors.
+	Force *bool
+
+	// MaxWait specifies the amount of time that each step in model destroy process
+	// will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration
 }
 
 func (m *Model) uniqueIndexID() string {
@@ -1107,15 +1117,21 @@ func (m *Model) destroyOps(
 	ensureEmpty bool,
 	destroyingController bool,
 ) ([]txn.Op, error) {
+	force := args.Force != nil && *args.Force
 	if m.Life() != Alive {
-		return nil, errModelNotAlive
+		if !force {
+			return nil, errModelNotAlive
+		}
 	}
 
 	// Check if the model is empty. If it is, we can advance the model's
 	// lifecycle state directly to Dead.
 	modelEntityRefs, err := m.getEntityRefs()
 	if err != nil {
-		return nil, errors.Annotate(err, "getting model entity refs")
+		if !force {
+			return nil, errors.Annotatef(err, "getting model %v entity refs", m.UUID())
+		}
+		logger.Warningf("getting model %v entity refs: %v", m.UUID(), err)
 	}
 	isEmpty := true
 	modelUUID := m.UUID()
@@ -1132,9 +1148,7 @@ func (m *Model) destroyOps(
 			// The model is non-empty, and the user has not specified
 			// whether storage should be destroyed or released. Make
 			// sure there are no filesystems or volumes in the model.
-			storageOps, err := checkModelEntityRefsNoPersistentStorage(
-				m.st.db(), modelEntityRefs,
-			)
+			storageOps, err := checkModelEntityRefsNoPersistentStorage(m.st.db(), modelEntityRefs)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1147,9 +1161,7 @@ func (m *Model) destroyOps(
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			storageOps, err := checkModelEntityRefsAllReleasableStorage(
-				sb, modelEntityRefs,
-			)
+			storageOps, err := checkModelEntityRefsAllReleasableStorage(sb, modelEntityRefs)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1165,6 +1177,10 @@ func (m *Model) destroyOps(
 		// Check for any Dying or alive but non-empty models. If there
 		// are any and we have not been instructed to destroy them, we
 		// return an error indicating that there are hosted models.
+		//
+		// The same logic applies even if the destruction is forced since really
+		// we are talking about a controller model here and any forceful destruction of the controller
+		// needs to be dealt through destroy-controller code path.
 
 		modelUUIDs, err := m.st.AllModelUUIDsIncludingDead()
 		if err != nil {
@@ -1182,12 +1198,16 @@ func (m *Model) destroyOps(
 				if errors.IsNotFound(err) {
 					continue
 				}
+				// TODO (anastasiamac 2019-4-24) we should not break out here but
+				// continue with other models.
 				return nil, errors.Trace(err)
 			}
 			defer newSt.Close()
 
 			model, err := newSt.Model()
 			if err != nil {
+				// TODO (anastasiamac 2019-4-24) we should not break out here but
+				// continue with other models.
 				return nil, errors.Trace(err)
 			}
 
@@ -1214,6 +1234,8 @@ func (m *Model) destroyOps(
 				aliveEmpty++
 			default:
 				if !IsModelNotEmptyError(err) {
+					// TODO (anastasiamac 2019-4-24) we should not break out here but
+					// continue with other models.
 					return nil, errors.Trace(err)
 				}
 				aliveNonEmpty++
@@ -1242,8 +1264,10 @@ func (m *Model) destroyOps(
 
 	var ops []txn.Op
 	modelOp := txn.Op{
-		C:      modelsC,
-		Id:     modelUUID,
+		C:  modelsC,
+		Id: modelUUID,
+		// TODO (anastasiamac 2019-4-24) when forcing, we might just consider if the document exists
+		//  instead of checking Life.
 		Assert: isAliveDoc,
 	}
 	if !destroyingController {
@@ -1287,28 +1311,16 @@ func (m *Model) destroyOps(
 		// hosted model in the course of destroying the controller. In
 		// that case we'll get errors if we try to enqueue hosted-model
 		// cleanups, because the cleanups collection is non-global.
-		ops = append(ops,
-			newCleanupOp(cleanupApplicationsForDyingModel, modelUUID),
-		)
+		ops = append(ops, newCleanupOp(cleanupApplicationsForDyingModel, modelUUID, args))
 		if m.Type() == ModelTypeIAAS {
-			ops = append(ops, newCleanupOp(cleanupMachinesForDyingModel, modelUUID))
+			ops = append(ops, newCleanupOp(cleanupMachinesForDyingModel, modelUUID, args))
 		}
 		if args.DestroyStorage != nil {
 			// The user has specified that the storage should be destroyed
 			// or released, which we can do in a cleanup. If the user did
 			// not specify either, then we have already added prereq ops
 			// to assert that there is no storage in the model.
-			ops = append(ops, newCleanupOp(
-				cleanupStorageForDyingModel, modelUUID,
-				// pass through DestroyModelArgs.DestroyStorage to the
-				// cleanup, so the storage can be destroyed/released
-				// according to the parameters.
-				*args.DestroyStorage,
-				// TODO (anastasiamac 2019-04-04) Once we implement
-				// 'destroy-model --force' this will be passed in from the user.
-				// For now, hardcode.
-				false,
-			))
+			ops = append(ops, newCleanupOp(cleanupStorageForDyingModel, modelUUID, args))
 		}
 	}
 	return append(prereqOps, ops...), nil

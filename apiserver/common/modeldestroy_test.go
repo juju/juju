@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -40,7 +42,7 @@ func (s *destroyModelSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *destroyModelSuite) TestDestroyModelSendsMetrics(c *gc.C) {
-	err := common.DestroyModel(s.modelManager, nil)
+	err := common.DestroyModel(s.modelManager, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.metricSender.CheckCalls(c, []jtesting.StubCall{
 		{"SendMetrics", []interface{}{s.modelManager}},
@@ -50,16 +52,29 @@ func (s *destroyModelSuite) TestDestroyModelSendsMetrics(c *gc.C) {
 func (s *destroyModelSuite) TestDestroyModel(c *gc.C) {
 	true_ := true
 	false_ := false
-	s.testDestroyModel(c, nil)
-	s.testDestroyModel(c, &true_)
-	s.testDestroyModel(c, &false_)
+	zero := time.Second * 0
+	s.testDestroyModel(c, nil, nil, nil)
+	s.testDestroyModel(c, nil, &false_, nil)
+	s.testDestroyModel(c, nil, &false_, &zero)
+	s.testDestroyModel(c, nil, &true_, nil)
+	s.testDestroyModel(c, nil, &true_, &zero)
+	s.testDestroyModel(c, &true_, nil, nil)
+	s.testDestroyModel(c, &true_, &false_, nil)
+	s.testDestroyModel(c, &true_, &false_, &zero)
+	s.testDestroyModel(c, &true_, &true_, nil)
+	s.testDestroyModel(c, &true_, &true_, &zero)
+	s.testDestroyModel(c, &false_, nil, nil)
+	s.testDestroyModel(c, &false_, &false_, nil)
+	s.testDestroyModel(c, &false_, &false_, &zero)
+	s.testDestroyModel(c, &false_, &true_, nil)
+	s.testDestroyModel(c, &false_, &true_, &zero)
 }
 
-func (s *destroyModelSuite) testDestroyModel(c *gc.C, destroyStorage *bool) {
+func (s *destroyModelSuite) testDestroyModel(c *gc.C, destroyStorage, force *bool, maxWait *time.Duration) {
 	s.modelManager.ResetCalls()
 	s.modelManager.models[0].ResetCalls()
 
-	err := common.DestroyModel(s.modelManager, destroyStorage)
+	err := common.DestroyModel(s.modelManager, destroyStorage, force, maxWait)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelManager.CheckCalls(c, []jtesting.StubCall{
@@ -72,6 +87,8 @@ func (s *destroyModelSuite) testDestroyModel(c *gc.C, destroyStorage *bool) {
 	s.modelManager.models[0].CheckCalls(c, []jtesting.StubCall{
 		{"Destroy", []interface{}{state.DestroyModelParams{
 			DestroyStorage: destroyStorage,
+			Force:          force,
+			MaxWait:        maxWait,
 		}}},
 	})
 }
@@ -79,7 +96,7 @@ func (s *destroyModelSuite) testDestroyModel(c *gc.C, destroyStorage *bool) {
 func (s *destroyModelSuite) TestDestroyModelBlocked(c *gc.C) {
 	s.modelManager.SetErrors(errors.New("nope"))
 
-	err := common.DestroyModel(s.modelManager, nil)
+	err := common.DestroyModel(s.modelManager, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "nope")
 
 	s.modelManager.CheckCallNames(c, "GetBlockForType")

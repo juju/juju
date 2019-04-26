@@ -4,6 +4,8 @@
 package common
 
 import (
+	"time"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
@@ -87,9 +89,13 @@ func DestroyController(
 func DestroyModel(
 	st ModelManagerBackend,
 	destroyStorage *bool,
+	force *bool,
+	maxWait *time.Duration,
 ) error {
 	return destroyModel(st, state.DestroyModelParams{
 		DestroyStorage: destroyStorage,
+		Force:          force,
+		MaxWait:        maxWait,
 	})
 }
 
@@ -104,7 +110,10 @@ func destroyModel(st ModelManagerBackend, args state.DestroyModelParams) error {
 		return errors.Trace(err)
 	}
 	if err := model.Destroy(args); err != nil {
-		return errors.Trace(err)
+		if args.Force != nil && !*args.Force {
+			return errors.Trace(err)
+		}
+		logger.Warningf("failed destroying model %v: %v", model.UUID(), err)
 	}
 
 	err = sendMetrics(st)

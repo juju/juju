@@ -55,7 +55,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-	controller, err := controller.NewControllerAPIv7(
+	testController, err := controller.NewControllerAPIv7(
 		facadetest.Context{
 			State_:     s.State,
 			StatePool_: s.StatePool,
@@ -63,7 +63,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 			Auth_:      s.authorizer,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	s.controller = controller
+	s.controller = testController
 
 	s.otherModelOwner = names.NewUserTag("jess@dummy")
 	s.otherState = s.Factory.MakeModel(c, &factory.ModelParams{
@@ -141,7 +141,7 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *gc.C) {
-	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil)
+	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.otherModel.Refresh(), jc.ErrorIsNil)
 	c.Assert(s.otherModel.Life(), gc.Equals, state.Dying)
@@ -157,7 +157,7 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *gc.C) {
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBlock(c *gc.C) {
-	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil)
+	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
@@ -171,7 +171,7 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBl
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFail(c *gc.C) {
-	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil)
+	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
@@ -234,7 +234,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c 
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecifiedV3(c *gc.C) {
-	controller, err := controller.NewControllerAPIv3(facadetest.Context{
+	testController, err := controller.NewControllerAPIv3(facadetest.Context{
 		State_:     s.State,
 		StatePool_: s.StatePool,
 		Resources_: s.resources,
@@ -254,7 +254,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified
 		}),
 	})
 
-	err = controller.DestroyController(params.DestroyControllerArgs{
+	err = testController.DestroyController(params.DestroyControllerArgs{
 		DestroyModels: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -265,7 +265,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecifiedV3(c *gc.C) {
-	controller, err := controller.NewControllerAPIv3(facadetest.Context{
+	testController, err := controller.NewControllerAPIv3(facadetest.Context{
 		State_:     s.State,
 		StatePool_: s.StatePool,
 		Resources_: s.resources,
@@ -274,7 +274,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecifiedV3(
 	c.Assert(err, jc.ErrorIsNil)
 
 	destroyStorage := true
-	err = controller.DestroyController(params.DestroyControllerArgs{
+	err = testController.DestroyController(params.DestroyControllerArgs{
 		DestroyModels:  true,
 		DestroyStorage: &destroyStorage,
 	})
