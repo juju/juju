@@ -21,6 +21,8 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 )
 
+// BackingWatcher describes watcher methods that supply deltas from state to
+// this worker. In-theatre it is satisfied by a state.Multiwatcher.
 type BackingWatcher interface {
 	Next() ([]multiwatcher.Delta, error)
 	Stop() error
@@ -37,7 +39,10 @@ type Config struct {
 	// processes an event.
 	Notify func(interface{})
 
-	// WatchFactory supplies the
+	// WatcherFactory supplies the watcher that supplies deltas from state.
+	// We use a factory because we do not allow the worker loop to be crashed
+	// by a watcher that stops in an error state.
+	// Watcher acquisition my occur multiple times during a worker life-cycle.
 	WatcherFactory func() BackingWatcher
 }
 

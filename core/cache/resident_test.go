@@ -56,12 +56,14 @@ func (s *residentSuite) TestManagerMarkAndSweepSendsRemovalMessagesForStaleResid
 	r4.removalMessage = 4
 
 	// Sets all 4 to be stale, but we freshen up one.
-	c.Assert(s.Manager.mark(), jc.IsTrue)
+	c.Assert(s.Manager.isMarked(), jc.IsFalse)
+	s.Manager.mark()
+	c.Assert(s.Manager.isMarked(), jc.IsTrue)
 	r1.setStale(false)
 
 	// Consume all the messages from the manager's removals channel.
 	var removals []interface{}
-	done := make(chan struct{}, 1)
+	done := make(chan struct{})
 	go func() {
 		timeout := time.After(testing.LongWait)
 		for {
@@ -92,6 +94,7 @@ func (s *residentSuite) TestManagerMarkAndSweepSendsRemovalMessagesForStaleResid
 
 	// Stale resident messages were received in descending order.
 	c.Assert(removals, gc.DeepEquals, []interface{}{4, 3, 2})
+	c.Assert(s.Manager.isMarked(), jc.IsFalse)
 }
 
 func (s *residentSuite) TestResidentWorkerConcurrentRegisterCleanup(c *gc.C) {

@@ -223,13 +223,11 @@ func (s *ControllerSuite) TestMarkAndSweep(c *gc.C) {
 	s.processChange(c, unitChange, events)
 	s.processChange(c, modelChange, events)
 
-	c.Assert(controller.Marked(), jc.IsFalse)
 	controller.Mark()
-	c.Assert(controller.Marked(), jc.IsTrue)
 
 	done := make(chan struct{})
 	go func() {
-		// Removals are congruent with FILO.
+		// Removals are congruent with LIFO.
 		// Model is last because models are added if they do not exist,
 		// when we first get a delta for one of their entities.
 		c.Check(s.nextChange(c, events), gc.FitsTypeOf, cache.RemoveUnit{})
@@ -247,7 +245,6 @@ func (s *ControllerSuite) TestMarkAndSweep(c *gc.C) {
 		c.Fatal("timeout waiting for sweep removal messages")
 	}
 
-	c.Assert(controller.Marked(), jc.IsFalse)
 	s.AssertNoResidents(c)
 }
 

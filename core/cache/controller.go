@@ -42,10 +42,6 @@ type Controller struct {
 	// from a type-agnostic viewpoint.
 	manager *residentManager
 
-	// marked indicates whether a cache mark has been run,
-	// but not yet any corresponding sweep.
-	marked bool
-
 	changes <-chan interface{}
 	notify  func(interface{})
 	models  map[string]*Model
@@ -130,25 +126,16 @@ func (c *Controller) loop() error {
 
 // Mark updates all cached entities to indicate they are stale.
 func (c *Controller) Mark() {
-	c.marked = c.manager.mark()
-}
-
-// Marked indicates that there have been entities in the cache marked stale,
-// and a sweep is required.
-func (c *Controller) Marked() bool {
-	return c.marked
+	c.manager.mark()
 }
 
 // Sweep evicts any stale entities from the cache,
 // cleaning up resources that they are responsible for.
 func (c *Controller) Sweep() {
-	if c.marked {
-		select {
-		case <-c.manager.sweep():
-		case <-c.tomb.Dying():
-		}
+	select {
+	case <-c.manager.sweep():
+	case <-c.tomb.Dying():
 	}
-	c.marked = false
 }
 
 // Report returns information that is used in the dependency engine report.

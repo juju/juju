@@ -54,6 +54,10 @@ type residentManager struct {
 	residents map[uint64]*Resident
 	mu        sync.Mutex
 
+	// marked indicates whether a cache mark has been run,
+	// but not yet any corresponding sweep.
+	marked bool
+
 	// removals is the channel on which remove messages are sent.
 	// It will generally be the the cached controller's "changes" channel.
 	removals chan<- interface{}
@@ -96,36 +100,43 @@ func (m *residentManager) new() *Resident {
 }
 
 // mark sets all of the manager's residents to be stale.
-// The boolean return indicates if there were any residents to mark.
-func (m *residentManager) mark() bool {
+// If there were residents to mark, we set "marked" to be true.
+func (m *residentManager) mark() {
 	m.mu.Lock()
 	for _, r := range m.residents {
 		r.setStale(true)
 	}
+	m.marked = len(m.residents) > 0
 	m.mu.Unlock()
-
-	return len(m.residents) > 0
 }
 
 // sweep removes stale cache residents in descending order of ID.
+// Lock protection of the resident map is done in "evictions" and in the
+// the ultimate "evict" invocations.
 func (m *residentManager) sweep() <-chan struct{} {
-	removalIds, removalMessages := m.evictions()
-
 	finished := make(chan struct{})
 
+	// If we are not marked, there is no work to do.
+	if !m.isMarked() {
+		close(finished)
+		return finished
+	}
+
+	removalIds, removalMessages := m.evictions()
+
 	go func() {
-	loop:
+		defer close(finished)
 		for _, id := range removalIds {
 			select {
 			case m.removals <- removalMessages[id]:
 			case <-m.dying:
 				logger.Debugf("aborting cache sweep")
-				break loop
+				return
 			}
 		}
-		close(finished)
 	}()
 
+	m.setMarked(false)
 	return finished
 }
 
@@ -160,6 +171,18 @@ func (m *residentManager) evictions() ([]uint64, map[uint64]interface{}) {
 func (m *residentManager) deregister(id uint64) {
 	m.mu.Lock()
 	delete(m.residents, id)
+	m.mu.Unlock()
+}
+
+func (m *residentManager) isMarked() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.marked
+}
+
+func (m *residentManager) setMarked(marked bool) {
+	m.mu.Lock()
+	m.marked = marked
 	m.mu.Unlock()
 }
 
