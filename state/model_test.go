@@ -271,9 +271,9 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	assertModelMatches(model)
 
 	// Check that the cloud's model count is incremented.
-	cloud, err := s.State.Cloud("dummy")
+	testCloud, err := s.State.Cloud("dummy")
 	c.Assert(err, jc.ErrorIsNil)
-	refCount, err := state.CloudModelRefCount(st, cloud.Name)
+	refCount, err := state.CloudModelRefCount(st, testCloud.Name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(refCount, gc.Equals, 2)
 
@@ -485,15 +485,15 @@ func (s *ModelSuite) TestAllUnits(c *gc.C) {
 	units, err := model.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 
-	var names []string
+	var unitNames []string
 	for _, u := range units {
 		if !u.ShouldBeAssigned() {
 			c.Fail()
 		}
-		names = append(names, u.Name())
+		unitNames = append(unitNames, u.Name())
 	}
-	sort.Strings(names)
-	c.Assert(names, jc.DeepEquals, []string{
+	sort.Strings(unitNames)
+	c.Assert(unitNames, jc.DeepEquals, []string{
 		"mysql/0", "wordpress/0", "wordpress/1",
 	})
 }
@@ -573,6 +573,8 @@ func (s *ModelSuite) TestDestroyControllerModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), gc.Equals, state.Dying)
 }
 
 func (s *ModelSuite) TestDestroyOtherModel(c *gc.C) {
@@ -590,13 +592,28 @@ func (s *ModelSuite) TestDestroyOtherModel(c *gc.C) {
 }
 
 func (s *ModelSuite) TestDestroyControllerNonEmptyModelFails(c *gc.C) {
+	s.assertDestroyControllerNonEmptyModelFails(c, nil)
+}
+
+func (s *ModelSuite) TestDestroyControllerNonEmptyModelWithForceFails(c *gc.C) {
+	force := true
+	s.assertDestroyControllerNonEmptyModelFails(c, &force)
+}
+
+func (s *ModelSuite) assertDestroyControllerNonEmptyModelFails(c *gc.C, force *bool) {
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
 	factory.NewFactory(st2, s.StatePool).MakeApplication(c, nil)
 
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Destroy(state.DestroyModelParams{}), gc.ErrorMatches, "failed to destroy model: hosting 1 other model")
+	c.Assert(model.Destroy(state.DestroyModelParams{Force: force}), gc.ErrorMatches, "failed to destroy model: hosting 1 other model")
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), gc.Equals, state.Alive)
+	model2, err := st2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model2.Refresh(), jc.ErrorIsNil)
+	c.Assert(model2.Life(), gc.Equals, state.Alive)
 }
 
 func (s *ModelSuite) TestDestroyControllerWithEmptyModel(c *gc.C) {
@@ -720,7 +737,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	c.Assert(controllerModel.Refresh(), jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithPersistentStorage(c *gc.C) {
+func (s *ModelSuite) assertDestroyControllerAndHostedModelsWithPersistentStorage(c *gc.C, force *bool) {
 	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
 
@@ -743,8 +760,18 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithPersistentStorage(c
 	c.Assert(err, jc.ErrorIsNil)
 	err = controllerModel.Destroy(state.DestroyModelParams{
 		DestroyHostedModels: true,
+		Force:               force,
 	})
 	c.Assert(err, jc.Satisfies, state.IsHasPersistentStorageError)
+}
+
+func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithPersistentStorage(c *gc.C) {
+	s.assertDestroyControllerAndHostedModelsWithPersistentStorage(c, nil)
+}
+
+func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithPersistentStorageWithForce(c *gc.C) {
+	force := true
+	s.assertDestroyControllerAndHostedModelsWithPersistentStorage(c, &force)
 }
 
 func (s *ModelSuite) TestDestroyControllerEmptyModelRace(c *gc.C) {
@@ -838,7 +865,7 @@ func (s *ModelSuite) TestDestroyModelNonEmpty(c *gc.C) {
 	c.Assert(m.UniqueIndexExists(), jc.IsTrue)
 }
 
-func (s *ModelSuite) TestDestroyModelPersistentStorage(c *gc.C) {
+func (s *ModelSuite) assertDestroyModelPersistentStorage(c *gc.C, force *bool) {
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -853,10 +880,19 @@ func (s *ModelSuite) TestDestroyModelPersistentStorage(c *gc.C) {
 		}),
 	})
 
-	err = m.Destroy(state.DestroyModelParams{})
+	err = m.Destroy(state.DestroyModelParams{Force: force})
 	c.Assert(err, jc.Satisfies, state.IsHasPersistentStorageError)
 	c.Assert(m.Refresh(), jc.ErrorIsNil)
 	c.Assert(m.Life(), gc.Equals, state.Alive)
+}
+
+func (s *ModelSuite) TestDestroyModelPersistentStorage(c *gc.C) {
+	s.assertDestroyModelPersistentStorage(c, nil)
+}
+
+func (s *ModelSuite) TestDestroyModelPersistentStorageWithForce(c *gc.C) {
+	force := true
+	s.assertDestroyModelPersistentStorage(c, &force)
 }
 
 func (s *ModelSuite) TestDestroyModelNonPersistentStorage(c *gc.C) {
@@ -916,7 +952,7 @@ func (s *ModelSuite) testDestroyModelDestroyStorage(c *gc.C, destroyStorage bool
 	c.Assert(volume.Releasing(), gc.Equals, !destroyStorage)
 }
 
-func (s *ModelSuite) TestDestroyModelReleaseStorageUnreleasable(c *gc.C) {
+func (s *ModelSuite) assertDestroyModelReleaseStorageUnreleasable(c *gc.C, force *bool) {
 	s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.Factory.MakeApplication(c, &factory.ApplicationParams{
 			Charm: s.AddTestingCharm(c, "storage-block"),
@@ -927,13 +963,22 @@ func (s *ModelSuite) TestDestroyModelReleaseStorageUnreleasable(c *gc.C) {
 	})
 
 	destroyStorage := false
-	err := s.Model.Destroy(state.DestroyModelParams{DestroyStorage: &destroyStorage})
-	c.Assert(err, gc.ErrorMatches,
-		`failed to destroy model: cannot release volume 0: `+
-			`storage provider "modelscoped-unreleasable" does not support releasing storage`)
+	err := s.Model.Destroy(state.DestroyModelParams{DestroyStorage: &destroyStorage, Force: force})
+	expectedErr := fmt.Sprintf(`failed to destroy model: cannot release volume 0: ` +
+		`storage provider "modelscoped-unreleasable" does not support releasing storage`)
+	c.Assert(err, gc.ErrorMatches, expectedErr)
 	c.Assert(s.Model.Refresh(), jc.ErrorIsNil)
 	c.Assert(s.Model.Life(), gc.Equals, state.Alive)
 	assertDoesNotNeedCleanup(c, s.State)
+}
+
+func (s *ModelSuite) TestDestroyModelReleaseStorageUnreleasable(c *gc.C) {
+	s.assertDestroyModelReleaseStorageUnreleasable(c, nil)
+}
+
+func (s *ModelSuite) TestDestroyModelReleaseStorageUnreleasableWithForce(c *gc.C) {
+	force := true
+	s.assertDestroyModelReleaseStorageUnreleasable(c, &force)
 }
 
 func (s *ModelSuite) TestDestroyModelAddApplicationConcurrently(c *gc.C) {

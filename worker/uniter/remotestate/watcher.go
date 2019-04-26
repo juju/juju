@@ -336,7 +336,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 
 	var eventsObserved int
 	observedEvent := func(flag *bool) {
-		if flag != nil && !*flag {
+		if flag == nil || !*flag {
 			*flag = true
 			eventsObserved++
 		}

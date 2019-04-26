@@ -171,7 +171,7 @@ func (st *State) Cleanup() (err error) {
 		case cleanupRemovedUnit:
 			err = st.cleanupRemovedUnit(doc.Prefix, args)
 		case cleanupApplicationsForDyingModel:
-			err = st.cleanupApplicationsForDyingModel()
+			err = st.cleanupApplicationsForDyingModel(args)
 		case cleanupDyingMachine:
 			err = st.cleanupDyingMachine(doc.Prefix, args)
 		case cleanupForceDestroyedMachine:
@@ -185,7 +185,7 @@ func (st *State) Cleanup() (err error) {
 		case cleanupModelsForDyingController:
 			err = st.cleanupModelsForDyingController(args)
 		case cleanupMachinesForDyingModel: // IAAS models only
-			err = st.cleanupMachinesForDyingModel()
+			err = st.cleanupMachinesForDyingModel(args)
 		case cleanupResourceBlob:
 			err = st.cleanupResourceBlob(doc.Prefix)
 		case cleanupStorageForDyingModel:
@@ -252,7 +252,6 @@ func (st *State) cleanupModelsForDyingController(cleanupArgs []bson.Raw) (err er
 	default:
 		return errors.Errorf("expected 0-1 arguments, got %d", n)
 	}
-
 	modelUUIDs, err := st.AllModelUUIDs()
 	if err != nil {
 		return errors.Trace(err)
@@ -284,7 +283,18 @@ func (st *State) cleanupModelsForDyingController(cleanupArgs []bson.Raw) (err er
 // cleanupMachinesForDyingModel sets all non-manager machines to Dying,
 // if they are not already Dying or Dead. It's expected to be used when
 // a model is destroyed.
-func (st *State) cleanupMachinesForDyingModel() (err error) {
+func (st *State) cleanupMachinesForDyingModel(cleanupArgs []bson.Raw) (err error) {
+	var args DestroyModelParams
+	switch n := len(cleanupArgs); n {
+	case 0:
+	// Old cleanups have no args, so follow the old behaviour.
+	case 1:
+		if err := cleanupArgs[0].Unmarshal(&args); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup 'destroy model' args")
+		}
+	default:
+		return errors.Errorf("expected 0-1 arguments, got %d", n)
+	}
 	// This won't miss machines, because a Dying model cannot have
 	// machines added to it. But we do have to remove the machines themselves
 	// via individual transactions, because they could be in any state at all.
@@ -292,6 +302,7 @@ func (st *State) cleanupMachinesForDyingModel() (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	force := args.Force != nil && *args.Force
 	for _, m := range machines {
 		if m.IsManager() {
 			continue
@@ -301,8 +312,11 @@ func (st *State) cleanupMachinesForDyingModel() (err error) {
 		}
 		manual, err := m.IsManual()
 		if err != nil {
+			// TODO (force 2019-4-24) we should not break out here but continue with other machines.
 			return errors.Trace(err)
 		}
+		// TODO (force 2019-04-26) Should this always be ForceDestroy or only when
+		// 'destroy-model --force' is specified?...
 		destroy := m.ForceDestroy
 		if manual {
 			// Manually added machines should never be force-
@@ -314,7 +328,17 @@ func (st *State) cleanupMachinesForDyingModel() (err error) {
 			destroy = m.Destroy
 		}
 		if err := destroy(); err != nil {
-			return errors.Trace(err)
+			if manual {
+				// Since we cannot delete a manual machine, we cannot proceed with model destruction even if it is forced.
+				// TODO (force 2019-4-24) However, we should not break out here but continue with other machines.
+				return errors.Trace(errors.Annotatef(err, "could not destroy manual machine %v", m.Id()))
+			}
+			err = errors.Annotatef(err, "while destroying machine %v is", m.Id())
+			// TODO (force 2019-4-24) we should not break out here but continue with other machines.
+			if !force {
+				return errors.Trace(err)
+			}
+			logger.Warningf("%v", err)
 		}
 	}
 	return nil
@@ -327,39 +351,28 @@ func (st *State) cleanupStorageForDyingModel(cleanupArgs []bson.Raw) (err error)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	destroyStorage := sb.DestroyStorageInstance
-	destroyStorageFromArg := func() error {
-		var destroyStorageFlag bool
-		if err := cleanupArgs[0].Unmarshal(&destroyStorageFlag); err != nil {
-			return errors.Annotate(err, "unmarshalling cleanup arg 'destroyStorage'")
+	var args DestroyModelParams
+	switch n := len(cleanupArgs); n {
+	case 0:
+		// Old cleanups have no args, so follow the old behaviour.
+	case 1:
+		if err := cleanupArgs[0].Unmarshal(&args); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup 'destroy model' args")
 		}
-		if !destroyStorageFlag {
-			destroyStorage = sb.ReleaseStorageInstance
-		}
-		return nil
+	default:
+		return errors.Errorf("expected 0-1 arguments, got %d", n)
 	}
 
-	var force bool
-	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
-	if n := len(cleanupArgs); n > 0 {
-		if n > 2 {
-			return errors.Errorf("expected 0-2 arguments, got %d", n)
-		}
-		if n >= 1 {
-			if err := destroyStorageFromArg(); err != nil {
-				return err
-			}
-		}
-		if n >= 2 {
-			if err := cleanupArgs[1].Unmarshal(&force); err != nil {
-				return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
-			}
-		}
+	destroyStorage := sb.DestroyStorageInstance
+	if args.DestroyStorage == nil || !*args.DestroyStorage {
+		destroyStorage = sb.ReleaseStorageInstance
 	}
+
 	storage, err := sb.AllStorageInstances()
 	if err != nil {
 		return errors.Trace(err)
 	}
+	force := args.Force != nil && *args.Force
 	for _, s := range storage {
 		const destroyAttached = true
 		err := destroyStorage(s.StorageTag(), destroyAttached, force)
@@ -375,14 +388,25 @@ func (st *State) cleanupStorageForDyingModel(cleanupArgs []bson.Raw) (err error)
 // cleanupApplicationsForDyingModel sets all applications to Dying, if they are
 // not already Dying or Dead. It's expected to be used when a model is
 // destroyed.
-func (st *State) cleanupApplicationsForDyingModel() (err error) {
-	if err := st.removeRemoteApplicationsForDyingModel(); err != nil {
+func (st *State) cleanupApplicationsForDyingModel(cleanupArgs []bson.Raw) (err error) {
+	var args DestroyModelParams
+	switch n := len(cleanupArgs); n {
+	case 0:
+		// Old cleanups have no args, so follow the old behaviour.
+	case 1:
+		if err := cleanupArgs[0].Unmarshal(&args); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup 'destroy model' args")
+		}
+	default:
+		return errors.Errorf("expected 0-1 arguments, got %d", n)
+	}
+	if err := st.removeRemoteApplicationsForDyingModel(args); err != nil {
 		return err
 	}
-	return st.removeApplicationsForDyingModel()
+	return st.removeApplicationsForDyingModel(args)
 }
 
-func (st *State) removeApplicationsForDyingModel() (err error) {
+func (st *State) removeApplicationsForDyingModel(args DestroyModelParams) (err error) {
 	// This won't miss applications, because a Dying model cannot have
 	// applications added to it. But we do have to remove the applications
 	// themselves via individual transactions, because they could be in any
@@ -393,9 +417,11 @@ func (st *State) removeApplicationsForDyingModel() (err error) {
 	sel := bson.D{{"life", Alive}}
 	iter := applications.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading application document")
+	force := args.Force != nil && *args.Force
 	for iter.Next(&application.doc) {
 		op := application.DestroyOperation()
 		op.RemoveOffers = true
+		op.Force = force
 		if err := st.ApplyOperation(op); err != nil {
 			return errors.Trace(err)
 		}
@@ -403,7 +429,7 @@ func (st *State) removeApplicationsForDyingModel() (err error) {
 	return nil
 }
 
-func (st *State) removeRemoteApplicationsForDyingModel() (err error) {
+func (st *State) removeRemoteApplicationsForDyingModel(args DestroyModelParams) (err error) {
 	// This won't miss remote applications, because a Dying model cannot have
 	// applications added to it. But we do have to remove the applications themselves
 	// via individual transactions, because they could be in any state at all.
@@ -413,8 +439,12 @@ func (st *State) removeRemoteApplicationsForDyingModel() (err error) {
 	sel := bson.D{{"life", Alive}}
 	iter := remoteApps.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading remote application document")
+
+	force := args.Force != nil && *args.Force
 	for iter.Next(&remoteApp.doc) {
-		if err := remoteApp.Destroy(); err != nil {
+		// TODO (force 2019-4-24) There may be some operational errors.
+		// Do something with with them.
+		if _, err := remoteApp.DestroyWithForce(force); err != nil {
 			return errors.Trace(err)
 		}
 	}
