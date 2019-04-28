@@ -103,6 +103,7 @@ var marshalTestCases = []struct {
 			Application: "Shazam",
 			Series:      "precise",
 			CharmURL:    "cs:~user/precise/wordpress-42",
+			Life:        multiwatcher.Life("alive"),
 			Ports: []multiwatcher.Port{{
 				Protocol: "http",
 				Number:   80,
@@ -124,7 +125,7 @@ var marshalTestCases = []struct {
 			},
 		},
 	},
-	json: `["unit","change",{"model-uuid":"uuid","name":"Benji","application":"Shazam","series":"precise","charm-url":"cs:~user/precise/wordpress-42","public-address":"testing.invalid","private-address":"10.0.0.1","machine-id":"1","principal":"","ports":[{"protocol":"http","number":80}],"port-ranges":[{"from-port":80,"to-port":80,"protocol":"http"}],"subordinate":false,"workload-status":{"current":"active","message":"all good","version":""},"agent-status":{"current":"idle","message":"","version":""}}]`,
+	json: `["unit","change",{"model-uuid":"uuid","name":"Benji","application":"Shazam","series":"precise","charm-url":"cs:~user/precise/wordpress-42","life":"alive","public-address":"testing.invalid","private-address":"10.0.0.1","machine-id":"1","principal":"","ports":[{"protocol":"http","number":80}],"port-ranges":[{"from-port":80,"to-port":80,"protocol":"http"}],"subordinate":false,"workload-status":{"current":"active","message":"all good","version":""},"agent-status":{"current":"idle","message":"","version":""}}]`,
 }, {
 	about: "RelationInfo Delta",
 	value: multiwatcher.Delta{

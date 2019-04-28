@@ -76,6 +76,7 @@ type UnitChange struct {
 	Application    string
 	Series         string
 	CharmURL       string
+	Life           life.Value
 	PublicAddress  string
 	PrivateAddress string
 	MachineId      string

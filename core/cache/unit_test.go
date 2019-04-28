@@ -6,6 +6,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 )
 
@@ -20,6 +21,7 @@ var unitChange = cache.UnitChange{
 	Name:           "application-name/0",
 	Application:    "application-name",
 	Series:         "bionic",
+	Life:           life.Alive,
 	CharmURL:       "www.charm-url.com-1",
 	PublicAddress:  "",
 	PrivateAddress: "",
