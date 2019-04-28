@@ -651,7 +651,7 @@ func (st *State) cleanupForceDestroyedUnit(unitId string) error {
 				logger.Warningf("couldn't get relation unit for %q in %q: %v", unit, relation, err)
 				continue
 			}
-			err = ru.LeaveScope()
+			_, err = ru.LeaveScopeWithForce(true)
 			if err != nil {
 				logger.Warningf("unit %q couldn't leave scope of relation %q: %v", unitId, relation, err)
 			}
