@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -307,13 +308,14 @@ func (op *DestroyRemoteApplicationOperation) Done(err error) error {
 // DestroyWithForce in addition to doing what Destroy() does,
 // when force is passed in as 'true', forces th destruction of remote application,
 // ignoring errors.
-func (s *RemoteApplication) DestroyWithForce(force bool) (opErrs []error, err error) {
+func (s *RemoteApplication) DestroyWithForce(force bool, maxWait *time.Duration) (opErrs []error, err error) {
 	defer func() {
 		if err == nil {
 			s.doc.Life = Dying
 		}
 	}()
 	op := s.DestroyRemoteApplicationOperation(force)
+	op.MaxWait = maxWait
 	err = s.st.ApplyOperation(op)
 	return op.Errors, err
 }
@@ -322,7 +324,7 @@ func (s *RemoteApplication) DestroyWithForce(force bool) (opErrs []error, err er
 // will be removed at some point; if no relation involving the
 // application has any units in scope, they are all removed immediately.
 func (s *RemoteApplication) Destroy() error {
-	_, err := s.DestroyWithForce(false)
+	_, err := s.DestroyWithForce(false, nil)
 	return err
 }
 

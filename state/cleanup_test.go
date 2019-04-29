@@ -336,7 +336,8 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Force machine destruction, check cleanup queued.
-	err = machine.ForceDestroy()
+	zero := time.Duration(0)
+	err = machine.ForceDestroy(&zero)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 
@@ -371,7 +372,8 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 		m.SetHasVote(true)
 	}
 	s.assertDoesNotNeedCleanup(c)
-	err = machine.ForceDestroy()
+	zero := time.Duration(0)
+	err = machine.ForceDestroy(&zero)
 	c.Assert(err, jc.ErrorIsNil)
 	// The machine should no longer want the vote, should be forced to not have the vote, and forced to not be a
 	// controller member anymore
@@ -431,7 +433,8 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 	c.Assert(sa.Life(), gc.Equals, state.Alive)
 
 	// destroy machine and run cleanups
-	err = machine.ForceDestroy()
+	zero := time.Duration(0)
+	err = machine.ForceDestroy(&zero)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupCount(c, 2)
 
@@ -479,13 +482,14 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Force removal of the top-level machine.
-	err = machine.ForceDestroy()
+	zero := time.Duration(0)
+	err = machine.ForceDestroy(&zero)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 
 	// And do it again, just to check that the second cleanup doc for the same
 	// machine doesn't cause problems down the line.
-	err = machine.ForceDestroy()
+	err = machine.ForceDestroy(&zero)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 
@@ -700,7 +704,7 @@ func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 	c.Assert(si.Life(), gc.Equals, state.Alive)
 
 	// destroy storage instance and run cleanups
-	err = s.storageBackend.DestroyStorageInstance(storageTag, true, false)
+	err = s.storageBackend.DestroyStorageInstance(storageTag, true, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	si, err = s.storageBackend.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -952,7 +956,8 @@ func (s *CleanupSuite) TestDyingUnitWithForceSchedulesForceFallback(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	opErrs, err := unit.DestroyWithForce(true)
+	zero := time.Second * 0
+	opErrs, err := unit.DestroyWithForce(true, &zero)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opErrs, gc.IsNil)
 
@@ -997,7 +1002,8 @@ func (s *CleanupSuite) TestForceDestroyUnitDestroysSubordinates(c *gc.C) {
 	unit := prr.pu0
 	subordinate := prr.ru0
 
-	opErrs, err := unit.DestroyWithForce(true)
+	zero := time.Duration(0)
+	opErrs, err := unit.DestroyWithForce(true, &zero)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opErrs, gc.IsNil)
 
@@ -1056,7 +1062,8 @@ func (s *CleanupSuite) TestForceDestroyUnitLeavesRelations(c *gc.C) {
 	}
 
 	unit := prr.pu0
-	opErrs, err := unit.DestroyWithForce(true)
+	zero := time.Second * 0
+	opErrs, err := unit.DestroyWithForce(true, &zero)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opErrs, gc.IsNil)
 
@@ -1124,7 +1131,8 @@ func (s *CleanupSuite) TestForceDestroyUnitRemovesStorageAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// destroy unit and run cleanups
-	opErrs, err := u.DestroyWithForce(true)
+	zero := time.Second * 0
+	opErrs, err := u.DestroyWithForce(true, &zero)
 	c.Assert(opErrs, gc.IsNil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)

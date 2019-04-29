@@ -412,6 +412,7 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 			op.app.doc.Name,
 			op.DestroyStorage,
 			op.Force,
+			op.MaxWait,
 		)
 		ops = append(ops, cleanupOp)
 		notLastRefs = append(notLastRefs, bson.D{{"unitcount", bson.D{{"$gt", 0}}}}...)

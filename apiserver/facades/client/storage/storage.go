@@ -919,7 +919,7 @@ func (a *StorageAPI) remove(args params.RemoveStorage) (params.ErrorResults, err
 		result[i].Error = common.ServerError(
 			// TODO (anastasiamac 2019-04-04) We can now force storage removal
 			// but for now, while we have not an arg passed in, just hardcode.
-			remove(tag, arg.DestroyAttachments, false),
+			remove(tag, arg.DestroyAttachments, false, nil),
 		)
 	}
 	return params.ErrorResults{result}, nil

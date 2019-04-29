@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -93,7 +95,8 @@ func (s *AnnotationsSuite) TestSetAnnotationsRemove(c *gc.C) {
 func (s *AnnotationsSuite) TestSetAnnotationsDestroyedEntity(c *gc.C) {
 	key := s.createTestAnnotation(c)
 
-	err := s.testEntity.ForceDestroy()
+	zero := time.Duration(0)
+	err := s.testEntity.ForceDestroy(&zero)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.testEntity.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)

@@ -529,7 +529,7 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 		return errors.Trace(err)
 	}
 
-	return common.DestroyMachines(c.api.stateAccessor, args.Force, args.MachineNames...)
+	return common.DestroyMachines(c.api.stateAccessor, args.Force, nil, args.MachineNames...)
 }
 
 // ModelInfo returns information about the current model.

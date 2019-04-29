@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/dustin/go-humanize"
 	"github.com/juju/collections/set"
@@ -366,9 +367,9 @@ func IsStorageAttachedError(err error) bool {
 // is removed immediately. If "destroyAttached" is instead false and there are
 // existing storage attachments, then DestroyStorageInstance will return an error
 // satisfying IsStorageAttachedError.
-func (sb *storageBackend) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool) (err error) {
+func (sb *storageBackend) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait *time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy storage %q", tag.Id())
-	return sb.destroyStorageInstance(tag, destroyAttachments, false, force)
+	return sb.destroyStorageInstance(tag, destroyAttachments, false, force, maxWait)
 }
 
 // ReleaseStorageInstance ensures that the storage instance will be removed at
@@ -379,9 +380,9 @@ func (sb *storageBackend) DestroyStorageInstance(tag names.StorageTag, destroyAt
 // is removed immediately. If "destroyAttached" is instead false and there are
 // existing storage attachments, then ReleaseStorageInstance will return an error
 // satisfying IsStorageAttachedError.
-func (sb *storageBackend) ReleaseStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool) (err error) {
+func (sb *storageBackend) ReleaseStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait *time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot release storage %q", tag.Id())
-	return sb.destroyStorageInstance(tag, destroyAttachments, true, force)
+	return sb.destroyStorageInstance(tag, destroyAttachments, true, force, maxWait)
 }
 
 func (sb *storageBackend) destroyStorageInstance(
@@ -389,6 +390,7 @@ func (sb *storageBackend) destroyStorageInstance(
 	destroyAttachments bool,
 	releaseMachineStorage bool,
 	force bool,
+	maxWait *time.Duration,
 ) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		s, err := sb.storageInstance(tag)
@@ -398,9 +400,7 @@ func (sb *storageBackend) destroyStorageInstance(
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		switch ops, err := sb.destroyStorageInstanceOps(
-			s, destroyAttachments, releaseMachineStorage, force,
-		); err {
+		switch ops, err := sb.destroyStorageInstanceOps(s, destroyAttachments, releaseMachineStorage, force, maxWait); err {
 		case errAlreadyDying:
 			return nil, jujutxn.ErrNoOperations
 		case nil:
@@ -421,6 +421,7 @@ func (sb *storageBackend) destroyStorageInstanceOps(
 	destroyAttachments bool,
 	releaseStorage bool,
 	force bool,
+	maxWait *time.Duration,
 ) ([]txn.Op, error) {
 	if s.doc.Life == Dying {
 		if !force {
@@ -475,10 +476,10 @@ func (sb *storageBackend) destroyStorageInstanceOps(
 	}
 	update := bson.D{{"$set", setFields}}
 	ops := []txn.Op{
-		newCleanupOp(cleanupAttachmentsForDyingStorage, s.doc.Id, force),
+		newCleanupOp(cleanupAttachmentsForDyingStorage, s.doc.Id, force, maxWait),
 	}
 	if owner != nil && sb.modelType == ModelTypeCAAS {
-		ops = append(ops, newCleanupOp(cleanupDyingUnitResources, owner.Id(), force))
+		ops = append(ops, newCleanupOp(cleanupDyingUnitResources, owner.Id(), force, maxWait))
 	}
 	ops = append(ops, validateRemoveOps...)
 	ops = append(ops, txn.Op{

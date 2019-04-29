@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -139,7 +141,8 @@ func (s *MachineSuite) TestForceMarksSeriesLockUnlocksMachineForCleanup(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	AssertMachineLockedForPrepare(c, mach)
 
-	err = mach.ForceDestroy()
+	zero := time.Duration(0)
+	err = mach.ForceDestroy(&zero)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// After a forced destroy an upgrade series lock on a machine should be

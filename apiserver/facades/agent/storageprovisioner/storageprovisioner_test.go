@@ -578,7 +578,7 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 	// Make the "data" storage volume Dead, releasing.
 	err = unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.ReleaseStorageInstance(storage[0].StorageTag(), true, false)
+	err = s.storageBackend.ReleaseStorageInstance(storage[0].StorageTag(), true, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DetachStorage(storage[0].StorageTag(), unit.UnitTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -701,7 +701,7 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemParams(c *gc.C) {
 	// Make the "data" storage filesystem Dead, releasing.
 	err = unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.ReleaseStorageInstance(storage[0].StorageTag(), true, false)
+	err = s.storageBackend.ReleaseStorageInstance(storage[0].StorageTag(), true, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DetachStorage(storage[0].StorageTag(), unit.UnitTag(), false)
 	c.Assert(err, jc.ErrorIsNil)

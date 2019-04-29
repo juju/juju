@@ -538,7 +538,7 @@ func (s *VolumeStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsVolume(c
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err = s.storageBackend.DestroyStorageInstance(storageTag, true, false)
+	err = s.storageBackend.DestroyStorageInstance(storageTag, true, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -572,7 +572,7 @@ func (s *VolumeStateSuite) TestReleaseStorageInstanceVolumeReleasing(c *gc.C) {
 
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false)
+	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -595,7 +595,7 @@ func (s *VolumeStateSuite) TestReleaseStorageInstanceVolumeUnreleasable(c *gc.C)
 
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false)
+	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false, nil)
 	c.Assert(err, gc.ErrorMatches,
 		`cannot release storage "data/0": storage provider "modelscoped-unreleasable" does not support releasing storage`,
 	)
@@ -990,7 +990,7 @@ func removeVolumeStorageInstance(c *gc.C, sb *state.StorageBackend, volumeTag na
 }
 
 func removeStorageInstance(c *gc.C, sb *state.StorageBackend, storageTag names.StorageTag) {
-	err := sb.DestroyStorageInstance(storageTag, true, false)
+	err := sb.DestroyStorageInstance(storageTag, true, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	attachments, err := sb.StorageAttachments(storageTag)
 	c.Assert(err, jc.ErrorIsNil)

@@ -21,10 +21,8 @@ type cleanupKind string
 
 const (
 	// forceTimeout is how far in the future the backstop force
-	// cleanup will be scheduled. This will be hard-coded to 0 for now
-	// until the no-wait flag is wired through, then we can change it
-	// to time.Minute.
-	forceTimeout = time.Duration(0)
+	// cleanup will be scheduled.
+	forceTimeout = time.Minute * 1
 )
 
 var (
@@ -163,9 +161,9 @@ func (st *State) Cleanup() (err error) {
 		case cleanupDyingUnit:
 			err = st.cleanupDyingUnit(doc.Prefix, args)
 		case cleanupForceDestroyedUnit:
-			err = st.cleanupForceDestroyedUnit(doc.Prefix)
+			err = st.cleanupForceDestroyedUnit(doc.Prefix, args)
 		case cleanupForceRemoveUnit:
-			err = st.cleanupForceRemoveUnit(doc.Prefix)
+			err = st.cleanupForceRemoveUnit(doc.Prefix, args)
 		case cleanupDyingUnitResources:
 			err = st.cleanupDyingUnitResources(doc.Prefix, args)
 		case cleanupRemovedUnit:
@@ -175,7 +173,7 @@ func (st *State) Cleanup() (err error) {
 		case cleanupDyingMachine:
 			err = st.cleanupDyingMachine(doc.Prefix, args)
 		case cleanupForceDestroyedMachine:
-			err = st.cleanupForceDestroyedMachine(doc.Prefix)
+			err = st.cleanupForceDestroyedMachine(doc.Prefix, args)
 		case cleanupAttachmentsForDyingStorage:
 			err = st.cleanupAttachmentsForDyingStorage(doc.Prefix, args)
 		case cleanupAttachmentsForDyingVolume:
@@ -315,9 +313,6 @@ func (st *State) cleanupMachinesForDyingModel(cleanupArgs []bson.Raw) (err error
 			// TODO (force 2019-4-24) we should not break out here but continue with other machines.
 			return errors.Trace(err)
 		}
-		// TODO (force 2019-04-26) Should this always be ForceDestroy or only when
-		// 'destroy-model --force' is specified?...
-		destroy := m.ForceDestroy
 		if manual {
 			// Manually added machines should never be force-
 			// destroyed automatically. That should be a user-
@@ -325,14 +320,16 @@ func (st *State) cleanupMachinesForDyingModel(cleanupArgs []bson.Raw) (err error
 			// and resources on the machine. If something is
 			// stuck, then the user can still force-destroy
 			// the manual machines.
-			destroy = m.Destroy
-		}
-		if err := destroy(); err != nil {
-			if manual {
+			if err := m.Destroy(); err != nil {
 				// Since we cannot delete a manual machine, we cannot proceed with model destruction even if it is forced.
 				// TODO (force 2019-4-24) However, we should not break out here but continue with other machines.
 				return errors.Trace(errors.Annotatef(err, "could not destroy manual machine %v", m.Id()))
 			}
+			return nil
+		}
+		// TODO (force 2019-04-26) Should this always be ForceDestroy or only when
+		// 'destroy-model --force' is specified?...
+		if err := m.ForceDestroy(args.MaxWait); err != nil {
 			err = errors.Annotatef(err, "while destroying machine %v is", m.Id())
 			// TODO (force 2019-4-24) we should not break out here but continue with other machines.
 			if !force {
@@ -375,7 +372,7 @@ func (st *State) cleanupStorageForDyingModel(cleanupArgs []bson.Raw) (err error)
 	force := args.Force != nil && *args.Force
 	for _, s := range storage {
 		const destroyAttached = true
-		err := destroyStorage(s.StorageTag(), destroyAttached, force)
+		err := destroyStorage(s.StorageTag(), destroyAttached, force, args.MaxWait)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
@@ -444,7 +441,7 @@ func (st *State) removeRemoteApplicationsForDyingModel(args DestroyModelParams) 
 	for iter.Next(&remoteApp.doc) {
 		// TODO (force 2019-4-24) There may be some operational errors.
 		// Do something with with them.
-		if _, err := remoteApp.DestroyWithForce(force); err != nil {
+		if _, err := remoteApp.DestroyWithForce(force, args.MaxWait); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -457,10 +454,11 @@ func (st *State) removeRemoteApplicationsForDyingModel(args DestroyModelParams) 
 func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanupArgs []bson.Raw) (err error) {
 	var destroyStorage bool
 	var force bool
+	var maxWait *time.Duration
 	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
 	if n := len(cleanupArgs); n > 0 {
-		if n > 2 {
-			return errors.Errorf("expected 0-2 arguments, got %d", n)
+		if n > 3 {
+			return errors.Errorf("expected 0-3 arguments, got %d", n)
 		}
 		if n >= 1 {
 			if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
@@ -470,6 +468,11 @@ func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanup
 		if n >= 2 {
 			if err := cleanupArgs[1].Unmarshal(&force); err != nil {
 				return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+			}
+		}
+		if n >= 3 {
+			if err := cleanupArgs[2].Unmarshal(&maxWait); err != nil {
+				return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
 			}
 		}
 	}
@@ -488,6 +491,7 @@ func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanup
 		op := unit.DestroyOperation()
 		op.DestroyStorage = destroyStorage
 		op.Force = force
+		op.MaxWait = maxWait
 		if err := st.ApplyOperation(op); err != nil {
 			return errors.Trace(err)
 		}
@@ -533,10 +537,11 @@ func (st *State) cleanupCharm(charmURL string) error {
 func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 	var destroyStorage bool
 	var force bool
+	var maxWait *time.Duration
 	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
 	if n := len(cleanupArgs); n > 0 {
-		if n > 2 {
-			return errors.Errorf("expected 0-2 arguments, got %d", n)
+		if n > 3 {
+			return errors.Errorf("expected 0-3 arguments, got %d", n)
 		}
 		if n >= 1 {
 			if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
@@ -546,6 +551,11 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 		if n >= 2 {
 			if err := cleanupArgs[1].Unmarshal(&force); err != nil {
 				return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+			}
+		}
+		if n >= 3 {
+			if err := cleanupArgs[2].Unmarshal(&maxWait); err != nil {
+				return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
 			}
 		}
 	}
@@ -590,13 +600,13 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 	// the unit in the case that the unit and machine agents don't for
 	// some reason.
 	if force {
-		st.scheduleForceCleanup(cleanupForceDestroyedUnit, name)
+		st.scheduleForceCleanup(cleanupForceDestroyedUnit, name, maxWait)
 	}
 
 	if destroyStorage {
 		// Detach and mark storage instances as dying, allowing the
 		// unit to terminate.
-		return st.cleanupUnitStorageInstances(unit.UnitTag(), force)
+		return st.cleanupUnitStorageInstances(unit.UnitTag(), force, maxWait)
 	} else {
 		// Mark storage attachments as dying, so that they are detached
 		// and removed from state, allowing the unit to terminate.
@@ -604,9 +614,13 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 	}
 }
 
-func (st *State) scheduleForceCleanup(kind cleanupKind, name string) {
-	deadline := st.stateClock.Now().Add(forceTimeout)
-	op := newCleanupAtOp(deadline, kind, name)
+func (st *State) scheduleForceCleanup(kind cleanupKind, name string, maxWait *time.Duration) {
+	wait := forceTimeout
+	if maxWait != nil {
+		wait = *maxWait
+	}
+	deadline := st.stateClock.Now().Add(wait)
+	op := newCleanupAtOp(deadline, kind, name, maxWait)
 	err := st.db().Run(func(int) ([]txn.Op, error) {
 		return []txn.Op{op}, nil
 	})
@@ -615,7 +629,20 @@ func (st *State) scheduleForceCleanup(kind cleanupKind, name string) {
 	}
 }
 
-func (st *State) cleanupForceDestroyedUnit(unitId string) error {
+func (st *State) cleanupForceDestroyedUnit(unitId string, cleanupArgs []bson.Raw) error {
+	var maxWait *time.Duration
+	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
+	if n := len(cleanupArgs); n > 0 {
+		if n > 1 {
+			return errors.Errorf("expected 0-1 arguments, got %d", n)
+		}
+		if n >= 1 {
+			if err := cleanupArgs[0].Unmarshal(&maxWait); err != nil {
+				return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
+			}
+		}
+	}
+
 	unit, err := st.Unit(unitId)
 	if errors.IsNotFound(err) {
 		logger.Debugf("no need to force unit to dead %q", unitId)
@@ -636,7 +663,7 @@ func (st *State) cleanupForceDestroyedUnit(unitId string) error {
 		} else if err != nil {
 			logger.Warningf("couldn't get subordinate %q to force destroy: %v", subName, err)
 		}
-		opErrs, err := subUnit.DestroyWithForce(true)
+		opErrs, err := subUnit.DestroyWithForce(true, maxWait)
 		if len(opErrs) != 0 || err != nil {
 			logger.Warningf("errors while destroying subordinate %q: %v, %v", subName, err, opErrs)
 		}
@@ -651,7 +678,7 @@ func (st *State) cleanupForceDestroyedUnit(unitId string) error {
 				logger.Warningf("couldn't get relation unit for %q in %q: %v", unit, relation, err)
 				continue
 			}
-			_, err = ru.LeaveScopeWithForce(true)
+			_, err = ru.LeaveScopeWithForce(true, maxWait)
 			if err != nil {
 				logger.Warningf("unit %q couldn't leave scope of relation %q: %v", unitId, relation, err)
 			}
@@ -679,7 +706,7 @@ func (st *State) cleanupForceDestroyedUnit(unitId string) error {
 
 	// Set up another cleanup to remove the unit in a minute if the
 	// deployer doesn't do it.
-	st.scheduleForceCleanup(cleanupForceRemoveUnit, unitId)
+	st.scheduleForceCleanup(cleanupForceRemoveUnit, unitId, maxWait)
 	return nil
 }
 
@@ -706,7 +733,19 @@ func (st *State) forceRemoveUnitStorageAttachments(unit *Unit) error {
 	return nil
 }
 
-func (st *State) cleanupForceRemoveUnit(unitId string) error {
+func (st *State) cleanupForceRemoveUnit(unitId string, cleanupArgs []bson.Raw) error {
+	var maxWait *time.Duration
+	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
+	if n := len(cleanupArgs); n > 0 {
+		if n > 1 {
+			return errors.Errorf("expected 0-1 arguments, got %d", n)
+		}
+		if n >= 1 {
+			if err := cleanupArgs[0].Unmarshal(&maxWait); err != nil {
+				return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
+			}
+		}
+	}
 	unit, err := st.Unit(unitId)
 	if errors.IsNotFound(err) {
 		logger.Debugf("no need to force remove unit %q", unitId)
@@ -714,7 +753,7 @@ func (st *State) cleanupForceRemoveUnit(unitId string) error {
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	opErrs, err := unit.RemoveWithForce(true)
+	opErrs, err := unit.RemoveWithForce(true, maxWait)
 	if len(opErrs) != 0 {
 		logger.Warningf("errors encountered force-removing unit %q: %v", unitId, opErrs)
 	}
@@ -723,15 +762,22 @@ func (st *State) cleanupForceRemoveUnit(unitId string) error {
 
 func (st *State) cleanupDyingUnitResources(unitId string, cleanupArgs []bson.Raw) error {
 	var force bool
-	switch n := len(cleanupArgs); n {
-	case 0:
-		// Old cleanups have no args, so follow the old behaviour.
-	case 1:
-		if err := cleanupArgs[0].Unmarshal(&force); err != nil {
-			return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+	var maxWait *time.Duration
+	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
+	if n := len(cleanupArgs); n > 0 {
+		if n > 2 {
+			return errors.Errorf("expected 0-2 arguments, got %d", n)
 		}
-	default:
-		return errors.Errorf("expected 0-1 arguments, got %d", n)
+		if n >= 1 {
+			if err := cleanupArgs[0].Unmarshal(&force); err != nil {
+				return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+			}
+		}
+		if n >= 2 {
+			if err := cleanupArgs[1].Unmarshal(&maxWait); err != nil {
+				return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
+			}
+		}
 	}
 	unitTag := names.NewUnitTag(unitId)
 	sb, err := NewStorageBackend(st)
@@ -794,7 +840,7 @@ func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove boo
 	return nil
 }
 
-func (st *State) cleanupUnitStorageInstances(unitTag names.UnitTag, force bool) error {
+func (st *State) cleanupUnitStorageInstances(unitTag names.UnitTag, force bool, maxWait *time.Duration) error {
 	sb, err := NewStorageBackend(st)
 	if err != nil {
 		return err
@@ -805,7 +851,7 @@ func (st *State) cleanupUnitStorageInstances(unitTag names.UnitTag, force bool) 
 	}
 	for _, storageAttachment := range storageAttachments {
 		storageTag := storageAttachment.StorageInstance()
-		err := sb.DestroyStorageInstance(storageTag, true, force)
+		err := sb.DestroyStorageInstance(storageTag, true, force, maxWait)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
@@ -893,7 +939,19 @@ func (st *State) cleanupDyingMachine(machineId string, cleanupArgs []bson.Raw) e
 // cleanupForceDestroyedMachine systematically destroys and removes all entities
 // that depend upon the supplied machine, and removes the machine from state. It's
 // expected to be used in response to destroy-machine --force.
-func (st *State) cleanupForceDestroyedMachine(machineId string) error {
+func (st *State) cleanupForceDestroyedMachine(machineId string, cleanupArgs []bson.Raw) error {
+	var maxWait *time.Duration
+	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
+	if n := len(cleanupArgs); n > 0 {
+		if n > 1 {
+			return errors.Errorf("expected 0-1 arguments, got %d", n)
+		}
+		if n >= 1 {
+			if err := cleanupArgs[0].Unmarshal(&maxWait); err != nil {
+				return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
+			}
+		}
+	}
 	machine, err := st.Machine(machineId)
 	if errors.IsNotFound(err) {
 		return nil
@@ -912,11 +970,11 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 	// But machine destruction is unsophisticated, and doesn't allow for
 	// destruction while dependencies exist; so we just have to deal with that
 	// possibility below.
-	if err := st.cleanupContainers(machine); err != nil {
+	if err := st.cleanupContainers(machine, cleanupArgs); err != nil {
 		return errors.Trace(err)
 	}
 	for _, unitName := range machine.doc.Principals {
-		opErrs, err := st.obliterateUnit(unitName, true)
+		opErrs, err := st.obliterateUnit(unitName, true, maxWait)
 		if len(opErrs) != 0 {
 			logger.Warningf("while obliterating unit %v: %v", unitName, opErrs)
 		}
@@ -988,7 +1046,19 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 
 // cleanupContainers recursively calls cleanupForceDestroyedMachine on the supplied
 // machine's containers, and removes them from state entirely.
-func (st *State) cleanupContainers(machine *Machine) error {
+func (st *State) cleanupContainers(machine *Machine, cleanupArgs []bson.Raw) error {
+	var maxWait *time.Duration
+	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
+	if n := len(cleanupArgs); n > 0 {
+		if n > 1 {
+			return errors.Errorf("expected 0-1 arguments, got %d", n)
+		}
+		if n >= 1 {
+			if err := cleanupArgs[0].Unmarshal(&maxWait); err != nil {
+				return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
+			}
+		}
+	}
 	containerIds, err := machine.Containers()
 	if errors.IsNotFound(err) {
 		return nil
@@ -996,7 +1066,7 @@ func (st *State) cleanupContainers(machine *Machine) error {
 		return err
 	}
 	for _, containerId := range containerIds {
-		if err := st.cleanupForceDestroyedMachine(containerId); err != nil {
+		if err := st.cleanupForceDestroyedMachine(containerId, cleanupArgs); err != nil {
 			return err
 		}
 		container, err := st.Machine(containerId)
@@ -1189,7 +1259,7 @@ func cleanupDyingEntityStorage(sb *storageBackend, hostTag names.Tag, manual boo
 // sane to obliterate any unit in isolation; its only reasonable use is in
 // the context of machine obliteration, in which we can be sure that unclean
 // shutdown of units is not going to leave a machine in a difficult state.
-func (st *State) obliterateUnit(unitName string, force bool) ([]error, error) {
+func (st *State) obliterateUnit(unitName string, force bool, maxWait *time.Duration) ([]error, error) {
 	var opErrs []error
 	unit, err := st.Unit(unitName)
 	if errors.IsNotFound(err) {
@@ -1200,7 +1270,7 @@ func (st *State) obliterateUnit(unitName string, force bool) ([]error, error) {
 	// Unlike the machine, we *can* always destroy the unit, and (at least)
 	// prevent further dependencies being added. If we're really lucky, the
 	// unit will be removed immediately.
-	errs, err := unit.DestroyWithForce(force)
+	errs, err := unit.DestroyWithForce(force, maxWait)
 	opErrs = append(opErrs, errs...)
 	if err != nil {
 		if !force {
@@ -1225,7 +1295,7 @@ func (st *State) obliterateUnit(unitName string, force bool) ([]error, error) {
 		opErrs = append(opErrs, err)
 	}
 	for _, subName := range unit.SubordinateNames() {
-		errs, err := st.obliterateUnit(subName, force)
+		errs, err := st.obliterateUnit(subName, force, maxWait)
 		opErrs = append(opErrs, errs...)
 		if err != nil {
 			if !force {
@@ -1240,7 +1310,7 @@ func (st *State) obliterateUnit(unitName string, force bool) ([]error, error) {
 		}
 		opErrs = append(opErrs, err)
 	}
-	errs, err = unit.RemoveWithForce(force)
+	errs, err = unit.RemoveWithForce(force, maxWait)
 	opErrs = append(opErrs, errs...)
 	return opErrs, err
 }
@@ -1250,15 +1320,22 @@ func (st *State) obliterateUnit(unitName string, force bool) ([]error, error) {
 // or Dead. It's expected to be used when a storage instance is destroyed.
 func (st *State) cleanupAttachmentsForDyingStorage(storageId string, cleanupArgs []bson.Raw) (err error) {
 	var force bool
-	switch n := len(cleanupArgs); n {
-	case 0:
-		// Old cleanups have no args, so follow the old behaviour.
-	case 1:
-		if err := cleanupArgs[0].Unmarshal(&force); err != nil {
-			return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+	var maxWait *time.Duration
+	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
+	if n := len(cleanupArgs); n > 0 {
+		if n > 2 {
+			return errors.Errorf("expected 0-2 arguments, got %d", n)
 		}
-	default:
-		return errors.Errorf("expected 0-1 arguments, got %d", n)
+		if n >= 1 {
+			if err := cleanupArgs[0].Unmarshal(&force); err != nil {
+				return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+			}
+		}
+		if n >= 2 {
+			if err := cleanupArgs[1].Unmarshal(&maxWait); err != nil {
+				return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
+			}
+		}
 	}
 
 	sb, err := NewStorageBackend(st)

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
+	"time"
 
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	"github.com/juju/juju/core/status"
@@ -65,7 +66,7 @@ type mockStorageAccessor struct {
 	addStorageForUnit                   func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error)
 	blockDevices                        func(names.MachineTag) ([]state.BlockDeviceInfo, error)
 	destroyStorageInstance              func(names.StorageTag, bool, bool) error
-	releaseStorageInstance              func(names.StorageTag, bool, bool) error
+	releaseStorageInstance              func(names.StorageTag, bool, bool, *time.Duration) error
 	attachStorage                       func(names.StorageTag, names.UnitTag) error
 	detachStorage                       func(names.StorageTag, names.UnitTag, bool) error
 	addExistingFilesystem               func(state.FilesystemInfo, *state.VolumeInfo, string) (names.StorageTag, error)
@@ -171,12 +172,12 @@ func (st *mockStorageAccessor) DetachStorage(storage names.StorageTag, unit name
 	return st.detachStorage(storage, unit, force)
 }
 
-func (st *mockStorageAccessor) DestroyStorageInstance(tag names.StorageTag, destroyAttached bool, force bool) error {
+func (st *mockStorageAccessor) DestroyStorageInstance(tag names.StorageTag, destroyAttached bool, force bool, maxWait *time.Duration) error {
 	return st.destroyStorageInstance(tag, destroyAttached, force)
 }
 
-func (st *mockStorageAccessor) ReleaseStorageInstance(tag names.StorageTag, destroyAttached bool, force bool) error {
-	return st.releaseStorageInstance(tag, destroyAttached, force)
+func (st *mockStorageAccessor) ReleaseStorageInstance(tag names.StorageTag, destroyAttached bool, force bool, maxWait *time.Duration) error {
+	return st.releaseStorageInstance(tag, destroyAttached, force, maxWait)
 }
 
 func (st *mockStorageAccessor) UnitStorageAttachments(tag names.UnitTag) ([]state.StorageAttachment, error) {

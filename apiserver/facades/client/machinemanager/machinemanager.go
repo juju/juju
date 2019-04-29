@@ -377,12 +377,14 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 			logger.Warningf("could not deal with units' storage on machine %v: %v", machineTag.Id(), all.Combine())
 		}
 
-		destroy := machine.Destroy
 		if force {
-			destroy = machine.ForceDestroy
-		}
-		if err := destroy(); err != nil {
-			return fail(err)
+			if err := machine.ForceDestroy(maxWait); err != nil {
+				return fail(err)
+			}
+		} else {
+			if err := machine.Destroy(); err != nil {
+				return fail(err)
+			}
 		}
 		result.Info = &info
 		return result

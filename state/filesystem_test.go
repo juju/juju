@@ -743,7 +743,7 @@ func (s *FilesystemIAASModelSuite) TestRemoveStorageInstanceDestroysAndUnassigns
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.DestroyStorageInstance(storageTag, true, false)
+	err = s.storageBackend.DestroyStorageInstance(storageTag, true, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DetachStorage(storageTag, unitTag, false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -782,7 +782,7 @@ func (s *FilesystemIAASModelSuite) TestReleaseStorageInstanceFilesystemReleasing
 
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false)
+	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -803,7 +803,7 @@ func (s *FilesystemIAASModelSuite) TestReleaseStorageInstanceFilesystemUnreleasa
 
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false)
+	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false, nil)
 	c.Assert(err, gc.ErrorMatches,
 		`cannot release storage "data/0": storage provider "modelscoped-unreleasable" does not support releasing storage`)
 	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
