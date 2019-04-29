@@ -314,13 +314,26 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 		modelConfig,
 	)
 
-	return &params.KubernetesProvisioningInfo{
+	ch, _, err := app.Charm()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	info := &params.KubernetesProvisioningInfo{
 		PodSpec:     podSpec,
 		Filesystems: filesystemParams,
 		Devices:     devices,
 		Constraints: mergedCons,
 		Tags:        resourceTags,
-	}, nil
+	}
+	deployInfo := ch.Meta().Deployment
+	if deployInfo != nil {
+		info.DeploymentInfo = &params.KubernetesDeploymentInfo{
+			DeploymentType: string(deployInfo.DeploymentType),
+			ServiceType:    string(deployInfo.ServiceType),
+		}
+	}
+	return info, nil
 }
 
 func filesystemParams(

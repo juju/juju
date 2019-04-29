@@ -143,13 +143,20 @@ func (c *Client) WatchPodSpec(application string) (watcher.NotifyWatcher, error)
 	return w, nil
 }
 
+// DeploymentInfo holds deployment info from charm metadata.
+type DeploymentInfo struct {
+	DeploymentType string
+	ServiceType    string
+}
+
 // ProvisioningInfo holds unit provisioning info.
 type ProvisioningInfo struct {
-	PodSpec     string
-	Constraints constraints.Value
-	Filesystems []storage.KubernetesFilesystemParams
-	Devices     []devices.KubernetesDeviceParams
-	Tags        map[string]string
+	DeploymentInfo DeploymentInfo
+	PodSpec        string
+	Constraints    constraints.Value
+	Filesystems    []storage.KubernetesFilesystemParams
+	Devices        []devices.KubernetesDeviceParams
+	Tags           map[string]string
 }
 
 // ErrNoUnits is returned when trying to provision a caas app but
@@ -183,6 +190,12 @@ func (c *Client) ProvisioningInfo(appName string) (*ProvisioningInfo, error) {
 		PodSpec:     result.PodSpec,
 		Constraints: result.Constraints,
 		Tags:        result.Tags,
+	}
+	if result.DeploymentInfo != nil {
+		info.DeploymentInfo = DeploymentInfo{
+			DeploymentType: result.DeploymentInfo.DeploymentType,
+			ServiceType:    result.DeploymentInfo.ServiceType,
+		}
 	}
 
 	for _, fs := range result.Filesystems {

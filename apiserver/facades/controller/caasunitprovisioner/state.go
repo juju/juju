@@ -5,6 +5,7 @@ package caasunitprovisioner
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/controller"
@@ -82,6 +83,7 @@ type Application interface {
 	GetPlacement() string
 	SetOperatorStatus(sInfo status.StatusInfo) error
 	SetStatus(statusInfo status.StatusInfo) error
+	Charm() (Charm, bool, error)
 }
 
 type stateShim struct {
@@ -118,6 +120,14 @@ func (a applicationShim) AllUnits() ([]Unit, error) {
 		result[i] = u
 	}
 	return result, nil
+}
+
+func (a applicationShim) Charm() (Charm, bool, error) {
+	return a.Application.Charm()
+}
+
+type Charm interface {
+	Meta() *charm.Meta
 }
 
 type Unit interface {

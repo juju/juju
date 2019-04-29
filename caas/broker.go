@@ -72,8 +72,34 @@ type NewContainerBrokerFunc func(args environs.OpenParams) (Broker, error)
 // StatusCallbackFunc represents a function that can be called to report a status.
 type StatusCallbackFunc func(appName string, settableStatus status.Status, info string, data map[string]interface{}) error
 
+// DeploymentType defines a deployment type.
+type DeploymentType string
+
+const (
+	DeploymentStateless DeploymentType = "stateless"
+	DeploymentStateful  DeploymentType = "stateful"
+)
+
+// ServiceType defines a service type.
+type ServiceType string
+
+const (
+	ServiceCluster      ServiceType = "cluster"
+	ServiceLoadBalancer ServiceType = "loadbalancer"
+	ServiceExternal     ServiceType = "external"
+)
+
+// DeploymentParams defines parameters for specifying how a service is deployed.
+type DeploymentParams struct {
+	DeploymentType DeploymentType
+	ServiceType    ServiceType
+}
+
 // ServiceParams defines parameters used to create a service.
 type ServiceParams struct {
+	// Deployment defines how a service is deployed.
+	Deployment DeploymentParams
+
 	// PodSpec is the spec used to configure a pod.
 	PodSpec *PodSpec
 
