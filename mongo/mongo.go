@@ -85,7 +85,7 @@ const (
 	Upgrading StorageEngine = "Upgrading"
 
 	// SnapTrack is the track to get the juju-db snap from
-	SnapTrack = "latest"
+	SnapTrack = "4.0"
 
 	// SnapRisk is which juju-db snap to use i.e. stable or edge.
 	SnapRisk = "stable"
