@@ -45,6 +45,7 @@ const (
 	cleanupForceDestroyedUnit            cleanupKind = "forceDestroyUnit"
 	cleanupForceRemoveUnit               cleanupKind = "forceRemoveUnit"
 	cleanupRemovedUnit                   cleanupKind = "removedUnit"
+	cleanupApplication                   cleanupKind = "application"
 	cleanupApplicationsForDyingModel     cleanupKind = "applications"
 	cleanupDyingMachine                  cleanupKind = "dyingMachine"
 	cleanupForceDestroyedMachine         cleanupKind = "machine"
@@ -158,6 +159,8 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupRelationSettings(doc.Prefix)
 		case cleanupCharm:
 			err = st.cleanupCharm(doc.Prefix)
+		case cleanupApplication:
+			err = st.cleanupApplication(doc.Prefix, args)
 		case cleanupUnitsForDyingApplication:
 			err = st.cleanupUnitsForDyingApplication(doc.Prefix, args)
 		case cleanupDyingUnit:
@@ -413,6 +416,8 @@ func (st *State) removeApplicationsForDyingModel(args DestroyModelParams) (err e
 	// state at all.
 	applications, closer := st.db().GetCollection(applicationsC)
 	defer closer()
+	// Note(jam): 2019-04-25 This will only try to shut down Alive applications,
+	//  it doesn't cause applications that are Dying to finish progressing to Dead.
 	application := Application{st: st}
 	sel := bson.D{{"life", Alive}}
 	iter := applications.Find(sel).Iter()
@@ -448,6 +453,12 @@ func (st *State) removeRemoteApplicationsForDyingModel(args DestroyModelParams) 
 			return errors.Trace(err)
 		}
 	}
+	return nil
+}
+
+// cleanupApplication checks if all references to a dying application have been removed,
+// and if so, removes the application.
+func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.Raw) (err error) {
 	return nil
 }
 
