@@ -70,13 +70,13 @@ Sometimes, the removal of the unit may fail as Juju encounters errors
 and failures that need to be dealt with before a unit can be removed.
 For example, Juju will not remove a unit if there are hook failures.
 However, at times, there is a need to remove a unit ignoring
-all operational errors. In these rare cases, use --force option but note 
-that --force will remove a unit and, potentially, its machine without 
+all operational errors. In these rare cases, use --force option but note
+that --force will remove a unit and, potentially, its machine without
 given them the opportunity to shutdown cleanly.
 
 Unit removal is a multi-step process. Under normal circumstances, Juju will not
-proceed to a next step until the current step finished. 
-However, when using --force, users can also specify --no-wait to progress through steps 
+proceed to a next step until the current step finished.
+However, when using --force, users can also specify --no-wait to progress through steps
 without delay waiting for each step to complete.
 
 Examples:
@@ -84,7 +84,7 @@ Examples:
     juju remove-unit wordpress/2 wordpress/3 wordpress/4
 
     juju remove-unit wordpress/2 --destroy-storage
- 
+
     juju remove-unit wordpress/2 --force
 
     juju remove-unit wordpress/2 --force --no-wait
@@ -138,6 +138,7 @@ func (c *removeUnitCommand) validateArgsByModelType() error {
 
 func (c *removeUnitCommand) validateCAASRemoval() error {
 	if c.DestroyStorage {
+		// TODO(caas): enable --destroy-storage for caas model.
 		return errors.New("Kubernetes models only support --num-units")
 	}
 	if len(c.EntityNames) != 1 {

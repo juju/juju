@@ -319,7 +319,7 @@ func ensureMicroK8sSuitable(cmdRunner CommandRunner) error {
 func microK8sStatus(cmdRunner CommandRunner) (microk8sStatus, error) {
 	var status microk8sStatus
 	result, err := cmdRunner.RunCommands(exec.RunParams{
-		Commands: "microk8s.status --yaml",
+		Commands: "microk8s.status --wait-ready --timeout 15 --yaml",
 	})
 	if err != nil {
 		return status, errors.Trace(err)

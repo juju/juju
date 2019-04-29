@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/worker.v1"
 )
 
 // TODO (manadart 2018-10-05) Add interfaces to the end of this line,
@@ -136,6 +137,12 @@ type Tracker interface {
 	// WaitMinion will return a Ticket which, when Wait()ed for, will block
 	// until the tracker's future leadership can no longer be guaranteed.
 	WaitMinion() Ticket
+}
+
+// TrackerWorker represents a leadership tracker worker.
+type TrackerWorker interface {
+	worker.Worker
+	Tracker
 }
 
 // Reader describes the capability to read the current state of leadership.
