@@ -30,12 +30,13 @@ type MigrationSpec struct {
 // MigrationTargetInfo holds the details required to connect to and
 // authenticate with a remote controller for model migration.
 type MigrationTargetInfo struct {
-	ControllerTag string   `json:"controller-tag"`
-	Addrs         []string `json:"addrs"`
-	CACert        string   `json:"ca-cert"`
-	AuthTag       string   `json:"auth-tag"`
-	Password      string   `json:"password,omitempty"`
-	Macaroons     string   `json:"macaroons,omitempty"`
+	ControllerTag   string   `json:"controller-tag"`
+	ControllerAlias string   `json:"controller-alias,omitempty"`
+	Addrs           []string `json:"addrs"`
+	CACert          string   `json:"ca-cert"`
+	AuthTag         string   `json:"auth-tag"`
+	Password        string   `json:"password,omitempty"`
+	Macaroons       string   `json:"macaroons,omitempty"`
 }
 
 // InitiateMigrationResults is used to return the result of one or

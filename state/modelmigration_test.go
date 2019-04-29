@@ -46,12 +46,13 @@ func (s *MigrationSuite) SetUpTest(c *gc.C) {
 	s.stdSpec = state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
-			ControllerTag: targetControllerTag,
-			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
-			CACert:        "cert",
-			AuthTag:       names.NewUserTag("user"),
-			Password:      "password",
-			Macaroons:     []macaroon.Slice{{mac}},
+			ControllerTag:   targetControllerTag,
+			ControllerAlias: "target-controller",
+			Addrs:           []string{"1.2.3.4:5555", "4.3.2.1:6666"},
+			CACert:          "cert",
+			AuthTag:         names.NewUserTag("user"),
+			Password:        "password",
+			Macaroons:       []macaroon.Slice{{mac}},
 		},
 	}
 	// Before we get into the tests, ensure that all the creation events have flowed through the system.
@@ -84,6 +85,7 @@ func (s *MigrationSuite) TestCreate(c *gc.C) {
 	apitesting.MacaroonsEqual(c, infoMacs, s.stdSpec.TargetInfo.Macaroons)
 	s.stdSpec.TargetInfo.Macaroons = nil
 	c.Check(*info, jc.DeepEquals, s.stdSpec.TargetInfo)
+	c.Check(info.ControllerAlias, gc.Equals, s.stdSpec.TargetInfo.ControllerAlias)
 
 	assertPhase(c, mig, migration.QUIESCE)
 	c.Check(mig.PhaseChangedTime(), gc.Equals, mig.StartTime())

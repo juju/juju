@@ -103,6 +103,9 @@ type RedirectErrorInfo struct {
 
 	// CACert holds the certificate of the remote server.
 	CACert string `json:"ca-cert"`
+
+	// An optional alias for the controller the model migrated to.
+	ControllerAlias string `json:"controller-alias,omitempty"`
 }
 
 // AsMap encodes the error info as a map that can be attached to an Error.

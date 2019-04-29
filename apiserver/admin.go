@@ -359,8 +359,9 @@ func (a *admin) maybeEmitRedirectError(modelUUID string, authTag names.Tag) erro
 		return errors.Trace(err)
 	}
 	return &common.RedirectError{
-		Servers: [][]network.HostPort{hps},
-		CACert:  target.CACert,
+		Servers:         [][]network.HostPort{hps},
+		CACert:          target.CACert,
+		ControllerAlias: target.ControllerAlias,
 	}
 }
 

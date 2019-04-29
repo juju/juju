@@ -113,12 +113,13 @@ func (c *migrateCommand) getMigrationSpec() (*controller.MigrationSpec, error) {
 	}
 
 	return &controller.MigrationSpec{
-		TargetControllerUUID: controllerInfo.ControllerUUID,
-		TargetAddrs:          controllerInfo.APIEndpoints,
-		TargetCACert:         controllerInfo.CACert,
-		TargetUser:           accountInfo.User,
-		TargetPassword:       accountInfo.Password,
-		TargetMacaroons:      macs,
+		TargetControllerUUID:  controllerInfo.ControllerUUID,
+		TargetControllerAlias: c.targetController,
+		TargetAddrs:           controllerInfo.APIEndpoints,
+		TargetCACert:          controllerInfo.CACert,
+		TargetUser:            accountInfo.User,
+		TargetPassword:        accountInfo.Password,
+		TargetMacaroons:       macs,
 	}, nil
 }
 

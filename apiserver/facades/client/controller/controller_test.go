@@ -397,21 +397,23 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 			{
 				ModelTag: model1.ModelTag().String(),
 				TargetInfo: params.MigrationTargetInfo{
-					ControllerTag: randomControllerTag(),
-					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
-					CACert:        "cert1",
-					AuthTag:       names.NewUserTag("admin1").String(),
-					Password:      "secret1",
+					ControllerTag:   randomControllerTag(),
+					ControllerAlias: "", // intentionally left empty; simulates older client
+					Addrs:           []string{"1.1.1.1:1111", "2.2.2.2:2222"},
+					CACert:          "cert1",
+					AuthTag:         names.NewUserTag("admin1").String(),
+					Password:        "secret1",
 				},
 			}, {
 				ModelTag: model2.ModelTag().String(),
 				TargetInfo: params.MigrationTargetInfo{
-					ControllerTag: randomControllerTag(),
-					Addrs:         []string{"3.3.3.3:3333"},
-					CACert:        "cert2",
-					AuthTag:       names.NewUserTag("admin2").String(),
-					Macaroons:     string(macsJSON),
-					Password:      "secret2",
+					ControllerTag:   randomControllerTag(),
+					ControllerAlias: "target-controller",
+					Addrs:           []string{"3.3.3.3:3333"},
+					CACert:          "cert2",
+					AuthTag:         names.NewUserTag("admin2").String(),
+					Macaroons:       string(macsJSON),
+					Password:        "secret2",
 				},
 			},
 		},
@@ -441,6 +443,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 		targetInfo, err := mig.TargetInfo()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(targetInfo.ControllerTag.String(), gc.Equals, spec.TargetInfo.ControllerTag)
+		c.Check(targetInfo.ControllerAlias, gc.Equals, spec.TargetInfo.ControllerAlias)
 		c.Check(targetInfo.Addrs, jc.SameContents, spec.TargetInfo.Addrs)
 		c.Check(targetInfo.CACert, gc.Equals, spec.TargetInfo.CACert)
 		c.Check(targetInfo.AuthTag.String(), gc.Equals, spec.TargetInfo.AuthTag)

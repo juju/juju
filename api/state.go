@@ -71,9 +71,10 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 			err := rpcErr.UnmarshalInfo(&redirInfo)
 			if err == nil && redirInfo.CACert != "" && len(redirInfo.Servers) != 0 {
 				return &RedirectError{
-					Servers:        redirInfo.Servers,
-					CACert:         redirInfo.CACert,
-					FollowRedirect: false, // user-action required
+					Servers:         redirInfo.Servers,
+					CACert:          redirInfo.CACert,
+					ControllerAlias: redirInfo.ControllerAlias,
+					FollowRedirect:  false, // user-action required
 				}
 			}
 		}

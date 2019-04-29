@@ -137,6 +137,9 @@ type modelMigDoc struct {
 	// TargetController holds the UUID of the target controller.
 	TargetController string `bson:"target-controller"`
 
+	// An optional alias for the controller the model got migrated to.
+	TargetControllerAlias string `bson:"target-controller-alias"`
+
 	// TargetAddrs holds the host:port values for the target API
 	// server.
 	TargetAddrs []string `bson:"target-addrs"`
@@ -278,12 +281,13 @@ func (mig *modelMigration) TargetInfo() (*migration.TargetInfo, error) {
 		return nil, errors.Trace(err)
 	}
 	return &migration.TargetInfo{
-		ControllerTag: names.NewControllerTag(mig.doc.TargetController),
-		Addrs:         mig.doc.TargetAddrs,
-		CACert:        mig.doc.TargetCACert,
-		AuthTag:       authTag,
-		Password:      mig.doc.TargetPassword,
-		Macaroons:     macs,
+		ControllerTag:   names.NewControllerTag(mig.doc.TargetController),
+		ControllerAlias: mig.doc.TargetControllerAlias,
+		Addrs:           mig.doc.TargetAddrs,
+		CACert:          mig.doc.TargetCACert,
+		AuthTag:         authTag,
+		Password:        mig.doc.TargetPassword,
+		Macaroons:       macs,
 	}, nil
 }
 
@@ -702,17 +706,18 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 
 		id := fmt.Sprintf("%s:%d", modelUUID, attempt)
 		doc = modelMigDoc{
-			Id:               id,
-			ModelUUID:        modelUUID,
-			Attempt:          attempt,
-			InitiatedBy:      spec.InitiatedBy.Id(),
-			TargetController: spec.TargetInfo.ControllerTag.Id(),
-			TargetAddrs:      spec.TargetInfo.Addrs,
-			TargetCACert:     spec.TargetInfo.CACert,
-			TargetAuthTag:    spec.TargetInfo.AuthTag.String(),
-			TargetPassword:   spec.TargetInfo.Password,
-			TargetMacaroons:  macsJSON,
-			ModelUsers:       userDocs,
+			Id:                    id,
+			ModelUUID:             modelUUID,
+			Attempt:               attempt,
+			InitiatedBy:           spec.InitiatedBy.Id(),
+			TargetController:      spec.TargetInfo.ControllerTag.Id(),
+			TargetControllerAlias: spec.TargetInfo.ControllerAlias,
+			TargetAddrs:           spec.TargetInfo.Addrs,
+			TargetCACert:          spec.TargetInfo.CACert,
+			TargetAuthTag:         spec.TargetInfo.AuthTag.String(),
+			TargetPassword:        spec.TargetInfo.Password,
+			TargetMacaroons:       macsJSON,
+			ModelUsers:            userDocs,
 		}
 
 		statusDoc = modelMigStatusDoc{
