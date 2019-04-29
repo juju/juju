@@ -195,7 +195,7 @@ func (w *upgradesteps) run() error {
 	if w.isController {
 		var err error
 		if w.pool, err = w.openState(); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		defer w.pool.Close()
 
@@ -209,6 +209,9 @@ func (w *upgradesteps) run() error {
 			return errors.Trace(err)
 		}
 		w.isCaas = model.Type() == state.ModelTypeCAAS
+	} else {
+		// application tag for CAAS operator.
+		w.isCaas = names.IsValidApplication(w.agent.CurrentConfig().Tag().String())
 	}
 
 	if err := w.runUpgrades(); err != nil {
@@ -221,7 +224,7 @@ func (w *upgradesteps) run() error {
 		// the agent to stay running in an error state waiting
 		// for user intervention.
 		if isAPILostDuringUpgrade(err) {
-			return err
+			return errors.Trace(err)
 		}
 		w.reportUpgradeFailure(err, false)
 
@@ -239,7 +242,7 @@ func (w *upgradesteps) run() error {
 func (w *upgradesteps) runUpgrades() error {
 	upgradeInfo, err := w.prepareForUpgrade()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	if wrench.IsActive(w.wrenchKey(), "fail-upgrade") {
@@ -247,11 +250,11 @@ func (w *upgradesteps) runUpgrades() error {
 	}
 
 	if err := w.agent.ChangeConfig(w.runUpgradeSteps); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	if err := w.finaliseUpgrade(upgradeInfo); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }
