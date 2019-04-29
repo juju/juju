@@ -89,6 +89,10 @@ containers:
 		PodSpec:      &parsedSpec,
 		ResourceTags: map[string]string{"foo": "bar"},
 		Constraints:  constraints.MustParse("mem=4G"),
+		Deployment: caas.DeploymentParams{
+			DeploymentType: caas.DeploymentStateful,
+			ServiceType:    caas.ServiceLoadBalancer,
+		},
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
 			Size:        100,
@@ -124,6 +128,10 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		PodSpec:     containerSpec,
 		Tags:        map[string]string{"foo": "bar"},
 		Constraints: constraints.MustParse("mem=4G"),
+		DeploymentInfo: apicaasunitprovisioner.DeploymentInfo{
+			DeploymentType: "stateful",
+			ServiceType:    "loadbalancer",
+		},
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
 			Size:        100,

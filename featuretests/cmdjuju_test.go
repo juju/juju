@@ -219,11 +219,9 @@ application-config:
     source: unset
     type: string
   kubernetes-service-type:
-    default: ClusterIP
     description: determines how the Service is exposed
-    source: default
+    source: unset
     type: string
-    value: ClusterIP
   trust:
     default: false
     description: Does this application have access to trusted credentials

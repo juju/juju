@@ -9,14 +9,21 @@ import (
 	"github.com/juju/juju/core/constraints"
 )
 
+// KubernetesDeploymentInfo holds deployment info from charm metadata.
+type KubernetesDeploymentInfo struct {
+	DeploymentType string `json:"deployment-type"`
+	ServiceType    string `json:"service-type"`
+}
+
 // KubernetesProvisioningInfo holds unit provisioning info.
 type KubernetesProvisioningInfo struct {
-	PodSpec     string                       `json:"pod-spec"`
-	Constraints constraints.Value            `json:"constraints"`
-	Tags        map[string]string            `json:"tags,omitempty"`
-	Filesystems []KubernetesFilesystemParams `json:"filesystems,omitempty"`
-	Volumes     []KubernetesVolumeParams     `json:"volumes,omitempty"`
-	Devices     []KubernetesDeviceParams     `json:"devices,omitempty"`
+	DeploymentInfo *KubernetesDeploymentInfo    `json:"deployment-info,omitempty"`
+	PodSpec        string                       `json:"pod-spec"`
+	Constraints    constraints.Value            `json:"constraints"`
+	Tags           map[string]string            `json:"tags,omitempty"`
+	Filesystems    []KubernetesFilesystemParams `json:"filesystems,omitempty"`
+	Volumes        []KubernetesVolumeParams     `json:"volumes,omitempty"`
+	Devices        []KubernetesDeviceParams     `json:"devices,omitempty"`
 }
 
 // KubernetesProvisioningInfoResult holds unit provisioning info or an error.

@@ -1167,6 +1167,16 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	if cfg.Charm.Meta().Subordinate != a.doc.Subordinate {
 		return errors.Errorf("cannot change an application's subordinacy")
 	}
+	currentCharm, err := a.st.Charm(a.doc.CharmURL)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if cfg.Charm.Meta().Deployment != currentCharm.Meta().Deployment {
+		if currentCharm.Meta().Deployment == nil ||
+			cfg.Charm.Meta().Deployment.DeploymentType != currentCharm.Meta().Deployment.DeploymentType {
+			return errors.New("cannot change a charm's deployment type")
+		}
+	}
 	// For old style charms written for only one series, we still retain
 	// this check. Newer charms written for multi-series have a URL
 	// with series = "".

@@ -203,7 +203,7 @@ func (k *kubernetesClient) validateOperatorStorage() (string, error) {
 func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	alreadyExistErr := errors.NewAlreadyExists(nil,
 		fmt.Sprintf(`a controller called %q already exists on this k8s cluster.
-Please bootstrap again and choose a different controller name.`, k.namespace),
+Please bootstrap again and choose a different controller name.`, controllerName),
 	)
 
 	k.namespace = DecideControllerNamespace(controllerName)
@@ -1179,7 +1179,12 @@ func (k *kubernetesClient) EnsureService(
 	}
 	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
 	// Defensively check to see if a stateful set is already used.
-	useStatefulSet := len(params.Filesystems) > 0
+	var useStatefulSet bool
+	if params.Deployment.ServiceType != "" {
+		useStatefulSet = params.Deployment.DeploymentType == caas.DeploymentStateful
+	} else {
+		useStatefulSet = len(params.Filesystems) > 0
+	}
 	statefulsets := k.AppsV1().StatefulSets(k.namespace)
 	existingStatefulSet, err := statefulsets.Get(deploymentName, v1.GetOptions{IncludeUninitialized: true})
 	if err != nil && !k8serrors.IsNotFound(err) {
@@ -1243,7 +1248,7 @@ func (k *kubernetesClient) EnsureService(
 		annotations.Merge(k8sannotations.New(deployAnnotations))
 
 		config[serviceAnnotationsKey] = annotations.ToMap()
-		if err := k.configureService(appName, deploymentName, ports, config); err != nil {
+		if err := k.configureService(appName, deploymentName, ports, params, config); err != nil {
 			return errors.Annotatef(err, "creating or updating service for %v", appName)
 		}
 	}
@@ -1656,6 +1661,7 @@ func (k *kubernetesClient) deleteVolumeClaims(appName string, p *core.Pod) ([]st
 
 func (k *kubernetesClient) configureService(
 	appName, deploymentName string, containerPorts []core.ContainerPort,
+	params *caas.ServiceParams,
 	config application.ConfigAttributes,
 ) error {
 	logger.Debugf("creating/updating service for %s", appName)
@@ -1678,7 +1684,20 @@ func (k *kubernetesClient) configureService(
 		})
 	}
 
-	serviceType := core.ServiceType(config.GetString(serviceTypeConfigKey, defaultServiceType))
+	serviceType := defaultServiceType
+	if params.Deployment.ServiceType != "" {
+		switch params.Deployment.ServiceType {
+		case caas.ServiceCluster:
+			serviceType = core.ServiceTypeClusterIP
+		case caas.ServiceLoadBalancer:
+			serviceType = core.ServiceTypeLoadBalancer
+		case caas.ServiceExternal:
+			serviceType = core.ServiceTypeExternalName
+		default:
+			return errors.NotSupportedf("service type %q", params.Deployment.ServiceType)
+		}
+	}
+	serviceType = core.ServiceType(config.GetString(serviceTypeConfigKey, string(serviceType)))
 	annotations, err := config.GetStringMap(serviceAnnotationsKey, nil)
 	if err != nil {
 		return errors.Annotatef(err, "unexpected annotations: %#v", config.Get(serviceAnnotationsKey, nil))
