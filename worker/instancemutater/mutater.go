@@ -172,7 +172,8 @@ func (m MutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 
 	report := func(retErr error) error {
 		if retErr != nil {
-			m.logger.Errorf("cannot upgrade machine-%s lxd profiles: %s", m.id, retErr.Error())
+			logLevel := m.getLevelForError(retErr)
+			logLevel("cannot upgrade machine-%s lxd profiles: %s", m.id, retErr.Error())
 			if err := m.machineApi.SetModificationStatus(status.Error, fmt.Sprintf("cannot upgrade machine's lxd profile: %s", retErr.Error()), nil); err != nil {
 				m.logger.Errorf("cannot set modification status of machine %q error: %v", m.id, err)
 			}
@@ -212,11 +213,24 @@ func (m MutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 	broker := m.context.getBroker()
 	currentProfiles, err := broker.AssignLXDProfiles(string(info.InstanceId), expectedProfiles, post)
 	if err != nil {
-		m.logger.Errorf("failure to assign lxd profiles %s to machine-%s: %s", expectedProfiles, m.id, err)
+		logLevel := m.getLevelForError(err)
+		logLevel("failure to assign lxd profiles %s to machine-%s: %s", expectedProfiles, m.id, err)
 		return report(err)
 	}
 
 	return report(m.machineApi.SetCharmProfiles(currentProfiles))
+}
+
+func (m MutaterMachine) getLevelForError(err error) func(string, ...interface{}) {
+	// depending on the type of error, depends on what level we should be
+	// logging at. For example, if the error is not provisioned, this is
+	// expected and we don't care, for other types of errors we do really
+	// care and we do want to log at error level.
+	level := m.logger.Errorf
+	if errors.IsNotProvisioned(err) {
+		level = m.logger.Debugf
+	}
+	return level
 }
 
 func (m MutaterMachine) gatherProfileData(info *instancemutater.UnitProfileInfo) ([]lxdprofile.ProfilePost, error) {
