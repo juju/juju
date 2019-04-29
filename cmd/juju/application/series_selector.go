@@ -7,6 +7,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/juju/version"
+	"github.com/juju/os/series"
 )
 
 const (
@@ -75,8 +76,22 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 	}
 
 	// Use the charm's perferred series, if it has one.  In a multi-series
-	// charm, the first series in the list is the preferred one.
-	defaultSeries, err := charm.SeriesForCharm("", s.supportedSeries)
+	// charm, go through and check the series list and drop the first series
+	// if they're no longer supported.
+	jujuSupportedSeries := series.SupportedJujuSeries()
+
+	// we want to preseve the order of the supported series from the charm
+	// metadata, so the order could be out of order ubuntu series order.
+	// i.e. precise, xenial, bionic, trusty
+	var supportedSeries []string
+	for _, charmSeries := range s.supportedSeries {
+		for _, jujuSeries := range jujuSupportedSeries {
+			if charmSeries == jujuSeries {
+				supportedSeries = append(supportedSeries, charmSeries)
+			}
+		}
+	}
+	defaultSeries, err := charm.SeriesForCharm("", supportedSeries)
 	if err == nil {
 		return defaultSeries, nil
 	}

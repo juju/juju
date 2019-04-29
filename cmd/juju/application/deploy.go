@@ -14,6 +14,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/os/series"
 	"github.com/juju/romulus"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
@@ -366,21 +367,21 @@ A charm can be referred to by its simple name and a series can optionally be
 specified:
 
   juju deploy postgresql
-  juju deploy xenial/postgresql
+  juju deploy bionic/postgresql
   juju deploy cs:postgresql
-  juju deploy cs:xenial/postgresql
-  juju deploy postgresql --series xenial
+  juju deploy cs:bionic/postgresql
+  juju deploy postgresql --series bionic
 
 All the above deployments use remote charms found in the Charm Store (denoted
 by 'cs') and therefore also make use of "charm URLs".
 
 A versioned charm URL will be expanded as expected. For example, 'mysql-56'
-becomes 'cs:xenial/mysql-56'.
+becomes 'cs:bionic/mysql-56'.
 
 A local charm may be deployed by giving the path to its directory:
 
   juju deploy /path/to/charm
-  juju deploy /path/to/charm --series xenial
+  juju deploy /path/to/charm --series bionic
 
 You will need to be explicit if there is an ambiguity between a local and a
 remote charm:
@@ -391,7 +392,7 @@ remote charm:
 An error is emitted if the determined series is not supported by the charm. Use
 the '--force' option to override this check:
 
-  juju deploy charm --series xenial --force
+  juju deploy charm --series bionic --force
 
 A bundle can be expressed similarly to a charm, but not by series:
 
@@ -1174,12 +1175,24 @@ func (c *DeployCommand) validateCharmFlags() error {
 	return nil
 }
 
-func (c *DeployCommand) validateCharmSeries(series string) error {
+func (c *DeployCommand) validateCharmSeries(seriesName string) error {
+	// attempt to locate the charm series from the list of known juju series
+	// that we currently support.
+	var found bool
+	for _, name := range series.SupportedJujuSeries() {
+		if name == seriesName {
+			found = true
+		}
+	}
+	if !found && !c.Force {
+		return errors.NotSupportedf("unsupported series: %s", seriesName)
+	}
+
 	modelType, err := c.ModelType()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return model.ValidateSeries(modelType, series)
+	return model.ValidateSeries(modelType, seriesName)
 }
 
 func (c *DeployCommand) validateResourcesNeededForLocalDeploy(charmMeta *charm.Meta) error {
@@ -1218,6 +1231,9 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 
 	// Avoid deploying charm if it's not valid for the model.
 	if err := c.validateCharmSeries(userCharmURL.Series); err != nil {
+		if errors.IsNotSupported(err) {
+			return nil, errors.Errorf("%v is not available on the following series: %v", userCharmURL.Name, userCharmURL.Series)
+		}
 		return nil, errors.Trace(err)
 	}
 
@@ -1388,6 +1404,9 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 
 	// Avoid deploying charm if it's not valid for the model.
 	if err := c.validateCharmSeries(series); err != nil {
+		if errors.IsNotSupported(err) {
+			return nil, errors.Errorf("%v is not available on the following series: %v", curl.Name, series)
+		}
 		return nil, errors.Trace(err)
 	}
 	if err := c.validateResourcesNeededForLocalDeploy(ch.Meta()); err != nil {
@@ -1545,6 +1564,9 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		// We check this first before possibly suggesting --force.
 		if err == nil {
 			if err2 := c.validateCharmSeries(series); err2 != nil {
+				if errors.IsNotSupported(err) {
+					return errors.Errorf("%v is not available on the following series: %v", storeCharmOrBundleURL.Name, series)
+				}
 				return errors.Trace(err2)
 			}
 		}
