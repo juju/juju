@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -100,28 +99,6 @@ func (s *actionSuite) SetUpTest(c *gc.C) {
 	})
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
-}
-
-func (s *actionSuite) AssertBlocked(c *gc.C, err error, msg string) {
-	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
-	c.Assert(errors.Cause(err), gc.DeepEquals, &params.Error{
-		Message: msg,
-		Code:    "operation is blocked",
-	})
-}
-
-func (s *actionSuite) TestBlockEnqueue(c *gc.C) {
-	// block all changes
-	s.BlockAllChanges(c, "Enqueue")
-	_, err := s.action.Enqueue(params.Actions{})
-	s.AssertBlocked(c, err, "Enqueue")
-}
-
-func (s *actionSuite) TestBlockCancel(c *gc.C) {
-	// block all changes
-	s.BlockAllChanges(c, "Cancel")
-	_, err := s.action.Cancel(params.Entities{})
-	s.AssertBlocked(c, err, "Cancel")
 }
 
 func (s *actionSuite) TestActions(c *gc.C) {
@@ -246,6 +223,10 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 			{Receiver: "wordpress/leader", Name: expectedName, Parameters: expectedParameters},
 		},
 	}
+
+	// blocking changes should have no effect
+	s.BlockAllChanges(c, "Enqueue")
+
 	res, err := s.action.Enqueue(arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 5)
@@ -611,6 +592,9 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 	for _, res := range results.Results {
 		c.Assert(res.Error, gc.IsNil)
 	}
+
+	// blocking changes should have no effect
+	s.BlockAllChanges(c, "Cancel")
 
 	// Cancel Some.
 	arg := params.Entities{

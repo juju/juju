@@ -81,6 +81,7 @@ func (a *ActionAPI) Run(run params.RunParams) (results params.ActionResults, err
 	if err := a.checkCanAdmin(); err != nil {
 		return results, err
 	}
+
 	if err := a.check.ChangeAllowed(); err != nil {
 		return results, errors.Trace(err)
 	}
