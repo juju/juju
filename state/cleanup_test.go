@@ -43,6 +43,12 @@ func (s *CleanupSuite) SetUpTest(c *gc.C) {
 
 }
 
+func (s *CleanupSuite) TestCleanupDyingApplicationNoUnits(c *gc.C) {
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	c.Assert(mysql.Destroy(), jc.ErrorIsNil)
+	c.Assert(mysql.Refresh(), jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *CleanupSuite) TestCleanupDyingApplicationUnits(c *gc.C) {
 	// Create a application with some units.
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))

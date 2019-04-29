@@ -388,6 +388,46 @@ func (st *State) cleanupStorageForDyingModel(cleanupArgs []bson.Raw) (err error)
 	return nil
 }
 
+// cleanupApplication checks if all references to a dying application have been removed,
+// and if so, removes the application.
+func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.Raw) (err error) {
+	app, err := st.Application(applicationname)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Nothing to do, the application is already gone.
+			logger.Tracef("cleanupApplication(%s): application already gone", applicationname)
+			return nil
+		}
+		return errors.Trace(err)
+	}
+	if app.Life() == Alive {
+		return errors.BadRequestf("cleanupApplication requested for an application (%s) that is still alive", applicationname)
+	}
+	// We know the app is at least Dying, so check if the unit/relation counts are no longer referencing this application.
+	if app.UnitCount() > 0 || app.RelationCount() > 0 {
+		// this is considered a no-op because whatever is currently referencing the application
+		// should queue up a new cleanup once it stops
+		logger.Tracef("cleanupApplication(%s) called, but it still has references: unitcount: %d relationcount: %d",
+			applicationname, app.UnitCount(), app.RelationCount())
+		return nil
+	}
+	destroyStorage := false
+	force := false
+	if n := len(cleanupArgs); n != 2 {
+		return errors.Errorf("expected 2 arguments, got %d", n)
+	}
+	if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
+		return errors.Annotate(err, "unmarshalling cleanup args")
+	}
+	if err := cleanupArgs[1].Unmarshal(&force); err != nil {
+		return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+	}
+	op := app.DestroyOperation()
+	op.DestroyStorage = destroyStorage
+	op.Force = force
+	return st.ApplyOperation(op)
+}
+
 // cleanupApplicationsForDyingModel sets all applications to Dying, if they are
 // not already Dying or Dead. It's expected to be used when a model is
 // destroyed.
@@ -453,12 +493,6 @@ func (st *State) removeRemoteApplicationsForDyingModel(args DestroyModelParams) 
 			return errors.Trace(err)
 		}
 	}
-	return nil
-}
-
-// cleanupApplication checks if all references to a dying application have been removed,
-// and if so, removes the application.
-func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.Raw) (err error) {
 	return nil
 }
 

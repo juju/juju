@@ -752,15 +752,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
 
 func (s *UnitSuite) TestRemoveUnitWRelationLastUnit(c *gc.C) {
 	// This will assign it to a machine, and make it look like the machine agent is active.
-	s.setAssignedMachineAddresses(c, s.unit)
-	// Make sure the Unit also doesn't look like it is just Allocating
-	now := s.Clock.Now()
-	sinfo := status.StatusInfo{
-		Status:  status.Idle,
-		Message: "",
-		Since:   &now,
-	}
-	s.unit.SetAgentStatus(sinfo)
+	preventUnitDestroyRemove(c, s.unit)
 	mysqlCharm := s.AddTestingCharm(c, "mysql")
 	mysqlApp := s.AddTestingApplication(c, "mysql", mysqlCharm)
 	mysqlUnit, err := mysqlApp.AddUnit(state.AddUnitParams{})
@@ -780,6 +772,7 @@ func (s *UnitSuite) TestRemoveUnitWRelationLastUnit(c *gc.C) {
 	c.Assert(s.unit.EnsureDead(), jc.ErrorIsNil)
 	assertLife(c, s.application, state.Dying)
 	c.Assert(s.unit.Remove(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
 	// Now the application should be gone
 	c.Assert(s.application.Refresh(), jc.Satisfies, errors.IsNotFound)
 }

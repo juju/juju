@@ -707,7 +707,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	// When 'force' is set, this call will return some, if not all, needed operations.
 	//  All operational errors encountered will be added to the operation.
 	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	removeOps, err := op.unit.removeOps(removeAsserts, &op.ForcedOperation)
+	removeOps, err := op.unit.removeOps(removeAsserts, &op.ForcedOperation, op.DestroyStorage)
 	if err == errAlreadyRemoved {
 		return nil, errAlreadyDying
 	} else if err != nil {
@@ -829,7 +829,7 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 // When 'force' is set, this call will return needed operations
 // accumulating all operational errors in the operation.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (u *Unit) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, error) {
+func (u *Unit) removeOps(asserts bson.D, op *ForcedOperation, destroyStorage bool) ([]txn.Op, error) {
 	app, err := u.st.Application(u.doc.Application)
 	if errors.IsNotFound(err) {
 		// If the application has been removed, the unit must already have been.
@@ -838,7 +838,7 @@ func (u *Unit) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, error) 
 		// If we cannot find application, no amount of force will succeed after this point.
 		return nil, err
 	}
-	return app.removeUnitOps(u, asserts, op)
+	return app.removeUnitOps(u, asserts, op, destroyStorage)
 }
 
 // ErrUnitHasSubordinates is a standard error to indicate that a Unit
@@ -1048,7 +1048,7 @@ func (op *RemoveUnitOperation) removeOps() (ops []txn.Op, err error) {
 
 	// Now we're sure we haven't left any scopes occupied by this unit, we
 	// can safely remove the document.
-	unitRemoveOps, err := op.unit.removeOps(isDeadDoc, &op.ForcedOperation)
+	unitRemoveOps, err := op.unit.removeOps(isDeadDoc, &op.ForcedOperation, false)
 	if err != nil {
 		if !op.Force {
 			return nil, err

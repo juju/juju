@@ -501,6 +501,7 @@ func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string,
 		s, err := names.UnitApplication(departingUnitName)
 		return err == nil && s == ep.ApplicationName
 	}
+	var cleanupOps []txn.Op
 	if departingUnitName == "" {
 		// We're constructing a destroy operation, either of the relation
 		// or one of its applications, and can therefore be assured that both
@@ -513,36 +514,32 @@ func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string,
 		asserts = append(hasRelation, cannotDieYet...)
 	} else {
 		// This application may require immediate removal.
+		// Check if the application is Dying, and if so, queue up a potential
+		// cleanup in case this was the last reference.
 		applications, closer := r.st.db().GetCollection(applicationsC)
 		defer closer()
 
-		app := &Application{st: r.st}
-		hasLastRef := bson.D{{"life", Dying}, {"unitcount", 0}, {"relationcount", 1}}
-		removable := append(bson.D{{"_id", ep.ApplicationName}}, hasLastRef...)
-		if err := applications.Find(removable).One(&app.doc); err == nil {
-			// When 'force' is set, this call will return needed operations
-			// and accumulate all operational errors encountered in the operation.
-			// If the 'force' is not set, any error will be fatal and no operations will be returned.
-			return app.removeOps(hasLastRef, op)
-		} else if err != mgo.ErrNotFound {
-			if !op.Force {
-				return nil, err
+		asserts = append(hasRelation)
+		var appDoc applicationDoc
+		if err := applications.FindId(ep.ApplicationName).One(&appDoc); err == nil {
+			if appDoc.Life != Alive {
+				cleanupOps = append(cleanupOps, newCleanupOp(
+					cleanupApplication,
+					ep.ApplicationName,
+					false, // destroyStorage
+					op.Force,
+				))
 			}
+		} else if !op.Force {
+			return nil, errors.Trace(err)
 		}
-		// If not, we must check that this is still the case when the
-		// transaction is applied.
-		asserts = bson.D{{"$or", []bson.D{
-			{{"life", Alive}},
-			{{"unitcount", bson.D{{"$gt", 0}}}},
-			{{"relationcount", bson.D{{"$gt", 1}}}},
-		}}}
 	}
-	return []txn.Op{{
+	return append([]txn.Op{{
 		C:      applicationsC,
 		Id:     r.st.docID(ep.ApplicationName),
 		Assert: asserts,
 		Update: bson.D{{"$inc", bson.D{{"relationcount", -1}}}},
-	}}, nil
+	}}, cleanupOps...), nil
 }
 
 func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.Op, error) {

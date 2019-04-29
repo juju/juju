@@ -287,13 +287,6 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 // When the 'force' is not set, any operational errors will be considered fatal. All operations
 // constructed up until the error will be discarded and the error will be returned.
 func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
-	if op.app.doc.Life == Dying {
-		if !op.Force {
-			return nil, errAlreadyDying
-		}
-		// If we are forcing, we need to try to destroy the application again.
-	}
-
 	rels, err := op.app.Relations()
 	if err != nil {
 		if !op.Force {
@@ -371,12 +364,11 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	if op.app.doc.UnitCount == 0 && op.app.doc.RelationCount == removeCount {
 		// If we're forcing destruction the assertion shouldn't be that
 		// life is alive, but that it's what we think it is now.
-		assertion := isAliveDoc
-		if op.Force {
-			assertion = bson.D{{"life", op.app.doc.Life}}
+		assertion := bson.D{
+			{"life", op.app.doc.Life},
+			{"unitcount", 0},
+			{"relationcount", removeCount},
 		}
-
-		assertion = append(assertion, bson.D{{"unitcount", 0}, {"relationcount", removeCount}}...)
 		// When forced, this call will return operations to remove this
 		// application and accumulate all operational errors encountered in the operation.
 		// If the 'force' is not set and the call came across some errors,
@@ -1898,8 +1890,7 @@ func (a *Application) AddUnit(args AddUnitParams) (unit *Unit, err error) {
 // When 'force' is set, this call will always return some needed operations
 // and accumulate all operational errors encountered in the operation.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation) ([]txn.Op, error) {
-	errs := []error{}
+func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation, destroyStorage bool) ([]txn.Op, error) {
 	hostOps, err := u.destroyHostOps(a, op)
 	if err != nil {
 		if !op.Force {
@@ -1992,37 +1983,24 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 		}
 		ops = append(ops, decOps...)
 	}
-	if a.doc.Life == Dying && a.doc.RelationCount == 0 && a.doc.UnitCount == 1 {
-		hasLastRef := bson.D{{"life", Dying}, {"relationcount", 0}, {"unitcount", 1}}
-		// When 'force' is set, this call will return some, if not all, needed operations
-		// and accumulate all operational errors encountered in the operation.
-		// If the 'force' is not set, any error will be fatal and no operations will be returned.
-		removeOps, err := a.removeOps(hasLastRef, op)
-		if err != nil {
-			if !op.Force {
-				return nil, errors.Trace(err)
-			}
-			errs = append(errs, err)
-		}
-		return append(ops, removeOps...), nil
-	}
 	appOp := txn.Op{
 		C:      applicationsC,
 		Id:     a.doc.DocID,
+		Assert: bson.D{{"life", a.doc.Life}, {"unitcount", bson.D{{"$gt", 0}}}},
 		Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
 	}
-	if a.doc.Life == Alive {
-		appOp.Assert = bson.D{{"life", Alive}, {"unitcount", bson.D{{"$gt", 0}}}}
-	} else {
-		appOp.Assert = bson.D{
-			{"life", Dying},
-			{"$or", []bson.D{
-				{{"unitcount", bson.D{{"$gt", 1}}}},
-				{{"relationcount", bson.D{{"$gt", 0}}}},
-			}},
-		}
+	ops = append(ops, appOp)
+	if a.doc.Life == Dying {
+		// Create a cleanup for this application as this might be the last reference.
+		cleanupOp := newCleanupOp(
+			cleanupApplication,
+			a.doc.Name,
+			destroyStorage,
+			op.Force,
+		)
+		ops = append(ops, cleanupOp)
 	}
-	return append(ops, appOp), nil
+	return ops, nil
 }
 
 func removeUnitResourcesOps(st *State, unitID string) ([]txn.Op, error) {
@@ -3016,9 +2994,15 @@ func (a *Application) ServiceInfo() (CloudService, error) {
 	return *svc, nil
 }
 
-// UnitCount returns the of numbr of units for this application.
+// UnitCount returns the of number of units for this application.
 func (a *Application) UnitCount() int {
 	return a.doc.UnitCount
+}
+
+// RelationCount returns the of number of active relations for this application.
+func (a *Application) RelationCount() int {
+	return a.doc.RelationCount
+
 }
 
 // UnitNames returns the of this application's units.
