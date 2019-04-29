@@ -52,7 +52,7 @@ type WorkerSuite struct {
 	charmDownloader       fakeDownloader
 	charmSHA256           string
 	uniterParams          *uniter.UniterParams
-	leadershipTrackerFunc func(unitTag names.UnitTag) leadership.Tracker
+	leadershipTrackerFunc func(unitTag names.UnitTag) leadership.TrackerWorker
 	uniterFacadeFunc      func(unitTag names.UnitTag) *apiuniter.State
 }
 
@@ -88,7 +88,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.client.watcher = watchertest.NewMockNotifyWatcher(s.appChanges)
 	s.charmDownloader.ResetCalls()
 	s.uniterParams = &uniter.UniterParams{}
-	s.leadershipTrackerFunc = func(unitTag names.UnitTag) leadership.Tracker {
+	s.leadershipTrackerFunc = func(unitTag names.UnitTag) leadership.TrackerWorker {
 		return &runnertesting.FakeTracker{}
 	}
 	s.uniterFacadeFunc = func(unitTag names.UnitTag) *apiuniter.State {

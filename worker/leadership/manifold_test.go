@@ -126,7 +126,7 @@ func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
-	var target coreleadership.Tracker
+	var target coreleadership.TrackerWorker
 	err := s.manifold.Output(&dummyWorker{}, &target)
 	c.Check(target, gc.IsNil)
 	c.Check(err.Error(), gc.Equals, "expected *Tracker input; got *leadership_test.dummyWorker")
@@ -134,7 +134,7 @@ func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
 
 func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 	source := &leadership.Tracker{}
-	var target coreleadership.Tracker
+	var target coreleadership.TrackerWorker
 	err := s.manifold.Output(source, &target)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(target, gc.Equals, source)

@@ -66,7 +66,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				// leader-deposed hook -- but that's not done yet.
 				return nil, err
 			}
-			var leadershipTracker leadership.Tracker
+			var leadershipTracker leadership.TrackerWorker
 			if err := context.Get(config.LeadershipTrackerName, &leadershipTracker); err != nil {
 				return nil, err
 			}

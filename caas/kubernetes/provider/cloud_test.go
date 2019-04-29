@@ -125,7 +125,7 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *gc.C) {
 
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: "microk8s.status --yaml"}).Returns(
+		exec.RunParams{Commands: "microk8s.status --wait-ready --timeout 15 --yaml"}).Returns(
 		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusEnabled)}, nil)
 
 	var ctx mockContext
@@ -160,7 +160,7 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8sAlreadyStorage(c *gc.C) {
 
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: "microk8s.status --yaml"}).Returns(
+		exec.RunParams{Commands: "microk8s.status --wait-ready --timeout 15 --yaml"}).Returns(
 		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusEnabled)}, nil)
 
 	var ctx mockContext
@@ -191,7 +191,7 @@ func (s *cloudSuite) getProvider() caas.ContainerEnvironProvider {
 func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccess(c *gc.C) {
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: "microk8s.status --yaml"}).Returns(
+		exec.RunParams{Commands: "microk8s.status --wait-ready --timeout 15 --yaml"}).Returns(
 		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusEnabled)}, nil)
 	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), jc.ErrorIsNil)
 }
@@ -199,7 +199,7 @@ func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccess(c *gc.C) {
 func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageDisabled(c *gc.C) {
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: "microk8s.status --yaml"}).Returns(
+		exec.RunParams{Commands: "microk8s.status --wait-ready --timeout 15 --yaml"}).Returns(
 		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusStorageDisabled)}, nil)
 	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), gc.ErrorMatches, `storage is not enabled for microk8s, run 'microk8s.enable storage'`)
 }
@@ -207,7 +207,7 @@ func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageDisabled(c *gc.C) {
 func (s *cloudSuite) TestEnsureMicroK8sSuitableDNSDisabled(c *gc.C) {
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: "microk8s.status --yaml"}).Returns(
+		exec.RunParams{Commands: "microk8s.status --wait-ready --timeout 15 --yaml"}).Returns(
 		&exec.ExecResponse{Code: 0, Stdout: []byte(microk8sStatusDNSDisabled)}, nil)
 	c.Assert(provider.EnsureMicroK8sSuitable(s.runner), gc.ErrorMatches, `dns is not enabled for microk8s, run 'microk8s.enable dns'`)
 }

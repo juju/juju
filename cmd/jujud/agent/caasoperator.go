@@ -216,7 +216,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		LogSource:            op.bufferedLogger.Logs(),
 		UpdateLoggerConfig:   updateAgentConfLogging,
 		PrometheusRegisterer: op.prometheusRegistry,
-		LeadershipGuarantee:  30 * time.Second,
+		LeadershipGuarantee:  15 * time.Second,
 		PreUpgradeSteps:      op.preUpgradeSteps,
 		UpgradeStepsLock:     op.upgradeComplete,
 		ValidateMigration:    op.validateMigration,

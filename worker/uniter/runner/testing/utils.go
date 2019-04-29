@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/storage"
@@ -118,6 +119,7 @@ func (c *ContextStorage) Location() string {
 
 type FakeTracker struct {
 	leadership.Tracker
+	worker.Worker
 }
 
 func (FakeTracker) ApplicationName() string {

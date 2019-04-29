@@ -98,8 +98,8 @@ type Config struct {
 	// VersionSetter is an interface for setting the operator agent version.
 	VersionSetter VersionSetter
 
-	// LeadershipTrackerFunc is a function for getting a leadership tracker.
-	LeadershipTrackerFunc func(unitTag names.UnitTag) leadership.Tracker
+	// LeadershipTrackerFunc is a function for getting a leadership tracker worker.
+	LeadershipTrackerFunc func(unitTag names.UnitTag) leadership.TrackerWorker
 
 	// UniterFacadeFunc is a function for making a uniter facade.
 	UniterFacadeFunc func(unitTag names.UnitTag) *apiuniter.State
