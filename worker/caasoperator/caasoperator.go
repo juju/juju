@@ -22,6 +22,7 @@ import (
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	apiuniter "github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
@@ -98,7 +99,7 @@ type Config struct {
 	VersionSetter VersionSetter
 
 	// LeadershipTrackerFunc is a function for getting a leadership tracker worker.
-	LeadershipTrackerFunc func(unitTag names.UnitTag) uniter.LeadershipTrackerWorker
+	LeadershipTrackerFunc func(unitTag names.UnitTag) leadership.TrackerWorker
 
 	// UniterFacadeFunc is a function for making a uniter facade.
 	UniterFacadeFunc func(unitTag names.UnitTag) *apiuniter.State

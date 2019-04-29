@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/leadership"
-	"github.com/juju/juju/worker/uniter"
+	coreleadership "github.com/juju/juju/core/leadership"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
@@ -73,13 +73,13 @@ var NewManifoldWorker = func(agent agent.Agent, apiCaller base.APICaller, clock 
 	return NewTracker(unitTag, claimer, clock, guarantee), nil
 }
 
-// outputFunc extracts the coreleadership.Tracker from a *Tracker passed in as a Worker.
+// outputFunc extracts the coreleadership.TrackerWorker from a *Tracker passed in as a Worker.
 func outputFunc(in worker.Worker, out interface{}) error {
 	inWorker, _ := in.(*Tracker)
 	if inWorker == nil {
 		return errors.Errorf("expected *Tracker input; got %T", in)
 	}
-	outPointer, _ := out.(*uniter.LeadershipTrackerWorker)
+	outPointer, _ := out.(*coreleadership.TrackerWorker)
 	if outPointer == nil {
 		return errors.Errorf("expected *leadership.Tracker output; got %T", out)
 	}

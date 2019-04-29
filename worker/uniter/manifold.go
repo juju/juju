@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/fortress"
@@ -65,7 +66,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				// leader-deposed hook -- but that's not done yet.
 				return nil, err
 			}
-			var leadershipTracker LeadershipTrackerWorker
+			var leadershipTracker leadership.TrackerWorker
 			if err := context.Get(config.LeadershipTrackerName, &leadershipTracker); err != nil {
 				return nil, err
 			}

@@ -86,7 +86,7 @@ type Uniter struct {
 	newOperationExecutor NewExecutorFunc
 	translateResolverErr func(error) error
 
-	leadershipTracker LeadershipTrackerWorker
+	leadershipTracker leadership.TrackerWorker
 	charmDirGuard     fortress.Guard
 
 	hookLock machinelock.Lock
@@ -118,18 +118,12 @@ type Uniter struct {
 	downloader charm.Downloader
 }
 
-// LeadershipTrackerWorker represents a leadership tracker worker.
-type LeadershipTrackerWorker interface {
-	worker.Worker
-	leadership.Tracker
-}
-
 // UniterParams hold all the necessary parameters for a new Uniter.
 type UniterParams struct {
 	UniterFacade         *uniter.State
 	UnitTag              names.UnitTag
 	ModelType            model.ModelType
-	LeadershipTracker    LeadershipTrackerWorker
+	LeadershipTracker    leadership.TrackerWorker
 	DataDir              string
 	Downloader           charm.Downloader
 	MachineLock          machinelock.Lock
