@@ -297,7 +297,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		// The uniter installs charms; manages the unit's presence in its
-		// relations; creates suboordinate units; runs all the hooks; sends
+		// relations; creates subordinate units; runs all the hooks; sends
 		// metrics; etc etc etc. We expect to break it up further in the
 		// coming weeks, and to need one per unit in a consolidated agent
 		// (and probably one for each component broken out).
