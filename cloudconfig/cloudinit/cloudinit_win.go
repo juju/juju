@@ -8,7 +8,7 @@ import (
 	"github.com/juju/packaging"
 	"github.com/juju/proxy"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // windowsCloudConfig is the cloudconfig type specific to Windows machines.

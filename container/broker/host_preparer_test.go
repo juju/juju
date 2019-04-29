@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container/broker"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	coretesting "github.com/juju/juju/testing"
 )
 

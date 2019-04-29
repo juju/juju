@@ -23,8 +23,8 @@ import (
 	"github.com/juju/juju/api/sshclient"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/network"
-	jujussh "github.com/juju/juju/network/ssh"
+	"github.com/juju/juju/core/network"
+	jujussh "github.com/juju/juju/core/network/ssh"
 )
 
 // SSHCommon implements functionality shared by sshCommand, SCPCommand

@@ -4,7 +4,7 @@
 package container
 
 import (
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 const (

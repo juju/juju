@@ -23,11 +23,11 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
 	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/logfwd/syslog"
-	"github.com/juju/juju/network"
 )
 
 var logger = loggo.GetLogger("juju.environs.config")

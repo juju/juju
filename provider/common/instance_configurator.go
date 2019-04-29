@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/ssh"
 
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/network/iptables"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/iptables"
 )
 
 const (

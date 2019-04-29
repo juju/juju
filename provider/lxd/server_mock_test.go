@@ -7,8 +7,8 @@ package lxd
 import (
 	gomock "github.com/golang/mock/gomock"
 	lxd "github.com/juju/juju/container/lxd"
+	network "github.com/juju/juju/core/network"
 	environs "github.com/juju/juju/environs"
-	network "github.com/juju/juju/network"
 	client "github.com/lxc/lxd/client"
 	api "github.com/lxc/lxd/shared/api"
 	reflect "reflect"

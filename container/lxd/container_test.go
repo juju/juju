@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/container/lxd/mocks"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/network"
 )
 
 type containerSuite struct {

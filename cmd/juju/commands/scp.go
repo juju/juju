@@ -13,7 +13,7 @@ import (
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	jujussh "github.com/juju/juju/network/ssh"
+	jujussh "github.com/juju/juju/core/network/ssh"
 )
 
 var usageSCPSummary = `

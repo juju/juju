@@ -5,11 +5,10 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	provisioner "github.com/juju/juju/apiserver/facades/agent/provisioner"
 	charm_v6 "gopkg.in/juju/charm.v6"
+	reflect "reflect"
 )
 
 // MockProfileMachine is a mock of ProfileMachine interface
@@ -70,19 +69,6 @@ func (m *MockProfileMachine) ModelName() string {
 // ModelName indicates an expected call of ModelName
 func (mr *MockProfileMachineMockRecorder) ModelName() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelName", reflect.TypeOf((*MockProfileMachine)(nil).ModelName))
-}
-
-// UpgradeCharmProfileCharmURL mocks base method
-func (m *MockProfileMachine) UpgradeCharmProfileCharmURL(arg0 string) (string, error) {
-	ret := m.ctrl.Call(m, "UpgradeCharmProfileCharmURL", arg0)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpgradeCharmProfileCharmURL indicates an expected call of UpgradeCharmProfileCharmURL
-func (mr *MockProfileMachineMockRecorder) UpgradeCharmProfileCharmURL(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeCharmProfileCharmURL", reflect.TypeOf((*MockProfileMachine)(nil).UpgradeCharmProfileCharmURL), arg0)
 }
 
 // MockProfileBackend is a mock of ProfileBackend interface

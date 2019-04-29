@@ -18,8 +18,8 @@ import (
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/machiner"

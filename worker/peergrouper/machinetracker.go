@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1/catacomb"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // machineTracker is a worker which reports changes of interest to

@@ -16,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
-	jujussh "github.com/juju/juju/network/ssh"
+	jujussh "github.com/juju/juju/core/network/ssh"
 )
 
 type SSHSuite struct {

@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/utils/scriptrunner"
 )
 
-var logger = loggo.GetLogger("juju.network.netplan")
+var logger = loggo.GetLogger("juju.core.network.netplan")
 
 // ActivationParams contains options to use when bridging interfaces
 type ActivationParams struct {

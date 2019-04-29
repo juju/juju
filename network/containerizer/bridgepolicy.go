@@ -14,9 +14,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/network"
-
-	// Used for some constants and things like LinkLayerDevice[Args]
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -25,8 +23,6 @@ var logger = loggo.GetLogger("juju.network.containerizer")
 // BridgePolicy defines functionality that helps us create and define bridges
 // for guests inside of a host machine, along with the creation of network
 // devices on those bridges for the containers to use.
-// Ideally BridgePolicy would be defined outside of the 'state' package as it
-// doesn't deal directly with DB content, but not quite enough of State is exposed
 type BridgePolicy struct {
 	// NetBondReconfigureDelay is how much of a delay to inject if we see that
 	// one of the devices being bridged is a BondDevice. This exists because of

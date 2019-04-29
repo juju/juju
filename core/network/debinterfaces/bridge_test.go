@@ -8,7 +8,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/network/debinterfaces"
+	"github.com/juju/juju/core/network/debinterfaces"
 	"github.com/juju/testing"
 )
 

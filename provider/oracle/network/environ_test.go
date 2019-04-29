@@ -15,9 +15,9 @@ import (
 	names "gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/instance"
+	networkenv "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	networkenv "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/oracle"
 	"github.com/juju/juju/provider/oracle/network"
 	oracletesting "github.com/juju/juju/provider/oracle/testing"

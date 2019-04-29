@@ -12,9 +12,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	coretools "github.com/juju/juju/tools"

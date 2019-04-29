@@ -10,7 +10,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 var logger = loggo.GetLogger("juju.api.common")

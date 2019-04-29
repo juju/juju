@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/machineundertaker"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 

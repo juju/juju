@@ -47,6 +47,7 @@ import (
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
@@ -55,7 +56,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/paths"
 	jujuversion "github.com/juju/juju/juju/version"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 )

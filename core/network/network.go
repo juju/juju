@@ -18,7 +18,7 @@ import (
 	"github.com/juju/loggo"
 )
 
-var logger = loggo.GetLogger("juju.network")
+var logger = loggo.GetLogger("juju.core.network")
 
 // SpaceInvalidChars is a regexp for validating that space names contain no
 // invalid characters.

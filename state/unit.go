@@ -25,11 +25,10 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	mgoutils "github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
 )
@@ -1547,7 +1546,7 @@ func (u *Unit) ClosePort(protocol string, number int) error {
 // it must refer to an existing, alive subnet, otherwise an error is returned.
 // Also, when no ports are yet open for the unit on that subnet, no error and
 // empty slice is returned.
-func (u *Unit) OpenedPortsOnSubnet(subnetID string) ([]corenetwork.PortRange, error) {
+func (u *Unit) OpenedPortsOnSubnet(subnetID string) ([]network.PortRange, error) {
 	machineID, err := u.AssignedMachineId()
 	if err != nil {
 		return nil, errors.Annotatef(err, "unit %q has no assigned machine", u)
@@ -1558,7 +1557,7 @@ func (u *Unit) OpenedPortsOnSubnet(subnetID string) ([]corenetwork.PortRange, er
 	}
 
 	machinePorts, err := getPorts(u.st, machineID, subnetID)
-	var result []corenetwork.PortRange
+	var result []network.PortRange
 	if errors.IsNotFound(err) {
 		return result, nil
 	} else if err != nil {
@@ -1566,13 +1565,13 @@ func (u *Unit) OpenedPortsOnSubnet(subnetID string) ([]corenetwork.PortRange, er
 	}
 	ports := machinePorts.PortsForUnit(u.Name())
 	for _, port := range ports {
-		result = append(result, corenetwork.PortRange{
+		result = append(result, network.PortRange{
 			Protocol: port.Protocol,
 			FromPort: port.FromPort,
 			ToPort:   port.ToPort,
 		})
 	}
-	corenetwork.SortPortRanges(result)
+	network.SortPortRanges(result)
 	return result, nil
 }
 
@@ -1581,7 +1580,7 @@ func (u *Unit) OpenedPortsOnSubnet(subnetID string) ([]corenetwork.PortRange, er
 //
 // TODO(dimitern): This should be removed once we use OpenedPortsOnSubnet across
 // the board, passing subnet IDs explicitly.
-func (u *Unit) OpenedPorts() ([]corenetwork.PortRange, error) {
+func (u *Unit) OpenedPorts() ([]network.PortRange, error) {
 	return u.OpenedPortsOnSubnet("")
 }
 

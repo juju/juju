@@ -13,9 +13,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/gce/google"
 )
 

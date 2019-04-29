@@ -24,11 +24,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	jujufactory "github.com/juju/juju/testing/factory"
 )
@@ -419,7 +418,7 @@ func (s *unitSuite) TestOpenClosePortRanges(c *gc.C) {
 	ports, err = s.wordpressUnit.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	// OpenedPorts returns a sorted slice.
-	c.Assert(ports, gc.DeepEquals, []corenetwork.PortRange{
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{
 		{Protocol: "tcp", FromPort: 1234, ToPort: 1400},
 		{Protocol: "udp", FromPort: 4321, ToPort: 5000},
 	})
@@ -430,7 +429,7 @@ func (s *unitSuite) TestOpenClosePortRanges(c *gc.C) {
 	ports, err = s.wordpressUnit.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	// OpenedPorts returns a sorted slice.
-	c.Assert(ports, gc.DeepEquals, []corenetwork.PortRange{
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{
 		{Protocol: "tcp", FromPort: 1234, ToPort: 1400},
 	})
 

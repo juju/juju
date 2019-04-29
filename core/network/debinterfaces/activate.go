@@ -11,12 +11,13 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/juju/utils/scriptrunner"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/pkg/errors"
+
+	"github.com/juju/juju/utils/scriptrunner"
 )
 
-var logger = loggo.GetLogger("juju.network.debinterfaces")
+var logger = loggo.GetLogger("juju.core.network.debinterfaces")
 
 // ActivationParams contains options to use when bridging interfaces
 type ActivationParams struct {

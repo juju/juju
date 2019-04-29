@@ -12,10 +12,9 @@ import (
 	"github.com/joyent/gosdc/cloudapi"
 	"github.com/juju/errors"
 
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 )
 
 const (
@@ -77,14 +76,14 @@ func getRules(envName string, fwrules []cloudapi.FirewallRule) ([]network.Ingres
 					continue
 				}
 				protocol := parts[1]
-				var ports []corenetwork.Port
+				var ports []network.Port
 				portStrings := strings.Split(parts[2], " AND ")
 				for _, portString := range portStrings {
 					portString = portString[strings.LastIndex(portString, "PORT")+5:]
 					port, _ := strconv.Atoi(portString)
-					ports = append(ports, corenetwork.Port{Protocol: protocol, Number: port})
+					ports = append(ports, network.Port{Protocol: protocol, Number: port})
 				}
-				portRange := corenetwork.CollapsePorts(ports)
+				portRange := network.CollapsePorts(ports)
 				for _, port := range portRange {
 					rule, _ := network.NewIngressRule(port.Protocol, port.FromPort, port.ToPort, "0.0.0.0/0")
 					rules = append(rules, rule)

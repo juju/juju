@@ -16,8 +16,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/network"
 )
 
 // controllerAddresses returns the list of internal addresses of the state

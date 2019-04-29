@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -29,7 +30,6 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/keys"
 	supportedversion "github.com/juju/juju/juju/version"
-	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )

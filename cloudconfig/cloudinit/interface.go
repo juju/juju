@@ -17,7 +17,7 @@ import (
 	"github.com/juju/proxy"
 	"github.com/juju/utils/shell"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // CloudConfig is the interface of all cloud-init cloudconfig options.

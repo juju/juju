@@ -18,7 +18,7 @@ import (
 	"github.com/lxc/lxd/shared/version"
 
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 const (

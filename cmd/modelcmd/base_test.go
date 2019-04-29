@@ -20,9 +20,9 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
 

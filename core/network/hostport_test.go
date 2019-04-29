@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -99,7 +99,7 @@ func (s *HostPortSuite) TestResolveOrDropHostnames(c *gc.C) {
 	c.Assert(
 		c.GetTestLog(),
 		jc.Contains,
-		`DEBUG juju.network removing unresolvable address "invalid host"`,
+		`DEBUG juju.core.network removing unresolvable address "invalid host"`,
 	)
 	// Order should be preserved, duplicates dropped and hostnames,
 	// except localhost resolved or dropped.

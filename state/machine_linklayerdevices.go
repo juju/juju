@@ -14,8 +14,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
 )
 
 // LinkLayerDevice returns the link-layer device matching the given name. An

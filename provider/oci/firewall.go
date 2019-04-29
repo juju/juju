@@ -6,8 +6,8 @@ package oci
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 )
 
 func (e *Environ) OpenPorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {

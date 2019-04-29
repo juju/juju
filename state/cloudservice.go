@@ -5,7 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"

@@ -19,7 +19,6 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
-	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
 
@@ -148,8 +147,8 @@ func instancePublicIPAddresses(
 }
 
 // Addresses is specified in the Instance interface.
-func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) ([]jujunetwork.Address, error) {
-	addresses := make([]jujunetwork.Address, 0, len(inst.networkInterfaces)+len(inst.publicIPAddresses))
+func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
+	addresses := make([]corenetwork.Address, 0, len(inst.networkInterfaces)+len(inst.publicIPAddresses))
 	for _, nic := range inst.networkInterfaces {
 		if nic.IPConfigurations == nil {
 			continue
@@ -159,9 +158,9 @@ func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) ([]jujunet
 			if privateIpAddress == nil {
 				continue
 			}
-			addresses = append(addresses, jujunetwork.NewScopedAddress(
+			addresses = append(addresses, corenetwork.NewScopedAddress(
 				to.String(privateIpAddress),
-				jujunetwork.ScopeCloudLocal,
+				corenetwork.ScopeCloudLocal,
 			))
 		}
 	}
@@ -169,18 +168,18 @@ func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) ([]jujunet
 		if pip.IPAddress == nil {
 			continue
 		}
-		addresses = append(addresses, jujunetwork.NewScopedAddress(
+		addresses = append(addresses, corenetwork.NewScopedAddress(
 			to.String(pip.IPAddress),
-			jujunetwork.ScopePublic,
+			corenetwork.ScopePublic,
 		))
 	}
 	return addresses, nil
 }
 
-// primaryNetworkAddress returns the instance's primary jujunetwork.Address for
+// primaryNetworkAddress returns the instance's primary corenetwork.Address for
 // the internal virtual network. This address is used to identify the machine in
 // network security rules.
-func (inst *azureInstance) primaryNetworkAddress() (jujunetwork.Address, error) {
+func (inst *azureInstance) primaryNetworkAddress() (corenetwork.Address, error) {
 	for _, nic := range inst.networkInterfaces {
 		if nic.IPConfigurations == nil {
 			continue
@@ -196,17 +195,17 @@ func (inst *azureInstance) primaryNetworkAddress() (jujunetwork.Address, error) 
 			if privateIpAddress == nil {
 				continue
 			}
-			return jujunetwork.NewScopedAddress(
+			return corenetwork.NewScopedAddress(
 				to.String(privateIpAddress),
-				jujunetwork.ScopeCloudLocal,
+				corenetwork.ScopeCloudLocal,
 			), nil
 		}
 	}
-	return jujunetwork.Address{}, errors.NotFoundf("internal network address")
+	return corenetwork.Address{}, errors.NotFoundf("internal network address")
 }
 
 // OpenPorts is specified in the Instance interface.
-func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []jujunetwork.IngressRule) error {
+func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []corenetwork.IngressRule) error {
 	nsgClient := network.SecurityGroupsClient{inst.env.network}
 	securityRuleClient := network.SecurityRulesClient{inst.env.network}
 	primaryNetworkAddress, err := inst.primaryNetworkAddress()
@@ -302,7 +301,7 @@ func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 }
 
 // ClosePorts is specified in the Instance interface.
-func (inst *azureInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules []jujunetwork.IngressRule) error {
+func (inst *azureInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules []corenetwork.IngressRule) error {
 	securityRuleClient := network.SecurityRulesClient{inst.env.network}
 	securityGroupName := internalSecurityGroupName
 
@@ -339,7 +338,7 @@ func (inst *azureInstance) ClosePorts(ctx context.ProviderCallContext, machineId
 }
 
 // IngressRules is specified in the Instance interface.
-func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machineId string) (rules []jujunetwork.IngressRule, err error) {
+func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machineId string) (rules []corenetwork.IngressRule, err error) {
 	nsgClient := network.SecurityGroupsClient{inst.env.network}
 	securityGroupName := internalSecurityGroupName
 	nsg, err := nsgClient.Get(stdcontext.Background(), inst.env.resourceGroup, securityGroupName, "")
@@ -412,7 +411,7 @@ func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machine
 	}
 	// Combine all the port ranges and remote prefixes.
 	for portRange, sourceCIDRs := range portSourceCIDRs {
-		rule, err := jujunetwork.NewIngressRule(
+		rule, err := corenetwork.NewIngressRule(
 			portRange.Protocol,
 			portRange.FromPort,
 			portRange.ToPort,
@@ -422,7 +421,7 @@ func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machine
 		}
 		rules = append(rules, rule)
 	}
-	jujunetwork.SortIngressRules(rules)
+	corenetwork.SortIngressRules(rules)
 	return rules, nil
 }
 
@@ -487,7 +486,7 @@ func instanceNetworkSecurityRulePrefix(id instance.Id) string {
 
 // securityRuleName returns the security rule name for the given ingress rule,
 // and prefix returned by instanceNetworkSecurityRulePrefix.
-func securityRuleName(prefix string, rule jujunetwork.IngressRule) string {
+func securityRuleName(prefix string, rule corenetwork.IngressRule) string {
 	ruleName := fmt.Sprintf("%s%s-%d", prefix, rule.Protocol, rule.FromPort)
 	if rule.FromPort != rule.ToPort {
 		ruleName += fmt.Sprintf("-%d", rule.ToPort)
@@ -507,10 +506,10 @@ func securityRuleName(prefix string, rule jujunetwork.IngressRule) string {
 // explodeIngressRules creates a slice of ingress rules, each rule in the
 // result having a single source CIDR. The results contain a copy of each
 // specified rule with each copy having one of the source CIDR values,
-func explodeIngressRules(inRules jujunetwork.IngressRuleSlice) jujunetwork.IngressRuleSlice {
+func explodeIngressRules(inRules corenetwork.IngressRuleSlice) corenetwork.IngressRuleSlice {
 	// If any rule has an empty source CIDR slice, a default
 	// source value of "*" is used.
-	var singleSourceIngressRules jujunetwork.IngressRuleSlice
+	var singleSourceIngressRules corenetwork.IngressRuleSlice
 	for _, rule := range inRules {
 		sourceCIDRs := rule.SourceCIDRs
 		if len(sourceCIDRs) == 0 {

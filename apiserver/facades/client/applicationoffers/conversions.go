@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
 )
 
 // paramsFromProviderSpaceInfo converts a ProviderSpaceInfo into the

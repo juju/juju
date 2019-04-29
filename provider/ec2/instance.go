@@ -9,11 +9,11 @@ import (
 	"gopkg.in/amz.v3/ec2"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
 )
 
 type ec2Instance struct {

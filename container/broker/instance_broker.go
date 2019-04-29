@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
 )
 
 // NewBrokerFunc returns a Instance Broker.

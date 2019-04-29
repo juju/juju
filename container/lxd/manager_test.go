@@ -24,10 +24,10 @@ import (
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 )

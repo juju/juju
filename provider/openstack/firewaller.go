@@ -16,12 +16,11 @@ import (
 	"gopkg.in/goose.v2/neutron"
 
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -972,13 +971,13 @@ func (c *neutronFirewaller) ingressRulesInGroup(ctx context.ProviderCallContext,
 		return nil, errors.Trace(err)
 	}
 	// Keep track of all the RemoteIPPrefixes for each port range.
-	portSourceCIDRs := make(map[corenetwork.PortRange]*[]string)
+	portSourceCIDRs := make(map[network.PortRange]*[]string)
 	for _, p := range group.Rules {
 		// Skip the default Security Group Rules created by Neutron
 		if p.Direction == "egress" {
 			continue
 		}
-		portRange := corenetwork.PortRange{
+		portRange := network.PortRange{
 			Protocol: *p.IPProtocol,
 		}
 		if p.PortRangeMin != nil {

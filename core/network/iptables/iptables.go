@@ -13,10 +13,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
-var logger = loggo.GetLogger("juju.network.iptables")
+var logger = loggo.GetLogger("juju.core.network.iptables")
 
 const (
 	// iptablesIngressCommand is the comment attached to iptables

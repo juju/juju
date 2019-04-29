@@ -16,8 +16,8 @@ import (
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/snap"

@@ -6,8 +6,8 @@ package gce
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
 )

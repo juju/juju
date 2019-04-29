@@ -9,9 +9,9 @@ import (
 
 	"github.com/joyent/gosdc/cloudapi"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 )
 
 const (

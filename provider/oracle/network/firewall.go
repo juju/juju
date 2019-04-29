@@ -19,11 +19,10 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/controller"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 	commonProvider "github.com/juju/juju/provider/oracle/common"
 )
 
@@ -311,7 +310,7 @@ func (f Firewall) GlobalIngressRules(ctx context.ProviderCallContext) ([]network
 func (f Firewall) getDefaultIngressRules(apiPort int) []network.IngressRule {
 	return []network.IngressRule{
 		{
-			PortRange: corenetwork.PortRange{
+			PortRange: network.PortRange{
 				FromPort: 22,
 				ToPort:   22,
 				Protocol: "tcp",
@@ -321,7 +320,7 @@ func (f Firewall) getDefaultIngressRules(apiPort int) []network.IngressRule {
 			},
 		},
 		{
-			PortRange: corenetwork.PortRange{
+			PortRange: network.PortRange{
 				FromPort: 3389,
 				ToPort:   3389,
 				Protocol: "tcp",
@@ -331,7 +330,7 @@ func (f Firewall) getDefaultIngressRules(apiPort int) []network.IngressRule {
 			},
 		},
 		{
-			PortRange: corenetwork.PortRange{
+			PortRange: network.PortRange{
 				FromPort: apiPort,
 				ToPort:   apiPort,
 				Protocol: "tcp",
@@ -341,7 +340,7 @@ func (f Firewall) getDefaultIngressRules(apiPort int) []network.IngressRule {
 			},
 		},
 		{
-			PortRange: corenetwork.PortRange{
+			PortRange: network.PortRange{
 				FromPort: controller.DefaultStatePort,
 				ToPort:   controller.DefaultStatePort,
 				Protocol: "tcp",
@@ -562,7 +561,7 @@ func (f Firewall) getAllApplicationsAsMap() (map[string]response.SecApplication,
 	return allApps, nil
 }
 
-func (f Firewall) ensureApplication(portRange corenetwork.PortRange, cache *[]response.SecApplication) (string, error) {
+func (f Firewall) ensureApplication(portRange network.PortRange, cache *[]response.SecApplication) (string, error) {
 	// check if the security application is already created
 	for _, val := range *cache {
 		if val.PortProtocolPair() == portRange.String() {
@@ -657,12 +656,12 @@ func (f Firewall) convertToSecRules(seclist response.SecList, rules []network.In
 
 // convertApplicationToPortRange takes a SecApplication and
 // converts it to a network.PortRange type
-func (f Firewall) convertApplicationToPortRange(app response.SecApplication) corenetwork.PortRange {
+func (f Firewall) convertApplicationToPortRange(app response.SecApplication) network.PortRange {
 	appCopy := app
 	if appCopy.Value2 == -1 {
 		appCopy.Value2 = appCopy.Value1
 	}
-	return corenetwork.PortRange{
+	return network.PortRange{
 		FromPort: appCopy.Value1,
 		ToPort:   appCopy.Value2,
 		Protocol: string(appCopy.Protocol),

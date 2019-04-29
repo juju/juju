@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 
 	ociCore "github.com/oracle/oci-go-sdk/core"
 )

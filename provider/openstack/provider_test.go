@@ -18,9 +18,9 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 )
 
 // localTests contains tests which do not require a live service or test double to run.

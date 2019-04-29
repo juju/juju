@@ -5,8 +5,6 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
 	constraints "github.com/juju/juju/core/constraints"
@@ -14,6 +12,7 @@ import (
 	containerizer "github.com/juju/juju/network/containerizer"
 	state "github.com/juju/juju/state"
 	names_v2 "gopkg.in/juju/names.v2"
+	reflect "reflect"
 )
 
 // MockMachine is a mock of Machine interface

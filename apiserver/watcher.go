@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 

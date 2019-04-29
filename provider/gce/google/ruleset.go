@@ -13,8 +13,7 @@ import (
 	"github.com/juju/errors"
 	"google.golang.org/api/compute/v1"
 
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // ruleSet is used to manipulate port ranges for a collection of
@@ -80,9 +79,9 @@ func (rs ruleSet) addFirewall(fw *compute.Firewall) error {
 		AllowedPorts: make(protocolPorts),
 	}
 	for _, allowed := range fw.Allowed {
-		ranges := make([]corenetwork.PortRange, len(allowed.Ports))
+		ranges := make([]network.PortRange, len(allowed.Ports))
 		for i, rangeStr := range allowed.Ports {
-			portRange, err := corenetwork.ParsePortRange(rangeStr)
+			portRange, err := network.ParsePortRange(rangeStr)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -93,7 +92,7 @@ func (rs ruleSet) addFirewall(fw *compute.Firewall) error {
 		p[allowed.IPProtocol] = append(p[allowed.IPProtocol], ranges...)
 	}
 	for protocol, ranges := range result.AllowedPorts {
-		result.AllowedPorts[protocol] = corenetwork.CombinePortRanges(ranges...)
+		result.AllowedPorts[protocol] = network.CombinePortRanges(ranges...)
 	}
 	if other, ok := rs[key]; ok {
 		return errors.Errorf(
@@ -192,7 +191,7 @@ func (fw *firewall) toIngressRules() ([]network.IngressRule, error) {
 
 // protocolPorts maps a protocol eg "tcp" to a collection of
 // port ranges for that protocol.
-type protocolPorts map[string][]corenetwork.PortRange
+type protocolPorts map[string][]network.PortRange
 
 func (pp protocolPorts) String() string {
 	var sortedProtocols []string
@@ -264,7 +263,7 @@ func (pp protocolPorts) remove(other protocolPorts) protocolPorts {
 		if !ok {
 			continue
 		}
-		var resultRange []corenetwork.PortRange
+		var resultRange []network.PortRange
 		for _, one := range myRange {
 			found := false
 			for _, other := range otherPorts {

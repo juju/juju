@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/network/ssh"
+	"github.com/juju/juju/core/network/ssh"
 	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
 )
 

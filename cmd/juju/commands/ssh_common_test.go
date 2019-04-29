@@ -5,6 +5,7 @@ package commands
 
 import (
 	"fmt"
+
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,9 +17,9 @@ import (
 	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/network"
+	jujussh "github.com/juju/juju/core/network/ssh"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
-	jujussh "github.com/juju/juju/network/ssh"
 	"github.com/juju/juju/state"
 )
 

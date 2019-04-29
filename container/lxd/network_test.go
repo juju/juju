@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/container/lxd"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 type networkSuite struct {

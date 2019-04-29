@@ -13,9 +13,9 @@ import (
 	"gopkg.in/juju/charm.v6"
 
 	apitesting "github.com/juju/juju/api/testing"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"

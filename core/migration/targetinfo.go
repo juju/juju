@@ -8,7 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v2-unstable"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // TargetInfo holds the details required to connect to a

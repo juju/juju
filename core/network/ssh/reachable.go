@@ -14,10 +14,10 @@ import (
 	"github.com/juju/loggo"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
-var logger = loggo.GetLogger("juju.network.ssh")
+var logger = loggo.GetLogger("juju.core.network.ssh")
 
 // Dialer defines a Dial() method matching the signature of net.Dial().
 type Dialer interface {

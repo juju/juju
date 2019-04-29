@@ -15,8 +15,8 @@ import (
 	"gopkg.in/juju/worker.v1/workertest"
 
 	apimachiner "github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apiaddressupdater"

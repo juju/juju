@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/juju/network/debinterfaces"
+	"github.com/juju/juju/core/network/debinterfaces"
 )
 
 const usage = `

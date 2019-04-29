@@ -289,7 +289,7 @@ func (c *cacheWorker) translate(d multiwatcher.Delta) interface{} {
 			SupportedContainersKnown: value.SupportedContainersKnown,
 			HardwareCharacteristics:  value.HardwareCharacteristics,
 			CharmProfiles:            value.CharmProfiles,
-			Addresses:                coreNetworkAddresses(value.Addresses),
+			Addresses:                networkAddresses(value.Addresses),
 			HasVote:                  value.HasVote,
 			WantsVote:                value.WantsVote,
 		}
@@ -315,8 +315,8 @@ func (c *cacheWorker) translate(d multiwatcher.Delta) interface{} {
 			PublicAddress:  value.PublicAddress,
 			PrivateAddress: value.PrivateAddress,
 			MachineId:      value.MachineId,
-			Ports:          coreNetworkPorts(value.Ports),
-			PortRanges:     coreNetworkPortRanges(value.PortRanges),
+			Ports:          networkPorts(value.Ports),
+			PortRanges:     networkPortRanges(value.PortRanges),
 			Principal:      value.Principal,
 			Subordinate:    value.Subordinate,
 			WorkloadStatus: coreStatus(value.WorkloadStatus),
@@ -363,7 +363,7 @@ func coreStatus(info multiwatcher.StatusInfo) status.StatusInfo {
 	}
 }
 
-func coreNetworkPorts(delta []multiwatcher.Port) []network.Port {
+func networkPorts(delta []multiwatcher.Port) []network.Port {
 	ports := make([]network.Port, len(delta))
 	for i, d := range delta {
 		ports[i] = network.Port{
@@ -374,7 +374,7 @@ func coreNetworkPorts(delta []multiwatcher.Port) []network.Port {
 	return ports
 }
 
-func coreNetworkPortRanges(delta []multiwatcher.PortRange) []network.PortRange {
+func networkPortRanges(delta []multiwatcher.PortRange) []network.PortRange {
 	ports := make([]network.PortRange, len(delta))
 	for i, d := range delta {
 		ports[i] = network.PortRange{
@@ -386,15 +386,15 @@ func coreNetworkPortRanges(delta []multiwatcher.PortRange) []network.PortRange {
 	return ports
 }
 
-func coreNetworkAddresses(delta []multiwatcher.Address) []network.Address {
+func networkAddresses(delta []multiwatcher.Address) []network.Address {
 	addresses := make([]network.Address, len(delta))
 	for i, d := range delta {
 		addresses[i] = network.Address{
 			Value:           d.Value,
-			Type:            d.Type,
-			Scope:           d.Scope,
-			SpaceName:       d.SpaceName,
-			SpaceProviderId: d.SpaceProviderId,
+			Type:            network.AddressType(d.Type),
+			Scope:           network.Scope(d.Scope),
+			SpaceName:       network.SpaceName(d.SpaceName),
+			SpaceProviderId: network.Id(d.SpaceProviderId),
 		}
 	}
 	return addresses

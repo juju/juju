@@ -16,10 +16,10 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/network"
 	providerCommon "github.com/juju/juju/provider/oci/common"
 
 	ociCore "github.com/oracle/oci-go-sdk/core"

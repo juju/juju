@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	coretools "github.com/juju/juju/tools"
 )
 

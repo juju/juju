@@ -10,11 +10,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/network"
 )
 
 // Ensure EC2 provider supports the expected interfaces,

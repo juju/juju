@@ -211,7 +211,7 @@ clouds:
       francecentral:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net       
+        identity-endpoint: https://graph.windows.net        
   azure-china:
     type: azure
     description: Microsoft Azure China
@@ -317,5 +317,4 @@ clouds:
         endpoint: https://compute.em2.oraclecloud.com
       em3:
         endpoint: https://compute.em3.oraclecloud.com
-
 `

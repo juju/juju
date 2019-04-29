@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/network"
 )
 
 // IngressRule represents a range of ports and sources
@@ -18,7 +17,7 @@ import (
 type IngressRule struct {
 	// PortRange is the range of ports for which incoming
 	// packets are allowed.
-	network.PortRange
+	PortRange
 
 	// SourceCIDRs is a list of IP address blocks expressed in CIDR format
 	// to which this rule applies.
@@ -30,7 +29,7 @@ type IngressRule struct {
 // restriction from where incoming traffic originates.
 func NewIngressRule(protocol string, from, to int, sourceCIDRs ...string) (IngressRule, error) {
 	rule := IngressRule{
-		PortRange: network.PortRange{
+		PortRange: PortRange{
 			Protocol: protocol,
 			FromPort: from,
 			ToPort:   to,

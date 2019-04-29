@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/network/containerizer"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"

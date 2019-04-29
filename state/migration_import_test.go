@@ -23,9 +23,8 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -1041,7 +1040,7 @@ func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 	ports, err := imported.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 1)
-	c.Assert(ports[0], gc.Equals, corenetwork.PortRange{
+	c.Assert(ports[0], gc.Equals, network.PortRange{
 		FromPort: 1234,
 		ToPort:   2345,
 		Protocol: "tcp",

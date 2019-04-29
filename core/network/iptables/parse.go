@@ -3,15 +3,13 @@
 
 // +build ignore
 
-package main
+package iptables
 
 import (
 	"log"
 	"os"
 
 	"github.com/kr/pretty"
-
-	"github.com/juju/juju/network/iptables"
 )
 
 func main() {

@@ -16,7 +16,7 @@ import (
 	"gopkg.in/goose.v2/nova"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // Networking is an interface providing networking-related operations
