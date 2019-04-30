@@ -56,8 +56,8 @@ type modelCacheMachine struct {
 	*cache.Machine
 }
 
-func (m *modelCacheMachine) WatchApplicationLXDProfiles() (cache.NotifyWatcher, error) {
-	return m.Machine.WatchApplicationLXDProfiles()
+func (m *modelCacheMachine) WatchLXDProfileVerificationNeeded() (cache.NotifyWatcher, error) {
+	return m.Machine.WatchLXDProfileVerificationNeeded()
 }
 
 func (m *modelCacheMachine) WatchContainers() (cache.StringsWatcher, error) {

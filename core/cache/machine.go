@@ -123,7 +123,7 @@ func (m *Machine) WatchContainers() (*PredicateStringsWatcher, error) {
 	return w, nil
 }
 
-// WatchApplicationLXDProfiles notifies if any of the following happen
+// WatchLXDProfileVerificationNeeded notifies if any of the following happen
 // relative to this machine:
 //     1. A new unit whose charm has an lxd profile is added.
 //     2. A unit being removed has a profile and other units

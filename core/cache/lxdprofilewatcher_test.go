@@ -343,7 +343,7 @@ func (s *lxdProfileWatcherSuite) assertStartOneMachineWatcher(c *gc.C) *cache.Ma
 	s.setupOneMachineLXDProfileWatcherScenario(c)
 	w, err := s.machine0.WatchLXDProfileVerificationNeeded()
 	c.Assert(err, jc.ErrorIsNil)
-	//defer workertest.CleanKill(c, w)
+
 	wc := NewNotifyWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange()

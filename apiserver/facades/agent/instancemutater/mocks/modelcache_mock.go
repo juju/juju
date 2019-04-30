@@ -161,19 +161,6 @@ func (mr *MockModelCacheMachineMockRecorder) Units() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Units", reflect.TypeOf((*MockModelCacheMachine)(nil).Units))
 }
 
-// WatchApplicationLXDProfiles mocks base method
-func (m *MockModelCacheMachine) WatchApplicationLXDProfiles() (cache.NotifyWatcher, error) {
-	ret := m.ctrl.Call(m, "WatchApplicationLXDProfiles")
-	ret0, _ := ret[0].(cache.NotifyWatcher)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchApplicationLXDProfiles indicates an expected call of WatchApplicationLXDProfiles
-func (mr *MockModelCacheMachineMockRecorder) WatchApplicationLXDProfiles() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplicationLXDProfiles", reflect.TypeOf((*MockModelCacheMachine)(nil).WatchApplicationLXDProfiles))
-}
-
 // WatchContainers mocks base method
 func (m *MockModelCacheMachine) WatchContainers() (cache.StringsWatcher, error) {
 	ret := m.ctrl.Call(m, "WatchContainers")
@@ -185,6 +172,19 @@ func (m *MockModelCacheMachine) WatchContainers() (cache.StringsWatcher, error) 
 // WatchContainers indicates an expected call of WatchContainers
 func (mr *MockModelCacheMachineMockRecorder) WatchContainers() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchContainers", reflect.TypeOf((*MockModelCacheMachine)(nil).WatchContainers))
+}
+
+// WatchLXDProfileVerificationNeeded mocks base method
+func (m *MockModelCacheMachine) WatchLXDProfileVerificationNeeded() (cache.NotifyWatcher, error) {
+	ret := m.ctrl.Call(m, "WatchLXDProfileVerificationNeeded")
+	ret0, _ := ret[0].(cache.NotifyWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchLXDProfileVerificationNeeded indicates an expected call of WatchLXDProfileVerificationNeeded
+func (mr *MockModelCacheMachineMockRecorder) WatchLXDProfileVerificationNeeded() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLXDProfileVerificationNeeded", reflect.TypeOf((*MockModelCacheMachine)(nil).WatchLXDProfileVerificationNeeded))
 }
 
 // MockModelCacheApplication is a mock of ModelCacheApplication interface

@@ -604,7 +604,7 @@ func (s *workerSuite) notifyAppLXDProfile(mock *mocks.MockMutaterMachine, which,
 		w.EXPECT().Kill().AnyTimes()
 		w.EXPECT().Wait().Return(nil).AnyTimes()
 
-		mock.EXPECT().WatchApplicationLXDProfiles().Return(
+		mock.EXPECT().WatchLXDProfileVerificationNeeded().Return(
 			&fakeNotifyWatcher{
 				Worker: w,
 				ch:     ch,

@@ -67,14 +67,14 @@ func (s *instanceMutaterMachineSuite) TestSetCharmProfilesError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "failed")
 }
 
-func (s *instanceMutaterMachineSuite) TestWatchApplicationLXDProfiles(c *gc.C) {
+func (s *instanceMutaterMachineSuite) TestWatchLXDProfileVerificationNeeded(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	api := s.machineForScenario(c,
-		s.expectWatchApplicationLXDProfiles,
+		s.expectWatchLXDProfileVerificationNeeded,
 		s.expectNotifyWatcher,
 	)
-	ch, err := api.WatchApplicationLXDProfiles()
+	ch, err := api.WatchLXDProfileVerificationNeeded()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// watch for the changes
@@ -87,13 +87,13 @@ func (s *instanceMutaterMachineSuite) TestWatchApplicationLXDProfiles(c *gc.C) {
 	}
 }
 
-func (s *instanceMutaterMachineSuite) TestWatchApplicationLXDProfilesServerError(c *gc.C) {
+func (s *instanceMutaterMachineSuite) TestWatchLXDProfileVerificationNeededServerError(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	api := s.machineForScenario(c,
-		s.expectWatchApplicationLXDProfilesWithError(errors.New("failed")),
+		s.expectWatchLXDProfileVerificationNeededWithError(errors.New("failed")),
 	)
-	_, err := api.WatchApplicationLXDProfiles()
+	_, err := api.WatchLXDProfileVerificationNeeded()
 	c.Assert(err, gc.ErrorMatches, "failed")
 }
 
@@ -307,7 +307,7 @@ func (s *instanceMutaterMachineSuite) expectSetModificationFacadeCallReturnsErro
 	}
 }
 
-func (s *instanceMutaterMachineSuite) expectWatchApplicationLXDProfiles() {
+func (s *instanceMutaterMachineSuite) expectWatchLXDProfileVerificationNeeded() {
 	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: s.tag.String()},
@@ -321,11 +321,11 @@ func (s *instanceMutaterMachineSuite) expectWatchApplicationLXDProfiles() {
 		},
 	}
 	fExp := s.fCaller.EXPECT()
-	fExp.FacadeCall("WatchApplicationLXDProfiles", args, gomock.Any()).SetArg(2, results).Return(nil)
+	fExp.FacadeCall("WatchLXDProfileVerificationNeeded", args, gomock.Any()).SetArg(2, results).Return(nil)
 	fExp.RawAPICaller().Return(s.apiCaller)
 }
 
-func (s *instanceMutaterMachineSuite) expectWatchApplicationLXDProfilesWithError(err error) func() {
+func (s *instanceMutaterMachineSuite) expectWatchLXDProfileVerificationNeededWithError(err error) func() {
 	return func() {
 		args := params.Entities{
 			Entities: []params.Entity{
@@ -342,7 +342,7 @@ func (s *instanceMutaterMachineSuite) expectWatchApplicationLXDProfilesWithError
 			},
 		}
 		aExp := s.fCaller.EXPECT()
-		aExp.FacadeCall("WatchApplicationLXDProfiles", args, gomock.Any()).SetArg(2, results).Return(nil)
+		aExp.FacadeCall("WatchLXDProfileVerificationNeeded", args, gomock.Any()).SetArg(2, results).Return(nil)
 	}
 }
 

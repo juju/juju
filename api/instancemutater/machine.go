@@ -45,11 +45,11 @@ type MutaterMachine interface {
 	// machine.
 	WatchUnits() (watcher.StringsWatcher, error)
 
-	// WatchApplicationLXDProfiles returns a NotifyWatcher, notifies when the
+	// WatchLXDProfileVerificationNeeded returns a NotifyWatcher, notifies when the
 	// following changes happen:
 	//  - application charm URL changes and there is a lxd profile
 	//  - unit is add or removed and there is a lxd profile
-	WatchApplicationLXDProfiles() (watcher.NotifyWatcher, error)
+	WatchLXDProfileVerificationNeeded() (watcher.NotifyWatcher, error)
 
 	// WatchContainers returns a watcher.StringsWatcher for watching
 	// containers of a given machine.
@@ -156,13 +156,13 @@ func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-// WatchApplicationLXDProfiles implements MutaterMachine.WatchApplicationLXDProfiles.
-func (m *Machine) WatchApplicationLXDProfiles() (watcher.NotifyWatcher, error) {
+// WatchLXDProfileVerificationNeeded implements MutaterMachine.WatchLXDProfileVerificationNeeded.
+func (m *Machine) WatchLXDProfileVerificationNeeded() (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.facade.FacadeCall("WatchApplicationLXDProfiles", args, &results)
+	err := m.facade.FacadeCall("WatchLXDProfileVerificationNeeded", args, &results)
 	if err != nil {
 		return nil, err
 	}

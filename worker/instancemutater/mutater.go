@@ -106,7 +106,7 @@ func runMachine(machine MutaterMachine, removed <-chan struct{}, died chan<- ins
 		}
 	}()
 
-	profileChangeWatcher, err := machine.machineApi.WatchApplicationLXDProfiles()
+	profileChangeWatcher, err := machine.machineApi.WatchLXDProfileVerificationNeeded()
 	if err != nil {
 		machine.logger.Errorf(errors.Annotatef(err, "failed to start watching application lxd profiles for machine-%s", machine.id).Error())
 		machine.context.kill(err)
