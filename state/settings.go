@@ -266,13 +266,16 @@ func (s *Settings) applyChanges(changes settings.ItemChanges) {
 	}
 }
 
-// MultiSettingsWriter facilitates the update of multiple
-// settings documents as a single DB transaction.
-type MultiSettingsWriter []*Settings
-
-// Write generates a single transaction to update all of
-// the settings documents, then applies it.
-func (s MultiSettingsWriter) Write() error {
+// WriteBulkSettings writes all of the input settings documents
+// in a single transaction.
+// NOTE: The settings are passed as values and not references.
+// Unlike the call to "Write" on a single settings reference,
+// we cannot expect that all the settings objects to be updated to represent
+// consistency between the live and on-disk values.
+// TODO (manadart 2019-04-30): This is inelegant.
+// The settings abstractions are poor, but model generations really makes
+// this logic creak.
+func (st *State) WriteBulkSettings(s []Settings) error {
 	if len(s) == 0 {
 		return nil
 	}
@@ -285,7 +288,7 @@ func (s MultiSettingsWriter) Write() error {
 
 	// Using the DB from the first document under the assumption
 	// that it is the same as for all of the others is reasonable.
-	return errors.Annotate(s[0].db.RunTransaction(allOps), "writing multiple settings")
+	return errors.Annotate(st.db().RunTransaction(allOps), "writing multiple settings")
 }
 
 // ReadSettings returns the settings for the given key.
