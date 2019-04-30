@@ -4,13 +4,20 @@
 package commands
 
 import (
+	"strings"
+
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/api/usermanager"
+	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
@@ -25,13 +32,29 @@ func newMigrateCommand() modelcmd.ModelCommand {
 // migrateCommand initiates a model migration.
 type migrateCommand struct {
 	modelcmd.ModelCommandBase
-	newAPIRoot       func(jujuclient.ClientStore, string, string) (api.Connection, error)
-	api              migrateAPI
 	targetController string
+
+	// Overridden by tests
+	newAPIRoot func(jujuclient.ClientStore, string, string) (api.Connection, error)
+	migAPI     map[string]migrateAPI
+	modelAPI   modelInfoAPI
+	userAPI    userListAPI
 }
 
 type migrateAPI interface {
 	InitiateMigration(spec controller.MigrationSpec) (string, error)
+	IdentityProviderURL() (string, error)
+	Close() error
+}
+
+type modelInfoAPI interface {
+	ModelInfo([]names.ModelTag) ([]params.ModelInfoResult, error)
+	Close() error
+}
+
+type userListAPI interface {
+	UserInfo([]string, usermanager.IncludeDisabled) ([]params.UserInfo, error)
+	Close() error
 }
 
 const migrateDoc = `
@@ -90,6 +113,41 @@ func (c *migrateCommand) Init(args []string) error {
 	return nil
 }
 
+// Run implements cmd.Command.
+func (c *migrateCommand) Run(ctx *cmd.Context) error {
+	spec, err := c.getMigrationSpec()
+	if err != nil {
+		return err
+	}
+	modelName, err := c.ModelName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	uuids, err := c.ModelUUIDs([]string{modelName})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	spec.ModelUUID = uuids[0]
+	if err := c.checkMigrationFeasibility(spec); err != nil {
+		return errors.Trace(err)
+	}
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return err
+	}
+	api, err := c.getMigrationAPI(controllerName)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = api.Close() }()
+	id, err := api.InitiateMigration(*spec)
+	if err != nil {
+		return err
+	}
+	ctx.Infof("Migration started with ID %q", id)
+	return nil
+}
+
 func (c *migrateCommand) getMigrationSpec() (*controller.MigrationSpec, error) {
 	store := c.ClientStore()
 
@@ -123,42 +181,46 @@ func (c *migrateCommand) getMigrationSpec() (*controller.MigrationSpec, error) {
 	}, nil
 }
 
-// Run implements cmd.Command.
-func (c *migrateCommand) Run(ctx *cmd.Context) error {
-	spec, err := c.getMigrationSpec()
-	if err != nil {
-		return err
+func (c *migrateCommand) getMigrationAPI(controllerName string) (migrateAPI, error) {
+	if c.migAPI != nil && c.migAPI[controllerName] != nil {
+		return c.migAPI[controllerName], nil
 	}
-	modelName, err := c.ModelName()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	uuids, err := c.ModelUUIDs([]string{modelName})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	spec.ModelUUID = uuids[0]
-	api, err := c.getAPI()
-	if err != nil {
-		return err
-	}
-	id, err := api.InitiateMigration(*spec)
-	if err != nil {
-		return err
-	}
-	ctx.Infof("Migration started with ID %q", id)
-	return nil
-}
 
-func (c *migrateCommand) getAPI() (migrateAPI, error) {
-	if c.api != nil {
-		return c.api, nil
-	}
-	apiRoot, err := c.NewControllerAPIRoot()
+	apiRoot, err := c.newAPIRoot(c.ClientStore(), controllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return controller.NewClient(apiRoot), nil
+}
+
+func (c *migrateCommand) getModelAPI() (modelInfoAPI, error) {
+	if c.modelAPI != nil {
+		return c.modelAPI, nil
+	}
+
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return nil, err
+	}
+
+	apiRoot, err := c.newAPIRoot(c.ClientStore(), controllerName, "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelmanager.NewClient(apiRoot), nil
+}
+
+func (c *migrateCommand) getTargetControllerUserAPI() (userListAPI, error) {
+	if c.userAPI != nil {
+		return c.userAPI, nil
+	}
+
+	apiRoot, err := c.newAPIRoot(c.ClientStore(), c.targetController, "")
+	if err != nil {
+		return nil, errors.Annotate(err, "connecting to target controller")
+	}
+	return usermanager.NewClient(apiRoot), nil
 }
 
 func (c *migrateCommand) getTargetControllerMacaroons() ([]macaroon.Slice, error) {
@@ -178,4 +240,163 @@ func (c *migrateCommand) getTargetControllerMacaroons() ([]macaroon.Slice, error
 	}
 	defer api.Close()
 	return httpbakery.MacaroonsForURL(jar, api.CookieURL()), nil
+}
+
+func (c *migrateCommand) checkMigrationFeasibility(spec *controller.MigrationSpec) error {
+	var (
+		srcControllerName, srcModelName string
+		srcUsers, dstUsers              set.Strings
+		err                             error
+	)
+
+	if srcControllerName, err = c.ControllerName(); err != nil {
+		return err
+	}
+	if srcModelName, err = c.ModelName(); err != nil {
+		return err
+	}
+	if srcUsers, err = c.getModelUsers(names.NewModelTag(spec.ModelUUID)); err != nil {
+		return err
+	}
+	if dstUsers, err = c.getTargetControllerUsers(); err != nil {
+		return err
+	}
+
+	// If external users have access to this model we can only allow the
+	// migration to proceed if:
+	// - the local users from src exist in the dst, and
+	// - both controllers are configured with the same identity provider URL
+	srcExtUsers := filterSet(srcUsers, func(u string) bool {
+		return strings.Contains(u, "@")
+	})
+
+	if srcExtUsers.Size() != 0 {
+		srcIdentityURL, err := c.getIdentityProviderURL(srcControllerName)
+		if err != nil {
+			return errors.Annotate(err, "looking up source controller identity provider URL")
+		}
+
+		dstIdentityURL, err := c.getIdentityProviderURL(c.targetController)
+		if err != nil {
+			return errors.Annotate(err, "looking up target controller identity provider URL")
+		}
+
+		localSrcUsers := srcUsers.Difference(srcExtUsers)
+
+		// In this case external user lookups will most likely not work.
+		// Display an appropriate error message depending on whether
+		// the local users are present in dst or not.
+		if srcIdentityURL != dstIdentityURL {
+			missing := localSrcUsers.Difference(dstUsers)
+			if missing.Size() == 0 {
+				return errors.Errorf(`cannot initiate migration of model "%s:%s" to controller %q as
+external users have been granted access to the model and the two controllers have
+different identity provider configurations. To resolve this issue you can remove
+the following list of external users from "%s:%s":
+  - %s`,
+					srcControllerName, srcModelName, c.targetController,
+					srcControllerName, srcModelName,
+					strings.Join(srcExtUsers.Values(), "\n  - "),
+				)
+			}
+
+			return errors.Errorf(`cannot initiate migration of model "%s:%s" to controller %q as
+external users have been granted access to the model and the two controllers have
+different identity provider configurations. Additionally, some of the model's local
+users do not exist in the target controller. To resolve this issue you need to remove
+the following external users from "%s:%s":
+  - %s
+
+and either add the following list of local users to %q or remove them from "%s:%s":
+  - %s`,
+				srcControllerName, srcModelName, c.targetController,
+				srcControllerName, srcModelName,
+				strings.Join(srcExtUsers.Values(), "\n  - "),
+				c.targetController, srcControllerName, srcModelName,
+				strings.Join(localSrcUsers.Difference(dstUsers).Values(), "\n  - "),
+			)
+
+		}
+
+		// External user lookups will work out of the box. We only need
+		// to ensure that the local model users are present in dst
+		srcUsers = localSrcUsers
+	}
+
+	if missing := srcUsers.Difference(dstUsers); missing.Size() != 0 {
+		return errors.Errorf(`cannot initiate migration of model "%s:%s" to controller %q as some of the
+model's users do not exist in the target controller. To resolve this issue you can
+either add the following list of users to %q or remove them from "%s:%s":
+  - %s`,
+			srcControllerName, srcModelName, c.targetController,
+			c.targetController, srcControllerName, srcModelName,
+			strings.Join(missing.Values(), "\n  - "),
+		)
+	}
+
+	return nil
+}
+
+func (c *migrateCommand) getIdentityProviderURL(controllerName string) (string, error) {
+	api, err := c.getMigrationAPI(controllerName)
+	if err != nil {
+		return "", err
+	}
+	defer api.Close()
+
+	return api.IdentityProviderURL()
+}
+
+func (c *migrateCommand) getModelUsers(modelTag names.ModelTag) (set.Strings, error) {
+	api, err := c.getModelAPI()
+	if err != nil {
+		return nil, err
+	}
+	defer api.Close()
+
+	infoRes, err := api.ModelInfo([]names.ModelTag{modelTag})
+	if err != nil {
+		return nil, err
+	}
+
+	if infoRes[0].Error != nil {
+		return nil, infoRes[0].Error
+	}
+
+	users := set.NewStrings()
+	for _, user := range infoRes[0].Result.Users {
+		users.Add(user.UserName)
+	}
+	return users, nil
+}
+
+func (c *migrateCommand) getTargetControllerUsers() (set.Strings, error) {
+	api, err := c.getTargetControllerUserAPI()
+	if err != nil {
+		return nil, err
+	}
+	defer api.Close()
+
+	userInfo, err := api.UserInfo(nil, usermanager.AllUsers)
+	if err != nil {
+		return nil, errors.Annotate(err, "looking up model users in target controller")
+	}
+
+	users := set.NewStrings()
+	for _, user := range userInfo {
+		users.Add(user.Username)
+	}
+
+	return users, nil
+}
+
+func filterSet(s set.Strings, keep func(string) bool) set.Strings {
+	out := set.NewStrings()
+	for _, v := range s.Values() {
+		if keep(v) {
+			out.Add(v)
+		}
+	}
+
+	return out
 }
