@@ -367,7 +367,7 @@ func IsStorageAttachedError(err error) bool {
 // is removed immediately. If "destroyAttached" is instead false and there are
 // existing storage attachments, then DestroyStorageInstance will return an error
 // satisfying IsStorageAttachedError.
-func (sb *storageBackend) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait *time.Duration) (err error) {
+func (sb *storageBackend) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy storage %q", tag.Id())
 	return sb.destroyStorageInstance(tag, destroyAttachments, false, force, maxWait)
 }
@@ -380,7 +380,7 @@ func (sb *storageBackend) DestroyStorageInstance(tag names.StorageTag, destroyAt
 // is removed immediately. If "destroyAttached" is instead false and there are
 // existing storage attachments, then ReleaseStorageInstance will return an error
 // satisfying IsStorageAttachedError.
-func (sb *storageBackend) ReleaseStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait *time.Duration) (err error) {
+func (sb *storageBackend) ReleaseStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot release storage %q", tag.Id())
 	return sb.destroyStorageInstance(tag, destroyAttachments, true, force, maxWait)
 }
@@ -390,7 +390,7 @@ func (sb *storageBackend) destroyStorageInstance(
 	destroyAttachments bool,
 	releaseMachineStorage bool,
 	force bool,
-	maxWait *time.Duration,
+	maxWait time.Duration,
 ) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		s, err := sb.storageInstance(tag)
@@ -421,7 +421,7 @@ func (sb *storageBackend) destroyStorageInstanceOps(
 	destroyAttachments bool,
 	releaseStorage bool,
 	force bool,
-	maxWait *time.Duration,
+	maxWait time.Duration,
 ) ([]txn.Op, error) {
 	if s.doc.Life == Dying {
 		if !force {

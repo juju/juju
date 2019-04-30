@@ -316,7 +316,7 @@ func (m *mockStorage) AllFilesystems() ([]state.Filesystem, error) {
 	return result, nil
 }
 
-func (m *mockStorage) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait *time.Duration) (err error) {
+func (m *mockStorage) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait time.Duration) (err error) {
 	m.MethodCall(m, "DestroyStorageInstance", tag, destroyAttachments, force)
 	return nil
 }

@@ -5,6 +5,7 @@ package caasunitprovisioner
 
 import (
 	"sort"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -1070,7 +1071,7 @@ func (a *Facade) cleaupOrphanedFilesystems(processedFilesystemIds set.Strings) e
 		logger.Debugf("found orphaned filesystem %v", fs.FilesystemTag())
 		// TODO (anastasiamac 2019-04-04) We can now force storage removal
 		// but for now, while we have not an arg passed in, just hardcode.
-		err = a.storage.DestroyStorageInstance(storageTag, false, false, nil)
+		err = a.storage.DestroyStorageInstance(storageTag, false, false, time.Duration(0))
 		if err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}

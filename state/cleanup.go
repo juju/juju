@@ -19,12 +19,6 @@ import (
 
 type cleanupKind string
 
-const (
-	// forceTimeout is how far in the future the backstop force
-	// cleanup will be scheduled.
-	forceTimeout = time.Minute * 1
-)
-
 var (
 	// asap is the earliest possible time - cleanups scheduled at this
 	// time will run now. Used instead of time.Now() (hard to test) or
@@ -419,6 +413,7 @@ func (st *State) removeApplicationsForDyingModel(args DestroyModelParams) (err e
 		op := application.DestroyOperation()
 		op.RemoveOffers = true
 		op.Force = force
+		op.MaxWait = args.MaxWait
 		if err := st.ApplyOperation(op); err != nil {
 			return errors.Trace(err)
 		}
@@ -458,7 +453,7 @@ func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanup
 		return errors.Annotate(err, "unmarshalling cleanup arg 'destroyStorage'")
 	}
 	var force bool
-	var maxWait *time.Duration
+	var maxWait time.Duration
 	switch n := len(cleanupArgs); n {
 	case 0:
 	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
@@ -544,7 +539,7 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 		return errors.Annotate(err, "unmarshalling cleanup arg 'destroyStorage'")
 	}
 	var force bool
-	var maxWait *time.Duration
+	var maxWait time.Duration
 	switch n := len(cleanupArgs); n {
 	case 0:
 	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
@@ -620,12 +615,8 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 	}
 }
 
-func (st *State) scheduleForceCleanup(kind cleanupKind, name string, maxWait *time.Duration) {
-	wait := forceTimeout
-	if maxWait != nil {
-		wait = *maxWait
-	}
-	deadline := st.stateClock.Now().Add(wait)
+func (st *State) scheduleForceCleanup(kind cleanupKind, name string, maxWait time.Duration) {
+	deadline := st.stateClock.Now().Add(maxWait)
 	op := newCleanupAtOp(deadline, kind, name, maxWait)
 	err := st.db().Run(func(int) ([]txn.Op, error) {
 		return []txn.Op{op}, nil
@@ -636,7 +627,7 @@ func (st *State) scheduleForceCleanup(kind cleanupKind, name string, maxWait *ti
 }
 
 func (st *State) cleanupForceDestroyedUnit(unitId string, cleanupArgs []bson.Raw) error {
-	var maxWait *time.Duration
+	var maxWait time.Duration
 	if n := len(cleanupArgs); n != 1 {
 		return errors.Errorf("expected 1 argument, got %d", n)
 	}
@@ -735,7 +726,7 @@ func (st *State) forceRemoveUnitStorageAttachments(unit *Unit) error {
 }
 
 func (st *State) cleanupForceRemoveUnit(unitId string, cleanupArgs []bson.Raw) error {
-	var maxWait *time.Duration
+	var maxWait time.Duration
 	if n := len(cleanupArgs); n != 1 {
 		return errors.Errorf("expected 1 argument, got %d", n)
 	}
@@ -758,7 +749,7 @@ func (st *State) cleanupForceRemoveUnit(unitId string, cleanupArgs []bson.Raw) e
 
 func (st *State) cleanupDyingUnitResources(unitId string, cleanupArgs []bson.Raw) error {
 	var force bool
-	var maxWait *time.Duration
+	var maxWait time.Duration
 	switch n := len(cleanupArgs); n {
 	case 0:
 	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
@@ -833,7 +824,7 @@ func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove boo
 	return nil
 }
 
-func (st *State) cleanupUnitStorageInstances(unitTag names.UnitTag, force bool, maxWait *time.Duration) error {
+func (st *State) cleanupUnitStorageInstances(unitTag names.UnitTag, force bool, maxWait time.Duration) error {
 	sb, err := NewStorageBackend(st)
 	if err != nil {
 		return err
@@ -933,7 +924,7 @@ func (st *State) cleanupDyingMachine(machineId string, cleanupArgs []bson.Raw) e
 // that depend upon the supplied machine, and removes the machine from state. It's
 // expected to be used in response to destroy-machine --force.
 func (st *State) cleanupForceDestroyedMachine(machineId string, cleanupArgs []bson.Raw) error {
-	var maxWait *time.Duration
+	var maxWait time.Duration
 	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
 	if n := len(cleanupArgs); n > 0 {
 		if n > 1 {
@@ -948,7 +939,7 @@ func (st *State) cleanupForceDestroyedMachine(machineId string, cleanupArgs []bs
 	return st.cleanupForceDestroyedMachineInternal(machineId, maxWait)
 }
 
-func (st *State) cleanupForceDestroyedMachineInternal(machineId string, maxWait *time.Duration) error {
+func (st *State) cleanupForceDestroyedMachineInternal(machineId string, maxWait time.Duration) error {
 	machine, err := st.Machine(machineId)
 	if errors.IsNotFound(err) {
 		return nil
@@ -1043,7 +1034,7 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineId string, maxWait 
 
 // cleanupContainers recursively calls cleanupForceDestroyedMachine on the supplied
 // machine's containers, and removes them from state entirely.
-func (st *State) cleanupContainers(machine *Machine, maxWait *time.Duration) error {
+func (st *State) cleanupContainers(machine *Machine, maxWait time.Duration) error {
 	containerIds, err := machine.Containers()
 	if errors.IsNotFound(err) {
 		return nil
@@ -1244,7 +1235,7 @@ func cleanupDyingEntityStorage(sb *storageBackend, hostTag names.Tag, manual boo
 // sane to obliterate any unit in isolation; its only reasonable use is in
 // the context of machine obliteration, in which we can be sure that unclean
 // shutdown of units is not going to leave a machine in a difficult state.
-func (st *State) obliterateUnit(unitName string, force bool, maxWait *time.Duration) ([]error, error) {
+func (st *State) obliterateUnit(unitName string, force bool, maxWait time.Duration) ([]error, error) {
 	var opErrs []error
 	unit, err := st.Unit(unitName)
 	if errors.IsNotFound(err) {
@@ -1305,7 +1296,7 @@ func (st *State) obliterateUnit(unitName string, force bool, maxWait *time.Durat
 // or Dead. It's expected to be used when a storage instance is destroyed.
 func (st *State) cleanupAttachmentsForDyingStorage(storageId string, cleanupArgs []bson.Raw) (err error) {
 	var force bool
-	var maxWait *time.Duration
+	var maxWait time.Duration
 	switch n := len(cleanupArgs); n {
 	case 0:
 	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.

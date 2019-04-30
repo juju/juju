@@ -466,13 +466,13 @@ func (op *UpdateUnitOperation) Done(err error) error {
 // to a provisioned machine is Destroyed, it will be removed from state
 // directly.
 func (u *Unit) Destroy() error {
-	_, err := u.DestroyWithForce(false, nil)
+	_, err := u.DestroyWithForce(false, time.Duration(0))
 	return err
 }
 
 // DestroyWithForce does the same thing as Destroy() but
 // ignores errors.
-func (u *Unit) DestroyWithForce(force bool, maxWait *time.Duration) (errs []error, err error) {
+func (u *Unit) DestroyWithForce(force bool, maxWait time.Duration) (errs []error, err error) {
 	defer func() {
 		if err == nil {
 			// This is a white lie; the document might actually be removed.
@@ -934,7 +934,7 @@ type ForcedOperation struct {
 	// MaxWait specifies the amount of time that each step in relation destroy process
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
-	MaxWait *time.Duration
+	MaxWait time.Duration
 }
 
 // AddError adds an error to the collection of errors for this operation.
@@ -999,7 +999,7 @@ func (op *RemoveUnitOperation) Done(err error) error {
 // the application is Dying and no other references to it exist. It will fail if
 // the unit is not Dead.
 func (u *Unit) Remove() error {
-	_, err := u.RemoveWithForce(false, nil)
+	_, err := u.RemoveWithForce(false, time.Duration(0))
 	return err
 }
 
@@ -1007,7 +1007,7 @@ func (u *Unit) Remove() error {
 // it ignores errors.
 // In addition, this function also returns all non-fatal operational errors
 // encountered.
-func (u *Unit) RemoveWithForce(force bool, maxWait *time.Duration) ([]error, error) {
+func (u *Unit) RemoveWithForce(force bool, maxWait time.Duration) ([]error, error) {
 	op := u.RemoveOperation(force)
 	op.MaxWait = maxWait
 	err := u.st.ApplyOperation(op)

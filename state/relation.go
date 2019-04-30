@@ -309,7 +309,7 @@ func (op *DestroyRelationOperation) Done(err error) error {
 // DestroyWithForce may force the destruction of the relation.
 // In addition, this function also returns all non-fatal operational errors
 // encountered.
-func (r *Relation) DestroyWithForce(force bool, maxWait *time.Duration) ([]error, error) {
+func (r *Relation) DestroyWithForce(force bool, maxWait time.Duration) ([]error, error) {
 	op := r.DestroyOperation(force)
 	op.MaxWait = maxWait
 	err := r.st.ApplyOperation(op)
@@ -319,7 +319,7 @@ func (r *Relation) DestroyWithForce(force bool, maxWait *time.Duration) ([]error
 // Destroy ensures that the relation will be removed at some point; if no units
 // are currently in scope, it will be removed immediately.
 func (r *Relation) Destroy() error {
-	_, err := r.DestroyWithForce(false, nil)
+	_, err := r.DestroyWithForce(false, time.Duration(0))
 	return err
 }
 

@@ -66,17 +66,17 @@ type Machine interface {
 	ContainerType() instance.ContainerType
 	HardwareCharacteristics() (*instance.HardwareCharacteristics, error)
 	Life() state.Life
-	ForceDestroy(*time.Duration) error
+	ForceDestroy(time.Duration) error
 	Destroy() error
 	AgentPresence() (bool, error)
 	IsManager() bool
 }
 
-func DestroyMachines(st origStateInterface, force bool, maxWait *time.Duration, ids ...string) error {
+func DestroyMachines(st origStateInterface, force bool, maxWait time.Duration, ids ...string) error {
 	return destroyMachines(&stateShim{st}, force, maxWait, ids...)
 }
 
-func destroyMachines(st stateInterface, force bool, maxWait *time.Duration, ids ...string) error {
+func destroyMachines(st stateInterface, force bool, maxWait time.Duration, ids ...string) error {
 	var errs []error
 	for _, id := range ids {
 		machine, err := st.Machine(id)

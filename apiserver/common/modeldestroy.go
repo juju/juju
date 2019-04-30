@@ -95,7 +95,7 @@ func DestroyModel(
 	return destroyModel(st, state.DestroyModelParams{
 		DestroyStorage: destroyStorage,
 		Force:          force,
-		MaxWait:        maxWait,
+		MaxWait:        MaxWait(maxWait),
 	})
 }
 

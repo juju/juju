@@ -57,10 +57,10 @@ type storageInterface interface {
 	DetachStorage(names.StorageTag, names.UnitTag, bool) error
 
 	// DestroyStorageInstance destroys the storage instance with the specified tag.
-	DestroyStorageInstance(names.StorageTag, bool, bool, *time.Duration) error
+	DestroyStorageInstance(names.StorageTag, bool, bool, time.Duration) error
 
 	// ReleaseStorageInstance releases the storage instance with the specified tag.
-	ReleaseStorageInstance(names.StorageTag, bool, bool, *time.Duration) error
+	ReleaseStorageInstance(names.StorageTag, bool, bool, time.Duration) error
 }
 
 type storageVolume interface {

@@ -308,7 +308,7 @@ func (op *DestroyRemoteApplicationOperation) Done(err error) error {
 // DestroyWithForce in addition to doing what Destroy() does,
 // when force is passed in as 'true', forces th destruction of remote application,
 // ignoring errors.
-func (s *RemoteApplication) DestroyWithForce(force bool, maxWait *time.Duration) (opErrs []error, err error) {
+func (s *RemoteApplication) DestroyWithForce(force bool, maxWait time.Duration) (opErrs []error, err error) {
 	defer func() {
 		if err == nil {
 			s.doc.Life = Dying
@@ -324,7 +324,7 @@ func (s *RemoteApplication) DestroyWithForce(force bool, maxWait *time.Duration)
 // will be removed at some point; if no relation involving the
 // application has any units in scope, they are all removed immediately.
 func (s *RemoteApplication) Destroy() error {
-	_, err := s.DestroyWithForce(false, nil)
+	_, err := s.DestroyWithForce(false, time.Duration(0))
 	return err
 }
 

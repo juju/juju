@@ -5,6 +5,7 @@ package client
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -529,7 +530,7 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 		return errors.Trace(err)
 	}
 
-	return common.DestroyMachines(c.api.stateAccessor, args.Force, nil, args.MachineNames...)
+	return common.DestroyMachines(c.api.stateAccessor, args.Force, time.Duration(0), args.MachineNames...)
 }
 
 // ModelInfo returns information about the current model.

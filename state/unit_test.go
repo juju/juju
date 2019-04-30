@@ -2199,8 +2199,7 @@ func (s *UnitSuite) TestDestroyWithForceWorksOnDyingUnit(c *gc.C) {
 
 	// Force-destroying the unit should schedule a cleanup so we get a
 	// chance for the fallback force-cleanup to run.
-	zero := time.Second * 0
-	opErrs, err := unit.DestroyWithForce(true, &zero)
+	opErrs, err := unit.DestroyWithForce(true, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opErrs, gc.IsNil)
 

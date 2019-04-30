@@ -48,7 +48,7 @@ type StorageBackend interface {
 	// These are for cleanup up orphaned filesystems when pods are recreated.
 	// TODO(caas) - record unit id on the filesystem so we can query by unit
 	AllFilesystems() ([]state.Filesystem, error)
-	DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait *time.Duration) (err error)
+	DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait time.Duration) (err error)
 	DestroyFilesystem(tag names.FilesystemTag) (err error)
 }
 

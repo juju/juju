@@ -42,7 +42,7 @@ type Model interface {
 
 type Machine interface {
 	Destroy() error
-	ForceDestroy(*time.Duration) error
+	ForceDestroy(time.Duration) error
 	Series() string
 	Units() ([]Unit, error)
 	SetKeepInstance(keepInstance bool) error

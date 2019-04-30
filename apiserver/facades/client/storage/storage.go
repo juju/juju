@@ -6,6 +6,8 @@
 package storage
 
 import (
+	"time"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
@@ -919,7 +921,7 @@ func (a *StorageAPI) remove(args params.RemoveStorage) (params.ErrorResults, err
 		result[i].Error = common.ServerError(
 			// TODO (anastasiamac 2019-04-04) We can now force storage removal
 			// but for now, while we have not an arg passed in, just hardcode.
-			remove(tag, arg.DestroyAttachments, false, nil),
+			remove(tag, arg.DestroyAttachments, false, time.Duration(0)),
 		)
 	}
 	return params.ErrorResults{result}, nil

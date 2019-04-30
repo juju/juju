@@ -978,7 +978,7 @@ type DestroyModelParams struct {
 	// MaxWait specifies the amount of time that each step in model destroy process
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
-	MaxWait *time.Duration
+	MaxWait time.Duration
 }
 
 func (m *Model) uniqueIndexID() string {
