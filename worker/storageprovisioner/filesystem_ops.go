@@ -251,14 +251,10 @@ func removeFilesystems(ctx *context, ops map[names.FilesystemTag]*removeFilesyst
 		}
 		destroyTags, destroyIds, releaseTags, releaseIds := partitionRemoveFilesystemParams(removeTags, removeParams)
 		if err := removeFilesystems(destroyTags, destroyIds, filesystemSource.DestroyFilesystems); err != nil {
-			if err != nil {
-				return errors.Trace(err)
-			}
+			return errors.Trace(err)
 		}
 		if err := removeFilesystems(releaseTags, releaseIds, filesystemSource.ReleaseFilesystems); err != nil {
-			if err != nil {
-				return errors.Trace(err)
-			}
+			return errors.Trace(err)
 		}
 	}
 	scheduleOperations(ctx, reschedule...)
@@ -384,7 +380,12 @@ func filesystemParamsBySource(
 		filesystemSource, err := filesystemSource(
 			baseStorageDir, sourceName, params.Provider, registry,
 		)
-		if errors.Cause(err) == errNonDynamic {
+		// For k8s models, there may be a not found error as there's only
+		// one (model) storage provisioner worker which reacts to all storage,
+		// even tmpfs or rootfs which is ostensibly handled by a machine storage
+		// provisioner worker. There's no such provisoner for k8s but we still
+		// process the detach/destroy so the state model can be updated.
+		if errors.Cause(err) == errNonDynamic || errors.IsNotFound(err) {
 			filesystemSource = nil
 		} else if err != nil {
 			return nil, nil, errors.Annotate(err, "getting filesystem source")
@@ -450,7 +451,12 @@ func filesystemAttachmentParamsBySource(
 		filesystemSource, err := filesystemSource(
 			baseStorageDir, sourceName, params.Provider, registry,
 		)
-		if err != nil {
+		// For k8s models, there may be a not found error as there's only
+		// one (model) storage provisioner worker which reacts to all storage,
+		// even tmpfs or rootfs which is ostensibly handled by a machine storage
+		// provisioner worker. There's no such provisoner for k8s but we still
+		// process the detach/destroy so the state model can be updated.
+		if err != nil && !errors.IsNotFound(err) {
 			return nil, nil, errors.Annotate(err, "getting filesystem source")
 		}
 		filesystemSources[sourceName] = filesystemSource

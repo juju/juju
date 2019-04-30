@@ -35,7 +35,6 @@ type CAASUnitProvisionerState interface {
 type StorageBackend interface {
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 	Filesystem(names.FilesystemTag) (state.Filesystem, error)
-	FilesystemAttachment(names.Tag, names.FilesystemTag) (state.FilesystemAttachment, error)
 	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
 	UnitStorageAttachments(unit names.UnitTag) ([]state.StorageAttachment, error)
 	SetFilesystemInfo(names.FilesystemTag, state.FilesystemInfo) error
@@ -78,9 +77,11 @@ type Application interface {
 	AddOperation(state.UnitUpdateProperties) *state.AddUnitOperation
 	UpdateUnits(*state.UpdateUnitsOperation) error
 	UpdateCloudService(providerId string, addreses []network.Address) error
+	StorageConstraints() (map[string]state.StorageConstraints, error)
 	DeviceConstraints() (map[string]state.DeviceConstraints, error)
 	Life() state.Life
 	Name() string
+	Tag() names.Tag
 	Constraints() (constraints.Value, error)
 	GetPlacement() string
 	SetOperatorStatus(sInfo status.StatusInfo) error

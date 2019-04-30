@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
 
@@ -33,6 +34,7 @@ type API struct {
 
 	state              CAASOperatorProvisionerState
 	storagePoolManager poolmanager.PoolManager
+	registry           storage.ProviderRegistry
 }
 
 // NewStateCAASOperatorProvisionerAPI provides the signature required for facade registration.
@@ -48,7 +50,7 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*API, error) {
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
 
-	return NewCAASOperatorProvisionerAPI(resources, authorizer, stateShim{ctx.State()}, pm)
+	return NewCAASOperatorProvisionerAPI(resources, authorizer, stateShim{ctx.State()}, pm, registry)
 }
 
 // NewCAASOperatorProvisionerAPI returns a new CAAS operator provisioner API facade.
@@ -57,6 +59,7 @@ func NewCAASOperatorProvisionerAPI(
 	authorizer facade.Authorizer,
 	st CAASOperatorProvisionerState,
 	storagePoolManager poolmanager.PoolManager,
+	registry storage.ProviderRegistry,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
@@ -69,6 +72,7 @@ func NewCAASOperatorProvisionerAPI(
 		resources:          resources,
 		state:              st,
 		storagePoolManager: storagePoolManager,
+		registry:           registry,
 	}, nil
 }
 
@@ -115,7 +119,7 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 	if storageClassName == "" {
 		return params.OperatorProvisioningInfo{}, errors.New("no operator storage class defined")
 	}
-	charmStorageParams, err := CharmStorageParams(cfg.ControllerUUID(), storageClassName, modelConfig, "", a.storagePoolManager)
+	charmStorageParams, err := CharmStorageParams(cfg.ControllerUUID(), storageClassName, modelConfig, "", a.storagePoolManager, a.registry)
 	if err != nil {
 		return params.OperatorProvisioningInfo{}, errors.Annotatef(err, "getting operator storage parameters")
 	}
@@ -151,6 +155,7 @@ func CharmStorageParams(
 	modelCfg *config.Config,
 	poolName string,
 	poolManager poolmanager.PoolManager,
+	registry storage.ProviderRegistry,
 ) (params.KubernetesFilesystemParams, error) {
 	// The defaults here are for operator storage.
 	// Workload storage will override these elsewhere.
@@ -182,16 +187,41 @@ func CharmStorageParams(
 		maybePoolName = storageClassName
 	}
 
-	pool, err := poolManager.Get(maybePoolName)
+	providerType, attrs, err := poolStorageProvider(poolManager, registry, maybePoolName)
 	if err != nil && (!errors.IsNotFound(err) || poolName != "") {
 		return params.KubernetesFilesystemParams{}, errors.Trace(err)
 	}
 	if err == nil {
-		result.Provider = string(pool.Provider())
-		result.Attributes = pool.Attrs()
+		result.Provider = string(providerType)
+		if len(attrs) > 0 {
+			result.Attributes = attrs
+		}
 	}
-	if _, ok := result.Attributes[provider.StorageClass]; !ok {
+	if _, ok := result.Attributes[provider.StorageClass]; !ok && result.Provider == string(provider.K8s_ProviderType) {
 		result.Attributes[provider.StorageClass] = storageClassName
 	}
 	return result, nil
+}
+
+func poolStorageProvider(poolManager poolmanager.PoolManager, registry storage.ProviderRegistry, poolName string) (storage.ProviderType, map[string]interface{}, error) {
+	pool, err := poolManager.Get(poolName)
+	if errors.IsNotFound(err) {
+		// If there's no pool called poolName, maybe a provider type
+		// has been specified directly.
+		providerType := storage.ProviderType(poolName)
+		provider, err1 := registry.StorageProvider(providerType)
+		if err1 != nil {
+			// The name can't be resolved as a storage provider type,
+			// so return the original "pool not found" error.
+			return "", nil, errors.Trace(err)
+		}
+		if !provider.Supports(storage.StorageKindFilesystem) {
+			return "", nil, errors.NotValidf("storage provider %q", providerType)
+		}
+		return providerType, nil, nil
+	} else if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	providerType := pool.Provider()
+	return providerType, pool.Attrs(), nil
 }

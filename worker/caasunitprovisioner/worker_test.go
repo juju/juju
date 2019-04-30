@@ -571,43 +571,6 @@ func (s *WorkerSuite) TestScaleZero(c *gc.C) {
 		"gitlab", &caas.ServiceParams{}, 0, application.ConfigAttributes(nil))
 }
 
-func (s *WorkerSuite) TestUnitAllRemoved(c *gc.C) {
-	w := s.setupNewUnitScenario(c)
-	defer workertest.CleanKill(c, w)
-
-	s.serviceBroker.ResetCalls()
-	// Add another unit.
-	s.applicationGetter.scale = 2
-	select {
-	case s.applicationScaleChanges <- struct{}{}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending scale change")
-	}
-
-	select {
-	case <-s.serviceEnsured:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for service to be ensured")
-	}
-	s.serviceBroker.ResetCalls()
-
-	s.podSpecGetter.SetErrors(apicaasunitprovisioner.ErrNoUnits)
-
-	select {
-	case s.applicationScaleChanges <- struct{}{}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending scale change")
-	}
-	select {
-	case <-s.serviceEnsured:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for service to be ensured")
-	}
-	s.serviceBroker.CheckCallNames(c, "EnsureService")
-	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &caas.ServiceParams{}, 0, application.ConfigAttributes(nil))
-}
-
 func (s *WorkerSuite) TestApplicationDeadRemovesService(c *gc.C) {
 	w := s.setupNewUnitScenario(c)
 	defer workertest.CleanKill(c, w)

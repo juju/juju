@@ -4,6 +4,7 @@
 package caasunitprovisioner
 
 import (
+	"fmt"
 	"sort"
 	"time"
 
@@ -27,6 +28,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
 
@@ -38,6 +40,7 @@ type Facade struct {
 	state              CAASUnitProvisionerState
 	storage            StorageBackend
 	storagePoolManager poolmanager.PoolManager
+	registry           storage.ProviderRegistry
 	devices            DeviceBackend
 	clock              clock.Clock
 }
@@ -69,6 +72,7 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 		sb,
 		db,
 		pm,
+		registry,
 		clock.WallClock,
 	)
 }
@@ -81,6 +85,7 @@ func NewFacade(
 	sb StorageBackend,
 	db DeviceBackend,
 	storagePoolManager poolmanager.PoolManager,
+	registry storage.ProviderRegistry,
 	clock clock.Clock,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
@@ -98,6 +103,7 @@ func NewFacade(
 		storage:            sb,
 		devices:            db,
 		storagePoolManager: storagePoolManager,
+		registry:           registry,
 		clock:              clock,
 	}, nil
 }
@@ -230,7 +236,6 @@ func (f *Facade) ProvisioningInfo(args params.Entities) (params.KubernetesProvis
 		}
 		results.Results[i].Result = info
 	}
-	logger.Debugf("provisioning info result: %#v", results)
 	return results, nil
 }
 
@@ -254,28 +259,9 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	units, err := app.AllUnits()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// Can happen if scale is set to 0 in k8s, outside of Juju.
-	// In this case, there is no provisioning info to return.
-	if len(units) == 0 {
-		logger.Debugf("cannot provision application %q with no units", appTag.Id())
-		return nil, nil
-	}
 	modelConfig, err := model.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	// Find the first alive unit which will be used to get filesystem info.
-	var aliveUnit Unit
-	for _, u := range units {
-		if u.Life() == state.Alive {
-			aliveUnit = u
-			break
-		}
 	}
 
 	controllerCfg, err := f.state.ControllerConfig()
@@ -283,18 +269,9 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 		return nil, errors.Trace(err)
 	}
 
-	var filesystemParams []params.KubernetesFilesystemParams
-	if aliveUnit != nil {
-		filesystemParams, err = f.applicationFilesystemParams(controllerCfg, modelConfig, aliveUnit.UnitTag())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		// The juju-storage-owner tag is set to the unit. We use it as a label on the CAAS volume.
-		// Since we used an arbitrary unit to get the info, reset the tag to the application.
-		for _, fsp := range filesystemParams {
-			fsp.Tags[tags.JujuStorageOwner] = appTag.Id()
-		}
+	filesystemParams, err := f.applicationFilesystemParams(app, controllerCfg, modelConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	devices, err := f.devicesParams(app)
@@ -338,42 +315,32 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 }
 
 func filesystemParams(
-	f state.Filesystem,
-	storageInstance state.StorageInstance,
+	app Application,
+	cons state.StorageConstraints,
+	storageName string,
 	controllerUUID string,
 	modelConfig *config.Config,
 	poolManager poolmanager.PoolManager,
+	registry storage.ProviderRegistry,
 ) (params.KubernetesFilesystemParams, error) {
 
-	var pool string
-	var size uint64
-	if stateFilesystemParams, ok := f.Params(); ok {
-		pool = stateFilesystemParams.Pool
-		size = stateFilesystemParams.Size
-	} else {
-		filesystemInfo, err := f.Info()
-		if err != nil {
-			return params.KubernetesFilesystemParams{}, errors.Trace(err)
-		}
-		pool = filesystemInfo.Pool
-		size = filesystemInfo.Size
-	}
-
-	filesystemTags, err := storagecommon.StorageTags(storageInstance, modelConfig.UUID(), controllerUUID, modelConfig)
+	filesystemTags, err := storagecommon.StorageTags(nil, modelConfig.UUID(), controllerUUID, modelConfig)
 	if err != nil {
 		return params.KubernetesFilesystemParams{}, errors.Annotate(err, "computing storage tags")
 	}
+	filesystemTags[tags.JujuStorageOwner] = app.Name()
 
 	storageClassName, _ := modelConfig.AllAttrs()[provider.WorkloadStorageKey].(string)
-	if pool == "" && storageClassName == "" {
-		return params.KubernetesFilesystemParams{}, errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageInstance.StorageName())
+	if cons.Pool == "" && storageClassName == "" {
+		return params.KubernetesFilesystemParams{}, errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageName)
 	}
-	fsParams, err := caasoperatorprovisioner.CharmStorageParams(controllerUUID, storageClassName, modelConfig, pool, poolManager)
+	fsParams, err := caasoperatorprovisioner.CharmStorageParams(controllerUUID, storageClassName, modelConfig, cons.Pool, poolManager, registry)
 	if err != nil {
 		return params.KubernetesFilesystemParams{}, errors.Maskf(err, "getting filesystem storage parameters")
 	}
-	fsParams.Size = size
-	fsParams.StorageName = storageInstance.StorageName()
+
+	fsParams.Size = cons.Size
+	fsParams.StorageName = storageName
 	fsParams.Tags = filesystemTags
 	return fsParams, nil
 }
@@ -381,62 +348,47 @@ func filesystemParams(
 // applicationFilesystemParams retrieves FilesystemParams for the filesystems
 // that should be provisioned with, and attached to, pods of the application.
 func (f *Facade) applicationFilesystemParams(
+	app Application,
 	controllerConfig controller.Config,
 	modelConfig *config.Config,
-	unitTag names.UnitTag,
 ) ([]params.KubernetesFilesystemParams, error) {
-	attachments, err := f.storage.UnitStorageAttachments(unitTag)
+	storage, err := app.StorageConstraints()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if len(attachments) == 0 {
-		return nil, nil
+
+	ch, _, err := app.Charm()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	allFilesystemParams := make([]params.KubernetesFilesystemParams, 0, len(attachments))
-	for _, attachment := range attachments {
-		si, err := f.storage.StorageInstance(attachment.StorageInstance())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		fs, err := f.storage.StorageInstanceFilesystem(si.StorageTag())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		filesystemParams, err := filesystemParams(
-			fs, si, controllerConfig.ControllerUUID(),
-			modelConfig, f.storagePoolManager,
+	var allFilesystemParams []params.KubernetesFilesystemParams
+	for name, cons := range storage {
+		fsParams, err := filesystemParams(
+			app, cons, name,
+			controllerConfig.ControllerUUID(),
+			modelConfig,
+			f.storagePoolManager, f.registry,
 		)
 		if err != nil {
-			return nil, errors.Annotatef(err, "getting filesystem %q parameters", fs.Tag().Id())
+			return nil, errors.Annotatef(err, "getting filesystem %q parameters", name)
 		}
-		filesystemAttachment, err := f.storage.FilesystemAttachment(unitTag, fs.FilesystemTag())
-		if err != nil {
-			return nil, errors.Annotatef(err, "getting filesystem %q attachment info", fs.Tag().Id())
-		}
-		var location string
-		var readOnly bool
-		if filesystemAttachmentParams, ok := filesystemAttachment.Params(); ok {
-			location = filesystemAttachmentParams.Location
-			readOnly = filesystemAttachmentParams.ReadOnly
-		} else {
-			// All units are the same so even if the attachment exists
-			// for the unit used to gather info, we still need to read
-			// the relevant attachment params for the application as a whole.
-			filesystemAttachmentInfo, err := filesystemAttachment.Info()
+		for i := 0; i < int(cons.Count); i++ {
+			charmStorage := ch.Meta().Storage[name]
+			id := fmt.Sprintf("%s/%v", name, i)
+			tag := names.NewStorageTag(id)
+			location, err := state.FilesystemMountPoint(charmStorage, tag, "kubernetes")
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			location = filesystemAttachmentInfo.MountPoint
-			readOnly = filesystemAttachmentInfo.ReadOnly
+			filesystemAttachmentParams := params.KubernetesFilesystemAttachmentParams{
+				Provider:   fsParams.Provider,
+				MountPoint: location,
+				ReadOnly:   charmStorage.ReadOnly,
+			}
+			fsParams.Attachment = &filesystemAttachmentParams
+			allFilesystemParams = append(allFilesystemParams, fsParams)
 		}
-		filesystemAttachmentParams := params.KubernetesFilesystemAttachmentParams{
-			Provider:   filesystemParams.Provider,
-			MountPoint: location,
-			ReadOnly:   readOnly,
-		}
-		filesystemParams.Attachment = &filesystemAttachmentParams
-		allFilesystemParams = append(allFilesystemParams, filesystemParams)
 	}
 	return allFilesystemParams, nil
 }

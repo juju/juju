@@ -54,6 +54,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		application.CharmToStateCharm,
 		application.DeployApplication,
 		&mockStoragePoolManager{},
+		&mockStorageRegistry{},
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
 	)
@@ -195,6 +196,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		application.CharmToStateCharm,
 		application.DeployApplication,
 		&mockStoragePoolManager{},
+		&mockStorageRegistry{},
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
 	)

@@ -70,6 +70,14 @@ func (st *mockState) Model() (caasoperatorprovisioner.Model, error) {
 	return st.model, nil
 }
 
+type mockStorageRegistry struct {
+	storage.ProviderRegistry
+}
+
+func (m *mockStorageRegistry) StorageProvider(p storage.ProviderType) (storage.Provider, error) {
+	return nil, errors.NotFoundf("provider %q", p)
+}
+
 type mockStoragePoolManager struct {
 	testing.Stub
 	poolmanager.PoolManager

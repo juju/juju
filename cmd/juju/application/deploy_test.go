@@ -21,10 +21,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/juju/caas"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
@@ -549,6 +551,21 @@ func (*fakeProvider) Validate(cfg, old *config.Config) (valid *config.Config, _ 
 
 type fakeBroker struct {
 	caas.Broker
+}
+
+type mockProvider struct {
+	storage.Provider
+}
+
+func (m *mockProvider) Supports(kind storage.StorageKind) bool {
+	return kind == storage.StorageKindFilesystem
+}
+
+func (*fakeBroker) StorageProvider(p storage.ProviderType) (storage.Provider, error) {
+	if p == k8sprovider.K8s_ProviderType {
+		return &mockProvider{}, nil
+	}
+	return nil, errors.NotFoundf("provider type %q", p)
 }
 
 func (*fakeBroker) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {

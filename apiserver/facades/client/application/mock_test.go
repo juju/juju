@@ -35,6 +35,7 @@ import (
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
@@ -887,6 +888,26 @@ func (m *mockStoragePoolManager) Get(name string) (*storage.Config, error) {
 		return nil, err
 	}
 	return storage.NewConfig(name, m.storageType, map[string]interface{}{"foo": "bar"})
+}
+
+type mockStorageRegistry struct {
+	jtesting.Stub
+	storage.ProviderRegistry
+}
+
+type mockProvider struct {
+	storage.Provider
+}
+
+func (m *mockProvider) Supports(kind storage.StorageKind) bool {
+	return kind == storage.StorageKindFilesystem
+}
+
+func (m *mockStorageRegistry) StorageProvider(p storage.ProviderType) (storage.Provider, error) {
+	if p == provider.RootfsProviderType {
+		return &mockProvider{}, nil
+	}
+	return nil, errors.NotFoundf("provider type %q", p)
 }
 
 type mockStorageValidator struct {

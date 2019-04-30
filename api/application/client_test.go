@@ -1287,10 +1287,6 @@ func (s *applicationSuite) TestScaleApplicationValidation(c *gc.C) {
 		scaleChange: 5,
 		errorStr:    "requesting both scale and scale-change not valid",
 	}, {
-		scale:       0,
-		scaleChange: 0,
-		errorStr:    "scale of 0 not valid",
-	}, {
 		scale:       -1,
 		scaleChange: 0,
 		errorStr:    "scale < 0 not valid",
