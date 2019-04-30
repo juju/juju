@@ -129,7 +129,7 @@ func (c *migrateCommand) Run(ctx *cmd.Context) error {
 	}
 	spec.ModelUUID = uuids[0]
 	if err := c.checkMigrationFeasibility(spec); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	controllerName, err := c.ControllerName()
 	if err != nil {
