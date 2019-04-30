@@ -97,6 +97,7 @@ func NewWorker(
 	openState func() (*state.StatePool, error),
 	preUpgradeSteps func(st *state.StatePool, agentConf agent.Config, isController, isMasterServer, isCaas bool) error,
 	machine StatusSetter,
+	isCaas bool,
 ) (worker.Worker, error) {
 	w := &upgradesteps{
 		upgradeComplete: upgradeComplete,
@@ -107,6 +108,7 @@ func NewWorker(
 		preUpgradeSteps: preUpgradeSteps,
 		machine:         machine,
 		tag:             agent.CurrentConfig().Tag(),
+		isCaas:          isCaas,
 	}
 	w.tomb.Go(w.run)
 	return w, nil
@@ -181,11 +183,13 @@ func (w *upgradesteps) run() error {
 		return nil
 	}
 
-	// If the agent is a machine agent for a controller, flag that state
-	// needs to be opened before running upgrade steps
-	for _, job := range w.jobs {
-		if job == multiwatcher.JobManageModel {
-			w.isController = true
+	if w.jobs != nil {
+		// If the agent is a machine agent for a controller, flag that state
+		// needs to be opened before running upgrade steps
+		for _, job := range w.jobs {
+			if job == multiwatcher.JobManageModel {
+				w.isController = true
+			}
 		}
 	}
 
@@ -195,7 +199,7 @@ func (w *upgradesteps) run() error {
 	if w.isController {
 		var err error
 		if w.pool, err = w.openState(); err != nil {
-			return errors.Trace(err)
+			return err
 		}
 		defer w.pool.Close()
 
@@ -209,9 +213,6 @@ func (w *upgradesteps) run() error {
 			return errors.Trace(err)
 		}
 		w.isCaas = model.Type() == state.ModelTypeCAAS
-	} else {
-		// application tag for CAAS operator.
-		w.isCaas = names.IsValidApplication(w.agent.CurrentConfig().Tag().String())
 	}
 
 	if err := w.runUpgrades(); err != nil {
@@ -224,7 +225,7 @@ func (w *upgradesteps) run() error {
 		// the agent to stay running in an error state waiting
 		// for user intervention.
 		if isAPILostDuringUpgrade(err) {
-			return errors.Trace(err)
+			return err
 		}
 		w.reportUpgradeFailure(err, false)
 
@@ -242,7 +243,7 @@ func (w *upgradesteps) run() error {
 func (w *upgradesteps) runUpgrades() error {
 	upgradeInfo, err := w.prepareForUpgrade()
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 
 	if wrench.IsActive(w.wrenchKey(), "fail-upgrade") {
@@ -250,11 +251,11 @@ func (w *upgradesteps) runUpgrades() error {
 	}
 
 	if err := w.agent.ChangeConfig(w.runUpgradeSteps); err != nil {
-		return errors.Trace(err)
+		return err
 	}
 
 	if err := w.finaliseUpgrade(upgradeInfo); err != nil {
-		return errors.Trace(err)
+		return err
 	}
 	return nil
 }
@@ -465,6 +466,9 @@ var getUpgradeRetryStrategy = func() utils.AttemptStrategy {
 // jobs assigned to an agent. This determines the upgrade steps
 // which will run during an upgrade.
 func jobsToTargets(jobs []multiwatcher.MachineJob, isMaster bool) (targets []upgrades.Target) {
+	if jobs == nil {
+		return
+	}
 	for _, job := range jobs {
 		switch job {
 		case multiwatcher.JobManageModel:

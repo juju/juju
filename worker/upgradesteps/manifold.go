@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker/gate"
 )
 
@@ -67,28 +66,34 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			// Get the agent's jobs.
-			// TODO(fwereade): use appropriate facade!
-			var jobs []multiwatcher.MachineJob
-			if names.IsValidApplication(agent.CurrentConfig().Tag().String()) {
-				// application tag for CAAS operator.
-				jobs = []multiwatcher.MachineJob{}
-			} else {
-				// machine or unit tag for agents.
-				agentFacade, err := apiagent.NewState(apiConn)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				entity, err := agentFacade.Entity(agent.CurrentConfig().Tag())
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				jobs = entity.Jobs()
-			}
-
 			// Get a component capable of setting machine status
 			// to indicate progress to the user.
 			statusSetter, err := config.NewAgentStatusSetter(apiConn)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			// application tag for CAAS operator, machine or unit tag for agents.
+			isOperator := agent.CurrentConfig().Tag().Kind() == names.ApplicationTagKind
+			if isOperator {
+				return NewWorker(
+					upgradeStepsLock,
+					agent,
+					apiConn,
+					nil,
+					config.OpenStateForUpgrade,
+					config.PreUpgradeSteps,
+					statusSetter,
+					isOperator,
+				)
+			}
+
+			// Get the agent's jobs.
+			// TODO(fwereade): use appropriate facade!
+			agentFacade, err := apiagent.NewState(apiConn)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			entity, err := agentFacade.Entity(agent.CurrentConfig().Tag())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -96,10 +101,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				upgradeStepsLock,
 				agent,
 				apiConn,
-				jobs,
+				entity.Jobs(),
 				config.OpenStateForUpgrade,
 				config.PreUpgradeSteps,
 				statusSetter,
+				isOperator,
 			)
 		},
 	}
