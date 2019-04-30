@@ -4,12 +4,13 @@
 package storage_test
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"time"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/storage"
