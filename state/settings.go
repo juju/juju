@@ -270,7 +270,7 @@ func (s *Settings) applyChanges(changes settings.ItemChanges) {
 // in a single transaction.
 // NOTE: The settings are passed as values and not references.
 // Unlike the call to "Write" on a single settings reference,
-// we cannot expect that all the settings objects to be updated to represent
+// we cannot expect all the settings objects to be updated to represent
 // consistency between the live and on-disk values.
 // TODO (manadart 2019-04-30): This is inelegant.
 // The settings abstractions are poor, but model generations really makes
@@ -286,8 +286,6 @@ func (st *State) WriteBulkSettings(s []Settings) error {
 		allOps = append(allOps, ops...)
 	}
 
-	// Using the DB from the first document under the assumption
-	// that it is the same as for all of the others is reasonable.
 	return errors.Annotate(st.db().RunTransaction(allOps), "writing multiple settings")
 }
 
