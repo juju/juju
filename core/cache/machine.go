@@ -14,6 +14,10 @@ import (
 	"github.com/juju/juju/core/instance"
 )
 
+const (
+	machineProvisioned = "machine-provisioned"
+)
+
 func newMachine(model *Model, res *Resident) *Machine {
 	m := &Machine{
 		Resident: res,
@@ -126,16 +130,19 @@ func (m *Machine) WatchContainers() (*PredicateStringsWatcher, error) {
 //        exist on the machine.
 //     3. The lxdprofile of an application with a unit on this
 //        machine is added, removed, or exists.
+//     4. The machine's instanceId is changed, indicating it
+//        has been provisioned.
 func (m *Machine) WatchApplicationLXDProfiles() (*MachineAppLXDProfileWatcher, error) {
 	return newMachineAppLXDProfileWatcher(MachineAppLXDProfileConfig{
-		appTopic:        m.model.topic(applicationCharmURLChange),
-		unitAddTopic:    m.model.topic(modelUnitLXDProfileAdd),
-		unitRemoveTopic: m.model.topic(modelUnitLXDProfileRemove),
-		machine:         m,
-		modeler:         m.model,
-		metrics:         m.model.metrics,
-		hub:             m.model.hub,
-		resident:        m.Resident,
+		appTopic:         m.model.topic(applicationCharmURLChange),
+		provisionedTopic: m.topic(machineProvisioned),
+		unitAddTopic:     m.model.topic(modelUnitLXDProfileAdd),
+		unitRemoveTopic:  m.model.topic(modelUnitLXDProfileRemove),
+		machine:          m,
+		modeler:          m.model,
+		metrics:          m.model.metrics,
+		hub:              m.model.hub,
+		resident:         m.Resident,
 	})
 }
 
@@ -161,6 +168,11 @@ func (m *Machine) setDetails(details MachineChange) {
 	}
 
 	m.setStale(false)
+
+	if details.InstanceId != m.details.InstanceId {
+		m.model.hub.Publish(m.topic(machineProvisioned), nil)
+	}
+
 	m.details = details
 
 	configHash, err := hash(details.Config)
@@ -172,4 +184,8 @@ func (m *Machine) setDetails(details MachineChange) {
 		m.configHash = configHash
 		// TODO: publish config change...
 	}
+}
+
+func (m *Machine) topic(suffix string) string {
+	return m.details.ModelUUID + ":" + m.details.Id + ":" + suffix
 }

@@ -40,14 +40,15 @@ type appInfo struct {
 }
 
 type MachineAppLXDProfileConfig struct {
-	appTopic        string
-	unitAddTopic    string
-	unitRemoveTopic string
-	machine         *Machine
-	modeler         MachineAppModeler
-	metrics         *ControllerGauges
-	hub             *pubsub.SimpleHub
-	resident        *Resident
+	appTopic         string
+	provisionedTopic string
+	unitAddTopic     string
+	unitRemoveTopic  string
+	machine          *Machine
+	modeler          MachineAppModeler
+	metrics          *ControllerGauges
+	hub              *pubsub.SimpleHub
+	resident         *Resident
 }
 
 func newMachineAppLXDProfileWatcher(config MachineAppLXDProfileConfig) (*MachineAppLXDProfileWatcher, error) {
@@ -63,6 +64,7 @@ func newMachineAppLXDProfileWatcher(config MachineAppLXDProfileConfig) (*Machine
 	deregister := config.resident.registerWorker(w)
 	multi := config.hub.NewMultiplexer()
 	multi.Add(config.appTopic, w.applicationCharmURLChange)
+	multi.Add(config.provisionedTopic, w.provisionedChange)
 	multi.Add(config.unitAddTopic, w.addUnit)
 	multi.Add(config.unitRemoveTopic, w.removeUnit)
 
@@ -75,7 +77,7 @@ func newMachineAppLXDProfileWatcher(config MachineAppLXDProfileConfig) (*Machine
 
 	err := w.init(config.machine)
 	if err != nil {
-		// Stop the watcher, which unsubcribes above.
+		// Stop the watcher, which unsubscribes above.
 		_ = w.Stop()
 		return nil, errors.Trace(err)
 	}
@@ -333,6 +335,21 @@ func (w *MachineAppLXDProfileWatcher) removeUnit(topic string, value interface{}
 		notify = true
 	}
 	return
+}
+
+// provisionedChanged notifies when called.  Topic subscribed to is specific to
+// this machine.
+func (w *MachineAppLXDProfileWatcher) provisionedChange(topic string, _ interface{}) {
+	// We don't want to respond to any events until we have been fully initialized.
+	select {
+	case <-w.initialized:
+	case <-w.tomb.Dying():
+		return
+	}
+
+	logger.Tracef("notifying due to machine-%s now provisioned", w.machineId)
+	w.metrics.LXDProfileChangeHit.Inc()
+	w.notify()
 }
 
 func (w *MachineAppLXDProfileWatcher) logError(msg string) {
