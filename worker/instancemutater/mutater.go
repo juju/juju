@@ -131,6 +131,14 @@ func (m MutaterMachine) watchProfileChangesLoop(removed <-chan struct{}, profile
 		case <-profileChangeWatcher.Changes():
 			info, err := m.machineApi.CharmProfilingInfo()
 			if err != nil {
+				// if the machine is not provisioned then we need to wait for
+				// new changes from the watcher. Unfortunately if we're not
+				// provisioned and there are changes from the charm profiling
+				// info, we could potentially miss the changes we're supposed
+				// to apply.
+				if params.IsCodeNotProvisioned(errors.Cause(err)) {
+					continue
+				}
 				return errors.Trace(err)
 			}
 			if err = m.processMachineProfileChanges(info); err != nil && errors.IsNotValid(err) {
