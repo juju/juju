@@ -80,13 +80,15 @@ func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error
 	return ids, nil
 }
 
+type osOpenFunc func(path string) (ReadSeekCloser, error)
+
 type deployUploader struct {
 	applicationID string
 	chID          charmstore.CharmID
 	csMac         *macaroon.Macaroon
 	resources     map[string]charmresource.Meta
 	client        DeployClient
-	osOpen        func(path string) (ReadSeekCloser, error)
+	osOpen        osOpenFunc
 	osStat        func(path string) error
 }
 
@@ -117,19 +119,11 @@ func (d deployUploader) upload(resourceValues map[string]string, revisions map[s
 	}
 
 	for name, resValue := range resourceValues {
-		var (
-			id  string
-			err error
-		)
-		switch d.resources[name].Type {
-		case charmresource.TypeFile:
-			id, err = d.uploadFile(name, resValue)
-		case charmresource.TypeContainerImage:
-			id, err = d.uploadDockerDetails(name, resValue)
-		default:
-			err = errors.New("unknown resource type to upload")
+		r, err := OpenResource(resValue, d.resources[name].Type, d.osOpen)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-
+		id, err := d.uploadPendingResource(name, resValue, r)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -146,7 +140,7 @@ func (d deployUploader) validateResourceDetails(res map[string]string) error {
 		case charmresource.TypeFile:
 			err = d.checkFile(name, value)
 		case charmresource.TypeContainerImage:
-			dockerDetails, err := getDockerDetailsData(value)
+			dockerDetails, err := getDockerDetailsData(value, d.osOpen)
 			if err != nil {
 				return err
 			}
@@ -228,38 +222,6 @@ func (d deployUploader) uploadPendingResource(resourcename, resourcevalue string
 	return d.client.UploadPendingResource(d.applicationID, res, resourcevalue, data)
 }
 
-func (d deployUploader) uploadFile(resourcename, filename string) (id string, err error) {
-	f, err := d.osOpen(filename)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	defer f.Close()
-
-	id, err = d.uploadPendingResource(resourcename, filename, f)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return id, err
-}
-
-func (d deployUploader) uploadDockerDetails(resourcename, registryPath string) (id string, error error) {
-	dockerDetails, err := getDockerDetailsData(registryPath)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	data, err := json.Marshal(dockerDetails)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	dr := bytes.NewReader(data)
-
-	id, err = d.uploadPendingResource(resourcename, registryPath, dr)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return id, nil
-}
-
 func (d deployUploader) checkExpectedResources(filenames map[string]string, revisions map[string]int) error {
 	var unknown []string
 	for name := range filenames {
@@ -283,8 +245,8 @@ func (d deployUploader) checkExpectedResources(filenames map[string]string, revi
 
 // getDockerDetailsData determines if path is a local file path and extracts the
 // details from that otherwise path is considered to be a registry path.
-func getDockerDetailsData(path string) (resources.DockerImageDetails, error) {
-	f, err := os.Open(path)
+func getDockerDetailsData(path string, osOpen osOpenFunc) (resources.DockerImageDetails, error) {
+	f, err := osOpen(path)
 	if err == nil {
 		defer f.Close()
 		details, err := unMarshalDockerDetails(f)
@@ -317,4 +279,35 @@ func unMarshalDockerDetails(data io.Reader) (resources.DockerImageDetails, error
 		return resources.DockerImageDetails{}, err
 	}
 	return details, nil
+}
+
+func OpenResource(resValue string, resType charmresource.Type, osOpen osOpenFunc) (ReadSeekCloser, error) {
+	switch resType {
+	case charmresource.TypeFile:
+		f, err := osOpen(resValue)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return f, nil
+	case charmresource.TypeContainerImage:
+		dockerDetails, err := getDockerDetailsData(resValue, osOpen)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		data, err := json.Marshal(dockerDetails)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return noopCloser{bytes.NewReader(data)}, nil
+	default:
+		return nil, errors.Errorf("unknown resource type %q", resType)
+	}
+}
+
+type noopCloser struct {
+	io.ReadSeeker
+}
+
+func (noopCloser) Close() error {
+	return nil
 }
