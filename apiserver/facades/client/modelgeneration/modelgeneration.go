@@ -6,6 +6,8 @@ package modelgeneration
 import (
 	"fmt"
 
+	"github.com/juju/juju/state"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -148,17 +150,52 @@ func (api *API) CommitBranch(arg params.BranchArg) (params.IntResult, error) {
 		return result, common.ErrPerm
 	}
 
-	generation, err := api.model.Branch(arg.BranchName)
+	branch, err := api.model.Branch(arg.BranchName)
 	if err != nil {
-		return result, errors.Trace(err)
+		return intResultsError(err)
 	}
 
-	if genId, err := generation.Commit(api.apiUser.Name()); err != nil {
+	if err = api.applyBranchConfig(branch); err != nil {
+		return intResultsError(err)
+	}
+
+	if genId, err := branch.Commit(api.apiUser.Name()); err != nil {
 		result.Error = common.ServerError(err)
 	} else {
 		result.Result = genId
 	}
 	return result, nil
+}
+
+// applyBranchConfig applies configuration deltas from a branch to the
+// appropriate application charm settings documents and writes them back
+// to the DB. This writes the ultimate data as a single transaction,
+// so a branch is either committed without error, or there are no changes.
+func (api *API) applyBranchConfig(branch Generation) error {
+	var allSettings []state.Settings
+
+	// Collect up all the new application settings collections that will result
+	// from committing the branch.
+	for appName, delta := range branch.Config() {
+		if len(delta) == 0 {
+			continue
+		}
+		app, err := api.st.Application(appName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		cfg, err := app.CharmSettingsWithDelta(delta)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		allSettings = append(allSettings, *cfg)
+	}
+
+	// If there are any changes, write the new settings documents.
+	if len(allSettings) == 0 {
+		return nil
+	}
+	return errors.Trace(api.st.WriteBulkSettings(allSettings))
 }
 
 // BranchInfo will return details of branch identified by the input argument,
@@ -184,19 +221,19 @@ func (api *API) BranchInfo(args params.BranchInfoArgs) (params.GenerationResults
 		branches = make([]Generation, len(args.BranchNames))
 		for i, name := range args.BranchNames {
 			if branches[i], err = api.model.Branch(name); err != nil {
-				return generationInfoError(err)
+				return generationResultsError(err)
 			}
 		}
 	} else {
 		if branches, err = api.model.Branches(); err != nil {
-			return generationInfoError(err)
+			return generationResultsError(err)
 		}
 	}
 
 	results := make([]params.Generation, len(branches))
 	for i, b := range branches {
 		if results[i], err = api.oneBranchInfo(b, args.Detailed); err != nil {
-			return generationInfoError(err)
+			return generationResultsError(err)
 		}
 	}
 	result.Generations = results
@@ -204,7 +241,7 @@ func (api *API) BranchInfo(args params.BranchInfoArgs) (params.GenerationResults
 }
 
 func (api *API) oneBranchInfo(branch Generation, detailed bool) (params.Generation, error) {
-	delta := branch.Config()
+	deltas := branch.Config()
 
 	var apps []params.GenerationApplication
 	for appName, tracking := range branch.AssignedUnits() {
@@ -227,7 +264,7 @@ func (api *API) oneBranchInfo(branch Generation, detailed bool) (params.Generati
 		if err != nil {
 			return params.Generation{}, errors.Trace(err)
 		}
-		branchApp.ConfigChanges = delta[appName].CurrentSettings(defaults)
+		branchApp.ConfigChanges = deltas[appName].CurrentSettings(defaults)
 
 		// TODO (manadart 2019-04-12): Charm URL.
 
@@ -275,6 +312,10 @@ func (api *API) HasActiveBranch(arg params.BranchArg) (params.BoolResult, error)
 	return result, nil
 }
 
-func generationInfoError(err error) (params.GenerationResults, error) {
+func generationResultsError(err error) (params.GenerationResults, error) {
 	return params.GenerationResults{Error: common.ServerError(err)}, nil
+}
+
+func intResultsError(err error) (params.IntResult, error) {
+	return params.IntResult{Error: common.ServerError(err)}, nil
 }
