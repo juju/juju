@@ -5,6 +5,7 @@ package common
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
@@ -84,4 +85,13 @@ func (r *Remover) Remove(args params.Entities) (params.ErrorResults, error) {
 		result.Results[i].Error = ServerError(err)
 	}
 	return result, nil
+}
+
+// MaxWait is how far in the future the backstop force cleanup will be scheduled.
+// Default is 1min if no value is provided.
+func MaxWait(in *time.Duration) time.Duration {
+	if in != nil {
+		return *in
+	}
+	return 1 * time.Minute
 }

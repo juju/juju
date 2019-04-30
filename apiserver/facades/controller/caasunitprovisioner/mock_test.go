@@ -4,6 +4,8 @@
 package caasunitprovisioner_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"gopkg.in/juju/charm.v6"
@@ -315,7 +317,7 @@ func (m *mockStorage) AllFilesystems() ([]state.Filesystem, error) {
 	return result, nil
 }
 
-func (m *mockStorage) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool) (err error) {
+func (m *mockStorage) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait time.Duration) (err error) {
 	m.MethodCall(m, "DestroyStorageInstance", tag, destroyAttachments, force)
 	return nil
 }

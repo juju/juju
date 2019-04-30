@@ -296,7 +296,7 @@ func (s *MachineSuite) TestLifeJobManageModel(c *gc.C) {
 	err = m.EnsureDead()
 	c.Assert(err, gc.ErrorMatches, "machine 0 is still a voting controller member")
 	// Since this is the only controller machine, we cannot even force destroy it
-	err = m.ForceDestroy()
+	err = m.ForceDestroy(dontWait)
 	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
 	err = m.EnsureDead()
 	c.Assert(err, gc.ErrorMatches, "machine 0 is still a voting controller member")

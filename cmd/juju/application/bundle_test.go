@@ -2326,7 +2326,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundlePassesSequences(c *gc.C) {
 		m, err := s.State.Machine(id)
 		c.Assert(err, jc.ErrorIsNil)
 		machines = append(machines, m)
-		c.Assert(m.ForceDestroy(), jc.ErrorIsNil)
+		c.Assert(m.ForceDestroy(time.Duration(0)), jc.ErrorIsNil)
 	}
 	// Tear them down. This is somewhat convoluted, but it is what we need
 	// to do to properly cleanly tear down machines.

@@ -93,7 +93,7 @@ func (s *AnnotationsSuite) TestSetAnnotationsRemove(c *gc.C) {
 func (s *AnnotationsSuite) TestSetAnnotationsDestroyedEntity(c *gc.C) {
 	key := s.createTestAnnotation(c)
 
-	err := s.testEntity.ForceDestroy()
+	err := s.testEntity.ForceDestroy(dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.testEntity.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)

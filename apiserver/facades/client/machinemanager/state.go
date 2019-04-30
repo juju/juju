@@ -4,6 +4,8 @@
 package machinemanager
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -40,7 +42,7 @@ type Model interface {
 
 type Machine interface {
 	Destroy() error
-	ForceDestroy() error
+	ForceDestroy(time.Duration) error
 	Series() string
 	Units() ([]Unit, error)
 	SetKeepInstance(keepInstance bool) error

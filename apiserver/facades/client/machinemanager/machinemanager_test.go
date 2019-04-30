@@ -936,8 +936,8 @@ func (m *mockMachine) Destroy() error {
 	return nil
 }
 
-func (m *mockMachine) ForceDestroy() error {
-	m.MethodCall(m, "ForceDestroy")
+func (m *mockMachine) ForceDestroy(maxWait time.Duration) error {
+	m.MethodCall(m, "ForceDestroy", maxWait)
 	return nil
 }
 

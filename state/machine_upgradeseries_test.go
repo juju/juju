@@ -139,7 +139,7 @@ func (s *MachineSuite) TestForceMarksSeriesLockUnlocksMachineForCleanup(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	AssertMachineLockedForPrepare(c, mach)
 
-	err = mach.ForceDestroy()
+	err = mach.ForceDestroy(dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// After a forced destroy an upgrade series lock on a machine should be

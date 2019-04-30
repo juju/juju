@@ -380,13 +380,13 @@ func (s *EnableHASuite) TestForceDestroyFromHA(c *gc.C) {
 	err = m0.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
 	// ForceDestroy must be blocked if there is only 1 machine.
-	err = m0.ForceDestroy()
+	err = m0.ForceDestroy(dontWait)
 	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
 	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 2)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
-	err = m0.ForceDestroy()
+	err = m0.ForceDestroy(dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m0.Refresh(), jc.ErrorIsNil)
 	// Could this actually get all the way to Dead?

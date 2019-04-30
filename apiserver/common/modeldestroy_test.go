@@ -88,7 +88,7 @@ func (s *destroyModelSuite) testDestroyModel(c *gc.C, destroyStorage, force *boo
 		{"Destroy", []interface{}{state.DestroyModelParams{
 			DestroyStorage: destroyStorage,
 			Force:          force,
-			MaxWait:        maxWait,
+			MaxWait:        common.MaxWait(maxWait),
 		}}},
 	})
 }

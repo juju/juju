@@ -5,6 +5,7 @@ package storageprovisioner_test
 
 import (
 	"sort"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -529,6 +530,10 @@ func (s *provisionerSuite) TestVolumeParamsEmptyArgs(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 0)
 }
 
+const (
+	dontWait = time.Duration(0)
+)
+
 func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
@@ -578,7 +583,7 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 	// Make the "data" storage volume Dead, releasing.
 	err = unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.ReleaseStorageInstance(storage[0].StorageTag(), true, false)
+	err = s.storageBackend.ReleaseStorageInstance(storage[0].StorageTag(), true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DetachStorage(storage[0].StorageTag(), unit.UnitTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -701,7 +706,7 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemParams(c *gc.C) {
 	// Make the "data" storage filesystem Dead, releasing.
 	err = unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.ReleaseStorageInstance(storage[0].StorageTag(), true, false)
+	err = s.storageBackend.ReleaseStorageInstance(storage[0].StorageTag(), true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DetachStorage(storage[0].StorageTag(), unit.UnitTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
