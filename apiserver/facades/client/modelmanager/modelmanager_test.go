@@ -868,6 +868,7 @@ func (s *modelManagerSuite) TestDestroyModelsV3(c *gc.C) {
 		{"UUID", nil},
 		{"Destroy", []interface{}{state.DestroyModelParams{
 			DestroyStorage: &destroyStorage,
+			MaxWait:        common.MaxWait(nil),
 		}}},
 	})
 }
