@@ -4,10 +4,11 @@
 package storage_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
-	"time"
 
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	"github.com/juju/juju/core/status"
