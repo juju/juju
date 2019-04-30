@@ -237,6 +237,26 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherUnitChangeUnitCharm
 	s.assertChangeValidateMetrics(c, s.wc0.AssertOneChange, 0, 1, 0)
 }
 
+func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherMachineProvisioned(c *gc.C) {
+	defer workertest.CleanKill(c, s.assertStartOneMachineNotProvisionedWatcher(c))
+	s.model.UpdateMachine(cache.MachineChange{
+		ModelUUID:  "model-uuid",
+		Id:         "0",
+		InstanceId: "juju-gd4c23-0",
+	}, s.Manager)
+	s.assertChangeValidateMetrics(c, s.wc0.AssertOneChange, 0, 1, 0)
+}
+
+func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherMachineProvisionedOneOnly(c *gc.C) {
+	defer workertest.CleanKill(c, s.assertStartOneMachineNotProvisionedWatcher(c))
+	s.model.UpdateMachine(cache.MachineChange{
+		ModelUUID:  "model-uuid",
+		Id:         "1",
+		InstanceId: "juju-gd4c23-1",
+	}, s.Manager)
+	s.assertChangeValidateMetrics(c, s.wc0.AssertNoChange, 0, 0, 0)
+}
+
 func (s *lxdProfileWatcherSuite) updateCharmForMachineLXDProfileWatcher(rev string, profile bool) {
 	curl := "www.charm-url.com-" + rev
 	ch := cache.CharmChange{
@@ -341,6 +361,29 @@ func (s *lxdProfileWatcherSuite) setupTwoMachineLXDProfileWatcherScenario(c *gc.
 
 func (s *lxdProfileWatcherSuite) assertStartOneMachineWatcher(c *gc.C) *cache.MachineLXDProfileWatcher {
 	s.setupOneMachineLXDProfileWatcherScenario(c)
+	w, err := s.machine0.WatchLXDProfileVerificationNeeded()
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc := NewNotifyWatcherC(c, w)
+	// Sends initial event.
+	wc.AssertOneChange()
+	s.wc0 = wc
+	return w
+}
+
+func (s *lxdProfileWatcherSuite) assertStartOneMachineNotProvisionedWatcher(c *gc.C) *cache.MachineLXDProfileWatcher {
+	s.model = s.NewModel(modelChange)
+
+	mChange := cache.MachineChange{
+		ModelUUID: "model-uuid",
+		Id:        "0",
+	}
+	s.model.UpdateMachine(mChange, s.Manager)
+	machine, err := s.model.Machine(machineChange.Id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.Id(), gc.Equals, machineChange.Id)
+	s.machine0 = machine
+
 	w, err := s.machine0.WatchLXDProfileVerificationNeeded()
 	c.Assert(err, jc.ErrorIsNil)
 
