@@ -556,10 +556,10 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: application,
 	})
-	storage, err := s.storageBackend.AllStorageInstances()
+	testStorage, err := s.storageBackend.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storage, gc.HasLen, 1)
-	storageVolume, err := s.storageBackend.StorageInstanceVolume(storage[0].StorageTag())
+	c.Assert(testStorage, gc.HasLen, 1)
+	storageVolume, err := s.storageBackend.StorageInstanceVolume(testStorage[0].StorageTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.SetVolumeInfo(storageVolume.VolumeTag(), state.VolumeInfo{
 		VolumeId:   "zing",
@@ -583,9 +583,9 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 	// Make the "data" storage volume Dead, releasing.
 	err = unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.ReleaseStorageInstance(storage[0].StorageTag(), true, false, dontWait)
+	err = s.storageBackend.ReleaseStorageInstance(testStorage[0].StorageTag(), true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.DetachStorage(storage[0].StorageTag(), unit.UnitTag(), false)
+	err = s.storageBackend.DetachStorage(testStorage[0].StorageTag(), unit.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	unitMachineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -680,10 +680,10 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemParams(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: application,
 	})
-	storage, err := s.storageBackend.AllStorageInstances()
+	testStorage, err := s.storageBackend.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storage, gc.HasLen, 1)
-	storageFilesystem, err := s.storageBackend.StorageInstanceFilesystem(storage[0].StorageTag())
+	c.Assert(testStorage, gc.HasLen, 1)
+	storageFilesystem, err := s.storageBackend.StorageInstanceFilesystem(testStorage[0].StorageTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.SetFilesystemInfo(storageFilesystem.FilesystemTag(), state.FilesystemInfo{
 		FilesystemId: "zing",
@@ -706,9 +706,9 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemParams(c *gc.C) {
 	// Make the "data" storage filesystem Dead, releasing.
 	err = unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.ReleaseStorageInstance(storage[0].StorageTag(), true, false, dontWait)
+	err = s.storageBackend.ReleaseStorageInstance(testStorage[0].StorageTag(), true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.DetachStorage(storage[0].StorageTag(), unit.UnitTag(), false)
+	err = s.storageBackend.DetachStorage(testStorage[0].StorageTag(), unit.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	unitMachineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)

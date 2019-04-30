@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -237,7 +239,7 @@ func (c *Client) Attach(unitId string, storageIds []string) ([]params.ErrorResul
 
 // Remove removes the specified storage entities from the model,
 // optionally destroying them.
-func (c *Client) Remove(storageIds []string, destroyAttachments, destroyStorage bool) ([]params.ErrorResult, error) {
+func (c *Client) Remove(storageIds []string, destroyAttachments, destroyStorage bool, force *bool, maxWait *time.Duration) ([]params.ErrorResult, error) {
 	for _, id := range storageIds {
 		if !names.IsValidStorage(id) {
 			return nil, errors.NotValidf("storage ID %q", id)
@@ -259,15 +261,19 @@ func (c *Client) Remove(storageIds []string, destroyAttachments, destroyStorage 
 		args = params.Entities{entities}
 		method = "Destroy"
 	} else {
-		storage := make([]params.RemoveStorageInstance, len(storageIds))
+		aStorage := make([]params.RemoveStorageInstance, len(storageIds))
 		for i, id := range storageIds {
-			storage[i] = params.RemoveStorageInstance{
+			aStorage[i] = params.RemoveStorageInstance{
 				Tag:                names.NewStorageTag(id).String(),
 				DestroyAttachments: destroyAttachments,
 				DestroyStorage:     destroyStorage,
 			}
+			if c.BestAPIVersion() > 5 {
+				aStorage[i].Force = force
+				aStorage[i].MaxWait = maxWait
+			}
 		}
-		args = params.RemoveStorage{storage}
+		args = params.RemoveStorage{aStorage}
 		method = "Remove"
 	}
 	if err := c.facade.FacadeCall(method, args, &results); err != nil {
@@ -283,22 +289,31 @@ func (c *Client) Remove(storageIds []string, destroyAttachments, destroyStorage 
 }
 
 // Detach detaches the specified storage entities.
-func (c *Client) Detach(storageIds []string) ([]params.ErrorResult, error) {
+func (c *Client) Detach(storageIds []string, force *bool, maxWait *time.Duration) ([]params.ErrorResult, error) {
 	results := params.ErrorResults{}
-	args := make([]params.StorageAttachmentId, len(storageIds))
+	ids := make([]params.StorageAttachmentId, len(storageIds))
 	for i, id := range storageIds {
 		if !names.IsValidStorage(id) {
 			return nil, errors.NotValidf("storage ID %q", id)
 		}
-		args[i] = params.StorageAttachmentId{
+		ids[i] = params.StorageAttachmentId{
 			StorageTag: names.NewStorageTag(id).String(),
 		}
 	}
-	if err := c.facade.FacadeCall(
-		"Detach",
-		params.StorageAttachmentIds{args},
-		&results,
-	); err != nil {
+	var args interface{}
+	var method string
+	if c.BestAPIVersion() < 6 {
+		method = "Detach"
+		args = params.StorageAttachmentIds{ids}
+	} else {
+		method = "DetachStorage"
+		args = params.StorageDetachmentParams{
+			StorageIds: params.StorageAttachmentIds{ids},
+			Force:      force,
+			MaxWait:    maxWait,
+		}
+	}
+	if err := c.facade.FacadeCall(method, args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != len(storageIds) {

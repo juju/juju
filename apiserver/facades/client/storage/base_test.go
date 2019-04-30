@@ -74,7 +74,9 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	newAPI := storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.registry, s.poolManager, s.authorizer, s.callContext)
 	s.apiv3 = &storage.StorageAPIv3{
 		StorageAPIv4: storage.StorageAPIv4{
-			StorageAPI: *newAPI,
+			StorageAPIv5: storage.StorageAPIv5{
+				StorageAPI: *newAPI,
+			},
 		},
 	}
 }

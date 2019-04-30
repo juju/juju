@@ -4,8 +4,11 @@
 package storage
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
@@ -16,19 +19,19 @@ import (
 // NewDetachStorageCommandWithAPI returns a command
 // used to detach storage from application units.
 func NewDetachStorageCommandWithAPI() cmd.Command {
-	cmd := &detachStorageCommand{}
-	cmd.newEntityDetacherCloser = func() (EntityDetacherCloser, error) {
-		return cmd.NewStorageAPI()
+	command := &detachStorageCommand{}
+	command.newEntityDetacherCloser = func() (EntityDetacherCloser, error) {
+		return command.NewStorageAPI()
 	}
-	return modelcmd.Wrap(cmd)
+	return modelcmd.Wrap(command)
 }
 
 // NewDetachStorageCommand returns a command used to
 // detach storage from application units.
 func NewDetachStorageCommand(new NewEntityDetacherCloserFunc) cmd.Command {
-	cmd := &detachStorageCommand{}
-	cmd.newEntityDetacherCloser = new
-	return modelcmd.Wrap(cmd)
+	command := &detachStorageCommand{}
+	command.newEntityDetacherCloser = new
+	return modelcmd.Wrap(command)
 }
 
 const (
@@ -37,8 +40,19 @@ Detaches storage from units. Specify one or more unit/application storage IDs,
 as output by "juju storage". The storage will remain in the model until it is
 removed by an operator.
 
+Detaching storage may fail but under some circumstances, Juju user may need 
+to force storage detachment despite operational errors. 
+
+Storage detachment is a multi-step process. Under normal circumstances, Juju will not
+proceed to a next step until the current step finished. 
+However, when using --force, users can also specify --no-wait to progress through steps 
+without delay waiting for each step to complete.
+
+
 Examples:
     juju detach-storage pgdata/0
+    juju detach-storage --force pgdata/0
+    juju detach-storage --force --no-wait pgdata/0
 `
 
 	detachStorageCommandArgs = `<storage> [<storage> ...]`
@@ -50,6 +64,10 @@ type detachStorageCommand struct {
 	modelcmd.IAASOnlyCommand
 	newEntityDetacherCloser NewEntityDetacherCloserFunc
 	storageIds              []string
+
+	Force  bool
+	NoWait bool
+	fs     *gnuflag.FlagSet
 }
 
 // Init implements Command.Init.
@@ -59,6 +77,14 @@ func (c *detachStorageCommand) Init(args []string) error {
 	}
 	c.storageIds = args
 	return nil
+}
+
+// SetFlags implements Command.SetFlags.
+func (c *detachStorageCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.StorageCommandBase.SetFlags(f)
+	f.BoolVar(&c.Force, "force", false, "Forcefully detach storage")
+	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through storage detachment without waiting for each individual step to complete")
+	c.fs = f
 }
 
 // Info implements Command.Info.
@@ -73,13 +99,33 @@ func (c *detachStorageCommand) Info() *cmd.Info {
 
 // Run implements Command.Run.
 func (c *detachStorageCommand) Run(ctx *cmd.Context) error {
+	noWaitSet := false
+	forceSet := false
+	c.fs.Visit(func(flag *gnuflag.Flag) {
+		if flag.Name == "no-wait" {
+			noWaitSet = true
+		} else if flag.Name == "force" {
+			forceSet = true
+		}
+	})
+	if !forceSet && noWaitSet {
+		return errors.NotValidf("--no-wait without --force")
+	}
+	var maxWait *time.Duration
+	if c.Force {
+		if c.NoWait {
+			zeroSec := 0 * time.Second
+			maxWait = &zeroSec
+		}
+	}
+
 	detacher, err := c.newEntityDetacherCloser()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer detacher.Close()
 
-	results, err := detacher.Detach(c.storageIds)
+	results, err := detacher.Detach(c.storageIds, &c.Force, maxWait)
 	if err != nil {
 		if params.IsCodeUnauthorized(err) {
 			common.PermissionsMessage(ctx.Stderr, "detach storage")
@@ -117,5 +163,5 @@ type EntityDetacherCloser interface {
 // EntityDetacher defines an interface for detaching storage with the
 // specified IDs.
 type EntityDetacher interface {
-	Detach([]string) ([]params.ErrorResult, error)
+	Detach([]string, *bool, *time.Duration) ([]params.ErrorResult, error)
 }

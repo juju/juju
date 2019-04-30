@@ -437,20 +437,20 @@ func (s *MigrationImportSuite) setupSourceApplications(
 ) (*state.Charm, *state.Application, string) {
 	f := factory.NewFactory(st, s.StatePool)
 
-	model, err := st.Model()
+	testModel, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	series := "quantal"
-	if model.Type() == state.ModelTypeCAAS {
+	if testModel.Type() == state.ModelTypeCAAS {
 		series = "kubernetes"
 	}
 	// Add a application with charm settings, app config, and leadership settings.
-	charm := f.MakeCharm(c, &factory.CharmParams{
+	testCharm := f.MakeCharm(c, &factory.CharmParams{
 		Name:   "starsay", // it has resources
 		Series: series,
 	})
-	c.Assert(charm.Meta().Resources, gc.HasLen, 3)
+	c.Assert(testCharm.Meta().Resources, gc.HasLen, 3)
 	application, pwd := f.MakeApplicationReturningPassword(c, &factory.ApplicationParams{
-		Charm: charm,
+		Charm: testCharm,
 		CharmConfig: map[string]interface{}{
 			"foo": "bar",
 		},
@@ -470,15 +470,15 @@ func (s *MigrationImportSuite) setupSourceApplications(
 	c.Assert(err, jc.ErrorIsNil)
 	// Expose the application.
 	c.Assert(application.SetExposed(), jc.ErrorIsNil)
-	err = model.SetAnnotations(application, testAnnotations)
+	err = testModel.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	if model.Type() == state.ModelTypeCAAS {
+	if testModel.Type() == state.ModelTypeCAAS {
 		application.SetOperatorStatus(status.StatusInfo{Status: status.Running})
 	}
 	if primeStatusHistory {
 		s.primeStatusHistory(c, application, status.Active, 5)
 	}
-	return charm, application, pwd
+	return testCharm, application, pwd
 }
 
 func (s *MigrationImportSuite) assertImportedApplication(
@@ -545,7 +545,7 @@ func (s *MigrationImportSuite) assertImportedApplication(
 
 func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G root-disk-source=tralfamadore")
-	charm, application, pwd := s.setupSourceApplications(c, s.State, cons, true)
+	testCharm, application, pwd := s.setupSourceApplications(c, s.State, cons, true)
 
 	allApplications, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -558,15 +558,15 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	f := factory.NewFactory(newSt, s.StatePool)
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
-		URL:      charm.URL().String(),
-		Revision: strconv.Itoa(charm.Revision()),
+		URL:      testCharm.URL().String(),
+		Revision: strconv.Itoa(testCharm.Revision()),
 	})
 	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt, true)
 }
 
 func (s *MigrationImportSuite) TestApplicationStatus(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	charm, application, pwd := s.setupSourceApplications(c, s.State, cons, false)
+	testCharm, application, pwd := s.setupSourceApplications(c, s.State, cons, false)
 
 	s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: application,
@@ -587,8 +587,8 @@ func (s *MigrationImportSuite) TestApplicationStatus(c *gc.C) {
 	f := factory.NewFactory(newSt, s.StatePool)
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
-		URL:      charm.URL().String(),
-		Revision: strconv.Itoa(charm.Revision()),
+		URL:      testCharm.URL().String(),
+		Revision: strconv.Itoa(testCharm.Revision()),
 	})
 	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt, false)
 	newApp, err := newSt.Application(application.Name())
@@ -651,7 +651,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	charm, application, _ := s.setupSourceApplications(c, caasSt, cons, false)
+	testCharm, application, _ := s.setupSourceApplications(c, caasSt, cons, false)
 	ss, err := application.Status()
 	c.Logf("status: %s", ss)
 
@@ -677,9 +677,9 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	err = application.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	model, err := caasSt.Model()
+	testModel, err := caasSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	caasModel, err := model.CAASModel()
+	caasModel, err := testModel.CAASModel()
 	c.Assert(err, jc.ErrorIsNil)
 	err = caasModel.SetPodSpec(application.ApplicationTag(), "pod spec")
 	c.Assert(err, jc.ErrorIsNil)
@@ -697,8 +697,8 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	f := factory.NewFactory(newSt, s.StatePool)
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
-		URL:      charm.URL().String(),
-		Revision: strconv.Itoa(charm.Revision()),
+		URL:      testCharm.URL().String(),
+		Revision: strconv.Itoa(testCharm.Revision()),
 	})
 	newApp, err := newSt.Application(application.Name())
 	c.Assert(err, jc.ErrorIsNil)
@@ -831,12 +831,12 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 	c.Assert(err, jc.ErrorIsNil)
 	err = exported.SetWorkloadVersion("amethyst")
 	c.Assert(err, jc.ErrorIsNil)
-	model, err := st.Model()
+	testModel, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = model.SetAnnotations(exported, testAnnotations)
+	err = testModel.SetAnnotations(exported, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 
-	if model.Type() == state.ModelTypeCAAS {
+	if testModel.Type() == state.ModelTypeCAAS {
 		var updateUnits state.UpdateUnitsOperation
 		// need to set a cloud container status so that SetStatus for
 		// the unit doesn't throw away the history writes.
@@ -871,9 +871,9 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 
 	c.Assert(imported.UnitTag(), gc.Equals, exported.UnitTag())
 	c.Assert(imported.PasswordValid(pwd), jc.IsTrue)
-	version, err := imported.WorkloadVersion()
+	v, err := imported.WorkloadVersion()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(version, gc.Equals, "amethyst")
+	c.Assert(v, gc.Equals, "amethyst")
 
 	if newModel.Type() == state.ModelTypeIAAS {
 		exportedMachineId, err := exported.AssignedMachineId()
@@ -1617,15 +1617,15 @@ func (s *MigrationImportSuite) TestStorage(c *gc.C) {
 	newSb, err := state.NewStorageBackend(newSt)
 	c.Assert(err, jc.ErrorIsNil)
 
-	instance, err := newSb.StorageInstance(storageTag)
+	testInstance, err := newSb.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(instance.Tag(), gc.Equals, original.Tag())
-	c.Check(instance.Kind(), gc.Equals, original.Kind())
-	c.Check(instance.Life(), gc.Equals, original.Life())
-	c.Check(instance.StorageName(), gc.Equals, original.StorageName())
-	c.Check(instance.Pool(), gc.Equals, original.Pool())
-	c.Check(state.StorageAttachmentCount(instance), gc.Equals, originalCount)
+	c.Check(testInstance.Tag(), gc.Equals, original.Tag())
+	c.Check(testInstance.Kind(), gc.Equals, original.Kind())
+	c.Check(testInstance.Life(), gc.Equals, original.Life())
+	c.Check(testInstance.StorageName(), gc.Equals, original.StorageName())
+	c.Check(testInstance.Pool(), gc.Equals, original.Pool())
+	c.Check(state.StorageAttachmentCount(testInstance), gc.Equals, originalCount)
 
 	attachments, err := newSb.StorageAttachments(storageTag)
 	c.Assert(attachments, gc.HasLen, 1)
@@ -1638,7 +1638,7 @@ func (s *MigrationImportSuite) TestStorageDetached(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	sb, err := state.NewStorageBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	err = sb.DetachStorage(storageTag, u.UnitTag(), false)
+	err = sb.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1653,16 +1653,16 @@ func (s *MigrationImportSuite) TestStorageInstanceConstraints(c *gc.C) {
 	_, newSt := s.importModel(c, s.State, func(desc map[string]interface{}) {
 		storages := desc["storages"].(map[interface{}]interface{})
 		for _, item := range storages["storages"].([]interface{}) {
-			storage := item.(map[interface{}]interface{})
-			cons := storage["constraints"].(map[interface{}]interface{})
+			testStorage := item.(map[interface{}]interface{})
+			cons := testStorage["constraints"].(map[interface{}]interface{})
 			cons["pool"] = "static"
 		}
 	})
 	newSb, err := state.NewStorageBackend(newSt)
 	c.Assert(err, jc.ErrorIsNil)
-	instance, err := newSb.StorageInstance(storageTag)
+	testInstance, err := newSb.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(instance.Pool(), gc.Equals, "static")
+	c.Check(testInstance.Pool(), gc.Equals, "static")
 }
 
 func (s *MigrationImportSuite) TestStorageInstanceConstraintsFallback(c *gc.C) {
@@ -1711,8 +1711,8 @@ func (s *MigrationImportSuite) TestStorageInstanceConstraintsFallback(c *gc.C) {
 		volumes["volumes"] = keepVolumes
 
 		for _, item := range storages["storages"].([]interface{}) {
-			storage := item.(map[interface{}]interface{})
-			delete(storage, "constraints")
+			testStorage := item.(map[interface{}]interface{})
+			delete(testStorage, "constraints")
 		}
 	})
 
@@ -1784,17 +1784,17 @@ func (s *MigrationImportSuite) TestPayloads(c *gc.C) {
 	c.Assert(result, gc.HasLen, 1)
 	c.Assert(result[0].Payload, gc.NotNil)
 
-	payload := result[0].Payload
+	testPayload := result[0].Payload
 
 	machineID, err := unit.AssignedMachineId()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(payload.Name, gc.Equals, original.Name)
-	c.Check(payload.Type, gc.Equals, original.Type)
-	c.Check(payload.ID, gc.Equals, original.ID)
-	c.Check(payload.Status, gc.Equals, original.Status)
-	c.Check(payload.Labels, jc.DeepEquals, original.Labels)
-	c.Check(payload.Unit, gc.Equals, unitID)
-	c.Check(payload.Machine, gc.Equals, machineID)
+	c.Check(testPayload.Name, gc.Equals, original.Name)
+	c.Check(testPayload.Type, gc.Equals, original.Type)
+	c.Check(testPayload.ID, gc.Equals, original.ID)
+	c.Check(testPayload.Status, gc.Equals, original.Status)
+	c.Check(testPayload.Labels, jc.DeepEquals, original.Labels)
+	c.Check(testPayload.Unit, gc.Equals, unitID)
+	c.Check(testPayload.Machine, gc.Equals, machineID)
 }
 
 func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
@@ -1977,21 +1977,21 @@ func (s *MigrationImportSuite) TestOneSubordinateTwoGuvnors(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
-	model, err := s.State.Export()
+	testModel, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
-	newConfig := model.Config()
+	newConfig := testModel.Config()
 	newConfig["uuid"] = "aabbccdd-1234-8765-abcd-0123456789ab"
 	newConfig["name"] = "something-new"
 	noTypeModel := description.NewModel(description.ModelArgs{
 		Type:               "",
-		Owner:              model.Owner(),
+		Owner:              testModel.Owner(),
 		Config:             newConfig,
-		LatestToolsVersion: model.LatestToolsVersion(),
-		EnvironVersion:     model.EnvironVersion(),
-		Blocks:             model.Blocks(),
-		Cloud:              model.Cloud(),
-		CloudRegion:        model.CloudRegion(),
+		LatestToolsVersion: testModel.LatestToolsVersion(),
+		EnvironVersion:     testModel.EnvironVersion(),
+		Blocks:             testModel.Blocks(),
+		Cloud:              testModel.Cloud(),
+		CloudRegion:        testModel.CloudRegion(),
 	})
 	imported, newSt, err := s.Controller.Import(noTypeModel)
 	c.Assert(err, jc.ErrorIsNil)

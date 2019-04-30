@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/testing"
@@ -26,11 +28,12 @@ func (s *RemoveStorageSuite) TestRemoveStorage(c *gc.C) {
 		{},
 		{},
 	}}
-	cmd := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
-	ctx, err := cmdtesting.RunCommand(c, cmd, "pgdata/0", "pgdata/1")
+	command := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
+	ctx, err := cmdtesting.RunCommand(c, command, "pgdata/0", "pgdata/1")
 	c.Assert(err, jc.ErrorIsNil)
 	fake.CheckCallNames(c, "NewStorageRemoverCloser", "Remove", "Close")
-	fake.CheckCall(c, 1, "Remove", []string{"pgdata/0", "pgdata/1"}, false, true)
+	force := false
+	fake.CheckCall(c, 1, "Remove", []string{"pgdata/0", "pgdata/1"}, false, true, &force, (*time.Duration)(nil))
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 removing pgdata/0
 removing pgdata/1
@@ -42,10 +45,21 @@ func (s *RemoveStorageSuite) TestRemoveStorageForce(c *gc.C) {
 		{},
 		{},
 	}}
-	cmd := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
-	_, err := cmdtesting.RunCommand(c, cmd, "--force", "pgdata/0", "pgdata/1")
+	command := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
+	_, err := cmdtesting.RunCommand(c, command, "--force", "pgdata/0", "pgdata/1")
 	c.Assert(err, jc.ErrorIsNil)
-	fake.CheckCall(c, 1, "Remove", []string{"pgdata/0", "pgdata/1"}, true, true)
+	force := true
+	fake.CheckCall(c, 1, "Remove", []string{"pgdata/0", "pgdata/1"}, true, true, &force, (*time.Duration)(nil))
+}
+
+func (s *RemoveStorageSuite) TestRemoveStorageNoWaitNoForce(c *gc.C) {
+	fake := fakeStorageRemover{results: []params.ErrorResult{
+		{},
+		{},
+	}}
+	command := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
+	_, err := cmdtesting.RunCommand(c, command, "--no-wait", "pgdata/0", "pgdata/1")
+	c.Assert(err, gc.ErrorMatches, "--no-wait without --force not valid")
 }
 
 func (s *RemoveStorageSuite) TestRemoveStorageNoDestroy(c *gc.C) {
@@ -53,10 +67,11 @@ func (s *RemoveStorageSuite) TestRemoveStorageNoDestroy(c *gc.C) {
 		{},
 		{},
 	}}
-	cmd := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
-	_, err := cmdtesting.RunCommand(c, cmd, "--no-destroy", "--force", "pgdata/0", "pgdata/1")
+	command := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
+	_, err := cmdtesting.RunCommand(c, command, "--no-destroy", "--force", "pgdata/0", "pgdata/1")
 	c.Assert(err, jc.ErrorIsNil)
-	fake.CheckCall(c, 1, "Remove", []string{"pgdata/0", "pgdata/1"}, true, false)
+	force := true
+	fake.CheckCall(c, 1, "Remove", []string{"pgdata/0", "pgdata/1"}, true, false, &force, (*time.Duration)(nil))
 }
 
 func (s *RemoveStorageSuite) TestRemoveStorageError(c *gc.C) {
@@ -80,8 +95,8 @@ before removing.
 func (s *RemoveStorageSuite) TestRemoveStorageUnauthorizedError(c *gc.C) {
 	var fake fakeStorageRemover
 	fake.SetErrors(nil, &params.Error{Code: params.CodeUnauthorized, Message: "nope"})
-	cmd := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
-	ctx, err := cmdtesting.RunCommand(c, cmd, "pgdata/0")
+	command := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
+	ctx, err := cmdtesting.RunCommand(c, command, "pgdata/0")
 	c.Assert(err, gc.ErrorMatches, "nope")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 You do not have permission to remove storage.
@@ -96,8 +111,8 @@ func (s *RemoveStorageSuite) TestRemoveStorageInitErrors(c *gc.C) {
 
 func (s *RemoveStorageSuite) testRemoveStorageInitError(c *gc.C, args []string, expect string) {
 	var fake fakeStorageRemover
-	cmd := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
-	_, err := cmdtesting.RunCommand(c, cmd, args...)
+	command := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
+	_, err := cmdtesting.RunCommand(c, command, args...)
 	c.Assert(err, gc.ErrorMatches, expect)
 }
 
@@ -116,7 +131,7 @@ func (f *fakeStorageRemover) Close() error {
 	return f.NextErr()
 }
 
-func (f *fakeStorageRemover) Remove(ids []string, destroyAttached, destroyStorage bool) ([]params.ErrorResult, error) {
-	f.MethodCall(f, "Remove", ids, destroyAttached, destroyStorage)
+func (f *fakeStorageRemover) Remove(ids []string, destroyAttached, destroyStorage bool, force *bool, maxWait *time.Duration) ([]params.ErrorResult, error) {
+	f.MethodCall(f, "Remove", ids, destroyAttached, destroyStorage, force, maxWait)
 	return f.results, f.NextErr()
 }

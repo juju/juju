@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -17,11 +19,11 @@ import (
 // NewRemoveStorageCommandWithAPI returns a command
 // used to remove storage from the model.
 func NewRemoveStorageCommandWithAPI() cmd.Command {
-	cmd := &removeStorageCommand{}
-	cmd.newStorageRemoverCloser = func() (StorageRemoverCloser, error) {
-		return cmd.NewStorageAPI()
+	command := &removeStorageCommand{}
+	command.newStorageRemoverCloser = func() (StorageRemoverCloser, error) {
+		return command.NewStorageAPI()
 	}
-	return modelcmd.Wrap(cmd)
+	return modelcmd.Wrap(command)
 }
 
 const (
@@ -33,12 +35,18 @@ By default, remove-storage will fail if the storage
 is attached to any units. To override this behaviour,
 you can use "juju remove-storage --force".
 
+Storage removal is a multi-step process. Under normal circumstances, Juju will not
+proceed to a next step until the current step finished. 
+However, when using --force, users can also specify --no-wait to progress through steps 
+without delay waiting for each step to complete.
+
 Examples:
     # Remove the detached storage pgdata/0.
     juju remove-storage pgdata/0
 
     # Remove the possibly attached storage pgdata/0.
     juju remove-storage --force pgdata/0
+    juju remove-storage --force --no-wait pgdata/0
 
     # Remove the storage pgdata/0, without destroying
     # the corresponding cloud storage.
@@ -54,6 +62,8 @@ type removeStorageCommand struct {
 	storageIds              []string
 	force                   bool
 	noDestroy               bool
+	NoWait                  bool
+	fs                      *gnuflag.FlagSet
 }
 
 // Info implements Command.Info.
@@ -66,10 +76,13 @@ func (c *removeStorageCommand) Info() *cmd.Info {
 	})
 }
 
+// SetFlags implements Command.SetFlags.
 func (c *removeStorageCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
 	f.BoolVar(&c.force, "force", false, "Remove storage even if it is currently attached")
 	f.BoolVar(&c.noDestroy, "no-destroy", false, "Remove the storage without destroying it")
+	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through storage removal without waiting for each individual step to complete")
+	c.fs = f
 }
 
 // Init implements Command.Init.
@@ -83,6 +96,26 @@ func (c *removeStorageCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *removeStorageCommand) Run(ctx *cmd.Context) error {
+	noWaitSet := false
+	forceSet := false
+	c.fs.Visit(func(flag *gnuflag.Flag) {
+		if flag.Name == "no-wait" {
+			noWaitSet = true
+		} else if flag.Name == "force" {
+			forceSet = true
+		}
+	})
+	if !forceSet && noWaitSet {
+		return errors.NotValidf("--no-wait without --force")
+	}
+	var maxWait *time.Duration
+	if c.force {
+		if c.NoWait {
+			zeroSec := 0 * time.Second
+			maxWait = &zeroSec
+		}
+	}
+
 	remover, err := c.newStorageRemoverCloser()
 	if err != nil {
 		return errors.Trace(err)
@@ -91,7 +124,7 @@ func (c *removeStorageCommand) Run(ctx *cmd.Context) error {
 
 	destroyAttachments := c.force
 	destroyStorage := !c.noDestroy
-	results, err := remover.Remove(c.storageIds, destroyAttachments, destroyStorage)
+	results, err := remover.Remove(c.storageIds, destroyAttachments, destroyStorage, &c.force, maxWait)
 	if err != nil {
 		if params.IsCodeUnauthorized(err) {
 			common.PermissionsMessage(ctx.Stderr, "remove storage")
@@ -142,5 +175,6 @@ type StorageRemover interface {
 	Remove(
 		storageIds []string,
 		destroyAttachments, destroyStorage bool,
+		force *bool, maxWait *time.Duration,
 	) ([]params.ErrorResult, error)
 }
