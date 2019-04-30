@@ -417,6 +417,7 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob
 		s.openStateForUpgrade,
 		s.preUpgradeSteps,
 		machineStatus,
+		false,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return worker.Wait(), config, machineStatus.Calls, doneLock

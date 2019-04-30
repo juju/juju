@@ -5,6 +5,7 @@ package upgradesteps
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -47,7 +48,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// Get machine agent.
 			var agent agent.Agent
 			if err := context.Get(config.AgentName, &agent); err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 
 			// Get API connection.
@@ -56,41 +57,55 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// the Engine to abort us when conn is closed...
 			var apiConn api.Connection
 			if err := context.Get(config.APICallerName, &apiConn); err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 
 			// Get upgradesteps completed lock.
 			var upgradeStepsLock gate.Lock
 			if err := context.Get(config.UpgradeStepsGateName, &upgradeStepsLock); err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
+			}
+
+			// Get a component capable of setting machine status
+			// to indicate progress to the user.
+			statusSetter, err := config.NewAgentStatusSetter(apiConn)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			// application tag for CAAS operator, machine or unit tag for agents.
+			isOperator := agent.CurrentConfig().Tag().Kind() == names.ApplicationTagKind
+			if isOperator {
+				return NewWorker(
+					upgradeStepsLock,
+					agent,
+					apiConn,
+					nil,
+					config.OpenStateForUpgrade,
+					config.PreUpgradeSteps,
+					statusSetter,
+					isOperator,
+				)
 			}
 
 			// Get the agent's jobs.
 			// TODO(fwereade): use appropriate facade!
 			agentFacade, err := apiagent.NewState(apiConn)
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			entity, err := agentFacade.Entity(agent.CurrentConfig().Tag())
 			if err != nil {
-				return nil, err
-			}
-			jobs := entity.Jobs()
-
-			// Get a component capable of setting machine status
-			// to indicate progress to the user.
-			statusSetter, err := config.NewAgentStatusSetter(apiConn)
-			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			return NewWorker(
 				upgradeStepsLock,
 				agent,
 				apiConn,
-				jobs,
+				entity.Jobs(),
 				config.OpenStateForUpgrade,
 				config.PreUpgradeSteps,
 				statusSetter,
+				isOperator,
 			)
 		},
 	}
