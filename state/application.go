@@ -391,7 +391,7 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	// check for count equality: an add/remove will not touch the count, but
 	// will be caught by virtue of being a remove.
 	notLastRefs := bson.D{
-		{"life", Alive},
+		{"life", op.app.doc.Life},
 		{"relationcount", op.app.doc.RelationCount},
 	}
 	// With respect to unit count, a changing value doesn't matter, so long
@@ -1531,16 +1531,16 @@ func (a *Application) addUnitOps(
 			return "", nil, errors.NotFoundf("application %q", a.Name())
 		}
 		if err != nil {
-			return "", nil, err
+			return "", nil, errors.Trace(err)
 		}
 		cons, err = a.st.ResolveConstraints(scons)
 		if err != nil {
-			return "", nil, err
+			return "", nil, errors.Trace(err)
 		}
 	}
 	storageCons, err := a.StorageConstraints()
 	if err != nil {
-		return "", nil, err
+		return "", nil, errors.Trace(err)
 	}
 	uNames, ops, err := a.addUnitOpsWithCons(applicationAddUnitOpsArgs{
 		cons:          cons,
@@ -1552,12 +1552,12 @@ func (a *Application) addUnitOps(
 		ports:         args.Ports,
 	})
 	if err != nil {
-		return uNames, ops, err
+		return uNames, ops, errors.Trace(err)
 	}
 	// we verify the application is alive
 	asserts = append(isAliveDoc, asserts...)
 	ops = append(ops, a.incUnitCountOp(asserts))
-	return uNames, ops, err
+	return uNames, ops, nil
 }
 
 type applicationAddUnitOpsArgs struct {
@@ -1591,13 +1591,13 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	}
 	name, err := a.newUnitName()
 	if err != nil {
-		return "", nil, err
+		return "", nil, errors.Trace(err)
 	}
 	unitTag := names.NewUnitTag(name)
 
 	appCharm, _, err := a.Charm()
 	if err != nil {
-		return "", nil, err
+		return "", nil, errors.Trace(err)
 	}
 	storageOps, numStorageAttachments, err := a.addUnitStorageOps(
 		args, unitTag, appCharm,

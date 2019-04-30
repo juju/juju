@@ -2044,10 +2044,9 @@ func (s *ApplicationSuite) TestAddUnitWhenNotAlive(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "mysql": application is not found or not alive`)
-	err = u.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = u.Remove()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(u.Remove(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
 	_, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "mysql": application "mysql" not found`)
 }
@@ -2214,14 +2213,12 @@ func (s *ApplicationSuite) TestDestroyStillHasUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 
-	err = unit.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(s.mysql.Refresh(), jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 
-	err = unit.Remove()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.Remove(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -2276,8 +2273,8 @@ func (s *ApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 
-	err = unit.Remove()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.Remove(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -2335,8 +2332,7 @@ func (s *ApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh 
 	}
 
 	// Destroy, and check that the first relation becomes Dying...
-	err = s.mysql.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.Destroy(), jc.ErrorIsNil)
 	err = rel0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel0.Life(), gc.Equals, state.Dying)
@@ -2347,8 +2343,8 @@ func (s *ApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh 
 
 	// Drop the last reference to the first relation; check the relation and
 	// the application are are both removed.
-	err = ru.LeaveScope()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ru.LeaveScope(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = rel0.Refresh()
@@ -2431,10 +2427,9 @@ func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc
 	assertCleanupCount(c, s.State, 2)
 
 	// These next API calls are normally done by the uniter.
-	err = u.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = u.Remove()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(u.Remove(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
 
 	// Ensure storage constraints and settings are now gone.
 	_, err = state.AppStorageConstraints(app)
@@ -2605,10 +2600,9 @@ func (s *ApplicationSuite) TestConstraintsLifecycle(c *gc.C) {
 	c.Assert(&scons, jc.Satisfies, constraints.IsEmpty)
 
 	// Removed (== Dead, for a application).
-	err = unit.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(unit.Remove(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
 	err = s.mysql.SetConstraints(cons1)
 	c.Assert(err, gc.ErrorMatches, `cannot set constraints: application is not found or not alive`)
 	_, err = s.mysql.Constraints()
