@@ -604,7 +604,7 @@ func (s *SettingsSuite) TestApplyAndRetrieveChanges(c *gc.C) {
 	c.Assert(s2.changes(), gc.DeepEquals, exp)
 }
 
-func (s *SettingsSuite) TestMultiSettingsWriterWritesCorrectly(c *gc.C) {
+func (s *SettingsSuite) TestBulkWriteSettingsWritesCorrectly(c *gc.C) {
 	// Create 2 new settings documents.
 	s1, err := s.createSettings(s.key, map[string]interface{}{
 		"foo":    "bar",
@@ -626,8 +626,7 @@ func (s *SettingsSuite) TestMultiSettingsWriterWritesCorrectly(c *gc.C) {
 	s1.Set("foo", "barf")
 	s2.Set("number", 666)
 
-	// Write all the changes at once.
-	c.Assert(MultiSettingsWriter{s1, s2}.Write(), jc.ErrorIsNil)
+	c.Assert(s.state.WriteBulkSettings([]Settings{*s1, *s2}), jc.ErrorIsNil)
 
 	// Check that the expected changes resulted.
 	s1read, err := s.readSettings()
