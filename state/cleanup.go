@@ -945,6 +945,10 @@ func (st *State) cleanupForceDestroyedMachine(machineId string, cleanupArgs []bs
 			}
 		}
 	}
+	return st.cleanupForceDestroyedMachineInternal(machineId, maxWait)
+}
+
+func (st *State) cleanupForceDestroyedMachineInternal(machineId string, maxWait *time.Duration) error {
 	machine, err := st.Machine(machineId)
 	if errors.IsNotFound(err) {
 		return nil
@@ -963,7 +967,7 @@ func (st *State) cleanupForceDestroyedMachine(machineId string, cleanupArgs []bs
 	// But machine destruction is unsophisticated, and doesn't allow for
 	// destruction while dependencies exist; so we just have to deal with that
 	// possibility below.
-	if err := st.cleanupContainers(machine, cleanupArgs); err != nil {
+	if err := st.cleanupContainers(machine, maxWait); err != nil {
 		return errors.Trace(err)
 	}
 	for _, unitName := range machine.doc.Principals {
@@ -1039,19 +1043,7 @@ func (st *State) cleanupForceDestroyedMachine(machineId string, cleanupArgs []bs
 
 // cleanupContainers recursively calls cleanupForceDestroyedMachine on the supplied
 // machine's containers, and removes them from state entirely.
-func (st *State) cleanupContainers(machine *Machine, cleanupArgs []bson.Raw) error {
-	var maxWait *time.Duration
-	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
-	if n := len(cleanupArgs); n > 0 {
-		if n > 1 {
-			return errors.Errorf("expected 0-1 arguments, got %d", n)
-		}
-		if n >= 1 {
-			if err := cleanupArgs[0].Unmarshal(&maxWait); err != nil {
-				return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
-			}
-		}
-	}
+func (st *State) cleanupContainers(machine *Machine, maxWait *time.Duration) error {
 	containerIds, err := machine.Containers()
 	if errors.IsNotFound(err) {
 		return nil
@@ -1059,7 +1051,7 @@ func (st *State) cleanupContainers(machine *Machine, cleanupArgs []bson.Raw) err
 		return err
 	}
 	for _, containerId := range containerIds {
-		if err := st.cleanupForceDestroyedMachine(containerId, cleanupArgs); err != nil {
+		if err := st.cleanupForceDestroyedMachineInternal(containerId, maxWait); err != nil {
 			return err
 		}
 		container, err := st.Machine(containerId)
