@@ -1877,9 +1877,10 @@ func applicationSelector(appName string) string {
 // WatchUnits returns a watcher which notifies when there
 // are changes to units of the specified application.
 func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, error) {
-	pods := k.client().CoreV1().Pods(k.namespace)
-	w, err := pods.Watch(v1.ListOptions{
-		LabelSelector: applicationSelector(appName),
+	selector := applicationSelector(appName)
+	logger.Debugf("selecting units %q to watch", selector)
+	w, err := k.client().CoreV1().Pods(k.namespace).Watch(v1.ListOptions{
+		LabelSelector: selector,
 		Watch:         true,
 	})
 	if err != nil {
@@ -2231,19 +2232,27 @@ func (k *kubernetesClient) getDeploymentStatus(deployment *apps.Deployment) (str
 	return k.getStatusFromEvents(deployment.Name, jujuStatus)
 }
 
-func (k *kubernetesClient) getStatusFromEvents(parentName string, jujuStatus status.Status) (string, status.Status, error) {
-	events := k.client().CoreV1().Events(k.namespace)
-	eventList, err := events.List(v1.ListOptions{
+func (k *kubernetesClient) getEvents(ObjName string) ([]core.Event, error) {
+	selector := fields.OneTermEqualSelector("involvedObject.name", ObjName).String()
+	logger.Debugf("getting the latest event for %q", selector)
+	eventList, err := k.client().CoreV1().Events(k.namespace).List(v1.ListOptions{
 		IncludeUninitialized: true,
-		FieldSelector:        fields.OneTermEqualSelector("involvedObject.name", parentName).String(),
+		FieldSelector:        selector,
 	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return eventList.Items, nil
+}
+
+func (k *kubernetesClient) getStatusFromEvents(parentName string, jujuStatus status.Status) (string, status.Status, error) {
+	events, err := k.getEvents(parentName)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
 	var statusMessage string
-	// Take the most recent event.
-	if count := len(eventList.Items); count > 0 {
-		evt := eventList.Items[count-1]
+	if count := len(events); count > 0 {
+		evt := events[count-1]
 		if jujuStatus == "" {
 			if evt.Type == core.EventTypeWarning && evt.Reason == "FailedCreate" {
 				jujuStatus = status.Blocked
