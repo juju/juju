@@ -286,7 +286,7 @@ func ServerError(err error) *params.Error {
 		redirErr := errors.Cause(err).(*RedirectError)
 		code = params.CodeRedirect
 		info = params.RedirectErrorInfo{
-			Servers:         redirErr.Servers,
+			Servers:         params.FromNetworkHostsPorts(redirErr.Servers),
 			CACert:          redirErr.CACert,
 			ControllerAlias: redirErr.ControllerAlias,
 		}.AsMap()
