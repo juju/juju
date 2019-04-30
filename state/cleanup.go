@@ -631,16 +631,11 @@ func (st *State) scheduleForceCleanup(kind cleanupKind, name string, maxWait *ti
 
 func (st *State) cleanupForceDestroyedUnit(unitId string, cleanupArgs []bson.Raw) error {
 	var maxWait *time.Duration
-	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
-	if n := len(cleanupArgs); n > 0 {
-		if n > 1 {
-			return errors.Errorf("expected 0-1 arguments, got %d", n)
-		}
-		if n >= 1 {
-			if err := cleanupArgs[0].Unmarshal(&maxWait); err != nil {
-				return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
-			}
-		}
+	if n := len(cleanupArgs); n != 1 {
+		return errors.Errorf("expected 1 argument, got %d", n)
+	}
+	if err := cleanupArgs[0].Unmarshal(&maxWait); err != nil {
+		return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
 	}
 
 	unit, err := st.Unit(unitId)
@@ -735,16 +730,11 @@ func (st *State) forceRemoveUnitStorageAttachments(unit *Unit) error {
 
 func (st *State) cleanupForceRemoveUnit(unitId string, cleanupArgs []bson.Raw) error {
 	var maxWait *time.Duration
-	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
-	if n := len(cleanupArgs); n > 0 {
-		if n > 1 {
-			return errors.Errorf("expected 0-1 arguments, got %d", n)
-		}
-		if n >= 1 {
-			if err := cleanupArgs[0].Unmarshal(&maxWait); err != nil {
-				return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
-			}
-		}
+	if n := len(cleanupArgs); n != 1 {
+		return errors.Errorf("expected 1 argument, got %d", n)
+	}
+	if err := cleanupArgs[0].Unmarshal(&maxWait); err != nil {
+		return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
 	}
 	unit, err := st.Unit(unitId)
 	if errors.IsNotFound(err) {
