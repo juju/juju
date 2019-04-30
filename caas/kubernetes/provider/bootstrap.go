@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo"
@@ -100,6 +102,8 @@ type controllerStack struct {
 	resourceNameConfigMap, resourceNameSecret,
 	pvcNameControllerPodStorage,
 	resourceNameVolSharedSecret, resourceNameVolSSLKey, resourceNameVolBootstrapParams, resourceNameVolAgentConf string
+
+	containerCount int
 
 	cleanUps []func()
 }
@@ -177,7 +181,7 @@ func newcontrollerStack(
 	agentConfig.SetStateServingInfo(si)
 	pcfg.Bootstrap.StateServingInfo = si
 
-	cs := controllerStack{
+	cs := &controllerStack{
 		ctx:         ctx,
 		stackName:   stackName,
 		stackLabels: map[string]string{labelApplication: stackName},
@@ -213,11 +217,11 @@ func newcontrollerStack(
 	return cs, nil
 }
 
-func (c controllerStack) getResourceName(name string) string {
+func (c *controllerStack) getResourceName(name string) string {
 	return c.stackName + "-" + strings.Replace(name, ".", "-", -1)
 }
 
-func (c controllerStack) getControllerSecret() (secret *core.Secret, err error) {
+func (c *controllerStack) getControllerSecret() (secret *core.Secret, err error) {
 	defer func() {
 		if err == nil && secret != nil && secret.Data == nil {
 			secret.Data = map[string][]byte{}
@@ -244,7 +248,7 @@ func (c controllerStack) getControllerSecret() (secret *core.Secret, err error) 
 	return c.broker.getSecret(c.resourceNameSecret)
 }
 
-func (c controllerStack) getControllerConfigMap() (cm *core.ConfigMap, err error) {
+func (c *controllerStack) getControllerConfigMap() (cm *core.ConfigMap, err error) {
 	defer func() {
 		if cm.Data == nil {
 			cm.Data = map[string]string{}
@@ -270,7 +274,7 @@ func (c controllerStack) getControllerConfigMap() (cm *core.ConfigMap, err error
 	return c.broker.getConfigMap(c.resourceNameConfigMap)
 }
 
-func (c controllerStack) doCleanUp() {
+func (c *controllerStack) doCleanUp() {
 	logger.Debugf("bootstrap failed, removing %d resources.", len(c.cleanUps))
 	for _, f := range c.cleanUps {
 		f()
@@ -278,7 +282,7 @@ func (c controllerStack) doCleanUp() {
 }
 
 // Deploy creates all resources for controller stack.
-func (c controllerStack) Deploy() (err error) {
+func (c *controllerStack) Deploy() (err error) {
 	// creating namespace for controller stack, this namespace will be removed by broker.DestroyController if bootstrap failed.
 	nsName := c.broker.GetCurrentNamespace()
 	c.ctx.Infof("Creating k8s resources for controller %q", nsName)
@@ -326,13 +330,48 @@ func (c controllerStack) Deploy() (err error) {
 	if err = c.createControllerStatefulset(); err != nil {
 		return errors.Annotate(err, "creating statefulset for controller")
 	}
-	// fake message for better user experience.
-	c.ctx.Infof("Downloading Juju agent OCI image")
-
 	return nil
 }
 
-func (c controllerStack) getControllerSvcSpec(cloudType string) (*controllerServiceSpec, error) {
+func (c *controllerStack) syncPodStatus(w watcher.NotifyWatcher) error {
+
+	printedMsg := set.NewStrings()
+	checkEvents := func(events []core.Event) bool {
+		if len(events) == 0 {
+			return false
+		}
+		startedContainers := 0
+		for _, evt := range events {
+			if evt.Type == "Normal" && !printedMsg.Contains(evt.Message) {
+				printedMsg.Add(evt.Message)
+				c.ctx.Infof(evt.Message)
+			}
+			if evt.Reason == "Started" {
+				logger.Debugf("event: %q, %q", evt.Reason, evt.Message)
+				startedContainers++
+			}
+		}
+		return startedContainers >= c.containerCount
+	}
+	for {
+		select {
+		case <-time.After(3 * time.Minute):
+			return errors.NotProvisionedf("controller %q took too long to be ready", c.broker.GetCurrentNamespace())
+		case <-w.Changes():
+			events, err := c.broker.getEvents(getPodName(c.pcfg))
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if done := checkEvents(events); done {
+				// all containers are started.
+				logger.Debugf("all the %d containers are created", c.containerCount)
+				return nil
+			}
+		}
+	}
+}
+
+func (c *controllerStack) getControllerSvcSpec(cloudType string) (*controllerServiceSpec, error) {
 	spec, ok := controllerServiceSpecs[cloudType]
 	if !ok {
 		logger.Debugf("fallback to default svc spec for %q", cloudType)
@@ -345,7 +384,7 @@ func (c controllerStack) getControllerSvcSpec(cloudType string) (*controllerServ
 	return spec, nil
 }
 
-func (c controllerStack) createControllerService() error {
+func (c *controllerStack) createControllerService() error {
 	svcName := c.resourceNameService
 
 	cloudType := cloud.SplitHostCloudRegion(c.pcfg.Bootstrap.ControllerCloud.HostCloudRegion)[0]
@@ -415,11 +454,11 @@ func (c controllerStack) createControllerService() error {
 	return errors.Trace(retry.Call(retryCallArgs))
 }
 
-func (c controllerStack) addCleanUp(cleanUp func()) {
+func (c *controllerStack) addCleanUp(cleanUp func()) {
 	c.cleanUps = append(c.cleanUps, cleanUp)
 }
 
-func (c controllerStack) createControllerSecretSharedSecret() error {
+func (c *controllerStack) createControllerSecretSharedSecret() error {
 	si, ok := c.agentConfig.StateServingInfo()
 	if !ok {
 		return errors.NewNotValid(nil, "agent config has no state serving info")
@@ -438,7 +477,7 @@ func (c controllerStack) createControllerSecretSharedSecret() error {
 	return c.broker.updateSecret(secret)
 }
 
-func (c controllerStack) createControllerSecretServerPem() error {
+func (c *controllerStack) createControllerSecretServerPem() error {
 	si, ok := c.agentConfig.StateServingInfo()
 	if !ok || si.CAPrivateKey == "" {
 		// No certificate information exists yet, nothing to do.
@@ -459,11 +498,11 @@ func (c controllerStack) createControllerSecretServerPem() error {
 	return c.broker.updateSecret(secret)
 }
 
-func (c controllerStack) createControllerSecretMongoAdmin() error {
+func (c *controllerStack) createControllerSecretMongoAdmin() error {
 	return nil
 }
 
-func (c controllerStack) ensureControllerConfigmapBootstrapParams() error {
+func (c *controllerStack) ensureControllerConfigmapBootstrapParams() error {
 	bootstrapParamsFileContent, err := c.pcfg.Bootstrap.StateInitializationParams.Marshal()
 	if err != nil {
 		return errors.Trace(err)
@@ -484,7 +523,7 @@ func (c controllerStack) ensureControllerConfigmapBootstrapParams() error {
 	return c.broker.ensureConfigMap(cm)
 }
 
-func (c controllerStack) ensureControllerConfigmapAgentConf() error {
+func (c *controllerStack) ensureControllerConfigmapAgentConf() error {
 	agentConfigFileContent, err := c.agentConfig.Render()
 	if err != nil {
 		return errors.Trace(err)
@@ -505,7 +544,11 @@ func (c controllerStack) ensureControllerConfigmapAgentConf() error {
 	return c.broker.ensureConfigMap(cm)
 }
 
-func (c controllerStack) createControllerStatefulset() error {
+func getPodName(pcfg *podcfg.ControllerPodConfig) string {
+	return "controller-" + pcfg.MachineId
+}
+
+func (c *controllerStack) createControllerStatefulset() error {
 	numberOfPods := int32(1) // TODO: HA mode!
 	spec := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
@@ -522,6 +565,7 @@ func (c controllerStack) createControllerStatefulset() error {
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels:    c.stackLabels,
+					Name:      getPodName(c.pcfg),
 					Namespace: c.broker.GetCurrentNamespace(),
 				},
 				Spec: core.PodSpec{
@@ -544,10 +588,22 @@ func (c controllerStack) createControllerStatefulset() error {
 		logger.Debugf("deleting %q statefulset", spec.Name)
 		c.broker.deleteStatefulSet(spec.Name)
 	})
-	return errors.Trace(c.broker.createStatefulSet(spec))
+	w, err := c.broker.WatchUnits(c.resourceNameStatefulSet)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer w.Kill()
+
+	if err = c.broker.createStatefulSet(spec); err != nil {
+		return errors.Trace(err)
+	}
+	if err = c.syncPodStatus(w); err != nil {
+		return errors.Annotate(err, "fetching pods status for controller")
+	}
+	return nil
 }
 
-func (c controllerStack) buildStorageSpecForController(statefulset *apps.StatefulSet) error {
+func (c *controllerStack) buildStorageSpecForController(statefulset *apps.StatefulSet) error {
 	sc, err := c.broker.getStorageClass(c.storageClass)
 	if err != nil {
 		return errors.Trace(err)
@@ -646,7 +702,7 @@ func (c controllerStack) buildStorageSpecForController(statefulset *apps.Statefu
 	return nil
 }
 
-func (c controllerStack) buildContainerSpecForController(statefulset *apps.StatefulSet) error {
+func (c *controllerStack) buildContainerSpecForController(statefulset *apps.StatefulSet) error {
 	var wiredTigerCacheSize float32
 	if c.pcfg.Controller.Config.MongoMemoryProfile() == string(mongo.MemoryProfileLow) {
 		wiredTigerCacheSize = mongo.Mongo34LowCacheSize
@@ -800,6 +856,7 @@ func (c controllerStack) buildContainerSpecForController(statefulset *apps.State
 				},
 			},
 		})
+		c.containerCount = len(containerSpec)
 		return containerSpec
 	}
 
