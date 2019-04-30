@@ -194,7 +194,7 @@ func (s *Settings) write(ops []txn.Op) error {
 		return errors.NotFoundf("settings")
 	}
 	if err != nil {
-		return fmt.Errorf("cannot write settings: %v", err)
+		return errors.Annotate(err, "writing settings")
 	}
 	s.disk = copyMap(s.core, nil)
 	return nil
@@ -264,6 +264,28 @@ func (s *Settings) applyChanges(changes settings.ItemChanges) {
 			s.Delete(ch.Key)
 		}
 	}
+}
+
+// MultiSettingsWriter facilitates the update of multiple
+// settings documents as a single DB transaction.
+type MultiSettingsWriter []*Settings
+
+// Write generates a single transaction to update all of
+// the settings documents, then applies it.
+func (s MultiSettingsWriter) Write() error {
+	if len(s) == 0 {
+		return nil
+	}
+
+	var allOps []txn.Op
+	for _, cfg := range s {
+		_, ops := cfg.settingsUpdateOps()
+		allOps = append(allOps, ops...)
+	}
+
+	// Using the DB from the first document under the assumption
+	// that it is the same as for all of the others is reasonable.
+	return errors.Annotate(s[0].db.RunTransaction(allOps), "writing multiple settings")
 }
 
 // ReadSettings returns the settings for the given key.
