@@ -1185,7 +1185,7 @@ func (c *DeployCommand) validateCharmSeries(seriesName string) error {
 		}
 	}
 	if !found && !c.Force {
-		return errors.NotSupportedf("unsupported series: %s", seriesName)
+		return errors.NotSupportedf("series: %s", seriesName)
 	}
 
 	modelType, err := c.ModelType()
@@ -1564,7 +1564,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		// We check this first before possibly suggesting --force.
 		if err == nil {
 			if err2 := c.validateCharmSeries(series); err2 != nil {
-				if errors.IsNotSupported(err) {
+				if errors.IsNotSupported(err2) {
 					return errors.Errorf("%v is not available on the following series: %v", storeCharmOrBundleURL.Name, series)
 				}
 				return errors.Trace(err2)
