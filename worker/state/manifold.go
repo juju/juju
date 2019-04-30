@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -17,7 +16,6 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/statemetrics"
 	"github.com/juju/juju/wrench"
 )
 
@@ -29,7 +27,6 @@ type ManifoldConfig struct {
 	StateConfigWatcherName string
 	OpenStatePool          func(coreagent.Config) (*state.StatePool, error)
 	PingInterval           time.Duration
-	PrometheusRegisterer   prometheus.Registerer
 
 	// SetStatePool is called with the state pool when it is created,
 	// and called again with nil just before the state pool is closed.
@@ -49,9 +46,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.OpenStatePool == nil {
 		return errors.NotValidf("nil OpenStatePool")
-	}
-	if config.PrometheusRegisterer == nil {
-		return errors.NotValidf("nil PrometheusRegisterer")
 	}
 	if config.SetStatePool == nil {
 		return errors.NotValidf("nil SetStatePool")
@@ -103,10 +97,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			w := &stateWorker{
-				stTracker:            stTracker,
-				pingInterval:         pingInterval,
-				prometheusRegisterer: config.PrometheusRegisterer,
-				setStatePool:         config.SetStatePool,
+				stTracker:    stTracker,
+				pingInterval: pingInterval,
+				setStatePool: config.SetStatePool,
 			}
 			if err := catacomb.Invoke(catacomb.Plan{
 				Site: &w.catacomb,
@@ -140,12 +133,11 @@ func outputFunc(in worker.Worker, out interface{}) error {
 }
 
 type stateWorker struct {
-	catacomb             catacomb.Catacomb
-	stTracker            StateTracker
-	pingInterval         time.Duration
-	prometheusRegisterer prometheus.Registerer
-	setStatePool         func(*state.StatePool)
-	cleanupOnce          sync.Once
+	catacomb     catacomb.Catacomb
+	stTracker    StateTracker
+	pingInterval time.Duration
+	setStatePool func(*state.StatePool)
+	cleanupOnce  sync.Once
 }
 
 func (w *stateWorker) loop() error {
@@ -155,23 +147,7 @@ func (w *stateWorker) loop() error {
 	}
 	defer w.stTracker.Done()
 
-	// Due to the current speed issues around gathering the state metrics,
-	// we allow the controller admins to specify a feature flat to disable
-	// collection. This is a short term measure until we have the model
-	// cache in the apiserver. The state metrics are just counts of models,
-	// machines, and users along with their life and status. When we have
-	// the caching middle tier, this will be almost instant rather than hitting
-	// the database.
 	systemState := pool.SystemState()
-	controllerConfig, err := systemState.ControllerConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !controllerConfig.Features().Contains("disable-state-metrics") {
-		collector := statemetrics.New(statemetrics.NewStatePool(pool))
-		w.prometheusRegisterer.Register(collector)
-		defer w.prometheusRegisterer.Unregister(collector)
-	}
 
 	w.setStatePool(pool)
 	defer w.setStatePool(nil)

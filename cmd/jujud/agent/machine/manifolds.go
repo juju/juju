@@ -393,7 +393,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:              agentName,
 			StateConfigWatcherName: stateConfigWatcherName,
 			OpenStatePool:          config.OpenStatePool,
-			PrometheusRegisterer:   config.PrometheusRegisterer,
 			SetStatePool:           config.SetStatePool,
 		}),
 

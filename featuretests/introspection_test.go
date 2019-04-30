@@ -105,7 +105,7 @@ func (s *introspectionSuite) TestPrometheusMetrics(c *gc.C) {
 		"juju_api_requests_total",
 		"juju_api_requests_total",
 		"juju_mgo_txn_ops_total",
-		`juju_state_machines{agent_status="started",life="alive",machine_status="pending"} 1`,
+		`juju_cache_machines{agent_status="started",instance_status="",life="alive"} 1`,
 	}
 
 	check := func(last bool) bool {

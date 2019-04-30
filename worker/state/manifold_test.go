@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -48,7 +47,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		StateConfigWatcherName: "state-config-watcher",
 		OpenStatePool:          s.fakeOpenState,
 		PingInterval:           10 * time.Millisecond,
-		PrometheusRegisterer:   prometheus.NewRegistry(),
 		SetStatePool: func(pool *state.StatePool) {
 			s.setStatePoolCalls = append(s.setStatePoolCalls, pool)
 		},
@@ -93,11 +91,6 @@ func (s *ManifoldSuite) TestStateConfigWatcherMissing(c *gc.C) {
 func (s *ManifoldSuite) TestStartOpenStateNil(c *gc.C) {
 	s.config.OpenStatePool = nil
 	s.startManifoldInvalidConfig(c, s.config, "nil OpenStatePool not valid")
-}
-
-func (s *ManifoldSuite) TestStartPrometheusRegistererNil(c *gc.C) {
-	s.config.PrometheusRegisterer = nil
-	s.startManifoldInvalidConfig(c, s.config, "nil PrometheusRegisterer not valid")
 }
 
 func (s *ManifoldSuite) TestStartSetStatePoolNil(c *gc.C) {
