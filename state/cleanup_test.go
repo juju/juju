@@ -224,7 +224,7 @@ func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
 	s.assertNeedsCleanup(c)
 
 	// Clean up, and check that the unit has been removed...
-	s.assertCleanupCount(c, 3)
+	s.assertCleanupCount(c, 4)
 	assertRemoved(c, pr.u0)
 
 	// ...and the unit has departed relation scope...
@@ -267,11 +267,10 @@ func (s *CleanupSuite) TestCleanupModelApplications(c *gc.C) {
 		c.Assert(unit.Life(), gc.Equals, state.Alive)
 	}
 
-	// The first cleanup Destroys the application, which
-	// schedules another cleanup to destroy the units,
-	// then we need another pass for the actions cleanup
-	// which is queued on the next pass
-	s.assertCleanupCount(c, 2)
+	// The first cleanup removes the units, which schedules
+	// the application to be removed. This removes the application
+	// queing up a change for actions and charms.
+	s.assertCleanupCount(c, 3)
 	for _, unit := range units {
 		err = unit.Refresh()
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -619,6 +618,10 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(actions), gc.Equals, 0)
 
+	// Application has been cleaned up, but now we cleanup the charm
+	c.Assert(dummy.Refresh(), jc.Satisfies, errors.IsNotFound)
+	s.assertCleanupRuns(c)
+
 	// check no cleanups
 	s.assertDoesNotNeedCleanup(c)
 }
@@ -644,11 +647,8 @@ func (s *CleanupSuite) TestCleanupWithCompletedActions(c *gc.C) {
 	err = dummy.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	// First cleanup marks all units of the application as dying.
-	s.assertCleanupRuns(c)
 	// Second cleanup clear pending actions.
-	s.assertCleanupRuns(c)
-	// Check no cleanups.
-	s.assertDoesNotNeedCleanup(c)
+	s.assertCleanupCount(c, 3)
 }
 
 func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
@@ -1012,36 +1012,35 @@ func (s *CleanupSuite) TestForceDestroyUnitDestroysSubordinates(c *gc.C) {
 
 	s.assertNeedsCleanup(c)
 	// dyingUnit(mysql/0)
-	s.assertCleanupRuns(c)
+	s.assertNextCleanup(c, "dyingUnit(mysql/0)")
 
-	s.Clock.Advance(time.Minute)
-	// forceDestroyedUnit(mysql/0) triggers destruction of the subordinate that
+	// forceDestroyUnit(mysql/0) triggers destruction of the subordinate that
 	// needs to run - it fails because the subordinates haven't yet
-	// been removed.
-	s.assertCleanupRuns(c)
+	// been removed. It will be pending until near the end of this test when it
+	// finally succeeds.
+	s.assertNextCleanup(c, "forceDestroyUnit(mysql/0)")
 
 	assertUnitLife(c, subordinate, state.Dying)
 	assertUnitLife(c, unit, state.Dying)
 
 	// dyingUnit(logging/0) runs and schedules the force cleanup.
-	s.assertCleanupRuns(c)
-	// forceDestroyedUnit(logging/0) sets it to dead.
-	s.assertCleanupRuns(c)
+	s.assertNextCleanup(c, "dyingUnit(logging/0)")
+	// forceDestroyUnit(logging/0) sets it to dead.
+	s.assertNextCleanup(c, "forceDestroyUnit(logging/0)")
 
 	assertUnitLife(c, subordinate, state.Dead)
 	assertUnitLife(c, unit, state.Dying)
 
 	// forceRemoveUnit(logging/0) runs
-	s.assertCleanupRuns(c)
+	s.assertNextCleanup(c, "forceRemoveUnit(logging/0)")
 	assertUnitRemoved(c, subordinate)
 
-	// Now forceDestroyUnit(mysql/0) can run successfully and endeaden
-	// unit.
-	s.assertCleanupRuns(c)
+	// Now forceDestroyUnit(mysql/0) can run successfully and make the unit dead
+	s.assertNextCleanup(c, "forceRemoveUnit(mysql/0)")
 	assertUnitLife(c, unit, state.Dead)
 
 	// forceRemoveUnit
-	s.assertCleanupRuns(c)
+	s.assertNextCleanup(c, "forceRemoveUnit")
 
 	assertUnitRemoved(c, unit)
 	// After this there are two cleanups remaining: removedUnit,
@@ -1183,6 +1182,13 @@ func (s *CleanupSuite) assertCleanupCount(c *gc.C, count int) {
 		s.assertCleanupRuns(c)
 	}
 	s.assertDoesNotNeedCleanup(c)
+}
+
+// assertNextCleanup tracks that the next cleanup runs, and logs what cleanup we are expecting.
+func (s *CleanupSuite) assertNextCleanup(c *gc.C, message string) {
+	c.Logf("expect cleanup: %s", message)
+	s.assertNeedsCleanup(c)
+	s.assertCleanupRuns(c)
 }
 
 func assertUnitLife(c *gc.C, unit *state.Unit, expected state.Life) {

@@ -15,6 +15,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/version"
+	"github.com/kr/pretty"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -526,7 +527,7 @@ func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		return ops, nil
 	default:
 		if op.Force {
-			logger.Warningf("forcing destroy unit for %v despite error %v", op.unit.Name(), err)
+			logger.Warningf("forcing unit destructon for %v despite error %v", op.unit.Name(), err)
 			return ops, nil
 		}
 		return nil, err
@@ -970,7 +971,7 @@ func (op *RemoveUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		return ops, nil
 	default:
 		if op.Force {
-			logger.Warningf("forcing destroy unit for %v despite error %v", op.unit.Name(), err)
+			logger.Warningf("forcing unit removal for %v despite error %v: %s", op.unit.Name(), err, pretty.Sprint(ops))
 			return ops, nil
 		}
 		return nil, err
@@ -1012,7 +1013,9 @@ func (u *Unit) RemoveWithForce(force bool) ([]error, error) {
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
 func (op *RemoveUnitOperation) removeOps() (ops []txn.Op, err error) {
 	if op.unit.doc.Life != Dead {
-		return nil, errors.New("unit is not dead")
+		if !op.Force {
+			return nil, errors.New("unit is not dead")
+		}
 	}
 	// Now the unit is Dead, we can be sure that it's impossible for it to
 	// enter relation scopes (once it's Dying, we can be sure of this; but
