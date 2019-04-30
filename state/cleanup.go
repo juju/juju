@@ -453,28 +453,31 @@ func (st *State) removeRemoteApplicationsForDyingModel(args DestroyModelParams) 
 // application is destroyed.
 func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanupArgs []bson.Raw) (err error) {
 	var destroyStorage bool
+	destroyStorageArg := func() error {
+		err := cleanupArgs[0].Unmarshal(&destroyStorage)
+		return errors.Annotate(err, "unmarshalling cleanup arg 'destroyStorage'")
+	}
 	var force bool
 	var maxWait *time.Duration
+	switch n := len(cleanupArgs); n {
+	case 0:
 	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
-	if n := len(cleanupArgs); n > 0 {
-		if n > 3 {
-			return errors.Errorf("expected 0-3 arguments, got %d", n)
+	case 1:
+		if err := destroyStorageArg(); err != nil {
+			return err
 		}
-		if n >= 1 {
-			if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
-				return errors.Annotate(err, "unmarshalling cleanup args")
-			}
+	case 3:
+		if err := destroyStorageArg(); err != nil {
+			return err
 		}
-		if n >= 2 {
-			if err := cleanupArgs[1].Unmarshal(&force); err != nil {
-				return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
-			}
+		if err := cleanupArgs[1].Unmarshal(&force); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
 		}
-		if n >= 3 {
-			if err := cleanupArgs[2].Unmarshal(&maxWait); err != nil {
-				return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
-			}
+		if err := cleanupArgs[2].Unmarshal(&maxWait); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
 		}
+	default:
+		return errors.Errorf("expected 0, 1 or 3 arguments, got %d", n)
 	}
 
 	// This won't miss units, because a Dying application cannot have units
@@ -536,28 +539,31 @@ func (st *State) cleanupCharm(charmURL string) error {
 // they are cleaned up as well.
 func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 	var destroyStorage bool
+	destroyStorageArg := func() error {
+		err := cleanupArgs[0].Unmarshal(&destroyStorage)
+		return errors.Annotate(err, "unmarshalling cleanup arg 'destroyStorage'")
+	}
 	var force bool
 	var maxWait *time.Duration
+	switch n := len(cleanupArgs); n {
+	case 0:
 	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
-	if n := len(cleanupArgs); n > 0 {
-		if n > 3 {
-			return errors.Errorf("expected 0-3 arguments, got %d", n)
+	case 1:
+		if err := destroyStorageArg(); err != nil {
+			return err
 		}
-		if n >= 1 {
-			if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
-				return errors.Annotate(err, "unmarshalling cleanup args")
-			}
+	case 3:
+		if err := destroyStorageArg(); err != nil {
+			return err
 		}
-		if n >= 2 {
-			if err := cleanupArgs[1].Unmarshal(&force); err != nil {
-				return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
-			}
+		if err := cleanupArgs[1].Unmarshal(&force); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
 		}
-		if n >= 3 {
-			if err := cleanupArgs[2].Unmarshal(&maxWait); err != nil {
-				return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
-			}
+		if err := cleanupArgs[2].Unmarshal(&maxWait); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
 		}
+	default:
+		return errors.Errorf("expected 0, 1 or 3 arguments, got %d", n)
 	}
 
 	unit, err := st.Unit(name)
@@ -753,21 +759,18 @@ func (st *State) cleanupForceRemoveUnit(unitId string, cleanupArgs []bson.Raw) e
 func (st *State) cleanupDyingUnitResources(unitId string, cleanupArgs []bson.Raw) error {
 	var force bool
 	var maxWait *time.Duration
+	switch n := len(cleanupArgs); n {
+	case 0:
 	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
-	if n := len(cleanupArgs); n > 0 {
-		if n > 2 {
-			return errors.Errorf("expected 0-2 arguments, got %d", n)
+	case 2:
+		if err := cleanupArgs[0].Unmarshal(&force); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
 		}
-		if n >= 1 {
-			if err := cleanupArgs[0].Unmarshal(&force); err != nil {
-				return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
-			}
+		if err := cleanupArgs[1].Unmarshal(&maxWait); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
 		}
-		if n >= 2 {
-			if err := cleanupArgs[1].Unmarshal(&maxWait); err != nil {
-				return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
-			}
-		}
+	default:
+		return errors.Errorf("expected 0 or 2 arguments, got %d", n)
 	}
 	unitTag := names.NewUnitTag(unitId)
 	sb, err := NewStorageBackend(st)
@@ -1311,21 +1314,18 @@ func (st *State) obliterateUnit(unitName string, force bool, maxWait *time.Durat
 func (st *State) cleanupAttachmentsForDyingStorage(storageId string, cleanupArgs []bson.Raw) (err error) {
 	var force bool
 	var maxWait *time.Duration
+	switch n := len(cleanupArgs); n {
+	case 0:
 	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
-	if n := len(cleanupArgs); n > 0 {
-		if n > 2 {
-			return errors.Errorf("expected 0-2 arguments, got %d", n)
+	case 2:
+		if err := cleanupArgs[0].Unmarshal(&force); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
 		}
-		if n >= 1 {
-			if err := cleanupArgs[0].Unmarshal(&force); err != nil {
-				return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
-			}
+		if err := cleanupArgs[1].Unmarshal(&maxWait); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
 		}
-		if n >= 2 {
-			if err := cleanupArgs[1].Unmarshal(&maxWait); err != nil {
-				return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
-			}
-		}
+	default:
+		return errors.Errorf("expected 0 or 2 arguments, got %d", n)
 	}
 
 	sb, err := NewStorageBackend(st)
