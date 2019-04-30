@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/resource/resourcetesting"
@@ -270,9 +271,9 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	settings, err := s.mysql.CharmConfig(model.GenerationMaster)
+	cfg, err := s.mysql.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{"key": "value"}))
+	c.Assert(cfg, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{"key": "value"}))
 
 	newCh = s.AddConfigCharm(c, "mysql", newStringConfig, 3)
 	err = s.mysql.SetCharm(state.SetCharmConfig{
@@ -281,9 +282,9 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	settings, err = s.mysql.CharmConfig(model.GenerationMaster)
+	cfg, err = s.mysql.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{
+	c.Assert(cfg, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{
 		"key":   "value",
 		"other": "one",
 	}))
@@ -299,24 +300,24 @@ func (s *ApplicationSuite) TestSetCharmCharmSettingsForBranch(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	settings, err := s.mysql.CharmConfig(model.GenerationMaster)
+	cfg, err := s.mysql.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Update the next generation settings.
-	settings["key"] = "next-gen-value"
-	c.Assert(s.mysql.UpdateCharmConfig("new-branch", settings), jc.ErrorIsNil)
+	cfg["key"] = "next-gen-value"
+	c.Assert(s.mysql.UpdateCharmConfig("new-branch", cfg), jc.ErrorIsNil)
 
 	// Settings for the next generation reflect the change.
-	settings, err = s.mysql.CharmConfig("new-branch")
+	cfg, err = s.mysql.CharmConfig("new-branch")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{
+	c.Assert(cfg, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{
 		"key": "next-gen-value",
 	}))
 
 	// Settings for the current generation are as set with charm.
-	settings, err = s.mysql.CharmConfig(model.GenerationMaster)
+	cfg, err = s.mysql.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{
+	c.Assert(cfg, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{
 		"key": "value",
 	}))
 }
@@ -339,6 +340,27 @@ func (s *ApplicationSuite) TestSetCharmLegacy(c *gc.C) {
 	}
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:precise/precise-mysql-1": cannot change an application's series`)
+}
+
+func (s *ApplicationSuite) TestCharmSettingsWithDelta(c *gc.C) {
+	newCh := s.AddConfigCharm(c, "mysql", stringConfig, 2)
+	err := s.mysql.SetCharm(state.SetCharmConfig{
+		Charm:          newCh,
+		ConfigSettings: charm.Settings{"key": "value"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	delta := settings.ItemChanges{
+		settings.MakeModification("key", "value", "changed-value"),
+		settings.MakeAddition("new-key", "new-value"),
+	}
+
+	cfg, err := s.mysql.CharmSettingsWithDelta(delta)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg.Map(), gc.DeepEquals, map[string]interface{}{
+		"key":     "changed-value",
+		"new-key": "new-value",
+	})
 }
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeries(c *gc.C) {
@@ -682,13 +704,14 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 		sch, _, err := app.Charm()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(sch.URL(), gc.DeepEquals, expectCh.URL())
-		settings, err := app.CharmConfig(model.GenerationMaster)
+
+		chConfig, err := app.CharmConfig(model.GenerationMaster)
 		c.Assert(err, jc.ErrorIsNil)
 		expected := s.combinedSettings(sch, expectVals)
 		if len(expected) == 0 {
-			c.Assert(settings, gc.HasLen, 0)
+			c.Assert(chConfig, gc.HasLen, 0)
 		} else {
-			c.Assert(settings, gc.DeepEquals, expected)
+			c.Assert(chConfig, gc.DeepEquals, expected)
 		}
 
 		err = app.Destroy()
@@ -1138,11 +1161,11 @@ func (s *ApplicationSuite) TestUpdateCharmConfig(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			settings, err := app.CharmConfig(model.GenerationMaster)
+			cfg, err := app.CharmConfig(model.GenerationMaster)
 			c.Assert(err, jc.ErrorIsNil)
 			appConfig := t.expect
 			expected := s.combinedSettings(sch, appConfig)
-			c.Assert(settings, gc.DeepEquals, expected)
+			c.Assert(cfg, gc.DeepEquals, expected)
 		}
 		err = app.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
@@ -2475,8 +2498,8 @@ func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc
 	// Ensure storage constraints and settings are now gone.
 	_, err = state.AppStorageConstraints(app)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	settings := state.GetApplicationCharmConfig(s.State, app)
-	err = settings.Read()
+	cfg := state.GetApplicationCharmConfig(s.State, app)
+	err = cfg.Read()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
