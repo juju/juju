@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 )
 
-type MachineAppLXDProfileWatcher struct {
+type MachineLXDProfileWatcher struct {
 	*notifyWatcherBase
 
 	metrics *ControllerGauges
@@ -25,7 +25,7 @@ type MachineAppLXDProfileWatcher struct {
 	modeler MachineAppModeler
 }
 
-// MachineAppModeler is a point of use model for MachineAppLXDProfileWatcher to
+// MachineAppModeler is a point of use model for MachineLXDProfileWatcher to
 // get Applications, Charms and Units.
 type MachineAppModeler interface {
 	Application(string) (*Application, error)
@@ -39,19 +39,20 @@ type appInfo struct {
 	units        set.Strings
 }
 
-type MachineAppLXDProfileConfig struct {
-	appTopic        string
-	unitAddTopic    string
-	unitRemoveTopic string
-	machine         *Machine
-	modeler         MachineAppModeler
-	metrics         *ControllerGauges
-	hub             *pubsub.SimpleHub
-	resident        *Resident
+type MachineLXDProfileWatcherConfig struct {
+	appTopic         string
+	provisionedTopic string
+	unitAddTopic     string
+	unitRemoveTopic  string
+	machine          *Machine
+	modeler          MachineAppModeler
+	metrics          *ControllerGauges
+	hub              *pubsub.SimpleHub
+	resident         *Resident
 }
 
-func newMachineAppLXDProfileWatcher(config MachineAppLXDProfileConfig) (*MachineAppLXDProfileWatcher, error) {
-	w := &MachineAppLXDProfileWatcher{
+func newMachineLXDProfileWatcher(config MachineLXDProfileWatcherConfig) (*MachineLXDProfileWatcher, error) {
+	w := &MachineLXDProfileWatcher{
 		notifyWatcherBase: newNotifyWatcherBase(),
 		metrics:           config.metrics,
 		initialized:       make(chan struct{}),
@@ -63,6 +64,7 @@ func newMachineAppLXDProfileWatcher(config MachineAppLXDProfileConfig) (*Machine
 	deregister := config.resident.registerWorker(w)
 	multi := config.hub.NewMultiplexer()
 	multi.Add(config.appTopic, w.applicationCharmURLChange)
+	multi.Add(config.provisionedTopic, w.provisionedChange)
 	multi.Add(config.unitAddTopic, w.addUnit)
 	multi.Add(config.unitRemoveTopic, w.removeUnit)
 
@@ -75,21 +77,21 @@ func newMachineAppLXDProfileWatcher(config MachineAppLXDProfileConfig) (*Machine
 
 	err := w.init(config.machine)
 	if err != nil {
-		// Stop the watcher, which unsubcribes above.
+		// Stop the watcher, which unsubscribes above.
 		_ = w.Stop()
 		return nil, errors.Trace(err)
 	}
 	close(w.initialized)
 
-	logger.Tracef("started MachineAppLXDProfileWatcher for machine-%s with %#v", w.machineId, w.applications)
+	logger.Tracef("started MachineLXDProfileWatcher for machine-%s with %#v", w.machineId, w.applications)
 	return w, nil
 }
 
 // init sets up the initial data used to determine when a notify occurs.
-func (w *MachineAppLXDProfileWatcher) init(machine *Machine) error {
+func (w *MachineLXDProfileWatcher) init(machine *Machine) error {
 	units, err := machine.Units()
 	if err != nil {
-		return errors.Annotatef(err, "failed to get units to start MachineAppLXDProfileWatcher")
+		return errors.Annotatef(err, "failed to get units to start MachineLXDProfileWatcher")
 	}
 
 	for _, unit := range units {
@@ -139,7 +141,7 @@ func (w *MachineAppLXDProfileWatcher) init(machine *Machine) error {
 // applicationCharmURLChange sends a notification if what is saved for its
 // charm lxdprofile changes.  No notification is sent if the profile pointer
 // begins and ends as nil.
-func (w *MachineAppLXDProfileWatcher) applicationCharmURLChange(topic string, value interface{}) {
+func (w *MachineLXDProfileWatcher) applicationCharmURLChange(topic string, value interface{}) {
 	// We don't want to respond to any events until we have been fully initialized.
 	select {
 	case <-w.initialized:
@@ -193,7 +195,7 @@ func (w *MachineAppLXDProfileWatcher) applicationCharmURLChange(topic string, va
 // addUnit modifies the map of applications being watched when a unit is
 // added to the machine.  Notification is sent if a new unit whose charm has
 // an lxd profile is added.
-func (w *MachineAppLXDProfileWatcher) addUnit(topic string, value interface{}) {
+func (w *MachineLXDProfileWatcher) addUnit(topic string, value interface{}) {
 	// We don't want to respond to any events until we have been fully initialized.
 	select {
 	case <-w.initialized:
@@ -244,7 +246,7 @@ func (w *MachineAppLXDProfileWatcher) addUnit(topic string, value interface{}) {
 	logger.Debugf("end of unit change %#v", w.applications)
 }
 
-func (w *MachineAppLXDProfileWatcher) add(unit *Unit) bool {
+func (w *MachineLXDProfileWatcher) add(unit *Unit) bool {
 	unitName := unit.Name()
 	appName := unit.Application()
 
@@ -287,7 +289,7 @@ func (w *MachineAppLXDProfileWatcher) add(unit *Unit) bool {
 // removeUnit modifies the map of applications being watched when a unit is
 // removed from the machine.  Notification is sent if a unit being removed
 // has a profile and other units exist on the machine.
-func (w *MachineAppLXDProfileWatcher) removeUnit(topic string, value interface{}) {
+func (w *MachineLXDProfileWatcher) removeUnit(topic string, value interface{}) {
 	// We don't want to respond to any events until we have been fully initialized.
 	select {
 	case <-w.initialized:
@@ -335,7 +337,22 @@ func (w *MachineAppLXDProfileWatcher) removeUnit(topic string, value interface{}
 	return
 }
 
-func (w *MachineAppLXDProfileWatcher) logError(msg string) {
+// provisionedChanged notifies when called.  Topic subscribed to is specific to
+// this machine.
+func (w *MachineLXDProfileWatcher) provisionedChange(topic string, _ interface{}) {
+	// We don't want to respond to any events until we have been fully initialized.
+	select {
+	case <-w.initialized:
+	case <-w.tomb.Dying():
+		return
+	}
+
+	logger.Tracef("notifying due to machine-%s now provisioned", w.machineId)
+	w.metrics.LXDProfileChangeHit.Inc()
+	w.notify()
+}
+
+func (w *MachineLXDProfileWatcher) logError(msg string) {
 	logger.Errorf(msg)
 	w.metrics.LXDProfileChangeError.Inc()
 }

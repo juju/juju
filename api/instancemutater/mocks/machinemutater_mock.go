@@ -123,19 +123,6 @@ func (mr *MockMutaterMachineMockRecorder) Tag() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockMutaterMachine)(nil).Tag))
 }
 
-// WatchApplicationLXDProfiles mocks base method
-func (m *MockMutaterMachine) WatchApplicationLXDProfiles() (watcher.NotifyWatcher, error) {
-	ret := m.ctrl.Call(m, "WatchApplicationLXDProfiles")
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchApplicationLXDProfiles indicates an expected call of WatchApplicationLXDProfiles
-func (mr *MockMutaterMachineMockRecorder) WatchApplicationLXDProfiles() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplicationLXDProfiles", reflect.TypeOf((*MockMutaterMachine)(nil).WatchApplicationLXDProfiles))
-}
-
 // WatchContainers mocks base method
 func (m *MockMutaterMachine) WatchContainers() (watcher.StringsWatcher, error) {
 	ret := m.ctrl.Call(m, "WatchContainers")
@@ -147,6 +134,19 @@ func (m *MockMutaterMachine) WatchContainers() (watcher.StringsWatcher, error) {
 // WatchContainers indicates an expected call of WatchContainers
 func (mr *MockMutaterMachineMockRecorder) WatchContainers() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchContainers", reflect.TypeOf((*MockMutaterMachine)(nil).WatchContainers))
+}
+
+// WatchLXDProfileVerificationNeeded mocks base method
+func (m *MockMutaterMachine) WatchLXDProfileVerificationNeeded() (watcher.NotifyWatcher, error) {
+	ret := m.ctrl.Call(m, "WatchLXDProfileVerificationNeeded")
+	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchLXDProfileVerificationNeeded indicates an expected call of WatchLXDProfileVerificationNeeded
+func (mr *MockMutaterMachineMockRecorder) WatchLXDProfileVerificationNeeded() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLXDProfileVerificationNeeded", reflect.TypeOf((*MockMutaterMachine)(nil).WatchLXDProfileVerificationNeeded))
 }
 
 // WatchUnits mocks base method

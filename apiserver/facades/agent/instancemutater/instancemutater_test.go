@@ -736,16 +736,16 @@ func (s *InstanceMutaterAPIWatchMachinesSuite) expectWatchMachinesError() {
 	s.model.EXPECT().WatchMachines().Return(s.watcher, errors.New("error from model cache"))
 }
 
-type InstanceMutaterAPIWatchApplicationLXDProfilesSuite struct {
+type InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite struct {
 	instanceMutaterAPISuite
 
 	machine *mocks.MockModelCacheMachine
 	watcher *mocks.MockNotifyWatcher
 }
 
-var _ = gc.Suite(&InstanceMutaterAPIWatchApplicationLXDProfilesSuite{})
+var _ = gc.Suite(&InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite{})
 
-func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) setup(c *gc.C) *gomock.Controller {
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := s.instanceMutaterAPISuite.setup(c)
 
 	s.machine = mocks.NewMockModelCacheMachine(ctrl)
@@ -754,16 +754,16 @@ func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) setup(c *gc.C) *gom
 	return ctrl
 }
 
-func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) TestWatchApplicationLXDProfiles(c *gc.C) {
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDProfileVerificationNeeded(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	facade := s.facadeAPIForScenario(c,
 		s.expectAuthMachineAgent,
 		s.expectLife(s.machineTag),
-		s.expectWatchApplicationLXDProfilesWithNotify(1),
+		s.expectWatchLXDProfileVerificationNeededWithNotify(1),
 	)
 
-	result, err := facade.WatchApplicationLXDProfiles(params.Entities{
+	result, err := facade.WatchLXDProfileVerificationNeeded(params.Entities{
 		Entities: []params.Entity{{Tag: s.machineTag.String()}},
 	})
 	c.Assert(err, gc.IsNil)
@@ -775,7 +775,7 @@ func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) TestWatchApplicatio
 	s.assertNotifyStop(c)
 }
 
-func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) TestWatchApplicationLXDProfilesWithInvalidTag(c *gc.C) {
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDProfileVerificationNeededWithInvalidTag(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	facade := s.facadeAPIForScenario(c,
@@ -783,7 +783,7 @@ func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) TestWatchApplicatio
 		s.expectLife(s.machineTag),
 	)
 
-	result, err := facade.WatchApplicationLXDProfiles(params.Entities{
+	result, err := facade.WatchLXDProfileVerificationNeeded(params.Entities{
 		Entities: []params.Entity{{Tag: names.NewUserTag("bob@local").String()}},
 	})
 	c.Assert(err, gc.IsNil)
@@ -794,16 +794,16 @@ func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) TestWatchApplicatio
 	})
 }
 
-func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) TestWatchApplicationLXDProfilesWithClosedChannel(c *gc.C) {
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDProfileVerificationNeededWithClosedChannel(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	facade := s.facadeAPIForScenario(c,
 		s.expectAuthMachineAgent,
 		s.expectLife(s.machineTag),
-		s.expectWatchApplicationLXDProfilesWithClosedChannel,
+		s.expectWatchLXDProfileVerificationNeededWithClosedChannel,
 	)
 
-	result, err := facade.WatchApplicationLXDProfiles(params.Entities{
+	result, err := facade.WatchLXDProfileVerificationNeeded(params.Entities{
 		Entities: []params.Entity{{Tag: s.machineTag.String()}},
 	})
 	c.Assert(err, gc.IsNil)
@@ -814,16 +814,16 @@ func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) TestWatchApplicatio
 	})
 }
 
-func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) TestWatchApplicationLXDProfilesModelCacheError(c *gc.C) {
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) TestWatchLXDProfileVerificationNeededModelCacheError(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	facade := s.facadeAPIForScenario(c,
 		s.expectAuthMachineAgent,
 		s.expectLife(s.machineTag),
-		s.expectWatchApplicationLXDProfilesError,
+		s.expectWatchLXDProfileVerificationNeededError,
 	)
 
-	result, err := facade.WatchApplicationLXDProfiles(params.Entities{
+	result, err := facade.WatchLXDProfileVerificationNeeded(params.Entities{
 		Entities: []params.Entity{{Tag: s.machineTag.String()}},
 	})
 	c.Assert(err, gc.IsNil)
@@ -834,11 +834,11 @@ func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) TestWatchApplicatio
 	})
 }
 
-func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) expectAuthController() {
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectAuthController() {
 	s.authorizer.EXPECT().AuthController().Return(true)
 }
 
-func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) expectWatchApplicationLXDProfilesWithNotify(times int) func() {
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededWithNotify(times int) func() {
 	return func() {
 		ch := make(chan struct{})
 
@@ -850,24 +850,24 @@ func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) expectWatchApplicat
 		}()
 
 		s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
-		s.machine.EXPECT().WatchApplicationLXDProfiles().Return(s.watcher, nil)
+		s.machine.EXPECT().WatchLXDProfileVerificationNeeded().Return(s.watcher, nil)
 		s.watcher.EXPECT().Changes().Return(ch)
 		s.resources.EXPECT().Register(s.watcher).Return("1")
 	}
 }
 
-func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) expectWatchApplicationLXDProfilesWithClosedChannel() {
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededWithClosedChannel() {
 	ch := make(chan struct{})
 	close(ch)
 
 	s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
-	s.machine.EXPECT().WatchApplicationLXDProfiles().Return(s.watcher, nil)
+	s.machine.EXPECT().WatchLXDProfileVerificationNeeded().Return(s.watcher, nil)
 	s.watcher.EXPECT().Changes().Return(ch)
 }
 
-func (s *InstanceMutaterAPIWatchApplicationLXDProfilesSuite) expectWatchApplicationLXDProfilesError() {
+func (s *InstanceMutaterAPIWatchLXDProfileVerificationNeededSuite) expectWatchLXDProfileVerificationNeededError() {
 	s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
-	s.machine.EXPECT().WatchApplicationLXDProfiles().Return(s.watcher, errors.New("error from model cache"))
+	s.machine.EXPECT().WatchLXDProfileVerificationNeeded().Return(s.watcher, errors.New("error from model cache"))
 }
 
 type InstanceMutaterAPIWatchContainersSuite struct {
