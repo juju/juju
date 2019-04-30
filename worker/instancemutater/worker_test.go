@@ -308,7 +308,22 @@ func (s *workerEnvironSuite) TestCharmProfilingInfoNotProvisioned(c *gc.C) {
 	)
 
 	err := s.errorKill(c, w)
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *workerEnvironSuite) TestCharmProfilingInfoError(c *gc.C) {
+	defer s.setup(c, 1).Finish()
+
+	w := s.workerForScenario(c,
+		s.ignoreLogging(c),
+		s.notifyMachines([][]string{{"0"}}),
+		s.expectFacadeMachineTag(0),
+		s.notifyMachineAppLXDProfile(0, 1),
+		s.expectCharmProfileInfoError(0),
+	)
+
+	err := s.errorKill(c, w)
+	c.Assert(err, jc.Satisfies, params.IsCodeNotSupported)
 }
 
 func (s *workerSuite) setup(c *gc.C, machineCount int) *gomock.Controller {
@@ -437,7 +452,22 @@ func (s *workerSuite) expectCharmProfilingInfoRemove(machine int) func() {
 func (s *workerSuite) expectCharmProfileInfoNotProvisioned(machine int) func() {
 	return func() {
 		do := s.workGroupAddGetDoneFunc()
-		s.machine[machine].EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{}, errors.NotProvisionedf("machine 0")).Do(do)
+		err := params.Error{
+			Message: "machine 0 not provisioned",
+			Code:    params.CodeNotProvisioned,
+		}
+		s.machine[machine].EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{}, err).Do(do)
+	}
+}
+
+func (s *workerSuite) expectCharmProfileInfoError(machine int) func() {
+	return func() {
+		do := s.workGroupAddGetDoneFunc()
+		err := params.Error{
+			Message: "machine 0 not supported",
+			Code:    params.CodeNotSupported,
+		}
+		s.machine[machine].EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{}, err).Do(do)
 	}
 }
 

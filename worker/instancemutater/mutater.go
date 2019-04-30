@@ -160,7 +160,7 @@ func (m MutaterMachine) watchProfileChangesLoop(removed <-chan struct{}, profile
 }
 
 func (m MutaterMachine) processMachineProfileChanges(info *instancemutater.UnitProfileInfo) error {
-	if len(info.CurrentProfiles) == 0 && len(info.ProfileChanges) == 0 {
+	if info == nil || (len(info.CurrentProfiles) == 0 && len(info.ProfileChanges) == 0) {
 		// no changes to be made, return now.
 		return nil
 	}
