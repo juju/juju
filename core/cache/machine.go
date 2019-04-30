@@ -132,8 +132,8 @@ func (m *Machine) WatchContainers() (*PredicateStringsWatcher, error) {
 //        machine is added, removed, or exists.
 //     4. The machine's instanceId is changed, indicating it
 //        has been provisioned.
-func (m *Machine) WatchApplicationLXDProfiles() (*MachineAppLXDProfileWatcher, error) {
-	return newMachineAppLXDProfileWatcher(MachineAppLXDProfileConfig{
+func (m *Machine) WatchLXDProfileVerificationNeeded() (*MachineLXDProfileWatcher, error) {
+	return newMachineLXDProfileWatcher(MachineLXDProfileWatcherConfig{
 		appTopic:         m.model.topic(applicationCharmURLChange),
 		provisionedTopic: m.topic(machineProvisioned),
 		unitAddTopic:     m.model.topic(modelUnitLXDProfileAdd),
