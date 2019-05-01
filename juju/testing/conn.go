@@ -796,7 +796,7 @@ func (s *JujuConnSuite) ConfDir() string {
 }
 
 func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
-	return s.AddTestingCharmForSeries(c, name, "quantal")
+	return s.AddTestingCharmForSeries(c, name, "bionic")
 }
 
 func (s *JujuConnSuite) AddTestingCharmForSeries(c *gc.C, name, series string) *state.Charm {

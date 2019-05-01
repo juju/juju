@@ -17,6 +17,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/os/series"
 	"github.com/juju/utils"
 	"github.com/kr/pretty"
 	"gopkg.in/juju/charm.v6"
@@ -622,11 +623,12 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		supportedSeries = []string{chID.URL.Series}
 	}
 	selector := seriesSelector{
-		seriesFlag:      p.Series,
-		charmURLSeries:  chID.URL.Series,
-		supportedSeries: supportedSeries,
-		conf:            h.modelConfig,
-		fromBundle:      true,
+		seriesFlag:          p.Series,
+		charmURLSeries:      chID.URL.Series,
+		supportedSeries:     supportedSeries,
+		supportedJujuSeries: append(series.SupportedJujuSeries(), kubernetesSeriesName),
+		conf:                h.modelConfig,
+		fromBundle:          true,
 	}
 	series, err := selector.charmSeries()
 	if err != nil {

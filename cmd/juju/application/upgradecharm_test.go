@@ -302,7 +302,7 @@ func (s *UpgradeCharmErrorsStateSuite) TestInvalidApplication(c *gc.C) {
 
 func (s *UpgradeCharmErrorsStateSuite) deployApplication(c *gc.C) {
 	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
-	err := runDeploy(c, ch, "riak", "--series", "quantal")
+	err := runDeploy(c, ch, "riak", "--series", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -370,9 +370,9 @@ var _ = gc.Suite(&UpgradeCharmSuccessStateSuite{})
 func (s *UpgradeCharmSuccessStateSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	s.path = testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
-	err := runDeploy(c, s.path, "--series", "quantal")
+	err := runDeploy(c, s.path, "--series", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:quantal/riak-7")
+	curl := charm.MustParseURL("local:bionic/riak-7")
 	s.riak, _ = s.RepoSuite.AssertApplication(c, "riak", curl, 1, 1)
 
 	_, forced, err := s.riak.Charm()
@@ -422,7 +422,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestRespectsLocalRevisionWhenPossible(c 
 
 func (s *UpgradeCharmSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	path := testcharms.Repo.ClonedDirPath(c.MkDir(), "multi-series")
-	err := runDeploy(c, path, "multi-series", "--series", "precise")
+	err := runDeploy(c, path, "multi-series", "--series", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
 	application, err := s.State.Application("multi-series")
 	c.Assert(err, jc.ErrorIsNil)
@@ -457,6 +457,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 			`series:`,
 			`    - trusty`,
 			`    - wily`,
+			`    - bionic`,
 		},
 		"\n",
 	)
@@ -587,7 +588,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestCharmPath(c *gc.C) {
 	err = runUpgradeCharm(c, "riak", "--path", myriakPath)
 	c.Assert(err, jc.ErrorIsNil)
 	curl := s.assertUpgraded(c, s.riak, 42, false)
-	c.Assert(curl.String(), gc.Equals, "local:quantal/riak-42")
+	c.Assert(curl.String(), gc.Equals, "local:bionic/riak-42")
 	s.assertLocalRevision(c, 42, myriakPath)
 }
 
@@ -598,7 +599,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
 	err := runUpgradeCharm(c, "riak", "--path", myriakPath)
 	c.Assert(err, jc.ErrorIsNil)
 	curl := s.assertUpgraded(c, s.riak, 8, false)
-	c.Assert(curl.String(), gc.Equals, "local:quantal/riak-8")
+	c.Assert(curl.String(), gc.Equals, "local:bionic/riak-8")
 }
 
 func (s *UpgradeCharmSuccessStateSuite) TestCharmPathDifferentNameFails(c *gc.C) {
@@ -813,8 +814,8 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmShouldRespectDeployed
 }
 
 func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeWithTermsNotSigned(c *gc.C) {
-	id, ch := testcharms.UploadCharm(c, s.client, "quantal/terms1-1", "terms1")
-	err := runDeploy(c, "quantal/terms1")
+	id, ch := testcharms.UploadCharm(c, s.client, "bionic/terms1-1", "terms1")
+	err := runDeploy(c, "bionic/terms1")
 	c.Assert(err, jc.ErrorIsNil)
 	id.Revision = id.Revision + 1
 	err = s.client.UploadCharmWithRevision(id, ch, -1)

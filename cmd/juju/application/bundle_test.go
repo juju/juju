@@ -480,11 +480,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalResources(c *gc.C) {
 	data := `
-        series: quantal
+        series: bionic
         applications:
             "dummy-resource":
                 charm: ./dummy-resource
-                series: quantal
+                series: bionic
                 num_units: 1
                 resources:
                   dummy: ./dummy-resource.zip
@@ -496,11 +496,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalResources(c *gc.C) {
 		jc.ErrorIsNil)
 	err := runDeploy(c, dir)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "local:quantal/dummy-resource-0")
-	ch, err := s.State.Charm(charm.MustParseURL("local:quantal/dummy-resource-0"))
+	s.assertCharmsUploaded(c, "local:bionic/dummy-resource-0")
+	ch, err := s.State.Charm(charm.MustParseURL("local:bionic/dummy-resource-0"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
-		"dummy-resource": {charm: "local:quantal/dummy-resource-0", config: ch.Config().DefaultSettings()},
+		"dummy-resource": {charm: "local:bionic/dummy-resource-0", config: ch.Config().DefaultSettings()},
 	})
 }
 
@@ -1040,7 +1040,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationOptions(c *gc.C) {
 	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
-	_, dch := testcharms.UploadCharm(c, s.client, "precise/dummy-0", "dummy")
+	_, dch := testcharms.UploadCharm(c, s.client, "bionic/dummy-0", "dummy")
 	err := s.DeployBundleYAML(c, `
         applications:
             wordpress:
@@ -1049,17 +1049,17 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationOptions(c *gc.C
                 options:
                     blog-title: these are the voyages
             customized:
-                charm: precise/dummy-0
+                charm: bionic/dummy-0
                 num_units: 1
                 options:
                     username: who
                     skill-level: 47
     `)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:precise/dummy-0", "cs:xenial/wordpress-42")
+	s.assertCharmsUploaded(c, "cs:bionic/dummy-0", "cs:xenial/wordpress-42")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"customized": {
-			charm:  "cs:precise/dummy-0",
+			charm:  "cs:bionic/dummy-0",
 			config: s.combinedSettings(dch, charm.Settings{"username": "who", "skill-level": int64(47)}),
 		},
 		"wordpress": {
@@ -1075,22 +1075,22 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationOptions(c *gc.C
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstraints(c *gc.C) {
 	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
-	_, dch := testcharms.UploadCharm(c, s.client, "precise/dummy-0", "dummy")
+	_, dch := testcharms.UploadCharm(c, s.client, "bionic/dummy-0", "dummy")
 	err := s.DeployBundleYAML(c, `
         applications:
             wordpress:
                 charm: wordpress
                 constraints: mem=4G cores=2
             customized:
-                charm: precise/dummy-0
+                charm: bionic/dummy-0
                 num_units: 1
                 constraints: arch=i386
     `)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:precise/dummy-0", "cs:xenial/wordpress-42")
+	s.assertCharmsUploaded(c, "cs:bionic/dummy-0", "cs:xenial/wordpress-42")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"customized": {
-			charm:       "cs:precise/dummy-0",
+			charm:       "cs:bionic/dummy-0",
 			constraints: constraints.MustParse("arch=i386"),
 			config:      dch.Config().DefaultSettings(),
 		},
