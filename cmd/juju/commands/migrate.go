@@ -244,17 +244,11 @@ func (c *migrateCommand) getTargetControllerMacaroons() ([]macaroon.Slice, error
 
 func (c *migrateCommand) checkMigrationFeasibility(spec *controller.MigrationSpec) error {
 	var (
-		srcControllerName, srcModelName string
-		srcUsers, dstUsers              set.Strings
-		err                             error
+		srcUsers, dstUsers set.Strings
+		srcControllerName  string
+		err                error
 	)
 
-	if srcControllerName, err = c.ControllerName(); err != nil {
-		return err
-	}
-	if srcModelName, err = c.ModelName(); err != nil {
-		return err
-	}
 	if srcUsers, err = c.getModelUsers(names.NewModelTag(spec.ModelUUID)); err != nil {
 		return err
 	}
@@ -271,6 +265,9 @@ func (c *migrateCommand) checkMigrationFeasibility(spec *controller.MigrationSpe
 	})
 
 	if srcExtUsers.Size() != 0 {
+		if srcControllerName, err = c.ControllerName(); err != nil {
+			return err
+		}
 		srcIdentityURL, err := c.getIdentityProviderURL(srcControllerName)
 		if err != nil {
 			return errors.Annotate(err, "looking up source controller identity provider URL")
@@ -289,33 +286,23 @@ func (c *migrateCommand) checkMigrationFeasibility(spec *controller.MigrationSpe
 		if srcIdentityURL != dstIdentityURL {
 			missing := localSrcUsers.Difference(dstUsers)
 			if missing.Size() == 0 {
-				return errors.Errorf(`cannot initiate migration of model "%s:%s" to controller %q as
-external users have been granted access to the model and the two controllers have
-different identity provider configurations. To resolve this issue you can remove
-the following list of external users from "%s:%s":
-  - %s`,
-					srcControllerName, srcModelName, c.targetController,
-					srcControllerName, srcModelName,
-					strings.Join(srcExtUsers.Values(), "\n  - "),
-				)
+				return errors.Errorf(`cannot initiate migration as external users have been granted access to the model
+and the two controllers have different identity provider configurations. To resolve
+this issue you can remove the following users from the current model:
+  - %s`, strings.Join(srcExtUsers.Values(), "\n  - "))
 			}
 
-			return errors.Errorf(`cannot initiate migration of model "%s:%s" to controller %q as
-external users have been granted access to the model and the two controllers have
-different identity provider configurations. Additionally, some of the model's local
-users do not exist in the target controller. To resolve this issue you need to remove
-the following external users from "%s:%s":
+			return errors.Errorf(`cannot initiate migration as external users have been granted access to the model
+and the two controllers have different identity provider configurations. To resolve
+this issue you need to remove the following users from the current model:
   - %s
 
-and either add the following list of local users to %q or remove them from "%s:%s":
+and add the following users to the destination controller or remove them from
+the current model:
   - %s`,
-				srcControllerName, srcModelName, c.targetController,
-				srcControllerName, srcModelName,
 				strings.Join(srcExtUsers.Values(), "\n  - "),
-				c.targetController, srcControllerName, srcModelName,
 				strings.Join(localSrcUsers.Difference(dstUsers).Values(), "\n  - "),
 			)
-
 		}
 
 		// External user lookups will work out of the box. We only need
@@ -324,14 +311,10 @@ and either add the following list of local users to %q or remove them from "%s:%
 	}
 
 	if missing := srcUsers.Difference(dstUsers); missing.Size() != 0 {
-		return errors.Errorf(`cannot initiate migration of model "%s:%s" to controller %q as some of the
-model's users do not exist in the target controller. To resolve this issue you can
-either add the following list of users to %q or remove them from "%s:%s":
-  - %s`,
-			srcControllerName, srcModelName, c.targetController,
-			c.targetController, srcControllerName, srcModelName,
-			strings.Join(missing.Values(), "\n  - "),
-		)
+		return errors.Errorf(`cannot initiate migration as the users granted access to the model do not exist
+on the destination controller. To resolve this issue you can add the following
+users to the destination controller or remove them from the current model:
+  - %s`, strings.Join(missing.Values(), "\n  - "))
 	}
 
 	return nil
