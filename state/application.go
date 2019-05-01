@@ -475,14 +475,18 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 	// When 'force' is set, this call will return operations to delete application references
 	// to this charm as well as accumulate all operational errors encountered in the operation.
 	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	charmOps, err := appCharmDecRefOps(a.st, name, curl, false, op)
-	if err != nil {
-		if !op.Force {
-			return nil, errors.Trace(err)
+	if a.doc.Life == Alive {
+		// Remove the reference to the Charm that this application is using. We
+		// only do this when transitioning from Alive to Dying
+		charmOps, err := appCharmDecRefOps(a.st, name, curl, false, op)
+		if err != nil {
+			if !op.Force {
+				return nil, errors.Trace(err)
+			}
+			op.AddError(err)
 		}
-		op.AddError(err)
+		ops = append(ops, charmOps...)
 	}
-	ops = append(ops, charmOps...)
 	// By the time we get to here, all units and charm refs have been removed,
 	// so it's safe to do this additional cleanup.
 	ops = append(ops, finalAppCharmRemoveOps(name, curl)...)
