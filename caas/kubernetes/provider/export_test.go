@@ -49,29 +49,35 @@ type ControllerStackerForTest interface {
 	GetControllerSvcSpec(string) (*controllerServiceSpec, error)
 }
 
-func (cs controllerStack) GetAgentConfigContent(c *gc.C) string {
+func (cs *controllerStack) GetAgentConfigContent(c *gc.C) string {
 	agentCfg, err := cs.agentConfig.Render()
 	c.Assert(err, jc.ErrorIsNil)
 	return string(agentCfg)
 }
 
-func (cs controllerStack) GetSharedSecretAndSSLKey(c *gc.C) (string, string) {
+func (cs *controllerStack) GetSharedSecretAndSSLKey(c *gc.C) (string, string) {
 	si, ok := cs.agentConfig.StateServingInfo()
 	c.Assert(ok, jc.IsTrue)
 	return si.SharedSecret, mongo.GenerateSSLKey(si.Cert, si.PrivateKey)
 }
 
-func (cs controllerStack) GetStorageSize() resource.Quantity {
+func (cs *controllerStack) GetStorageSize() resource.Quantity {
 	return cs.storageSize
 }
 
-func (cs controllerStack) GetControllerSvcSpec(cloudType string) (*controllerServiceSpec, error) {
+func (cs *controllerStack) GetControllerSvcSpec(cloudType string) (*controllerServiceSpec, error) {
 	return cs.getControllerSvcSpec(cloudType)
 }
 
-func NewcontrollerStackForTest(ctx environs.BootstrapContext, stackName, storageClass string, broker *kubernetesClient, pcfg *podcfg.ControllerPodConfig) (ControllerStackerForTest, error) {
+func NewcontrollerStackForTest(
+	ctx environs.BootstrapContext,
+	stackName,
+	storageClass string,
+	broker *kubernetesClient,
+	pcfg *podcfg.ControllerPodConfig,
+) (ControllerStackerForTest, error) {
 	cs, err := newcontrollerStack(ctx, stackName, storageClass, broker, pcfg)
-	return cs.(controllerStack), err
+	return cs.(*controllerStack), err
 }
 
 func PodSpec(u *unitSpec) core.PodSpec {

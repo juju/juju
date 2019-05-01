@@ -33,7 +33,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	apimachineryversion "k8s.io/apimachinery/pkg/version"
@@ -1069,7 +1068,11 @@ func resourceTagsToAnnotations(in map[string]string) k8sannotations.Annotation {
 
 // EnsureService creates or updates a service for pods with the given params.
 func (k *kubernetesClient) EnsureService(
-	appName string, statusCallback caas.StatusCallbackFunc, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes,
+	appName string,
+	statusCallback caas.StatusCallbackFunc,
+	params *caas.ServiceParams,
+	numUnits int,
+	config application.ConfigAttributes,
 ) (err error) {
 	defer func() {
 		if err != nil {
@@ -1877,10 +1880,12 @@ func applicationSelector(appName string) string {
 // WatchUnits returns a watcher which notifies when there
 // are changes to units of the specified application.
 func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, error) {
-	pods := k.client().CoreV1().Pods(k.namespace)
-	w, err := pods.Watch(v1.ListOptions{
-		LabelSelector: applicationSelector(appName),
-		Watch:         true,
+	selector := applicationSelector(appName)
+	logger.Debugf("selecting units %q to watch", selector)
+	w, err := k.client().CoreV1().Pods(k.namespace).Watch(v1.ListOptions{
+		LabelSelector:        selector,
+		Watch:                true,
+		IncludeUninitialized: true,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -2095,17 +2100,13 @@ func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.Volum
 	if statusMessage == "" {
 		// If there are any events for this pvc we can use the
 		// most recent to set the status.
-		events := k.client().CoreV1().Events(k.namespace)
-		eventList, err := events.List(v1.ListOptions{
-			IncludeUninitialized: true,
-			FieldSelector:        fields.OneTermEqualSelector("involvedObject.name", pvc.Name).String(),
-		})
+		eventList, err := k.getEvents(pvc.Name)
 		if err != nil {
 			return nil, errors.Annotate(err, "unable to get events for PVC")
 		}
 		// Take the most recent event.
-		if count := len(eventList.Items); count > 0 {
-			statusMessage = eventList.Items[count-1].Message
+		if count := len(eventList); count > 0 {
+			statusMessage = eventList[count-1].Message
 		}
 	}
 
@@ -2190,17 +2191,13 @@ func (k *kubernetesClient) getPODStatus(pod core.Pod, now time.Time) (string, st
 	if statusMessage == "" {
 		// If there are any events for this pod we can use the
 		// most recent to set the status.
-		events := k.client().CoreV1().Events(k.namespace)
-		eventList, err := events.List(v1.ListOptions{
-			IncludeUninitialized: true,
-			FieldSelector:        fields.OneTermEqualSelector("involvedObject.name", pod.Name).String(),
-		})
+		eventList, err := k.getEvents(pod.Name)
 		if err != nil {
 			return "", "", time.Time{}, errors.Trace(err)
 		}
 		// Take the most recent event.
-		if count := len(eventList.Items); count > 0 {
-			statusMessage = eventList.Items[count-1].Message
+		if count := len(eventList); count > 0 {
+			statusMessage = eventList[count-1].Message
 		}
 	}
 
@@ -2232,18 +2229,14 @@ func (k *kubernetesClient) getDeploymentStatus(deployment *apps.Deployment) (str
 }
 
 func (k *kubernetesClient) getStatusFromEvents(parentName string, jujuStatus status.Status) (string, status.Status, error) {
-	events := k.client().CoreV1().Events(k.namespace)
-	eventList, err := events.List(v1.ListOptions{
-		IncludeUninitialized: true,
-		FieldSelector:        fields.OneTermEqualSelector("involvedObject.name", parentName).String(),
-	})
+	events, err := k.getEvents(parentName)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
 	var statusMessage string
 	// Take the most recent event.
-	if count := len(eventList.Items); count > 0 {
-		evt := eventList.Items[count-1]
+	if count := len(events); count > 0 {
+		evt := events[count-1]
 		if jujuStatus == "" {
 			if evt.Type == core.EventTypeWarning && evt.Reason == "FailedCreate" {
 				jujuStatus = status.Blocked
