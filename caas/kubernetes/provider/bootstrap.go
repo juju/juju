@@ -591,7 +591,7 @@ func (c *controllerStack) syncPodStatus(w watcher.NotifyWatcher) error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if done := checkEvents(events); done {
+			if checkEvents(events) {
 				// all containers are created.
 				c.ctx.Infof("Pulled images, created %d containers", c.containerCount)
 				return nil

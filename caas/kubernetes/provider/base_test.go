@@ -57,6 +57,7 @@ type BaseSuite struct {
 	mockStorageClass           *mocks.MockStorageClassInterface
 	mockIngressInterface       *mocks.MockIngressInterface
 	mockNodes                  *mocks.MockNodeInterface
+	mockEvents                 *mocks.MockEventInterface
 
 	mockApiextensionsV1          *mocks.MockApiextensionsV1beta1Interface
 	mockApiextensionsClient      *mocks.MockApiExtensionsClientInterface
@@ -168,6 +169,9 @@ func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller, namespa
 
 	s.mockNodes = mocks.NewMockNodeInterface(ctrl)
 	mockCoreV1.EXPECT().Nodes().AnyTimes().Return(s.mockNodes)
+
+	s.mockEvents = mocks.NewMockEventInterface(ctrl)
+	mockCoreV1.EXPECT().Events(namespace).AnyTimes().Return(s.mockEvents)
 
 	s.mockApps = mocks.NewMockAppsV1Interface(ctrl)
 	s.mockExtensions = mocks.NewMockExtensionsV1beta1Interface(ctrl)

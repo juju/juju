@@ -8,13 +8,17 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	k8sstorage "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/watch"
+	kubeletevents "k8s.io/kubernetes/pkg/kubelet/events"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -361,6 +365,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
+					Name:      "controller-0",
 					Labels:    map[string]string{"juju-app": "juju-controller-test"},
 					Namespace: s.getNamespace(),
 				},
@@ -576,6 +581,19 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --machine-id 0 --debug
 		},
 	}
 
+	podWatcher := s.k8sNewFakeWatcher()
+	eventsPartial := &core.EventList{
+		Items: []core.Event{
+			{Type: core.EventTypeNormal, Reason: kubeletevents.StartedContainer, Message: "Started container mongodb"},
+		},
+	}
+	eventsDone := &core.EventList{
+		Items: []core.Event{
+			{Type: core.EventTypeNormal, Reason: kubeletevents.StartedContainer, Message: "Started container mongodb"},
+			{Type: core.EventTypeNormal, Reason: kubeletevents.StartedContainer, Message: "Started container api-server"},
+		},
+	}
+
 	gomock.InOrder(
 		// create namespace.
 		s.mockNamespaces.EXPECT().Create(ns).Times(1).
@@ -650,9 +668,43 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --machine-id 0 --debug
 			Return(&sc, nil),
 
 		// ensure statefulset.
+		s.mockPods.EXPECT().Watch(
+			v1.ListOptions{
+				LabelSelector:        "juju-app==juju-controller-test",
+				Watch:                true,
+				IncludeUninitialized: true,
+			},
+		).
+			Return(podWatcher, nil),
 		s.mockStatefulSets.EXPECT().Create(statefulSetSpec).Times(1).
 			Return(statefulSetSpec, nil),
+		s.mockEvents.EXPECT().List(
+			v1.ListOptions{
+				IncludeUninitialized: true,
+				FieldSelector:        "involvedObject.name=controller-0",
+			},
+		).
+			Return(eventsPartial, nil),
+		s.mockEvents.EXPECT().List(
+			v1.ListOptions{
+				IncludeUninitialized: true,
+				FieldSelector:        "involvedObject.name=controller-0",
+			},
+		).
+			Return(eventsDone, nil),
 	)
+
+	go func(w *watch.RaceFreeFakeWatcher, clk *testclock.Clock) {
+		for _, evt := range []watch.EventType{
+			kubeletevents.StartedContainer, // mongodb started.
+			kubeletevents.StartedContainer, // api-server started.
+		} {
+			if !w.IsStopped() {
+				clk.WaitAdvance(time.Second, testing.LongWait, 1)
+				w.Action(evt, nil)
+			}
+		}
+	}(podWatcher, s.clock)
 
 	errChan := make(chan error)
 	go func() {
@@ -661,11 +713,7 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --machine-id 0 --debug
 
 	err = s.clock.WaitAdvance(3*time.Second, testing.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
-
-	select {
-	case err := <-errChan:
-		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for deploy error")
-	}
+	c.Assert(<-errChan, jc.ErrorIsNil)
+	c.Assert(workertest.CheckKilled(c, s.watcher), jc.ErrorIsNil)
+	c.Assert(podWatcher.IsStopped(), jc.IsTrue)
 }

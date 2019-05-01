@@ -1880,8 +1880,9 @@ func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, er
 	selector := applicationSelector(appName)
 	logger.Debugf("selecting units %q to watch", selector)
 	w, err := k.client().CoreV1().Pods(k.namespace).Watch(v1.ListOptions{
-		LabelSelector: selector,
-		Watch:         true,
+		LabelSelector:        selector,
+		Watch:                true,
+		IncludeUninitialized: true,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
