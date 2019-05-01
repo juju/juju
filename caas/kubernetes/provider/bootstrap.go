@@ -563,20 +563,16 @@ func (c *controllerStack) createControllerStatefulset() error {
 func (c *controllerStack) syncPodStatus(w watcher.NotifyWatcher) error {
 	printedMsg := set.NewStrings()
 	checkContainerEvents := func(events []core.Event, reason string, eventCount int) bool {
-		if len(events) == 0 {
-			return false
-		}
 		count := 0
 		for _, evt := range events {
-			printable := false
 			if evt.Reason == PullingImage {
 				// we don't care which image is download and this reason should be printed once only.
 				evt.Message = "Downloading images"
-				printable = true
 			}
 			if evt.Type == core.EventTypeNormal && !printedMsg.Contains(evt.Message) {
-				if printable {
+				if evt.Reason == PullingImage {
 					c.ctx.Infof(evt.Message)
+					c.ctx.Infof("Starting controller pod")
 				}
 				printedMsg.Add(evt.Message)
 				logger.Debugf(evt.Message)
@@ -596,7 +592,6 @@ func (c *controllerStack) syncPodStatus(w watcher.NotifyWatcher) error {
 			}
 			if checkContainerEvents(events, StartedContainer, c.containerCount) {
 				// all containers are created.
-				c.ctx.Infof("Starting controller pod")
 				return nil
 			}
 		}
