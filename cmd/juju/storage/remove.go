@@ -36,7 +36,7 @@ is attached to any units. To override this behaviour,
 you can use "juju remove-storage --force".
 
 Storage removal is a multi-step process. Under normal circumstances, Juju will not
-proceed to a next step until the current step finished. 
+proceed to a next step until the current step has finished. 
 However, when using --force, users can also specify --no-wait to progress through steps 
 without delay waiting for each step to complete.
 

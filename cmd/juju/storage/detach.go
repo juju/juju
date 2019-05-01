@@ -44,7 +44,7 @@ Detaching storage may fail but under some circumstances, Juju user may need
 to force storage detachment despite operational errors. 
 
 Storage detachment is a multi-step process. Under normal circumstances, Juju will not
-proceed to a next step until the current step finished. 
+proceed to a next step until the current step has finished. 
 However, when using --force, users can also specify --no-wait to progress through steps 
 without delay waiting for each step to complete.
 
