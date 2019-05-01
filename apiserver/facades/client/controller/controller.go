@@ -8,15 +8,19 @@ package controller
 import (
 	"encoding/json"
 	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/txn"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
+	controllerclient "github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/migrationtarget"
+	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
@@ -656,8 +660,15 @@ var runMigrationPrechecks = func(st, ctlrSt *state.State, targetInfo *coremigrat
 		return errors.Annotate(err, "connect to target controller")
 	}
 	defer conn.Close()
-	modelInfo, err := makeModelInfo(st, ctlrSt)
+	modelInfo, srcUserList, err := makeModelInfo(st, ctlrSt)
 	if err != nil {
+		return errors.Trace(err)
+	}
+	dstUserList, err := getTargetControllerUsers(conn)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err = srcUserList.checkCompatibilityWith(dstUserList); err != nil {
 		return errors.Trace(err)
 	}
 	client := migrationtarget.NewClient(conn)
@@ -676,39 +687,144 @@ var runMigrationPrechecks = func(st, ctlrSt *state.State, targetInfo *coremigrat
 	return errors.Annotate(err, "target prechecks failed")
 }
 
-func makeModelInfo(st, ctlrSt *state.State) (coremigration.ModelInfo, error) {
+// userList encapsulates information about the users who have been granted
+// access to a model or the users known to a particular controller.
+type userList struct {
+	identityURL string
+	users       set.Strings
+}
+
+// checkCompatibilityWith ensures that the set of users granted access to
+// the model being migrated is present in the destination (migration target)
+// controller.
+func (src *userList) checkCompatibilityWith(dst userList) error {
+	srcUsers, dstUsers := src.users, dst.users
+
+	// If external users have access to this model we can only allow the
+	// migration to proceed if:
+	// - the local users from src exist in the dst, and
+	// - both controllers are configured with the same identity provider URL
+	srcExtUsers := filterSet(srcUsers, func(u string) bool {
+		return strings.Contains(u, "@")
+	})
+
+	if srcExtUsers.Size() != 0 {
+		localSrcUsers := srcUsers.Difference(srcExtUsers)
+
+		// In this case external user lookups will most likely not work.
+		// Display an appropriate error message depending on whether
+		// the local users are present in dst or not.
+		if src.identityURL != dst.identityURL {
+			missing := localSrcUsers.Difference(dstUsers)
+			if missing.Size() == 0 {
+				return errors.Errorf(`cannot initiate migration as external users have been granted access to the model
+and the two controllers have different identity provider configurations. To resolve
+this issue you can remove the following users from the current model:
+  - %s`,
+					strings.Join(srcExtUsers.Values(), "\n  - "),
+				)
+			}
+
+			return errors.Errorf(`cannot initiate migration as external users have been granted access to the model
+and the two controllers have different identity provider configurations. To resolve
+this issue you need to remove the following users from the current model:
+  - %s
+
+and add the following users to the destination controller or remove them from
+the current model:
+  - %s`,
+				strings.Join(srcExtUsers.Values(), "\n  - "),
+				strings.Join(localSrcUsers.Difference(dstUsers).Values(), "\n  - "),
+			)
+
+		}
+
+		// External user lookups will work out of the box. We only need
+		// to ensure that the local model users are present in dst
+		srcUsers = localSrcUsers
+	}
+
+	if missing := srcUsers.Difference(dstUsers); missing.Size() != 0 {
+		return errors.Errorf(`cannot initiate migration as the users granted access to the model do not exist
+on the destination controller. To resolve this issue you can add the following
+users to the destination controller or remove them from the current model:
+  - %s`, strings.Join(missing.Values(), "\n  - "))
+	}
+
+	return nil
+}
+
+func makeModelInfo(st, ctlrSt *state.State) (coremigration.ModelInfo, userList, error) {
 	var empty coremigration.ModelInfo
+	var ul userList
 
 	model, err := st.Model()
 	if err != nil {
-		return empty, errors.Trace(err)
+		return empty, ul, errors.Trace(err)
+	}
+
+	users, err := model.Users()
+	if err != nil {
+		return empty, ul, errors.Trace(err)
+	}
+	ul.users = set.NewStrings()
+	for _, u := range users {
+		ul.users.Add(u.UserName)
 	}
 
 	// Retrieve agent version for the model.
 	conf, err := model.ModelConfig()
 	if err != nil {
-		return empty, errors.Trace(err)
+		return empty, userList{}, errors.Trace(err)
 	}
 	agentVersion, _ := conf.AgentVersion()
 
 	// Retrieve agent version for the controller.
 	controllerModel, err := ctlrSt.Model()
 	if err != nil {
-		return empty, errors.Trace(err)
+		return empty, userList{}, errors.Trace(err)
 	}
 	controllerConfig, err := controllerModel.Config()
 	if err != nil {
-		return empty, errors.Trace(err)
+		return empty, userList{}, errors.Trace(err)
 	}
 	controllerVersion, _ := controllerConfig.AgentVersion()
 
+	coreConf, err := ctlrSt.ControllerConfig()
+	if err != nil {
+		return empty, userList{}, errors.Trace(err)
+	}
+	ul.identityURL = coreConf.IdentityURL()
 	return coremigration.ModelInfo{
 		UUID:                   model.UUID(),
 		Name:                   model.Name(),
 		Owner:                  model.Owner(),
 		AgentVersion:           agentVersion,
 		ControllerAgentVersion: controllerVersion,
-	}, nil
+	}, ul, nil
+}
+
+func getTargetControllerUsers(conn api.Connection) (userList, error) {
+	ul := userList{}
+
+	userClient := usermanager.NewClient(conn)
+	users, err := userClient.UserInfo(nil, usermanager.AllUsers)
+	if err != nil {
+		return ul, errors.Trace(err)
+	}
+
+	ul.users = set.NewStrings()
+	for _, u := range users {
+		ul.users.Add(u.Username)
+	}
+
+	ctrlClient := controllerclient.NewClient(conn)
+	ul.identityURL, err = ctrlClient.IdentityProviderURL()
+	if err != nil {
+		return ul, errors.Trace(err)
+	}
+
+	return ul, nil
 }
 
 func targetToAPIInfo(ti *coremigration.TargetInfo) *api.Info {
@@ -868,4 +984,15 @@ func (o orderedBlockInfo) Less(i, j int) bool {
 
 func (o orderedBlockInfo) Swap(i, j int) {
 	o[i], o[j] = o[j], o[i]
+}
+
+func filterSet(s set.Strings, keep func(string) bool) set.Strings {
+	out := set.NewStrings()
+	for _, v := range s.Values() {
+		if keep(v) {
+			out.Add(v)
+		}
+	}
+
+	return out
 }
