@@ -151,9 +151,9 @@ var _ = gc.Suite(&serviceStatusSetterSuite{})
 func (s *serviceStatusSetterSuite) SetUpTest(c *gc.C) {
 	s.statusBaseSuite.SetUpTest(c)
 
-	s.setter = common.NewServiceStatusSetter(s.State, func() (common.AuthFunc, error) {
+	s.setter = common.NewApplicationStatusSetter(s.State, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
-	})
+	}, s.leadershipChecker)
 }
 
 func (s *serviceStatusSetterSuite) TestUnauthorized(c *gc.C) {
@@ -221,6 +221,7 @@ func (s *serviceStatusSetterSuite) TestSetServiceStatus(c *gc.C) {
 
 func (s *serviceStatusSetterSuite) TestSetUnitStatusNotLeader(c *gc.C) {
 	// If the unit isn't the leader, it can't set it.
+	s.leadershipChecker.isLeader = false
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &status.StatusInfo{
 		Status: status.Maintenance,
 	}})
@@ -231,7 +232,7 @@ func (s *serviceStatusSetterSuite) TestSetUnitStatusNotLeader(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	status := result.Results[0]
-	c.Assert(status.Error, gc.ErrorMatches, ".* is not leader of .*")
+	c.Assert(status.Error, gc.ErrorMatches, "not leader")
 }
 
 func (s *serviceStatusSetterSuite) TestSetUnitStatusIsLeader(c *gc.C) {
@@ -243,10 +244,11 @@ func (s *serviceStatusSetterSuite) TestSetUnitStatusIsLeader(c *gc.C) {
 		Status: &status.StatusInfo{
 			Status: status.Maintenance,
 		}})
-	s.State.LeadershipClaimer().ClaimLeadership(
+	err := s.State.LeadershipClaimer().ClaimLeadership(
 		service.Name(),
 		unit.Name(),
 		time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    unit.Tag().String(),
 		Status: status.Active.String(),

@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
@@ -81,15 +82,17 @@ func (s *StatusGetter) Status(args params.Entities) (params.StatusResults, error
 // all this does is break the user model, break the api model, and lie about
 // unit statuses).
 type ApplicationStatusGetter struct {
-	st           *state.State
-	getCanAccess GetAuthFunc
+	leadershipChecker leadership.Checker
+	st                *state.State
+	getCanAccess      GetAuthFunc
 }
 
 // NewApplicationStatusGetter returns a ApplicationStatusGetter.
-func NewApplicationStatusGetter(st *state.State, getCanAccess GetAuthFunc) *ApplicationStatusGetter {
+func NewApplicationStatusGetter(st *state.State, getCanAccess GetAuthFunc, leadershipChecker leadership.Checker) *ApplicationStatusGetter {
 	return &ApplicationStatusGetter{
-		st:           st,
-		getCanAccess: getCanAccess,
+		leadershipChecker: leadershipChecker,
+		st:                st,
+		getCanAccess:      getCanAccess,
 	}
 }
 
@@ -145,8 +148,7 @@ func (s *ApplicationStatusGetter) Status(args params.Entities) (params.Applicati
 		}
 
 		// ...so we can check the unit's application leadership...
-		checker := s.st.LeadershipChecker()
-		token := checker.LeadershipCheck(applicationId, unitId)
+		token := s.leadershipChecker.LeadershipCheck(applicationId, unitId)
 		if err := token.Check(0, nil); err != nil {
 			// TODO(fwereade) this should probably be ErrPerm is certain cases,
 			// but I don't think I implemented an exported ErrNotLeader. I

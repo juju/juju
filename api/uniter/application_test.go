@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api/leadership"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/status"
@@ -142,11 +143,12 @@ func (s *applicationSuite) TestApplicationStatus(c *gc.C) {
 	s.claimLeadership(c, s.wordpressUnit, s.wordpressApplication)
 	result, err = s.apiApplication.Status(s.wordpressUnit.Name())
 	c.Check(err, jc.ErrorIsNil)
+	c.Check(result.Error, gc.IsNil)
 	c.Check(result.Application.Status, gc.Equals, status.Active.String())
 }
 
 func (s *applicationSuite) claimLeadership(c *gc.C, unit *state.Unit, app *state.Application) {
-	claimer := s.State.LeadershipClaimer()
+	claimer := leadership.NewClient(s.st)
 	err := claimer.ClaimLeadership(app.Name(), unit.Name(), time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 }

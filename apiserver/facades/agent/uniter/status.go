@@ -6,6 +6,7 @@ package uniter
 import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/state"
 )
 
@@ -13,30 +14,30 @@ import (
 // status from different entities, this particular separation from
 // base is because we have a shim to support unit/agent split.
 type StatusAPI struct {
-	agentSetter   *common.StatusSetter
-	unitSetter    *common.StatusSetter
-	unitGetter    *common.StatusGetter
-	serviceSetter *common.ApplicationStatusSetter
-	serviceGetter *common.ApplicationStatusGetter
-	getCanModify  common.GetAuthFunc
+	agentSetter       *common.StatusSetter
+	unitSetter        *common.StatusSetter
+	unitGetter        *common.StatusGetter
+	applicationSetter *common.ApplicationStatusSetter
+	applicationGetter *common.ApplicationStatusGetter
+	getCanModify      common.GetAuthFunc
 }
 
 // NewStatusAPI creates a new server-side Status setter API facade.
-func NewStatusAPI(st *state.State, getCanModify common.GetAuthFunc) *StatusAPI {
+func NewStatusAPI(st *state.State, getCanModify common.GetAuthFunc, leadershipChecker leadership.Checker) *StatusAPI {
 	// TODO(fwereade): so *all* of these have exactly the same auth
 	// characteristics? I think not.
 	unitSetter := common.NewStatusSetter(st, getCanModify)
 	unitGetter := common.NewStatusGetter(st, getCanModify)
-	serviceSetter := common.NewServiceStatusSetter(st, getCanModify)
-	serviceGetter := common.NewApplicationStatusGetter(st, getCanModify)
+	applicationSetter := common.NewApplicationStatusSetter(st, getCanModify, leadershipChecker)
+	applicationGetter := common.NewApplicationStatusGetter(st, getCanModify, leadershipChecker)
 	agentSetter := common.NewStatusSetter(&common.UnitAgentFinder{st}, getCanModify)
 	return &StatusAPI{
-		agentSetter:   agentSetter,
-		unitSetter:    unitSetter,
-		unitGetter:    unitGetter,
-		serviceSetter: serviceSetter,
-		serviceGetter: serviceGetter,
-		getCanModify:  getCanModify,
+		agentSetter:       agentSetter,
+		unitSetter:        unitSetter,
+		unitGetter:        unitGetter,
+		applicationSetter: applicationSetter,
+		applicationGetter: applicationGetter,
+		getCanModify:      getCanModify,
 	}
 }
 
@@ -60,10 +61,10 @@ func (s *StatusAPI) SetUnitStatus(args params.SetStatus) (params.ErrorResults, e
 	return s.unitSetter.SetStatus(args)
 }
 
-// SetApplicationStatus sets the status for all the Services in args if the given Unit is
+// SetApplicationStatus sets the status for all the Applications in args if the given Unit is
 // the leader.
 func (s *StatusAPI) SetApplicationStatus(args params.SetStatus) (params.ErrorResults, error) {
-	return s.serviceSetter.SetStatus(args)
+	return s.applicationSetter.SetStatus(args)
 }
 
 // UnitStatus returns the workload status information for the unit.
@@ -74,5 +75,5 @@ func (s *StatusAPI) UnitStatus(args params.Entities) (params.StatusResults, erro
 // ApplicationStatus returns the status of the Applications and its workloads
 // if the given unit is the leader.
 func (s *StatusAPI) ApplicationStatus(args params.Entities) (params.ApplicationStatusResults, error) {
-	return s.serviceGetter.Status(args)
+	return s.applicationGetter.Status(args)
 }
