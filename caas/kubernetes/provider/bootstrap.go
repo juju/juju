@@ -565,17 +565,25 @@ func (c *controllerStack) syncPodStatus(w watcher.NotifyWatcher) error {
 	checkContainerEvents := func(events []core.Event, reason string, eventCount int) bool {
 		count := 0
 		for _, evt := range events {
-			if evt.Reason == PullingImage {
-				// we don't care which image is download and this reason should be printed once only.
+			// clean the messages to prevent duplicated records.
+			// we don't care which image is been pulling/pulled and this reason should be printed once only.
+			switch evt.Reason {
+			case PullingImage:
 				evt.Message = "Downloading images"
+			case PulledImage:
+				evt.Message = "Pulled images"
 			}
 			if evt.Type == core.EventTypeNormal && !printedMsg.Contains(evt.Message) {
-				if evt.Reason == PullingImage {
-					c.ctx.Infof(evt.Message)
-					c.ctx.Infof("Starting controller pod")
-				}
 				printedMsg.Add(evt.Message)
 				logger.Debugf(evt.Message)
+
+				if evt.Reason == PullingImage {
+					c.ctx.Infof(evt.Message)
+				}
+				if evt.Reason == PulledImage {
+					// starting pod after images are pulled.
+					c.ctx.Infof("Starting controller pod")
+				}
 			}
 			if evt.Reason == reason {
 				count++
