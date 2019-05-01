@@ -24,18 +24,25 @@ import (
 	jtesting "github.com/juju/juju/testing"
 )
 
-const defaultSeries = "bionic"
+const defaultSeries = "quantal"
 
 // Repo provides access to the test charm repository.
 var Repo = testing.NewRepo("charm-repo", defaultSeries)
 
 // RepoForSeries returns a new charm repository for the specified series.
+// Note: this is a bit weird, as it ignores the series if it's NOT kubernetes
+// and falls back to the default series, which makes this pretty pointless.
 func RepoForSeries(series string) *testing.Repo {
-	// TODO(ycliuhw): workaround - currently `bionic` is not exact series
-	// (for example, here makes deploy charm at charm-repo/bionic/mysql --series precise possible )!
+	// TODO(ycliuhw): workaround - currently `quantal` is not exact series
+	// (for example, here makes deploy charm at charm-repo/quantal/mysql --series precise possible )!
 	if series != "kubernetes" {
 		series = defaultSeries
 	}
+	return testing.NewRepo("charm-repo", series)
+}
+
+// RepoWithSeries returns a new charm repository for the specified series.
+func RepoWithSeries(series string) *testing.Repo {
 	return testing.NewRepo("charm-repo", series)
 }
 
@@ -76,7 +83,7 @@ func UploadCharmWithMeta(c *gc.C, client CharmstoreClient, charmURL, meta, metri
 	return chURL, ch
 }
 
-// UploadCharm sets default series to bionic
+// UploadCharm sets default series to defaultSeries
 func UploadCharm(c *gc.C, client CharmstoreClient, url, name string) (*charm.URL, charm.Charm) {
 	return UploadCharmWithSeries(c, client, url, name, defaultSeries)
 }
@@ -131,16 +138,21 @@ func UploadCharmWithSeries(c *gc.C, client CharmstoreClient, url, name, series s
 	return id, ch
 }
 
-// UploadCharmMultiSeries uploads a charm with revision using the given charm store client,
+// UploadCharmMultiSeries sets default series to defaultSeries
+func UploadCharmMultiSeries(c *gc.C, client CharmstoreClient, url, name string) (*charm.URL, charm.Charm) {
+	return UploadCharmMultiSeriesWithSeries(c, client, url, name, defaultSeries)
+}
+
+// UploadCharmMultiSeriesWithSeries uploads a charm with revision using the given charm store client,
 // and returns the resulting charm URL and charm. This API caters for new multi-series charms
 // which do not specify a series in the URL.
-func UploadCharmMultiSeries(c *gc.C, client CharmstoreClient, url, name string) (*charm.URL, charm.Charm) {
+func UploadCharmMultiSeriesWithSeries(c *gc.C, client CharmstoreClient, url, name, series string) (*charm.URL, charm.Charm) {
 	id := charm.MustParseURL(url)
 	if id.User == "" {
 		// We still need a user even if we are uploading a promulgated charm.
 		id.User = "who"
 	}
-	ch := Repo.CharmArchive(c.MkDir(), name)
+	ch := RepoForSeries(series).CharmArchive(c.MkDir(), name)
 
 	// Upload the charm.
 	curl, err := client.UploadCharm(id, ch)
@@ -152,9 +164,14 @@ func UploadCharmMultiSeries(c *gc.C, client CharmstoreClient, url, name string) 
 	return curl, ch
 }
 
-// UploadBundle uploads a bundle using the given charm store client, and
-// returns the resulting bundle URL and bundle.
+// UploadBundle sets default series to defaultSeries
 func UploadBundle(c *gc.C, client CharmstoreClient, url, name string) (*charm.URL, charm.Bundle) {
+	return UploadBundleWithSeries(c, client, url, name, defaultSeries)
+}
+
+// UploadBundleWithSeries uploads a bundle using the given charm store client, and
+// returns the resulting bundle URL and bundle.
+func UploadBundleWithSeries(c *gc.C, client CharmstoreClient, url, name, series string) (*charm.URL, charm.Bundle) {
 	id := charm.MustParseURL(url)
 	promulgatedRevision := -1
 	if id.User == "" {
@@ -162,7 +179,7 @@ func UploadBundle(c *gc.C, client CharmstoreClient, url, name string) (*charm.UR
 		id.User = "who"
 		promulgatedRevision = id.Revision
 	}
-	b := Repo.BundleArchive(c.MkDir(), name)
+	b := RepoForSeries(series).BundleArchive(c.MkDir(), name)
 
 	// Upload the bundle.
 	err := client.UploadBundleWithRevision(id, b, promulgatedRevision)

@@ -44,7 +44,7 @@ func runRemoveApplication(c *gc.C, args ...string) (*cmd.Context, error) {
 
 func (s *RemoveApplicationSuite) setupTestApplication(c *gc.C) {
 	// Destroy an application that exists.
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
+	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(s.CharmsPath, "multi-series")
 	err := runDeploy(c, ch, "multi-series")
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -69,7 +69,7 @@ func (s *RemoveApplicationSuite) TestDestroyStorage(c *gc.C) {
 }
 
 func (s *RemoveApplicationSuite) testStorageRemoval(c *gc.C, destroy bool) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "storage-filesystem-multi-series")
+	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(s.CharmsPath, "storage-filesystem-multi-series")
 	err := runDeploy(c, ch, "storage-filesystem-multi-series", "-n2", "--storage", "data=2,modelscoped")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -100,7 +100,7 @@ removing application storage-filesystem-multi-series
 }
 
 func (s *RemoveApplicationSuite) TestRemoveLocalMetered(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "metered-multi-series")
+	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(s.CharmsPath, "metered-multi-series")
 	deploy := NewDeployCommand()
 	_, err := cmdtesting.RunCommand(c, deploy, ch)
 	c.Assert(err, jc.ErrorIsNil)
@@ -158,7 +158,7 @@ func (s *RemoveCharmStoreCharmsSuite) SetUpTest(c *gc.C) {
 
 	s.ctx = cmdtesting.Context(c)
 
-	testcharms.UploadCharm(c, s.client, "cs:quantal/metered-1", "metered")
+	testcharms.UploadCharmWithSeries(c, s.client, "cs:quantal/metered-1", "metered", "bionic")
 	deployCmd := &DeployCommand{}
 	cmd := modelcmd.Wrap(deployCmd)
 	deployCmd.NewAPIRoot = func() (DeployAPI, error) {

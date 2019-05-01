@@ -301,7 +301,7 @@ func (s *UpgradeCharmErrorsStateSuite) TestInvalidApplication(c *gc.C) {
 }
 
 func (s *UpgradeCharmErrorsStateSuite) deployApplication(c *gc.C) {
-	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
+	ch := testcharms.RepoWithSeries("bionic").ClonedDirPath(s.CharmsPath, "riak")
 	err := runDeploy(c, ch, "riak", "--series", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -369,7 +369,7 @@ var _ = gc.Suite(&UpgradeCharmSuccessStateSuite{})
 
 func (s *UpgradeCharmSuccessStateSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.path = testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
+	s.path = testcharms.RepoWithSeries("bionic").ClonedDirPath(s.CharmsPath, "riak")
 	err := runDeploy(c, s.path, "--series", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:bionic/riak-7")
@@ -421,7 +421,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestRespectsLocalRevisionWhenPossible(c 
 }
 
 func (s *UpgradeCharmSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
-	path := testcharms.Repo.ClonedDirPath(c.MkDir(), "multi-series")
+	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "multi-series")
 	err := runDeploy(c, path, "multi-series", "--series", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
 	application, err := s.State.Application("multi-series")
@@ -478,7 +478,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 }
 
 func (s *UpgradeCharmSuccessStateSuite) TestForcedLXDProfileUpgrade(c *gc.C) {
-	path := testcharms.Repo.ClonedDirPath(c.MkDir(), "lxd-profile-alt")
+	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "lxd-profile-alt")
 	err := runDeploy(c, path, "lxd-profile-alt", "--to", "lxd")
 	c.Assert(err, jc.ErrorIsNil)
 	application, err := s.State.Application("lxd-profile-alt")
@@ -535,7 +535,7 @@ devices: {}
 }
 
 func (s *UpgradeCharmSuccessStateSuite) TestInitWithResources(c *gc.C) {
-	testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
+	testcharms.RepoWithSeries("bionic").CharmArchivePath(s.CharmsPath, "dummy")
 	dir := c.MkDir()
 
 	foopath := path.Join(dir, "foo")
@@ -580,7 +580,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestBlockForcedUnitsUpgrade(c *gc.C) {
 }
 
 func (s *UpgradeCharmSuccessStateSuite) TestCharmPath(c *gc.C) {
-	myriakPath := testcharms.Repo.ClonedDirPath(c.MkDir(), "riak")
+	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 
 	// Change the revision to 42 and upgrade to it with explicit revision.
 	err := ioutil.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
@@ -594,7 +594,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestCharmPath(c *gc.C) {
 
 func (s *UpgradeCharmSuccessStateSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
 	// Revision 7 is running to start with.
-	myriakPath := testcharms.Repo.ClonedDirPath(c.MkDir(), "riak")
+	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 	s.assertLocalRevision(c, 7, myriakPath)
 	err := runUpgradeCharm(c, "riak", "--path", myriakPath)
 	c.Assert(err, jc.ErrorIsNil)
@@ -603,7 +603,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
 }
 
 func (s *UpgradeCharmSuccessStateSuite) TestCharmPathDifferentNameFails(c *gc.C) {
-	myriakPath := testcharms.Repo.RenamedClonedDirPath(s.CharmsPath, "riak", "myriak")
+	myriakPath := testcharms.RepoWithSeries("bionic").RenamedClonedDirPath(s.CharmsPath, "riak", "myriak")
 	metadataPath := filepath.Join(myriakPath, "metadata.yaml")
 	file, err := os.OpenFile(metadataPath, os.O_TRUNC|os.O_RDWR, 0666)
 	if err != nil {
@@ -666,7 +666,7 @@ var upgradeCharmAuthorizationTests = []struct {
 }}
 
 func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmAuthorization(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/wordpress-0", "wordpress")
+	testcharms.UploadCharmWithSeries(c, s.client, "cs:~other/trusty/wordpress-0", "wordpress", "bionic")
 	err := runDeploy(c, "cs:~other/trusty/wordpress-0")
 
 	riak, err := s.State.Application("wordpress")
@@ -686,7 +686,7 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmAuthorization(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	for i, test := range upgradeCharmAuthorizationTests {
 		c.Logf("test %d: %s", i, test.about)
-		url, _ := testcharms.UploadCharm(c, s.client, test.uploadURL, "wordpress")
+		url, _ := testcharms.UploadCharmWithSeries(c, s.client, test.uploadURL, "wordpress", "bionic")
 		if test.readPermUser != "" {
 			s.changeReadPerm(c, url, test.readPermUser)
 		}
@@ -700,8 +700,8 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmAuthorization(c *gc.C
 }
 
 func (s *UpgradeCharmCharmStoreStateSuite) TestSwitch(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/riak-0", "riak")
-	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/anotherriak-7", "riak")
+	testcharms.UploadCharmWithSeries(c, s.client, "cs:~other/trusty/riak-0", "riak", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "cs:~other/trusty/anotherriak-7", "riak", "bionic")
 	err := runDeploy(c, "cs:~other/trusty/riak-0")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -729,7 +729,7 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestSwitch(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `already running specified charm "cs:~other/trusty/anotherriak-7"`)
 
 	// Change the revision to 42 and upgrade to it with explicit revision.
-	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/anotherriak-42", "riak")
+	testcharms.UploadCharmWithSeries(c, s.client, "cs:~other/trusty/anotherriak-42", "riak", "bionic")
 	err = runUpgradeCharm(c, "riak", "--switch=cs:~other/trusty/anotherriak-42")
 	c.Assert(err, jc.ErrorIsNil)
 	curl = s.assertUpgraded(c, riak, 42, false)
@@ -737,7 +737,7 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestSwitch(c *gc.C) {
 }
 
 func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmWithChannel(c *gc.C) {
-	id, ch := testcharms.UploadCharm(c, s.client, "cs:~client-username/trusty/wordpress-0", "wordpress")
+	id, ch := testcharms.UploadCharmWithSeries(c, s.client, "cs:~client-username/trusty/wordpress-0", "wordpress", "bionic")
 	err := runDeploy(c, "cs:~client-username/trusty/wordpress-0")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -768,7 +768,7 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmWithChannel(c *gc.C) 
 }
 
 func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmShouldRespectDeployedChannelByDefault(c *gc.C) {
-	id, ch := testcharms.UploadCharm(c, s.client, "cs:~client-username/trusty/wordpress-0", "wordpress")
+	id, ch := testcharms.UploadCharmWithSeries(c, s.client, "cs:~client-username/trusty/wordpress-0", "wordpress", "bionic")
 
 	// publish charm to beta channel
 	id.Revision = 1
@@ -814,7 +814,7 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmShouldRespectDeployed
 }
 
 func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeWithTermsNotSigned(c *gc.C) {
-	id, ch := testcharms.UploadCharm(c, s.client, "bionic/terms1-1", "terms1")
+	id, ch := testcharms.UploadCharmWithSeries(c, s.client, "bionic/terms1-1", "terms1", "bionic")
 	err := runDeploy(c, "bionic/terms1")
 	c.Assert(err, jc.ErrorIsNil)
 	id.Revision = id.Revision + 1

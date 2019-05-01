@@ -50,7 +50,7 @@ func (s *UpgradeCharmResourceSuite) SetUpSuite(c *gc.C) {
 
 func (s *UpgradeCharmResourceSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	chPath := testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
+	chPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(s.CharmsPath, "riak")
 	_, err := runDeploy(c, chPath, "riak", "--series", "quantal", "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:quantal/riak-7")
@@ -81,7 +81,7 @@ resources:
     description: some comment
 `
 
-	myriakPath := testcharms.Repo.ClonedDir(c.MkDir(), "riak")
+	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "riak")
 	err := ioutil.WriteFile(path.Join(myriakPath.Path, "metadata.yaml"), []byte(riakResourceMeta), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -205,7 +205,7 @@ func (s *UpgradeCharmStoreResourceSuite) SetUpSuite(c *gc.C) {
 // charmstore endpoints are implemented.
 
 func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/starsay-1", "starsay")
+	testcharms.UploadCharmWithSeries(c, s.client, "trusty/starsay-1", "starsay", "bionic")
 
 	// let's make a fake resource file to upload
 	resourceContent := "some-data"
@@ -301,7 +301,7 @@ Deploying charm "cs:trusty/starsay-1".`
 
 	sort.Sort(csbyname(oldCharmStoreResources))
 
-	testcharms.UploadCharm(c, s.client, "trusty/starsay-2", "starsay")
+	testcharms.UploadCharmWithSeries(c, s.client, "trusty/starsay-2", "starsay", "bionic")
 
 	_, err = cmdtesting.RunCommand(c, application.NewUpgradeCharmCommand(), "starsay")
 	c.Assert(err, jc.ErrorIsNil)
