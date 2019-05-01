@@ -1847,14 +1847,6 @@
   pruneopts = ""
   revision = "3db81bdd128696db1c2fcba8a426ed0a3993824d"
 
-[[projects]]
-  digest = "1:8c244615bb96a1875f2ac63d6151beb17461a79dedcb59f8129c9ef39d3fb373"
-  name = "k8s.io/kubernetes"
-  packages = ["pkg/kubelet/events"]
-  pruneopts = ""
-  revision = "b7394102d6ef778017f2ca4046abbaa23b88c290"
-  version = "v1.14.1"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -2137,7 +2129,6 @@
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",
     "k8s.io/client-go/util/flowcontrol",
-    "k8s.io/kubernetes/pkg/kubelet/events",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

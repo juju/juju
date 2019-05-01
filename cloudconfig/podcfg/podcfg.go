@@ -244,6 +244,11 @@ func (cfg *ControllerPodConfig) verifyControllerConfig() (err error) {
 	return nil
 }
 
+// GetPodName returns pod name.
+func (cfg *ControllerPodConfig) GetPodName() string {
+	return "controller-" + cfg.MachineId
+}
+
 // GetHostedModel checks if hosted model was requested to create.
 func (cfg *ControllerPodConfig) GetHostedModel() (string, bool) {
 	hasHostedModel := len(cfg.Bootstrap.HostedModelConfig) > 0
