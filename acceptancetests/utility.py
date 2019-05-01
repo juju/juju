@@ -322,10 +322,17 @@ def add_basic_testing_arguments(
 add_basic_testing_arguments.__test__ = False
 
 
-def configure_logging(log_level):
+def configure_logging(log_level, logger=None):
+    format  = '%(asctime)s %(levelname)s %(message)s'
+    datefmt = '%Y-%m-%d %H:%M:%S'
     logging.basicConfig(
-        level=log_level, format='%(asctime)s %(levelname)s %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S')
+        level=log_level, format=format,
+        datefmt=datefmt)
+    if logger:
+        formatter = logging.Formatter(fmt=format, datefmt=datefmt)
+        for handler in logger.handlers:
+            handler.setLevel(log_level)
+            handler.setFormatter(formatter)
 
 
 def get_candidates_path(root_dir):
