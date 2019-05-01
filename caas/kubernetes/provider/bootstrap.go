@@ -19,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
-	kubeletevents "k8s.io/kubernetes/pkg/kubelet/events"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
@@ -507,10 +506,6 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf() error {
 	return c.broker.ensureConfigMap(cm)
 }
 
-func getPodName(pcfg *podcfg.ControllerPodConfig) string {
-	return "controller-" + pcfg.MachineId
-}
-
 func (c *controllerStack) createControllerStatefulset() error {
 	numberOfPods := int32(1) // TODO(caas): HA mode!
 	spec := &apps.StatefulSet{
@@ -528,7 +523,7 @@ func (c *controllerStack) createControllerStatefulset() error {
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels:    c.stackLabels,
-					Name:      getPodName(c.pcfg),
+					Name:      c.pcfg.GetPodName(),
 					Namespace: c.broker.GetCurrentNamespace(),
 				},
 				Spec: core.PodSpec{
@@ -560,40 +555,48 @@ func (c *controllerStack) createControllerStatefulset() error {
 		return errors.Trace(err)
 	}
 	if err = c.syncPodStatus(w); err != nil {
-		return errors.Annotate(err, "fetching pods status for controller")
+		return errors.Annotate(err, "fetching pods' status for controller")
 	}
 	return nil
 }
 
 func (c *controllerStack) syncPodStatus(w watcher.NotifyWatcher) error {
 	printedMsg := set.NewStrings()
-	checkEvents := func(events []core.Event) bool {
+	checkContainerEvents := func(events []core.Event, reason string, eventCount int) bool {
 		if len(events) == 0 {
 			return false
 		}
-		startedContainers := 0
+		count := 0
 		for _, evt := range events {
+			printable := false
+			if evt.Reason == PullingImage {
+				// we don't care which image is download and this reason should be printed once only.
+				evt.Message = "Downloading images"
+				printable = true
+			}
 			if evt.Type == core.EventTypeNormal && !printedMsg.Contains(evt.Message) {
+				if printable {
+					c.ctx.Infof(evt.Message)
+				}
 				printedMsg.Add(evt.Message)
 				logger.Debugf(evt.Message)
 			}
-			if evt.Reason == kubeletevents.StartedContainer {
-				logger.Debugf("event: %q, %q", evt.Reason, evt.Message)
-				startedContainers++
+			if evt.Reason == reason {
+				count++
 			}
 		}
-		return startedContainers >= c.containerCount
+		return count >= eventCount
 	}
 	for {
 		select {
 		case <-w.Changes():
-			events, err := c.broker.getEvents(getPodName(c.pcfg))
+			events, err := c.broker.getEvents(c.pcfg.GetPodName())
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if checkEvents(events) {
+			if checkContainerEvents(events, StartedContainer, c.containerCount) {
 				// all containers are created.
-				c.ctx.Infof("Pulled images, created %d containers", c.containerCount)
+				c.ctx.Infof("Starting controller pod")
 				return nil
 			}
 		}
