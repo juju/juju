@@ -1212,9 +1212,6 @@ func (a *StorageAPI) UpdatePool(p params.StoragePoolArgs) (params.ErrorResults, 
 // code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
 // so this removes the method as far as the RPC machinery is concerned.
 
-// Dropped from v6 onwards.
-func (*StorageAPI) Detach(_, _ struct{}) {}
-
 // Added in v6 api version
 func (*StorageAPIv5) DetachStorage(_, _ struct{}) {}
 
