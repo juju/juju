@@ -324,9 +324,9 @@ func (s *MigrateSuite) TestUserMissingFromTarget(c *gc.C) {
 		{
 			descr:    "local model grants access to users not present in target",
 			srcModel: "model-with-extra-local-users",
-			expErr: `cannot initiate migration of model "source:model-with-extra-local-users" to controller "target" as some of the
-model's users do not exist in the target controller. To resolve this issue you can
-either add the following list of users to "target" or remove them from "source:model-with-extra-local-users":
+			expErr: `cannot initiate migration as the users granted access to the model do not exist
+on the destination controller. To resolve this issue you can add the following
+users to the destination controller or remove them from the current model:
   - foo`,
 		},
 		{
@@ -336,9 +336,9 @@ either add the following list of users to "target" or remove them from "source:m
 			srcModel:       "model-with-extra-users",
 			srcIdentityURL: "https://api.jujucharms.com/identity",
 			dstIdentityURL: "https://api.jujucharms.com/identity",
-			expErr: `cannot initiate migration of model "source:model-with-extra-users" to controller "target" as some of the
-model's users do not exist in the target controller. To resolve this issue you can
-either add the following list of users to "target" or remove them from "source:model-with-extra-users":
+			expErr: `cannot initiate migration as the users granted access to the model do not exist
+on the destination controller. To resolve this issue you can add the following
+users to the destination controller or remove them from the current model:
   - bar`,
 		},
 		{
@@ -359,10 +359,9 @@ either add the following list of users to "target" or remove them from "source:m
 			srcModel:       "model-with-extra-external-users",
 			srcIdentityURL: "https://api.jujucharms.com/identity",
 			dstIdentityURL: "https://candid.provider/identity",
-			expErr: `cannot initiate migration of model "source:model-with-extra-external-users" to controller "target" as
-external users have been granted access to the model and the two controllers have
-different identity provider configurations. To resolve this issue you can remove
-the following list of external users from "source:model-with-extra-external-users":
+			expErr: `cannot initiate migration as external users have been granted access to the model
+and the two controllers have different identity provider configurations. To resolve
+this issue you can remove the following users from the current model:
   - foo@external`,
 		},
 		{
@@ -374,14 +373,13 @@ the following list of external users from "source:model-with-extra-external-user
 			descr:          "controllers use different external identity providers AND local model users are not present in target",
 			srcModel:       "model-with-extra-users",
 			srcIdentityURL: "https://api.jujucharms.com/identity",
-			expErr: `cannot initiate migration of model "source:model-with-extra-users" to controller "target" as
-external users have been granted access to the model and the two controllers have
-different identity provider configurations. Additionally, some of the model's local
-users do not exist in the target controller. To resolve this issue you need to remove
-the following external users from "source:model-with-extra-users":
+			expErr: `cannot initiate migration as external users have been granted access to the model
+and the two controllers have different identity provider configurations. To resolve
+this issue you need to remove the following users from the current model:
   - foo@external
 
-and either add the following list of local users to "target" or remove them from "source:model-with-extra-users":
+and add the following users to the destination controller or remove them from
+the current model:
   - bar`,
 		},
 	}
