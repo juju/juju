@@ -112,7 +112,7 @@ func (s *CAASModelSuite) TestDestroyModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Life(), gc.Equals, state.Dying)
 
-	assertCleanupCount(c, st, 3)
+	assertCleanupCount(c, st, 4)
 	err = app.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = unit.Refresh()

@@ -206,6 +206,7 @@ var errRefresh = stderrors.New("state seems inconsistent, refresh and try again"
 // application has any units in scope, they are all removed immediately.
 func (a *Application) Destroy() (err error) {
 	defer func() {
+		logger.Tracef("Application(%s).Destroy() => %v", a.doc.Name, err)
 		if err == nil {
 			// This is a white lie; the document might actually be removed.
 			a.doc.Life = Dying
@@ -256,7 +257,7 @@ func (op *DestroyApplicationOperation) Build(attempt int) ([]txn.Op, error) {
 	// If 'force' is specified, they are treated as non-fatal - they will not prevent further
 	// processing: we'll still try to remove application.
 	ops, err := op.destroyOps()
-	switch err {
+	switch errors.Cause(err) {
 	case errRefresh:
 		return nil, jujutxn.ErrTransientFailure
 	case errAlreadyDying:
@@ -298,6 +299,8 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 		// This is just an early bail out. The relations obtained may still
 		// be wrong, but that situation will be caught by a combination of
 		// asserts on relationcount and on each known relation, below.
+		logger.Tracef("DestroyApplicationOperation(%s).destroyOps mismatched relation count %d != %d",
+			op.app.doc.Name, len(rels), op.app.doc.RelationCount)
 		return nil, errRefresh
 	}
 	ops := []txn.Op{minUnitsRemoveOp(op.app.st, op.app.doc.Name)}
@@ -309,7 +312,7 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 		// If the 'force' is not set and the call came across some errors,
 		// these errors will be fatal and no operations will be returned.
 		relOps, isRemove, err := rel.destroyOps(op.app.doc.Name, &op.ForcedOperation)
-		if err == errAlreadyDying {
+		if errors.Cause(err) == errAlreadyDying {
 			relOps = []txn.Op{{
 				C:      relationsC,
 				Id:     rel.doc.DocID,
@@ -362,6 +365,7 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	// If the application has no units, and all its known relations will be
 	// removed, the application can also be removed.
 	if op.app.doc.UnitCount == 0 && op.app.doc.RelationCount == removeCount {
+		logger.Tracef("DestroyApplicationOperation(%s).destroyOps removing application", op.app.doc.Name)
 		// If we're forcing destruction the assertion shouldn't be that
 		// life is alive, but that it's what we think it is now.
 		assertion := bson.D{
@@ -375,7 +379,7 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 		// these errors will be fatal and no operations will be returned.
 		removeOps, err := op.app.removeOps(assertion, &op.ForcedOperation)
 		if err != nil {
-			if !op.Force {
+			if !op.Force || errors.Cause(err) == errRefresh {
 				return nil, errors.Trace(err)
 			}
 			op.AddError(err)
@@ -399,6 +403,8 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	// about is that *some* unit is, or is not, keeping the application from
 	// being removed: the difference between 1 unit and 1000 is irrelevant.
 	if op.app.doc.UnitCount > 0 {
+		logger.Tracef("DestroyApplicationOperation(%s).destroyOps UnitCount == %d, queuing up unitCleanup",
+			op.app.doc.Name, op.app.doc.UnitCount)
 		cleanupOp := newCleanupOp(
 			cleanupUnitsForDyingApplication,
 			op.app.doc.Name,
@@ -476,18 +482,20 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 	// When 'force' is set, this call will return operations to delete application references
 	// to this charm as well as accumulate all operational errors encountered in the operation.
 	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	if a.doc.Life == Alive {
-		// Remove the reference to the Charm that this application is using. We
-		// only do this when transitioning from Alive to Dying
-		charmOps, err := appCharmDecRefOps(a.st, name, curl, false, op)
-		if err != nil {
-			if !op.Force {
-				return nil, errors.Trace(err)
-			}
-			op.AddError(err)
+	charmOps, err := appCharmDecRefOps(a.st, name, curl, false, op)
+	if err != nil {
+		if errors.Cause(err) == errRefcountAlreadyZero {
+			// We have already removed the reference to the charm, this indicates
+			// the application is already removed, reload yourself and try again
+			return nil, errRefresh
 		}
-		ops = append(ops, charmOps...)
+		if !op.Force {
+			return nil, errors.Trace(err)
+		}
+		op.AddError(err)
 	}
+	ops = append(ops, charmOps...)
+
 	// By the time we get to here, all units and charm refs have been removed,
 	// so it's safe to do this additional cleanup.
 	ops = append(ops, finalAppCharmRemoveOps(name, curl)...)

@@ -264,11 +264,11 @@ func (s *CharmSuite) TestDestroyFinalUnitReference(c *gc.C) {
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = app.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("calling app.Destroy()")
+	c.Assert(app.Destroy(), jc.ErrorIsNil)
 	removeUnit(c, unit)
 
-	assertCleanupCount(c, s.State, 1)
+	assertCleanupCount(c, s.State, 2)
 	s.checkRemoved(c)
 }
 

@@ -1191,18 +1191,14 @@ func assertLife(c *gc.C, entity state.Living, life state.Life) {
 }
 
 func assertRemoved(c *gc.C, entity state.Living) {
-	err := entity.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	err = entity.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(entity.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(entity.Destroy(), jc.ErrorIsNil)
 	if entity, ok := entity.(state.AgentLiving); ok {
-		err = entity.EnsureDead()
-		c.Assert(err, jc.ErrorIsNil)
-		err = entity.Remove()
-		if err != nil {
+		c.Assert(entity.EnsureDead(), jc.ErrorIsNil)
+		if err := entity.Remove(); err != nil {
 			c.Assert(err, gc.ErrorMatches, ".*already removed.*")
 		}
-		err = entity.Refresh()
+		err := entity.Refresh()
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
 }
@@ -1843,31 +1839,23 @@ func (s *UnitSuite) TestRemovePathological(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mysql0ru, err := rel.Unit(mysql0)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysql0ru.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mysql0ru.EnterScope(nil), jc.ErrorIsNil)
 
 	// Destroy wordpress, and remove its last unit.
-	err = wordpress.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	err = wordpress0.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = wordpress0.Remove()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wordpress.Destroy(), jc.ErrorIsNil)
+	c.Assert(wordpress0.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(wordpress0.Remove(), jc.ErrorIsNil)
 
 	// Check this didn't kill the application or relation yet...
-	err = wordpress.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	err = rel.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wordpress.Refresh(), jc.ErrorIsNil)
+	c.Assert(rel.Refresh(), jc.ErrorIsNil)
 
 	// ...but when the unit on the other side departs the relation, the
 	// relation and the other application are cleaned up.
-	err = mysql0ru.LeaveScope()
-	c.Assert(err, jc.ErrorIsNil)
-	err = wordpress.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(mysql0ru.LeaveScope(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
+	c.Assert(wordpress.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(rel.Refresh(), jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
@@ -1894,30 +1882,22 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy wordpress, and remove its last unit.
-	err = wordpress.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	err = wordpress0.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = wordpress0.Remove()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wordpress.Destroy(), jc.ErrorIsNil)
+	c.Assert(wordpress0.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(wordpress0.Remove(), jc.ErrorIsNil)
 
 	// Check this didn't kill the application or relation yet...
-	err = wordpress.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	err = rel.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wordpress.Refresh(), jc.ErrorIsNil)
+	c.Assert(rel.Refresh(), jc.ErrorIsNil)
 
 	// ...and that when the malfunctioning unit agent on the other side
 	// sets itself to dead *without* departing the relation, the unit's
 	// removal causes the relation and the other application to be cleaned up.
-	err = mysql0.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = mysql0.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	err = wordpress.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(mysql0.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(mysql0.Remove(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
+	c.Assert(wordpress.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(rel.Refresh(), jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {

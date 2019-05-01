@@ -558,21 +558,25 @@ func (st *State) cleanupCharm(charmURL string) error {
 	ch, err := st.Charm(curl)
 	if errors.IsNotFound(err) {
 		// Charm already removed.
+		logger.Tracef("cleanup charm(%s) no-op, charm already gone", charmURL)
 		return nil
 	} else if err != nil {
 		return errors.Annotate(err, "reading charm")
 	}
 
+	logger.Tracef("cleanup charm(%s): Destroy", charmURL)
 	err = ch.Destroy()
 	switch errors.Cause(err) {
 	case nil:
 	case errCharmInUse:
 		// No cleanup necessary at this time.
+		logger.Tracef("cleanup charm(%s): charm still in use", charmURL)
 		return nil
 	default:
 		return errors.Annotate(err, "destroying charm")
 	}
 
+	logger.Tracef("cleanup charm(%s): Remove", charmURL)
 	if err := ch.Remove(); err != nil {
 		return errors.Trace(err)
 	}

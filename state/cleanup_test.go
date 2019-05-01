@@ -224,7 +224,7 @@ func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
 	s.assertNeedsCleanup(c)
 
 	// Clean up, and check that the unit has been removed...
-	s.assertCleanupCount(c, 4)
+	s.assertCleanupCount(c, 3)
 	assertRemoved(c, pr.u0)
 
 	// ...and the unit has departed relation scope...
