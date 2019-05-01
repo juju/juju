@@ -526,7 +526,7 @@ func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		return ops, nil
 	default:
 		if op.Force {
-			logger.Warningf("forcing unit destructon for %v despite error %v", op.unit.Name(), err)
+			logger.Warningf("forcing unit destruction for %v despite error %v", op.unit.Name(), err)
 			return ops, nil
 		}
 		return nil, err
@@ -705,7 +705,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	}
 
 	// When 'force' is set, this call will return some, if not all, needed operations.
-	//  All operational errors encountered will be added to the operation.
+	// All operational errors encountered will be added to the operation.
 	// If the 'force' is not set, any error will be fatal and no operations will be returned.
 	removeOps, err := op.unit.removeOps(removeAsserts, &op.ForcedOperation, op.DestroyStorage)
 	if err == errAlreadyRemoved {

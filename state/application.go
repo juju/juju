@@ -232,7 +232,7 @@ type DestroyApplicationOperation struct {
 	// then detachable storage will be detached and left in the model.
 	DestroyStorage bool
 
-	// RemoveOffers contr not application offers
+	// RemoveOffers controls whether or not application offers
 	// are removed. If this is false, then the operation will
 	// fail if there are any offers remaining.
 	RemoveOffers bool

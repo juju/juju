@@ -145,7 +145,11 @@ func (st *State) Cleanup() (err error) {
 		{"when": bson.M{"$lte": st.stateClock.Now()}},
 		{"when": bson.M{"$exists": false}},
 	}}
-	iter := cleanups.Find(query).Iter()
+	// TODO(jam): 2019-05-01 We used to just query in any order, but that turned
+	//  out to *normally* be in sorted order, and some cleanups ended up depending
+	//  on that ordering. We shouldn't, but until we can fix the cleanups,
+	//  enforce the sort ordering.
+	iter := cleanups.Find(query).Sort("_id").Iter()
 	defer closeIter(iter, &err, "reading cleanup document")
 	for iter.Next(&doc) {
 		var err error

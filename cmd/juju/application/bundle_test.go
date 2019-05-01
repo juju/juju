@@ -2340,8 +2340,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundlePassesSequences(c *gc.C) {
 	}
 	c.Assert(s.State.CompleteMachineRemovals(ids...), jc.ErrorIsNil)
 
-        // Now that the machines are removed, the units should be dead,
-        // we need 1 more Cleanup step to remove the applications.
+	// Now that the machines are removed, the units should be dead,
+	// we need 1 more Cleanup step to remove the applications.
 	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
 	apps, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
