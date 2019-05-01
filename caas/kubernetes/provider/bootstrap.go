@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
+	kubeletevents "k8s.io/kubernetes/pkg/kubelet/events"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
@@ -333,44 +334,6 @@ func (c *controllerStack) Deploy() (err error) {
 	return nil
 }
 
-func (c *controllerStack) syncPodStatus(w watcher.NotifyWatcher) error {
-
-	printedMsg := set.NewStrings()
-	checkEvents := func(events []core.Event) bool {
-		if len(events) == 0 {
-			return false
-		}
-		startedContainers := 0
-		for _, evt := range events {
-			if evt.Type == "Normal" && !printedMsg.Contains(evt.Message) {
-				printedMsg.Add(evt.Message)
-				c.ctx.Infof(evt.Message)
-			}
-			if evt.Reason == "Started" {
-				logger.Debugf("event: %q, %q", evt.Reason, evt.Message)
-				startedContainers++
-			}
-		}
-		return startedContainers >= c.containerCount
-	}
-	for {
-		select {
-		case <-time.After(3 * time.Minute):
-			return errors.NotProvisionedf("controller %q took too long to be ready", c.broker.GetCurrentNamespace())
-		case <-w.Changes():
-			events, err := c.broker.getEvents(getPodName(c.pcfg))
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if done := checkEvents(events); done {
-				// all containers are started.
-				logger.Debugf("all the %d containers are created", c.containerCount)
-				return nil
-			}
-		}
-	}
-}
-
 func (c *controllerStack) getControllerSvcSpec(cloudType string) (*controllerServiceSpec, error) {
 	spec, ok := controllerServiceSpecs[cloudType]
 	if !ok {
@@ -549,7 +512,7 @@ func getPodName(pcfg *podcfg.ControllerPodConfig) string {
 }
 
 func (c *controllerStack) createControllerStatefulset() error {
-	numberOfPods := int32(1) // TODO: HA mode!
+	numberOfPods := int32(1) // TODO(caas): HA mode!
 	spec := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      c.resourceNameStatefulSet,
@@ -578,7 +541,6 @@ func (c *controllerStack) createControllerStatefulset() error {
 	if err := c.buildStorageSpecForController(spec); err != nil {
 		return errors.Trace(err)
 	}
-
 	if err := c.buildContainerSpecForController(spec); err != nil {
 		return errors.Trace(err)
 	}
@@ -601,6 +563,41 @@ func (c *controllerStack) createControllerStatefulset() error {
 		return errors.Annotate(err, "fetching pods status for controller")
 	}
 	return nil
+}
+
+func (c *controllerStack) syncPodStatus(w watcher.NotifyWatcher) error {
+	printedMsg := set.NewStrings()
+	checkEvents := func(events []core.Event) bool {
+		if len(events) == 0 {
+			return false
+		}
+		startedContainers := 0
+		for _, evt := range events {
+			if evt.Type == core.EventTypeNormal && !printedMsg.Contains(evt.Message) {
+				printedMsg.Add(evt.Message)
+				logger.Debugf(evt.Message)
+			}
+			if evt.Reason == kubeletevents.StartedContainer {
+				logger.Debugf("event: %q, %q", evt.Reason, evt.Message)
+				startedContainers++
+			}
+		}
+		return startedContainers >= c.containerCount
+	}
+	for {
+		select {
+		case <-w.Changes():
+			events, err := c.broker.getEvents(getPodName(c.pcfg))
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if done := checkEvents(events); done {
+				// all containers are created.
+				c.ctx.Infof("Pulled images, created %d containers", c.containerCount)
+				return nil
+			}
+		}
+	}
 }
 
 func (c *controllerStack) buildStorageSpecForController(statefulset *apps.StatefulSet) error {
