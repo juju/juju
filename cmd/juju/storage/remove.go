@@ -35,18 +35,12 @@ By default, remove-storage will fail if the storage
 is attached to any units. To override this behaviour,
 you can use "juju remove-storage --force".
 
-Storage removal is a multi-step process. Under normal circumstances, Juju will not
-proceed to a next step until the current step has finished. 
-However, when using --force, users can also specify --no-wait to progress through steps 
-without delay waiting for each step to complete.
-
 Examples:
     # Remove the detached storage pgdata/0.
     juju remove-storage pgdata/0
 
     # Remove the possibly attached storage pgdata/0.
     juju remove-storage --force pgdata/0
-    juju remove-storage --force --no-wait pgdata/0
 
     # Remove the storage pgdata/0, without destroying
     # the corresponding cloud storage.
@@ -81,7 +75,6 @@ func (c *removeStorageCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
 	f.BoolVar(&c.force, "force", false, "Remove storage even if it is currently attached")
 	f.BoolVar(&c.noDestroy, "no-destroy", false, "Remove the storage without destroying it")
-	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through storage removal without waiting for each individual step to complete")
 	c.fs = f
 }
 

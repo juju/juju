@@ -52,16 +52,6 @@ func (s *RemoveStorageSuite) TestRemoveStorageForce(c *gc.C) {
 	fake.CheckCall(c, 1, "Remove", []string{"pgdata/0", "pgdata/1"}, true, true, &force, (*time.Duration)(nil))
 }
 
-func (s *RemoveStorageSuite) TestRemoveStorageNoWaitNoForce(c *gc.C) {
-	fake := fakeStorageRemover{results: []params.ErrorResult{
-		{},
-		{},
-	}}
-	command := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
-	_, err := cmdtesting.RunCommand(c, command, "--no-wait", "pgdata/0", "pgdata/1")
-	c.Assert(err, gc.ErrorMatches, "--no-wait without --force not valid")
-}
-
 func (s *RemoveStorageSuite) TestRemoveStorageNoDestroy(c *gc.C) {
 	fake := fakeStorageRemover{results: []params.ErrorResult{
 		{},

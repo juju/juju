@@ -40,16 +40,6 @@ detaching bar/1
 `[1:])
 }
 
-func (s *DetachStorageSuite) TestDetachNoWaitNoForce(c *gc.C) {
-	fake := fakeEntityDetacher{results: []params.ErrorResult{
-		{},
-		{},
-	}}
-	command := storage.NewDetachStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
-	_, err := cmdtesting.RunCommand(c, command, "--no-wait", "foo/0", "bar/1")
-	c.Assert(err, gc.ErrorMatches, "--no-wait without --force not valid")
-}
-
 func (s *DetachStorageSuite) TestDetachError(c *gc.C) {
 	fake := fakeEntityDetacher{results: []params.ErrorResult{
 		{Error: &params.Error{Message: "foo"}},

@@ -43,16 +43,10 @@ removed by an operator.
 Detaching storage may fail but under some circumstances, Juju user may need 
 to force storage detachment despite operational errors. 
 
-Storage detachment is a multi-step process. Under normal circumstances, Juju will not
-proceed to a next step until the current step has finished. 
-However, when using --force, users can also specify --no-wait to progress through steps 
-without delay waiting for each step to complete.
-
 
 Examples:
     juju detach-storage pgdata/0
     juju detach-storage --force pgdata/0
-    juju detach-storage --force --no-wait pgdata/0
 `
 
 	detachStorageCommandArgs = `<storage> [<storage> ...]`
@@ -83,7 +77,6 @@ func (c *detachStorageCommand) Init(args []string) error {
 func (c *detachStorageCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.StorageCommandBase.SetFlags(f)
 	f.BoolVar(&c.Force, "force", false, "Forcefully detach storage")
-	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through storage detachment without waiting for each individual step to complete")
 	c.fs = f
 }
 
