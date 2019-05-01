@@ -52,16 +52,6 @@ func (s *RemoveRelationSuite) TestRemoveRelationWrongNumberOfArguments(c *gc.C) 
 	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
 }
 
-func (s *RemoveRelationSuite) TestRemoveRelationNoWaitWithoutForce(c *gc.C) {
-	// with relation id
-	err := s.runRemoveRelation(c, "123", "--no-wait")
-	c.Assert(err, gc.ErrorMatches, `--no-wait without --force not valid`)
-
-	// with relation applications
-	err = s.runRemoveRelation(c, "application1", "application2", "--no-wait")
-	c.Assert(err, gc.ErrorMatches, `--no-wait without --force not valid`)
-}
-
 func (s *RemoveRelationSuite) TestRemoveRelationIdOldServer(c *gc.C) {
 	s.mockAPI.version = 4
 	err := s.runRemoveRelation(c, "123")
