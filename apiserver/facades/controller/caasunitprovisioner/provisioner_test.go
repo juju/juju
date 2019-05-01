@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	storageprovider "github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -36,6 +37,7 @@ type CAASProvisionerSuite struct {
 	st                  *mockState
 	storage             *mockStorage
 	storagePoolManager  *mockStoragePoolManager
+	registry            *mockStorageRegistry
 	devices             *mockDeviceBackend
 	applicationsChanges chan []string
 	podSpecChanges      chan struct{}
@@ -87,7 +89,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Now())
 
 	facade, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, s.st, s.storage, s.devices, s.storagePoolManager, s.clock)
+		s.resources, s.authorizer, s.st, s.storage, s.devices, s.storagePoolManager, s.registry, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
@@ -97,7 +99,7 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, s.st, s.storage, s.devices, s.storagePoolManager, s.clock)
+		s.resources, s.authorizer, s.st, s.storage, s.devices, s.storagePoolManager, s.registry, s.clock)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -163,14 +165,23 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	}
 	s.st.application.charm = &mockCharm{
 		meta: charm.Meta{
+			Storage: map[string]charm.Storage{
+				"data": {
+					Name:     "data",
+					Type:     charm.StorageFilesystem,
+					ReadOnly: true,
+				},
+				"logs": {
+					Name: "logs",
+					Type: charm.StorageFilesystem,
+				},
+			},
 			Deployment: &charm.Deployment{
 				DeploymentType: charm.DeploymentStateful,
 				ServiceType:    charm.ServiceLoadBalancer,
 			},
 		},
 	}
-	s.storage.storageFilesystems[names.NewStorageTag("data/0")] = names.NewFilesystemTag("gitlab/1/0")
-	s.storage.storageAttachments[names.NewUnitTag("gitlab/1")] = names.NewStorageTag("data/0")
 
 	results, err := s.facade.ProvisioningInfo(params.Entities{
 		Entities: []params.Entity{
@@ -196,14 +207,26 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 						"foo":           "bar",
 					},
 					Tags: map[string]string{
-						"juju-storage-instance": "data/0",
-						"juju-storage-owner":    "gitlab",
-						"juju-model-uuid":       coretesting.ModelTag.Id(),
-						"juju-controller-uuid":  coretesting.ControllerTag.Id()},
+						"juju-storage-owner":   "gitlab",
+						"juju-model-uuid":      coretesting.ModelTag.Id(),
+						"juju-controller-uuid": coretesting.ControllerTag.Id()},
 					Attachment: &params.KubernetesFilesystemAttachmentParams{
 						Provider:   string(provider.K8s_ProviderType),
-						MountPoint: "/path/to/here",
+						MountPoint: "/var/lib/juju/storage/data/0",
 						ReadOnly:   true,
+					},
+				}, {
+					StorageName: "logs",
+					Provider:    string(storageprovider.RootfsProviderType),
+					Size:        200,
+					Attributes:  map[string]interface{}{},
+					Tags: map[string]string{
+						"juju-storage-owner":   "gitlab",
+						"juju-model-uuid":      coretesting.ModelTag.Id(),
+						"juju-controller-uuid": coretesting.ControllerTag.Id()},
+					Attachment: &params.KubernetesFilesystemAttachmentParams{
+						Provider:   string(storageprovider.RootfsProviderType),
+						MountPoint: "/var/lib/juju/storage/logs/0",
 					},
 				}},
 				Devices: []params.KubernetesDeviceParams{
@@ -226,24 +249,7 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	})
 	s.st.CheckCallNames(c, "Model", "Application", "ControllerConfig", "ResolveConstraints")
 	s.st.CheckCall(c, 3, "ResolveConstraints", constraints.MustParse("mem=64G"))
-	s.storage.CheckCallNames(c, "UnitStorageAttachments", "StorageInstance", "FilesystemAttachment")
-	s.storagePoolManager.CheckCallNames(c, "Get")
-}
-
-func (s *CAASProvisionerSuite) TestProvisioningInfoNoUnits(c *gc.C) {
-	s.st.application.units = []caasunitprovisioner.Unit{}
-
-	results, err := s.facade.ProvisioningInfo(params.Entities{
-		Entities: []params.Entity{
-			{Tag: "application-gitlab"},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.KubernetesProvisioningInfoResults{
-		Results: []params.KubernetesProvisioningInfoResult{{}}})
-	s.st.CheckCallNames(c, "Model", "Application")
-	s.storage.CheckNoCalls(c)
-	s.storagePoolManager.CheckNoCalls(c)
+	s.storagePoolManager.CheckCallNames(c, "Get", "Get")
 }
 
 func (s *CAASProvisionerSuite) TestApplicationScale(c *gc.C) {

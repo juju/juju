@@ -4,6 +4,7 @@
 package caasunitprovisioner_test
 
 import (
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -131,8 +132,8 @@ type mockApplication struct {
 	charm      *mockCharm
 }
 
-func (*mockApplication) Tag() names.Tag {
-	panic("should not be called")
+func (a *mockApplication) Tag() names.Tag {
+	return a.tag
 }
 
 func (a *mockApplication) Name() string {
@@ -159,6 +160,20 @@ func (a *mockApplication) SetScale(scale int) error {
 	a.MethodCall(a, "SetScale", scale)
 	a.scale = scale
 	return nil
+}
+
+func (a *mockApplication) StorageConstraints() (map[string]state.StorageConstraints, error) {
+	return map[string]state.StorageConstraints{
+		"data": {
+			Size:  100,
+			Count: 1,
+		},
+		"logs": {
+			Size:  200,
+			Pool:  "rootfs",
+			Count: 1,
+		},
+	}, nil
 }
 
 type mockCharm struct {
@@ -337,11 +352,6 @@ func (m *mockStorage) Filesystem(fsTag names.FilesystemTag) (state.Filesystem, e
 	return &mockFilesystem{Stub: &m.Stub, tag: fsTag, volTag: m.backingVolume}, nil
 }
 
-func (m *mockStorage) FilesystemAttachment(hostTag names.Tag, fsTag names.FilesystemTag) (state.FilesystemAttachment, error) {
-	m.MethodCall(m, "FilesystemAttachment", hostTag, fsTag)
-	return &mockFilesystemAttachment{}, nil
-}
-
 func (m *mockStorage) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {
 	return &mockFilesystem{Stub: &m.Stub, tag: m.storageFilesystems[tag], volTag: m.backingVolume}, nil
 }
@@ -413,16 +423,9 @@ func (a *mockStorageInstance) Tag() names.Tag {
 	return a.tag
 }
 
-func (a *mockStorageInstance) StorageTag() names.StorageTag {
-	return a.tag
-}
-
 func (a *mockStorageInstance) StorageName() string {
-	return "data"
-}
-
-func (a *mockStorageInstance) Owner() (names.Tag, bool) {
-	return a.owner, a.owner != nil
+	id := a.tag.Id()
+	return strings.Split(id, "/")[0]
 }
 
 type mockStorageAttachment struct {
@@ -458,13 +461,6 @@ func (f *mockFilesystem) Volume() (names.VolumeTag, error) {
 	return f.volTag, nil
 }
 
-func (f *mockFilesystem) Params() (state.FilesystemParams, bool) {
-	return state.FilesystemParams{
-		Pool: "k8spool",
-		Size: 100,
-	}, true
-}
-
 func (f *mockFilesystem) SetStatus(statusInfo status.StatusInfo) error {
 	f.MethodCall(f, "SetStatus", statusInfo)
 	return nil
@@ -472,17 +468,6 @@ func (f *mockFilesystem) SetStatus(statusInfo status.StatusInfo) error {
 
 func (f *mockFilesystem) Info() (state.FilesystemInfo, error) {
 	return state.FilesystemInfo{}, errors.NotProvisionedf("filesystem")
-}
-
-type mockFilesystemAttachment struct {
-	state.FilesystemAttachment
-}
-
-func (f *mockFilesystemAttachment) Params() (state.FilesystemAttachmentParams, bool) {
-	return state.FilesystemAttachmentParams{
-		Location: "/path/to/here",
-		ReadOnly: true,
-	}, true
 }
 
 type mockVolume struct {
@@ -497,13 +482,6 @@ func (v *mockVolume) Tag() names.Tag {
 
 func (v *mockVolume) VolumeTag() names.VolumeTag {
 	return v.tag
-}
-
-func (v *mockVolume) Params() (state.VolumeParams, bool) {
-	return state.VolumeParams{
-		Pool: "k8spool",
-		Size: 100,
-	}, true
 }
 
 func (v *mockVolume) SetStatus(statusInfo status.StatusInfo) error {
@@ -522,5 +500,28 @@ type mockStoragePoolManager struct {
 
 func (m *mockStoragePoolManager) Get(name string) (*storage.Config, error) {
 	m.MethodCall(m, "Get", name)
+	if name == "rootfs" {
+		return nil, errors.NotFoundf("pool %q", name)
+	}
 	return storage.NewConfig(name, provider.K8s_ProviderType, map[string]interface{}{"foo": "bar"})
+}
+
+type mockStorageRegistry struct {
+	testing.Stub
+	storage.ProviderRegistry
+}
+
+type mockProvider struct {
+	storage.Provider
+}
+
+func (m *mockProvider) Supports(kind storage.StorageKind) bool {
+	return kind == storage.StorageKindFilesystem
+}
+
+func (m *mockStorageRegistry) StorageProvider(p storage.ProviderType) (storage.Provider, error) {
+	if p != "rootfs" {
+		return nil, errors.NotFoundf("provider %q", p)
+	}
+	return &mockProvider{}, nil
 }

@@ -8,15 +8,21 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/names.v2"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/resource"
 )
 
 // UploadClient has the API client methods needed by UploadCommand.
 type UploadClient interface {
 	// Upload sends the resource to Juju.
 	Upload(application, name, filename string, resource io.ReadSeeker) error
+
+	// ListResources returns info about resources for applications in the model.
+	ListResources(applications []string) ([]resource.ApplicationResources, error)
 
 	// Close closes the client.
 	Close() error
@@ -42,8 +48,8 @@ type UploadDeps struct {
 type UploadCommand struct {
 	deps UploadDeps
 	modelcmd.ModelCommandBase
-	application  string
-	resourceFile resourceFile
+	application   string
+	resourceValue resourceValue
 }
 
 // NewUploadCommand returns a new command that lists resources defined
@@ -52,16 +58,26 @@ func NewUploadCommand(deps UploadDeps) modelcmd.ModelCommand {
 	return modelcmd.Wrap(&UploadCommand{deps: deps})
 }
 
+const (
+	attachDoc = `
+This command updates a resource for an application.
+
+For file resources, it uploads a file from your local disk to the juju controller to be
+streamed to the charm when "resource-get" is called by a hook.
+
+For OCI image resources used by k8s applications, an OCI image or file path is specified.
+A file is specified when a private OCI image is needed and the username/password used to
+access the image is needed along with the image path.
+`
+)
+
 // Info implements cmd.Command.Info
 func (c *UploadCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "attach-resource",
-		Args:    "application name=file",
-		Purpose: "Upload a file as a resource for an application.",
-		Doc: `
-This command uploads a file from your local disk to the juju controller to be
-used as a resource for an application.
-`,
+		Args:    "application name=file|OCI image",
+		Purpose: "Update a resource for an application.",
+		Doc:     attachDoc,
 		Aliases: []string{"attach"},
 	})
 }
@@ -76,33 +92,30 @@ func (c *UploadCommand) Init(args []string) error {
 		return errors.BadRequestf("no resource specified")
 	}
 
-	application := args[0]
-	if application == "" { // TODO(ericsnow) names.IsValidApplication
-		return errors.NewNotValid(nil, "missing application name")
+	c.application = args[0]
+	if !names.IsValidApplication(c.application) {
+		return errors.NotValidf("application %q", c.application)
 	}
-	c.application = application
 
-	if err := c.addResourceFile(args[1]); err != nil {
+	if err := c.addResourceValue(args[1]); err != nil {
 		return errors.Trace(err)
 	}
-	if err := cmd.CheckEmpty(args[2:]); err != nil {
-		return errors.NewBadRequest(err, "")
-	}
-
-	return nil
+	return cmd.CheckEmpty(args[2:])
 }
 
-// addResourceFile parses the given arg into a name and a resource file,
-// and saves it in c.resourceFiles.
-func (c *UploadCommand) addResourceFile(arg string) error {
-	name, filename, err := parseResourceFileArg(arg)
+// addResourceValue parses the given arg into a name and a resource value,
+// and saves it in c.resourceValue.
+func (c *UploadCommand) addResourceValue(arg string) error {
+	name, value, err := parseResourceValueArg(arg)
 	if err != nil {
 		return errors.Annotatef(err, "bad resource arg %q", arg)
 	}
-	c.resourceFile = resourceFile{
+	c.resourceValue = resourceValue{
 		application: c.application,
 		name:        name,
-		filename:    filename,
+		value:       value,
+		// Default to file resource.
+		resourceType: charmresource.TypeFile,
 	}
 
 	return nil
@@ -116,20 +129,31 @@ func (c *UploadCommand) Run(*cmd.Context) error {
 	}
 	defer apiclient.Close()
 
-	if err := c.upload(c.resourceFile, apiclient); err != nil {
-		return errors.Annotatef(err, "failed to upload resource %q", c.resourceFile.name)
+	result, err := apiclient.ListResources([]string{c.application})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	resourceMeta := result[0]
+	for _, r := range resourceMeta.Resources {
+		if r.Name == c.resourceValue.name {
+			c.resourceValue.resourceType = r.Type
+		}
+	}
+
+	if err := c.upload(c.resourceValue, apiclient); err != nil {
+		return errors.Annotatef(err, "failed to upload resource %q", c.resourceValue.name)
 	}
 	return nil
 }
 
 // upload opens the given file and calls the apiclient to upload it to the given
 // application with the given name.
-func (c *UploadCommand) upload(rf resourceFile, client UploadClient) error {
-	f, err := c.deps.OpenResource(rf.filename)
+func (c *UploadCommand) upload(rf resourceValue, client UploadClient) error {
+	f, err := OpenResource(rf.value, rf.resourceType, c.deps.OpenResource)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer f.Close()
-	err = client.Upload(rf.application, rf.name, rf.filename, f)
+	err = client.Upload(rf.application, rf.name, rf.value, f)
 	return errors.Trace(err)
 }

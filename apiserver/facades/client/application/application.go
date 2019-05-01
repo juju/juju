@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/tools"
 )
@@ -100,6 +101,7 @@ type APIBase struct {
 	stateCharm func(Charm) *state.Charm
 
 	storagePoolManager    poolmanager.PoolManager
+	registry              storage.ProviderRegistry
 	storageValidator      caas.StorageValidator
 	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error)
 }
@@ -174,15 +176,18 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 	blockChecker := common.NewBlockChecker(ctx.State())
 	stateCharm := CharmToStateCharm
 
-	var storagePoolManager poolmanager.PoolManager
-	var storageValidator caas.Broker
+	var (
+		storagePoolManager poolmanager.PoolManager
+		registry           storage.ProviderRegistry
+		storageValidator   caas.Broker
+	)
 	if model.Type() == state.ModelTypeCAAS {
 		storageValidator, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(ctx.State())
 		if err != nil {
 			return nil, errors.Annotate(err, "getting caas client")
 		}
-		storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(storageValidator)
-		storagePoolManager = poolmanager.New(state.NewStateSettings(ctx.State()), storageProviderRegistry)
+		registry = stateenvirons.NewStorageProviderRegistry(storageValidator)
+		storagePoolManager = poolmanager.New(state.NewStateSettings(ctx.State()), registry)
 	}
 
 	resources := ctx.Resources()
@@ -196,6 +201,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		stateCharm,
 		DeployApplication,
 		storagePoolManager,
+		registry,
 		resources,
 		storageValidator,
 	)
@@ -211,6 +217,7 @@ func NewAPIBase(
 	stateCharm func(Charm) *state.Charm,
 	deployApplication func(ApplicationDeployer, DeployApplicationParams) (Application, error),
 	storagePoolManager poolmanager.PoolManager,
+	registry storage.ProviderRegistry,
 	resources facade.Resources,
 	storageValidator caas.StorageValidator,
 ) (*APIBase, error) {
@@ -227,6 +234,7 @@ func NewAPIBase(
 		stateCharm:            stateCharm,
 		deployApplicationFunc: deployApplication,
 		storagePoolManager:    storagePoolManager,
+		registry:              registry,
 		resources:             resources,
 		storageValidator:      storageValidator,
 	}, nil
@@ -344,7 +352,7 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 	}
 
 	for i, arg := range args.Applications {
-		err := deployApplication(api.backend, api.model, api.stateCharm, arg, api.deployApplicationFunc, api.storagePoolManager, api.storageValidator)
+		err := deployApplication(api.backend, api.model, api.stateCharm, arg, api.deployApplicationFunc, api.storagePoolManager, api.registry, api.storageValidator)
 		result.Results[i].Error = common.ServerError(err)
 
 		if err != nil && len(arg.Resources) != 0 {
@@ -457,6 +465,7 @@ func deployApplication(
 	args params.ApplicationDeploy,
 	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error),
 	storagePoolManager poolmanager.PoolManager,
+	registry storage.ProviderRegistry,
 	storageValidator caas.StorageValidator,
 ) error {
 	curl, err := charm.ParseURL(args.CharmURL)
@@ -496,9 +505,9 @@ func deployApplication(
 					"See https://discourse.jujucharms.com/t/getting-started/152.",
 			)
 		}
-		sp, err := caasoperatorprovisioner.CharmStorageParams("", storageClassName, cfg, "", storagePoolManager)
+		sp, err := caasoperatorprovisioner.CharmStorageParams("", storageClassName, cfg, "", storagePoolManager, registry)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "getting operator storage params for %q", args.ApplicationName)
 		}
 		if sp.Provider != string(k8s.K8s_ProviderType) {
 			poolName := cfg.AllAttrs()[k8s.OperatorStorageKey]
@@ -514,9 +523,9 @@ func deployApplication(
 			if cons.Pool == "" && workloadStorageClass == "" {
 				return errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageName)
 			}
-			_, err := caasoperatorprovisioner.CharmStorageParams("", workloadStorageClass, cfg, cons.Pool, storagePoolManager)
+			_, err := caasoperatorprovisioner.CharmStorageParams("", workloadStorageClass, cfg, cons.Pool, storagePoolManager, registry)
 			if err != nil {
-				return errors.Trace(err)
+				return errors.Annotatef(err, "getting workload storage params for %q", args.ApplicationName)
 			}
 		}
 	}
@@ -1579,9 +1588,7 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 		return params.ScaleApplicationResults{}, errors.Trace(err)
 	}
 	scaleApplication := func(arg params.ScaleApplicationParams) (*params.ScaleApplicationInfo, error) {
-		if arg.Scale == 0 && arg.ScaleChange == 0 {
-			return nil, errors.NotValidf("scale of 0")
-		} else if arg.Scale < 0 && arg.ScaleChange == 0 {
+		if arg.Scale < 0 && arg.ScaleChange == 0 {
 			return nil, errors.NotValidf("scale < 0")
 		} else if arg.Scale != 0 && arg.ScaleChange != 0 {
 			return nil, errors.NotValidf("requesting both scale and scale-change")

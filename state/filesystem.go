@@ -1371,10 +1371,10 @@ func setFilesystemAttachmentInfoOps(
 	}}
 }
 
-// filesystemMountPoint returns a mount point to use for the given charm
+// FilesystemMountPoint returns a mount point to use for the given charm
 // storage. For stores with potentially multiple instances, the instance
 // name is appended to the location.
-func filesystemMountPoint(
+func FilesystemMountPoint(
 	meta charm.Storage,
 	tag names.StorageTag,
 	series string,

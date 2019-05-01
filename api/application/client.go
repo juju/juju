@@ -937,9 +937,7 @@ func (c *Client) ResolveUnitErrors(units []string, all, retry bool) error {
 }
 
 func validateApplicationScale(scale, scaleChange int) error {
-	if scale == 0 && scaleChange == 0 {
-		return errors.NotValidf("scale of 0")
-	} else if scale < 0 && scaleChange == 0 {
+	if scale < 0 && scaleChange == 0 {
 		return errors.NotValidf("scale < 0")
 	} else if scale != 0 && scaleChange != 0 {
 		return errors.NotValidf("requesting both scale and scale-change")

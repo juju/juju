@@ -48,6 +48,7 @@ type ApplicationSuite struct {
 	relation           mockRelation
 	application        mockApplication
 	storagePoolManager *mockStoragePoolManager
+	registry           *mockStorageRegistry
 
 	storageValidator *mockStorageValidator
 	env              environs.Environ
@@ -62,6 +63,7 @@ var _ = gc.Suite(&ApplicationSuite{})
 func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	s.storagePoolManager = &mockStoragePoolManager{storageType: k8s.K8s_ProviderType}
+	s.registry = &mockStorageRegistry{}
 	s.storageValidator = &mockStorageValidator{}
 	api, err := application.NewAPIBase(
 		&s.backend,
@@ -77,6 +79,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 			return nil, nil
 		},
 		s.storagePoolManager,
+		s.registry,
 		common.NewResources(),
 		s.storageValidator,
 	)
@@ -891,10 +894,6 @@ func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleArgCheck(c *gc.C) 
 		scale:       5,
 		scaleChange: 5,
 		errorStr:    "requesting both scale and scale-change not valid",
-	}, {
-		scale:       0,
-		scaleChange: 0,
-		errorStr:    "scale of 0 not valid",
 	}, {
 		scale:       -1,
 		scaleChange: 0,

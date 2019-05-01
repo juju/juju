@@ -128,19 +128,6 @@ func (s *unitprovisionerSuite) TestProvisioningInfoError(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *unitprovisionerSuite) TestProvisioningInfoNoUnits(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.KubernetesProvisioningInfoResults)) = params.KubernetesProvisioningInfoResults{
-			Results: []params.KubernetesProvisioningInfoResult{{}},
-		}
-		return nil
-	})
-
-	client := caasunitprovisioner.NewClient(apiCaller)
-	_, err := client.ProvisioningInfo("gitlab")
-	c.Assert(err, jc.DeepEquals, caasunitprovisioner.ErrNoUnits)
-}
-
 func (s *unitprovisionerSuite) TestProvisioningInfoInvalidApplicationName(c *gc.C) {
 	client := caasunitprovisioner.NewClient(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
 		return errors.New("should not be called")

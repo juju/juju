@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/resource"
 	"github.com/juju/testing"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 
@@ -30,6 +31,8 @@ func (s *stubCharmStore) ListResources(charms []charmstore.CharmID) ([][]charmre
 
 type stubAPIClient struct {
 	stub *testing.Stub
+
+	resources resource.ApplicationResources
 }
 
 func (s *stubAPIClient) Upload(application, name, filename string, resource io.ReadSeeker) error {
@@ -39,6 +42,14 @@ func (s *stubAPIClient) Upload(application, name, filename string, resource io.R
 	}
 
 	return nil
+}
+
+func (s *stubAPIClient) ListResources(applications []string) ([]resource.ApplicationResources, error) {
+	s.stub.AddCall("ListResources", applications)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return []resource.ApplicationResources{s.resources}, nil
 }
 
 func (s *stubAPIClient) Close() error {

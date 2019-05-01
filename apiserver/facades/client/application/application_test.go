@@ -106,6 +106,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv9 {
 		application.CharmToStateCharm,
 		application.DeployApplication,
 		pm,
+		registry,
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
 	)
