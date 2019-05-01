@@ -362,6 +362,8 @@ type DeployCommand struct {
 	unknownModel bool
 }
 
+const kubernetesSeriesName = "kubernetes"
+
 const deployDoc = `
 A charm can be referred to by its simple name and a series can optionally be
 specified:
@@ -1184,6 +1186,9 @@ func (c *DeployCommand) validateCharmSeries(seriesName string) error {
 			found = true
 		}
 	}
+	if seriesName == kubernetesSeriesName {
+		found = true
+	}
 	if !found && !c.Force {
 		return errors.NotSupportedf("series: %s", seriesName)
 	}
@@ -1358,7 +1363,7 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 	// needed for a more elegant fix.
 
 	ch, err := charm.ReadCharm(c.CharmOrBundle)
-	series := c.Series
+	seriesName := c.Series
 	if err == nil {
 		modelCfg, err := getModelConfig(apiRoot)
 		if err != nil {
@@ -1366,21 +1371,25 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 		}
 
 		seriesSelector := seriesSelector{
-			seriesFlag:      series,
-			supportedSeries: ch.Meta().Series,
-			force:           c.Force,
-			conf:            modelCfg,
-			fromBundle:      false,
+			seriesFlag:          seriesName,
+			supportedSeries:     ch.Meta().Series,
+			supportedJujuSeries: append(series.SupportedJujuSeries(), kubernetesSeriesName),
+			force:               c.Force,
+			conf:                modelCfg,
+			fromBundle:          false,
 		}
 
-		series, err = seriesSelector.charmSeries()
+		seriesName, err = seriesSelector.charmSeries()
 		if err != nil {
+			if errors.IsNotSupported(err) {
+				return nil, errors.Errorf("%v is not available on the following series: %v", ch.Meta().Name, seriesName)
+			}
 			return nil, errors.Trace(err)
 		}
 	}
 
 	// Charm may have been supplied via a path reference.
-	ch, curl, err := charmrepo.NewCharmAtPathForceSeries(c.CharmOrBundle, series, c.Force)
+	ch, curl, err := charmrepo.NewCharmAtPathForceSeries(c.CharmOrBundle, seriesName, c.Force)
 	// We check for several types of known error which indicate
 	// that the supplied reference was indeed a path but there was
 	// an issue reading the charm located there.
@@ -1403,9 +1412,9 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 	}
 
 	// Avoid deploying charm if it's not valid for the model.
-	if err := c.validateCharmSeries(series); err != nil {
+	if err := c.validateCharmSeries(seriesName); err != nil {
 		if errors.IsNotSupported(err) {
-			return nil, errors.Errorf("%v is not available on the following series: %v", curl.Name, series)
+			return nil, errors.Errorf("%v is not available on the following series: %v", curl.Name, seriesName)
 		}
 		return nil, errors.Trace(err)
 	}
@@ -1549,12 +1558,13 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		}
 
 		selector := seriesSelector{
-			charmURLSeries:  userRequestedSeries,
-			seriesFlag:      c.Series,
-			supportedSeries: supportedSeries,
-			force:           c.Force,
-			conf:            modelCfg,
-			fromBundle:      false,
+			charmURLSeries:      userRequestedSeries,
+			seriesFlag:          c.Series,
+			supportedSeries:     supportedSeries,
+			supportedJujuSeries: append(series.SupportedJujuSeries(), kubernetesSeriesName),
+			force:               c.Force,
+			conf:                modelCfg,
+			fromBundle:          false,
 		}
 
 		// Get the series to use.
@@ -1573,6 +1583,9 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 
 		if charm.IsUnsupportedSeriesError(err) {
 			return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
+		}
+		if errors.IsNotSupported(err) {
+			return errors.Errorf("%v is not available on the following series: %v", storeCharmOrBundleURL.Name, series)
 		}
 
 		// Store the charm in the controller

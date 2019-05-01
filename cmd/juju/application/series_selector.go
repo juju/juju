@@ -6,8 +6,8 @@ package application
 import (
 	"gopkg.in/juju/charm.v6"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/juju/version"
-	"github.com/juju/os/series"
 )
 
 const (
@@ -40,6 +40,8 @@ type seriesSelector struct {
 	conf modelConfig
 	// supportedSeries is the list of series the charm supports.
 	supportedSeries []string
+	// supportedJujuSeries is the list of series that juju supports.
+	supportedJujuSeries []string
 	// force indicates the user explicitly wants to deploy to a requested
 	// series, regardless of whether the charm says it supports that series.
 	force bool
@@ -70,6 +72,10 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 	// Use model default series, if explicitly set and supported by the charm.
 	if defaultSeries, explicit := s.conf.DefaultSeries(); explicit {
 		if _, err := charm.SeriesForCharm(defaultSeries, s.supportedSeries); err == nil {
+			// validate the series we get from the charm
+			if err := s.validateSeries(defaultSeries); err != nil {
+				return "", err
+			}
 			logger.Infof(msgDefaultModelSeries, defaultSeries)
 			return defaultSeries, nil
 		}
@@ -78,17 +84,18 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 	// Use the charm's perferred series, if it has one.  In a multi-series
 	// charm, go through and check the series list and drop the first series
 	// if they're no longer supported.
-	jujuSupportedSeries := series.SupportedJujuSeries()
+	supported := make(map[string]struct{}, len(s.supportedJujuSeries))
+	for _, v := range s.supportedJujuSeries {
+		supported[v] = struct{}{}
+	}
 
 	// we want to preseve the order of the supported series from the charm
 	// metadata, so the order could be out of order ubuntu series order.
 	// i.e. precise, xenial, bionic, trusty
 	var supportedSeries []string
 	for _, charmSeries := range s.supportedSeries {
-		for _, jujuSeries := range jujuSupportedSeries {
-			if charmSeries == jujuSeries {
-				supportedSeries = append(supportedSeries, charmSeries)
-			}
+		if _, ok := supported[charmSeries]; ok {
+			supportedSeries = append(supportedSeries, charmSeries)
 		}
 	}
 	defaultSeries, err := charm.SeriesForCharm("", supportedSeries)
@@ -122,6 +129,11 @@ func (s seriesSelector) userRequested(requestedSeries string) (string, error) {
 		return "", err
 	}
 
+	// validate the series we get from the charm
+	if err := s.validateSeries(series); err != nil {
+		return "", err
+	}
+
 	// either it's a supported series or the user used --force, so just
 	// give them what they asked for.
 	if s.fromBundle {
@@ -130,4 +142,22 @@ func (s seriesSelector) userRequested(requestedSeries string) (string, error) {
 	}
 	logger.Infof(msgUserRequestedSeries, series)
 	return series, nil
+}
+
+func (s seriesSelector) validateSeries(seriesName string) error {
+	// if we're forcing then we don't need the following validation checks.
+	if s.force || len(s.supportedJujuSeries) == 0 {
+		return nil
+	}
+
+	var found bool
+	for _, supportedSeries := range s.supportedJujuSeries {
+		if seriesName == supportedSeries {
+			found = true
+		}
+	}
+	if !found {
+		return errors.NotSupportedf("series: %s", seriesName)
+	}
+	return nil
 }

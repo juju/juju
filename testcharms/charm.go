@@ -24,15 +24,15 @@ import (
 	jtesting "github.com/juju/juju/testing"
 )
 
-const defaultSeries = "quantal"
+const defaultSeries = "bionic"
 
 // Repo provides access to the test charm repository.
 var Repo = testing.NewRepo("charm-repo", defaultSeries)
 
 // RepoForSeries returns a new charm repository for the specified series.
 func RepoForSeries(series string) *testing.Repo {
-	// TODO(ycliuhw): workaround - currently `quantal` is not exact series
-	// (for example, here makes deploy charm at charm-repo/quantal/mysql --series precise possible )!
+	// TODO(ycliuhw): workaround - currently `bionic` is not exact series
+	// (for example, here makes deploy charm at charm-repo/bionic/mysql --series precise possible )!
 	if series != "kubernetes" {
 		series = defaultSeries
 	}
@@ -76,7 +76,7 @@ func UploadCharmWithMeta(c *gc.C, client CharmstoreClient, charmURL, meta, metri
 	return chURL, ch
 }
 
-// UploadCharm sets default series to quantal
+// UploadCharm sets default series to bionic
 func UploadCharm(c *gc.C, client CharmstoreClient, url, name string) (*charm.URL, charm.Charm) {
 	return UploadCharmWithSeries(c, client, url, name, defaultSeries)
 }
