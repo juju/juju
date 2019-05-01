@@ -281,7 +281,7 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		MeterStatus:                msAPI,
 		// TODO(fwereade): so *every* unit should be allowed to get/set its
 		// own status *and* its application's? This is not a pleasing arrangement.
-		StatusAPI: NewStatusAPI(st, accessUnitOrApplication),
+		StatusAPI: NewStatusAPI(st, accessUnitOrApplication, leadershipChecker),
 
 		st:                st,
 		m:                 m,

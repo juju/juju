@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
@@ -21,15 +22,17 @@ import (
 // StatusSetter already; all this does is set the status for the wrong
 // entity, and render the auth so confused as to be ~worthless.
 type ApplicationStatusSetter struct {
-	st           *state.State
-	getCanModify GetAuthFunc
+	leadershipChecker leadership.Checker
+	st                *state.State
+	getCanModify      GetAuthFunc
 }
 
-// NewServiceStatusSetter returns a ServiceStatusSetter.
-func NewServiceStatusSetter(st *state.State, getCanModify GetAuthFunc) *ApplicationStatusSetter {
+// NewApplicationStatusSetter returns a ServiceStatusSetter.
+func NewApplicationStatusSetter(st *state.State, getCanModify GetAuthFunc, leadershipChecker leadership.Checker) *ApplicationStatusSetter {
 	return &ApplicationStatusSetter{
-		st:           st,
-		getCanModify: getCanModify,
+		leadershipChecker: leadershipChecker,
+		st:                st,
+		getCanModify:      getCanModify,
 	}
 }
 
@@ -90,8 +93,7 @@ func (s *ApplicationStatusSetter) SetStatus(args params.SetStatus) (params.Error
 
 		// ...and set the status, conditional on the unit being (and remaining)
 		// service leader.
-		checker := s.st.LeadershipChecker()
-		token := checker.LeadershipCheck(serviceId, unitId)
+		token := s.leadershipChecker.LeadershipCheck(serviceId, unitId)
 
 		// TODO(fwereade) pass token into SetStatus instead of checking here.
 		if err := token.Check(0, nil); err != nil {

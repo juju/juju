@@ -519,11 +519,20 @@ func (ctx *HookContext) SetPodSpec(specYaml string) error {
 		return errors.Annotatef(err, "cannot determine leadership")
 	}
 	if !isLeader {
-		logger.Warningf("%v is not the leader but is setting application pod spec", entityName)
+		logger.Errorf("%v is not the leader but is setting application pod spec", entityName)
 		return ErrIsNotLeader
 	}
 	entityName = ctx.unit.ApplicationName()
-	return ctx.state.SetPodSpec(entityName, specYaml)
+	err = ctx.state.SetPodSpec(entityName, specYaml)
+	if err != nil {
+		if err2 := ctx.SetApplicationStatus(jujuc.StatusInfo{
+			Status: status.Blocked.String(),
+			Info:   fmt.Sprintf("setting pod spec: %v", err),
+		}); err2 != nil {
+			logger.Errorf("updating agent status: %v", err2)
+		}
+	}
+	return errors.Trace(err)
 }
 
 // CloudSpec return the cloud specification for the running unit's model

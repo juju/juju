@@ -6,6 +6,7 @@ package uniter
 import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/state"
 )
 
@@ -22,13 +23,13 @@ type StatusAPI struct {
 }
 
 // NewStatusAPI creates a new server-side Status setter API facade.
-func NewStatusAPI(st *state.State, getCanModify common.GetAuthFunc) *StatusAPI {
+func NewStatusAPI(st *state.State, getCanModify common.GetAuthFunc, leadershipChecker leadership.Checker) *StatusAPI {
 	// TODO(fwereade): so *all* of these have exactly the same auth
 	// characteristics? I think not.
 	unitSetter := common.NewStatusSetter(st, getCanModify)
 	unitGetter := common.NewStatusGetter(st, getCanModify)
-	serviceSetter := common.NewServiceStatusSetter(st, getCanModify)
-	serviceGetter := common.NewApplicationStatusGetter(st, getCanModify)
+	serviceSetter := common.NewApplicationStatusSetter(st, getCanModify, leadershipChecker)
+	serviceGetter := common.NewApplicationStatusGetter(st, getCanModify, leadershipChecker)
 	agentSetter := common.NewStatusSetter(&common.UnitAgentFinder{st}, getCanModify)
 	return &StatusAPI{
 		agentSetter:   agentSetter,
