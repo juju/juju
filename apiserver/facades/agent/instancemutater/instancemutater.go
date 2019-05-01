@@ -32,7 +32,7 @@ type InstanceMutaterV1 interface {
 	SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error)
 	SetModificationStatus(args params.SetStatus) (params.ErrorResults, error)
 	WatchMachines() (params.StringsWatchResult, error)
-	WatchApplicationLXDProfiles(args params.Entities) (params.NotifyWatchResults, error)
+	WatchLXDProfileVerificationNeeded(args params.Entities) (params.NotifyWatchResults, error)
 }
 
 type InstanceMutaterAPI struct {
@@ -209,9 +209,9 @@ func (api *InstanceMutaterAPI) WatchContainers(arg params.Entity) (params.String
 	return result, nil
 }
 
-// WatchApplicationLXDProfiles starts a watcher to track Applications with
+// WatchLXDProfileVerificationNeeded starts a watcher to track Applications with
 // LXD Profiles.
-func (api *InstanceMutaterAPI) WatchApplicationLXDProfiles(args params.Entities) (params.NotifyWatchResults, error) {
+func (api *InstanceMutaterAPI) WatchLXDProfileVerificationNeeded(args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
@@ -241,7 +241,7 @@ func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFu
 	if err != nil {
 		return result, err
 	}
-	watch, err := machine.WatchApplicationLXDProfiles()
+	watch, err := machine.WatchLXDProfileVerificationNeeded()
 	if err != nil {
 		return result, err
 	}

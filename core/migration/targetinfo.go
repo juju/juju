@@ -22,6 +22,9 @@ type TargetInfo struct {
 	// ControllerTag holds tag for the target controller.
 	ControllerTag names.ControllerTag
 
+	// ControllerAlias holds an optional alias for the target controller.
+	ControllerAlias string
+
 	// Addrs holds the addresses and ports of the target controller's
 	// API servers.
 	Addrs []string

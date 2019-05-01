@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -52,13 +54,13 @@ type storageInterface interface {
 
 	// DetachStorage detaches the storage instance with the
 	// specified tag from the unit with the specified tag.
-	DetachStorage(names.StorageTag, names.UnitTag, bool) error
+	DetachStorage(names.StorageTag, names.UnitTag, bool, time.Duration) error
 
 	// DestroyStorageInstance destroys the storage instance with the specified tag.
-	DestroyStorageInstance(names.StorageTag, bool, bool) error
+	DestroyStorageInstance(names.StorageTag, bool, bool, time.Duration) error
 
 	// ReleaseStorageInstance releases the storage instance with the specified tag.
-	ReleaseStorageInstance(names.StorageTag, bool, bool) error
+	ReleaseStorageInstance(names.StorageTag, bool, bool, time.Duration) error
 }
 
 type storageVolume interface {

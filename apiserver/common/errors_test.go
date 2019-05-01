@@ -200,7 +200,10 @@ var errorTransformTests = []struct {
 	code:   params.CodeRedirect,
 	helperFunc: func(err error) bool {
 		err1, ok := err.(*params.Error)
-		exp := asMap(sampleRedirectError)
+		exp := asMap(params.RedirectErrorInfo{
+			Servers: params.FromNetworkHostsPorts(sampleRedirectError.Servers),
+			CACert:  sampleRedirectError.CACert,
+		})
 		if !ok || err1.Info == nil || !reflect.DeepEqual(err1.Info, exp) {
 			return false
 		}

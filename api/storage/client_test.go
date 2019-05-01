@@ -208,9 +208,9 @@ func (s *storageMockSuite) TestListPools(c *gc.C) {
 			return nil
 		})
 	storageClient := storage.NewClient(apiCaller)
-	names := []string{"a", "b"}
+	someNames := []string{"a", "b"}
 	types := []string{"1"}
-	found, err := storageClient.ListPools(types, names)
+	found, err := storageClient.ListPools(types, someNames)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.HasLen, want)
 	c.Assert(found, gc.DeepEquals, expected)
@@ -648,7 +648,8 @@ func (s *storageMockSuite) TestAddToUnitFacadeCallError(c *gc.C) {
 	c.Assert(found, gc.HasLen, 0)
 }
 
-func (s *storageMockSuite) TestRemove(c *gc.C) {
+func (s *storageMockSuite) assertRemove(c *gc.C, v int, expectedArgs interface{}) {
+	false_ := false
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -659,10 +660,7 @@ func (s *storageMockSuite) TestRemove(c *gc.C) {
 				c.Check(objType, gc.Equals, "Storage")
 				c.Check(id, gc.Equals, "")
 				c.Check(request, gc.Equals, "Remove")
-				c.Check(a, jc.DeepEquals, params.RemoveStorage{[]params.RemoveStorageInstance{
-					{Tag: "storage-foo-0", DestroyAttachments: false, DestroyStorage: false},
-					{Tag: "storage-bar-1", DestroyAttachments: false, DestroyStorage: false},
-				}})
+				c.Check(a, jc.DeepEquals, expectedArgs)
 				c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 				results := result.(*params.ErrorResults)
 				results.Results = []params.ErrorResult{
@@ -672,17 +670,37 @@ func (s *storageMockSuite) TestRemove(c *gc.C) {
 				return nil
 			},
 		),
-		BestVersion: 4,
+		BestVersion: v,
 	}
 	client := storage.NewClient(apiCaller)
-	results, err := client.Remove([]string{"foo/0", "bar/1"}, false, false)
+	results, err := client.Remove([]string{"foo/0", "bar/1"}, false, false, &false_, nil)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 2)
 	c.Assert(results[0].Error, gc.IsNil)
 	c.Assert(results[1].Error, jc.DeepEquals, &params.Error{Message: "baz"})
 }
 
-func (s *storageMockSuite) TestRemoveDestroyAttachments(c *gc.C) {
+func (s *storageMockSuite) TestRemoveV4(c *gc.C) {
+	s.assertRemove(c, 4,
+		params.RemoveStorage{[]params.RemoveStorageInstance{
+			{Tag: "storage-foo-0", DestroyAttachments: false, DestroyStorage: false},
+			{Tag: "storage-bar-1", DestroyAttachments: false, DestroyStorage: false},
+		}},
+	)
+}
+
+func (s *storageMockSuite) TestRemoveV6(c *gc.C) {
+	false_ := false
+	s.assertRemove(c, 6,
+		params.RemoveStorage{[]params.RemoveStorageInstance{
+			{Tag: "storage-foo-0", DestroyAttachments: false, DestroyStorage: false, Force: &false_},
+			{Tag: "storage-bar-1", DestroyAttachments: false, DestroyStorage: false, Force: &false_},
+		}},
+	)
+}
+
+func (s *storageMockSuite) assertRemoveDestroyAttachments(c *gc.C, v int, expectedArgs interface{}) {
+	true_ := true
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -690,26 +708,45 @@ func (s *storageMockSuite) TestRemoveDestroyAttachments(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
-				c.Check(a, jc.DeepEquals, params.RemoveStorage{[]params.RemoveStorageInstance{{
-					Tag:                "storage-foo-0",
-					DestroyAttachments: true,
-					DestroyStorage:     true,
-				}}})
+				c.Check(a, jc.DeepEquals, expectedArgs)
 				results := result.(*params.ErrorResults)
 				results.Results = []params.ErrorResult{{}}
 				return nil
 			},
 		),
-		BestVersion: 4,
+		BestVersion: v,
 	}
 	client := storage.NewClient(apiCaller)
-	results, err := client.Remove([]string{"foo/0"}, true, true)
+	results, err := client.Remove([]string{"foo/0"}, true, true, &true_, nil)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[0].Error, gc.IsNil)
 }
 
+func (s *storageMockSuite) TestRemoveDestroyAttachmentsv4(c *gc.C) {
+	s.assertRemoveDestroyAttachments(c, 4,
+		params.RemoveStorage{[]params.RemoveStorageInstance{{
+			Tag:                "storage-foo-0",
+			DestroyAttachments: true,
+			DestroyStorage:     true,
+		}}},
+	)
+}
+
+func (s *storageMockSuite) TestRemoveDestroyAttachmentsv6(c *gc.C) {
+	true_ := true
+	s.assertRemoveDestroyAttachments(c, 6,
+		params.RemoveStorage{[]params.RemoveStorageInstance{{
+			Tag:                "storage-foo-0",
+			DestroyAttachments: true,
+			DestroyStorage:     true,
+			Force:              &true_,
+		}}},
+	)
+}
+
 func (s *storageMockSuite) TestRemoveDestroyV3(c *gc.C) {
+	false_ := false
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -731,7 +768,7 @@ func (s *storageMockSuite) TestRemoveDestroyV3(c *gc.C) {
 		BestVersion: 3,
 	}
 	client := storage.NewClient(apiCaller)
-	results, err := client.Remove([]string{"foo/0"}, true, true)
+	results, err := client.Remove([]string{"foo/0"}, true, true, &false_, nil)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[0].Error, gc.IsNil)
@@ -740,7 +777,7 @@ func (s *storageMockSuite) TestRemoveDestroyV3(c *gc.C) {
 func (s *storageMockSuite) TestRemoveDestroyV3NoDestroyStorage(c *gc.C) {
 	apiCaller := basetesting.BestVersionCaller{BestVersion: 3}
 	client := storage.NewClient(apiCaller)
-	_, err := client.Remove([]string{"foo/0"}, true, false)
+	_, err := client.Remove([]string{"foo/0"}, true, false, nil, nil)
 	c.Check(err, gc.ErrorMatches, "this juju controller does not support non-destructive removal of storage")
 }
 
@@ -750,39 +787,58 @@ func (s *storageMockSuite) TestRemoveInvalidStorageId(c *gc.C) {
 			return nil
 		},
 	))
-	_, err := client.Remove([]string{"foo/bar"}, false, false)
+	_, err := client.Remove([]string{"foo/bar"}, false, false, nil, nil)
 	c.Check(err, gc.ErrorMatches, `storage ID "foo/bar" not valid`)
 }
 
-func (s *storageMockSuite) TestDetach(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			c.Check(objType, gc.Equals, "Storage")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "Detach")
-			c.Check(a, jc.DeepEquals, params.StorageAttachmentIds{[]params.StorageAttachmentId{
-				{StorageTag: "storage-foo-0"},
-				{StorageTag: "storage-bar-1"},
-			}})
-			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-			results := result.(*params.ErrorResults)
-			results.Results = []params.ErrorResult{
-				{},
-				{Error: &params.Error{Message: "baz"}},
-			}
-			return nil
-		},
-	)
+func (s *storageMockSuite) assertDetach(c *gc.C, v int, expectedMethod string, expectedArgs interface{}) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Check(objType, gc.Equals, "Storage")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, expectedMethod)
+				c.Check(a, jc.DeepEquals, expectedArgs)
+				c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+				results := result.(*params.ErrorResults)
+				results.Results = []params.ErrorResult{
+					{},
+					{Error: &params.Error{Message: "baz"}},
+				}
+				return nil
+			},
+		),
+		BestVersion: v,
+	}
 	client := storage.NewClient(apiCaller)
-	results, err := client.Detach([]string{"foo/0", "bar/1"})
+	results, err := client.Detach([]string{"foo/0", "bar/1"}, nil, nil)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 2)
 	c.Assert(results[0].Error, gc.IsNil)
 	c.Assert(results[1].Error, jc.DeepEquals, &params.Error{Message: "baz"})
+}
+
+func (s *storageMockSuite) TestDetachV5(c *gc.C) {
+	s.assertDetach(c, 5, "Detach",
+		params.StorageAttachmentIds{[]params.StorageAttachmentId{
+			{StorageTag: "storage-foo-0"},
+			{StorageTag: "storage-bar-1"},
+		}},
+	)
+}
+
+func (s *storageMockSuite) TestDetach(c *gc.C) {
+	s.assertDetach(c, 6, "DetachStorage",
+		params.StorageDetachmentParams{
+			StorageIds: params.StorageAttachmentIds{[]params.StorageAttachmentId{
+				{StorageTag: "storage-foo-0"},
+				{StorageTag: "storage-bar-1"},
+			}}},
+	)
 }
 
 func (s *storageMockSuite) TestDetachArityMismatch(c *gc.C) {
@@ -794,7 +850,7 @@ func (s *storageMockSuite) TestDetachArityMismatch(c *gc.C) {
 		},
 	)
 	client := storage.NewClient(apiCaller)
-	_, err := client.Detach([]string{"foo/0", "bar/1"})
+	_, err := client.Detach([]string{"foo/0", "bar/1"}, nil, nil)
 	c.Check(err, gc.ErrorMatches, `expected 2 result\(s\), got 3`)
 }
 

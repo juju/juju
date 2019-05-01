@@ -85,8 +85,6 @@ var (
 
 type kubernetesClient struct {
 	clock jujuclock.Clock
-	kubernetes.Interface
-	apiextensionsClient apiextensionsclientset.Interface
 
 	// namespace is the k8s namespace to use when
 	// creating k8s resources.
@@ -94,8 +92,12 @@ type kubernetesClient struct {
 
 	annotations k8sannotations.Annotation
 
-	lock   sync.Mutex
-	envCfg *config.Config
+	lock                        sync.Mutex
+	envCfgUnlocked              *config.Config
+	clientUnlocked              kubernetes.Interface
+	apiextensionsClientUnlocked apiextensionsclientset.Interface
+
+	newClient NewK8sClientFunc
 
 	// modelUUID is the UUID of the model this client acts on.
 	modelUUID string
@@ -142,13 +144,14 @@ func NewK8sBroker(
 		return nil, errors.NotValidf("modelUUID is required")
 	}
 	client := &kubernetesClient{
-		clock:               clock,
-		Interface:           k8sClient,
-		apiextensionsClient: apiextensionsClient,
-		envCfg:              newCfg.Config,
-		namespace:           newCfg.Name(),
-		modelUUID:           modelUUID,
-		newWatcher:          newWatcher,
+		clock:                       clock,
+		clientUnlocked:              k8sClient,
+		apiextensionsClientUnlocked: apiextensionsClient,
+		envCfgUnlocked:              newCfg.Config,
+		namespace:                   newCfg.Name(),
+		modelUUID:                   modelUUID,
+		newWatcher:                  newWatcher,
+		newClient:                   newClient,
 		annotations: k8sannotations.New(nil).
 			Add(annotationModelUUIDKey, modelUUID),
 	}
@@ -170,11 +173,25 @@ func (k *kubernetesClient) addAnnotations(key, value string) k8sannotations.Anno
 	return k.annotations.Add(key, value)
 }
 
+func (k *kubernetesClient) client() kubernetes.Interface {
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	client := k.clientUnlocked
+	return client
+}
+
+func (k *kubernetesClient) extendedCient() apiextensionsclientset.Interface {
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	client := k.apiextensionsClientUnlocked
+	return client
+}
+
 // Config returns environ config.
 func (k *kubernetesClient) Config() *config.Config {
 	k.lock.Lock()
 	defer k.lock.Unlock()
-	cfg := k.envCfg
+	cfg := k.envCfgUnlocked
 	return cfg
 }
 
@@ -186,12 +203,29 @@ func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	k.envCfg = newCfg.Config
+	k.envCfgUnlocked = newCfg.Config
+	return nil
+}
+
+// SetCloudSpec is specified in the environs.Environ interface.
+func (k *kubernetesClient) SetCloudSpec(spec environs.CloudSpec) error {
+	k.lock.Lock()
+	defer k.lock.Unlock()
+
+	k8sRestConfig, err := cloudSpecToK8sRestConfig(spec)
+	if err != nil {
+		return errors.Annotate(err, "cannot set cloud spec")
+	}
+
+	k.clientUnlocked, k.apiextensionsClientUnlocked, err = k.newClient(k8sRestConfig)
+	if err != nil {
+		return errors.Annotate(err, "cannot set cloud spec")
+	}
 	return nil
 }
 
 func (k *kubernetesClient) validateOperatorStorage() (string, error) {
-	storageClass, _ := k.envCfg.AllAttrs()[OperatorStorageKey].(string)
+	storageClass, _ := k.Config().AllAttrs()[OperatorStorageKey].(string)
 	if storageClass == "" {
 		return "", errors.NewNotValid(nil, "config without operator-storage value not valid.\nRun juju add-k8s to reimport your k8s cluster.")
 	}
@@ -203,7 +237,7 @@ func (k *kubernetesClient) validateOperatorStorage() (string, error) {
 func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	alreadyExistErr := errors.NewAlreadyExists(nil,
 		fmt.Sprintf(`a controller called %q already exists on this k8s cluster.
-Please bootstrap again and choose a different controller name.`, k.namespace),
+Please bootstrap again and choose a different controller name.`, controllerName),
 	)
 
 	k.namespace = DecideControllerNamespace(controllerName)
@@ -357,7 +391,7 @@ func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) error 
 	// Delete any storage classes created as part of this model.
 	// Storage classes live outside the namespace so need to be deleted separately.
 	modelSelector := fmt.Sprintf("%s==%s", labelModel, k.namespace)
-	err = k.StorageV1().StorageClasses().DeleteCollection(&v1.DeleteOptions{
+	err = k.client().StorageV1().StorageClasses().DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
 		LabelSelector: modelSelector,
@@ -386,7 +420,7 @@ func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) error 
 
 // APIVersion returns the version info for the cluster.
 func (k *kubernetesClient) APIVersion() (string, error) {
-	body, err := k.CoreV1().RESTClient().Get().AbsPath("/version").Do().Raw()
+	body, err := k.client().CoreV1().RESTClient().Get().AbsPath("/version").Do().Raw()
 	if err != nil {
 		return "", err
 	}
@@ -431,7 +465,7 @@ func (k *kubernetesClient) ensureOCIImageSecret(
 }
 
 func (k *kubernetesClient) ensureSecret(sec *core.Secret) error {
-	secrets := k.CoreV1().Secrets(k.namespace)
+	secrets := k.client().CoreV1().Secrets(k.namespace)
 	_, err := secrets.Update(sec)
 	if k8serrors.IsNotFound(err) {
 		_, err = secrets.Create(sec)
@@ -441,13 +475,13 @@ func (k *kubernetesClient) ensureSecret(sec *core.Secret) error {
 
 // updateSecret updates a secret resource.
 func (k *kubernetesClient) updateSecret(sec *core.Secret) error {
-	_, err := k.CoreV1().Secrets(k.namespace).Update(sec)
+	_, err := k.client().CoreV1().Secrets(k.namespace).Update(sec)
 	return errors.Trace(err)
 }
 
 // getSecret return a secret resource.
 func (k *kubernetesClient) getSecret(secretName string) (*core.Secret, error) {
-	secret, err := k.CoreV1().Secrets(k.namespace).Get(secretName, v1.GetOptions{IncludeUninitialized: true})
+	secret, err := k.client().CoreV1().Secrets(k.namespace).Get(secretName, v1.GetOptions{IncludeUninitialized: true})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, errors.NotFoundf("secret %q", secretName)
@@ -459,13 +493,13 @@ func (k *kubernetesClient) getSecret(secretName string) (*core.Secret, error) {
 
 // createSecret creates a secret resource.
 func (k *kubernetesClient) createSecret(secret *core.Secret) error {
-	_, err := k.CoreV1().Secrets(k.namespace).Create(secret)
+	_, err := k.client().CoreV1().Secrets(k.namespace).Create(secret)
 	return errors.Trace(err)
 }
 
 // deleteSecret deletes a secret resource.
 func (k *kubernetesClient) deleteSecret(secretName string) error {
-	secrets := k.CoreV1().Secrets(k.namespace)
+	secrets := k.client().CoreV1().Secrets(k.namespace)
 	err := secrets.Delete(secretName, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	})
@@ -480,7 +514,7 @@ func (k *kubernetesClient) deleteSecret(secretName string) error {
 func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, error) {
 	var result caas.OperatorState
 
-	statefulsets := k.AppsV1().StatefulSets(k.namespace)
+	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
 	operator, err := statefulsets.Get(k.operatorName(appName), v1.GetOptions{IncludeUninitialized: true})
 	if k8serrors.IsNotFound(err) {
 		return result, nil
@@ -503,7 +537,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	if config.AgentConf == nil {
 		// We expect that the config map already exists,
 		// so make sure it does.
-		configMaps := k.CoreV1().ConfigMaps(k.namespace)
+		configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
 		_, err := configMaps.Get(operatorConfigMapName(operatorName), v1.GetOptions{IncludeUninitialized: true})
 		if err != nil {
 			return errors.Annotatef(err, "config map for %q should already exist", appName)
@@ -685,7 +719,7 @@ func (k *kubernetesClient) maybeGetVolumeClaimSpec(params volumeParams) (*core.P
 // getStorageClass returns a named storage class, first looking for
 // one which is qualified by the current namespace if it's available.
 func (k *kubernetesClient) getStorageClass(name string) (*k8sstorage.StorageClass, error) {
-	storageClasses := k.StorageV1().StorageClasses()
+	storageClasses := k.client().StorageV1().StorageClasses()
 	qualifiedName := qualifiedStorageClassName(k.namespace, name)
 	sc, err := storageClasses.Get(qualifiedName, v1.GetOptions{})
 	if err == nil {
@@ -725,7 +759,7 @@ func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner)
 		policy := core.PersistentVolumeReclaimPolicy(cfg.ReclaimPolicy)
 		reclaimPolicy = &policy
 	}
-	storageClasses := k.StorageV1().StorageClasses()
+	storageClasses := k.client().StorageV1().StorageClasses()
 	sc = &k8sstorage.StorageClass{
 		ObjectMeta: v1.ObjectMeta{
 			Name: qualifiedStorageClassName(cfg.Namespace, cfg.Name),
@@ -756,7 +790,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	legacy := isLegacyName(operatorName)
 
 	// First delete the config map(s).
-	configMaps := k.CoreV1().ConfigMaps(k.namespace)
+	configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
 	configMapName := operatorConfigMapName(operatorName)
 	err = configMaps.Delete(configMapName, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
@@ -781,7 +815,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	if err := k.deleteStatefulSet(operatorName); err != nil {
 		return errors.Trace(err)
 	}
-	pods := k.CoreV1().Pods(k.namespace)
+	pods := k.client().CoreV1().Pods(k.namespace)
 	podsList, err := pods.List(v1.ListOptions{
 		LabelSelector: operatorSelector(appName),
 	})
@@ -793,7 +827,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	if legacy {
 		deploymentName = "juju-" + appName
 	}
-	pvs := k.CoreV1().PersistentVolumes()
+	pvs := k.client().CoreV1().PersistentVolumes()
 	for _, p := range podsList.Items {
 		// Delete secrets.
 		for _, c := range p.Spec.Containers {
@@ -890,7 +924,7 @@ func getSvcAddresses(svc *core.Service, includeClusterIP bool) []network.Address
 
 // GetService returns the service for the specified application.
 func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*caas.Service, error) {
-	services := k.CoreV1().Services(k.namespace)
+	services := k.client().CoreV1().Services(k.namespace)
 	servicesList, err := services.List(v1.ListOptions{
 		LabelSelector:        applicationSelector(appName),
 		IncludeUninitialized: true,
@@ -907,7 +941,7 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 	}
 
 	deploymentName := k.deploymentName(appName)
-	statefulsets := k.AppsV1().StatefulSets(k.namespace)
+	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
 	ss, err := statefulsets.Get(deploymentName, v1.GetOptions{})
 	if err == nil {
 		if ss.Spec.Replicas != nil {
@@ -928,7 +962,7 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 		return nil, errors.Trace(err)
 	}
 
-	deployments := k.AppsV1().Deployments(k.namespace)
+	deployments := k.client().AppsV1().Deployments(k.namespace)
 	deployment, err := deployments.Get(deploymentName, v1.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
@@ -965,7 +999,7 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteDeployment(deploymentName); err != nil {
 		return errors.Trace(err)
 	}
-	secrets := k.CoreV1().Secrets(k.namespace)
+	secrets := k.client().CoreV1().Secrets(k.namespace)
 	secretList, err := secrets.List(v1.ListOptions{
 		LabelSelector: applicationSelector(appName),
 	})
@@ -1001,7 +1035,7 @@ func (k *kubernetesClient) ensureCustomResourceDefinitionTemplate(name string, s
 		},
 		Spec: spec,
 	}
-	apiextensionsV1beta1 := k.apiextensionsClient.ApiextensionsV1beta1()
+	apiextensionsV1beta1 := k.extendedCient().ApiextensionsV1beta1()
 	logger.Debugf("creating crd %#v", crdIn)
 	crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Create(crdIn)
 	if k8serrors.IsAlreadyExists(err) {
@@ -1179,8 +1213,13 @@ func (k *kubernetesClient) EnsureService(
 	}
 	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
 	// Defensively check to see if a stateful set is already used.
-	useStatefulSet := len(params.Filesystems) > 0
-	statefulsets := k.AppsV1().StatefulSets(k.namespace)
+	var useStatefulSet bool
+	if params.Deployment.ServiceType != "" {
+		useStatefulSet = params.Deployment.DeploymentType == caas.DeploymentStateful
+	} else {
+		useStatefulSet = len(params.Filesystems) > 0
+	}
+	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
 	existingStatefulSet, err := statefulsets.Get(deploymentName, v1.GetOptions{IncludeUninitialized: true})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -1243,7 +1282,7 @@ func (k *kubernetesClient) EnsureService(
 		annotations.Merge(k8sannotations.New(deployAnnotations))
 
 		config[serviceAnnotationsKey] = annotations.ToMap()
-		if err := k.configureService(appName, deploymentName, ports, config); err != nil {
+		if err := k.configureService(appName, deploymentName, ports, params, config); err != nil {
 			return errors.Annotatef(err, "creating or updating service for %v", appName)
 		}
 	}
@@ -1262,7 +1301,7 @@ func (k *kubernetesClient) Upgrade(appName string, vers version.Number) error {
 	}
 	logger.Debugf("Upgrading %q", resourceName)
 
-	statefulsets := k.AppsV1().StatefulSets(k.namespace)
+	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
 	existingStatefulSet, err := statefulsets.Get(resourceName, v1.GetOptions{IncludeUninitialized: true})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -1285,7 +1324,7 @@ func (k *kubernetesClient) Upgrade(appName string, vers version.Number) error {
 
 func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {
 	zero := int32(0)
-	statefulsets := k.AppsV1().StatefulSets(k.namespace)
+	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
 	statefulSet, err := statefulsets.Get(deploymentName, v1.GetOptions{IncludeUninitialized: true})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -1296,7 +1335,7 @@ func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {
 		return errors.Trace(err)
 	}
 
-	deployments := k.AppsV1().Deployments(k.namespace)
+	deployments := k.client().AppsV1().Deployments(k.namespace)
 	deployment, err := deployments.Get(deploymentName, v1.GetOptions{IncludeUninitialized: true})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -1514,7 +1553,7 @@ func (k *kubernetesClient) configureDeployment(
 }
 
 func (k *kubernetesClient) ensureDeployment(spec *apps.Deployment) error {
-	deployments := k.AppsV1().Deployments(k.namespace)
+	deployments := k.client().AppsV1().Deployments(k.namespace)
 	_, err := deployments.Update(spec)
 	if k8serrors.IsNotFound(err) {
 		_, err = deployments.Create(spec)
@@ -1523,7 +1562,7 @@ func (k *kubernetesClient) ensureDeployment(spec *apps.Deployment) error {
 }
 
 func (k *kubernetesClient) deleteDeployment(name string) error {
-	deployments := k.AppsV1().Deployments(k.namespace)
+	deployments := k.client().AppsV1().Deployments(k.namespace)
 	err := deployments.Delete(name, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	})
@@ -1581,7 +1620,7 @@ func (k *kubernetesClient) configureStatefulSet(
 }
 
 func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPodSpec core.PodSpec) error {
-	statefulsets := k.AppsV1().StatefulSets(k.namespace)
+	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
 	_, err := statefulsets.Update(spec)
 	if k8serrors.IsNotFound(err) {
 		_, err = statefulsets.Create(spec)
@@ -1607,13 +1646,13 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 
 // createStatefulSet deletes a statefulset resource.
 func (k *kubernetesClient) createStatefulSet(spec *apps.StatefulSet) error {
-	_, err := k.AppsV1().StatefulSets(k.namespace).Create(spec)
+	_, err := k.client().AppsV1().StatefulSets(k.namespace).Create(spec)
 	return errors.Trace(err)
 }
 
 // deleteStatefulSet deletes a statefulset resource.
 func (k *kubernetesClient) deleteStatefulSet(name string) error {
-	deployments := k.AppsV1().StatefulSets(k.namespace)
+	deployments := k.client().AppsV1().StatefulSets(k.namespace)
 	err := deployments.Delete(name, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	})
@@ -1641,7 +1680,7 @@ func (k *kubernetesClient) deleteVolumeClaims(appName string, p *core.Pod) ([]st
 			// Ignore volumes which are not Juju managed filesystems.
 			continue
 		}
-		pvClaims := k.CoreV1().PersistentVolumeClaims(k.namespace)
+		pvClaims := k.client().CoreV1().PersistentVolumeClaims(k.namespace)
 		err := pvClaims.Delete(vol.PersistentVolumeClaim.ClaimName, &v1.DeleteOptions{
 			PropagationPolicy: &defaultPropagationPolicy,
 		})
@@ -1656,6 +1695,7 @@ func (k *kubernetesClient) deleteVolumeClaims(appName string, p *core.Pod) ([]st
 
 func (k *kubernetesClient) configureService(
 	appName, deploymentName string, containerPorts []core.ContainerPort,
+	params *caas.ServiceParams,
 	config application.ConfigAttributes,
 ) error {
 	logger.Debugf("creating/updating service for %s", appName)
@@ -1678,7 +1718,20 @@ func (k *kubernetesClient) configureService(
 		})
 	}
 
-	serviceType := core.ServiceType(config.GetString(serviceTypeConfigKey, defaultServiceType))
+	serviceType := defaultServiceType
+	if params.Deployment.ServiceType != "" {
+		switch params.Deployment.ServiceType {
+		case caas.ServiceCluster:
+			serviceType = core.ServiceTypeClusterIP
+		case caas.ServiceLoadBalancer:
+			serviceType = core.ServiceTypeLoadBalancer
+		case caas.ServiceExternal:
+			serviceType = core.ServiceTypeExternalName
+		default:
+			return errors.NotSupportedf("service type %q", params.Deployment.ServiceType)
+		}
+	}
+	serviceType = core.ServiceType(config.GetString(serviceTypeConfigKey, string(serviceType)))
 	annotations, err := config.GetStringMap(serviceAnnotationsKey, nil)
 	if err != nil {
 		return errors.Annotatef(err, "unexpected annotations: %#v", config.Get(serviceAnnotationsKey, nil))
@@ -1704,7 +1757,7 @@ func (k *kubernetesClient) configureService(
 
 // ensureK8sService ensures a k8s service resource.
 func (k *kubernetesClient) ensureK8sService(spec *core.Service) error {
-	services := k.CoreV1().Services(k.namespace)
+	services := k.client().CoreV1().Services(k.namespace)
 	// Set any immutable fields if the service already exists.
 	existing, err := services.Get(spec.Name, v1.GetOptions{IncludeUninitialized: true})
 	if err == nil {
@@ -1720,7 +1773,7 @@ func (k *kubernetesClient) ensureK8sService(spec *core.Service) error {
 
 // deleteService deletes a service resource.
 func (k *kubernetesClient) deleteService(deploymentName string) error {
-	services := k.CoreV1().Services(k.namespace)
+	services := k.client().CoreV1().Services(k.namespace)
 	err := services.Delete(deploymentName, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	})
@@ -1751,7 +1804,7 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 	}
 
 	deploymentName := k.deploymentName(appName)
-	svc, err := k.CoreV1().Services(k.namespace).Get(deploymentName, v1.GetOptions{})
+	svc, err := k.client().CoreV1().Services(k.namespace).Get(deploymentName, v1.GetOptions{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1793,7 +1846,7 @@ func (k *kubernetesClient) UnexposeService(appName string) error {
 }
 
 func (k *kubernetesClient) ensureIngress(spec *v1beta1.Ingress) error {
-	ingress := k.ExtensionsV1beta1().Ingresses(k.namespace)
+	ingress := k.client().ExtensionsV1beta1().Ingresses(k.namespace)
 	_, err := ingress.Update(spec)
 	if k8serrors.IsNotFound(err) {
 		_, err = ingress.Create(spec)
@@ -1803,7 +1856,7 @@ func (k *kubernetesClient) ensureIngress(spec *v1beta1.Ingress) error {
 
 func (k *kubernetesClient) deleteIngress(appName string) error {
 	deploymentName := k.deploymentName(appName)
-	ingress := k.ExtensionsV1beta1().Ingresses(k.namespace)
+	ingress := k.client().ExtensionsV1beta1().Ingresses(k.namespace)
 	err := ingress.Delete(deploymentName, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	})
@@ -1824,7 +1877,7 @@ func applicationSelector(appName string) string {
 // WatchUnits returns a watcher which notifies when there
 // are changes to units of the specified application.
 func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, error) {
-	pods := k.CoreV1().Pods(k.namespace)
+	pods := k.client().CoreV1().Pods(k.namespace)
 	w, err := pods.Watch(v1.ListOptions{
 		LabelSelector: applicationSelector(appName),
 		Watch:         true,
@@ -1841,7 +1894,7 @@ func (k *kubernetesClient) WatchService(appName string) (watcher.NotifyWatcher, 
 	// Application may be a statefulset or deployment. It may not have
 	// been set up when the watcher is started so we don't know which it
 	// is ahead of time. So use a multi-watcher to cover both cases.
-	statefulsets := k.AppsV1().StatefulSets(k.namespace)
+	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
 	sswatcher, err := statefulsets.Watch(v1.ListOptions{
 		LabelSelector: applicationSelector(appName),
 		Watch:         true,
@@ -1854,7 +1907,7 @@ func (k *kubernetesClient) WatchService(appName string) (watcher.NotifyWatcher, 
 		return nil, errors.Trace(err)
 	}
 
-	deployments := k.AppsV1().Deployments(k.namespace)
+	deployments := k.client().AppsV1().Deployments(k.namespace)
 	dwatcher, err := deployments.Watch(v1.ListOptions{
 		LabelSelector: applicationSelector(appName),
 		Watch:         true,
@@ -1873,7 +1926,7 @@ func (k *kubernetesClient) WatchService(appName string) (watcher.NotifyWatcher, 
 // WatchOperator returns a watcher which notifies when there
 // are changes to the operator of the specified application.
 func (k *kubernetesClient) WatchOperator(appName string) (watcher.NotifyWatcher, error) {
-	pods := k.CoreV1().Pods(k.namespace)
+	pods := k.client().CoreV1().Pods(k.namespace)
 	w, err := pods.Watch(v1.ListOptions{
 		LabelSelector: operatorSelector(appName),
 		Watch:         true,
@@ -1895,7 +1948,7 @@ var jujuPVNameRegexp = regexp.MustCompile(`^(?P<storageName>\D+)-\w+$`)
 // Units returns all units and any associated filesystems of the specified application.
 // Filesystems are mounted via volumes bound to the unit.
 func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
-	pods := k.CoreV1().Pods(k.namespace)
+	pods := k.client().CoreV1().Pods(k.namespace)
 	podsList, err := pods.List(v1.ListOptions{
 		LabelSelector: applicationSelector(appName),
 	})
@@ -2009,7 +2062,7 @@ func (k *kubernetesClient) volumeInfoForEmptyDir(vol core.Volume, volMount core.
 }
 
 func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.VolumeMount, claimName string, now time.Time) (*caas.FilesystemInfo, error) {
-	pvClaims := k.CoreV1().PersistentVolumeClaims(k.namespace)
+	pvClaims := k.client().CoreV1().PersistentVolumeClaims(k.namespace)
 	pvc, err := pvClaims.Get(claimName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		// Ignore claims which don't exist (yet).
@@ -2042,7 +2095,7 @@ func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.Volum
 	if statusMessage == "" {
 		// If there are any events for this pvc we can use the
 		// most recent to set the status.
-		events := k.CoreV1().Events(k.namespace)
+		events := k.client().CoreV1().Events(k.namespace)
 		eventList, err := events.List(v1.ListOptions{
 			IncludeUninitialized: true,
 			FieldSelector:        fields.OneTermEqualSelector("involvedObject.name", pvc.Name).String(),
@@ -2056,7 +2109,7 @@ func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.Volum
 		}
 	}
 
-	pVolumes := k.CoreV1().PersistentVolumes()
+	pVolumes := k.client().CoreV1().PersistentVolumes()
 	pv, err := pVolumes.Get(pvc.Spec.VolumeName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		// Ignore volumes which don't exist (yet).
@@ -2092,7 +2145,7 @@ func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.Volum
 
 // Operator returns an Operator with current status and life details.
 func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
-	pods := k.CoreV1().Pods(k.namespace)
+	pods := k.client().CoreV1().Pods(k.namespace)
 	podsList, err := pods.List(v1.ListOptions{
 		LabelSelector: operatorSelector(appName),
 	})
@@ -2137,7 +2190,7 @@ func (k *kubernetesClient) getPODStatus(pod core.Pod, now time.Time) (string, st
 	if statusMessage == "" {
 		// If there are any events for this pod we can use the
 		// most recent to set the status.
-		events := k.CoreV1().Events(k.namespace)
+		events := k.client().CoreV1().Events(k.namespace)
 		eventList, err := events.List(v1.ListOptions{
 			IncludeUninitialized: true,
 			FieldSelector:        fields.OneTermEqualSelector("involvedObject.name", pod.Name).String(),
@@ -2179,7 +2232,7 @@ func (k *kubernetesClient) getDeploymentStatus(deployment *apps.Deployment) (str
 }
 
 func (k *kubernetesClient) getStatusFromEvents(parentName string, jujuStatus status.Status) (string, status.Status, error) {
-	events := k.CoreV1().Events(k.namespace)
+	events := k.client().CoreV1().Events(k.namespace)
 	eventList, err := events.List(v1.ListOptions{
 		IncludeUninitialized: true,
 		FieldSelector:        fields.OneTermEqualSelector("involvedObject.name", parentName).String(),
@@ -2262,7 +2315,7 @@ func filesetConfigMap(configMapName string, files *caas.FileSet) *core.ConfigMap
 
 // ensureConfigMap ensures a ConfigMap resource.
 func (k *kubernetesClient) ensureConfigMap(configMap *core.ConfigMap) error {
-	configMaps := k.CoreV1().ConfigMaps(k.namespace)
+	configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
 	_, err := configMaps.Update(configMap)
 	if k8serrors.IsNotFound(err) {
 		_, err = configMaps.Create(configMap)
@@ -2272,7 +2325,7 @@ func (k *kubernetesClient) ensureConfigMap(configMap *core.ConfigMap) error {
 
 // deleteConfigMap deletes a ConfigMap resource.
 func (k *kubernetesClient) deleteConfigMap(configMapName string) error {
-	err := k.CoreV1().ConfigMaps(k.namespace).Delete(configMapName, &v1.DeleteOptions{
+	err := k.client().CoreV1().ConfigMaps(k.namespace).Delete(configMapName, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	})
 	if k8serrors.IsNotFound(err) {
@@ -2283,13 +2336,13 @@ func (k *kubernetesClient) deleteConfigMap(configMapName string) error {
 
 // createConfigMap creates a ConfigMap resource.
 func (k *kubernetesClient) createConfigMap(configMap *core.ConfigMap) error {
-	_, err := k.CoreV1().ConfigMaps(k.namespace).Create(configMap)
+	_, err := k.client().CoreV1().ConfigMaps(k.namespace).Create(configMap)
 	return errors.Trace(err)
 }
 
 // getConfigMap returns a ConfigMap resource.
 func (k *kubernetesClient) getConfigMap(cmName string) (*core.ConfigMap, error) {
-	cm, err := k.CoreV1().ConfigMaps(k.namespace).Get(cmName, v1.GetOptions{IncludeUninitialized: true})
+	cm, err := k.client().CoreV1().ConfigMaps(k.namespace).Get(cmName, v1.GetOptions{IncludeUninitialized: true})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, errors.NotFoundf("configmap %q", cmName)
@@ -2527,7 +2580,7 @@ func populateContainerDetails(deploymentName string, pod *core.PodSpec, podConta
 // legacyAppName returns true if there are any artifacts for
 // appName which indicate that this deployment was for Juju 2.5.0.
 func (k *kubernetesClient) legacyAppName(appName string) bool {
-	statefulsets := k.AppsV1().StatefulSets(k.namespace)
+	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
 	legacyName := "juju-operator-" + appName
 	_, err := statefulsets.Get(legacyName, v1.GetOptions{IncludeUninitialized: true})
 	return err == nil

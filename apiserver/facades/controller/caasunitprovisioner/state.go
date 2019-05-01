@@ -4,7 +4,10 @@
 package caasunitprovisioner
 
 import (
+	"time"
+
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/controller"
@@ -45,7 +48,7 @@ type StorageBackend interface {
 	// These are for cleanup up orphaned filesystems when pods are recreated.
 	// TODO(caas) - record unit id on the filesystem so we can query by unit
 	AllFilesystems() ([]state.Filesystem, error)
-	DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool) (err error)
+	DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait time.Duration) (err error)
 	DestroyFilesystem(tag names.FilesystemTag) (err error)
 }
 
@@ -82,6 +85,7 @@ type Application interface {
 	GetPlacement() string
 	SetOperatorStatus(sInfo status.StatusInfo) error
 	SetStatus(statusInfo status.StatusInfo) error
+	Charm() (Charm, bool, error)
 }
 
 type stateShim struct {
@@ -118,6 +122,14 @@ func (a applicationShim) AllUnits() ([]Unit, error) {
 		result[i] = u
 	}
 	return result, nil
+}
+
+func (a applicationShim) Charm() (Charm, bool, error) {
+	return a.Application.Charm()
+}
+
+type Charm interface {
+	Meta() *charm.Meta
 }
 
 type Unit interface {

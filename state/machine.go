@@ -578,8 +578,8 @@ func (m *Machine) Destroy() error {
 
 // ForceDestroy queues the machine for complete removal, including the
 // destruction of all units and containers on the machine.
-func (m *Machine) ForceDestroy() error {
-	ops, err := m.forceDestroyOps()
+func (m *Machine) ForceDestroy(maxWait time.Duration) error {
+	ops, err := m.forceDestroyOps(maxWait)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -589,7 +589,7 @@ func (m *Machine) ForceDestroy() error {
 	return nil
 }
 
-func (m *Machine) forceDestroyOps() ([]txn.Op, error) {
+func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
 	if m.IsManager() {
 		controllerInfo, err := m.st.ControllerInfo()
 		if err != nil {
@@ -626,7 +626,7 @@ func (m *Machine) forceDestroyOps() ([]txn.Op, error) {
 		return []txn.Op{
 			machineOp,
 			controllerOp,
-			newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id),
+			newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id, maxWait),
 		}, nil
 	} else {
 		// Make sure the machine doesn't become a manager while we're destroying it
@@ -634,7 +634,7 @@ func (m *Machine) forceDestroyOps() ([]txn.Op, error) {
 			C:      machinesC,
 			Id:     m.doc.DocID,
 			Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
-		}, newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id),
+		}, newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id, maxWait),
 		}, nil
 	}
 }

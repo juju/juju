@@ -82,19 +82,19 @@ func (s *VolumeStateSuite) assertMachineVolume(c *gc.C, unit *state.Unit) {
 
 func (s *VolumeStateSuite) TestAddApplicationInvalidPool(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-	storage := map[string]state.StorageConstraints{
+	testStorage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("invalid-pool", 1024, 1),
 	}
-	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch, Storage: storage})
+	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch, Storage: testStorage})
 	c.Assert(err, gc.ErrorMatches, `.* pool "invalid-pool" not found`)
 }
 
 func (s *VolumeStateSuite) TestAddApplicationNoUserDefaultPool(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-	storage := map[string]state.StorageConstraints{
+	testStorage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
-	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch, Storage: storage})
+	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch, Storage: testStorage})
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -126,10 +126,10 @@ func (s *VolumeStateSuite) TestAddApplicationDefaultPool(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch := s.AddTestingCharm(c, "storage-block")
-	storage := map[string]state.StorageConstraints{
+	testStorage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
-	app := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
+	app := s.AddTestingApplicationWithStorage(c, "storage-block", ch, testStorage)
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
@@ -538,9 +538,9 @@ func (s *VolumeStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsVolume(c
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err = s.storageBackend.DestroyStorageInstance(storageTag, true, false)
+	err = s.storageBackend.DestroyStorageInstance(storageTag, true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
+	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The storage instance and attachment are dying, but not yet
@@ -572,9 +572,9 @@ func (s *VolumeStateSuite) TestReleaseStorageInstanceVolumeReleasing(c *gc.C) {
 
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false)
+	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
+	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The volume should should be dying, and releasing.
@@ -595,11 +595,11 @@ func (s *VolumeStateSuite) TestReleaseStorageInstanceVolumeUnreleasable(c *gc.C)
 
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false)
+	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false, dontWait)
 	c.Assert(err, gc.ErrorMatches,
 		`cannot release storage "data/0": storage provider "modelscoped-unreleasable" does not support releasing storage`,
 	)
-	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
+	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The volume should should still be alive.
@@ -990,12 +990,12 @@ func removeVolumeStorageInstance(c *gc.C, sb *state.StorageBackend, volumeTag na
 }
 
 func removeStorageInstance(c *gc.C, sb *state.StorageBackend, storageTag names.StorageTag) {
-	err := sb.DestroyStorageInstance(storageTag, true, false)
+	err := sb.DestroyStorageInstance(storageTag, true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	attachments, err := sb.StorageAttachments(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, a := range attachments {
-		err = sb.DetachStorage(storageTag, a.Unit(), false)
+		err = sb.DetachStorage(storageTag, a.Unit(), false, dontWait)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	_, err = sb.StorageInstance(storageTag)

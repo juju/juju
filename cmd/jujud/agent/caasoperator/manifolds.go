@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
@@ -19,6 +20,8 @@ import (
 	caasoperatorapi "github.com/juju/juju/api/caasoperator"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
@@ -33,6 +36,7 @@ import (
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/retrystrategy"
 	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/upgradesteps"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -72,6 +76,11 @@ type ManifoldsConfig struct {
 	// coordinate workers that shouldn't do anything until the
 	// upgrade-steps worker is done.
 	UpgradeStepsLock gate.Lock
+
+	// PreUpgradeSteps is a function that is used by the upgradesteps
+	// worker to ensure that conditions are OK for an upgrade to
+	// proceed.
+	PreUpgradeSteps func(*state.StatePool, coreagent.Config, bool, bool, bool) error
 
 	// MachineLock is a central source for acquiring the machine lock.
 	// This is used by a number of workers to ensure serialisation of actions
@@ -136,7 +145,26 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		upgraderName: caasupgrader.Manifold(caasupgrader.ManifoldConfig{
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
+			UpgradeStepsGateName: upgradeStepsGateName,
 			PreviousAgentVersion: config.PreviousAgentVersion,
+		}),
+
+		// The upgradesteps worker runs soon after the operator
+		// starts and runs any steps required to upgrade to the
+		// running jujud version. Once upgrade steps have run, the
+		// upgradesteps gate is unlocked and the worker exits.
+		upgradeStepsName: upgradesteps.Manifold(upgradesteps.ManifoldConfig{
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			UpgradeStepsGateName: upgradeStepsGateName,
+			// Realistically,  operators should not open state for any reason.
+			OpenStateForUpgrade: func() (*state.StatePool, error) {
+				return nil, errors.New("operator cannot open state")
+			},
+			PreUpgradeSteps: config.PreUpgradeSteps,
+			NewAgentStatusSetter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
+				return &noopStatusSetter{}, nil
+			},
 		}),
 
 		// The migration workers collaborate to run migrations;
@@ -199,7 +227,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The operator installs and deploys charm containers;
 		// manages the unit's presence in its relations;
-		// creates suboordinate units; runs all the hooks;
+		// creates subordinate units; runs all the hooks;
 		// sends metrics; etc etc etc.
 
 		operatorName: ifNotMigrating(caasoperator.Manifold(caasoperator.ManifoldConfig{
@@ -256,9 +284,10 @@ const (
 	charmDirName          = "charm-dir"
 	hookRetryStrategyName = "hook-retry-strategy"
 
+	upgraderName         = "upgrader"
+	upgradeStepsName     = "upgrade-steps-runner"
 	upgradeStepsGateName = "upgrade-steps-gate"
 	upgradeStepsFlagName = "upgrade-steps-flag"
-	upgraderName         = "upgrader"
 
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"
@@ -267,3 +296,10 @@ const (
 	loggingConfigUpdaterName = "logging-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"
 )
+
+type noopStatusSetter struct{}
+
+// SetStatus implements upgradesteps.StatusSetter
+func (a *noopStatusSetter) SetStatus(setableStatus status.Status, info string, data map[string]interface{}) error {
+	return nil
+}

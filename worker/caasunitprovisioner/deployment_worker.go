@@ -164,6 +164,10 @@ func (w *deploymentWorker) loop() error {
 			ResourceTags: info.Tags,
 			Filesystems:  info.Filesystems,
 			Devices:      info.Devices,
+			Deployment: caas.DeploymentParams{
+				DeploymentType: caas.DeploymentType(info.DeploymentInfo.DeploymentType),
+				ServiceType:    caas.ServiceType(info.DeploymentInfo.ServiceType),
+			},
 		}
 		err = w.broker.EnsureService(w.application, w.provisioningStatusSetter.SetOperatorStatus, serviceParams, currentScale, appConfig)
 		if err != nil {

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1/workertest"
 
@@ -160,6 +161,14 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 		&mockUnit{name: "gitlab/0", life: state.Dying},
 		&mockUnit{name: "gitlab/1", life: state.Alive},
 	}
+	s.st.application.charm = &mockCharm{
+		meta: charm.Meta{
+			Deployment: &charm.Deployment{
+				DeploymentType: charm.DeploymentStateful,
+				ServiceType:    charm.ServiceLoadBalancer,
+			},
+		},
+	}
 	s.storage.storageFilesystems[names.NewStorageTag("data/0")] = names.NewFilesystemTag("gitlab/1/0")
 	s.storage.storageAttachments[names.NewUnitTag("gitlab/1")] = names.NewStorageTag("data/0")
 
@@ -174,6 +183,10 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 		Results: []params.KubernetesProvisioningInfoResult{{
 			Result: &params.KubernetesProvisioningInfo{
 				PodSpec: "spec(gitlab)",
+				DeploymentInfo: &params.KubernetesDeploymentInfo{
+					DeploymentType: "stateful",
+					ServiceType:    "loadbalancer",
+				},
 				Filesystems: []params.KubernetesFilesystemParams{{
 					StorageName: "data",
 					Provider:    string(provider.K8s_ProviderType),

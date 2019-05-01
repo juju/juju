@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
@@ -167,15 +169,15 @@ func (st *mockStorageAccessor) AttachStorage(storage names.StorageTag, unit name
 	return st.attachStorage(storage, unit)
 }
 
-func (st *mockStorageAccessor) DetachStorage(storage names.StorageTag, unit names.UnitTag, force bool) error {
+func (st *mockStorageAccessor) DetachStorage(storage names.StorageTag, unit names.UnitTag, force bool, maxWait time.Duration) error {
 	return st.detachStorage(storage, unit, force)
 }
 
-func (st *mockStorageAccessor) DestroyStorageInstance(tag names.StorageTag, destroyAttached bool, force bool) error {
+func (st *mockStorageAccessor) DestroyStorageInstance(tag names.StorageTag, destroyAttached bool, force bool, maxWait time.Duration) error {
 	return st.destroyStorageInstance(tag, destroyAttached, force)
 }
 
-func (st *mockStorageAccessor) ReleaseStorageInstance(tag names.StorageTag, destroyAttached bool, force bool) error {
+func (st *mockStorageAccessor) ReleaseStorageInstance(tag names.StorageTag, destroyAttached bool, force bool, maxWait time.Duration) error {
 	return st.releaseStorageInstance(tag, destroyAttached, force)
 }
 

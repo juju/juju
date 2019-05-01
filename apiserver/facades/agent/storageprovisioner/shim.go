@@ -4,6 +4,8 @@
 package storageprovisioner
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -83,8 +85,8 @@ type StorageBackend interface {
 	AllStorageInstances() ([]state.StorageInstance, error)
 	StorageInstanceVolume(names.StorageTag) (state.Volume, error)
 	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
-	ReleaseStorageInstance(names.StorageTag, bool, bool) error
-	DetachStorage(names.StorageTag, names.UnitTag, bool) error
+	ReleaseStorageInstance(names.StorageTag, bool, bool, time.Duration) error
+	DetachStorage(names.StorageTag, names.UnitTag, bool, time.Duration) error
 
 	Filesystem(names.FilesystemTag) (state.Filesystem, error)
 	FilesystemAttachment(names.Tag, names.FilesystemTag) (state.FilesystemAttachment, error)

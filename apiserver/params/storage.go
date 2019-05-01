@@ -3,7 +3,11 @@
 
 package params
 
-import "github.com/juju/juju/storage"
+import (
+	"time"
+
+	"github.com/juju/juju/storage"
+)
 
 // MachineBlockDevices holds a machine tag and the block devices present
 // on that machine.
@@ -106,6 +110,20 @@ type StorageAttachmentId struct {
 // StorageAttachmentIds holds a set of storage attachment identifiers.
 type StorageAttachmentIds struct {
 	Ids []StorageAttachmentId `json:"ids"`
+}
+
+type StorageDetachmentParams struct {
+	// StorageIds to detach
+	StorageIds StorageAttachmentIds `json:"ids"`
+
+	// Force specifies whether relation destruction will be forced, i.e.
+	// keep going despite operational errors.
+	Force *bool `json:"force,omitempty"`
+
+	// MaxWait specifies the amount of time that each step in relation destroy process
+	// will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration `json:"max-wait,omitempty"`
 }
 
 // StorageAttachmentIdsResult holds the result of an API call to retrieve the
@@ -862,6 +880,15 @@ type RemoveStorageInstance struct {
 	// is destroyed. If DestroyStorage is true, the cloud storage will be
 	// destroyed; otherwise it will only be released from Juju's control.
 	DestroyStorage bool `json:"destroy-storage,omitempty"`
+
+	// Force specifies whether relation destruction will be forced, i.e.
+	// keep going despite operational errors.
+	Force *bool `json:"force,omitempty"`
+
+	// MaxWait specifies the amount of time that each step in relation destroy process
+	// will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration `json:"max-wait,omitempty"`
 }
 
 // BulkImportStorageParams contains the parameters for importing a collection

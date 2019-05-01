@@ -342,8 +342,9 @@ func (op *LeaveScopeOperation) Done(err error) error {
 // LeaveScopeWithForce in addition to doing what LeaveScope() does,
 // when force is passed in as 'true', forces relation unit to leave scope,
 // ignoring errors.
-func (ru *RelationUnit) LeaveScopeWithForce(force bool) ([]error, error) {
+func (ru *RelationUnit) LeaveScopeWithForce(force bool, maxWait time.Duration) ([]error, error) {
 	op := ru.LeaveScopeOperation(force)
+	op.MaxWait = maxWait
 	err := ru.st.ApplyOperation(op)
 	return op.Errors, err
 }
@@ -354,7 +355,7 @@ func (ru *RelationUnit) LeaveScopeWithForce(force bool) ([]error, error) {
 // leaves, it is removed immediately. It is not an error to leave a scope
 // that the unit is not, or never was, a member of.
 func (ru *RelationUnit) LeaveScope() error {
-	_, err := ru.LeaveScopeWithForce(false)
+	_, err := ru.LeaveScopeWithForce(false, time.Duration(0))
 	return err
 }
 

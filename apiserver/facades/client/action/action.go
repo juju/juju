@@ -209,10 +209,6 @@ func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 		return params.ActionResults{}, errors.Trace(err)
 	}
 
-	if err := a.check.ChangeAllowed(); err != nil {
-		return params.ActionResults{}, errors.Trace(err)
-	}
-
 	var leaders map[string]string
 	getLeader := func(appName string) (string, error) {
 		if leaders == nil {
@@ -305,10 +301,6 @@ func (a *ActionAPI) ListCompleted(arg params.Entities) (params.ActionsByReceiver
 // Cancel attempts to cancel enqueued Actions from running.
 func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
 	if err := a.checkCanWrite(); err != nil {
-		return params.ActionResults{}, errors.Trace(err)
-	}
-
-	if err := a.check.ChangeAllowed(); err != nil {
 		return params.ActionResults{}, errors.Trace(err)
 	}
 

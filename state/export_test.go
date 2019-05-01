@@ -542,7 +542,8 @@ func SpaceDoc(s *Space) spaceDoc {
 }
 
 func ForceDestroyMachineOps(m *Machine) ([]txn.Op, error) {
-	return m.forceDestroyOps()
+	// For test we do not want to wait for the force.
+	return m.forceDestroyOps(time.Duration(0))
 }
 
 func MakeActionIdConverter(st *State) func(string) (string, error) {

@@ -4,6 +4,8 @@
 package common
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
@@ -64,17 +66,17 @@ type Machine interface {
 	ContainerType() instance.ContainerType
 	HardwareCharacteristics() (*instance.HardwareCharacteristics, error)
 	Life() state.Life
-	ForceDestroy() error
+	ForceDestroy(time.Duration) error
 	Destroy() error
 	AgentPresence() (bool, error)
 	IsManager() bool
 }
 
-func DestroyMachines(st origStateInterface, force bool, ids ...string) error {
-	return destroyMachines(&stateShim{st}, force, ids...)
+func DestroyMachines(st origStateInterface, force bool, maxWait time.Duration, ids ...string) error {
+	return destroyMachines(&stateShim{st}, force, maxWait, ids...)
 }
 
-func destroyMachines(st stateInterface, force bool, ids ...string) error {
+func destroyMachines(st stateInterface, force bool, maxWait time.Duration, ids ...string) error {
 	var errs []error
 	for _, id := range ids {
 		machine, err := st.Machine(id)
@@ -83,7 +85,7 @@ func destroyMachines(st stateInterface, force bool, ids ...string) error {
 			err = errors.Errorf("machine %s does not exist", id)
 		case err != nil:
 		case force:
-			err = machine.ForceDestroy()
+			err = machine.ForceDestroy(maxWait)
 		case machine.Life() != state.Alive:
 			continue
 		default:

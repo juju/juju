@@ -1375,6 +1375,9 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 		op := unit.DestroyOperation()
 		op.DestroyStorage = arg.DestroyStorage
 		op.Force = arg.Force
+		if arg.Force {
+			op.MaxWait = common.MaxWait(arg.MaxWait)
+		}
 		if err := api.backend.ApplyOperation(op); err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1507,6 +1510,9 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 		op := app.DestroyOperation()
 		op.DestroyStorage = arg.DestroyStorage
 		op.Force = arg.Force
+		if arg.Force {
+			op.MaxWait = common.MaxWait(arg.MaxWait)
+		}
 		if err := api.backend.ApplyOperation(op); err != nil {
 			return nil, err
 		}

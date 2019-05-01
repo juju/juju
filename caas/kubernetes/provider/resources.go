@@ -19,7 +19,7 @@ import (
 func (k *kubernetesClient) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	modelLabel := fmt.Sprintf("%v==%v", tags.JujuModel, k.modelUUID)
 
-	pods := k.CoreV1().Pods(k.namespace)
+	pods := k.client().CoreV1().Pods(k.namespace)
 	podsList, err := pods.List(v1.ListOptions{
 		LabelSelector: modelLabel,
 	})
@@ -33,7 +33,7 @@ func (k *kubernetesClient) AdoptResources(ctx context.ProviderCallContext, contr
 		}
 	}
 
-	pvcs := k.CoreV1().PersistentVolumeClaims(k.namespace)
+	pvcs := k.client().CoreV1().PersistentVolumeClaims(k.namespace)
 	pvcList, err := pvcs.List(v1.ListOptions{
 		LabelSelector: modelLabel,
 	})
@@ -47,7 +47,7 @@ func (k *kubernetesClient) AdoptResources(ctx context.ProviderCallContext, contr
 		}
 	}
 
-	pvs := k.CoreV1().PersistentVolumes()
+	pvs := k.client().CoreV1().PersistentVolumes()
 	pvList, err := pvs.List(v1.ListOptions{
 		LabelSelector: modelLabel,
 	})
@@ -61,7 +61,7 @@ func (k *kubernetesClient) AdoptResources(ctx context.ProviderCallContext, contr
 		}
 	}
 
-	sSets := k.AppsV1().StatefulSets(k.namespace)
+	sSets := k.client().AppsV1().StatefulSets(k.namespace)
 	ssList, err := sSets.List(v1.ListOptions{
 		LabelSelector: modelLabel,
 	})
@@ -75,7 +75,7 @@ func (k *kubernetesClient) AdoptResources(ctx context.ProviderCallContext, contr
 		}
 	}
 
-	deployments := k.AppsV1().Deployments(k.namespace)
+	deployments := k.client().AppsV1().Deployments(k.namespace)
 	dList, err := deployments.List(v1.ListOptions{
 		LabelSelector: modelLabel,
 	})

@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/dustin/go-humanize"
 	"github.com/juju/collections/set"
@@ -366,9 +367,9 @@ func IsStorageAttachedError(err error) bool {
 // is removed immediately. If "destroyAttached" is instead false and there are
 // existing storage attachments, then DestroyStorageInstance will return an error
 // satisfying IsStorageAttachedError.
-func (sb *storageBackend) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool) (err error) {
+func (sb *storageBackend) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy storage %q", tag.Id())
-	return sb.destroyStorageInstance(tag, destroyAttachments, false, force)
+	return sb.destroyStorageInstance(tag, destroyAttachments, false, force, maxWait)
 }
 
 // ReleaseStorageInstance ensures that the storage instance will be removed at
@@ -379,9 +380,9 @@ func (sb *storageBackend) DestroyStorageInstance(tag names.StorageTag, destroyAt
 // is removed immediately. If "destroyAttached" is instead false and there are
 // existing storage attachments, then ReleaseStorageInstance will return an error
 // satisfying IsStorageAttachedError.
-func (sb *storageBackend) ReleaseStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool) (err error) {
+func (sb *storageBackend) ReleaseStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot release storage %q", tag.Id())
-	return sb.destroyStorageInstance(tag, destroyAttachments, true, force)
+	return sb.destroyStorageInstance(tag, destroyAttachments, true, force, maxWait)
 }
 
 func (sb *storageBackend) destroyStorageInstance(
@@ -389,6 +390,7 @@ func (sb *storageBackend) destroyStorageInstance(
 	destroyAttachments bool,
 	releaseMachineStorage bool,
 	force bool,
+	maxWait time.Duration,
 ) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		s, err := sb.storageInstance(tag)
@@ -398,9 +400,7 @@ func (sb *storageBackend) destroyStorageInstance(
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		switch ops, err := sb.destroyStorageInstanceOps(
-			s, destroyAttachments, releaseMachineStorage, force,
-		); err {
+		switch ops, err := sb.destroyStorageInstanceOps(s, destroyAttachments, releaseMachineStorage, force, maxWait); err {
 		case errAlreadyDying:
 			return nil, jujutxn.ErrNoOperations
 		case nil:
@@ -421,6 +421,7 @@ func (sb *storageBackend) destroyStorageInstanceOps(
 	destroyAttachments bool,
 	releaseStorage bool,
 	force bool,
+	maxWait time.Duration,
 ) ([]txn.Op, error) {
 	if s.doc.Life == Dying {
 		if !force {
@@ -475,10 +476,10 @@ func (sb *storageBackend) destroyStorageInstanceOps(
 	}
 	update := bson.D{{"$set", setFields}}
 	ops := []txn.Op{
-		newCleanupOp(cleanupAttachmentsForDyingStorage, s.doc.Id, force),
+		newCleanupOp(cleanupAttachmentsForDyingStorage, s.doc.Id, force, maxWait),
 	}
 	if owner != nil && sb.modelType == ModelTypeCAAS {
-		ops = append(ops, newCleanupOp(cleanupDyingUnitResources, owner.Id(), force))
+		ops = append(ops, newCleanupOp(cleanupDyingUnitResources, owner.Id(), force, maxWait))
 	}
 	ops = append(ops, validateRemoveOps...)
 	ops = append(ops, txn.Op{
@@ -491,11 +492,11 @@ func (sb *storageBackend) destroyStorageInstanceOps(
 }
 
 func checkStoragePoolReleasable(im *storageBackend, pool string) error {
-	providerType, provider, _, err := poolStorageProvider(im, pool)
+	providerType, aProvider, _, err := poolStorageProvider(im, pool)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !provider.Releasable() {
+	if !aProvider.Releasable() {
 		return errors.Errorf(
 			"storage provider %q does not support releasing storage",
 			providerType,
@@ -1193,7 +1194,7 @@ func (sb *storageBackend) DestroyUnitStorageAttachments(unit names.UnitTag) (err
 
 // DetachStorage ensures that the storage attachment will be
 // removed at some point.
-func (sb *storageBackend) DetachStorage(storage names.StorageTag, unit names.UnitTag, force bool) (err error) {
+func (sb *storageBackend) DetachStorage(storage names.StorageTag, unit names.UnitTag, force bool, maxWait time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy storage attachment %s:%s", storage.Id(), unit.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		s, err := sb.storageAttachment(storage, unit)
@@ -1840,18 +1841,18 @@ func validateStoragePool(
 	if poolName == "" {
 		return errors.New("pool name is required")
 	}
-	providerType, provider, poolConfig, err := poolStorageProvider(sb, poolName)
+	providerType, aProvider, poolConfig, err := poolStorageProvider(sb, poolName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Ensure the storage provider supports the specified kind.
-	kindSupported := provider.Supports(kind)
+	kindSupported := aProvider.Supports(kind)
 	if !kindSupported && kind == storage.StorageKindFilesystem {
 		// Filesystems can be created if either filesystem
 		// or block storage are supported. The scope of the
 		// filesystem is the same as the backing volume.
-		kindSupported = provider.Supports(storage.StorageKindBlock)
+		kindSupported = aProvider.Supports(storage.StorageKindBlock)
 	}
 	if !kindSupported {
 		return errors.Errorf("%q provider does not support %q storage", providerType, kind)
@@ -1859,7 +1860,7 @@ func validateStoragePool(
 
 	// Check the storage scope.
 	if machineId != nil {
-		switch provider.Scope() {
+		switch aProvider.Scope() {
 		case storage.ScopeMachine:
 			if *machineId == "" {
 				return errors.Annotate(err, "machine unspecified for machine-scoped storage")
@@ -1889,22 +1890,22 @@ func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderT
 		// If there's no pool called poolName, maybe a provider type
 		// has been specified directly.
 		providerType := storage.ProviderType(poolName)
-		provider, err1 := sb.registry.StorageProvider(providerType)
+		aProvider, err1 := sb.registry.StorageProvider(providerType)
 		if err1 != nil {
 			// The name can't be resolved as a storage provider type,
 			// so return the original "pool not found" error.
 			return "", nil, nil, errors.Trace(err)
 		}
-		return providerType, provider, nil, nil
+		return providerType, aProvider, nil, nil
 	} else if err != nil {
 		return "", nil, nil, errors.Trace(err)
 	}
 	providerType := pool.Provider()
-	provider, err := sb.registry.StorageProvider(providerType)
+	aProvider, err := sb.registry.StorageProvider(providerType)
 	if err != nil {
 		return "", nil, nil, errors.Trace(err)
 	}
-	return providerType, provider, pool.Attrs(), nil
+	return providerType, aProvider, pool.Attrs(), nil
 }
 
 // ErrNoDefaultStoragePool is returned when a storage pool is required but none

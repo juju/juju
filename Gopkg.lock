@@ -1403,7 +1403,7 @@
   version = "v0.2.3"
 
 [[projects]]
-  digest = "1:9a9b8033b631d8cf0d16e71fd815a6e90a8133efc81543784127a1e8d8b4687e"
+  digest = "1:3bc94878ebb5ec72f58047fc1a613de37ba4ef2b0c152480c2b6400fa3a875a8"
   name = "gopkg.in/goose.v2"
   packages = [
     ".",
@@ -1429,7 +1429,7 @@
     "testservices/swiftservice",
   ]
   pruneopts = ""
-  revision = "cf9b64132d71c47930543f2add6ddab0fc402147"
+  revision = "13b769d3462eedac5f8ec2458f8e61a0dfe54d51"
 
 [[projects]]
   digest = "1:445becf3878aa9bd50dfa972bd65f974ed2468c09350ab9ce28b1e4adce464df"
@@ -1461,7 +1461,7 @@
   revision = "51fa6e26128d74e445c72d3a91af555151cc3654"
 
 [[projects]]
-  digest = "1:96b43bfe348be6362e66b0c98dc2fe590d822633da7df13fba644f44e710a57e"
+  digest = "1:f6560765e17f77f08ebd7358a026f4ce6c2829123ce6f81b97e90aee8efb1613"
   name = "gopkg.in/juju/charm.v6"
   packages = [
     ".",
@@ -1469,7 +1469,7 @@
     "resource",
   ]
   pruneopts = ""
-  revision = "ba56c9482e6c71e9ed79b1551754831bf9af8854"
+  revision = "b4861dc361873d2618454bcfb8656c6cb77fdf69"
 
 [[projects]]
   digest = "1:86df7d2874a5250cf64324e2ce4e88fea552aa1f5c1a3f065599bd1f381ce939"

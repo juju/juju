@@ -116,12 +116,13 @@ func specToArgs(spec controller.MigrationSpec) params.InitiateMigrationArgs {
 		Specs: []params.MigrationSpec{{
 			ModelTag: names.NewModelTag(spec.ModelUUID).String(),
 			TargetInfo: params.MigrationTargetInfo{
-				ControllerTag: names.NewControllerTag(spec.TargetControllerUUID).String(),
-				Addrs:         spec.TargetAddrs,
-				CACert:        spec.TargetCACert,
-				AuthTag:       names.NewUserTag(spec.TargetUser).String(),
-				Password:      spec.TargetPassword,
-				Macaroons:     string(macsJSON),
+				ControllerTag:   names.NewControllerTag(spec.TargetControllerUUID).String(),
+				ControllerAlias: spec.TargetControllerAlias,
+				Addrs:           spec.TargetAddrs,
+				CACert:          spec.TargetCACert,
+				AuthTag:         names.NewUserTag(spec.TargetUser).String(),
+				Password:        spec.TargetPassword,
+				Macaroons:       string(macsJSON),
 			},
 		}},
 	}
@@ -260,13 +261,14 @@ func makeSpec() controller.MigrationSpec {
 		panic(err)
 	}
 	return controller.MigrationSpec{
-		ModelUUID:            randomUUID(),
-		TargetControllerUUID: randomUUID(),
-		TargetAddrs:          []string{"1.2.3.4:5"},
-		TargetCACert:         "cert",
-		TargetUser:           "someone",
-		TargetPassword:       "secret",
-		TargetMacaroons:      []macaroon.Slice{{mac}},
+		ModelUUID:             randomUUID(),
+		TargetControllerUUID:  randomUUID(),
+		TargetControllerAlias: "target-controller",
+		TargetAddrs:           []string{"1.2.3.4:5"},
+		TargetCACert:          "cert",
+		TargetUser:            "someone",
+		TargetPassword:        "secret",
+		TargetMacaroons:       []macaroon.Slice{{mac}},
 	}
 }
 

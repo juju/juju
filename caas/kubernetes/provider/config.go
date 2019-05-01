@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	defaultServiceType           = string(core.ServiceTypeClusterIP)
+	defaultServiceType           = core.ServiceTypeClusterIP
 	defaultIngressClass          = "nginx"
 	defaultIngressSSLRedirect    = false
 	defaultIngressSSLPassthrough = false
@@ -89,7 +89,7 @@ var configFields = environschema.Fields{
 }
 
 var schemaDefaults = schema.Defaults{
-	serviceTypeConfigKey:     defaultServiceType,
+	serviceTypeConfigKey:     schema.Omit,
 	serviceAnnotationsKey:    schema.Omit,
 	ingressClassKey:          defaultIngressClass,
 	ingressSSLRedirectKey:    defaultIngressSSLRedirect,

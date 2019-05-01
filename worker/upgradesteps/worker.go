@@ -97,6 +97,7 @@ func NewWorker(
 	openState func() (*state.StatePool, error),
 	preUpgradeSteps func(st *state.StatePool, agentConf agent.Config, isController, isMasterServer, isCaas bool) error,
 	machine StatusSetter,
+	isCaas bool,
 ) (worker.Worker, error) {
 	w := &upgradesteps{
 		upgradeComplete: upgradeComplete,
@@ -107,6 +108,7 @@ func NewWorker(
 		preUpgradeSteps: preUpgradeSteps,
 		machine:         machine,
 		tag:             agent.CurrentConfig().Tag(),
+		isCaas:          isCaas,
 	}
 	w.tomb.Go(w.run)
 	return w, nil
@@ -181,11 +183,13 @@ func (w *upgradesteps) run() error {
 		return nil
 	}
 
-	// If the agent is a machine agent for a controller, flag that state
-	// needs to be opened before running upgrade steps
-	for _, job := range w.jobs {
-		if job == multiwatcher.JobManageModel {
-			w.isController = true
+	if w.jobs != nil {
+		// If the agent is a machine agent for a controller, flag that state
+		// needs to be opened before running upgrade steps
+		for _, job := range w.jobs {
+			if job == multiwatcher.JobManageModel {
+				w.isController = true
+			}
 		}
 	}
 
@@ -462,6 +466,9 @@ var getUpgradeRetryStrategy = func() utils.AttemptStrategy {
 // jobs assigned to an agent. This determines the upgrade steps
 // which will run during an upgrade.
 func jobsToTargets(jobs []multiwatcher.MachineJob, isMaster bool) (targets []upgrades.Target) {
+	if jobs == nil {
+		return
+	}
 	for _, job := range jobs {
 		switch job {
 		case multiwatcher.JobManageModel:

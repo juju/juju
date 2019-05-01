@@ -4,8 +4,11 @@
 package caasunitprovisioner_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
@@ -125,6 +128,7 @@ type mockApplication struct {
 	ops        *state.UpdateUnitsOperation
 	providerId string
 	addresses  []network.Address
+	charm      *mockCharm
 }
 
 func (*mockApplication) Tag() names.Tag {
@@ -155,6 +159,19 @@ func (a *mockApplication) SetScale(scale int) error {
 	a.MethodCall(a, "SetScale", scale)
 	a.scale = scale
 	return nil
+}
+
+type mockCharm struct {
+	meta charm.Meta
+}
+
+func (m *mockCharm) Meta() *charm.Meta {
+	return &m.meta
+}
+
+func (a *mockApplication) Charm() (caasunitprovisioner.Charm, bool, error) {
+	a.MethodCall(a, "Charm")
+	return a.charm, false, nil
 }
 
 func (a *mockApplication) GetPlacement() string {
@@ -300,7 +317,7 @@ func (m *mockStorage) AllFilesystems() ([]state.Filesystem, error) {
 	return result, nil
 }
 
-func (m *mockStorage) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool) (err error) {
+func (m *mockStorage) DestroyStorageInstance(tag names.StorageTag, destroyAttachments bool, force bool, maxWait time.Duration) (err error) {
 	m.MethodCall(m, "DestroyStorageInstance", tag, destroyAttachments, force)
 	return nil
 }

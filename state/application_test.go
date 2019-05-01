@@ -218,6 +218,42 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 }
 
+func (s *ApplicationSuite) TestCAASSetCharmNewDeploymentFails(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+	})
+	defer st.Close()
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+
+	// Create a charm with new deployment info in metadata.
+	metaYaml := `
+name: gitlab
+summary: test
+description: test
+provides:
+  website:
+    interface: http
+requires:
+  db:
+    interface: mysql    
+series:
+  - kubernetes
+deployment:
+  type: stateful
+  service: loadbalancer
+`[1:]
+	newCh := state.AddCustomCharm(c, st, "gitlab", "metadata.yaml", metaYaml, "kubernetes", 2)
+	cfg := state.SetCharmConfig{
+		Charm:      newCh,
+		ForceUnits: true,
+	}
+	err := app.SetCharm(cfg)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "gitlab" to charm "local:kubernetes/kubernetes-gitlab-2": cannot change a charm's deployment type`)
+}
+
 func (s *ApplicationSuite) combinedSettings(ch *state.Charm, inSettings charm.Settings) charm.Settings {
 	result := ch.Config().DefaultSettings()
 	for name, value := range inSettings {

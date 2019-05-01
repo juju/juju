@@ -41,16 +41,10 @@ However, at times, there is a need to remove a relation ignoring
 all operational errors. In these rare cases, use --force option but note 
 that --force will remove a relation without giving it the opportunity to be removed cleanly.
 
-Relation removal is a multi-step process. Under normal circumstances, Juju will not
-proceed to a next step until the current step finished. 
-However, when using --force, users can also specify --no-wait to progress through steps 
-without delay waiting for each step to complete.
-
 Examples:
     juju remove-relation mysql wordpress
     juju remove-relation 4
     juju remove-relation 4 --force
-    juju remove-relation 4 --force --no-wait
 
 In the case of multiple relations, the relation name should be specified
 at least once - the following examples will all have the same effect:
@@ -114,7 +108,6 @@ func (c *removeRelationCommand) Init(args []string) (err error) {
 func (c *removeRelationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.Force, "force", false, "Force remove a relation")
-	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through relation removal without waiting for each individual step to complete")
 	c.fs = f
 }
 

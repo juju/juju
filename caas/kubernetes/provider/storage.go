@@ -194,7 +194,7 @@ func (v *volumeSource) CreateVolumes(ctx context.ProviderCallContext, params []s
 
 // ListVolumes is specified on the storage.VolumeSource interface.
 func (v *volumeSource) ListVolumes(ctx context.ProviderCallContext) ([]string, error) {
-	pVolumes := v.client.CoreV1().PersistentVolumes()
+	pVolumes := v.client.client().CoreV1().PersistentVolumes()
 	vols, err := pVolumes.List(v1.ListOptions{})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -208,7 +208,7 @@ func (v *volumeSource) ListVolumes(ctx context.ProviderCallContext) ([]string, e
 
 // DescribeVolumes is specified on the storage.VolumeSource interface.
 func (v *volumeSource) DescribeVolumes(ctx context.ProviderCallContext, volIds []string) ([]storage.DescribeVolumesResult, error) {
-	pVolumes := v.client.CoreV1().PersistentVolumes()
+	pVolumes := v.client.client().CoreV1().PersistentVolumes()
 	vols, err := pVolumes.List(v1.ListOptions{
 		// TODO(caas) - filter on volumes for the current model
 	})
@@ -239,7 +239,7 @@ func (v *volumeSource) DescribeVolumes(ctx context.ProviderCallContext, volIds [
 // DestroyVolumes is specified on the storage.VolumeSource interface.
 func (v *volumeSource) DestroyVolumes(ctx context.ProviderCallContext, volIds []string) ([]error, error) {
 	logger.Debugf("destroy k8s volumes: %v", volIds)
-	pVolumes := v.client.CoreV1().PersistentVolumes()
+	pVolumes := v.client.client().CoreV1().PersistentVolumes()
 	return foreachVolume(volIds, func(volumeId string) error {
 		vol, err := pVolumes.Get(volumeId, v1.GetOptions{IncludeUninitialized: true})
 		if err != nil && !k8serrors.IsNotFound(err) {
@@ -247,7 +247,7 @@ func (v *volumeSource) DestroyVolumes(ctx context.ProviderCallContext, volIds []
 		}
 		if err == nil && vol.Spec.ClaimRef != nil {
 			claimRef := vol.Spec.ClaimRef
-			pClaims := v.client.CoreV1().PersistentVolumeClaims(claimRef.Namespace)
+			pClaims := v.client.client().CoreV1().PersistentVolumeClaims(claimRef.Namespace)
 			err := pClaims.Delete(claimRef.Name, &v1.DeleteOptions{PropagationPolicy: &defaultPropagationPolicy})
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return errors.Annotatef(err, "destroying volume claim %v", claimRef.Name)

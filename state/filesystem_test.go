@@ -743,9 +743,9 @@ func (s *FilesystemIAASModelSuite) TestRemoveStorageInstanceDestroysAndUnassigns
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.DestroyStorageInstance(storageTag, true, false)
+	err = s.storageBackend.DestroyStorageInstance(storageTag, true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.DetachStorage(storageTag, unitTag, false)
+	err = s.storageBackend.DetachStorage(storageTag, unitTag, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The storage instance and attachment are dying, but not yet
@@ -782,9 +782,9 @@ func (s *FilesystemIAASModelSuite) TestReleaseStorageInstanceFilesystemReleasing
 
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false)
+	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
+	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The filesystem should should be dying, and releasing.
@@ -803,10 +803,10 @@ func (s *FilesystemIAASModelSuite) TestReleaseStorageInstanceFilesystemUnreleasa
 
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false)
+	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false, dontWait)
 	c.Assert(err, gc.ErrorMatches,
 		`cannot release storage "data/0": storage provider "modelscoped-unreleasable" does not support releasing storage`)
-	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
+	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The filesystem should should be dying, and releasing.

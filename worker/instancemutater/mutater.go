@@ -106,7 +106,7 @@ func runMachine(machine MutaterMachine, removed <-chan struct{}, died chan<- ins
 		}
 	}()
 
-	profileChangeWatcher, err := machine.machineApi.WatchApplicationLXDProfiles()
+	profileChangeWatcher, err := machine.machineApi.WatchLXDProfileVerificationNeeded()
 	if err != nil {
 		machine.logger.Errorf(errors.Annotatef(err, "failed to start watching application lxd profiles for machine-%s", machine.id).Error())
 		machine.context.kill(err)
@@ -131,6 +131,12 @@ func (m MutaterMachine) watchProfileChangesLoop(removed <-chan struct{}, profile
 		case <-profileChangeWatcher.Changes():
 			info, err := m.machineApi.CharmProfilingInfo()
 			if err != nil {
+				// If the machine is not provisioned then we need to wait for
+				// new changes from the watcher.
+				if params.IsCodeNotProvisioned(errors.Cause(err)) {
+					m.logger.Tracef("got not provisioned machine-%s on charm profiling info, wait for another change", m.id)
+					continue
+				}
 				return errors.Trace(err)
 			}
 			if err = m.processMachineProfileChanges(info); err != nil && errors.IsNotValid(err) {
@@ -152,7 +158,7 @@ func (m MutaterMachine) watchProfileChangesLoop(removed <-chan struct{}, profile
 }
 
 func (m MutaterMachine) processMachineProfileChanges(info *instancemutater.UnitProfileInfo) error {
-	if len(info.CurrentProfiles) == 0 && len(info.ProfileChanges) == 0 {
+	if info == nil || (len(info.CurrentProfiles) == 0 && len(info.ProfileChanges) == 0) {
 		// no changes to be made, return now.
 		return nil
 	}

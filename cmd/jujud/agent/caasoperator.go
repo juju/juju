@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/gate"
@@ -58,6 +59,7 @@ type CaasOperatorAgent struct {
 	errReason        error
 	machineLock      machinelock.Lock
 
+	preUpgradeSteps upgrades.PreUpgradeStepsFunc
 	upgradeComplete gate.Lock
 
 	prometheusRegistry *prometheus.Registry
@@ -76,6 +78,7 @@ func NewCaasOperatorAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLo
 		dead:               make(chan struct{}),
 		bufferedLogger:     bufferedLogger,
 		prometheusRegistry: prometheusRegistry,
+		preUpgradeSteps:    upgrades.PreUpgradeSteps,
 	}, nil
 }
 
@@ -214,6 +217,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		UpdateLoggerConfig:   updateAgentConfLogging,
 		PrometheusRegisterer: op.prometheusRegistry,
 		LeadershipGuarantee:  15 * time.Second,
+		PreUpgradeSteps:      op.preUpgradeSteps,
 		UpgradeStepsLock:     op.upgradeComplete,
 		ValidateMigration:    op.validateMigration,
 		MachineLock:          op.machineLock,

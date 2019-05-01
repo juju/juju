@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/testing"
@@ -26,11 +28,12 @@ func (s *DetachStorageSuite) TestDetach(c *gc.C) {
 		{},
 		{},
 	}}
-	cmd := storage.NewDetachStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
-	ctx, err := cmdtesting.RunCommand(c, cmd, "foo/0", "bar/1")
+	command := storage.NewDetachStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
+	ctx, err := cmdtesting.RunCommand(c, command, "foo/0", "bar/1")
 	c.Assert(err, jc.ErrorIsNil)
 	fake.CheckCallNames(c, "NewEntityDetacherCloser", "Detach", "Close")
-	fake.CheckCall(c, 1, "Detach", []string{"foo/0", "bar/1"})
+	force := false
+	fake.CheckCall(c, 1, "Detach", []string{"foo/0", "bar/1"}, &force, (*time.Duration)(nil))
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 detaching foo/0
 detaching bar/1
@@ -54,8 +57,8 @@ failed to detach qux/1: bar
 func (s *DetachStorageSuite) TestDetachUnauthorizedError(c *gc.C) {
 	var fake fakeEntityDetacher
 	fake.SetErrors(nil, &params.Error{Code: params.CodeUnauthorized, Message: "nope"})
-	cmd := storage.NewDetachStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
-	ctx, err := cmdtesting.RunCommand(c, cmd, "foo/0")
+	command := storage.NewDetachStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
+	ctx, err := cmdtesting.RunCommand(c, command, "foo/0")
 	c.Assert(err, gc.ErrorMatches, "nope")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 You do not have permission to detach storage.
@@ -69,8 +72,8 @@ func (s *DetachStorageSuite) TestDetachInitErrors(c *gc.C) {
 }
 
 func (s *DetachStorageSuite) testDetachInitError(c *gc.C, args []string, expect string) {
-	cmd := storage.NewDetachStorageCommandForTest(nil, jujuclienttesting.MinimalStore())
-	_, err := cmdtesting.RunCommand(c, cmd, args...)
+	command := storage.NewDetachStorageCommandForTest(nil, jujuclienttesting.MinimalStore())
+	_, err := cmdtesting.RunCommand(c, command, args...)
 	c.Assert(err, gc.ErrorMatches, expect)
 }
 
@@ -89,7 +92,7 @@ func (f *fakeEntityDetacher) Close() error {
 	return f.NextErr()
 }
 
-func (f *fakeEntityDetacher) Detach(ids []string) ([]params.ErrorResult, error) {
-	f.MethodCall(f, "Detach", ids)
+func (f *fakeEntityDetacher) Detach(ids []string, force *bool, maxWait *time.Duration) ([]params.ErrorResult, error) {
+	f.MethodCall(f, "Detach", ids, force, maxWait)
 	return f.results, f.NextErr()
 }

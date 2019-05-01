@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
 	jc "github.com/juju/testing/checkers"
@@ -46,6 +48,10 @@ func (s *machineSuite) TestMachineJobFromParams(c *gc.C) {
 	}
 }
 
+const (
+	dontWait = time.Duration(0)
+)
+
 func (s *machineSuite) TestDestroyMachines(c *gc.C) {
 	st := mockState{
 		machines: map[string]*mockMachine{
@@ -54,7 +60,7 @@ func (s *machineSuite) TestDestroyMachines(c *gc.C) {
 			"3": {life: state.Dying},
 		},
 	}
-	err := common.MockableDestroyMachines(&st, false, "1", "2", "3", "4")
+	err := common.MockableDestroyMachines(&st, false, dontWait, "1", "2", "3", "4")
 
 	c.Assert(st.machines["1"].Life(), gc.Equals, state.Dying)
 	c.Assert(st.machines["1"].forceDestroyCalled, jc.IsFalse)
@@ -75,7 +81,7 @@ func (s *machineSuite) TestForceDestroyMachines(c *gc.C) {
 			"2": {life: state.Dying},
 		},
 	}
-	err := common.MockableDestroyMachines(&st, true, "1", "2")
+	err := common.MockableDestroyMachines(&st, true, dontWait, "1", "2")
 
 	c.Assert(st.machines["1"].Life(), gc.Equals, state.Dying)
 	c.Assert(st.machines["1"].forceDestroyCalled, jc.IsTrue)
@@ -298,7 +304,7 @@ func (m *mockMachine) AgentPresence() (bool, error) {
 	return !m.agentDead, m.presenceErr
 }
 
-func (m *mockMachine) ForceDestroy() error {
+func (m *mockMachine) ForceDestroy(time.Duration) error {
 	m.forceDestroyCalled = true
 	if m.forceDestroyErr != nil {
 		return m.forceDestroyErr

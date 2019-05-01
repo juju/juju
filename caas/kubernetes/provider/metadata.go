@@ -87,7 +87,7 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 	}
 
 	if storageClass != "" {
-		sc, err := k.StorageV1().StorageClasses().Get(storageClass, v1.GetOptions{IncludeUninitialized: true})
+		sc, err := k.client().StorageV1().StorageClasses().Get(storageClass, v1.GetOptions{IncludeUninitialized: true})
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
@@ -105,7 +105,7 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 
 	// We may have the workload storage but still need to look for operator storage.
 	preferredOperatorStorage, havePreferredOperatorStorage := jujuPreferredOperatorStorage[result.Cloud]
-	storageClasses, err := k.StorageV1().StorageClasses().List(v1.ListOptions{})
+	storageClasses, err := k.client().StorageV1().StorageClasses().List(v1.ListOptions{})
 	if err != nil {
 		return nil, errors.Annotate(err, "listing storage classes")
 	}
@@ -176,7 +176,7 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 func (k *kubernetesClient) listHostCloudRegions() (string, set.Strings, error) {
 	// we only check 5 worker nodes as of now just run in the one region and
 	// we are just looking for a running worker to sniff its region.
-	nodes, err := k.CoreV1().Nodes().List(v1.ListOptions{Limit: 5})
+	nodes, err := k.client().CoreV1().Nodes().List(v1.ListOptions{Limit: 5})
 	if err != nil {
 		return "", nil, errors.Annotate(err, "listing nodes")
 	}

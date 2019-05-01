@@ -49,6 +49,10 @@ func (s *unitprovisionerSuite) TestProvisioningInfo(c *gc.C) {
 					PodSpec:     "foo",
 					Tags:        map[string]string{"foo": "bar"},
 					Constraints: constraints.MustParse("mem=4G"),
+					DeploymentInfo: &params.KubernetesDeploymentInfo{
+						DeploymentType: "stateful",
+						ServiceType:    "loadbalancer",
+					},
 					Filesystems: []params.KubernetesFilesystemParams{{
 						StorageName: "database",
 						Size:        uint64(100),
@@ -81,6 +85,10 @@ func (s *unitprovisionerSuite) TestProvisioningInfo(c *gc.C) {
 		PodSpec:     "foo",
 		Tags:        map[string]string{"foo": "bar"},
 		Constraints: constraints.MustParse("mem=4G"),
+		DeploymentInfo: caasunitprovisioner.DeploymentInfo{
+			DeploymentType: "stateful",
+			ServiceType:    "loadbalancer",
+		},
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName:  "database",
 			Size:         uint64(100),

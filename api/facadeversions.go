@@ -97,7 +97,7 @@ var facadeVersions = map[string]int{
 	"Spaces":                       3,
 	"SSHClient":                    2,
 	"StatusHistory":                2,
-	"Storage":                      5,
+	"Storage":                      6,
 	"StorageProvisioner":           4,
 	"StringsWatcher":               1,
 	"Subnets":                      2,
