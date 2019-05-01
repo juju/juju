@@ -5,6 +5,7 @@ package application_test
 
 import (
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -444,18 +445,20 @@ func (s *ApplicationSuite) TestDestroyRelationIdRelationNotFound(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
-	s.assertDestroyApplication(c, false)
+	s.assertDestroyApplication(c, false, nil)
 }
 
 func (s *ApplicationSuite) TestForceDestroyApplication(c *gc.C) {
-	s.assertDestroyApplication(c, true)
+	zero := time.Duration(0)
+	s.assertDestroyApplication(c, true, &zero)
 }
 
-func (s *ApplicationSuite) assertDestroyApplication(c *gc.C, force bool) {
+func (s *ApplicationSuite) assertDestroyApplication(c *gc.C, force bool, maxWait *time.Duration) {
 	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
 		Applications: []params.DestroyApplicationParams{{
 			ApplicationTag: "application-postgresql",
 			Force:          force,
+			MaxWait:        maxWait,
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -485,7 +488,11 @@ func (s *ApplicationSuite) assertDestroyApplication(c *gc.C, force bool) {
 		"UnitStorageAttachments",
 		"ApplyOperation",
 	)
-	s.backend.CheckCall(c, 7, "ApplyOperation", &state.DestroyApplicationOperation{ForcedOperation: state.ForcedOperation{Force: force}})
+	expectedOp := &state.DestroyApplicationOperation{ForcedOperation: state.ForcedOperation{Force: force}}
+	if force {
+		expectedOp.MaxWait = common.MaxWait(maxWait)
+	}
+	s.backend.CheckCall(c, 7, "ApplyOperation", expectedOp)
 }
 
 func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
@@ -569,19 +576,21 @@ func (s *ApplicationSuite) TestDestroyConsumedApplicationNotFound(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
-	s.assertDestroyUnit(c, false)
+	s.assertDestroyUnit(c, false, nil)
 }
 
 func (s *ApplicationSuite) TestForceDestroyUnit(c *gc.C) {
-	s.assertDestroyUnit(c, true)
+	zero := time.Second * 0
+	s.assertDestroyUnit(c, true, &zero)
 }
 
-func (s *ApplicationSuite) assertDestroyUnit(c *gc.C, force bool) {
+func (s *ApplicationSuite) assertDestroyUnit(c *gc.C, force bool, maxWait *time.Duration) {
 	results, err := s.api.DestroyUnit(params.DestroyUnitsParams{
 		Units: []params.DestroyUnitParams{
 			{
 				UnitTag: "unit-postgresql-0",
 				Force:   force,
+				MaxWait: maxWait,
 			}, {
 				UnitTag:        "unit-postgresql-1",
 				DestroyStorage: true,
@@ -616,7 +625,11 @@ func (s *ApplicationSuite) assertDestroyUnit(c *gc.C, force bool) {
 		"UnitStorageAttachments",
 		"ApplyOperation",
 	)
-	s.backend.CheckCall(c, 6, "ApplyOperation", &state.DestroyUnitOperation{ForcedOperation: state.ForcedOperation{Force: force}})
+	expectedOp := &state.DestroyUnitOperation{ForcedOperation: state.ForcedOperation{Force: force}}
+	if force {
+		expectedOp.MaxWait = common.MaxWait(maxWait)
+	}
+	s.backend.CheckCall(c, 6, "ApplyOperation", expectedOp)
 	s.backend.CheckCall(c, 9, "ApplyOperation", &state.DestroyUnitOperation{
 		DestroyStorage: true,
 	})
