@@ -37,6 +37,7 @@ const (
 	cleanupForceDestroyedUnit            cleanupKind = "forceDestroyUnit"
 	cleanupForceRemoveUnit               cleanupKind = "forceRemoveUnit"
 	cleanupRemovedUnit                   cleanupKind = "removedUnit"
+	cleanupApplication                   cleanupKind = "application"
 	cleanupApplicationsForDyingModel     cleanupKind = "applications"
 	cleanupDyingMachine                  cleanupKind = "dyingMachine"
 	cleanupForceDestroyedMachine         cleanupKind = "machine"
@@ -136,7 +137,11 @@ func (st *State) Cleanup() (err error) {
 		{"when": bson.M{"$lte": st.stateClock.Now()}},
 		{"when": bson.M{"$exists": false}},
 	}}
-	iter := cleanups.Find(query).Iter()
+	// TODO(jam): 2019-05-01 We used to just query in any order, but that turned
+	//  out to *normally* be in sorted order, and some cleanups ended up depending
+	//  on that ordering. We shouldn't, but until we can fix the cleanups,
+	//  enforce the sort ordering.
+	iter := cleanups.Find(query).Sort("_id").Iter()
 	defer closeIter(iter, &err, "reading cleanup document")
 	for iter.Next(&doc) {
 		var err error
@@ -150,6 +155,8 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupRelationSettings(doc.Prefix)
 		case cleanupCharm:
 			err = st.cleanupCharm(doc.Prefix)
+		case cleanupApplication:
+			err = st.cleanupApplication(doc.Prefix, args)
 		case cleanupUnitsForDyingApplication:
 			err = st.cleanupUnitsForDyingApplication(doc.Prefix, args)
 		case cleanupDyingUnit:
@@ -376,6 +383,46 @@ func (st *State) cleanupStorageForDyingModel(cleanupArgs []bson.Raw) (err error)
 	return nil
 }
 
+// cleanupApplication checks if all references to a dying application have been removed,
+// and if so, removes the application.
+func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.Raw) (err error) {
+	app, err := st.Application(applicationname)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Nothing to do, the application is already gone.
+			logger.Tracef("cleanupApplication(%s): application already gone", applicationname)
+			return nil
+		}
+		return errors.Trace(err)
+	}
+	if app.Life() == Alive {
+		return errors.BadRequestf("cleanupApplication requested for an application (%s) that is still alive", applicationname)
+	}
+	// We know the app is at least Dying, so check if the unit/relation counts are no longer referencing this application.
+	if app.UnitCount() > 0 || app.RelationCount() > 0 {
+		// this is considered a no-op because whatever is currently referencing the application
+		// should queue up a new cleanup once it stops
+		logger.Tracef("cleanupApplication(%s) called, but it still has references: unitcount: %d relationcount: %d",
+			applicationname, app.UnitCount(), app.RelationCount())
+		return nil
+	}
+	destroyStorage := false
+	force := false
+	if n := len(cleanupArgs); n != 2 {
+		return errors.Errorf("expected 2 arguments, got %d", n)
+	}
+	if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
+		return errors.Annotate(err, "unmarshalling cleanup args")
+	}
+	if err := cleanupArgs[1].Unmarshal(&force); err != nil {
+		return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+	}
+	op := app.DestroyOperation()
+	op.DestroyStorage = destroyStorage
+	op.Force = force
+	return st.ApplyOperation(op)
+}
+
 // cleanupApplicationsForDyingModel sets all applications to Dying, if they are
 // not already Dying or Dead. It's expected to be used when a model is
 // destroyed.
@@ -404,6 +451,8 @@ func (st *State) removeApplicationsForDyingModel(args DestroyModelParams) (err e
 	// state at all.
 	applications, closer := st.db().GetCollection(applicationsC)
 	defer closer()
+	// Note(jam): 2019-04-25 This will only try to shut down Alive applications,
+	//  it doesn't cause applications that are Dying to finish progressing to Dead.
 	application := Application{st: st}
 	sel := bson.D{{"life", Alive}}
 	iter := applications.Find(sel).Iter()
@@ -509,21 +558,25 @@ func (st *State) cleanupCharm(charmURL string) error {
 	ch, err := st.Charm(curl)
 	if errors.IsNotFound(err) {
 		// Charm already removed.
+		logger.Tracef("cleanup charm(%s) no-op, charm already gone", charmURL)
 		return nil
 	} else if err != nil {
 		return errors.Annotate(err, "reading charm")
 	}
 
+	logger.Tracef("cleanup charm(%s): Destroy", charmURL)
 	err = ch.Destroy()
 	switch errors.Cause(err) {
 	case nil:
 	case errCharmInUse:
 		// No cleanup necessary at this time.
+		logger.Tracef("cleanup charm(%s): charm still in use", charmURL)
 		return nil
 	default:
 		return errors.Annotate(err, "destroying charm")
 	}
 
+	logger.Tracef("cleanup charm(%s): Remove", charmURL)
 	if err := ch.Remove(); err != nil {
 		return errors.Trace(err)
 	}

@@ -242,7 +242,7 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 	case *methods.FindByInventoryPathBody:
 		req := req.(*methods.FindByInventoryPathBody).Req
 		r.MethodCall(r, "FindByInventoryPath", req.This.Value, req.InventoryPath)
-		logger.Criticalf("FindByInventoryPath ref: %q, path: %q", req.This.Value, req.InventoryPath)
+		logger.Debugf("FindByInventoryPath ref: %q, path: %q", req.This.Value, req.InventoryPath)
 		res.Res = &types.FindByInventoryPathResponse{
 			Returnval: &types.ManagedObjectReference{
 				Type:  "ComputeResource",
@@ -251,7 +251,7 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 		}
 
 	default:
-		logger.Criticalf("mockRoundTripper: unknown res type %T", res)
+		logger.Debugf("mockRoundTripper: unknown res type %T", res)
 		return errors.Errorf("unknown type %T", res)
 	}
 	return nil

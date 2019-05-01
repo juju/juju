@@ -5937,7 +5937,7 @@ func (s *StatusSuite) TestNonTabularDisplayRelations(c *gc.C) {
 
 	_, stdout, stderr := runStatus(c, "--format=yaml", "--relations")
 	c.Assert(string(stderr), gc.Equals, "provided relations option is always enabled in non tabular formats\n")
-	logger.Criticalf("stdout -> \n%q", stdout)
+	logger.Debugf("stdout -> \n%q", stdout)
 	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
 	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
 }

@@ -2339,6 +2339,7 @@ func (s *StateSuite) TestWatchApplicationsBulkEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = keepDying.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
 	wc.AssertChange(alive.Name(), dying.Name())
 	wc.AssertNoChange()
 }
@@ -2362,14 +2363,19 @@ func (s *StateSuite) TestWatchApplicationsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Make it Dying: reported.
-	err = application.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(application.Destroy(), jc.ErrorIsNil)
 	wc.AssertChange("application")
 	wc.AssertNoChange()
 
+	c.Assert(application.Refresh(), jc.ErrorIsNil)
+	c.Check(application.Life(), gc.Equals, state.Dying)
+
 	// Make it Dead(/removed): reported.
-	err = keepDying.Destroy()
+	c.Assert(keepDying.Destroy(), jc.ErrorIsNil)
+	needs, err := s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(needs, jc.IsTrue)
+	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
 	wc.AssertChange("application")
 	wc.AssertNoChange()
 }

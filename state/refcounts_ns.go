@@ -35,7 +35,8 @@ type refcountDoc struct {
 }
 
 var (
-	errRefcountChanged = errors.New("refcount changed")
+	errRefcountChanged     = errors.New("refcount changed")
+	errRefcountAlreadyZero = errors.New("cannot decRef below 0")
 )
 
 // nsRefcounts exposes methods for safely manipulating reference count
@@ -98,7 +99,7 @@ func (ns nsRefcounts_) AliveDecRefOp(coll mongo.Collection, key string) (txn.Op,
 	if refcount, err := ns.read(coll, key); err != nil {
 		return txn.Op{}, errors.Trace(err)
 	} else if refcount < 1 {
-		return txn.Op{}, errors.New("cannot decRef below 0")
+		return txn.Op{}, errors.Annotatef(errRefcountAlreadyZero, "%s(%s)", coll.Name(), key)
 	}
 	return ns.justDecRefOp(coll.Name(), key, 0), nil
 }
@@ -113,7 +114,7 @@ func (ns nsRefcounts_) DyingDecRefOp(coll mongo.Collection, key string) (txn.Op,
 		return txn.Op{}, false, errors.Trace(err)
 	}
 	if refcount < 1 {
-		return txn.Op{}, false, errors.New("cannot decRef below 0")
+		return txn.Op{}, false, errors.Annotatef(errRefcountAlreadyZero, "%s(%s)", coll.Name(), key)
 	} else if refcount > 1 {
 		return ns.justDecRefOp(coll.Name(), key, 1), false, nil
 	}
@@ -128,6 +129,7 @@ func (ns nsRefcounts_) RemoveOp(coll mongo.Collection, key string, value int) (t
 		return txn.Op{}, errors.Trace(err)
 	}
 	if refcount != value {
+		logger.Tracef("reference of %s(%q) had %d refs, expected %d", coll.Name(), key, refcount, value)
 		return txn.Op{}, errRefcountChanged
 	}
 	return ns.JustRemoveOp(coll.Name(), key, value), nil
