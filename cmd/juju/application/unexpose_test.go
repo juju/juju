@@ -43,7 +43,7 @@ func (s *UnexposeSuite) assertExposed(c *gc.C, application string, expected bool
 }
 
 func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
+	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(s.CharmsPath, "multi-series")
 	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -66,7 +66,7 @@ func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
 }
 
 func (s *UnexposeSuite) TestBlockUnexpose(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
+	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(s.CharmsPath, "multi-series")
 	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
 
 	c.Assert(err, jc.ErrorIsNil)
