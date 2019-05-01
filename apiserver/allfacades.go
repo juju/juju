@@ -286,7 +286,8 @@ func AllFacades() *facade.Registry {
 
 	reg("Storage", 3, storage.NewStorageAPIV3)
 	reg("Storage", 4, storage.NewStorageAPIV4) // changes Destroy() method signature.
-	reg("Storage", 5, storage.NewStorageAPI)   // Update and Delete storage pools and CreatePool bulk calls.
+	reg("Storage", 5, storage.NewStorageAPIV5) // Update and Delete storage pools and CreatePool bulk calls.
+	reg("Storage", 6, storage.NewStorageAPI)   // modify Remove to support force and maxWait; adde DetachStorage to support force and maxWait.
 
 	reg("StorageProvisioner", 3, storageprovisioner.NewFacadeV3)
 	reg("StorageProvisioner", 4, storageprovisioner.NewFacadeV4)

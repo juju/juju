@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 )
 
-// StorageAPI implements the latest version (v5) of the Storage API which adds Update and Delete.
+// StorageAPI implements the latest version (v6) of the Storage API.
 type StorageAPI struct {
 	backend       backend
 	storageAccess storageAccess
@@ -40,9 +40,14 @@ type StorageAPI struct {
 	modelType     state.ModelType
 }
 
+// APIv5 implements the storage v5 API.
+type StorageAPIv5 struct {
+	StorageAPI
+}
+
 // APIv4 implements the storage v4 API adding AddToUnit, Import and Remove (replacing Destroy)
 type StorageAPIv4 struct {
-	StorageAPI
+	StorageAPIv5
 }
 
 // APIv3 implements the storage v3 API.
@@ -98,14 +103,25 @@ func newStorageAPI(
 	}
 }
 
-// NewStorageAPIV4 returns a new storage v4 API facade.
-func NewStorageAPIV4(context facade.Context) (*StorageAPIv4, error) {
+// NewStorageAPIV5 returns a new storage v5 API facade.
+func NewStorageAPIV5(context facade.Context) (*StorageAPIv5, error) {
 	storageAPI, err := NewStorageAPI(context)
 	if err != nil {
 		return nil, err
 	}
-	return &StorageAPIv4{
+	return &StorageAPIv5{
 		StorageAPI: *storageAPI,
+	}, nil
+}
+
+// NewStorageAPIV4 returns a new storage v4 API facade.
+func NewStorageAPIV4(context facade.Context) (*StorageAPIv4, error) {
+	storageAPI, err := NewStorageAPIV5(context)
+	if err != nil {
+		return nil, err
+	}
+	return &StorageAPIv4{
+		StorageAPIv5: *storageAPI,
 	}, nil
 }
 
@@ -257,7 +273,7 @@ func createStorageDetails(
 		}
 		statusEntity = volume
 	}
-	status, err := statusEntity.Status()
+	aStatus, err := statusEntity.Status()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -299,7 +315,7 @@ func createStorageDetails(
 		OwnerTag:    ownerTag,
 		Kind:        params.StorageKind(si.Kind()),
 		Life:        params.Life(si.Life().String()),
-		Status:      common.EntityStatusFromState(status),
+		Status:      common.EntityStatusFromState(aStatus),
 		Persistent:  persistent,
 		Attachments: storageAttachmentDetails,
 	}, nil
@@ -634,11 +650,11 @@ func createVolumeDetails(
 		}
 	}
 
-	status, err := v.Status()
+	aStatus, err := v.Status()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	details.Status = common.EntityStatusFromState(status)
+	details.Status = common.EntityStatusFromState(aStatus)
 
 	if storageTag, err := v.StorageInstance(); err == nil {
 		storageInstance, err := st.StorageInstance(storageTag)
@@ -800,11 +816,11 @@ func createFilesystemDetails(
 		}
 	}
 
-	status, err := f.Status()
+	aStatus, err := f.Status()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	details.Status = common.EntityStatusFromState(status)
+	details.Status = common.EntityStatusFromState(aStatus)
 
 	if storageTag, err := f.Storage(); err == nil {
 		storageInstance, err := st.StorageInstance(storageTag)
@@ -871,14 +887,14 @@ func (a *StorageAPI) addToUnit(args params.StoragesAddParams) (params.AddStorage
 			continue
 		}
 
-		tags, err := a.storageAccess.AddStorageForUnit(
+		storageTags, err := a.storageAccess.AddStorageForUnit(
 			u, one.StorageName, paramsToState(one.Constraints),
 		)
 		if err != nil {
 			result[i].Error = common.ServerError(err)
 		}
-		tagStrings := make([]string, len(tags))
-		for i, tag := range tags {
+		tagStrings := make([]string, len(storageTags))
+		for i, tag := range storageTags {
 			tagStrings[i] = tag.String()
 		}
 		result[i].Result = &params.AddStorageDetails{
@@ -918,19 +934,20 @@ func (a *StorageAPI) remove(args params.RemoveStorage) (params.ErrorResults, err
 		if !arg.DestroyStorage {
 			remove = a.storageAccess.ReleaseStorageInstance
 		}
-		result[i].Error = common.ServerError(
-			// TODO (anastasiamac 2019-04-04) We can now force storage removal
-			// but for now, while we have not an arg passed in, just hardcode.
-			remove(tag, arg.DestroyAttachments, false, time.Duration(0)),
-		)
+		force := arg.Force != nil && *arg.Force
+		result[i].Error = common.ServerError(remove(tag, arg.DestroyAttachments, force, common.MaxWait(arg.MaxWait)))
 	}
 	return params.ErrorResults{result}, nil
 }
 
-// Detach sets the specified storage attachments to Dying, unless they are
+// DetachStorage sets the specified storage attachments to Dying, unless they are
 // already Dying or Dead. Any associated, persistent storage will remain
-// alive.
-func (a *StorageAPI) Detach(args params.StorageAttachmentIds) (params.ErrorResults, error) {
+// alive. This call can be forced.
+func (a *StorageAPI) DetachStorage(args params.StorageDetachmentParams) (params.ErrorResults, error) {
+	return a.internalDetach(args.StorageIds, args.Force, args.MaxWait)
+}
+
+func (a *StorageAPI) internalDetach(args params.StorageAttachmentIds, force *bool, maxWait *time.Duration) (params.ErrorResults, error) {
 	if err := a.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -953,7 +970,7 @@ func (a *StorageAPI) Detach(args params.StorageAttachmentIds) (params.ErrorResul
 				return err
 			}
 		}
-		return a.detachStorage(storageTag, unitTag)
+		return a.detachStorage(storageTag, unitTag, force, maxWait)
 	}
 
 	result := make([]params.ErrorResult, len(args.Ids))
@@ -963,13 +980,19 @@ func (a *StorageAPI) Detach(args params.StorageAttachmentIds) (params.ErrorResul
 	return params.ErrorResults{result}, nil
 }
 
-func (a *StorageAPI) detachStorage(storageTag names.StorageTag, unitTag names.UnitTag) error {
+// Detach sets the specified storage attachments to Dying, unless they are
+// already Dying or Dead. Any associated, persistent storage will remain
+// alive.
+func (a *StorageAPIv5) Detach(args params.StorageAttachmentIds) (params.ErrorResults, error) {
+	return a.internalDetach(args, nil, nil)
+}
+
+func (a *StorageAPI) detachStorage(storageTag names.StorageTag, unitTag names.UnitTag, force *bool, maxWait *time.Duration) error {
+	forcing := force != nil && *force
 	if unitTag != (names.UnitTag{}) {
 		// The caller has specified a unit explicitly. Do
 		// not filter out "not found" errors in this case.
-		// TODO (anastasiamac 2019-04-04) We can now force storage removal
-		// but for now, while we have not an arg passed in, just hardcode.
-		return a.storageAccess.DetachStorage(storageTag, unitTag, false)
+		return a.storageAccess.DetachStorage(storageTag, unitTag, forcing, common.MaxWait(maxWait))
 	}
 	attachments, err := a.storageAccess.StorageAttachments(storageTag)
 	if err != nil {
@@ -985,9 +1008,7 @@ func (a *StorageAPI) detachStorage(storageTag names.StorageTag, unitTag names.Un
 		if att.Life() != state.Alive {
 			continue
 		}
-		// TODO (anastasiamac 2019-04-04) We can now force storage removal
-		// but for now, while we have not an arg passed in, just hardcode.
-		err := a.storageAccess.DetachStorage(storageTag, att.Unit(), false)
+		err := a.storageAccess.DetachStorage(storageTag, att.Unit(), forcing, common.MaxWait(maxWait))
 		if err != nil && !errors.IsNotFound(err) {
 			// We only care about NotFound errors if
 			// the user specified a unit explicitly.
@@ -1191,7 +1212,10 @@ func (a *StorageAPI) UpdatePool(p params.StoragePoolArgs) (params.ErrorResults, 
 // code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
 // so this removes the method as far as the RPC machinery is concerned.
 
-// Added in current api version
+// Added in v6 api version
+func (*StorageAPIv5) DetachStorage(_, _ struct{}) {}
+
+// Added in v5 api version
 func (*StorageAPIv4) RemovePool(_, _ struct{}) {}
 func (*StorageAPIv4) UpdatePool(_, _ struct{}) {}
 

@@ -167,10 +167,10 @@ func (ctx *context) apiLogin(c *gc.C) {
 	apiConn := ctx.s.OpenAPIAs(c, ctx.unit.Tag(), password)
 	c.Assert(apiConn, gc.NotNil)
 	c.Logf("API: login as %q successful", ctx.unit.Tag())
-	api, err := apiConn.Uniter()
+	testApi, err := apiConn.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(api, gc.NotNil)
-	ctx.api = api
+	c.Assert(testApi, gc.NotNil)
+	ctx.api = testApi
 	ctx.apiConn = apiConn
 	ctx.leaderTracker = newMockLeaderTracker(ctx)
 	ctx.leaderTracker.setLeader(c, true)
@@ -374,9 +374,9 @@ func (s addCharm) step(c *gc.C, ctx *context) {
 type serveCharm struct{}
 
 func (s serveCharm) step(c *gc.C, ctx *context) {
-	storage := storage.NewStorage(ctx.st.ModelUUID(), ctx.st.MongoSession())
+	testStorage := storage.NewStorage(ctx.st.ModelUUID(), ctx.st.MongoSession())
 	for storagePath, data := range ctx.charms {
-		err := storage.Put(storagePath, bytes.NewReader(data), int64(len(data)))
+		err := testStorage.Put(storagePath, bytes.NewReader(data), int64(len(data)))
 		c.Assert(err, jc.ErrorIsNil)
 		delete(ctx.charms, storagePath)
 	}
@@ -1776,6 +1776,7 @@ func (s destroyStorageAttachment) step(c *gc.C, ctx *context) {
 		storageAttachments[0].StorageInstance(),
 		ctx.unit.UnitTag(),
 		false,
+		time.Duration(0),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

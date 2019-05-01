@@ -169,7 +169,7 @@ func (st *mockStorageAccessor) AttachStorage(storage names.StorageTag, unit name
 	return st.attachStorage(storage, unit)
 }
 
-func (st *mockStorageAccessor) DetachStorage(storage names.StorageTag, unit names.UnitTag, force bool) error {
+func (st *mockStorageAccessor) DetachStorage(storage names.StorageTag, unit names.UnitTag, force bool, maxWait time.Duration) error {
 	return st.detachStorage(storage, unit, force)
 }
 

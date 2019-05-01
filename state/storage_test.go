@@ -104,10 +104,10 @@ func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (
 	// There are test charms called "storage-block" and
 	// "storage-filesystem" which are what you'd expect.
 	ch := s.AddTestingCharm(c, "storage-"+kind)
-	storage := map[string]state.StorageConstraints{
+	testStorage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
-	app := s.AddTestingApplicationWithStorage(c, "storage-"+kind, ch, storage)
+	app := s.AddTestingApplicationWithStorage(c, "storage-"+kind, ch, testStorage)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag := names.NewStorageTag("data/0")
@@ -138,10 +138,10 @@ func (s *StorageStateSuiteBase) setupSingleStorageDetachable(c *gc.C, kind, pool
 		CountMin: 0,
 		CountMax: 2,
 	})
-	storage := map[string]state.StorageConstraints{
+	testStorage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
-	app := s.AddTestingApplicationWithStorage(c, ch.URL().Name, ch, storage)
+	app := s.AddTestingApplicationWithStorage(c, ch.URL().Name, ch, testStorage)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag := names.NewStorageTag("data/0")
@@ -337,7 +337,7 @@ func (s *StorageStateSuiteBase) obliterateUnitStorage(c *gc.C, tag names.UnitTag
 	attachments, err := s.storageBackend.UnitStorageAttachments(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, a := range attachments {
-		err = s.storageBackend.DetachStorage(a.StorageInstance(), a.Unit(), false)
+		err = s.storageBackend.DetachStorage(a.StorageInstance(), a.Unit(), false, dontWait)
 		c.Assert(err, jc.ErrorIsNil)
 		if _, err := s.storageBackend.StorageAttachment(a.StorageInstance(), a.Unit()); err == nil {
 			err = s.storageBackend.RemoveStorageAttachment(a.StorageInstance(), a.Unit(), false)
@@ -621,11 +621,11 @@ func (s *StorageStateSuite) assertStorageUnitsAdded(c *gc.C) {
 	// Each unit added to the application will create storage instances
 	// to satisfy the application's storage constraints.
 	ch := s.AddTestingCharm(c, "storage-block2")
-	storage := map[string]state.StorageConstraints{
+	testStorage := map[string]state.StorageConstraints{
 		"multi1to10": makeStorageCons("", 1024, 1),
 		"multi2up":   makeStorageCons("loop-pool", 2048, 2),
 	}
-	app := s.AddTestingApplicationWithStorage(c, "storage-block2", ch, storage)
+	app := s.AddTestingApplicationWithStorage(c, "storage-block2", ch, testStorage)
 	for i := 0; i < 2; i++ {
 		u, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -745,7 +745,7 @@ func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
 		c.Assert(err, gc.ErrorMatches, "unit has storage attachments")
 	}
 	assertUnitEnsureDeadError()
-	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
+	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	assertUnitEnsureDeadError()
 	err = s.storageBackend.DestroyStorageInstance(storageTag, true, false, dontWait)
@@ -774,7 +774,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesDyingInstance(c *
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(si.Life(), gc.Equals, state.Dying)
 
-	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
+	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	exists := s.storageInstanceExists(c, storageTag)
 	c.Assert(exists, jc.IsFalse)
@@ -804,7 +804,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsDisownsUnitOwnedInstance
 	// behind, but will clear the ownership.
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
+	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 
 	si, err = s.storageBackend.StorageInstance(storageTag)
@@ -825,7 +825,7 @@ func (s *StorageStateSuite) TestAttachStorageTakesOwnership(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Detach, but do not destroy, the storage.
-	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
+	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now attach the storage to the second unit.
@@ -844,7 +844,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Detach, but do not destroy, the storage.
-	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
+	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the second unit to a machine so that when we
@@ -888,7 +888,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc
 	filesystem := s.storageInstanceFilesystem(c, storageTag)
 
 	// Detach, but do not destroy, the storage.
-	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
+	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.RemoveFilesystemAttachment(oldMachineTag, filesystem.FilesystemTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -936,7 +936,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolumeAttach
 	// Detach, but do not destroy, the storage. Leave the volume attachment
 	// in the model to show that we cannot attach the storage instance to
 	// another unit/machine until it's gone.
-	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
+	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.storageBackend.AttachStorage(storageTag, u2.UnitTag())
@@ -949,7 +949,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorage(c *gc.C) {
 	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
 
 	// Detach, but do not destroy, the storage.
-	err := s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
+	err := s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch, _, err := app.Charm()
@@ -1011,7 +1011,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageTooMany(c *gc.C) {
 		storageTags = append(storageTags, storageTag)
 
 		// Detach, but do not destroy, the storage.
-		err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
+		err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -1039,7 +1039,7 @@ func (s *StorageStateSuite) TestAddUnitAttachStorage(c *gc.C) {
 	app, u, storageTag := s.setupSingleStorageDetachable(c, "block", "modelscoped")
 
 	// Detach, but do not destroy, the storage.
-	err := s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
+	err := s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a new unit, attaching the existing storage.
@@ -1065,7 +1065,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAtt
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.st, func() {
-		err := s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
+		err := s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
@@ -1092,7 +1092,7 @@ func (s *StorageStateSuite) TestConcurrentRemoveStorageAttachment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	destroy := func() {
-		err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
+		err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	remove := func() {
@@ -1141,7 +1141,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyInstanceRemoveStorageAttachment
 	// Removing the attachment should check that there are no concurrent
 	// changes to the storage instance's life, and recompute operations
 	// if it does.
-	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
+	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	exists := s.storageInstanceExists(c, storageTag)
 	c.Assert(exists, jc.IsFalse)
@@ -1187,11 +1187,11 @@ func (s *StorageStateSuite) TestDestroyStorageInstanceAttachedError(c *gc.C) {
 
 func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block2")
-	storage := map[string]state.StorageConstraints{
+	testStorage := map[string]state.StorageConstraints{
 		"multi1to10": makeStorageCons("loop-pool", 1024, 2),
 		"multi2up":   makeStorageCons("loop-pool", 2048, 2),
 	}
-	app := s.AddTestingApplicationWithStorage(c, "storage-block2", ch, storage)
+	app := s.AddTestingApplicationWithStorage(c, "storage-block2", ch, testStorage)
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure that all the creation events have flowed through the system.
@@ -1203,7 +1203,7 @@ func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
 	wc.AssertChange("multi1to10/0", "multi1to10/1", "multi2up/2", "multi2up/3")
 	wc.AssertNoChange()
 
-	err = s.storageBackend.DetachStorage(names.NewStorageTag("multi1to10/1"), u.UnitTag(), false)
+	err = s.storageBackend.DetachStorage(names.NewStorageTag("multi1to10/1"), u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("multi1to10/1")
 	wc.AssertNoChange()
@@ -1228,7 +1228,7 @@ func (s *StorageStateSuite) TestWatchStorageAttachment(c *gc.C) {
 
 	err := u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false)
+	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 

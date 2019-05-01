@@ -611,7 +611,7 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 	} else {
 		// Mark storage attachments as dying, so that they are detached
 		// and removed from state, allowing the unit to terminate.
-		return st.cleanupUnitStorageAttachments(unit.UnitTag(), false, force)
+		return st.cleanupUnitStorageAttachments(unit.UnitTag(), false, force, maxWait)
 	}
 }
 
@@ -788,7 +788,7 @@ func (st *State) cleanupDyingUnitResources(unitId string, cleanupArgs []bson.Raw
 	return cleanupDyingEntityStorage(sb, unitTag, false, filesystemAttachments, volumeAttachments, force)
 }
 
-func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove bool, force bool) error {
+func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove bool, force bool, maxWait time.Duration) error {
 	sb, err := NewStorageBackend(st)
 	if err != nil {
 		return err
@@ -799,7 +799,7 @@ func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove boo
 	}
 	for _, storageAttachment := range storageAttachments {
 		storageTag := storageAttachment.StorageInstance()
-		err := sb.DetachStorage(storageTag, unitTag, force)
+		err := sb.DetachStorage(storageTag, unitTag, force, maxWait)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
@@ -1263,7 +1263,7 @@ func (st *State) obliterateUnit(unitName string, force bool, maxWait time.Durati
 		opErrs = append(opErrs, err)
 	}
 	// Destroy and remove all storage attachments for the unit.
-	if err := st.cleanupUnitStorageAttachments(unit.UnitTag(), true, force); err != nil {
+	if err := st.cleanupUnitStorageAttachments(unit.UnitTag(), true, force, maxWait); err != nil {
 		err := errors.Annotatef(err, "cannot destroy storage for unit %q", unitName)
 		if !force {
 			return opErrs, err
@@ -1331,7 +1331,7 @@ func (st *State) cleanupAttachmentsForDyingStorage(storageId string, cleanupArgs
 	var detachErr error
 	for iter.Next(&doc) {
 		unitTag := names.NewUnitTag(doc.Unit)
-		if err := sb.DetachStorage(storageTag, unitTag, force); err != nil {
+		if err := sb.DetachStorage(storageTag, unitTag, force, maxWait); err != nil {
 			detachErr = errors.Annotate(err, "destroying storage attachment")
 			logger.Warningf("%v", detachErr)
 		}

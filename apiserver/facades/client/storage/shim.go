@@ -54,7 +54,7 @@ type storageInterface interface {
 
 	// DetachStorage detaches the storage instance with the
 	// specified tag from the unit with the specified tag.
-	DetachStorage(names.StorageTag, names.UnitTag, bool) error
+	DetachStorage(names.StorageTag, names.UnitTag, bool, time.Duration) error
 
 	// DestroyStorageInstance destroys the storage instance with the specified tag.
 	DestroyStorageInstance(names.StorageTag, bool, bool, time.Duration) error
