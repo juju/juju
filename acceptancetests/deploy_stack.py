@@ -792,9 +792,27 @@ class BootstrapManager:
             members = self.client.get_controller_members()
             resource_details['instances'] = [
                 (m.info['instance-id'], m.info['dns-name'])
-                for m in members]
+                for m in members
+            ]
         except Exception:
             logging.debug('Unable to retrieve members list.')
+
+        try:
+            def get_ns_name_from_caas_model(m):
+                m_name = m.get('short-name') or m.get('name')
+                if 'controller' in m_name:
+                    m_name = 'controller-' + m['controller-name']
+                return m_name
+
+            namespaces = [
+                get_ns_name_from_caas_model(m)
+                for m in (self.client.get_models() or {}).get('models', [])
+                if m.get('model-type') == 'caas'
+            ]
+            if namespaces:
+                resource_details['namespaces'] = namespaces
+        except Exception:
+            logging.debug('Unable to retrieve controller uuid.')
 
         if resource_details:
             self.resource_details = resource_details
@@ -1088,7 +1106,6 @@ class BootstrapManager:
                 # Add in a db dump for good measure.
                 dump_db = os.path.join(artifacts_dir, "dump-db.yaml")
                 client.juju('dump-db', ('--output', dump_db))
-
 
     @contextmanager
     def top_context(self):
