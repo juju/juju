@@ -252,9 +252,7 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	}
 	c.Assert(obtained.Devices, jc.DeepEquals, expectedResult.Devices)
 	c.Assert(obtained.Constraints, jc.DeepEquals, expectedResult.Constraints)
-	for tagKey := range obtained.Tags {
-		c.Assert(obtained.Tags[tagKey], jc.DeepEquals, expectedResult.Tags[tagKey])
-	}
+	c.Assert(obtained.Tags, jc.DeepEquals, expectedResult.Tags)
 	c.Assert(results.Results[1], jc.DeepEquals, params.KubernetesProvisioningInfoResult{
 		Error: &params.Error{
 			Message: `"unit-gitlab-0" is not a valid application tag`,
