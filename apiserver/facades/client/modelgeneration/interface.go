@@ -18,7 +18,6 @@ type State interface {
 	ControllerTag() names.ControllerTag
 	Model() (Model, error)
 	Application(string) (Application, error)
-	WriteBulkSettings([]state.Settings) error
 }
 
 // Model describes model state used by the model generation API.

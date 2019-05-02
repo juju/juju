@@ -6,8 +6,6 @@ package modelgeneration
 import (
 	"fmt"
 
-	"github.com/juju/juju/state"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -155,47 +153,12 @@ func (api *API) CommitBranch(arg params.BranchArg) (params.IntResult, error) {
 		return intResultsError(err)
 	}
 
-	if err = api.applyBranchConfig(branch); err != nil {
-		return intResultsError(err)
-	}
-
 	if genId, err := branch.Commit(api.apiUser.Name()); err != nil {
 		result.Error = common.ServerError(err)
 	} else {
 		result.Result = genId
 	}
 	return result, nil
-}
-
-// applyBranchConfig applies configuration deltas from a branch to the
-// appropriate application charm settings documents and writes them back
-// to the DB. This writes the ultimate data as a single transaction,
-// so a branch is either committed without error, or there are no changes.
-func (api *API) applyBranchConfig(branch Generation) error {
-	var allSettings []state.Settings
-
-	// Collect up all the new application settings collections that will result
-	// from committing the branch.
-	for appName, delta := range branch.Config() {
-		if len(delta) == 0 {
-			continue
-		}
-		app, err := api.st.Application(appName)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		cfg, err := app.CharmSettingsWithDelta(delta)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		allSettings = append(allSettings, *cfg)
-	}
-
-	// If there are any changes, write the new settings documents.
-	if len(allSettings) == 0 {
-		return nil
-	}
-	return errors.Trace(api.st.WriteBulkSettings(allSettings))
 }
 
 // BranchInfo will return details of branch identified by the input argument,

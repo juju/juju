@@ -6,7 +6,6 @@ package modelgeneration_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/state"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -117,48 +116,15 @@ func (s *modelGenerationSuite) TestTrackBranchSuccess(c *gc.C) {
 }
 
 func (s *modelGenerationSuite) TestCommitBranchSuccess(c *gc.C) {
-	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, st *mocks.MockState, mod *mocks.MockModel) {
-		delta := settings.ItemChanges{settings.MakeAddition("password", "added-pass")}
-		cfg := state.Settings{}
-
+	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, _ *mocks.MockState, mod *mocks.MockModel) {
 		gen := mocks.NewMockGeneration(ctrl)
-		gen.EXPECT().Config().Return(map[string]settings.ItemChanges{"redis": delta})
 		gen.EXPECT().Commit(s.apiUser).Return(3, nil)
-
 		mod.EXPECT().Branch(s.newBranchName).Return(gen, nil)
-
-		app := mocks.NewMockApplication(ctrl)
-		app.EXPECT().CharmSettingsWithDelta(delta).Return(&cfg, nil)
-
-		st.EXPECT().Application("redis").Return(app, nil)
-		st.EXPECT().WriteBulkSettings([]state.Settings{cfg}).Return(nil)
 	}).Finish()
 
 	result, err := s.api.CommitBranch(s.newBranchArg())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.IntResult{Result: 3, Error: nil})
-}
-
-func (s *modelGenerationSuite) TestCommitBranchError(c *gc.C) {
-	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, st *mocks.MockState, mod *mocks.MockModel) {
-		delta := settings.ItemChanges{settings.MakeAddition("password", "added-pass")}
-
-		gen := mocks.NewMockGeneration(ctrl)
-		gen.EXPECT().Config().Return(map[string]settings.ItemChanges{"redis": delta})
-
-		mod.EXPECT().Branch(s.newBranchName).Return(gen, nil)
-
-		// An error attempting to update config means no settings changes
-		// and no committed branch.
-		app := mocks.NewMockApplication(ctrl)
-		app.EXPECT().CharmSettingsWithDelta(delta).Return(nil, errors.New("boom"))
-
-		st.EXPECT().Application("redis").Return(app, nil)
-	}).Finish()
-
-	result, err := s.api.CommitBranch(s.newBranchArg())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.IntResult{Error: &params.Error{Message: "boom"}})
 }
 
 func (s *modelGenerationSuite) TestHasActiveBranchTrue(c *gc.C) {
