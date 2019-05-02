@@ -1,6 +1,6 @@
 from contextlib import (
     contextmanager,
-    )
+)
 import json
 import logging
 import os
@@ -19,7 +19,7 @@ import gce
 from utility import (
     temp_dir,
     until_timeout,
-    )
+)
 import winazurearm
 
 
@@ -767,7 +767,7 @@ class MAASAccount:
         """Create a new vlan on fabric with given fabric_id."""
         args = [
             self.profile, 'vlans', 'create', str(fabric_id), 'vid=' + str(vid),
-            ]
+        ]
         if name is not None:
             args.append('name=' + name)
         return self._maas(*args)
@@ -946,6 +946,43 @@ class LXDAccount:
         return uncleaned_resource
 
 
+class K8sAccount:
+    """Represent a K8s account."""
+
+    @classmethod
+    @contextmanager
+    def from_boot_config(cls, boot_config):
+        """Create a ContextManager for a K8sAccount."""
+        yield cls()
+
+    def delete_namespaces(self, ns_names):
+        """Delete the specified namespaces."""
+        failed = []
+        for ns in ns_names:
+            log.info("deleting namespace %s", ns)
+            try:
+                subprocess.check_call(['kubectl', 'delete', 'ns', ns])
+            except subprocess.CalledProcessError as e:
+                log.warn(e)
+                failed.append(ns)
+        return failed
+
+    def ensure_cleanup(self, resource_details):
+        """
+        Do K8s specific clean-up activity.
+        :param resource_details: The list of resource to be cleaned up
+        :return: list of resources that were not cleaned up
+        """
+        uncleaned_resources = []
+
+        uncleaned_namespaces = self.delete_namespaces(resource_details.get('namespaces', []))
+        if uncleaned_namespaces:
+            uncleaned_resources.append(
+                dict(resource='namespaces', errors=uncleaned_namespaces,)
+            )
+        return uncleaned_resources
+
+
 def get_config(boot_config):
     config = boot_config.make_config_copy()
     if boot_config.provider not in ('lxd', 'manual'):
@@ -969,6 +1006,7 @@ def make_substrate_manager(boot_config):
         'azure-arm': AzureARMAccount.from_boot_config,
         'lxd': LXDAccount.from_boot_config,
         'gce': GCEAccount.from_boot_config,
+        'kubernetes': K8sAccount.from_boot_config,
     }
     substrate_type = config['type']
     if substrate_type == 'azure' and 'application-id' in config:
