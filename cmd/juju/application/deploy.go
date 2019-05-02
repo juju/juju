@@ -1373,7 +1373,7 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 		seriesSelector := seriesSelector{
 			seriesFlag:          seriesName,
 			supportedSeries:     ch.Meta().Series,
-			supportedJujuSeries: append(series.SupportedJujuSeries(), kubernetesSeriesName),
+			supportedJujuSeries: supportedJujuSeries(),
 			force:               c.Force,
 			conf:                modelCfg,
 			fromBundle:          false,
@@ -1561,7 +1561,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 			charmURLSeries:      userRequestedSeries,
 			seriesFlag:          c.Series,
 			supportedSeries:     supportedSeries,
-			supportedJujuSeries: append(series.SupportedJujuSeries(), kubernetesSeriesName),
+			supportedJujuSeries: supportedJujuSeries(),
 			force:               c.Force,
 			conf:                modelCfg,
 			fromBundle:          false,
