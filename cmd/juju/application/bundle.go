@@ -17,7 +17,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
 	"github.com/juju/utils"
 	"github.com/kr/pretty"
 	"gopkg.in/juju/charm.v6"
@@ -632,6 +631,9 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	}
 	series, err := selector.charmSeries()
 	if err != nil {
+		if errors.IsNotSupported(err) {
+			return errors.Errorf("%v is not available on the following %v", cURL.Name, err)
+		}
 		return errors.Trace(err)
 	}
 
@@ -1617,8 +1619,4 @@ func applicationConfigValue(key string, valueMap interface{}) (interface{}, erro
 		return nil, errors.Errorf("missing application config value 'value'")
 	}
 	return value, nil
-}
-
-func supportedJujuSeries() []string {
-	return append(series.SupportedJujuSeries(), kubernetesSeriesName)
 }

@@ -66,6 +66,11 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
+// defaultSupportedJujuSeries is used to return canned information about what
+// juju supports in terms of the release cycle
+// see juju/os and documentation https://www.ubuntu.com/about/release-cycle
+var defaultSupportedJujuSeries = []string{"bionic", "xenial", "trusty", kubernetesSeriesName}
+
 type DeploySuiteBase struct {
 	testing.RepoSuite
 	coretesting.CmdBlockHelper
@@ -154,6 +159,9 @@ func (s *DeploySuiteBase) runDeployWithOutput(c *gc.C, args ...string) (string, 
 
 func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
+	s.PatchValue(&supportedJujuSeries, func() []string {
+		return defaultSupportedJujuSeries
+	})
 	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
@@ -957,6 +965,10 @@ type charmstoreSuite struct {
 func (s *charmstoreSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
+	s.PatchValue(&supportedJujuSeries, func() []string {
+		return defaultSupportedJujuSeries
+	})
+
 	repo := jjcharmstore.NewRepository()
 	client := jjcharmstore.NewFakeClient(repo).WithChannel(csparams.StableChannel)
 	s.charmrepo = repo
@@ -1276,6 +1288,10 @@ func (s *legacyCharmStoreSuite) SetUpTest(c *gc.C) {
 	}
 	s.JujuConnSuite.ControllerConfigAttrs[controller.CharmStoreURL] = s.srv.URL
 	s.JujuConnSuite.SetUpTest(c)
+
+	s.PatchValue(&supportedJujuSeries, func() []string {
+		return defaultSupportedJujuSeries
+	})
 
 	// Initialize the charm cache dir.
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
@@ -1834,6 +1850,9 @@ var _ = gc.Suite(&DeployUnitTestSuite{})
 
 func (s *DeployUnitTestSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
+	s.PatchValue(&supportedJujuSeries, func() []string {
+		return defaultSupportedJujuSeries
+	})
 	cookiesFile := filepath.Join(c.MkDir(), ".go-cookies")
 	s.PatchEnvironment("JUJU_COOKIEFILE", cookiesFile)
 }

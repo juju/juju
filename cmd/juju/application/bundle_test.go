@@ -801,11 +801,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidMachineContainerTyp
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidSeries(c *gc.C) {
-	testcharms.UploadCharmWithSeries(c, s.client, "vivid/django-0", "dummy", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "trusty/django-0", "dummy", "bionic")
 	err := s.DeployBundleYAML(c, `
         applications:
             django:
-                charm: vivid/django
+                charm: trusty/django
                 num_units: 1
                 to:
                     - 1
@@ -1125,8 +1125,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleSetAnnotations(c *gc.C) {
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C) {
 	_, wpch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-42", "wordpress", "bionic")
-	testcharms.UploadCharmWithSeries(c, s.client, "vivid/upgrade-1", "upgrade1", "bionic")
-	_, ch := testcharms.UploadCharmWithSeries(c, s.client, "vivid/upgrade-2", "upgrade2", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "trusty/upgrade-1", "upgrade1", "bionic")
+	_, ch := testcharms.UploadCharmWithSeries(c, s.client, "trusty/upgrade-2", "upgrade2", "bionic")
 
 	// First deploy the bundle.
 	err := s.DeployBundleYAML(c, `
@@ -1138,12 +1138,12 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C
                     blog-title: these are the voyages
                 constraints: spaces=final,frontiers mem=8000M
             up:
-                charm: vivid/upgrade-1
+                charm: trusty/upgrade-1
                 num_units: 1
                 constraints: mem=8G
     `)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:vivid/upgrade-1", "cs:xenial/wordpress-42")
+	s.assertCharmsUploaded(c, "cs:trusty/upgrade-1", "cs:xenial/wordpress-42")
 
 	// Then deploy a new bundle with modified charm revision and options.
 	stdOut, _, err := s.DeployBundleYAMLWithOutput(c, `
@@ -1155,23 +1155,23 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C
                     blog-title: new title
                 constraints: spaces=new cores=8
             up:
-                charm: vivid/upgrade-2
+                charm: trusty/upgrade-2
                 num_units: 1
                 constraints: mem=8G
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- upload charm cs:vivid/upgrade-2 for series vivid\n"+
-		"- upgrade up to use charm cs:vivid/upgrade-2 for series vivid\n"+
+		"- upload charm cs:trusty/upgrade-2 for series trusty\n"+
+		"- upgrade up to use charm cs:trusty/upgrade-2 for series trusty\n"+
 		"- set application options for wordpress\n"+
 		`- set constraints for wordpress to "spaces=new cores=8"`,
 	)
 
-	s.assertCharmsUploaded(c, "cs:vivid/upgrade-1", "cs:vivid/upgrade-2", "cs:xenial/wordpress-42")
+	s.assertCharmsUploaded(c, "cs:trusty/upgrade-1", "cs:trusty/upgrade-2", "cs:xenial/wordpress-42")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"up": {
-			charm:       "cs:vivid/upgrade-2",
+			charm:       "cs:trusty/upgrade-2",
 			config:      ch.Config().DefaultSettings(),
 			constraints: constraints.MustParse("mem=8G"),
 		},
@@ -2061,6 +2061,10 @@ func (s *ProcessBundleOverlaySuite) SetUpTest(c *gc.C) {
         machines:
             1:
                 annotations: {foo: bar}`
+
+	s.PatchValue(&supportedJujuSeries, func() []string {
+		return defaultSupportedJujuSeries
+	})
 
 	baseDir := c.MkDir()
 	bundleFile := filepath.Join(baseDir, "bundle.yaml")
