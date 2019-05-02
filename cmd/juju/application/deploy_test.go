@@ -930,15 +930,29 @@ func (s *DeploySuite) TestDeployFlags(c *gc.C) {
 	c.Assert(declaredFlags, jc.DeepEquals, allFlags)
 }
 
+func (s *DeploySuite) TestDeployLocalWithSeriesMismatchReturnsError(c *gc.C) {
+	ch := testcharms.RepoWithSeries("quantal").ClonedDirPath(s.CharmsPath, "terms1")
+	_, _, err := s.runDeployWithOutput(c, ch, "--series", "quantal")
+
+	c.Check(err, gc.ErrorMatches, `terms1 is not available on the following series: quantal not supported`)
+}
+
+func (s *DeploySuite) TestDeployLocalWithSeriesAndForce(c *gc.C) {
+	ch := testcharms.RepoWithSeries("quantal").ClonedDirPath(s.CharmsPath, "terms1")
+	_, stdErr, err := s.runDeployWithOutput(c, ch, "--series", "quantal", "--force")
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(stdErr, gc.Equals, `Deploying charm "local:quantal/terms1-1".`)
+
+	curl := charm.MustParseURL("local:quantal/terms1-1")
+	s.AssertApplication(c, "terms1", curl, 1, 0)
+}
+
 type DeployLocalSuite struct {
 	testing.RepoSuite
 }
 
 var _ = gc.Suite(&DeployLocalSuite{})
-
-func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
-	s.RepoSuite.SetUpTest(c)
-}
 
 // setupConfigFile creates a configuration file for testing set
 // with the --config argument specifying a configuration file.
@@ -1149,6 +1163,86 @@ func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
 			continue
 		}
 		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
+var deployAuthorizationErrorTests = []struct {
+	about        string
+	uploadURL    string
+	deployURL    string
+	readPermUser string
+	expectError  string
+	expectOutput string
+}{{
+	about:       "public charm, success",
+	uploadURL:   "cs:~bob/quantal/wordpress1-10",
+	deployURL:   "cs:~bob/quantal/wordpress1",
+	expectError: "wordpress1 is not available on the following series: quantal not supported",
+}, {
+	about:       "public charm, fully resolved, success",
+	uploadURL:   "cs:~bob/quantal/wordpress2-10",
+	deployURL:   "cs:~bob/quantal/wordpress2-10",
+	expectError: "wordpress2 is not available on the following series: quantal not supported",
+}, {
+	about:        "non-public charm, success",
+	uploadURL:    "cs:~bob/quantal/wordpress3-10",
+	deployURL:    "cs:~bob/quantal/wordpress3",
+	readPermUser: clientUserName,
+	expectError:  "wordpress3 is not available on the following series: quantal not supported",
+}, {
+	about:        "non-public charm, fully resolved, success",
+	uploadURL:    "cs:~bob/quantal/wordpress4-10",
+	deployURL:    "cs:~bob/quantal/wordpress4-10",
+	readPermUser: clientUserName,
+	expectError:  "wordpress4 is not available on the following series: quantal not supported",
+}, {
+	about:        "non-public charm, access denied",
+	uploadURL:    "cs:~bob/trusty/wordpress5-10",
+	deployURL:    "cs:~bob/trusty/wordpress5",
+	readPermUser: "bob",
+	expectError:  `cannot resolve (charm )?URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id&include=supported-series&include=published": access denied for user "client-username"`,
+}, {
+	about:        "non-public charm, fully resolved, access denied",
+	uploadURL:    "cs:~bob/trusty/wordpress6-47",
+	deployURL:    "cs:~bob/trusty/wordpress6-47",
+	readPermUser: "bob",
+	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id&include=supported-series&include=published": access denied for user "client-username"`,
+}, {
+	about:       "public bundle, success",
+	uploadURL:   "cs:~bob/bundle/wordpress-simple1-42",
+	deployURL:   "cs:~bob/bundle/wordpress-simple1",
+	expectError: "cannot deploy bundle: mysql is not available on the following series: quantal not supported",
+}, {
+	about:        "non-public bundle, success",
+	uploadURL:    "cs:~bob/bundle/wordpress-simple2-0",
+	deployURL:    "cs:~bob/bundle/wordpress-simple2-0",
+	readPermUser: clientUserName,
+	expectError:  "cannot deploy bundle: mysql is not available on the following series: quantal not supported",
+}}
+
+func (s *DeployCharmStoreSuite) TestDeployAuthorizationWithSeriesReturnsError(c *gc.C) {
+	// Upload the two charms required to upload the bundle.
+	testcharms.UploadCharmWithSeries(c, s.client, "quantal/mysql-0", "mysql", "quantal")
+	testcharms.UploadCharmWithSeries(c, s.client, "quantal/wordpress-1", "wordpress", "quantal")
+
+	// Run the tests.
+	for i, test := range deployAuthorizationErrorTests {
+		c.Logf("test %d: %s", i, test.about)
+
+		// Upload the charm or bundle under test.
+		url := charm.MustParseURL(test.uploadURL)
+		if url.Series == "bundle" {
+			url, _ = testcharms.UploadBundleWithSeries(c, s.client, test.uploadURL, "wordpress-simple", "quantal")
+		} else {
+			url, _ = testcharms.UploadCharmWithSeries(c, s.client, test.uploadURL, "wordpress", "quantal")
+		}
+
+		// Change the ACL of the uploaded entity if required in this case.
+		if test.readPermUser != "" {
+			s.changeReadPerm(c, url, test.readPermUser)
+		}
+		err := runDeploy(c, test.deployURL, fmt.Sprintf("wordpress%d", i))
+		c.Check(err, gc.ErrorMatches, test.expectError)
 	}
 }
 
