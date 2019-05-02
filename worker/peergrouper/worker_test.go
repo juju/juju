@@ -977,26 +977,26 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 	st, w, memberWatcher := s.initialize3Voters(c)
 	defer workertest.CleanKill(c, w)
 	statusWatcher := st.session.status.Watch()
-	status := mustNextStatus(c, statusWatcher, "init")
-	c.Check(status.Members, gc.DeepEquals, mkStatuses("0p 1s 2s", testIPv4))
+	testStatus := mustNextStatus(c, statusWatcher, "init")
+	c.Check(testStatus.Members, gc.DeepEquals, mkStatuses("0p 1s 2s", testIPv4))
 	primaryMemberIndex := 0
 
 	st.machine("10").setWantsVote(false)
 	// we should notice that the primary has failed, and have called StepDownPrimary which should ultimately cause
 	// a change in the Status.
-	status = mustNextStatus(c, statusWatcher, "stepping down primary")
+	testStatus = mustNextStatus(c, statusWatcher, "stepping down primary")
 	// find out which one is primary, should only be one of 1 or 2
-	c.Assert(status.Members, gc.HasLen, 3)
-	c.Check(status.Members[0].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
-	if status.Members[1].State == replicaset.PrimaryState {
+	c.Assert(testStatus.Members, gc.HasLen, 3)
+	c.Check(testStatus.Members[0].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
+	if testStatus.Members[1].State == replicaset.PrimaryState {
 		primaryMemberIndex = 1
-		c.Check(status.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
+		c.Check(testStatus.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
 	} else {
 		primaryMemberIndex = 2
-		c.Check(status.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.PrimaryState))
+		c.Check(testStatus.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.PrimaryState))
 	}
 	// Now we have to wait for time to advance for us to reevaluate the system
-	c.Assert(s.clock.WaitAdvance(2*pollInterval, coretesting.ShortWait, 2), jc.ErrorIsNil)
+	c.Assert(s.clock.WaitAdvance(2*pollInterval, coretesting.LongWait, 2), jc.ErrorIsNil)
 	mustNext(c, memberWatcher, "reevaluting member post-step-down")
 	// we should now have switch the vote over to whoever became the primary
 	if primaryMemberIndex == 1 {
@@ -1021,14 +1021,14 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 	// now we timeout so that the system will notice we really do still want to step down the primary, and ask
 	// for it to revote.
 	c.Assert(s.clock.WaitAdvance(2*pollInterval, coretesting.ShortWait, 1), jc.ErrorIsNil)
-	status = mustNextStatus(c, statusWatcher, "stepping down new primary")
+	testStatus = mustNextStatus(c, statusWatcher, "stepping down new primary")
 	if primaryMemberIndex == 1 {
 		// 11 was the primary, now 12 is
-		c.Check(status.Members[1].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
-		c.Check(status.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.PrimaryState))
+		c.Check(testStatus.Members[1].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
+		c.Check(testStatus.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.PrimaryState))
 	} else {
-		c.Check(status.Members[1].State, gc.Equals, replicaset.MemberState(replicaset.PrimaryState))
-		c.Check(status.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
+		c.Check(testStatus.Members[1].State, gc.Equals, replicaset.MemberState(replicaset.PrimaryState))
+		c.Check(testStatus.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
 	}
 	// and then we again notice that the primary has been rescheduled and changed the member votes again
 	c.Assert(s.clock.WaitAdvance(pollInterval, coretesting.ShortWait, 1), jc.ErrorIsNil)
