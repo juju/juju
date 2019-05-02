@@ -351,7 +351,7 @@ func (s *DeploySuite) TestDeployFromPathUnsupportedLXDProfileForce(c *gc.C) {
 func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
 	// Add the charm, so the url will exist and a new revision will be
 	// picked in application Deploy.
-	dummyCharm := s.AddTestingCharm(c, "dummy")
+	dummyCharm := s.AddTestingCharmForSeries(c, "dummy", "bionic")
 
 	dirPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(s.CharmsPath, "dummy")
 	err := s.runDeploy(c, dirPath, "--series", "bionic")

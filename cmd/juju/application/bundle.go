@@ -626,7 +626,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		seriesFlag:          p.Series,
 		charmURLSeries:      chID.URL.Series,
 		supportedSeries:     supportedSeries,
-		supportedJujuSeries: append(series.SupportedJujuSeries(), kubernetesSeriesName),
+		supportedJujuSeries: supportedJujuSeries(),
 		conf:                h.modelConfig,
 		fromBundle:          true,
 	}
@@ -1617,4 +1617,8 @@ func applicationConfigValue(key string, valueMap interface{}) (interface{}, erro
 		return nil, errors.Errorf("missing application config value 'value'")
 	}
 	return value, nil
+}
+
+func supportedJujuSeries() []string {
+	return append(series.SupportedJujuSeries(), kubernetesSeriesName)
 }
