@@ -89,6 +89,10 @@ type CharmDeployAPI interface {
 	CharmInfo(string) (*apicharms.CharmInfo, error)
 }
 
+var supportedJujuSeries = func() []string {
+	return append(series.SupportedJujuSeries(), kubernetesSeriesName)
+}
+
 // DeployAPI represents the methods of the API the deploy
 // command needs.
 type DeployAPI interface {
@@ -1237,7 +1241,7 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 	// Avoid deploying charm if it's not valid for the model.
 	if err := c.validateCharmSeries(userCharmURL.Series); err != nil {
 		if errors.IsNotSupported(err) {
-			return nil, errors.Errorf("%v is not available on the following series: %v", userCharmURL.Name, userCharmURL.Series)
+			return nil, errors.Errorf("%v is not available on the following %v", userCharmURL.Name, err)
 		}
 		return nil, errors.Trace(err)
 	}
@@ -1382,7 +1386,7 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 		seriesName, err = seriesSelector.charmSeries()
 		if err != nil {
 			if errors.IsNotSupported(err) {
-				return nil, errors.Errorf("%v is not available on the following series: %v", ch.Meta().Name, seriesName)
+				return nil, errors.Errorf("%v is not available on the following %v", ch.Meta().Name, err)
 			}
 			return nil, errors.Trace(err)
 		}
@@ -1414,7 +1418,7 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 	// Avoid deploying charm if it's not valid for the model.
 	if err := c.validateCharmSeries(seriesName); err != nil {
 		if errors.IsNotSupported(err) {
-			return nil, errors.Errorf("%v is not available on the following series: %v", curl.Name, seriesName)
+			return nil, errors.Errorf("%v is not available on the following %v", curl.Name, err)
 		}
 		return nil, errors.Trace(err)
 	}
@@ -1575,7 +1579,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		if err == nil {
 			if err2 := c.validateCharmSeries(series); err2 != nil {
 				if errors.IsNotSupported(err2) {
-					return errors.Errorf("%v is not available on the following series: %v", storeCharmOrBundleURL.Name, series)
+					return errors.Errorf("%v is not available on the following %v", storeCharmOrBundleURL.Name, err2)
 				}
 				return errors.Trace(err2)
 			}
@@ -1585,7 +1589,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 			return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 		}
 		if errors.IsNotSupported(err) {
-			return errors.Errorf("%v is not available on the following series: %v", storeCharmOrBundleURL.Name, series)
+			return errors.Errorf("%v is not available on the following %v", storeCharmOrBundleURL.Name, err)
 		}
 
 		// Store the charm in the controller
