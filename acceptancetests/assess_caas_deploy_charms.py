@@ -84,7 +84,7 @@ def assess_caas_charm_deployment(caas_client):
     )
 
     k8s_model.deploy(
-        charm="cs:~juju/gitlab-k8s-0",
+        charm="cs:~juju/mediawiki-k8s-3",
         config='juju-external-hostname={}'.format(external_hostname),
     )
 
@@ -93,8 +93,8 @@ def assess_caas_charm_deployment(caas_client):
         storage='database=100M,{}'.format(mariadb_storage_pool_name),
     )
 
-    k8s_model.juju('relate', ('mariadb-k8s', 'gitlab-k8s'))
-    k8s_model.juju('expose', ('gitlab-k8s',))
+    k8s_model.juju('relate', ('mediawiki-k8s:db', 'mariadb-k8s:server'))
+    k8s_model.juju('expose', ('mediawiki-k8s',))
     k8s_model.wait_for_workloads(timeout=3600)
 
     def success_hook():
@@ -104,7 +104,7 @@ def assess_caas_charm_deployment(caas_client):
         success_hook()
         log.info(caas_client.kubectl('get', 'pv,pvc', '-n', model_name))
 
-    url = '{}://{}/{}'.format('http', external_hostname, 'gitlab-k8s')
+    url = '{}://{}/{}'.format('http', external_hostname, 'mediawiki-k8s')
     check_app_healthy(
         url, timeout=1800,
         success_hook=success_hook,
