@@ -801,6 +801,7 @@ class BootstrapManager:
             def get_ns_name_from_caas_model(m):
                 m_name = m.get('short-name') or m.get('name')
                 if 'controller' in m_name:
+                    # TODO(ycliuhw): use m['is-controller'] once the bug is fixed. Currently all models are true.
                     m_name = 'controller-' + m['controller-name']
                 return m_name
 
