@@ -603,37 +603,3 @@ func (s *SettingsSuite) TestApplyAndRetrieveChanges(c *gc.C) {
 
 	c.Assert(s2.changes(), gc.DeepEquals, exp)
 }
-
-func (s *SettingsSuite) TestBulkWriteSettingsWritesCorrectly(c *gc.C) {
-	// Create 2 new settings documents.
-	s1, err := s.createSettings(s.key, map[string]interface{}{
-		"foo":    "bar",
-		"number": 1,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s1.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s2, err := s.createSettings(s.key+"other", map[string]interface{}{
-		"alpha":  "beta",
-		"number": 2,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s2.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Modify both.
-	s1.Set("foo", "barf")
-	s2.Set("number", 666)
-
-	c.Assert(s.state.WriteBulkSettings([]Settings{*s1, *s2}), jc.ErrorIsNil)
-
-	// Check that the expected changes resulted.
-	s1read, err := s.readSettings()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s1read.Map(), gc.DeepEquals, s1.Map())
-
-	s2read, err := readSettings(s.state.db(), s.collection, s.key+"other")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s2read.Map(), gc.DeepEquals, s2.Map())
-}

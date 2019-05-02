@@ -266,29 +266,6 @@ func (s *Settings) applyChanges(changes settings.ItemChanges) {
 	}
 }
 
-// WriteBulkSettings writes all of the input settings documents
-// in a single transaction.
-// NOTE: The settings are passed as values and not references.
-// Unlike the call to "Write" on a single settings reference,
-// we cannot expect all the settings objects to be updated to represent
-// consistency between the live and on-disk values.
-// TODO (manadart 2019-04-30): This is inelegant.
-// The settings abstractions are poor, but model generations really makes
-// this logic creak.
-func (st *State) WriteBulkSettings(s []Settings) error {
-	if len(s) == 0 {
-		return nil
-	}
-
-	var allOps []txn.Op
-	for _, cfg := range s {
-		_, ops := cfg.settingsUpdateOps()
-		allOps = append(allOps, ops...)
-	}
-
-	return errors.Annotate(st.db().RunTransaction(allOps), "writing multiple settings")
-}
-
 // ReadSettings returns the settings for the given key.
 func (st *State) ReadSettings(collection, key string) (*Settings, error) {
 	return readSettings(st.db(), collection, key)
