@@ -75,18 +75,6 @@ func (mr *MockStateMockRecorder) Model() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Model", reflect.TypeOf((*MockState)(nil).Model))
 }
 
-// WriteBulkSettings mocks base method
-func (m *MockState) WriteBulkSettings(arg0 []state.Settings) error {
-	ret := m.ctrl.Call(m, "WriteBulkSettings", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// WriteBulkSettings indicates an expected call of WriteBulkSettings
-func (mr *MockStateMockRecorder) WriteBulkSettings(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteBulkSettings", reflect.TypeOf((*MockState)(nil).WriteBulkSettings), arg0)
-}
-
 // MockModel is a mock of Model interface
 type MockModel struct {
 	ctrl     *gomock.Controller
