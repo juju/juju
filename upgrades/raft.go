@@ -13,7 +13,7 @@ import (
 
 	"github.com/hashicorp/go-msgpack/codec"
 	"github.com/hashicorp/raft"
-	"github.com/hashicorp/raft-boltdb"
+	raftboltdb "github.com/hashicorp/raft-boltdb"
 	"github.com/juju/errors"
 	"github.com/juju/replicaset"
 
