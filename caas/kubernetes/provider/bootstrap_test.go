@@ -713,7 +713,13 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --machine-id 0 --debug
 
 	err = s.clock.WaitAdvance(3*time.Second, testing.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(<-errChan, jc.ErrorIsNil)
-	c.Assert(workertest.CheckKilled(c, s.watcher), jc.ErrorIsNil)
-	c.Assert(podWatcher.IsStopped(), jc.IsTrue)
+
+	select {
+	case err := <-errChan:
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(workertest.CheckKilled(c, s.watcher), jc.ErrorIsNil)
+		c.Assert(podWatcher.IsStopped(), jc.IsTrue)
+	case <-time.After(2 * coretesting.LongWait):
+		c.Fatalf("timed out waiting for deploy return")
+	}
 }
