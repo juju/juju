@@ -184,3 +184,8 @@ class Base(object):
         )
         logger.debug("trying to get first worker node IP, nodes are -> \n%s", pformat(nodes))
         return self._node_address_getter(nodes['items'][0])
+
+    def ensure_cleanup(self):
+        # delete namespaces
+        # delete pvs
+        ...

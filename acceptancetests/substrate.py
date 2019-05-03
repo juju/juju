@@ -949,11 +949,8 @@ class LXDAccount:
 class K8sAccount:
     """Represent a K8s account."""
 
-    @classmethod
-    @contextmanager
-    def from_boot_config(cls, boot_config):
-        """Create a ContextManager for a K8sAccount."""
-        yield cls()
+    def __init__(self, caas_client):
+        self.client = caas_client
 
     def delete_namespaces(self, ns_names):
         """Delete the specified namespaces."""
