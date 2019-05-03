@@ -8,7 +8,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/settings"
-	"github.com/juju/juju/state"
 )
 
 //go:generate mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/facades/client/modelgeneration State,Model,Generation,Application
@@ -43,7 +42,6 @@ type Generation interface {
 // Application describes application state used by the model generation API.
 type Application interface {
 	UnitNames() ([]string, error)
-	CharmSettingsWithDelta(settings.ItemChanges) (*state.Settings, error)
 
 	// DefaultCharmConfig is the only abstraction in these shims.
 	// It saves us having to shim out Charm as well.

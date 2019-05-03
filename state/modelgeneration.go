@@ -451,10 +451,13 @@ func (g *Generation) commitConfigTxnOps() ([]txn.Op, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		cfg, err := app.CharmSettingsWithDelta(delta)
+
+		// Apply the branch delta to the application's charm config settings.
+		cfg, err := readSettings(g.st.db(), settingsC, app.charmConfigKey())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		cfg.applyChanges(delta)
 
 		// Assert that the settings document has not changed underneath us
 		// in addition to appending the field changes.

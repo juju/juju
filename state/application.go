@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
@@ -2141,17 +2140,6 @@ func branchCharmSettings(st *State, cURL *charm.URL, appName, branchName string)
 		cfg.applyChanges(branch.Config()[appName])
 	}
 
-	return cfg, nil
-}
-
-// CharmSettingsWithDelta reads the settings document for the application's
-// charm configuration and applies the input delta before returning.
-func (a *Application) CharmSettingsWithDelta(delta settings.ItemChanges) (*Settings, error) {
-	cfg, err := readSettings(a.st.db(), settingsC, a.charmConfigKey())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cfg.applyChanges(delta)
 	return cfg, nil
 }
 
