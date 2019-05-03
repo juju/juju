@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/resource/resourcetesting"
@@ -340,27 +339,6 @@ func (s *ApplicationSuite) TestSetCharmLegacy(c *gc.C) {
 	}
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:precise/precise-mysql-1": cannot change an application's series`)
-}
-
-func (s *ApplicationSuite) TestCharmSettingsWithDelta(c *gc.C) {
-	newCh := s.AddConfigCharm(c, "mysql", stringConfig, 2)
-	err := s.mysql.SetCharm(state.SetCharmConfig{
-		Charm:          newCh,
-		ConfigSettings: charm.Settings{"key": "value"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	delta := settings.ItemChanges{
-		settings.MakeModification("key", "value", "changed-value"),
-		settings.MakeAddition("new-key", "new-value"),
-	}
-
-	cfg, err := s.mysql.CharmSettingsWithDelta(delta)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.Map(), gc.DeepEquals, map[string]interface{}{
-		"key":     "changed-value",
-		"new-key": "new-value",
-	})
 }
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeries(c *gc.C) {

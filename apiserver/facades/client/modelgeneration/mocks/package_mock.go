@@ -8,7 +8,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	modelgeneration "github.com/juju/juju/apiserver/facades/client/modelgeneration"
 	settings "github.com/juju/juju/core/settings"
-	state "github.com/juju/juju/state"
 	charm_v6 "gopkg.in/juju/charm.v6"
 	names_v2 "gopkg.in/juju/names.v2"
 	reflect "reflect"
@@ -289,19 +288,6 @@ func NewMockApplication(ctrl *gomock.Controller) *MockApplication {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 	return m.recorder
-}
-
-// CharmSettingsWithDelta mocks base method
-func (m *MockApplication) CharmSettingsWithDelta(arg0 settings.ItemChanges) (*state.Settings, error) {
-	ret := m.ctrl.Call(m, "CharmSettingsWithDelta", arg0)
-	ret0, _ := ret[0].(*state.Settings)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CharmSettingsWithDelta indicates an expected call of CharmSettingsWithDelta
-func (mr *MockApplicationMockRecorder) CharmSettingsWithDelta(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmSettingsWithDelta", reflect.TypeOf((*MockApplication)(nil).CharmSettingsWithDelta), arg0)
 }
 
 // DefaultCharmConfig mocks base method
