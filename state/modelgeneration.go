@@ -364,25 +364,25 @@ func (g *Generation) Commit(userName string) (int, error) {
 				return nil, errors.Trace(err)
 			}
 		}
+
 		if g.IsCompleted() {
 			if g.GenerationId() == 0 {
 				return nil, errors.New("branch was already aborted")
 			}
 			return nil, jujutxn.ErrNoOperations
 		}
+
 		now, err := g.st.ControllerTimestamp()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
-		// Add all units who's applications have changed.
-		assigned := g.AssignedUnits()
-		for app := range assigned {
-			units, err := appUnitNames(g.st, app)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			assigned[app] = units
+		assigned, err := g.assignedWithAllUnits()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops, err := g.commitConfigTxnOps()
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 
 		// Get the new sequence as late as we can.
@@ -400,21 +400,19 @@ func (g *Generation) Commit(userName string) (int, error) {
 		// As a proxy for checking that the generation has not changed,
 		// Assert that the txn rev-no has not changed since we materialised
 		// this generation object.
-		ops := []txn.Op{
-			{
-				C:      generationsC,
-				Id:     g.doc.DocId,
-				Assert: bson.D{{"txn-revno", g.doc.TxnRevno}},
-				Update: bson.D{
-					{"$set", bson.D{
-						{"assigned-units", assigned},
-						{"completed", now.Unix()},
-						{"completed-by", userName},
-						{"generation-id", newGenId},
-					}},
-				},
+		ops = append(ops, txn.Op{
+			C:      generationsC,
+			Id:     g.doc.DocId,
+			Assert: bson.D{{"txn-revno", g.doc.TxnRevno}},
+			Update: bson.D{
+				{"$set", bson.D{
+					{"assigned-units", assigned},
+					{"completed", now.Unix()},
+					{"completed-by", userName},
+					{"generation-id", newGenId},
+				}},
 			},
-		}
+		})
 		return ops, nil
 	}
 
@@ -422,6 +420,49 @@ func (g *Generation) Commit(userName string) (int, error) {
 		return 0, errors.Trace(err)
 	}
 	return newGenId, nil
+}
+
+// assignedWithAllUnits generates a new value for the branch's
+// AssignedUnits field, to indicate the all units of changed applications
+// are tracking the branch.
+func (g *Generation) assignedWithAllUnits() (map[string][]string, error) {
+	assigned := g.AssignedUnits()
+	for app := range assigned {
+		units, err := appUnitNames(g.st, app)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		assigned[app] = units
+	}
+	return assigned, nil
+}
+
+// commitConfigTxnOps iterates over all the applications with configuration
+// deltas, determines their effective new settings, then gathers the
+// operations representing the changes so that they can all be applied in a
+// single transaction.
+func (g *Generation) commitConfigTxnOps() ([]txn.Op, error) {
+	var ops []txn.Op
+	for appName, delta := range g.Config() {
+		if len(delta) == 0 {
+			continue
+		}
+		app, err := g.st.Application(appName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cfg, err := app.CharmSettingsWithDelta(delta)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		// Assert that the settings document has not changed underneath us
+		// in addition to appending the field changes.
+		ops = append(ops, cfg.assertUnchangedOp())
+		_, updates := cfg.settingsUpdateOps()
+		ops = append(ops, updates...)
+	}
+	return ops, nil
 }
 
 // TODO (manadart 2019-03-19): Implement Abort().
