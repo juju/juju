@@ -7,13 +7,13 @@ import (
 	"bytes"
 	"io/ioutil"
 	"net"
-	"os"
 	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/hashicorp/go-msgpack/codec"
 	"github.com/hashicorp/raft"
+	raftboltdb "github.com/hashicorp/raft-boltdb"
 	"github.com/juju/errors"
 	"github.com/juju/replicaset"
 
@@ -27,29 +27,14 @@ import (
 // store the member's corresponding machine id.
 const jujuMachineKey = "juju-machine-id"
 
+var errLogEmpty = errors.Errorf("no log entries, expected at least one for configuration")
+
 // BootstrapRaft initialises the raft cluster in a controller that is
 // being upgraded.
 func BootstrapRaft(context Context) error {
 	agentConfig := context.AgentConfig()
 	storageDir := raftDir(agentConfig)
-	_, err := os.Stat(storageDir)
-	// If the storage dir already exists we shouldn't run again. (If
-	// we statted the dir successfully, this will return nil.)
-	if !os.IsNotExist(err) {
-		return err
-	}
-	_, transport := raft.NewInmemTransport(raft.ServerAddress("notused"))
-	defer transport.Close()
 
-	conf, err := raftworker.NewRaftConfig(raftworker.Config{
-		LocalID:   raft.ServerID(agentConfig.Tag().Id()),
-		Logger:    logger,
-		Transport: transport,
-		FSM:       raftworker.BootstrapFSM{},
-	})
-	if err != nil {
-		return errors.Annotate(err, "getting raft config")
-	}
 	logStore, err := raftworker.NewLogStore(storageDir)
 	if err != nil {
 		return errors.Annotate(err, "making log store")
@@ -61,6 +46,39 @@ func BootstrapRaft(context Context) error {
 		return errors.Annotate(err, "making snapshot store")
 	}
 
+	// If there is already a configuration entry in the log store then
+	// it's already been bootstrapped.
+	_, err = getCombinedState(logStore, snapshotStore)
+	if err == errLogEmpty {
+		// This is what we want - no configuration means that bootstrapping is required.
+	} else if err == nil {
+		// This is already bootstrapped, we can just stop.
+		return nil
+	} else if err != nil {
+		return errors.Annotate(err, "checking for existing configuration log entry")
+	}
+
+	return errors.Trace(bootstrapWithStores(context, logStore, snapshotStore))
+}
+
+func bootstrapWithStores(
+	context Context,
+	logStore *raftboltdb.BoltStore,
+	snapshotStore raft.SnapshotStore,
+) error {
+	_, transport := raft.NewInmemTransport(raft.ServerAddress("notused"))
+	defer transport.Close()
+
+	agentConfig := context.AgentConfig()
+	conf, err := raftworker.NewRaftConfig(raftworker.Config{
+		LocalID:   raft.ServerID(agentConfig.Tag().Id()),
+		Logger:    logger,
+		Transport: transport,
+		FSM:       raftworker.BootstrapFSM{},
+	})
+	if err != nil {
+		return errors.Annotate(err, "getting raft config")
+	}
 	st := context.State()
 	members, err := st.ReplicaSetMembers()
 	if err != nil {
@@ -118,8 +136,7 @@ func MigrateLegacyLeases(context Context) error {
 	// We need to migrate leases if:
 	// * legacy-leases is off,
 	// * there are some legacy leases,
-	// * and there are no snapshots in the snapshot store (which shows
-	//   that the raft-lease store is already in use).
+	// * there aren't already leases in the store.
 	st := context.State()
 	controllerConfig, err := st.ControllerConfig()
 	if err != nil {
@@ -141,36 +158,44 @@ func MigrateLegacyLeases(context Context) error {
 	}
 
 	storageDir := raftDir(context.AgentConfig())
-	snapshotStore, err := raftworker.NewSnapshotStore(
-		storageDir, 2, logger)
-	if err != nil {
-		return errors.Annotate(err, "opening snapshot store")
-	}
-	snapshots, err := snapshotStore.List()
-	if err != nil {
-		return errors.Annotate(err, "listing snapshots")
-	}
-	if len(snapshots) != 0 {
-		logger.Debugf("snapshots found in store - raft leases in use")
-		return nil
-	}
 
-	// We need the last term and index, latest configuration and
-	// configuration index from the log store.
 	logStore, err := raftworker.NewLogStore(storageDir)
 	if err != nil {
 		return errors.Annotate(err, "opening log store")
 	}
 	defer logStore.Close()
 
-	latest, configEntry, err := collectLogEntries(logStore)
+	snapshotStore, err := raftworker.NewSnapshotStore(
+		storageDir, 2, logger)
+	if err != nil {
+		return errors.Annotate(err, "opening snapshot store")
+	}
+
+	hasLeases, err := leasesInStore(logStore, snapshotStore)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if hasLeases {
+		logger.Debugf("snapshots found in store - raft leases in use")
+		return nil
+	}
 
-	configuration, err := decodeConfiguration(configEntry.Data)
+	// We need the last term and index, latest configuration and
+	// configuration index from the log store.
+	storeState, err := getCombinedState(logStore, snapshotStore)
+	if err == errLogEmpty {
+		// This cluster hasn't been bootstrapped.
+		logger.Infof("raft cluster is uninitialised - bootstrapping before migrating leases")
+		err = bootstrapWithStores(context, logStore, snapshotStore)
+		if err != nil {
+			return errors.Annotate(err, "bootstrapping new raft cluster")
+		}
+		// Re-get the state from the cluster - if this fails it'll be
+		// caught by the error check below.
+		storeState, err = getCombinedState(logStore, snapshotStore)
+	}
 	if err != nil {
-		return errors.Annotate(err, "decoding configuration")
+		return errors.Trace(err)
 	}
 
 	entries := make(map[raftlease.SnapshotKey]raftlease.SnapshotEntry, len(legacyLeases))
@@ -204,10 +229,10 @@ func MigrateLegacyLeases(context Context) error {
 	defer transport.Close()
 	sink, err := snapshotStore.Create(
 		raft.SnapshotVersionMax,
-		latest.Index,
-		latest.Term,
-		configuration,
-		configEntry.Index,
+		storeState.lastIndex,
+		storeState.lastTerm,
+		storeState.config,
+		storeState.configIndex,
 		transport,
 	)
 	if err != nil {
@@ -223,6 +248,108 @@ func MigrateLegacyLeases(context Context) error {
 	return nil
 }
 
+// leasesInStore returns whether the logs and snapshots contain any
+// lease information (in which case we shouldn't migrate again).
+func leasesInStore(logStore raft.LogStore, snapshotStore raft.SnapshotStore) (bool, error) {
+	// There are leases in the store if either the last snapshot (if
+	// any) can be loaded by a raftlease FSM, or there are command
+	// entries in the log.
+	snapshots, err := snapshotStore.List()
+	if err != nil {
+		return false, errors.Annotate(err, "listing snapshots")
+	}
+	if len(snapshots) > 0 {
+		snapshot := snapshots[0]
+		_, source, err := snapshotStore.Open(snapshot.ID)
+		if err != nil {
+			return false, errors.Annotatef(err, "opening snapshot %q", snapshot.ID)
+		}
+		defer source.Close()
+		fsm := raftlease.NewFSM()
+		if fsm.Restore(source) == nil {
+			// The fact that the snapshot could be loaded into the FSM
+			// means that there are leases stored.
+			return true, nil
+		}
+	}
+
+	// Otherwise we need to check for command entries in the log.
+	first, err := logStore.FirstIndex()
+	if err != nil {
+		return false, errors.Annotate(err, "getting first index from log store")
+	}
+	last, err := logStore.LastIndex()
+	if err != nil {
+		return false, errors.Annotate(err, "getting last index from log store")
+	}
+	for i := first; i <= last; i++ {
+		var entry raft.Log
+		err := logStore.GetLog(i, &entry)
+		if err == raft.ErrLogNotFound {
+			continue
+		}
+		if err != nil {
+			return false, errors.Annotatef(err, "getting log %d", i)
+		}
+		if entry.Type == raft.LogCommand {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+type combinedStoreState struct {
+	lastIndex   uint64
+	lastTerm    uint64
+	configIndex uint64
+	config      raft.Configuration
+}
+
+// getCombinedState gets the last index, term and configuration (with
+// index) from the logs and snapshot store passed in.
+func getCombinedState(logs raft.LogStore, snapshots raft.SnapshotStore) (*combinedStoreState, error) {
+	lastLog, lastConfig, err := collectLogEntries(logs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	snapshot, err := getLastSnapshot(snapshots)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var result combinedStoreState
+	if snapshot == nil && lastLog == nil {
+		return nil, errLogEmpty
+	}
+
+	if snapshot == nil && lastConfig == nil {
+		// This shouldn't be possible - a configuration is needed to
+		// commit entries to the log.
+		return nil, errors.Errorf("log entries but no configuration found")
+	}
+
+	if snapshot != nil {
+		result.lastIndex = snapshot.Index
+		result.lastTerm = snapshot.Term
+		result.configIndex = snapshot.ConfigurationIndex
+		result.config = snapshot.Configuration
+	}
+
+	if lastLog != nil && lastLog.Index >= result.lastIndex {
+		result.lastIndex = lastLog.Index
+		result.lastTerm = lastLog.Term
+	}
+
+	if lastConfig != nil && lastConfig.Index >= result.configIndex {
+		result.configIndex = lastConfig.Index
+		result.config, err = decodeConfiguration(lastConfig.Data)
+		if err != nil {
+			return nil, errors.Annotate(err, "decoding last configuration")
+		}
+	}
+	return &result, nil
+}
+
 // collectLogEntries returns two log entries: the latest one, and the
 // most recent configuration entry. (These might be the same.)
 func collectLogEntries(store raft.LogStore) (*raft.Log, *raft.Log, error) {
@@ -234,7 +361,7 @@ func collectLogEntries(store raft.LogStore) (*raft.Log, *raft.Log, error) {
 	}
 
 	if lastIndex == 0 {
-		return nil, nil, errors.Errorf("no log entries, expected at least one for configuration")
+		return nil, nil, nil
 	}
 
 	err = store.GetLog(lastIndex, &latest)
@@ -265,7 +392,29 @@ func collectLogEntries(store raft.LogStore) (*raft.Log, *raft.Log, error) {
 		}
 	}
 
-	return nil, nil, errors.Errorf("no configuration entry in log")
+	return &latest, nil, nil
+}
+
+// loadLastSnapshot returns the metadata of the last snapshot in the
+// store, if any.
+func getLastSnapshot(store raft.SnapshotStore) (*raft.SnapshotMeta, error) {
+	snapshots, err := store.List()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, snapshot := range snapshots {
+		_, source, err := store.Open(snapshot.ID)
+		if err != nil {
+			logger.Warningf("couldn't open snapshot %q: %v", snapshot.ID, err)
+			continue
+		}
+		source.Close()
+		return snapshot, nil
+	}
+	if len(snapshots) > 0 {
+		return nil, errors.Errorf("couldn't open any existing snapshots")
+	}
+	return nil, nil
 }
 
 func decodeConfiguration(data []byte) (raft.Configuration, error) {
