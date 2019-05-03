@@ -1193,6 +1193,91 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 volume, 1 filesystem`)
 }
 
+func (s *ModelSuite) TestDestroyModelWithManualMachine(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	// add manual machine
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = st.AddOneMachine(state.MachineTemplate{
+		//manual, err := st.AddOneMachine(state.MachineTemplate{
+		Series:     "quantal",
+		Jobs:       []state.MachineJob{state.JobHostUnits},
+		InstanceId: "2",
+		Nonce:      "manual:",
+	})
+	//_, err = st.AddOneMachine(state.MachineTemplate{
+	nonmanual, err := st.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
+	fmt.Printf("\n charm %v\n", sch.URL())
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: sch})
+	ch, _, err := application.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg := state.SetCharmConfig{
+		Charm:      sch,
+		ForceUnits: true,
+	}
+	args := state.AddApplicationArgs{
+		Name:  application.Name(),
+		Charm: ch,
+	}
+
+	state.AddCustomCharm(c, st, "mysql", "metadata.yaml", metaBase, "quantal", 2)
+	application, err = st.AddApplication(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(application.SetCharm(cfg), jc.ErrorIsNil)
+
+	u, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	fmt.Printf("\nassigning unit to machine %v\n", nonmanual.Id())
+	c.Assert(u.AssignToMachine(nonmanual), jc.ErrorIsNil)
+
+	assertModel := func(life state.Life, expectedMachines, expectedApplications int) {
+		c.Assert(model.Refresh(), jc.ErrorIsNil)
+		c.Assert(model.Life(), gc.Equals, life)
+
+		machines, err := st.AllMachines()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(machines, gc.HasLen, expectedMachines)
+
+		applications, err := st.AllApplications()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(applications, gc.HasLen, expectedApplications)
+	}
+
+	// Simulate processing a dying model after an model is set to
+	// dying, but before the cleanup has removed machines and applications.
+	defer state.SetAfterHooks(c, st, func() {
+		assertModel(state.Dying, 2, 1)
+		err := st.ProcessDyingModel()
+		c.Assert(err, jc.Satisfies, state.IsModelNotEmptyError)
+		c.Assert(err, gc.ErrorMatches, `model not empty, found 2 machines, 1 application`)
+	}).Check()
+
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	for i := 0; i < 10; i++ {
+		assertCleanupRuns(c, st)
+
+		machines, err := st.AllMachines()
+		c.Assert(err, jc.ErrorIsNil)
+		for k, m := range machines {
+			fmt.Printf("\n machine %d %v life is %v\n", k, m.Id(), m.Life())
+		}
+
+		prerr := st.ProcessDyingModel()
+		c.Assert(model.Refresh(), jc.ErrorIsNil)
+		fmt.Printf("\n %d LIFE %v (process dying %v)\n", i, model.Life(), prerr)
+	}
+}
+
 func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
