@@ -6,12 +6,14 @@ package upgrades_test
 import (
 	"io"
 	"log"
+	"os"
 	"path/filepath"
 	"reflect"
 	"time"
 
 	"github.com/hashicorp/raft"
 	"github.com/hashicorp/raft-boltdb"
+	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -36,10 +38,59 @@ type raftSuite struct {
 var _ = gc.Suite(&raftSuite{})
 
 func (s *raftSuite) TestBootstrapRaft(c *gc.C) {
+	dataDir := c.MkDir()
+	context := makeContext(dataDir)
+	err := upgrades.BootstrapRaft(context)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now make the raft node and check that the configuration is as
+	// we expect.
+	checkRaftConfiguration(c, dataDir)
+
+	// Check the upgrade is idempotent.
+	err = upgrades.BootstrapRaft(context)
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkRaftConfiguration(c, dataDir)
+}
+
+func (s *raftSuite) TestBootstrapRaftWithEmptyDir(c *gc.C) {
+	dataDir := c.MkDir()
+	raftDir := filepath.Join(dataDir, "raft")
+	c.Assert(os.Mkdir(raftDir, 0777), jc.ErrorIsNil)
+
+	context := makeContext(dataDir)
+	err := upgrades.BootstrapRaft(context)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now make the raft node and check that the configuration is as
+	// we expect.
+	checkRaftConfiguration(c, dataDir)
+}
+
+func (s *raftSuite) TestBootStrapRaftWithEmptyLog(c *gc.C) {
+	dataDir := c.MkDir()
+	raftDir := filepath.Join(dataDir, "raft")
+	c.Assert(os.Mkdir(raftDir, 0777), jc.ErrorIsNil)
+
+	logStore, err := raftworker.NewLogStore(raftDir)
+	c.Assert(err, jc.ErrorIsNil)
+	// Have to close it here or the open in the code hangs!
+	logStore.Close()
+
+	context := makeContext(dataDir)
+	err = upgrades.BootstrapRaft(context)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now make the raft node and check that the configuration is as
+	// we expect.
+	checkRaftConfiguration(c, dataDir)
+}
+
+func makeContext(dataDir string) *mockContext {
 	votes := 1
 	noVotes := 0
-	dataDir := c.MkDir()
-	context := &mockContext{
+	return &mockContext{
 		agentConfig: &mockAgentConfig{
 			tag:     names.NewMachineTag("23"),
 			dataDir: dataDir,
@@ -60,18 +111,6 @@ func (s *raftSuite) TestBootstrapRaft(c *gc.C) {
 			info: state.StateServingInfo{APIPort: 1234},
 		},
 	}
-	err := upgrades.BootstrapRaft(context)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Now make the raft node and check that the configuration is as
-	// we expect.
-	checkRaftConfiguration(c, dataDir)
-
-	// Check the upgrade is idempotent.
-	err = upgrades.BootstrapRaft(context)
-	c.Assert(err, jc.ErrorIsNil)
-
-	checkRaftConfiguration(c, dataDir)
 }
 
 func withRaft(c *gc.C, dataDir string, fsm raft.FSM, checkFunc func(*raft.Raft)) {
@@ -303,6 +342,178 @@ func (s *raftSuite) TestIgnoresBlankLeaseOrHolder(c *gc.C) {
 	})
 }
 
+func (s *raftSuite) TestMigrateLegacyLeasesWithSnapshotAndLogs(c *gc.C) {
+	dataDir := c.MkDir()
+	config, err := controller.NewConfig(
+		coretesting.ControllerTag.Id(),
+		coretesting.CACert,
+		nil,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var zero time.Time
+	var target mockTarget
+
+	context := &mockContext{
+		agentConfig: &mockAgentConfig{
+			tag:     names.NewMachineTag("23"),
+			dataDir: dataDir,
+		},
+		state: &mockState{
+			members: []replicaset.Member{{
+				Address: "somewhere.else:37012",
+				Tags:    map[string]string{"juju-machine-id": "42"},
+			}},
+			info:   state.StateServingInfo{APIPort: 1234},
+			config: config,
+			leases: map[lease.Key]lease.Info{
+				{"nonagon", "m1", "gamma"}: {
+					Holder: "knife",
+					Expiry: zero.Add(30 * time.Second),
+				},
+				{"reyne", "m2", "keening"}: {
+					Holder: "jordan",
+					Expiry: zero.Add(45 * time.Second),
+				},
+			},
+			target: &target,
+		},
+	}
+
+	raftDir := filepath.Join(dataDir, "raft")
+	c.Assert(os.Mkdir(raftDir, 0777), jc.ErrorIsNil)
+
+	logStore, err := raftworker.NewLogStore(raftDir)
+	c.Assert(err, jc.ErrorIsNil)
+
+	logger := loggo.GetLogger("raft_upgrades")
+	snapshotStore, err := raftworker.NewSnapshotStore(raftDir, 2, logger)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, transport := raft.NewInmemTransport(raft.ServerAddress("notused"))
+	sink, err := snapshotStore.Create(
+		raft.SnapshotVersionMax,
+		1,
+		1,
+		raft.Configuration{Servers: []raft.Server{{
+			ID:       "42",
+			Address:  "somewhere.else:1234",
+			Suffrage: raft.Voter,
+		}}},
+		1,
+		transport,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	// Not a lease snapshot.
+	sink.Close()
+
+	// Add a log entry after the snapshot.
+	err = logStore.StoreLog(&raft.Log{
+		Index: 2,
+		Term:  1,
+		Type:  raft.LogNoop,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// Have to close it here or the open in the code hangs!
+	logStore.Close()
+
+	err = upgrades.MigrateLegacyLeases(context)
+	c.Assert(err, jc.ErrorIsNil)
+
+	target.assertClaimed(c, map[lease.Key]string{
+		{"nonagon", "m1", "gamma"}: "knife",
+		{"reyne", "m2", "keening"}: "jordan",
+	})
+
+	expectedLeases := context.state.(*mockState).leases
+
+	// Start up raft with the leases in the snapshot.
+	fsm := raftlease.NewFSM()
+	withRaft(c, dataDir, fsm, func(r *raft.Raft) {
+		// Once the snapshot is loaded the leases should be in the
+		// FSM.
+		var leases map[lease.Key]lease.Info
+		for a := coretesting.LongAttempt.Start(); a.Next(); {
+			leases = fsm.Leases(func() time.Time { return zero })
+			if reflect.DeepEqual(leases, expectedLeases) {
+				return
+			}
+		}
+		c.Assert(leases, gc.DeepEquals, expectedLeases,
+			gc.Commentf("waited %s but didn't see expected leases",
+				coretesting.LongAttempt.Total))
+	})
+}
+
+func (s *raftSuite) TestMigrateLegacyLeasesBootstrapsIfNeeded(c *gc.C) {
+	dataDir := c.MkDir()
+	config, err := controller.NewConfig(
+		coretesting.ControllerTag.Id(),
+		coretesting.CACert,
+		nil,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var zero time.Time
+	var target mockTarget
+
+	context := &mockContext{
+		agentConfig: &mockAgentConfig{
+			tag:     names.NewMachineTag("23"),
+			dataDir: dataDir,
+		},
+		state: &mockState{
+			members: []replicaset.Member{{
+				Address: "somewhere.else:37012",
+				Tags:    map[string]string{"juju-machine-id": "42"},
+			}},
+			info:   state.StateServingInfo{APIPort: 1234},
+			config: config,
+			leases: map[lease.Key]lease.Info{
+				{"nonagon", "m1", "gamma"}: {
+					Holder: "knife",
+					Expiry: zero.Add(30 * time.Second),
+				},
+				{"reyne", "m2", "keening"}: {
+					Holder: "jordan",
+					Expiry: zero.Add(45 * time.Second),
+				},
+			},
+			target: &target,
+		},
+	}
+
+	// We don't have a bootstrapped cluster at this point, but the
+	// upgrade function will bootstrap it if needed.
+	// This fixes https://bugs.launchpad.net/juju/+bug/1827371
+	err = upgrades.MigrateLegacyLeases(context)
+	c.Assert(err, jc.ErrorIsNil)
+
+	target.assertClaimed(c, map[lease.Key]string{
+		{"nonagon", "m1", "gamma"}: "knife",
+		{"reyne", "m2", "keening"}: "jordan",
+	})
+
+	expectedLeases := context.state.(*mockState).leases
+
+	// Start up raft with the leases in the snapshot.
+	fsm := raftlease.NewFSM()
+	withRaft(c, dataDir, fsm, func(r *raft.Raft) {
+		// Once the snapshot is loaded the leases should be in the
+		// FSM.
+		var leases map[lease.Key]lease.Info
+		for a := coretesting.LongAttempt.Start(); a.Next(); {
+			leases = fsm.Leases(func() time.Time { return zero })
+			if reflect.DeepEqual(leases, expectedLeases) {
+				return
+			}
+		}
+		c.Assert(leases, gc.DeepEquals, expectedLeases,
+			gc.Commentf("waited %s but didn't see expected leases",
+				coretesting.LongAttempt.Total))
+	})
+}
+
 type mockState struct {
 	upgrades.StateBackend
 	stub    testing.Stub
@@ -365,6 +576,6 @@ type captureWriter struct {
 }
 
 func (w captureWriter) Write(p []byte) (int, error) {
-	w.c.Logf("%s", p[:len(p)-1]) // omit trailling newline
+	w.c.Logf("%s", p[:len(p)-1]) // omit trailing newline
 	return len(p), nil
 }
