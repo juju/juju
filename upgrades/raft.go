@@ -405,7 +405,7 @@ func getLastSnapshot(store raft.SnapshotStore) (*raft.SnapshotMeta, error) {
 	for _, snapshot := range snapshots {
 		_, source, err := store.Open(snapshot.ID)
 		if err != nil {
-			logger.Warningf("couldn't open snapshot %q: %v", err)
+			logger.Warningf("couldn't open snapshot %q: %v", snapshot.ID, err)
 			continue
 		}
 		source.Close()
