@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -31,6 +32,7 @@ type Backend interface {
 	CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]state.CredentialOwnerModelAccess, error)
 	CredentialModels(tag names.CloudCredentialTag) (map[string]string, error)
 
+	ControllerConfig() (controller.Config, error)
 	ControllerInfo() (*state.ControllerInfo, error)
 	GetCloudAccess(cloud string, user names.UserTag) (permission.Access, error)
 	GetCloudUsers(cloud string) (map[string]permission.Access, error)

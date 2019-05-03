@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/permission"
@@ -29,7 +30,7 @@ import (
 var _ = gc.Suite(&cloudSuiteV2{})
 
 type cloudSuiteV2 struct {
-	gitjujutesting.IsolationSuite
+	coretesting.BaseSuite
 
 	backend    *mockBackendV2
 	authorizer *apiservertesting.FakeAuthorizer
@@ -40,7 +41,7 @@ type cloudSuiteV2 struct {
 }
 
 func (s *cloudSuiteV2) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	owner := names.NewUserTag("admin")
 
 	dummyCred := statetesting.CloudCredential(cloud.UserPassAuthType, map[string]string{
@@ -86,6 +87,7 @@ func (s *cloudSuiteV2) SetUpTest(c *gc.C) {
 				{ModelName: "whynotmodel", OwnerAccess: permission.NoAccess},
 			},
 		},
+		controllerCfg: coretesting.FakeControllerConfig(),
 		credentialModelsF: func(tag names.CloudCredentialTag) (map[string]string, error) {
 			return nil, nil
 		},
@@ -222,6 +224,9 @@ func (s *cloudSuiteV2) TestCredentialContentsNamedWithSecrets(c *gc.C) {
 }
 
 func (s *cloudSuiteV2) TestAddCloudInV2(c *gc.C) {
+	s.backend.controllerCfg = controller.Config{
+		"features": []interface{}{"multi-cloud"},
+	}
 	paramsCloud := params.AddCloudArgs{
 		Name: "newcloudname",
 		Cloud: params.Cloud{
@@ -232,9 +237,9 @@ func (s *cloudSuiteV2) TestAddCloudInV2(c *gc.C) {
 		}}
 	err := s.apiv2.AddCloud(paramsCloud)
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ControllerTag", "AddCloud")
+	s.backend.CheckCallNames(c, "ControllerTag", "ControllerConfig", "AddCloud")
 	s.backend.CheckCall(c, 0, "ControllerTag")
-	s.backend.CheckCall(c, 1, "AddCloud", cloud.Cloud{
+	s.backend.CheckCall(c, 2, "AddCloud", cloud.Cloud{
 		Name:      "newcloudname",
 		Type:      "fake",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
@@ -450,7 +455,13 @@ type mockBackendV2 struct {
 	cloudfacade.Backend
 	credentials       []state.Credential
 	models            map[names.CloudCredentialTag][]state.CredentialOwnerModelAccess
+	controllerCfg     controller.Config
 	credentialModelsF func(tag names.CloudCredentialTag) (map[string]string, error)
+}
+
+func (st *mockBackendV2) ControllerConfig() (controller.Config, error) {
+	st.MethodCall(st, "ControllerConfig")
+	return st.controllerCfg, nil
 }
 
 func (st *mockBackendV2) AllCloudCredentials(user names.UserTag) ([]state.Credential, error) {

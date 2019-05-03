@@ -160,7 +160,11 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 	var output interface{}
 	switch c.out.Name() {
 	case "yaml", "json":
-		output = details.all()
+		clouds := details.all()
+		for _, cloud := range clouds {
+			cloud.CloudType = displayCloudType(cloud.CloudType)
+		}
+		output = clouds
 	default:
 		if c.controllerName == "" && !c.Local {
 			ctxt.Infof(
@@ -202,9 +206,7 @@ func (c *cloudList) all() map[string]*CloudDetails {
 	result := make(map[string]*CloudDetails)
 	addAll := func(someClouds map[string]*CloudDetails) {
 		for name, cloud := range someClouds {
-			displayCloud := cloud
-			displayCloud.CloudType = displayCloudType(displayCloud.CloudType)
-			result[name] = displayCloud
+			result[name] = cloud
 		}
 	}
 
