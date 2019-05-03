@@ -185,7 +185,7 @@ func MigrateLegacyLeases(context Context) error {
 	storeState, err := getCombinedState(logStore, snapshotStore)
 	if err == errLogEmpty {
 		// This cluster hasn't been bootstrapped.
-		logger.Debugf("raft cluster is uninitialised - bootstrapping before migrating leases")
+		logger.Infof("raft cluster is uninitialised - bootstrapping before migrating leases")
 		err = bootstrapWithStores(context, logStore, snapshotStore)
 		if err != nil {
 			return errors.Annotate(err, "bootstrapping new raft cluster")
