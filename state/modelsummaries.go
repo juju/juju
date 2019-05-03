@@ -115,7 +115,7 @@ func newProcessorFromModelDocs(st *State, modelDocs []modelDoc, user names.UserT
 			Life:               doc.Life,
 			Owner:              doc.Owner,
 			ControllerUUID:     doc.ControllerUUID,
-			IsController:       st.IsController(),
+			IsController:       doc.UUID == st.modelTag.Id(),
 			SLALevel:           string(doc.SLA.Level),
 			SLAOwner:           doc.SLA.Owner,
 			CloudTag:           names.NewCloudTag(doc.Cloud).String(),
