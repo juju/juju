@@ -693,25 +693,25 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --machine-id 0 --debug
 			Return(eventsDone, nil),
 	)
 
-	go func(w *watch.RaceFreeFakeWatcher, clk *testclock.Clock) {
-		for _, evt := range []watch.EventType{
-			provider.StartedContainer, // mongodb started.
-			provider.StartedContainer, // api-server started.
-		} {
-			if !w.IsStopped() {
-				clk.WaitAdvance(time.Second, testing.LongWait, 1)
-				w.Action(evt, nil)
-			}
-		}
-	}(podWatcher, s.clock)
-
 	errChan := make(chan error)
 	go func() {
 		errChan <- controllerStacker.Deploy()
 	}()
 
-	err = s.clock.WaitAdvance(3*time.Second, testing.ShortWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
+	go func(w *watch.RaceFreeFakeWatcher, clk *testclock.Clock) {
+		err := clk.WaitAdvance(3*time.Second, testing.ShortWait, 1)
+		c.Assert(err, jc.ErrorIsNil)
+
+		for _, evt := range []watch.EventType{
+			provider.StartedContainer, // mongodb started.
+			provider.StartedContainer, // api-server started.
+		} {
+			if !w.IsStopped() {
+				clk.WaitAdvance(time.Second, testing.ShortWait, 1)
+				w.Action(evt, nil)
+			}
+		}
+	}(podWatcher, s.clock)
 
 	select {
 	case err := <-errChan:
