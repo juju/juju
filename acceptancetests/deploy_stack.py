@@ -808,24 +808,6 @@ class BootstrapManager:
         except Exception:
             logging.debug('Unable to retrieve members list.')
 
-        try:
-            def get_ns_name_from_caas_model(m):
-                m_name = m.get('short-name') or m.get('name')
-                if 'controller' in m_name:
-                    # TODO(ycliuhw): use m['is-controller'] once the bug is fixed. Currently all models are true.
-                    m_name = 'controller-' + m['controller-name']
-                return m_name
-
-            namespaces = [
-                get_ns_name_from_caas_model(m)
-                for m in (self.client.get_models() or {}).get('models', [])
-                if m.get('model-type') == 'caas'
-            ]
-            if namespaces:
-                resource_details['namespaces'] = namespaces
-        except Exception:
-            logging.debug('Unable to retrieve controller uuid.')
-
         if resource_details:
             self.resource_details = resource_details
 
