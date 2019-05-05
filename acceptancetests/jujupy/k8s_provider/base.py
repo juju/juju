@@ -104,8 +104,11 @@ class Base(object):
         """
         raise NotImplemented()
 
-    def __init__(self, client, timeout=1800):
-        self.client = client
+    def __init__(self, bs_manager, timeout=1800):
+        self.client = bs_manager.client
+        # register cleanup_hook
+        bs_manager.cleanup_hook = self.ensure_cleanup
+
         self.timeout = timeout
         self.juju_home = self.client.env.juju_home
 
@@ -186,6 +189,18 @@ class Base(object):
         return self._node_address_getter(nodes['items'][0])
 
     def ensure_cleanup(self):
-        # delete namespaces
-        # delete pvs
-        ...
+        controller_uuid = self.client.get_controller_uuid()
+        namespaces = json.loads(
+            self.kubectl('get', 'ns', '-o', 'json')
+        )
+        juju_owned_ns = [
+            ns['metadata']['name']
+            for ns in namespaces
+            if ns['metadata'].get('annotations', {}).get('juju.io/controller') == controller_uuid
+        ]
+        for ns_name in juju_owned_ns:
+            logger.info("deleting namespace: %s", ns_name)
+            try:
+                self.kubectl('delete', 'ns', ns_name)
+            except Exception as e:
+                logger.warn(e)

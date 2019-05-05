@@ -771,7 +771,7 @@ class BootstrapManager:
         Ensure any required cleanup for the current substrate is done.
         returns list of resource cleanup errors.
         """
-        if self.cleanup_hook is not None:
+        if callable(self.cleanup_hook):
             try:
                 self.cleanup_hook()
             except Exception as e:

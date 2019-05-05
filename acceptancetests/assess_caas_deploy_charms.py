@@ -143,7 +143,7 @@ def main(argv=None):
         client = bs_manager.client
         ensure_operator_image_path(client, caas_image_repo=args.caas_image_repo)
         k8s_provider = providers[args.caas_provider]
-        caas_client = k8s_provider(client)
+        caas_client = k8s_provider(bs_manager)
         assess_caas_charm_deployment(caas_client)
     return 0
 
