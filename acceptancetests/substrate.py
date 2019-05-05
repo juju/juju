@@ -946,40 +946,6 @@ class LXDAccount:
         return uncleaned_resource
 
 
-class K8sAccount:
-    """Represent a K8s account."""
-
-    def __init__(self, caas_client):
-        self.client = caas_client
-
-    def delete_namespaces(self, ns_names):
-        """Delete the specified namespaces."""
-        failed = []
-        for ns in ns_names:
-            log.info("deleting namespace %s", ns)
-            try:
-                subprocess.check_call(['kubectl', 'delete', 'ns', ns])
-            except subprocess.CalledProcessError as e:
-                log.warn(e)
-                failed.append(ns)
-        return failed
-
-    def ensure_cleanup(self, resource_details):
-        """
-        Do K8s specific clean-up activity.
-        :param resource_details: The list of resource to be cleaned up
-        :return: list of resources that were not cleaned up
-        """
-        uncleaned_resources = []
-
-        uncleaned_namespaces = self.delete_namespaces(resource_details.get('namespaces', []))
-        if uncleaned_namespaces:
-            uncleaned_resources.append(
-                dict(resource='namespaces', errors=uncleaned_namespaces,)
-            )
-        return uncleaned_resources
-
-
 def get_config(boot_config):
     config = boot_config.make_config_copy()
     if boot_config.provider not in ('lxd', 'manual'):
@@ -1003,7 +969,6 @@ def make_substrate_manager(boot_config):
         'azure-arm': AzureARMAccount.from_boot_config,
         'lxd': LXDAccount.from_boot_config,
         'gce': GCEAccount.from_boot_config,
-        'kubernetes': K8sAccount.from_boot_config,
     }
     substrate_type = config['type']
     if substrate_type == 'azure' and 'application-id' in config:
