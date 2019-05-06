@@ -63,8 +63,7 @@ def assess_caas_charm_deployment(caas_client):
     if not caas_client.check_cluster_healthy(timeout=60):
         raise JujuAssertionError('k8s cluster is not healthy because kubectl is not accessible')
 
-    # add caas model for deploying caas charms on top of it
-    model_name = 'testcaas'
+    model_name = caas_client.client.get_controller_uuid() + '-testcaas'
     k8s_model = caas_client.add_model(model_name)
 
     k8s_model.deploy(
@@ -88,17 +87,13 @@ def assess_caas_charm_deployment(caas_client):
         log.info(caas_client.kubectl('get', 'pv,pvc', '-n', model_name))
         caas_client.ensure_cleanup()
 
-    url = '{}://{}'.format(
-        'http', external_hostname,
-        # 'mediawiki-k8s',  # TODO(ycliuhw): enable relative path once problem solved.
-    )
+    url = '{}://{}'.format('http', external_hostname)
     check_app_healthy(
         url, timeout=300,
         success_hook=success_hook,
         fail_hook=fail_hook,
     )
     k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
-    k8s_model.destroy_model()
 
 
 def parse_args(argv):

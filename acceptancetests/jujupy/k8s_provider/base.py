@@ -193,7 +193,7 @@ class Base(object):
         namespaces = json.loads(
             self.kubectl('get', 'ns', '-o', 'json')
         )
-        logger.info("all namespaces namespaces: %s", namespaces)
+        logger.info("all namespaces: %s", namespaces)
         juju_owned_ns = [
             ns['metadata']['name']
             for ns in namespaces['items']
