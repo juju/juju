@@ -101,6 +101,8 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 			collection.docType = reflect.TypeOf(backingRemoteApplication{})
 		case applicationOffersC:
 			collection.docType = reflect.TypeOf(backingApplicationOffer{})
+		case generationsC:
+			collection.docType = reflect.TypeOf(backingGeneration{})
 		default:
 			panic(errors.Errorf("unknown collection %q", collName))
 		}
@@ -543,25 +545,12 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 		if err != nil {
 			return errors.Annotatef(err, "reading application status for key %s", key)
 		}
-		if err == nil {
-			info.Status = multiwatcher.StatusInfo{
-				Current: applicationStatus.Status,
-				Message: applicationStatus.Message,
-				Data:    normaliseStatusData(applicationStatus.Data),
-				Since:   applicationStatus.Since,
-			}
-		} else {
-			// TODO(wallyworld) - bug http://pad.lv/1451283
-			// return an error here once we figure out what's happening
-			// Not sure how status can even return NotFound as it is created
-			// with the application initially. For now, we'll log the error as per
-			// the above and return Unknown.
-			now := st.clock().Now()
-			info.Status = multiwatcher.StatusInfo{
-				Current: status.Unknown,
-				Since:   &now,
-				Data:    normaliseStatusData(nil),
-			}
+
+		info.Status = multiwatcher.StatusInfo{
+			Current: applicationStatus.Status,
+			Message: applicationStatus.Message,
+			Data:    normaliseStatusData(applicationStatus.Data),
+			Since:   applicationStatus.Since,
 		}
 	} else {
 		// The entry already exists, so preserve the current status.
@@ -960,7 +949,7 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 		info0 = &newInfo
 	case *multiwatcher.MachineInfo:
 		newInfo := *info
-		// lets dissambiguate between juju machine agent and provider instance statuses.
+		// lets disambiguate between juju machine agent and provider instance statuses.
 		if strings.HasSuffix(id, "#instance") {
 			newInfo.InstanceStatus = s.toStatusInfo()
 		} else {
@@ -1326,6 +1315,55 @@ func backingEntityIdForGlobalKey(modelUUID, key string) (multiwatcher.EntityId, 
 	}
 }
 
+type backingGeneration generationDoc
+
+func (g *backingGeneration) updated(st *State, store *multiwatcherStore, id string) error {
+	// Convert the state representation of config deltas
+	// to the multiwatcher representation.
+	var cfg map[string][]multiwatcher.ItemChange
+	if len(g.Config) > 0 {
+		cfg = make(map[string][]multiwatcher.ItemChange, len(g.Config))
+		for app, deltas := range g.Config {
+			d := make([]multiwatcher.ItemChange, len(deltas))
+			for i, delta := range deltas {
+				d[i] = multiwatcher.ItemChange{
+					Type:     delta.Type,
+					Key:      delta.Key,
+					OldValue: delta.OldValue,
+					NewValue: delta.NewValue,
+				}
+			}
+			cfg[app] = d
+		}
+	}
+
+	info := &multiwatcher.GenerationInfo{
+		ModelUUID:     st.ModelUUID(),
+		Id:            st.localID(id),
+		Name:          g.Name,
+		AssignedUnits: g.AssignedUnits,
+		Config:        cfg,
+		Completed:     g.Completed,
+		GenerationId:  g.GenerationId,
+	}
+	store.Update(info)
+	return nil
+
+}
+
+func (g *backingGeneration) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
+	store.Remove(multiwatcher.EntityId{
+		Kind:      "generation",
+		ModelUUID: modelUUID,
+		Id:        id,
+	})
+	return nil
+}
+
+func (g *backingGeneration) mongoId() string {
+	return g.DocId
+}
+
 // backingEntityDoc is implemented by the documents in
 // collections that the allWatcherStateBacking watches.
 type backingEntityDoc interface {
@@ -1355,6 +1393,7 @@ func newAllWatcherStateBacking(st *State, params WatchParams) Backing {
 		blocksC,
 		charmsC,
 		constraintsC,
+		generationsC,
 		instanceDataC,
 		machinesC,
 		openedPortsC,
@@ -1440,6 +1479,7 @@ func NewAllModelWatcherStateBacking(st *State, pool *StatePool) Backing {
 		applicationsC,
 		charmsC,
 		constraintsC,
+		generationsC,
 		instanceDataC,
 		modelsC,
 		machinesC,
@@ -1528,7 +1568,7 @@ func (b *allModelWatcherStateBacking) Changed(all *multiwatcherStore, change wat
 		if exists, modelErr := b.st.ModelExists(modelUUID); exists && modelErr == nil {
 			// The entity's model is gone so remove the entity
 			// from the store.
-			doc.removed(all, modelUUID, id, nil)
+			_ = doc.removed(all, modelUUID, id, nil)
 			return nil
 		}
 		return errors.Trace(err) // prioritise getState error
