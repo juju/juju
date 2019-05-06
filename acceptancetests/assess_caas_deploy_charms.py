@@ -118,17 +118,15 @@ def parse_args(argv):
     return parser.parse_args(argv)
 
 
-def ensure_operator_image_path(client, caas_image_repo):
-    client.controller_juju('controller-config', ('caas-image-repo={}'.format(caas_image_repo),))
-
-
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
-    with bs_manager.booted_context(args.upload_tools):
+    with bs_manager.booted_context(
+        args.upload_tools,
+        caas_image_repo=args.caas_image_repo,
+    ):
         client = bs_manager.client
-        ensure_operator_image_path(client, caas_image_repo=args.caas_image_repo)
         k8s_provider = providers[args.caas_provider]
         caas_client = k8s_provider(bs_manager)
         assess_caas_charm_deployment(caas_client)

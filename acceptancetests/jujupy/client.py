@@ -925,10 +925,12 @@ class ModelClient:
         })
 
     @contextmanager
-    def _bootstrap_config(self, mongo_memory_profile=None):
+    def _bootstrap_config(self, mongo_memory_profile=None, caas_image_repo=None):
         cfg = self.make_model_config()
         if mongo_memory_profile:
             cfg['mongo-memory-profile'] = mongo_memory_profile
+        if caas_image_repo:
+            cfg['caas-image-repo'] = caas_image_repo
         with temp_yaml_file(cfg) as config_filename:
             yield config_filename
 
@@ -943,14 +945,24 @@ class ModelClient:
     def bootstrap(self, upload_tools=False, bootstrap_series=None,
                   credential=None, auto_upgrade=False, metadata_source=None,
                   no_gui=False, agent_version=None, db_snap_path=None,
-                  db_snap_asserts_path=None, mongo_memory_profile=None):
+                  db_snap_asserts_path=None, mongo_memory_profile=None, caas_image_repo=None):
         """Bootstrap a controller."""
         self._check_bootstrap()
-        with self._bootstrap_config(mongo_memory_profile) as config_filename:
+        with self._bootstrap_config(
+            mongo_memory_profile, caas_image_repo,
+        ) as config_filename:
             args = self.get_bootstrap_args(
-                upload_tools, config_filename, bootstrap_series, credential,
-                auto_upgrade, metadata_source, no_gui, agent_version,
-                db_snap_path, db_snap_asserts_path)
+                upload_tools=upload_tools,
+                config_filename=config_filename,
+                bootstrap_series=bootstrap_series,
+                credential=credential,
+                auto_upgrade=auto_upgrade,
+                metadata_source=metadata_source,
+                no_gui=no_gui,
+                agent_version=agent_version,
+                db_snap_path=db_snap_path,
+                db_snap_asserts_path=db_snap_asserts_path,
+            )
             self.update_user_name()
             retvar, ct = self.juju('bootstrap', args, include_e=False)
             ct.actual_completion()
@@ -963,8 +975,14 @@ class ModelClient:
         self._check_bootstrap()
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
-                upload_tools, config_filename, bootstrap_series, None,
-                auto_upgrade, metadata_source, no_gui)
+                upload_tools=upload_tools,
+                config_filename=config_filename,
+                bootstrap_series=bootstrap_series,
+                credential=None,
+                auto_upgrade=auto_upgrade,
+                metadata_source=metadata_source,
+                no_gui=no_gui,
+            )
             self.update_user_name()
             with self.juju_async('bootstrap', args, include_e=False):
                 yield
