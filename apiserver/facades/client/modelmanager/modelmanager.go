@@ -180,8 +180,15 @@ func NewFacadeV7(ctx facade.Context) (*ModelManagerAPI, error) {
 		return nil, err
 	}
 
+	// Since we know this is a user tag (because AuthClient is true),
+	// we just do the type assertion to the UserTag.
+	if !auth.AuthClient() {
+		return nil, common.ErrPerm
+	}
+	apiUser, _ := auth.GetAuthTag().(names.UserTag)
+
 	return NewModelManagerAPI(
-		common.NewModelManagerBackend(model, pool),
+		common.NewUserAwareModelManagerBackend(model, pool, apiUser),
 		common.NewModelManagerBackend(ctrlModel, pool),
 		configGetter,
 		caas.New,
