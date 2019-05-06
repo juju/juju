@@ -88,7 +88,7 @@ func (s *CAASProvisionerSuite) TestWorkerStarts(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, terminating bool) {
-	s.caasClient.terminating = terminating
+	s.caasClient.setTerminating(terminating)
 	s.provisionerFacade.life = "alive"
 	s.provisionerFacade.applicationsWatcher.changes <- []string{"myapp"}
 
@@ -102,8 +102,8 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, terminatin
 			break
 		}
 		if nrCalls > 0 {
-			s.caasClient.operatorExists = false
-			s.caasClient.terminating = false
+			s.caasClient.setOperatorExists(false)
+			s.caasClient.setTerminating(false)
 			s.clock.Advance(4 * time.Second)
 		}
 	}
