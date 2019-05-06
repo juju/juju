@@ -1,6 +1,6 @@
 from contextlib import (
     contextmanager,
-    )
+)
 import json
 import logging
 import os
@@ -19,7 +19,7 @@ import gce
 from utility import (
     temp_dir,
     until_timeout,
-    )
+)
 import winazurearm
 
 
@@ -767,7 +767,7 @@ class MAASAccount:
         """Create a new vlan on fabric with given fabric_id."""
         args = [
             self.profile, 'vlans', 'create', str(fabric_id), 'vid=' + str(vid),
-            ]
+        ]
         if name is not None:
             args.append('name=' + name)
         return self._maas(*args)

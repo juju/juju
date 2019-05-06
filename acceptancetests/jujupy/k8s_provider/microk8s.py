@@ -37,8 +37,8 @@ class MicroK8s(Base):
 
     name = K8sProviderType.MICROK8S
 
-    def __init__(self, client, timeout=1800):
-        super().__init__(client, timeout)
+    def __init__(self, bs_manager, timeout=1800):
+        super().__init__(bs_manager, timeout)
         self.default_storage_class_name = 'microk8s-hostpath'
 
     def _ensure_cluster_stack(self):

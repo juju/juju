@@ -733,6 +733,10 @@ class BootstrapManager:
         dump_env_logs_known_hosts.
     """
 
+    # cleanup_hook allows injecting cleanup steps that are
+    # not applicable for config's substrate account.
+    cleanup_hook = None
+
     def __init__(self, temp_env_name, client, tear_down_client, bootstrap_host,
                  machines, series, agent_url, agent_stream, region, log_dir,
                  keep_env, controller_strategy=None,
@@ -767,14 +771,21 @@ class BootstrapManager:
         Ensure any required cleanup for the current substrate is done.
         returns list of resource cleanup errors.
         """
+        if callable(self.cleanup_hook):
+            try:
+                self.cleanup_hook()
+            except Exception as e:
+                log.warn(e)
+
         if self.resource_details is not None:
             with make_substrate_manager(self.client.env) as substrate:
                 if substrate is not None:
                     return substrate.ensure_cleanup(self.resource_details)
                 logging.warning(
-                    '{} is an unknown provider.'
-                    ' Unable to ensure cleanup.'.format(
-                        self.client.env.provider))
+                    '{} is an unknown provider. Unable to ensure cleanup.'.format(
+                        self.client.env.provider
+                    )
+                )
         return []
 
     def collect_resource_details(self):
@@ -792,7 +803,8 @@ class BootstrapManager:
             members = self.client.get_controller_members()
             resource_details['instances'] = [
                 (m.info['instance-id'], m.info['dns-name'])
-                for m in members]
+                for m in members
+            ]
         except Exception:
             logging.debug('Unable to retrieve members list.')
 
@@ -1089,7 +1101,6 @@ class BootstrapManager:
                 dump_db = os.path.join(artifacts_dir, "dump-db.yaml")
                 client.juju('dump-db', ('--output', dump_db))
 
-
     @contextmanager
     def top_context(self):
         """Context for running all juju operations in."""
@@ -1136,9 +1147,11 @@ class BootstrapManager:
         with self.top_context() as machines:
             with self.bootstrap_context(
                     machines,
-                    omit_config=self.client.bootstrap_replaces):
+                    omit_config=self.client.bootstrap_replaces,
+            ):
                 self.controller_strategy.create_initial_model(
-                    upload_tools, self.series, kwargs)
+                    upload_tools, self.series, kwargs,
+                )
             with self.runtime_context(machines):
                 self.client.list_controllers()
                 self.client.list_models()

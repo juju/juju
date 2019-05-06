@@ -63,39 +63,21 @@ def assess_caas_charm_deployment(caas_client):
     if not caas_client.check_cluster_healthy(timeout=60):
         raise JujuAssertionError('k8s cluster is not healthy because kubectl is not accessible')
 
-    # add caas model for deploying caas charms on top of it
-    model_name = 'testcaas'
+    model_name = caas_client.client.get_controller_uuid() + '-testcaas'
     k8s_model = caas_client.add_model(model_name)
 
-    sc_name = caas_client.default_storage_class_name
-    # ensure storage pools for caas operator using default sc.
-    k8s_model.juju(
-        'create-storage-pool',
-        ('operator-storage', 'kubernetes', 'storage-class=%s' % sc_name)
-    )
-
-    # ensure storage pools for mariadb
-    # TODO(ycliuhw): remove storage-pool setup, because Juju takes care of it now.
-    # And add tests for deploy with & without storage setup.
-    mariadb_storage_pool_name = 'mariadb-pv'
-    k8s_model.juju(
-        'create-storage-pool',
-        (mariadb_storage_pool_name, 'kubernetes', 'storage-class=%s' % sc_name)
-    )
-
     k8s_model.deploy(
-        charm="cs:~juju/gitlab-k8s-0",
+        charm="cs:~juju/mediawiki-k8s-3",
         config='juju-external-hostname={}'.format(external_hostname),
     )
 
     k8s_model.deploy(
         charm="cs:~juju/mariadb-k8s-0",
-        storage='database=100M,{}'.format(mariadb_storage_pool_name),
     )
 
-    k8s_model.juju('relate', ('mariadb-k8s', 'gitlab-k8s'))
-    k8s_model.juju('expose', ('gitlab-k8s',))
-    k8s_model.wait_for_workloads(timeout=3600)
+    k8s_model.juju('relate', ('mediawiki-k8s:db', 'mariadb-k8s:server'))
+    k8s_model.juju('expose', ('mediawiki-k8s',))
+    k8s_model.wait_for_workloads(timeout=600)
 
     def success_hook():
         log.info(caas_client.kubectl('get', 'all', '--all-namespaces'))
@@ -103,15 +85,15 @@ def assess_caas_charm_deployment(caas_client):
     def fail_hook():
         success_hook()
         log.info(caas_client.kubectl('get', 'pv,pvc', '-n', model_name))
+        caas_client.ensure_cleanup()
 
-    url = '{}://{}/{}'.format('http', external_hostname, 'gitlab-k8s')
+    url = '{}://{}'.format('http', external_hostname)
     check_app_healthy(
-        url, timeout=1800,
+        url, timeout=300,
         success_hook=success_hook,
         fail_hook=fail_hook,
     )
     k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
-    k8s_model.destroy_model()
 
 
 def parse_args(argv):
@@ -131,19 +113,17 @@ def parse_args(argv):
     return parser.parse_args(argv)
 
 
-def ensure_operator_image_path(client, caas_image_repo):
-    client.controller_juju('controller-config', ('caas-image-repo={}'.format(caas_image_repo),))
-
-
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
-    with bs_manager.booted_context(args.upload_tools):
+    with bs_manager.booted_context(
+        args.upload_tools,
+        caas_image_repo=args.caas_image_repo,
+    ):
         client = bs_manager.client
-        ensure_operator_image_path(client, caas_image_repo=args.caas_image_repo)
         k8s_provider = providers[args.caas_provider]
-        caas_client = k8s_provider(client)
+        caas_client = k8s_provider(bs_manager)
         assess_caas_charm_deployment(caas_client)
     return 0
 
