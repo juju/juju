@@ -193,11 +193,13 @@ class Base(object):
         namespaces = json.loads(
             self.kubectl('get', 'ns', '-o', 'json')
         )
+        logger.info("all namespaces namespaces: %s", namespaces)
         juju_owned_ns = [
             ns['metadata']['name']
-            for ns in namespaces
+            for ns in namespaces['items']
             if ns['metadata'].get('annotations', {}).get('juju.io/controller') == controller_uuid
         ]
+        logger.info("juju owned namespaces: %s", juju_owned_ns)
         for ns_name in juju_owned_ns:
             logger.info("deleting namespace: %s", ns_name)
             try:

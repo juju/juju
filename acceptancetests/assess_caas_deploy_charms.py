@@ -67,22 +67,6 @@ def assess_caas_charm_deployment(caas_client):
     model_name = 'testcaas'
     k8s_model = caas_client.add_model(model_name)
 
-    sc_name = caas_client.default_storage_class_name
-    # ensure storage pools for caas operator using default sc.
-    k8s_model.juju(
-        'create-storage-pool',
-        ('operator-storage', 'kubernetes', 'storage-class=%s' % sc_name)
-    )
-
-    # ensure storage pools for mariadb
-    # TODO(ycliuhw): remove storage-pool setup, because Juju takes care of it now.
-    # And add tests for deploy with & without storage setup.
-    mariadb_storage_pool_name = 'mariadb-pv'
-    k8s_model.juju(
-        'create-storage-pool',
-        (mariadb_storage_pool_name, 'kubernetes', 'storage-class=%s' % sc_name)
-    )
-
     k8s_model.deploy(
         charm="cs:~juju/mediawiki-k8s-3",
         config='juju-external-hostname={}'.format(external_hostname),
@@ -90,12 +74,11 @@ def assess_caas_charm_deployment(caas_client):
 
     k8s_model.deploy(
         charm="cs:~juju/mariadb-k8s-0",
-        storage='database=100M,{}'.format(mariadb_storage_pool_name),
     )
 
     k8s_model.juju('relate', ('mediawiki-k8s:db', 'mariadb-k8s:server'))
     k8s_model.juju('expose', ('mediawiki-k8s',))
-    k8s_model.wait_for_workloads(timeout=3600)
+    k8s_model.wait_for_workloads(timeout=600)
 
     def success_hook():
         log.info(caas_client.kubectl('get', 'all', '--all-namespaces'))
@@ -103,10 +86,14 @@ def assess_caas_charm_deployment(caas_client):
     def fail_hook():
         success_hook()
         log.info(caas_client.kubectl('get', 'pv,pvc', '-n', model_name))
+        caas_client.ensure_cleanup()
 
-    url = '{}://{}/{}'.format('http', external_hostname, 'mediawiki-k8s')
+    url = '{}://{}'.format(
+        'http', external_hostname,
+        # 'mediawiki-k8s',  # TODO(ycliuhw): enable relative path once problem solved.
+    )
     check_app_healthy(
-        url, timeout=1800,
+        url, timeout=300,
         success_hook=success_hook,
         fail_hook=fail_hook,
     )
