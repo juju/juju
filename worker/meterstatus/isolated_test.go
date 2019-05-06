@@ -145,7 +145,7 @@ func (s *IsolatedWorkerSuite) TestMissingHookError(c *gc.C) {
 	s.stub.SetErrors(charmrunner.NewMissingHookError("meter-status-changed"))
 
 	assertSignal(c, s.triggersCreated)
-	s.clk.Advance(AmberGracePeriod + time.Second)
+	c.Assert(s.clk.WaitAdvance(AmberGracePeriod+time.Second, testing.ShortWait, 2), jc.ErrorIsNil)
 	assertSignal(c, s.hookRan)
 
 	s.stub.CheckCallNames(c, "RunHook")
@@ -156,7 +156,7 @@ func (s *IsolatedWorkerSuite) TestRandomHookError(c *gc.C) {
 	s.stub.SetErrors(fmt.Errorf("blah"))
 
 	assertSignal(c, s.triggersCreated)
-	s.clk.Advance(AmberGracePeriod + time.Second)
+	c.Assert(s.clk.WaitAdvance(AmberGracePeriod+time.Second, testing.ShortWait, 2), jc.ErrorIsNil)
 	assertSignal(c, s.hookRan)
 
 	s.stub.CheckCallNames(c, "RunHook")
