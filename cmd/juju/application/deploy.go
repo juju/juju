@@ -1380,6 +1380,10 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 			fromBundle:          false,
 		}
 
+		if len(ch.Meta().Series) == 0 {
+			logger.Warningf("%s does not delcare supported series in metadata.yml", ch.Meta().Name)
+		}
+
 		seriesName, err = seriesSelector.charmSeries()
 		if err != nil {
 			if errors.IsNotSupported(err) {
