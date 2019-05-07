@@ -232,11 +232,15 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 	}
 
 	storageAccessor, err := getStorageState(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	storageAPI, err := newStorageAPI(
 		stateShim{st}, storageAccessor, resources, accessUnit)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
+
 	msAPI, err := meterstatus.NewMeterStatusAPI(st, resources, authorizer)
 	if err != nil {
 		return nil, errors.Annotate(err, "could not create meter status API handler")
