@@ -66,19 +66,6 @@ def assess_caas_charm_deployment(caas_client):
     model_name = caas_client.client.env.controller.name + '-test-caas-model'
     k8s_model = caas_client.add_model(model_name)
 
-    k8s_model.deploy(
-        charm="cs:~juju/mediawiki-k8s-3",
-        config='juju-external-hostname={}'.format(external_hostname),
-    )
-
-    k8s_model.deploy(
-        charm="cs:~juju/mariadb-k8s-0",
-    )
-
-    k8s_model.juju('relate', ('mediawiki-k8s:db', 'mariadb-k8s:server'))
-    k8s_model.juju('expose', ('mediawiki-k8s',))
-    k8s_model.wait_for_workloads(timeout=600)
-
     def success_hook():
         log.info(caas_client.kubectl('get', 'all', '--all-namespaces'))
 
@@ -87,13 +74,30 @@ def assess_caas_charm_deployment(caas_client):
         log.info(caas_client.kubectl('get', 'pv,pvc', '-n', model_name))
         caas_client.ensure_cleanup()
 
-    url = '{}://{}'.format('http', external_hostname)
-    check_app_healthy(
-        url, timeout=300,
-        success_hook=success_hook,
-        fail_hook=fail_hook,
-    )
-    k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
+    try:
+        k8s_model.deploy(
+            charm="cs:~juju/mediawiki-k8s-3",
+            config='juju-external-hostname={}'.format(external_hostname),
+        )
+
+        k8s_model.deploy(
+            charm="cs:~juju/mariadb-k8s-0",
+        )
+
+        k8s_model.juju('relate', ('mediawiki-k8s:db', 'mariadb-k8s:server'))
+        k8s_model.juju('expose', ('mediawiki-k8s',))
+        k8s_model.wait_for_workloads(timeout=600)
+
+        url = '{}://{}'.format('http', external_hostname)
+        check_app_healthy(
+            url, timeout=300,
+            success_hook=success_hook,
+        )
+        k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
+    except:
+        # run cleanup steps then raise.
+        fail_hook()
+        raise
 
 
 def parse_args(argv):
