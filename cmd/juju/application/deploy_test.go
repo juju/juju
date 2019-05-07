@@ -1277,7 +1277,7 @@ func (s *DeployCharmStoreSuite) TestDeployWithTermsNotSigned(c *gc.C) {
 
 func (s *DeployCharmStoreSuite) TestDeployWithChannel(c *gc.C) {
 	ch := testcharms.RepoWithSeries("bionic").CharmArchive(c.MkDir(), "wordpress")
-	id := charm.MustParseURL("cs:~client-username/precise/wordpress-0")
+	id := charm.MustParseURL("cs:~client-username/bionic/wordpress-0")
 	err := s.client.UploadCharmWithRevision(id, ch, -1)
 	c.Assert(err, gc.IsNil)
 
@@ -1286,9 +1286,9 @@ func (s *DeployCharmStoreSuite) TestDeployWithChannel(c *gc.C) {
 
 	err = runDeploy(c, "--channel", "edge", "~client-username/wordpress")
 	c.Assert(err, gc.IsNil)
-	s.assertCharmsUploaded(c, "cs:~client-username/precise/wordpress-0")
+	s.assertCharmsUploaded(c, "cs:~client-username/bionic/wordpress-0")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
-		"wordpress": {charm: "cs:~client-username/precise/wordpress-0", config: ch.Config().DefaultSettings()},
+		"wordpress": {charm: "cs:~client-username/bionic/wordpress-0", config: ch.Config().DefaultSettings()},
 	})
 }
 

@@ -23,6 +23,9 @@ type UnexposeSuite struct {
 
 func (s *UnexposeSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
+	s.PatchValue(&supportedJujuSeries, func() []string {
+		return defaultSupportedJujuSeries
+	})
 	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })

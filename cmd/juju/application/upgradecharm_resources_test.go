@@ -12,8 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/juju/core/model"
-
 	"github.com/juju/cmd/cmdtesting"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -31,14 +29,14 @@ import (
 	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 )
 
 type UpgradeCharmResourceSuite struct {
-	jujutesting.RepoSuite
+	application.RepoSuiteBaseSuite
 }
 
 var _ = gc.Suite(&UpgradeCharmResourceSuite{})
@@ -49,7 +47,7 @@ func (s *UpgradeCharmResourceSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *UpgradeCharmResourceSuite) SetUpTest(c *gc.C) {
-	s.RepoSuite.SetUpTest(c)
+	s.RepoSuiteBaseSuite.SetUpTest(c)
 	chPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(s.CharmsPath, "riak")
 	_, err := runDeploy(c, chPath, "riak", "--series", "quantal", "--force")
 	c.Assert(err, jc.ErrorIsNil)
@@ -139,7 +137,7 @@ func (c charmstoreClientToTestcharmsClientShim) WithChannel(channel params.Chann
 // charmStoreSuite is a suite fixture that puts the machinery in
 // place to allow testing code that calls addCharmViaAPI.
 type charmStoreSuite struct {
-	jujutesting.JujuConnSuite
+	application.JujuConnBaseSuite
 	handler    charmstore.HTTPCloseHandler
 	srv        *httptest.Server
 	srvSession *mgo.Session
@@ -174,7 +172,7 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 	}
 	s.JujuConnSuite.ControllerConfigAttrs[controller.CharmStoreURL] = s.srv.URL
 
-	s.JujuConnSuite.SetUpTest(c)
+	s.JujuConnBaseSuite.SetUpTest(c)
 
 	// Initialize the charm cache dir.
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())

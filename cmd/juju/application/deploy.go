@@ -1185,13 +1185,10 @@ func (c *DeployCommand) validateCharmSeries(seriesName string) error {
 	// attempt to locate the charm series from the list of known juju series
 	// that we currently support.
 	var found bool
-	for _, name := range series.SupportedJujuSeries() {
+	for _, name := range supportedJujuSeries() {
 		if name == seriesName {
 			found = true
 		}
-	}
-	if seriesName == kubernetesSeriesName {
-		found = true
 	}
 	if !found && !c.Force {
 		return errors.NotSupportedf("series: %s", seriesName)
@@ -1599,6 +1596,23 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 				return errors.Trace(termErr.UserErr())
 			}
 			return errors.Annotatef(err, "storing charm for URL %q", storeCharmOrBundleURL)
+		}
+
+		// If the original series was empty, so we couldn't validate the original
+		// charm series, but the charm url wasn't nil, we can check and validate
+		// what that one says.
+		//
+		// Note: it's interesting that the charm url and the series can diverge and
+		// tell different things when deploying a charm and in sake of understanding
+		// what we deploy, we should converge the two so that both report identical
+		// values.
+		if curl != nil && series == "" {
+			if err := c.validateCharmSeries(curl.Series); err != nil {
+				if errors.IsNotSupported(err) {
+					return errors.Errorf("%v is not available on the following %v", storeCharmOrBundleURL.Name, err)
+				}
+				return errors.Trace(err)
+			}
 		}
 
 		formattedCharmURL := curl.String()
