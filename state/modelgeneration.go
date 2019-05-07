@@ -423,7 +423,7 @@ func (g *Generation) Commit(userName string) (int, error) {
 }
 
 // assignedWithAllUnits generates a new value for the branch's
-// AssignedUnits field, to indicate the all units of changed applications
+// AssignedUnits field, to indicate that all units of changed applications
 // are tracking the branch.
 func (g *Generation) assignedWithAllUnits() (map[string][]string, error) {
 	assigned := g.AssignedUnits()
@@ -459,11 +459,13 @@ func (g *Generation) commitConfigTxnOps() ([]txn.Op, error) {
 		}
 		cfg.applyChanges(delta)
 
+		_, updates := cfg.settingsUpdateOps()
 		// Assert that the settings document has not changed underneath us
 		// in addition to appending the field changes.
-		ops = append(ops, cfg.assertUnchangedOp())
-		_, updates := cfg.settingsUpdateOps()
-		ops = append(ops, updates...)
+		if len(updates) > 0 {
+			ops = append(ops, cfg.assertUnchangedOp())
+			ops = append(ops, updates...)
+		}
 	}
 	return ops, nil
 }
