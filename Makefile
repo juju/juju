@@ -59,7 +59,9 @@ pre-check:
 	@echo running pre-test checks
 	@$(PROJECT_DIR)/scripts/verify.bash
 
-check: dep pre-check
+check: dep pre-check test
+
+test: dep
 	go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT_PACKAGES) -check.v
 
 install: dep go-install
