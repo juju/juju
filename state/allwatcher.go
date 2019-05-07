@@ -1337,11 +1337,19 @@ func (g *backingGeneration) updated(st *State, store *multiwatcherStore, id stri
 		}
 	}
 
+	// Make a copy of the AssignedUnits map.
+	assigned := make(map[string][]string, len(g.AssignedUnits))
+	for k, v := range g.AssignedUnits {
+		units := make([]string, len(v))
+		copy(units, v)
+		assigned[k] = units
+	}
+
 	info := &multiwatcher.GenerationInfo{
 		ModelUUID:     st.ModelUUID(),
 		Id:            st.localID(id),
 		Name:          g.Name,
-		AssignedUnits: g.AssignedUnits,
+		AssignedUnits: assigned,
 		Config:        cfg,
 		Completed:     g.Completed,
 		GenerationId:  g.GenerationId,
