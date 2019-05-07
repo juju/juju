@@ -146,7 +146,11 @@ func (s seriesSelector) userRequested(requestedSeries string) (string, error) {
 
 func (s seriesSelector) validateSeries(seriesName string) error {
 	// if we're forcing then we don't need the following validation checks.
-	if s.force || len(s.supportedJujuSeries) == 0 {
+	if len(s.supportedJujuSeries) == 0 {
+		// programming error
+		return errors.Errorf("expected supported juju series to exist")
+	}
+	if s.force {
 		return nil
 	}
 

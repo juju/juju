@@ -1188,6 +1188,7 @@ func (c *DeployCommand) validateCharmSeries(seriesName string) error {
 	for _, name := range supportedJujuSeries() {
 		if name == seriesName {
 			found = true
+			break
 		}
 	}
 	if !found && !c.Force {
@@ -1236,10 +1237,7 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 	}
 
 	// Avoid deploying charm if it's not valid for the model.
-	if err := c.validateCharmSeries(userCharmURL.Series); err != nil {
-		if errors.IsNotSupported(err) {
-			return nil, errors.Errorf("%v is not available on the following %v", userCharmURL.Name, err)
-		}
+	if err := c.validateCharmSeriesWithName(userCharmURL.Series, userCharmURL.Name); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -1417,10 +1415,7 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 	}
 
 	// Avoid deploying charm if it's not valid for the model.
-	if err := c.validateCharmSeries(seriesName); err != nil {
-		if errors.IsNotSupported(err) {
-			return nil, errors.Errorf("%v is not available on the following %v", curl.Name, err)
-		}
+	if err := c.validateCharmSeriesWithName(seriesName, curl.Name); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := c.validateResourcesNeededForLocalDeploy(ch.Meta()); err != nil {
@@ -1578,10 +1573,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		// Avoid deploying charm if it's not valid for the model.
 		// We check this first before possibly suggesting --force.
 		if err == nil {
-			if err2 := c.validateCharmSeries(series); err2 != nil {
-				if errors.IsNotSupported(err2) {
-					return errors.Errorf("%v is not available on the following %v", storeCharmOrBundleURL.Name, err2)
-				}
+			if err2 := c.validateCharmSeriesWithName(series, storeCharmOrBundleURL.Name); err2 != nil {
 				return errors.Trace(err2)
 			}
 		}
@@ -1611,10 +1603,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		// what we deploy, we should converge the two so that both report identical
 		// values.
 		if curl != nil && series == "" {
-			if err := c.validateCharmSeries(curl.Series); err != nil {
-				if errors.IsNotSupported(err) {
-					return errors.Errorf("%v is not available on the following %v", storeCharmOrBundleURL.Name, err)
-				}
+			if err := c.validateCharmSeriesWithName(curl.Series, storeCharmOrBundleURL.Name); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -1634,6 +1623,19 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 			apiRoot,
 		))
 	}, nil
+}
+
+// validateCharmSeriesWithName calls the validateCharmSeries, but handles the
+// error return value to check for NotSupported error and returns a custom error
+// message if that's found.
+func (c *DeployCommand) validateCharmSeriesWithName(series, name string) error {
+	if err := c.validateCharmSeries(series); err != nil {
+		if errors.IsNotSupported(err) {
+			return errors.Errorf("%v is not available on the following %v", name, err)
+		}
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // getFlags returns the flags with the given names. Only flags that are set and
