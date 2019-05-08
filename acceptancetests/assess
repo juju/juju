@@ -1,0 +1,288 @@
+#!/usr/bin/env python
+
+# create_juju_test_env is a developer-centric tool. It creates an environment for running
+# acceptance tests locally under LXD.
+from __future__ import print_function
+
+import argparse
+import datetime
+import errno
+import glob
+import logging
+import os
+import subprocess
+import sys
+import tempfile
+from time import sleep
+
+import yaml
+
+if __name__ != "__main__":
+    print(__file__, "must be run as a script", file=sys.stderr)
+    sys.exit(1)
+
+LOG = logging.getLogger("run-ci-test")
+logging.basicConfig(level=logging.DEBUG)
+
+SERIES = "bionic"
+ENVIRONMENT_TEMPLATE = """\
+environments:
+  lxd:
+    type: lxd
+    test-mode: true
+    default-series: {}
+"""
+AWS_ENVIRONMENT_TEMPLATE = """\
+  aws:
+    type: ec2
+    test-mode: true
+    default-series: {series}
+    region: {region}
+"""
+
+TMPDIR = "/tmp/juju-ci"
+
+
+def mkdir_p(path):
+    # https://stackoverflow.com/a/600612/395287
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
+
+def acceptance_tests_path():
+    here, _ = os.path.split(os.path.abspath(__file__))
+    return here
+
+
+def list_tests():
+    here = acceptance_tests_path()
+    test_pattern = os.path.join(here, "assess_*.py")
+    test_files = glob.glob(test_pattern)
+    test_files = (f.split('/')[-1] for f in test_files)
+    test_files = (f[7:-3] for f in test_files)
+    return sorted(test_files)
+
+
+def default_juju_bin():
+    try:
+        gopath = os.environ["GOPATH"]
+    except LookupError:
+        return
+    return os.path.join(gopath, "bin", "juju")
+
+
+def tempdir_prefix(test=""):
+    parts = [
+        datetime.datetime.now().strftime("%Y%m%d")
+    ]
+    if test:
+        parts = [test] + parts
+    return '-'.join(parts) + "-"
+
+
+def tilda():
+    """
+    Returns the user's home directory, e.g. ~.
+    Raises LookupError if it cannot be found.
+
+    :return: str
+    """
+    return os.environ.get("HOME") or os.environ["XDG_CONFIG_HOME"]
+
+
+def load_credentials():
+    path = os.path.join(tilda(), ".local", "share", "juju", "credentials.yaml")
+    with open(path) as f:
+        creds = list(yaml.load_all(f))
+    return creds[0]["credentials"]
+
+
+def supported_substrates():
+    substrates = ["lxd"]
+
+    creds = load_credentials()
+
+    for provider in creds:
+        if provider == "aws":
+            substrates.append("aws")
+    return substrates
+
+
+def find_valid_regions(provider):
+    if provider == "lxd":
+        return []
+    return subprocess.check_output(["juju", "regions", provider]).split()
+
+
+def parse_args():
+    test_files = list_tests()
+    juju_bin = default_juju_bin()
+    juju_repo = os.path.join(acceptance_tests_path(), 'repository')
+
+    arg_parser = argparse.ArgumentParser(description="Sets up an environment for (local) Juju acceptance testing.")
+    arg_parser.add_argument("assess", metavar="TEST", help="Which acceptance test to run (see below for valid tests)",
+                            choices=test_files)
+
+    env_opts = arg_parser.add_argument_group("main testing environment options")
+
+    env_opts.add_argument("--juju-home", metavar="HOME_DIR",
+                          help="JUJU_HOME environment variable to be used for test [default: create a new directory in /tmp/juju-ci/* (randomly generated)]")
+    env_opts.add_argument("--juju-data", metavar="DATA_DIR", required=False,
+                          help="JUJU_DATA environment variable to be used for test [default: HOME_DIR/data]")
+    env_opts.add_argument("--juju-repository", metavar="REPO_DIR", required=False,
+                          help="JUJU_REPOSITORY environment variable to be used for test [default: {}]".format(
+                              juju_repo), default=juju_repo)
+
+    test_options = arg_parser.add_argument_group("extra testing environment options")
+    # TODO(tsm): Support --run-name
+    # test_options.add_argument("--run-name",
+    #                           help="Name to give test environment [default: juju-ci-* (randomly generated)]",
+    #                           required=False)
+    test_options.add_argument("--log-dir", help="Location to store logs [HOME_DIR/log]", required=False)
+    # TODO(tsm): Support other cloud substrates
+    test_options.add_argument("--substrate", help="Cloud substrate to run the test on [default: lxd].", default="lxd",
+                              choices=supported_substrates())
+
+    pass_through = arg_parser.add_argument_group("options to pass through to test script")
+    pass_through.add_argument("--debug", action='store_true', help='Pass --debug to Juju.')
+    pass_through.add_argument('--verbose', action='store_true', help='Verbose test harness output.')
+    pass_through.add_argument('--region', default=None, help='Override environment region.')
+    pass_through.add_argument('--to', default=None,
+                              help='Place the controller at a location.')
+    pass_through.add_argument('--agent-url', action='store', default=None,
+                              help='URL for retrieving agent binaries.')
+    pass_through.add_argument('--agent-stream', action='store', default=None,
+                              help='Stream for retrieving agent binaries.')
+    pass_through.add_argument("--series", help="Series to use for environment [default: {}]".format(SERIES),
+                              default=SERIES)
+    pass_through.add_argument("--keep-env", action="store_true",
+                              help="Preserve the testing directories, e.g. HOME_DIR, DATA_DIR, ... after the test completes")
+    pass_through.add_argument("--logging-config",
+                              help="Override logging configuration for a deployment. [default: \"<root>=INFO;unit=INFO\"]",
+                              default="<root>=INFO;unit=INFO")
+
+    cloud_opts = arg_parser.add_argument_group("options to pass through to the cloud substrate")
+    cloud_opts.add_argument("--cloud-region", metavar="REGION", help="The region to host the test. [default: aws:us-east-1]")
+
+    exe_options = arg_parser.add_argument_group("executables:")
+    juju_bin_help = "Path to the Juju binary to be used for testing."
+    if juju_bin is not None:
+        juju_bin_help = juju_bin_help + " [default: {}]".format(juju_bin)
+    exe_options.add_argument("--juju", required=juju_bin is None, help=juju_bin_help, default=juju_bin)
+    exe_options.add_argument("--python", default=sys.executable,
+                             help="Python executable to call test with [default: {}]".format(sys.executable))
+
+    arg_parser.epilog = "TEST options:\n" + ", ".join(test_files)
+
+    args = arg_parser.parse_args()
+    if args.assess not in test_files:
+        raise ValueError("Unknown test to run. Valid options are available by running \"{} -h\"".format(sys.argv[0]))
+
+    if not args.juju_home:
+        juju_home = tempfile.mkdtemp(prefix=tempdir_prefix(args.assess), dir=TMPDIR)
+        args.juju_home = juju_home
+
+    if not args.juju_data:
+        juju_data = os.path.join(juju_home, 'data')
+        args.juju_data = juju_data
+
+    if not args.log_dir:
+        log_dir = os.path.join(juju_home, 'log')
+        args.log_dir = log_dir
+
+    valid_regions = find_valid_regions(args.substrate)
+    if args.substrate == "aws":
+        if args.cloud_region is None:
+            args.cloud_region = "us-east-1"
+
+    if args.substrate != "lxd":
+        if args.cloud_region not in valid_regions:
+            raise ValueError("--cloud-region parameter must be one of {} when --substrate={}".format(valid_regions, args.substrate))
+
+    return args
+
+
+def setup(juju_home, juju_data, log_dir, series, substrate, region):
+    join = os.path.join
+    mkdir_p(juju_home)
+    mkdir_p(juju_data)
+    mkdir_p(log_dir)
+
+    user_home = os.environ.get('HOME') or os.environ["XDG_CONFIG_HOME"]
+    user_config = join(user_home, '.local', 'share', 'juju')
+    os.symlink(join(user_config, "credentials.yaml"), join(juju_home, "credentials.yaml"))
+
+    envs = ENVIRONMENT_TEMPLATE.format(series)
+
+    if substrate == "aws":
+        envs = envs + AWS_ENVIRONMENT_TEMPLATE.format(
+            series=series,
+            region=region,
+        )
+
+    with open(os.path.join(juju_home, "environments.yaml"), "w") as f:
+        f.write(envs)
+
+
+def main():
+    mkdir_p(TMPDIR)
+    args = parse_args()
+    setup(args.juju_home, args.juju_data, args.log_dir, args.series, args.substrate, args.cloud_region)
+
+    testrun_file = "assess_{}.py".format(args.assess)
+    testrun_file = os.path.join(acceptance_tests_path(), testrun_file)
+
+    testrun_env = {
+        "PATH": os.environ["PATH"],
+        "GOPATH": os.environ["GOPATH"],
+        "JUJU_HOME": args.juju_home,
+        "JUJU_DATA": args.juju_data,
+        "JUJU_REPOSITORY": args.juju_repository,
+        "TMPDIR": TMPDIR,
+    }
+
+    testrun_argv = [
+        args.python,
+        testrun_file,
+        args.substrate,
+        args.juju,
+        args.log_dir,
+        # args.run_name,
+        "--series=" + args.series,
+        "--logging-config=" + args.logging_config,
+    ]
+    if args.debug:
+        testrun_argv += ["--debug"]
+    if args.verbose:
+        testrun_argv += ["--verbose"]
+    if args.keep_env:
+        testrun_argv += ["--keep-env"]
+    if args.region:
+        testrun_argv += ["--region=" + args.region]
+    if args.to:
+        testrun_argv.extend(["--to", args.to])
+    if args.agent_url:
+        testrun_argv.extend(["--agent-url", args.agent_url])
+    if args.agent_stream:
+        testrun_argv.extend(["--agent-stream", args.agent_stream])
+
+    proc = subprocess.Popen(
+        testrun_argv,
+        env=testrun_env,
+        shell=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    sleep(0.1)
+    with proc.stdout:
+        for line in iter(proc.stdout.readline, b''):
+            print(line, end='')
+    proc.wait()
+
+
+main()
