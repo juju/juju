@@ -439,8 +439,20 @@ class JujuData:
 
     def get_host_cloud_region(self):
         """this is only applicable for self.provider == 'kubernetes'"""
-        raw = self._config['host-cloud-region']
-        return [raw] + raw.split('/')
+        if self.provider != 'kubernetes':
+            raise Exception("cloud type %s has to be kubernetes" % self.provider)
+
+        cache_key = 'host-cloud-region'
+        f = lambda x: [x] + x.split('/')
+        raw = getattr(self, cache_key, None)
+        if raw is not None:
+            return f(raw)
+        try:
+            raw = self._config.pop('host-cloud-region')
+            setattr(self, cache_key, raw)
+            return f(raw)
+        except KeyError:
+            raise Exception("host-cloud-region is required for kubernetes cloud")
 
     def get_cloud_credentials_item(self):
         cloud_name = self.get_cloud()
@@ -962,6 +974,7 @@ class ModelClient:
             'tenant-name',
             'type',
             'username',
+            'host-cloud-region',
         })
 
     @contextmanager
