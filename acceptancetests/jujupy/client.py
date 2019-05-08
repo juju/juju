@@ -360,6 +360,14 @@ class JujuData:
                 return cloud
         raise LookupError('No such endpoint: {}'.format(endpoint))
 
+    def find_cloud_by_host_cloud_region(self, host_cloud_region):
+        for cloud, cloud_config in self.clouds['clouds'].items():
+            if cloud_config['type'] != 'kubernetes':
+                continue
+            if cloud_config['host-cloud-region'] == host_cloud_region:
+                return cloud
+        raise LookupError('No such host cloud region: {}'.format(host_cloud_region))
+
     def set_model_name(self, model_name, set_controller=True):
         if set_controller:
             self.controller.name = model_name
@@ -404,11 +412,24 @@ class JujuData:
         # Model CLI specification
         if provider == 'ec2' and self._config['region'] == 'cn-north-1':
             return 'aws-china'
-        if provider not in ('maas', 'openstack', 'vsphere'):
+        if provider not in (
+            # clouds need to handle separately.
+            'maas', 'openstack', 'vsphere', 'kubernetes'
+        ):
             return {
                 'ec2': 'aws',
                 'gce': 'google',
             }.get(provider, provider)
+
+        if provider == 'kubernetes':
+            host_cloud_region, k8s_base_cloud, _ = self.get_host_cloud_region()
+            if k8s_base_cloud == 'microk8s':
+                # microk8s is built-in cloud.
+                return k8s_base_cloud
+            else:
+                return self.find_cloud_by_host_cloud_region(host_cloud_region)
+
+        endpoint = ''
         if provider == 'maas':
             endpoint = self._config['maas-server']
         elif provider == 'openstack':
@@ -416,6 +437,11 @@ class JujuData:
         elif provider == 'vsphere':
             endpoint = self._config['host']
         return self.find_endpoint_cloud(provider, endpoint)
+
+    def get_host_cloud_region(self):
+        """this is only applicable for self.provider == 'kubernetes'"""
+        raw = self._config['host-cloud-region']
+        return [raw] + raw.split('/')
 
     def get_cloud_credentials_item(self):
         cloud_name = self.get_cloud()
@@ -472,23 +498,33 @@ class JujuData:
 
         Examples: lxd, manual
         """
-        # if the commandline cloud is "lxd" or "manual", the provider type
+        # if the commandline cloud is "lxd", "kubernetes" or "manual", the provider type
         # should match, and shortcutting get_cloud avoids pointless test
         # breakage.
-        return bool(self.provider in ('lxd', 'manual') and
-                    self.get_cloud() in ('lxd', 'manual'))
+        if self.provider == 'kubernetes':
+            # provider is cloud type but not cloud name.
+            return True
+
+        provider_types = (
+            'lxd', 'manual',
+        )
+        return self.provider in provider_types and self.get_cloud() in provider_types
 
     def _get_config_endpoint(self):
         if self.provider == 'lxd':
             return self._config.get('region', 'localhost')
         elif self.provider == 'manual':
             return self._config['bootstrap-host']
+        elif self.provider == 'kubernetes':
+            return self._config.get('region', None) or self.get_host_cloud_region()[2]
 
     def _set_config_endpoint(self, endpoint):
         if self.provider == 'lxd':
             self._config['region'] = endpoint
         elif self.provider == 'manual':
             self._config['bootstrap-host'] = endpoint
+        elif self.provider == 'kubernetes':
+            self._config['region'] = self.get_host_cloud_region()[2]
 
     def __eq__(self, other):
         if type(self) != type(other):
@@ -822,15 +858,20 @@ class ModelClient:
             no_gui=False, agent_version=None, db_snap_path=None,
             db_snap_asserts_path=None):
         """Return the bootstrap arguments for the substrate."""
-        constraints = self._get_substrate_constraints()
         cloud_region = self.get_cloud_region(self.env.get_cloud(),
                                              self.env.get_region())
-        # Note cloud_region before controller name
-        args = ['--constraints', constraints,
-                cloud_region,
-                self.env.environment,
-                '--config', config_filename,
-                '--default-model', self.env.environment]
+        args = [
+            # Note cloud_region before controller name
+            cloud_region, self.env.environment,
+            '--config', config_filename,
+        ]
+        if self.env.provider == 'kubernetes':
+            return tuple(args)
+
+        args += [
+            '--constraints', self._get_substrate_constraints(),
+            '--default-model', self.env.environment
+        ]
         if upload_tools:
             if agent_version is not None:
                 raise ValueError(
