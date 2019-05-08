@@ -116,7 +116,7 @@ def get_teardown_timeout(client):
     elif client.env.provider == 'gce':
         return 1200
     else:
-        return 600
+        return 900
 
 
 def parse_new_state_server_from_error(error):
