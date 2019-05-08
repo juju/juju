@@ -426,8 +426,7 @@ class JujuData:
             if k8s_base_cloud == 'microk8s':
                 # microk8s is built-in cloud.
                 return k8s_base_cloud
-            else:
-                return self.find_cloud_by_host_cloud_region(host_cloud_region)
+            return self.find_cloud_by_host_cloud_region(host_cloud_region)
 
         endpoint = ''
         if provider == 'maas':
