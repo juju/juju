@@ -44,6 +44,10 @@ class MicroK8s(Base):
     def _ensure_cluster_stack(self):
         self.__ensure_microk8s_installed()
 
+    def _tear_down_substrate(self):
+        # No need to tear down microk8s.
+        ...
+
     def _ensure_kube_dir(self):
         # choose to use microk8s.kubectl
         mkubectl = shutil.which('microk8s.kubectl')

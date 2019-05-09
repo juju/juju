@@ -26,6 +26,7 @@ import logging
 import subprocess
 from pprint import pformat
 from enum import Enum
+from contextlib import contextmanager
 
 from jujupy.utility import (
     ensure_dir,
@@ -51,6 +52,7 @@ class ProviderNotValid(ValueError):
 class K8sProviderType(Enum):
     MICROK8S = 1
     K8S_CORE = 2
+    GKE = 3
 
     @classmethod
     def keys(cls):
@@ -84,25 +86,30 @@ class Base(object):
         """ensures or checks if stack/infrastructure is ready to use.
         - ensures kubectl/apiserver is functioning.
         """
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def _ensure_cluster_config(self):
         """ensures the cluster is correctly configured and ready to use.
         - ensures the cluster is ready to deploy workloads.
         """
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def _ensure_kube_dir(self):
         """ensures $KUBECONFIG/.kube dir setup correctly:
         - kubectl bin
         - config
         """
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def _node_address_getter(self, node):
         """filters node addresses to get the correct accessible address.
         """
-        raise NotImplemented()
+        raise NotImplementedError()
+
+    def _tear_down_substrate(self):
+        """tear down substrate cloud - k8s cluster.
+        """
+        raise NotImplementedError()
 
     def __init__(self, bs_manager, timeout=1800):
         self.client = bs_manager.client
@@ -121,11 +128,19 @@ class Base(object):
         # ensure kube config env var
         os.environ[KUBE_CONFIG_PATH_ENV_VAR] = self.kube_config_path
 
-        self._ensure_cluster_stack()
-        self._ensure_kube_dir()
-        self.check_cluster_healthy()
-        self._ensure_cluster_config()
-        self._add_k8s()
+    @contextmanager
+    def substrate_context(self):
+        try:
+            self._ensure_cluster_stack()
+            self._ensure_kube_dir()
+            self.check_cluster_healthy()
+            self._ensure_cluster_config()
+            self._add_k8s()
+
+            yield self
+        finally:
+            # tear down cluster.
+            self._tear_down_substrate()
 
     def add_model(self, model_name):
         # returns the newly added CAAS model.

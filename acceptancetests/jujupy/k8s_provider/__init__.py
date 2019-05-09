@@ -23,3 +23,4 @@ from .factory import providers  # noqa
 # it's not for outside to use, so alias them to _.
 from .kubernetes_core import KubernetesCore as _  # noqa
 from .microk8s import MicroK8s as _  # noqa
+from .gke import GKE as _  # noqa

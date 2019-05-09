@@ -445,8 +445,10 @@ class JujuData:
         if self.provider != 'kubernetes':
             raise Exception("cloud type %s has to be kubernetes" % self.provider)
 
+        def f(x):
+            return [x] + x.split('/')
+
         cache_key = 'host-cloud-region'
-        f = lambda x: [x] + x.split('/')
         raw = getattr(self, cache_key, None)
         if raw is not None:
             return f(raw)

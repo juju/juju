@@ -120,16 +120,17 @@ def parse_args(argv):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
+
+    k8s_provider = providers[args.caas_provider]
     bs_manager = BootstrapManager.from_args(args)
-    with bs_manager.booted_context(
-        args.upload_tools,
-        caas_image_repo=args.caas_image_repo,
-    ):
-        client = bs_manager.client
-        k8s_provider = providers[args.caas_provider]
-        caas_client = k8s_provider(bs_manager)
-        assess_caas_charm_deployment(caas_client)
-    return 0
+
+    with k8s_provider(bs_manager).substrate_context() as caas_client:
+        with bs_manager.booted_context(
+            args.upload_tools,
+            caas_image_repo=args.caas_image_repo,
+        ):
+            assess_caas_charm_deployment(caas_client)
+        return 0
 
 
 if __name__ == '__main__':

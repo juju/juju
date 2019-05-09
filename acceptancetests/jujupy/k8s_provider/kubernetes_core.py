@@ -206,7 +206,7 @@ class KubernetesCore(Base):
 
     def _node_address_getter(self, node):
         # TODO(ycliuhw): implement here once described k8s core node to find the corrent node ip.
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def __ensure_lxd_profile(self, profile, model_name):
         profile = profile.format(model_name=model_name)
