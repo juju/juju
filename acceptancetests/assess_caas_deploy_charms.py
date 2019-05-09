@@ -63,7 +63,7 @@ def assess_caas_charm_deployment(caas_client):
     if not caas_client.check_cluster_healthy(timeout=60):
         raise JujuAssertionError('k8s cluster is not healthy because kubectl is not accessible')
 
-    model_name = caas_client.client.get_controller_uuid() + '-testcaas'
+    model_name = caas_client.client.env.controller.name + '-test-caas-model'
     k8s_model = caas_client.add_model(model_name)
 
     k8s_model.deploy(

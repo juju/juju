@@ -948,7 +948,11 @@ class LXDAccount:
 
 def get_config(boot_config):
     config = boot_config.make_config_copy()
-    if boot_config.provider not in ('lxd', 'manual'):
+    if boot_config.provider not in (
+        'lxd',
+        'manual',
+        'kubernetes',
+    ):
         config.update(boot_config.get_cloud_credentials())
     return config
 
