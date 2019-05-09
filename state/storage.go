@@ -428,11 +428,16 @@ func (sb *storageBackend) destroyStorageInstanceOps(
 			return nil, errAlreadyDying
 		}
 	}
+	lifeAssert := isAliveDoc
+	if force {
+		// Since we are force destroying, life assert should be current storage instance's life.
+		lifeAssert = bson.D{{"life", s.doc.Life}}
+	}
 	if s.doc.AttachmentCount == 0 {
 		// There are no attachments remaining, so we can
 		// remove the storage instance immediately.
 		hasNoAttachments := bson.D{{"attachmentcount", 0}}
-		assert := append(hasNoAttachments, isAliveDoc...)
+		assert := append(hasNoAttachments, lifeAssert...)
 		s.doc.Releasing = releaseStorage
 		return removeStorageInstanceOps(s, assert, force)
 	}
@@ -466,10 +471,7 @@ func (sb *storageBackend) destroyStorageInstanceOps(
 	// There are still attachments: the storage instance will be removed
 	// when the last attachment is removed. We schedule a cleanup to destroy
 	// attachments.
-	notLastRefs := bson.D{
-		{"life", Alive},
-		{"attachmentcount", bson.D{{"$gt", 0}}},
-	}
+	notLastRefs := append(bson.D{{"attachmentcount", bson.D{{"$gt", 0}}}}, lifeAssert...)
 	setFields := bson.D{{"life", Dying}}
 	if releaseStorage {
 		setFields = append(setFields, bson.DocElem{"releasing", true})

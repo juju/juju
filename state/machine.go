@@ -601,11 +601,12 @@ func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
 		// We set the machine to Dying if it isn't already dead.
 		var machineOp txn.Op
 		if m.Life() < Dead {
-			// Make sure we don't want the vote, and we are queued to be Dying
+			// Make sure we don't want the vote, and we are queued to be Dying.
+			// Since we are force deleting, life assert should be current machine's life.
 			machineOp = txn.Op{
 				C:      machinesC,
 				Id:     m.doc.DocID,
-				Assert: bson.D{{"life", bson.D{{"$in", []Life{Alive, Dying}}}}},
+				Assert: bson.D{{"life", m.doc.Life}},
 				Update: bson.D{{"$set", bson.D{{"novote", true}, {"life", Dying}}}},
 			}
 		} else {
