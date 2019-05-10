@@ -22,6 +22,7 @@ var (
 	_ EntityInfo = (*BlockInfo)(nil)
 	_ EntityInfo = (*ActionInfo)(nil)
 	_ EntityInfo = (*ModelInfo)(nil)
+	_ EntityInfo = (*GenerationInfo)(nil)
 )
 
 type ConstantsSuite struct{}
