@@ -42,7 +42,7 @@ class Factory(object):
             key = K8sProviderType[name]
             return self._providers[key]
         except KeyError:
-            raise ProviderNotAvailable("provider {} is not defined".format(key.name))
+            raise ProviderNotAvailable("provider {} is not defined".format(name))
 
     @property
     def providers(self):

@@ -135,7 +135,6 @@ class Base(object):
             self._ensure_kube_dir()
             self.check_cluster_healthy()
             self._ensure_cluster_config()
-            self._add_k8s()
 
             yield self
         finally:
@@ -146,7 +145,7 @@ class Base(object):
         # returns the newly added CAAS model.
         return self.client.add_model(env=self.client.env.clone(model_name), cloud_region=self.cloud_name)
 
-    def _add_k8s(self):
+    def add_k8s(self):
         self.client.controller_juju(
             'add-k8s',
             (self.cloud_name, '--controller', self.client.env.controller.name)

@@ -46,7 +46,7 @@ class MicroK8s(Base):
 
     def _tear_down_substrate(self):
         # No need to tear down microk8s.
-        ...
+        logger.warn('skip tearing down microk8s')
 
     def _ensure_kube_dir(self):
         # choose to use microk8s.kubectl
