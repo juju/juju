@@ -166,11 +166,13 @@ class JujuData:
                 provider = self.provider
             except NoProvider:
                 provider = None
+            self.lxd = ((self._config.get('container') == 'kvm') or (provider == 'lxd'))
             self.kvm = (bool(self._config.get('container') == 'kvm'))
             self.maas = bool(provider == 'maas')
             self.joyent = bool(provider == 'joyent')
             self.logging_config = self._config.get('logging-config')
         else:
+            self.lxd = False
             self.kvm = False
             self.maas = False
             self.joyent = False
@@ -200,6 +202,7 @@ class JujuData:
             model_name, config, juju_home=self.juju_home,
             controller=self.controller,
             bootstrap_to=self.bootstrap_to)
+        result.lxd = self.lxd
         result.kvm = self.kvm
         result.maas = self.maas
         result.joyent = self.joyent
@@ -1385,6 +1388,9 @@ class ModelClient:
             # For now only maas support spaces in a meaningful way.
             return 'mem=2G spaces={}'.format(','.join(
                 '^' + space for space in sorted(self.excluded_spaces)))
+        elif self.env.lxd:
+            # LXD should not me constrained via memory
+            return ''
         else:
             return 'mem=2G'
 
