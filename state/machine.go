@@ -606,7 +606,7 @@ func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
 			machineOp = txn.Op{
 				C:      machinesC,
 				Id:     m.doc.DocID,
-				Assert: bson.D{{"life", m.doc.Life}},
+				Assert: bson.D{{"life", bson.D{{"$in", []Life{Alive, Dying}}}}},
 				Update: bson.D{{"$set", bson.D{{"novote", true}, {"life", Dying}}}},
 			}
 		} else {
