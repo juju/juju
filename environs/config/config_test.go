@@ -766,8 +766,8 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(cfg.NetBondReconfigureDelay(), gc.Equals, val)
 	}
 
-	if val, ok := test.attrs[config.ContainerInheritProperiesKey].(string); ok && val != "" {
-		c.Assert(cfg.ContainerInheritProperies(), gc.Equals, val)
+	if val, ok := test.attrs[config.ContainerInheritPropertiesKey].(string); ok && val != "" {
+		c.Assert(cfg.ContainerInheritProperties(), gc.Equals, val)
 	}
 }
 
@@ -1337,11 +1337,11 @@ func (s *ConfigSuite) TestCloudInitUserDataFromEnvironment(c *gc.C) {
 	)
 }
 
-func (s *ConfigSuite) TestContainerInheritProperies(c *gc.C) {
+func (s *ConfigSuite) TestContainerInheritProperties(c *gc.C) {
 	cfg := newTestConfig(c, testing.Attrs{
 		"container-inherit-properties": "ca-certs,apt-primary",
 	})
-	c.Assert(cfg.ContainerInheritProperies(), gc.Equals, "ca-certs,apt-primary")
+	c.Assert(cfg.ContainerInheritProperties(), gc.Equals, "ca-certs,apt-primary")
 }
 
 func (s *ConfigSuite) TestSchemaNoExtra(c *gc.C) {

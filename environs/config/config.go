@@ -234,10 +234,10 @@ const (
 	// BackupDirKey specifies the backup working directory.
 	BackupDirKey = "backup-dir"
 
-	// ContainerInheritProperiesKey is the key to specify a list of properties
+	// ContainerInheritPropertiesKey is the key to specify a list of properties
 	// to be copied from a machine to a container during provisioning. The
 	// list will be comma separated.
-	ContainerInheritProperiesKey = "container-inherit-properties"
+	ContainerInheritPropertiesKey = "container-inherit-properties"
 
 	//
 	// Deprecated Settings Attributes
@@ -432,22 +432,22 @@ var defaultConfigValues = map[string]interface{}{
 	NetBondReconfigureDelayKey: 17,
 	ContainerNetworkingMethod:  "",
 
-	"default-series":             jujuversion.SupportedLTS(),
-	ProvisionerHarvestModeKey:    HarvestDestroyed.String(),
-	ResourceTagsKey:              "",
-	"logging-config":             "",
-	AutomaticallyRetryHooks:      true,
-	"enable-os-refresh-update":   true,
-	"enable-os-upgrade":          true,
-	"development":                false,
-	"test-mode":                  false,
-	TransmitVendorMetricsKey:     true,
-	UpdateStatusHookInterval:     DefaultUpdateStatusHookInterval,
-	EgressSubnets:                "",
-	FanConfig:                    "",
-	CloudInitUserDataKey:         "",
-	ContainerInheritProperiesKey: "",
-	BackupDirKey:                 "",
+	"default-series":              jujuversion.SupportedLTS(),
+	ProvisionerHarvestModeKey:     HarvestDestroyed.String(),
+	ResourceTagsKey:               "",
+	"logging-config":              "",
+	AutomaticallyRetryHooks:       true,
+	"enable-os-refresh-update":    true,
+	"enable-os-upgrade":           true,
+	"development":                 false,
+	"test-mode":                   false,
+	TransmitVendorMetricsKey:      true,
+	UpdateStatusHookInterval:      DefaultUpdateStatusHookInterval,
+	EgressSubnets:                 "",
+	FanConfig:                     "",
+	CloudInitUserDataKey:          "",
+	ContainerInheritPropertiesKey: "",
+	BackupDirKey:                  "",
 
 	// Image and agent streams and URLs.
 	"image-stream":               "released",
@@ -706,7 +706,7 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	if raw, ok := cfg.defined[ContainerInheritProperiesKey].(string); ok && raw != "" {
+	if raw, ok := cfg.defined[ContainerInheritPropertiesKey].(string); ok && raw != "" {
 		rawProperties := strings.Split(raw, ",")
 		propertySet := set.NewStrings()
 		for _, prop := range rawProperties {
@@ -1366,10 +1366,10 @@ func (c *Config) CloudInitUserData() map[string]interface{} {
 	return conformingUserDataMap
 }
 
-// ContainerInheritProperies returns a copy of the raw user data keys
+// ContainerInheritProperties returns a copy of the raw user data keys
 // that were specified by the user.
-func (c *Config) ContainerInheritProperies() string {
-	return c.asString(ContainerInheritProperiesKey)
+func (c *Config) ContainerInheritProperties() string {
+	return c.asString(ContainerInheritPropertiesKey)
 }
 
 // UnknownAttrs returns a copy of the raw configuration attributes
@@ -1448,57 +1448,57 @@ var alwaysOptional = schema.Defaults{
 	StorageDefaultBlockSourceKey:      schema.Omit,
 	StorageDefaultFilesystemSourceKey: schema.Omit,
 
-	"firewall-mode":              schema.Omit,
-	"logging-config":             schema.Omit,
-	ProvisionerHarvestModeKey:    schema.Omit,
-	HTTPProxyKey:                 schema.Omit,
-	HTTPSProxyKey:                schema.Omit,
-	FTPProxyKey:                  schema.Omit,
-	NoProxyKey:                   schema.Omit,
-	JujuHTTPProxyKey:             schema.Omit,
-	JujuHTTPSProxyKey:            schema.Omit,
-	JujuFTPProxyKey:              schema.Omit,
-	JujuNoProxyKey:               schema.Omit,
-	AptHTTPProxyKey:              schema.Omit,
-	AptHTTPSProxyKey:             schema.Omit,
-	AptFTPProxyKey:               schema.Omit,
-	AptNoProxyKey:                schema.Omit,
-	SnapHTTPProxyKey:             schema.Omit,
-	SnapHTTPSProxyKey:            schema.Omit,
-	SnapStoreProxyKey:            schema.Omit,
-	SnapStoreAssertionsKey:       schema.Omit,
-	"apt-mirror":                 schema.Omit,
-	AgentStreamKey:               schema.Omit,
-	ResourceTagsKey:              schema.Omit,
-	"cloudimg-base-url":          schema.Omit,
-	"enable-os-refresh-update":   schema.Omit,
-	"enable-os-upgrade":          schema.Omit,
-	"image-stream":               schema.Omit,
-	"image-metadata-url":         schema.Omit,
-	AgentMetadataURLKey:          schema.Omit,
-	ContainerImageStreamKey:      schema.Omit,
-	ContainerImageMetadataURLKey: schema.Omit,
-	"default-series":             schema.Omit,
-	"development":                schema.Omit,
-	"ssl-hostname-verification":  schema.Omit,
-	"proxy-ssh":                  schema.Omit,
-	"disable-network-management": schema.Omit,
-	IgnoreMachineAddresses:       schema.Omit,
-	AutomaticallyRetryHooks:      schema.Omit,
-	"test-mode":                  schema.Omit,
-	TransmitVendorMetricsKey:     schema.Omit,
-	NetBondReconfigureDelayKey:   schema.Omit,
-	ContainerNetworkingMethod:    schema.Omit,
-	MaxStatusHistoryAge:          schema.Omit,
-	MaxStatusHistorySize:         schema.Omit,
-	MaxActionResultsAge:          schema.Omit,
-	MaxActionResultsSize:         schema.Omit,
-	UpdateStatusHookInterval:     schema.Omit,
-	EgressSubnets:                schema.Omit,
-	FanConfig:                    schema.Omit,
-	CloudInitUserDataKey:         schema.Omit,
-	ContainerInheritProperiesKey: schema.Omit,
-	BackupDirKey:                 schema.Omit,
+	"firewall-mode":               schema.Omit,
+	"logging-config":              schema.Omit,
+	ProvisionerHarvestModeKey:     schema.Omit,
+	HTTPProxyKey:                  schema.Omit,
+	HTTPSProxyKey:                 schema.Omit,
+	FTPProxyKey:                   schema.Omit,
+	NoProxyKey:                    schema.Omit,
+	JujuHTTPProxyKey:              schema.Omit,
+	JujuHTTPSProxyKey:             schema.Omit,
+	JujuFTPProxyKey:               schema.Omit,
+	JujuNoProxyKey:                schema.Omit,
+	AptHTTPProxyKey:               schema.Omit,
+	AptHTTPSProxyKey:              schema.Omit,
+	AptFTPProxyKey:                schema.Omit,
+	AptNoProxyKey:                 schema.Omit,
+	SnapHTTPProxyKey:              schema.Omit,
+	SnapHTTPSProxyKey:             schema.Omit,
+	SnapStoreProxyKey:             schema.Omit,
+	SnapStoreAssertionsKey:        schema.Omit,
+	"apt-mirror":                  schema.Omit,
+	AgentStreamKey:                schema.Omit,
+	ResourceTagsKey:               schema.Omit,
+	"cloudimg-base-url":           schema.Omit,
+	"enable-os-refresh-update":    schema.Omit,
+	"enable-os-upgrade":           schema.Omit,
+	"image-stream":                schema.Omit,
+	"image-metadata-url":          schema.Omit,
+	AgentMetadataURLKey:           schema.Omit,
+	ContainerImageStreamKey:       schema.Omit,
+	ContainerImageMetadataURLKey:  schema.Omit,
+	"default-series":              schema.Omit,
+	"development":                 schema.Omit,
+	"ssl-hostname-verification":   schema.Omit,
+	"proxy-ssh":                   schema.Omit,
+	"disable-network-management":  schema.Omit,
+	IgnoreMachineAddresses:        schema.Omit,
+	AutomaticallyRetryHooks:       schema.Omit,
+	"test-mode":                   schema.Omit,
+	TransmitVendorMetricsKey:      schema.Omit,
+	NetBondReconfigureDelayKey:    schema.Omit,
+	ContainerNetworkingMethod:     schema.Omit,
+	MaxStatusHistoryAge:           schema.Omit,
+	MaxStatusHistorySize:          schema.Omit,
+	MaxActionResultsAge:           schema.Omit,
+	MaxActionResultsSize:          schema.Omit,
+	UpdateStatusHookInterval:      schema.Omit,
+	EgressSubnets:                 schema.Omit,
+	FanConfig:                     schema.Omit,
+	CloudInitUserDataKey:          schema.Omit,
+	ContainerInheritPropertiesKey: schema.Omit,
+	BackupDirKey:                  schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1993,7 +1993,7 @@ data of the store. (default false)`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	ContainerInheritProperiesKey: {
+	ContainerInheritPropertiesKey: {
 		Description: "List of properties to be copied from the host machine to new containers created in this model (comma-separated)",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
