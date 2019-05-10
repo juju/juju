@@ -1,4 +1,4 @@
-apache-libcloud>=2.2.1
+apache-libcloud>=2.4.0
 azure>=2.0.0rc3
 azure-batch>=0.30.0rc3
 azure-common>=1.1.3
