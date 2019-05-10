@@ -339,7 +339,7 @@ func bootstrapIAAS(
 	}
 	bootstrapParams.BootstrapConstraints = bootstrapConstraints
 
-	// The arch we use to find tools isn't the boostrapConstraints arch.
+	// The arch we use to find tools isn't the bootstrapConstraints arch.
 	// We copy the constraints arch to a separate variable and
 	// update it from the host arch if not specified.
 	// (axw) This is still not quite right:
