@@ -22,6 +22,9 @@ from __future__ import print_function
 import logging
 # import shutil
 
+from libcloud.container.types import Provider
+from libcloud.container.providers import get_driver
+
 from .base import (
     Base,
     K8sProviderType,
@@ -37,16 +40,33 @@ class GKE(Base):
 
     name = K8sProviderType.GKE
 
+    driver = None
+    gke_cluster_name = None
+
     def __init__(self, bs_manager, timeout=1800):
         super().__init__(bs_manager, timeout)
-        self.default_storage_class_name = '???'
+
+        self.gke_cluster_name = self.client.env.controller.name  # use controller name as cluster name
+        self.default_storage_class_name = ''
+        self.__init_driver(bs_manager.client.env)
+
+    def __init_driver(self, env):
+        cfg = env._config
+        self.driver = get_driver(Provider.GKE)(
+            user_id=cfg['client-email'],
+            key=cfg['private-key'],
+            datacenter=env.get_host_cloud_region()[2],
+            project=cfg['project-id'],
+        )
+        # list all running clusters
+        running_clusters = self.driver.list_clusters()
+        logger.info('running gke clusters: %s', running_clusters)
 
     def _ensure_cluster_stack(self):
         self.provision_gke()
 
     def _tear_down_substrate(self):
-        # No need to tear down microk8s.
-        ...
+        self.driver.destroy_cluster(self.gke_cluster_name)
 
     def _ensure_kube_dir(self):
         # TODO
@@ -61,4 +81,4 @@ class GKE(Base):
         ...
 
     def provision_gke(self):
-        ...
+        self.driver.create_cluster(self.gke_cluster_name)

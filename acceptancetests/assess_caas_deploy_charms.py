@@ -125,11 +125,14 @@ def main(argv=None):
     bs_manager = BootstrapManager.from_args(args)
 
     with k8s_provider(bs_manager).substrate_context() as caas_client:
+        # add-k8s --local
         with bs_manager.booted_context(
             args.upload_tools,
             caas_image_repo=args.caas_image_repo,
         ):
-            assess_caas_charm_deployment(caas_client)
+            # add-k8s to controller
+            caas_client.add_k8s()
+            # assess_caas_charm_deployment(caas_client)
         return 0
 
 
