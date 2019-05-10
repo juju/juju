@@ -4084,7 +4084,7 @@ func testChangeGenerations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
-				about: "generation is removed if not in backing store",
+				about: "generation is removed if not in backing",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.GenerationInfo{
 						ModelUUID: st.ModelUUID(),
@@ -4103,7 +4103,7 @@ func testChangeGenerations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
-				about: "generation is added if in backing but not in tore",
+				about: "generation is added if in backing but not in store",
 				change: watcher.Change{
 					C:  "generations",
 					Id: st.docID(branch.doc.DocId),
