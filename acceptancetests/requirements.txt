@@ -39,3 +39,4 @@ pyOpenSSL>=17.5.0
 boto3>=1.5.18
 pyaml>=17.12.1
 pycrypto==2.6.1
+dnspython==1.16.0

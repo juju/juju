@@ -21,6 +21,9 @@ from __future__ import print_function
 
 import logging
 import shutil
+import os
+
+import dns.resolver
 
 from .base import (
     Base,
@@ -63,6 +66,7 @@ class MicroK8s(Base):
 
     def _ensure_cluster_config(self):
         self.__enable_addons()
+        self.__tmp_fix_patch_kubedns()
 
     def _node_address_getter(self, node):
         # microk8s uses the node's 'InternalIP`.
@@ -84,3 +88,15 @@ class MicroK8s(Base):
             "microk8s status \n%s",
             self.sh('microk8s.status', '--wait-ready', '--timeout', self.timeout, '--yaml'),
         )
+
+    def __tmp_fix_patch_kubedns(self):
+        # patch nameservers of kubedns because the google one used in microk8s is blocked in our network.
+        def ping(addr):
+            return os.system('ping -c 1 ' + addr) == 0
+
+        nameservers = dns.resolver.Resolver().nameservers
+        for ns in nameservers:
+            if ping(ns):
+                ns = '8.8.8.8'
+                return self.patch_configmap('kube-system', 'kube-dns', 'upstreamNameservers', [ns])
+        raise Exception('No working nameservers found from %s to use for patching kubedns' % nameservers)
