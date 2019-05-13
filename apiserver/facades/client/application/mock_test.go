@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -718,6 +719,11 @@ func (r *mockRelation) SuspendedReason() string {
 func (r *mockRelation) Destroy() error {
 	r.MethodCall(r, "Destroy")
 	return r.NextErr()
+}
+
+func (r *mockRelation) DestroyWithForce(force bool, maxWait time.Duration) ([]error, error) {
+	r.MethodCall(r, "DestroyWithForce", force, maxWait)
+	return nil, r.NextErr()
 }
 
 type mockUnit struct {
