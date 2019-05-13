@@ -317,6 +317,9 @@ func (s *RemoteApplication) DestroyWithForce(force bool, maxWait time.Duration) 
 	op := s.DestroyRemoteApplicationOperation(force)
 	op.MaxWait = maxWait
 	err = s.st.ApplyOperation(op)
+	if len(op.Errors) != 0 {
+		logger.Warningf("operational errors destroying remote application %v: %v", s.Name(), op.Errors)
+	}
 	return op.Errors, err
 }
 

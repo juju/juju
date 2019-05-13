@@ -346,6 +346,9 @@ func (ru *RelationUnit) LeaveScopeWithForce(force bool, maxWait time.Duration) (
 	op := ru.LeaveScopeOperation(force)
 	op.MaxWait = maxWait
 	err := ru.st.ApplyOperation(op)
+	if len(op.Errors) != 0 {
+		logger.Warningf("operational errors leaving scope for %v: %v", op.Description(), op.Errors)
+	}
 	return op.Errors, err
 }
 

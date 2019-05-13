@@ -483,6 +483,9 @@ func (u *Unit) DestroyWithForce(force bool, maxWait time.Duration) (errs []error
 	op.Force = force
 	op.MaxWait = maxWait
 	err = u.st.ApplyOperation(op)
+	if len(op.Errors) != 0 {
+		logger.Warningf("operational errors destroying unit %v: %v", u.Name(), op.Errors)
+	}
 	return op.Errors, err
 }
 

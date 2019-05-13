@@ -1390,12 +1390,9 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 		if err := api.backend.ApplyOperation(op); err != nil {
 			return nil, errors.Trace(err)
 		}
-		// TODO (anastasiamac 2019-03-29) we want to return errors and info when forced..
-		//  maybe always, so that we can report how many errors we are getting/got.
-		// At the moment, this only returns the intent not the actual result.
-		// However, there is a provision for this functionality for the near-future: destroy operation itself
-		// contains Errors that have been encountered during its application.
-		logger.Warningf("operational errors destroying unit %v: %v", unit.Name(), op.Errors)
+		if len(op.Errors) != 0 {
+			logger.Warningf("operational errors destroying unit %v: %v", unit.Name(), op.Errors)
+		}
 		return &info, nil
 	}
 	results := make([]params.DestroyUnitResult, len(args.Units))
@@ -1525,12 +1522,9 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 		if err := api.backend.ApplyOperation(op); err != nil {
 			return nil, err
 		}
-		// TODO (anastasiamac 2019-03-29) we want to return errors and info when forced..
-		//  maybe always, so that we can report how many errors we are getting/got.
-		// At the moment, this only returns the intent not the actual result.
-		// However, there is a provision for this functionality for the near-future: destroy operation itself
-		// contains Errors that have been encountered during its application.
-		logger.Warningf("operational errors destroying application %v: %v", tag.Id(), op.Errors)
+		if len(op.Errors) != 0 {
+			logger.Warningf("operational errors destroying application %v: %v", tag.Id(), op.Errors)
+		}
 		return &info, nil
 	}
 	results := make([]params.DestroyApplicationResult, len(args.Applications))
@@ -1762,7 +1756,9 @@ func (api *APIBase) DestroyRelation(args params.DestroyRelation) (err error) {
 	if err != nil {
 		return err
 	}
-	return rel.Destroy()
+	force := args.Force != nil && *args.Force
+	_, err = rel.DestroyWithForce(force, common.MaxWait(args.MaxWait))
+	return err
 }
 
 // SetRelationsSuspended sets the suspended status of the specified relations.

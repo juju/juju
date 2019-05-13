@@ -313,6 +313,9 @@ func (r *Relation) DestroyWithForce(force bool, maxWait time.Duration) ([]error,
 	op := r.DestroyOperation(force)
 	op.MaxWait = maxWait
 	err := r.st.ApplyOperation(op)
+	if len(op.Errors) != 0 {
+		logger.Warningf("operational errors removing relation %v: %v", r.Id(), op.Errors)
+	}
 	return op.Errors, err
 }
 

@@ -420,7 +420,11 @@ func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.R
 	op := app.DestroyOperation()
 	op.DestroyStorage = destroyStorage
 	op.Force = force
-	return st.ApplyOperation(op)
+	err = st.ApplyOperation(op)
+	if len(op.Errors) != 0 {
+		logger.Warningf("operational errors cleaning up applicationr %v: %v", applicationname, op.Errors)
+	}
+	return err
 }
 
 // cleanupApplicationsForDyingModel sets all applications to Dying, if they are
@@ -463,7 +467,11 @@ func (st *State) removeApplicationsForDyingModel(args DestroyModelParams) (err e
 		op.RemoveOffers = true
 		op.Force = force
 		op.MaxWait = args.MaxWait
-		if err := st.ApplyOperation(op); err != nil {
+		err := st.ApplyOperation(op)
+		if len(op.Errors) != 0 {
+			logger.Warningf("operational errors removing application %v for dying model %v: %v", application.Name(), st.ModelUUID(), op.Errors)
+		}
+		if err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -539,7 +547,12 @@ func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanup
 		op.DestroyStorage = destroyStorage
 		op.Force = force
 		op.MaxWait = maxWait
-		if err := st.ApplyOperation(op); err != nil {
+		err := st.ApplyOperation(op)
+		if len(op.Errors) != 0 {
+			logger.Warningf("operational errors destroying unit %v for dying application %v: %v", unit.Name(), applicationname, op.Errors)
+		}
+
+		if err != nil {
 			return errors.Trace(err)
 		}
 	}
