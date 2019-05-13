@@ -83,14 +83,14 @@ func formatFilesystemListTabular(writer io.Writer, infos map[string]FilesystemIn
 			print(
 				info.MachineId, info.UnitId, info.Storage,
 				info.FilesystemId, info.Volume, info.ProviderFilesystemId,
-				info.MountPoint, size,
+				info.FilesystemAttachment.MountPoint, size,
 				string(info.Status.Current), info.Status.Message,
 			)
 		} else {
 			print(
 				info.UnitId, info.Storage,
 				info.FilesystemId, info.ProviderFilesystemId,
-				info.MountPoint, size,
+				info.FilesystemAttachment.MountPoint, size,
 				string(info.Status.Current), info.Status.Message,
 			)
 		}
@@ -103,11 +103,11 @@ type filesystemAttachmentInfo struct {
 	FilesystemId string
 	FilesystemInfo
 
-	MachineId string
-	FilesystemAttachment
+	MachineId            string
+	FilesystemAttachment FilesystemAttachment
 
-	UnitId string
-	UnitStorageAttachment
+	UnitId                string
+	UnitStorageAttachment UnitStorageAttachment
 }
 
 type filesystemAttachmentInfos []filesystemAttachmentInfo
