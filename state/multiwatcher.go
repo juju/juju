@@ -5,7 +5,6 @@ package state
 
 import (
 	"container/list"
-	stderrors "errors"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -57,7 +56,31 @@ func (w *Multiwatcher) Stop() error {
 	return errors.Trace(w.all.tomb.Err())
 }
 
-var ErrStopped = stderrors.New("watcher was stopped")
+// stopped represents an error when state is supported.
+type stopped struct {
+	errors.Err
+}
+
+// ErrStoppedf returns an error which satisfies IsErrStopped().
+func ErrStoppedf(format string, args ...interface{}) error {
+	newErr := errors.NewErr(format+" was stopped", args...)
+	newErr.SetLocation(2)
+	return &stopped{newErr}
+}
+
+// NewErrStopped returns an error which wraps err and satisfies IsErrStopped().
+func NewErrStopped() error {
+	newErr := errors.NewErr("watcher was stopped")
+	newErr.SetLocation(2)
+	return &stopped{newErr}
+}
+
+// IsErrStopped reports whether the error was created with ErrStoppedf() or NewErrStopped().
+func IsErrStopped(err error) bool {
+	err = errors.Cause(err)
+	_, ok := err.(*stopped)
+	return ok
+}
 
 // Next retrieves all changes that have happened since the last
 // time it was called, blocking until there are some changes available.
@@ -80,7 +103,7 @@ func (w *Multiwatcher) Next() ([]multiwatcher.Delta, error) {
 
 	select {
 	case <-w.all.tomb.Dying():
-		return nil, errors.Errorf("shared state watcher was stopped")
+		return nil, ErrStoppedf("shared state watcher")
 	case w.all.request <- req:
 	}
 
@@ -90,10 +113,10 @@ func (w *Multiwatcher) Next() ([]multiwatcher.Delta, error) {
 	// the Multiwatcher, request, and storeManager types.
 	select {
 	case <-w.all.tomb.Dying():
-		return nil, errors.Errorf("shared state watcher was stopped")
+		return nil, ErrStoppedf("shared state watcher")
 	case ok := <-req.reply:
 		if !ok {
-			return nil, errors.Trace(ErrStopped)
+			return nil, errors.Trace(NewErrStopped())
 		}
 	case <-req.noChanges:
 		return []multiwatcher.Delta{}, nil
@@ -124,7 +147,6 @@ type storeManager struct {
 // Backing is the interface required by the storeManager to access the
 // underlying state.
 type Backing interface {
-
 	// GetAll retrieves information about all information
 	// known to the Backing and stashes it in the Store.
 	GetAll(all *multiwatcherStore) error
