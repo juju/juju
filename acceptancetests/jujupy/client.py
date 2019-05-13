@@ -166,15 +166,19 @@ class JujuData:
                 provider = self.provider
             except NoProvider:
                 provider = None
+            self.lxd = (self._config.get('container') == 'lxd' or provider == 'lxd')
             self.kvm = (bool(self._config.get('container') == 'kvm'))
             self.maas = bool(provider == 'maas')
             self.joyent = bool(provider == 'joyent')
             self.logging_config = self._config.get('logging-config')
+            self.provider_type = provider
         else:
+            self.lxd = False
             self.kvm = False
             self.maas = False
             self.joyent = False
             self.logging_config = None
+            self.provider_type = None
         self.credentials = {}
         self.clouds = {}
         self._cloud_name = cloud_name
@@ -200,6 +204,7 @@ class JujuData:
             model_name, config, juju_home=self.juju_home,
             controller=self.controller,
             bootstrap_to=self.bootstrap_to)
+        result.lxd = self.lxd
         result.kvm = self.kvm
         result.maas = self.maas
         result.joyent = self.joyent
@@ -208,6 +213,7 @@ class JujuData:
         result.clouds = deepcopy(self.clouds)
         result._cloud_name = self._cloud_name
         result.logging_config = self.logging_config
+        result.provider_type = self.provider_type
         return result
 
     @classmethod
