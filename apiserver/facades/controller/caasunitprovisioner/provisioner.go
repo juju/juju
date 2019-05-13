@@ -390,6 +390,11 @@ func (f *Facade) applicationFilesystemParams(
 			allFilesystemParams = append(allFilesystemParams, fsParams)
 		}
 	}
+	// guarantee the ordering of the input for operators and tests, depending
+	// on the storage name.
+	sort.Slice(allFilesystemParams, func(i, j int) bool {
+		return allFilesystemParams[i].StorageName < allFilesystemParams[j].StorageName
+	})
 	return allFilesystemParams, nil
 }
 
