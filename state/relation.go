@@ -427,10 +427,16 @@ func (r *Relation) destroyOps(ignoreApplication string, op *ForcedOperation) (op
 		}
 		return removeOps, true, nil
 	}
+	lifeAssert := isAliveDoc
+	if op.Force {
+		// Since we are force destroying, life assert should be current relation's life.
+		lifeAssert = bson.D{{"life", r.doc.Life}}
+	}
+
 	return []txn.Op{{
 		C:      relationsC,
 		Id:     r.doc.DocID,
-		Assert: bson.D{{"life", Alive}, {"unitcount", bson.D{{"$gt", 0}}}},
+		Assert: append(bson.D{{"unitcount", bson.D{{"$gt", 0}}}}, lifeAssert...),
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}}, false, nil
 }
