@@ -22,6 +22,7 @@ from __future__ import print_function
 import logging
 import shutil
 import os
+import json
 
 import dns.resolver
 
@@ -97,6 +98,5 @@ class MicroK8s(Base):
         nameservers = dns.resolver.Resolver().nameservers
         for ns in nameservers:
             if ping(ns):
-                ns = '8.8.8.8'
-                return self.patch_configmap('kube-system', 'kube-dns', 'upstreamNameservers', [ns])
+                return self.patch_configmap('kube-system', 'kube-dns', 'upstreamNameservers', json.dumps([ns]))
         raise Exception('No working nameservers found from %s to use for patching kubedns' % nameservers)
