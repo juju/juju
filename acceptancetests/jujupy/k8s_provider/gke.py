@@ -21,9 +21,13 @@ from __future__ import print_function
 
 import logging
 # import shutil
+from time import sleep
 
-from libcloud.container.types import Provider
-from libcloud.container.providers import get_driver
+# from libcloud.container.types import Provider
+# from libcloud.container.providers import get_driver
+from google.oauth2 import service_account
+from apiclient.discovery import build
+from jujupy.utility import until_timeout
 
 from .base import (
     Base,
@@ -42,6 +46,10 @@ class GKE(Base):
 
     driver = None
     gke_cluster_name = None
+    gke_cluster = None
+
+    project_id = None
+    zone = 'asia-southeast1-b'
 
     def __init__(self, bs_manager, timeout=1800):
         super().__init__(bs_manager, timeout)
@@ -52,21 +60,34 @@ class GKE(Base):
 
     def __init_driver(self, env):
         cfg = env._config
-        self.driver = get_driver(Provider.GKE)(
-            user_id=cfg['client-email'],
-            key=cfg['private-key'],
-            datacenter=env.get_host_cloud_region()[2],
-            project=cfg['project-id'],
-        )
+        self.project_id = cfg['project_id']
+
+        self.driver = build(
+            'container', 'v1',
+            credentials=service_account.Credentials.from_service_account_info(cfg),
+        ).projects().zones().clusters()
+
         # list all running clusters
-        running_clusters = self.driver.list_clusters()
+        running_clusters = self.driver.list(
+            projectId=self.project_id, zone=self.zone,
+        ).execute()
         logger.info('running gke clusters: %s', running_clusters)
 
     def _ensure_cluster_stack(self):
         self.provision_gke()
 
     def _tear_down_substrate(self):
-        self.driver.destroy_cluster(self.gke_cluster_name)
+        try:
+            self.driver.delete(
+                projectId=self.project_id,
+                zone=self.zone,
+                clusterId=self.gke_cluster_name,
+            ).execute()
+        except Exception as e:
+            logger.warn(e)
+            if '404' in str(e):
+                return
+            raise
 
     def _ensure_kube_dir(self):
         # TODO
@@ -80,5 +101,41 @@ class GKE(Base):
         # TODO
         ...
 
+    def _get_cluster(self):
+        return self.driver.get(
+            projectId=self.project_id,
+            zone=self.zone,
+            clusterId=self.gke_cluster_name,
+        ).execute()
+
     def provision_gke(self):
-        self.driver.create_cluster(self.gke_cluster_name)
+        def log_remaining(remaining):
+            sleep(3)
+            if remaining % 30 == 0:
+                logger.info('tearing down existing cluster... timeout in %ss', remaining)
+
+        for remaining in until_timeout(600):
+            # do pre cleanup;
+            try:
+                self._tear_down_substrate()
+                break
+            except Exception as e: # noqa
+                logger.warn(e)
+            finally:
+                log_remaining(remaining)
+
+        # provision cluster.
+        self.gke_cluster = self.driver.create(
+            projectId=self.project_id,
+            zone=self.zone,
+            body=dict(cluster={'name': self.gke_cluster_name, 'initial_node_count': 1}),
+        ).execute()
+        # wait until cluster fully provisioned.
+        for remaining in until_timeout(600):
+            try:
+                if self._get_cluster().get('status') == 'RUNNING':
+                    return
+            except Exception as e: # noqa
+                logger.warn(e)
+            finally:
+                log_remaining(remaining)

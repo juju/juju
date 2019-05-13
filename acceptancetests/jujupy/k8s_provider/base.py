@@ -177,7 +177,7 @@ class Base(object):
             self.kubectl('get', '-n', namespace, 'cm', cm_name, '-o', 'json')
         )
         data = cm.get('data', {})
-        data[key] = str(value)
+        data[key] = value if isinstance(value, str) else str(value)
         cm['data'] = data
         self.kubectl_apply(json.dumps(cm))
 
