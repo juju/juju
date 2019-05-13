@@ -203,7 +203,7 @@ func (c *cacheWorker) processWatcher(watcherChanges chan<- []multiwatcher.Delta)
 	for {
 		deltas, err := c.watcher.Next()
 		if err != nil {
-			if errors.Cause(err) == state.ErrStopped {
+			if state.IsErrStopped(err) {
 				return nil
 			} else {
 				return errors.Trace(err)
