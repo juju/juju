@@ -40,3 +40,4 @@ boto3>=1.5.18
 pyaml>=17.12.1
 pycrypto==2.6.1
 dnspython==1.16.0
+google-api-python-client==1.7.8
