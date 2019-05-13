@@ -172,6 +172,15 @@ class Base(object):
     def kubectl(self, *args):
         return self.sh(*(self._kubectl_bin + args))
 
+    def patch_configmap(self, namespace, cm_name, key, value):
+        cm = json.loads(
+            self.kubectl('get', '-n', namespace, 'cm', cm_name, '-o', 'json')
+        )
+        data = cm.get('data', {})
+        data[key] = str(value)
+        cm['data'] = data
+        self.kubectl_apply(json.dumps(cm))
+
     def sh(self, *args):
         return subprocess.check_output(
             # args should be str.
