@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/state"
 )
 
 var (
@@ -35,4 +36,12 @@ func NewStorageAPI(
 
 func SetNewContainerBrokerFunc(api *UniterAPI, newBroker caas.NewContainerBrokerFunc) {
 	api.containerBrokerFunc = newBroker
+}
+
+type patcher interface {
+	PatchValue(interface{}, interface{})
+}
+
+func PatchGetStorageStateError(patcher patcher, err error) {
+	patcher.PatchValue(&getStorageState, func(st *state.State) (storageAccess, error) { return nil, err })
 }

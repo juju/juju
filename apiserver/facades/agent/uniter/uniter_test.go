@@ -4451,3 +4451,25 @@ func (s *uniterV8Suite) TestWatchCAASUnitAddresses(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
 	wc.AssertNoChange()
 }
+
+type uniterAPIErrorSuite struct {
+	testing.JujuConnSuite
+}
+
+var _ = gc.Suite(&uniterAPIErrorSuite{})
+
+func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
+	uniter.PatchGetStorageStateError(s, errors.New("kaboom"))
+
+	resources := common.NewResources()
+	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
+
+	_, err := uniter.NewUniterAPI(facadetest.Context{
+		State_:             s.State,
+		Resources_:         resources,
+		Auth_:              apiservertesting.FakeAuthorizer{Tag: names.NewUnitTag("nomatter/0")},
+		LeadershipChecker_: s.State.LeadershipChecker(),
+	})
+
+	c.Assert(err, gc.ErrorMatches, "kaboom")
+}
