@@ -422,7 +422,7 @@ func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.R
 	op.Force = force
 	err = st.ApplyOperation(op)
 	if len(op.Errors) != 0 {
-		logger.Warningf("operational errors cleaning up applicationr %v: %v", applicationname, op.Errors)
+		logger.Warningf("operational errors cleaning up application %v: %v", applicationname, op.Errors)
 	}
 	return err
 }
