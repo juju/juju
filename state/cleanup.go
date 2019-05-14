@@ -491,9 +491,11 @@ func (st *State) removeRemoteApplicationsForDyingModel(args DestroyModelParams) 
 
 	force := args.Force != nil && *args.Force
 	for iter.Next(&remoteApp.doc) {
-		// TODO (force 2019-4-24) There may be some operational errors.
-		// Do something with with them.
-		if _, err := remoteApp.DestroyWithForce(force, args.MaxWait); err != nil {
+		errs, err := remoteApp.DestroyWithForce(force, args.MaxWait)
+		if len(errs) != 0 {
+			logger.Warningf("operational errors removing remote application %v for dying model %v: %v", remoteApp.Name(), st.ModelUUID(), errs)
+		}
+		if err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -736,7 +738,10 @@ func (st *State) cleanupForceDestroyedUnit(unitId string, cleanupArgs []bson.Raw
 				logger.Warningf("couldn't get relation unit for %q in %q: %v", unit, relation, err)
 				continue
 			}
-			_, err = ru.LeaveScopeWithForce(true, maxWait)
+			errs, err := ru.LeaveScopeWithForce(true, maxWait)
+			if len(errs) != 0 {
+				logger.Warningf("operational errors cleaning up force destroyed unit %v in relation %v: %v", unit, relation, errs)
+			}
 			if err != nil {
 				logger.Warningf("unit %q couldn't leave scope of relation %q: %v", unitId, relation, err)
 			}
