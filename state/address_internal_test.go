@@ -121,3 +121,23 @@ func (*AddressEqualitySuite) TestHostPortsEqual(c *gc.C) {
 	}
 	c.Assert(hostsPortsEqual(first, second), jc.IsTrue)
 }
+
+func (s *AddressEqualitySuite) TestAddressConversion(c *gc.C) {
+	machineAddress := network.Address{
+		Value: "foo",
+		Type:  network.IPv4Address,
+		Scope: network.ScopePublic,
+	}
+	stateAddress := fromNetworkAddress(machineAddress, "machine")
+	c.Assert(machineAddress, jc.DeepEquals, stateAddress.networkAddress())
+
+	providerAddress := network.Address{
+		Value:           "bar",
+		Type:            network.IPv4Address,
+		Scope:           network.ScopePublic,
+		SpaceName:       "test-space",
+		SpaceProviderId: "666",
+	}
+	stateAddress = fromNetworkAddress(providerAddress, "provider")
+	c.Assert(providerAddress, jc.DeepEquals, stateAddress.networkAddress())
+}

@@ -276,6 +276,11 @@ func (s *NetworkSuite) TestAddressConvenience(c *gc.C) {
 	}
 	paramsAddress := params.FromNetworkAddress(networkAddress)
 	c.Assert(networkAddress, jc.DeepEquals, paramsAddress.NetworkAddress())
+
+	networkAddress.SpaceName = "test-space"
+	networkAddress.SpaceProviderId = "666"
+	paramsAddress = params.FromNetworkAddress(networkAddress)
+	c.Assert(networkAddress, jc.DeepEquals, paramsAddress.NetworkAddress())
 }
 
 func (s *NetworkSuite) TestHostPortConvenience(c *gc.C) {

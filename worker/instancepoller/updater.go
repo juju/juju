@@ -189,17 +189,15 @@ func machineLoop(context machineContext, m machine, lifeChanged <-chan struct{},
 	pollInstance := func() error {
 		instInfo, err := pollInstanceInfo(context, m)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 
 		machineStatus := status.Pending
-		if err == nil {
-			if statusInfo, err := m.Status(); err != nil {
-				logger.Warningf("cannot get current machine status for machine %v: %v", m.Id(), err)
-			} else {
-				// TODO(perrito666) add status validation.
-				machineStatus = status.Status(statusInfo.Status)
-			}
+		if statusInfo, err := m.Status(); err != nil {
+			logger.Warningf("cannot get current machine status for machine %v: %v", m.Id(), err)
+		} else {
+			// TODO(perrito666) add status validation.
+			machineStatus = status.Status(statusInfo.Status)
 		}
 
 		// the extra condition below (checking allocating/pending) is here to improve user experience
@@ -292,6 +290,7 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 		if err != nil {
 			return instanceInfo{}, err
 		}
+
 		if !addressesEqual(providerAddresses, instInfo.addresses) {
 			logger.Infof("machine %q has new addresses: %v", m.Id(), instInfo.addresses)
 			if err := m.SetProviderAddresses(instInfo.addresses...); err != nil {
