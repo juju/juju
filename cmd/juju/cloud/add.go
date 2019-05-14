@@ -71,7 +71,8 @@ positional argument:
 When <cloud definition file> is provided with <cloud name>,
 Juju stores that definition in the current controller (after
 validating the contents), or the specified controller if
---controller is used.
+--controller is used. To make use of this multi-cloud feature,
+the controller needs to have the "multi-cloud" feature flag turned on.
 
 If --local is used, Juju stores that definition its internal cache directly.
 
@@ -112,8 +113,11 @@ you can specify which to upload with the --credential option.
 
 Examples:
     juju add-cloud
-    juju add-cloud mycloud ~/mycloud.yaml
     juju add-cloud --local mycloud ~/mycloud.yaml
+
+If the "multi-cloud" feature flag is turned on in the controller:
+
+    juju add-cloud mycloud ~/mycloud.yaml
     juju add-cloud --replace mycloud ~/mycloud2.yaml
     juju add-cloud --controller mycontroller mycloud
     juju add-cloud --controller mycontroller mycloud --credential mycred

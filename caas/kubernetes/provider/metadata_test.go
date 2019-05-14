@@ -4,9 +4,6 @@
 package provider_test
 
 import (
-	"os"
-	"strings"
-
 	"github.com/golang/mock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -33,18 +30,30 @@ func newNode(labels map[string]string) core.Node {
 }
 
 func (s *K8sMetadataSuite) TestMicrok8sFromNodeMeta(c *gc.C) {
-	hostname, err := os.Hostname()
-	c.Assert(err, jc.ErrorIsNil)
-	hostname = strings.ToLower(hostname)
 	node := core.Node{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   hostname,
-			Labels: map[string]string{"kubernetes.io/hostname": hostname},
+			Name:   "mynode",
+			Labels: map[string]string{"microk8s.io/cluster": "true"},
 		},
 	}
 	cloud, region := provider.GetCloudProviderFromNodeMeta(node)
 	c.Assert(cloud, gc.Equals, "microk8s")
 	c.Assert(region, gc.Equals, "localhost")
+}
+
+func (s *K8sMetadataSuite) TestMicrok8sWithRegionFromNodeMeta(c *gc.C) {
+	node := core.Node{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "mynode",
+			Labels: map[string]string{
+				"microk8s.io/cluster":                      "true",
+				"failure-domain.beta.kubernetes.io/region": "somewhere",
+			},
+		},
+	}
+	cloud, region := provider.GetCloudProviderFromNodeMeta(node)
+	c.Assert(cloud, gc.Equals, "microk8s")
+	c.Assert(region, gc.Equals, "somewhere")
 }
 
 func (s *K8sMetadataSuite) TestK8sCloudCheckersValidationPass(c *gc.C) {

@@ -141,9 +141,11 @@ func (s *ModelSummariesSuite) TestModelsForSuperuserWithAll(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	names := make([]string, len(summaries))
 	access := make(map[string]string)
+	isController := make(map[string]bool)
 	for i, summary := range summaries {
 		names[i] = summary.Name
 		access[summary.Name] = string(summary.Access)
+		isController[summary.Name] = summary.IsController
 	}
 	sort.Strings(names)
 	c.Check(names, gc.DeepEquals, []string{"shared", "testmodel", "user1model", "user2model", "user3model"})
@@ -153,6 +155,13 @@ func (s *ModelSummariesSuite) TestModelsForSuperuserWithAll(c *gc.C) {
 		"user1model": "",
 		"user2model": "",
 		"user3model": "",
+	})
+	c.Check(isController, gc.DeepEquals, map[string]bool{
+		"shared":     false,
+		"testmodel":  true,
+		"user1model": false,
+		"user2model": false,
+		"user3model": false,
 	})
 }
 

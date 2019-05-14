@@ -366,6 +366,14 @@ class JujuData:
                 return cloud
         raise LookupError('No such endpoint: {}'.format(endpoint))
 
+    def find_cloud_by_host_cloud_region(self, host_cloud_region):
+        for cloud, cloud_config in self.clouds['clouds'].items():
+            if cloud_config['type'] != 'kubernetes':
+                continue
+            if cloud_config['host-cloud-region'] == host_cloud_region:
+                return cloud
+        raise LookupError('No such host cloud region: {}'.format(host_cloud_region))
+
     def set_model_name(self, model_name, set_controller=True):
         if set_controller:
             self.controller.name = model_name
@@ -410,11 +418,23 @@ class JujuData:
         # Model CLI specification
         if provider == 'ec2' and self._config['region'] == 'cn-north-1':
             return 'aws-china'
-        if provider not in ('maas', 'openstack', 'vsphere'):
+        if provider not in (
+            # clouds need to handle separately.
+            'maas', 'openstack', 'vsphere', 'kubernetes'
+        ):
             return {
                 'ec2': 'aws',
                 'gce': 'google',
             }.get(provider, provider)
+
+        if provider == 'kubernetes':
+            host_cloud_region, k8s_base_cloud, _ = self.get_host_cloud_region()
+            if k8s_base_cloud == 'microk8s':
+                # microk8s is built-in cloud.
+                return k8s_base_cloud
+            return self.find_cloud_by_host_cloud_region(host_cloud_region)
+
+        endpoint = ''
         if provider == 'maas':
             endpoint = self._config['maas-server']
         elif provider == 'openstack':
@@ -422,6 +442,23 @@ class JujuData:
         elif provider == 'vsphere':
             endpoint = self._config['host']
         return self.find_endpoint_cloud(provider, endpoint)
+
+    def get_host_cloud_region(self):
+        """this is only applicable for self.provider == 'kubernetes'"""
+        if self.provider != 'kubernetes':
+            raise Exception("cloud type %s has to be kubernetes" % self.provider)
+
+        cache_key = 'host-cloud-region'
+        f = lambda x: [x] + x.split('/')
+        raw = getattr(self, cache_key, None)
+        if raw is not None:
+            return f(raw)
+        try:
+            raw = self._config.pop('host-cloud-region')
+            setattr(self, cache_key, raw)
+            return f(raw)
+        except KeyError:
+            raise Exception("host-cloud-region is required for kubernetes cloud")
 
     def get_cloud_credentials_item(self):
         cloud_name = self.get_cloud()
@@ -478,23 +515,33 @@ class JujuData:
 
         Examples: lxd, manual
         """
-        # if the commandline cloud is "lxd" or "manual", the provider type
+        # if the commandline cloud is "lxd", "kubernetes" or "manual", the provider type
         # should match, and shortcutting get_cloud avoids pointless test
         # breakage.
-        return bool(self.provider in ('lxd', 'manual') and
-                    self.get_cloud() in ('lxd', 'manual'))
+        if self.provider == 'kubernetes':
+            # provider is cloud type but not cloud name.
+            return True
+
+        provider_types = (
+            'lxd', 'manual',
+        )
+        return self.provider in provider_types and self.get_cloud() in provider_types
 
     def _get_config_endpoint(self):
         if self.provider == 'lxd':
             return self._config.get('region', 'localhost')
         elif self.provider == 'manual':
             return self._config['bootstrap-host']
+        elif self.provider == 'kubernetes':
+            return self._config.get('region', None) or self.get_host_cloud_region()[2]
 
     def _set_config_endpoint(self, endpoint):
         if self.provider == 'lxd':
             self._config['region'] = endpoint
         elif self.provider == 'manual':
             self._config['bootstrap-host'] = endpoint
+        elif self.provider == 'kubernetes':
+            self._config['region'] = self.get_host_cloud_region()[2]
 
     def __eq__(self, other):
         if type(self) != type(other):
@@ -828,15 +875,20 @@ class ModelClient:
             no_gui=False, agent_version=None, db_snap_path=None,
             db_snap_asserts_path=None):
         """Return the bootstrap arguments for the substrate."""
-        constraints = self._get_substrate_constraints()
         cloud_region = self.get_cloud_region(self.env.get_cloud(),
                                              self.env.get_region())
-        # Note cloud_region before controller name
-        args = ['--constraints', constraints,
-                cloud_region,
-                self.env.environment,
-                '--config', config_filename,
-                '--default-model', self.env.environment]
+        args = [
+            # Note cloud_region before controller name
+            cloud_region, self.env.environment,
+            '--config', config_filename,
+        ]
+        if self.env.provider == 'kubernetes':
+            return tuple(args)
+
+        args += [
+            '--constraints', self._get_substrate_constraints(),
+            '--default-model', self.env.environment
+        ]
         if upload_tools:
             if agent_version is not None:
                 raise ValueError(
@@ -928,13 +980,16 @@ class ModelClient:
             'tenant-name',
             'type',
             'username',
+            'host-cloud-region',
         })
 
     @contextmanager
-    def _bootstrap_config(self, mongo_memory_profile=None):
+    def _bootstrap_config(self, mongo_memory_profile=None, caas_image_repo=None):
         cfg = self.make_model_config()
         if mongo_memory_profile:
             cfg['mongo-memory-profile'] = mongo_memory_profile
+        if caas_image_repo:
+            cfg['caas-image-repo'] = caas_image_repo
         with temp_yaml_file(cfg) as config_filename:
             yield config_filename
 
@@ -949,14 +1004,24 @@ class ModelClient:
     def bootstrap(self, upload_tools=False, bootstrap_series=None,
                   credential=None, auto_upgrade=False, metadata_source=None,
                   no_gui=False, agent_version=None, db_snap_path=None,
-                  db_snap_asserts_path=None, mongo_memory_profile=None):
+                  db_snap_asserts_path=None, mongo_memory_profile=None, caas_image_repo=None):
         """Bootstrap a controller."""
         self._check_bootstrap()
-        with self._bootstrap_config(mongo_memory_profile) as config_filename:
+        with self._bootstrap_config(
+            mongo_memory_profile, caas_image_repo,
+        ) as config_filename:
             args = self.get_bootstrap_args(
-                upload_tools, config_filename, bootstrap_series, credential,
-                auto_upgrade, metadata_source, no_gui, agent_version,
-                db_snap_path, db_snap_asserts_path)
+                upload_tools=upload_tools,
+                config_filename=config_filename,
+                bootstrap_series=bootstrap_series,
+                credential=credential,
+                auto_upgrade=auto_upgrade,
+                metadata_source=metadata_source,
+                no_gui=no_gui,
+                agent_version=agent_version,
+                db_snap_path=db_snap_path,
+                db_snap_asserts_path=db_snap_asserts_path,
+            )
             self.update_user_name()
             retvar, ct = self.juju('bootstrap', args, include_e=False)
             ct.actual_completion()
@@ -969,8 +1034,14 @@ class ModelClient:
         self._check_bootstrap()
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
-                upload_tools, config_filename, bootstrap_series, None,
-                auto_upgrade, metadata_source, no_gui)
+                upload_tools=upload_tools,
+                config_filename=config_filename,
+                bootstrap_series=bootstrap_series,
+                credential=None,
+                auto_upgrade=auto_upgrade,
+                metadata_source=metadata_source,
+                no_gui=no_gui,
+            )
             self.update_user_name()
             with self.juju_async('bootstrap', args, include_e=False):
                 yield
@@ -1391,6 +1462,9 @@ class ModelClient:
             # For now only maas support spaces in a meaningful way.
             return 'mem=2G spaces={}'.format(','.join(
                 '^' + space for space in sorted(self.excluded_spaces)))
+        elif self.env.lxd:
+            # LXD should not be constrained via memory
+            return ''
         else:
             return 'mem=2G'
 

@@ -1,6 +1,6 @@
 from contextlib import (
     contextmanager,
-    )
+)
 import json
 import logging
 import os
@@ -19,7 +19,7 @@ import gce
 from utility import (
     temp_dir,
     until_timeout,
-    )
+)
 import winazurearm
 
 
@@ -767,7 +767,7 @@ class MAASAccount:
         """Create a new vlan on fabric with given fabric_id."""
         args = [
             self.profile, 'vlans', 'create', str(fabric_id), 'vid=' + str(vid),
-            ]
+        ]
         if name is not None:
             args.append('name=' + name)
         return self._maas(*args)
@@ -948,7 +948,11 @@ class LXDAccount:
 
 def get_config(boot_config):
     config = boot_config.make_config_copy()
-    if boot_config.provider not in ('lxd', 'manual'):
+    if boot_config.provider not in (
+        'lxd',
+        'manual',
+        'kubernetes',
+    ):
         config.update(boot_config.get_cloud_credentials())
     return config
 

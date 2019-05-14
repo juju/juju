@@ -10,8 +10,8 @@ PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
 PROJECT_PACKAGES := $(shell go list $(PROJECT)/... | grep -v /vendor/)
 
 # Allow the tests to take longer on arm platforms.
-ifeq ($(shell uname -p | sed -E 's/.*(armel|armhf|aarch64).*/golang/'), golang)
-	TEST_TIMEOUT := 3000s
+ifeq ($(shell uname -p | sed -E 's/.*(armel|armhf|aarch64|ppc64le|ppc64|s390x).*/golang/'), golang)
+	TEST_TIMEOUT := 5400s
 else
 	TEST_TIMEOUT := 1800s
 endif

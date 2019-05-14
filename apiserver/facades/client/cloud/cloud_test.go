@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	_ "github.com/juju/juju/provider/dummy"
@@ -29,7 +30,7 @@ import (
 )
 
 type cloudSuite struct {
-	gitjujutesting.IsolationSuite
+	coretesting.BaseSuite
 	backend     *mockBackend
 	ctlrBackend *mockBackend
 	authorizer  *apiservertesting.FakeAuthorizer
@@ -42,7 +43,7 @@ type cloudSuite struct {
 var _ = gc.Suite(&cloudSuite{})
 
 func (s *cloudSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	aCloud := cloud.Cloud{
 		Name:      "dummy",
 		Type:      "dummy",
@@ -58,6 +59,7 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 				"password": "adm1n",
 			}),
 		},
+		controllerCfg:     coretesting.FakeControllerConfig(),
 		credentialModelsF: func(tag names.CloudCredentialTag) (map[string]string, error) { return nil, nil },
 	}
 	s.ctlrBackend = &mockBackend{
@@ -207,6 +209,9 @@ func (s *cloudSuite) TestCloudInfoNonAdmin(c *gc.C) {
 }
 
 func (s *cloudSuite) TestAddCloud(c *gc.C) {
+	s.backend.controllerCfg = controller.Config{
+		"features": []interface{}{"multi-cloud"},
+	}
 	paramsCloud := params.AddCloudArgs{
 		Name: "newcloudname",
 		Cloud: params.Cloud{
@@ -217,14 +222,27 @@ func (s *cloudSuite) TestAddCloud(c *gc.C) {
 		}}
 	err := s.api.AddCloud(paramsCloud)
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "AddCloud")
-	s.backend.CheckCall(c, 0, "AddCloud", cloud.Cloud{
+	s.backend.CheckCallNames(c, "ControllerConfig", "AddCloud")
+	s.backend.CheckCall(c, 1, "AddCloud", cloud.Cloud{
 		Name:      "newcloudname",
 		Type:      "fake",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 		Endpoint:  "fake-endpoint",
 		Regions:   []cloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
 	}, "admin")
+}
+
+func (s *cloudSuite) TestAddCloudNoFeatureFlag(c *gc.C) {
+	paramsCloud := params.AddCloudArgs{
+		Name: "newcloudname",
+		Cloud: params.Cloud{
+			Type:      "fake",
+			AuthTypes: []string{"empty", "userpass"},
+			Endpoint:  "fake-endpoint",
+			Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
+		}}
+	err := s.api.AddCloud(paramsCloud)
+	c.Assert(err, gc.ErrorMatches, `feature flag "multi-cloud" needs to be enabled to add a "fake" cloud`)
 }
 
 func (s *cloudSuite) TestAddCloudNoAdminPerms(c *gc.C) {
@@ -1149,9 +1167,10 @@ func (s *cloudSuite) TestModifyCloudAlreadyHasAccess(c *gc.C) {
 type mockBackend struct {
 	gitjujutesting.Stub
 	cloudfacade.Backend
-	cloud       cloud.Cloud
-	creds       map[string]state.Credential
-	cloudAccess permission.Access
+	cloud         cloud.Cloud
+	creds         map[string]state.Credential
+	cloudAccess   permission.Access
+	controllerCfg controller.Config
 
 	credentialModelsF func(tag names.CloudCredentialTag) (map[string]string, error)
 }
@@ -1159,6 +1178,11 @@ type mockBackend struct {
 func (st *mockBackend) ControllerTag() names.ControllerTag {
 	st.MethodCall(st, "ControllerTag")
 	return names.NewControllerTag("deadbeef-1bad-500d-9000-4b1d0d06f00d")
+}
+
+func (st *mockBackend) ControllerConfig() (controller.Config, error) {
+	st.MethodCall(st, "ControllerConfig")
+	return st.controllerCfg, nil
 }
 
 func (st *mockBackend) Model() (cloudfacade.Model, error) {

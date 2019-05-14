@@ -19,9 +19,11 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -967,6 +969,17 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 	} else if !isAdmin {
 		return common.ServerError(common.ErrPerm)
 	}
+	cfg, err := api.backend.ControllerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !cfg.Features().Contains(feature.MultiCloud) {
+		if cloudArgs.Cloud.Type != string(provider.K8s_ProviderType) {
+			return errors.Errorf(
+				"feature flag %q needs to be enabled to add a %q cloud", feature.MultiCloud, cloudArgs.Cloud.Type)
+		}
+	}
+
 	err = api.backend.AddCloud(common.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud), api.apiUser.Name())
 	return errors.Trace(err)
 }

@@ -182,8 +182,8 @@ class KubernetesCore(Base):
 
     name = K8sProviderType.K8S_CORE
 
-    def __init__(self, client, timeout=1800):
-        super().__init__(client, timeout)
+    def __init__(self, bs_manager, timeout=1800):
+        super().__init__(bs_manager, timeout)
         self.default_storage_class_name = "juju-storageclass"
 
     def _ensure_kube_dir(self):
