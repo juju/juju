@@ -17,12 +17,12 @@ func (*lxdStateCharmProfilerSuite) TestLXDProfileEmptyCharm(c *gc.C) {
 	wrapper := lxdStateCharmProfiler{
 		Charm: nil,
 	}
-	c.Check(wrapper.LXDProfile(), gc.Equals, nil)
+	c.Check(wrapper.LXDProfile(), gc.IsNil)
 }
 
 func (*lxdStateCharmProfilerSuite) TestLXDProfileCharmNoProfile(c *gc.C) {
 	wrapper := lxdStateCharmProfiler{
 		Charm: &state.Charm{},
 	}
-	c.Check(wrapper.LXDProfile(), gc.Equals, nil)
+	c.Check(wrapper.LXDProfile(), gc.IsNil)
 }
