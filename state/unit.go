@@ -466,7 +466,10 @@ func (op *UpdateUnitOperation) Done(err error) error {
 // to a provisioned machine is Destroyed, it will be removed from state
 // directly.
 func (u *Unit) Destroy() error {
-	_, err := u.DestroyWithForce(false, time.Duration(0))
+	errs, err := u.DestroyWithForce(false, time.Duration(0))
+	if len(errs) != 0 {
+		logger.Warningf("operational errors destroying unit %v: %v", u.Name(), errs)
+	}
 	return err
 }
 
