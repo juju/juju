@@ -13,9 +13,12 @@ Commands that can be disabled are grouped based on logical operations as follows
 "remove-object" prevents:
     destroy-controller
     destroy-model
+    detach-storage
+    remove-application
     remove-machine
     remove-relation
-    remove-application
+    remove-saas
+    remove-storage
     remove-unit
 
 "all" prevents:
@@ -24,26 +27,34 @@ Commands that can be disabled are grouped based on logical operations as follows
     add-unit
     add-ssh-key
     add-user
+    attach-storage
     change-user-password
     config
+    consume
     deploy
     disable-user
     destroy-controller
     destroy-model
+    disable-user
     enable-ha
     enable-user
     expose
+    import-filesystem
     import-ssh-key
+    model-defaults
     model-config
     remove-application
     remove-machine
     remove-relation
     remove-ssh-key
     remove-unit
+    remove-user
     resolved
     retry-provisioning
     run
+    set-credential
     set-constraints
+    set-series
     sync-agents
     unexpose
     upgrade-charm
