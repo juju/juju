@@ -17,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/os/series"
-	"github.com/juju/utils/set"
 	"github.com/juju/version"
 
 	apicontroller "github.com/juju/juju/api/controller"
