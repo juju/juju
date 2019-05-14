@@ -57,9 +57,14 @@ type Config struct {
 	// lxd profiles to be included on every LXD machine used given the
 	// current model name.
 	GetRequiredLXDProfiles RequiredLXDProfilesFunc
+
+	// GetRequiredContext provides a way to override the given context
+	GetRequiredContext RequiredMutaterContextFunc
 }
 
 type RequiredLXDProfilesFunc func(string) []string
+
+type RequiredMutaterContextFunc func(MutaterContext) MutaterContext
 
 // Validate checks for missing values from the configuration and checks that
 // they conform to a given type.
@@ -88,6 +93,9 @@ func (config Config) Validate() error {
 	if config.GetRequiredLXDProfiles == nil {
 		return errors.NotValidf("nil GetRequiredLXDProfiles")
 	}
+	if config.GetRequiredContext == nil {
+		return errors.NotValidf("nil GetRequiredContext")
+	}
 	return nil
 }
 
@@ -98,6 +106,9 @@ func NewEnvironWorker(config Config) (worker.Worker, error) {
 	config.GetMachineWatcher = config.Facade.WatchMachines
 	config.GetRequiredLXDProfiles = func(modelName string) []string {
 		return []string{"default", "juju-" + modelName}
+	}
+	config.GetRequiredContext = func(ctx MutaterContext) MutaterContext {
+		return ctx
 	}
 	return newWorker(config)
 }
@@ -112,10 +123,13 @@ func NewContainerWorker(config Config) (worker.Worker, error) {
 	}
 	config.GetRequiredLXDProfiles = func(_ string) []string { return []string{"default"} }
 	config.GetMachineWatcher = m.WatchContainers
+	config.GetRequiredContext = func(ctx MutaterContext) MutaterContext {
+		return ctx
+	}
 	return newWorker(config)
 }
 
-func newWorker(config Config) (worker.Worker, error) {
+func newWorker(config Config) (*mutaterWorker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -130,7 +144,10 @@ func newWorker(config Config) (worker.Worker, error) {
 		machineTag:                 config.Tag.(names.MachineTag),
 		machineWatcher:             watcher,
 		getRequiredLXDProfilesFunc: config.GetRequiredLXDProfiles,
+		getRequiredContextFunc:     config.GetRequiredContext,
 	}
+	// getRequiredContextFunc returns a MutaterContext, this is for overriding
+	// during testing.
 	err = catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: w.loop,
@@ -153,11 +170,12 @@ type mutaterWorker struct {
 	facade                     InstanceMutaterAPI
 	machineWatcher             watcher.StringsWatcher
 	getRequiredLXDProfilesFunc RequiredLXDProfilesFunc
+	getRequiredContextFunc     RequiredMutaterContextFunc
 }
 
 func (w *mutaterWorker) loop() error {
 	m := &mutater{
-		context:     w,
+		context:     w.getRequiredContextFunc(w),
 		logger:      w.logger,
 		machines:    make(map[names.MachineTag]chan struct{}),
 		machineDead: make(chan instancemutater.MutaterMachine),
@@ -202,7 +220,7 @@ func (w *mutaterWorker) Stop() error {
 
 // newMachineContext is part of the mutaterContext interface.
 func (w *mutaterWorker) newMachineContext() MachineContext {
-	return w
+	return w.getRequiredContextFunc(w)
 }
 
 // getMachine is part of the MachineContext interface.
@@ -222,7 +240,7 @@ func (w *mutaterWorker) getRequiredLXDProfiles(modelName string) []string {
 }
 
 // kill is part of the lifetimeContext interface.
-func (w *mutaterWorker) kill(err error) {
+func (w *mutaterWorker) KillWithError(err error) {
 	w.catacomb.Kill(err)
 }
 
