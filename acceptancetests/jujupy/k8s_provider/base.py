@@ -81,6 +81,7 @@ class Base(object):
     kube_config_path = None
 
     default_storage_class_name = None
+    kubeconfig_cluster_name = None
 
     def _ensure_cluster_stack(self):
         """ensures or checks if stack/infrastructure is ready to use.
@@ -145,11 +146,17 @@ class Base(object):
         # returns the newly added CAAS model.
         return self.client.add_model(env=self.client.env.clone(model_name), cloud_region=self.cloud_name)
 
-    def add_k8s(self):
-        self.client.controller_juju(
-            'add-k8s',
-            (self.cloud_name, '--controller', self.client.env.controller.name)
-        )
+    def add_k8s(self, is_local=False):
+        if is_local:
+            self.client.controller_juju(
+                'add-k8s',
+                (self.cloud_name, '--local', '--cluster-name', self.kubeconfig_cluster_name)
+            )
+        else:
+            self.client.controller_juju(
+                'add-k8s',
+                (self.cloud_name, '--controller', self.client.env.controller.name)
+            )
         logger.debug('added caas cloud, now all clouds are -> \n%s', self.client.list_clouds(format='yaml'))
 
     def check_cluster_healthy(self, timeout=0):

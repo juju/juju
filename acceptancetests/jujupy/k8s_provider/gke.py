@@ -20,7 +20,7 @@
 from __future__ import print_function
 
 import logging
-# import shutil
+import yaml
 from time import sleep
 
 from google.cloud import container_v1
@@ -71,7 +71,7 @@ class GKE(Base):
 
         # list all running clusters
         running_clusters = self.driver.list_clusters(**self.default_params)
-        logger.warn('running gke clusters: %s', running_clusters)
+        logger.info('running gke clusters: %s', running_clusters)
 
     def _ensure_cluster_stack(self):
         self.provision_gke()
@@ -81,20 +81,26 @@ class GKE(Base):
             self.driver.delete_cluster(
                 cluster_id=self.gke_cluster_name, **self.default_params,
             )
-        except exceptions.NotFound as e:
-            logger.warn(e)
+        except exceptions.NotFound:
+            ...
 
     def _ensure_kube_dir(self):
-        # TODO
-        ...
+        cluster_config = ClusterConfig(
+            project_id=self.default_params['project_id'],
+            cluster=self._get_cluster(self.gke_cluster_name),
+        )
+        self.kubeconfig_cluster_name = cluster_config.context_name
+        kubeconfig_content = cluster_config.dump()
+        with open(self.kube_config_path, 'w') as f:
+            logger.debug('writing kubeconfig to %s\n%s', self.kube_config_path, kubeconfig_content)
+            f.write(kubeconfig_content)
 
     def _ensure_cluster_config(self):
-        # TODO
         ...
 
     def _node_address_getter(self, node):
         # TODO
-        ...
+        print('_node_address_getter node --->', node)
 
     def _get_cluster(self, name):
         return self.driver.get_cluster(
@@ -106,7 +112,7 @@ class GKE(Base):
             sleep(3)
             if remaining % 30 == 0:
                 msg += ' timeout in %ss...' % remaining
-                logger.warn(msg)
+                logger.info(msg)
 
         # do pre cleanup;
         self._tear_down_substrate()
@@ -126,14 +132,74 @@ class GKE(Base):
             cluster=cluster,
             **self.default_params,
         )
-        logger.warn('created cluster -> %s', r)
+        logger.info('created cluster -> %s', r)
         # wait until cluster fully provisioned.
         logger.info('waiting for cluster fully provisioned.')
         for remaining in until_timeout(600):
             try:
-                if self._get_cluster(self.gke_cluster_name).status == CLUSTER_STATUS.RUNNING:
+                cluster = self._get_cluster(self.gke_cluster_name)
+                if cluster.status == CLUSTER_STATUS.RUNNING:
                     return
             except Exception as e: # noqa
-                logger.warn(e)
+                logger.info(e)
             finally:
                 log_remaining(remaining)
+
+
+class ClusterConfig(object):
+
+    def __init__(self, project_id, cluster):
+        self.cluster_name = cluster.name
+        self.zone_id = cluster.zone
+        self.project_id = project_id
+        self.server = 'https://' + cluster.endpoint
+        self.ca_data = cluster.master_auth.cluster_ca_certificate
+        self.client_key_data = cluster.master_auth.client_key
+        self.client_cert_data = cluster.master_auth.client_certificate
+        self.context_name = 'gke_{project_id}_{zone_id}_{cluster_name}'.format(
+            project_id=self.project_id,
+            zone_id=self.zone_id,
+            cluster_name=self.cluster_name,
+        )
+
+    @property
+    def user(self):
+        return {
+            'name': self.context_name,
+            'user': {
+                'client-certificate-data': self.client_cert_data,
+                'client-key-data': self.client_key_data
+            },
+        }
+
+    @property
+    def cluster(self):
+        return {
+            'name': self.context_name,
+            'cluster': {
+                'server': self.server,
+                'certificate-authority-data': self.ca_data,
+            },
+        }
+
+    @property
+    def context(self):
+        return {
+            'name': self.context_name,
+            'context': {
+                'cluster': self.context_name,
+                'user': self.context_name,
+            },
+        }
+
+    def dump(self):
+        d = {
+            'apiVersion': 'v1',
+            'kind': 'Config',
+            'contexts': [self.context],
+            'clusters': [self.cluster],
+            'current-context': self.context_name,
+            'preferences': {},
+            'users': [self.user],
+        }
+        return yaml.dump(d)
