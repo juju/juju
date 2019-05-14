@@ -4,6 +4,8 @@
 package application
 
 import (
+	"time"
+
 	"github.com/juju/schema"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
@@ -117,6 +119,7 @@ type Relation interface {
 	status.StatusSetter
 	Tag() names.Tag
 	Destroy() error
+	DestroyWithForce(bool, time.Duration) ([]error, error)
 	Endpoint(string) (state.Endpoint, error)
 	SetSuspended(bool, string) error
 	Suspended() bool
