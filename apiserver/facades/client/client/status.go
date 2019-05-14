@@ -1479,5 +1479,9 @@ func (p lxdStateCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
 	if p.Charm == nil {
 		return nil
 	}
-	return p.Charm.LXDProfile()
+	profile := p.Charm.LXDProfile()
+	if profile == nil {
+		return nil
+	}
+	return profile
 }
