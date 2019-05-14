@@ -90,7 +90,7 @@ type CharmDeployAPI interface {
 }
 
 var supportedJujuSeries = func() []string {
-	return append(series.SupportedJujuSeries(), kubernetesSeriesName)
+	return append(series.ESMSupportedJujuSeries(), kubernetesSeriesName)
 }
 
 // DeployAPI represents the methods of the API the deploy
