@@ -133,12 +133,11 @@ func (c *ModelCommandBase) maybeInitModel() error {
 	// returned [ErrNoModelSpecified,ErrNoControllersDefined,ErrNoCurrentController]
 	// at that point and so need to try again.
 	// If any other error result was returned, we bail early here.
-	retriableError := func(original error) bool {
-		return errors.Cause(c.initModelError) != ErrNoModelSpecified &&
-			errors.Cause(c.initModelError) != ErrNoControllersDefined &&
-			errors.Cause(c.initModelError) != ErrNoCurrentController
+	noRetry := func(original error) bool {
+		c := errors.Cause(c.initModelError)
+		return c != ErrNoModelSpecified && c != ErrNoControllersDefined && c != ErrNoCurrentController
 	}
-	if c.doneInitModel && retriableError(c.initModelError) {
+	if c.doneInitModel && noRetry(c.initModelError) {
 		return errors.Trace(c.initModelError)
 	}
 
