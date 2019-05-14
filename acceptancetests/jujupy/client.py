@@ -1463,7 +1463,7 @@ class ModelClient:
             return 'mem=2G spaces={}'.format(','.join(
                 '^' + space for space in sorted(self.excluded_spaces)))
         elif self.env.lxd:
-            # LXD should not me constrained via memory
+            # LXD should not be constrained via memory
             return ''
         else:
             return 'mem=2G'
