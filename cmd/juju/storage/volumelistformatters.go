@@ -83,7 +83,7 @@ func formatVolumeListTabular(writer io.Writer, infos map[string]VolumeInfo) erro
 			print(
 				info.MachineId, info.UnitId, info.Storage,
 				info.VolumeId, info.ProviderVolumeId,
-				info.DeviceName, size,
+				info.VolumeAttachment.DeviceName, size,
 				string(info.Status.Current), info.Status.Message,
 			)
 		} else {
@@ -102,11 +102,11 @@ type volumeAttachmentInfo struct {
 	VolumeId string
 	VolumeInfo
 
-	MachineId string
-	VolumeAttachment
+	MachineId        string
+	VolumeAttachment VolumeAttachment
 
-	UnitId string
-	UnitStorageAttachment
+	UnitId                string
+	UnitStorageAttachment UnitStorageAttachment
 }
 
 type volumeAttachmentInfos []volumeAttachmentInfo
