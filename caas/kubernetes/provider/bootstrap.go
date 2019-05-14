@@ -250,7 +250,7 @@ func (c *controllerStack) getControllerSecret() (secret *core.Secret, err error)
 
 func (c *controllerStack) getControllerConfigMap() (cm *core.ConfigMap, err error) {
 	defer func() {
-		if cm.Data == nil {
+		if cm != nil && cm.Data == nil {
 			cm.Data = map[string]string{}
 		}
 	}()
