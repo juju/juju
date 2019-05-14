@@ -572,11 +572,12 @@ func (c *controllerStack) syncPodStatus(w watcher.NotifyWatcher) error {
 				evt.Message = "Downloading images"
 			case PulledImage:
 				evt.Message = "Pulled images"
+			case reason:
+				count++
 			}
 			if evt.Type == core.EventTypeNormal && !printedMsg.Contains(evt.Message) {
 				printedMsg.Add(evt.Message)
 				logger.Debugf(evt.Message)
-
 				if evt.Reason == PullingImage {
 					c.ctx.Infof(evt.Message)
 				}
@@ -584,9 +585,6 @@ func (c *controllerStack) syncPodStatus(w watcher.NotifyWatcher) error {
 					// starting pod after images are pulled.
 					c.ctx.Infof("Starting controller pod")
 				}
-			}
-			if evt.Reason == reason {
-				count++
 			}
 		}
 		return count >= eventCount

@@ -54,6 +54,11 @@ func init() {
 // cloud provider from node labels.
 func compileK8sCloudCheckers() map[string][]k8slabels.Selector {
 	return map[string][]k8slabels.Selector{
+		caas.K8sCloudMicrok8s: {
+			newLabelRequirements(
+				requirementParams{"microk8s.io/cluster", selection.Exists, nil},
+			),
+		},
 		caas.K8sCloudGCE: {
 			// GKE.
 			newLabelRequirements(

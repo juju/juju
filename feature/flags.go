@@ -57,3 +57,7 @@ const MongoDbSnap = "mongodb-snap"
 // MongoDbSnap tells Juju to use server-side transactions. It does nothing if
 // MongoDbSnap is not also enabled.
 const MongoDbSSTXN = "mongodb-sstxn"
+
+// MultiCloud tells Juju to allow a different IAAS cloud to the one the controller
+// was bootstrapped on to be added to the controller.
+const MultiCloud = "multi-cloud"

@@ -119,8 +119,24 @@ func (m *mockAgentConfig) CACert() string {
 type mockBroker struct {
 	testing.Stub
 	caas.Broker
-	operatorExists bool
+
+	mu             sync.Mutex
 	terminating    bool
+	operatorExists bool
+}
+
+func (m *mockBroker) setTerminating(terminating bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.terminating = terminating
+}
+
+func (m *mockBroker) setOperatorExists(operatorExists bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.operatorExists = operatorExists
 }
 
 func (m *mockBroker) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) error {
@@ -129,6 +145,8 @@ func (m *mockBroker) EnsureOperator(appName, agentPath string, config *caas.Oper
 }
 
 func (m *mockBroker) OperatorExists(appName string) (caas.OperatorState, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.MethodCall(m, "OperatorExists", appName)
 	return caas.OperatorState{Exists: m.operatorExists, Terminating: m.terminating}, m.NextErr()
 }

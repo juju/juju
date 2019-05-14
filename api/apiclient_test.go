@@ -240,7 +240,7 @@ func (s *apiclientSuite) TestVerifyCA(c *gc.C) {
 			}
 		}()
 
-		connCount = 0
+		atomic.StoreInt32(&connCount, 0)
 		info.Addrs = []string{listener.Addr().String()}
 		_, _, err = api.DialAPI(info, api.DialOpts{
 			VerifyCA: spec.verifyCA,

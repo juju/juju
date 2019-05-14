@@ -111,10 +111,15 @@ func NewTracker(config Config) (*Tracker, error) {
 		return nil, dependency.ErrUninstall
 	}
 	// we only work on LXD, so check for that.
+	var found bool
 	for _, containerType := range instanceContainers {
-		if containerType != instance.LXD {
-			return nil, dependency.ErrUninstall
+		if containerType == instance.LXD {
+			found = true
+			break
 		}
+	}
+	if !found {
+		return nil, dependency.ErrUninstall
 	}
 
 	// We guarded against non-LXD types, so lets talk about specific container

@@ -18,7 +18,6 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/watch"
-	kubeletevents "k8s.io/kubernetes/pkg/kubelet/events"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -584,13 +583,13 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --machine-id 0 --debug
 	podWatcher := s.k8sNewFakeWatcher()
 	eventsPartial := &core.EventList{
 		Items: []core.Event{
-			{Type: core.EventTypeNormal, Reason: kubeletevents.StartedContainer, Message: "Started container mongodb"},
+			{Type: core.EventTypeNormal, Reason: provider.StartedContainer, Message: "Started container mongodb"},
 		},
 	}
 	eventsDone := &core.EventList{
 		Items: []core.Event{
-			{Type: core.EventTypeNormal, Reason: kubeletevents.StartedContainer, Message: "Started container mongodb"},
-			{Type: core.EventTypeNormal, Reason: kubeletevents.StartedContainer, Message: "Started container api-server"},
+			{Type: core.EventTypeNormal, Reason: provider.StartedContainer, Message: "Started container mongodb"},
+			{Type: core.EventTypeNormal, Reason: provider.StartedContainer, Message: "Started container api-server"},
 		},
 	}
 
@@ -694,26 +693,32 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --machine-id 0 --debug
 			Return(eventsDone, nil),
 	)
 
-	go func(w *watch.RaceFreeFakeWatcher, clk *testclock.Clock) {
-		for _, evt := range []watch.EventType{
-			kubeletevents.StartedContainer, // mongodb started.
-			kubeletevents.StartedContainer, // api-server started.
-		} {
-			if !w.IsStopped() {
-				clk.WaitAdvance(time.Second, testing.LongWait, 1)
-				w.Action(evt, nil)
-			}
-		}
-	}(podWatcher, s.clock)
-
 	errChan := make(chan error)
 	go func() {
 		errChan <- controllerStacker.Deploy()
 	}()
 
-	err = s.clock.WaitAdvance(3*time.Second, testing.ShortWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(<-errChan, jc.ErrorIsNil)
-	c.Assert(workertest.CheckKilled(c, s.watcher), jc.ErrorIsNil)
-	c.Assert(podWatcher.IsStopped(), jc.IsTrue)
+	go func(w *watch.RaceFreeFakeWatcher, clk *testclock.Clock) {
+		err := clk.WaitAdvance(3*time.Second, testing.ShortWait, 1)
+		c.Assert(err, jc.ErrorIsNil)
+
+		for _, evt := range []watch.EventType{
+			provider.StartedContainer, // mongodb started.
+			provider.StartedContainer, // api-server started.
+		} {
+			if !w.IsStopped() {
+				clk.WaitAdvance(time.Second, testing.ShortWait, 1)
+				w.Action(evt, nil)
+			}
+		}
+	}(podWatcher, s.clock)
+
+	select {
+	case err := <-errChan:
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(workertest.CheckKilled(c, s.watcher), jc.ErrorIsNil)
+		c.Assert(podWatcher.IsStopped(), jc.IsTrue)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for deploy return")
+	}
 }

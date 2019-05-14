@@ -32,7 +32,6 @@ Commands that can be disabled are grouped based on logical operations as follows
     config
     consume
     deploy
-    disable-user
     destroy-controller
     destroy-model
     disable-user

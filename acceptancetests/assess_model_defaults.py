@@ -24,7 +24,7 @@ log = logging.getLogger('assess_model_defaults')
 
 
 def assemble_model_default(model_key, default, controller=None, regions=None):
-    """Create a dict that contrains the formatted model-defaults data."""
+    """Create a dict that contains the formatted model-defaults data."""
     # Ordering in the regions argument is lost.
     defaults = {'default': default}
     if controller is not None:
@@ -41,7 +41,7 @@ def juju_assert_equal(lhs, rhs, msg):
         raise JujuAssertionError(msg, lhs, rhs)
 
 
-def get_new_model_config(client, region=None, model_name=None):
+def get_new_model_config(client, cloud=None, region=None, model_name=None):
     """Create a new model, get it's config and then destroy it.
 
     :param client: Client to use create the new model on.
@@ -52,9 +52,11 @@ def get_new_model_config(client, region=None, model_name=None):
     if model_name is None:
         model_name = 'temp-model'
     new_env = client.env.clone(model_name)
+    cloud_region = None
     if region is not None:
         new_env.set_region(region)
-    new_model = client.add_model(new_env)
+        cloud_region = client.get_cloud_region(cloud,region)
+    new_model = client.add_model(new_env, cloud_region)
     config_data = new_model.get_model_config()
     new_model.destroy_model()
     return config_data
@@ -99,15 +101,23 @@ def assess_model_defaults(client, other_region):
     log.info('Checking controller model-defaults.')
     assess_model_defaults_no_region(
         client, 'automatically-retry-hooks', False)
+
+    cloud = client.env.get_cloud()
+    # TODO - we inconsistently use lxd vs localhost.
+    # cloud is recorded in controller as 'localhost'
+    # but test clients may be set up to use 'lxd', and
+    # for this model defaults test, the difference matters
+    if cloud == 'lxd':
+        cloud = 'localhost'
     region = client.env.get_region()
     if region is not None:
         log.info('Checking region model-defaults.')
         assess_model_defaults_region(
-            client, 'default-series', 'bionic', region=region)
+            client, 'default-series', 'bionic', cloud=cloud, region=region)
     if other_region is not None:
         log.info('Checking other region model-defaults.')
         assess_model_defaults_region(
-            client, 'default-series', 'bionic', region=other_region)
+            client, 'default-series', 'bionic', cloud=cloud, region=other_region)
 
 
 def parse_args(argv):

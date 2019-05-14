@@ -190,62 +190,73 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.KubernetesProvisioningInfoResults{
-		Results: []params.KubernetesProvisioningInfoResult{{
-			Result: &params.KubernetesProvisioningInfo{
-				PodSpec: "spec(gitlab)",
-				DeploymentInfo: &params.KubernetesDeploymentInfo{
-					DeploymentType: "stateful",
-					ServiceType:    "loadbalancer",
-				},
-				Filesystems: []params.KubernetesFilesystemParams{{
-					StorageName: "data",
-					Provider:    string(provider.K8s_ProviderType),
-					Size:        100,
-					Attributes: map[string]interface{}{
-						"storage-class": "k8s-storage",
-						"foo":           "bar",
-					},
-					Tags: map[string]string{
-						"juju-storage-owner":   "gitlab",
-						"juju-model-uuid":      coretesting.ModelTag.Id(),
-						"juju-controller-uuid": coretesting.ControllerTag.Id()},
-					Attachment: &params.KubernetesFilesystemAttachmentParams{
-						Provider:   string(provider.K8s_ProviderType),
-						MountPoint: "/var/lib/juju/storage/data/0",
-						ReadOnly:   true,
-					},
-				}, {
-					StorageName: "logs",
-					Provider:    string(storageprovider.RootfsProviderType),
-					Size:        200,
-					Attributes:  map[string]interface{}{},
-					Tags: map[string]string{
-						"juju-storage-owner":   "gitlab",
-						"juju-model-uuid":      coretesting.ModelTag.Id(),
-						"juju-controller-uuid": coretesting.ControllerTag.Id()},
-					Attachment: &params.KubernetesFilesystemAttachmentParams{
-						Provider:   string(storageprovider.RootfsProviderType),
-						MountPoint: "/var/lib/juju/storage/logs/0",
-					},
-				}},
-				Devices: []params.KubernetesDeviceParams{
-					{
-						Type:       "nvidia.com/gpu",
-						Count:      3,
-						Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
-					},
-				},
-				Constraints: constraints.MustParse("mem=64G"),
-				Tags: map[string]string{
-					"juju-model-uuid":      coretesting.ModelTag.Id(),
-					"juju-controller-uuid": coretesting.ControllerTag.Id()},
+	// Maps are harder to check...
+	// http://ci.jujucharms.com/job/make-check-juju/4853/testReport/junit/github/com_juju_juju_apiserver_facades_controller_caasunitprovisioner/TestAll/
+	expectedResult := &params.KubernetesProvisioningInfo{
+		PodSpec: "spec(gitlab)",
+		DeploymentInfo: &params.KubernetesDeploymentInfo{
+			DeploymentType: "stateful",
+			ServiceType:    "loadbalancer",
+		},
+		Devices: []params.KubernetesDeviceParams{
+			{
+				Type:       "nvidia.com/gpu",
+				Count:      3,
+				Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
 			},
-		}, {
-			Error: &params.Error{
-				Message: `"unit-gitlab-0" is not a valid application tag`,
+		},
+		Constraints: constraints.MustParse("mem=64G"),
+		Tags: map[string]string{
+			"juju-model-uuid":      coretesting.ModelTag.Id(),
+			"juju-controller-uuid": coretesting.ControllerTag.Id()},
+	}
+	expectedFileSystems := map[string]params.KubernetesFilesystemParams{
+		"data": {
+			StorageName: "data",
+			Provider:    string(provider.K8s_ProviderType),
+			Size:        100,
+			Attributes: map[string]interface{}{
+				"storage-class": "k8s-storage",
+				"foo":           "bar",
 			},
-		}},
+			Tags: map[string]string{
+				"juju-storage-owner":   "gitlab",
+				"juju-model-uuid":      coretesting.ModelTag.Id(),
+				"juju-controller-uuid": coretesting.ControllerTag.Id()},
+			Attachment: &params.KubernetesFilesystemAttachmentParams{
+				Provider:   string(provider.K8s_ProviderType),
+				MountPoint: "/var/lib/juju/storage/data/0",
+				ReadOnly:   true,
+			},
+		},
+		"logs": {
+			StorageName: "logs",
+			Provider:    string(storageprovider.RootfsProviderType),
+			Size:        200,
+			Attributes:  map[string]interface{}{},
+			Tags: map[string]string{
+				"juju-storage-owner":   "gitlab",
+				"juju-model-uuid":      coretesting.ModelTag.Id(),
+				"juju-controller-uuid": coretesting.ControllerTag.Id()},
+			Attachment: &params.KubernetesFilesystemAttachmentParams{
+				Provider:   string(storageprovider.RootfsProviderType),
+				MountPoint: "/var/lib/juju/storage/logs/0",
+			},
+		}}
+	obtained := results.Results[0].Result
+	c.Assert(obtained.PodSpec, jc.DeepEquals, expectedResult.PodSpec)
+	c.Assert(obtained.DeploymentInfo, jc.DeepEquals, expectedResult.DeploymentInfo)
+	c.Assert(len(obtained.Filesystems), gc.Equals, len(expectedFileSystems))
+	for _, fs := range obtained.Filesystems {
+		c.Assert(fs, gc.DeepEquals, expectedFileSystems[fs.StorageName])
+	}
+	c.Assert(obtained.Devices, jc.DeepEquals, expectedResult.Devices)
+	c.Assert(obtained.Constraints, jc.DeepEquals, expectedResult.Constraints)
+	c.Assert(obtained.Tags, jc.DeepEquals, expectedResult.Tags)
+	c.Assert(results.Results[1], jc.DeepEquals, params.KubernetesProvisioningInfoResult{
+		Error: &params.Error{
+			Message: `"unit-gitlab-0" is not a valid application tag`,
+		},
 	})
 	s.st.CheckCallNames(c, "Model", "Application", "ControllerConfig", "ResolveConstraints")
 	s.st.CheckCall(c, 3, "ResolveConstraints", constraints.MustParse("mem=64G"))
