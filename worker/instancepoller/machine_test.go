@@ -31,7 +31,16 @@ type machineSuite struct {
 	coretesting.BaseSuite
 }
 
-var testAddrs = network.NewAddresses("127.0.0.1")
+var testAddrs = []network.Address{
+	network.NewAddress("127.0.0.1"),
+	{
+		Value:           "10.6.6.6",
+		Type:            network.IPv4Address,
+		Scope:           network.ScopeCloudLocal,
+		SpaceName:       "test-space",
+		SpaceProviderId: "1",
+	},
+}
 
 func (s *machineSuite) TestSetsInstanceInfoInitially(c *gc.C) {
 	context := &testMachineContext{

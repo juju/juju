@@ -258,11 +258,12 @@ func (st *State) apiHostPortsForKey(key string) ([][]network.HostPort, error) {
 // stuff at some point. We want to use juju-specific network names
 // that point to existing documents in the networks collection.
 type address struct {
-	Value       string `bson:"value"`
-	AddressType string `bson:"addresstype"`
-	Scope       string `bson:"networkscope,omitempty"`
-	Origin      string `bson:"origin,omitempty"`
-	SpaceName   string `bson:"spacename,omitempty"`
+	Value           string `bson:"value"`
+	AddressType     string `bson:"addresstype"`
+	Scope           string `bson:"networkscope,omitempty"`
+	Origin          string `bson:"origin,omitempty"`
+	SpaceName       string `bson:"spacename,omitempty"`
+	SpaceProviderId string `bson:"spaceid,omitempty"`
 }
 
 // Origin specifies where an address comes from, whether it was reported by a
@@ -282,11 +283,12 @@ const (
 // out of the network type, here for Address with a given Origin.
 func fromNetworkAddress(netAddr network.Address, origin Origin) address {
 	return address{
-		Value:       netAddr.Value,
-		AddressType: string(netAddr.Type),
-		Scope:       string(netAddr.Scope),
-		Origin:      string(origin),
-		SpaceName:   string(netAddr.SpaceName),
+		Value:           netAddr.Value,
+		AddressType:     string(netAddr.Type),
+		Scope:           string(netAddr.Scope),
+		Origin:          string(origin),
+		SpaceName:       string(netAddr.SpaceName),
+		SpaceProviderId: string(netAddr.SpaceProviderId),
 	}
 }
 
@@ -294,10 +296,11 @@ func fromNetworkAddress(netAddr network.Address, origin Origin) address {
 // as network type, here for Address.
 func (addr *address) networkAddress() network.Address {
 	return network.Address{
-		Value:     addr.Value,
-		Type:      network.AddressType(addr.AddressType),
-		Scope:     network.Scope(addr.Scope),
-		SpaceName: network.SpaceName(addr.SpaceName),
+		Value:           addr.Value,
+		Type:            network.AddressType(addr.AddressType),
+		Scope:           network.Scope(addr.Scope),
+		SpaceName:       network.SpaceName(addr.SpaceName),
+		SpaceProviderId: network.Id(addr.SpaceProviderId),
 	}
 }
 
