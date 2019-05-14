@@ -112,6 +112,11 @@ def parse_args(argv):
         choices=K8sProviderType.keys(),
         help='Specify K8s cloud provider to use for CAAS tests.'
     )
+    parser.add_argument(
+        '--k8s-controller',
+        action='store_false',
+        help='Bootstrap to k8s cluster or not.'
+    )
 
     add_basic_testing_arguments(parser, existing=False)
     return parser.parse_args(argv)
@@ -126,12 +131,15 @@ def main(argv=None):
 
     with k8s_provider(bs_manager).substrate_context() as caas_client:
         # add-k8s --local
+        if args.k8s_controller:
+            caas_client.add_k8s(True)
         with bs_manager.booted_context(
             args.upload_tools,
             caas_image_repo=args.caas_image_repo,
         ):
-            # add-k8s to controller
-            caas_client.add_k8s()
+            if not args.k8s_controller:
+                # add-k8s to controller
+                caas_client.add_k8s(False)
             # assess_caas_charm_deployment(caas_client)
         return 0
 
