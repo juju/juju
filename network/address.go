@@ -653,10 +653,10 @@ func IPv4ToDecimal(ipv4Addr net.IP) (uint32, error) {
 // because it can be used both as an IPv4 or IPv6 endpoint (e.g., in
 // IPv6-only networks).
 func ResolvableHostnames(addrs []Address) []Address {
-	resolveableAddrs := make([]Address, 0, len(addrs))
+	resolvableAddrs := make([]Address, 0, len(addrs))
 	for _, addr := range addrs {
 		if addr.Value == "localhost" || net.ParseIP(addr.Value) != nil {
-			resolveableAddrs = append(resolveableAddrs, addr)
+			resolvableAddrs = append(resolvableAddrs, addr)
 			continue
 		}
 		_, err := netLookupIP(addr.Value)
@@ -664,9 +664,9 @@ func ResolvableHostnames(addrs []Address) []Address {
 			logger.Infof("removing unresolvable address %q: %v", addr.Value, err)
 			continue
 		}
-		resolveableAddrs = append(resolveableAddrs, addr)
+		resolvableAddrs = append(resolvableAddrs, addr)
 	}
-	return resolveableAddrs
+	return resolvableAddrs
 }
 
 // MergedAddresses provides a single list of addresses without duplicates
