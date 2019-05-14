@@ -602,6 +602,7 @@ func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
 		var machineOp txn.Op
 		if m.Life() < Dead {
 			// Make sure we don't want the vote, and we are queued to be Dying
+			// Since we are force deleting, life assert should be current machine's life.
 			machineOp = txn.Op{
 				C:      machinesC,
 				Id:     m.doc.DocID,
