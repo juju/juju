@@ -227,7 +227,7 @@ func (c *enableHACommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	defer haClient.Close()
+	defer func() { _ = haClient.Close() }()
 	enableHAResult, err := haClient.EnableHA(
 		c.NumControllers,
 		c.Constraints,
