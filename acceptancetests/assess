@@ -156,11 +156,8 @@ def parse_args():
     pass_through.add_argument('--region', default=None, help='Override environment region.')
     pass_through.add_argument('--to', default=None,
                               help='Place the controller at a location.')
-<<<<<<< HEAD
     pass_through.add_argument("--agent", help="Which agent to test (Only relevant for log_rotation test)",
                               choices=["machine", "unit"])
-=======
->>>>>>> 9c8277672313b179dc34990517650ac0754c581e
     pass_through.add_argument('--agent-url', action='store', default=None,
                               help='URL for retrieving agent binaries.')
     pass_through.add_argument('--agent-stream', action='store', default=None,
@@ -169,7 +166,6 @@ def parse_args():
                               default=SERIES)
     pass_through.add_argument("--keep-env", action="store_true",
                               help="Preserve the testing directories, e.g. HOME_DIR, DATA_DIR, ... after the test completes")
-<<<<<<< HEAD
 
     pass_through.add_argument("--logging-config",
                               help="Override logging configuration for a deployment. [default: \"<root>=INFO;unit=INFO\" unless test defines its own defaults]",
@@ -280,16 +276,6 @@ def parse_args():
                             help="The region to host the test. [default: aws:us-east-1]")
 
     exe_options = arg_parser.add_argument_group("executables")
-=======
-    pass_through.add_argument("--logging-config",
-                              help="Override logging configuration for a deployment. [default: \"<root>=INFO;unit=INFO\"]",
-                              default="<root>=INFO;unit=INFO")
-
-    cloud_opts = arg_parser.add_argument_group("options to pass through to the cloud substrate")
-    cloud_opts.add_argument("--cloud-region", metavar="REGION", help="The region to host the test. [default: aws:us-east-1]")
-
-    exe_options = arg_parser.add_argument_group("executables:")
->>>>>>> 9c8277672313b179dc34990517650ac0754c581e
     juju_bin_help = "Path to the Juju binary to be used for testing."
     if juju_bin is not None:
         juju_bin_help = juju_bin_help + " [default: {}]".format(juju_bin)
@@ -322,7 +308,6 @@ def parse_args():
 
     if args.substrate != "lxd":
         if args.cloud_region not in valid_regions:
-<<<<<<< HEAD
             raise arg_parser.error(
                 "--cloud-region parameter must be one of {} when --substrate={}".format(valid_regions, args.substrate))
 
@@ -338,9 +323,6 @@ def parse_args():
     elif args.assess == "log_rotation":
         if not args.agent:
             arg_parser.error("--agent must be set when testing log_rotation.")
-=======
-            raise ValueError("--cloud-region parameter must be one of {} when --substrate={}".format(valid_regions, args.substrate))
->>>>>>> 9c8277672313b179dc34990517650ac0754c581e
 
     return args
 
@@ -391,13 +373,8 @@ def main():
         args.juju,
         args.log_dir,
         # args.run_name,
-<<<<<<< HEAD
         "--series", args.series,
         "--logging-config", args.logging_config,
-=======
-        "--series=" + args.series,
-        "--logging-config=" + args.logging_config,
->>>>>>> 9c8277672313b179dc34990517650ac0754c581e
     ]
     if args.debug:
         testrun_argv += ["--debug"]
@@ -406,7 +383,6 @@ def main():
     if args.keep_env:
         testrun_argv += ["--keep-env"]
     if args.region:
-<<<<<<< HEAD
         testrun_argv += ["--region", args.region]
     if args.to:
         testrun_argv += ["--to", args.to]
@@ -560,16 +536,6 @@ def main():
 
     testrun_argv = [str(arg) for arg in testrun_argv]
     LOG.info("testing " + ' '.join(testrun_argv))
-=======
-        testrun_argv += ["--region=" + args.region]
-    if args.to:
-        testrun_argv.extend(["--to", args.to])
-    if args.agent_url:
-        testrun_argv.extend(["--agent-url", args.agent_url])
-    if args.agent_stream:
-        testrun_argv.extend(["--agent-stream", args.agent_stream])
-
->>>>>>> 9c8277672313b179dc34990517650ac0754c581e
     proc = subprocess.Popen(
         testrun_argv,
         env=testrun_env,
