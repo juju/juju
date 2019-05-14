@@ -264,6 +264,7 @@ type RemoteApplication interface {
 	Bindings() map[string]string
 	Spaces() []state.RemoteSpace
 	Destroy() error
+	DestroyOperation(force bool) *state.DestroyRemoteApplicationOperation
 }
 
 func (s stateShim) RemoteApplication(name string) (RemoteApplication, error) {

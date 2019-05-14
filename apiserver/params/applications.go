@@ -314,6 +314,15 @@ type DestroyConsumedApplicationsParams struct {
 // RemoteApplication.Destroy call.
 type DestroyConsumedApplicationParams struct {
 	ApplicationTag string `json:"application-tag"`
+
+	// Force controls whether or not the destruction process ignores
+	// operational errors. When true, the process will ignore them.
+	Force *bool `json:"force,omitempty"`
+
+	// MaxWait specifies the amount of time that each step in application removal
+	// will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration `json:"max-wait,omitempty"`
 }
 
 // GetApplicationConstraints stores parameters for making the GetApplicationConstraints call.

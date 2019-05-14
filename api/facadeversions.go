@@ -18,7 +18,7 @@ var facadeVersions = map[string]int{
 	"AllModelWatcher":              2,
 	"AllWatcher":                   1,
 	"Annotations":                  2,
-	"Application":                  9,
+	"Application":                  10,
 	"ApplicationOffers":            2,
 	"ApplicationScaler":            1,
 	"Backups":                      2,

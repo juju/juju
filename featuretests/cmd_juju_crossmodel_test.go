@@ -609,3 +609,47 @@ func (s *crossmodelSuite) TestRemoveSaas(c *gc.C) {
 removing SAAS application hosted-mysql failed: remote application "hosted-mysql" not found
 `[1:])
 }
+
+func (s *crossmodelSuite) TestRemoveSaasForce(c *gc.C) {
+	s.addOtherModelApplication(c)
+	_, err := cmdtesting.RunCommand(c, application.NewConsumeCommand(),
+		"otheruser/othermodel.hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// use --force
+	_, err = cmdtesting.RunCommand(c, application.NewRemoveSaasCommand(),
+		"--force", "-m", "admin/controller", "hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// A second time it's no longer there.
+	ctx, err := cmdtesting.RunCommand(c, application.NewRemoveSaasCommand(),
+		"-m", "admin/controller", "hosted-mysql")
+	c.Check(err, gc.ErrorMatches, "cmd: error out silently")
+	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, `
+removing SAAS application hosted-mysql failed: remote application "hosted-mysql" not found
+`[1:])
+}
+
+func (s *crossmodelSuite) TestRemoveSaasNoWait(c *gc.C) {
+	s.addOtherModelApplication(c)
+	_, err := cmdtesting.RunCommand(c, application.NewConsumeCommand(),
+		"otheruser/othermodel.hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// --no-wait meaningless without --force
+	_, err = cmdtesting.RunCommand(c, application.NewRemoveSaasCommand(),
+		"--no-wait", "-m", "admin/controller", "hosted-mysql")
+	c.Check(err, gc.ErrorMatches, "--no-wait requires --force")
+
+	_, err = cmdtesting.RunCommand(c, application.NewRemoveSaasCommand(),
+		"--no-wait", "--force", "-m", "admin/controller", "hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// A second time it's no longer there.
+	ctx, err := cmdtesting.RunCommand(c, application.NewRemoveSaasCommand(),
+		"-m", "admin/controller", "hosted-mysql")
+	c.Check(err, gc.ErrorMatches, "cmd: error out silently")
+	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, `
+removing SAAS application hosted-mysql failed: remote application "hosted-mysql" not found
+`[1:])
+}

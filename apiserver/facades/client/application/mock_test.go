@@ -318,6 +318,13 @@ func (m *mockRemoteApplication) Destroy() error {
 	return nil
 }
 
+func (m *mockRemoteApplication) DestroyOperation(force bool) *state.DestroyRemoteApplicationOperation {
+	m.MethodCall(m, "DestroyOperation")
+	return &state.DestroyRemoteApplicationOperation{
+		ForcedOperation: state.ForcedOperation{Force: force},
+	}
+}
+
 type mockBackend struct {
 	jtesting.Stub
 	application.Backend

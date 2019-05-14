@@ -249,15 +249,15 @@ func copyAttributes(values attributeMap) attributeMap {
 	return result
 }
 
-// DestroyRemoteApplicationOperation returns a model operation to destroy remote application.
-func (s *RemoteApplication) DestroyRemoteApplicationOperation(force bool) *DestroyRemoteApplicationOperation {
+// DestroyOperation returns a model operation to destroy remote application.
+func (s *RemoteApplication) DestroyOperation(force bool) *DestroyRemoteApplicationOperation {
 	return &DestroyRemoteApplicationOperation{
 		app:             &RemoteApplication{st: s.st, doc: s.doc},
 		ForcedOperation: ForcedOperation{Force: force},
 	}
 }
 
-// LeaveScopeOperation is a model operation to destroy remote application.
+// DestroyRemoteApplicationOperation is a model operation to destroy a remote application.
 type DestroyRemoteApplicationOperation struct {
 	// ForcedOperation stores needed information to force this operation.
 	ForcedOperation
@@ -314,7 +314,7 @@ func (s *RemoteApplication) DestroyWithForce(force bool, maxWait time.Duration) 
 			s.doc.Life = Dying
 		}
 	}()
-	op := s.DestroyRemoteApplicationOperation(force)
+	op := s.DestroyOperation(force)
 	op.MaxWait = maxWait
 	err = s.st.ApplyOperation(op)
 	return op.Errors, err
