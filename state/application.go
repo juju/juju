@@ -212,7 +212,12 @@ func (a *Application) Destroy() (err error) {
 			a.doc.Life = Dying
 		}
 	}()
-	return a.st.ApplyOperation(a.DestroyOperation())
+	op := a.DestroyOperation()
+	err = a.st.ApplyOperation(a.DestroyOperation())
+	if len(op.Errors) != 0 {
+		logger.Warningf("operational errors destroying application %v: %v", a.Name(), op.Errors)
+	}
+	return err
 }
 
 // DestroyOperation returns a model operation that will destroy the application.

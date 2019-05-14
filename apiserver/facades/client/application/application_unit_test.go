@@ -408,7 +408,7 @@ func (s *ApplicationSuite) TestDestroyRelation(c *gc.C) {
 	s.blockChecker.CheckCallNames(c, "RemoveAllowed")
 	s.backend.CheckCallNames(c, "InferEndpoints", "EndpointsRelation")
 	s.backend.CheckCall(c, 0, "InferEndpoints", []string{"a", "b"})
-	s.relation.CheckCallNames(c, "Destroy")
+	s.relation.CheckCallNames(c, "DestroyWithForce")
 }
 
 func (s *ApplicationSuite) TestDestroyRelationNoRelationsFound(c *gc.C) {
@@ -438,7 +438,7 @@ func (s *ApplicationSuite) TestDestroyRelationId(c *gc.C) {
 	s.blockChecker.CheckCallNames(c, "RemoveAllowed")
 	s.backend.CheckCallNames(c, "Relation")
 	s.backend.CheckCall(c, 0, "Relation", 123)
-	s.relation.CheckCallNames(c, "Destroy")
+	s.relation.CheckCallNames(c, "DestroyWithForce")
 }
 
 func (s *ApplicationSuite) TestDestroyRelationIdRelationNotFound(c *gc.C) {

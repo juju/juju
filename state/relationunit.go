@@ -355,7 +355,10 @@ func (ru *RelationUnit) LeaveScopeWithForce(force bool, maxWait time.Duration) (
 // leaves, it is removed immediately. It is not an error to leave a scope
 // that the unit is not, or never was, a member of.
 func (ru *RelationUnit) LeaveScope() error {
-	_, err := ru.LeaveScopeWithForce(false, time.Duration(0))
+	errs, err := ru.LeaveScopeWithForce(false, time.Duration(0))
+	if len(errs) != 0 {
+		logger.Warningf("operational errors leaving scope for unit %q in relation %q: %v", ru.unitName, ru.relation, errs)
+	}
 	return err
 }
 
