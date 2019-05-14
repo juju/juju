@@ -317,9 +317,6 @@ func (s *RemoteApplication) DestroyWithForce(force bool, maxWait time.Duration) 
 	op := s.DestroyRemoteApplicationOperation(force)
 	op.MaxWait = maxWait
 	err = s.st.ApplyOperation(op)
-	if len(op.Errors) != 0 {
-		logger.Warningf("operational errors destroying remote application %v: %v", s.Name(), op.Errors)
-	}
 	return op.Errors, err
 }
 
@@ -327,7 +324,10 @@ func (s *RemoteApplication) DestroyWithForce(force bool, maxWait time.Duration) 
 // will be removed at some point; if no relation involving the
 // application has any units in scope, they are all removed immediately.
 func (s *RemoteApplication) Destroy() error {
-	_, err := s.DestroyWithForce(false, time.Duration(0))
+	errs, err := s.DestroyWithForce(false, time.Duration(0))
+	if len(errs) != 0 {
+		logger.Warningf("operational errors destroying remote application %v: %v", s.Name(), errs)
+	}
 	return err
 }
 

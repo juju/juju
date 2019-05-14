@@ -313,16 +313,16 @@ func (r *Relation) DestroyWithForce(force bool, maxWait time.Duration) ([]error,
 	op := r.DestroyOperation(force)
 	op.MaxWait = maxWait
 	err := r.st.ApplyOperation(op)
-	if len(op.Errors) != 0 {
-		logger.Warningf("operational errors removing relation %v: %v", r.Id(), op.Errors)
-	}
 	return op.Errors, err
 }
 
 // Destroy ensures that the relation will be removed at some point; if no units
 // are currently in scope, it will be removed immediately.
 func (r *Relation) Destroy() error {
-	_, err := r.DestroyWithForce(false, time.Duration(0))
+	errs, err := r.DestroyWithForce(false, time.Duration(0))
+	if len(errs) != 0 {
+		logger.Warningf("operational errors removing relation %v: %v", r.Id(), errs)
+	}
 	return err
 }
 

@@ -466,7 +466,10 @@ func (op *UpdateUnitOperation) Done(err error) error {
 // to a provisioned machine is Destroyed, it will be removed from state
 // directly.
 func (u *Unit) Destroy() error {
-	_, err := u.DestroyWithForce(false, time.Duration(0))
+	errs, err := u.DestroyWithForce(false, time.Duration(0))
+	if len(errs) != 0 {
+		logger.Warningf("operational errors destroying unit %v: %v", u.Name(), errs)
+	}
 	return err
 }
 
@@ -483,9 +486,6 @@ func (u *Unit) DestroyWithForce(force bool, maxWait time.Duration) (errs []error
 	op.Force = force
 	op.MaxWait = maxWait
 	err = u.st.ApplyOperation(op)
-	if len(op.Errors) != 0 {
-		logger.Warningf("operational errors destroying unit %v: %v", u.Name(), op.Errors)
-	}
 	return op.Errors, err
 }
 
