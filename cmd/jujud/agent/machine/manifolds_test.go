@@ -4,6 +4,8 @@
 package machine_test
 
 import (
+	"io/ioutil"
+	"os"
 	"sort"
 
 	"github.com/juju/collections/set"
@@ -18,6 +20,8 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/testing"
+	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/gate"
 )
 
@@ -306,6 +310,31 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
 		}
 	}
+}
+
+func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *gc.C) {
+	tmpDir, err := ioutil.TempDir("", "agent-data-dir")
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	ag := &mockAgent{
+		conf: mockConfig{
+			dataPath: tmpDir,
+		},
+	}
+	manifolds := machine.Manifolds(machine.ManifoldsConfig{
+		Agent: ag,
+	})
+
+	c.Assert(manifolds["api-caller"], gc.Not(gc.IsNil))
+	apiCaller := manifolds["api-caller"]
+
+	// Check that when the api-caller maps non-recoverable errors to
+	// ErrTerminateAgent and that it does not create an uninstall file for
+	// the agent.
+	err = apiCaller.Filter(apicaller.ErrConnectImpossible)
+	c.Assert(err, gc.Equals, jworker.ErrTerminateAgent)
+	c.Assert(agent.CanUninstall(ag), gc.Equals, false)
 }
 
 func checkContains(c *gc.C, names []string, seek string) {
@@ -1035,9 +1064,10 @@ func (ma *mockAgent) ChangeConfig(f agent.ConfigMutator) error {
 
 type mockConfig struct {
 	agent.ConfigSetter
-	tag    names.Tag
-	ssiSet bool
-	ssi    params.StateServingInfo
+	tag      names.Tag
+	ssiSet   bool
+	ssi      params.StateServingInfo
+	dataPath string
 }
 
 func (mc *mockConfig) Tag() names.Tag {
@@ -1062,4 +1092,11 @@ func (mc *mockConfig) SetStateServingInfo(info params.StateServingInfo) {
 
 func (mc *mockConfig) LogDir() string {
 	return "log-dir"
+}
+
+func (mc *mockConfig) DataDir() string {
+	if mc.dataPath != "" {
+		return mc.dataPath
+	}
+	return "data-dir"
 }

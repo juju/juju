@@ -269,16 +269,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 	// connectFilter exists:
 	//  1) to let us retry api connections immediately on password change,
 	//     rather than causing the dependency engine to wait for a while;
-	//  2) to ensure that certain connection failures correctly trigger
-	//     complete agent removal. (It's not safe to let any agent other
-	//     than the machine mess around with SetCanUninstall).
+	//  2) to decide how to deal with fatal, non-recoverable errors
+	//     e.g apicaller.ErrConnectImpossible.
 	connectFilter := func(err error) error {
 		cause := errors.Cause(err)
 		if cause == apicaller.ErrConnectImpossible {
-			err2 := coreagent.SetCanUninstall(config.Agent)
-			if err2 != nil {
-				return errors.Trace(err2)
-			}
 			return jworker.ErrTerminateAgent
 		} else if cause == apicaller.ErrChangedPassword {
 			return dependency.ErrBounce
