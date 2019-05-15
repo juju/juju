@@ -2146,6 +2146,12 @@ func (api *APIBase) setApplicationConfig(arg params.ApplicationConfigSet) error 
 		if err != nil {
 			return errors.Trace(err)
 		}
+
+		// We need a guard on the API server-side for direct API callers such as
+		// python-libjuju. Always default to the master branch.
+		if arg.Generation == "" {
+			arg.Generation = model.GenerationMaster
+		}
 		if err := app.UpdateCharmConfig(arg.Generation, charmConfigChanges); err != nil {
 			return errors.Annotate(err, "updating application charm settings")
 		}

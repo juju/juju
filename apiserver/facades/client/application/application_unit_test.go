@@ -1416,7 +1416,15 @@ func (s *ApplicationSuite) TestRemoteRelationDisAllowedCIDR(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `CIDR "0.0.0.0/0" not allowed`)
 }
 
-func (s *ApplicationSuite) TestSetApplicationConfig(c *gc.C) {
+func (s *ApplicationSuite) TestSetApplicationConfigExplicitMaster(c *gc.C) {
+	s.testSetApplicationConfig(c, model.GenerationMaster)
+}
+
+func (s *ApplicationSuite) TestSetApplicationConfigEmptyUsesMaster(c *gc.C) {
+	s.testSetApplicationConfig(c, "")
+}
+
+func (s *ApplicationSuite) testSetApplicationConfig(c *gc.C, branchName string) {
 	application.SetModelType(s.api, state.ModelTypeCAAS)
 	result, err := s.api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
 		Args: []params.ApplicationConfigSet{{
@@ -1425,7 +1433,7 @@ func (s *ApplicationSuite) TestSetApplicationConfig(c *gc.C) {
 				"juju-external-hostname": "value",
 				"stringOption":           "stringVal",
 			},
-			Generation: model.GenerationMaster,
+			Generation: branchName,
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)
