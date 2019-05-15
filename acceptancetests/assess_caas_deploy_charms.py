@@ -16,13 +16,20 @@ from time import sleep
 
 import requests
 
-from deploy_stack import BootstrapManager
+from deploy_stack import (
+    BootstrapManager,
+    # temp_juju_home,
+)
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
     JujuAssertionError,
 )
 
+from jujupy.client import (
+    temp_bootstrap_env,
+    # juju_home_path,
+)
 from jujupy.utility import until_timeout
 from jujupy.k8s_provider import (
     providers,
@@ -114,7 +121,7 @@ def parse_args(argv):
     )
     parser.add_argument(
         '--k8s-controller',
-        action='store_false',
+        action='store_true',
         help='Bootstrap to k8s cluster or not.'
     )
 
@@ -132,6 +139,17 @@ def main(argv=None):
     with k8s_provider(bs_manager).substrate_context() as caas_client:
         # add-k8s --local
         if args.k8s_controller:
+            # old_home = bs_manager.client.env.juju_home
+            # old_env = bs_manager.client.env.environment
+            # print("old_home ---> ", old_home)
+            # bs_manager.client.env.environment = bs_manager.temp_env_name
+            # print("bs_manager.client.env.environment ---> ", bs_manager.client.env.environment)
+            # with temp_bootstrap_env(bs_manager.client.env.juju_home, bs_manager.client) as tm_h:
+            #     print("tm_h ---> ", tm_h)
+            #     bs_manager.client.env.juju_home = tm_h
+            #     caas_client.refresh_home(bs_manager.client)
+            # bs_manager.client.env.juju_home = old_home
+            # bs_manager.client.env.environment = old_env
             caas_client.add_k8s(True)
         with bs_manager.booted_context(
             args.upload_tools,

@@ -56,7 +56,7 @@ class MicroK8s(Base):
         # choose to use microk8s.kubectl
         mkubectl = shutil.which('microk8s.kubectl')
         if mkubectl is None:
-            raise AssertionError(mkubectl + "is required!")
+            raise AssertionError("microk8s.kubectl is required!")
         self.kubectl_path = mkubectl
 
         # export microk8s.config to kubeconfig file.

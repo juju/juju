@@ -32,6 +32,7 @@ from jujupy.utility import (
     ensure_dir,
     until_timeout,
 )
+from jujupy.client import temp_bootstrap_env
 
 
 logger = logging.getLogger(__name__)
@@ -118,7 +119,16 @@ class Base(object):
         bs_manager.cleanup_hook = self.ensure_cleanup
 
         self.timeout = timeout
-        self.juju_home = self.client.env.juju_home
+        old_environment = bs_manager.client.env.environment
+        bs_manager.client.env.environment = bs_manager.temp_env_name
+        with temp_bootstrap_env(bs_manager.client.env.juju_home, bs_manager.client) as tm_h:
+            self.client.env.juju_home = tm_h
+            self.refresh_home(self.client)
+
+        bs_manager.client.env.environment = old_environment
+
+    def refresh_home(self, client):
+        self.juju_home = client.env.juju_home
 
         self.kubectl_path = os.path.join(self.juju_home, 'kubectl')
         self.kube_home = os.path.join(self.juju_home, '.kube')
@@ -146,18 +156,26 @@ class Base(object):
         # returns the newly added CAAS model.
         return self.client.add_model(env=self.client.env.clone(model_name), cloud_region=self.cloud_name)
 
-    def add_k8s(self, is_local=False):
+    def add_k8s(self, is_local=False, juju_home=None):
+        args = (
+            self.cloud_name,
+        )
+        juju_home = juju_home or self.client.env.juju_home
         if is_local:
-            self.client.controller_juju(
-                'add-k8s',
-                (self.cloud_name, '--local', '--cluster-name', self.kubeconfig_cluster_name)
+            args += (
+                '--local',
+                '--cluster-name', self.kubeconfig_cluster_name,
             )
         else:
-            self.client.controller_juju(
-                'add-k8s',
-                (self.cloud_name, '--controller', self.client.env.controller.name)
+            args += (
+                '--controller', self.client.env.controller.name,
             )
+        self.client._backend.juju(
+            'add-k8s', args,
+            used_feature_flags=self.client.used_feature_flags, juju_home=juju_home,
+        )
         logger.debug('added caas cloud, now all clouds are -> \n%s', self.client.list_clouds(format='yaml'))
+        print('add-k8s env',  self.sh('env'))
 
     def check_cluster_healthy(self, timeout=0):
         def check():
