@@ -22,6 +22,7 @@ from __future__ import print_function
 import logging
 import yaml
 from time import sleep
+import shutil
 
 from google.cloud import container_v1
 from google.oauth2 import service_account
@@ -85,15 +86,27 @@ class GKE(Base):
             ...
 
     def _ensure_kube_dir(self):
+        cluster = self._get_cluster(self.gke_cluster_name)
         cluster_config = ClusterConfig(
             project_id=self.default_params['project_id'],
-            cluster=self._get_cluster(self.gke_cluster_name),
+            cluster=cluster,
         )
         self.kubeconfig_cluster_name = cluster_config.context_name
         kubeconfig_content = cluster_config.dump()
         with open(self.kube_config_path, 'w') as f:
             logger.debug('writing kubeconfig to %s\n%s', self.kube_config_path, kubeconfig_content)
             f.write(kubeconfig_content)
+
+        # ensure kubectl
+        kubectl_bin_path = shutil.which('kubectl')
+        if kubectl_bin_path is not None:
+            self.kubectl_path = kubectl_bin_path
+        else:
+            self.sh(
+                'curl', '-LO',
+                'https://storage.googleapis.com/kubernetes-release/release/v1.14.0/bin/linux/amd64/kubectl',
+                '-o', self.self.kubectl_path
+            )
 
     def _ensure_cluster_config(self):
         ...
@@ -126,7 +139,10 @@ class GKE(Base):
                 log_remaining(remaining)
 
         # provision cluster.
-        cluster = dict(name=self.gke_cluster_name, initial_node_count=1)
+        cluster = dict(
+            name=self.gke_cluster_name,
+            initial_node_count=1,
+        )
         logger.info('creating cluster -> %s', cluster)
         r = self.driver.create_cluster(
             cluster=cluster,
@@ -162,13 +178,35 @@ class ClusterConfig(object):
             cluster_name=self.cluster_name,
         )
 
-    @property
-    def user(self):
+    def user(self, auth_provider='gcp'):
+        if auth_provider is None:
+            return {
+                'name': self.context_name,
+                'user': {
+                    'client-certificate-data': self.client_cert_data,
+                    'client-key-data': self.client_key_data
+                },
+            }
+        # TODO(ycliuhw): remove gcloud dependency once 'google-cloud-container' supports defining master-auth type.
+        gcloud_bin_path = shutil.which('gcloud')
+        if gcloud_bin_path is None:
+            raise AssertionError("gcloud bin is required!")
         return {
             'name': self.context_name,
             'user': {
-                'client-certificate-data': self.client_cert_data,
-                'client-key-data': self.client_key_data
+                'auth-provider': {
+                    'name': auth_provider,
+                    'config': {
+                        # Command for gcloud credential helper
+                        'cmd-path': gcloud_bin_path,
+                        # Args for gcloud credential helper
+                        'cmd-args': 'config config-helper --format=json',
+                        # JSONpath to the field that is the raw access token
+                        'token-key': '{.credential.access_token}',
+                        # JSONpath to the field that is the expiration timestamp
+                        'expiry-key': '{.credential.token_expiry}',
+                    }
+                },
             },
         }
 
@@ -200,6 +238,6 @@ class ClusterConfig(object):
             'clusters': [self.cluster],
             'current-context': self.context_name,
             'preferences': {},
-            'users': [self.user],
+            'users': [self.user()],
         }
         return yaml.dump(d)
