@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -21,11 +22,13 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	_ "github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/dummy"
@@ -1603,6 +1606,70 @@ func (s *modelManagerStateSuite) TestModifyModelAccessInvalidAction(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `unknown action "dance"`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
+}
+
+func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
+	user := names.NewUserTag("admin")
+
+	modelState := s.Factory.MakeModel(c, &factory.ModelParams{
+		Owner: user,
+	})
+	defer modelState.Close()
+	model, err := modelState.Model()
+
+	// Migrate the model and delete it from the state
+	mig, err := modelState.CreateMigration(state.MigrationSpec{
+		InitiatedBy: user,
+		TargetInfo: migration.TargetInfo{
+			ControllerTag:   names.NewControllerTag(utils.MustNewUUID().String()),
+			ControllerAlias: "target",
+			Addrs:           []string{"1.2.3.4:5555"},
+			CACert:          coretesting.CACert,
+			AuthTag:         names.NewUserTag("user2"),
+			Password:        "secret",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	phases := []migration.Phase{migration.IMPORT, migration.VALIDATION, migration.SUCCESS, migration.LOGTRANSFER, migration.REAP, migration.DONE}
+	for _, phase := range phases {
+		c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
+	}
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(modelState.RemoveDyingModel(), jc.ErrorIsNil)
+
+	anAuthoriser := s.authoriser
+	anAuthoriser.Tag = user
+	endPoint, err := modelmanager.NewModelManagerAPI(
+		common.NewUserAwareModelManagerBackend(model, s.StatePool, user),
+		common.NewModelManagerBackend(s.Model, s.StatePool),
+		nil, nil, anAuthoriser,
+		s.Model,
+		s.callContext,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(endPoint, gc.NotNil)
+
+	res, err := endPoint.ModelInfo(
+		params.Entities{
+			Entities: []params.Entity{
+				{Tag: model.ModelTag().String()},
+			},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	resErr0 := errors.Cause(res.Results[0].Error)
+	c.Assert(params.IsRedirect(resErr0), gc.Equals, true)
+
+	pErr, ok := resErr0.(*params.Error)
+	c.Assert(ok, gc.Equals, true)
+
+	var info params.RedirectErrorInfo
+	c.Assert(pErr.UnmarshalInfo(&info), jc.ErrorIsNil)
+	nhp := params.FromNetworkHostPorts(network.NewHostPorts(5555, "1.2.3.4"))
+	c.Assert(info.Servers, jc.DeepEquals, [][]params.HostPort{nhp})
+	c.Assert(info.CACert, gc.Equals, coretesting.CACert)
+	c.Assert(info.ControllerAlias, gc.Equals, "target")
 }
 
 func (s *modelManagerSuite) TestModelStatusV2(c *gc.C) {
