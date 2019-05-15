@@ -4,8 +4,6 @@
 package machine_test
 
 import (
-	"io/ioutil"
-	"os"
 	"sort"
 
 	"github.com/juju/collections/set"
@@ -228,13 +226,9 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 }
 
 func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *gc.C) {
-	tmpDir, err := ioutil.TempDir("", "agent-data-dir")
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { _ = os.RemoveAll(tmpDir) }()
-
 	ag := &mockAgent{
 		conf: mockConfig{
-			dataPath: tmpDir,
+			dataPath: c.MkDir(),
 		},
 	}
 	manifolds := machine.Manifolds(machine.ManifoldsConfig{
@@ -247,7 +241,7 @@ func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *gc.C) {
 	// Check that when the api-caller maps non-recoverable errors to
 	// ErrTerminateAgent and that it does not create an uninstall file for
 	// the agent.
-	err = apiCaller.Filter(apicaller.ErrConnectImpossible)
+	err := apiCaller.Filter(apicaller.ErrConnectImpossible)
 	c.Assert(err, gc.Equals, jworker.ErrTerminateAgent)
 	c.Assert(agent.CanUninstall(ag), gc.Equals, false)
 }
