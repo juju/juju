@@ -1732,14 +1732,23 @@ func (s *MachineSuite) TestSetProviderAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	addresses := network.NewAddresses("127.0.0.1", "8.8.8.8")
+	addresses := []network.Address{
+		network.NewAddress("127.0.0.1"),
+		{
+			Value:           "8.8.8.8",
+			Type:            network.IPv4Address,
+			Scope:           network.ScopeCloudLocal,
+			SpaceName:       "test-space",
+			SpaceProviderId: "1",
+		},
+	}
 	err = machine.SetProviderAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedAddresses := network.NewAddresses("8.8.8.8", "127.0.0.1")
-	c.Assert(machine.Addresses(), jc.DeepEquals, expectedAddresses)
+	network.SortAddresses(addresses)
+	c.Assert(machine.Addresses(), jc.DeepEquals, addresses)
 }
 
 func (s *MachineSuite) TestSetProviderAddressesWithContainers(c *gc.C) {
