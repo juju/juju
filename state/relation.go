@@ -319,7 +319,10 @@ func (r *Relation) DestroyWithForce(force bool, maxWait time.Duration) ([]error,
 // Destroy ensures that the relation will be removed at some point; if no units
 // are currently in scope, it will be removed immediately.
 func (r *Relation) Destroy() error {
-	_, err := r.DestroyWithForce(false, time.Duration(0))
+	errs, err := r.DestroyWithForce(false, time.Duration(0))
+	if len(errs) != 0 {
+		logger.Warningf("operational errors removing relation %v: %v", r.Id(), errs)
+	}
 	return err
 }
 
@@ -427,10 +430,16 @@ func (r *Relation) destroyOps(ignoreApplication string, op *ForcedOperation) (op
 		}
 		return removeOps, true, nil
 	}
+	lifeAssert := isAliveDoc
+	if op.Force {
+		// Since we are force destroying, life assert should be current relation's life.
+		lifeAssert = bson.D{{"life", r.doc.Life}}
+	}
+
 	return []txn.Op{{
 		C:      relationsC,
 		Id:     r.doc.DocID,
-		Assert: bson.D{{"life", Alive}, {"unitcount", bson.D{{"$gt", 0}}}},
+		Assert: append(bson.D{{"unitcount", bson.D{{"$gt", 0}}}}, lifeAssert...),
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}}, false, nil
 }

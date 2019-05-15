@@ -4,9 +4,6 @@
 package provider
 
 import (
-	"os"
-	"strings"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
@@ -49,19 +46,12 @@ func getCloudRegionFromNodeMeta(node core.Node) (string, string) {
 		for _, checker := range checkers {
 			if checker.Matches(k8slabels.Set(node.GetLabels())) {
 				region := node.Labels[regionLabelName]
+				if region == "" && cloudType == caas.K8sCloudMicrok8s {
+					region = caas.Microk8sRegion
+				}
 				return cloudType, region
 			}
 		}
-	}
-	// TODO - add microk8s node label check when available
-	hostname, err := os.Hostname()
-	if err != nil {
-		return "", ""
-	}
-	hostname = strings.ToLower(hostname)
-	hostLabel, _ := node.Labels["kubernetes.io/hostname"]
-	if node.Name == hostname && hostLabel == hostname {
-		return caas.K8sCloudMicrok8s, caas.Microk8sRegion
 	}
 	return "", ""
 }

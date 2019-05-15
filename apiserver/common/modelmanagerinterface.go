@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -111,12 +112,21 @@ type modelManagerStateShim struct {
 	*state.State
 	model *state.Model
 	pool  *state.StatePool
+	user  names.UserTag
 }
 
 // NewModelManagerBackend returns a modelManagerStateShim wrapping the passed
 // state, which implements ModelManagerBackend.
 func NewModelManagerBackend(m *state.Model, pool *state.StatePool) ModelManagerBackend {
-	return modelManagerStateShim{m.State(), m, pool}
+	return modelManagerStateShim{m.State(), m, pool, names.UserTag{}}
+}
+
+// NewUserAwareModelManagerBackend returns a user-aware modelManagerStateShim
+// wrapping the passed state, which implements ModelManagerBackend. The
+// returned backend may emit redirect errors when attempting a model lookup for
+// a migrated model that this user had been granted access to.
+func NewUserAwareModelManagerBackend(m *state.Model, pool *state.StatePool, u names.UserTag) ModelManagerBackend {
+	return modelManagerStateShim{m.State(), m, pool, u}
 }
 
 // NewModel implements ModelManagerBackend.
@@ -126,7 +136,7 @@ func (st modelManagerStateShim) NewModel(args state.ModelArgs) (Model, ModelMana
 	if err != nil {
 		return nil, nil, err
 	}
-	return modelShim{otherModel}, modelManagerStateShim{otherState, otherModel, st.pool}, nil
+	return modelShim{otherModel}, modelManagerStateShim{otherState, otherModel, st.pool, st.user}, nil
 }
 
 func (st modelManagerStateShim) ModelConfigDefaultValues(cloudName string) (config.ModelDefaultAttributes, error) {
@@ -151,10 +161,39 @@ func (st modelManagerStateShim) GetBackend(modelUUID string) (ModelManagerBacken
 	}
 	otherModel, err := otherState.Model()
 	if err != nil {
-		otherState.Release()
-		return nil, nil, err
+		defer otherState.Release()
+		if !errors.IsNotFound(err) || st.user.Id() == "" {
+			return nil, nil, err
+		}
+
+		// Check if this model has been migrated and this user had
+		// access to it before its migration.
+		mig, mErr := otherState.LatestRemovedModelMigration()
+		if mErr != nil && !errors.IsNotFound(mErr) {
+			return nil, nil, errors.Trace(mErr)
+		}
+
+		if mig == nil || mig.ModelUserAccess(st.user) == permission.NoAccess {
+			return nil, nil, errors.Trace(err) // return original NotFound error
+		}
+
+		target, mErr := mig.TargetInfo()
+		if mErr != nil {
+			return nil, nil, errors.Trace(mErr)
+		}
+
+		hps, mErr := network.ParseHostPorts(target.Addrs...)
+		if mErr != nil {
+			return nil, nil, errors.Trace(mErr)
+		}
+
+		return nil, nil, &RedirectError{
+			Servers:         [][]network.HostPort{hps},
+			CACert:          target.CACert,
+			ControllerAlias: target.ControllerAlias,
+		}
 	}
-	return modelManagerStateShim{otherState.State, otherModel, st.pool}, otherState.Release, nil
+	return modelManagerStateShim{otherState.State, otherModel, st.pool, st.user}, otherState.Release, nil
 }
 
 // GetModel implements ModelManagerBackend.

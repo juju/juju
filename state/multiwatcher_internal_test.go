@@ -657,6 +657,7 @@ func (*storeManagerSuite) TestRunStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	d, err := w.Next()
 	c.Assert(err, gc.ErrorMatches, "shared state watcher was stopped")
+	c.Assert(err, jc.Satisfies, IsErrStopped)
 	c.Assert(d, gc.HasLen, 0)
 }
 
@@ -742,7 +743,7 @@ func (*storeManagerSuite) TestMultiwatcherStop(c *gc.C) {
 	w := &Multiwatcher{all: sm}
 	err := w.Stop()
 	c.Assert(err, jc.ErrorIsNil)
-	checkNext(c, w, nil, ErrStopped.Error())
+	checkNext(c, w, nil, NewErrStopped().Error())
 }
 
 func (*storeManagerSuite) TestMultiwatcherStopBecauseStoreManagerError(c *gc.C) {
@@ -759,7 +760,7 @@ func (*storeManagerSuite) TestMultiwatcherStopBecauseStoreManagerError(c *gc.C) 
 	b.setFetchError(errors.New("some error"))
 	c.Logf("updating entity")
 	b.updateEntity(&multiwatcher.MachineInfo{Id: "1"})
-	checkNext(c, w, nil, `shared state watcher was stopped`)
+	checkNext(c, w, nil, ErrStoppedf("shared state watcher").Error())
 }
 
 func StoreIncRef(a *multiwatcherStore, id interface{}) {

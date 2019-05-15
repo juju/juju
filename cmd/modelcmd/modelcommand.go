@@ -548,7 +548,12 @@ func (w *modelCommandWrapper) Run(ctx *cmd.Context) error {
 	if err := w.validateCommandForModelType(true); err != nil {
 		return errors.Trace(err)
 	}
-	return w.ModelCommand.Run(ctx)
+	err := w.ModelCommand.Run(ctx)
+	if redirErr, ok := errors.Cause(err).(*api.RedirectError); ok {
+		modelName, _ := w.ModelCommand.ModelName()
+		return newModelMigratedError(store, modelName, redirErr)
+	}
+	return err
 }
 
 func (w *modelCommandWrapper) SetFlags(f *gnuflag.FlagSet) {

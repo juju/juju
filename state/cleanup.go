@@ -326,7 +326,7 @@ func (st *State) cleanupMachinesForDyingModel(cleanupArgs []bson.Raw) (err error
 				// TODO (force 2019-4-24) However, we should not break out here but continue with other machines.
 				return errors.Trace(errors.Annotatef(err, "could not destroy manual machine %v", m.Id()))
 			}
-			return nil
+			continue
 		}
 		// TODO (force 2019-04-26) Should this always be ForceDestroy or only when
 		// 'destroy-model --force' is specified?...
@@ -420,7 +420,11 @@ func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.R
 	op := app.DestroyOperation()
 	op.DestroyStorage = destroyStorage
 	op.Force = force
-	return st.ApplyOperation(op)
+	err = st.ApplyOperation(op)
+	if len(op.Errors) != 0 {
+		logger.Warningf("operational errors cleaning up application %v: %v", applicationname, op.Errors)
+	}
+	return err
 }
 
 // cleanupApplicationsForDyingModel sets all applications to Dying, if they are
@@ -463,7 +467,11 @@ func (st *State) removeApplicationsForDyingModel(args DestroyModelParams) (err e
 		op.RemoveOffers = true
 		op.Force = force
 		op.MaxWait = args.MaxWait
-		if err := st.ApplyOperation(op); err != nil {
+		err := st.ApplyOperation(op)
+		if len(op.Errors) != 0 {
+			logger.Warningf("operational errors removing application %v for dying model %v: %v", application.Name(), st.ModelUUID(), op.Errors)
+		}
+		if err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -483,9 +491,11 @@ func (st *State) removeRemoteApplicationsForDyingModel(args DestroyModelParams) 
 
 	force := args.Force != nil && *args.Force
 	for iter.Next(&remoteApp.doc) {
-		// TODO (force 2019-4-24) There may be some operational errors.
-		// Do something with with them.
-		if _, err := remoteApp.DestroyWithForce(force, args.MaxWait); err != nil {
+		errs, err := remoteApp.DestroyWithForce(force, args.MaxWait)
+		if len(errs) != 0 {
+			logger.Warningf("operational errors removing remote application %v for dying model %v: %v", remoteApp.Name(), st.ModelUUID(), errs)
+		}
+		if err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -539,7 +549,12 @@ func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanup
 		op.DestroyStorage = destroyStorage
 		op.Force = force
 		op.MaxWait = maxWait
-		if err := st.ApplyOperation(op); err != nil {
+		err := st.ApplyOperation(op)
+		if len(op.Errors) != 0 {
+			logger.Warningf("operational errors destroying unit %v for dying application %v: %v", unit.Name(), applicationname, op.Errors)
+		}
+
+		if err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -723,7 +738,10 @@ func (st *State) cleanupForceDestroyedUnit(unitId string, cleanupArgs []bson.Raw
 				logger.Warningf("couldn't get relation unit for %q in %q: %v", unit, relation, err)
 				continue
 			}
-			_, err = ru.LeaveScopeWithForce(true, maxWait)
+			errs, err := ru.LeaveScopeWithForce(true, maxWait)
+			if len(errs) != 0 {
+				logger.Warningf("operational errors cleaning up force destroyed unit %v in relation %v: %v", unit, relation, errs)
+			}
 			if err != nil {
 				logger.Warningf("unit %q couldn't leave scope of relation %q: %v", unitId, relation, err)
 			}

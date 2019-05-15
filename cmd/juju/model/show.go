@@ -11,6 +11,7 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
@@ -106,7 +107,7 @@ func (c *showModelCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	if results[0].Error != nil {
-		return results[0].Error
+		return maybeEmitRedirectError(results[0].Error)
 	}
 	infoMap, err := c.apiModelInfoToModelInfoMap([]params.ModelInfo{*results[0].Result}, controllerName)
 	if err != nil {
@@ -128,4 +129,22 @@ func (c *showModelCommand) apiModelInfoToModelInfoMap(modelInfo []params.ModelIn
 		output[out.ShortName] = out
 	}
 	return output, nil
+}
+
+func maybeEmitRedirectError(err error) error {
+	pErr, ok := errors.Cause(err).(*params.Error)
+	if !ok {
+		return err
+	}
+
+	var redirInfo params.RedirectErrorInfo
+	if err := pErr.UnmarshalInfo(&redirInfo); err == nil && redirInfo.CACert != "" && len(redirInfo.Servers) != 0 {
+		return &api.RedirectError{
+			Servers:         params.NetworkHostsPorts(redirInfo.Servers),
+			CACert:          redirInfo.CACert,
+			ControllerAlias: redirInfo.ControllerAlias,
+			FollowRedirect:  false, // user-action required
+		}
+	}
+	return err
 }

@@ -165,7 +165,7 @@ func NewFacadeV9(ctx facade.Context) (*APIv9, error) {
 }
 
 func newFacadeBase(ctx facade.Context) (*APIBase, error) {
-	model, err := ctx.State().Model()
+	facadeModel, err := ctx.State().Model()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model")
 	}
@@ -181,7 +181,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		registry           storage.ProviderRegistry
 		storageValidator   caas.Broker
 	)
-	if model.Type() == state.ModelTypeCAAS {
+	if facadeModel.Type() == state.ModelTypeCAAS {
 		storageValidator, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(ctx.State())
 		if err != nil {
 			return nil, errors.Annotate(err, "getting caas client")
@@ -197,7 +197,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		storageAccess,
 		ctx.Auth(),
 		blockChecker,
-		model,
+		facadeModel,
 		stateCharm,
 		DeployApplication,
 		storagePoolManager,
@@ -271,12 +271,12 @@ func (api *APIBase) SetMetricCredentials(args params.ApplicationMetricCredential
 		return result, nil
 	}
 	for i, a := range args.Creds {
-		application, err := api.backend.Application(a.ApplicationName)
+		oneApplication, err := api.backend.Application(a.ApplicationName)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		err = application.SetMetricCredentials(a.MetricCredentials)
+		err = oneApplication.SetMetricCredentials(a.MetricCredentials)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 		}
@@ -383,11 +383,11 @@ func applicationConfigSchema(modelType state.ModelType) (environschema.Fields, s
 	}
 	// TODO(caas) - get the schema from the provider
 	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
-	schema, err := caas.ConfigSchema(k8s.ConfigSchema())
+	configSchema, err := caas.ConfigSchema(k8s.ConfigSchema())
 	if err != nil {
 		return nil, nil, err
 	}
-	return AddTrustSchemaAndDefaults(schema, defaults)
+	return AddTrustSchemaAndDefaults(configSchema, defaults)
 }
 
 func splitApplicationAndCharmConfig(modelType state.ModelType, inConfig map[string]string) (
@@ -572,11 +572,11 @@ func deployApplication(
 	}
 
 	var applicationConfig *application.Config
-	schema, defaults, err := applicationConfigSchema(modelType)
+	configSchema, defaults, err := applicationConfigSchema(modelType)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	applicationConfig, err = application.NewConfig(appSettings, schema, defaults)
+	applicationConfig, err = application.NewConfig(appSettings, configSchema, defaults)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -825,11 +825,11 @@ func (api *APIBase) updateCharm(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	charm, err := api.backend.Charm(curl)
+	aCharm, err := api.backend.Charm(curl)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return api.applicationSetCharm(params, charm)
+	return api.applicationSetCharm(params, aCharm)
 }
 
 // UpdateApplicationSeries updates the application series. Series for
@@ -889,7 +889,7 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 			return errors.Trace(err)
 		}
 	}
-	application, err := api.backend.Application(args.ApplicationName)
+	oneApplication, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -897,7 +897,7 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	return api.setCharmWithAgentValidation(
 		setCharmParams{
 			AppName:               args.ApplicationName,
-			Application:           application,
+			Application:           oneApplication,
 			Channel:               channel,
 			ConfigSettingsStrings: args.ConfigSettings,
 			ConfigSettingsYAML:    args.ConfigSettingsYAML,
@@ -934,7 +934,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 		return api.applicationSetCharm(params, newCharm)
 	}
 
-	application := params.Application
+	oneApplication := params.Application
 	// Check if the controller agent tools version is greater than the
 	// version we support for the new LXD profiles.
 	// Then check all the units, to see what their agent tools versions is
@@ -952,13 +952,13 @@ func (api *APIBase) setCharmWithAgentValidation(
 	// machines what profiles they currently have and matching with the
 	// incoming update. This could be very costly when you have lots of
 	// machines.
-	currentCharm, _, err := application.Charm()
+	currentCharm, _, err := oneApplication.Charm()
 	if err != nil {
 		logger.Debugf("Unable to locate current charm: %v", err)
 	}
 	if lxdprofile.NotEmpty(lxdCharmProfiler{Charm: currentCharm}) ||
 		lxdprofile.NotEmpty(lxdCharmProfiler{Charm: newCharm}) {
-		if err := validateAgentVersions(application, api.model); err != nil {
+		if err := validateAgentVersions(oneApplication, api.model); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1074,11 +1074,11 @@ func (api *APIBase) GetCharmURL(args params.ApplicationGet) (params.StringResult
 	if err := api.checkCanWrite(); err != nil {
 		return params.StringResult{}, errors.Trace(err)
 	}
-	application, err := api.backend.Application(args.ApplicationName)
+	oneApplication, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return params.StringResult{}, errors.Trace(err)
 	}
-	charmURL, _ := application.CharmURL()
+	charmURL, _ := oneApplication.CharmURL()
 	return params.StringResult{Result: charmURL.String()}, nil
 }
 
@@ -1271,12 +1271,12 @@ func addApplicationUnits(backend Backend, modelType state.ModelType, args params
 		}
 		attachStorage[i] = tag
 	}
-	application, err := backend.Application(args.ApplicationName)
+	oneApplication, err := backend.Application(args.ApplicationName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return addUnits(
-		application,
+		oneApplication,
 		args.ApplicationName,
 		args.NumUnits,
 		args.Placement,
@@ -1361,13 +1361,13 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 			return nil, errors.Errorf("unit %q is a subordinate", name)
 		}
 		var info params.DestroyUnitInfo
-		storage, err := storagecommon.UnitStorage(api.storageAccess, unit.UnitTag())
+		unitStorage, err := storagecommon.UnitStorage(api.storageAccess, unit.UnitTag())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
 		if arg.DestroyStorage {
-			for _, s := range storage {
+			for _, s := range unitStorage {
 				info.DestroyedStorage = append(
 					info.DestroyedStorage,
 					params.Entity{Tag: s.StorageTag().String()},
@@ -1375,7 +1375,7 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 			}
 		} else {
 			info.DestroyedStorage, info.DetachedStorage, err = storagecommon.ClassifyDetachedStorage(
-				api.storageAccess.VolumeAccess(), api.storageAccess.FilesystemAccess(), storage,
+				api.storageAccess.VolumeAccess(), api.storageAccess.FilesystemAccess(), unitStorage,
 			)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -1390,12 +1390,9 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 		if err := api.backend.ApplyOperation(op); err != nil {
 			return nil, errors.Trace(err)
 		}
-		// TODO (anastasiamac 2019-03-29) we want to return errors and info when forced..
-		//  maybe always, so that we can report how many errors we are getting/got.
-		// At the moment, this only returns the intent not the actual result.
-		// However, there is a provision for this functionality for the near-future: destroy operation itself
-		// contains Errors that have been encountered during its application.
-		logger.Warningf("operational errors destroying unit %v: %v", unit.Name(), op.Errors)
+		if len(op.Errors) != 0 {
+			logger.Warningf("operational errors destroying unit %v: %v", unit.Name(), op.Errors)
+		}
 		return &info, nil
 	}
 	results := make([]params.DestroyUnitResult, len(args.Units))
@@ -1480,7 +1477,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 				info.DestroyedUnits,
 				params.Entity{unit.UnitTag().String()},
 			)
-			storage, err := storagecommon.UnitStorage(api.storageAccess, unit.UnitTag())
+			unitStorage, err := storagecommon.UnitStorage(api.storageAccess, unit.UnitTag())
 			if err != nil {
 				return nil, err
 			}
@@ -1488,7 +1485,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 			// Filter out storage we've already seen. Shared
 			// storage may be attached to multiple units.
 			var unseen []state.StorageInstance
-			for _, stor := range storage {
+			for _, stor := range unitStorage {
 				storageTag := stor.StorageTag()
 				if storageSeen.Contains(storageTag) {
 					continue
@@ -1496,10 +1493,10 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 				storageSeen.Add(storageTag)
 				unseen = append(unseen, stor)
 			}
-			storage = unseen
+			unitStorage = unseen
 
 			if arg.DestroyStorage {
-				for _, s := range storage {
+				for _, s := range unitStorage {
 					info.DestroyedStorage = append(
 						info.DestroyedStorage,
 						params.Entity{s.StorageTag().String()},
@@ -1507,7 +1504,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 				}
 			} else {
 				destroyed, detached, err := storagecommon.ClassifyDetachedStorage(
-					api.storageAccess.VolumeAccess(), api.storageAccess.FilesystemAccess(), storage,
+					api.storageAccess.VolumeAccess(), api.storageAccess.FilesystemAccess(), unitStorage,
 				)
 				if err != nil {
 					return nil, err
@@ -1525,12 +1522,9 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 		if err := api.backend.ApplyOperation(op); err != nil {
 			return nil, err
 		}
-		// TODO (anastasiamac 2019-03-29) we want to return errors and info when forced..
-		//  maybe always, so that we can report how many errors we are getting/got.
-		// At the moment, this only returns the intent not the actual result.
-		// However, there is a provision for this functionality for the near-future: destroy operation itself
-		// contains Errors that have been encountered during its application.
-		logger.Warningf("operational errors destroying application %v: %v", tag.Id(), op.Errors)
+		if len(op.Errors) != 0 {
+			logger.Warningf("operational errors destroying application %v: %v", tag.Id(), op.Errors)
+		}
 		return &info, nil
 	}
 	results := make([]params.DestroyApplicationResult, len(args.Applications))
@@ -1762,7 +1756,12 @@ func (api *APIBase) DestroyRelation(args params.DestroyRelation) (err error) {
 	if err != nil {
 		return err
 	}
-	return rel.Destroy()
+	force := args.Force != nil && *args.Force
+	errs, err := rel.DestroyWithForce(force, common.MaxWait(args.MaxWait))
+	if len(errs) != 0 {
+		logger.Warningf("operational errors destroying relation %v: %v", rel.Tag().Id(), errs)
+	}
+	return err
 }
 
 // SetRelationsSuspended sets the suspended status of the specified relations.
@@ -2126,13 +2125,13 @@ func (api *APIBase) setApplicationConfig(arg params.ApplicationConfigSet) error 
 	if err != nil {
 		return errors.Trace(err)
 	}
-	schema, defaults, err := applicationConfigSchema(api.modelType)
+	configSchema, defaults, err := applicationConfigSchema(api.modelType)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	if len(appConfigAttrs) > 0 {
-		if err := app.UpdateApplicationConfig(appConfigAttrs, nil, schema, defaults); err != nil {
+		if err := app.UpdateApplicationConfig(appConfigAttrs, nil, configSchema, defaults); err != nil {
 			return errors.Annotate(err, "updating application config values")
 		}
 	}
@@ -2193,11 +2192,11 @@ func (api *APIBase) unsetApplicationConfig(arg params.ApplicationUnset) error {
 		return errors.Trace(err)
 	}
 
-	schema, defaults, err := applicationConfigSchema(api.modelType)
+	configSchema, defaults, err := applicationConfigSchema(api.modelType)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	appConfigFields := application.KnownConfigKeys(schema)
+	appConfigFields := application.KnownConfigKeys(configSchema)
 
 	var appConfigKeys []string
 	charmSettings := make(charm.Settings)
@@ -2210,7 +2209,7 @@ func (api *APIBase) unsetApplicationConfig(arg params.ApplicationUnset) error {
 	}
 
 	if len(appConfigKeys) > 0 {
-		if err := app.UpdateApplicationConfig(nil, appConfigKeys, schema, defaults); err != nil {
+		if err := app.UpdateApplicationConfig(nil, appConfigKeys, configSchema, defaults); err != nil {
 			return errors.Annotate(err, "updating application config values")
 		}
 	}

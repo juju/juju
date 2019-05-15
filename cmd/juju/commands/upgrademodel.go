@@ -16,6 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/os/series"
+	"github.com/juju/utils/set"
 	"github.com/juju/version"
 
 	apicontroller "github.com/juju/juju/api/controller"
@@ -71,9 +72,9 @@ See also:
     sync-agent-binaries`
 
 func newUpgradeJujuCommand() cmd.Command {
-	cmd := &upgradeJujuCommand{
+	command := &upgradeJujuCommand{
 		baseUpgradeCommand: baseUpgradeCommand{minMajorUpgradeVersion: minMajorUpgradeVersion}}
-	return modelcmd.Wrap(cmd)
+	return modelcmd.Wrap(command)
 }
 
 func newUpgradeJujuCommandForTest(
@@ -86,7 +87,7 @@ func newUpgradeJujuCommandForTest(
 	if minUpgradeVers == nil {
 		minUpgradeVers = minMajorUpgradeVersion
 	}
-	cmd := &upgradeJujuCommand{
+	command := &upgradeJujuCommand{
 		baseUpgradeCommand: baseUpgradeCommand{
 			minMajorUpgradeVersion: minUpgradeVers,
 			modelConfigAPI:         modelConfigAPI,
@@ -94,8 +95,8 @@ func newUpgradeJujuCommandForTest(
 		},
 		jujuClientAPI: jujuClientAPI,
 	}
-	cmd.SetClientStore(store)
-	return modelcmd.Wrap(cmd, options...)
+	command.SetClientStore(store)
+	return modelcmd.Wrap(command, options...)
 }
 
 // baseUpgradeCommand is used by both the
@@ -289,11 +290,11 @@ func canUpgradeRunningVersion(runningAgentVer version.Number) bool {
 }
 
 func formatVersions(agents coretools.Versions) string {
-	formatted := make([]string, len(agents))
-	for i, agent := range agents {
-		formatted[i] = fmt.Sprintf("    %s", agent.AgentVersion().String())
+	formatted := set.NewStrings()
+	for _, agent := range agents {
+		formatted.Add(fmt.Sprintf("    %s", agent.AgentVersion().String()))
 	}
-	return strings.Join(formatted, "\n")
+	return strings.Join(formatted.SortedValues(), "\n")
 }
 
 type toolsAPI interface {
@@ -747,11 +748,11 @@ func (context *upgradeContext) uploadTools(client toolsAPI, buildAgent bool, age
 		return errors.Trace(err)
 	}
 	defer f.Close()
-	os, err := series.GetOSFromSeries(builtTools.Version.Series)
+	seriesOs, err := series.GetOSFromSeries(builtTools.Version.Series)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	additionalSeries := series.OSSupportedSeries(os)
+	additionalSeries := series.OSSupportedSeries(seriesOs)
 	uploaded, err := client.UploadTools(f, uploadToolsVersion, additionalSeries...)
 	if err != nil {
 		return errors.Trace(err)

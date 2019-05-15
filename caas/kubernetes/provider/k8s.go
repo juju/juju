@@ -1317,8 +1317,7 @@ func (k *kubernetesClient) Upgrade(appName string, vers version.Number) error {
 		if !podcfg.IsJujuOCIImage(c.Image) {
 			continue
 		}
-		tagSep := strings.LastIndex(c.Image, ":")
-		c.Image = fmt.Sprintf("%s:%s", c.Image[:tagSep], vers.String())
+		c.Image = podcfg.RebuildOldOperatorImagePath(c.Image, vers)
 		existingStatefulSet.Spec.Template.Spec.Containers[i] = c
 	}
 	_, err = statefulsets.Update(existingStatefulSet)
