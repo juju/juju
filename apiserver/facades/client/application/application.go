@@ -2148,7 +2148,8 @@ func (api *APIBase) setApplicationConfig(arg params.ApplicationConfigSet) error 
 		}
 
 		// We need a guard on the API server-side for direct API callers such as
-		// python-libjuju. Always default to the master branch.
+		// python-libjuju, and for older clients.
+		// Always default to the master branch.
 		if arg.Generation == "" {
 			arg.Generation = model.GenerationMaster
 		}
@@ -2223,7 +2224,8 @@ func (api *APIBase) unsetApplicationConfig(arg params.ApplicationUnset) error {
 
 	if len(charmSettings) > 0 {
 		// We need a guard on the API server-side for direct API callers such as
-		// python-libjuju. Always default to the master branch.
+		// python-libjuju, and for older clients.
+		// Always default to the master branch.
 		if arg.BranchName == "" {
 			arg.BranchName = model.GenerationMaster
 		}
