@@ -3,34 +3,23 @@
 
 from __future__ import print_function
 
-from argparse import ArgumentParser
-from contextlib import contextmanager
 import logging
 import re
-from subprocess import CalledProcessError
 import sys
+from argparse import ArgumentParser
+from contextlib import contextmanager
+from subprocess import CalledProcessError
 
-from deploy_stack import (
-    BootstrapManager,
-    deploy_dummy_stack,
-    get_remote_machines,
-    get_token_from_status,
-    wait_for_state_server_to_shutdown,
-)
-from jujupy import (
-    parse_new_state_server_from_error,
-)
-from substrate import (
-    convert_to_azure_ids,
-    terminate_instances,
-)
-from utility import (
-    add_basic_testing_arguments,
-    configure_logging,
-    JujuAssertionError,
-    LoggedException,
-    until_timeout,
-)
+import yaml
+
+from deploy_stack import (BootstrapManager, deploy_dummy_stack,
+                          get_remote_machines, get_token_from_status,
+                          wait_for_state_server_to_shutdown)
+from jujupy import parse_new_state_server_from_error
+from substrate import convert_to_azure_ids, terminate_instances
+from utility import (JujuAssertionError, LoggedException,
+                     add_basic_testing_arguments, configure_logging,
+                     until_timeout)
 
 __metaclass__ = type
 
@@ -38,20 +27,29 @@ running_instance_pattern = re.compile('\["([^"]+)"\]')
 
 log = logging.getLogger("assess_recovery")
 
-def check_token(client, token):
-    for ignored in until_timeout(300):
-        found = get_token_from_status(client)
-        if found and token in found:
-            return found
+def set_token(client, token):
+    # unfortunately deploying a stack currently requires a token setting, but
+    # in reality the way the charm exposes the token via status means that we
+    # sometimes can't read the token i.e. if the workload-status changes after
+    # or before the token is set multiple times.
+    client.set_config('dummy-source', {'token': token})
+    return client.action_do('dummy-sink/0', 'echo', "value={}".format(token))
+
+def check_token(client, id, token):
+    result = client.action_fetch(id, 'echo', "300s")
+    parsed = yaml.safe_load(result)
+    value = parsed["results"]["echo"]["value"]
+    if value and token in value:
+        return value
     raise JujuAssertionError('Token is not {}: {}'.format(
-                             token, found))
+                             token, value))
 
 def deploy_stack(client, charm_series):
     """"Deploy a simple stack, state-server and ubuntu."""
     deploy_dummy_stack(client, charm_series)
-    client.set_config('dummy-source', {'token': 'One'})
+    id = set_token(client, 'One')
     client.wait_for_workloads()
-    check_token(client, 'One')
+    check_token(client, id, 'One')
     log.info("%s is ready to testing", client.env.environment)
 
 def enable_ha(bs_manager, controller_client):
@@ -92,10 +90,10 @@ def restore_backup(bs_manager, client, backup_file,
         client.wait_for_started(600)
     show_controller(bs_manager.client)
     bs_manager.has_controller = True
-    bs_manager.client.set_config('dummy-source', {'token': 'Two'})
+    id = set_token(bs_manager.client, 'Two')
     bs_manager.client.wait_for_started()
     bs_manager.client.wait_for_workloads()
-    check_token(bs_manager.client, 'Two')
+    check_token(bs_manager.client, id, 'Two')
     log.info("%s restored", bs_manager.client.env.environment)
     log.info("PASS")
 
@@ -132,7 +130,7 @@ def assess_recovery(bs_manager, strategy, charm_series):
     log.info("Setting up test.")
     client = bs_manager.client
     deploy_stack(client, charm_series)
-    client.set_config('dummy-source', {'token': ''})
+    set_token(client, 'empty')
     log.info("Setup complete.")
     log.info("Test started.")
     controller_client = client.get_controller_client()
