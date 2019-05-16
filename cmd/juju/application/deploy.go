@@ -307,7 +307,7 @@ type DeployCommand struct {
 	// Series is the series of the charm to deploy.
 	Series string
 
-	// Force is used to allow a charm to be deployed onto a machine
+	// Force is used to allow a charm/bundle to be deployed onto a machine
 	// running an unsupported series.
 	Force bool
 
@@ -653,7 +653,7 @@ var (
 // whether we are deploying a charm or a bundle.
 func charmOnlyFlags() []string {
 	charmOnlyFlags := []string{
-		"bind", "config", "constraints", "force", "n", "num-units",
+		"bind", "config", "constraints", "n", "num-units",
 		"series", "to", "resource", "attach-storage",
 	}
 
@@ -678,7 +678,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set application constraints")
 	f.StringVar(&c.Series, "series", "", "The series on which to deploy")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the bundle deploy would do")
-	f.BoolVar(&c.Force, "force", false, "Allow a charm to be deployed which bypasses checks such as supported series or LXD profile allow list")
+	f.BoolVar(&c.Force, "force", false, "Allow a charm/bundle to be deployed which bypasses checks such as supported series or LXD profile allow list")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
 	f.Var(devicesFlag{&c.Devices, &c.BundleDevices}, "device", "Charm device constraints")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
@@ -885,6 +885,7 @@ func (c *DeployCommand) deployBundle(
 		bundleStorage,
 		bundleDevices,
 		c.DryRun,
+		c.Force,
 		c.UseExisting,
 		c.BundleMachines,
 	); err != nil {

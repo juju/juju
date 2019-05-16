@@ -118,6 +118,7 @@ func deployBundle(
 	bundleStorage map[string]map[string]storage.Constraints,
 	bundleDevices map[string]map[string]devices.Constraints,
 	dryRun bool,
+	force bool,
 	useExistingMachines bool,
 	bundleMachines map[string]string,
 ) (map[*charm.URL]*macaroon.Macaroon, error) {
@@ -130,7 +131,15 @@ func deployBundle(
 	}
 
 	// TODO: move bundle parsing and checking into the handler.
-	h := makeBundleHandler(dryRun, bundleDir, channel, apiRoot, ctx, data, bundleURL, bundleStorage, bundleDevices)
+	h := makeBundleHandler(
+		dryRun, force,
+		bundleDir,
+		channel,
+		apiRoot,
+		ctx,
+		data,
+		bundleURL, bundleStorage, bundleDevices,
+	)
 	if err := h.makeModel(useExistingMachines, bundleMachines); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -150,6 +159,7 @@ func deployBundle(
 // bundleHandler provides helpers and the state required to deploy a bundle.
 type bundleHandler struct {
 	dryRun bool
+	force  bool
 
 	// bundleDir is the path where the bundle file is located for local bundles.
 	bundleDir string
@@ -228,6 +238,7 @@ type bundleHandler struct {
 
 func makeBundleHandler(
 	dryRun bool,
+	force bool,
 	bundleDir string,
 	channel csparams.Channel,
 	api DeployAPI,
@@ -243,6 +254,7 @@ func makeBundleHandler(
 	}
 	return &bundleHandler{
 		dryRun:        dryRun,
+		force:         force,
 		bundleDir:     bundleDir,
 		applications:  applications,
 		results:       make(map[string]string),
@@ -460,10 +472,10 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		if err == nil {
 			if err := lxdprofile.ValidateLXDProfile(lxdCharmProfiler{
 				Charm: ch,
-			}); err != nil {
+			}); err != nil && !h.force {
 				return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
 			}
-			if curl, err = h.api.AddLocalCharm(curl, ch, false); err != nil {
+			if curl, err = h.api.AddLocalCharm(curl, ch, h.force); err != nil {
 				return err
 			}
 			logger.Debugf("added charm %s", curl)
@@ -486,7 +498,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
 	var macaroon *macaroon.Macaroon
-	url, macaroon, err = addCharmFromURL(h.api, url, channel, false)
+	url, macaroon, err = addCharmFromURL(h.api, url, channel, h.force)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
@@ -600,7 +612,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 
 	if err := lxdprofile.ValidateLXDProfile(lxdCharmInfoProfiler{
 		CharmInfo: charmInfo,
-	}); err != nil {
+	}); err != nil && !h.force {
 		return errors.Trace(err)
 	}
 
@@ -627,6 +639,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		supportedSeries:     supportedSeries,
 		supportedJujuSeries: supportedJujuSeries(),
 		conf:                h.modelConfig,
+		force:               h.force,
 		fromBundle:          true,
 	}
 	series, err := selector.charmSeries()
@@ -922,6 +935,7 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 		ApplicationName: p.Application,
 		CharmID:         chID,
 		ResourceIDs:     resNames2IDs,
+		Force:           h.force,
 	}
 	// Bundles only ever deal with the current generation.
 	if err := h.api.SetCharm(model.GenerationMaster, cfg); err != nil {
