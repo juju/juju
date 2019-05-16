@@ -388,7 +388,7 @@ class TestModelClient(ClientTest):
                     client.bootstrap()
             mock.assert_called_once_with(
                 'bootstrap', (
-                    '--constraints', 'mem=2G cpu-cores=1',
+                    '--constraints', 'cores=1',
                     'joyent/foo', 'joyent',
                     '--config', config_file.name,
                     '--default-model', 'joyent', '--agent-version', '2.0',
