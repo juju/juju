@@ -15,11 +15,14 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/juju/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 )
 
@@ -635,6 +638,25 @@ func (s *ShowCommandSuite) assertShowOutput(c *gc.C, format string) {
 	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", format)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, s.expectedDisplay)
+}
+
+func (s *ShowCommandSuite) TestHandleRedirectError(c *gc.C) {
+	nhp := network.NewHostPorts(5555, "1.2.3.4")
+	caFingerprint, _ := cert.Fingerprint(testing.CACert)
+	s.fake.SetErrors(
+		&api.RedirectError{
+			Servers:         [][]network.HostPort{nhp},
+			CACert:          testing.CACert,
+			ControllerAlias: "target",
+		},
+	)
+	_, err := cmdtesting.RunCommand(c, model.NewShowCommandForTest(&s.fake, nil, s.store))
+	c.Assert(err, gc.Not(gc.IsNil))
+	c.Assert(err.Error(), gc.Equals, `Model "admin/mymodel" has been migrated to another controller.
+To access it run one of the following commands (you can replace the -c argument with your own preferred controller name):
+  'juju login 1.2.3.4:5555 -c target'
+
+New controller fingerprint [`+caFingerprint+`]`)
 }
 
 func createBasicModelInfo() *params.ModelInfo {

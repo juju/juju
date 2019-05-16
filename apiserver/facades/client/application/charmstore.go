@@ -454,5 +454,9 @@ func (p lxdCharmArchiveProfiler) LXDProfile() lxdprofile.LXDProfile {
 	if p.CharmArchive == nil {
 		return nil
 	}
-	return p.CharmArchive.LXDProfile()
+	profile := p.CharmArchive.LXDProfile()
+	if profile == nil {
+		return nil
+	}
+	return profile
 }
