@@ -1,0 +1,11 @@
+[
+    {
+        "c": "accounts",
+        "d": "doc-id",
+        "i": {
+            "foo": "bar",
+            "balance": 0
+        }
+    }
+]
+

@@ -1,0 +1,7 @@
+[
+    {
+        "c": "accounts",
+        "d": "doc-id",
+        "u": {"$inc": {"balance": 100}}
+    }
+]
