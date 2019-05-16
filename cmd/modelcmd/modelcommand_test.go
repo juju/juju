@@ -111,29 +111,38 @@ func (s *ModelCommandSuite) TestModelName(c *gc.C) {
 	s.store.Accounts["bar"] = jujuclient.AccountDetails{
 		User: "baz", Password: "hunter3",
 	}
+
 	err := s.store.UpdateModel("foo", "adminfoo/currentfoo",
 		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS})
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.store.UpdateModel("foo", "adminfoo/oncurrentfoo",
 		jujuclient.ModelDetails{ModelUUID: "uuidfoo2", ModelType: model.IAAS})
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.store.UpdateModel("foo", "bar/explicit",
 		jujuclient.ModelDetails{ModelUUID: "uuidfoo3", ModelType: model.IAAS})
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.store.UpdateModel("foo", "bar/noncurrentfoo",
 		jujuclient.ModelDetails{ModelUUID: "uuidfoo4", ModelType: model.IAAS})
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.store.UpdateModel("bar", "adminbar/currentbar",
 		jujuclient.ModelDetails{ModelUUID: "uuidbar1", ModelType: model.IAAS})
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.store.UpdateModel("bar", "adminbar/noncurrentbar",
 		jujuclient.ModelDetails{ModelUUID: "uuidbar2", ModelType: model.IAAS})
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.store.UpdateModel("bar", "baz/noncurrentbar",
 		jujuclient.ModelDetails{ModelUUID: "uuidbar3", ModelType: model.IAAS})
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.store.SetCurrentModel("foo", "adminfoo/currentfoo")
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.store.SetCurrentModel("bar", "adminbar/currentbar")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -240,10 +249,12 @@ func (*ModelCommandSuite) TestJoinModelName(c *gc.C) {
 func (s *ModelCommandSuite) assertRunHasModel(c *gc.C, expectControllerName, expectModelName string, args ...string) {
 	cmd, err := runTestCommand(c, s.store, args...)
 	c.Assert(err, jc.ErrorIsNil)
+
 	controllerName, err := cmd.ControllerName()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerName, gc.Equals, expectControllerName)
-	modelName, err := cmd.ModelName()
+
+	modelName, err := cmd.ModelIdentifier()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelName, gc.Equals, expectModelName)
 }
@@ -443,7 +454,7 @@ func (s *macaroonLoginSuite) newModelCommandBase() *modelcmd.ModelCommandBase {
 	c.SetClientStore(s.store)
 	modelcmd.InitContexts(&cmd.Context{Stderr: ioutil.Discard}, &c)
 	modelcmd.SetRunStarted(&c)
-	err := c.SetModelName(s.controllerName+":"+s.modelName, false)
+	err := c.SetModelIdentifier(s.controllerName+":"+s.modelName, false)
 	if err != nil {
 		panic(err)
 	}
