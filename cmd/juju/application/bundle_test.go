@@ -84,6 +84,32 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
 	})
 }
 
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithInvalidSeries(c *gc.C) {
+	testcharms.UploadCharmWithSeries(c, s.client, "precise/mysql-42", "mysql", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-47", "wordpress", "bionic")
+	testcharms.UploadBundleWithSeries(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple", "bionic")
+	err := runDeploy(c, "bundle/wordpress-simple")
+	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: mysql is not available on the following series: precise not supported")
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithInvalidSeriesWithForce(c *gc.C) {
+	_, mysqlch := testcharms.UploadCharmWithSeries(c, s.client, "precise/mysql-42", "mysql", "bionic")
+	_, wpch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-47", "wordpress", "bionic")
+	testcharms.UploadBundleWithSeries(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple", "bionic")
+	err := runDeploy(c, "bundle/wordpress-simple", "--force")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCharmsUploaded(c, "cs:precise/mysql-42", "cs:xenial/wordpress-47")
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"mysql":     {charm: "cs:precise/mysql-42", config: mysqlch.Config().DefaultSettings()},
+		"wordpress": {charm: "cs:xenial/wordpress-47", config: wpch.Config().DefaultSettings()},
+	})
+	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
+	s.assertUnitsCreated(c, map[string]string{
+		"mysql/0":     "0",
+		"wordpress/0": "1",
+	})
+}
+
 func (s *BundleDeployCharmStoreSuite) TestDeployKubernetesBundleSuccess(c *gc.C) {
 	unregister := caas.RegisterContainerProvider("kubernetes-test", &fakeProvider{})
 	s.AddCleanup(func(_ *gc.C) { unregister() })
@@ -961,6 +987,19 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadLXDProfi
                 num_units: 1
     `, lxdProfilePath))
 	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: cannot deploy local charm at .*: invalid lxd-profile.yaml: contains device type \"unix-disk\"")
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadLXDProfileWithForce(c *gc.C) {
+	charmsPath := c.MkDir()
+	lxdProfilePath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "lxd-profile-fail")
+	err := s.DeployBundleYAML(c, fmt.Sprintf(`
+        series: bionic
+        services:
+            lxd-profile-fail:
+                charm: %s
+                num_units: 1
+    `, lxdProfilePath), "--force")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleOverlay(c *gc.C) {

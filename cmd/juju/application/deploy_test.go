@@ -918,7 +918,7 @@ func (s *DeploySuite) TestDeployFlags(c *gc.C) {
 	c.Assert(command.flagSet, jc.DeepEquals, flagSet)
 	// Add to the slice below if a new flag is introduced which is valid for
 	// both charms and bundles.
-	charmAndBundleFlags := []string{"channel", "storage", "device"}
+	charmAndBundleFlags := []string{"channel", "storage", "device", "force"}
 	var allFlags []string
 	flagSet.VisitAll(func(flag *gnuflag.Flag) {
 		allFlags = append(allFlags, flag.Name)
