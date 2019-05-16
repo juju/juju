@@ -184,18 +184,20 @@ func (st *State) enableHAIntentionOps(
 ) ([]txn.Op, ControllersChanges, error) {
 	var ops []txn.Op
 	var change ControllersChanges
+
 	for _, m := range intent.promote {
 		ops = append(ops, promoteControllerOps(m)...)
 		change.Promoted = append(change.Promoted, m.doc.Id)
 	}
+
 	for _, m := range intent.convert {
 		ops = append(ops, convertControllerOps(m)...)
 		change.Converted = append(change.Converted, m.doc.Id)
 	}
-	// Use any placement directives that have been provided
-	// when adding new machines, until the directives have
-	// been all used up. Ignore constraints for provided machines.
-	// Set up a helper function to do the work required.
+
+	// Use any placement directives that have been provided when adding new
+	// machines, until the directives have been all used up.
+	// Ignore constraints for provided machines.
 	placementCount := 0
 	getPlacementConstraints := func() (string, constraints.Value) {
 		if placementCount >= len(intent.placement) {
@@ -205,6 +207,7 @@ func (st *State) enableHAIntentionOps(
 		placementCount++
 		return result, constraints.Value{}
 	}
+
 	mdocs := make([]*machineDoc, intent.newCount)
 	for i := range mdocs {
 		placement, cons := getPlacementConstraints()
@@ -224,8 +227,8 @@ func (st *State) enableHAIntentionOps(
 		mdocs[i] = mdoc
 		ops = append(ops, addOps...)
 		change.Added = append(change.Added, mdoc.Id)
-
 	}
+
 	for _, m := range intent.maintain {
 		tag, err := names.ParseTag(m.Tag().String())
 		if err != nil {
@@ -258,15 +261,21 @@ type enableHAIntent struct {
 func (st *State) enableHAIntentions(info *ControllerInfo, placement []string) (*enableHAIntent, error) {
 	var intent enableHAIntent
 	for _, s := range placement {
-		// TODO(natefinch): unscoped placements shouldn't ever get here (though
-		// they do currently).  We should fix up the CLI to always add a scope
-		// to placements and then we can remove the need to deal with unscoped
-		// placements.
+		// TODO(natefinch): Unscoped placements can end up here, though they
+		// should not. We should fix up the CLI to always add a scope,
+		// then we can remove the need to deal with unscoped placements.
+
+		// Append unscoped placements to the intentions.
+		// These will be used if/when adding new controllers is required.
+		// These placements will be interpreted as availability zones.
 		p, err := instance.ParsePlacement(s)
 		if err == instance.ErrPlacementScopeMissing {
 			intent.placement = append(intent.placement, s)
 			continue
 		}
+
+		// Placements for machines are "consumed" by appending such machines as
+		// candidates for promotion to controllers.
 		if err == nil && p.Scope == instance.MachineScope {
 			if names.IsContainerMachine(p.Directive) {
 				return nil, errors.New("container placement directives not supported")
@@ -280,7 +289,6 @@ func (st *State) enableHAIntentions(info *ControllerInfo, placement []string) (*
 				return nil, errors.Errorf("machine for placement directive %q is already a controller", s)
 			}
 			intent.convert = append(intent.convert, m)
-			intent.placement = append(intent.placement, s)
 			continue
 		}
 		return nil, errors.Errorf("unsupported placement directive %q", s)

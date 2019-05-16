@@ -170,11 +170,11 @@ func getReferenceController(st *state.State, machineIds []string) (*state.Machin
 	controllerId := controllerIds[0]
 
 	// Load the controller machine and get its constraints.
-	controller, err := st.Machine(strconv.Itoa(controllerId))
+	cm, err := st.Machine(strconv.Itoa(controllerId))
 	if err != nil {
 		return nil, errors.Annotatef(err, "reading controller id %v", controllerId)
 	}
-	return controller, nil
+	return cm, nil
 }
 
 // validateCurrentControllers checks for a scenario where there is no HA space
@@ -189,11 +189,11 @@ func validateCurrentControllers(st *state.State, cfg controller.Config, machineI
 
 	var badIds []string
 	for _, id := range machineIds {
-		controller, err := st.Machine(id)
+		cm, err := st.Machine(id)
 		if err != nil {
 			return errors.Annotatef(err, "reading controller id %v", id)
 		}
-		addresses := controller.Addresses()
+		addresses := cm.Addresses()
 		if len(addresses) == 0 {
 			// machines without any address are essentially not started yet
 			continue
