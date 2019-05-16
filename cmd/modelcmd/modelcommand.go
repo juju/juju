@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
 	"github.com/juju/juju/api"
@@ -48,22 +49,23 @@ type ModelCommand interface {
 	// associated with.
 	ClientStore() jujuclient.ClientStore
 
-	// SetModelName sets the model name for this command. Setting the model
-	// name will also set the related controller name. The model name can
-	// be qualified with a controller name (controller:model), or
-	// unqualified, in which case it will be assumed to be within the
-	// current controller.
+	// SetModelIdentifier sets the model name for this command.
+	// Setting the model identifier will also set the related controller name.
+	// The model name can be qualified with a controller name
+	// (controller:model), or unqualified, in which case it will be assumed
+	// to be within the current controller.
 	//
 	// Passing an empty model name will choose the default
 	// model, or return an error if there isn't one.
 	//
-	// SetModelName is called prior to the wrapped command's Init method
-	// with the active model name. The model name is guaranteed
-	// to be non-empty at entry of Init.
-	SetModelName(modelName string, allowDefault bool) error
+	// SetModelIdentifier is called prior to the wrapped command's Init method
+	// with the active model name.
+	// The model name is guaranteed to be non-empty at entry of Init.
+	SetModelIdentifier(modelIdentifier string, allowDefault bool) error
 
-	// ModelName returns the name of the model.
-	ModelName() (string, error)
+	// ModelIdentifier returns a string identifying the target model.
+	// It may be a model name, or a full or partial model UUID.
+	ModelIdentifier() (string, error)
 
 	// ModelType returns the type of the model.
 	ModelType() (model.ModelType, error)
@@ -94,15 +96,15 @@ type ModelCommandBase struct {
 	// about controllers, models, etc.
 	store jujuclient.ClientStore
 
-	// _modelName, _modelType, _modelGeneration and _controllerName hold the
-	// current model and controller names, model type and generation. They
-	// are only valid after maybeInitModel is called, and should in general
-	// not be accessed directly, but through ModelName and ControllerName
-	// respectively.
-	_modelName      string
-	_modelType      model.ModelType
-	_activeBranch   string
-	_controllerName string
+	// _modelIdentifier, _modelType, _modelGeneration and _controllerName hold
+	// the current model identifier, controller name, model type and branch.
+	// They are only valid after maybeInitModel is called, and should in
+	// general not be accessed directly, but through ModelIdentifier and
+	// ControllerName respectively.
+	_modelIdentifier string
+	_modelType       model.ModelType
+	_activeBranch    string
+	_controllerName  string
 
 	allowDefaultModel bool
 
@@ -161,13 +163,14 @@ func (c *ModelCommandBase) maybeInitModel() error {
 }
 
 func (c *ModelCommandBase) initModel0() error {
-	if c._modelName == "" && !c.allowDefaultModel {
+	if c._modelIdentifier == "" && !c.allowDefaultModel {
 		return errors.Trace(ErrNoModelSpecified)
 	}
-	if c._modelName == "" {
-		c._modelName = os.Getenv(osenv.JujuModelEnvKey)
+	if c._modelIdentifier == "" {
+		c._modelIdentifier = os.Getenv(osenv.JujuModelEnvKey)
 	}
-	controllerName, modelName := SplitModelName(c._modelName)
+
+	controllerName, modelIdentifier := SplitModelName(c._modelIdentifier)
 	if controllerName == "" {
 		currentController, err := DetermineCurrentController(c.store)
 		if err != nil {
@@ -178,20 +181,21 @@ func (c *ModelCommandBase) initModel0() error {
 		return errors.Trace(err)
 	}
 	c._controllerName = controllerName
-	if modelName == "" {
+
+	if modelIdentifier == "" {
 		currentModel, err := c.store.CurrentModel(controllerName)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		modelName = currentModel
+		modelIdentifier = currentModel
 	}
-	c._modelName = modelName
+	c._modelIdentifier = modelIdentifier
 	return nil
 }
 
-// SetModelName implements the ModelCommand interface.
-func (c *ModelCommandBase) SetModelName(modelName string, allowDefault bool) error {
-	c._modelName = modelName
+// SetModelIdentifier implements the ModelCommand interface.
+func (c *ModelCommandBase) SetModelIdentifier(modelIdentifier string, allowDefault bool) error {
+	c._modelIdentifier = modelIdentifier
 	c.allowDefaultModel = allowDefault
 
 	// After setting the model name, we may need to ensure we have access to the
@@ -203,12 +207,12 @@ func (c *ModelCommandBase) SetModelName(modelName string, allowDefault bool) err
 }
 
 // ModelName implements the ModelCommand interface.
-func (c *ModelCommandBase) ModelName() (string, error) {
+func (c *ModelCommandBase) ModelIdentifier() (string, error) {
 	c.assertRunStarted()
 	if err := c.maybeInitModel(); err != nil {
 		return "", errors.Trace(err)
 	}
-	return c._modelName, nil
+	return c._modelIdentifier, nil
 }
 
 // ModelType implements the ModelCommand interface.
@@ -216,17 +220,19 @@ func (c *ModelCommandBase) ModelType() (model.ModelType, error) {
 	if c._modelType != "" {
 		return c._modelType, nil
 	}
+
 	// If we need to look up the model type, we need to ensure we
 	// have access to the model details.
 	if err := c.maybeInitModel(); err != nil {
 		return "", errors.Trace(err)
 	}
-	details, err := c.store.ModelByName(c._controllerName, c._modelName)
+
+	_, details, err := c.modelFromStore(c._controllerName, c._modelIdentifier)
 	if err != nil {
 		if !c.runStarted {
 			return "", errors.Trace(err)
 		}
-		details, err = c.modelDetails(c._controllerName, c._modelName)
+		_, details, err = c.modelDetails(c._controllerName, c._modelIdentifier)
 		if err != nil {
 			return "", errors.Trace(err)
 		}
@@ -237,12 +243,12 @@ func (c *ModelCommandBase) ModelType() (model.ModelType, error) {
 
 // SetModelGeneration implements the ModelCommand interface.
 func (c *ModelCommandBase) SetActiveBranch(branchName string) error {
-	_, modelDetails, err := c.ModelDetails()
+	name, modelDetails, err := c.ModelDetails()
 	if err != nil {
 		return errors.Annotate(err, "getting model details")
 	}
 	modelDetails.ActiveBranch = branchName
-	if err = c.store.UpdateModel(c._controllerName, c._modelName, *modelDetails); err != nil {
+	if err = c.store.UpdateModel(c._controllerName, name, *modelDetails); err != nil {
 		return err
 	}
 	c._activeBranch = branchName
@@ -254,17 +260,19 @@ func (c *ModelCommandBase) ActiveBranch() (string, error) {
 	if c._activeBranch != "" {
 		return c._activeBranch, nil
 	}
+
 	// If we need to look up the model generation, we need to ensure we
 	// have access to the model details.
 	if err := c.maybeInitModel(); err != nil {
 		return "", errors.Trace(err)
 	}
-	details, err := c.store.ModelByName(c._controllerName, c._modelName)
+
+	_, details, err := c.modelFromStore(c._controllerName, c._modelIdentifier)
 	if err != nil {
 		if !c.runStarted {
 			return "", errors.Trace(err)
 		}
-		details, err = c.modelDetails(c._controllerName, c._modelName)
+		_, details, err = c.modelDetails(c._controllerName, c._modelIdentifier)
 		if err != nil {
 			return "", errors.Trace(err)
 		}
@@ -306,8 +314,10 @@ func (c *ModelCommandBase) NewAPIClient() (*api.Client, error) {
 	return root.Client(), nil
 }
 
+// ModelDetails returns details from the file store for the model indicated by
+// the currently set controller name and model identifier.
 func (c *ModelCommandBase) ModelDetails() (string, *jujuclient.ModelDetails, error) {
-	modelName, err := c.ModelName()
+	modelIdentifier, err := c.ModelIdentifier()
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
@@ -315,28 +325,64 @@ func (c *ModelCommandBase) ModelDetails() (string, *jujuclient.ModelDetails, err
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
-	details, err := c.modelDetails(controllerName, modelName)
-	return modelName, details, err
+
+	name, details, err := c.modelDetails(controllerName, modelIdentifier)
+	return name, details, errors.Trace(err)
 }
 
-func (c *ModelCommandBase) modelDetails(controllerName, modelName string) (*jujuclient.ModelDetails, error) {
-	if modelName == "" {
-		return nil, errors.Trace(ErrNoModelSpecified)
+func (c *ModelCommandBase) modelDetails(controllerName, modelIdentifier string) (
+	string, *jujuclient.ModelDetails, error,
+) {
+	if modelIdentifier == "" {
+		return "", nil, errors.Trace(ErrNoModelSpecified)
 	}
-	details, err := c.store.ModelByName(controllerName, modelName)
+
+	name, details, err := c.modelFromStore(controllerName, modelIdentifier)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			return nil, errors.Trace(err)
+			return "", nil, errors.Trace(err)
 		}
-		logger.Debugf("model %q not found, refreshing", modelName)
-		// The model isn't known locally, so query the models
+		logger.Debugf("model %q not found, refreshing", modelIdentifier)
+		// The model is not known locally, so query the models
 		// available in the controller, and cache them locally.
 		if err := c.RefreshModels(c.store, controllerName); err != nil {
-			return nil, errors.Annotate(err, "refreshing models")
+			return "", nil, errors.Annotate(err, "refreshing models")
 		}
-		details, err = c.store.ModelByName(controllerName, modelName)
+		name, details, err = c.modelFromStore(controllerName, modelIdentifier)
 	}
-	return details, errors.Trace(err)
+	return name, details, errors.Trace(err)
+}
+
+// modelFromStore attempts to retrieve details from the store, first under the
+// assumption that the input identifier is a model name, then using treating
+// the identifier as a full or partial model UUID.
+// If a model is successfully located its name and details are returned.
+func (c *ModelCommandBase) modelFromStore(controllerName, modelIdentifier string) (
+	string, *jujuclient.ModelDetails, error,
+) {
+	models, err := c.store.AllModels(controllerName)
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+
+	// Check if the model identifier is a name that identifies a stored model.
+	// This will be the most common case.
+	if details, ok := models[modelIdentifier]; ok {
+		return modelIdentifier, &details, nil
+	}
+
+	// If the identifier is 6-8 characters or a valid UUID,
+	// attempt to match one of the stored model UUIDs.
+	l := len(modelIdentifier)
+	if (l > 5 && l < 9) || names.IsValidModel(modelIdentifier) {
+		for name, details := range models {
+			if strings.HasPrefix(details.ModelUUID, modelIdentifier) {
+				return name, &details, nil
+			}
+		}
+	}
+
+	return "", nil, errors.NotFoundf("model %s:%s", controllerName, modelIdentifier)
 }
 
 // NewAPIRoot returns a new connection to the API server for the environment
@@ -455,7 +501,10 @@ type modelCommandWrapper struct {
 
 	skipModelFlags  bool
 	useDefaultModel bool
-	modelName       string
+
+	// modelIdentifier may be a model name, a full model UUID,
+	// or a short 6-8 model UUID prefix.
+	modelIdentifier string
 }
 
 func (w *modelCommandWrapper) inner() cmd.Command {
@@ -515,7 +564,7 @@ func (w *modelCommandWrapper) validateCommandForModelType(runStarted bool) error
 
 func (w *modelCommandWrapper) Init(args []string) error {
 	if !w.skipModelFlags {
-		if err := w.ModelCommand.SetModelName(w.modelName, w.useDefaultModel); err != nil {
+		if err := w.ModelCommand.SetModelIdentifier(w.modelIdentifier, w.useDefaultModel); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -549,16 +598,17 @@ func (w *modelCommandWrapper) Run(ctx *cmd.Context) error {
 	}
 	err := w.ModelCommand.Run(ctx)
 	if redirErr, ok := errors.Cause(err).(*api.RedirectError); ok {
-		modelName, _ := w.ModelCommand.ModelName()
-		return newModelMigratedError(store, modelName, redirErr)
+		modelIdentifier, _ := w.ModelCommand.ModelIdentifier()
+		return newModelMigratedError(store, modelIdentifier, redirErr)
 	}
 	return err
 }
 
 func (w *modelCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 	if !w.skipModelFlags {
-		f.StringVar(&w.modelName, "m", "", "Model to operate in. Accepts [<controller name>:]<model name>")
-		f.StringVar(&w.modelName, "model", "", "")
+		desc := "Model to operate in. Accepts [<controller name>:]<model name>|<model UUID>"
+		f.StringVar(&w.modelIdentifier, "m", "", desc)
+		f.StringVar(&w.modelIdentifier, "model", "", "")
 	}
 	w.ModelCommand.SetFlags(f)
 }
