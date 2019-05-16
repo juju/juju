@@ -43,6 +43,10 @@ func prepare(context *cmd.Context, controllerName string, store jujuclient.Clien
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	ctrl, err := store.ControllerByName(controllerName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	// TODO(axw) we'll need to revise the metadata commands to work
 	// without preparing an environment. They should take the same
 	// format as bootstrap, i.e. cloud/region, and we'll use that to
@@ -50,7 +54,7 @@ func prepare(context *cmd.Context, controllerName string, store jujuclient.Clien
 	// we'll do about simplestreams.MetadataValidator yet. Probably
 	// move it to the EnvironProvider interface.
 	return environs.New(environs.OpenParams{
-		ControllerUUID: bootstrapConfig.ControllerConfig.ControllerUUID(),
+		ControllerUUID: ctrl.ControllerUUID,
 		Cloud:          params.Cloud,
 		Config:         cfg,
 	})
@@ -184,13 +188,13 @@ image metadata search path. There are 2 options:
 1. For local access, use the --metadata-source parameter when bootstrapping:
    juju bootstrap --metadata-source %s [...]
 
-2. For remote access, use image-metadata-url attribute for model configuration. 
-To set it as a default for any model or for the controller model, 
+2. For remote access, use image-metadata-url attribute for model configuration.
+To set it as a default for any model or for the controller model,
 it needs to be supplied as part of --model-default to 'juju bootstrap' command.
 See 'bootstrap' help for more details.
 For configuration for a particular model, set it as --image-metadata-url on
 'juju model-config'. See 'model-config' help for more details.
-Regardless of where this attribute is used, it expects a reachable URL. 
+Regardless of where this attribute is used, it expects a reachable URL.
 You need to configure a http server to serve the contents of
 %s
 and set the value of image-metadata-url accordingly.
