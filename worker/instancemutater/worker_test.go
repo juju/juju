@@ -20,6 +20,7 @@ import (
 
 	apiinstancemutater "github.com/juju/juju/api/instancemutater"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -342,6 +343,7 @@ func (s *workerSuite) setup(c *gc.C, machineCount int) *gomock.Controller {
 		s.appLXDProfileWorker[i] = workermocks.NewMockWorker(ctrl)
 	}
 
+	s.expectContainerTypeNone()
 	return ctrl
 }
 
@@ -397,6 +399,12 @@ func (s *workerSuite) expectFacadeMachineTag(machine int) func() {
 func (s *workerSuite) expectFacadeReturnsNoMachine() {
 	do := s.workGroupAddGetDoneFunc()
 	s.facade.EXPECT().Machine(s.machineTag).Return(nil, errors.NewNotFound(nil, "machine")).Do(do)
+}
+
+func (s *workerSuite) expectContainerTypeNone() {
+	for _, m := range s.machine {
+		m.EXPECT().ContainerType().Return(instance.NONE, nil).AnyTimes()
+	}
 }
 
 func (s *workerSuite) expectCharmProfilingInfoSimpleNoChange(machine int) func() {
@@ -585,7 +593,7 @@ func (s *workerSuite) notifyMachineAppLXDProfile(machine, times int) func() {
 }
 
 func (s *workerContainerSuite) notifyContainerAppLXDProfile(times int) func() {
-	return s.notifyAppLXDProfile(s.container, 0, times)
+	return s.notifyAppLXDProfile(s.lxdContainer, 0, times)
 }
 
 func (s *workerSuite) notifyAppLXDProfile(mock *mocks.MockMutaterMachine, which, times int) func() {
@@ -681,8 +689,10 @@ func logIt(c *gc.C, level loggo.Level, message string, args interface{}) {
 type workerContainerSuite struct {
 	workerSuite
 
-	containerTag names.Tag
-	container    *mocks.MockMutaterMachine
+	lxdContainerTag names.Tag
+	kvmContainerTag names.Tag
+	lxdContainer    *mocks.MockMutaterMachine
+	kvmContainer    *mocks.MockMutaterMachine
 }
 
 var _ = gc.Suite(&workerContainerSuite{})
@@ -690,7 +700,8 @@ var _ = gc.Suite(&workerContainerSuite{})
 func (s *workerContainerSuite) SetUpTest(c *gc.C) {
 	s.workerSuite.SetUpTest(c)
 
-	s.containerTag = names.NewMachineTag("0/lxd/0")
+	s.lxdContainerTag = names.NewMachineTag("0/lxd/0")
+	s.kvmContainerTag = names.NewMachineTag("0/kvm/0")
 	s.newWorkerFunc = instancemutater.NewContainerWorker
 	s.getRequiredLXDProfiles = func(modelName string) []string {
 		return []string{"default"}
@@ -699,18 +710,17 @@ func (s *workerContainerSuite) SetUpTest(c *gc.C) {
 
 // TestFullWorkflow uses the the expectation scenarios from each of the tests
 // below to compose a test of the whole instance mutator scenario, from start
-// below to compose a test of the whole instance mutator scenario, from start
 // to finish for a ContainerWorker.
 func (s *workerContainerSuite) TestFullWorkflow(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	w := s.workerForScenario(c,
 		s.ignoreLogging(c),
-		s.notifyContainers(0, [][]string{{"0/lxd/0"}}),
+		s.notifyContainers(0, [][]string{{"0/lxd/0", "0/kvm/0"}}),
 		s.expectFacadeMachineTag(0),
-		s.expectFacadeContainerTag,
+		s.expectFacadeContainerTags,
+		s.expectContainerTypes,
 		s.notifyContainerAppLXDProfile(1),
-		s.expectContainerTag,
 		s.expectContainerCharmProfilingInfo(3),
 		s.expectLXDProfileNamesTrue,
 		s.expectContainerSetCharmProfiles,
@@ -723,25 +733,29 @@ func (s *workerContainerSuite) TestFullWorkflow(c *gc.C) {
 
 func (s *workerContainerSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := s.workerSuite.setup(c, 1)
-	s.container = mocks.NewMockMutaterMachine(ctrl)
+	s.lxdContainer = mocks.NewMockMutaterMachine(ctrl)
+	s.kvmContainer = mocks.NewMockMutaterMachine(ctrl)
 	return ctrl
 }
 
-func (s *workerContainerSuite) expectFacadeContainerTag() {
-	s.facade.EXPECT().Machine(s.containerTag).Return(s.container, nil).AnyTimes()
-	s.container.EXPECT().Tag().Return(s.containerTag).AnyTimes()
+func (s *workerContainerSuite) expectFacadeContainerTags() {
+	s.facade.EXPECT().Machine(s.lxdContainerTag).Return(s.lxdContainer, nil).AnyTimes()
+	s.lxdContainer.EXPECT().Tag().Return(s.lxdContainerTag).AnyTimes()
+	s.facade.EXPECT().Machine(s.kvmContainerTag).Return(s.kvmContainer, nil).AnyTimes()
+	s.kvmContainer.EXPECT().Tag().Return(s.kvmContainerTag).AnyTimes()
 }
 
-func (s *workerContainerSuite) expectContainerTag() {
-	s.container.EXPECT().Tag().Return(s.containerTag).AnyTimes()
+func (s *workerContainerSuite) expectContainerTypes() {
+	s.lxdContainer.EXPECT().ContainerType().Return(instance.LXD, nil).AnyTimes()
+	s.kvmContainer.EXPECT().ContainerType().Return(instance.KVM, nil).AnyTimes()
 }
 
 func (s *workerContainerSuite) expectContainerCharmProfilingInfo(rev int) func() {
-	return s.expectCharmProfilingInfo(s.container, rev)
+	return s.expectCharmProfilingInfo(s.lxdContainer, rev)
 }
 
 func (s *workerContainerSuite) expectContainerAliveAndSetModificationStatusIdle() {
-	cExp := s.container.EXPECT()
+	cExp := s.lxdContainer.EXPECT()
 	cExp.Refresh().Return(nil)
 	cExp.Life().Return(params.Alive)
 	cExp.SetModificationStatus(status.Idle, gomock.Any(), gomock.Any()).Return(nil)
@@ -749,7 +763,7 @@ func (s *workerContainerSuite) expectContainerAliveAndSetModificationStatusIdle(
 
 func (s *workerContainerSuite) expectContainerModificationStatusApplied() {
 	do := s.workGroupAddGetDoneFunc()
-	s.container.EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil).Do(do)
+	s.lxdContainer.EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil).Do(do)
 }
 
 func (s *workerContainerSuite) expectAssignLXDProfiles() {
@@ -758,7 +772,7 @@ func (s *workerContainerSuite) expectAssignLXDProfiles() {
 }
 
 func (s *workerContainerSuite) expectContainerSetCharmProfiles() {
-	s.container.EXPECT().SetCharmProfiles([]string{"default", "juju-testing-one-3"})
+	s.lxdContainer.EXPECT().SetCharmProfiles([]string{"default", "juju-testing-one-3"})
 }
 
 // notifyContainers returns a suite behaviour that will cause the instance mutator
