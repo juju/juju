@@ -66,6 +66,13 @@ func (m *Machine) CharmProfiles() []string {
 	return m.details.CharmProfiles
 }
 
+// ContainerType returns the cached container type hosting this machine.
+func (m *Machine) ContainerType() instance.ContainerType {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return instance.ContainerType(m.details.ContainerType)
+}
+
 // Units returns all the units that have been assigned to the machine
 // including subordinates.
 func (m *Machine) Units() ([]*Unit, error) {
