@@ -45,7 +45,7 @@ var defaultArgs = Args{
 type Operation struct {
 	Collection string      `json:"c"`
 	Document   interface{} `json:"d"` // Could be a string, int or nested doc?
-	Assertion  *bson.M     `json:"a"` // do we want to support d- / d+ ?
+	Assertion  interface{} `json:"a"` // do we want to support d- / d+ ?
 	Insert     *bson.M     `json:"i"` // could be bson.D but M feels better here
 	Update     *bson.M     `json:"u"` // similarly could be bson.D
 	Remove     bool        `bson:"r"`
@@ -157,7 +157,15 @@ func main() {
 			Remove: o.Remove,
 		}
 		if o.Assertion != nil {
-			op.Assert = *o.Assertion
+			switch a := o.Assertion.(type) {
+			case string:
+				op.Assert = a
+			case map[string]interface{}:
+				op.Assert = bson.M(a)
+			default:
+				fmt.Printf("unknown Assertion: %v\n", o.Assertion)
+				os.Exit(1)
+			}
 		}
 		if o.Insert != nil {
 			op.Insert = *o.Insert

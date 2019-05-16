@@ -2,6 +2,7 @@
     {
         "c": "accounts",
         "d": "doc-id",
+        "a": "d+",
         "u": {"$inc": {"balance": 100}}
     }
 ]
