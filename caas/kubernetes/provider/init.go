@@ -67,7 +67,7 @@ func compileK8sCloudCheckers() map[string][]k8slabels.Selector {
 			),
 			// CDK on GCE.
 			newLabelRequirements(
-				requirementParams{"juju.io/cloud", selection.Equals, []string{"gce"}},
+				requirementParams{"juju-io-cloud", selection.Equals, []string{"gce"}},
 			),
 		},
 		caas.K8sCloudEC2: {
@@ -77,7 +77,7 @@ func compileK8sCloudCheckers() map[string][]k8slabels.Selector {
 			),
 			// CDK on AWS.
 			newLabelRequirements(
-				requirementParams{"juju.io/cloud", selection.Equals, []string{"ec2"}},
+				requirementParams{"juju-io-cloud", selection.Equals, []string{"ec2"}},
 			),
 		},
 		caas.K8sCloudAzure: {
@@ -87,7 +87,7 @@ func compileK8sCloudCheckers() map[string][]k8slabels.Selector {
 			),
 			// CDK on Azure.
 			newLabelRequirements(
-				requirementParams{"juju.io/cloud", selection.Equals, []string{"azure"}},
+				requirementParams{"juju-io-cloud", selection.Equals, []string{"azure"}},
 			),
 		},
 		// format - cloudType: requirements.
