@@ -57,7 +57,7 @@ var marshalTestCases = []struct {
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 		},
 	},
-	json: `["machine","change",{"model-uuid":"uuid","id":"Benji","instance-id":"Shazam","agent-status":{"current":"error","message":"foo","version":""},"instance-status":{"current":"pending","message":"","version":""},"life":"alive","series":"trusty","supported-containers":["lxd"],"supported-containers-known":false,"hardware-characteristics":{},"jobs":["JobManageModel"],"addresses":[],"has-vote":false,"wants-vote":false}]`,
+	json: `["machine","change",{"model-uuid":"uuid","id":"Benji","instance-id":"Shazam","container-type":"","agent-status":{"current":"error","message":"foo","version":""},"instance-status":{"current":"pending","message":"","version":""},"life":"alive","series":"trusty","supported-containers":["lxd"],"supported-containers-known":false,"hardware-characteristics":{},"jobs":["JobManageModel"],"addresses":[],"has-vote":false,"wants-vote":false}]`,
 }, {
 	about: "ApplicationInfo Delta",
 	value: multiwatcher.Delta{
