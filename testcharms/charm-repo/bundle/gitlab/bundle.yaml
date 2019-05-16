@@ -1,0 +1,4 @@
+services:
+    gitlab:
+        charm: cs:precise/gitlab-5
+        num_units: 1
