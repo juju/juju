@@ -1930,6 +1930,11 @@ func updateKubernetesStorageConfig(st *State) error {
 	if err != nil || model.Type() == ModelTypeIAAS {
 		return errors.Trace(err)
 	}
+	if model.Life() != Alive {
+		// No need to update models that are going away; they may no
+		// longer have settings to update.
+		return nil
+	}
 	cred, ok := model.CloudCredential()
 	if !ok {
 		return nil
@@ -1940,6 +1945,9 @@ func updateKubernetesStorageConfig(st *State) error {
 	}
 
 	defaults, err := st.controllerInheritedConfig(model.Cloud())()
+	if err != nil {
+		return errors.Annotate(err, "getting cloud config")
+	}
 	operatorStorage, haveDefaultOperatorStorage := defaults[k8s.OperatorStorageKey]
 	if !haveDefaultOperatorStorage {
 		cloudSpec, err := cloudSpec(st, model.Cloud(), model.CloudRegion(), cred)

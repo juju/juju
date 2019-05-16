@@ -3001,6 +3001,42 @@ func (s *upgradesSuite) TestUpdateKubernetesStorageConfig(c *gc.C) {
 	}
 }
 
+func (s *upgradesSuite) TestUpdateKubernetesStorageConfigWithDyingModel(c *gc.C) {
+	tag := names.NewCloudCredentialTag(fmt.Sprintf("dummy/%s/default", s.owner.Id()))
+	err := s.state.UpdateCloudCredential(tag, cloud.NewEmptyCredential())
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.PatchValue(&NewBroker, func(args environs.OpenParams) (caas.Broker, error) {
+		return &fakeBroker{}, nil
+	})
+
+	m1 := s.makeCaasModel(c, "m1", tag, coretesting.Attrs{
+		"type": "kubernetes",
+	})
+	defer m1.Close()
+	model, err := m1.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.Destroy(DestroyModelParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	settingsColl, settingsCloser := m1.database.GetRawCollection(settingsC)
+	defer settingsCloser()
+
+	// Doesn't fail...
+	err = UpdateKubernetesStorageConfig(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// ...makes no changes to settings.
+	var docs []bson.M
+	err = settingsColl.FindId(m1.ModelUUID() + ":e").All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(docs, gc.HasLen, 1)
+	settings, ok := docs[0]["settings"].(bson.M)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(settings["operator-storage"], gc.Equals, nil)
+	c.Assert(settings["workload-storage"], gc.Equals, nil)
+}
+
 func (s *upgradesSuite) TestEnsureDefaultModificationStatus(c *gc.C) {
 	coll, closer := s.state.db().GetRawCollection(statusesC)
 	defer closer()
