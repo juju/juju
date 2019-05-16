@@ -187,52 +187,49 @@ var _ = gc.Suite(&workerEnvironSuite{})
 func (s *workerEnvironSuite) TestFullWorkflow(c *gc.C) {
 	defer s.setup(c, 1).Finish()
 
-	w := s.workerForScenario(c,
-		s.ignoreLogging(c),
-		s.notifyMachines([][]string{{"0"}}),
-		s.expectFacadeMachineTag(0),
-		s.notifyMachineAppLXDProfile(0, 1),
-		s.expectMachineCharmProfilingInfo(0, 3),
-		s.expectLXDProfileNamesTrue,
-		s.expectSetCharmProfiles(0),
-		s.expectAssignLXDProfiles,
-		s.expectAliveAndSetModificationStatusIdle(0),
-		s.expectModificationStatusApplied(0),
-	)
-	s.cleanKill(c, w)
+	s.ignoreLogging(c)
+	s.notifyMachines([][]string{{"0"}})
+	s.expectFacadeMachineTag(0)
+	s.notifyMachineAppLXDProfile(0, 1)
+	s.expectMachineCharmProfilingInfo(0, 3)
+	s.expectLXDProfileNamesTrue()
+	s.expectSetCharmProfiles(0)
+	s.expectAssignLXDProfiles()
+	s.expectAliveAndSetModificationStatusIdle(0)
+	s.expectModificationStatusApplied(0)
+
+	s.cleanKill(c, s.workerForScenario(c))
 }
 
 func (s *workerEnvironSuite) TestVerifyCurrentProfilesTrue(c *gc.C) {
 	defer s.setup(c, 1).Finish()
 
-	w := s.workerForScenario(c,
-		s.ignoreLogging(c),
-		s.notifyMachines([][]string{{"0"}}),
-		s.expectFacadeMachineTag(0),
-		s.notifyMachineAppLXDProfile(0, 1),
-		s.expectAliveAndSetModificationStatusIdle(0),
-		s.expectMachineCharmProfilingInfo(0, 2),
-		s.expectLXDProfileNamesTrue,
-		s.expectModificationStatusApplied(0),
-	)
-	s.cleanKill(c, w)
+	s.ignoreLogging(c)
+	s.notifyMachines([][]string{{"0"}})
+	s.expectFacadeMachineTag(0)
+	s.notifyMachineAppLXDProfile(0, 1)
+	s.expectAliveAndSetModificationStatusIdle(0)
+	s.expectMachineCharmProfilingInfo(0, 2)
+	s.expectLXDProfileNamesTrue()
+	s.expectModificationStatusApplied(0)
+
+	s.cleanKill(c, s.workerForScenario(c))
 }
 
 func (s *workerEnvironSuite) TestRemoveAllCharmProfiles(c *gc.C) {
 	defer s.setup(c, 1).Finish()
 
-	w := s.workerForScenario(c,
-		s.ignoreLogging(c),
-		s.notifyMachines([][]string{{"0"}}),
-		s.expectFacadeMachineTag(0),
-		s.notifyMachineAppLXDProfile(0, 1),
-		s.expectAliveAndSetModificationStatusIdle(0),
-		s.expectCharmProfilingInfoRemove(0),
-		s.expectLXDProfileNamesTrue,
-		s.expectRemoveAllCharmProfiles(0),
-		s.expectModificationStatusApplied(0),
-	)
-	s.cleanKill(c, w)
+	s.ignoreLogging(c)
+	s.notifyMachines([][]string{{"0"}})
+	s.expectFacadeMachineTag(0)
+	s.notifyMachineAppLXDProfile(0, 1)
+	s.expectAliveAndSetModificationStatusIdle(0)
+	s.expectCharmProfilingInfoRemove(0)
+	s.expectLXDProfileNamesTrue()
+	s.expectRemoveAllCharmProfiles(0)
+	s.expectModificationStatusApplied(0)
+
+	s.cleanKill(c, s.workerForScenario(c))
 }
 
 func (s *workerEnvironSuite) TestMachineNotifyTwice(c *gc.C) {
@@ -242,44 +239,42 @@ func (s *workerEnvironSuite) TestMachineNotifyTwice(c *gc.C) {
 	// machine notifications are sent.  The 2nd group must
 	// be after machine 0 gets Life() == Alive.
 	var group sync.WaitGroup
-	w := s.workerForScenario(c,
-		s.ignoreLogging(c),
-		s.notifyMachinesWaitGroup([][]string{{"0", "1"}, {"0"}}, &group),
-		s.expectFacadeMachineTag(0),
-		s.expectFacadeMachineTag(1),
-		s.notifyMachineAppLXDProfile(0, 1),
-		s.notifyMachineAppLXDProfile(1, 1),
-		s.expectAliveAndSetModificationStatusIdle(1),
-		s.expectMachineCharmProfilingInfo(0, 2),
-		s.expectMachineCharmProfilingInfo(1, 2),
-		s.expectLXDProfileNamesTrue,
-		s.expectLXDProfileNamesTrue,
-		s.expectMachineAliveStatusIdleMachineDead(0, &group),
-	)
-	s.cleanKill(c, w)
+	s.ignoreLogging(c)
+	s.notifyMachinesWaitGroup([][]string{{"0", "1"}, {"0"}}, &group)
+	s.expectFacadeMachineTag(0)
+	s.expectFacadeMachineTag(1)
+	s.notifyMachineAppLXDProfile(0, 1)
+	s.notifyMachineAppLXDProfile(1, 1)
+	s.expectAliveAndSetModificationStatusIdle(1)
+	s.expectMachineCharmProfilingInfo(0, 2)
+	s.expectMachineCharmProfilingInfo(1, 2)
+	s.expectLXDProfileNamesTrue()
+	s.expectLXDProfileNamesTrue()
+	s.expectMachineAliveStatusIdleMachineDead(0, &group)
+
+	s.cleanKill(c, s.workerForScenario(c))
 }
 
 func (s *workerEnvironSuite) TestNoChangeFoundOne(c *gc.C) {
 	defer s.setup(c, 1).Finish()
 
-	w := s.workerForScenario(c,
-		s.ignoreLogging(c),
-		s.notifyMachines([][]string{{"0"}}),
-		s.expectFacadeMachineTag(0),
-		s.notifyMachineAppLXDProfile(0, 1),
-		s.expectCharmProfilingInfoSimpleNoChange(0),
-	)
-	s.cleanKill(c, w)
+	s.ignoreLogging(c)
+	s.notifyMachines([][]string{{"0"}})
+	s.expectFacadeMachineTag(0)
+	s.notifyMachineAppLXDProfile(0, 1)
+	s.expectCharmProfilingInfoSimpleNoChange(0)
+
+	s.cleanKill(c, s.workerForScenario(c))
 }
 
 func (s *workerEnvironSuite) TestNoMachineFound(c *gc.C) {
 	defer s.setup(c, 1).Finish()
 
-	w, err := s.workerErrorForScenario(c,
-		s.ignoreLogging(c),
-		s.notifyMachines([][]string{{"0"}}),
-		s.expectFacadeReturnsNoMachine,
-	)
+	s.ignoreLogging(c)
+	s.notifyMachines([][]string{{"0"}})
+	s.expectFacadeReturnsNoMachine()
+
+	w, err := s.workerErrorForScenario(c)
 
 	// Since we don't use cleanKill() nor errorKill()
 	// here, but do waitDone() before checking errors.
@@ -300,30 +295,26 @@ func (s *workerEnvironSuite) TestNoMachineFound(c *gc.C) {
 func (s *workerEnvironSuite) TestCharmProfilingInfoNotProvisioned(c *gc.C) {
 	defer s.setup(c, 1).Finish()
 
-	w := s.workerForScenario(c,
-		s.ignoreLogging(c),
-		s.notifyMachines([][]string{{"0"}}),
-		s.expectFacadeMachineTag(0),
-		s.notifyMachineAppLXDProfile(0, 1),
-		s.expectCharmProfileInfoNotProvisioned(0),
-	)
+	s.ignoreLogging(c)
+	s.notifyMachines([][]string{{"0"}})
+	s.expectFacadeMachineTag(0)
+	s.notifyMachineAppLXDProfile(0, 1)
+	s.expectCharmProfileInfoNotProvisioned(0)
 
-	err := s.errorKill(c, w)
+	err := s.errorKill(c, s.workerForScenario(c))
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *workerEnvironSuite) TestCharmProfilingInfoError(c *gc.C) {
 	defer s.setup(c, 1).Finish()
 
-	w := s.workerForScenario(c,
-		s.ignoreLogging(c),
-		s.notifyMachines([][]string{{"0"}}),
-		s.expectFacadeMachineTag(0),
-		s.notifyMachineAppLXDProfile(0, 1),
-		s.expectCharmProfileInfoError(0),
-	)
+	s.ignoreLogging(c)
+	s.notifyMachines([][]string{{"0"}})
+	s.expectFacadeMachineTag(0)
+	s.notifyMachineAppLXDProfile(0, 1)
+	s.expectCharmProfileInfoError(0)
 
-	err := s.errorKill(c, w)
+	err := s.errorKill(c, s.workerForScenario(c))
 	c.Assert(err, jc.Satisfies, params.IsCodeNotSupported)
 }
 
@@ -350,7 +341,7 @@ func (s *workerSuite) setup(c *gc.C, machineCount int) *gomock.Controller {
 // workerForScenario creates worker config based on the suite's mocks.
 // Any supplied behaviour functions are executed, then a new worker
 // is started successfully and returned.
-func (s *workerSuite) workerForScenario(c *gc.C, behaviours ...func()) worker.Worker {
+func (s *workerSuite) workerForScenario(c *gc.C) worker.Worker {
 	config := instancemutater.Config{
 		Facade:                 s.facade,
 		Logger:                 s.logger,
@@ -358,10 +349,6 @@ func (s *workerSuite) workerForScenario(c *gc.C, behaviours ...func()) worker.Wo
 		AgentConfig:            s.agentConfig,
 		Tag:                    s.machineTag,
 		GetRequiredLXDProfiles: s.getRequiredLXDProfiles,
-	}
-
-	for _, b := range behaviours {
-		b()
 	}
 
 	w, err := s.newWorkerFunc(config)
@@ -372,7 +359,7 @@ func (s *workerSuite) workerForScenario(c *gc.C, behaviours ...func()) worker.Wo
 // workerErrorForScenario creates worker config based on the suite's mocks.
 // Any supplied behaviour functions are executed, then a new worker is
 // started and returned with any error in creation.
-func (s *workerSuite) workerErrorForScenario(c *gc.C, behaviours ...func()) (worker.Worker, error) {
+func (s *workerSuite) workerErrorForScenario(c *gc.C) (worker.Worker, error) {
 	config := instancemutater.Config{
 		Facade:      s.facade,
 		Logger:      s.logger,
@@ -381,19 +368,13 @@ func (s *workerSuite) workerErrorForScenario(c *gc.C, behaviours ...func()) (wor
 		Tag:         s.machineTag,
 	}
 
-	for _, b := range behaviours {
-		b()
-	}
-
 	return s.newWorkerFunc(config)
 }
 
-func (s *workerSuite) expectFacadeMachineTag(machine int) func() {
-	return func() {
-		tag := names.NewMachineTag(strconv.Itoa(machine))
-		s.facade.EXPECT().Machine(tag).Return(s.machine[machine], nil).AnyTimes()
-		s.machine[machine].EXPECT().Tag().Return(tag).AnyTimes()
-	}
+func (s *workerSuite) expectFacadeMachineTag(machine int) {
+	tag := names.NewMachineTag(strconv.Itoa(machine))
+	s.facade.EXPECT().Machine(tag).Return(s.machine[machine], nil).AnyTimes()
+	s.machine[machine].EXPECT().Tag().Return(tag).AnyTimes()
 }
 
 func (s *workerSuite) expectFacadeReturnsNoMachine() {
@@ -407,11 +388,9 @@ func (s *workerSuite) expectContainerTypeNone() {
 	}
 }
 
-func (s *workerSuite) expectCharmProfilingInfoSimpleNoChange(machine int) func() {
-	return func() {
-		do := s.workGroupAddGetDoneFunc()
-		s.machine[machine].EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{}, nil).Do(do)
-	}
+func (s *workerSuite) expectCharmProfilingInfoSimpleNoChange(machine int) {
+	do := s.workGroupAddGetDoneFunc()
+	s.machine[machine].EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{}, nil).Do(do)
 }
 
 func (s *workerSuite) workGroupAddGetDoneFunc() func(_ ...interface{}) {
@@ -423,97 +402,86 @@ func (s *workerSuite) expectLXDProfileNamesTrue() {
 	s.broker.EXPECT().LXDProfileNames("juju-23423-0").Return([]string{"default", "juju-testing", "juju-testing-one-2"}, nil)
 }
 
-func (s *workerSuite) expectMachineCharmProfilingInfo(machine, rev int) func() {
-	return s.expectCharmProfilingInfo(s.machine[machine], rev)
+func (s *workerSuite) expectMachineCharmProfilingInfo(machine, rev int) {
+	s.expectCharmProfilingInfo(s.machine[machine], rev)
 }
 
-func (s *workerSuite) expectCharmProfilingInfo(mock *mocks.MockMutaterMachine, rev int) func() {
-	return func() {
-		mock.EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{
-			CurrentProfiles: []string{"default", "juju-testing", "juju-testing-one-2"},
-			InstanceId:      "juju-23423-0",
-			ModelName:       "testing",
-			ProfileChanges: []apiinstancemutater.UnitProfileChanges{
-				{
-					ApplicationName: "one",
-					Revision:        rev,
-					Profile: lxdprofile.Profile{
-						Config: map[string]string{"hi": "bye"},
-					},
+func (s *workerSuite) expectCharmProfilingInfo(mock *mocks.MockMutaterMachine, rev int) {
+	mock.EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{
+		CurrentProfiles: []string{"default", "juju-testing", "juju-testing-one-2"},
+		InstanceId:      "juju-23423-0",
+		ModelName:       "testing",
+		ProfileChanges: []apiinstancemutater.UnitProfileChanges{
+			{
+				ApplicationName: "one",
+				Revision:        rev,
+				Profile: lxdprofile.Profile{
+					Config: map[string]string{"hi": "bye"},
 				},
 			},
-		}, nil)
-	}
+		},
+	}, nil)
 }
 
-func (s *workerSuite) expectCharmProfilingInfoRemove(machine int) func() {
-	return func() {
-		s.machine[machine].EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{
-			CurrentProfiles: []string{"default", "juju-testing", "juju-testing-one-2"},
-			InstanceId:      "juju-23423-0",
-			ModelName:       "testing",
-			ProfileChanges:  []apiinstancemutater.UnitProfileChanges{},
-		}, nil)
-	}
+func (s *workerSuite) expectCharmProfilingInfoRemove(machine int) {
+	s.machine[machine].EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{
+		CurrentProfiles: []string{"default", "juju-testing", "juju-testing-one-2"},
+		InstanceId:      "juju-23423-0",
+		ModelName:       "testing",
+		ProfileChanges:  []apiinstancemutater.UnitProfileChanges{},
+	}, nil)
 }
 
-func (s *workerSuite) expectCharmProfileInfoNotProvisioned(machine int) func() {
-	return func() {
-		do := s.workGroupAddGetDoneFunc()
-		err := params.Error{
-			Message: "machine 0 not provisioned",
-			Code:    params.CodeNotProvisioned,
-		}
-		s.machine[machine].EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{}, err).Do(do)
+func (s *workerSuite) expectCharmProfileInfoNotProvisioned(machine int) {
+	do := s.workGroupAddGetDoneFunc()
+	err := params.Error{
+		Message: "machine 0 not provisioned",
+		Code:    params.CodeNotProvisioned,
 	}
+	s.machine[machine].EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{}, err).Do(do)
 }
 
-func (s *workerSuite) expectCharmProfileInfoError(machine int) func() {
-	return func() {
-		do := s.workGroupAddGetDoneFunc()
-		err := params.Error{
-			Message: "machine 0 not supported",
-			Code:    params.CodeNotSupported,
-		}
-		s.machine[machine].EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{}, err).Do(do)
+func (s *workerSuite) expectCharmProfileInfoError(machine int) {
+	do := s.workGroupAddGetDoneFunc()
+	err := params.Error{
+		Message: "machine 0 not supported",
+		Code:    params.CodeNotSupported,
 	}
+	s.machine[machine].EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{}, err).Do(do)
+
 }
 
-func (s *workerSuite) expectAliveAndSetModificationStatusIdle(machine int) func() {
-	return func() {
-		mExp := s.machine[machine].EXPECT()
-		mExp.Refresh().Return(nil)
-		mExp.Life().Return(params.Alive)
-		mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
-	}
+func (s *workerSuite) expectAliveAndSetModificationStatusIdle(machine int) {
+	mExp := s.machine[machine].EXPECT()
+	mExp.Refresh().Return(nil)
+	mExp.Life().Return(params.Alive)
+	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
+
 }
 
-func (s *workerSuite) expectMachineAliveStatusIdleMachineDead(machine int, group *sync.WaitGroup) func() {
-	return func() {
-		mExp := s.machine[machine].EXPECT()
+func (s *workerSuite) expectMachineAliveStatusIdleMachineDead(machine int, group *sync.WaitGroup) {
+	s.doneWG.Add(1)
+	do := s.workGroupAddGetDoneFunc()
 
-		group.Add(1)
-		notificationSync := func(_ ...interface{}) { group.Done() }
+	mExp := s.machine[machine].EXPECT()
 
-		mExp.Refresh().Return(nil).Times(2)
-		o1 := mExp.Life().Return(params.Alive).Do(notificationSync)
+	group.Add(1)
+	notificationSync := func(_ ...interface{}) { group.Done() }
 
-		mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
+	mExp.Refresh().Return(nil).Times(2)
+	o1 := mExp.Life().Return(params.Alive).Do(notificationSync)
 
-		do := s.workGroupAddGetDoneFunc()
-		s.machine[0].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil)
-		s.machine[1].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil).Do(do)
+	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
 
-		s.doneWG.Add(1)
-		mExp.Life().Return(params.Dead).After(o1).Do(do)
-	}
+	s.machine[0].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil)
+	s.machine[1].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil).Do(do)
+
+	mExp.Life().Return(params.Dead).After(o1).Do(do)
 }
 
-func (s *workerSuite) expectModificationStatusApplied(machine int) func() {
-	return func() {
-		do := s.workGroupAddGetDoneFunc()
-		s.machine[machine].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil).Do(do)
-	}
+func (s *workerSuite) expectModificationStatusApplied(machine int) {
+	do := s.workGroupAddGetDoneFunc()
+	s.machine[machine].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil).Do(do)
 }
 
 func (s *workerSuite) expectAssignLXDProfiles() {
@@ -521,103 +489,90 @@ func (s *workerSuite) expectAssignLXDProfiles() {
 	s.broker.EXPECT().AssignLXDProfiles("juju-23423-0", profiles, gomock.Any()).Return(profiles, nil)
 }
 
-func (s *workerSuite) expectSetCharmProfiles(machine int) func() {
-	return func() {
-		s.machine[machine].EXPECT().SetCharmProfiles([]string{"default", "juju-testing", "juju-testing-one-3"})
-	}
+func (s *workerSuite) expectSetCharmProfiles(machine int) {
+	s.machine[machine].EXPECT().SetCharmProfiles([]string{"default", "juju-testing", "juju-testing-one-3"})
 }
 
-func (s *workerSuite) expectRemoveAllCharmProfiles(machine int) func() {
-	return func() {
-		profiles := []string{"default", "juju-testing"}
-		s.machine[machine].EXPECT().SetCharmProfiles(profiles)
-		s.broker.EXPECT().AssignLXDProfiles("juju-23423-0", profiles, gomock.Any()).Return(profiles, nil)
-	}
+func (s *workerSuite) expectRemoveAllCharmProfiles(machine int) {
+	profiles := []string{"default", "juju-testing"}
+	s.machine[machine].EXPECT().SetCharmProfiles(profiles)
+	s.broker.EXPECT().AssignLXDProfiles("juju-23423-0", profiles, gomock.Any()).Return(profiles, nil)
 }
 
 // notifyMachines returns a suite behaviour that will cause the instance mutator
 // watcher to send a number of notifications equal to the supplied argument.
 // Once notifications have been consumed, we notify via the suite's channel.
-func (s *workerSuite) notifyMachines(values [][]string) func() {
+func (s *workerSuite) notifyMachines(values [][]string) {
 	ch := make(chan []string)
+	s.doneWG.Add(1)
+	go func() {
+		for _, v := range values {
+			ch <- v
+		}
+		s.doneWG.Done()
+	}()
 
-	return func() {
-		s.doneWG.Add(1)
-		go func() {
-			for _, v := range values {
-				ch <- v
-			}
-			s.doneWG.Done()
-		}()
+	s.machinesWorker.EXPECT().Kill().AnyTimes()
+	s.machinesWorker.EXPECT().Wait().Return(nil).AnyTimes()
 
-		s.machinesWorker.EXPECT().Kill().AnyTimes()
-		s.machinesWorker.EXPECT().Wait().Return(nil).AnyTimes()
-
-		s.facade.EXPECT().WatchMachines().Return(
-			&fakeStringsWatcher{
-				Worker: s.machinesWorker,
-				ch:     ch,
-			}, nil)
-	}
+	s.facade.EXPECT().WatchMachines().Return(
+		&fakeStringsWatcher{
+			Worker: s.machinesWorker,
+			ch:     ch,
+		}, nil)
 }
 
-func (s *workerSuite) notifyMachinesWaitGroup(values [][]string, group *sync.WaitGroup) func() {
+func (s *workerSuite) notifyMachinesWaitGroup(values [][]string, group *sync.WaitGroup) {
 	ch := make(chan []string)
+	s.doneWG.Add(1)
+	go func() {
+		for _, v := range values {
+			ch <- v
+			group.Wait()
+		}
+		s.doneWG.Done()
+	}()
 
-	return func() {
-		s.doneWG.Add(1)
-		go func() {
-			for _, v := range values {
-				ch <- v
-				group.Wait()
-			}
-			s.doneWG.Done()
-		}()
+	s.machinesWorker.EXPECT().Kill().AnyTimes()
+	s.machinesWorker.EXPECT().Wait().Return(nil).AnyTimes()
 
-		s.machinesWorker.EXPECT().Kill().AnyTimes()
-		s.machinesWorker.EXPECT().Wait().Return(nil).AnyTimes()
-
-		s.facade.EXPECT().WatchMachines().Return(
-			&fakeStringsWatcher{
-				Worker: s.machinesWorker,
-				ch:     ch,
-			}, nil)
-	}
+	s.facade.EXPECT().WatchMachines().Return(
+		&fakeStringsWatcher{
+			Worker: s.machinesWorker,
+			ch:     ch,
+		}, nil)
 }
 
 // notifyAppLXDProfile returns a suite behaviour that will cause the instance mutator
 // watcher to send a number of notifications equal to the supplied argument.
 // Once notifications have been consumed, we notify via the suite's channel.
-func (s *workerSuite) notifyMachineAppLXDProfile(machine, times int) func() {
-	return s.notifyAppLXDProfile(s.machine[machine], machine, times)
+func (s *workerSuite) notifyMachineAppLXDProfile(machine, times int) {
+	s.notifyAppLXDProfile(s.machine[machine], machine, times)
 }
 
-func (s *workerContainerSuite) notifyContainerAppLXDProfile(times int) func() {
-	return s.notifyAppLXDProfile(s.lxdContainer, 0, times)
+func (s *workerContainerSuite) notifyContainerAppLXDProfile(times int) {
+	s.notifyAppLXDProfile(s.lxdContainer, 0, times)
 }
 
-func (s *workerSuite) notifyAppLXDProfile(mock *mocks.MockMutaterMachine, which, times int) func() {
+func (s *workerSuite) notifyAppLXDProfile(mock *mocks.MockMutaterMachine, which, times int) {
 	ch := make(chan struct{})
+	s.doneWG.Add(1)
+	go func() {
+		for i := 0; i < times; i += 1 {
+			ch <- struct{}{}
+		}
+		s.doneWG.Done()
+	}()
 
-	return func() {
-		s.doneWG.Add(1)
-		go func() {
-			for i := 0; i < times; i += 1 {
-				ch <- struct{}{}
-			}
-			s.doneWG.Done()
-		}()
+	w := s.appLXDProfileWorker[which]
+	w.EXPECT().Kill().AnyTimes()
+	w.EXPECT().Wait().Return(nil).AnyTimes()
 
-		w := s.appLXDProfileWorker[which]
-		w.EXPECT().Kill().AnyTimes()
-		w.EXPECT().Wait().Return(nil).AnyTimes()
-
-		mock.EXPECT().WatchLXDProfileVerificationNeeded().Return(
-			&fakeNotifyWatcher{
-				Worker: w,
-				ch:     ch,
-			}, nil)
-	}
+	mock.EXPECT().WatchLXDProfileVerificationNeeded().Return(
+		&fakeNotifyWatcher{
+			Worker: w,
+			ch:     ch,
+		}, nil)
 }
 
 // cleanKill waits for notifications to be processed, then waits for the input
@@ -659,19 +614,18 @@ var _ = gc.Suite(&loggerSuite{})
 
 // ignoreLogging turns the suite's mock Logger into a sink, with no validation.
 // Logs are still emitted via the test Logger.
-func (s *loggerSuite) ignoreLogging(c *gc.C) func() {
+func (s *loggerSuite) ignoreLogging(c *gc.C) {
 	warnIt := func(message string, args ...interface{}) { logIt(c, loggo.WARNING, message, args) }
 	debugIt := func(message string, args ...interface{}) { logIt(c, loggo.DEBUG, message, args) }
 	errorIt := func(message string, args ...interface{}) { logIt(c, loggo.ERROR, message, args) }
 	traceIt := func(message string, args ...interface{}) { logIt(c, loggo.TRACE, message, args) }
 
-	return func() {
-		e := s.logger.EXPECT()
-		e.Warningf(gomock.Any(), gomock.Any()).AnyTimes().Do(warnIt)
-		e.Debugf(gomock.Any(), gomock.Any()).AnyTimes().Do(debugIt)
-		e.Errorf(gomock.Any(), gomock.Any()).AnyTimes().Do(errorIt)
-		e.Tracef(gomock.Any(), gomock.Any()).AnyTimes().Do(traceIt)
-	}
+	e := s.logger.EXPECT()
+	e.Warningf(gomock.Any(), gomock.Any()).AnyTimes().Do(warnIt)
+	e.Debugf(gomock.Any(), gomock.Any()).AnyTimes().Do(debugIt)
+	e.Errorf(gomock.Any(), gomock.Any()).AnyTimes().Do(errorIt)
+	e.Tracef(gomock.Any(), gomock.Any()).AnyTimes().Do(traceIt)
+
 }
 
 func logIt(c *gc.C, level loggo.Level, message string, args interface{}) {
@@ -714,21 +668,20 @@ func (s *workerContainerSuite) SetUpTest(c *gc.C) {
 func (s *workerContainerSuite) TestFullWorkflow(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	w := s.workerForScenario(c,
-		s.ignoreLogging(c),
-		s.notifyContainers(0, [][]string{{"0/lxd/0", "0/kvm/0"}}),
-		s.expectFacadeMachineTag(0),
-		s.expectFacadeContainerTags,
-		s.expectContainerTypes,
-		s.notifyContainerAppLXDProfile(1),
-		s.expectContainerCharmProfilingInfo(3),
-		s.expectLXDProfileNamesTrue,
-		s.expectContainerSetCharmProfiles,
-		s.expectAssignLXDProfiles,
-		s.expectContainerAliveAndSetModificationStatusIdle,
-		s.expectContainerModificationStatusApplied,
-	)
-	s.cleanKill(c, w)
+	s.ignoreLogging(c)
+	s.notifyContainers(0, [][]string{{"0/lxd/0", "0/kvm/0"}})
+	s.expectFacadeMachineTag(0)
+	s.expectFacadeContainerTags()
+	s.expectContainerTypes()
+	s.notifyContainerAppLXDProfile(1)
+	s.expectContainerCharmProfilingInfo(3)
+	s.expectLXDProfileNamesTrue()
+	s.expectContainerSetCharmProfiles()
+	s.expectAssignLXDProfiles()
+	s.expectContainerAliveAndSetModificationStatusIdle()
+	s.expectContainerModificationStatusApplied()
+
+	s.cleanKill(c, s.workerForScenario(c))
 }
 
 func (s *workerContainerSuite) setup(c *gc.C) *gomock.Controller {
@@ -750,8 +703,8 @@ func (s *workerContainerSuite) expectContainerTypes() {
 	s.kvmContainer.EXPECT().ContainerType().Return(instance.KVM, nil).AnyTimes()
 }
 
-func (s *workerContainerSuite) expectContainerCharmProfilingInfo(rev int) func() {
-	return s.expectCharmProfilingInfo(s.lxdContainer, rev)
+func (s *workerContainerSuite) expectContainerCharmProfilingInfo(rev int) {
+	s.expectCharmProfilingInfo(s.lxdContainer, rev)
 }
 
 func (s *workerContainerSuite) expectContainerAliveAndSetModificationStatusIdle() {
@@ -778,27 +731,24 @@ func (s *workerContainerSuite) expectContainerSetCharmProfiles() {
 // notifyContainers returns a suite behaviour that will cause the instance mutator
 // watcher to send a number of notifications equal to the supplied argument.
 // Once notifications have been consumed, we notify via the suite's channel.
-func (s *workerContainerSuite) notifyContainers(machine int, values [][]string) func() {
+func (s *workerContainerSuite) notifyContainers(machine int, values [][]string) {
 	ch := make(chan []string)
+	s.doneWG.Add(1)
+	go func() {
+		for _, v := range values {
+			ch <- v
+		}
+		s.doneWG.Done()
+	}()
 
-	return func() {
-		s.doneWG.Add(1)
-		go func() {
-			for _, v := range values {
-				ch <- v
-			}
-			s.doneWG.Done()
-		}()
+	s.machinesWorker.EXPECT().Kill().AnyTimes()
+	s.machinesWorker.EXPECT().Wait().Return(nil).AnyTimes()
 
-		s.machinesWorker.EXPECT().Kill().AnyTimes()
-		s.machinesWorker.EXPECT().Wait().Return(nil).AnyTimes()
-
-		s.machine[machine].EXPECT().WatchContainers().Return(
-			&fakeStringsWatcher{
-				Worker: s.machinesWorker,
-				ch:     ch,
-			}, nil)
-	}
+	s.machine[machine].EXPECT().WatchContainers().Return(
+		&fakeStringsWatcher{
+			Worker: s.machinesWorker,
+			ch:     ch,
+		}, nil)
 }
 
 type fakeStringsWatcher struct {
