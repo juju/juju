@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 
 	"github.com/juju/juju/caas"
+	k8sannotations "github.com/juju/juju/core/annotations"
 )
 
 // newLabelRequirements creates a list of k8s node label requirements.
@@ -67,6 +68,37 @@ func isDefaultStorageClass(sc storage.StorageClass) bool {
 	return false
 }
 
+// handle CDK separately.
+const (
+	CDKOperatorStorageClassAnnotationKey = "juju.io/operator-storage"
+	CDKWorkloadStorageClassAnnotationKey = "juju.io/workload-storage"
+)
+
+func handleCDKStorage(storageClasses []storage.StorageClass, metaData *caas.ClusterMetadata) bool {
+	var found bool
+	for _, sc := range storageClasses {
+		scAnnotations := k8sannotations.New(sc.GetAnnotations())
+		caasSC := caasStorageProvision(sc)
+		found = scAnnotations.Has(CDKWorkloadStorageClassAnnotationKey, "true")
+		if found {
+			metaData.NominatedStorageClass = caasSC
+			metaData.OperatorStorageClass = caasSC
+		}
+		if scAnnotations.Has(CDKOperatorStorageClassAnnotationKey, "true") {
+			metaData.OperatorStorageClass = caasSC
+		}
+	}
+	return found
+}
+
+func caasStorageProvision(sc *storage.StorageClass) *caas.StorageProvisioner {
+	return &caas.StorageProvisioner{
+		Name:        sc.Name,
+		Provisioner: sc.Provisioner,
+		Parameters:  sc.Parameters,
+	}
+}
+
 // GetClusterMetadata implements ClusterMetadataChecker.
 func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.ClusterMetadata, error) {
 	var result caas.ClusterMetadata
@@ -82,11 +114,7 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 			return nil, errors.Trace(err)
 		}
 		if err == nil {
-			result.NominatedStorageClass = &caas.StorageProvisioner{
-				Name:        sc.Name,
-				Provisioner: sc.Provisioner,
-				Parameters:  sc.Parameters,
-			}
+			result.NominatedStorageClass = caasStorageProvision(sc)
 			if sc.ReclaimPolicy != nil {
 				result.NominatedStorageClass.ReclaimPolicy = string(*sc.ReclaimPolicy)
 			}
@@ -100,6 +128,10 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 		return nil, errors.Annotate(err, "listing storage classes")
 	}
 
+	if handleCDKStorage(storageClasses.Items, &result) {
+		return result, nil
+	}
+
 	var (
 		possibleWorkloadStorage []storage.StorageClass
 		possibleOperatorStorage []*caas.StorageProvisioner
@@ -107,11 +139,7 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 	)
 	for _, sc := range storageClasses.Items {
 		if havePreferredOperatorStorage {
-			maybeOperatorStorage := &caas.StorageProvisioner{
-				Name:        sc.Name,
-				Provisioner: sc.Provisioner,
-				Parameters:  sc.Parameters,
-			}
+			maybeOperatorStorage := caasStorageProvision(sc)
 			if sc.ReclaimPolicy != nil {
 				maybeOperatorStorage.ReclaimPolicy = string(*sc.ReclaimPolicy)
 			}
@@ -126,11 +154,7 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 			continue
 		}
 		if isDefaultStorageClass(sc) {
-			result.NominatedStorageClass = &caas.StorageProvisioner{
-				Name:        sc.Name,
-				Provisioner: sc.Provisioner,
-				Parameters:  sc.Parameters,
-			}
+			result.NominatedStorageClass = caasStorageProvision(sc)
 			if sc.ReclaimPolicy != nil {
 				result.NominatedStorageClass.ReclaimPolicy = string(*sc.ReclaimPolicy)
 			}
@@ -150,11 +174,7 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 	// one of them, use it for workload storage.
 	if result.NominatedStorageClass == nil && len(possibleWorkloadStorage) == 1 {
 		sc := possibleWorkloadStorage[0]
-		result.NominatedStorageClass = &caas.StorageProvisioner{
-			Name:        sc.Name,
-			Provisioner: sc.Provisioner,
-			Parameters:  sc.Parameters,
-		}
+		result.NominatedStorageClass = caasStorageProvision(sc)
 		if sc.ReclaimPolicy != nil {
 			result.NominatedStorageClass.ReclaimPolicy = string(*sc.ReclaimPolicy)
 		}
