@@ -13,6 +13,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/arch"
 
+	"github.com/juju/juju/caas"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
@@ -39,11 +40,10 @@ func prepare(context *cmd.Context, controllerName string, store jujuclient.Clien
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cfg, err := provider.PrepareConfig(*params)
-	if err != nil {
-		return nil, errors.Trace(err)
+	if _, ok := provider.(caas.ContainerEnvironProvider); ok {
+		return nil, errors.NotSupportedf("preparing environ for CAAS")
 	}
-	ctrl, err := store.ControllerByName(controllerName)
+	cfg, err := provider.PrepareConfig(*params)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -54,9 +54,8 @@ func prepare(context *cmd.Context, controllerName string, store jujuclient.Clien
 	// we'll do about simplestreams.MetadataValidator yet. Probably
 	// move it to the EnvironProvider interface.
 	return environs.New(environs.OpenParams{
-		ControllerUUID: ctrl.ControllerUUID,
-		Cloud:          params.Cloud,
-		Config:         cfg,
+		Cloud:  params.Cloud,
+		Config: cfg,
 	})
 }
 
