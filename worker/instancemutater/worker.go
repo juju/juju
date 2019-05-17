@@ -59,6 +59,8 @@ type Config struct {
 	GetRequiredLXDProfiles RequiredLXDProfilesFunc
 
 	// GetRequiredContext provides a way to override the given context
+	// Note: the following is required for testing purposes when we have an
+	// error case and we want to know when it's valid to kill/clean the worker.
 	GetRequiredContext RequiredMutaterContextFunc
 }
 
