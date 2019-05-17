@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/api/instancemutater"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
+	worker "gopkg.in/juju/worker.v1"
 )
 
 func NewMachineContext(
@@ -19,6 +20,9 @@ func NewMachineContext(
 	w := mutaterWorker{
 		broker:                     broker,
 		getRequiredLXDProfilesFunc: fn,
+		getRequiredContextFunc: func(w MutaterContext) MutaterContext {
+			return w
+		},
 	}
 	return &MutaterMachine{
 		context:    w.newMachineContext(),
@@ -26,6 +30,15 @@ func NewMachineContext(
 		machineApi: machine,
 		id:         id,
 	}
+}
+
+func NewEnvironTestWorker(config Config, ctxFn RequiredMutaterContextFunc) (worker.Worker, error) {
+	config.GetMachineWatcher = config.Facade.WatchMachines
+	config.GetRequiredLXDProfiles = func(modelName string) []string {
+		return []string{"default", "juju-" + modelName}
+	}
+	config.GetRequiredContext = ctxFn
+	return newWorker(config)
 }
 
 func ProcessMachineProfileChanges(m *MutaterMachine, info *instancemutater.UnitProfileInfo) error {

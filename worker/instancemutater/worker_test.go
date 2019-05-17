@@ -114,6 +114,19 @@ func (s *workerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 			},
 			err: "nil GetRequiredLXDProfiles not valid",
 		},
+		{
+			description: "Test no GetRequiredContext",
+			config: instancemutater.Config{
+				Logger:                 mocks.NewMockLogger(ctrl),
+				Facade:                 mocks.NewMockInstanceMutaterAPI(ctrl),
+				Broker:                 mocks.NewMockLXDProfiler(ctrl),
+				AgentConfig:            mocks.NewMockConfig(ctrl),
+				Tag:                    names.NewMachineTag("3"),
+				GetMachineWatcher:      getMachineWatcher,
+				GetRequiredLXDProfiles: func(_ string) []string { return []string{} },
+			},
+			err: "nil GetRequiredContext not valid",
+		},
 	}
 	for i, test := range testcases {
 		c.Logf("%d %s", i, test.description)
@@ -138,6 +151,9 @@ func (s *workerConfigSuite) TestValidConfigValidate(c *gc.C) {
 		Tag:                    names.MachineTag{},
 		GetMachineWatcher:      getMachineWatcher,
 		GetRequiredLXDProfiles: func(_ string) []string { return []string{} },
+		GetRequiredContext: func(w instancemutater.MutaterContext) instancemutater.MutaterContext {
+			return w
+		},
 	}
 	err := config.Validate()
 	c.Assert(err, gc.IsNil)
@@ -154,6 +170,7 @@ type workerSuite struct {
 	machinesWorker         *workermocks.MockWorker
 	appLXDProfileWorker    map[int]*workermocks.MockWorker
 	getRequiredLXDProfiles instancemutater.RequiredLXDProfilesFunc
+	getRequiredContext     instancemutater.RequiredMutaterContextFunc
 
 	// doneWG is a collection of things each test needs to wait to
 	// be completed within the test.
@@ -167,7 +184,13 @@ var _ = gc.Suite(&workerSuite{})
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.newWorkerFunc = instancemutater.NewEnvironWorker
+	s.doneWG = sync.WaitGroup{}
+	s.getRequiredContext = func(w instancemutater.MutaterContext) instancemutater.MutaterContext {
+		return w
+	}
+	s.newWorkerFunc = func(config instancemutater.Config) (worker.Worker, error) {
+		return instancemutater.NewEnvironTestWorker(config, s.getRequiredContext)
+	}
 	s.machineTag = names.NewMachineTag("0")
 	s.getRequiredLXDProfiles = func(modelName string) []string {
 		return []string{"default", "juju-testing"}
@@ -315,6 +338,7 @@ func (s *workerEnvironSuite) TestCharmProfilingInfoError(c *gc.C) {
 	defer s.setup(c, 1).Finish()
 
 	w := s.workerForScenario(c,
+		s.overloadMachineContext,
 		s.ignoreLogging(c),
 		s.notifyMachines([][]string{{"0"}}),
 		s.expectFacadeMachineTag(0),
@@ -400,8 +424,8 @@ func (s *workerSuite) expectFacadeReturnsNoMachine() {
 }
 
 func (s *workerSuite) expectCharmProfilingInfoSimpleNoChange(machine int) func() {
+	do := s.workGroupAddGetDoneFunc()
 	return func() {
-		do := s.workGroupAddGetDoneFunc()
 		s.machine[machine].EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{}, nil).Do(do)
 	}
 }
@@ -409,6 +433,26 @@ func (s *workerSuite) expectCharmProfilingInfoSimpleNoChange(machine int) func()
 func (s *workerSuite) workGroupAddGetDoneFunc() func(_ ...interface{}) {
 	s.doneWG.Add(1)
 	return func(_ ...interface{}) { s.doneWG.Done() }
+}
+
+type contextShim struct {
+	done func()
+	instancemutater.MutaterContext
+}
+
+func (s contextShim) KillWithError(err error) {
+	defer s.done()
+	s.MutaterContext.KillWithError(err)
+}
+
+func (s *workerSuite) overloadMachineContext() {
+	s.doneWG.Add(1)
+	s.getRequiredContext = func(w instancemutater.MutaterContext) instancemutater.MutaterContext {
+		return contextShim{
+			done:           s.doneWG.Done,
+			MutaterContext: w,
+		}
+	}
 }
 
 func (s *workerSuite) expectLXDProfileNamesTrue() {
@@ -450,8 +494,8 @@ func (s *workerSuite) expectCharmProfilingInfoRemove(machine int) func() {
 }
 
 func (s *workerSuite) expectCharmProfileInfoNotProvisioned(machine int) func() {
+	do := s.workGroupAddGetDoneFunc()
 	return func() {
-		do := s.workGroupAddGetDoneFunc()
 		err := params.Error{
 			Message: "machine 0 not provisioned",
 			Code:    params.CodeNotProvisioned,
@@ -461,8 +505,8 @@ func (s *workerSuite) expectCharmProfileInfoNotProvisioned(machine int) func() {
 }
 
 func (s *workerSuite) expectCharmProfileInfoError(machine int) func() {
+	do := s.workGroupAddGetDoneFunc()
 	return func() {
-		do := s.workGroupAddGetDoneFunc()
 		err := params.Error{
 			Message: "machine 0 not supported",
 			Code:    params.CodeNotSupported,
@@ -481,6 +525,8 @@ func (s *workerSuite) expectAliveAndSetModificationStatusIdle(machine int) func(
 }
 
 func (s *workerSuite) expectMachineAliveStatusIdleMachineDead(machine int, group *sync.WaitGroup) func() {
+	s.doneWG.Add(1)
+	do := s.workGroupAddGetDoneFunc()
 	return func() {
 		mExp := s.machine[machine].EXPECT()
 
@@ -492,18 +538,16 @@ func (s *workerSuite) expectMachineAliveStatusIdleMachineDead(machine int, group
 
 		mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
 
-		do := s.workGroupAddGetDoneFunc()
 		s.machine[0].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil)
 		s.machine[1].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil).Do(do)
 
-		s.doneWG.Add(1)
 		mExp.Life().Return(params.Dead).After(o1).Do(do)
 	}
 }
 
 func (s *workerSuite) expectModificationStatusApplied(machine int) func() {
+	do := s.workGroupAddGetDoneFunc()
 	return func() {
-		do := s.workGroupAddGetDoneFunc()
 		s.machine[machine].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil).Do(do)
 	}
 }
@@ -532,9 +576,8 @@ func (s *workerSuite) expectRemoveAllCharmProfiles(machine int) func() {
 // Once notifications have been consumed, we notify via the suite's channel.
 func (s *workerSuite) notifyMachines(values [][]string) func() {
 	ch := make(chan []string)
-
+	s.doneWG.Add(1)
 	return func() {
-		s.doneWG.Add(1)
 		go func() {
 			for _, v := range values {
 				ch <- v
@@ -555,9 +598,8 @@ func (s *workerSuite) notifyMachines(values [][]string) func() {
 
 func (s *workerSuite) notifyMachinesWaitGroup(values [][]string, group *sync.WaitGroup) func() {
 	ch := make(chan []string)
-
+	s.doneWG.Add(1)
 	return func() {
-		s.doneWG.Add(1)
 		go func() {
 			for _, v := range values {
 				ch <- v
@@ -590,9 +632,8 @@ func (s *workerContainerSuite) notifyContainerAppLXDProfile(times int) func() {
 
 func (s *workerSuite) notifyAppLXDProfile(mock *mocks.MockMutaterMachine, which, times int) func() {
 	ch := make(chan struct{})
-
+	s.doneWG.Add(1)
 	return func() {
-		s.doneWG.Add(1)
 		go func() {
 			for i := 0; i < times; i += 1 {
 				ch <- struct{}{}
@@ -624,6 +665,7 @@ func (s *workerSuite) cleanKill(c *gc.C, w worker.Worker) {
 // time out, the test fails.
 func (s *workerSuite) errorKill(c *gc.C, w worker.Worker) error {
 	s.waitDone(c)
+	//time.Sleep(time.Millisecond * 10)
 	return workertest.CheckKill(c, w)
 }
 
@@ -766,9 +808,8 @@ func (s *workerContainerSuite) expectContainerSetCharmProfiles() {
 // Once notifications have been consumed, we notify via the suite's channel.
 func (s *workerContainerSuite) notifyContainers(machine int, values [][]string) func() {
 	ch := make(chan []string)
-
+	s.doneWG.Add(1)
 	return func() {
-		s.doneWG.Add(1)
 		go func() {
 			for _, v := range values {
 				ch <- v
