@@ -84,12 +84,12 @@ func (b byPopulationThenName) Swap(i, j int) {
 // ordered by name.
 //
 // If the specified group is empty, then it will behave as if the result of
-// AllInstances were provided.
+// AllRunningInstances were provided.
 func AvailabilityZoneAllocations(
 	env ZonedEnviron, ctx context.ProviderCallContext, group []instance.Id,
 ) ([]AvailabilityZoneInstances, error) {
 	if len(group) == 0 {
-		instances, err := env.AllInstances(ctx)
+		instances, err := env.AllRunningInstances(ctx)
 		if err != nil {
 			return nil, err
 		}

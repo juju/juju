@@ -522,7 +522,7 @@ func (s *environSuite) TestCloudEndpointManagementURI(c *gc.C) {
 	sender.AppendResponse(mocks.NewResponseWithContent("{}"))
 	s.sender = azuretesting.Senders{sender}
 	s.requests = nil
-	env.AllInstances(s.callCtx) // trigger a query
+	env.AllRunningInstances(s.callCtx) // trigger a query
 
 	c.Assert(s.requests, gc.HasLen, 1)
 	c.Assert(s.requests[0].URL.Host, gc.Equals, "api.azurestack.local")
@@ -534,7 +534,7 @@ func (s *environSuite) TestCloudEndpointManagementURIWithCredentialError(c *gc.C
 	s.requests = nil
 
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
-	env.AllInstances(s.callCtx) // trigger a query
+	env.AllRunningInstances(s.callCtx) // trigger a query
 	c.Assert(s.requests, gc.HasLen, 1)
 	c.Assert(s.requests[0].URL.Host, gc.Equals, "api.azurestack.local")
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
@@ -1334,7 +1334,7 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 	})
 }
 
-func (s *environSuite) TestAllInstancesResourceGroupNotFound(c *gc.C) {
+func (s *environSuite) TestAllRunningInstancesResourceGroupNotFound(c *gc.C) {
 	env := s.openEnviron(c)
 	azure.SetRetries(env)
 	sender := mocks.NewSender()
@@ -1342,11 +1342,11 @@ func (s *environSuite) TestAllInstancesResourceGroupNotFound(c *gc.C) {
 		"resource group not found", http.StatusNotFound,
 	), 2)
 	s.sender = azuretesting.Senders{sender}
-	_, err := env.AllInstances(s.callCtx)
+	_, err := env.AllRunningInstances(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *environSuite) TestAllInstancesIgnoresCommonDeployment(c *gc.C) {
+func (s *environSuite) TestAllRunningInstancesIgnoresCommonDeployment(c *gc.C) {
 	env := s.openEnviron(c)
 
 	dependencies := []resources.Dependency{{
@@ -1365,7 +1365,7 @@ func (s *environSuite) TestAllInstancesIgnoresCommonDeployment(c *gc.C) {
 		s.makeSender("/deployments", result),
 	}
 
-	instances, err := env.AllInstances(s.callCtx)
+	instances, err := env.AllRunningInstances(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 0)
 }

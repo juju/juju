@@ -300,6 +300,26 @@ func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, ins
 
 // AllInstances implements environs.InstanceBroker.
 func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+	// We want all statuses here except for "terminated" - these instances are truly dead to us.
+	// According to https://cloud.google.com/compute/docs/instances/instance-life-cycle
+	// there are now only "provisioning", "staging", "running", "stopping" and "terminated" states.
+	// The others might have been needed for older versions of gce... Keeping here for potential
+	// backward compatibility.
+	nonLiveStatuses := []string{
+		google.StatusDone,
+		google.StatusDown,
+		google.StatusProvisioning,
+		google.StatusStopped,
+		google.StatusStopping,
+		google.StatusUp,
+	}
+	filters := append(instStatuses, nonLiveStatuses...)
+	instances, err := getInstances(env, ctx, filters...)
+	return instances, errors.Trace(err)
+}
+
+// AllRunningInstances implements environs.InstanceBroker.
+func (env *environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	instances, err := getInstances(env, ctx)
 	return instances, errors.Trace(err)
 }

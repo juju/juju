@@ -130,7 +130,7 @@ func WaitForAgentInitialisation(
 
 // BootstrapEndpointAddresses returns the addresses of the bootstrapped instance.
 func BootstrapEndpointAddresses(environ environs.InstanceBroker, callContext context.ProviderCallContext) ([]network.Address, error) {
-	instances, err := environ.AllInstances(callContext)
+	instances, err := environ.AllRunningInstances(callContext)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

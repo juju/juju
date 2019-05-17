@@ -142,7 +142,7 @@ func (suite *EnvironProviderSuite) testMAASServerFromEndpoint(c *gc.C, endpoint 
 	c.Assert(err, jc.ErrorIsNil)
 
 	suite.addNode(`{"system_id":"test-allocated"}`)
-	_, err = env.AllInstances(suite.callCtx)
+	_, err = env.AllRunningInstances(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

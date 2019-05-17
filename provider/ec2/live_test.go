@@ -145,7 +145,7 @@ func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 
 func (t *LiveTests) TestControllerInstances(c *gc.C) {
 	t.BootstrapOnce(c)
-	allInsts, err := t.Env.AllInstances(t.callCtx)
+	allInsts, err := t.Env.AllRunningInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allInsts, gc.HasLen, 1) // bootstrap instance
 	bootstrapInstId := allInsts[0].Id()
@@ -163,7 +163,7 @@ func (t *LiveTests) TestControllerInstances(c *gc.C) {
 
 func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	t.BootstrapOnce(c)
-	allInsts, err := t.Env.AllInstances(t.callCtx)
+	allInsts, err := t.Env.AllRunningInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allInsts, gc.HasLen, 1) // bootstrap instance
 	bootstrapInstId := allInsts[0].Id()
@@ -281,7 +281,7 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	insts, err := t.Env.Instances(t.callCtx, instIds)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instIds, jc.SameContents, idsFromInsts(insts))
-	allInsts, err = t.Env.AllInstances(t.callCtx)
+	allInsts, err = t.Env.AllRunningInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	// ignore the bootstrap instance
 	for i, inst := range allInsts {

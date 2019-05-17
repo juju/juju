@@ -746,7 +746,7 @@ func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
 }
 
 func assertInstanceIds(c *gc.C, env environs.Environ, callCtx context.ProviderCallContext, expected ...instance.Id) {
-	insts, err := env.AllInstances(callCtx)
+	insts, err := env.AllRunningInstances(callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	instIds := make([]instance.Id, len(insts))
 	for i, inst := range insts {
@@ -952,7 +952,7 @@ func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *localServerSuite) TestAllInstancesFloatingIP(c *gc.C) {
+func (s *localServerSuite) TestAllRunningInstancesFloatingIP(c *gc.C) {
 	env := s.openEnviron(c, coretesting.Attrs{
 		"network":         "private_999",
 		"use-floating-ip": true,
@@ -965,7 +965,7 @@ func (s *localServerSuite) TestAllInstancesFloatingIP(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	insts, err := env.AllInstances(s.callCtx)
+	insts, err := env.AllRunningInstances(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, inst := range insts {
 		c.Assert(*openstack.InstanceFloatingIP(inst), gc.Equals, fmt.Sprintf("10.0.0.%v", inst.Id()))
@@ -1102,7 +1102,7 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.HasLen, 1)
 
-	insts, err := s.env.AllInstances(s.callCtx)
+	insts, err := s.env.AllRunningInstances(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, ids[0])
@@ -1901,7 +1901,7 @@ func (s *localHTTPSServerSuite) TestSSLVerify(c *gc.C) {
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = env.AllInstances(s.callCtx)
+	_, err = env.AllRunningInstances(s.callCtx)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -1923,7 +1923,7 @@ func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = env.AllInstances(s.callCtx)
+	_, err = env.AllRunningInstances(s.callCtx)
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
 }
 
@@ -2070,17 +2070,17 @@ func (s *localServerSuite) TestRemoveBlankContainer(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot remove "some-file": swift container name is empty`)
 }
 
-func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
+func (s *localServerSuite) TestAllRunningInstancesIgnoresOtherMachines(c *gc.C) {
 	err := bootstrapEnv(c, s.env)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that we see 1 instance in the environment
-	insts, err := s.env.AllInstances(s.callCtx)
+	insts, err := s.env.AllRunningInstances(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(insts, gc.HasLen, 1)
 
 	// Now start a machine 'manually' in the same account, with a similar
-	// but not matching name, and ensure it isn't seen by AllInstances
+	// but not matching name, and ensure it isn't seen by AllRunningInstances
 	// See bug #1257481, for how similar names were causing them to get
 	// listed (and thus destroyed) at the wrong time
 	existingModelName := s.TestConfig["name"]
@@ -2103,7 +2103,7 @@ func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(servers, gc.HasLen, 2)
 
-	insts, err = s.env.AllInstances(s.callCtx)
+	insts, err = s.env.AllRunningInstances(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(insts, gc.HasLen, 1)
 }
@@ -2388,7 +2388,7 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 	err := bootstrapEnv(c, t.env)
 	c.Assert(err, jc.ErrorIsNil)
 
-	instances, err := t.env.AllInstances(t.callCtx)
+	instances, err := t.env.AllRunningInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
 
@@ -2409,7 +2409,7 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 
 	assertMetadata := func(extraKey, extraValue string) {
 		// Refresh instance
-		instances, err := t.env.AllInstances(t.callCtx)
+		instances, err := t.env.AllRunningInstances(t.callCtx)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(instances, gc.HasLen, 1)
 		c.Assert(
@@ -2424,7 +2424,7 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 		)
 	}
 
-	instances, err := t.env.AllInstances(t.callCtx)
+	instances, err := t.env.AllRunningInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
 
@@ -2549,7 +2549,7 @@ func addVolume(c *gc.C, env environs.Environ, callCtx context.ProviderCallContex
 }
 
 func (s *localServerSuite) checkInstanceTags(c *gc.C, env environs.Environ, expectedController string) {
-	instances, err := env.AllInstances(s.callCtx)
+	instances, err := env.AllRunningInstances(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.Not(gc.HasLen), 0)
 	for _, instance := range instances {

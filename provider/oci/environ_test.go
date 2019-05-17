@@ -777,7 +777,7 @@ func (e *environSuite) TestStopInstancesTimeoutTransitioningToTerminated(c *gc.C
 
 }
 
-func (e *environSuite) TestAllInstances(c *gc.C) {
+func (e *environSuite) TestAllRunningInstances(c *gc.C) {
 	ctrl := e.patchEnv(c)
 	defer ctrl.Finish()
 
@@ -785,12 +785,12 @@ func (e *environSuite) TestAllInstances(c *gc.C) {
 		context.Background(), e.listInstancesRequest).Return(
 		e.listInstancesResponse, nil)
 
-	ids, err := e.env.AllInstances(nil)
+	ids, err := e.env.AllRunningInstances(nil)
 	c.Assert(err, gc.IsNil)
 	c.Check(len(ids), gc.Equals, 2)
 }
 
-func (e *environSuite) TestAllInstancesExtraUnrelatedInstance(c *gc.C) {
+func (e *environSuite) TestAllRunningInstancesExtraUnrelatedInstance(c *gc.C) {
 	ctrl := e.patchEnv(c)
 	defer ctrl.Finish()
 
@@ -804,7 +804,7 @@ func (e *environSuite) TestAllInstancesExtraUnrelatedInstance(c *gc.C) {
 		context.Background(), e.listInstancesRequest).Return(
 		e.listInstancesResponse, nil)
 
-	ids, err := e.env.AllInstances(nil)
+	ids, err := e.env.AllRunningInstances(nil)
 	c.Assert(err, gc.IsNil)
 	c.Check(len(ids), gc.Equals, 2)
 }

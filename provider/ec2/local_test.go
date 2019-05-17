@@ -381,7 +381,7 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
 
-	insts, err := env.AllInstances(t.callCtx)
+	insts, err := env.AllRunningInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
@@ -459,7 +459,7 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
 
-	insts, err := env.AllInstances(t.callCtx)
+	insts, err := env.AllRunningInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
@@ -529,7 +529,7 @@ func (t *localServerSuite) TestTerminateInstancesIgnoresNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
-	insts, err := env.AllInstances(t.callCtx)
+	insts, err := env.AllRunningInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	idsToStop := make([]instance.Id, len(insts)+1)
 	for i, one := range insts {
@@ -587,7 +587,7 @@ func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
 func (t *localServerSuite) TestInstanceSecurityGroupsWitheInstanceStatusFilter(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
 
-	insts, err := env.AllInstances(t.callCtx)
+	insts, err := env.AllRunningInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	ids := make([]instance.Id, len(insts))
 	for i, one := range insts {
@@ -676,7 +676,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 	c.Assert(volumeResults[0].Error, jc.ErrorIsNil)
 
 	assertInstances := func(expect ...instance.Id) {
-		insts, err := env.AllInstances(t.callCtx)
+		insts, err := env.AllRunningInstances(t.callCtx)
 		c.Assert(err, jc.ErrorIsNil)
 		ids := make([]instance.Id, len(insts))
 		for i, inst := range insts {
@@ -1757,7 +1757,7 @@ func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
 func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
 
-	instances, err := env.AllInstances(t.callCtx)
+	instances, err := env.AllRunningInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
 
@@ -1773,7 +1773,7 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 func (t *localServerSuite) TestRootDiskTags(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
 
-	instances, err := env.AllInstances(t.callCtx)
+	instances, err := env.AllRunningInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
 
@@ -1799,7 +1799,7 @@ func (t *localServerSuite) TestRootDiskTags(c *gc.C) {
 
 func (s *localServerSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	env := s.prepareAndBootstrap(c)
-	inst, err := env.AllInstances(s.callCtx)
+	inst, err := env.AllRunningInstances(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(inst, gc.HasLen, 1)
 	ec2inst := ec2.InstanceEC2(inst[0])
@@ -1816,7 +1816,7 @@ func makeFilter(key string, values ...string) *amzec2.Filter {
 
 func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	controllerEnv := s.prepareAndBootstrap(c)
-	controllerInsts, err := controllerEnv.AllInstances(s.callCtx)
+	controllerInsts, err := controllerEnv.AllRunningInstances(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerInsts, gc.HasLen, 1)
 

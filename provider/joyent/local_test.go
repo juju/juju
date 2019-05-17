@@ -328,7 +328,7 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
 
-	insts, err := env.AllInstances(s.callCtx)
+	insts, err := env.AllRunningInstances(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(instanceIds[0], gc.Equals, insts[0].Id())

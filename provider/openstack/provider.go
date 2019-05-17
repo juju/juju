@@ -1466,7 +1466,7 @@ func (e *Environ) listServers(ctx context.ProviderCallContext, ids []instance.Id
 		return wantedServers, nil
 	}
 	// List all instances in the environment.
-	instances, err := e.AllInstances(ctx)
+	instances, err := e.AllRunningInstances(ctx)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, err
@@ -1575,7 +1575,7 @@ func (e *Environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 	var failed []string
 	controllerTag := map[string]string{tags.JujuController: controllerUUID}
 
-	instances, err := e.AllInstances(ctx)
+	instances, err := e.AllRunningInstances(ctx)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return errors.Trace(err)
@@ -1660,6 +1660,13 @@ func (e *Environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Ins
 		return instances, err
 	}
 	return instances, nil
+}
+
+// AllRunningInstances returns all running, available instances in this environment.
+func (e *Environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+	// e.allInstances(...) already handles all instances irrespective of the state, so
+	// here 'all' is also 'all running'.
+	return e.AllInstances(ctx)
 }
 
 // allControllerManagedInstances returns all instances managed by this

@@ -47,6 +47,10 @@ func (env *mockEnviron) AllInstances(ctx context.ProviderCallContext) ([]instanc
 	return env.allInstances(ctx)
 }
 
+func (env *mockEnviron) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+	return env.allInstances(ctx)
+}
+
 func (env *mockEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	return env.instances(ctx, ids)
 }

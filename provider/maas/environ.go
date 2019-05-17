@@ -2076,9 +2076,15 @@ func checkNotFound(subnetIdSet map[string]bool) error {
 	return nil
 }
 
-// AllInstances returns all the instances.Instance in this provider.
+// AllInstances implements environs.InstanceBroker.
 func (env *maasEnviron) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	return env.acquiredInstances(ctx, nil)
+}
+
+// AllRunningInstances implements environs.InstanceBroker.
+func (env *maasEnviron) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+	// We always get all instances here, so "all" is the same as "running".
+	return env.AllInstances(ctx)
 }
 
 // Storage is defined by the Environ interface.
@@ -2371,7 +2377,7 @@ func (env *maasEnviron) AdoptResources(ctx context.ProviderCallContext, controll
 		return nil
 	}
 
-	instances, err := env.AllInstances(ctx)
+	instances, err := env.AllRunningInstances(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
