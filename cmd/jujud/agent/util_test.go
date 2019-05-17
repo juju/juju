@@ -414,7 +414,7 @@ func (e *minModelWorkersEnviron) SetConfig(*config.Config) error {
 	return nil
 }
 
-func (e *minModelWorkersEnviron) AllInstances(context.ProviderCallContext) ([]instances.Instance, error) {
+func (e *minModelWorkersEnviron) AllRunningInstances(context.ProviderCallContext) ([]instances.Instance, error) {
 	return nil, nil
 }
 

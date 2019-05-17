@@ -191,7 +191,12 @@ func (broker *kvmBroker) StopInstances(ctx context.ProviderCallContext, ids ...i
 	return nil
 }
 
-// AllInstances only returns running containers.
+// AllInstances returns all containers.
 func (broker *kvmBroker) AllInstances(ctx context.ProviderCallContext) (result []instances.Instance, err error) {
+	return broker.manager.ListContainers()
+}
+
+// AllRunningInstances only returns running containers.
+func (broker *kvmBroker) AllRunningInstances(ctx context.ProviderCallContext) (result []instances.Instance, err error) {
 	return broker.manager.ListContainers()
 }

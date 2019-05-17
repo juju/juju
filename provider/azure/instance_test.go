@@ -597,6 +597,15 @@ func (s *instanceSuite) TestAllInstances(c *gc.C) {
 	c.Assert(instances[1].Id(), gc.Equals, instance.Id("machine-1"))
 }
 
+func (s *instanceSuite) TestAllRunningInstances(c *gc.C) {
+	s.sender = s.getInstancesSender()
+	instances, err := s.env.AllRunningInstances(s.callCtx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instances, gc.HasLen, 2)
+	c.Assert(instances[0].Id(), gc.Equals, instance.Id("machine-0"))
+	c.Assert(instances[1].Id(), gc.Equals, instance.Id("machine-1"))
+}
+
 func (s *instanceSuite) TestControllerInstances(c *gc.C) {
 	*(*(*s.deployments[0].Properties.Dependencies)[0].DependsOn)[0].ResourceName = "juju-controller"
 	s.sender = s.getInstancesSender()

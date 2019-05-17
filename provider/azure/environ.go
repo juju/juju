@@ -1532,6 +1532,11 @@ func (env *azureEnviron) AllInstances(ctx context.ProviderCallContext) ([]instan
 	return env.allInstances(ctx, env.resourceGroup, true /* refresh addresses */, false /* all instances */)
 }
 
+// AllRunningInstances is specified in the InstanceBroker interface.
+func (env *azureEnviron) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+	return env.AllInstances(ctx)
+}
+
 // allInstances returns all of the instances in the given resource group,
 // and optionally ensures that each instance's addresses are up-to-date.
 func (env *azureEnviron) allInstances(

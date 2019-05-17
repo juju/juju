@@ -222,8 +222,8 @@ func (e *environSuite) TestStopInstances(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (e *environSuite) TestAllInstances(c *gc.C) {
-	_, err := e.env.AllInstances(e.callCtx)
+func (e *environSuite) TestAllRunningInstances(c *gc.C) {
+	_, err := e.env.AllRunningInstances(e.callCtx)
 	c.Assert(err, gc.IsNil)
 }
 

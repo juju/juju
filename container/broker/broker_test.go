@@ -296,7 +296,7 @@ func instancesFromResults(results ...*environs.StartInstanceResult) []instances.
 }
 
 func assertInstancesStarted(c *gc.C, broker environs.InstanceBroker, results ...*environs.StartInstanceResult) {
-	allInstances, err := broker.AllInstances(context.NewCloudCallContext())
+	allInstances, err := broker.AllRunningInstances(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	instancetest.MatchInstances(c, allInstances, instancesFromResults(results...)...)
 }
