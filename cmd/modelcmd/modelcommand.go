@@ -360,15 +360,19 @@ func (c *ModelCommandBase) modelDetails(controllerName, modelIdentifier string) 
 func (c *ModelCommandBase) modelFromStore(controllerName, modelIdentifier string) (
 	string, *jujuclient.ModelDetails, error,
 ) {
-	models, err := c.store.AllModels(controllerName)
-	if err != nil {
+	// Check if the model identifier is a name that identifies a stored model.
+	// This will be the most common case.
+	details, err := c.store.ModelByName(controllerName, modelIdentifier)
+	if err == nil {
+		return modelIdentifier, details, nil
+	}
+	if !errors.IsNotFound(err) {
 		return "", nil, errors.Trace(err)
 	}
 
-	// Check if the model identifier is a name that identifies a stored model.
-	// This will be the most common case.
-	if details, ok := models[modelIdentifier]; ok {
-		return modelIdentifier, &details, nil
+	models, err := c.store.AllModels(controllerName)
+	if err != nil {
+		return "", nil, errors.Trace(err)
 	}
 
 	// If the identifier is 6-8 characters or a valid UUID,
