@@ -8,6 +8,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	instancemutater "github.com/juju/juju/api/instancemutater"
 	params "github.com/juju/juju/apiserver/params"
+	instance "github.com/juju/juju/core/instance"
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	names_v2 "gopkg.in/juju/names.v2"
@@ -48,6 +49,19 @@ func (m *MockMutaterMachine) CharmProfilingInfo() (*instancemutater.UnitProfileI
 // CharmProfilingInfo indicates an expected call of CharmProfilingInfo
 func (mr *MockMutaterMachineMockRecorder) CharmProfilingInfo() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmProfilingInfo", reflect.TypeOf((*MockMutaterMachine)(nil).CharmProfilingInfo))
+}
+
+// ContainerType mocks base method
+func (m *MockMutaterMachine) ContainerType() (instance.ContainerType, error) {
+	ret := m.ctrl.Call(m, "ContainerType")
+	ret0, _ := ret[0].(instance.ContainerType)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ContainerType indicates an expected call of ContainerType
+func (mr *MockMutaterMachineMockRecorder) ContainerType() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerType", reflect.TypeOf((*MockMutaterMachine)(nil).ContainerType))
 }
 
 // InstanceId mocks base method

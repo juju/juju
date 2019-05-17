@@ -135,6 +135,18 @@ func (mr *MockModelCacheMachineMockRecorder) CharmProfiles() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmProfiles", reflect.TypeOf((*MockModelCacheMachine)(nil).CharmProfiles))
 }
 
+// ContainerType mocks base method
+func (m *MockModelCacheMachine) ContainerType() instance.ContainerType {
+	ret := m.ctrl.Call(m, "ContainerType")
+	ret0, _ := ret[0].(instance.ContainerType)
+	return ret0
+}
+
+// ContainerType indicates an expected call of ContainerType
+func (mr *MockModelCacheMachineMockRecorder) ContainerType() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerType", reflect.TypeOf((*MockModelCacheMachine)(nil).ContainerType))
+}
+
 // InstanceId mocks base method
 func (m *MockModelCacheMachine) InstanceId() (instance.Id, error) {
 	ret := m.ctrl.Call(m, "InstanceId")

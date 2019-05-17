@@ -885,3 +885,9 @@ type GoalState struct {
 	Units     UnitsGoalState            `json:"units"`
 	Relations map[string]UnitsGoalState `json:"relations"`
 }
+
+// ContainerTypeResult holds the result of a machine's ContainerType.
+type ContainerTypeResult struct {
+	Type  instance.ContainerType `json:"container-type"`
+	Error *Error                 `json:"error"`
+}
