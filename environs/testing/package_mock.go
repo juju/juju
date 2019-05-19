@@ -5,22 +5,24 @@
 package testing
 
 import (
-	gomock "github.com/golang/mock/gomock"
-	jsonschema "github.com/juju/jsonschema"
-	cloud "github.com/juju/juju/cloud"
-	constraints "github.com/juju/juju/core/constraints"
-	instance "github.com/juju/juju/core/instance"
-	environs "github.com/juju/juju/environs"
-	config "github.com/juju/juju/environs/config"
-	context "github.com/juju/juju/environs/context"
-	instances "github.com/juju/juju/environs/instances"
-	network "github.com/juju/juju/network"
-	storage "github.com/juju/juju/storage"
-	version "github.com/juju/version"
+	"io"
+	"reflect"
+
+	"github.com/golang/mock/gomock"
+	"github.com/juju/jsonschema"
+	"github.com/juju/version"
 	environschema_v1 "gopkg.in/juju/environschema.v1"
 	names_v2 "gopkg.in/juju/names.v2"
-	io "io"
-	reflect "reflect"
+
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/storage"
 )
 
 // MockEnvironProvider is a mock of EnvironProvider interface
@@ -726,6 +728,19 @@ func (mr *MockEnvironMockRecorder) AllInstances(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllInstances", reflect.TypeOf((*MockEnviron)(nil).AllInstances), arg0)
 }
 
+// AllRunningInstances mocks base method
+func (m *MockEnviron) AllRunningInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
+	ret := m.ctrl.Call(m, "AllRunningInstances", arg0)
+	ret0, _ := ret[0].([]instances.Instance)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllRunningInstances indicates an expected call of AllRunningInstances
+func (mr *MockEnvironMockRecorder) AllRunningInstances(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllRunningInstances", reflect.TypeOf((*MockEnviron)(nil).AllRunningInstances), arg0)
+}
+
 // Bootstrap mocks base method
 func (m *MockEnviron) Bootstrap(arg0 environs.BootstrapContext, arg1 context.ProviderCallContext, arg2 environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	ret := m.ctrl.Call(m, "Bootstrap", arg0, arg1, arg2)
@@ -1355,6 +1370,19 @@ func (m *MockNetworkingEnviron) AllInstances(arg0 context.ProviderCallContext) (
 // AllInstances indicates an expected call of AllInstances
 func (mr *MockNetworkingEnvironMockRecorder) AllInstances(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllInstances", reflect.TypeOf((*MockNetworkingEnviron)(nil).AllInstances), arg0)
+}
+
+// AllRunningInstances mocks base method
+func (m *MockNetworkingEnviron) AllRunningInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
+	ret := m.ctrl.Call(m, "AllRunningInstances", arg0)
+	ret0, _ := ret[0].([]instances.Instance)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllRunningInstances indicates an expected call of AllRunningInstances
+func (mr *MockNetworkingEnvironMockRecorder) AllRunningInstances(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllRunningInstances", reflect.TypeOf((*MockNetworkingEnviron)(nil).AllRunningInstances), arg0)
 }
 
 // AllocateContainerAddresses mocks base method
