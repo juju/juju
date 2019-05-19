@@ -5,18 +5,20 @@
 package mocks
 
 import (
-	gomock "github.com/golang/mock/gomock"
-	constraints "github.com/juju/juju/core/constraints"
-	instance "github.com/juju/juju/core/instance"
-	lxdprofile "github.com/juju/juju/core/lxdprofile"
-	environs "github.com/juju/juju/environs"
-	config "github.com/juju/juju/environs/config"
-	context "github.com/juju/juju/environs/context"
-	instances "github.com/juju/juju/environs/instances"
-	storage "github.com/juju/juju/storage"
-	version "github.com/juju/version"
+	"reflect"
+
+	"github.com/golang/mock/gomock"
+	"github.com/juju/version"
 	charm_v6 "gopkg.in/juju/charm.v6"
-	reflect "reflect"
+
+	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/storage"
 )
 
 // MockEnviron is a mock of Environ interface
@@ -65,6 +67,19 @@ func (m *MockEnviron) AllInstances(arg0 context.ProviderCallContext) ([]instance
 // AllInstances indicates an expected call of AllInstances
 func (mr *MockEnvironMockRecorder) AllInstances(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllInstances", reflect.TypeOf((*MockEnviron)(nil).AllInstances), arg0)
+}
+
+// AllRunningInstances mocks base method
+func (m *MockEnviron) AllRunningInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
+	ret := m.ctrl.Call(m, "AllRunningInstances", arg0)
+	ret0, _ := ret[0].([]instances.Instance)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllRunningInstances indicates an expected call of AllRunningInstances
+func (mr *MockEnvironMockRecorder) AllRunningInstances(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllRunningInstances", reflect.TypeOf((*MockEnviron)(nil).AllRunningInstances), arg0)
 }
 
 // Bootstrap mocks base method
@@ -391,6 +406,19 @@ func (m *MockInstanceBroker) AllInstances(arg0 context.ProviderCallContext) ([]i
 // AllInstances indicates an expected call of AllInstances
 func (mr *MockInstanceBrokerMockRecorder) AllInstances(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllInstances", reflect.TypeOf((*MockInstanceBroker)(nil).AllInstances), arg0)
+}
+
+// AllRunningInstances mocks base method
+func (m *MockInstanceBroker) AllRunningInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
+	ret := m.ctrl.Call(m, "AllRunningInstances", arg0)
+	ret0, _ := ret[0].([]instances.Instance)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllRunningInstances indicates an expected call of AllRunningInstances
+func (mr *MockInstanceBrokerMockRecorder) AllRunningInstances(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllRunningInstances", reflect.TypeOf((*MockInstanceBroker)(nil).AllRunningInstances), arg0)
 }
 
 // MaintainInstance mocks base method
