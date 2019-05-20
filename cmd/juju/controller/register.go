@@ -342,8 +342,7 @@ func (c *registerCommand) updateController(
 			); err != nil {
 				return err
 			}
-			ctx.Warningf(buf.String())
-			return errors.Errorf("controller is already registered as %q", name)
+			return errors.New(buf.String())
 		}
 	}
 	if err := store.AddController(controllerName, controllerDetails); err != nil {
@@ -356,7 +355,7 @@ func (c *registerCommand) updateController(
 }
 
 var alreadyRegisteredMessageT = template.Must(template.New("").Parse(`
-This controller has already been registered on this client as "{{.ControllerName}}."
+This controller has already been registered on this client as "{{.ControllerName}}".
 To login user "{{.UserName}}" run 'juju login -u {{.UserName}} -c {{.ControllerName}}'.
 To update controller details and login as user "{{.UserName}}":
     1. run 'juju unregister {{.UserName}}'
