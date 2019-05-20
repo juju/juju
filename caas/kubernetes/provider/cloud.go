@@ -128,7 +128,7 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 	}}
 
 	// If the user has not specified storage, check that the cluster has Juju's opinionated defaults.
-	cloudType := cloud.SplitHostCloudRegion(storageParams.HostCloudRegion)[0]
+	cloudType, _ := cloud.SplitHostCloudRegion(storageParams.HostCloudRegion)
 	err = storageParams.MetadataChecker.CheckDefaultWorkloadStorage(cloudType, clusterMetadata.NominatedStorageClass)
 
 	if storageParams.WorkloadStorage == "" {
