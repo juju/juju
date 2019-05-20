@@ -1153,7 +1153,7 @@ func (e *environ) subnetsForVPC(ctx context.ProviderCallContext) (resp *ec2.Subn
 // AdoptResources is part of the Environ interface.
 func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	// Gather resource ids for instances, volumes and security groups tagged with this model.
-	instances, err := e.AllInstances(ctx)
+	instances, err := e.AllRunningInstances(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1182,6 +1182,14 @@ func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 
 // AllInstances is part of the environs.InstanceBroker interface.
 func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+	// We want to return everything we find here except for instances that are
+	// "shutting-down" - they are on the way to be terminated - or already "terminated".
+	// From https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html
+	return e.AllInstancesByState(ctx, "rebooting", "pending", "running", "stopping", "stopped")
+}
+
+// AllRunningInstances is part of the environs.InstanceBroker interface.
+func (e *environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	return e.AllInstancesByState(ctx, "pending", "running")
 }
 
@@ -1191,7 +1199,7 @@ func (e *environ) AllInstancesByState(ctx context.ProviderCallContext, states ..
 	// NOTE(axw) we use security group filtering here because instances
 	// start out untagged. If Juju were to abort after starting an instance,
 	// but before tagging it, it would be leaked. We only need to do this
-	// for AllInstances, as it is the result of AllInstances that is used
+	// for AllRunningInstances, as it is the result of AllRunningInstances that is used
 	// in "harvesting" unknown instances by the provisioner.
 	//
 	// One possible alternative is to modify ec2.RunInstances to allow the
@@ -1654,7 +1662,6 @@ func (e *environ) deleteSecurityGroupsForInstances(ctx context.ProviderCallConte
 // SecurityGroupCleaner defines provider instance methods needed to delete
 // a security group.
 type SecurityGroupCleaner interface {
-
 	// DeleteSecurityGroup deletes security group on the provider.
 	DeleteSecurityGroup(group ec2.SecurityGroup) (resp *ec2.SimpleResp, err error)
 }

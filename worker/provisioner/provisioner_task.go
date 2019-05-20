@@ -337,7 +337,7 @@ func instanceIds(instances []instances.Instance) []string {
 func (task *provisionerTask) populateMachineMaps(ids []string) error {
 	task.instances = make(map[instance.Id]instances.Instance)
 
-	instances, err := task.broker.AllInstances(task.cloudCallCtx)
+	instances, err := task.broker.AllRunningInstances(task.cloudCallCtx)
 	if err != nil {
 		return errors.Annotate(err, "failed to get all instances from broker")
 	}

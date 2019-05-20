@@ -101,17 +101,17 @@ func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNoneFound(c *gc.C
 	c.Check(instances, gc.IsNil)
 }
 
-func (suite *environSuite) TestAllInstances(c *gc.C) {
+func (suite *environSuite) TestAllRunningInstances(c *gc.C) {
 	id := suite.addNode(allocatedNode)
-	instances, err := suite.makeEnviron().AllInstances(suite.callCtx)
+	instances, err := suite.makeEnviron().AllRunningInstances(suite.callCtx)
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
 	c.Assert(instances[0].Id(), gc.Equals, id)
 }
 
-func (suite *environSuite) TestAllInstancesReturnsEmptySliceIfNoInstance(c *gc.C) {
-	instances, err := suite.makeEnviron().AllInstances(suite.callCtx)
+func (suite *environSuite) TestAllRunningInstancesReturnsEmptySliceIfNoInstance(c *gc.C) {
+	instances, err := suite.makeEnviron().AllRunningInstances(suite.callCtx)
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(instances, gc.HasLen, 0)
@@ -172,7 +172,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	instanceIds, err := env.ControllerInstances(suite.callCtx, suite.controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
-	insts, err := env.AllInstances(suite.callCtx)
+	insts, err := env.AllRunningInstances(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])

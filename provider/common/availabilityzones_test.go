@@ -51,7 +51,7 @@ func (s *AvailabilityZoneSuite) SetUpSuite(c *gc.C) {
 	}
 }
 
-func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllInstances(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstances(c *gc.C) {
 	var called int
 	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
 		c.Assert(ids, gc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
@@ -72,7 +72,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllInstances(c *g
 	}})
 }
 
-func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllInstancesErrors(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllRunningInstancesErrors(c *gc.C) {
 	resultErr := fmt.Errorf("oh noes")
 	s.PatchValue(&s.env.allInstances, func(context.ProviderCallContext) ([]instances.Instance, error) {
 		return nil, resultErr

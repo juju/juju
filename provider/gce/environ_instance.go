@@ -67,13 +67,16 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id
 	return results, err
 }
 
-var getInstances = func(env *environ, ctx context.ProviderCallContext) ([]instances.Instance, error) {
-	return env.instances(ctx)
+var getInstances = func(env *environ, ctx context.ProviderCallContext, statusFilters ...string) ([]instances.Instance, error) {
+	return env.instances(ctx, statusFilters...)
 }
 
-func (env *environ) gceInstances(ctx context.ProviderCallContext) ([]google.Instance, error) {
+func (env *environ) gceInstances(ctx context.ProviderCallContext, statusFilters ...string) ([]google.Instance, error) {
 	prefix := env.namespace.Prefix()
-	instances, err := env.gce.Instances(prefix, instStatuses...)
+	if len(statusFilters) == 0 {
+		statusFilters = instStatuses
+	}
+	instances, err := env.gce.Instances(prefix, statusFilters...)
 	return instances, google.HandleCredentialError(errors.Trace(err), ctx)
 }
 
@@ -82,8 +85,8 @@ func (env *environ) gceInstances(ctx context.ProviderCallContext) ([]google.Inst
 // "juju-<env name>-machine-*". This is important because otherwise juju
 // will see they are not tracked in state, assume they're stale/rogue,
 // and shut them down.
-func (env *environ) instances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
-	gceInstances, err := env.gceInstances(ctx)
+func (env *environ) instances(ctx context.ProviderCallContext, statusFilters ...string) ([]instances.Instance, error) {
+	gceInstances, err := env.gceInstances(ctx, statusFilters...)
 	err = errors.Trace(err)
 
 	// Turn google.Instance values into *environInstance values,
@@ -127,7 +130,7 @@ func (env *environ) ControllerInstances(ctx context.ProviderCallContext, control
 
 // AdoptResources is part of the Environ interface.
 func (env *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
-	instances, err := env.AllInstances(ctx)
+	instances, err := env.AllRunningInstances(ctx)
 	if err != nil {
 		return errors.Annotate(err, "all instances")
 	}

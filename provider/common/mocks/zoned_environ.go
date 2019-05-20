@@ -5,17 +5,19 @@
 package mocks
 
 import (
-	gomock "github.com/golang/mock/gomock"
-	constraints "github.com/juju/juju/core/constraints"
-	instance "github.com/juju/juju/core/instance"
-	environs "github.com/juju/juju/environs"
-	config "github.com/juju/juju/environs/config"
-	context "github.com/juju/juju/environs/context"
-	instances "github.com/juju/juju/environs/instances"
-	common "github.com/juju/juju/provider/common"
-	storage "github.com/juju/juju/storage"
-	version "github.com/juju/version"
-	reflect "reflect"
+	"reflect"
+
+	"github.com/golang/mock/gomock"
+	"github.com/juju/version"
+
+	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/storage"
 )
 
 // MockZonedEnviron is a mock of ZonedEnviron interface
@@ -64,6 +66,19 @@ func (m *MockZonedEnviron) AllInstances(arg0 context.ProviderCallContext) ([]ins
 // AllInstances indicates an expected call of AllInstances
 func (mr *MockZonedEnvironMockRecorder) AllInstances(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllInstances", reflect.TypeOf((*MockZonedEnviron)(nil).AllInstances), arg0)
+}
+
+// AllRunningInstances mocks base method
+func (m *MockZonedEnviron) AllRunningInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
+	ret := m.ctrl.Call(m, "AllRunningInstances", arg0)
+	ret0, _ := ret[0].([]instances.Instance)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllRunningInstances indicates an expected call of AllRunningInstances
+func (mr *MockZonedEnvironMockRecorder) AllRunningInstances(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllRunningInstances", reflect.TypeOf((*MockZonedEnviron)(nil).AllRunningInstances), arg0)
 }
 
 // AvailabilityZones mocks base method

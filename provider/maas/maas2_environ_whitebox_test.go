@@ -114,11 +114,11 @@ func (suite *maas2EnvironSuite) makeEnvironWithMachines(c *gc.C, expectedSystemI
 	return env
 }
 
-func (suite *maas2EnvironSuite) TestAllInstances(c *gc.C) {
+func (suite *maas2EnvironSuite) TestAllRunningInstances(c *gc.C) {
 	env := suite.makeEnvironWithMachines(
 		c, []string{}, []string{"tuco", "tio", "gus"},
 	)
-	result, err := env.AllInstances(suite.callCtx)
+	result, err := env.AllRunningInstances(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedMachines := set.NewStrings("tuco", "tio", "gus")
 	actualMachines := set.NewStrings()
@@ -128,10 +128,10 @@ func (suite *maas2EnvironSuite) TestAllInstances(c *gc.C) {
 	c.Assert(actualMachines, gc.DeepEquals, expectedMachines)
 }
 
-func (suite *maas2EnvironSuite) TestAllInstancesError(c *gc.C) {
+func (suite *maas2EnvironSuite) TestAllRunningInstancesError(c *gc.C) {
 	controller := &fakeController{machinesError: errors.New("Something terrible!")}
 	env := suite.makeEnviron(c, controller)
-	_, err := env.AllInstances(suite.callCtx)
+	_, err := env.AllRunningInstances(suite.callCtx)
 	c.Assert(err, gc.ErrorMatches, "Something terrible!")
 }
 
@@ -2250,7 +2250,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	instanceIds, err := env.ControllerInstances(suite.callCtx, suite.controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
-	insts, err := env.AllInstances(suite.callCtx)
+	insts, err := env.AllRunningInstances(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])

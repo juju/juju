@@ -74,8 +74,15 @@ func (*manualEnviron) StopInstances(context.ProviderCallContext, ...instance.Id)
 	return errNoStopInstance
 }
 
+// AllInstances implements environs.InstanceBroker.
 func (e *manualEnviron) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	return e.Instances(ctx, []instance.Id{BootstrapInstanceId})
+}
+
+// AllRunningInstances implements environs.InstanceBroker.
+func (e *manualEnviron) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+	// All instances and all running instance is the same for manual.
+	return e.AllInstances(ctx)
 }
 
 func (e *manualEnviron) envConfig() (cfg *environConfig) {

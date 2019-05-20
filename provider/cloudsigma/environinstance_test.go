@@ -93,7 +93,7 @@ func (s *environInstanceSuite) createEnviron(c *gc.C, cfg *config.Config) enviro
 func (s *environInstanceSuite) TestInstances(c *gc.C) {
 	env := s.createEnviron(c, nil)
 
-	instances, err := env.AllInstances(s.callCtx)
+	instances, err := env.AllRunningInstances(s.callCtx)
 	c.Assert(instances, gc.NotNil)
 	c.Assert(err, gc.IsNil)
 	c.Check(instances, gc.HasLen, 0)
@@ -103,7 +103,7 @@ func (s *environInstanceSuite) TestInstances(c *gc.C) {
 	addTestClientServer(c, jujuMetaInstanceServer, "other-model")
 	addTestClientServer(c, jujuMetaInstanceController, "other-model")
 
-	instances, err = env.AllInstances(s.callCtx)
+	instances, err = env.AllRunningInstances(s.callCtx)
 	c.Assert(instances, gc.NotNil)
 	c.Assert(err, gc.IsNil)
 	c.Check(instances, gc.HasLen, 2)
@@ -149,7 +149,7 @@ func (s *environInstanceSuite) TestInstancesFail(c *gc.C) {
 
 	environ := s.createEnviron(c, nil)
 
-	instances, err := environ.AllInstances(s.callCtx)
+	instances, err := environ.AllRunningInstances(s.callCtx)
 	c.Assert(instances, gc.IsNil)
 	c.Assert(err, gc.NotNil)
 

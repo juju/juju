@@ -159,13 +159,13 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C)
 
 	s.sendModelMachinesChange(c, "0", "1")
 
-	s.waitForTask(c, []string{"AllInstances", "StopInstances"})
+	s.waitForTask(c, []string{"AllRunningInstances", "StopInstances"})
 
 	workertest.CleanKill(c, task)
 	close(s.instanceBroker.callsChan)
 	s.machineGetter.CheckCallNames(c, "Machines")
 	s.instanceBroker.CheckCalls(c, []testing.StubCall{
-		{"AllInstances", []interface{}{s.callCtx}},
+		{"AllRunningInstances", []interface{}{s.callCtx}},
 		{"StopInstances", []interface{}{s.callCtx, []instance.Id{"zero"}}},
 	})
 	c.Assert(m0.markForRemoval, jc.IsTrue)
@@ -348,7 +348,7 @@ func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller) *mocks
 
 	broker := mocks.NewMockZonedEnviron(ctrl)
 	exp := broker.EXPECT()
-	exp.AllInstances(s.callCtx).Return(s.instances, nil)
+	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil)
 	exp.InstanceAvailabilityZoneNames(s.callCtx, instanceIds).Return([]string{}, nil)
 	exp.AvailabilityZones(s.callCtx).Return(zones, nil)
 	return broker
@@ -488,6 +488,12 @@ func (t *testInstanceBroker) StopInstances(ctx context.ProviderCallContext, ids 
 func (t *testInstanceBroker) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	t.AddCall("AllInstances", ctx)
 	t.callsChan <- "AllInstances"
+	return t.allInstancesFunc(ctx)
+}
+
+func (t *testInstanceBroker) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+	t.AddCall("AllRunningInstances", ctx)
+	t.callsChan <- "AllRunningInstances"
 	return t.allInstancesFunc(ctx)
 }
 

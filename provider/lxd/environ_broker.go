@@ -324,6 +324,12 @@ func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.I
 	return instances, errors.Trace(err)
 }
 
+// AllRunningInstances implements environs.InstanceBroker.
+func (env *environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+	// We can only get Alive containers from lxd api which means that "all" is the same as "running".
+	return env.AllInstances(ctx)
+}
+
 // StopInstances implements environs.InstanceBroker.
 func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...instance.Id) error {
 	prefix := env.namespace.Prefix()

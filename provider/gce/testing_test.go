@@ -435,7 +435,7 @@ type fakeEnviron struct {
 	Spec  *instances.InstanceSpec
 }
 
-func (fe *fakeEnviron) GetInstances(env *environ, ctx context.ProviderCallContext) ([]instances.Instance, error) {
+func (fe *fakeEnviron) GetInstances(env *environ, ctx context.ProviderCallContext, statusFilters ...string) ([]instances.Instance, error) {
 	fe.addCall("GetInstances", FakeCallArgs{
 		"switch": env,
 	})

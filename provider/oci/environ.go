@@ -752,6 +752,13 @@ func (e *Environ) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.
 	return ret, nil
 }
 
+// AllRunningInstances implements environs.InstanceBroker.
+func (e *Environ) AllRunningInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
+	// e.allInstances() returns all but 'terminated' instances already, so
+	// "all instances is the same as "all running" instances here.
+	return e.AllInstances(ctx)
+}
+
 // MaintainInstance implements environs.InstanceBroker.
 func (e *Environ) MaintainInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) error {
 	return nil

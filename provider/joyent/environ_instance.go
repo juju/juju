@@ -191,7 +191,19 @@ func tagKey(aKey string) string {
 	return "tag." + aKey
 }
 
+// AllInstances implements environs.InstanceBroker.
 func (env *joyentEnviron) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+	// From https://apidocs.joyent.com/cloudapi/#appendix-a-machine-states.
+	return env.filteredInstances(ctx, "provisioning", "running", "stopping", "stopped", "deleted", "failed")
+}
+
+// AllRunningInstances implements environs.InstanceBroker.
+func (env *joyentEnviron) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+	return env.filteredInstances(ctx, "provisioning", "running")
+}
+
+// AllRunningInstances implements environs.InstanceBroker.
+func (env *joyentEnviron) filteredInstances(ctx context.ProviderCallContext, statusFilters ...string) ([]instances.Instance, error) {
 	instances := []instances.Instance{}
 
 	filter := cloudapi.NewFilter()
@@ -203,8 +215,16 @@ func (env *joyentEnviron) AllInstances(ctx context.ProviderCallContext) ([]insta
 		return nil, errors.Annotate(err, "cannot retrieve instances")
 	}
 
+	match := func(current string) bool {
+		for _, one := range statusFilters {
+			if strings.EqualFold(current, one) {
+				return true
+			}
+		}
+		return false
+	}
 	for _, m := range machines {
-		if strings.EqualFold(m.State, "provisioning") || strings.EqualFold(m.State, "running") {
+		if match(m.State) {
 			copy := m
 			instances = append(instances, &joyentInstance{machine: &copy, env: env})
 		}
@@ -223,7 +243,7 @@ func (env *joyentEnviron) Instances(ctx context.ProviderCallContext, ids []insta
 	instances := make([]instances.Instance, len(ids))
 	found := 0
 
-	allInstances, err := env.AllInstances(ctx)
+	allInstances, err := env.AllRunningInstances(ctx)
 	if err != nil {
 		return nil, err
 	}

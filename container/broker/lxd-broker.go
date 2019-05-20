@@ -169,8 +169,13 @@ func (broker *lxdBroker) StopInstances(ctx context.ProviderCallContext, ids ...i
 	return nil
 }
 
-// AllInstances only returns running containers.
+// AllInstances returns all containers.
 func (broker *lxdBroker) AllInstances(ctx context.ProviderCallContext) (result []instances.Instance, err error) {
+	return broker.manager.ListContainers()
+}
+
+// AllRunningInstances only returns running containers.
+func (broker *lxdBroker) AllRunningInstances(ctx context.ProviderCallContext) (result []instances.Instance, err error) {
 	return broker.manager.ListContainers()
 }
 

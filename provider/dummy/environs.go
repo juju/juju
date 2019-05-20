@@ -1601,8 +1601,16 @@ func (env *environ) subnetsForSpaceDiscovery(estate *environState) ([]network.Su
 }
 
 func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+	return e.instancesForMethod(ctx, "AllInstances")
+}
+
+func (e *environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+	return e.instancesForMethod(ctx, "AllRunningInstances")
+}
+
+func (e *environ) instancesForMethod(ctx context.ProviderCallContext, method string) ([]instances.Instance, error) {
 	defer delay()
-	if err := e.checkBroken("AllInstances"); err != nil {
+	if err := e.checkBroken(method); err != nil {
 		return nil, err
 	}
 	var insts []instances.Instance
