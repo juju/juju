@@ -2377,7 +2377,7 @@ func (env *maasEnviron) AdoptResources(ctx context.ProviderCallContext, controll
 		return nil
 	}
 
-	instances, err := env.AllRunningInstances(ctx)
+	instances, err := env.AllInstances(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
