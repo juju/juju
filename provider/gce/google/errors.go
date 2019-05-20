@@ -94,9 +94,11 @@ func HasDenialStatusCode(err error) bool {
 	// contains response status code and description in error.Error.
 	// We have to examine the error message to determine whether the error is related to authentication failure.
 	if cause, ok := errors.Cause(err).(*url.Error); ok {
-		for code, desc := range AuthorisationFailureStatusCodes {
-			if strings.Contains(cause.Error(), fmt.Sprintf(": %v %v", code, desc)) {
-				return true
+		for code, descs := range AuthorisationFailureStatusCodes {
+			for _, desc := range descs {
+				if strings.Contains(cause.Error(), fmt.Sprintf(": %v %v", code, desc)) {
+					return true
+				}
 			}
 		}
 	}
@@ -104,13 +106,17 @@ func HasDenialStatusCode(err error) bool {
 
 }
 
-// AuthorisationFailureStatusCodes contains http status code nad description that signify authorisation difficulties.
-var AuthorisationFailureStatusCodes = map[int]string{
-	http.StatusUnauthorized:      "Unauthorized",
-	http.StatusPaymentRequired:   "Payment Required",
-	http.StatusForbidden:         "Forbidden",
-	http.StatusProxyAuthRequired: "Proxy Auth Required",
+// AuthorisationFailureStatusCodes contains http status code and
+// description that signify authorisation difficulties.
+//
+// Google does not always use standard HTTP descriptions, which
+// is why a single status code can map to multiple descriptions.
+var AuthorisationFailureStatusCodes = map[int][]string{
+	http.StatusUnauthorized:      {"Unauthorized"},
+	http.StatusPaymentRequired:   {"Payment Required"},
+	http.StatusForbidden:         {"Forbidden", "Access Not Configured"},
+	http.StatusProxyAuthRequired: {"Proxy Auth Required"},
 	// OAuth 2.0 also implements RFC#6749, so we need to cater for specific BadRequest errors.
 	// https://tools.ietf.org/html/rfc6749#section-5.2
-	http.StatusBadRequest: "Bad Request",
+	http.StatusBadRequest: {"Bad Request"},
 }
