@@ -217,7 +217,7 @@ class WaitMachineNotPresent(BaseCondition):
             if machine in self.machines:
                 machines.append(machine)
         if len(machines) > 0:
-            yield machine[0], 'still-present'
+            yield machines[0], 'still-present'
 
     def do_raise(self, model_name, status):
         plural = "s"
