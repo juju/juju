@@ -1462,6 +1462,10 @@ class ModelClient:
             # For now only maas support spaces in a meaningful way.
             return 'spaces={}'.format(','.join(
                 '^' + space for space in sorted(self.excluded_spaces)))
+        elif self.env.lxd:
+            # LXD should be constrained by memory when running in HA, otherwise
+            # mongo just eats everything.
+            return 'mem=6G'
         else:
             return ''
 

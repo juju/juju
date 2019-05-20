@@ -65,11 +65,28 @@ def enable_ha(bs_manager, controller_client):
 def disable_ha(bs_manager, controller_client):
     """Disable HA and wait for the controllers to be ready."""
     log.info("Disabling HA.")
-    controller_client.wait_for(controller_client.remove_machine(["1", "2"], controller=True))
+    condition = controller_client.remove_machine(["1", "2"], force=True, controller=True)
+    controller_client.wait_for(condition)
     show_controller(controller_client)
     remote_machines = get_remote_machines(
         controller_client, None)
     return remote_machines
+
+def restore_ha(bs_manager, controller_client):
+    """Restore HA after a backup, as there is a possiblility that the controllers
+    will be in a down state"""
+    log.info("Restoring HA")
+    machines_to_remove = []
+    status = controller_client.get_status(controller=True)
+    for name, machine in status.iter_machines():
+        machine_status = machine['juju-status']
+        if machine_status["current"] == "down":
+            machines_to_remove.append(name)
+    if len(machines_to_remove) > 0:
+        condition = controller_client.remove_machine(machines_to_remove, force=True, controller=True)
+        controller_client.wait_for(condition)
+        show_controller(controller_client)
+    return enable_ha(bs_manager, controller_client)
 
 def show_controller(client):
     controller_info = client.show_controller(format='yaml')
@@ -90,11 +107,13 @@ def restore_backup(bs_manager, client, backup_file,
         client.wait_for_started(600)
     show_controller(bs_manager.client)
     bs_manager.has_controller = True
-    id = set_token(bs_manager.client, 'Two')
-    bs_manager.client.wait_for_started()
-    bs_manager.client.wait_for_workloads()
-    check_token(bs_manager.client, id, 'Two')
-    log.info("%s restored", bs_manager.client.env.environment)
+
+def assess_backup(client):
+    id = set_token(client, 'Two')
+    client.wait_for_started()
+    client.wait_for_workloads()
+    check_token(client, id, 'Two')
+    log.info("%s restored", client.env.environment)
     log.info("PASS")
 
 def create_tmp_model(client):
@@ -150,6 +169,9 @@ def assess_recovery(bs_manager, strategy, charm_series):
     # controllers are currently down.
     restore_backup(bs_manager, controller_client, backup_file,
         check_controller=not haBackup)
+    if haBackup:
+        bs_manager.known_hosts = restore_ha(bs_manager, controller_client)
+    assess_backup(bs_manager.client)
     log.info("Test complete.")
 
 def main(argv):
