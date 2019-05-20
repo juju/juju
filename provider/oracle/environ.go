@@ -606,6 +606,13 @@ func (o *OracleEnviron) AllInstances(ctx context.ProviderCallContext) ([]envinst
 	return ret, nil
 }
 
+// AllRunningInstances is part of the InstanceBroker interface.
+func (o *OracleEnviron) AllRunningInstances(ctx context.ProviderCallContext) ([]envinstance.Instance, error) {
+	// o.allInstances(...) already handles all instances irrespective of the state, so
+	// here 'all' is also 'all running'.
+	return o.AllInstances(ctx)
+}
+
 func (o *OracleEnviron) allInstances(tagFilter tagValue) ([]*oracleInstance, error) {
 	filter := []oci.Filter{
 		{

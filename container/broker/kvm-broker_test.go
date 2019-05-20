@@ -172,7 +172,7 @@ func (s *kvmBrokerSuite) TestStopInstance(c *gc.C) {
 	s.assertNoResults(c, broker)
 }
 
-func (s *kvmBrokerSuite) TestAllInstances(c *gc.C) {
+func (s *kvmBrokerSuite) TestAllRunningInstances(c *gc.C) {
 	broker, brokerErr := s.newKVMBroker(c)
 	c.Assert(brokerErr, jc.ErrorIsNil)
 

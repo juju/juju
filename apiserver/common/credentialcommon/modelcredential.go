@@ -130,7 +130,8 @@ func checkMachineInstances(backend PersistentBackend, provider CloudProvider, ca
 		machinesByInstance[string(instanceId)] = machine.Id()
 	}
 
-	// Check can see all machines' instances
+	// Check that we can see all machines' instances regardless of their state as perceived by the cloud, i.e.
+	// this call will return all non-terminated instances.
 	instances, err := provider.AllInstances(callCtx)
 	if err != nil {
 		return fail(errors.Trace(err))

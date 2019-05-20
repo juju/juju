@@ -33,7 +33,7 @@ func (env *sessionEnviron) Instances(ctx context.ProviderCallContext, ids []inst
 		return nil, environs.ErrNoInstances
 	}
 
-	allInstances, err := env.AllInstances(ctx)
+	allInstances, err := env.AllRunningInstances(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get instances")
 	}
@@ -73,7 +73,7 @@ func (env *environ) ControllerInstances(ctx context.ProviderCallContext, control
 
 // ControllerInstances is part of the environs.Environ interface.
 func (env *sessionEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
-	instances, err := env.AllInstances(ctx)
+	instances, err := env.AllRunningInstances(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

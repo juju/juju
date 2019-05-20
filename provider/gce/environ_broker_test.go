@@ -283,10 +283,10 @@ func (s *environBrokerSuite) TestGetHardwareCharacteristics(c *gc.C) {
 	c.Check(*hwc.RootDisk, gc.Equals, uint64(15360))
 }
 
-func (s *environBrokerSuite) TestAllInstances(c *gc.C) {
+func (s *environBrokerSuite) TestAllRunningInstances(c *gc.C) {
 	s.FakeEnviron.Insts = []instances.Instance{s.Instance}
 
-	insts, err := s.Env.AllInstances(s.CallCtx)
+	insts, err := s.Env.AllRunningInstances(s.CallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(insts, jc.DeepEquals, []instances.Instance{s.Instance})
 }

@@ -98,15 +98,24 @@ func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs
 
 // AllInstances returns all instances currently known to the broker.
 func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+	return env.instancesForMethod(ctx, "AllInstances")
+}
+
+// AllRunningInstances returns all running, available instances currently known to the broker.
+func (env *environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+	return env.instancesForMethod(ctx, "AllRunningInstances")
+}
+
+func (env *environ) instancesForMethod(ctx context.ProviderCallContext, method string) ([]instances.Instance, error) {
 	// Please note that this must *not* return instances that have not been
 	// allocated as part of this environment -- if it does, juju will see they
 	// are not tracked in state, assume they're stale/rogue, and shut them down.
 
-	logger.Tracef("environ.AllInstances...")
+	logger.Tracef("environ.%v...", method)
 
 	servers, err := env.client.instances()
 	if err != nil {
-		logger.Tracef("environ.AllInstances failed: %v", err)
+		logger.Tracef("environ.%v failed: %v", method, err)
 		return nil, err
 	}
 
@@ -117,7 +126,7 @@ func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.I
 	}
 
 	if logger.LogLevel() <= loggo.TRACE {
-		logger.Tracef("All instances, len = %d:", len(instances))
+		logger.Tracef("%v, len = %d:", method, len(instances))
 		for _, instance := range instances {
 			logger.Tracef("... id: %q, status: %q", instance.Id(), instance.Status(ctx))
 		}

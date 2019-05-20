@@ -222,6 +222,11 @@ func (e *fakeEnviron) AllInstances(callCtx context.ProviderCallContext) ([]insta
 	return nil, nil
 }
 
+func (e *fakeEnviron) AllRunningInstances(callCtx context.ProviderCallContext) ([]instances.Instance, error) {
+	e.Push("AllRunningInstances", callCtx)
+	return nil, nil
+}
+
 func (e *fakeEnviron) MaintainInstance(callCtx context.ProviderCallContext, args environs.StartInstanceParams) error {
 	e.Push("MaintainInstance", callCtx, args)
 	return nil

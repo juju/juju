@@ -296,6 +296,20 @@ func (env *sessionEnviron) AllInstances(ctx context.ProviderCallContext) ([]inst
 	return results, err
 }
 
+// AllRunningInstances implements environs.InstanceBroker.
+func (env *environ) AllRunningInstances(ctx context.ProviderCallContext) (instances []instances.Instance, err error) {
+	// AllInstances() already handles all instances irrespective of the state, so
+	// here 'all' is also 'all running'.
+	return env.AllInstances(ctx)
+}
+
+// AllRunningInstances implements environs.InstanceBroker.
+func (env *sessionEnviron) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+	// AllInstances() already handles all instances irrespective of the state, so
+	// here 'all' is also 'all running'.
+	return env.AllInstances(ctx)
+}
+
 // StopInstances implements environs.InstanceBroker.
 func (env *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	return env.withSession(ctx, func(env *sessionEnviron) error {
