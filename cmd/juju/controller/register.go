@@ -138,6 +138,15 @@ func (c *registerCommand) run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// Check if user is trying to register an already known controller by
+	// by providing the IP of one of its endpoints.
+	if registrationParams.publicHost != "" {
+		if err := ensureNotKnownEndpoint(c.store, registrationParams.publicHost); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	controllerName, err := c.promptControllerName(registrationParams.defaultControllerName, ctx.Stderr, ctx.Stdin)
 	if err != nil {
 		return errors.Trace(err)
@@ -202,6 +211,7 @@ func (c *registerCommand) publicControllerDetails(host, controllerName string) (
 	if !strings.Contains(apiAddr, ":") {
 		apiAddr += ":443"
 	}
+
 	// Make a direct API connection because we don't yet know the
 	// controller UUID so can't store the thus-incomplete controller
 	// details to make a conventional connection.
@@ -621,4 +631,41 @@ type byteAtATimeReader struct {
 
 func (r byteAtATimeReader) Read(out []byte) (int, error) {
 	return r.Reader.Read(out[:1])
+}
+
+// ensureNotKnownEndpoint checks whether any controllers in the local client
+// cache contain the provided endpoint and returns an error if that is the
+// case.
+func ensureNotKnownEndpoint(store jujuclient.ClientStore, endpoint string) error {
+	existingDetails, existingName, err := store.ControllerByAPIEndpoints(endpoint)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+
+	if existingDetails == nil {
+		return nil
+	}
+
+	// Check if we know the username for this controller
+	accountDetails, err := store.AccountDetails(existingName)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+
+	if accountDetails != nil {
+		var buf bytes.Buffer
+		if err := alreadyRegisteredMessageT.Execute(
+			&buf,
+			map[string]interface{}{
+				"ControllerName": existingName,
+				"UserName":       accountDetails.User,
+			},
+		); err != nil {
+			return err
+		}
+		return errors.New(buf.String())
+	}
+
+	return errors.Errorf(`This controller has already been registered on this client as %q.
+To login run 'juju login -c %s'.`, existingName, existingName)
 }

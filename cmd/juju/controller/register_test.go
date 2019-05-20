@@ -493,6 +493,50 @@ Welcome, bob@external. You are now logged into "public-controller-name".
 	})
 }
 
+func (s *RegisterSuite) TestRegisterAlreadyKnownControllerEndpoint(c *gc.C) {
+	prompter := cmdtesting.NewSeqPrompter(c, "»", "")
+	defer prompter.CheckDone()
+
+	err := s.store.AddController("foo", jujuclient.ControllerDetails{
+		APIEndpoints:   []string{"42.42.42.42:17070"},
+		ControllerUUID: "0d75314a-5266-4f4f-8523-415be76f92dc",
+		CACert:         testing.CACert,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.run(c, prompter, "42.42.42.42:17070")
+	c.Assert(err, gc.Not(gc.IsNil))
+	c.Assert(err.Error(), gc.Equals, `This controller has already been registered on this client as "foo".
+To login run 'juju login -c foo'.`)
+}
+
+func (s *RegisterSuite) TestRegisterAlreadyKnownControllerEndpointAndUser(c *gc.C) {
+	prompter := cmdtesting.NewSeqPrompter(c, "»", "")
+	defer prompter.CheckDone()
+
+	err := s.store.AddController("foo", jujuclient.ControllerDetails{
+		APIEndpoints:   []string{"42.42.42.42:17070"},
+		ControllerUUID: "0d75314a-5266-4f4f-8523-415be76f92dc",
+		CACert:         testing.CACert,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.store.Accounts["foo"] = jujuclient.AccountDetails{
+		User: "bob",
+	}
+
+	err = s.run(c, prompter, "42.42.42.42:17070")
+	c.Assert(err, gc.Not(gc.IsNil))
+	c.Assert(err.Error(), gc.Equals, `This controller has already been registered on this client as "foo".
+To login user "bob" run 'juju login -u bob -c foo'.
+To update controller details and login as user "bob":
+    1. run 'juju unregister bob'
+    2. request from your controller admin another registration string, i.e
+       output from 'juju change-user-password bob --reset'
+    3. re-run 'juju register' with the registration from (2) above.
+`)
+}
+
 func (s *RegisterSuite) TestRegisterPublicAPIOpenError(c *gc.C) {
 	s.apiOpenError = errors.New("open failed")
 	prompter := cmdtesting.NewSeqPrompter(c, "»", `
