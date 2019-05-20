@@ -77,15 +77,22 @@ def restore_ha(bs_manager, controller_client):
     will be in a down state"""
     log.info("Restoring HA")
     machines_to_remove = []
+    show_controller(controller_client)
+    controller_client.show_status()
+    # pause here, as all the machines can report back as being down, but after
+    # the pause, one will report back.
+    controller_client._backend.pause(300)
     status = controller_client.get_status(controller=True)
+    # the order of the machines are normally wrong after a restore, so iterating
+    # through the machines until you find the correct ones to remove works.
     for name, machine in status.iter_machines():
         machine_status = machine['juju-status']
         if machine_status["current"] == "down":
             machines_to_remove.append(name)
     if len(machines_to_remove) > 0:
+        controller_client.show_status()
         condition = controller_client.remove_machine(machines_to_remove, force=True, controller=True)
         controller_client.wait_for(condition)
-        show_controller(controller_client)
     return enable_ha(bs_manager, controller_client)
 
 def show_controller(client):
