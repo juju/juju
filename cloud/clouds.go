@@ -168,12 +168,12 @@ type Cloud struct {
 }
 
 // SplitHostCloudRegion splits host cloud region to cloudType and region.
-func SplitHostCloudRegion(hostCloudRegion string) (string, string) {
-	r := strings.Split(hostCloudRegion, "/")
-	if len(r) >= 2 {
-		return r[0], r[1]
+func SplitHostCloudRegion(hostCloudRegion string) (string, string, error) {
+	fields := strings.SplitN(hostCloudRegion, "/", 2)
+	if len(fields) != 2 || fields[0] == "" || fields[1] == "" {
+		return "", "", errors.NotValidf("cloud region %q", hostCloudRegion)
 	}
-	return r[0], ""
+	return fields[0], fields[1], nil
 }
 
 // BuildHostCloudRegion combines cloudType with region to host cloud region.

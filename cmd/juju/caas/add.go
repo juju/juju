@@ -379,6 +379,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	storageParams := provider.KubeCloudStorageParams{
 		WorkloadStorage:        c.workloadStorage,
 		HostCloudRegion:        c.hostCloudRegion,
+		IsBootstrap:			c.Local,
 		MetadataChecker:        broker,
 		GetClusterMetadataFunc: c.getClusterMetadataFunc(ctx),
 	}
@@ -471,7 +472,7 @@ func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential j
 func (c *AddCAASCommand) validateCloudRegion(cloudRegion string) (_ string, err error) {
 	defer errors.DeferredAnnotatef(&err, "validating cloud region %q", cloudRegion)
 
-	cloudNameOrType, region, err := provider.ParseCloudRegion(cloudRegion)
+	cloudNameOrType, region, err := jujucloud.SplitHostCloudRegion(cloudRegion)
 	if err != nil {
 		return "", errors.Annotate(err, "parsing cloud region")
 	}
@@ -514,8 +515,9 @@ func (c *AddCAASCommand) getClusterMetadataFunc(ctx *cmd.Context) provider.GetCl
 			clusterMetadata, err := broker.GetClusterMetadata(c.workloadStorage)
 			if err != nil {
 				errChan <- err
+			} else {
+				result <- clusterMetadata
 			}
-			result <- clusterMetadata
 		}()
 
 		timeout := 30 * time.Second

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
@@ -41,6 +40,7 @@ type KubeCloudParams struct {
 type KubeCloudStorageParams struct {
 	WorkloadStorage        string
 	HostCloudRegion        string
+	IsBootstrap            bool
 	MetadataChecker        caas.ClusterMetadataChecker
 	GetClusterMetadataFunc GetClusterMetadataFunc
 }
@@ -115,12 +115,11 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 			clusterMetadata.Regions.SortedValues()[0],
 		)
 	}
-	if storageParams.HostCloudRegion == "" {
-		return fail(ClusterQueryError{})
-	}
-	_, region, err := ParseCloudRegion(storageParams.HostCloudRegion)
-	if err != nil {
-		return fail(errors.Annotatef(err, "validating cloud region %q", storageParams.HostCloudRegion))
+
+	cloudType, region, err := cloud.SplitHostCloudRegion(storageParams.HostCloudRegion)
+	if err != nil && storageParams.IsBootstrap {
+		// a valid host cloud region is required for bootstrapping to k8s.
+		return fail(errors.New("host cloud region is required for bootstrapping to k8s"))
 	}
 	k8sCloud.HostCloudRegion = storageParams.HostCloudRegion
 	k8sCloud.Regions = []cloud.Region{{
@@ -128,9 +127,7 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 	}}
 
 	// If the user has not specified storage, check that the cluster has Juju's opinionated defaults.
-	cloudType, _ := cloud.SplitHostCloudRegion(storageParams.HostCloudRegion)
 	err = storageParams.MetadataChecker.CheckDefaultWorkloadStorage(cloudType, clusterMetadata.NominatedStorageClass)
-
 	if storageParams.WorkloadStorage == "" {
 		if errors.IsNotFound(err) {
 			return fail(UnknownClusterError{CloudName: cloudType})
@@ -207,15 +204,6 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 	return storageMsg, nil
 }
 
-// ParseCloudRegion breaks apart a clusters cloud region.
-func ParseCloudRegion(cloudRegion string) (string, string, error) {
-	fields := strings.SplitN(cloudRegion, "/", 2)
-	if len(fields) != 2 || fields[0] == "" || fields[1] == "" {
-		return "", "", errors.NotValidf("cloud region %q", cloudRegion)
-	}
-	return fields[0], fields[1], nil
-}
-
 // BaseKubeCloudOpenParams provides a basic OpenParams for a cluster
 func BaseKubeCloudOpenParams(cloud cloud.Cloud, credential cloud.Credential) (environs.OpenParams, error) {
 	// To get a k8s client, we need a config with minimal information.
@@ -276,6 +264,7 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 		return cloud.Cloud{}, errors.Trace(err)
 	}
 	storageUpdateParams := KubeCloudStorageParams{
+		IsBootstrap:     true,
 		MetadataChecker: broker,
 		GetClusterMetadataFunc: func(broker caas.ClusterMetadataChecker) (*caas.ClusterMetadata, error) {
 			clusterMetadata, err := broker.GetClusterMetadata("")
