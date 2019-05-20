@@ -130,7 +130,7 @@ func (env *environ) ControllerInstances(ctx context.ProviderCallContext, control
 
 // AdoptResources is part of the Environ interface.
 func (env *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
-	instances, err := env.AllRunningInstances(ctx)
+	instances, err := env.AllInstances(ctx)
 	if err != nil {
 		return errors.Annotate(err, "all instances")
 	}
