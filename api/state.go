@@ -19,15 +19,12 @@ import (
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/charmrevisionupdater"
-	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
-	"github.com/juju/juju/api/upgradesteps"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
@@ -324,25 +321,10 @@ func (st *state) InstancePoller() *instancepoller.API {
 	return instancepoller.NewAPI(st)
 }
 
-// CharmRevisionUpdater returns access to the CharmRevisionUpdater API
-func (st *state) CharmRevisionUpdater() *charmrevisionupdater.State {
-	return charmrevisionupdater.NewState(st)
-}
-
-// Cleaner returns a version of the state that provides access to the cleaner API
-func (st *state) Cleaner() *cleaner.API {
-	return cleaner.NewAPI(st)
-}
-
 // ServerVersion holds the version of the API server that we are connected to.
 // It is possible that this version is Zero if the server does not report this
 // during login. The second result argument indicates if the version number is
 // set.
 func (st *state) ServerVersion() (version.Number, bool) {
 	return st.serverVersion, st.serverVersion != version.Zero
-}
-
-// UpgradeSteps returns access to the UpgradeSteps API.
-func (st *state) UpgradeSteps() *upgradesteps.Client {
-	return upgradesteps.NewClient(st)
 }

@@ -3,7 +3,11 @@
 
 package upgrades
 
-import "gopkg.in/juju/names.v2"
+import (
+	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/api/upgradesteps"
+)
 
 // stateStepsFor263 returns upgrade steps for Juju 2.6.3.
 func stepsFor263() []Step {
@@ -23,6 +27,6 @@ func resetKVMMachineModificationStatusIdle(context Context) error {
 		// machines.
 		return nil
 	}
-	client := context.APIState().UpgradeSteps()
+	client := upgradesteps.NewClient(context.APIState())
 	return client.ResetKVMMachineModificationStatusIdle(tag)
 }

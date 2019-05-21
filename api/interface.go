@@ -20,14 +20,11 @@ import (
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/charmrevisionupdater"
-	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
-	"github.com/juju/juju/api/upgradesteps"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc/jsoncodec"
 )
@@ -307,8 +304,5 @@ type Connection interface {
 	Upgrader() *upgrader.State
 	Reboot() (reboot.State, error)
 	InstancePoller() *instancepoller.API
-	CharmRevisionUpdater() *charmrevisionupdater.State
-	Cleaner() *cleaner.API
 	UnitAssigner() unitassigner.API
-	UpgradeSteps() *upgradesteps.Client
 }
