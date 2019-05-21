@@ -604,14 +604,44 @@ func (c *Client) DestroyApplications(in DestroyApplicationsParams) ([]params.Des
 	return allResults, nil
 }
 
+type DestroyConsumedApplicationParams struct {
+	// SaasNames holds the names of the consumed applications
+	// that are being destroyed
+	SaasNames []string
+
+	// Force controls whether or not the removal of applications
+	// will be forced, i.e. ignore removal errors.
+	Force bool
+
+	// MaxWait specifies the amount of time that each step in application removal
+	// will wait before forcing the next step to kick-off. This parameter
+	// only makes sense in combination with 'force' set to 'true'.
+	MaxWait *time.Duration
+}
+
 // DestroyConsumedApplication destroys the given consumed (remote) applications.
-func (c *Client) DestroyConsumedApplication(saasNames ...string) ([]params.ErrorResult, error) {
+func (c *Client) DestroyConsumedApplication(in DestroyConsumedApplicationParams) ([]params.ErrorResult, error) {
+	apiVersion := c.BestAPIVersion()
 	args := params.DestroyConsumedApplicationsParams{
-		Applications: make([]params.DestroyConsumedApplicationParams, 0, len(saasNames)),
+		Applications: make([]params.DestroyConsumedApplicationParams, 0, len(in.SaasNames)),
 	}
-	allResults := make([]params.ErrorResult, len(saasNames))
-	index := make([]int, 0, len(saasNames))
-	for i, name := range saasNames {
+
+	if apiVersion > 9 {
+		if in.MaxWait != nil && !in.Force {
+			return nil, errors.New("--force is required when --max-wait is provided")
+		}
+	} else {
+		if in.Force {
+			return nil, errors.New("this controller does not support --force")
+		}
+		if in.MaxWait != nil {
+			return nil, errors.New("this controller does not support --no-wait")
+		}
+	}
+
+	allResults := make([]params.ErrorResult, len(in.SaasNames))
+	index := make([]int, 0, len(in.SaasNames))
+	for i, name := range in.SaasNames {
 		if !names.IsValidApplication(name) {
 			allResults[i].Error = &params.Error{
 				Message: errors.NotValidf("SAAS application name %q", name).Error(),
@@ -619,9 +649,14 @@ func (c *Client) DestroyConsumedApplication(saasNames ...string) ([]params.Error
 			continue
 		}
 		index = append(index, i)
-		args.Applications = append(args.Applications, params.DestroyConsumedApplicationParams{
+		appParams := params.DestroyConsumedApplicationParams{
 			ApplicationTag: names.NewApplicationTag(name).String(),
-		})
+		}
+		if apiVersion > 9 {
+			appParams.Force = &in.Force
+			appParams.MaxWait = in.MaxWait
+		}
+		args.Applications = append(args.Applications, appParams)
 	}
 
 	var result params.ErrorResults

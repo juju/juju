@@ -4,9 +4,12 @@
 package application
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/juju/api/application"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -38,7 +41,12 @@ func (s *RemoveSaasSuite) runRemoveSaas(c *gc.C, args ...string) (*cmd.Context, 
 func (s *RemoveSaasSuite) TestRemove(c *gc.C) {
 	_, err := s.runRemoveSaas(c, "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockAPI.CheckCall(c, 0, "DestroyConsumedApplication", []string{"foo"})
+	destroyParams := application.DestroyConsumedApplicationParams{
+		SaasNames: []string{"foo"},
+		Force:     false,
+		MaxWait:   (*time.Duration)(nil),
+	}
+	s.mockAPI.CheckCall(c, 0, "DestroyConsumedApplication", destroyParams)
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
@@ -46,7 +54,12 @@ func (s *RemoveSaasSuite) TestBlockRemoveSaas(c *gc.C) {
 	s.mockAPI.SetErrors(common.OperationBlockedError("TestRemoveSaasBlocked"))
 	_, err := s.runRemoveSaas(c, "foo")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestRemoveSaasBlocked.*")
-	s.mockAPI.CheckCall(c, 0, "DestroyConsumedApplication", []string{"foo"})
+	destroyParams := application.DestroyConsumedApplicationParams{
+		SaasNames: []string{"foo"},
+		Force:     false,
+		MaxWait:   (*time.Duration)(nil),
+	}
+	s.mockAPI.CheckCall(c, 0, "DestroyConsumedApplication", destroyParams)
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
@@ -87,10 +100,14 @@ func (s mockRemoveSaasAPI) Close() error {
 	return s.NextErr()
 }
 
-func (s mockRemoveSaasAPI) DestroyConsumedApplication(saasNames ...string) ([]params.ErrorResult, error) {
-	s.MethodCall(s, "DestroyConsumedApplication", saasNames)
+func (s mockRemoveSaasAPI) DestroyConsumedApplication(destroyParams application.DestroyConsumedApplicationParams) ([]params.ErrorResult, error) {
+	s.MethodCall(s, "DestroyConsumedApplication", destroyParams)
+
+	saasNames := destroyParams.SaasNames
 	result := make([]params.ErrorResult, len(saasNames))
-	result[0].Error = common.ServerError(s.err)
+	for i := range saasNames {
+		result[i].Error = common.ServerError(s.err)
+	}
 	return result, s.NextErr()
 }
 

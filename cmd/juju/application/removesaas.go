@@ -4,8 +4,11 @@
 package application
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/application"
@@ -34,6 +37,10 @@ type removeSaasCommand struct {
 	SaasNames []string
 
 	newAPIFunc func() (RemoveSaasAPI, error)
+
+	Force  bool
+	NoWait bool
+	fs     *gnuflag.FlagSet
 }
 
 var helpSummaryRmSaas = `
@@ -71,11 +78,18 @@ func (c *removeSaasCommand) Init(args []string) error {
 	return nil
 }
 
+func (c *removeSaasCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
+	f.BoolVar(&c.Force, "force", false, "Completely remove an application and all its dependencies")
+	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through application removal without waiting for each individual step to complete")
+	c.fs = f
+}
+
 // RemoveSaasAPI defines the API methods that the remove-saas command uses.
 type RemoveSaasAPI interface {
 	Close() error
 	BestAPIVersion() int
-	DestroyConsumedApplication(...string) ([]params.ErrorResult, error)
+	DestroyConsumedApplication(application.DestroyConsumedApplicationParams) ([]params.ErrorResult, error)
 }
 
 func (c *removeSaasCommand) Run(ctx *cmd.Context) error {
@@ -85,9 +99,22 @@ func (c *removeSaasCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	if client.BestAPIVersion() < 5 {
+	apiVersion := client.BestAPIVersion()
+	if apiVersion < 5 {
 		return errors.New("remove-saas is not supported by this version of Juju")
+	} else if apiVersion < 10 {
+		if c.Force {
+			return errors.New("--force is not supported by this version of Juju")
+		}
+		if c.NoWait {
+			return errors.New("--no-wait is not supported by this version of Juju")
+		}
 	}
+
+	if c.NoWait && !c.Force {
+		return errors.New("--no-wait requires --force")
+	}
+
 	return c.removeSaass(ctx, client)
 }
 
@@ -95,7 +122,19 @@ func (c *removeSaasCommand) removeSaass(
 	ctx *cmd.Context,
 	client RemoveSaasAPI,
 ) error {
-	results, err := client.DestroyConsumedApplication(c.SaasNames...)
+	var maxWait *time.Duration
+	if c.Force {
+		if c.NoWait {
+			zeroSec := 0 * time.Second
+			maxWait = &zeroSec
+		}
+	}
+	params := application.DestroyConsumedApplicationParams{
+		Force:     c.Force,
+		MaxWait:   maxWait,
+		SaasNames: c.SaasNames,
+	}
+	results, err := client.DestroyConsumedApplication(params)
 	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
 		return errors.Trace(err)
 	}
