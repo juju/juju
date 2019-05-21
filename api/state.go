@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
+	"github.com/juju/juju/api/upgradesteps"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
@@ -339,4 +340,9 @@ func (st *state) Cleaner() *cleaner.API {
 // set.
 func (st *state) ServerVersion() (version.Number, bool) {
 	return st.serverVersion, st.serverVersion != version.Zero
+}
+
+// UpgradeSteps returns access to the UpgradeSteps API.
+func (st *state) UpgradeSteps() *upgradesteps.Client {
+	return upgradesteps.NewClient(st)
 }

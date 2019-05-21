@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/api/unitassigner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
+	"github.com/juju/juju/api/upgradesteps"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc/jsoncodec"
 )
@@ -309,4 +310,5 @@ type Connection interface {
 	CharmRevisionUpdater() *charmrevisionupdater.State
 	Cleaner() *cleaner.API
 	UnitAssigner() unitassigner.API
+	UpgradeSteps() *upgradesteps.Client
 }
