@@ -630,8 +630,7 @@
     "series",
   ]
   pruneopts = ""
-  revision = "313a6d1c94a82e242621e4ca42f53de2af3cccf2"
-  source = "github.com/SimonRichardson/os"
+  revision = "b4dc09ce9ed2506a6c31763fa0742f4ebcbdceef"
 
 [[projects]]
   digest = "1:8fd6c21ba9a864b949672e63800d1bd71a3d8ac8e085cc22143b97f1261ad634"
