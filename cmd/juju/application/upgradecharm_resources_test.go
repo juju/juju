@@ -12,8 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/juju/core/model"
-
 	"github.com/juju/cmd/cmdtesting"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -31,14 +29,14 @@ import (
 	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 )
 
 type UpgradeCharmResourceSuite struct {
-	jujutesting.RepoSuite
+	application.RepoSuiteBaseSuite
 }
 
 var _ = gc.Suite(&UpgradeCharmResourceSuite{})
@@ -49,8 +47,8 @@ func (s *UpgradeCharmResourceSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *UpgradeCharmResourceSuite) SetUpTest(c *gc.C) {
-	s.RepoSuite.SetUpTest(c)
-	chPath := testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
+	s.RepoSuiteBaseSuite.SetUpTest(c)
+	chPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(s.CharmsPath, "riak")
 	_, err := runDeploy(c, chPath, "riak", "--series", "quantal", "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:quantal/riak-7")
@@ -81,7 +79,7 @@ resources:
     description: some comment
 `
 
-	myriakPath := testcharms.Repo.ClonedDir(c.MkDir(), "riak")
+	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "riak")
 	err := ioutil.WriteFile(path.Join(myriakPath.Path, "metadata.yaml"), []byte(riakResourceMeta), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -139,7 +137,7 @@ func (c charmstoreClientToTestcharmsClientShim) WithChannel(channel params.Chann
 // charmStoreSuite is a suite fixture that puts the machinery in
 // place to allow testing code that calls addCharmViaAPI.
 type charmStoreSuite struct {
-	jujutesting.JujuConnSuite
+	application.JujuConnBaseSuite
 	handler    charmstore.HTTPCloseHandler
 	srv        *httptest.Server
 	srvSession *mgo.Session
@@ -174,7 +172,7 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 	}
 	s.JujuConnSuite.ControllerConfigAttrs[controller.CharmStoreURL] = s.srv.URL
 
-	s.JujuConnSuite.SetUpTest(c)
+	s.JujuConnBaseSuite.SetUpTest(c)
 
 	// Initialize the charm cache dir.
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
@@ -205,7 +203,7 @@ func (s *UpgradeCharmStoreResourceSuite) SetUpSuite(c *gc.C) {
 // charmstore endpoints are implemented.
 
 func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/starsay-1", "starsay")
+	testcharms.UploadCharmWithSeries(c, s.client, "trusty/starsay-1", "starsay", "bionic")
 
 	// let's make a fake resource file to upload
 	resourceContent := "some-data"
@@ -301,7 +299,7 @@ Deploying charm "cs:trusty/starsay-1".`
 
 	sort.Sort(csbyname(oldCharmStoreResources))
 
-	testcharms.UploadCharm(c, s.client, "trusty/starsay-2", "starsay")
+	testcharms.UploadCharmWithSeries(c, s.client, "trusty/starsay-2", "starsay", "bionic")
 
 	_, err = cmdtesting.RunCommand(c, application.NewUpgradeCharmCommand(), "starsay")
 	c.Assert(err, jc.ErrorIsNil)

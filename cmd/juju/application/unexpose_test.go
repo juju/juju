@@ -23,6 +23,9 @@ type UnexposeSuite struct {
 
 func (s *UnexposeSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
+	s.PatchValue(&supportedJujuSeries, func() []string {
+		return defaultSupportedJujuSeries
+	})
 	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
@@ -43,7 +46,7 @@ func (s *UnexposeSuite) assertExposed(c *gc.C, application string, expected bool
 }
 
 func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
+	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(s.CharmsPath, "multi-series")
 	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -66,7 +69,7 @@ func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
 }
 
 func (s *UnexposeSuite) TestBlockUnexpose(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
+	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(s.CharmsPath, "multi-series")
 	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
 
 	c.Assert(err, jc.ErrorIsNil)

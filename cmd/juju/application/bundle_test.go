@@ -55,9 +55,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNotFoundCharmStore(c *gc.C
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
-	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/mysql-42", "mysql", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-47", "wordpress", "bionic")
+	testcharms.UploadBundleWithSeries(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple", "bionic")
 	err := runDeploy(c, "bundle/wordpress-simple", "--config", "config.yaml")
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --config")
 	err = runDeploy(c, "bundle/wordpress-simple", "-n", "2")
@@ -67,14 +67,40 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
-	_, mysqlch := testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
-	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
-	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
+	_, mysqlch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/mysql-42", "mysql", "bionic")
+	_, wpch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-47", "wordpress", "bionic")
+	testcharms.UploadBundleWithSeries(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple", "bionic")
 	err := runDeploy(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-47")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"mysql":     {charm: "cs:xenial/mysql-42", config: mysqlch.Config().DefaultSettings()},
+		"wordpress": {charm: "cs:xenial/wordpress-47", config: wpch.Config().DefaultSettings()},
+	})
+	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
+	s.assertUnitsCreated(c, map[string]string{
+		"mysql/0":     "0",
+		"wordpress/0": "1",
+	})
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithInvalidSeries(c *gc.C) {
+	testcharms.UploadCharmWithSeries(c, s.client, "precise/mysql-42", "mysql", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-47", "wordpress", "bionic")
+	testcharms.UploadBundleWithSeries(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple", "bionic")
+	err := runDeploy(c, "bundle/wordpress-simple")
+	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: mysql is not available on the following series: precise not supported")
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithInvalidSeriesWithForce(c *gc.C) {
+	_, mysqlch := testcharms.UploadCharmWithSeries(c, s.client, "precise/mysql-42", "mysql", "bionic")
+	_, wpch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-47", "wordpress", "bionic")
+	testcharms.UploadBundleWithSeries(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple", "bionic")
+	err := runDeploy(c, "bundle/wordpress-simple", "--force")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCharmsUploaded(c, "cs:precise/mysql-42", "cs:xenial/wordpress-47")
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"mysql":     {charm: "cs:precise/mysql-42", config: mysqlch.Config().DefaultSettings()},
 		"wordpress": {charm: "cs:xenial/wordpress-47", config: wpch.Config().DefaultSettings()},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
@@ -117,7 +143,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 
 	_, mysqlch := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/mariadb-42", "mariadb", "kubernetes")
 	_, wpch := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/gitlab-47", "gitlab", "kubernetes")
-	testcharms.UploadBundle(c, s.client, "bundle/kubernetes-simple-1", "kubernetes-simple")
+	testcharms.UploadBundleWithSeries(c, s.client, "bundle/kubernetes-simple-1", "kubernetes-simple", "kubernetes") // ???
 
 	settings := state.NewStateSettings(s.State)
 	registry := storage.StaticProviderRegistry{
@@ -140,9 +166,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 }
 
 func (s *BundleDeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
-	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-plans-1", "wordpress-with-plans")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/mysql-42", "mysql", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-47", "wordpress", "bionic")
+	testcharms.UploadBundleWithSeries(c, s.client, "bundle/wordpress-with-plans-1", "wordpress-with-plans", "bionic")
 
 	deploy := NewDeployCommandForTest(
 		nil,
@@ -186,9 +212,9 @@ func (s *BundleDeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithTermsSuccess(c *gc.C) {
-	_, ch1 := testcharms.UploadCharm(c, s.client, "xenial/terms1-17", "terms1")
-	_, ch2 := testcharms.UploadCharm(c, s.client, "xenial/terms2-42", "terms2")
-	testcharms.UploadBundle(c, s.client, "bundle/terms-simple-1", "terms-simple")
+	_, ch1 := testcharms.UploadCharmWithSeries(c, s.client, "xenial/terms1-17", "terms1", "bionic")
+	_, ch2 := testcharms.UploadCharmWithSeries(c, s.client, "xenial/terms2-42", "terms2", "bionic")
+	testcharms.UploadBundleWithSeries(c, s.client, "bundle/terms-simple-1", "terms-simple", "bionic")
 	err := runDeploy(c, "bundle/terms-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "cs:xenial/terms1-17", "cs:xenial/terms2-42")
@@ -204,9 +230,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithTermsSuccess(c *gc.C) 
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
-	_, mysqlch := testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql-storage")
-	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
-	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-mysql-storage-1", "wordpress-with-mysql-storage")
+	_, mysqlch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/mysql-42", "mysql-storage", "bionic")
+	_, wpch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-47", "wordpress", "bionic")
+	testcharms.UploadBundleWithSeries(c, s.client, "bundle/wordpress-with-mysql-storage-1", "wordpress-with-mysql-storage", "bionic")
 	err := runDeploy(
 		c, "bundle/wordpress-with-mysql-storage",
 		"--storage", "mysql:logs=tmpfs,10G", // override logs
@@ -246,7 +272,7 @@ func (s *CAASModelDeployCharmStoreSuite) TestDeployBundleDevices(c *gc.C) {
 	_, minerCharm := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/bitcoin-miner-1", "bitcoin-miner", "kubernetes")
 	_, dashboardCharm := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/dashboard4miner-3", "dashboard4miner", "kubernetes")
 
-	testcharms.UploadBundle(c, s.client, "bundle/bitcoinminer-with-dashboard-1", "bitcoinminer-with-dashboard")
+	testcharms.UploadBundleWithSeries(c, s.client, "bundle/bitcoinminer-with-dashboard-1", "bitcoinminer-with-dashboard", "kubernetes") // ???
 	err = runDeploy(
 		c, "bundle/bitcoinminer-with-dashboard",
 		"-m", m.Name(),
@@ -272,9 +298,9 @@ func (s *CAASModelDeployCharmStoreSuite) TestDeployBundleDevices(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissing(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-extra-bindings-47", "wordpress-extra-bindings")
-	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-endpoint-bindings-1", "wordpress-with-endpoint-bindings")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/mysql-42", "mysql", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-extra-bindings-47", "wordpress-extra-bindings", "bionic")
+	testcharms.UploadBundleWithSeries(c, s.client, "bundle/wordpress-with-endpoint-bindings-1", "wordpress-with-endpoint-bindings", "bionic")
 	stdOut, stdErr, err := runDeployWithOutput(c, "bundle/wordpress-with-endpoint-bindings")
 	c.Assert(err, gc.ErrorMatches, ""+
 		"cannot deploy bundle: cannot deploy application \"mysql\": "+
@@ -298,9 +324,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c 
 	_, err = s.State.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, mysqlch := testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
-	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-extra-bindings-47", "wordpress-extra-bindings")
-	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-endpoint-bindings-1", "wordpress-with-endpoint-bindings")
+	_, mysqlch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/mysql-42", "mysql", "bionic")
+	_, wpch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-extra-bindings-47", "wordpress-extra-bindings", "bionic")
+	testcharms.UploadBundleWithSeries(c, s.client, "bundle/wordpress-with-endpoint-bindings-1", "wordpress-with-endpoint-bindings", "bionic")
 	err = runDeploy(c, "bundle/wordpress-with-endpoint-bindings")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-extra-bindings-47")
@@ -335,9 +361,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c 
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
-	_, mysqlch := testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
-	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
-	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
+	_, mysqlch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/mysql-42", "mysql", "bionic")
+	_, wpch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-47", "wordpress", "bionic")
+	testcharms.UploadBundleWithSeries(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple", "bionic")
 	stdOut, stdErr, err := runDeployWithOutput(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(stdOut, gc.Equals, ""+
@@ -376,9 +402,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
-	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/mysql-42", "mysql", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-47", "wordpress", "bionic")
+	testcharms.UploadBundleWithSeries(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple", "bionic")
 	stdOut, _, err := runDeployWithOutput(c, "bundle/wordpress-simple", "--dry-run")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := "" +
@@ -405,10 +431,10 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDryRunExistingModel(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
-	testcharms.UploadCharm(c, s.client, "trusty/multi-series-subordinate-13", "multi-series-subordinate")
-	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/mysql-42", "mysql", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-47", "wordpress", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "trusty/multi-series-subordinate-13", "multi-series-subordinate", "bionic")
+	testcharms.UploadBundleWithSeries(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple", "bionic")
 	// Start with a mysql that already has the right charm.
 	ch := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "mysql", Series: "xenial", Revision: "42"})
@@ -439,10 +465,10 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunExistingModel(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleGatedCharm(c *gc.C) {
-	_, mysqlch := testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
-	url, _ := testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
+	_, mysqlch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/mysql-42", "mysql", "bionic")
+	url, _ := testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-47", "wordpress", "bionic")
 	s.changeReadPerm(c, url, clientUserName)
-	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
+	testcharms.UploadBundleWithSeries(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple", "bionic")
 	err := runDeploy(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-47")
@@ -456,7 +482,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleGatedCharm(c *gc.C) {
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
 	dir := c.MkDir()
-	testcharms.Repo.ClonedDir(dir, "dummy")
+	testcharms.RepoWithSeries("bionic").ClonedDir(dir, "dummy")
 	path := filepath.Join(dir, "mybundle")
 	data := `
         series: xenial
@@ -480,34 +506,34 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalResources(c *gc.C) {
 	data := `
-        series: quantal
+        series: bionic
         applications:
             "dummy-resource":
                 charm: ./dummy-resource
-                series: quantal
+                series: bionic
                 num_units: 1
                 resources:
                   dummy: ./dummy-resource.zip
     `
 	dir := s.makeBundleDir(c, data)
-	testcharms.Repo.ClonedDir(dir, "dummy-resource")
+	testcharms.RepoWithSeries("bionic").ClonedDir(dir, "dummy-resource")
 	c.Assert(
 		ioutil.WriteFile(filepath.Join(dir, "dummy-resource.zip"), []byte("zip file"), 0644),
 		jc.ErrorIsNil)
 	err := runDeploy(c, dir)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "local:quantal/dummy-resource-0")
-	ch, err := s.State.Charm(charm.MustParseURL("local:quantal/dummy-resource-0"))
+	s.assertCharmsUploaded(c, "local:bionic/dummy-resource-0")
+	ch, err := s.State.Charm(charm.MustParseURL("local:bionic/dummy-resource-0"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
-		"dummy-resource": {charm: "local:quantal/dummy-resource-0", config: ch.Config().DefaultSettings()},
+		"dummy-resource": {charm: "local:bionic/dummy-resource-0", config: ch.Config().DefaultSettings()},
 	})
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleNoSeriesInCharmURL(c *gc.C) {
-	testcharms.UploadCharmMultiSeries(c, s.client, "~who/multi-series", "multi-series")
+	testcharms.UploadCharmMultiSeriesWithSeries(c, s.client, "~who/multi-series", "multi-series", "bionic")
 	dir := c.MkDir()
-	testcharms.Repo.ClonedDir(dir, "dummy")
+	testcharms.RepoWithSeries("bionic").ClonedDir(dir, "dummy")
 	path := filepath.Join(dir, "mybundle")
 	data := `
         series: trusty
@@ -528,16 +554,16 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNoSeriesInCharmURL(c *gc.C
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleGatedCharmUnauthorized(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
-	url, _ := testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/mysql-42", "mysql", "bionic")
+	url, _ := testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-47", "wordpress", "bionic")
 	s.changeReadPerm(c, url, "who")
-	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
+	testcharms.UploadBundleWithSeries(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple", "bionic")
 	err := runDeploy(c, "bundle/wordpress-simple")
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: .*: access denied for user "client-username"`)
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleResources(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/starsay-42", "starsay")
+	testcharms.UploadCharmWithSeries(c, s.client, "trusty/starsay-42", "starsay", "bionic")
 	bundleMeta := `
         applications:
             starsay:
@@ -774,7 +800,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleErrors(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidOptions(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-42", "wordpress", "bionic")
 	err := s.DeployBundleYAML(c, `
         applications:
             wp:
@@ -787,7 +813,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidOptions(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidMachineContainerType(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-42", "wordpress", "bionic")
 	err := s.DeployBundleYAML(c, `
         applications:
             wp:
@@ -801,11 +827,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidMachineContainerTyp
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidSeries(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "vivid/django-0", "dummy")
+	testcharms.UploadCharmWithSeries(c, s.client, "trusty/django-0", "dummy", "bionic")
 	err := s.DeployBundleYAML(c, `
         applications:
             django:
-                charm: vivid/django
+                charm: trusty/django
                 num_units: 1
                 to:
                     - 1
@@ -817,7 +843,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidSeries(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidBinding(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-42", "wordpress", "bionic")
 	err := s.DeployBundleYAML(c, `
         applications:
             wp:
@@ -830,7 +856,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidBinding(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidSpace(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-42", "wordpress", "bionic")
 	err := s.DeployBundleYAML(c, `
         applications:
             wp:
@@ -858,8 +884,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
 		return watcher, nil
 	})
 
-	testcharms.UploadCharm(c, s.client, "xenial/django-0", "dummy")
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-0", "wordpress")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/django-0", "dummy", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-0", "wordpress", "bionic")
 	s.PatchValue(&updateUnitStatusPeriod, 0*time.Second)
 	err := s.DeployBundleYAML(c, `
         applications:
@@ -876,8 +902,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {
 	charmsPath := c.MkDir()
-	mysqlPath := testcharms.Repo.ClonedDirPath(charmsPath, "mysql")
-	wordpressPath := testcharms.Repo.ClonedDirPath(charmsPath, "wordpress")
+	mysqlPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "mysql")
+	wordpressPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "wordpress")
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
         series: xenial
         applications:
@@ -910,8 +936,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadConfig(c *gc.C) {
 	charmsPath := c.MkDir()
-	mysqlPath := testcharms.Repo.ClonedDirPath(charmsPath, "mysql")
-	wordpressPath := testcharms.Repo.ClonedDirPath(charmsPath, "wordpress")
+	mysqlPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "mysql")
+	wordpressPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "wordpress")
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
         series: xenial
         applications:
@@ -930,7 +956,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadConfig(c
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentLXDProfile(c *gc.C) {
 	charmsPath := c.MkDir()
-	lxdProfilePath := testcharms.Repo.ClonedDirPath(charmsPath, "lxd-profile")
+	lxdProfilePath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "lxd-profile")
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
         series: bionic
         services:
@@ -952,7 +978,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentLXDProfile(
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadLXDProfile(c *gc.C) {
 	charmsPath := c.MkDir()
-	lxdProfilePath := testcharms.Repo.ClonedDirPath(charmsPath, "lxd-profile-fail")
+	lxdProfilePath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "lxd-profile-fail")
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
         series: bionic
         services:
@@ -961,6 +987,19 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadLXDProfi
                 num_units: 1
     `, lxdProfilePath))
 	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: cannot deploy local charm at .*: invalid lxd-profile.yaml: contains device type \"unix-disk\"")
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadLXDProfileWithForce(c *gc.C) {
+	charmsPath := c.MkDir()
+	lxdProfilePath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "lxd-profile-fail")
+	err := s.DeployBundleYAML(c, fmt.Sprintf(`
+        series: bionic
+        services:
+            lxd-profile-fail:
+                charm: %s
+                num_units: 1
+    `, lxdProfilePath), "--force")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleOverlay(c *gc.C) {
@@ -981,8 +1020,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleO
 		jc.ErrorIsNil)
 
 	charmsPath := c.MkDir()
-	mysqlPath := testcharms.Repo.ClonedDirPath(charmsPath, "mysql")
-	wordpressPath := testcharms.Repo.ClonedDirPath(charmsPath, "wordpress")
+	mysqlPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "mysql")
+	wordpressPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "wordpress")
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
         series: xenial
         applications:
@@ -1008,8 +1047,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleO
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c *gc.C) {
 	charmsPath := c.MkDir()
-	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
-	mysqlPath := testcharms.Repo.ClonedDirPath(charmsPath, "mysql")
+	_, wpch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-42", "wordpress", "bionic")
+	mysqlPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "mysql")
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
         series: xenial
         applications:
@@ -1039,8 +1078,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationOptions(c *gc.C) {
-	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
-	_, dch := testcharms.UploadCharm(c, s.client, "precise/dummy-0", "dummy")
+	_, wpch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-42", "wordpress", "bionic")
+	_, dch := testcharms.UploadCharmWithSeries(c, s.client, "bionic/dummy-0", "dummy", "bionic")
 	err := s.DeployBundleYAML(c, `
         applications:
             wordpress:
@@ -1049,17 +1088,17 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationOptions(c *gc.C
                 options:
                     blog-title: these are the voyages
             customized:
-                charm: precise/dummy-0
+                charm: bionic/dummy-0
                 num_units: 1
                 options:
                     username: who
                     skill-level: 47
     `)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:precise/dummy-0", "cs:xenial/wordpress-42")
+	s.assertCharmsUploaded(c, "cs:bionic/dummy-0", "cs:xenial/wordpress-42")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"customized": {
-			charm:  "cs:precise/dummy-0",
+			charm:  "cs:bionic/dummy-0",
 			config: s.combinedSettings(dch, charm.Settings{"username": "who", "skill-level": int64(47)}),
 		},
 		"wordpress": {
@@ -1074,23 +1113,23 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationOptions(c *gc.C
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstraints(c *gc.C) {
-	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
-	_, dch := testcharms.UploadCharm(c, s.client, "precise/dummy-0", "dummy")
+	_, wpch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-42", "wordpress", "bionic")
+	_, dch := testcharms.UploadCharmWithSeries(c, s.client, "bionic/dummy-0", "dummy", "bionic")
 	err := s.DeployBundleYAML(c, `
         applications:
             wordpress:
                 charm: wordpress
                 constraints: mem=4G cores=2
             customized:
-                charm: precise/dummy-0
+                charm: bionic/dummy-0
                 num_units: 1
                 constraints: arch=i386
     `)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:precise/dummy-0", "cs:xenial/wordpress-42")
+	s.assertCharmsUploaded(c, "cs:bionic/dummy-0", "cs:xenial/wordpress-42")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"customized": {
-			charm:       "cs:precise/dummy-0",
+			charm:       "cs:bionic/dummy-0",
 			constraints: constraints.MustParse("arch=i386"),
 			config:      dch.Config().DefaultSettings(),
 		},
@@ -1106,9 +1145,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstraints(c *
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleSetAnnotations(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
-	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/mysql-42", "mysql", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-47", "wordpress", "bionic")
+	testcharms.UploadBundleWithSeries(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple", "bionic")
 	err := runDeploy(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	application, err := s.State.Application("wordpress")
@@ -1124,9 +1163,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleSetAnnotations(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C) {
-	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
-	testcharms.UploadCharm(c, s.client, "vivid/upgrade-1", "upgrade1")
-	_, ch := testcharms.UploadCharm(c, s.client, "vivid/upgrade-2", "upgrade2")
+	_, wpch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-42", "wordpress", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "trusty/upgrade-1", "upgrade1", "bionic")
+	_, ch := testcharms.UploadCharmWithSeries(c, s.client, "trusty/upgrade-2", "upgrade2", "bionic")
 
 	// First deploy the bundle.
 	err := s.DeployBundleYAML(c, `
@@ -1138,12 +1177,12 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C
                     blog-title: these are the voyages
                 constraints: spaces=final,frontiers mem=8000M
             up:
-                charm: vivid/upgrade-1
+                charm: trusty/upgrade-1
                 num_units: 1
                 constraints: mem=8G
     `)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:vivid/upgrade-1", "cs:xenial/wordpress-42")
+	s.assertCharmsUploaded(c, "cs:trusty/upgrade-1", "cs:xenial/wordpress-42")
 
 	// Then deploy a new bundle with modified charm revision and options.
 	stdOut, _, err := s.DeployBundleYAMLWithOutput(c, `
@@ -1155,23 +1194,23 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C
                     blog-title: new title
                 constraints: spaces=new cores=8
             up:
-                charm: vivid/upgrade-2
+                charm: trusty/upgrade-2
                 num_units: 1
                 constraints: mem=8G
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- upload charm cs:vivid/upgrade-2 for series vivid\n"+
-		"- upgrade up to use charm cs:vivid/upgrade-2 for series vivid\n"+
+		"- upload charm cs:trusty/upgrade-2 for series trusty\n"+
+		"- upgrade up to use charm cs:trusty/upgrade-2 for series trusty\n"+
 		"- set application options for wordpress\n"+
 		`- set constraints for wordpress to "spaces=new cores=8"`,
 	)
 
-	s.assertCharmsUploaded(c, "cs:vivid/upgrade-1", "cs:vivid/upgrade-2", "cs:xenial/wordpress-42")
+	s.assertCharmsUploaded(c, "cs:trusty/upgrade-1", "cs:trusty/upgrade-2", "cs:xenial/wordpress-42")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"up": {
-			charm:       "cs:vivid/upgrade-2",
+			charm:       "cs:trusty/upgrade-2",
 			config:      ch.Config().DefaultSettings(),
 			constraints: constraints.MustParse("mem=8G"),
 		},
@@ -1188,7 +1227,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
-	_, ch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
+	_, ch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-42", "wordpress", "bionic")
 	content := `
         applications:
             wordpress:
@@ -1238,7 +1277,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgradeFailure(
 	// otherwise we can't resolve the charm URL because the charm's
 	// "base entity" is not marked as promulgated so the query by
 	// promulgated will find it.
-	testcharms.UploadCharm(c, s.client, "vivid/wordpress-42", "wordpress")
+	testcharms.UploadCharmWithSeries(c, s.client, "vivid/wordpress-42", "wordpress", "bionic")
 	err := s.DeployBundleYAML(c, `
         applications:
             wordpress:
@@ -1249,10 +1288,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgradeFailure(
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-0", "wordpress")
-	testcharms.UploadCharm(c, s.client, "xenial/mysql-1", "mysql")
-	testcharms.UploadCharm(c, s.client, "xenial/postgres-2", "mysql")
-	testcharms.UploadCharm(c, s.client, "xenial/varnish-3", "varnish")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-0", "wordpress", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/mysql-1", "mysql", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/postgres-2", "mysql", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/varnish-3", "varnish", "bionic")
 	err := s.DeployBundleYAML(c, `
         applications:
             wp:
@@ -1283,10 +1322,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C)
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-0", "wordpress")
-	testcharms.UploadCharm(c, s.client, "xenial/mysql-1", "mysql")
-	testcharms.UploadCharm(c, s.client, "xenial/postgres-2", "mysql")
-	testcharms.UploadCharm(c, s.client, "xenial/varnish-3", "varnish")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-0", "wordpress", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/mysql-1", "mysql", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/postgres-2", "mysql", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/varnish-3", "varnish", "bionic")
 	err := s.DeployBundleYAML(c, `
         applications:
             wp:
@@ -1331,8 +1370,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachinesUnitsPlacement(c *gc.C) {
-	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-0", "wordpress")
-	_, mysqlch := testcharms.UploadCharm(c, s.client, "xenial/mysql-2", "mysql")
+	_, wpch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-0", "wordpress", "bionic")
+	_, mysqlch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/mysql-2", "mysql", "bionic")
 
 	content := `
         applications:
@@ -1401,7 +1440,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachinesUnitsPlacement(c *
 }
 
 func (s *BundleDeployCharmStoreSuite) TestLXCTreatedAsLXD(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-0", "wordpress")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-0", "wordpress", "bionic")
 
 	// Note that we use lxc here, to represent a 1.x bundle that specifies lxc.
 	content := `
@@ -1440,7 +1479,7 @@ func (s *BundleDeployCharmStoreSuite) TestLXCTreatedAsLXD(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachineAttributes(c *gc.C) {
-	_, ch := testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
+	_, ch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/django-42", "dummy", "bionic")
 	err := s.DeployBundleYAML(c, `
         applications:
             django:
@@ -1479,7 +1518,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachineAttributes(c *gc.C)
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwiceScaleUp(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/django-42", "dummy", "bionic")
 	err := s.DeployBundleYAML(c, `
         applications:
             django:
@@ -1504,8 +1543,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwiceScaleUp(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedInApplication(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-0", "wordpress")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/django-42", "dummy", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-0", "wordpress", "bionic")
 	err := s.DeployBundleYAML(c, `
         applications:
             wordpress:
@@ -1527,8 +1566,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedInApplication(c 
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundlePeerContainer(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-0", "wordpress")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/django-42", "dummy", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-0", "wordpress", "bionic")
 
 	stdOut, _, err := s.DeployBundleYAMLWithOutput(c, `
         applications:
@@ -1567,9 +1606,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundlePeerContainer(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitColocationWithUnit(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
-	testcharms.UploadCharm(c, s.client, "xenial/mem-47", "dummy")
-	testcharms.UploadCharm(c, s.client, "xenial/rails-0", "dummy")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/django-42", "dummy", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/mem-47", "dummy", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/rails-0", "dummy", "bionic")
 	err := s.DeployBundleYAML(c, `
         applications:
             memcached:
@@ -1610,7 +1649,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitColocationWithUnit(c *
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedToMachines(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "bionic/django-42", "dummy")
+	testcharms.UploadCharmWithSeries(c, s.client, "bionic/django-42", "dummy", "bionic")
 	err := s.DeployBundleYAML(c, `
         applications:
             django:
@@ -1640,9 +1679,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedToMachines(c *gc
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "bionic/django-42", "dummy")
-	testcharms.UploadCharm(c, s.client, "bionic/mem-47", "dummy")
-	testcharms.UploadCharm(c, s.client, "bionic/rails-0", "dummy")
+	testcharms.UploadCharmWithSeries(c, s.client, "bionic/django-42", "dummy", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "bionic/mem-47", "dummy", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "bionic/rails-0", "dummy", "bionic")
 	err := s.DeployBundleYAML(c, `
         applications:
             memcached:
@@ -1733,8 +1772,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithAnnotations_OutputIsCorrect(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "bionic/django-42", "dummy")
-	testcharms.UploadCharm(c, s.client, "bionic/mem-47", "dummy")
+	testcharms.UploadCharmWithSeries(c, s.client, "bionic/django-42", "dummy", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "bionic/mem-47", "dummy", "bionic")
 	stdOut, stdErr, err := s.DeployBundleYAMLWithOutput(c, `
         applications:
             django:
@@ -1773,8 +1812,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithAnnotations_OutputIsCo
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleAnnotations(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "bionic/django-42", "dummy")
-	testcharms.UploadCharm(c, s.client, "bionic/mem-47", "dummy")
+	testcharms.UploadCharmWithSeries(c, s.client, "bionic/django-42", "dummy", "bionic")
+	testcharms.UploadCharmWithSeries(c, s.client, "bionic/mem-47", "dummy", "bionic")
 	err := s.DeployBundleYAML(c, `
         applications:
             django:
@@ -1841,7 +1880,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleExistingMachines(c *gc.C) 
 	s.Factory.MakeMachine(c, xenialMachine) // machine-1
 	s.Factory.MakeMachine(c, xenialMachine) // machine-2
 	s.Factory.MakeMachine(c, xenialMachine) // machine-3
-	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/django-42", "dummy", "bionic")
 	err := s.DeployBundleYAML(c, `
         applications:
             django:
@@ -2061,6 +2100,10 @@ func (s *ProcessBundleOverlaySuite) SetUpTest(c *gc.C) {
         machines:
             1:
                 annotations: {foo: bar}`
+
+	s.PatchValue(&supportedJujuSeries, func() []string {
+		return defaultSupportedJujuSeries
+	})
 
 	baseDir := c.MkDir()
 	bundleFile := filepath.Join(baseDir, "bundle.yaml")
@@ -2305,7 +2348,7 @@ relations:
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundlePassesSequences(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
+	testcharms.UploadCharmWithSeries(c, s.client, "xenial/django-42", "dummy", "bionic")
 
 	// Deploy another django app with two units, this will bump the sequences
 	// for machines and the django application. Then remove them both.
