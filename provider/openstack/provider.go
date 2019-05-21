@@ -1575,7 +1575,7 @@ func (e *Environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 	var failed []string
 	controllerTag := map[string]string{tags.JujuController: controllerUUID}
 
-	instances, err := e.AllRunningInstances(ctx)
+	instances, err := e.AllInstances(ctx)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return errors.Trace(err)

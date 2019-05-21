@@ -1153,7 +1153,7 @@ func (e *environ) subnetsForVPC(ctx context.ProviderCallContext) (resp *ec2.Subn
 // AdoptResources is part of the Environ interface.
 func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	// Gather resource ids for instances, volumes and security groups tagged with this model.
-	instances, err := e.AllRunningInstances(ctx)
+	instances, err := e.AllInstances(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
