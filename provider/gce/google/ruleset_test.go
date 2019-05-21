@@ -25,7 +25,8 @@ func makeRuleSet() ruleSet {
 	rule2 := network.MustNewIngressRule("tcp", 80, 80)
 	rule3 := network.MustNewIngressRule("tcp", 79, 81)
 	rule4 := network.MustNewIngressRule("udp", 5123, 8099, "192.168.1.0/24")
-	return newRuleSetFromRules(rule1, rule2, rule3, rule4)
+	rule5 := network.MustNewIngressRule("icmp", -1, -1)
+	return newRuleSetFromRules(rule1, rule2, rule3, rule4, rule5)
 }
 
 func (s *RuleSetSuite) TestNewRuleSetFromRules(c *gc.C) {
@@ -34,7 +35,8 @@ func (s *RuleSetSuite) TestNewRuleSetFromRules(c *gc.C) {
 		"b42e18366a": &firewall{
 			SourceCIDRs: []string{"0.0.0.0/0"},
 			AllowedPorts: protocolPorts{
-				"tcp": []corenetwork.PortRange{{8000, 8099, "tcp"}, {80, 80, "tcp"}, {79, 81, "tcp"}},
+				"tcp":  []corenetwork.PortRange{{8000, 8099, "tcp"}, {80, 80, "tcp"}, {79, 81, "tcp"}},
+				"icmp": []corenetwork.PortRange{{-1, -1, "icmp"}},
 			},
 		},
 		"d01a825c13": &firewall{
@@ -171,7 +173,8 @@ func (s *RuleSetSuite) TestMatchSourceCIDRs(c *gc.C) {
 	c.Assert(fw, gc.DeepEquals, &firewall{
 		SourceCIDRs: []string{"0.0.0.0/0"},
 		AllowedPorts: protocolPorts{
-			"tcp": []corenetwork.PortRange{{8000, 8099, "tcp"}, {80, 80, "tcp"}, {79, 81, "tcp"}},
+			"tcp":  []corenetwork.PortRange{{8000, 8099, "tcp"}, {80, 80, "tcp"}, {79, 81, "tcp"}},
+			"icmp": []corenetwork.PortRange{{-1, -1, "icmp"}},
 		},
 	})
 	fw, ok = ruleset.matchSourceCIDRs([]string{"1.2.3.0/24"})

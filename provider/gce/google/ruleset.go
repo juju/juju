@@ -218,6 +218,11 @@ func (pp protocolPorts) String() string {
 // for the given protocol.
 func (pp protocolPorts) portStrings(protocol string) []string {
 	var result []string
+	// Google doesn't permit a range of ports for the ICMP protocol
+	// https://web.archive.org/web/20190521045119/https://cloud.google.com/vpc/docs/firewalls#protocols_and_ports
+	if protocol == "icmp" {
+		return result
+	}
 	ports := pp[protocol]
 	for _, pr := range ports {
 		portStr := fmt.Sprintf("%d", pr.FromPort)
