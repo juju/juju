@@ -67,28 +67,10 @@ func isDefaultStorageClass(sc storage.StorageClass) bool {
 	)
 }
 
-// handle CDK separately.
 const (
-	CDKOperatorStorageClassAnnotationKey = "juju.io/operator-storage"
-	CDKWorkloadStorageClassAnnotationKey = "juju.io/workload-storage"
+	operatorStorageClassAnnotationKey = "juju.io/operator-storage"
+	workloadStorageClassAnnotationKey = "juju.io/workload-storage"
 )
-
-func discoverCDKStoragePreferences(storageClasses []storage.StorageClass, metaData *caas.ClusterMetadata) bool {
-	var found bool
-	for _, sc := range storageClasses {
-		scAnnotations := k8sannotations.New(sc.GetAnnotations())
-		caasSC := caasStorageProvisioner(sc)
-		found = scAnnotations.Has(CDKWorkloadStorageClassAnnotationKey, "true")
-		if found {
-			metaData.NominatedStorageClass = caasSC
-			metaData.OperatorStorageClass = caasSC
-		}
-		if scAnnotations.Has(CDKOperatorStorageClassAnnotationKey, "true") {
-			metaData.OperatorStorageClass = caasSC
-		}
-	}
-	return found
-}
 
 func caasStorageProvisioner(sc storage.StorageClass) *caas.StorageProvisioner {
 	caasSc := &caas.StorageProvisioner{
@@ -117,6 +99,7 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 			return nil, errors.Trace(err)
 		}
 		if err == nil && sc != nil {
+			logger.Debugf("Use %q for nominated storage class", sc.Name)
 			result.NominatedStorageClass = caasStorageProvisioner(*sc)
 		}
 	}
@@ -127,47 +110,79 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 		return nil, errors.Annotate(err, "listing storage classes")
 	}
 
-	if discoverCDKStoragePreferences(storageClasses.Items, &result) {
-		// This is a CDK cluster with preferred storage class defined.
-		return &result, nil
-	}
-
 	var possibleWorkloadStorage, possibleOperatorStorage []*caas.StorageProvisioner
 	preferredOperatorStorage, hasPreferredOperatorStorage := jujuPreferredOperatorStorage[result.Cloud]
-	for _, sc := range storageClasses.Items {
-		caasSC := caasStorageProvisioner(sc)
-		isDefaultSc := isDefaultStorageClass(sc)
-		if result.OperatorStorageClass == nil && hasPreferredOperatorStorage {
-			if err := storageClassMatches(preferredOperatorStorage, caasSC); err == nil {
-				if isDefaultSc {
-					// Prefer operator storage from the default storage class.
-					result.OperatorStorageClass = caasSC
-				} else {
-					possibleOperatorStorage = append(possibleOperatorStorage, caasSC)
-				}
+
+	pickOperatorSC := func(sc storage.StorageClass, caasSC *caas.StorageProvisioner) {
+		if result.OperatorStorageClass != nil {
+			return
+		}
+
+		if k8sannotations.New(sc.GetAnnotations()).Has(operatorStorageClassAnnotationKey, "true") {
+			logger.Debugf("Use %q with annotations %v for operator storage class", sc.Name, sc.GetAnnotations())
+			result.OperatorStorageClass = caasSC
+		} else if hasPreferredOperatorStorage {
+			err := storageClassMatches(preferredOperatorStorage, caasSC)
+			if err != nil {
+				// not match.
+				return
+			}
+			if isDefaultStorageClass(sc) {
+				// Prefer operator storage from the default storage class.
+				result.OperatorStorageClass = caasSC
+				logger.Debugf(
+					"Use the default Storage class %q for operator storage class because it also matches Juju preferred config %v",
+					caasSC.Name, preferredOperatorStorage,
+				)
+			} else {
+				possibleOperatorStorage = append(possibleOperatorStorage, caasSC)
 			}
 		}
-		if result.NominatedStorageClass == nil {
-			if isDefaultSc {
-				// no nominated storage class specified, so use the default one;
-				result.NominatedStorageClass = caasSC
-				break
-			}
+	}
+
+	pickWorkloadSC := func(sc storage.StorageClass, caasSC *caas.StorageProvisioner) {
+		if result.NominatedStorageClass != nil {
+			return
+		}
+
+		if k8sannotations.New(sc.GetAnnotations()).Has(workloadStorageClassAnnotationKey, "true") {
+			logger.Debugf("Use %q with annotations %v for nominated storage class", sc.Name, sc.GetAnnotations())
+			result.NominatedStorageClass = caasSC
+		} else if isDefaultStorageClass(sc) {
+			// no nominated storage class specified, so use the default one;
+			result.NominatedStorageClass = caasSC
+			logger.Debugf("Use the default Storage class %q for nominated storage class", caasSC.Name)
+		} else {
 			possibleWorkloadStorage = append(possibleWorkloadStorage, caasSC)
 		}
 	}
 
+	for _, sc := range storageClasses.Items {
+		if result.OperatorStorageClass != nil && result.NominatedStorageClass != nil {
+			break
+		}
+		caasSC := caasStorageProvisioner(sc)
+		pickOperatorSC(sc, caasSC)
+		pickWorkloadSC(sc, caasSC)
+	}
+
 	if result.OperatorStorageClass == nil && len(possibleOperatorStorage) > 0 {
-		result.OperatorStorageClass = possibleOperatorStorage[0]
+		sc := possibleOperatorStorage[0]
+		result.OperatorStorageClass = sc
+		logger.Debugf("Use %q for operator storage class", sc.Name)
 	}
 	// Even if no storage class was marked as default for the cluster, if there's only
 	// one of them, use it for workload storage.
 	if result.NominatedStorageClass == nil && len(possibleWorkloadStorage) > 0 {
-		result.NominatedStorageClass = possibleWorkloadStorage[0]
+		sc := possibleWorkloadStorage[0]
+		result.NominatedStorageClass = sc
+		logger.Debugf("Use %q for nominated storage class", sc.Name)
 	}
 	if result.OperatorStorageClass == nil {
 		// use workload storage class if no operator storage class preference found.
-		result.OperatorStorageClass = result.NominatedStorageClass
+		sc := result.NominatedStorageClass
+		result.OperatorStorageClass = sc
+		logger.Debugf("Use nominated storage class %q for operator storage class", sc.Name)
 	}
 	return &result, nil
 }
