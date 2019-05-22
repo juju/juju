@@ -149,3 +149,22 @@ func (s *rawConnSuite) TestConnectionWaitOperationError(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `.* "testing-wait-operation-error" .*`)
 	c.Check(s.callCount, gc.Equals, 1)
 }
+
+type firewallNameSuite struct{}
+
+var _ = gc.Suite(&firewallNameSuite{})
+
+func (s *firewallNameSuite) TestSimplePattern(c *gc.C) {
+	res := MatchesPrefix("juju-3-123", "juju-3")
+	c.Assert(res, gc.Equals, true)
+}
+
+func (s *firewallNameSuite) TestExactMatch(c *gc.C) {
+	res := MatchesPrefix("juju-3", "juju-3")
+	c.Assert(res, gc.Equals, true)
+}
+
+func (s *firewallNameSuite) TestThatJujuMachineIDsDoNotCollide(c *gc.C) {
+	res := MatchesPrefix("juju-30-123", "juju-3")
+	c.Assert(res, gc.Equals, false)
+}
