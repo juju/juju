@@ -167,22 +167,19 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 	}
 
 	if result.OperatorStorageClass == nil && len(possibleOperatorStorage) > 0 {
-		sc := possibleOperatorStorage[0]
-		result.OperatorStorageClass = sc
-		logger.Debugf("Use %q for operator storage class", sc.Name)
+		result.OperatorStorageClass = possibleOperatorStorage[0]
+		logger.Debugf("Use %q for operator storage class", possibleOperatorStorage[0].Name)
 	}
 	// Even if no storage class was marked as default for the cluster, if there's only
 	// one of them, use it for workload storage.
-	if result.NominatedStorageClass == nil && len(possibleWorkloadStorage) > 0 {
-		sc := possibleWorkloadStorage[0]
-		result.NominatedStorageClass = sc
-		logger.Debugf("Use %q for nominated storage class", sc.Name)
+	if result.NominatedStorageClass == nil && len(possibleWorkloadStorage) == 1 {
+		result.NominatedStorageClass = possibleWorkloadStorage[0]
+		logger.Debugf("Use %q for nominated storage class", possibleWorkloadStorage[0].Name)
 	}
-	if result.OperatorStorageClass == nil {
+	if result.OperatorStorageClass == nil && result.NominatedStorageClass != nil {
 		// use workload storage class if no operator storage class preference found.
-		sc := result.NominatedStorageClass
-		result.OperatorStorageClass = sc
-		logger.Debugf("Use nominated storage class %q for operator storage class", sc.Name)
+		result.OperatorStorageClass = result.NominatedStorageClass
+		logger.Debugf("Use nominated storage class %q for operator storage class", result.NominatedStorageClass.Name)
 	}
 	return &result, nil
 }

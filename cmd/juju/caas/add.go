@@ -379,7 +379,6 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) error {
 	storageParams := provider.KubeCloudStorageParams{
 		WorkloadStorage:        c.workloadStorage,
 		HostCloudRegion:        c.hostCloudRegion,
-		IsBootstrap:			c.Local,
 		MetadataChecker:        broker,
 		GetClusterMetadataFunc: c.getClusterMetadataFunc(ctx),
 	}
@@ -503,7 +502,7 @@ func (c *AddCAASCommand) validateCloudRegion(cloudRegion string) (_ string, err 
 }
 
 func (c *AddCAASCommand) getClusterMetadataFunc(ctx *cmd.Context) provider.GetClusterMetadataFunc {
-	return func(broker caas.ClusterMetadataChecker) (*caas.ClusterMetadata, error) {
+	return func(storageParams provider.KubeCloudStorageParams) (*caas.ClusterMetadata, error) {
 		interrupted := make(chan os.Signal, 1)
 		defer close(interrupted)
 		ctx.InterruptNotify(interrupted)
@@ -512,7 +511,7 @@ func (c *AddCAASCommand) getClusterMetadataFunc(ctx *cmd.Context) provider.GetCl
 		result := make(chan *caas.ClusterMetadata, 1)
 		errChan := make(chan error, 1)
 		go func() {
-			clusterMetadata, err := broker.GetClusterMetadata(c.workloadStorage)
+			clusterMetadata, err := storageParams.MetadataChecker.GetClusterMetadata(storageParams.WorkloadStorage)
 			if err != nil {
 				errChan <- err
 			} else {

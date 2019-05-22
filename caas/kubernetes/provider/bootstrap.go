@@ -348,10 +348,8 @@ func (c *controllerStack) getControllerSvcSpec(cloudType string) (*controllerSer
 
 func (c *controllerStack) createControllerService() error {
 	svcName := c.resourceNameService
-	cloudType, _, err := cloud.SplitHostCloudRegion(c.pcfg.Bootstrap.ControllerCloud.HostCloudRegion)
-	if err != nil {
-		return errors.Trace(err)
-	}
+
+	cloudType, _, _ := cloud.SplitHostCloudRegion(c.pcfg.Bootstrap.ControllerCloud.HostCloudRegion)
 	controllerSvcSpec, err := c.getControllerSvcSpec(cloudType)
 	if err != nil {
 		return errors.Trace(err)

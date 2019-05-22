@@ -161,7 +161,7 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 
 	if err != nil {
 		// Region is optional, but cloudType is required for next step.
-		return "", errors.Trace(err)
+		return "", ClusterQueryError{}
 	}
 
 	// check Juju's opinionated defaults if cloudType is usable.
@@ -208,12 +208,12 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 				storageMsg = fmt.Sprintf("%s provisioned\nby the existing %q storage class", storageMsg, storageParams.WorkloadStorage)
 			}
 		} else {
-			clusterMetadata.NominatedStorageClass = sp
-			clusterMetadata.OperatorStorageClass = sp
 			storageMsg = fmt.Sprintf(" with storage provisioned\nby the existing %q storage class", storageParams.WorkloadStorage)
 		}
+		clusterMetadata.NominatedStorageClass = sp
+		clusterMetadata.OperatorStorageClass = sp
 	}
-	return
+	return storageMsg, nil
 }
 
 // BaseKubeCloudOpenParams provides a basic OpenParams for a cluster
