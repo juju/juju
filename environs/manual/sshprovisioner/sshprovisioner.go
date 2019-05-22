@@ -164,15 +164,19 @@ func detectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 var CheckProvisioned = checkProvisioned
 
 func checkProvisioned(host string) (bool, error) {
+	return checkManualProvisioned(commandExecShim{}, host)
+}
+
+func checkManualProvisioned(cmdExec manual.CommandExec, host string) (bool, error) {
 	logger.Infof("Checking if %s is already provisioned", host)
 
 	script := service.ListServicesScript()
 
-	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
+	cmd := cmdExec.Command("ubuntu@"+host, []string{"/bin/bash"})
 	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	cmd.Stdin = strings.NewReader(script)
+	cmd.SetStdout(&stdout)
+	cmd.SetStderr(&stderr)
+	cmd.SetStdin(strings.NewReader(script))
 	if err := cmd.Run(); err != nil {
 		if stderr.Len() != 0 {
 			err = fmt.Errorf("%v (%v)", err, strings.TrimSpace(stderr.String()))

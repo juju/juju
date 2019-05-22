@@ -18,6 +18,8 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
 )
 
 // NewRemoveCommand returns a command used to remove a specified machine.
@@ -200,7 +202,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.Placement != nil {
-		if err := c.tryManualRemoval(); err != errNonManualScope {
+		if err := c.tryManualRemoval(ctx); err != errNonManualScope {
 			return err
 		}
 	}
@@ -267,12 +269,36 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *removeCommand) tryManualRemoval() error {
+var (
+	sshRemover = sshprovisioner.RemoveMachine
+)
+
+func (c *removeCommand) tryManualRemoval(ctx *cmd.Context) error {
+	var removeMachine manual.RemoveMachineFunc
+	var removeMachineCommandExec manual.CommandExec
 	switch c.Placement.Scope {
 	case sshScope:
+		removeMachine = sshRemover
+		removeMachineCommandExec = sshprovisioner.DefaultCommandExec()
 	case winrmScope:
+		return errors.NotImplementedf("todo")
 	default:
 		return errNonManualScope
 	}
+
+	user, host := splitUserHost(c.Placement.Directive)
+	args := manual.RemoveMachineArgs{
+		Host:        host,
+		User:        user,
+		Stdin:       ctx.Stdin,
+		Stdout:      ctx.Stdout,
+		Stderr:      ctx.Stderr,
+		CommandExec: removeMachineCommandExec,
+	}
+
+	if err := removeMachine(args); err != nil {
+		return errors.Trace(err)
+	}
+	ctx.Infof("machine removed")
 	return nil
 }
