@@ -27,7 +27,7 @@ func RemoveMachine(args manual.RemoveMachineArgs) error {
 	// existed on the machine. With that in mind, there should also be an
 	// existing ubuntu user and we have all the authorized keys setup. If that's
 	// not the case, do we know what we're logging into?
-	if err := LoginUbuntuUser(args.CommandExec, args.Host); err != nil {
+	if err := loginUbuntuUser(args.CommandExec, args.Host); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -52,8 +52,8 @@ func RemoveMachine(args manual.RemoveMachineArgs) error {
 	return nil
 }
 
-// LoginUbuntuUser will attempt to login as the ubuntu user for the host.
-func LoginUbuntuUser(cmdExec manual.CommandExec, host string) error {
+// loginUbuntuUser will attempt to login as the ubuntu user for the host.
+func loginUbuntuUser(cmdExec manual.CommandExec, host string) error {
 	cmd := cmdExec.Command("ubuntu@"+host, []string{"sudo", "-n", "true"})
 	if cmd.Run() != nil {
 		// Failed to login as ubuntu (or passwordless sudo is not enabled).

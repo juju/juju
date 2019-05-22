@@ -28,6 +28,11 @@ type RemoveMachineArgs struct {
 
 	// CommandExec executes commands based on inputs passed in
 	CommandExec CommandExec
+
+	// Winrm client to execute commands based on inputs.
+	// TODO (stickupkid): we should attempt to merge CommandExec with
+	// WinrmClientAPI, as they're _almost_ similar.
+	WinrmClientAPI
 }
 
 // CommandExec runs a command on a given host with various options.

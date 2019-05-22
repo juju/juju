@@ -4,15 +4,21 @@
 package machine
 
 import (
+	"path/filepath"
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/winrm"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
+	"github.com/juju/juju/environs/manual/winrmprovisioner"
+	"github.com/juju/juju/juju/osenv"
 )
 
 // NewRemoveManualCommand returns a command used to remove a specified machine.
@@ -91,30 +97,39 @@ func (c *removeManualCommand) Run(ctx *cmd.Context) error {
 }
 
 var (
-	sshRemover = sshprovisioner.RemoveMachine
+	sshRemover   = sshprovisioner.RemoveMachine
+	winrmRemover = winrmprovisioner.RemoveMachine
 )
 
 func (c *removeManualCommand) removeManual(ctx *cmd.Context) error {
+	user, host := splitUserHost(c.Placement.Directive)
+
 	var removeMachine manual.RemoveMachineFunc
 	var removeMachineCommandExec manual.CommandExec
+	var removeMachineWinrmClient manual.WinrmClientAPI
 	switch c.Placement.Scope {
 	case sshScope:
 		removeMachine = sshRemover
 		removeMachineCommandExec = sshprovisioner.DefaultCommandExec()
 	case winrmScope:
-		return errors.NotImplementedf("todo")
+		removeMachine = winrmRemover
+		var err error
+		removeMachineWinrmClient, err = c.winrmClient(user, host)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	default:
 		return errNonManualScope
 	}
 
-	user, host := splitUserHost(c.Placement.Directive)
 	args := manual.RemoveMachineArgs{
-		Host:        host,
-		User:        user,
-		Stdin:       ctx.Stdin,
-		Stdout:      ctx.Stdout,
-		Stderr:      ctx.Stderr,
-		CommandExec: removeMachineCommandExec,
+		Host:           host,
+		User:           user,
+		Stdin:          ctx.Stdin,
+		Stdout:         ctx.Stdout,
+		Stderr:         ctx.Stderr,
+		CommandExec:    removeMachineCommandExec,
+		WinrmClientAPI: removeMachineWinrmClient,
 	}
 
 	if err := removeMachine(args); err != nil {
@@ -122,4 +137,40 @@ func (c *removeManualCommand) removeManual(ctx *cmd.Context) error {
 	}
 	ctx.Infof("machine removed")
 	return nil
+}
+
+func (c *removeManualCommand) winrmClient(user, host string) (manual.WinrmClientAPI, error) {
+	base := osenv.JujuXDGDataHomePath("x509")
+	keyPath := filepath.Join(base, "winrmkey.pem")
+	certPath := filepath.Join(base, "winrmcert.crt")
+	cert := winrm.NewX509()
+	if err := cert.LoadClientCert(keyPath, certPath); err != nil {
+		return nil, errors.Annotatef(err, "connot load/create x509 client certs for winrm connection")
+	}
+	if err := cert.LoadCACert(filepath.Join(base, "winrmcacert.crt")); err != nil {
+		logger.Infof("cannot not find any CA cert to load")
+	}
+
+	cfg := winrm.ClientConfig{
+		User:    user,
+		Host:    host,
+		Key:     cert.ClientKey(),
+		Cert:    cert.ClientCert(),
+		Timeout: 25 * time.Second,
+		Secure:  true,
+	}
+
+	caCert := cert.CACert()
+	if caCert == nil {
+		logger.Infof("Skipping winrm CA validation")
+		cfg.Insecure = true
+	} else {
+		cfg.CACert = caCert
+	}
+
+	client, err := winrm.NewClient(cfg)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot create WinRM client connection")
+	}
+	return client, nil
 }
