@@ -644,10 +644,10 @@ var alreadyRegisteredMessageT = template.Must(template.New("").Parse(`
 This controller has already been registered on this client as "{{.ControllerName}}".
 To login user "{{.UserName}}" run 'juju login -u {{.UserName}} -c {{.ControllerName}}'.
 To update controller details and login as user "{{.UserName}}":
-    1. run 'juju unregister {{.UserName}}'
+    1. run 'juju unregister {{.ControllerName}}'
     2. request from your controller admin another registration string, i.e
        output from 'juju change-user-password {{.UserName}} --reset'
-    3. re-run 'juju register' with the registration from (2) above.
+    3. re-run 'juju register' with the registration string from (2) above.
 `[1:]))
 
 func genAlreadyRegisteredError(controller, user string) error {

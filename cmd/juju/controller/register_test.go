@@ -332,10 +332,10 @@ Initial password successfully set for bob.
 	c.Assert(err.Error(), gc.Equals, `This controller has already been registered on this client as "controller-name".
 To login user "bob" run 'juju login -u bob -c controller-name'.
 To update controller details and login as user "bob":
-    1. run 'juju unregister bob'
+    1. run 'juju unregister controller-name'
     2. request from your controller admin another registration string, i.e
        output from 'juju change-user-password bob --reset'
-    3. re-run 'juju register' with the registration from (2) above.
+    3. re-run 'juju register' with the registration string from (2) above.
 `)
 	prompter.CheckDone()
 }
@@ -530,10 +530,10 @@ func (s *RegisterSuite) TestRegisterAlreadyKnownControllerEndpointAndUser(c *gc.
 	c.Assert(err.Error(), gc.Equals, `This controller has already been registered on this client as "foo".
 To login user "bob" run 'juju login -u bob -c foo'.
 To update controller details and login as user "bob":
-    1. run 'juju unregister bob'
+    1. run 'juju unregister foo'
     2. request from your controller admin another registration string, i.e
        output from 'juju change-user-password bob --reset'
-    3. re-run 'juju register' with the registration from (2) above.
+    3. re-run 'juju register' with the registration string from (2) above.
 `)
 }
 
