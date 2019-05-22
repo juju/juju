@@ -80,6 +80,7 @@ func (s *ShowOutputSuite) TestRun(c *gc.C) {
 		withClientQueryID: validActionId,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse:   []params.ActionResult{{}},
+		expectedErr:       "timeout reached",
 		expectedOutput: `
 status: pending
 timing:
@@ -183,6 +184,7 @@ timing:
 			Enqueued: time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
 			Started:  time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
 		}},
+		expectedErr: "timeout reached",
 		expectedOutput: `
 results:
   foo:
@@ -207,6 +209,7 @@ timing:
 			Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
 			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
 		}},
+		expectedErr: "timeout reached",
 		expectedOutput: `
 results:
   foo:
@@ -231,6 +234,7 @@ timing:
 			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
 			Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
 		}},
+		expectedErr: "timeout reached",
 		expectedOutput: `
 results:
   foo:
