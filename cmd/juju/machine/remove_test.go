@@ -68,11 +68,22 @@ func (s *RemoveMachineSuite) TestInit(c *gc.C) {
 			machines: []string{"1", "2"},
 			keep:     true,
 		}, {
-			args:        []string{"lxd"},
-			errorString: `invalid machine id "lxd"`,
-		}, {
 			args:     []string{"1/lxd/2"},
 			machines: []string{"1/lxd/2"},
+		},
+
+		// placement directives
+		{
+			args:     []string{"lxd"},
+			machines: []string{"lxd"},
+		},
+		{
+			args:     []string{"ssh:user@10.10.0.3"},
+			machines: []string{"ssh:user@10.10.0.3"},
+		},
+		{
+			args:     []string{"winrm:user@10.10.0.3"},
+			machines: []string{"winrm:user@10.10.0.3"},
 		},
 	} {
 		c.Logf("test %d", i)
