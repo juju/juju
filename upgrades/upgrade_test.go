@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -132,7 +133,7 @@ type mockContext struct {
 	state           upgrades.StateBackend
 }
 
-func (c *mockContext) APIState() api.Connection {
+func (c *mockContext) APIState() base.APICaller {
 	return c.apiState
 }
 
@@ -658,7 +659,7 @@ func (s *upgradeSuite) TestStateUpgradeOperationsVersions(c *gc.C) {
 func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
 	versions := extractUpgradeVersions(c, (*upgrades.UpgradeOperations)())
 	c.Assert(versions, gc.DeepEquals, []string{
-		"2.0.0", "2.2.0", "2.4.0", "2.4.5",
+		"2.0.0", "2.2.0", "2.4.0", "2.4.5", "2.6.3",
 	})
 }
 

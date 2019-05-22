@@ -19,8 +19,6 @@ import (
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/charmrevisionupdater"
-	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
 	"github.com/juju/juju/api/reboot"
@@ -321,16 +319,6 @@ func (st *state) KeyUpdater() *keyupdater.State {
 // InstancePoller returns access to the InstancePoller API
 func (st *state) InstancePoller() *instancepoller.API {
 	return instancepoller.NewAPI(st)
-}
-
-// CharmRevisionUpdater returns access to the CharmRevisionUpdater API
-func (st *state) CharmRevisionUpdater() *charmrevisionupdater.State {
-	return charmrevisionupdater.NewState(st)
-}
-
-// Cleaner returns a version of the state that provides access to the cleaner API
-func (st *state) Cleaner() *cleaner.API {
-	return cleaner.NewAPI(st)
 }
 
 // ServerVersion holds the version of the API server that we are connected to.
