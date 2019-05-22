@@ -326,6 +326,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage machines
 	r.Register(machine.NewAddCommand())
 	r.Register(machine.NewRemoveCommand())
+	r.Register(machine.NewRemoveManualCommand())
 	r.Register(machine.NewListMachinesCommand())
 	r.Register(machine.NewShowMachineCommand())
 	r.Register(machine.NewUpgradeSeriesCommand())

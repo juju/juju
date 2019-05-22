@@ -60,6 +60,17 @@ func NewRemoveCommandForTest(apiRoot api.Connection, machineAPI RemoveMachineAPI
 	return modelcmd.Wrap(command), &RemoveCommand{command}
 }
 
+type RemoveManualCommand struct {
+	*removeManualCommand
+}
+
+// NewRemoveManualCommand returns an RemoveCommand with the api provided as specified.
+func NewRemoveManualCommandForTest() (cmd.Command, *RemoveManualCommand) {
+	command := &removeManualCommand{}
+	command.SetClientStore(jujuclienttesting.MinimalStore())
+	return modelcmd.Wrap(command), &RemoveManualCommand{command}
+}
+
 // NewUpgradeSeriesCommand returns an upgrade series command for test
 func NewUpgradeSeriesCommandForTest(upgradeAPI UpgradeMachineSeriesAPI) cmd.Command {
 	command := &upgradeSeriesCommand{

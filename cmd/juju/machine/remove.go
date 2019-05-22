@@ -18,8 +18,6 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/environs/manual/sshprovisioner"
 )
 
 // NewRemoveCommand returns a command used to remove a specified machine.
@@ -37,7 +35,6 @@ type removeCommand struct {
 	KeepInstance bool
 	NoWait       bool
 	fs           *gnuflag.FlagSet
-	Placement    *instance.Placement
 }
 
 const destroyMachineDoc = `
@@ -58,21 +55,16 @@ proceed to a next step until the current step has finished.
 However, when using --force, users can also specify --no-wait to progress through steps 
 without delay waiting for each step to complete.
 
-Removing manual provisioned machines can be cleaned up as long as they're still
-accessible via SSH. Clean up of the machine removes the Juju services along with
-cleaning up of lib and log directories.
-
 Examples:
 
     juju remove-machine 5
     juju remove-machine 6 --force
     juju remove-machine 6 --force --no-wait
     juju remove-machine 7 --keep-instance
-    juju remove-machine ssh:user@10.10.0.3
-    juju remove-machine winrm:user@10.10.0.3
 
 See also:
-    add-machine
+	add-machine
+	remove-manual-machine
 `
 
 // Info implements Command.Info.
@@ -98,23 +90,19 @@ func (c *removeCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.Errorf("no machines specified")
 	}
-	// attempt to first parse the placement, if that fails, fall back to the
-	// original validation against machine ids.
-	// we always set the machineIds if we've gone through parsing a placment,
-	// as we'll need it when running the command later on and we'll assume that
-	// the machine id is valid if it's been parsed.
-	if len(args) == 1 {
-		if placement, err := instance.ParsePlacement(args[0]); err == nil {
-			if placement.Scope == instance.MachineScope && !names.IsValidMachine(args[0]) {
-				return errors.Errorf("invalid machine id %q", args[0])
-			}
-			c.Placement = placement
-			c.MachineIds = args
-			return nil
-		}
-	}
 	// placement syntax failed, fall back to machine validation
 	for _, id := range args {
+		if placement, err := instance.ParsePlacement(id); err == nil {
+			machineScope := placement.Scope == instance.MachineScope
+			if placement.Directive == "" || machineScope && !names.IsValidMachine(id) {
+				return errors.Errorf("invalid machine id %q", id)
+			}
+			if !machineScope {
+				return errors.Errorf("remove-machine is not supported on manual machines. Instead please use remove-manual-machine %s", placement.String())
+			}
+		}
+		// if parsing placement fails, fall back to just checking if the machine
+		// id is valid.
 		if !names.IsValidMachine(id) {
 			return errors.Errorf("invalid machine id %q", id)
 		}
@@ -201,12 +189,6 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	if c.Placement != nil {
-		if err := c.tryManualRemoval(ctx); err != errNonManualScope {
-			return err
-		}
-	}
-
 	client, err := c.getRemoveMachineAPI()
 	if err != nil {
 		return err
@@ -266,39 +248,5 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	if anyFailed {
 		return cmd.ErrSilent
 	}
-	return nil
-}
-
-var (
-	sshRemover = sshprovisioner.RemoveMachine
-)
-
-func (c *removeCommand) tryManualRemoval(ctx *cmd.Context) error {
-	var removeMachine manual.RemoveMachineFunc
-	var removeMachineCommandExec manual.CommandExec
-	switch c.Placement.Scope {
-	case sshScope:
-		removeMachine = sshRemover
-		removeMachineCommandExec = sshprovisioner.DefaultCommandExec()
-	case winrmScope:
-		return errors.NotImplementedf("todo")
-	default:
-		return errNonManualScope
-	}
-
-	user, host := splitUserHost(c.Placement.Directive)
-	args := manual.RemoveMachineArgs{
-		Host:        host,
-		User:        user,
-		Stdin:       ctx.Stdin,
-		Stdout:      ctx.Stdout,
-		Stderr:      ctx.Stderr,
-		CommandExec: removeMachineCommandExec,
-	}
-
-	if err := removeMachine(args); err != nil {
-		return errors.Trace(err)
-	}
-	ctx.Infof("machine removed")
 	return nil
 }

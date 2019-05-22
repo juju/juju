@@ -529,6 +529,7 @@ var commandNames = []string{
 	"remove-credential",
 	"remove-k8s",
 	"remove-machine",
+	"remove-manual-machine",
 	"remove-offer",
 	"remove-relation",
 	"remove-saas",

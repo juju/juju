@@ -76,7 +76,8 @@ Examples:
    juju add-machine maas2.name           (acquire machine maas2.name on MAAS)
 
 See also:
-    remove-machine
+	remove-machine
+	remove-manual-machine
 `
 
 func init() {
