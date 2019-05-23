@@ -101,7 +101,7 @@ func updateK8sCloud(k8sCloud *cloud.Cloud, clusterMetadata *caas.ClusterMetadata
 		if storageMsg == "" {
 			storageMsg += "\nwith "
 		} else {
-			storageMsg += "\nand"
+			storageMsg += "\nand "
 		}
 		storageMsg += fmt.Sprintf("operator storage provisioned by the workload storage class.")
 	}
