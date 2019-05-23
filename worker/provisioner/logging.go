@@ -14,7 +14,7 @@ import (
 // stack of the error to be printed out at error severity if and only if the
 // "log-error-stack" feature flag has been specified.  The passed in error
 // is also the return value of this function.
-func loggedErrorStack(err error) error {
+func loggedErrorStack(logger Logger, err error) error {
 	if featureflag.Enabled(feature.LogErrorStack) {
 		logger.Errorf("error stack:\n%s", errors.ErrorStack(err))
 	}

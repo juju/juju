@@ -75,6 +75,7 @@ type ToolsFinder interface {
 func NewProvisionerTask(
 	controllerUUID string,
 	machineTag names.MachineTag,
+	logger Logger,
 	harvestMode config.HarvestMode,
 	machineGetter MachineGetter,
 	distributionGroupFinder DistributionGroupFinder,
@@ -97,6 +98,7 @@ func NewProvisionerTask(
 	task := &provisionerTask{
 		controllerUUID:             controllerUUID,
 		machineTag:                 machineTag,
+		logger:                     logger,
 		machineGetter:              machineGetter,
 		distributionGroupFinder:    distributionGroupFinder,
 		toolsFinder:                toolsFinder,
@@ -132,6 +134,7 @@ func NewProvisionerTask(
 type provisionerTask struct {
 	controllerUUID             string
 	machineTag                 names.MachineTag
+	logger                     Logger
 	machineGetter              MachineGetter
 	distributionGroupFinder    DistributionGroupFinder
 	toolsFinder                ToolsFinder
@@ -177,7 +180,7 @@ func (task *provisionerTask) loop() error {
 	for {
 		select {
 		case <-task.catacomb.Dying():
-			logger.Infof("Shutting down provisioner task %s", task.machineTag)
+			task.logger.Infof("Shutting down provisioner task %s", task.machineTag)
 			return task.catacomb.ErrDying()
 		case ids, ok := <-task.machineChanges:
 			if !ok {
@@ -193,10 +196,10 @@ func (task *provisionerTask) loop() error {
 			if harvestMode == task.harvestMode {
 				break
 			}
-			logger.Infof("harvesting mode changed to %s", harvestMode)
+			task.logger.Infof("harvesting mode changed to %s", harvestMode)
 			task.harvestMode = harvestMode
 			if harvestMode.HarvestUnknown() {
-				logger.Infof("harvesting unknown machines")
+				task.logger.Infof("harvesting unknown machines")
 				if err := task.processMachines(nil); err != nil {
 					return errors.Annotate(err, "failed to process machines after safe mode disabled")
 				}
@@ -222,24 +225,24 @@ func (task *provisionerTask) processMachinesWithTransientErrors() error {
 	if err != nil {
 		return nil
 	}
-	logger.Tracef("processMachinesWithTransientErrors(%v)", results)
+	task.logger.Tracef("processMachinesWithTransientErrors(%v)", results)
 	var pending []apiprovisioner.MachineProvisioner
 	for _, result := range results {
 		if result.Status.Error != nil {
-			logger.Errorf("cannot retry provisioning of machine %q: %v", result.Machine.Id(), result.Status.Error)
+			task.logger.Errorf("cannot retry provisioning of machine %q: %v", result.Machine.Id(), result.Status.Error)
 			continue
 		}
 		machine := result.Machine
 		if err := machine.SetStatus(status.Pending, "", nil); err != nil {
-			logger.Errorf("cannot reset status of machine %q: %v", machine.Id(), err)
+			task.logger.Errorf("cannot reset status of machine %q: %v", machine.Id(), err)
 			continue
 		}
 		if err := machine.SetInstanceStatus(status.Provisioning, "", nil); err != nil {
-			logger.Errorf("cannot reset instance status of machine %q: %v", machine.Id(), err)
+			task.logger.Errorf("cannot reset instance status of machine %q: %v", machine.Id(), err)
 			continue
 		}
 		if err := machine.SetModificationStatus(status.Idle, "", nil); err != nil {
-			logger.Errorf("cannot reset modification status of machine %q: %v", machine.Id(), err)
+			task.logger.Errorf("cannot reset modification status of machine %q: %v", machine.Id(), err)
 			continue
 		}
 		task.machinesMutex.Lock()
@@ -251,7 +254,7 @@ func (task *provisionerTask) processMachinesWithTransientErrors() error {
 }
 
 func (task *provisionerTask) processMachines(ids []string) error {
-	logger.Tracef("processMachines(%v)", ids)
+	task.logger.Tracef("processMachines(%v)", ids)
 
 	// Populate the tasks maps of current instances and machines.
 	if err := task.populateMachineMaps(ids); err != nil {
@@ -273,7 +276,7 @@ func (task *provisionerTask) processMachines(ids []string) error {
 		return err
 	}
 	if !task.harvestMode.HarvestUnknown() {
-		logger.Infof(
+		task.logger.Infof(
 			"%s is set to %s; unknown instances not stopped %v",
 			config.ProvisionerHarvestModeKey,
 			task.harvestMode.String(),
@@ -282,7 +285,7 @@ func (task *provisionerTask) processMachines(ids []string) error {
 		unknown = nil
 	}
 	if task.harvestMode.HarvestNone() || !task.harvestMode.HarvestDestroyed() {
-		logger.Infof(
+		task.logger.Infof(
 			`%s is set to "%s"; will not harvest %s`,
 			config.ProvisionerHarvestModeKey,
 			task.harvestMode.String(),
@@ -292,10 +295,10 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	}
 
 	if len(stopping) > 0 {
-		logger.Infof("stopping known instances %v", stopping)
+		task.logger.Infof("stopping known instances %v", stopping)
 	}
 	if len(unknown) > 0 {
-		logger.Infof("stopping unknown instances %v", instanceIds(unknown))
+		task.logger.Infof("stopping unknown instances %v", instanceIds(unknown))
 	}
 	// It's important that we stop unknown instances before starting
 	// pending ones, because if we start an instance and then fail to
@@ -307,9 +310,9 @@ func (task *provisionerTask) processMachines(ids []string) error {
 
 	// Remove any dead machines from state.
 	for _, machine := range dead {
-		logger.Infof("removing dead machine %q", machine.Id())
+		task.logger.Infof("removing dead machine %q", machine.Id())
 		if err := machine.MarkForRemoval(); err != nil {
-			logger.Errorf("failed to remove dead machine %q", machine.Id())
+			task.logger.Errorf("failed to remove dead machine %q", machine.Id())
 		}
 		task.removeMachineFromAZMap(machine)
 		task.machinesMutex.Lock()
@@ -362,7 +365,7 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 		case result.Err == nil:
 			task.machines[result.Machine.Id()] = result.Machine
 		case params.IsCodeNotFoundOrCodeUnauthorized(result.Err):
-			logger.Debugf("machine %q not found in state", ids[i])
+			task.logger.Debugf("machine %q not found in state", ids[i])
 			delete(task.machines, ids[i])
 		default:
 			return errors.Annotatef(result.Err, "failed to get machine %v", ids[i])
@@ -379,11 +382,11 @@ func (task *provisionerTask) pendingOrDeadOrMaintain(ids []string) (pending, dea
 	for _, id := range ids {
 		machine, found := task.machines[id]
 		if !found {
-			logger.Infof("machine %q not found", id)
+			task.logger.Infof("machine %q not found", id)
 			continue
 		}
 		var classification MachineClassification
-		classification, err = classifyMachine(machine)
+		classification, err = classifyMachine(task.logger, machine)
 		if err != nil {
 			return // return the error
 		}
@@ -396,8 +399,8 @@ func (task *provisionerTask) pendingOrDeadOrMaintain(ids []string) (pending, dea
 			maintain = append(maintain, machine)
 		}
 	}
-	logger.Tracef("pending machines: %v", pending)
-	logger.Tracef("dead machines: %v", dead)
+	task.logger.Tracef("pending machines: %v", pending)
+	task.logger.Tracef("dead machines: %v", dead)
 	return
 }
 
@@ -419,7 +422,7 @@ const (
 	Maintain MachineClassification = "Maintain"
 )
 
-func classifyMachine(machine ClassifiableMachine) (
+func classifyMachine(logger Logger, machine ClassifiableMachine) (
 	MachineClassification, error) {
 	switch machine.Life() {
 	case params.Dying:
@@ -512,7 +515,7 @@ func (task *provisionerTask) instancesForDeadMachines(deadMachines []apiprovisio
 		if err == nil {
 			keep, _ := machine.KeepInstance()
 			if keep {
-				logger.Debugf("machine %v is dead but keep-instance is true", instId)
+				task.logger.Debugf("machine %v is dead but keep-instance is true", instId)
 				continue
 			}
 			inst, found := task.instances[instId]
@@ -725,7 +728,7 @@ func (task *provisionerTask) constructStartInstanceParams(
 
 func (task *provisionerTask) maintainMachines(machines []apiprovisioner.MachineProvisioner) error {
 	for _, m := range machines {
-		logger.Infof("maintainMachines: %v", m)
+		task.logger.Infof("maintainMachines: %v", m)
 		startInstanceParams := environs.StartInstanceParams{}
 		startInstanceParams.InstanceConfig = &instancecfg.InstanceConfig{}
 		startInstanceParams.InstanceConfig.MachineId = m.Id()
@@ -891,7 +894,6 @@ func (a azMachineFilterSort) FilterZones(cons constraints.Value) azMachineFilter
 		return a
 	}
 
-	logger.Debugf("applying availability zone constraints: %s", strings.Join(*cons.Zones, ", "))
 	filtered := a[:0]
 	for _, azm := range a {
 		for _, zone := range *cons.Zones {
@@ -980,7 +982,7 @@ func (task *provisionerTask) startMachines(machines []apiprovisioner.MachineProv
 }
 
 func (task *provisionerTask) setErrorStatus(message string, machine apiprovisioner.MachineProvisioner, err error) error {
-	logger.Errorf(message, machine, err)
+	task.logger.Errorf(message, machine, err)
 	errForStatus := errors.Cause(err)
 	if err2 := machine.SetInstanceStatus(status.ProvisioningError, errForStatus.Error(), nil); err2 != nil {
 		// Something is wrong with this machine, better report it back.
@@ -1084,7 +1086,7 @@ func (task *provisionerTask) startMachine(
 
 	// TODO (jam): 2017-01-19 Should we be setting this earlier in the cycle?
 	if err := machine.SetInstanceStatus(status.Provisioning, "starting", nil); err != nil {
-		logger.Errorf("%v", err)
+		task.logger.Errorf("%v", err)
 	}
 
 	// TODO ProvisionerParallelization 2017-10-03
@@ -1104,7 +1106,7 @@ func (task *provisionerTask) startMachine(
 			return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
 		}
 		if startInstanceParams.AvailabilityZone != "" {
-			logger.Infof("trying machine %s StartInstance in availability zone %s",
+			task.logger.Infof("trying machine %s StartInstance in availability zone %s",
 				machine, startInstanceParams.AvailabilityZone)
 		}
 
@@ -1127,7 +1129,7 @@ func (task *provisionerTask) startMachine(
 			azRemaining, err2 := task.markMachineFailedInAZ(machine, startInstanceParams.AvailabilityZone)
 			if err2 != nil {
 				if err = task.setErrorStatus("cannot start instance: %v", machine, err2); err != nil {
-					logger.Errorf("setting error status: %s", err)
+					task.logger.Errorf("setting error status: %s", err)
 				}
 				return err2
 			}
@@ -1137,7 +1139,7 @@ func (task *provisionerTask) startMachine(
 					machine, startInstanceParams.AvailabilityZone,
 					task.retryStartInstanceStrategy.retryDelay, err,
 				)
-				logger.Debugf("%s", retryMsg)
+				task.logger.Debugf("%s", retryMsg)
 				// There's still more zones to try, so don't decrement "attemptsLeft" yet.
 				retrying = false
 			} else {
@@ -1152,12 +1154,12 @@ func (task *provisionerTask) startMachine(
 				"failed to start machine %s (%s), retrying in %v (%d more attempts)",
 				machine, err.Error(), task.retryStartInstanceStrategy.retryDelay, attemptsLeft,
 			)
-			logger.Warningf("%s", retryMsg)
+			task.logger.Warningf("%s", retryMsg)
 			attemptsLeft--
 		}
 
 		if err3 := machine.SetInstanceStatus(status.Provisioning, retryMsg, nil); err3 != nil {
-			logger.Warningf("failed to set instance status: %v", err3)
+			task.logger.Warningf("failed to set instance status: %v", err3)
 		}
 
 		select {
@@ -1191,15 +1193,15 @@ func (task *provisionerTask) startMachine(
 	); err != nil {
 		// We need to stop the instance right away here, set error status and go on.
 		if err2 := task.setErrorStatus("cannot register instance for machine %v: %v", machine, err); err2 != nil {
-			logger.Errorf("%v", errors.Annotate(err2, "cannot set machine's status"))
+			task.logger.Errorf("%v", errors.Annotate(err2, "cannot set machine's status"))
 		}
 		if err2 := task.broker.StopInstances(task.cloudCallCtx, result.Instance.Id()); err2 != nil {
-			logger.Errorf("%v", errors.Annotate(err2, "after failing to set instance info"))
+			task.logger.Errorf("%v", errors.Annotate(err2, "after failing to set instance info"))
 		}
 		return errors.Annotate(err, "cannot set instance info")
 	}
 
-	logger.Infof(
+	task.logger.Infof(
 		"started machine %s as instance %s with hardware %q, network config %+v, "+
 			"volumes %v, volume attachments %v, subnets to zones %v, lxd profiles %v",
 		machine,
@@ -1223,7 +1225,7 @@ func (task *provisionerTask) gatherCharmLXDProfiles(instanceId, machineTag strin
 				return lxdprofile.LXDProfileNames(profileNames)
 			}
 		} else {
-			logger.Tracef("failed to gather profile names, broker didn't conform to LXDProfileNameRetriever")
+			task.logger.Tracef("failed to gather profile names, broker didn't conform to LXDProfileNameRetriever")
 		}
 	}
 	return machineProfiles

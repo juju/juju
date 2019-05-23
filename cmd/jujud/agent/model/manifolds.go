@@ -336,9 +336,11 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// All the rest depend on ifNotMigrating.
 		computeProvisionerName: ifNotMigrating(ifCredentialValid(provisioner.Manifold(provisioner.ManifoldConfig{
-			AgentName:                    agentName,
-			APICallerName:                apiCallerName,
-			EnvironName:                  environTrackerName,
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			EnvironName:   environTrackerName,
+			Logger:        loggo.GetLogger("juju.worker.provisioner"),
+
 			NewProvisionerFunc:           provisioner.NewEnvironProvisioner,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),

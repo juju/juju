@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/pkg/errors"
@@ -153,6 +154,7 @@ func (s *containerSetupSuite) setUpContainerWorker(c *gc.C) (watcher.StringsHand
 
 	args := provisioner.ContainerSetupParams{
 		Runner:              runner,
+		Logger:              loggo.GetLogger("test"),
 		WorkerName:          watcherName,
 		SupportedContainers: instance.ContainerTypes,
 		Machine:             s.machine,
