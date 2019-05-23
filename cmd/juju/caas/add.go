@@ -84,6 +84,8 @@ Examples:
     juju add-k8s myk8scloud --controller mycontroller
     juju add-k8s --context-name mycontext myk8scloud
     juju add-k8s myk8scloud --region <cloudType/region>
+    juju add-k8s myk8scloud --cloud <cloudType>
+    juju add-k8s myk8scloud --cloud <cloudType/region>
 
     KUBECONFIG=path-to-kubuconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name
     kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name
@@ -92,6 +94,7 @@ Examples:
     juju add-k8s --gke --project=myproject myk8scloud
     juju add-k8s --gke --credential=myaccount --project=myproject myk8scloud
     juju add-k8s --gke --credential=myaccount --project=myproject --region=someregion myk8scloud
+    juju add-k8s --gke --credential=myaccount --project=myproject --cloud=someregion myk8scloud
 
     juju add-k8s --aks myk8scloud
     juju add-k8s --aks --cluster-name mycluster myk8scloud
@@ -135,6 +138,8 @@ type AddCAASCommand struct {
 	// hostCloudRegion is the cloud region that the nodes of cluster (k8s) are running in.
 	// The format is <cloudType/region>.
 	hostCloudRegion string
+	// cloud is an alias of the hostCloudRegion.
+	cloud string
 
 	// workloadStorage is a storage class specified by the user.
 	workloadStorage string
@@ -192,6 +197,7 @@ func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.clusterName, "cluster-name", "", "Specify the k8s cluster to import")
 	f.StringVar(&c.contextName, "context-name", "", "Specify the k8s context to import")
 	f.StringVar(&c.hostCloudRegion, "region", "", "kubernetes cluster cloud and/or region")
+	f.StringVar(&c.cloud, "cloud", "", "kubernetes cluster cloud and/or region")
 	f.StringVar(&c.workloadStorage, "storage", "", "kubernetes storage class for workload storage")
 	f.StringVar(&c.project, "project", "", "project to which the cluster belongs")
 	f.StringVar(&c.credential, "credential", "", "the credential to use when accessing the cluster")
@@ -214,6 +220,19 @@ func (c *AddCAASCommand) Init(args []string) (err error) {
 	if c.contextName != "" && c.clusterName != "" {
 		return errors.New("only specify one of cluster-name or context-name, not both")
 	}
+	
+	if c.hostCloudRegion == "" {
+		c.hostCloudRegion = c.cloud
+	} else if c.cloud != ""  {
+		return errors.BadRequestf("only one of '--region' or '--cloud' can be supplied")
+	}
+	if c.hostCloudRegion != "" {
+		c.hostCloudRegion, err = c.validateCloudRegion(c.hostCloudRegion)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	
 	if c.gke {
 		if c.contextName != "" {
 			return errors.New("do not specify context name when adding a GKE cluster")

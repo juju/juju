@@ -127,12 +127,6 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 	// Get the cluster metadata so we can see if there's suitable storage available.
 	clusterMetadata, err := storageParams.GetClusterMetadataFunc(storageParams)
 
-	defer func() {
-		if err == nil {
-			storageMsg = updateK8sCloud(k8sCloud, clusterMetadata, storageMsg)
-		}
-	}()
-
 	if err != nil || clusterMetadata == nil {
 		// err will be nil if user hit Ctrl+C.
 		msg := "cannot get cluster metadata"
@@ -156,10 +150,6 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 		k8sCloud.Regions = []cloud.Region{{
 			Name: region,
 		}}
-	}
-	if clusterMetadata.NominatedStorageClass != nil && clusterMetadata.OperatorStorageClass != nil {
-		// all good.
-		return "", nil
 	}
 	if err != nil {
 		// Region is optional, but cloudType is required for next step.
@@ -206,16 +196,14 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 		}
 		if nonPreferredStorageErr != nil && sp.Provisioner == provisioner {
 			storageMsg = fmt.Sprintf(" with %s default storage", nonPreferredStorageErr.Name)
-			if storageParams.WorkloadStorage != "" {
-				storageMsg = fmt.Sprintf("%s provisioned\nby the existing %q storage class", storageMsg, storageParams.WorkloadStorage)
-			}
+			storageMsg = fmt.Sprintf("%s provisioned\nby the existing %q storage class", storageMsg, storageParams.WorkloadStorage)
 		} else {
 			storageMsg = fmt.Sprintf(" with storage provisioned\nby the existing %q storage class", storageParams.WorkloadStorage)
 		}
 		clusterMetadata.NominatedStorageClass = sp
 		clusterMetadata.OperatorStorageClass = sp
 	}
-	return storageMsg, nil
+	return updateK8sCloud(k8sCloud, clusterMetadata, storageMsg), nil
 }
 
 // BaseKubeCloudOpenParams provides a basic OpenParams for a cluster
