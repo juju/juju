@@ -177,7 +177,12 @@ func allCollections() CollectionSchema {
 
 		// This collection holds workload metrics reported by certain charms
 		// for passing onward to other tools.
-		metricsC: {global: true},
+		metricsC: {
+			global: true,
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "sent"},
+			}},
+		},
 
 		// This collection holds persistent state for the metrics manager.
 		metricsManagerC: {global: true},
