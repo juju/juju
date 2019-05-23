@@ -385,23 +385,16 @@ type regionTestCase struct {
 }
 
 func (s *addCAASSuite) TestRegionFlag(c *gc.C) {
-	errMsg := `
-	Juju needs to query the k8s cluster to ensure that the recommended
-	storage defaults are available and to detect the cluster's cloud/region.
-	This was not possible in this case so run add-k8s again, using
-	--storage=<name> to specify the storage class to use and
-	--region=<cloudType>/<region> to specify the cloud/region.
-`[1:]
 	for _, ts := range []regionTestCase{
 		{
 			title:          "missing cloud",
 			regionStr:      "/region",
-			expectedErrStr: errMsg,
+			expectedErrStr: `parsing region option: host cloud region "/region" not valid`,
 		},
 		{
 			title:          "missing region",
 			regionStr:      "cloud/",
-			expectedErrStr: `validating cloud region "cloud/": cloud region "cloud/" not valid`,
+			expectedErrStr: `validating cloud region "cloud": cloud region "cloud" not valid`,
 		},
 		{
 			title:          "not a known juju cloud",
@@ -691,7 +684,7 @@ func (s *addCAASSuite) TestCreateCustomStorageProvisioner(c *gc.C) {
 	result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
 	result = strings.Replace(result, "\n", " ", -1)
 	c.Assert(result, gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s" with storage provisioned by the existing "mystorage" storage class.`)
-	s.assertAddCloudResult(c, cloudRegion,"mystorage" ,"mystorage", false)
+	s.assertAddCloudResult(c, cloudRegion, "mystorage", "mystorage", false)
 }
 
 func (s *addCAASSuite) TestLocalOnly(c *gc.C) {

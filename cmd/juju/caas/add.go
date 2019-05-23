@@ -472,7 +472,10 @@ func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential j
 }
 
 func buildCloudAndRegionOption(cloudOption, regionOption string) (string, error) {
-	cloudNameOrType, region, _ := jujucloud.SplitHostCloudRegion(regionOption)
+	cloudNameOrType, region, err := jujucloud.SplitHostCloudRegion(regionOption)
+	if err != nil {
+		return "", errors.Annotate(err, "parsing region option")
+	}
 	c, r, _ := jujucloud.SplitHostCloudRegion(cloudOption)
 	if region == "" && c != "" {
 		// --cloud ec2 --region us-east-1
