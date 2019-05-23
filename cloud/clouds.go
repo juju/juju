@@ -182,6 +182,9 @@ func SplitHostCloudRegion(hostCloudRegion string) (string, string, error) {
 
 // BuildHostCloudRegion combines cloudType with region to host cloud region.
 func BuildHostCloudRegion(cloudType, region string) string {
+	if region == "" {
+		return cloudType
+	}
 	return cloudType + "/" + region
 }
 

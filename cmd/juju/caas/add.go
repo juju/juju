@@ -71,7 +71,7 @@ It's also possible to select a context by name using --context-name.
 
 When running add-k8s the underlying cloud/region hosting the cluster needs to be
 detected to enable storage to be correctly configured. If the cloud/region cannot
-be detected automatically, use --region <cloudType/region> to specify the host
+be detected automatically, use --region <cloudType|cloudName/region> to specify the host
 cloud type and region.
 
 When adding a GKE or AKS cluster, you can use the --gke or --aks option to
@@ -83,9 +83,9 @@ Examples:
     juju add-k8s myk8scloud --local
     juju add-k8s myk8scloud --controller mycontroller
     juju add-k8s --context-name mycontext myk8scloud
-    juju add-k8s myk8scloud --region <cloudType/region>
-    juju add-k8s myk8scloud --cloud <cloudType>
-    juju add-k8s myk8scloud --cloud <cloudType/region>
+    juju add-k8s myk8scloud --region <cloudType|cloudName>/<someregion>
+    juju add-k8s myk8scloud --cloud cloudType
+    juju add-k8s myk8scloud --cloud cloudName --region=someregion
 
     KUBECONFIG=path-to-kubuconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name
     kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name
@@ -219,13 +219,13 @@ func (c *AddCAASCommand) Init(args []string) (err error) {
 	if c.contextName != "" && c.clusterName != "" {
 		return errors.New("only specify one of cluster-name or context-name, not both")
 	}
-	
-	if c.hostCloudRegion == "" {
-		c.hostCloudRegion = c.cloud
-	} else if c.cloud != ""  {
-		return errors.BadRequestf("only one of '--region' or '--cloud' can be supplied")
+	if c.hostCloudRegion != "" {
+		c.hostCloudRegion, err = c.tryEnsureCloudTypeForHostRegion(c.cloud, c.hostCloudRegion)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
-	
+
 	if c.gke {
 		if c.contextName != "" {
 			return errors.New("do not specify context name when adding a GKE cluster")
@@ -362,12 +362,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	if err := c.verifyName(c.caasName); err != nil {
 		return errors.Trace(err)
 	}
-	if c.hostCloudRegion != "" {
-		c.hostCloudRegion, err = c.validateCloudRegion(ctx, c.hostCloudRegion)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
+
 	rdr, clusterName, err := c.getConfigReader(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -418,6 +413,13 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 
+	if newCloud.HostCloudRegion != "" {
+		newCloud.HostCloudRegion, err = c.validateCloudRegion(ctx, newCloud.HostCloudRegion)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
 		return errors.Trace(err)
 	}
@@ -427,10 +429,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	}
 
 	if clusterName == "" {
-		clusterName = c.hostCloudRegion
-		if clusterName == "" {
-			clusterName = newCloud.HostCloudRegion
-		}
+		clusterName = newCloud.HostCloudRegion
 	}
 	if c.controllerName == "" {
 		successMsg := fmt.Sprintf("k8s substrate %q added as cloud %q%s", clusterName, c.caasName, storageMsg)
@@ -445,7 +444,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer cloudClient.Close()
 
-	if err := c.addCloudToControllerWithRegion(ctx, cloudClient, newCloud); err != nil {
+	if err := addCloudToController(cloudClient, newCloud); err != nil {
 		return errors.Trace(err)
 	}
 	if err := c.addCredentialToController(cloudClient, credential, credentialName); err != nil {
@@ -454,20 +453,6 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	successMsg := fmt.Sprintf("k8s substrate %q added as cloud %q%s", clusterName, c.caasName, storageMsg)
 	fmt.Fprintln(ctx.Stdout, successMsg)
 
-	return nil
-}
-
-func (c *AddCAASCommand) addCloudToControllerWithRegion(ctx *cmd.Context, apiClient AddCloudAPI, newCloud jujucloud.Cloud) (err error) {
-	if newCloud.HostCloudRegion != "" {
-		hostCloudRegion, err := c.validateCloudRegion(ctx, newCloud.HostCloudRegion)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		newCloud.HostCloudRegion = hostCloudRegion
-	}
-	if err := addCloudToController(apiClient, newCloud); err != nil {
-		return errors.Trace(err)
-	}
 	return nil
 }
 
@@ -486,15 +471,70 @@ func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential j
 	return caas.New(openParams)
 }
 
-func (c *AddCAASCommand) validateCloudRegion(ctx *cmd.Context, cloudRegion string) (_ string, err error) {
-	defer errors.DeferredAnnotatef(&err, "validating cloud region %q", cloudRegion)
+func buildCloudAndRegionOption(cloudOption, regionOption string) (string, error) {
+	cloudNameOrType, region, _ := jujucloud.SplitHostCloudRegion(regionOption)
+	c, r, _ := jujucloud.SplitHostCloudRegion(cloudOption)
+	if region == "" && c != "" {
+		// --cloud ec2 --region us-east-1
+		region = cloudNameOrType
+		cloudNameOrType = c
+	}
+	if r != "" {
+		return "", errors.NotValidf("--cloud is neither cloud name or cloud type")
+	}
+	if cloudNameOrType != "" && region != "" && c != "" && cloudNameOrType != c {
+		return "", errors.NotValidf("two different clouds specified: %q, %q", cloudNameOrType, c)
+	}
+	if cloudNameOrType == "" {
+		cloudNameOrType = c
+	}
+	return jujucloud.BuildHostCloudRegion(cloudNameOrType, region), nil
+}
 
+// tryEnsureCloudType try to find cloud type if the cloudNameOrType is cloud name.
+func (c *AddCAASCommand) tryEnsureCloudTypeForHostRegion(cloudOption, regionOption string) (string, error) {
+	cloudRegion, err := buildCloudAndRegionOption(cloudOption, regionOption)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	cloudNameOrType, region, err := jujucloud.SplitHostCloudRegion(cloudRegion)
 	if err != nil {
 		return "", errors.Annotate(err, "parsing cloud region")
 	}
+
+	clouds, err := c.getAllCloudDetails()
+	if err != nil {
+		return "", errors.Annotate(err, "listing cloud regions")
+	}
+	for name, details := range clouds {
+		// User may have specified cloud name or type so match on both.
+		if name == cloudNameOrType || details.CloudType == cloudNameOrType {
+			cloudNameOrType = details.CloudType
+		}
+	}
+	return jujucloud.BuildHostCloudRegion(cloudNameOrType, region), nil
+}
+
+func shouldCheckRegion(cloudType string) bool {
+	for _, v := range []string{
+		"ec2", "azure", "gce",
+	} {
+		if cloudType == v {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *AddCAASCommand) validateCloudRegion(ctx *cmd.Context, cloudRegion string) (_ string, err error) {
+	defer errors.DeferredAnnotatef(&err, "validating cloud region %q", cloudRegion)
+
+	cloudType, region, err := jujucloud.SplitHostCloudRegion(cloudRegion)
+	if err != nil {
+		return "", errors.Annotate(err, "parsing cloud region")
+	}
 	// microk8s is special.
-	if cloudNameOrType == caas.K8sCloudMicrok8s && region == caas.Microk8sRegion {
+	if cloudType == caas.K8sCloudMicrok8s && region == caas.Microk8sRegion {
 		return cloudRegion, nil
 	}
 
@@ -503,25 +543,28 @@ func (c *AddCAASCommand) validateCloudRegion(ctx *cmd.Context, cloudRegion strin
 		return "", errors.Annotate(err, "listing cloud regions")
 	}
 	regionListMsg := ""
-	for name, details := range clouds {
+	for _, details := range clouds {
 		// User may have specified cloud name or type so match on both.
-		if name == cloudNameOrType || details.CloudType == cloudNameOrType {
+		if details.CloudType == cloudType {
 			if len(details.RegionsMap) == 0 {
 				if region != "" {
 					logger.Warningf("Unknown region %q is ignored", region)
 				}
 				return details.CloudType, nil
-			} 
+			}
+			if !shouldCheckRegion(details.CloudType) {
+				return jujucloud.BuildHostCloudRegion(details.CloudType, region), nil
+			}
 			for k := range details.RegionsMap {
 				if k == region {
 					logger.Debugf("cloud region %q is valid", cloudRegion)
-					return details.CloudType + "/" + region, nil
+					return jujucloud.BuildHostCloudRegion(details.CloudType, region), nil
 				}
 				regionListMsg += fmt.Sprintf("\t%q\n", k)
 			}
 		}
 	}
-	ctx.Infof("Supported regions for cloud %q: \n%s", cloudNameOrType, regionListMsg)
+	ctx.Infof("Supported regions for cloud %q: \n%s", cloudType, regionListMsg)
 	return "", errors.NotValidf("cloud region %q", cloudRegion)
 }
 
