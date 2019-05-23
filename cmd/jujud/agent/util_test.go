@@ -251,6 +251,44 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 	dummy.SetInstanceAddresses(insts[0], addrs)
 }
 
+// WithAliveAgent starts the agent, wait till it becomes alive and then invokes
+// the provided cb. Once the callback returns, WithAliveAgent will block until
+// the agent either exits or exceeds its run timeout. In both cases, any error
+// returned by the agent's Run method will be captured and returned to the
+// caller.
+func (s *commonMachineSuite) WithAliveAgent(m *state.Machine, a *MachineAgent, cb func() error) error {
+	// achilleasa: the agent usually takes a around 30 seconds
+	waitTime := coretesting.LongWait * 3
+
+	errCh := make(chan error, 1)
+	go func() {
+		select {
+		case errCh <- a.Run(nil):
+		case <-time.After(waitTime):
+			errCh <- fmt.Errorf("time out waiting for agent to complete its run")
+		}
+		a.Stop()
+		close(errCh)
+	}()
+
+	if err := m.WaitAgentPresence(waitTime); err != nil {
+		return err
+	}
+
+	if cb != nil {
+		if err := cb(); err != nil {
+			return err
+		}
+	}
+
+	// Wait for agent to exit or timeout
+	for err := range errCh {
+		return err
+	}
+
+	return nil
+}
+
 // opRecvTimeout waits for any of the given kinds of operation to
 // be received from ops, and times out if not.
 func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds ...dummy.Operation) dummy.Operation {

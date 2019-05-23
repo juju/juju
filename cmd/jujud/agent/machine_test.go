@@ -213,32 +213,6 @@ func (s *MachineLegacyLeasesSuite) TestRunStop(c *gc.C) {
 	c.Assert(charmrepo.CacheDir, gc.Equals, filepath.Join(ac.DataDir(), "charmcache"))
 }
 
-func (s *MachineLegacyLeasesSuite) TestWithDeadMachine(c *gc.C) {
-	m, ac, _ := s.primeAgent(c, state.JobHostUnits)
-	err := m.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	a := s.newAgent(c, m)
-	err = runWithTimeout(a)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = os.Stat(ac.DataDir())
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
-}
-
-func (s *MachineLegacyLeasesSuite) TestWithRemovedMachine(c *gc.C) {
-	m, ac, _ := s.primeAgent(c, state.JobHostUnits)
-	err := m.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = m.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	a := s.newAgent(c, m)
-	err = runWithTimeout(a)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = os.Stat(ac.DataDir())
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
-}
-
 func (s *MachineLegacyLeasesSuite) TestDyingMachine(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
@@ -788,10 +762,11 @@ func (s *MachineLegacyLeasesSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C)
 
 func (s *MachineLegacyLeasesSuite) TestMachineAgentUninstall(c *gc.C) {
 	m, ac, _ := s.primeAgent(c, state.JobHostUnits)
-	err := m.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
 	a := s.newAgent(c, m)
-	err = runWithTimeout(a)
+
+	// Wait for the agent to become alive, then run EnsureDead and wait
+	// for the agent to exit
+	err := s.WithAliveAgent(m, a, m.EnsureDead)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// juju-* symlinks should have been removed on termination.
