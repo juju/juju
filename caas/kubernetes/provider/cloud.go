@@ -90,42 +90,46 @@ func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudPar
 	return newCloud, credential, context.CredentialName, nil
 }
 
+func updateK8sCloud(k8sCloud *cloud.Cloud, clusterMetadata *caas.ClusterMetadata, storageMsg string) string {
+	var workloadSC, operatorSC string
+
+	// Record the operator storage to use.
+	if clusterMetadata.OperatorStorageClass != nil {
+		operatorSC = clusterMetadata.OperatorStorageClass.Name
+		storageMsg += "."
+	} else {
+		if storageMsg == "" {
+			storageMsg += "\nwith "
+		} else {
+			storageMsg += "\nand"
+		}
+		storageMsg += fmt.Sprintf("operator storage provisioned by the workload storage class.")
+	}
+
+	if clusterMetadata.NominatedStorageClass != nil {
+		workloadSC = clusterMetadata.NominatedStorageClass.Name
+	}
+
+	if k8sCloud.Config == nil {
+		k8sCloud.Config = make(map[string]interface{})
+	}
+	if _, ok := k8sCloud.Config[WorkloadStorageKey]; !ok {
+		k8sCloud.Config[WorkloadStorageKey] = workloadSC
+	}
+	if _, ok := k8sCloud.Config[OperatorStorageKey]; !ok {
+		k8sCloud.Config[OperatorStorageKey] = operatorSC
+	}
+	return storageMsg
+}
+
 // UpdateKubeCloudWithStorage updates the passed Cloud with storage details retrieved from the clouds' cluster.
 func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudStorageParams) (storageMsg string, err error) {
-
 	// Get the cluster metadata so we can see if there's suitable storage available.
 	clusterMetadata, err := storageParams.GetClusterMetadataFunc(storageParams)
 
 	defer func() {
 		if err == nil {
-			var workloadSC, operatorSC string
-
-			// Record the operator storage to use.
-			if clusterMetadata.OperatorStorageClass != nil {
-				operatorSC = clusterMetadata.OperatorStorageClass.Name
-				storageMsg += "."
-			} else {
-				if storageMsg == "" {
-					storageMsg += "\nwith "
-				} else {
-					storageMsg += "\n"
-				}
-				storageMsg += fmt.Sprintf("operator storage provisioned by the workload storage class.")
-			}
-
-			if clusterMetadata.NominatedStorageClass != nil {
-				workloadSC = clusterMetadata.NominatedStorageClass.Name
-			}
-
-			if k8sCloud.Config == nil {
-				k8sCloud.Config = make(map[string]interface{})
-			}
-			if _, ok := k8sCloud.Config[WorkloadStorageKey]; !ok {
-				k8sCloud.Config[WorkloadStorageKey] = workloadSC
-			}
-			if _, ok := k8sCloud.Config[OperatorStorageKey]; !ok {
-				k8sCloud.Config[OperatorStorageKey] = operatorSC
-			}
+			storageMsg = updateK8sCloud(k8sCloud, clusterMetadata, storageMsg)
 		}
 	}()
 
@@ -149,7 +153,6 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 
 	cloudType, region, err := cloud.SplitHostCloudRegion(k8sCloud.HostCloudRegion)
 	if err == nil {
-		// try to get region if possible.
 		k8sCloud.Regions = []cloud.Region{{
 			Name: region,
 		}}
@@ -158,13 +161,12 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 		// all good.
 		return "", nil
 	}
-
 	if err != nil {
 		// Region is optional, but cloudType is required for next step.
 		return "", ClusterQueryError{}
 	}
 
-	// check Juju's opinionated defaults if cloudType is usable.
+	// If the user has not specified storage and cloudType is usable, check Juju's opinionated defaults.
 	err = storageParams.MetadataChecker.CheckDefaultWorkloadStorage(
 		cloudType, clusterMetadata.NominatedStorageClass,
 	)
