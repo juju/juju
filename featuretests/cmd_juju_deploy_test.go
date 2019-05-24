@@ -20,22 +20,22 @@ type cmdDeploySuite struct {
 
 func (s *cmdDeploySuite) TestLocalDeploySuccess(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("storage-filesystem-subordinate") // has hooks
-	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "quantal")
+	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `Deploying charm "local:quantal/storage-filesystem-subordinate-1"`)
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `Deploying charm "local:bionic/storage-filesystem-subordinate-1"`)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-	savedCh, err := s.State.Charm(charm.MustParseURL("local:quantal/storage-filesystem-subordinate-1"))
+	savedCh, err := s.State.Charm(charm.MustParseURL("local:bionic/storage-filesystem-subordinate-1"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedCh, gc.NotNil)
 }
 
 func (s *cmdDeploySuite) TestLocalDeployFailNoHook(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("category") // has no hooks
-	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "quantal")
+	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "bionic")
 	c.Assert(err, gc.NotNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `invalid charm "category": has no hooks`)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-	_, err = s.State.Charm(charm.MustParseURL("local:quantal/category"))
+	_, err = s.State.Charm(charm.MustParseURL("local:bionic/category"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -46,18 +46,18 @@ func (s *cmdDeploySuite) TestLocalDeployFailNoHook(c *gc.C) {
 
 func (s *cmdDeploySuite) TestLocalDeployLXDProfileSuccess(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("lxd-profile-subordinate") // has hooks
-	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "quantal")
+	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `Deploying charm "local:quantal/lxd-profile-subordinate-0"`)
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `Deploying charm "local:bionic/lxd-profile-subordinate-0"`)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-	savedCh, err := s.State.Charm(charm.MustParseURL("local:quantal/lxd-profile-subordinate-0"))
+	savedCh, err := s.State.Charm(charm.MustParseURL("local:bionic/lxd-profile-subordinate-0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedCh, gc.NotNil)
 }
 
 func (s *cmdDeploySuite) TestLocalDeployLXDProfileWithBadConfigSuccess(c *gc.C) {
 	ch := testcharms.Repo.CharmDir("lxd-profile-subordinate-fail") // has hooks
-	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "quantal")
+	ctx, err := runCommand(c, "deploy", ch.Path, "--series", "bionic")
 	c.Assert(err, gc.ErrorMatches, "cmd: error out silently")
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `ERROR invalid lxd-profile.yaml: contains device type "unix-disk"`)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
