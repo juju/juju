@@ -292,6 +292,7 @@ func (s *CloudSuite) TestRemoveInUseCloudNotAllowed(c *gc.C) {
 
 	otherSt := s.Factory.MakeCAASModel(c, &factory.ModelParams{
 		CloudName:       lowCloud.Name,
+		CloudRegion:     "region1",
 		CloudCredential: credTag,
 		Owner:           otherModelOwner.UserTag,
 		ConfigAttrs: testing.Attrs{
@@ -318,6 +319,7 @@ func (s *CloudSuite) TestRemoveCloudNewModelRace(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		otherSt := s.Factory.MakeCAASModel(c, &factory.ModelParams{
 			CloudName:       lowCloud.Name,
+			CloudRegion:     "region1",
 			CloudCredential: credTag,
 			Owner:           otherModelOwner.UserTag,
 			ConfigAttrs: testing.Attrs{
