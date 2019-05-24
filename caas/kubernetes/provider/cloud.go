@@ -182,6 +182,10 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 		if ok {
 			provisioner = nonPreferredStorageErr.Provisioner
 			params = nonPreferredStorageErr.Parameters
+		} else if clusterMetadata.NominatedStorageClass != nil {
+			// no preferred storage class config but user provided an existing storage class name.
+			provisioner = clusterMetadata.NominatedStorageClass.Provisioner
+			params = clusterMetadata.NominatedStorageClass.Parameters
 		}
 		sp, err := storageParams.MetadataChecker.EnsureStorageProvisioner(caas.StorageProvisioner{
 			Name:        storageParams.WorkloadStorage,

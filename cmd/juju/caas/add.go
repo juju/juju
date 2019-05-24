@@ -473,7 +473,7 @@ func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential j
 
 func buildCloudAndRegionOption(cloudOption, regionOption string) (string, error) {
 	cloudNameOrType, region, err := jujucloud.SplitHostCloudRegion(regionOption)
-	if err != nil {
+	if err != nil && cloudOption == "" {
 		return "", errors.Annotate(err, "parsing region option")
 	}
 	c, r, _ := jujucloud.SplitHostCloudRegion(cloudOption)
@@ -500,6 +500,7 @@ func (c *AddCAASCommand) tryEnsureCloudTypeForHostRegion(cloudOption, regionOpti
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+	logger.Debugf("cloud option %q region option %q, cloudRegion %q", cloudOption, regionOption, cloudRegion)
 	cloudNameOrType, region, err := jujucloud.SplitHostCloudRegion(cloudRegion)
 	if err != nil {
 		return "", errors.Annotate(err, "parsing cloud region")
