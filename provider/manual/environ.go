@@ -315,7 +315,21 @@ exit 0
 	return err
 }
 
-func (*manualEnviron) PrecheckInstance(context.ProviderCallContext, environs.PrecheckInstanceParams) error {
+func (e *manualEnviron) PrecheckInstance(ctx context.ProviderCallContext, params environs.PrecheckInstanceParams) error {
+	validator, err := e.ConstraintsValidator(ctx)
+	if err != nil {
+		return err
+	}
+
+	if _, err = validator.Validate(params.Constraints); err != nil {
+		return err
+	}
+
+	// Fix for #1829559
+	if params.Placement == "" {
+		return nil
+	}
+
 	return errors.New(`use "juju add-machine ssh:[user@]<host>" to provision machines`)
 }
 

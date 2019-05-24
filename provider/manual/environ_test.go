@@ -190,6 +190,29 @@ func (s *environSuite) TestConstraintsValidatorInsideController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *environSuite) TestPrecheck(c *gc.C) {
+	// Patch os.Args so it appears that we're running in "jujud", and then
+	// patch the host arch so it looks like we're running amd64.
+	s.PatchValue(&os.Args, []string{"/some/where/containing/jujud", "whatever"})
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+
+	constraint := constraints.MustParse("arch=amd64")
+
+	// Prechecks with an explicit placement should fail
+	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
+		Placement:   "42",
+		Constraints: constraint,
+	})
+	c.Assert(err, gc.Not(gc.IsNil))
+	c.Assert(err.Error(), gc.Equals, `use "juju add-machine ssh:[user@]<host>" to provision machines`)
+
+	// Prechecks with no placement should work if the constraints match
+	err = s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
+		Constraints: constraint,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type controllerInstancesSuite struct {
 	baseEnvironSuite
 }
