@@ -153,8 +153,12 @@ func timerLoop(api APIClient, requestedId string, wait, tick *time.Timer) (param
 		// Block until a tick happens, or the timeout arrives.
 		select {
 		case _ = <-wait.C:
-			return result, nil
-
+			switch result.Status {
+			case params.ActionRunning, params.ActionPending:
+				return result, errors.NewTimeout(err, "timeout reached")
+			default:
+				return result, nil
+			}
 		case _ = <-tick.C:
 			tick.Reset(2 * time.Second)
 		}
