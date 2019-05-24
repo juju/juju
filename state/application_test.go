@@ -1679,6 +1679,26 @@ func (s *ApplicationSuite) TestOffersRefRace(c *gc.C) {
 	assertOffersRef(c, s.State, "mysql", 1)
 }
 
+func (s *ApplicationSuite) TestForceDoesNotAllowRemovingAnApplicationWithOffers(c *gc.C) {
+	addOffer := func() {
+		ao := state.NewApplicationOffers(s.State)
+		_, err := ao.AddOffer(crossmodel.AddApplicationOfferArgs{
+			OfferName:       "hosted-mysql",
+			ApplicationName: "mysql",
+			Endpoints:       map[string]string{"server": "server"},
+			Owner:           s.Owner.Id(),
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	defer state.SetBeforeHooks(c, s.State, addOffer).Check()
+
+	op := s.mysql.DestroyOperation()
+	op.Force = true
+	err := s.State.ApplyOperation(op)
+	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 offer`)
+	assertOffersRef(c, s.State, "mysql", 1)
+}
+
 const mysqlBaseMeta = `
 name: mysql
 summary: "Database engine"
