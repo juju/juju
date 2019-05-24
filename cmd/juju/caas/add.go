@@ -71,7 +71,7 @@ It's also possible to select a context by name using --context-name.
 
 When running add-k8s the underlying cloud/region hosting the cluster needs to be
 detected to enable storage to be correctly configured. If the cloud/region cannot
-be detected automatically, use --region <cloudType|cloudName/region> to specify the host
+be detected automatically, use --region <cloudType|cloudName>/<someregion> to specify the host
 cloud type and region.
 
 When adding a GKE or AKS cluster, you can use the --gke or --aks option to
@@ -83,9 +83,9 @@ Examples:
     juju add-k8s myk8scloud --local
     juju add-k8s myk8scloud --controller mycontroller
     juju add-k8s --context-name mycontext myk8scloud
-    juju add-k8s myk8scloud --region <cloudType|cloudName>/<someregion>
-    juju add-k8s myk8scloud --cloud cloudType
-    juju add-k8s myk8scloud --cloud cloudName --region=someregion
+    juju add-k8s myk8scloud --region <cloudNameOrCloudType>/<someregion>
+    juju add-k8s myk8scloud --cloud <cloudNameOrCloudType>
+    juju add-k8s myk8scloud --cloud <cloudNameOrCloudType> --region=someregion
 
     KUBECONFIG=path-to-kubuconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name
     kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name
@@ -219,7 +219,7 @@ func (c *AddCAASCommand) Init(args []string) (err error) {
 	if c.contextName != "" && c.clusterName != "" {
 		return errors.New("only specify one of cluster-name or context-name, not both")
 	}
-	if c.hostCloudRegion != "" {
+	if c.hostCloudRegion != "" || c.cloud != "" {
 		c.hostCloudRegion, err = c.tryEnsureCloudTypeForHostRegion(c.cloud, c.hostCloudRegion)
 		if err != nil {
 			return errors.Trace(err)
@@ -340,7 +340,7 @@ var clusterQueryErrMsg = `
 	storage defaults are available and to detect the cluster's cloud/region.
 	This was not possible in this case so run add-k8s again, using
 	--storage=<name> to specify the storage class to use and
-	--region=<cloudType>/<region> to specify the cloud/region.
+	--cloud=<cloud> --region=<cloud>/<someregion> to specify the cloud/region.
 `[1:]
 
 var unknownClusterErrMsg = `
@@ -413,11 +413,9 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	if newCloud.HostCloudRegion != "" {
-		newCloud.HostCloudRegion, err = c.validateCloudRegion(ctx, newCloud.HostCloudRegion)
-		if err != nil {
-			return errors.Trace(err)
-		}
+	newCloud.HostCloudRegion, err = c.validateCloudRegion(ctx, newCloud.HostCloudRegion)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
@@ -471,10 +469,10 @@ func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential j
 	return caas.New(openParams)
 }
 
-func buildCloudAndRegionOption(cloudOption, regionOption string) (string, error) {
+func getCloudAndRegionFromOptions(cloudOption, regionOption string) (string, string, error) {
 	cloudNameOrType, region, err := jujucloud.SplitHostCloudRegion(regionOption)
 	if err != nil && cloudOption == "" {
-		return "", errors.Annotate(err, "parsing region option")
+		return "", "", errors.Annotate(err, "parsing region option")
 	}
 	c, r, _ := jujucloud.SplitHostCloudRegion(cloudOption)
 	if region == "" && c != "" {
@@ -483,28 +481,25 @@ func buildCloudAndRegionOption(cloudOption, regionOption string) (string, error)
 		cloudNameOrType = c
 	}
 	if r != "" {
-		return "", errors.NotValidf("--cloud is neither cloud name or cloud type")
+		return "", "", errors.NewNotValid(nil, "--cloud is cloud name or cloud type with region")
 	}
 	if cloudNameOrType != "" && region != "" && c != "" && cloudNameOrType != c {
-		return "", errors.NotValidf("two different clouds specified: %q, %q", cloudNameOrType, c)
+		return "", "", errors.NotValidf("two different clouds specified: %q, %q", cloudNameOrType, c)
 	}
 	if cloudNameOrType == "" {
 		cloudNameOrType = c
 	}
-	return jujucloud.BuildHostCloudRegion(cloudNameOrType, region), nil
+	return cloudNameOrType, region, nil
 }
 
 // tryEnsureCloudType try to find cloud type if the cloudNameOrType is cloud name.
 func (c *AddCAASCommand) tryEnsureCloudTypeForHostRegion(cloudOption, regionOption string) (string, error) {
-	cloudRegion, err := buildCloudAndRegionOption(cloudOption, regionOption)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	logger.Debugf("cloud option %q region option %q, cloudRegion %q", cloudOption, regionOption, cloudRegion)
-	cloudNameOrType, region, err := jujucloud.SplitHostCloudRegion(cloudRegion)
+	logger.Debugf("cloud option %q region option %q", cloudOption, regionOption)
+	cloudNameOrType, region, err := getCloudAndRegionFromOptions(cloudOption, regionOption)
 	if err != nil {
 		return "", errors.Annotate(err, "parsing cloud region")
 	}
+	logger.Debugf("cloud %q region %q", cloudNameOrType, region)
 
 	clouds, err := c.getAllCloudDetails()
 	if err != nil {
@@ -519,9 +514,13 @@ func (c *AddCAASCommand) tryEnsureCloudTypeForHostRegion(cloudOption, regionOpti
 	return jujucloud.BuildHostCloudRegion(cloudNameOrType, region), nil
 }
 
-func shouldCheckRegion(cloudType string) bool {
+func isRegionOptional(cloudType string) bool {
 	for _, v := range []string{
-		"ec2", "azure", "gce",
+		// Region is optional for CDK on microk8s, openstack, lxd, maas;
+		caas.K8sCloudMicrok8s,
+		caas.K8sCloudOpenStack,
+		caas.K8sCloudLXD,
+		caas.K8sCloudMAAS,
 	} {
 		if cloudType == v {
 			return true
@@ -550,14 +549,14 @@ func (c *AddCAASCommand) validateCloudRegion(ctx *cmd.Context, cloudRegion strin
 	for _, details := range clouds {
 		// User may have specified cloud name or type so match on both.
 		if details.CloudType == cloudType {
+			if isRegionOptional(details.CloudType) && region == "" {
+				return jujucloud.BuildHostCloudRegion(details.CloudType, ""), nil
+			}
 			if len(details.RegionsMap) == 0 {
 				if region != "" {
-					logger.Warningf("Unknown region %q is ignored", region)
+					return "", errors.NotValidf("cloud %q does not have a region, but %q provided", cloudType, region)
 				}
 				return details.CloudType, nil
-			}
-			if !shouldCheckRegion(details.CloudType) {
-				return jujucloud.BuildHostCloudRegion(details.CloudType, region), nil
 			}
 			for k := range details.RegionsMap {
 				if k == region {

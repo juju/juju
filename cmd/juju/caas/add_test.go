@@ -294,6 +294,23 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists, emptyClientConfig, 
 						"us-east1": {Name: "us-east1", Endpoint: "https://www.googleapis.com"},
 					},
 				},
+				"aws": {
+					Source:           "public",
+					CloudType:        "ec2",
+					CloudDescription: "amazon Cloud Platform",
+					AuthTypes:        []string{"jsonfile", "oauth2"},
+					Regions: yaml.MapSlice{
+						{Key: "ap-southeast-2", Value: map[string]string{"Name": "ap-southeast-2", "Endpoint": "https://ec2.ap-northeast-2.amazonaws.com"}},
+					},
+					RegionsMap: map[string]jujucmdcloud.RegionDetails{
+						"ap-southeast-2": {Name: "ap-southeast-2", Endpoint: "https://ec2.ap-northeast-2.amazonaws.com"},
+					},
+				},
+				"maas1": {
+					CloudType:        "maas",
+					CloudDescription: "maas Cloud",
+					AuthTypes:        []string{"jsonfile", "oauth2"},
+				},
 			}, nil
 		},
 	)
@@ -301,6 +318,7 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists, emptyClientConfig, 
 
 func (s *addCAASSuite) runCommand(c *gc.C, stdin io.Reader, com cmd.Command, args ...string) (*cmd.Context, error) {
 	ctx := cmdtesting.Context(c)
+	c.Logf("run cmd with args: %v", args)
 	if err := cmdtesting.InitCommand(com, args); err != nil {
 		cmd.WriteError(ctx.Stderr, err)
 		return ctx, err
@@ -344,7 +362,7 @@ func (s *addCAASSuite) TestMissingArgs(c *gc.C) {
 func (s *addCAASSuite) TestNonExistClusterName(c *gc.C) {
 	cmd := s.makeCommand(c, true, false, true)
 	_, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "non existing cluster name")
-	c.Assert(err, gc.ErrorMatches, `context for cluster name \"non existing cluster name\" not found`)
+	c.Assert(err, gc.ErrorMatches, `context for cluster name "non existing cluster name" not found`)
 }
 
 type initTestsCase struct {
@@ -380,41 +398,90 @@ func (s *addCAASSuite) TestInit(c *gc.C) {
 
 type regionTestCase struct {
 	title          string
-	regionStr      string
+	cloud, region  string
 	expectedErrStr string
 }
 
-func (s *addCAASSuite) TestRegionFlag(c *gc.C) {
-	for _, ts := range []regionTestCase{
+func (s *addCAASSuite) TestCloudAndRegionFlag(c *gc.C) {
+	for i, ts := range []regionTestCase{
 		{
-			title:          "missing cloud",
-			regionStr:      "/region",
-			expectedErrStr: `parsing region option: host cloud region "/region" not valid`,
+			title:          "missing cloud --region=/region",
+			region:         "/region",
+			expectedErrStr: `parsing cloud region: parsing region option: host cloud region "/region" not valid`,
 		},
 		{
-			title:          "missing region",
-			regionStr:      "cloud/",
+			title:          "missing region --region=cloud/",
+			region:         "cloud/",
 			expectedErrStr: `validating cloud region "cloud": cloud region "cloud" not valid`,
 		},
 		{
-			title:          "not a known juju cloud",
-			regionStr:      "cloudRegion",
-			expectedErrStr: `validating cloud region "cloudRegion": cloud region "cloudRegion" not valid`,
+			title:          "missing cloud --region=region",
+			region:         "region",
+			expectedErrStr: `validating cloud region "region": cloud region "region" not valid`,
 		},
 		{
-			title:          "not a known juju cloud region",
-			regionStr:      "cloud/region",
+			title:          "not a known juju cloud region: --region=cloud/region",
+			region:         "cloud/region",
 			expectedErrStr: `validating cloud region "cloud/region": cloud region "cloud/region" not valid`,
 		},
 		{
-			title:          "all good",
-			regionStr:      "gce/us-east1",
-			expectedErrStr: "",
+			title:          "region is not required --region=maas/non-existing-region",
+			region:         "maas/non-existing-region",
+			expectedErrStr: `validating cloud region "maas/non-existing-region": cloud "maas" does not have a region, but "non-existing-region" provided not valid`,
+		},
+		{
+			title:          "region is not required --cloud=maas --region=non-existing-region",
+			cloud:          "maas",
+			region:         "non-existing-region",
+			expectedErrStr: `validating cloud region "maas/non-existing-region": cloud "maas" does not have a region, but "non-existing-region" provided not valid`,
+		},
+		{
+			title:          "missing region --cloud=ec2",
+			cloud:          "ec2",
+			expectedErrStr: `validating cloud region "ec2": cloud region "ec2" not valid`,
+		},
+		{
+			title:          "cloud option contains region --cloud=gce/us-east1",
+			cloud:          "gce/us-east1",
+			expectedErrStr: `parsing cloud region: --cloud is cloud name or cloud type with region`,
+		},
+		{
+			title:          "two different clouds --cloud=gce --region=gce/us-east1",
+			cloud:          "ec2",
+			region:         "gce/us-east1",
+			expectedErrStr: `parsing cloud region: two different clouds specified: "gce", "ec2" not valid`,
+		},
+		{
+			title:  "all good --region=gce/us-east1",
+			region: "gce/us-east1",
+		},
+		{
+			title:  "all good --region=us-east1 --cloud=gce",
+			region: "us-east1",
+			cloud:  "gce",
+		},
+		{
+			title: "all good --cloud=maas",
+			cloud: "maas",
+		},
+		{
+			title:  "all good --region=maas",
+			region: "maas",
 		},
 	} {
+		c.Logf("%v: %s", i, ts.title)
 		delete(s.initialCloudMap, "myk8s")
 		cmd := s.makeCommand(c, true, false, true)
-		_, err := s.runCommand(c, nil, cmd, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--region", ts.regionStr)
+		args := []string{
+			"myk8s", "-c", "foo", "--cluster-name", "mrcloud2",
+		}
+		if ts.region != "" {
+			args = append(args, "--region", ts.region)
+		}
+		if ts.cloud != "" {
+			args = append(args, "--cloud", ts.cloud)
+		}
+		_, err := s.runCommand(c, nil, cmd, args...)
 		if ts.expectedErrStr == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
@@ -561,7 +628,7 @@ func (s *addCAASSuite) TestGatherClusterMetadataError(c *gc.C) {
 	storage defaults are available and to detect the cluster's cloud/region.
 	This was not possible in this case so run add-k8s again, using
 	--storage=<name> to specify the storage class to use and
-	--region=<cloudType>/<region> to specify the cloud/region.
+	--cloud=<cloud> --region=<cloud>/<someregion> to specify the cloud/region.
 : oops`[1:]
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
@@ -577,7 +644,7 @@ func (s *addCAASSuite) TestGatherClusterMetadataNoRegions(c *gc.C) {
 	storage defaults are available and to detect the cluster's cloud/region.
 	This was not possible in this case so run add-k8s again, using
 	--storage=<name> to specify the storage class to use and
-	--region=<cloudType>/<region> to specify the cloud/region.
+	--cloud=<cloud> --region=<cloud>/<someregion> to specify the cloud/region.
 `[1:]
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
