@@ -874,6 +874,26 @@ func NewInstanceCharmProfileDataCompatibilityWatcher(backend ModelBackendShim, m
 	return watchInstanceCharmProfileCompatibilityData(backend, memberId)
 }
 
+func EraseModelStatusHistory(c *gc.C, st *State, uuid string) error {
+	newSt, err := st.newStateNoWorkers(uuid)
+	// We explicitly don't start the workers.
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		// This model could have been removed.
+		return nil
+	}
+	defer newSt.Close()
+
+	aModel, err := newSt.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return eraseStatusHistory(st, aModel.globalKey())
+}
+
 // ModelBackendShim is required to live here in the export_test.go file because
 // there is issues placing this in the test files themselves. The strangeness
 // exhibits itself from the fact that `clock() clock.Clock` doesn't type

@@ -116,6 +116,7 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 		tag: convertCloudCredentialToState(tag, credential),
 	}
 	annotationMsg := "updating cloud credentials"
+	validityChanged := false
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		cloudName := tag.Cloud().Id()
 		cloud, err := st.Cloud(cloudName)
@@ -126,11 +127,12 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		_, err = st.CloudCredential(tag)
+		existing, err := st.CloudCredential(tag)
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Maskf(err, "fetching cloud credentials")
 		}
 		if err == nil {
+			validityChanged = existing.Invalid != credential.Invalid
 			ops = append(ops, updateCloudCredentialOp(tag, credential))
 		} else {
 			annotationMsg = "creating cloud credential"
@@ -143,6 +145,12 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 	}
 	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Annotate(err, annotationMsg)
+	}
+	if validityChanged {
+		// Deal with models that use this credential.
+		if err := st.treatModelsForCredential(tag, !credential.Invalid); err != nil {
+			logger.Warningf("%v", err)
+		}
 	}
 	return nil
 }
@@ -348,8 +356,7 @@ func (st *State) AllCloudCredentials(user names.UserTag) ([]Credential, error) {
 	return credentials, nil
 }
 
-// CredentialModels returns all models that use given cloud credential.
-func (st *State) CredentialModels(tag names.CloudCredentialTag) (map[string]string, error) {
+func (st *State) modelsWithCredential(tag names.CloudCredentialTag) ([]modelDoc, error) {
 	coll, cleanup := st.db().GetCollection(modelsC)
 	defer cleanup()
 
@@ -366,9 +373,18 @@ func (st *State) CredentialModels(tag names.CloudCredentialTag) (map[string]stri
 	if len(docs) == 0 {
 		return nil, errors.NotFoundf("models that use cloud credentials %q", tag.Id())
 	}
+	return docs, nil
+}
 
-	results := make(map[string]string, len(docs))
-	for _, model := range docs {
+// CredentialModels returns all models that use given cloud credential.
+func (st *State) CredentialModels(tag names.CloudCredentialTag) (map[string]string, error) {
+	models, err := st.modelsWithCredential(tag)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make(map[string]string, len(models))
+	for _, model := range models {
 		results[model.UUID] = model.Name
 	}
 	return results, nil

@@ -11,6 +11,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/status"
 )
 
 // InvalidateModelCredential invalidate cloud credential for the model
@@ -27,7 +28,53 @@ func (st *State) InvalidateModelCredential(reason string) error {
 		return nil
 	}
 
-	return errors.Trace(st.InvalidateCloudCredential(tag, reason))
+	if err := st.InvalidateCloudCredential(tag, reason); err != nil {
+		return errors.Trace(err)
+	}
+	if err := st.treatModelsForCredential(tag, false); err != nil {
+		// These updates are optimistic. If they fail, it's unfortunate but we are not going to stop the call.
+		logger.Warningf("could not suspend models that use credential %v: %v", tag.Id(), err)
+	}
+	return nil
+}
+
+func (st *State) treatModelsForCredential(tag names.CloudCredentialTag, validCredential bool) error {
+	models, err := st.modelsWithCredential(tag)
+	if err != nil {
+		return errors.Annotatef(err, "could not determine what models use credential %v", tag.Id())
+	}
+	f := func(m *Model) error {
+		return errors.Annotatef(m.Suspend("suspended since cloud credential is not valid"),
+			"could not suspend model %v when its credential %v became invalid", m.UUID(), tag.Id())
+	}
+	if validCredential {
+		f = func(m *Model) error {
+			return errors.Annotatef(m.Unsuspend(),
+				"could not unsuspend model %v when its credential %v became valid", m.UUID(), tag.Id())
+		}
+	}
+	for _, m := range models {
+		newSt, err := st.newStateNoWorkers(m.UUID)
+		// We explicitly don't start the workers.
+		if err != nil {
+			// This model could have been removed.
+			if errors.IsNotFound(err) {
+				continue
+			}
+			return errors.Trace(err)
+		}
+		defer newSt.Close()
+
+		aModel, err := newSt.Model()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := f(aModel); err != nil {
+			// We do not want to stop processing the rest of the models.
+			logger.Warningf("%v", err)
+		}
+	}
+	return nil
 }
 
 // ValidateCloudCredential validates new cloud credential for this model.
@@ -83,7 +130,48 @@ func (m *Model) SetCloudCredential(tag names.CloudCredentialTag) (bool, error) {
 	if err := m.st.db().Run(buildTxn); err != nil {
 		return false, errors.Trace(err)
 	}
+	// We would not be able to set a credential if it was invalid, so the model must become unsuspended after this call.
+	if err := m.Unsuspend(); err != nil {
+		logger.Warningf("could not change the status of model %v from suspended", m.UUID())
+	}
 	return updating, m.Refresh()
+}
+
+// Suspend puts model into suspended status.
+func (m *Model) Suspend(msg string) error {
+	statusInfo := status.StatusInfo{
+		Status:  status.Suspended,
+		Message: msg,
+	}
+	return errors.Annotatef(m.SetStatus(statusInfo), "could not update status for model %v to suspended", m.UUID())
+}
+
+// Unsuspend reverts model to whatever status it was in before it got suspended.
+// If the model is not currently suspended, do nothing.
+func (m *Model) Unsuspend() error {
+	current, err := m.Status()
+	if err != nil {
+		return errors.Annotatef(err, "could not get current status")
+	}
+	if current.Status != status.Suspended {
+		// Nothing to do - the model is not suspended.
+		return nil
+	}
+
+	histories, err := m.StatusHistory(status.StatusHistoryFilter{Size: 2})
+	if err != nil {
+		return errors.Annotatef(err, "could not get status history to determine last known status prior to suspension")
+	}
+	// There are several situations to cater for here.
+	// 1. Status histories have not been cleared.
+	// 		In this case, we should get at least 2 entries where the latest one will be the "suspension" entry
+	// 		and the second one will be the status that the model was in prior to suspension that we want to revert to.
+	// 2. Status histories have been cleared.
+	// 		We have no idea what the model status was prior to suspension, so we will optimistically set it to 'available'.
+	if len(histories) > 1 {
+		return errors.Trace(m.SetStatus(status.StatusInfo{Status: histories[1].Status, Message: histories[1].Message}))
+	}
+	return errors.Trace(m.SetStatus(status.StatusInfo{Status: status.Available}))
 }
 
 // WatchModelCredential returns a new NotifyWatcher that watches

@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
@@ -245,4 +246,86 @@ func (s *ModelCredentialSuite) addModel(c *gc.C, modelName string, tag names.Clo
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st
+}
+
+func (s *ModelCredentialSuite) TestInvalidateModelCredentialTouchesAllCredentialModels(c *gc.C) {
+	// This test checks that all models are affected when one of them invalidates a credential they all use...
+
+	// 1. create a credential
+	cloudName, credentialOwner, credentialTag := assertCredentialCreated(c, s.ConnSuite)
+
+	// 2. create some models to use it
+	modelUUIDs := make([]string, 5)
+	for i := 0; i < 5; i++ {
+		modelUUIDs[i] = assertModelCreated(c, s.ConnSuite, cloudName, credentialTag, credentialOwner.Tag(), fmt.Sprintf("model-for-cloud%v", i))
+	}
+
+	// 3. invalidate credential
+	oneModelState, helper, err := s.StatePool.GetModel(modelUUIDs[0])
+	c.Assert(err, jc.ErrorIsNil)
+	defer helper.Release()
+	c.Assert(oneModelState.State().InvalidateModelCredential("testing invalidate for all credential models"), jc.ErrorIsNil)
+
+	// 4. check all models are suspended
+	for _, uuid := range modelUUIDs {
+		assertModelStatus(c, s.StatePool, uuid, status.Suspended)
+	}
+}
+
+func (s *ModelCredentialSuite) TestSuspend(c *gc.C) {
+	assertModelStatus(c, s.StatePool, s.Model.UUID(), status.Available)
+	s.assertModelHistories(c, status.Available)
+
+	c.Assert(s.Model.Suspend("testing suspend"), jc.ErrorIsNil)
+
+	assertModelStatus(c, s.StatePool, s.Model.UUID(), status.Suspended)
+	s.assertModelHistories(c, status.Suspended, status.Available)
+}
+
+func (s *ModelCredentialSuite) TestUnsuspend(c *gc.C) {
+	c.Assert(s.Model.Suspend("testing suspend"), jc.ErrorIsNil)
+	assertModelStatus(c, s.StatePool, s.Model.UUID(), status.Suspended)
+	s.assertModelHistories(c, status.Suspended, status.Available)
+
+	c.Assert(s.Model.Unsuspend(), jc.ErrorIsNil)
+	assertModelStatus(c, s.StatePool, s.Model.UUID(), status.Available)
+	s.assertModelHistories(c, status.Available, status.Suspended, status.Available)
+}
+
+func (s *ModelCredentialSuite) TestUnsuspendNoHistory(c *gc.C) {
+	c.Assert(s.Model.Suspend("testing suspend"), jc.ErrorIsNil)
+	assertModelStatus(c, s.StatePool, s.Model.UUID(), status.Suspended)
+
+	s.assertModelHistories(c, status.Suspended, status.Available)
+
+	c.Assert(state.EraseModelStatusHistory(c, s.State, s.Model.UUID()), jc.ErrorIsNil)
+	s.assertModelHistories(c)
+	//statusHistories, err = s.Model.StatusHistory(status.StatusHistoryFilter{Size: 100})
+	//c.Assert(err, jc.ErrorIsNil)
+	//c.Assert(statusHistories, gc.HasLen, 0)
+
+	c.Assert(s.Model.Unsuspend(), jc.ErrorIsNil)
+	assertModelStatus(c, s.StatePool, s.Model.UUID(), status.Available)
+	s.assertModelHistories(c, status.Available)
+}
+
+func (s *ModelCredentialSuite) TestUnsuspendForNonSuspendedModel(c *gc.C) {
+	assertModelStatus(c, s.StatePool, s.Model.UUID(), status.Available)
+	statusHistoriesBefore := s.assertModelHistories(c, status.Available)
+	c.Assert(s.Model.Unsuspend(), jc.ErrorIsNil)
+
+	assertModelStatus(c, s.StatePool, s.Model.UUID(), status.Available)
+	statusHistoriesAfter, err := s.Model.StatusHistory(status.StatusHistoryFilter{Size: 100})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusHistoriesBefore, gc.DeepEquals, statusHistoriesAfter)
+}
+
+func (s *ModelCredentialSuite) assertModelHistories(c *gc.C, expected ...status.Status) []status.StatusInfo {
+	statusHistories, err := s.Model.StatusHistory(status.StatusHistoryFilter{Size: 100})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusHistories, gc.HasLen, len(expected))
+	for i, one := range expected {
+		c.Assert(statusHistories[i].Status, gc.Equals, one)
+	}
+	return statusHistories
 }
