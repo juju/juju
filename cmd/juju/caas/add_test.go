@@ -309,7 +309,6 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists, emptyClientConfig, 
 				"maas1": {
 					CloudType:        "maas",
 					CloudDescription: "maas Cloud",
-					AuthTypes:        []string{"jsonfile", "oauth2"},
 				},
 			}, nil
 		},
@@ -427,13 +426,13 @@ func (s *addCAASSuite) TestCloudAndRegionFlag(c *gc.C) {
 		{
 			title:          "region is not required --region=maas/non-existing-region",
 			region:         "maas/non-existing-region",
-			expectedErrStr: `validating cloud region "maas/non-existing-region": cloud "maas" does not have a region, but "non-existing-region" provided not valid`,
+			expectedErrStr: `validating cloud region "maas/non-existing-region": cloud "maas" does not have a region, but "non-existing-region" provided`,
 		},
 		{
 			title:          "region is not required --cloud=maas --region=non-existing-region",
 			cloud:          "maas",
 			region:         "non-existing-region",
-			expectedErrStr: `validating cloud region "maas/non-existing-region": cloud "maas" does not have a region, but "non-existing-region" provided not valid`,
+			expectedErrStr: `validating cloud region "maas/non-existing-region": cloud "maas" does not have a region, but "non-existing-region" provided`,
 		},
 		{
 			title:          "missing region --cloud=ec2",
@@ -443,7 +442,7 @@ func (s *addCAASSuite) TestCloudAndRegionFlag(c *gc.C) {
 		{
 			title:          "cloud option contains region --cloud=gce/us-east1",
 			cloud:          "gce/us-east1",
-			expectedErrStr: `parsing cloud region: --cloud is cloud name or cloud type with region`,
+			expectedErrStr: `parsing cloud region: --cloud incorrectly specifies a cloud/region instead of just a cloud`,
 		},
 		{
 			title:          "two different clouds --cloud=gce --region=gce/us-east1",
@@ -540,7 +539,13 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 	)
 }
 
-func (s *addCAASSuite) assertAddCloudResult(c *gc.C, cloudRegion, workloadStorage, operatorStorage string, localOnly bool) {
+func (s *addCAASSuite) assertAddCloudResult(
+	c *gc.C,
+	cloudRegion, workloadStorage, operatorStorage string,
+	localOnly bool,
+) {
+	_, region, err := jujucloud.SplitHostCloudRegion(cloudRegion)
+	c.Assert(err, jc.ErrorIsNil)
 	s.fakeK8sClusterMetadataChecker.CheckCall(c, 0, "GetClusterMetadata")
 	if localOnly {
 		s.fakeCloudAPI.CheckNoCalls(c)
@@ -555,7 +560,7 @@ func (s *addCAASSuite) assertAddCloudResult(c *gc.C, cloudRegion, workloadStorag
 				Endpoint:         "fakeendpoint2",
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
-				Regions:          []cloud.Region{{Name: "us-east1"}},
+				Regions:          []cloud.Region{{Name: region}},
 				Config:           map[string]interface{}{"operator-storage": operatorStorage, "workload-storage": workloadStorage},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata2"},
@@ -597,7 +602,7 @@ func (s *addCAASSuite) assertAddCloudResult(c *gc.C, cloudRegion, workloadStorag
 				Endpoint:         "fakeendpoint2",
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
-				Regions:          []cloud.Region{{Name: "us-east1"}},
+				Regions:          []cloud.Region{{Name: region}},
 				Config:           map[string]interface{}{"operator-storage": operatorStorage, "workload-storage": workloadStorage},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata2"},
@@ -752,6 +757,30 @@ func (s *addCAASSuite) TestCreateCustomStorageProvisioner(c *gc.C) {
 	result = strings.Replace(result, "\n", " ", -1)
 	c.Assert(result, gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s" with storage provisioned by the existing "mystorage" storage class.`)
 	s.assertAddCloudResult(c, cloudRegion, "mystorage", "mystorage", false)
+}
+
+func (s *addCAASSuite) TestFoundStorageProvisionerViaAnnationForMAASWIthoutStorageOptionProvided(c *gc.C) {
+	storageProvisioner := &jujucaas.StorageProvisioner{
+		Name:        "mystorage",
+		Provisioner: "my disk provisioner",
+	}
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(&jujucaas.ClusterMetadata{
+		Cloud:                 "maas",
+		OperatorStorageClass:  storageProvisioner,
+		NominatedStorageClass: storageProvisioner,
+	}, nil)
+	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(errors.NotFoundf("no sc config for this cloud type"))
+	s.fakeK8sClusterMetadataChecker.Call("EnsureStorageProvisioner", jujucaas.StorageProvisioner{
+		Name: "mystorage",
+	}).Returns(storageProvisioner, nil)
+
+	cmd := s.makeCommand(c, true, false, true)
+	ctx, err := s.runCommand(c, nil, cmd, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--cloud", "maas")
+	c.Assert(err, jc.ErrorIsNil)
+	result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
+	result = strings.Replace(result, "\n", " ", -1)
+	c.Assert(result, gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s" with storage provisioned by the existing "mystorage" storage class.`)
+	s.assertAddCloudResult(c, "maas", "mystorage", "mystorage", false)
 }
 
 func (s *addCAASSuite) TestLocalOnly(c *gc.C) {

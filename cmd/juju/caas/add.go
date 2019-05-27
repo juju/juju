@@ -85,7 +85,7 @@ Examples:
     juju add-k8s --context-name mycontext myk8scloud
     juju add-k8s myk8scloud --region <cloudNameOrCloudType>/<someregion>
     juju add-k8s myk8scloud --cloud <cloudNameOrCloudType>
-    juju add-k8s myk8scloud --cloud <cloudNameOrCloudType> --region=someregion
+    juju add-k8s myk8scloud --cloud <cloudNameOrCloudType> --region=<someregion>
 
     KUBECONFIG=path-to-kubuconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name
     kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name
@@ -481,7 +481,7 @@ func getCloudAndRegionFromOptions(cloudOption, regionOption string) (string, str
 		cloudNameOrType = c
 	}
 	if r != "" {
-		return "", "", errors.NewNotValid(nil, "--cloud is cloud name or cloud type with region")
+		return "", "", errors.NewNotValid(nil, "--cloud incorrectly specifies a cloud/region instead of just a cloud")
 	}
 	if cloudNameOrType != "" && region != "" && c != "" && cloudNameOrType != c {
 		return "", "", errors.NotValidf("two different clouds specified: %q, %q", cloudNameOrType, c)
@@ -554,7 +554,9 @@ func (c *AddCAASCommand) validateCloudRegion(ctx *cmd.Context, cloudRegion strin
 			}
 			if len(details.RegionsMap) == 0 {
 				if region != "" {
-					return "", errors.NotValidf("cloud %q does not have a region, but %q provided", cloudType, region)
+					return "", errors.NewNotValid(nil, fmt.Sprintf(
+						"cloud %q does not have a region, but %q provided", cloudType, region,
+					))
 				}
 				return details.CloudType, nil
 			}

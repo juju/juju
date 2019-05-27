@@ -92,7 +92,6 @@ func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudPar
 
 func updateK8sCloud(k8sCloud *cloud.Cloud, clusterMetadata *caas.ClusterMetadata, storageMsg string) string {
 	var workloadSC, operatorSC string
-
 	// Record the operator storage to use.
 	if clusterMetadata.OperatorStorageClass != nil {
 		operatorSC = clusterMetadata.OperatorStorageClass.Name
@@ -126,6 +125,11 @@ func updateK8sCloud(k8sCloud *cloud.Cloud, clusterMetadata *caas.ClusterMetadata
 func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudStorageParams) (storageMsg string, err error) {
 	// Get the cluster metadata so we can see if there's suitable storage available.
 	clusterMetadata, err := storageParams.GetClusterMetadataFunc(storageParams)
+	defer func() {
+		if err == nil {
+			storageMsg = updateK8sCloud(k8sCloud, clusterMetadata, storageMsg)
+		}
+	}()
 
 	if err != nil || clusterMetadata == nil {
 		// err will be nil if user hit Ctrl+C.
@@ -146,68 +150,77 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 	k8sCloud.HostCloudRegion = storageParams.HostCloudRegion
 
 	cloudType, region, err := cloud.SplitHostCloudRegion(k8sCloud.HostCloudRegion)
-	if err == nil {
-		k8sCloud.Regions = []cloud.Region{{
-			Name: region,
-		}}
-	}
 	if err != nil {
 		// Region is optional, but cloudType is required for next step.
 		return "", ClusterQueryError{}
 	}
+	k8sCloud.Regions = []cloud.Region{{
+		Name: region,
+	}}
 
 	// If the user has not specified storage and cloudType is usable, check Juju's opinionated defaults.
 	err = storageParams.MetadataChecker.CheckDefaultWorkloadStorage(
 		cloudType, clusterMetadata.NominatedStorageClass,
 	)
 	if storageParams.WorkloadStorage == "" {
-		if errors.IsNotFound(err) {
-			return "", UnknownClusterError{CloudName: cloudType}
+		if err == nil {
+			return
 		}
 		if caas.IsNonPreferredStorageError(err) {
 			npse := err.(*caas.NonPreferredStorageError)
 			return "", NoRecommendedStorageError{Message: err.Error(), ProviderName: npse.Name}
 		}
-		if err != nil {
+		if errors.IsNotFound(err) {
+			// No juju preferred storage config in jujuPreferredWorkloadStorage, for example, maas.
+			if clusterMetadata.NominatedStorageClass == nil {
+				// And no preferred storage classes with expected annotations found.
+				//  - workloadStorageClassAnnotationKey
+				//  - operatorStorageClassAnnotationKey
+				return "", UnknownClusterError{CloudName: cloudType}
+			}
+			// Do further EnsureStorageProvisioner if preferred storage found via juju preferred/default annotations.
+		} else if err != nil {
 			return "", errors.Trace(err)
 		}
-	} else {
-		// If no storage class exists, we need to create one with the opinionated defaults,
-		// or use an existing one.
-		var (
-			provisioner string
-			params      map[string]string
-		)
-		nonPreferredStorageErr, ok := errors.Cause(err).(*caas.NonPreferredStorageError)
-		if ok {
-			provisioner = nonPreferredStorageErr.Provisioner
-			params = nonPreferredStorageErr.Parameters
-		} else if clusterMetadata.NominatedStorageClass != nil {
-			// no preferred storage class config but user provided an existing storage class name.
-			provisioner = clusterMetadata.NominatedStorageClass.Provisioner
-			params = clusterMetadata.NominatedStorageClass.Parameters
-		}
-		sp, err := storageParams.MetadataChecker.EnsureStorageProvisioner(caas.StorageProvisioner{
-			Name:        storageParams.WorkloadStorage,
-			Provisioner: provisioner,
-			Parameters:  params,
-		})
-		if errors.IsNotFound(err) {
-			return "", errors.Wrap(err, errors.NotFoundf("storage class %q", storageParams.WorkloadStorage))
-		}
-		if err != nil {
-			return "", errors.Annotatef(err, "creating storage class %q", storageParams.WorkloadStorage)
-		}
-		if nonPreferredStorageErr != nil && sp.Provisioner == provisioner {
-			storageMsg = fmt.Sprintf(" with %s default storage", nonPreferredStorageErr.Name)
-			storageMsg = fmt.Sprintf("%s provisioned\nby the existing %q storage class", storageMsg, storageParams.WorkloadStorage)
-		} else {
-			storageMsg = fmt.Sprintf(" with storage provisioned\nby the existing %q storage class", storageParams.WorkloadStorage)
-		}
-		clusterMetadata.NominatedStorageClass = sp
-		clusterMetadata.OperatorStorageClass = sp
 	}
-	return updateK8sCloud(k8sCloud, clusterMetadata, storageMsg), nil
+
+	// we need to create storage class with the opinionated defaults, or use an existing one if
+	// --storage provided or nominated storage found but Juju does not have preferred storage config to
+	// compare with for the cloudType(like maas for example);
+	var (
+		provisioner string
+		params      map[string]string
+	)
+	scName := storageParams.WorkloadStorage
+	nonPreferredStorageErr, ok := errors.Cause(err).(*caas.NonPreferredStorageError)
+	if ok {
+		provisioner = nonPreferredStorageErr.Provisioner
+		params = nonPreferredStorageErr.Parameters
+	} else if clusterMetadata.NominatedStorageClass != nil {
+		// no preferred storage class config but nominated storage found.
+		scName = clusterMetadata.NominatedStorageClass.Name
+	}
+	var sp *caas.StorageProvisioner
+	sp, err = storageParams.MetadataChecker.EnsureStorageProvisioner(caas.StorageProvisioner{
+		Name:        scName,
+		Provisioner: provisioner,
+		Parameters:  params,
+	})
+	if errors.IsNotFound(err) {
+		return "", errors.Wrap(err, errors.NotFoundf("storage class %q", scName))
+	}
+	if err != nil {
+		return "", errors.Annotatef(err, "creating storage class %q", scName)
+	}
+	if nonPreferredStorageErr != nil && sp.Provisioner == provisioner {
+		storageMsg = fmt.Sprintf(" with %s default storage provisioned", nonPreferredStorageErr.Name)
+	} else {
+		storageMsg = " with storage provisioned"
+	}
+	storageMsg += fmt.Sprintf("\nby the existing %q storage class", scName)
+	clusterMetadata.NominatedStorageClass = sp
+	clusterMetadata.OperatorStorageClass = sp
+	return
 }
 
 // BaseKubeCloudOpenParams provides a basic OpenParams for a cluster
