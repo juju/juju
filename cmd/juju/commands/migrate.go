@@ -108,7 +108,10 @@ func (c *migrateCommand) Init(args []string) error {
 		return errors.New("too many arguments specified")
 	}
 
-	c.SetModelName(args[0], false)
+	if err := c.SetModelIdentifier(args[0], false); err != nil {
+		return errors.Trace(err)
+	}
+
 	c.targetController = args[1]
 	return nil
 }
@@ -119,7 +122,7 @@ func (c *migrateCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	modelName, err := c.ModelName()
+	modelName, err := c.ModelIdentifier()
 	if err != nil {
 		return errors.Trace(err)
 	}
