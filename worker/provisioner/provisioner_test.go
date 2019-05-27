@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -468,7 +469,7 @@ func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Prov
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
 	apiState := apiprovisioner.NewState(s.st)
-	w, err := provisioner.NewEnvironProvisioner(apiState, agentConfig, s.Environ, &credentialAPIForTest{})
+	w, err := provisioner.NewEnvironProvisioner(apiState, agentConfig, loggo.GetLogger("test"), s.Environ, &credentialAPIForTest{})
 	c.Assert(err, jc.ErrorIsNil)
 	return w
 }
@@ -990,7 +991,7 @@ func (s *MachineClassifySuite) TestMachineClassification(c *gc.C) {
 
 		c.Logf("%s: %s", id, t.description)
 		machine := MockMachine{t.life, t.status, id, s2e(t.idErr), s2e(t.ensureDeadErr), s2e(t.statusErr)}
-		classification, err := provisioner.ClassifyMachine(&machine)
+		classification, err := provisioner.ClassifyMachine(loggo.GetLogger("test"), &machine)
 		if err != nil {
 			c.Assert(err, gc.ErrorMatches, fmt.Sprintf(t.expectErrFmt, machine.Id()))
 		} else {
@@ -1360,6 +1361,7 @@ func (s *ProvisionerSuite) newProvisionerTaskWithRetryStrategy(
 	w, err := provisioner.NewProvisionerTask(
 		s.ControllerConfig.ControllerUUID(),
 		names.NewMachineTag("0"),
+		loggo.GetLogger("test"),
 		harvestingMethod,
 		machineGetter,
 		distributionGroupFinder,

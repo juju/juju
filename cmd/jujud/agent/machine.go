@@ -876,6 +876,7 @@ func (a *MachineAgent) updateSupportedContainers(
 	}
 	params := provisioner.ContainerSetupParams{
 		Runner:              runner,
+		Logger:              loggo.GetLogger("juju.container-setup"),
 		WorkerName:          watcherName,
 		SupportedContainers: containers,
 		Machine:             machine,
