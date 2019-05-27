@@ -585,9 +585,9 @@ func (e *Environ) StartInstance(ctx envcontext.ProviderCallContext, args environ
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
 
-	var rootDiskSizeGB int
+	var rootDiskSizeGB int64
 	if args.Constraints.RootDisk != nil {
-		rootDiskSizeGB = int(*args.Constraints.RootDisk) / 1024
+		rootDiskSizeGB = int64(*args.Constraints.RootDisk) / 1024
 		if int(*args.Constraints.RootDisk) < MinVolumeSizeMB {
 			logger.Warningf(
 				"selected disk size is too small (%d MB). Setting root disk size to minimum volume size (%d MB)",

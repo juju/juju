@@ -108,7 +108,7 @@ func (v *volumeSource) createVolume(ctx envcontext.ProviderCallContext, p storag
 	}
 	volTags[tags.JujuModel] = v.modelUUID
 
-	size := int(p.Size)
+	size := int64(p.Size)
 	requestDetails := ociCore.CreateVolumeDetails{
 		AvailabilityDomain: &availabilityZone,
 		CompartmentId:      v.env.ecfg().compartmentID(),
