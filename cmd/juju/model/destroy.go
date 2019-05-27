@@ -168,7 +168,7 @@ func (c *destroyCommand) Init(args []string) error {
 	case 0:
 		return errors.New("no model specified")
 	case 1:
-		return c.SetModelName(args[0], false)
+		return c.SetModelIdentifier(args[0], false)
 	default:
 		return cmd.CheckEmpty(args[1:])
 	}
