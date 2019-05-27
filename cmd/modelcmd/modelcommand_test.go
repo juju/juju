@@ -58,6 +58,16 @@ var modelCommandModelTests = []struct {
 	expectController: "bar",
 	expectModel:      "noncurrentbar",
 }, {
+	about:            "explicit controller and model UUID, long form",
+	args:             []string{"--model", "bar:uuidbar2"},
+	expectController: "bar",
+	expectModel:      "uuidbar2",
+}, {
+	about:            "explicit controller and model UUID, short form",
+	args:             []string{"-m", "bar:uuidbar2"},
+	expectController: "bar",
+	expectModel:      "uuidbar2",
+}, {
 	about:            "implicit controller, explicit model, short form",
 	args:             []string{"-m", "explicit"},
 	expectController: "foo",
@@ -67,6 +77,16 @@ var modelCommandModelTests = []struct {
 	args:             []string{"--model", "explicit"},
 	expectController: "foo",
 	expectModel:      "explicit",
+}, {
+	about:            "implicit controller, explicit model UUID, short form",
+	args:             []string{"-m", "uuidfoo3"},
+	expectController: "foo",
+	expectModel:      "uuidfoo3",
+}, {
+	about:            "implicit controller, explicit model UUID, long form",
+	args:             []string{"--model", "uuidfoo3"},
+	expectController: "foo",
+	expectModel:      "uuidfoo3",
 }, {
 	about:            "explicit controller, implicit model",
 	args:             []string{"--model", "bar:"},
@@ -101,7 +121,7 @@ var modelCommandModelTests = []struct {
 	expectModel:      "noncurrentfoo",
 }}
 
-func (s *ModelCommandSuite) TestModelName(c *gc.C) {
+func (s *ModelCommandSuite) TestModelIdentifier(c *gc.C) {
 	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	s.store.Controllers["bar"] = jujuclient.ControllerDetails{}
 	s.store.CurrentControllerName = "foo"
@@ -116,7 +136,7 @@ func (s *ModelCommandSuite) TestModelName(c *gc.C) {
 		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.store.UpdateModel("foo", "adminfoo/oncurrentfoo",
+	err = s.store.UpdateModel("foo", "adminfoo/noncurrentfoo",
 		jujuclient.ModelDetails{ModelUUID: "uuidfoo2", ModelType: model.IAAS})
 	c.Assert(err, jc.ErrorIsNil)
 
