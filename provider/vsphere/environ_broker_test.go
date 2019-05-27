@@ -467,3 +467,30 @@ func (s *environBrokerSuite) TestStopInstancesPermissionError(c *gc.C) {
 		return s.env.StopInstances(ctx, "vm-0")
 	})
 }
+
+func (s *environBrokerSuite) TestStartInstanceNoDatastoreSetting(c *gc.C) {
+	startInstArgs := s.createStartInstanceArgs(c)
+	res, err := s.env.StartInstance(s.callCtx, startInstArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.client.CheckCallNames(c, "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
+	call := s.client.Calls()[3]
+	c.Assert(call.Args, gc.HasLen, 2)
+	c.Assert(call.Args[0], gc.Implements, new(context.Context))
+	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
+
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
+
+	var expected *string
+	c.Assert(createVMArgs.Constraints.RootDiskSource, gc.Equals, expected)
+
+	var (
+		arch     = "amd64"
+		rootDisk = common.MinRootDiskSizeGiB("trusty") * 1024
+	)
+	c.Assert(res.Hardware, jc.DeepEquals, &instance.HardwareCharacteristics{
+		Arch:           &arch,
+		RootDisk:       &rootDisk,
+		RootDiskSource: nil,
+	})
+}
