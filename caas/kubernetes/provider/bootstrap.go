@@ -337,9 +337,9 @@ func (c *controllerStack) getControllerSvcSpec(cloudType string) (*controllerSer
 	spec, ok := controllerServiceSpecs[cloudType]
 	if !ok {
 		logger.Debugf("fallback to default svc spec for %q", cloudType)
-		spec, _ = controllerServiceSpecs[caas.K8sCloudOther]
+		spec = controllerServiceSpecs[caas.K8sCloudOther]
 	}
-	if spec.ServiceType == "" {
+	if spec == nil || spec.ServiceType == "" {
 		// ServiceType is required.
 		return nil, errors.NotValidf("service type is empty for %q", cloudType)
 	}
@@ -349,7 +349,7 @@ func (c *controllerStack) getControllerSvcSpec(cloudType string) (*controllerSer
 func (c *controllerStack) createControllerService() error {
 	svcName := c.resourceNameService
 
-	cloudType := cloud.SplitHostCloudRegion(c.pcfg.Bootstrap.ControllerCloud.HostCloudRegion)[0]
+	cloudType, _, _ := cloud.SplitHostCloudRegion(c.pcfg.Bootstrap.ControllerCloud.HostCloudRegion)
 	controllerSvcSpec, err := c.getControllerSvcSpec(cloudType)
 	if err != nil {
 		return errors.Trace(err)
