@@ -49,7 +49,7 @@ type ModelCommand interface {
 	// associated with.
 	ClientStore() jujuclient.ClientStore
 
-	// SetModelIdentifier sets the model name for this command.
+	// SetModelIdentifier sets the model identifier for this command.
 	// Setting the model identifier will also set the related controller name.
 	// The model name can be qualified with a controller name
 	// (controller:model), or unqualified, in which case it will be assumed
@@ -60,7 +60,7 @@ type ModelCommand interface {
 	//
 	// SetModelIdentifier is called prior to the wrapped command's Init method
 	// with the active model name.
-	// The model name is guaranteed to be non-empty at entry of Init.
+	// The model identifier is guaranteed to be non-empty at entry of Init.
 	SetModelIdentifier(modelIdentifier string, allowDefault bool) error
 
 	// ModelIdentifier returns a string identifying the target model.
