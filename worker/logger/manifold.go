@@ -4,6 +4,7 @@
 package logger
 
 import (
+	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -12,11 +13,22 @@ import (
 	"github.com/juju/juju/api/logger"
 )
 
+// Logger represents a loggo logger for the purpose of recording what is going
+// on.
+type Logger interface {
+	Debugf(string, ...interface{})
+	Infof(string, ...interface{})
+	Warningf(string, ...interface{})
+	Errorf(string, ...interface{})
+}
+
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
 type ManifoldConfig struct {
 	AgentName       string
 	APICallerName   string
+	LoggingContext  *loggo.Context
+	Logger          Logger
 	UpdateAgentFunc func(string) error
 }
 
@@ -42,7 +54,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			loggerFacade := logger.NewState(apiCaller)
-			return NewLogger(loggerFacade, currentConfig.Tag(), loggingOverride, config.UpdateAgentFunc)
+			workerConfig := WorkerConfig{
+				Context:  config.LoggingContext,
+				API:      loggerFacade,
+				Tag:      currentConfig.Tag(),
+				Logger:   config.Logger,
+				Override: loggingOverride,
+				Callback: config.UpdateAgentFunc,
+			}
+			return NewLogger(workerConfig)
 		},
 	}
 }

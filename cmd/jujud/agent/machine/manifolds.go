@@ -566,6 +566,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		loggingConfigUpdaterName: ifNotMigrating(logger.Manifold(logger.ManifoldConfig{
 			AgentName:       agentName,
 			APICallerName:   apiCallerName,
+			LoggingContext:  loggo.DefaultContext(),
+			Logger:          loggo.GetLogger("juju.worker.logger"),
 			UpdateAgentFunc: config.UpdateLoggerConfig,
 		})),
 

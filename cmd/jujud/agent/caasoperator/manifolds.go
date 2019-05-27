@@ -6,6 +6,8 @@ package caasoperator
 import (
 	"time"
 
+	"github.com/juju/loggo"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/utils/voyeur"
@@ -200,6 +202,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		loggingConfigUpdaterName: ifNotMigrating(logger.Manifold(logger.ManifoldConfig{
 			AgentName:       agentName,
 			APICallerName:   apiCallerName,
+			LoggingContext:  loggo.DefaultContext(),
+			Logger:          loggo.GetLogger("juju.worker.logger"),
 			UpdateAgentFunc: config.UpdateLoggerConfig,
 		})),
 
