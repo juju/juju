@@ -11,8 +11,5 @@ requires:
 categories:
   - misc
 series:
-  - trusty
-  - xenial
-  - artful
-  - bionic
-  - disco
+  - centos7
+
