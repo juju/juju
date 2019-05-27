@@ -334,7 +334,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 		return nil
 	}
 	if len(c.patterns) == 0 {
-		modelName, err := c.ModelName()
+		modelName, err := c.ModelIdentifier()
 		if err != nil {
 			return err
 		}
