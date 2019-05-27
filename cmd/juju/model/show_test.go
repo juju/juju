@@ -137,6 +137,15 @@ func (s *ShowCommandSuite) TestShow(c *gc.C) {
 	})
 }
 
+func (s *ShowCommandSuite) TestShowWithPartModelUUID(c *gc.C) {
+	_, err := cmdtesting.RunCommand(c, s.newShowCommand(), "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+	s.fake.CheckCalls(c, []gitjujutesting.StubCall{
+		{"ModelInfo", []interface{}{[]names.ModelTag{testing.ModelTag}}},
+		{"Close", nil},
+	})
+}
+
 func (s *ShowCommandSuite) TestShowUnknownCallsRefresh(c *gc.C) {
 	called := false
 	refresh := func(jujuclient.ClientStore, string) error {

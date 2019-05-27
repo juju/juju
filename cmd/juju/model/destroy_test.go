@@ -207,7 +207,19 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	s.stub.CheckCalls(c, []jutesting.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil)}},
+		{"DestroyModel",
+			[]interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil)}},
+	})
+}
+
+func (s *DestroySuite) TestDestroyWithPartModelUUID(c *gc.C) {
+	checkModelExistsInStore(c, "test1:admin/test2", s.store)
+	_, err := s.runDestroyCommand(c, "test2-uu", "-y")
+	c.Assert(err, jc.ErrorIsNil)
+	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
+	s.stub.CheckCalls(c, []jutesting.StubCall{
+		{"DestroyModel",
+			[]interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil)}},
 	})
 }
 

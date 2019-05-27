@@ -370,15 +370,15 @@ func (c *ModelCommandBase) modelFromStore(controllerName, modelIdentifier string
 		return "", nil, errors.Trace(err)
 	}
 
-	models, err := c.store.AllModels(controllerName)
-	if err != nil {
-		return "", nil, errors.Trace(err)
-	}
-
 	// If the identifier is 6-8 characters or a valid UUID,
 	// attempt to match one of the stored model UUIDs.
 	l := len(modelIdentifier)
 	if (l > 5 && l < 9) || names.IsValidModel(modelIdentifier) {
+		models, err := c.store.AllModels(controllerName)
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+
 		for name, details := range models {
 			if strings.HasPrefix(details.ModelUUID, modelIdentifier) {
 				return name, &details, nil
@@ -386,7 +386,12 @@ func (c *ModelCommandBase) modelFromStore(controllerName, modelIdentifier string
 		}
 	}
 
-	return "", nil, errors.NotFoundf("model %s:%s", controllerName, modelIdentifier)
+	// Keep the not-found error from the store if we have one.
+	// This will preserve the user-qualified model identifier.
+	if err == nil {
+		err = errors.NotFoundf("model %s:%s", controllerName, modelIdentifier)
+	}
+	return "", nil, errors.Trace(err)
 }
 
 // NewAPIRoot returns a new connection to the API server for the environment
