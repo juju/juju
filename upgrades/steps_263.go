@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/api/upgradesteps"
 )
 
-// stateStepsFor263 returns upgrade steps for Juju 2.6.3.
+// stepsFor263 returns upgrade steps for Juju 2.6.3.
 func stepsFor263() []Step {
 	return []Step{
 		&upgradeStep{
@@ -29,4 +29,17 @@ func resetKVMMachineModificationStatusIdle(context Context) error {
 	}
 	client := upgradesteps.NewClient(context.APIState())
 	return client.ResetKVMMachineModificationStatusIdle(tag)
+}
+
+// stateStepsFor263 returns upgrade steps for Juju 2.6.3.
+func stateStepsFor263() []Step {
+	return []Step{
+		&upgradeStep{
+			description: "update model name index of k8s models",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().UpdateK8sModelNameIndex()
+			},
+		},
+	}
 }

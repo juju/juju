@@ -371,10 +371,6 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 	}
 	// Some values require marshalling before storage.
 	modelCfg = config.CoerceForStorage(modelCfg)
-	qualifier := args.Owner.Id()
-	if args.Type == ModelTypeCAAS {
-		qualifier = args.CloudName
-	}
 	ops = append(ops,
 		createSettingsOp(settingsC, modelGlobalKey, modelCfg),
 		createModelEntityRefsOp(modelUUID),
@@ -387,7 +383,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 			args.MigrationMode,
 			args.EnvironVersion,
 		),
-		createUniqueOwnerModelNameOp(qualifier, args.Config.Name()),
+		createUniqueOwnerModelNameOp(args.Owner, args.Config.Name()),
 	)
 	ops = append(ops, modelUserOps...)
 	return ops, modelStatusDoc, nil

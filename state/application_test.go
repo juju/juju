@@ -196,7 +196,7 @@ func (s *ApplicationSuite) TestLXDProfileFailWithForceSetCharm(c *gc.C) {
 func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		Type: state.ModelTypeCAAS,
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
@@ -221,7 +221,7 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 func (s *ApplicationSuite) TestCAASSetCharmNewDeploymentFails(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		Type: state.ModelTypeCAAS,
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
@@ -2090,7 +2090,7 @@ func (s *ApplicationSuite) TestAddUnitWhenNotAlive(c *gc.C) {
 func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		Type: state.ModelTypeCAAS,
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
@@ -2139,7 +2139,7 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		Type: state.ModelTypeCAAS,
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
@@ -3929,7 +3929,7 @@ func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
 func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		Type: state.ModelTypeCAAS,
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
@@ -4032,7 +4032,7 @@ func (s *ApplicationSuite) TestSetOperatorStatusNonCAAS(c *gc.C) {
 func (s *ApplicationSuite) TestSetOperatorStatus(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		Type: state.ModelTypeCAAS,
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)

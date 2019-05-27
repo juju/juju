@@ -154,7 +154,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	c.Assert(st2, gc.NotNil)
 }
 
-func (s *ModelSuite) TestNewCAASModelSameUserFails(c *gc.C) {
+func (s *ModelSuite) TestNewCAASModelDifferentUser(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
 	owner := s.Factory.MakeUser(c, nil).UserTag()
 	owner2 := s.Factory.MakeUser(c, nil).UserTag()
@@ -163,6 +163,47 @@ func (s *ModelSuite) TestNewCAASModelSameUserFails(c *gc.C) {
 	model, st1, err := s.Controller.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeCAAS,
 		CloudName:               "dummy",
+		CloudRegion:             "dummy-region",
+		Config:                  cfg,
+		Owner:                   owner,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st1.Close()
+	c.Assert(model.UniqueIndexExists(), jc.IsTrue)
+
+	// Attempt to create another model with a different UUID and owner
+	// but the name as the first.
+	newUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg2 := testing.CustomModelConfig(c, testing.Attrs{
+		"name": cfg.Name(),
+		"uuid": newUUID.String(),
+	})
+
+	// We should now be able to create the other model.
+	model2, st2, err := s.Controller.NewModel(state.ModelArgs{
+		Type:                    state.ModelTypeCAAS,
+		CloudName:               "dummy",
+		CloudRegion:             "dummy-region",
+		Config:                  cfg2,
+		Owner:                   owner2,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st2.Close()
+	c.Assert(model2.UniqueIndexExists(), jc.IsTrue)
+}
+
+func (s *ModelSuite) TestNewCAASModelSameUserFails(c *gc.C) {
+	cfg, _ := s.createTestModelConfig(c)
+	owner := s.Factory.MakeUser(c, nil).UserTag()
+
+	// Create the first model.
+	model, st1, err := s.Controller.NewModel(state.ModelArgs{
+		Type:                    state.ModelTypeCAAS,
+		CloudName:               "dummy",
+		CloudRegion:             "dummy-region",
 		Config:                  cfg,
 		Owner:                   owner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
@@ -182,11 +223,12 @@ func (s *ModelSuite) TestNewCAASModelSameUserFails(c *gc.C) {
 	_, _, err = s.Controller.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeCAAS,
 		CloudName:               "dummy",
+		CloudRegion:             "dummy-region",
 		Config:                  cfg2,
-		Owner:                   owner2,
+		Owner:                   owner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
-	errMsg := fmt.Sprintf("model %q for cloud dummy already exists", cfg2.Name())
+	errMsg := fmt.Sprintf("model %q for %s already exists", cfg2.Name(), owner.Name())
 	c.Assert(err, gc.ErrorMatches, errMsg)
 	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
 
@@ -207,6 +249,7 @@ func (s *ModelSuite) TestNewCAASModelSameUserFails(c *gc.C) {
 	model2, st2, err := s.Controller.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeCAAS,
 		CloudName:               "dummy",
+		CloudRegion:             "dummy-region",
 		Config:                  cfg2,
 		Owner:                   owner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
