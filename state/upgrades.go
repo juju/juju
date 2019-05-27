@@ -2109,3 +2109,53 @@ func RemoveInstanceCharmProfileDataCollection(pool *StatePool) error {
 	}
 	return nil
 }
+
+// UpdateK8sModelNameIndex migrates k8s model indices to be based
+// on the model owner rather than the cloud name.
+func UpdateK8sModelNameIndex(pool *StatePool) error {
+	st := pool.SystemState()
+
+	models, closer := st.db().GetCollection(modelsC)
+	defer closer()
+	usermodelNames, closer2 := st.db().GetCollection(usermodelnameC)
+	defer closer2()
+
+	var ops []txn.Op
+	var docs []bson.M
+	err := models.Find(bson.D{{"type", ModelTypeCAAS}}).Select(bson.M{"cloud": 1, "name": 1, "owner": 1}).All(&docs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, m := range docs {
+		owner := m["owner"].(string)
+		name := m["name"].(string)
+		cloudName := m["cloud"].(string)
+		oldId := userModelNameIndex(cloudName, name)
+		expectedId := userModelNameIndex(owner, name)
+
+		n, err := usermodelNames.FindId(expectedId).Count()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if n > 0 {
+			continue
+		}
+
+		ops = append(ops, []txn.Op{{
+			C:      usermodelnameC,
+			Id:     oldId,
+			Assert: txn.DocExists,
+			Remove: true,
+		}, {
+			C:      usermodelnameC,
+			Id:     expectedId,
+			Assert: txn.DocMissing,
+			Insert: bson.M{},
+		}}...)
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
+}
