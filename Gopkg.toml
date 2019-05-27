@@ -312,7 +312,7 @@
 
 [[constraint]]
   name = "github.com/juju/loggo"
-  revision = "8232ab8918d91c72af1a9fb94d3edbe31d88b790"
+  revision = "6e530bcce5d8e1b51b8e5ee7f08a455cd0a8c2e5"
 
 [[override]]
   name = "github.com/juju/lru"
