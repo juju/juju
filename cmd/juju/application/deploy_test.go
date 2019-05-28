@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/juju/caas"
@@ -29,6 +30,7 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -946,6 +948,49 @@ func (s *DeploySuite) TestDeployLocalWithSeriesAndForce(c *gc.C) {
 
 	curl := charm.MustParseURL("local:quantal/terms1-1")
 	s.AssertApplication(c, "terms1", curl, 1, 0)
+}
+
+func (s *DeploySuite) setupNonESMSeries(c *gc.C) (string, string) {
+	supported := set.NewStrings(series.SupportedJujuSeries()...)
+	// Allowing kubernetes as an option, can lead to an unrelated failure:
+	// 		series "kubernetes" in a non container model not valid
+	supported.Remove("kubernetes")
+	supportedNotEMS := supported.Difference(set.NewStrings(series.ESMSupportedJujuSeries()...))
+	c.Assert(supportedNotEMS.Size(), jc.GreaterThan, 0)
+
+	s.PatchValue(&supportedJujuSeries, func() []string {
+		return supported.Values()
+	})
+
+	nonEMSSeries := supportedNotEMS.Values()[0]
+
+	loggingPath := testcharms.RepoWithSeries("bionic").RenamedClonedDirPath(s.CharmsPath, "logging", "series-logging")
+	metadataPath := filepath.Join(loggingPath, "metadata.yaml")
+	file, err := os.OpenFile(metadataPath, os.O_TRUNC|os.O_RDWR, 0666)
+	if err != nil {
+		c.Fatal(errors.Annotate(err, "cannot open metadata.yaml"))
+	}
+	defer file.Close()
+
+	// Overwrite the metadata.yaml to contain a non EMS series.
+	newMetadata := strings.Join([]string{`name: logging`, `summary: ""`, `description: ""`, `series: `, `  - ` + nonEMSSeries, `  - artful`}, "\n")
+	if _, err := file.WriteString(newMetadata); err != nil {
+		c.Fatal("cannot write to metadata.yaml")
+	}
+
+	return nonEMSSeries, loggingPath
+}
+
+func (s *DeploySuite) TestDeployLocalWithSupportedNonESMSeries(c *gc.C) {
+	nonEMSSeries, loggingPath := s.setupNonESMSeries(c)
+	_, _, err := s.runDeployWithOutput(c, loggingPath, "--series", nonEMSSeries)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *DeploySuite) TestDeployLocalWithNotSupportedNonESMSeries(c *gc.C) {
+	_, loggingPath := s.setupNonESMSeries(c)
+	_, _, err := s.runDeployWithOutput(c, loggingPath, "--series", "artful")
+	c.Assert(err, gc.ErrorMatches, "logging is not available on the following series: artful not supported")
 }
 
 type DeployLocalSuite struct {
