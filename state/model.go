@@ -635,8 +635,23 @@ func (m *Model) Owner() names.UserTag {
 	return names.NewUserTag(m.doc.Owner)
 }
 
+func modelStatusInvalidCredential() status.StatusInfo {
+	return status.StatusInfo{Status: status.Suspended, Message: "suspended since cloud credential is not valid"}
+}
+
 // Status returns the status of the model.
 func (m *Model) Status() (status.StatusInfo, error) {
+	// If model credential is invalid, model is suspended.
+	if credentialTag, hasCredential := m.CloudCredential(); hasCredential {
+		credential, err := m.st.CloudCredential(credentialTag)
+		if err != nil {
+			return status.StatusInfo{}, errors.Annotatef(err, "could not get model credential %v", credentialTag.Id())
+		}
+		if !credential.IsValid() {
+			return modelStatusInvalidCredential(), nil
+		}
+	}
+
 	status, err := getStatus(m.st.db(), m.globalKey(), "model")
 	if err != nil {
 		return status, err
