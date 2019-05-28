@@ -194,7 +194,7 @@ func (s *Settings) write(ops []txn.Op) error {
 		return errors.NotFoundf("settings")
 	}
 	if err != nil {
-		return fmt.Errorf("cannot write settings: %v", err)
+		return errors.Annotate(err, "writing settings")
 	}
 	s.disk = copyMap(s.core, nil)
 	return nil

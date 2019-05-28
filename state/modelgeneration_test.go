@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -25,16 +26,18 @@ const (
 
 type generationSuite struct {
 	ConnSuite
+
+	ch *state.Charm
 }
 
 var _ = gc.Suite(&generationSuite{})
 
-func (s *generationSuite) TestNextGenerationNotFound(c *gc.C) {
+func (s *generationSuite) TestBranchNameNotFound(c *gc.C) {
 	_, err := s.Model.Branch("non-extant-branch")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
-func (s *generationSuite) TestNewGenerationSuccess(c *gc.C) {
+func (s *generationSuite) TestAddBranchSuccess(c *gc.C) {
 	s.setupTestingClock(c)
 	gen := s.addBranch(c)
 
@@ -73,7 +76,7 @@ func (s *generationSuite) TestAssignApplicationSuccess(c *gc.C) {
 	c.Check(gen.AssignedUnits(), gc.DeepEquals, map[string][]string{"redis": {}})
 }
 
-func (s *generationSuite) TestAssignUnitGenAbortedError(c *gc.C) {
+func (s *generationSuite) TestAssignUnitBranchAbortedError(c *gc.C) {
 	s.setupTestingClock(c)
 	gen := s.addBranch(c)
 
@@ -92,7 +95,7 @@ func (s *generationSuite) TestAssignUnitNotExistsError(c *gc.C) {
 	c.Assert(gen.AssignUnit("redis/0"), gc.ErrorMatches, `unit "redis/0" not found`)
 }
 
-func (s *generationSuite) TestAssignUnitGenCommittedError(c *gc.C) {
+func (s *generationSuite) TestAssignUnitBranchCommittedError(c *gc.C) {
 	s.setupTestingClock(c)
 	gen := s.setupAssignAllUnits(c)
 
@@ -208,6 +211,26 @@ func (s *generationSuite) TestCommitNoChangesEffectivelyAborted(c *gc.C) {
 	c.Check(gen.CompletedBy(), gc.Equals, branchCommitter)
 }
 
+func (s *generationSuite) TestCommitAppliesConfigDeltas(c *gc.C) {
+	s.setupTestingClock(c)
+	gen := s.setupAssignAllUnits(c)
+
+	app, err := s.State.Application("riak")
+	c.Assert(err, jc.ErrorIsNil)
+
+	newCfg := map[string]interface{}{"http_port": int64(9999)}
+	c.Assert(app.UpdateCharmConfig(newBranchName, newCfg), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+
+	_, err = gen.Commit(branchCommitter)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+
+	cfg, err := app.CharmConfig(model.GenerationMaster)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(cfg, gc.DeepEquals, charm.Settings(newCfg))
+}
+
 // TODO (manadart 2019-03-21): Tests for abort.
 
 func (s *generationSuite) TestBranchCharmConfigDeltas(c *gc.C) {
@@ -293,8 +316,13 @@ func (s *generationSuite) TestBranches(c *gc.C) {
 }
 
 func (s *generationSuite) setupAssignAllUnits(c *gc.C) *state.Generation {
-	ch := s.AddTestingCharm(c, "riak")
-	riak := s.AddTestingApplication(c, "riak", ch)
+	var cfgYAML = `
+options:
+  http_port: {default: 8089, description: HTTP Port, type: int}
+`
+	s.ch = s.AddConfigCharm(c, "riak", cfgYAML, 666)
+
+	riak := s.AddTestingApplication(c, "riak", s.ch)
 	for i := 0; i < 4; i++ {
 		_, err := riak.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)

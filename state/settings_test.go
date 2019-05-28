@@ -369,7 +369,7 @@ func (s *SettingsSuite) TestDeleteEmptiesState(c *gc.C) {
 	c.Assert(node.Map(), gc.DeepEquals, map[string]interface{}{})
 }
 
-func (s *SettingsSuite) TestReadResync(c *gc.C) {
+func (s *SettingsSuite) TestReadReSync(c *gc.C) {
 	// Check that read pulls the data into the node.
 	nodeOne, err := s.createSettings(s.key, nil)
 	c.Assert(err, jc.ErrorIsNil)
