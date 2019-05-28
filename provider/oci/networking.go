@@ -219,8 +219,8 @@ func (e *Environ) getSecurityList(controllerUUID, modelUUID string, vcnid *strin
 	return seclist[0], nil
 }
 
-func (e *Environ) ensureSecurityList(controllerUUID, modelUUID string, vcnid *string) (ociCore.SecurityList, error) {
-	if seclist, err := e.getSecurityList(controllerUUID, modelUUID, vcnid); err != nil {
+func (e *Environ) ensureSecurityList(controllerUUID, modelUUID string, vcnId *string) (ociCore.SecurityList, error) {
+	if seclist, err := e.getSecurityList(controllerUUID, modelUUID, vcnId); err != nil {
 		if !errors.IsNotFound(err) {
 			return ociCore.SecurityList{}, errors.Trace(err)
 		}
@@ -233,7 +233,7 @@ func (e *Environ) ensureSecurityList(controllerUUID, modelUUID string, vcnid *st
 	// Hopefully just temporary, open all ingress/egress ports
 	details := ociCore.CreateSecurityListDetails{
 		CompartmentId: e.ecfg().compartmentID(),
-		VcnId:         vcnid,
+		VcnId:         vcnId,
 		DisplayName:   &name,
 		FreeformTags: map[string]string{
 			tags.JujuController: controllerUUID,
@@ -534,30 +534,6 @@ func (e *Environ) removeSubnets(subnets map[string][]ociCore.Subnet) error {
 	return nil
 }
 
-func (e *Environ) removeSeclist(secLists []ociCore.SecurityList) error {
-	for _, secList := range secLists {
-		if secList.Id == nil {
-			return nil
-		}
-		request := ociCore.DeleteSecurityListRequest{
-			SecurityListId: secList.Id,
-		}
-		logger.Debugf("deleting security list %s", *secList.Id)
-		response, err := e.Firewall.DeleteSecurityList(context.Background(), request)
-		if err != nil && !e.isNotFound(response.RawResponse) {
-			return nil
-		}
-		err = e.waitForResourceStatus(
-			e.getSeclistStatus, secList.Id,
-			string(ociCore.SecurityListLifecycleStateTerminated),
-			resourcePollTimeout)
-		if !errors.IsNotFound(err) {
-			return err
-		}
-	}
-	return nil
-}
-
 func (e *Environ) removeVCN(vcn ociCore.Vcn) error {
 	if vcn.Id == nil {
 		return nil
@@ -569,14 +545,14 @@ func (e *Environ) removeVCN(vcn ociCore.Vcn) error {
 	logger.Infof("deleting VCN: %s", *vcn.Id)
 	response, err := e.Networking.DeleteVcn(context.Background(), requestDeleteVcn)
 	if err != nil && !e.isNotFound(response.RawResponse) {
-		return err
+		return errors.Trace(err)
 	}
 	err = e.waitForResourceStatus(
 		e.getVCNStatus, vcn.Id,
 		string(ociCore.VcnLifecycleStateTerminated),
 		resourcePollTimeout)
 	if !errors.IsNotFound(err) {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -586,7 +562,6 @@ func (e *Environ) removeVCN(vcn ociCore.Vcn) error {
 // destroying the environment, and only after destroying any resources that may be attached
 // to a network.
 func (e *Environ) cleanupNetworksAndSubnets(controllerUUID, modelUUID string) error {
-
 	vcns, err := e.allVCNs(controllerUUID, modelUUID)
 	if err != nil {
 		return errors.Trace(err)
@@ -600,21 +575,7 @@ func (e *Environ) cleanupNetworksAndSubnets(controllerUUID, modelUUID string) er
 		if err != nil {
 			return errors.Trace(err)
 		}
-
 		if err := e.removeSubnets(allSubnets); err != nil {
-			return errors.Trace(err)
-		}
-
-		secList, err := e.allSecurityLists(controllerUUID, modelUUID, vcn.Id)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		if err := e.removeSeclist(secList); err != nil {
-			return errors.Trace(err)
-		}
-
-		if err := e.deleteRouteTable(controllerUUID, modelUUID, vcn.Id); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -622,9 +583,12 @@ func (e *Environ) cleanupNetworksAndSubnets(controllerUUID, modelUUID string) er
 			return errors.Trace(err)
 		}
 
+		// Note that terminating a VCN also terminates its security lists
+		// and routing table.
 		if err := e.removeVCN(vcn); err != nil {
 			return errors.Trace(err)
 		}
+
 	}
 	return nil
 }
@@ -748,7 +712,7 @@ func (e *Environ) deleteInternetGateway(vcnID *string) error {
 }
 
 func (e *Environ) allRouteTables(controllerUUID, modelUUID string, vcnID *string) ([]ociCore.RouteTable, error) {
-	ret := []ociCore.RouteTable{}
+	var ret []ociCore.RouteTable
 	if vcnID == nil {
 		return ret, errors.Errorf("vcnID may not be nil")
 	}
@@ -859,45 +823,6 @@ func (e *Environ) ensureRouteTable(controllerUUID, modelUUID string, vcnID *stri
 	}
 
 	return response.RouteTable, nil
-}
-
-func (e *Environ) deleteRouteTable(controllerUUID, modelUUID string, vcnID *string) error {
-	rts, err := e.allRouteTables(controllerUUID, modelUUID, vcnID)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return err
-		}
-		return nil
-	}
-
-	for _, rt := range rts {
-		if rt.LifecycleState == ociCore.RouteTableLifecycleStateTerminated {
-			return nil
-		}
-
-		if rt.LifecycleState != ociCore.RouteTableLifecycleStateTerminating {
-			request := ociCore.DeleteRouteTableRequest{
-				RtId: rt.Id,
-			}
-
-			response, err := e.Networking.DeleteRouteTable(context.Background(), request)
-			if err != nil && !e.isNotFound(response.RawResponse) {
-				return errors.Trace(err)
-			}
-		}
-
-		if err := e.waitForResourceStatus(
-			e.getRouteTableStatus,
-			rt.Id,
-			string(ociCore.RouteTableLifecycleStateTerminated),
-			resourcePollTimeout); err != nil {
-
-			if !errors.IsNotFound(err) {
-				return errors.Trace(err)
-			}
-		}
-	}
-	return nil
 }
 
 func (e *Environ) allSubnetsAsMap(modelUUID string) (map[string]ociCore.Subnet, error) {
