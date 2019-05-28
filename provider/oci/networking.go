@@ -496,7 +496,8 @@ func (e *Environ) ensureNetworksAndSubnets(
 	prefix := AllowAllPrefix
 	routeRules := []ociCore.RouteRule{
 		{
-			CidrBlock:       &prefix,
+			Destination:     &prefix,
+			DestinationType: ociCore.RouteRuleDestinationTypeCidrBlock,
 			NetworkEntityId: ig.Id,
 		},
 	}
