@@ -939,6 +939,41 @@ func (e *environSuite) TestBootstrapNoMatchingTools(c *gc.C) {
 
 }
 
+func (e *environSuite) setupDeleteSecurityListExpectations(seclistId string, times int) {
+	request := ociCore.DeleteSecurityListRequest{
+		SecurityListId: makeStringPointer(seclistId),
+	}
+
+	response := ociCore.DeleteSecurityListResponse{
+		RawResponse: &http.Response{
+			StatusCode: 201,
+		},
+	}
+
+	expect := e.fw.EXPECT().DeleteSecurityList(context.Background(), request).Return(response, nil)
+	if times == 0 {
+		expect.AnyTimes()
+	} else {
+		expect.Times(times)
+	}
+
+	requestGet := ociCore.GetSecurityListRequest{
+		SecurityListId: makeStringPointer("fakeSecList"),
+	}
+
+	seclist := ociCore.SecurityList{
+		Id:             makeStringPointer("fakeSecList"),
+		LifecycleState: ociCore.SecurityListLifecycleStateTerminated,
+	}
+
+	responseGet := ociCore.GetSecurityListResponse{
+		SecurityList: seclist,
+	}
+
+	e.fw.EXPECT().GetSecurityList(context.Background(), requestGet).Return(responseGet, nil).AnyTimes()
+
+}
+
 func (e *environSuite) setupDeleteSubnetExpectations(subnetIds []string) {
 	for _, id := range subnetIds {
 		request := ociCore.DeleteSubnetRequest{
@@ -967,6 +1002,35 @@ func (e *environSuite) setupDeleteSubnetExpectations(subnetIds []string) {
 
 		e.netw.EXPECT().GetSubnet(context.Background(), requestGet).Return(responseGet, nil).AnyTimes()
 	}
+}
+
+func (e *environSuite) setupDeleteRouteTableExpectations(vcnId, routeTableId string, t map[string]string) {
+	e.setupListRouteTableExpectations(vcnId, t, 1)
+	request := ociCore.DeleteRouteTableRequest{
+		RtId: makeStringPointer(routeTableId),
+	}
+
+	response := ociCore.DeleteRouteTableResponse{
+		RawResponse: &http.Response{
+			StatusCode: 201,
+		},
+	}
+	e.netw.EXPECT().DeleteRouteTable(context.Background(), request).Return(response, nil).AnyTimes()
+
+	requestGet := ociCore.GetRouteTableRequest{
+		RtId: makeStringPointer(routeTableId),
+	}
+
+	rt := ociCore.RouteTable{
+		Id:             makeStringPointer(routeTableId),
+		LifecycleState: ociCore.RouteTableLifecycleStateTerminated,
+	}
+
+	responseGet := ociCore.GetRouteTableResponse{
+		RouteTable: rt,
+	}
+
+	e.netw.EXPECT().GetRouteTable(context.Background(), requestGet).Return(responseGet, nil).AnyTimes()
 }
 
 func (e *environSuite) setupDeleteInternetGatewayExpectations(vcnId, IgId string, t map[string]string) {
@@ -1108,7 +1172,10 @@ func (e *environSuite) TestDestroyController(c *gc.C) {
 	e.setupListInstancesExpectations(e.testInstanceID, ociCore.InstanceLifecycleStateTerminated, 0)
 	e.setupVcnExpectations(vcnId, machineTags, 1)
 	e.setupListSubnetsExpectations(vcnId, "fakeRouteTableId", machineTags, 1)
+	e.setupSecurityListExpectations(vcnId, machineTags, 1)
+	e.setupDeleteRouteTableExpectations(vcnId, "fakeRouteTableId", machineTags)
 	e.setupDeleteSubnetExpectations([]string{"fakeSubnetId1", "fakeSubnetId2", "fakeSubnetId3"})
+	e.setupDeleteSecurityListExpectations("fakeSecList", 0)
 	e.setupDeleteInternetGatewayExpectations(vcnId, "fakeGwId", machineTags)
 	e.setupDeleteVcnExpectations(vcnId)
 	e.setupDeleteVolumesExpectations()

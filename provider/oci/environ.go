@@ -445,10 +445,13 @@ func (e *Environ) getCloudInitConfig(series string, apiPort int) (cloudinit.Clou
 	}
 	switch operatingSystem {
 	case os.Ubuntu:
-		cloudcfg.AddRunCmd(fmt.Sprintf("/sbin/iptables -I INPUT -p tcp --dport %d -j ACCEPT", apiPort))
+		fwCmd := fmt.Sprintf(
+			"/sbin/iptables -I INPUT -p tcp --dport %d -j ACCEPT", apiPort)
+		cloudcfg.AddRunCmd(fwCmd)
 		cloudcfg.AddScripts("/etc/init.d/netfilter-persistent save")
 	case os.CentOS:
-		cloudcfg.AddRunCmd(fmt.Sprintf("firewall-cmd --zone=public --add-port=%d/tcp --permanent", apiPort))
+		fwCmd := fmt.Sprintf("firewall-cmd --zone=public --add-port=%d/tcp --permanent", apiPort)
+		cloudcfg.AddRunCmd(fwCmd)
 		cloudcfg.AddRunCmd("firewall-cmd --reload")
 	}
 	return cloudcfg, nil
@@ -770,8 +773,6 @@ func (e *Environ) PrecheckInstance(envcontext.ProviderCallContext, environs.Prec
 }
 
 // InstanceTypes implements environs.InstancePrechecker.
-func (e *Environ) InstanceTypes(
-	envcontext.ProviderCallContext, constraints.Value,
-) (instances.InstanceTypesWithCostMetadata, error) {
+func (e *Environ) InstanceTypes(envcontext.ProviderCallContext, constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
 	return instances.InstanceTypesWithCostMetadata{}, errors.NotImplementedf("InstanceTypes")
 }
