@@ -126,7 +126,7 @@ func (m *Model) SetCloudCredential(tag names.CloudCredentialTag) (bool, error) {
 	}
 	if updating && revert {
 		if err := m.maybeRevertModelStatus(); err != nil {
-			logger.Warningf("could not revert status for model %v: %v", m.UUID, err)
+			logger.Warningf("could not revert status for model %v: %v", m.UUID(), err)
 		}
 	}
 	return updating, m.Refresh()
