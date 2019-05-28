@@ -149,14 +149,14 @@ func (s *LogsSuite) TestDbLogger(c *gc.C) {
 	t1 := t0.Add(time.Second)
 	err := logger.Log([]state.LogRecord{{
 		Time:     t0,
-		Entity:   names.NewMachineTag("45"),
+		Entity:   "machine-45",
 		Module:   "some.where",
 		Location: "foo.go:99",
 		Level:    loggo.INFO,
 		Message:  "all is well",
 	}, {
 		Time:     t1,
-		Entity:   names.NewMachineTag("47"),
+		Entity:   "machine-47",
 		Module:   "else.where",
 		Location: "bar.go:42",
 		Level:    loggo.ERROR,
@@ -190,7 +190,7 @@ func (s *LogsSuite) TestPruneLogsByTime(c *gc.C) {
 	log := func(t time.Time, msg string) {
 		err := dbLogger.Log([]state.LogRecord{{
 			Time:     t,
-			Entity:   names.NewMachineTag("22"),
+			Entity:   "machine-22",
 			Version:  jujuversion.Current,
 			Module:   "module",
 			Location: "loc",
@@ -283,7 +283,7 @@ func (s *LogsSuite) generateLogs(c *gc.C, st *state.State, endTime time.Time, co
 		ts := endTime.Add(-time.Duration(i) * time.Second)
 		err := dbLogger.Log([]state.LogRecord{{
 			Time:     ts,
-			Entity:   names.NewMachineTag("0"),
+			Entity:   "machine-0",
 			Version:  jujuversion.Current,
 			Module:   "module",
 			Location: "loc",
