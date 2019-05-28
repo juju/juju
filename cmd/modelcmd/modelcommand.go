@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
 	"github.com/juju/juju/api"
@@ -370,10 +369,9 @@ func (c *ModelCommandBase) modelFromStore(controllerName, modelIdentifier string
 		return "", nil, errors.Trace(err)
 	}
 
-	// If the identifier is 6-8 characters or a valid UUID,
+	// If the identifier is at least characters long,
 	// attempt to match one of the stored model UUIDs.
-	l := len(modelIdentifier)
-	if (l > 5 && l < 9) || names.IsValidModel(modelIdentifier) {
+	if len(modelIdentifier) > 6 {
 		models, err := c.store.AllModels(controllerName)
 		if err != nil {
 			return "", nil, errors.Trace(err)
