@@ -500,7 +500,7 @@
 
 [[constraint]]
   name = "gopkg.in/juju/worker.v1"
-  revision = "187c8117684679e0e261b1d6f488a404d1d093c9"
+  revision = "5398f2291f2c69afe604411634e0d008bdf453a0"
 
 [[override]]
   name = "gopkg.in/macaroon-bakery.v1"
