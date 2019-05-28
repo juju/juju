@@ -61,11 +61,20 @@ func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
 	google.HandleCredentialError(s.googleError, ctx)
 	c.Assert(called, jc.IsFalse)
 
-	for code, desc := range google.AuthorisationFailureStatusCodes {
-		called = false
-		s.internalError.SetMessage(code, desc)
+	for code, descs := range google.AuthorisationFailureStatusCodes {
+		for _, desc := range descs {
+			called = false
+			s.internalError.SetMessage(code, desc)
+			google.HandleCredentialError(s.googleError, ctx)
+			c.Assert(called, jc.IsTrue)
+		}
+	}
+
+	called = false
+	for code := range google.AuthorisationFailureStatusCodes {
+		s.internalError.SetMessage(code, "Some strange error")
 		google.HandleCredentialError(s.googleError, ctx)
-		c.Assert(called, jc.IsTrue)
+		c.Assert(called, jc.IsFalse)
 	}
 }
 
