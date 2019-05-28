@@ -1097,6 +1097,47 @@ func (s *ModelSuite) TestDestroyModelWithApplicationOffers(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *ModelSuite) TestForceDestroySetsForceDestroyed(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.ForceDestroyed(), gc.Equals, false)
+
+	force := true
+	err = model.Destroy(state.DestroyModelParams{
+		Force: &force,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = model.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.Life(), gc.Equals, state.Dying)
+	c.Assert(model.ForceDestroyed(), gc.Equals, true)
+}
+
+func (s *ModelSuite) TestNonForceDestroy(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	noForce := false
+	err = model.Destroy(state.DestroyModelParams{
+		Force: &noForce,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = model.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.Life(), gc.Equals, state.Dying)
+	c.Assert(model.ForceDestroyed(), gc.Equals, false)
+}
+
 func (s *ModelSuite) TestProcessDyingServerModelTransitionDyingToDead(c *gc.C) {
 	s.assertDyingModelTransitionDyingToDead(c, s.State)
 }
