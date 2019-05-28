@@ -316,7 +316,7 @@ func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *gc.C) {
 			dataPath: c.MkDir(),
 		},
 	}
-	manifolds := machine.Manifolds(machine.ManifoldsConfig{
+	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent: ag,
 	})
 
