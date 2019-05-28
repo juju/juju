@@ -38,7 +38,7 @@ option.
 
 A controller, and subsequently created models, can be created with a 
 different set of credentials but any action taken within the model (e.g.:
-` + "`juju deploy`; `juju add-unit`" + `) applies the credentail used 
+` + "`juju deploy`; `juju add-unit`" + `) applies the credential used 
 to create that model. This model credential is stored on the controller. 
 
 A credential for 'controller' model is determined at bootstrap time and

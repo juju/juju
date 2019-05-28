@@ -26,47 +26,86 @@ var usageAddCredentialSummary = `
 Adds or replaces credentials for a cloud, stored locally on this client.`[1:]
 
 var usageAddCredentialDetails = `
-The user is prompted to add credentials interactively if a YAML-formatted
-credentials file is not specified. Here is a sample credentials file:
+The juju add-credential command operates in two modes.
 
-credentials:
-  aws:
-    <credential name>:
-      auth-type: access-key
-      access-key: <key>
-      secret-key: <key>
-  azure:
-    <credential name>:
-      auth-type: service-principal-secret
-      application-id: <uuid1>
-      application-password: <password>
-      subscription-id: <uuid2>
-  lxd:
-    <credential name>:
-      auth-type: interactive
-      trust-password: <password>
+When called with only the <cloud name> argument, ` + "`juju add-credential`" + ` will 
+take you through an interactive prompt to add a credential specific to 
+the cloud provider.
 
-A "credential name" is arbitrary and is used solely to represent a set of
-credentials, of which there may be multiple per cloud.
-The ` + "`--replace`" + ` option is required if credential information for the named
-cloud already exists locally. All such information will be overwritten.
-This command does not set default regions nor default credentials. Note
-that if only one credential name exists, it will become the effective
-default credential.
-For credentials which are already in use by tools other than Juju, ` + "`juju \nautoload-credentials`" + ` may be used.
-When Juju needs credentials for a cloud, i) if there are multiple
-available; ii) there's no set default; iii) and one is not specified ('--
-credential'), an error will be emitted.
+Providing the ` + "`-f <credentials.yaml>` " + `option switches to the 
+non-interactive mode. <credentials.yaml> must be a path to a correctly 
+formatted YAML-formatted file. Details of the format are provided at 
+"About credentials.yaml" below.
+
+The ` + "`--replace`" + ` option is required if credential information 
+for the named cloud already exists locally. All such information will be 
+overwritten.
+
+About credentials.yaml:
+Here is a sample credentials.yaml showing four credentials being stored 
+against three clouds:
+
+  credentials:
+    aws:
+      <credential-name>:
+        auth-type: access-key
+        access-key: <key>
+        secret-key: <key>
+    azure:
+      <credential-name>:
+        auth-type: service-principal-secret
+        application-id: <uuid>
+        application-password: <password>
+        subscription-id: <uuid>
+    lxd:
+      <credential-name>:
+        auth-type: interactive
+        trust-password: <password>
+      <credential-name>:
+        auth-type: interactive
+        trust-password: <password>
+
+More generally, here is a loosely defined grammar for credentials.yaml:
+
+  credentials:
+    <cloud-name>:
+      <credential-name>:
+        auth-type: <auth-type>
+        <auth-type-key>: <auth-type-value>
+        [<auth-type-key>: <auth-type-value>]
+
+Every <auth-type> requires its own <auth-type-key> and <auth-type-value>
+pairs. 
+
+The <credential-name> parameter of each credential is arbitrary, but must
+be unique within each <cloud-name>. This allows allow each cloud to store 
+multiple credentials.
 
 Examples:
     juju add-credential google
     juju add-credential aws -f ~/credentials.yaml
+    juju add-credential aws --replace -f ~/credentials.yaml
+
+Notes:
+If you are setting up Juju for the first time, consider running
+` + "`juju autoload-credentials`" + `. This may allow you to skip adding 
+credentials manually.
+
+This command does not set default regions nor default credentials for the
+cloud. The commands ` + "`juju set-default-region`" + ` and ` + "`juju set-default-credential`" + `
+provide that functionality.
+
+Further help:
+Please visit https://discourse.jujucharms.com/t/1508 for cloud-specific
+instructions.
 
 See also: 
     credentials
     remove-credential
     set-default-credential
-    autoload-credentials`
+    set-default-region
+    autoload-credentials
+`
 
 type addCredentialCommand struct {
 	cmd.CommandBase
