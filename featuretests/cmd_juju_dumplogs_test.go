@@ -13,7 +13,6 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
@@ -56,7 +55,7 @@ func (s *dumpLogsCommandSuite) TestRun(c *gc.C) {
 		for i := 0; i < 3; i++ {
 			err := w.Log([]state.LogRecord{{
 				Time:     t,
-				Entity:   names.NewMachineTag("42"),
+				Entity:   "machine-42",
 				Version:  version.Current,
 				Module:   "module",
 				Location: "location",
