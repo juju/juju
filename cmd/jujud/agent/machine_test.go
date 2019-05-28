@@ -761,6 +761,8 @@ func (s *MachineLegacyLeasesSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C)
 }
 
 func (s *MachineLegacyLeasesSuite) TestMachineAgentUninstall(c *gc.C) {
+	c.Skip("test takes over 30s to complete; we need to investigate why it takes so long for the agent to appear as alive")
+
 	m, ac, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 
