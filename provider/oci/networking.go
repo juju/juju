@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
+	ociCore "github.com/oracle/oci-go-sdk/core"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs"
@@ -21,8 +22,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	providerCommon "github.com/juju/juju/provider/oci/common"
-
-	ociCore "github.com/oracle/oci-go-sdk/core"
 )
 
 const (
@@ -114,7 +113,7 @@ func (e *Environ) getVCN(controllerUUID, modelUUID string) (ociCore.Vcn, error) 
 }
 
 func (e *Environ) secListName(controllerUUID, modelUUID string) string {
-	return fmt.Sprintf("juju-seclist-%s-%s", controllerUUID, modelUUID)
+	return fmt.Sprintf("%s-%s-%s", SecListNamePrefix, controllerUUID, modelUUID)
 }
 
 func (e *Environ) ensureVCN(controllerUUID, modelUUID string) (ociCore.Vcn, error) {
@@ -360,7 +359,9 @@ func (e *Environ) getSubnetStatus(resourceID *string) (string, error) {
 	return string(response.Subnet.LifecycleState), nil
 }
 
-func (e *Environ) createSubnet(controllerUUID, modelUUID, ad, cidr string, vcnID *string, seclists []string, routeRableID *string) (ociCore.Subnet, error) {
+func (e *Environ) createSubnet(
+	controllerUUID, modelUUID, ad, cidr string, vcnID *string, seclists []string, routeTableId *string,
+) (ociCore.Subnet, error) {
 	displayName := fmt.Sprintf("juju-%s-%s-%s", ad, controllerUUID, modelUUID)
 	compartment := e.ecfg().compartmentID()
 	// TODO(gsamfira): maybe "local" would be better?
@@ -370,7 +371,7 @@ func (e *Environ) createSubnet(controllerUUID, modelUUID, ad, cidr string, vcnID
 		CompartmentId:      compartment,
 		VcnId:              vcnID,
 		DisplayName:        &displayName,
-		RouteTableId:       routeRableID,
+		RouteTableId:       routeTableId,
 		SecurityListIds:    seclists,
 		FreeformTags: map[string]string{
 			tags.JujuController: controllerUUID,
@@ -396,7 +397,14 @@ func (e *Environ) createSubnet(controllerUUID, modelUUID, ad, cidr string, vcnID
 	return response.Subnet, nil
 }
 
-func (e *Environ) ensureSubnets(ctx envcontext.ProviderCallContext, vcn ociCore.Vcn, secList ociCore.SecurityList, controllerUUID, modelUUID string, routeTableID *string) (map[string][]ociCore.Subnet, error) {
+func (e *Environ) ensureSubnets(
+	ctx envcontext.ProviderCallContext,
+	vcn ociCore.Vcn,
+	secList ociCore.SecurityList,
+	controllerUUID string,
+	modelUUID string,
+	routeTableId *string,
+) (map[string][]ociCore.Subnet, error) {
 	az, err := e.AvailabilityZones(ctx)
 	if err != nil {
 		providerCommon.HandleCredentialError(err, ctx)
@@ -431,7 +439,8 @@ func (e *Environ) ensureSubnets(ctx envcontext.ProviderCallContext, vcn ociCore.
 				providerCommon.HandleCredentialError(err, ctx)
 				return nil, errors.Trace(err)
 			}
-			newSubnet, err := e.createSubnet(controllerUUID, modelUUID, ad, newIPNet, vcn.Id, []string{*secList.Id}, routeTableID)
+			newSubnet, err := e.createSubnet(
+				controllerUUID, modelUUID, ad, newIPNet, vcn.Id, []string{*secList.Id}, routeTableId)
 			if err != nil {
 				providerCommon.HandleCredentialError(err, ctx)
 				return nil, errors.Trace(err)
@@ -446,7 +455,9 @@ func (e *Environ) ensureSubnets(ctx envcontext.ProviderCallContext, vcn ociCore.
 
 // ensureNetworksAndSubnets creates VCNs, security lists and subnets that will
 // be used throughout the life-cycle of this juju deployment.
-func (e *Environ) ensureNetworksAndSubnets(ctx envcontext.ProviderCallContext, controllerUUID, modelUUID string) (map[string][]ociCore.Subnet, error) {
+func (e *Environ) ensureNetworksAndSubnets(
+	ctx envcontext.ProviderCallContext, controllerUUID, modelUUID string,
+) (map[string][]ociCore.Subnet, error) {
 	// if we have the subnets field populated, it means we already checked/created
 	// the necessary resources. Simply return.
 	if e.subnets != nil {
@@ -529,7 +540,8 @@ func (e *Environ) removeSubnets(subnets map[string][]ociCore.Subnet) error {
 		}
 	}
 	if len(errorMessages) > 0 {
-		return errors.Errorf("the following errors occurred while cleaning up subnets: %q", strings.Join(errorMessages, "\n"))
+		return errors.Errorf("the following errors occurred while cleaning up subnets: %q",
+			strings.Join(errorMessages, "\n"))
 	}
 	return nil
 }
