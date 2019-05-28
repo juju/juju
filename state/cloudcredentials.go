@@ -111,6 +111,34 @@ func (st *State) CloudCredentials(user names.UserTag, cloudName string) (map[str
 	return credentials, nil
 }
 
+func (st *State) modelsToRevert(tag names.CloudCredentialTag) (map[*Model]func() error, error) {
+	revert := map[*Model]func() error{}
+	credentialModels, err := st.modelsWithCredential(tag)
+	if err != nil && !errors.IsNotFound(err) {
+		return revert, errors.Annotatef(err, "getting models for credential %v", tag)
+	}
+	for _, m := range credentialModels {
+		one, closer, err := st.model(m.UUID)
+		if err != nil {
+			// Something has gone wrong with this model... keep going.
+			logger.Warningf("model %v error: %v", m.UUID, err)
+			continue
+		}
+		modelStatus, err := one.Status()
+		if err != nil {
+			return revert, errors.Trace(err)
+		}
+		// We only interested if the models are currently suspended.
+		if modelStatus.Status == status.Suspended {
+			revert[one] = closer
+			continue
+		}
+		// We still need to close models that did not make the cut.
+		defer closer()
+	}
+	return revert, nil
+}
+
 // UpdateCloudCredential adds or updates a cloud credential with the given tag.
 func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential cloud.Credential) error {
 	credentials := map[names.CloudCredentialTag]Credential{
@@ -123,40 +151,14 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 		return errors.Annotatef(err, "fetching cloud credentials")
 	}
 	exists := err == nil
-	var revert []*Model
+	var revert map[*Model]func() error
 	if exists {
 		// Existing credential will become valid after this call, and
 		// the model status of all models that use it will be reverted.
 		if existing.Invalid != credential.Invalid && !credential.Invalid {
-			credentialModels, err := st.modelsWithCredential(tag)
-			if err != nil && !errors.IsNotFound(err) {
-				return errors.Annotatef(err, "getting models for credential %v", tag)
-			}
-			addSuspended := func(m *Model) error {
-				modelStatus, err := m.Status()
-				if err != nil {
-					return errors.Trace(err)
-				}
-				// We only interested if the models are currently suspended.
-				if modelStatus.Status == status.Suspended {
-					revert = append(revert, m)
-				}
-				return nil
-			}
-			for _, m := range credentialModels {
-				one, closer, err := st.model(m.UUID)
-				if err != nil {
-					// Something has gone wrong with this model... keep going.
-					logger.Warningf("model %v error: %v", m.UUID, err)
-					continue
-				}
-				// These models are used later on in the method and we want
-				// this closer to be deferred until the end of the whole method, not just the end of the loop.
-				defer closer()
-				if err := addSuspended(one); err != nil {
-					// We do not want to stop processing the rest of the models.
-					logger.Warningf("could not decide if model %v is suspended: %v", m.UUID, err)
-				}
+			revert, err = st.modelsToRevert(tag)
+			if err != nil {
+				logger.Warningf("could not figure out if models for credential %v need to revert: %v", tag.Id(), err)
 			}
 		}
 	}
@@ -186,10 +188,11 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 		return errors.Annotate(err, annotationMsg)
 	}
 	if len(revert) > 0 {
-		for _, m := range revert {
+		for m, closer := range revert {
 			if err := m.maybeRevertModelStatus(); err != nil {
 				logger.Warningf("could not revert status for model %v: %v", m.UUID, err)
 			}
+			defer closer()
 		}
 	}
 	return nil
