@@ -883,6 +883,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			FSM:                  leaseFSM,
 			RequestTopic:         leaseRequestTopic,
 			Logger:               loggo.GetLogger("juju.worker.lease.raft"),
+			LogDir:               agentConfig.LogDir(),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            leasemanager.NewWorker,
 			NewStore:             leasemanager.NewStore,

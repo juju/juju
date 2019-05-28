@@ -4,9 +4,15 @@
 package lease
 
 import (
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime/pprof"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/clock"
@@ -31,6 +37,12 @@ const (
 	// Retrying 10 times starting at 50ms and backing off 1.6x gives us a total
 	// delay time of about 9s.
 	retryBackoffFactor = 1.6
+
+	// maxShutdownWait is the maximum time to wait for the async
+	// claims and expires to complete before stopping the worker
+	// anyway. Picked to be slightly quicker than the httpserver
+	// shutdown timeout.
+	maxShutdownWait = 55 * time.Second
 )
 
 // errStopped is returned to clients when an operation cannot complete because
@@ -137,6 +149,14 @@ type Manager struct {
 	// wg is used to ensure that all child goroutines are finished
 	// before we stop.
 	wg sync.WaitGroup
+
+	// outstandingClaims tracks how many unfinished claim goroutines
+	// are running (for debugging purposes).
+	outstandingClaims int64
+
+	// outstandingExpires tracks how many unfinished expire goroutines
+	// are running (for debugging purposes).
+	outstandingExpires int64
 }
 
 // Kill is part of the worker.Worker interface.
@@ -158,7 +178,7 @@ func (manager *Manager) loop() error {
 		defer manager.config.PrometheusRegisterer.Unregister(collector)
 	}
 
-	defer manager.wg.Wait()
+	defer manager.waitForGoroutines()
 	blocks := make(blocks)
 	manager.setupInitialTimer()
 	for {
@@ -186,7 +206,7 @@ func (manager *Manager) choose(blocks blocks) error {
 	case <-manager.expireDone:
 		manager.checkBlocks(blocks)
 	case claim := <-manager.claims:
-		manager.wg.Add(1)
+		manager.startingClaim()
 		go manager.retryingClaim(claim)
 	case pin := <-manager.pins:
 		manager.handlePin(pin)
@@ -242,7 +262,7 @@ func (manager *Manager) Reader(namespace, modelUUID string) (lease.Reader, error
 // claiming party when it eventually succeeds or fails, or if it times
 // out after a number of retries.
 func (manager *Manager) retryingClaim(claim claim) {
-	defer manager.wg.Done()
+	defer manager.finishedClaim()
 	var (
 		err     error
 		success bool
@@ -393,7 +413,7 @@ func (manager *Manager) tick(now time.Time, blocks blocks) {
 	// is just an opportunity to check for blocks that need to be
 	// notified.
 	if !manager.config.Store.Autoexpire() {
-		manager.wg.Add(1)
+		manager.startingExpire()
 		go manager.retryingExpire(now)
 		// We wait for manager.retryingExpire to finish before we checkBlocks
 	} else {
@@ -486,7 +506,7 @@ func (manager *Manager) ensureNextTimeout(d time.Duration) {
 // retryingExpire runs expire and retries any timeouts.
 func (manager *Manager) retryingExpire(now time.Time) {
 	manager.config.Logger.Tracef("[%s] expire looking for leases to expire\n", manager.logContext)
-	defer manager.wg.Done()
+	defer manager.finishedExpire()
 	var err error
 	for a := manager.startRetry(); a.Next(); {
 		err = manager.expire(now)
@@ -620,4 +640,86 @@ func keysLess(a, b lease.Key) bool {
 		return a.ModelUUID < b.ModelUUID
 	}
 	return a.Namespace < b.Namespace
+}
+
+func (manager *Manager) startingClaim() {
+	atomic.AddInt64(&manager.outstandingClaims, 1)
+	manager.wg.Add(1)
+}
+
+func (manager *Manager) finishedClaim() {
+	manager.wg.Done()
+	atomic.AddInt64(&manager.outstandingClaims, -1)
+}
+
+func (manager *Manager) startingExpire() {
+	atomic.AddInt64(&manager.outstandingExpires, 1)
+	manager.wg.Add(1)
+}
+
+func (manager *Manager) finishedExpire() {
+	manager.wg.Done()
+	atomic.AddInt64(&manager.outstandingExpires, -1)
+}
+
+// Report is part of dependency.Reporter
+func (manager *Manager) Report() map[string]interface{} {
+	out := make(map[string]interface{})
+	out["entity-uuid"] = manager.config.EntityUUID
+	out["outstanding-claims"] = atomic.LoadInt64(&manager.outstandingClaims)
+	out["outstanding-expires"] = atomic.LoadInt64(&manager.outstandingExpires)
+	return out
+}
+
+func (manager *Manager) waitForGoroutines() {
+	// Wait for the waitgroup to finish, but only up to a point.
+	groupDone := make(chan struct{})
+	go func() {
+		manager.wg.Wait()
+		close(groupDone)
+	}()
+
+	select {
+	case <-groupDone:
+		return
+	case <-manager.config.Clock.After(maxShutdownWait):
+	}
+	msg := "timeout waiting for lease manager shutdown"
+	dumpFile, err := manager.dumpDebug()
+	logger := manager.config.Logger
+	if err == nil {
+		logger.Warningf("%v\ndebug info written to %v", msg, dumpFile)
+	} else {
+		logger.Warningf("%v\nerror writing debug info: %v", msg, err)
+	}
+
+}
+
+func (manager *Manager) dumpDebug() (string, error) {
+	dumpFile, err := os.OpenFile(filepath.Join(manager.config.LogDir, "lease-manager-debug.log"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	defer dumpFile.Close()
+	claims := atomic.LoadInt64(&manager.outstandingClaims)
+	expires := atomic.LoadInt64(&manager.outstandingExpires)
+	template := `
+lease manager state dump %v
+entity-uuid: %v
+outstanding-claims: %v
+outstanding-expires: %v
+
+`[1:]
+	message := fmt.Sprintf(template,
+		time.Now().Format(time.RFC3339),
+		manager.config.EntityUUID,
+		claims,
+		expires,
+	)
+	if _, err = io.WriteString(dumpFile, message); err != nil {
+		return "", errors.Annotate(err, "writing state to debug log file")
+	}
+	// Including the goroutines because the httpserver won't dump them
+	// anymore if this worker stops happily.
+	return dumpFile.Name(), pprof.Lookup("goroutine").WriteTo(dumpFile, 1)
 }
