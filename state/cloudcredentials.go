@@ -189,7 +189,7 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 	if len(revert) > 0 {
 		for m, closer := range revert {
 			if err := m.maybeRevertModelStatus(); err != nil {
-				logger.Warningf("could not revert status for model %v: %v", m.UUID, err)
+				logger.Warningf("could not revert status for model %v: %v", m.UUID(), err)
 			}
 			defer closer()
 		}
@@ -221,7 +221,7 @@ func (m *Model) maybeRevertModelStatus() error {
 	// I don't know where you've been before you got here - get a clean slate.
 	err := m.Refresh()
 	if err != nil {
-		logger.Warningf("could not refresh model %v to revert its status: %v", m.UUID, err)
+		logger.Warningf("could not refresh model %v to revert its status: %v", m.UUID(), err)
 	}
 	modelStatus, err := m.Status()
 	if err != nil {
