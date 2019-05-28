@@ -13,8 +13,10 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type CloudCredentialsSuite struct {
@@ -110,6 +112,118 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialsExisting(c *gc.C) {
 	expected.Revoked = true
 
 	c.Assert(out, jc.DeepEquals, expected)
+}
+
+func assertCredentialCreated(c *gc.C, testSuite ConnSuite) (string, *state.User, names.CloudCredentialTag) {
+	owner := testSuite.Factory.MakeUser(c, &factory.UserParams{
+		Password: "secret",
+		Name:     "bob",
+	})
+
+	cloudName := "stratus"
+	err := testSuite.State.AddCloud(cloud.Cloud{
+		Name:      cloudName,
+		Type:      "low",
+		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+		Regions:   []cloud.Region{{Name: "dummy-region", Endpoint: "endpoint"}},
+	}, owner.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	tag := createCredential(c, testSuite, cloudName, owner.Name(), "foobar")
+	return cloudName, owner, tag
+}
+
+func createCredential(c *gc.C, testSuite ConnSuite, cloudName, userName, credentialName string) names.CloudCredentialTag {
+	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
+		"foo": "foo val",
+		"bar": "bar val",
+	})
+	tag := names.NewCloudCredentialTag(fmt.Sprintf("%v/%v/%v", cloudName, userName, credentialName))
+	err := testSuite.State.UpdateCloudCredential(tag, cred)
+	c.Assert(err, jc.ErrorIsNil)
+	return tag
+}
+
+func assertModelCreated(c *gc.C, testSuite ConnSuite, cloudName string, credentialTag names.CloudCredentialTag, owner names.Tag, modelName string) string {
+	// Test model needs to be on the test cloud for all validation to pass.
+	modelState := testSuite.Factory.MakeModel(c, &factory.ModelParams{
+		Name:            modelName,
+		CloudCredential: credentialTag,
+		Owner:           owner,
+		CloudName:       cloudName,
+	})
+	defer modelState.Close()
+	testModel, err := modelState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	assertModelStatus(c, testSuite.StatePool, testModel.UUID(), status.Available)
+	return testModel.UUID()
+}
+
+func assertModelSuspended(c *gc.C, testSuite ConnSuite) (names.CloudCredentialTag, string) {
+	// 1. Create a credential
+	cloudName, credentialOwner, credentialTag := assertCredentialCreated(c, testSuite)
+
+	// 2. Create model on the test cloud with test credential
+	modelUUID := assertModelCreated(c, testSuite, cloudName, credentialTag, credentialOwner.Tag(), "model-for-cloud")
+
+	// 3. update credential to be invalid and check model is suspended
+	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
+		"foo": "foo val",
+		"bar": "bar val",
+	})
+	cred.Invalid = true
+	cred.InvalidReason = "because it is really really invalid"
+	err := testSuite.State.UpdateCloudCredential(credentialTag, cred)
+	c.Assert(err, jc.ErrorIsNil)
+	assertModelStatus(c, testSuite.StatePool, modelUUID, status.Suspended)
+
+	return credentialTag, modelUUID
+}
+
+func assertModelStatus(c *gc.C, pool *state.StatePool, testModelUUID string, expectedStatus status.Status) {
+	aModel, helper, err := pool.GetModel(testModelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	defer helper.Release()
+	modelStatus, err := aModel.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelStatus.Status, gc.DeepEquals, expectedStatus)
+}
+
+func (s *CloudCredentialsSuite) TestUpdateCloudCredentialsTouchesCredentialModels(c *gc.C) {
+	// This test checks that models are affected when their credential validity is changed...
+	// 1. create a credential
+	// 2. set a model to use it
+	// 3. update credential to be invalid and check model is suspended
+	// 4. update credential bar its validity, check no changes in model state
+	// 5. mark credential as valid and check that model is unsuspended
+
+	// 1.2.3.
+	tag, testModelUUID := assertModelSuspended(c, s.ConnSuite)
+
+	// 4.
+	storedCred, err := s.State.CloudCredential(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storedCred.IsValid(), jc.IsFalse)
+
+	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"user":     "bob's nephew",
+		"password": "simple",
+	})
+	cred.Revoked = true
+	// all other credential attributes remain unchanged
+	cred.Invalid = storedCred.Invalid
+	cred.InvalidReason = storedCred.InvalidReason
+
+	err = s.State.UpdateCloudCredential(tag, cred)
+	c.Assert(err, jc.ErrorIsNil)
+	assertModelStatus(c, s.StatePool, testModelUUID, status.Suspended)
+
+	// 5.
+	cred.Invalid = !storedCred.Invalid
+	cred.InvalidReason = ""
+	err = s.State.UpdateCloudCredential(tag, cred)
+	c.Assert(err, jc.ErrorIsNil)
+	assertModelStatus(c, s.StatePool, testModelUUID, status.Available)
 }
 
 func (s *CloudCredentialsSuite) assertCredentialInvalidated(c *gc.C, tag names.CloudCredentialTag) {

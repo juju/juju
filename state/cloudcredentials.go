@@ -15,6 +15,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/permission"
 )
 
@@ -116,21 +117,61 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 		tag: convertCloudCredentialToState(tag, credential),
 	}
 	annotationMsg := "updating cloud credentials"
+
+	existing, err := st.CloudCredential(tag)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Annotatef(err, "fetching cloud credentials")
+	}
+	exists := err == nil
+	var revert []*Model
+	if exists {
+		// Existing credential will become valid after this call, and
+		// the model status of all models that use it will be reverted.
+		if existing.Invalid != credential.Invalid && !credential.Invalid {
+			credentialModels, err := st.modelsWithCredential(tag)
+			if err != nil && !errors.IsNotFound(err) {
+				return errors.Annotatef(err, "getting models for credential %v", tag)
+			}
+			addSuspended := func(m *Model) error {
+				modelStatus, err := m.Status()
+				if err != nil {
+					return errors.Trace(err)
+				}
+				// We only interested if the models are currently suspended.
+				if modelStatus.Status == status.Suspended {
+					revert = append(revert, m)
+				}
+				return nil
+			}
+			for _, m := range credentialModels {
+				one, closer, err := st.model(m.UUID)
+				if err != nil {
+					// Something has gone wrong with this model... keep going.
+					logger.Warningf("model %v error: %v", m.UUID, err)
+					continue
+				}
+				// These models are used later on in the method and we want
+				// this closer to be deferred until the end of the whole method, not just the end of the loop.
+				defer closer()
+				if err := addSuspended(one); err != nil {
+					// We do not want to stop processing the rest of the models.
+					logger.Warningf("could not decide if model %v is suspended: %v", m.UUID, err)
+				}
+			}
+		}
+	}
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		cloudName := tag.Cloud().Id()
-		cloud, err := st.Cloud(cloudName)
+		aCloud, err := st.Cloud(cloudName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops, err := validateCloudCredentials(cloud, credentials)
+		ops, err := validateCloudCredentials(aCloud, credentials)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		_, err = st.CloudCredential(tag)
-		if err != nil && !errors.IsNotFound(err) {
-			return nil, errors.Maskf(err, "fetching cloud credentials")
-		}
-		if err == nil {
+		if exists {
 			ops = append(ops, updateCloudCredentialOp(tag, credential))
 		} else {
 			annotationMsg = "creating cloud credential"
@@ -143,6 +184,57 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 	}
 	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Annotate(err, annotationMsg)
+	}
+	if len(revert) > 0 {
+		for _, m := range revert {
+			if err := m.maybeRevertModelStatus(); err != nil {
+				logger.Warningf("could not revert status for model %v: %v", m.UUID, err)
+			}
+		}
+	}
+	return nil
+}
+
+func (st *State) model(uuid string) (*Model, func() error, error) {
+	closer := func() error { return nil }
+	// We explicitly don't start the workers.
+	modelState, err := st.newStateNoWorkers(uuid)
+	if err != nil {
+		// This model could have been removed.
+		if errors.IsNotFound(err) {
+			return nil, closer, nil
+		}
+		return nil, closer, errors.Trace(err)
+	}
+
+	closer = func() error { return modelState.Close() }
+	m, err := modelState.Model()
+	if err != nil {
+		return nil, closer, errors.Trace(err)
+	}
+	return m, closer, nil
+}
+
+func (m *Model) maybeRevertModelStatus() error {
+	// I don't know where you've been before you got here - get a clean slate.
+	err := m.Refresh()
+	if err != nil {
+		logger.Warningf("could not refresh model %v to revert its status: %v", m.UUID, err)
+	}
+	modelStatus, err := m.Status()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if modelStatus.Status != status.Suspended {
+		doc := statusDoc{
+			Status:     modelStatus.Status,
+			StatusInfo: modelStatus.Message,
+			Updated:    timeOrNow(nil, m.st.clock()).UnixNano(),
+		}
+
+		if _, err = probablyUpdateStatusHistory(m.st.db(), m.globalKey(), doc); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }
@@ -348,8 +440,7 @@ func (st *State) AllCloudCredentials(user names.UserTag) ([]Credential, error) {
 	return credentials, nil
 }
 
-// CredentialModels returns all models that use given cloud credential.
-func (st *State) CredentialModels(tag names.CloudCredentialTag) (map[string]string, error) {
+func (st *State) modelsWithCredential(tag names.CloudCredentialTag) ([]modelDoc, error) {
 	coll, cleanup := st.db().GetCollection(modelsC)
 	defer cleanup()
 
@@ -366,9 +457,18 @@ func (st *State) CredentialModels(tag names.CloudCredentialTag) (map[string]stri
 	if len(docs) == 0 {
 		return nil, errors.NotFoundf("models that use cloud credentials %q", tag.Id())
 	}
+	return docs, nil
+}
 
-	results := make(map[string]string, len(docs))
-	for _, model := range docs {
+// CredentialModels returns all models that use given cloud credential.
+func (st *State) CredentialModels(tag names.CloudCredentialTag) (map[string]string, error) {
+	models, err := st.modelsWithCredential(tag)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make(map[string]string, len(models))
+	for _, model := range models {
 		results[model.UUID] = model.Name
 	}
 	return results, nil
