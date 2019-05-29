@@ -610,10 +610,10 @@ func NetworksForRelation(
 		return "", nil, nil, errors.Trace(err)
 	}
 
-	fetchAddr := func (fetcher func() (network.Address, error)) (network.Address, error) {
+	fetchAddr := func(fetcher func() (network.Address, error)) (network.Address, error) {
 		var address network.Address
 		retryArg := PreferredAddressRetryArgs()
-		retryArg.Func = func () error {
+		retryArg.Func = func() error {
 			var err error
 			address, err = fetcher()
 			return err
@@ -622,6 +622,17 @@ func NetworksForRelation(
 			return !network.IsNoAddressError(err)
 		}
 		return address, retry.Call(retryArg)
+	}
+
+	fallbackIngressToPrivateAddr := func() error {
+		address, err := fetchAddr(unit.PrivateAddress)
+		if err != nil && !retry.IsAttemptsExceeded(err) && !retry.IsDurationExceeded(err) {
+			return errors.Trace(err)
+		}
+		if address.Value != "" {
+			ingress = append(ingress, address.Value)
+		}
+		return nil
 	}
 
 	// If the endpoint for this relation is not bound to a space, or
@@ -639,8 +650,13 @@ func NetworksForRelation(
 					"no public address for unit %q in cross model relation %q, will use private address",
 					unit.Name(), rel,
 				)
-			} else if address.Value != ""  {
+			} else if address.Value != "" {
 				ingress = append(ingress, address.Value)
+			}
+			if len(ingress) == 0 {
+				if err := fallbackIngressToPrivateAddr(); err != nil {
+					return "", nil, nil, errors.Trace(err)
+				}
 			}
 		}
 	}
@@ -663,15 +679,10 @@ func NetworksForRelation(
 					ingress = append(ingress, addr.Address)
 				}
 			}
-		}
-	}
-	if len(ingress) == 0 {
-		address, err := fetchAddr(unit.PrivateAddress)
-		if err != nil && !retry.IsAttemptsExceeded(err) && !retry.IsDurationExceeded(err){
-			return "", nil, nil, errors.Trace(err)
-		}
-		if address.Value != ""  {
-			ingress = append(ingress, address.Value)
+		} else {
+			if err := fallbackIngressToPrivateAddr(); err != nil {
+				return "", nil, nil, errors.Trace(err)
+			}
 		}
 	}
 

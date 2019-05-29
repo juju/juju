@@ -61,7 +61,7 @@ type clusterParams struct {
 	name       string
 	project    string
 	region     string
-	zone 	   string
+	zone       string
 	credential string
 	// used with AKS
 	resourceGroup string

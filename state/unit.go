@@ -1266,9 +1266,9 @@ func (u *Unit) serviceAddress(scope string) (network.Address, error) {
 	if len(addresses) == 0 {
 		return network.Address{}, network.NoAddressError(scope)
 	}
-	getPublicAddr := func(addresses []network.Address) (network.Address, bool) {
+	getStrictPublicAddr := func(addresses []network.Address) (network.Address, bool) {
 		addr, ok := network.SelectPublicAddress(addresses)
-		return addr, ok && (addr.Scope == network.ScopePublic || addr.Scope == network.ScopeCloudLocal)
+		return addr, ok && addr.Scope == network.ScopePublic
 	}
 
 	getInternalAddr := func(addresses []network.Address) (network.Address, bool) {
@@ -1278,7 +1278,7 @@ func (u *Unit) serviceAddress(scope string) (network.Address, error) {
 	var addrMatch func([]network.Address) (network.Address, bool)
 	switch scope {
 	case "public":
-		addrMatch = getPublicAddr
+		addrMatch = getStrictPublicAddr
 	case "private":
 		addrMatch = getInternalAddr
 	default:

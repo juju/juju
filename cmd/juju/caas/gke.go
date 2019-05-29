@@ -4,10 +4,10 @@
 package caas
 
 import (
-	"regexp"
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/juju/cmd"
