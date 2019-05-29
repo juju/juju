@@ -27,7 +27,14 @@ func (s *DeploySuite) testPrepareAlreadyDone(
 	c *gc.C, newDeploy newDeploy, kind operation.Kind,
 ) {
 	callbacks := &DeployCallbacks{}
-	factory := operation.NewFactory(operation.FactoryParams{Callbacks: callbacks})
+	deployer := &MockDeployer{
+		MockNotifyRevert:   &MockNoArgs{},
+		MockNotifyResolved: &MockNoArgs{},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		Deployer:  deployer,
+		Callbacks: callbacks,
+	})
 	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
 	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Prepare(operation.State{
@@ -478,7 +485,14 @@ func (s *DeploySuite) TestExecuteSuccess_Upgrade_PreserveNoHook(c *gc.C) {
 
 func (s *DeploySuite) TestCommitQueueInstallHook(c *gc.C) {
 	callbacks := NewDeployCommitCallbacks(nil)
-	factory := operation.NewFactory(operation.FactoryParams{Callbacks: callbacks})
+	deployer := &MockDeployer{
+		MockNotifyRevert:   &MockNoArgs{},
+		MockNotifyResolved: &MockNoArgs{},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		Deployer:  deployer,
+		Callbacks: callbacks,
+	})
 	op, err := factory.NewInstall(curl("cs:quantal/x-0"))
 	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Commit(operation.State{
@@ -496,7 +510,15 @@ func (s *DeploySuite) TestCommitQueueInstallHook(c *gc.C) {
 
 func (s *DeploySuite) testCommitQueueUpgradeHook(c *gc.C, newDeploy newDeploy) {
 	callbacks := NewDeployCommitCallbacks(nil)
-	factory := operation.NewFactory(operation.FactoryParams{Callbacks: callbacks})
+	deployer := &MockDeployer{
+		MockNotifyRevert:   &MockNoArgs{},
+		MockNotifyResolved: &MockNoArgs{},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		Deployer:  deployer,
+		Callbacks: callbacks,
+	})
+
 	op, err := newDeploy(factory, curl("cs:quantal/x-0"))
 	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Commit(operation.State{
@@ -526,7 +548,15 @@ func (s *DeploySuite) TestCommitQueueUpgradeHook_ResolvedUpgrade(c *gc.C) {
 
 func (s *DeploySuite) testCommitInterruptedHook(c *gc.C, newDeploy newDeploy) {
 	callbacks := NewDeployCommitCallbacks(nil)
-	factory := operation.NewFactory(operation.FactoryParams{Callbacks: callbacks})
+	deployer := &MockDeployer{
+		MockNotifyRevert:   &MockNoArgs{},
+		MockNotifyResolved: &MockNoArgs{},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		Deployer:  deployer,
+		Callbacks: callbacks,
+	})
+
 	op, err := newDeploy(factory, curl("cs:quantal/x-0"))
 	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Commit(operation.State{
@@ -556,7 +586,13 @@ func (s *DeploySuite) TestCommitInterruptedHook_ResolvedUpgrade(c *gc.C) {
 }
 
 func (s *DeploySuite) testDoesNotNeedGlobalMachineLock(c *gc.C, newDeploy newDeploy) {
-	factory := operation.NewFactory(operation.FactoryParams{})
+	deployer := &MockDeployer{
+		MockNotifyRevert:   &MockNoArgs{},
+		MockNotifyResolved: &MockNoArgs{},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		Deployer: deployer,
+	})
 	op, err := newDeploy(factory, curl("cs:quantal/x-0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.NeedsGlobalMachineLock(), jc.IsFalse)

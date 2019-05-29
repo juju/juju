@@ -36,6 +36,9 @@ type factory struct {
 
 // newDeploy is the common code for creating arbitrary deploy operations.
 func (f *factory) newDeploy(kind Kind, charmURL *corecharm.URL, revert, resolved bool) (Operation, error) {
+	if f.config.Deployer == nil {
+		return nil, errors.New("deployer required")
+	}
 	if charmURL == nil {
 		return nil, errors.New("charm url required")
 	} else if kind != Install && kind != Upgrade {
