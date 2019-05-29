@@ -183,15 +183,22 @@ func (w *deploymentWorker) loop() error {
 			if err != nil && !errors.IsNotFound(err) {
 				return errors.Annotate(err, "cannot get new service details")
 			}
-			err = w.applicationUpdater.UpdateApplicationService(params.UpdateApplicationServiceArg{
-				ApplicationTag: names.NewApplicationTag(w.application).String(),
-				ProviderId:     service.Id,
-				Addresses:      params.FromNetworkAddresses(service.Addresses...),
-			})
-			if err != nil {
+			if err = updateApplicationService(
+				names.NewApplicationTag(w.application), service, w.applicationUpdater,
+			); err != nil {
 				return errors.Trace(err)
 			}
 			serviceUpdated = true
 		}
 	}
+}
+
+func updateApplicationService(appTag names.ApplicationTag, svc *caas.Service, updater ApplicationUpdater) error {
+	return updater.UpdateApplicationService(
+		params.UpdateApplicationServiceArg{
+			ApplicationTag: appTag.String(),
+			ProviderId:     svc.Id,
+			Addresses:      params.FromNetworkAddresses(svc.Addresses...),
+		},
+	)
 }
