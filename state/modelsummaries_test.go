@@ -70,6 +70,14 @@ func (s *ModelSummariesSuite) Setup4Models(c *gc.C) map[string]string {
 		Name:      "stratus",
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+		Regions: []cloud.Region{
+			{
+				Name:             "dummy-region",
+				Endpoint:         "dummy-endpoint",
+				IdentityEndpoint: "dummy-identity-endpoint",
+				StorageEndpoint:  "dummy-storage-endpoint",
+			},
+		},
 	}, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
