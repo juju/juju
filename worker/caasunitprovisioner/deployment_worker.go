@@ -194,6 +194,9 @@ func (w *deploymentWorker) loop() error {
 }
 
 func updateApplicationService(appTag names.ApplicationTag, svc *caas.Service, updater ApplicationUpdater) error {
+	if svc.Id == "" {
+		return nil
+	}
 	return updater.UpdateApplicationService(
 		params.UpdateApplicationServiceArg{
 			ApplicationTag: appTag.String(),
