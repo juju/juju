@@ -28,12 +28,18 @@ type Facade interface {
 	SetStatus(status status.Status, message string, data map[string]interface{}) error
 }
 
+// Logger defines a way to report non-fatal errors.
+type Logger interface {
+	Errorf(string, ...interface{})
+}
+
 // Config holds the resources and configuration necessary to run an
 // undertaker worker.
 type Config struct {
 	Facade        Facade
 	Destroyer     environs.CloudDestroyer
 	CredentialAPI common.CredentialAPI
+	Logger        Logger
 }
 
 // Validate returns an error if the config cannot be expected to drive
@@ -47,6 +53,9 @@ func (config Config) Validate() error {
 	}
 	if config.Destroyer == nil {
 		return errors.NotValidf("nil Destroyer")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	return nil
 }
@@ -153,8 +162,12 @@ func (u *Undertaker) run() error {
 	); err != nil {
 		return errors.Trace(err)
 	}
-	if err := u.config.Destroyer.Destroy(u.getCallCtx()); err != nil {
-		return errors.Trace(err)
+	err = u.config.Destroyer.Destroy(u.getCallCtx())
+	if err != nil {
+		if !modelInfo.ForceDestroyed {
+			return errors.Trace(err)
+		}
+		u.config.Logger.Errorf("error tearing down cloud environment for force-destroyed model %q (%s): %v", modelInfo.GlobalName, modelInfo.UUID, err)
 	}
 	// Finally, the model is going to be dead, and be removed.
 	if err := u.config.Facade.RemoveModel(); err != nil {

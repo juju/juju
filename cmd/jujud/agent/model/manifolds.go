@@ -329,6 +329,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:      apiCallerName,
 			CloudDestroyerName: environTrackerName,
 
+			Logger:                       loggo.GetLogger("juju.worker.undertaker"),
 			NewFacade:                    undertaker.NewFacade,
 			NewWorker:                    undertaker.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
@@ -425,6 +426,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:      apiCallerName,
 			CloudDestroyerName: caasBrokerTrackerName,
 
+			Logger:                       loggo.GetLogger("juju.worker.undertaker"),
 			NewFacade:                    undertaker.NewFacade,
 			NewWorker:                    undertaker.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,

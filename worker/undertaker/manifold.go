@@ -19,6 +19,7 @@ type ManifoldConfig struct {
 	APICallerName      string
 	CloudDestroyerName string
 
+	Logger                       Logger
 	NewFacade                    func(base.APICaller) (Facade, error)
 	NewWorker                    func(Config) (worker.Worker, error)
 	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
@@ -49,6 +50,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Facade:        facade,
 		Destroyer:     destroyer,
 		CredentialAPI: credentialAPI,
+		Logger:        config.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

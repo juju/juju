@@ -6,6 +6,7 @@ package undertaker_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
@@ -175,6 +176,20 @@ func (s *UndertakerSuite) TestDestroyErrorFatal(c *gc.C) {
 		c.Check(err, gc.ErrorMatches, "pow")
 	})
 	stub.CheckCallNames(c, "ModelInfo", "SetStatus", "Destroy")
+}
+
+func (s *UndertakerSuite) TestDestroyErrorForced(c *gc.C) {
+	s.fix.errors = []error{nil, nil, errors.New("pow")}
+	s.fix.info.Result.Life = "dead"
+	s.fix.info.Result.ForceDestroyed = true
+	stub := s.fix.run(c, func(w worker.Worker) {
+		err := workertest.CheckKilled(c, w)
+		c.Assert(err, jc.ErrorIsNil)
+	})
+	// Removal continues despite the error calling destroy.
+	stub.CheckCallNames(c, "ModelInfo", "SetStatus", "Destroy", "RemoveModel")
+	// Logged the failed destroy call.
+	s.fix.logger.stub.CheckCallNames(c, "Errorf")
 }
 
 func (s *UndertakerSuite) TestRemoveModelErrorFatal(c *gc.C) {
