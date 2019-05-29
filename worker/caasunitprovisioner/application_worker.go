@@ -175,6 +175,12 @@ func (aw *applicationWorker) loop() error {
 			if err != nil && !errors.IsNotFound(err) {
 				return errors.Trace(err)
 			}
+			// update svc info (addresses etc.) cloudservices.
+			if err = updateApplicationService(
+				names.NewApplicationTag(aw.application), service, aw.applicationUpdater,
+			); err != nil {
+				return errors.Trace(err)
+			}
 			haveNewStatus := true
 			if service.Id != "" {
 				lastStatus, ok := lastReportedStatus[service.Id]
