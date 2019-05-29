@@ -11,6 +11,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/status"
 )
 
 // InvalidateModelCredential invalidate cloud credential for the model
@@ -27,19 +28,52 @@ func (st *State) InvalidateModelCredential(reason string) error {
 		return nil
 	}
 
-	return errors.Trace(st.InvalidateCloudCredential(tag, reason))
+	if err := st.InvalidateCloudCredential(tag, reason); err != nil {
+		return errors.Trace(err)
+	}
+	if err := st.suspendCredentialModels(tag); err != nil {
+		// These updates are optimistic. If they fail, it's unfortunate but we are not going to stop the call.
+		logger.Warningf("could not suspend models that use credential %v: %v", tag.Id(), err)
+	}
+	return nil
+}
+
+func (st *State) suspendCredentialModels(tag names.CloudCredentialTag) error {
+	models, err := st.modelsWithCredential(tag)
+	if err != nil {
+		return errors.Annotatef(err, "could not determine what models use credential %v", tag.Id())
+	}
+	doc := statusDoc{
+		Status:     status.Suspended,
+		StatusInfo: "suspended since cloud credential is not valid",
+		Updated:    timeOrNow(nil, st.clock()).UnixNano(),
+	}
+	for _, m := range models {
+		one, closer, err := st.model(m.UUID)
+		if err != nil {
+			// Something has gone wrong with this model... keep going.
+			logger.Warningf("model %v error: %v", m.UUID, err)
+			continue
+		}
+		defer closer()
+		if _, err = probablyUpdateStatusHistory(one.st.db(), one.globalKey(), doc); err != nil {
+			// We do not want to stop processing the rest of the models.
+			logger.Warningf("%v", err)
+		}
+	}
+	return nil
 }
 
 // ValidateCloudCredential validates new cloud credential for this model.
 func (m *Model) ValidateCloudCredential(tag names.CloudCredentialTag, credential cloud.Credential) error {
-	cloud, err := m.st.Cloud(m.Cloud())
+	aCloud, err := m.st.Cloud(m.Cloud())
 	if err != nil {
 		return errors.Annotatef(err, "getting cloud %q", m.Cloud())
 	}
 
-	err = validateCredentialForCloud(cloud, tag, convertCloudCredentialToState(tag, credential))
+	err = validateCredentialForCloud(aCloud, tag, convertCloudCredentialToState(tag, credential))
 	if err != nil {
-		return errors.Annotatef(err, "validating credential %q for cloud %q", tag.Id(), cloud.Name)
+		return errors.Annotatef(err, "validating credential %q for cloud %q", tag.Id(), aCloud.Name)
 	}
 	return nil
 }
@@ -47,7 +81,14 @@ func (m *Model) ValidateCloudCredential(tag names.CloudCredentialTag, credential
 // SetCloudCredential sets new cloud credential for this model.
 // Returned bool indicates if model credential was set.
 func (m *Model) SetCloudCredential(tag names.CloudCredentialTag) (bool, error) {
-	cloud, err := m.st.Cloud(m.Cloud())
+	// If model is suspended, after this call, it may be reverted since,
+	// if updated, model credential will be set to a valid credential.
+	modelStatus, err := m.Status()
+	if err != nil {
+		return false, errors.Annotatef(err, "getting model status %q", m.UUID())
+	}
+	revert := modelStatus.Status == status.Suspended
+	aCloud, err := m.st.Cloud(m.Cloud())
 	if err != nil {
 		return false, errors.Annotatef(err, "getting cloud %q", m.Cloud())
 	}
@@ -70,7 +111,7 @@ func (m *Model) SetCloudCredential(tag names.CloudCredentialTag) (bool, error) {
 		if !credential.IsValid() {
 			return nil, errors.NotValidf("credential %q", tag.Id())
 		}
-		if err := validateCredentialForCloud(cloud, tag, credential); err != nil {
+		if err := validateCredentialForCloud(aCloud, tag, credential); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return []txn.Op{{
@@ -82,6 +123,11 @@ func (m *Model) SetCloudCredential(tag names.CloudCredentialTag) (bool, error) {
 	}
 	if err := m.st.db().Run(buildTxn); err != nil {
 		return false, errors.Trace(err)
+	}
+	if updating && revert {
+		if err := m.maybeRevertModelStatus(); err != nil {
+			logger.Warningf("could not revert status for model %v: %v", m.UUID(), err)
+		}
 	}
 	return updating, m.Refresh()
 }

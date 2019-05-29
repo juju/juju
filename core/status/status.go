@@ -332,6 +332,7 @@ func ValidModelStatus(status Status) bool {
 		Available,
 		Busy,
 		Destroying,
+		Suspended, // For  model, this means that its cloud credential is invalid and model will not be doing any cloud calls.
 		Error:
 		return true
 	default:
