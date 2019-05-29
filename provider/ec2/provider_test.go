@@ -172,7 +172,7 @@ func (s *ProviderSuite) TestMaybeConvertCredentialErrorAppendsAuthorisationFailu
 	} {
 		err := ec2.MaybeConvertCredentialError(&ec2cloud.Error{Code: code}, context.NewCloudCallContext())
 		c.Assert(err, gc.NotNil)
-		c.Assert(err, gc.Not(jc.Satisfies), common.IsCredentialNotValid)
+		c.Assert(err, jc.Satisfies, common.IsCredentialNotValid)
 		c.Assert(err.Error(), jc.Contains, fmt.Sprintf("\nPlease subscribe to the requested Amazon service. \n"+
 			"You are currently not authorized to use it.\n"+
 			"New Amazon accounts might take some time to be activated while \n"+
