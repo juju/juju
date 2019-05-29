@@ -280,19 +280,11 @@ func (s *ModelCommandSuite) assertRunHasModel(c *gc.C, expectControllerName, exp
 }
 
 func (s *ModelCommandSuite) TestIAASOnlyCommandIAASModel(c *gc.C) {
-	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
-	s.store.CurrentControllerName = "foo"
-	s.store.Accounts["foo"] = jujuclient.AccountDetails{
-		User: "bar", Password: "hunter2",
-	}
-	err := s.store.UpdateModel("foo", "bar/currentfoo",
-		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentModel("foo", "bar/currentfoo")
-	c.Assert(err, jc.ErrorIsNil)
+	s.setupIAASModel(c)
 
 	cmd, err := runTestCommand(c, s.store)
 	c.Assert(err, jc.ErrorIsNil)
+
 	modelType, err := cmd.ModelType()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelType, gc.Equals, model.IAAS)
@@ -315,18 +307,9 @@ func (s *ModelCommandSuite) TestIAASOnlyCommandCAASModel(c *gc.C) {
 }
 
 func (s *ModelCommandSuite) TestCAASOnlyCommandIAASModel(c *gc.C) {
-	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
-	s.store.CurrentControllerName = "foo"
-	s.store.Accounts["foo"] = jujuclient.AccountDetails{
-		User: "bar", Password: "hunter2",
-	}
-	err := s.store.UpdateModel("foo", "bar/currentfoo",
-		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentModel("foo", "bar/currentfoo")
-	c.Assert(err, jc.ErrorIsNil)
+	s.setupIAASModel(c)
 
-	_, err = runCaasCommand(c, s.store)
+	_, err := runCaasCommand(c, s.store)
 	c.Assert(err, gc.ErrorMatches, `Juju command "caas-command" not supported on non-container models`)
 }
 
@@ -347,6 +330,38 @@ func (s *ModelCommandSuite) TestAllowedCommandCAASModel(c *gc.C) {
 	modelType, err := cmd.ModelType()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelType, gc.Equals, model.CAAS)
+}
+
+func (s *ModelCommandSuite) TestPartialModelUUIDSuccess(c *gc.C) {
+	s.setupIAASModel(c)
+
+	cmd, err := runTestCommand(c, s.store, "-m", "uuidfoo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelType, err := cmd.ModelType()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelType, gc.Equals, model.IAAS)
+}
+
+func (s *ModelCommandSuite) TestPartialModelUUIDTooShortError(c *gc.C) {
+	s.setupIAASModel(c)
+
+	_, err := runTestCommand(c, s.store, "-m", "uuidf")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ModelCommandSuite) setupIAASModel(c *gc.C) {
+	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
+	s.store.CurrentControllerName = "foo"
+	s.store.Accounts["foo"] = jujuclient.AccountDetails{
+		User: "bar", Password: "hunter2",
+	}
+	err := s.store.UpdateModel("foo", "bar/currentfoo",
+		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.store.SetCurrentModel("foo", "bar/currentfoo")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func noOpRefresh(_ jujuclient.ClientStore, _ string) error {

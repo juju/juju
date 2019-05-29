@@ -369,9 +369,9 @@ func (c *ModelCommandBase) modelFromStore(controllerName, modelIdentifier string
 		return "", nil, errors.Trace(err)
 	}
 
-	// If the identifier is at least characters long,
+	// If the identifier is at 6 least characters long,
 	// attempt to match one of the stored model UUIDs.
-	if len(modelIdentifier) > 6 {
+	if len(modelIdentifier) > 5 {
 		models, err := c.store.AllModels(controllerName)
 		if err != nil {
 			return "", nil, errors.Trace(err)
