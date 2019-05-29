@@ -178,7 +178,7 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 	t := time.Date(2015, 6, 23, 13, 8, 49, 0, time.UTC)
 	err := dbLogger.Log([]state.LogRecord{{
 		Time:     t,
-		Entity:   names.NewMachineTag("99"),
+		Entity:   "not-a-tag",
 		Version:  version.Current,
 		Module:   "juju.foo",
 		Location: "code.go:42",
@@ -186,7 +186,7 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 		Message:  "all is well",
 	}, {
 		Time:     t.Add(time.Second),
-		Entity:   names.NewMachineTag("99"),
+		Entity:   "not-a-tag",
 		Version:  version.Current,
 		Module:   "juju.bar",
 		Location: "go.go:99",
@@ -217,7 +217,7 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 
 	// Read the 2 lines that are in the logs collection.
 	assertMessage(common.LogMessage{
-		Entity:    "machine-99",
+		Entity:    "not-a-tag",
 		Timestamp: t,
 		Severity:  "INFO",
 		Module:    "juju.foo",
@@ -225,7 +225,7 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 		Message:   "all is well",
 	})
 	assertMessage(common.LogMessage{
-		Entity:    "machine-99",
+		Entity:    "not-a-tag",
 		Timestamp: t.Add(time.Second),
 		Severity:  "ERROR",
 		Module:    "juju.bar",
@@ -236,7 +236,7 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 	// Now write and observe another log. This should be read from the oplog.
 	err = dbLogger.Log([]state.LogRecord{{
 		Time:     t.Add(2 * time.Second),
-		Entity:   names.NewMachineTag("99"),
+		Entity:   "not-a-tag",
 		Version:  version.Current,
 		Module:   "ju.jitsu",
 		Location: "no.go:3",
@@ -244,7 +244,7 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 		Message:  "beep beep",
 	}})
 	assertMessage(common.LogMessage{
-		Entity:    "machine-99",
+		Entity:    "not-a-tag",
 		Timestamp: t.Add(2 * time.Second),
 		Severity:  "WARNING",
 		Module:    "ju.jitsu",
@@ -263,7 +263,8 @@ func (s *debugLogDbSuite2) TestLogsUsesStartTime(c *gc.C) {
 	dbLogger := state.NewDbLogger(s.State)
 	defer dbLogger.Close()
 
-	entity := names.NewMachineTag("99")
+	entity := "not-a-tag"
+
 	version := version.Current
 	t1 := time.Date(2015, 6, 23, 13, 8, 49, 100, time.UTC)
 	// Check that start time has subsecond resolution.
@@ -320,7 +321,7 @@ func (s *debugLogDbSuite2) TestLogsUsesStartTime(c *gc.C) {
 		}
 	}
 	assertMessage(common.LogMessage{
-		Entity:    "machine-99",
+		Entity:    "not-a-tag",
 		Timestamp: t3,
 		Severity:  "ERROR",
 		Module:    "juju.bar",
@@ -328,7 +329,7 @@ func (s *debugLogDbSuite2) TestLogsUsesStartTime(c *gc.C) {
 		Message:   "born ruffians",
 	})
 	assertMessage(common.LogMessage{
-		Entity:    "machine-99",
+		Entity:    "not-a-tag",
 		Timestamp: t4,
 		Severity:  "WARNING",
 		Module:    "juju.baz",

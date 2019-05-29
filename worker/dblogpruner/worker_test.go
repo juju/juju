@@ -185,7 +185,7 @@ func (s *suite) addLogs(c *gc.C, t0 time.Time, text string, count int) {
 		t := t0.Add(-time.Duration(offset) * time.Second)
 		dbLogger.Log([]state.LogRecord{{
 			Time:     t,
-			Entity:   names.NewMachineTag("0"),
+			Entity:   "not-a-tag",
 			Version:  version.Current,
 			Module:   "some.module",
 			Location: "foo.go:42",

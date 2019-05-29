@@ -3082,7 +3082,7 @@ func writeLogs(c *gc.C, st *state.State, n int) {
 	for i := 0; i < n; i++ {
 		err := dbLogger.Log([]state.LogRecord{{
 			Time:     time.Now(),
-			Entity:   names.NewApplicationTag("van-occupanther"),
+			Entity:   "application-van-occupanther",
 			Module:   "chasing after deer",
 			Location: "in a log house",
 			Level:    loggo.INFO,

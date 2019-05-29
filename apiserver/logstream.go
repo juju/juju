@@ -231,7 +231,7 @@ func (h *logStreamRequestHandler) apiFromRecords(records []*state.LogRecord) par
 			ID:        rec.ID,
 			ModelUUID: rec.ModelUUID,
 			Version:   rec.Version.String(),
-			Entity:    rec.Entity.String(),
+			Entity:    rec.Entity,
 			Timestamp: rec.Time,
 			Module:    rec.Module,
 			Location:  rec.Location,
