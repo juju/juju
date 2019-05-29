@@ -185,9 +185,6 @@ func (g *gke) listClusters(account, project, region string) (map[string]cluster,
 	cmd := []string{
 		"gcloud", "container", "clusters", "list", "--filter", "status:RUNNING", "--account", account, "--project", project, "--format", "value\\(name,zone\\)",
 	}
-	if region != "" {
-		cmd = append(cmd, "--region", region)
-	}
 	result, err := runCommand(g, cmd, "")
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -203,7 +200,7 @@ func (g *gke) listClusters(account, project, region string) (map[string]cluster,
 		if len(parts) == 0 {
 			continue
 		}
-		c := cluster{name: parts[0]}
+		c := cluster{name: parts[0], region: region}
 		if len(parts) > 1 {
 			c.zone = parts[1]
 			region := regexp.MustCompile(`([a-z]+-[a-z0-9]+)`).FindStringSubmatch(c.zone)

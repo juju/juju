@@ -63,11 +63,11 @@ func (s *gkeSuite) TestInteractiveParams(c *gc.C) {
 		}).Times(1).
 			Return(&exec.ExecResponse{
 				Code:   0,
-				Stdout: []byte("mycluster somezone"),
+				Stdout: []byte("mycluster asia-southeast1-a"),
 			}, nil),
 	)
 
-	stdin := strings.NewReader("mysecret\nmyproject\nmycluster in somezone\n")
+	stdin := strings.NewReader("mysecret\nmyproject\nmycluster in asia-southeast1\n")
 	out := &bytes.Buffer{}
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
@@ -86,9 +86,9 @@ Available Projects
 
 Select project [myproject]: 
 Available Clusters
-  mycluster in somezone
+  mycluster in asia-southeast1
 
-Select cluster [mycluster in somezone]: 
+Select cluster [mycluster in asia-southeast1]: 
 `[1:]
 
 	outParams, err := gke.interactiveParams(ctx, &clusterParams{})
@@ -97,7 +97,8 @@ Select cluster [mycluster in somezone]:
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		project:    "myproject",
 		name:       "mycluster",
-		region:     "somezone",
+		region:     "asia-southeast1",
+		zone:       "asia-southeast1-a",
 		credential: "mysecret",
 	})
 }
@@ -116,11 +117,11 @@ func (s *gkeSuite) TestInteractiveParamsProjectSpecified(c *gc.C) {
 		}).Times(1).
 			Return(&exec.ExecResponse{
 				Code:   0,
-				Stdout: []byte("mycluster somezone"),
+				Stdout: []byte("mycluster asia-southeast1-a"),
 			}, nil),
 	)
 
-	stdin := strings.NewReader("mycluster in somezone\n")
+	stdin := strings.NewReader("mycluster in asia-southeast1\n")
 	out := &bytes.Buffer{}
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
@@ -130,9 +131,9 @@ func (s *gkeSuite) TestInteractiveParamsProjectSpecified(c *gc.C) {
 	}
 	expected := `
 Available Clusters
-  mycluster in somezone
+  mycluster in asia-southeast1
 
-Select cluster [mycluster in somezone]: 
+Select cluster [mycluster in asia-southeast1]: 
 `[1:]
 
 	outParams, err := gke.interactiveParams(ctx, &clusterParams{
@@ -144,7 +145,8 @@ Select cluster [mycluster in somezone]:
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		project:    "myproject",
 		name:       "mycluster",
-		region:     "somezone",
+		region:     "asia-southeast1",
+		zone:       "asia-southeast1-a",
 		credential: "mysecret",
 	})
 }
@@ -158,16 +160,16 @@ func (s *gkeSuite) TestInteractiveParamsProjectAndRegionSpecified(c *gc.C) {
 
 	gomock.InOrder(
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
-			Commands:    "gcloud container clusters list --filter status:RUNNING --account mysecret --project myproject --format value\\(name,zone\\) --region somezone",
+			Commands:    "gcloud container clusters list --filter status:RUNNING --account mysecret --project myproject --format value\\(name,zone\\)",
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
 		}).Times(1).
 			Return(&exec.ExecResponse{
 				Code:   0,
-				Stdout: []byte("mycluster somezone"),
+				Stdout: []byte("mycluster asia-southeast1-a"),
 			}, nil),
 	)
 
-	stdin := strings.NewReader("mycluster in somezone\n")
+	stdin := strings.NewReader("mycluster in asia-southeast1\n")
 	out := &bytes.Buffer{}
 	ctx := &cmd.Context{
 		Dir:    c.MkDir(),
@@ -177,14 +179,14 @@ func (s *gkeSuite) TestInteractiveParamsProjectAndRegionSpecified(c *gc.C) {
 	}
 	expected := `
 Available Clusters
-  mycluster in somezone
+  mycluster in asia-southeast1
 
-Select cluster [mycluster in somezone]: 
+Select cluster [mycluster in asia-southeast1]: 
 `[1:]
 
 	outParams, err := gke.interactiveParams(ctx, &clusterParams{
 		project:    "myproject",
-		region:     "somezone",
+		region:     "asia-southeast1",
 		credential: "mysecret",
 	})
 	c.Check(err, jc.ErrorIsNil)
@@ -192,7 +194,8 @@ Select cluster [mycluster in somezone]:
 	c.Assert(outParams, jc.DeepEquals, &clusterParams{
 		project:    "myproject",
 		name:       "mycluster",
-		region:     "somezone",
+		region:     "asia-southeast1",
+		zone:       "asia-southeast1-a",
 		credential: "mysecret",
 	})
 }
@@ -211,7 +214,7 @@ func (s *gkeSuite) TestGetKubeConfig(c *gc.C) {
 
 	gomock.InOrder(
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
-			Commands:    "gcloud container clusters get-credentials mycluster --account mysecret --project myproject --region somezone",
+			Commands:    "gcloud container clusters get-credentials mycluster --account mysecret --project myproject --zone asia-southeast1-a",
 			Environment: []string{"KUBECONFIG=" + configFile, "PATH=/path/to/here"},
 		}).Times(1).
 			Return(&exec.ExecResponse{
@@ -220,14 +223,15 @@ func (s *gkeSuite) TestGetKubeConfig(c *gc.C) {
 	)
 	rdr, clusterName, err := gke.getKubeConfig(&clusterParams{
 		project:    "myproject",
-		region:     "somezone",
+		zone:       "asia-southeast1-a",
+		region:     "asia-southeast1",
 		name:       "mycluster",
 		credential: "mysecret",
 	})
 	c.Check(err, jc.ErrorIsNil)
 	defer rdr.Close()
 
-	c.Assert(clusterName, gc.Equals, "gke_myproject_somezone_mycluster")
+	c.Assert(clusterName, gc.Equals, "gke_myproject_asia-southeast1-a_mycluster")
 	data, err := ioutil.ReadAll(rdr)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.DeepEquals, "data")
