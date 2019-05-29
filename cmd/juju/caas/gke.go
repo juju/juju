@@ -4,6 +4,7 @@
 package caas
 
 import (
+	"regexp"
 	"fmt"
 	"io"
 	"os"
@@ -51,9 +52,9 @@ func (g *gke) getKubeConfig(p *clusterParams) (io.ReadCloser, string, error) {
 		cmd = append(cmd, "--project", p.project)
 		qualifiedClusterName += p.project + "_"
 	}
-	if p.region != "" {
-		cmd = append(cmd, "--region", p.region)
-		qualifiedClusterName += p.region + "_"
+	if p.zone != "" {
+		cmd = append(cmd, "--zone", p.zone)
+		qualifiedClusterName += p.zone + "_"
 	}
 	qualifiedClusterName += p.name
 
@@ -89,7 +90,7 @@ func (g *gke) interactiveParams(ctxt *cmd.Context, p *clusterParams) (*clusterPa
 	}
 
 	if p.name == "" {
-		p.name, p.region, err = g.queryCluster(pollster, p.credential, p.project, p.region)
+		p.name, p.region, p.zone, err = g.queryCluster(pollster, p.credential, p.project, p.region)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -204,24 +205,28 @@ func (g *gke) listClusters(account, project, region string) (map[string]cluster,
 		}
 		c := cluster{name: parts[0]}
 		if len(parts) > 1 {
-			c.region = parts[1]
+			c.zone = parts[1]
+			region := regexp.MustCompile(`([a-z]+-[a-z0-9]+)`).FindStringSubmatch(c.zone)
+			if region != nil {
+				c.region = region[0]
+			}
 		}
 		clusters[c.name] = c
 	}
 	return clusters, nil
 }
 
-func (g *gke) queryCluster(pollster *interact.Pollster, account, project, region string) (string, string, error) {
+func (g *gke) queryCluster(pollster *interact.Pollster, account, project, region string) (string, string, string, error) {
 	allClustersByName, err := g.listClusters(account, project, region)
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", "", "", errors.Trace(err)
 	}
 	if len(allClustersByName) == 0 {
 		regionMsg := ""
 		if region != "" {
 			regionMsg = fmt.Sprintf(" in region %v", region)
 		}
-		return "", "", errors.Errorf("no clusters have been set up%s.\n"+
+		return "", "", "", errors.Errorf("no clusters have been set up%s.\n"+
 			"You can create a k8s cluster using 'gcloud container cluster create'",
 			regionMsg,
 		)
@@ -243,8 +248,8 @@ func (g *gke) queryCluster(pollster *interact.Pollster, account, project, region
 		Default:  clusterNamesAndRegions[0],
 	})
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", "", "", errors.Trace(err)
 	}
 	selected := clustersByNameRegion[cluster]
-	return selected.name, selected.region, nil
+	return selected.name, selected.region, selected.zone, nil
 }
