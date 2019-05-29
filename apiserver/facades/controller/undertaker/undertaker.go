@@ -69,11 +69,12 @@ func (u *UndertakerAPI) ModelInfo() (params.UndertakerModelInfoResult, error) {
 	}
 
 	result.Result = params.UndertakerModelInfo{
-		UUID:       model.UUID(),
-		GlobalName: model.Owner().String() + "/" + model.Name(),
-		Name:       model.Name(),
-		IsSystem:   u.st.IsController(),
-		Life:       params.Life(model.Life().String()),
+		UUID:           model.UUID(),
+		GlobalName:     model.Owner().String() + "/" + model.Name(),
+		Name:           model.Name(),
+		IsSystem:       u.st.IsController(),
+		Life:           params.Life(model.Life().String()),
+		ForceDestroyed: model.ForceDestroyed(),
 	}
 
 	return result, nil

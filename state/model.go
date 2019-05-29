@@ -113,6 +113,11 @@ type modelDoc struct {
 
 	// MeterStatus is the current meter status of the model.
 	MeterStatus modelMeterStatusdoc `bson:"meter-status"`
+
+	// ForceDestroyed is whether --force was specified when destroying
+	// this model. It only has any meaning when the model is dying or
+	// dead.
+	ForceDestroyed bool `bson:"force-destroyed,omitempty"`
 }
 
 // slaLevel enumerates the support levels available to a model.
@@ -615,6 +620,12 @@ func (m *Model) SetMigrationMode(mode MigrationMode) error {
 // Life returns whether the model is Alive, Dying or Dead.
 func (m *Model) Life() Life {
 	return m.doc.Life
+}
+
+// ForceDestroyed returns whether the destruction of a dying/dead
+// model was forced. It's always false for a model that's alive.
+func (m *Model) ForceDestroyed() bool {
+	return m.doc.ForceDestroyed
 }
 
 // Owner returns tag representing the owner of the model.
@@ -1280,6 +1291,7 @@ func (m *Model) destroyOps(
 				bson.D{
 					{"life", nextLife},
 					{"time-of-dying", m.st.nowToTheSecond()},
+					{"force-destroyed", force},
 				},
 			},
 		}

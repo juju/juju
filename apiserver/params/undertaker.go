@@ -5,11 +5,12 @@ package params
 
 // UndertakerModelInfo returns information on an model needed by the undertaker worker.
 type UndertakerModelInfo struct {
-	UUID       string `json:"uuid"`
-	Name       string `json:"name"`
-	GlobalName string `json:"global-name"`
-	IsSystem   bool   `json:"is-system"`
-	Life       Life   `json:"life"`
+	UUID           string `json:"uuid"`
+	Name           string `json:"name"`
+	GlobalName     string `json:"global-name"`
+	IsSystem       bool   `json:"is-system"`
+	Life           Life   `json:"life"`
+	ForceDestroyed bool   `json:"force-destroyed"`
 }
 
 // UndertakerModelInfoResult holds the result of an API call that returns an
