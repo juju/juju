@@ -609,34 +609,39 @@ func NetworksForRelation(
 	if err != nil && !errors.IsNotValid(err) {
 		return "", nil, nil, errors.Trace(err)
 	}
-	// If the endpoint for this relation is not bound to a space, or
-	// is bound to the default space, we need to look up the ingress
-	// address info which is aware of cross model relations.
-	if boundSpace == environs.DefaultSpaceName || err != nil {
+
+	fetchAddr := func (fetcher func() (network.Address, error)) (network.Address, error) {
 		var address network.Address
 		retryArg := PreferredAddressRetryArgs()
-		retryArg.Func = func() error {
+		retryArg.Func = func () error {
 			var err error
-			address, err = unit.PublicAddress()
+			address, err = fetcher()
 			return err
 		}
 		retryArg.IsFatalError = func(err error) bool {
 			return !network.IsNoAddressError(err)
 		}
-		err := retry.Call(retryArg)
+		return address, retry.Call(retryArg)
+	}
+
+	// If the endpoint for this relation is not bound to a space, or
+	// is bound to the default space, we need to look up the ingress
+	// address info which is aware of cross model relations.
+	if boundSpace == environs.DefaultSpaceName || err != nil {
+		_, crossmodel, err := rel.RemoteApplication()
 		if err != nil {
-			logger.Warningf(
-				"no public address for unit %q in cross model relation %q, using private address",
-				unit.Name(), rel)
-			if unit.ShouldBeAssigned() {
-				address, err = unit.PrivateAddress()
-				if err != nil {
-					return "", nil, nil, errors.Trace(err)
-				}
-			}
+			return "", nil, nil, errors.Trace(err)
 		}
-		if address.Value != "" {
-			ingress = []string{address.Value}
+		if crossmodel {
+			address, err := fetchAddr(unit.PublicAddress)
+			if err != nil {
+				logger.Warningf(
+					"no public address for unit %q in cross model relation %q, will use private address",
+					unit.Name(), rel,
+				)
+			} else if address.Value != ""  {
+				ingress = append(ingress, address.Value)
+			}
 		}
 	}
 	if len(ingress) == 0 {
@@ -647,20 +652,26 @@ func NetworksForRelation(
 			if err != nil {
 				return "", nil, nil, errors.Trace(err)
 			}
-
 			machine, err := st.Machine(machineID)
 			if err != nil {
 				return "", nil, nil, errors.Trace(err)
 			}
-
 			networkInfos := machine.GetNetworkInfoForSpaces(set.NewStrings(boundSpace))
 			// The binding address information based on link layer devices.
 			for _, nwInfo := range networkInfos[boundSpace].NetworkInfos {
 				for _, addr := range nwInfo.Addresses {
 					ingress = append(ingress, addr.Address)
 				}
-
 			}
+		}
+	}
+	if len(ingress) == 0 {
+		address, err := fetchAddr(unit.PrivateAddress)
+		if err != nil && !retry.IsAttemptsExceeded(err) && !retry.IsDurationExceeded(err){
+			return "", nil, nil, errors.Trace(err)
+		}
+		if address.Value != ""  {
+			ingress = append(ingress, address.Value)
 		}
 	}
 

@@ -879,7 +879,7 @@ func (s *RelationUnitSuite) TestNetworksForRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, "")
-	c.Assert(ingress, gc.DeepEquals, []string{"4.3.2.1"})
+	c.Assert(ingress, gc.DeepEquals, []string{"1.2.3.4"})
 	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
 }
 
