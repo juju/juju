@@ -68,6 +68,7 @@ func (s *undertakerSuite) TestModelInfo(c *gc.C) {
 		{st, api, true, "admin"},
 	} {
 		test.st.model.life = state.Dying
+		test.st.model.forced = true
 
 		result, err := test.api.ModelInfo()
 		c.Assert(err, jc.ErrorIsNil)
@@ -81,6 +82,7 @@ func (s *undertakerSuite) TestModelInfo(c *gc.C) {
 		c.Assert(info.Name, gc.Equals, test.modelName)
 		c.Assert(info.IsSystem, gc.Equals, test.isSystem)
 		c.Assert(info.Life, gc.Equals, params.Dying)
+		c.Assert(info.ForceDestroyed, gc.Equals, true)
 	}
 }
 
