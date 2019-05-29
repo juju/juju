@@ -15,6 +15,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/permission"
 )
 
