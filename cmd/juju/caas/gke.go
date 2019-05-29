@@ -181,6 +181,8 @@ func (g *gke) queryProject(pollster *interact.Pollster, account string) (string,
 	return project, errors.Trace(err)
 }
 
+var extractRegionFromZone = regexp.MustCompile(`([a-z]+-[a-z0-9]+)`).FindStringSubmatch
+
 func (g *gke) listClusters(account, project, region string) (map[string]cluster, error) {
 	cmd := []string{
 		"gcloud", "container", "clusters", "list", "--filter", "status:RUNNING", "--account", account, "--project", project, "--format", "value\\(name,zone\\)",
@@ -203,9 +205,13 @@ func (g *gke) listClusters(account, project, region string) (map[string]cluster,
 		c := cluster{name: parts[0], region: region}
 		if len(parts) > 1 {
 			c.zone = parts[1]
-			region := regexp.MustCompile(`([a-z]+-[a-z0-9]+)`).FindStringSubmatch(c.zone)
-			if region != nil {
-				c.region = region[0]
+			result := extractRegionFromZone(c.zone)
+			if result != nil && len(result) > 0 {
+				r := result[0]
+				if region != "" && region != r {
+					continue
+				}
+				c.region = r
 			}
 		}
 		clusters[c.name] = c
