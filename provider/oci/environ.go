@@ -445,13 +445,10 @@ func (e *Environ) getCloudInitConfig(series string, apiPort int) (cloudinit.Clou
 	}
 	switch operatingSystem {
 	case os.Ubuntu:
-		fwCmd := fmt.Sprintf(
-			"/sbin/iptables -I INPUT -p tcp --dport %d -j ACCEPT", apiPort)
-		cloudcfg.AddRunCmd(fwCmd)
+		cloudcfg.AddRunCmd(fmt.Sprintf("/sbin/iptables -I INPUT -p tcp --dport %d -j ACCEPT", apiPort))
 		cloudcfg.AddScripts("/etc/init.d/netfilter-persistent save")
 	case os.CentOS:
-		fwCmd := fmt.Sprintf("firewall-cmd --zone=public --add-port=%d/tcp --permanent", apiPort)
-		cloudcfg.AddRunCmd(fwCmd)
+		cloudcfg.AddRunCmd(fmt.Sprintf("firewall-cmd --zone=public --add-port=%d/tcp --permanent", apiPort))
 		cloudcfg.AddRunCmd("firewall-cmd --reload")
 	}
 	return cloudcfg, nil
@@ -585,9 +582,9 @@ func (e *Environ) StartInstance(ctx envcontext.ProviderCallContext, args environ
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
 
-	var rootDiskSizeGB int
+	var rootDiskSizeGB int64
 	if args.Constraints.RootDisk != nil {
-		rootDiskSizeGB = int(*args.Constraints.RootDisk) / 1024
+		rootDiskSizeGB = int64(*args.Constraints.RootDisk) / 1024
 		if int(*args.Constraints.RootDisk) < MinVolumeSizeMB {
 			logger.Warningf(
 				"selected disk size is too small (%d MB). Setting root disk size to minimum volume size (%d MB)",

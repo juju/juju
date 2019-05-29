@@ -1091,7 +1091,7 @@ func (e *environSuite) setupDeleteVcnExpectations(vcnId string) {
 }
 
 func (e *environSuite) setupDeleteVolumesExpectations() {
-	size := 50
+	size := int64(50)
 	volumes := []ociCore.Volume{
 		{
 			Id:                 makeStringPointer("fakeVolumeID1"),

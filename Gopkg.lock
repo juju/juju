@@ -1031,7 +1031,7 @@
   version = "v1.0.0-rc1"
 
 [[projects]]
-  digest = "1:5b6cfb1e5aa514a8ea62ebbda2f23874e5aa86fa1792f2c6f1643dc7538f7f45"
+  digest = "1:a5f72b318ab8d863ccb8c16468eeff36cafb6357d9f1f90197df7ca7f53dbe5e"
   name = "github.com/oracle/oci-go-sdk"
   packages = [
     "common",
@@ -1039,7 +1039,7 @@
     "identity",
   ]
   pruneopts = ""
-  revision = "ad5c34ed0cf8169d6817e2a37ec3e4521f856368"
+  revision = "72941f7f9bfa6550f640b797fde43b19b1574911"
 
 [[projects]]
   branch = "master"

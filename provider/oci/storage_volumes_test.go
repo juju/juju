@@ -53,7 +53,7 @@ func (s *storageVolumeSuite) newVolumeSource(c *gc.C) storage.VolumeSource {
 	return source
 }
 
-func (s *storageVolumeSuite) setupCreateVolumesExpectations(tag names.VolumeTag, size int) {
+func (s *storageVolumeSuite) setupCreateVolumesExpectations(tag names.VolumeTag, size int64) {
 	name := tag.String()
 	volTags := map[string]string{
 		tags.JujuModel: s.env.Config().UUID(),
@@ -151,7 +151,7 @@ func (s *storageVolumeSuite) TestCreateVolumesNilParams(c *gc.C) {
 	c.Assert(results, gc.HasLen, 0)
 }
 
-func (s *storageVolumeSuite) setupListVolumesExpectations(size int) map[string]ociCore.Volume {
+func (s *storageVolumeSuite) setupListVolumesExpectations(size int64) map[string]ociCore.Volume {
 	volTags := map[string]string{
 		tags.JujuModel: s.env.Config().UUID(),
 	}
@@ -250,7 +250,7 @@ func (s *storageVolumeSuite) TestValidateVolumeParams(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *storageVolumeSuite) setupDeleteVolumesExpectations(size int, id string) {
+func (s *storageVolumeSuite) setupDeleteVolumesExpectations(size int64, id string) {
 	volumes := s.setupListVolumesExpectations(size)
 
 	request := ociCore.DeleteVolumeRequest{
