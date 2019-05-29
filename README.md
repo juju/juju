@@ -10,6 +10,7 @@ the flexibility to switch hosts whenever you want — for free.
 
 For more information, see the [docs](https://docs.jujucharms.com/stable/en/getting-started).
 
+
 Getting started
 ===============
 
