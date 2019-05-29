@@ -417,3 +417,67 @@ func (p *modelSummaryProcessor) fillInLastAccess() error {
 	// actually connected to a model they were given access to.
 	return nil
 }
+
+// fillInStatusBasedOnCloudCredentialValidity fills in the Status on every model (if credential is invalid).
+func (p *modelSummaryProcessor) fillInStatusBasedOnCloudCredentialValidity() error {
+	credentialModels := map[names.CloudCredentialTag][]string{}
+	for _, model := range p.summaries {
+		if model.CloudCredentialTag == "" {
+			continue
+		}
+		tag, err := names.ParseCloudCredentialTag(model.CloudCredentialTag)
+		if err != nil {
+			logger.Warningf("could not parse cloud credential tag %v for model%v: %v", model.CloudCredentialTag, model.UUID, err)
+			// Don't stop the rest of the models
+			continue
+		}
+		summaries, ok := credentialModels[tag]
+		if !ok {
+			summaries = []string{}
+		}
+		credentialModels[tag] = append(summaries, model.UUID)
+	}
+	if len(credentialModels) != 0 {
+		if err := p.substituteModelStatusForInvalidCredentials(credentialModels); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (p *modelSummaryProcessor) substituteModelStatusForInvalidCredentials(credentials map[names.CloudCredentialTag][]string) error {
+	var ids []string
+	for tag := range credentials {
+		ids = append(ids, cloudCredentialDocID(tag))
+	}
+	// cloudCredentialsC is a global collection, so can be accessed from any state
+	perms, closer := p.st.db().GetCollection(cloudCredentialsC)
+	defer closer()
+	query := perms.Find(bson.M{"_id": bson.M{"$in": ids}})
+	iter := query.Iter()
+	defer iter.Close()
+
+	var doc cloudCredentialDoc
+	for iter.Next(&doc) {
+		if doc.Invalid {
+			tag, err := doc.cloudCredentialTag()
+			if err != nil {
+				logger.Warningf("could not get cloud credential tag %v: %v", doc.DocID, err)
+				// Don't stop the rest of the models
+				continue
+			}
+			for _, uuid := range credentials[tag] {
+				idx, ok := p.indexByUUID[uuid]
+				if !ok {
+					continue
+				}
+				details := &p.summaries[idx]
+				details.Status = modelStatusInvalidCredential()
+			}
+		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}

@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"fmt"
 	"sort"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/permission"
@@ -61,10 +63,35 @@ func (s *ModelSummariesSuite) Setup4Models(c *gc.C) map[string]string {
 	modelUUIDs["user3model"] = st3.ModelUUID()
 	st3.Close()
 	owner := s.Model.Owner()
+	err := s.State.AddCloud(cloud.Cloud{
+		Name:      "stratus",
+		Type:      "low",
+		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+		Regions: []cloud.Region{
+			{
+				Name:             "dummy-region",
+				Endpoint:         "dummy-endpoint",
+				IdentityEndpoint: "dummy-identity-endpoint",
+				StorageEndpoint:  "dummy-storage-endpoint",
+			},
+		},
+	}, s.Owner.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
+		"foo": "foo val",
+		"bar": "bar val",
+	})
+	tag := names.NewCloudCredentialTag(fmt.Sprintf("stratus/%v/foobar", owner.Name()))
+	err = s.State.UpdateCloudCredential(tag, cred)
+	c.Assert(err, jc.ErrorIsNil)
+
 	sharedSt := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "shared",
 		// Owned by test-admin
-		Owner: owner,
+		Owner:           owner,
+		CloudName:       "stratus",
+		CloudCredential: tag,
 	})
 	modelUUIDs["shared"] = sharedSt.ModelUUID()
 	defer sharedSt.Close()
@@ -258,6 +285,44 @@ func (s *ModelSummariesSuite) TestContainsModelStatus(c *gc.C) {
 	defer ph.Release()
 	c.Assert(err, jc.ErrorIsNil)
 	err = shared.SetStatus(expectedStatus["shared"])
+	user1, ph, err := s.StatePool.GetModel(modelNameToUUID["user1model"])
+	defer ph.Release()
+	c.Assert(err, jc.ErrorIsNil)
+	err = user1.SetStatus(expectedStatus["user1model"])
+	c.Assert(err, jc.ErrorIsNil)
+	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"), false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(summaries, gc.HasLen, 2)
+	statuses := make(map[string]status.StatusInfo)
+	for _, summary := range summaries {
+		// We nil the time, because we don't want to compare it, we nil the Data map to avoid comparing an
+		// empty map to a nil map
+		st := summary.Status
+		st.Since = nil
+		st.Data = nil
+		statuses[summary.Name] = st
+	}
+	c.Check(statuses, jc.DeepEquals, expectedStatus)
+}
+
+func (s *ModelSummariesSuite) TestContainsModelStatusSuspended(c *gc.C) {
+	modelNameToUUID := s.Setup4Models(c)
+	expectedStatus := map[string]status.StatusInfo{
+		"shared": {
+			Status:  status.Suspended,
+			Message: "suspended since cloud credential is not valid",
+		},
+		"user1model": {
+			Status:  status.Busy,
+			Message: "human message",
+		},
+	}
+	shared, err := s.StatePool.Get(modelNameToUUID["shared"])
+	defer shared.Release()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(shared.InvalidateModelCredential("test"), jc.ErrorIsNil)
+
+	s.State.StartSync()
 	user1, ph, err := s.StatePool.GetModel(modelNameToUUID["user1model"])
 	defer ph.Release()
 	c.Assert(err, jc.ErrorIsNil)
