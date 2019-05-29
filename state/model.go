@@ -117,7 +117,7 @@ type modelDoc struct {
 	// ForceDestroyed is whether --force was specified when destroying
 	// this model. It only has any meaning when the model is dying or
 	// dead.
-	ForceDestroyed bool `bson:"force-destroyed"`
+	ForceDestroyed bool `bson:"force-destroyed,omitempty"`
 }
 
 // slaLevel enumerates the support levels available to a model.
