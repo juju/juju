@@ -1228,7 +1228,6 @@ func (u *Unit) AllAddresses() ([]network.Address, error) {
 		return nil, errors.Trace(err)
 	}
 	addresses := serviceInfo.Addresses()
-
 	// Second the address of the container.
 	addr, err := u.containerAddress()
 	if network.IsNoAddressError(err) {
@@ -1267,11 +1266,9 @@ func (u *Unit) serviceAddress(scope string) (network.Address, error) {
 	if len(addresses) == 0 {
 		return network.Address{}, network.NoAddressError(scope)
 	}
-
 	getStrictPublicAddr := func(addresses []network.Address) (network.Address, bool) {
 		addr, ok := network.SelectPublicAddress(addresses)
-		ok = ok && addr.Scope == network.ScopePublic
-		return addr, ok
+		return addr, ok && (addr.Scope == network.ScopePublic || addr.Scope == network.ScopeCloudLocal)
 	}
 
 	getInternalAddr := func(addresses []network.Address) (network.Address, bool) {

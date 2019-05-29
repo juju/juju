@@ -583,7 +583,7 @@ var PreferredAddressRetryArgs = func() retry.CallArgs {
 	return retry.CallArgs{
 		Clock:       clock.WallClock,
 		Delay:       3 * time.Second,
-		MaxDuration: 30 * time.Second,
+		MaxDuration: 60 * time.Second,
 	}
 }
 
@@ -613,34 +613,29 @@ func NetworksForRelation(
 	// is bound to the default space, we need to look up the ingress
 	// address info which is aware of cross model relations.
 	if boundSpace == environs.DefaultSpaceName || err != nil {
-		_, crossmodel, err := rel.RemoteApplication()
-		if err != nil {
-			return "", nil, nil, errors.Trace(err)
+		var address network.Address
+		retryArg := PreferredAddressRetryArgs()
+		retryArg.Func = func() error {
+			var err error
+			address, err = unit.PublicAddress()
+			return err
 		}
-		// TODO(caas) - we might need to use the service address
-		if crossmodel && unit.ShouldBeAssigned() {
-			var address network.Address
-			retryArg := PreferredAddressRetryArgs()
-			retryArg.Func = func() error {
-				var err error
-				address, err = unit.PublicAddress()
-				return err
-			}
-			retryArg.IsFatalError = func(err error) bool {
-				return !network.IsNoAddressError(err)
-			}
-			err := retry.Call(retryArg)
-			if err != nil {
-				// TODO(wallyworld) - it's ok to return a private address sometimes
-				// TODO return an error when it's not possible to use the private address
-				logger.Warningf(
-					"no public address for unit %q in cross model relation %q, using private address",
-					unit.Name(), rel)
+		retryArg.IsFatalError = func(err error) bool {
+			return !network.IsNoAddressError(err)
+		}
+		err := retry.Call(retryArg)
+		if err != nil {
+			logger.Warningf(
+				"no public address for unit %q in cross model relation %q, using private address",
+				unit.Name(), rel)
+			if unit.ShouldBeAssigned() {
 				address, err = unit.PrivateAddress()
 				if err != nil {
 					return "", nil, nil, errors.Trace(err)
 				}
 			}
+		}
+		if address.Value != "" {
 			ingress = []string{address.Value}
 		}
 	}
@@ -665,20 +660,6 @@ func NetworksForRelation(
 					ingress = append(ingress, addr.Address)
 				}
 
-			}
-		} else {
-			// Be be consistent with IAAS behaviour above, we'll return all
-			// addresses, including any container address.
-			addr, err := unit.AllAddresses()
-			if err != nil {
-				logger.Warningf(
-					"no service address for unit %q in relation %q",
-					unit.Name(), rel)
-			} else {
-				network.SortAddresses(addr)
-				for _, a := range addr {
-					ingress = append(ingress, a.Value)
-				}
 			}
 		}
 	}
