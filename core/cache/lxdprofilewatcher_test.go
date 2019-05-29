@@ -397,6 +397,6 @@ func (s *lxdProfileWatcherSuite) assertStartOneMachineNotProvisionedWatcher(c *g
 func (s *lxdProfileWatcherSuite) assertChangeValidateMetrics(c *gc.C, assert func(), err, hit, miss int) {
 	assert()
 	c.Check(testutil.ToFloat64(s.Gauges.LXDProfileChangeError), gc.Equals, float64(err))
-	c.Check(testutil.ToFloat64(s.Gauges.LXDProfileChangeHit), gc.Equals, float64(hit))
-	c.Check(testutil.ToFloat64(s.Gauges.LXDProfileChangeMiss), gc.Equals, float64(miss))
+	c.Check(testutil.ToFloat64(s.Gauges.LXDProfileChangeNotification), gc.Equals, float64(hit))
+	c.Check(testutil.ToFloat64(s.Gauges.LXDProfileNoChange), gc.Equals, float64(miss))
 }
