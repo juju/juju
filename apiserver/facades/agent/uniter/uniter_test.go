@@ -4189,8 +4189,8 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 				},
 			},
 		},
-		EgressSubnets:    []string{"54.32.1.2/32"},
-		IngressAddresses: []string{"54.32.1.2", "192.168.1.2", "10.0.0.1"},
+		EgressSubnets:    []string{"192.168.1.2/32"},
+		IngressAddresses: []string{"192.168.1.2"},
 	}
 
 	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
