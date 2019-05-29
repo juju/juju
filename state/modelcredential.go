@@ -11,6 +11,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/status"
 )
 
 // InvalidateModelCredential invalidate cloud credential for the model
