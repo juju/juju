@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/core/status"
 )
 
@@ -119,6 +120,30 @@ type MachineChange struct {
 // RemoveMachine represents the situation when a machine
 // is removed from a model in the database.
 type RemoveMachine struct {
+	ModelUUID string
+	Id        string
+}
+
+// BranchChange represents a change to an active model branch.
+// Note that this corresponds to a multi-watcher GenerationInfo payload,
+// and that the cache behaviour differs from other entities;
+// when a generation is completed (aborted or committed),
+// it is no longer an active branch and will be removed from the cache.
+type BranchChange struct {
+	ModelUUID     string
+	Id            string
+	Name          string
+	AssignedUnits map[string][]string
+	Config        map[string][]settings.ItemChange
+	Completed     int64
+	GenerationId  int
+}
+
+// RemoveBranch represents the situation when a branch is to be removed
+// from the cache. This will rarely be a result of deletion from the database.
+// It will usually be the result of the branch no longer being considered
+// "in-flight" due to being committed or aborted.
+type RemoveBranch struct {
 	ModelUUID string
 	Id        string
 }
