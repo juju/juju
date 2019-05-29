@@ -192,7 +192,7 @@ func (env *sessionEnviron) newRawInstance(
 		cons.RootDisk = &minRootDisk
 	}
 	defaultDatastore := env.ecfg.datastore()
-	if cons.RootDiskSource == nil || *cons.RootDiskSource == "" {
+	if (cons.RootDiskSource == nil || *cons.RootDiskSource == "") && defaultDatastore != "" {
 		cons.RootDiskSource = &defaultDatastore
 	}
 

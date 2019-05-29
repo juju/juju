@@ -251,7 +251,7 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreNotFound(c *gc.C) {
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `could not find datastore "datastore3"`)
+	c.Assert(err, gc.ErrorMatches, `could not find datastore "datastore3", datastore\(s\) accessible: "datastore2"`)
 }
 
 func (s *clientSuite) TestCreateVirtualMachineDatastoreNoneAccessible(c *gc.C) {
@@ -263,7 +263,53 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreNoneAccessible(c *gc.C) {
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, "could not find an accessible datastore")
+	c.Assert(err, gc.ErrorMatches, "no accessible datastores available")
+}
+
+func (s *clientSuite) TestCreateVirtualMachineDatastoreNotFoundWithMultipleAvailable(c *gc.C) {
+	args := baseCreateVirtualMachineParams(c)
+	datastore := "datastore3"
+	args.Constraints.RootDiskSource = &datastore
+
+	s.roundTripper.updateContents("FakeDatastore1",
+		[]types.ObjectContent{{
+			Obj: types.ManagedObjectReference{
+				Type:  "Datastore",
+				Value: "FakeDatastore1",
+			},
+			PropSet: []types.DynamicProperty{
+				{Name: "name", Val: "datastore1"},
+				{Name: "summary.accessible", Val: true},
+			},
+		}},
+	)
+
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	_, err := client.CreateVirtualMachine(context.Background(), args)
+	c.Assert(err, gc.ErrorMatches, `could not find datastore "datastore3", datastore\(s\) accessible: "datastore1", "datastore2"`)
+}
+
+func (s *clientSuite) TestCreateVirtualMachineDatastoreNotFoundWithNoAvailable(c *gc.C) {
+	args := baseCreateVirtualMachineParams(c)
+	datastore := "datastore3"
+	args.Constraints.RootDiskSource = &datastore
+
+	s.roundTripper.updateContents("FakeDatastore2",
+		[]types.ObjectContent{{
+			Obj: types.ManagedObjectReference{
+				Type:  "Datastore",
+				Value: "FakeDatastore2",
+			},
+			PropSet: []types.DynamicProperty{
+				{Name: "name", Val: "datastore2"},
+				{Name: "summary.accessible", Val: false},
+			},
+		}},
+	)
+
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	_, err := client.CreateVirtualMachine(context.Background(), args)
+	c.Assert(err, gc.ErrorMatches, `no accessible datastores available`)
 }
 
 func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefault(c *gc.C) {
