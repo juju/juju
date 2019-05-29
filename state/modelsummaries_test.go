@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"fmt"
-	"github.com/juju/juju/cloud"
 	"sort"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/permission"
