@@ -446,9 +446,7 @@ func (s *DestroySuite) TestDestroyCommandWait(c *gc.C) {
 	case <-done:
 		c.Assert(<-outStdErr, gc.Equals, `
 Destroying model
-Waiting for model to be removed, 5 error(s), 1 machine(s), 2 application(s), 3 volume(s), 2 filesystems(s)...
-Waiting for model to be removed, 5 error(s), 1 machine(s), 2 application(s), 3 volume(s), 2 filesystems(s)...
-`[1:])
+Waiting for model to be removed, 5 error(s), 1 machine(s), 2 application(s), 3 volume(s), 2 filesystems(s)....`[1:])
 		c.Assert(<-outStdOut, gc.Equals, `
 
 The following errors were encountered during destroying the model.

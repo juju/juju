@@ -317,7 +317,7 @@ upgrade the controller to version 2.3 or greater.
 	}
 
 	// Attempt to destroy the model.
-	ctx.Infof("Destroying model")
+	fmt.Fprint(ctx.Stderr, "Destroying model")
 	var destroyStorage *bool
 	if c.destroyStorage || c.releaseStorage {
 		destroyStorage = &c.destroyStorage
@@ -425,7 +425,7 @@ func waitForModelDestroyed(
 	// no wait for 1st time.
 	intervalSeconds := 0 * time.Second
 	timeoutAfter := clock.After(timeout)
-	printedOnce := false
+	reported := ""
 	for {
 		select {
 		case <-interrupted:
@@ -442,15 +442,11 @@ func waitForModelDestroyed(
 				return nil
 			}
 			msg := formatDestroyModelInfo(data)
-			if printedOnce && data.isEmpty() {
+			if reported == msg {
 				fmt.Fprint(ctx.Stderr, ".")
 			} else {
-				if data.isEmpty() {
-					printedOnce = true
-					fmt.Fprintf(ctx.Stderr, msg+"...")
-				} else {
-					fmt.Fprintln(ctx.Stderr, msg+"...")
-				}
+				fmt.Fprint(ctx.Stderr, fmt.Sprintf("\n%v...", msg))
+				reported = msg
 			}
 			intervalSeconds = 2 * time.Second
 		}
