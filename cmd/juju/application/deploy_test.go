@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/loggo"
@@ -543,6 +544,45 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 			Size:  1024,
 		},
 	})
+}
+
+func (s *DeploySuite) TestErrorDeployingBundlesRequiringTrust(c *gc.C) {
+	specs := []struct {
+		descr      string
+		bundle     string
+		expAppList []string
+	}{
+		{
+			descr:      "bundle with a single app with the trust field set to true",
+			bundle:     "aws-integrator-trust-single",
+			expAppList: []string{"aws-integrator"},
+		},
+		{
+			descr:      "bundle with a multiple apps with the trust field set to true",
+			bundle:     "aws-integrator-trust-multi",
+			expAppList: []string{"aws-integrator", "gcp-integrator"},
+		},
+		{
+			descr:      "bundle with a single app with a 'trust: true' config option",
+			bundle:     "aws-integrator-trust-conf-param",
+			expAppList: []string{"aws-integrator"},
+		},
+	}
+
+	s.SetFeatureFlags(feature.TrustedBundles)
+
+	for specIndex, spec := range specs {
+		c.Logf("[spec %d] %s", specIndex, spec.descr)
+
+		expErr := fmt.Sprintf(`Bundle cannot be deployed without trusting applications with your cloud credentials.
+Please repeat the deploy command with the --trust argument if you consent to trust the following application(s):
+  - %s`, strings.Join(spec.expAppList, "\n  - "))
+
+		bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), spec.bundle)
+		err := s.runDeploy(c, bundlePath)
+		c.Assert(err, gc.Not(gc.IsNil))
+		c.Assert(err.Error(), gc.Equals, expErr)
+	}
 }
 
 type fakeProvider struct {
