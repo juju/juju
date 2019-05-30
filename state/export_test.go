@@ -41,6 +41,7 @@ const (
 	MachinesC         = machinesC
 	ModelEntityRefsC  = modelEntityRefsC
 	ApplicationsC     = applicationsC
+	OfferConnectionsC = offerConnectionsC
 	EndpointBindingsC = endpointBindingsC
 	ControllersC      = controllersC
 	UsersC            = usersC
@@ -52,20 +53,21 @@ const (
 )
 
 var (
-	BinarystorageNew        = &binarystorageNew
-	ImageStorageNewStorage  = &imageStorageNewStorage
-	MachineIdLessThan       = machineIdLessThan
-	GetOrCreatePorts        = getOrCreatePorts
-	GetPorts                = getPorts
-	CombineMeterStatus      = combineMeterStatus
-	ApplicationGlobalKey    = applicationGlobalKey
-	CloudGlobalKey          = cloudGlobalKey
-	RegionSettingsGlobalKey = regionSettingsGlobalKey
-	ModelGlobalKey          = modelGlobalKey
-	MergeBindings           = mergeBindings
-	UpgradeInProgressError  = errUpgradeInProgress
-	DBCollectionSizeToInt   = dbCollectionSizeToInt
-	NewEntityWatcher        = newEntityWatcher
+	BinarystorageNew              = &binarystorageNew
+	ImageStorageNewStorage        = &imageStorageNewStorage
+	MachineIdLessThan             = machineIdLessThan
+	GetOrCreatePorts              = getOrCreatePorts
+	GetPorts                      = getPorts
+	CombineMeterStatus            = combineMeterStatus
+	ApplicationGlobalKey          = applicationGlobalKey
+	CloudGlobalKey                = cloudGlobalKey
+	RegionSettingsGlobalKey       = regionSettingsGlobalKey
+	ModelGlobalKey                = modelGlobalKey
+	MergeBindings                 = mergeBindings
+	UpgradeInProgressError        = errUpgradeInProgress
+	DBCollectionSizeToInt         = dbCollectionSizeToInt
+	NewEntityWatcher              = newEntityWatcher
+	ApplicationHasConnectedOffers = applicationHasConnectedOffers
 )
 
 type (

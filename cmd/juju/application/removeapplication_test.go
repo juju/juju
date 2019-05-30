@@ -146,6 +146,7 @@ func (s *RemoveApplicationSuite) TestNoWaitWithoutForce(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `--no-wait without --force not valid`)
 }
 
+//TODO(tsm) remove unused RemoveCharmStoreCharmsSuite
 type RemoveCharmStoreCharmsSuite struct {
 	legacyCharmStoreSuite
 	ctx *cmd.Context
