@@ -583,7 +583,7 @@ var PreferredAddressRetryArgs = func() retry.CallArgs {
 	return retry.CallArgs{
 		Clock:       clock.WallClock,
 		Delay:       3 * time.Second,
-		MaxDuration: 60 * time.Second,
+		MaxDuration: 30 * time.Second,
 	}
 }
 
@@ -625,9 +625,12 @@ func NetworksForRelation(
 	}
 
 	fallbackIngressToPrivateAddr := func() error {
-		address, err := fetchAddr(unit.PrivateAddress)
-		if err != nil && !retry.IsAttemptsExceeded(err) && !retry.IsDurationExceeded(err) {
-			return errors.Trace(err)
+		// TODO(ycliuhw): lp-1830252 retry here once this is fixed.
+		address, err := unit.PrivateAddress()
+		if err != nil {
+			logger.Warningf(
+				"no private address for unit %q in relation %q",
+				unit.Name(), rel)
 		}
 		if address.Value != "" {
 			ingress = append(ingress, address.Value)
@@ -643,7 +646,8 @@ func NetworksForRelation(
 		if err != nil {
 			return "", nil, nil, errors.Trace(err)
 		}
-		if crossmodel {
+		if crossmodel && unit.ShouldBeAssigned() {
+			// TODO(ycliuhw): lp-1830252 enable here for caas model once this is fixed.
 			address, err := fetchAddr(unit.PublicAddress)
 			if err != nil {
 				logger.Warningf(
