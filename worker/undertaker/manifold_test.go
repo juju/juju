@@ -89,15 +89,6 @@ func (s *manifoldSuite) TestAPICallerMissing(c *gc.C) {
 	c.Check(worker, gc.IsNil)
 }
 
-func (s *manifoldSuite) TestEnvironMissing(c *gc.C) {
-	resources := resourcesMissing("environ", "broker")
-	manifold := undertaker.Manifold(s.namesConfig())
-
-	worker, err := manifold.Start(resources.Context())
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
-	c.Check(worker, gc.IsNil)
-}
-
 func (s *manifoldSuite) TestNewFacadeError(c *gc.C) {
 	resources := resourcesMissing()
 	config := s.namesConfig()
@@ -145,6 +136,31 @@ func (s *manifoldSuite) TestNewWorkerError(c *gc.C) {
 	worker, err := manifold.Start(resources.Context())
 	c.Check(err, gc.ErrorMatches, "lhiis")
 	c.Check(worker, gc.IsNil)
+}
+
+func (s *manifoldSuite) TestNewWorkerEnvironMissing(c *gc.C) {
+	// If the environ tracker isn't available the undertaker can still
+	// start, but the destroyer it gets passed will always return an
+	// error.
+	expectWorker := &fakeWorker{}
+	config := s.namesConfig()
+	var gotConfig undertaker.Config
+	config.NewFacade = func(_ base.APICaller) (undertaker.Facade, error) {
+		return &fakeFacade{}, nil
+	}
+	config.NewWorker = func(workerConfig undertaker.Config) (worker.Worker, error) {
+		gotConfig = workerConfig
+		return expectWorker, nil
+	}
+
+	resources := resourcesMissing("environ", "broker")
+	manifold := undertaker.Manifold(config)
+
+	worker, err := manifold.Start(resources.Context())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(worker, gc.Equals, expectWorker)
+	err = gotConfig.Destroyer.Destroy(nil)
+	c.Assert(err, gc.ErrorMatches, "cloud environment unavailable")
 }
 
 func (s *manifoldSuite) TestNewWorkerSuccess(c *gc.C) {
