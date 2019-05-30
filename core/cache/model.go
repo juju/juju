@@ -37,6 +37,7 @@ func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *
 		charms:       make(map[string]*Charm),
 		machines:     make(map[string]*Machine),
 		units:        make(map[string]*Unit),
+		branches:     make(map[string]*Branch),
 	}
 	return m
 }
@@ -59,6 +60,7 @@ type Model struct {
 	charms       map[string]*Charm
 	machines     map[string]*Machine
 	units        map[string]*Unit
+	branches     map[string]*Branch
 }
 
 // Config returns the current model config.
@@ -94,6 +96,7 @@ func (m *Model) Report() map[string]interface{} {
 		"charm-count":       len(m.charms),
 		"machine-count":     len(m.machines),
 		"unit-count":        len(m.units),
+		"branch-count":      len(m.branches),
 	}
 }
 
@@ -144,6 +147,18 @@ func (m *Model) Machine(machineId string) (*Machine, error) {
 		return nil, errors.NotFoundf("machine %q", machineId)
 	}
 	return machine, nil
+}
+
+// Branch returns the machine with the input name.
+// If the branch is not found, a NotFoundError is returned.
+func (m *Model) Branch(name string) (*Branch, error) {
+	defer m.doLocked()()
+
+	branch, found := m.branches[name]
+	if !found {
+		return nil, errors.NotFoundf("branch %q", name)
+	}
+	return branch, nil
 }
 
 // WatchMachines returns a PredicateStringsWatcher to notify about
@@ -311,6 +326,40 @@ func (m *Model) removeMachine(ch RemoveMachine) error {
 			return errors.Trace(err)
 		}
 		delete(m.machines, ch.Id)
+	}
+	return nil
+}
+
+// updateBranch adds or updates the branch in the model.
+// Only "in-flight" branches should ever reside in the change.
+// A committed or aborted branch (with a non-zero time-stamp for completion)
+// should be passed through by the cache worker as a deletion.
+func (m *Model) updateBranch(ch BranchChange, rm *residentManager) {
+	m.mu.Lock()
+
+	branch, found := m.branches[ch.Name]
+	if !found {
+		branch = newBranch(m.metrics, m.hub, rm.new())
+		m.branches[ch.Name] = branch
+	}
+	branch.setDetails(ch)
+
+	m.mu.Unlock()
+}
+
+// removeBranch removes the branch from the model.
+func (m *Model) removeBranch(ch RemoveBranch) error {
+	defer m.doLocked()()
+
+	branch, ok := m.branches[ch.Name]
+	if ok {
+		// TODO (manadart 2019-05-29): Publish appropriate message(s) to cause
+		// any unit config watchers to use only the master settings (maybe).
+
+		if err := branch.evict(); err != nil {
+			return errors.Trace(err)
+		}
+		delete(m.branches, ch.Name)
 	}
 	return nil
 }
