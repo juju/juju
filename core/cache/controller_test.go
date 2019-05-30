@@ -239,7 +239,7 @@ func (s *ControllerSuite) TestRemoveBranch(c *gc.C) {
 
 	remove := cache.RemoveBranch{
 		ModelUUID: modelChange.ModelUUID,
-		Name:      branchChange.Name,
+		Id:        branchChange.Id,
 	}
 	s.processChange(c, remove, events)
 

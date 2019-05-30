@@ -18,6 +18,7 @@ var _ = gc.Suite(&BranchSuite{})
 
 var branchChange = cache.BranchChange{
 	ModelUUID:     "model-uuid",
+	Id:            "0",
 	Name:          "testing-branch",
 	AssignedUnits: map[string][]string{"redis": {"redis/0", "redis/1"}},
 	Config:        map[string][]settings.ItemChange{"redis": {settings.MakeAddition("password", "pass666")}},

@@ -39,7 +39,7 @@ func (b *Branch) setDetails(details BranchChange) {
 	if b.removalMessage == nil {
 		b.removalMessage = RemoveBranch{
 			ModelUUID: details.ModelUUID,
-			Name:      details.Name,
+			Id:        details.Id,
 		}
 	}
 

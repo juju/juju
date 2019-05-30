@@ -131,6 +131,7 @@ type RemoveMachine struct {
 // it is no longer an active branch and will be removed from the cache.
 type BranchChange struct {
 	ModelUUID     string
+	Id            string
 	Name          string
 	AssignedUnits map[string][]string
 	Config        map[string][]settings.ItemChange
@@ -144,5 +145,5 @@ type BranchChange struct {
 // "in-flight" due to being committed or aborted.
 type RemoveBranch struct {
 	ModelUUID string
-	Name      string
+	Id        string
 }

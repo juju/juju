@@ -149,16 +149,24 @@ func (m *Model) Machine(machineId string) (*Machine, error) {
 	return machine, nil
 }
 
-// Branch returns the machine with the input name.
+// Branch returns the branch with the input name.
 // If the branch is not found, a NotFoundError is returned.
-func (m *Model) Branch(name string) (*Branch, error) {
+// All API-level logic identifies active branches by their name whereas they
+// are managed in the cache by ID - we iterate over the map to locate them.
+// We do not expect many active branches to exist at once,
+// so the performance should be acceptable.
+// TODO (manadart 2019-05-30): Note that this returns a copy of the branch.
+// All of the other entity retrieval should be changed to work in the same
+// fashion, and the lock guarding of member access removed where possible.
+func (m *Model) Branch(name string) (Branch, error) {
 	defer m.doLocked()()
 
-	branch, found := m.branches[name]
-	if !found {
-		return nil, errors.NotFoundf("branch %q", name)
+	for _, b := range m.branches {
+		if b.details.Name == name {
+			return *b, nil
+		}
 	}
-	return branch, nil
+	return Branch{}, errors.NotFoundf("branch %q", name)
 }
 
 // WatchMachines returns a PredicateStringsWatcher to notify about
@@ -337,10 +345,10 @@ func (m *Model) removeMachine(ch RemoveMachine) error {
 func (m *Model) updateBranch(ch BranchChange, rm *residentManager) {
 	m.mu.Lock()
 
-	branch, found := m.branches[ch.Name]
+	branch, found := m.branches[ch.Id]
 	if !found {
 		branch = newBranch(m.metrics, m.hub, rm.new())
-		m.branches[ch.Name] = branch
+		m.branches[ch.Id] = branch
 	}
 	branch.setDetails(ch)
 
@@ -351,7 +359,7 @@ func (m *Model) updateBranch(ch BranchChange, rm *residentManager) {
 func (m *Model) removeBranch(ch RemoveBranch) error {
 	defer m.doLocked()()
 
-	branch, ok := m.branches[ch.Name]
+	branch, ok := m.branches[ch.Id]
 	if ok {
 		// TODO (manadart 2019-05-29): Publish appropriate message(s) to cause
 		// any unit config watchers to use only the master settings (maybe).
@@ -359,7 +367,7 @@ func (m *Model) removeBranch(ch RemoveBranch) error {
 		if err := branch.evict(); err != nil {
 			return errors.Trace(err)
 		}
-		delete(m.branches, ch.Name)
+		delete(m.branches, ch.Id)
 	}
 	return nil
 }
