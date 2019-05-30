@@ -152,9 +152,9 @@ func (w *MachineLXDProfileWatcher) applicationCharmURLChange(topic string, value
 	defer func(notify *bool) {
 		if *notify {
 			w.notify()
-			w.metrics.LXDProfileChangeHit.Inc()
+			w.metrics.LXDProfileChangeNotification.Inc()
 		} else {
-			w.metrics.LXDProfileChangeMiss.Inc()
+			w.metrics.LXDProfileNoChange.Inc()
 		}
 	}(&notify)
 
@@ -207,9 +207,9 @@ func (w *MachineLXDProfileWatcher) addUnit(topic string, value interface{}) {
 		if *notify {
 			logger.Tracef("notifying due to add unit requires lxd profile change machine-%s", w.machineId)
 			w.notify()
-			w.metrics.LXDProfileChangeHit.Inc()
+			w.metrics.LXDProfileChangeNotification.Inc()
 		} else {
-			w.metrics.LXDProfileChangeMiss.Inc()
+			w.metrics.LXDProfileNoChange.Inc()
 		}
 	}(&notify)
 
@@ -301,9 +301,9 @@ func (w *MachineLXDProfileWatcher) removeUnit(topic string, value interface{}) {
 		if *notify {
 			logger.Tracef("notifying due to remove unit requires lxd profile change machine-%s", w.machineId)
 			w.notify()
-			w.metrics.LXDProfileChangeHit.Inc()
+			w.metrics.LXDProfileChangeNotification.Inc()
 		} else {
-			w.metrics.LXDProfileChangeMiss.Inc()
+			w.metrics.LXDProfileNoChange.Inc()
 		}
 	}(&notify)
 
@@ -348,7 +348,7 @@ func (w *MachineLXDProfileWatcher) provisionedChange(topic string, _ interface{}
 	}
 
 	logger.Tracef("notifying due to machine-%s now provisioned", w.machineId)
-	w.metrics.LXDProfileChangeHit.Inc()
+	w.metrics.LXDProfileChangeNotification.Inc()
 	w.notify()
 }
 

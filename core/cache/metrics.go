@@ -65,9 +65,9 @@ type ControllerGauges struct {
 	ApplicationHashCacheHit  prometheus.Gauge
 	ApplicationHashCacheMiss prometheus.Gauge
 
-	LXDProfileChangeError prometheus.Gauge
-	LXDProfileChangeHit   prometheus.Gauge
-	LXDProfileChangeMiss  prometheus.Gauge
+	LXDProfileChangeError        prometheus.Gauge
+	LXDProfileChangeNotification prometheus.Gauge
+	LXDProfileNoChange           prometheus.Gauge
 }
 
 func createControllerGauges() *ControllerGauges {
@@ -118,21 +118,21 @@ func createControllerGauges() *ControllerGauges {
 			prometheus.GaugeOpts{
 				Namespace: metricsNamespace,
 				Name:      "lxdprofile_change_error",
-				Help:      "The number of times there was an error calculating LXD profile changes.",
+				Help:      "The number of times there was an error calculating LXD profile related changes.",
 			},
 		),
-		LXDProfileChangeHit: prometheus.NewGauge(
+		LXDProfileChangeNotification: prometheus.NewGauge(
 			prometheus.GaugeOpts{
 				Namespace: metricsNamespace,
-				Name:      "lxdprofile_change_hit",
-				Help:      "The number of times an LXD Profile change was found.",
+				Name:      "lxdprofile_change_notify",
+				Help:      "The number of times an LXD Profile related change triggered a notification.",
 			},
 		),
-		LXDProfileChangeMiss: prometheus.NewGauge(
+		LXDProfileNoChange: prometheus.NewGauge(
 			prometheus.GaugeOpts{
 				Namespace: metricsNamespace,
-				Name:      "lxdprofile_change_miss",
-				Help:      "The number of times an LXD Profile change was not found.",
+				Name:      "lxdprofile_no_change",
+				Help:      "The number of times an LXD Profile related change did not trigger a notification.",
 			},
 		),
 	}
@@ -149,8 +149,8 @@ func (c *ControllerGauges) Collect(ch chan<- prometheus.Metric) {
 	c.ApplicationHashCacheMiss.Collect(ch)
 
 	c.LXDProfileChangeError.Collect(ch)
-	c.LXDProfileChangeHit.Collect(ch)
-	c.LXDProfileChangeMiss.Collect(ch)
+	c.LXDProfileChangeNotification.Collect(ch)
+	c.LXDProfileNoChange.Collect(ch)
 }
 
 // Collector is a prometheus.Collector that collects metrics about
