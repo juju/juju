@@ -35,7 +35,6 @@ func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
 func (s *ManifoldConfigSuite) validConfig() pruner.ManifoldConfig {
 	return pruner.ManifoldConfig{
 		APICallerName: "api-caller",
-		EnvironName:   "environ",
 		ClockName:     "clock",
 		NewWorker:     func(pruner.Config) (worker.Worker, error) { return nil, nil },
 		NewFacade:     func(caller base.APICaller) pruner.Facade { return nil },
@@ -49,11 +48,6 @@ func (s *ManifoldConfigSuite) TestValid(c *gc.C) {
 func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *gc.C) {
 	s.config.APICallerName = ""
 	s.checkNotValid(c, "empty APICallerName not valid")
-}
-
-func (s *ManifoldConfigSuite) TestMissingEnvironName(c *gc.C) {
-	s.config.EnvironName = ""
-	s.checkNotValid(c, "empty EnvironName not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingClockName(c *gc.C) {

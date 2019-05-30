@@ -253,7 +253,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 		statusHistoryPrunerName: ifNotMigrating(pruner.Manifold(pruner.ManifoldConfig{
 			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
 			ClockName:     clockName,
 			NewWorker:     statushistorypruner.New,
 			NewFacade:     statushistorypruner.NewFacade,
@@ -261,7 +260,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 		actionPrunerName: ifNotMigrating(pruner.Manifold(pruner.ManifoldConfig{
 			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
 			ClockName:     clockName,
 			NewWorker:     actionpruner.New,
 			NewFacade:     actionpruner.NewFacade,
