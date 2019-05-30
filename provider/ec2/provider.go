@@ -231,9 +231,9 @@ var maybeConvertCredentialError = func(err error, ctx context.ProviderCallContex
 		case "SignatureDoesNotMatch":
 			return convert(common.CredentialNotValidf(err, badKeys))
 		case "OptInRequired":
-			return errors.Annotate(err, unauthorized)
+			return convert(common.CredentialNotValidf(err, unauthorized))
 		case "UnauthorizedOperation":
-			return errors.Annotate(err, unauthorized)
+			return convert(common.CredentialNotValidf(err, unauthorized))
 		default:
 			// This error is unrelated to access keys, account or credentials...
 			return err
