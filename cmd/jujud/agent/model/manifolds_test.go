@@ -359,7 +359,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"environ-upgrade-gate",
 		"environ-upgraded-flag",
 		"not-alive-flag",
-		"valid-credential-flag",
 	},
 
 	"valid-credential-flag": {"agent", "api-caller"},
