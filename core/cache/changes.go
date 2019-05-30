@@ -134,7 +134,7 @@ type BranchChange struct {
 	Id            string
 	Name          string
 	AssignedUnits map[string][]string
-	Config        map[string][]settings.ItemChange
+	Config        map[string]settings.ItemChanges
 	Completed     int64
 	GenerationId  int
 }

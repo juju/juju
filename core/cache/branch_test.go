@@ -21,7 +21,7 @@ var branchChange = cache.BranchChange{
 	Id:            "0",
 	Name:          "testing-branch",
 	AssignedUnits: map[string][]string{"redis": {"redis/0", "redis/1"}},
-	Config:        map[string][]settings.ItemChange{"redis": {settings.MakeAddition("password", "pass666")}},
+	Config:        map[string]settings.ItemChanges{"redis": {settings.MakeAddition("password", "pass666")}},
 	Completed:     0,
 	GenerationId:  0,
 }
