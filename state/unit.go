@@ -1215,29 +1215,30 @@ func (u *Unit) AllAddresses() ([]network.Address, error) {
 	if u.ShouldBeAssigned() {
 		return nil, nil
 	}
+
 	// First the addresses of the service.
 	app, err := u.Application()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	serviceInfo, err := app.ServiceInfo()
-	if errors.IsNotFound(err) {
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	if err == nil {
+		return serviceInfo.Addresses(), nil
+	}
+
+	// If there's no service deployed then it's ok
+	// to fallback to the container address.
+	addr, err := u.containerAddress()
+	if network.IsNoAddressError(err) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	addresses := serviceInfo.Addresses()
-	// Second the address of the container.
-	addr, err := u.containerAddress()
-	if network.IsNoAddressError(err) {
-		return addresses, nil
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	addresses = append(addresses, addr)
-	return addresses, nil
+	return []network.Address{addr}, nil
 }
 
 // containerAddress returns the address of the pod's container.

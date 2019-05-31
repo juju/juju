@@ -1733,7 +1733,7 @@ func (k *kubernetesClient) configureService(
 			return errors.NotSupportedf("service type %q", params.Deployment.ServiceType)
 		}
 	}
-	serviceType = core.ServiceType(config.GetString(serviceTypeConfigKey, string(serviceType)))
+	serviceType = core.ServiceType(config.GetString(ServiceTypeConfigKey, string(serviceType)))
 	annotations, err := config.GetStringMap(serviceAnnotationsKey, nil)
 	if err != nil {
 		return errors.Annotatef(err, "unexpected annotations: %#v", config.Get(serviceAnnotationsKey, nil))

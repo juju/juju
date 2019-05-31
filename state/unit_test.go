@@ -2441,10 +2441,6 @@ func (s *CAASUnitSuite) TestAllAddresses(c *gc.C) {
 		Value: "54.32.1.2",
 		Scope: network.ScopePublic,
 		Type:  network.IPv4Address,
-	}, {
-		Value: "10.0.0.1",
-		Scope: network.ScopeMachineLocal,
-		Type:  network.IPv4Address,
 	}})
 }
 
@@ -2519,44 +2515,34 @@ func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
 	c.Assert(w.Err(), jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *CAASUnitSuite) TestWatchContainerAddressesHash(c *gc.C) {
+func (s *CAASUnitSuite) TestWatchServiceAddressesHash(c *gc.C) {
 	unit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
-	w := unit.WatchContainerAddressesHash()
+	w := s.application.WatchServiceAddressesHash()
 	defer w.Stop()
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange("")
 
-	// Change the container port: not reported.
+	// Set container addresses: not reported.
 	var updateUnits state.UpdateUnitsOperation
-	updateUnits.Updates = []*state.UpdateUnitOperation{unit.UpdateOperation(state.UnitUpdateProperties{
-		Ports: &[]string{"443"},
-	})}
-	err = s.application.UpdateUnits(&updateUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Set container addresses: reported.
 	addr := "10.0.0.1"
 	updateUnits.Updates = []*state.UpdateUnitOperation{unit.UpdateOperation(state.UnitUpdateProperties{
 		Address: &addr,
 	})}
 	err = s.application.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Set service addresses: reported.
+	err = s.application.UpdateCloudService("1", []network.Address{{Value: "10.0.0.2"}})
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("0b94e9ad737e2ff4d50dc9d8cd443d336e6a6d638b038e31b973959be89d5dec")
+	wc.AssertChange("cb5f37b4762871e6bbeccee663cb332438340c469160c634566ecc7c7e01009f")
 
 	// Set different container addresses: reported.
-	addr = "10.0.0.2"
-	updateUnits.Updates = []*state.UpdateUnitOperation{unit.UpdateOperation(state.UnitUpdateProperties{
-		Address: &addr,
-	})}
-	err = s.application.UpdateUnits(&updateUnits)
+	err = s.application.UpdateCloudService("1", []network.Address{{Value: "10.0.0.3"}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("30762101196c8bbafa8e495a941c74fe17a1fe9fdb17c2ed091343dc0f2f2633")
+	wc.AssertChange("a9a5126d7cca4ab5eecee72061f1e2060f6022266c74209f9fec62e986adc091")
 
 	// Ensure the following operation to set the unit as Dying
 	// is not short circuited to remove the unit.
@@ -2579,6 +2565,8 @@ func (s *CAASUnitSuite) TestWatchContainerAddressesHash(c *gc.C) {
 	// Remove it: watcher eventually closed and Err
 	// returns an IsNotFound error.
 	err = unit.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.State.StartSync()
 	select {

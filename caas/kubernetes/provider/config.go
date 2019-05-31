@@ -16,7 +16,7 @@ const (
 	defaultIngressSSLPassthrough = false
 	defaultIngressAllowHTTPKey   = false
 
-	serviceTypeConfigKey               = "kubernetes-service-type"
+	ServiceTypeConfigKey               = "kubernetes-service-type"
 	serviceExternalIPsConfigKey        = "kubernetes-service-external-ips"
 	serviceTargetPortConfigKey         = "kubernetes-service-target-port"
 	serviceLoadBalancerIPKey           = "kubernetes-service-loadbalancer-ip"
@@ -31,7 +31,7 @@ const (
 )
 
 var configFields = environschema.Fields{
-	serviceTypeConfigKey: {
+	ServiceTypeConfigKey: {
 		Description: "determines how the Service is exposed",
 		Type:        environschema.Tstring,
 		Group:       environschema.ProviderGroup,
@@ -89,7 +89,7 @@ var configFields = environschema.Fields{
 }
 
 var schemaDefaults = schema.Defaults{
-	serviceTypeConfigKey:     schema.Omit,
+	ServiceTypeConfigKey:     schema.Omit,
 	serviceAnnotationsKey:    schema.Omit,
 	ingressClassKey:          defaultIngressClass,
 	ingressSSLRedirectKey:    defaultIngressSSLRedirect,

@@ -4184,13 +4184,11 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 	expectedResult := params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
 			{
-				Addresses: []params.InterfaceAddress{
-					{Address: "10.0.0.1"},
-				},
+				Addresses: []params.InterfaceAddress{},
 			},
 		},
-		EgressSubnets:    []string{"192.168.1.2/32"},
-		IngressAddresses: []string{"192.168.1.2"},
+		EgressSubnets:    []string{"54.32.1.2/32"},
+		IngressAddresses: []string{"54.32.1.2", "192.168.1.2"},
 	}
 
 	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
@@ -4237,13 +4235,11 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 	expectedResult := params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
 			{
-				Addresses: []params.InterfaceAddress{
-					{Address: "10.0.0.1"},
-				},
+				Addresses: []params.InterfaceAddress{},
 			},
 		},
 		EgressSubnets:    []string{"54.32.1.2/32"},
-		IngressAddresses: []string{"54.32.1.2", "192.168.1.2", "10.0.0.1"},
+		IngressAddresses: []string{"54.32.1.2", "192.168.1.2"},
 	}
 
 	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
