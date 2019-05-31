@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/metricsender"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -33,8 +34,8 @@ func (s *destroyModelSuite) SetUpTest(c *gc.C) {
 	otherModelTag := names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f33d")
 	s.modelManager = &mockModelManager{
 		models: []*mockModel{
-			{tag: testing.ModelTag},
-			{tag: otherModelTag},
+			{tag: testing.ModelTag, currentStatus: status.StatusInfo{Status: status.Available}},
+			{tag: otherModelTag, currentStatus: status.StatusInfo{Status: status.Available}},
 		},
 	}
 	s.metricSender = &testMetricSender{}
@@ -84,13 +85,17 @@ func (s *destroyModelSuite) testDestroyModel(c *gc.C, destroyStorage, force *boo
 		{"Model", nil},
 	})
 
-	s.modelManager.models[0].CheckCalls(c, []jtesting.StubCall{
-		{"Destroy", []interface{}{state.DestroyModelParams{
-			DestroyStorage: destroyStorage,
-			Force:          force,
-			MaxWait:        common.MaxWait(maxWait),
-		}}},
-	})
+	expectedModelCalls := []jtesting.StubCall{{"Destroy", []interface{}{state.DestroyModelParams{
+		DestroyStorage: destroyStorage,
+		Force:          force,
+		MaxWait:        common.MaxWait(maxWait),
+	}}}}
+	notForcing := force == nil || !*force
+	if notForcing {
+		// We expect to check model status.
+		expectedModelCalls = append([]jtesting.StubCall{{"Status", nil}}, expectedModelCalls...)
+	}
+	s.modelManager.models[0].CheckCalls(c, expectedModelCalls)
 }
 
 func (s *destroyModelSuite) TestDestroyModelBlocked(c *gc.C) {
@@ -121,6 +126,7 @@ func (s *destroyModelSuite) TestDestroyController(c *gc.C) {
 		{"Model", nil},
 	})
 	s.modelManager.models[0].CheckCalls(c, []jtesting.StubCall{
+		{"Status", nil},
 		{"Destroy", []interface{}{state.DestroyModelParams{}}},
 	})
 }
@@ -138,6 +144,7 @@ func (s *destroyModelSuite) TestDestroyControllerReleaseStorage(c *gc.C) {
 		{"Model", nil},
 	})
 	s.modelManager.models[0].CheckCalls(c, []jtesting.StubCall{
+		{"Status", nil},
 		{"Destroy", []interface{}{state.DestroyModelParams{
 			DestroyStorage: &destroyStorage,
 		}}},
@@ -168,6 +175,7 @@ func (s *destroyModelSuite) TestDestroyControllerDestroyHostedModels(c *gc.C) {
 		{"Model", nil},
 	})
 	s.modelManager.models[0].CheckCalls(c, []jtesting.StubCall{
+		{"Status", nil},
 		{"Destroy", []interface{}{state.DestroyModelParams{
 			DestroyHostedModels: true,
 		}}},
@@ -204,6 +212,19 @@ func (s *destroyModelSuite) TestDestroyControllerModelErrs(c *gc.C) {
 	err = common.DestroyController(s.modelManager, true, nil)
 	// Processing erred out since a model seriously failed.
 	c.Assert(err, gc.ErrorMatches, "I have a problem")
+}
+
+func (s *destroyModelSuite) TestDestroyModelWithInvalidCredentialWithoutForce(c *gc.C) {
+	s.modelManager.models[0].currentStatus = status.StatusInfo{Status: status.Suspended}
+
+	err := common.DestroyModel(s.modelManager, nil, nil, nil)
+	c.Assert(err, gc.ErrorMatches, "invalid cloud credential, use --force")
+}
+
+func (s *destroyModelSuite) TestDestroyModelWithInvalidCredentialWithForce(c *gc.C) {
+	s.modelManager.models[0].currentStatus = status.StatusInfo{Status: status.Suspended}
+	true_ := true
+	s.testDestroyModel(c, nil, &true_, nil)
 }
 
 type testMetricSender struct {
@@ -268,7 +289,8 @@ func (m *mockModelManager) Close() error {
 type mockModel struct {
 	common.Model
 	jtesting.Stub
-	tag names.ModelTag
+	tag           names.ModelTag
+	currentStatus status.StatusInfo
 }
 
 func (m *mockModel) ModelTag() names.ModelTag {
@@ -282,4 +304,9 @@ func (m *mockModel) UUID() string {
 func (m *mockModel) Destroy(args state.DestroyModelParams) error {
 	m.MethodCall(m, "Destroy", args)
 	return m.NextErr()
+}
+
+func (m *mockModel) Status() (status.StatusInfo, error) {
+	m.MethodCall(m, "Status")
+	return m.currentStatus, m.NextErr()
 }

@@ -317,7 +317,7 @@ upgrade the controller to version 2.3 or greater.
 	}
 
 	// Attempt to destroy the model.
-	ctx.Infof("Destroying model")
+	fmt.Fprint(ctx.Stderr, "Destroying model")
 	var destroyStorage *bool
 	if c.destroyStorage || c.releaseStorage {
 		destroyStorage = &c.destroyStorage
@@ -394,6 +394,14 @@ type modelData struct {
 	errorCount       int
 }
 
+func (data *modelData) isEmpty() bool {
+	return data.errorCount == 0 &&
+		data.machineCount == 0 &&
+		data.applicationCount == 0 &&
+		data.volumeCount == 0 &&
+		data.filesystemCount == 0
+}
+
 func waitForModelDestroyed(
 	ctx *cmd.Context,
 	api DestroyModelAPI,
@@ -417,6 +425,9 @@ func waitForModelDestroyed(
 	// no wait for 1st time.
 	intervalSeconds := 0 * time.Second
 	timeoutAfter := clock.After(timeout)
+	reported := ""
+	lineLength := 0
+	const perLineLength = 80
 	for {
 		select {
 		case <-interrupted:
@@ -432,7 +443,20 @@ func waitForModelDestroyed(
 				// model has been destroyed successfully.
 				return nil
 			}
-			ctx.Infof(formatDestroyModelInfo(data) + "...")
+			msg := formatDestroyModelInfo(data)
+			if reported == msg {
+				if lineLength == perLineLength {
+					// Time to break to the next line.
+					fmt.Fprintln(ctx.Stderr)
+					lineLength = 0
+				}
+				fmt.Fprint(ctx.Stderr, ".")
+				lineLength++
+			} else {
+				fmt.Fprint(ctx.Stderr, fmt.Sprintf("\n%v...", msg))
+				reported = msg
+				lineLength = len(msg) + 3
+			}
 			intervalSeconds = 2 * time.Second
 		}
 	}
@@ -492,7 +516,7 @@ func getModelStatus(ctx *cmd.Context, api DestroyModelAPI, tag names.ModelTag) (
 	}
 	if err != nil {
 		if params.IsCodeNotFound(err) {
-			ctx.Infof("Model destroyed.")
+			ctx.Infof("\nModel destroyed.")
 		} else {
 			ctx.Infof("Unable to get the model status from the API: %v.", err)
 		}
@@ -542,13 +566,10 @@ func getModelStatus(ctx *cmd.Context, api DestroyModelAPI, tag names.ModelTag) (
 }
 
 func formatDestroyModelInfo(data *modelData) string {
-	out := "Waiting on model to be removed"
+	out := "Waiting for model to be removed"
 	if data.errorCount > 0 {
 		// always shows errorCount even if no machines and applications left.
 		out += fmt.Sprintf(", %d error(s)", data.errorCount)
-	}
-	if data.machineCount == 0 && data.applicationCount == 0 {
-		return out
 	}
 	if data.machineCount > 0 {
 		out += fmt.Sprintf(", %d machine(s)", data.machineCount)
