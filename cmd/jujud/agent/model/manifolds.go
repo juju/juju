@@ -383,7 +383,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                    machineundertaker.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),
-		modelUpgraderName: ifCredentialValid(modelupgrader.Manifold(modelupgrader.ManifoldConfig{
+		modelUpgraderName: ifNotDead(ifCredentialValid(modelupgrader.Manifold(modelupgrader.ManifoldConfig{
 			APICallerName:                apiCallerName,
 			EnvironName:                  environTrackerName,
 			GateName:                     modelUpgradeGateName,
@@ -392,7 +392,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:                    modelupgrader.NewFacade,
 			NewWorker:                    modelupgrader.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-		})),
+		}))),
 	}
 	result := commonManifolds(config)
 	for name, manifold := range manifolds {
