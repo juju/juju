@@ -46,8 +46,17 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			return w, nil
 		},
+		Filter: bounceErrChanged,
 	}
 	return manifold
+}
+
+// bounceErrChanged converts ErrModelRemoved to dependency.ErrUninstall.
+func bounceErrChanged(err error) error {
+	if errors.Cause(err) == ErrModelRemoved {
+		return dependency.ErrUninstall
+	}
+	return err
 }
 
 // manifoldOutput extracts an environs.Environ resource from a *Tracker.

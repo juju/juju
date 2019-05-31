@@ -97,6 +97,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 	targetVersion, err := config.Facade.ModelTargetEnvironVersion(config.ModelTag)
 	if err != nil {
+		if params.IsCodeNotFound(err) {
+			return nil, ErrModelRemoved
+		}
 		return nil, errors.Trace(err)
 	}
 	if config.Environ != nil {
