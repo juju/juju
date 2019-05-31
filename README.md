@@ -1,4 +1,4 @@
-juju
+Juju
 ====
 
 juju is devops distilled.
