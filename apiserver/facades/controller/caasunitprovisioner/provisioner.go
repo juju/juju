@@ -539,13 +539,17 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale *int, unitUpdates [
 	logger.Debugf("unit updates: %#v", unitUpdates)
 	if scale != nil {
 		logger.Debugf("application scale: %v", *scale)
+		if *scale > 0 && len(unitUpdates) == 0 {
+			// no ops for empty units because we can not determine if it's stateful or not in this case.
+			logger.Warningf("ignoring empty event for %q", app.Tag().String())
+			return nil
+		}
 	}
 	// Set up the initial data structures.
 	existingStateUnits, err := app.AllUnits()
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	stateUnitsById := make(map[string]stateUnit)
 	cloudPodsById := make(map[string]params.ApplicationUnitParams)
 
@@ -588,23 +592,21 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale *int, unitUpdates [
 		}
 
 		unitAlive := u.Life() == state.Alive
-		if !unitAlive {
-			continue
-		}
-
-		if providerId == "" {
+		if unitAlive && providerId == "" {
 			logger.Debugf("unit %q is not associated with any pod", u.Name())
 			unitInfo.unassociatedUnits = append(unitInfo.unassociatedUnits, u)
 			continue
 		}
-		stateUnitsById[providerId] = stateUnit{Unit: u}
+		if unitAlive {
+			aliveStateIds.Add(providerId)
+		}
 		stateUnitInCloud := stateUnitExistsInCloud(providerId)
-		aliveStateIds.Add(providerId)
-
+		stateUnitsById[providerId] = stateUnit{Unit: u}
 		if stateUnitInCloud {
 			logger.Debugf("unit %q (%v) has changed in the cloud", u.Name(), providerId)
 			unitInfo.stateUnitsInCloud[u.UnitTag().String()] = u
 		} else {
+			logger.Debugf("unit %q (%v) has removed in the cloud", u.Name(), providerId)
 			extraStateIds.Add(providerId)
 		}
 	}
@@ -640,7 +642,7 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale *int, unitUpdates [
 		// First attempt to add any new cloud pod not yet represented in state
 		// to a unit which does not yet have a provider id.
 		if unassociatedUnitCount > 0 {
-			unassociatedUnitCount -= 1
+			unassociatedUnitCount--
 			unitInfo.addedCloudPods = append(unitInfo.addedCloudPods, u)
 			continue
 		}
@@ -664,7 +666,7 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale *int, unitUpdates [
 		if !u.delete && extraUnitsInStateCount > 0 {
 			logger.Debugf("deleting %v because it exceeds the scale of %v", u.Name(), scale)
 			u.delete = true
-			extraUnitsInStateCount = extraUnitsInStateCount - 1
+			extraUnitsInStateCount--
 		}
 		unitInfo.removedUnits = append(unitInfo.removedUnits, u)
 	}
@@ -907,7 +909,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 			updateProps := processUnitParams(unitParams)
 			unitUpdate.Updates = append(unitUpdate.Updates,
 				u.UpdateOperation(*updateProps))
-			idx += 1
+			idx++
 			if len(unitParams.FilesystemInfo) > 0 {
 				unitParamsWithFilesystemInfo = append(unitParamsWithFilesystemInfo, unitParams)
 			}
