@@ -1954,7 +1954,8 @@ var jujuPVNameRegexp = regexp.MustCompile(`^(?P<storageName>\D+)-\w+$`)
 func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 	pods := k.client().CoreV1().Pods(k.namespace)
 	podsList, err := pods.List(v1.ListOptions{
-		LabelSelector: applicationSelector(appName),
+		LabelSelector:        applicationSelector(appName),
+		IncludeUninitialized: true,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
