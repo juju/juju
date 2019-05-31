@@ -426,6 +426,8 @@ func waitForModelDestroyed(
 	intervalSeconds := 0 * time.Second
 	timeoutAfter := clock.After(timeout)
 	reported := ""
+	lineLength := 0
+	const perLineLength = 80
 	for {
 		select {
 		case <-interrupted:
@@ -443,10 +445,17 @@ func waitForModelDestroyed(
 			}
 			msg := formatDestroyModelInfo(data)
 			if reported == msg {
+				if lineLength == perLineLength {
+					// Time to break to the next line.
+					fmt.Fprintln(ctx.Stderr)
+					lineLength = 0
+				}
 				fmt.Fprint(ctx.Stderr, ".")
+				lineLength++
 			} else {
 				fmt.Fprint(ctx.Stderr, fmt.Sprintf("\n%v...", msg))
 				reported = msg
+				lineLength = len(msg) + 3
 			}
 			intervalSeconds = 2 * time.Second
 		}
