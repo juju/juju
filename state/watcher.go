@@ -3787,17 +3787,17 @@ func hashMachineAddresses(m *Machine) (string, error) {
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
-// WatchContainerAddressesHash returns a StringsWatcher that emits a
+// WatchServiceAddressesHash returns a StringsWatcher that emits a
 // hash of the unit's container address whenever it changes.
-func (u *Unit) WatchContainerAddressesHash() StringsWatcher {
+func (a *Application) WatchServiceAddressesHash() StringsWatcher {
 	firstCall := true
 	w := &hashWatcher{
-		commonWatcher: newCommonWatcher(u.st),
+		commonWatcher: newCommonWatcher(a.st),
 		out:           make(chan []string),
-		collection:    cloudContainersC,
-		id:            u.st.docID(u.globalKey()),
+		collection:    cloudServicesC,
+		id:            a.st.docID(a.globalKey()),
 		hash: func() (string, error) {
-			result, err := hashContainerAddresses(u, firstCall)
+			result, err := hashServiceAddresses(a, firstCall)
 			firstCall = false
 			return result, err
 		},
@@ -3806,11 +3806,11 @@ func (u *Unit) WatchContainerAddressesHash() StringsWatcher {
 	return w
 }
 
-func hashContainerAddresses(u *Unit, firstCall bool) (string, error) {
-	container, err := u.cloudContainer()
+func hashServiceAddresses(a *Application, firstCall bool) (string, error) {
+	service, err := a.ServiceInfo()
 	if errors.IsNotFound(err) && firstCall {
 		// To keep behaviour the same as
-		// WatchContainerAddresses, we need to ignore NotFound
+		// WatchServiceAddresses, we need to ignore NotFound
 		// errors on the first call but propagate them after
 		// that.
 		return "", nil
@@ -3818,15 +3818,15 @@ func hashContainerAddresses(u *Unit, firstCall bool) (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	address := container.Address
-	if address == nil {
+	addresses := service.Addresses()
+	if len(addresses) == 0 {
 		return "", nil
 	}
+	address := addresses[0]
 	hash := sha256.New()
 	hash.Write([]byte(address.Value))
-	hash.Write([]byte(address.AddressType))
+	hash.Write([]byte(address.Type))
 	hash.Write([]byte(address.Scope))
-	hash.Write([]byte(address.Origin))
 	hash.Write([]byte(address.SpaceName))
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
