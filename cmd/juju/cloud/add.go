@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -113,14 +114,14 @@ you can specify which to upload with the --credential option.
 
 Examples:
     juju add-cloud
-    juju add-cloud --local mycloud ~/mycloud.yaml
+    juju add-cloud mycloud ~/mycloud.yaml
+    juju add-cloud --replace mycloud ~/mycloud2.yaml
 
 If the "multi-cloud" feature flag is turned on in the controller:
 
-    juju add-cloud mycloud ~/mycloud.yaml
-    juju add-cloud --replace mycloud ~/mycloud2.yaml
     juju add-cloud --controller mycontroller mycloud
     juju add-cloud --controller mycontroller mycloud --credential mycred
+    juju add-cloud --local mycloud ~/mycloud.yaml
 
 See also: 
     clouds`
@@ -167,9 +168,12 @@ func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 	cloudCallCtx := context.NewCloudCallContext()
 	store := jujuclient.NewFileClientStore()
 	c := &AddCloudCommand{
-		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
-		cloudMetadataStore:        cloudMetadataStore,
-		CloudCallCtx:              cloudCallCtx,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
+			Store:       store,
+			EnabledFlag: feature.MultiCloud,
+		},
+		cloudMetadataStore: cloudMetadataStore,
+		CloudCallCtx:       cloudCallCtx,
 		// Ping is provider.Ping except in tests where we don't actually want to
 		// require a valid cloud.
 		Ping: func(p environs.EnvironProvider, endpoint string) error {

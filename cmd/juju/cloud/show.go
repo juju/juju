@@ -17,6 +17,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -42,8 +43,9 @@ options.
 If ‘--include-config’ is used, additional configuration (key, type, and
 description) specific to the cloud are displayed if available.
 
+If the multi-cloud feature flag is enabled, Juju shows a cloud on a controller,
+otherwise Juju shows the cloud from internal cache.
 The current controller is used unless the --controller option is specified.
-
 If --local is specified, Juju shows the cloud from internal cache.
 
 Examples:
@@ -67,8 +69,11 @@ type showCloudAPI interface {
 func NewShowCloudCommand() cmd.Command {
 	store := jujuclient.NewFileClientStore()
 	c := &showCloudCommand{
-		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
-		store:                     store,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
+			Store:       store,
+			EnabledFlag: feature.MultiCloud,
+		},
+		store: store,
 	}
 	c.showCloudAPIFunc = c.cloudAPI
 	return modelcmd.WrapBase(c)
