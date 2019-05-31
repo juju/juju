@@ -10,7 +10,6 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1/catacomb"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 )
@@ -90,9 +89,6 @@ func (t *Tracker) Environ() environs.Environ {
 	return t.environ
 }
 
-// ErrModelRemoved indicates that this worker was operating on the model that is no longer found.
-var ErrModelRemoved = errors.New("model has been removed")
-
 func (t *Tracker) loop() error {
 	environWatcher, err := t.config.Observer.WatchForModelConfigChanges()
 	if err != nil {
@@ -133,9 +129,6 @@ func (t *Tracker) loop() error {
 			logger.Debugf("reloading environ config")
 			modelConfig, err := t.config.Observer.ModelConfig()
 			if err != nil {
-				if params.IsCodeNotFound(err) {
-					return ErrModelRemoved
-				}
 				return errors.Annotate(err, "cannot read environ config")
 			}
 			if err = t.environ.SetConfig(modelConfig); err != nil {
