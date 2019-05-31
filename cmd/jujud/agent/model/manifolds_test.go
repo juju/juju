@@ -550,6 +550,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"environ-tracker",
 		"is-responsible-flag",
 		"environ-upgrade-gate",
+		"not-dead-flag",
 		"valid-credential-flag",
 	},
 
