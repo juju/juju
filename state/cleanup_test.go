@@ -230,9 +230,9 @@ func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
 	// ...and the unit has departed relation scope...
 	assertNotJoined(c, pr.ru0)
 
-	// ...but that the machine remains, and is Dead, ready for removal by the
-	// provisioner.
-	assertLife(c, machine, state.Dead)
+	// ...and the machine has been removed (since model destroy does a
+	// force-destroy on the machine).
+	c.Assert(machine.Refresh(), jc.Satisfies, errors.IsNotFound)
 	assertLife(c, manualMachine, state.Dying)
 	assertLife(c, stateMachine, state.Alive)
 }
@@ -343,12 +343,12 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Force machine destruction, check cleanup queued.
-	err = machine.ForceDestroy(dontWait)
+	err = machine.ForceDestroy(time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 
 	// Clean up, and check that the unit has been removed...
-	s.assertCleanupCount(c, 2)
+	s.assertCleanupCountDirty(c, 2)
 	assertRemoved(c, pr.u0)
 
 	// ...and the unit has departed relation scope...
@@ -378,7 +378,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 		m.SetHasVote(true)
 	}
 	s.assertDoesNotNeedCleanup(c)
-	err = machine.ForceDestroy(dontWait)
+	err = machine.ForceDestroy(time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 	// The machine should no longer want the vote, should be forced to not have the vote, and forced to not be a
 	// controller member anymore
@@ -395,9 +395,9 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	s.assertCleanupRuns(c)
 	c.Assert(machine.SetHasVote(false), jc.ErrorIsNil)
 	// However, if we remove the vote, it can be cleaned up.
-	// ForceDestroy sets up a cleanupForceDestroyedMachine, which calls EnsureDead which sets up a cleanupDyingMachine
-	// so it takes 2 cleanup runs to run clear
-	s.assertCleanupCount(c, 2)
+	// ForceDestroy sets up a cleanupForceDestroyedMachine, which calls EnsureDead which sets up a cleanupDyingMachine, which in turn creates a delayed cleanupForceRemoveMachine.
+	// Run the first two.
+	s.assertCleanupCountDirty(c, 2)
 	// After we've run the cleanup for the controller machine, the machine should be dead, and it should not be
 	// present in the other documents.
 	assertLife(c, machine, state.Dead)
@@ -438,9 +438,11 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 	c.Assert(sa.Life(), gc.Equals, state.Alive)
 
 	// destroy machine and run cleanups
-	err = machine.ForceDestroy(dontWait)
+	err = machine.ForceDestroy(time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCleanupCount(c, 2)
+
+	// Run cleanups to remove the unit and make the machine dead.
+	s.assertCleanupCountDirty(c, 2)
 
 	// After running the cleanups, the storage attachment should
 	// have been removed; the storage instance should be floating,
@@ -455,8 +457,9 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 	// Check that the unit has been removed.
 	assertRemoved(c, u)
 
-	// check no cleanups
-	s.assertDoesNotNeedCleanup(c)
+	s.Clock.Advance(time.Minute)
+	// Check that the last cleanup to remove the machine runs.
+	s.assertCleanupCount(c, 1)
 }
 
 func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
@@ -486,18 +489,18 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Force removal of the top-level machine.
-	err = machine.ForceDestroy(dontWait)
+	err = machine.ForceDestroy(time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 
 	// And do it again, just to check that the second cleanup doc for the same
 	// machine doesn't cause problems down the line.
-	err = machine.ForceDestroy(dontWait)
+	err = machine.ForceDestroy(time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 
 	// Clean up, and check that the container has been removed...
-	s.assertCleanupCount(c, 2)
+	s.assertCleanupCountDirty(c, 2)
 	err = container.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
@@ -516,6 +519,34 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	// ...but that the machine remains, and is Dead, ready for removal by the
 	// provisioner.
 	assertLife(c, machine, state.Dead)
+}
+
+func (s *CleanupSuite) TestForceDestroyMachineSchedulesRemove(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertDoesNotNeedCleanup(c)
+
+	err = machine.ForceDestroy(time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertNeedsCleanup(c)
+
+	s.assertCleanupRuns(c)
+
+	assertLifeIs(c, machine, state.Dead)
+
+	// Running a cleanup pass succeeds but doesn't get rid of cleanups
+	// because there's a scheduled one.
+	s.assertCleanupRuns(c)
+	assertLifeIs(c, machine, state.Dead)
+	s.assertNeedsCleanup(c)
+
+	s.Clock.Advance(time.Minute)
+	s.assertCleanupCount(c, 1)
+	err = machine.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *CleanupSuite) TestCleanupDyingUnit(c *gc.C) {
@@ -960,13 +991,13 @@ func (s *CleanupSuite) TestDyingUnitWithForceSchedulesForceFallback(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	opErrs, err := unit.DestroyWithForce(true, dontWait)
+	opErrs, err := unit.DestroyWithForce(true, time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opErrs, gc.IsNil)
 
 	// The unit should be dying, and there's a deferred cleanup to
 	// endeaden it.
-	assertUnitLife(c, unit, state.Dying)
+	assertLifeIs(c, unit, state.Dying)
 
 	s.assertNeedsCleanup(c)
 	// dyingUnit
@@ -976,16 +1007,20 @@ func (s *CleanupSuite) TestDyingUnitWithForceSchedulesForceFallback(c *gc.C) {
 	// forceDestroyedUnit
 	s.assertCleanupRuns(c)
 
-	assertUnitLife(c, unit, state.Dead)
+	assertLifeIs(c, unit, state.Dead)
 
 	s.Clock.Advance(time.Minute)
 	// forceRemoveUnit
 	s.assertCleanupRuns(c)
 
 	assertUnitRemoved(c, unit)
-	// After this there are two cleanups remaining: removedUnit,
-	// dyingMachine.
-	s.assertCleanupCount(c, 2)
+	// After this there are three cleanups remaining: removedUnit,
+	// dyingMachine, forceRemoveMachine (but the last is delayed a
+	// minute).
+	s.assertCleanupCountDirty(c, 2)
+
+	s.Clock.Advance(time.Minute)
+	s.assertCleanupCount(c, 1)
 }
 
 func (s *CleanupSuite) TestForceDestroyUnitDestroysSubordinates(c *gc.C) {
@@ -1009,8 +1044,8 @@ func (s *CleanupSuite) TestForceDestroyUnitDestroysSubordinates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opErrs, gc.IsNil)
 
-	assertUnitLife(c, unit, state.Dying)
-	assertUnitLife(c, subordinate, state.Alive)
+	assertLifeIs(c, unit, state.Dying)
+	assertLifeIs(c, subordinate, state.Alive)
 
 	s.assertNeedsCleanup(c)
 	// dyingUnit(mysql/0)
@@ -1022,16 +1057,16 @@ func (s *CleanupSuite) TestForceDestroyUnitDestroysSubordinates(c *gc.C) {
 	// finally succeeds.
 	s.assertNextCleanup(c, "forceDestroyUnit(mysql/0)")
 
-	assertUnitLife(c, subordinate, state.Dying)
-	assertUnitLife(c, unit, state.Dying)
+	assertLifeIs(c, subordinate, state.Dying)
+	assertLifeIs(c, unit, state.Dying)
 
 	// dyingUnit(logging/0) runs and schedules the force cleanup.
 	s.assertNextCleanup(c, "dyingUnit(logging/0)")
 	// forceDestroyUnit(logging/0) sets it to dead.
 	s.assertNextCleanup(c, "forceDestroyUnit(logging/0)")
 
-	assertUnitLife(c, subordinate, state.Dead)
-	assertUnitLife(c, unit, state.Dying)
+	assertLifeIs(c, subordinate, state.Dead)
+	assertLifeIs(c, unit, state.Dying)
 
 	// forceRemoveUnit(logging/0) runs
 	s.assertNextCleanup(c, "forceRemoveUnit(logging/0)")
@@ -1039,15 +1074,15 @@ func (s *CleanupSuite) TestForceDestroyUnitDestroysSubordinates(c *gc.C) {
 
 	// Now forceDestroyUnit(mysql/0) can run successfully and make the unit dead
 	s.assertNextCleanup(c, "forceRemoveUnit(mysql/0)")
-	assertUnitLife(c, unit, state.Dead)
+	assertLifeIs(c, unit, state.Dead)
 
 	// forceRemoveUnit
 	s.assertNextCleanup(c, "forceRemoveUnit")
 
 	assertUnitRemoved(c, unit)
-	// After this there are two cleanups remaining: removedUnit,
-	// dyingMachine.
-	s.assertCleanupCount(c, 2)
+	// After this there are three cleanups remaining: removedUnit,
+	// dyingMachine, forceRemoveMachine.
+	s.assertCleanupCount(c, 3)
 }
 
 func (s *CleanupSuite) TestForceDestroyUnitLeavesRelations(c *gc.C) {
@@ -1067,7 +1102,7 @@ func (s *CleanupSuite) TestForceDestroyUnitLeavesRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opErrs, gc.IsNil)
 
-	assertUnitLife(c, unit, state.Dying)
+	assertLifeIs(c, unit, state.Dying)
 	assertUnitInScope(c, unit, prr.rel, true)
 
 	// dyingUnit schedules forceDestroyedUnit
@@ -1075,16 +1110,16 @@ func (s *CleanupSuite) TestForceDestroyUnitLeavesRelations(c *gc.C) {
 	// ...which leaves the scope for its relations.
 	s.assertCleanupRuns(c)
 
-	assertUnitLife(c, unit, state.Dead)
+	assertLifeIs(c, unit, state.Dead)
 	assertUnitInScope(c, unit, prr.rel, false)
 
 	// forceRemoveUnit
 	s.assertCleanupRuns(c)
 
 	assertUnitRemoved(c, unit)
-	// After this there are two cleanups remaining: removedUnit,
-	// dyingMachine.
-	s.assertCleanupCount(c, 2)
+	// After this there are three cleanups remaining: removedUnit,
+	// dyingMachine, forceRemoveMachine.
+	s.assertCleanupCount(c, 3)
 }
 
 func (s *CleanupSuite) TestForceDestroyUnitRemovesStorageAttachments(c *gc.C) {
@@ -1155,8 +1190,8 @@ func (s *CleanupSuite) TestForceDestroyUnitRemovesStorageAttachments(c *gc.C) {
 
 	assertUnitRemoved(c, u)
 	// After this there are two cleanups remaining: removedUnit,
-	// dyingMachine.
-	s.assertCleanupCount(c, 2)
+	// dyingMachine, forceRemoveMachine.
+	s.assertCleanupCount(c, 3)
 }
 
 func (s *CleanupSuite) assertCleanupRuns(c *gc.C) {
@@ -1186,6 +1221,17 @@ func (s *CleanupSuite) assertCleanupCount(c *gc.C, count int) {
 	s.assertDoesNotNeedCleanup(c)
 }
 
+// assertCleanupCountDirty is the same as assertCleanupCount, but it
+// checks that there are still cleanups to run.
+func (s *CleanupSuite) assertCleanupCountDirty(c *gc.C, count int) {
+	for i := 0; i < count; i++ {
+		c.Logf("checking cleanups %d", i)
+		s.assertNeedsCleanup(c)
+		s.assertCleanupRuns(c)
+	}
+	s.assertNeedsCleanup(c)
+}
+
 // assertNextCleanup tracks that the next cleanup runs, and logs what cleanup we are expecting.
 func (s *CleanupSuite) assertNextCleanup(c *gc.C, message string) {
 	c.Logf("expect cleanup: %s", message)
@@ -1193,10 +1239,15 @@ func (s *CleanupSuite) assertNextCleanup(c *gc.C, message string) {
 	s.assertCleanupRuns(c)
 }
 
-func assertUnitLife(c *gc.C, unit *state.Unit, expected state.Life) {
-	err := unit.Refresh()
+type lifeChecker interface {
+	Refresh() error
+	Life() state.Life
+}
+
+func assertLifeIs(c *gc.C, thing lifeChecker, expected state.Life) {
+	err := thing.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.Life(), gc.Equals, expected)
+	c.Assert(thing.Life(), gc.Equals, expected)
 }
 
 func assertUnitRemoved(c *gc.C, unit *state.Unit) {
