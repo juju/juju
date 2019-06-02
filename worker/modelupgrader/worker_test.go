@@ -4,15 +4,15 @@
 package modelupgrader_test
 
 import (
-	"errors"
 	"sync"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1/workertest"
-	tomb "gopkg.in/tomb.v2"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/status"
@@ -56,6 +56,28 @@ func (*WorkerSuite) TestNewWorker(c *gc.C) {
 	})
 	mockEnviron.CheckCallNames(c, "UpgradeOperations")
 	mockGateUnlocker.CheckCallNames(c, "Unlock")
+}
+
+func (*WorkerSuite) TestNewWorkerModelRemovedUninstalls(c *gc.C) {
+	mockFacade := mockFacade{current: 123, target: 124}
+	mockFacade.SetErrors(&params.Error{Code: params.CodeNotFound})
+	mockEnviron := mockEnviron{}
+	mockGateUnlocker := mockGateUnlocker{}
+	w, err := modelupgrader.NewWorker(modelupgrader.Config{
+		Facade:        &mockFacade,
+		Environ:       &mockEnviron,
+		GateUnlocker:  &mockGateUnlocker,
+		ControllerTag: coretesting.ControllerTag,
+		ModelTag:      coretesting.ModelTag,
+		CredentialAPI: &credentialAPIForTest{},
+	})
+	c.Assert(errors.Cause(err), gc.ErrorMatches, modelupgrader.ErrModelRemoved.Error())
+	workertest.CheckNilOrKill(c, w)
+	mockFacade.CheckCalls(c, []testing.StubCall{
+		{"ModelTargetEnvironVersion", []interface{}{coretesting.ModelTag}},
+	})
+	mockEnviron.CheckNoCalls(c)
+	mockGateUnlocker.CheckNoCalls(c)
 }
 
 func (*WorkerSuite) TestNonUpgradeable(c *gc.C) {
