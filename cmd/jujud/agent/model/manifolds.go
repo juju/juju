@@ -280,9 +280,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// which is the agent that will run the upgrade steps;
 		// the other controller agents will wait for it to complete
 		// running those steps before allowing logins to the model.
-		environUpgradeGateName: gate.Manifold(),
-		environUpgradedFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
-			GateName:  environUpgradeGateName,
+		modelUpgradeGateName: gate.Manifold(),
+		modelUpgradedFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  modelUpgradeGateName,
 			NewWorker: gate.NewFlagWorker,
 		}),
 	}
@@ -388,10 +388,10 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                    machineundertaker.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),
-		environUpgraderName: ifNotDead(ifCredentialValid(modelupgrader.Manifold(modelupgrader.ManifoldConfig{
+		modelUpgraderName: ifNotDead(ifCredentialValid(modelupgrader.Manifold(modelupgrader.ManifoldConfig{
 			APICallerName:                apiCallerName,
 			EnvironName:                  environTrackerName,
-			GateName:                     environUpgradeGateName,
+			GateName:                     modelUpgradeGateName,
 			ControllerTag:                controllerTag,
 			ModelTag:                     modelTag,
 			NewFacade:                    modelupgrader.NewFacade,
@@ -467,9 +467,9 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 				NewWorker: caasunitprovisioner.NewWorker,
 			},
 		)),
-		environUpgraderName: caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
+		modelUpgraderName: caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
 			APICallerName: apiCallerName,
-			GateName:      environUpgradeGateName,
+			GateName:      modelUpgradeGateName,
 			ModelTag:      modelTag,
 			NewFacade:     caasenvironupgrader.NewFacade,
 			NewWorker:     caasenvironupgrader.NewWorker,
@@ -554,7 +554,7 @@ var (
 	// the environ upgrade worker has completed.
 	ifNotUpgrading = engine.Housing{
 		Flags: []string{
-			environUpgradedFlagName,
+			modelUpgradedFlagName,
 		},
 	}.Decorate
 
@@ -581,9 +581,9 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMasterName       = "migration-master"
 
-	environUpgradeGateName  = "environ-upgrade-gate"
-	environUpgradedFlagName = "environ-upgraded-flag"
-	environUpgraderName     = "environ-upgrader"
+	modelUpgradeGateName  = "model-upgrade-gate"
+	modelUpgradedFlagName = "model-upgraded-flag"
+	modelUpgraderName     = "model-upgrader"
 
 	environTrackerName       = "environ-tracker"
 	undertakerName           = "undertaker"
