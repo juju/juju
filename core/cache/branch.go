@@ -61,11 +61,10 @@ func (b *Branch) setDetails(details BranchChange) {
 	b.details = details
 }
 
-// copy returns a copy of the branch.
+// copy returns a copy of the branch, ensuring appropriate deep copying.
+// This method is called while the cache model is locked,
+// and so should no require its own lock protection.
 func (b *Branch) copy() Branch {
-	b.mu.Lock()
-
-	// Copy the AssignedUnits map.
 	var cAssignedUnits map[string][]string
 	bAssignedUnits := b.details.AssignedUnits
 	if bAssignedUnits != nil {
@@ -79,7 +78,6 @@ func (b *Branch) copy() Branch {
 		}
 	}
 
-	// Copy the Config map.
 	var cConfig map[string]settings.ItemChanges
 	bConfig := b.details.Config
 	if bConfig != nil {
@@ -102,6 +100,5 @@ func (b *Branch) copy() Branch {
 	cb.details.AssignedUnits = cAssignedUnits
 	cb.details.Config = cConfig
 
-	b.mu.Unlock()
 	return cb
 }
