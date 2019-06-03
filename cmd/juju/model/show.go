@@ -75,7 +75,7 @@ func (c *showModelCommand) Init(args []string) error {
 		modelName = args[0]
 		args = args[1:]
 	}
-	if err := c.SetModelName(modelName, true); err != nil {
+	if err := c.SetModelIdentifier(modelName, true); err != nil {
 		return errors.Trace(err)
 	}
 	if err := c.ModelCommandBase.Init(args); err != nil {

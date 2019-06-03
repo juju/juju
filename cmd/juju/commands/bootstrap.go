@@ -805,7 +805,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	if hostedModel != nil {
 		modelNameToSet = c.hostedModelName
 	}
-	if err = c.SetModelName(modelcmd.JoinModelName(c.controllerName, modelNameToSet), false); err != nil {
+	if err = c.SetModelIdentifier(modelcmd.JoinModelName(c.controllerName, modelNameToSet), false); err != nil {
 		return errors.Trace(err)
 	}
 

@@ -278,6 +278,7 @@ func (s *MigrateSuite) TestSuccessMacaroons(c *gc.C) {
 	macs := s.api.specSeen.TargetMacaroons
 	s.api.specSeen.TargetMacaroons = nil
 	apitesting.MacaroonsEqual(c, macs, s.targetControllerAPI.macaroons)
+
 	c.Check(s.api.specSeen, jc.DeepEquals, &controller.MigrationSpec{
 		ModelUUID:             modelUUID,
 		TargetControllerUUID:  targetControllerUUID,
@@ -410,7 +411,7 @@ func (s *MigrateSuite) TestSpecifyOwner(c *gc.C) {
 	c.Check(s.api.specSeen.ModelUUID, gc.Equals, "prod-1-uuid")
 }
 
-func (s *MigrateSuite) TestControllerDoesntExist(c *gc.C) {
+func (s *MigrateSuite) TestControllerDoesNotExist(c *gc.C) {
 	_, err := s.makeAndRun(c, "model", "wat")
 	c.Check(err, gc.ErrorMatches, "controller wat not found")
 	c.Check(s.api.specSeen, gc.IsNil) // API shouldn't have been called
