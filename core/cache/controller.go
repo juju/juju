@@ -112,6 +112,10 @@ func (c *Controller) loop() error {
 				c.updateUnit(ch)
 			case RemoveUnit:
 				err = c.removeUnit(ch)
+			case BranchChange:
+				c.updateBranch(ch)
+			case RemoveBranch:
+				err = c.removeBranch(ch)
 			}
 			if c.notify != nil {
 				c.notify(change)
@@ -214,8 +218,6 @@ func (c *Controller) updateApplication(ch ApplicationChange) {
 }
 
 // removeApplication removes the application for the cached model.
-// If the cache does not have the model loaded for the application yet,
-// then it will not have the application cached.
 func (c *Controller) removeApplication(ch RemoveApplication) error {
 	return errors.Trace(c.removeResident(ch.ModelUUID, func(m *Model) error { return m.removeApplication(ch) }))
 }
@@ -234,8 +236,6 @@ func (c *Controller) updateUnit(ch UnitChange) {
 }
 
 // removeUnit removes the unit from the cached model.
-// If the cache does not have the model loaded for the unit yet,
-// then it will not have the unit cached.
 func (c *Controller) removeUnit(ch RemoveUnit) error {
 	return errors.Trace(c.removeResident(ch.ModelUUID, func(m *Model) error { return m.removeUnit(ch) }))
 }
@@ -246,12 +246,24 @@ func (c *Controller) updateMachine(ch MachineChange) {
 }
 
 // removeMachine removes the machine from the cached model.
-// If the cache does not have the model loaded for the machine yet,
-// then it will not have the machine cached.
 func (c *Controller) removeMachine(ch RemoveMachine) error {
 	return errors.Trace(c.removeResident(ch.ModelUUID, func(m *Model) error { return m.removeMachine(ch) }))
 }
 
+// updateBranch adds or updates the branch in the specified model.
+func (c *Controller) updateBranch(ch BranchChange) {
+	c.ensureModel(ch.ModelUUID).updateBranch(ch, c.manager)
+}
+
+// removeBranch removes the branch from the cached model.
+func (c *Controller) removeBranch(ch RemoveBranch) error {
+	return errors.Trace(c.removeResident(ch.ModelUUID, func(m *Model) error { return m.removeBranch(ch) }))
+}
+
+// removeResident uses the input removal function to remove a cache resident,
+// including cleaning up resources it was responsible for creating.
+// If the cache does not have the model loaded for the resident yet,
+// then it will not have the entity cached, and a no-op results.
 func (c *Controller) removeResident(modelUUID string, removeFrom func(m *Model) error) error {
 	c.mu.Lock()
 
