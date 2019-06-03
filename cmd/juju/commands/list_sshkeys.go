@@ -69,7 +69,7 @@ func (c *listKeysCommand) Run(context *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	mode := ssh.Fingerprints
 	if c.showFullKey {
@@ -90,11 +90,11 @@ func (c *listKeysCommand) Run(context *cmd.Context) error {
 		context.Infof("No keys to display.")
 		return nil
 	}
-	modelName, err := c.ModelName()
+	modelIdentifier, err := c.ModelIdentifier()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	fmt.Fprintf(context.Stdout, "Keys used in model: %s\n", modelName)
-	fmt.Fprintln(context.Stdout, strings.Join(result.Result, "\n"))
+	_, _ = fmt.Fprintf(context.Stdout, "Keys used in model: %s\n", modelIdentifier)
+	_, _ = fmt.Fprintln(context.Stdout, strings.Join(result.Result, "\n"))
 	return nil
 }

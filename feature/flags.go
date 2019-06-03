@@ -61,3 +61,7 @@ const MongoDbSSTXN = "mongodb-sstxn"
 // MultiCloud tells Juju to allow a different IAAS cloud to the one the controller
 // was bootstrapped on to be added to the controller.
 const MultiCloud = "multi-cloud"
+
+// TrustedBundles prevents juju CLI from deploying bundles that request access
+// to cloud credentials unless the operator explicitly trusts them.
+const TrustedBundles = "trusted-bundles"

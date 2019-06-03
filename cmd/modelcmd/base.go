@@ -211,7 +211,6 @@ func (c *CommandBase) NewAPIRoot(
 	if redirErr, ok := errors.Cause(err).(*api.RedirectError); ok {
 		return nil, newModelMigratedError(store, modelName, redirErr)
 	}
-
 	return conn, err
 }
 
@@ -220,7 +219,7 @@ func (c *CommandBase) NewAPIRoot(
 // If this model has also been cached as current, it will be reset if
 // the requesting command can modify current model.
 // For example, commands such as add/destroy-model, login/register, etc.
-// If the model was cached as currnet but the command is not expected to
+// If the model was cached as current but the command is not expected to
 // change current model, this call will still remove model details from the client cache
 // but will keep current model name intact to allow subsequent calls to try to resolve
 // model details on the controller.
@@ -340,7 +339,7 @@ func (c *CommandBase) doRefreshModels(store jujuclient.ClientStore, controllerNa
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer modelManager.Close()
+	defer func() { _ = modelManager.Close() }()
 
 	accountDetails, err := store.AccountDetails(controllerName)
 	if err != nil {

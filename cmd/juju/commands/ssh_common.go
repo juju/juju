@@ -272,7 +272,7 @@ func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 		return errors.Errorf("failed to get juju executable path: %v", err)
 	}
 
-	modelName, err := c.ModelName()
+	modelName, err := c.ModelIdentifier()
 	if err != nil {
 		return errors.Trace(err)
 	}

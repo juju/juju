@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/os/series"
 	"github.com/juju/romulus"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
@@ -45,6 +47,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
@@ -848,6 +851,12 @@ func (c *DeployCommand) deployBundle(
 	modelUUID, ok := apiRoot.ModelUUID()
 	if !ok {
 		return errors.New("API connection is controller-only (should never happen)")
+	}
+
+	if tl := appsRequiringTrust(data.Applications); len(tl) != 0 && featureflag.Enabled(feature.TrustedBundles) {
+		return errors.Errorf(`Bundle cannot be deployed without trusting applications with your cloud credentials.
+Please repeat the deploy command with the --trust argument if you consent to trust the following application(s):
+  - %s`, strings.Join(tl, "\n  - "))
 	}
 
 	for application, applicationSpec := range data.Applications {
@@ -1669,4 +1678,21 @@ func flagWithMinus(name string) string {
 		return "--" + name
 	}
 	return "-" + name
+}
+
+func appsRequiringTrust(appSpecList map[string]*charm.ApplicationSpec) []string {
+	var tl []string
+	for app, appSpec := range appSpecList {
+		// Trust requirements may be either specified as an option
+		// or via the "trust" field at the application spec level
+		optRequiresTrust := appSpec.Options != nil && appSpec.Options["trust"] == true
+		if appSpec.RequiresTrust || optRequiresTrust {
+			tl = append(tl, app)
+		}
+	}
+
+	// Since map iterations are random we should sort the list to ensure
+	// consistent output in any errors containing the returned list contents.
+	sort.Strings(tl)
+	return tl
 }

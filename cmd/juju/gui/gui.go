@@ -190,7 +190,7 @@ func (c *guiCommand) openBrowser(ctx *cmd.Context, rawURL string, vers *version.
 		if vers != nil {
 			versInfo = fmt.Sprintf("%v ", vers)
 		}
-		modelName, err := c.ModelName()
+		modelName, err := c.ModelIdentifier()
 		if err != nil {
 			return errors.Trace(err)
 		}

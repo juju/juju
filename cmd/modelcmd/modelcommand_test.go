@@ -58,6 +58,16 @@ var modelCommandModelTests = []struct {
 	expectController: "bar",
 	expectModel:      "noncurrentbar",
 }, {
+	about:            "explicit controller and model UUID, long form",
+	args:             []string{"--model", "bar:uuidbar2"},
+	expectController: "bar",
+	expectModel:      "uuidbar2",
+}, {
+	about:            "explicit controller and model UUID, short form",
+	args:             []string{"-m", "bar:uuidbar2"},
+	expectController: "bar",
+	expectModel:      "uuidbar2",
+}, {
 	about:            "implicit controller, explicit model, short form",
 	args:             []string{"-m", "explicit"},
 	expectController: "foo",
@@ -67,6 +77,16 @@ var modelCommandModelTests = []struct {
 	args:             []string{"--model", "explicit"},
 	expectController: "foo",
 	expectModel:      "explicit",
+}, {
+	about:            "implicit controller, explicit model UUID, short form",
+	args:             []string{"-m", "uuidfoo3"},
+	expectController: "foo",
+	expectModel:      "uuidfoo3",
+}, {
+	about:            "implicit controller, explicit model UUID, long form",
+	args:             []string{"--model", "uuidfoo3"},
+	expectController: "foo",
+	expectModel:      "uuidfoo3",
 }, {
 	about:            "explicit controller, implicit model",
 	args:             []string{"--model", "bar:"},
@@ -101,7 +121,7 @@ var modelCommandModelTests = []struct {
 	expectModel:      "noncurrentfoo",
 }}
 
-func (s *ModelCommandSuite) TestModelName(c *gc.C) {
+func (s *ModelCommandSuite) TestModelIdentifier(c *gc.C) {
 	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	s.store.Controllers["bar"] = jujuclient.ControllerDetails{}
 	s.store.CurrentControllerName = "foo"
@@ -111,29 +131,38 @@ func (s *ModelCommandSuite) TestModelName(c *gc.C) {
 	s.store.Accounts["bar"] = jujuclient.AccountDetails{
 		User: "baz", Password: "hunter3",
 	}
+
 	err := s.store.UpdateModel("foo", "adminfoo/currentfoo",
 		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.UpdateModel("foo", "adminfoo/oncurrentfoo",
+
+	err = s.store.UpdateModel("foo", "adminfoo/noncurrentfoo",
 		jujuclient.ModelDetails{ModelUUID: "uuidfoo2", ModelType: model.IAAS})
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.store.UpdateModel("foo", "bar/explicit",
 		jujuclient.ModelDetails{ModelUUID: "uuidfoo3", ModelType: model.IAAS})
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.store.UpdateModel("foo", "bar/noncurrentfoo",
 		jujuclient.ModelDetails{ModelUUID: "uuidfoo4", ModelType: model.IAAS})
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.store.UpdateModel("bar", "adminbar/currentbar",
 		jujuclient.ModelDetails{ModelUUID: "uuidbar1", ModelType: model.IAAS})
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.store.UpdateModel("bar", "adminbar/noncurrentbar",
 		jujuclient.ModelDetails{ModelUUID: "uuidbar2", ModelType: model.IAAS})
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.store.UpdateModel("bar", "baz/noncurrentbar",
 		jujuclient.ModelDetails{ModelUUID: "uuidbar3", ModelType: model.IAAS})
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.store.SetCurrentModel("foo", "adminfoo/currentfoo")
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.store.SetCurrentModel("bar", "adminbar/currentbar")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -240,28 +269,22 @@ func (*ModelCommandSuite) TestJoinModelName(c *gc.C) {
 func (s *ModelCommandSuite) assertRunHasModel(c *gc.C, expectControllerName, expectModelName string, args ...string) {
 	cmd, err := runTestCommand(c, s.store, args...)
 	c.Assert(err, jc.ErrorIsNil)
+
 	controllerName, err := cmd.ControllerName()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerName, gc.Equals, expectControllerName)
-	modelName, err := cmd.ModelName()
+
+	modelName, err := cmd.ModelIdentifier()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelName, gc.Equals, expectModelName)
 }
 
 func (s *ModelCommandSuite) TestIAASOnlyCommandIAASModel(c *gc.C) {
-	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
-	s.store.CurrentControllerName = "foo"
-	s.store.Accounts["foo"] = jujuclient.AccountDetails{
-		User: "bar", Password: "hunter2",
-	}
-	err := s.store.UpdateModel("foo", "bar/currentfoo",
-		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentModel("foo", "bar/currentfoo")
-	c.Assert(err, jc.ErrorIsNil)
+	s.setupIAASModel(c)
 
 	cmd, err := runTestCommand(c, s.store)
 	c.Assert(err, jc.ErrorIsNil)
+
 	modelType, err := cmd.ModelType()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelType, gc.Equals, model.IAAS)
@@ -284,18 +307,9 @@ func (s *ModelCommandSuite) TestIAASOnlyCommandCAASModel(c *gc.C) {
 }
 
 func (s *ModelCommandSuite) TestCAASOnlyCommandIAASModel(c *gc.C) {
-	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
-	s.store.CurrentControllerName = "foo"
-	s.store.Accounts["foo"] = jujuclient.AccountDetails{
-		User: "bar", Password: "hunter2",
-	}
-	err := s.store.UpdateModel("foo", "bar/currentfoo",
-		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentModel("foo", "bar/currentfoo")
-	c.Assert(err, jc.ErrorIsNil)
+	s.setupIAASModel(c)
 
-	_, err = runCaasCommand(c, s.store)
+	_, err := runCaasCommand(c, s.store)
 	c.Assert(err, gc.ErrorMatches, `Juju command "caas-command" not supported on non-container models`)
 }
 
@@ -316,6 +330,38 @@ func (s *ModelCommandSuite) TestAllowedCommandCAASModel(c *gc.C) {
 	modelType, err := cmd.ModelType()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelType, gc.Equals, model.CAAS)
+}
+
+func (s *ModelCommandSuite) TestPartialModelUUIDSuccess(c *gc.C) {
+	s.setupIAASModel(c)
+
+	cmd, err := runTestCommand(c, s.store, "-m", "uuidfoo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelType, err := cmd.ModelType()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelType, gc.Equals, model.IAAS)
+}
+
+func (s *ModelCommandSuite) TestPartialModelUUIDTooShortError(c *gc.C) {
+	s.setupIAASModel(c)
+
+	_, err := runTestCommand(c, s.store, "-m", "uuidf")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ModelCommandSuite) setupIAASModel(c *gc.C) {
+	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
+	s.store.CurrentControllerName = "foo"
+	s.store.Accounts["foo"] = jujuclient.AccountDetails{
+		User: "bar", Password: "hunter2",
+	}
+	err := s.store.UpdateModel("foo", "bar/currentfoo",
+		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.IAAS})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.store.SetCurrentModel("foo", "bar/currentfoo")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func noOpRefresh(_ jujuclient.ClientStore, _ string) error {
@@ -443,7 +489,7 @@ func (s *macaroonLoginSuite) newModelCommandBase() *modelcmd.ModelCommandBase {
 	c.SetClientStore(s.store)
 	modelcmd.InitContexts(&cmd.Context{Stderr: ioutil.Discard}, &c)
 	modelcmd.SetRunStarted(&c)
-	err := c.SetModelName(s.controllerName+":"+s.modelName, false)
+	err := c.SetModelIdentifier(s.controllerName+":"+s.modelName, false)
 	if err != nil {
 		panic(err)
 	}
