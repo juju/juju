@@ -462,9 +462,8 @@ func (s *WorkerSuite) TestAddBranch(c *gc.C) {
 	mod, err := controller.Model(modUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)
 
-	cachedBranch, err := mod.Branch(branchName)
+	_, err = mod.Branch(branchName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cachedBranch, gc.NotNil)
 }
 
 func (s *WorkerSuite) TestRemoveBranch(c *gc.C) {
