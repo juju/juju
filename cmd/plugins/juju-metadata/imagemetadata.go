@@ -13,6 +13,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/arch"
 
+	"github.com/juju/juju/caas"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
@@ -39,6 +40,9 @@ func prepare(context *cmd.Context, controllerName string, store jujuclient.Clien
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	if _, ok := provider.(caas.ContainerEnvironProvider); ok {
+		return nil, errors.NotSupportedf("preparing environ for CAAS")
+	}
 	cfg, err := provider.PrepareConfig(*params)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -50,9 +54,8 @@ func prepare(context *cmd.Context, controllerName string, store jujuclient.Clien
 	// we'll do about simplestreams.MetadataValidator yet. Probably
 	// move it to the EnvironProvider interface.
 	return environs.New(environs.OpenParams{
-		ControllerUUID: bootstrapConfig.ControllerConfig.ControllerUUID(),
-		Cloud:          params.Cloud,
-		Config:         cfg,
+		Cloud:  params.Cloud,
+		Config: cfg,
 	})
 }
 
@@ -184,13 +187,13 @@ image metadata search path. There are 2 options:
 1. For local access, use the --metadata-source parameter when bootstrapping:
    juju bootstrap --metadata-source %s [...]
 
-2. For remote access, use image-metadata-url attribute for model configuration. 
-To set it as a default for any model or for the controller model, 
+2. For remote access, use image-metadata-url attribute for model configuration.
+To set it as a default for any model or for the controller model,
 it needs to be supplied as part of --model-default to 'juju bootstrap' command.
 See 'bootstrap' help for more details.
 For configuration for a particular model, set it as --image-metadata-url on
 'juju model-config'. See 'model-config' help for more details.
-Regardless of where this attribute is used, it expects a reachable URL. 
+Regardless of where this attribute is used, it expects a reachable URL.
 You need to configure a http server to serve the contents of
 %s
 and set the value of image-metadata-url accordingly.

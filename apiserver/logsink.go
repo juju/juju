@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/params"
@@ -34,7 +33,7 @@ type agentLoggingStrategy struct {
 	dblogger   recordLogger
 	releaser   func()
 	version    version.Number
-	entity     names.Tag
+	entity     string
 	filePrefix string
 }
 
@@ -142,7 +141,7 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 		return errors.Trace(err)
 	}
 	s.version = ver
-	s.entity = entity.Tag()
+	s.entity = entity.Tag().String()
 	s.filePrefix = st.ModelUUID() + ":"
 	s.dblogger = s.dbloggers.get(st.State)
 	s.releaser = func() {
@@ -176,7 +175,7 @@ func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 		Message:  m.Message,
 	}}), "logging to DB failed")
 
-	m.Entity = s.entity.String()
+	m.Entity = s.entity
 	fileErr := errors.Annotate(
 		logToFile(s.fileLogger, s.filePrefix, m),
 		"logging to logsink.log failed",

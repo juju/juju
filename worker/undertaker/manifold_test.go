@@ -22,6 +22,7 @@ import (
 type manifoldSuite struct {
 	testing.IsolationSuite
 	modelType string
+	logger    fakeLogger
 }
 
 type CAASManifoldSuite struct {
@@ -60,6 +61,7 @@ func (s *manifoldSuite) namesConfig() undertaker.ManifoldConfig {
 	return undertaker.ManifoldConfig{
 		APICallerName:      "api-caller",
 		CloudDestroyerName: destroyerName,
+		Logger:             &s.logger,
 		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) {
 			return &fakeCredentialAPI{}, nil
 		},
@@ -148,10 +150,12 @@ func (s *manifoldSuite) TestNewWorkerError(c *gc.C) {
 func (s *manifoldSuite) TestNewWorkerSuccess(c *gc.C) {
 	expectWorker := &fakeWorker{}
 	config := s.namesConfig()
+	var gotConfig undertaker.Config
 	config.NewFacade = func(_ base.APICaller) (undertaker.Facade, error) {
 		return &fakeFacade{}, nil
 	}
-	config.NewWorker = func(_ undertaker.Config) (worker.Worker, error) {
+	config.NewWorker = func(workerConfig undertaker.Config) (worker.Worker, error) {
+		gotConfig = workerConfig
 		return expectWorker, nil
 	}
 	manifold := undertaker.Manifold(config)
@@ -160,6 +164,7 @@ func (s *manifoldSuite) TestNewWorkerSuccess(c *gc.C) {
 	worker, err := manifold.Start(resources.Context())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker, gc.Equals, expectWorker)
+	c.Assert(gotConfig.Logger, gc.Equals, &s.logger)
 }
 
 func resourcesMissing(missing ...string) dt.StubResources {
@@ -202,4 +207,12 @@ type fakeCredentialAPI struct{}
 
 func (*fakeCredentialAPI) InvalidateModelCredential(reason string) error {
 	return nil
+}
+
+type fakeLogger struct {
+	stub testing.Stub
+}
+
+func (l *fakeLogger) Errorf(format string, args ...interface{}) {
+	l.stub.AddCall("Errorf", format, args)
 }

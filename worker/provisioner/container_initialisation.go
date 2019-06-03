@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
@@ -31,6 +32,7 @@ import (
 // to create containers and start a suitable provisioner.
 type ContainerSetup struct {
 	runner              *worker.Runner
+	logger              Logger
 	supportedContainers []instance.ContainerType
 	provisioner         *apiprovisioner.State
 	machine             apiprovisioner.MachineProvisioner
@@ -52,6 +54,7 @@ type ContainerSetup struct {
 // ContainerSetupParams are used to initialise a container setup handler.
 type ContainerSetupParams struct {
 	Runner              *worker.Runner
+	Logger              Logger
 	WorkerName          string
 	SupportedContainers []instance.ContainerType
 	Machine             apiprovisioner.MachineProvisioner
@@ -66,6 +69,7 @@ type ContainerSetupParams struct {
 func NewContainerSetupHandler(params ContainerSetupParams) watcher.StringsHandler {
 	return &ContainerSetup{
 		runner:              params.Runner,
+		logger:              params.Logger,
 		machine:             params.Machine,
 		supportedContainers: params.SupportedContainers,
 		provisioner:         params.Provisioner,
@@ -101,7 +105,7 @@ func (cs *ContainerSetup) Handle(abort <-chan struct{}, containerIds []string) (
 		return nil
 	}
 
-	logger.Infof("initial container setup with ids: %v", containerIds)
+	cs.logger.Infof("initial container setup with ids: %v", containerIds)
 	for _, id := range containerIds {
 		containerType := state.ContainerTypeFromId(id)
 		// If this container type has been dealt with, do nothing.
@@ -109,7 +113,7 @@ func (cs *ContainerSetup) Handle(abort <-chan struct{}, containerIds []string) (
 			continue
 		}
 		if err := cs.initialiseAndStartProvisioner(abort, containerType); err != nil {
-			logger.Errorf("starting container provisioner for %v: %v", containerType, err)
+			cs.logger.Errorf("starting container provisioner for %v: %v", containerType, err)
 			// Just because dealing with one type of container fails, we won't
 			// exit the entire function because we still want to try and start
 			// other container types. So we take note of and return the first
@@ -130,7 +134,7 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(
 
 	defer func() {
 		if resultError != nil {
-			logger.Warningf("not stopping machine agent container watcher due to error: %v", resultError)
+			cs.logger.Warningf("not stopping machine agent container watcher due to error: %v", resultError)
 			return
 		}
 		if atomic.AddInt32(&cs.numberProvisioners, 1) == int32(len(cs.supportedContainers)) {
@@ -138,12 +142,12 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(
 			// This worker has done its job so stop it.
 			// We do not expect there will be an error, and there's not much we can do anyway.
 			if err := cs.runner.StopWorker(cs.workerName); err != nil {
-				logger.Warningf("stopping machine agent container watcher: %v", err)
+				cs.logger.Warningf("stopping machine agent container watcher: %v", err)
 			}
 		}
 	}()
 
-	logger.Debugf("setup and start provisioner for %s containers", containerType)
+	cs.logger.Debugf("setup and start provisioner for %s containers", containerType)
 
 	// Do an early check.
 	if containerType != instance.LXD && containerType != instance.KVM {
@@ -185,6 +189,9 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(
 		containerType,
 		cs.provisioner,
 		cs.config,
+		// Container provisioners are always good using the global logging
+		// context.
+		loggo.GetLogger("juju.worker.provisioner"),
 		instanceBroker,
 		toolsFinder,
 		getDistributionGroupFinder(cs.provisioner),
@@ -215,7 +222,7 @@ func (cs *ContainerSetup) initContainerDependencies(abort <-chan struct{}, conta
 	}
 	if len(observedConfig) > 0 {
 		machineTag := cs.machine.MachineTag()
-		logger.Tracef("updating observed network config for %q %s containers to %#v",
+		cs.logger.Tracef("updating observed network config for %q %s containers to %#v",
 			machineTag, containerType, observedConfig)
 		if err := cs.provisioner.SetHostMachineNetworkConfig(machineTag, observedConfig); err != nil {
 			return errors.Trace(err)
@@ -275,6 +282,7 @@ func startProvisionerWorker(
 	containerType instance.ContainerType,
 	provisioner *apiprovisioner.State,
 	config agent.Config,
+	logger Logger,
 	broker environs.InstanceBroker,
 	toolsFinder ToolsFinder,
 	distributionGroupFinder DistributionGroupFinder,
@@ -288,6 +296,7 @@ func startProvisionerWorker(
 	return runner.StartWorker(workerName, func() (worker.Worker, error) {
 		w, err := NewContainerProvisioner(containerType,
 			provisioner,
+			logger,
 			config,
 			broker,
 			toolsFinder,

@@ -268,11 +268,16 @@ func (op *DestroyApplicationOperation) Build(attempt int) ([]txn.Op, error) {
 	case errAlreadyDying:
 		return nil, jujutxn.ErrNoOperations
 	case nil:
-		return ops, nil
-	}
-	if op.Force {
-		logger.Warningf("forcing destroy application for %v despite error %v", op.app.Name(), err)
-		return ops, nil
+		if len(op.Errors) == 0 {
+			return ops, nil
+		}
+		if op.Force {
+			logger.Debugf("forcing application removal")
+			return ops, nil
+		}
+		// Should be impossible to reach as--by convention--we return an error and
+		// an empty ops slice when a force-able error occurs and we're running !op.Force
+		err = errors.Errorf("errors encountered: %q", op.Errors)
 	}
 	return nil, err
 }
@@ -346,25 +351,15 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	ops = append(ops, resOps...)
 
 	// We can't delete an application if it is being offered.
-	// TODO (anastasiamac 2019-03-29) Should we force remove applications with offers now?
 	if !op.RemoveOffers {
 		countOp, n, err := countApplicationOffersRefOp(op.app.st, op.app.Name())
 		if err != nil {
-			if !op.Force {
-				return nil, errors.Trace(err)
-			}
-			op.AddError(err)
-		} else {
-			if n != 0 {
-				err = errors.Errorf("application is used by %d offer%s", n, plural(n))
-				if !op.Force {
-					return nil, err
-				}
-				op.AddError(err)
-			}
-			// When we are forcing, regardless of the error and offer count, we want this countOp added.
-			ops = append(ops, countOp)
+			return nil, errors.Trace(err)
 		}
+		if n != 0 {
+			return nil, errors.Errorf("application is used by %d offer%s", n, plural(n))
+		}
+		ops = append(ops, countOp)
 	}
 
 	// If the application has no units, and all its known relations will be

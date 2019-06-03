@@ -392,8 +392,9 @@ func (c *Client) selectDatastore(
 	ctx context.Context,
 	args CreateVirtualMachineParams,
 ) (*mo.Datastore, error) {
-	// Select a datastore. If the user specified one, use that; otherwise
-	// choose the first one in the list that is accessible.
+	// Select a datastore. If the user specified one, use that. When no datastore
+	// is provided and there is only datastore accessible, use that. Otherwise return
+	// an error and ask for guidance.
 	refs := make([]types.ManagedObjectReference, len(args.ComputeResource.Datastore))
 	for i, ds := range args.ComputeResource.Datastore {
 		refs[i] = ds.Reference()
@@ -402,23 +403,47 @@ func (c *Client) selectDatastore(
 	if err := c.client.Retrieve(ctx, refs, nil, &datastores); err != nil {
 		return nil, errors.Annotate(err, "retrieving datastore details")
 	}
+
+	var accessibleDatastores []mo.Datastore
+	var datastoreNames []string
+	for _, ds := range datastores {
+		if ds.Summary.Accessible {
+			accessibleDatastores = append(accessibleDatastores, ds)
+			datastoreNames = append(datastoreNames, ds.Name)
+		} else {
+			c.logger.Debugf("datastore %s is inaccessible", ds.Name)
+		}
+	}
+
+	if len(accessibleDatastores) == 0 {
+		return nil, errors.New("no accessible datastores available")
+	}
+
 	if args.Constraints.RootDiskSource != nil {
 		dsName := *args.Constraints.RootDiskSource
 		c.logger.Debugf("desired datasource %q", dsName)
+		c.logger.Debugf("accessible datasources %q", datastoreNames)
 		for _, ds := range datastores {
-			c.logger.Debugf("seen %q", ds.Name)
 			if ds.Name == dsName {
+				c.logger.Infof("selecting datastore %s", ds.Name)
 				return &ds, nil
 			}
 		}
-		return nil, errors.Errorf("could not find datastore %q", dsName)
+		datastoreNamesMsg := fmt.Sprintf("%q", datastoreNames)
+		datastoreNamesMsg = strings.Trim(datastoreNamesMsg, "[]")
+		datastoreNames = strings.Split(datastoreNamesMsg, " ")
+		datastoreNamesMsg = strings.Join(datastoreNames, ", ")
+		return nil, errors.Errorf("could not find datastore %q, datastore(s) accessible: %s", dsName, datastoreNamesMsg)
 	}
-	for _, ds := range datastores {
-		if ds.Summary.Accessible {
-			c.logger.Debugf("using datastore %q", ds.Name)
-			return &ds, nil
-		}
+
+	if len(accessibleDatastores) == 1 {
+		ds := accessibleDatastores[0]
+		c.logger.Infof("selecting datastore %s", ds.Name)
+		return &ds, nil
+	} else if len(accessibleDatastores) > 1 {
+		return nil, errors.Errorf("no datastore provided and multiple available: %q", strings.Join(datastoreNames, ", "))
 	}
+
 	return nil, errors.New("could not find an accessible datastore")
 }
 

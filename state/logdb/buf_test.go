@@ -11,7 +11,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/logdb"
@@ -57,13 +56,13 @@ func (s *BufferedLoggerSuite) TestLogFlushes(c *gc.C) {
 	const bufsz = 3
 	b := logdb.NewBufferedLogger(&s.mock, bufsz, time.Minute, s.clock)
 	in := []state.LogRecord{{
-		Entity:  names.NewMachineTag("0"),
+		Entity:  "not-a-tag",
 		Message: "foo",
 	}, {
-		Entity:  names.NewMachineTag("0"),
+		Entity:  "not-a-tag",
 		Message: "bar",
 	}, {
-		Entity:  names.NewMachineTag("0"),
+		Entity:  "not-a-tag",
 		Message: "baz",
 	}}
 
@@ -86,13 +85,13 @@ func (s *BufferedLoggerSuite) TestLogFlushesMultiple(c *gc.C) {
 	const bufsz = 1
 	b := logdb.NewBufferedLogger(&s.mock, bufsz, time.Minute, s.clock)
 	in := []state.LogRecord{{
-		Entity:  names.NewMachineTag("0"),
+		Entity:  "not-a-tag",
 		Message: "foo",
 	}, {
-		Entity:  names.NewMachineTag("0"),
+		Entity:  "not-a-tag",
 		Message: "bar",
 	}, {
-		Entity:  names.NewMachineTag("0"),
+		Entity:  "not-a-tag",
 		Message: "baz",
 	}}
 
@@ -112,10 +111,10 @@ func (s *BufferedLoggerSuite) TestTimerFlushes(c *gc.C) {
 
 	b := logdb.NewBufferedLogger(&s.mock, bufsz, flushInterval, s.clock)
 	in := []state.LogRecord{{
-		Entity:  names.NewMachineTag("0"),
+		Entity:  "not-a-tag",
 		Message: "foo",
 	}, {
-		Entity:  names.NewMachineTag("0"),
+		Entity:  "not-a-tag",
 		Message: "bar",
 	}}
 
@@ -164,13 +163,13 @@ func (s *BufferedLoggerSuite) TestLogOverCapacity(c *gc.C) {
 	// until the timer triggers.
 	b := logdb.NewBufferedLogger(&s.mock, bufsz, flushInterval, s.clock)
 	in := []state.LogRecord{{
-		Entity:  names.NewMachineTag("0"),
+		Entity:  "not-a-tag",
 		Message: "foo",
 	}, {
-		Entity:  names.NewMachineTag("0"),
+		Entity:  "not-a-tag",
 		Message: "bar",
 	}, {
-		Entity:  names.NewMachineTag("0"),
+		Entity:  "not-a-tag",
 		Message: "baz",
 	}}
 
@@ -198,7 +197,7 @@ func (s *BufferedLoggerSuite) TestFlushReportsError(c *gc.C) {
 	s.mock.SetErrors(errors.New("nope"))
 	b := logdb.NewBufferedLogger(&s.mock, 2, time.Minute, s.clock)
 	err := b.Log([]state.LogRecord{{
-		Entity:  names.NewMachineTag("0"),
+		Entity:  "not-a-tag",
 		Message: "foo",
 	}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -210,7 +209,7 @@ func (s *BufferedLoggerSuite) TestLogReportsError(c *gc.C) {
 	s.mock.SetErrors(errors.New("nope"))
 	b := logdb.NewBufferedLogger(&s.mock, 1, time.Minute, s.clock)
 	err := b.Log([]state.LogRecord{{
-		Entity:  names.NewMachineTag("0"),
+		Entity:  "not-a-tag",
 		Message: "foo",
 	}})
 	c.Assert(err, gc.ErrorMatches, "nope")

@@ -29,6 +29,9 @@ type MutaterMachine interface {
 	// CharmProfilingInfo returns info to update lxd profiles on the machine
 	CharmProfilingInfo() (*UnitProfileInfo, error)
 
+	// ContainerType returns the container type for this machine.
+	ContainerType() (instance.ContainerType, error)
+
 	// SetCharmProfiles records the given slice of charm profile names.
 	SetCharmProfiles([]string) error
 
@@ -68,6 +71,20 @@ type Machine struct {
 
 	tag  names.MachineTag
 	life params.Life
+}
+
+// ContainerType implements MutaterMachine.ContainerType.
+func (m *Machine) ContainerType() (instance.ContainerType, error) {
+	var result params.ContainerTypeResult
+	args := params.Entity{Tag: m.tag.String()}
+	err := m.facade.FacadeCall("ContainerType", args, &result)
+	if err != nil {
+		return "", err
+	}
+	if result.Error != nil {
+		return "", result.Error
+	}
+	return result.Type, nil
 }
 
 // InstanceId implements MutaterMachine.InstanceId.

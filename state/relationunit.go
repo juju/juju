@@ -591,7 +591,7 @@ var PreferredAddressRetryArgs = func() retry.CallArgs {
 // The ingress addresses depend on if the relation is cross model and whether the
 // relation endpoint is bound to a space.
 func NetworksForRelation(
-	binding string, unit *Unit, rel *Relation, defaultEgress []string,
+	binding string, unit *Unit, rel *Relation, defaultEgress []string, pollPublic bool,
 ) (boundSpace string, ingress []string, egress []string, _ error) {
 	st := unit.st
 
@@ -609,6 +609,35 @@ func NetworksForRelation(
 	if err != nil && !errors.IsNotValid(err) {
 		return "", nil, nil, errors.Trace(err)
 	}
+
+	fetchAddr := func(fetcher func() (network.Address, error)) (network.Address, error) {
+		var address network.Address
+		retryArg := PreferredAddressRetryArgs()
+		retryArg.Func = func() error {
+			var err error
+			address, err = fetcher()
+			return err
+		}
+		retryArg.IsFatalError = func(err error) bool {
+			return !network.IsNoAddressError(err)
+		}
+		return address, retry.Call(retryArg)
+	}
+
+	fallbackIngressToPrivateAddr := func() error {
+		// TODO(ycliuhw): lp-1830252 retry here once this is fixed.
+		address, err := unit.PrivateAddress()
+		if err != nil {
+			logger.Warningf(
+				"no private address for unit %q in relation %q",
+				unit.Name(), rel)
+		}
+		if address.Value != "" {
+			ingress = append(ingress, address.Value)
+		}
+		return nil
+	}
+
 	// If the endpoint for this relation is not bound to a space, or
 	// is bound to the default space, we need to look up the ingress
 	// address info which is aware of cross model relations.
@@ -617,31 +646,21 @@ func NetworksForRelation(
 		if err != nil {
 			return "", nil, nil, errors.Trace(err)
 		}
-		// TODO(caas) - we might need to use the service address
-		if crossmodel && unit.ShouldBeAssigned() {
-			var address network.Address
-			retryArg := PreferredAddressRetryArgs()
-			retryArg.Func = func() error {
-				var err error
-				address, err = unit.PublicAddress()
-				return err
-			}
-			retryArg.IsFatalError = func(err error) bool {
-				return !network.IsNoAddressError(err)
-			}
-			err := retry.Call(retryArg)
+		if crossmodel && (unit.ShouldBeAssigned() || pollPublic) {
+			address, err := fetchAddr(unit.PublicAddress)
 			if err != nil {
-				// TODO(wallyworld) - it's ok to return a private address sometimes
-				// TODO return an error when it's not possible to use the private address
 				logger.Warningf(
-					"no public address for unit %q in cross model relation %q, using private address",
-					unit.Name(), rel)
-				address, err = unit.PrivateAddress()
-				if err != nil {
+					"no public address for unit %q in cross model relation %q, will use private address",
+					unit.Name(), rel,
+				)
+			} else if address.Value != "" {
+				ingress = append(ingress, address.Value)
+			}
+			if len(ingress) == 0 {
+				if err := fallbackIngressToPrivateAddr(); err != nil {
 					return "", nil, nil, errors.Trace(err)
 				}
 			}
-			ingress = []string{address.Value}
 		}
 	}
 	if len(ingress) == 0 {
@@ -652,23 +671,19 @@ func NetworksForRelation(
 			if err != nil {
 				return "", nil, nil, errors.Trace(err)
 			}
-
 			machine, err := st.Machine(machineID)
 			if err != nil {
 				return "", nil, nil, errors.Trace(err)
 			}
-
 			networkInfos := machine.GetNetworkInfoForSpaces(set.NewStrings(boundSpace))
 			// The binding address information based on link layer devices.
 			for _, nwInfo := range networkInfos[boundSpace].NetworkInfos {
 				for _, addr := range nwInfo.Addresses {
 					ingress = append(ingress, addr.Address)
 				}
-
 			}
 		} else {
-			// Be be consistent with IAAS behaviour above, we'll return all
-			// addresses, including any container address.
+			// Be be consistent with IAAS behaviour above, we'll return all addresses.
 			addr, err := unit.AllAddresses()
 			if err != nil {
 				logger.Warningf(

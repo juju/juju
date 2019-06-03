@@ -158,6 +158,7 @@ func (s seriesSelector) validateSeries(seriesName string) error {
 	for _, supportedSeries := range s.supportedJujuSeries {
 		if seriesName == supportedSeries {
 			found = true
+			break
 		}
 	}
 	if !found {

@@ -46,7 +46,7 @@ func (s *mutaterSuite) TestProcessMachineProfileChanges(c *gc.C) {
 	startingProfiles := []string{"default", "juju-testme"}
 	finishingProfiles := append(startingProfiles, "juju-testme-lxd-profile-1")
 
-	s.ignoreLogging(c)()
+	s.ignoreLogging(c)
 	s.expectRefreshLifeAliveStatusIdle()
 	s.expectLXDProfileNames(startingProfiles, nil)
 	s.expectAssignLXDProfiles(finishingProfiles, nil)
@@ -63,7 +63,7 @@ func (s *mutaterSuite) TestProcessMachineProfileChangesMachineDead(c *gc.C) {
 
 	startingProfiles := []string{"default", "juju-testme"}
 
-	s.ignoreLogging(c)()
+	s.ignoreLogging(c)
 	s.expectRefreshLifeDead()
 
 	info := s.info(startingProfiles, 1, false)
@@ -77,7 +77,7 @@ func (s *mutaterSuite) TestProcessMachineProfileChangesError(c *gc.C) {
 	startingProfiles := []string{"default", "juju-testme"}
 	finishingProfiles := append(startingProfiles, "juju-testme-lxd-profile-1")
 
-	s.ignoreLogging(c)()
+	s.ignoreLogging(c)
 	s.expectRefreshLifeAliveStatusIdle()
 	s.expectLXDProfileNames(startingProfiles, nil)
 	s.expectAssignLXDProfiles(finishingProfiles, errors.New("fail me"))

@@ -15,6 +15,15 @@ import (
 	"github.com/juju/juju/worker/common"
 )
 
+// Logger defines the logging methods that the worker uses.
+type Logger interface {
+	Tracef(string, ...interface{})
+	Debugf(string, ...interface{})
+	Infof(string, ...interface{})
+	Warningf(string, ...interface{})
+	Errorf(string, ...interface{})
+}
+
 // ManifoldConfig defines an environment provisioner's dependencies. It's not
 // currently clear whether it'll be easier to extend this type to include all
 // provisioners, or to create separate (Environ|Container)Manifold[Config]s;
@@ -24,8 +33,9 @@ type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
 	EnvironName   string
+	Logger        Logger
 
-	NewProvisionerFunc           func(*apiprovisioner.State, agent.Config, environs.Environ, common.CredentialAPI) (Provisioner, error)
+	NewProvisionerFunc           func(*apiprovisioner.State, agent.Config, Logger, environs.Environ, common.CredentialAPI) (Provisioner, error)
 	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 }
 
@@ -62,7 +72,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			w, err := config.NewProvisionerFunc(api, agentConfig, environ, credentialAPI)
+			w, err := config.NewProvisionerFunc(api, agentConfig, config.Logger, environ, credentialAPI)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

@@ -53,6 +53,7 @@ type ModelCacheApplication interface {
 type ModelCacheMachine interface {
 	InstanceId() (instance.Id, error)
 	CharmProfiles() []string
+	ContainerType() instance.ContainerType
 	WatchLXDProfileVerificationNeeded() (cache.NotifyWatcher, error)
 	WatchContainers() (cache.StringsWatcher, error)
 	Units() ([]ModelCacheUnit, error)

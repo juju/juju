@@ -12,6 +12,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -410,6 +411,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 	w, err := provisioner.NewProvisionerTask(
 		coretesting.ControllerTag.Id(),
 		names.NewMachineTag("0"),
+		loggo.GetLogger("test"),
 		harvestingMethod,
 		s.machineGetter,
 		distributionGroupFinder,
@@ -432,6 +434,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBroker(
 	task, err := provisioner.NewProvisionerTask(
 		coretesting.ControllerTag.Id(),
 		names.NewMachineTag("0"),
+		loggo.GetLogger("test"),
 		config.HarvestAll,
 		s.machineGetter,
 		&mockDistributionGroupFinder{groups: distributionGroups},

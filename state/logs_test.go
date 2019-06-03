@@ -149,14 +149,14 @@ func (s *LogsSuite) TestDbLogger(c *gc.C) {
 	t1 := t0.Add(time.Second)
 	err := logger.Log([]state.LogRecord{{
 		Time:     t0,
-		Entity:   names.NewMachineTag("45"),
+		Entity:   "machine-45",
 		Module:   "some.where",
 		Location: "foo.go:99",
 		Level:    loggo.INFO,
 		Message:  "all is well",
 	}, {
 		Time:     t1,
-		Entity:   names.NewMachineTag("47"),
+		Entity:   "machine-47",
 		Module:   "else.where",
 		Location: "bar.go:42",
 		Level:    loggo.ERROR,
@@ -190,7 +190,7 @@ func (s *LogsSuite) TestPruneLogsByTime(c *gc.C) {
 	log := func(t time.Time, msg string) {
 		err := dbLogger.Log([]state.LogRecord{{
 			Time:     t,
-			Entity:   names.NewMachineTag("22"),
+			Entity:   "machine-22",
 			Version:  jujuversion.Current,
 			Module:   "module",
 			Location: "loc",
@@ -283,7 +283,7 @@ func (s *LogsSuite) generateLogs(c *gc.C, st *state.State, endTime time.Time, co
 		ts := endTime.Add(-time.Duration(i) * time.Second)
 		err := dbLogger.Log([]state.LogRecord{{
 			Time:     ts,
-			Entity:   names.NewMachineTag("0"),
+			Entity:   "machine-0",
 			Version:  jujuversion.Current,
 			Module:   "module",
 			Location: "loc",
@@ -438,48 +438,6 @@ func (s *LogTailerSuite) TestModelFiltering(c *gc.C) {
 	s.checkLogTailerFiltering(c, s.otherState, state.LogTailerParams{}, writeLogs, assert)
 }
 
-func (s *LogTailerSuite) TestTailingSkipsBadDocs(c *gc.C) {
-	writeLogs := func() {
-		s.writeLogs(c, s.modelUUID, 1, logTemplate{
-			Entity: emptyTag{},
-		})
-		s.writeLogs(c, s.modelUUID, 1, logTemplate{
-			Message: "good1",
-		})
-		s.writeLogs(c, s.modelUUID, 1, logTemplate{
-			Message: "good2",
-		})
-	}
-
-	assert := func(tailer state.LogTailer) {
-		messages := map[string]bool{}
-		defer func() {
-			c.Assert(messages, gc.HasLen, 2)
-			for m := range messages {
-				if m != "good1" && m != "good2" {
-					c.Fatalf("received message: %v", m)
-				}
-			}
-		}()
-		count := 0
-		for {
-			select {
-			case log := <-tailer.Logs():
-				c.Assert(log.ModelUUID, gc.Equals, s.State.ModelUUID())
-				messages[log.Message] = true
-				count++
-				c.Logf("count %d", count)
-				if count >= 2 {
-					return
-				}
-			case <-time.After(coretesting.ShortWait):
-				c.Fatalf("timeout waiting for logs %d", count)
-			}
-		}
-	}
-	s.checkLogTailerFiltering(c, s.State, state.LogTailerParams{}, writeLogs, assert)
-}
-
 func (s *LogTailerSuite) TestTailingLogsOnlyForOneModel(c *gc.C) {
 	writeLogs := func() {
 		s.writeLogs(c, s.otherUUID, 1, logTemplate{
@@ -627,9 +585,9 @@ func (s *LogTailerSuite) TestNoTail(c *gc.C) {
 }
 
 func (s *LogTailerSuite) TestIncludeEntity(c *gc.C) {
-	machine0 := logTemplate{Entity: names.NewMachineTag("0")}
-	foo0 := logTemplate{Entity: names.NewUnitTag("foo/0")}
-	foo1 := logTemplate{Entity: names.NewUnitTag("foo/1")}
+	machine0 := logTemplate{Entity: "machine-0"}
+	foo0 := logTemplate{Entity: "unit-foo-0"}
+	foo1 := logTemplate{Entity: "unit-foo-1"}
 	writeLogs := func() {
 		s.writeLogs(c, s.otherUUID, 3, machine0)
 		s.writeLogs(c, s.otherUUID, 2, foo0)
@@ -650,9 +608,9 @@ func (s *LogTailerSuite) TestIncludeEntity(c *gc.C) {
 }
 
 func (s *LogTailerSuite) TestIncludeEntityWildcard(c *gc.C) {
-	machine0 := logTemplate{Entity: names.NewMachineTag("0")}
-	foo0 := logTemplate{Entity: names.NewUnitTag("foo/0")}
-	foo1 := logTemplate{Entity: names.NewUnitTag("foo/1")}
+	machine0 := logTemplate{Entity: "machine-0"}
+	foo0 := logTemplate{Entity: "unit-foo-0"}
+	foo1 := logTemplate{Entity: "unit-foo-1"}
 	writeLogs := func() {
 		s.writeLogs(c, s.otherUUID, 3, machine0)
 		s.writeLogs(c, s.otherUUID, 2, foo0)
@@ -672,9 +630,9 @@ func (s *LogTailerSuite) TestIncludeEntityWildcard(c *gc.C) {
 }
 
 func (s *LogTailerSuite) TestExcludeEntity(c *gc.C) {
-	machine0 := logTemplate{Entity: names.NewMachineTag("0")}
-	foo0 := logTemplate{Entity: names.NewUnitTag("foo/0")}
-	foo1 := logTemplate{Entity: names.NewUnitTag("foo/1")}
+	machine0 := logTemplate{Entity: "machine-0"}
+	foo0 := logTemplate{Entity: "unit-foo-0"}
+	foo1 := logTemplate{Entity: "unit-foo-1"}
 	writeLogs := func() {
 		s.writeLogs(c, s.otherUUID, 3, machine0)
 		s.writeLogs(c, s.otherUUID, 2, foo0)
@@ -694,9 +652,9 @@ func (s *LogTailerSuite) TestExcludeEntity(c *gc.C) {
 }
 
 func (s *LogTailerSuite) TestExcludeEntityWildcard(c *gc.C) {
-	machine0 := logTemplate{Entity: names.NewMachineTag("0")}
-	foo0 := logTemplate{Entity: names.NewUnitTag("foo/0")}
-	foo1 := logTemplate{Entity: names.NewUnitTag("foo/1")}
+	machine0 := logTemplate{Entity: "machine-0"}
+	foo0 := logTemplate{Entity: "unit-foo-0"}
+	foo1 := logTemplate{Entity: "unit-foo-1"}
 	writeLogs := func() {
 		s.writeLogs(c, s.otherUUID, 3, machine0)
 		s.writeLogs(c, s.otherUUID, 2, foo0)
@@ -808,7 +766,7 @@ func (s *LogTailerSuite) checkLogTailerFiltering(
 }
 
 type logTemplate struct {
-	Entity   names.Tag
+	Entity   string
 	Version  version.Number
 	Module   string
 	Location string
@@ -873,8 +831,8 @@ func (s *LogTailerSuite) deleteLogOplogEntry(modelUUID string, doc interface{}) 
 }
 
 func (s *LogTailerSuite) normaliseLogTemplate(lt *logTemplate) {
-	if lt.Entity == nil {
-		lt.Entity = names.NewMachineTag("0")
+	if lt.Entity == "" {
+		lt.Entity = "not-a-tag"
 	}
 	if lt.Version == version.Zero {
 		lt.Version = jujuversion.Current

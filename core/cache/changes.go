@@ -106,6 +106,7 @@ type MachineChange struct {
 	Life                     life.Value
 	Config                   map[string]interface{}
 	Series                   string
+	ContainerType            string
 	SupportedContainers      []instance.ContainerType
 	SupportedContainersKnown bool
 	HardwareCharacteristics  *instance.HardwareCharacteristics

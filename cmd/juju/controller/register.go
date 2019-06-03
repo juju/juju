@@ -138,6 +138,15 @@ func (c *registerCommand) run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// Check if user is trying to register an already known controller by
+	// by providing the IP of one of its endpoints.
+	if registrationParams.publicHost != "" {
+		if err := ensureNotKnownEndpoint(c.store, registrationParams.publicHost); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	controllerName, err := c.promptControllerName(registrationParams.defaultControllerName, ctx.Stderr, ctx.Stdin)
 	if err != nil {
 		return errors.Trace(err)
@@ -202,6 +211,7 @@ func (c *registerCommand) publicControllerDetails(host, controllerName string) (
 	if !strings.Contains(apiAddr, ":") {
 		apiAddr += ":443"
 	}
+
 	// Make a direct API connection because we don't yet know the
 	// controller UUID so can't store the thus-incomplete controller
 	// details to make a conventional connection.
@@ -332,18 +342,7 @@ func (c *registerCommand) updateController(
 	}
 	for name, ctl := range all {
 		if ctl.ControllerUUID == controllerDetails.ControllerUUID {
-			var buf bytes.Buffer
-			if err := alreadyRegisteredMessageT.Execute(
-				&buf,
-				map[string]interface{}{
-					"ControllerName": name,
-					"UserName":       accountDetails.User,
-				},
-			); err != nil {
-				return err
-			}
-			ctx.Warningf(buf.String())
-			return errors.Errorf("controller is already registered as %q", name)
+			return genAlreadyRegisteredError(name, accountDetails.User)
 		}
 	}
 	if err := store.AddController(controllerName, controllerDetails); err != nil {
@@ -354,16 +353,6 @@ func (c *registerCommand) updateController(
 	}
 	return nil
 }
-
-var alreadyRegisteredMessageT = template.Must(template.New("").Parse(`
-This controller has already been registered on this client as "{{.ControllerName}}."
-To login user "{{.UserName}}" run 'juju login -u {{.UserName}} -c {{.ControllerName}}'.
-To update controller details and login as user "{{.UserName}}":
-    1. run 'juju unregister {{.UserName}}'
-    2. request from your controller admin another registration string, i.e
-       output from 'juju change-user-password {{.UserName}} --reset'
-    3. re-run 'juju register' with the registration from (2) above.
-`[1:]))
 
 func (c *registerCommand) listModels(store jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 	api, err := c.NewAPIRoot(store, controllerName, "")
@@ -622,4 +611,55 @@ type byteAtATimeReader struct {
 
 func (r byteAtATimeReader) Read(out []byte) (int, error) {
 	return r.Reader.Read(out[:1])
+}
+
+// ensureNotKnownEndpoint checks whether any controllers in the local client
+// cache contain the provided endpoint and returns an error if that is the
+// case.
+func ensureNotKnownEndpoint(store jujuclient.ClientStore, endpoint string) error {
+	existingDetails, existingName, err := store.ControllerByAPIEndpoints(endpoint)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+
+	if existingDetails == nil {
+		return nil
+	}
+
+	// Check if we know the username for this controller
+	accountDetails, err := store.AccountDetails(existingName)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+
+	if accountDetails != nil {
+		return genAlreadyRegisteredError(existingName, accountDetails.User)
+	}
+
+	return errors.Errorf(`This controller has already been registered on this client as %q.
+To login run 'juju login -c %s'.`, existingName, existingName)
+}
+
+var alreadyRegisteredMessageT = template.Must(template.New("").Parse(`
+This controller has already been registered on this client as "{{.ControllerName}}".
+To login user "{{.UserName}}" run 'juju login -u {{.UserName}} -c {{.ControllerName}}'.
+To update controller details and login as user "{{.UserName}}":
+    1. run 'juju unregister {{.ControllerName}}'
+    2. request from your controller admin another registration string, i.e
+       output from 'juju change-user-password {{.UserName}} --reset'
+    3. re-run 'juju register' with the registration string from (2) above.
+`[1:]))
+
+func genAlreadyRegisteredError(controller, user string) error {
+	var buf bytes.Buffer
+	if err := alreadyRegisteredMessageT.Execute(
+		&buf,
+		struct {
+			ControllerName string
+			UserName       string
+		}{controller, user},
+	); err != nil {
+		return err
+	}
+	return errors.New(buf.String())
 }

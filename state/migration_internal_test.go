@@ -244,8 +244,11 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		"Name",
 		// Life will always be alive, or we won't be migrating.
 		"Life",
-		// ControllerUUID is recreated when the new model
-		// is created in the new controller (yay name changes).
+		// ForceDestroyed is only relevant for models that are being
+		// removed.
+		"ForceDestroyed",
+		// ControllerUUID is recreated when the new model is created
+		// in the new controller (yay name changes).
 		"ControllerUUID",
 
 		"Type",

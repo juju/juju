@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/status"
 )
 
-//go:generate mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/apiserver/facade Context,Resources,Authorizer
 //go:generate mockgen -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutaterState,Machine,LXDProfile
 //go:generate mockgen -package mocks -destination mocks/modelcache_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater ModelCache,ModelCacheMachine,ModelCacheApplication,ModelCacheUnit,ModelCacheCharm
 //go:generate mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity,Lifer
@@ -35,6 +34,18 @@ type InstanceMutaterV1 interface {
 	WatchLXDProfileVerificationNeeded(args params.Entities) (params.NotifyWatchResults, error)
 }
 
+// InstanceMutaterV2 defines the methods on the instance mutater API facade, version 2.
+type InstanceMutaterV2 interface {
+	Life(args params.Entities) (params.LifeResults, error)
+
+	CharmProfilingInfo(arg params.Entity) (params.CharmProfilingInfoResult, error)
+	ContainerType(arg params.Entity) (params.ContainerTypeResult, error)
+	SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error)
+	SetModificationStatus(args params.SetStatus) (params.ErrorResults, error)
+	WatchMachines() (params.StringsWatchResult, error)
+	WatchLXDProfileVerificationNeeded(args params.Entities) (params.NotifyWatchResults, error)
+}
+
 type InstanceMutaterAPI struct {
 	*common.LifeGetter
 
@@ -45,13 +56,18 @@ type InstanceMutaterAPI struct {
 	getAuthFunc common.GetAuthFunc
 }
 
+type InstanceMutaterAPIV1 struct {
+	*InstanceMutaterAPI
+}
+
 // using apiserver/facades/client/cloud as an example.
 var (
-	_ InstanceMutaterV1 = (*InstanceMutaterAPI)(nil)
+	_ InstanceMutaterV2 = (*InstanceMutaterAPI)(nil)
+	_ InstanceMutaterV1 = (*InstanceMutaterAPIV1)(nil)
 )
 
-// NewFacadeV1 is used for API registration.
-func NewFacadeV1(ctx facade.Context) (*InstanceMutaterAPI, error) {
+// NewFacadeV2 is used for API registration.
+func NewFacadeV2(ctx facade.Context) (*InstanceMutaterAPI, error) {
 	st := &instanceMutaterStateShim{State: ctx.State()}
 
 	model, err := ctx.Controller().Model(st.ModelUUID())
@@ -61,6 +77,15 @@ func NewFacadeV1(ctx facade.Context) (*InstanceMutaterAPI, error) {
 	modelCache := &modelCacheShim{Model: model}
 
 	return NewInstanceMutaterAPI(st, modelCache, ctx.Resources(), ctx.Auth())
+}
+
+// NewFacadeV1 is used for API registration.
+func NewFacadeV1(ctx facade.Context) (*InstanceMutaterAPIV1, error) {
+	v2, err := NewFacadeV2(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &InstanceMutaterAPIV1{v2}, nil
 }
 
 // NewInstanceMutaterAPI creates a new API server endpoint for managing
@@ -118,6 +143,27 @@ func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.Entity) (params.Cha
 	result.CurrentProfiles = lxdProfileInfo.MachineProfiles
 	result.ProfileChanges = lxdProfileInfo.ProfileUnits
 
+	return result, nil
+}
+
+// ContainerType returns the container type of a machine.
+func (api *InstanceMutaterAPI) ContainerType(arg params.Entity) (params.ContainerTypeResult, error) {
+	result := params.ContainerTypeResult{}
+	canAccess, err := api.getAuthFunc()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	tag, err := names.ParseMachineTag(arg.Tag)
+	if err != nil {
+		result.Error = common.ServerError(common.ErrPerm)
+		return result, nil
+	}
+	m, err := api.getCacheMachine(canAccess, tag)
+	if err != nil {
+		result.Error = common.ServerError(err)
+		return result, nil
+	}
+	result.Type = m.ContainerType()
 	return result, nil
 }
 

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
@@ -106,7 +107,9 @@ func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
 	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)
-	w, err := provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker,
+	w, err := provisioner.NewContainerProvisioner(
+		instance.KVM, s.provisioner, loggo.GetLogger("test"),
+		agentConfig, broker,
 		toolsFinder, &mockDistributionGroupFinder{}, &credentialAPIForTest{})
 	c.Assert(err, jc.ErrorIsNil)
 	return w

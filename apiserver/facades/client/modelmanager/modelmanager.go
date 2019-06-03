@@ -529,6 +529,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 			cloudSpec,
 			args,
 			cloudTag,
+			cloudRegionName,
 			cloudCredentialTag,
 			ownerTag)
 	} else {
@@ -550,6 +551,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 func (m *ModelManagerAPI) newCAASModel(cloudSpec environs.CloudSpec,
 	createArgs params.ModelCreateArgs,
 	cloudTag names.CloudTag,
+	cloudRegionName string,
 	cloudCredentialTag names.CloudCredentialTag,
 	ownerTag names.UserTag,
 ) (common.Model, error) {
@@ -592,6 +594,7 @@ Please choose a different model name.
 	model, st, err := m.state.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeCAAS,
 		CloudName:               cloudTag.Id(),
+		CloudRegion:             cloudRegionName,
 		CloudCredential:         cloudCredentialTag,
 		Config:                  newConfig,
 		Owner:                   ownerTag,

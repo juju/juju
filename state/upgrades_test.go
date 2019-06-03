@@ -3001,6 +3001,42 @@ func (s *upgradesSuite) TestUpdateKubernetesStorageConfig(c *gc.C) {
 	}
 }
 
+func (s *upgradesSuite) TestUpdateKubernetesStorageConfigWithDyingModel(c *gc.C) {
+	tag := names.NewCloudCredentialTag(fmt.Sprintf("dummy/%s/default", s.owner.Id()))
+	err := s.state.UpdateCloudCredential(tag, cloud.NewEmptyCredential())
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.PatchValue(&NewBroker, func(args environs.OpenParams) (caas.Broker, error) {
+		return &fakeBroker{}, nil
+	})
+
+	m1 := s.makeCaasModel(c, "m1", tag, coretesting.Attrs{
+		"type": "kubernetes",
+	})
+	defer m1.Close()
+	model, err := m1.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.Destroy(DestroyModelParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	settingsColl, settingsCloser := m1.database.GetRawCollection(settingsC)
+	defer settingsCloser()
+
+	// Doesn't fail...
+	err = UpdateKubernetesStorageConfig(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// ...makes no changes to settings.
+	var docs []bson.M
+	err = settingsColl.FindId(m1.ModelUUID() + ":e").All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(docs, gc.HasLen, 1)
+	settings, ok := docs[0]["settings"].(bson.M)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(settings["operator-storage"], gc.Equals, nil)
+	c.Assert(settings["workload-storage"], gc.Equals, nil)
+}
+
 func (s *upgradesSuite) TestEnsureDefaultModificationStatus(c *gc.C) {
 	coll, closer := s.state.db().GetRawCollection(statusesC)
 	defer closer()
@@ -3120,6 +3156,60 @@ func (s *upgradesSuite) TestRemoveInstanceCharmProfileDataCollectionNoCollection
 
 	err = RemoveInstanceCharmProfileDataCollection(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradesSuite) TestUpdateK8sModelNameIndex(c *gc.C) {
+	modelsColl, closer := s.state.db().GetRawCollection(modelsC)
+	defer closer()
+	err := modelsColl.Insert(bson.M{
+		"_id":   utils.MustNewUUID().String(),
+		"type":  "iaas",
+		"name":  "model1",
+		"owner": "fred",
+		"cloud": "lxd",
+	}, bson.M{
+		"_id":   utils.MustNewUUID().String(),
+		"type":  "caas",
+		"name":  "model2",
+		"owner": "mary",
+		"cloud": "microk8s",
+	}, bson.M{
+		"_id":   utils.MustNewUUID().String(),
+		"type":  "caas",
+		"name":  "model3",
+		"owner": "jane",
+		"cloud": "microk8s",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelNameColl, closer := s.state.db().GetRawCollection(usermodelnameC)
+	defer closer()
+
+	err = modelNameColl.Insert(bson.M{
+		"_id": "fred:model1",
+	}, bson.M{
+		"_id": "mary:model2",
+	}, bson.M{
+		"_id": "microk8s:model3",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		{
+			"_id": "fred:model1",
+		}, {
+			"_id": "mary:model2",
+		}, {
+			"_id": "jane:model3",
+		}, {
+			"_id": "test-admin:testmodel",
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, UpdateK8sModelNameIndex,
+		expectUpgradedData{modelNameColl, expected},
+	)
 }
 
 type docById []bson.M

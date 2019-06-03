@@ -720,7 +720,7 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	if params.CloudName == "" {
 		params.CloudName = "dummy"
 	}
-	if params.CloudRegion == "" {
+	if params.CloudRegion == "" && params.CloudName == "dummy" {
 		params.CloudRegion = "dummy-region"
 	}
 	if params.CloudRegion == "<none>" {
@@ -774,7 +774,6 @@ func (factory *Factory) MakeCAASModel(c *gc.C, params *ModelParams) *state.State
 		params = &ModelParams{}
 	}
 	params.Type = state.ModelTypeCAAS
-	params.CloudRegion = "<none>"
 	if params.Owner == nil {
 		origEnv, err := factory.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
