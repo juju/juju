@@ -41,6 +41,7 @@ const (
 	cleanupApplicationsForDyingModel     cleanupKind = "applications"
 	cleanupDyingMachine                  cleanupKind = "dyingMachine"
 	cleanupForceDestroyedMachine         cleanupKind = "machine"
+	cleanupForceRemoveMachine            cleanupKind = "forceRemoveMachine"
 	cleanupAttachmentsForDyingStorage    cleanupKind = "storageAttachments"
 	cleanupAttachmentsForDyingVolume     cleanupKind = "volumeAttachments"
 	cleanupAttachmentsForDyingFilesystem cleanupKind = "filesystemAttachments"
@@ -175,6 +176,8 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupDyingMachine(doc.Prefix, args)
 		case cleanupForceDestroyedMachine:
 			err = st.cleanupForceDestroyedMachine(doc.Prefix, args)
+		case cleanupForceRemoveMachine:
+			err = st.cleanupForceRemoveMachine(doc.Prefix, args)
 		case cleanupAttachmentsForDyingStorage:
 			err = st.cleanupAttachmentsForDyingStorage(doc.Prefix, args)
 		case cleanupAttachmentsForDyingVolume:
@@ -328,8 +331,6 @@ func (st *State) cleanupMachinesForDyingModel(cleanupArgs []bson.Raw) (err error
 			}
 			continue
 		}
-		// TODO (force 2019-04-26) Should this always be ForceDestroy or only when
-		// 'destroy-model --force' is specified?...
 		if err := m.ForceDestroy(args.MaxWait); err != nil {
 			err = errors.Annotatef(err, "while destroying machine %v is", m.Id())
 			// TODO (force 2019-4-24) we should not break out here but continue with other machines.
@@ -971,16 +972,24 @@ func (st *State) cleanupRemovedUnit(unitId string, cleanupArgs []bson.Raw) error
 // cleanupDyingMachine marks resources owned by the machine as dying, to ensure
 // they are cleaned up as well.
 func (st *State) cleanupDyingMachine(machineId string, cleanupArgs []bson.Raw) error {
-	var force bool
-	switch n := len(cleanupArgs); n {
-	case 0:
-		// Old cleanups have no args, so follow the old behaviour.
-	case 1:
+	var (
+		force   bool
+		maxWait time.Duration
+	)
+	argCount := len(cleanupArgs)
+	if argCount > 2 {
+		return errors.Errorf("expected 0-1 arguments, got %d", argCount)
+	}
+	// Old cleanups have no args, so use the default values.
+	if argCount >= 1 {
 		if err := cleanupArgs[0].Unmarshal(&force); err != nil {
 			return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
 		}
-	default:
-		return errors.Errorf("expected 0-1 arguments, got %d", n)
+	}
+	if argCount >= 2 {
+		if err := cleanupArgs[1].Unmarshal(&maxWait); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
+		}
 	}
 	machine, err := st.Machine(machineId)
 	if errors.IsNotFound(err) {
@@ -988,7 +997,18 @@ func (st *State) cleanupDyingMachine(machineId string, cleanupArgs []bson.Raw) e
 	} else if err != nil {
 		return err
 	}
-	return cleanupDyingMachineResources(machine, force)
+	err = cleanupDyingMachineResources(machine, force)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// If we're forcing, schedule a fallback cleanup to remove the
+	// machine if the provisioner has gone AWOL - the main case here
+	// is if the cloud credential is invalid so the provisioner is
+	// stopped.
+	if force {
+		st.scheduleForceCleanup(cleanupForceRemoveMachine, machineId, maxWait)
+	}
+	return nil
 }
 
 // cleanupForceDestroyedMachine systematically destroys and removes all entities
@@ -1086,7 +1106,7 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineId string, maxWait 
 	// again -- which it *probably* will anyway -- the issue can be resolved by
 	// force-destroying the machine again; that's better than adding layer
 	// upon layer of complication here.
-	if err := machine.EnsureDead(); err != nil {
+	if err := machine.advanceLifecycle(Dead, true, maxWait); err != nil {
 		return errors.Trace(err)
 	}
 	removePortsOps, err := machine.removePortsOps()
@@ -1096,11 +1116,25 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineId string, maxWait 
 	if err := st.db().RunTransaction(removePortsOps); err != nil {
 		return errors.Trace(err)
 	}
-	return nil
 
-	// Note that we do *not* remove the machine entirely: we leave it for the
-	// provisioner to clean up, so that we don't end up with an unreferenced
-	// instance that would otherwise be ignored when in provisioner-safe-mode.
+	// Note that we do *not* remove the machine immediately: we leave
+	// it for the provisioner to clean up, so that we don't end up
+	// with an unreferenced instance that would otherwise be ignored
+	// when in provisioner-safe-mode.
+	return nil
+}
+
+// cleanupForceRemoveMachine is a backstop to remove a force-destroyed
+// machine after a certain amount of time if it hasn't gone away
+// already.
+func (st *State) cleanupForceRemoveMachine(machineId string, cleanupArgs []bson.Raw) error {
+	machine, err := st.Machine(machineId)
+	if errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	return machine.Remove()
 }
 
 // cleanupContainers recursively calls cleanupForceDestroyedMachine on the supplied
