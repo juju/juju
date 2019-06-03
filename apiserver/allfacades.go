@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/apiserver/facades/agent/upgrader"
 	"github.com/juju/juju/apiserver/facades/agent/upgradeseries"
+	"github.com/juju/juju/apiserver/facades/agent/upgradesteps"
 	"github.com/juju/juju/apiserver/facades/client/action"
 	"github.com/juju/juju/apiserver/facades/client/annotations" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/application" // ModelUser Write
@@ -207,6 +208,7 @@ func AllFacades() *facade.Registry {
 	}
 
 	reg("InstanceMutater", 1, instancemutater.NewFacadeV1)
+	reg("InstanceMutater", 2, instancemutater.NewFacadeV2)
 
 	reg("InstancePoller", 3, instancepoller.NewFacade)
 	reg("KeyManager", 1, keymanager.NewKeyManagerAPI)
@@ -308,6 +310,7 @@ func AllFacades() *facade.Registry {
 
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
 	reg("UpgradeSeries", 1, upgradeseries.NewAPI)
+	reg("UpgradeSteps", 1, upgradesteps.NewFacadeV1)
 	reg("UserManager", 1, usermanager.NewUserManagerAPI)
 	reg("UserManager", 2, usermanager.NewUserManagerAPI) // Adds ResetPassword
 

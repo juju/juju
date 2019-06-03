@@ -78,7 +78,7 @@ func makeLogTailerParams(reqParams debugLogParams) state.LogTailerParams {
 
 func formatLogRecord(r *state.LogRecord) *params.LogMessage {
 	return &params.LogMessage{
-		Entity:    r.Entity.String(),
+		Entity:    r.Entity,
 		Timestamp: r.Time,
 		Severity:  r.Level.String(),
 		Module:    r.Module,

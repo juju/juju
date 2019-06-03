@@ -5,6 +5,7 @@ package provisioner_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -29,10 +30,11 @@ var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) makeManifold() dependency.Manifold {
 	fakeNewProvFunc := func(
-		apiSt *apiprovisioner.State,
-		agentConf agent.Config,
-		environ environs.Environ,
-		credentialAPI common.CredentialAPI,
+		*apiprovisioner.State,
+		agent.Config,
+		provisioner.Logger,
+		environs.Environ,
+		common.CredentialAPI,
 	) (provisioner.Provisioner, error) {
 		s.stub.AddCall("NewProvisionerFunc")
 		return struct{ provisioner.Provisioner }{}, nil
@@ -40,6 +42,7 @@ func (s *ManifoldSuite) makeManifold() dependency.Manifold {
 	return provisioner.Manifold(provisioner.ManifoldConfig{
 		AgentName:                    "agent",
 		APICallerName:                "api-caller",
+		Logger:                       loggo.GetLogger("test"),
 		EnvironName:                  "environ",
 		NewProvisionerFunc:           fakeNewProvFunc,
 		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) { return nil, nil },

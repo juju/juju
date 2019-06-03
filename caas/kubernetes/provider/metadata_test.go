@@ -378,6 +378,88 @@ func (s *K8sMetadataSuite) TestOperatorStorageClassPrefersDefault(c *gc.C) {
 	})
 }
 
+func (s *K8sMetadataSuite) TestAnnotatedWorkloadStorageClass(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
+			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
+				Labels: map[string]string{"manufacturer": "amazon_ec2"},
+			}}}}, nil),
+		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
+			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "juju-preferred-workload-storage",
+					Annotations: map[string]string{
+						"juju.io/workload-storage": "true",
+					},
+				},
+				Provisioner: "kubernetes.io/aws-ebs",
+				Parameters:  map[string]string{"foo": "bar"},
+			}}}, nil),
+	)
+	metadata, err := s.broker.GetClusterMetadata("")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+		Name:        "juju-preferred-workload-storage",
+		Provisioner: "kubernetes.io/aws-ebs",
+		Parameters:  map[string]string{"foo": "bar"},
+	})
+	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+		Name:        "juju-preferred-workload-storage",
+		Provisioner: "kubernetes.io/aws-ebs",
+		Parameters:  map[string]string{"foo": "bar"},
+	})
+}
+
+func (s *K8sMetadataSuite) TestAnnotatedWorkloadAndOperatorStorageClass(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
+			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
+				Labels: map[string]string{"manufacturer": "amazon_ec2"},
+			}}}}, nil),
+		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
+			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Name: "juju-preferred-workload-storage",
+						Annotations: map[string]string{
+							"juju.io/workload-storage": "true",
+						},
+					},
+					Provisioner: "kubernetes.io/aws-ebs",
+					Parameters:  map[string]string{"foo": "bar"},
+				},
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Name: "juju-preferred-operator-storage",
+						Annotations: map[string]string{
+							"juju.io/operator-storage": "true",
+						},
+					},
+					Provisioner: "kubernetes.io/aws-ebs",
+					Parameters:  map[string]string{"foo": "bar"},
+				},
+			}}, nil),
+	)
+	metadata, err := s.broker.GetClusterMetadata("")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+		Name:        "juju-preferred-workload-storage",
+		Provisioner: "kubernetes.io/aws-ebs",
+		Parameters:  map[string]string{"foo": "bar"},
+	})
+	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+		Name:        "juju-preferred-operator-storage",
+		Provisioner: "kubernetes.io/aws-ebs",
+		Parameters:  map[string]string{"foo": "bar"},
+	})
+}
+
 func (s *K8sMetadataSuite) TestCheckDefaultWorkloadStorageUnknownCluster(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()

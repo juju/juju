@@ -18,6 +18,7 @@ var (
 	FirewallSpec        = firewallSpec
 	ExtractAddresses    = extractAddresses
 	NewRuleSetFromRules = newRuleSetFromRules
+	MatchesPrefix       = matchesPrefix
 )
 
 func SetRawConn(conn *Connection, raw rawConnectionWrapper) {

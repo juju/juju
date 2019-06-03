@@ -404,7 +404,9 @@ func (op *caasOperator) loop() (err error) {
 						return err
 					}
 				} else {
-					aliveUnits[unitId] = make(chan struct{})
+					if _, ok := aliveUnits[unitId]; !ok {
+						aliveUnits[unitId] = make(chan struct{})
+					}
 				}
 				// Start a worker to manage any new units.
 				if _, err := op.runner.Worker(unitId, op.catacomb.Dying()); err == nil || unitLife == life.Dead {

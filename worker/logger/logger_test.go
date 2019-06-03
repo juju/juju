@@ -6,6 +6,7 @@ package logger_test
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -17,44 +18,72 @@ import (
 	"github.com/juju/juju/worker/logger"
 )
 
-// worstCase is used for timeouts when timing out
-// will fail the test. Raising this value should
-// not affect the overall running time of the tests
-// unless they fail.
-const worstCase = 5 * time.Second
-
 type LoggerSuite struct {
 	testing.IsolationSuite
 
-	loggerAPI *mockAPI
+	context   *loggo.Context
 	agent     names.Tag
+	loggerAPI *mockAPI
+	config    logger.WorkerConfig
 
-	value    string
-	override string
+	value string
 }
 
 var _ = gc.Suite(&LoggerSuite{})
 
 func (s *LoggerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
+	s.context = loggo.NewContext(loggo.DEBUG)
+	s.agent = names.NewMachineTag("42")
 	s.loggerAPI = &mockAPI{
-		// IsolationSuite setup resets logging info, so just grab that.
-		config:  loggo.LoggerInfo(),
+		config:  s.context.Config().String(),
 		watcher: &mockNotifyWatcher{},
 	}
-	s.agent = names.NewMachineTag("42")
+	s.config = logger.WorkerConfig{
+		Context: s.context,
+		API:     s.loggerAPI,
+		Tag:     s.agent,
+		Logger:  loggo.GetLogger("test"),
+		Callback: func(v string) error {
+			s.value = v
+			return nil
+		},
+	}
 	s.value = ""
-	s.override = ""
+}
+
+func (s *LoggerSuite) TestMissingContext(c *gc.C) {
+	s.config.Context = nil
+	w, err := logger.NewLogger(s.config)
+	c.Assert(w, gc.IsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "missing logging context not valid")
+}
+
+func (s *LoggerSuite) TestMissingAPI(c *gc.C) {
+	s.config.API = nil
+	w, err := logger.NewLogger(s.config)
+	c.Assert(w, gc.IsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "missing api not valid")
+}
+
+func (s *LoggerSuite) TestMissingLogger(c *gc.C) {
+	s.config.Logger = nil
+	w, err := logger.NewLogger(s.config)
+	c.Assert(w, gc.IsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "missing logger not valid")
 }
 
 func (s *LoggerSuite) waitLoggingInfo(c *gc.C, expected string) {
-	timeout := time.After(worstCase)
+	timeout := time.After(testing.LongWait)
 	for {
 		select {
 		case <-timeout:
 			c.Fatalf("timeout while waiting for logging info to change")
 		case <-time.After(10 * time.Millisecond):
-			loggerInfo := loggo.LoggerInfo()
+			loggerInfo := s.context.Config().String()
 			if loggerInfo != expected {
 				c.Logf("logging is %q, still waiting", loggerInfo)
 				continue
@@ -65,10 +94,7 @@ func (s *LoggerSuite) waitLoggingInfo(c *gc.C, expected string) {
 }
 
 func (s *LoggerSuite) makeLogger(c *gc.C) worker.Worker {
-	w, err := logger.NewLogger(s.loggerAPI, s.agent, s.override, func(v string) error {
-		s.value = v
-		return nil
-	})
+	w, err := logger.NewLogger(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
 }
@@ -79,13 +105,13 @@ func (s *LoggerSuite) TestRunStop(c *gc.C) {
 }
 
 func (s *LoggerSuite) TestInitialState(c *gc.C) {
-	expected := s.loggerAPI.config
+	expected := s.context.Config().String()
 
 	initial := "<root>=DEBUG;wibble=ERROR"
 	c.Assert(expected, gc.Not(gc.Equals), initial)
 
-	loggo.DefaultContext().ResetLoggerLevels()
-	err := loggo.ConfigureLoggers(initial)
+	s.context.ResetLoggerLevels()
+	err := s.context.ConfigureLoggers(initial)
 	c.Assert(err, jc.ErrorIsNil)
 
 	loggingWorker := s.makeLogger(c)
@@ -99,10 +125,10 @@ func (s *LoggerSuite) TestInitialState(c *gc.C) {
 }
 
 func (s *LoggerSuite) TestConfigOverride(c *gc.C) {
-	s.override = "test=TRACE"
+	s.config.Override = "test=TRACE"
 
-	loggo.DefaultContext().ResetLoggerLevels()
-	err := loggo.ConfigureLoggers("<root>=DEBUG;wibble=ERROR")
+	s.context.ResetLoggerLevels()
+	err := s.context.ConfigureLoggers("<root>=DEBUG;wibble=ERROR")
 	c.Assert(err, jc.ErrorIsNil)
 
 	loggingWorker := s.makeLogger(c)

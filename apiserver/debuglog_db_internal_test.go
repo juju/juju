@@ -10,7 +10,6 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -96,7 +95,7 @@ func (s *debugLogDBIntSuite) TestFullRequest(c *gc.C) {
 	tailer := newFakeLogTailer()
 	tailer.logsCh <- &state.LogRecord{
 		Time:     time.Date(2015, 6, 19, 15, 34, 37, 0, time.UTC),
-		Entity:   names.NewMachineTag("99"),
+		Entity:   "machine-99",
 		Module:   "some.where",
 		Location: "code.go:42",
 		Level:    loggo.INFO,
@@ -104,7 +103,7 @@ func (s *debugLogDBIntSuite) TestFullRequest(c *gc.C) {
 	}
 	tailer.logsCh <- &state.LogRecord{
 		Time:     time.Date(2015, 6, 19, 15, 36, 40, 0, time.UTC),
-		Entity:   names.NewUnitTag("foo/2"),
+		Entity:   "unit-foo-2",
 		Module:   "else.where",
 		Location: "go.go:22",
 		Level:    loggo.ERROR,
@@ -146,7 +145,7 @@ func (s *debugLogDBIntSuite) TestMaxLines(c *gc.C) {
 	for i := 0; i < 5; i++ {
 		tailer.logsCh <- &state.LogRecord{
 			Time:     time.Date(2015, 6, 19, 15, 34, 37, 0, time.UTC),
-			Entity:   names.NewMachineTag("99"),
+			Entity:   "machine-99",
 			Module:   "some.where",
 			Location: "code.go:42",
 			Level:    loggo.INFO,

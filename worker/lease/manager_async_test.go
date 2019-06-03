@@ -191,8 +191,9 @@ func (s *AsyncSuite) TestExpiryInterruptedRetry(c *gc.C) {
 		// Stopping the worker should cancel the retry.
 		c.Assert(worker.Stop(manager), jc.ErrorIsNil)
 
-		// Advance the clock to trigger the next expire retry
-		c.Assert(clock.WaitAdvance(50*time.Millisecond, coretesting.ShortWait, 1), jc.ErrorIsNil)
+		// Advance the clock to trigger the next expire retry (second
+		// expected timer is the shutdown timeout check).
+		c.Assert(clock.WaitAdvance(50*time.Millisecond, coretesting.ShortWait, 2), jc.ErrorIsNil)
 
 		// Allow some wallclock time for a non-cancelled retry to
 		// happen if stopping the worker didn't cancel it. This is not

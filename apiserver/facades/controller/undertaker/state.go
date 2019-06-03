@@ -68,6 +68,10 @@ type Model interface {
 	// Life returns whether the model is Alive, Dying or Dead.
 	Life() state.Life
 
+	// ForceDestroyed returns whether the dying/dead model was
+	// destroyed with --force. Always false for alive models.
+	ForceDestroyed() bool
+
 	// Name returns the human friendly name of the model.
 	Name() string
 

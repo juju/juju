@@ -90,7 +90,7 @@
   name = "github.com/juju/naturalsort"
 
 [[constraint]]
-  revision = "b4dc09ce9ed2506a6c31763fa0742f4ebcbdceef"
+  revision = "c23cb5719c78fb34bcf0eefecf4137dd95436877"
   name = "github.com/juju/os"
 
 [[constraint]]
@@ -131,7 +131,7 @@
 
 [[constraint]]
   name = "github.com/oracle/oci-go-sdk"
-  revision = "ad5c34ed0cf8169d6817e2a37ec3e4521f856368"
+  revision = "72941f7f9bfa6550f640b797fde43b19b1574911"
 
 [[constraint]]
   revision = "8c3190dff075bf5442c9eedbf8f8ed6144a099e7"
@@ -312,7 +312,7 @@
 
 [[constraint]]
   name = "github.com/juju/loggo"
-  revision = "8232ab8918d91c72af1a9fb94d3edbe31d88b790"
+  revision = "6e530bcce5d8e1b51b8e5ee7f08a455cd0a8c2e5"
 
 [[override]]
   name = "github.com/juju/lru"
@@ -500,7 +500,7 @@
 
 [[constraint]]
   name = "gopkg.in/juju/worker.v1"
-  revision = "187c8117684679e0e261b1d6f488a404d1d093c9"
+  revision = "5398f2291f2c69afe604411634e0d008bdf453a0"
 
 [[override]]
   name = "gopkg.in/macaroon-bakery.v1"

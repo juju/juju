@@ -40,6 +40,10 @@ func init() {
 			Name:        "EBS Volume",
 			Provisioner: "kubernetes.io/aws-ebs",
 		},
+		caas.K8sCloudOpenStack: {
+			Name:        "Cinder Disk",
+			Provisioner: "csi-cinderplugin",
+		},
 	}
 
 	// jujuPreferredOperatorStorage defines the opinionated storage

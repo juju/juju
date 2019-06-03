@@ -63,6 +63,10 @@ type ManagerConfig struct {
 	// logging purposes.
 	EntityUUID string
 
+	// LogDir is the directory to write a debugging log file in the
+	// case that the worker times out waiting to shut down.
+	LogDir string
+
 	PrometheusRegisterer prometheus.Registerer
 }
 

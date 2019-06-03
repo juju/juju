@@ -242,6 +242,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 		Id:                       m.Id,
 		Life:                     multiwatcher.Life(m.Life.String()),
 		Series:                   m.Series,
+		ContainerType:            m.ContainerType,
 		Jobs:                     paramsJobsFromJobs(m.Jobs),
 		SupportedContainers:      m.SupportedContainers,
 		SupportedContainersKnown: m.SupportedContainersKnown,

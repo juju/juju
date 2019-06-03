@@ -277,10 +277,10 @@ func (s *WorkerSuite) TestScaleChangedInJuju(c *gc.C) {
 	s.podSpecGetter.CheckCall(c, 2, "ProvisioningInfo", "gitlab")
 	s.lifeGetter.CheckCallNames(c, "Life")
 	s.lifeGetter.CheckCall(c, 0, "Life", "gitlab")
-	s.serviceBroker.CheckCallNames(c, "WatchService", "EnsureService", "Service")
+	s.serviceBroker.CheckCallNames(c, "WatchService", "EnsureService", "GetService")
 	s.serviceBroker.CheckCall(c, 1, "EnsureService",
 		"gitlab", expectedServiceParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
-	s.serviceBroker.CheckCall(c, 2, "Service", "gitlab")
+	s.serviceBroker.CheckCall(c, 2, "GetService", "gitlab")
 
 	s.serviceBroker.ResetCalls()
 	// Add another unit.
@@ -328,6 +328,7 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	s.containerBroker.ResetCalls()
+	s.applicationUpdater.ResetCalls()
 	s.serviceBroker.ResetCalls()
 	s.serviceBroker.serviceStatus = status.StatusInfo{
 		Status:  status.Active,
@@ -341,20 +342,34 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 	}
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if len(s.serviceBroker.Calls()) > 0 {
+			break
+		}
+	}
+	s.serviceBroker.CheckCallNames(c, "GetService")
+	c.Assert(s.serviceBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
+
+	select {
+	case <-s.serviceUpdated:
+		s.applicationUpdater.CheckCallNames(c, "UpdateApplicationService")
+		c.Assert(s.applicationUpdater.Calls()[0].Args, jc.DeepEquals, []interface{}{
+			params.UpdateApplicationServiceArg{
+				ApplicationTag: names.NewApplicationTag("gitlab").String(),
+				ProviderId:     "id",
+				Addresses:      []params.Address{{Value: "10.0.0.1"}},
+			},
+		})
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for service to be updated")
+	}
+
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		if len(s.containerBroker.Calls()) > 0 {
 			break
 		}
 	}
 	s.containerBroker.CheckCallNames(c, "Units")
 	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
-
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		if len(s.serviceBroker.Calls()) > 0 {
-			break
-		}
-	}
-	s.serviceBroker.CheckCallNames(c, "Service")
-	c.Assert(s.serviceBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		if len(s.unitUpdater.Calls()) > 0 {

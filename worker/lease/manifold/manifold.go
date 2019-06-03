@@ -59,6 +59,7 @@ type ManifoldConfig struct {
 	FSM                  *raftlease.FSM
 	RequestTopic         string
 	Logger               lease.Logger
+	LogDir               string
 	PrometheusRegisterer prometheus.Registerer
 	NewWorker            func(lease.ManagerConfig) (worker.Worker, error)
 	NewStore             func(raftlease.StoreConfig) *raftlease.Store
@@ -158,6 +159,7 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		Logger:               s.config.Logger,
 		MaxSleep:             MaxSleep,
 		EntityUUID:           controllerUUID,
+		LogDir:               s.config.LogDir,
 		PrometheusRegisterer: s.config.PrometheusRegisterer,
 	})
 	if err != nil {

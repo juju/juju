@@ -196,7 +196,7 @@ func (s *ApplicationSuite) TestLXDProfileFailWithForceSetCharm(c *gc.C) {
 func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		Type: state.ModelTypeCAAS,
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
@@ -221,7 +221,7 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 func (s *ApplicationSuite) TestCAASSetCharmNewDeploymentFails(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		Type: state.ModelTypeCAAS,
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
@@ -1680,6 +1680,26 @@ func (s *ApplicationSuite) TestOffersRefRace(c *gc.C) {
 	assertOffersRef(c, s.State, "mysql", 1)
 }
 
+func (s *ApplicationSuite) TestForceDoesNotAllowRemovingAnApplicationWithOffers(c *gc.C) {
+	addOffer := func() {
+		ao := state.NewApplicationOffers(s.State)
+		_, err := ao.AddOffer(crossmodel.AddApplicationOfferArgs{
+			OfferName:       "hosted-mysql",
+			ApplicationName: "mysql",
+			Endpoints:       map[string]string{"server": "server"},
+			Owner:           s.Owner.Id(),
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	defer state.SetBeforeHooks(c, s.State, addOffer).Check()
+
+	op := s.mysql.DestroyOperation()
+	op.Force = true
+	err := s.State.ApplyOperation(op)
+	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 offer`)
+	assertOffersRef(c, s.State, "mysql", 1)
+}
+
 const mysqlBaseMeta = `
 name: mysql
 summary: "Database engine"
@@ -2091,7 +2111,7 @@ func (s *ApplicationSuite) TestAddUnitWhenNotAlive(c *gc.C) {
 func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		Type: state.ModelTypeCAAS,
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
@@ -2140,7 +2160,7 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		Type: state.ModelTypeCAAS,
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
@@ -3930,7 +3950,7 @@ func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
 func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		Type: state.ModelTypeCAAS,
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
@@ -4033,7 +4053,7 @@ func (s *ApplicationSuite) TestSetOperatorStatusNonCAAS(c *gc.C) {
 func (s *ApplicationSuite) TestSetOperatorStatus(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		Type: state.ModelTypeCAAS,
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)

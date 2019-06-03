@@ -88,9 +88,10 @@ type fixture struct {
 	info   params.UndertakerModelInfoResult
 	errors []error
 	dirty  bool
+	logger fakeLogger
 }
 
-func (fix fixture) cleanup(c *gc.C, w worker.Worker) {
+func (fix *fixture) cleanup(c *gc.C, w worker.Worker) {
 	if fix.dirty {
 		workertest.DirtyKill(c, w)
 	} else {
@@ -98,7 +99,7 @@ func (fix fixture) cleanup(c *gc.C, w worker.Worker) {
 	}
 }
 
-func (fix fixture) run(c *gc.C, test func(worker.Worker)) *testing.Stub {
+func (fix *fixture) run(c *gc.C, test func(worker.Worker)) *testing.Stub {
 	stub := &testing.Stub{}
 	environOrBroker := &mockDestroyer{
 		stub: stub,
@@ -112,6 +113,7 @@ func (fix fixture) run(c *gc.C, test func(worker.Worker)) *testing.Stub {
 		Facade:        facade,
 		Destroyer:     environOrBroker,
 		CredentialAPI: &fakeCredentialAPI{},
+		Logger:        &fix.logger,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer fix.cleanup(c, w)

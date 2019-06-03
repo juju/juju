@@ -524,9 +524,6 @@ func (s *ModelUserSuite) newModelWithOwner(c *gc.C, owner names.UserTag) *state.
 
 func (s *ModelUserSuite) newModelWithUser(c *gc.C, user names.UserTag, modelType state.ModelType) *state.Model {
 	params := &factory.ModelParams{Type: modelType}
-	if modelType == state.ModelTypeCAAS {
-		params.CloudRegion = "<none>"
-	}
 	st := s.Factory.MakeModel(c, params)
 	defer st.Close()
 	newModel, err := st.Model()

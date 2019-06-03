@@ -116,6 +116,10 @@ func (rc *rawConn) RemoveInstance(projectID, zone, id string) error {
 	return errors.Trace(err)
 }
 
+func matchesPrefix(firewallName, namePrefix string) bool {
+	return firewallName == namePrefix || strings.HasPrefix(firewallName, namePrefix+"-")
+}
+
 func (rc *rawConn) GetFirewalls(projectID, namePrefix string) ([]*compute.Firewall, error) {
 	call := rc.Firewalls.List(projectID)
 	firewallList, err := call.Do()
@@ -128,7 +132,7 @@ func (rc *rawConn) GetFirewalls(projectID, namePrefix string) ([]*compute.Firewa
 	}
 	var result []*compute.Firewall
 	for _, fw := range firewallList.Items {
-		if strings.HasPrefix(fw.Name, namePrefix) {
+		if matchesPrefix(fw.Name, namePrefix) {
 			result = append(result, fw)
 		}
 	}

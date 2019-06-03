@@ -20,7 +20,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/deque"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v2"
@@ -245,7 +244,7 @@ func (logger *DbLogger) Log(records []LogRecord) error {
 			// insertion.
 			Id:       bson.NewObjectId(),
 			Time:     r.Time.UnixNano(),
-			Entity:   r.Entity.String(),
+			Entity:   r.Entity,
 			Version:  versionString,
 			Module:   r.Module,
 			Location: r.Location,
@@ -258,7 +257,7 @@ func (logger *DbLogger) Log(records []LogRecord) error {
 }
 
 func validateInputLogRecord(r LogRecord) error {
-	if r.Entity == nil {
+	if r.Entity == "" {
 		return errors.NotValidf("missing Entity")
 	}
 	return nil
@@ -302,7 +301,7 @@ type LogRecord struct {
 
 	// origin fields
 	ModelUUID string
-	Entity    names.Tag
+	Entity    string
 	Version   version.Number
 
 	// logging-specific fields
@@ -732,17 +731,12 @@ func logDocToRecord(modelUUID string, doc *logDoc) (*LogRecord, error) {
 		return nil, errors.Errorf("unrecognized log level %q", doc.Level)
 	}
 
-	entity, err := names.ParseTag(doc.Entity)
-	if err != nil {
-		return nil, errors.Annotate(err, "while parsing entity tag")
-	}
-
 	rec := &LogRecord{
 		ID:   doc.Time,
 		Time: time.Unix(0, doc.Time).UTC(), // not worth preserving TZ
 
 		ModelUUID: modelUUID,
-		Entity:    entity,
+		Entity:    doc.Entity,
 		Version:   ver,
 
 		Level:    level,

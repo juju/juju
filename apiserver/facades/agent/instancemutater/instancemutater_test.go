@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater/mocks"
 	"github.com/juju/juju/apiserver/params"
@@ -27,12 +28,12 @@ import (
 type instanceMutaterAPISuite struct {
 	coretesting.IsolationSuite
 
-	authorizer *mocks.MockAuthorizer
+	authorizer *facademocks.MockAuthorizer
 	entity     *mocks.MockEntity
 	lifer      *mocks.MockLifer
 	state      *mocks.MockInstanceMutaterState
 	model      *mocks.MockModelCache
-	resources  *mocks.MockResources
+	resources  *facademocks.MockResources
 
 	machineTag  names.Tag
 	notifyDone  chan struct{}
@@ -50,12 +51,12 @@ func (s *instanceMutaterAPISuite) SetUpTest(c *gc.C) {
 func (s *instanceMutaterAPISuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.authorizer = mocks.NewMockAuthorizer(ctrl)
+	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 	s.entity = mocks.NewMockEntity(ctrl)
 	s.lifer = mocks.NewMockLifer(ctrl)
 	s.state = mocks.NewMockInstanceMutaterState(ctrl)
 	s.model = mocks.NewMockModelCache(ctrl)
-	s.resources = mocks.NewMockResources(ctrl)
+	s.resources = facademocks.NewMockResources(ctrl)
 
 	return ctrl
 }

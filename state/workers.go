@@ -4,14 +4,17 @@
 package state
 
 import (
+	"path"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	"github.com/juju/pubsub"
 	"gopkg.in/juju/worker.v1"
 
 	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 	jworker "github.com/juju/juju/worker"
@@ -101,6 +104,14 @@ func (st *State) newLeaseManager(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	series, err := series.HostSeries()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	logDir, err := paths.LogDir(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	manager, err := lease.NewManager(lease.ManagerConfig{
 		Secretary: func(_ string) (lease.Secretary, error) {
 			return secretary, nil
@@ -110,6 +121,7 @@ func (st *State) newLeaseManager(
 		Logger:     loggo.GetLogger("juju.worker.lease.mongo"),
 		MaxSleep:   time.Minute,
 		EntityUUID: entityUUID,
+		LogDir:     path.Join(logDir, "juju"),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

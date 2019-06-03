@@ -6,6 +6,7 @@ package provisioner
 import (
 	"errors"
 
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -17,18 +18,20 @@ import (
 type logSuite struct {
 	testing.LoggingSuite
 	jujutesting.JujuOSEnvSuite
+	logger loggo.Logger
 }
 
 func (l *logSuite) SetUpTest(c *gc.C) {
 	l.LoggingSuite.SetUpTest(c)
 	l.JujuOSEnvSuite.SetUpTest(c)
+	l.logger = loggo.GetLogger("juju.provisioner")
 }
 
 var _ = gc.Suite(&logSuite{})
 
-func (*logSuite) TestFlagNotSet(c *gc.C) {
+func (s *logSuite) TestFlagNotSet(c *gc.C) {
 	err := errors.New("test error")
-	err2 := loggedErrorStack(err)
+	err2 := loggedErrorStack(s.logger, err)
 	c.Assert(err, gc.Equals, err2)
 	c.Assert(c.GetTestLog(), gc.Equals, "")
 }
@@ -36,7 +39,7 @@ func (*logSuite) TestFlagNotSet(c *gc.C) {
 func (s *logSuite) TestFlagSet(c *gc.C) {
 	s.SetFeatureFlags(feature.LogErrorStack)
 	err := errors.New("test error")
-	err2 := loggedErrorStack(err)
+	err2 := loggedErrorStack(s.logger, err)
 	c.Assert(err, gc.Equals, err2)
 	expected := "ERROR juju.provisioner error stack:\ntest error"
 	c.Assert(c.GetTestLog(), jc.Contains, expected)

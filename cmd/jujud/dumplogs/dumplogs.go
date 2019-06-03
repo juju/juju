@@ -193,7 +193,7 @@ func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, statePool *state.Stat
 		writer.WriteString(c.format(
 			rec.Time,
 			rec.Level,
-			rec.Entity.String(),
+			rec.Entity,
 			rec.Module,
 			rec.Message,
 		) + "\n")

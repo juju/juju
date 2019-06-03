@@ -59,12 +59,16 @@ func (s ByIPProtocol) Less(i, j int) bool {
 
 func (s *networkSuite) TestFirewallSpec(c *gc.C) {
 	ports := map[string][]corenetwork.PortRange{
-		"tcp": {{FromPort: 80, ToPort: 81}, {FromPort: 8888, ToPort: 8888}},
-		"udp": {{FromPort: 1234, ToPort: 1234}},
+		"tcp":  {{FromPort: 80, ToPort: 81}, {FromPort: 8888, ToPort: 8888}},
+		"udp":  {{FromPort: 1234, ToPort: 1234}},
+		"icmp": {{FromPort: -1, ToPort: -1}},
 	}
 	fw := google.FirewallSpec("spam", "target", []string{"192.168.1.0/24", "10.0.0.0/24"}, ports)
 
 	allowed := []*compute.FirewallAllowed{{
+		IPProtocol: "icmp",
+		Ports:      []string{},
+	}, {
 		IPProtocol: "tcp",
 		Ports:      []string{"80-81", "8888"},
 	}, {

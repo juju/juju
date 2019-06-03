@@ -584,14 +584,14 @@
   revision = "a0ef8b74ebcffeeff9fc374854deb4af388f037e"
 
 [[projects]]
-  digest = "1:3be464a55a419d4c22383388f1204a9597c6cdc41d67ca4bc08848e688585279"
+  digest = "1:e460f07bec03866640127c47aae303167e9c79ee426c5fab03c180001eb4a39f"
   name = "github.com/juju/loggo"
   packages = [
     ".",
     "loggocolor",
   ]
   pruneopts = ""
-  revision = "8232ab8918d91c72af1a9fb94d3edbe31d88b790"
+  revision = "6e530bcce5d8e1b51b8e5ee7f08a455cd0a8c2e5"
 
 [[projects]]
   digest = "1:8d1ee4a52b3d31b061d381552b5b31aa73f5c8cf96d8ce2322e0715ac47c87f0"
@@ -623,14 +623,14 @@
   revision = "5b81707e882b8293e6cf77854b4cd49f29776e11"
 
 [[projects]]
-  digest = "1:5d0c254971cd92b4b9ac035202ff4501b1140be8aedbf7e69b4b986a359423d5"
+  digest = "1:98ba3905f2fd6c33f64c401123e6626d35f012293daa8f68b5e264d85edfa0f7"
   name = "github.com/juju/os"
   packages = [
     ".",
     "series",
   ]
   pruneopts = ""
-  revision = "b4dc09ce9ed2506a6c31763fa0742f4ebcbdceef"
+  revision = "c23cb5719c78fb34bcf0eefecf4137dd95436877"
 
 [[projects]]
   digest = "1:8fd6c21ba9a864b949672e63800d1bd71a3d8ac8e085cc22143b97f1261ad634"
@@ -1031,7 +1031,7 @@
   version = "v1.0.0-rc1"
 
 [[projects]]
-  digest = "1:5b6cfb1e5aa514a8ea62ebbda2f23874e5aa86fa1792f2c6f1643dc7538f7f45"
+  digest = "1:a5f72b318ab8d863ccb8c16468eeff36cafb6357d9f1f90197df7ca7f53dbe5e"
   name = "github.com/oracle/oci-go-sdk"
   packages = [
     "common",
@@ -1039,7 +1039,7 @@
     "identity",
   ]
   pruneopts = ""
-  revision = "ad5c34ed0cf8169d6817e2a37ec3e4521f856368"
+  revision = "72941f7f9bfa6550f640b797fde43b19b1574911"
 
 [[projects]]
   branch = "master"
@@ -1547,7 +1547,7 @@
   revision = "fd59336b4621bc2a70bf96d9e2f49954115ad19b"
 
 [[projects]]
-  digest = "1:deb1b0b9f4c4a65246fc1cd82b9d9a3c2ac834a04ef899055853d44770e4c31d"
+  digest = "1:655012e2c1425cab51166b6d34a4edffe358bad76c11b47e0b1e2435101306c8"
   name = "gopkg.in/juju/worker.v1"
   packages = [
     ".",
@@ -1557,7 +1557,7 @@
     "workertest",
   ]
   pruneopts = ""
-  revision = "187c8117684679e0e261b1d6f488a404d1d093c9"
+  revision = "5398f2291f2c69afe604411634e0d008bdf453a0"
 
 [[projects]]
   digest = "1:01aef8078808543c15a4cc0e669d92d37215564600e19ebabbd694939b727977"

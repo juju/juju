@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api/instancemutater"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -72,8 +73,18 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-
 			id := api.Tag().Id()
+
+			// Ensure we do not watch any KVM containers.
+			containerType, err := api.ContainerType()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if containerType == instance.KVM {
+				m.logger.Tracef("ignoring KVM container machine-%s", id)
+				continue
+			}
+
 			c = make(chan struct{})
 			m.machines[tag] = c
 

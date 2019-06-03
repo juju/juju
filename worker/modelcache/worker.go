@@ -285,6 +285,7 @@ func (c *cacheWorker) translate(d multiwatcher.Delta) interface{} {
 			Life:                     life.Value(value.Life),
 			Config:                   value.Config,
 			Series:                   value.Series,
+			ContainerType:            value.ContainerType,
 			SupportedContainers:      value.SupportedContainers,
 			SupportedContainersKnown: value.SupportedContainersKnown,
 			HardwareCharacteristics:  value.HardwareCharacteristics,

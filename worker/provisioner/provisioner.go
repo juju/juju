@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
@@ -23,8 +22,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/worker/common"
 )
-
-var logger = loggo.GetLogger("juju.provisioner")
 
 // Ensure our structs implement the required Provisioner interface.
 var _ Provisioner = (*environProvisioner)(nil)
@@ -64,6 +61,7 @@ type provisioner struct {
 	Provisioner
 	st                      *apiprovisioner.State
 	agentConfig             agent.Config
+	logger                  Logger
 	broker                  environs.InstanceBroker
 	distributionGroupFinder DistributionGroupFinder
 	toolsFinder             ToolsFinder
@@ -169,6 +167,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 	task, err := NewProvisionerTask(
 		controllerCfg.ControllerUUID(),
 		machineTag,
+		p.logger,
 		harvestMode,
 		p.st,
 		p.distributionGroupFinder,
@@ -190,15 +189,21 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 // NewEnvironProvisioner returns a new Provisioner for an environment.
 // When new machines are added to the state, it allocates instances
 // from the environment and allocates them to the new machines.
-func NewEnvironProvisioner(st *apiprovisioner.State,
+func NewEnvironProvisioner(
+	st *apiprovisioner.State,
 	agentConfig agent.Config,
+	logger Logger,
 	environ environs.Environ,
 	credentialAPI common.CredentialAPI,
 ) (Provisioner, error) {
+	if logger == nil {
+		return nil, errors.NotValidf("missing logger")
+	}
 	p := &environProvisioner{
 		provisioner: provisioner{
 			st:                      st,
 			agentConfig:             agentConfig,
+			logger:                  logger,
 			toolsFinder:             getToolsFinder(st),
 			distributionGroupFinder: getDistributionGroupFinder(st),
 			callContext:             common.NewCloudCallContext(credentialAPI, nil),
@@ -227,7 +232,7 @@ func (p *environProvisioner) loop() error {
 	var modelConfigChanges <-chan struct{}
 	modelWatcher, err := p.st.WatchForModelConfigChanges()
 	if err != nil {
-		return loggedErrorStack(errors.Trace(err))
+		return loggedErrorStack(p.logger, errors.Trace(err))
 	}
 	if err := p.catacomb.Add(modelWatcher); err != nil {
 		return errors.Trace(err)
@@ -239,7 +244,7 @@ func (p *environProvisioner) loop() error {
 	harvestMode := modelConfig.ProvisionerHarvestMode()
 	task, err := p.getStartTask(harvestMode)
 	if err != nil {
-		return loggedErrorStack(errors.Trace(err))
+		return loggedErrorStack(p.logger, errors.Trace(err))
 	}
 	if err := p.catacomb.Add(task); err != nil {
 		return errors.Trace(err)
@@ -289,6 +294,7 @@ func (p *environProvisioner) setConfig(modelConfig *config.Config) error {
 func NewContainerProvisioner(
 	containerType instance.ContainerType,
 	st *apiprovisioner.State,
+	logger Logger,
 	agentConfig agent.Config,
 	broker environs.InstanceBroker,
 	toolsFinder ToolsFinder,
@@ -299,6 +305,7 @@ func NewContainerProvisioner(
 		provisioner: provisioner{
 			st:                      st,
 			agentConfig:             agentConfig,
+			logger:                  logger,
 			broker:                  broker,
 			toolsFinder:             toolsFinder,
 			distributionGroupFinder: distributionGroupFinder,
@@ -337,7 +344,7 @@ func (p *containerProvisioner) loop() error {
 
 	task, err := p.getStartTask(harvestMode)
 	if err != nil {
-		return loggedErrorStack(errors.Trace(err))
+		return loggedErrorStack(p.logger, errors.Trace(err))
 	}
 	if err := p.catacomb.Add(task); err != nil {
 		return errors.Trace(err)
@@ -370,11 +377,11 @@ func (p *containerProvisioner) getMachine() (apiprovisioner.MachineProvisioner, 
 		}
 		result, err := p.st.Machines(machineTag)
 		if err != nil {
-			logger.Errorf("error retrieving %s from state", machineTag)
+			p.logger.Errorf("error retrieving %s from state", machineTag)
 			return nil, err
 		}
 		if result[0].Err != nil {
-			logger.Errorf("%s is not in state", machineTag)
+			p.logger.Errorf("%s is not in state", machineTag)
 			return nil, err
 		}
 		p.machine = result[0].Machine

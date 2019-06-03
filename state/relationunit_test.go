@@ -875,7 +875,7 @@ func (s *RelationUnitSuite) TestNetworksForRelation(c *gc.C) {
 		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
 	)
 
-	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.pu0, prr.rel, nil)
+	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.pu0, prr.rel, nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, "")
@@ -945,7 +945,7 @@ func (s *RelationUnitSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 
 	s.addDevicesWithAddresses(c, machine, "1.2.3.4/16", "2.2.3.4/16", "3.2.3.4/16", "4.3.2.1/16")
 
-	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.pu0, prr.rel, nil)
+	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.pu0, prr.rel, nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, "space-3")
@@ -968,7 +968,7 @@ func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.ru0, prr.rel, nil)
+	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.ru0, prr.rel, nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, "")
@@ -990,7 +990,7 @@ func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c 
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.ru0, prr.rel, nil)
+	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.ru0, prr.rel, nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, "")
@@ -1055,7 +1055,7 @@ func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationDelayedPublicAd
 		}
 	}()
 
-	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.ru0, prr.rel, nil)
+	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.ru0, prr.rel, nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure there we no errors in the go routine.
@@ -1079,7 +1079,7 @@ func (s *RelationUnitSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	prr := newProReqRelationForApps(c, st, mysql, gitlab)
 
 	// First no address.
-	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.pu0, prr.rel, nil)
+	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.pu0, prr.rel, nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(boundSpace, gc.Equals, "")
 	c.Assert(ingress, gc.HasLen, 0)
@@ -1092,7 +1092,7 @@ func (s *RelationUnitSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = prr.pu0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	boundSpace, ingress, egress, err = state.NetworksForRelation("", prr.pu0, prr.rel, nil)
+	boundSpace, ingress, egress, err = state.NetworksForRelation("", prr.pu0, prr.rel, nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, "")

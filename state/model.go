@@ -113,6 +113,11 @@ type modelDoc struct {
 
 	// MeterStatus is the current meter status of the model.
 	MeterStatus modelMeterStatusdoc `bson:"meter-status"`
+
+	// ForceDestroyed is whether --force was specified when destroying
+	// this model. It only has any meaning when the model is dying or
+	// dead.
+	ForceDestroyed bool `bson:"force-destroyed,omitempty"`
 }
 
 // slaLevel enumerates the support levels available to a model.
@@ -330,17 +335,15 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 
 	var prereqOps []txn.Op
 
-	if args.Type == ModelTypeIAAS {
-		// If no region specified and the cloud only has one, default to that.
-		if args.CloudRegion == "" && len(modelCloud.Regions) == 1 {
-			args.CloudRegion = modelCloud.Regions[0].Name
-		}
-		assertCloudRegionOp, err := validateCloudRegion(modelCloud, args.CloudRegion)
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		prereqOps = append(prereqOps, assertCloudRegionOp)
+	// If no region specified and the cloud only has one, default to that.
+	if args.CloudRegion == "" && len(modelCloud.Regions) == 1 {
+		args.CloudRegion = modelCloud.Regions[0].Name
 	}
+	assertCloudRegionOp, err := validateCloudRegion(modelCloud, args.CloudRegion)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	prereqOps = append(prereqOps, assertCloudRegionOp)
 
 	// Ensure that the cloud credential is valid, or if one is not
 	// specified, that the cloud supports the "empty" authentication
@@ -414,24 +417,16 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 		// the same "owner" and "name" in the collection. If the txn is
 		// aborted, check if it is due to the unique key restriction.
 		name := args.Config.Name()
-		qualifierTerm := bson.DocElem{"owner", owner.Id()}
-		if args.Type == ModelTypeCAAS {
-			qualifierTerm = bson.DocElem{"cloud", args.CloudName}
-		}
 		models, closer := st.db().GetCollection(modelsC)
 		defer closer()
 		modelCount, countErr := models.Find(bson.D{
-			qualifierTerm,
+			{"owner", owner.Id()},
 			{"name", name}},
 		).Count()
 		if countErr != nil {
 			err = errors.Trace(countErr)
 		} else if modelCount > 0 {
-			qualifierMessage := qualifierTerm.Value
-			if args.Type == ModelTypeCAAS {
-				qualifierMessage = fmt.Sprintf("cloud %v", qualifierMessage)
-			}
-			err = errors.AlreadyExistsf("model %q for %s", name, qualifierMessage)
+			err = errors.AlreadyExistsf("model %q for %s", name, owner.Id())
 		} else {
 			err = errors.Annotate(err, "failed to create new model")
 		}
@@ -625,6 +620,12 @@ func (m *Model) SetMigrationMode(mode MigrationMode) error {
 // Life returns whether the model is Alive, Dying or Dead.
 func (m *Model) Life() Life {
 	return m.doc.Life
+}
+
+// ForceDestroyed returns whether the destruction of a dying/dead
+// model was forced. It's always false for a model that's alive.
+func (m *Model) ForceDestroyed() bool {
+	return m.doc.ForceDestroyed
 }
 
 // Owner returns tag representing the owner of the model.
@@ -997,11 +998,7 @@ type DestroyModelParams struct {
 }
 
 func (m *Model) uniqueIndexID() string {
-	qualifier := m.doc.Owner
-	if m.Type() == ModelTypeCAAS {
-		qualifier = m.Cloud()
-	}
-	return userModelNameIndex(qualifier, m.doc.Name)
+	return userModelNameIndex(m.doc.Owner, m.doc.Name)
 }
 
 // Destroy sets the models's lifecycle to Dying, preventing
@@ -1294,6 +1291,7 @@ func (m *Model) destroyOps(
 				bson.D{
 					{"life", nextLife},
 					{"time-of-dying", m.st.nowToTheSecond()},
+					{"force-destroyed", force},
 				},
 			},
 		}
@@ -1641,11 +1639,11 @@ func hostedModelCount(st *State) (int, error) {
 }
 
 // createUniqueOwnerModelNameOp returns the operation needed to create
-// an usermodelnameC document with the given qualifier and model name.
-func createUniqueOwnerModelNameOp(qualifier string, modelName string) txn.Op {
+// an usermodelnameC document with the given owner and model name.
+func createUniqueOwnerModelNameOp(owner names.UserTag, modelName string) txn.Op {
 	return txn.Op{
 		C:      usermodelnameC,
-		Id:     userModelNameIndex(qualifier, modelName),
+		Id:     userModelNameIndex(owner.Id(), modelName),
 		Assert: txn.DocMissing,
 		Insert: bson.M{},
 	}

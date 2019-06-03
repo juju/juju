@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/os/series"
@@ -90,7 +91,17 @@ type CharmDeployAPI interface {
 }
 
 var supportedJujuSeries = func() []string {
-	return append(series.ESMSupportedJujuSeries(), kubernetesSeriesName)
+	// We support all of the juju series AND all the ESM supported series.
+	// Juju is congruant with the Ubuntu release cycle for it's own series (not
+	// including centos and windows), so that should be reflected here.
+	//
+	// For non-LTS releases; they'll appear in juju/os as default available, but
+	// after reading the `/usr/share/distro-info/ubuntu.csv` on the Ubuntu distro
+	// the non-LTS should disapear if they're not in the release window for that
+	// series.
+	supportedJujuSeries := set.NewStrings(series.SupportedJujuSeries()...)
+	esmSupportedJujuSeries := set.NewStrings(series.ESMSupportedJujuSeries()...)
+	return supportedJujuSeries.Union(esmSupportedJujuSeries).Values()
 }
 
 // DeployAPI represents the methods of the API the deploy
