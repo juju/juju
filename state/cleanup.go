@@ -331,8 +331,6 @@ func (st *State) cleanupMachinesForDyingModel(cleanupArgs []bson.Raw) (err error
 			}
 			continue
 		}
-		// TODO (force 2019-04-26) Should this always be ForceDestroy
-		// or only when 'destroy-model --force' is specified?...
 		if err := m.ForceDestroy(args.MaxWait); err != nil {
 			err = errors.Annotatef(err, "while destroying machine %v is", m.Id())
 			// TODO (force 2019-4-24) we should not break out here but continue with other machines.

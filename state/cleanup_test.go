@@ -395,7 +395,10 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	s.assertCleanupRuns(c)
 	c.Assert(machine.SetHasVote(false), jc.ErrorIsNil)
 	// However, if we remove the vote, it can be cleaned up.
-	// ForceDestroy sets up a cleanupForceDestroyedMachine, which calls EnsureDead which sets up a cleanupDyingMachine, which in turn creates a delayed cleanupForceRemoveMachine.
+	// ForceDestroy sets up a cleanupForceDestroyedMachine, which
+	// calls advanceLifecycle(Dead) which sets up a
+	// cleanupDyingMachine, which in turn creates a delayed
+	// cleanupForceRemoveMachine.
 	// Run the first two.
 	s.assertCleanupCountDirty(c, 2)
 	// After we've run the cleanup for the controller machine, the machine should be dead, and it should not be
