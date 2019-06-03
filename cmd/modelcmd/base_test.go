@@ -62,7 +62,7 @@ func (s *BaseCommandSuite) assertUnknownModel(c *gc.C, baseCmd *modelcmd.ModelCo
 	baseCmd.SetAPIOpen(apiOpen)
 	modelcmd.InitContexts(&cmd.Context{Stderr: ioutil.Discard}, baseCmd)
 	modelcmd.SetRunStarted(baseCmd)
-	baseCmd.SetModelName("foo:admin/badmodel", false)
+	baseCmd.SetModelIdentifier("foo:admin/badmodel", false)
 	conn, err := baseCmd.NewAPIRoot()
 	c.Assert(conn, gc.IsNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
@@ -124,7 +124,8 @@ func (s *BaseCommandSuite) TestMigratedModelErrorHandling(c *gc.C) {
 	baseCmd.SetAPIOpen(apiOpen)
 	modelcmd.InitContexts(&cmd.Context{Stderr: ioutil.Discard}, baseCmd)
 	modelcmd.SetRunStarted(baseCmd)
-	baseCmd.SetModelName("foo:admin/badmodel", false)
+
+	c.Assert(baseCmd.SetModelIdentifier("foo:admin/badmodel", false), jc.ErrorIsNil)
 
 	fingerprint, _ := cert.Fingerprint(coretesting.CACert)
 	specs := []struct {

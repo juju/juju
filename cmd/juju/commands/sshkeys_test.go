@@ -102,6 +102,19 @@ func (s *ListKeysSuite) TestListKeys(c *gc.C) {
 	c.Assert(output, gc.Matches, "Keys used in model: controller\n.*\\(user@host\\)\n.*\\(another@host\\)")
 }
 
+func (s *ListKeysSuite) TestListKeysWithModelUUID(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
+	s.setAuthorizedKeys(c, key1, key2)
+
+	context, err := cmdtesting.RunCommand(c, NewListKeysCommand(), "-m", s.Model.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+	output := strings.TrimSpace(cmdtesting.Stdout(context))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(output, gc.Matches,
+		fmt.Sprintf("Keys used in model: %s\n.*\\(user@host\\)\n.*\\(another@host\\)", s.Model.UUID()))
+}
+
 func (s *ListKeysSuite) TestListFullKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
