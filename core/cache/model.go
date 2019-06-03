@@ -163,7 +163,7 @@ func (m *Model) Branch(name string) (Branch, error) {
 
 	for _, b := range m.branches {
 		if b.details.Name == name {
-			return *b, nil
+			return b.copy(), nil
 		}
 	}
 	return Branch{}, errors.NotFoundf("branch %q", name)
