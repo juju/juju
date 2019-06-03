@@ -30,6 +30,7 @@ func (s *ModelSuite) TestReport(c *gc.C) {
 		"charm-count":       0,
 		"machine-count":     0,
 		"unit-count":        0,
+		"branch-count":      0,
 	})
 }
 
@@ -172,6 +173,29 @@ func (s *ModelSuite) TestUnitNotFoundError(c *gc.C) {
 	m := s.NewModel(modelChange)
 	_, err := m.Unit("nope")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+}
+
+func (s *ModelSuite) TestBranchNotFoundError(c *gc.C) {
+	m := s.NewModel(modelChange)
+	_, err := m.Branch("nope")
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+}
+
+func (s *ModelSuite) TestBranchReturnsCopy(c *gc.C) {
+	m := s.NewModel(modelChange)
+	m.UpdateBranch(branchChange, s.Manager)
+
+	b1, err := m.Branch(branchChange.Name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make a change to the map returned in the copy.
+	au := b1.AssignedUnits()
+	au["banana"] = []string{"banana/1", "banana/2"}
+
+	// Get another copy from the model and ensure it is unchanged.
+	b2, err := m.Branch(branchChange.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(b2.AssignedUnits(), gc.DeepEquals, branchChange.AssignedUnits)
 }
 
 func (s *ControllerSuite) TestWatchMachineStops(c *gc.C) {
