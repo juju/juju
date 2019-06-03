@@ -96,9 +96,15 @@ func (b *Branch) copy() Branch {
 		}
 	}
 
-	cb := *b
-	cb.details.AssignedUnits = cAssignedUnits
-	cb.details.Config = cConfig
+	cDetails := b.details
+	cDetails.AssignedUnits = cAssignedUnits
+	cDetails.Config = cConfig
 
-	return cb
+	// Copy everything except the mutex.
+	return Branch{
+		Resident: b.Resident,
+		metrics:  b.metrics,
+		hub:      b.hub,
+		details:  cDetails,
+	}
 }

@@ -224,7 +224,6 @@ func (s *ControllerSuite) TestAddBranch(c *gc.C) {
 
 	branch, err := mod.Branch(branchChange.Name)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(branch, gc.NotNil)
 	s.AssertResident(c, branch.CacheId(), true)
 }
 
