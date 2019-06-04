@@ -261,10 +261,11 @@ type NamespaceWatcher interface {
 
 // Service represents information about the status of a caas service entity.
 type Service struct {
-	Id        string
-	Addresses []network.Address
-	Scale     *int
-	Status    status.StatusInfo
+	Id         string
+	Addresses  []network.Address
+	Scale      *int
+	Generation int64
+	Status     status.StatusInfo
 }
 
 // FilesystemInfo represents information about a filesystem

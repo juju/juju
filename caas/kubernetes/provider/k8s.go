@@ -947,6 +947,7 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 			scale := int(*ss.Spec.Replicas)
 			result.Scale = &scale
 		}
+		result.Generation = ss.GetGeneration()
 		message, ssStatus, err := k.getStatefulSetStatus(ss)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting status for %s", ss.Name)
@@ -971,6 +972,7 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 			scale := int(*deployment.Spec.Replicas)
 			result.Scale = &scale
 		}
+		result.Generation = ss.GetGeneration()
 		message, ssStatus, err := k.getDeploymentStatus(deployment)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting status for %s", ss.Name)
@@ -980,7 +982,7 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 			Message: message,
 		}
 	}
-
+	logger.Criticalf("GetService appName %q, result.Scale %v, Generation %v", appName, result.Scale, result.Generation)
 	return &result, nil
 }
 
