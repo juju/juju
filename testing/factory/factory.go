@@ -16,10 +16,10 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
+	charm "gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v2"
+	environschema "gopkg.in/juju/environschema.v1"
+	names "gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/application"
@@ -492,7 +492,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
-	err = application.SetScale(params.DesiredScale)
+	err = application.SetScale(params.DesiredScale, 0, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	if params.Status != nil {

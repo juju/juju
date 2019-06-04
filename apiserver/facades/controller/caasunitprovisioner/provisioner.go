@@ -476,7 +476,7 @@ func (a *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) 
 				continue
 			}
 		}
-		err = a.updateUnitsFromCloud(app, appUpdate.Scale, appUpdate.Units)
+		err = a.updateUnitsFromCloud(app, appUpdate.Scale, appUpdate.Generation, appUpdate.Units)
 		if err != nil {
 			// Mask any not found errors as the worker (caller) treats them specially
 			// and they are not relevant here.
@@ -535,7 +535,7 @@ func (a *Facade) updateStatus(params params.ApplicationUnitParams) (
 // source (typically a cloud update event) and merges that with the existing unit
 // data model in state. The passed in units are the complete set for the cloud, so
 // any existing units in state with provider ids which aren't in the set will be removed.
-func (a *Facade) updateUnitsFromCloud(app Application, scale *int, unitUpdates []params.ApplicationUnitParams) error {
+func (a *Facade) updateUnitsFromCloud(app Application, scale *int, generation int64, unitUpdates []params.ApplicationUnitParams) error {
 	logger.Debugf("unit updates: %#v", unitUpdates)
 	if scale != nil {
 		logger.Debugf("application scale: %v", *scale)
@@ -592,16 +592,18 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale *int, unitUpdates [
 		}
 
 		unitAlive := u.Life() == state.Alive
-		if unitAlive && providerId == "" {
+		if !unitAlive {
+			continue
+		}
+		if providerId == "" {
 			logger.Debugf("unit %q is not associated with any pod", u.Name())
 			unitInfo.unassociatedUnits = append(unitInfo.unassociatedUnits, u)
 			continue
 		}
-		if unitAlive {
-			aliveStateIds.Add(providerId)
-		}
-		stateUnitInCloud := stateUnitExistsInCloud(providerId)
+
 		stateUnitsById[providerId] = stateUnit{Unit: u}
+		stateUnitInCloud := stateUnitExistsInCloud(providerId)
+		aliveStateIds.Add(providerId)
 		if stateUnitInCloud {
 			logger.Debugf("unit %q (%v) has changed in the cloud", u.Name(), providerId)
 			unitInfo.stateUnitsInCloud[u.UnitTag().String()] = u
@@ -681,9 +683,14 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale *int, unitUpdates [
 	// Update the scale last now that the state
 	// model accurately reflects the cluster pods.
 	currentScale := app.GetScale()
+	err = nil
 	if currentScale != *scale {
-		return app.SetScale(*scale)
+		err = app.SetScale(*scale, generation, false)
 	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Criticalf("currentScale %v, *scale %v, err %v", currentScale, *scale, err)
 	return nil
 }
 

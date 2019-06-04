@@ -64,6 +64,8 @@ type applicationDoc struct {
 	TxnRevno             int64        `bson:"txn-revno"`
 	MetricCredentials    []byte       `bson:"metric-credentials"`
 
+	// generation is the version of current application. 
+	Generation int64 `bson:"generation"`
 	// CAAS related attributes.
 	DesiredScale int    `bson:"scale"`
 	PasswordHash string `bson:"passwordhash"`
@@ -1456,19 +1458,20 @@ func (a *Application) GetScale() int {
 // This is used on CAAS models.
 func (a *Application) ChangeScale(scaleChange int) (int, error) {
 	newScale := a.doc.DesiredScale + scaleChange
+	logger.Criticalf("ChangeScale ===========> a.doc.DesiredScale %v, scaleChange %v, newScale %v", a.doc.DesiredScale, scaleChange, newScale)
 	if newScale < 0 {
 		return a.doc.DesiredScale, errors.NotValidf("cannot remove more units than currently exist")
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
+			if err := a.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
 			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)
 			if err != nil {
 				return nil, errors.Trace(err)
 			} else if !alive {
 				return nil, applicationNotAliveErr
-			}
-			if err := a.Refresh(); err != nil {
-				return nil, errors.Trace(err)
 			}
 			newScale = a.doc.DesiredScale + scaleChange
 			if newScale < 0 {
@@ -1494,29 +1497,41 @@ func (a *Application) ChangeScale(scaleChange int) (int, error) {
 
 // SetScale sets the application's desired scale value.
 // This is used on CAAS models.
-func (a *Application) SetScale(scale int) error {
+func (a *Application) SetScale(scale int, generation int64, force bool) error {
+	logger.Criticalf("SetScale a.doc.DesiredScale %v, scale %v, a.doc.Generation %v, generation %v", a.doc.DesiredScale, scale, a.doc.Generation, generation)
 	if scale < 0 {
 		return errors.NotValidf("application scale %d", scale)
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
+			if err := a.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
 			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)
 			if err != nil {
 				return nil, errors.Trace(err)
 			} else if !alive {
 				return nil, applicationNotAliveErr
 			}
-			if err := a.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
+		}
+		patchFields := bson.D{
+			{"scale", scale},
+		}
+		if generation > a.doc.Generation {
+			patchFields = append(patchFields, bson.DocElem{"generation", generation})
+		} else if !force {
+			return nil, errors.Forbiddenf(
+				"application generation %d can not be reverted to %d", a.doc.Generation, generation,
+			)
 		}
 		return []txn.Op{{
 			C:  applicationsC,
 			Id: a.doc.DocID,
 			Assert: bson.D{{"life", Alive},
 				{"charmurl", a.doc.CharmURL},
-				{"unitcount", a.doc.UnitCount}},
-			Update: bson.D{{"$set", bson.D{{"scale", scale}}}},
+				{"unitcount", a.doc.UnitCount},
+			},
+			Update: bson.D{{"$set", patchFields}},
 		}}, nil
 	}
 	if err := a.st.db().Run(buildTxn); err != nil {
@@ -2063,6 +2078,7 @@ func allUnits(st *State, application string) (units []*Unit, err error) {
 	for i := range docs {
 		units = append(units, newUnit(st, m.Type(), &docs[i]))
 	}
+	logger.Criticalf("allUnits len(docs) %v, len(units) %v", len(docs), len(units))
 	return units, nil
 }
 
