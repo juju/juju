@@ -106,44 +106,41 @@ func verifyBundle(data *charm.BundleData, bundleDir string) error {
 	return errors.Trace(verifyError)
 }
 
+type bundleDeploySpec struct {
+	ctx *cmd.Context
+
+	dryRun bool
+	force  bool
+	trust  bool
+
+	bundleData        *charm.BundleData
+	bundleDir         string
+	bundleURL         *charm.URL
+	bundleOverlayFile []string
+	channel           csparams.Channel
+
+	apiRoot DeployAPI
+
+	useExistingMachines bool
+	bundleMachines      map[string]string
+	bundleStorage       map[string]map[string]storage.Constraints
+	bundleDevices       map[string]map[string]devices.Constraints
+}
+
 // deployBundle deploys the given bundle data using the given API client and
 // charm store client. The deployment is not transactional, and its progress is
 // notified using the given deployment logger.
-func deployBundle(
-	bundleDir string,
-	data *charm.BundleData,
-	bundleURL *charm.URL,
-	bundleOverlayFile []string,
-	channel csparams.Channel,
-	apiRoot DeployAPI,
-	ctx *cmd.Context,
-	bundleStorage map[string]map[string]storage.Constraints,
-	bundleDevices map[string]map[string]devices.Constraints,
-	dryRun bool,
-	force bool,
-	trust bool,
-	useExistingMachines bool,
-	bundleMachines map[string]string,
-) (map[*charm.URL]*macaroon.Macaroon, error) {
-
-	if err := composeBundle(data, ctx, bundleDir, bundleOverlayFile); err != nil {
+func deployBundle(spec bundleDeploySpec) (map[*charm.URL]*macaroon.Macaroon, error) {
+	if err := composeBundle(spec.bundleData, spec.ctx, spec.bundleDir, spec.bundleOverlayFile); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := verifyBundle(data, bundleDir); err != nil {
+	if err := verifyBundle(spec.bundleData, spec.bundleDir); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// TODO: move bundle parsing and checking into the handler.
-	h := makeBundleHandler(
-		dryRun, force, trust,
-		bundleDir,
-		channel,
-		apiRoot,
-		ctx,
-		data,
-		bundleURL, bundleStorage, bundleDevices,
-	)
-	if err := h.makeModel(useExistingMachines, bundleMachines); err != nil {
+	h := makeBundleHandler(spec)
+	if err := h.makeModel(spec.useExistingMachines, spec.bundleMachines); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := h.resolveCharmsAndEndpoints(); err != nil {
@@ -156,7 +153,6 @@ func deployBundle(
 		return nil, errors.Trace(err)
 	}
 	return h.macaroons, nil
-
 }
 
 // bundleHandler provides helpers and the state required to deploy a bundle.
@@ -240,37 +236,25 @@ type bundleHandler struct {
 	warnedLXC bool
 }
 
-func makeBundleHandler(
-	dryRun bool,
-	force bool,
-	trust bool,
-	bundleDir string,
-	channel csparams.Channel,
-	api DeployAPI,
-	ctx *cmd.Context,
-	data *charm.BundleData,
-	bundleURL *charm.URL,
-	bundleStorage map[string]map[string]storage.Constraints,
-	bundleDevices map[string]map[string]devices.Constraints,
-) *bundleHandler {
+func makeBundleHandler(spec bundleDeploySpec) *bundleHandler {
 	applications := set.NewStrings()
-	for name := range data.Applications {
+	for name := range spec.bundleData.Applications {
 		applications.Add(name)
 	}
 	return &bundleHandler{
-		dryRun:        dryRun,
-		force:         force,
-		trust:         trust,
-		bundleDir:     bundleDir,
+		dryRun:        spec.dryRun,
+		force:         spec.force,
+		trust:         spec.trust,
+		bundleDir:     spec.bundleDir,
 		applications:  applications,
 		results:       make(map[string]string),
-		channel:       channel,
-		api:           api,
-		bundleStorage: bundleStorage,
-		bundleDevices: bundleDevices,
-		ctx:           ctx,
-		data:          data,
-		bundleURL:     bundleURL,
+		channel:       spec.channel,
+		api:           spec.apiRoot,
+		bundleStorage: spec.bundleStorage,
+		bundleDevices: spec.bundleDevices,
+		ctx:           spec.ctx,
+		data:          spec.bundleData,
+		bundleURL:     spec.bundleURL,
 		unitStatus:    make(map[string]string),
 		macaroons:     make(map[*charm.URL]*macaroon.Macaroon),
 		channels:      make(map[*charm.URL]csparams.Channel),
