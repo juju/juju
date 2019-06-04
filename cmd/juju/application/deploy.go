@@ -853,10 +853,13 @@ func (c *DeployCommand) deployBundle(
 		return errors.New("API connection is controller-only (should never happen)")
 	}
 
-	if tl := appsRequiringTrust(data.Applications); len(tl) != 0 && featureflag.Enabled(feature.TrustedBundles) {
-		return errors.Errorf(`Bundle cannot be deployed without trusting applications with your cloud credentials.
+	// Short-circuit trust checks if the operator specifies '--force'
+	if featureflag.Enabled(feature.TrustedBundles) {
+		if tl := appsRequiringTrust(data.Applications); len(tl) != 0 && !c.Force {
+			return errors.Errorf(`Bundle cannot be deployed without trusting applications with your cloud credentials.
 Please repeat the deploy command with the --trust argument if you consent to trust the following application(s):
   - %s`, strings.Join(tl, "\n  - "))
+		}
 	}
 
 	for application, applicationSpec := range data.Applications {
