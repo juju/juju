@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/caas"
-	"gopkg.in/juju/names.v2"
-	"gopkg.in/juju/worker.v1"
+	names "gopkg.in/juju/names.v2"
+	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/apiserver/params"
@@ -227,7 +227,6 @@ func (aw *applicationWorker) loop() error {
 				}
 			}
 		}
-
 	}
 }
 
@@ -236,15 +235,20 @@ func (aw *applicationWorker) clusterChanged(service *caas.Service, lastReportedS
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("units for %v: %+v", aw.application, units)
 	serviceStatus := service.Status
 	var scale *int
+	var generation int64
+	logscale := 0
 	if service != nil {
 		scale = service.Scale
+		generation = service.Generation
+		logscale = *service.Scale
 	}
+	logger.Criticalf("aw.containerBroker.Units(aw.application) %q units --> %v, logscale %v", aw.application, len(units), logscale)
 	args := params.UpdateApplicationUnits{
 		ApplicationTag: names.NewApplicationTag(aw.application).String(),
 		Scale:          scale,
+		Generation:     generation,
 		Status: params.EntityStatus{
 			Status: serviceStatus.Status,
 			Info:   serviceStatus.Message,
@@ -301,7 +305,6 @@ func (aw *applicationWorker) clusterChanged(service *caas.Service, lastReportedS
 					Data:       info.Volume.Status.Data,
 				},
 			})
-
 		}
 		args.Units = append(args.Units, unitParams)
 	}
@@ -310,6 +313,7 @@ func (aw *applicationWorker) clusterChanged(service *caas.Service, lastReportedS
 		if !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
+		logger.Warningf("update units %v not found", err)
 	}
 	return nil
 }
