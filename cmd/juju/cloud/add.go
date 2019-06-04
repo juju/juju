@@ -286,7 +286,7 @@ func (c *AddCloudCommand) addCredentialToController(ctx *cmd.Context, cloud juju
 // file or interactive queries.
 func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	if c.Replace {
-		ctxt.Infof("'add-cloud --replace' is deprecated. Use 'update-cloud' instead.")
+		ctxt.Warningf("'add-cloud --replace' is deprecated. Use 'update-cloud' instead.")
 	}
 	if c.CloudFile == "" && c.controllerName == "" {
 		return c.runInteractive(ctxt)
