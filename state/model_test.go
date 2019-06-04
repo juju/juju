@@ -767,7 +767,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	c.Assert(err, jc.Satisfies, state.IsHasHostedModelsError)
 	c.Assert(err, gc.ErrorMatches, `hosting 1 other model`)
 
-	assertCleanupCount(c, otherSt, 3)
+	assertCleanupCount(c, otherSt, 4)
 	assertAllMachinesDeadAndRemove(c, otherSt)
 	assertModel(otherModel, otherSt, state.Dying, 0, 0)
 	c.Assert(otherSt.ProcessDyingModel(), jc.ErrorIsNil)
