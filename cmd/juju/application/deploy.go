@@ -855,7 +855,7 @@ func (c *DeployCommand) deployBundle(
 	}
 
 	// Short-circuit trust checks if the operator specifies '--force'
-	if featureflag.Enabled(feature.TrustedBundles) {
+	if featureflag.Enabled(feature.TrustedBundles) && !c.Trust {
 		if tl := appsRequiringTrust(data.Applications); len(tl) != 0 && !c.Force {
 			return errors.Errorf(`Bundle cannot be deployed without trusting applications with your cloud credentials.
 Please repeat the deploy command with the --trust argument if you consent to trust the following application(s):
@@ -910,6 +910,7 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 		bundleDevices,
 		c.DryRun,
 		c.Force,
+		c.Trust,
 		c.UseExisting,
 		c.BundleMachines,
 	); err != nil {
@@ -1687,10 +1688,7 @@ func flagWithMinus(name string) string {
 func appsRequiringTrust(appSpecList map[string]*charm.ApplicationSpec) []string {
 	var tl []string
 	for app, appSpec := range appSpecList {
-		// Trust requirements may be either specified as an option
-		// or via the "trust" field at the application spec level
-		optRequiresTrust := appSpec.Options != nil && appSpec.Options["trust"] == true
-		if appSpec.RequiresTrust || optRequiresTrust {
+		if applicationRequiresTrust(appSpec) {
 			tl = append(tl, app)
 		}
 	}

@@ -3,3 +3,6 @@ services:
         charm: cs:~containers/aws-integrator        
         num_units: 1
         trust: true
+    ubuntu-lite:
+        charm: cs:~jameinel/ubuntu-lite-7
+        num_units: 1

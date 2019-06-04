@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
+	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/constraints"
@@ -119,6 +121,7 @@ func deployBundle(
 	bundleDevices map[string]map[string]devices.Constraints,
 	dryRun bool,
 	force bool,
+	trust bool,
 	useExistingMachines bool,
 	bundleMachines map[string]string,
 ) (map[*charm.URL]*macaroon.Macaroon, error) {
@@ -132,7 +135,7 @@ func deployBundle(
 
 	// TODO: move bundle parsing and checking into the handler.
 	h := makeBundleHandler(
-		dryRun, force,
+		dryRun, force, trust,
 		bundleDir,
 		channel,
 		apiRoot,
@@ -160,6 +163,7 @@ func deployBundle(
 type bundleHandler struct {
 	dryRun bool
 	force  bool
+	trust  bool
 
 	// bundleDir is the path where the bundle file is located for local bundles.
 	bundleDir string
@@ -239,6 +243,7 @@ type bundleHandler struct {
 func makeBundleHandler(
 	dryRun bool,
 	force bool,
+	trust bool,
 	bundleDir string,
 	channel csparams.Channel,
 	api DeployAPI,
@@ -255,6 +260,7 @@ func makeBundleHandler(
 	return &bundleHandler{
 		dryRun:        dryRun,
 		force:         force,
+		trust:         trust,
 		bundleDir:     bundleDir,
 		applications:  applications,
 		results:       make(map[string]string),
@@ -552,6 +558,17 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 
 	h.results[change.Id()] = p.Application
 	ch := chID.URL.String()
+
+	// If this application requires trust and the operator consented to
+	// granting it, set the "trust" application option to true. This is
+	// equivalent to running 'juju trust $app'.
+	if h.trust && applicationRequiresTrust(h.data.Applications[p.Application]) {
+		if p.Options == nil {
+			p.Options = make(map[string]interface{})
+		}
+
+		p.Options[app.TrustConfigOptionName] = strconv.FormatBool(h.trust)
+	}
 
 	// Handle application configuration.
 	configYAML := ""
@@ -1633,4 +1650,12 @@ func applicationConfigValue(key string, valueMap interface{}) (interface{}, erro
 		return nil, errors.Errorf("missing application config value 'value'")
 	}
 	return value, nil
+}
+
+// applicationRequiresTrust returns true if this app requires the operator to
+// explicitly trust it. Trust requirements may be either specified as an option
+// or via the "trust" field at the application spec level
+func applicationRequiresTrust(appSpec *charm.ApplicationSpec) bool {
+	optRequiresTrust := appSpec.Options != nil && appSpec.Options["trust"] == true
+	return appSpec.RequiresTrust || optRequiresTrust
 }
