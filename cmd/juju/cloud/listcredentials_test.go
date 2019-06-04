@@ -28,7 +28,8 @@ type listCredentialsSuite struct {
 var _ = gc.Suite(&listCredentialsSuite{
 	personalCloudsFunc: func() (map[string]jujucloud.Cloud, error) {
 		return map[string]jujucloud.Cloud{
-			"mycloud": {},
+			"mycloud":      {},
+			"missingcloud": {},
 		}, nil
 	},
 	cloudByNameFunc: func(name string) (*jujucloud.Cloud, error) {

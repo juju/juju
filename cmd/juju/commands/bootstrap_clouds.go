@@ -24,7 +24,7 @@ type cloudList struct {
 	personal []string
 }
 
-func formatCloudDetailsTabular(clouds cloudList, credStore jujuclient.CredentialStore) ([]byte, error) {
+func formatCloudDetailsTabular(ctx *cmd.Context, clouds cloudList, credStore jujuclient.CredentialStore) ([]byte, error) {
 	var out bytes.Buffer
 	const (
 		// To format things into columns.
@@ -45,7 +45,9 @@ func formatCloudDetailsTabular(clouds cloudList, credStore jujuclient.Credential
 		for _, name := range cloudNames {
 			cred, err := credStore.CredentialForCloud(name)
 			if err != nil && !errors.IsNotFound(err) {
-				return errors.Annotatef(err, "error loading credential for cloud %q", name)
+				ctx.Warningf("error loading credential for cloud %v: %v", name, err)
+				p(name, "ERROR", "")
+				continue
 			}
 			if err != nil || len(cred.AuthCredentials) == 0 {
 				p(name, "", "")
@@ -108,7 +110,7 @@ func printClouds(ctx *cmd.Context, credStore jujuclient.CredentialStore) error {
 	for name := range personalClouds {
 		clouds.personal = append(clouds.personal, name)
 	}
-	out, err := formatCloudDetailsTabular(clouds, credStore)
+	out, err := formatCloudDetailsTabular(ctx, clouds, credStore)
 	if err != nil {
 		return err
 	}
