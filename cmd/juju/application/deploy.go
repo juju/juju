@@ -369,9 +369,12 @@ type DeployCommand struct {
 	// NewAPIRoot stores a function which returns a new API root.
 	NewAPIRoot func() (DeployAPI, error)
 
-	// Trust signifies that the charm should be deployed with access to
-	// trusted credentials. That is, hooks run by the charm can access
-	// cloud credentials and other trusted access credentials.
+	// When deploying a charm, Trust signifies that the charm should be
+	// deployed with access to trusted credentials. That is, hooks run by
+	// the charm can access cloud credentials and other trusted access
+	// credentials. On the other hand, when deploying a bundle, Trust
+	// signifies that each application from the bundle that requires access
+	// to trusted credentials will be granted access.
 	Trust bool
 
 	machineMap string
@@ -670,8 +673,6 @@ func charmOnlyFlags() []string {
 		"bind", "config", "constraints", "n", "num-units",
 		"series", "to", "resource", "attach-storage",
 	}
-
-	charmOnlyFlags = append(charmOnlyFlags, "trust")
 
 	return charmOnlyFlags
 }
