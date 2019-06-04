@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -41,11 +42,10 @@ var listCloudsDoc = "" +
 	"Output includes fundamental properties for each cloud known to the\n" +
 	"current Juju client: name, number of regions, default region, type,\n" +
 	"and description.\n" +
-	"\nThe default behaviour is to show clouds available on the current controller,\n" +
-	"or another controller specified using --controller.\n" +
-	"\nIf --local is specified, the output shows public clouds known to Juju out of the box;\n" +
-	"these can be used to bootstrap a controller. Clouds may change between Juju versions.\n" +
+	"If the multi-cloud feature flag is not enabled, the default behaviour is to\n" +
+	"show clouds known to Juju out of the box; these can be used to bootstrap a controller.\n" +
 	"In addition to these public clouds, the 'localhost' cloud (local LXD) is also listed.\n" +
+	"With the multi-cloud feature flag, a controller is specified using --controller.\n" +
 	"If you supply a controller name the clouds known on the controller will be displayed.\n" +
 	"\nThis command's default output format is 'tabular'.\n" +
 	"\nCloud metadata sometimes changes, e.g. AWS adds a new region. Use the\n" +
@@ -80,8 +80,11 @@ type ListCloudsAPI interface {
 func NewListCloudsCommand() cmd.Command {
 	store := jujuclient.NewFileClientStore()
 	c := &listCloudsCommand{
-		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
-		store:                     store,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
+			Store:       store,
+			EnabledFlag: feature.MultiCloud,
+		},
+		store: store,
 	}
 	c.listCloudsAPIFunc = c.cloudAPI
 

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -18,9 +19,10 @@ var usageRemoveCloudSummary = `
 Removes a user-defined cloud from Juju.`[1:]
 
 var usageRemoveCloudDetails = `
-Remove a named, user-defined cloud from Juju. The current
-controller is used unless the --controller option is specified.
+Remove a named, user-defined cloud from Juju's internal cache.
 
+If the multi-cloud feature flag is enabled, the cloud is removed from a controller.
+The current controller is used unless the --controller option is specified.
 If --local is specified, Juju removes the cloud from internal cache.
 
 Examples:
@@ -53,8 +55,11 @@ type removeCloudAPI interface {
 func NewRemoveCloudCommand() cmd.Command {
 	store := jujuclient.NewFileClientStore()
 	c := &removeCloudCommand{
-		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
-		store:                     store,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
+			Store:       store,
+			EnabledFlag: feature.MultiCloud,
+		},
+		store: store,
 	}
 	c.removeCloudAPIFunc = c.cloudAPI
 	return modelcmd.WrapBase(c)

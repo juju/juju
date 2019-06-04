@@ -27,6 +27,7 @@ import (
 	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -160,9 +161,12 @@ type AddCAASCommand struct {
 func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 	store := jujuclient.NewFileClientStore()
 	cmd := &AddCAASCommand{
-		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
-		cloudMetadataStore:        cloudMetadataStore,
-		store:                     store,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
+			Store:       store,
+			EnabledFlag: feature.MultiCloud,
+		},
+		cloudMetadataStore: cloudMetadataStore,
+		store:              store,
 		newClientConfigReader: func(caasType string) (clientconfig.ClientConfigFunc, error) {
 			return clientconfig.NewClientConfigReader(caasType)
 		},
