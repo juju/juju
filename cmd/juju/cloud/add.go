@@ -76,8 +76,8 @@ the controller needs to have the "multi-cloud" feature flag turned on.
 
 If --local is used, Juju stores that definition its internal cache directly.
 
-If <cloud name> already exists in Juju's cache, then the `[1:] + "`--replace`" + ` 
-option is required.
+DEPRECTED If <cloud name> already exists in Juju's cache, then the `[1:] + "`--replace`" + ` 
+option is required. Use 'update-credential' instead.
 
 A cloud definition file has the following YAML format:
 
@@ -123,7 +123,8 @@ If the "multi-cloud" feature flag is turned on in the controller:
     juju add-cloud --controller mycontroller mycloud --credential mycred
 
 See also: 
-    clouds`
+    clouds
+    update-credential`
 
 // AddCloudAPI - Implemented by cloudapi.Client.
 type AddCloudAPI interface {
@@ -138,6 +139,7 @@ type AddCloudCommand struct {
 	modelcmd.OptionalControllerCommand
 
 	// Replace, if true, existing cloud information is overwritten.
+	// TODO (anastasiamac 2019-6-4) Remove as redundant nd unsupported for Juju 3.
 	Replace bool
 
 	// Cloud is the name of the cloud to add.
@@ -202,7 +204,7 @@ func (c *AddCloudCommand) Info() *cmd.Info {
 // SetFlags initializes the flags supported by the command.
 func (c *AddCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
-	f.BoolVar(&c.Replace, "replace", false, "Overwrite any existing cloud information for <cloud name>")
+	f.BoolVar(&c.Replace, "replace", false, "DEPRECATED: Overwrite any existing cloud information for <cloud name>")
 	f.StringVar(&c.CloudFile, "f", "", "The path to a cloud definition file")
 	f.StringVar(&c.credentialName, "credential", "", "Credential to use for new cloud")
 }
@@ -283,6 +285,9 @@ func (c *AddCloudCommand) addCredentialToController(ctx *cmd.Context, cloud juju
 // Run executes the add cloud command, adding a cloud based on a passed-in yaml
 // file or interactive queries.
 func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
+	if c.Replace {
+		ctxt.Infof("'add-cloud --replace' is deprecated. Use 'update-cloud' instead.")
+	}
 	if c.CloudFile == "" && c.controllerName == "" {
 		return c.runInteractive(ctxt)
 	}
