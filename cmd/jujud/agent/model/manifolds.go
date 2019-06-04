@@ -253,7 +253,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 		statusHistoryPrunerName: ifNotMigrating(pruner.Manifold(pruner.ManifoldConfig{
 			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
 			ClockName:     clockName,
 			NewWorker:     statushistorypruner.New,
 			NewFacade:     statushistorypruner.NewFacade,
@@ -261,7 +260,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 		actionPrunerName: ifNotMigrating(pruner.Manifold(pruner.ManifoldConfig{
 			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
 			ClockName:     clockName,
 			NewWorker:     actionpruner.New,
 			NewFacade:     actionpruner.NewFacade,
@@ -325,7 +323,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// it.
 
 		// The undertaker is currently the only ifNotAlive worker.
-		undertakerName: ifNotUpgrading(ifNotAlive(ifCredentialValid(undertaker.Manifold(undertaker.ManifoldConfig{
+		undertakerName: ifNotUpgrading(ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
 			APICallerName:      apiCallerName,
 			CloudDestroyerName: environTrackerName,
 
@@ -333,7 +331,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:                    undertaker.NewFacade,
 			NewWorker:                    undertaker.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-		})))),
+		}))),
 
 		// All the rest depend on ifNotMigrating.
 		computeProvisionerName: ifNotMigrating(ifCredentialValid(provisioner.Manifold(provisioner.ManifoldConfig{
@@ -422,7 +420,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
 		// The undertaker is currently the only ifNotAlive worker.
-		undertakerName: ifNotUpgrading(ifNotAlive(ifCredentialValid(undertaker.Manifold(undertaker.ManifoldConfig{
+		undertakerName: ifNotUpgrading(ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
 			APICallerName:      apiCallerName,
 			CloudDestroyerName: caasBrokerTrackerName,
 
@@ -430,7 +428,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:                    undertaker.NewFacade,
 			NewWorker:                    undertaker.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-		})))),
+		}))),
 
 		caasBrokerTrackerName: ifResponsible(caasbroker.Manifold(caasbroker.ManifoldConfig{
 			APICallerName:          apiCallerName,

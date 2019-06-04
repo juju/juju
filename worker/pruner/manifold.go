@@ -18,7 +18,6 @@ import (
 // statushistorypruner worker depends.
 type ManifoldConfig struct {
 	APICallerName string
-	EnvironName   string
 	ClockName     string
 	PruneInterval time.Duration
 	NewWorker     func(Config) (worker.Worker, error)
@@ -28,7 +27,7 @@ type ManifoldConfig struct {
 // Manifold returns a Manifold that encapsulates the statushistorypruner worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{config.APICallerName, config.EnvironName, config.ClockName},
+		Inputs: []string{config.APICallerName, config.ClockName},
 		Start:  config.start,
 	}
 }
@@ -64,9 +63,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 func (config ManifoldConfig) Validate() error {
 	if config.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
-	}
-	if config.EnvironName == "" {
-		return errors.NotValidf("empty EnvironName")
 	}
 	if config.ClockName == "" {
 		return errors.NotValidf("empty ClockName")
