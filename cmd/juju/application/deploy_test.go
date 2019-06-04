@@ -618,6 +618,11 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 		Series:          "bionic",
 		ConfigYAML:      "aws-integrator:\n  trust: \"true\"\n",
 	}).Returns(error(nil))
+	fakeAPI.Call("Deploy", application.DeployArgs{
+		CharmID:         jjcharmstore.CharmID{URL: inURL},
+		ApplicationName: inURL.Name,
+		Series:          "bionic",
+	}).Returns(errors.New("expected Deploy for aws-integrator to be called with 'trust: true'"))
 
 	fakeAPI.Call("AddUnits", application.AddUnitsParams{
 		ApplicationName: "aws-integrator",
