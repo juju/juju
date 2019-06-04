@@ -139,7 +139,7 @@ type AddCloudCommand struct {
 	modelcmd.OptionalControllerCommand
 
 	// Replace, if true, existing cloud information is overwritten.
-	// TODO (anastasiamac 2019-6-4) Remove as redundant nd unsupported for Juju 3.
+	// TODO (anastasiamac 2019-6-4) Remove as redundant and unsupported for Juju 3.
 	Replace bool
 
 	// Cloud is the name of the cloud to add.
