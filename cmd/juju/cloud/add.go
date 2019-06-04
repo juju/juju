@@ -76,7 +76,7 @@ the controller needs to have the "multi-cloud" feature flag turned on.
 
 If --local is used, Juju stores that definition its internal cache directly.
 
-DEPRECTED If <cloud name> already exists in Juju's cache, then the `[1:] + "`--replace`" + ` 
+DEPRECATED If <cloud name> already exists in Juju's cache, then the `[1:] + "`--replace`" + ` 
 option is required. Use 'update-credential' instead.
 
 A cloud definition file has the following YAML format:
