@@ -134,6 +134,7 @@ func (aw *applicationWorker) loop() error {
 		if appDeploymentWatcher == nil {
 			appDeploymentWatcher, err = aw.serviceBroker.WatchService(aw.application)
 			if err != nil {
+				logger.Errorf("failed to start deployment watcher for %q, err -> %v", aw.application, err)
 				if strings.Contains(err.Error(), "unexpected EOF") {
 					logger.Warningf("k8s cloud hosting %q has disappeared", aw.application)
 					return nil
@@ -160,11 +161,12 @@ func (aw *applicationWorker) loop() error {
 				return errors.Trace(err)
 			}
 			logger.Debugf("service for %v: %+v", aw.application, service)
-			if err := aw.clusterChanged(service, lastReportedStatus); err != nil {
+			if err := aw.clusterChanged(service, lastReportedStatus, false); err != nil {
 				return errors.Trace(err)
 			}
 		case _, ok := <-appDeploymentWatcher.Changes():
 			logger.Debugf("deployment changed: %#v", ok)
+			logger.Criticalf("deployment changed: %#v", ok)
 			if !ok {
 				logger.Debugf("%v", appDeploymentWatcher.Wait())
 				worker.Stop(appDeploymentWatcher)
@@ -172,6 +174,12 @@ func (aw *applicationWorker) loop() error {
 				continue
 			}
 			service, err := aw.serviceBroker.GetService(aw.application, false)
+			var testScale int
+			if service.Scale != nil {
+				testScale = *service.Scale
+			}
+			// TODO: appDeploymentWatcher is listening to mkubectl edit replicaset change!!!!
+			logger.Criticalf("deployment changed service.Generation %v, service.Scale %v, testScale %v", service.Generation, service.Scale, testScale)
 			if err != nil && !errors.IsNotFound(err) {
 				return errors.Trace(err)
 			}
@@ -202,7 +210,7 @@ func (aw *applicationWorker) loop() error {
 				}
 				lastReportedScale = *service.Scale
 			}
-			if err := aw.clusterChanged(service, lastReportedStatus); err != nil {
+			if err := aw.clusterChanged(service, lastReportedStatus, true); err != nil {
 				return errors.Trace(err)
 			}
 		case _, ok := <-appOperatorWatcher.Changes():
@@ -230,19 +238,25 @@ func (aw *applicationWorker) loop() error {
 	}
 }
 
-func (aw *applicationWorker) clusterChanged(service *caas.Service, lastReportedStatus map[string]status.StatusInfo) error {
+func (aw *applicationWorker) clusterChanged(
+	service *caas.Service,
+	lastReportedStatus map[string]status.StatusInfo,
+	shouldSetScale bool,
+) error {
 	units, err := aw.containerBroker.Units(aw.application)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	serviceStatus := service.Status
 	var scale *int
-	var generation int64
+	var generation *int64
 	logscale := 0
 	if service != nil {
-		scale = service.Scale
 		generation = service.Generation
-		logscale = *service.Scale
+		if shouldSetScale {
+			scale = service.Scale
+			logscale = *service.Scale
+		}
 	}
 	logger.Criticalf("aw.containerBroker.Units(aw.application) %q units --> %v, logscale %v", aw.application, len(units), logscale)
 	args := params.UpdateApplicationUnits{

@@ -69,8 +69,9 @@ type Model interface {
 // Application provides the subset of application state
 // required by the CAAS unit provisioner facade.
 type Application interface {
-	GetScale() int
-	SetScale(int, int64, bool) error
+	// GetScale() int
+	// SetScale(int, int64, bool) error
+	ServiceInfo() (state.CloudServicer, error)
 	WatchScale() state.NotifyWatcher
 	ApplicationConfig() (application.ConfigAttributes, error)
 	AllUnits() (units []Unit, err error)

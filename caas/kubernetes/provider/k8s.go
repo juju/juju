@@ -947,7 +947,8 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 			scale := int(*ss.Spec.Replicas)
 			result.Scale = &scale
 		}
-		result.Generation = ss.GetGeneration()
+		gen := ss.GetGeneration()
+		result.Generation = &gen
 		message, ssStatus, err := k.getStatefulSetStatus(ss)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting status for %s", ss.Name)
@@ -972,7 +973,8 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 			scale := int(*deployment.Spec.Replicas)
 			result.Scale = &scale
 		}
-		result.Generation = ss.GetGeneration()
+		gen := deployment.GetGeneration()
+		result.Generation = &gen
 		message, ssStatus, err := k.getDeploymentStatus(deployment)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting status for %s", ss.Name)
@@ -1909,6 +1911,7 @@ func (k *kubernetesClient) WatchService(appName string) (watcher.NotifyWatcher, 
 		return nil, errors.Trace(err)
 	}
 	w1, err := k.newWatcher(sswatcher, appName, k.clock)
+	logger.Criticalf("WatchService w1 -> %v, err -> %v", w1, err)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1922,6 +1925,7 @@ func (k *kubernetesClient) WatchService(appName string) (watcher.NotifyWatcher, 
 		return nil, errors.Trace(err)
 	}
 	w2, err := k.newWatcher(dwatcher, appName, k.clock)
+	logger.Criticalf("WatchService w2 -> %v, err -> %v", w2, err)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

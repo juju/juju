@@ -264,7 +264,7 @@ type Service struct {
 	Id         string
 	Addresses  []network.Address
 	Scale      *int
-	Generation int64
+	Generation *int64
 	Status     status.StatusInfo
 }
 
