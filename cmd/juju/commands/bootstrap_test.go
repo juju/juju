@@ -1810,7 +1810,7 @@ func (s *BootstrapSuite) TestBootstrapPrintClouds(c *gc.C) {
 
 	ctx, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "--clouds")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, `
+	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, `
 You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.
 Cloud                            Credentials  Default Region
 aws                              fred         us-west-1
@@ -1824,9 +1824,7 @@ google
 joyent                                        
 oracle                                        
 oracle-classic                                
-rackspace                                     
-localhost                                     
-microk8s                                      
+rackspace                                     \n?(localhost\s+)?(microk8s\s+)?
 dummy-cloud                      joe          home
 dummy-cloud-dummy-region-config               
 dummy-cloud-with-config                       
@@ -1875,7 +1873,7 @@ func (s *BootstrapSuite) TestBootstrapPrintCloudsInvalidCredential(c *gc.C) {
 
 	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), "--clouds")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, `
+	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, `
 You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.
 Cloud                            Credentials  Default Region
 aws                              fred         us-west-1
@@ -1889,9 +1887,7 @@ google
 joyent                                        
 oracle                                        
 oracle-classic                                
-rackspace                                     
-localhost                                     
-microk8s                                      
+rackspace                                     \n?(localhost\s+)?(microk8s\s+)?
 dummy-cloud-dummy-region-config               
 dummy-cloud-with-config                       
 dummy-cloud-with-region-config                
