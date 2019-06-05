@@ -728,7 +728,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		Exposed:              application.doc.Exposed,
 		PasswordHash:         application.doc.PasswordHash,
 		Placement:            application.doc.Placement,
-		DesiredScale:         application.doc.DesiredScale,
 		MinUnits:             application.doc.MinUnits,
 		EndpointBindings:     map[string]string(ctx.endpoingBindings[globalKey]),
 		ApplicationConfig:    applicationConfigDoc.Settings,
@@ -1357,6 +1356,7 @@ func (e *exporter) readAllCloudServices() (map[string]*cloudServiceDoc, error) {
 }
 
 func (e *exporter) cloudService(doc *cloudServiceDoc) *description.CloudServiceArgs {
+	// TODO: Update description.CloudServiceArgs to match cloudServiceDoc ???
 	return &description.CloudServiceArgs{
 		ProviderId: doc.ProviderId,
 		Addresses:  e.newAddressArgsSlice(doc.Addresses),

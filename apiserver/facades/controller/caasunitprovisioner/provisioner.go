@@ -216,7 +216,11 @@ func (f *Facade) applicationScale(tagString string) (int, error) {
 	if err != nil {
 		return 0, errors.Trace(err)
 	}
-	return app.GetScale(), nil
+	serviceInfo, err := app.ServiceInfo()
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	return serviceInfo.GetScale(), nil
 }
 
 // ProvisioningInfo returns the provisioning info for specified applications in this model.
@@ -535,7 +539,7 @@ func (a *Facade) updateStatus(params params.ApplicationUnitParams) (
 // source (typically a cloud update event) and merges that with the existing unit
 // data model in state. The passed in units are the complete set for the cloud, so
 // any existing units in state with provider ids which aren't in the set will be removed.
-func (a *Facade) updateUnitsFromCloud(app Application, scale *int, generation int64, unitUpdates []params.ApplicationUnitParams) error {
+func (a *Facade) updateUnitsFromCloud(app Application, scale *int, generation *int64, unitUpdates []params.ApplicationUnitParams) error {
 	logger.Debugf("unit updates: %#v", unitUpdates)
 	if scale != nil {
 		logger.Debugf("application scale: %v", *scale)
@@ -677,15 +681,19 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale *int, generation in
 		return errors.Trace(err)
 	}
 
-	if scale == nil {
+	if scale == nil || generation == nil {
 		return nil
 	}
 	// Update the scale last now that the state
 	// model accurately reflects the cluster pods.
-	currentScale := app.GetScale()
+	serviceInfo, err := app.ServiceInfo()
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	currentScale := serviceInfo.GetScale()
 	err = nil
 	if currentScale != *scale {
-		err = app.SetScale(*scale, generation, false)
+		err = serviceInfo.SetScale(*scale, *generation, false)
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -1219,6 +1227,16 @@ func (a *Facade) UpdateApplicationsService(args params.UpdateApplicationServiceA
 		}
 		if err := app.UpdateCloudService(appUpdate.ProviderId, params.NetworkAddresses(appUpdate.Addresses...)); err != nil {
 			result.Results[i].Error = common.ServerError(err)
+		}
+		svcInfo, err := app.ServiceInfo()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if appUpdate.Scale != nil && appUpdate.Generation != nil {
+			if err := svcInfo.SetScale(*appUpdate.Scale, *appUpdate.Generation, false); err != nil {
+				result.Results[i].Error = common.ServerError(err)
+			}
 		}
 	}
 	return result, nil

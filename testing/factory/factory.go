@@ -492,7 +492,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
-	err = application.SetScale(params.DesiredScale, 0, true)
+	// err = application.SetScale(params.DesiredScale, 0, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	if params.Status != nil {

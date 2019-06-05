@@ -1121,10 +1121,10 @@ func (context *statusContext) processApplication(application *state.Application)
 			if len(serviceInfo.Addresses()) > 0 {
 				processedStatus.PublicAddress = serviceInfo.Addresses()[0].Value
 			}
+			processedStatus.Scale = serviceInfo.GetScale()
 		} else {
 			logger.Debugf("no service details for %v: %v", application.Name(), err)
 		}
-		processedStatus.Scale = application.GetScale()
 	}
 
 	processedStatus.EndpointBindings = context.allAppsUnitsCharmBindings.endpointBindings[application.Name()]
