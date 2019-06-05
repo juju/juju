@@ -31,12 +31,15 @@ const (
 )
 
 type ociInstance struct {
-	arch     string
+	raw      ociCore.Instance
 	instType *instances.InstanceType
 	env      *Environ
-	mutex    sync.Mutex
+	arch     string
 	etag     *string
-	raw      ociCore.Instance
+
+	newInstanceConfigurator func(string) common.InstanceConfigurator
+
+	mutex sync.Mutex
 }
 
 type vnicWithIndex struct {
@@ -68,9 +71,10 @@ func newInstance(raw ociCore.Instance, env *Environ) (*ociInstance, error) {
 	}
 
 	return &ociInstance{
-		raw:  raw,
-		env:  env,
-		arch: "amd64",
+		raw:                     raw,
+		env:                     env,
+		arch:                    "amd64",
+		newInstanceConfigurator: common.NewSshInstanceConfigurator,
 	}, nil
 }
 
@@ -359,7 +363,7 @@ func (o *ociInstance) getInstanceConfigurator(
 	// configure an instance in another model.
 	for _, addr := range addresses {
 		if addr.Scope == network.ScopePublic {
-			return common.NewSshInstanceConfigurator(addr.Value), nil
+			return o.newInstanceConfigurator(addr.Value), nil
 		}
 	}
 
