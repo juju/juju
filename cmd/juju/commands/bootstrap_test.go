@@ -1865,6 +1865,14 @@ func (s *BootstrapSuite) TestBootstrapPrintCloudsInvalidCredential(c *gc.C) {
 	}
 	cmd.SetClientStore(store)
 
+	var logWriter loggo.TestWriter
+	writerName := "TestBootstrapPrintCloudsInvalidCredential"
+	c.Assert(loggo.RegisterWriter(writerName, &logWriter), jc.ErrorIsNil)
+	defer func() {
+		loggo.RemoveWriter(writerName)
+		logWriter.Clear()
+	}()
+
 	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), "--clouds")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, `
@@ -1894,13 +1902,13 @@ You will need to have a credential if you want to bootstrap on a cloud, see
 ‘juju autoload-credentials’ and ‘juju add-credential’. The first credential
 listed is the default. Add more clouds with ‘juju add-cloud’.
 `[1:])
-	c.Assert(cmdtesting.Stderr(ctx), jc.DeepEquals, `
-error loading credential for cloud dummy-cloud: expected error
 
-Now you can run
-	juju add-model <model-name>
-to create a new model to deploy k8s workloads.
-`[1:])
+	c.Check(logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
+		{
+			Level:   loggo.WARNING,
+			Message: `error loading credential for cloud dummy-cloud: expected error`,
+		},
+	})
 }
 
 func (s *BootstrapSuite) TestBootstrapPrintCloudRegions(c *gc.C) {

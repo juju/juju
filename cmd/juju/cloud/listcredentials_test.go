@@ -6,11 +6,10 @@ package cloud_test
 import (
 	"strings"
 
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
-
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -135,6 +135,15 @@ func (s *listCredentialsSuite) TestListCredentialsTabularInvalidCredential(c *gc
 		}
 		return s.store.CredentialForCloud(cloudName)
 	}
+
+	var logWriter loggo.TestWriter
+	writerName := "TestListCredentialsTabularInvalidCredential"
+	c.Assert(loggo.RegisterWriter(writerName, &logWriter), jc.ErrorIsNil)
+	defer func() {
+		loggo.RemoveWriter(writerName)
+		logWriter.Clear()
+	}()
+
 	ctx := s.listCredentialsWithStore(c, store)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 Cloud   Credentials
@@ -143,9 +152,12 @@ azure   azhja
 google  default
 
 `[1:])
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
-error loading credential for cloud mycloud: expected error
-`[1:])
+	c.Check(logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
+		{
+			Level:   loggo.WARNING,
+			Message: `error loading credential for cloud mycloud: expected error`,
+		},
+	})
 }
 
 func (s *listCredentialsSuite) TestListCredentialsTabularMissingCloud(c *gc.C) {
@@ -244,6 +256,15 @@ func (s *listCredentialsSuite) TestListCredentialsYAMLWithSecretsInvalidCredenti
 		}
 		return s.store.CredentialForCloud(cloudName)
 	}
+
+	var logWriter loggo.TestWriter
+	writerName := "TestListCredentialsYAMLWithSecretsInvalidCredential"
+	c.Assert(loggo.RegisterWriter(writerName, &logWriter), jc.ErrorIsNil)
+	defer func() {
+		loggo.RemoveWriter(writerName)
+		logWriter.Clear()
+	}()
+
 	ctx := s.listCredentialsWithStore(c, store, "--format", "yaml", "--show-secrets")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 local-credentials:
@@ -277,9 +298,12 @@ local-credentials:
       access-key: key
       secret-key: secret
 `[1:])
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
-error loading credential for cloud mycloud: expected error
-`[1:])
+	c.Check(logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
+		{
+			Level:   loggo.WARNING,
+			Message: `error loading credential for cloud mycloud: expected error`,
+		},
+	})
 }
 
 func (s *listCredentialsSuite) TestListCredentialsYAMLNoSecrets(c *gc.C) {
@@ -352,13 +376,25 @@ func (s *listCredentialsSuite) TestListCredentialsJSONWithSecretsInvalidCredenti
 		}
 		return s.store.CredentialForCloud(cloudName)
 	}
+
+	var logWriter loggo.TestWriter
+	writerName := "TestListCredentialsJSONWithSecretsInvalidCredential"
+	c.Assert(loggo.RegisterWriter(writerName, &logWriter), jc.ErrorIsNil)
+	defer func() {
+		loggo.RemoveWriter(writerName)
+		logWriter.Clear()
+	}()
+
 	ctx := s.listCredentialsWithStore(c, store, "--format", "json", "--show-secrets")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 {"local-credentials":{"aws":{"default-credential":"down","default-region":"ap-southeast-2","cloud-credentials":{"bob":{"auth-type":"access-key","details":{"access-key":"key","secret-key":"secret"}},"down":{"auth-type":"userpass","details":{"password":"password","username":"user"}}}},"azure":{"cloud-credentials":{"azhja":{"auth-type":"userpass","details":{"application-id":"app-id","application-password":"app-secret","subscription-id":"subscription-id","tenant-id":"tenant-id"}}}},"google":{"cloud-credentials":{"default":{"auth-type":"oauth2","details":{"client-email":"email","client-id":"id","private-key":"key"}}}}}}
 `[1:])
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
-error loading credential for cloud mycloud: expected error
-`[1:])
+	c.Check(logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
+		{
+			Level:   loggo.WARNING,
+			Message: `error loading credential for cloud mycloud: expected error`,
+		},
+	})
 }
 
 func (s *listCredentialsSuite) TestListCredentialsJSONNoSecrets(c *gc.C) {

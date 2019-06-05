@@ -199,7 +199,7 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
-			ctxt.Infof("error loading credential for cloud %v: %v", cloudName, err)
+			ctxt.Warningf("error loading credential for cloud %v: %v", cloudName, err)
 			continue
 		}
 		if !c.showSecrets {

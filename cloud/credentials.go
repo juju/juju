@@ -27,6 +27,21 @@ type CloudCredential struct {
 	AuthCredentials map[string]Credential `yaml:",omitempty,inline"`
 }
 
+func (c *CloudCredential) validateDefaultCredential() {
+	if c.DefaultCredential != "" {
+		stillHaveDefault := false
+		for name := range c.AuthCredentials {
+			if name == c.DefaultCredential {
+				stillHaveDefault = true
+				break
+			}
+		}
+		if !stillHaveDefault {
+			c.DefaultCredential = ""
+		}
+	}
+}
+
 // Credential instances represent cloud credentials.
 type Credential struct {
 	authType   AuthType
@@ -466,24 +481,12 @@ func (c *CredentialCollection) CloudCredential(cloudName string) (*CloudCredenti
 		return nil, errors.Trace(err)
 	}
 	credential := credentialValue.(CloudCredential)
-	// Validate default credential actually exists in the CloudCredential
-	if credential.DefaultCredential != "" {
-		stillHaveDefault := false
-		for name := range credential.AuthCredentials {
-			if name == credential.DefaultCredential {
-				stillHaveDefault = true
-				break
-			}
-		}
-		if !stillHaveDefault {
-			credential.DefaultCredential = ""
-		}
-	}
+	credential.validateDefaultCredential()
 	c.Credentials[cloudName] = credential
 	return &credential, nil
 }
 
-// CloudNames returns all the names of CloudCredentials inside the CredentialCollection.
+// CloudNames returns the cloud names to which credentials inside the CredentialCollection belong.
 func (c *CredentialCollection) CloudNames() []string {
 	var cloudNames []string
 	for k := range c.Credentials {
@@ -492,7 +495,7 @@ func (c *CredentialCollection) CloudNames() []string {
 	return cloudNames
 }
 
-// UpdateCloudCredential stores CloudCredential for a specific cloud.
+// UpdateCloudCredential stores a CloudCredential for a specific cloud.
 func (c *CredentialCollection) UpdateCloudCredential(cloudName string, details CloudCredential) {
 	if len(details.AuthCredentials) == 0 {
 		delete(c.Credentials, cloudName)
@@ -501,18 +504,6 @@ func (c *CredentialCollection) UpdateCloudCredential(cloudName string, details C
 	if c.Credentials == nil {
 		c.Credentials = make(map[string]interface{})
 	}
-	// Validate default credential actually exists in the CloudCredential
-	if details.DefaultCredential != "" {
-		stillHaveDefault := false
-		for name := range details.AuthCredentials {
-			if name == details.DefaultCredential {
-				stillHaveDefault = true
-				break
-			}
-		}
-		if !stillHaveDefault {
-			details.DefaultCredential = ""
-		}
-	}
+	details.validateDefaultCredential()
 	c.Credentials[cloudName] = details
 }
