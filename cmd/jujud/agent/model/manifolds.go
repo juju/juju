@@ -234,7 +234,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		charmRevisionUpdaterName: ifNotMigrating(charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
 			APICallerName: apiCallerName,
-			ClockName:     clockName,
+			Clock:         config.Clock,
 			Period:        config.CharmRevisionUpdateInterval,
 
 			NewFacade: charmrevisionmanifold.NewAPIFacade,

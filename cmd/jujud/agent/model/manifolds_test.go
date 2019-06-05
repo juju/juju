@@ -206,13 +206,12 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 
 	"api-config-watcher": {"agent"},
 
-	"caas-broker-tracker": {"agent", "api-caller", "clock", "is-responsible-flag"},
+	"caas-broker-tracker": {"agent", "api-caller", "is-responsible-flag"},
 
 	"caas-firewaller": {
 		"agent",
 		"api-caller",
 		"caas-broker-tracker",
-		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -249,7 +248,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"caas-broker-tracker",
-		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -260,7 +258,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"charm-revision-updater": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -270,19 +267,17 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 
 	"clock": {},
 
-	"is-responsible-flag": {"agent", "api-caller", "clock"},
+	"is-responsible-flag": {"agent", "api-caller"},
 
 	"log-forwarder": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"not-dead-flag"},
 
 	"migration-fortress": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"model-upgrade-gate",
 		"model-upgraded-flag",
@@ -291,7 +286,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"migration-inactive-flag": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"model-upgrade-gate",
 		"model-upgraded-flag",
@@ -300,7 +294,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"migration-master": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
 		"model-upgrade-gate",
@@ -320,7 +313,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"remote-relations": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -354,7 +346,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"caas-broker-tracker",
-		"clock",
 		"is-responsible-flag",
 		"model-upgrade-gate",
 		"model-upgraded-flag",
@@ -387,7 +378,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"application-scaler": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -398,7 +388,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"charm-revision-updater": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -411,7 +400,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"compute-provisioner": {
 		"agent",
 		"api-caller",
-		"clock",
 		"environ-tracker",
 		"is-responsible-flag",
 		"migration-fortress",
@@ -425,7 +413,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"environ-tracker": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"valid-credential-flag",
 	},
@@ -433,7 +420,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"firewaller": {
 		"agent",
 		"api-caller",
-		"clock",
 		"environ-tracker",
 		"is-responsible-flag",
 		"migration-fortress",
@@ -447,7 +433,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"instance-mutater": {
 		"agent",
 		"api-caller",
-		"clock",
 		"environ-tracker",
 		"is-responsible-flag",
 		"migration-fortress",
@@ -472,19 +457,17 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"valid-credential-flag",
 	},
 
-	"is-responsible-flag": {"agent", "api-caller", "clock"},
+	"is-responsible-flag": {"agent", "api-caller"},
 
 	"log-forwarder": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"not-dead-flag"},
 
 	"machine-undertaker": {
 		"agent",
 		"api-caller",
-		"clock",
 		"environ-tracker",
 		"is-responsible-flag",
 		"migration-fortress",
@@ -498,7 +481,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"metric-worker": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -509,7 +491,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"migration-fortress": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"model-upgrade-gate",
 		"model-upgraded-flag",
@@ -518,7 +499,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"migration-inactive-flag": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"model-upgrade-gate",
 		"model-upgraded-flag",
@@ -527,7 +507,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"migration-master": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
 		"model-upgrade-gate",
@@ -541,7 +520,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"model-upgrader": {
 		"agent",
 		"api-caller",
-		"clock",
 		"environ-tracker",
 		"is-responsible-flag",
 		"model-upgrade-gate",
@@ -556,7 +534,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"remote-relations": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -604,7 +581,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"undertaker": {
 		"agent",
 		"api-caller",
-		"clock",
 		"environ-tracker",
 		"is-responsible-flag",
 		"model-upgrade-gate",
@@ -616,7 +592,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"unit-assigner": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
