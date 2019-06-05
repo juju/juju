@@ -464,7 +464,7 @@ func ParseCredentialCollection(data []byte) (*CredentialCollection, error) {
 	return &collection, nil
 }
 
-// CloudCredential returns a copy of the CloudCredential for the specifed cloud or
+// CloudCredential returns a copy of the CloudCredential for the specified cloud or
 // an error when the CloudCredential was not found or failed to pass validation.
 func (c *CredentialCollection) CloudCredential(cloudName string) (*CloudCredential, error) {
 	credentialValue, ok := c.Credentials[cloudName]
