@@ -508,7 +508,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
-		"clock",
 		"is-controller-flag",
 		"is-primary-controller-flag",
 		"migration-fortress",
@@ -535,7 +534,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 
 	"global-clock-updater": {
 		"agent",
-		"clock",
 		"is-controller-flag",
 		"legacy-leases-flag",
 		"state",
@@ -601,7 +599,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
-		"clock",
 		"is-controller-flag",
 		"state",
 		"state-config-watcher",

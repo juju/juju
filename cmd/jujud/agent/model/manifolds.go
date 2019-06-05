@@ -163,7 +163,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: lifeflag.NewWorker,
 		}),
 		isResponsibleFlagName: singular.Manifold(singular.ManifoldConfig{
-			ClockName:     clockName,
+			Clock:         config.Clock,
 			APICallerName: apiCallerName,
 			Duration:      config.RunFlagDuration,
 			Claimant:      machineTag,
@@ -234,7 +234,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		charmRevisionUpdaterName: ifNotMigrating(charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
 			APICallerName: apiCallerName,
-			ClockName:     clockName,
+			Clock:         config.Clock,
 			Period:        config.CharmRevisionUpdateInterval,
 
 			NewFacade: charmrevisionmanifold.NewAPIFacade,
