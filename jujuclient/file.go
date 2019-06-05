@@ -756,55 +756,42 @@ func (s *store) UpdateCredential(cloudName string, details cloud.CloudCredential
 	}
 	defer releaser.Release()
 
-	all, err := ReadCredentialsFile(JujuCredentialsPath())
+	credentials, err := ReadCredentialsFile(JujuCredentialsPath())
 	if err != nil {
 		return errors.Annotate(err, "cannot get credentials")
 	}
 
-	if len(all) == 0 {
-		all = make(map[string]cloud.CloudCredential)
-	}
-
-	// Clear the default credential if we are removing that one.
-	if existing, ok := all[cloudName]; ok && existing.DefaultCredential != "" {
-		stillHaveDefault := false
-		for name := range details.AuthCredentials {
-			if name == existing.DefaultCredential {
-				stillHaveDefault = true
-				break
-			}
-		}
-		if !stillHaveDefault {
-			details.DefaultCredential = ""
-		}
-	}
-	if len(details.AuthCredentials) > 0 {
-		all[cloudName] = details
-	} else {
-		delete(all, cloudName)
-	}
-
-	return WriteCredentialsFile(all)
+	credentials.UpdateCloudCredential(cloudName, details)
+	return WriteCredentialsFile(credentials)
 }
 
 // CredentialForCloud implements CredentialGetter.
 func (s *store) CredentialForCloud(cloudName string) (*cloud.CloudCredential, error) {
-	cloudCredentials, err := s.AllCredentials()
+	credentialCollection, err := ReadCredentialsFile(JujuCredentialsPath())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	credentials, ok := cloudCredentials[cloudName]
-	if !ok {
-		return nil, errors.NotFoundf("credentials for cloud %s", cloudName)
+	credential, err := credentialCollection.CloudCredential(cloudName)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return &credentials, nil
+	return credential, nil
 }
 
 // AllCredentials implements CredentialGetter.
 func (s *store) AllCredentials() (map[string]cloud.CloudCredential, error) {
-	cloudCredentials, err := ReadCredentialsFile(JujuCredentialsPath())
+	credentialCollection, err := ReadCredentialsFile(JujuCredentialsPath())
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	cloudNames := credentialCollection.CloudNames()
+	cloudCredentials := make(map[string]cloud.CloudCredential)
+	for _, cloud := range cloudNames {
+		v, err := credentialCollection.CloudCredential(cloud)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cloudCredentials[cloud] = *v
 	}
 	return cloudCredentials, nil
 }

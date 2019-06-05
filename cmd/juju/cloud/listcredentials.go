@@ -156,35 +156,54 @@ func (c *listCredentialsCommand) personalClouds() (map[string]jujucloud.Cloud, e
 	return c.personalCloudsFunc()
 }
 
-func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
-	var credentials map[string]jujucloud.CloudCredential
-	credentials, err := c.store.AllCredentials()
-	if err != nil && !errors.IsNotFound(err) {
-		return err
-	}
+func (c *listCredentialsCommand) cloudNames() ([]string, error) {
 	if c.cloudName != "" {
-		for cloudName := range credentials {
-			if cloudName != c.cloudName {
-				delete(credentials, cloudName)
-			}
-		}
+		return []string{c.cloudName}, nil
 	}
-
-	// Find local cloud names.
 	personalClouds, err := c.personalClouds()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	var personalCloudNames []string
-	for name := range personalClouds {
-		personalCloudNames = append(personalCloudNames, name)
+	publicClouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	builtinClouds, err := common.BuiltInClouds()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.sortClouds(personalClouds, publicClouds, builtinClouds), nil
+}
+
+func (c *listCredentialsCommand) sortClouds(maps ...map[string]jujucloud.Cloud) []string {
+	var clouds []string
+	for _, m := range maps {
+		for name := range m {
+			clouds = append(clouds, name)
+		}
+	}
+	sort.Strings(clouds)
+	return clouds
+}
+
+func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
+	cloudNames, err := c.cloudNames()
+	if err != nil {
+		return errors.Annotatef(err, "failed to list available clouds")
 	}
 
 	displayCredentials := make(map[string]CloudCredential)
 	var missingClouds []string
-	for cloudName, cred := range credentials {
+	for _, cloudName := range cloudNames {
+		cred, err := c.store.CredentialForCloud(cloudName)
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			ctxt.Warningf("error loading credential for cloud %v: %v", cloudName, err)
+			continue
+		}
 		if !c.showSecrets {
-			if err := c.removeSecrets(cloudName, &cred); err != nil {
+			if err := c.removeSecrets(cloudName, cred); err != nil {
 				if errors.IsNotValid(err) {
 					missingClouds = append(missingClouds, cloudName)
 					continue

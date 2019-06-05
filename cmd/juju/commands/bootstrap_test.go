@@ -1810,7 +1810,7 @@ func (s *BootstrapSuite) TestBootstrapPrintClouds(c *gc.C) {
 
 	ctx, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "--clouds")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, `
+	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, `
 You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.
 Cloud                            Credentials  Default Region
 aws                              fred         us-west-1
@@ -1824,8 +1824,7 @@ google
 joyent                                        
 oracle                                        
 oracle-classic                                
-rackspace                                     
-localhost                                     
+rackspace                                     \n?(localhost\s+)?(microk8s\s+)?
 dummy-cloud                      joe          home
 dummy-cloud-dummy-region-config               
 dummy-cloud-with-config                       
@@ -1837,6 +1836,75 @@ You will need to have a credential if you want to bootstrap on a cloud, see
 ‘juju autoload-credentials’ and ‘juju add-credential’. The first credential
 listed is the default. Add more clouds with ‘juju add-cloud’.
 `[1:])
+}
+
+func (s *BootstrapSuite) TestBootstrapPrintCloudsInvalidCredential(c *gc.C) {
+	resetJujuXDGDataHome(c)
+	store := jujuclienttesting.NewStubStore()
+	store.CredentialForCloudFunc = func(cloudName string) (*cloud.CloudCredential, error) {
+		if cloudName == "dummy-cloud" {
+			return nil, errors.Errorf("expected error")
+		}
+		if cloudName == "aws" {
+			return &cloud.CloudCredential{
+				DefaultRegion: "us-west-1",
+				AuthCredentials: map[string]cloud.Credential{
+					"fred": {},
+					"mary": {},
+				},
+			}, nil
+		}
+		return nil, errors.NotFoundf("credentials for cloud %s", cloudName)
+	}
+
+	cmd := &bootstrapCommandWrapper{
+		bootstrapCommand: s.bootstrapCmd,
+		disableGUI:       true,
+	}
+	cmd.SetClientStore(store)
+
+	var logWriter loggo.TestWriter
+	writerName := "TestBootstrapPrintCloudsInvalidCredential"
+	c.Assert(loggo.RegisterWriter(writerName, &logWriter), jc.ErrorIsNil)
+	defer func() {
+		loggo.RemoveWriter(writerName)
+		logWriter.Clear()
+	}()
+
+	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), "--clouds")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, `
+You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.
+Cloud                            Credentials  Default Region
+aws                              fred         us-west-1
+                                 mary         
+aws-china                                     
+aws-gov                                       
+azure                                         
+azure-china                                   
+cloudsigma                                    
+google                                        
+joyent                                        
+oracle                                        
+oracle-classic                                
+rackspace                                     \n?(localhost\s+)?(microk8s\s+)?
+dummy-cloud-dummy-region-config               
+dummy-cloud-with-config                       
+dummy-cloud-with-region-config                
+dummy-cloud-without-regions                   
+many-credentials-no-auth-types                
+
+You will need to have a credential if you want to bootstrap on a cloud, see
+‘juju autoload-credentials’ and ‘juju add-credential’. The first credential
+listed is the default. Add more clouds with ‘juju add-cloud’.
+`[1:])
+
+	c.Check(logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
+		{
+			Level:   loggo.WARNING,
+			Message: `error loading credential for cloud dummy-cloud: expected error`,
+		},
+	})
 }
 
 func (s *BootstrapSuite) TestBootstrapPrintCloudRegions(c *gc.C) {
