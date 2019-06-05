@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	appFacade "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -492,6 +493,48 @@ applications:
       key: value
     bindings:
       juju-info: vlan2
+`[1:]}
+
+	c.Assert(result, gc.Equals, expectedResult)
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
+func (s *bundleSuite) TestExportBundleWithTrustedApplication(c *gc.C) {
+	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+		Config: map[string]interface{}{
+			"name": "awesome",
+			"uuid": "some-uuid",
+		},
+		CloudRegion: "some-region"})
+
+	appArgs := s.minimalApplicationArgs(description.IAAS)
+	appArgs.ApplicationConfig = map[string]interface{}{
+		appFacade.TrustConfigOptionName: true,
+	}
+
+	app := s.st.model.AddApplication(appArgs)
+	app.SetStatus(minimalStatusArgs())
+
+	u := app.AddUnit(minimalUnitArgs(app.Type()))
+	u.SetAgentStatus(minimalStatusArgs())
+
+	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
+
+	result, err := s.facade.ExportBundle()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedResult := params.StringResult{nil, `
+series: trusty
+applications:
+  ubuntu:
+    charm: cs:trusty/ubuntu
+    num_units: 1
+    to:
+    - "0"
+    options:
+      key: value
+    bindings:
+      juju-info: vlan2
+    trust: true
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)

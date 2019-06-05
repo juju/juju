@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
+	appFacade "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -369,6 +370,12 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, erro
 			if result := b.constraints(application.Constraints()); len(result) != 0 {
 				newApplication.Constraints = strings.Join(result, " ")
 			}
+		}
+
+		// If this application has been trusted by the operator, set the
+		// Trust field of the ApplicationSpec to true
+		if appConfig := application.ApplicationConfig(); appConfig != nil {
+			newApplication.RequiresTrust = appConfig[appFacade.TrustConfigOptionName] == true
 		}
 
 		data.Applications[application.Name()] = newApplication
