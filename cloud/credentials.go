@@ -400,14 +400,14 @@ func (c cloudCredentialValueChecker) Coerce(v interface{}, path []string) (inter
 // ParseCredentials parses the given yaml bytes into Credentials, but does
 // not validate the credential attributes.
 func ParseCredentials(data []byte) (map[string]CloudCredential, error) {
-	credentialContainer, err := ParseCredentialContainer(data)
+	credentialCollection, err := ParseCredentialCollection(data)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cloudNames := credentialContainer.CloudNames()
+	cloudNames := credentialCollection.CloudNames()
 	credentials := make(map[string]CloudCredential)
 	for _, cloud := range cloudNames {
-		v, err := credentialContainer.CloudCredential(cloud)
+		v, err := credentialCollection.CloudCredential(cloud)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -434,26 +434,26 @@ func RemoveSecrets(
 	return &Credential{authType: credential.authType, attributes: redactedAttrs}, nil
 }
 
-// CredentialContainer holds CloudCredential(s) that are lazily validated.
-type CredentialContainer struct {
+// CredentialCollection holds CloudCredential(s) that are lazily validated.
+type CredentialCollection struct {
 	Credentials map[string]interface{} `yaml:"credentials"`
 }
 
-// ParseCredentialContainer parses YAML bytes for the credential
-func ParseCredentialContainer(data []byte) (*CredentialContainer, error) {
-	container := CredentialContainer{}
-	err := yaml.Unmarshal(data, &container)
+// ParseCredentialCollection parses YAML bytes for the credential
+func ParseCredentialCollection(data []byte) (*CredentialCollection, error) {
+	collection := CredentialCollection{}
+	err := yaml.Unmarshal(data, &collection)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot unmarshal yaml credentials")
 	}
-	return &container, nil
+	return &collection, nil
 }
 
 // CloudCredential returns a copy of the CloudCredential for the specifed cloud or
 // an error when the CloudCredential was not found or failed to pass validation.
-func (c *CredentialContainer) CloudCredential(cloudName string) (*CloudCredential, error) {
+func (c *CredentialCollection) CloudCredential(cloudName string) (*CloudCredential, error) {
 	credentialValue, ok := c.Credentials[cloudName]
-	if ok == false {
+	if !ok {
 		return nil, errors.NotFoundf("credentials for cloud %s", cloudName)
 	}
 	if credential, ok := credentialValue.(CloudCredential); ok {
@@ -483,8 +483,8 @@ func (c *CredentialContainer) CloudCredential(cloudName string) (*CloudCredentia
 	return &credential, nil
 }
 
-// CloudNames returns all the names of CloudCredentials inside the CredentialContainer.
-func (c *CredentialContainer) CloudNames() []string {
+// CloudNames returns all the names of CloudCredentials inside the CredentialCollection.
+func (c *CredentialCollection) CloudNames() []string {
 	var cloudNames []string
 	for k := range c.Credentials {
 		cloudNames = append(cloudNames, k)
@@ -493,7 +493,11 @@ func (c *CredentialContainer) CloudNames() []string {
 }
 
 // UpdateCloudCredential stores CloudCredential for a specific cloud.
-func (c *CredentialContainer) UpdateCloudCredential(cloudName string, details CloudCredential) {
+func (c *CredentialCollection) UpdateCloudCredential(cloudName string, details CloudCredential) {
+	if len(details.AuthCredentials) == 0 {
+		delete(c.Credentials, cloudName)
+		return
+	}
 	if c.Credentials == nil {
 		c.Credentials = make(map[string]interface{})
 	}
@@ -510,9 +514,5 @@ func (c *CredentialContainer) UpdateCloudCredential(cloudName string, details Cl
 			details.DefaultCredential = ""
 		}
 	}
-	if len(details.AuthCredentials) == 0 {
-		delete(c.Credentials, cloudName)
-	} else {
-		c.Credentials[cloudName] = details
-	}
+	c.Credentials[cloudName] = details
 }

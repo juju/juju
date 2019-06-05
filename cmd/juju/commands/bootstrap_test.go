@@ -1826,6 +1826,7 @@ oracle
 oracle-classic                                
 rackspace                                     
 localhost                                     
+microk8s                                      
 dummy-cloud                      joe          home
 dummy-cloud-dummy-region-config               
 dummy-cloud-with-config                       
@@ -1836,6 +1837,69 @@ many-credentials-no-auth-types
 You will need to have a credential if you want to bootstrap on a cloud, see
 ‘juju autoload-credentials’ and ‘juju add-credential’. The first credential
 listed is the default. Add more clouds with ‘juju add-cloud’.
+`[1:])
+}
+
+func (s *BootstrapSuite) TestBootstrapPrintCloudsInvalidCredential(c *gc.C) {
+	resetJujuXDGDataHome(c)
+	store := jujuclienttesting.NewStubStore()
+	store.CredentialForCloudFunc = func(cloudName string) (*cloud.CloudCredential, error) {
+		if cloudName == "dummy-cloud" {
+			return nil, errors.Errorf("expected error")
+		}
+		if cloudName == "aws" {
+			return &cloud.CloudCredential{
+				DefaultRegion: "us-west-1",
+				AuthCredentials: map[string]cloud.Credential{
+					"fred": {},
+					"mary": {},
+				},
+			}, nil
+		}
+		return nil, errors.NotFoundf("credentials for cloud %s", cloudName)
+	}
+
+	cmd := &bootstrapCommandWrapper{
+		bootstrapCommand: s.bootstrapCmd,
+		disableGUI:       true,
+	}
+	cmd.SetClientStore(store)
+
+	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), "--clouds")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, `
+You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.
+Cloud                            Credentials  Default Region
+aws                              fred         us-west-1
+                                 mary         
+aws-china                                     
+aws-gov                                       
+azure                                         
+azure-china                                   
+cloudsigma                                    
+google                                        
+joyent                                        
+oracle                                        
+oracle-classic                                
+rackspace                                     
+localhost                                     
+microk8s                                      
+dummy-cloud-dummy-region-config               
+dummy-cloud-with-config                       
+dummy-cloud-with-region-config                
+dummy-cloud-without-regions                   
+many-credentials-no-auth-types                
+
+You will need to have a credential if you want to bootstrap on a cloud, see
+‘juju autoload-credentials’ and ‘juju add-credential’. The first credential
+listed is the default. Add more clouds with ‘juju add-cloud’.
+`[1:])
+	c.Assert(cmdtesting.Stderr(ctx), jc.DeepEquals, `
+error loading credential for cloud dummy-cloud: expected error
+
+Now you can run
+	juju add-model <model-name>
+to create a new model to deploy k8s workloads.
 `[1:])
 }
 

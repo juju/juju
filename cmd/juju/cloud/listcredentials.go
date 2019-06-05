@@ -156,50 +156,40 @@ func (c *listCredentialsCommand) personalClouds() (map[string]jujucloud.Cloud, e
 	return c.personalCloudsFunc()
 }
 
-func (c *listCredentialsCommand) publicClouds() (map[string]jujucloud.Cloud, error) {
-	publicClouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
+func (c *listCredentialsCommand) cloudNames() ([]string, error) {
+	if c.cloudName != "" {
+		return []string{c.cloudName}, nil
+	}
+	personalClouds, err := c.personalClouds()
 	if err != nil {
 		return nil, err
 	}
-	return publicClouds, nil
-}
-
-func (c *listCredentialsCommand) builtInClouds() (map[string]jujucloud.Cloud, error) {
-	builtin, err := common.BuiltInClouds()
+	publicClouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return builtin, nil
+	builtinClouds, err := common.BuiltInClouds()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.sortClouds(personalClouds, publicClouds, builtinClouds), nil
+}
+
+func (c *listCredentialsCommand) sortClouds(maps ...map[string]jujucloud.Cloud) []string {
+	var clouds []string
+	for _, m := range maps {
+		for name := range m {
+			clouds = append(clouds, name)
+		}
+	}
+	sort.Strings(clouds)
+	return clouds
 }
 
 func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
-	var cloudNames []string
-
-	if c.cloudName != "" {
-		cloudNames = []string{c.cloudName}
-	} else {
-		// Find cloud names.
-		personalClouds, err := c.personalClouds()
-		if err != nil {
-			return err
-		}
-		for cloudName := range personalClouds {
-			cloudNames = append(cloudNames, cloudName)
-		}
-		publicClouds, err := c.publicClouds()
-		if err != nil {
-			return err
-		}
-		for cloudName := range publicClouds {
-			cloudNames = append(cloudNames, cloudName)
-		}
-		builtInClouds, err := c.builtInClouds()
-		if err != nil {
-			return err
-		}
-		for cloudName := range builtInClouds {
-			cloudNames = append(cloudNames, cloudName)
-		}
+	cloudNames, err := c.cloudNames()
+	if err != nil {
+		return errors.Annotatef(err, "failed to list available clouds")
 	}
 
 	displayCredentials := make(map[string]CloudCredential)
@@ -209,7 +199,7 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
-			ctxt.Warningf("error loading credential for cloud %v: %v", cloudName, err)
+			ctxt.Infof("error loading credential for cloud %v: %v", cloudName, err)
 			continue
 		}
 		if !c.showSecrets {

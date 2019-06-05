@@ -23,15 +23,15 @@ func JujuCredentialsPath() string {
 
 // ReadCredentialsFile loads all credentials defined in a given file.
 // If the file is not found, it is not an error.
-func ReadCredentialsFile(file string) (*cloud.CredentialContainer, error) {
+func ReadCredentialsFile(file string) (*cloud.CredentialCollection, error) {
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &cloud.CredentialContainer{}, nil
+			return &cloud.CredentialCollection{}, nil
 		}
 		return nil, err
 	}
-	credentials, err := cloud.ParseCredentialContainer(data)
+	credentials, err := cloud.ParseCredentialCollection(data)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func ReadCredentialsFile(file string) (*cloud.CredentialContainer, error) {
 
 // WriteCredentialsFile marshals to YAML details of the given credentials
 // and writes it to the credentials file.
-func WriteCredentialsFile(credentials *cloud.CredentialContainer) error {
+func WriteCredentialsFile(credentials *cloud.CredentialCollection) error {
 	data, err := yaml.Marshal(credentials)
 	if err != nil {
 		return errors.Annotate(err, "cannot marshal yaml credentials")

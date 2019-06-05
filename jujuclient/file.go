@@ -767,11 +767,11 @@ func (s *store) UpdateCredential(cloudName string, details cloud.CloudCredential
 
 // CredentialForCloud implements CredentialGetter.
 func (s *store) CredentialForCloud(cloudName string) (*cloud.CloudCredential, error) {
-	credentialContainer, err := ReadCredentialsFile(JujuCredentialsPath())
+	credentialCollection, err := ReadCredentialsFile(JujuCredentialsPath())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	credential, err := credentialContainer.CloudCredential(cloudName)
+	credential, err := credentialCollection.CloudCredential(cloudName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -780,14 +780,14 @@ func (s *store) CredentialForCloud(cloudName string) (*cloud.CloudCredential, er
 
 // AllCredentials implements CredentialGetter.
 func (s *store) AllCredentials() (map[string]cloud.CloudCredential, error) {
-	credentialContainer, err := ReadCredentialsFile(JujuCredentialsPath())
+	credentialCollection, err := ReadCredentialsFile(JujuCredentialsPath())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cloudNames := credentialContainer.CloudNames()
+	cloudNames := credentialCollection.CloudNames()
 	cloudCredentials := make(map[string]cloud.CloudCredential)
 	for _, cloud := range cloudNames {
-		v, err := credentialContainer.CloudCredential(cloud)
+		v, err := credentialCollection.CloudCredential(cloud)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
