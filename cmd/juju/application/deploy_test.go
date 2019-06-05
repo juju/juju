@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/loggo"
@@ -570,8 +569,6 @@ func (s *DeploySuite) TestErrorDeployingBundlesRequiringTrust(c *gc.C) {
 			expAppList: []string{"aws-integrator"},
 		},
 	}
-
-	s.SetFeatureFlags(feature.TrustedBundles)
 
 	for specIndex, spec := range specs {
 		c.Logf("[spec %d] %s", specIndex, spec.descr)

@@ -18,7 +18,6 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/os/series"
 	"github.com/juju/romulus"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
@@ -47,7 +46,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
@@ -846,7 +844,7 @@ func (c *DeployCommand) deployBundle(spec bundleDeploySpec) (rErr error) {
 	}
 
 	// Short-circuit trust checks if the operator specifies '--force'
-	if featureflag.Enabled(feature.TrustedBundles) && !c.Trust {
+	if !c.Trust {
 		if tl := appsRequiringTrust(spec.bundleData.Applications); len(tl) != 0 && !c.Force {
 			return errors.Errorf(`Bundle cannot be deployed without trusting applications with your cloud credentials.
 Please repeat the deploy command with the --trust argument if you consent to trust the following application(s):
