@@ -535,7 +535,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 
 	"global-clock-updater": {
 		"agent",
-		"clock",
 		"is-controller-flag",
 		"legacy-leases-flag",
 		"state",

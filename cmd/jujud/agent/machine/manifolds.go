@@ -504,7 +504,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// If the legacy-leases feature flag is set the global clock
 		// updater updates the lease clock in the database.  .
 		globalClockUpdaterName: ifLegacyLeasesEnabled(globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
-			ClockName:      clockName,
+			Clock:          config.Clock,
 			StateName:      stateName,
 			NewWorker:      globalclockupdater.NewWorker,
 			UpdateInterval: globalClockUpdaterUpdateInterval,
@@ -514,7 +514,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// We also run another clock updater to feed time updates into
 		// the lease FSM.
 		leaseClockUpdaterName: globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
-			ClockName:        clockName,
+			Clock:            config.Clock,
 			LeaseManagerName: leaseManagerName,
 			RaftName:         raftForwarderName,
 			NewWorker:        globalclockupdater.NewWorker,
