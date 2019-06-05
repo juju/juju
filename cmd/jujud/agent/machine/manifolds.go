@@ -527,7 +527,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// attempt to claim responsibility for running certain workers
 		// that must not be run concurrently by multiple agents.
 		isPrimaryControllerFlagName: ifController(singular.Manifold(singular.ManifoldConfig{
-			ClockName:     clockName,
+			Clock:         config.Clock,
 			APICallerName: apiCallerName,
 			Duration:      config.ControllerLeaseDuration,
 			Claimant:      machineTag,

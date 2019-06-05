@@ -19,7 +19,7 @@ import (
 // ManifoldConfig holds the information necessary to run a FlagWorker in
 // a dependency.Engine.
 type ManifoldConfig struct {
-	ClockName     string
+	Clock         clock.Clock
 	APICallerName string
 	Duration      time.Duration
 	Claimant      names.MachineTag
@@ -29,10 +29,26 @@ type ManifoldConfig struct {
 	NewWorker func(FlagConfig) (worker.Worker, error)
 }
 
+// Validate ensures the required values are set.
+func (config *ManifoldConfig) Validate() error {
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
+	if config.APICallerName == "" {
+		return errors.NotValidf("missing APICallerName")
+	}
+	if config.NewFacade == nil {
+		return errors.NotValidf("nil NewFacade")
+	}
+	if config.NewWorker == nil {
+		return errors.NotValidf("nil NewWorker")
+	}
+	return nil
+}
+
 // start is a method on ManifoldConfig because it's more readable than a closure.
 func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
-	var clock clock.Clock
-	if err := context.Get(config.ClockName, &clock); err != nil {
+	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	var apiCaller base.APICaller
@@ -45,7 +61,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 	flag, err := config.NewWorker(FlagConfig{
-		Clock:    clock,
+		Clock:    config.Clock,
 		Facade:   facade,
 		Duration: config.Duration,
 	})
@@ -75,7 +91,6 @@ func (w wrappedWorker) Wait() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.ClockName,
 			config.APICallerName,
 		},
 		Start: config.start,
