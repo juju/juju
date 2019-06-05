@@ -41,6 +41,13 @@ type APIv2 struct {
 	*BundleAPI
 }
 
+// APIv3 provides the Bundle API facade for version 3. It is otherwise
+// identical to V2 with the exception that the V3 ExportBundle implementation
+// also exposes the the current trust status for each application.
+type APIv3 struct {
+	*BundleAPI
+}
+
 // BundleAPI implements the Bundle interface and is the concrete implementation
 // of the API end point.
 type BundleAPI struct {
@@ -68,6 +75,16 @@ func NewFacadeV2(ctx facade.Context) (*APIv2, error) {
 		return nil, errors.Trace(err)
 	}
 	return &APIv2{api}, nil
+}
+
+// NewFacadeV3 provides the signature required for facade registration
+// for version 3.
+func NewFacadeV3(ctx facade.Context) (*APIv3, error) {
+	api, err := newFacade(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv3{api}, nil
 }
 
 // NewFacade provides the required signature for facade registration.
