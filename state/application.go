@@ -64,6 +64,8 @@ type applicationDoc struct {
 	TxnRevno             int64        `bson:"txn-revno"`
 	MetricCredentials    []byte       `bson:"metric-credentials"`
 
+	// CAAS related attributes.
+	DesiredScale int    `bson:"scale"`
 	PasswordHash string `bson:"passwordhash"`
 	// Placement is the placement directive that should be used allocating units/pods.
 	Placement string `bson:"placement,omitempty"`
@@ -1442,6 +1444,138 @@ func (a *Application) Refresh() error {
 // This is used on CAAS models.
 func (a *Application) GetPlacement() string {
 	return a.doc.Placement
+}
+
+// GetScale returns the application's desired scale value.
+// This is used on CAAS models.
+func (a *Application) GetScale() int {
+	return a.doc.DesiredScale
+}
+
+// ChangeScale alters the existing scale by the provided change amount, returning the new amount.
+// This is used on CAAS models.
+func (a *Application) ChangeScale(scaleChange int) (int, error) {
+	newScale := a.doc.DesiredScale + scaleChange
+	logger.Criticalf("ChangeScale ===========> a.doc.DesiredScale %v, scaleChange %v, newScale %v", a.doc.DesiredScale, scaleChange, newScale)
+	if newScale < 0 {
+		return a.doc.DesiredScale, errors.NotValidf("cannot remove more units than currently exist")
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := a.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			} else if !alive {
+				return nil, applicationNotAliveErr
+			}
+			newScale = a.doc.DesiredScale + scaleChange
+			if newScale < 0 {
+				return nil, errors.NotValidf("cannot remove more units than currently exist")
+			}
+		}
+		ops := []txn.Op{{
+			C:  applicationsC,
+			Id: a.doc.DocID,
+			Assert: bson.D{
+				{"life", Alive},
+				{"charmurl", a.doc.CharmURL},
+				{"unitcount", a.doc.UnitCount},
+				{"scale", a.doc.DesiredScale},
+			},
+			Update: bson.D{{"$set", bson.D{{"scale", newScale}}}},
+		}}
+
+		cloudSvcDoc := cloudServiceDoc{
+			DocID:                 a.globalKey(),
+			DesiredScaleProtected: true,
+		}
+		cloudSvcOp, err := buildCloudServiceOps(a.st, cloudSvcDoc)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, cloudSvcOp...)
+		logger.Warningf("ChangeScale ops -> %#v", ops)
+		return ops, nil
+	}
+	if err := a.st.db().Run(buildTxn); err != nil {
+		logger.Errorf("ChangeScale a.doc.DesiredScale %v, scaleChange %v, newScale %v", a.doc.DesiredScale, scaleChange, newScale)
+		logger.Errorf("ChangeScale err -> %v", err)
+		return a.doc.DesiredScale, errors.Errorf("cannot set scale for application %q to %v: %v", a, newScale, onAbort(err, applicationNotAliveErr))
+	}
+	a.doc.DesiredScale = newScale
+	return newScale, nil
+}
+
+// SetScale sets the application's desired scale value.
+// This is used on CAAS models.
+func (a *Application) SetScale(scale int, generation int64, force bool) error {
+	if scale < 0 {
+		return errors.NotValidf("application scale %d", scale)
+	}
+	svcInfo, err := a.ServiceInfo()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Criticalf("SetScale svcInfo.DesiredScaleProtected() %v, a.doc.DesiredScale %v, scale %v, Generation %v, generation %v", svcInfo.DesiredScaleProtected(), a.doc.DesiredScale, scale, svcInfo.Generation(), generation)
+	if svcInfo.DesiredScaleProtected() && !force && scale != a.doc.DesiredScale {
+		return errors.Forbiddenf("SetScale without force while desired scale %d is not applied yet", a.doc.DesiredScale)
+	}
+	if !force {
+		if generation < svcInfo.Generation() {
+			return errors.Forbiddenf(
+				"application generation %d can not be reverted to %d", svcInfo.Generation(), generation,
+			)
+		}
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := a.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			} else if !alive {
+				return nil, applicationNotAliveErr
+			}
+		}
+		ops := []txn.Op{{
+			C:  applicationsC,
+			Id: a.doc.DocID,
+			Assert: bson.D{
+				{"life", Alive},
+				{"charmurl", a.doc.CharmURL},
+				{"unitcount", a.doc.UnitCount},
+			},
+			Update: bson.D{{"$set", bson.D{{"scale", scale}}}},
+		}}
+		cloudSvcDoc := cloudServiceDoc{
+			DocID: a.globalKey(),
+		}
+		if force {
+			// scale from cli.
+			cloudSvcDoc.DesiredScaleProtected = true
+		} else {
+			// scale from cluster always has a valid generation (>= current generation).
+			cloudSvcDoc.Generation = generation
+		}
+		cloudSvcOp, err := buildCloudServiceOps(a.st, cloudSvcDoc)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, cloudSvcOp...)
+		logger.Warningf("SetScale ops -> %#v", ops)
+		return ops, nil
+	}
+	if err := a.st.db().Run(buildTxn); err != nil {
+		return errors.Errorf("cannot set scale for application %q to %v: %v", a, scale, onAbort(err, applicationNotAliveErr))
+	}
+	a.doc.DesiredScale = scale
+	return nil
 }
 
 // newUnitName returns the next unit name.

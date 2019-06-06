@@ -451,18 +451,17 @@ func (a *Application) WatchScale() NotifyWatcher {
 		if k != a.doc.Name {
 			return false
 		}
-		app, err := a.st.Application(k)
-		if err != nil {
-			return false
-		} 
-		svcInfo, err := app.ServiceInfo()
-		if err != nil {
+		applications, closer := a.st.db().GetCollection(applicationsC)
+		defer closer()
+
+		var scaleField = bson.D{{"scale", 1}}
+		var doc *applicationDoc
+		if err := applications.FindId(k).Select(scaleField).One(&doc); err != nil {
 			return false
 		}
-		desiredScale := svcInfo.GetScale()
-		match := desiredScale != currentScale
-		watchLogger.Criticalf("WatchScale app -> %q, currentScale -> %v, desiredScale -> %v", a.doc.Name, currentScale, desiredScale)
-		currentScale = desiredScale
+		match := doc.DesiredScale != currentScale
+		watchLogger.Criticalf("WatchScale app -> %q, currentScale -> %v, desiredScale -> %v", a.doc.Name, currentScale, doc.DesiredScale)
+		currentScale = doc.DesiredScale
 		return match
 	}
 	return newNotifyCollWatcher(a.st, applicationsC, filter)

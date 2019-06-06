@@ -1123,10 +1123,12 @@ type SaveCloudServiceArgs struct {
 	// Id will be the application Name if it's a part of application,
 	// and will be controller UUID for k8s a controller(controller does not have an application),
 	// then is wrapped with applicationGlobalKey.
-	Id           string
-	ProviderId   string
-	DesiredScale int
-	Addresses    []network.Address
+	Id         string
+	ProviderId string
+	Addresses  []network.Address
+
+	Generation            int64
+	DesiredScaleProtected bool
 }
 
 // SaveCloudService creates a cloud service.
@@ -1134,20 +1136,21 @@ func (st *State) SaveCloudService(args SaveCloudServiceArgs) (_ *CloudService, e
 	defer errors.DeferredAnnotatef(&err, "cannot add cloud service %q", args.ProviderId)
 
 	doc := cloudServiceDoc{
-		DocID:        applicationGlobalKey(args.Id),
-		ProviderId:   args.ProviderId,
-		DesiredScale: args.DesiredScale,
-		Addresses:    fromNetworkAddresses(args.Addresses, OriginProvider),
+		DocID:                 applicationGlobalKey(args.Id),
+		ProviderId:            args.ProviderId,
+		Addresses:             fromNetworkAddresses(args.Addresses, OriginProvider),
+		Generation:            args.Generation,
+		DesiredScaleProtected: args.DesiredScaleProtected,
 	}
-	svc := newCloudService(st, &doc)
 	buildTxn := func(int) ([]txn.Op, error) {
-		return svc.saveServiceOps(doc)
+		return buildCloudServiceOps(st, doc)
 	}
 
 	if err := st.db().Run(buildTxn); err != nil {
 		return nil, errors.Annotate(err, "failed to save cloud service")
 	}
-	return svc, nil
+	// refresh then return updated CloudService.
+	return newCloudService(st, &doc).CloudService()
 }
 
 // CloudService returns a cloud service state by Id.
@@ -1297,20 +1300,11 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		Life:          Alive,
 
 		// CAAS
-		Placement: placement,
+		DesiredScale: scale,
+		Placement:    placement,
 	}
 
 	app := newApplication(st, appDoc)
-
-	cloudServicedoc := cloudServiceDoc{
-		DocID:        applicationID,
-		DesiredScale: scale,
-	}
-	cloudService := newCloudService(st, &cloudServicedoc)
-	cloudServiceOps, err := cloudService.saveServiceOps(cloudServicedoc)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	endpointBindingsOp, err := createEndpointBindingsOp(
 		st, app.globalKey(),
@@ -1384,7 +1378,6 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			return nil, errors.Trace(err)
 		}
 		ops = append(ops, addOps...)
-		ops = append(ops, cloudServiceOps...)
 
 		// Collect peer relation addition operations.
 		//

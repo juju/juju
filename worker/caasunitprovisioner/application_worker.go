@@ -251,12 +251,10 @@ func (aw *applicationWorker) clusterChanged(
 	var scale *int
 	var generation *int64
 	logscale := 0
-	if service != nil {
+	if service != nil && shouldSetScale {
 		generation = service.Generation
-		if shouldSetScale {
-			scale = service.Scale
-			logscale = *service.Scale
-		}
+		scale = service.Scale
+		logscale = *service.Scale
 	}
 	logger.Criticalf("aw.containerBroker.Units(aw.application) %q units --> %v, logscale %v", aw.application, len(units), logscale)
 	args := params.UpdateApplicationUnits{

@@ -216,11 +216,7 @@ func (f *Facade) applicationScale(tagString string) (int, error) {
 	if err != nil {
 		return 0, errors.Trace(err)
 	}
-	serviceInfo, err := app.ServiceInfo()
-	if err != nil {
-		return 0, errors.Trace(err)
-	}
-	return serviceInfo.GetScale(), nil
+	return app.GetScale(), nil
 }
 
 // ProvisioningInfo returns the provisioning info for specified applications in this model.
@@ -686,14 +682,10 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale *int, generation *i
 	}
 	// Update the scale last now that the state
 	// model accurately reflects the cluster pods.
-	serviceInfo, err := app.ServiceInfo()
-	if err != nil {
-		return 0, errors.Trace(err)
-	}
-	currentScale := serviceInfo.GetScale()
+	currentScale := app.GetScale()
 	err = nil
 	if currentScale != *scale {
-		err = serviceInfo.SetScale(*scale, *generation, false)
+		err = app.SetScale(*scale, *generation, false)
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -1228,13 +1220,8 @@ func (a *Facade) UpdateApplicationsService(args params.UpdateApplicationServiceA
 		if err := app.UpdateCloudService(appUpdate.ProviderId, params.NetworkAddresses(appUpdate.Addresses...)); err != nil {
 			result.Results[i].Error = common.ServerError(err)
 		}
-		svcInfo, err := app.ServiceInfo()
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
 		if appUpdate.Scale != nil && appUpdate.Generation != nil {
-			if err := svcInfo.SetScale(*appUpdate.Scale, *appUpdate.Generation, false); err != nil {
+			if err := app.SetScale(*appUpdate.Scale, *appUpdate.Generation, false); err != nil {
 				result.Results[i].Error = common.ServerError(err)
 			}
 		}
