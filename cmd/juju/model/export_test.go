@@ -67,9 +67,9 @@ func NewDumpDBCommandForTest(api DumpDBAPI, store jujuclient.ClientStore) cmd.Co
 }
 
 // NewExportBundleCommandForTest returns a ExportBundleCommand with the api provided as specified.
-func NewExportBundleCommandForTest(api ExportBundleAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &exportBundleCommand{newAPIFunc: func() (ExportBundleAPI, error) {
-		return api, nil
+func NewExportBundleCommandForTest(bundleAPI ExportBundleAPI, cfgAPI ConfigAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &exportBundleCommand{newAPIFunc: func() (ExportBundleAPI, ConfigAPI, error) {
+		return bundleAPI, cfgAPI, nil
 	}}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)

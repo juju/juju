@@ -13,6 +13,7 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -76,9 +77,12 @@ var NewUpdateCloudCommand = func(cloudMetadataStore CloudMetadataStore) cmd.Comm
 func newUpdateCloudCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 	store := jujuclient.NewFileClientStore()
 	c := &updateCloudCommand{
-		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
-		cloudMetadataStore:        cloudMetadataStore,
-		store:                     store,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
+			Store:       store,
+			EnabledFlag: feature.MultiCloud,
+		},
+		cloudMetadataStore: cloudMetadataStore,
+		store:              store,
 	}
 	c.updateCloudAPIFunc = c.updateCloudAPI
 

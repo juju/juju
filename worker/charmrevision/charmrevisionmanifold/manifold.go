@@ -22,7 +22,7 @@ type ManifoldConfig struct {
 
 	// The named dependencies will be exposed to the start func as resources.
 	APICallerName string
-	ClockName     string
+	Clock         clock.Clock
 
 	// The remaining dependencies will be used with the resources to configure
 	// and create the worker. The period must be greater than 0; the NewFacade
@@ -39,12 +39,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.APICallerName,
-			config.ClockName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
-			var clock clock.Clock
-			if err := context.Get(config.ClockName, &clock); err != nil {
-				return nil, errors.Trace(err)
+			if config.Clock == nil {
+				return nil, errors.NotValidf("nil Clock")
 			}
 			var apiCaller base.APICaller
 			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
@@ -57,7 +55,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			worker, err := config.NewWorker(charmrevision.Config{
 				RevisionUpdater: facade,
-				Clock:           clock,
+				Clock:           config.Clock,
 				Period:          config.Period,
 			})
 			if err != nil {

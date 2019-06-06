@@ -323,12 +323,9 @@ func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *gc.C) {
 	c.Assert(manifolds["api-caller"], gc.Not(gc.IsNil))
 	apiCaller := manifolds["api-caller"]
 
-	// Check that when the api-caller maps non-recoverable errors to
-	// ErrTerminateAgent and that it does not create an uninstall file for
-	// the agent.
+	// Check that when the api-caller maps non-recoverable errors to ErrTerminateAgent.
 	err := apiCaller.Filter(apicaller.ErrConnectImpossible)
 	c.Assert(err, gc.Equals, jworker.ErrTerminateAgent)
-	c.Assert(agent.CanUninstall(ag), gc.Equals, false)
 }
 
 func checkContains(c *gc.C, names []string, seek string) {
@@ -508,7 +505,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
-		"clock",
 		"is-controller-flag",
 		"is-primary-controller-flag",
 		"migration-fortress",
@@ -535,7 +531,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 
 	"global-clock-updater": {
 		"agent",
-		"clock",
 		"is-controller-flag",
 		"legacy-leases-flag",
 		"state",
@@ -601,7 +596,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
-		"clock",
 		"is-controller-flag",
 		"state",
 		"state-config-watcher",

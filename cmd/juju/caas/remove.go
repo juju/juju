@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -57,9 +58,13 @@ type RemoveCAASCommand struct {
 func NewRemoveCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 	store := jujuclient.NewFileClientStore()
 	cmd := &RemoveCAASCommand{
-		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
-		cloudMetadataStore:        cloudMetadataStore,
-		store:                     store,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
+			Store:       store,
+			EnabledFlag: feature.MultiCloud,
+		},
+
+		cloudMetadataStore: cloudMetadataStore,
+		store:              store,
 	}
 	cmd.apiFunc = func() (RemoveCloudAPI, error) {
 		root, err := cmd.NewAPIRoot(cmd.store, cmd.controllerName, "")

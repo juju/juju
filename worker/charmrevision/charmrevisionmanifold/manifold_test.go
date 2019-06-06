@@ -29,10 +29,9 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) TestManifold(c *gc.C) {
 	manifold := charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
 		APICallerName: "billy",
-		ClockName:     "bob",
 	})
 
-	c.Check(manifold.Inputs, jc.DeepEquals, []string{"billy", "bob"})
+	c.Check(manifold.Inputs, jc.DeepEquals, []string{"billy"})
 	c.Check(manifold.Start, gc.NotNil)
 	c.Check(manifold.Output, gc.IsNil)
 }
@@ -40,12 +39,11 @@ func (s *ManifoldSuite) TestManifold(c *gc.C) {
 func (s *ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 	manifold := charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
 		APICallerName: "api-caller",
-		ClockName:     "clock",
+		Clock:         fakeClock{},
 	})
 
 	_, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
 		"api-caller": dependency.ErrMissing,
-		"clock":      fakeClock{},
 	}))
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
@@ -53,14 +51,13 @@ func (s *ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 func (s *ManifoldSuite) TestMissingClock(c *gc.C) {
 	manifold := charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
 		APICallerName: "api-caller",
-		ClockName:     "clock",
 	})
 
 	_, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
 		"api-caller": fakeAPICaller{},
-		"clock":      dependency.ErrMissing,
 	}))
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err.Error(), gc.Equals, "nil Clock not valid")
 }
 
 func (s *ManifoldSuite) TestNewFacadeError(c *gc.C) {
@@ -69,7 +66,7 @@ func (s *ManifoldSuite) TestNewFacadeError(c *gc.C) {
 	stub := testing.Stub{}
 	manifold := charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
 		APICallerName: "api-caller",
-		ClockName:     "clock",
+		Clock:         fakeClock{},
 		NewFacade: func(apiCaller base.APICaller) (charmrevisionmanifold.Facade, error) {
 			stub.AddCall("NewFacade", apiCaller)
 			return nil, errors.New("blefgh")
@@ -78,7 +75,6 @@ func (s *ManifoldSuite) TestNewFacadeError(c *gc.C) {
 
 	_, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
 		"api-caller": fakeAPICaller,
-		"clock":      fakeClock{},
 	}))
 	c.Check(err, gc.ErrorMatches, "cannot create facade: blefgh")
 	stub.CheckCalls(c, []testing.StubCall{{
@@ -94,7 +90,7 @@ func (s *ManifoldSuite) TestNewWorkerError(c *gc.C) {
 	stub := testing.Stub{}
 	manifold := charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
 		APICallerName: "api-caller",
-		ClockName:     "clock",
+		Clock:         fakeClock,
 		NewFacade: func(apiCaller base.APICaller) (charmrevisionmanifold.Facade, error) {
 			stub.AddCall("NewFacade", apiCaller)
 			return fakeFacade, nil
@@ -107,7 +103,6 @@ func (s *ManifoldSuite) TestNewWorkerError(c *gc.C) {
 
 	_, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
 		"api-caller": fakeAPICaller,
-		"clock":      fakeClock,
 	}))
 	c.Check(err, gc.ErrorMatches, "cannot create worker: snrght")
 	stub.CheckCalls(c, []testing.StubCall{{
@@ -129,7 +124,7 @@ func (s *ManifoldSuite) TestSuccess(c *gc.C) {
 	stub := testing.Stub{}
 	manifold := charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
 		APICallerName: "api-caller",
-		ClockName:     "clock",
+		Clock:         fakeClock,
 		Period:        10 * time.Minute,
 		NewFacade: func(apiCaller base.APICaller) (charmrevisionmanifold.Facade, error) {
 			stub.AddCall("NewFacade", apiCaller)
@@ -143,7 +138,6 @@ func (s *ManifoldSuite) TestSuccess(c *gc.C) {
 
 	w, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
 		"api-caller": fakeAPICaller,
-		"clock":      fakeClock,
 	}))
 	c.Check(w, gc.Equals, fakeWorker)
 	c.Check(err, jc.ErrorIsNil)
