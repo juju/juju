@@ -28,10 +28,8 @@ const (
 
 func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *Model {
 	m := &Model{
-		Resident: res,
-		metrics:  metrics,
-		// TODO: consider a separate hub per model for better scalability
-		// when many models.
+		Resident:     res,
+		metrics:      metrics,
 		hub:          hub,
 		applications: make(map[string]*Application),
 		charms:       make(map[string]*Charm),
