@@ -90,7 +90,7 @@ func (u *Unit) setDetails(details UnitChange) {
 	machineChange := u.details.MachineId != details.MachineId
 	u.details = details
 	if machineChange || u.details.Subordinate {
-		u.hub.Publish(u.modelTopic(modelUnitLXDProfileAdd), u)
+		u.hub.Publish(u.modelTopic(modelUnitAdd), u)
 	}
 
 	// TODO (manadart 2019-02-11): Maintain hash and publish changes.

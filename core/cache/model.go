@@ -14,16 +14,15 @@ import (
 )
 
 const (
-	// a machine has been added or removed from the model.
-	modelAddRemoveMachine = "model-add-remove-machine"
-	// model config has changed.
+	// Model config has changed.
 	modelConfigChange = "model-config-change"
-	// a unit in the model has been added such than a lxd profile change
-	// maybe be necessary has been made.
-	modelUnitLXDProfileAdd = "model-unit-lxd-profile-add"
-	// a unit in the model has been removed such than a lxd profile change
-	// maybe be necessary has been made.
-	modelUnitLXDProfileRemove = "model-unit-remove"
+	// A machine has been added to, or removed from the model.
+	modelAddRemoveMachine = "model-add-remove-machine"
+	// A unit has landed on a machine, or a subordinate unit has been changed,
+	// Either of which likely indicate the addition of a unit to the model.
+	modelUnitAdd = "model-unit-add"
+	// A unit has been removed from the model.
+	modelUnitRemove = "model-unit-remove"
 )
 
 func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *Model {
@@ -297,7 +296,7 @@ func (m *Model) removeUnit(ch RemoveUnit) error {
 
 	unit, ok := m.units[ch.Name]
 	if ok {
-		m.hub.Publish(m.topic(modelUnitLXDProfileRemove), unitLXDProfileRemove{name: ch.Name, appName: unit.details.Application})
+		m.hub.Publish(m.topic(modelUnitRemove), unitLXDProfileRemove{name: ch.Name, appName: unit.details.Application})
 		if err := unit.evict(); err != nil {
 			return errors.Trace(err)
 		}

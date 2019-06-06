@@ -132,10 +132,10 @@ func (m *Machine) WatchContainers() (*PredicateStringsWatcher, error) {
 
 // WatchLXDProfileVerificationNeeded notifies if any of the following happen
 // relative to this machine:
-//     1. A new unit whose charm has an lxd profile is added.
+//     1. A new unit whose charm has an LXD profile is added.
 //     2. A unit being removed has a profile and other units
 //        exist on the machine.
-//     3. The lxdprofile of an application with a unit on this
+//     3. The LXD profile of an application with a unit on this
 //        machine is added, removed, or exists.
 //     4. The machine's instanceId is changed, indicating it
 //        has been provisioned.
@@ -143,8 +143,8 @@ func (m *Machine) WatchLXDProfileVerificationNeeded() (*MachineLXDProfileWatcher
 	return newMachineLXDProfileWatcher(MachineLXDProfileWatcherConfig{
 		appTopic:         m.model.topic(applicationCharmURLChange),
 		provisionedTopic: m.topic(machineProvisioned),
-		unitAddTopic:     m.model.topic(modelUnitLXDProfileAdd),
-		unitRemoveTopic:  m.model.topic(modelUnitLXDProfileRemove),
+		unitAddTopic:     m.model.topic(modelUnitAdd),
+		unitRemoveTopic:  m.model.topic(modelUnitRemove),
 		machine:          m,
 		modeler:          m.model,
 		metrics:          m.model.metrics,
