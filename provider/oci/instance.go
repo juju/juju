@@ -353,9 +353,6 @@ func (o *ociInstance) getInstanceConfigurator(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if len(addresses) == 0 {
-		return nil, errors.NotFoundf("addresses for instance %q", o.Id())
-	}
 
 	// Try to find a public address.
 	// Different models use different VCNs (and therefore subnets),
