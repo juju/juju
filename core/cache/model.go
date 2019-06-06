@@ -146,15 +146,18 @@ func (m *Model) Machine(machineId string) (*Machine, error) {
 	return machine, nil
 }
 
+// TODO (manadart 2019-05-30): Access to these entities returns copies:
+// - units
+// - branches
+// All of the other entity retrieval should be changed to work in the same
+// fashion, and the lock guarding of member access removed where possible.
+
 // Branch returns the branch with the input name.
 // If the branch is not found, a NotFoundError is returned.
 // All API-level logic identifies active branches by their name whereas they
 // are managed in the cache by ID - we iterate over the map to locate them.
 // We do not expect many active branches to exist at once,
 // so the performance should be acceptable.
-// TODO (manadart 2019-05-30): Note that this returns a copy of the branch.
-// All of the other entity retrieval should be changed to work in the same
-// fashion, and the lock guarding of member access removed where possible.
 func (m *Model) Branch(name string) (Branch, error) {
 	defer m.doLocked()()
 
