@@ -149,8 +149,8 @@ func (c *ControllerGauges) Describe(ch chan<- *prometheus.Desc) {
 	c.ApplicationHashCacheMiss.Describe(ch)
 
 	c.LXDProfileChangeError.Describe(ch)
-	c.LXDProfileChangeHit.Describe(ch)
-	c.LXDProfileChangeMiss.Describe(ch)
+	c.LXDProfileChangeNotification.Describe(ch)
+	c.LXDProfileNoChange.Describe(ch)
 }
 
 // Collect is part of the prometheus.Collector interface.
