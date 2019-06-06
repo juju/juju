@@ -12,14 +12,14 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/status"
+	ociCore "github.com/oracle/oci-go-sdk/core"
 
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/oci/common"
-
-	ociCore "github.com/oracle/oci-go-sdk/core"
+	"github.com/juju/juju/provider/common"
+	ocicommon "github.com/juju/juju/provider/oci/common"
 )
 
 const (
@@ -31,12 +31,15 @@ const (
 )
 
 type ociInstance struct {
-	arch     string
+	raw      ociCore.Instance
 	instType *instances.InstanceType
 	env      *Environ
-	mutex    sync.Mutex
+	arch     string
 	etag     *string
-	raw      ociCore.Instance
+
+	newInstanceConfigurator func(string) common.InstanceConfigurator
+
+	mutex sync.Mutex
 }
 
 type vnicWithIndex struct {
@@ -46,9 +49,9 @@ type vnicWithIndex struct {
 
 var _ instance.Instance = (*ociInstance)(nil)
 var maxPollIterations = 30
-var pollTime time.Duration = 10 * time.Second
+var pollTime = 10 * time.Second
 
-var statusMap map[ociCore.InstanceLifecycleStateEnum]status.Status = map[ociCore.InstanceLifecycleStateEnum]status.Status{
+var statusMap = map[ociCore.InstanceLifecycleStateEnum]status.Status{
 	ociCore.InstanceLifecycleStateProvisioning:  status.Provisioning,
 	ociCore.InstanceLifecycleStateRunning:       status.Running,
 	ociCore.InstanceLifecycleStateStarting:      status.Provisioning,
@@ -66,13 +69,13 @@ func newInstance(raw ociCore.Instance, env *Environ) (*ociInstance, error) {
 			"Instance response does not contain an ID",
 		)
 	}
-	instance := &ociInstance{
-		raw:  raw,
-		env:  env,
-		arch: "amd64",
-	}
 
-	return instance, nil
+	return &ociInstance{
+		raw:                     raw,
+		env:                     env,
+		arch:                    "amd64",
+		newInstanceConfigurator: common.NewSshInstanceConfigurator,
+	}, nil
 }
 
 // SetInstance sets the raw property of ociInstance{}
@@ -93,7 +96,7 @@ func (o *ociInstance) Id() instance.Id {
 // Status implements instance.Instance
 func (o *ociInstance) Status(ctx envcontext.ProviderCallContext) instance.InstanceStatus {
 	if err := o.refresh(); err != nil {
-		common.HandleCredentialError(err, ctx)
+		ocicommon.HandleCredentialError(err, ctx)
 		return instance.InstanceStatus{}
 	}
 	state, ok := statusMap[o.raw.LifecycleState]
@@ -135,8 +138,8 @@ func (o *ociInstance) getAddresses() ([]network.Address, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	addresses := []network.Address{}
 
+	var addresses []network.Address
 	for _, val := range vnics {
 		if val.Vnic.PrivateIp != nil {
 			privateAddress := network.Address{
@@ -161,7 +164,7 @@ func (o *ociInstance) getAddresses() ([]network.Address, error) {
 // Addresses implements instance.Instance
 func (o *ociInstance) Addresses(ctx envcontext.ProviderCallContext) ([]network.Address, error) {
 	addresses, err := o.getAddresses()
-	common.HandleCredentialError(err, ctx)
+	ocicommon.HandleCredentialError(err, ctx)
 	return addresses, err
 }
 
@@ -180,7 +183,7 @@ func (o *ociInstance) waitForPublicIP(ctx envcontext.ProviderCallContext) error 
 	for {
 		addresses, err := o.Addresses(ctx)
 		if err != nil {
-			common.HandleCredentialError(err, ctx)
+			ocicommon.HandleCredentialError(err, ctx)
 			return errors.Trace(err)
 		}
 		if iteration >= maxPollIterations {
@@ -217,7 +220,7 @@ func (o *ociInstance) deleteInstance(ctx envcontext.ProviderCallContext) error {
 	}
 	response, err := o.env.Compute.TerminateInstance(context.Background(), request)
 	if err != nil && !o.env.isNotFound(response.RawResponse) {
-		common.HandleCredentialError(err, ctx)
+		ocicommon.HandleCredentialError(err, ctx)
 		return err
 	}
 	iteration := 0
@@ -226,7 +229,7 @@ func (o *ociInstance) deleteInstance(ctx envcontext.ProviderCallContext) error {
 			if errors.IsNotFound(err) {
 				break
 			}
-			common.HandleCredentialError(err, ctx)
+			ocicommon.HandleCredentialError(err, ctx)
 			return err
 		}
 		logger.Infof("Waiting for machine to transition to Terminating: %s", o.raw.LifecycleState)
@@ -303,4 +306,63 @@ func (o *ociInstance) refresh() error {
 	o.etag = response.Etag
 	o.raw = response.Instance
 	return nil
+}
+
+// OpenPorts (InstanceFirewaller) ensures that the input ingress rule is
+// permitted for machine with the input ID.
+func (o *ociInstance) OpenPorts(
+	ctx envcontext.ProviderCallContext, _ string, rules []network.IngressRule,
+) error {
+	client, err := o.getInstanceConfigurator(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(client.ChangeIngressRules("", true, rules))
+}
+
+// OpenPorts (InstanceFirewaller) ensures that the input ingress rule is
+// restricted for machine with the input ID.
+func (o *ociInstance) ClosePorts(
+	ctx envcontext.ProviderCallContext, _ string, rules []network.IngressRule,
+) error {
+	client, err := o.getInstanceConfigurator(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(client.ChangeIngressRules("", false, rules))
+}
+
+// IngressRules (InstanceFirewaller) returns the ingress rules that have been
+// applied to the input machine ID.
+func (o *ociInstance) IngressRules(
+	ctx envcontext.ProviderCallContext, _ string,
+) ([]network.IngressRule, error) {
+	client, err := o.getInstanceConfigurator(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	rules, err := client.FindIngressRules()
+	return rules, errors.Trace(err)
+}
+
+func (o *ociInstance) getInstanceConfigurator(
+	ctx envcontext.ProviderCallContext,
+) (common.InstanceConfigurator, error) {
+	addresses, err := o.Addresses(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Try to find a public address.
+	// Different models use different VCNs (and therefore subnets),
+	// so the cloud-local IPs are no good if a controller is trying to
+	// configure an instance in another model.
+	for _, addr := range addresses {
+		if addr.Scope == network.ScopePublic {
+			return o.newInstanceConfigurator(addr.Value), nil
+		}
+	}
+
+	return nil, errors.NotFoundf("public address for instance %q", o.Id())
 }
