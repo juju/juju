@@ -20,6 +20,7 @@ const (
 
 // Implementations of this interface should provide a way to configure external
 // IP allocation and add firewall functionality.
+//go:generate mockgen -package mocks -destination mocks/instance_configurator.go github.com/juju/juju/provider/common InstanceConfigurator
 type InstanceConfigurator interface {
 
 	// Close all ports.
@@ -117,9 +118,6 @@ func (c *sshInstanceConfigurator) ConfigureExternalIpAddress(apiPort int) error 
 	cmds := ConfigureExternalIpAddressCommands(apiPort)
 	output, err := c.runCommand(strings.Join(cmds, "\n"))
 	if err != nil {
-		return errors.Errorf("failed to drop all ports: %s", output)
-	}
-	if err != nil {
 		return errors.Errorf("failed to allocate external IP address: %s", output)
 	}
 	logger.Tracef("configure external ip address output: %s", output)
@@ -139,7 +137,7 @@ func (c *sshInstanceConfigurator) ChangeIngressRules(ipAddress string, insert bo
 
 	output, err := c.runCommand(strings.Join(cmds, "\n"))
 	if err != nil {
-		return errors.Errorf("failed to configure ports on external network: %s", output)
+		return errors.Annotatef(err, "configuring ports for address %q: %s", ipAddress, output)
 	}
 	logger.Tracef("change ports output: %s", output)
 	return nil

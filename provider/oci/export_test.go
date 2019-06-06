@@ -3,18 +3,19 @@
 
 package oci
 
-import "github.com/juju/clock"
+import (
+	"github.com/juju/clock"
+	"github.com/juju/juju/provider/common"
+	"github.com/oracle/oci-go-sdk/core"
+)
 
 var (
 	InstanceTypes          = instanceTypes
 	RefreshImageCache      = refreshImageCache
-	FindInstanceSpec       = findInstanceSpec
-	GetImageType           = getImageType
 	ShapeSpecs             = shapeSpecs
 	SetImageCache          = setImageCache
 	NewInstance            = newInstance
 	MaxPollIterations      = &maxPollIterations
-	PollTime               = &pollTime
 	AllProtocols           = allProtocols
 	OciStorageProviderType = ociStorageProviderType
 	OciVolumeType          = ociVolumeType
@@ -24,4 +25,16 @@ var (
 
 func (e *Environ) SetClock(clock clock.Clock) {
 	e.clock = clock
+}
+
+func NewInstanceWithConfigurator(
+	raw core.Instance, env *Environ, factory func(string) common.InstanceConfigurator,
+) (*ociInstance, error) {
+	i, err := newInstance(raw, env)
+	if err != nil {
+		return nil, err
+	}
+
+	i.newInstanceConfigurator = factory
+	return i, nil
 }
