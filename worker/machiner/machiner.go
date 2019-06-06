@@ -32,10 +32,6 @@ type Config struct {
 	// ClearMachineAddressesOnStart indicates whether or not to clear
 	// the machine's machine addresses when the worker starts.
 	ClearMachineAddressesOnStart bool
-
-	// NotifyMachineDead will, if non-nil, be called after the machine
-	// is transitioned to the Dead lifecycle state.
-	NotifyMachineDead func() error
 }
 
 // Validate reports whether or not the configuration is valid.
@@ -196,15 +192,6 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 			logger.Errorf("failed to set status for error %v ", err)
 		}
 		return errors.Trace(err)
-	}
-	// Report on the machine's death. It is important that we do this after
-	// the machine is Dead, because this is the mechanism we use to clean up
-	// the machine (uninstall). If we were to report before marking the machine
-	// as Dead, then we would risk uninstalling prematurely.
-	if mr.config.NotifyMachineDead != nil {
-		if err := mr.config.NotifyMachineDead(); err != nil {
-			return errors.Annotate(err, "reporting machine death")
-		}
 	}
 	return jworker.ErrTerminateAgent
 }
