@@ -75,21 +75,23 @@ func (m *Machine) ContainerType() instance.ContainerType {
 
 // Units returns all the units that have been assigned to the machine
 // including subordinates.
-func (m *Machine) Units() ([]*Unit, error) {
+func (m *Machine) Units() ([]Unit, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	result := make([]*Unit, 0)
-	for unitName, unit := range m.model.units {
-		if unit.details.MachineId == m.details.Id {
+	units := m.model.Units()
+
+	result := make([]Unit, 0)
+	for unitName, unit := range units {
+		if unit.MachineId() == m.details.Id {
 			result = append(result, unit)
 		}
 		if unit.details.Subordinate {
-			principalUnit, found := m.model.units[unit.details.Principal]
+			principalUnit, found := units[unit.Principal()]
 			if !found {
-				return result, errors.NotFoundf("principal unit %q for subordinate %s", unit.details.Principal, unitName)
+				return result, errors.NotFoundf("principal unit %q for subordinate %s", unit.Principal(), unitName)
 			}
-			if principalUnit.details.MachineId == m.details.Id {
+			if principalUnit.MachineId() == m.details.Id {
 				result = append(result, unit)
 			}
 		}

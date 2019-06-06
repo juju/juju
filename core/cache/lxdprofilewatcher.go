@@ -30,7 +30,7 @@ type MachineLXDProfileWatcher struct {
 type MachineAppModeler interface {
 	Application(string) (*Application, error)
 	Charm(string) (*Charm, error)
-	Unit(string) (*Unit, error)
+	Unit(string) (Unit, error)
 }
 
 type appInfo struct {

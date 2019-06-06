@@ -166,6 +166,32 @@ func (m *Model) Branch(name string) (Branch, error) {
 	return Branch{}, errors.NotFoundf("branch %q", name)
 }
 
+// Units returns all units in the model.
+func (m *Model) Units() map[string]Unit {
+	m.mu.Lock()
+
+	units := make(map[string]Unit, len(m.units))
+	for name, u := range m.units {
+		units[name] = u.copy()
+	}
+
+	m.mu.Unlock()
+
+	return units
+}
+
+// Unit returns the unit with the input name.
+// If the unit is not found, a NotFoundError is returned.
+func (m *Model) Unit(unitName string) (Unit, error) {
+	defer m.doLocked()()
+
+	unit, found := m.units[unitName]
+	if !found {
+		return Unit{}, errors.NotFoundf("unit %q", unitName)
+	}
+	return unit.copy(), nil
+}
+
 // WatchMachines returns a PredicateStringsWatcher to notify about
 // added and removed machines in the model.  The initial event contains
 // a slice of the current machine ids.  Containers are excluded.
@@ -199,18 +225,6 @@ func (m *Model) WatchMachines() (*PredicateStringsWatcher, error) {
 	})
 
 	return w, nil
-}
-
-// Unit returns the unit with the input name.
-// If the unit is not found, a NotFoundError is returned.
-func (m *Model) Unit(unitName string) (*Unit, error) {
-	defer m.doLocked()()
-
-	unit, found := m.units[unitName]
-	if !found {
-		return nil, errors.NotFoundf("unit %q", unitName)
-	}
-	return unit, nil
 }
 
 // updateApplication adds or updates the application in the model.

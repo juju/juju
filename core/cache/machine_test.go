@@ -209,20 +209,21 @@ func (s *machineSuite) setupMachine0Container(c *gc.C) {
 	s.model.UpdateMachine(mc, s.Manager)
 }
 
-func (s *machineSuite) setupMachineWithUnits(c *gc.C, machineId string, apps []string) (*cache.Machine, []*cache.Unit) {
+func (s *machineSuite) setupMachineWithUnits(c *gc.C, machineId string, apps []string) (*cache.Machine, []cache.Unit) {
 	mc := machineChange
 	mc.Id = machineId
 	s.model.UpdateMachine(mc, s.Manager)
 	machine, err := s.model.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	units := make([]*cache.Unit, len(apps))
+	units := make([]cache.Unit, len(apps))
 	for i, name := range apps {
 		uc := unitChange
 		uc.MachineId = machineId
 		uc.Name = name + "/" + machineId
 		uc.Application = name
 		s.model.UpdateUnit(uc, s.Manager)
+
 		unit, err := s.model.Unit(uc.Name)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
@@ -231,7 +232,7 @@ func (s *machineSuite) setupMachineWithUnits(c *gc.C, machineId string, apps []s
 	return machine, units
 }
 
-type orderedUnits []*cache.Unit
+type orderedUnits []cache.Unit
 
 func (o orderedUnits) Len() int {
 	return len(o)
