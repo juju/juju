@@ -106,11 +106,9 @@ func (a *Application) setDetails(details ApplicationChange) {
 	a.mu.Unlock()
 }
 
-// topic prefixes the input string with the model ID and application name.
-// TODO (manadart 2019-03-14) The model ID will not be necessary when there is
-// one hub per model.
+// topic prefixes the input string with the application name.
 func (a *Application) topic(suffix string) string {
-	return a.details.ModelUUID + ":" + a.details.Name + ":" + suffix
+	return a.details.Name + ":" + suffix
 }
 
 func (a *Application) modelTopic(suffix string) string {
