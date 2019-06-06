@@ -68,6 +68,11 @@ func (u *Unit) CharmURL() string {
 	return u.details.CharmURL
 }
 
+// Ports returns the exposed ports for the unit.
+func (u *Unit) Ports() []network.Port {
+	return u.details.Ports
+}
+
 func (u *Unit) setDetails(details UnitChange) {
 	// If this is the first receipt of details, set the removal message.
 	if u.removalMessage == nil {

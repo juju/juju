@@ -5,6 +5,7 @@ package cache_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/network"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	gc "gopkg.in/check.v1"
@@ -173,6 +174,23 @@ func (s *ModelSuite) TestUnitNotFoundError(c *gc.C) {
 	m := s.NewModel(modelChange)
 	_, err := m.Unit("nope")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+}
+
+func (s *ModelSuite) TestUnitReturnsCopy(c *gc.C) {
+	m := s.NewModel(modelChange)
+	m.UpdateUnit(unitChange, s.Manager)
+
+	u1, err := m.Unit(unitChange.Name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make a change to the slice returned in the copy.
+	ports := u1.Ports()
+	ports = append(ports, network.Port{Protocol: "tcp", Number: 54321})
+
+	// Get another copy from the model and ensure it is unchanged.
+	u2, err := m.Unit(unitChange.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u2.Ports(), gc.DeepEquals, unitChange.Ports)
 }
 
 func (s *ModelSuite) TestBranchNotFoundError(c *gc.C) {
