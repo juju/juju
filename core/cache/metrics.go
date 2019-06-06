@@ -138,6 +138,21 @@ func createControllerGauges() *ControllerGauges {
 	}
 }
 
+// Describe is part of the prometheus.Collector interface.
+func (c *ControllerGauges) Describe(ch chan<- *prometheus.Desc) {
+	c.ModelConfigReads.Describe(ch)
+	c.ModelHashCacheHit.Describe(ch)
+	c.ModelHashCacheMiss.Describe(ch)
+
+	c.ApplicationConfigReads.Describe(ch)
+	c.ApplicationHashCacheHit.Describe(ch)
+	c.ApplicationHashCacheMiss.Describe(ch)
+
+	c.LXDProfileChangeError.Describe(ch)
+	c.LXDProfileChangeNotification.Describe(ch)
+	c.LXDProfileNoChange.Describe(ch)
+}
+
 // Collect is part of the prometheus.Collector interface.
 func (c *ControllerGauges) Collect(ch chan<- prometheus.Metric) {
 	c.ModelConfigReads.Collect(ch)
@@ -232,6 +247,8 @@ func NewMetricsCollector(controller *Controller) *Collector {
 
 // Describe is part of the prometheus.Collector interface.
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
+	c.controller.metrics.Describe(ch)
+
 	c.models.Describe(ch)
 	c.machines.Describe(ch)
 	c.applications.Describe(ch)
@@ -279,6 +296,7 @@ func (c *Collector) updateMetrics() {
 }
 
 func (c *Collector) updateModelMetrics(modelUUID string) {
+	logger.Tracef("updating cache metrics for %s", modelUUID)
 	model, err := c.controller.Model(modelUUID)
 	if err != nil {
 		logger.Debugf("error getting model: %v", err)
@@ -303,7 +321,7 @@ func (c *Collector) updateModelMetrics(modelUUID string) {
 		c.units.With(prometheus.Labels{
 			agentStatusLabel:    string(unit.details.AgentStatus.Status),
 			lifeLabel:           string(unit.details.Life),
-			instanceStatusLabel: string(unit.details.WorkloadStatus.Status),
+			workloadStatusLabel: string(unit.details.WorkloadStatus.Status),
 		}).Inc()
 	}
 

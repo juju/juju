@@ -248,10 +248,8 @@ func (e *manualEnviron) Destroy(ctx context.ProviderCallContext) error {
 // DestroyController implements the Environ interface.
 func (e *manualEnviron) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
 	script := `
-# Signal the jujud process to stop, then check it has done so before cleaning-up
-# after it.
+# Signal the jujud process to stop, then check it has done so.
 set -x
-touch %[1]s
 
 stopped=0
 function wait_for_jujud {
@@ -276,19 +274,14 @@ wait_for_jujud
 
 [[ $stopped -ne 1 ]] && {
     # If jujud didn't stop nicely, we kill it hard here.
-    %[2]spkill -SIGKILL jujud && wait_for_jujud
+    %[1]spkill -SIGKILL jujud && wait_for_jujud
 }
 [[ $stopped -ne 1 ]] && {
-    echo jujud removal failed
+    echo stopping jujud failed
     logger --id $(ps -o pid,cmd,state -p $(pgrep jujud) | awk 'NR != 1 {printf("Process %%d (%%s) has state %%s\n", $1, $2, $3)}')
     exit 1
 }
-service %[3]s stop && logger --id stopped %[3]s
-apt-get -y purge juju-mongo*
-apt-get -y autoremove
-rm -f /etc/init/juju*
-rm -f /etc/systemd/system{,/multi-user.target.wants}/juju*
-rm -fr %[4]s %[5]s
+service %[2]s stop && logger --id stopped %[2]s
 exit 0
 `
 	var diagnostics string
@@ -302,17 +295,8 @@ exit 0
 	}
 	script = fmt.Sprintf(
 		script,
-		// WARNING: this is linked with the use of uninstallFile in
-		// the agent package. Don't change it without extreme care,
-		// and handling for mismatches with already-deployed agents.
-		utils.ShQuote(path.Join(
-			agent.DefaultPaths.DataDir,
-			agent.UninstallFile,
-		)),
 		diagnostics,
 		mongo.ServiceName,
-		utils.ShQuote(agent.DefaultPaths.DataDir),
-		utils.ShQuote(agent.DefaultPaths.LogDir),
 	)
 	logger.Tracef("destroy controller script: %s", script)
 	stdout, stderr, err := runSSHCommand(

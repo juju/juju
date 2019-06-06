@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/loggo"
@@ -571,8 +570,6 @@ func (s *DeploySuite) TestErrorDeployingBundlesRequiringTrust(c *gc.C) {
 		},
 	}
 
-	s.SetFeatureFlags(feature.TrustedBundles)
-
 	for specIndex, spec := range specs {
 		c.Logf("[spec %d] %s", specIndex, spec.descr)
 
@@ -585,6 +582,74 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 		c.Assert(err, gc.Not(gc.IsNil))
 		c.Assert(err.Error(), gc.Equals, expErr)
 	}
+}
+
+func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
+	cfgAttrs := map[string]interface{}{
+		"name": "name",
+		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"type": "foo",
+	}
+	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
+	withAllWatcher(fakeAPI)
+
+	inURL := charm.MustParseURL("cs:~containers/aws-integrator")
+	withCharmRepoResolvable(fakeAPI, inURL)
+
+	// The aws-integrator charm requires trust and since the operator passes
+	// --trust we expect to see a "trust: true" config value in the yaml
+	// config passed to Deplly.
+	//
+	// As withCharmDeployable does not support passing a "ConfigYAML"
+	// it's easier to just invoke it to set up all other calls and then
+	// explicitly Deploy here.
+	withCharmDeployable(
+		fakeAPI, inURL, "bionic",
+		&charm.Meta{Name: "aws-integrator", Series: []string{"bionic"}},
+		nil, false, false, 0, nil, nil,
+	)
+
+	fakeAPI.Call("Deploy", application.DeployArgs{
+		CharmID:         jjcharmstore.CharmID{URL: inURL},
+		ApplicationName: inURL.Name,
+		Series:          "bionic",
+		ConfigYAML:      "aws-integrator:\n  trust: \"true\"\n",
+	}).Returns(error(nil))
+	fakeAPI.Call("Deploy", application.DeployArgs{
+		CharmID:         jjcharmstore.CharmID{URL: inURL},
+		ApplicationName: inURL.Name,
+		Series:          "bionic",
+	}).Returns(errors.New("expected Deploy for aws-integrator to be called with 'trust: true'"))
+
+	fakeAPI.Call("AddUnits", application.AddUnitsParams{
+		ApplicationName: "aws-integrator",
+		NumUnits:        1,
+	}).Returns([]string{"aws-integrator/0"}, error(nil))
+
+	// The second charm from the bundle does not require trust so no
+	// additional configuration should be injected
+	ubURL := charm.MustParseURL("cs:~jameinel/ubuntu-lite-7")
+	withCharmRepoResolvable(fakeAPI, ubURL)
+	withCharmDeployable(
+		fakeAPI, ubURL, "bionic",
+		&charm.Meta{Name: "ubuntu-lite", Series: []string{"bionic"}},
+		nil, false, false, 0, nil, nil,
+	)
+
+	fakeAPI.Call("AddUnits", application.AddUnitsParams{
+		ApplicationName: "ubuntu-lite",
+		NumUnits:        1,
+	}).Returns([]string{"ubuntu-lite/0"}, error(nil))
+
+	deploy := &DeployCommand{
+		NewAPIRoot: func() (DeployAPI, error) {
+			return fakeAPI, nil
+		},
+	}
+
+	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "aws-integrator-trust-single")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), bundlePath, "--trust")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type fakeProvider struct {
@@ -960,7 +1025,7 @@ func (s *DeploySuite) TestDeployFlags(c *gc.C) {
 	c.Assert(command.flagSet, jc.DeepEquals, flagSet)
 	// Add to the slice below if a new flag is introduced which is valid for
 	// both charms and bundles.
-	charmAndBundleFlags := []string{"channel", "storage", "device", "force"}
+	charmAndBundleFlags := []string{"channel", "storage", "device", "force", "trust"}
 	var allFlags []string
 	flagSet.VisitAll(func(flag *gnuflag.Flag) {
 		allFlags = append(allFlags, flag.Name)
