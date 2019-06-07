@@ -1357,7 +1357,6 @@ func (e *exporter) readAllCloudServices() (map[string]*cloudServiceDoc, error) {
 }
 
 func (e *exporter) cloudService(doc *cloudServiceDoc) *description.CloudServiceArgs {
-	// TODO: Update description.CloudServiceArgs to match cloudServiceDoc ???
 	return &description.CloudServiceArgs{
 		ProviderId: doc.ProviderId,
 		Addresses:  e.newAddressArgsSlice(doc.Addresses),

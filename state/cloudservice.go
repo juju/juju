@@ -22,6 +22,7 @@ type CloudServicer interface {
 
 	// Generation returns the service config generation.
 	Generation() int64
+
 	// DesiredScaleProtected indicates if current desired scale in application has been applied to the cluster.
 	DesiredScaleProtected() bool
 }
@@ -39,7 +40,7 @@ type cloudServiceDoc struct {
 	ProviderId string    `bson:"provider-id"`
 	Addresses  []address `bson:"addresses"`
 
-	// generation is the version of current service configuration.
+	// Generation is the version of current service configuration.
 	// It prevents the scale updated to replicas of the older/previous gerenations of deployment/statefulset.
 	// Currently only DesiredScale is versioned.
 	Generation int64 `bson:"generation"`
@@ -58,27 +59,27 @@ func newCloudService(st *State, doc *cloudServiceDoc) *CloudService {
 	return svc
 }
 
-// Id implements CloudService.
+// Id implements CloudServicer.
 func (c *CloudService) Id() string {
 	return c.doc.DocID
 }
 
-// ProviderId implements CloudService.
+// ProviderId implements CloudServicer.
 func (c *CloudService) ProviderId() string {
 	return c.doc.ProviderId
 }
 
-// Addresses implements CloudService.
+// Addresses implements CloudServicer.
 func (c *CloudService) Addresses() []network.Address {
 	return networkAddresses(c.doc.Addresses)
 }
 
-// Generation implements CloudService.
+// Generation implements CloudServicer.
 func (c *CloudService) Generation() int64 {
 	return c.doc.Generation
 }
 
-// DesiredScaleProtected implements CloudService.
+// DesiredScaleProtected implements CloudServicer.
 func (c *CloudService) DesiredScaleProtected() bool {
 	return c.doc.DesiredScaleProtected
 }
@@ -149,8 +150,6 @@ func buildCloudServiceOps(st *State, doc cloudServiceDoc) ([]txn.Op, error) {
 	if doc.DesiredScaleProtected != existing.DesiredScaleProtected {
 		addField(bson.DocElem{"desired-scale-protected", doc.DesiredScaleProtected})
 	}
-	logger.Criticalf("buildCloudServiceOps doc ==> %#v", doc)
-	logger.Criticalf("buildCloudServiceOps patchFields ==> %#v", patchFields)
 	return []txn.Op{{
 		C:  cloudServicesC,
 		Id: existing.DocID,

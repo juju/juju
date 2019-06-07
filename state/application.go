@@ -1456,7 +1456,7 @@ func (a *Application) GetScale() int {
 // This is used on CAAS models.
 func (a *Application) ChangeScale(scaleChange int) (int, error) {
 	newScale := a.doc.DesiredScale + scaleChange
-	logger.Criticalf("ChangeScale ===========> a.doc.DesiredScale %v, scaleChange %v, newScale %v", a.doc.DesiredScale, scaleChange, newScale)
+	logger.Tracef("ChangeScale DesiredScale %v, scaleChange %v, newScale %v", a.doc.DesiredScale, scaleChange, newScale)
 	if newScale < 0 {
 		return a.doc.DesiredScale, errors.NotValidf("cannot remove more units than currently exist")
 	}
@@ -1500,8 +1500,6 @@ func (a *Application) ChangeScale(scaleChange int) (int, error) {
 		return ops, nil
 	}
 	if err := a.st.db().Run(buildTxn); err != nil {
-		logger.Errorf("ChangeScale a.doc.DesiredScale %v, scaleChange %v, newScale %v", a.doc.DesiredScale, scaleChange, newScale)
-		logger.Errorf("ChangeScale err -> %v", err)
 		return a.doc.DesiredScale, errors.Errorf("cannot set scale for application %q to %v: %v", a, newScale, onAbort(err, applicationNotAliveErr))
 	}
 	a.doc.DesiredScale = newScale
@@ -1518,7 +1516,10 @@ func (a *Application) SetScale(scale int, generation int64, force bool) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Criticalf("SetScale svcInfo.DesiredScaleProtected() %v, a.doc.DesiredScale %v, scale %v, Generation %v, generation %v", svcInfo.DesiredScaleProtected(), a.doc.DesiredScale, scale, svcInfo.Generation(), generation)
+	logger.Tracef(
+		"SetScale DesiredScaleProtected %v, DesiredScale %v -> %v, Generation %v -> %v",
+		svcInfo.DesiredScaleProtected(), a.doc.DesiredScale, scale, svcInfo.Generation(), generation,
+	)
 	if svcInfo.DesiredScaleProtected() && !force && scale != a.doc.DesiredScale {
 		return errors.Forbiddenf("SetScale(%d) without force while desired scale %d is not applied yet", scale, a.doc.DesiredScale)
 	}
@@ -2111,7 +2112,6 @@ func allUnits(st *State, application string) (units []*Unit, err error) {
 	for i := range docs {
 		units = append(units, newUnit(st, m.Type(), &docs[i]))
 	}
-	logger.Criticalf("allUnits len(docs) %v, len(units) %v", len(docs), len(units))
 	return units, nil
 }
 

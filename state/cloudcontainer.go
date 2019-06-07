@@ -86,7 +86,6 @@ func (u *Unit) cloudContainer() (*cloudContainerDoc, error) {
 
 	var doc cloudContainerDoc
 	err := coll.FindId(u.globalKey()).One(&doc)
-	// logger.Criticalf("cloudContainer id %q, doc %+v", u.globalKey(), doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("cloud container for unit %v", u.Name())
 	}

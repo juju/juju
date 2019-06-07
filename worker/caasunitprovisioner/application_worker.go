@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/caas"
-	names "gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/apiserver/params"
@@ -134,7 +134,6 @@ func (aw *applicationWorker) loop() error {
 		if appDeploymentWatcher == nil {
 			appDeploymentWatcher, err = aw.serviceBroker.WatchService(aw.application)
 			if err != nil {
-				logger.Errorf("failed to start deployment watcher for %q, err -> %v", aw.application, err)
 				if strings.Contains(err.Error(), "unexpected EOF") {
 					logger.Warningf("k8s cloud hosting %q has disappeared", aw.application)
 					return nil
@@ -160,13 +159,13 @@ func (aw *applicationWorker) loop() error {
 			if err != nil && !errors.IsNotFound(err) {
 				return errors.Trace(err)
 			}
+			logger.Debugf("service for %v: %+v", aw.application, service)
 			if err := aw.clusterChanged(service, lastReportedStatus, true); err != nil {
 				// TODO(caas): change the shouldSetScale to false here once appDeploymentWatcher can get all events from k8s.
 				return errors.Trace(err)
 			}
 		case _, ok := <-appDeploymentWatcher.Changes():
 			logger.Debugf("deployment changed: %#v", ok)
-			logger.Warningf("deployment changed: %#v", ok)
 			if !ok {
 				logger.Debugf("%v", appDeploymentWatcher.Wait())
 				worker.Stop(appDeploymentWatcher)
@@ -174,12 +173,6 @@ func (aw *applicationWorker) loop() error {
 				continue
 			}
 			service, err := aw.serviceBroker.GetService(aw.application, false)
-			var testScale int
-			if service.Scale != nil {
-				testScale = *service.Scale
-			}
-			// TODO: appDeploymentWatcher is listening to mkubectl edit replicaset change!!!!
-			logger.Warningf("deployment changed service.Id %q service.Generation %v, service.Scale %v, testScale %v", service.Id, service.Generation, service.Scale, testScale)
 			if err != nil && !errors.IsNotFound(err) {
 				return errors.Trace(err)
 			}
@@ -254,15 +247,10 @@ func (aw *applicationWorker) clusterChanged(
 	serviceStatus := service.Status
 	var scale *int
 	var generation *int64
-	logscale := 0
 	if service != nil && shouldSetScale {
 		generation = service.Generation
 		scale = service.Scale
-		if service.Scale != nil {
-			logscale = *service.Scale
-		}
 	}
-	logger.Criticalf("aw.containerBroker.Units(aw.application) %q units --> %v, logscale %v", aw.application, len(units), logscale)
 	args := params.UpdateApplicationUnits{
 		ApplicationTag: names.NewApplicationTag(aw.application).String(),
 		Scale:          scale,
@@ -336,7 +324,7 @@ func (aw *applicationWorker) clusterChanged(
 		if !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
-		logger.Warningf("update units %v not found", err)
+		logger.Warningf("update units %v", err)
 	}
 	return nil
 }

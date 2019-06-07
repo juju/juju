@@ -984,7 +984,6 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 			Message: message,
 		}
 	}
-	logger.Criticalf("GetService appName %q, result.Scale %v, Generation %v", appName, result.Scale, result.Generation)
 	return &result, nil
 }
 
@@ -1911,7 +1910,6 @@ func (k *kubernetesClient) WatchService(appName string) (watcher.NotifyWatcher, 
 		return nil, errors.Trace(err)
 	}
 	w1, err := k.newWatcher(sswatcher, appName, k.clock)
-	logger.Criticalf("WatchService w1 -> %v, err -> %v", w1, err)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1925,7 +1923,6 @@ func (k *kubernetesClient) WatchService(appName string) (watcher.NotifyWatcher, 
 		return nil, errors.Trace(err)
 	}
 	w2, err := k.newWatcher(dwatcher, appName, k.clock)
-	logger.Criticalf("WatchService w2 -> %v, err -> %v", w2, err)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1960,8 +1957,7 @@ var jujuPVNameRegexp = regexp.MustCompile(`^(?P<storageName>\D+)-\w+$`)
 func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 	pods := k.client().CoreV1().Pods(k.namespace)
 	podsList, err := pods.List(v1.ListOptions{
-		LabelSelector:        applicationSelector(appName),
-		IncludeUninitialized: true,
+		LabelSelector: applicationSelector(appName),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

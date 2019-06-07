@@ -541,7 +541,7 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale *int, generation *i
 		logger.Debugf("application scale: %v", *scale)
 		if *scale > 0 && len(unitUpdates) == 0 {
 			// no ops for empty units because we can not determine if it's stateful or not in this case.
-			logger.Warningf("ignoring empty event for %q", app.Tag().String())
+			logger.Debugf("ignoring empty k8s event for %q", app.Tag().String())
 			return nil
 		}
 	}
@@ -677,20 +677,19 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale *int, generation *i
 		return errors.Trace(err)
 	}
 
-	if scale == nil || generation == nil {
+	if scale == nil {
 		return nil
 	}
 	// Update the scale last now that the state
 	// model accurately reflects the cluster pods.
 	currentScale := app.GetScale()
-	err = nil
+	var gen int64
+	if generation != nil {
+		gen = *generation
+	}
 	if currentScale != *scale {
-		err = app.SetScale(*scale, *generation, false)
+		return app.SetScale(*scale, gen, false)
 	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	logger.Criticalf("currentScale %v, *scale %v, err %v", currentScale, *scale, err)
 	return nil
 }
 
@@ -1220,8 +1219,12 @@ func (a *Facade) UpdateApplicationsService(args params.UpdateApplicationServiceA
 		if err := app.UpdateCloudService(appUpdate.ProviderId, params.NetworkAddresses(appUpdate.Addresses...)); err != nil {
 			result.Results[i].Error = common.ServerError(err)
 		}
-		if appUpdate.Scale != nil && appUpdate.Generation != nil {
-			if err := app.SetScale(*appUpdate.Scale, *appUpdate.Generation, false); err != nil {
+		if appUpdate.Scale != nil {
+			var generation int64
+			if appUpdate.Generation != nil {
+				generation = *appUpdate.Generation
+			}
+			if err := app.SetScale(*appUpdate.Scale, generation, false); err != nil {
 				result.Results[i].Error = common.ServerError(err)
 			}
 		}

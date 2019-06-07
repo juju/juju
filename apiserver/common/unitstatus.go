@@ -36,8 +36,6 @@ type UnitStatusGetter interface {
 func (c *ModelPresenceContext) UnitStatus(unit UnitStatusGetter) (agent StatusAndErr, workload StatusAndErr) {
 	agent.Status, agent.Err = unit.AgentStatus()
 	workload.Status, workload.Err = unit.Status()
-	logger.Criticalf("workload.Status %+v", workload.Status)
-	logger.Criticalf("agent.Status %+v", agent.Status)
 	if !canBeLost(agent.Status, workload.Status) {
 		// The unit is allocating or installing - there's no point in
 		// enquiring about the agent liveness.

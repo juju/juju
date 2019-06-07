@@ -5,8 +5,8 @@ package caasunitprovisioner
 
 import (
 	"github.com/juju/errors"
-	names "gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/apiserver/params"
@@ -93,7 +93,6 @@ func (w *deploymentWorker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			logger.Criticalf("deployment worker desiredScale changed to %d, %+v", desiredScale, specChan)
 			logger.Debugf("desiredScale changed to %d", desiredScale)
 			if desiredScale > 0 && specChan == nil {
 				var err error
@@ -134,16 +133,13 @@ func (w *deploymentWorker) loop() error {
 			currentScale = 0
 			continue
 		}
-		service, err := w.broker.GetService(w.application, false)
-		if err == nil && service.Scale != nil {
-			currentScale = *service.Scale
-		}
 
 		specStr := info.PodSpec
-		logger.Criticalf("deployment worker currentScale %v, desiredScale %v", currentScale, desiredScale)
 		if desiredScale == currentScale && specStr == currentSpec {
 			continue
 		}
+
+		currentScale = desiredScale
 		currentSpec = specStr
 
 		appConfig, err := w.applicationGetter.ApplicationConfig(w.application)

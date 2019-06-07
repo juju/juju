@@ -329,8 +329,19 @@ func strPtr(s string) *string {
 func intPtr(i int) *int {
 	return &i
 }
+func int64Ptr(i int64) *int64 {
+	return &i
+}
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsStatelessUnits(c *gc.C) {
+	s.assertUpdateApplicationsStatelessUnits(c, true)
+}
+
+func (s *CAASProvisionerSuite) TestUpdateApplicationsStatelessUnitsWithoutGeneration(c *gc.C) {
+	s.assertUpdateApplicationsStatelessUnits(c, false)
+}
+
+func (s *CAASProvisionerSuite) assertUpdateApplicationsStatelessUnits(c *gc.C, withGeneration bool) {
 	s.st.application.units = []caasunitprovisioner.Unit{
 		&mockUnit{name: "gitlab/0", containerInfo: &mockContainerInfo{providerId: "uuid"}, life: state.Alive},
 		&mockUnit{name: "gitlab/1", life: state.Alive},
@@ -349,18 +360,22 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsStatelessUnits(c *gc.C) {
 		{ProviderId: "really-new-uuid", Address: "really-new-address", Ports: []string{"really-new-port"},
 			Status: "running", Info: "really new message"},
 	}
-	args := params.UpdateApplicationUnitArgs{
-		Args: []params.UpdateApplicationUnits{
-			{ApplicationTag: "application-gitlab", Units: units, Scale: intPtr(4)},
-			{ApplicationTag: "application-another", Units: []params.ApplicationUnitParams{}},
-		},
+
+	args := []params.UpdateApplicationUnits{
+		{ApplicationTag: "application-another", Units: []params.ApplicationUnitParams{}},
 	}
-	results, err := s.facade.UpdateApplicationsUnits(args)
+	gitlab := params.UpdateApplicationUnits{ApplicationTag: "application-gitlab", Units: units, Scale: intPtr(4)}
+	if withGeneration {
+		gitlab.Generation = int64Ptr(1)
+	}
+	args = append(args, gitlab)
+
+	results, err := s.facade.UpdateApplicationsUnits(params.UpdateApplicationUnitArgs{Args: args})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
 			{&params.Error{Message: "application another not found", Code: "not found"}},
+			{nil},
 		},
 	})
 	s.st.application.CheckCallNames(c, "Life", "AddOperation", "Name", "GetScale")
@@ -416,9 +431,12 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsScaleChange(c *gc.C) {
 	}
 	args := params.UpdateApplicationUnitArgs{
 		Args: []params.UpdateApplicationUnits{
-			{ApplicationTag: "application-gitlab",
-				Units: units, Scale: intPtr(2),
-				Status: params.EntityStatus{Status: status.Active, Info: "working"}},
+			{
+				ApplicationTag: "application-gitlab",
+				Units:          units,
+				Scale:          intPtr(2),
+				Generation:     int64Ptr(1),
+				Status:         params.EntityStatus{Status: status.Active, Info: "working"}},
 		},
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)
@@ -525,7 +543,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNotAlive(c *gc.C) {
 	}
 	args := params.UpdateApplicationUnitArgs{
 		Args: []params.UpdateApplicationUnits{
-			{ApplicationTag: "application-gitlab", Units: units, Scale: intPtr(3)},
+			{ApplicationTag: "application-gitlab", Units: units, Scale: intPtr(3), Generation: int64Ptr(1)},
 		},
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)
@@ -585,7 +603,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 	s.st.application.scale = 3
 	args := params.UpdateApplicationUnitArgs{
 		Args: []params.UpdateApplicationUnits{
-			{ApplicationTag: "application-gitlab", Units: units, Scale: intPtr(3)},
+			{ApplicationTag: "application-gitlab", Units: units, Scale: intPtr(3), Generation: int64Ptr(1)},
 		},
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)
@@ -716,7 +734,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorageNoBackingVo
 	s.st.application.scale = 1
 	args := params.UpdateApplicationUnitArgs{
 		Args: []params.UpdateApplicationUnits{
-			{ApplicationTag: "application-gitlab", Units: units, Scale: intPtr(1)},
+			{ApplicationTag: "application-gitlab", Units: units, Scale: intPtr(1), Generation: int64Ptr(1)},
 		},
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)

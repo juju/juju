@@ -460,7 +460,6 @@ func (a *Application) WatchScale() NotifyWatcher {
 			return false
 		}
 		match := doc.DesiredScale != currentScale
-		watchLogger.Criticalf("WatchScale app -> %q, currentScale -> %v, desiredScale -> %v", a.doc.Name, currentScale, doc.DesiredScale)
 		currentScale = doc.DesiredScale
 		return match
 	}
