@@ -79,7 +79,7 @@ func InitializeState(
 	dialOpts mongo.DialOpts,
 	newPolicy state.NewPolicyFunc,
 ) (_ *state.Controller, _ *state.Machine, resultErr error) {
-	if c.Tag() != names.NewMachineTag(agent.BootstrapMachineId) {
+	if c.Tag() != names.NewMachineTag(agent.BootstrapControllerId) {
 		return nil, nil, errors.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
 	servingInfo, ok := c.StateServingInfo()
@@ -197,7 +197,7 @@ func InitializeState(
 		}
 	}
 
-	if err := ensureHostedModel(isCAAS, cloudSpec, provider, args, st, ctrl, adminUser, cloudCredentialTag); err != nil {
+	if err := ensureHostedModel(cloudSpec, provider, args, st, ctrl, adminUser, cloudCredentialTag); err != nil {
 		return nil, nil, errors.Annotate(err, "ensuring hosted model")
 	}
 	return ctrl, m, nil
@@ -205,7 +205,6 @@ func InitializeState(
 
 // ensureHostedModel ensures hosted model.
 func ensureHostedModel(
-	isCAAS bool,
 	cloudSpec environs.CloudSpec,
 	provider environs.EnvironProvider,
 	args InitializeStateParams,
@@ -385,7 +384,7 @@ func initBootstrapMachine(
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create bootstrap machine in state")
 	}
-	if m.Id() != agent.BootstrapMachineId {
+	if m.Id() != agent.BootstrapControllerId {
 		return nil, errors.Errorf("bootstrap machine expected id 0, got %q", m.Id())
 	}
 	// Read the machine agent's password and change it to

@@ -1087,7 +1087,7 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineId string, maxWait 
 				return errors.Trace(err)
 			}
 		}
-		if err := st.RemoveControllerMachine(machine); err != nil {
+		if err := st.RemoveControllerNode(machine); err != nil {
 			return errors.Trace(err)
 		}
 	}

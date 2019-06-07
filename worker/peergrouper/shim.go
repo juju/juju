@@ -18,16 +18,16 @@ type StateShim struct {
 	*state.State
 }
 
-func (s StateShim) Machine(id string) (Machine, error) {
+func (s StateShim) ControllerNode(id string) (ControllerNode, error) {
 	return s.State.Machine(id)
+}
+
+func (s StateShim) RemoveControllerNode(c ControllerNode) error {
+	return s.State.RemoveControllerNode(c)
 }
 
 func (s StateShim) Space(name string) (Space, error) {
 	return s.State.Space(name)
-}
-
-func (s StateShim) RemoveControllerMachine(m Machine) error {
-	return s.State.RemoveControllerMachine(m.(*state.Machine))
 }
 
 // MongoSessionShim wraps a *mgo.Session to conform to the

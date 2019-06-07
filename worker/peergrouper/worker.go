@@ -30,10 +30,10 @@ import (
 var logger = loggo.GetLogger("juju.worker.peergrouper")
 
 type State interface {
-	RemoveControllerMachine(m Machine) error
+	RemoveControllerNode(m ControllerNode) error
 	ControllerConfig() (controller.Config, error)
 	ControllerInfo() (*state.ControllerInfo, error)
-	Machine(id string) (Machine, error)
+	ControllerNode(id string) (ControllerNode, error)
 	WatchControllerInfo() state.NotifyWatcher
 	WatchControllerStatusChanges() state.StringsWatcher
 	WatchControllerConfig() state.NotifyWatcher
@@ -43,7 +43,7 @@ type Space interface {
 	Name() string
 }
 
-type Machine interface {
+type ControllerNode interface {
 	Id() string
 	Life() state.Life
 	Status() (status.StatusInfo, error)
@@ -93,23 +93,23 @@ type Hub interface {
 	Publish(topic string, data interface{}) (<-chan struct{}, error)
 }
 
-// pgWorker is a worker which watches the controller machines in state
+// pgWorker is a worker which watches the controller nodes in state
 // as well as the MongoDB replicaset configuration, adding and
-// removing controller machines as they change or are added and
+// removing controller nodes as they change or are added and
 // removed.
 type pgWorker struct {
 	catacomb catacomb.Catacomb
 
 	config Config
 
-	// machineChanges receives events from the machineTrackers when
-	// controller machines change in ways that are relevant to the
+	// controllerChanges receives events from the controllerTrackers when
+	// controller nodes change in ways that are relevant to the
 	// peergrouper.
-	machineChanges chan struct{}
+	controllerChanges chan struct{}
 
-	// machineTrackers holds the workers which track the machines we
-	// are currently watching (all the controller machines).
-	machineTrackers map[string]*machineTracker
+	// controllerTrackers holds the workers which track the nodes we
+	// are currently watching (all the controller nodes).
+	controllerTrackers map[string]*controllerTracker
 
 	// detailsRequests is used to feed details requests from the hub into the main loop.
 	detailsRequests chan string
@@ -173,10 +173,10 @@ func New(config Config) (worker.Worker, error) {
 	}
 
 	w := &pgWorker{
-		config:          config,
-		machineChanges:  make(chan struct{}),
-		machineTrackers: make(map[string]*machineTracker),
-		detailsRequests: make(chan string),
+		config:             config,
+		controllerChanges:  make(chan struct{}),
+		controllerTrackers: make(map[string]*controllerTracker),
+		detailsRequests:    make(chan string),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -224,9 +224,9 @@ func (w *pgWorker) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case <-controllerChanges:
-			// A controller machine was added or removed.
+			// A controller controller was added or removed.
 			logger.Tracef("<-controllerChanges")
-			changed, err := w.updateControllerMachines()
+			changed, err := w.updateControllerNodes()
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -234,19 +234,19 @@ func (w *pgWorker) loop() error {
 				continue
 			}
 			logger.Tracef("controller added or removed, update replica now")
-		case <-w.machineChanges:
-			// One of the controller machines changed.
-			logger.Tracef("<-w.machineChanges")
+		case <-w.controllerChanges:
+			// One of the controller nodes changed.
+			logger.Tracef("<-w.controllerChanges")
 		case <-configChanges:
 			// Controller config has changed.
 			logger.Tracef("<-w.configChanges")
 
 			// If a config change wakes up the loop before the topology has
-			// been represented in the worker's machine trackers, ignore it;
+			// been represented in the worker's controller trackers, ignore it;
 			// errors will occur when trying to determine peer group changes.
 			// Continuing is OK because subsequent invocations of the loop will
 			// pick up the most recent config from state anyway.
-			if len(w.machineTrackers) == 0 {
+			if len(w.controllerTrackers) == 0 {
 				logger.Tracef("no controller information, ignoring config change")
 				continue
 			}
@@ -344,7 +344,7 @@ func (w *pgWorker) watchForControllerChanges() (<-chan struct{}, error) {
 // watchForConfigChanges starts a watcher for changes to controller config.
 // It returns a channel which will receive events if the watcher fires.
 // This is separate from watchForControllerChanges because of the worker loop
-// logic. If controller machines have not changed, then further processing
+// logic. If controller nodes have not changed, then further processing
 // does not occur, whereas we want to re-publish API addresses and check
 // for replica-set changes if either the management or HA space configs have
 // changed.
@@ -356,67 +356,66 @@ func (w *pgWorker) watchForConfigChanges() (<-chan struct{}, error) {
 	return controllerConfigWatcher.Changes(), nil
 }
 
-// updateControllerMachines updates the peergrouper's current list of
-// controller machines, as well as starting and stopping trackers for
+// updateControllerNodes updates the peergrouper's current list of
+// controller nodes, as well as starting and stopping trackers for
 // them as they are added and removed.
-func (w *pgWorker) updateControllerMachines() (bool, error) {
+func (w *pgWorker) updateControllerNodes() (bool, error) {
 	info, err := w.config.State.ControllerInfo()
 	if err != nil {
 		return false, fmt.Errorf("cannot get controller info: %v", err)
 	}
 
-	logger.Debugf("controller machines in state: %#v", info.MachineIds)
+	logger.Debugf("controller nodes in state: %#v", info.MachineIds)
 	changed := false
 
-	// Stop machine goroutines that no longer correspond to controller
-	// machines.
-	for _, m := range w.machineTrackers {
+	// Stop controller goroutines that no longer correspond to controller nodes.
+	for _, m := range w.controllerTrackers {
 		if !inStrings(m.Id(), info.MachineIds) {
 			worker.Stop(m)
-			delete(w.machineTrackers, m.Id())
+			delete(w.controllerTrackers, m.Id())
 			changed = true
 		}
 	}
 
-	// Start machines with no watcher
+	// Start nodes with no watcher
 	for _, id := range info.MachineIds {
-		stm, err := w.config.State.Machine(id)
+		stm, err := w.config.State.ControllerNode(id)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				// If the machine isn't found, it must have been
+				// If the controller isn't found, it must have been
 				// removed and will soon enough be removed
 				// from the controller list. This will probably
 				// never happen, but we'll code defensively anyway.
-				logger.Warningf("machine %q from controller list not found", id)
+				logger.Warningf("controller %q from controller list not found", id)
 				continue
 			}
-			return false, fmt.Errorf("cannot get machine %q: %v", id, err)
+			return false, fmt.Errorf("cannot get controller %q: %v", id, err)
 		}
-		if _, ok := w.machineTrackers[id]; ok {
+		if _, ok := w.controllerTrackers[id]; ok {
 			continue
 		}
-		logger.Debugf("found new machine %q", id)
+		logger.Debugf("found new controller %q", id)
 
-		// Don't add the machine unless it is "Started"
-		machineStatus, err := stm.Status()
+		// Don't add the controller unless it is "Started"
+		nodeStatus, err := stm.Status()
 		if err != nil {
-			return false, errors.Annotatef(err, "cannot get status for machine %q", id)
+			return false, errors.Annotatef(err, "cannot get status for controller %q", id)
 		}
-		// A machine in status Error or Stopped might still be properly running the controller. We still want to treat
-		// it as an active machine, even if we're trying to tear it down.
-		if machineStatus.Status != status.Pending {
-			logger.Debugf("machine %q has started, adding it to peergrouper list", id)
-			tracker, err := newMachineTracker(stm, w.machineChanges)
+		// A controller in status Error or Stopped might still be properly running the controller. We still want to treat
+		// it as an active controller, even if we're trying to tear it down.
+		if nodeStatus.Status != status.Pending {
+			logger.Debugf("controller %q has started, adding it to peergrouper list", id)
+			tracker, err := newControllerTracker(stm, w.controllerChanges)
 			if err != nil {
 				return false, errors.Trace(err)
 			}
 			if err := w.catacomb.Add(tracker); err != nil {
 				return false, errors.Trace(err)
 			}
-			w.machineTrackers[id] = tracker
+			w.controllerTrackers[id] = tracker
 			changed = true
 		} else {
-			logger.Debugf("machine %q not ready: %v", id, machineStatus.Status)
+			logger.Debugf("controller %q not ready: %v", id, nodeStatus.Status)
 		}
 
 	}
@@ -444,10 +443,10 @@ func inStrings(t string, ss []string) bool {
 	return false
 }
 
-// apiServerHostPorts returns the host-ports for each apiserver machine.
+// apiServerHostPorts returns the host-ports for each apiserver controller.
 func (w *pgWorker) apiServerHostPorts() map[string][]network.HostPort {
 	servers := make(map[string][]network.HostPort)
-	for _, m := range w.machineTrackers {
+	for _, m := range w.controllerTrackers {
 		hostPorts := network.AddressesWithPort(m.Addresses(), w.config.APIPort)
 		if len(hostPorts) == 0 {
 			continue
@@ -511,7 +510,7 @@ type stepDownPrimaryError struct {
 }
 
 // updateReplicaSet sets the current replica set members, and applies the
-// given voting status to machines in the state. A mapping of machine ID
+// given voting status to nodes in the state. A mapping of controller ID
 // to replicaset.Member structures is returned.
 func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	info, err := w.peerGroupInfo()
@@ -528,7 +527,7 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 			logger.Debugf("desired peer group members: \n%s", prettyReplicaSetMembers(desired.members))
 		} else {
 			var output []string
-			for id, v := range desired.machineVoting {
+			for id, v := range desired.nodeVoting {
 				output = append(output, fmt.Sprintf("  %s: %v", id, v))
 			}
 			logger.Debugf("no change in desired peer group, voting: \n%s", strings.Join(output, "\n"))
@@ -536,7 +535,7 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	}
 
 	if desired.stepDownPrimary {
-		logger.Infof("mongo primary machine needs to be removed, first requesting it to step down")
+		logger.Infof("mongo primary controller needs to be removed, first requesting it to step down")
 		if err := w.config.MongoSession.StepDownPrimary(); err != nil {
 			// StepDownPrimary should have already handled the io.EOF that mongo might give, so any error we
 			// get is unknown
@@ -551,42 +550,42 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 		}
 	}
 
-	// We cannot change the HasVote flag of a machine in state at exactly
+	// We cannot change the HasVote flag of a controller in state at exactly
 	// the same moment as changing its voting status in the replica set.
 	//
-	// Thus we need to be careful that a machine which is actually a voting
+	// Thus we need to be careful that a controller which is actually a voting
 	// member is not seen to not have a vote, because otherwise
-	// there is nothing to prevent the machine being removed.
+	// there is nothing to prevent the controller being removed.
 	//
 	// To avoid this happening, we make sure when we call SetReplicaSet,
-	// that the voting status of machines is the union of both old
-	// and new voting machines - that is the set of HasVote machines
-	// is a superset of all the actual voting machines.
+	// that the voting status of nodes is the union of both old
+	// and new voting nodes - that is the set of HasVote nodes
+	// is a superset of all the actual voting nodes.
 	//
 	// Only after the call has taken place do we reset the voting status
-	// of the machines that have lost their vote.
+	// of the nodes that have lost their vote.
 	//
 	// If there's a crash, the voting status may not reflect the
 	// actual voting status for a while, but when things come
 	// back on line, it will be sorted out, as desiredReplicaSet
 	// will return the actual voting status.
 	//
-	// Note that we potentially update the HasVote status of the machines even
+	// Note that we potentially update the HasVote status of the nodes even
 	// if the members have not changed.
-	var added, removed []*machineTracker
+	var added, removed []*controllerTracker
 	// Iterate in obvious order so we don't get weird log messages
-	votingIds := make([]string, 0, len(desired.machineVoting))
-	for id := range desired.machineVoting {
+	votingIds := make([]string, 0, len(desired.nodeVoting))
+	for id := range desired.nodeVoting {
 		votingIds = append(votingIds, id)
 	}
 	sortAsInts(votingIds)
 	for _, id := range votingIds {
-		hasVote := desired.machineVoting[id]
-		m := info.machines[id]
+		hasVote := desired.nodeVoting[id]
+		m := info.controllers[id]
 		switch {
-		case hasVote && !m.stm.HasVote():
+		case hasVote && !m.controller.HasVote():
 			added = append(added, m)
-		case !hasVote && m.stm.HasVote():
+		case !hasVote && m.controller.HasVote():
 			removed = append(removed, m)
 		}
 	}
@@ -604,7 +603,7 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 			// We've failed to set the replica set, so revert back
 			// to the previous settings.
 			if err1 := setHasVote(added, false); err1 != nil {
-				logger.Errorf("cannot revert machine voting after failure to change replica set: %v", err1)
+				logger.Errorf("cannot revert controller voting after failure to change replica set: %v", err1)
 			}
 			return nil, &replicaSetError{err}
 		}
@@ -614,25 +613,25 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 		return nil, errors.Annotate(err, "removing non-voters")
 	}
 
-	// Reset machine status for members of the changed peer-group.
+	// Reset controller status for members of the changed peer-group.
 	// Any previous peer-group determination errors result in status
 	// warning messages.
 	for id := range desired.members {
-		if err := w.machineTrackers[id].stm.SetStatus(getStatusInfo("")); err != nil {
+		if err := w.controllerTrackers[id].controller.SetStatus(getStatusInfo("")); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
-	for _, tracker := range info.machines {
-		if tracker.stm.Life() != state.Alive && !tracker.stm.HasVote() {
-			logger.Debugf("removing dying controller machine %s", tracker.Id())
-			if err := w.config.State.RemoveControllerMachine(tracker.stm); err != nil {
-				logger.Errorf("failed to remove dying machine as a controller after removing its vote: %v", err)
+	for _, tracker := range info.controllers {
+		if tracker.controller.Life() != state.Alive && !tracker.controller.HasVote() {
+			logger.Debugf("removing dying controller controller %s", tracker.Id())
+			if err := w.config.State.RemoveControllerNode(tracker.controller); err != nil {
+				logger.Errorf("failed to remove dying controller as a controller after removing its vote: %v", err)
 			}
 		}
 	}
 	for _, removedTracker := range removed {
-		if removedTracker.stm.Life() == state.Alive {
-			logger.Debugf("vote removed from %v but machine is %s", removedTracker.Id(), state.Alive)
+		if removedTracker.controller.Life() == state.Alive {
+			logger.Debugf("vote removed from %v but controller is %s", removedTracker.Id(), state.Alive)
 		}
 	}
 	return desired.members, nil
@@ -658,7 +657,7 @@ func prettyReplicaSetMembers(members map[string]*replicaset.Member) string {
 }
 
 // peerGroupInfo collates current session information about the
-// mongo peer group with information from state machines.
+// mongo peer group with information from state node instances.
 func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 	sts, err := w.config.MongoSession.CurrentStatus()
 	if err != nil {
@@ -676,7 +675,7 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 	}
 
 	logger.Tracef("read peer group info: %# v\n%# v", pretty.Formatter(sts), pretty.Formatter(members))
-	return newPeerGroupInfo(w.machineTrackers, sts.Members, members, w.config.MongoPort, haSpace)
+	return newPeerGroupInfo(w.controllerTrackers, sts.Members, members, w.config.MongoPort, haSpace)
 }
 
 // getHASpaceFromConfig returns a SpaceName from the controller config for
@@ -689,14 +688,14 @@ func (w *pgWorker) getHASpaceFromConfig() (network.SpaceName, error) {
 	return network.SpaceName(config.JujuHASpace()), nil
 }
 
-// setHasVote sets the HasVote status of all the given machines to hasVote.
-func setHasVote(ms []*machineTracker, hasVote bool) error {
+// setHasVote sets the HasVote status of all the given nodes to hasVote.
+func setHasVote(ms []*controllerTracker, hasVote bool) error {
 	if len(ms) == 0 {
 		return nil
 	}
-	logger.Infof("setting HasVote=%v on machines %v", hasVote, ms)
+	logger.Infof("setting HasVote=%v on nodes %v", hasVote, ms)
 	for _, m := range ms {
-		if err := m.stm.SetHasVote(hasVote); err != nil {
+		if err := m.controller.SetHasVote(hasVote); err != nil {
 			return fmt.Errorf("cannot set voting status of %q to %v: %v", m.Id(), hasVote, err)
 		}
 	}

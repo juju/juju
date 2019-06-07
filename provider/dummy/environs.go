@@ -808,7 +808,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 	i := &dummyInstance{
 		id:           BootstrapInstanceId,
 		addresses:    network.NewAddresses("localhost"),
-		machineId:    agent.BootstrapMachineId,
+		machineId:    agent.BootstrapControllerId,
 		series:       series,
 		firewallMode: e.Config().FirewallMode(),
 		state:        estate,

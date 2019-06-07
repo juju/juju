@@ -86,25 +86,27 @@ func DoTestForIPv4AndIPv6(c *gc.C, s testSuite, t func(ipVersion TestIPVersion))
 }
 
 // InitState initializes the fake state with a single replica-set member and
-// numMachines machines primed to vote.
-func InitState(c *gc.C, st *fakeState, numMachines int, ipVersion TestIPVersion) {
+// numNodes nodes primed to vote.
+func InitState(c *gc.C, st *fakeState, numNodes int, ipVersion TestIPVersion) {
 	var ids []string
-	for i := 10; i < 10+numMachines; i++ {
+	for i := 10; i < 10+numNodes; i++ {
 		id := fmt.Sprint(i)
-		m := st.addMachine(id, true)
+		m := st.addController(id, true)
 		m.setAddresses(network.NewAddress(fmt.Sprintf(ipVersion.formatHost, i)))
 		ids = append(ids, id)
 		c.Assert(m.Addresses(), gc.HasLen, 1)
 	}
 	st.setControllers(ids...)
-	st.session.Set(mkMembers("0v", ipVersion))
+	err := st.session.Set(mkMembers("0v", ipVersion))
+	c.Assert(err, jc.ErrorIsNil)
 	st.session.setStatus(mkStatuses("0p", ipVersion))
-	st.machine("10").SetHasVote(true)
+	err = st.controller("10").SetHasVote(true)
+	c.Assert(err, jc.ErrorIsNil)
 	st.setCheck(checkInvariants)
 }
 
 // ExpectedAPIHostPorts returns the expected addresses
-// of the machines as created by InitState.
+// of the nodes as created by InitState.
 func ExpectedAPIHostPorts(n int, ipVersion TestIPVersion) [][]network.HostPort {
 	servers := make([][]network.HostPort, n)
 	for i := range servers {
@@ -178,8 +180,8 @@ func (s *workerSuite) doTestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 	mustNext(c, memberWatcher, "new member status")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v", ipVersion))
 
-	c.Logf("\nadding another machine")
-	m13 := st.addMachine("13", false)
+	c.Logf("\nadding another controller")
+	m13 := st.addController("13", false)
 	m13.setAddresses(network.NewAddress(fmt.Sprintf(ipVersion.formatHost, 13)))
 	st.setControllers("10", "11", "12", "13")
 
@@ -187,24 +189,24 @@ func (s *workerSuite) doTestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3", ipVersion))
 
 	// Remove vote from an existing member; and give it to the new
-	// machine. Also set the status of the new machine to healthy.
-	c.Logf("\nremoving vote from machine 10 and adding it to machine 13")
-	st.machine("10").setWantsVote(false)
+	// controller. Also set the status of the new controller to healthy.
+	c.Logf("\nremoving vote from controller 10 and adding it to controller 13")
+	st.controller("10").setWantsVote(false)
 	mustNext(c, memberWatcher, "waiting for vote switch")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2 3", ipVersion))
 
-	st.machine("13").setWantsVote(true)
+	st.controller("13").setWantsVote(true)
 
 	st.session.setStatus(mkStatuses("0s 1p 2s 3s", ipVersion))
 
-	// Check that the new machine gets the vote and the
-	// old machine loses it.
+	// Check that the new controller gets the vote and the
+	// old controller loses it.
 	mustNext(c, memberWatcher, "waiting for vote switch")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2v 3v", ipVersion))
 
-	c.Logf("\nremoving old machine")
-	// Remove the old machine.
-	st.removeMachine("10")
+	c.Logf("\nremoving old controller")
+	// Remove the old controller.
+	st.removeController("10")
 	st.setControllers("11", "12", "13")
 
 	// Check that it's removed from the members.
@@ -235,22 +237,27 @@ func (s *workerSuite) doTestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipV
 	// setting the membership but fail setting the HasVote
 	// to false.
 	InitState(c, st, 4, ipVersion)
-	st.machine("10").SetHasVote(true)
-	st.machine("11").SetHasVote(true)
-	st.machine("12").SetHasVote(true)
-	st.machine("13").SetHasVote(false)
+	err := st.controller("10").SetHasVote(true)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.controller("11").SetHasVote(true)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.controller("12").SetHasVote(true)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.controller("13").SetHasVote(false)
+	c.Assert(err, jc.ErrorIsNil)
 
-	st.machine("10").setWantsVote(false)
-	st.machine("11").setWantsVote(true)
-	st.machine("12").setWantsVote(true)
-	st.machine("13").setWantsVote(true)
+	st.controller("10").setWantsVote(false)
+	st.controller("11").setWantsVote(true)
+	st.controller("12").setWantsVote(true)
+	st.controller("13").setWantsVote(true)
 
-	st.session.Set(mkMembers("0v 1v 2v 3", ipVersion))
+	err = st.session.Set(mkMembers("0v 1v 2v 3", ipVersion))
+	c.Assert(err, jc.ErrorIsNil)
 	st.session.setStatus(mkStatuses("0H 1p 2s 3s", ipVersion))
 
 	// Make the worker fail to set HasVote to false
 	// after changing the replica set membership.
-	st.errors.setErrorFor("Machine.SetHasVote * false", errors.New("frood"))
+	st.errors.setErrorFor("Controller.SetHasVote * false", errors.New("frood"))
 
 	memberWatcher := st.session.members.Watch()
 	mustNext(c, memberWatcher, "waiting for SetHasVote failure")
@@ -265,7 +272,7 @@ func (s *workerSuite) doTestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipV
 
 	// The worker should encounter an error setting the
 	// has-vote status to false and exit.
-	err := workertest.CheckKilled(c, w)
+	err = workertest.CheckKilled(c, w)
 	c.Assert(err, gc.ErrorMatches, `removing non-voters: cannot set voting status of "[0-9]+" to false: frood`)
 
 	// Start the worker again - although the membership should
@@ -274,11 +281,11 @@ func (s *workerSuite) doTestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipV
 	w = s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
 	defer workertest.CleanKill(c, w)
 
-	// Watch all the machines for changes, so we can check
+	// Watch all the controllers for changes, so we can check
 	// their has-vote status without polling.
 	changed := make(chan struct{}, 1)
 	for i := 10; i < 14; i++ {
-		watcher := st.machine(fmt.Sprint(i)).val.Watch()
+		watcher := st.controller(fmt.Sprint(i)).val.Watch()
 		defer watcher.Close()
 		go func() {
 			for watcher.Next() {
@@ -296,7 +303,7 @@ loop:
 		case <-changed:
 			correct := true
 			for i := 10; i < 14; i++ {
-				hasVote := st.machine(fmt.Sprint(i)).HasVote()
+				hasVote := st.controller(fmt.Sprint(i)).HasVote()
 				expectHasVote := i != 10
 				if hasVote != expectHasVote {
 					correct = false
@@ -330,7 +337,7 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 
 		// Change an address and wait for it to be changed in the
 		// members.
-		st.machine("11").setAddresses(network.NewAddress(ipVersion.extraHost))
+		st.controller("11").setAddresses(network.NewAddress(ipVersion.extraHost))
 
 		mustNext(c, memberWatcher, "waiting for new address")
 		expectMembers := mkMembers("0v 1 2", ipVersion)
@@ -384,7 +391,7 @@ var fatalErrorsTests = []struct {
 	errPattern: "State.ControllerInfo",
 	expectErr:  "cannot get controller info: sample",
 }, {
-	errPattern:   "Machine.SetHasVote 11 true",
+	errPattern:   "Controller.SetHasVote 11 true",
 	expectErr:    `adding new voters: cannot set voting status of "11" to true: sample`,
 	advanceCount: 2,
 }, {
@@ -394,8 +401,8 @@ var fatalErrorsTests = []struct {
 	errPattern: "Session.CurrentMembers",
 	expectErr:  "creating peer group info: cannot get replica set members: sample",
 }, {
-	errPattern: "State.Machine *",
-	expectErr:  `cannot get machine "10": sample`,
+	errPattern: "State.Controller *",
+	expectErr:  `cannot get controller "10": sample`,
 }}
 
 func (s *workerSuite) TestFatalErrors(c *gc.C) {
@@ -494,7 +501,7 @@ func (s *workerSuite) TestControllersArePublished(c *gc.C) {
 		// Change one of the server API addresses and check that it is
 		// published.
 		newMachine10Addresses := network.NewAddresses(ipVersion.extraHost)
-		st.machine("10").setAddresses(newMachine10Addresses...)
+		st.controller("10").setAddresses(newMachine10Addresses...)
 		select {
 		case servers := <-publishCh:
 			expected := ExpectedAPIHostPorts(3, ipVersion)
@@ -587,20 +594,22 @@ func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *gc.C) {
 	var ids []string
 	for i := 10; i < 13; i++ {
 		id := fmt.Sprint(i)
-		m := st.addMachine(id, true)
-		m.SetHasVote(true)
+		m := st.addController(id, true)
+		err := m.SetHasVote(true)
+		c.Assert(err, jc.ErrorIsNil)
 		m.setAddresses(network.NewAddress(fmt.Sprintf(testIPv4.formatHost, i)))
 		ids = append(ids, id)
 		c.Assert(m.Addresses(), gc.HasLen, 1)
 	}
 	st.setControllers(ids...)
-	st.session.Set(mkMembers("0v 1 2", testIPv4))
+	err := st.session.Set(mkMembers("0v 1 2", testIPv4))
+	c.Assert(err, jc.ErrorIsNil)
 	st.session.setStatus(mkStatuses("0p 1s 2s", testIPv4))
 	st.setCheck(checkInvariants)
 
 	hub := pubsub.NewStructuredHub(nil)
 	event := make(chan apiserver.Details)
-	_, err := hub.Subscribe(apiserver.DetailsTopic, func(topic string, data apiserver.Details, err error) {
+	_, err = hub.Subscribe(apiserver.DetailsTopic, func(topic string, data apiserver.Details, err error) {
 		c.Check(err, jc.ErrorIsNil)
 		event <- data
 	})
@@ -654,17 +663,18 @@ func haSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, members string) *f
 	}
 
 	spaces := []string{"one", "two", "three"}
-	machines := []int{10, 11, 12}
-	for _, id := range machines {
-		machine := st.machine(strconv.Itoa(id))
-		machine.SetHasVote(true)
-		machine.setWantsVote(true)
+	controllers := []int{10, 11, 12}
+	for _, id := range controllers {
+		controller := st.controller(strconv.Itoa(id))
+		err := controller.SetHasVote(true)
+		c.Assert(err, jc.ErrorIsNil)
+		controller.setWantsVote(true)
 
-		// Each machine gets 3 addresses in 3 different spaces.
-		// Space "one" address on machine 10 ends with "10"
+		// Each controller gets 3 addresses in 3 different spaces.
+		// Space "one" address on controller 10 ends with "10"
 		// Space "two" address ends with "11"
 		// Space "three" address ends with "12"
-		// Space "one" address on machine 20 ends with "20"
+		// Space "one" address on controller 20 ends with "20"
 		// Space "two" address ends with "21"
 		// ...
 		addrs := make([]network.Address, 3)
@@ -673,10 +683,11 @@ func haSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, members string) *f
 			addr.Scope = network.ScopeCloudLocal
 			addrs[i] = addr
 		}
-		machine.setAddresses(addrs...)
+		controller.setAddresses(addrs...)
 	}
 
-	st.session.Set(mkMembers(members, ipVersion))
+	err := st.session.Set(mkMembers(members, ipVersion))
+	c.Assert(err, jc.ErrorIsNil)
 	return st
 }
 
@@ -694,7 +705,7 @@ func (s *workerSuite) doTestUsesConfiguredHASpace(c *gc.C, ipVersion TestIPVersi
 	// Set one of the statuses to ensure it is cleared upon determination
 	// of a new peer group.
 	now := time.Now()
-	err := st.machine("11").SetStatus(status.StatusInfo{
+	err := st.controller("11").SetStatus(status.StatusInfo{
 		Status:  status.Started,
 		Message: "You said that would be bad, Egon",
 		Since:   &now,
@@ -705,7 +716,7 @@ func (s *workerSuite) doTestUsesConfiguredHASpace(c *gc.C, ipVersion TestIPVersi
 	s.runUntilPublish(c, st, "")
 	assertMemberAddresses(c, st, ipVersion.formatHost, 2)
 
-	sInfo, err := st.machine("11").Status()
+	sInfo, err := st.controller("11").Status()
 	c.Assert(err, gc.IsNil)
 	c.Check(sInfo.Status, gc.Equals, status.Started)
 	c.Check(sInfo.Message, gc.Equals, "")
@@ -817,12 +828,12 @@ func (s *workerSuite) doTestErrorAndStatusForNewPeersAndNoHASpaceAndMachinesWith
 	st := haSpaceTestCommonSetup(c, ipVersion, "0v")
 	err := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true).Wait()
 	errMsg := `computing desired peer group: updating member addresses: ` +
-		`juju-ha-space is not set and these machines have more than one usable address: 1[12], 1[12]` +
+		`juju-ha-space is not set and these nodes have more than one usable address: 1[12], 1[12]` +
 		"\nrun \"juju controller-config juju-ha-space=<name>\" to set a space for Mongo peer communication"
 	c.Check(err, gc.ErrorMatches, errMsg)
 
 	for _, id := range []string{"11", "12"} {
-		sInfo, err := st.machine(id).Status()
+		sInfo, err := st.controller(id).Status()
 		c.Assert(err, gc.IsNil)
 		c.Check(sInfo.Status, gc.Equals, status.Started)
 		c.Check(sInfo.Message, gc.Not(gc.Equals), "")
@@ -845,11 +856,11 @@ func (s *workerSuite) doTestErrorAndStatusForHASpaceWithNoAddresses(
 
 	err := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true).Wait()
 	errMsg := `computing desired peer group: updating member addresses: ` +
-		`no usable Mongo addresses found in configured juju-ha-space "nope" for machines: 1[012], 1[012], 1[012]`
+		`no usable Mongo addresses found in configured juju-ha-space "nope" for nodes: 1[012], 1[012], 1[012]`
 	c.Check(err, gc.ErrorMatches, errMsg)
 
 	for _, id := range []string{"10", "11", "12"} {
-		sInfo, err := st.machine(id).Status()
+		sInfo, err := st.controller(id).Status()
 		c.Assert(err, gc.IsNil)
 		c.Check(sInfo.Status, gc.Equals, status.Started)
 		c.Check(sInfo.Message, gc.Not(gc.Equals), "")
@@ -914,7 +925,8 @@ func (s *workerSuite) doTestWorkerRetriesOnSetAPIHostPortsError(c *gc.C, ipVersi
 func (s *workerSuite) initialize3Voters(c *gc.C) (*fakeState, worker.Worker, *voyeur.Watcher) {
 	st := NewFakeState()
 	InitState(c, st, 1, testIPv4)
-	st.machine("10").SetHasVote(true)
+	err := st.controller("10").SetHasVote(true)
+	c.Assert(err, jc.ErrorIsNil)
 	st.session.setStatus(mkStatuses("0p", testIPv4))
 
 	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
@@ -933,7 +945,7 @@ func (s *workerSuite) initialize3Voters(c *gc.C) (*fakeState, worker.Worker, *vo
 	// Now that 1 has come up successfully, bring in the next 2
 	for i := 11; i < 13; i++ {
 		id := fmt.Sprint(i)
-		m := st.addMachine(id, true)
+		m := st.addController(id, true)
 		m.setAddresses(network.NewAddress(fmt.Sprintf(testIPv4.formatHost, i)))
 		c.Check(m.Addresses(), gc.HasLen, 1)
 	}
@@ -946,8 +958,10 @@ func (s *workerSuite) initialize3Voters(c *gc.C) (*fakeState, worker.Worker, *vo
 	c.Assert(s.clock.WaitAdvance(pollInterval, time.Second, 1), jc.ErrorIsNil)
 	mustNext(c, memberWatcher, "status ok")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v", testIPv4))
-	st.machine("11").SetHasVote(true)
-	st.machine("12").SetHasVote(true)
+	err = st.controller("11").SetHasVote(true)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.controller("12").SetHasVote(true)
+	c.Assert(err, jc.ErrorIsNil)
 	return st, w, memberWatcher
 }
 
@@ -956,20 +970,20 @@ func (s *workerSuite) TestDyingMachinesAreRemoved(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 	// Now we have gotten to a prepared replicaset.
 
-	// When we advance the lifecycle (aka machine.Destroy()), we should notice that the machine no longer wants a vote
-	// machine.Destroy() advances to both Dying and SetWantsVote(false)
-	st.machine("11").advanceLifecycle(state.Dying, false)
+	// When we advance the lifecycle (aka controller.Destroy()), we should notice that the controller no longer wants a vote
+	// controller.Destroy() advances to both Dying and SetWantsVote(false)
+	st.controller("11").advanceLifecycle(state.Dying, false)
 	// we should notice that we want to remove the vote first
 	mustNext(c, memberWatcher, "removing vote")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", testIPv4))
-	// And once we don't have the vote, and we see the machine is Dying we should remove it
-	mustNext(c, memberWatcher, "remove dying machine")
+	// And once we don't have the vote, and we see the controller is Dying we should remove it
+	mustNext(c, memberWatcher, "remove dying controller")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 2", testIPv4))
 
-	// Now, machine 2 no longer has the vote, but if we now flag it as dying,
+	// Now, controller 2 no longer has the vote, but if we now flag it as dying,
 	// then it should also get progressed to dead as well.
-	st.machine("12").advanceLifecycle(state.Dying, false)
-	mustNext(c, memberWatcher, "removing dying machine")
+	st.controller("12").advanceLifecycle(state.Dying, false)
+	mustNext(c, memberWatcher, "removing dying controller")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v", testIPv4))
 }
 
@@ -981,7 +995,7 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 	c.Check(testStatus.Members, gc.DeepEquals, mkStatuses("0p 1s 2s", testIPv4))
 	primaryMemberIndex := 0
 
-	st.machine("10").setWantsVote(false)
+	st.controller("10").setWantsVote(false)
 	// we should notice that the primary has failed, and have called StepDownPrimary which should ultimately cause
 	// a change in the Status.
 	testStatus = mustNextStatus(c, statusWatcher, "stepping down primary")
@@ -1009,9 +1023,9 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 	// of voters, but this is not the normal condition
 	st.setCheck(nil)
 	if primaryMemberIndex == 1 {
-		st.machine("11").setWantsVote(false)
+		st.controller("11").setWantsVote(false)
 	} else {
-		st.machine("12").setWantsVote(false)
+		st.controller("12").setWantsVote(false)
 	}
 	// member watcher must fire first
 	mustNext(c, memberWatcher, "observing member step down")

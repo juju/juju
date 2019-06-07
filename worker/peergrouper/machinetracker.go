@@ -14,16 +14,16 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// machineTracker is a worker which reports changes of interest to
-// the peergrouper for a single machine in state.
-type machineTracker struct {
-	catacomb catacomb.Catacomb
-	notifyCh chan struct{}
-	stm      Machine
+// controllerTracker is a worker which reports changes of interest to
+// the peergrouper for a single controller in state.
+type controllerTracker struct {
+	catacomb   catacomb.Catacomb
+	notifyCh   chan struct{}
+	controller ControllerNode
 
 	mu sync.Mutex
 
-	// Outside of the machineTracker implementation itself, these
+	// Outside of the controllerTracker implementation itself, these
 	// should always be accessed via the getter methods in order to be
 	// protected by the mutex.
 	id        string
@@ -31,13 +31,13 @@ type machineTracker struct {
 	addresses []network.Address
 }
 
-func newMachineTracker(stm Machine, notifyCh chan struct{}) (*machineTracker, error) {
-	m := &machineTracker{
-		notifyCh:  notifyCh,
-		id:        stm.Id(),
-		stm:       stm,
-		addresses: stm.Addresses(),
-		wantsVote: stm.WantsVote(),
+func newControllerTracker(stm ControllerNode, notifyCh chan struct{}) (*controllerTracker, error) {
+	m := &controllerTracker{
+		notifyCh:   notifyCh,
+		id:         stm.Id(),
+		controller: stm,
+		addresses:  stm.Addresses(),
+		wantsVote:  stm.WantsVote(),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &m.catacomb,
@@ -50,107 +50,107 @@ func newMachineTracker(stm Machine, notifyCh chan struct{}) (*machineTracker, er
 }
 
 // Kill implements Worker.
-func (m *machineTracker) Kill() {
-	m.catacomb.Kill(nil)
+func (c *controllerTracker) Kill() {
+	c.catacomb.Kill(nil)
 }
 
 // Wait implements Worker.
-func (m *machineTracker) Wait() error {
-	return m.catacomb.Wait()
+func (c *controllerTracker) Wait() error {
+	return c.catacomb.Wait()
 }
 
-// Id returns the id of the machine being tracked.
-func (m *machineTracker) Id() string {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.id
+// Id returns the id of the controller being tracked.
+func (c *controllerTracker) Id() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.id
 }
 
-// WantsVote returns whether the machine wants to vote (according to
+// WantsVote returns whether the controller wants to vote (according to
 // state).
-func (m *machineTracker) WantsVote() bool {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.wantsVote
+func (c *controllerTracker) WantsVote() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.wantsVote
 }
 
-// Addresses returns the machine addresses from state.
-func (m *machineTracker) Addresses() []network.Address {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	out := make([]network.Address, len(m.addresses))
-	copy(out, m.addresses)
+// Addresses returns the controller addresses from state.
+func (c *controllerTracker) Addresses() []network.Address {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make([]network.Address, len(c.addresses))
+	copy(out, c.addresses)
 	return out
 }
 
-// SelectMongoAddress returns the best address on the machine for MongoDB peer
+// SelectMongoAddress returns the best address on the controller node for MongoDB peer
 // use, using the input space.
 // An error is returned if the empty space is supplied.
-func (m *machineTracker) SelectMongoAddressFromSpace(port int, space network.SpaceName) (string, error) {
+func (c *controllerTracker) SelectMongoAddressFromSpace(port int, space network.SpaceName) (string, error) {
 	if space == "" {
-		return "", fmt.Errorf("empty space supplied as an argument for selecting Mongo address for machine %q", m.id)
+		return "", fmt.Errorf("empty space supplied as an argument for selecting Mongo address for controller node %q", c.id)
 	}
 
-	m.mu.Lock()
-	hostPorts := network.AddressesWithPort(m.addresses, port)
-	m.mu.Unlock()
+	c.mu.Lock()
+	hostPorts := network.AddressesWithPort(c.addresses, port)
+	c.mu.Unlock()
 
 	addrs, ok := network.SelectHostPortsBySpaceNames(hostPorts, space)
 	if ok {
 		addr := addrs[0].NetAddr()
-		logger.Debugf("machine %q selected address %q by space %q from %v", m.id, addr, space, hostPorts)
+		logger.Debugf("controller node %q selected address %q by space %q from %v", c.id, addr, space, hostPorts)
 		return addr, nil
 	}
 
 	// If we end up here, then there are no addresses available in the
 	// specified space. This should not happen, because the configured
 	// space is used as a constraint when first enabling HA.
-	return "", errors.NotFoundf("addresses for machine %q in space %q", m.id, space)
+	return "", errors.NotFoundf("addresses for controller node %q in space %q", c.id, space)
 }
 
 // GetPotentialMongoHostPorts simply returns all the available addresses
 // with the Mongo port appended.
-func (m *machineTracker) GetPotentialMongoHostPorts(port int) []network.HostPort {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return network.AddressesWithPort(m.addresses, port)
+func (c *controllerTracker) GetPotentialMongoHostPorts(port int) []network.HostPort {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return network.AddressesWithPort(c.addresses, port)
 }
 
-func (m *machineTracker) String() string {
-	return m.Id()
+func (c *controllerTracker) String() string {
+	return c.Id()
 }
 
-func (m *machineTracker) GoString() string {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+func (c *controllerTracker) GoString() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	return fmt.Sprintf(
-		"&peergrouper.machine{id: %q, wantsVote: %v, addresses: %v}",
-		m.id, m.wantsVote, m.addresses,
+		"&peergrouper.controller{id: %q, wantsVote: %v, addresses: %v}",
+		c.id, c.wantsVote, c.addresses,
 	)
 }
 
-func (m *machineTracker) loop() error {
-	watcher := m.stm.Watch()
-	if err := m.catacomb.Add(watcher); err != nil {
+func (c *controllerTracker) loop() error {
+	watcher := c.controller.Watch()
+	if err := c.catacomb.Add(watcher); err != nil {
 		return errors.Trace(err)
 	}
 
 	var notifyCh chan struct{}
 	for {
 		select {
-		case <-m.catacomb.Dying():
-			return m.catacomb.ErrDying()
+		case <-c.catacomb.Dying():
+			return c.catacomb.ErrDying()
 		case _, ok := <-watcher.Changes():
 			if !ok {
 				return watcher.Err()
 			}
-			changed, err := m.hasChanged()
+			changed, err := c.hasChanged()
 			if err != nil {
 				return errors.Trace(err)
 			}
 			if changed {
-				notifyCh = m.notifyCh
+				notifyCh = c.notifyCh
 			}
 		case notifyCh <- struct{}{}:
 			notifyCh = nil
@@ -158,29 +158,29 @@ func (m *machineTracker) loop() error {
 	}
 }
 
-func (m *machineTracker) hasChanged() (bool, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+func (c *controllerTracker) hasChanged() (bool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	if err := m.stm.Refresh(); err != nil {
+	if err := c.controller.Refresh(); err != nil {
 		if errors.IsNotFound(err) {
-			// We want to be robust when the machine
+			// We want to be robust when the node
 			// state is out of date with respect to the
-			// controller info, so if the machine
+			// controller info, so if the node
 			// has been removed, just assume that
-			// no change has happened - the machine
+			// no change has happened - the controller
 			// loop will be stopped very soon anyway.
 			return false, nil
 		}
 		return false, errors.Trace(err)
 	}
 	changed := false
-	if wantsVote := m.stm.WantsVote(); wantsVote != m.wantsVote {
-		m.wantsVote = wantsVote
+	if wantsVote := c.controller.WantsVote(); wantsVote != c.wantsVote {
+		c.wantsVote = wantsVote
 		changed = true
 	}
-	if addrs := m.stm.Addresses(); !reflect.DeepEqual(addrs, m.addresses) {
-		m.addresses = addrs
+	if addrs := c.controller.Addresses(); !reflect.DeepEqual(addrs, c.addresses) {
+		c.addresses = addrs
 		changed = true
 	}
 	return changed, nil

@@ -17,20 +17,20 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// jujuMachineKey is the key for the tag where we save a member's machine id.
-const jujuMachineKey = "juju-machine-id"
+// jujuNodeKey is the key for the tag where we save a member's node id.
+const jujuNodeKey = "juju-machine-id"
 
 // peerGroupInfo holds information used in attempting to determine a Mongo
 // peer group.
 type peerGroupInfo struct {
-	// Maps below are keyed on machine ID.
+	// Maps below are keyed on node ID.
 
-	// machines holds the machineTrackers for known controller machines sourced from the peergrouper
-	// worker. Indexed by machine.Id()
-	machines map[string]*machineTracker
+	// controllers holds the controllerTrackers for known controller nodes sourced from the peergrouper
+	// worker. Indexed by node.Id()
+	controllers map[string]*controllerTracker
 
 	// Replica-set members sourced from the Mongo session that are recognised by
-	// their association with known machines.
+	// their association with known controller nodes.
 	recognised map[string]replicaset.Member
 
 	// Replica-set member statuses sourced from the Mongo session.
@@ -51,13 +51,13 @@ type desiredChanges struct {
 	// because you have to ask the primary to step down before you can remove its vote.
 	stepDownPrimary bool
 
-	// members is the map of Id to replicaset.Member for the desired list of machines in the replicaset.
+	// members is the map of Id to replicaset.Member for the desired list of controller nodes in the replicaset.
 	members map[string]*replicaset.Member
 
-	// machineVoting tracks which of the members should be set to vote. We should preseve an odd number of voters at all
-	// time. Also, when machines are first added to the replicaset, we wait to give them voting rights for when they
+	// nodeVoting tracks which of the members should be set to vote. We should preserve an odd number of voters at all
+	// time. Also, when nodes are first added to the replicaset, we wait to give them voting rights for when they
 	// have managed to sync the data from the current primary.
-	machineVoting map[string]bool
+	nodeVoting map[string]bool
 }
 
 // peerGroupChanges tracks the process of computing the desiredChanges to the peer group.
@@ -77,7 +77,7 @@ type peerGroupChanges struct {
 }
 
 func newPeerGroupInfo(
-	machines map[string]*machineTracker,
+	controllers map[string]*controllerTracker,
 	statuses []replicaset.MemberStatus,
 	members []replicaset.Member,
 	mongoPort int,
@@ -88,7 +88,7 @@ func newPeerGroupInfo(
 	}
 
 	info := peerGroupInfo{
-		machines:    machines,
+		controllers: controllers,
 		statuses:    make(map[string]replicaset.MemberStatus),
 		recognised:  make(map[string]replicaset.Member),
 		maxMemberId: -1,
@@ -96,14 +96,14 @@ func newPeerGroupInfo(
 		haSpace:     haSpace,
 	}
 
-	// Iterate over the input members and associate them with a machine if
+	// Iterate over the input members and associate them with a controller if
 	// possible; add any unassociated members to the "extra" slice.
-	// Link the statuses with the machine IDs where associated.
+	// Link the statuses with the controller node IDs where associated.
 	// Keep track of the highest member ID that we observe.
 	for _, m := range members {
 		found := false
-		if id, ok := m.Tags[jujuMachineKey]; ok {
-			if machines[id] != nil {
+		if id, ok := m.Tags[jujuNodeKey]; ok {
+			if controllers[id] != nil {
 				info.recognised[id] = m
 				found = true
 			}
@@ -142,7 +142,7 @@ func (info *peerGroupInfo) getLogMessage() string {
 	sortAsInts(ids)
 	for _, id := range ids {
 		rm := info.recognised[id]
-		lines = append(lines, fmt.Sprintf(template, info.machines[id], rm.Id, rm.Address))
+		lines = append(lines, fmt.Sprintf(template, info.controllers[id], rm.Id, rm.Address))
 	}
 
 	if len(info.extra) > 0 {
@@ -158,7 +158,7 @@ func (info *peerGroupInfo) getLogMessage() string {
 	return strings.Join(lines, "")
 }
 
-// initNewReplicaSet creates a new machine ID indexed map of known replica-set
+// initNewReplicaSet creates a new node ID indexed map of known replica-set
 // members to use as the basis for a newly calculated replica-set.
 func (p *peerGroupChanges) initNewReplicaSet() map[string]*replicaset.Member {
 	rs := make(map[string]*replicaset.Member, len(p.info.recognised))
@@ -173,15 +173,15 @@ func (p *peerGroupChanges) initNewReplicaSet() map[string]*replicaset.Member {
 
 // desiredPeerGroup returns a new Mongo peer-group calculated from the input
 // peerGroupInfo.
-// Returned are the new members indexed by machine ID, and a map indicating
-// which machines are set as voters in the new new peer-group.
+// Returned are the new members indexed by node ID, and a map indicating
+// which controller nodes are set as voters in the new new peer-group.
 // If the new peer-group is does not differ from that indicated by the input
 // peerGroupInfo, a nil member map is returned along with the correct voters
 // map.
 // An error is returned if:
-//   1) There are members unrecognised by machine association,
+//   1) There are members unrecognised by controller node association,
 //      and any of these are set as voters.
-//   2) There is no HA space configured and any machines have multiple
+//   2) There is no HA space configured and any nodes have multiple
 //      cloud-local addresses.
 func desiredPeerGroup(info *peerGroupInfo) (desiredChanges, error) {
 	logger.Debugf(info.getLogMessage())
@@ -191,7 +191,7 @@ func desiredPeerGroup(info *peerGroupInfo) (desiredChanges, error) {
 		desired: desiredChanges{
 			isChanged:       false,
 			stepDownPrimary: false,
-			machineVoting:   map[string]bool{},
+			nodeVoting:      map[string]bool{},
 			members:         map[string]*replicaset.Member{},
 		},
 	}
@@ -200,8 +200,8 @@ func desiredPeerGroup(info *peerGroupInfo) (desiredChanges, error) {
 
 func (p *peerGroupChanges) computeDesiredPeerGroup() (desiredChanges, error) {
 
-	// We may find extra peer group members if the machines have been removed
-	// or their controller status removed.
+	// We may find extra peer group members if the controller nodes have been
+	// removed or their controller status removed.
 	// This should only happen if they had been set to non-voting before
 	// removal, in which case we want to remove them from the members list.
 	// If we find a member that is still configured to vote, it is an error.
@@ -221,9 +221,9 @@ func (p *peerGroupChanges) computeDesiredPeerGroup() (desiredChanges, error) {
 	p.reviewPeerGroupChanges()
 	p.createNonVotingMember()
 
-	// Set up initial record of machine votes. Any changes after
+	// Set up initial record of controller node votes. Any changes after
 	// this will trigger a peer group election.
-	p.getMachinesVoting()
+	p.getNodesVoting()
 	p.adjustVotes()
 
 	if err := p.updateAddresses(); err != nil {
@@ -234,18 +234,18 @@ func (p *peerGroupChanges) computeDesiredPeerGroup() (desiredChanges, error) {
 }
 
 // checkExtraMembers checks to see if any of the input members, identified as
-// not being associated with machines, is set as a voter in the peer group.
+// not being associated with controller nodes, is set as a voter in the peer group.
 // If any have, an error is returned.
 // The boolean indicates whether any extra members were present at all.
 func (p *peerGroupChanges) checkExtraMembers() error {
-	// Note: (jam 2018-04-18) With the new "juju remove-machine --force" it is much easier to get into this situation
+	// Note: (jam 2018-04-18) With the new "juju remove-controller --force" it is much easier to get into this situation
 	// because an active controller that is in the replicaset would get removed while it still had voting rights.
-	// Given that Juju is in control of the replicaset we don't really just 'accept' that some other machine has a vote.
+	// Given that Juju is in control of the replicaset we don't really just 'accept' that some other node has a vote.
 	// *maybe* we could allow non-voting members that would be used by 3rd parties to provide a warm database backup.
 	// But I think the right answer is probably to downgrade unknown members from voting.
 	for _, member := range p.info.extra {
 		if isVotingMember(&member) {
-			return fmt.Errorf("voting non-machine member %v found in peer group", member)
+			return fmt.Errorf("non voting member %v found in peer group", member)
 		}
 	}
 	if len(p.info.extra) > 0 {
@@ -284,37 +284,37 @@ func sortAsInts(vals []string) {
 }
 
 // possiblePeerGroupChanges returns a set of slices classifying all the
-// existing machines according to how their vote might move.
-// toRemoveVote holds machines whose vote should be removed;
-// toAddVote holds machines which are ready to vote;
-// toKeep holds machines with no desired change to their voting status
-// (this includes machines that are not yet represented in the peer group).
+// existing controller nodes according to how their vote might move.
+// toRemoveVote holds nodes whose vote should be removed;
+// toAddVote holds nodes which are ready to vote;
+// toKeep holds nodes with no desired change to their voting status
+// (this includes nodes that are not yet represented in the peer group).
 func (p *peerGroupChanges) possiblePeerGroupChanges() {
-	machineIds := make([]string, 0, len(p.info.machines))
-	for id := range p.info.machines {
-		machineIds = append(machineIds, id)
+	nodeIds := make([]string, 0, len(p.info.controllers))
+	for id := range p.info.controllers {
+		nodeIds = append(nodeIds, id)
 	}
-	sortAsInts(machineIds)
+	sortAsInts(nodeIds)
 	logger.Debugf("assessing possible peer group changes:")
-	for _, id := range machineIds {
-		m := p.info.machines[id]
+	for _, id := range nodeIds {
+		m := p.info.controllers[id]
 		member := p.desired.members[id]
 		isVoting := member != nil && isVotingMember(member)
 		wantsVote := m.WantsVote()
 		switch {
 		case wantsVote && isVoting:
-			logger.Debugf("machine %q is already voting", id)
+			logger.Debugf("node %q is already voting", id)
 			p.toKeepVoting = append(p.toKeepVoting, id)
 		case wantsVote && !isVoting:
 			if status, ok := p.info.statuses[id]; ok && isReady(status) {
-				logger.Debugf("machine %q is a potential voter", id)
+				logger.Debugf("node %q is a potential voter", id)
 				p.toAddVote = append(p.toAddVote, id)
 			} else if member != nil {
-				logger.Debugf("machine %q exists but is not ready (status: %v, healthy: %v)",
+				logger.Debugf("node %q exists but is not ready (status: %v, healthy: %v)",
 					id, status.State, status.Healthy)
 				p.toKeepNonVoting = append(p.toKeepNonVoting, id)
 			} else {
-				logger.Debugf("machine %q does not exist and is not ready (status: %v, healthy: %v)",
+				logger.Debugf("node %q does not exist and is not ready (status: %v, healthy: %v)",
 					id, status.State, status.Healthy)
 				p.toKeepCreateNonVotingMember = append(p.toKeepCreateNonVotingMember, id)
 			}
@@ -322,12 +322,12 @@ func (p *peerGroupChanges) possiblePeerGroupChanges() {
 			p.toRemoveVote = append(p.toRemoveVote, id)
 			if isPrimaryMember(p.info, id) {
 				p.desired.stepDownPrimary = true
-				logger.Debugf("primary machine %q is a potential non-voter", id)
+				logger.Debugf("primary node %q is a potential non-voter", id)
 			} else {
-				logger.Debugf("machine %q is a potential non-voter", id)
+				logger.Debugf("node %q is a potential non-voter", id)
 			}
 		case !wantsVote && !isVoting:
-			logger.Debugf("machine %q does not want the vote", id)
+			logger.Debugf("node %q does not want the vote", id)
 			p.toKeepNonVoting = append(p.toKeepNonVoting, id)
 		}
 	}
@@ -340,7 +340,7 @@ func isReady(status replicaset.MemberStatus) bool {
 }
 
 // reviewPeerGroupChanges adds some extra logic after creating
-// possiblePeerGroupChanges to safely add or remove machines, keeping the
+// possiblePeerGroupChanges to safely add or remove controller nodes, keeping the
 // correct odd number of voters peer structure, and preventing the primary from
 // demotion.
 func (p *peerGroupChanges) reviewPeerGroupChanges() {
@@ -421,7 +421,7 @@ func (p *peerGroupChanges) adjustVotes() {
 	setVoting := func(memberIds []string, voting bool) {
 		for _, id := range memberIds {
 			setMemberVoting(p.desired.members[id], voting)
-			p.desired.machineVoting[id] = voting
+			p.desired.nodeVoting[id] = voting
 		}
 	}
 
@@ -443,7 +443,7 @@ func (p *peerGroupChanges) createNonVotingMember() {
 		p.info.maxMemberId++
 		member := &replicaset.Member{
 			Tags: map[string]string{
-				jujuMachineKey: id,
+				jujuNodeKey: id,
 			},
 			Id: p.info.maxMemberId,
 		}
@@ -458,7 +458,7 @@ func (p *peerGroupChanges) createNonVotingMember() {
 		p.info.maxMemberId++
 		member := &replicaset.Member{
 			Tags: map[string]string{
-				jujuMachineKey: id,
+				jujuNodeKey: id,
 			},
 			Id: p.info.maxMemberId,
 		}
@@ -467,9 +467,9 @@ func (p *peerGroupChanges) createNonVotingMember() {
 	}
 }
 
-func (p *peerGroupChanges) getMachinesVoting() {
+func (p *peerGroupChanges) getNodesVoting() {
 	for id, m := range p.desired.members {
-		p.desired.machineVoting[id] = isVotingMember(m)
+		p.desired.nodeVoting[id] = isVotingMember(m)
 	}
 }
 
@@ -489,14 +489,14 @@ const multiAddressMessage = "multiple usable addresses found" +
 	"\nrun \"juju controller-config juju-ha-space=<name>\" to set a space for Mongo peer communication"
 
 // updateAddressesFromInternal attempts to update each member with a
-// cloud-local address from the machine.
+// cloud-local address from the node.
 // If there is a single cloud local address available, it is used.
 // If there are multiple addresses, then a check is made to ensure that:
 //   - the member was previously in the replica-set and;
 //   - the previous address used for replication is still available.
 // If the check is satisfied, then a warning is logged and no change is made.
 // Otherwise an error is returned to indicate that a HA space must be
-// configured in order to proceed. Such machines have their status set to
+// configured in order to proceed. Such nodes have their status set to
 // indicate that they require intervention.
 func (p *peerGroupChanges) updateAddressesFromInternal() error {
 	var multipleAddresses []string
@@ -505,13 +505,13 @@ func (p *peerGroupChanges) updateAddressesFromInternal() error {
 	singleController := len(ids) == 1
 
 	for _, id := range ids {
-		m := p.info.machines[id]
+		m := p.info.controllers[id]
 		hostPorts := m.GetPotentialMongoHostPorts(p.info.mongoPort)
 		addrs := network.SelectInternalHostPorts(hostPorts, false)
 
 		// This should not happen because SelectInternalHostPorts will choose a
 		// public address when there are no cloud-local addresses.
-		// Zero addresses would mean the machine is completely inaccessible.
+		// Zero addresses would mean the node is completely inaccessible.
 		// We ignore this outcome and leave the address alone.
 		if len(addrs) == 0 {
 			continue
@@ -521,7 +521,7 @@ func (p *peerGroupChanges) updateAddressesFromInternal() error {
 		member := p.desired.members[id]
 		if len(addrs) == 1 {
 			addr := addrs[0]
-			logger.Debugf("machine %q selected address %q by scope from %v", id, addr, hostPorts)
+			logger.Debugf("node %q selected address %q by scope from %v", id, addr, hostPorts)
 
 			if member.Address != addr {
 				member.Address = addr
@@ -552,7 +552,7 @@ func (p *peerGroupChanges) updateAddressesFromInternal() error {
 		// configured HA space when there are multiple cloud-local addresses.
 		if !unchanged {
 			multipleAddresses = append(multipleAddresses, id)
-			if err := m.stm.SetStatus(getStatusInfo(multiAddressMessage)); err != nil {
+			if err := m.controller.SetStatus(getStatusInfo(multiAddressMessage)); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -560,7 +560,7 @@ func (p *peerGroupChanges) updateAddressesFromInternal() error {
 
 	if len(multipleAddresses) > 0 {
 		ids := strings.Join(multipleAddresses, ", ")
-		return fmt.Errorf("juju-ha-space is not set and these machines have more than one usable address: %s"+
+		return fmt.Errorf("juju-ha-space is not set and these nodes have more than one usable address: %s"+
 			"\nrun \"juju controller-config juju-ha-space=<name>\" to set a space for Mongo peer communication", ids)
 	}
 	return nil
@@ -568,20 +568,20 @@ func (p *peerGroupChanges) updateAddressesFromInternal() error {
 
 // updateAddressesFromSpace updates the member addresses based on the
 // configured HA space.
-// If no addresses are available for any of the machines, then such machines
+// If no addresses are available for any of the nodes, then such nodes
 // have their status set and are included in the detail of the returned error.
 func (p *peerGroupChanges) updateAddressesFromSpace() error {
 	space := p.info.haSpace
 	var noAddresses []string
 
 	for _, id := range p.sortedMemberIds() {
-		m := p.info.machines[id]
+		m := p.info.controllers[id]
 		addr, err := m.SelectMongoAddressFromSpace(p.info.mongoPort, space)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				noAddresses = append(noAddresses, id)
 				msg := fmt.Sprintf("no addresses in configured juju-ha-space %q", space)
-				if err := m.stm.SetStatus(getStatusInfo(msg)); err != nil {
+				if err := m.controller.SetStatus(getStatusInfo(msg)); err != nil {
 					return errors.Trace(err)
 				}
 				continue
@@ -596,7 +596,7 @@ func (p *peerGroupChanges) updateAddressesFromSpace() error {
 
 	if len(noAddresses) > 0 {
 		ids := strings.Join(noAddresses, ", ")
-		return fmt.Errorf("no usable Mongo addresses found in configured juju-ha-space %q for machines: %s", space, ids)
+		return fmt.Errorf("no usable Mongo addresses found in configured juju-ha-space %q for nodes: %s", space, ids)
 	}
 	return nil
 }
@@ -611,8 +611,8 @@ func (p *peerGroupChanges) sortedMemberIds() []string {
 	return memberIds
 }
 
-// getStatusInfo creates and returns a StatusInfo instance for use as a machine
-// status. The *machine* status is not ideal for conveying this information,
+// getStatusInfo creates and returns a StatusInfo instance for use as a controller
+// status. The *controller* status is not ideal for conveying this information,
 // which is a really a characteristic of its role as a controller application.
 // For this reason we leave the status as "Started" and supplement with an
 // appropriate message.
