@@ -145,8 +145,6 @@ func buildCloudServiceOps(st *State, doc cloudServiceDoc) ([]txn.Op, error) {
 	}
 	if doc.Generation > existing.Generation {
 		addField(bson.DocElem{"generation", doc.Generation})
-	} else {
-		logger.Warningf("cloud service %q generation %d is not greater than current %d", svc.Id(), doc.Generation, existing.Generation)
 	}
 	if doc.DesiredScaleProtected != existing.DesiredScaleProtected {
 		addField(bson.DocElem{"desired-scale-protected", doc.DesiredScaleProtected})
@@ -157,8 +155,7 @@ func buildCloudServiceOps(st *State, doc cloudServiceDoc) ([]txn.Op, error) {
 		C:  cloudServicesC,
 		Id: existing.DocID,
 		Assert: bson.D{{"$or", []bson.D{
-			{{"provider-id", doc.ProviderId}},
-			{{"provider-id", ""}},
+			{{"provider-id", existing.ProviderId}},
 			{{"provider-id", bson.D{{"$exists", false}}}},
 		}}},
 		Update: bson.D{

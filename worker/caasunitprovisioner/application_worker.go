@@ -160,13 +160,13 @@ func (aw *applicationWorker) loop() error {
 			if err != nil && !errors.IsNotFound(err) {
 				return errors.Trace(err)
 			}
-			logger.Debugf("service for %v: %+v", aw.application, service)
-			if err := aw.clusterChanged(service, lastReportedStatus, false); err != nil {
+			if err := aw.clusterChanged(service, lastReportedStatus, true); err != nil {
+				// TODO(caas): change the shouldSetScale to false here once appDeploymentWatcher can get all events from k8s.
 				return errors.Trace(err)
 			}
 		case _, ok := <-appDeploymentWatcher.Changes():
 			logger.Debugf("deployment changed: %#v", ok)
-			logger.Criticalf("deployment changed: %#v", ok)
+			logger.Warningf("deployment changed: %#v", ok)
 			if !ok {
 				logger.Debugf("%v", appDeploymentWatcher.Wait())
 				worker.Stop(appDeploymentWatcher)
@@ -179,16 +179,20 @@ func (aw *applicationWorker) loop() error {
 				testScale = *service.Scale
 			}
 			// TODO: appDeploymentWatcher is listening to mkubectl edit replicaset change!!!!
-			logger.Criticalf("deployment changed service.Generation %v, service.Scale %v, testScale %v", service.Generation, service.Scale, testScale)
+			logger.Warningf("deployment changed service.Id %q service.Generation %v, service.Scale %v, testScale %v", service.Id, service.Generation, service.Scale, testScale)
 			if err != nil && !errors.IsNotFound(err) {
 				return errors.Trace(err)
 			}
 			haveNewStatus := true
 			if service.Id != "" {
 				// update svc info (addresses etc.) cloudservices.
-				if err = updateApplicationService(
+				err = updateApplicationService(
 					names.NewApplicationTag(aw.application), service, aw.applicationUpdater,
-				); err != nil {
+				)
+				if params.IsCodeForbidden(err) {
+					// ignore errors raised from SetScale because disordered events could happen often.
+					logger.Warningf("%v", err)
+				} else if err != nil {
 					return errors.Trace(err)
 				}
 				lastStatus, ok := lastReportedStatus[service.Id]
@@ -254,7 +258,9 @@ func (aw *applicationWorker) clusterChanged(
 	if service != nil && shouldSetScale {
 		generation = service.Generation
 		scale = service.Scale
-		logscale = *service.Scale
+		if service.Scale != nil {
+			logscale = *service.Scale
+		}
 	}
 	logger.Criticalf("aw.containerBroker.Units(aw.application) %q units --> %v, logscale %v", aw.application, len(units), logscale)
 	args := params.UpdateApplicationUnits{
@@ -321,6 +327,11 @@ func (aw *applicationWorker) clusterChanged(
 		args.Units = append(args.Units, unitParams)
 	}
 	if err := aw.unitUpdater.UpdateUnits(args); err != nil {
+		if params.IsCodeForbidden(err) {
+			// ignore errors raised from SetScale because disordered events could happen often.
+			logger.Warningf("%v", err)
+			return nil
+		}
 		// We can ignore not found errors as the worker will get stopped anyway.
 		if !errors.IsNotFound(err) {
 			return errors.Trace(err)

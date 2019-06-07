@@ -1497,7 +1497,6 @@ func (a *Application) ChangeScale(scaleChange int) (int, error) {
 			return nil, errors.Trace(err)
 		}
 		ops = append(ops, cloudSvcOp...)
-		logger.Warningf("ChangeScale ops -> %#v", ops)
 		return ops, nil
 	}
 	if err := a.st.db().Run(buildTxn); err != nil {
@@ -1521,14 +1520,12 @@ func (a *Application) SetScale(scale int, generation int64, force bool) error {
 	}
 	logger.Criticalf("SetScale svcInfo.DesiredScaleProtected() %v, a.doc.DesiredScale %v, scale %v, Generation %v, generation %v", svcInfo.DesiredScaleProtected(), a.doc.DesiredScale, scale, svcInfo.Generation(), generation)
 	if svcInfo.DesiredScaleProtected() && !force && scale != a.doc.DesiredScale {
-		return errors.Forbiddenf("SetScale without force while desired scale %d is not applied yet", a.doc.DesiredScale)
+		return errors.Forbiddenf("SetScale(%d) without force while desired scale %d is not applied yet", scale, a.doc.DesiredScale)
 	}
-	if !force {
-		if generation < svcInfo.Generation() {
-			return errors.Forbiddenf(
-				"application generation %d can not be reverted to %d", svcInfo.Generation(), generation,
-			)
-		}
+	if !force && generation < svcInfo.Generation() {
+		return errors.Forbiddenf(
+			"application generation %d can not be reverted to %d", svcInfo.Generation(), generation,
+		)
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -1568,7 +1565,6 @@ func (a *Application) SetScale(scale int, generation int64, force bool) error {
 			return nil, errors.Trace(err)
 		}
 		ops = append(ops, cloudSvcOp...)
-		logger.Warningf("SetScale ops -> %#v", ops)
 		return ops, nil
 	}
 	if err := a.st.db().Run(buildTxn); err != nil {

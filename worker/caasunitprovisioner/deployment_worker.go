@@ -135,7 +135,6 @@ func (w *deploymentWorker) loop() error {
 			continue
 		}
 		service, err := w.broker.GetService(w.application, false)
-		logger.Errorf("deployment worker GetService err %v", err)
 		if err == nil && service.Scale != nil {
 			currentScale = *service.Scale
 		}
