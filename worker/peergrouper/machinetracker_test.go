@@ -21,7 +21,7 @@ var _ = gc.Suite(&machineTrackerSuite{})
 func (s *machineTrackerSuite) TestSelectMongoAddressFromSpaceReturnsCorrectAddress(c *gc.C) {
 	spaceName := network.SpaceName("ha-space")
 
-	m := &machineTracker{
+	m := &controllerTracker{
 		addresses: []network.Address{
 			{
 				Value:     "192.168.5.5",
@@ -46,7 +46,7 @@ func (s *machineTrackerSuite) TestSelectMongoAddressFromSpaceReturnsCorrectAddre
 }
 
 func (s *machineTrackerSuite) TestSelectMongoAddressFromSpaceEmptyWhenNoAddressFound(c *gc.C) {
-	m := &machineTracker{
+	m := &controllerTracker{
 		id: "3",
 		addresses: []network.Address{
 			{
@@ -58,20 +58,20 @@ func (s *machineTrackerSuite) TestSelectMongoAddressFromSpaceEmptyWhenNoAddressF
 
 	addrs, err := m.SelectMongoAddressFromSpace(666, "bad-space")
 	c.Check(addrs, gc.Equals, "")
-	c.Check(err, gc.ErrorMatches, `addresses for machine "3" in space "bad-space" not found`)
+	c.Check(err, gc.ErrorMatches, `addresses for controller node "3" in space "bad-space" not found`)
 }
 
 func (s *machineTrackerSuite) TestSelectMongoAddressFromSpaceErrorForEmptySpace(c *gc.C) {
-	m := &machineTracker{
+	m := &controllerTracker{
 		id: "3",
 	}
 
 	_, err := m.SelectMongoAddressFromSpace(666, "")
-	c.Check(err, gc.ErrorMatches, `empty space supplied as an argument for selecting Mongo address for machine "3"`)
+	c.Check(err, gc.ErrorMatches, `empty space supplied as an argument for selecting Mongo address for controller node "3"`)
 }
 
 func (s *machineTrackerSuite) TestGetPotentialMongoHostPortsReturnsAllAddresses(c *gc.C) {
-	m := &machineTracker{
+	m := &controllerTracker{
 		id: "3",
 		addresses: []network.Address{
 			{

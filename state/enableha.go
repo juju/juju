@@ -340,10 +340,10 @@ func promoteControllerOps(m *Machine) []txn.Op {
 	}}
 }
 
-func removeControllerOps(m *Machine, controllerInfo *ControllerInfo) []txn.Op {
+func (st *State) removeControllerOps(mid string, controllerInfo *ControllerInfo) []txn.Op {
 	return []txn.Op{{
 		C:  machinesC,
-		Id: m.doc.DocID,
+		Id: st.docID(mid),
 		Assert: bson.D{
 			{"novote", true},
 			{"hasvote", false},
@@ -355,33 +355,42 @@ func removeControllerOps(m *Machine, controllerInfo *ControllerInfo) []txn.Op {
 		C:      controllersC,
 		Id:     modelGlobalKey,
 		Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
-		Update: bson.D{{"$pull", bson.D{{"machineids", m.doc.Id}}}},
+		Update: bson.D{{"$pull", bson.D{{"machineids", mid}}}},
 	}}
 }
 
-// RemoveControllerMachine will remove Machine from being part of the set of Controllers.
+type controllerNode interface {
+	Id() string
+	Refresh() error
+	WantsVote() bool
+	HasVote() bool
+}
+
+// RemoveController will remove Controller from being part of the set of Controllers.
 // It must not have or want to vote, and it must not be the last controller.
-func (st *State) RemoveControllerMachine(m *Machine) error {
-	logger.Infof("removing controller machine %q", m.doc.Id)
+func (st *State) RemoveControllerNode(c controllerNode) error {
+	logger.Infof("removing controller machine %q", c.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt != 0 {
 			// Something changed, make sure we're still up to date
-			m.Refresh()
+			if err := c.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
-		if m.WantsVote() {
-			return nil, errors.Errorf("machine %s cannot be removed as a controller as it still wants to vote", m.Id())
+		if c.WantsVote() {
+			return nil, errors.Errorf("machine %s cannot be removed as a controller as it still wants to vote", c.Id())
 		}
-		if m.HasVote() {
-			return nil, errors.Errorf("machine %s cannot be removed as a controller as it still has a vote", m.Id())
+		if c.HasVote() {
+			return nil, errors.Errorf("machine %s cannot be removed as a controller as it still has a vote", c.Id())
 		}
 		controllerInfo, err := st.ControllerInfo()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if len(controllerInfo.MachineIds) <= 1 {
-			return nil, errors.Errorf("machine %s cannot be removed as it is the last controller", m.Id())
+			return nil, errors.Errorf("machine %s cannot be removed as it is the last controller", c.Id())
 		}
-		return removeControllerOps(m, controllerInfo), nil
+		return st.removeControllerOps(c.Id(), controllerInfo), nil
 	}
 	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
