@@ -138,8 +138,10 @@ func buildCloudServiceOps(st *State, doc cloudServiceDoc) ([]txn.Op, error) {
 	addField := func(elm bson.DocElem) {
 		patchFields = append(patchFields, elm)
 	}
+	providerIdToAssert := existing.ProviderId
 	if doc.ProviderId != "" {
 		addField(bson.DocElem{"provider-id", doc.ProviderId})
+		providerIdToAssert = doc.ProviderId
 	}
 	if len(doc.Addresses) > 0 {
 		addField(bson.DocElem{"addresses", doc.Addresses})
@@ -154,7 +156,8 @@ func buildCloudServiceOps(st *State, doc cloudServiceDoc) ([]txn.Op, error) {
 		C:  cloudServicesC,
 		Id: existing.DocID,
 		Assert: bson.D{{"$or", []bson.D{
-			{{"provider-id", existing.ProviderId}},
+			{{"provider-id", providerIdToAssert}},
+			{{"provider-id", ""}},
 			{{"provider-id", bson.D{{"$exists", false}}}},
 		}}},
 		Update: bson.D{

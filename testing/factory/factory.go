@@ -492,9 +492,14 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
-	currentScale, err := application.ChangeScale(params.DesiredScale)
-	c.Assert(currentScale, jc.DeepEquals, params.DesiredScale)
+
+	model, err := factory.st.Model()
 	c.Assert(err, jc.ErrorIsNil)
+	isCAAS := model.Type() == state.ModelTypeCAAS
+	if isCAAS {
+		err = application.SetScale(params.DesiredScale, 0, true)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
 	if params.Status != nil {
 		now := time.Now()
@@ -508,10 +513,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	model, err := factory.st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	if model.Type() == state.ModelTypeCAAS {
+	if isCAAS {
 		agentTools := version.Binary{
 			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),

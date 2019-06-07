@@ -1513,20 +1513,22 @@ func (a *Application) SetScale(scale int, generation int64, force bool) error {
 		return errors.NotValidf("application scale %d", scale)
 	}
 	svcInfo, err := a.ServiceInfo()
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	logger.Tracef(
-		"SetScale DesiredScaleProtected %v, DesiredScale %v -> %v, Generation %v -> %v",
-		svcInfo.DesiredScaleProtected(), a.doc.DesiredScale, scale, svcInfo.Generation(), generation,
-	)
-	if svcInfo.DesiredScaleProtected() && !force && scale != a.doc.DesiredScale {
-		return errors.Forbiddenf("SetScale(%d) without force while desired scale %d is not applied yet", scale, a.doc.DesiredScale)
-	}
-	if !force && generation < svcInfo.Generation() {
-		return errors.Forbiddenf(
-			"application generation %d can not be reverted to %d", svcInfo.Generation(), generation,
+	if err == nil {
+		logger.Tracef(
+			"SetScale DesiredScaleProtected %v, DesiredScale %v -> %v, Generation %v -> %v",
+			svcInfo.DesiredScaleProtected(), a.doc.DesiredScale, scale, svcInfo.Generation(), generation,
 		)
+		if svcInfo.DesiredScaleProtected() && !force && scale != a.doc.DesiredScale {
+			return errors.Forbiddenf("SetScale(%d) without force while desired scale %d is not applied yet", scale, a.doc.DesiredScale)
+		}
+		if !force && generation < svcInfo.Generation() {
+			return errors.Forbiddenf(
+				"application generation %d can not be reverted to %d", svcInfo.Generation(), generation,
+			)
+		}
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
