@@ -62,6 +62,14 @@ func findInstanceSpec(
 			RootDisk: uint64(flavor.Disk * 1024),
 			// tags not currently supported on openstack
 		}
+		if ic.Constraints.HasRootDiskSource() &&
+			*ic.Constraints.RootDiskSource == "volume" {
+			// When the root disk is a volume (i.e. cinder block volume)
+			// we don't want to match on RootDisk size. If an instance requires
+			// a very large root disk we don't want to select a larger instance type
+			// to fit a disk that won't be local to the instance.
+			instanceType.RootDisk = 0
+		}
 		if ic.Constraints.HasVirtType() {
 			// Instance Type virtual type depends on the virtual type of the selected image, i.e.
 			// picking an image with a virt type gives a machine with this virt type.

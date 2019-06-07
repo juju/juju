@@ -9,6 +9,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"math"
 	"net/url"
 	"path"
 	"strconv"
@@ -527,7 +528,9 @@ func (e *Environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 	validator := constraints.NewValidator()
 	validator.RegisterConflicts(
 		[]string{constraints.InstanceType},
-		[]string{constraints.Mem, constraints.RootDisk, constraints.Cores})
+		[]string{constraints.Mem, constraints.RootDisk, constraints.RootDiskSource, constraints.Cores})
+	// NOTE: RootDiskSource does not conflict with InstanceType, but RootDisk and InstanceType do.
+	// Ideally RootDiskSource=volume conditionally disables the conflict between InstanceType and RootDisk.
 	validator.RegisterUnsupported(unsupportedConstraints)
 	novaClient := e.nova()
 	flavors, err := novaClient.ListFlavorsDetail()
@@ -541,6 +544,7 @@ func (e *Environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 	}
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
 	validator.RegisterVocabulary(constraints.VirtType, []string{"kvm", "lxd"})
+	validator.RegisterVocabulary(constraints.RootDiskSource, []string{"volume"})
 	return validator, nil
 }
 
@@ -1266,12 +1270,15 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	var opts = nova.RunServerOpts{
 		Name:               machineName,
 		FlavorId:           spec.InstanceType.Id,
-		ImageId:            spec.Image.Id,
 		UserData:           userData,
 		SecurityGroupNames: novaGroupNames,
 		Networks:           networks,
 		Metadata:           args.InstanceConfig.Tags,
 		AvailabilityZone:   args.AvailabilityZone,
+	}
+	err = e.configureRootDisk(ctx, args, spec, &opts)
+	if err != nil {
+		return nil, common.ZoneIndependentError(err)
 	}
 	e.configurator.ModifyRunServerOptions(&opts)
 
@@ -1336,6 +1343,40 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		Instance: inst,
 		Hardware: inst.hardwareCharacteristics(),
 	}, nil
+}
+
+func (e *Environ) configureRootDisk(ctx context.ProviderCallContext, args environs.StartInstanceParams,
+	spec *instances.InstanceSpec, runOpts *nova.RunServerOpts) error {
+	rootDiskSource := "local"
+	if args.Constraints.HasRootDiskSource() {
+		rootDiskSource = *args.Constraints.RootDiskSource
+	}
+	rootDiskMapping := nova.BlockDeviceMapping{
+		BootIndex:  0,
+		UUID:       spec.Image.Id,
+		SourceType: "image",
+		// NB constraints.RootDiskSource in the case of OpenStack represents
+		// the type of block device to use. Either "local" to represent a local
+		// block device or "volume" to represent a block device from the cinder
+		// block storage service.
+		DestinationType:     rootDiskSource,
+		DeleteOnTermination: true,
+	}
+	switch rootDiskSource {
+	case "local":
+		runOpts.ImageId = spec.Image.Id
+	case "volume":
+		size := spec.InstanceType.RootDisk
+		if args.Constraints.HasRootDisk() {
+			size = *args.Constraints.RootDisk
+		}
+		sizeGB := int(math.Ceil(float64(size) / 1024.0))
+		rootDiskMapping.VolumeSize = sizeGB
+	default:
+		return errors.Errorf("invalid %s %s", constraints.RootDiskSource, rootDiskSource)
+	}
+	runOpts.BlockDeviceMappings = []nova.BlockDeviceMapping{rootDiskMapping}
+	return nil
 }
 
 func (e *Environ) deriveAvailabilityZone(

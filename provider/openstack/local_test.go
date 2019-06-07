@@ -2384,6 +2384,34 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZoneConflictsP
 	c.Assert(err, gc.ErrorMatches, `cannot create instance in zone "az2", as this will prevent attaching the requested disks in zone "az1"`)
 }
 
+func (t *localServerSuite) TestStartInstanceVolumeRootBlockDevice(c *gc.C) {
+	err := bootstrapEnv(c, t.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err := constraints.Parse("root-disk-source=volume")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = testing.StartInstanceWithParams(t.env, t.callCtx, "1", environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		Constraints:    cons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (t *localServerSuite) TestStartInstanceVolumeRootBlockDeviceSized(c *gc.C) {
+	err := bootstrapEnv(c, t.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err := constraints.Parse("root-disk-source=volume root-disk=10G")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = testing.StartInstanceWithParams(t.env, t.callCtx, "1", environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		Constraints:    cons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 	err := bootstrapEnv(c, t.env)
 	c.Assert(err, jc.ErrorIsNil)
