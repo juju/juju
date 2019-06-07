@@ -1059,7 +1059,7 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
-	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
+	spec, err := findInstanceSpec(e, instances.InstanceConstraint{
 		Region:      e.cloud().Region,
 		Series:      series,
 		Arches:      arches,
