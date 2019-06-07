@@ -270,6 +270,9 @@ type UpdateApplicationServiceArg struct {
 	ApplicationTag string    `json:"application-tag"`
 	ProviderId     string    `json:"provider-id"`
 	Addresses      []Address `json:"addresses"`
+
+	Scale      *int   `json:"scale,omitempty"`
+	Generation *int64 `json:"generation,omitempty"`
 }
 
 // ApplicationDestroy holds the parameters for making the deprecated

@@ -323,6 +323,10 @@ func (s *WorkerSuite) TestScaleChangedInJuju(c *gc.C) {
 		"gitlab", &newExpectedParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
+func intPtr(i int) *int {
+	return &i
+}
+
 func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 	w := s.setupNewUnitScenario(c)
 	defer workertest.CleanKill(c, w)
@@ -357,6 +361,7 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 				ApplicationTag: names.NewApplicationTag("gitlab").String(),
 				ProviderId:     "id",
 				Addresses:      []params.Address{{Value: "10.0.0.1"}},
+				Scale:          intPtr(4),
 			},
 		})
 	case <-time.After(coretesting.LongWait):

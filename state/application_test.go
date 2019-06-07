@@ -238,7 +238,7 @@ provides:
     interface: http
 requires:
   db:
-    interface: mysql    
+    interface: mysql
 series:
   - kubernetes
 deployment:
@@ -3883,16 +3883,35 @@ func (s *CAASApplicationSuite) TestRemoveUnitDeletesServiceInfo(c *gc.C) {
 }
 
 func (s *CAASApplicationSuite) TestInvalidScale(c *gc.C) {
-	err := s.app.SetScale(-1)
+	err := s.app.SetScale(-1, 0, true)
 	c.Assert(err, gc.ErrorMatches, "application scale -1 not valid")
+
+	// set scale without force for caas workers - a new Generation is required.
+	err = s.app.SetScale(3, 0, false)
+	c.Assert(err, jc.Satisfies, errors.IsForbidden)
 }
 
 func (s *CAASApplicationSuite) TestSetScale(c *gc.C) {
-	err := s.app.SetScale(5)
+	// set scale with force for CLI - DesiredScaleProtected set to true.
+	err := s.app.SetScale(5, 0, true)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.app.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.app.GetScale(), gc.Equals, 5)
+	svcInfo, err := s.app.ServiceInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(svcInfo.DesiredScaleProtected(), jc.IsTrue)
+
+	// set scale without force for caas workers - a new Generation is required.
+	err = s.app.SetScale(5, 1, false)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.app.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.app.GetScale(), gc.Equals, 5)
+	svcInfo, err = s.app.ServiceInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(svcInfo.DesiredScaleProtected(), jc.IsFalse)
+	c.Assert(svcInfo.Generation(), jc.DeepEquals, int64(1))
 }
 
 func (s *CAASApplicationSuite) TestInvalidChangeScale(c *gc.C) {
@@ -3924,16 +3943,16 @@ func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
-	err := s.app.SetScale(5)
+	err := s.app.SetScale(5, 0, true)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set to same value, no change.
-	err = s.app.SetScale(5)
+	err = s.app.SetScale(5, 0, true)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	err = s.app.SetScale(6)
+	err = s.app.SetScale(6, 0, true)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 

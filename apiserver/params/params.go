@@ -389,6 +389,7 @@ type UpdateApplicationUnitArgs struct {
 type UpdateApplicationUnits struct {
 	ApplicationTag string                  `json:"application-tag"`
 	Scale          *int                    `json:"scale,omitempty"`
+	Generation     *int64                  `json:"generation,omitempty"`
 	Status         EntityStatus            `json:"status,omitempty"`
 	Units          []ApplicationUnitParams `json:"units"`
 }
