@@ -70,7 +70,7 @@ type Model interface {
 // required by the CAAS unit provisioner facade.
 type Application interface {
 	GetScale() int
-	SetScale(int) error
+	SetScale(int, int64, bool) error
 	WatchScale() state.NotifyWatcher
 	ApplicationConfig() (application.ConfigAttributes, error)
 	AllUnits() (units []Unit, err error)

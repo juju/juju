@@ -285,6 +285,12 @@ func (op *caasOperator) init() (*LocalState, error) {
 }
 
 func (op *caasOperator) loop() (err error) {
+	defer func() {
+		if errors.IsNotFound(err) {
+			err = jworker.ErrTerminateAgent
+		}
+	}()
+
 	localState, err := op.init()
 	if err != nil {
 		return err
@@ -308,7 +314,7 @@ func (op *caasOperator) loop() (err error) {
 
 		if watcher != nil {
 			// watcher added to catacomb, will kill operator if there's an error.
-			worker.Stop(watcher)
+			_ = worker.Stop(watcher)
 		}
 		var err error
 		watcher, err = remotestate.NewWatcher(
@@ -330,7 +336,9 @@ func (op *caasOperator) loop() (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	op.catacomb.Add(jujuUnitsWatcher)
+	if err := op.catacomb.Add(jujuUnitsWatcher); err != nil {
+		return errors.Trace(err)
+	}
 
 	if err := op.setStatus(status.Active, ""); err != nil {
 		return errors.Trace(err)

@@ -336,8 +336,13 @@ func (s *WorkerSuite) TestUpgradeCharm(c *gc.C) {
 func (s *WorkerSuite) TestWorkerSetsStatus(c *gc.C) {
 	w, err := caasoperator.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	workertest.CleanKill(c, w)
+	defer workertest.CleanKill(c, w)
 
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		if len(s.client.Calls()) == 6 {
+			break
+		}
+	}
 	s.client.CheckCallNames(c, "Charm", "SetStatus", "SetVersion", "WatchUnits", "SetStatus", "Watch")
 	s.client.CheckCall(c, 1, "SetStatus", "gitlab", status.Maintenance, "downloading charm (cs:gitlab-1)", map[string]interface{}(nil))
 }
@@ -371,4 +376,14 @@ func (s *WorkerSuite) TestRemovedUnit(c *gc.C) {
 	s.client.CheckCallNames(c, "Life", "RemoveUnit")
 	s.client.CheckCall(c, 0, "Life", "gitlab/0")
 	s.client.CheckCall(c, 1, "RemoveUnit", "gitlab/0")
+}
+
+func (s *WorkerSuite) TestRemovedApplication(c *gc.C) {
+	s.client.SetErrors(errors.NotFoundf("app"))
+	w, err := caasoperator.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	err = workertest.CheckKilled(c, w)
+	c.Assert(err, gc.ErrorMatches, "agent should be terminated")
 }
