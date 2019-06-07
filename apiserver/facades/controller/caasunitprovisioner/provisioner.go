@@ -476,7 +476,7 @@ func (a *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) 
 				continue
 			}
 		}
-		err = a.updateUnitsFromCloud(app, appUpdate.Scale, appUpdate.Units)
+		err = a.updateUnitsFromCloud(app, appUpdate.Scale, appUpdate.Generation, appUpdate.Units)
 		if err != nil {
 			// Mask any not found errors as the worker (caller) treats them specially
 			// and they are not relevant here.
@@ -535,17 +535,21 @@ func (a *Facade) updateStatus(params params.ApplicationUnitParams) (
 // source (typically a cloud update event) and merges that with the existing unit
 // data model in state. The passed in units are the complete set for the cloud, so
 // any existing units in state with provider ids which aren't in the set will be removed.
-func (a *Facade) updateUnitsFromCloud(app Application, scale *int, unitUpdates []params.ApplicationUnitParams) error {
+func (a *Facade) updateUnitsFromCloud(app Application, scale *int, generation *int64, unitUpdates []params.ApplicationUnitParams) error {
 	logger.Debugf("unit updates: %#v", unitUpdates)
 	if scale != nil {
 		logger.Debugf("application scale: %v", *scale)
+		if *scale > 0 && len(unitUpdates) == 0 {
+			// no ops for empty units because we can not determine if it's stateful or not in this case.
+			logger.Debugf("ignoring empty k8s event for %q", app.Tag().String())
+			return nil
+		}
 	}
 	// Set up the initial data structures.
 	existingStateUnits, err := app.AllUnits()
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	stateUnitsById := make(map[string]stateUnit)
 	cloudPodsById := make(map[string]params.ApplicationUnitParams)
 
@@ -591,20 +595,20 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale *int, unitUpdates [
 		if !unitAlive {
 			continue
 		}
-
 		if providerId == "" {
 			logger.Debugf("unit %q is not associated with any pod", u.Name())
 			unitInfo.unassociatedUnits = append(unitInfo.unassociatedUnits, u)
 			continue
 		}
+
 		stateUnitsById[providerId] = stateUnit{Unit: u}
 		stateUnitInCloud := stateUnitExistsInCloud(providerId)
 		aliveStateIds.Add(providerId)
-
 		if stateUnitInCloud {
 			logger.Debugf("unit %q (%v) has changed in the cloud", u.Name(), providerId)
 			unitInfo.stateUnitsInCloud[u.UnitTag().String()] = u
 		} else {
+			logger.Debugf("unit %q (%v) has removed in the cloud", u.Name(), providerId)
 			extraStateIds.Add(providerId)
 		}
 	}
@@ -640,7 +644,7 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale *int, unitUpdates [
 		// First attempt to add any new cloud pod not yet represented in state
 		// to a unit which does not yet have a provider id.
 		if unassociatedUnitCount > 0 {
-			unassociatedUnitCount -= 1
+			unassociatedUnitCount--
 			unitInfo.addedCloudPods = append(unitInfo.addedCloudPods, u)
 			continue
 		}
@@ -664,7 +668,7 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale *int, unitUpdates [
 		if !u.delete && extraUnitsInStateCount > 0 {
 			logger.Debugf("deleting %v because it exceeds the scale of %v", u.Name(), scale)
 			u.delete = true
-			extraUnitsInStateCount = extraUnitsInStateCount - 1
+			extraUnitsInStateCount--
 		}
 		unitInfo.removedUnits = append(unitInfo.removedUnits, u)
 	}
@@ -679,8 +683,12 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale *int, unitUpdates [
 	// Update the scale last now that the state
 	// model accurately reflects the cluster pods.
 	currentScale := app.GetScale()
+	var gen int64
+	if generation != nil {
+		gen = *generation
+	}
 	if currentScale != *scale {
-		return app.SetScale(*scale)
+		return app.SetScale(*scale, gen, false)
 	}
 	return nil
 }
@@ -907,7 +915,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 			updateProps := processUnitParams(unitParams)
 			unitUpdate.Updates = append(unitUpdate.Updates,
 				u.UpdateOperation(*updateProps))
-			idx += 1
+			idx++
 			if len(unitParams.FilesystemInfo) > 0 {
 				unitParamsWithFilesystemInfo = append(unitParamsWithFilesystemInfo, unitParams)
 			}
@@ -1210,6 +1218,15 @@ func (a *Facade) UpdateApplicationsService(args params.UpdateApplicationServiceA
 		}
 		if err := app.UpdateCloudService(appUpdate.ProviderId, params.NetworkAddresses(appUpdate.Addresses...)); err != nil {
 			result.Results[i].Error = common.ServerError(err)
+		}
+		if appUpdate.Scale != nil {
+			var generation int64
+			if appUpdate.Generation != nil {
+				generation = *appUpdate.Generation
+			}
+			if err := app.SetScale(*appUpdate.Scale, generation, false); err != nil {
+				result.Results[i].Error = common.ServerError(err)
+			}
 		}
 	}
 	return result, nil

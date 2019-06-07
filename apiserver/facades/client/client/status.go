@@ -1126,9 +1126,7 @@ func (context *statusContext) processApplication(application *state.Application)
 		}
 		processedStatus.Scale = application.GetScale()
 	}
-
 	processedStatus.EndpointBindings = context.allAppsUnitsCharmBindings.endpointBindings[application.Name()]
-
 	return processedStatus
 }
 

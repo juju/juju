@@ -160,7 +160,8 @@ func (aw *applicationWorker) loop() error {
 				return errors.Trace(err)
 			}
 			logger.Debugf("service for %v: %+v", aw.application, service)
-			if err := aw.clusterChanged(service, lastReportedStatus); err != nil {
+			if err := aw.clusterChanged(service, lastReportedStatus, true); err != nil {
+				// TODO(caas): change the shouldSetScale to false here once appDeploymentWatcher can get all events from k8s.
 				return errors.Trace(err)
 			}
 		case _, ok := <-appDeploymentWatcher.Changes():
@@ -178,9 +179,13 @@ func (aw *applicationWorker) loop() error {
 			haveNewStatus := true
 			if service.Id != "" {
 				// update svc info (addresses etc.) cloudservices.
-				if err = updateApplicationService(
+				err = updateApplicationService(
 					names.NewApplicationTag(aw.application), service, aw.applicationUpdater,
-				); err != nil {
+				)
+				if params.IsCodeForbidden(err) {
+					// ignore errors raised from SetScale because disordered events could happen often.
+					logger.Warningf("%v", err)
+				} else if err != nil {
 					return errors.Trace(err)
 				}
 				lastStatus, ok := lastReportedStatus[service.Id]
@@ -202,7 +207,7 @@ func (aw *applicationWorker) loop() error {
 				}
 				lastReportedScale = *service.Scale
 			}
-			if err := aw.clusterChanged(service, lastReportedStatus); err != nil {
+			if err := aw.clusterChanged(service, lastReportedStatus, true); err != nil {
 				return errors.Trace(err)
 			}
 		case _, ok := <-appOperatorWatcher.Changes():
@@ -227,24 +232,29 @@ func (aw *applicationWorker) loop() error {
 				}
 			}
 		}
-
 	}
 }
 
-func (aw *applicationWorker) clusterChanged(service *caas.Service, lastReportedStatus map[string]status.StatusInfo) error {
+func (aw *applicationWorker) clusterChanged(
+	service *caas.Service,
+	lastReportedStatus map[string]status.StatusInfo,
+	shouldSetScale bool,
+) error {
 	units, err := aw.containerBroker.Units(aw.application)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("units for %v: %+v", aw.application, units)
 	serviceStatus := service.Status
 	var scale *int
-	if service != nil {
+	var generation *int64
+	if service != nil && shouldSetScale {
+		generation = service.Generation
 		scale = service.Scale
 	}
 	args := params.UpdateApplicationUnits{
 		ApplicationTag: names.NewApplicationTag(aw.application).String(),
 		Scale:          scale,
+		Generation:     generation,
 		Status: params.EntityStatus{
 			Status: serviceStatus.Status,
 			Info:   serviceStatus.Message,
@@ -301,15 +311,20 @@ func (aw *applicationWorker) clusterChanged(service *caas.Service, lastReportedS
 					Data:       info.Volume.Status.Data,
 				},
 			})
-
 		}
 		args.Units = append(args.Units, unitParams)
 	}
 	if err := aw.unitUpdater.UpdateUnits(args); err != nil {
+		if params.IsCodeForbidden(err) {
+			// ignore errors raised from SetScale because disordered events could happen often.
+			logger.Warningf("%v", err)
+			return nil
+		}
 		// We can ignore not found errors as the worker will get stopped anyway.
 		if !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
+		logger.Warningf("update units %v", err)
 	}
 	return nil
 }

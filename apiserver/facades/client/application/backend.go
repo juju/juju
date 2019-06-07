@@ -89,7 +89,7 @@ type Application interface {
 	UpdateApplicationSeries(string, bool) error
 	UpdateCharmConfig(string, charm.Settings) error
 	UpdateApplicationConfig(application.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
-	SetScale(int) error
+	SetScale(int, int64, bool) error
 	ChangeScale(int) (int, error)
 	AgentTools() (*tools.Tools, error)
 }

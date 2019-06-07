@@ -272,6 +272,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeMethodNotAllowed
 	case errors.IsNotImplemented(err):
 		code = params.CodeNotImplemented
+	case errors.IsForbidden(err):
+		code = params.CodeForbidden
 	case state.IsIncompatibleSeriesError(err):
 		code = params.CodeIncompatibleSeries
 	case IsDischargeRequiredError(err):

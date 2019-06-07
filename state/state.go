@@ -1126,6 +1126,9 @@ type SaveCloudServiceArgs struct {
 	Id         string
 	ProviderId string
 	Addresses  []network.Address
+
+	Generation            int64
+	DesiredScaleProtected bool
 }
 
 // SaveCloudService creates a cloud service.
@@ -1133,19 +1136,21 @@ func (st *State) SaveCloudService(args SaveCloudServiceArgs) (_ *CloudService, e
 	defer errors.DeferredAnnotatef(&err, "cannot add cloud service %q", args.ProviderId)
 
 	doc := cloudServiceDoc{
-		DocID:      applicationGlobalKey(args.Id),
-		ProviderId: args.ProviderId,
-		Addresses:  fromNetworkAddresses(args.Addresses, OriginProvider),
+		DocID:                 applicationGlobalKey(args.Id),
+		ProviderId:            args.ProviderId,
+		Addresses:             fromNetworkAddresses(args.Addresses, OriginProvider),
+		Generation:            args.Generation,
+		DesiredScaleProtected: args.DesiredScaleProtected,
 	}
-	svc := newCloudService(st, &doc)
 	buildTxn := func(int) ([]txn.Op, error) {
-		return svc.saveServiceOps(doc)
+		return buildCloudServiceOps(st, doc)
 	}
 
 	if err := st.db().Run(buildTxn); err != nil {
 		return nil, errors.Annotate(err, "failed to save cloud service")
 	}
-	return svc, nil
+	// refresh then return updated CloudService.
+	return newCloudService(st, &doc).CloudService()
 }
 
 // CloudService returns a cloud service state by Id.
