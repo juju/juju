@@ -353,6 +353,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	if featureflag.Enabled(feature.DeveloperMode) {
 		r.Register(model.NewDumpCommand())
 		r.Register(model.NewDumpDBCommand())
+
+		// The following command is used for generating the JSON schema for
+		// alternative clients like pylibjuju. You can only run this in
+		// developer mode to prevent confusion with regular operators.
+		r.Register(newDescribeAPICommon())
 	}
 
 	// Manage and control actions
