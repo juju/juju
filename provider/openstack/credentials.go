@@ -146,7 +146,7 @@ func (c OpenstackCredentials) DetectCredentials() (*cloud.CloudCredential, error
 func (c OpenstackCredentials) detectCredential() (*cloud.Credential, string, string, error) {
 	creds, err := identity.CredentialsFromEnv()
 	if err != nil {
-		return nil, "", "", errors.Errorf("failed to retrive cred from env : %v", err)
+		return nil, "", "", errors.Errorf("failed to retrieve credential from env : %v", err)
 	}
 	if creds.TenantName == "" {
 		logger.Debugf("neither OS_TENANT_NAME nor OS_PROJECT_NAME environment variable not set")

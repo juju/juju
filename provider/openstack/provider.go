@@ -205,7 +205,7 @@ func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
 	// return return a region using them.
 	creds, err := identity.CredentialsFromEnv()
 	if err != nil {
-		return nil, errors.Errorf("failed to retrive cred from env : %v", err)
+		return nil, errors.Errorf("failed to retrieve credential from env : %v", err)
 	}
 	if creds.Region == "" {
 		return nil, errors.NewNotFound(nil, "OS_REGION_NAME environment variable not set")
