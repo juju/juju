@@ -12,7 +12,7 @@ set -e
 VERSION=`go version | awk '{print $3}'`
 echo "go version $VERSION"
 
-FILES=`find * -name '*.go' -not -name '.#*' | grep -v vendor/ | grep -v acceptancetests/`
+FILES=`find * -name '*.go' -not -name '.#*' -not -name '*_schemagen.go' -not -name '*_mock.go' | grep -v vendor/ | grep -v acceptancetests/`
 
 echo "checking: dependency files ..."
 dep check
