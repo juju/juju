@@ -160,7 +160,7 @@ func InitAdministratorUser(args *manual.ProvisionMachineArgs) error {
 		return nil
 	}
 
-	logger.Infof("Winrm https connection is broken, can't retrive a response")
+	logger.Infof("Winrm https connection is broken, can't retrieve a response")
 	logger.Infof("Reverting back to usecure client interactions")
 	args.WinRM.Client = defClient
 

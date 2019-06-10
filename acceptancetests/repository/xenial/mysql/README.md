@@ -12,7 +12,7 @@ To deploy a MySQL service:
 
     juju deploy mysql
 
-Once deployed, you can retrive the MySQL root user password by logging in to the machine via `juju ssh` and readin the `/var/lib/mysql/mysql.passwd` file. To log in as root MySQL User at the MySQL console you can issue the following:
+Once deployed, you can retrieve the MySQL root user password by logging in to the machine via `juju ssh` and readin the `/var/lib/mysql/mysql.passwd` file. To log in as root MySQL User at the MySQL console you can issue the following:
 
     juju ssh mysql/0
     mysql -u root -p=`cat /var/lib/mysql/mysql.passwd`
