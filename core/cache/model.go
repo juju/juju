@@ -79,7 +79,7 @@ func (m *Model) Name() string {
 
 // WatchConfig creates a watcher for the model config.
 func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
-	return newConfigWatcher(keys, m.hashCache, m.hub, m.topic(modelConfigChange), m.Resident)
+	return newConfigWatcher(keys, m.hashCache, m.hub, modelConfigChange, m.Resident)
 }
 
 // Report returns information that is used in the dependency engine report.
@@ -218,7 +218,7 @@ func (m *Model) WatchMachines() (*PredicateStringsWatcher, error) {
 
 	w := newPredicateStringsWatcher(fn, machines...)
 	deregister := m.registerWorker(w)
-	unsub := m.hub.Subscribe(m.topic(modelAddRemoveMachine), w.changed)
+	unsub := m.hub.Subscribe(modelAddRemoveMachine, w.changed)
 
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
@@ -300,20 +300,13 @@ func (m *Model) updateUnit(ch UnitChange, rm *residentManager) {
 	m.mu.Unlock()
 }
 
-// unitLXDProfileRemove contains an appName and it's charm URL.  To be used
-// when publishing for modelUnitLXDProfileRemove.
-type unitLXDProfileRemove struct {
-	name    string
-	appName string
-}
-
 // removeUnit removes the unit from the model.
 func (m *Model) removeUnit(ch RemoveUnit) error {
 	defer m.doLocked()()
 
 	unit, ok := m.units[ch.Name]
 	if ok {
-		m.hub.Publish(m.topic(modelUnitRemove), unitLXDProfileRemove{name: ch.Name, appName: unit.details.Application})
+		m.hub.Publish(modelUnitRemove, unit.copy())
 		if err := unit.evict(); err != nil {
 			return errors.Trace(err)
 		}
@@ -330,7 +323,7 @@ func (m *Model) updateMachine(ch MachineChange, rm *residentManager) {
 	if !found {
 		machine = newMachine(m, rm.new())
 		m.machines[ch.Id] = machine
-		m.hub.Publish(m.topic(modelAddRemoveMachine), []string{ch.Id})
+		m.hub.Publish(modelAddRemoveMachine, []string{ch.Id})
 	}
 	machine.setDetails(ch)
 
@@ -343,7 +336,7 @@ func (m *Model) removeMachine(ch RemoveMachine) error {
 
 	machine, ok := m.machines[ch.Id]
 	if ok {
-		m.hub.Publish(m.topic(modelAddRemoveMachine), []string{ch.Id})
+		m.hub.Publish(modelAddRemoveMachine, []string{ch.Id})
 		if err := machine.evict(); err != nil {
 			return errors.Trace(err)
 		}
@@ -386,15 +379,6 @@ func (m *Model) removeBranch(ch RemoveBranch) error {
 	return nil
 }
 
-// topic prefixes the input string with the model UUID.
-func (m *Model) topic(suffix string) string {
-	return modelTopic(m.details.ModelUUID, suffix)
-}
-
-func modelTopic(modelUUID, suffix string) string {
-	return modelUUID + ":" + suffix
-}
-
 func (m *Model) setDetails(details ModelChange) {
 	m.mu.Lock()
 
@@ -412,7 +396,7 @@ func (m *Model) setDetails(details ModelChange) {
 	if configHash != m.configHash {
 		m.configHash = configHash
 		m.hashCache = hashCache
-		m.hub.Publish(m.topic(modelConfigChange), hashCache)
+		m.hub.Publish(modelConfigChange, hashCache)
 	}
 
 	m.mu.Unlock()

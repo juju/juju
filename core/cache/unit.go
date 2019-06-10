@@ -87,7 +87,7 @@ func (u *Unit) setDetails(details UnitChange) {
 	machineChange := u.details.MachineId != details.MachineId
 	u.details = details
 	if machineChange || u.details.Subordinate {
-		u.hub.Publish(u.modelTopic(modelUnitAdd), u)
+		u.hub.Publish(modelUnitAdd, u.copy())
 	}
 }
 
@@ -117,10 +117,6 @@ func (u *Unit) copy() Unit {
 	cu.details.WorkloadStatus = copyStatusInfo(u.details.WorkloadStatus)
 	cu.details.AgentStatus = copyStatusInfo(u.details.AgentStatus)
 	return cu
-}
-
-func (u *Unit) modelTopic(suffix string) string {
-	return modelTopic(u.details.ModelUUID, suffix)
 }
 
 func copyStatusInfo(info status.StatusInfo) status.StatusInfo {

@@ -119,7 +119,7 @@ func (m *Machine) WatchContainers() (*PredicateStringsWatcher, error) {
 
 	w := newPredicateStringsWatcher(regexpPredicate(compiled), machines...)
 	deregister := m.registerWorker(w)
-	unsub := m.model.hub.Subscribe(m.modelTopic(modelAddRemoveMachine), w.changed)
+	unsub := m.model.hub.Subscribe(modelAddRemoveMachine, w.changed)
 
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
@@ -143,10 +143,10 @@ func (m *Machine) WatchContainers() (*PredicateStringsWatcher, error) {
 //        has been provisioned.
 func (m *Machine) WatchLXDProfileVerificationNeeded() (*MachineLXDProfileWatcher, error) {
 	return newMachineLXDProfileWatcher(MachineLXDProfileWatcherConfig{
-		appTopic:         m.model.topic(applicationCharmURLChange),
+		appTopic:         applicationCharmURLChange,
 		provisionedTopic: m.topic(machineProvisioned),
-		unitAddTopic:     m.model.topic(modelUnitAdd),
-		unitRemoveTopic:  m.model.topic(modelUnitRemove),
+		unitAddTopic:     modelUnitAdd,
+		unitRemoveTopic:  modelUnitRemove,
 		machine:          m,
 		modeler:          m.model,
 		metrics:          m.model.metrics,
@@ -158,10 +158,6 @@ func (m *Machine) WatchLXDProfileVerificationNeeded() (*MachineLXDProfileWatcher
 func (m *Machine) containerRegexp() (*regexp.Regexp, error) {
 	regExp := fmt.Sprintf("^%s%s", m.details.Id, names.ContainerSnippet)
 	return regexp.Compile(regExp)
-}
-
-func (m *Machine) modelTopic(suffix string) string {
-	return modelTopic(m.details.ModelUUID, suffix)
 }
 
 func (m *Machine) setDetails(details MachineChange) {
@@ -196,5 +192,5 @@ func (m *Machine) setDetails(details MachineChange) {
 }
 
 func (m *Machine) topic(suffix string) string {
-	return m.details.ModelUUID + ":" + m.details.Id + ":" + suffix
+	return m.details.Id + ":" + suffix
 }

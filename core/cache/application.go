@@ -10,9 +10,9 @@ import (
 )
 
 const (
-	// the application's charm url has changed.
-	applicationCharmURLChange = "application-charmurl-change"
-	// application config has changed.
+	// An application charm URL has changed.
+	applicationCharmURLChange = "application-charm-url-change"
+	// Application config has changed.
 	applicationConfigChange = "application-config-change"
 )
 
@@ -51,12 +51,14 @@ func (a *Application) CharmURL() string {
 // Config returns a copy of the current application config.
 func (a *Application) Config() map[string]interface{} {
 	a.mu.Lock()
+
 	cfg := make(map[string]interface{}, len(a.details.Config))
 	for k, v := range a.details.Config {
 		cfg[k] = v
 	}
-	a.mu.Unlock()
 	a.metrics.ApplicationConfigReads.Inc()
+
+	a.mu.Unlock()
 	return cfg
 }
 
@@ -87,10 +89,7 @@ func (a *Application) setDetails(details ApplicationChange) {
 	a.setStale(false)
 
 	if a.details.CharmURL != details.CharmURL {
-		a.hub.Publish(
-			a.modelTopic(applicationCharmURLChange),
-			appCharmUrlChange{appName: a.details.Name, chURL: details.CharmURL},
-		)
+		a.hub.Publish(applicationCharmURLChange, appCharmUrlChange{appName: a.details.Name, chURL: details.CharmURL})
 	}
 
 	a.details = details
@@ -109,8 +108,4 @@ func (a *Application) setDetails(details ApplicationChange) {
 // topic prefixes the input string with the application name.
 func (a *Application) topic(suffix string) string {
 	return a.details.Name + ":" + suffix
-}
-
-func (a *Application) modelTopic(suffix string) string {
-	return modelTopic(a.details.ModelUUID, suffix)
 }
