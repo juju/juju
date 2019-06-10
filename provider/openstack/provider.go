@@ -9,7 +9,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"math"
 	"net/url"
 	"path"
 	"strconv"
@@ -1385,10 +1384,10 @@ func (e *Environ) configureRootDisk(ctx context.ProviderCallContext, args enviro
 			size = *args.Constraints.RootDisk
 		}
 		if size <= 0 {
-			return errors.Errorf("root disk size cannot be 0")
+			size = defaultRootDiskSize
 		}
-		sizeGB := int(math.Ceil(float64(size) / 1024.0))
-		rootDiskMapping.VolumeSize = sizeGB
+		sizeGB := common.MiBToGiB(size)
+		rootDiskMapping.VolumeSize = int(sizeGB)
 	default:
 		return errors.Errorf("invalid %s %s", constraints.RootDiskSource, rootDiskSource)
 	}

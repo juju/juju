@@ -1434,6 +1434,13 @@ func (s *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid Openstack flavour "m1.large" specified`)
 }
 
+func (s *localServerSuite) TestPrecheckInstanceInvalidRootDiskConstraint(c *gc.C) {
+	env := s.Open(c, s.env.Config())
+	cons := constraints.MustParse("instance-type=m1.small root-disk=10G")
+	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: supportedversion.SupportedLTS(), Constraints: cons})
+	c.Assert(err, gc.ErrorMatches, `constraint root-disk cannot be specified with instance-type unless when constraint root-disk-source=volume`)
+}
+
 func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	placement := "zone=test-available"
 	err := t.env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{Series: supportedversion.SupportedLTS(), Placement: placement})

@@ -13,6 +13,8 @@ const (
 
 	rootDiskSourceVolume = "volume"
 	rootDiskSourceLocal  = "local"
+	// Default root disk size when root-disk-source is volume.
+	defaultRootDiskSize = 30 * 1024 // 30 GiB
 )
 
 func init() {
