@@ -81,7 +81,7 @@ func (m *Machine) Units() ([]Unit, error) {
 
 	units := m.model.Units()
 
-	result := make([]Unit, 0)
+	var result []Unit
 	for unitName, unit := range units {
 		if unit.MachineId() == m.details.Id {
 			result = append(result, unit)
