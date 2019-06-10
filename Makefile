@@ -58,7 +58,7 @@ dep: $(GOPATH)/bin/dep
 	$(GOPATH)/bin/dep ensure -vendor-only $(verbose)
 endif
 
-build: dep go-build
+build: dep rebuild-schema go-build
 
 release-build: dep go-build
 
@@ -73,7 +73,7 @@ check: dep pre-check test
 test: dep
 	go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT_PACKAGES) -check.v
 
-install: dep go-install
+install: dep rebuild-schema go-install
 
 clean:
 	go clean -n -r --cache --testcache $(PROJECT_PACKAGES)
@@ -113,6 +113,9 @@ simplify:
 # update Gopkg.lock (if needed), but do not update `vendor/`.
 rebuild-dependencies:
 	dep ensure -v -no-vendor $(dep-update)
+
+rebuild-schema:
+	go generate ./cmd/juju/commands/describeapi.go
 
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
