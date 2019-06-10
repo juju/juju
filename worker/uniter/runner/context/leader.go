@@ -74,10 +74,6 @@ func (ctx *leadershipContext) WriteLeaderSettings(settings map[string]string) er
 	// `apiserver/leadership.LeadershipSettingsAccessor.Merge`, and as of
 	// 2015-02-19 it's better to stay eager.
 	err := ctx.ensureLeader()
-	if err == errIsMinion {
-		logger.Warningf("skipping write settings; not the leader")
-		return nil
-	}
 	if err == nil {
 		// Clear local settings; if we need them again we should use the values
 		// as merged by the server. But we don't need to get them again right now;

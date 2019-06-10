@@ -141,7 +141,7 @@ func InitAdministratorUser(args *manual.ProvisionMachineArgs) error {
 
 	logger.Infof("Trying http client as user %s on %s", args.Host, args.User)
 	if err = args.WinRM.Client.Ping(); err != nil {
-		logger.Debugf("WinRM unsecure listener is not enabled on %s", args.Host)
+		logger.Debugf("WinRM insecure listener is not enabled on %s", args.Host)
 		return errors.Annotatef(err, "cannot provision, because all winrm default connections failed")
 	}
 
@@ -149,7 +149,7 @@ func InitAdministratorUser(args *manual.ProvisionMachineArgs) error {
 	logger.Infof("Trying to enable https client certificate authentication")
 	if args.WinRM.Client, err = enableCertAuth(args); err != nil {
 		logger.Infof("Cannot enable client auth cert authentication for winrm")
-		logger.Infof("Reverting back to usecure client interaction")
+		logger.Infof("Reverting back to insecure client interaction")
 		args.WinRM.Client = defClient
 		return nil
 	}
@@ -160,8 +160,8 @@ func InitAdministratorUser(args *manual.ProvisionMachineArgs) error {
 		return nil
 	}
 
-	logger.Infof("Winrm https connection is broken, can't retrive a response")
-	logger.Infof("Reverting back to usecure client interactions")
+	logger.Infof("Winrm https connection is broken, cannot retrieve a response")
+	logger.Infof("Reverting back to insecure client interactions")
 	args.WinRM.Client = defClient
 
 	return nil
@@ -413,7 +413,7 @@ func DetectSeriesAndHardwareCharacteristics(host string, cli manual.WinrmClientA
 	return hc, series, nil
 }
 
-// initHC it will initialize the hardware characterisrics struct with the
+// initHC it will initialize the hardware characteristics struct with the
 // parsed and checked info slice string
 // info description :
 //  - info[0] the arch of the machine
