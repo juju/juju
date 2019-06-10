@@ -4,7 +4,9 @@
 package state_test
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -178,4 +180,86 @@ func (s *ControllerSuite) TestUpdateControllerConfigAcceptsSpaceWithAddresses(c 
 		controller.JujuManagementSpace: "mgmt-space",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ControllerSuite) TestControllerInfo(c *gc.C) {
+	ids, err := s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ids.CloudName, gc.Equals, "dummy")
+	c.Assert(ids.ModelTag, gc.Equals, s.modelTag)
+	c.Assert(ids.MachineIds, gc.HasLen, 0)
+
+	// TODO(rog) more testing here when we can actually add
+	// controllers.
+}
+
+func (s *ControllerSuite) testOpenParams() state.OpenParams {
+	return state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: s.modelTag,
+		MongoSession:       s.Session,
+	}
+}
+
+func (s *ControllerSuite) TestReopenWithNoMachines(c *gc.C) {
+	expected := &state.ControllerInfo{
+		CloudName: "dummy",
+		ModelTag:  s.modelTag,
+	}
+	info, err := s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, expected)
+
+	st, err := state.Open(s.testOpenParams())
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	info, err = s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, expected)
+}
+
+func (s *ControllerSuite) TestStateServingInfo(c *gc.C) {
+	info, err := s.State.StateServingInfo()
+	c.Assert(err, gc.ErrorMatches, "state serving info not found")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	data := state.StateServingInfo{
+		APIPort:      69,
+		StatePort:    80,
+		Cert:         "Some cert",
+		PrivateKey:   "Some key",
+		SharedSecret: "Some Keyfile",
+	}
+	err = s.State.SetStateServingInfo(data)
+	c.Assert(err, jc.ErrorIsNil)
+
+	info, err = s.State.StateServingInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, data)
+}
+
+var setStateServingInfoWithInvalidInfoTests = []func(info *state.StateServingInfo){
+	func(info *state.StateServingInfo) { info.APIPort = 0 },
+	func(info *state.StateServingInfo) { info.StatePort = 0 },
+	func(info *state.StateServingInfo) { info.Cert = "" },
+	func(info *state.StateServingInfo) { info.PrivateKey = "" },
+}
+
+func (s *ControllerSuite) TestSetStateServingInfoWithInvalidInfo(c *gc.C) {
+	origData := state.StateServingInfo{
+		APIPort:      69,
+		StatePort:    80,
+		Cert:         "Some cert",
+		PrivateKey:   "Some key",
+		SharedSecret: "Some Keyfile",
+	}
+	for i, test := range setStateServingInfoWithInvalidInfoTests {
+		c.Logf("test %d", i)
+		data := origData
+		test(&data)
+		err := s.State.SetStateServingInfo(data)
+		c.Assert(err, gc.ErrorMatches, "incomplete state serving info set in state")
+	}
 }
