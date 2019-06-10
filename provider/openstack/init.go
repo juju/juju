@@ -10,6 +10,9 @@ import (
 
 const (
 	providerType = "openstack"
+
+	rootDiskSourceVolume = "volume"
+	rootDiskSourceLocal  = "local"
 )
 
 func init() {

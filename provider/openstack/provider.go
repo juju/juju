@@ -528,9 +528,8 @@ func (e *Environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 	validator := constraints.NewValidator()
 	validator.RegisterConflicts(
 		[]string{constraints.InstanceType},
-		[]string{constraints.Mem, constraints.RootDisk, constraints.RootDiskSource, constraints.Cores})
-	// NOTE: RootDiskSource does not conflict with InstanceType, but RootDisk and InstanceType do.
-	// Ideally RootDiskSource=volume conditionally disables the conflict between InstanceType and RootDisk.
+		[]string{constraints.Mem, constraints.Cores})
+	// NOTE: RootDiskSource and RootDisk constraints are validated in PrecheckInstance.
 	validator.RegisterUnsupported(unsupportedConstraints)
 	novaClient := e.nova()
 	flavors, err := novaClient.ListFlavorsDetail()
@@ -544,7 +543,7 @@ func (e *Environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 	}
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
 	validator.RegisterVocabulary(constraints.VirtType, []string{"kvm", "lxd"})
-	validator.RegisterVocabulary(constraints.RootDiskSource, []string{"volume"})
+	validator.RegisterVocabulary(constraints.RootDiskSource, []string{rootDiskSourceVolume})
 	return validator, nil
 }
 
@@ -641,22 +640,37 @@ func (e *Environ) PrecheckInstance(ctx context.ProviderCallContext, args environ
 	if _, err := e.deriveAvailabilityZone(ctx, args.Placement, args.VolumeAttachments); err != nil {
 		return errors.Trace(err)
 	}
-	if !args.Constraints.HasInstanceType() {
-		return nil
+	usingVolumeRootDisk := false
+	if args.Constraints.HasRootDiskSource() && args.Constraints.HasRootDisk() &&
+		*args.Constraints.RootDiskSource == rootDiskSourceVolume {
+		usingVolumeRootDisk = true
 	}
-	// Constraint has an instance-type constraint so let's see if it is valid.
-	novaClient := e.nova()
-	flavors, err := novaClient.ListFlavorsDetail()
-	if err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
-		return err
+	if args.Constraints.HasRootDisk() && args.Constraints.HasInstanceType() && !usingVolumeRootDisk {
+		return errors.Errorf("constraint %s cannot be specified with %s unless when constraint %s=%s",
+			constraints.RootDisk, constraints.InstanceType,
+			constraints.RootDiskSource, rootDiskSourceVolume)
 	}
-	for _, flavor := range flavors {
-		if flavor.Name == *args.Constraints.InstanceType {
-			return nil
+	if args.Constraints.HasInstanceType() {
+		// Constraint has an instance-type constraint so let's see if it is valid.
+		novaClient := e.nova()
+		flavors, err := novaClient.ListFlavorsDetail()
+		if err != nil {
+			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+			return err
+		}
+		flavorFound := false
+		for _, flavor := range flavors {
+			if flavor.Name == *args.Constraints.InstanceType {
+				flavorFound = true
+				break
+			}
+		}
+		if !flavorFound {
+			return errors.Errorf("invalid Openstack flavour %q specified", *args.Constraints.InstanceType)
 		}
 	}
-	return errors.Errorf("invalid Openstack flavour %q specified", *args.Constraints.InstanceType)
+
+	return nil
 }
 
 // PrepareForBootstrap is part of the Environ interface.
@@ -1347,7 +1361,7 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 
 func (e *Environ) configureRootDisk(ctx context.ProviderCallContext, args environs.StartInstanceParams,
 	spec *instances.InstanceSpec, runOpts *nova.RunServerOpts) error {
-	rootDiskSource := "local"
+	rootDiskSource := rootDiskSourceLocal
 	if args.Constraints.HasRootDiskSource() {
 		rootDiskSource = *args.Constraints.RootDiskSource
 	}
@@ -1363,12 +1377,15 @@ func (e *Environ) configureRootDisk(ctx context.ProviderCallContext, args enviro
 		DeleteOnTermination: true,
 	}
 	switch rootDiskSource {
-	case "local":
+	case rootDiskSourceLocal:
 		runOpts.ImageId = spec.Image.Id
-	case "volume":
+	case rootDiskSourceVolume:
 		size := spec.InstanceType.RootDisk
 		if args.Constraints.HasRootDisk() {
 			size = *args.Constraints.RootDisk
+		}
+		if size <= 0 {
+			return errors.Errorf("root disk size cannot be 0")
 		}
 		sizeGB := int(math.Ceil(float64(size) / 1024.0))
 		rootDiskMapping.VolumeSize = sizeGB
