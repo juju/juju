@@ -276,10 +276,7 @@ func (op *caasOperator) init() (*LocalState, error) {
 		if err == jworker.ErrTerminateAgent {
 			return nil, err
 		}
-		return nil, errors.Annotatef(err,
-			"failed to initialize caasoperator for %q",
-			op.config.Application,
-		)
+		return nil, errors.Trace(err)
 	}
 	return localState, nil
 }
