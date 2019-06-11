@@ -608,7 +608,7 @@ func (w *Watcher) sync() error {
 				// Queue notifications for per-document watches.
 				infos := w.watches[key]
 				for i, info := range infos {
-					if revno > info.revno || revno < 0 && info.revno >= 0 {
+					if revno > info.revno || (revno < 0 && info.revno >= 0) {
 						infos[i].revno = revno
 						evt := event{
 							ch:    info.ch,
