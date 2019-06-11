@@ -1875,7 +1875,6 @@
     "github.com/coreos/go-systemd/dbus",
     "github.com/coreos/go-systemd/unit",
     "github.com/coreos/go-systemd/util",
-    "github.com/davecgh/go-spew/spew",
     "github.com/docker/distribution/reference",
     "github.com/dustin/go-humanize",
     "github.com/golang/mock/gomock",
