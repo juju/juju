@@ -75,21 +75,23 @@ func (m *Machine) ContainerType() instance.ContainerType {
 
 // Units returns all the units that have been assigned to the machine
 // including subordinates.
-func (m *Machine) Units() ([]*Unit, error) {
+func (m *Machine) Units() ([]Unit, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	result := make([]*Unit, 0)
-	for unitName, unit := range m.model.units {
-		if unit.details.MachineId == m.details.Id {
+	units := m.model.Units()
+
+	var result []Unit
+	for unitName, unit := range units {
+		if unit.MachineId() == m.details.Id {
 			result = append(result, unit)
 		}
 		if unit.details.Subordinate {
-			principalUnit, found := m.model.units[unit.details.Principal]
+			principalUnit, found := units[unit.Principal()]
 			if !found {
-				return result, errors.NotFoundf("principal unit %q for subordinate %s", unit.details.Principal, unitName)
+				return result, errors.NotFoundf("principal unit %q for subordinate %s", unit.Principal(), unitName)
 			}
-			if principalUnit.details.MachineId == m.details.Id {
+			if principalUnit.MachineId() == m.details.Id {
 				result = append(result, unit)
 			}
 		}
@@ -117,7 +119,7 @@ func (m *Machine) WatchContainers() (*PredicateStringsWatcher, error) {
 
 	w := newPredicateStringsWatcher(regexpPredicate(compiled), machines...)
 	deregister := m.registerWorker(w)
-	unsub := m.model.hub.Subscribe(m.modelTopic(modelAddRemoveMachine), w.changed)
+	unsub := m.model.hub.Subscribe(modelAddRemoveMachine, w.changed)
 
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
@@ -132,19 +134,19 @@ func (m *Machine) WatchContainers() (*PredicateStringsWatcher, error) {
 
 // WatchLXDProfileVerificationNeeded notifies if any of the following happen
 // relative to this machine:
-//     1. A new unit whose charm has an lxd profile is added.
+//     1. A new unit whose charm has an LXD profile is added.
 //     2. A unit being removed has a profile and other units
 //        exist on the machine.
-//     3. The lxdprofile of an application with a unit on this
+//     3. The LXD profile of an application with a unit on this
 //        machine is added, removed, or exists.
 //     4. The machine's instanceId is changed, indicating it
 //        has been provisioned.
 func (m *Machine) WatchLXDProfileVerificationNeeded() (*MachineLXDProfileWatcher, error) {
 	return newMachineLXDProfileWatcher(MachineLXDProfileWatcherConfig{
-		appTopic:         m.model.topic(applicationCharmURLChange),
+		appTopic:         applicationCharmURLChange,
 		provisionedTopic: m.topic(machineProvisioned),
-		unitAddTopic:     m.model.topic(modelUnitLXDProfileAdd),
-		unitRemoveTopic:  m.model.topic(modelUnitLXDProfileRemove),
+		unitAddTopic:     modelUnitAdd,
+		unitRemoveTopic:  modelUnitRemove,
 		machine:          m,
 		modeler:          m.model,
 		metrics:          m.model.metrics,
@@ -156,10 +158,6 @@ func (m *Machine) WatchLXDProfileVerificationNeeded() (*MachineLXDProfileWatcher
 func (m *Machine) containerRegexp() (*regexp.Regexp, error) {
 	regExp := fmt.Sprintf("^%s%s", m.details.Id, names.ContainerSnippet)
 	return regexp.Compile(regExp)
-}
-
-func (m *Machine) modelTopic(suffix string) string {
-	return modelTopic(m.details.ModelUUID, suffix)
 }
 
 func (m *Machine) setDetails(details MachineChange) {
@@ -194,5 +192,5 @@ func (m *Machine) setDetails(details MachineChange) {
 }
 
 func (m *Machine) topic(suffix string) string {
-	return m.details.ModelUUID + ":" + m.details.Id + ":" + suffix
+	return m.details.Id + ":" + suffix
 }
