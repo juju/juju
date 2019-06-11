@@ -324,7 +324,7 @@ func (s *lxdProfileWatcherSuite) newUnit(c *gc.C, machineId, principal string, c
 }
 
 func (s *lxdProfileWatcherSuite) setupOneMachineLXDProfileWatcherScenario(c *gc.C) {
-	s.model = s.NewModel(modelChange)
+	s.model = s.NewModel(modelChange, nil)
 
 	s.model.UpdateMachine(machineChange, s.Manager)
 	machine, err := s.model.Machine(machineChange.Id)
@@ -372,7 +372,7 @@ func (s *lxdProfileWatcherSuite) assertStartOneMachineWatcher(c *gc.C) *cache.Ma
 }
 
 func (s *lxdProfileWatcherSuite) assertStartOneMachineNotProvisionedWatcher(c *gc.C) *cache.MachineLXDProfileWatcher {
-	s.model = s.NewModel(modelChange)
+	s.model = s.NewModel(modelChange, nil)
 
 	mChange := cache.MachineChange{
 		ModelUUID: "model-uuid",
