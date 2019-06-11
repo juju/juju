@@ -327,6 +327,15 @@ type openstackInstance struct {
 	serverDetail *nova.ServerDetail
 	// floatingIP is non-nil iff use-floating-ip is true.
 	floatingIP *string
+
+	// runOpts is only set in the response from StartInstance.
+	runOpts *nova.RunServerOpts
+}
+
+// NovaInstanceStartedWithOpts exposes run options used to start an instance.
+// Used by unit testing.
+func (inst *openstackInstance) NovaInstanceStartedWithOpts() *nova.RunServerOpts {
+	return inst.runOpts
 }
 
 func (inst *openstackInstance) String() string {
@@ -402,6 +411,18 @@ func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareChara
 		// tags not currently supported on openstack
 	}
 	hc.AvailabilityZone = &inst.serverDetail.AvailabilityZone
+	// If the instance was started with a volume block device mapping, select the first
+	// boot disk as the reported RootDisk size.
+	if inst.runOpts != nil {
+		for _, blockDevice := range inst.runOpts.BlockDeviceMappings {
+			if blockDevice.BootIndex == 0 &&
+				blockDevice.DestinationType == rootDiskSourceVolume {
+				rootDiskSize := uint64(blockDevice.VolumeSize * 1024)
+				hc.RootDisk = &rootDiskSize
+				break
+			}
+		}
+	}
 	return hc
 }
 
@@ -645,7 +666,7 @@ func (e *Environ) PrecheckInstance(ctx context.ProviderCallContext, args environ
 		usingVolumeRootDisk = true
 	}
 	if args.Constraints.HasRootDisk() && args.Constraints.HasInstanceType() && !usingVolumeRootDisk {
-		return errors.Errorf("constraint %s cannot be specified with %s unless when constraint %s=%s",
+		return errors.Errorf("constraint %s cannot be specified with %s unless constraint %s=%s",
 			constraints.RootDisk, constraints.InstanceType,
 			constraints.RootDiskSource, rootDiskSourceVolume)
 	}
@@ -1320,6 +1341,7 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		serverDetail: detail,
 		arch:         &spec.Image.Arch,
 		instType:     &spec.InstanceType,
+		runOpts:      &opts,
 	}
 	logger.Infof("started instance %q", inst.Id())
 	withPublicIP := e.ecfg().useFloatingIP()
@@ -1379,7 +1401,7 @@ func (e *Environ) configureRootDisk(ctx context.ProviderCallContext, args enviro
 	case rootDiskSourceLocal:
 		runOpts.ImageId = spec.Image.Id
 	case rootDiskSourceVolume:
-		size := spec.InstanceType.RootDisk
+		size := uint64(0)
 		if args.Constraints.HasRootDisk() {
 			size = *args.Constraints.RootDisk
 		}
