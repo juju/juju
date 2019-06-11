@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -150,7 +151,7 @@ func (c *modelCredentialCommand) Run(ctx *cmd.Context) error {
 
 	err = modelClient.ChangeModelCredential(modelTag, credentialTag)
 	if err != nil {
-		return fail(errors.Trace(err))
+		return block.ProcessBlockedError(errors.Annotate(err, "could not set model credential"), block.BlockChange)
 	}
 	ctx.Infof("Changed cloud credential on model %q to %q.", modelName, c.credential)
 	return nil

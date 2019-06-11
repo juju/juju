@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -85,7 +86,7 @@ func (c *attachStorageCommand) Run(ctx *cmd.Context) error {
 		if params.IsCodeUnauthorized(err) {
 			common.PermissionsMessage(ctx.Stderr, "attach storage")
 		}
-		return errors.Trace(err)
+		return block.ProcessBlockedError(errors.Annotatef(err, "could not attach storage %v", c.storageIds), block.BlockChange)
 	}
 	for i, result := range results {
 		if result.Error == nil {
