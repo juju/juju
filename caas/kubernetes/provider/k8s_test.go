@@ -1906,9 +1906,20 @@ func (s *K8sBrokerSuite) TestUpgradeController(c *gc.C) {
 	defer ctrl.Finish()
 
 	ss := apps.StatefulSet{
-		ObjectMeta: v1.ObjectMeta{Name: "controller"},
+		ObjectMeta: v1.ObjectMeta{
+			Name: "controller",
+			Annotations: map[string]string{
+				"juju-version": "6.6.6",
+			},
+			Labels: map[string]string{"juju-operator": "controller"},
+		},
 		Spec: apps.StatefulSetSpec{
 			Template: core.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					Annotations: map[string]string{
+						"juju-version": "6.6.6",
+					},
+				},
 				Spec: core.PodSpec{
 					Containers: []core.Container{
 						{Image: "foo"},
@@ -1936,9 +1947,20 @@ func (s *K8sBrokerSuite) TestUpgradeOperator(c *gc.C) {
 	defer ctrl.Finish()
 
 	ss := apps.StatefulSet{
-		ObjectMeta: v1.ObjectMeta{Name: "test-app-operator"},
+		ObjectMeta: v1.ObjectMeta{
+			Name: "test-app-operator",
+			Annotations: map[string]string{
+				"juju-version": "6.6.6",
+			},
+			Labels: map[string]string{"juju-operator": "test-app"},
+		},
 		Spec: apps.StatefulSetSpec{
 			Template: core.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					Annotations: map[string]string{
+						"juju-version": "6.6.6",
+					},
+				},
 				Spec: core.PodSpec{
 					Containers: []core.Container{
 						{Image: "foo"},
