@@ -43,6 +43,7 @@ Commands that can be disabled are grouped based on logical operations as follows
     import-ssh-key
     model-defaults
     model-config
+    reload-spaces
     remove-application
     remove-machine
     remove-relation
@@ -52,6 +53,7 @@ Commands that can be disabled are grouped based on logical operations as follows
     resolved
     retry-provisioning
     run
+    scale-application
     set-credential
     set-constraints
     set-series

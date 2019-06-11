@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/applicationoffers"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
 )
@@ -170,7 +171,7 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 	}
 	localName, err := targetClient.Consume(arg)
 	if err != nil {
-		return errors.Trace(err)
+		return block.ProcessBlockedError(errors.Annotatef(err, "could consume %v", url.AsLocal().String()), block.BlockChange)
 	}
 	ctx.Infof("Added %s as %s", c.remoteApplication, localName)
 	return nil

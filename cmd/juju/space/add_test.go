@@ -84,3 +84,22 @@ func (s *AddSuite) TestRunUnauthorizedMentionsJujuGrant(c *gc.C) {
 		"foo", "10.1.2.0/24",
 	)
 }
+
+func (s *AddSuite) TestRunWhenSpacesBlocked(c *gc.C) {
+	s.api.SetErrors(&params.Error{Code: params.CodeOperationBlocked, Message: "nope"})
+	stdout, stderr, err := s.RunCommand(c, "foo", "10.1.2.0/24")
+	c.Assert(err, gc.ErrorMatches, `
+cannot add space "foo": nope
+
+All operations that change model have been disabled for the current model.
+To enable changes, run
+
+    juju enable-command all
+
+`[1:])
+	c.Assert(stderr, gc.Equals, "")
+	c.Assert(stdout, gc.Equals, "")
+
+	s.api.CheckCallNames(c, "AddSpace", "Close")
+	s.api.CheckCall(c, 0, "AddSpace", "foo", s.Strings("10.1.2.0/24"), true)
+}

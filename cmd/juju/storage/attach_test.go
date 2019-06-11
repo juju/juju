@@ -64,6 +64,15 @@ You may ask an administrator to grant you access with "juju grant".
 `)
 }
 
+func (s *AttachStorageSuite) TestAttachBlocked(c *gc.C) {
+	var fake fakeEntityAttacher
+	fake.SetErrors(nil, &params.Error{Code: params.CodeOperationBlocked, Message: "nope"})
+	cmd := storage.NewAttachStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
+	_, err := cmdtesting.RunCommand(c, cmd, "foo/0", "bar/1")
+	c.Assert(err.Error(), jc.Contains, `could not attach storage [bar/1]: nope`)
+	c.Assert(err.Error(), jc.Contains, `All operations that change model have been disabled for the current model.`)
+}
+
 func (s *AttachStorageSuite) TestAttachInitErrors(c *gc.C) {
 	s.testAttachInitError(c, []string{}, "attach-storage requires a unit ID and at least one storage ID")
 	s.testAttachInitError(c, []string{"unit/0"}, "attach-storage requires a unit ID and at least one storage ID")

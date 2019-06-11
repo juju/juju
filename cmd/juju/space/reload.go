@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -44,7 +45,7 @@ func (c *ReloadCommand) Run(ctx *cmd.Context) error {
 			if errors.IsNotSupported(err) {
 				ctx.Infof("cannot reload spaces: %v", err)
 			}
-			return errors.Annotate(err, "cannot reload spaces")
+			return block.ProcessBlockedError(errors.Annotate(err, "cannot reload spaces"), block.BlockChange)
 		}
 		return nil
 	})
