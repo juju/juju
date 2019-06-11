@@ -583,9 +583,6 @@ func (c *Command) Validate() error {
 			return errors.NotValidf("setTime with model UUID")
 		}
 		if c.Lease != "" {
-			if c.Holder == "" {
-				return errors.NotValidf("%s with empty holder", c.Operation)
-			}
 			return errors.NotValidf("setTime with lease")
 		}
 		if c.PinEntity != "" {
