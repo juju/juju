@@ -4,8 +4,6 @@
 package cache
 
 import (
-	"sync"
-
 	"github.com/juju/pubsub"
 
 	"github.com/juju/juju/core/settings"
@@ -19,7 +17,6 @@ type Branch struct {
 
 	metrics *ControllerGauges
 	hub     *pubsub.SimpleHub
-	mu      sync.Mutex
 
 	details BranchChange
 }
@@ -43,9 +40,6 @@ func (b *Branch) AssignedUnits() map[string][]string {
 }
 
 func (b *Branch) setDetails(details BranchChange) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	// If this is the first receipt of details, set the removal message.
 	if b.removalMessage == nil {
 		b.removalMessage = RemoveBranch{
@@ -62,8 +56,6 @@ func (b *Branch) setDetails(details BranchChange) {
 }
 
 // copy returns a copy of the branch, ensuring appropriate deep copying.
-// This method is called while the cache model is locked,
-// and so should no require its own lock protection.
 func (b *Branch) copy() Branch {
 	var cAssignedUnits map[string][]string
 	bAssignedUnits := b.details.AssignedUnits
@@ -96,15 +88,8 @@ func (b *Branch) copy() Branch {
 		}
 	}
 
-	cDetails := b.details
-	cDetails.AssignedUnits = cAssignedUnits
-	cDetails.Config = cConfig
-
-	// Copy everything except the mutex.
-	return Branch{
-		Resident: b.Resident,
-		metrics:  b.metrics,
-		hub:      b.hub,
-		details:  cDetails,
-	}
+	cb := *b
+	cb.details.AssignedUnits = cAssignedUnits
+	cb.details.Config = cConfig
+	return cb
 }

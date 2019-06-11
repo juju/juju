@@ -83,7 +83,7 @@ type modelCacheCharm struct {
 }
 
 type modelCacheUnit struct {
-	*cache.Unit
+	cache.Unit
 }
 
 type modelCacheApplication struct {
