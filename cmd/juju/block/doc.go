@@ -27,6 +27,7 @@ Commands that can be disabled are grouped based on logical operations as follows
     add-unit
     add-ssh-key
     add-user
+    attach-resource
     attach-storage
     change-user-password
     config

@@ -8,6 +8,7 @@ import (
 
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -126,6 +127,40 @@ func (s *UploadSuite) TestUploadFileResource(c *gc.C) {
 
 	err = u.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c,
+		"NewClient",
+		"ListResources",
+		"OpenResource",
+		"Upload",
+		"FileClose",
+		"Close",
+	)
+	s.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
+	s.stub.CheckCall(c, 2, "OpenResource", "bar")
+	s.stub.CheckCall(c, 3, "Upload", "svc", "foo", "bar", file)
+}
+
+func (s *UploadSuite) TestUploadFileChangeBlocked(c *gc.C) {
+	file := &stubFile{stub: s.stub}
+	s.stubDeps.file = file
+	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{
+		NewClient:    s.stubDeps.NewClient,
+		OpenResource: s.stubDeps.OpenResource,
+	},
+	)
+	err := u.Init([]string{"svc", "foo=bar"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedError := params.Error{
+		Message: "test-block",
+		Code:    params.CodeOperationBlocked,
+	}
+	s.stub.SetErrors(nil, nil, nil, expectedError)
+
+	err = u.Run(nil)
+	c.Assert(err.Error(), jc.Contains, `failed to upload resource "foo": test-block`)
+	c.Assert(err.Error(), jc.Contains, `All operations that change model have been disabled for the current model.`)
 
 	s.stub.CheckCallNames(c,
 		"NewClient",
