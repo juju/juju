@@ -1323,8 +1323,6 @@ func (k *kubernetesClient) Upgrade(appName string, vers version.Number) error {
 		c.Image = podcfg.RebuildOldOperatorImagePath(c.Image, vers)
 		existingStatefulSet.Spec.Template.Spec.Containers[i] = c
 	}
-	logger.Criticalf("existingStatefulSet.Spec.Selector.MatchLabels -> %+v", existingStatefulSet.Spec.Selector)
-	logger.Criticalf("existingStatefulSet.Labels -> %+v", existingStatefulSet.Labels)
 
 	// update juju-version annotation.
 	// TODO(caas): consider how to upgrade to current annotations format safely.
@@ -1333,13 +1331,13 @@ func (k *kubernetesClient) Upgrade(appName string, vers version.Number) error {
 		k8sannotations.New(existingStatefulSet.GetAnnotations()).
 			Add(labelVersion, vers.String()).ToMap(),
 	)
+	existingStatefulSet.Spec.Template.SetAnnotations(
+		k8sannotations.New(existingStatefulSet.Spec.Template.GetAnnotations()).
+			Add(labelVersion, vers.String()).ToMap(),
+	)
 	// update juju-version label.
-	existingStatefulSet.SetLabels(operatorLabels(appName))
-	// labels and selectors should be same always.
-	// this is to fix lp-1830128(they were wrongly configed differently).
-	existingStatefulSet.Spec.Selector = &v1.LabelSelector{
-		MatchLabels: existingStatefulSet.GetLabels(),
-	}
+	labels := operatorLabels(appName)
+	existingStatefulSet.SetLabels(labels)
 	_, err = statefulsets.Update(existingStatefulSet)
 	return errors.Trace(err)
 }
