@@ -712,11 +712,9 @@ func AddControllerLogCollectionsSizeSettings(pool *StatePool) error {
 	}
 
 	var ops []txn.Op
-	settingsChanged := maybeUpdateSettings(doc.Settings, controller.MaxLogsAge, fmt.Sprintf("%vh", controller.DefaultMaxLogsAgeDays*24))
-	settingsChanged =
-		maybeUpdateSettings(doc.Settings, controller.MaxLogsSize, fmt.Sprintf("%vM", controller.DefaultMaxLogCollectionMB)) || settingsChanged
-	settingsChanged =
-		maybeUpdateSettings(doc.Settings, controller.MaxTxnLogSize, fmt.Sprintf("%vM", controller.DefaultMaxTxnLogCollectionMB)) || settingsChanged
+	// Logs settings removed here because they are now no longer necessary.
+	settingsChanged :=
+		maybeUpdateSettings(doc.Settings, controller.MaxTxnLogSize, fmt.Sprintf("%vM", controller.DefaultMaxTxnLogCollectionMB))
 	if settingsChanged {
 		ops = append(ops, txn.Op{
 			C:      controllersC,
@@ -964,7 +962,8 @@ func SplitLogCollections(pool *StatePool) error {
 		newLogs := db.C(newCollName)
 
 		if !seen.Contains(newCollName) {
-			if err := InitDbLogs(session, modelUUID); err != nil {
+			// There is no setting for the size, so use the default.
+			if err := InitDbLogsForModel(session, modelUUID, controller.DefaultModelLogsSizeMB); err != nil {
 				return errors.Annotatef(err, "failed to init new logs collection %q", newCollName)
 			}
 			seen.Add(newCollName)

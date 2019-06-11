@@ -283,7 +283,7 @@ func InitDatabase(session *mgo.Session, modelUUID string, settings *controller.C
 	if err := schema.Create(session.DB(jujuDB), settings); err != nil {
 		return errors.Trace(err)
 	}
-	if err := InitDbLogs(session, modelUUID); err != nil {
+	if err := InitDbLogs(session); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

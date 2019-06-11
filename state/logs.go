@@ -18,12 +18,14 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"github.com/juju/utils/deque"
 	"github.com/juju/version"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/mongo"
 )
 
@@ -74,10 +76,97 @@ func logCollectionName(modelUUID string) string {
 	return logsCPrefix + modelUUID
 }
 
+// InitDbLogs sets up the capped collections for the logging, along with the
+// indexes for the logs collection. It should be called as state is opened. It
+// is idempotent.
+func InitDbLogs(session *mgo.Session) error {
+	// Read the capped collection size from controller config.
+	size, err := modelLogsSize(session)
+	if errors.Cause(err) == mgo.ErrNotFound {
+		// We are in early stages of database initialization, so nothing to do
+		// here.
+		logger.Infof("controller settings not found, early stage initialization assumed")
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	models, err := modelUUIDs(session)
+	if err != nil {
+		return err
+	}
+
+	encounteredError := false
+	for _, uuid := range models {
+		if err := InitDbLogsForModel(session, uuid, size); err != nil {
+			encounteredError = true
+			logger.Errorf("unable to initialize model logs: %v", err)
+		}
+	}
+
+	if encounteredError {
+		return errors.New("one or more errors initializing logs")
+	}
+	return nil
+}
+
+// modelLogsSize reads the model-logs-size value from the controller
+// config document and returns it. If the value isn't found the default
+// size value is returned.
+func modelLogsSize(session *mgo.Session) (int, error) {
+	// This is executed very early in the opening of the database, so there
+	// is no State, Controller, nor StatePool objects just now. Use low level
+	// mgo to access the settings.
+	var doc settingsDoc
+	err := session.DB(jujuDB).C(controllersC).FindId(controllerSettingsGlobalKey).One(&doc)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	// During initial migration there is no guarantee that the value exists
+	// in the settings document.
+	if value, ok := doc.Settings[controller.ModelLogsSize]; ok {
+		if s, ok := value.(string); ok {
+			size, _ := utils.ParseSize(s)
+			if size > 0 {
+				// If the value is there we know it fits in an int without wrapping.
+				return int(size), nil
+			}
+		}
+	}
+	return controller.DefaultModelLogsSizeMB, nil
+}
+
+// modelUUIDs returns the UUIDs of all models currently stored in the database.
+// This function is called very early in the opening of the databaes, so it uses
+// lower level mgo methods rather than any helpers from State objects.
+func modelUUIDs(session *mgo.Session) ([]string, error) {
+	var docs []modelDoc
+	err := session.DB(jujuDB).C(modelsC).Find(nil).All(&docs)
+	if err != nil {
+		return nil, err
+	}
+	var result []string
+	for _, doc := range docs {
+		result = append(result, doc.UUID)
+	}
+	return result, nil
+}
+
 // InitDbLogs sets up the indexes for the logs collection. It should
 // be called as state is opened. It is idempotent.
-func InitDbLogs(session *mgo.Session, modelUUID string) error {
+func InitDbLogsForModel(session *mgo.Session, modelUUID string, size int) error {
+	// Get the collection from the logs DB.
 	logsColl := session.DB(logsDB).C(logCollectionName(modelUUID))
+
+	// If it doesn't exist, make it capped with the right indices.
+	err := logsColl.Create(&mgo.CollectionInfo{})
+
+	_ = err
+	// If it isn't capped, convert to capped with right size.
+
+	// If it is capped but size is different, drop and recreate with right
+	// size.
+
 	for _, key := range logIndexes {
 		err := logsColl.EnsureIndex(mgo.Index{Key: key})
 		if err != nil {
@@ -906,18 +995,26 @@ func dbCollectionSizeToInt(result bson.M, collectionName string) (int, error) {
 		collectionName, size, size)
 }
 
-// getCollectionMB returns the size of a MongoDB collection (in
-// bytes), excluding space used by indexes.
-func getCollectionMB(coll *mgo.Collection) (int, error) {
+func collStats(coll *mgo.Collection) (bson.M, error) {
 	var result bson.M
 	err := coll.Database.Run(bson.D{
 		{"collStats", coll.Name},
 		{"scale", humanize.MiByte},
 	}, &result)
 	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return result, nil
+}
+
+// getCollectionMB returns the size of a MongoDB collection (in
+// bytes), excluding space used by indexes.
+func getCollectionMB(coll *mgo.Collection) (int, error) {
+	stats, err := collStats(coll)
+	if err != nil {
 		return 0, errors.Trace(err)
 	}
-	return dbCollectionSizeToInt(result, coll.Name)
+	return dbCollectionSizeToInt(stats, coll.Name)
 }
 
 // getCollectionTotalMB returns the total size of the log collections
