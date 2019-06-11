@@ -174,11 +174,12 @@ func (m *Machine) setDetails(details MachineChange) {
 
 	m.setStale(false)
 
-	if details.InstanceId != m.details.InstanceId {
+	provisioned := details.InstanceId != m.details.InstanceId
+	m.details = details
+
+	if provisioned {
 		m.model.hub.Publish(m.topic(machineProvisioned), nil)
 	}
-
-	m.details = details
 
 	configHash, err := hash(details.Config)
 	if err != nil {

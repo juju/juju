@@ -23,7 +23,7 @@ type ModelSuite struct {
 var _ = gc.Suite(&ModelSuite{})
 
 func (s *ModelSuite) TestReport(c *gc.C) {
-	m := s.NewModel(modelChange)
+	m := s.NewModel(modelChange, nil)
 	c.Assert(m.Report(), jc.DeepEquals, map[string]interface{}{
 		"name":              "model-owner/test-model",
 		"life":              life.Value("alive"),
@@ -36,7 +36,7 @@ func (s *ModelSuite) TestReport(c *gc.C) {
 }
 
 func (s *ModelSuite) TestConfig(c *gc.C) {
-	m := s.NewModel(modelChange)
+	m := s.NewModel(modelChange, nil)
 	c.Assert(m.Config(), jc.DeepEquals, map[string]interface{}{
 		"key":     "value",
 		"another": "foo",
@@ -44,12 +44,12 @@ func (s *ModelSuite) TestConfig(c *gc.C) {
 }
 
 func (s *ModelSuite) TestNewModelGeneratesHash(c *gc.C) {
-	s.NewModel(modelChange)
+	s.NewModel(modelChange, nil)
 	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheMiss), gc.Equals, float64(1))
 }
 
 func (s *ModelSuite) TestModelConfigIncrementsReadCount(c *gc.C) {
-	m := s.NewModel(modelChange)
+	m := s.NewModel(modelChange, nil)
 	c.Check(testutil.ToFloat64(s.Gauges.ModelConfigReads), gc.Equals, float64(0))
 	m.Config()
 	c.Check(testutil.ToFloat64(s.Gauges.ModelConfigReads), gc.Equals, float64(1))
@@ -61,7 +61,7 @@ func (s *ModelSuite) TestModelConfigIncrementsReadCount(c *gc.C) {
 // watcher, but using a cached model avoids the need to put scaffolding code in
 // export_test.go to create a watcher in isolation.
 func (s *ModelSuite) TestConfigWatcherStops(c *gc.C) {
-	m := s.NewModel(modelChange)
+	m := s.NewModel(modelChange, nil)
 	w := m.WatchConfig()
 	wc := NewNotifyWatcherC(c, w)
 	// Sends initial event.
@@ -70,7 +70,7 @@ func (s *ModelSuite) TestConfigWatcherStops(c *gc.C) {
 }
 
 func (s *ModelSuite) TestConfigWatcherChange(c *gc.C) {
-	m := s.NewModel(modelChange)
+	m := s.NewModel(modelChange, nil)
 	w := m.WatchConfig()
 	defer workertest.CleanKill(c, w)
 	wc := NewNotifyWatcherC(c, w)
@@ -93,7 +93,7 @@ func (s *ModelSuite) TestConfigWatcherChange(c *gc.C) {
 }
 
 func (s *ModelSuite) TestConfigWatcherOneValue(c *gc.C) {
-	m := s.NewModel(modelChange)
+	m := s.NewModel(modelChange, nil)
 	w := m.WatchConfig("key")
 	defer workertest.CleanKill(c, w)
 	wc := NewNotifyWatcherC(c, w)
@@ -111,7 +111,7 @@ func (s *ModelSuite) TestConfigWatcherOneValue(c *gc.C) {
 }
 
 func (s *ModelSuite) TestConfigWatcherOneValueOtherChange(c *gc.C) {
-	m := s.NewModel(modelChange)
+	m := s.NewModel(modelChange, nil)
 	w := m.WatchConfig("key")
 
 	// The worker is the first and only resource (1).
@@ -137,7 +137,7 @@ func (s *ModelSuite) TestConfigWatcherOneValueOtherChange(c *gc.C) {
 }
 
 func (s *ModelSuite) TestConfigWatcherSameValuesCacheHit(c *gc.C) {
-	m := s.NewModel(modelChange)
+	m := s.NewModel(modelChange, nil)
 
 	w := m.WatchConfig("key", "another")
 	defer workertest.CleanKill(c, w)
@@ -153,31 +153,31 @@ func (s *ModelSuite) TestConfigWatcherSameValuesCacheHit(c *gc.C) {
 }
 
 func (s *ModelSuite) TestApplicationNotFoundError(c *gc.C) {
-	m := s.NewModel(modelChange)
+	m := s.NewModel(modelChange, nil)
 	_, err := m.Application("nope")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *ModelSuite) TestCharmNotFoundError(c *gc.C) {
-	m := s.NewModel(modelChange)
+	m := s.NewModel(modelChange, nil)
 	_, err := m.Charm("nope")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *ModelSuite) TestMachineNotFoundError(c *gc.C) {
-	m := s.NewModel(modelChange)
+	m := s.NewModel(modelChange, nil)
 	_, err := m.Machine("nope")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *ModelSuite) TestUnitNotFoundError(c *gc.C) {
-	m := s.NewModel(modelChange)
+	m := s.NewModel(modelChange, nil)
 	_, err := m.Unit("nope")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *ModelSuite) TestUnitReturnsCopy(c *gc.C) {
-	m := s.NewModel(modelChange)
+	m := s.NewModel(modelChange, nil)
 	m.UpdateUnit(unitChange, s.Manager)
 
 	u1, err := m.Unit(unitChange.Name)
@@ -194,13 +194,13 @@ func (s *ModelSuite) TestUnitReturnsCopy(c *gc.C) {
 }
 
 func (s *ModelSuite) TestBranchNotFoundError(c *gc.C) {
-	m := s.NewModel(modelChange)
+	m := s.NewModel(modelChange, nil)
 	_, err := m.Branch("nope")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *ModelSuite) TestBranchReturnsCopy(c *gc.C) {
-	m := s.NewModel(modelChange)
+	m := s.NewModel(modelChange, nil)
 	m.UpdateBranch(branchChange, s.Manager)
 
 	b1, err := m.Branch(branchChange.Name)

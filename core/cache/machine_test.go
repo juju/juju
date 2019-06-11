@@ -6,6 +6,9 @@ package cache_test
 import (
 	"sort"
 	"strings"
+	"time"
+
+	"github.com/juju/juju/testing"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -29,7 +32,7 @@ var _ = gc.Suite(&machineSuite{})
 
 func (s *machineSuite) SetUpTest(c *gc.C) {
 	s.EntitySuite.SetUpTest(c)
-	s.model = s.NewModel(modelChange)
+	s.model = s.NewModel(modelChange, nil)
 }
 
 func (s *machineSuite) TestInstanceId(c *gc.C) {
@@ -172,6 +175,20 @@ func (s *machineSuite) TestWatchContainersRemoveContainer(c *gc.C) {
 	}
 	c.Assert(s.model.RemoveMachine(rm), jc.ErrorIsNil)
 	s.wc0.AssertOneChange([]string{rm.Id})
+}
+
+func (s *machineSuite) TestMachineArrivesProvisionedPublished(c *gc.C) {
+	hub := s.NewHub()
+
+	msg := make(chan struct{}, 1)
+	_ = hub.Subscribe(machineChange.Id+":machine-provisioned", func(_ string, _ interface{}) { msg <- struct{}{} })
+	s.NewModel(modelChange, hub).UpdateMachine(machineChange, s.Manager)
+
+	select {
+	case <-msg:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("provisioned message not received")
+	}
 }
 
 func (s *machineSuite) setupMachine0(c *gc.C) {
