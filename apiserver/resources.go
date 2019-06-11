@@ -42,7 +42,8 @@ type ResourcesBackend interface {
 // ResourcesHandler is the HTTP handler for client downloads and
 // uploads of resources.
 type ResourcesHandler struct {
-	StateAuthFunc func(*http.Request, ...string) (ResourcesBackend, state.PoolHelper, names.Tag, error)
+	StateAuthFunc     func(*http.Request, ...string) (ResourcesBackend, state.PoolHelper, names.Tag, error)
+	ChangeAllowedFunc func(*http.Request) error
 }
 
 // ServeHTTP implements http.Handler.
@@ -70,6 +71,10 @@ func (h *ResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request
 			logger.Errorf("resource download failed: %v", err)
 		}
 	case "PUT":
+		if err := h.ChangeAllowedFunc(req); err != nil {
+			api.SendHTTPError(resp, err)
+			return
+		}
 		response, err := h.upload(backend, req, tagToUsername(tag))
 		if err != nil {
 			api.SendHTTPError(resp, err)
