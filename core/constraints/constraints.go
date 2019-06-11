@@ -140,6 +140,11 @@ func (v *Value) HasCpuCores() bool {
 	return v.CpuCores != nil && *v.CpuCores > 0
 }
 
+// HasRootDisk returns true if the contraints.Value specifies a RootDisk size.
+func (v *Value) HasRootDisk() bool {
+	return v.RootDisk != nil && *v.RootDisk > 0
+}
+
 // HasRootDiskSource returns true if the constraints.Value specifies a
 // source for its root disk.
 func (v *Value) HasRootDiskSource() bool {

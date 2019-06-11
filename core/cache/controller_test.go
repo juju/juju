@@ -191,7 +191,6 @@ func (s *ControllerSuite) TestAddUnit(c *gc.C) {
 
 	unit, err := mod.Unit(unitChange.Name)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(unit, gc.NotNil)
 	s.AssertResident(c, unit.CacheId(), true)
 }
 

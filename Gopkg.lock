@@ -1403,7 +1403,7 @@
   version = "v0.2.3"
 
 [[projects]]
-  digest = "1:3bc94878ebb5ec72f58047fc1a613de37ba4ef2b0c152480c2b6400fa3a875a8"
+  digest = "1:116113ad2ba26a24f3c81618696697566a4c54603f5bcb028759de859059fa55"
   name = "gopkg.in/goose.v2"
   packages = [
     ".",
@@ -1429,7 +1429,7 @@
     "testservices/swiftservice",
   ]
   pruneopts = ""
-  revision = "13b769d3462eedac5f8ec2458f8e61a0dfe54d51"
+  revision = "f18d0f2f8f9bc5b5234a338670210c4bf4328ab4"
 
 [[projects]]
   digest = "1:445becf3878aa9bd50dfa972bd65f974ed2468c09350ab9ce28b1e4adce464df"

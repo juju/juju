@@ -30,7 +30,7 @@ type MachineLXDProfileWatcher struct {
 type MachineAppModeler interface {
 	Application(string) (*Application, error)
 	Charm(string) (*Charm, error)
-	Unit(string) (*Unit, error)
+	Unit(string) (Unit, error)
 }
 
 type appInfo struct {
@@ -141,7 +141,7 @@ func (w *MachineLXDProfileWatcher) init(machine *Machine) error {
 // applicationCharmURLChange sends a notification if what is saved for its
 // charm lxdprofile changes.  No notification is sent if the profile pointer
 // begins and ends as nil.
-func (w *MachineLXDProfileWatcher) applicationCharmURLChange(topic string, value interface{}) {
+func (w *MachineLXDProfileWatcher) applicationCharmURLChange(_ string, value interface{}) {
 	// We don't want to respond to any events until we have been fully initialized.
 	select {
 	case <-w.initialized:
@@ -195,7 +195,7 @@ func (w *MachineLXDProfileWatcher) applicationCharmURLChange(topic string, value
 // addUnit modifies the map of applications being watched when a unit is
 // added to the machine.  Notification is sent if a new unit whose charm has
 // an lxd profile is added.
-func (w *MachineLXDProfileWatcher) addUnit(topic string, value interface{}) {
+func (w *MachineLXDProfileWatcher) addUnit(_ string, value interface{}) {
 	// We don't want to respond to any events until we have been fully initialized.
 	select {
 	case <-w.initialized:
@@ -213,7 +213,7 @@ func (w *MachineLXDProfileWatcher) addUnit(topic string, value interface{}) {
 		}
 	}(&notify)
 
-	unit, okUnit := value.(*Unit)
+	unit, okUnit := value.(Unit)
 	if !okUnit {
 		w.logError("programming error, value not of type *Unit")
 		return
@@ -246,7 +246,7 @@ func (w *MachineLXDProfileWatcher) addUnit(topic string, value interface{}) {
 	logger.Debugf("end of unit change %#v", w.applications)
 }
 
-func (w *MachineLXDProfileWatcher) add(unit *Unit) bool {
+func (w *MachineLXDProfileWatcher) add(unit Unit) bool {
 	unitName := unit.Name()
 	appName := unit.Application()
 
@@ -289,7 +289,7 @@ func (w *MachineLXDProfileWatcher) add(unit *Unit) bool {
 // removeUnit modifies the map of applications being watched when a unit is
 // removed from the machine.  Notification is sent if a unit being removed
 // has a profile and other units exist on the machine.
-func (w *MachineLXDProfileWatcher) removeUnit(topic string, value interface{}) {
+func (w *MachineLXDProfileWatcher) removeUnit(_ string, value interface{}) {
 	// We don't want to respond to any events until we have been fully initialized.
 	select {
 	case <-w.initialized:
@@ -307,26 +307,26 @@ func (w *MachineLXDProfileWatcher) removeUnit(topic string, value interface{}) {
 		}
 	}(&notify)
 
-	rUnit, ok := value.(unitLXDProfileRemove)
+	rUnit, ok := value.(Unit)
 	if !ok {
 		w.logError("programming error, value not of type unitLXDProfileRemove")
 		return
 	}
 
-	app, ok := w.applications[rUnit.appName]
+	app, ok := w.applications[rUnit.Application()]
 	if !ok {
 		w.logError("programming error, unit removed before being added, application name not found")
 		return
 	}
-	if !app.units.Contains(rUnit.name) {
+	if !app.units.Contains(rUnit.Name()) {
 		return
 	}
 	profile := app.charmProfile
-	app.units.Remove(rUnit.name)
+	app.units.Remove(rUnit.Name())
 	if app.units.Size() == 0 {
 		// the application has no more units on this machine,
 		// stop watching it.
-		delete(w.applications, rUnit.appName)
+		delete(w.applications, rUnit.Application())
 	}
 	// If there are additional units on the machine and the current
 	// application has an lxd profile, notify so it can be removed
@@ -339,7 +339,7 @@ func (w *MachineLXDProfileWatcher) removeUnit(topic string, value interface{}) {
 
 // provisionedChanged notifies when called.  Topic subscribed to is specific to
 // this machine.
-func (w *MachineLXDProfileWatcher) provisionedChange(topic string, _ interface{}) {
+func (w *MachineLXDProfileWatcher) provisionedChange(_ string, _ interface{}) {
 	// We don't want to respond to any events until we have been fully initialized.
 	select {
 	case <-w.initialized:

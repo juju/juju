@@ -48,7 +48,6 @@ type Controller struct {
 
 	tomb    tomb.Tomb
 	mu      sync.Mutex
-	hub     *pubsub.SimpleHub
 	metrics *ControllerGauges
 }
 
@@ -71,10 +70,6 @@ func newController(config ControllerConfig, manager *residentManager) (*Controll
 		changes: config.Changes,
 		notify:  config.Notify,
 		models:  make(map[string]*Model),
-		hub: pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-			// TODO: (thumper) add a get child method to loggers.
-			Logger: loggo.GetLogger("juju.core.cache.hub"),
-		}),
 		metrics: createControllerGauges(),
 	}
 
@@ -287,7 +282,7 @@ func (c *Controller) ensureModel(modelUUID string) *Model {
 
 	model, found := c.models[modelUUID]
 	if !found {
-		model = newModel(c.metrics, c.hub, c.manager.new())
+		model = newModel(c.metrics, newPubSubHub(), c.manager.new())
 		c.models[modelUUID] = model
 	} else {
 		model.setStale(false)
@@ -295,4 +290,11 @@ func (c *Controller) ensureModel(modelUUID string) *Model {
 
 	c.mu.Unlock()
 	return model
+}
+
+func newPubSubHub() *pubsub.SimpleHub {
+	return pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
+		// TODO: (thumper) add a get child method to loggers.
+		Logger: loggo.GetLogger("juju.core.cache.hub"),
+	})
 }

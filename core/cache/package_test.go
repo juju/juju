@@ -53,42 +53,43 @@ func (s *BaseSuite) AssertNoResidents(c *gc.C) {
 	c.Assert(s.Manager.residents, gc.HasLen, 0)
 }
 
+func (s *BaseSuite) AssertWorkerResource(c *gc.C, resident *Resident, id uint64, expectPresent bool) {
+	_, present := resident.workers[id]
+	c.Assert(present, gc.Equals, expectPresent)
+}
+
 // entitySuite is the base suite for testing cached entities
 // (models, applications, machines).
 type EntitySuite struct {
 	BaseSuite
 
 	Gauges *ControllerGauges
-	Hub    *pubsub.SimpleHub
 }
 
 func (s *EntitySuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	logger := loggo.GetLogger("test")
-	logger.SetLogLevel(loggo.TRACE)
-	s.Hub = pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-		Logger: logger,
-	})
-
 	s.Gauges = createControllerGauges()
 }
 
 func (s *EntitySuite) NewModel(details ModelChange) *Model {
-	m := newModel(s.Gauges, s.Hub, s.Manager.new())
+	m := newModel(s.Gauges, s.newHub(), s.Manager.new())
 	m.setDetails(details)
 	return m
 }
 
 func (s *EntitySuite) NewApplication(details ApplicationChange) *Application {
-	a := newApplication(s.Gauges, s.Hub, s.NewResident())
+	a := newApplication(s.Gauges, s.newHub(), s.NewResident())
 	a.SetDetails(details)
 	return a
 }
 
-func (s *BaseSuite) AssertWorkerResource(c *gc.C, resident *Resident, id uint64, expectPresent bool) {
-	_, present := resident.workers[id]
-	c.Assert(present, gc.Equals, expectPresent)
+func (s *EntitySuite) newHub() *pubsub.SimpleHub {
+	logger := loggo.GetLogger("test")
+	logger.SetLogLevel(loggo.TRACE)
+	return pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
+		Logger: logger,
+	})
 }
 
 type ImportSuite struct{}
