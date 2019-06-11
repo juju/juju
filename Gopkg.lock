@@ -1403,7 +1403,7 @@
   version = "v0.2.3"
 
 [[projects]]
-  digest = "1:4522ac4db1745a0d44497f164cc9a05219f5f801d11f181839db2578868a2e2f"
+  digest = "1:116113ad2ba26a24f3c81618696697566a4c54603f5bcb028759de859059fa55"
   name = "gopkg.in/goose.v2"
   packages = [
     ".",
@@ -1429,7 +1429,7 @@
     "testservices/swiftservice",
   ]
   pruneopts = ""
-  revision = "b9ae5f99205fa37cf5dc547c61a9e2be0f75fa6b"
+  revision = "f18d0f2f8f9bc5b5234a338670210c4bf4328ab4"
 
 [[projects]]
   digest = "1:445becf3878aa9bd50dfa972bd65f974ed2468c09350ab9ce28b1e4adce464df"
@@ -1875,6 +1875,7 @@
     "github.com/coreos/go-systemd/dbus",
     "github.com/coreos/go-systemd/unit",
     "github.com/coreos/go-systemd/util",
+    "github.com/davecgh/go-spew/spew",
     "github.com/docker/distribution/reference",
     "github.com/dustin/go-humanize",
     "github.com/golang/mock/gomock",
