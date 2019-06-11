@@ -115,7 +115,10 @@ rebuild-dependencies:
 	dep ensure -v -no-vendor $(dep-update)
 
 rebuild-schema:
-	go generate ./cmd/juju/commands/describeapi.go
+	@echo "Generating facade schema..."
+	@go run ./generate/schemagen/schemagen.go \
+		./apiserver/facades/schema.json
+
 
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
