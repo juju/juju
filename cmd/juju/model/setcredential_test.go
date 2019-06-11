@@ -162,9 +162,8 @@ func (s *ModelCredentialCommandSuite) TestSetCredentialErred(c *gc.C) {
 	s.modelClient.SetErrors(errors.New("kaboom"))
 	err := s.assertRemoteCredentialFound(c, `
 Found credential remotely, on the controller. Not looking locally...
-Failed to change model credential: kaboom
 `[1:])
-	c.Assert(err, gc.ErrorMatches, "kaboom")
+	c.Assert(err, gc.ErrorMatches, "could not set model credential: kaboom")
 }
 
 func (s *ModelCredentialCommandSuite) TestSetCredentialBlocked(c *gc.C) {

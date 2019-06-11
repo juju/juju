@@ -88,7 +88,7 @@ func (s *ConsumeSuite) TestConsumeBlocked(c *gc.C) {
 	s.mockAPI.SetErrors(nil, &params.Error{Code: params.CodeOperationBlocked, Message: "nope"})
 	_, err := s.runConsume(c, "model.application")
 	s.mockAPI.CheckCallNames(c, "GetConsumeDetails", "Consume", "Close", "Close")
-	c.Assert(err.Error(), jc.Contains, `could consume bob/model.application: nope`)
+	c.Assert(err.Error(), jc.Contains, `could not consume bob/model.application: nope`)
 	c.Assert(err.Error(), jc.Contains, `All operations that change model have been disabled for the current model.`)
 }
 

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"regexp"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/storage"
@@ -56,7 +57,7 @@ func (s *AttachStorageSuite) TestAttachUnauthorizedError(c *gc.C) {
 	fake.SetErrors(nil, &params.Error{Code: params.CodeUnauthorized, Message: "nope"})
 	cmd := storage.NewAttachStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	ctx, err := cmdtesting.RunCommand(c, cmd, "foo/0", "bar/1")
-	c.Assert(err, gc.ErrorMatches, "nope")
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("could not attach storage [bar/1]: nope"))
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 You do not have permission to attach storage.
 You may ask an administrator to grant you access with "juju grant".
