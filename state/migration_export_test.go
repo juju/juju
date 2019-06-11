@@ -332,6 +332,9 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 	if cons.HasRootDiskSource() {
 		c.Assert(constraints.RootDiskSource(), gc.Equals, *cons.RootDiskSource)
 	}
+	if cons.HasRootDisk() {
+		c.Assert(constraints.RootDisk(), gc.Equals, *cons.RootDisk)
+	}
 
 	tools, err := machine1.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
@@ -499,6 +502,9 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	}
 	if cons.HasRootDiskSource() {
 		c.Assert(constraints.RootDiskSource(), gc.Equals, *cons.RootDiskSource)
+	}
+	if cons.HasRootDisk() {
+		c.Assert(constraints.RootDisk(), gc.Equals, *cons.RootDisk)
 	}
 
 	history := exported.StatusHistory()

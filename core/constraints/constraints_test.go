@@ -489,6 +489,15 @@ func (s *ConstraintsSuite) TestHasRootDiskSource(c *gc.C) {
 	c.Check(con.HasRootDiskSource(), jc.IsFalse)
 }
 
+func (s *ConstraintsSuite) TestHasRootDisk(c *gc.C) {
+	con := constraints.MustParse("root-disk=32G")
+	c.Check(con.HasRootDisk(), jc.IsTrue)
+	con = constraints.MustParse("root-disk=")
+	c.Check(con.HasRootDisk(), jc.IsFalse)
+	con = constraints.MustParse("root-disk-source=pilgrim")
+	c.Check(con.HasRootDisk(), jc.IsFalse)
+}
+
 func (s *ConstraintsSuite) TestIsEmpty(c *gc.C) {
 	con := constraints.Value{}
 	c.Check(&con, jc.Satisfies, constraints.IsEmpty)

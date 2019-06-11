@@ -35,7 +35,7 @@ func AcceptAllFlavors(nova.FlavorDetail) bool {
 // The instance type comes from querying the flavors supported by the deployment.
 func findInstanceSpec(
 	e *Environ,
-	ic *instances.InstanceConstraint,
+	ic instances.InstanceConstraint,
 	imageMetadata []*imagemetadata.ImageMetadata,
 ) (*instances.InstanceSpec, error) {
 	// First construct all available instance types from the supported flavors.
@@ -44,6 +44,15 @@ func findInstanceSpec(
 	if err != nil {
 		return nil, err
 	}
+
+	if ic.Constraints.HasRootDiskSource() && *ic.Constraints.RootDiskSource == "volume" {
+		// When the root disk is a volume (i.e. cinder block volume)
+		// we don't want to match on RootDisk size. If an instance requires
+		// a very large root disk we don't want to select a larger instance type
+		// to fit a disk that won't be local to the instance.
+		ic.Constraints.RootDisk = nil
+	}
+
 	// Not all needed information is available in flavors,
 	// for e.g. architectures or virtualisation types.
 	// For these properties, we assume that all instance types support
@@ -71,7 +80,7 @@ func findInstanceSpec(
 	}
 
 	images := instances.ImageMetadataToImages(imageMetadata)
-	spec, err := instances.FindInstanceSpec(images, ic, allInstanceTypes)
+	spec, err := instances.FindInstanceSpec(images, &ic, allInstanceTypes)
 	if err != nil {
 		return nil, err
 	}
