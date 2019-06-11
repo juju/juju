@@ -4,6 +4,7 @@
 package lease_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -32,15 +33,29 @@ func (s *LeasesSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *LeasesSuite) TestLeases(c *gc.C) {
-	fix := &Fixture{
-		leases: map[corelease.Key]corelease.Info{
-			key(s.appName): {
-				Holder:   "redis/0",
-				Expiry:   offset(time.Second),
-				Trapdoor: corelease.LockedTrapdoor,
-			},
+	leases := map[corelease.Key]corelease.Info{
+		key(s.appName): {
+			Holder:   "redis/0",
+			Expiry:   offset(time.Second),
+			Trapdoor: corelease.LockedTrapdoor,
 		},
 	}
+	// Add enough leases for other models and namespaces to ensure
+	// that we would definitely fail if the Leases method does the
+	// wrong thing.
+	bad := corelease.Info{
+		Holder:   "redis/1",
+		Expiry:   offset(time.Second),
+		Trapdoor: corelease.LockedTrapdoor,
+	}
+	for i := 0; i < 100; i++ {
+		otherNS := fmt.Sprintf("ns%d", i)
+		leases[key(otherNS, "modelUUID", s.appName)] = bad
+		otherModel := fmt.Sprintf("model%d", i)
+		leases[key("namespace", otherModel, s.appName)] = bad
+	}
+
+	fix := &Fixture{leases: leases}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testclock.Clock) {
 		leases := getReader(c, manager).Leases()
 		c.Check(leases, gc.DeepEquals, map[string]string{s.appName: "redis/0"})
