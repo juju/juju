@@ -37,6 +37,13 @@ type Store interface {
 	// Supplying any lease keys will filter the return for those requested.
 	Leases(keys ...Key) map[Key]Info
 
+	// LeaseGroup returns a snapshot of all of the leases for a
+	// particular namespace/model combination. This is useful for
+	// reporting holder information for a model, and can often be
+	// implemented more efficiently than getting all leases when there
+	// are many models.
+	LeaseGroup(namespace, modelUUID string) map[Key]Info
+
 	// Refresh reads all lease state from the database.
 	Refresh() error
 
