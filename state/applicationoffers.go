@@ -273,9 +273,6 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 			for _, ru := range remoteUnits {
 				leaveScopeOps, err := ru.leaveScopeForcedOps(&op.ForcedOperation)
 				if err != nil && err != jujutxn.ErrNoOperations {
-					if !op.Force {
-						return nil, errors.Trace(err)
-					}
 					op.AddError(err)
 				}
 				ops = append(ops, leaveScopeOps...)
@@ -312,6 +309,37 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 	return ops, nil
 }
 
+// applicationOffersDocs returns the offer docs for the given application
+func applicationOffersDocs(st *State, application string) ([]applicationOfferDoc, error) {
+	applicationOffersCollection, closer := st.db().GetCollection(applicationOffersC)
+	defer closer()
+	query := bson.D{{"application-name", application}}
+	var docs []applicationOfferDoc
+	if err := applicationOffersCollection.Find(query).All(&docs); err != nil {
+		return nil, errors.Annotatef(err, "reading application %q offers", application)
+	}
+	return docs, nil
+}
+
+// applicationHasConnectedOffers returns true when any of the the application's
+// offers have connections
+func applicationHasConnectedOffers(st *State, application string) (bool, error) {
+	offers, err := applicationOffersDocs(st, application)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	for _, offer := range offers {
+		connections, err := st.OfferConnections(offer.OfferUUID)
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		if len(connections) > 0 {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // removeApplicationOffersOps returns txn.Ops that will remove all offers for
 // the specified application. No assertions on the application or the offer
 // connections are made; the caller is responsible for ensuring that offer
@@ -330,20 +358,15 @@ func removeApplicationOffersOps(st *State, application string) ([]txn.Op, error)
 	if n == 0 {
 		return []txn.Op{countRefsOp}, nil
 	}
-
-	applicationOffersCollection, closer := st.db().GetCollection(applicationOffersC)
-	defer closer()
-	query := bson.D{{"application-name", application}}
-	var docs []applicationOfferDoc
-	if err := applicationOffersCollection.Find(query).All(&docs); err != nil {
-		return nil, errors.Annotatef(err, "reading application %q offers", application)
+	docs, err := applicationOffersDocs(st, application)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-
 	var ops []txn.Op
 	for _, doc := range docs {
 		ops = append(ops, txn.Op{
 			C:      applicationOffersC,
-			Id:     doc.OfferName,
+			Id:     doc.DocID,
 			Assert: txn.DocExists,
 			Remove: true,
 		})

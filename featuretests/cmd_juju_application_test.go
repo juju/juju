@@ -118,3 +118,12 @@ wordpress:
     url: ""
 `[1:])
 }
+
+func (s *CmdApplicationSuite) TestRemoveApplication(c *gc.C) {
+	s.setupApplications(c)
+
+	ctx, err := cmdtesting.RunCommand(c, application.NewRemoveApplicationCommand(), "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "removing application wordpress\n")
+}
