@@ -135,6 +135,23 @@ func (s *leaseStore) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
 	return results
 }
 
+// LeaseGroup is part of lease.Store.
+func (s *leaseStore) LeaseGroup(namespace, modelUUID string) map[lease.Key]lease.Info {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	leases := s.Leases()
+	if len(leases) == 0 {
+		return leases
+	}
+	results := make(map[lease.Key]lease.Info)
+	for key, info := range leases {
+		if key.Namespace == namespace && key.ModelUUID == modelUUID {
+			results[key] = info
+		}
+	}
+	return results
+}
+
 // Refresh is part of lease.Store.
 func (s *leaseStore) Refresh() error {
 	return nil

@@ -51,7 +51,7 @@ func (s *StoreSuite) TestLeasesNoFilter(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	leases := fix.Store.Leases()
-	c.Check(len(leases), gc.Equals, 2)
+	c.Check(leases, gc.HasLen, 2)
 	c.Check(leases[key("duck")].Holder, gc.Equals, "donald")
 	c.Check(leases[key("mouse")].Holder, gc.Equals, "mickey")
 }
@@ -72,4 +72,24 @@ func (s *StoreSuite) TestLeasesFilter(c *gc.C) {
 	)
 
 	c.Check(len(leases), gc.Equals, 0)
+}
+
+func (s *StoreSuite) TestLeaseGroup(c *gc.C) {
+	fix := s.EasyFixture(c)
+
+	err := fix.Store.ClaimLease(key("duck"), corelease.Request{Holder: "donald", Duration: time.Minute}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = fix.Store.ClaimLease(key("mouse"), corelease.Request{Holder: "mickey", Duration: time.Minute}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	leases := fix.Store.LeaseGroup(fix.Config.Namespace, fix.Config.ModelUUID)
+	c.Check(leases, gc.HasLen, 2)
+	c.Check(leases[key("duck")].Holder, gc.Equals, "donald")
+	c.Check(leases[key("mouse")].Holder, gc.Equals, "mickey")
+
+	leases = fix.Store.LeaseGroup("otherns", fix.Config.ModelUUID)
+	c.Assert(leases, gc.HasLen, 0)
+
+	leases = fix.Store.LeaseGroup(fix.Config.Namespace, "othermodel")
+	c.Assert(leases, gc.HasLen, 0)
 }
