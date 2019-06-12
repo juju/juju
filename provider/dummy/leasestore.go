@@ -137,8 +137,6 @@ func (s *leaseStore) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
 
 // LeaseGroup is part of lease.Store.
 func (s *leaseStore) LeaseGroup(namespace, modelUUID string) map[lease.Key]lease.Info {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	leases := s.Leases()
 	if len(leases) == 0 {
 		return leases
