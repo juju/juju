@@ -356,6 +356,42 @@ func (s *storeSuite) TestLeasesFilter(c *gc.C) {
 	c.Check(s.fsm.Calls()[0].Args[1], jc.SameContents, []lease.Key{lease1, lease2})
 }
 
+func (s *storeSuite) TestLeaseGroup(c *gc.C) {
+	in5Seconds := s.clock.Now().Add(5 * time.Second)
+	in10Seconds := s.clock.Now().Add(10 * time.Second)
+	lease1 := lease.Key{"quam", "olim", "abrahe"}
+	lease2 := lease.Key{"la", "cry", "mosa"}
+	s.fsm.leases[lease1] = lease.Info{
+		Holder: "verdi",
+		Expiry: in10Seconds,
+	}
+	s.fsm.leases[lease2] = lease.Info{
+		Holder: "mozart",
+		Expiry: in5Seconds,
+	}
+	result := s.store.LeaseGroup("ns", "model")
+	c.Assert(len(result), gc.Equals, 2)
+	s.fsm.CheckCall(c, 0, "LeaseGroup", s.clock.Now(), "ns", "model")
+
+	r1 := result[lease1]
+	c.Assert(r1.Holder, gc.Equals, "verdi")
+	c.Assert(r1.Expiry, gc.Equals, in10Seconds)
+
+	// Can't compare trapdoors directly.
+	var out string
+	err := r1.Trapdoor(0, &out)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, gc.Equals, "{quam olim abrahe} held by verdi")
+
+	r2 := result[lease2]
+	c.Assert(r2.Holder, gc.Equals, "mozart")
+	c.Assert(r2.Expiry, gc.Equals, in5Seconds)
+
+	err = r2.Trapdoor(0, &out)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, gc.Equals, "{la cry mosa} held by mozart")
+}
+
 func (s *storeSuite) TestPin(c *gc.C) {
 	machine := names.NewMachineTag("0").String()
 	s.handleHubRequest(c,
@@ -808,6 +844,11 @@ type fakeFSM struct {
 
 func (f *fakeFSM) Leases(t func() time.Time, keys ...lease.Key) map[lease.Key]lease.Info {
 	f.AddCall("Leases", t(), keys)
+	return f.leases
+}
+
+func (f *fakeFSM) LeaseGroup(t func() time.Time, ns, uuid string) map[lease.Key]lease.Info {
+	f.AddCall("LeaseGroup", t(), ns, uuid)
 	return f.leases
 }
 

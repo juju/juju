@@ -108,6 +108,17 @@ func (store *store) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
 	return leases
 }
 
+// LeaseGroup is part of the lease.Store interface. For the state
+// store it's identical to Leases() because each store is specific to
+// a namespace/model combination.
+func (store *store) LeaseGroup(namespace, modelUUID string) map[lease.Key]lease.Info {
+	cfg := store.config
+	if namespace != cfg.Namespace || modelUUID != cfg.ModelUUID {
+		return nil
+	}
+	return store.Leases()
+}
+
 // ClaimLease is part of the lease.Store interface.
 func (store *store) ClaimLease(key lease.Key, request lease.Request, _ <-chan struct{}) error {
 	return store.request(key.Lease, request, store.claimLeaseOps, "claiming")
