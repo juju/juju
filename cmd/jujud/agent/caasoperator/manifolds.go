@@ -9,6 +9,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
@@ -21,11 +22,14 @@ import (
 	caasoperatorapi "github.com/juju/juju/api/caasoperator"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/caasoperator"
+	"github.com/juju/juju/worker/caasupgrader"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/logger"
@@ -34,6 +38,7 @@ import (
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/retrystrategy"
 	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/upgradesteps"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -126,6 +131,42 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		logSenderName: logsender.Manifold(logsender.ManifoldConfig{
 			APICallerName: apiCallerName,
 			LogSource:     config.LogSource,
+		}),
+
+		// The upgrade steps gate is used to coordinate workers which
+		// shouldn't do anything until the upgrade-steps worker has
+		// finished running any required upgrade steps. The flag of
+		// similar name is used to implement the isFullyUpgraded func
+		// that keeps upgrade concerns out of unrelated manifolds.
+		upgradeStepsGateName: gate.ManifoldEx(config.UpgradeStepsLock),
+		upgradeStepsFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  upgradeStepsGateName,
+			NewWorker: gate.NewFlagWorker,
+		}),
+
+		upgraderName: caasupgrader.Manifold(caasupgrader.ManifoldConfig{
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			UpgradeStepsGateName: upgradeStepsGateName,
+			PreviousAgentVersion: config.PreviousAgentVersion,
+		}),
+
+		// The upgradesteps worker runs soon after the operator
+		// starts and runs any steps required to upgrade to the
+		// running jujud version. Once upgrade steps have run, the
+		// upgradesteps gate is unlocked and the worker exits.
+		upgradeStepsName: upgradesteps.Manifold(upgradesteps.ManifoldConfig{
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			UpgradeStepsGateName: upgradeStepsGateName,
+			// Realistically,  operators should not open state for any reason.
+			OpenStateForUpgrade: func() (*state.StatePool, error) {
+				return nil, errors.New("operator cannot open state")
+			},
+			PreUpgradeSteps: config.PreUpgradeSteps,
+			NewAgentStatusSetter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
+				return &noopStatusSetter{}, nil
+			},
 		}),
 
 		// The migration workers collaborate to run migrations;
@@ -247,6 +288,11 @@ const (
 	charmDirName          = "charm-dir"
 	hookRetryStrategyName = "hook-retry-strategy"
 
+	upgraderName         = "upgrader"
+	upgradeStepsName     = "upgrade-steps-runner"
+	upgradeStepsGateName = "upgrade-steps-gate"
+	upgradeStepsFlagName = "upgrade-steps-flag"
+
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
@@ -254,3 +300,10 @@ const (
 	loggingConfigUpdaterName = "logging-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"
 )
+
+type noopStatusSetter struct{}
+
+// SetStatus implements upgradesteps.StatusSetter
+func (a *noopStatusSetter) SetStatus(setableStatus status.Status, info string, data map[string]interface{}) error {
+	return nil
+}

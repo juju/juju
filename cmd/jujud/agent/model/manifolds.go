@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/names.v2"
@@ -23,9 +22,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/actionpruner"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
@@ -36,7 +33,6 @@ import (
 	"github.com/juju/juju/worker/caasfirewaller"
 	"github.com/juju/juju/worker/caasoperatorprovisioner"
 	"github.com/juju/juju/worker/caasunitprovisioner"
-	"github.com/juju/juju/worker/caasupgrader"
 	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/charmrevision/charmrevisionmanifold"
 	"github.com/juju/juju/worker/cleaner"
@@ -64,7 +60,6 @@ import (
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/undertaker"
 	"github.com/juju/juju/worker/unitassigner"
-	"github.com/juju/juju/worker/upgradesteps"
 )
 
 // ManifoldsConfig holds the dependencies and configuration options for a
@@ -485,55 +480,12 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 			NewWorker:                    storageprovisioner.NewCaasWorker,
 		}))),
-
-		upgraderName: caasupgrader.Manifold(caasupgrader.ManifoldConfig{
-			AgentName:            agentName,
-			APICallerName:        apiCallerName,
-			UpgradeStepsGateName: upgradeStepsGateName,
-			PreviousAgentVersion: config.PreviousAgentVersion,
-		}),
-
-		// The upgrade steps gate is used to coordinate workers which
-		// shouldn't do anything until the upgrade-steps worker has
-		// finished running any required upgrade steps. The flag of
-		// similar name is used to implement the isFullyUpgraded func
-		// that keeps upgrade concerns out of unrelated manifolds.
-		upgradeStepsGateName: gate.ManifoldEx(config.UpgradeStepsLock),
-		upgradeStepsFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
-			GateName:  upgradeStepsGateName,
-			NewWorker: gate.NewFlagWorker,
-		}),
-
-		// The upgradesteps worker runs soon after the operator
-		// starts and runs any steps required to upgrade to the
-		// running jujud version. Once upgrade steps have run, the
-		// upgradesteps gate is unlocked and the worker exits.
-		upgradeStepsName: upgradesteps.Manifold(upgradesteps.ManifoldConfig{
-			AgentName:            agentName,
-			APICallerName:        apiCallerName,
-			UpgradeStepsGateName: upgradeStepsGateName,
-			// Realistically,  operators should not open state for any reason.
-			OpenStateForUpgrade: func() (*state.StatePool, error) {
-				return nil, errors.New("operator cannot open state")
-			},
-			PreUpgradeSteps: config.PreUpgradeSteps,
-			NewAgentStatusSetter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
-				return &noopStatusSetter{}, nil
-			},
-		}),
 	}
 	result := commonManifolds(config)
 	for name, manifold := range manifolds {
 		result[name] = manifold
 	}
 	return result
-}
-
-type noopStatusSetter struct{}
-
-// SetStatus implements upgradesteps.StatusSetter
-func (a *noopStatusSetter) SetStatus(setableStatus status.Status, info string, data map[string]interface{}) error {
-	return nil
 }
 
 // clockManifold expresses a Clock as a ValueWorker manifold.
@@ -654,12 +606,6 @@ const (
 	caasUnitProvisionerName     = "caas-unit-provisioner"
 	caasStorageProvisionerName  = "caas-storage-provisioner"
 	caasBrokerTrackerName       = "caas-broker-tracker"
-
-	// caas upgrader.
-	upgraderName         = "upgrader"
-	upgradeStepsName     = "upgrade-steps-runner"
-	upgradeStepsGateName = "upgrade-steps-gate"
-	upgradeStepsFlagName = "upgrade-steps-flag"
 
 	validCredentialFlagName = "valid-credential-flag"
 )
