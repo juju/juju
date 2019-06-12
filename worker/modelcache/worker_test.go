@@ -97,7 +97,8 @@ func (s *WorkerSuite) start(c *gc.C) worker.Worker {
 	w, err := modelcache.NewWorker(config)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
-		workertest.CleanKill(c, w)
+		// State going away will kill the worker with a non-nil error.
+		workertest.DirtyKill(c, w)
 	})
 	return w
 }
@@ -575,6 +576,20 @@ func (s *WorkerSuite) TestWatcherErrorCacheMarkSweep(c *gc.C) {
 	cachedApp, err := mod.Application(app.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cachedApp, gc.NotNil)
+}
+
+func (s *WorkerSuite) TestWatcherErrorStoppedKillsWorker(c *gc.C) {
+	mw := s.StatePool.SystemState().WatchAllModels(s.StatePool)
+	s.config.WatcherFactory = func() modelcache.BackingWatcher { return mw }
+
+	w := s.start(c)
+
+	// Stop the backing multiwatcher.
+	c.Assert(mw.Stop(), jc.ErrorIsNil)
+
+	// Check that the worker is killed.
+	err := workertest.CheckKilled(c, w)
+	c.Assert(err, jc.Satisfies, state.IsErrStopped)
 }
 
 func (s *WorkerSuite) captureEvents(c *gc.C, matchers ...func(interface{}) bool) <-chan interface{} {
