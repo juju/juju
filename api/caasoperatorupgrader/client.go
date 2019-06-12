@@ -4,8 +4,6 @@
 package caasoperatorupgrader
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/version"
 
@@ -40,27 +38,4 @@ func (c *Client) Upgrade(agentTag string, v version.Number) error {
 		return errors.Trace(result.Error)
 	}
 	return nil
-}
-
-// OperatorVersion returns operator version for specified application.
-func (c *Client) OperatorVersion(tag string) (ver version.Number, err error) {
-	var results params.VersionResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag}},
-	}
-	err = c.facade.FacadeCall("OperatorVersion", args, &results)
-	if err != nil {
-		return ver, err
-	}
-	if len(results.Results) != 1 {
-		return ver, errors.NewNotValid(nil, fmt.Sprintf("expected 1 result, got %d", len(results.Results)))
-	}
-	result := results.Results[0]
-	if err := result.Error; err != nil {
-		return ver, err
-	}
-	if result.Version == nil {
-		return ver, errors.NewNotValid(nil, "received no error, but got a nil Version")
-	}
-	return *result.Version, nil
 }
