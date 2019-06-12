@@ -490,6 +490,53 @@ func (s *fsmSuite) TestLeasesFilter(c *gc.C) {
 	)
 }
 
+func (s *fsmSuite) TestLeaseGroup(c *gc.C) {
+	c.Assert(s.apply(c, raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationClaim,
+		Namespace: "ns",
+		ModelUUID: "model",
+		Lease:     "lease",
+		Holder:    "me",
+		Duration:  time.Second,
+	}).Error(), jc.ErrorIsNil)
+	c.Assert(s.apply(c, raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationClaim,
+		Namespace: "ns",
+		ModelUUID: "model",
+		Lease:     "lease2",
+		Holder:    "me",
+		Duration:  5 * time.Second,
+	}).Error(), jc.ErrorIsNil)
+	c.Assert(s.apply(c, raftlease.Command{
+		Version:   1,
+		Operation: raftlease.OperationClaim,
+		Namespace: "ns",
+		ModelUUID: "model2",
+		Lease:     "lease",
+		Holder:    "you",
+		Duration:  4 * time.Second,
+	}).Error(), jc.ErrorIsNil)
+
+	c.Assert(
+		s.fsm.LeaseGroup(timeDelegate(zero), "ns", "model"),
+		gc.DeepEquals,
+		map[lease.Key]lease.Info{
+			{"ns", "model", "lease"}: {
+				Holder: "me",
+				Expiry: offset(time.Second),
+			},
+			{"ns", "model", "lease2"}: {
+				Holder: "me",
+				Expiry: offset(5 * time.Second),
+			},
+		},
+	)
+	res := s.fsm.LeaseGroup(timeDelegate(zero), "ns", "model3")
+	c.Assert(res, gc.HasLen, 0)
+}
+
 func (s *fsmSuite) TestLeasesPinnedFutureExpiry(c *gc.C) {
 	c.Assert(s.apply(c, raftlease.Command{
 		Version:   1,
