@@ -76,7 +76,7 @@ func (s *restSuite) TestRestServedSecurely(c *gc.C) {
 	apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:      "GET",
 		URL:         url.String(),
-		ExpectError: `.*malformed HTTP response.*`,
+		ExpectStatus: http.StatusBadRequest,
 	})
 }
 
