@@ -97,8 +97,7 @@ func (s *WorkerSuite) start(c *gc.C) worker.Worker {
 	w, err := modelcache.NewWorker(config)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
-		// State going away will kill the worker with a non-nil error.
-		workertest.DirtyKill(c, w)
+		workertest.CleanKill(c, w)
 	})
 	return w
 }

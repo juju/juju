@@ -164,15 +164,19 @@ func (c *cacheWorker) loop() error {
 			c.mu.Unlock()
 
 			// processWatcher only returns nil if we are dying.
-			// This condition will be handled at the top of the loop.
+			// That condition will be handled at the top of the loop.
 			if err := c.processWatcher(watcherChanges); err != nil {
-				// If the backing watcher has stopped, such as for state going
-				// away altogether, die with an error and let the dependency
-				// engine handle starting us up again.
+				// If the backing watcher has stopped and the watcher's tomb
+				// error is nil, this means a legitimate clean stop.
+				// Die with an error and let the dependency engine handle
+				// starting us up again.
 				if state.IsErrStopped(err) {
-					_ = c.watcher.Stop()
-					c.catacomb.Kill(err)
-					return
+					tombErr := c.watcher.Stop()
+					if tombErr == nil {
+						c.catacomb.Kill(err)
+						return
+					}
+					err = tombErr
 				}
 
 				// For any other errors, get a new watcher.
