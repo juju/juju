@@ -79,7 +79,7 @@ func (w *deploymentWorker) loop() error {
 
 	gotSpecNotify := false
 	serviceUpdated := false
-	scale := 0
+	desiredScale := 0
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -89,12 +89,12 @@ func (w *deploymentWorker) loop() error {
 				return errors.New("watcher closed channel")
 			}
 			var err error
-			scale, err = w.applicationGetter.ApplicationScale(w.application)
+			desiredScale, err = w.applicationGetter.ApplicationScale(w.application)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			logger.Debugf("scale changed to %d", scale)
-			if scale > 0 && specChan == nil {
+			logger.Debugf("desiredScale changed to %d", desiredScale)
+			if desiredScale > 0 && specChan == nil {
 				var err error
 				cw, err = w.provisioningInfoGetter.WatchPodSpec(w.application)
 				if err != nil {
@@ -109,7 +109,7 @@ func (w *deploymentWorker) loop() error {
 			}
 			gotSpecNotify = true
 		}
-		if scale > 0 && !gotSpecNotify {
+		if desiredScale > 0 && !gotSpecNotify {
 			continue
 		}
 		info, err := w.provisioningInfoGetter.ProvisioningInfo(w.application)
@@ -120,7 +120,7 @@ func (w *deploymentWorker) loop() error {
 		} else if err != nil {
 			return errors.Trace(err)
 		}
-		if scale == 0 {
+		if desiredScale == 0 {
 			if cw != nil {
 				worker.Stop(cw)
 				specChan = nil
@@ -133,13 +133,13 @@ func (w *deploymentWorker) loop() error {
 			currentScale = 0
 			continue
 		}
-		specStr := info.PodSpec
 
-		if scale == currentScale && specStr == currentSpec {
+		specStr := info.PodSpec
+		if desiredScale == currentScale && specStr == currentSpec {
 			continue
 		}
 
-		currentScale = scale
+		currentScale = desiredScale
 		currentSpec = specStr
 
 		appConfig, err := w.applicationGetter.ApplicationConfig(w.application)
@@ -168,7 +168,7 @@ func (w *deploymentWorker) loop() error {
 				ServiceType:    caas.ServiceType(info.DeploymentInfo.ServiceType),
 			},
 		}
-		err = w.broker.EnsureService(w.application, w.provisioningStatusSetter.SetOperatorStatus, serviceParams, currentScale, appConfig)
+		err = w.broker.EnsureService(w.application, w.provisioningStatusSetter.SetOperatorStatus, serviceParams, desiredScale, appConfig)
 		if err != nil {
 			// Some errors we don't want to exit the worker.
 			if provider.MaskError(err) {
@@ -177,7 +177,7 @@ func (w *deploymentWorker) loop() error {
 			}
 			return errors.Trace(err)
 		}
-		logger.Debugf("created/updated deployment for %s for %v units", w.application, currentScale)
+		logger.Debugf("ensured deployment for %s for %v units", w.application, desiredScale)
 		if !serviceUpdated && !spec.OmitServiceFrontend {
 			service, err := w.broker.GetService(w.application, false)
 			if err != nil && !errors.IsNotFound(err) {
@@ -194,7 +194,7 @@ func (w *deploymentWorker) loop() error {
 }
 
 func updateApplicationService(appTag names.ApplicationTag, svc *caas.Service, updater ApplicationUpdater) error {
-	if svc.Id == "" {
+	if svc == nil || svc.Id == "" {
 		return nil
 	}
 	return updater.UpdateApplicationService(
@@ -202,6 +202,8 @@ func updateApplicationService(appTag names.ApplicationTag, svc *caas.Service, up
 			ApplicationTag: appTag.String(),
 			ProviderId:     svc.Id,
 			Addresses:      params.FromNetworkAddresses(svc.Addresses...),
+			Scale:          svc.Scale,
+			Generation:     svc.Generation,
 		},
 	)
 }

@@ -1456,34 +1456,48 @@ func (a *Application) GetScale() int {
 // This is used on CAAS models.
 func (a *Application) ChangeScale(scaleChange int) (int, error) {
 	newScale := a.doc.DesiredScale + scaleChange
+	logger.Tracef("ChangeScale DesiredScale %v, scaleChange %v, newScale %v", a.doc.DesiredScale, scaleChange, newScale)
 	if newScale < 0 {
 		return a.doc.DesiredScale, errors.NotValidf("cannot remove more units than currently exist")
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
+			if err := a.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
 			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)
 			if err != nil {
 				return nil, errors.Trace(err)
 			} else if !alive {
 				return nil, applicationNotAliveErr
 			}
-			if err := a.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
 			newScale = a.doc.DesiredScale + scaleChange
 			if newScale < 0 {
 				return nil, errors.NotValidf("cannot remove more units than currently exist")
 			}
 		}
-		return []txn.Op{{
+		ops := []txn.Op{{
 			C:  applicationsC,
 			Id: a.doc.DocID,
-			Assert: bson.D{{"life", Alive},
+			Assert: bson.D{
+				{"life", Alive},
 				{"charmurl", a.doc.CharmURL},
 				{"unitcount", a.doc.UnitCount},
-				{"scale", a.doc.DesiredScale}},
+				{"scale", a.doc.DesiredScale},
+			},
 			Update: bson.D{{"$set", bson.D{{"scale", newScale}}}},
-		}}, nil
+		}}
+
+		cloudSvcDoc := cloudServiceDoc{
+			DocID:                 a.globalKey(),
+			DesiredScaleProtected: true,
+		}
+		cloudSvcOp, err := buildCloudServiceOps(a.st, cloudSvcDoc)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, cloudSvcOp...)
+		return ops, nil
 	}
 	if err := a.st.db().Run(buildTxn); err != nil {
 		return a.doc.DesiredScale, errors.Errorf("cannot set scale for application %q to %v: %v", a, newScale, onAbort(err, applicationNotAliveErr))
@@ -1494,30 +1508,67 @@ func (a *Application) ChangeScale(scaleChange int) (int, error) {
 
 // SetScale sets the application's desired scale value.
 // This is used on CAAS models.
-func (a *Application) SetScale(scale int) error {
+func (a *Application) SetScale(scale int, generation int64, force bool) error {
 	if scale < 0 {
 		return errors.NotValidf("application scale %d", scale)
 	}
+	svcInfo, err := a.ServiceInfo()
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	if err == nil {
+		logger.Tracef(
+			"SetScale DesiredScaleProtected %v, DesiredScale %v -> %v, Generation %v -> %v",
+			svcInfo.DesiredScaleProtected(), a.doc.DesiredScale, scale, svcInfo.Generation(), generation,
+		)
+		if svcInfo.DesiredScaleProtected() && !force && scale != a.doc.DesiredScale {
+			return errors.Forbiddenf("SetScale(%d) without force while desired scale %d is not applied yet", scale, a.doc.DesiredScale)
+		}
+		if !force && generation < svcInfo.Generation() {
+			return errors.Forbiddenf(
+				"application generation %d can not be reverted to %d", svcInfo.Generation(), generation,
+			)
+		}
+	}
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
+			if err := a.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
 			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)
 			if err != nil {
 				return nil, errors.Trace(err)
 			} else if !alive {
 				return nil, applicationNotAliveErr
 			}
-			if err := a.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
 		}
-		return []txn.Op{{
+		ops := []txn.Op{{
 			C:  applicationsC,
 			Id: a.doc.DocID,
-			Assert: bson.D{{"life", Alive},
+			Assert: bson.D{
+				{"life", Alive},
 				{"charmurl", a.doc.CharmURL},
-				{"unitcount", a.doc.UnitCount}},
+				{"unitcount", a.doc.UnitCount},
+			},
 			Update: bson.D{{"$set", bson.D{{"scale", scale}}}},
-		}}, nil
+		}}
+		cloudSvcDoc := cloudServiceDoc{
+			DocID: a.globalKey(),
+		}
+		if force {
+			// scale from cli.
+			cloudSvcDoc.DesiredScaleProtected = true
+		} else {
+			// scale from cluster always has a valid generation (>= current generation).
+			cloudSvcDoc.Generation = generation
+		}
+		cloudSvcOp, err := buildCloudServiceOps(a.st, cloudSvcDoc)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, cloudSvcOp...)
+		return ops, nil
 	}
 	if err := a.st.db().Run(buildTxn); err != nil {
 		return errors.Errorf("cannot set scale for application %q to %v: %v", a, scale, onAbort(err, applicationNotAliveErr))
@@ -3009,12 +3060,12 @@ func (a *Application) UpdateCloudService(providerId string, addresses []network.
 
 // ServiceInfo returns information about this application's cloud service.
 // This is only used for CAAS models.
-func (a *Application) ServiceInfo() (CloudService, error) {
+func (a *Application) ServiceInfo() (CloudServicer, error) {
 	svc, err := a.st.CloudService(a.Name())
 	if err != nil {
-		return CloudService{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return *svc, nil
+	return svc, nil
 }
 
 // UnitCount returns the of number of units for this application.

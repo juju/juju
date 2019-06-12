@@ -947,6 +947,8 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 			scale := int(*ss.Spec.Replicas)
 			result.Scale = &scale
 		}
+		gen := ss.GetGeneration()
+		result.Generation = &gen
 		message, ssStatus, err := k.getStatefulSetStatus(ss)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting status for %s", ss.Name)
@@ -971,6 +973,8 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 			scale := int(*deployment.Spec.Replicas)
 			result.Scale = &scale
 		}
+		gen := deployment.GetGeneration()
+		result.Generation = &gen
 		message, ssStatus, err := k.getDeploymentStatus(deployment)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting status for %s", ss.Name)
@@ -980,7 +984,6 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 			Message: message,
 		}
 	}
-
 	return &result, nil
 }
 
@@ -1733,7 +1736,7 @@ func (k *kubernetesClient) configureService(
 			return errors.NotSupportedf("service type %q", params.Deployment.ServiceType)
 		}
 	}
-	serviceType = core.ServiceType(config.GetString(serviceTypeConfigKey, string(serviceType)))
+	serviceType = core.ServiceType(config.GetString(ServiceTypeConfigKey, string(serviceType)))
 	annotations, err := config.GetStringMap(serviceAnnotationsKey, nil)
 	if err != nil {
 		return errors.Annotatef(err, "unexpected annotations: %#v", config.Get(serviceAnnotationsKey, nil))

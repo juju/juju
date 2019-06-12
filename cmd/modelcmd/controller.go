@@ -10,6 +10,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
 	"github.com/juju/juju/api"
@@ -389,6 +390,7 @@ type OptionalControllerCommand struct {
 	CommandBase
 	Store jujuclient.ClientStore
 
+	EnabledFlag    string
 	Local          bool
 	controllerName string
 }
@@ -405,7 +407,9 @@ func (c *OptionalControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 // A non default controller can be chosen using the --controller option.
 // Use the --local arg to return an empty string, meaning no controller is selected.
 func (c *OptionalControllerCommand) ControllerNameFromArg() (string, error) {
-	if c.Local {
+	requireExplicitController := !featureflag.Enabled(c.EnabledFlag)
+	if c.Local || (requireExplicitController && c.controllerName == "") {
+		c.Local = true
 		return "", nil
 	}
 	controllerName := c.controllerName

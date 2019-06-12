@@ -44,3 +44,7 @@ func (m *Model) UpdateApplication(details ApplicationChange, manager *residentMa
 func (m *Model) UpdateCharm(details CharmChange, manager *residentManager) {
 	m.updateCharm(details, manager)
 }
+
+func (m *Model) UpdateBranch(details BranchChange, manager *residentManager) {
+	m.updateBranch(details, manager)
+}

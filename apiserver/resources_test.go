@@ -22,6 +22,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/resource"
@@ -59,7 +60,8 @@ func (s *ResourcesHandlerSuite) SetUpTest(c *gc.C) {
 	s.req = req
 	s.recorder = httptest.NewRecorder()
 	s.handler = &apiserver.ResourcesHandler{
-		StateAuthFunc: s.authState,
+		StateAuthFunc:     s.authState,
+		ChangeAllowedFunc: func(*http.Request) error { return nil },
 	}
 }
 
@@ -113,6 +115,25 @@ func (s *ResourcesHandlerSuite) TestPutSuccess(c *gc.C) {
 		Resource: api.Resource2API(res),
 	})
 	s.checkResp(c, http.StatusOK, "application/json", string(expected))
+}
+
+func (s *ResourcesHandlerSuite) TestPutChangeBlocked(c *gc.C) {
+	uploadContent := "<some data>"
+	res, _ := newResource(c, "spam", "a-user", content)
+	stored, _ := newResource(c, "spam", "", "")
+	s.backend.ReturnGetResource = stored
+	s.backend.ReturnSetResource = res
+
+	expectedError := common.OperationBlockedError("test block")
+	s.handler.ChangeAllowedFunc = func(*http.Request) error {
+		return expectedError
+	}
+
+	req, _ := newUploadRequest(c, "spam", "a-application", uploadContent)
+	s.handler.ServeHTTP(s.recorder, req)
+
+	expected := mustMarshalJSON(&params.ErrorResult{common.ServerError(expectedError)})
+	s.checkResp(c, http.StatusBadRequest, "application/json", string(expected))
 }
 
 func (s *ResourcesHandlerSuite) TestPutSuccessDockerResource(c *gc.C) {

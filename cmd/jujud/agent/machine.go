@@ -65,7 +65,6 @@ import (
 	"github.com/juju/juju/mongo/mongometrics"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/stateenvirons"
@@ -502,8 +501,6 @@ func (a *MachineAgent) Run(*cmd.Context) (err error) {
 	close(a.workersStarted)
 	err = a.runner.Wait()
 	switch errors.Cause(err) {
-	case jworker.ErrTerminateAgent:
-		err = a.uninstallAgent()
 	case jworker.ErrRebootMachine:
 		logger.Infof("Caught reboot error")
 		err = a.executeRebootOrShutdown(params.ShouldReboot)
@@ -1224,58 +1221,6 @@ func (a *MachineAgent) removeJujudSymlinks() (errs []error) {
 		}
 	}
 	return
-}
-
-func (a *MachineAgent) uninstallAgent() error {
-	// We should only uninstall if the uninstall file is present.
-	if !agent.CanUninstall(a) {
-		logger.Infof("ignoring uninstall request")
-		return nil
-	}
-	logger.Infof("uninstalling agent")
-
-	agentConfig := a.CurrentConfig()
-	var errs []error
-	agentServiceName := agentConfig.Value(agent.AgentServiceName)
-	if agentServiceName == "" {
-		// For backwards compatibility, handle lack of AgentServiceName.
-		agentServiceName = os.Getenv("UPSTART_JOB")
-	}
-
-	if agentServiceName != "" {
-		svc, err := service.DiscoverService(agentServiceName, common.Conf{})
-		if err != nil {
-			errs = append(errs, errors.Errorf("cannot remove service %q: %v", agentServiceName, err))
-		} else if err := svc.Remove(); err != nil {
-			errs = append(errs, errors.Errorf("cannot remove service %q: %v", agentServiceName, err))
-		}
-	}
-
-	errs = append(errs, a.removeJujudSymlinks()...)
-
-	// TODO(fwereade): surely this shouldn't be happening here? Once we're
-	// at this point we should expect to be killed in short order; if this
-	// work is remotely important we should be blocking machine death on
-	// its completion.
-	insideContainer := container.RunningInContainer()
-	if insideContainer {
-		// We're running inside a container, so loop devices may leak. Detach
-		// any loop devices that are backed by files on this machine.
-		if err := a.loopDeviceManager.DetachLoopDevices("/", agentConfig.DataDir()); err != nil {
-			errs = append(errs, err)
-		}
-	}
-
-	if err := mongo.RemoveService(); err != nil {
-		errs = append(errs, errors.Annotate(err, "cannot stop/remove mongo service"))
-	}
-	if err := os.RemoveAll(agentConfig.DataDir()); err != nil {
-		errs = append(errs, err)
-	}
-	if len(errs) == 0 {
-		return nil
-	}
-	return errors.Errorf("uninstall failed: %v", errs)
 }
 
 // newDeployContext gives the tests the opportunity to create a deployer.Context

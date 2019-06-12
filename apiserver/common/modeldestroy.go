@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facades/agent/metricsender"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
 
@@ -109,8 +110,19 @@ func destroyModel(st ModelManagerBackend, args state.DestroyModelParams) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	notForcing := args.Force == nil || !*args.Force
+	if notForcing {
+		// If model status is suspended, then model's cloud credential is invalid.
+		modelStatus, err := model.Status()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if modelStatus.Status == status.Suspended {
+			return errors.Errorf("invalid cloud credential, use --force")
+		}
+	}
 	if err := model.Destroy(args); err != nil {
-		if args.Force == nil || !*args.Force {
+		if notForcing {
 			return errors.Trace(err)
 		}
 		logger.Warningf("failed destroying model %v: %v", model.UUID(), err)

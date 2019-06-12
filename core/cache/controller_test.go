@@ -56,6 +56,7 @@ func (s *ControllerSuite) TestAddModel(c *gc.C) {
 			"charm-count":       0,
 			"machine-count":     0,
 			"unit-count":        0,
+			"branch-count":      0,
 		}})
 
 	// The model has the first ID and is registered.
@@ -190,7 +191,6 @@ func (s *ControllerSuite) TestAddUnit(c *gc.C) {
 
 	unit, err := mod.Unit(unitChange.Name)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(unit, gc.NotNil)
 	s.AssertResident(c, unit.CacheId(), true)
 }
 
@@ -211,6 +211,38 @@ func (s *ControllerSuite) TestRemoveUnit(c *gc.C) {
 
 	c.Check(mod.Report()["unit-count"], gc.Equals, 0)
 	s.AssertResident(c, unit.CacheId(), false)
+}
+
+func (s *ControllerSuite) TestAddBranch(c *gc.C) {
+	controller, events := s.new(c)
+	s.processChange(c, branchChange, events)
+
+	mod, err := controller.Model(modelChange.ModelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(mod.Report()["branch-count"], gc.Equals, 1)
+
+	branch, err := mod.Branch(branchChange.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AssertResident(c, branch.CacheId(), true)
+}
+
+func (s *ControllerSuite) TestRemoveBranch(c *gc.C) {
+	controller, events := s.new(c)
+	s.processChange(c, branchChange, events)
+
+	mod, err := controller.Model(modelChange.ModelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	branch, err := mod.Branch(branchChange.Name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	remove := cache.RemoveBranch{
+		ModelUUID: modelChange.ModelUUID,
+		Id:        branchChange.Id,
+	}
+	s.processChange(c, remove, events)
+
+	c.Check(mod.Report()["unit-count"], gc.Equals, 0)
+	s.AssertResident(c, branch.CacheId(), false)
 }
 
 func (s *ControllerSuite) TestMarkAndSweep(c *gc.C) {
@@ -280,6 +312,10 @@ func (s *ControllerSuite) captureEvents(c *gc.C) <-chan interface{} {
 		case cache.UnitChange:
 			send = true
 		case cache.RemoveUnit:
+			send = true
+		case cache.BranchChange:
+			send = true
+		case cache.RemoveBranch:
 			send = true
 		default:
 			// no-op

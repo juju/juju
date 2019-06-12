@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
+	appFacade "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -37,6 +38,13 @@ type APIv1 struct {
 
 // APIv2 provides the Bundle API facade for version 2.
 type APIv2 struct {
+	*BundleAPI
+}
+
+// APIv3 provides the Bundle API facade for version 3. It is otherwise
+// identical to V2 with the exception that the V3 ExportBundle implementation
+// also exposes the the current trust status for each application.
+type APIv3 struct {
 	*BundleAPI
 }
 
@@ -67,6 +75,16 @@ func NewFacadeV2(ctx facade.Context) (*APIv2, error) {
 		return nil, errors.Trace(err)
 	}
 	return &APIv2{api}, nil
+}
+
+// NewFacadeV3 provides the signature required for facade registration
+// for version 3.
+func NewFacadeV3(ctx facade.Context) (*APIv3, error) {
+	api, err := newFacade(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv3{api}, nil
 }
 
 // NewFacade provides the required signature for facade registration.
@@ -369,6 +387,12 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, erro
 			if result := b.constraints(application.Constraints()); len(result) != 0 {
 				newApplication.Constraints = strings.Join(result, " ")
 			}
+		}
+
+		// If this application has been trusted by the operator, set the
+		// Trust field of the ApplicationSpec to true
+		if appConfig := application.ApplicationConfig(); appConfig != nil {
+			newApplication.RequiresTrust = appConfig[appFacade.TrustConfigOptionName] == true
 		}
 
 		data.Applications[application.Name()] = newApplication

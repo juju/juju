@@ -492,7 +492,7 @@ func FindInstanceSpec(
 	imageMetadata []*imagemetadata.ImageMetadata,
 ) (spec *instances.InstanceSpec, err error) {
 	env := e.(*Environ)
-	return findInstanceSpec(env, &instances.InstanceConstraint{
+	return findInstanceSpec(env, instances.InstanceConstraint{
 		Series:      series,
 		Arches:      []string{arch},
 		Region:      env.cloud().Region,

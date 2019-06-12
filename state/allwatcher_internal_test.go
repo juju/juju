@@ -44,6 +44,7 @@ var (
 	_ backingEntityDoc = (*backingOpenedPorts)(nil)
 	_ backingEntityDoc = (*backingAction)(nil)
 	_ backingEntityDoc = (*backingBlock)(nil)
+	_ backingEntityDoc = (*backingGeneration)(nil)
 )
 
 var dottedConfig = `
@@ -630,6 +631,10 @@ func (s *allWatcherStateSuite) TestChangeRemoteApplications(c *gc.C) {
 
 func (s *allWatcherStateSuite) TestChangeApplicationOffers(c *gc.C) {
 	testChangeApplicationOffers(c, s.performChangeTestCases)
+}
+
+func (s *allWatcherStateSuite) TestChangeGenerations(c *gc.C) {
+	testChangeGenerations(c, s.performChangeTestCases)
 }
 
 func (s *allWatcherStateSuite) TestChangeActions(c *gc.C) {
@@ -1793,15 +1798,20 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m10.Id(), gc.Equals, "0")
 
+	// Add a branch.
+	c.Assert(st1.AddBranch("new-branch", "test-user"), jc.ErrorIsNil)
+	br, err := st1.Branch("new-branch")
+	c.Assert(br, gc.NotNil)
+
 	now := st0.clock().Now()
 
 	backing := s.NewAllModelWatcherStateBacking()
 	tw := newTestWatcher(backing, st0, c)
 	defer tw.Stop()
 
-	// Expect to see events for the already created models and
-	// machines first.
-	deltas := tw.All(4)
+	// Expect to see events for the already created models,
+	// machines and branch first.
+	deltas := tw.All(5)
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.ModelInfo{
 			ModelUUID:      model0.UUID(),
@@ -1881,6 +1891,13 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Addresses: []multiwatcher.Address{},
 			HasVote:   false,
 			WantsVote: false,
+		},
+	}, {
+		Entity: &multiwatcher.GenerationInfo{
+			ModelUUID:     st1.ModelUUID(),
+			Id:            "0",
+			Name:          "new-branch",
+			AssignedUnits: map[string][]string{},
 		},
 	}})
 
@@ -1966,9 +1983,11 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m20.Id(), gc.Equals, "0")
 
+	c.Assert(br.AssignUnit(wu.Name()), jc.ErrorIsNil)
+
 	// Look for the state changes from the allwatcher.
 	later := st2.clock().Now()
-	deltas = tw.All(9)
+	deltas = tw.All(10)
 
 	expectedRemoveMachineEntity := &multiwatcher.MachineInfo{
 		ModelUUID: st1.ModelUUID(),
@@ -2144,6 +2163,13 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Addresses: []multiwatcher.Address{},
 			HasVote:   false,
 			WantsVote: false,
+		},
+	}, {
+		Entity: &multiwatcher.GenerationInfo{
+			ModelUUID:     st1.ModelUUID(),
+			Id:            "0",
+			Name:          "new-branch",
+			AssignedUnits: map[string][]string{wordpress.Name(): {wu.Name()}},
 		},
 	}}
 
@@ -4040,6 +4066,88 @@ func testChangeApplicationOffers(c *gc.C, runChangeTests func(*gc.C, []changeTes
 					Id: st.docID("remote-wordpress2"),
 				},
 				expectContents: []multiwatcher.EntityInfo{&applicationOfferInfo},
+			}
+		},
+	}
+	runChangeTests(c, changeTestFuncs)
+}
+
+func testChangeGenerations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
+	changeTestFuncs := []changeTestFunc{
+		func(c *gc.C, st *State) changeTestCase {
+			return changeTestCase{
+				about: "no change if generation absent from state and store",
+				change: watcher.Change{
+					C:  "generations",
+					Id: st.docID("does-not-exist"),
+				}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			return changeTestCase{
+				about: "generation is removed if not in backing",
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.GenerationInfo{
+						ModelUUID: st.ModelUUID(),
+						Id:        "to-be-removed",
+					},
+				},
+				change: watcher.Change{
+					C:  "generations",
+					Id: st.docID("to-be-removed"),
+				},
+			}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			c.Assert(st.AddBranch("new-branch", "some-user"), jc.ErrorIsNil)
+			branch, err := st.Branch("new-branch")
+			c.Assert(err, jc.ErrorIsNil)
+
+			return changeTestCase{
+				about: "generation is added if in backing but not in store",
+				change: watcher.Change{
+					C:  "generations",
+					Id: st.docID(branch.doc.DocId),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.GenerationInfo{
+						ModelUUID:     st.ModelUUID(),
+						Id:            st.localID(branch.doc.DocId),
+						Name:          "new-branch",
+						AssignedUnits: map[string][]string{},
+					}},
+			}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			c.Assert(st.AddBranch("new-branch", "some-user"), jc.ErrorIsNil)
+			branch, err := st.Branch("new-branch")
+			c.Assert(err, jc.ErrorIsNil)
+
+			app := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			u, err := app.AddUnit(AddUnitParams{})
+			c.Assert(err, jc.ErrorIsNil)
+
+			c.Assert(branch.AssignUnit(u.Name()), jc.ErrorIsNil)
+
+			return changeTestCase{
+				about: "generation is updated if in backing and in store",
+				change: watcher.Change{
+					C:  "generations",
+					Id: st.docID(branch.doc.DocId),
+				},
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.GenerationInfo{
+						ModelUUID:     st.ModelUUID(),
+						Id:            st.localID(branch.doc.DocId),
+						Name:          "new-branch",
+						AssignedUnits: map[string][]string{},
+					}},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.GenerationInfo{
+						ModelUUID:     st.ModelUUID(),
+						Id:            st.localID(branch.doc.DocId),
+						Name:          "new-branch",
+						AssignedUnits: map[string][]string{app.Name(): {u.Name()}},
+					}},
 			}
 		},
 	}

@@ -238,7 +238,7 @@ provides:
     interface: http
 requires:
   db:
-    interface: mysql    
+    interface: mysql
 series:
   - kubernetes
 deployment:
@@ -270,9 +270,9 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	settings, err := s.mysql.CharmConfig(model.GenerationMaster)
+	cfg, err := s.mysql.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{"key": "value"}))
+	c.Assert(cfg, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{"key": "value"}))
 
 	newCh = s.AddConfigCharm(c, "mysql", newStringConfig, 3)
 	err = s.mysql.SetCharm(state.SetCharmConfig{
@@ -281,9 +281,9 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	settings, err = s.mysql.CharmConfig(model.GenerationMaster)
+	cfg, err = s.mysql.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{
+	c.Assert(cfg, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{
 		"key":   "value",
 		"other": "one",
 	}))
@@ -299,24 +299,24 @@ func (s *ApplicationSuite) TestSetCharmCharmSettingsForBranch(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	settings, err := s.mysql.CharmConfig(model.GenerationMaster)
+	cfg, err := s.mysql.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Update the next generation settings.
-	settings["key"] = "next-gen-value"
-	c.Assert(s.mysql.UpdateCharmConfig("new-branch", settings), jc.ErrorIsNil)
+	cfg["key"] = "next-gen-value"
+	c.Assert(s.mysql.UpdateCharmConfig("new-branch", cfg), jc.ErrorIsNil)
 
 	// Settings for the next generation reflect the change.
-	settings, err = s.mysql.CharmConfig("new-branch")
+	cfg, err = s.mysql.CharmConfig("new-branch")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{
+	c.Assert(cfg, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{
 		"key": "next-gen-value",
 	}))
 
 	// Settings for the current generation are as set with charm.
-	settings, err = s.mysql.CharmConfig(model.GenerationMaster)
+	cfg, err = s.mysql.CharmConfig(model.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{
+	c.Assert(cfg, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{
 		"key": "value",
 	}))
 }
@@ -682,13 +682,14 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 		sch, _, err := app.Charm()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(sch.URL(), gc.DeepEquals, expectCh.URL())
-		settings, err := app.CharmConfig(model.GenerationMaster)
+
+		chConfig, err := app.CharmConfig(model.GenerationMaster)
 		c.Assert(err, jc.ErrorIsNil)
 		expected := s.combinedSettings(sch, expectVals)
 		if len(expected) == 0 {
-			c.Assert(settings, gc.HasLen, 0)
+			c.Assert(chConfig, gc.HasLen, 0)
 		} else {
-			c.Assert(settings, gc.DeepEquals, expected)
+			c.Assert(chConfig, gc.DeepEquals, expected)
 		}
 
 		err = app.Destroy()
@@ -1138,11 +1139,11 @@ func (s *ApplicationSuite) TestUpdateCharmConfig(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			settings, err := app.CharmConfig(model.GenerationMaster)
+			cfg, err := app.CharmConfig(model.GenerationMaster)
 			c.Assert(err, jc.ErrorIsNil)
 			appConfig := t.expect
 			expected := s.combinedSettings(sch, appConfig)
-			c.Assert(settings, gc.DeepEquals, expected)
+			c.Assert(cfg, gc.DeepEquals, expected)
 		}
 		err = app.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
@@ -2490,8 +2491,8 @@ func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc
 	// Ensure storage constraints and settings are now gone.
 	_, err = state.AppStorageConstraints(app)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	settings := state.GetApplicationCharmConfig(s.State, app)
-	err = settings.Read()
+	cfg := state.GetApplicationCharmConfig(s.State, app)
+	err = cfg.Read()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -3882,16 +3883,35 @@ func (s *CAASApplicationSuite) TestRemoveUnitDeletesServiceInfo(c *gc.C) {
 }
 
 func (s *CAASApplicationSuite) TestInvalidScale(c *gc.C) {
-	err := s.app.SetScale(-1)
+	err := s.app.SetScale(-1, 0, true)
 	c.Assert(err, gc.ErrorMatches, "application scale -1 not valid")
+
+	// set scale without force for caas workers - a new Generation is required.
+	err = s.app.SetScale(3, 0, false)
+	c.Assert(err, jc.Satisfies, errors.IsForbidden)
 }
 
 func (s *CAASApplicationSuite) TestSetScale(c *gc.C) {
-	err := s.app.SetScale(5)
+	// set scale with force for CLI - DesiredScaleProtected set to true.
+	err := s.app.SetScale(5, 0, true)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.app.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.app.GetScale(), gc.Equals, 5)
+	svcInfo, err := s.app.ServiceInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(svcInfo.DesiredScaleProtected(), jc.IsTrue)
+
+	// set scale without force for caas workers - a new Generation is required.
+	err = s.app.SetScale(5, 1, false)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.app.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.app.GetScale(), gc.Equals, 5)
+	svcInfo, err = s.app.ServiceInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(svcInfo.DesiredScaleProtected(), jc.IsFalse)
+	c.Assert(svcInfo.Generation(), jc.DeepEquals, int64(1))
 }
 
 func (s *CAASApplicationSuite) TestInvalidChangeScale(c *gc.C) {
@@ -3923,16 +3943,16 @@ func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
-	err := s.app.SetScale(5)
+	err := s.app.SetScale(5, 0, true)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set to same value, no change.
-	err = s.app.SetScale(5)
+	err = s.app.SetScale(5, 0, true)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	err = s.app.SetScale(6)
+	err = s.app.SetScale(6, 0, true)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 

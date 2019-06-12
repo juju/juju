@@ -14,29 +14,27 @@ import (
 )
 
 const (
-	// a machine has been added or removed from the model.
-	modelAddRemoveMachine = "model-add-remove-machine"
-	// model config has changed.
+	// Model config has changed.
 	modelConfigChange = "model-config-change"
-	// a unit in the model has been added such than a lxd profile change
-	// maybe be necessary has been made.
-	modelUnitLXDProfileAdd = "model-unit-lxd-profile-add"
-	// a unit in the model has been removed such than a lxd profile change
-	// maybe be necessary has been made.
-	modelUnitLXDProfileRemove = "model-unit-remove"
+	// A machine has been added to, or removed from the model.
+	modelAddRemoveMachine = "model-add-remove-machine"
+	// A unit has landed on a machine, or a subordinate unit has been changed,
+	// Either of which likely indicate the addition of a unit to the model.
+	modelUnitAdd = "model-unit-add"
+	// A unit has been removed from the model.
+	modelUnitRemove = "model-unit-remove"
 )
 
 func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *Model {
 	m := &Model{
-		Resident: res,
-		metrics:  metrics,
-		// TODO: consider a separate hub per model for better scalability
-		// when many models.
+		Resident:     res,
+		metrics:      metrics,
 		hub:          hub,
 		applications: make(map[string]*Application),
 		charms:       make(map[string]*Charm),
 		machines:     make(map[string]*Machine),
 		units:        make(map[string]*Unit),
+		branches:     make(map[string]*Branch),
 	}
 	return m
 }
@@ -59,6 +57,7 @@ type Model struct {
 	charms       map[string]*Charm
 	machines     map[string]*Machine
 	units        map[string]*Unit
+	branches     map[string]*Branch
 }
 
 // Config returns the current model config.
@@ -80,7 +79,7 @@ func (m *Model) Name() string {
 
 // WatchConfig creates a watcher for the model config.
 func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
-	return newConfigWatcher(keys, m.hashCache, m.hub, m.topic(modelConfigChange), m.Resident)
+	return newConfigWatcher(keys, m.hashCache, m.hub, modelConfigChange, m.Resident)
 }
 
 // Report returns information that is used in the dependency engine report.
@@ -94,6 +93,7 @@ func (m *Model) Report() map[string]interface{} {
 		"charm-count":       len(m.charms),
 		"machine-count":     len(m.machines),
 		"unit-count":        len(m.units),
+		"branch-count":      len(m.branches),
 	}
 }
 
@@ -146,6 +146,55 @@ func (m *Model) Machine(machineId string) (*Machine, error) {
 	return machine, nil
 }
 
+// TODO (manadart 2019-05-30): Access to these entities returns copies:
+// - units
+// - branches
+// All of the other entity retrieval should be changed to work in the same
+// fashion, and the lock guarding of member access removed where possible.
+
+// Branch returns the branch with the input name.
+// If the branch is not found, a NotFoundError is returned.
+// All API-level logic identifies active branches by their name whereas they
+// are managed in the cache by ID - we iterate over the map to locate them.
+// We do not expect many active branches to exist at once,
+// so the performance should be acceptable.
+func (m *Model) Branch(name string) (Branch, error) {
+	defer m.doLocked()()
+
+	for _, b := range m.branches {
+		if b.details.Name == name {
+			return b.copy(), nil
+		}
+	}
+	return Branch{}, errors.NotFoundf("branch %q", name)
+}
+
+// Units returns all units in the model.
+func (m *Model) Units() map[string]Unit {
+	m.mu.Lock()
+
+	units := make(map[string]Unit, len(m.units))
+	for name, u := range m.units {
+		units[name] = u.copy()
+	}
+
+	m.mu.Unlock()
+
+	return units
+}
+
+// Unit returns the unit with the input name.
+// If the unit is not found, a NotFoundError is returned.
+func (m *Model) Unit(unitName string) (Unit, error) {
+	defer m.doLocked()()
+
+	unit, found := m.units[unitName]
+	if !found {
+		return Unit{}, errors.NotFoundf("unit %q", unitName)
+	}
+	return unit.copy(), nil
+}
+
 // WatchMachines returns a PredicateStringsWatcher to notify about
 // added and removed machines in the model.  The initial event contains
 // a slice of the current machine ids.  Containers are excluded.
@@ -169,7 +218,7 @@ func (m *Model) WatchMachines() (*PredicateStringsWatcher, error) {
 
 	w := newPredicateStringsWatcher(fn, machines...)
 	deregister := m.registerWorker(w)
-	unsub := m.hub.Subscribe(m.topic(modelAddRemoveMachine), w.changed)
+	unsub := m.hub.Subscribe(modelAddRemoveMachine, w.changed)
 
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
@@ -179,18 +228,6 @@ func (m *Model) WatchMachines() (*PredicateStringsWatcher, error) {
 	})
 
 	return w, nil
-}
-
-// Unit returns the unit with the input name.
-// If the unit is not found, a NotFoundError is returned.
-func (m *Model) Unit(unitName string) (*Unit, error) {
-	defer m.doLocked()()
-
-	unit, found := m.units[unitName]
-	if !found {
-		return nil, errors.NotFoundf("unit %q", unitName)
-	}
-	return unit, nil
 }
 
 // updateApplication adds or updates the application in the model.
@@ -263,20 +300,13 @@ func (m *Model) updateUnit(ch UnitChange, rm *residentManager) {
 	m.mu.Unlock()
 }
 
-// unitLXDProfileRemove contains an appName and it's charm URL.  To be used
-// when publishing for modelUnitLXDProfileRemove.
-type unitLXDProfileRemove struct {
-	name    string
-	appName string
-}
-
 // removeUnit removes the unit from the model.
 func (m *Model) removeUnit(ch RemoveUnit) error {
 	defer m.doLocked()()
 
 	unit, ok := m.units[ch.Name]
 	if ok {
-		m.hub.Publish(m.topic(modelUnitLXDProfileRemove), unitLXDProfileRemove{name: ch.Name, appName: unit.details.Application})
+		m.hub.Publish(modelUnitRemove, unit.copy())
 		if err := unit.evict(); err != nil {
 			return errors.Trace(err)
 		}
@@ -293,7 +323,7 @@ func (m *Model) updateMachine(ch MachineChange, rm *residentManager) {
 	if !found {
 		machine = newMachine(m, rm.new())
 		m.machines[ch.Id] = machine
-		m.hub.Publish(m.topic(modelAddRemoveMachine), []string{ch.Id})
+		m.hub.Publish(modelAddRemoveMachine, []string{ch.Id})
 	}
 	machine.setDetails(ch)
 
@@ -306,7 +336,7 @@ func (m *Model) removeMachine(ch RemoveMachine) error {
 
 	machine, ok := m.machines[ch.Id]
 	if ok {
-		m.hub.Publish(m.topic(modelAddRemoveMachine), []string{ch.Id})
+		m.hub.Publish(modelAddRemoveMachine, []string{ch.Id})
 		if err := machine.evict(); err != nil {
 			return errors.Trace(err)
 		}
@@ -315,13 +345,38 @@ func (m *Model) removeMachine(ch RemoveMachine) error {
 	return nil
 }
 
-// topic prefixes the input string with the model UUID.
-func (m *Model) topic(suffix string) string {
-	return modelTopic(m.details.ModelUUID, suffix)
+// updateBranch adds or updates the branch in the model.
+// Only "in-flight" branches should ever reside in the change.
+// A committed or aborted branch (with a non-zero time-stamp for completion)
+// should be passed through by the cache worker as a deletion.
+func (m *Model) updateBranch(ch BranchChange, rm *residentManager) {
+	m.mu.Lock()
+
+	branch, found := m.branches[ch.Id]
+	if !found {
+		branch = newBranch(m.metrics, m.hub, rm.new())
+		m.branches[ch.Id] = branch
+	}
+	branch.setDetails(ch)
+
+	m.mu.Unlock()
 }
 
-func modelTopic(modelUUID, suffix string) string {
-	return modelUUID + ":" + suffix
+// removeBranch removes the branch from the model.
+func (m *Model) removeBranch(ch RemoveBranch) error {
+	defer m.doLocked()()
+
+	branch, ok := m.branches[ch.Id]
+	if ok {
+		// TODO (manadart 2019-05-29): Publish appropriate message(s) to cause
+		// any unit config watchers to use only the master settings (maybe).
+
+		if err := branch.evict(); err != nil {
+			return errors.Trace(err)
+		}
+		delete(m.branches, ch.Id)
+	}
+	return nil
 }
 
 func (m *Model) setDetails(details ModelChange) {
@@ -341,7 +396,7 @@ func (m *Model) setDetails(details ModelChange) {
 	if configHash != m.configHash {
 		m.configHash = configHash
 		m.hashCache = hashCache
-		m.hub.Publish(m.topic(modelConfigChange), hashCache)
+		m.hub.Publish(modelConfigChange, hashCache)
 	}
 
 	m.mu.Unlock()

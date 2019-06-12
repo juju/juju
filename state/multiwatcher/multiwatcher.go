@@ -112,6 +112,8 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		d.Entity = new(ActionInfo)
 	case "charm":
 		d.Entity = new(CharmInfo)
+	case "generation":
+		d.Entity = new(GenerationInfo)
 	default:
 		return errors.Errorf("Unexpected entity name %q", entityKind)
 	}
@@ -481,7 +483,7 @@ type ModelSLAInfo struct {
 	Owner string `json:"owner"`
 }
 
-// ModelInfo holds the information about an model that is
+// ModelInfo holds the information about a model that is
 // tracked by multiwatcherStore.
 type ModelInfo struct {
 	ModelUUID      string                 `json:"model-uuid"`
@@ -496,11 +498,40 @@ type ModelInfo struct {
 	SLA            ModelSLAInfo           `json:"sla"`
 }
 
-// EntityId returns a unique identifier for an model.
+// EntityId returns a unique identifier for a model.
 func (i *ModelInfo) EntityId() EntityId {
 	return EntityId{
 		Kind:      "model",
 		ModelUUID: i.ModelUUID,
 		Id:        i.ModelUUID,
+	}
+}
+
+// ItemChange is the multiwatcher representation of a core settings ItemChange.
+type ItemChange struct {
+	Type     int         `json:"type"`
+	Key      string      `json:"key"`
+	OldValue interface{} `json:"old,omitempty"`
+	NewValue interface{} `json:"new,omitempty"`
+}
+
+// GenerationInfo holds data about a model generation (branch)
+// that is tracked by multiwatcherStore.
+type GenerationInfo struct {
+	ModelUUID     string                  `json:"model-uuid"`
+	Id            string                  `json:"id"`
+	Name          string                  `json:"name"`
+	AssignedUnits map[string][]string     `json:"assigned-units"`
+	Config        map[string][]ItemChange `json:"charm-config"`
+	Completed     int64                   `json:"completed"`
+	GenerationId  int                     `json:"generation-id"`
+}
+
+// EntityId returns a unique identifier for a generation.
+func (i *GenerationInfo) EntityId() EntityId {
+	return EntityId{
+		Kind:      "generation",
+		ModelUUID: i.ModelUUID,
+		Id:        i.Id,
 	}
 }

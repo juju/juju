@@ -86,10 +86,8 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 		c.Assert(host, gc.Equals, "ubuntu@hostname")
 		c.Assert(command, gc.DeepEquals, []string{"sudo", "/bin/bash"})
 		c.Assert(stdin, gc.Equals, `
-# Signal the jujud process to stop, then check it has done so before cleaning-up
-# after it.
+# Signal the jujud process to stop, then check it has done so.
 set -x
-touch '/var/lib/juju/uninstall-agent'
 
 stopped=0
 function wait_for_jujud {
@@ -117,16 +115,11 @@ wait_for_jujud
     pkill -SIGKILL jujud && wait_for_jujud
 }
 [[ $stopped -ne 1 ]] && {
-    echo jujud removal failed
+    echo stopping jujud failed
     logger --id $(ps -o pid,cmd,state -p $(pgrep jujud) | awk 'NR != 1 {printf("Process %d (%s) has state %s\n", $1, $2, $3)}')
     exit 1
 }
 service juju-db stop && logger --id stopped juju-db
-apt-get -y purge juju-mongo*
-apt-get -y autoremove
-rm -f /etc/init/juju*
-rm -f /etc/systemd/system{,/multi-user.target.wants}/juju*
-rm -fr '/var/lib/juju' '/var/log/juju'
 exit 0
 `)
 		return resultStdout, "", resultErr

@@ -207,7 +207,19 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
 	s.stub.CheckCalls(c, []jutesting.StubCall{
-		{"DestroyModel", []interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil)}},
+		{"DestroyModel",
+			[]interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil)}},
+	})
+}
+
+func (s *DestroySuite) TestDestroyWithPartModelUUID(c *gc.C) {
+	checkModelExistsInStore(c, "test1:admin/test2", s.store)
+	_, err := s.runDestroyCommand(c, "test2-uu", "-y")
+	c.Assert(err, jc.ErrorIsNil)
+	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
+	s.stub.CheckCalls(c, []jutesting.StubCall{
+		{"DestroyModel",
+			[]interface{}{names.NewModelTag("test2-uuid"), (*bool)(nil), (*bool)(nil), (*time.Duration)(nil)}},
 	})
 }
 
@@ -446,9 +458,7 @@ func (s *DestroySuite) TestDestroyCommandWait(c *gc.C) {
 	case <-done:
 		c.Assert(<-outStdErr, gc.Equals, `
 Destroying model
-Waiting on model to be removed, 5 error(s), 1 machine(s), 2 application(s), 3 volume(s), 2 filesystems(s)...
-Waiting on model to be removed, 5 error(s), 1 machine(s), 2 application(s), 3 volume(s), 2 filesystems(s)...
-`[1:])
+Waiting for model to be removed, 5 error(s), 1 machine(s), 2 application(s), 3 volume(s), 2 filesystems(s)....`[1:])
 		c.Assert(<-outStdOut, gc.Equals, `
 
 The following errors were encountered during destroying the model.
@@ -461,6 +471,46 @@ Volume      0   failed to destroy volume 0
             1   failed to destroy volume 1
             2   failed to destroy volume 2
 `[1:])
+		// timeout after 3s.
+		c.Assert(<-outErr, jc.Satisfies, errors.IsTimeout)
+		checkModelExistsInStore(c, "test1:admin/test2", s.store)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for destroy cmd.")
+	}
+}
+
+func (s *DestroySuite) TestDestroyCommandLeanMessage(c *gc.C) {
+	checkModelExistsInStore(c, "test1:admin/test2", s.store)
+
+	s.api.modelInfoErr = []*params.Error{nil, nil}
+	s.api.modelStatusPayload = []base.ModelStatus{{
+		ApplicationCount:   0,
+		HostedMachineCount: 0,
+		Volumes:            []base.Volume{},
+		Filesystems:        []base.Filesystem{},
+	}}
+
+	done := make(chan struct{}, 1)
+	outErr := make(chan error, 1)
+	outStdOut := make(chan string, 1)
+	outStdErr := make(chan string, 1)
+
+	go func() {
+		// run destroy model cmd, and timeout in 3s.
+		ctx, err := s.runDestroyCommand(c, "test2", "-y", "-t", "3s")
+		outStdOut <- cmdtesting.Stdout(ctx)
+		outStdErr <- cmdtesting.Stderr(ctx)
+		outErr <- err
+		done <- struct{}{}
+	}()
+
+	c.Assert(s.clock.WaitAdvance(5*time.Second, testing.LongWait, 2), jc.ErrorIsNil)
+
+	select {
+	case <-done:
+		c.Assert(<-outStdErr, gc.Equals, `
+Destroying model
+Waiting for model to be removed....`[1:])
 		// timeout after 3s.
 		c.Assert(<-outErr, jc.Satisfies, errors.IsTimeout)
 		checkModelExistsInStore(c, "test1:admin/test2", s.store)

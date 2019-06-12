@@ -88,7 +88,7 @@ func (s *WorkerSuite) TestExtractCacheController(c *gc.C) {
 	var controller *cache.Controller
 	var empty worker.Worker
 	err := modelcache.ExtractCacheController(empty, &controller)
-	c.Assert(err.Error(), gc.Equals, "in should be a *modelcache.cacheWorker; got <nil>")
+	c.Assert(err, gc.ErrorMatches, `in should be a \*modelcache.cacheWorker; got <nil>`)
 }
 
 func (s *WorkerSuite) start(c *gc.C) worker.Worker {
@@ -165,7 +165,7 @@ func (s *WorkerSuite) TestNewModel(c *gc.C) {
 
 	newState := s.Factory.MakeModel(c, nil)
 	s.State.StartSync()
-	defer newState.Close()
+	defer func() { _ = newState.Close() }()
 
 	obtained := s.nextChange(c, changes)
 	expected, err := newState.Model()
@@ -185,7 +185,7 @@ func (s *WorkerSuite) TestRemovedModel(c *gc.C) {
 
 	st := s.Factory.MakeModel(c, nil)
 	s.State.StartSync()
-	defer st.Close()
+	defer func() { _ = st.Close() }()
 
 	// grab and discard the event for the new model
 	s.nextChange(c, changes)
@@ -442,6 +442,68 @@ func (s *WorkerSuite) TestRemoveUnit(c *gc.C) {
 	}
 }
 
+func (s *WorkerSuite) TestAddBranch(c *gc.C) {
+	changes := s.captureEvents(c, branchEvents)
+	w := s.start(c)
+
+	branchName := "test-branch"
+	c.Assert(s.State.AddBranch(branchName, "test-user"), jc.ErrorIsNil)
+	s.State.StartSync()
+
+	change := s.nextChange(c, changes)
+	obtained, ok := change.(cache.BranchChange)
+	c.Assert(ok, jc.IsTrue)
+	c.Check(obtained.Name, gc.Equals, "test-branch")
+
+	controller := s.getController(c, w)
+	modUUIDs := controller.ModelUUIDs()
+	c.Check(modUUIDs, gc.HasLen, 1)
+
+	mod, err := controller.Model(modUUIDs[0])
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = mod.Branch(branchName)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *WorkerSuite) TestRemoveBranch(c *gc.C) {
+	changes := s.captureEvents(c, branchEvents)
+	w := s.start(c)
+
+	branchName := "test-branch"
+	c.Assert(s.State.AddBranch(branchName, "test-user"), jc.ErrorIsNil)
+	s.State.StartSync()
+	_ = s.nextChange(c, changes)
+
+	controller := s.getController(c, w)
+	modUUID := controller.ModelUUIDs()[0]
+
+	branch, err := s.State.Branch(branchName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Generation docs are not deleted from the DB in any current workflow.
+	// Committing the branch so that it is no longer active should cause
+	// a removal message to be emitted.
+	_, err = branch.Commit("test-user")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.State.StartSync()
+
+	// We will either get our branch event,
+	// or time-out after processing all the changes.
+	for {
+		change := s.nextChange(c, changes)
+		if _, ok := change.(cache.RemoveBranch); ok {
+			mod, err := controller.Model(modUUID)
+			c.Assert(err, jc.ErrorIsNil)
+
+			_, err = mod.Branch(branchName)
+			c.Check(errors.IsNotFound(err), jc.IsTrue)
+			return
+		}
+	}
+}
+
 func (s *WorkerSuite) TestWatcherErrorCacheMarkSweep(c *gc.C) {
 	// Some state to close over.
 	fakeModelSent := false
@@ -593,6 +655,16 @@ var unitEvents = func(change interface{}) bool {
 	case cache.UnitChange:
 		return true
 	case cache.RemoveUnit:
+		return true
+	}
+	return false
+}
+
+var branchEvents = func(change interface{}) bool {
+	switch change.(type) {
+	case cache.BranchChange:
+		return true
+	case cache.RemoveBranch:
 		return true
 	}
 	return false

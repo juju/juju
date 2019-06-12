@@ -142,14 +142,14 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateWithProf
 	defer workertest.CleanKill(c, s.assertStartOneMachineWatcher(c))
 	// Add a new subordinate unit with a profile of a new application.
 	s.newUnitForMachineLXDProfileWatcherSubProfile(c, s.machine0.Id(), unitChange.Name)
-	s.assertChangeValidateMetrics(c, s.wc0.AssertOneChange, 0, 1, 0)
+	s.assertChangeValidateMetrics(c, s.wc0.AssertOneChange, 0, 1, 1)
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateNoProfile(c *gc.C) {
 	defer workertest.CleanKill(c, s.assertStartOneMachineWatcher(c))
 	// Add a new subordinate unit with no profile of a new application.
 	s.newUnitForMachineLXDProfileWatcherNoProfile(c, s.machine0.Id(), unitChange.Name)
-	s.assertChangeValidateMetrics(c, s.wc0.AssertNoChange, 0, 0, 1)
+	s.assertChangeValidateMetrics(c, s.wc0.AssertNoChange, 0, 0, 2)
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherRemoveUnitWithProfileTwoUnits(c *gc.C) {
@@ -157,7 +157,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherRemoveUnitWithProfi
 
 	// Add a new unit of a new application.
 	s.newUnitForMachineLXDProfileWatcherNoProfile(c, s.machine0.Id(), "")
-	s.assertChangeValidateMetrics(c, s.wc0.AssertNoChange, 0, 0, 1)
+	s.assertChangeValidateMetrics(c, s.wc0.AssertNoChange, 0, 0, 2)
 
 	// Remove the original unit which has a profile.
 	c.Assert(s.model.RemoveUnit(
@@ -165,7 +165,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherRemoveUnitWithProfi
 			ModelUUID: "model-uuid",
 			Name:      "application-name/0",
 		}), jc.ErrorIsNil)
-	s.assertChangeValidateMetrics(c, s.wc0.AssertOneChange, 0, 1, 1)
+	s.assertChangeValidateMetrics(c, s.wc0.AssertOneChange, 0, 1, 2)
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherRemoveOnlyUnit(c *gc.C) {
@@ -222,7 +222,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherUnitChangeCharmURLN
 		Application: "new-application-name",
 		MachineId:   s.machine0.Id(),
 	}, s.Manager)
-	s.assertChangeValidateMetrics(c, s.wc0.AssertNoChange, 1, 0, 1)
+	s.assertChangeValidateMetrics(c, s.wc0.AssertNoChange, 1, 0, 2)
 }
 
 func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherUnitChangeUnitCharmURLIgnored(c *gc.C) {
@@ -324,7 +324,7 @@ func (s *lxdProfileWatcherSuite) newUnit(c *gc.C, machineId, principal string, c
 }
 
 func (s *lxdProfileWatcherSuite) setupOneMachineLXDProfileWatcherScenario(c *gc.C) {
-	s.model = s.NewModel(modelChange)
+	s.model = s.NewModel(modelChange, nil)
 
 	s.model.UpdateMachine(machineChange, s.Manager)
 	machine, err := s.model.Machine(machineChange.Id)
@@ -372,7 +372,7 @@ func (s *lxdProfileWatcherSuite) assertStartOneMachineWatcher(c *gc.C) *cache.Ma
 }
 
 func (s *lxdProfileWatcherSuite) assertStartOneMachineNotProvisionedWatcher(c *gc.C) *cache.MachineLXDProfileWatcher {
-	s.model = s.NewModel(modelChange)
+	s.model = s.NewModel(modelChange, nil)
 
 	mChange := cache.MachineChange{
 		ModelUUID: "model-uuid",

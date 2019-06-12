@@ -7,14 +7,16 @@ import (
 	"context"
 	"strings"
 
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
+	ociCore "github.com/oracle/oci-go-sdk/core"
 	gc "gopkg.in/check.v1"
 
-	ociCore "github.com/oracle/oci-go-sdk/core"
-
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/common/mocks"
 	"github.com/juju/juju/provider/oci"
 )
 
@@ -171,4 +173,32 @@ func (i *instanceSuite) TestAddressesNoPublicIP(c *gc.C) {
 	c.Check(addresses, gc.HasLen, 2)
 	c.Check(addresses[0].Scope, gc.Equals, network.ScopeCloudLocal)
 	c.Check(addresses[1].Scope, gc.Equals, network.ScopePublic)
+}
+
+func (i *instanceSuite) TestInstanceConfiguratorUsesPublicAddress(c *gc.C) {
+	ctrl := i.patchEnv(c)
+	defer ctrl.Finish()
+
+	vnicID := "fakeVnicId"
+	i.setupListVnicsExpectations(i.testInstanceID, vnicID)
+
+	rules := []network.IngressRule{{
+		PortRange: corenetwork.PortRange{
+			FromPort: 1234,
+			ToPort:   1234,
+			Protocol: "tcp",
+		},
+	}}
+
+	ic := mocks.NewMockInstanceConfigurator(ctrl)
+	ic.EXPECT().ChangeIngressRules("", true, rules).Return(nil)
+
+	factory := func(addr string) common.InstanceConfigurator {
+		c.Assert(addr, gc.Equals, "2.2.2.2")
+		return ic
+	}
+
+	inst, err := oci.NewInstanceWithConfigurator(*i.ociInstance, i.env, factory)
+	c.Assert(err, gc.IsNil)
+	c.Assert(inst.OpenPorts(nil, "", rules), gc.IsNil)
 }

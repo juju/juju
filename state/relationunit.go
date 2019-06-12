@@ -583,7 +583,7 @@ var PreferredAddressRetryArgs = func() retry.CallArgs {
 	return retry.CallArgs{
 		Clock:       clock.WallClock,
 		Delay:       3 * time.Second,
-		MaxDuration: 60 * time.Second,
+		MaxDuration: 30 * time.Second,
 	}
 }
 
@@ -591,7 +591,7 @@ var PreferredAddressRetryArgs = func() retry.CallArgs {
 // The ingress addresses depend on if the relation is cross model and whether the
 // relation endpoint is bound to a space.
 func NetworksForRelation(
-	binding string, unit *Unit, rel *Relation, defaultEgress []string,
+	binding string, unit *Unit, rel *Relation, defaultEgress []string, pollPublic bool,
 ) (boundSpace string, ingress []string, egress []string, _ error) {
 	st := unit.st
 
@@ -625,9 +625,12 @@ func NetworksForRelation(
 	}
 
 	fallbackIngressToPrivateAddr := func() error {
-		address, err := fetchAddr(unit.PrivateAddress)
-		if err != nil && !retry.IsAttemptsExceeded(err) && !retry.IsDurationExceeded(err) {
-			return errors.Trace(err)
+		// TODO(ycliuhw): lp-1830252 retry here once this is fixed.
+		address, err := unit.PrivateAddress()
+		if err != nil {
+			logger.Warningf(
+				"no private address for unit %q in relation %q",
+				unit.Name(), rel)
 		}
 		if address.Value != "" {
 			ingress = append(ingress, address.Value)
@@ -643,7 +646,7 @@ func NetworksForRelation(
 		if err != nil {
 			return "", nil, nil, errors.Trace(err)
 		}
-		if crossmodel {
+		if crossmodel && (unit.ShouldBeAssigned() || pollPublic) {
 			address, err := fetchAddr(unit.PublicAddress)
 			if err != nil {
 				logger.Warningf(
@@ -680,8 +683,17 @@ func NetworksForRelation(
 				}
 			}
 		} else {
-			if err := fallbackIngressToPrivateAddr(); err != nil {
-				return "", nil, nil, errors.Trace(err)
+			// Be be consistent with IAAS behaviour above, we'll return all addresses.
+			addr, err := unit.AllAddresses()
+			if err != nil {
+				logger.Warningf(
+					"no service address for unit %q in relation %q",
+					unit.Name(), rel)
+			} else {
+				network.SortAddresses(addr)
+				for _, a := range addr {
+					ingress = append(ingress, a.Value)
+				}
 			}
 		}
 	}

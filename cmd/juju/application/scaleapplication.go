@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -104,7 +105,8 @@ func (c *scaleApplicationCommand) Run(ctx *cmd.Context) error {
 		Scale:           c.scale,
 	})
 	if err != nil {
-		return errors.Trace(err)
+		return block.ProcessBlockedError(errors.Annotatef(err, "could not scale application %q", c.applicationName), block.BlockChange)
+
 	}
 	if err := result.Error; err != nil {
 		return err

@@ -67,7 +67,7 @@ func (m *mockServiceBroker) EnsureCustomResourceDefinition(appName string, podSp
 }
 
 func (m *mockServiceBroker) GetService(appName string, includeClusterIP bool) (*caas.Service, error) {
-	m.MethodCall(m, "Service", appName)
+	m.MethodCall(m, "GetService", appName)
 	scale := 4
 	return &caas.Service{
 		Id: "id", Scale: &scale, Addresses: []network.Address{{Value: "10.0.0.1"}},

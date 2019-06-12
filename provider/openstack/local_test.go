@@ -1335,7 +1335,8 @@ func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
 	consB := constraints.MustParse("instance-type=m1.small")
 	cons, err := validator.Merge(consA, consB)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, gc.DeepEquals, constraints.MustParse("arch=amd64 instance-type=m1.small"))
+	// NOTE: root-disk and instance-type constraints are checked by PrecheckInstance.
+	c.Assert(cons, gc.DeepEquals, constraints.MustParse("arch=amd64 instance-type=m1.small root-disk=10G"))
 }
 
 func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
@@ -1432,6 +1433,13 @@ func (s *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	cons := constraints.MustParse("instance-type=m1.large")
 	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: supportedversion.SupportedLTS(), Constraints: cons})
 	c.Assert(err, gc.ErrorMatches, `invalid Openstack flavour "m1.large" specified`)
+}
+
+func (s *localServerSuite) TestPrecheckInstanceInvalidRootDiskConstraint(c *gc.C) {
+	env := s.Open(c, s.env.Config())
+	cons := constraints.MustParse("instance-type=m1.small root-disk=10G")
+	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: supportedversion.SupportedLTS(), Constraints: cons})
+	c.Assert(err, gc.ErrorMatches, `constraint root-disk cannot be specified with instance-type unless constraint root-disk-source=volume`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
@@ -2382,6 +2390,110 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZoneConflictsP
 		AvailabilityZone:  "az2",
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot create instance in zone "az2", as this will prevent attaching the requested disks in zone "az1"`)
+}
+
+// novaInstaceStartedWithOpts exposes run server options used to start an instance.
+type novaInstaceStartedWithOpts interface {
+	NovaInstanceStartedWithOpts() *nova.RunServerOpts
+}
+
+func (t *localServerSuite) TestStartInstanceVolumeRootBlockDevice(c *gc.C) {
+	// diskSizeGiB should be equal to the openstack.defaultRootDiskSize
+	diskSizeGiB := 30
+
+	err := bootstrapEnv(c, t.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err := constraints.Parse("root-disk-source=volume")
+	c.Assert(err, jc.ErrorIsNil)
+
+	res, err := testing.StartInstanceWithParams(t.env, t.callCtx, "1", environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		Constraints:    cons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.NotNil)
+
+	runOpts := res.Instance.(novaInstaceStartedWithOpts).NovaInstanceStartedWithOpts()
+	c.Assert(runOpts, gc.NotNil)
+	c.Assert(runOpts.BlockDeviceMappings, gc.NotNil)
+	deviceMapping := runOpts.BlockDeviceMappings[0]
+	c.Assert(deviceMapping, jc.DeepEquals, nova.BlockDeviceMapping{
+		BootIndex:           0,
+		UUID:                "1",
+		SourceType:          "image",
+		DestinationType:     "volume",
+		DeleteOnTermination: true,
+		VolumeSize:          diskSizeGiB,
+	})
+}
+
+func (t *localServerSuite) TestStartInstanceVolumeRootBlockDeviceSized(c *gc.C) {
+	diskSizeGiB := 10
+
+	err := bootstrapEnv(c, t.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err := constraints.Parse("root-disk-source=volume root-disk=10G")
+	c.Assert(err, jc.ErrorIsNil)
+
+	res, err := testing.StartInstanceWithParams(t.env, t.callCtx, "1", environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		Constraints:    cons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.NotNil)
+
+	c.Assert(res.Hardware.RootDisk, gc.NotNil)
+	c.Assert(*res.Hardware.RootDisk, gc.Equals, uint64(diskSizeGiB*1024))
+
+	runOpts := res.Instance.(novaInstaceStartedWithOpts).NovaInstanceStartedWithOpts()
+	c.Assert(runOpts, gc.NotNil)
+	c.Assert(runOpts.BlockDeviceMappings, gc.NotNil)
+	deviceMapping := runOpts.BlockDeviceMappings[0]
+	c.Assert(deviceMapping, jc.DeepEquals, nova.BlockDeviceMapping{
+		BootIndex:           0,
+		UUID:                "1",
+		SourceType:          "image",
+		DestinationType:     "volume",
+		DeleteOnTermination: true,
+		VolumeSize:          diskSizeGiB,
+	})
+}
+
+func (t *localServerSuite) TestStartInstanceLocalRootBlockDevice(c *gc.C) {
+	err := bootstrapEnv(c, t.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err := constraints.Parse("root-disk=1G")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons.HasRootDisk(), jc.IsTrue)
+	c.Assert(*cons.RootDisk, gc.Equals, uint64(1024))
+
+	res, err := testing.StartInstanceWithParams(t.env, t.callCtx, "1", environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		Constraints:    cons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.NotNil)
+
+	c.Assert(res.Hardware.RootDisk, gc.NotNil)
+	// Check local disk requirements are met.
+	c.Assert(*res.Hardware.RootDisk, jc.GreaterThan, uint64(1024-1))
+
+	runOpts := res.Instance.(novaInstaceStartedWithOpts).NovaInstanceStartedWithOpts()
+	c.Assert(runOpts, gc.NotNil)
+	c.Assert(runOpts.BlockDeviceMappings, gc.NotNil)
+	deviceMapping := runOpts.BlockDeviceMappings[0]
+	c.Assert(deviceMapping, jc.DeepEquals, nova.BlockDeviceMapping{
+		BootIndex:           0,
+		UUID:                "1",
+		SourceType:          "image",
+		DestinationType:     "local",
+		DeleteOnTermination: true,
+		// VolumeSize is 0 when a local disk is used.
+		VolumeSize: 0,
+	})
 }
 
 func (t *localServerSuite) TestInstanceTags(c *gc.C) {

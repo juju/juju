@@ -14,6 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
+	k8score "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/leadership"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -1429,7 +1431,7 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 		}
 
 		settings := map[string]interface{}{}
-		_, ingressAddresses, egressSubnets, err := state.NetworksForRelation(relUnit.Endpoint().Name, unit, rel, modelSubnets)
+		_, ingressAddresses, egressSubnets, err := state.NetworksForRelation(relUnit.Endpoint().Name, unit, rel, modelSubnets, false)
 		if err == nil && len(ingressAddresses) > 0 {
 			ingressAddress := ingressAddresses[0]
 			// private-address is historically a cloud local address for the machine.
@@ -2139,7 +2141,27 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
-		boundSpace, ingress, egress, err := state.NetworksForRelation(endpoint.Name, unit, rel, modelCfg.EgressSubnets())
+
+		pollPublic := unit.ShouldBeAssigned()
+		// For k8s services which may have a public
+		// address, we want to poll in case it's not ready yet.
+		if !pollPublic {
+			app, err := unit.Application()
+			if err != nil {
+				return params.NetworkInfoResults{}, err
+			}
+			cfg, err := app.ApplicationConfig()
+			if err != nil {
+				return params.NetworkInfoResults{}, err
+			}
+			svcType := cfg.GetString(provider.ServiceTypeConfigKey, "")
+			switch k8score.ServiceType(svcType) {
+			case k8score.ServiceTypeLoadBalancer, k8score.ServiceTypeExternalName:
+				pollPublic = true
+			}
+		}
+
+		boundSpace, ingress, egress, err := state.NetworksForRelation(endpoint.Name, unit, rel, modelCfg.EgressSubnets(), pollPublic)
 		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
@@ -2836,7 +2858,11 @@ func (u *UniterAPI) WatchTrustConfigSettingsHash(args params.Entities) (params.S
 func (u *UniterAPI) WatchUnitAddressesHash(args params.Entities) (params.StringsWatchResults, error) {
 	getWatcher := func(unit *state.Unit) (state.StringsWatcher, error) {
 		if !unit.ShouldBeAssigned() {
-			return unit.WatchContainerAddressesHash(), nil
+			app, err := unit.Application()
+			if err != nil {
+				return nil, err
+			}
+			return app.WatchServiceAddressesHash(), nil
 		}
 		machineId, err := unit.AssignedMachineId()
 		if err != nil {

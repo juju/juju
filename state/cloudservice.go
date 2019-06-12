@@ -19,6 +19,12 @@ type CloudServicer interface {
 
 	// Addresses returns the service addresses.
 	Addresses() []network.Address
+
+	// Generation returns the service config generation.
+	Generation() int64
+
+	// DesiredScaleProtected indicates if current desired scale in application has been applied to the cluster.
+	DesiredScaleProtected() bool
 }
 
 // CloudService is an implementation of CloudService.
@@ -33,6 +39,16 @@ type cloudServiceDoc struct {
 
 	ProviderId string    `bson:"provider-id"`
 	Addresses  []address `bson:"addresses"`
+
+	// Generation is the version of current service configuration.
+	// It prevents the scale updated to replicas of the older/previous gerenations of deployment/statefulset.
+	// Currently only DesiredScale is versioned.
+	Generation int64 `bson:"generation"`
+
+	// DesiredScaleProtected indicates if the desired scale needs to be applied to k8s cluster.
+	// It prevents the desired scale requested from CLI by user incidentally updated by
+	// k8s cluster replicas before having a chance to be applied/deployed.
+	DesiredScaleProtected bool `bson:"desired-scale-protected"`
 }
 
 func newCloudService(st *State, doc *cloudServiceDoc) *CloudService {
@@ -43,19 +59,29 @@ func newCloudService(st *State, doc *cloudServiceDoc) *CloudService {
 	return svc
 }
 
-// Id implements CloudService.
+// Id implements CloudServicer.
 func (c *CloudService) Id() string {
 	return c.doc.DocID
 }
 
-// ProviderId implements CloudService.
+// ProviderId implements CloudServicer.
 func (c *CloudService) ProviderId() string {
 	return c.doc.ProviderId
 }
 
-// Addresses implements CloudService.
+// Addresses implements CloudServicer.
 func (c *CloudService) Addresses() []network.Address {
 	return networkAddresses(c.doc.Addresses)
+}
+
+// Generation implements CloudServicer.
+func (c *CloudService) Generation() int64 {
+	return c.doc.Generation
+}
+
+// DesiredScaleProtected implements CloudServicer.
+func (c *CloudService) DesiredScaleProtected() bool {
+	return c.doc.DesiredScaleProtected
 }
 
 func (c *CloudService) cloudServiceDoc() (*cloudServiceDoc, error) {
@@ -94,8 +120,9 @@ func (c *CloudService) Refresh() error {
 	return errors.Trace(err)
 }
 
-func (c *CloudService) saveServiceOps(doc cloudServiceDoc) ([]txn.Op, error) {
-	existing, err := c.cloudServiceDoc()
+func buildCloudServiceOps(st *State, doc cloudServiceDoc) ([]txn.Op, error) {
+	svc := newCloudService(st, &doc)
+	existing, err := svc.cloudServiceDoc()
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
@@ -107,20 +134,34 @@ func (c *CloudService) saveServiceOps(doc cloudServiceDoc) ([]txn.Op, error) {
 			Insert: doc,
 		}}, nil
 	}
+	patchFields := bson.D{}
+	addField := func(elm bson.DocElem) {
+		patchFields = append(patchFields, elm)
+	}
+	providerIdToAssert := existing.ProviderId
+	if doc.ProviderId != "" {
+		addField(bson.DocElem{"provider-id", doc.ProviderId})
+		providerIdToAssert = doc.ProviderId
+	}
+	if len(doc.Addresses) > 0 {
+		addField(bson.DocElem{"addresses", doc.Addresses})
+	}
+	if doc.Generation > existing.Generation {
+		addField(bson.DocElem{"generation", doc.Generation})
+	}
+	if doc.DesiredScaleProtected != existing.DesiredScaleProtected {
+		addField(bson.DocElem{"desired-scale-protected", doc.DesiredScaleProtected})
+	}
 	return []txn.Op{{
 		C:  cloudServicesC,
 		Id: existing.DocID,
 		Assert: bson.D{{"$or", []bson.D{
-			{{"provider-id", doc.ProviderId}},
+			{{"provider-id", providerIdToAssert}},
+			{{"provider-id", ""}},
 			{{"provider-id", bson.D{{"$exists", false}}}},
 		}}},
 		Update: bson.D{
-			{"$set",
-				bson.D{
-					{"provider-id", doc.ProviderId},
-					{"addresses", doc.Addresses},
-				},
-			},
+			{"$set", patchFields},
 		},
 	}}, nil
 }

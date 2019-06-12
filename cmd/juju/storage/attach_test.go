@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"regexp"
+
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/testing"
@@ -56,12 +58,21 @@ func (s *AttachStorageSuite) TestAttachUnauthorizedError(c *gc.C) {
 	fake.SetErrors(nil, &params.Error{Code: params.CodeUnauthorized, Message: "nope"})
 	cmd := storage.NewAttachStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	ctx, err := cmdtesting.RunCommand(c, cmd, "foo/0", "bar/1")
-	c.Assert(err, gc.ErrorMatches, "nope")
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("could not attach storage [bar/1]: nope"))
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 You do not have permission to attach storage.
 You may ask an administrator to grant you access with "juju grant".
 
 `)
+}
+
+func (s *AttachStorageSuite) TestAttachBlocked(c *gc.C) {
+	var fake fakeEntityAttacher
+	fake.SetErrors(nil, &params.Error{Code: params.CodeOperationBlocked, Message: "nope"})
+	cmd := storage.NewAttachStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
+	_, err := cmdtesting.RunCommand(c, cmd, "foo/0", "bar/1")
+	c.Assert(err.Error(), jc.Contains, `could not attach storage [bar/1]: nope`)
+	c.Assert(err.Error(), jc.Contains, `All operations that change model have been disabled for the current model.`)
 }
 
 func (s *AttachStorageSuite) TestAttachInitErrors(c *gc.C) {

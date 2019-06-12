@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -221,127 +222,214 @@ func (c *cacheWorker) translate(d multiwatcher.Delta) interface{} {
 	id := d.Entity.EntityId()
 	switch id.Kind {
 	case "model":
-		if d.Removed {
-			return cache.RemoveModel{
-				ModelUUID: id.ModelUUID,
-			}
-		}
-		value, ok := d.Entity.(*multiwatcher.ModelInfo)
-		if !ok {
-			c.config.Logger.Errorf("unexpected type %T", d.Entity)
-			return nil
-		}
-		return cache.ModelChange{
-			ModelUUID: value.ModelUUID,
-			Name:      value.Name,
-			Life:      life.Value(value.Life),
-			Owner:     value.Owner,
-			Config:    value.Config,
-			Status:    coreStatus(value.Status),
-			// TODO: constraints, sla
-		}
+		return c.translateModel(d)
 	case "application":
-		if d.Removed {
-			return cache.RemoveApplication{
-				ModelUUID: id.ModelUUID,
-				Name:      id.Id,
-			}
-		}
-		value, ok := d.Entity.(*multiwatcher.ApplicationInfo)
-		if !ok {
-			c.config.Logger.Errorf("unexpected type %T", d.Entity)
-			return nil
-		}
-		return cache.ApplicationChange{
-			ModelUUID:       value.ModelUUID,
-			Name:            value.Name,
-			Exposed:         value.Exposed,
-			CharmURL:        value.CharmURL,
-			Life:            life.Value(value.Life),
-			MinUnits:        value.MinUnits,
-			Constraints:     value.Constraints,
-			Config:          value.Config,
-			Subordinate:     value.Subordinate,
-			Status:          coreStatus(value.Status),
-			WorkloadVersion: value.WorkloadVersion,
-		}
+		return c.translateApplication(d)
 	case "machine":
-		if d.Removed {
-			return cache.RemoveMachine{
-				ModelUUID: id.ModelUUID,
-				Id:        id.Id,
-			}
-		}
-		value, ok := d.Entity.(*multiwatcher.MachineInfo)
-		if !ok {
-			c.config.Logger.Errorf("unexpected type %T", d.Entity)
-			return nil
-		}
-		return cache.MachineChange{
-			ModelUUID:                value.ModelUUID,
-			Id:                       value.Id,
-			InstanceId:               value.InstanceId,
-			AgentStatus:              coreStatus(value.AgentStatus),
-			Life:                     life.Value(value.Life),
-			Config:                   value.Config,
-			Series:                   value.Series,
-			ContainerType:            value.ContainerType,
-			SupportedContainers:      value.SupportedContainers,
-			SupportedContainersKnown: value.SupportedContainersKnown,
-			HardwareCharacteristics:  value.HardwareCharacteristics,
-			CharmProfiles:            value.CharmProfiles,
-			Addresses:                coreNetworkAddresses(value.Addresses),
-			HasVote:                  value.HasVote,
-			WantsVote:                value.WantsVote,
-		}
+		return c.translateMachine(d)
 	case "unit":
-		if d.Removed {
-			return cache.RemoveUnit{
-				ModelUUID: id.ModelUUID,
-				Name:      id.Id,
-			}
-		}
-		value, ok := d.Entity.(*multiwatcher.UnitInfo)
-		if !ok {
-			c.config.Logger.Errorf("unexpected type %T", d.Entity)
-			return nil
-		}
-		return cache.UnitChange{
-			ModelUUID:      value.ModelUUID,
-			Name:           value.Name,
-			Application:    value.Application,
-			Series:         value.Series,
-			CharmURL:       value.CharmURL,
-			Life:           life.Value(value.Life),
-			PublicAddress:  value.PublicAddress,
-			PrivateAddress: value.PrivateAddress,
-			MachineId:      value.MachineId,
-			Ports:          coreNetworkPorts(value.Ports),
-			PortRanges:     coreNetworkPortRanges(value.PortRanges),
-			Principal:      value.Principal,
-			Subordinate:    value.Subordinate,
-			WorkloadStatus: coreStatus(value.WorkloadStatus),
-			AgentStatus:    coreStatus(value.AgentStatus),
-		}
+		return c.translateUnit(d)
 	case "charm":
-		if d.Removed {
-			return cache.RemoveCharm{
-				ModelUUID: id.ModelUUID,
-				CharmURL:  id.Id,
-			}
-		}
-		value, ok := d.Entity.(*multiwatcher.CharmInfo)
-		if !ok {
-			c.config.Logger.Errorf("unexpected type %T", d.Entity)
-			return nil
-		}
-		return cache.CharmChange{
-			ModelUUID:  value.ModelUUID,
-			CharmURL:   value.CharmURL,
-			LXDProfile: coreLXDProfile(value.LXDProfile),
-		}
+		return c.translateCharm(d)
+	case "generation":
+		// Generation deltas are processed as cache branch changes,
+		// as only "in-flight" branches should ever be in the cache.
+		return c.translateBranch(d)
 	default:
 		return nil
+	}
+}
+
+func (c *cacheWorker) translateModel(d multiwatcher.Delta) interface{} {
+	e := d.Entity
+
+	if d.Removed {
+		return cache.RemoveModel{
+			ModelUUID: e.EntityId().ModelUUID,
+		}
+	}
+
+	value, ok := e.(*multiwatcher.ModelInfo)
+	if !ok {
+		c.config.Logger.Errorf("unexpected type %T", e)
+		return nil
+	}
+
+	return cache.ModelChange{
+		ModelUUID: value.ModelUUID,
+		Name:      value.Name,
+		Life:      life.Value(value.Life),
+		Owner:     value.Owner,
+		Config:    value.Config,
+		Status:    coreStatus(value.Status),
+		// TODO: constraints, sla
+	}
+}
+
+func (c *cacheWorker) translateApplication(d multiwatcher.Delta) interface{} {
+	e := d.Entity
+	id := e.EntityId()
+
+	if d.Removed {
+		return cache.RemoveApplication{
+			ModelUUID: id.ModelUUID,
+			Name:      id.Id,
+		}
+	}
+
+	value, ok := e.(*multiwatcher.ApplicationInfo)
+	if !ok {
+		c.config.Logger.Errorf("unexpected type %T", e)
+		return nil
+	}
+
+	return cache.ApplicationChange{
+		ModelUUID:       value.ModelUUID,
+		Name:            value.Name,
+		Exposed:         value.Exposed,
+		CharmURL:        value.CharmURL,
+		Life:            life.Value(value.Life),
+		MinUnits:        value.MinUnits,
+		Constraints:     value.Constraints,
+		Config:          value.Config,
+		Subordinate:     value.Subordinate,
+		Status:          coreStatus(value.Status),
+		WorkloadVersion: value.WorkloadVersion,
+	}
+}
+
+func (c *cacheWorker) translateMachine(d multiwatcher.Delta) interface{} {
+	e := d.Entity
+	id := e.EntityId()
+
+	if d.Removed {
+		return cache.RemoveMachine{
+			ModelUUID: id.ModelUUID,
+			Id:        id.Id,
+		}
+	}
+
+	value, ok := e.(*multiwatcher.MachineInfo)
+	if !ok {
+		c.config.Logger.Errorf("unexpected type %T", e)
+		return nil
+	}
+
+	return cache.MachineChange{
+		ModelUUID:                value.ModelUUID,
+		Id:                       value.Id,
+		InstanceId:               value.InstanceId,
+		AgentStatus:              coreStatus(value.AgentStatus),
+		Life:                     life.Value(value.Life),
+		Config:                   value.Config,
+		Series:                   value.Series,
+		ContainerType:            value.ContainerType,
+		SupportedContainers:      value.SupportedContainers,
+		SupportedContainersKnown: value.SupportedContainersKnown,
+		HardwareCharacteristics:  value.HardwareCharacteristics,
+		CharmProfiles:            value.CharmProfiles,
+		Addresses:                coreNetworkAddresses(value.Addresses),
+		HasVote:                  value.HasVote,
+		WantsVote:                value.WantsVote,
+	}
+}
+
+func (c *cacheWorker) translateUnit(d multiwatcher.Delta) interface{} {
+	e := d.Entity
+	id := e.EntityId()
+
+	if d.Removed {
+		return cache.RemoveUnit{
+			ModelUUID: id.ModelUUID,
+			Name:      id.Id,
+		}
+	}
+
+	value, ok := e.(*multiwatcher.UnitInfo)
+	if !ok {
+		c.config.Logger.Errorf("unexpected type %T", e)
+		return nil
+	}
+
+	return cache.UnitChange{
+		ModelUUID:      value.ModelUUID,
+		Name:           value.Name,
+		Application:    value.Application,
+		Series:         value.Series,
+		CharmURL:       value.CharmURL,
+		Life:           life.Value(value.Life),
+		PublicAddress:  value.PublicAddress,
+		PrivateAddress: value.PrivateAddress,
+		MachineId:      value.MachineId,
+		Ports:          coreNetworkPorts(value.Ports),
+		PortRanges:     coreNetworkPortRanges(value.PortRanges),
+		Principal:      value.Principal,
+		Subordinate:    value.Subordinate,
+		WorkloadStatus: coreStatus(value.WorkloadStatus),
+		AgentStatus:    coreStatus(value.AgentStatus),
+	}
+}
+
+func (c *cacheWorker) translateCharm(d multiwatcher.Delta) interface{} {
+	e := d.Entity
+	id := e.EntityId()
+
+	if d.Removed {
+		return cache.RemoveCharm{
+			ModelUUID: id.ModelUUID,
+			CharmURL:  id.Id,
+		}
+	}
+
+	value, ok := e.(*multiwatcher.CharmInfo)
+	if !ok {
+		c.config.Logger.Errorf("unexpected type %T", e)
+		return nil
+	}
+
+	return cache.CharmChange{
+		ModelUUID:  value.ModelUUID,
+		CharmURL:   value.CharmURL,
+		LXDProfile: coreLXDProfile(value.LXDProfile),
+	}
+}
+
+func (c *cacheWorker) translateBranch(d multiwatcher.Delta) interface{} {
+	e := d.Entity
+	id := e.EntityId()
+
+	if d.Removed {
+		return cache.RemoveBranch{
+			ModelUUID: id.ModelUUID,
+			Id:        id.Id,
+		}
+	}
+
+	value, ok := e.(*multiwatcher.GenerationInfo)
+	if !ok {
+		c.config.Logger.Errorf("unexpected type %T", e)
+		return nil
+	}
+
+	// Branches differ slightly from other cached entities.
+	// If a branch has been committed or aborted, it will have a non-zero
+	// value for completion, indicating that it is no longer active and should
+	// be removed from the cache.
+	if value.Completed > 0 {
+		return cache.RemoveBranch{
+			ModelUUID: id.ModelUUID,
+			Id:        id.Id,
+		}
+	}
+
+	return cache.BranchChange{
+		ModelUUID:     value.ModelUUID,
+		Name:          value.Name,
+		Id:            value.Id,
+		AssignedUnits: value.AssignedUnits,
+		Config:        coreItemChanges(value.Config),
+		Completed:     value.Completed,
+		GenerationId:  value.GenerationId,
 	}
 }
 
@@ -410,4 +498,25 @@ func coreLXDProfile(delta *multiwatcher.Profile) lxdprofile.Profile {
 		Description: delta.Description,
 		Devices:     delta.Devices,
 	}
+}
+
+func coreItemChanges(delta map[string][]multiwatcher.ItemChange) map[string]settings.ItemChanges {
+	if delta == nil {
+		return nil
+	}
+
+	cfg := make(map[string]settings.ItemChanges, len(delta))
+	for k, v := range delta {
+		changes := make(settings.ItemChanges, len(v))
+		for i, ch := range v {
+			changes[i] = settings.ItemChange{
+				Type:     ch.Type,
+				Key:      ch.Key,
+				NewValue: ch.NewValue,
+				OldValue: ch.OldValue,
+			}
+		}
+		cfg[k] = changes
+	}
+	return cfg
 }

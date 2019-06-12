@@ -4943,13 +4943,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 	return ctx
 }
 
-func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
-	ctx := s.prepareTabularData(c)
-	defer s.resetContext(c, ctx)
-	code, stdout, stderr := runStatus(c, "--format", "tabular", "--relations")
-	c.Check(code, gc.Equals, 0)
-	c.Check(string(stderr), gc.Equals, "")
-	expected := `
+var expectedTabularStatus = `
 Model       Controller  Cloud/Region        Version  SLA          Timestamp       Notes
 controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00  upgrade available: 1.2.4
 
@@ -4985,9 +4979,29 @@ wordpress:logging-dir  logging:logging-directory  logging    subordinate
 
 `[1:]
 
+func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
+	ctx := s.prepareTabularData(c)
+	defer s.resetContext(c, ctx)
+	code, stdout, stderr := runStatus(c, "--format", "tabular", "--relations")
+	c.Check(code, gc.Equals, 0)
+	c.Check(string(stderr), gc.Equals, "")
+
 	output := substituteFakeTimestamp(c, stdout, false)
 	output = substituteSpacingBetweenTimestampAndNotes(c, output)
-	c.Assert(string(output), gc.Equals, expected)
+	c.Assert(string(output), gc.Equals, expectedTabularStatus)
+}
+
+func (s *StatusSuite) TestStatusWithFormatTabularValidModelUUID(c *gc.C) {
+	ctx := s.prepareTabularData(c)
+	defer s.resetContext(c, ctx)
+
+	code, stdout, stderr := runStatus(c, "--format", "tabular", "--relations", "-m", s.Model.UUID())
+	c.Check(code, gc.Equals, 0)
+	c.Check(string(stderr), gc.Equals, "")
+
+	output := substituteFakeTimestamp(c, stdout, false)
+	output = substituteSpacingBetweenTimestampAndNotes(c, output)
+	c.Assert(string(output), gc.Equals, expectedTabularStatus)
 }
 
 func (s *StatusSuite) TestStatusWithFormatYaml(c *gc.C) {

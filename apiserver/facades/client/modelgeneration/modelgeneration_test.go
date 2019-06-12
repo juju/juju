@@ -115,7 +115,7 @@ func (s *modelGenerationSuite) TestTrackBranchSuccess(c *gc.C) {
 	})
 }
 
-func (s *modelGenerationSuite) TestCommitGeneration(c *gc.C) {
+func (s *modelGenerationSuite) TestCommitBranchSuccess(c *gc.C) {
 	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, _ *mocks.MockState, mod *mocks.MockModel) {
 		gen := mocks.NewMockGeneration(ctrl)
 		gen.EXPECT().Commit(s.apiUser).Return(3, nil)

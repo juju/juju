@@ -1581,6 +1581,9 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 	if err := api.checkCanWrite(); err != nil {
 		return params.ScaleApplicationResults{}, errors.Trace(err)
 	}
+	if err := api.check.ChangeAllowed(); err != nil {
+		return params.ScaleApplicationResults{}, errors.Trace(err)
+	}
 	scaleApplication := func(arg params.ScaleApplicationParams) (*params.ScaleApplicationInfo, error) {
 		if arg.Scale < 0 && arg.ScaleChange == 0 {
 			return nil, errors.NotValidf("scale < 0")
@@ -1607,7 +1610,7 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 			}
 			info.Scale = newScale
 		} else {
-			if err := app.SetScale(arg.Scale); err != nil {
+			if err := app.SetScale(arg.Scale, 0, true); err != nil {
 				return nil, errors.Trace(err)
 			}
 			info.Scale = arg.Scale

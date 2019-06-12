@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -76,8 +77,8 @@ the controller needs to have the "multi-cloud" feature flag turned on.
 
 If --local is used, Juju stores that definition its internal cache directly.
 
-If <cloud name> already exists in Juju's cache, then the `[1:] + "`--replace`" + ` 
-option is required.
+DEPRECATED If <cloud name> already exists in Juju's cache, then the `[1:] + "`--replace`" + ` 
+option is required. Use 'update-credential' instead.
 
 A cloud definition file has the following YAML format:
 
@@ -113,17 +114,18 @@ you can specify which to upload with the --credential option.
 
 Examples:
     juju add-cloud
-    juju add-cloud --local mycloud ~/mycloud.yaml
+    juju add-cloud mycloud ~/mycloud.yaml
+    juju add-cloud --replace mycloud ~/mycloud2.yaml
 
 If the "multi-cloud" feature flag is turned on in the controller:
 
-    juju add-cloud mycloud ~/mycloud.yaml
-    juju add-cloud --replace mycloud ~/mycloud2.yaml
     juju add-cloud --controller mycontroller mycloud
     juju add-cloud --controller mycontroller mycloud --credential mycred
+    juju add-cloud --local mycloud ~/mycloud.yaml
 
 See also: 
-    clouds`
+    clouds
+    update-credential`
 
 // AddCloudAPI - Implemented by cloudapi.Client.
 type AddCloudAPI interface {
@@ -138,6 +140,7 @@ type AddCloudCommand struct {
 	modelcmd.OptionalControllerCommand
 
 	// Replace, if true, existing cloud information is overwritten.
+	// TODO (anastasiamac 2019-6-4) Remove as redundant and unsupported for Juju 3.
 	Replace bool
 
 	// Cloud is the name of the cloud to add.
@@ -167,9 +170,12 @@ func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 	cloudCallCtx := context.NewCloudCallContext()
 	store := jujuclient.NewFileClientStore()
 	c := &AddCloudCommand{
-		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
-		cloudMetadataStore:        cloudMetadataStore,
-		CloudCallCtx:              cloudCallCtx,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
+			Store:       store,
+			EnabledFlag: feature.MultiCloud,
+		},
+		cloudMetadataStore: cloudMetadataStore,
+		CloudCallCtx:       cloudCallCtx,
 		// Ping is provider.Ping except in tests where we don't actually want to
 		// require a valid cloud.
 		Ping: func(p environs.EnvironProvider, endpoint string) error {
@@ -202,7 +208,7 @@ func (c *AddCloudCommand) Info() *cmd.Info {
 // SetFlags initializes the flags supported by the command.
 func (c *AddCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
-	f.BoolVar(&c.Replace, "replace", false, "Overwrite any existing cloud information for <cloud name>")
+	f.BoolVar(&c.Replace, "replace", false, "DEPRECATED: Overwrite any existing cloud information for <cloud name>")
 	f.StringVar(&c.CloudFile, "f", "", "The path to a cloud definition file")
 	f.StringVar(&c.credentialName, "credential", "", "Credential to use for new cloud")
 }
@@ -283,6 +289,9 @@ func (c *AddCloudCommand) addCredentialToController(ctx *cmd.Context, cloud juju
 // Run executes the add cloud command, adding a cloud based on a passed-in yaml
 // file or interactive queries.
 func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
+	if c.Replace {
+		ctxt.Warningf("'add-cloud --replace' is deprecated. Use 'update-cloud' instead.")
+	}
 	if c.CloudFile == "" && c.controllerName == "" {
 		return c.runInteractive(ctxt)
 	}

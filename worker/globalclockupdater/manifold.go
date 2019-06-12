@@ -18,7 +18,7 @@ import (
 // ManifoldConfig holds the information necessary to run a GlobalClockUpdater
 // worker in a dependency.Engine.
 type ManifoldConfig struct {
-	ClockName        string
+	Clock            clock.Clock
 	StateName        string
 	LeaseManagerName string
 	RaftName         string
@@ -30,8 +30,8 @@ type ManifoldConfig struct {
 }
 
 func (config ManifoldConfig) Validate() error {
-	if config.ClockName == "" {
-		return errors.NotValidf("empty ClockName")
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	if config.StateName == "" && config.LeaseManagerName == "" {
 		return errors.NotValidf("both StateName and LeaseManagerName empty")
@@ -60,7 +60,7 @@ func (config ManifoldConfig) Validate() error {
 // Manifold returns a dependency.Manifold that will run a global clock
 // updater worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	inputs := []string{config.ClockName}
+	inputs := []string{}
 	if config.StateName != "" {
 		inputs = append(inputs, config.StateName)
 	} else {
@@ -78,11 +78,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // start is a method on ManifoldConfig because it's more readable than a closure.
 func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var clock clock.Clock
-	if err := context.Get(config.ClockName, &clock); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -120,7 +115,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	worker, err := config.NewWorker(Config{
 		NewUpdater:     updaterFunc,
-		LocalClock:     clock,
+		LocalClock:     config.Clock,
 		UpdateInterval: config.UpdateInterval,
 		BackoffDelay:   config.BackoffDelay,
 		Logger:         config.Logger,

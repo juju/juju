@@ -90,9 +90,6 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 		MachineAccessor:              accessor,
 		Tag:                          tag.(names.MachineTag),
 		ClearMachineAddressesOnStart: ignoreMachineAddresses,
-		NotifyMachineDead: func() error {
-			return agent.SetCanUninstall(a)
-		},
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start machiner worker")

@@ -187,7 +187,7 @@ func (a *mockApplication) ChangeScale(scaleChange int) (int, error) {
 	return a.scale + scaleChange, nil
 }
 
-func (a *mockApplication) SetScale(scale int) error {
+func (a *mockApplication) SetScale(scale int, generation int64, force bool) error {
 	a.MethodCall(a, "Scale", scale)
 	if err := a.NextErr(); err != nil {
 		return err

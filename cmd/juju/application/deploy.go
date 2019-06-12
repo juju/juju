@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -366,9 +367,12 @@ type DeployCommand struct {
 	// NewAPIRoot stores a function which returns a new API root.
 	NewAPIRoot func() (DeployAPI, error)
 
-	// Trust signifies that the charm should be deployed with access to
-	// trusted credentials. That is, hooks run by the charm can access
-	// cloud credentials and other trusted access credentials.
+	// When deploying a charm, Trust signifies that the charm should be
+	// deployed with access to trusted credentials. That is, hooks run by
+	// the charm can access cloud credentials and other trusted access
+	// credentials. On the other hand, when deploying a bundle, Trust
+	// signifies that each application from the bundle that requires access
+	// to trusted credentials will be granted access.
 	Trust bool
 
 	machineMap string
@@ -668,8 +672,6 @@ func charmOnlyFlags() []string {
 		"series", "to", "resource", "attach-storage",
 	}
 
-	charmOnlyFlags = append(charmOnlyFlags, "trust")
-
 	return charmOnlyFlags
 }
 
@@ -831,26 +833,26 @@ var getModelConfig = func(api ModelConfigGetter) (*config.Config, error) {
 	return config.New(config.NoDefaults, attrs)
 }
 
-func (c *DeployCommand) deployBundle(
-	ctx *cmd.Context,
-	filePath string,
-	data *charm.BundleData,
-	bundleURL *charm.URL,
-	channel params.Channel,
-	apiRoot DeployAPI,
-	bundleStorage map[string]map[string]storage.Constraints,
-	bundleDevices map[string]map[string]devices.Constraints,
-) (rErr error) {
+func (c *DeployCommand) deployBundle(spec bundleDeploySpec) (rErr error) {
 	bakeryClient, err := c.BakeryClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	modelUUID, ok := apiRoot.ModelUUID()
+	modelUUID, ok := spec.apiRoot.ModelUUID()
 	if !ok {
 		return errors.New("API connection is controller-only (should never happen)")
 	}
 
-	for application, applicationSpec := range data.Applications {
+	// Short-circuit trust checks if the operator specifies '--force'
+	if !c.Trust {
+		if tl := appsRequiringTrust(spec.bundleData.Applications); len(tl) != 0 && !c.Force {
+			return errors.Errorf(`Bundle cannot be deployed without trusting applications with your cloud credentials.
+Please repeat the deploy command with the --trust argument if you consent to trust the following application(s):
+  - %s`, strings.Join(tl, "\n  - "))
+		}
+	}
+
+	for application, applicationSpec := range spec.bundleData.Applications {
 		if applicationSpec.Plan != "" {
 			for _, step := range c.Steps {
 				s := step
@@ -867,13 +869,13 @@ func (c *DeployCommand) deployBundle(
 					Force:           c.Force,
 				}
 
-				err = s.RunPre(apiRoot, bakeryClient, ctx, deployInfo)
+				err = s.RunPre(spec.apiRoot, bakeryClient, spec.ctx, deployInfo)
 				if err != nil {
 					return errors.Trace(err)
 				}
 
 				defer func() {
-					err = errors.Trace(s.RunPost(apiRoot, bakeryClient, ctx, deployInfo, rErr))
+					err = errors.Trace(s.RunPost(spec.apiRoot, bakeryClient, spec.ctx, deployInfo, rErr))
 					if err != nil {
 						rErr = err
 					}
@@ -885,21 +887,7 @@ func (c *DeployCommand) deployBundle(
 	// TODO(ericsnow) Do something with the CS macaroons that were returned?
 	// Deploying bundles does not allow the use force, it's expected that the
 	// bundle is correct and therefore the charms are also.
-	if _, err := deployBundle(
-		filePath,
-		data,
-		bundleURL,
-		c.BundleOverlayFile,
-		channel,
-		apiRoot,
-		ctx,
-		bundleStorage,
-		bundleDevices,
-		c.DryRun,
-		c.Force,
-		c.UseExisting,
-		c.BundleMachines,
-	); err != nil {
+	if _, err := deployBundle(spec); err != nil {
 		return errors.Annotate(err, "cannot deploy bundle")
 	}
 	return nil
@@ -1346,16 +1334,21 @@ func (c *DeployCommand) maybeReadLocalBundle(ctx *cmd.Context) (deployFn, error)
 	}
 
 	return func(ctx *cmd.Context, apiRoot DeployAPI) error {
-		return errors.Trace(c.deployBundle(
-			ctx,
-			bundleDir,
-			bundleData,
-			nil,
-			c.Channel,
-			apiRoot,
-			c.BundleStorage,
-			c.BundleDevices,
-		))
+		return errors.Trace(c.deployBundle(bundleDeploySpec{
+			ctx:                 ctx,
+			dryRun:              c.DryRun,
+			force:               c.Force,
+			trust:               c.Trust,
+			bundleDir:           bundleDir,
+			bundleData:          bundleData,
+			bundleOverlayFile:   c.BundleOverlayFile,
+			channel:             c.Channel,
+			apiRoot:             apiRoot,
+			useExistingMachines: c.UseExisting,
+			bundleMachines:      c.BundleMachines,
+			bundleStorage:       c.BundleStorage,
+			bundleDevices:       c.BundleDevices,
+		}))
 	}, nil
 }
 
@@ -1391,7 +1384,7 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 		}
 
 		if len(ch.Meta().Series) == 0 {
-			logger.Warningf("%s does not delcare supported series in metadata.yml", ch.Meta().Name)
+			logger.Warningf("%s does not declare supported series in metadata.yml", ch.Meta().Name)
 		}
 
 		seriesName, err = seriesSelector.charmSeries()
@@ -1516,16 +1509,21 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (d
 			ctx.Infof("Located bundle %q", bundleURL)
 			data := bundle.Data()
 
-			return errors.Trace(c.deployBundle(
-				ctx,
-				"", // filepath
-				data,
-				bundleURL,
-				channel,
-				apiRoot,
-				c.BundleStorage,
-				c.BundleDevices,
-			))
+			return errors.Trace(c.deployBundle(bundleDeploySpec{
+				ctx:                 ctx,
+				dryRun:              c.DryRun,
+				force:               c.Force,
+				trust:               c.Trust,
+				bundleData:          data,
+				bundleURL:           bundleURL,
+				bundleOverlayFile:   c.BundleOverlayFile,
+				channel:             channel,
+				apiRoot:             apiRoot,
+				useExistingMachines: c.UseExisting,
+				bundleMachines:      c.BundleMachines,
+				bundleStorage:       c.BundleStorage,
+				bundleDevices:       c.BundleDevices,
+			}))
 		}, nil
 	}
 }
@@ -1669,4 +1667,18 @@ func flagWithMinus(name string) string {
 		return "--" + name
 	}
 	return "-" + name
+}
+
+func appsRequiringTrust(appSpecList map[string]*charm.ApplicationSpec) []string {
+	var tl []string
+	for app, appSpec := range appSpecList {
+		if applicationRequiresTrust(appSpec) {
+			tl = append(tl, app)
+		}
+	}
+
+	// Since map iterations are random we should sort the list to ensure
+	// consistent output in any errors containing the returned list contents.
+	sort.Strings(tl)
+	return tl
 }

@@ -163,7 +163,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: lifeflag.NewWorker,
 		}),
 		isResponsibleFlagName: singular.Manifold(singular.ManifoldConfig{
-			ClockName:     clockName,
+			Clock:         config.Clock,
 			APICallerName: apiCallerName,
 			Duration:      config.RunFlagDuration,
 			Claimant:      machineTag,
@@ -234,7 +234,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		charmRevisionUpdaterName: ifNotMigrating(charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
 			APICallerName: apiCallerName,
-			ClockName:     clockName,
+			Clock:         config.Clock,
 			Period:        config.CharmRevisionUpdateInterval,
 
 			NewFacade: charmrevisionmanifold.NewAPIFacade,
@@ -253,7 +253,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 		statusHistoryPrunerName: ifNotMigrating(pruner.Manifold(pruner.ManifoldConfig{
 			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
 			ClockName:     clockName,
 			NewWorker:     statushistorypruner.New,
 			NewFacade:     statushistorypruner.NewFacade,
@@ -261,7 +260,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 		actionPrunerName: ifNotMigrating(pruner.Manifold(pruner.ManifoldConfig{
 			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
 			ClockName:     clockName,
 			NewWorker:     actionpruner.New,
 			NewFacade:     actionpruner.NewFacade,
@@ -280,9 +278,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// which is the agent that will run the upgrade steps;
 		// the other controller agents will wait for it to complete
 		// running those steps before allowing logins to the model.
-		environUpgradeGateName: gate.Manifold(),
-		environUpgradedFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
-			GateName:  environUpgradeGateName,
+		modelUpgradeGateName: gate.Manifold(),
+		modelUpgradedFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  modelUpgradeGateName,
 			NewWorker: gate.NewFlagWorker,
 		}),
 	}
@@ -325,7 +323,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// it.
 
 		// The undertaker is currently the only ifNotAlive worker.
-		undertakerName: ifNotUpgrading(ifNotAlive(ifCredentialValid(undertaker.Manifold(undertaker.ManifoldConfig{
+		undertakerName: ifNotUpgrading(ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
 			APICallerName:      apiCallerName,
 			CloudDestroyerName: environTrackerName,
 
@@ -333,7 +331,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:                    undertaker.NewFacade,
 			NewWorker:                    undertaker.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-		})))),
+		}))),
 
 		// All the rest depend on ifNotMigrating.
 		computeProvisionerName: ifNotMigrating(ifCredentialValid(provisioner.Manifold(provisioner.ManifoldConfig{
@@ -388,16 +386,16 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                    machineundertaker.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),
-		environUpgraderName: ifCredentialValid(modelupgrader.Manifold(modelupgrader.ManifoldConfig{
+		modelUpgraderName: ifNotDead(ifCredentialValid(modelupgrader.Manifold(modelupgrader.ManifoldConfig{
 			APICallerName:                apiCallerName,
 			EnvironName:                  environTrackerName,
-			GateName:                     environUpgradeGateName,
+			GateName:                     modelUpgradeGateName,
 			ControllerTag:                controllerTag,
 			ModelTag:                     modelTag,
 			NewFacade:                    modelupgrader.NewFacade,
 			NewWorker:                    modelupgrader.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-		})),
+		}))),
 		instanceMutaterName: ifNotMigrating(instancemutater.ModelManifold(instancemutater.ModelManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -422,7 +420,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
 		// The undertaker is currently the only ifNotAlive worker.
-		undertakerName: ifNotUpgrading(ifNotAlive(ifCredentialValid(undertaker.Manifold(undertaker.ManifoldConfig{
+		undertakerName: ifNotUpgrading(ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
 			APICallerName:      apiCallerName,
 			CloudDestroyerName: caasBrokerTrackerName,
 
@@ -430,7 +428,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:                    undertaker.NewFacade,
 			NewWorker:                    undertaker.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-		})))),
+		}))),
 
 		caasBrokerTrackerName: ifResponsible(caasbroker.Manifold(caasbroker.ManifoldConfig{
 			APICallerName:          apiCallerName,
@@ -467,9 +465,9 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 				NewWorker: caasunitprovisioner.NewWorker,
 			},
 		)),
-		environUpgraderName: caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
+		modelUpgraderName: caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
 			APICallerName: apiCallerName,
-			GateName:      environUpgradeGateName,
+			GateName:      modelUpgradeGateName,
 			ModelTag:      modelTag,
 			NewFacade:     caasenvironupgrader.NewFacade,
 			NewWorker:     caasenvironupgrader.NewWorker,
@@ -554,7 +552,7 @@ var (
 	// the environ upgrade worker has completed.
 	ifNotUpgrading = engine.Housing{
 		Flags: []string{
-			environUpgradedFlagName,
+			modelUpgradedFlagName,
 		},
 	}.Decorate
 
@@ -581,9 +579,9 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMasterName       = "migration-master"
 
-	environUpgradeGateName  = "environ-upgrade-gate"
-	environUpgradedFlagName = "environ-upgraded-flag"
-	environUpgraderName     = "environ-upgrader"
+	modelUpgradeGateName  = "model-upgrade-gate"
+	modelUpgradedFlagName = "model-upgraded-flag"
+	modelUpgraderName     = "model-upgrader"
 
 	environTrackerName       = "environ-tracker"
 	undertakerName           = "undertaker"

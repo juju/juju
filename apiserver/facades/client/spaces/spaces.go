@@ -29,12 +29,22 @@ type APIV2 interface {
 	ListSpaces() (params.ListSpacesResults, error)
 }
 
+// BlockChecker defines the block-checking functionality required by
+// the application facade. This is implemented by
+// apiserver/common.BlockChecker.
+type BlockChecker interface {
+	ChangeAllowed() error
+	RemoveAllowed() error
+}
+
 // spacesAPI implements the API interface.
 type spacesAPI struct {
 	backing    networkingcommon.NetworkBacking
 	resources  facade.Resources
 	authorizer facade.Authorizer
 	context    context.ProviderCallContext
+
+	check BlockChecker
 }
 
 // NewAPI creates a new Space API server-side facade with a
@@ -44,12 +54,12 @@ func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (API,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newAPIWithBacking(stateShim, state.CallContext(st), res, auth)
+	return newAPIWithBacking(stateShim, common.NewBlockChecker(st), state.CallContext(st), res, auth)
 }
 
 // newAPIWithBacking creates a new server-side Spaces API facade with
 // the given Backing.
-func newAPIWithBacking(backing networkingcommon.NetworkBacking, ctx context.ProviderCallContext, resources facade.Resources, authorizer facade.Authorizer) (API, error) {
+func newAPIWithBacking(backing networkingcommon.NetworkBacking, check BlockChecker, ctx context.ProviderCallContext, resources facade.Resources, authorizer facade.Authorizer) (API, error) {
 	// Only clients can access the Spaces facade.
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -59,6 +69,7 @@ func newAPIWithBacking(backing networkingcommon.NetworkBacking, ctx context.Prov
 		resources:  resources,
 		authorizer: authorizer,
 		context:    ctx,
+		check:      check,
 	}, nil
 }
 
@@ -76,6 +87,9 @@ func (api *spacesAPI) CreateSpaces(args params.CreateSpacesParams) (results para
 	}
 	if !isAdmin {
 		return results, common.ServerError(common.ErrPerm)
+	}
+	if err := api.check.ChangeAllowed(); err != nil {
+		return results, errors.Trace(err)
 	}
 
 	return networkingcommon.CreateSpaces(api.backing, api.context, args)
@@ -131,6 +145,9 @@ func (api *spacesAPI) ReloadSpaces() error {
 	}
 	if !canWrite {
 		return common.ServerError(common.ErrPerm)
+	}
+	if err := api.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
 	}
 	env, err := environs.GetEnviron(api.backing, environs.New)
 	if err != nil {

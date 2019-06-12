@@ -148,12 +148,12 @@ func (api *API) CommitBranch(arg params.BranchArg) (params.IntResult, error) {
 		return result, common.ErrPerm
 	}
 
-	generation, err := api.model.Branch(arg.BranchName)
+	branch, err := api.model.Branch(arg.BranchName)
 	if err != nil {
-		return result, errors.Trace(err)
+		return intResultsError(err)
 	}
 
-	if genId, err := generation.Commit(api.apiUser.Name()); err != nil {
+	if genId, err := branch.Commit(api.apiUser.Name()); err != nil {
 		result.Error = common.ServerError(err)
 	} else {
 		result.Result = genId
@@ -184,19 +184,19 @@ func (api *API) BranchInfo(args params.BranchInfoArgs) (params.GenerationResults
 		branches = make([]Generation, len(args.BranchNames))
 		for i, name := range args.BranchNames {
 			if branches[i], err = api.model.Branch(name); err != nil {
-				return generationInfoError(err)
+				return generationResultsError(err)
 			}
 		}
 	} else {
 		if branches, err = api.model.Branches(); err != nil {
-			return generationInfoError(err)
+			return generationResultsError(err)
 		}
 	}
 
 	results := make([]params.Generation, len(branches))
 	for i, b := range branches {
 		if results[i], err = api.oneBranchInfo(b, args.Detailed); err != nil {
-			return generationInfoError(err)
+			return generationResultsError(err)
 		}
 	}
 	result.Generations = results
@@ -204,7 +204,7 @@ func (api *API) BranchInfo(args params.BranchInfoArgs) (params.GenerationResults
 }
 
 func (api *API) oneBranchInfo(branch Generation, detailed bool) (params.Generation, error) {
-	delta := branch.Config()
+	deltas := branch.Config()
 
 	var apps []params.GenerationApplication
 	for appName, tracking := range branch.AssignedUnits() {
@@ -227,7 +227,7 @@ func (api *API) oneBranchInfo(branch Generation, detailed bool) (params.Generati
 		if err != nil {
 			return params.Generation{}, errors.Trace(err)
 		}
-		branchApp.ConfigChanges = delta[appName].CurrentSettings(defaults)
+		branchApp.ConfigChanges = deltas[appName].CurrentSettings(defaults)
 
 		// TODO (manadart 2019-04-12): Charm URL.
 
@@ -275,6 +275,10 @@ func (api *API) HasActiveBranch(arg params.BranchArg) (params.BoolResult, error)
 	return result, nil
 }
 
-func generationInfoError(err error) (params.GenerationResults, error) {
+func generationResultsError(err error) (params.GenerationResults, error) {
 	return params.GenerationResults{Error: common.ServerError(err)}, nil
+}
+
+func intResultsError(err error) (params.IntResult, error) {
+	return params.IntResult{Error: common.ServerError(err)}, nil
 }
