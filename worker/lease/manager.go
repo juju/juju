@@ -626,10 +626,8 @@ func (manager *Manager) pinned(namespace, modelUUID string) map[string][]string 
 
 func (manager *Manager) leases(namespace, modelUUID string) map[string]string {
 	leases := make(map[string]string)
-	for key, lease := range manager.config.Store.Leases() {
-		if key.Namespace == namespace && key.ModelUUID == modelUUID {
-			leases[key.Lease] = lease.Holder
-		}
+	for key, lease := range manager.config.Store.LeaseGroup(namespace, modelUUID) {
+		leases[key.Lease] = lease.Holder
 	}
 	return leases
 }
