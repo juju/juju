@@ -38,9 +38,9 @@ func (s *debugLogDBSuite) TestBadParams(c *gc.C) {
 func (s *debugLogDBSuite) TestWithHTTP(c *gc.C) {
 	uri := s.logURL("http", nil).String()
 	apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
-		Method:      "GET",
-		URL:         uri,
-		ExpectError: `.*malformed HTTP response.*`,
+		Method:       "GET",
+		URL:          uri,
+		ExpectStatus: http.StatusBadRequest,
 	})
 }
 
