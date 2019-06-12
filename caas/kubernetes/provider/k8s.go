@@ -1655,7 +1655,6 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 		return errors.Trace(err)
 	}
 	// TODO(caas) - allow extra storage to be added
-	existing.Spec.Selector = spec.Spec.Selector
 	existing.Spec.Replicas = spec.Spec.Replicas
 	existing.Spec.Template.Spec.Containers = existingPodSpec.Containers
 	_, err = statefulsets.Update(existing)

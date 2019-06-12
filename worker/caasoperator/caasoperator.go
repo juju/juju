@@ -286,7 +286,7 @@ func (op *caasOperator) init() (*LocalState, error) {
 
 func (op *caasOperator) loop() (err error) {
 	defer func() {
-		if errors.IsNotFound(errors.Cause(err)) {
+		if errors.IsNotFound(err) {
 			err = jworker.ErrTerminateAgent
 		}
 	}()
