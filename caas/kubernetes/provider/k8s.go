@@ -1335,9 +1335,7 @@ func (k *kubernetesClient) Upgrade(appName string, vers version.Number) error {
 		k8sannotations.New(existingStatefulSet.Spec.Template.GetAnnotations()).
 			Add(labelVersion, vers.String()).ToMap(),
 	)
-	// update juju-version label.
-	labels := operatorLabels(appName)
-	existingStatefulSet.SetLabels(labels)
+
 	_, err = statefulsets.Update(existingStatefulSet)
 	return errors.Trace(err)
 }

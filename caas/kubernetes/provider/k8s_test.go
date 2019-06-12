@@ -1909,7 +1909,7 @@ func (s *K8sBrokerSuite) TestUpgradeController(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name: "controller",
 			Annotations: map[string]string{
-				"juju-version": "6.6.6",
+				"juju-version": "1.1.1",
 			},
 			Labels: map[string]string{"juju-operator": "controller"},
 		},
@@ -1917,7 +1917,7 @@ func (s *K8sBrokerSuite) TestUpgradeController(c *gc.C) {
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
-						"juju-version": "6.6.6",
+						"juju-version": "1.1.1",
 					},
 				},
 				Spec: core.PodSpec{
@@ -1930,6 +1930,8 @@ func (s *K8sBrokerSuite) TestUpgradeController(c *gc.C) {
 		},
 	}
 	updated := ss
+	updated.Annotations["juju-version"] = "6.6.6"
+	updated.Spec.Template.Annotations["juju-version"] = "6.6.6"
 	updated.Spec.Template.Spec.Containers[1].Image = "juju-operator:6.6.6"
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("controller", v1.GetOptions{IncludeUninitialized: true}).Times(1).
@@ -1950,15 +1952,15 @@ func (s *K8sBrokerSuite) TestUpgradeOperator(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test-app-operator",
 			Annotations: map[string]string{
-				"juju-version": "6.6.6",
+				"juju-version": "1.1.1",
 			},
-			Labels: map[string]string{"juju-operator": "test-app"},
+			Labels: map[string]string{"juju-app": "test-app"},
 		},
 		Spec: apps.StatefulSetSpec{
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{
-						"juju-version": "6.6.6",
+						"juju-version": "1.1.1",
 					},
 				},
 				Spec: core.PodSpec{
@@ -1971,6 +1973,8 @@ func (s *K8sBrokerSuite) TestUpgradeOperator(c *gc.C) {
 		},
 	}
 	updated := ss
+	updated.Annotations["juju-version"] = "6.6.6"
+	updated.Spec.Template.Annotations["juju-version"] = "6.6.6"
 	updated.Spec.Template.Spec.Containers[1].Image = "juju-operator:6.6.6"
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test-app", v1.GetOptions{IncludeUninitialized: true}).Times(1).
