@@ -1295,39 +1295,6 @@ func (k *kubernetesClient) EnsureService(
 	return nil
 }
 
-func getOperatorPodSelector(appName string) string {
-	if appName == JujuControllerStackName {
-		return applicationSelector(appName)
-	}
-	return operatorSelector(appName)
-}
-
-func (k *kubernetesClient) OperatorVersion(appName string) (ver version.Number, err error) {
-	pods, err := k.client().CoreV1().Pods(k.namespace).List(
-		v1.ListOptions{
-			LabelSelector:        getOperatorPodSelector(appName),
-			IncludeUninitialized: false,
-			FieldSelector:        fmt.Sprintf("status.phase==%v", core.PodRunning),
-		},
-	)
-	if k8serrors.IsNotFound(err) || pods.Size() == 0 {
-		return ver, errors.NotFoundf("operator for %q", appName)
-	}
-	if err != nil {
-		return ver, errors.Trace(err)
-	}
-	if pods.Size() > 1 {
-		// this should never happen.
-		logger.Warningf("found %d operator pods for %q", pods.Size(), appName)
-	}
-	for _, c := range pods.Items[0].Spec.Containers {
-		if ver, err = podcfg.ParseOperatorImageTagVersion(c.Image); err == nil {
-			return ver, nil
-		}
-	}
-	return ver, errors.NotFoundf("operator for %q", appName)
-}
-
 // Upgrade sets the OCI image for the app's operator to the specified version.
 func (k *kubernetesClient) Upgrade(appName string, vers version.Number) error {
 	var resourceName string

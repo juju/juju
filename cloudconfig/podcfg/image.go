@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/errors"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/controller"
@@ -57,25 +56,6 @@ func RebuildOldOperatorImagePath(imagePath string, ver version.Number) string {
 		return ""
 	}
 	return tagImagePath(imagePath, ver)
-}
-
-// ParseOperatorImageTagVersion parses operator image path and returns operator version.
-func ParseOperatorImageTagVersion(p string) (ver version.Number, err error) {
-	err = errors.NotValidf("Operator image path %q", p)
-	if !IsJujuOCIImage(p) {
-		return ver, err
-	}
-	splittedPath := strings.Split(p, ":")
-	if len(splittedPath) != 2 {
-		return ver, err
-	}
-	var e error
-	ver, e = version.Parse(splittedPath[1])
-	if e != nil {
-		return ver, err
-	}
-	ver.Build = 0
-	return ver, nil
 }
 
 func tagImagePath(path string, ver version.Number) string {

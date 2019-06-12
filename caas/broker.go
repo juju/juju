@@ -201,8 +201,6 @@ type Broker interface {
 type Upgrader interface {
 	// Upgrade sets the OCI image for the app to the specified version.
 	Upgrade(appName string, vers version.Number) error
-	// OperatorVersion return operator version for the specified application.
-	OperatorVersion(appName string) (version.Number, error)
 }
 
 // StorageValidator provides methods to validate storage.
