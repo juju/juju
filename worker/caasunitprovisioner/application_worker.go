@@ -182,7 +182,7 @@ func (aw *applicationWorker) loop() error {
 				err = updateApplicationService(
 					names.NewApplicationTag(aw.application), service, aw.applicationUpdater,
 				)
-				if params.IsCodeForbidden(err) {
+				if errors.IsForbidden(err) {
 					// ignore errors raised from SetScale because disordered events could happen often.
 					logger.Warningf("%v", err)
 				} else if err != nil {
@@ -315,7 +315,7 @@ func (aw *applicationWorker) clusterChanged(
 		args.Units = append(args.Units, unitParams)
 	}
 	if err := aw.unitUpdater.UpdateUnits(args); err != nil {
-		if params.IsCodeForbidden(err) {
+		if errors.IsForbidden(err) {
 			// ignore errors raised from SetScale because disordered events could happen often.
 			logger.Warningf("%v", err)
 			return nil

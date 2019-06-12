@@ -276,14 +276,17 @@ func (op *caasOperator) init() (*LocalState, error) {
 		if err == jworker.ErrTerminateAgent {
 			return nil, err
 		}
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err,
+			"failed to initialize caasoperator for %q",
+			op.config.Application,
+		)
 	}
 	return localState, nil
 }
 
 func (op *caasOperator) loop() (err error) {
 	defer func() {
-		if errors.IsNotFound(err) {
+		if errors.IsNotFound(errors.Cause(err)) {
 			err = jworker.ErrTerminateAgent
 		}
 	}()
