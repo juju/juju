@@ -212,8 +212,8 @@ func (a *Application) Destroy() (err error) {
 			a.doc.Life = Dying
 		}
 	}()
-	op := a.DestroyOperation() // TODO(tsm): driveby fix - remove dupe call
-	err = a.st.ApplyOperation(a.DestroyOperation())
+	op := a.DestroyOperation()
+	err = a.st.ApplyOperation(op)
 	if len(op.Errors) != 0 {
 		logger.Warningf("operational errors destroying application %v: %v", a.Name(), op.Errors)
 	}

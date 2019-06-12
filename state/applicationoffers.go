@@ -273,9 +273,6 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 			for _, ru := range remoteUnits {
 				leaveScopeOps, err := ru.leaveScopeForcedOps(&op.ForcedOperation)
 				if err != nil && err != jujutxn.ErrNoOperations {
-					if !op.Force { // TODO(tsm): remove block, will never succeed
-						return nil, errors.Trace(err)
-					}
 					op.AddError(err)
 				}
 				ops = append(ops, leaveScopeOps...)
