@@ -116,9 +116,12 @@ rebuild-dependencies:
 
 rebuild-schema:
 	@echo "Generating facade schema..."
+ifdef SCHEMA_PATH
+	@go run ./generate/schemagen/schemagen.go "$(SCHEMA_PATH)"
+else
 	@go run ./generate/schemagen/schemagen.go \
 		./apiserver/facades/schema.json
-
+endif
 
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
