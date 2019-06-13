@@ -114,9 +114,8 @@
   name = "github.com/juju/romulus"
 
 [[constraint]]
-  revision = "c2059796eac0de8f72fede36c1ac323cf15f3ccf"
+  revision = "e81189438503b1e5c94efe95a604372b33eee7a2"
   name = "github.com/juju/testing"
-  source = "github.com/SimonRichardson/testing"
 
 [[constraint]]
   revision = "bf9cc5bdd62dabc40b7f634b39a5e2dc44d44c45"
