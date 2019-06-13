@@ -15,6 +15,8 @@ import (
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/credentialmanager"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
@@ -215,13 +217,18 @@ func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyContro
 			hasErrors = true
 			continue
 		}
-		// TODO(caas) - only cloud providers support Destroy()
-		if cloudProvider, ok := p.(environs.CloudEnvironProvider); ok {
-			env, err := environs.Open(cloudProvider, environs.OpenParams{
+		if cloudProvider, ok := p.(environs.EnvironProvider); ok {
+			openParams := environs.OpenParams{
 				ControllerUUID: ctrlUUID,
 				Cloud:          model.CloudSpec,
 				Config:         cfg,
-			})
+			}
+			var env environs.CloudDestroyer
+			if model.CloudSpec.Type == cloud.CloudTypeCAAS {
+				env, err = caas.Open(cloudProvider, openParams)
+			} else {
+				env, err = environs.Open(cloudProvider, openParams)
+			}
 			if err != nil {
 				logger.Errorf(err.Error())
 				hasErrors = true

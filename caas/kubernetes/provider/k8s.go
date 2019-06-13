@@ -378,7 +378,7 @@ func (*kubernetesClient) Provider() caas.ContainerEnvironProvider {
 func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) (err error) {
 	defer func() {
 		if k8serrors.ReasonForError(err) == v1.StatusReasonUnknown {
-			logger.Warningf("k8s cluster is not accessible %v", err)
+			logger.Warningf("k8s cluster is not accessible: %v", err)
 			err = nil
 		}
 	}()
