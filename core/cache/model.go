@@ -97,18 +97,6 @@ func (m *Model) Report() map[string]interface{} {
 	}
 }
 
-// Application returns the application for the input name.
-// If the application is not found, a NotFoundError is returned.
-func (m *Model) Application(appName string) (*Application, error) {
-	defer m.doLocked()()
-
-	app, found := m.applications[appName]
-	if !found {
-		return nil, errors.NotFoundf("application %q", appName)
-	}
-	return app, nil
-}
-
 // Charm returns the charm for the input charmURL.
 // If the charm is not found, a NotFoundError is returned.
 func (m *Model) Charm(charmURL string) (*Charm, error) {
@@ -122,6 +110,7 @@ func (m *Model) Charm(charmURL string) (*Charm, error) {
 }
 
 // TODO (manadart 2019-05-30): Access to these entities returns copies:
+// - applications
 // - machines
 // - units
 // - branches
@@ -143,6 +132,18 @@ func (m *Model) Branch(name string) (Branch, error) {
 		}
 	}
 	return Branch{}, errors.NotFoundf("branch %q", name)
+}
+
+// Application returns the application for the input name.
+// If the application is not found, a NotFoundError is returned.
+func (m *Model) Application(appName string) (Application, error) {
+	defer m.doLocked()()
+
+	app, found := m.applications[appName]
+	if !found {
+		return Application{}, errors.NotFoundf("application %q", appName)
+	}
+	return app.copy(), nil
 }
 
 // Units returns all units in the model.

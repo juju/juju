@@ -28,7 +28,7 @@ type MachineLXDProfileWatcher struct {
 // MachineAppModeler is a point of use model for MachineLXDProfileWatcher to
 // get Applications, Charms and Units.
 type MachineAppModeler interface {
-	Application(string) (*Application, error)
+	Application(string) (Application, error)
 	Charm(string) (*Charm, error)
 	Unit(string) (Unit, error)
 }

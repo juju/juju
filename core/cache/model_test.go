@@ -158,6 +158,23 @@ func (s *ModelSuite) TestApplicationNotFoundError(c *gc.C) {
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
+func (s *ModelSuite) TestApplicationReturnsCopy(c *gc.C) {
+	m := s.NewModel(modelChange, nil)
+	m.UpdateApplication(appChange, s.Manager)
+
+	a1, err := m.Application(appChange.Name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make a change to the map returned in the copy.
+	ac := a1.Config()
+	ac["mister"] = "squiggle"
+
+	// Get another copy from the model and ensure it is unchanged.
+	a2, err := m.Application(appChange.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(a2.Config(), gc.DeepEquals, appChange.Config)
+}
+
 func (s *ModelSuite) TestCharmNotFoundError(c *gc.C) {
 	m := s.NewModel(modelChange, nil)
 	_, err := m.Charm("nope")

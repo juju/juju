@@ -105,6 +105,13 @@ func (a *Application) setDetails(details ApplicationChange) {
 	a.mu.Unlock()
 }
 
+// copy returns a copy of the unit, ensuring appropriate deep copying.
+func (a *Application) copy() Application {
+	ca := *a
+	ca.details = ca.details.copy()
+	return ca
+}
+
 // topic prefixes the input string with the application name.
 func (a *Application) topic(suffix string) string {
 	return a.details.Name + ":" + suffix

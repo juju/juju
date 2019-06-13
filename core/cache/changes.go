@@ -48,6 +48,17 @@ type ApplicationChange struct {
 	WorkloadVersion string
 }
 
+// copy returns a deep copy of the ApplicationChange.
+func (a ApplicationChange) copy() ApplicationChange {
+	cons := a.Constraints.String()
+	a.Constraints = constraints.MustParse(cons)
+
+	a.Config = copyDataMap(a.Config)
+	a.Status = copyStatusInfo(a.Status)
+
+	return a
+}
+
 // RemoveApplication represents the situation when an application
 // is removed from a model in the database.
 type RemoveApplication struct {
