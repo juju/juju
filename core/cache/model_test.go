@@ -170,6 +170,23 @@ func (s *ModelSuite) TestMachineNotFoundError(c *gc.C) {
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
+func (s *ModelSuite) TestMachineReturnsCopy(c *gc.C) {
+	m := s.NewModel(modelChange, nil)
+	m.UpdateMachine(machineChange, s.Manager)
+
+	m1, err := m.Machine(machineChange.Id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make a change to the map returned in the copy.
+	mc := m1.Config()
+	mc["mister"] = "squiggle"
+
+	// Get another copy from the model and ensure it is unchanged.
+	m2, err := m.Machine(machineChange.Id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m2.Config(), gc.DeepEquals, machineChange.Config)
+}
+
 func (s *ModelSuite) TestUnitNotFoundError(c *gc.C) {
 	m := s.NewModel(modelChange, nil)
 	_, err := m.Unit("nope")

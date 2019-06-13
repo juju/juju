@@ -17,8 +17,8 @@ type lxdProfileWatcherSuite struct {
 	cache.EntitySuite
 
 	model    *cache.Model
-	machine0 *cache.Machine
-	machine1 *cache.Machine
+	machine0 cache.Machine
+	machine1 cache.Machine
 	wc0      NotifyWatcherC
 }
 

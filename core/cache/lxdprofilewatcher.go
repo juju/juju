@@ -44,7 +44,7 @@ type MachineLXDProfileWatcherConfig struct {
 	provisionedTopic string
 	unitAddTopic     string
 	unitRemoveTopic  string
-	machine          *Machine
+	machine          Machine
 	modeler          MachineAppModeler
 	metrics          *ControllerGauges
 	hub              *pubsub.SimpleHub
@@ -88,7 +88,7 @@ func newMachineLXDProfileWatcher(config MachineLXDProfileWatcherConfig) (*Machin
 }
 
 // init sets up the initial data used to determine when a notify occurs.
-func (w *MachineLXDProfileWatcher) init(machine *Machine) error {
+func (w *MachineLXDProfileWatcher) init(machine Machine) error {
 	units, err := machine.Units()
 	if err != nil {
 		return errors.Annotatef(err, "failed to get units to start MachineLXDProfileWatcher")

@@ -121,32 +121,8 @@ func (m *Model) Charm(charmURL string) (*Charm, error) {
 	return charm, nil
 }
 
-// Machines makes a copy of the model's machine collection and returns it.
-func (m *Model) Machines() map[string]*Machine {
-	machines := make(map[string]*Machine)
-
-	m.mu.Lock()
-	for k, v := range m.machines {
-		machines[k] = v
-	}
-	m.mu.Unlock()
-
-	return machines
-}
-
-// Machine returns the machine with the input id.
-// If the machine is not found, a NotFoundError is returned.
-func (m *Model) Machine(machineId string) (*Machine, error) {
-	defer m.doLocked()()
-
-	machine, found := m.machines[machineId]
-	if !found {
-		return nil, errors.NotFoundf("machine %q", machineId)
-	}
-	return machine, nil
-}
-
 // TODO (manadart 2019-05-30): Access to these entities returns copies:
+// - machines
 // - units
 // - branches
 // All of the other entity retrieval should be changed to work in the same
@@ -193,6 +169,32 @@ func (m *Model) Unit(unitName string) (Unit, error) {
 		return Unit{}, errors.NotFoundf("unit %q", unitName)
 	}
 	return unit.copy(), nil
+}
+
+// Machines makes a copy of the model's machine collection and returns it.
+func (m *Model) Machines() map[string]Machine {
+	m.mu.Lock()
+
+	machines := make(map[string]Machine, len(m.machines))
+	for k, v := range m.machines {
+		machines[k] = v.copy()
+	}
+
+	m.mu.Unlock()
+
+	return machines
+}
+
+// Machine returns the machine with the input id.
+// If the machine is not found, a NotFoundError is returned.
+func (m *Model) Machine(machineId string) (Machine, error) {
+	defer m.doLocked()()
+
+	machine, found := m.machines[machineId]
+	if !found {
+		return Machine{}, errors.NotFoundf("machine %q", machineId)
+	}
+	return machine.copy(), nil
 }
 
 // WatchMachines returns a PredicateStringsWatcher to notify about

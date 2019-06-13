@@ -4,6 +4,8 @@
 package cache
 
 import (
+	"time"
+
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -89,6 +91,34 @@ type UnitChange struct {
 	AgentStatus    status.StatusInfo
 }
 
+// copy returns a deep copy of the UnitChange.
+func (u UnitChange) copy() UnitChange {
+	var cPorts []network.Port
+	uPorts := u.Ports
+	if uPorts != nil {
+		cPorts = make([]network.Port, len(uPorts))
+		for i, p := range uPorts {
+			cPorts[i] = p
+		}
+	}
+	u.Ports = cPorts
+
+	var cPortRanges []network.PortRange
+	uPortRanges := u.PortRanges
+	if uPortRanges != nil {
+		cPortRanges = make([]network.PortRange, len(uPortRanges))
+		for i, p := range uPortRanges {
+			cPortRanges[i] = p
+		}
+	}
+	u.PortRanges = cPortRanges
+
+	u.WorkloadStatus = copyStatusInfo(u.WorkloadStatus)
+	u.AgentStatus = copyStatusInfo(u.AgentStatus)
+
+	return u
+}
+
 // RemoveUnit represents the situation when a unit
 // is removed from a model in the database.
 type RemoveUnit struct {
@@ -117,6 +147,48 @@ type MachineChange struct {
 	WantsVote                bool
 }
 
+// copy returns a deep copy of the MachineChange.
+func (m MachineChange) copy() MachineChange {
+	m.AgentStatus = copyStatusInfo(m.AgentStatus)
+	m.InstanceStatus = copyStatusInfo(m.InstanceStatus)
+	m.Config = copyDataMap(m.Config)
+
+	var cSupportedContainers []instance.ContainerType
+	if m.SupportedContainers != nil {
+		cSupportedContainers = make([]instance.ContainerType, len(m.SupportedContainers))
+		for i, v := range m.SupportedContainers {
+			cSupportedContainers[i] = v
+		}
+	}
+	m.SupportedContainers = cSupportedContainers
+
+	var cHardwareCharacteristics instance.HardwareCharacteristics
+	if m.HardwareCharacteristics != nil {
+		cHardwareCharacteristics = *m.HardwareCharacteristics
+	}
+	m.HardwareCharacteristics = &cHardwareCharacteristics
+
+	var cCharmProfiles []string
+	if m.CharmProfiles != nil {
+		cCharmProfiles = make([]string, len(m.CharmProfiles))
+		for i, v := range m.CharmProfiles {
+			cCharmProfiles[i] = v
+		}
+	}
+	m.CharmProfiles = cCharmProfiles
+
+	var cAddresses []network.Address
+	if m.Addresses != nil {
+		cAddresses = make([]network.Address, len(m.Addresses))
+		for i, v := range m.Addresses {
+			cAddresses[i] = v
+		}
+	}
+	m.Addresses = cAddresses
+
+	return m
+}
+
 // RemoveMachine represents the situation when a machine
 // is removed from a model in the database.
 type RemoveMachine struct {
@@ -139,6 +211,43 @@ type BranchChange struct {
 	GenerationId  int
 }
 
+func (b BranchChange) copy() BranchChange {
+	var cAssignedUnits map[string][]string
+	bAssignedUnits := b.AssignedUnits
+	if bAssignedUnits != nil {
+		cAssignedUnits = make(map[string][]string, len(bAssignedUnits))
+		for k, v := range bAssignedUnits {
+			units := make([]string, len(v))
+			for i, u := range v {
+				units[i] = u
+			}
+			cAssignedUnits[k] = units
+		}
+	}
+	b.AssignedUnits = cAssignedUnits
+
+	var cConfig map[string]settings.ItemChanges
+	bConfig := b.Config
+	if bConfig != nil {
+		cConfig = make(map[string]settings.ItemChanges, len(bConfig))
+		for k, v := range bConfig {
+			changes := make(settings.ItemChanges, len(v))
+			for i, ch := range v {
+				changes[i] = settings.ItemChange{
+					Type:     ch.Type,
+					Key:      ch.Key,
+					NewValue: ch.NewValue,
+					OldValue: ch.OldValue,
+				}
+			}
+			cConfig[k] = changes
+		}
+	}
+	b.Config = cConfig
+
+	return b
+}
+
 // RemoveBranch represents the situation when a branch is to be removed
 // from the cache. This will rarely be a result of deletion from the database.
 // It will usually be the result of the branch no longer being considered
@@ -146,4 +255,30 @@ type BranchChange struct {
 type RemoveBranch struct {
 	ModelUUID string
 	Id        string
+}
+
+func copyStatusInfo(info status.StatusInfo) status.StatusInfo {
+	var cSince *time.Time
+	if info.Since != nil {
+		s := *info.Since
+		cSince = &s
+	}
+
+	return status.StatusInfo{
+		Status:  info.Status,
+		Message: info.Message,
+		Data:    copyDataMap(info.Data),
+		Since:   cSince,
+	}
+}
+
+func copyDataMap(data map[string]interface{}) map[string]interface{} {
+	var cData map[string]interface{}
+	if data != nil {
+		cData = make(map[string]interface{}, len(data))
+		for i, d := range data {
+			cData[i] = d
+		}
+	}
+	return cData
 }
