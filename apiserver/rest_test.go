@@ -74,8 +74,8 @@ func (s *restSuite) TestRestServedSecurely(c *gc.C) {
 	url := s.restURL(s.State.ModelUUID(), "")
 	url.Scheme = "http"
 	apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
-		Method:      "GET",
-		URL:         url.String(),
+		Method:       "GET",
+		URL:          url.String(),
 		ExpectStatus: http.StatusBadRequest,
 	})
 }
