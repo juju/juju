@@ -731,7 +731,7 @@
   revision = "9b925afd677234e4146dde3cb1a11e187cbed64e"
 
 [[projects]]
-  digest = "1:95ed103a60286cdb3c4404e2b19bb210c98a1a0110d4e8f66901b96cdb4fcbb5"
+  digest = "1:41acc45bab6f3fcbe700b6e0b5db88c8c42a045306dbe4d63f5c6bc949aec66d"
   name = "github.com/juju/testing"
   packages = [
     ".",
@@ -740,7 +740,7 @@
     "httptesting",
   ]
   pruneopts = ""
-  revision = "e25f034181e5ae6fa6cd7ba86c804f48388f1ff7"
+  revision = "c2059796eac0de8f72fede36c1ac323cf15f3ccf"
   source = "github.com/SimonRichardson/testing"
 
 [[projects]]
