@@ -581,13 +581,16 @@ func (s *WorkerSuite) TestWatcherErrorStoppedKillsWorker(c *gc.C) {
 	mw := s.StatePool.SystemState().WatchAllModels(s.StatePool)
 	s.config.WatcherFactory = func() modelcache.BackingWatcher { return mw }
 
-	w := s.start(c)
+	config := s.config
+	config.Notify = s.notify
+	w, err := modelcache.NewWorker(config)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Stop the backing multiwatcher.
 	c.Assert(mw.Stop(), jc.ErrorIsNil)
 
 	// Check that the worker is killed.
-	err := workertest.CheckKilled(c, w)
+	err = workertest.CheckKilled(c, w)
 	c.Assert(err, jc.Satisfies, state.IsErrStopped)
 }
 

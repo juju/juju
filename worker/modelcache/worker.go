@@ -167,16 +167,19 @@ func (c *cacheWorker) loop() error {
 			// That condition will be handled at the top of the loop.
 			if err := c.processWatcher(watcherChanges); err != nil {
 				// If the backing watcher has stopped and the watcher's tomb
-				// error is nil, this means a legitimate clean stop.
-				// Die with an error and let the dependency engine handle
-				// starting us up again.
+				// error is nil, this means a legitimate clean stop. If we have
+				// been told to die, then we exit cleanly. Otherwise die with an
+				// error and let the dependency engine handle starting us up
+				// again.
 				if state.IsErrStopped(err) {
-					tombErr := c.watcher.Stop()
-					if tombErr == nil {
+					select {
+					case <-c.catacomb.Dying():
+						return
+					default:
 						c.catacomb.Kill(err)
 						return
 					}
-					err = tombErr
+
 				}
 
 				// For any other errors, get a new watcher.
