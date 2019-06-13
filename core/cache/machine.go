@@ -6,7 +6,6 @@ package cache
 import (
 	"fmt"
 	"regexp"
-	"sync"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
@@ -33,7 +32,6 @@ type Machine struct {
 	*Resident
 
 	model *Model
-	mu    sync.Mutex
 
 	details    MachineChange
 	configHash string

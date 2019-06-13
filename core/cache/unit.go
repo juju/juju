@@ -18,8 +18,7 @@ type Unit struct {
 	metrics *ControllerGauges
 	hub     *pubsub.SimpleHub
 
-	details    UnitChange
-	configHash string
+	details UnitChange
 }
 
 func newUnit(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *Unit {
