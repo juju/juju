@@ -1253,9 +1253,39 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}
 
+	hasService := !params.PodSpec.OmitServiceFrontend
+	if hasService {
+		var ports []core.ContainerPort
+		for _, c := range unitSpec.Pod.Containers {
+			for _, p := range c.Ports {
+				if p.ContainerPort == 0 {
+					continue
+				}
+				ports = append(ports, p)
+			}
+		}
+
+		serviceAnnotations := annotations.Copy()
+		// Merge any service annotations from the charm.
+		if unitSpec.Service != nil {
+			serviceAnnotations.Merge(k8sannotations.New(unitSpec.Service.Annotations))
+		}
+		// Merge any service annotations from the CLI.
+		deployAnnotations, err := config.GetStringMap(serviceAnnotationsKey, nil)
+		if err != nil {
+			return errors.Annotatef(err, "unexpected annotations: %#v", config.Get(serviceAnnotationsKey, nil))
+		}
+		serviceAnnotations.Merge(k8sannotations.New(deployAnnotations))
+
+		config[serviceAnnotationsKey] = serviceAnnotations.ToMap()
+		if err := k.configureService(appName, deploymentName, ports, params, config); err != nil {
+			return errors.Annotatef(err, "creating or updating service for %v", appName)
+		}
+	}
+
 	numPods := int32(numUnits)
 	if useStatefulSet {
-		if err := k.configureStatefulSet(appName, deploymentName, randPrefix, annotations.Copy(), unitSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
+		if err := k.configureStatefulSet(appName, deploymentName, randPrefix, annotations.Copy(), unitSpec, params.PodSpec.Containers, &numPods, params.Filesystems, hasService); err != nil {
 			return errors.Annotate(err, "creating or updating StatefulSet")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
@@ -1266,32 +1296,6 @@ func (k *kubernetesClient) EnsureService(
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
 	}
 
-	var ports []core.ContainerPort
-	for _, c := range unitSpec.Pod.Containers {
-		for _, p := range c.Ports {
-			if p.ContainerPort == 0 {
-				continue
-			}
-			ports = append(ports, p)
-		}
-	}
-	if !params.PodSpec.OmitServiceFrontend {
-		// Merge any service annotations from the charm.
-		if unitSpec.Service != nil {
-			annotations.Merge(k8sannotations.New(unitSpec.Service.Annotations))
-		}
-		// Merge any service annotations from the CLI.
-		deployAnnotations, err := config.GetStringMap(serviceAnnotationsKey, nil)
-		if err != nil {
-			return errors.Annotatef(err, "unexpected annotations: %#v", config.Get(serviceAnnotationsKey, nil))
-		}
-		annotations.Merge(k8sannotations.New(deployAnnotations))
-
-		config[serviceAnnotationsKey] = annotations.ToMap()
-		if err := k.configureService(appName, deploymentName, ports, params, config); err != nil {
-			return errors.Annotatef(err, "creating or updating service for %v", appName)
-		}
-	}
 	return nil
 }
 
@@ -1580,6 +1584,7 @@ func (k *kubernetesClient) deleteDeployment(name string) error {
 func (k *kubernetesClient) configureStatefulSet(
 	appName, deploymentName, randPrefix string, annotations k8sannotations.Annotation, unitSpec *unitSpec,
 	containers []caas.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
+	hasService bool,
 ) error {
 	logger.Debugf("creating/updating stateful set for %s", appName)
 
@@ -1609,6 +1614,10 @@ func (k *kubernetesClient) configureStatefulSet(
 			PodManagementPolicy: apps.ParallelPodManagement,
 		},
 	}
+	if hasService {
+		statefulset.Spec.ServiceName = deploymentName
+	}
+
 	podSpec := unitSpec.Pod
 	if err := k.configurePodFiles(&podSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
