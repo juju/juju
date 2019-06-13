@@ -657,6 +657,7 @@ func (*storeManagerSuite) TestRunStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	d, err := w.Next()
 	c.Assert(err, gc.ErrorMatches, "shared state watcher was stopped")
+	c.Assert(err, jc.Satisfies, IsErrStopped)
 	c.Assert(d, gc.HasLen, 0)
 }
 
@@ -742,7 +743,7 @@ func (*storeManagerSuite) TestMultiwatcherStop(c *gc.C) {
 	w := &Multiwatcher{all: sm}
 	err := w.Stop()
 	c.Assert(err, jc.ErrorIsNil)
-	checkNext(c, w, nil, ErrStopped.Error())
+	checkNext(c, w, nil, NewErrStopped().Error())
 }
 
 func (*storeManagerSuite) TestMultiwatcherStopBecauseStoreManagerError(c *gc.C) {
@@ -752,14 +753,32 @@ func (*storeManagerSuite) TestMultiwatcherStopBecauseStoreManagerError(c *gc.C) 
 		c.Check(sm.Stop(), gc.ErrorMatches, "some error")
 	}()
 	w := &Multiwatcher{all: sm}
+
 	// Receive one delta to make sure that the storeManager
 	// has seen the initial state.
 	checkNext(c, w, []multiwatcher.Delta{{Entity: &multiwatcher.MachineInfo{Id: "0"}}}, "")
 	c.Logf("setting fetch error")
 	b.setFetchError(errors.New("some error"))
+
 	c.Logf("updating entity")
 	b.updateEntity(&multiwatcher.MachineInfo{Id: "1"})
-	checkNext(c, w, nil, `shared state watcher was stopped`)
+	checkNext(c, w, nil, "some error")
+}
+
+func (*storeManagerSuite) TestMultiwatcherStopBecauseStoreManagerStop(c *gc.C) {
+	b := newTestBacking([]multiwatcher.EntityInfo{&multiwatcher.MachineInfo{Id: "0"}})
+	sm := newStoreManager(b)
+	w := &Multiwatcher{all: sm}
+
+	// Receive one delta to make sure that the storeManager
+	// has seen the initial state.
+	checkNext(c, w, []multiwatcher.Delta{{Entity: &multiwatcher.MachineInfo{Id: "0"}}}, "")
+
+	// Stop the the store manager cleanly and check that
+	// the next update returns ErrStopped.
+	c.Check(sm.Stop(), jc.ErrorIsNil)
+	b.updateEntity(&multiwatcher.MachineInfo{Id: "1"})
+	checkNext(c, w, nil, ErrStoppedf("shared state watcher").Error())
 }
 
 func StoreIncRef(a *multiwatcherStore, id interface{}) {

@@ -902,11 +902,23 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 	// Retrieve the unit.
 	unit, err := st.Unit(newInfo.Name)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			// It is possible that the event processing is happening slower
+			// than reality and a missing unit isn't that terrible.
+			logger.Debugf("unit %q not in DB", newInfo.Name)
+			return nil
+		}
 		return errors.Annotatef(err, "cannot retrieve unit %q", newInfo.Name)
 	}
 	// A change in a unit's status might also affect its application.
 	application, err := unit.Application()
 	if err != nil {
+		if errors.IsNotFound(err) {
+			// It is possible that the event processing is happening slower
+			// than reality and a missing application isn't that terrible.
+			logger.Debugf("application for unit %q not in DB", newInfo.Name)
+			return nil
+		}
 		return errors.Trace(err)
 	}
 	applicationId, ok := backingEntityIdForGlobalKey(st.ModelUUID(), application.globalKey())
@@ -1428,10 +1440,11 @@ func (b *allModelWatcherStateBacking) Changed(all *multiwatcherStore, change wat
 
 	st, err := b.getState(modelUUID)
 	if err != nil {
-		if exists, modelErr := b.st.ModelExists(modelUUID); exists && modelErr == nil {
-			// The entity's model is gone so remove the entity
-			// from the store.
-			doc.removed(all, modelUUID, id, nil)
+		// The state pool will return a not found error if the model is
+		// in the process of being removed.
+		if errors.IsNotFound(err) {
+			// The entity's model is gone so remove the entity from the store.
+			_ = doc.removed(all, modelUUID, id, nil)
 			return nil
 		}
 		return errors.Trace(err) // prioritise getState error
