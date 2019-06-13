@@ -110,9 +110,9 @@ func (s *charmsSuite) TestCharmsServedSecurely(c *gc.C) {
 	url := s.charmsURL("")
 	url.Scheme = "http"
 	apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
-		Method:      "GET",
-		URL:         url.String(),
-		ExpectError: `.*malformed HTTP response.*`,
+		Method:       "GET",
+		URL:          url.String(),
+		ExpectStatus: http.StatusBadRequest,
 	})
 }
 

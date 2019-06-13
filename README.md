@@ -23,12 +23,12 @@ If you are looking for binary releases of `juju`, they are available in the snap
 Installing Go
 --------------
 
-`Juju's` source code currently depends on Go 1.11. One of the easiest ways
+`Juju's` source code currently depends on Go 1.12. One of the easiest ways
 to install golang is from a snap. You may need to first install
 the [snap client](https://snapcraft.io/docs/core/install). Installing the golang
 snap package is then as easy as
 
-    snap install go --channel=1.11/stable --classic
+    snap install go --channel=1.12/stable --classic
 
 You can read about the "classic" confinement policy [here](https://insights.ubuntu.com/2017/01/09/how-to-snap-introducing-classic-confinement/)
 
@@ -36,7 +36,7 @@ If you want to use `apt`, then you can add the [Golang Gophers PPA](https://laun
 
     sudo add-apt-repository ppa:gophers/archive
     sudo apt-get update
-    sudo apt install golang-1.11
+    sudo apt install golang-1.12
 
 Alternatively, you can always follow the official [binary installation instructions](https://golang.org/doc/install#install)
 

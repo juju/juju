@@ -30,6 +30,10 @@ type HTTPRequestParams struct {
 	// nil.
 	ExpectError string
 
+	// ExpectStatus holds the expected HTTP status code.
+	// http.StatusOK is assumed if this is zero.
+	ExpectStatus int
+
 	// tag holds the tag to authenticate as.
 	Tag string
 
@@ -64,15 +68,16 @@ type HTTPRequestParams struct {
 func SendHTTPRequest(c *gc.C, p HTTPRequestParams) *http.Response {
 	c.Logf("sendRequest: %s", p.URL)
 	hp := httptesting.DoRequestParams{
-		Do:          p.Do,
-		Method:      p.Method,
-		URL:         p.URL,
-		Body:        p.Body,
-		JSONBody:    p.JSONBody,
-		Header:      make(http.Header),
-		Username:    p.Tag,
-		Password:    p.Password,
-		ExpectError: p.ExpectError,
+		Do:           p.Do,
+		Method:       p.Method,
+		URL:          p.URL,
+		Body:         p.Body,
+		JSONBody:     p.JSONBody,
+		Header:       make(http.Header),
+		Username:     p.Tag,
+		Password:     p.Password,
+		ExpectError:  p.ExpectError,
+		ExpectStatus: p.ExpectStatus,
 	}
 	if p.ContentType != "" {
 		hp.Header.Set("Content-Type", p.ContentType)
