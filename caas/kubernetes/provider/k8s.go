@@ -119,8 +119,8 @@ type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsc
 // NewK8sWatcherFunc defines a function which returns a k8s watcher based on the supplied config.
 type NewK8sWatcherFunc func(wi watch.Interface, name string, clock jujuclock.Clock) (*kubernetesWatcher, error)
 
-// NewK8sBroker returns a kubernetes client for the specified k8s cluster.
-func NewK8sBroker(
+// newK8sBroker returns a kubernetes client for the specified k8s cluster.
+func newK8sBroker(
 	controllerUUID string,
 	k8sRestConfig *rest.Config,
 	cfg *config.Config,
@@ -154,7 +154,6 @@ func NewK8sBroker(
 		annotations: k8sannotations.New(nil).
 			Add(annotationModelUUIDKey, modelUUID),
 	}
-
 	if controllerUUID != "" {
 		// controllerUUID could be empty in add-k8s without -c because there might be no controller yet.
 		client.annotations.Add(annotationControllerUUIDKey, controllerUUID)
@@ -376,7 +375,13 @@ func (*kubernetesClient) Provider() caas.ContainerEnvironProvider {
 }
 
 // Destroy is part of the Broker interface.
-func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) error {
+func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) (err error) {
+	defer func() {
+		if k8serrors.ReasonForError(err) == v1.StatusReasonUnknown {
+			logger.Warningf("k8s cluster is not accessible: %v", err)
+			err = nil
+		}
+	}()
 	watcher, err := k.WatchNamespace()
 	if err != nil {
 		return errors.Trace(err)
