@@ -984,11 +984,23 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 	// Retrieve the unit.
 	unit, err := st.Unit(newInfo.Name)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			// It is possible that the event processing is happening slower
+			// than reality and a missing unit isn't that terrible.
+			logger.Debugf("unit %q not in DB", newInfo.Name)
+			return nil
+		}
 		return errors.Annotatef(err, "cannot retrieve unit %q", newInfo.Name)
 	}
 	// A change in a unit's status might also affect its application.
 	application, err := unit.Application()
 	if err != nil {
+		if errors.IsNotFound(err) {
+			// It is possible that the event processing is happening slower
+			// than reality and a missing application isn't that terrible.
+			logger.Debugf("application for unit %q not in DB", newInfo.Name)
+			return nil
+		}
 		return errors.Trace(err)
 	}
 	applicationId, ok := backingEntityIdForGlobalKey(st.ModelUUID(), application.globalKey())

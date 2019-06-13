@@ -103,7 +103,11 @@ func (w *Multiwatcher) Next() ([]multiwatcher.Delta, error) {
 
 	select {
 	case <-w.all.tomb.Dying():
-		return nil, ErrStoppedf("shared state watcher")
+		err := w.all.tomb.Err()
+		if err == nil {
+			err = ErrStoppedf("shared state watcher")
+		}
+		return nil, err
 	case w.all.request <- req:
 	}
 
@@ -113,7 +117,11 @@ func (w *Multiwatcher) Next() ([]multiwatcher.Delta, error) {
 	// the Multiwatcher, request, and storeManager types.
 	select {
 	case <-w.all.tomb.Dying():
-		return nil, ErrStoppedf("shared state watcher")
+		err := w.all.tomb.Err()
+		if err == nil {
+			err = ErrStoppedf("shared state watcher")
+		}
+		return nil, err
 	case ok := <-req.reply:
 		if !ok {
 			return nil, errors.Trace(NewErrStopped())

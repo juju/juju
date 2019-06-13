@@ -179,7 +179,6 @@ func (c *cacheWorker) loop() error {
 						c.catacomb.Kill(err)
 						return
 					}
-
 				}
 
 				// For any other errors, get a new watcher.
@@ -205,7 +204,7 @@ func (c *cacheWorker) loop() error {
 					select {
 					case c.changes <- value:
 					case <-c.catacomb.Dying():
-						return nil
+						return c.catacomb.ErrDying()
 					}
 				}
 			}
