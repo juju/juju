@@ -13,6 +13,13 @@ import (
 )
 
 func main() {
+	// the first argument here will be the name of the binary, so we ignore
+	// argument 0 when looking for the filepath.
+	if len(os.Args) != 2 {
+		fmt.Fprintln(os.Stderr, "Expected one argument: filepath of json schema to save.")
+		os.Exit(1)
+	}
+
 	result, err := gen.Generate(apiServerShim{})
 	if err != nil {
 		fmt.Println(err)
