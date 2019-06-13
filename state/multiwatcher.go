@@ -103,7 +103,11 @@ func (w *Multiwatcher) Next() ([]multiwatcher.Delta, error) {
 
 	select {
 	case <-w.all.tomb.Dying():
-		return nil, ErrStoppedf("shared state watcher")
+		err := w.all.tomb.Err()
+		if err == nil {
+			err = ErrStoppedf("shared state watcher")
+		}
+		return nil, err
 	case w.all.request <- req:
 	}
 
@@ -113,7 +117,11 @@ func (w *Multiwatcher) Next() ([]multiwatcher.Delta, error) {
 	// the Multiwatcher, request, and storeManager types.
 	select {
 	case <-w.all.tomb.Dying():
-		return nil, ErrStoppedf("shared state watcher")
+		err := w.all.tomb.Err()
+		if err == nil {
+			err = ErrStoppedf("shared state watcher")
+		}
+		return nil, err
 	case ok := <-req.reply:
 		if !ok {
 			return nil, errors.Trace(NewErrStopped())
@@ -318,7 +326,12 @@ func (sm *storeManager) respond() {
 		changes := sm.all.ChangesSince(revno)
 		if len(changes) == 0 {
 			if req.noChanges != nil {
-				req.noChanges <- struct{}{}
+				select {
+				case req.noChanges <- struct{}{}:
+				case <-sm.tomb.Dying():
+					return
+				}
+
 				sm.removeWaitingReq(w, req)
 			}
 			continue
@@ -326,10 +339,13 @@ func (sm *storeManager) respond() {
 
 		req.changes = changes
 		w.revno = sm.all.latestRevno
+
 		select {
 		case req.reply <- true:
 		case <-sm.tomb.Dying():
+			return
 		}
+
 		sm.removeWaitingReq(w, req)
 		sm.seen(revno)
 	}

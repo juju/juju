@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/model"
 	coremodel "github.com/juju/juju/core/model"
@@ -161,9 +162,17 @@ func (s *ModelCredentialCommandSuite) TestSetCredentialErred(c *gc.C) {
 	s.modelClient.SetErrors(errors.New("kaboom"))
 	err := s.assertRemoteCredentialFound(c, `
 Found credential remotely, on the controller. Not looking locally...
-Failed to change model credential: kaboom
 `[1:])
-	c.Assert(err, gc.ErrorMatches, "kaboom")
+	c.Assert(err, gc.ErrorMatches, "could not set model credential: kaboom")
+}
+
+func (s *ModelCredentialCommandSuite) TestSetCredentialBlocked(c *gc.C) {
+	s.modelClient.SetErrors(&params.Error{Code: params.CodeOperationBlocked, Message: "nope"})
+	err := s.assertRemoteCredentialFound(c, `
+Found credential remotely, on the controller. Not looking locally...
+`[1:])
+	c.Assert(err.Error(), jc.Contains, `could not set model credential: nope`)
+	c.Assert(err.Error(), jc.Contains, `All operations that change model have been disabled for the current model.`)
 }
 
 func (s *ModelCredentialCommandSuite) assertRemoteCredentialFound(c *gc.C, expectedStderr string) error {

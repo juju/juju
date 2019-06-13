@@ -541,6 +541,17 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 			}
 			return rst, st, entity.Tag(), nil
 		},
+		ChangeAllowedFunc: func(req *http.Request) error {
+			st, err := httpCtxt.stateForRequestUnauthenticated(req)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			blockChecker := common.NewBlockChecker(st)
+			if err := blockChecker.ChangeAllowed(); err != nil {
+				return errors.Trace(err)
+			}
+			return nil
+		},
 	}
 	unitResourcesHandler := &UnitResourcesHandler{
 		NewOpener: func(req *http.Request, tagKinds ...string) (resource.Opener, state.PoolHelper, error) {

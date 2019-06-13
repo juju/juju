@@ -239,8 +239,12 @@ func (c *removeApplicationCommand) removeApplications(
 	for i, name := range c.ApplicationNames {
 		result := results[i]
 		if result.Error != nil {
-			ctx.Infof("removing application %s failed: %s", name, result.Error)
 			anyFailed = true
+			err := result.Error.Error()
+			if params.IsCodeNotSupported(result.Error) {
+				err = errors.New("another user was updating application; please try again").Error()
+			}
+			ctx.Infof("removing application %s failed: %s", name, err)
 			continue
 		}
 		ctx.Infof("removing application %s", name)

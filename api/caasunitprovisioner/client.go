@@ -291,6 +291,9 @@ func (c *Client) UpdateUnits(arg params.UpdateApplicationUnits) error {
 	if result.Results[0].Error == nil {
 		return nil
 	}
+	if params.IsCodeForbidden(result.Results[0].Error) {
+		return errors.NewForbidden(result.Results[0].Error, "")
+	}
 	return maybeNotFound(result.Results[0].Error)
 }
 
@@ -307,6 +310,9 @@ func (c *Client) UpdateApplicationService(arg params.UpdateApplicationServiceArg
 	}
 	if result.Results[0].Error == nil {
 		return nil
+	}
+	if params.IsCodeForbidden(result.Results[0].Error) {
+		return errors.NewForbidden(result.Results[0].Error, "")
 	}
 	return maybeNotFound(result.Results[0].Error)
 }

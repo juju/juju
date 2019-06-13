@@ -65,6 +65,15 @@ func (s *ApplicationSuite) assertNeedsCleanup(c *gc.C) {
 	c.Assert(dirty, jc.IsTrue)
 }
 
+func (s *ApplicationSuite) removeOfferConnections(c *gc.C, offer crossmodel.ApplicationOffer) {
+	jujudb := s.MgoSuite.Session.DB("juju")
+	offerConnectionsCollection := jujudb.C(state.OfferConnectionsC)
+
+	info, err := offerConnectionsCollection.RemoveAll(bson.M{"offer-uuid": offer.OfferUUID})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.Matched, gc.Equals, info.Removed)
+}
+
 func (s *ApplicationSuite) assertNoCleanup(c *gc.C) {
 	dirty, err := s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
@@ -721,6 +730,7 @@ func (s *ApplicationSuite) TestSequenceUnitIdsAfterDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	assertRemoved(c, s.mysql)
 	s.mysql = s.AddTestingApplication(c, "mysql", s.charm)
 	unit, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1612,18 +1622,11 @@ func (s *ApplicationSuite) TestOffersRefCountWorks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertOffersRef(c, s.State, "mysql", 1)
 
-	// Trying to destroy the app while there is an offer fails.
-	err = s.mysql.Destroy()
-	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 offer`)
-	assertOffersRef(c, s.State, "mysql", 1)
-
-	// Remove the last offer and the app can be destroyed.
-	err = ao.Remove("mysql-offer", false)
-	c.Assert(err, jc.ErrorIsNil)
-	assertNoOffersRef(c, s.State, "mysql")
-
+	// Trying to destroy the app while there is an offer
+	// succeeds when that offer has no connections
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	assertRemoved(c, s.mysql)
 	assertNoOffersRef(c, s.State, "mysql")
 }
 
@@ -1654,7 +1657,7 @@ func (s *ApplicationSuite) TestDestroyApplicationRemoveOffers(c *gc.C) {
 	op.RemoveOffers = true
 	err = s.State.ApplyOperation(op)
 	c.Assert(err, jc.ErrorIsNil)
-
+	assertRemoved(c, s.mysql)
 	assertNoOffersRef(c, s.State, "mysql")
 
 	offers, err := ao.AllApplicationOffers()
@@ -1676,11 +1679,12 @@ func (s *ApplicationSuite) TestOffersRefRace(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, addOffer).Check()
 
 	err := s.mysql.Destroy()
-	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 offer`)
-	assertOffersRef(c, s.State, "mysql", 1)
+	c.Assert(err, jc.ErrorIsNil)
+	assertRemoved(c, s.mysql)
+	assertNoOffersRef(c, s.State, "mysql")
 }
 
-func (s *ApplicationSuite) TestForceDoesNotAllowRemovingAnApplicationWithOffers(c *gc.C) {
+func (s *ApplicationSuite) TestOffersRefRaceWithForce(c *gc.C) {
 	addOffer := func() {
 		ao := state.NewApplicationOffers(s.State)
 		_, err := ao.AddOffer(crossmodel.AddApplicationOfferArgs{
@@ -1696,8 +1700,9 @@ func (s *ApplicationSuite) TestForceDoesNotAllowRemovingAnApplicationWithOffers(
 	op := s.mysql.DestroyOperation()
 	op.Force = true
 	err := s.State.ApplyOperation(op)
-	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 offer`)
-	assertOffersRef(c, s.State, "mysql", 1)
+	c.Assert(err, jc.ErrorIsNil)
+	assertRemoved(c, s.mysql)
+	assertNoOffersRef(c, s.State, "mysql")
 }
 
 const mysqlBaseMeta = `
@@ -1753,6 +1758,7 @@ func (s *ApplicationSuite) TestNewPeerRelationsAddedOnUpgrade(c *gc.C) {
 	// Check state consistency by attempting to destroy the application.
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	assertRemoved(c, s.mysql)
 
 	// Check the peer relations got destroyed as well.
 	for _, rel := range rels {
@@ -1981,8 +1987,7 @@ func (s *ApplicationSuite) TestApplicationRefresh(c *gc.C) {
 
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	assertRemoved(c, s.mysql)
 }
 
 func (s *ApplicationSuite) TestSetPassword(c *gc.C) {
@@ -2022,6 +2027,7 @@ func (s *ApplicationSuite) TestApplicationExposed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	assertLife(c, s.mysql, state.Dying)
 	err = s.mysql.ClearExposed()
 	c.Assert(err, gc.ErrorMatches, notAliveErr)
 	err = s.mysql.SetExposed()
@@ -2099,6 +2105,7 @@ func (s *ApplicationSuite) TestAddUnitWhenNotAlive(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	assertLife(c, s.mysql, state.Dying)
 	_, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "mysql": application is not found or not alive`)
 	c.Assert(u.EnsureDead(), jc.ErrorIsNil)
@@ -2235,6 +2242,7 @@ func (s *ApplicationSuite) TestReadUnitWhenDying(c *gc.C) {
 	preventUnitDestroyRemove(c, unit)
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	assertLife(c, s.mysql, state.Dying)
 	_, err = s.mysql.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.Unit("mysql/0")
@@ -2425,6 +2433,7 @@ func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	// Destroy mysql, and check units are not touched.
 	err := s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	assertLife(c, s.mysql, state.Dying)
 	for _, unit := range units {
 		assertLife(c, unit, state.Alive)
 	}
@@ -2500,6 +2509,8 @@ func (s *ApplicationSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
 	s.assertNoCleanup(c)
 
 	err := s.mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	assertRemoved(c, s.mysql)
 
 	// Check a cleanup doc was added.
 	s.assertNeedsCleanup(c)
@@ -2532,6 +2543,7 @@ func (s *ApplicationSuite) TestDestroyQueuesResourcesCleanup(c *gc.C) {
 	// Detroy the application.
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	assertRemoved(c, s.mysql)
 
 	// Cleanup should be registered but not yet run.
 	s.assertNeedsCleanup(c)
@@ -2560,6 +2572,7 @@ func (s *ApplicationSuite) TestDestroyWithPlaceholderResources(c *gc.C) {
 	// Detroy the application.
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	assertRemoved(c, s.mysql)
 
 	// No cleanup required for placeholder resources.
 	state.AssertNoCleanupsWithKind(c, s.State, "resourceBlob")
@@ -2570,8 +2583,7 @@ func (s *ApplicationSuite) TestReadUnitWithChangingState(c *gc.C) {
 	// fails nicely.
 	err := s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	assertRemoved(c, s.mysql)
 	_, err = s.State.Unit("mysql/0")
 	c.Assert(err, gc.ErrorMatches, `unit "mysql/0" not found`)
 }
@@ -2605,8 +2617,7 @@ func (s *ApplicationSuite) TestConstraints(c *gc.C) {
 	// that the constraints are deleted...
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	assertRemoved(c, s.mysql)
 
 	// ...but we can check that old constraints do not affect new applications
 	// with matching names.
@@ -2649,6 +2660,7 @@ func (s *ApplicationSuite) TestConstraintsLifecycle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	assertLife(c, s.mysql, state.Dying)
 	cons1 := constraints.MustParse("mem=1G")
 	err = s.mysql.SetConstraints(cons1)
 	c.Assert(err, gc.ErrorMatches, `cannot set constraints: application is not found or not alive`)
@@ -3604,8 +3616,7 @@ func (s *ApplicationSuite) TestDestroyApplicationRemovesConfig(c *gc.C) {
 	op.RemoveOffers = true
 	err = s.State.ApplyOperation(op)
 	c.Assert(err, jc.ErrorIsNil)
-	err = appConfig.Read()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	assertRemoved(c, s.mysql)
 }
 
 type CAASApplicationSuite struct {

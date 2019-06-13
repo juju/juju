@@ -118,8 +118,8 @@ type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsc
 // NewK8sWatcherFunc defines a function which returns a k8s watcher based on the supplied config.
 type NewK8sWatcherFunc func(wi watch.Interface, name string, clock jujuclock.Clock) (*kubernetesWatcher, error)
 
-// NewK8sBroker returns a kubernetes client for the specified k8s cluster.
-func NewK8sBroker(
+// newK8sBroker returns a kubernetes client for the specified k8s cluster.
+func newK8sBroker(
 	controllerUUID string,
 	k8sRestConfig *rest.Config,
 	cfg *config.Config,
@@ -153,7 +153,6 @@ func NewK8sBroker(
 		annotations: k8sannotations.New(nil).
 			Add(annotationModelUUIDKey, modelUUID),
 	}
-
 	if controllerUUID != "" {
 		// controllerUUID could be empty in add-k8s without -c because there might be no controller yet.
 		client.annotations.Add(annotationControllerUUIDKey, controllerUUID)
@@ -375,7 +374,13 @@ func (*kubernetesClient) Provider() caas.ContainerEnvironProvider {
 }
 
 // Destroy is part of the Broker interface.
-func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) error {
+func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) (err error) {
+	defer func() {
+		if k8serrors.ReasonForError(err) == v1.StatusReasonUnknown {
+			logger.Warningf("k8s cluster is not accessible: %v", err)
+			err = nil
+		}
+	}()
 	watcher, err := k.WatchNamespace()
 	if err != nil {
 		return errors.Trace(err)
@@ -606,16 +611,16 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	statefulset := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        operatorName,
-			Labels:      map[string]string{labelOperator: appName},
+			Labels:      operatorLabels(appName),
 			Annotations: annotations.ToMap()},
 		Spec: apps.StatefulSetSpec{
 			Replicas: &numPods,
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{labelOperator: appName},
+				MatchLabels: operatorLabels(appName),
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels:      map[string]string{labelOperator: appName},
+					Labels:      operatorLabels(appName),
 					Annotations: pod.Annotations,
 				},
 			},
@@ -1322,6 +1327,19 @@ func (k *kubernetesClient) Upgrade(appName string, vers version.Number) error {
 		c.Image = podcfg.RebuildOldOperatorImagePath(c.Image, vers)
 		existingStatefulSet.Spec.Template.Spec.Containers[i] = c
 	}
+
+	// update juju-version annotation.
+	// TODO(caas): consider how to upgrade to current annotations format safely.
+	// just ensure juju-version to current version for now.
+	existingStatefulSet.SetAnnotations(
+		k8sannotations.New(existingStatefulSet.GetAnnotations()).
+			Add(labelVersion, vers.String()).ToMap(),
+	)
+	existingStatefulSet.Spec.Template.SetAnnotations(
+		k8sannotations.New(existingStatefulSet.Spec.Template.GetAnnotations()).
+			Add(labelVersion, vers.String()).ToMap(),
+	)
+
 	_, err = statefulsets.Update(existingStatefulSet)
 	return errors.Trace(err)
 }
@@ -1641,7 +1659,6 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 		return errors.Trace(err)
 	}
 	// TODO(caas) - allow extra storage to be added
-	existing.Spec.Selector = spec.Spec.Selector
 	existing.Spec.Replicas = spec.Spec.Replicas
 	existing.Spec.Template.Spec.Containers = existingPodSpec.Containers
 	_, err = statefulsets.Update(existing)
@@ -1872,6 +1889,10 @@ func (k *kubernetesClient) deleteIngress(appName string) error {
 
 func operatorSelector(appName string) string {
 	return fmt.Sprintf("%v==%v", labelOperator, appName)
+}
+
+func operatorLabels(appName string) map[string]string {
+	return map[string]string{labelOperator: appName}
 }
 
 func applicationSelector(appName string) string {
@@ -2367,7 +2388,7 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 			Name: podName,
 			Annotations: podAnnotations(annotations.Copy()).
 				Add(labelVersion, version).ToMap(),
-			Labels: map[string]string{labelOperator: appName},
+			Labels: operatorLabels(appName),
 		},
 		Spec: core.PodSpec{
 			Containers: []core.Container{{

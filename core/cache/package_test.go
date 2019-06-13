@@ -72,19 +72,27 @@ func (s *EntitySuite) SetUpTest(c *gc.C) {
 	s.Gauges = createControllerGauges()
 }
 
-func (s *EntitySuite) NewModel(details ModelChange) *Model {
-	m := newModel(s.Gauges, s.newHub(), s.Manager.new())
+func (s *EntitySuite) NewModel(details ModelChange, hub *pubsub.SimpleHub) *Model {
+	if hub == nil {
+		hub = s.NewHub()
+	}
+
+	m := newModel(s.Gauges, hub, s.Manager.new())
 	m.setDetails(details)
 	return m
 }
 
-func (s *EntitySuite) NewApplication(details ApplicationChange) *Application {
-	a := newApplication(s.Gauges, s.newHub(), s.NewResident())
+func (s *EntitySuite) NewApplication(details ApplicationChange, hub *pubsub.SimpleHub) *Application {
+	if hub == nil {
+		hub = s.NewHub()
+	}
+
+	a := newApplication(s.Gauges, hub, s.NewResident())
 	a.SetDetails(details)
 	return a
 }
 
-func (s *EntitySuite) newHub() *pubsub.SimpleHub {
+func (s *EntitySuite) NewHub() *pubsub.SimpleHub {
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.TRACE)
 	return pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
