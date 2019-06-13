@@ -33,6 +33,7 @@ var (
 	GetLocalMicroK8sConfig   = getLocalMicroK8sConfig
 	AttemptMicroK8sCloud     = attemptMicroK8sCloud
 	EnsureMicroK8sSuitable   = ensureMicroK8sSuitable
+	NewK8sBroker             = newK8sBroker
 )
 
 type (

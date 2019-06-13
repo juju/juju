@@ -258,6 +258,25 @@ func (f *FSM) infoFromEntry(localTime time.Time, key lease.Key, entry *entry) le
 	}
 }
 
+// LeaseGroup returns all leases matching the namespace and model -
+// when there are many models this is more efficient than getting all
+// the leases and filtering by model.
+func (f *FSM) LeaseGroup(getLocalTime func() time.Time, namespace, modelUUID string) map[lease.Key]lease.Info {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	gKey := groupKey{namespace: namespace, modelUUID: modelUUID}
+	entries, found := f.groups[gKey]
+	if !found {
+		return nil
+	}
+	localTime := getLocalTime()
+	results := make(map[lease.Key]lease.Info, len(entries))
+	for key, entry := range entries {
+		results[key] = f.infoFromEntry(localTime, key, entry)
+	}
+	return results
+}
+
 // Pinned returns all of the currently known lease pins and applications
 // requiring the pinned behaviour.
 func (f *FSM) Pinned() map[lease.Key][]string {
@@ -583,9 +602,6 @@ func (c *Command) Validate() error {
 			return errors.NotValidf("setTime with model UUID")
 		}
 		if c.Lease != "" {
-			if c.Holder == "" {
-				return errors.NotValidf("%s with empty holder", c.Operation)
-			}
 			return errors.NotValidf("setTime with lease")
 		}
 		if c.PinEntity != "" {

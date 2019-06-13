@@ -899,6 +899,18 @@ func (s *ApplicationSuite) TestScaleApplicationsCAASModel(c *gc.C) {
 	app.CheckCall(c, 0, "Scale", 5)
 }
 
+func (s *ApplicationSuite) TestScaleApplicationsBlocked(c *gc.C) {
+	application.SetModelType(s.api, state.ModelTypeCAAS)
+	s.blockChecker.SetErrors(common.ServerError(common.OperationBlockedError("test block")))
+	_, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+		Applications: []params.ScaleApplicationParams{{
+			ApplicationTag: "application-postgresql",
+			Scale:          5,
+		}}})
+	c.Assert(err, gc.ErrorMatches, "test block")
+	c.Assert(err, jc.Satisfies, params.IsCodeOperationBlocked)
+}
+
 func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleChange(c *gc.C) {
 	application.SetModelType(s.api, state.ModelTypeCAAS)
 	s.backend.applications["postgresql"].scale = 2

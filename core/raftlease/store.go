@@ -60,9 +60,11 @@ type TrapdoorFunc func(lease.Key, string) lease.Trapdoor
 // ReadonlyFSM defines the methods of the lease FSM the store can use
 // - any writes must go through the hub.
 type ReadonlyFSM interface {
-	// Leases receives a func for retrieving time, because it needs to be
-	// determined after potential lock-waiting to be accurate.
+	// Leases and LeaseGroup receive a func for retrieving time,
+	// because it needs to be determined after potential lock-waiting
+	// to be accurate.
 	Leases(func() time.Time, ...lease.Key) map[lease.Key]lease.Info
+	LeaseGroup(func() time.Time, string, string) map[lease.Key]lease.Info
 	GlobalTime() time.Time
 	Pinned() map[lease.Key][]string
 }
@@ -141,12 +143,22 @@ func (s *Store) ExpireLease(key lease.Key) error {
 // Leases is part of lease.Store.
 func (s *Store) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
 	leaseMap := s.fsm.Leases(s.config.Clock.Now, keys...)
-	// Add trapdoors into the information from the FSM.
+	s.addTrapdoors(leaseMap)
+	return leaseMap
+}
+
+// LeaseGroup is part of Lease.Store.
+func (s *Store) LeaseGroup(namespace, modelUUID string) map[lease.Key]lease.Info {
+	leaseMap := s.fsm.LeaseGroup(s.config.Clock.Now, namespace, modelUUID)
+	s.addTrapdoors(leaseMap)
+	return leaseMap
+}
+
+func (s *Store) addTrapdoors(leaseMap map[lease.Key]lease.Info) {
 	for k, v := range leaseMap {
 		v.Trapdoor = s.config.Trapdoor(k, v.Holder)
 		leaseMap[k] = v
 	}
-	return leaseMap
 }
 
 // Refresh is part of lease.Store.

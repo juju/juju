@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
 )
@@ -155,5 +156,8 @@ func (c *UploadCommand) upload(rf resourceValue, client UploadClient) error {
 	}
 	defer f.Close()
 	err = client.Upload(rf.application, rf.name, rf.value, f)
-	return errors.Trace(err)
+	if err := block.ProcessBlockedError(err, block.BlockChange); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

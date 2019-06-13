@@ -72,6 +72,13 @@ func (s *ScaleApplicationSuite) TestScaleApplication(c *gc.C) {
 	c.Assert(out, gc.Equals, `foo scaled to 2 units`)
 }
 
+func (s *ScaleApplicationSuite) TestScaleApplicationBlocked(c *gc.C) {
+	s.mockAPI.SetErrors(&params.Error{Code: params.CodeOperationBlocked, Message: "nope"})
+	_, err := s.runScaleApplication(c, "foo", "2")
+	c.Assert(err.Error(), jc.Contains, `could not scale application "foo": nope`)
+	c.Assert(err.Error(), jc.Contains, `All operations that change model have been disabled for the current model.`)
+}
+
 func (s *ScaleApplicationSuite) TestScaleApplicationWrongModel(c *gc.C) {
 	store := jujuclienttesting.MinimalStore()
 	_, err := cmdtesting.RunCommand(c, NewScaleCommandForTest(s.mockAPI, store), "foo", "2")

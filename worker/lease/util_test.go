@@ -123,6 +123,17 @@ func (store *Store) Leases(keys ...lease.Key) map[lease.Key]lease.Info {
 	return result
 }
 
+// LeaseGroup is part of the lease.Store interface.
+func (store *Store) LeaseGroup(namespace, modelUUID string) map[lease.Key]lease.Info {
+	results := make(map[lease.Key]lease.Info)
+	for key, info := range store.Leases() {
+		if key.Namespace == namespace && key.ModelUUID == modelUUID {
+			results[key] = info
+		}
+	}
+	return results
+}
+
 func (store *Store) closeIfEmpty() {
 	// This must be called with the lock held.
 	if store.runningCalls > 1 {

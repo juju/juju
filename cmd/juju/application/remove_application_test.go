@@ -6,11 +6,13 @@ package application_test
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	apiapplication "github.com/juju/juju/api/application"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/jujuclient"
@@ -61,6 +63,58 @@ func (s *RemoveApplicationCmdSuite) assertAPIForceFlag(c *gc.C, args []string, e
 	ctx, err := s.runRemoveApplication(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "removing application real-app\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	s.api.CheckCallNames(c, "DestroyApplications", "Close")
+}
+
+func (s *RemoveApplicationCmdSuite) setupRace(c *gc.C, raceyApplications []string) {
+	s.api.destroyApplications = func(args apiapplication.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error) {
+		results := make([]params.DestroyApplicationResult, len(args.Applications))
+		for i, app := range args.Applications {
+			results[i].Info = &params.DestroyApplicationInfo{}
+			for _, poison := range raceyApplications {
+				if app == poison {
+					err := errors.NewNotSupported(nil, "change detected")
+					results[i].Error = common.ServerError(err)
+				}
+			}
+		}
+		return results, nil
+	}
+}
+
+func (s *RemoveApplicationCmdSuite) TestHandlingNotSupportedDoesNotAffectBaseCase(c *gc.C) {
+	s.setupRace(c, []string{"do-not-remove"})
+
+	ctx, err := s.runRemoveApplication(c, []string{"real-app"}...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "removing application real-app\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	s.api.CheckCallNames(c, "DestroyApplications", "Close")
+}
+
+func (s *RemoveApplicationCmdSuite) TestHandlingNotSupported(c *gc.C) {
+	s.setupRace(c, []string{"do-not-remove"})
+
+	ctx, err := s.runRemoveApplication(c, []string{"do-not-remove"}...)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, ""+
+		"removing application do-not-remove failed: "+
+		"another user was updating application; please try again\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	s.api.CheckCallNames(c, "DestroyApplications", "Close")
+}
+
+func (s *RemoveApplicationCmdSuite) TestHandlingNotSupportedMultipleApps(c *gc.C) {
+	s.setupRace(c, []string{"do-not-remove"})
+
+	ctx, err := s.runRemoveApplication(c, []string{"real-app", "do-not-remove", "another"}...)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, ""+
+		"removing application real-app\n"+
+		"removing application do-not-remove failed: "+
+		"another user was updating application; please try again\n"+
+		"removing application another\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 	s.api.CheckCallNames(c, "DestroyApplications", "Close")
 }

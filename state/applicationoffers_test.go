@@ -6,6 +6,7 @@ package state_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
@@ -21,6 +22,7 @@ import (
 
 type applicationOffersSuite struct {
 	ConnSuite
+	mysql *state.Application
 }
 
 var _ = gc.Suite(&applicationOffersSuite{})
@@ -28,7 +30,7 @@ var _ = gc.Suite(&applicationOffersSuite{})
 func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	ch := s.AddTestingCharm(c, "mysql")
-	s.AddTestingApplication(c, "mysql", ch)
+	s.mysql = s.AddTestingApplication(c, "mysql", ch)
 }
 
 func (s *applicationOffersSuite) createDefaultOffer(c *gc.C) crossmodel.ApplicationOffer {
@@ -45,6 +47,22 @@ func (s *applicationOffersSuite) createDefaultOffer(c *gc.C) crossmodel.Applicat
 	offer, err := sd.AddOffer(offerArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	return *offer
+}
+
+func (s *applicationOffersSuite) TestDetectingOfferConnections(c *gc.C) {
+	connected, err := state.ApplicationHasConnectedOffers(s.State, "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(connected, jc.IsFalse)
+
+	offer := s.createDefaultOffer(c)
+	connected, err = state.ApplicationHasConnectedOffers(s.State, "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(connected, jc.IsFalse)
+
+	s.addOfferConnection(c, offer.OfferUUID)
+	connected, err = state.ApplicationHasConnectedOffers(s.State, "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(connected, jc.IsTrue)
 }
 
 func (s *applicationOffersSuite) TestEndpoints(c *gc.C) {
@@ -477,8 +495,8 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovedAfterInitial(c
 	c.Assert(err, gc.ErrorMatches, `cannot update application offer "mysql": application offer "hosted-mysql" not found`)
 }
 
-func (s *applicationOffersSuite) addOfferConnection(c *gc.C, offerUUID string) {
-	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+func (s *applicationOffersSuite) addOfferConnection(c *gc.C, offerUUID string) *state.RemoteApplication {
+	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "wordpress",
 		SourceModel: testing.ModelTag,
 		Endpoints: []charm.Relation{{
@@ -500,14 +518,104 @@ func (s *applicationOffersSuite) addOfferConnection(c *gc.C, offerUUID string) {
 		Username:        "admin",
 		SourceModelUUID: testing.ModelTag.Id(),
 	})
+
+	return app
 }
 
-func (s *applicationOffersSuite) TestRemoveOffersWithConnections(c *gc.C) {
+func (s *applicationOffersSuite) TestRemoveOffersSucceedsWithZeroConnections(c *gc.C) {
+	s.createDefaultOffer(c)
+	ao := state.NewApplicationOffers(s.State)
+	err := ao.Remove("hosted-mysql", false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = ao.ApplicationOffer("hosted-mysql")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	err = s.mysql.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	assertNoOffersRef(c, s.State, "mysql")
+}
+
+func (s *applicationOffersSuite) TestRemoveApplicationSucceedsWithZeroConnections(c *gc.C) {
+	s.createDefaultOffer(c)
+
+	err := s.mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysql.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	assertNoOffersRef(c, s.State, "mysql")
+}
+
+func (s *applicationOffersSuite) TestRemoveApplicationSucceedsWithZeroConnectionsRace(c *gc.C) {
+	addOffer := func() {
+		s.createDefaultOffer(c)
+	}
+	defer state.SetBeforeHooks(c, s.State, addOffer).Check()
+	err := s.mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysql.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	assertNoOffersRef(c, s.State, "mysql")
+}
+
+func (s *applicationOffersSuite) TestRemoveApplicationFailsWithOfferWithConnections(c *gc.C) {
+	offer := s.createDefaultOffer(c)
+	s.addOfferConnection(c, offer.OfferUUID)
+
+	err := s.mysql.Destroy()
+	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 offer`)
+	err = s.mysql.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	assertOffersRef(c, s.State, "mysql", 1)
+}
+
+func (s *applicationOffersSuite) TestRemoveApplicationFailsWithOfferWithConnectionsRace(c *gc.C) {
+	addConnectedOffer := func() {
+		offer := s.createDefaultOffer(c)
+		s.addOfferConnection(c, offer.OfferUUID)
+	}
+	defer state.SetBeforeHooks(c, s.State, addConnectedOffer).Check()
+	err := s.mysql.Destroy()
+	c.Assert(err, gc.ErrorMatches, `cannot destroy application "mysql": application is used by 1 offer`)
+	err = s.mysql.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	assertOffersRef(c, s.State, "mysql", 1)
+}
+
+func (s *applicationOffersSuite) TestRemoveOffersFailsWithConnections(c *gc.C) {
 	offer := s.createDefaultOffer(c)
 	s.addOfferConnection(c, offer.OfferUUID)
 	ao := state.NewApplicationOffers(s.State)
 	err := ao.Remove("hosted-mysql", false)
 	c.Assert(err, gc.ErrorMatches, `cannot delete application offer "hosted-mysql": offer has 1 relation`)
+}
+
+func (s *applicationOffersSuite) TestRemoveOffersFailsWithConnectionsRace(c *gc.C) {
+	offer := s.createDefaultOffer(c)
+	ao := state.NewApplicationOffers(s.State)
+	addOfferConnection := func() {
+		c.Logf("adding connection to %s", offer.OfferUUID)
+		s.addOfferConnection(c, offer.OfferUUID)
+	}
+	defer state.SetBeforeHooks(c, s.State, addOfferConnection).Check()
+
+	err := ao.Remove("hosted-mysql", false)
+	c.Assert(err, gc.ErrorMatches, `cannot delete application offer "hosted-mysql": offer has 1 relation`)
+}
+
+func (s *applicationOffersSuite) TestRemoveOffersSucceedsWhenLocalRelationAdded(c *gc.C) {
+	offer := s.createDefaultOffer(c)
+	s.AddTestingApplication(c, "local-wordpress", s.AddTestingCharm(c, "wordpress"))
+	_, err := s.State.Application(offer.ApplicationName)
+	eps, err := s.State.InferEndpoints("local-wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	ao := state.NewApplicationOffers(s.State)
+
+	err = ao.Remove(offer.OfferName, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = ao.ApplicationOffer("hosted-mysql")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *applicationOffersSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScope bool) {
@@ -559,11 +667,45 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 	ao := state.NewApplicationOffers(s.State)
 	err = ao.Remove("hosted-mysql", true)
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = ao.ApplicationOffer("hosted-mysql")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	conn, err := s.State.OfferConnections(offer.OfferUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conn, gc.HasLen, 0)
 	s.assertInScope(c, wpru, false)
 	s.assertInScope(c, mysqlru, true)
+}
+
+func (s *applicationOffersSuite) TestRemovingApplicationFailsRace(c *gc.C) {
+	s.createDefaultOffer(c)
+	wp := s.AddTestingApplication(c, "local-wordpress", s.AddTestingCharm(c, "wordpress"))
+	eps, err := s.State.InferEndpoints(wp.Name(), s.mysql.Name())
+
+	addRelation := func() {
+		_, err := s.State.AddRelation(eps...)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	rmRelations := func() {
+		rels, err := s.State.AllRelations()
+		c.Assert(err, jc.ErrorIsNil)
+
+		for _, rel := range rels {
+			err = rel.Destroy()
+			c.Assert(err, jc.ErrorIsNil)
+			err = s.mysql.Refresh()
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}
+
+	bumpTxnRevno := txn.TestHook{Before: addRelation, After: rmRelations}
+	defer state.SetTestHooks(c, s.State, bumpTxnRevno, bumpTxnRevno, bumpTxnRevno).Check()
+
+	err = s.mysql.Destroy()
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, gc.ErrorMatches, "cannot destroy application.*")
+	s.mysql.Refresh()
+	assertOffersRef(c, s.State, "mysql", 1)
 }
 
 func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsRace(c *gc.C) {
@@ -637,6 +779,8 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 
 	err = ao.Remove(offer.OfferName, false)
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = ao.ApplicationOffer("hosted-mysql")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()

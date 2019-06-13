@@ -163,14 +163,28 @@ func (c *cacheWorker) loop() error {
 			c.watcher = c.config.WatcherFactory()
 			c.mu.Unlock()
 
-			err := c.processWatcher(watcherChanges)
-			if err == nil {
-				// We are done, so exit
+			// processWatcher only returns nil if we are dying.
+			// That condition will be handled at the top of the loop.
+			if err := c.processWatcher(watcherChanges); err != nil {
+				// If the backing watcher has stopped and the watcher's tomb
+				// error is nil, this means a legitimate clean stop. If we have
+				// been told to die, then we exit cleanly. Otherwise die with an
+				// error and let the dependency engine handle starting us up
+				// again.
+				if state.IsErrStopped(err) {
+					select {
+					case <-c.catacomb.Dying():
+						return
+					default:
+						c.catacomb.Kill(err)
+						return
+					}
+				}
+
+				// For any other errors, get a new watcher.
+				c.config.Logger.Errorf("watcher error: %v, getting new watcher", err)
 				_ = c.watcher.Stop()
-				return
 			}
-			c.config.Logger.Errorf("watcher error, %v, getting new watcher", err)
-			_ = c.watcher.Stop()
 		}
 	}()
 
@@ -179,7 +193,8 @@ func (c *cacheWorker) loop() error {
 		case <-c.catacomb.Dying():
 			return c.catacomb.ErrDying()
 		case deltas := <-watcherChanges:
-			// Process changes and send info down changes channel
+			// Translate multi-watcher deltas into cache changes
+			// and supply them via the changes channel.
 			for _, d := range deltas {
 				if logger := c.config.Logger; logger.IsTraceEnabled() {
 					logger.Tracef(pretty.Sprint(d))
@@ -189,7 +204,7 @@ func (c *cacheWorker) loop() error {
 					select {
 					case c.changes <- value:
 					case <-c.catacomb.Dying():
-						return nil
+						return c.catacomb.ErrDying()
 					}
 				}
 			}
@@ -204,12 +219,9 @@ func (c *cacheWorker) processWatcher(watcherChanges chan<- []multiwatcher.Delta)
 	for {
 		deltas, err := c.watcher.Next()
 		if err != nil {
-			if state.IsErrStopped(err) {
-				return nil
-			} else {
-				return errors.Trace(err)
-			}
+			return errors.Trace(err)
 		}
+
 		select {
 		case <-c.catacomb.Dying():
 			return nil

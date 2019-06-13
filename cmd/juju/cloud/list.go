@@ -39,22 +39,40 @@ type listCloudsCommand struct {
 // listCloudsDoc is multi-line since we need to use ` to denote
 // commands for ease in markdown.
 var listCloudsDoc = "" +
-	"Output includes fundamental properties for each cloud known to the\n" +
-	"current Juju client: name, number of regions, default region, type,\n" +
-	"and description.\n" +
-	"If the multi-cloud feature flag is not enabled, the default behaviour is to\n" +
-	"show clouds known to Juju out of the box; these can be used to bootstrap a controller.\n" +
-	"In addition to these public clouds, the 'localhost' cloud (local LXD) is also listed.\n" +
-	"With the multi-cloud feature flag, a controller is specified using --controller.\n" +
-	"If you supply a controller name the clouds known on the controller will be displayed.\n" +
-	"\nThis command's default output format is 'tabular'.\n" +
-	"\nCloud metadata sometimes changes, e.g. AWS adds a new region. Use the\n" +
-	"`update-clouds` command to update the current Juju client accordingly.\n" +
-	"\nUse the `add-cloud` command to add a private cloud to the list of\n" +
-	"clouds known to the current Juju client.\n" +
-	"\nUse the `regions` command to list a cloud's regions. Use the\n" +
-	"`show-cloud` command to get more detail, such as regions and endpoints.\n" +
-	"\nFurther reading: https://docs.jujucharms.com/stable/clouds\n" + listCloudsDocExamples
+	"Display the fundamental properties for each cloud known to the current Juju client:\n" +
+	"name, number of regions, default region, type, and description\n" +
+	"\n" +
+	"The default behaviour is to show clouds available on the current controller.\n" +
+	"Another controller can specified using the --controller option. When no controllers\n" +
+	"are available, --local is implied.\n" +
+	"\n" +
+	"If --local is specified, the public clouds known to Juju out of the box are displayed,\n" +
+	"along with any which have been added with `add-cloud --local`. These clouds can be\n" +
+	"used to create a controller.\n" +
+	"\n" +
+	"Clouds may be listed that are co-hosted with the Juju client.  When the LXD hypervisor\n" +
+	"is detected, the 'localhost' cloud is made available.  When a microk8s installation is\n" +
+	"detected, the 'microk8s' cloud is displayed.\n" +
+	"\n" +
+	"This command's default output format is 'tabular'. Use 'json' and 'yaml' for\n" +
+	"machine-readable output.\n" +
+	"\n" +
+	"Cloud metadata sometimes changes, e.g. providers add regions. Use the `update-clouds`\n" +
+	"command to update the current Juju client.\n" +
+	"\n" +
+	"Use the `add-cloud` command to add a private cloud to the list of clouds known to the\n" +
+	"current Juju client.\n" +
+	"\n" +
+	"Use the `regions` command to list a cloud's regions.\n" +
+	"\n" +
+	"Use the `show-cloud` command to get more detail, such as regions and endpoints.\n" +
+	"\n" +
+	"Further reading:\n " +
+	"\n" +
+	"    Documentation:   https://docs.jujucharms.com/stable/clouds\n" +
+	"    microk8s:        https://microk8s.io/\n" +
+	"    LXD hypervisor:  https://linuxcontainers.org/lxd/\n" +
+	listCloudsDocExamples
 
 var listCloudsDocExamples = `
 Examples:
@@ -66,7 +84,11 @@ Examples:
 
 See also:
     add-cloud
+    credentials
+    controllers
     regions
+    set-default-credential
+    set-default-region
     show-cloud
     update-clouds
 `

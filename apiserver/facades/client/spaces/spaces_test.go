@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -28,7 +29,8 @@ type SpacesSuite struct {
 	authorizer apiservertesting.FakeAuthorizer
 	facade     spaces.API
 
-	callContext context.ProviderCallContext
+	callContext  context.ProviderCallContext
+	blockChecker mockBlockChecker
 }
 
 var _ = gc.Suite(&SpacesSuite{})
@@ -53,9 +55,11 @@ func (s *SpacesSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.callContext = context.NewCloudCallContext()
+	s.blockChecker = mockBlockChecker{}
 	var err error
 	s.facade, err = spaces.NewAPIWithBacking(
 		apiservertesting.BackingInstance,
+		&s.blockChecker,
 		s.callContext,
 		s.resources, s.authorizer,
 	)
@@ -74,6 +78,7 @@ func (s *SpacesSuite) TestNewAPIWithBacking(c *gc.C) {
 	// Clients are allowed.
 	facade, err := spaces.NewAPIWithBacking(
 		apiservertesting.BackingInstance,
+		&s.blockChecker,
 		s.callContext,
 		s.resources, s.authorizer,
 	)
@@ -87,6 +92,7 @@ func (s *SpacesSuite) TestNewAPIWithBacking(c *gc.C) {
 	agentAuthorizer.Tag = names.NewMachineTag("42")
 	facade, err = spaces.NewAPIWithBacking(
 		apiservertesting.BackingInstance,
+		&s.blockChecker,
 		context.NewCloudCallContext(),
 		s.resources,
 		agentAuthorizer,
@@ -380,11 +386,26 @@ func (s *SpacesSuite) TestReloadSpacesNotSupportedError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "spaces not supported")
 }
 
+func (s *SpacesSuite) TestReloadSpacesBlocked(c *gc.C) {
+	s.blockChecker.SetErrors(common.ServerError(common.OperationBlockedError("test block")))
+	err := s.facade.ReloadSpaces()
+	c.Assert(err, gc.ErrorMatches, "test block")
+	c.Assert(err, jc.Satisfies, params.IsCodeOperationBlocked)
+}
+
+func (s *SpacesSuite) TestCreateSpacesBlocked(c *gc.C) {
+	s.blockChecker.SetErrors(common.ServerError(common.OperationBlockedError("test block")))
+	_, err := s.facade.CreateSpaces(params.CreateSpacesParams{})
+	c.Assert(err, gc.ErrorMatches, "test block")
+	c.Assert(err, jc.Satisfies, params.IsCodeOperationBlocked)
+}
+
 func (s *SpacesSuite) TestReloadSpacesUserDenied(c *gc.C) {
 	agentAuthorizer := s.authorizer
 	agentAuthorizer.Tag = names.NewUserTag("regular")
 	facade, err := spaces.NewAPIWithBacking(
 		apiservertesting.BackingInstance,
+		&s.blockChecker,
 		context.NewCloudCallContext(),
 		s.resources, agentAuthorizer,
 	)
@@ -392,4 +413,18 @@ func (s *SpacesSuite) TestReloadSpacesUserDenied(c *gc.C) {
 	err = facade.ReloadSpaces()
 	c.Check(err, gc.ErrorMatches, "permission denied")
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)
+}
+
+type mockBlockChecker struct {
+	jtesting.Stub
+}
+
+func (c *mockBlockChecker) ChangeAllowed() error {
+	c.MethodCall(c, "ChangeAllowed")
+	return c.NextErr()
+}
+
+func (c *mockBlockChecker) RemoveAllowed() error {
+	c.MethodCall(c, "RemoveAllowed")
+	return c.NextErr()
 }

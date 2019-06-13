@@ -213,7 +213,7 @@ func (a *Application) Destroy() (err error) {
 		}
 	}()
 	op := a.DestroyOperation()
-	err = a.st.ApplyOperation(a.DestroyOperation())
+	err = a.st.ApplyOperation(op)
 	if len(op.Errors) != 0 {
 		logger.Warningf("operational errors destroying application %v: %v", a.Name(), op.Errors)
 	}
@@ -284,6 +284,22 @@ func (op *DestroyApplicationOperation) Build(attempt int) ([]txn.Op, error) {
 
 // Done is part of the ModelOperation interface.
 func (op *DestroyApplicationOperation) Done(err error) error {
+	if err == nil {
+		return err
+	}
+	connected, err2 := applicationHasConnectedOffers(op.app.st, op.app.Name())
+	if err2 != nil {
+		err = errors.Trace(err2)
+	} else if connected {
+		rels, err2 := op.app.st.AllRelations()
+		if err2 != nil {
+			err = errors.Trace(err2)
+		}
+		err = errors.Errorf("application is used by %d offer%s", len(rels), plural(len(rels)))
+	} else {
+		err = errors.NewNotSupported(err, "change to the application detected")
+	}
+
 	return errors.Annotatef(err, "cannot destroy application %q", op.app)
 }
 
@@ -350,16 +366,43 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	}
 	ops = append(ops, resOps...)
 
-	// We can't delete an application if it is being offered.
+	// We can't delete an application if it is being offered,
+	// unless those offers have no relations.
 	if !op.RemoveOffers {
 		countOp, n, err := countApplicationOffersRefOp(op.app.st, op.app.Name())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if n != 0 {
-			return nil, errors.Errorf("application is used by %d offer%s", n, plural(n))
+		if n == 0 {
+			ops = append(ops, countOp)
+		} else {
+			connected, err := applicationHasConnectedOffers(op.app.st, op.app.Name())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if connected {
+				return nil, errors.Errorf("application is used by %d offer%s", n, plural(n))
+			}
+			// None of our offers are connected,
+			// it's safe to remove them.
+			removeOfferOps, err := removeApplicationOffersOps(op.app.st, op.app.Name())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, removeOfferOps...)
+			ops = append(ops, txn.Op{
+				C:  applicationsC,
+				Id: op.app.doc.DocID,
+				Assert: bson.D{
+					// We're using the txn-revno here because relationcount is too
+					// coarse-grained for what we need. Using the revno will
+					// create false positives during concurrent updates of the
+					// model, but eliminates the possibility of it entering
+					// an inconsistent state.
+					{"txn-revno", op.app.doc.TxnRevno},
+				},
+			})
 		}
-		ops = append(ops, countOp)
 	}
 
 	// If the application has no units, and all its known relations will be
