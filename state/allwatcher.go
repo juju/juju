@@ -1573,9 +1573,10 @@ func (b *allModelWatcherStateBacking) Changed(all *multiwatcherStore, change wat
 
 	st, err := b.getState(modelUUID)
 	if err != nil {
-		if exists, modelErr := b.st.ModelExists(modelUUID); exists && modelErr == nil {
-			// The entity's model is gone so remove the entity
-			// from the store.
+		// The state pool will return a not found error if the model is
+		// in the process of being removed.
+		if errors.IsNotFound(err) {
+			// The entity's model is gone so remove the entity from the store.
 			_ = doc.removed(all, modelUUID, id, nil)
 			return nil
 		}
