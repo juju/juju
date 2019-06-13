@@ -1290,6 +1290,26 @@ func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBacking() Backing {
 	return NewAllModelWatcherStateBacking(s.state, s.pool)
 }
 
+func (s *allModelWatcherStateSuite) TestMissingModelNotError(c *gc.C) {
+	b := s.NewAllModelWatcherStateBacking()
+	defer b.Release()
+	all := newStore()
+
+	dyingModel := "fake-uuid"
+	st, err := s.pool.Get(dyingModel)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Release()
+
+	removed, err := s.pool.Remove(dyingModel)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(removed, jc.IsFalse)
+
+	// If the state pool is in the process of removing a model, it will
+	// return a NotFound error.
+	err = b.Changed(all, watcher.Change{C: modelsC, Id: dyingModel})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 // performChangeTestCases runs a passed number of test cases for changes.
 func (s *allModelWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs []changeTestFunc) {
 	for i, changeTestFunc := range changeTestFuncs {
@@ -3889,7 +3909,7 @@ func (tw *testWatcher) AssertNoChange(c *gc.C) {
 func (tw *testWatcher) AssertChanges(c *gc.C, expected int) {
 	var count int
 	tw.st.StartSync()
-	maxWait := tw.st.clock().After(testing.LongWait)
+	maxWait := time.After(testing.LongWait)
 done:
 	for {
 		select {

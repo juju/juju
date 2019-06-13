@@ -296,7 +296,12 @@ func (sm *storeManager) respond() {
 		changes := sm.all.ChangesSince(revno)
 		if len(changes) == 0 {
 			if req.noChanges != nil {
-				req.noChanges <- struct{}{}
+				select {
+				case req.noChanges <- struct{}{}:
+				case <-sm.tomb.Dying():
+					return
+				}
+
 				sm.removeWaitingReq(w, req)
 			}
 			continue
@@ -304,10 +309,13 @@ func (sm *storeManager) respond() {
 
 		req.changes = changes
 		w.revno = sm.all.latestRevno
+
 		select {
 		case req.reply <- true:
 		case <-sm.tomb.Dying():
+			return
 		}
+
 		sm.removeWaitingReq(w, req)
 		sm.seen(revno)
 	}
