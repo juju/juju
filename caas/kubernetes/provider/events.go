@@ -5,9 +5,12 @@ package provider
 
 import (
 	"github.com/juju/errors"
+
 	core "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+
+	"github.com/juju/juju/core/watcher"
 )
 
 // Constants below are copied from "k8s.io/kubernetes/pkg/kubelet/events"
@@ -39,8 +42,11 @@ const (
 	BackOffPullImage        = "BackOff"
 )
 
-func (k *kubernetesClient) getEvents(ObjName string) ([]core.Event, error) {
-	selector := fields.OneTermEqualSelector("involvedObject.name", ObjName).String()
+func (k *kubernetesClient) getEvents(objName string, objKind string) ([]core.Event, error) {
+	selector := fields.AndSelectors(
+		fields.OneTermEqualSelector("involvedObject.name", objName),
+		fields.OneTermEqualSelector("involvedObject.kind", objKind),
+	).String()
 	logger.Debugf("getting the latest event for %q", selector)
 	eventList, err := k.client().CoreV1().Events(k.namespace).List(v1.ListOptions{
 		IncludeUninitialized: true,
@@ -50,4 +56,20 @@ func (k *kubernetesClient) getEvents(ObjName string) ([]core.Event, error) {
 		return nil, errors.Trace(err)
 	}
 	return eventList.Items, nil
+}
+
+func (k *kubernetesClient) watchEvents(objName string, objKind string) (watcher.NotifyWatcher, error) {
+	selector := fields.AndSelectors(
+		fields.OneTermEqualSelector("involvedObject.name", objName),
+		fields.OneTermEqualSelector("involvedObject.kind", objKind),
+	).String()
+	events := k.client().CoreV1().Events(k.namespace)
+	w, err := events.Watch(v1.ListOptions{
+		FieldSelector: selector,
+		Watch:         true,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return k.newWatcher(w, objName, k.clock)
 }
