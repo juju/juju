@@ -3212,6 +3212,58 @@ func (s *upgradesSuite) TestUpdateK8sModelNameIndex(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestAddControllerNodeDocs(c *gc.C) {
+	machinesColl, closer := s.state.db().GetRawCollection(machinesC)
+	defer closer()
+	controllerNodesColl, closer2 := s.state.db().GetRawCollection(controllerNodesC)
+	defer closer2()
+
+	// Will will never have different UUIDs in practice but testing
+	// with that scenario avoids any potential bad cod assumptions.
+	uuid1 := "uuid1"
+	uuid2 := "uuid2"
+	err := machinesColl.Insert(bson.M{
+		"_id":       ensureModelUUID(uuid1, "1"),
+		"machineid": "1",
+		"novote":    false,
+		"hasvote":   true,
+	}, bson.M{
+		"_id":       ensureModelUUID(uuid1, "2"),
+		"machineid": "2",
+		"novote":    false,
+		"hasvote":   false,
+	}, bson.M{
+		"_id":       ensureModelUUID(uuid1, "3"),
+		"machineid": "3",
+		"novote":    true,
+		"hasvote":   false,
+	}, bson.M{
+		"_id":       ensureModelUUID(uuid2, "1"),
+		"machineid": "1",
+		"novote":    false,
+		"hasvote":   false,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		{
+			"_id":      uuid1 + ":controllerNode#1",
+			"has-vote": true,
+		}, {
+			"_id":      uuid1 + ":controllerNode#2",
+			"has-vote": false,
+		}, {
+			"_id":      uuid2 + ":controllerNode#1",
+			"has-vote": false,
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, AddControllerNodeDocs,
+		expectUpgradedData{controllerNodesColl, expected},
+	)
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

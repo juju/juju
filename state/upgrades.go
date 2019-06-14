@@ -2159,3 +2159,55 @@ func UpdateK8sModelNameIndex(pool *StatePool) error {
 	}
 	return nil
 }
+
+// AddControllerNodeDocs creates controller nodes for each
+// machine that wants to be a member of the mongo replicaset.
+func AddControllerNodeDocs(pool *StatePool) error {
+	st := pool.SystemState()
+
+	machines, closer := st.db().GetRawCollection(machinesC)
+	defer closer()
+	controllerNodes, closer2 := st.db().GetCollection(controllerNodesC)
+	defer closer2()
+
+	var ops []txn.Op
+	var docs []bson.M
+	err := machines.Find(bson.D{{"novote", false}}).Select(bson.M{"_id": 1, "machineid": 1, "hasvote": 1}).All(&docs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, m := range docs {
+		docId := m["_id"].(string)
+		mid := m["machineid"].(string)
+		hasvote := m["hasvote"].(bool)
+		modelUUID, _, ok := splitDocID(docId)
+		if !ok {
+			logger.Warningf("unexpected machine doc id %q", docId)
+			continue
+		}
+		expectedId := ensureModelUUID(modelUUID, controllerNodeGlobalKey(mid))
+		n, err := controllerNodes.FindId(expectedId).Count()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if n > 0 {
+			continue
+		}
+
+		doc := &controllerNodeDoc{
+			DocID:   ensureModelUUID(modelUUID, controllerNodeGlobalKey(mid)),
+			HasVote: hasvote,
+		}
+		ops = append(ops, txn.Op{
+			C:      controllerNodesC,
+			Id:     doc.DocID,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		})
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
+}

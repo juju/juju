@@ -86,6 +86,9 @@ func allCollections() CollectionSchema {
 		// everything in state.
 		controllersC: {global: true},
 
+		// This collection holds the details of the HA-ness of controllers.
+		controllerNodesC: {global: true},
+
 		// This collection is used to track progress when restoring a
 		// controller from backup.
 		restoreInfoC: {global: true},
@@ -553,6 +556,7 @@ const (
 	constraintsC               = "constraints"
 	containerRefsC             = "containerRefs"
 	controllersC               = "controllers"
+	controllerNodesC           = "controllerNodes"
 	controllerUsersC           = "controllerusers"
 	dockerResourcesC           = "dockerResources"
 	filesystemAttachmentsC     = "filesystemAttachments"
