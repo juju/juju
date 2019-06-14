@@ -4,10 +4,13 @@
 package state
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/replicaset"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -25,20 +28,6 @@ func hasJob(jobs []MachineJob, job MachineJob) bool {
 }
 
 var errControllerNotAllowed = errors.New("controller jobs specified but not allowed")
-
-func (st *State) getVotingMachineCount(info *ControllerInfo) (int, error) {
-	machinesCollection, closer := st.db().GetCollection(machinesC)
-	defer closer()
-
-	hasJobManageModel := bson.M{"$in": []MachineJob{JobManageModel}}
-	return machinesCollection.Find(
-		bson.M{
-			"_id":    bson.M{"$in": info.MachineIds},
-			"jobs":   hasJobManageModel,
-			"novote": false,
-		},
-	).Count()
-}
 
 // maintainControllersOps returns a set of operations that will maintain
 // the controller information when the given machine documents
@@ -111,10 +100,11 @@ func (st *State) EnableHA(
 			return nil, errors.Trace(err)
 		}
 		desiredControllerCount := numControllers
-		votingCount, err := st.getVotingMachineCount(currentInfo)
+		nodes, err := st.ControllerNodes()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		votingCount := len(nodes)
 		if desiredControllerCount == 0 {
 			// Make sure we go to add odd number of desired voters. Even if HA was currently at 2 desired voters
 			desiredControllerCount = votingCount + (votingCount+1)%2
@@ -328,7 +318,9 @@ func convertControllerOps(m *Machine) []txn.Op {
 				{"machineids", m.doc.Id},
 			}},
 		},
-	}}
+	},
+		addControllerNodeOp(m.st, m.doc.Id, false),
+	}
 }
 
 func promoteControllerOps(m *Machine) []txn.Op {
@@ -337,13 +329,36 @@ func promoteControllerOps(m *Machine) []txn.Op {
 		Id:     m.doc.DocID,
 		Assert: bson.D{{"novote", true}},
 		Update: bson.D{{"$set", bson.D{{"novote", false}}}},
-	}}
+	},
+		addControllerNodeOp(m.st, m.doc.Id, false),
+	}
 }
 
-func (st *State) removeControllerOps(mid string, controllerInfo *ControllerInfo) []txn.Op {
+func (st *State) getControllerDoc(id string) (*controllerNodeDoc, error) {
+	controllersColl, closer := st.db().GetCollection(controllersC)
+	defer closer()
+
+	cdoc := &controllerNodeDoc{}
+	docId := st.docID(controllerNodeGlobalKey(id))
+	err := controllersColl.FindId(docId).One(cdoc)
+
+	switch err {
+	case nil:
+		return cdoc, nil
+	case mgo.ErrNotFound:
+		return nil, errors.NotFoundf("controller node %s", id)
+	default:
+		return nil, errors.Annotatef(err, "cannot get controller node %s", id)
+	}
+}
+
+func (st *State) removeControllerOps(cid string, controllerInfo *ControllerInfo) []txn.Op {
+	// TODO(HA) - this method can essentialy be removed once novote/hasvote attributes are gone
+	// Because the peer grouper already sets novote=true on machine which also removes the controller node,
+	// and "machineids" can probably also be updated at the same time, making this method obsolete.
 	return []txn.Op{{
 		C:  machinesC,
-		Id: st.docID(mid),
+		Id: st.docID(cid),
 		Assert: bson.D{
 			{"novote", true},
 			{"hasvote", false},
@@ -355,20 +370,145 @@ func (st *State) removeControllerOps(mid string, controllerInfo *ControllerInfo)
 		C:      controllersC,
 		Id:     modelGlobalKey,
 		Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
-		Update: bson.D{{"$pull", bson.D{{"machineids", mid}}}},
+		Update: bson.D{{"$pull", bson.D{{"machineids", cid}}}},
+	}, {
+		C:      controllersC,
+		Id:     st.docID(controllerNodeGlobalKey(cid)),
+		Assert: txn.DocMissing,
 	}}
 }
 
-type controllerNode interface {
+// ControllerNode represents an instance of a HA controller.
+type ControllerNode interface {
 	Id() string
 	Refresh() error
 	WantsVote() bool
 	HasVote() bool
 }
 
-// RemoveController will remove Controller from being part of the set of Controllers.
+// ControllerNode returns the controller node with the given id.
+func (st *State) ControllerNode(id string) (ControllerNode, error) {
+	cdoc, err := st.getControllerDoc(id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &controllerNode{*cdoc, st}, nil
+}
+
+const controllerNodeKeyPrefix = "controllerNode#"
+
+// controllerNodeGlobalKey returns the global database key for the identified controller.
+func controllerNodeGlobalKey(id string) string {
+	return controllerNodeKeyPrefix + id
+}
+
+// ControllerNodes returns all the controller nodes.
+func (st *State) ControllerNodes() ([]*controllerNode, error) {
+	controllerColl, closer := st.db().GetCollection(controllersC)
+	defer closer()
+
+	query := bson.M{
+		"_id": bson.M{"$regex": st.docID(controllerNodeKeyPrefix)},
+	}
+	var docs []controllerNodeDoc
+	err := controllerColl.Find(query).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]*controllerNode, len(docs))
+	for i, doc := range docs {
+		result[i] = &controllerNode{doc, st}
+	}
+	return result, nil
+}
+
+type controllerNode struct {
+	doc controllerNodeDoc
+	st  *State
+}
+
+type controllerNodeDoc struct {
+	DocID   string `bson:"_id"`
+	HasVote bool   `bson:"has-vote"`
+}
+
+func controllerNodeIdFromGlobalKey(key string) string {
+	parts := strings.Split(key, controllerNodeKeyPrefix)
+	// Should never happen.
+	if len(parts) < 2 {
+		return key
+	}
+	return parts[1]
+}
+
+// Id returns the controller id.
+func (c *controllerNode) Id() string {
+	key := c.st.localID(c.doc.DocID)
+	return controllerNodeIdFromGlobalKey(key)
+}
+
+// Refresh reloads the controller state..
+func (c *controllerNode) Refresh() error {
+	id := c.st.localID(c.doc.DocID)
+	cdoc, err := c.st.getControllerDoc(id)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return err
+		}
+		return errors.Annotatef(err, "cannot refresh controller node %v", c)
+	}
+	c.doc = *cdoc
+	return nil
+}
+
+// WantsVote reports whether the controller
+// that wants to take part in peer voting.
+// If is needed to satisfy the ControllerNode
+// interface shared with Machine.
+// TODO(HA) - remove once "novote" is removed from Machine.
+func (c *controllerNode) WantsVote() bool {
+	return true
+}
+
+// HasVote reports whether that controller is currently a voting
+// member of the replica set.
+func (c *controllerNode) HasVote() bool {
+	return c.doc.HasVote
+}
+
+// SetHasVote sets whether the controller is currently a voting
+// member of the replica set. It should only be called
+// from the worker that maintains the replica set.
+func (c *controllerNode) SetHasVote(hasVote bool) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := c.Refresh(); err != nil {
+				return nil, err
+			}
+		}
+
+		return c.setHasVoteOps(hasVote)
+	}
+	if err := c.st.db().Run(buildTxn); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (c *controllerNode) setHasVoteOps(hasVote bool) ([]txn.Op, error) {
+	ops := []txn.Op{{
+		C:      controllersC,
+		Id:     c.doc.DocID,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"has-vote", hasVote}}}},
+	}}
+	return ops, nil
+}
+
+// RemoveControllerNode will unregister Controller from being part of the set of Controllers.
 // It must not have or want to vote, and it must not be the last controller.
-func (st *State) RemoveControllerNode(c controllerNode) error {
+// TODO(HA) - once HA attributes are off machine, thid method becomes obsolete.
+func (st *State) RemoveControllerNode(c ControllerNode) error {
 	logger.Infof("removing controller machine %q", c.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt != 0 {
@@ -378,17 +518,17 @@ func (st *State) RemoveControllerNode(c controllerNode) error {
 			}
 		}
 		if c.WantsVote() {
-			return nil, errors.Errorf("machine %s cannot be removed as a controller as it still wants to vote", c.Id())
+			return nil, errors.Errorf("controller %s cannot be removed as it still wants to vote", c.Id())
 		}
 		if c.HasVote() {
-			return nil, errors.Errorf("machine %s cannot be removed as a controller as it still has a vote", c.Id())
+			return nil, errors.Errorf("controller %s cannot be removed as it still has a vote", c.Id())
 		}
 		controllerInfo, err := st.ControllerInfo()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if len(controllerInfo.MachineIds) <= 1 {
-			return nil, errors.Errorf("machine %s cannot be removed as it is the last controller", c.Id())
+			return nil, errors.Errorf("controller %s cannot be removed as it is the last controller", c.Id())
 		}
 		return st.removeControllerOps(c.Id(), controllerInfo), nil
 	}
@@ -396,4 +536,25 @@ func (st *State) RemoveControllerNode(c controllerNode) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func addControllerNodeOp(mb modelBackend, id string, hasVote bool) txn.Op {
+	doc := &controllerNodeDoc{
+		DocID:   mb.docID(controllerNodeGlobalKey(id)),
+		HasVote: hasVote,
+	}
+	return txn.Op{
+		C:      controllersC,
+		Id:     doc.DocID,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}
+}
+
+func removeControllerNodeOp(mb modelBackend, id string) txn.Op {
+	return txn.Op{
+		C:      controllersC,
+		Id:     mb.docID(controllerNodeGlobalKey(id)),
+		Remove: true,
+	}
 }

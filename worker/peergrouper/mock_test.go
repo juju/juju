@@ -245,8 +245,8 @@ func (st *fakeState) ControllerInfo() (*state.ControllerInfo, error) {
 	return deepCopy(st.controllerInfo.Get()).(*state.ControllerInfo), nil
 }
 
-func (st *fakeState) WatchControllerInfo() state.NotifyWatcher {
-	return WatchValue(&st.controllerInfo)
+func (st *fakeState) WatchControllerInfo() state.StringsWatcher {
+	return WatchStrings(&st.controllerInfo)
 }
 
 func (st *fakeState) WatchControllerStatusChanges() state.StringsWatcher {

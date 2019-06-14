@@ -34,7 +34,7 @@ type State interface {
 	ControllerConfig() (controller.Config, error)
 	ControllerInfo() (*state.ControllerInfo, error)
 	ControllerNode(id string) (ControllerNode, error)
-	WatchControllerInfo() state.NotifyWatcher
+	WatchControllerInfo() state.StringsWatcher
 	WatchControllerStatusChanges() state.StringsWatcher
 	WatchControllerConfig() state.NotifyWatcher
 }
@@ -623,7 +623,7 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	}
 	for _, tracker := range info.controllers {
 		if tracker.controller.Life() != state.Alive && !tracker.controller.HasVote() {
-			logger.Debugf("removing dying controller controller %s", tracker.Id())
+			logger.Debugf("removing dying controller %s", tracker.Id())
 			if err := w.config.State.RemoveControllerNode(tracker.controller); err != nil {
 				logger.Errorf("failed to remove dying controller as a controller after removing its vote: %v", err)
 			}

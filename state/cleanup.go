@@ -1077,11 +1077,11 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineId string, maxWait 
 						return nil, jujutxn.ErrNoOperations
 					}
 				}
-				return []txn.Op{{
-					C:      machinesC,
-					Id:     machine.doc.Id,
-					Update: bson.D{{"$set", bson.D{{"hasvote", false}}}},
-				}}, nil
+				ops, err := machine.setHasVoteOps(false)
+				if err == ErrDead {
+					return nil, nil
+				}
+				return ops, errors.Trace(err)
 			}
 			if err := st.db().Run(hasVoteTxn); err != nil {
 				return errors.Trace(err)
