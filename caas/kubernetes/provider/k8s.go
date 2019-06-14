@@ -24,6 +24,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/yaml.v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -34,7 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/yaml"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	apimachineryversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
@@ -2475,10 +2476,12 @@ var containerTemplate = `
     {{- end}}
     {{end}}
     {{if .Command}}
-    command: [{{- range $idx, $c := .Command -}}{{if ne $idx 0}},{{end}}"{{$c}}"{{- end -}}]
+    command: 
+{{ toYaml .Command | indent 8 }}
     {{end}}
     {{if .Args}}
-    args: [{{- range $idx, $a := .Args -}}{{if ne $idx 0}},{{end}}"{{$a}}"{{- end -}}]
+    args: 
+{{ toYaml .Args | indent 8 }}
     {{end}}
     {{if .WorkingDir}}
     workingDir: {{.WorkingDir}}
@@ -2490,9 +2493,10 @@ var containerTemplate = `
           value: {{$v}}
     {{- end}}
     {{end}}
+
 `
 
-var defaultPodTemplate = fmt.Sprintf(`
+var defaultPodTemplateStr = fmt.Sprintf(`
 pod:
   containers:
   {{- range .Containers }}
@@ -2506,19 +2510,45 @@ pod:
   {{end}}
 `[1:], containerTemplate, containerTemplate)
 
+var defaultPodTemplate = template.Must(template.New("").Funcs(templateAddons).Parse(defaultPodTemplateStr))
+
+func toYaml(val interface{}) (string, error) {
+	data, err := yaml.Marshal(val)
+	if err != nil {
+		return "", errors.Annotatef(err, "marshalling to yaml for %v", val)
+	}
+	return string(data), nil
+}
+
+func indent(n int, str string) string {
+	out := ""
+	prefix := strings.Repeat(" ", n)
+	for _, line := range strings.Split(str, "\n") {
+		out += prefix + line + "\n"
+	}
+	logger.Criticalf("indent s %v, n %v, out -> \n%s", str, n, out)
+	return out
+}
+
+var templateAddons = template.FuncMap{
+	"toYaml": toYaml,
+	"indent": indent,
+}
+
 func makeUnitSpec(appName, deploymentName string, podSpec *caas.PodSpec) (*unitSpec, error) {
 	// Fill out the easy bits using a template.
-	tmpl := template.Must(template.New("").Parse(defaultPodTemplate))
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, podSpec); err != nil {
+	if err := defaultPodTemplate.Execute(&buf, podSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
 	unitSpecString := buf.String()
 
 	var unitSpec unitSpec
-	decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(unitSpecString), len(unitSpecString))
+	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(unitSpecString), len(unitSpecString))
 	if err := decoder.Decode(&unitSpec); err != nil {
-		logger.Errorf("unable to parse %q pod spec: %+v\n%v", appName, *podSpec, unitSpecString)
+		logger.Errorf("unable to parse %q pod spec: \n%+v\nunit spec: \n%v", appName, *podSpec, unitSpecString)
+		pS := *podSpec
+		logger.Criticalf("pS.Containers[0].Command -> \n%#v", pS.Containers[1].Command)
 		return nil, errors.Trace(err)
 	}
 
