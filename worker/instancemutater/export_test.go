@@ -4,9 +4,11 @@
 package instancemutater
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/api/instancemutater"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
+	names "gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 )
 
@@ -37,6 +39,17 @@ func NewEnvironTestWorker(config Config, ctxFn RequiredMutaterContextFunc) (work
 	config.GetRequiredLXDProfiles = func(modelName string) []string {
 		return []string{"default", "juju-" + modelName}
 	}
+	config.GetRequiredContext = ctxFn
+	return newWorker(config)
+}
+
+func NewContainerTestWorker(config Config, ctxFn RequiredMutaterContextFunc) (worker.Worker, error) {
+	m, err := config.Facade.Machine(config.Tag.(names.MachineTag))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	config.GetRequiredLXDProfiles = func(_ string) []string { return []string{"default"} }
+	config.GetMachineWatcher = m.WatchContainers
 	config.GetRequiredContext = ctxFn
 	return newWorker(config)
 }
