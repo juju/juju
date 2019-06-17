@@ -426,3 +426,21 @@ func (s *remoteRelationsSuite) TestSetRemoteApplicationsStatus(c *gc.C) {
 	c.Assert(remoteApp.status, gc.Equals, status.Blocked)
 	c.Assert(remoteApp.message, gc.Equals, "a message")
 }
+
+func (s *remoteRelationsSuite) TestSetRemoteApplicationsStatusTerminated(c *gc.C) {
+	remoteApp := newMockRemoteApplication("db2", "url")
+	s.st.remoteApplications["db2"] = remoteApp
+	entity := names.NewApplicationTag("db2")
+	result, err := s.api.SetRemoteApplicationsStatus(
+		params.SetStatus{Entities: []params.EntityStatusArgs{{
+			Tag:    entity.String(),
+			Status: "terminated",
+			Info:   "killer whales",
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(remoteApp.terminated, gc.Equals, true)
+	s.st.CheckCallNames(c, "RemoteApplication", "ApplyOperation")
+	s.st.CheckCall(c, 1, "ApplyOperation", &mockOperation{message: "killer whales"})
+}
