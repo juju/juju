@@ -53,7 +53,7 @@ func (s modelCacheShim) Machine(machineId string) (ModelCacheMachine, error) {
 }
 
 type modelCacheMachine struct {
-	*cache.Machine
+	cache.Machine
 }
 
 func (m *modelCacheMachine) WatchLXDProfileVerificationNeeded() (cache.NotifyWatcher, error) {
@@ -87,5 +87,5 @@ type modelCacheUnit struct {
 }
 
 type modelCacheApplication struct {
-	*cache.Application
+	cache.Application
 }

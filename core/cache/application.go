@@ -4,8 +4,6 @@
 package cache
 
 import (
-	"sync"
-
 	"github.com/juju/pubsub"
 )
 
@@ -34,32 +32,25 @@ type Application struct {
 	// Link to model?
 	metrics *ControllerGauges
 	hub     *pubsub.SimpleHub
-	mu      sync.Mutex
 
 	details    ApplicationChange
 	configHash string
 	hashCache  *hashCache
 }
 
+// Note that these property accessors are not lock-protected.
+// They are intended for calling from external packages that have retrieved a
+// deep copy from the cache.
+
 // CharmURL returns the charm url string for this application.
 func (a *Application) CharmURL() string {
-	a.mu.Lock()
-	defer a.mu.Unlock()
 	return a.details.CharmURL
 }
 
 // Config returns a copy of the current application config.
 func (a *Application) Config() map[string]interface{} {
-	a.mu.Lock()
-
-	cfg := make(map[string]interface{}, len(a.details.Config))
-	for k, v := range a.details.Config {
-		cfg[k] = v
-	}
 	a.metrics.ApplicationConfigReads.Inc()
-
-	a.mu.Unlock()
-	return cfg
+	return a.details.Config
 }
 
 // WatchConfig creates a watcher for the application config.
@@ -76,8 +67,6 @@ type appCharmUrlChange struct {
 }
 
 func (a *Application) setDetails(details ApplicationChange) {
-	a.mu.Lock()
-
 	// If this is the first receipt of details, set the removal message.
 	if a.removalMessage == nil {
 		a.removalMessage = RemoveApplication{
@@ -101,8 +90,13 @@ func (a *Application) setDetails(details ApplicationChange) {
 		a.hashCache = hashCache
 		a.hub.Publish(a.topic(applicationConfigChange), hashCache)
 	}
+}
 
-	a.mu.Unlock()
+// copy returns a copy of the unit, ensuring appropriate deep copying.
+func (a *Application) copy() Application {
+	ca := *a
+	ca.details = ca.details.copy()
+	return ca
 }
 
 // topic prefixes the input string with the application name.

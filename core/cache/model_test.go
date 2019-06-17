@@ -158,6 +158,23 @@ func (s *ModelSuite) TestApplicationNotFoundError(c *gc.C) {
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
+func (s *ModelSuite) TestApplicationReturnsCopy(c *gc.C) {
+	m := s.NewModel(modelChange, nil)
+	m.UpdateApplication(appChange, s.Manager)
+
+	a1, err := m.Application(appChange.Name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make a change to the map returned in the copy.
+	ac := a1.Config()
+	ac["mister"] = "squiggle"
+
+	// Get another copy from the model and ensure it is unchanged.
+	a2, err := m.Application(appChange.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(a2.Config(), gc.DeepEquals, appChange.Config)
+}
+
 func (s *ModelSuite) TestCharmNotFoundError(c *gc.C) {
 	m := s.NewModel(modelChange, nil)
 	_, err := m.Charm("nope")
@@ -168,6 +185,23 @@ func (s *ModelSuite) TestMachineNotFoundError(c *gc.C) {
 	m := s.NewModel(modelChange, nil)
 	_, err := m.Machine("nope")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+}
+
+func (s *ModelSuite) TestMachineReturnsCopy(c *gc.C) {
+	m := s.NewModel(modelChange, nil)
+	m.UpdateMachine(machineChange, s.Manager)
+
+	m1, err := m.Machine(machineChange.Id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make a change to the map returned in the copy.
+	mc := m1.Config()
+	mc["mister"] = "squiggle"
+
+	// Get another copy from the model and ensure it is unchanged.
+	m2, err := m.Machine(machineChange.Id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m2.Config(), gc.DeepEquals, machineChange.Config)
 }
 
 func (s *ModelSuite) TestUnitNotFoundError(c *gc.C) {

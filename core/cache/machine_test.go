@@ -24,7 +24,7 @@ type machineSuite struct {
 	cache.EntitySuite
 
 	model    *cache.Model
-	machine0 *cache.Machine
+	machine0 cache.Machine
 	wc0      StringsWatcherC
 }
 
@@ -226,7 +226,7 @@ func (s *machineSuite) setupMachine0Container(c *gc.C) {
 	s.model.UpdateMachine(mc, s.Manager)
 }
 
-func (s *machineSuite) setupMachineWithUnits(c *gc.C, machineId string, apps []string) (*cache.Machine, []cache.Unit) {
+func (s *machineSuite) setupMachineWithUnits(c *gc.C, machineId string, apps []string) (cache.Machine, []cache.Unit) {
 	mc := machineChange
 	mc.Id = machineId
 	s.model.UpdateMachine(mc, s.Manager)
