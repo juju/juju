@@ -49,6 +49,7 @@ func (a *Application) CharmURL() string {
 
 // Config returns a copy of the current application config.
 func (a *Application) Config() map[string]interface{} {
+	a.metrics.ApplicationConfigReads.Inc()
 	return a.details.Config
 }
 

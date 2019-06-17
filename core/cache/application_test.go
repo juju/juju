@@ -23,10 +23,17 @@ var _ = gc.Suite(&ApplicationSuite{})
 func (s *ApplicationSuite) TestConfigIncrementsReadCount(c *gc.C) {
 	m := s.NewApplication(appChange, nil)
 	c.Check(testutil.ToFloat64(s.Gauges.ApplicationConfigReads), gc.Equals, float64(0))
+
 	m.Config()
 	c.Check(testutil.ToFloat64(s.Gauges.ApplicationConfigReads), gc.Equals, float64(1))
 	m.Config()
 	c.Check(testutil.ToFloat64(s.Gauges.ApplicationConfigReads), gc.Equals, float64(2))
+
+	// Goroutine safety.
+	go m.Config()
+	go m.Config()
+	go m.Config()
+	c.Check(testutil.ToFloat64(s.Gauges.ApplicationConfigReads), gc.Equals, float64(5))
 }
 
 // See model_test.go for other config watcher tests.
