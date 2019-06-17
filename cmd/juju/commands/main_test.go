@@ -429,7 +429,6 @@ var commandNames = []string{
 	"attach",
 	"attach-resource",
 	"attach-storage",
-	"autoload-credential",
 	"autoload-credentials",
 	"backups",
 	"bootstrap",
