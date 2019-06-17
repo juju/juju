@@ -25,6 +25,11 @@ type (
 	RemoveCloudAPI     = removeCloudAPI
 )
 
+var (
+	CredentialsFromLocalCache = credentialsFromLocalCache
+	CredentialsFromFile       = credentialsFromFile
+)
+
 func NewAddCloudCommandForTest(
 	cloudMetadataStore CloudMetadataStore,
 	store jujuclient.ClientStore,

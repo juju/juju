@@ -94,6 +94,47 @@ func (c *Client) UserCredentials(user names.UserTag, cloud names.CloudTag) ([]na
 	return tags, nil
 }
 
+// UpdateCloudsCredentials updates clouds credentials content on the controller.
+// Passed in credentials are keyed on the credential tag.
+func (c *Client) UpdateCloudsCredentials(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error) {
+	var tagged []params.TaggedCredential
+	for tag, credential := range cloudCredentials {
+		tagged = append(tagged, params.TaggedCredential{
+			Tag: tag,
+			Credential: params.CloudCredential{
+				AuthType:   string(credential.AuthType()),
+				Attributes: credential.Attributes(),
+			},
+		})
+	}
+	in := params.UpdateCredentialArgs{Credentials: tagged}
+	count := len(cloudCredentials)
+
+	if c.facade.BestAPIVersion() < 3 {
+		var out params.ErrorResults
+		if err := c.facade.FacadeCall("UpdateCredentials", in, &out); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(out.Results) != count {
+			return nil, errors.Errorf("expected %d got %d when updating credentials", count, len(out.Results))
+		}
+		converted := make([]params.UpdateCredentialResult, count)
+		for i, one := range out.Results {
+			converted[i] = params.UpdateCredentialResult{CredentialTag: tagged[i].Tag, Error: one.Error}
+		}
+		return converted, nil
+	}
+
+	var out params.UpdateCredentialResults
+	if err := c.facade.FacadeCall("UpdateCredentialsCheckModels", in, &out); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(out.Results) != count {
+		return nil, errors.Errorf("expected %d got %d when updating credentials", count, len(out.Results))
+	}
+	return out.Results, nil
+}
+
 // UpdateCredentialsCheckModels updates a cloud credential content
 // stored on the controller. This call validates that the new content works
 // for all models that are using this credential.
