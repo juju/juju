@@ -7,6 +7,8 @@ import (
 	"github.com/juju/pubsub"
 )
 
+const branchChange = "branch-change"
+
 // Branch represents an active branch in a cached model.
 type Branch struct {
 	// Resident identifies the branch as a type-agnostic cached entity
@@ -31,6 +33,12 @@ func newBranch(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) 
 // They are intended for calling from external packages that have retrieved a
 // deep copy from the cache.
 
+// Name returns the name of the branch.
+// It is guaranteed to uniquely identify an active branch in the cache.
+func (b *Branch) Name() string {
+	return b.details.Name
+}
+
 // AssignedUnits returns a map of the names of units tracking this branch,
 // keyed by application names with changes made under the branch.
 func (b *Branch) AssignedUnits() map[string][]string {
@@ -48,9 +56,8 @@ func (b *Branch) setDetails(details BranchChange) {
 
 	b.setStale(false)
 
-	// TODO (manadart 2019-05-29): Publish changes for config deltas and tracking units.
-
 	b.details = details
+	b.hub.Publish(branchChange, b.copy())
 }
 
 // copy returns a copy of the branch, ensuring appropriate deep copying.

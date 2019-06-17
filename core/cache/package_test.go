@@ -80,8 +80,14 @@ func (s *EntitySuite) NewModel(details ModelChange, hub *pubsub.SimpleHub) *Mode
 
 func (s *EntitySuite) NewApplication(details ApplicationChange, hub *pubsub.SimpleHub) *Application {
 	a := newApplication(s.Gauges, s.EnsureHub(hub), s.NewResident())
-	a.SetDetails(details)
+	a.setDetails(details)
 	return a
+}
+
+func (s *EntitySuite) NewBranch(details BranchChange, hub *pubsub.SimpleHub) *Branch {
+	b := newBranch(s.Gauges, s.EnsureHub(hub), s.NewResident())
+	b.setDetails(details)
+	return b
 }
 
 func (s *EntitySuite) EnsureHub(hub *pubsub.SimpleHub) *pubsub.SimpleHub {
