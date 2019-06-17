@@ -101,6 +101,7 @@ func (c *detectCredentialsCommand) Info() *cmd.Info {
 		Name:    "autoload-credentials",
 		Purpose: detectCredentialsSummary,
 		Args:    "[<cloud-type>]",
+		Aliases: []string{"autoload-credential"},
 		Doc:     detectCredentialsDoc,
 	})
 }
