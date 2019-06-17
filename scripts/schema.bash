@@ -8,4 +8,5 @@ new_schema_sha=$(cat $tmpfile | sha256sum | awk '{ print $1 }')
 
 if [ $current_schema_sha != $new_schema_sha ]; then
     (>&2 echo "Error: facades schema is not in sync. Run 'make rebuild-schema' and commit source.")
+    exit 1
 fi
