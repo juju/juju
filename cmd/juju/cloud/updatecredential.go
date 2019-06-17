@@ -102,6 +102,7 @@ func (c *updateCredentialCommand) Info() *cmd.Info {
 		Name:    "update-credential",
 		Args:    "[<cloud-name> [<credential-name>]]",
 		Purpose: usageUpdateCredentialSummary,
+		Aliases: []string{"update-credentials"},
 		Doc:     usageUpdateCredentialDetails,
 	})
 }
