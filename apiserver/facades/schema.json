@@ -1428,7 +1428,7 @@
     },
     {
         "Name": "Application",
-        "Version": 9,
+        "Version": 10,
         "Schema": {
             "type": "object",
             "properties": {
@@ -2708,6 +2708,12 @@
                     "properties": {
                         "application-tag": {
                             "type": "string"
+                        },
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "max-wait": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
