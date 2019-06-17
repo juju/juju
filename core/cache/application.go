@@ -88,6 +88,7 @@ func (a *Application) setDetails(details ApplicationChange) {
 	if configHash != a.configHash {
 		a.configHash = configHash
 		a.hashCache = hashCache
+		a.hashCache.incMisses()
 		a.hub.Publish(a.topic(applicationConfigChange), hashCache)
 	}
 }

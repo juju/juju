@@ -399,6 +399,7 @@ func (m *Model) setDetails(details ModelChange) {
 	if configHash != m.configHash {
 		m.configHash = configHash
 		m.hashCache = hashCache
+		m.hashCache.incMisses()
 		m.hub.Publish(modelConfigChange, hashCache)
 	}
 

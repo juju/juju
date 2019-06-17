@@ -85,11 +85,16 @@ func (s *ModelSuite) TestConfigWatcherChange(c *gc.C) {
 	m.SetDetails(change)
 	wc.AssertOneChange()
 
-	// The hash is generated each time we set the details.
+	// The hash is generated each time we set different details.
 	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheMiss), gc.Equals, float64(2))
 
 	// The value is retrieved from the cache when the watcher is created and notified.
 	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheHit), gc.Equals, float64(2))
+
+	// Setting the same values causes no notification and no cache miss.
+	m.SetDetails(change)
+	wc.AssertNoChange()
+	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheMiss), gc.Equals, float64(2))
 }
 
 func (s *ModelSuite) TestConfigWatcherOneValue(c *gc.C) {
