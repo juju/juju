@@ -12,7 +12,7 @@ set -e
 VERSION=`go version | awk '{print $3}'`
 echo "go version $VERSION"
 
-FILES=`find * -name '*.go' -not -name '.#*' | grep -v vendor/ | grep -v acceptancetests/`
+FILES=`find * -name '*.go' -not -name '.#*' -not -name '*_mock.go' | grep -v vendor/ | grep -v acceptancetests/`
 
 echo "checking: dependency files ..."
 dep check
@@ -77,6 +77,14 @@ if [ -n "$INCLUDE_GOLINTERS" ]; then
     ./scripts/golinters.bash
 else
     echo "ignoring: golinters ..."
+fi
+
+INCLUDE_SCHEMA="${INCLUDE_SCHEMA:-1}"
+if [ -n "$INCLUDE_SCHEMA" ]; then
+    echo "checking: schema ..."
+    ./scripts/schema.bash
+else
+    echo "ignoring: schema ..."
 fi
 
 echo "checking: go build ..."
