@@ -4,6 +4,8 @@
 package cache_test
 
 import (
+	"sync"
+
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1/workertest"
@@ -30,9 +32,15 @@ func (s *ApplicationSuite) TestConfigIncrementsReadCount(c *gc.C) {
 	c.Check(testutil.ToFloat64(s.Gauges.ApplicationConfigReads), gc.Equals, float64(2))
 
 	// Goroutine safety.
-	go m.Config()
-	go m.Config()
-	go m.Config()
+	var wg sync.WaitGroup
+	wg.Add(3)
+	for i := 0; i < 3; i++ {
+		go func() {
+			m.Config()
+			wg.Done()
+		}()
+	}
+	wg.Wait()
 	c.Check(testutil.ToFloat64(s.Gauges.ApplicationConfigReads), gc.Equals, float64(5))
 }
 
