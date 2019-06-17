@@ -187,7 +187,7 @@ func (s *machineSuite) TestMachineArrivesProvisionedPublished(c *gc.C) {
 	select {
 	case <-msg:
 	case <-time.After(testing.LongWait):
-		c.Fatalf("provisioned message not received")
+		c.Fatal("machine provisioned message not received")
 	}
 }
 

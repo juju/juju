@@ -72,6 +72,11 @@ func (s *ApplicationSuite) TestConfigWatcherChange(c *gc.C) {
 
 	// The value is retrieved from the cache when the watcher is created and notified.
 	c.Check(testutil.ToFloat64(s.Gauges.ApplicationHashCacheHit), gc.Equals, float64(2))
+
+	// Setting the same values causes no notification and no cache miss.
+	a.SetDetails(change)
+	wc.AssertNoChange()
+	c.Check(testutil.ToFloat64(s.Gauges.ApplicationHashCacheMiss), gc.Equals, float64(2))
 }
 
 var appChange = cache.ApplicationChange{
