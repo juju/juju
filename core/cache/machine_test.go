@@ -178,7 +178,7 @@ func (s *machineSuite) TestWatchContainersRemoveContainer(c *gc.C) {
 }
 
 func (s *machineSuite) TestMachineArrivesProvisionedPublished(c *gc.C) {
-	hub := s.NewHub()
+	hub := s.EnsureHub(nil)
 
 	msg := make(chan struct{}, 1)
 	_ = hub.Subscribe(machineChange.Id+":machine-provisioned", func(_ string, _ interface{}) { msg <- struct{}{} })
