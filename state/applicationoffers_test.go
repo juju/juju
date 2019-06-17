@@ -639,6 +639,8 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	wordpress, err := s.State.RemoteApplication("remote-wordpress")
+	c.Assert(err, jc.ErrorIsNil)
 	wordpressEP, err := rwordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -674,6 +676,9 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 	c.Assert(conn, gc.HasLen, 0)
 	s.assertInScope(c, wpru, false)
 	s.assertInScope(c, mysqlru, true)
+	err = wordpress.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	assertLife(c, wordpress, state.Dying)
 }
 
 func (s *applicationOffersSuite) TestRemovingApplicationFailsRace(c *gc.C) {
