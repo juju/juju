@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"text/template"
 	"time"
 
 	jujuclock "github.com/juju/clock"
@@ -24,7 +23,6 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/yaml.v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -2465,76 +2463,6 @@ type unitSpec struct {
 	Service *K8sServiceSpec
 }
 
-var containerTemplate = `
-  - name: {{.Name}}
-    {{if .Ports}}
-    ports:
-    {{- range .Ports }}
-        - containerPort: {{.ContainerPort}}
-          {{if .Name}}name: {{.Name}}{{end}}
-          {{if .Protocol}}protocol: {{.Protocol}}{{end}}
-    {{- end}}
-    {{end}}
-    {{if .Command}}
-    command: 
-{{ toYaml .Command | indent 8 }}
-    {{end}}
-    {{if .Args}}
-    args: 
-{{ toYaml .Args | indent 8 }}
-    {{end}}
-    {{if .WorkingDir}}
-    workingDir: {{.WorkingDir}}
-    {{end}}
-    {{if .Config}}
-    env:
-    {{- range $k, $v := .Config }}
-        - name: {{$k}}
-          value: {{$v}}
-    {{- end}}
-    {{end}}
-
-`
-
-var defaultPodTemplateStr = fmt.Sprintf(`
-pod:
-  containers:
-  {{- range .Containers }}
-%s
-  {{- end}}
-  {{if .InitContainers}}
-  initContainers:
-  {{- range .InitContainers }}
-%s
-  {{- end}}
-  {{end}}
-`[1:], containerTemplate, containerTemplate)
-
-var defaultPodTemplate = template.Must(template.New("").Funcs(templateAddons).Parse(defaultPodTemplateStr))
-
-func toYaml(val interface{}) (string, error) {
-	data, err := yaml.Marshal(val)
-	if err != nil {
-		return "", errors.Annotatef(err, "marshalling to yaml for %v", val)
-	}
-	return string(data), nil
-}
-
-func indent(n int, str string) string {
-	out := ""
-	prefix := strings.Repeat(" ", n)
-	for _, line := range strings.Split(str, "\n") {
-		out += prefix + line + "\n"
-	}
-	logger.Criticalf("indent s %v, n %v, out -> \n%s", str, n, out)
-	return out
-}
-
-var templateAddons = template.FuncMap{
-	"toYaml": toYaml,
-	"indent": indent,
-}
-
 func makeUnitSpec(appName, deploymentName string, podSpec *caas.PodSpec) (*unitSpec, error) {
 	// Fill out the easy bits using a template.
 	var buf bytes.Buffer
@@ -2547,8 +2475,6 @@ func makeUnitSpec(appName, deploymentName string, podSpec *caas.PodSpec) (*unitS
 	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(unitSpecString), len(unitSpecString))
 	if err := decoder.Decode(&unitSpec); err != nil {
 		logger.Errorf("unable to parse %q pod spec: \n%+v\nunit spec: \n%v", appName, *podSpec, unitSpecString)
-		pS := *podSpec
-		logger.Criticalf("pS.Containers[0].Command -> \n%#v", pS.Containers[1].Command)
 		return nil, errors.Trace(err)
 	}
 
