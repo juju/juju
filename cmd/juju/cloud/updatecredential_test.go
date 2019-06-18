@@ -53,9 +53,10 @@ func (s *updateCredentialSuite) TestBadArgs(c *gc.C) {
 }
 
 func (s *updateCredentialSuite) TestBadFileSpecified(c *gc.C) {
-	_, err := cmdtesting.RunCommand(c, s.testCommand, "-f", "somefile.yaml")
-	c.Assert(err, gc.Not(jc.ErrorIsNil))
-	c.Assert(c.GetTestLog(), jc.Contains, `Could not get credentials from file`)
+	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "-f", "somefile.yaml")
+	c.Assert(err, gc.ErrorMatches, "could not get credentials from file: reading credentials file: open somefile.yaml: no such file or directory")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 
 func (s *updateCredentialSuite) makeCredentialsTestFile(c *gc.C, data string) string {
@@ -126,7 +127,7 @@ credentials:
 `)
 	result, err := cloud.CredentialsFromFile(testFile, "anothercloud", "")
 	// Cannot use gc.ErrorMatches here since temp dir will look different between runs.
-	c.Assert(err.Error(), jc.Contains, `No credentials for cloud "anothercloud" exist in file`)
+	c.Assert(err.Error(), jc.Contains, `no credentials for cloud "anothercloud" exist in file`)
 	c.Assert(result, gc.IsNil)
 }
 
@@ -166,7 +167,7 @@ credentials:
 `)
 	result, err := cloud.CredentialsFromFile(testFile, "somecloud", "its-credential")
 	// Cannot use gc.ErrorMatches here since temp dir will look different between runs.
-	c.Assert(err.Error(), jc.Contains, `No credential "its-credential" for cloud "somecloud" exists in file`)
+	c.Assert(err.Error(), jc.Contains, `no credential "its-credential" for cloud "somecloud" exists in file`)
 	c.Assert(result, gc.IsNil)
 }
 
@@ -184,7 +185,7 @@ credentials:
 `)
 	result, err := cloud.CredentialsFromFile(testFile, "somecloud", "its-credential")
 	// Cannot use gc.ErrorMatches here since temp dir will look different between runs.
-	c.Assert(err.Error(), jc.Contains, `No credential "its-credential" for cloud "somecloud" exists in file`)
+	c.Assert(err.Error(), jc.Contains, `no credential "its-credential" for cloud "somecloud" exists in file`)
 	c.Assert(result, gc.IsNil)
 }
 
@@ -198,7 +199,7 @@ credentials:
 `)
 	result, err := cloud.CredentialsFromFile(testFile, "somecloud", "its-credential")
 	// Cannot use gc.ErrorMatches here since temp dir will look different between runs.
-	c.Assert(err.Error(), jc.Contains, `No credentials for cloud "somecloud" exist in file`)
+	c.Assert(err.Error(), jc.Contains, `no credentials for cloud "somecloud" exist in file`)
 	c.Assert(result, gc.IsNil)
 }
 
@@ -259,16 +260,18 @@ func (s *updateCredentialSuite) TestCloudCredentialFromLocalCacheWithCloudAndCre
 }
 
 func (s *updateCredentialSuite) TestUpdateLocalWithCloudWhenNoneExists(c *gc.C) {
-	_, err := cmdtesting.RunCommand(c, s.testCommand, "somecloud", "its-credential", "--local")
-	c.Assert(err, gc.DeepEquals, jujucmd.ErrSilent)
-	c.Assert(c.GetTestLog(), jc.Contains, "Could not get credentials from local client cache")
+	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "somecloud", "its-credential", "--local")
+	c.Assert(err, gc.ErrorMatches, "could not get credentials from local client cache: loading credentials: credentials for cloud somecloud not found")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 
 func (s *updateCredentialSuite) TestUpdateLocalWithCloudWhenCredentialDoesNotExists(c *gc.C) {
 	s.storeWithCredentials(c)
-	_, err := cmdtesting.RunCommand(c, s.testCommand, "somecloud", "fluffy-credential", "--local")
-	c.Assert(err, gc.DeepEquals, jujucmd.ErrSilent)
-	c.Assert(c.GetTestLog(), jc.Contains, "Could not get credentials from local client cache")
+	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "somecloud", "fluffy-credential", "--local")
+	c.Assert(err, gc.ErrorMatches, `could not get credentials from local client cache: no credential "fluffy-credential" for cloud "somecloud" exists in local client cache`)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 
 func (s *updateCredentialSuite) TestUpdateLocal(c *gc.C) {
@@ -349,19 +352,21 @@ func (s *updateCredentialSuite) TestUpdateCredentialWithFilePath(c *gc.C) {
 func (s *updateCredentialSuite) TestUpdateRemote(c *gc.C) {
 	s.api.updateCloudsCredentials = func(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error) {
 		c.Assert(cloudCredentials, gc.HasLen, 1)
+		expectedTag := names.NewCloudCredentialTag("aws/admin@local/my-credential").String()
 		for k, v := range cloudCredentials {
-			c.Assert(k, gc.DeepEquals, names.NewCloudCredentialTag("aws/admin@local/my-credential").String())
+			c.Assert(k, gc.DeepEquals, expectedTag)
 			c.Assert(v, jc.DeepEquals, jujucloud.NewCredential(jujucloud.AccessKeyAuthType, map[string]string{"access-key": "key", "secret-key": "secret"}))
 		}
-		return nil, nil
+		return []params.UpdateCredentialResult{{CredentialTag: expectedTag}}, nil
 	}
 	s.storeWithCredentials(c)
 	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, `
-	Controller credential "my-credential" for user "admin@local" on cloud "aws" updated.
-	For more information, see ‘juju show-credential aws my-credential’.
-	`[1:])
+	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, ``)
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `
+Controller credential "my-credential" for user "admin@local" on cloud "aws" updated.
+For more information, see ‘juju show-credential aws my-credential’.
+`[1:])
 }
 
 func (s *updateCredentialSuite) storeWithCredentials(c *gc.C) {
