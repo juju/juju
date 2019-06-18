@@ -23,7 +23,7 @@ type ApplicationSuite struct {
 var _ = gc.Suite(&ApplicationSuite{})
 
 func (s *ApplicationSuite) TestConfigIncrementsReadCount(c *gc.C) {
-	m := s.NewApplication(appChange, nil)
+	m := s.NewApplication(appChange)
 	c.Check(testutil.ToFloat64(s.Gauges.ApplicationConfigReads), gc.Equals, float64(0))
 
 	m.Config()
@@ -47,7 +47,7 @@ func (s *ApplicationSuite) TestConfigIncrementsReadCount(c *gc.C) {
 // See model_test.go for other config watcher tests.
 // Here we just check that WatchConfig is wired up properly.
 func (s *ApplicationSuite) TestConfigWatcherChange(c *gc.C) {
-	a := s.NewApplication(appChange, nil)
+	a := s.NewApplication(appChange)
 	w := a.WatchConfig()
 
 	// The worker is the first and only resource (1).

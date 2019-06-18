@@ -20,11 +20,11 @@ type BranchSuite struct {
 var _ = gc.Suite(&BranchSuite{})
 
 func (s *BranchSuite) TestBranchSetDetailsPublishesCopy(c *gc.C) {
-	hub := s.EnsureHub(nil)
-
 	rcv := make(chan interface{}, 1)
-	_ = hub.Subscribe("branch-change", func(_ string, msg interface{}) { rcv <- msg })
-	_ = s.NewBranch(branchChange, hub)
+	unsub := s.Hub.Subscribe("branch-change", func(_ string, msg interface{}) { rcv <- msg })
+	defer unsub()
+
+	_ = s.NewBranch(branchChange)
 
 	select {
 	case msg := <-rcv:

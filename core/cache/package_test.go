@@ -58,48 +58,44 @@ func (s *BaseSuite) AssertWorkerResource(c *gc.C, resident *Resident, id uint64,
 	c.Assert(present, gc.Equals, expectPresent)
 }
 
+func (s *BaseSuite) NewHub() *pubsub.SimpleHub {
+	logger := loggo.GetLogger("test")
+	logger.SetLogLevel(loggo.TRACE)
+	return pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{Logger: logger})
+}
+
 // entitySuite is the base suite for testing cached entities
 // (models, applications, machines).
 type EntitySuite struct {
 	BaseSuite
 
 	Gauges *ControllerGauges
+	Hub    *pubsub.SimpleHub
 }
 
 func (s *EntitySuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.Gauges = createControllerGauges()
+	s.Hub = s.NewHub()
 }
 
-func (s *EntitySuite) NewModel(details ModelChange, hub *pubsub.SimpleHub) *Model {
-	m := newModel(s.Gauges, s.EnsureHub(hub), s.Manager.new())
+func (s *EntitySuite) NewModel(details ModelChange) *Model {
+	m := newModel(s.Gauges, s.Hub, s.Manager.new())
 	m.setDetails(details)
 	return m
 }
 
-func (s *EntitySuite) NewApplication(details ApplicationChange, hub *pubsub.SimpleHub) *Application {
-	a := newApplication(s.Gauges, s.EnsureHub(hub), s.NewResident())
+func (s *EntitySuite) NewApplication(details ApplicationChange) *Application {
+	a := newApplication(s.Gauges, s.Hub, s.NewResident())
 	a.setDetails(details)
 	return a
 }
 
-func (s *EntitySuite) NewBranch(details BranchChange, hub *pubsub.SimpleHub) *Branch {
-	b := newBranch(s.Gauges, s.EnsureHub(hub), s.NewResident())
+func (s *EntitySuite) NewBranch(details BranchChange) *Branch {
+	b := newBranch(s.Gauges, s.Hub, s.NewResident())
 	b.setDetails(details)
 	return b
-}
-
-func (s *EntitySuite) EnsureHub(hub *pubsub.SimpleHub) *pubsub.SimpleHub {
-	if hub != nil {
-		return hub
-	}
-
-	logger := loggo.GetLogger("test")
-	logger.SetLogLevel(loggo.TRACE)
-	return pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-		Logger: logger,
-	})
 }
 
 type ImportSuite struct{}

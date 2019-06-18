@@ -26,7 +26,7 @@ type ModelSuite struct {
 var _ = gc.Suite(&ModelSuite{})
 
 func (s *ModelSuite) TestReport(c *gc.C) {
-	m := s.NewModel(modelChange, nil)
+	m := s.NewModel(modelChange)
 	c.Assert(m.Report(), jc.DeepEquals, map[string]interface{}{
 		"name":              "model-owner/test-model",
 		"life":              life.Value("alive"),
@@ -39,7 +39,7 @@ func (s *ModelSuite) TestReport(c *gc.C) {
 }
 
 func (s *ModelSuite) TestConfig(c *gc.C) {
-	m := s.NewModel(modelChange, nil)
+	m := s.NewModel(modelChange)
 	c.Assert(m.Config(), jc.DeepEquals, map[string]interface{}{
 		"key":     "value",
 		"another": "foo",
@@ -47,12 +47,12 @@ func (s *ModelSuite) TestConfig(c *gc.C) {
 }
 
 func (s *ModelSuite) TestNewModelGeneratesHash(c *gc.C) {
-	s.NewModel(modelChange, nil)
+	s.NewModel(modelChange)
 	c.Check(testutil.ToFloat64(s.Gauges.ModelHashCacheMiss), gc.Equals, float64(1))
 }
 
 func (s *ModelSuite) TestModelConfigIncrementsReadCount(c *gc.C) {
-	m := s.NewModel(modelChange, nil)
+	m := s.NewModel(modelChange)
 	c.Check(testutil.ToFloat64(s.Gauges.ModelConfigReads), gc.Equals, float64(0))
 	m.Config()
 	c.Check(testutil.ToFloat64(s.Gauges.ModelConfigReads), gc.Equals, float64(1))
@@ -64,7 +64,7 @@ func (s *ModelSuite) TestModelConfigIncrementsReadCount(c *gc.C) {
 // watcher, but using a cached model avoids the need to put scaffolding code in
 // export_test.go to create a watcher in isolation.
 func (s *ModelSuite) TestConfigWatcherStops(c *gc.C) {
-	m := s.NewModel(modelChange, nil)
+	m := s.NewModel(modelChange)
 	w := m.WatchConfig()
 	wc := NewNotifyWatcherC(c, w)
 	// Sends initial event.
@@ -73,7 +73,7 @@ func (s *ModelSuite) TestConfigWatcherStops(c *gc.C) {
 }
 
 func (s *ModelSuite) TestConfigWatcherChange(c *gc.C) {
-	m := s.NewModel(modelChange, nil)
+	m := s.NewModel(modelChange)
 	w := m.WatchConfig()
 	defer workertest.CleanKill(c, w)
 	wc := NewNotifyWatcherC(c, w)
@@ -101,7 +101,7 @@ func (s *ModelSuite) TestConfigWatcherChange(c *gc.C) {
 }
 
 func (s *ModelSuite) TestConfigWatcherOneValue(c *gc.C) {
-	m := s.NewModel(modelChange, nil)
+	m := s.NewModel(modelChange)
 	w := m.WatchConfig("key")
 	defer workertest.CleanKill(c, w)
 	wc := NewNotifyWatcherC(c, w)
@@ -119,7 +119,7 @@ func (s *ModelSuite) TestConfigWatcherOneValue(c *gc.C) {
 }
 
 func (s *ModelSuite) TestConfigWatcherOneValueOtherChange(c *gc.C) {
-	m := s.NewModel(modelChange, nil)
+	m := s.NewModel(modelChange)
 	w := m.WatchConfig("key")
 
 	// The worker is the first and only resource (1).
@@ -145,7 +145,7 @@ func (s *ModelSuite) TestConfigWatcherOneValueOtherChange(c *gc.C) {
 }
 
 func (s *ModelSuite) TestConfigWatcherSameValuesCacheHit(c *gc.C) {
-	m := s.NewModel(modelChange, nil)
+	m := s.NewModel(modelChange)
 
 	w := m.WatchConfig("key", "another")
 	defer workertest.CleanKill(c, w)
@@ -161,13 +161,13 @@ func (s *ModelSuite) TestConfigWatcherSameValuesCacheHit(c *gc.C) {
 }
 
 func (s *ModelSuite) TestApplicationNotFoundError(c *gc.C) {
-	m := s.NewModel(modelChange, nil)
+	m := s.NewModel(modelChange)
 	_, err := m.Application("nope")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *ModelSuite) TestApplicationReturnsCopy(c *gc.C) {
-	m := s.NewModel(modelChange, nil)
+	m := s.NewModel(modelChange)
 	m.UpdateApplication(appChange, s.Manager)
 
 	a1, err := m.Application(appChange.Name)
@@ -184,19 +184,19 @@ func (s *ModelSuite) TestApplicationReturnsCopy(c *gc.C) {
 }
 
 func (s *ModelSuite) TestCharmNotFoundError(c *gc.C) {
-	m := s.NewModel(modelChange, nil)
+	m := s.NewModel(modelChange)
 	_, err := m.Charm("nope")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *ModelSuite) TestMachineNotFoundError(c *gc.C) {
-	m := s.NewModel(modelChange, nil)
+	m := s.NewModel(modelChange)
 	_, err := m.Machine("nope")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *ModelSuite) TestMachineReturnsCopy(c *gc.C) {
-	m := s.NewModel(modelChange, nil)
+	m := s.NewModel(modelChange)
 	m.UpdateMachine(machineChange, s.Manager)
 
 	m1, err := m.Machine(machineChange.Id)
@@ -213,13 +213,13 @@ func (s *ModelSuite) TestMachineReturnsCopy(c *gc.C) {
 }
 
 func (s *ModelSuite) TestUnitNotFoundError(c *gc.C) {
-	m := s.NewModel(modelChange, nil)
+	m := s.NewModel(modelChange)
 	_, err := m.Unit("nope")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *ModelSuite) TestUnitReturnsCopy(c *gc.C) {
-	m := s.NewModel(modelChange, nil)
+	m := s.NewModel(modelChange)
 	m.UpdateUnit(unitChange, s.Manager)
 
 	u1, err := m.Unit(unitChange.Name)
@@ -236,13 +236,13 @@ func (s *ModelSuite) TestUnitReturnsCopy(c *gc.C) {
 }
 
 func (s *ModelSuite) TestBranchNotFoundError(c *gc.C) {
-	m := s.NewModel(modelChange, nil)
+	m := s.NewModel(modelChange)
 	_, err := m.Branch("nope")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *ModelSuite) TestBranchReturnsCopy(c *gc.C) {
-	m := s.NewModel(modelChange, nil)
+	m := s.NewModel(modelChange)
 	m.UpdateBranch(branchChange, s.Manager)
 
 	b1, err := m.Branch(branchChange.Name)
@@ -259,12 +259,12 @@ func (s *ModelSuite) TestBranchReturnsCopy(c *gc.C) {
 }
 
 func (s *ModelSuite) TestRemoveBranchPublishesName(c *gc.C) {
-	hub := s.EnsureHub(nil)
-	m := s.NewModel(modelChange, hub)
+	m := s.NewModel(modelChange)
 	m.UpdateBranch(branchChange, s.Manager)
 
 	rcv := make(chan interface{}, 1)
-	_ = hub.Subscribe("model-branch-remove", func(_ string, msg interface{}) { rcv <- msg })
+	unsub := s.Hub.Subscribe("model-branch-remove", func(_ string, msg interface{}) { rcv <- msg })
+	defer unsub()
 
 	err := m.RemoveBranch(cache.RemoveBranch{
 		ModelUUID: branchChange.ModelUUID,
