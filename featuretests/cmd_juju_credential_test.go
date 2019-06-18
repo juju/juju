@@ -75,7 +75,19 @@ clouds:
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx, err = s.run(c, "update-credential", "dummy", "cred")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(c.GetTestLog(), jc.Contains, `ERROR juju.cmd.juju.cloud finalizing "cred" credential for cloud "dummy": unknown key "tenant-name" (value "hrm")`)
+	store.UpdateCredential("dummy", cloud.CloudCredential{
+		AuthCredentials: map[string]cloud.Credential{
+			"cred": cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+				"username": user,
+				"password": pass,
+			}),
+		},
+	})
+	ctx, err = s.run(c, "update-credential", "dummy", "cred")
 	c.Assert(err, jc.ErrorIsNil)
+
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 Credential valid for:
   controller
@@ -94,8 +106,7 @@ For more information, see ‘juju show-credential dummy cred’.
 		{Result: &params.CloudCredential{
 			AuthType: "userpass",
 			Attributes: map[string]string{
-				"username":    user,
-				"tenant-name": tenantName,
+				"username": user,
 			},
 			Redacted: []string{"password"},
 		}},
