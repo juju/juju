@@ -37,7 +37,6 @@ func (s *BranchSuite) TestBranchSetDetailsPublishesCopy(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatal("branch change message not Received")
 	}
-
 }
 
 var branchChange = cache.BranchChange{

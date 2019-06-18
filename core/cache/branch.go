@@ -5,6 +5,8 @@ package cache
 
 import (
 	"github.com/juju/pubsub"
+
+	"github.com/juju/juju/core/settings"
 )
 
 const branchChange = "branch-change"
@@ -43,6 +45,11 @@ func (b *Branch) Name() string {
 // keyed by application names with changes made under the branch.
 func (b *Branch) AssignedUnits() map[string][]string {
 	return b.details.AssignedUnits
+}
+
+// Config returns the configuration changes that apply to the branch.
+func (b *Branch) Config() map[string]settings.ItemChanges {
+	return b.details.Config
 }
 
 func (b *Branch) setDetails(details BranchChange) {
