@@ -58,7 +58,7 @@
   name = "github.com/hashicorp/raft-boltdb"
 
 [[constraint]]
-  revision = "a15b892a41663fc698e6fb81c9e3d9e72fbe5c9c"
+  revision = "bb96ad9a5018f64e67f46f63496580c8956b4fbf"
   name = "github.com/juju/bundlechanges"
 
 [[constraint]]
@@ -147,7 +147,7 @@
 
 [[constraint]]
   name = "gopkg.in/juju/charm.v6"
-  revision = "f915791435aa68df6d2b87b7ec16dac9f695a63e"
+  revision = "b0e282572b0939cfc2658678d24adb74d2b9435a"
 
 [[constraint]]
   revision = "7778a447283bd71109671c20818544514e16e9d9"
