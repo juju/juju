@@ -94,46 +94,67 @@ func (c *Client) UserCredentials(user names.UserTag, cloud names.CloudTag) ([]na
 	return tags, nil
 }
 
-// UpdateCredentialsCheckModels updates a cloud credential content
-// stored on the controller. This call validates that the new content works
-// for all models that are using this credential.
-func (c *Client) UpdateCredentialsCheckModels(tag names.CloudCredentialTag, credential jujucloud.Credential) ([]params.UpdateCredentialModelResult, error) {
-	in := params.UpdateCredentialArgs{
-		Credentials: []params.TaggedCredential{{
-			Tag: tag.String(),
+// UpdateCloudsCredentials updates clouds credentials content on the controller.
+// Passed in credentials are keyed on the credential tag.
+func (c *Client) UpdateCloudsCredentials(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error) {
+	var tagged []params.TaggedCredential
+	for tag, credential := range cloudCredentials {
+		tagged = append(tagged, params.TaggedCredential{
+			Tag: tag,
 			Credential: params.CloudCredential{
 				AuthType:   string(credential.AuthType()),
 				Attributes: credential.Attributes(),
 			},
-		}},
+		})
 	}
+	in := params.UpdateCredentialArgs{Credentials: tagged}
+	count := len(cloudCredentials)
 
+	countErr := func(got int) error {
+		plural := "s"
+		if count == 1 {
+			plural = ""
+		}
+		return errors.Errorf("expected %d result%v got %d when updating credentials", count, plural, got)
+	}
 	if c.facade.BestAPIVersion() < 3 {
 		var out params.ErrorResults
 		if err := c.facade.FacadeCall("UpdateCredentials", in, &out); err != nil {
 			return nil, errors.Trace(err)
 		}
-		if len(out.Results) != 1 {
-			return nil, errors.Errorf("expected 1 result for when updating credential %q, got %d", tag.Name(), len(out.Results))
+		if len(out.Results) != count {
+			return nil, countErr(len(out.Results))
 		}
-		if out.Results[0].Error != nil {
-			return nil, errors.Trace(out.Results[0].Error)
+		converted := make([]params.UpdateCredentialResult, count)
+		for i, one := range out.Results {
+			converted[i] = params.UpdateCredentialResult{CredentialTag: tagged[i].Tag, Error: one.Error}
 		}
-		return nil, nil
+		return converted, nil
 	}
 
 	var out params.UpdateCredentialResults
 	if err := c.facade.FacadeCall("UpdateCredentialsCheckModels", in, &out); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if len(out.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result for when updating credential %q, got %d", tag.Name(), len(out.Results))
+	if len(out.Results) != count {
+		return nil, countErr(len(out.Results))
 	}
-	if out.Results[0].Error != nil {
+	return out.Results, nil
+}
+
+// UpdateCredentialsCheckModels updates a cloud credential content
+// stored on the controller. This call validates that the new content works
+// for all models that are using this credential.
+func (c *Client) UpdateCredentialsCheckModels(tag names.CloudCredentialTag, credential jujucloud.Credential) ([]params.UpdateCredentialModelResult, error) {
+	out, err := c.UpdateCloudsCredentials(map[string]jujucloud.Credential{tag.String(): credential})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if out[0].Error != nil {
 		// Unlike many other places, we want to return something valid here to provide more details.
-		return out.Results[0].Models, errors.Trace(out.Results[0].Error)
+		return out[0].Models, errors.Trace(out[0].Error)
 	}
-	return out.Results[0].Models, nil
+	return out[0].Models, nil
 }
 
 // RevokeCredential revokes/deletes a cloud credential.

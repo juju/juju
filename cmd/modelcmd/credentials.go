@@ -57,14 +57,23 @@ func GetCredentials(
 	if regionName == "" {
 		regionName = defaultRegion
 	}
+	credential, err = VerifyCredentials(ctx, &args.Cloud, credential, credentialName, regionName)
+	if err != nil {
+		return nil, "", "", errors.Trace(err)
+	}
+	return credential, credentialName, regionName, nil
+}
 
-	cloudEndpoint := args.Cloud.Endpoint
-	cloudStorageEndpoint := args.Cloud.StorageEndpoint
-	cloudIdentityEndpoint := args.Cloud.IdentityEndpoint
+// VerifyCredentials ensures that a given credential complies with the provider/cloud understanding of what
+// its valid credential looks like.
+func VerifyCredentials(ctx *cmd.Context, aCloud *cloud.Cloud, credential *cloud.Credential, credentialName string, regionName string) (_ *cloud.Credential, _ error) {
+	cloudEndpoint := aCloud.Endpoint
+	cloudStorageEndpoint := aCloud.StorageEndpoint
+	cloudIdentityEndpoint := aCloud.IdentityEndpoint
 	if regionName != "" {
-		region, err := cloud.RegionByName(args.Cloud.Regions, regionName)
+		region, err := cloud.RegionByName(aCloud.Regions, regionName)
 		if err != nil {
-			return nil, "", "", errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		cloudEndpoint = region.Endpoint
 		cloudStorageEndpoint = region.StorageEndpoint
@@ -72,14 +81,14 @@ func GetCredentials(
 	}
 
 	// Finalize credential against schemas supported by the provider.
-	provider, err := environs.Provider(args.Cloud.Type)
+	provider, err := environs.Provider(aCloud.Type)
 	if err != nil {
-		return nil, "", "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	credential, err = FinalizeFileContent(credential, provider)
 	if err != nil {
-		return nil, "", "", AnnotateWithFinalizationError(err, credentialName, args.Cloud.Name)
+		return nil, AnnotateWithFinalizationError(err, credentialName, aCloud.Name)
 	}
 
 	credential, err = provider.FinalizeCredential(
@@ -91,10 +100,10 @@ func GetCredentials(
 		},
 	)
 	if err != nil {
-		return nil, "", "", AnnotateWithFinalizationError(err, credentialName, args.Cloud.Name)
+		return nil, AnnotateWithFinalizationError(err, credentialName, aCloud.Name)
 	}
 
-	return credential, credentialName, regionName, nil
+	return credential, nil
 }
 
 // FinalizeFileContent replaces the path content of cloud credentials "file" attribute with its content.
