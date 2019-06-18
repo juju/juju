@@ -349,7 +349,7 @@ func (s *cloudSuite) TestUpdateCredentialManyResultsV2(c *gc.C) {
 	}
 	client := cloudapi.NewClient(apiCaller)
 	result, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
-	c.Assert(err, gc.ErrorMatches, `expected 1 result for when updating credential "bar", got 2`)
+	c.Assert(err, gc.ErrorMatches, `expected 1 result got 2 when updating credentials`)
 	c.Assert(result, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -377,7 +377,7 @@ func (s *cloudSuite) TestUpdateCredentialManyResults(c *gc.C) {
 	}
 	client := cloudapi.NewClient(apiCaller)
 	result, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
-	c.Assert(err, gc.ErrorMatches, `expected 1 result for when updating credential "bar", got 2`)
+	c.Assert(err, gc.ErrorMatches, `expected 1 result got 2 when updating credentials`)
 	c.Assert(result, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -1063,7 +1063,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentials(c *gc.C) {
 			) error {
 				c.Check(objType, gc.Equals, "Cloud")
 				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "UpdateCloudsCredentials")
+				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
 				c.Assert(result, gc.FitsTypeOf, &params.UpdateCredentialResults{})
 				c.Assert(a, jc.DeepEquals, params.UpdateCredentialArgs{
 					Credentials: []params.TaggedCredential{{
@@ -1088,7 +1088,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentials(c *gc.C) {
 	client := cloudapi.NewClient(apiCaller)
 	result, err := client.UpdateCloudsCredentials(createCredentials(1))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, []params.UpdateCredentialResult{{}})
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -1101,7 +1101,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsErrorV2(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
-				c.Check(request, gc.Equals, "UpdateCloudsCredentials")
+				c.Check(request, gc.Equals, "UpdateCredentials")
 				*result.(*params.ErrorResults) = params.ErrorResults{
 					Results: []params.ErrorResult{{common.ServerError(errors.New("validation failure"))}},
 				}
@@ -1113,8 +1113,10 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsErrorV2(c *gc.C) {
 	}
 	client := cloudapi.NewClient(apiCaller)
 	errs, err := client.UpdateCloudsCredentials(createCredentials(1))
-	c.Assert(err, gc.ErrorMatches, "validation failure")
-	c.Assert(errs, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, gc.DeepEquals, []params.UpdateCredentialResult{
+		{CredentialTag: "cloudcred-foo_bob_bar0", Error: &params.Error{Message: "validation failure", Code: ""}},
+	})
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -1127,7 +1129,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsError(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
-				c.Check(request, gc.Equals, "UpdateCloudsCredentials")
+				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
 				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
 					Results: []params.UpdateCredentialResult{
 						{CredentialTag: "cloudcred-foo_bob_bar0",
@@ -1143,8 +1145,10 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsError(c *gc.C) {
 	}
 	client := cloudapi.NewClient(apiCaller)
 	errs, err := client.UpdateCloudsCredentials(createCredentials(1))
-	c.Assert(err, gc.ErrorMatches, "validation failure")
-	c.Assert(errs, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, gc.DeepEquals, []params.UpdateCredentialResult{
+		{CredentialTag: "cloudcred-foo_bob_bar0", Error: common.ServerError(errors.New("validation failure"))},
+	})
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -1157,7 +1161,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsCallErrorV2(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
-				c.Check(request, gc.Equals, "UpdateCloudsCredentials")
+				c.Check(request, gc.Equals, "UpdateCredentials")
 				called = true
 				return errors.New("scary but true")
 			},
@@ -1180,7 +1184,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsCallError(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
-				c.Check(request, gc.Equals, "UpdateCloudsCredentials")
+				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
 				called = true
 				return errors.New("scary but true")
 			},
@@ -1203,7 +1207,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyResultsV2(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
-				c.Check(request, gc.Equals, "UpdateCloudsCredentials")
+				c.Check(request, gc.Equals, "UpdateCredentials")
 				*result.(*params.ErrorResults) = params.ErrorResults{
 					Results: []params.ErrorResult{
 						{},
@@ -1218,7 +1222,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyResultsV2(c *gc.C) {
 	}
 	client := cloudapi.NewClient(apiCaller)
 	result, err := client.UpdateCloudsCredentials(createCredentials(1))
-	c.Assert(err, gc.ErrorMatches, `expected 1 result for when updating credential "bar", got 2`)
+	c.Assert(err, gc.ErrorMatches, `expected 1 result got 2 when updating credentials`)
 	c.Assert(result, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -1232,7 +1236,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResultsV2(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
-				c.Check(request, gc.Equals, "UpdateCloudsCredentials")
+				c.Check(request, gc.Equals, "UpdateCredentials")
 				*result.(*params.ErrorResults) = params.ErrorResults{
 					Results: []params.ErrorResult{
 						{},
@@ -1247,8 +1251,11 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResultsV2(c *gc.C) {
 	}
 	client := cloudapi.NewClient(apiCaller)
 	result, err := client.UpdateCloudsCredentials(createCredentials(2))
-	c.Assert(err, gc.ErrorMatches, `expected 1 result for when updating credential "bar", got 2`)
-	c.Assert(result, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, []params.UpdateCredentialResult{
+		{CredentialTag: "cloudcred-foo_bob_bar0"},
+		{CredentialTag: "cloudcred-foo_bob_bar1"},
+	})
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -1261,7 +1268,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyResults(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
-				c.Check(request, gc.Equals, "UpdateCloudsCredentials")
+				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
 				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
 					Results: []params.UpdateCredentialResult{
 						{},
@@ -1275,7 +1282,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyResults(c *gc.C) {
 	}
 	client := cloudapi.NewClient(apiCaller)
 	result, err := client.UpdateCloudsCredentials(createCredentials(1))
-	c.Assert(err, gc.ErrorMatches, `expected 1 result for when updating credential "bar", got 2`)
+	c.Assert(err, gc.ErrorMatches, `expected 1 result got 2 when updating credentials`)
 	c.Assert(result, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -1289,7 +1296,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResults(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
-				c.Check(request, gc.Equals, "UpdateCloudsCredentials")
+				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
 				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
 					Results: []params.UpdateCredentialResult{
 						{},
@@ -1302,9 +1309,10 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResults(c *gc.C) {
 		BestVersion: 3,
 	}
 	client := cloudapi.NewClient(apiCaller)
-	result, err := client.UpdateCloudsCredentials(createCredentials(2))
-	c.Assert(err, gc.ErrorMatches, `expected 1 result for when updating credential "bar", got 2`)
-	c.Assert(result, gc.IsNil)
+	count := 2
+	result, err := client.UpdateCloudsCredentials(createCredentials(count))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, count)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -1317,7 +1325,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsModelErrors(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
-				c.Check(request, gc.Equals, "UpdateCloudsCredentials")
+				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
 				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
 					Results: []params.UpdateCredentialResult{
 						{
@@ -1341,15 +1349,18 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsModelErrors(c *gc.C) {
 		BestVersion: 3,
 	}
 	client := cloudapi.NewClient(apiCaller)
-	errs, err := client.UpdateCloudsCredentials(createCredentials(2))
+	errs, err := client.UpdateCloudsCredentials(createCredentials(1))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, gc.DeepEquals, []params.UpdateCredentialModelResult{
-		{
-			ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-			ModelName: "test-model",
-			Errors: []params.ErrorResult{
-				{Error: &params.Error{Message: "validation failure one", Code: ""}},
-				{Error: &params.Error{Message: "validation failure two", Code: ""}},
+	c.Assert(errs, gc.DeepEquals, []params.UpdateCredentialResult{
+		{CredentialTag: "cloudcred-foo_bob_bar",
+			Models: []params.UpdateCredentialModelResult{
+				{ModelUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+					ModelName: "test-model",
+					Errors: []params.ErrorResult{
+						{common.ServerError(errors.New("validation failure one"))},
+						{common.ServerError(errors.New("validation failure two"))},
+					},
+				},
 			},
 		},
 	})
