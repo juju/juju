@@ -4,9 +4,12 @@
 package state
 
 import (
+	"fmt"
+	"time"
+
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -49,11 +52,12 @@ func (s *LogsInternalSuite) TestCollStatsForLogsDB(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, "Database [logs] not found.")
 }
 
-func (s *LogsInternalSuite) createLogsDB(c *gc.C) {
+func (s *LogsInternalSuite) createLogsDB(c *gc.C) *mgo.Collection {
 	// We create the db by writing something into a collection.
 	coll := s.Session.DB("logs").C("new")
 	err := coll.Insert(bson.M{"_id": "new"})
 	c.Assert(err, jc.ErrorIsNil)
+	return coll
 }
 
 func (s *LogsInternalSuite) createCapped(c *gc.C, name string, size int) {
@@ -67,6 +71,7 @@ func (s *LogsInternalSuite) createCapped(c *gc.C, name string, size int) {
 }
 
 func (s *LogsInternalSuite) TestCollStatsForMissingCollection(c *gc.C) {
+	// Create a collection in the logs database to make sure the DB exists.
 	s.createLogsDB(c)
 
 	coll := s.Session.DB("logs").C("missing")
@@ -76,15 +81,16 @@ func (s *LogsInternalSuite) TestCollStatsForMissingCollection(c *gc.C) {
 }
 
 func (s *LogsInternalSuite) TestCollStatsForNewCollection(c *gc.C) {
-	s.createLogsDB(c)
-
-	coll := s.Session.DB("logs").C("new")
+	coll := s.createLogsDB(c)
 	result, err := collStats(coll)
 
-	c.Logf(pretty.Sprint(result))
-	c.Logf(pretty.Sprint(err))
+	c.Assert(result["ns"], gc.Equals, "logs.new")
+	c.Assert(result["capped"], gc.Equals, false)
 
-	c.Fail()
+	capped, maxSize, err := getCollectionCappedInfo(coll)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(capped, jc.IsFalse)
+	c.Assert(maxSize, gc.Equals, 0)
 }
 
 func (s *LogsInternalSuite) TestCollStatsForCappedCollection(c *gc.C) {
@@ -93,9 +99,96 @@ func (s *LogsInternalSuite) TestCollStatsForCappedCollection(c *gc.C) {
 
 	coll := s.Session.DB("logs").C("capped")
 	result, err := collStats(coll)
+	c.Assert(err, jc.ErrorIsNil)
 
-	c.Logf(pretty.Sprint(result))
-	c.Logf(pretty.Sprint(err))
+	c.Assert(result["ns"], gc.Equals, "logs.capped")
+	c.Assert(result["capped"], gc.Equals, true)
+	c.Assert(result["maxSize"], gc.Equals, 20)
 
-	c.Fail()
+	capped, maxSize, err := getCollectionCappedInfo(coll)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(capped, jc.IsTrue)
+	c.Assert(maxSize, gc.Equals, 20)
+}
+
+func (s *LogsInternalSuite) dbLogger(coll *mgo.Collection) *DbLogger {
+	return &DbLogger{
+		logsColl:  coll,
+		modelUUID: "fake-uuid",
+	}
+}
+
+func writeSomeLogs(c *gc.C, logger *DbLogger, count int) {
+	toWrite := make([]LogRecord, 0, count)
+	when := time.Now()
+	c.Logf("writing %d logs to the db\n", count)
+	for i := 0; i < count; i++ {
+		toWrite = append(toWrite, LogRecord{
+			Time:     when,
+			Entity:   "some-entity",
+			Level:    loggo.DEBUG,
+			Module:   "test",
+			Location: "test_file.go:1234",
+			Message:  fmt.Sprintf("test line %d", i),
+		})
+	}
+	err := logger.Log(toWrite)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *LogsInternalSuite) TestLogsCollectionConversion(c *gc.C) {
+	coll := s.createLogsDB(c)
+	err := convertToCapped(coll, 5)
+	c.Assert(err, jc.ErrorIsNil)
+
+	capped, maxSize, err := getCollectionCappedInfo(coll)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(capped, jc.IsTrue)
+	c.Assert(maxSize, gc.Equals, 5)
+}
+
+func (s *LogsInternalSuite) TestLogsCollectionConversionTwice(c *gc.C) {
+	coll := s.createLogsDB(c)
+	err := convertToCapped(coll, 5)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = convertToCapped(coll, 10)
+	c.Assert(err, jc.ErrorIsNil)
+
+	capped, maxSize, err := getCollectionCappedInfo(coll)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(capped, jc.IsTrue)
+	c.Assert(maxSize, gc.Equals, 10)
+}
+
+func (s *LogsInternalSuite) TestLogsCollectionConversionSmallerSize(c *gc.C) {
+	// Create a log db that has two meg of data, then convert it
+	// to a capped collection with a one meg limit.
+	coll := s.createLogsDB(c)
+	dbLogger := s.dbLogger(coll)
+	size := 0
+	var err error
+	for size < 4 {
+		writeSomeLogs(c, dbLogger, 5000)
+		size, err = getCollectionMB(coll)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	err = convertToCapped(coll, 2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	capped, maxSize, err := getCollectionCappedInfo(coll)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(capped, jc.IsTrue)
+	c.Assert(maxSize, gc.Equals, 2)
+
+	size, err = getCollectionMB(coll)
+	c.Assert(err, jc.ErrorIsNil)
+	// We don't have a LessThan or equal to, so using 3 to mean 1 or 2.
+	c.Assert(size, jc.LessThan, 3)
+
+	// Check that we still have some documents in there.
+	docs, err := coll.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(docs, jc.GreaterThan, 5000)
 }

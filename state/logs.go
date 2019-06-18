@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/deque"
 	"github.com/juju/version"
+	"github.com/kr/pretty"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v2"
@@ -1007,8 +1008,48 @@ func collStats(coll *mgo.Collection) (bson.M, error) {
 	return result, nil
 }
 
+func convertToCapped(coll *mgo.Collection, maxSizeMB int) error {
+	if maxSizeMB < 1 {
+		return errors.NotValidf("non-positive maxSize %v", maxSizeMB)
+	}
+	maxSizeMB *= humanize.MiByte
+	var result bson.M
+	err := coll.Database.Run(bson.D{
+		{"convertToCapped", coll.Name},
+		{"size", maxSizeMB},
+	}, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Infof("convertToCapped: %v", pretty.Sprint(result))
+	return nil
+}
+
+// getCollectionCappedInfo returns whether or not the collection is
+// capped, and the max size in MB.
+func getCollectionCappedInfo(coll *mgo.Collection) (bool, int, error) {
+	stats, err := collStats(coll)
+	if err != nil {
+		return false, 0, errors.Trace(err)
+	}
+	capped, ok := stats["capped"].(bool)
+	if !ok {
+		// Either not found or not a bool. Either way this is an issue.
+		return false, 0, errors.NotValidf("missing capped value")
+	}
+	if !capped {
+		return false, 0, nil
+	}
+	maxSize, ok := stats["maxSize"].(int)
+	if !ok {
+		// Either not found or not an int. Either way this is an issue.
+		return false, 0, errors.NotValidf("missing maxSize value")
+	}
+	return true, maxSize, nil
+}
+
 // getCollectionMB returns the size of a MongoDB collection (in
-// bytes), excluding space used by indexes.
+// megabytes), excluding space used by indexes.
 func getCollectionMB(coll *mgo.Collection) (int, error) {
 	stats, err := collStats(coll)
 	if err != nil {
