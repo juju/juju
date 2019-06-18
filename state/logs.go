@@ -1005,6 +1005,7 @@ func collStats(coll *mgo.Collection) (bson.M, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	logger.Infof("collStats: %v", pretty.Sprint(result))
 	return result, nil
 }
 
