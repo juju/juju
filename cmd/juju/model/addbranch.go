@@ -32,7 +32,7 @@ Examples:
 
 See also:
     track
-    checkout
+    branch
     commit
     abort
     diff
@@ -44,7 +44,7 @@ func NewAddBranchCommand() cmd.Command {
 	return modelcmd.Wrap(&addBranchCommand{})
 }
 
-// addBranchCommand supplies the "branch" CLI command used to add a new branch to
+// addBranchCommand supplies the "add-branch" CLI command used to add a new branch to
 // the current model.
 type addBranchCommand struct {
 	modelcmd.ModelCommandBase

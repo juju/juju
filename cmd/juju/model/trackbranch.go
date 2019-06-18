@@ -29,7 +29,7 @@ Examples:
 
 See also:
     add-branch
-    checkout
+    branch
     commit
     abort
     diff

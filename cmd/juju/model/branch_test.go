@@ -15,23 +15,28 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 )
 
-type checkoutSuite struct {
+type branchSuite struct {
 	generationBaseSuite
 }
 
-var _ = gc.Suite(&checkoutSuite{})
+var _ = gc.Suite(&branchSuite{})
 
-func (s *checkoutSuite) TestInit(c *gc.C) {
+func (s *branchSuite) TestInit(c *gc.C) {
 	err := s.runInit(s.branchName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *checkoutSuite) TestInitFail(c *gc.C) {
+func (s *branchSuite) TestInitNone(c *gc.C) {
 	err := s.runInit()
-	c.Assert(err, gc.ErrorMatches, "must specify a branch name to switch to")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *checkoutSuite) TestRunCommandMaster(c *gc.C) {
+func (s *branchSuite) TestInitFail(c *gc.C) {
+	err := s.runInit("test", "me")
+	c.Assert(err, gc.ErrorMatches, "must specify a branch name to switch to or leave blank")
+}
+
+func (s *branchSuite) TestRunCommandMaster(c *gc.C) {
 	ctx, err := s.runCommand(c, nil, coremodel.GenerationMaster)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "Active branch set to \"master\"\n")
@@ -42,7 +47,7 @@ func (s *checkoutSuite) TestRunCommandMaster(c *gc.C) {
 	c.Assert(details.ActiveBranch, gc.Equals, coremodel.GenerationMaster)
 }
 
-func (s *checkoutSuite) TestRunCommandBranchExists(c *gc.C) {
+func (s *branchSuite) TestRunCommandBranchExists(c *gc.C) {
 	ctrl, api := setUpSwitchMocks(c)
 	defer ctrl.Finish()
 
@@ -58,7 +63,7 @@ func (s *checkoutSuite) TestRunCommandBranchExists(c *gc.C) {
 	c.Assert(details.ActiveBranch, gc.Equals, s.branchName)
 }
 
-func (s *checkoutSuite) TestRunCommandNoBranchError(c *gc.C) {
+func (s *branchSuite) TestRunCommandNoBranchError(c *gc.C) {
 	ctrl, api := setUpSwitchMocks(c)
 	defer ctrl.Finish()
 
@@ -68,17 +73,23 @@ func (s *checkoutSuite) TestRunCommandNoBranchError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `this model has no active branch "`+s.branchName+`"`)
 }
 
-func (s *checkoutSuite) runInit(args ...string) error {
-	return cmdtesting.InitCommand(model.NewCheckoutCommandForTest(nil, s.store), args)
+func (s *branchSuite) TestRunCommandActiveBranch(c *gc.C) {
+	ctx, err := s.runCommand(c, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "Active branch is \"master\"\n")
 }
 
-func (s *checkoutSuite) runCommand(c *gc.C, api model.CheckoutCommandAPI, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, model.NewCheckoutCommandForTest(api, s.store), args...)
+func (s *branchSuite) runInit(args ...string) error {
+	return cmdtesting.InitCommand(model.NewBranchCommandForTest(nil, s.store), args)
 }
 
-func setUpSwitchMocks(c *gc.C) (*gomock.Controller, *mocks.MockCheckoutCommandAPI) {
+func (s *branchSuite) runCommand(c *gc.C, api model.BranchCommandAPI, args ...string) (*cmd.Context, error) {
+	return cmdtesting.RunCommand(c, model.NewBranchCommandForTest(api, s.store), args...)
+}
+
+func setUpSwitchMocks(c *gc.C) (*gomock.Controller, *mocks.MockBranchCommandAPI) {
 	ctrl := gomock.NewController(c)
-	api := mocks.NewMockCheckoutCommandAPI(ctrl)
+	api := mocks.NewMockBranchCommandAPI(ctrl)
 	api.EXPECT().Close()
 	return ctrl, api
 }
