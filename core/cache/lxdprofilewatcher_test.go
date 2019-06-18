@@ -24,10 +24,6 @@ type lxdProfileWatcherSuite struct {
 
 var _ = gc.Suite(&lxdProfileWatcherSuite{})
 
-func (s *lxdProfileWatcherSuite) SetUpTest(c *gc.C) {
-	s.EntitySuite.SetUpTest(c)
-}
-
 func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcher(c *gc.C) {
 	w := s.assertStartOneMachineWatcher(c)
 

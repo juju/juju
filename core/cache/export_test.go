@@ -15,16 +15,20 @@ func (m *Model) SetDetails(details ModelChange) {
 
 // Expose Remove* for testing
 
-func (m *Model) RemoveCharm(ch RemoveCharm) error {
-	return m.removeCharm(ch)
+func (m *Model) RemoveCharm(details RemoveCharm) error {
+	return m.removeCharm(details)
 }
 
-func (m *Model) RemoveUnit(ch RemoveUnit) error {
-	return m.removeUnit(ch)
+func (m *Model) RemoveUnit(details RemoveUnit) error {
+	return m.removeUnit(details)
 }
 
 func (m *Model) RemoveMachine(details RemoveMachine) error {
 	return m.removeMachine(details)
+}
+
+func (m *Model) RemoveBranch(details RemoveBranch) error {
+	return m.removeBranch(details)
 }
 
 // Expose Update* for testing.

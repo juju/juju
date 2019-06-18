@@ -4,8 +4,9 @@
 package cache_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/network"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	gc "gopkg.in/check.v1"
@@ -13,7 +14,9 @@ import (
 
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/testing"
 )
 
 type ModelSuite struct {
@@ -253,6 +256,33 @@ func (s *ModelSuite) TestBranchReturnsCopy(c *gc.C) {
 	b2, err := m.Branch(branchChange.Name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(b2.AssignedUnits(), gc.DeepEquals, branchChange.AssignedUnits)
+}
+
+func (s *ModelSuite) TestRemoveBranchPublishesName(c *gc.C) {
+	hub := s.EnsureHub(nil)
+	m := s.NewModel(modelChange, hub)
+	m.UpdateBranch(branchChange, s.Manager)
+
+	rcv := make(chan interface{}, 1)
+	_ = hub.Subscribe("model-branch-remove", func(_ string, msg interface{}) { rcv <- msg })
+
+	err := m.RemoveBranch(cache.RemoveBranch{
+		ModelUUID: branchChange.ModelUUID,
+		Id:        branchChange.Id,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case msg := <-rcv:
+		name, ok := msg.(string)
+		if !ok {
+			c.Fatal("wrong type published; expected string.")
+		}
+		c.Check(name, gc.Equals, branchChange.Name)
+
+	case <-time.After(testing.LongWait):
+		c.Fatal("branch removal message not Received")
+	}
 }
 
 func (s *ControllerSuite) TestWatchMachineStops(c *gc.C) {
