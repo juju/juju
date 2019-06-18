@@ -192,3 +192,75 @@ func (s *LogsInternalSuite) TestLogsCollectionConversionSmallerSize(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(docs, jc.GreaterThan, 5000)
 }
+
+func (s *LogsInternalSuite) TestLogsCollectionConversionTwiceSmallerSize(c *gc.C) {
+	// Create a log db that has two meg of data, then convert it
+	// to a capped collection with a one meg limit.
+	coll := s.createLogsDB(c)
+	dbLogger := s.dbLogger(coll)
+	size := 0
+	var err error
+	for size < 4 {
+		writeSomeLogs(c, dbLogger, 5000)
+		size, err = getCollectionMB(coll)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	err = convertToCapped(coll, 10)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now resize again to 2.
+	err = convertToCapped(coll, 2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	capped, maxSize, err := getCollectionCappedInfo(coll)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(capped, jc.IsTrue)
+	c.Check(maxSize, gc.Equals, 2)
+
+	size, err = getCollectionMB(coll)
+	c.Assert(err, jc.ErrorIsNil)
+	// We don't have a LessThan or equal to, so using 3 to mean 1 or 2.
+	c.Assert(size, jc.LessThan, 3)
+
+	// Check that we still have some documents in there.
+	docs, err := coll.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(docs, jc.GreaterThan, 5000)
+}
+
+func (s *LogsInternalSuite) TestLogsCollectionConversionTwiceBiggerSize(c *gc.C) {
+	// Create a log db that has two meg of data, then convert it
+	// to a capped collection with a one meg limit.
+	coll := s.createLogsDB(c)
+	dbLogger := s.dbLogger(coll)
+	size := 0
+	var err error
+	for size < 4 {
+		writeSomeLogs(c, dbLogger, 5000)
+		size, err = getCollectionMB(coll)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	err = convertToCapped(coll, 1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now resize again to 2.
+	err = convertToCapped(coll, 2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	capped, maxSize, err := getCollectionCappedInfo(coll)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(capped, jc.IsTrue)
+	c.Check(maxSize, gc.Equals, 2)
+
+	size, err = getCollectionMB(coll)
+	c.Assert(err, jc.ErrorIsNil)
+	// We don't have a LessThan or equal to, so using 3 to mean 1 or 2.
+	c.Assert(size, jc.LessThan, 3)
+
+	// Check that we still have some documents in there.
+	docs, err := coll.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(docs, jc.GreaterThan, 5000)
+}
