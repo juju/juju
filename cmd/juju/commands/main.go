@@ -340,7 +340,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewShowCommand())
 	r.Register(model.NewModelCredentialCommand())
 	if featureflag.Enabled(feature.Generations) {
-		r.Register(model.NewBranchCommand())
+		r.Register(model.NewAddBranchCommand())
 		r.Register(model.NewCommitCommand())
 		r.Register(model.NewTrackBranchCommand())
 		r.Register(model.NewCheckoutCommand())
