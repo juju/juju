@@ -442,7 +442,7 @@ func setStatus(db Database, params setStatusParams) (err error) {
 		// If this status is not new (i.e. it is exactly the same as
 		// our last status), there is no need to update the record.
 		// Update here will only reset the 'Since' field.
-		return err
+		return nil
 	}
 
 	// Set the authoritative status document, or fail trying.
