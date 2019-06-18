@@ -1250,12 +1250,14 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResultsV2(c *gc.C) {
 		BestVersion: 2,
 	}
 	client := cloudapi.NewClient(apiCaller)
-	result, err := client.UpdateCloudsCredentials(createCredentials(2))
+	in := createCredentials(2)
+	result, err := client.UpdateCloudsCredentials(in)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, []params.UpdateCredentialResult{
-		{CredentialTag: "cloudcred-foo_bob_bar0"},
-		{CredentialTag: "cloudcred-foo_bob_bar1"},
-	})
+	c.Assert(result, gc.HasLen, len(in))
+	for _, one := range result {
+		_, ok := in[one.CredentialTag]
+		c.Assert(ok, jc.IsTrue)
+	}
 	c.Assert(called, jc.IsTrue)
 }
 
