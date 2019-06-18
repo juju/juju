@@ -60,7 +60,7 @@ func (s *updateCredentialSuite) TestNoArgs(c *gc.C) {
 
 func (s *updateCredentialSuite) TestBadFileSpecified(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "-f", "somefile.yaml")
-	c.Assert(err, gc.ErrorMatches, "could not get credentials from file: reading credentials file: open somefile.yaml: no such file or directory")
+	c.Assert(err.Error(), jc.Contains, "could not get credentials from file: reading credentials file: open somefile.yaml")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
