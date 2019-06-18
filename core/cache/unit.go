@@ -4,8 +4,6 @@
 package cache
 
 import (
-	"github.com/juju/pubsub"
-
 	"github.com/juju/juju/core/network"
 )
 
@@ -15,19 +13,15 @@ type Unit struct {
 	// and tracks resources that it is responsible for cleaning up.
 	*Resident
 
-	metrics *ControllerGauges
-	hub     *pubsub.SimpleHub
-
+	model   *Model
 	details UnitChange
 }
 
-func newUnit(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *Unit {
-	u := &Unit{
+func newUnit(model *Model, res *Resident) *Unit {
+	return &Unit{
 		Resident: res,
-		metrics:  metrics,
-		hub:      hub,
+		model:    model,
 	}
-	return u
 }
 
 // Note that these property accessors are not lock-protected.
@@ -83,7 +77,7 @@ func (u *Unit) setDetails(details UnitChange) {
 	machineChange := u.details.MachineId != details.MachineId
 	u.details = details
 	if machineChange || u.details.Subordinate {
-		u.hub.Publish(modelUnitAdd, u.copy())
+		u.model.hub.Publish(modelUnitAdd, u.copy())
 	}
 }
 
