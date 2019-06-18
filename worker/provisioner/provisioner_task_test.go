@@ -127,6 +127,8 @@ func (s *ProvisionerTaskSuite) TestStartStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, s.machineErrorRetryWatcher)
 	c.Assert(err, jc.ErrorIsNil)
+	err = workertest.CheckKilled(c, s.modelMachinesProfileWatcher)
+	c.Assert(err, jc.ErrorIsNil)
 	s.machineGetter.CheckNoCalls(c)
 	s.instanceBroker.CheckNoCalls(c)
 }
