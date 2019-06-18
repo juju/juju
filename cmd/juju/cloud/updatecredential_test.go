@@ -323,7 +323,7 @@ func (s *updateCredentialSuite) TestUpdateCredentialWithFilePath(c *gc.C) {
 
 	s.api.clouds = func() (map[names.CloudTag]jujucloud.Cloud, error) {
 		return map[names.CloudTag]jujucloud.Cloud{
-			names.NewCloudTag("google"): jujucloud.Cloud{Name: "google", Type: "gce"},
+			names.NewCloudTag("google"): {Name: "google", Type: "gce"},
 		}, nil
 	}
 
@@ -398,8 +398,8 @@ clouds:
 
 	s.api.clouds = func() (map[names.CloudTag]jujucloud.Cloud, error) {
 		return map[names.CloudTag]jujucloud.Cloud{
-			names.NewCloudTag("aws"):       jujucloud.Cloud{Name: "aws", Type: "ec2"},
-			names.NewCloudTag("somecloud"): jujucloud.Cloud{Name: "somecloud", Type: "openstack"},
+			names.NewCloudTag("aws"):       {Name: "aws", Type: "ec2"},
+			names.NewCloudTag("somecloud"): {Name: "somecloud", Type: "openstack"},
 		}, nil
 	}
 }
@@ -408,7 +408,7 @@ func (s *updateCredentialSuite) TestUpdateRemoteResultNotUserCloudError(c *gc.C)
 	s.storeWithCredentials(c)
 	s.api.clouds = func() (map[names.CloudTag]jujucloud.Cloud, error) {
 		return map[names.CloudTag]jujucloud.Cloud{
-			names.NewCloudTag("somecloud"): jujucloud.Cloud{Name: "somecloud", Type: "openstack"},
+			names.NewCloudTag("somecloud"): {Name: "somecloud", Type: "openstack"},
 		}, nil
 	}
 	_, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential")
@@ -430,7 +430,7 @@ func (s *updateCredentialSuite) TestUpdateRemoteResultError(c *gc.C) {
 func (s *updateCredentialSuite) TestUpdateRemoteWithModels(c *gc.C) {
 	s.api.updateCloudsCredentials = func(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error) {
 		return []params.UpdateCredentialResult{
-			params.UpdateCredentialResult{
+			{
 				CredentialTag: names.NewCloudCredentialTag("aws/admin/my-credential").String(),
 				Models: []params.UpdateCredentialModelResult{
 					{
