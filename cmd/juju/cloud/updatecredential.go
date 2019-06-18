@@ -178,7 +178,7 @@ func credentialsFromFile(credentialsFile, cloudName, credentialName string) (map
 	if cloudName != "" {
 		cloudCredentials, ok := specifiedCredentials[cloudName]
 		if !ok {
-			return nil, errors.Errorf("no credentials for cloud %q exist in file %q", cloudName, credentialsFile)
+			return nil, errors.NotFoundf("credentials for cloud %q in file %q", cloudName, credentialsFile)
 		}
 		filteredByCloud[cloudName] = cloudCredentials
 	} else {
@@ -201,7 +201,7 @@ func credentialsFromFile(credentialsFile, cloudName, credentialName string) (map
 	}
 
 	if len(filteredByName) == 0 {
-		return nil, errors.Errorf("no credential %q for cloud %q exists in file %s", credentialName, cloudName, credentialsFile)
+		return nil, errors.NotFoundf("credential %q for cloud %q in file %s", credentialName, cloudName, credentialsFile)
 	}
 	return filteredByName, nil
 }
@@ -226,7 +226,7 @@ func credentialsFromLocalCache(store jujuclient.ClientStore, cloudName, credenti
 			return found, nil
 		}
 	}
-	return nil, errors.Errorf("no credential %q for cloud %q exists in local client cache", credentialName, cloudName)
+	return nil, errors.NotFoundf("credential %q for cloud %q in local client cache", credentialName, cloudName)
 }
 
 func (c *updateCredentialCommand) updateLocalCredentials(ctx *cmd.Context, update map[string]jujucloud.CloudCredential) error {

@@ -132,8 +132,7 @@ credentials:
       trust-password: "123"
 `)
 	result, err := cloud.CredentialsFromFile(testFile, "anothercloud", "")
-	// Cannot use gc.ErrorMatches here since temp dir will look different between runs.
-	c.Assert(err.Error(), jc.Contains, `no credentials for cloud "anothercloud" exist in file`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(result, gc.IsNil)
 }
 
@@ -172,8 +171,7 @@ credentials:
       trust-password: "123"
 `)
 	result, err := cloud.CredentialsFromFile(testFile, "somecloud", "its-credential")
-	// Cannot use gc.ErrorMatches here since temp dir will look different between runs.
-	c.Assert(err.Error(), jc.Contains, `no credential "its-credential" for cloud "somecloud" exists in file`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(result, gc.IsNil)
 }
 
@@ -190,8 +188,7 @@ credentials:
       trust-password: "123"
 `)
 	result, err := cloud.CredentialsFromFile(testFile, "somecloud", "its-credential")
-	// Cannot use gc.ErrorMatches here since temp dir will look different between runs.
-	c.Assert(err.Error(), jc.Contains, `no credential "its-credential" for cloud "somecloud" exists in file`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(result, gc.IsNil)
 }
 
@@ -204,8 +201,7 @@ credentials:
       trust-password: "123"
 `)
 	result, err := cloud.CredentialsFromFile(testFile, "somecloud", "its-credential")
-	// Cannot use gc.ErrorMatches here since temp dir will look different between runs.
-	c.Assert(err.Error(), jc.Contains, `no credentials for cloud "somecloud" exist in file`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(result, gc.IsNil)
 }
 
@@ -275,7 +271,7 @@ func (s *updateCredentialSuite) TestUpdateLocalWithCloudWhenNoneExists(c *gc.C) 
 func (s *updateCredentialSuite) TestUpdateLocalWithCloudWhenCredentialDoesNotExists(c *gc.C) {
 	s.storeWithCredentials(c)
 	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "somecloud", "fluffy-credential", "--local")
-	c.Assert(err, gc.ErrorMatches, `could not get credentials from local client cache: no credential "fluffy-credential" for cloud "somecloud" exists in local client cache`)
+	c.Assert(err, gc.ErrorMatches, `could not get credentials from local client cache: credential "fluffy-credential" for cloud "somecloud" in local client cache not found`)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
@@ -298,11 +294,6 @@ credentials:
 	c.Assert(cmdtesting.Stdout(ctxt), gc.Equals, "")
 	after := s.store.Credentials["somecloud"].AuthCredentials["its-credential"].Attributes()["access-key"]
 	c.Assert(after, gc.DeepEquals, "555")
-}
-
-func (s *updateCredentialSuite) TestUpdateInteractive(c *gc.C) {
-	_, err := cmdtesting.RunCommand(c, s.testCommand)
-	c.Assert(err, gc.ErrorMatches, "`update-credential` in interactive mode not supported")
 }
 
 func (s *updateCredentialSuite) TestUpdateCredentialWithFilePath(c *gc.C) {
