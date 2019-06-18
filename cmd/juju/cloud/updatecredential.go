@@ -139,7 +139,7 @@ func (c *updateCredentialCommand) Run(ctx *cmd.Context) error {
 	// If no file and no cloud is provided, switch to interactive mode.
 	if c.CredentialsFile == "" && c.cloud == "" {
 		// TODO (anastasiamac 2019-03-22) interactive mode
-		return errors.NotSupportedf("`update-credential` in interactive mode")
+		return errors.New("Usage: juju update-credential [options] [<cloud-name> [<credential-name>]]")
 	}
 	var credentials map[string]jujucloud.CloudCredential
 	var err error

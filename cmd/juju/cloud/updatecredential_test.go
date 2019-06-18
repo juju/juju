@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -50,6 +51,11 @@ func (s *updateCredentialSuite) SetUpTest(c *gc.C) {
 func (s *updateCredentialSuite) TestBadArgs(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, s.testCommand, "cloud", "credential", "extra")
 	c.Assert(err, gc.ErrorMatches, `only a cloud name and / or credential name need to be provided`)
+}
+
+func (s *updateCredentialSuite) TestNoArgs(c *gc.C) {
+	_, err := cmdtesting.RunCommand(c, s.testCommand)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`Usage: juju update-credential [options] [<cloud-name> [<credential-name>]]`))
 }
 
 func (s *updateCredentialSuite) TestBadFileSpecified(c *gc.C) {
