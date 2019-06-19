@@ -81,35 +81,41 @@ func createCloudOp(cloud cloud.Cloud) txn.Op {
 
 // updateCloudOp returns a txn.Op that will update
 // an existing cloud definition for the controller.
-func updateCloudOps(cloud cloud.Cloud) txn.Op {
-	authTypes := make([]string, len(cloud.AuthTypes))
-	for i, authType := range cloud.AuthTypes {
+func updateCloudOps(kld cloud.Cloud) txn.Op {
+	authTypes := make([]string, len(kld.AuthTypes))
+	for i, authType := range kld.AuthTypes {
 		authTypes[i] = string(authType)
 	}
-	regions := make(map[string]cloudRegionSubdoc)
-	for _, region := range cloud.Regions {
-		regions[utils.EscapeKey(region.Name)] = cloudRegionSubdoc{
-			region.Endpoint,
-			region.IdentityEndpoint,
-			region.StorageEndpoint,
+	cloudRegionsToDocs := func(rs []cloud.Region) map[string]cloudRegionSubdoc {
+		if len(rs) == 0 {
+			return nil
 		}
+		regions := make(map[string]cloudRegionSubdoc)
+		for _, region := range rs {
+			regions[utils.EscapeKey(region.Name)] = cloudRegionSubdoc{
+				region.Endpoint,
+				region.IdentityEndpoint,
+				region.StorageEndpoint,
+			}
+		}
+		return regions
 	}
 	updatedCloud := &cloudDoc{
-		DocID:            cloud.Name,
-		Name:             cloud.Name,
-		Type:             cloud.Type,
+		DocID:            kld.Name,
+		Name:             kld.Name,
+		Type:             kld.Type,
 		AuthTypes:        authTypes,
-		Endpoint:         cloud.Endpoint,
-		IdentityEndpoint: cloud.IdentityEndpoint,
-		StorageEndpoint:  cloud.StorageEndpoint,
-		Regions:          regions,
-		CACertificates:   cloud.CACertificates,
+		Endpoint:         kld.Endpoint,
+		Regions:          cloudRegionsToDocs(kld.Regions),
+		IdentityEndpoint: kld.IdentityEndpoint,
+		StorageEndpoint:  kld.StorageEndpoint,
+		CACertificates:   kld.CACertificates,
 	}
 	return txn.Op{
 		C:      cloudsC,
-		Id:     cloud.Name,
+		Id:     kld.Name,
 		Assert: txn.DocExists,
-		Update: bson.M{"$set": updatedCloud},
+		Update: bson.D{{"$set", updatedCloud}},
 	}
 }
 

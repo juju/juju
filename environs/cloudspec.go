@@ -74,9 +74,11 @@ func MakeCloudSpec(cloud jujucloud.Cloud, cloudRegionName string, credential *ju
 		if err != nil {
 			return CloudSpec{}, errors.Annotate(err, "getting cloud region definition")
 		}
-		cloudSpec.Endpoint = cloudRegion.Endpoint
-		cloudSpec.IdentityEndpoint = cloudRegion.IdentityEndpoint
-		cloudSpec.StorageEndpoint = cloudRegion.StorageEndpoint
+		if !cloudRegion.IsEmpty() {
+			cloudSpec.Endpoint = cloudRegion.Endpoint
+			cloudSpec.IdentityEndpoint = cloudRegion.IdentityEndpoint
+			cloudSpec.StorageEndpoint = cloudRegion.StorageEndpoint
+		}
 	}
 	return cloudSpec, nil
 }
