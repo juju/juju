@@ -91,6 +91,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		autocertCacheC,
 		// We don't export the controller model at this stage.
 		controllersC,
+		controllerNodesC,
 		// Clouds aren't migrated. They must exist in the
 		// target controller already.
 		cloudsC,

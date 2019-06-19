@@ -2167,12 +2167,14 @@ func AddControllerNodeDocs(pool *StatePool) error {
 
 	machines, closer := st.db().GetRawCollection(machinesC)
 	defer closer()
-	controllerNodes, closer2 := st.db().GetCollection(controllerNodesC)
+	controllerNodes, closer2 := st.db().GetRawCollection(controllerNodesC)
 	defer closer2()
 
 	var ops []txn.Op
 	var docs []bson.M
-	err := machines.Find(bson.D{{"novote", false}}).Select(bson.M{"_id": 1, "machineid": 1, "hasvote": 1}).All(&docs)
+	err := machines.Find(
+		bson.D{{"jobs", bson.D{{"$in", []MachineJob{JobManageModel}}}}},
+	).Select(bson.M{"_id": 1, "machineid": 1, "hasvote": 1, "novote": 1}).All(&docs)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -2181,12 +2183,14 @@ func AddControllerNodeDocs(pool *StatePool) error {
 		docId := m["_id"].(string)
 		mid := m["machineid"].(string)
 		hasvote := m["hasvote"].(bool)
+		wantsvote := !m["novote"].(bool)
 		modelUUID, _, ok := splitDocID(docId)
 		if !ok {
 			logger.Warningf("unexpected machine doc id %q", docId)
 			continue
 		}
-		expectedId := ensureModelUUID(modelUUID, controllerNodeGlobalKey(mid))
+
+		expectedId := ensureModelUUID(modelUUID, mid)
 		n, err := controllerNodes.FindId(expectedId).Count()
 		if err != nil {
 			return errors.Trace(err)
@@ -2196,8 +2200,9 @@ func AddControllerNodeDocs(pool *StatePool) error {
 		}
 
 		doc := &controllerNodeDoc{
-			DocID:   ensureModelUUID(modelUUID, controllerNodeGlobalKey(mid)),
-			HasVote: hasvote,
+			DocID:     ensureModelUUID(modelUUID, mid),
+			HasVote:   hasvote,
+			WantsVote: wantsvote,
 		}
 		ops = append(ops, txn.Op{
 			C:      controllerNodesC,

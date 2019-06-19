@@ -273,7 +273,7 @@ func (st *fakeState) ControllerConfig() (controller.Config, error) {
 	return deepCopy(st.controllerConfig.Get()).(controller.Config), nil
 }
 
-func (st *fakeState) RemoveControllerNode(c ControllerNode) error {
+func (st *fakeState) RemoveControllerReference(c ControllerNode) error {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 	controllerInfo := st.controllerInfo.Get().(*state.ControllerInfo)

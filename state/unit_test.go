@@ -9,7 +9,6 @@ import (
 	"time" // Only used for time types.
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
@@ -19,6 +18,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
@@ -639,7 +639,7 @@ func (s *UnitSuite) demoteMachine(c *gc.C, m *state.Machine) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveControllerNode(m)
+	err = s.State.RemoveControllerReference(m)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -650,6 +650,7 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(host.SetHasVote(true), gc.IsNil)
 	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
@@ -660,8 +661,6 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 	}
 	flop := jujutxn.TestHook{
 		Before: func() {
-			_, err = s.State.EnableHA(3, constraints.Value{}, "quantal", []string{host.Id()})
-			c.Assert(err, jc.ErrorIsNil)
 			s.setMachineVote(c, host.Id(), true)
 		},
 	}

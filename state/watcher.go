@@ -1646,19 +1646,7 @@ func (m *Machine) WatchHardwareCharacteristics() NotifyWatcher {
 
 // WatchControllerInfo returns a NotifyWatcher for the controllers collection
 func (st *State) WatchControllerInfo() StringsWatcher {
-	return newCollectionWatcher(st, colWCfg{
-		col: controllersC,
-		filter: func(id interface{}) bool {
-			idVal, err := st.strictLocalID(id.(string))
-			if err != nil {
-				return false
-			}
-			return strings.HasPrefix(idVal, controllerNodeKeyPrefix)
-		},
-		idconv: func(id string) string {
-			return controllerNodeIdFromGlobalKey(id)
-		},
-	})
+	return newCollectionWatcher(st, colWCfg{col: controllerNodesC})
 }
 
 // WatchControllerConfig returns a NotifyWatcher for controller settings.
@@ -2875,7 +2863,7 @@ func (st *State) watchEnqueuedActionsFilteredBy(receivers ...ActionReceiver) Str
 }
 
 // WatchControllerStatusChanges starts and returns a StringsWatcher that
-// notifies when the status of a controller nodes changes.
+// notifies when the status of a controller node changes.
 // TODO(cherylj) Add unit tests for this, as per bug 1543408.
 func (st *State) WatchControllerStatusChanges() StringsWatcher {
 	return newCollectionWatcher(st, colWCfg{

@@ -800,6 +800,10 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 			{{"hasvote", bson.D{{"$ne", true}}}},
 		}}}
 		controllerNodeAssert = txn.DocMissing
+		_, err = m.st.ControllerNode(m.Id())
+		if err == nil {
+			controllerNodeAssert = bson.D{{"has-vote", false}}
+		}
 	} else {
 		machineAssert = bson.D{{"$or", []bson.D{
 			{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
@@ -832,8 +836,8 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 	})
 	if controllerNodeAssert != nil {
 		ops = append(ops, txn.Op{
-			C:      controllersC,
-			Id:     m.st.docID(controllerNodeGlobalKey(m.Id())),
+			C:      controllerNodesC,
+			Id:     m.st.docID(m.Id()),
 			Assert: controllerNodeAssert,
 		})
 	}

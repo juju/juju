@@ -408,6 +408,10 @@ func (m *Machine) setHasVoteOps(hasVote bool) ([]txn.Op, error) {
 		return nil, ErrDead
 	}
 	var asserts interface{}
+	// TODO(HA)
+	// If setting has-vote=true we want the document to exist.
+	// But if has-vote=false, the doc may not be there because of
+	// older, legacy code which will be removed later.
 	if hasVote {
 		asserts = txn.DocExists
 	}
@@ -417,8 +421,8 @@ func (m *Machine) setHasVoteOps(hasVote bool) ([]txn.Op, error) {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"hasvote", hasVote}}}},
 	}, {
-		C:      controllersC,
-		Id:     m.st.docID(controllerNodeGlobalKey(m.doc.Id)),
+		C:      controllerNodesC,
+		Id:     m.st.docID(m.doc.Id),
 		Assert: asserts,
 		Update: bson.D{{"$set", bson.D{{"has-vote", hasVote}}}},
 	}}
@@ -636,7 +640,7 @@ func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
 		return []txn.Op{
 			machineOp,
 			controllerOp,
-			removeControllerNodeOp(m.st, m.Id()),
+			setControllerWantsVoteOp(m.st, m.Id(), false),
 			newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id, maxWait),
 		}, nil
 	} else {
@@ -855,7 +859,7 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 					Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
 				}
 				ops = append(ops, controllerOp)
-				ops = append(ops, removeControllerNodeOp(m.st, m.doc.Id))
+				ops = append(ops, setControllerWantsVoteOp(m.st, m.doc.Id, false))
 			}
 			var principalUnitnames []string
 			for _, principalUnit := range m.doc.Principals {

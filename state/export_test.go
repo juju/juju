@@ -572,11 +572,8 @@ func (m *Machine) SetWantsVote(wantsVote bool) error {
 		C:      machinesC,
 		Id:     m.doc.DocID,
 		Update: bson.M{"$set": bson.M{"novote": !wantsVote}},
-	}}
-	if wantsVote {
-		ops = append(ops, addControllerNodeOp(m.st, m.doc.Id, false))
-	} else {
-		ops = append(ops, removeControllerNodeOp(m.st, m.Id()))
+	},
+		setControllerWantsVoteOp(m.st, m.Id(), wantsVote),
 	}
 	err := m.st.runRawTransaction(ops)
 	if err != nil {

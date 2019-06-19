@@ -87,7 +87,7 @@ func allCollections() CollectionSchema {
 		controllersC: {global: true},
 
 		// This collection holds the details of the HA-ness of controllers.
-		controllerNodesC: {global: true},
+		controllerNodesC: {},
 
 		// This collection is used to track progress when restoring a
 		// controller from backup.
