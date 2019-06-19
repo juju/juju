@@ -118,7 +118,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 	})
 }
 
-// NotifyWatcherC
+// NotifyWatcherC wraps a notify watcher, adding testing convenience methods.
 type NotifyWatcherC struct {
 	*gc.C
 	Watcher NotifyWatcher

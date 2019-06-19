@@ -4,6 +4,7 @@
 package cache
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/core/network"
 )
 
@@ -61,6 +62,23 @@ func (u *Unit) CharmURL() string {
 // Ports returns the exposed ports for the unit.
 func (u *Unit) Ports() []network.Port {
 	return u.details.Ports
+}
+
+// VWatchCharmConfig returns a new watcher that will notify when the
+// effective application charm config for this unit changes.
+func (u *Unit) WatchCharmConfig() (*CharmConfigWatcher, error) {
+	cfg := charmConfigWatcherConfig{
+		model:                u.model,
+		unitName:             u.details.Name,
+		appName:              u.details.Application,
+		appConfigChangeTopic: u.details.Application + ":" + applicationConfigChange,
+		branchChangeTopic:    branchChange,
+		hub:                  u.model.hub,
+		res:                  u.Resident,
+	}
+
+	w, err := newCharmConfigWatcher(cfg)
+	return w, errors.Trace(err)
 }
 
 func (u *Unit) setDetails(details UnitChange) {
