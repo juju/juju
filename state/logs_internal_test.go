@@ -45,7 +45,7 @@ func (s *LogsInternalSuite) TearDownTest(c *gc.C) {
 	s.MgoSuite.TearDownTest(c)
 }
 
-func (s *LogsInternalSuite) TestCollStatsForLogsDB(c *gc.C) {
+func (s *LogsInternalSuite) TestCollStatsForMissingDB(c *gc.C) {
 	coll := s.Session.DB("logs").C("missing")
 	_, err := collStats(coll)
 

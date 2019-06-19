@@ -1033,18 +1033,24 @@ func getCollectionCappedInfo(coll *mgo.Collection) (bool, int, error) {
 	if err != nil {
 		return false, 0, errors.Trace(err)
 	}
-	capped, ok := stats["capped"].(bool)
-	if !ok {
-		// Either not found or not a bool. Either way this is an issue.
-		return false, 0, errors.NotValidf("missing capped value")
-	}
+	// For mongo 2.4, the "capped" key is only available when it is set
+	// to true. For mongo 3.2 and 3.6, it is always there.
+	// If capped is there, but isn't a bool, we treat this as false.
+	capped, _ := stats["capped"].(bool)
 	if !capped {
 		return false, 0, nil
 	}
-	maxSize, ok := stats["maxSize"].(int)
+	// For mongo 3.2 and 3.6, the value is "maxSize". For 2.4 the value
+	// used is "storageSize"
+	value, found := stats["maxSize"]
+	if !found {
+		if value, found = stats["storageSize"]; !found {
+			return false, 0, errors.NotValidf("no maxSize or storageSize value")
+		}
+	}
+	maxSize, ok := value.(int)
 	if !ok {
-		// Either not found or not an int. Either way this is an issue.
-		return false, 0, errors.NotValidf("missing maxSize value")
+		return false, 0, errors.NotValidf("size value is not an int")
 	}
 	return true, maxSize, nil
 }
