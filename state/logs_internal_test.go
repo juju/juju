@@ -60,7 +60,7 @@ func (s *LogsInternalSuite) createLogsDB(c *gc.C) *mgo.Collection {
 	return coll
 }
 
-func (s *LogsInternalSuite) createCapped(c *gc.C, name string, size int) {
+func (s *LogsInternalSuite) createCapped(c *gc.C, name string, size int) *mgo.Collection {
 	// We create the db by writing something into a collection.
 	coll := s.Session.DB("logs").C(name)
 	err := coll.Create(&mgo.CollectionInfo{
@@ -68,6 +68,7 @@ func (s *LogsInternalSuite) createCapped(c *gc.C, name string, size int) {
 		MaxBytes: size,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	return coll
 }
 
 func (s *LogsInternalSuite) TestCollStatsForMissingCollection(c *gc.C) {
@@ -80,12 +81,8 @@ func (s *LogsInternalSuite) TestCollStatsForMissingCollection(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, "Collection [logs.missing] not found.")
 }
 
-func (s *LogsInternalSuite) TestCollStatsForNewCollection(c *gc.C) {
+func (s *LogsInternalSuite) TestCappedInfoForNormalCollection(c *gc.C) {
 	coll := s.createLogsDB(c)
-	result, err := collStats(coll)
-
-	c.Assert(result["ns"], gc.Equals, "logs.new")
-	c.Assert(result["capped"], gc.Equals, false)
 
 	capped, maxSize, err := getCollectionCappedInfo(coll)
 	c.Assert(err, jc.ErrorIsNil)
@@ -93,17 +90,9 @@ func (s *LogsInternalSuite) TestCollStatsForNewCollection(c *gc.C) {
 	c.Assert(maxSize, gc.Equals, 0)
 }
 
-func (s *LogsInternalSuite) TestCollStatsForCappedCollection(c *gc.C) {
+func (s *LogsInternalSuite) TestCappedInfoForCappedCollection(c *gc.C) {
 	// mgo MaxBytes is in bytes, whereas we query in MB
-	s.createCapped(c, "capped", 20*1024*1024)
-
-	coll := s.Session.DB("logs").C("capped")
-	result, err := collStats(coll)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(result["ns"], gc.Equals, "logs.capped")
-	c.Assert(result["capped"], gc.Equals, true)
-	c.Assert(result["maxSize"], gc.Equals, 20)
+	coll := s.createCapped(c, "capped", 20*1024*1024)
 
 	capped, maxSize, err := getCollectionCappedInfo(coll)
 	c.Assert(err, jc.ErrorIsNil)
