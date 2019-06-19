@@ -52,6 +52,12 @@ func (b *Branch) Config() map[string]settings.ItemChanges {
 	return b.details.Config
 }
 
+// AppConfig returns the configuration changes that
+// apply to the branch for a specific application.
+func (b *Branch) AppConfig(appName string) settings.ItemChanges {
+	return b.details.Config[appName]
+}
+
 func (b *Branch) setDetails(details BranchChange) {
 	// If this is the first receipt of details, set the removal message.
 	if b.removalMessage == nil {

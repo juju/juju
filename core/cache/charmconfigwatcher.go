@@ -105,16 +105,9 @@ func (w *CharmConfigWatcher) init(model charmConfigModel) error {
 	w.masterSettings = app.Config()
 
 	for _, b := range model.Branches() {
-		unitNames := b.AssignedUnits()[w.appName]
-		if len(unitNames) == 0 {
-			continue
-		}
-
-		// A unit can only track one branch at a time,
-		// so if we find one, we are done.
-		if set.NewStrings(unitNames...).Contains(w.unitName) {
+		if w.isTracking(b) {
 			w.branchName = b.Name()
-			w.branchDeltas = b.Config()[w.appName]
+			w.branchDeltas = b.AppConfig(w.appName)
 			break
 		}
 	}
@@ -159,24 +152,16 @@ func (w *CharmConfigWatcher) branchChanged(_ string, msg interface{}) {
 		return
 	}
 
-	if w.branchName != "" {
-		// If we are tracking a different branch to this one, ignore it.
-		if w.branchName != b.Name() {
-			return
+	// If we do not know whether we are tracking this branch, find out.
+	if w.branchName == "" {
+		if w.isTracking(b) {
+			w.branchName = b.Name()
 		}
-	} else {
-		// We do not know if we are tracking this branch, so find out.
-		units := b.AssignedUnits()[w.appName]
-		if len(units) == 0 {
-			return
-		}
-		if !set.NewStrings(units...).Contains(w.unitName) {
-			return
-		}
-		w.branchName = b.Name()
+	} else if w.branchName != b.Name() {
+		return
 	}
 
-	w.branchDeltas = b.Config()[w.appName]
+	w.branchDeltas = b.AppConfig(w.appName)
 	w.checkConfig()
 }
 
@@ -226,6 +211,15 @@ func (w *CharmConfigWatcher) branchDeleted(topic string, msg interface{}) {
 	w.branchName = ""
 	w.branchDeltas = nil
 	w.checkConfig()
+}
+
+// isTracking returns true if this watcher's unit is tracking the input branch.
+func (w *CharmConfigWatcher) isTracking(b Branch) bool {
+	units := b.AssignedUnits()[w.appName]
+	if len(units) == 0 {
+		return false
+	}
+	return set.NewStrings(units...).Contains(w.unitName)
 }
 
 // checkConfig generates a new hash based on current effective configuration.
