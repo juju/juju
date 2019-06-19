@@ -1083,3 +1083,45 @@ func (s *remoteApplicationSuite) TestWatchRemoteApplicationsDying(c *gc.C) {
 	wc.AssertChangeInSingleEvent("mysql")
 	wc.AssertNoChange()
 }
+
+func (s *remoteApplicationSuite) TestTerminateOperationLeavesScopes(c *gc.C) {
+	ch := s.AddTestingCharm(c, "wordpress")
+
+	_ = s.AddTestingApplication(c, "wp1", ch)
+	eps1, err := s.State.InferEndpoints("wp1", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel1, err := s.State.AddRelation(eps1...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_ = s.AddTestingApplication(c, "wp2", ch)
+	eps2, err := s.State.InferEndpoints("wp2", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel2, err := s.State.AddRelation(eps2...)
+
+	ru1, err := rel1.RemoteUnit("mysql/0")
+	c.Assert(err, jc.ErrorIsNil)
+	err = ru1.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ru2, err := rel2.RemoteUnit("mysql/0")
+	c.Assert(err, jc.ErrorIsNil)
+	err = ru2.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	op := s.application.TerminateOperation("do-do-do do-do-do do-do")
+	err = s.State.ApplyOperation(op)
+	c.Assert(err, jc.ErrorIsNil)
+
+	appStatus, err := s.application.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appStatus.Status, gc.Equals, status.Terminated)
+	c.Assert(appStatus.Message, gc.Equals, "do-do-do do-do-do do-do")
+
+	remoteRelUnits1, err := rel1.AllRemoteUnits("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(remoteRelUnits1, gc.HasLen, 0)
+
+	remoteRelUnits2, err := rel2.AllRemoteUnits("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(remoteRelUnits2, gc.HasLen, 0)
+}

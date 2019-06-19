@@ -34,6 +34,8 @@ var (
 	AttemptMicroK8sCloud     = attemptMicroK8sCloud
 	EnsureMicroK8sSuitable   = ensureMicroK8sSuitable
 	NewK8sBroker             = newK8sBroker
+	ToYaml                   = toYaml
+	Indent                   = indent
 )
 
 type (

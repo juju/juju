@@ -411,10 +411,16 @@ func (f *RemoteRelationsAPI) SetRemoteApplicationsStatus(args params.SetStatus) 
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		err = app.SetStatus(status.StatusInfo{
-			Status:  status.Status(entity.Status),
-			Message: entity.Info,
-		})
+		statusValue := status.Status(entity.Status)
+		if statusValue == status.Terminated {
+			operation := app.TerminateOperation(entity.Info)
+			err = f.st.ApplyOperation(operation)
+		} else {
+			err = app.SetStatus(status.StatusInfo{
+				Status:  statusValue,
+				Message: entity.Info,
+			})
+		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil

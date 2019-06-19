@@ -207,6 +207,14 @@ func (s *EnableHASuite) TestEnableHAErrors(c *gc.C) {
 	c.Assert(s.fake.numControllers, gc.Equals, invalidNumServers)
 }
 
+func (s *EnableHASuite) TestEnableHAErrorsWithInvalidPlacement(c *gc.C) {
+	_, err := s.runEnableHA(c, "--to", "in,,valid", "-n", "3")
+	c.Assert(err, gc.ErrorMatches, "empty placement directive passed to enable-ha")
+
+	// Verify that enable-ha didn't call into the API
+	c.Assert(s.fake.numControllers, gc.Equals, invalidNumServers)
+}
+
 func (s *EnableHASuite) TestEnableHAAllows0(c *gc.C) {
 	// If the number of controllers is specified as "0", the API will
 	// then use the default number of 3.
