@@ -4,6 +4,8 @@
 package cache
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/network"
 )
@@ -71,7 +73,7 @@ func (u *Unit) WatchCharmConfig() (*CharmConfigWatcher, error) {
 		model:                u.model,
 		unitName:             u.details.Name,
 		appName:              u.details.Application,
-		appConfigChangeTopic: u.details.Application + ":" + applicationConfigChange,
+		appConfigChangeTopic: fmt.Sprintf("%s:%s", u.details.Application, applicationConfigChange),
 		branchChangeTopic:    branchChange,
 		hub:                  u.model.hub,
 		res:                  u.Resident,

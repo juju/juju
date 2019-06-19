@@ -137,6 +137,7 @@ func (w *CharmConfigWatcher) appConfigChanged(_ string, msg interface{}) {
 	hashCache, ok := msg.(*hashCache)
 	if !ok {
 		logger.Errorf("programming error; application config message was not of expected type, *hashCache")
+		return
 	}
 
 	w.masterSettings = hashCache.config
@@ -232,7 +233,7 @@ func (w *CharmConfigWatcher) branchDeleted(topic string, msg interface{}) {
 func (w *CharmConfigWatcher) checkConfig() {
 	changed, err := w.setConfigHash()
 	if err != nil {
-		logger.Errorf("generating hash for charm config: %s", err.Error())
+		logger.Errorf("generating hash for charm config: %s", errors.ErrorStack(err))
 		return
 	}
 	if changed {
