@@ -66,9 +66,9 @@ func (u *Unit) Ports() []network.Port {
 	return u.details.Ports
 }
 
-// WatchCharmConfig returns a new watcher that will notify when the
+// WatchConfigSettings returns a new watcher that will notify when the
 // effective application charm config for this unit changes.
-func (u *Unit) WatchCharmConfig() (*CharmConfigWatcher, error) {
+func (u *Unit) WatchConfigSettings() (*CharmConfigWatcher, error) {
 	cfg := charmConfigWatcherConfig{
 		model:                u.model,
 		unitName:             u.details.Name,

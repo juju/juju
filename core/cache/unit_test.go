@@ -27,7 +27,7 @@ func (s *UnitSuite) TestWatchCharmConfigNewWatcher(c *gc.C) {
 	u, err := m.Unit(unitChange.Name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	w, err := u.WatchCharmConfig()
+	w, err := u.WatchConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
