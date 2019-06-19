@@ -27,7 +27,7 @@ Examples:
     juju commit upgrade-postgresql
 
 See also:
-    branch
+    add-branch
     track
     checkout
     abort

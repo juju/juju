@@ -28,7 +28,7 @@ Examples:
     juju track test-branch redis/0 mysql
 
 See also:
-    branch
+    add-branch
     checkout
     commit
     abort
