@@ -1003,6 +1003,15 @@ func collStats(coll *mgo.Collection) (bson.M, error) {
 		{"scale", humanize.MiByte},
 	}, &result)
 	if err != nil {
+		// In order to return consistent error messages across 2.4 and 3.x
+		// we look for the expected errors. For 2.4 we get error text like
+		// "ns not found", and with 3.x we get either "Database [x] not found."
+		// or "Collection [x.y] not found."
+		if strings.Contains(err.Error(), "not found") {
+			return nil, errors.Wrap(
+				err,
+				errors.Errorf("Collection [%s.%s] not found.", coll.Database.Name, coll.Name))
+		}
 		return nil, errors.Trace(err)
 	}
 	logger.Infof("collStats: %v", pretty.Sprint(result))

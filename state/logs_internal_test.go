@@ -49,7 +49,7 @@ func (s *LogsInternalSuite) TestCollStatsForMissingDB(c *gc.C) {
 	coll := s.Session.DB("logs").C("missing")
 	_, err := collStats(coll)
 
-	c.Assert(err.Error(), gc.Equals, "Database [logs] not found.")
+	c.Assert(err.Error(), gc.Equals, "Collection [logs.missing] not found.")
 }
 
 func (s *LogsInternalSuite) createLogsDB(c *gc.C) *mgo.Collection {
