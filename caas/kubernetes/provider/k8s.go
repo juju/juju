@@ -1002,6 +1002,9 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteStatefulSet(deploymentName); err != nil {
 		return errors.Trace(err)
 	}
+	if err := k.deleteService(headlessServiceName(deploymentName)); err != nil {
+		return errors.Trace(err)
+	}
 	if err := k.deleteDeployment(deploymentName); err != nil {
 		return errors.Trace(err)
 	}
@@ -1289,7 +1292,11 @@ func (k *kubernetesClient) EnsureService(
 
 	numPods := int32(numUnits)
 	if useStatefulSet {
-		if err := k.configureStatefulSet(appName, deploymentName, randPrefix, annotations.Copy(), unitSpec, params.PodSpec.Containers, &numPods, params.Filesystems, hasService); err != nil {
+		if err := k.configureHeadlessService(appName, deploymentName, annotations.Copy()); err != nil {
+			return errors.Annotate(err, "creating or updating headless service")
+		}
+		cleanups = append(cleanups, func() { k.deleteService(headlessServiceName(deploymentName)) })
+		if err := k.configureStatefulSet(appName, deploymentName, randPrefix, annotations.Copy(), unitSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
 			return errors.Annotate(err, "creating or updating StatefulSet")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
@@ -1601,7 +1608,6 @@ func (k *kubernetesClient) deleteDeployment(name string) error {
 func (k *kubernetesClient) configureStatefulSet(
 	appName, deploymentName, randPrefix string, annotations k8sannotations.Annotation, unitSpec *unitSpec,
 	containers []caas.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
-	hasService bool,
 ) error {
 	logger.Debugf("creating/updating stateful set for %s", appName)
 
@@ -1629,12 +1635,9 @@ func (k *kubernetesClient) configureStatefulSet(
 				},
 			},
 			PodManagementPolicy: apps.ParallelPodManagement,
+			ServiceName:         headlessServiceName(deploymentName),
 		},
 	}
-	if hasService {
-		statefulset.Spec.ServiceName = deploymentName
-	}
-
 	podSpec := unitSpec.Pod
 	if err := k.configurePodFiles(&podSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
@@ -1670,6 +1673,7 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 	// TODO(caas) - allow extra storage to be added
 	existing.Spec.Replicas = spec.Spec.Replicas
 	existing.Spec.Template.Spec.Containers = existingPodSpec.Containers
+	// NB: we can't update the Spec.ServiceName as it is immutable.
 	_, err = statefulsets.Update(existing)
 	return errors.Trace(err)
 }
@@ -1785,6 +1789,28 @@ func (k *kubernetesClient) configureService(
 	return k.ensureK8sService(service)
 }
 
+func (k *kubernetesClient) configureHeadlessService(
+	appName, deploymentName string, annotations k8sannotations.Annotation,
+) error {
+	logger.Debugf("creating/updating headless service for %s", appName)
+	service := &core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   headlessServiceName(deploymentName),
+			Labels: map[string]string{labelApplication: appName},
+			Annotations: k8sannotations.New(nil).
+				Merge(annotations).
+				Add("service.alpha.kubernetes.io/tolerate-unready-endpoints", "true").ToMap(),
+		},
+		Spec: core.ServiceSpec{
+			Selector:                 map[string]string{labelApplication: appName},
+			Type:                     core.ServiceTypeClusterIP,
+			ClusterIP:                "None",
+			PublishNotReadyAddresses: true,
+		},
+	}
+	return k.ensureK8sService(service)
+}
+
 // ensureK8sService ensures a k8s service resource.
 func (k *kubernetesClient) ensureK8sService(spec *core.Service) error {
 	services := k.client().CoreV1().Services(k.namespace)
@@ -1802,9 +1828,9 @@ func (k *kubernetesClient) ensureK8sService(spec *core.Service) error {
 }
 
 // deleteService deletes a service resource.
-func (k *kubernetesClient) deleteService(deploymentName string) error {
+func (k *kubernetesClient) deleteService(serviceName string) error {
 	services := k.client().CoreV1().Services(k.namespace)
-	err := services.Delete(deploymentName, &v1.DeleteOptions{
+	err := services.Delete(serviceName, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	})
 	if k8serrors.IsNotFound(err) {
@@ -2665,4 +2691,8 @@ func getNodeSelectorFromDeviceConstraints(devices []devices.KubernetesDevicePara
 		}
 	}
 	return nodeSelector, nil
+}
+
+func headlessServiceName(deploymentName string) string {
+	return fmt.Sprintf("%s-endpoints", deploymentName)
 }
