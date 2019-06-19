@@ -66,7 +66,7 @@ func (u *Unit) Ports() []network.Port {
 	return u.details.Ports
 }
 
-// VWatchCharmConfig returns a new watcher that will notify when the
+// WatchCharmConfig returns a new watcher that will notify when the
 // effective application charm config for this unit changes.
 func (u *Unit) WatchCharmConfig() (*CharmConfigWatcher, error) {
 	cfg := charmConfigWatcherConfig{
@@ -75,6 +75,7 @@ func (u *Unit) WatchCharmConfig() (*CharmConfigWatcher, error) {
 		appName:              u.details.Application,
 		appConfigChangeTopic: fmt.Sprintf("%s:%s", u.details.Application, applicationConfigChange),
 		branchChangeTopic:    branchChange,
+		branchRemoveTopic:    modelBranchRemove,
 		hub:                  u.model.hub,
 		res:                  u.Resident,
 	}

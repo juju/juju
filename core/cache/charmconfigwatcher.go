@@ -30,9 +30,9 @@ type charmConfigWatcherConfig struct {
 	// branchChangeTopic is the pub/sub topic to which the watcher will
 	// listen for model branch change messages.
 	branchChangeTopic string
-	// branchDeleteTopic is the pub/sub topic to which the watcher will
-	// listen for model branch deletion messages.
-	branchDeleteTopic string
+	// branchRemoveTopic is the pub/sub topic to which the watcher will
+	// listen for model branch removal messages.
+	branchRemoveTopic string
 
 	// hub is the pub/sub hub on which the watcher will receive messages
 	// before determining whether to notify.
@@ -78,7 +78,7 @@ func newCharmConfigWatcher(cfg charmConfigWatcherConfig) (*CharmConfigWatcher, e
 	multi := cfg.hub.NewMultiplexer()
 	multi.Add(cfg.appConfigChangeTopic, w.appConfigChanged)
 	multi.Add(cfg.branchChangeTopic, w.branchChanged)
-	multi.Add(cfg.branchDeleteTopic, w.branchDeleted)
+	multi.Add(cfg.branchRemoveTopic, w.branchRemoved)
 
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
@@ -165,11 +165,11 @@ func (w *CharmConfigWatcher) branchChanged(_ string, msg interface{}) {
 	w.checkConfig()
 }
 
-// branchDeleted is called when we receive a message to say that a branch has
+// branchRemoved is called when we receive a message to say that a branch has
 // been removed from the cache.
 // If this watcher's unit was tracking the branch, clean the branch-based
 // details and check if the resulting settings warrant a notification.
-func (w *CharmConfigWatcher) branchDeleted(topic string, msg interface{}) {
+func (w *CharmConfigWatcher) branchRemoved(topic string, msg interface{}) {
 	if !w.waitInitOrDying() {
 		return
 	}

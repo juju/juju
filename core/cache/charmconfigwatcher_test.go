@@ -117,7 +117,7 @@ func (s *charmConfigWatcherSuite) newWatcher(c *gc.C, unitName string) NotifyWat
 		appName:              appName,
 		appConfigChangeTopic: applicationConfigChange,
 		branchChangeTopic:    branchChange,
-		branchDeleteTopic:    modelBranchRemove,
+		branchRemoveTopic:    modelBranchRemove,
 		hub:                  s.Hub,
 		res:                  s.NewResident(),
 	}
