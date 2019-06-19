@@ -953,9 +953,8 @@ func (s *upgradesSuite) TestAddControllerLogCollectionsSizeSettingsKeepExisting(
 		"_id": "controllerSettings",
 		"settings": bson.M{
 			"key":              "value",
-			"max-logs-age":     "96h",
-			"max-logs-size":    "5G",
 			"max-txn-log-size": "8G",
+			"model-logs-size":  "5M",
 		},
 	}, bson.M{
 		"_id": "someothersettingshouldnotbetouched",
@@ -969,9 +968,8 @@ func (s *upgradesSuite) TestAddControllerLogCollectionsSizeSettingsKeepExisting(
 			"_id": "controllerSettings",
 			"settings": bson.M{
 				"key":              "value",
-				"max-logs-age":     "96h",
-				"max-logs-size":    "5G",
 				"max-txn-log-size": "8G",
+				"model-logs-size":  "5M",
 			},
 		}, {
 			"_id":      "someothersettingshouldnotbetouched",
@@ -1004,9 +1002,8 @@ func (s *upgradesSuite) TestAddControllerLogCollectionsSizeSettings(c *gc.C) {
 			"_id": "controllerSettings",
 			"settings": bson.M{
 				"key":              "value",
-				"max-logs-age":     "72h",
-				"max-logs-size":    "4096M",
 				"max-txn-log-size": "10M",
+				"model-logs-size":  "20M",
 			},
 		}, {
 			"_id":      "someothersettingshouldnotbetouched",

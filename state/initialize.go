@@ -273,6 +273,10 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 	if err := st.db().RunTransaction(ops); err != nil {
 		return nil, errors.Trace(err)
 	}
+	// Initialize the logs for the newly created models
+	if err := InitDbLogs(st.session); err != nil {
+		return nil, errors.Trace(err)
+	}
 	probablyUpdateStatusHistory(st.db(), modelGlobalKey, modelStatusDoc)
 	return ctlr, nil
 }
