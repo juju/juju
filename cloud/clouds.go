@@ -14,11 +14,14 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/juju/osenv"
 )
+
+var logger = loggo.GetLogger("juju.cloud")
 
 //go:generate go run ../generate/filetoconst/filetoconst.go fallbackPublicCloudInfo fallback-public-cloud.yaml fallback_public_cloud.go 2015 cloud
 
@@ -205,6 +208,11 @@ type Region struct {
 	// If the cloud/region does not have a storage-specific
 	// endpoint URL, this will be empty.
 	StorageEndpoint string
+}
+
+// IsEmpty indicates if it's an empty region.
+func (r Region) IsEmpty() bool {
+	return r.Endpoint == "" && r.IdentityEndpoint == "" && r.StorageEndpoint == ""
 }
 
 // cloudSet contains cloud definitions, used for marshalling and
@@ -513,7 +521,7 @@ func cloudFromInternal(in *cloud) Cloud {
 		Description:      in.Description,
 		CACertificates:   in.CACertificates,
 	}
-	meta.denormaliseMetadata()
+	meta.DenormaliseMetadata()
 	return meta
 }
 
@@ -532,9 +540,9 @@ func (r *regions) UnmarshalYAML(f func(interface{}) error) error {
 
 // To keep the metadata concise, attributes on the metadata struct which
 // have the same value for each item may be moved up to a higher level in
-// the tree. denormaliseMetadata descends the tree and fills in any missing
+// the tree. DenormaliseMetadata descends the tree and fills in any missing
 // attributes with values from a higher level.
-func (cloud Cloud) denormaliseMetadata() {
+func (cloud Cloud) DenormaliseMetadata() {
 	for name, region := range cloud.Regions {
 		r := region
 		inherit(&r, &cloud)
@@ -544,7 +552,7 @@ func (cloud Cloud) denormaliseMetadata() {
 
 type structTags map[reflect.Type]map[string]int
 
-var tagsForType structTags = make(structTags)
+var tagsForType = make(structTags)
 
 // RegisterStructTags ensures the yaml tags for the given structs are able to be used
 // when parsing cloud metadata.

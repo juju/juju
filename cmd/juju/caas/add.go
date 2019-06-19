@@ -421,6 +421,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	newCloud.DenormaliseMetadata()
 
 	if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
 		return errors.Trace(err)
@@ -649,7 +650,7 @@ func nameExists(name string, public map[string]jujucloud.Cloud) (string, error) 
 func addCloudToLocal(cloudMetadataStore CloudMetadataStore, newCloud jujucloud.Cloud) error {
 	personalClouds, err := cloudMetadataStore.PersonalCloudMetadata()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if personalClouds == nil {
 		personalClouds = make(map[string]jujucloud.Cloud)
