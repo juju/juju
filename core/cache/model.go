@@ -23,6 +23,8 @@ const (
 	modelUnitAdd = "model-unit-add"
 	// A unit has been removed from the model.
 	modelUnitRemove = "model-unit-remove"
+	// A branch has been removed from the model.
+	modelBranchRemove = "model-branch-remove"
 )
 
 func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *Model {
@@ -117,6 +119,19 @@ func (m *Model) Charm(charmURL string) (*Charm, error) {
 // All of the other entity retrieval should be changed to work in the same
 // fashion, and the lock guarding of member access removed where possible.
 
+// Branches returns all active branches in the model.
+func (m *Model) Branches() map[string]Branch {
+	m.mu.Lock()
+
+	branches := make(map[string]Branch, len(m.branches))
+	for id, b := range m.branches {
+		branches[id] = b.copy()
+	}
+
+	m.mu.Unlock()
+	return branches
+}
+
 // Branch returns the branch with the input name.
 // If the branch is not found, a NotFoundError is returned.
 // All API-level logic identifies active branches by their name whereas they
@@ -156,7 +171,6 @@ func (m *Model) Units() map[string]Unit {
 	}
 
 	m.mu.Unlock()
-
 	return units
 }
 
@@ -182,7 +196,6 @@ func (m *Model) Machines() map[string]Machine {
 	}
 
 	m.mu.Unlock()
-
 	return machines
 }
 
@@ -295,7 +308,7 @@ func (m *Model) updateUnit(ch UnitChange, rm *residentManager) {
 
 	unit, found := m.units[ch.Name]
 	if !found {
-		unit = newUnit(m.metrics, m.hub, rm.new())
+		unit = newUnit(m, rm.new())
 		m.units[ch.Name] = unit
 	}
 	unit.setDetails(ch)
@@ -371,9 +384,7 @@ func (m *Model) removeBranch(ch RemoveBranch) error {
 
 	branch, ok := m.branches[ch.Id]
 	if ok {
-		// TODO (manadart 2019-05-29): Publish appropriate message(s) to cause
-		// any unit config watchers to use only the master settings (maybe).
-
+		m.hub.Publish(modelBranchRemove, branch.Name())
 		if err := branch.evict(); err != nil {
 			return errors.Trace(err)
 		}
@@ -399,6 +410,7 @@ func (m *Model) setDetails(details ModelChange) {
 	if configHash != m.configHash {
 		m.configHash = configHash
 		m.hashCache = hashCache
+		m.hashCache.incMisses()
 		m.hub.Publish(modelConfigChange, hashCache)
 	}
 

@@ -4,7 +4,9 @@
 package cache_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/life"
@@ -16,6 +18,20 @@ type UnitSuite struct {
 }
 
 var _ = gc.Suite(&UnitSuite{})
+
+func (s *UnitSuite) TestWatchCharmConfigNewWatcher(c *gc.C) {
+	m := s.NewModel(modelChange)
+	m.UpdateApplication(appChange, s.Manager)
+	m.UpdateUnit(unitChange, s.Manager)
+
+	u, err := m.Unit(unitChange.Name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w, err := u.WatchCharmConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	workertest.CleanKill(c, w)
+}
 
 var unitChange = cache.UnitChange{
 	ModelUUID:      "model-uuid",

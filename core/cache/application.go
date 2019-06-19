@@ -54,6 +54,9 @@ func (a *Application) Config() map[string]interface{} {
 }
 
 // WatchConfig creates a watcher for the application config.
+// Do not use this to watch config on behalf of a unit.
+// It is not aware of branch-based config deltas
+// and only deals with master settings.
 func (a *Application) WatchConfig(keys ...string) *ConfigWatcher {
 	w := newConfigWatcher(keys, a.hashCache, a.hub, a.topic(applicationConfigChange), a.Resident)
 	return w
@@ -88,6 +91,7 @@ func (a *Application) setDetails(details ApplicationChange) {
 	if configHash != a.configHash {
 		a.configHash = configHash
 		a.hashCache = hashCache
+		a.hashCache.incMisses()
 		a.hub.Publish(a.topic(applicationConfigChange), hashCache)
 	}
 }

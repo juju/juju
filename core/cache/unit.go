@@ -4,8 +4,9 @@
 package cache
 
 import (
-	"github.com/juju/pubsub"
+	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/core/network"
 )
 
@@ -15,19 +16,15 @@ type Unit struct {
 	// and tracks resources that it is responsible for cleaning up.
 	*Resident
 
-	metrics *ControllerGauges
-	hub     *pubsub.SimpleHub
-
+	model   *Model
 	details UnitChange
 }
 
-func newUnit(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *Unit {
-	u := &Unit{
+func newUnit(model *Model, res *Resident) *Unit {
+	return &Unit{
 		Resident: res,
-		metrics:  metrics,
-		hub:      hub,
+		model:    model,
 	}
-	return u
 }
 
 // Note that these property accessors are not lock-protected.
@@ -69,6 +66,24 @@ func (u *Unit) Ports() []network.Port {
 	return u.details.Ports
 }
 
+// WatchCharmConfig returns a new watcher that will notify when the
+// effective application charm config for this unit changes.
+func (u *Unit) WatchCharmConfig() (*CharmConfigWatcher, error) {
+	cfg := charmConfigWatcherConfig{
+		model:                u.model,
+		unitName:             u.details.Name,
+		appName:              u.details.Application,
+		appConfigChangeTopic: fmt.Sprintf("%s:%s", u.details.Application, applicationConfigChange),
+		branchChangeTopic:    branchChange,
+		branchRemoveTopic:    modelBranchRemove,
+		hub:                  u.model.hub,
+		res:                  u.Resident,
+	}
+
+	w, err := newCharmConfigWatcher(cfg)
+	return w, errors.Trace(err)
+}
+
 func (u *Unit) setDetails(details UnitChange) {
 	// If this is the first receipt of details, set the removal message.
 	if u.removalMessage == nil {
@@ -83,7 +98,7 @@ func (u *Unit) setDetails(details UnitChange) {
 	machineChange := u.details.MachineId != details.MachineId
 	u.details = details
 	if machineChange || u.details.Subordinate {
-		u.hub.Publish(modelUnitAdd, u.copy())
+		u.model.hub.Publish(modelUnitAdd, u.copy())
 	}
 }
 

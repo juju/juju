@@ -32,7 +32,7 @@ var _ = gc.Suite(&machineSuite{})
 
 func (s *machineSuite) SetUpTest(c *gc.C) {
 	s.EntitySuite.SetUpTest(c)
-	s.model = s.NewModel(modelChange, nil)
+	s.model = s.NewModel(modelChange)
 }
 
 func (s *machineSuite) TestInstanceId(c *gc.C) {
@@ -178,16 +178,19 @@ func (s *machineSuite) TestWatchContainersRemoveContainer(c *gc.C) {
 }
 
 func (s *machineSuite) TestMachineArrivesProvisionedPublished(c *gc.C) {
-	hub := s.NewHub()
-
 	msg := make(chan struct{}, 1)
-	_ = hub.Subscribe(machineChange.Id+":machine-provisioned", func(_ string, _ interface{}) { msg <- struct{}{} })
-	s.NewModel(modelChange, hub).UpdateMachine(machineChange, s.Manager)
+	unsub := s.Hub.Subscribe(
+		machineChange.Id+":machine-provisioned",
+		func(_ string, _ interface{}) { msg <- struct{}{} },
+	)
+	defer unsub()
+
+	s.NewModel(modelChange).UpdateMachine(machineChange, s.Manager)
 
 	select {
 	case <-msg:
 	case <-time.After(testing.LongWait):
-		c.Fatalf("provisioned message not received")
+		c.Fatal("machine provisioned message not received")
 	}
 }
 

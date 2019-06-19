@@ -5,6 +5,7 @@ package cache
 
 import (
 	"testing"
+	"time"
 
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
@@ -58,46 +59,44 @@ func (s *BaseSuite) AssertWorkerResource(c *gc.C, resident *Resident, id uint64,
 	c.Assert(present, gc.Equals, expectPresent)
 }
 
+func (s *BaseSuite) NewHub() *pubsub.SimpleHub {
+	logger := loggo.GetLogger("test")
+	logger.SetLogLevel(loggo.TRACE)
+	return pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{Logger: logger})
+}
+
 // entitySuite is the base suite for testing cached entities
 // (models, applications, machines).
 type EntitySuite struct {
 	BaseSuite
 
 	Gauges *ControllerGauges
+	Hub    *pubsub.SimpleHub
 }
 
 func (s *EntitySuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.Gauges = createControllerGauges()
+	s.Hub = s.NewHub()
 }
 
-func (s *EntitySuite) NewModel(details ModelChange, hub *pubsub.SimpleHub) *Model {
-	if hub == nil {
-		hub = s.NewHub()
-	}
-
-	m := newModel(s.Gauges, hub, s.Manager.new())
+func (s *EntitySuite) NewModel(details ModelChange) *Model {
+	m := newModel(s.Gauges, s.Hub, s.Manager.new())
 	m.setDetails(details)
 	return m
 }
 
-func (s *EntitySuite) NewApplication(details ApplicationChange, hub *pubsub.SimpleHub) *Application {
-	if hub == nil {
-		hub = s.NewHub()
-	}
-
-	a := newApplication(s.Gauges, hub, s.NewResident())
-	a.SetDetails(details)
+func (s *EntitySuite) NewApplication(details ApplicationChange) *Application {
+	a := newApplication(s.Gauges, s.Hub, s.NewResident())
+	a.setDetails(details)
 	return a
 }
 
-func (s *EntitySuite) NewHub() *pubsub.SimpleHub {
-	logger := loggo.GetLogger("test")
-	logger.SetLogLevel(loggo.TRACE)
-	return pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-		Logger: logger,
-	})
+func (s *EntitySuite) NewBranch(details BranchChange) *Branch {
+	b := newBranch(s.Gauges, s.Hub, s.NewResident())
+	b.setDetails(details)
+	return b
 }
 
 type ImportSuite struct{}
@@ -117,4 +116,68 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"core/settings",
 		"core/status",
 	})
+}
+
+// NotifyWatcherC wraps a notify watcher, adding testing convenience methods.
+type NotifyWatcherC struct {
+	*gc.C
+	Watcher NotifyWatcher
+}
+
+func NewNotifyWatcherC(c *gc.C, watcher NotifyWatcher) NotifyWatcherC {
+	return NotifyWatcherC{
+		C:       c,
+		Watcher: watcher,
+	}
+}
+
+// AssertOneChange fails if no change is sent before a long time has passed; or
+// if, subsequent to that, any further change is sent before a short time has
+// passed.
+func (c NotifyWatcherC) AssertOneChange() {
+	select {
+	case _, ok := <-c.Watcher.Changes():
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("watcher did not send change")
+	}
+	c.AssertNoChange()
+}
+
+// AssertNoChange fails if it manages to read a value from Changes before a
+// short time has passed.
+func (c NotifyWatcherC) AssertNoChange() {
+	select {
+	case _, ok := <-c.Watcher.Changes():
+		if ok {
+			c.Fatalf("watcher sent unexpected change")
+		}
+		c.Fatalf("watcher changes channel closed")
+	case <-time.After(coretesting.ShortWait):
+	}
+}
+
+// AssertStops Kills the watcher and asserts (1) that Wait completes without
+// error before a long time has passed; and (2) that Changes channel is closed.
+func (c NotifyWatcherC) AssertStops() {
+	c.Watcher.Kill()
+	wait := make(chan error)
+	go func() {
+		wait <- c.Watcher.Wait()
+	}()
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("watcher never stopped")
+	case err := <-wait:
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	select {
+	case _, ok := <-c.Watcher.Changes():
+		if ok {
+			c.Fatalf("watcher sent unexpected change")
+		}
+	default:
+		c.Fatalf("channel not closed")
+	}
 }

@@ -23,7 +23,7 @@ type ApplicationSuite struct {
 var _ = gc.Suite(&ApplicationSuite{})
 
 func (s *ApplicationSuite) TestConfigIncrementsReadCount(c *gc.C) {
-	m := s.NewApplication(appChange, nil)
+	m := s.NewApplication(appChange)
 	c.Check(testutil.ToFloat64(s.Gauges.ApplicationConfigReads), gc.Equals, float64(0))
 
 	m.Config()
@@ -47,7 +47,7 @@ func (s *ApplicationSuite) TestConfigIncrementsReadCount(c *gc.C) {
 // See model_test.go for other config watcher tests.
 // Here we just check that WatchConfig is wired up properly.
 func (s *ApplicationSuite) TestConfigWatcherChange(c *gc.C) {
-	a := s.NewApplication(appChange, nil)
+	a := s.NewApplication(appChange)
 	w := a.WatchConfig()
 
 	// The worker is the first and only resource (1).
@@ -58,7 +58,7 @@ func (s *ApplicationSuite) TestConfigWatcherChange(c *gc.C) {
 		s.AssertWorkerResource(c, a.Resident, resourceId, false)
 	}()
 
-	wc := NewNotifyWatcherC(c, w)
+	wc := cache.NewNotifyWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange()
 
@@ -72,6 +72,11 @@ func (s *ApplicationSuite) TestConfigWatcherChange(c *gc.C) {
 
 	// The value is retrieved from the cache when the watcher is created and notified.
 	c.Check(testutil.ToFloat64(s.Gauges.ApplicationHashCacheHit), gc.Equals, float64(2))
+
+	// Setting the same values causes no notification and no cache miss.
+	a.SetDetails(change)
+	wc.AssertNoChange()
+	c.Check(testutil.ToFloat64(s.Gauges.ApplicationHashCacheMiss), gc.Equals, float64(2))
 }
 
 var appChange = cache.ApplicationChange{
