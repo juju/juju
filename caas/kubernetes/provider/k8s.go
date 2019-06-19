@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"text/template"
 	"time"
 
 	jujuclock "github.com/juju/clock"
@@ -34,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/yaml"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	apimachineryversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
@@ -2464,61 +2463,18 @@ type unitSpec struct {
 	Service *K8sServiceSpec
 }
 
-var containerTemplate = `
-  - name: {{.Name}}
-    {{if .Ports}}
-    ports:
-    {{- range .Ports }}
-        - containerPort: {{.ContainerPort}}
-          {{if .Name}}name: {{.Name}}{{end}}
-          {{if .Protocol}}protocol: {{.Protocol}}{{end}}
-    {{- end}}
-    {{end}}
-    {{if .Command}}
-    command: [{{- range $idx, $c := .Command -}}{{if ne $idx 0}},{{end}}"{{$c}}"{{- end -}}]
-    {{end}}
-    {{if .Args}}
-    args: [{{- range $idx, $a := .Args -}}{{if ne $idx 0}},{{end}}"{{$a}}"{{- end -}}]
-    {{end}}
-    {{if .WorkingDir}}
-    workingDir: {{.WorkingDir}}
-    {{end}}
-    {{if .Config}}
-    env:
-    {{- range $k, $v := .Config }}
-        - name: {{$k}}
-          value: {{$v}}
-    {{- end}}
-    {{end}}
-`
-
-var defaultPodTemplate = fmt.Sprintf(`
-pod:
-  containers:
-  {{- range .Containers }}
-%s
-  {{- end}}
-  {{if .InitContainers}}
-  initContainers:
-  {{- range .InitContainers }}
-%s
-  {{- end}}
-  {{end}}
-`[1:], containerTemplate, containerTemplate)
-
 func makeUnitSpec(appName, deploymentName string, podSpec *caas.PodSpec) (*unitSpec, error) {
 	// Fill out the easy bits using a template.
-	tmpl := template.Must(template.New("").Parse(defaultPodTemplate))
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, podSpec); err != nil {
+	if err := defaultPodTemplate.Execute(&buf, podSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
 	unitSpecString := buf.String()
 
 	var unitSpec unitSpec
-	decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(unitSpecString), len(unitSpecString))
+	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(unitSpecString), len(unitSpecString))
 	if err := decoder.Decode(&unitSpec); err != nil {
-		logger.Errorf("unable to parse %q pod spec: %+v\n%v", appName, *podSpec, unitSpecString)
+		logger.Errorf("unable to parse %q pod spec: \n%+v\nunit spec: \n%v", appName, *podSpec, unitSpecString)
 		return nil, errors.Trace(err)
 	}
 
