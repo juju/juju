@@ -154,9 +154,12 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 		// Region is optional, but cloudType is required for next step.
 		return "", ClusterQueryError{}
 	}
-	k8sCloud.Regions = []cloud.Region{{
-		Name: region,
-	}}
+	if region != "" {
+		k8sCloud.Regions = []cloud.Region{{
+			Name:     region,
+			Endpoint: k8sCloud.Endpoint,
+		}}
+	}
 
 	// If the user has not specified storage and cloudType is usable, check Juju's opinionated defaults.
 	err = storageParams.MetadataChecker.CheckDefaultWorkloadStorage(
@@ -295,11 +298,6 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	_, err = UpdateKubeCloudWithStorage(&mk8sCloud, storageUpdateParams)
 	if err != nil {
 		return cloud.Cloud{}, errors.Trace(err)
-	}
-	for i := range mk8sCloud.Regions {
-		if mk8sCloud.Regions[i].Endpoint == "" {
-			mk8sCloud.Regions[i].Endpoint = mk8sCloud.Endpoint
-		}
 	}
 	return mk8sCloud, nil
 }

@@ -14,14 +14,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/juju/osenv"
 )
-
-var logger = loggo.GetLogger("juju.cloud")
 
 //go:generate go run ../generate/filetoconst/filetoconst.go fallbackPublicCloudInfo fallback-public-cloud.yaml fallback_public_cloud.go 2015 cloud
 
@@ -521,7 +518,7 @@ func cloudFromInternal(in *cloud) Cloud {
 		Description:      in.Description,
 		CACertificates:   in.CACertificates,
 	}
-	meta.DenormaliseMetadata()
+	meta.denormaliseMetadata()
 	return meta
 }
 
@@ -540,9 +537,9 @@ func (r *regions) UnmarshalYAML(f func(interface{}) error) error {
 
 // To keep the metadata concise, attributes on the metadata struct which
 // have the same value for each item may be moved up to a higher level in
-// the tree. DenormaliseMetadata descends the tree and fills in any missing
+// the tree. denormaliseMetadata descends the tree and fills in any missing
 // attributes with values from a higher level.
-func (cloud Cloud) DenormaliseMetadata() {
+func (cloud Cloud) denormaliseMetadata() {
 	for name, region := range cloud.Regions {
 		r := region
 		inherit(&r, &cloud)
