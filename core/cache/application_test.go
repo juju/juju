@@ -58,7 +58,7 @@ func (s *ApplicationSuite) TestConfigWatcherChange(c *gc.C) {
 		s.AssertWorkerResource(c, a.Resident, resourceId, false)
 	}()
 
-	wc := NewNotifyWatcherC(c, w)
+	wc := cache.NewNotifyWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange()
 

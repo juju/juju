@@ -66,7 +66,7 @@ func (s *ModelSuite) TestModelConfigIncrementsReadCount(c *gc.C) {
 func (s *ModelSuite) TestConfigWatcherStops(c *gc.C) {
 	m := s.NewModel(modelChange)
 	w := m.WatchConfig()
-	wc := NewNotifyWatcherC(c, w)
+	wc := cache.NewNotifyWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange()
 	wc.AssertStops()
@@ -76,7 +76,7 @@ func (s *ModelSuite) TestConfigWatcherChange(c *gc.C) {
 	m := s.NewModel(modelChange)
 	w := m.WatchConfig()
 	defer workertest.CleanKill(c, w)
-	wc := NewNotifyWatcherC(c, w)
+	wc := cache.NewNotifyWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange()
 
@@ -104,7 +104,7 @@ func (s *ModelSuite) TestConfigWatcherOneValue(c *gc.C) {
 	m := s.NewModel(modelChange)
 	w := m.WatchConfig("key")
 	defer workertest.CleanKill(c, w)
-	wc := NewNotifyWatcherC(c, w)
+	wc := cache.NewNotifyWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange()
 
@@ -130,7 +130,7 @@ func (s *ModelSuite) TestConfigWatcherOneValueOtherChange(c *gc.C) {
 		s.AssertWorkerResource(c, m.Resident, resourceId, false)
 	}()
 
-	wc := NewNotifyWatcherC(c, w)
+	wc := cache.NewNotifyWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange()
 

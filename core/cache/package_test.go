@@ -5,6 +5,7 @@ package cache
 
 import (
 	"testing"
+	"time"
 
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
@@ -115,4 +116,68 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"core/settings",
 		"core/status",
 	})
+}
+
+// NotifyWatcherC
+type NotifyWatcherC struct {
+	*gc.C
+	Watcher NotifyWatcher
+}
+
+func NewNotifyWatcherC(c *gc.C, watcher NotifyWatcher) NotifyWatcherC {
+	return NotifyWatcherC{
+		C:       c,
+		Watcher: watcher,
+	}
+}
+
+// AssertOneChange fails if no change is sent before a long time has passed; or
+// if, subsequent to that, any further change is sent before a short time has
+// passed.
+func (c NotifyWatcherC) AssertOneChange() {
+	select {
+	case _, ok := <-c.Watcher.Changes():
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("watcher did not send change")
+	}
+	c.AssertNoChange()
+}
+
+// AssertNoChange fails if it manages to read a value from Changes before a
+// short time has passed.
+func (c NotifyWatcherC) AssertNoChange() {
+	select {
+	case _, ok := <-c.Watcher.Changes():
+		if ok {
+			c.Fatalf("watcher sent unexpected change")
+		}
+		c.Fatalf("watcher changes channel closed")
+	case <-time.After(coretesting.ShortWait):
+	}
+}
+
+// AssertStops Kills the watcher and asserts (1) that Wait completes without
+// error before a long time has passed; and (2) that Changes channel is closed.
+func (c NotifyWatcherC) AssertStops() {
+	c.Watcher.Kill()
+	wait := make(chan error)
+	go func() {
+		wait <- c.Watcher.Wait()
+	}()
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("watcher never stopped")
+	case err := <-wait:
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	select {
+	case _, ok := <-c.Watcher.Changes():
+		if ok {
+			c.Fatalf("watcher sent unexpected change")
+		}
+	default:
+		c.Fatalf("channel not closed")
+	}
 }

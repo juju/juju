@@ -19,7 +19,7 @@ type lxdProfileWatcherSuite struct {
 	model    *cache.Model
 	machine0 cache.Machine
 	machine1 cache.Machine
-	wc0      NotifyWatcherC
+	wc0      cache.NotifyWatcherC
 }
 
 var _ = gc.Suite(&lxdProfileWatcherSuite{})
@@ -111,14 +111,14 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherTwoMachines(c *gc.C
 	w0, err := s.machine0.WatchLXDProfileVerificationNeeded()
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w0)
-	wc0 := NewNotifyWatcherC(c, w0)
+	wc0 := cache.NewNotifyWatcherC(c, w0)
 	// Sends initial event.
 	s.assertChangeValidateMetrics(c, wc0.AssertOneChange, 0, 0, 0)
 
 	w1, err := s.machine1.WatchLXDProfileVerificationNeeded()
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w1)
-	wc1 := NewNotifyWatcherC(c, w1)
+	wc1 := cache.NewNotifyWatcherC(c, w1)
 	// Sends initial event.
 	s.assertChangeValidateMetrics(c, wc1.AssertOneChange, 0, 0, 0)
 
@@ -360,7 +360,7 @@ func (s *lxdProfileWatcherSuite) assertStartOneMachineWatcher(c *gc.C) *cache.Ma
 	w, err := s.machine0.WatchLXDProfileVerificationNeeded()
 	c.Assert(err, jc.ErrorIsNil)
 
-	wc := NewNotifyWatcherC(c, w)
+	wc := cache.NewNotifyWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange()
 	s.wc0 = wc
@@ -383,7 +383,7 @@ func (s *lxdProfileWatcherSuite) assertStartOneMachineNotProvisionedWatcher(c *g
 	w, err := s.machine0.WatchLXDProfileVerificationNeeded()
 	c.Assert(err, jc.ErrorIsNil)
 
-	wc := NewNotifyWatcherC(c, w)
+	wc := cache.NewNotifyWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange()
 	s.wc0 = wc
