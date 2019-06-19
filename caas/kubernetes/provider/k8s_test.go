@@ -673,7 +673,9 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 	}(namespaceWatcher, s.clock)
 
 	c.Assert(destroyFunc(), jc.ErrorIsNil)
-	c.Assert(workertest.CheckKilled(c, s.watcher), jc.ErrorIsNil)
+	for _, watcher := range s.watchers {
+		c.Assert(workertest.CheckKilled(c, watcher), jc.ErrorIsNil)
+	}
 	c.Assert(namespaceWatcher.IsStopped(), jc.IsTrue)
 }
 

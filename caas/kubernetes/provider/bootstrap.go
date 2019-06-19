@@ -44,6 +44,11 @@ var (
 	TemplateFileNameAgentConf = "template-" + agent.AgentConfigFilename
 )
 
+const (
+	mongoDBContainerName   = "mongodb"
+	apiServerContainerName = "api-server"
+)
+
 type controllerServiceSpec struct {
 	// ServiceType is required.
 	ServiceType core.ServiceType
@@ -523,7 +528,7 @@ func (c *controllerStack) createControllerStatefulset() error {
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels:    c.stackLabels,
-					Name:      c.pcfg.GetPodName(),
+					Name:      c.pcfg.GetPodName(), // This really should not be set.
 					Namespace: c.broker.GetCurrentNamespace(),
 				},
 				Spec: core.PodSpec{
@@ -554,16 +559,31 @@ func (c *controllerStack) createControllerStatefulset() error {
 	if err = c.broker.createStatefulSet(spec); err != nil {
 		return errors.Trace(err)
 	}
-	if err = c.syncPodStatus(w); err != nil {
-		return errors.Annotate(err, "fetching pods' status for controller")
+
+	for i := int32(0); i < numberOfPods; i++ {
+		podName := c.pcfg.GetPodName() // TODO(caas): HA mode!
+		if err = c.waitForPod(w, podName); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }
 
-func (c *controllerStack) syncPodStatus(w watcher.NotifyWatcher) error {
+func (c *controllerStack) waitForPod(podWatcher watcher.NotifyWatcher, podName string) error {
+	timeout := c.broker.clock.NewTimer(c.pcfg.Bootstrap.Timeout)
+
+	podEventWatcher, err := c.broker.watchEvents(podName, "Pod")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer podEventWatcher.Kill()
+
 	printedMsg := set.NewStrings()
-	checkContainerEvents := func(events []core.Event, reason string, eventCount int) bool {
-		count := 0
+	printPodEvents := func() error {
+		events, err := c.broker.getEvents(podName, "Pod")
+		if err != nil {
+			return errors.Trace(err)
+		}
 		for _, evt := range events {
 			// clean the messages to prevent duplicated records.
 			// we don't care which image is been pulling/pulled and this reason should be printed once only.
@@ -572,8 +592,12 @@ func (c *controllerStack) syncPodStatus(w watcher.NotifyWatcher) error {
 				evt.Message = "Downloading images"
 			case PulledImage:
 				evt.Message = "Pulled images"
-			case reason:
-				count++
+			case StartedContainer:
+				if evt.InvolvedObject.FieldPath == fmt.Sprintf("spec.containers{%s}", mongoDBContainerName) {
+					evt.Message = "Started mongodb container"
+				} else if evt.InvolvedObject.FieldPath == fmt.Sprintf("spec.containers{%s}", apiServerContainerName) {
+					evt.Message = "Started controller container"
+				}
 			}
 			if evt.Type == core.EventTypeNormal && !printedMsg.Contains(evt.Message) {
 				printedMsg.Add(evt.Message)
@@ -581,25 +605,97 @@ func (c *controllerStack) syncPodStatus(w watcher.NotifyWatcher) error {
 				if evt.Reason == PullingImage {
 					c.ctx.Infof(evt.Message)
 				}
-				if evt.Reason == PulledImage {
-					// starting pod after images are pulled.
-					c.ctx.Infof("Starting controller pod")
+			}
+		}
+		return nil
+	}
+
+	unschedulableReason := func(pod *core.Pod) error {
+		// TODO: handle reason for unschedulable state such as node taints (HA)
+		// Volumes
+		for _, volume := range pod.Spec.Volumes {
+			if pvcSource := volume.PersistentVolumeClaim; pvcSource != nil {
+				pvc, err := c.broker.getPVC(pvcSource.ClaimName)
+				if err != nil {
+					return errors.Annotatef(err, "failed to get pvc %s", pvcSource.ClaimName)
+				}
+				if pvc.Status.Phase == core.ClaimPending {
+					events, err := c.broker.getEvents(pvc.Name, "PersistentVolumeClaim")
+					if err != nil {
+						return errors.Annotate(err, "failed to get pvc events")
+					}
+					numEvents := len(events)
+					if numEvents > 0 {
+						lastEvent := events[numEvents-1]
+						return errors.Errorf("pvc %s pending due to %s - %s",
+							pvc.Name, lastEvent.Reason, lastEvent.Message)
+					}
 				}
 			}
 		}
-		return count >= eventCount
+		return nil
 	}
+
+	pendingReason := func() error {
+		pod, err := c.broker.getPod(podName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, cond := range pod.Status.Conditions {
+			switch cond.Type {
+			case core.PodScheduled:
+				if cond.Reason == core.PodReasonUnschedulable {
+					err := unschedulableReason(pod)
+					if err != nil {
+						return errors.Annotate(err, "unschedulable")
+					}
+					return errors.Errorf("unschedulable: %v", cond.Message)
+				}
+			}
+		}
+		if pod.Status.Phase == core.PodPending {
+			return errors.Errorf("pending: %v - %v", pod.Status.Reason, pod.Status.Message)
+		}
+		return nil
+	}
+
+	checkStatus := func(pod *core.Pod) (bool, error) {
+		switch pod.Status.Phase {
+		case core.PodRunning:
+			return true, nil
+		case core.PodFailed:
+			return false, errors.Annotate(pendingReason(), "controller pod failed")
+		case core.PodSucceeded:
+			return false, errors.Errorf("controller pod terminated unexpectedly")
+		}
+		return false, nil
+	}
+
+	printPodEvents()
 	for {
 		select {
-		case <-w.Changes():
-			events, err := c.broker.getEvents(c.pcfg.GetPodName())
+		case <-podWatcher.Changes():
+			printPodEvents()
+			pod, err := c.broker.getPod(podName)
+			if err != nil {
+				return errors.Annotate(err, "fetching pods' status for controller")
+			}
+			done, err := checkStatus(pod)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if checkContainerEvents(events, StartedContainer, c.containerCount) {
-				// all containers are created.
+			if done {
+				c.ctx.Infof("Starting controller pod")
 				return nil
 			}
+		case <-podEventWatcher.Changes():
+			printPodEvents()
+		case <-timeout.Chan():
+			err := pendingReason()
+			if err != nil {
+				return errors.Annotatef(err, "timed out waiting for controller pod")
+			}
+			return errors.Timeoutf("timed out waiting for controller pod")
 		}
 	}
 }
@@ -745,7 +841,7 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 			args = append(args, fmt.Sprintf("--wiredTigerCacheSizeGB=%v", wiredTigerCacheSize))
 		}
 		containerSpec = append(containerSpec, core.Container{
-			Name:            "mongodb",
+			Name:            mongoDBContainerName,
 			ImagePullPolicy: core.PullIfNotPresent,
 			Image:           c.pcfg.GetJujuDbOCIImagePath(),
 			Command: []string{
@@ -806,7 +902,7 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 
 		// add container API server.
 		containerSpec = append(containerSpec, core.Container{
-			Name:            "api-server",
+			Name:            apiServerContainerName,
 			ImagePullPolicy: core.PullIfNotPresent,
 			Image:           c.pcfg.GetControllerImagePath(),
 			Command: []string{

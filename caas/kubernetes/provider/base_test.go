@@ -63,7 +63,7 @@ type BaseSuite struct {
 	mockApiextensionsClient      *mocks.MockApiExtensionsClientInterface
 	mockCustomResourceDefinition *mocks.MockCustomResourceDefinitionInterface
 
-	watcher *provider.KubernetesWatcher
+	watchers []*provider.KubernetesWatcher
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -117,19 +117,21 @@ func (s *BaseSuite) getNamespace() string {
 func (s *BaseSuite) setupController(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
-	return s.setupBroker(c, ctrl, newK8sRestClientFunc)
-}
-
-func (s *BaseSuite) setupBroker(c *gc.C, ctrl *gomock.Controller, newK8sRestClientFunc provider.NewK8sClientFunc) *gomock.Controller {
-	s.clock = testclock.NewClock(time.Time{})
 	newK8sWatcherForTest := func(wi watch.Interface, name string, clock jujuclock.Clock) (*provider.KubernetesWatcher, error) {
 		w, err := provider.NewKubernetesWatcher(wi, name, clock)
 		c.Assert(err, jc.ErrorIsNil)
-		s.watcher = w
-		return s.watcher, err
+		s.watchers = append(s.watchers, w)
+		return w, err
 	}
+	return s.setupBroker(c, ctrl, newK8sRestClientFunc, newK8sWatcherForTest)
+}
+
+func (s *BaseSuite) setupBroker(c *gc.C, ctrl *gomock.Controller,
+	newK8sRestClientFunc provider.NewK8sClientFunc,
+	newK8sWatcherFunc provider.NewK8sWatcherFunc) *gomock.Controller {
+	s.clock = testclock.NewClock(time.Time{})
 	var err error
-	s.broker, err = provider.NewK8sBroker(s.controllerUUID, s.k8sRestConfig, s.cfg, newK8sRestClientFunc, newK8sWatcherForTest, s.clock)
+	s.broker, err = provider.NewK8sBroker(s.controllerUUID, s.k8sRestConfig, s.cfg, newK8sRestClientFunc, newK8sWatcherFunc, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl
 }

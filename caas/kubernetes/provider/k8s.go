@@ -2100,6 +2100,19 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 	return units, nil
 }
 
+func (k *kubernetesClient) getPod(podName string) (*core.Pod, error) {
+	pods := k.client().CoreV1().Pods(k.namespace)
+	pod, err := pods.Get(podName, v1.GetOptions{
+		IncludeUninitialized: true,
+	})
+	if k8serrors.IsNotFound(err) {
+		return nil, errors.NotFoundf("pod not found")
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return pod, nil
+}
+
 func (k *kubernetesClient) volumeInfoForEmptyDir(vol core.Volume, volMount core.VolumeMount, now time.Time) (*caas.FilesystemInfo, error) {
 	size := uint64(vol.EmptyDir.SizeLimit.Size())
 	return &caas.FilesystemInfo{
@@ -2121,6 +2134,17 @@ func (k *kubernetesClient) volumeInfoForEmptyDir(vol core.Volume, volMount core.
 			},
 		},
 	}, nil
+}
+
+func (k *kubernetesClient) getPVC(claimName string) (*core.PersistentVolumeClaim, error) {
+	pvcs := k.client().CoreV1().PersistentVolumeClaims(k.namespace)
+	pvc, err := pvcs.Get(claimName, v1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return nil, errors.NotFoundf("pvc not found")
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return pvc, nil
 }
 
 func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.VolumeMount, claimName string, now time.Time) (*caas.FilesystemInfo, error) {
@@ -2157,7 +2181,7 @@ func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.Volum
 	if statusMessage == "" {
 		// If there are any events for this pvc we can use the
 		// most recent to set the status.
-		eventList, err := k.getEvents(pvc.Name)
+		eventList, err := k.getEvents(pvc.Name, "PersistentVolumeClaim")
 		if err != nil {
 			return nil, errors.Annotate(err, "unable to get events for PVC")
 		}
@@ -2248,7 +2272,7 @@ func (k *kubernetesClient) getPODStatus(pod core.Pod, now time.Time) (string, st
 	if statusMessage == "" {
 		// If there are any events for this pod we can use the
 		// most recent to set the status.
-		eventList, err := k.getEvents(pod.Name)
+		eventList, err := k.getEvents(pod.Name, "Pod")
 		if err != nil {
 			return "", "", time.Time{}, errors.Trace(err)
 		}
@@ -2270,7 +2294,7 @@ func (k *kubernetesClient) getStatefulSetStatus(ss *apps.StatefulSet) (string, s
 	if ss.Status.ReadyReplicas == ss.Status.Replicas {
 		jujuStatus = status.Active
 	}
-	return k.getStatusFromEvents(ss.Name, jujuStatus)
+	return k.getStatusFromEvents(ss.Name, "StatefulSet", jujuStatus)
 }
 
 func (k *kubernetesClient) getDeploymentStatus(deployment *apps.Deployment) (string, status.Status, error) {
@@ -2282,11 +2306,11 @@ func (k *kubernetesClient) getDeploymentStatus(deployment *apps.Deployment) (str
 	if deployment.Status.ReadyReplicas == deployment.Status.Replicas {
 		jujuStatus = status.Active
 	}
-	return k.getStatusFromEvents(deployment.Name, jujuStatus)
+	return k.getStatusFromEvents(deployment.Name, "Deployment", jujuStatus)
 }
 
-func (k *kubernetesClient) getStatusFromEvents(parentName string, jujuStatus status.Status) (string, status.Status, error) {
-	events, err := k.getEvents(parentName)
+func (k *kubernetesClient) getStatusFromEvents(name, kind string, jujuStatus status.Status) (string, status.Status, error) {
+	events, err := k.getEvents(name, kind)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
