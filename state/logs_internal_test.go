@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -49,7 +50,8 @@ func (s *LogsInternalSuite) TestCollStatsForMissingDB(c *gc.C) {
 	coll := s.Session.DB("logs").C("missing")
 	_, err := collStats(coll)
 
-	c.Assert(err.Error(), gc.Equals, "Collection [logs.missing] not found.")
+	c.Assert(err.Error(), gc.Equals, "Collection [logs.missing] not found")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *LogsInternalSuite) createLogsDB(c *gc.C) *mgo.Collection {
@@ -78,7 +80,8 @@ func (s *LogsInternalSuite) TestCollStatsForMissingCollection(c *gc.C) {
 	coll := s.Session.DB("logs").C("missing")
 	_, err := collStats(coll)
 
-	c.Assert(err.Error(), gc.Equals, "Collection [logs.missing] not found.")
+	c.Assert(err.Error(), gc.Equals, "Collection [logs.missing] not found")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *LogsInternalSuite) TestCappedInfoForNormalCollection(c *gc.C) {

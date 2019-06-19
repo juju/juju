@@ -85,7 +85,10 @@ func InitDbLogs(session *mgo.Session) error {
 	size, err := modelLogsSize(session)
 	if errors.Cause(err) == mgo.ErrNotFound {
 		// We are in early stages of database initialization, so nothing to do
-		// here.
+		// here. The controller model and the default model (most likely) will
+		// be initialized during bootstrap, and when the machine agent starts
+		// properly, the logs collections will be either created for them,
+		// or converted to capped collections.
 		logger.Infof("controller settings not found, early stage initialization assumed")
 		return nil
 	} else if err != nil {
@@ -159,19 +162,43 @@ func InitDbLogsForModel(session *mgo.Session, modelUUID string, size int) error 
 	// Get the collection from the logs DB.
 	logsColl := session.DB(logsDB).C(logCollectionName(modelUUID))
 
-	// If it doesn't exist, make it capped with the right indices.
-	err := logsColl.Create(&mgo.CollectionInfo{})
+	capped, maxSize, err := getCollectionCappedInfo(logsColl)
+	if errors.IsNotFound(err) {
+		// Create the collection as a capped collection.
+		logger.Infof("creating logs collection for %s, capped at %v MiB", modelUUID, size)
+		err := logsColl.Create(&mgo.CollectionInfo{
+			Capped:   true,
+			MaxBytes: size * humanize.MiByte,
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	} else if capped {
+		if maxSize == size {
+			// The logs collection size matches, so nothing to do here.
+			logger.Tracef("logs collection for %s already capped at %v MiB", modelUUID, size)
+			return nil
+		} else {
+			logger.Infof("resizing logs collection for %s from %d to %v MiB", modelUUID, maxSize, size)
+			err := convertToCapped(logsColl, size)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+	} else {
+		logger.Infof("converting logs collection for %s to capped with max size %v MiB", modelUUID, size)
+		err := convertToCapped(logsColl, size)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
 
-	_ = err
-	// If it isn't capped, convert to capped with right size.
-
-	// If it is capped but size is different, drop and recreate with right
-	// size.
-
+	// Ensure all the right indices are created. When converting to a capped
+	// collection, the indices are dropped.
 	for _, key := range logIndexes {
 		err := logsColl.EnsureIndex(mgo.Index{Key: key})
 		if err != nil {
-			return errors.Annotate(err, "cannot create index for logs collection")
+			return errors.Annotatef(err, "cannot create index for logs collection %v", logsColl.Name)
 		}
 	}
 	return nil
@@ -842,112 +869,6 @@ type DebugLogger interface {
 	Debugf(string, ...interface{})
 }
 
-// PruneLogs removes old log documents in order to control the size of
-// logs collection. All logs older than minLogTime are
-// removed. Further removal is also performed if the logs collection
-// size is greater than maxLogsMB.
-func PruneLogs(st ControllerSessioner, minLogTime time.Time, maxLogsMB int, logger DebugLogger) (string, error) {
-	if !st.IsController() {
-		return "", errors.Errorf("pruning logs requires a controller state")
-	}
-	session, logsDB := initLogsSessionDB(st)
-	defer session.Close()
-
-	startTime := st.clock().Now()
-
-	logColls, err := getLogCollections(logsDB)
-	if err != nil {
-		return "", errors.Annotate(err, "failed to get log counts")
-	}
-
-	pruneCounts := make(map[string]int)
-
-	// Remove old log entries for each model.
-	for modelUUID, logColl := range logColls {
-		removeInfo, err := logColl.RemoveAll(bson.M{
-			"t": bson.M{"$lt": minLogTime.UnixNano()},
-		})
-		if err != nil {
-			return "", errors.Annotate(err, "failed to prune logs by time")
-		}
-		pruneCounts[modelUUID] = removeInfo.Removed
-	}
-
-	// Do further pruning if the total size of the log collections is
-	// over the maximum size.
-	var endSize string
-	for {
-		collMB, err := getCollectionTotalMB(logColls)
-		if err != nil {
-			return "", errors.Annotate(err, "failed to retrieve log counts")
-		}
-		endSize = fmt.Sprintf("logs db now %d MB", collMB)
-		if collMB <= maxLogsMB {
-			break
-		}
-
-		modelUUID, count, err := findModelWithMostLogs(logColls)
-		if err != nil {
-			return "", errors.Annotate(err, "log count query failed")
-		}
-		if count < 5000 {
-			break // Pruning is not worthwhile
-		}
-
-		// Remove the oldest 1% of log records for the model.
-		toRemove := int(float64(count) * 0.01)
-
-		// Find the threshold timestammp to start removing from.
-		// NOTE: this assumes that there are no more logs being added
-		// for the time range being pruned (which should be true for
-		// any realistic minimum log collection size).
-		logColl := logColls[modelUUID]
-		tsQuery := logColl.Find(nil).Sort("t", "_id")
-		tsQuery = tsQuery.Skip(toRemove)
-		tsQuery = tsQuery.Select(bson.M{"t": 1})
-		var doc bson.M
-		err = tsQuery.One(&doc)
-		if err != nil {
-			return "", errors.Annotate(err, "log pruning timestamp query failed")
-		}
-		thresholdTs := doc["t"]
-
-		// Remove old records.
-		removeInfo, err := logColl.RemoveAll(bson.M{
-			"t": bson.M{"$lt": thresholdTs},
-		})
-		if err != nil {
-			return "", errors.Annotate(err, "log pruning failed")
-		}
-		pruneCounts[modelUUID] += removeInfo.Removed
-	}
-
-	totalRemoved := 0
-	modelCount := 0
-	for modelUUID, count := range pruneCounts {
-		if count > 0 {
-			totalRemoved += count
-			modelCount++
-			logger.Debugf("pruned %d logs for model %s", count, modelUUID)
-		}
-	}
-
-	var removed string
-	if totalRemoved == 0 {
-		removed = "no pruning necessary"
-	} else {
-		s := "s"
-		if modelCount == 1 {
-			s = ""
-		}
-		removed = fmt.Sprintf("pruned %d entries from %d model%s", totalRemoved, modelCount, s)
-	}
-	elapsed := st.clock().Now().Sub(startTime).Round(time.Millisecond)
-
-	message := fmt.Sprintf("pruning complete after %s, %s, %s", elapsed, removed, endSize)
-	return message, nil
-}
-
 func initLogsSessionDB(st MongoSessioner) (*mgo.Session, *mgo.Database) {
 	// To improve throughput, only wait for the logs to be written to
 	// the primary. For some reason, this makes a huge difference even
@@ -1010,7 +931,7 @@ func collStats(coll *mgo.Collection) (bson.M, error) {
 		if strings.Contains(err.Error(), "not found") {
 			return nil, errors.Wrap(
 				err,
-				errors.Errorf("Collection [%s.%s] not found.", coll.Database.Name, coll.Name))
+				errors.NotFoundf("Collection [%s.%s]", coll.Database.Name, coll.Name))
 		}
 		return nil, errors.Trace(err)
 	}
@@ -1104,34 +1025,6 @@ func getLogCollections(db *mgo.Database) (map[string]*mgo.Collection, error) {
 		result[uuid] = db.C(name)
 	}
 	return result, nil
-}
-
-// findModelWithMostLogs returns the modelUUID and row count for the
-// collection with the most logs in the logs DB.
-func findModelWithMostLogs(colls map[string]*mgo.Collection) (string, int, error) {
-	var maxModelUUID string
-	var maxCount int
-	for modelUUID, coll := range colls {
-		count, err := getRowCountForCollection(coll)
-		if err != nil {
-			return "", -1, errors.Trace(err)
-		}
-		if count > maxCount {
-			maxModelUUID = modelUUID
-			maxCount = count
-		}
-	}
-	return maxModelUUID, maxCount, nil
-}
-
-// getRowCountForCollection returns the number of log records stored for a
-// given model log collection.
-func getRowCountForCollection(coll *mgo.Collection) (int, error) {
-	count, err := coll.Count()
-	if err != nil {
-		return -1, errors.Annotate(err, "failed to get log count")
-	}
-	return count, nil
 }
 
 func removeModelLogs(session *mgo.Session, modelUUID string) error {
