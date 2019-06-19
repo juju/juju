@@ -6,7 +6,6 @@ package cache
 import (
 	"fmt"
 	"regexp"
-	"sync"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
@@ -33,52 +32,47 @@ type Machine struct {
 	*Resident
 
 	model *Model
-	mu    sync.Mutex
 
-	modelUUID  string
 	details    MachineChange
 	configHash string
 }
 
+// Note that these property accessors are not lock-protected.
+// They are intended for calling from external packages that have retrieved a
+// deep copy from the cache.
+
 // Id returns the id string of this machine.
 func (m *Machine) Id() string {
-	m.mu.Lock()
-	defer m.mu.Unlock()
 	return m.details.Id
 }
 
 // InstanceId returns the provider specific instance id for this machine and
-// returns not provisioned if instance id is empty
+// returns not provisioned if instance ID is empty.
 func (m *Machine) InstanceId() (instance.Id, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	if m.details.InstanceId == "" {
 		return "", errors.NotProvisionedf("machine %v", m.details.Id)
 	}
 	return instance.Id(m.details.InstanceId), nil
 }
 
-// CharmProfiles returns the cached list of charm profiles for the machine
+// CharmProfiles returns the cached list of charm profiles for the machine.
 func (m *Machine) CharmProfiles() []string {
-	m.mu.Lock()
-	defer m.mu.Unlock()
 	return m.details.CharmProfiles
 }
 
 // ContainerType returns the cached container type hosting this machine.
 func (m *Machine) ContainerType() instance.ContainerType {
-	m.mu.Lock()
-	defer m.mu.Unlock()
 	return instance.ContainerType(m.details.ContainerType)
+}
+
+// Config returns configuration settings for the machine.
+func (m *Machine) Config() map[string]interface{} {
+	return m.details.Config
 }
 
 // Units returns all the units that have been assigned to the machine
 // including subordinates.
 func (m *Machine) Units() ([]Unit, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	units := m.model.Units()
 
 	var result []Unit
@@ -147,7 +141,7 @@ func (m *Machine) WatchLXDProfileVerificationNeeded() (*MachineLXDProfileWatcher
 		provisionedTopic: m.topic(machineProvisioned),
 		unitAddTopic:     modelUnitAdd,
 		unitRemoveTopic:  modelUnitRemove,
-		machine:          m,
+		machine:          m.copy(),
 		modeler:          m.model,
 		metrics:          m.model.metrics,
 		hub:              m.model.hub,
@@ -161,9 +155,6 @@ func (m *Machine) containerRegexp() (*regexp.Regexp, error) {
 }
 
 func (m *Machine) setDetails(details MachineChange) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	// If this is the first receipt of details, set the removal message.
 	if m.removalMessage == nil {
 		m.removalMessage = RemoveMachine{
@@ -190,6 +181,12 @@ func (m *Machine) setDetails(details MachineChange) {
 		m.configHash = configHash
 		// TODO: publish config change...
 	}
+}
+
+func (m *Machine) copy() Machine {
+	cm := *m
+	cm.details = cm.details.copy()
+	return cm
 }
 
 func (m *Machine) topic(suffix string) string {

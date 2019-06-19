@@ -5,8 +5,6 @@ package cache
 
 import (
 	"github.com/juju/pubsub"
-
-	"github.com/juju/juju/core/settings"
 )
 
 // Branch represents an active branch in a cached model.
@@ -57,39 +55,7 @@ func (b *Branch) setDetails(details BranchChange) {
 
 // copy returns a copy of the branch, ensuring appropriate deep copying.
 func (b *Branch) copy() Branch {
-	var cAssignedUnits map[string][]string
-	bAssignedUnits := b.details.AssignedUnits
-	if bAssignedUnits != nil {
-		cAssignedUnits = make(map[string][]string, len(bAssignedUnits))
-		for k, v := range bAssignedUnits {
-			units := make([]string, len(v))
-			for i, u := range v {
-				units[i] = u
-			}
-			cAssignedUnits[k] = units
-		}
-	}
-
-	var cConfig map[string]settings.ItemChanges
-	bConfig := b.details.Config
-	if bConfig != nil {
-		cConfig = make(map[string]settings.ItemChanges, len(bConfig))
-		for k, v := range bConfig {
-			changes := make(settings.ItemChanges, len(v))
-			for i, ch := range v {
-				changes[i] = settings.ItemChange{
-					Type:     ch.Type,
-					Key:      ch.Key,
-					NewValue: ch.NewValue,
-					OldValue: ch.OldValue,
-				}
-			}
-			cConfig[k] = changes
-		}
-	}
-
 	cb := *b
-	cb.details.AssignedUnits = cAssignedUnits
-	cb.details.Config = cConfig
+	cb.details = cb.details.copy()
 	return cb
 }

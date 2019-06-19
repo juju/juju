@@ -328,6 +328,20 @@ var basicServiceArg = &core.Service{
 	},
 }
 
+var basicHeadlessServiceArg = &core.Service{
+	ObjectMeta: v1.ObjectMeta{
+		Name:        "app-name-endpoints",
+		Labels:      map[string]string{"juju-app": "app-name"},
+		Annotations: map[string]string{"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true"},
+	},
+	Spec: core.ServiceSpec{
+		Selector:                 map[string]string{"juju-app": "app-name"},
+		Type:                     "ClusterIP",
+		ClusterIP:                "None",
+		PublishNotReadyAddresses: true,
+	},
+}
+
 func (s *K8sBrokerSuite) secretArg(c *gc.C, annotations map[string]string) *core.Secret {
 	secretData, err := provider.CreateDockerConfigJSON(&basicPodspec.Containers[0].ImageDetails)
 	c.Assert(err, jc.ErrorIsNil)
@@ -659,7 +673,9 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 	}(namespaceWatcher, s.clock)
 
 	c.Assert(destroyFunc(), jc.ErrorIsNil)
-	c.Assert(workertest.CheckKilled(c, s.watcher), jc.ErrorIsNil)
+	for _, watcher := range s.watchers {
+		c.Assert(workertest.CheckKilled(c, watcher), jc.ErrorIsNil)
+	}
 	c.Assert(namespaceWatcher.IsStopped(), jc.IsTrue)
 }
 
@@ -845,6 +861,7 @@ func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *ap
 				},
 			}},
 			PodManagementPolicy: apps.ParallelPodManagement,
+			ServiceName:         "app-name-endpoints",
 		},
 	}
 }
@@ -956,6 +973,8 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 			Return(s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Delete("test-endpoints", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+			Return(s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
 		s.mockSecrets.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==test"}).Times(1).
@@ -1060,15 +1079,15 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Update(deploymentArg).Times(1).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Create(deploymentArg).Times(1).
-			Return(nil, nil),
 		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(serviceArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(serviceArg).Times(1).
+			Return(nil, nil),
+		s.mockDeployments.EXPECT().Update(deploymentArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Create(deploymentArg).Times(1).
 			Return(nil, nil),
 	)
 
@@ -1117,6 +1136,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 				Spec: podSpec,
 			},
 			PodManagementPolicy: apps.ParallelPodManagement,
+			ServiceName:         "app-name-endpoints",
 		},
 	}
 
@@ -1129,15 +1149,21 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
-		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
-			Return(nil, nil),
 		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(&serviceArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(&serviceArg).Times(1).
+			Return(nil, nil),
+		s.mockServices.EXPECT().Get("app-name-endpoints", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(basicHeadlessServiceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(basicHeadlessServiceArg).Times(1).
+			Return(nil, nil),
+		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
 			Return(nil, nil),
 	)
 
@@ -1408,6 +1434,18 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(basicServiceArg).Times(1).
+			Return(nil, nil),
+		s.mockServices.EXPECT().Get("app-name-endpoints", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(basicHeadlessServiceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(basicHeadlessServiceArg).Times(1).
+			Return(nil, nil),
 		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
@@ -1415,12 +1453,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
-			Return(nil, nil),
-		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(basicServiceArg).Times(1).
 			Return(nil, nil),
 	)
 
@@ -1504,15 +1536,15 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Update(deploymentArg).Times(1).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Create(deploymentArg).Times(1).
-			Return(nil, nil),
 		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(basicServiceArg).Times(1).
+			Return(nil, nil),
+		s.mockDeployments.EXPECT().Update(deploymentArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Create(deploymentArg).Times(1).
 			Return(nil, nil),
 	)
 
@@ -1565,6 +1597,18 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(basicServiceArg).Times(1).
+			Return(nil, nil),
+		s.mockServices.EXPECT().Get("app-name-endpoints", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(basicHeadlessServiceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(basicHeadlessServiceArg).Times(1).
+			Return(nil, nil),
 		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
@@ -1572,12 +1616,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
-			Return(nil, nil),
-		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(basicServiceArg).Times(1).
 			Return(nil, nil),
 	)
 
@@ -1637,6 +1675,18 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(basicServiceArg).Times(1).
+			Return(nil, nil),
+		s.mockServices.EXPECT().Get("app-name-endpoints", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(basicHeadlessServiceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(basicHeadlessServiceArg).Times(1).
+			Return(nil, nil),
 		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
@@ -1644,12 +1694,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
-			Return(nil, nil),
-		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(basicServiceArg).Times(1).
 			Return(nil, nil),
 	)
 
@@ -1716,6 +1760,18 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(basicServiceArg).Times(1).
+			Return(nil, nil),
+		s.mockServices.EXPECT().Get("app-name-endpoints", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(basicHeadlessServiceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(basicHeadlessServiceArg).Times(1).
+			Return(nil, nil),
 		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
@@ -1723,12 +1779,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
-			Return(nil, nil),
-		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(basicServiceArg).Times(1).
 			Return(nil, nil),
 	)
 
@@ -1787,6 +1837,18 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(basicServiceArg).Times(1).
+			Return(nil, nil),
+		s.mockServices.EXPECT().Get("app-name-endpoints", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(basicHeadlessServiceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(basicHeadlessServiceArg).Times(1).
+			Return(nil, nil),
 		s.mockStorageClass.EXPECT().Get("test-workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get("workload-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
@@ -1794,12 +1856,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
-			Return(nil, nil),
-		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(basicServiceArg).Times(1).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(basicServiceArg).Times(1).
 			Return(nil, nil),
 	)
 

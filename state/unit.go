@@ -947,6 +947,9 @@ func (op *ForcedOperation) AddError(one ...error) {
 
 // LastError returns last added error for this operation.
 func (op *ForcedOperation) LastError() error {
+	if len(op.Errors) == 0 {
+		return nil
+	}
 	return op.Errors[len(op.Errors)-1]
 }
 

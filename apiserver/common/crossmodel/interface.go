@@ -84,6 +84,9 @@ type Backend interface {
 
 	// FirewallRule returns the firewall rule for the specified service.
 	FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error)
+
+	// ApplyOperation applies a model operation to the state.
+	ApplyOperation(op state.ModelOperation) error
 }
 
 // Relation provides access a relation in global state.
@@ -239,4 +242,9 @@ type RemoteApplication interface {
 
 	// SetStatus sets the status of the remote application.
 	SetStatus(info status.StatusInfo) error
+
+	// TerminateOperation returns an operation that will set this
+	// remote application to terminated and leave it in a state
+	// enabling it to be removed cleanly.
+	TerminateOperation(string) state.ModelOperation
 }

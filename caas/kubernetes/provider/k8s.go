@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"text/template"
 	"time"
 
 	jujuclock "github.com/juju/clock"
@@ -34,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/yaml"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	apimachineryversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
@@ -376,7 +375,7 @@ func (*kubernetesClient) Provider() caas.ContainerEnvironProvider {
 // Destroy is part of the Broker interface.
 func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) (err error) {
 	defer func() {
-		if k8serrors.ReasonForError(err) == v1.StatusReasonUnknown {
+		if err != nil && k8serrors.ReasonForError(err) == v1.StatusReasonUnknown {
 			logger.Warningf("k8s cluster is not accessible: %v", err)
 			err = nil
 		}
@@ -1002,6 +1001,9 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteStatefulSet(deploymentName); err != nil {
 		return errors.Trace(err)
 	}
+	if err := k.deleteService(headlessServiceName(deploymentName)); err != nil {
+		return errors.Trace(err)
+	}
 	if err := k.deleteDeployment(deploymentName); err != nil {
 		return errors.Trace(err)
 	}
@@ -1257,8 +1259,42 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}
 
+	hasService := !params.PodSpec.OmitServiceFrontend
+	if hasService {
+		var ports []core.ContainerPort
+		for _, c := range unitSpec.Pod.Containers {
+			for _, p := range c.Ports {
+				if p.ContainerPort == 0 {
+					continue
+				}
+				ports = append(ports, p)
+			}
+		}
+
+		serviceAnnotations := annotations.Copy()
+		// Merge any service annotations from the charm.
+		if unitSpec.Service != nil {
+			serviceAnnotations.Merge(k8sannotations.New(unitSpec.Service.Annotations))
+		}
+		// Merge any service annotations from the CLI.
+		deployAnnotations, err := config.GetStringMap(serviceAnnotationsKey, nil)
+		if err != nil {
+			return errors.Annotatef(err, "unexpected annotations: %#v", config.Get(serviceAnnotationsKey, nil))
+		}
+		serviceAnnotations.Merge(k8sannotations.New(deployAnnotations))
+
+		config[serviceAnnotationsKey] = serviceAnnotations.ToMap()
+		if err := k.configureService(appName, deploymentName, ports, params, config); err != nil {
+			return errors.Annotatef(err, "creating or updating service for %v", appName)
+		}
+	}
+
 	numPods := int32(numUnits)
 	if useStatefulSet {
+		if err := k.configureHeadlessService(appName, deploymentName, annotations.Copy()); err != nil {
+			return errors.Annotate(err, "creating or updating headless service")
+		}
+		cleanups = append(cleanups, func() { k.deleteService(headlessServiceName(deploymentName)) })
 		if err := k.configureStatefulSet(appName, deploymentName, randPrefix, annotations.Copy(), unitSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
 			return errors.Annotate(err, "creating or updating StatefulSet")
 		}
@@ -1270,32 +1306,6 @@ func (k *kubernetesClient) EnsureService(
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
 	}
 
-	var ports []core.ContainerPort
-	for _, c := range unitSpec.Pod.Containers {
-		for _, p := range c.Ports {
-			if p.ContainerPort == 0 {
-				continue
-			}
-			ports = append(ports, p)
-		}
-	}
-	if !params.PodSpec.OmitServiceFrontend {
-		// Merge any service annotations from the charm.
-		if unitSpec.Service != nil {
-			annotations.Merge(k8sannotations.New(unitSpec.Service.Annotations))
-		}
-		// Merge any service annotations from the CLI.
-		deployAnnotations, err := config.GetStringMap(serviceAnnotationsKey, nil)
-		if err != nil {
-			return errors.Annotatef(err, "unexpected annotations: %#v", config.Get(serviceAnnotationsKey, nil))
-		}
-		annotations.Merge(k8sannotations.New(deployAnnotations))
-
-		config[serviceAnnotationsKey] = annotations.ToMap()
-		if err := k.configureService(appName, deploymentName, ports, params, config); err != nil {
-			return errors.Annotatef(err, "creating or updating service for %v", appName)
-		}
-	}
 	return nil
 }
 
@@ -1624,6 +1634,7 @@ func (k *kubernetesClient) configureStatefulSet(
 				},
 			},
 			PodManagementPolicy: apps.ParallelPodManagement,
+			ServiceName:         headlessServiceName(deploymentName),
 		},
 	}
 	podSpec := unitSpec.Pod
@@ -1661,6 +1672,7 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 	// TODO(caas) - allow extra storage to be added
 	existing.Spec.Replicas = spec.Spec.Replicas
 	existing.Spec.Template.Spec.Containers = existingPodSpec.Containers
+	// NB: we can't update the Spec.ServiceName as it is immutable.
 	_, err = statefulsets.Update(existing)
 	return errors.Trace(err)
 }
@@ -1776,6 +1788,28 @@ func (k *kubernetesClient) configureService(
 	return k.ensureK8sService(service)
 }
 
+func (k *kubernetesClient) configureHeadlessService(
+	appName, deploymentName string, annotations k8sannotations.Annotation,
+) error {
+	logger.Debugf("creating/updating headless service for %s", appName)
+	service := &core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   headlessServiceName(deploymentName),
+			Labels: map[string]string{labelApplication: appName},
+			Annotations: k8sannotations.New(nil).
+				Merge(annotations).
+				Add("service.alpha.kubernetes.io/tolerate-unready-endpoints", "true").ToMap(),
+		},
+		Spec: core.ServiceSpec{
+			Selector:                 map[string]string{labelApplication: appName},
+			Type:                     core.ServiceTypeClusterIP,
+			ClusterIP:                "None",
+			PublishNotReadyAddresses: true,
+		},
+	}
+	return k.ensureK8sService(service)
+}
+
 // ensureK8sService ensures a k8s service resource.
 func (k *kubernetesClient) ensureK8sService(spec *core.Service) error {
 	services := k.client().CoreV1().Services(k.namespace)
@@ -1793,9 +1827,9 @@ func (k *kubernetesClient) ensureK8sService(spec *core.Service) error {
 }
 
 // deleteService deletes a service resource.
-func (k *kubernetesClient) deleteService(deploymentName string) error {
+func (k *kubernetesClient) deleteService(serviceName string) error {
 	services := k.client().CoreV1().Services(k.namespace)
-	err := services.Delete(deploymentName, &v1.DeleteOptions{
+	err := services.Delete(serviceName, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	})
 	if k8serrors.IsNotFound(err) {
@@ -2065,6 +2099,19 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 	return units, nil
 }
 
+func (k *kubernetesClient) getPod(podName string) (*core.Pod, error) {
+	pods := k.client().CoreV1().Pods(k.namespace)
+	pod, err := pods.Get(podName, v1.GetOptions{
+		IncludeUninitialized: true,
+	})
+	if k8serrors.IsNotFound(err) {
+		return nil, errors.NotFoundf("pod not found")
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return pod, nil
+}
+
 func (k *kubernetesClient) volumeInfoForEmptyDir(vol core.Volume, volMount core.VolumeMount, now time.Time) (*caas.FilesystemInfo, error) {
 	size := uint64(vol.EmptyDir.SizeLimit.Size())
 	return &caas.FilesystemInfo{
@@ -2086,6 +2133,17 @@ func (k *kubernetesClient) volumeInfoForEmptyDir(vol core.Volume, volMount core.
 			},
 		},
 	}, nil
+}
+
+func (k *kubernetesClient) getPVC(claimName string) (*core.PersistentVolumeClaim, error) {
+	pvcs := k.client().CoreV1().PersistentVolumeClaims(k.namespace)
+	pvc, err := pvcs.Get(claimName, v1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return nil, errors.NotFoundf("pvc not found")
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return pvc, nil
 }
 
 func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.VolumeMount, claimName string, now time.Time) (*caas.FilesystemInfo, error) {
@@ -2122,7 +2180,7 @@ func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.Volum
 	if statusMessage == "" {
 		// If there are any events for this pvc we can use the
 		// most recent to set the status.
-		eventList, err := k.getEvents(pvc.Name)
+		eventList, err := k.getEvents(pvc.Name, "PersistentVolumeClaim")
 		if err != nil {
 			return nil, errors.Annotate(err, "unable to get events for PVC")
 		}
@@ -2213,7 +2271,7 @@ func (k *kubernetesClient) getPODStatus(pod core.Pod, now time.Time) (string, st
 	if statusMessage == "" {
 		// If there are any events for this pod we can use the
 		// most recent to set the status.
-		eventList, err := k.getEvents(pod.Name)
+		eventList, err := k.getEvents(pod.Name, "Pod")
 		if err != nil {
 			return "", "", time.Time{}, errors.Trace(err)
 		}
@@ -2235,7 +2293,7 @@ func (k *kubernetesClient) getStatefulSetStatus(ss *apps.StatefulSet) (string, s
 	if ss.Status.ReadyReplicas == ss.Status.Replicas {
 		jujuStatus = status.Active
 	}
-	return k.getStatusFromEvents(ss.Name, jujuStatus)
+	return k.getStatusFromEvents(ss.Name, "StatefulSet", jujuStatus)
 }
 
 func (k *kubernetesClient) getDeploymentStatus(deployment *apps.Deployment) (string, status.Status, error) {
@@ -2247,11 +2305,11 @@ func (k *kubernetesClient) getDeploymentStatus(deployment *apps.Deployment) (str
 	if deployment.Status.ReadyReplicas == deployment.Status.Replicas {
 		jujuStatus = status.Active
 	}
-	return k.getStatusFromEvents(deployment.Name, jujuStatus)
+	return k.getStatusFromEvents(deployment.Name, "Deployment", jujuStatus)
 }
 
-func (k *kubernetesClient) getStatusFromEvents(parentName string, jujuStatus status.Status) (string, status.Status, error) {
-	events, err := k.getEvents(parentName)
+func (k *kubernetesClient) getStatusFromEvents(name, kind string, jujuStatus status.Status) (string, status.Status, error) {
+	events, err := k.getEvents(name, kind)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -2454,61 +2512,18 @@ type unitSpec struct {
 	Service *K8sServiceSpec
 }
 
-var containerTemplate = `
-  - name: {{.Name}}
-    {{if .Ports}}
-    ports:
-    {{- range .Ports }}
-        - containerPort: {{.ContainerPort}}
-          {{if .Name}}name: {{.Name}}{{end}}
-          {{if .Protocol}}protocol: {{.Protocol}}{{end}}
-    {{- end}}
-    {{end}}
-    {{if .Command}}
-    command: [{{- range $idx, $c := .Command -}}{{if ne $idx 0}},{{end}}"{{$c}}"{{- end -}}]
-    {{end}}
-    {{if .Args}}
-    args: [{{- range $idx, $a := .Args -}}{{if ne $idx 0}},{{end}}"{{$a}}"{{- end -}}]
-    {{end}}
-    {{if .WorkingDir}}
-    workingDir: {{.WorkingDir}}
-    {{end}}
-    {{if .Config}}
-    env:
-    {{- range $k, $v := .Config }}
-        - name: {{$k}}
-          value: {{$v}}
-    {{- end}}
-    {{end}}
-`
-
-var defaultPodTemplate = fmt.Sprintf(`
-pod:
-  containers:
-  {{- range .Containers }}
-%s
-  {{- end}}
-  {{if .InitContainers}}
-  initContainers:
-  {{- range .InitContainers }}
-%s
-  {{- end}}
-  {{end}}
-`[1:], containerTemplate, containerTemplate)
-
 func makeUnitSpec(appName, deploymentName string, podSpec *caas.PodSpec) (*unitSpec, error) {
 	// Fill out the easy bits using a template.
-	tmpl := template.Must(template.New("").Parse(defaultPodTemplate))
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, podSpec); err != nil {
+	if err := defaultPodTemplate.Execute(&buf, podSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
 	unitSpecString := buf.String()
 
 	var unitSpec unitSpec
-	decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(unitSpecString), len(unitSpecString))
+	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(unitSpecString), len(unitSpecString))
 	if err := decoder.Decode(&unitSpec); err != nil {
-		logger.Errorf("unable to parse %q pod spec: %+v\n%v", appName, *podSpec, unitSpecString)
+		logger.Errorf("unable to parse %q pod spec: \n%+v\nunit spec: \n%v", appName, *podSpec, unitSpecString)
 		return nil, errors.Trace(err)
 	}
 
@@ -2699,4 +2714,8 @@ func getNodeSelectorFromDeviceConstraints(devices []devices.KubernetesDevicePara
 		}
 	}
 	return nodeSelector, nil
+}
+
+func headlessServiceName(deploymentName string) string {
+	return fmt.Sprintf("%s-endpoints", deploymentName)
 }

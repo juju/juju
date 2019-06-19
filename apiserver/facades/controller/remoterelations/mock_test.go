@@ -203,6 +203,11 @@ func (st *mockState) WatchRemoteRelations() state.StringsWatcher {
 	return st.remoteRelationsWatcher
 }
 
+func (st *mockState) ApplyOperation(op state.ModelOperation) error {
+	st.MethodCall(st, "ApplyOperation", op)
+	return st.NextErr()
+}
+
 type mockControllerInfo struct {
 	uuid string
 	info crossmodel.ControllerInfo
@@ -308,6 +313,7 @@ type mockRemoteApplication struct {
 	url           string
 	life          state.Life
 	status        status.Status
+	terminated    bool
 	message       string
 	eps           []charm.Relation
 	consumerproxy bool
@@ -369,6 +375,17 @@ func (r *mockRemoteApplication) SetStatus(info status.StatusInfo) error {
 	r.status = info.Status
 	r.message = info.Message
 	return nil
+}
+
+func (r *mockRemoteApplication) TerminateOperation(message string) state.ModelOperation {
+	r.MethodCall(r, "TerminateOperation", message)
+	r.terminated = true
+	return &mockOperation{message: message}
+}
+
+type mockOperation struct {
+	state.ModelOperation
+	message string
 }
 
 type mockApplication struct {

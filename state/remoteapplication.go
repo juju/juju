@@ -488,6 +488,7 @@ func (s *RemoteApplication) SetStatus(info status.StatusInfo) error {
 	if !info.Status.KnownWorkloadStatus() {
 		return errors.Errorf("cannot set invalid status %q", info.Status)
 	}
+
 	return setStatus(s.st.db(), setStatusParams{
 		badge:     "remote application",
 		globalKey: s.globalKey(),
@@ -496,6 +497,65 @@ func (s *RemoteApplication) SetStatus(info status.StatusInfo) error {
 		rawData:   info.Data,
 		updated:   timeOrNow(info.Since, s.st.clock()),
 	})
+}
+
+// TerminateOperation returns a ModelOperation that will terminate this
+// remote application when applied, ensuring that all units have left
+// scope as well.
+func (s *RemoteApplication) TerminateOperation(message string) ModelOperation {
+	return &terminateRemoteApplicationOperation{
+		app: s,
+		doc: statusDoc{
+			Status:     status.Terminated,
+			StatusInfo: message,
+			Updated:    s.st.clock().Now().UnixNano(),
+		},
+	}
+}
+
+type terminateRemoteApplicationOperation struct {
+	app *RemoteApplication
+	doc statusDoc
+}
+
+// Build is part of ModelOperation.
+func (op *terminateRemoteApplicationOperation) Build(attempt int) ([]txn.Op, error) {
+	ops, err := statusSetOps(op.app.st.db(), op.doc, op.app.globalKey())
+	if err != nil {
+		return nil, errors.Annotate(err, "setting status")
+	}
+	name := op.app.Name()
+	logger.Debugf("leaving scope on all %q relation units", name)
+	rels, err := op.app.Relations()
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting relations for %q", name)
+	}
+	for _, rel := range rels {
+		remoteUnits, err := rel.AllRemoteUnits(name)
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting remote units for %q", name)
+		}
+		for _, ru := range remoteUnits {
+			leaveOperation := ru.LeaveScopeOperation(false)
+			leaveOps, err := leaveOperation.Build(attempt)
+			if errors.Cause(err) == jujutxn.ErrNoOperations {
+				continue
+			} else if err != nil {
+				return nil, errors.Annotatef(err, "leaving scope for %q", ru.key())
+			}
+			ops = append(ops, leaveOps...)
+		}
+	}
+	return ops, nil
+}
+
+// Done is part of ModelOperation.
+func (op *terminateRemoteApplicationOperation) Done(err error) error {
+	if err != nil {
+		return errors.Annotatef(err, "updating unit %q", op.app.Name())
+	}
+	probablyUpdateStatusHistory(op.app.st.db(), op.app.globalKey(), op.doc)
+	return nil
 }
 
 // Endpoints returns the application's currently available relation endpoints.

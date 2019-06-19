@@ -171,6 +171,9 @@ func (c *enableHACommand) Init(args []string) error {
 		c.Placement = make([]string, len(placementSpecs))
 		for i, spec := range placementSpecs {
 			p, err := instance.ParsePlacement(strings.TrimSpace(spec))
+			if err == nil && p == nil {
+				return errors.New("empty placement directive passed to enable-ha")
+			}
 			if err == nil && names.IsContainerMachine(p.Directive) {
 				return errors.New("enable-ha cannot be used with container placement directives")
 			}

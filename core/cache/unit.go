@@ -4,12 +4,9 @@
 package cache
 
 import (
-	"time"
-
 	"github.com/juju/pubsub"
 
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/status"
 )
 
 // Unit represents a unit in a cached model.
@@ -21,8 +18,7 @@ type Unit struct {
 	metrics *ControllerGauges
 	hub     *pubsub.SimpleHub
 
-	details    UnitChange
-	configHash string
+	details UnitChange
 }
 
 func newUnit(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *Unit {
@@ -93,52 +89,7 @@ func (u *Unit) setDetails(details UnitChange) {
 
 // copy returns a copy of the unit, ensuring appropriate deep copying.
 func (u *Unit) copy() Unit {
-	var cPorts []network.Port
-	uPorts := u.details.Ports
-	if uPorts != nil {
-		cPorts = make([]network.Port, len(uPorts))
-		for i, p := range uPorts {
-			cPorts[i] = p
-		}
-	}
-
-	var cPortRanges []network.PortRange
-	uPortRanges := u.details.PortRanges
-	if uPortRanges != nil {
-		cPortRanges = make([]network.PortRange, len(uPortRanges))
-		for i, p := range uPortRanges {
-			cPortRanges[i] = p
-		}
-	}
-
 	cu := *u
-	cu.details.Ports = cPorts
-	cu.details.PortRanges = cPortRanges
-	cu.details.WorkloadStatus = copyStatusInfo(u.details.WorkloadStatus)
-	cu.details.AgentStatus = copyStatusInfo(u.details.AgentStatus)
+	cu.details = cu.details.copy()
 	return cu
-}
-
-func copyStatusInfo(info status.StatusInfo) status.StatusInfo {
-	var cData map[string]interface{}
-	iData := info.Data
-	if iData != nil {
-		cData = make(map[string]interface{}, len(iData))
-		for i, d := range iData {
-			cData[i] = d
-		}
-	}
-
-	var cSince *time.Time
-	if info.Since != nil {
-		s := *info.Since
-		cSince = &s
-	}
-
-	return status.StatusInfo{
-		Status:  info.Status,
-		Message: info.Message,
-		Data:    cData,
-		Since:   cSince,
-	}
 }

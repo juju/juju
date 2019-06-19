@@ -46,7 +46,12 @@ containers:
   - name: gitlab
     image: gitlab/latest
     imagePullPolicy: Always
-    command: ["sh", "-c"]
+    command:
+      - sh
+      - -c
+      - |
+        set -ex
+        echo "do some stuff here for gitlab container"
     args: ["doIt", "--debug"]
     workingDir: "/path/to/here"
     ports:
@@ -97,7 +102,12 @@ initContainers:
   - name: gitlab-init
     image: gitlab-init/latest
     imagePullPolicy: Always
-    command: ["sh", "-c"]
+    command:
+      - sh
+      - -c
+      - |
+        set -ex
+        echo "do some stuff here for gitlab-init container"
     args: ["doIt", "--debug"]
     workingDir: "/path/to/here"
     ports:
@@ -180,9 +190,12 @@ foo: bar
 			},
 		},
 		Containers: []caas.ContainerSpec{{
-			Name:       "gitlab",
-			Image:      "gitlab/latest",
-			Command:    []string{"sh", "-c"},
+			Name:  "gitlab",
+			Image: "gitlab/latest",
+			Command: []string{"sh", "-c", `
+set -ex
+echo "do some stuff here for gitlab container"
+`[1:]},
 			Args:       []string{"doIt", "--debug"},
 			WorkingDir: "/path/to/here",
 			Ports: []caas.ContainerPort{
@@ -249,9 +262,12 @@ foo: bar
 			},
 		}},
 		InitContainers: []caas.ContainerSpec{{
-			Name:       "gitlab-init",
-			Image:      "gitlab-init/latest",
-			Command:    []string{"sh", "-c"},
+			Name:  "gitlab-init",
+			Image: "gitlab-init/latest",
+			Command: []string{"sh", "-c", `
+set -ex
+echo "do some stuff here for gitlab-init container"
+`[1:]},
 			Args:       []string{"doIt", "--debug"},
 			WorkingDir: "/path/to/here",
 			Ports: []caas.ContainerPort{
