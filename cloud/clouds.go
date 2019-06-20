@@ -207,6 +207,11 @@ type Region struct {
 	StorageEndpoint string
 }
 
+// IsEmpty indicates if it's an empty region.
+func (r Region) IsEmpty() bool {
+	return r.Endpoint == "" && r.IdentityEndpoint == "" && r.StorageEndpoint == ""
+}
+
 // cloudSet contains cloud definitions, used for marshalling and
 // unmarshalling.
 type cloudSet struct {
@@ -544,7 +549,7 @@ func (cloud Cloud) denormaliseMetadata() {
 
 type structTags map[reflect.Type]map[string]int
 
-var tagsForType structTags = make(structTags)
+var tagsForType = make(structTags)
 
 // RegisterStructTags ensures the yaml tags for the given structs are able to be used
 // when parsing cloud metadata.
