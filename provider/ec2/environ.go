@@ -583,7 +583,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	}
 
 	switch {
-	case subnetErr != nil && errors.IsNotFound(subnetErr):
+	case subnetErr != nil && (errors.IsNotFound(subnetErr) || isNotFoundError(err)):
 		return nil, errors.Trace(subnetErr)
 	case subnetErr != nil:
 		return nil, errors.Annotatef(maybeConvertCredentialError(subnetErr, ctx), "getting subnets for zone %q", availabilityZone)

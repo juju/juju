@@ -107,7 +107,7 @@ var newOpenstackStorage = func(env *Environ) (OpenstackStorage, error) {
 	client := env.clientUnlocked
 	if env.volumeURL == nil {
 		url, err := getVolumeEndpointURL(client, env.cloudUnlocked.Region)
-		if errors.IsNotFound(err) {
+		if errors.IsNotFound(err) || gooseerrors.IsNotFound(err) {
 			// No volume endpoint found; Cinder is not supported.
 			return nil, errors.NotSupportedf("volumes")
 		} else if err != nil {
@@ -407,7 +407,7 @@ func destroyVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStor
 		return false, nil
 	})
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.IsNotFound(err) || gooseerrors.IsNotFound(err) {
 			// The volume wasn't found; nothing
 			// to destroy, so we're done.
 			return nil
@@ -595,7 +595,7 @@ func cinderToJujuVolumeInfo(volume *cinder.Volume) storage.VolumeInfo {
 
 func detachVolume(instanceId, volumeId string, storageAdapter OpenstackStorage) error {
 	err := storageAdapter.DetachVolume(instanceId, volumeId)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !(errors.IsNotFound(err) || gooseerrors.IsNotFound(err)) {
 		return errors.Trace(err)
 	}
 	// The volume was successfully detached, or was

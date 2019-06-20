@@ -428,8 +428,8 @@ func (v *volumeSource) attachVolume(ctx envcontext.ProviderCallContext, param st
 			req := ociCore.DetachVolumeRequest{
 				VolumeAttachmentId: volAttach.GetId(),
 			}
-			_, nestedErr := v.computeAPI.DetachVolume(context.Background(), req)
-			if nestedErr != nil {
+			res, nestedErr := v.computeAPI.DetachVolume(context.Background(), req)
+			if nestedErr != nil && !v.env.isNotFound(res.RawResponse) {
 				logger.Warningf("failed to cleanup volume attachment: %v", volAttach.GetId())
 				return
 			}
@@ -625,8 +625,8 @@ func (v *volumeSource) DetachVolumes(ctx envcontext.ProviderCallContext, params 
 						VolumeAttachmentId: attachment.Id,
 					}
 
-					_, err := v.computeAPI.DetachVolume(context.Background(), request)
-					if err != nil {
+					res, err := v.computeAPI.DetachVolume(context.Background(), request)
+					if err != nil && !v.env.isNotFound(res.RawResponse) {
 						if isAuthFailure(err, ctx) {
 							credErr = err
 							common.HandleCredentialError(err, ctx)

@@ -120,3 +120,11 @@ var AuthorisationFailureStatusCodes = map[int][]string{
 	// https://tools.ietf.org/html/rfc6749#section-5.2
 	http.StatusBadRequest: {"Bad Request"},
 }
+
+// IsNotFound reports whether err contains `not found'.
+func IsNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), " not found")
+}
