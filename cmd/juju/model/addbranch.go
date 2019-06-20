@@ -6,8 +6,6 @@ package model
 import (
 	"fmt"
 
-	"github.com/juju/juju/core/model"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -15,11 +13,12 @@ import (
 	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 )
 
 const (
-	branchSummary = "Adds a new branch to the model."
-	branchDoc     = `
+	addBranchSummary = "Adds a new branch to the model."
+	addBranchDoc     = `
 A branch is a mechanism by which changes can be applied to units gradually at 
 the operator's discretion. When changes are made to charm configuration under 
 a branch, only units set to track the branch will realise such changes. 
@@ -29,36 +28,36 @@ The branch name "master" is reserved for primary model-based settings and is
 not valid for new branches.
 
 Examples:
-    juju branch upgrade-postgresql
+    juju add-branch upgrade-postgresql
 
 See also:
     track
     checkout
     commit
     abort
-	diff
+    diff
 `
 )
 
-// NewBranchCommand wraps branchCommand with sane model settings.
-func NewBranchCommand() cmd.Command {
-	return modelcmd.Wrap(&branchCommand{})
+// NewAddBranchCommand wraps addBranchCommand with sane model settings.
+func NewAddBranchCommand() cmd.Command {
+	return modelcmd.Wrap(&addBranchCommand{})
 }
 
-// branchCommand supplies the "branch" CLI command used to add a new branch to
+// addBranchCommand supplies the "branch" CLI command used to add a new branch to
 // the current model.
-type branchCommand struct {
+type addBranchCommand struct {
 	modelcmd.ModelCommandBase
 
-	api BranchCommandAPI
+	api AddBranchCommandAPI
 
 	branchName string
 }
 
-// BranchCommandAPI describes API methods required
+// AddBranchCommandAPI describes API methods required
 // to execute the branch command.
-//go:generate mockgen -package mocks -destination ./mocks/branch_mock.go github.com/juju/juju/cmd/juju/model BranchCommandAPI
-type BranchCommandAPI interface {
+//go:generate mockgen -package mocks -destination ./mocks/addbranch_mock.go github.com/juju/juju/cmd/juju/model AddBranchCommandAPI
+type AddBranchCommandAPI interface {
 	Close() error
 
 	// AddBranch adds a new branch to the model.
@@ -66,23 +65,23 @@ type BranchCommandAPI interface {
 }
 
 // Info implements part of the cmd.Command interface.
-func (c *branchCommand) Info() *cmd.Info {
+func (c *addBranchCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Name:    "branch",
+		Name:    "add-branch",
 		Args:    "<branch name>",
-		Purpose: branchSummary,
-		Doc:     branchDoc,
+		Purpose: addBranchSummary,
+		Doc:     addBranchDoc,
 	}
 	return jujucmd.Info(info)
 }
 
 // SetFlags implements part of the cmd.Command interface.
-func (c *branchCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *addBranchCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 }
 
 // Init implements part of the cmd.Command interface.
-func (c *branchCommand) Init(args []string) error {
+func (c *addBranchCommand) Init(args []string) error {
 	if len(args) != 1 {
 		return errors.Errorf("expected a branch name")
 	}
@@ -95,7 +94,7 @@ func (c *branchCommand) Init(args []string) error {
 
 // getAPI returns the API that supplies methods
 // required to execute this command.
-func (c *branchCommand) getAPI() (BranchCommandAPI, error) {
+func (c *addBranchCommand) getAPI() (AddBranchCommandAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -108,7 +107,7 @@ func (c *branchCommand) getAPI() (BranchCommandAPI, error) {
 }
 
 // Run implements the meaty part of the cmd.Command interface.
-func (c *branchCommand) Run(ctx *cmd.Context) error {
+func (c *addBranchCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return err
@@ -124,6 +123,6 @@ func (c *branchCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	_, err = ctx.Stdout.Write([]byte(fmt.Sprintf("Active branch set to %q\n", c.branchName)))
+	_, err = ctx.Stdout.Write([]byte(fmt.Sprintf("Created branch %q and set active\n", c.branchName)))
 	return err
 }

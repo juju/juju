@@ -22,4 +22,8 @@ var charmChange = cache.CharmChange{
 	LXDProfile: lxdprofile.Profile{
 		Config: map[string]string{"key": "value"},
 	},
+	DefaultConfig: map[string]interface{}{
+		"key":       "default-value",
+		"something": "else",
+	},
 }

@@ -5,7 +5,11 @@ package cache
 
 import (
 	"github.com/juju/pubsub"
+
+	"github.com/juju/juju/core/settings"
 )
+
+const branchChange = "branch-change"
 
 // Branch represents an active branch in a cached model.
 type Branch struct {
@@ -31,10 +35,27 @@ func newBranch(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) 
 // They are intended for calling from external packages that have retrieved a
 // deep copy from the cache.
 
+// Name returns the name of the branch.
+// It is guaranteed to uniquely identify an active branch in the cache.
+func (b *Branch) Name() string {
+	return b.details.Name
+}
+
 // AssignedUnits returns a map of the names of units tracking this branch,
 // keyed by application names with changes made under the branch.
 func (b *Branch) AssignedUnits() map[string][]string {
 	return b.details.AssignedUnits
+}
+
+// Config returns the configuration changes that apply to the branch.
+func (b *Branch) Config() map[string]settings.ItemChanges {
+	return b.details.Config
+}
+
+// AppConfig returns the configuration changes that
+// apply to the branch for a specific application.
+func (b *Branch) AppConfig(appName string) settings.ItemChanges {
+	return b.details.Config[appName]
 }
 
 func (b *Branch) setDetails(details BranchChange) {
@@ -48,9 +69,8 @@ func (b *Branch) setDetails(details BranchChange) {
 
 	b.setStale(false)
 
-	// TODO (manadart 2019-05-29): Publish changes for config deltas and tracking units.
-
 	b.details = details
+	b.hub.Publish(branchChange, b.copy())
 }
 
 // copy returns a copy of the branch, ensuring appropriate deep copying.

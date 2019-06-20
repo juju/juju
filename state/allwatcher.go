@@ -602,7 +602,13 @@ func (ch *backingCharm) updated(st *State, store *multiwatcherStore, id string) 
 	}
 
 	if ch.LXDProfile != nil && !ch.LXDProfile.Empty() {
-		info.LXDProfile = toMulitwatcherProfile(ch.LXDProfile)
+		info.LXDProfile = toMultiwatcherProfile(ch.LXDProfile)
+	}
+
+	if ch.Config != nil {
+		if ds := ch.Config.DefaultSettings(); len(ds) > 0 {
+			info.DefaultConfig = ds
+		}
 	}
 
 	store.Update(info)
@@ -622,7 +628,7 @@ func (ch *backingCharm) mongoId() string {
 	return ch.DocID
 }
 
-func toMulitwatcherProfile(profile *charm.LXDProfile) *multiwatcher.Profile {
+func toMultiwatcherProfile(profile *charm.LXDProfile) *multiwatcher.Profile {
 	unescapedProfile := unescapeLXDProfile(profile)
 	return &multiwatcher.Profile{
 		Config:      unescapedProfile.Config,

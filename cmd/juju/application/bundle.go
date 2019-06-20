@@ -19,6 +19,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	"github.com/kr/pretty"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
@@ -39,6 +40,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
@@ -125,6 +127,8 @@ type bundleDeploySpec struct {
 	bundleMachines      map[string]string
 	bundleStorage       map[string]map[string]storage.Constraints
 	bundleDevices       map[string]map[string]devices.Constraints
+
+	targetModelUUID string
 }
 
 // deployBundle deploys the given bundle data using the given API client and
@@ -234,6 +238,9 @@ type bundleHandler struct {
 	// LXD.  This flag keeps us from writing the warning more than once per
 	// bundle.
 	warnedLXC bool
+
+	// The UUID of the model where the bundle is about to be deployed.
+	targetModelUUID string
 }
 
 func makeBundleHandler(spec bundleDeploySpec) *bundleHandler {
@@ -258,6 +265,8 @@ func makeBundleHandler(spec bundleDeploySpec) *bundleHandler {
 		unitStatus:    make(map[string]string),
 		macaroons:     make(map[*charm.URL]*macaroon.Macaroon),
 		channels:      make(map[*charm.URL]csparams.Channel),
+
+		targetModelUUID: spec.targetModelUUID,
 	}
 }
 
@@ -367,6 +376,19 @@ func (h *bundleHandler) getChanges() error {
 		return errors.Trace(err)
 	}
 
+	// Filter create offer changes if the feature flag is not enabled. We
+	// need to do it here rather in handleChanges() as the bundle handler
+	// will also iterate the list to print out a changelog.
+	if !featureflag.Enabled(feature.CMRAwareBundles) {
+		var filtered []bundlechanges.Change
+		for _, ch := range changes {
+			if ch.Method() != "createOffer" {
+				filtered = append(filtered, ch)
+			}
+		}
+		changes = filtered
+	}
+
 	h.changes = changes
 	return nil
 }
@@ -418,6 +440,8 @@ func (h *bundleHandler) handleChanges() error {
 			err = h.setOptions(change)
 		case *bundlechanges.SetConstraintsChange:
 			err = h.setConstraints(change)
+		case *bundlechanges.CreateOfferChange:
+			err = h.createOffer(change)
 		default:
 			return errors.Errorf("unknown change type: %T", change)
 		}
@@ -1035,6 +1059,23 @@ func (h *bundleHandler) setAnnotations(change *bundlechanges.SetAnnotationsChang
 	}
 	if err != nil {
 		return errors.Annotatef(err, "cannot set annotations for %s %q", p.EntityType, eid)
+	}
+	return nil
+}
+
+// createOffer creates an offer targeting one or more application endpoints.
+func (h *bundleHandler) createOffer(change *bundlechanges.CreateOfferChange) error {
+	if h.dryRun {
+		return nil
+	}
+
+	p := change.Params
+	result, err := h.api.Offer(h.targetModelUUID, p.Application, p.Endpoints, p.OfferName, "")
+	if err == nil && len(result) > 0 && result[0].Error != nil {
+		err = result[0].Error
+	}
+	if err != nil {
+		return errors.Annotatef(err, "cannot create offer %s", p.OfferName)
 	}
 	return nil
 }

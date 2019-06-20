@@ -6,8 +6,6 @@ package model
 import (
 	"fmt"
 
-	"github.com/juju/juju/core/model"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -15,6 +13,7 @@ import (
 	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 )
 
 const (
@@ -30,7 +29,7 @@ Examples:
     juju checkout master
 
 See also:
-    branch
+    add-branch
     track
     commit
     abort

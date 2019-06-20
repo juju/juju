@@ -69,10 +69,44 @@ type RemoveApplication struct {
 // CharmChange represents either a new charm, or a change
 // to an existing charm in a model.
 type CharmChange struct {
-	ModelUUID    string
-	CharmURL     string
-	CharmVersion string
-	LXDProfile   lxdprofile.Profile
+	ModelUUID     string
+	CharmURL      string
+	CharmVersion  string
+	LXDProfile    lxdprofile.Profile
+	DefaultConfig map[string]interface{}
+}
+
+func (c CharmChange) copy() CharmChange {
+	var cpConfig map[string]string
+	pConfig := c.LXDProfile.Config
+	if pConfig != nil {
+		cpConfig = make(map[string]string, len(pConfig))
+		for k, v := range pConfig {
+			cpConfig[k] = v
+		}
+	}
+	c.LXDProfile.Config = cpConfig
+
+	var cpDevices map[string]map[string]string
+	pDevices := c.LXDProfile.Devices
+	if pDevices != nil {
+		cpDevices = make(map[string]map[string]string, len(pDevices))
+		for dName, dCfg := range pDevices {
+			var cCfg map[string]string
+			if dCfg != nil {
+				cCfg = make(map[string]string, len(dCfg))
+				for k, v := range dCfg {
+					cCfg[k] = v
+				}
+			}
+			cpDevices[dName] = cCfg
+		}
+	}
+	c.LXDProfile.Devices = cpDevices
+
+	c.DefaultConfig = copyDataMap(c.DefaultConfig)
+
+	return c
 }
 
 // RemoveCharm represents the situation when an charm
