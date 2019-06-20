@@ -58,6 +58,28 @@ func (b *Branch) AppConfig(appName string) settings.ItemChanges {
 	return b.details.Config[appName]
 }
 
+// Created returns a Unix timestamp indicating when this generation
+// was created.
+func (b *Branch) Created() int64 {
+	return b.details.Created
+}
+
+// CreatedBy returns user who created the branch.
+func (b *Branch) CreatedBy() string {
+	return b.details.CreatedBy
+}
+
+// Completed returns a Unix timestamp indicating when this generation
+// was committed.
+func (b *Branch) Completed() int64 {
+	return b.details.Completed
+}
+
+// CreatedBy returns user who committed the branch.
+func (b *Branch) CompletedBy() string {
+	return b.details.CompletedBy
+}
+
 func (b *Branch) setDetails(details BranchChange) {
 	// If this is the first receipt of details, set the removal message.
 	if b.removalMessage == nil {

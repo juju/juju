@@ -252,7 +252,10 @@ type BranchChange struct {
 	Name          string
 	AssignedUnits map[string][]string
 	Config        map[string]settings.ItemChanges
+	Created       int64
+	CreatedBy     string
 	Completed     int64
+	CompletedBy   string
 	GenerationId  int
 }
 

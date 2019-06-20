@@ -525,7 +525,10 @@ type GenerationInfo struct {
 	Name          string                  `json:"name"`
 	AssignedUnits map[string][]string     `json:"assigned-units"`
 	Config        map[string][]ItemChange `json:"charm-config"`
+	Created       int64                   `json:"created"`
+	CreatedBy     string                  `json:"created-by"`
 	Completed     int64                   `json:"completed"`
+	CompletedBy   string                  `json:"completed-by"`
 	GenerationId  int                     `json:"generation-id"`
 }
 
