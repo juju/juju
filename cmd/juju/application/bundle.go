@@ -125,6 +125,8 @@ type bundleDeploySpec struct {
 	bundleMachines      map[string]string
 	bundleStorage       map[string]map[string]storage.Constraints
 	bundleDevices       map[string]map[string]devices.Constraints
+
+	targetModelUUID string
 }
 
 // deployBundle deploys the given bundle data using the given API client and
@@ -234,6 +236,9 @@ type bundleHandler struct {
 	// LXD.  This flag keeps us from writing the warning more than once per
 	// bundle.
 	warnedLXC bool
+
+	// The UUID of the model where the bundle is about to be deployed.
+	targetModelUUID string
 }
 
 func makeBundleHandler(spec bundleDeploySpec) *bundleHandler {
@@ -258,6 +263,8 @@ func makeBundleHandler(spec bundleDeploySpec) *bundleHandler {
 		unitStatus:    make(map[string]string),
 		macaroons:     make(map[*charm.URL]*macaroon.Macaroon),
 		channels:      make(map[*charm.URL]csparams.Channel),
+
+		targetModelUUID: spec.targetModelUUID,
 	}
 }
 

@@ -838,8 +838,9 @@ func (c *DeployCommand) deployBundle(spec bundleDeploySpec) (rErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	modelUUID, ok := spec.apiRoot.ModelUUID()
-	if !ok {
+
+	var ok bool
+	if spec.targetModelUUID, ok = spec.apiRoot.ModelUUID(); !ok {
 		return errors.New("API connection is controller-only (should never happen)")
 	}
 
@@ -865,7 +866,7 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 					CharmID:         charmstore.CharmID{URL: charmURL},
 					ApplicationName: application,
 					ApplicationPlan: applicationSpec.Plan,
-					ModelUUID:       modelUUID,
+					ModelUUID:       spec.targetModelUUID,
 					Force:           c.Force,
 				}
 
