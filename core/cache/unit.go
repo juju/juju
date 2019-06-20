@@ -7,12 +7,11 @@ import (
 	"fmt"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/juju/core/settings"
-
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/settings"
 )
 
 // Unit represents a unit in a cached model.
