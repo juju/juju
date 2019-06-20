@@ -4,8 +4,6 @@
 package cache
 
 import (
-	"sync"
-
 	"github.com/juju/pubsub"
 
 	"github.com/juju/juju/core/lxdprofile"
@@ -29,21 +27,21 @@ type Charm struct {
 	// Link to model?
 	metrics *ControllerGauges
 	hub     *pubsub.SimpleHub
-	mu      sync.Mutex
 
 	details CharmChange
 }
 
 // LXDProfile returns the lxd profile of this charm.
 func (c *Charm) LXDProfile() lxdprofile.Profile {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	return c.details.LXDProfile
 }
 
-func (c *Charm) setDetails(details CharmChange) {
-	c.mu.Lock()
+// DefaultConfig returns the default configuration settings for the charm.
+func (c *Charm) DefaultConfig() map[string]interface{} {
+	return c.details.DefaultConfig
+}
 
+func (c *Charm) setDetails(details CharmChange) {
 	// If this is the first receipt of details, set the removal message.
 	if c.removalMessage == nil {
 		c.removalMessage = RemoveCharm{
@@ -54,6 +52,11 @@ func (c *Charm) setDetails(details CharmChange) {
 
 	c.setStale(false)
 	c.details = details
+}
 
-	c.mu.Unlock()
+// copy returns a copy of the unit, ensuring appropriate deep copying.
+func (c *Charm) copy() Charm {
+	cc := *c
+	cc.details = cc.details.copy()
+	return cc
 }

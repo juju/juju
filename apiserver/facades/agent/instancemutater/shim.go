@@ -28,7 +28,7 @@ func (s modelCacheShim) Charm(charmURL string) (ModelCacheCharm, error) {
 		return nil, err
 	}
 	return &modelCacheCharm{
-		Charm: ch,
+		Charm: &ch,
 	}, nil
 }
 

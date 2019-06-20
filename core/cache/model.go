@@ -99,26 +99,6 @@ func (m *Model) Report() map[string]interface{} {
 	}
 }
 
-// Charm returns the charm for the input charmURL.
-// If the charm is not found, a NotFoundError is returned.
-func (m *Model) Charm(charmURL string) (*Charm, error) {
-	defer m.doLocked()()
-
-	charm, found := m.charms[charmURL]
-	if !found {
-		return nil, errors.NotFoundf("charm %q", charmURL)
-	}
-	return charm, nil
-}
-
-// TODO (manadart 2019-05-30): Access to these entities returns copies:
-// - applications
-// - machines
-// - units
-// - branches
-// All of the other entity retrieval should be changed to work in the same
-// fashion, and the lock guarding of member access removed where possible.
-
 // Branches returns all active branches in the model.
 func (m *Model) Branches() map[string]Branch {
 	m.mu.Lock()
@@ -209,6 +189,18 @@ func (m *Model) Machine(machineId string) (Machine, error) {
 		return Machine{}, errors.NotFoundf("machine %q", machineId)
 	}
 	return machine.copy(), nil
+}
+
+// Charm returns the charm for the input charmURL.
+// If the charm is not found, a NotFoundError is returned.
+func (m *Model) Charm(charmURL string) (Charm, error) {
+	defer m.doLocked()()
+
+	charm, found := m.charms[charmURL]
+	if !found {
+		return Charm{}, errors.NotFoundf("charm %q", charmURL)
+	}
+	return charm.copy(), nil
 }
 
 // WatchMachines returns a PredicateStringsWatcher to notify about

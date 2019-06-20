@@ -189,6 +189,23 @@ func (s *ModelSuite) TestCharmNotFoundError(c *gc.C) {
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
+func (s *ModelSuite) TestCharmReturnsCopy(c *gc.C) {
+	m := s.NewModel(modelChange)
+	m.UpdateCharm(charmChange, s.Manager)
+
+	ch1, err := m.Charm(charmChange.CharmURL)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make a change to the map returned in the copy.
+	cc := ch1.DefaultConfig()
+	cc["mister"] = "squiggle"
+
+	// Get another copy from the model and ensure it is unchanged.
+	ch2, err := m.Charm(charmChange.CharmURL)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch2.DefaultConfig(), gc.DeepEquals, charmChange.DefaultConfig)
+}
+
 func (s *ModelSuite) TestMachineNotFoundError(c *gc.C) {
 	m := s.NewModel(modelChange)
 	_, err := m.Machine("nope")
