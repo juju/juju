@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/loggo"
@@ -650,6 +651,65 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "aws-integrator-trust-single")
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), bundlePath, "--trust")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *DeploySuite) TestDeployBundleWithOffers(c *gc.C) {
+	cfgAttrs := map[string]interface{}{
+		"name": "name",
+		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"type": "foo",
+	}
+	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
+	withAllWatcher(fakeAPI)
+
+	inURL := charm.MustParseURL("cs:apache2-26")
+	withCharmRepoResolvable(fakeAPI, inURL)
+
+	withCharmDeployable(
+		fakeAPI, inURL, "bionic",
+		&charm.Meta{Name: "apache2", Series: []string{"bionic"}},
+		nil, false, false, 0, nil, nil,
+	)
+
+	fakeAPI.Call("AddUnits", application.AddUnitsParams{
+		ApplicationName: "apache2",
+		NumUnits:        1,
+	}).Returns([]string{"apache2/0"}, error(nil))
+
+	fakeAPI.Call("Offer",
+		"deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"apache2",
+		[]string{"apache-website", "website-cache"},
+		"my-offer",
+		"",
+	).Returns([]params.ErrorResult{}, nil)
+
+	fakeAPI.Call("Offer",
+		"deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"apache2",
+		[]string{"apache-website"},
+		"my-other-offer",
+		"",
+	).Returns([]params.ErrorResult{}, nil)
+
+	deploy := &DeployCommand{
+		NewAPIRoot: func() (DeployAPI, error) {
+			return fakeAPI, nil
+		},
+	}
+
+	s.SetFeatureFlags(feature.CMRAwareBundles)
+	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "apache2-with-offers")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), bundlePath)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var offerCallCount int
+	for _, call := range fakeAPI.Calls() {
+		if call.FuncName == "Offer" {
+			offerCallCount++
+		}
+	}
+	c.Assert(offerCallCount, gc.Equals, 2)
 }
 
 type fakeProvider struct {
@@ -2556,6 +2616,11 @@ func (f *fakeDeployAPI) ScaleApplication(p application.ScaleApplicationParams) (
 	return params.ScaleApplicationResult{
 		Info: &params.ScaleApplicationInfo{Scale: p.Scale},
 	}, nil
+}
+
+func (f *fakeDeployAPI) Offer(modelUUID, application string, endpoints []string, offerName, descr string) ([]params.ErrorResult, error) {
+	results := f.MethodCall(f, "Offer", modelUUID, application, endpoints, offerName, descr)
+	return results[0].([]params.ErrorResult), jujutesting.TypeAssertError(results[1])
 }
 
 func stringToInterface(args []string) []interface{} {
