@@ -6,6 +6,7 @@ package azure
 import (
 	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
@@ -15,7 +16,14 @@ import (
 )
 
 const (
+	// configAttrStorageAccountType mirrors the storage SKU name in the Azure SDK
+	//
+	// The term "storage account" has been replaced with "SKU name" in recent
+	// Azure SDK, but we keep it to maintain backwards-compatibility.
 	configAttrStorageAccountType = "storage-account-type"
+
+	// configAttrLoadBalancerSkuName mirrors the LoadBalancerSkuName type in the Azure SDK
+	configAttrLoadBalancerSkuName = "load-balancer-sku-name"
 
 	// The below bits are internal book-keeping things, rather than
 	// configuration. Config is just what we have to work with.
@@ -26,11 +34,13 @@ const (
 )
 
 var configFields = schema.Fields{
-	configAttrStorageAccountType: schema.String(),
+	configAttrStorageAccountType:  schema.String(),
+	configAttrLoadBalancerSkuName: schema.String(),
 }
 
 var configDefaults = schema.Defaults{
-	configAttrStorageAccountType: string(storage.StandardLRS),
+	configAttrStorageAccountType:  string(storage.StandardLRS),
+	configAttrLoadBalancerSkuName: string(network.LoadBalancerSkuNameStandard),
 }
 
 var immutableConfigAttributes = []string{
@@ -39,11 +49,26 @@ var immutableConfigAttributes = []string{
 
 type azureModelConfig struct {
 	*config.Config
-	storageAccountType string
+	storageAccountType  string
+	loadBalancerSkuName string
 }
 
-var knownStorageAccountTypes = []string{
-	"Standard_LRS", "Standard_GRS", "Standard_RAGRS", "Standard_ZRS", "Premium_LRS",
+// knownStorageAccountTypes returns a list of valid storage SKU names.
+//
+// The term "account type" is is used in previous versions of the Azure SDK.
+func knownStorageAccountTypes() (accountTypes []string) {
+	for _, name := range storage.PossibleSkuNameValues() {
+		accountTypes = append(accountTypes, string(name))
+	}
+	return accountTypes
+}
+
+// knownLoadBalancerSkuNames returns a list of valid load balancer SKU names.
+func knownLoadBalancerSkuNames() (skus []string) {
+	for _, name := range network.PossibleLoadBalancerSkuNameValues() {
+		skus = append(skus, string(name))
+	}
+	return skus
 }
 
 // Validate ensures that the provided configuration is valid for this
@@ -114,13 +139,31 @@ Please choose a model name of no more than %d characters.`,
 	if !isKnownStorageAccountType(storageAccountType) {
 		return nil, errors.Errorf(
 			"invalid storage account type %q, expected one of: %q",
-			storageAccountType, knownStorageAccountTypes,
+			storageAccountType, knownStorageAccountTypes(),
 		)
+	}
+
+	loadBalancerSkuName, ok := validated[configAttrLoadBalancerSkuName].(string)
+	if ok {
+		loadBalancerSkuNameTitle := strings.Title(loadBalancerSkuName)
+		if loadBalancerSkuName != loadBalancerSkuNameTitle {
+			loadBalancerSkuName = loadBalancerSkuNameTitle
+			logger.Infof("using %q for config parameter %s", loadBalancerSkuName, configAttrLoadBalancerSkuName)
+		}
+		if !isKnownLoadBalancerSkuName(loadBalancerSkuName) {
+			return nil, errors.Errorf(
+				"invalid load balancer SKU name %q, expected one of: %q",
+				loadBalancerSkuName, knownLoadBalancerSkuNames(),
+			)
+		}
+	} else {
+		loadBalancerSkuName = string(network.LoadBalancerSkuNameStandard)
 	}
 
 	azureConfig := &azureModelConfig{
 		newCfg,
 		storageAccountType,
+		loadBalancerSkuName,
 	}
 	return azureConfig, nil
 }
@@ -128,8 +171,19 @@ Please choose a model name of no more than %d characters.`,
 // isKnownStorageAccountType reports whether or not the given string identifies
 // a known storage account type.
 func isKnownStorageAccountType(t string) bool {
-	for _, knownStorageAccountType := range knownStorageAccountTypes {
+	for _, knownStorageAccountType := range knownStorageAccountTypes() {
 		if t == knownStorageAccountType {
+			return true
+		}
+	}
+	return false
+}
+
+// isKnownLoadBalancerSkuName reports whether or not the given string
+// a valid storage SKU within the Azure SDK
+func isKnownLoadBalancerSkuName(n string) bool {
+	for _, skuName := range knownLoadBalancerSkuNames() {
+		if n == skuName {
 			return true
 		}
 	}

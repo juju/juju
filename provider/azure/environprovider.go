@@ -65,6 +65,10 @@ type ProviderConfig struct {
 
 	// AzureCLI is the interface the to Azure CLI (az) command.
 	AzureCLI AzureCLI
+
+	// LoadBalancerSkuName is the load balancer SKU name.
+	// Legal values are determined by the Azure SDK.
+	LoadBalancerSkuName string
 }
 
 // Validate validates the Azure provider configuration.
