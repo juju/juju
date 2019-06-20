@@ -400,9 +400,10 @@ func (c *cacheWorker) translateCharm(d multiwatcher.Delta) interface{} {
 	}
 
 	return cache.CharmChange{
-		ModelUUID:  value.ModelUUID,
-		CharmURL:   value.CharmURL,
-		LXDProfile: coreLXDProfile(value.LXDProfile),
+		ModelUUID:     value.ModelUUID,
+		CharmURL:      value.CharmURL,
+		LXDProfile:    coreLXDProfile(value.LXDProfile),
+		DefaultConfig: value.DefaultConfig,
 	}
 }
 
