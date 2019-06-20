@@ -356,7 +356,7 @@ func printOffers(tw *ansiterm.TabWriter, offers map[string]offerStatus) error {
 			}
 			// Subsequent lines only need to display endpoint information.
 			// This will display less noise.
-			w.Println("", "", "", "", endpointName, endpoint.Interface, endpoint.Role)
+			w.Println("", "", "", "", "", endpointName, endpoint.Interface, endpoint.Role)
 		}
 	}
 	endSection(tw)
