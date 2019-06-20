@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/applicationoffers"
 	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
@@ -91,6 +92,12 @@ type CharmDeployAPI interface {
 	CharmInfo(string) (*apicharms.CharmInfo, error)
 }
 
+// OfferAPI represents the methods of the API the deploy command needs
+// for creating offers.
+type OfferAPI interface {
+	Offer(modelUUID, application string, endpoints []string, offerName, descr string) ([]apiparams.ErrorResult, error)
+}
+
 var supportedJujuSeries = func() []string {
 	// We support all of the juju series AND all the ESM supported series.
 	// Juju is congruant with the Ubuntu release cycle for it's own series (not
@@ -116,6 +123,7 @@ type DeployAPI interface {
 	CharmDeployAPI
 	ApplicationAPI
 	ModelAPI
+	OfferAPI
 
 	// ApplicationClient
 	Deploy(application.DeployArgs) error
@@ -195,6 +203,10 @@ func (c *plansClient) PlanURL() string {
 	return c.planURL
 }
 
+type offerClient struct {
+	*applicationoffers.Client
+}
+
 type deployAPIAdapter struct {
 	api.Connection
 	*apiClient
@@ -205,6 +217,7 @@ type deployAPIAdapter struct {
 	*charmstoreClient
 	*annotationsClient
 	*plansClient
+	*offerClient
 }
 
 func (a *deployAPIAdapter) Client() *api.Client {
@@ -294,6 +307,7 @@ func NewDeployCommand() modelcmd.ModelCommand {
 			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
 			charmRepoClient:   &charmRepoClient{charmrepo.NewCharmStoreFromClient(cstoreClient)},
 			plansClient:       &plansClient{planURL: mURL},
+			offerClient:       &offerClient{Client: applicationoffers.NewClient(controllerAPIRoot)},
 		}, nil
 	}
 
