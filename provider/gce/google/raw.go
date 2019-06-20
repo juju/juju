@@ -100,10 +100,6 @@ func (rc *rawConn) AddInstance(projectID, zoneName string, spec *compute.Instanc
 		// We are guaranteed the insert failed at the point.
 		return errors.Annotate(err, "sending new instance request")
 	}
-	if err := logOperationErrors(operation); err != nil {
-		return err
-	}
-
 	err = rc.waitOperation(projectID, operation, attemptsLong, logOperationErrors)
 	return errors.Trace(err)
 }
@@ -114,10 +110,6 @@ func (rc *rawConn) RemoveInstance(projectID, zone, id string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := returnNotFoundOperationErrors(operation); err != nil {
-		return err
-	}
-
 	err = rc.waitOperation(projectID, operation, attemptsLong, returnNotFoundOperationErrors)
 	return errors.Trace(err)
 }
@@ -147,10 +139,6 @@ func (rc *rawConn) AddFirewall(projectID string, firewall *compute.Firewall) err
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := logOperationErrors(operation); err != nil {
-		return err
-	}
-
 	err = rc.waitOperation(projectID, operation, attemptsLong, logOperationErrors)
 	return errors.Trace(err)
 }
@@ -161,10 +149,6 @@ func (rc *rawConn) UpdateFirewall(projectID, name string, firewall *compute.Fire
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := logOperationErrors(operation); err != nil {
-		return err
-	}
-
 	err = rc.waitOperation(projectID, operation, attemptsLong, logOperationErrors)
 	return errors.Trace(err)
 }
@@ -201,9 +185,6 @@ func (rc *rawConn) RemoveFirewall(projectID, name string) error {
 	operation, err := call.Do()
 	if err != nil {
 		return errors.Trace(convertRawAPIError(err))
-	}
-	if err := returnNotFoundOperationErrors(operation); err != nil {
-		return err
 	}
 
 	err = rc.waitOperation(projectID, operation, attemptsLong, returnNotFoundOperationErrors)
@@ -254,9 +235,6 @@ func (rc *rawConn) CreateDisk(project, zone string, spec *compute.Disk) error {
 	if err != nil {
 		return errors.Annotate(err, "could not create a new disk")
 	}
-	if err := logOperationErrors(op); err != nil {
-		return err
-	}
 	return errors.Trace(rc.waitOperation(project, op, attemptsLong, logOperationErrors))
 }
 
@@ -287,10 +265,6 @@ func (rc *rawConn) RemoveDisk(project, zone, id string) error {
 	if err != nil {
 		return errors.Annotatef(err, "could not delete disk %q", id)
 	}
-	if err := returnNotFoundOperationErrors(op); err != nil {
-		return err
-	}
-
 	return errors.Trace(rc.waitOperation(project, op, attemptsLong, returnNotFoundOperationErrors))
 }
 
@@ -442,9 +416,6 @@ func (rc *rawConn) SetMetadata(projectID, zone, instanceID string, metadata *com
 	op, err := call.Do()
 	if err != nil {
 		return errors.Trace(err)
-	}
-	if err := logOperationErrors(op); err != nil {
-		return err
 	}
 	err = rc.waitOperation(projectID, op, attemptsLong, logOperationErrors)
 	return errors.Trace(err)
