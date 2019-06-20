@@ -156,9 +156,10 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 	})
 
 	add(&multiwatcher.CharmInfo{
-		ModelUUID: modelUUID,
-		CharmURL:  applicationCharmURL(wordpress).String(),
-		Life:      multiwatcher.Life("alive"),
+		ModelUUID:     modelUUID,
+		CharmURL:      applicationCharmURL(wordpress).String(),
+		Life:          multiwatcher.Life("alive"),
+		DefaultConfig: map[string]interface{}{"blog-title": "My Title"},
 	})
 
 	logging := AddTestingApplication(c, st, "logging", AddTestingCharm(c, st, "logging"))
@@ -1132,9 +1133,10 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}, {
 		Entity: &multiwatcher.CharmInfo{
-			ModelUUID: s.state.ModelUUID(),
-			CharmURL:  "local:quantal/quantal-wordpress-3",
-			Life:      multiwatcher.Life("alive"),
+			ModelUUID:     s.state.ModelUUID(),
+			CharmURL:      "local:quantal/quantal-wordpress-3",
+			Life:          multiwatcher.Life("alive"),
+			DefaultConfig: map[string]interface{}{"blog-title": "My Title"},
 		},
 	}, {
 		Entity: &multiwatcher.ApplicationInfo{
@@ -2102,9 +2104,10 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}, {
 		Entity: &multiwatcher.CharmInfo{
-			ModelUUID: st1.ModelUUID(),
-			CharmURL:  "local:quantal/quantal-wordpress-3",
-			Life:      multiwatcher.Life("alive"),
+			ModelUUID:     st1.ModelUUID(),
+			CharmURL:      "local:quantal/quantal-wordpress-3",
+			Life:          multiwatcher.Life("alive"),
+			DefaultConfig: map[string]interface{}{"blog-title": "My Title"},
 		},
 	}, {
 		Removed: true,
@@ -2970,18 +2973,19 @@ func testChangeCharms(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, [
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			charm := AddTestingCharm(c, st, "wordpress")
+			ch := AddTestingCharm(c, st, "wordpress")
 			return changeTestCase{
 				about: "charm is added if it's in backing but not in Store",
 				change: watcher.Change{
 					C:  "charms",
-					Id: st.docID(charm.URL().String()),
+					Id: st.docID(ch.URL().String()),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.CharmInfo{
-						ModelUUID: st.ModelUUID(),
-						CharmURL:  charm.URL().String(),
-						Life:      multiwatcher.Life("alive"),
+						ModelUUID:     st.ModelUUID(),
+						CharmURL:      ch.URL().String(),
+						Life:          multiwatcher.Life("alive"),
+						DefaultConfig: map[string]interface{}{"blog-title": "My Title"},
 					}}}
 		},
 	}
