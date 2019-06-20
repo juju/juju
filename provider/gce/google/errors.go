@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"google.golang.org/api/compute/v1"
+	"google.golang.org/api/googleapi"
 
 	"github.com/juju/juju/environs/context"
 )
@@ -94,6 +96,15 @@ func HasDenialStatusCode(err error) bool {
 	// contains response status code and description in error.Error.
 	// We have to examine the error message to determine whether the error is related to authentication failure.
 	if cause, ok := errors.Cause(err).(*url.Error); ok {
+		for code, descs := range AuthorisationFailureStatusCodes {
+			for _, desc := range descs {
+				if strings.Contains(cause.Error(), fmt.Sprintf(": %v %v", code, desc)) {
+					return true
+				}
+			}
+		}
+	}
+	if cause, ok := errors.Cause(err).(*googleapi.Error); ok {
 		for code, descs := range AuthorisationFailureStatusCodes {
 			for _, desc := range descs {
 				if strings.Contains(cause.Error(), fmt.Sprintf(": %v %v", code, desc)) {

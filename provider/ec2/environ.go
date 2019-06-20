@@ -583,7 +583,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	}
 
 	switch {
-	case subnetErr != nil && (errors.IsNotFound(subnetErr) || isNotFoundError(err)):
+	case isNotFoundError(subnetErr):
 		return nil, errors.Trace(subnetErr)
 	case subnetErr != nil:
 		return nil, errors.Annotatef(maybeConvertCredentialError(subnetErr, ctx), "getting subnets for zone %q", availabilityZone)
@@ -1654,7 +1654,6 @@ func (e *environ) deleteSecurityGroupsForInstances(ctx context.ProviderCallConte
 // SecurityGroupCleaner defines provider instance methods needed to delete
 // a security group.
 type SecurityGroupCleaner interface {
-
 	// DeleteSecurityGroup deletes security group on the provider.
 	DeleteSecurityGroup(group ec2.SecurityGroup) (resp *ec2.SimpleResp, err error)
 }

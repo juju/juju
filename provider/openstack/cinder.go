@@ -107,7 +107,7 @@ var newOpenstackStorage = func(env *Environ) (OpenstackStorage, error) {
 	client := env.clientUnlocked
 	if env.volumeURL == nil {
 		url, err := getVolumeEndpointURL(client, env.cloudUnlocked.Region)
-		if errors.IsNotFound(err) || gooseerrors.IsNotFound(err) {
+		if IsNotFoundError(err) {
 			// No volume endpoint found; Cinder is not supported.
 			return nil, errors.NotSupportedf("volumes")
 		} else if err != nil {
@@ -407,7 +407,7 @@ func destroyVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStor
 		return false, nil
 	})
 	if err != nil {
-		if errors.IsNotFound(err) || gooseerrors.IsNotFound(err) {
+		if IsNotFoundError(err) {
 			// The volume wasn't found; nothing
 			// to destroy, so we're done.
 			return nil
@@ -595,12 +595,16 @@ func cinderToJujuVolumeInfo(volume *cinder.Volume) storage.VolumeInfo {
 
 func detachVolume(instanceId, volumeId string, storageAdapter OpenstackStorage) error {
 	err := storageAdapter.DetachVolume(instanceId, volumeId)
-	if err != nil && !(errors.IsNotFound(err) || gooseerrors.IsNotFound(err)) {
+	if err != nil && !IsNotFoundError(err) {
 		return errors.Trace(err)
 	}
 	// The volume was successfully detached, or was
 	// already detached (i.e. NotFound error case).
 	return nil
+}
+
+func IsNotFoundError(err error) bool {
+	return errors.IsNotFound(err) || gooseerrors.IsNotFound(err)
 }
 
 func findAttachment(volId string, attachments []nova.VolumeAttachment) *nova.VolumeAttachment {
@@ -683,7 +687,7 @@ func (ga *openstackStorageAdapter) GetVolumesDetail() ([]cinder.Volume, error) {
 func (ga *openstackStorageAdapter) GetVolume(volumeId string) (*cinder.Volume, error) {
 	resp, err := ga.cinderClient.GetVolume(volumeId)
 	if err != nil {
-		if gooseerrors.IsNotFound(err) {
+		if IsNotFoundError(err) {
 			return nil, errors.NotFoundf("volume %q", volumeId)
 		}
 		return nil, err
@@ -699,7 +703,7 @@ func (ga *openstackStorageAdapter) SetVolumeMetadata(volumeId string, metadata m
 // DeleteVolume is part of the OpenstackStorage interface.
 func (ga *openstackStorageAdapter) DeleteVolume(volumeId string) error {
 	if err := ga.cinderClient.DeleteVolume(volumeId); err != nil {
-		if gooseerrors.IsNotFound(err) {
+		if IsNotFoundError(err) {
 			return errors.NotFoundf("volume %q", volumeId)
 		}
 		return err
@@ -710,7 +714,7 @@ func (ga *openstackStorageAdapter) DeleteVolume(volumeId string) error {
 // DetachVolume is part of the OpenstackStorage interface.
 func (ga *openstackStorageAdapter) DetachVolume(serverId, attachmentId string) error {
 	if err := ga.novaClient.DetachVolume(serverId, attachmentId); err != nil {
-		if gooseerrors.IsNotFound(err) {
+		if IsNotFoundError(err) {
 			return errors.NewNotFound(nil,
 				fmt.Sprintf("volume %q is not attached to server %q",
 					attachmentId, serverId,
