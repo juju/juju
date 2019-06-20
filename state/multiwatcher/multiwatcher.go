@@ -227,7 +227,7 @@ type CharmInfo struct {
 	Life         Life     `json:"life"`
 	LXDProfile   *Profile `json:"profile"`
 	// DefaultConfig is derived from state-stored *charm.Config.
-	DefaultConfig map[string]interface{} `json:"config"`
+	DefaultConfig map[string]interface{} `json:"config,omitempty"`
 }
 
 // EntityId returns a unique identifier for an charm across
