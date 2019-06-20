@@ -172,18 +172,16 @@ func (rc *rawConn) UpdateFirewall(projectID, name string, firewall *compute.Fire
 type handleOperationErrors func(operation *compute.Operation) error
 
 func returnNotFoundOperationErrors(operation *compute.Operation) error {
-	hadOtherErrors := false
 	if operation.Error != nil {
+		result := waitError{operation, nil}
 		for _, err := range operation.Error.Errors {
 			if err.Code == "RESOURCE_NOT_FOUND" {
-				return errors.NotFoundf("resource", err.Message)
+				result.cause = errors.NotFoundf("resource", err.Message)
+				continue
 			}
-			hadOtherErrors = true
 			logger.Errorf("GCE operation error: (%s) %s", err.Code, err.Message)
 		}
-	}
-	if hadOtherErrors {
-		return waitError{operation, nil}
+		return result
 	}
 	return nil
 }
@@ -352,6 +350,13 @@ func (err waitError) Error() string {
 		return fmt.Sprintf("GCE operation %q failed: %v", err.op.Name, err.cause)
 	}
 	return fmt.Sprintf("GCE operation %q failed", err.op.Name)
+}
+
+func (err waitError) Cause() error {
+	if err.cause != nil {
+		return err.cause
+	}
+	return err
 }
 
 func isWaitError(err error) bool {

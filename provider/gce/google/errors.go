@@ -91,29 +91,24 @@ func HasDenialStatusCode(err error) bool {
 		return false
 	}
 
-	// http/url.Error is constructed with status code in mind and, at the time of writing for go-1.10,
-	// contains response status code and description in error.Error.
-	// We have to examine the error message to determine whether the error is related to authentication failure.
-	if cause, ok := errors.Cause(err).(*url.Error); ok {
-		for code, descs := range AuthorisationFailureStatusCodes {
-			for _, desc := range descs {
-				if strings.Contains(cause.Error(), fmt.Sprintf(": %v %v", code, desc)) {
-					return true
-				}
-			}
-		}
+	var cause error
+	switch e := errors.Cause(err).(type) {
+	case *url.Error:
+		cause = e
+	case *googleapi.Error:
+		cause = e
+	default:
+		return false
 	}
-	if cause, ok := errors.Cause(err).(*googleapi.Error); ok {
-		for code, descs := range AuthorisationFailureStatusCodes {
-			for _, desc := range descs {
-				if strings.Contains(cause.Error(), fmt.Sprintf(": %v %v", code, desc)) {
-					return true
-				}
+
+	for code, descs := range AuthorisationFailureStatusCodes {
+		for _, desc := range descs {
+			if strings.Contains(cause.Error(), fmt.Sprintf(": %v %v", code, desc)) {
+				return true
 			}
 		}
 	}
 	return false
-
 }
 
 // AuthorisationFailureStatusCodes contains http status code and
@@ -139,5 +134,5 @@ func IsNotFound(err error) bool {
 	if gerr, ok := errors.Cause(err).(*googleapi.Error); ok {
 		return gerr.Code == http.StatusNotFound
 	}
-	return errors.IsNotFound(err)
+	return errors.IsNotFound(errors.Cause(err))
 }
