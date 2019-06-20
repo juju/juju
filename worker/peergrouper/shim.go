@@ -22,8 +22,8 @@ func (s StateShim) ControllerNode(id string) (ControllerNode, error) {
 	return s.State.Machine(id)
 }
 
-func (s StateShim) RemoveControllerNode(c ControllerNode) error {
-	return s.State.RemoveControllerNode(c)
+func (s StateShim) RemoveControllerReference(c ControllerNode) error {
+	return s.State.RemoveControllerReference(c)
 }
 
 func (s StateShim) Space(name string) (Space, error) {

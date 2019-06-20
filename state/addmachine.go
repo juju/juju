@@ -309,6 +309,9 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 			},
 		})
 	}
+	if hasJob(mdoc.Jobs, JobManageModel) {
+		prereqOps = append(prereqOps, addControllerNodeOp(st, mdoc.Id, false))
+	}
 
 	return mdoc, append(prereqOps, machineOp), nil
 }

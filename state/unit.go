@@ -777,10 +777,11 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 		})
 	}
 
+	isController := m.IsManager()
 	machineCheck := true // whether host machine conditions allow destroy
 	if len(m.doc.Principals) != 1 || m.doc.Principals[0] != u.doc.Name {
 		machineCheck = false
-	} else if hasJob(m.doc.Jobs, JobManageModel) {
+	} else if isController {
 		// Check that the machine does not have any responsibilities that
 		// prevent a lifecycle change.
 		machineCheck = false
@@ -791,18 +792,27 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 	// assert that the machine conditions pertaining to host removal conditions
 	// remain the same throughout the transaction.
 	var machineAssert bson.D
+	var controllerNodeAssert interface{}
 	if machineCheck {
 		machineAssert = bson.D{{"$and", []bson.D{
 			{{"principals", []string{u.doc.Name}}},
 			{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
 			{{"hasvote", bson.D{{"$ne", true}}}},
 		}}}
+		controllerNodeAssert = txn.DocMissing
+		_, err = m.st.ControllerNode(m.Id())
+		if err == nil {
+			controllerNodeAssert = bson.D{{"has-vote", false}}
+		}
 	} else {
 		machineAssert = bson.D{{"$or", []bson.D{
 			{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
 			{{"jobs", bson.D{{"$in", []MachineJob{JobManageModel}}}}},
 			{{"hasvote", true}},
 		}}}
+		if isController {
+			controllerNodeAssert = txn.DocExists
+		}
 	}
 
 	// If removal conditions satisfied by machine & container docs, we can
@@ -824,6 +834,13 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 		Assert: machineAssert,
 		Update: machineUpdate,
 	})
+	if controllerNodeAssert != nil {
+		ops = append(ops, txn.Op{
+			C:      controllerNodesC,
+			Id:     m.st.docID(m.Id()),
+			Assert: controllerNodeAssert,
+		})
+	}
 
 	return append(ops, cleanupOps...), nil
 }

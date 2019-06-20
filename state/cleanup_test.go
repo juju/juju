@@ -319,7 +319,7 @@ func (s *CleanupSuite) TestDestroyControllerMachineErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 	err = manager.Destroy()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
+	c.Assert(err, gc.ErrorMatches, "controller 0 is the only controller")
 	s.assertDoesNotNeedCleanup(c)
 	assertLife(c, manager, state.Alive)
 }

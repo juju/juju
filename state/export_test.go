@@ -568,11 +568,14 @@ func UpdateModelUserLastConnection(st *State, e permission.UserAccess, when time
 }
 
 func (m *Machine) SetWantsVote(wantsVote bool) error {
-	err := m.st.runRawTransaction([]txn.Op{{
+	ops := []txn.Op{{
 		C:      machinesC,
 		Id:     m.doc.DocID,
 		Update: bson.M{"$set": bson.M{"novote": !wantsVote}},
-	}})
+	},
+		setControllerWantsVoteOp(m.st, m.Id(), wantsVote),
+	}
+	err := m.st.runRawTransaction(ops)
 	if err != nil {
 		return errors.Trace(err)
 	}

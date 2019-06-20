@@ -245,8 +245,8 @@ func (st *fakeState) ControllerInfo() (*state.ControllerInfo, error) {
 	return deepCopy(st.controllerInfo.Get()).(*state.ControllerInfo), nil
 }
 
-func (st *fakeState) WatchControllerInfo() state.NotifyWatcher {
-	return WatchValue(&st.controllerInfo)
+func (st *fakeState) WatchControllerInfo() state.StringsWatcher {
+	return WatchStrings(&st.controllerInfo)
 }
 
 func (st *fakeState) WatchControllerStatusChanges() state.StringsWatcher {
@@ -273,7 +273,7 @@ func (st *fakeState) ControllerConfig() (controller.Config, error) {
 	return deepCopy(st.controllerConfig.Get()).(controller.Config), nil
 }
 
-func (st *fakeState) RemoveControllerNode(c ControllerNode) error {
+func (st *fakeState) RemoveControllerReference(c ControllerNode) error {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 	controllerInfo := st.controllerInfo.Get().(*state.ControllerInfo)

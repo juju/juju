@@ -18,6 +18,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
@@ -547,6 +548,8 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 		tc := destroyMachineTestCase{desc: "host has vote", destroyed: false}
 		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
+		_, err = s.State.EnableHA(1, constraints.Value{}, "quantal", []string{tc.host.Id()})
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.host.SetHasVote(true), gc.IsNil)
 		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -630,22 +633,35 @@ func (s *UnitSuite) setMachineVote(c *gc.C, id string, hasVote bool) {
 	c.Assert(m.SetHasVote(hasVote), gc.IsNil)
 }
 
+func (s *UnitSuite) demoteMachine(c *gc.C, m *state.Machine) {
+	s.setMachineVote(c, m.Id(), false)
+	err := m.SetWantsVote(false)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveControllerReference(m)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.EnableHA(3, constraints.Value{}, "quantal", []string{host.Id()})
+	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(host.SetHasVote(true), gc.IsNil)
 	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 	flip := jujutxn.TestHook{
 		Before: func() {
-			s.setMachineVote(c, host.Id(), true)
+			s.demoteMachine(c, host)
 		},
 	}
 	flop := jujutxn.TestHook{
 		Before: func() {
-			s.setMachineVote(c, host.Id(), false)
+			s.setMachineVote(c, host.Id(), true)
 		},
 	}
 	// You'll need to adjust the flip-flops to match the number of transaction
@@ -658,6 +674,8 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.EnableHA(3, constraints.Value{}, "quantal", []string{host.Id()})
+	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	target, err := s.application.AddUnit(state.AddUnitParams{})
@@ -666,7 +684,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		s.setMachineVote(c, host.Id(), true)
-	}, nil).Check()
+	}).Check()
 
 	c.Assert(target.Destroy(), gc.IsNil)
 	assertLife(c, host, state.Alive)
@@ -674,6 +692,8 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.EnableHA(3, constraints.Value{}, "quantal", []string{host.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -683,7 +703,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
 	c.Assert(host.SetHasVote(true), gc.IsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		s.setMachineVote(c, host.Id(), false)
+		s.demoteMachine(c, host)
 	}, nil).Check()
 
 	c.Assert(target.Destroy(), gc.IsNil)
@@ -720,6 +740,8 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.EnableHA(1, constraints.Value{}, "quantal", []string{host.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
