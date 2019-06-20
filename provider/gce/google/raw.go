@@ -365,7 +365,7 @@ func (rc *rawConn) waitOperation(projectID string, op *compute.Operation, attemp
 	}
 	if op.Error != nil {
 		for _, err := range op.Error.Errors {
-			logger.Errorf("GCE operation error %T: (%s) %s", err, err.Code, err.Message)
+			logger.Errorf("GCE operation error: (%s) %s", err.Code, err.Message)
 		}
 		return waitError{op, nil}
 	}
