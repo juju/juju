@@ -131,10 +131,13 @@ var AuthorisationFailureStatusCodes = map[int][]string{
 	http.StatusBadRequest: {"Bad Request"},
 }
 
-// IsNotFound reports whether err contains `not found'.
+// IsNotFound reports if given error is of 'not found' type.
 func IsNotFound(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(err.Error(), " not found")
+	if gerr, ok := errors.Cause(err).(*googleapi.Error); ok {
+		return gerr.Code == http.StatusNotFound
+	}
+	return errors.IsNotFound(err)
 }
