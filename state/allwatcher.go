@@ -1369,7 +1369,10 @@ func (g *backingGeneration) updated(st *State, store *multiwatcherStore, id stri
 		Name:          g.Name,
 		AssignedUnits: assigned,
 		Config:        cfg,
+		Created:       g.Created,
+		CreatedBy:     g.CreatedBy,
 		Completed:     g.Completed,
+		CompletedBy:   g.CompletedBy,
 		GenerationId:  g.GenerationId,
 	}
 	store.Update(info)

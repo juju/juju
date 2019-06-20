@@ -441,7 +441,10 @@ func (c *cacheWorker) translateBranch(d multiwatcher.Delta) interface{} {
 		Id:            value.Id,
 		AssignedUnits: value.AssignedUnits,
 		Config:        coreItemChanges(value.Config),
+		Created:       value.Created,
+		CreatedBy:     value.CreatedBy,
 		Completed:     value.Completed,
+		CompletedBy:   value.CompletedBy,
 		GenerationId:  value.GenerationId,
 	}
 }
