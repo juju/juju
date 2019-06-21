@@ -11,7 +11,6 @@ import (
 
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/utils"
-	gooseerrors "gopkg.in/goose.v2/errors"
 	"gopkg.in/goose.v2/swift"
 
 	"github.com/juju/juju/environs/storage"
@@ -182,7 +181,7 @@ func (s *openstackstorage) RemoveAll() error {
 // maybeNotFound returns a errors.NotFoundError if the root cause of the specified error is due to a file or
 // container not being found.
 func maybeNotFound(err error) (error, bool) {
-	if err != nil && gooseerrors.IsNotFound(err) {
+	if err != nil && IsNotFoundError(err) {
 		return jujuerrors.NewNotFound(err, ""), true
 	}
 	return err, false

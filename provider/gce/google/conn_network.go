@@ -21,7 +21,7 @@ import (
 // returned.
 func (gce Connection) firewallRules(fwname string) (ruleSet, error) {
 	firewalls, err := gce.raw.GetFirewalls(gce.projectID, fwname)
-	if errors.IsNotFound(err) {
+	if IsNotFound(err) {
 		return make(ruleSet), nil
 	}
 	if err != nil {
