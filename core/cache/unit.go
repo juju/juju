@@ -4,9 +4,14 @@
 package cache
 
 import (
-	"github.com/juju/pubsub"
+	"fmt"
+
+	"github.com/juju/collections/set"
+	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/settings"
 )
 
 // Unit represents a unit in a cached model.
@@ -15,19 +20,15 @@ type Unit struct {
 	// and tracks resources that it is responsible for cleaning up.
 	*Resident
 
-	metrics *ControllerGauges
-	hub     *pubsub.SimpleHub
-
+	model   *Model
 	details UnitChange
 }
 
-func newUnit(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *Unit {
-	u := &Unit{
+func newUnit(model *Model, res *Resident) *Unit {
+	return &Unit{
 		Resident: res,
-		metrics:  metrics,
-		hub:      hub,
+		model:    model,
 	}
-	return u
 }
 
 // Note that these property accessors are not lock-protected.
@@ -69,6 +70,73 @@ func (u *Unit) Ports() []network.Port {
 	return u.details.Ports
 }
 
+// Config settings returns the effective charm configuration for this unit
+// taking into account whether it is tracking a model branch.
+func (u *Unit) ConfigSettings() (charm.Settings, error) {
+	appName := u.details.Application
+	app, err := u.model.Application(appName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg := app.Config()
+	if cfg == nil {
+		cfg = make(map[string]interface{})
+	}
+
+	// Apply any branch-based deltas to the master settings
+	var deltas settings.ItemChanges
+	for _, b := range u.model.Branches() {
+		if units := b.AssignedUnits()[appName]; len(units) > 0 {
+			if set.NewStrings(units...).Contains(u.details.Name) {
+				deltas = b.AppConfig(appName)
+				break
+			}
+		}
+	}
+
+	for _, delta := range deltas {
+		switch {
+		case delta.IsAddition(), delta.IsModification():
+			cfg[delta.Key] = delta.NewValue
+		case delta.IsDeletion():
+			delete(cfg, delta.Key)
+		}
+	}
+
+	// Fill in any empty values with charm defaults.
+	ch, err := u.model.Charm(u.details.CharmURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	charmDefaults := ch.DefaultConfig()
+
+	for k, v := range charmDefaults {
+		if _, ok := cfg[k]; !ok {
+			cfg[k] = v
+		}
+	}
+
+	return cfg, nil
+}
+
+// WatchConfigSettings returns a new watcher that will notify when the
+// effective application charm config for this unit changes.
+func (u *Unit) WatchConfigSettings() (*CharmConfigWatcher, error) {
+	cfg := charmConfigWatcherConfig{
+		model:                u.model,
+		unitName:             u.details.Name,
+		appName:              u.details.Application,
+		appConfigChangeTopic: fmt.Sprintf("%s:%s", u.details.Application, applicationConfigChange),
+		branchChangeTopic:    branchChange,
+		branchRemoveTopic:    modelBranchRemove,
+		hub:                  u.model.hub,
+		res:                  u.Resident,
+	}
+
+	w, err := newCharmConfigWatcher(cfg)
+	return w, errors.Trace(err)
+}
+
 func (u *Unit) setDetails(details UnitChange) {
 	// If this is the first receipt of details, set the removal message.
 	if u.removalMessage == nil {
@@ -83,7 +151,7 @@ func (u *Unit) setDetails(details UnitChange) {
 	machineChange := u.details.MachineId != details.MachineId
 	u.details = details
 	if machineChange || u.details.Subordinate {
-		u.hub.Publish(modelUnitAdd, u.copy())
+		u.model.hub.Publish(modelUnitAdd, u.copy())
 	}
 }
 

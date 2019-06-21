@@ -649,7 +649,7 @@ func nameExists(name string, public map[string]jujucloud.Cloud) (string, error) 
 func addCloudToLocal(cloudMetadataStore CloudMetadataStore, newCloud jujucloud.Cloud) error {
 	personalClouds, err := cloudMetadataStore.PersonalCloudMetadata()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if personalClouds == nil {
 		personalClouds = make(map[string]jujucloud.Cloud)

@@ -56,15 +56,13 @@ func (c *hashCache) getHash(keys []string) string {
 		return value
 	}
 
+	c.incMisses()
 	value = c.generateHash(keys)
 	c.hash[key] = value
 	return value
 }
 
 func (c *hashCache) generateHash(keys []string) string {
-	// We are generating a hash, so call it a miss.
-	c.incMisses()
-
 	interested := c.config
 	if len(keys) > 0 {
 		interested = make(map[string]interface{})

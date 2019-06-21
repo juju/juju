@@ -530,7 +530,7 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 				Endpoint:         "fakeendpoint2",
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
-				Regions:          []cloud.Region{{Name: "us-east1"}},
+				Regions:          []cloud.Region{{Name: "us-east1", Endpoint: "fakeendpoint2"}},
 				Config:           map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": ""},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata2"},
@@ -547,25 +547,27 @@ func (s *addCAASSuite) assertAddCloudResult(
 	_, region, err := jujucloud.SplitHostCloudRegion(cloudRegion)
 	c.Assert(err, jc.ErrorIsNil)
 	s.fakeK8sClusterMetadataChecker.CheckCall(c, 0, "GetClusterMetadata")
+	expectedCloudToAdd := cloud.Cloud{
+		Name:             "myk8s",
+		HostCloudRegion:  cloudRegion,
+		Type:             "kubernetes",
+		Description:      "",
+		AuthTypes:        cloud.AuthTypes{""},
+		Endpoint:         "fakeendpoint2",
+		IdentityEndpoint: "",
+		StorageEndpoint:  "",
+		Config:           map[string]interface{}{"operator-storage": operatorStorage, "workload-storage": workloadStorage},
+		RegionConfig:     cloud.RegionConfig(nil),
+		CACertificates:   []string{"fakecadata2"},
+	}
+	if region != "" {
+		expectedCloudToAdd.Regions = []cloud.Region{{Name: region, Endpoint: "fakeendpoint2"}}
+	}
+
 	if localOnly {
 		s.fakeCloudAPI.CheckNoCalls(c)
 	} else {
-		s.fakeCloudAPI.CheckCall(c, 0, "AddCloud",
-			cloud.Cloud{
-				Name:             "myk8s",
-				HostCloudRegion:  cloudRegion,
-				Type:             "kubernetes",
-				Description:      "",
-				AuthTypes:        cloud.AuthTypes{""},
-				Endpoint:         "fakeendpoint2",
-				IdentityEndpoint: "",
-				StorageEndpoint:  "",
-				Regions:          []cloud.Region{{Name: region}},
-				Config:           map[string]interface{}{"operator-storage": operatorStorage, "workload-storage": workloadStorage},
-				RegionConfig:     cloud.RegionConfig(nil),
-				CACertificates:   []string{"fakecadata2"},
-			},
-		)
+		s.fakeCloudAPI.CheckCall(c, 0, "AddCloud", expectedCloudToAdd)
 	}
 	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
@@ -593,20 +595,7 @@ func (s *addCAASSuite) assertAddCloudResult(
 				Config:           map[string]interface{}(nil),
 				RegionConfig:     cloud.RegionConfig(nil),
 			},
-			"myk8s": {
-				Name:             "myk8s",
-				HostCloudRegion:  cloudRegion,
-				Type:             "kubernetes",
-				Description:      "",
-				AuthTypes:        cloud.AuthTypes{""},
-				Endpoint:         "fakeendpoint2",
-				IdentityEndpoint: "",
-				StorageEndpoint:  "",
-				Regions:          []cloud.Region{{Name: region}},
-				Config:           map[string]interface{}{"operator-storage": operatorStorage, "workload-storage": workloadStorage},
-				RegionConfig:     cloud.RegionConfig(nil),
-				CACertificates:   []string{"fakecadata2"},
-			},
+			"myk8s": expectedCloudToAdd,
 		},
 	)
 }
@@ -836,7 +825,9 @@ func (s *addCAASSuite) assertStoreClouds(c *gc.C, hostCloud string) {
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				HostCloudRegion:  hostCloud,
-				Regions:          []cloud.Region{{Name: "us-east1"}},
+				Regions: []cloud.Region{
+					{Name: "us-east1", Endpoint: "https://1.1.1.1:8888"},
+				},
 				Config: map[string]interface{}{
 					"operator-storage": "operator-sc",
 					"workload-storage": "",
@@ -913,7 +904,7 @@ func (s *addCAASSuite) TestCorrectUseCurrentContext(c *gc.C) {
 				Endpoint:         "fakeendpoint1",
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
-				Regions:          []cloud.Region{{Name: "us-east1"}},
+				Regions:          []cloud.Region{{Name: "us-east1", Endpoint: "fakeendpoint1"}},
 				Config:           map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": ""},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata1"},
@@ -963,7 +954,7 @@ func (s *addCAASSuite) TestCorrectSelectContext(c *gc.C) {
 				Endpoint:         "fakeendpoint2",
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
-				Regions:          []cloud.Region{{Name: "us-east1"}},
+				Regions:          []cloud.Region{{Name: "us-east1", Endpoint: "fakeendpoint2"}},
 				Config:           map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": ""},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata2"},

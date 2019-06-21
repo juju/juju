@@ -39,7 +39,7 @@ Examples:
     juju diff --utc
 
 See also:
-    branch
+    add-branch
     track
     checkout
     commit
