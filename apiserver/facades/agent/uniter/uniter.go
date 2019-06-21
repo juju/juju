@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
-	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -127,39 +126,6 @@ type UniterAPIV4 struct {
 	UniterAPIV5
 }
 
-// unitAccessor creates a accessUnit function for accessing a unit
-func unitAccessor(authorizer facade.Authorizer, st *state.State) common.GetAuthFunc {
-	return func() (common.AuthFunc, error) {
-		switch tag := authorizer.GetAuthTag().(type) {
-		case names.ApplicationTag:
-			// If called by an application agent, any of the units
-			// belonging to that application can be accessed.
-			app, err := st.Application(tag.Name)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			allUnits, err := app.AllUnits()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return func(tag names.Tag) bool {
-				for _, u := range allUnits {
-					if u.Tag() == tag {
-						return true
-					}
-				}
-				return false
-			}, nil
-		case names.UnitTag:
-			return func(tag names.Tag) bool {
-				return authorizer.AuthOwner(tag)
-			}, nil
-		default:
-			return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
-		}
-	}
-}
-
 // NewUniterAPI creates a new instance of the core Uniter API.
 func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 	authorizer := context.Auth()
@@ -168,84 +134,15 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 	}
 	st := context.State()
 	resources := context.Resources()
-	accessUnit := unitAccessor(authorizer, st)
 	leadershipChecker, err := context.LeadershipChecker()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	accessApplication := func() (common.AuthFunc, error) {
-		switch tag := authorizer.GetAuthTag().(type) {
-		case names.ApplicationTag:
-			return func(applicationTag names.Tag) bool {
-				return tag == applicationTag
-			}, nil
-		case names.UnitTag:
-			entity, err := st.Unit(tag.Id())
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			applicationName := entity.ApplicationName()
-			applicationTag := names.NewApplicationTag(applicationName)
-			return func(tag names.Tag) bool {
-				return tag == applicationTag
-			}, nil
-		default:
-			return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
-		}
-	}
-	accessMachine := func() (common.AuthFunc, error) {
-		switch tag := authorizer.GetAuthTag().(type) {
-		// Application agents can't access machines.
-		case names.ApplicationTag:
-			return func(tag names.Tag) bool {
-				return false
-			}, nil
-		case names.UnitTag:
-			entity, err := st.Unit(tag.Id())
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			machineId, err := entity.AssignedMachineId()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			machineTag := names.NewMachineTag(machineId)
-			return func(tag names.Tag) bool {
-				return tag == machineTag
-			}, nil
-		default:
-			return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
-		}
-	}
-	accessCloudSpec := func() (func() bool, error) {
-		var appName string
-		var err error
 
-		switch tag := authorizer.GetAuthTag().(type) {
-		case names.ApplicationTag:
-			appName = tag.Id()
-		case names.UnitTag:
-			entity, err := st.Unit(tag.Id())
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			appName = entity.ApplicationName()
-		default:
-			return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
-		}
-
-		app, err := st.Application(appName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		config, err := app.ApplicationConfig()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return func() bool {
-			return config.GetBool(application.TrustConfigOptionName, false)
-		}, nil
-	}
+	accessUnit := unitAccessor(authorizer, st)
+	accessApplication := applicationAccessor(authorizer, st)
+	accessMachine := machineAccessor(authorizer, st)
+	accessCloudSpec := cloudSpecAccessor(authorizer, st)
 
 	m, err := st.Model()
 	if err != nil {
