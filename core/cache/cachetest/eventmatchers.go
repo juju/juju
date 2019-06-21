@@ -2,7 +2,7 @@ package cachetest
 
 import "github.com/juju/juju/core/cache"
 
-var ModelEvents = func(change interface{}) bool {
+func ModelEvents(change interface{}) bool {
 	switch change.(type) {
 	case cache.ModelChange:
 		return true
@@ -12,7 +12,7 @@ var ModelEvents = func(change interface{}) bool {
 	return false
 }
 
-var ApplicationEvents = func(change interface{}) bool {
+func ApplicationEvents(change interface{}) bool {
 	switch change.(type) {
 	case cache.ApplicationChange:
 		return true
@@ -22,7 +22,7 @@ var ApplicationEvents = func(change interface{}) bool {
 	return false
 }
 
-var MachineEvents = func(change interface{}) bool {
+func MachineEvents(change interface{}) bool {
 	switch change.(type) {
 	case cache.MachineChange:
 		return true
@@ -32,7 +32,7 @@ var MachineEvents = func(change interface{}) bool {
 	return false
 }
 
-var CharmEvents = func(change interface{}) bool {
+func CharmEvents(change interface{}) bool {
 	switch change.(type) {
 	case cache.CharmChange:
 		return true
@@ -42,7 +42,7 @@ var CharmEvents = func(change interface{}) bool {
 	return false
 }
 
-var UnitEvents = func(change interface{}) bool {
+func UnitEvents(change interface{}) bool {
 	switch change.(type) {
 	case cache.UnitChange:
 		return true
@@ -52,7 +52,7 @@ var UnitEvents = func(change interface{}) bool {
 	return false
 }
 
-var BranchEvents = func(change interface{}) bool {
+func BranchEvents(change interface{}) bool {
 	switch change.(type) {
 	case cache.BranchChange:
 		return true
