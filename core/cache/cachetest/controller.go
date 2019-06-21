@@ -22,6 +22,7 @@ type TestController struct {
 
 	matchers []func(interface{}) bool
 	changes  chan interface{}
+	events   chan interface{}
 }
 
 // NewTestController returns creates and returns a new test controller
@@ -35,15 +36,15 @@ func NewTestController(matchers ...func(interface{}) bool) *TestController {
 	}
 }
 
-// Init instantiates the inner cache controller and returns a channel for
-// synchronising tests. Based on the input matchers, cache events for those
-// types will be sent on the channel when the cache processes them.
+// Init instantiates the inner cache controller and sets up event
+// synchronisation based on the input matchers.
+// Changes sent to the cache can be waited on by using the `NextChange` method.
 //
 // NOTE: It is recommended to perform this initialisation in the actual test
 // method rather than `SetupSuite` or `SetupTest` as different gc.C references
 // are supplied to each of those methods.
-func (tc *TestController) Init(c *gc.C, matchers ...func(interface{}) bool) <-chan interface{} {
-	events := make(chan interface{})
+func (tc *TestController) Init(c *gc.C, matchers ...func(interface{}) bool) {
+	tc.events = make(chan interface{})
 	matchers = append(tc.matchers, matchers...)
 
 	notify := func(change interface{}) {
@@ -58,7 +59,7 @@ func (tc *TestController) Init(c *gc.C, matchers ...func(interface{}) bool) <-ch
 		if send {
 			c.Logf("sending %#v", change)
 			select {
-			case events <- change:
+			case tc.events <- change:
 			case <-time.After(testing.LongWait):
 				c.Fatalf("change not processed by test")
 			}
@@ -72,8 +73,6 @@ func (tc *TestController) Init(c *gc.C, matchers ...func(interface{}) bool) <-ch
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	tc.Controller = cc
-
-	return events
 }
 
 // UpdateModel updates the current model for the input state in the cache.
@@ -102,11 +101,10 @@ func (tc *TestController) SendChange(change interface{}) {
 
 // NextChange returns the next change processed by the cache that satisfies a
 // matcher, or fails the test with a time-out.
-// This method should receive the channel returned by a call to `Init`.
-func (tc *TestController) NextChange(c *gc.C, changes <-chan interface{}) interface{} {
+func (tc *TestController) NextChange(c *gc.C) interface{} {
 	var obtained interface{}
 	select {
-	case obtained = <-changes:
+	case obtained = <-tc.events:
 	case <-time.After(testing.LongWait):
 		c.Fatalf("change not processed by test")
 	}

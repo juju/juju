@@ -31,9 +31,7 @@ type loggerSuite struct {
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 
-	change  cache.ModelChange
 	ctrl    *cachetest.TestController
-	events  <-chan interface{}
 	capture func(change interface{})
 }
 
@@ -55,14 +53,14 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.ctrl = cachetest.NewTestController(cachetest.ModelEvents)
-	s.events = s.ctrl.Init(c)
+	s.ctrl.Init(c)
 
 	// Add the current model to the controller.
 	m := cachetest.ModelChangeFromState(c, s.State)
 	s.ctrl.SendChange(m)
 
 	// Ensure it is processed before we create the logger API.
-	s.ctrl.NextChange(c, s.events)
+	_ = s.ctrl.NextChange(c)
 
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, s.ctrl.Controller) })
 
@@ -116,7 +114,7 @@ func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
 	m := cachetest.ModelChangeFromState(c, s.State)
 	m.Config["logging-config"] = loggingConfig
 	s.ctrl.SendChange(m)
-	s.ctrl.NextChange(c, s.events)
+	_ = s.ctrl.NextChange(c)
 }
 
 func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {
