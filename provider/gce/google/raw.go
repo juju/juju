@@ -164,7 +164,7 @@ func returnNotFoundOperationErrors(operation *compute.Operation) error {
 		result := waitError{operation, nil}
 		for _, err := range operation.Error.Errors {
 			if err.Code == "RESOURCE_NOT_FOUND" {
-				result.cause = errors.NotFoundf("resource", err.Message)
+				result.cause = errors.NotFoundf("%v: resource", err.Message)
 				continue
 			}
 			logger.Errorf("GCE operation error: (%s) %s", err.Code, err.Message)
