@@ -573,7 +573,6 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 		Life:                     Alive,
 		Tools:                    i.makeTools(m.Tools()),
 		Jobs:                     jobs,
-		NoVote:                   true,  // State servers can't be migrated yet.
 		HasVote:                  false, // State servers can't be migrated yet.
 		PasswordHash:             m.PasswordHash(),
 		Clean:                    !i.machineHasUnits(machineTag),

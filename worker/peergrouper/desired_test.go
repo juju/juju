@@ -390,6 +390,7 @@ func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIP
 		c.Assert(info, gc.NotNil)
 
 		desired, err = desiredPeerGroup(info)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(desired.isChanged, jc.IsFalse)
 		c.Assert(desired.stepDownPrimary, jc.IsFalse)
 		countPrimaries := 0

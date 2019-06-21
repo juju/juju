@@ -470,7 +470,9 @@ func (s *clientSuite) TestEnableHA0Preserves(c *gc.C) {
 	c.Assert(machines[2].Destroy(), jc.ErrorIsNil)
 	c.Assert(machines[2].Refresh(), jc.ErrorIsNil)
 	c.Assert(machines[2].SetHasVote(false), jc.ErrorIsNil)
-	c.Assert(s.State.RemoveControllerReference(machines[2]), jc.ErrorIsNil)
+	node, err := s.State.ControllerNode(machines[2].Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.State.RemoveControllerReference(node), jc.ErrorIsNil)
 	c.Assert(machines[2].EnsureDead(), jc.ErrorIsNil)
 	enableHAResult, err = s.enableHA(c, 0, emptyCons, defaultSeries, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -507,7 +509,9 @@ func (s *clientSuite) TestEnableHA0Preserves5(c *gc.C) {
 	c.Assert(machines[4].SetHasVote(false), jc.ErrorIsNil)
 	c.Assert(machines[4].Destroy(), jc.ErrorIsNil)
 	c.Assert(machines[4].Refresh(), jc.ErrorIsNil)
-	c.Assert(s.State.RemoveControllerReference(machines[4]), jc.ErrorIsNil)
+	node, err := s.State.ControllerNode(machines[4].Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.State.RemoveControllerReference(node), jc.ErrorIsNil)
 	c.Assert(machines[4].EnsureDead(), jc.ErrorIsNil)
 
 	// Keeping all alive but one, will bring up 1 more server to preserve 5
@@ -597,7 +601,6 @@ func (s *clientSuite) TestEnableHABootstrap(c *gc.C) {
 	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
 	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
 	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
-	c.Assert(enableHAResult.Demoted, gc.HasLen, 0)
 }
 
 func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {

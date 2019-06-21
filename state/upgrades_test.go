@@ -3245,6 +3245,10 @@ func (s *upgradesSuite) TestAddControllerNodeDocs(c *gc.C) {
 		"machineid": "3",
 		"jobs":      []MachineJob{JobHostUnits},
 	}, bson.M{
+		"_id":       ensureModelUUID(uuid1, "5"),
+		"machineid": "5",
+		"jobs":      []MachineJob{JobManageModel},
+	}, bson.M{
 		"_id":       ensureModelUUID(uuid2, "1"),
 		"machineid": "1",
 		"novote":    false,

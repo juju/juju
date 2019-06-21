@@ -567,20 +567,9 @@ func UpdateModelUserLastConnection(st *State, e permission.UserAccess, when time
 	return model.updateLastModelConnection(e.UserTag, when)
 }
 
-func (m *Machine) SetWantsVote(wantsVote bool) error {
-	ops := []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Update: bson.M{"$set": bson.M{"novote": !wantsVote}},
-	},
-		setControllerWantsVoteOp(m.st, m.Id(), wantsVote),
-	}
-	err := m.st.runRawTransaction(ops)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	m.doc.NoVote = !wantsVote
-	return nil
+func SetWantsVote(st *State, id string, wantsVote bool) error {
+	op := setControllerWantsVoteOp(st, id, wantsVote)
+	return st.runRawTransaction([]txn.Op{op})
 }
 
 func RemoveEndpointBindingsForApplication(c *gc.C, app *Application) {

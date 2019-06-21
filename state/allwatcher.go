@@ -237,6 +237,12 @@ func (m *backingMachine) machineAndAgentStatus(entity Entity, info *multiwatcher
 }
 
 func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string) error {
+	wantsVote := false
+	node, err := st.ControllerNode(m.Id)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	wantsVote = err == nil && node.WantsVote()
 	info := &multiwatcher.MachineInfo{
 		ModelUUID:                st.ModelUUID(),
 		Id:                       m.Id,
@@ -247,7 +253,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 		SupportedContainers:      m.SupportedContainers,
 		SupportedContainersKnown: m.SupportedContainersKnown,
 		HasVote:                  m.HasVote,
-		WantsVote:                wantsVote(m.Jobs, m.NoVote),
+		WantsVote:                wantsVote,
 	}
 	addresses := network.MergedAddresses(networkAddresses(m.MachineAddresses), networkAddresses(m.Addresses))
 	for _, addr := range addresses {

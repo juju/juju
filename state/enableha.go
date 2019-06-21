@@ -138,11 +138,6 @@ func (st *State) EnableHA(
 		if voteCount == desiredControllerCount {
 			return nil, jujutxn.ErrNoOperations
 		}
-		// Promote as many machines as we can to fulfil the shortfall.
-		if n := desiredControllerCount - voteCount; n < len(intent.promote) {
-			intent.promote = intent.promote[:n]
-		}
-		voteCount += len(intent.promote)
 
 		if n := desiredControllerCount - voteCount; n < len(intent.convert) {
 			intent.convert = intent.convert[:n]
@@ -151,7 +146,7 @@ func (st *State) EnableHA(
 
 		intent.newCount = desiredControllerCount - voteCount
 
-		logger.Infof("%d new machines; promoting %v; converting %v", intent.newCount, intent.promote, intent.convert)
+		logger.Infof("%d new machines; converting %v", intent.newCount, intent.convert)
 
 		var ops []txn.Op
 		ops, change, err = st.enableHAIntentionOps(intent, currentInfo, cons, series)
@@ -169,8 +164,6 @@ type ControllersChanges struct {
 	Added      []string
 	Removed    []string
 	Maintained []string
-	Promoted   []string
-	Demoted    []string
 	Converted  []string
 }
 
@@ -184,14 +177,9 @@ func (st *State) enableHAIntentionOps(
 	var ops []txn.Op
 	var change ControllersChanges
 
-	for _, m := range intent.promote {
-		ops = append(ops, promoteControllerOps(m)...)
-		change.Promoted = append(change.Promoted, m.doc.Id)
-	}
-
 	for _, m := range intent.convert {
 		ops = append(ops, convertControllerOps(m)...)
-		change.Converted = append(change.Converted, m.doc.Id)
+		change.Converted = append(change.Converted, m.Id())
 	}
 
 	// Use any placement directives that have been provided when adding new
@@ -229,14 +217,7 @@ func (st *State) enableHAIntentionOps(
 	}
 
 	for _, m := range intent.maintain {
-		tag, err := names.ParseTag(m.Tag().String())
-		if err != nil {
-			return nil, ControllersChanges{}, errors.Annotate(err, "could not parse machine tag")
-		}
-		if tag.Kind() != names.MachineTagKind {
-			return nil, ControllersChanges{}, errors.Errorf("expected machine tag kind, got %s", tag.Kind())
-		}
-		change.Maintained = append(change.Maintained, tag.Id())
+		change.Maintained = append(change.Maintained, m.Id())
 	}
 	ssOps, err := st.maintainControllersOps(mdocs, currentInfo)
 	if err != nil {
@@ -250,7 +231,8 @@ type enableHAIntent struct {
 	newCount  int
 	placement []string
 
-	promote, maintain, convert []*Machine
+	maintain []ControllerNode
+	convert  []*Machine
 }
 
 // enableHAIntentions returns what we would like
@@ -293,20 +275,18 @@ func (st *State) enableHAIntentions(info *ControllerInfo, placement []string) (*
 		return nil, errors.Errorf("unsupported placement directive %q", s)
 	}
 
-	for _, mid := range info.MachineIds {
-		m, err := st.Machine(mid)
+	for _, id := range info.MachineIds {
+		node, err := st.ControllerNode(id)
 		if err != nil {
 			return nil, err
 		}
-		logger.Infof("machine %q, wants vote %v, has vote %v", m, m.WantsVote(), m.HasVote())
-		if m.WantsVote() {
-			intent.maintain = append(intent.maintain, m)
-		} else {
-			intent.promote = append(intent.promote, m)
+		logger.Infof("controller %q, wants vote %v, has vote %v", id, node.WantsVote(), node.HasVote())
+		if node.WantsVote() {
+			intent.maintain = append(intent.maintain, node)
 		}
 	}
-	logger.Infof("initial intentions: promote %v; maintain %v; convert: %v",
-		intent.promote, intent.maintain, intent.convert)
+	logger.Infof("initial intentions: maintain %v; convert: %v",
+		intent.maintain, intent.convert)
 	return &intent, nil
 }
 
@@ -316,7 +296,6 @@ func convertControllerOps(m *Machine) []txn.Op {
 		Id: m.doc.DocID,
 		Update: bson.D{
 			{"$addToSet", bson.D{{"jobs", JobManageModel}}},
-			{"$set", bson.D{{"novote", false}}},
 		},
 		Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
 	}, {
@@ -327,17 +306,6 @@ func convertControllerOps(m *Machine) []txn.Op {
 				{"machineids", m.doc.Id},
 			}},
 		},
-	},
-		addControllerNodeOp(m.st, m.doc.Id, false),
-	}
-}
-
-func promoteControllerOps(m *Machine) []txn.Op {
-	return []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: bson.D{{"novote", true}},
-		Update: bson.D{{"$set", bson.D{{"novote", false}}}},
 	},
 		addControllerNodeOp(m.st, m.doc.Id, false),
 	}
@@ -366,7 +334,6 @@ func (st *State) removeControllerReferenceOps(cid string, controllerInfo *Contro
 		C:  machinesC,
 		Id: st.docID(cid),
 		Assert: bson.D{
-			{"novote", true},
 			{"hasvote", false},
 		},
 		Update: bson.D{
@@ -393,6 +360,8 @@ type ControllerNode interface {
 	Refresh() error
 	WantsVote() bool
 	HasVote() bool
+	SetHasVote(hasVote bool) error
+	Watch() NotifyWatcher
 }
 
 // ControllerNode returns the controller node with the given id.
@@ -451,6 +420,11 @@ func (c *controllerNode) Refresh() error {
 	return nil
 }
 
+// Watch returns a watcher for observing changes to a node.
+func (c *controllerNode) Watch() NotifyWatcher {
+	return newEntityWatcher(c.st, controllerNodesC, c.doc.DocID)
+}
+
 // WantsVote reports whether the controller
 // that wants to take part in peer voting.
 func (c *controllerNode) WantsVote() bool {
@@ -474,7 +448,7 @@ func (c *controllerNode) SetHasVote(hasVote bool) error {
 			}
 		}
 
-		return c.setHasVoteOps(hasVote)
+		return c.setHasVoteOps(hasVote), nil
 	}
 	if err := c.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
@@ -482,14 +456,19 @@ func (c *controllerNode) SetHasVote(hasVote bool) error {
 	return nil
 }
 
-func (c *controllerNode) setHasVoteOps(hasVote bool) ([]txn.Op, error) {
-	ops := []txn.Op{{
+func (c *controllerNode) setHasVoteOps(hasVote bool) []txn.Op {
+	return []txn.Op{{
 		C:      controllerNodesC,
 		Id:     c.doc.DocID,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"has-vote", hasVote}}}},
+	}, {
+		// TODO(HA) - remove when machine loses "hasvote"
+		C:      machinesC,
+		Id:     c.doc.DocID,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"hasvote", hasVote}}}},
 	}}
-	return ops, nil
 }
 
 func setControllerWantsVoteOp(st *State, id string, wantsVote bool) txn.Op {

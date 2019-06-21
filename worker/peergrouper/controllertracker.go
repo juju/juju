@@ -17,9 +17,10 @@ import (
 // controllerTracker is a worker which reports changes of interest to
 // the peergrouper for a single controller in state.
 type controllerTracker struct {
-	catacomb   catacomb.Catacomb
-	notifyCh   chan struct{}
-	controller ControllerNode
+	catacomb catacomb.Catacomb
+	notifyCh chan struct{}
+	node     ControllerNode
+	host     ControllerHost
 
 	mu sync.Mutex
 
@@ -31,13 +32,14 @@ type controllerTracker struct {
 	addresses []network.Address
 }
 
-func newControllerTracker(stm ControllerNode, notifyCh chan struct{}) (*controllerTracker, error) {
+func newControllerTracker(node ControllerNode, host ControllerHost, notifyCh chan struct{}) (*controllerTracker, error) {
 	m := &controllerTracker{
-		notifyCh:   notifyCh,
-		id:         stm.Id(),
-		controller: stm,
-		addresses:  stm.Addresses(),
-		wantsVote:  stm.WantsVote(),
+		notifyCh:  notifyCh,
+		id:        node.Id(),
+		node:      node,
+		host:      host,
+		addresses: host.Addresses(),
+		wantsVote: node.WantsVote(),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &m.catacomb,
@@ -131,8 +133,12 @@ func (c *controllerTracker) GoString() string {
 }
 
 func (c *controllerTracker) loop() error {
-	watcher := c.controller.Watch()
-	if err := c.catacomb.Add(watcher); err != nil {
+	hostWatcher := c.host.Watch()
+	if err := c.catacomb.Add(hostWatcher); err != nil {
+		return errors.Trace(err)
+	}
+	nodeWatcher := c.node.Watch()
+	if err := c.catacomb.Add(nodeWatcher); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -141,11 +147,22 @@ func (c *controllerTracker) loop() error {
 		select {
 		case <-c.catacomb.Dying():
 			return c.catacomb.ErrDying()
-		case _, ok := <-watcher.Changes():
+		case _, ok := <-hostWatcher.Changes():
 			if !ok {
-				return watcher.Err()
+				return hostWatcher.Err()
 			}
-			changed, err := c.hasChanged()
+			changed, err := c.hasHostChanged()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if changed {
+				notifyCh = c.notifyCh
+			}
+		case _, ok := <-nodeWatcher.Changes():
+			if !ok {
+				return nodeWatcher.Err()
+			}
+			changed, err := c.hasNodeChanged()
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -158,11 +175,35 @@ func (c *controllerTracker) loop() error {
 	}
 }
 
-func (c *controllerTracker) hasChanged() (bool, error) {
+func (c *controllerTracker) hasHostChanged() (bool, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if err := c.controller.Refresh(); err != nil {
+	if err := c.host.Refresh(); err != nil {
+		if errors.IsNotFound(err) {
+			// We want to be robust when the controller
+			// state is out of date with respect to the
+			// controller info, so if the controller
+			// has been removed, just assume that
+			// no change has happened - the controller
+			// loop will be stopped very soon anyway.
+			return false, nil
+		}
+		return false, errors.Trace(err)
+	}
+	changed := false
+	if addrs := c.host.Addresses(); !reflect.DeepEqual(addrs, c.addresses) {
+		c.addresses = addrs
+		changed = true
+	}
+	return changed, nil
+}
+
+func (c *controllerTracker) hasNodeChanged() (bool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if err := c.node.Refresh(); err != nil {
 		if errors.IsNotFound(err) {
 			// We want to be robust when the node
 			// state is out of date with respect to the
@@ -175,12 +216,8 @@ func (c *controllerTracker) hasChanged() (bool, error) {
 		return false, errors.Trace(err)
 	}
 	changed := false
-	if wantsVote := c.controller.WantsVote(); wantsVote != c.wantsVote {
+	if wantsVote := c.node.WantsVote(); wantsVote != c.wantsVote {
 		c.wantsVote = wantsVote
-		changed = true
-	}
-	if addrs := c.controller.Addresses(); !reflect.DeepEqual(addrs, c.addresses) {
-		c.addresses = addrs
 		changed = true
 	}
 	return changed, nil

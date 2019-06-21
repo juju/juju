@@ -16126,19 +16126,7 @@
                                 "type": "string"
                             }
                         },
-                        "demoted": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
                         "maintained": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "promoted": {
                             "type": "array",
                             "items": {
                                 "type": "string"

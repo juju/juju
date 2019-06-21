@@ -1065,6 +1065,10 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineId string, maxWait 
 		return errors.Trace(err)
 	}
 	if machine.IsManager() {
+		node, err := st.ControllerNode(machineId)
+		if err != nil {
+			return errors.Annotatef(err, "cannot get controller node for machine %v", machineId)
+		}
 		if machine.HasVote() {
 			// we remove the vote from the machine so that it can be torn down cleanly. Note that this isn't reflected
 			// in the actual replicaset, so users using --force should be careful.
@@ -1087,7 +1091,7 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineId string, maxWait 
 				return errors.Trace(err)
 			}
 		}
-		if err := st.RemoveControllerReference(machine); err != nil {
+		if err := st.RemoveControllerReference(node); err != nil {
 			return errors.Trace(err)
 		}
 	}

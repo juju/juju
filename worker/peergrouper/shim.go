@@ -19,6 +19,10 @@ type StateShim struct {
 }
 
 func (s StateShim) ControllerNode(id string) (ControllerNode, error) {
+	return s.State.ControllerNode(id)
+}
+
+func (s StateShim) ControllerHost(id string) (ControllerHost, error) {
 	return s.State.Machine(id)
 }
 

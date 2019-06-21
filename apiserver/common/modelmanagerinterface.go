@@ -45,6 +45,7 @@ type ModelManagerBackend interface {
 	ControllerModelTag() names.ModelTag
 	IsController() bool
 	ControllerConfig() (controller.Config, error)
+	ControllerNodes() ([]ControllerNode, error)
 	ModelConfigDefaultValues(cloudName string) (config.ModelDefaultAttributes, error)
 	UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, regionSpec *environs.CloudRegionSpec) error
 	Unit(name string) (*state.Unit, error)
@@ -213,6 +214,18 @@ func (st modelManagerStateShim) Model() (Model, error) {
 // Name implements ModelManagerBackend.
 func (st modelManagerStateShim) Name() string {
 	return st.model.Name()
+}
+
+func (st modelManagerStateShim) ControllerNodes() ([]ControllerNode, error) {
+	nodes, err := st.State.ControllerNodes()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]ControllerNode, len(nodes))
+	for i, n := range nodes {
+		result[i] = n
+	}
+	return result, nil
 }
 
 func (st modelManagerStateShim) IsController() bool {

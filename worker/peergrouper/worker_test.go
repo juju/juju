@@ -401,7 +401,10 @@ var fatalErrorsTests = []struct {
 	errPattern: "Session.CurrentMembers",
 	expectErr:  "creating peer group info: cannot get replica set members: sample",
 }, {
-	errPattern: "State.Controller *",
+	errPattern: "State.ControllerNode *",
+	expectErr:  `cannot get controller "10": sample`,
+}, {
+	errPattern: "State.ControllerHost *",
 	expectErr:  `cannot get controller "10": sample`,
 }}
 

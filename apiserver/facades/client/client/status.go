@@ -210,6 +210,9 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if context.machines, err = fetchMachines(c.api.stateAccessor, nil); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch machines")
 	}
+	if context.controllerNodes, err = fetchControllerNodes(c.api.stateAccessor); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch controller nodes")
+	}
 	// These may be empty when machines have not finished deployment.
 	if context.ipAddresses, context.spaces, context.linkLayerDevices, err =
 		fetchNetworkInterfaces(c.api.stateAccessor); err != nil {
@@ -452,6 +455,9 @@ type statusContext struct {
 	// this machine.
 	machines map[string][]*state.Machine
 
+	// controllerNodes: node id -> controller node
+	controllerNodes map[string]state.ControllerNode
+
 	// ipAddresses: machine id -> list of ip.addresses
 	ipAddresses map[string][]*state.Address
 
@@ -506,6 +512,19 @@ func fetchMachines(st Backend, machineIds set.Strings) (map[string][]*state.Mach
 			machines = append(machines, m)
 			v[topParentId] = machines
 		}
+	}
+	return v, nil
+}
+
+// fetchControllerNodes returns a map from node id to controller node.
+func fetchControllerNodes(st Backend) (map[string]state.ControllerNode, error) {
+	v := make(map[string]state.ControllerNode)
+	nodes, err := st.ControllerNodes()
+	if err != nil {
+		return nil, err
+	}
+	for _, n := range nodes {
+		v[n.Id()] = n
 	}
 	return v, nil
 }
@@ -803,8 +822,11 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine, appStatusInfo 
 
 	status.Series = machine.Series()
 	status.Jobs = paramsJobsFromJobs(machine.Jobs())
-	status.WantsVote = machine.WantsVote()
-	status.HasVote = machine.HasVote()
+	node, wantsVote := c.controllerNodes[machineID]
+	status.WantsVote = wantsVote
+	if wantsVote {
+		status.HasVote = node.HasVote()
+	}
 
 	// Fetch the machine instance information
 	sInstInfo, err := c.status.MachineInstance(machineID)

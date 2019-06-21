@@ -192,7 +192,17 @@ func (st *fakeState) controller(id string) *fakeController {
 }
 
 func (st *fakeState) ControllerNode(id string) (ControllerNode, error) {
-	if err := st.errors.errorFor("State.Controller", id); err != nil {
+	if err := st.errors.errorFor("State.ControllerNode", id); err != nil {
+		return nil, err
+	}
+	if m := st.controller(id); m != nil {
+		return m, nil
+	}
+	return nil, errors.NotFoundf("controller %s", id)
+}
+
+func (st *fakeState) ControllerHost(id string) (ControllerHost, error) {
+	if err := st.errors.errorFor("State.ControllerHost", id); err != nil {
 		return nil, err
 	}
 	if m := st.controller(id); m != nil {
