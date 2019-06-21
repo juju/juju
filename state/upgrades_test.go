@@ -1003,7 +1003,6 @@ func (s *upgradesSuite) TestAddControllerLogCollectionsSizeSettings(c *gc.C) {
 			"settings": bson.M{
 				"key":              "value",
 				"max-txn-log-size": "10M",
-				"model-logs-size":  "20M",
 			},
 		}, {
 			"_id":      "someothersettingshouldnotbetouched",
