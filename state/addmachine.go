@@ -34,11 +34,6 @@ type MachineTemplate struct {
 	// when the first (bootstrap) machine is added.
 	Jobs []MachineJob
 
-	// NoVote holds whether a machine running
-	// a controller should abstain from peer voting.
-	// It is ignored if Jobs does not contain JobManageModel.
-	NoVote bool
-
 	// Addresses holds the addresses to be associated with the
 	// new machine.
 	//
@@ -515,7 +510,6 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 		Addresses:               fromNetworkAddresses(template.Addresses, OriginMachine),
 		PreferredPrivateAddress: fromNetworkAddress(privateAddr, OriginMachine),
 		PreferredPublicAddress:  fromNetworkAddress(publicAddr, OriginMachine),
-		NoVote:                  template.NoVote,
 		Placement:               template.Placement,
 	}
 }

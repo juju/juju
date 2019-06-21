@@ -635,11 +635,10 @@ func (s *UnitSuite) setMachineVote(c *gc.C, id string, hasVote bool) {
 
 func (s *UnitSuite) demoteMachine(c *gc.C, m *state.Machine) {
 	s.setMachineVote(c, m.Id(), false)
-	err := m.SetWantsVote(false)
+	c.Assert(state.SetWantsVote(s.State, m.Id(), false), jc.ErrorIsNil)
+	node, err := s.State.ControllerNode(m.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.RemoveControllerReference(m)
+	err = s.State.RemoveControllerReference(node)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

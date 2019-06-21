@@ -34,6 +34,7 @@ type State interface {
 	ControllerConfig() (controller.Config, error)
 	ControllerInfo() (*state.ControllerInfo, error)
 	ControllerNode(id string) (ControllerNode, error)
+	ControllerHost(id string) (ControllerHost, error)
 	WatchControllerInfo() state.StringsWatcher
 	WatchControllerStatusChanges() state.StringsWatcher
 	WatchControllerConfig() state.NotifyWatcher
@@ -45,14 +46,20 @@ type Space interface {
 
 type ControllerNode interface {
 	Id() string
-	Life() state.Life
-	Status() (status.StatusInfo, error)
-	SetStatus(status.StatusInfo) error
 	Refresh() error
 	Watch() state.NotifyWatcher
 	WantsVote() bool
 	HasVote() bool
 	SetHasVote(hasVote bool) error
+}
+
+type ControllerHost interface {
+	Id() string
+	Life() state.Life
+	Watch() state.NotifyWatcher
+	Status() (status.StatusInfo, error)
+	SetStatus(status.StatusInfo) error
+	Refresh() error
 	Addresses() []network.Address
 }
 
@@ -379,7 +386,19 @@ func (w *pgWorker) updateControllerNodes() (bool, error) {
 
 	// Start nodes with no watcher
 	for _, id := range info.MachineIds {
-		stm, err := w.config.State.ControllerNode(id)
+		controllerNode, err := w.config.State.ControllerNode(id)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// If the controller isn't found, it must have been
+				// removed and will soon enough be removed
+				// from the controller list. This will probably
+				// never happen, but we'll code defensively anyway.
+				logger.Warningf("controller %q from controller list not found", id)
+				continue
+			}
+			return false, fmt.Errorf("cannot get controller %q: %v", id, err)
+		}
+		controllerHost, err := w.config.State.ControllerHost(id)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				// If the controller isn't found, it must have been
@@ -397,7 +416,7 @@ func (w *pgWorker) updateControllerNodes() (bool, error) {
 		logger.Debugf("found new controller %q", id)
 
 		// Don't add the controller unless it is "Started"
-		nodeStatus, err := stm.Status()
+		nodeStatus, err := controllerHost.Status()
 		if err != nil {
 			return false, errors.Annotatef(err, "cannot get status for controller %q", id)
 		}
@@ -405,7 +424,7 @@ func (w *pgWorker) updateControllerNodes() (bool, error) {
 		// it as an active controller, even if we're trying to tear it down.
 		if nodeStatus.Status != status.Pending {
 			logger.Debugf("controller %q has started, adding it to peergrouper list", id)
-			tracker, err := newControllerTracker(stm, w.controllerChanges)
+			tracker, err := newControllerTracker(controllerNode, controllerHost, w.controllerChanges)
 			if err != nil {
 				return false, errors.Trace(err)
 			}
@@ -583,9 +602,9 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 		hasVote := desired.nodeVoting[id]
 		m := info.controllers[id]
 		switch {
-		case hasVote && !m.controller.HasVote():
+		case hasVote && !m.node.HasVote():
 			added = append(added, m)
-		case !hasVote && m.controller.HasVote():
+		case !hasVote && m.node.HasVote():
 			removed = append(removed, m)
 		}
 	}
@@ -617,20 +636,20 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	// Any previous peer-group determination errors result in status
 	// warning messages.
 	for id := range desired.members {
-		if err := w.controllerTrackers[id].controller.SetStatus(getStatusInfo("")); err != nil {
+		if err := w.controllerTrackers[id].host.SetStatus(getStatusInfo("")); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
 	for _, tracker := range info.controllers {
-		if tracker.controller.Life() != state.Alive && !tracker.controller.HasVote() {
+		if tracker.host.Life() != state.Alive && !tracker.node.HasVote() {
 			logger.Debugf("removing dying controller %s", tracker.Id())
-			if err := w.config.State.RemoveControllerReference(tracker.controller); err != nil {
+			if err := w.config.State.RemoveControllerReference(tracker.node); err != nil {
 				logger.Errorf("failed to remove dying controller as a controller after removing its vote: %v", err)
 			}
 		}
 	}
 	for _, removedTracker := range removed {
-		if removedTracker.controller.Life() == state.Alive {
+		if removedTracker.host.Life() == state.Alive {
 			logger.Debugf("vote removed from %v but controller is %s", removedTracker.Id(), state.Alive)
 		}
 	}
@@ -695,7 +714,7 @@ func setHasVote(ms []*controllerTracker, hasVote bool) error {
 	}
 	logger.Infof("setting HasVote=%v on nodes %v", hasVote, ms)
 	for _, m := range ms {
-		if err := m.controller.SetHasVote(hasVote); err != nil {
+		if err := m.node.SetHasVote(hasVote); err != nil {
 			return fmt.Errorf("cannot set voting status of %q to %v: %v", m.Id(), hasVote, err)
 		}
 	}

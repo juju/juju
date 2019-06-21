@@ -45,6 +45,7 @@ type Backend interface {
 	Application(string) (*state.Application, error)
 	Charm(*charm.URL) (*state.Charm, error)
 	ControllerConfig() (controller.Config, error)
+	ControllerNodes() ([]state.ControllerNode, error)
 	ControllerTag() names.ControllerTag
 	ControllerTimestamp() (*time.Time, error)
 	EndpointsRelation(...state.Endpoint) (*state.Relation, error)
@@ -160,4 +161,16 @@ func (s stateShim) ModelConfig() (*config.Config, error) {
 
 func (s stateShim) ModelTag() names.ModelTag {
 	return names.NewModelTag(s.State.ModelUUID())
+}
+
+func (s stateShim) ControllerNodes() ([]state.ControllerNode, error) {
+	nodes, err := s.State.ControllerNodes()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]state.ControllerNode, len(nodes))
+	for i, n := range nodes {
+		result[i] = n
+	}
+	return result, nil
 }

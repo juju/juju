@@ -552,7 +552,7 @@ func (p *peerGroupChanges) updateAddressesFromInternal() error {
 		// configured HA space when there are multiple cloud-local addresses.
 		if !unchanged {
 			multipleAddresses = append(multipleAddresses, id)
-			if err := m.controller.SetStatus(getStatusInfo(multiAddressMessage)); err != nil {
+			if err := m.host.SetStatus(getStatusInfo(multiAddressMessage)); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -581,7 +581,7 @@ func (p *peerGroupChanges) updateAddressesFromSpace() error {
 			if errors.IsNotFound(err) {
 				noAddresses = append(noAddresses, id)
 				msg := fmt.Sprintf("no addresses in configured juju-ha-space %q", space)
-				if err := m.controller.SetStatus(getStatusInfo(msg)); err != nil {
+				if err := m.host.SetStatus(getStatusInfo(msg)); err != nil {
 					return errors.Trace(err)
 				}
 				continue

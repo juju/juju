@@ -1410,7 +1410,9 @@ func (s *StateSuite) TestAddMachineCanOnlyAddControllerForMachine0(c *gc.C) {
 	m, err := s.State.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, "0")
-	c.Assert(m.WantsVote(), jc.IsTrue)
+	node, err := s.State.ControllerNode(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(node.HasVote(), jc.IsFalse)
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
 
 	// Check that the controller information is correct.

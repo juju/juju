@@ -130,19 +130,27 @@ func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
 	st := mockState{
 		machines: map[string]*mockMachine{
 			"1": {
-				id:        "1",
-				instId:    "123",
-				status:    status.Down,
-				hasVote:   true,
-				wantsVote: true,
+				id:     "1",
+				instId: "123",
+				status: status.Down,
 			},
 			"2": {
 				id:          "2",
 				instId:      "456",
 				displayName: "two",
 				status:      status.Allocating,
-				hasVote:     false,
-				wantsVote:   true,
+			},
+		},
+		controllerNodes: map[string]*mockControllerNode{
+			"1": {
+				id:        "1",
+				hasVote:   true,
+				wantsVote: true,
+			},
+			"2": {
+				id:        "2",
+				hasVote:   false,
+				wantsVote: true,
 			},
 		},
 	}
@@ -175,8 +183,13 @@ func (s *machineSuite) TestMachineInstanceInfoWithEmptyDisplayName(c *gc.C) {
 				instId:      "123",
 				displayName: "",
 				status:      status.Down,
-				hasVote:     true,
-				wantsVote:   true,
+			},
+		},
+		controllerNodes: map[string]*mockControllerNode{
+			"1": {
+				id:        "1",
+				hasVote:   true,
+				wantsVote: true,
 			},
 		},
 	}
@@ -202,8 +215,13 @@ func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *gc.C) {
 				instId:      "123",
 				displayName: "snowflake",
 				status:      status.Down,
-				hasVote:     true,
-				wantsVote:   true,
+			},
+		},
+		controllerNodes: map[string]*mockControllerNode{
+			"1": {
+				id:        "1",
+				hasVote:   true,
+				wantsVote: true,
 			},
 		},
 	}
@@ -223,7 +241,8 @@ func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *gc.C) {
 
 type mockState struct {
 	common.ModelManagerBackend
-	machines map[string]*mockMachine
+	machines        map[string]*mockMachine
+	controllerNodes map[string]*mockControllerNode
 }
 
 func (st *mockState) Machine(id string) (common.Machine, error) {
@@ -246,6 +265,32 @@ func (st *mockState) AllMachines() (machines []common.Machine, _ error) {
 	return machines, nil
 }
 
+func (st *mockState) ControllerNodes() ([]common.ControllerNode, error) {
+	var result []common.ControllerNode
+	for _, n := range st.controllerNodes {
+		result = append(result, n)
+	}
+	return result, nil
+}
+
+type mockControllerNode struct {
+	id        string
+	hasVote   bool
+	wantsVote bool
+}
+
+func (m *mockControllerNode) Id() string {
+	return m.id
+}
+
+func (m *mockControllerNode) WantsVote() bool {
+	return m.wantsVote
+}
+
+func (m *mockControllerNode) HasVote() bool {
+	return m.hasVote
+}
+
 type mockMachine struct {
 	state.Machine
 	id                 string
@@ -254,7 +299,6 @@ type mockMachine struct {
 	hw                 *instance.HardwareCharacteristics
 	instId             instance.Id
 	displayName        string
-	hasVote, wantsVote bool
 	status             status.Status
 	statusErr          error
 	destroyErr         error
@@ -280,14 +324,6 @@ func (m *mockMachine) InstanceId() (instance.Id, error) {
 func (m *mockMachine) InstanceNames() (instance.Id, string, error) {
 	instId, err := m.InstanceId()
 	return instId, m.displayName, err
-}
-
-func (m *mockMachine) WantsVote() bool {
-	return m.wantsVote
-}
-
-func (m *mockMachine) HasVote() bool {
-	return m.hasVote
 }
 
 func (m *mockMachine) Status() (status.StatusInfo, error) {

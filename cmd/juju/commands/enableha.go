@@ -117,14 +117,6 @@ func formatSimple(writer io.Writer, value interface{}) error {
 			enableHAResult.Removed,
 		},
 		{
-			"promoting machines: %s\n",
-			enableHAResult.Promoted,
-		},
-		{
-			"demoting machines: %s\n",
-			enableHAResult.Demoted,
-		},
-		{
 			"converting machines: %s\n",
 			enableHAResult.Converted,
 		},
@@ -195,8 +187,6 @@ type availabilityInfo struct {
 	Maintained []string `json:"maintained,omitempty" yaml:"maintained,flow,omitempty"`
 	Removed    []string `json:"removed,omitempty" yaml:"removed,flow,omitempty"`
 	Added      []string `json:"added,omitempty" yaml:"added,flow,omitempty"`
-	Promoted   []string `json:"promoted,omitempty" yaml:"promoted,flow,omitempty"`
-	Demoted    []string `json:"demoted,omitempty" yaml:"demoted,flow,omitempty"`
 	Converted  []string `json:"converted,omitempty" yaml:"converted,flow,omitempty"`
 }
 
@@ -244,8 +234,6 @@ func (c *enableHACommand) Run(ctx *cmd.Context) error {
 		Added:      machineTagsToIds(enableHAResult.Added...),
 		Removed:    machineTagsToIds(enableHAResult.Removed...),
 		Maintained: machineTagsToIds(enableHAResult.Maintained...),
-		Promoted:   machineTagsToIds(enableHAResult.Promoted...),
-		Demoted:    machineTagsToIds(enableHAResult.Demoted...),
 		Converted:  machineTagsToIds(enableHAResult.Converted...),
 	}
 	return c.out.Write(ctx, result)

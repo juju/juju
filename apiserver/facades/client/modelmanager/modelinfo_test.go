@@ -147,6 +147,18 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 			life: state.Dead,
 		},
 	}
+	s.st.controllerNodes = []common.ControllerNode{
+		&mockControllerNode{
+			id:        "1",
+			hasVote:   true,
+			wantsVote: true,
+		},
+		&mockControllerNode{
+			id:        "2",
+			hasVote:   false,
+			wantsVote: true,
+		},
+	}
 
 	s.callContext = context.NewCloudCallContext()
 
@@ -204,10 +216,13 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 			Access:         params.ModelWriteAccess,
 		}},
 		Machines: []params.ModelMachineInfo{{
-			Id:       "1",
-			Hardware: &params.MachineHardware{Cores: pUint64(1)},
+			Id:        "1",
+			Hardware:  &params.MachineHardware{Cores: pUint64(1)},
+			HasVote:   true,
+			WantsVote: true,
 		}, {
-			Id: "2",
+			Id:        "2",
+			WantsVote: true,
 		}},
 		SLA: &params.ModelSLAInfo{
 			Level: "essential",
@@ -222,6 +237,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"Model", nil},
 		{"IsController", nil},
 		{"AllMachines", nil},
+		{"ControllerNodes", nil},
 		{"LatestMigration", nil},
 	})
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
@@ -576,6 +592,7 @@ type mockState struct {
 	users           []permission.UserAccess
 	cred            state.Credential
 	machines        []common.Machine
+	controllerNodes []common.ControllerNode
 	cfgDefaults     config.ModelDefaultAttributes
 	blockMsg        string
 	block           state.BlockType
@@ -726,6 +743,11 @@ func (st *mockState) ControllerConfig() (controller.Config, error) {
 	return controller.Config{
 		controller.ControllerUUIDKey: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 	}, st.NextErr()
+}
+
+func (st *mockState) ControllerNodes() ([]common.ControllerNode, error) {
+	st.MethodCall(st, "ControllerNodes")
+	return st.controllerNodes, st.NextErr()
 }
 
 func (st *mockState) Model() (common.Model, error) {
@@ -905,6 +927,24 @@ func (m mockBlock) Message() string { return m.m }
 
 func (m mockBlock) ModelUUID() string { return "" }
 
+type mockControllerNode struct {
+	id        string
+	hasVote   bool
+	wantsVote bool
+}
+
+func (m *mockControllerNode) Id() string {
+	return m.id
+}
+
+func (m *mockControllerNode) WantsVote() bool {
+	return m.wantsVote
+}
+
+func (m *mockControllerNode) HasVote() bool {
+	return m.hasVote
+}
+
 type mockMachine struct {
 	common.Machine
 	id            string
@@ -939,10 +979,6 @@ func (m *mockMachine) InstanceId() (instance.Id, error) {
 
 func (m *mockMachine) InstanceNames() (instance.Id, string, error) {
 	return "", "", nil
-}
-
-func (m *mockMachine) WantsVote() bool {
-	return false
 }
 
 func (m *mockMachine) HasVote() bool {

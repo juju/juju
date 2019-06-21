@@ -104,7 +104,6 @@ type machineDoc struct {
 	Life          Life
 	Tools         *tools.Tools `bson:",omitempty"`
 	Jobs          []MachineJob
-	NoVote        bool
 	HasVote       bool
 	PasswordHash  string
 	Clean         bool
@@ -149,10 +148,6 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 		doc: *doc,
 	}
 	return machine
-}
-
-func wantsVote(jobs []MachineJob, noVote bool) bool {
-	return hasJob(jobs, JobManageModel) && !noVote
 }
 
 // Id returns the machine id.
@@ -376,12 +371,6 @@ func (m *Machine) SetCharmProfiles(profiles []string) error {
 	}
 	err := m.st.db().Run(buildTxn)
 	return errors.Annotatef(err, "cannot update profiles for %q to %s", m, strings.Join(profiles, ", "))
-}
-
-// WantsVote reports whether the machine is a controller
-// that wants to take part in peer voting.
-func (m *Machine) WantsVote() bool {
-	return wantsVote(m.doc.Jobs, m.doc.NoVote)
 }
 
 // HasVote reports whether that machine is currently a voting
@@ -620,13 +609,7 @@ func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
 				C:      machinesC,
 				Id:     m.doc.DocID,
 				Assert: bson.D{{"life", bson.D{{"$in", []Life{Alive, Dying}}}}},
-				Update: bson.D{{"$set", bson.D{{"novote", true}, {"life", Dying}}}},
-			}
-		} else {
-			machineOp = txn.Op{
-				C:      machinesC,
-				Id:     m.doc.DocID,
-				Update: bson.D{{"$set", bson.D{{"novote", true}}}},
+				Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 			}
 		}
 		controllerOp := txn.Op{
@@ -844,7 +827,7 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 			if hasJob(m.doc.Jobs, JobManageModel) || m.doc.HasVote {
 				// If we're responsible for managing the model, make sure we ask to drop our vote
 				ops[0].Update = bson.D{
-					{"$set", bson.D{{"life", life}, {"novote", true}}},
+					{"$set", bson.D{{"life", life}}},
 				}
 				controllerInfo, err := m.st.ControllerInfo()
 				if err != nil {

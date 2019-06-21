@@ -2182,8 +2182,12 @@ func AddControllerNodeDocs(pool *StatePool) error {
 	for _, m := range docs {
 		docId := m["_id"].(string)
 		mid := m["machineid"].(string)
-		hasvote := m["hasvote"].(bool)
-		wantsvote := !m["novote"].(bool)
+		hasvote, _ := m["hasvote"].(bool)
+		novote, ok := m["novote"].(bool)
+		if !ok {
+			continue
+		}
+		wantsvote := !novote
 		modelUUID, _, ok := splitDocID(docId)
 		if !ok {
 			logger.Warningf("unexpected machine doc id %q", docId)

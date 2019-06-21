@@ -369,8 +369,6 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	c.Check(changes.Added, gc.HasLen, 2)
 	c.Check(changes.Removed, gc.HasLen, 0)
 	c.Check(changes.Maintained, gc.HasLen, 1)
-	c.Check(changes.Promoted, gc.HasLen, 0)
-	c.Check(changes.Demoted, gc.HasLen, 0)
 	c.Check(changes.Converted, gc.HasLen, 0)
 	for _, mid := range changes.Added {
 		m, err := s.State.Machine(mid)
@@ -384,7 +382,9 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	// controller member anymore
 	c.Assert(machine.Refresh(), jc.ErrorIsNil)
 	c.Check(machine.Life(), gc.Equals, state.Dying)
-	c.Check(machine.WantsVote(), jc.IsFalse)
+	node, err := s.State.ControllerNode(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(node.WantsVote(), jc.IsFalse)
 	c.Check(machine.HasVote(), jc.IsTrue)
 	c.Check(machine.Jobs(), jc.DeepEquals, []state.MachineJob{state.JobManageModel})
 	controllerInfo, err := s.State.ControllerInfo()
