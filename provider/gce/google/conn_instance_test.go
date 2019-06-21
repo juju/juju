@@ -118,12 +118,13 @@ func (s *connSuite) TestConnectionAddInstanceFailed(c *gc.C) {
 func (s *connSuite) TestConnectionAddInstanceWaitFailed(c *gc.C) {
 	s.FakeConn.Instance = &s.RawInstanceFull
 
-	failure := s.NewWaitError(nil, errors.New("unknown"))
+	cause := errors.New("unknown")
+	failure := s.NewWaitError(nil, cause)
 	s.FakeConn.Err = failure
 
 	err := google.ConnAddInstance(s.Conn, &s.RawInstance, "mtype", "a-zone")
 
-	c.Check(errors.Cause(err), gc.Equals, failure)
+	c.Check(errors.Cause(err), gc.Equals, cause)
 }
 
 func (s *connSuite) TestConnectionAddInstanceGetFailed(c *gc.C) {
