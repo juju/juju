@@ -1606,7 +1606,7 @@ func (e *Environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 		foundServers, err = e.listServers(ctx, ids)
 		if err != nil {
 			logger.Debugf("error listing servers: %v", err)
-			if !gooseerrors.IsNotFound(err) {
+			if !IsNotFoundError(err) {
 				common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 				return nil, err
 			}
@@ -1947,7 +1947,7 @@ func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	novaClient := e.nova()
 	for _, id := range ids {
 		err := novaClient.DeleteServer(string(id))
-		if gooseerrors.IsNotFound(err) {
+		if IsNotFoundError(err) {
 			err = nil
 		}
 		if err != nil && firstErr == nil {

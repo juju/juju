@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/core/cache/cachetest"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -119,7 +120,7 @@ func (s *WorkerSuite) checkModel(c *gc.C, obtained interface{}, model *state.Mod
 }
 
 func (s *WorkerSuite) TestInitialModel(c *gc.C) {
-	changes := s.captureEvents(c, modelEvents)
+	changes := s.captureEvents(c, cachetest.ModelEvents)
 	s.start(c)
 
 	obtained := s.nextChange(c, changes)
@@ -129,7 +130,7 @@ func (s *WorkerSuite) TestInitialModel(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestModelConfigChange(c *gc.C) {
-	changes := s.captureEvents(c, modelEvents)
+	changes := s.captureEvents(c, cachetest.ModelEvents)
 	w := s.start(c)
 	// discard initial event
 	s.nextChange(c, changes)
@@ -158,7 +159,7 @@ func (s *WorkerSuite) TestModelConfigChange(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestNewModel(c *gc.C) {
-	changes := s.captureEvents(c, modelEvents)
+	changes := s.captureEvents(c, cachetest.ModelEvents)
 	w := s.start(c)
 	// grab and discard the event for the initial model
 	s.nextChange(c, changes)
@@ -177,7 +178,7 @@ func (s *WorkerSuite) TestNewModel(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestRemovedModel(c *gc.C) {
-	changes := s.captureEvents(c, modelEvents)
+	changes := s.captureEvents(c, cachetest.ModelEvents)
 	w := s.start(c)
 
 	// grab and discard the event for the initial model
@@ -222,7 +223,7 @@ func (s *WorkerSuite) TestRemovedModel(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestAddApplication(c *gc.C) {
-	changes := s.captureEvents(c, applicationEvents)
+	changes := s.captureEvents(c, cachetest.ApplicationEvents)
 	w := s.start(c)
 
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{})
@@ -246,7 +247,7 @@ func (s *WorkerSuite) TestAddApplication(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestRemoveApplication(c *gc.C) {
-	changes := s.captureEvents(c, applicationEvents)
+	changes := s.captureEvents(c, cachetest.ApplicationEvents)
 	w := s.start(c)
 
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{})
@@ -275,7 +276,7 @@ func (s *WorkerSuite) TestRemoveApplication(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestAddMachine(c *gc.C) {
-	changes := s.captureEvents(c, machineEvents)
+	changes := s.captureEvents(c, cachetest.MachineEvents)
 	w := s.start(c)
 
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{})
@@ -299,7 +300,7 @@ func (s *WorkerSuite) TestAddMachine(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestRemoveMachine(c *gc.C) {
-	changes := s.captureEvents(c, machineEvents)
+	changes := s.captureEvents(c, cachetest.MachineEvents)
 	w := s.start(c)
 
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{})
@@ -333,7 +334,7 @@ func (s *WorkerSuite) TestRemoveMachine(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestAddCharm(c *gc.C) {
-	changes := s.captureEvents(c, charmEvents)
+	changes := s.captureEvents(c, cachetest.CharmEvents)
 	w := s.start(c)
 
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{})
@@ -357,7 +358,7 @@ func (s *WorkerSuite) TestAddCharm(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestRemoveCharm(c *gc.C) {
-	changes := s.captureEvents(c, charmEvents)
+	changes := s.captureEvents(c, cachetest.CharmEvents)
 	w := s.start(c)
 
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{})
@@ -389,7 +390,7 @@ func (s *WorkerSuite) TestRemoveCharm(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestAddUnit(c *gc.C) {
-	changes := s.captureEvents(c, unitEvents)
+	changes := s.captureEvents(c, cachetest.UnitEvents)
 	w := s.start(c)
 
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{})
@@ -414,7 +415,7 @@ func (s *WorkerSuite) TestAddUnit(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestRemoveUnit(c *gc.C) {
-	changes := s.captureEvents(c, unitEvents)
+	changes := s.captureEvents(c, cachetest.UnitEvents)
 	w := s.start(c)
 
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{})
@@ -443,7 +444,7 @@ func (s *WorkerSuite) TestRemoveUnit(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestAddBranch(c *gc.C) {
-	changes := s.captureEvents(c, branchEvents)
+	changes := s.captureEvents(c, cachetest.BranchEvents)
 	w := s.start(c)
 
 	branchName := "test-branch"
@@ -467,7 +468,7 @@ func (s *WorkerSuite) TestAddBranch(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestRemoveBranch(c *gc.C) {
-	changes := s.captureEvents(c, branchEvents)
+	changes := s.captureEvents(c, cachetest.BranchEvents)
 	w := s.start(c)
 
 	branchName := "test-branch"
@@ -542,7 +543,7 @@ func (s *WorkerSuite) TestWatcherErrorCacheMarkSweep(c *gc.C) {
 		}
 	}
 
-	changes := s.captureEvents(c, modelEvents, applicationEvents)
+	changes := s.captureEvents(c, cachetest.ModelEvents, cachetest.ApplicationEvents)
 	w := s.start(c)
 	s.State.StartSync()
 
@@ -625,66 +626,6 @@ func (s *WorkerSuite) nextChange(c *gc.C, changes <-chan interface{}) interface{
 		c.Fatalf("no change")
 	}
 	return obtained
-}
-
-var modelEvents = func(change interface{}) bool {
-	switch change.(type) {
-	case cache.ModelChange:
-		return true
-	case cache.RemoveModel:
-		return true
-	}
-	return false
-}
-
-var applicationEvents = func(change interface{}) bool {
-	switch change.(type) {
-	case cache.ApplicationChange:
-		return true
-	case cache.RemoveApplication:
-		return true
-	}
-	return false
-}
-
-var machineEvents = func(change interface{}) bool {
-	switch change.(type) {
-	case cache.MachineChange:
-		return true
-	case cache.RemoveMachine:
-		return true
-	}
-	return false
-}
-
-var charmEvents = func(change interface{}) bool {
-	switch change.(type) {
-	case cache.CharmChange:
-		return true
-	case cache.RemoveCharm:
-		return true
-	}
-	return false
-}
-
-var unitEvents = func(change interface{}) bool {
-	switch change.(type) {
-	case cache.UnitChange:
-		return true
-	case cache.RemoveUnit:
-		return true
-	}
-	return false
-}
-
-var branchEvents = func(change interface{}) bool {
-	switch change.(type) {
-	case cache.BranchChange:
-		return true
-	case cache.RemoveBranch:
-		return true
-	}
-	return false
 }
 
 type noopRegisterer struct {

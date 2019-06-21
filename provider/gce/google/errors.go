@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"google.golang.org/api/googleapi"
 
 	"github.com/juju/juju/environs/context"
 )
@@ -90,20 +91,24 @@ func HasDenialStatusCode(err error) bool {
 		return false
 	}
 
-	// http/url.Error is constructed with status code in mind and, at the time of writing for go-1.10,
-	// contains response status code and description in error.Error.
-	// We have to examine the error message to determine whether the error is related to authentication failure.
-	if cause, ok := errors.Cause(err).(*url.Error); ok {
-		for code, descs := range AuthorisationFailureStatusCodes {
-			for _, desc := range descs {
-				if strings.Contains(cause.Error(), fmt.Sprintf(": %v %v", code, desc)) {
-					return true
-				}
+	var cause error
+	switch e := errors.Cause(err).(type) {
+	case *url.Error:
+		cause = e
+	case *googleapi.Error:
+		cause = e
+	default:
+		return false
+	}
+
+	for code, descs := range AuthorisationFailureStatusCodes {
+		for _, desc := range descs {
+			if strings.Contains(cause.Error(), fmt.Sprintf(": %v %v", code, desc)) {
+				return true
 			}
 		}
 	}
 	return false
-
 }
 
 // AuthorisationFailureStatusCodes contains http status code and
@@ -119,4 +124,15 @@ var AuthorisationFailureStatusCodes = map[int][]string{
 	// OAuth 2.0 also implements RFC#6749, so we need to cater for specific BadRequest errors.
 	// https://tools.ietf.org/html/rfc6749#section-5.2
 	http.StatusBadRequest: {"Bad Request"},
+}
+
+// IsNotFound reports if given error is of 'not found' type.
+func IsNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	if gerr, ok := errors.Cause(err).(*googleapi.Error); ok {
+		return gerr.Code == http.StatusNotFound
+	}
+	return errors.IsNotFound(errors.Cause(err))
 }

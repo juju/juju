@@ -41,7 +41,7 @@ Examples:
 See also:
     add-branch
     track
-    checkout
+    branch
     commit
     abort
 `

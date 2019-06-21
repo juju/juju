@@ -4,8 +4,6 @@
 package logger_test
 
 import (
-	"time"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -21,7 +19,6 @@ import (
 	"github.com/juju/juju/core/cache/cachetest"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
 )
 
 type loggerSuite struct {
@@ -34,11 +31,8 @@ type loggerSuite struct {
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 
-	change     cache.ModelChange
-	changes    chan interface{}
-	controller *cache.Controller
-	events     chan interface{}
-	capture    func(change interface{})
+	ctrl    *cachetest.TestController
+	capture func(change interface{})
 }
 
 var _ = gc.Suite(&loggerSuite{})
@@ -58,44 +52,18 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 		Tag: s.rawMachine.Tag(),
 	}
 
-	s.events = make(chan interface{})
-	notify := func(change interface{}) {
-		send := false
-		switch change.(type) {
-		case cache.ModelChange:
-			send = true
-		case cache.RemoveModel:
-			send = true
-		default:
-			// no-op
-		}
-		if send {
-			c.Logf("sending %#v", change)
-			select {
-			case s.events <- change:
-			case <-time.After(testing.LongWait):
-				c.Fatalf("change not processed by test")
-			}
-		}
-	}
+	s.ctrl = cachetest.NewTestController(cachetest.ModelEvents)
+	s.ctrl.Init(c)
 
-	s.changes = make(chan interface{})
-	controller, err := cache.NewController(cache.ControllerConfig{
-		Changes: s.changes,
-		Notify:  notify,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.controller = controller
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, s.controller) })
 	// Add the current model to the controller.
-	s.change = cachetest.ModelChangeFromState(c, s.State)
-	s.changes <- s.change
-	// Ensure it is processed before we create the logger api.
-	select {
-	case <-s.events:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("change not processed by test")
-	}
+	m := cachetest.ModelChangeFromState(c, s.State)
+	s.ctrl.SendChange(m)
+
+	// Ensure it is processed before we create the logger API.
+	_ = s.ctrl.NextChange(c)
+
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, s.ctrl.Controller) })
+
 	s.logger, err = s.makeLoggerAPI(s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -103,7 +71,7 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 func (s *loggerSuite) makeLoggerAPI(auth facade.Authorizer) (*logger.LoggerAPI, error) {
 	ctx := facadetest.Context{
 		Auth_:       auth,
-		Controller_: s.controller,
+		Controller_: s.ctrl.Controller,
 		Resources_:  s.resources,
 		State_:      s.State,
 	}
@@ -143,13 +111,10 @@ func (s *loggerSuite) TestWatchLoggingConfigNothing(c *gc.C) {
 }
 
 func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
-	s.change.Config["logging-config"] = loggingConfig
-	s.changes <- s.change
-	select {
-	case <-s.events:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("change not processed by test")
-	}
+	m := cachetest.ModelChangeFromState(c, s.State)
+	m.Config["logging-config"] = loggingConfig
+	s.ctrl.SendChange(m)
+	_ = s.ctrl.NextChange(c)
 }
 
 func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {

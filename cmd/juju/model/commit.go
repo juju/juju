@@ -29,7 +29,7 @@ Examples:
 See also:
     add-branch
     track
-    checkout
+    branch
     abort
     diff
 `

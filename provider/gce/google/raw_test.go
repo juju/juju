@@ -19,8 +19,9 @@ type rawConnSuite struct {
 	// TODO(katco): 2016-08-09: lp:1611427
 	strategy utils.AttemptStrategy
 
-	callCount int
-	opCallErr error
+	handleOperationErrorsF handleOperationErrors
+	callCount              int
+	opCallErr              error
 }
 
 var _ = gc.Suite(&rawConnSuite{})
@@ -45,6 +46,7 @@ func (s *rawConnSuite) SetUpTest(c *gc.C) {
 		s.callCount++
 		return s.op, s.opCallErr
 	})
+	s.handleOperationErrorsF = logOperationErrors
 }
 
 func (s *rawConnSuite) TestConnectionCheckOperationError(c *gc.C) {
@@ -88,7 +90,7 @@ func (s *rawConnSuite) TestConnectionCheckOperationGlobal(c *gc.C) {
 
 func (s *rawConnSuite) TestConnectionWaitOperation(c *gc.C) {
 	original := &compute.Operation{}
-	err := s.rawConn.waitOperation("proj", original, s.strategy)
+	err := s.rawConn.waitOperation("proj", original, s.strategy, s.handleOperationErrorsF)
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(s.callCount, gc.Equals, 1)
@@ -98,7 +100,7 @@ func (s *rawConnSuite) TestConnectionWaitOperationAlreadyDone(c *gc.C) {
 	original := &compute.Operation{
 		Status: StatusDone,
 	}
-	err := s.rawConn.waitOperation("proj", original, s.strategy)
+	err := s.rawConn.waitOperation("proj", original, s.strategy, s.handleOperationErrorsF)
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(s.callCount, gc.Equals, 0)
@@ -115,7 +117,7 @@ func (s *rawConnSuite) TestConnectionWaitOperationWaiting(c *gc.C) {
 	})
 
 	original := &compute.Operation{}
-	err := s.rawConn.waitOperation("proj", original, s.strategy)
+	err := s.rawConn.waitOperation("proj", original, s.strategy, s.handleOperationErrorsF)
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(s.callCount, gc.Equals, 2)
@@ -123,7 +125,7 @@ func (s *rawConnSuite) TestConnectionWaitOperationWaiting(c *gc.C) {
 
 func (s *rawConnSuite) TestConnectionWaitOperationTimeout(c *gc.C) {
 	s.op.Status = StatusRunning
-	err := s.rawConn.waitOperation("proj", s.op, s.strategy)
+	err := s.rawConn.waitOperation("proj", s.op, s.strategy, s.handleOperationErrorsF)
 
 	c.Check(err, gc.ErrorMatches, ".* timed out .*")
 	c.Check(s.callCount, gc.Equals, 4)
@@ -133,7 +135,7 @@ func (s *rawConnSuite) TestConnectionWaitOperationFailure(c *gc.C) {
 	s.opCallErr = errors.New("<unknown>")
 
 	original := &compute.Operation{}
-	err := s.rawConn.waitOperation("proj", original, s.strategy)
+	err := s.rawConn.waitOperation("proj", original, s.strategy, s.handleOperationErrorsF)
 
 	c.Check(err, gc.ErrorMatches, ".*<unknown>")
 	c.Check(s.callCount, gc.Equals, 1)
@@ -144,7 +146,7 @@ func (s *rawConnSuite) TestConnectionWaitOperationError(c *gc.C) {
 	s.op.Name = "testing-wait-operation-error"
 
 	original := &compute.Operation{}
-	err := s.rawConn.waitOperation("proj", original, s.strategy)
+	err := s.rawConn.waitOperation("proj", original, s.strategy, s.handleOperationErrorsF)
 
 	c.Check(err, gc.ErrorMatches, `.* "testing-wait-operation-error" .*`)
 	c.Check(s.callCount, gc.Equals, 1)
