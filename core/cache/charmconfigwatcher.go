@@ -42,10 +42,10 @@ type charmConfigWatcherConfig struct {
 }
 
 // CharmConfigWatcher watches application charm config on behalf of a unit.
-// The configuration is based on whether the unit is tracking an active model branch.
-// If keys are specified the watcher only signals a change when at least one
-// of those keys changes value. If no keys are specified,
-// any change in the config will trigger the watcher to notify.
+// The watcher will notify if either of the following events cause a change
+// to the unit's effective configuration:
+// - Changes to the charm config settings for the unit's application.
+// - Changes to a model branch being tracked by the unit.
 type CharmConfigWatcher struct {
 	*notifyWatcherBase
 
@@ -62,9 +62,8 @@ type CharmConfigWatcher struct {
 	configHash     string
 }
 
-// newUnitConfigWatcher returns a new watcher for the input config keys
-// with a baseline hash of their config values from the input hash cache.
-// As per the cache requirements, hashes are only generated from sorted keys.
+// newUnitConfigWatcher returns a new watcher for the unit indicated in the
+// input configuration.
 func newCharmConfigWatcher(cfg charmConfigWatcherConfig) (*CharmConfigWatcher, error) {
 	w := &CharmConfigWatcher{
 		notifyWatcherBase: newNotifyWatcherBase(),
@@ -153,11 +152,10 @@ func (w *CharmConfigWatcher) branchChanged(_ string, msg interface{}) {
 	}
 
 	// If we do not know whether we are tracking this branch, find out.
-	if w.branchName == "" {
-		if w.isTracking(b) {
-			w.branchName = b.Name()
-		}
-	} else if w.branchName != b.Name() {
+	if w.branchName == "" && w.isTracking(b) {
+		w.branchName = b.Name()
+	}
+	if w.branchName != b.Name() {
 		return
 	}
 
