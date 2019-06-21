@@ -100,8 +100,7 @@ func (rc *rawConn) AddInstance(projectID, zoneName string, spec *compute.Instanc
 		// We are guaranteed the insert failed at the point.
 		return errors.Annotate(err, "sending new instance request")
 	}
-
-	err = rc.waitOperation(projectID, operation, attemptsLong)
+	err = rc.waitOperation(projectID, operation, attemptsLong, logOperationErrors)
 	return errors.Trace(err)
 }
 
@@ -111,8 +110,7 @@ func (rc *rawConn) RemoveInstance(projectID, zone, id string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	err = rc.waitOperation(projectID, operation, attemptsLong)
+	err = rc.waitOperation(projectID, operation, attemptsLong, returnNotFoundOperationErrors)
 	return errors.Trace(err)
 }
 
@@ -141,8 +139,7 @@ func (rc *rawConn) AddFirewall(projectID string, firewall *compute.Firewall) err
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	err = rc.waitOperation(projectID, operation, attemptsLong)
+	err = rc.waitOperation(projectID, operation, attemptsLong, logOperationErrors)
 	return errors.Trace(err)
 }
 
@@ -152,9 +149,35 @@ func (rc *rawConn) UpdateFirewall(projectID, name string, firewall *compute.Fire
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	err = rc.waitOperation(projectID, operation, attemptsLong)
+	err = rc.waitOperation(projectID, operation, attemptsLong, logOperationErrors)
 	return errors.Trace(err)
+}
+
+type handleOperationErrors func(operation *compute.Operation) error
+
+func returnNotFoundOperationErrors(operation *compute.Operation) error {
+	if operation.Error != nil {
+		result := waitError{operation, nil}
+		for _, err := range operation.Error.Errors {
+			if err.Code == "RESOURCE_NOT_FOUND" {
+				result.cause = errors.NotFoundf("resource", err.Message)
+				continue
+			}
+			logger.Errorf("GCE operation error: (%s) %s", err.Code, err.Message)
+		}
+		return result
+	}
+	return nil
+}
+
+func logOperationErrors(operation *compute.Operation) error {
+	if operation.Error != nil {
+		for _, err := range operation.Error.Errors {
+			logger.Errorf("GCE operation error: (%s) %s", err.Code, err.Message)
+		}
+		return waitError{operation, nil}
+	}
+	return nil
 }
 
 func (rc *rawConn) RemoveFirewall(projectID, name string) error {
@@ -164,7 +187,7 @@ func (rc *rawConn) RemoveFirewall(projectID, name string) error {
 		return errors.Trace(convertRawAPIError(err))
 	}
 
-	err = rc.waitOperation(projectID, operation, attemptsLong)
+	err = rc.waitOperation(projectID, operation, attemptsLong, returnNotFoundOperationErrors)
 	return errors.Trace(convertRawAPIError(err))
 }
 
@@ -212,7 +235,7 @@ func (rc *rawConn) CreateDisk(project, zone string, spec *compute.Disk) error {
 	if err != nil {
 		return errors.Annotate(err, "could not create a new disk")
 	}
-	return errors.Trace(rc.waitOperation(project, op, attemptsLong))
+	return errors.Trace(rc.waitOperation(project, op, attemptsLong, logOperationErrors))
 }
 
 func (rc *rawConn) ListDisks(project string) ([]*compute.Disk, error) {
@@ -242,7 +265,7 @@ func (rc *rawConn) RemoveDisk(project, zone, id string) error {
 	if err != nil {
 		return errors.Annotatef(err, "could not delete disk %q", id)
 	}
-	return errors.Trace(rc.waitOperation(project, op, attemptsLong))
+	return errors.Trace(rc.waitOperation(project, op, attemptsLong, returnNotFoundOperationErrors))
 }
 
 func (rc *rawConn) GetDisk(project, zone, id string) (*compute.Disk, error) {
@@ -303,6 +326,13 @@ func (err waitError) Error() string {
 	return fmt.Sprintf("GCE operation %q failed", err.op.Name)
 }
 
+func (err waitError) Cause() error {
+	if err.cause != nil {
+		return err.cause
+	}
+	return err
+}
+
 func isWaitError(err error) bool {
 	_, ok := err.(*waitError)
 	return ok
@@ -343,7 +373,7 @@ var doOpCall = func(call opDoer) (*compute.Operation, error) {
 // attempts) and may time out.
 //
 // TODO(katco): 2016-08-09: lp:1611427
-func (rc *rawConn) waitOperation(projectID string, op *compute.Operation, attempts utils.AttemptStrategy) error {
+func (rc *rawConn) waitOperation(projectID string, op *compute.Operation, attempts utils.AttemptStrategy, f handleOperationErrors) error {
 	// TODO(perrito666) 2016-05-02 lp:1558657
 	started := time.Now()
 	logger.Infof("GCE operation %q, waiting...", op.Name)
@@ -363,11 +393,8 @@ func (rc *rawConn) waitOperation(projectID string, op *compute.Operation, attemp
 		err := errors.Errorf("timed out after %d seconds", time.Now().Sub(started)/time.Second)
 		return waitError{op, err}
 	}
-	if op.Error != nil {
-		for _, err := range op.Error.Errors {
-			logger.Errorf("GCE operation error: (%s) %s", err.Code, err.Message)
-		}
-		return waitError{op, nil}
+	if err := f(op); err != nil {
+		return err
 	}
 
 	logger.Infof("GCE operation %q finished", op.Name)
@@ -390,7 +417,7 @@ func (rc *rawConn) SetMetadata(projectID, zone, instanceID string, metadata *com
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = rc.waitOperation(projectID, op, attemptsLong)
+	err = rc.waitOperation(projectID, op, attemptsLong, logOperationErrors)
 	return errors.Trace(err)
 }
 
