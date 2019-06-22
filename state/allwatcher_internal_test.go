@@ -1932,6 +1932,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Id:            "0",
 			Name:          "new-branch",
 			AssignedUnits: map[string][]string{},
+			CreatedBy:     "test-user",
 		},
 	}})
 
@@ -2205,6 +2206,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Id:            "0",
 			Name:          "new-branch",
 			AssignedUnits: map[string][]string{wordpress.Name(): {wu.Name()}},
+			CreatedBy:     "test-user",
 		},
 	}}
 
@@ -4150,6 +4152,7 @@ func testChangeGenerations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 						Id:            st.localID(branch.doc.DocId),
 						Name:          "new-branch",
 						AssignedUnits: map[string][]string{},
+						CreatedBy:     "some-user",
 					}},
 			}
 		},
@@ -4176,6 +4179,7 @@ func testChangeGenerations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 						Id:            st.localID(branch.doc.DocId),
 						Name:          "new-branch",
 						AssignedUnits: map[string][]string{},
+						CreatedBy:     "some-user",
 					}},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.GenerationInfo{
@@ -4183,6 +4187,7 @@ func testChangeGenerations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 						Id:            st.localID(branch.doc.DocId),
 						Name:          "new-branch",
 						AssignedUnits: map[string][]string{app.Name(): {u.Name()}},
+						CreatedBy:     "some-user",
 					}},
 			}
 		},

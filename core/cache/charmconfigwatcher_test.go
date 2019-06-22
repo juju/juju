@@ -40,6 +40,26 @@ func (s *charmConfigWatcherSuite) TestTrackingBranchChangedNotified(c *gc.C) {
 	w.AssertStops()
 }
 
+func (s *charmConfigWatcherSuite) TestNotTrackingBranchChangedNotNotified(c *gc.C) {
+	// This will initialise the watcher without branch info.
+	w := s.newWatcher(c, "redis/9")
+	s.assertWatcherConfig(c, w, map[string]interface{}{})
+
+	// Publish a branch change with altered config.
+	b := Branch{
+		details: BranchChange{
+			Name:   branchName,
+			Config: map[string]settings.ItemChanges{"redis": {settings.MakeAddition("password", "new-pass")}},
+		},
+	}
+	s.Hub.Publish(branchChange, b)
+
+	// Nothing should change.
+	w.AssertNoChange()
+	s.assertWatcherConfig(c, w, map[string]interface{}{})
+	w.AssertStops()
+}
+
 func (s *charmConfigWatcherSuite) TestDifferentBranchChangedNotNotified(c *gc.C) {
 	w := s.newWatcher(c, "redis/0")
 

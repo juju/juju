@@ -5,6 +5,7 @@ package model
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -17,16 +18,26 @@ import (
 )
 
 const (
-	checkoutSummary = "Work on the supplied branch."
-	checkoutDoc     = `
+	branchSummary = "Work on the supplied branch."
+	branchDoc     = `
 Switch to the supplied branch, causing changes to charm configuration to apply 
 only to units tracking the branch. Changing the branch to "master" causes 
 subsequent changes to be applied to all units that are not tracking an active
-branch.
+branch.  If no branch is supplied, active branch is displayed.
 
 Examples:
-    juju checkout test-branch
-    juju checkout master
+
+Switch to make changes to test-branch:
+
+    juju branch test-branch
+
+Switch to make changes to master, changes applied to all units not tracking an active branch:
+
+    juju branch master
+
+Display the active branch:
+
+    juju branch
 
 See also:
     add-branch
@@ -37,25 +48,25 @@ See also:
 `
 )
 
-// NewCheckoutCommand wraps checkoutCommand with sane model settings.
-func NewCheckoutCommand() cmd.Command {
-	return modelcmd.Wrap(&checkoutCommand{})
+// NewBranchCommand wraps branchCommand with sane model settings.
+func NewBranchCommand() cmd.Command {
+	return modelcmd.Wrap(&branchCommand{})
 }
 
-// checkoutCommand supplies the "checkout" CLI command used to switch the
+// branchCommand supplies the "branch" CLI command used to switch the
 // active branch for this operator.
-type checkoutCommand struct {
+type branchCommand struct {
 	modelcmd.ModelCommandBase
 
-	api CheckoutCommandAPI
+	api BranchCommandAPI
 
 	branchName string
 }
 
-// CheckoutCommandAPI describes API methods required
-// to execute the checkout command.
-//go:generate mockgen -package mocks -destination ./mocks/checkout_mock.go github.com/juju/juju/cmd/juju/model CheckoutCommandAPI
-type CheckoutCommandAPI interface {
+// BranchCommandAPI describes API methods required
+// to execute the branch command.
+//go:generate mockgen -package mocks -destination ./mocks/branch_mock.go github.com/juju/juju/cmd/juju/model BranchCommandAPI
+type BranchCommandAPI interface {
 	Close() error
 	// HasActiveBranch returns true if the model has an
 	// "in-flight" branch with the input name.
@@ -63,33 +74,35 @@ type CheckoutCommandAPI interface {
 }
 
 // Info implements part of the cmd.Command interface.
-func (c *checkoutCommand) Info() *cmd.Info {
+func (c *branchCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Name:    "checkout",
-		Args:    "<branch name>",
-		Purpose: checkoutSummary,
-		Doc:     checkoutDoc,
+		Name:    "branch",
+		Args:    "[<branch name>]",
+		Purpose: branchSummary,
+		Doc:     branchDoc,
 	}
 	return jujucmd.Info(info)
 }
 
 // SetFlags implements part of the cmd.Command interface.
-func (c *checkoutCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *branchCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 }
 
 // Init implements part of the cmd.Command interface.
-func (c *checkoutCommand) Init(args []string) error {
-	if len(args) != 1 {
-		return errors.Errorf("must specify a branch name to switch to")
+func (c *branchCommand) Init(args []string) error {
+	if len(args) > 1 {
+		return errors.Errorf("must specify a branch name to switch to or leave blank")
 	}
-	c.branchName = args[0]
+	if len(args) == 1 {
+		c.branchName = args[0]
+	}
 	return nil
 }
 
 // getAPI returns the API that supplies methods
 // required to execute this command.
-func (c *checkoutCommand) getAPI() (CheckoutCommandAPI, error) {
+func (c *branchCommand) getAPI() (BranchCommandAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -102,7 +115,11 @@ func (c *checkoutCommand) getAPI() (CheckoutCommandAPI, error) {
 }
 
 // Run (cmd.Command) sets the active branch in the local store.
-func (c *checkoutCommand) Run(ctx *cmd.Context) error {
+func (c *branchCommand) Run(ctx *cmd.Context) error {
+	// If no branch specified, print the current active branch.
+	if c.branchName == "" {
+		return c.activeBranch(ctx.Stdout)
+	}
 	// If the active branch is not being set to the (default) master,
 	// then first ensure that a branch with the supplied name exists.
 	if c.branchName != model.GenerationMaster {
@@ -126,5 +143,15 @@ func (c *checkoutCommand) Run(ctx *cmd.Context) error {
 	}
 	msg := fmt.Sprintf("Active branch set to %q\n", c.branchName)
 	_, err := ctx.Stdout.Write([]byte(msg))
+	return err
+}
+
+func (c *branchCommand) activeBranch(out io.Writer) error {
+	activeBranchName, err := c.ActiveBranch()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	msg := fmt.Sprintf("Active branch is %q\n", activeBranchName)
+	_, err = out.Write([]byte(msg))
 	return err
 }
