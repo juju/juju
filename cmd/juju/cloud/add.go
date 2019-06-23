@@ -115,7 +115,6 @@ you can specify which to upload with the --credential option.
 Examples:
     juju add-cloud
     juju add-cloud mycloud ~/mycloud.yaml
-    juju add-cloud --replace mycloud ~/mycloud2.yaml
 
 If the "multi-cloud" feature flag is turned on in the controller:
 
@@ -125,6 +124,7 @@ If the "multi-cloud" feature flag is turned on in the controller:
 
 See also: 
     clouds
+    update-cloud
     update-credential`
 
 // AddCloudAPI - Implemented by cloudapi.Client.
@@ -689,14 +689,14 @@ func (p cloudFileReader) verifyName(name string) error {
 		return err
 	}
 	if _, ok := personal[name]; ok {
-		return errors.Errorf("%q already exists; use --replace to replace this existing cloud", name)
+		return errors.Errorf("%q already exists; use `update-cloud` to replace this existing cloud", name)
 	}
 	msg, err := nameExists(name, public)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if msg != "" {
-		return errors.Errorf(msg + "; use --replace to override this definition")
+		return errors.Errorf(msg + "; use `update-cloud` to override this definition")
 	}
 	return nil
 }
