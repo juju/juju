@@ -268,7 +268,13 @@ func (c *upgradeControllerCommand) upgradeIAASController(ctx *cmd.Context) error
 	}}
 	jcmd.SetClientStore(c.ClientStore())
 	wrapped := modelcmd.Wrap(jcmd)
-	args := append(c.rawArgs, "-m", bootstrap.ControllerModelName)
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	fullControllerModelName := modelcmd.JoinModelName(controllerName,
+		bootstrap.ControllerModelName)
+	args := append(c.rawArgs, "-m", fullControllerModelName)
 	if c.vers != "" {
 		args = append(args, "--agent-version", c.vers)
 	}
