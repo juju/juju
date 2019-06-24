@@ -112,8 +112,7 @@ class GKE(Base):
         ...
 
     def _node_address_getter(self, node):
-        # TODO
-        print('_node_address_getter node --->', node)
+        return [addr['address'] for addr in node['status']['addresses'] if addr['type'] == 'ExternalIP'][0]
 
     def _get_cluster(self, name):
         return self.driver.get_cluster(
