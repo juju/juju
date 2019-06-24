@@ -65,10 +65,6 @@ type uniterSuiteBase struct {
 	mysqlCharm    *state.Charm
 	mysql         *state.Application
 	mysqlUnit     *state.Unit
-
-	meteredApplication *state.Application
-	meteredCharm       *state.Charm
-	meteredUnit        *state.Unit
 }
 
 func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
@@ -125,18 +121,6 @@ func (s *uniterSuiteBase) setupState(c *gc.C) {
 	s.mysqlUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.mysql,
 		Machine:     s.machine1,
-	})
-
-	s.meteredCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
-		Name: "metered",
-		URL:  "cs:quantal/metered",
-	})
-	s.meteredApplication = s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Charm: s.meteredCharm,
-	})
-	s.meteredUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
-		Application: s.meteredApplication,
-		SetCharmURL: true,
 	})
 }
 
@@ -3235,12 +3219,28 @@ type unitMetricBatchesSuite struct {
 	uniterSuiteBase
 	*commontesting.ModelWatcherTest
 	uniter *uniter.UniterAPI
+
+	meteredApplication *state.Application
+	meteredCharm       *state.Charm
+	meteredUnit        *state.Unit
 }
 
 var _ = gc.Suite(&unitMetricBatchesSuite{})
 
 func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
 	s.uniterSuiteBase.SetUpTest(c)
+
+	s.meteredCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "metered",
+		URL:  "cs:quantal/metered",
+	})
+	s.meteredApplication = s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.meteredCharm,
+	})
+	s.meteredUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: s.meteredApplication,
+		SetCharmURL: true,
+	})
 
 	meteredAuthorizer := apiservertesting.FakeAuthorizer{
 		Tag: s.meteredUnit.Tag(),
