@@ -45,9 +45,9 @@ def check_app_healthy(url, timeout=300, success_hook=lambda: None, fail_hook=lam
     for remaining in until_timeout(timeout):
         try:
             r = requests.get(url)
-            if r.ok and r.status_code < 400:
-                return success_hook()
             status_code = r.status_code
+            if r.ok and status_code < 400:
+                return success_hook()
         except IOError:
             ...
         finally:
@@ -71,7 +71,7 @@ def get_app_endpoint(caas_client, model_name, app_name, svc_type, timeout=120):
                 if lb_addr:
                     log.info('load balancer addr for %s is %s' % (app_name, lb_addr))
                     return lb_addr
-            except:
+            except:  # noqa: E722
                 ...
         raise JujuAssertionError('No load balancer addr available for %s' % app_name)
         
