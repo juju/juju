@@ -74,7 +74,7 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	s.setupCache(c)
 
 	// Create a FakeAuthorizer so we can check permissions,
-	// set up assuming unit 0 has logged in.
+	// set up assuming the wordpress unit has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.wordpressUnit.Tag(),
 	}

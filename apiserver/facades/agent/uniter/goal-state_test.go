@@ -12,12 +12,10 @@ import (
 	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -27,21 +25,10 @@ import (
 // versions. It's not intended to be used directly or registered as a
 // suite, but embedded.
 type uniterGoalStateSuite struct {
-	testing.JujuConnSuite
+	uniterSuiteBase
 
-	authorizer apiservertesting.FakeAuthorizer
-	resources  *common.Resources
-	uniter     *uniter.UniterAPI
-
-	machine0      *state.Machine
-	machine1      *state.Machine
-	machine2      *state.Machine
-	logging       *state.Application
-	wordpress     *state.Application
-	wpCharm       *state.Charm
-	mysql         *state.Application
-	wordpressUnit *state.Unit
-	mysqlUnit     *state.Unit
+	machine2 *state.Machine
+	logging  *state.Application
 }
 
 var _ = gc.Suite(&uniterGoalStateSuite{})
@@ -49,44 +36,11 @@ var _ = gc.Suite(&uniterGoalStateSuite{})
 func (s *uniterGoalStateSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	// Create two machines, two applications and add a unit to each application.
-	s.machine0 = s.Factory.MakeMachine(c, &factory.MachineParams{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageModel},
-	})
-	s.machine1 = s.Factory.MakeMachine(c, &factory.MachineParams{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
-	})
+	s.setupState(c)
+
 	s.machine2 = s.Factory.MakeMachine(c, &factory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	})
-
-	mysqlCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
-		Name: "mysql",
-	})
-	s.mysql = s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "mysql",
-		Charm: mysqlCharm,
-	})
-
-	s.mysqlUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
-		Application: s.mysql,
-		Machine:     s.machine1,
-	})
-
-	s.wpCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
-		Name: "wordpress",
-		URL:  "cs:quantal/wordpress-0",
-	})
-	s.wordpress = s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "wordpress",
-		Charm: s.wpCharm,
-	})
-	s.wordpressUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
-		Application: s.wordpress,
-		Machine:     s.machine0,
 	})
 
 	loggingCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
@@ -97,10 +51,12 @@ func (s *uniterGoalStateSuite) SetUpTest(c *gc.C) {
 		Charm: loggingCharm,
 	})
 
+	s.setupCache(c)
+
 	// Create a FakeAuthorizer so we can check permissions,
-	// set up assuming unit 0 has logged in.
+	// set up assuming the MySQL unit has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.mysql.Tag(),
+		Tag: s.mysqlUnit.Tag(),
 	}
 
 	// Create the resource registry separately to track invocations to
@@ -108,14 +64,8 @@ func (s *uniterGoalStateSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.uniter = uniterAPI
+	s.uniter = s.newUniterAPI(c, s.State, s.authorizer)
+
 }
 
 var (
