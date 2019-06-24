@@ -1812,7 +1812,15 @@ func (s *applicationSuite) TestApplicationUpdateSetMinUnitsError(c *gc.C) {
 	c.Assert(app.MinUnits(), gc.Equals, 0)
 }
 
-func (s *applicationSuite) TestApplicationUpdateSetSettingsStrings(c *gc.C) {
+func (s *applicationSuite) TestApplicationUpdateSetSettingsStringsExplicitMaster(c *gc.C) {
+	s.testApplicationUpdateSetSettingsStrings(c, model.GenerationMaster)
+}
+
+func (s *applicationSuite) TestApplicationUpdateSetSettingsStringsEmptyBranchUsesMaster(c *gc.C) {
+	s.testApplicationUpdateSetSettingsStrings(c, "")
+}
+
+func (s *applicationSuite) testApplicationUpdateSetSettingsStrings(c *gc.C, branchName string) {
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "dummy", ch)
 
@@ -1820,7 +1828,7 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsStrings(c *gc.C) {
 	args := params.ApplicationUpdate{
 		ApplicationName: "dummy",
 		SettingsStrings: map[string]string{"title": "s-title", "username": "s-user"},
-		Generation:      model.GenerationMaster,
+		Generation:      branchName,
 	}
 	err := s.applicationAPI.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1860,7 +1868,15 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsStringsBranch(c *gc.C
 	c.Check(gen.AssignedUnits(), jc.DeepEquals, map[string][]string{"dummy": {}})
 }
 
-func (s *applicationSuite) TestApplicationUpdateSetSettingsYAML(c *gc.C) {
+func (s *applicationSuite) TestApplicationUpdateSetSettingsYAMLExplicitMaster(c *gc.C) {
+	s.testApplicationUpdateSetSettingsYAML(c, model.GenerationMaster)
+}
+
+func (s *applicationSuite) TestApplicationUpdateSetSettingsYAMLEmptyBranchUsesMaster(c *gc.C) {
+	s.testApplicationUpdateSetSettingsYAML(c, "")
+}
+
+func (s *applicationSuite) testApplicationUpdateSetSettingsYAML(c *gc.C, branchName string) {
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "dummy", ch)
 
@@ -1868,7 +1884,7 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsYAML(c *gc.C) {
 	args := params.ApplicationUpdate{
 		ApplicationName: "dummy",
 		SettingsYAML:    "dummy:\n  title: y-title\n  username: y-user",
-		Generation:      model.GenerationMaster,
+		Generation:      branchName,
 	}
 	err := s.applicationAPI.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
