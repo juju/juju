@@ -25,7 +25,7 @@ type machineSuite struct {
 
 	model    *cache.Model
 	machine0 cache.Machine
-	wc0      StringsWatcherC
+	wc0      cache.StringsWatcherC
 }
 
 var _ = gc.Suite(&machineSuite{})
@@ -210,7 +210,7 @@ func (s *machineSuite) setupMachine0WithContainerWatcher(c *gc.C, addContainer b
 
 	w, err := s.machine0.WatchContainers()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := NewStringsWatcherC(c, w)
+	wc := cache.NewStringsWatcherC(c, w)
 	// Sends initial event.
 	if addContainer {
 		wc.AssertOneChange([]string{"0/lxd/0"})

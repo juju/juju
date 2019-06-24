@@ -85,7 +85,6 @@ func (s *UnitSuite) TestConfigSettingsBranch(c *gc.C) {
 		"something": "else",
 	}
 	c.Assert(cfg, gc.DeepEquals, expected)
-
 }
 
 func (s *UnitSuite) TestConfigSettingsDefaultsOnly(c *gc.C) {

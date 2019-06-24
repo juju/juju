@@ -309,7 +309,7 @@ func (s *ControllerSuite) TestWatchMachineStops(c *gc.C) {
 
 	w, err := m.WatchMachines()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := NewStringsWatcherC(c, w)
+	wc := cache.NewStringsWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange([]string{machineChange.Id})
 
@@ -323,7 +323,7 @@ func (s *ControllerSuite) TestWatchMachineStops(c *gc.C) {
 func (s *ControllerSuite) TestWatchMachineAddMachine(c *gc.C) {
 	w, events := s.setupWithWatchMachine(c)
 	defer workertest.CleanKill(c, w)
-	wc := NewStringsWatcherC(c, w)
+	wc := cache.NewStringsWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange([]string{machineChange.Id})
 
@@ -338,7 +338,7 @@ func (s *ControllerSuite) TestWatchMachineAddMachine(c *gc.C) {
 func (s *ControllerSuite) TestWatchMachineAddContainerNoChange(c *gc.C) {
 	w, events := s.setupWithWatchMachine(c)
 	defer workertest.CleanKill(c, w)
-	wc := NewStringsWatcherC(c, w)
+	wc := cache.NewStringsWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange([]string{machineChange.Id})
 
@@ -356,7 +356,7 @@ func (s *ControllerSuite) TestWatchMachineAddContainerNoChange(c *gc.C) {
 func (s *ControllerSuite) TestWatchMachineRemoveMachine(c *gc.C) {
 	w, events := s.setupWithWatchMachine(c)
 	defer workertest.CleanKill(c, w)
-	wc := NewStringsWatcherC(c, w)
+	wc := cache.NewStringsWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange([]string{machineChange.Id})
 
@@ -371,7 +371,7 @@ func (s *ControllerSuite) TestWatchMachineRemoveMachine(c *gc.C) {
 func (s *ControllerSuite) TestWatchMachineChangeMachine(c *gc.C) {
 	w, events := s.setupWithWatchMachine(c)
 	defer workertest.CleanKill(c, w)
-	wc := NewStringsWatcherC(c, w)
+	wc := cache.NewStringsWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange([]string{machineChange.Id})
 
@@ -386,7 +386,7 @@ func (s *ControllerSuite) TestWatchMachineChangeMachine(c *gc.C) {
 func (s *ControllerSuite) TestWatchMachineGatherMachines(c *gc.C) {
 	w, events := s.setupWithWatchMachine(c)
 	defer workertest.CleanKill(c, w)
-	wc := NewStringsWatcherC(c, w)
+	wc := cache.NewStringsWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange([]string{machineChange.Id})
 
