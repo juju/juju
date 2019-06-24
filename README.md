@@ -3,7 +3,7 @@ juju
 
 juju is devops distilled.
 
-Juju enables you to use [Charms](https://docs.jujucharms.com/stable/en/charms) to deploy your
+Juju enables you to use [Charms](https://docs.jujucharms.com/applications-and-charms) to deploy your
 application architectures to EC2, OpenStack, Azure, GCE, your data center, and
 even your own Ubuntu based laptop.  Moving between models is simple giving you
 the flexibility to switch hosts whenever you want — for free.
