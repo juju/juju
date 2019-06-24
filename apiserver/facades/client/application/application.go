@@ -800,6 +800,13 @@ func (api *APIBase) Update(args params.ApplicationUpdate) error {
 		}
 	}
 
+	// We need a guard on the API server-side for direct API callers such as
+	// python-libjuju, and for older clients.
+	// Always default to the master branch.
+	if args.Generation == "" {
+		args.Generation = model.GenerationMaster
+	}
+
 	// Set up application's settings.
 	// If the config change is generational, add the app to the generation.
 	configChange := false

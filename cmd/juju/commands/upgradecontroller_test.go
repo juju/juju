@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -113,6 +115,51 @@ func (s *UpgradeIAASControllerSuite) TestUpgradeWithRealUpload(c *gc.C) {
 	}
 	vers.Build = 1
 	s.checkToolsUploaded(c, vers, vers.Number)
+}
+
+func (s *UpgradeIAASControllerSuite) TestUpgradeCorrectController(c *gc.C) {
+	badControllerName := "not-the-right-controller"
+	badControllerSelected := errors.New("bad controller selected")
+	upgradeCommand := func(minUpgradeVers map[int]version.Number) cmd.Command {
+		backingStore := s.ControllerStore
+		store := jujuclienttesting.WrapClientStore(backingStore)
+		store.ControllerByNameFunc = func(name string) (*jujuclient.ControllerDetails, error) {
+			if name == badControllerName {
+				return nil, badControllerSelected
+			}
+			return backingStore.ControllerByName(name)
+		}
+		store.CurrentControllerFunc = func() (string, error) {
+			return badControllerName, nil
+		}
+		s.ControllerStore = store
+		cmd := &upgradeControllerCommand{
+			baseUpgradeCommand: baseUpgradeCommand{minMajorUpgradeVersion: minMajorUpgradeVersion},
+		}
+		cmd.SetClientStore(s.ControllerStore)
+		return modelcmd.WrapController(cmd)
+	}
+
+	tests := []upgradeTest{
+		{
+			about:          "latest supported stable release with specified controller",
+			available:      []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
+			currentVersion: "2.0.0-quantal-amd64",
+			agentVersion:   "2.0.0",
+			expectVersion:  "2.1.3",
+			args:           []string{"--controller", "kontroll"},
+		},
+		{
+			about:          "latest supported stable release without specified controller",
+			available:      []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
+			currentVersion: "2.0.0-quantal-amd64",
+			agentVersion:   "2.0.0",
+			expectVersion:  "2.1.3",
+			expectErr:      badControllerSelected.Error(),
+		},
+	}
+
+	s.assertUpgradeTests(c, tests, upgradeCommand)
 }
 
 func (s *UpgradeIAASControllerSuite) TestUpgradeDryRun(c *gc.C) {
