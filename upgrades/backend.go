@@ -64,6 +64,7 @@ type StateBackend interface {
 	EnsureApplicationDeviceConstraints() error
 	RemoveInstanceCharmProfileDataCollection() error
 	UpdateK8sModelNameIndex() error
+	AddModelLogsSize() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -248,4 +249,8 @@ func (s stateBackend) RemoveInstanceCharmProfileDataCollection() error {
 
 func (s stateBackend) UpdateK8sModelNameIndex() error {
 	return state.UpdateK8sModelNameIndex(s.pool)
+}
+
+func (s stateBackend) AddModelLogsSize() error {
+	return state.AddModelLogsSize(s.pool)
 }
