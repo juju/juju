@@ -32,7 +32,10 @@ from jujupy.utility import (
     ensure_dir,
     until_timeout,
 )
-from jujupy.client import temp_bootstrap_env
+from jujupy.client import (
+    temp_bootstrap_env,
+    JujuData,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -120,11 +123,11 @@ class Base(object):
 
         self.timeout = timeout
         old_environment = bs_manager.client.env.environment
+    
         bs_manager.client.env.environment = bs_manager.temp_env_name
         with temp_bootstrap_env(bs_manager.client.env.juju_home, bs_manager.client) as tm_h:
             self.client.env.juju_home = tm_h
             self.refresh_home(self.client)
-
         bs_manager.client.env.environment = old_environment
 
     def refresh_home(self, client):
@@ -175,7 +178,6 @@ class Base(object):
             used_feature_flags=self.client.used_feature_flags, juju_home=juju_home,
         )
         logger.debug('added caas cloud, now all clouds are -> \n%s', self.client.list_clouds(format='yaml'))
-        print('add-k8s env',  self.sh('env'))
 
     def check_cluster_healthy(self, timeout=0):
         def check():
