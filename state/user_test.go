@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -81,6 +82,9 @@ func (s *UserSuite) TestAddUser(c *gc.C) {
 func (s *UserSuite) TestCheckUserExists(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 	exists, err := state.CheckUserExists(s.State, user.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exists, jc.IsTrue)
+	exists, err = state.CheckUserExists(s.State, strings.ToUpper(user.Name()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(exists, jc.IsTrue)
 	exists, err = state.CheckUserExists(s.State, "notAUser")
@@ -228,6 +232,30 @@ func (s *UserSuite) TestRemoveUser(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `user "username-\d+" is permanently deleted`)
 }
 
+func (s *UserSuite) TestRemoveUserUppercaseName(c *gc.C) {
+	name := "NameWithUppercase"
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		Name:     name,
+		Password: "wow very sea cret",
+	})
+
+	// Assert user exists and can authenticate.
+	c.Assert(user.PasswordValid("wow very sea cret"), jc.IsTrue)
+
+	// Look for the user.
+	u, err := s.State.User(user.UserTag())
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(u, jc.DeepEquals, user)
+
+	// Remove the user.
+	err = s.State.RemoveUser(user.UserTag())
+	c.Check(err, jc.ErrorIsNil)
+
+	// Check to verify the user cannot be retrieved.
+	u, err = s.State.User(user.UserTag())
+	c.Check(err, gc.ErrorMatches, fmt.Sprintf(`user "%s" is permanently deleted`, name))
+}
+
 func (s *UserSuite) TestRemoveUserRemovesUserAccess(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "so sekrit"})
 
@@ -277,6 +305,25 @@ func (s *UserSuite) TestDisableUser(c *gc.C) {
 	c.Assert(user.IsDisabled(), jc.IsFalse)
 	c.Assert(user.PasswordValid("a-password"), jc.IsTrue)
 	c.Assert(s.activeUsers(c), jc.DeepEquals, []string{"test-admin", user.Name()})
+}
+
+func (s *UserSuite) TestDisableUserUppercaseName(c *gc.C) {
+	name := "NameWithUppercase"
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "a-password", Name: name})
+	c.Assert(user.IsDisabled(), jc.IsFalse)
+	c.Assert(s.activeUsers(c), jc.DeepEquals, []string{name, "test-admin"})
+
+	err := user.Disable()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user.IsDisabled(), jc.IsTrue)
+	c.Assert(user.PasswordValid("a-password"), jc.IsFalse)
+	c.Assert(s.activeUsers(c), jc.DeepEquals, []string{"test-admin"})
+
+	err = user.Enable()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user.IsDisabled(), jc.IsFalse)
+	c.Assert(user.PasswordValid("a-password"), jc.IsTrue)
+	c.Assert(s.activeUsers(c), jc.DeepEquals, []string{name, "test-admin"})
 }
 
 func (s *UserSuite) TestDisableUserDisablesUserAccess(c *gc.C) {
@@ -338,6 +385,27 @@ func (s *UserSuite) activeUsers(c *gc.C) []string {
 
 func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
+
+	salt, err := utils.RandomSalt()
+	c.Assert(err, jc.ErrorIsNil)
+	err = user.SetPasswordHash(utils.UserPasswordHash("foo", salt), salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(user.PasswordValid("foo"), jc.IsTrue)
+	c.Assert(user.PasswordValid("bar"), jc.IsFalse)
+
+	// User passwords should *not* use the fast PasswordHash function
+	hash := utils.AgentPasswordHash("foo-12345678901234567890")
+	c.Assert(err, jc.ErrorIsNil)
+	err = user.SetPasswordHash(hash, "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(user.PasswordValid("foo-12345678901234567890"), jc.IsFalse)
+}
+
+func (s *UserSuite) TestSetPasswordHashUppercaseName(c *gc.C) {
+	name := "NameWithUppercase"
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: name})
 
 	salt, err := utils.RandomSalt()
 	c.Assert(err, jc.ErrorIsNil)
@@ -458,6 +526,19 @@ func (s *UserSuite) TestSetPasswordClearsSecretKey(c *gc.C) {
 
 func (s *UserSuite) TestResetPassword(c *gc.C) {
 	u, err := s.State.AddUserWithSecretKey("bob", "display", "admin")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.SecretKey(), gc.HasLen, 32)
+	oldKey := u.SecretKey()
+
+	key, err := u.ResetPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(key, gc.Not(gc.DeepEquals), oldKey)
+	c.Assert(key, gc.NotNil)
+	c.Assert(u.SecretKey(), gc.DeepEquals, key)
+}
+
+func (s *UserSuite) TestResetPasswordUppercaseName(c *gc.C) {
+	u, err := s.State.AddUserWithSecretKey("BobHasAnUppercaseName", "display", "admin")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(u.SecretKey(), gc.HasLen, 32)
 	oldKey := u.SecretKey()
