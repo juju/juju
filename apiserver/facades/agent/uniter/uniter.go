@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -62,6 +63,11 @@ type UniterAPI struct {
 	accessMachine       common.GetAuthFunc
 	containerBrokerFunc caas.NewContainerBrokerFunc
 	*StorageAPI
+
+	// cacheModel is used to access data from the cache in lieu of going
+	// to the database.
+	// TODO (manadart 2019-06-20): Use cache to watch and retrieve model config.
+	cacheModel *cache.Model
 
 	// A cloud spec can only be accessed for the model of the unit or
 	// application that is authorised for this API facade.
@@ -172,6 +178,11 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		common.AuthFuncForTag(m.ModelTag()),
 	)
 
+	cacheModel, err := context.Controller().Model(st.ModelUUID())
+	if err != nil {
+		return nil, err
+	}
+
 	return &UniterAPI{
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrApplication),
 		DeadEnsurer:                common.NewDeadEnsurer(st, accessUnit),
@@ -188,6 +199,7 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 
 		st:                st,
 		m:                 m,
+		cacheModel:        cacheModel,
 		auth:              authorizer,
 		resources:         resources,
 		leadershipChecker: leadershipChecker,
@@ -1012,8 +1024,8 @@ func (u *UniterAPI) ConfigSettings(args params.Entities) (params.ConfigSettingsR
 		}
 		err = common.ErrPerm
 		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.getUnit(tag)
+			var unit cache.Unit
+			unit, err = u.getCacheUnit(tag)
 			if err == nil {
 				var settings charm.Settings
 				settings, err = unit.ConfigSettings()
@@ -1631,6 +1643,11 @@ func (u *UniterAPIV8) WatchUnitAddresses(args params.Entities) (params.NotifyWat
 
 func (u *UniterAPI) getUnit(tag names.UnitTag) (*state.Unit, error) {
 	return u.st.Unit(tag.Id())
+}
+
+func (u *UniterAPI) getCacheUnit(tag names.UnitTag) (cache.Unit, error) {
+	unit, err := u.cacheModel.Unit(tag.Id())
+	return unit, errors.Trace(err)
 }
 
 func (u *UniterAPI) getApplication(tag names.ApplicationTag) (*state.Application, error) {
