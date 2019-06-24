@@ -95,6 +95,11 @@ func (tc *TestController) UpdateMachine(c *gc.C, modelUUID string, machine *stat
 	tc.SendChange(MachineChange(c, modelUUID, machine))
 }
 
+// UpdateUnit updates the input state unit in the cache.
+func (tc *TestController) UpdateUnit(c *gc.C, modelUUID string, unit *state.Unit) {
+	tc.SendChange(UnitChange(c, modelUUID, unit))
+}
+
 func (tc *TestController) SendChange(change interface{}) {
 	tc.changes <- change
 }
