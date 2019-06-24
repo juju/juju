@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 class MicroK8s(Base):
 
     name = K8sProviderType.MICROK8S
+    cloud_name = 'microk8s'  # built-in cloud name
 
     def __init__(self, bs_manager, timeout=1800):
         super().__init__(bs_manager, timeout)
