@@ -15,6 +15,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/naturalsort"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
@@ -505,6 +506,23 @@ to create a new model to deploy k8s workloads.
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// If region is specified by the user, validate it here.
+	// lp#1632735
+	if c.Region != "" {
+		_, err := jujucloud.RegionByName(cloud.Regions, c.Region)
+		if err != nil {
+			allRegions := make([]string, len(cloud.Regions))
+			for i, one := range cloud.Regions {
+				allRegions[i] = one.Name
+			}
+			if len(allRegions) > 0 {
+				naturalsort.Sort(allRegions)
+				ctx.Infof("Available cloud regions are %v", strings.Join(allRegions, ", "))
+			}
+			return errors.NotValidf("region %q for cloud %q", c.Region, c.Cloud)
+		}
+	}
+
 	isCAASController := jujucloud.CloudIsCAAS(cloud)
 
 	// Custom clouds may not have explicitly declared support for any auth-
