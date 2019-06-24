@@ -219,6 +219,11 @@ func (w *stringsWatcherBase) Stop() error {
 	return w.Wait()
 }
 
+// Err returns the inner tomb's error.
+func (w *stringsWatcherBase) Err() error {
+	return w.tomb.Err()
+}
+
 func (w *stringsWatcherBase) notify(values []string) {
 	w.mu.Lock()
 
