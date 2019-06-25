@@ -14,7 +14,6 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/juju/worker.v1/workertest"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/api"
@@ -29,7 +28,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/cache/cachetest"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -51,8 +49,6 @@ import (
 type uniterSuiteBase struct {
 	testing.JujuConnSuite
 
-	ctrl *cachetest.TestController
-
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
 	uniter     *uniter.UniterAPI
@@ -71,7 +67,9 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	s.setupState(c)
-	s.setupCache(c)
+
+	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming the wordpress unit has logged in.
@@ -124,42 +122,9 @@ func (s *uniterSuiteBase) setupState(c *gc.C) {
 	})
 }
 
-// setupCache adds all of the state entities to the cache.
-func (s *uniterSuiteBase) setupCache(c *gc.C) {
-	// Require acknowledgement of all cache events.
-	s.ctrl = cachetest.NewTestController(func(_ interface{}) bool { return true })
-	s.ctrl.Init(c)
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, s.ctrl.Controller) })
-
-	mod := cachetest.ModelChangeFromState(c, s.State)
-	s.ctrl.SendChange(mod)
-	_ = s.ctrl.NextChange(c)
-
-	uuid := mod.ModelUUID
-
-	s.ctrl.UpdateMachine(c, uuid, s.machine0)
-	_ = s.ctrl.NextChange(c)
-	s.ctrl.UpdateMachine(c, uuid, s.machine0)
-	_ = s.ctrl.NextChange(c)
-
-	s.ctrl.UpdateCharm(uuid, s.wpCharm)
-	_ = s.ctrl.NextChange(c)
-	s.ctrl.UpdateApplication(c, uuid, s.wordpress)
-	_ = s.ctrl.NextChange(c)
-	s.ctrl.UpdateUnit(c, uuid, s.wordpressUnit)
-	_ = s.ctrl.NextChange(c)
-
-	s.ctrl.UpdateCharm(uuid, s.mysqlCharm)
-	_ = s.ctrl.NextChange(c)
-	s.ctrl.UpdateApplication(c, uuid, s.mysql)
-	_ = s.ctrl.NextChange(c)
-	s.ctrl.UpdateUnit(c, uuid, s.mysqlUnit)
-	_ = s.ctrl.NextChange(c)
-}
-
 func (s *uniterSuiteBase) newUniterAPI(c *gc.C, st *state.State, auth facade.Authorizer) *uniter.UniterAPI {
 	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
-		Controller_:        s.ctrl.Controller,
+		Controller_:        s.Controller,
 		State_:             st,
 		Resources_:         s.resources,
 		Auth_:              auth,
@@ -200,21 +165,13 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAAS
 		SetCharmURL: true,
 	})
 
-	// Prime the cache.
-	s.ctrl.UpdateModel(c, m)
-	_ = s.ctrl.NextChange(c)
-	uuid := m.UUID()
-	s.ctrl.UpdateCharm(uuid, ch)
-	_ = s.ctrl.NextChange(c)
-	s.ctrl.UpdateApplication(c, uuid, app)
-	_ = s.ctrl.NextChange(c)
-	s.ctrl.UpdateUnit(c, uuid, unit)
-	_ = s.ctrl.NextChange(c)
-
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, m.UUID())
 
 	apiInfo, err := environs.APIInfo(
 		context.NewCloudCallContext(),
@@ -1289,11 +1246,8 @@ func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
-	// After changing state, ensure that it is reflected in the cache.
-	err = s.wordpressUnit.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	s.ctrl.UpdateUnit(c, s.Model.UUID(), s.wordpressUnit)
-	_ = s.ctrl.NextChange(c)
+	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	settings, err := s.wordpressUnit.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3427,6 +3381,9 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 		Machine:     s.machine1,
 	})
 
+	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
 	// Create the resource registry separately to track invocations to register.
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
@@ -3502,6 +3459,7 @@ func (s *uniterNetworkConfigSuite) setupUniterAPIForUnit(c *gc.C, givenUnit *sta
 		Resources_:         s.resources,
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.State.LeadershipChecker(),
+		Controller_:        s.Controller,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -3779,7 +3737,7 @@ func (s *uniterNetworkInfoSuite) setupUniterAPIForUnit(c *gc.C, givenUnit *state
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: givenUnit.Tag(),
 	}
-	_ = s.newUniterAPI(c, s.State, s.authorizer)
+	s.uniter = s.newUniterAPI(c, s.State, s.authorizer)
 }
 
 func (s *uniterNetworkInfoSuite) addRelationAndAssertInScope(c *gc.C) {
@@ -4152,6 +4110,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoV6Results(c *gc.C) {
 		Resources_:         s.resources,
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.State.LeadershipChecker(),
+		Controller_:        s.Controller,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -4221,7 +4180,7 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 	st := cm.State()
 	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mariadb", Series: "kubernetes"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mariadb", Charm: ch})
+	_ = f.MakeApplication(c, &factory.ApplicationParams{Name: "mariadb", Charm: ch})
 
 	var updateUnits state.UpdateUnitsOperation
 	addr := "10.0.0.1"
@@ -4241,16 +4200,8 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 	c.Assert(wp.Refresh(), jc.ErrorIsNil)
 	c.Assert(wpUnit.Refresh(), jc.ErrorIsNil)
 
-	// Prime the cache.
-	uuid := cm.UUID()
-	s.ctrl.UpdateCharm(uuid, ch)
-	_ = s.ctrl.NextChange(c)
-	s.ctrl.UpdateApplication(c, uuid, app)
-	_ = s.ctrl.NextChange(c)
-	s.ctrl.UpdateApplication(c, uuid, wp)
-	_ = s.ctrl.NextChange(c)
-	s.ctrl.UpdateUnit(c, uuid, wpUnit)
-	_ = s.ctrl.NextChange(c)
+	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	args := params.NetworkInfoParams{
 		Unit:     wpUnit.Tag().String(),

@@ -51,7 +51,8 @@ func (s *uniterGoalStateSuite) SetUpTest(c *gc.C) {
 		Charm: loggingCharm,
 	})
 
-	s.setupCache(c)
+	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming the MySQL unit has logged in.
@@ -65,7 +66,6 @@ func (s *uniterGoalStateSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.uniter = s.newUniterAPI(c, s.State, s.authorizer)
-
 }
 
 var (
