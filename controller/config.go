@@ -122,12 +122,18 @@ const (
 	// detault
 	MongoMemoryProfile = "mongo-memory-profile"
 
+	// TODO(thumper): remove max-logs-age and max-logs-size in 2.7 branch.
+
 	// MaxLogsAge is the maximum age for log entries, eg "72h"
 	MaxLogsAge = "max-logs-age"
 
 	// MaxLogsSize is the maximum size the log collection can grow to
 	// before it is pruned, eg "4M"
 	MaxLogsSize = "max-logs-size"
+
+	// ModelLogsSize is the size of the capped collections used to hold the
+	// logs for the models, eg "20M". Size is per model.
+	ModelLogsSize = "model-logs-size"
 
 	// MaxTxnLogSize is the maximum size the of capped txn log collection, eg "10M"
 	MaxTxnLogSize = "max-txn-log-size"
@@ -191,6 +197,8 @@ const (
 	// DefaultMongoMemoryProfile is the default profile used by mongo.
 	DefaultMongoMemoryProfile = MongoProfDefault
 
+	// TODO(thumper): remove DefaultMaxLogsAgeDays and DefaultMaxLogCollectionMB in 2.7 branch.
+
 	// DefaultMaxLogsAgeDays is the maximum age in days of log entries.
 	DefaultMaxLogsAgeDays = 3
 
@@ -206,6 +214,10 @@ const (
 
 	// DefaultMaxPruneTxnPasses is the default number of batches we will process (deprecated)
 	DefaultMaxPruneTxnPasses = 100
+
+	// DefaultModelLogsSizeMB is the size in MB of the capped logs collection
+	// for each model.
+	DefaultModelLogsSizeMB = 20
 
 	// DefaultPruneTxnQueryCount is the number of transactions to read in a single query.
 	DefaultPruneTxnQueryCount = 1000
@@ -259,11 +271,13 @@ var (
 		SetNUMAControlPolicyKey,
 		StatePort,
 		MongoMemoryProfile,
+		// TODO(thumper): remove MaxLogsAge and MaxLogsSize in 2.7 branch.
 		MaxLogsSize,
 		MaxLogsAge,
 		MaxTxnLogSize,
 		MaxPruneTxnBatchSize,
 		MaxPruneTxnPasses,
+		ModelLogsSize,
 		PruneTxnQueryCount,
 		PruneTxnSleepTime,
 		JujuHASpace,
@@ -292,8 +306,10 @@ var (
 		ControllerAPIPort,
 		MaxPruneTxnBatchSize,
 		MaxPruneTxnPasses,
+		// TODO(thumper): remove MaxLogsAge and MaxLogsSize in 2.7 branch.
 		MaxLogsSize,
 		MaxLogsAge,
+		ModelLogsSize,
 		MongoMemoryProfile,
 		PruneTxnQueryCount,
 		PruneTxnSleepTime,
@@ -569,18 +585,11 @@ func (c Config) AllowModelAccess() bool {
 	return value
 }
 
-// MaxLogsAge is the maximum age of log entries before they are pruned.
-func (c Config) MaxLogsAge() time.Duration {
+// ModelLogsSizeMB is the size of the capped collection used to store the model
+// logs. Total size on disk will be ModelLogsSizeMB * number of models.
+func (c Config) ModelLogsSizeMB() int {
 	// Value has already been validated.
-	val, _ := time.ParseDuration(c.mustString(MaxLogsAge))
-	return val
-}
-
-// MaxLogSizeMB is the maximum size in MiB which the log collection
-// can grow to before being pruned.
-func (c Config) MaxLogSizeMB() int {
-	// Value has already been validated.
-	val, _ := utils.ParseSize(c.mustString(MaxLogsSize))
+	val, _ := utils.ParseSize(c.mustString(ModelLogsSize))
 	return int(val)
 }
 
@@ -694,6 +703,7 @@ func Validate(c Config) error {
 		}
 	}
 
+	// TODO(thumper): remove MaxLogsAge and MaxLogsSize validation in 2.7 branch.
 	if v, ok := c[MaxLogsAge].(string); ok {
 		if _, err := time.ParseDuration(v); err != nil {
 			return errors.Annotate(err, "invalid logs prune interval in configuration")
@@ -703,6 +713,16 @@ func Validate(c Config) error {
 	if v, ok := c[MaxLogsSize].(string); ok {
 		if _, err := utils.ParseSize(v); err != nil {
 			return errors.Annotate(err, "invalid max logs size in configuration")
+		}
+	}
+
+	if v, ok := c[ModelLogsSize].(string); ok {
+		mb, err := utils.ParseSize(v)
+		if err != nil {
+			return errors.Annotate(err, "invalid model logs size in configuration")
+		}
+		if mb < 1 {
+			return errors.NotValidf("model logs size less than 1 MB")
 		}
 	}
 
@@ -868,6 +888,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxTxnLogSize:           schema.String(),
 	MaxPruneTxnBatchSize:    schema.ForceInt(),
 	MaxPruneTxnPasses:       schema.ForceInt(),
+	ModelLogsSize:           schema.String(),
 	PruneTxnQueryCount:      schema.ForceInt(),
 	PruneTxnSleepTime:       schema.String(),
 	JujuHASpace:             schema.String(),
@@ -899,6 +920,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxTxnLogSize:           fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
 	MaxPruneTxnBatchSize:    DefaultMaxPruneTxnBatchSize,
 	MaxPruneTxnPasses:       DefaultMaxPruneTxnPasses,
+	ModelLogsSize:           fmt.Sprintf("%vM", DefaultModelLogsSizeMB),
 	PruneTxnQueryCount:      DefaultPruneTxnQueryCount,
 	PruneTxnSleepTime:       DefaultPruneTxnSleepTime,
 	JujuHASpace:             schema.Omit,

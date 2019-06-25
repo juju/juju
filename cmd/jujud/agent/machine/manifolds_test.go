@@ -84,7 +84,6 @@ func (ms *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"lease-clock-updater",
 			"lease-manager",
 			"legacy-leases-flag",
-			"log-pruner",
 			"log-sender",
 			"logging-config-updater",
 			"machine-action-runner",
@@ -158,7 +157,6 @@ func (ms *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"lease-clock-updater",
 			"lease-manager",
 			"legacy-leases-flag",
-			"log-pruner",
 			"log-sender",
 			"logging-config-updater",
 			"machine-action-runner",
@@ -291,7 +289,6 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 	)
 	primaryControllerWorkers := set.NewStrings(
 		"external-controller-updater",
-		"log-pruner",
 		"transaction-pruner",
 	)
 	for name, manifold := range manifolds {
@@ -635,23 +632,6 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"is-controller-flag",
 		"state",
 		"state-config-watcher",
-	},
-
-	"log-pruner": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"clock",
-		"is-controller-flag",
-		"is-primary-controller-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"state",
-		"state-config-watcher",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
 	},
 
 	"log-sender": {

@@ -2695,7 +2695,7 @@ func (s *StateSuite) TestWatchControllerConfig(c *gc.C) {
 	c.Assert(cfg, jc.DeepEquals, expectedCfg)
 
 	settings := state.GetControllerSettings(s.State)
-	settings.Set("max-logs-age", "96h")
+	settings.Set("model-logs-size", "5M")
 	_, err = settings.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2703,7 +2703,7 @@ func (s *StateSuite) TestWatchControllerConfig(c *gc.C) {
 
 	cfg, err = s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedCfg["max-logs-age"] = "96h"
+	expectedCfg["model-logs-size"] = "5M"
 	c.Assert(cfg, jc.DeepEquals, expectedCfg)
 }
 
