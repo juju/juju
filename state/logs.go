@@ -21,7 +21,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/deque"
 	"github.com/juju/version"
-	"github.com/kr/pretty"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v2"
@@ -935,7 +934,6 @@ func collStats(coll *mgo.Collection) (bson.M, error) {
 		}
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("collStats: %v", pretty.Sprint(result))
 	return result, nil
 }
 
@@ -952,7 +950,6 @@ func convertToCapped(coll *mgo.Collection, maxSizeMB int) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("convertToCapped: %v", pretty.Sprint(result))
 	return nil
 }
 
