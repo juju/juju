@@ -200,6 +200,7 @@ func (s *modelGenerationSuite) testBranchInfo(c *gc.C, branchNames []string, det
 	c.Check(genApp.ConfigChanges, gc.DeepEquals, map[string]interface{}{
 		"password":  "added-pass",
 		"databases": 16,
+		"port":      8000,
 	})
 
 	// Unit lists are only populated when detailed is true.
@@ -294,7 +295,7 @@ func (s *modelGenerationSuite) expectConfig() {
 	s.mockGen.EXPECT().Config().Return(map[string]settings.ItemChanges{"redis": {
 		settings.MakeAddition("password", "added-pass"),
 		settings.MakeDeletion("databases", 100),
-		settings.MakeModification("ignored-key", "unchanged", "unchanged"),
+		settings.MakeModification("port", 7000, 8000),
 	}})
 }
 

@@ -272,7 +272,7 @@ func (api *API) oneBranchInfo(branch Generation, detailed bool) (params.Generati
 		if err != nil {
 			return params.Generation{}, errors.Trace(err)
 		}
-		branchApp.ConfigChanges = deltas[appName].CurrentSettings(defaults)
+		branchApp.ConfigChanges = deltas[appName].EffectiveChanges(defaults)
 
 		// TODO (manadart 2019-04-12): Charm URL.
 
