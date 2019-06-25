@@ -495,6 +495,7 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 	}
 	if seriesOS == os.Windows {
 		if instanceSpec.InstanceType.RootDisk < windowsMinRootDiskMB {
+			logger.Infof("root disk size has been increased to 127GiB")
 			instanceSpec.InstanceType.RootDisk = windowsMinRootDiskMB
 		}
 	}
@@ -654,7 +655,7 @@ func (env *azureEnviron) createVirtualMachine(
 		)
 		var (
 			availabilitySetProperties  interface{}
-			availabilityStorageOptions *storage.Sku
+			availabilityStorageOptions armtemplates.Sku
 		)
 		if maybeStorageAccount == nil {
 			// This model uses managed disks; we must create
@@ -669,9 +670,7 @@ func (env *azureEnviron) createVirtualMachine(
 				PlatformFaultDomainCount: to.Int32Ptr(maxFaultDomains(env.location)),
 			}
 			// Availability needs to be 'Aligned' to support managed disks.
-			availabilityStorageOptions = &storage.Sku{
-				Name: "Aligned",
-			}
+			availabilityStorageOptions.Name = "Aligned"
 		}
 		resources = append(resources, armtemplates.Resource{
 			APIVersion: computeAPIVersion,
@@ -680,7 +679,7 @@ func (env *azureEnviron) createVirtualMachine(
 			Location:   env.location,
 			Tags:       envTags,
 			Properties: availabilitySetProperties,
-			StorageSku: availabilityStorageOptions,
+			Sku:        &availabilityStorageOptions,
 		})
 		availabilitySetSubResource = &compute.SubResource{
 			ID: to.StringPtr(availabilitySetId),
@@ -690,16 +689,20 @@ func (env *azureEnviron) createVirtualMachine(
 
 	publicIPAddressName := vmName + "-public-ip"
 	publicIPAddressId := fmt.Sprintf(`[resourceId('Microsoft.Network/publicIPAddresses', '%s')]`, publicIPAddressName)
+	publicIPAddressAllocationMethod := network.Static
+	if env.config.loadBalancerSkuName == string(network.LoadBalancerSkuNameBasic) {
+		publicIPAddressAllocationMethod = network.Dynamic // preserve the settings that were used in Juju 2.4 and earlier
+	}
 	resources = append(resources, armtemplates.Resource{
 		APIVersion: networkAPIVersion,
 		Type:       "Microsoft.Network/publicIPAddresses",
 		Name:       publicIPAddressName,
 		Location:   env.location,
 		Tags:       vmTags,
-		StorageSku: &storage.Sku{Name: "Standard", Tier: "Regional"},
+		Sku:        &armtemplates.Sku{Name: env.config.loadBalancerSkuName},
 		Properties: &network.PublicIPAddressPropertiesFormat{
 			PublicIPAddressVersion:   network.IPv4,
-			PublicIPAllocationMethod: network.Static,
+			PublicIPAllocationMethod: publicIPAddressAllocationMethod,
 		},
 	})
 

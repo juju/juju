@@ -37,12 +37,14 @@ func userIDFromGlobalKey(key string) string {
 }
 
 func (st *State) checkUserExists(name string) (bool, error) {
+	lowercaseName := strings.ToLower(name)
+
 	users, closer := st.db().GetCollection(usersC)
 	defer closer()
 
 	var count int
 	var err error
-	if count, err = users.FindId(name).Count(); err != nil {
+	if count, err = users.FindId(lowercaseName).Count(); err != nil {
 		return false, err
 	}
 	return count > 0, nil
@@ -72,13 +74,13 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	if !names.IsValidUserName(name) {
 		return nil, errors.Errorf("invalid user name %q", name)
 	}
-	nameToLower := strings.ToLower(name)
+	lowercaseName := strings.ToLower(name)
 
 	dateCreated := st.nowToTheSecond()
 	user := &User{
 		st: st,
 		doc: userDoc{
-			DocID:       nameToLower,
+			DocID:       lowercaseName,
 			Name:        name,
 			DisplayName: displayName,
 			SecretKey:   secretKey,
@@ -98,7 +100,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 
 	ops := []txn.Op{{
 		C:      usersC,
-		Id:     nameToLower,
+		Id:     lowercaseName,
 		Assert: txn.DocMissing,
 		Insert: &user.doc,
 	}}
@@ -126,7 +128,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 // RemoveUser marks the user as deleted. This obviates the ability of a user
 // to function, but keeps the userDoc retaining provenance, i.e. auditing.
 func (st *State) RemoveUser(tag names.UserTag) error {
-	name := strings.ToLower(tag.Name())
+	lowercaseName := strings.ToLower(tag.Name())
 
 	u, err := st.User(tag)
 	if err != nil {
@@ -144,7 +146,7 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 			}
 		}
 		ops := []txn.Op{{
-			Id:     name,
+			Id:     lowercaseName,
 			C:      usersC,
 			Assert: txn.DocExists,
 			Update: bson.M{"$set": bson.M{"deleted": true}},
@@ -155,9 +157,9 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 }
 
 func createInitialUserOps(controllerUUID string, user names.UserTag, password, salt string, dateCreated time.Time) []txn.Op {
-	nameToLower := strings.ToLower(user.Name())
+	lowercaseName := strings.ToLower(user.Name())
 	doc := userDoc{
-		DocID:        nameToLower,
+		DocID:        lowercaseName,
 		Name:         user.Name(),
 		DisplayName:  user.Name(),
 		PasswordHash: utils.UserPasswordHash(password, salt),
@@ -167,7 +169,7 @@ func createInitialUserOps(controllerUUID string, user names.UserTag, password, s
 	}
 	ops := []txn.Op{{
 		C:      usersC,
-		Id:     nameToLower,
+		Id:     lowercaseName,
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}}
@@ -428,9 +430,10 @@ func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 			bson.DocElem{"$unset", bson.D{{"secretkey", ""}}},
 		)
 	}
+	lowercaseName := strings.ToLower(u.Name())
 	ops := []txn.Op{{
 		C:      usersC,
-		Id:     u.Name(),
+		Id:     lowercaseName,
 		Assert: txn.DocExists,
 		Update: update,
 	}}
@@ -494,9 +497,10 @@ func (u *User) Enable() error {
 }
 
 func (u *User) setDeactivated(value bool) error {
+	lowercaseName := strings.ToLower(u.Name())
 	ops := []txn.Op{{
 		C:      usersC,
-		Id:     u.Name(),
+		Id:     lowercaseName,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"deactivated", value}}}},
 	}}
@@ -575,9 +579,10 @@ func (u *User) ResetPassword() ([]byte, error) {
 				},
 			},
 		}
+		lowercaseName := strings.ToLower(u.Name())
 		return []txn.Op{{
 			C:      usersC,
-			Id:     u.Name(),
+			Id:     lowercaseName,
 			Assert: txn.DocExists,
 			Update: update,
 		}}, nil

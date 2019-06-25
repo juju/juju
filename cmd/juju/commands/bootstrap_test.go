@@ -1456,9 +1456,8 @@ func (s *BootstrapSuite) TestBootstrapCloudNoRegionsOneSpecified(c *gc.C) {
 		c, s.newBootstrapCommand(), "dummy-cloud-without-regions/my-region", "ctrl",
 		"--config", "default-series=precise",
 	)
-	c.Check(cmdtesting.Stderr(ctx), gc.Matches,
-		"region \"my-region\" not found \\(expected one of \\[\\]\\)\n\n.*\n")
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(err, gc.ErrorMatches, `region "my-region" for cloud "dummy-cloud-without-regions" not valid`)
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderNoCredentials(c *gc.C) {
@@ -1516,9 +1515,9 @@ func (s *BootstrapSuite) TestBootstrapProviderFileCredential(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapProviderDetectRegionsInvalid(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	ctx, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy/not-dummy", "ctrl")
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(err, gc.ErrorMatches, `region "not-dummy" for cloud "dummy" not valid`)
 	stderr := strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1)
-	c.Assert(stderr, gc.Matches, `region "not-dummy" not found \(expected one of \["dummy"\]\)Specify an alternative region, or try "juju update-clouds".`)
+	c.Assert(stderr, gc.Matches, `Available cloud region is dummy`)
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderManyCredentialsCloudNoAuthTypes(c *gc.C) {
@@ -1929,6 +1928,14 @@ ap-northeast-1
 ap-northeast-2
 sa-east-1
 `[1:])
+}
+
+func (s *BootstrapSuite) TestBootstrapInvalidRegion(c *gc.C) {
+	resetJujuXDGDataHome(c)
+	ctx, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "aws/eu-west")
+	c.Assert(err, gc.ErrorMatches, `region "eu-west" for cloud "aws" not valid`)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Available cloud regions are ap-northeast-1, ap-northeast-2, ap-south-1, ap-southeast-1, ap-southeast-2, ca-central-1, eu-central-1, eu-west-1, eu-west-2, eu-west-3, sa-east-1, us-east-1, us-east-2, us-west-1, us-west-2\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
 }
 
 func (s *BootstrapSuite) TestBootstrapPrintCloudRegionsNoSuchCloud(c *gc.C) {
