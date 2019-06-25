@@ -1456,9 +1456,8 @@ func (s *BootstrapSuite) TestBootstrapCloudNoRegionsOneSpecified(c *gc.C) {
 		c, s.newBootstrapCommand(), "dummy-cloud-without-regions/my-region", "ctrl",
 		"--config", "default-series=precise",
 	)
-	c.Check(cmdtesting.Stderr(ctx), gc.Matches,
-		"region \"my-region\" not found \\(expected one of \\[\\]\\)\n\n.*\n")
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(err, gc.ErrorMatches, `region "my-region" for cloud "dummy-cloud-without-regions" not valid`)
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderNoCredentials(c *gc.C) {
