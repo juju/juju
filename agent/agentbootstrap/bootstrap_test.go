@@ -218,14 +218,17 @@ LXC_BRIDGE="ignored"`[1:])
 	// Check controller config
 	controllerCfg, err = st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(thumper): remove max-logs-age and max-logs-size in 2.7 branch.
 	c.Assert(controllerCfg, jc.DeepEquals, controller.Config{
 		"controller-uuid":         testing.ControllerTag.Id(),
 		"ca-cert":                 testing.CACert,
 		"state-port":              1234,
 		"api-port":                17777,
 		"set-numa-control-policy": false,
-		"model-logs-size":         "20M",
+		"max-logs-age":            "72h",
+		"max-logs-size":           "4G",
 		"max-txn-log-size":        "10M",
+		"model-logs-size":         "20M",
 		"auditing-enabled":        false,
 		"audit-log-capture-args":  true,
 		"audit-log-max-size":      "200M",

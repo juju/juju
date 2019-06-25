@@ -3216,9 +3216,7 @@ func (s *upgradesSuite) TestAddModelLogsSize(c *gc.C) {
 	err = settingsColl.Insert(bson.M{
 		"_id": "controllerSettings",
 		"settings": bson.M{
-			"key":           "value",
-			"max-logs-age":  "72h",
-			"max-logs-size": "4095M",
+			"key": "value",
 		},
 	}, bson.M{
 		"_id": "someothersettingshouldnotbetouched",

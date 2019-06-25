@@ -2159,8 +2159,7 @@ func UpdateK8sModelNameIndex(pool *StatePool) error {
 	return nil
 }
 
-// AddModelLogsSize to controller config. Also removes the old
-// max-logs-size and max-logs-age values.
+// AddModelLogsSize to controller config.
 func AddModelLogsSize(pool *StatePool) error {
 	st := pool.SystemState()
 	coll, closer := st.db().GetRawCollection(controllersC)
@@ -2175,14 +2174,6 @@ func AddModelLogsSize(pool *StatePool) error {
 
 	settingsChanged :=
 		maybeUpdateSettings(doc.Settings, controller.ModelLogsSize, fmt.Sprintf("%vM", controller.DefaultModelLogsSizeMB))
-	if _, found := doc.Settings["max-logs-age"]; found {
-		settingsChanged = true
-		delete(doc.Settings, "max-logs-age")
-	}
-	if _, found := doc.Settings["max-logs-size"]; found {
-		settingsChanged = true
-		delete(doc.Settings, "max-logs-size")
-	}
 	if settingsChanged {
 		return errors.Trace(st.runRawTransaction(
 			[]txn.Op{{

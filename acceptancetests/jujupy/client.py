@@ -958,6 +958,9 @@ class ModelClient:
             'management-subscription-id',
             'manta-key-id',
             'manta-user',
+            # TODO(thumper): remove max-logs-age and max-logs-size in 2.7 branch.
+            'max-logs-age',
+            'max-logs-size',
             'max-txn-log-size',
             'model-logs-size',
             'name',
