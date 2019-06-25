@@ -510,6 +510,11 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 	err = s.apiUnit.SetCharmURL(s.wordpressCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
+	// We need the model to settle so that the cache is populated.
+	uuid := s.State.ModelUUID()
+	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, uuid)
+
 	settings, err = s.apiUnit.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
@@ -522,12 +527,16 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, uuid)
+
 	settings, err = s.apiUnit.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"blog-title": "superhero paparazzi",
 	})
 }
+
 func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	// Make sure WatchConfigSettingsHash returns an error when
 	// no charm URL is set, as its state counterpart does.

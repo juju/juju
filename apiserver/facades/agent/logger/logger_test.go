@@ -54,6 +54,7 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 
 	s.ctrl = cachetest.NewTestController(cachetest.ModelEvents)
 	s.ctrl.Init(c)
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, s.ctrl.Controller) })
 
 	// Add the current model to the controller.
 	m := cachetest.ModelChangeFromState(c, s.State)
@@ -61,8 +62,6 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 
 	// Ensure it is processed before we create the logger API.
 	_ = s.ctrl.NextChange(c)
-
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, s.ctrl.Controller) })
 
 	s.logger, err = s.makeLoggerAPI(s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)

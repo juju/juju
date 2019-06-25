@@ -61,7 +61,8 @@ func (s *ApplicationConfigSuite) assertApplicationDeployed(c *gc.C) {
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	unit.SetCharmURL(s.charm.URL())
+	err = unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, jc.ErrorIsNil)
 
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -69,11 +70,11 @@ func (s *ApplicationConfigSuite) assertApplicationDeployed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := s.OpenAPIAs(c, unit.Tag(), password)
-	uniteer, err := st.Uniter()
+	uniter, err := st.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uniteer, gc.NotNil)
+	c.Assert(uniter, gc.NotNil)
 
-	s.apiUnit, err = uniteer.Unit(unit.Tag().(names.UnitTag))
+	s.apiUnit, err = uniter.Unit(unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure both outputs have all charm config keys
@@ -151,6 +152,10 @@ func (s *ApplicationConfigSuite) TestConfigNoValueSingleSetting(c *gc.C) {
 }
 
 func (s *ApplicationConfigSuite) assertSameConfigOutput(c *gc.C, expectedValues settingsMap) {
+	// Let the model settle to ensure cache population.
+	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
 	s.assertJujuConfigOutput(c, s.configCommandOutput(c, s.appName), expectedValues)
 	s.assertHookOutput(c, s.getHookOutput(c), expectedValues)
 }
