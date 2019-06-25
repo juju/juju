@@ -630,14 +630,15 @@
   revision = "5b81707e882b8293e6cf77854b4cd49f29776e11"
 
 [[projects]]
-  digest = "1:98ba3905f2fd6c33f64c401123e6626d35f012293daa8f68b5e264d85edfa0f7"
+  digest = "1:c240055e597aaa5201fde60bc691316a880043baf91e2bed83fbd105380d8c67"
   name = "github.com/juju/os"
   packages = [
     ".",
     "series",
   ]
   pruneopts = ""
-  revision = "c23cb5719c78fb34bcf0eefecf4137dd95436877"
+  revision = "e63c2eb61b1ee98f4d045f4fffbec36f1df51cf9"
+  source = "github.com/SimonRichardson/os"
 
 [[projects]]
   digest = "1:8fd6c21ba9a864b949672e63800d1bd71a3d8ac8e085cc22143b97f1261ad634"
