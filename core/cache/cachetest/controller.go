@@ -18,8 +18,8 @@ import (
 // It allows synchronisation of state objects with the cache
 // without the need for a multi-watcher and cache worker.
 // This is useful when testing with StateSuite;
-// JujuConnSuite sets up a cache worker and multiwatcher
-// to keep the model cache in sync.
+// JujuConnSuite sets up a cache worker and multiwatcher to keep the model
+// cache in sync, so direct population using this technique is not necessary.
 type TestController struct {
 	*cache.Controller
 
