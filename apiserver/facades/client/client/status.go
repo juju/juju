@@ -254,7 +254,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		}
 
 		// Filter units
-		matchedApps := make(set.Strings)
+		matchedApps := set.NewStrings()
 		matchedUnits := set.NewStrings()
 		unitChainPredicate := UnitChainPredicateFn(predicate, context.unitByName)
 		// It's possible that we will discover a unit that matches given filter
@@ -361,39 +361,8 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 			context.machines[status] = matched
 		}
 
-		// Filter branches based on matchedApps which contains
-		// the application name if matching on application or unit.
-		unmatchedBranches := set.NewStrings()
-		// Need a combination of the pattern strings and all units
-		// matched above, both principal and subordinate.
-		matchedForBranches := matchedUnits.Union(set.NewStrings(args.Patterns...))
-		for bName, branch := range context.branches {
-			unmatchedBranches.Add(bName)
-			for appName, units := range branch.AssignedUnits() {
-				appMatch := matchedForBranches.Contains(appName)
-				// if the application is in the pattern, and this
-				// branch,
-				contains := matchedApps.Contains(appName)
-				if contains && appMatch {
-					unmatchedBranches.Remove(bName)
-					break
-				}
-				// if the application is in this branch, but not
-				// the pattern, check if any assigned units are in
-				// the pattern
-				if contains && !appMatch {
-					for _, u := range units {
-						if matchedForBranches.Contains(u) {
-							unmatchedBranches.Remove(bName)
-							break
-						}
-					}
-				}
-			}
-		}
-		for _, deleteBranch := range unmatchedBranches.Values() {
-			delete(context.branches, deleteBranch)
-		}
+		// Filter branches
+		context.branches = filterBranches(context.branches, matchedApps, matchedUnits.Union(set.NewStrings(args.Patterns...)))
 	}
 
 	modelStatus, err := c.modelStatus()
@@ -410,6 +379,42 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		ControllerTimestamp: context.controllerTimestamp,
 		Branches:            context.processBranches(),
 	}, nil
+}
+
+func filterBranches(ctxBranches map[string]cache.Branch, matchedApps, matchedForBranches set.Strings) map[string]cache.Branch {
+	// Filter branches based on matchedApps which contains
+	// the application name if matching on application or unit.
+	unmatchedBranches := set.NewStrings()
+	// Need a combination of the pattern strings and all units
+	// matched above, both principal and subordinate.
+	for bName, branch := range ctxBranches {
+		unmatchedBranches.Add(bName)
+		for appName, units := range branch.AssignedUnits() {
+			appMatch := matchedForBranches.Contains(appName)
+			// if the application is in the pattern, and this
+			// branch,
+			contains := matchedApps.Contains(appName)
+			if contains && appMatch {
+				unmatchedBranches.Remove(bName)
+				break
+			}
+			// if the application is in this branch, but not
+			// the pattern, check if any assigned units are in
+			// the pattern
+			if contains && !appMatch {
+				for _, u := range units {
+					if matchedForBranches.Contains(u) {
+						unmatchedBranches.Remove(bName)
+						break
+					}
+				}
+			}
+		}
+	}
+	for _, deleteBranch := range unmatchedBranches.Values() {
+		delete(ctxBranches, deleteBranch)
+	}
+	return ctxBranches
 }
 
 // newToolsVersionAvailable will return a string representing a tools
