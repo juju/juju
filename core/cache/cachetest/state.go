@@ -131,11 +131,12 @@ func MachineChange(c *gc.C, modelUUID string, machine *state.Machine) cache.Mach
 
 // UnitChange returns a UnitChange representing the input state unit.
 func UnitChange(c *gc.C, modelUUID string, unit *state.Unit) cache.UnitChange {
+	// If these addresses are not set in state, we simply eschew setting them
+	// in the cache rather than propagating such errors.
 	publicAddr, err := unit.PublicAddress()
 	if !network.IsNoAddressError(err) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
-
 	privateAddr, err := unit.PrivateAddress()
 	if !network.IsNoAddressError(err) {
 		c.Assert(err, jc.ErrorIsNil)
