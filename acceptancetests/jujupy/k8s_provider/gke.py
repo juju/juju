@@ -21,8 +21,11 @@ from __future__ import print_function
 
 import logging
 import yaml
+import json
 from time import sleep
 import shutil
+import tempfile
+import os
 
 from google.cloud import container_v1
 from google.oauth2 import service_account
@@ -69,6 +72,8 @@ class GKE(Base):
         self.driver = container_v1.ClusterManagerClient(
             credentials=service_account.Credentials.from_service_account_info(cfg)
         )
+        
+        self.__ensure_gcloud(cfg)
 
         # list all running clusters
         running_clusters = self.driver.list_clusters(**self.default_params)
@@ -76,6 +81,42 @@ class GKE(Base):
 
     def _ensure_cluster_stack(self):
         self.provision_gke()
+        
+    def __ensure_gcloud(self, cfg):
+        gcloud_bin = shutil.which('gcloud')
+        if gcloud_bin is None:
+            # ensure gcloud installed.
+            self.sh('sudo', 'snap', 'install', 'google-cloud-sdk', '--classic')
+            logger.debug("gcloud installed successfully")
+            gcloud_bin = shutil.which('gcloud')
+        
+        cred = {
+            k: cfg[k] for k in (
+                'project_id', 
+                'private_key_id', 
+                'private_key', 
+                'client_email', 
+                'client_id', 
+                'auth_uri', 
+                'token_uri', 
+                'auth_provider_x509_cert_url', 
+                'client_x509_cert_url',
+            )
+        }
+        cred['type'] = 'service_account'
+        cred_file = tempfile.NamedTemporaryFile(suffix='.json', delete=False)
+        try:
+            with open(cred_file.name, 'w') as f:
+                json.dump(cred, f)
+                
+            # set credential;
+            o = self.sh(gcloud_bin, 'auth', 'activate-service-account', '--key-file', cred_file.name)
+            logger.debug(o)
+            # set project;
+            o = self.sh(gcloud_bin, 'config', 'set', 'project', cfg['project_id'])
+            logger.debug(o)
+        finally:
+            os.unlink(cred_file.name)
 
     def _tear_down_substrate(self):
         try:

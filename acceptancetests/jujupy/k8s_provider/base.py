@@ -209,9 +209,11 @@ class Base(object):
         self.kubectl_apply(json.dumps(cm))
 
     def sh(self, *args):
+        args = [str(arg) for arg in args]
+        logger.debug('sh -> %s', ' '.join(args))
         return subprocess.check_output(
-            # args should be str.
-            (str(arg) for arg in args),
+            # cmd should be a list of str.
+            args,
             stderr=subprocess.STDOUT,
         ).decode('UTF-8').strip()
 
