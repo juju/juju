@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/juju/core/lxdprofile"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
@@ -20,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
@@ -226,6 +225,9 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if context.controllerTimestamp, err = c.api.stateAccessor.ControllerTimestamp(); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch controller timestamp")
 	}
+	if context.branches, err = fetchBranches(c.api.modelCache); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch branches")
+	}
 
 	logger.Tracef("Applications: %v", context.allAppsUnitsCharmBindings.applications)
 	logger.Tracef("Remote applications: %v", context.consumerRemoteApplications)
@@ -253,7 +255,8 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		}
 
 		// Filter units
-		matchedSvcs := make(set.Strings)
+		matchedApps := make(set.Strings)
+		matchedUnits := set.NewStrings()
 		unitChainPredicate := UnitChainPredicateFn(predicate, context.unitByName)
 		// It's possible that we will discover a unit that matches given filter
 		// half way through units collection. In that case, it may be that the machine
@@ -273,7 +276,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 					machineId = ""
 				} else if matchedMachines.Contains(machineId) {
 					// Unit is on a matching machine.
-					matchedSvcs.Add(unit.ApplicationName())
+					matchedApps.Add(unit.ApplicationName())
 					continue
 				}
 				if machineId != "" {
@@ -291,7 +294,9 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 					delete(unitMap, name)
 					continue
 				}
-				matchedSvcs.Add(unit.ApplicationName())
+				matchedApps.Add(unit.ApplicationName())
+				matchedUnits.Add(unit.Name())
+				matchedUnits = matchedUnits.Union(set.NewStrings(unit.SubordinateNames()...))
 				if machineId != "" {
 					matchedMachines.Add(machineId)
 				}
@@ -299,8 +304,8 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		}
 		for _, m := range matchedMachines.SortedValues() {
 			for _, a := range machineUnits[m] {
-				if !matchedSvcs.Contains(a) {
-					matchedSvcs.Add(a)
+				if !matchedApps.Contains(a) {
+					matchedApps.Add(a)
 				}
 			}
 		}
@@ -315,7 +320,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 			// There are matched units for this application
 			// or the application matched the given criteria.
 			deleted := false
-			if !matchedSvcs.Contains(appName) && !matches {
+			if !matchedApps.Contains(appName) && !matches {
 				delete(context.allAppsUnitsCharmBindings.applications, appName)
 				deleted = true
 			}
@@ -356,6 +361,40 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 			}
 			context.machines[status] = matched
 		}
+
+		// Filter branches based on matchedApps which contains
+		// the application name if matching on application or unit.
+		unmatchedBranches := set.NewStrings()
+		// Need a combination of the pattern strings and all units
+		// matched above, both principal and subordinate.
+		matchedForBranches := matchedUnits.Union(set.NewStrings(args.Patterns...))
+		for bName, branch := range context.branches {
+			unmatchedBranches.Add(bName)
+			for appName, units := range branch.AssignedUnits() {
+				appMatch := matchedForBranches.Contains(appName)
+				// if the application is in the pattern, and this
+				// branch,
+				contains := matchedApps.Contains(appName)
+				if contains && appMatch {
+					unmatchedBranches.Remove(bName)
+					break
+				}
+				// if the application is in this branch, but not
+				// the pattern, check if any assigned units are in
+				// the pattern
+				if contains && !appMatch {
+					for _, u := range units {
+						if matchedForBranches.Contains(u) {
+							unmatchedBranches.Remove(bName)
+							break
+						}
+					}
+				}
+			}
+		}
+		for _, deleteBranch := range unmatchedBranches.Values() {
+			delete(context.branches, deleteBranch)
+		}
 	}
 
 	modelStatus, err := c.modelStatus()
@@ -370,6 +409,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		Offers:              context.processOffers(),
 		Relations:           context.processRelations(),
 		ControllerTimestamp: context.controllerTimestamp,
+		Branches:            context.processBranches(),
 	}, nil
 }
 
@@ -476,6 +516,7 @@ type statusContext struct {
 	units                     map[string]map[string]*state.Unit
 	latestCharms              map[charm.URL]*state.Charm
 	leaders                   map[string]string
+	branches                  map[string]ModelCacheBranch
 }
 
 // fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
@@ -758,6 +799,19 @@ func fetchRelations(st Backend) (map[string][]*state.Relation, map[int]*state.Re
 		}
 	}
 	return out, outById, nil
+}
+
+func fetchBranches(m ModelCache) (map[string]ModelCacheBranch, error) {
+	// modelCache.Branches() returns only active branches.
+	b, err := m.Branches()
+	if err != nil {
+		return nil, err
+	}
+	branches := make(map[string]ModelCacheBranch, len(b))
+	for _, branch := range b {
+		branches[branch.Name()] = branch
+	}
+	return branches, nil
 }
 
 func (c *statusContext) processMachines() map[string]params.MachineStatus {
@@ -1355,6 +1409,17 @@ func (context *statusContext) processRemoteApplicationRelations(application *sta
 		related[relationName] = sn.SortedValues()
 	}
 	return related, nil
+}
+
+func (c *statusContext) processBranches() map[string]params.BranchStatus {
+	branchMap := make(map[string]params.BranchStatus, len(c.branches))
+	for name, branch := range c.branches {
+		branchMap[name] = params.BranchStatus{
+			AssignedUnits: branch.AssignedUnits(),
+			Created:       branch.Created(),
+		}
+	}
+	return branchMap
 }
 
 type lifer interface {

@@ -62,6 +62,9 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 		"authorized-keys": coretesting.FakeAuthKeys,
 	}
 	s.baseSuite.SetUpTest(c)
+	s.PatchValue(client.GetCachedModel, func(ctx facade.Context, modelUUID string) (client.ModelCache, error) {
+		return nil, nil
+	})
 	s.client = s.clientForState(c, s.State)
 }
 
