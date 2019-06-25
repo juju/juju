@@ -517,7 +517,11 @@ to create a new model to deploy k8s workloads.
 			}
 			if len(allRegions) > 0 {
 				naturalsort.Sort(allRegions)
-				ctx.Infof("Available cloud regions are %v", strings.Join(allRegions, ", "))
+				plural := "s are"
+				if len(allRegions) == 1 {
+					plural = " is"
+				}
+				ctx.Infof("Available cloud region%v %v", plural, strings.Join(allRegions, ", "))
 			}
 			return errors.NotValidf("region %q for cloud %q", c.Region, c.Cloud)
 		}

@@ -1516,9 +1516,9 @@ func (s *BootstrapSuite) TestBootstrapProviderFileCredential(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapProviderDetectRegionsInvalid(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	ctx, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy/not-dummy", "ctrl")
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(err, gc.ErrorMatches, `region "not-dummy" for cloud "dummy" not valid`)
 	stderr := strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1)
-	c.Assert(stderr, gc.Matches, `region "not-dummy" not found \(expected one of \["dummy"\]\)Specify an alternative region, or try "juju update-clouds".`)
+	c.Assert(stderr, gc.Matches, `Available cloud region is dummy`)
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderManyCredentialsCloudNoAuthTypes(c *gc.C) {
