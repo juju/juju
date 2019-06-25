@@ -987,9 +987,7 @@ func (s *environSuite) assertStartInstanceRequests(
 				Name:       storageAccountName,
 				Location:   "westus",
 				Tags:       to.StringMap(s.envTags),
-				StorageSku: &storage.Sku{
-					Name: storage.SkuName("Standard_LRS"),
-				},
+				Sku:        &armtemplates.Sku{Name: "Standard_LRS"},
 			})
 			vmDependsOn = append(vmDependsOn,
 				`[resourceId('Microsoft.Storage/storageAccounts', '`+storageAccountName+`')]`,
@@ -1008,15 +1006,13 @@ func (s *environSuite) assertStartInstanceRequests(
 		)
 		var (
 			availabilitySetProperties  interface{}
-			availabilityStorageOptions *storage.Sku
+			availabilityStorageOptions armtemplates.Sku
 		)
 		if !args.unmanagedStorage {
 			availabilitySetProperties = &compute.AvailabilitySetProperties{
 				PlatformFaultDomainCount: to.Int32Ptr(3),
 			}
-			availabilityStorageOptions = &storage.Sku{
-				Name: "Aligned",
-			}
+			availabilityStorageOptions.Name = "Aligned"
 		}
 		templateResources = append(templateResources, armtemplates.Resource{
 			APIVersion: computeAPIVersion,
@@ -1025,7 +1021,7 @@ func (s *environSuite) assertStartInstanceRequests(
 			Location:   "westus",
 			Tags:       to.StringMap(s.envTags),
 			Properties: availabilitySetProperties,
-			StorageSku: availabilityStorageOptions,
+			Sku:        &availabilityStorageOptions,
 		})
 		availabilitySetSubResource = &compute.SubResource{
 			ID: to.StringPtr(availabilitySetId),
@@ -1059,7 +1055,7 @@ func (s *environSuite) assertStartInstanceRequests(
 			PublicIPAllocationMethod: network.Static,
 			PublicIPAddressVersion:   "IPv4",
 		},
-		StorageSku: &storage.Sku{Name: "Standard", Tier: "Regional"},
+		Sku: &armtemplates.Sku{Name: "Standard"},
 	}, {
 		APIVersion: networkAPIVersion,
 		Type:       "Microsoft.Network/networkInterfaces",
