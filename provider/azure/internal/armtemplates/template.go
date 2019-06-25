@@ -3,8 +3,6 @@
 
 package armtemplates
 
-import "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
-
 const (
 	schema         = "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#"
 	contentVersion = "1.0.0.0"
@@ -29,6 +27,13 @@ func (t *Template) Map() (map[string]interface{}, error) {
 	return m, nil
 }
 
+// Sku represents an Azure SKU. Each API (compute/networking/storage)
+// defines its own SKU types, but we use a common type because we
+// don't require many fields.
+type Sku struct {
+	Name string `json:"name,omitempty"`
+}
+
 // Resource describes a template resource. For information on the
 // individual fields, see https://azure.microsoft.com/en-us/documentation/articles/resource-group-authoring-templates/.
 type Resource struct {
@@ -43,5 +48,5 @@ type Resource struct {
 	Resources  []Resource        `json:"resources,omitempty"`
 
 	// Non-uniform attributes.
-	StorageSku *storage.Sku `json:"sku,omitempty"`
+	Sku *Sku `json:"sku,omitempty"`
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-10-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2018-05-01/resources"
-	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
 	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/Azure/go-autorest/autorest/to"
 	jc "github.com/juju/testing/checkers"
@@ -174,9 +173,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeployment(
 		Type:     "Microsoft.Storage/storageAccounts",
 		Name:     storageAccountName,
 		Location: "westus",
-		StorageSku: &storage.Sku{
-			Name: storage.SkuName("Standard_LRS"),
-		},
+		Sku:      &armtemplates.Sku{Name: "Standard_LRS"},
 	}}
 
 	var actual resources.Deployment
