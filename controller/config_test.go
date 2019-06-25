@@ -201,7 +201,7 @@ var validateTests = []struct {
 		controller.CACertKey:     testing.CACert,
 		controller.ModelLogsSize: "0",
 	},
-	expectError: "model logs size must be at least 1 MB not valid",
+	expectError: "model logs size less than 1 MB not valid",
 }, {
 	about: "invalid CAAS docker image repo",
 	config: controller.Config{

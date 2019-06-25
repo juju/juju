@@ -722,7 +722,7 @@ func Validate(c Config) error {
 			return errors.Annotate(err, "invalid model logs size in configuration")
 		}
 		if mb < 1 {
-			return errors.NotValidf("model logs size must be at least 1 MB")
+			return errors.NotValidf("model logs size less than 1 MB")
 		}
 	}
 

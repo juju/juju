@@ -140,7 +140,7 @@ func modelLogsSize(session *mgo.Session) (int, error) {
 }
 
 // modelUUIDs returns the UUIDs of all models currently stored in the database.
-// This function is called very early in the opening of the databaes, so it uses
+// This function is called very early in the opening of the database, so it uses
 // lower level mgo methods rather than any helpers from State objects.
 func modelUUIDs(session *mgo.Session) ([]string, error) {
 	var docs []modelDoc
@@ -155,8 +155,10 @@ func modelUUIDs(session *mgo.Session) ([]string, error) {
 	return result, nil
 }
 
-// InitDbLogs sets up the indexes for the logs collection. It should
-// be called as state is opened. It is idempotent.
+// InitDbLogsForModel sets up the indexes for the logs collection for the
+// specified model. It should be called as state is opened. It is idempotent.
+// This function also ensures that the logs collection is capped at the right
+// size.
 func InitDbLogsForModel(session *mgo.Session, modelUUID string, size int) error {
 	// Get the collection from the logs DB.
 	logsColl := session.DB(logsDB).C(logCollectionName(modelUUID))
