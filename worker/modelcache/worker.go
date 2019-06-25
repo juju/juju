@@ -415,6 +415,10 @@ func (c *cacheWorker) translateBranch(d multiwatcher.Delta) interface{} {
 		return cache.RemoveBranch{
 			ModelUUID: id.ModelUUID,
 			Id:        id.Id,
+			// Assuming a branch abortion will cause reevaluation by any
+			// configuration watchers, but hitting this scenario can not
+			// currently result from Juju workflow; only manual deletion.
+			Committed: false,
 		}
 	}
 
@@ -432,6 +436,7 @@ func (c *cacheWorker) translateBranch(d multiwatcher.Delta) interface{} {
 		return cache.RemoveBranch{
 			ModelUUID: id.ModelUUID,
 			Id:        id.Id,
+			Committed: value.GenerationId > 0,
 		}
 	}
 

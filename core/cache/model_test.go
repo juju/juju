@@ -286,16 +286,20 @@ func (s *ModelSuite) TestRemoveBranchPublishesName(c *gc.C) {
 	err := m.RemoveBranch(cache.RemoveBranch{
 		ModelUUID: branchChange.ModelUUID,
 		Id:        branchChange.Id,
+		Committed: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
 	case msg := <-rcv:
-		name, ok := msg.(string)
+		removal, ok := msg.([]cache.BranchRemovalMessage)
 		if !ok {
-			c.Fatal("wrong type published; expected string.")
+			c.Fatal("wrong type published; expected []cache.BranchRemovalMessage.")
 		}
-		c.Check(name, gc.Equals, branchChange.Name)
+		c.Check(removal, jc.SameContents, []cache.BranchRemovalMessage{{
+			Name:      branchChange.Name,
+			Committed: true,
+		}})
 
 	case <-time.After(testing.LongWait):
 		c.Fatal("branch removal message not Received")

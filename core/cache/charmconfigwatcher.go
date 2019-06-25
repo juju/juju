@@ -174,43 +174,28 @@ func (w *CharmConfigWatcher) branchRemoved(topic string, msg interface{}) {
 		return
 	}
 
-	name, okUnit := msg.(string)
+	messages, okUnit := msg.([]BranchRemovalMessage)
 	if !okUnit {
-		logger.Errorf("programming error; branch deleted message was not of expected type, string")
+		logger.Errorf("programming error; branch deleted message was not of expected type, []BranchRemovalMessage")
 		return
 	}
 
-	if w.branchName != name {
-		return
+	for _, msg := range messages {
+		if w.branchName != msg.Name {
+			continue
+		}
+
+		w.branchName = ""
+		w.branchDeltas = nil
+
+		// If the branch was committed we expect re-evaluation to trigger via
+		// a master settings change (immediately before of after),
+		// so we do nothing here. If it was aborted, we re-evaluate now.
+		if !msg.Committed {
+			w.checkConfig()
+		}
+		break
 	}
-
-	// The branch we are tracking was deleted.
-	// One of the following scenarios will ensue:
-	// 1) The branch was aborted and this is the only message we will receive.
-	//    Clearing the branch info and checking whether to notify is fine.
-	//    We will send at most one notification.
-	// 2) The branch was committed and this is the first related message.
-	//    There will be a subsequent message for the master settings change.
-	//    If the branch changes mutate master config, there will be 2
-	//    notifications sent.
-	// 3) The branch was committed and this is the second related message,
-	//    coming after the master settings change message.
-	//    The first message should have resulted in no notification,
-	//    because the new master is the same as master + branch deltas.
-	//    When the branch info is removed config remains unchanged,
-	//	  so there is no notification for the second message wither.
-
-	// TODO (manadart 2019-06-18): A fix for case (2) above would be to change
-	// the cache worker so that a completed branch is not sent as a deletion,
-	// rather as a normal change. We could then detect committed vs aborted and
-	// ensure that at most one notification is sent.
-	// We would check for notification on aborted, but ignore commits,
-	// relying on the master settings change message to determine whether to
-	// notify. After processing the update, we would then evict the branch.
-
-	w.branchName = ""
-	w.branchDeltas = nil
-	w.checkConfig()
 }
 
 // isTracking returns true if this watcher's unit is tracking the input branch.

@@ -376,7 +376,7 @@ func (m *Model) removeBranch(ch RemoveBranch) error {
 
 	branch, ok := m.branches[ch.Id]
 	if ok {
-		m.hub.Publish(modelBranchRemove, branch.Name())
+		m.hub.Publish(modelBranchRemove, []BranchRemovalMessage{{Name: branch.Name(), Committed: ch.Committed}})
 		if err := branch.evict(); err != nil {
 			return errors.Trace(err)
 		}
@@ -417,4 +417,17 @@ func (m *Model) machineRegexp() (*regexp.Regexp, error) {
 func (m *Model) doLocked() func() {
 	m.mu.Lock()
 	return m.mu.Unlock
+}
+
+// BranchRemovalMessage is a pub/sub message transport to notify of a branch
+// removal and its cause.
+// TODO (manadart 2019-06-25): This message is a work-around for the fact that
+// changes to the database that are applied transactionally are not
+// materialised in the cache in the same fashion - rather as a series of
+// individual entity changes. If a solution to this is implemented,
+// then this message type can be removed and we only need to know the name of
+// the removed branch.
+type BranchRemovalMessage struct {
+	Name      string
+	Committed bool
 }

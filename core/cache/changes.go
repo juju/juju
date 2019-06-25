@@ -303,6 +303,10 @@ func (b BranchChange) copy() BranchChange {
 type RemoveBranch struct {
 	ModelUUID string
 	Id        string
+
+	// Committed indicates that this branch is being removed as a result of the
+	// branch being committed and not aborted.
+	Committed bool
 }
 
 func copyStatusInfo(info status.StatusInfo) status.StatusInfo {

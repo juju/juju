@@ -107,10 +107,26 @@ func (s *charmConfigWatcherSuite) TestTrackingBranchAbortedNotified(c *gc.C) {
 	w := s.newWatcher(c, "redis/0")
 	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword})
 
-	// Publish a branch removal.
+	// Publish a branch removal via abort.
 	// This should change the effective config and cause notification.
-	s.Hub.Publish(modelBranchRemove, branchName)
+	s.Hub.Publish(modelBranchRemove, []BranchRemovalMessage{{
+		Name:      branchName,
+		Committed: false,
+	}})
 	s.assertOneChange(c, w, map[string]interface{}{})
+	w.AssertStops()
+}
+
+func (s *charmConfigWatcherSuite) TestTrackingBranchCommittedNotNotified(c *gc.C) {
+	w := s.newWatcher(c, "redis/0")
+	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword})
+
+	// Publish a branch removal via commit. No change should result.
+	s.Hub.Publish(modelBranchRemove, []BranchRemovalMessage{{
+		Name:      branchName,
+		Committed: true,
+	}})
+	w.AssertNoChange()
 	w.AssertStops()
 }
 
