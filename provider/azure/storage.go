@@ -1001,8 +1001,6 @@ func storageAccountTemplateResource(
 		Name:       accountName,
 		Location:   location,
 		Tags:       envTags,
-		StorageSku: &armstorage.Sku{
-			Name: armstorage.SkuName(accountType),
-		},
+		Sku:        &armtemplates.Sku{Name: accountType},
 	}
 }

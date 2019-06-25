@@ -42,7 +42,14 @@ func (s *configSuite) TestValidateNew(c *gc.C) {
 func (s *configSuite) TestValidateInvalidStorageAccountType(c *gc.C) {
 	s.assertConfigInvalid(
 		c, testing.Attrs{"storage-account-type": "savings"},
-		`invalid storage account type "savings", expected one of: \["Standard_LRS" "Standard_GRS" "Standard_RAGRS" "Standard_ZRS" "Premium_LRS"\]`,
+		`invalid storage account type "savings", expected one of: \["Premium_LRS" "Premium_ZRS" "Standard_GRS" "Standard_LRS" "Standard_RAGRS" "Standard_ZRS"\]`,
+	)
+}
+
+func (s *configSuite) TestValidateInvalidLoadBalancerSkuName(c *gc.C) {
+	s.assertConfigInvalid(
+		c, testing.Attrs{"load-balancer-sku-name": "premium"},
+		`invalid load balancer SKU name "Premium", expected one of: \["Basic" "Standard"\]`,
 	)
 }
 
@@ -69,6 +76,19 @@ func (s *configSuite) TestValidateStorageAccountTypeCantChange(c *gc.C) {
 	cfgNew := makeTestModelConfig(c, testing.Attrs{"storage-account-type": "Premium_LRS"})
 	_, err = s.provider.Validate(cfgNew, cfgOld)
 	c.Assert(err, gc.ErrorMatches, `cannot change immutable "storage-account-type" config \(Standard_LRS -> Premium_LRS\)`)
+}
+
+func (s *configSuite) TestValidateLoadBalancerSkuNameCanChange(c *gc.C) {
+	cfgOld := makeTestModelConfig(c, testing.Attrs{"load-balancer-sku-name": "Standard"})
+	_, err := s.provider.Validate(cfgOld, cfgOld)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfgNew := makeTestModelConfig(c, testing.Attrs{"load-balancer-sku-name": "Basic"})
+	_, err = s.provider.Validate(cfgNew, cfgOld)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.provider.Validate(cfgOld, cfgNew)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *configSuite) assertConfigValid(c *gc.C, attrs testing.Attrs) {
