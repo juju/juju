@@ -68,7 +68,10 @@ class MicroK8s(Base):
 
     def _ensure_cluster_config(self):
         self.__enable_addons()
-        self.__tmp_fix_patch_kubedns()
+        try:
+            self.__tmp_fix_patch_kubedns()
+        except Exception as e:
+            logger.error(e)
 
     def _node_address_getter(self, node):
         # microk8s uses the node's 'InternalIP`.
