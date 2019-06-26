@@ -189,6 +189,14 @@ func NewAddBranchCommandForTest(api AddBranchCommandAPI, store jujuclient.Client
 	return modelcmd.Wrap(cmd)
 }
 
+func NewAbortCommandForTest(api AbortCommandAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &abortCommand{
+		api: api,
+	}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
+}
+
 func NewCommitCommandForTest(api CommitCommandAPI, store jujuclient.ClientStore) cmd.Command {
 	cmd := &commitCommand{
 		api: api,
