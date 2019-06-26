@@ -53,11 +53,13 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/charms"
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
 	jjcharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/juju/testing"
@@ -710,6 +712,77 @@ func (s *DeploySuite) TestDeployBundleWithOffers(c *gc.C) {
 		}
 	}
 	c.Assert(offerCallCount, gc.Equals, 2)
+}
+
+func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
+	cfgAttrs := map[string]interface{}{
+		"name": "name",
+		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"type": "foo",
+	}
+	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
+	withAllWatcher(fakeAPI)
+
+	inURL := charm.MustParseURL("wordpress")
+	withCharmRepoResolvable(fakeAPI, inURL)
+
+	withCharmDeployable(
+		fakeAPI, inURL, "bionic",
+		&charm.Meta{Name: "wordpress", Series: []string{"bionic"}},
+		nil, false, false, 0, nil, nil,
+	)
+
+	mac, err := apitesting.NewMacaroon("id")
+	c.Assert(err, jc.ErrorIsNil)
+
+	fakeAPI.Call("AddUnits", application.AddUnitsParams{
+		ApplicationName: "wordpress",
+		NumUnits:        1,
+	}).Returns([]string{"wordpress/0"}, error(nil))
+
+	fakeAPI.Call("GetConsumeDetails",
+		"admin/default.mysql",
+	).Returns(params.ConsumeOfferDetails{
+		Offer: &params.ApplicationOfferDetails{
+			OfferName: "mysql",
+			OfferURL:  "admin/default.mysql",
+		},
+		Macaroon: mac,
+		ControllerInfo: &params.ExternalControllerInfo{
+			ControllerTag: coretesting.ControllerTag.String(),
+			Addrs:         []string{"192.168.1.0"},
+			Alias:         "controller-alias",
+			CACert:        coretesting.CACert,
+		},
+	}, nil)
+
+	fakeAPI.Call("Consume",
+		crossmodel.ConsumeApplicationArgs{
+			Offer: params.ApplicationOfferDetails{
+				OfferName: "mysql",
+				OfferURL:  "test:admin/default.mysql",
+			},
+			ApplicationAlias: "mysql",
+			Macaroon:         mac,
+			ControllerInfo: &crossmodel.ControllerInfo{
+				ControllerTag: coretesting.ControllerTag,
+				Alias:         "controller-alias",
+				Addrs:         []string{"192.168.1.0"},
+				CACert:        coretesting.CACert,
+			},
+		},
+	).Returns("mysql", nil)
+
+	deploy := &DeployCommand{
+		NewAPIRoot: func() (DeployAPI, error) {
+			return fakeAPI, nil
+		},
+	}
+
+	s.SetFeatureFlags(feature.CMRAwareBundles)
+	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "wordpress-with-saas")
+	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), bundlePath)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type fakeProvider struct {
@@ -2621,6 +2694,16 @@ func (f *fakeDeployAPI) ScaleApplication(p application.ScaleApplicationParams) (
 func (f *fakeDeployAPI) Offer(modelUUID, application string, endpoints []string, offerName, descr string) ([]params.ErrorResult, error) {
 	results := f.MethodCall(f, "Offer", modelUUID, application, endpoints, offerName, descr)
 	return results[0].([]params.ErrorResult), jujutesting.TypeAssertError(results[1])
+}
+
+func (f *fakeDeployAPI) GetConsumeDetails(offerURL string) (params.ConsumeOfferDetails, error) {
+	results := f.MethodCall(f, "GetConsumeDetails", offerURL)
+	return results[0].(params.ConsumeOfferDetails), jujutesting.TypeAssertError(results[1])
+}
+
+func (f *fakeDeployAPI) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) {
+	results := f.MethodCall(f, "Consume", arg)
+	return results[0].(string), jujutesting.TypeAssertError(results[1])
 }
 
 func stringToInterface(args []string) []interface{} {
