@@ -44,7 +44,7 @@ func (s *modelGenerationSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *modelGenerationSuite) TestAddGeneration(c *gc.C) {
+func (s *modelGenerationSuite) TestAddBranch(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	resultSource := params.ErrorResult{}
@@ -53,6 +53,18 @@ func (s *modelGenerationSuite) TestAddGeneration(c *gc.C) {
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
 	err := api.AddBranch(s.branchName)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *modelGenerationSuite) TestAbortBranch(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	resultSource := params.ErrorResult{}
+	arg := params.BranchArg{BranchName: s.branchName}
+	s.fCaller.EXPECT().FacadeCall("AbortBranch", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
+
+	api := modelgeneration.NewStateFromCaller(s.fCaller)
+	err := api.AbortBranch(s.branchName)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -112,7 +124,7 @@ func (s *modelGenerationSuite) TestHasActiveBranch(c *gc.C) {
 	c.Check(has, jc.IsTrue)
 }
 
-func (s *modelGenerationSuite) TestGenerationInfo(c *gc.C) {
+func (s *modelGenerationSuite) TestBranchInfo(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	resultSource := params.GenerationResults{Generations: []params.Generation{{
