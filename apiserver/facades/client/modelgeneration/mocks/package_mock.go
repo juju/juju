@@ -170,6 +170,18 @@ func (m *MockGeneration) EXPECT() *MockGenerationMockRecorder {
 	return m.recorder
 }
 
+// Abort mocks base method
+func (m *MockGeneration) Abort(arg0 string) error {
+	ret := m.ctrl.Call(m, "Abort", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Abort indicates an expected call of Abort
+func (mr *MockGenerationMockRecorder) Abort(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Abort", reflect.TypeOf((*MockGeneration)(nil).Abort), arg0)
+}
+
 // AssignAllUnits mocks base method
 func (m *MockGeneration) AssignAllUnits(arg0 string) error {
 	ret := m.ctrl.Call(m, "AssignAllUnits", arg0)

@@ -20,8 +20,7 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.modelgeneration")
 
-// API implements the ModelGenerationAPI interface and is the concrete implementation
-// of the API endpoint.
+// API is the concrete implementation of the API endpoint.
 type API struct {
 	check             *common.BlockChecker
 	authorizer        facade.Authorizer
@@ -31,8 +30,12 @@ type API struct {
 	model             Model
 }
 
-// NewModelGenerationFacade provides the signature required for facade registration.
-func NewModelGenerationFacade(ctx facade.Context) (*API, error) {
+type APIV1 struct {
+	*API
+}
+
+// NewModelGenerationFacadeV2 provides the signature required for facade registration.
+func NewModelGenerationFacadeV2(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
 	st := &stateShim{State: ctx.State()}
 	m, err := st.Model()
@@ -40,6 +43,15 @@ func NewModelGenerationFacade(ctx facade.Context) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 	return NewModelGenerationAPI(st, authorizer, m)
+}
+
+// NewModelGenerationFacade provides the signature required for facade registration.
+func NewModelGenerationFacade(ctx facade.Context) (*APIV1, error) {
+	v2, err := NewModelGenerationFacadeV2(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &APIV1{v2}, nil
 }
 
 // NewModelGenerationAPI creates a new API endpoint for dealing with model generations.
@@ -157,6 +169,32 @@ func (api *API) CommitBranch(arg params.BranchArg) (params.IntResult, error) {
 		result.Error = common.ServerError(err)
 	} else {
 		result.Result = genId
+	}
+	return result, nil
+}
+
+// AbortBranch aborts the input branch, marking it complete.  However no
+// changes are made applicable to the whole model.  No units may be assigned
+// to the branch when aborting.
+func (api *API) AbortBranch(arg params.BranchArg) (params.ErrorResult, error) {
+	result := params.ErrorResult{}
+
+	isModelAdmin, err := api.hasAdminAccess()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !isModelAdmin && !api.isControllerAdmin {
+		return result, common.ErrPerm
+	}
+
+	branch, err := api.model.Branch(arg.BranchName)
+	if err != nil {
+		result.Error = common.ServerError(err)
+		return result, nil
+	}
+
+	if err := branch.Abort(api.apiUser.Name()); err != nil {
+		result.Error = common.ServerError(err)
 	}
 	return result, nil
 }

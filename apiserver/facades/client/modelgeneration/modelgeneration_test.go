@@ -127,6 +127,18 @@ func (s *modelGenerationSuite) TestCommitBranchSuccess(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.IntResult{Result: 3, Error: nil})
 }
 
+func (s *modelGenerationSuite) TestAbortBranchSuccess(c *gc.C) {
+	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, _ *mocks.MockState, mod *mocks.MockModel) {
+		gen := mocks.NewMockGeneration(ctrl)
+		gen.EXPECT().Abort(s.apiUser).Return(nil)
+		mod.EXPECT().Branch(s.newBranchName).Return(gen, nil)
+	}).Finish()
+
+	result, err := s.api.AbortBranch(s.newBranchArg())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: nil})
+}
+
 func (s *modelGenerationSuite) TestHasActiveBranchTrue(c *gc.C) {
 	defer s.setupModelGenerationAPI(c, func(_ *gomock.Controller, _ *mocks.MockState, mockModel *mocks.MockModel) {
 		mockModel.EXPECT().Branch(s.newBranchName).Return(nil, nil)

@@ -36,6 +36,7 @@ type Generation interface {
 	AssignUnit(string) error
 	AssignedUnits() map[string][]string
 	Commit(string) (int, error)
+	Abort(string) error
 	Config() map[string]settings.ItemChanges
 }
 
