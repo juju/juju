@@ -231,7 +231,64 @@ func (s *generationSuite) TestCommitAppliesConfigDeltas(c *gc.C) {
 	c.Check(cfg, gc.DeepEquals, charm.Settings(newCfg))
 }
 
-// TODO (manadart 2019-03-21): Tests for abort.
+func (s *generationSuite) TestAbortSuccess(c *gc.C) {
+	s.setupTestingClock(c)
+
+	gen := s.addBranch(c)
+
+	err := gen.Abort(branchCommitter)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Idempotent.
+	err = gen.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	err = gen.Abort(branchCommitter)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *generationSuite) TestAbortSuccessApplicationNoAssignedUnits(c *gc.C) {
+	s.setupTestingClock(c)
+
+	gen := s.addBranch(c)
+	err := gen.AssignApplication("riak")
+	c.Assert(err, jc.ErrorIsNil)
+	err = gen.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = gen.Abort(branchCommitter)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *generationSuite) TestAbortFailsAssignedUnits(c *gc.C) {
+	s.setupTestingClock(c)
+
+	gen := s.setupAssignAllUnits(c)
+	err := gen.AssignUnit("riak/0")
+	c.Assert(err, jc.ErrorIsNil)
+	err = gen.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = gen.Abort(branchCommitter)
+	c.Assert(err, gc.ErrorMatches, "branch has assigned units")
+}
+
+func (s *generationSuite) TestAbortCommittedBranch(c *gc.C) {
+	s.setupTestingClock(c)
+
+	gen := s.setupAssignAllUnits(c)
+	err := gen.AssignUnit("riak/0")
+	c.Assert(err, jc.ErrorIsNil)
+	err = gen.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = gen.Commit(branchCommitter)
+	c.Assert(err, jc.ErrorIsNil)
+	err = gen.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = gen.Abort(branchCommitter)
+	c.Assert(err, gc.ErrorMatches, "branch was already committed")
+}
 
 func (s *generationSuite) TestBranchCharmConfigDeltas(c *gc.C) {
 	gen := s.setupAssignAllUnits(c)

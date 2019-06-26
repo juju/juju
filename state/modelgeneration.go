@@ -470,7 +470,59 @@ func (g *Generation) commitConfigTxnOps() ([]txn.Op, error) {
 	return ops, nil
 }
 
-// TODO (manadart 2019-03-19): Implement Abort().
+// Abort marks the generation as completed however no value is assigned from
+// the generation sequence.
+func (g *Generation) Abort(userName string) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := g.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+
+		if g.IsCompleted() {
+			if g.GenerationId() > 0 {
+				return nil, errors.New("branch was already committed")
+			}
+			return nil, jujutxn.ErrNoOperations
+		}
+
+		// Must have no assigned units.
+		assigned := g.AssignedUnits()
+		for _, units := range assigned {
+			if len(units) > 0 {
+				return nil, errors.New("branch has assigned units")
+			}
+		}
+
+		// Must not have upgraded charm of tracked application.
+		// TODO (hml) 2019-06-26
+		// Implement cannot abort branch where tracked application has
+		// been upgraded.
+
+		now, err := g.st.ControllerTimestamp()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// As a proxy for checking that the generation has not changed,
+		// Assert that the txn rev-no has not changed since we materialised
+		// this generation object.
+		ops := []txn.Op{{
+			C:      generationsC,
+			Id:     g.doc.DocId,
+			Assert: bson.D{{"txn-revno", g.doc.TxnRevno}},
+			Update: bson.D{
+				{"$set", bson.D{
+					{"completed", now.Unix()},
+					{"completed-by", userName},
+				}},
+			},
+		}}
+		return ops, nil
+	}
+
+	return errors.Trace(g.st.db().Run(buildTxn))
+}
 
 // CheckNotComplete returns an error if this
 // generation was committed or aborted.
