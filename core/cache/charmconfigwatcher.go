@@ -23,6 +23,7 @@ type charmConfigWatcherConfig struct {
 
 	unitName string
 	appName  string
+	charmURL string
 
 	// appConfigChangeTopic is the pub/sub topic to which the watcher will
 	// listen for application charm config change messages.
@@ -55,6 +56,7 @@ type CharmConfigWatcher struct {
 
 	unitName   string
 	appName    string
+	charmURL   string
 	branchName string
 
 	masterSettings map[string]interface{}
@@ -70,6 +72,7 @@ func newCharmConfigWatcher(cfg charmConfigWatcherConfig) (*CharmConfigWatcher, e
 		initComplete:       make(chan struct{}),
 		unitName:           cfg.unitName,
 		appName:            cfg.appName,
+		charmURL:           cfg.charmURL,
 	}
 
 	deregister := cfg.res.registerWorker(w)
@@ -249,7 +252,7 @@ func (w *CharmConfigWatcher) setConfigHash() (bool, error) {
 		}
 	}
 
-	newHash, err := hash(cfg)
+	newHash, err := hash(cfg, w.charmURL)
 	if err != nil {
 		return false, errors.Trace(err)
 	}

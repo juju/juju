@@ -1059,7 +1059,7 @@ func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 			{
 				StringsWatcherId: "1",
 				// See core/cache/hash.go for the hash implementation.
-				Changes: []string{"a5ac26f48388f7e22ce2c08e94af6ca92b128467542977d3f6d18cd9121cb0f4"},
+				Changes: []string{"754ed70cf17d2df2cc6a2dcb6cbfcb569a8357b97b5708e7a7ca0409505e1d0b"},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 		},

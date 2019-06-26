@@ -134,6 +134,7 @@ func (u *Unit) WatchConfigSettings() (*CharmConfigWatcher, error) {
 		model:                u.model,
 		unitName:             u.details.Name,
 		appName:              u.details.Application,
+		charmURL:             u.details.CharmURL,
 		appConfigChangeTopic: fmt.Sprintf("%s:%s", u.details.Application, applicationConfigChange),
 		branchChangeTopic:    branchChange,
 		branchRemoveTopic:    modelBranchRemove,

@@ -14,6 +14,8 @@ import (
 const (
 	branchName      = "test-branch"
 	defaultPassword = "default-pass"
+	defaultCharmURL = "default-charm-url"
+	defaultUnitName = "redis/0"
 )
 
 type charmConfigWatcherSuite struct {
@@ -23,8 +25,8 @@ type charmConfigWatcherSuite struct {
 var _ = gc.Suite(&charmConfigWatcherSuite{})
 
 func (s *charmConfigWatcherSuite) TestTrackingBranchChangedNotified(c *gc.C) {
-	w := s.newWatcher(c, "redis/0")
-	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword})
+	w := s.newWatcher(c, defaultUnitName, defaultCharmURL)
+	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword}, defaultCharmURL)
 
 	// Publish a tracked branch change with altered config.
 	b := Branch{
@@ -35,14 +37,14 @@ func (s *charmConfigWatcherSuite) TestTrackingBranchChangedNotified(c *gc.C) {
 	}
 	s.Hub.Publish(branchChange, b)
 
-	s.assertOneChange(c, w, map[string]interface{}{"password": "new-pass"})
+	s.assertOneChange(c, w, map[string]interface{}{"password": "new-pass"}, defaultCharmURL)
 	w.AssertStops()
 }
 
 func (s *charmConfigWatcherSuite) TestNotTrackingBranchChangedNotNotified(c *gc.C) {
 	// This will initialise the watcher without branch info.
-	w := s.newWatcher(c, "redis/9")
-	s.assertOneChange(c, w, map[string]interface{}{})
+	w := s.newWatcher(c, "redis/9", defaultCharmURL)
+	s.assertOneChange(c, w, map[string]interface{}{}, defaultCharmURL)
 
 	// Publish a branch change with altered config.
 	b := Branch{
@@ -59,8 +61,8 @@ func (s *charmConfigWatcherSuite) TestNotTrackingBranchChangedNotNotified(c *gc.
 }
 
 func (s *charmConfigWatcherSuite) TestDifferentBranchChangedNotNotified(c *gc.C) {
-	w := s.newWatcher(c, "redis/0")
-	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword})
+	w := s.newWatcher(c, defaultUnitName, defaultCharmURL)
+	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword}, defaultCharmURL)
 
 	// Publish a branch change with a different name to the tracked one.
 	b := Branch{
@@ -76,20 +78,20 @@ func (s *charmConfigWatcherSuite) TestDifferentBranchChangedNotNotified(c *gc.C)
 }
 
 func (s *charmConfigWatcherSuite) TestTrackingBranchMasterChangedNotified(c *gc.C) {
-	w := s.newWatcher(c, "redis/0")
-	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword})
+	w := s.newWatcher(c, defaultUnitName, defaultCharmURL)
+	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword}, defaultCharmURL)
 
 	// Publish a change to master configuration.
 	hc, _ := newHashCache(map[string]interface{}{"databases": 4}, nil, nil)
 	s.Hub.Publish(applicationConfigChange, hc)
 
-	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword, "databases": 4})
+	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword, "databases": 4}, defaultCharmURL)
 	w.AssertStops()
 }
 
 func (s *charmConfigWatcherSuite) TestTrackingBranchCommittedMasterChangeFirstNotNotified(c *gc.C) {
-	w := s.newWatcher(c, "redis/0")
-	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword})
+	w := s.newWatcher(c, defaultUnitName, defaultCharmURL)
+	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword}, defaultCharmURL)
 
 	// Publish a change to master configuration.
 	// This represents a commit where the master assumes the branch deltas.
@@ -104,24 +106,38 @@ func (s *charmConfigWatcherSuite) TestTrackingBranchCommittedMasterChangeFirstNo
 }
 
 func (s *charmConfigWatcherSuite) TestTrackingBranchAbortedNotified(c *gc.C) {
-	w := s.newWatcher(c, "redis/0")
-	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword})
+	w := s.newWatcher(c, defaultUnitName, defaultCharmURL)
+	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword}, defaultCharmURL)
 
 	// Publish a branch removal.
 	// This should change the effective config and cause notification.
 	s.Hub.Publish(modelBranchRemove, branchName)
-	s.assertOneChange(c, w, map[string]interface{}{})
+	s.assertOneChange(c, w, map[string]interface{}{}, defaultCharmURL)
 	w.AssertStops()
 }
 
 func (s *charmConfigWatcherSuite) TestNotTrackedBranchSeesMasterConfig(c *gc.C) {
 	// Watcher is for a unit not tracking the branch.
-	w := s.newWatcher(c, "redis/9")
-	s.assertOneChange(c, w, map[string]interface{}{})
+	w := s.newWatcher(c, "redis/9", defaultCharmURL)
+	s.assertOneChange(c, w, map[string]interface{}{}, defaultCharmURL)
 	w.AssertStops()
 }
 
-func (s *charmConfigWatcherSuite) newWatcher(c *gc.C, unitName string) StringsWatcherC {
+func (s *charmConfigWatcherSuite) TestSameUnitDifferentCharmURLYieldsDifferentHash(c *gc.C) {
+	w := s.newWatcher(c, defaultUnitName, defaultCharmURL)
+	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword}, defaultCharmURL)
+	h1 := w.Watcher.(*CharmConfigWatcher).configHash
+	w.AssertStops()
+
+	w = s.newWatcher(c, defaultUnitName, "different-charm-url")
+	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword}, "different-charm-url")
+	h2 := w.Watcher.(*CharmConfigWatcher).configHash
+	w.AssertStops()
+
+	c.Check(h1, gc.Not(gc.Equals), h2)
+}
+
+func (s *charmConfigWatcherSuite) newWatcher(c *gc.C, unitName string, charmURL string) StringsWatcherC {
 	appName, err := names.UnitApplication(unitName)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -131,6 +147,7 @@ func (s *charmConfigWatcherSuite) newWatcher(c *gc.C, unitName string) StringsWa
 		model:                s.newStubModel(),
 		unitName:             unitName,
 		appName:              appName,
+		charmURL:             charmURL,
 		appConfigChangeTopic: applicationConfigChange,
 		branchChangeTopic:    branchChange,
 		branchRemoveTopic:    modelBranchRemove,
@@ -170,8 +187,10 @@ func (s *charmConfigWatcherSuite) newStubModel() *stubCharmConfigModel {
 
 // assertWatcherConfig unwraps the charm config watcher and ensures that its
 // configuration hash matches that of the input configuration map.
-func (s *charmConfigWatcherSuite) assertOneChange(c *gc.C, wc StringsWatcherC, cfg map[string]interface{}) {
-	h, err := hash(cfg)
+func (s *charmConfigWatcherSuite) assertOneChange(
+	c *gc.C, wc StringsWatcherC, cfg map[string]interface{}, extra ...string,
+) {
+	h, err := hash(cfg, extra...)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange([]string{h})
 }

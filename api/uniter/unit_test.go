@@ -555,8 +555,8 @@ func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	defer wc.AssertStops()
 
 	// See core/cache/hash.go for the hash implementation.
-	// This is a hash of an empty map[string]interface{}.
-	wc.AssertChange("ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356")
+	// This is a hash of the charm URL PLUS an empty map[string]interface{}.
+	wc.AssertChange("0affda4fb1eaa8df870459625aa93c85e9fd6fc5374ac69f509575d139032262")
 
 	err = s.wordpressApplication.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
 		"blog-title": "sauceror central",
@@ -566,7 +566,7 @@ func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("a5ac26f48388f7e22ce2c08e94af6ca92b128467542977d3f6d18cd9121cb0f4")
+	wc.AssertChange("bfeb5aee52e6dea59d9c2a0c35a4d7fffa690c7230b1dd66f16832e4094905ae")
 
 	// Non-change is not reported.
 	err = s.wordpressApplication.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
