@@ -394,9 +394,12 @@ func (h *bundleHandler) getChanges() error {
 	if !featureflag.Enabled(feature.CMRAwareBundles) {
 		var filtered []bundlechanges.Change
 		for _, ch := range changes {
-			if ch.Method() != "createOffer" {
-				filtered = append(filtered, ch)
+			if ch.Method() == "createOffer" ||
+				ch.Method() == "consumeOffer" {
+				continue
 			}
+
+			filtered = append(filtered, ch)
 		}
 		changes = filtered
 	}
