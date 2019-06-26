@@ -249,8 +249,8 @@ func copyAttributes(values attributeMap) attributeMap {
 	return result
 }
 
-// DestroyRemoteApplicationOperation returns a model operation to destroy remote application.
-func (s *RemoteApplication) DestroyRemoteApplicationOperation(force bool) *DestroyRemoteApplicationOperation {
+// DestroyOperation returns a model operation to destroy remote application.
+func (s *RemoteApplication) DestroyOperation(force bool) *DestroyRemoteApplicationOperation {
 	return &DestroyRemoteApplicationOperation{
 		app:             &RemoteApplication{st: s.st, doc: s.doc},
 		ForcedOperation: ForcedOperation{Force: force},
@@ -296,6 +296,8 @@ func (op *DestroyRemoteApplicationOperation) Build(attempt int) ([]txn.Op, error
 
 // Done is part of the ModelOperation interface.
 func (op *DestroyRemoteApplicationOperation) Done(err error) error {
+	// NOTE(tsm): if you change the business logic here, check
+	//            that RemoveOfferOperation is modified to suit
 	if err != nil {
 		if !op.Force {
 			return errors.Annotatef(err, "cannot destroy remote application %q", op.app)
@@ -314,7 +316,7 @@ func (s *RemoteApplication) DestroyWithForce(force bool, maxWait time.Duration) 
 			s.doc.Life = Dying
 		}
 	}()
-	op := s.DestroyRemoteApplicationOperation(force)
+	op := s.DestroyOperation(force)
 	op.MaxWait = maxWait
 	err = s.st.ApplyOperation(op)
 	return op.Errors, err
