@@ -432,11 +432,8 @@ class JujuData:
             }.get(provider, provider)
 
         if provider == 'kubernetes':
-            host_cloud_region, k8s_base_cloud, _ = self.get_host_cloud_region()
-            if k8s_base_cloud == 'microk8s':
-                # microk8s is built-in cloud.
-                return k8s_base_cloud
-            return self.find_cloud_by_host_cloud_region(host_cloud_region)
+            _, k8s_base_cloud, _ = self.get_host_cloud_region()
+            return k8s_base_cloud
 
         endpoint = ''
         if provider == 'maas':
