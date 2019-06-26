@@ -57,7 +57,7 @@ class GKE(Base):
     def __init__(self, bs_manager, timeout=1800):
         super().__init__(bs_manager, timeout)
 
-        self.gke_cluster_name = self.client.env.controller.name  # use controller name as cluster name
+        self.gke_cluster_name = self.client.env.controller.name  # use controller name for cluster name
         self.default_storage_class_name = ''
         self.__init_driver(bs_manager.client.env)
 
@@ -124,7 +124,7 @@ class GKE(Base):
                 cluster_id=self.gke_cluster_name, **self.default_params,
             )
         except exceptions.NotFound:
-            ...
+            pass
 
     def _ensure_kube_dir(self):
         cluster = self._get_cluster(self.gke_cluster_name)
@@ -144,10 +144,10 @@ class GKE(Base):
             self.kubectl_path = kubectl_bin_path
         else:
             self.sh(
-                'curl', '-LO',
-                'https://storage.googleapis.com/kubernetes-release/release/v1.14.0/bin/linux/amd64/kubectl',
+                'curl', 'https://storage.googleapis.com/kubernetes-release/release/v1.14.0/bin/linux/amd64/kubectl',
                 '-o', self.kubectl_path
             )
+            os.chmod(self.kubectl_path, 0o774)
 
     def _ensure_cluster_config(self):
         ...

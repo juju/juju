@@ -115,14 +115,19 @@ def assess_caas_charm_deployment(caas_client, caas_provider):
         success_hook()
         log.info(caas_client.kubectl('get', 'pv,pvc', '-n', model_name))
         caas_client.ensure_cleanup()
-
-    endpoint = deploy_test_workloads(caas_client, k8s_model, caas_provider)
-    check_app_healthy(
-        endpoint, timeout=300,
-        success_hook=success_hook,
-        fail_hook=fail_hook,
-    )
-    k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
+        
+    try:
+        endpoint = deploy_test_workloads(caas_client, k8s_model, caas_provider)
+        check_app_healthy(
+            endpoint, timeout=300,
+            success_hook=success_hook,
+            fail_hook=fail_hook,
+        )
+        k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
+    except:  # noqa: E722
+        # run cleanup steps then raise.	
+        fail_hook()	
+        raise
 
 
 def parse_args(argv):
