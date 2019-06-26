@@ -21,6 +21,10 @@ from __future__ import print_function
 
 import logging
 import shutil
+import os
+import json
+
+import dns.resolver
 
 from .base import (
     Base,
@@ -36,6 +40,7 @@ logger = logging.getLogger(__name__)
 class MicroK8s(Base):
 
     name = K8sProviderType.MICROK8S
+    cloud_name = 'microk8s'  # built-in cloud name
 
     def __init__(self, bs_manager, timeout=1800):
         super().__init__(bs_manager, timeout)
@@ -44,11 +49,15 @@ class MicroK8s(Base):
     def _ensure_cluster_stack(self):
         self.__ensure_microk8s_installed()
 
+    def _tear_down_substrate(self):
+        # No need to tear down microk8s.
+        logger.warn('skip tearing down microk8s')
+
     def _ensure_kube_dir(self):
         # choose to use microk8s.kubectl
         mkubectl = shutil.which('microk8s.kubectl')
         if mkubectl is None:
-            raise AssertionError(mkubectl + "is required!")
+            raise AssertionError("microk8s.kubectl is required!")
         self.kubectl_path = mkubectl
 
         # export microk8s.config to kubeconfig file.
@@ -59,6 +68,10 @@ class MicroK8s(Base):
 
     def _ensure_cluster_config(self):
         self.__enable_addons()
+        try:
+            self.__tmp_fix_patch_kubedns()
+        except Exception as e:
+            logger.error(e)
 
     def _node_address_getter(self, node):
         # microk8s uses the node's 'InternalIP`.
@@ -80,3 +93,14 @@ class MicroK8s(Base):
             "microk8s status \n%s",
             self.sh('microk8s.status', '--wait-ready', '--timeout', self.timeout, '--yaml'),
         )
+
+    def __tmp_fix_patch_kubedns(self):
+        # patch nameservers of kubedns because the google one used in microk8s is blocked in our network.
+        def ping(addr):
+            return os.system('ping -c 1 ' + addr) == 0
+
+        nameservers = dns.resolver.Resolver().nameservers
+        for ns in nameservers:
+            if ping(ns):
+                return self.patch_configmap('kube-system', 'kube-dns', 'upstreamNameservers', json.dumps([ns]))
+        raise Exception('No working nameservers found from %s to use for patching kubedns' % nameservers)

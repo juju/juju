@@ -12,6 +12,7 @@ from __future__ import print_function
 import argparse
 import logging
 import sys
+import json
 from time import sleep
 
 import requests
@@ -23,6 +24,7 @@ from utility import (
     JujuAssertionError,
 )
 
+from jujupy.client import temp_bootstrap_env
 from jujupy.utility import until_timeout
 from jujupy.k8s_provider import (
     providers,
@@ -43,11 +45,11 @@ def check_app_healthy(url, timeout=300, success_hook=lambda: None, fail_hook=lam
     for remaining in until_timeout(timeout):
         try:
             r = requests.get(url)
-            if r.ok and r.status_code < 400:
-                return success_hook()
             status_code = r.status_code
-        except IOError as e:
-            log.error(e)
+            if r.ok and status_code < 400:
+                return success_hook()
+        except IOError:
+            ...
         finally:
             sleep(3)
             if remaining % 30 == 0:
@@ -57,9 +59,49 @@ def check_app_healthy(url, timeout=300, success_hook=lambda: None, fail_hook=lam
     raise JujuAssertionError('gitlab is not healthy')
 
 
-def assess_caas_charm_deployment(caas_client):
-    external_hostname = caas_client.get_external_hostname()
+def get_app_endpoint(caas_client, model_name, app_name, svc_type, timeout=120):
+    if svc_type == 'LoadBalancer':
+        for remaining in until_timeout(timeout):
+            try:
+                lb_addr = json.loads(
+                    caas_client.kubectl(
+                        '-n', model_name, 'get', 'svc', app_name, '-o', 'json'
+                    )
+                )['status']['loadBalancer']['ingress'][0]['ip']
+                if lb_addr:
+                    log.info('load balancer addr for %s is %s' % (app_name, lb_addr))
+                    return lb_addr
+            except:  # noqa: E722
+                ...
+        raise JujuAssertionError('No load balancer addr available for %s' % app_name)
+        
+    return caas_client.get_external_hostname()
 
+
+def deploy_test_workloads(caas_client, k8s_model, caas_provider):
+    k8s_model.deploy(
+        charm="cs:~juju/mariadb-k8s-0",
+    )
+    svc_type = None
+    if caas_provider == K8sProviderType.MICROK8S.name:
+        k8s_model.deploy(
+            charm="cs:~juju/mediawiki-k8s-3",
+            config='juju-external-hostname={}'.format(caas_client.get_external_hostname()),
+        )
+        k8s_model.juju('expose', ('mediawiki-k8s',))
+    else:
+        k8s_model.deploy(
+            charm="cs:~juju/mediawiki-k8s-3",
+            config='kubernetes-service-type=LoadBalancer',
+        )
+        svc_type = 'LoadBalancer'
+
+    k8s_model.juju('relate', ('mediawiki-k8s:db', 'mariadb-k8s:server'))
+    k8s_model.wait_for_workloads(timeout=600)
+    return 'http://' + get_app_endpoint(caas_client, k8s_model.model_name, 'mediawiki-k8s', svc_type)
+    
+    
+def assess_caas_charm_deployment(caas_client, caas_provider):
     if not caas_client.check_cluster_healthy(timeout=60):
         raise JujuAssertionError('k8s cluster is not healthy because kubectl is not accessible')
 
@@ -73,30 +115,18 @@ def assess_caas_charm_deployment(caas_client):
         success_hook()
         log.info(caas_client.kubectl('get', 'pv,pvc', '-n', model_name))
         caas_client.ensure_cleanup()
-
+        
     try:
-        k8s_model.deploy(
-            charm="cs:~juju/mediawiki-k8s-3",
-            config='juju-external-hostname={}'.format(external_hostname),
-        )
-
-        k8s_model.deploy(
-            charm="cs:~juju/mariadb-k8s-0",
-        )
-
-        k8s_model.juju('relate', ('mediawiki-k8s:db', 'mariadb-k8s:server'))
-        k8s_model.juju('expose', ('mediawiki-k8s',))
-        k8s_model.wait_for_workloads(timeout=600)
-
-        url = '{}://{}'.format('http', external_hostname)
+        endpoint = deploy_test_workloads(caas_client, k8s_model, caas_provider)
         check_app_healthy(
-            url, timeout=300,
+            endpoint, timeout=300,
             success_hook=success_hook,
+            fail_hook=fail_hook,
         )
         k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
-    except:
-        # run cleanup steps then raise.
-        fail_hook()
+    except:  # noqa: E722
+        # run cleanup steps then raise.	
+        fail_hook()	
         raise
 
 
@@ -112,6 +142,11 @@ def parse_args(argv):
         choices=K8sProviderType.keys(),
         help='Specify K8s cloud provider to use for CAAS tests.'
     )
+    parser.add_argument(
+        '--k8s-controller',
+        action='store_true',
+        help='Bootstrap to k8s cluster or not.'
+    )
 
     add_basic_testing_arguments(parser, existing=False)
     return parser.parse_args(argv)
@@ -120,16 +155,24 @@ def parse_args(argv):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
+
+    k8s_provider = providers[args.caas_provider]
     bs_manager = BootstrapManager.from_args(args)
-    with bs_manager.booted_context(
-        args.upload_tools,
-        caas_image_repo=args.caas_image_repo,
-    ):
-        client = bs_manager.client
-        k8s_provider = providers[args.caas_provider]
-        caas_client = k8s_provider(bs_manager)
-        assess_caas_charm_deployment(caas_client)
-    return 0
+
+    with k8s_provider(bs_manager).substrate_context() as caas_client:
+        # add-k8s --local
+        if args.k8s_controller and args.caas_provider != K8sProviderType.MICROK8S.name:
+            # microk8s is built-in cloud, no need run add-k8s for bootstrapping.
+            caas_client.add_k8s(True)
+        with bs_manager.existing_booted_context(
+            args.upload_tools,
+            caas_image_repo=args.caas_image_repo,
+        ):
+            if not args.k8s_controller:
+                # add-k8s to controller
+                caas_client.add_k8s(False)
+            assess_caas_charm_deployment(caas_client, args.caas_provider)
+        return 0
 
 
 if __name__ == '__main__':

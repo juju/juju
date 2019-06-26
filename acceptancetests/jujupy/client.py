@@ -364,12 +364,19 @@ class JujuData:
         raise LookupError('No such endpoint: {}'.format(endpoint))
 
     def find_cloud_by_host_cloud_region(self, host_cloud_region):
+        if not self.clouds['clouds']:
+            self.load_yaml()
         for cloud, cloud_config in self.clouds['clouds'].items():
             if cloud_config['type'] != 'kubernetes':
                 continue
             if cloud_config['host-cloud-region'] == host_cloud_region:
                 return cloud
-        raise LookupError('No such host cloud region: {}'.format(host_cloud_region))
+        raise LookupError(
+            'No such host cloud region: {host_cloud_region}, clouds: {clouds}'.format(
+                host_cloud_region=host_cloud_region,
+                clouds=self.clouds['clouds'],
+            )
+        )
 
     def set_model_name(self, model_name, set_controller=True):
         if set_controller:
@@ -445,8 +452,10 @@ class JujuData:
         if self.provider != 'kubernetes':
             raise Exception("cloud type %s has to be kubernetes" % self.provider)
 
+        def f(x):
+            return [x] + x.split('/')
+
         cache_key = 'host-cloud-region'
-        f = lambda x: [x] + x.split('/')
         raw = getattr(self, cache_key, None)
         if raw is not None:
             return f(raw)
