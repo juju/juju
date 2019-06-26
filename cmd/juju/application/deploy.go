@@ -1678,11 +1678,14 @@ func (c *DeployCommand) validateCharmSeriesWithName(series, name string) error {
 func charmValidationError(charmSeries, name string, err error) error {
 	if err != nil {
 		if errors.IsNotSupported(err) {
+			// output the warning information to help track down the error.
+			// see: lp:1833763
 			if warningInfo := series.SeriesWarningInfo(charmSeries); len(warningInfo) > 0 {
 				logger.Warningf(
-					"Parsing issues occured when extracting the distro-info.\n"+
-						"You may want to try updating your distro-info using `apt-get update distro-info`"+
-						"\n  - %s", strings.Join(warningInfo, "\n  - "),
+					"Parsing issues occurred when extracting the distro-info.\n\n"+
+						"  - %s\n"+
+						"\nYou may want to try updating your distro-info using `apt-get update distro-info`\n",
+					strings.Join(warningInfo, "\n  - "),
 				)
 			}
 			return errors.Errorf("%v is not available on the following %v", name, err)
