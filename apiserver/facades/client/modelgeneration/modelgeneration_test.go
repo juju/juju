@@ -6,6 +6,7 @@ package modelgeneration_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/cache"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -25,9 +26,10 @@ type modelGenerationSuite struct {
 
 	api *modelgeneration.API
 
-	mockState *mocks.MockState
-	mockModel *mocks.MockModel
-	mockGen   *mocks.MockGeneration
+	mockState      *mocks.MockState
+	mockModel      *mocks.MockModel
+	mockGen        *mocks.MockGeneration
+	mockModelCache *mocks.MockModelCache
 }
 
 var _ = gc.Suite(&modelGenerationSuite{})
@@ -227,8 +229,10 @@ func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C) *gomock.Controll
 	aExp.GetAuthTag().Return(names.NewUserTag("test-user"))
 	aExp.AuthClient().Return(true)
 
+	s.mockModelCache = mocks.NewMockModelCache(ctrl)
+
 	var err error
-	s.api, err = modelgeneration.NewModelGenerationAPI(s.mockState, mockAuthorizer, s.mockModel)
+	s.api, err = modelgeneration.NewModelGenerationAPI(s.mockState, mockAuthorizer, s.mockModel, s.mockModelCache)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -251,7 +255,7 @@ func (s *modelGenerationSuite) expectBranch() {
 }
 
 func (s *modelGenerationSuite) expectHasActiveBranch(err error) {
-	s.mockModel.EXPECT().Branch(s.newBranchName).Return(nil, err)
+	s.mockModelCache.EXPECT().Branch(s.newBranchName).Return(cache.Branch{}, err)
 }
 
 func (s *modelGenerationSuite) expectAssignAllUnits(appName string) {

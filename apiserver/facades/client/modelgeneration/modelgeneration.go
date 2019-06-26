@@ -28,6 +28,7 @@ type API struct {
 	isControllerAdmin bool
 	st                State
 	model             Model
+	modelCache        ModelCache
 }
 
 type APIV1 struct {
@@ -42,7 +43,11 @@ func NewModelGenerationFacadeV2(ctx facade.Context) (*API, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewModelGenerationAPI(st, authorizer, m)
+	mc, err := ctx.Controller().Model(st.ModelUUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewModelGenerationAPI(st, authorizer, m, &modelCacheShim{Model: mc})
 }
 
 // NewModelGenerationFacade provides the signature required for facade registration.
@@ -59,6 +64,7 @@ func NewModelGenerationAPI(
 	st State,
 	authorizer facade.Authorizer,
 	m Model,
+	mc ModelCache,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -79,6 +85,7 @@ func NewModelGenerationAPI(
 		apiUser:           apiUser,
 		st:                st,
 		model:             m,
+		modelCache:        mc,
 	}, nil
 }
 
@@ -301,7 +308,7 @@ func (api *API) HasActiveBranch(arg params.BranchArg) (params.BoolResult, error)
 		return result, common.ErrPerm
 	}
 
-	if _, err := api.model.Branch(arg.BranchName); err != nil {
+	if _, err := api.modelCache.Branch(arg.BranchName); err != nil {
 		if errors.IsNotFound(err) {
 			result.Result = false
 		} else {
