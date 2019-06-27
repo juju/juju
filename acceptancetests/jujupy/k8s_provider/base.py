@@ -118,6 +118,7 @@ class Base(object):
 
     def __init__(self, bs_manager, timeout=1800):
         self.client = bs_manager.client
+        self.bs_manager = bs_manager
         # register cleanup_hook
         bs_manager.cleanup_hook = self.ensure_cleanup
 
@@ -169,6 +170,8 @@ class Base(object):
                 '--local',
                 '--cluster-name', self.kubeconfig_cluster_name,
             )
+            # use this local cloud to bootstrap later.
+            self.bs_manager.client.env.set_cloud_name(self.cloud_name)
         else:
             args += (
                 '--controller', self.client.env.controller.name,
