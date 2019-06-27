@@ -1004,7 +1004,7 @@ class BootstrapManager:
             # the failed operation.
             with logged_exception(logging):
                 yield
-        except:
+        except:  # noqa: E722
             # If run from a windows machine may not have ssh to get
             # logs
             with self.client.ignore_soft_deadline():
@@ -1032,7 +1032,7 @@ class BootstrapManager:
                 if addable_machines is not None:
                     self.client.add_ssh_machines(addable_machines)
                 yield
-        except:
+        except:  # noqa: E722
             if self.has_controller:
                 safe_print_status(self.client)
             else:
@@ -1056,9 +1056,12 @@ class BootstrapManager:
                     if not self.keep_env:
                         if self.has_controller:
                             self.collect_resource_details()
-                        self.tear_down()
-                        unclean_resources = self.ensure_cleanup()
-                        error_if_unclean(unclean_resources)
+                        try:
+                            self.tear_down()
+                        finally:
+                            # ensure_cleanup does not reply on controller at all, so always try to do cleanup.
+                            unclean_resources = self.ensure_cleanup()
+                            error_if_unclean(unclean_resources)
 
     # GZ 2016-08-11: Should this method be elsewhere to avoid poking backend?
     def _should_dump(self):

@@ -26,10 +26,15 @@ import logging
 import subprocess
 from pprint import pformat
 from enum import Enum
+from contextlib import contextmanager
 
 from jujupy.utility import (
     ensure_dir,
     until_timeout,
+)
+from jujupy.client import (
+    temp_bootstrap_env,
+    JujuData,
 )
 
 
@@ -51,6 +56,7 @@ class ProviderNotValid(ValueError):
 class K8sProviderType(Enum):
     MICROK8S = 1
     K8S_CORE = 2
+    GKE = 3
 
     @classmethod
     def keys(cls):
@@ -79,30 +85,36 @@ class Base(object):
     kube_config_path = None
 
     default_storage_class_name = None
+    kubeconfig_cluster_name = None
 
     def _ensure_cluster_stack(self):
         """ensures or checks if stack/infrastructure is ready to use.
         - ensures kubectl/apiserver is functioning.
         """
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def _ensure_cluster_config(self):
         """ensures the cluster is correctly configured and ready to use.
         - ensures the cluster is ready to deploy workloads.
         """
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def _ensure_kube_dir(self):
         """ensures $KUBECONFIG/.kube dir setup correctly:
         - kubectl bin
         - config
         """
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def _node_address_getter(self, node):
         """filters node addresses to get the correct accessible address.
         """
-        raise NotImplemented()
+        raise NotImplementedError()
+
+    def _tear_down_substrate(self):
+        """tear down substrate cloud - k8s cluster.
+        """
+        raise NotImplementedError()
 
     def __init__(self, bs_manager, timeout=1800):
         self.client = bs_manager.client
@@ -110,7 +122,16 @@ class Base(object):
         bs_manager.cleanup_hook = self.ensure_cleanup
 
         self.timeout = timeout
-        self.juju_home = self.client.env.juju_home
+        old_environment = bs_manager.client.env.environment
+    
+        bs_manager.client.env.environment = bs_manager.temp_env_name
+        with temp_bootstrap_env(bs_manager.client.env.juju_home, bs_manager.client) as tm_h:
+            self.client.env.juju_home = tm_h
+            self.refresh_home(self.client)
+        bs_manager.client.env.environment = old_environment
+
+    def refresh_home(self, client):
+        self.juju_home = client.env.juju_home
 
         self.kubectl_path = os.path.join(self.juju_home, 'kubectl')
         self.kube_home = os.path.join(self.juju_home, '.kube')
@@ -121,20 +142,40 @@ class Base(object):
         # ensure kube config env var
         os.environ[KUBE_CONFIG_PATH_ENV_VAR] = self.kube_config_path
 
-        self._ensure_cluster_stack()
-        self._ensure_kube_dir()
-        self.check_cluster_healthy()
-        self._ensure_cluster_config()
-        self._add_k8s()
+    @contextmanager
+    def substrate_context(self):
+        try:
+            self._ensure_cluster_stack()
+            self._ensure_kube_dir()
+            self.check_cluster_healthy()
+            self._ensure_cluster_config()
+
+            yield self
+        finally:
+            # tear down cluster.
+            self._tear_down_substrate()
 
     def add_model(self, model_name):
         # returns the newly added CAAS model.
         return self.client.add_model(env=self.client.env.clone(model_name), cloud_region=self.cloud_name)
 
-    def _add_k8s(self):
-        self.client.controller_juju(
-            'add-k8s',
-            (self.cloud_name, '--controller', self.client.env.controller.name)
+    def add_k8s(self, is_local=False, juju_home=None):
+        args = (
+            self.cloud_name,
+        )
+        juju_home = juju_home or self.client.env.juju_home
+        if is_local:
+            args += (
+                '--local',
+                '--cluster-name', self.kubeconfig_cluster_name,
+            )
+        else:
+            args += (
+                '--controller', self.client.env.controller.name,
+            )
+        self.client._backend.juju(
+            'add-k8s', args,
+            used_feature_flags=self.client.used_feature_flags, juju_home=juju_home,
         )
         logger.debug('added caas cloud, now all clouds are -> \n%s', self.client.list_clouds(format='yaml'))
 
@@ -158,10 +199,21 @@ class Base(object):
     def kubectl(self, *args):
         return self.sh(*(self._kubectl_bin + args))
 
+    def patch_configmap(self, namespace, cm_name, key, value):
+        cm = json.loads(
+            self.kubectl('get', '-n', namespace, 'cm', cm_name, '-o', 'json')
+        )
+        data = cm.get('data', {})
+        data[key] = value if isinstance(value, str) else str(value)
+        cm['data'] = data
+        self.kubectl_apply(json.dumps(cm))
+
     def sh(self, *args):
+        args = [str(arg) for arg in args]
+        logger.debug('sh -> %s', ' '.join(args))
         return subprocess.check_output(
-            # args should be str.
-            (str(arg) for arg in args),
+            # cmd should be a list of str.
+            args,
             stderr=subprocess.STDOUT,
         ).decode('UTF-8').strip()
 

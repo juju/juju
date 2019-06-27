@@ -144,7 +144,7 @@ models:
   life: alive
   status:
     current: available
-    since: just now
+    since: .*
   access: admin
   last-connection: just now
   sla-owner: admin

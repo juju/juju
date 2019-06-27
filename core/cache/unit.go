@@ -73,6 +73,10 @@ func (u *Unit) Ports() []network.Port {
 // Config settings returns the effective charm configuration for this unit
 // taking into account whether it is tracking a model branch.
 func (u *Unit) ConfigSettings() (charm.Settings, error) {
+	if u.details.CharmURL == "" {
+		return nil, errors.New("unit charm not set")
+	}
+
 	appName := u.details.Application
 	app, err := u.model.Application(appName)
 	if err != nil {

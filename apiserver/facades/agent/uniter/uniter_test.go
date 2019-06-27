@@ -20,6 +20,7 @@ import (
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/apiserver/facades/client/application"
@@ -54,67 +55,24 @@ type uniterSuiteBase struct {
 
 	machine0      *state.Machine
 	machine1      *state.Machine
-	wordpress     *state.Application
 	wpCharm       *state.Charm
-	mysql         *state.Application
+	wordpress     *state.Application
 	wordpressUnit *state.Unit
+	mysqlCharm    *state.Charm
+	mysql         *state.Application
 	mysqlUnit     *state.Unit
-
-	meteredApplication *state.Application
-	meteredCharm       *state.Charm
-	meteredUnit        *state.Unit
 }
 
 func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	// Create two machines, two services and add a unit to each service.
-	s.machine0 = s.Factory.MakeMachine(c, &factory.MachineParams{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageModel},
-	})
-	s.machine1 = s.Factory.MakeMachine(c, &factory.MachineParams{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
-	})
-	s.wpCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
-		Name: "wordpress",
-		URL:  "cs:quantal/wordpress-3",
-	})
-	s.wordpress = s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "wordpress",
-		Charm: s.wpCharm,
-	})
-	mysqlCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
-		Name: "mysql",
-	})
-	s.mysql = s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "mysql",
-		Charm: mysqlCharm,
-	})
-	s.wordpressUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
-		Application: s.wordpress,
-		Machine:     s.machine0,
-	})
-	s.mysqlUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
-		Application: s.mysql,
-		Machine:     s.machine1,
-	})
+	s.setupState(c)
 
-	s.meteredCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
-		Name: "metered",
-		URL:  "cs:quantal/metered",
-	})
-	s.meteredApplication = s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Charm: s.meteredCharm,
-	})
-	s.meteredUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
-		Application: s.meteredApplication,
-		SetCharmURL: true,
-	})
+	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	// Create a FakeAuthorizer so we can check permissions,
-	// set up assuming unit 0 has logged in.
+	// set up assuming the wordpress unit has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.wordpressUnit.Tag(),
 	}
@@ -124,14 +82,56 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
+	s.uniter = s.newUniterAPI(c, s.State, s.authorizer)
+}
+
+// setupState creates 2 machines, 2 services and adds a unit to each service.
+func (s *uniterSuiteBase) setupState(c *gc.C) {
+	s.machine0 = s.Factory.MakeMachine(c, &factory.MachineParams{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageModel},
+	})
+	s.machine1 = s.Factory.MakeMachine(c, &factory.MachineParams{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	})
+
+	s.wpCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "wordpress",
+		URL:  "cs:quantal/wordpress-3",
+	})
+	s.wordpress = s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "wordpress",
+		Charm: s.wpCharm,
+	})
+	s.wordpressUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: s.wordpress,
+		Machine:     s.machine0,
+	})
+
+	s.mysqlCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "mysql",
+	})
+	s.mysql = s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "mysql",
+		Charm: s.mysqlCharm,
+	})
+	s.mysqlUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: s.mysql,
+		Machine:     s.machine1,
+	})
+}
+
+func (s *uniterSuiteBase) newUniterAPI(c *gc.C, st *state.State, auth facade.Authorizer) *uniter.UniterAPI {
 	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
-		State_:             s.State,
+		Controller_:        s.Controller,
+		State_:             st,
 		Resources_:         s.resources,
-		Auth_:              s.authorizer,
+		Auth_:              auth,
 		LeadershipChecker_: s.State.LeadershipChecker(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.uniter = uniterAPI
+	return uniterAPI
 }
 
 func (s *uniterSuiteBase) addRelation(c *gc.C, first, second string) *state.Relation {
@@ -152,7 +152,8 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAAS
 	st := s.Factory.MakeCAASModel(c, nil)
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
+
+	s.CleanupSuite.AddCleanup(func(*gc.C) { _ = st.Close() })
 	cm, err := m.CAASModel()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -169,13 +170,23 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAAS
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiInfo, err := environs.APIInfo(context.NewCloudCallContext(), s.ControllerConfig.ControllerUUID(), st.ModelUUID(), coretesting.CACert, s.ControllerConfig.APIPort(), s.Environ)
+	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, m.UUID())
+
+	apiInfo, err := environs.APIInfo(
+		context.NewCloudCallContext(),
+		s.ControllerConfig.ControllerUUID(),
+		st.ModelUUID(),
+		coretesting.CACert,
+		s.ControllerConfig.APIPort(),
+		s.Environ,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = unit.Tag()
 	apiInfo.Password = password
 	apiState, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	s.CleanupSuite.AddCleanup(func(*gc.C) { apiState.Close() })
+	s.CleanupSuite.AddCleanup(func(*gc.C) { _ = apiState.Close() })
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: unit.Tag(),
@@ -713,13 +724,7 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 	// Now try as subordinate's agent.
 	subAuthorizer := s.authorizer
 	subAuthorizer.Tag = subordinate.Tag()
-	subUniter, err := uniter.NewUniterAPI(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              subAuthorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	subUniter := s.newUniterAPI(c, s.State, subAuthorizer)
 
 	result, err = subUniter.GetPrincipal(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1140,6 +1145,7 @@ func (s *uniterSuite) TestWatchActionNotifications(c *gc.C) {
 	wc.AssertNoChange()
 
 	addedAction, err := s.wordpressUnit.AddAction("fakeaction", nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertChange(addedAction.Id())
 	wc.AssertNoChange()
@@ -1239,6 +1245,10 @@ func (s *uniterSuite) TestWatchActionNotificationsPermissionDenied(c *gc.C) {
 func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
 	settings, err := s.wordpressUnit.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
@@ -1304,15 +1314,9 @@ func (s *uniterSuite) TestWatchSubordinateUnitRelations(c *gc.C) {
 
 	subAuthorizer := s.authorizer
 	subAuthorizer.Tag = mysqlLogUnit.Tag()
-	api, err := uniter.NewUniterAPI(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              subAuthorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	uniterAPI := s.newUniterAPI(c, s.State, subAuthorizer)
 
-	result, err := api.WatchUnitRelations(params.Entities{
+	result, err := uniterAPI.WatchUnitRelations(params.Entities{
 		Entities: []params.Entity{{Tag: mysqlLogUnit.Tag().String()}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1371,15 +1375,9 @@ func (s *uniterSuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.
 
 	subAuthorizer := s.authorizer
 	subAuthorizer.Tag = mysqlLogUnit.Tag()
-	api, err := uniter.NewUniterAPI(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              subAuthorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	uniterAPI := s.newUniterAPI(c, s.State, subAuthorizer)
 
-	result, err := api.WatchUnitRelations(params.Entities{
+	result, err := uniterAPI.WatchUnitRelations(params.Entities{
 		Entities: []params.Entity{{Tag: mysqlLogUnit.Tag().String()}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1436,15 +1434,9 @@ func (s *uniterSuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
 
 	subAuthorizer := s.authorizer
 	subAuthorizer.Tag = monUnit.Tag()
-	api, err := uniter.NewUniterAPI(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              subAuthorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	uniterAPI := s.newUniterAPI(c, s.State, subAuthorizer)
 
-	result, err := api.WatchUnitRelations(params.Entities{
+	result, err := uniterAPI.WatchUnitRelations(params.Entities{
 		Entities: []params.Entity{{Tag: monUnit.Tag().String()}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1627,13 +1619,7 @@ func (s *uniterSuite) TestActionsWrongUnit(c *gc.C) {
 	mysqlUnitAuthorizer := apiservertesting.FakeAuthorizer{
 		Tag: s.mysqlUnit.Tag(),
 	}
-	mysqlUnitFacade, err := uniter.NewUniterAPI(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              mysqlUnitAuthorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	mysqlUnitFacade := s.newUniterAPI(c, s.State, mysqlUnitAuthorizer)
 
 	action, err := s.wordpressUnit.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1973,13 +1959,7 @@ func (s *uniterSuite) TestEnterScopeIgnoredForInvalidPrincipals(c *gc.C) {
 
 	subAuthorizer := s.authorizer
 	subAuthorizer.Tag = wpLoggingU.Tag()
-	api, err := uniter.NewUniterAPI(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              subAuthorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	uniterAPI := s.newUniterAPI(c, s.State, subAuthorizer)
 
 	// Count how many relationscopes records there are beforehand.
 	scopesBefore := countRelationScopes(c, s.State, mysqlRel)
@@ -1995,7 +1975,7 @@ func (s *uniterSuite) TestEnterScopeIgnoredForInvalidPrincipals(c *gc.C) {
 		Relation: mysqlRel.Tag().String(),
 		Unit:     wpLoggingU.Tag().String(),
 	}}}
-	result, err := api.EnterScope(args)
+	result, err := uniterAPI.EnterScope(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
@@ -2569,13 +2549,7 @@ func (s *uniterSuite) TestWatchCAASUnitAddressesHash(c *gc.C) {
 		{Tag: "application-gitlab"},
 	}}
 
-	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
-		State_:             cm.State(),
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	uniterAPI := s.newUniterAPI(c, cm.State(), s.authorizer)
 
 	result, err := uniterAPI.WatchUnitAddressesHash(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3022,14 +2996,7 @@ func (s *uniterSuite) TestModelEgressSubnets(c *gc.C) {
 func (s *uniterSuite) makeMysqlUniter(c *gc.C) *uniter.UniterAPI {
 	authorizer := s.authorizer
 	authorizer.Tag = s.mysqlUnit.Tag()
-	result, err := uniter.NewUniterAPI(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return result
+	return s.newUniterAPI(c, s.State, authorizer)
 }
 
 func (s *uniterSuite) makeRemoteWordpress(c *gc.C) {
@@ -3062,6 +3029,7 @@ func (s *uniterSuite) TestV4WatchApplicationRelations(c *gc.C) {
 		Resources_:         s.resources,
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.State.LeadershipChecker(),
+		Controller_:        s.Controller,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := apiV4.WatchApplicationRelations(args)
@@ -3097,6 +3065,7 @@ func (s *uniterSuite) TestV5Relation(c *gc.C) {
 		Resources_:         s.resources,
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.State.LeadershipChecker(),
+		Controller_:        s.Controller,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := apiV5.Relation(args)
@@ -3127,6 +3096,7 @@ func (s *uniterSuite) TestV5RelationById(c *gc.C) {
 		Resources_:         s.resources,
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.State.LeadershipChecker(),
+		Controller_:        s.Controller,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := apiV5.RelationById(args)
@@ -3191,6 +3161,7 @@ containers:
 
 func (s *uniterSuite) TestSetPodSpec(c *gc.C) {
 	u, cm, app, _ := s.setupCAASModel(c)
+
 	err := u.SetPodSpec(app.Name(), podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	spec, err := cm.PodSpec(app.ApplicationTag())
@@ -3202,6 +3173,10 @@ type unitMetricBatchesSuite struct {
 	uniterSuiteBase
 	*commontesting.ModelWatcherTest
 	uniter *uniter.UniterAPI
+
+	meteredApplication *state.Application
+	meteredCharm       *state.Charm
+	meteredUnit        *state.Unit
 }
 
 var _ = gc.Suite(&unitMetricBatchesSuite{})
@@ -3209,17 +3184,22 @@ var _ = gc.Suite(&unitMetricBatchesSuite{})
 func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
 	s.uniterSuiteBase.SetUpTest(c)
 
+	s.meteredCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "metered",
+		URL:  "cs:quantal/metered",
+	})
+	s.meteredApplication = s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.meteredCharm,
+	})
+	s.meteredUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: s.meteredApplication,
+		SetCharmURL: true,
+	})
+
 	meteredAuthorizer := apiservertesting.FakeAuthorizer{
 		Tag: s.meteredUnit.Tag(),
 	}
-	var err error
-	s.uniter, err = uniter.NewUniterAPI(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              meteredAuthorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	s.uniter = s.newUniterAPI(c, s.State, meteredAuthorizer)
 
 	s.ModelWatcherTest = commontesting.NewModelWatcherTest(
 		s.uniter,
@@ -3401,6 +3381,9 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 		Machine:     s.machine1,
 	})
 
+	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
 	// Create the resource registry separately to track invocations to register.
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
@@ -3476,6 +3459,7 @@ func (s *uniterNetworkConfigSuite) setupUniterAPIForUnit(c *gc.C, givenUnit *sta
 		Resources_:         s.resources,
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.State.LeadershipChecker(),
+		Controller_:        s.Controller,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -3753,15 +3737,7 @@ func (s *uniterNetworkInfoSuite) setupUniterAPIForUnit(c *gc.C, givenUnit *state
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: givenUnit.Tag(),
 	}
-
-	var err error
-	s.uniter, err = uniter.NewUniterAPI(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	s.uniter = s.newUniterAPI(c, s.State, s.authorizer)
 }
 
 func (s *uniterNetworkInfoSuite) addRelationAndAssertInScope(c *gc.C) {
@@ -4134,6 +4110,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoV6Results(c *gc.C) {
 		Resources_:         s.resources,
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.State.LeadershipChecker(),
+		Controller_:        s.Controller,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -4191,14 +4168,7 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 		IngressAddresses: []string{"54.32.1.2", "192.168.1.2"},
 	}
 
-	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
-		State_:             st,
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
+	uniterAPI := s.newUniterAPI(c, st, s.authorizer)
 	result, err := uniterAPI.NetworkInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Results["db"], jc.DeepEquals, expectedResult)
@@ -4210,7 +4180,7 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 	st := cm.State()
 	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mariadb", Series: "kubernetes"})
-	f.MakeApplication(c, &factory.ApplicationParams{Name: "mariadb", Charm: ch})
+	_ = f.MakeApplication(c, &factory.ApplicationParams{Name: "mariadb", Charm: ch})
 
 	var updateUnits state.UpdateUnitsOperation
 	addr := "10.0.0.1"
@@ -4227,6 +4197,12 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	c.Assert(wp.Refresh(), jc.ErrorIsNil)
+	c.Assert(wpUnit.Refresh(), jc.ErrorIsNil)
+
+	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
 	args := params.NetworkInfoParams{
 		Unit:     wpUnit.Tag().String(),
 		Bindings: []string{"db"},
@@ -4242,14 +4218,7 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 		IngressAddresses: []string{"54.32.1.2", "192.168.1.2"},
 	}
 
-	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
-		State_:             st,
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
+	uniterAPI := s.newUniterAPI(c, st, s.authorizer)
 	result, err := uniterAPI.NetworkInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Results["db"], jc.DeepEquals, expectedResult)
@@ -4302,13 +4271,8 @@ func (*fakeBroker) APIVersion() (string, error) {
 
 func (s *cloudSpecUniterSuite) TestCloudAPIVersion(c *gc.C) {
 	_, cm, _, _ := s.setupCAASModel(c)
-	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
-		State_:             cm.State(),
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+
+	uniterAPI := s.newUniterAPI(c, cm.State(), s.authorizer)
 	uniter.SetNewContainerBrokerFunc(uniterAPI, func(environs.OpenParams) (caas.Broker, error) {
 		return &fakeBroker{}, nil
 	})
@@ -4335,6 +4299,7 @@ func (s *uniterV8Suite) SetUpTest(c *gc.C) {
 		Resources_:         s.resources,
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.State.LeadershipChecker(),
+		Controller_:        s.Controller,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.uniterV8 = uniterV8
@@ -4407,6 +4372,7 @@ func (s *uniterV8Suite) TestWatchUnitAddresses(c *gc.C) {
 
 func (s *uniterV8Suite) TestWatchCAASUnitAddresses(c *gc.C) {
 	_, cm, _, _ := s.setupCAASModel(c)
+
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -4422,6 +4388,7 @@ func (s *uniterV8Suite) TestWatchCAASUnitAddresses(c *gc.C) {
 		Resources_:         s.resources,
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.State.LeadershipChecker(),
+		Controller_:        s.Controller,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

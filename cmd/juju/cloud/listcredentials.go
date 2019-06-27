@@ -34,7 +34,7 @@ Note that there can be multiple sets of credentials and, thus, multiple
 names.
 
 Actual authentication material is exposed with the '--show-secrets' 
-option.
+option in json or yaml formats. Secrets are not shown in tabular format.
 
 A controller, and subsequently created models, can be created with a 
 different set of credentials but any action taken within the model (e.g.:
@@ -132,7 +132,7 @@ func (c *listCredentialsCommand) Info() *cmd.Info {
 
 func (c *listCredentialsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.showSecrets, "show-secrets", false, "Show secrets")
+	f.BoolVar(&c.showSecrets, "show-secrets", false, "Show secrets, applicable to yaml or json formats only")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -192,6 +192,9 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 		return errors.Annotatef(err, "failed to list available clouds")
 	}
 
+	if c.showSecrets && c.out.Name() == "tabular" {
+		ctxt.Infof("secrets are not shown in tabular format")
+	}
 	displayCredentials := make(map[string]CloudCredential)
 	var missingClouds []string
 	for _, cloudName := range cloudNames {

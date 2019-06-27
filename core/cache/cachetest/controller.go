@@ -17,6 +17,9 @@ import (
 // TestController wraps a cache controller for testing.
 // It allows synchronisation of state objects with the cache
 // without the need for a multi-watcher and cache worker.
+// This is useful when testing with StateSuite;
+// JujuConnSuite sets up a cache worker and multiwatcher to keep the model
+// cache in sync, so direct population using this technique is not necessary.
 type TestController struct {
 	*cache.Controller
 
@@ -93,6 +96,11 @@ func (tc *TestController) UpdateApplication(c *gc.C, modelUUID string, app *stat
 // UpdateMachine updates the input state machine in the cache.
 func (tc *TestController) UpdateMachine(c *gc.C, modelUUID string, machine *state.Machine) {
 	tc.SendChange(MachineChange(c, modelUUID, machine))
+}
+
+// UpdateUnit updates the input state unit in the cache.
+func (tc *TestController) UpdateUnit(c *gc.C, modelUUID string, unit *state.Unit) {
+	tc.SendChange(UnitChange(c, modelUUID, unit))
 }
 
 func (tc *TestController) SendChange(change interface{}) {

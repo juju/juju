@@ -52,7 +52,6 @@ import (
 	lxdbroker "github.com/juju/juju/worker/containerbroker"
 	"github.com/juju/juju/worker/controllerport"
 	"github.com/juju/juju/worker/credentialvalidator"
-	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/externalcontrollerupdater"
@@ -633,15 +632,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		))),
 
-		logPrunerName: ifNotMigrating(ifPrimaryController(dblogpruner.Manifold(
-			dblogpruner.ManifoldConfig{
-				ClockName:     clockName,
-				StateName:     stateName,
-				PruneInterval: config.LogPruneInterval,
-				NewWorker:     dblogpruner.NewWorker,
-			},
-		))),
-
 		txnPrunerName: ifNotMigrating(ifPrimaryController(txnpruner.Manifold(
 			txnpruner.ManifoldConfig{
 				ClockName:     clockName,
@@ -1074,7 +1064,6 @@ const (
 	isPrimaryControllerFlagName   = "is-primary-controller-flag"
 	isControllerFlagName          = "is-controller-flag"
 	instanceMutaterName           = "instance-mutater"
-	logPrunerName                 = "log-pruner"
 	txnPrunerName                 = "transaction-pruner"
 	certificateWatcherName        = "certificate-watcher"
 	modelCacheName                = "model-cache"

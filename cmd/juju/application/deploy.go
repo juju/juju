@@ -1403,10 +1403,7 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 		}
 
 		seriesName, err = seriesSelector.charmSeries()
-		if err != nil {
-			if errors.IsNotSupported(err) {
-				return nil, errors.Errorf("%v is not available on the following %v", ch.Meta().Name, err)
-			}
+		if err = charmValidationError(seriesName, ch.Meta().Name, errors.Trace(err)); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -1606,8 +1603,14 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		if charm.IsUnsupportedSeriesError(err) {
 			return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 		}
-		if errors.IsNotSupported(err) {
-			return errors.Errorf("%v is not available on the following %v", storeCharmOrBundleURL.Name, err)
+		// although we try and get the charmSeries from the charm series
+		// selector it will return an error and an empty string for the series.
+		// So we need to approximate what the seriesName should be when
+		// displaying an error to the user. We do this by getting the potential
+		// series name.
+		seriesName := getPotentialSeriesName(series, storeCharmOrBundleURL.Series, userRequestedSeries)
+		if validationErr := charmValidationError(seriesName, storeCharmOrBundleURL.Name, errors.Trace(err)); validationErr != nil {
+			return errors.Trace(validationErr)
 		}
 
 		// Store the charm in the controller
@@ -1650,12 +1653,41 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 	}, nil
 }
 
+// Returns the first string that isn't empty.
+// If all strings are empty, then return an empty string.
+func getPotentialSeriesName(series ...string) string {
+	for _, s := range series {
+		if s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
 // validateCharmSeriesWithName calls the validateCharmSeries, but handles the
 // error return value to check for NotSupported error and returns a custom error
 // message if that's found.
 func (c *DeployCommand) validateCharmSeriesWithName(series, name string) error {
-	if err := c.validateCharmSeries(series); err != nil {
+	err := c.validateCharmSeries(series)
+	return charmValidationError(series, name, errors.Trace(err))
+}
+
+// charmValidationError consumes an error along with a charmSeries and name
+// to help provide better feedback to the user when somethings gone wrong around
+// validating a charm validation
+func charmValidationError(charmSeries, name string, err error) error {
+	if err != nil {
 		if errors.IsNotSupported(err) {
+			// output the warning information to help track down the error.
+			// see: lp:1833763
+			if warningInfo := series.SeriesWarningInfo(charmSeries); len(warningInfo) > 0 {
+				logger.Warningf(
+					"Parsing issues occurred when extracting the distro-info.\n\n"+
+						"  - %s\n"+
+						"\nYou may want to try updating your distro-info using `apt-get update distro-info`\n",
+					strings.Join(warningInfo, "\n  - "),
+				)
+			}
 			return errors.Errorf("%v is not available on the following %v", name, err)
 		}
 		return errors.Trace(err)

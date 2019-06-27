@@ -273,6 +273,10 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 	if err := st.db().RunTransaction(ops); err != nil {
 		return nil, errors.Trace(err)
 	}
+	// Initialize the logs for the newly created models
+	if err := InitDbLogs(st.session); err != nil {
+		return nil, errors.Trace(err)
+	}
 	probablyUpdateStatusHistory(st.db(), modelGlobalKey, modelStatusDoc)
 	return ctlr, nil
 }
@@ -283,7 +287,7 @@ func InitDatabase(session *mgo.Session, modelUUID string, settings *controller.C
 	if err := schema.Create(session.DB(jujuDB), settings); err != nil {
 		return errors.Trace(err)
 	}
-	if err := InitDbLogs(session, modelUUID); err != nil {
+	if err := InitDbLogs(session); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
