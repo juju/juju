@@ -1560,6 +1560,9 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.apiLogin(c)
 
+	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+
 	// Run the actual test.
 	ctx.run(c, []stepper{
 		serveCharm{},

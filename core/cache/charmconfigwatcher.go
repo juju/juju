@@ -23,6 +23,7 @@ type charmConfigWatcherConfig struct {
 
 	unitName string
 	appName  string
+	charmURL string
 
 	// appConfigChangeTopic is the pub/sub topic to which the watcher will
 	// listen for application charm config change messages.
@@ -47,7 +48,7 @@ type charmConfigWatcherConfig struct {
 // - Changes to the charm config settings for the unit's application.
 // - Changes to a model branch being tracked by the unit.
 type CharmConfigWatcher struct {
-	*notifyWatcherBase
+	*stringsWatcherBase
 
 	// initComplete is a channel that will be closed when the
 	// watcher is fully constructed and ready to handle events.
@@ -55,6 +56,7 @@ type CharmConfigWatcher struct {
 
 	unitName   string
 	appName    string
+	charmURL   string
 	branchName string
 
 	masterSettings map[string]interface{}
@@ -66,10 +68,11 @@ type CharmConfigWatcher struct {
 // input configuration.
 func newCharmConfigWatcher(cfg charmConfigWatcherConfig) (*CharmConfigWatcher, error) {
 	w := &CharmConfigWatcher{
-		notifyWatcherBase: newNotifyWatcherBase(),
-		initComplete:      make(chan struct{}),
-		unitName:          cfg.unitName,
-		appName:           cfg.appName,
+		stringsWatcherBase: &stringsWatcherBase{changes: make(chan []string, 1)},
+		initComplete:       make(chan struct{}),
+		unitName:           cfg.unitName,
+		appName:            cfg.appName,
+		charmURL:           cfg.charmURL,
 	}
 
 	deregister := cfg.res.registerWorker(w)
@@ -111,9 +114,11 @@ func (w *CharmConfigWatcher) init(model charmConfigModel) error {
 		}
 	}
 
+	// Always notify with the first hash.
 	if _, err := w.setConfigHash(); err != nil {
 		return errors.Trace(err)
 	}
+	w.notify([]string{w.configHash})
 
 	close(w.initComplete)
 	return nil
@@ -229,7 +234,7 @@ func (w *CharmConfigWatcher) checkConfig() {
 		return
 	}
 	if changed {
-		w.notify()
+		w.notify([]string{w.configHash})
 	}
 }
 
@@ -247,7 +252,7 @@ func (w *CharmConfigWatcher) setConfigHash() (bool, error) {
 		}
 	}
 
-	newHash, err := hash(cfg)
+	newHash, err := hash(cfg, w.charmURL)
 	if err != nil {
 		return false, errors.Trace(err)
 	}

@@ -2739,14 +2739,46 @@ func (u *UniterAPI) goalStateUnits(app *state.Application, principalName string)
 // save this hash and use it to decide whether the config-changed hook
 // needs to be run (or whether this was just an agent restart with no
 // substantive config change).
+// TODO (manadart 2019-06-24): When other hash watchers are moved from state
+// over to the model cache, they can all share the `watchHashes` abstraction.
 func (u *UniterAPI) WatchConfigSettingsHash(args params.Entities) (params.StringsWatchResults, error) {
-	getWatcher := func(unit *state.Unit) (state.StringsWatcher, error) {
-		return unit.WatchConfigSettingsHash()
+	result := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
-	result, err := u.watchHashes(args, getWatcher)
+	canAccess, err := u.accessUnit()
 	if err != nil {
-		return params.StringsWatchResults{}, errors.Trace(err)
+		return params.StringsWatchResults{}, err
 	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil || !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		unit, err := u.getCacheUnit(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		w, err := unit.WatchConfigSettings()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		// Consume the initial event.
+		changes, ok := <-w.Changes()
+		if !ok {
+			result.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
+			continue
+		}
+
+		result.Results[i].Changes = changes
+		result.Results[i].StringsWatcherId = u.resources.Register(w)
+	}
+
 	return result, nil
 }
 
