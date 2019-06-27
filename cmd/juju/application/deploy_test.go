@@ -774,7 +774,7 @@ func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 	).Returns("mysql", nil)
 
 	fakeAPI.Call("AddRelation",
-		[]interface{}{"wordpress:db", ":db"}, []interface{}{},
+		[]interface{}{"wordpress:db", "mysql:db"}, []interface{}{},
 	).Returns(
 		&params.AddRelationResults{},
 		error(nil),
