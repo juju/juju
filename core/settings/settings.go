@@ -5,7 +5,6 @@ package settings
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
@@ -137,10 +136,8 @@ func (c ItemChanges) ApplyDeltaSource(oldChanges ItemChanges) (ItemChanges, erro
 	// then we know that the setting was reset to its original value.
 	// If this setting is subsequently reinstated, it is possible to lose the
 	// original "from" value if master is updated in the meantime.
-	// So we maintain a no-op entry (same from/to) in order to retain the old
+	// So we maintain an entry with the same to/from in order to retain the old
 	// value from when the configuration setting was first touched.
-	// These values are not shown to an operator who views a "diff"
-	// for the branch.
 	for key, old := range m {
 		res = append(res, MakeModification(key, old.OldValue, old.OldValue))
 	}
@@ -148,18 +145,14 @@ func (c ItemChanges) ApplyDeltaSource(oldChanges ItemChanges) (ItemChanges, erro
 	return res, nil
 }
 
-// CurrentSettings returns the current effective values indicated by this set
-// of changes. It uses the input default settings to return a value for items
-// that have been deleted.
-func (c ItemChanges) CurrentSettings(defaults charm.Settings) map[string]interface{} {
+// EffectiveChanges returns the effective changes resulting from the
+// application of these changes to the input defaults.
+func (c ItemChanges) EffectiveChanges(defaults charm.Settings) map[string]interface{} {
 	result := make(map[string]interface{})
 	for _, change := range c {
 		key := change.Key
 
 		switch {
-		case change.IsModification() && reflect.DeepEqual(change.OldValue, change.NewValue):
-			// These are placeholders that we do not apply.
-			// See comment in ApplyDeltaSource, above.
 		case change.IsDeletion():
 			result[key] = defaults[key]
 		default:

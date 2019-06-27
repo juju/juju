@@ -215,6 +215,9 @@ class JujuData:
         result.logging_config = self.logging_config
         result.provider_type = self.provider_type
         return result
+        
+    def set_cloud_name(self, name):
+        self._cloud_name = name
 
     @classmethod
     def from_env(cls, env):
@@ -367,8 +370,7 @@ class JujuData:
         raise LookupError('No such endpoint: {}'.format(endpoint))
 
     def find_cloud_by_host_cloud_region(self, host_cloud_region):
-        if not self.clouds['clouds']:
-            self.load_yaml()
+        self.load_yaml()
         for cloud, cloud_config in self.clouds['clouds'].items():
             if cloud_config['type'] != 'kubernetes':
                 continue
@@ -435,11 +437,8 @@ class JujuData:
             }.get(provider, provider)
 
         if provider == 'kubernetes':
-            host_cloud_region, k8s_base_cloud, _ = self.get_host_cloud_region()
-            if k8s_base_cloud == 'microk8s':
-                # microk8s is built-in cloud.
-                return k8s_base_cloud
-            return self.find_cloud_by_host_cloud_region(host_cloud_region)
+            _, k8s_base_cloud, _ = self.get_host_cloud_region()
+            return k8s_base_cloud
 
         endpoint = ''
         if provider == 'maas':
