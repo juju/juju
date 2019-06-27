@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	_ "github.com/juju/juju/provider/dummy"
 )
 
 var _ = gc.Suite(&cloudCredentialSuite{})
@@ -131,4 +132,45 @@ func (*cloudCredentialSuite) TestRegisterCredentialsWithCallFailure(c *gc.C) {
 		},
 	})
 	c.Assert(errors.Cause(err).Error(), gc.Matches, "bad")
+}
+
+func (*cloudCredentialSuite) assertInvalidCredentialName(c *gc.C, in modelcmd.GetCredentialsParams) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	cloudCredential := &cloud.CloudCredential{AuthCredentials: map[string]cloud.Credential{"new one": cloud.NewEmptyCredential()}}
+	mockProvider := common.NewMockTestCloudProvider(ctrl)
+	mockStore := common.NewMockCredentialStore(ctrl)
+	mockStore.EXPECT().CredentialForCloud("cloud").Return(
+		cloudCredential,
+		nil,
+	)
+
+	stderr := new(bytes.Buffer)
+
+	_, _, _, _, err := common.GetOrDetectCredential(
+		&cmd.Context{Stderr: stderr},
+		mockStore,
+		mockProvider,
+		in,
+	)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, `credential name "new one" not valid`)
+	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
+}
+
+func (s *cloudCredentialSuite) TestGetOrDetectCredentialInvalidCredentialNameProvided(c *gc.C) {
+	s.assertInvalidCredentialName(c,
+		modelcmd.GetCredentialsParams{
+			CredentialName: "new one",
+			Cloud:          cloud.Cloud{Name: "cloud", Type: "dummy"},
+		},
+	)
+}
+
+func (s *cloudCredentialSuite) TestGetOrDetectCredentialInvalidCredentialName(c *gc.C) {
+	s.assertInvalidCredentialName(c,
+		modelcmd.GetCredentialsParams{
+			Cloud: cloud.Cloud{Name: "cloud", Type: "dummy"},
+		},
+	)
 }
