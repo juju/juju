@@ -176,7 +176,7 @@ func (op *RemoveOfferOperation) Build(attempt int) ([]txn.Op, error) {
 	// When 'force' is set on the operation, this call will return needed operations
 	// and accumulate all operational errors encountered in the operation.
 	// If the 'force' is not set, any error will be fatal and no operations will be returned.
-	switch ops, err := op.internalRemove(offer); err {
+	switch ops, err := op.internalRemove(offer, attempt); err {
 	case errRefresh:
 	case errAlreadyDying:
 		return nil, jujutxn.ErrNoOperations
@@ -213,7 +213,7 @@ func (s *applicationOffers) Remove(offerName string, force bool) error {
 	return err
 }
 
-func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffer) ([]txn.Op, error) {
+func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffer, attempt int) ([]txn.Op, error) {
 	// Load the application before counting the connections
 	// so we can do a consistency check on relation count.
 	app, err := op.offers.st.Application(offer.ApplicationName)
@@ -261,6 +261,13 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 			} else if err != nil {
 				return nil, err
 			}
+
+			logger.Debugf("forcing cleanup of remote application %v", remoteApp.Name())
+			remoteAppOps, err := remoteApp.DestroyOperation(op.Force).Build(attempt)
+			if err != nil && err != jujutxn.ErrNoOperations {
+				op.AddError(err)
+			}
+			ops = append(ops, remoteAppOps...)
 
 			// Force any remote units to leave scope so the offer
 			// can be cleaned up.

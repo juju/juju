@@ -668,10 +668,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		fromBundle:          true,
 	}
 	series, err := selector.charmSeries()
-	if err != nil {
-		if errors.IsNotSupported(err) {
-			return errors.Errorf("%v is not available on the following %v", cURL.Name, err)
-		}
+	if err = charmValidationError(series, cURL.Name, errors.Trace(err)); err != nil {
 		return errors.Trace(err)
 	}
 

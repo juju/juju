@@ -64,6 +64,7 @@ type StateBackend interface {
 	EnsureApplicationDeviceConstraints() error
 	RemoveInstanceCharmProfileDataCollection() error
 	UpdateK8sModelNameIndex() error
+	AddModelLogsSize() error
 	AddControllerNodeDocs() error
 }
 
@@ -249,6 +250,10 @@ func (s stateBackend) RemoveInstanceCharmProfileDataCollection() error {
 
 func (s stateBackend) UpdateK8sModelNameIndex() error {
 	return state.UpdateK8sModelNameIndex(s.pool)
+}
+
+func (s stateBackend) AddModelLogsSize() error {
+	return state.AddModelLogsSize(s.pool)
 }
 
 func (s stateBackend) AddControllerNodeDocs() error {

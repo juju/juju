@@ -160,6 +160,20 @@ google  default
 	})
 }
 
+func (s *listCredentialsSuite) TestListCredentialsTabularShowsNoSecrets(c *gc.C) {
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCredentialsCommandForTest(s.store, s.personalCloudsFunc, s.cloudByNameFunc), "--show-secrets")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "secrets are not shown in tabular format\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+Cloud    Credentials
+aws      down*, bob
+azure    azhja
+google   default
+mycloud  me
+
+`[1:])
+}
+
 func (s *listCredentialsSuite) TestListCredentialsTabularMissingCloud(c *gc.C) {
 	s.store.Credentials["missingcloud"] = jujucloud.CloudCredential{}
 	out := s.listCredentials(c)

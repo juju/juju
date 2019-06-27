@@ -296,6 +296,8 @@ func (op *DestroyRemoteApplicationOperation) Build(attempt int) ([]txn.Op, error
 
 // Done is part of the ModelOperation interface.
 func (op *DestroyRemoteApplicationOperation) Done(err error) error {
+	// NOTE(tsm): if you change the business logic here, check
+	//            that RemoveOfferOperation is modified to suit
 	if err != nil {
 		if !op.Force {
 			return errors.Annotatef(err, "cannot destroy remote application %q", op.app)

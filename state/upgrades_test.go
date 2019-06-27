@@ -970,7 +970,7 @@ func (s *upgradesSuite) TestAddControllerLogCollectionsSizeSettingsKeepExisting(
 			"settings": bson.M{
 				"key":              "value",
 				"max-logs-age":     "96h",
-				"max-logs-size":    "5G",
+				"model-logs-size":  "5M",
 				"max-txn-log-size": "8G",
 			},
 		}, {
@@ -3210,6 +3210,39 @@ func (s *upgradesSuite) TestUpdateK8sModelNameIndex(c *gc.C) {
 	s.assertUpgradedData(c, UpdateK8sModelNameIndex,
 		expectUpgradedData{modelNameColl, expected},
 	)
+}
+
+func (s *upgradesSuite) TestAddModelLogsSize(c *gc.C) {
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(controllersC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = settingsColl.Insert(bson.M{
+		"_id": "controllerSettings",
+		"settings": bson.M{
+			"key": "value",
+		},
+	}, bson.M{
+		"_id": "someothersettingshouldnotbetouched",
+		// non-controller data: should not be touched
+		"settings": bson.M{"key": "value"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSettings := []bson.M{
+		{
+			"_id": "controllerSettings",
+			"settings": bson.M{
+				"key":             "value",
+				"model-logs-size": "20M",
+			},
+		}, {
+			"_id":      "someothersettingshouldnotbetouched",
+			"settings": bson.M{"key": "value"},
+		},
+	}
+
+	s.assertUpgradedData(c, AddModelLogsSize, expectUpgradedData{settingsColl, expectedSettings})
 }
 
 func (s *upgradesSuite) TestAddControllerNodeDocs(c *gc.C) {

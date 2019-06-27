@@ -4,6 +4,7 @@
 package cachetest
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -128,17 +130,31 @@ func MachineChange(c *gc.C, modelUUID string, machine *state.Machine) cache.Mach
 
 // UnitChange returns a UnitChange representing the input state unit.
 func UnitChange(c *gc.C, modelUUID string, unit *state.Unit) cache.UnitChange {
+	// If these addresses are not set in state, we simply eschew setting them
+	// in the cache rather than propagating such errors.
 	publicAddr, err := unit.PublicAddress()
-	c.Assert(err, jc.ErrorIsNil)
-
+	if !network.IsNoAddressError(err) {
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	privateAddr, err := unit.PrivateAddress()
-	c.Assert(err, jc.ErrorIsNil)
+	if !network.IsNoAddressError(err) {
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
 	machineId, err := unit.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
+	if !errors.IsNotAssigned(err) {
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	var charmURL string
+	if cURL, ok := unit.CharmURL(); ok {
+		charmURL = cURL.String()
+	}
 
 	pr, err := unit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
+	if !errors.IsNotAssigned(err) {
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
 	sts, err := unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -147,14 +163,13 @@ func UnitChange(c *gc.C, modelUUID string, unit *state.Unit) cache.UnitChange {
 	c.Assert(err, jc.ErrorIsNil)
 
 	principal, _ := unit.PrincipalName()
-	cURL, _ := unit.CharmURL()
 
 	return cache.UnitChange{
 		ModelUUID:      modelUUID,
 		Name:           unit.Name(),
 		Application:    unit.ApplicationName(),
 		Series:         unit.Series(),
-		CharmURL:       cURL.Path(),
+		CharmURL:       charmURL,
 		Life:           life.Value(unit.Life().String()),
 		PublicAddress:  publicAddr.String(),
 		PrivateAddress: privateAddr.String(),
