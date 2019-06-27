@@ -861,6 +861,16 @@ func (c *DeployCommand) deployBundle(spec bundleDeploySpec) (rErr error) {
 		return errors.New("API connection is controller-only (should never happen)")
 	}
 
+	spec.controllerName, err = c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	accountDetails, err := c.CurrentAccountDetails()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	spec.accountUser = accountDetails.User
+
 	// Short-circuit trust checks if the operator specifies '--force'
 	if !c.Trust {
 		if tl := appsRequiringTrust(spec.bundleData.Applications); len(tl) != 0 && !c.Force {
@@ -1351,15 +1361,6 @@ func (c *DeployCommand) maybeReadLocalBundle(ctx *cmd.Context) (deployFn, error)
 		return nil, errors.Trace(err)
 	}
 
-	controllerName, err := c.ControllerName()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	accountDetails, err := c.CurrentAccountDetails()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	return func(ctx *cmd.Context, apiRoot DeployAPI) error {
 		return errors.Trace(c.deployBundle(bundleDeploySpec{
 			ctx:                 ctx,
@@ -1375,8 +1376,6 @@ func (c *DeployCommand) maybeReadLocalBundle(ctx *cmd.Context) (deployFn, error)
 			bundleMachines:      c.BundleMachines,
 			bundleStorage:       c.BundleStorage,
 			bundleDevices:       c.BundleDevices,
-			controllerName:      controllerName,
-			accountUser:         accountDetails.User,
 		}))
 	}, nil
 }
@@ -1527,15 +1526,6 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (d
 			return nil, errors.Trace(err)
 		}
 
-		controllerName, err := c.ControllerName()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		accountDetails, err := c.CurrentAccountDetails()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
 		return func(ctx *cmd.Context, apiRoot DeployAPI) error {
 			bundle, err := apiRoot.GetBundle(bundleURL)
 			if err != nil {
@@ -1558,8 +1548,6 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (d
 				bundleMachines:      c.BundleMachines,
 				bundleStorage:       c.BundleStorage,
 				bundleDevices:       c.BundleDevices,
-				controllerName:      controllerName,
-				accountUser:         accountDetails.User,
 			}))
 		}, nil
 	}
