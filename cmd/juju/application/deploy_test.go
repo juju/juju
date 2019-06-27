@@ -773,6 +773,13 @@ func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 		},
 	).Returns("mysql", nil)
 
+	fakeAPI.Call("AddRelation",
+		[]interface{}{"wordpress:db", ":db"}, []interface{}{},
+	).Returns(
+		&params.AddRelationResults{},
+		error(nil),
+	)
+
 	deploy := &DeployCommand{
 		NewAPIRoot: func() (DeployAPI, error) {
 			return fakeAPI, nil
