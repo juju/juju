@@ -22478,10 +22478,21 @@
     },
     {
         "Name": "ModelGeneration",
-        "Version": 1,
+        "Version": 2,
         "Schema": {
             "type": "object",
             "properties": {
+                "AbortBranch": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/BranchArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResult"
+                        }
+                    }
+                },
                 "AddBranch": {
                     "type": "object",
                     "properties": {

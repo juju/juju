@@ -6,6 +6,7 @@ package modelgeneration_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/cache"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -24,6 +25,11 @@ type modelGenerationSuite struct {
 	apiUser       string
 
 	api *modelgeneration.API
+
+	mockState      *mocks.MockState
+	mockModel      *mocks.MockModel
+	mockGen        *mocks.MockGeneration
+	mockModelCache *mocks.MockModelCache
 }
 
 var _ = gc.Suite(&modelGenerationSuite{})
@@ -42,7 +48,7 @@ func (s *modelGenerationSuite) TearDownTest(c *gc.C) {
 // Add more explicit permissions tests once that requirement is ironed out.
 
 func (s *modelGenerationSuite) TestAddBranchInvalidNameError(c *gc.C) {
-	defer s.setupModelGenerationAPI(c, nil).Finish()
+	defer s.setupModelGenerationAPI(c).Finish()
 
 	arg := params.BranchArg{BranchName: model.GenerationMaster}
 	result, err := s.api.AddBranch(arg)
@@ -52,9 +58,8 @@ func (s *modelGenerationSuite) TestAddBranchInvalidNameError(c *gc.C) {
 }
 
 func (s *modelGenerationSuite) TestAddBranchSuccess(c *gc.C) {
-	defer s.setupModelGenerationAPI(c, func(_ *gomock.Controller, _ *mocks.MockState, mod *mocks.MockModel) {
-		mod.EXPECT().AddBranch(s.newBranchName, s.apiUser).Return(nil)
-	}).Finish()
+	defer s.setupModelGenerationAPI(c).Finish()
+	s.expectAddBranch()
 
 	result, err := s.api.AddBranch(s.newBranchArg())
 	c.Assert(err, jc.ErrorIsNil)
@@ -62,6 +67,11 @@ func (s *modelGenerationSuite) TestAddBranchSuccess(c *gc.C) {
 }
 
 func (s *modelGenerationSuite) TestTrackBranchEntityTypeError(c *gc.C) {
+	defer s.setupModelGenerationAPI(c).Finish()
+	s.expectAssignAllUnits("ghost")
+	s.expectAssignUnit("mysql/0")
+	s.expectBranch()
+
 	arg := params.BranchTrackArg{
 		BranchName: s.newBranchName,
 		Entities: []params.Entity{
@@ -70,16 +80,6 @@ func (s *modelGenerationSuite) TestTrackBranchEntityTypeError(c *gc.C) {
 			{Tag: names.NewMachineTag("7").String()},
 		},
 	}
-
-	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, _ *mocks.MockState, mod *mocks.MockModel) {
-		gen := mocks.NewMockGeneration(ctrl)
-		gExp := gen.EXPECT()
-		gExp.AssignAllUnits("ghost").Return(nil)
-		gExp.AssignUnit("mysql/0").Return(nil)
-
-		mod.EXPECT().Branch(s.newBranchName).Return(gen, nil)
-	}).Finish()
-
 	result, err := s.api.TrackBranch(arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Results, gc.DeepEquals, []params.ErrorResult{
@@ -90,6 +90,11 @@ func (s *modelGenerationSuite) TestTrackBranchEntityTypeError(c *gc.C) {
 }
 
 func (s *modelGenerationSuite) TestTrackBranchSuccess(c *gc.C) {
+	defer s.setupModelGenerationAPI(c).Finish()
+	s.expectAssignAllUnits("ghost")
+	s.expectAssignUnit("mysql/0")
+	s.expectBranch()
+
 	arg := params.BranchTrackArg{
 		BranchName: s.newBranchName,
 		Entities: []params.Entity{
@@ -97,16 +102,6 @@ func (s *modelGenerationSuite) TestTrackBranchSuccess(c *gc.C) {
 			{Tag: names.NewApplicationTag("ghost").String()},
 		},
 	}
-
-	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, _ *mocks.MockState, mod *mocks.MockModel) {
-		gen := mocks.NewMockGeneration(ctrl)
-		gExp := gen.EXPECT()
-		gExp.AssignAllUnits("ghost").Return(nil)
-		gExp.AssignUnit("mysql/0").Return(nil)
-
-		mod.EXPECT().Branch(s.newBranchName).Return(gen, nil)
-	}).Finish()
-
 	result, err := s.api.TrackBranch(arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Results, gc.DeepEquals, []params.ErrorResult{
@@ -116,21 +111,28 @@ func (s *modelGenerationSuite) TestTrackBranchSuccess(c *gc.C) {
 }
 
 func (s *modelGenerationSuite) TestCommitBranchSuccess(c *gc.C) {
-	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, _ *mocks.MockState, mod *mocks.MockModel) {
-		gen := mocks.NewMockGeneration(ctrl)
-		gen.EXPECT().Commit(s.apiUser).Return(3, nil)
-		mod.EXPECT().Branch(s.newBranchName).Return(gen, nil)
-	}).Finish()
+	defer s.setupModelGenerationAPI(c).Finish()
+	s.expectCommit()
+	s.expectBranch()
 
 	result, err := s.api.CommitBranch(s.newBranchArg())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.IntResult{Result: 3, Error: nil})
 }
 
+func (s *modelGenerationSuite) TestAbortBranchSuccess(c *gc.C) {
+	defer s.setupModelGenerationAPI(c).Finish()
+	s.expectAbort()
+	s.expectBranch()
+
+	result, err := s.api.AbortBranch(s.newBranchArg())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: nil})
+}
+
 func (s *modelGenerationSuite) TestHasActiveBranchTrue(c *gc.C) {
-	defer s.setupModelGenerationAPI(c, func(_ *gomock.Controller, _ *mocks.MockState, mockModel *mocks.MockModel) {
-		mockModel.EXPECT().Branch(s.newBranchName).Return(nil, nil)
-	}).Finish()
+	defer s.setupModelGenerationAPI(c).Finish()
+	s.expectHasActiveBranch(nil)
 
 	result, err := s.api.HasActiveBranch(s.newBranchArg())
 	c.Assert(err, jc.ErrorIsNil)
@@ -139,9 +141,8 @@ func (s *modelGenerationSuite) TestHasActiveBranchTrue(c *gc.C) {
 }
 
 func (s *modelGenerationSuite) TestHasActiveBranchFalse(c *gc.C) {
-	defer s.setupModelGenerationAPI(c, func(_ *gomock.Controller, _ *mocks.MockState, mockModel *mocks.MockModel) {
-		mockModel.EXPECT().Branch(s.newBranchName).Return(nil, errors.NotFoundf(s.newBranchName))
-	}).Finish()
+	defer s.setupModelGenerationAPI(c).Finish()
+	s.expectHasActiveBranch(errors.NotFoundf(s.newBranchName))
 
 	result, err := s.api.HasActiveBranch(s.newBranchArg())
 	c.Assert(err, jc.ErrorIsNil)
@@ -158,38 +159,26 @@ func (s *modelGenerationSuite) TestBranchInfoSummary(c *gc.C) {
 }
 
 func (s *modelGenerationSuite) testBranchInfo(c *gc.C, branchNames []string, detailed bool) {
+	ctrl := s.setupModelGenerationAPI(c)
+	defer ctrl.Finish()
+
 	units := []string{"redis/0", "redis/1", "redis/2"}
 
-	defer s.setupModelGenerationAPI(c, func(ctrl *gomock.Controller, st *mocks.MockState, mod *mocks.MockModel) {
-		gen := mocks.NewMockGeneration(ctrl)
-		gExp := gen.EXPECT()
-		gExp.Config().Return(map[string]settings.ItemChanges{"redis": {
-			settings.MakeAddition("password", "added-pass"),
-			settings.MakeDeletion("databases", 100),
-			settings.MakeModification("ignored-key", "unchanged", "unchanged"),
-		}})
-		gExp.BranchName().Return(s.newBranchName)
-		gExp.AssignedUnits().Return(map[string][]string{"redis": units[:2]})
-		gExp.Created().Return(int64(666))
-		gExp.CreatedBy().Return(s.apiUser)
+	s.expectConfig()
+	s.expectBranchName()
+	s.expectAssignedUnits(units[:2])
+	s.expectCreated()
+	s.expectCreatedBy()
 
-		// Flex the code path based on whether we are getting all branches
-		// or a sub-set.
-		if len(branchNames) > 0 {
-			mod.EXPECT().Branch(s.newBranchName).Return(gen, nil)
-		} else {
-			mod.EXPECT().Branches().Return([]modelgeneration.Generation{gen}, nil)
-		}
+	// Flex the code path based on whether we are getting all branches
+	// or a sub-set.
+	if len(branchNames) > 0 {
+		s.expectBranch()
+	} else {
+		s.expectBranches()
+	}
 
-		app := mocks.NewMockApplication(ctrl)
-		app.EXPECT().DefaultCharmConfig().Return(map[string]interface{}{
-			"databases": 16,
-			"password":  "",
-		}, nil)
-		app.EXPECT().UnitNames().Return(units, nil)
-
-		st.EXPECT().Application("redis").Return(app, nil)
-	}).Finish()
+	s.setupMockApp(ctrl, units)
 
 	result, err := s.api.BranchInfo(params.BranchInfoArgs{
 		BranchNames: branchNames,
@@ -205,35 +194,34 @@ func (s *modelGenerationSuite) testBranchInfo(c *gc.C, branchNames []string, det
 	c.Assert(gen.CreatedBy, gc.Equals, s.apiUser)
 	c.Assert(gen.Applications, gc.HasLen, 1)
 
-	app := gen.Applications[0]
-	c.Check(app.ApplicationName, gc.Equals, "redis")
-	c.Check(app.UnitProgress, gc.Equals, "2/3")
-	c.Check(app.ConfigChanges, gc.DeepEquals, map[string]interface{}{
+	genApp := gen.Applications[0]
+	c.Check(genApp.ApplicationName, gc.Equals, "redis")
+	c.Check(genApp.UnitProgress, gc.Equals, "2/3")
+	c.Check(genApp.ConfigChanges, gc.DeepEquals, map[string]interface{}{
 		"password":  "added-pass",
 		"databases": 16,
 	})
 
 	// Unit lists are only populated when detailed is true.
 	if detailed {
-		c.Check(app.UnitsTracking, jc.SameContents, units[:2])
-		c.Check(app.UnitsPending, jc.SameContents, units[2:])
+		c.Check(genApp.UnitsTracking, jc.SameContents, units[:2])
+		c.Check(genApp.UnitsPending, jc.SameContents, units[2:])
 	} else {
-		c.Check(app.UnitsTracking, gc.IsNil)
-		c.Check(app.UnitsPending, gc.IsNil)
+		c.Check(genApp.UnitsTracking, gc.IsNil)
+		c.Check(genApp.UnitsPending, gc.IsNil)
 	}
 }
 
-type setupFunc func(*gomock.Controller, *mocks.MockState, *mocks.MockModel)
-
-func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C, fn setupFunc) *gomock.Controller {
+func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	mockState := mocks.NewMockState(ctrl)
-	sExp := mockState.EXPECT()
-	sExp.ControllerTag().Return(names.NewControllerTag(s.modelUUID))
+	s.mockGen = mocks.NewMockGeneration(ctrl)
 
-	mockModel := mocks.NewMockModel(ctrl)
-	mockModel.EXPECT().ModelTag().Return(names.NewModelTag(s.modelUUID))
+	s.mockState = mocks.NewMockState(ctrl)
+	s.mockState.EXPECT().ControllerTag().Return(names.NewControllerTag(s.modelUUID))
+
+	s.mockModel = mocks.NewMockModel(ctrl)
+	s.mockModel.EXPECT().ModelTag().Return(names.NewModelTag(s.modelUUID))
 
 	mockAuthorizer := facademocks.NewMockAuthorizer(ctrl)
 	aExp := mockAuthorizer.EXPECT()
@@ -241,12 +229,10 @@ func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C, fn setupFunc) *g
 	aExp.GetAuthTag().Return(names.NewUserTag("test-user"))
 	aExp.AuthClient().Return(true)
 
-	if fn != nil {
-		fn(ctrl, mockState, mockModel)
-	}
+	s.mockModelCache = mocks.NewMockModelCache(ctrl)
 
 	var err error
-	s.api, err = modelgeneration.NewModelGenerationAPI(mockState, mockAuthorizer, mockModel)
+	s.api, err = modelgeneration.NewModelGenerationAPI(s.mockState, mockAuthorizer, s.mockModel, s.mockModelCache)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -254,4 +240,71 @@ func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C, fn setupFunc) *g
 
 func (s *modelGenerationSuite) newBranchArg() params.BranchArg {
 	return params.BranchArg{BranchName: s.newBranchName}
+}
+
+func (s *modelGenerationSuite) expectAddBranch() {
+	s.mockModel.EXPECT().AddBranch(s.newBranchName, s.apiUser).Return(nil)
+}
+
+func (s *modelGenerationSuite) expectBranches() {
+	s.mockModel.EXPECT().Branches().Return([]modelgeneration.Generation{s.mockGen}, nil)
+}
+
+func (s *modelGenerationSuite) expectBranch() {
+	s.mockModel.EXPECT().Branch(s.newBranchName).Return(s.mockGen, nil)
+}
+
+func (s *modelGenerationSuite) expectHasActiveBranch(err error) {
+	s.mockModelCache.EXPECT().Branch(s.newBranchName).Return(cache.Branch{}, err)
+}
+
+func (s *modelGenerationSuite) expectAssignAllUnits(appName string) {
+	s.mockGen.EXPECT().AssignAllUnits(appName).Return(nil)
+}
+
+func (s *modelGenerationSuite) expectAssignUnit(unitName string) {
+	s.mockGen.EXPECT().AssignUnit(unitName).Return(nil)
+}
+
+func (s *modelGenerationSuite) expectAbort() {
+	s.mockGen.EXPECT().Abort(s.apiUser).Return(nil)
+}
+
+func (s *modelGenerationSuite) expectCommit() {
+	s.mockGen.EXPECT().Commit(s.apiUser).Return(3, nil)
+}
+
+func (s *modelGenerationSuite) expectAssignedUnits(units []string) {
+	s.mockGen.EXPECT().AssignedUnits().Return(map[string][]string{"redis": units})
+}
+
+func (s *modelGenerationSuite) expectBranchName() {
+	s.mockGen.EXPECT().BranchName().Return(s.newBranchName)
+}
+
+func (s *modelGenerationSuite) expectCreated() {
+	s.mockGen.EXPECT().Created().Return(int64(666))
+}
+
+func (s *modelGenerationSuite) expectCreatedBy() {
+	s.mockGen.EXPECT().CreatedBy().Return(s.apiUser)
+}
+
+func (s *modelGenerationSuite) expectConfig() {
+	s.mockGen.EXPECT().Config().Return(map[string]settings.ItemChanges{"redis": {
+		settings.MakeAddition("password", "added-pass"),
+		settings.MakeDeletion("databases", 100),
+		settings.MakeModification("ignored-key", "unchanged", "unchanged"),
+	}})
+}
+
+func (s *modelGenerationSuite) setupMockApp(ctrl *gomock.Controller, units []string) {
+	mockApp := mocks.NewMockApplication(ctrl)
+	mockApp.EXPECT().DefaultCharmConfig().Return(map[string]interface{}{
+		"databases": 16,
+		"password":  "",
+	}, nil)
+	mockApp.EXPECT().UnitNames().Return(units, nil)
+
+	s.mockState.EXPECT().Application("redis").Return(mockApp, nil)
 }
