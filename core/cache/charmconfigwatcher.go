@@ -23,6 +23,7 @@ type charmConfigWatcherConfig struct {
 
 	unitName string
 	appName  string
+	charmURL string
 
 	// appConfigChangeTopic is the pub/sub topic to which the watcher will
 	// listen for application charm config change messages.
@@ -47,7 +48,7 @@ type charmConfigWatcherConfig struct {
 // - Changes to the charm config settings for the unit's application.
 // - Changes to a model branch being tracked by the unit.
 type CharmConfigWatcher struct {
-	*notifyWatcherBase
+	*stringsWatcherBase
 
 	// initComplete is a channel that will be closed when the
 	// watcher is fully constructed and ready to handle events.
@@ -55,6 +56,7 @@ type CharmConfigWatcher struct {
 
 	unitName   string
 	appName    string
+	charmURL   string
 	branchName string
 
 	masterSettings map[string]interface{}
@@ -66,10 +68,11 @@ type CharmConfigWatcher struct {
 // input configuration.
 func newCharmConfigWatcher(cfg charmConfigWatcherConfig) (*CharmConfigWatcher, error) {
 	w := &CharmConfigWatcher{
-		notifyWatcherBase: newNotifyWatcherBase(),
-		initComplete:      make(chan struct{}),
-		unitName:          cfg.unitName,
-		appName:           cfg.appName,
+		stringsWatcherBase: &stringsWatcherBase{changes: make(chan []string, 1)},
+		initComplete:       make(chan struct{}),
+		unitName:           cfg.unitName,
+		appName:            cfg.appName,
+		charmURL:           cfg.charmURL,
 	}
 
 	deregister := cfg.res.registerWorker(w)
@@ -111,9 +114,11 @@ func (w *CharmConfigWatcher) init(model charmConfigModel) error {
 		}
 	}
 
+	// Always notify with the first hash.
 	if _, err := w.setConfigHash(); err != nil {
 		return errors.Trace(err)
 	}
+	w.notify([]string{w.configHash})
 
 	close(w.initComplete)
 	return nil
@@ -183,32 +188,13 @@ func (w *CharmConfigWatcher) branchRemoved(topic string, msg interface{}) {
 	}
 
 	// The branch we are tracking was deleted.
-	// One of the following scenarios will ensue:
-	// 1) The branch was aborted and this is the only message we will receive.
-	//    Clearing the branch info and checking whether to notify is fine.
-	//    We will send at most one notification.
-	// 2) The branch was committed and this is the first related message.
-	//    There will be a subsequent message for the master settings change.
-	//    If the branch changes mutate master config, there will be 2
-	//    notifications sent.
-	// 3) The branch was committed and this is the second related message,
-	//    coming after the master settings change message.
-	//    The first message should have resulted in no notification,
-	//    because the new master is the same as master + branch deltas.
-	//    When the branch info is removed config remains unchanged,
-	//	  so there is no notification for the second message wither.
-
-	// TODO (manadart 2019-06-18): A fix for case (2) above would be to change
-	// the cache worker so that a completed branch is not sent as a deletion,
-	// rather as a normal change. We could then detect committed vs aborted and
-	// ensure that at most one notification is sent.
-	// We would check for notification on aborted, but ignore commits,
-	// relying on the master settings change message to determine whether to
-	// notify. After processing the update, we would then evict the branch.
-
+	// Since we know that a branch with tracking units can not be aborted,
+	// the branch must have been committed.
+	// This means that we can anticipate a message for a master settings change
+	// (it may even have preceded this event), so just clear the branch info
+	// without reevaluating the hash.
 	w.branchName = ""
 	w.branchDeltas = nil
-	w.checkConfig()
 }
 
 // isTracking returns true if this watcher's unit is tracking the input branch.
@@ -229,7 +215,7 @@ func (w *CharmConfigWatcher) checkConfig() {
 		return
 	}
 	if changed {
-		w.notify()
+		w.notify([]string{w.configHash})
 	}
 }
 
@@ -247,7 +233,7 @@ func (w *CharmConfigWatcher) setConfigHash() (bool, error) {
 		}
 	}
 
-	newHash, err := hash(cfg)
+	newHash, err := hash(cfg, w.charmURL)
 	if err != nil {
 		return false, errors.Trace(err)
 	}

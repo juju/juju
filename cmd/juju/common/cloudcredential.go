@@ -68,10 +68,18 @@ func GetOrDetectCredential(
 	store jujuclient.CredentialGetter,
 	provider environs.EnvironProvider,
 	args modelcmd.GetCredentialsParams,
-) (_ *jujucloud.Credential, chosenCredentialName, regionName string, isDetected bool, _ error) {
+) (_ *jujucloud.Credential, chosenCredentialName, regionName string, isDetected bool, returnedErr error) {
 	fail := func(err error) (*jujucloud.Credential, string, string, bool, error) {
 		return nil, "", "", false, err
 	}
+
+	defer func() {
+		if returnedErr == nil {
+			if !names.IsValidCloudCredentialName(chosenCredentialName) {
+				returnedErr = errors.NotValidf("credential name %q", chosenCredentialName)
+			}
+		}
+	}()
 	credential, chosenCredentialName, regionName, err := modelcmd.GetCredentials(ctx, store, args)
 	if !errors.IsNotFound(err) || args.CredentialName != "" {
 		return credential, chosenCredentialName, regionName, false, err

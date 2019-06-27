@@ -72,8 +72,13 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Conf
 		Application: app,
 		Machine:     machine,
 		Password:    initialUnitPassword,
+		SetCharmURL: true,
 	})
 	conf, tools := s.PrimeAgent(c, unit.Tag(), initialUnitPassword)
+
+	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+
 	return machine, unit, conf, tools
 }
 

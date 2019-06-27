@@ -20,8 +20,7 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.modelgeneration")
 
-// API implements the ModelGenerationAPI interface and is the concrete implementation
-// of the API endpoint.
+// API is the concrete implementation of the API endpoint.
 type API struct {
 	check             *common.BlockChecker
 	authorizer        facade.Authorizer
@@ -29,17 +28,35 @@ type API struct {
 	isControllerAdmin bool
 	st                State
 	model             Model
+	modelCache        ModelCache
 }
 
-// NewModelGenerationFacade provides the signature required for facade registration.
-func NewModelGenerationFacade(ctx facade.Context) (*API, error) {
+type APIV1 struct {
+	*API
+}
+
+// NewModelGenerationFacadeV2 provides the signature required for facade registration.
+func NewModelGenerationFacadeV2(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
 	st := &stateShim{State: ctx.State()}
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewModelGenerationAPI(st, authorizer, m)
+	mc, err := ctx.Controller().Model(st.ModelUUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewModelGenerationAPI(st, authorizer, m, &modelCacheShim{Model: mc})
+}
+
+// NewModelGenerationFacade provides the signature required for facade registration.
+func NewModelGenerationFacade(ctx facade.Context) (*APIV1, error) {
+	v2, err := NewModelGenerationFacadeV2(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &APIV1{v2}, nil
 }
 
 // NewModelGenerationAPI creates a new API endpoint for dealing with model generations.
@@ -47,6 +64,7 @@ func NewModelGenerationAPI(
 	st State,
 	authorizer facade.Authorizer,
 	m Model,
+	mc ModelCache,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -67,6 +85,7 @@ func NewModelGenerationAPI(
 		apiUser:           apiUser,
 		st:                st,
 		model:             m,
+		modelCache:        mc,
 	}, nil
 }
 
@@ -161,6 +180,32 @@ func (api *API) CommitBranch(arg params.BranchArg) (params.IntResult, error) {
 	return result, nil
 }
 
+// AbortBranch aborts the input branch, marking it complete.  However no
+// changes are made applicable to the whole model.  No units may be assigned
+// to the branch when aborting.
+func (api *API) AbortBranch(arg params.BranchArg) (params.ErrorResult, error) {
+	result := params.ErrorResult{}
+
+	isModelAdmin, err := api.hasAdminAccess()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !isModelAdmin && !api.isControllerAdmin {
+		return result, common.ErrPerm
+	}
+
+	branch, err := api.model.Branch(arg.BranchName)
+	if err != nil {
+		result.Error = common.ServerError(err)
+		return result, nil
+	}
+
+	if err := branch.Abort(api.apiUser.Name()); err != nil {
+		result.Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
 // BranchInfo will return details of branch identified by the input argument,
 // including units on the branch and the configuration disjoint with the
 // master generation.
@@ -227,7 +272,7 @@ func (api *API) oneBranchInfo(branch Generation, detailed bool) (params.Generati
 		if err != nil {
 			return params.Generation{}, errors.Trace(err)
 		}
-		branchApp.ConfigChanges = deltas[appName].CurrentSettings(defaults)
+		branchApp.ConfigChanges = deltas[appName].EffectiveChanges(defaults)
 
 		// TODO (manadart 2019-04-12): Charm URL.
 
@@ -263,7 +308,7 @@ func (api *API) HasActiveBranch(arg params.BranchArg) (params.BoolResult, error)
 		return result, common.ErrPerm
 	}
 
-	if _, err := api.model.Branch(arg.BranchName); err != nil {
+	if _, err := api.modelCache.Branch(arg.BranchName); err != nil {
 		if errors.IsNotFound(err) {
 			result.Result = false
 		} else {

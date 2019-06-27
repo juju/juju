@@ -126,10 +126,15 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 // WatchConfigSettings returns a new watcher that will notify when the
 // effective application charm config for this unit changes.
 func (u *Unit) WatchConfigSettings() (*CharmConfigWatcher, error) {
+	if u.details.CharmURL == "" {
+		return nil, errors.New("unit charm not set")
+	}
+
 	cfg := charmConfigWatcherConfig{
 		model:                u.model,
 		unitName:             u.details.Name,
 		appName:              u.details.Application,
+		charmURL:             u.details.CharmURL,
 		appConfigChangeTopic: fmt.Sprintf("%s:%s", u.details.Application, applicationConfigChange),
 		branchChangeTopic:    branchChange,
 		branchRemoveTopic:    modelBranchRemove,

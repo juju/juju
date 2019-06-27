@@ -1041,8 +1041,10 @@ func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.wordpress.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "sauceror central"})
 	c.Assert(err, jc.ErrorIsNil)
-
 	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
@@ -1056,13 +1058,14 @@ func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{
 				StringsWatcherId: "1",
-				Changes:          []string{"af35e298300150f2c357b4a1c40c1109bde305841c6343113b634b9dada22d00"},
+				// See core/cache/hash.go for the hash implementation.
+				Changes: []string{"754ed70cf17d2df2cc6a2dcb6cbfcb569a8357b97b5708e7a7ca0409505e1d0b"},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
-	// Verify the resource was registered and stop when done
+	// Verify the resource was registered and stop when done.
 	c.Assert(s.resources.Count(), gc.Equals, 1)
 	resource := s.resources.Get("1")
 	defer statetesting.AssertStop(c, resource)
