@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -71,6 +72,7 @@ type ApplicationAPI interface {
 	SetConstraints(application string, constraints constraints.Value) error
 	Update(apiparams.ApplicationUpdate) error
 	ScaleApplication(application.ScaleApplicationParams) (apiparams.ScaleApplicationResult, error)
+	Consume(arg crossmodel.ConsumeApplicationArgs) (string, error)
 }
 
 type ModelAPI interface {
@@ -96,6 +98,7 @@ type CharmDeployAPI interface {
 // for creating offers.
 type OfferAPI interface {
 	Offer(modelUUID, application string, endpoints []string, offerName, descr string) ([]apiparams.ErrorResult, error)
+	GetConsumeDetails(url string) (apiparams.ConsumeOfferDetails, error)
 }
 
 var supportedJujuSeries = func() []string {
@@ -1348,6 +1351,15 @@ func (c *DeployCommand) maybeReadLocalBundle(ctx *cmd.Context) (deployFn, error)
 		return nil, errors.Trace(err)
 	}
 
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	accountDetails, err := c.CurrentAccountDetails()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return func(ctx *cmd.Context, apiRoot DeployAPI) error {
 		return errors.Trace(c.deployBundle(bundleDeploySpec{
 			ctx:                 ctx,
@@ -1363,6 +1375,8 @@ func (c *DeployCommand) maybeReadLocalBundle(ctx *cmd.Context) (deployFn, error)
 			bundleMachines:      c.BundleMachines,
 			bundleStorage:       c.BundleStorage,
 			bundleDevices:       c.BundleDevices,
+			controllerName:      controllerName,
+			accountUser:         accountDetails.User,
 		}))
 	}, nil
 }
@@ -1513,6 +1527,15 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (d
 			return nil, errors.Trace(err)
 		}
 
+		controllerName, err := c.ControllerName()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		accountDetails, err := c.CurrentAccountDetails()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		return func(ctx *cmd.Context, apiRoot DeployAPI) error {
 			bundle, err := apiRoot.GetBundle(bundleURL)
 			if err != nil {
@@ -1535,6 +1558,8 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (d
 				bundleMachines:      c.BundleMachines,
 				bundleStorage:       c.BundleStorage,
 				bundleDevices:       c.BundleDevices,
+				controllerName:      controllerName,
+				accountUser:         accountDetails.User,
 			}))
 		}, nil
 	}
