@@ -99,6 +99,7 @@ type CharmDeployAPI interface {
 type OfferAPI interface {
 	Offer(modelUUID, application string, endpoints []string, offerName, descr string) ([]apiparams.ErrorResult, error)
 	GetConsumeDetails(url string) (apiparams.ConsumeOfferDetails, error)
+	GrantOffer(user, access string, offerURLs ...string) error
 }
 
 var supportedJujuSeries = func() []string {
@@ -859,6 +860,10 @@ func (c *DeployCommand) deployBundle(spec bundleDeploySpec) (rErr error) {
 	var ok bool
 	if spec.targetModelUUID, ok = spec.apiRoot.ModelUUID(); !ok {
 		return errors.New("API connection is controller-only (should never happen)")
+	}
+
+	if spec.targetModelName, _, err = c.ModelDetails(); err != nil {
+		return errors.Annotatef(err, "could not retrieve model name")
 	}
 
 	spec.controllerName, err = c.ControllerName()
