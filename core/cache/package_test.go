@@ -215,18 +215,22 @@ func (c StringsWatcherC) AssertOneChange(expected []string) {
 func (c StringsWatcherC) AssertMaybeCombinedChanges(expected []string) {
 	var found bool
 	expectedSet := set.NewStrings(expected...)
+	timeout := time.After(coretesting.LongWait)
+
 	for {
 		select {
 		case obtained, ok := <-c.Watcher.Changes():
 			c.Assert(ok, jc.IsTrue)
 			c.Logf("expected %v; obtained %v", expectedSet.Values(), obtained)
-			// Maybe the expected changes came thru as 1 change.
+
+			// Maybe the expected changes came through as 1 change.
 			if expectedSet.Size() == len(obtained) {
 				c.Assert(obtained, jc.SameContents, expectedSet.Values())
 				c.Logf("")
 				found = true
 				break
 			}
+
 			// Remove the obtained results from expected, if nothing is removed
 			// from expected, fail here, received bad data.
 			leftOver := expectedSet.Difference(set.NewStrings(obtained...))
@@ -234,7 +238,7 @@ func (c StringsWatcherC) AssertMaybeCombinedChanges(expected []string) {
 				c.Fatalf("obtained %v, not contained in expected %v", obtained, expectedSet.Values())
 			}
 			expectedSet = leftOver
-		case <-time.After(coretesting.LongWait):
+		case <-timeout:
 			c.Fatalf("watcher did not send change")
 		}
 		if found {
