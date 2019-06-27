@@ -11,6 +11,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/application"
@@ -49,7 +50,7 @@ Examples:
         where "wordpress" will be internally expanded to "wordpress:db"
 
     $ juju add-relation wordpress someone/prod.mysql --via 192.168.0.0/16
-    
+
     $ juju add-relation wordpress someone/prod.mysql --via 192.168.0.0/16,10.0.0.0/8
 
 `
@@ -67,7 +68,7 @@ type addRelationCommand struct {
 	endpoints         []string
 	viaCIDRs          []string
 	viaValue          string
-	remoteEndpoint    *crossmodel.OfferURL
+	remoteEndpoint    *charm.OfferURL
 	addRelationAPI    applicationAddRelationAPI
 	consumeDetailsAPI applicationConsumeDetailsAPI
 }
@@ -123,7 +124,7 @@ func (c *addRelationCommand) getAddRelationAPI() (applicationAddRelationAPI, err
 	return application.NewClient(root), nil
 }
 
-func (c *addRelationCommand) getOffersAPI(url *crossmodel.OfferURL) (applicationConsumeDetailsAPI, error) {
+func (c *addRelationCommand) getOffersAPI(url *charm.OfferURL) (applicationConsumeDetailsAPI, error) {
 	if c.consumeDetailsAPI != nil {
 		return c.consumeDetailsAPI, nil
 	}
@@ -188,7 +189,7 @@ func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelati
 	}
 	// Parse the offer details URL and add the source controller so
 	// things like status can show the original source of the offer.
-	offerURL, err := crossmodel.ParseOfferURL(consumeDetails.Offer.OfferURL)
+	offerURL, err := charm.ParseOfferURL(consumeDetails.Offer.OfferURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -226,7 +227,7 @@ func (c *addRelationCommand) validateEndpoints(all []string) error {
 		// We can only determine if this is a remote endpoint with 100%.
 		// If we cannot parse it, it may still be a valid local endpoint...
 		// so ignoring parsing error,
-		if url, err := crossmodel.ParseOfferURL(endpoint); err == nil {
+		if url, err := charm.ParseOfferURL(endpoint); err == nil {
 			if c.remoteEndpoint != nil {
 				return errors.NotSupportedf("providing more than one remote endpoints")
 			}

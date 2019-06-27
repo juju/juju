@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -71,6 +72,7 @@ type ApplicationAPI interface {
 	SetConstraints(application string, constraints constraints.Value) error
 	Update(apiparams.ApplicationUpdate) error
 	ScaleApplication(application.ScaleApplicationParams) (apiparams.ScaleApplicationResult, error)
+	Consume(arg crossmodel.ConsumeApplicationArgs) (string, error)
 }
 
 type ModelAPI interface {
@@ -96,6 +98,7 @@ type CharmDeployAPI interface {
 // for creating offers.
 type OfferAPI interface {
 	Offer(modelUUID, application string, endpoints []string, offerName, descr string) ([]apiparams.ErrorResult, error)
+	GetConsumeDetails(url string) (apiparams.ConsumeOfferDetails, error)
 }
 
 var supportedJujuSeries = func() []string {
@@ -857,6 +860,16 @@ func (c *DeployCommand) deployBundle(spec bundleDeploySpec) (rErr error) {
 	if spec.targetModelUUID, ok = spec.apiRoot.ModelUUID(); !ok {
 		return errors.New("API connection is controller-only (should never happen)")
 	}
+
+	spec.controllerName, err = c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	accountDetails, err := c.CurrentAccountDetails()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	spec.accountUser = accountDetails.User
 
 	// Short-circuit trust checks if the operator specifies '--force'
 	if !c.Trust {
