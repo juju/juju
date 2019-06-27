@@ -171,7 +171,7 @@ class Base(object):
                 '--cluster-name', self.kubeconfig_cluster_name,
             )
             # use this local cloud to bootstrap later.
-            self.bs_manager.client.env._cloud_name = self.cloud_name
+            self.bs_manager.client.env.set_cloud_name(self.cloud_name)
         else:
             args += (
                 '--controller', self.client.env.controller.name,

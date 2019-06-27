@@ -212,6 +212,9 @@ class JujuData:
         result._cloud_name = self._cloud_name
         result.logging_config = self.logging_config
         return result
+        
+    def set_cloud_name(self, name):
+        self._cloud_name = name
 
     @classmethod
     def from_env(cls, env):
@@ -364,8 +367,7 @@ class JujuData:
         raise LookupError('No such endpoint: {}'.format(endpoint))
 
     def find_cloud_by_host_cloud_region(self, host_cloud_region):
-        if not self.clouds['clouds']:
-            self.load_yaml()
+        self.load_yaml()
         for cloud, cloud_config in self.clouds['clouds'].items():
             if cloud_config['type'] != 'kubernetes':
                 continue
