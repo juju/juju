@@ -89,30 +89,13 @@ func (s *charmConfigWatcherSuite) TestTrackingBranchMasterChangedNotified(c *gc.
 	w.AssertStops()
 }
 
-func (s *charmConfigWatcherSuite) TestTrackingBranchCommittedMasterChangeFirstNotNotified(c *gc.C) {
-	w := s.newWatcher(c, defaultUnitName, defaultCharmURL)
+func (s *charmConfigWatcherSuite) TestTrackingBranchCommittedNotNotified(c *gc.C) {
+	w := s.newWatcher(c, "redis/0", defaultCharmURL)
 	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword}, defaultCharmURL)
-
-	// Publish a change to master configuration.
-	// This represents a commit where the master assumes the branch deltas.
-	hc, _ := newHashCache(map[string]interface{}{"password": defaultPassword}, nil, nil)
-	s.Hub.Publish(applicationConfigChange, hc)
-	w.AssertNoChange()
 
 	// Publish a branch removal.
 	s.Hub.Publish(modelBranchRemove, branchName)
 	w.AssertNoChange()
-	w.AssertStops()
-}
-
-func (s *charmConfigWatcherSuite) TestTrackingBranchAbortedNotified(c *gc.C) {
-	w := s.newWatcher(c, defaultUnitName, defaultCharmURL)
-	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword}, defaultCharmURL)
-
-	// Publish a branch removal.
-	// This should change the effective config and cause notification.
-	s.Hub.Publish(modelBranchRemove, branchName)
-	s.assertOneChange(c, w, map[string]interface{}{}, defaultCharmURL)
 	w.AssertStops()
 }
 
