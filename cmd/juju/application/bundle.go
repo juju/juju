@@ -1149,6 +1149,7 @@ func (h *bundleHandler) consumeOffer(change *bundlechanges.ConsumeOfferChange) e
 	if err != nil {
 		return errors.Trace(err)
 	}
+	h.results[change.Id()] = localName
 	h.ctx.Infof("Added %s as %s", url.Path(), localName)
 	return nil
 }
