@@ -72,9 +72,12 @@ func (w *notifyWatcherBase) Kill() {
 		return
 	}
 
+	// The watcher must be dying or dead before we close the channel.
+	// Otherwise readers could fail, but the watcher's tomb would indicate
+	// "still alive".
+	w.tomb.Kill(nil)
 	w.closed = true
 	close(w.changes)
-	w.tomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
@@ -203,9 +206,12 @@ func (w *stringsWatcherBase) Kill() {
 		return
 	}
 
+	// The watcher must be dying or dead before we close the channel.
+	// Otherwise readers could fail, but the watcher's tomb would indicate
+	// "still alive".
+	w.tomb.Kill(nil)
 	w.closed = true
 	close(w.changes)
-	w.tomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
@@ -258,7 +264,7 @@ func (w *stringsWatcherBase) amendBufferedChange(values []string) {
 }
 
 // PredicateStringsWatcher notifies that something changed, with
-// a slice of strings.  The predicateFunc will test the values
+// a slice of strings. The predicateFunc will test the values
 // before notification. An initial event is sent with the input
 // given at creation.
 type PredicateStringsWatcher struct {
