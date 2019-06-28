@@ -8,3 +8,5 @@ requires:
     interface: dummy-token
 categories:
   - misc
+series:
+  - centos7
