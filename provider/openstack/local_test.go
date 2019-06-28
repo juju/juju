@@ -472,21 +472,8 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	// Ensure amd64 tools are available, to ensure an amd64 image.
-	amd64Version := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.AMD64,
-	}
-	for _, series := range series.SupportedSeries() {
-		amd64Version.Series = series
-		envtesting.AssertUploadFakeToolsVersions(
-			c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), amd64Version)
-	}
-
-	err := environs.Destroy(s.env.Config().Name(), s.env, s.callCtx, s.ControllerStore)
-	c.Assert(err, jc.ErrorIsNil)
-
-	env := s.Prepare(c)
-	err = bootstrapEnv(c, env)
+	env := s.ensureAMDImages(c)
+	err := bootstrapEnv(c, env)
 	c.Assert(err, jc.ErrorIsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, s.callCtx, s.ControllerUUID, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
@@ -2400,14 +2387,15 @@ type novaInstaceStartedWithOpts interface {
 func (t *localServerSuite) TestStartInstanceVolumeRootBlockDevice(c *gc.C) {
 	// diskSizeGiB should be equal to the openstack.defaultRootDiskSize
 	diskSizeGiB := 30
+	env := t.ensureAMDImages(c)
 
-	err := bootstrapEnv(c, t.env)
+	err := bootstrapEnv(c, env)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cons, err := constraints.Parse("root-disk-source=volume")
+	cons, err := constraints.Parse("root-disk-source=volume arch=amd64")
 	c.Assert(err, jc.ErrorIsNil)
 
-	res, err := testing.StartInstanceWithParams(t.env, t.callCtx, "1", environs.StartInstanceParams{
+	res, err := testing.StartInstanceWithParams(env, t.callCtx, "1", environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
 		Constraints:    cons,
 	})
@@ -2429,15 +2417,17 @@ func (t *localServerSuite) TestStartInstanceVolumeRootBlockDevice(c *gc.C) {
 }
 
 func (t *localServerSuite) TestStartInstanceVolumeRootBlockDeviceSized(c *gc.C) {
+	env := t.ensureAMDImages(c)
+
 	diskSizeGiB := 10
 
-	err := bootstrapEnv(c, t.env)
+	err := bootstrapEnv(c, env)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cons, err := constraints.Parse("root-disk-source=volume root-disk=10G")
+	cons, err := constraints.Parse("root-disk-source=volume root-disk=10G arch=amd64")
 	c.Assert(err, jc.ErrorIsNil)
 
-	res, err := testing.StartInstanceWithParams(t.env, t.callCtx, "1", environs.StartInstanceParams{
+	res, err := testing.StartInstanceWithParams(env, t.callCtx, "1", environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
 		Constraints:    cons,
 	})
@@ -2462,15 +2452,17 @@ func (t *localServerSuite) TestStartInstanceVolumeRootBlockDeviceSized(c *gc.C) 
 }
 
 func (t *localServerSuite) TestStartInstanceLocalRootBlockDevice(c *gc.C) {
-	err := bootstrapEnv(c, t.env)
+	env := t.ensureAMDImages(c)
+
+	err := bootstrapEnv(c, env)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cons, err := constraints.Parse("root-disk=1G")
+	cons, err := constraints.Parse("root-disk=1G arch=amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons.HasRootDisk(), jc.IsTrue)
 	c.Assert(*cons.RootDisk, gc.Equals, uint64(1024))
 
-	res, err := testing.StartInstanceWithParams(t.env, t.callCtx, "1", environs.StartInstanceParams{
+	res, err := testing.StartInstanceWithParams(env, t.callCtx, "1", environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
 		Constraints:    cons,
 	})
@@ -2722,6 +2714,26 @@ func (s *localServerSuite) TestUpdateGroupController(c *gc.C) {
 		"juju-aabbccdd-eeee-ffff-0000-0123456789ab-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"juju-aabbccdd-eeee-ffff-0000-0123456789ab-deadbeef-0bad-400d-8000-4b1d0d06f00d-0",
 	))
+}
+
+func (t *localServerSuite) ensureAMDImages(c *gc.C) environs.Environ {
+	// Ensure amd64 tools are available, to ensure an amd64 image.
+	amd64Version := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.AMD64,
+	}
+	for _, series := range series.SupportedSeries() {
+		amd64Version.Series = series
+		envtesting.AssertUploadFakeToolsVersions(
+			c, t.toolsMetadataStorage, t.env.Config().AgentStream(), t.env.Config().AgentStream(), amd64Version)
+	}
+
+	// Destroy the old Environ
+	err := environs.Destroy(t.env.Config().Name(), t.env, t.callCtx, t.ControllerStore)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Prepare a new Environ
+	return t.Prepare(c)
 }
 
 // noNeutronSuite is a clone of localServerSuite which hacks the local
