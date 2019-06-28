@@ -5,6 +5,7 @@ package caas
 
 import (
 	"github.com/juju/errors"
+	core "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 )
 
@@ -55,6 +56,30 @@ type ContainerSpec struct {
 	ProviderContainer `yaml:"-"`
 }
 
+// SecretSpec defines spec for referencing to or creating a secret.
+type SecretSpec struct {
+	Name        string            `yaml:"name"`
+	Type        core.SecretType   `yaml:"type,omitempty"`
+	Annotations map[string]string `yaml:"annotations,omitempty"`
+	Data        map[string][]byte `yaml:"data,omitempty"`
+	StringData  map[string]string `yaml:"stringData,omitempty"`
+}
+
+// Validate returns an error if the secret spec is not valid.
+func (spec *SecretSpec) Validate() error {
+	if spec.Data != nil && spec.StringData != nil {
+		return errors.New("")
+	}
+	return nil
+}
+
+// ServiceAccountSpec defines spec for referencing to or creating a service account.
+type ServiceAccountSpec struct {
+	Name                         string       `yaml:"name"`
+	AutomountServiceAccountToken *bool        `yaml:"automountServiceAccountToken,omitempty"`
+	Secrets                      []SecretSpec `yaml:"secrets,omitempty"`
+}
+
 // PodSpec defines the data values used to configure
 // a pod on the CAAS substrate.
 type PodSpec struct {
@@ -63,6 +88,7 @@ type PodSpec struct {
 	Containers                []ContainerSpec                                              `yaml:"-"`
 	InitContainers            []ContainerSpec                                              `yaml:"-"`
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `yaml:"-"`
+	ServiceAccount            ServiceAccountSpec                                           `yaml:"-"`
 
 	// ProviderPod defines config which is specific to a substrate, eg k8s
 	ProviderPod `yaml:"-"`
