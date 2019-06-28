@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	jujucmd "github.com/juju/juju/cmd"
@@ -26,9 +27,9 @@ Examples:
    $ juju find-offers --interface mysql
    $ juju find-offers --url fred/prod.db2
    $ juju find-offers --offer db2
-   
+
 See also:
-   show-offer   
+   show-offer
 `
 
 type findCommand struct {
@@ -147,7 +148,7 @@ func (c *findCommand) validateOrSetURL() error {
 		c.source = controllerName
 		return nil
 	}
-	urlParts, err := crossmodel.ParseOfferURLParts(c.url)
+	urlParts, err := charm.ParseOfferURLParts(c.url)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -214,7 +215,7 @@ func convertFoundOffers(
 			Endpoints: convertRemoteEndpoints(one.Endpoints...),
 			Users:     convertUsers(one.Users...),
 		}
-		url, err := crossmodel.ParseOfferURL(one.OfferURL)
+		url, err := charm.ParseOfferURL(one.OfferURL)
 		if err != nil {
 			return nil, err
 		}
