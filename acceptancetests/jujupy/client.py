@@ -1464,24 +1464,19 @@ class ModelClient:
     def _get_substrate_constraints(self):
         if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
-            return 'mem=2G cpu-cores=1'
+            return 'cores=1'
         elif self.env.maas and self._maas_spaces_enabled():
             # For now only maas support spaces in a meaningful way.
-            return 'mem=2G spaces={}'.format(','.join(
+            return 'spaces={}'.format(','.join(
                 '^' + space for space in sorted(self.excluded_spaces)))
-        elif self.env.lxd:
-            # LXD should not me constrained via memory
-            return ''
         else:
-            return 'mem=2G'
+            return ''
 
     def quickstart(self, bundle_template, upload_tools=False):
         bundle = self.format_bundle(bundle_template)
-        constraints = 'mem=2G'
-        args = ('--constraints', constraints)
+        args = ('--no-browser', bundle,)
         if upload_tools:
             args = ('--upload-tools',) + args
-        args = args + ('--no-browser', bundle,)
         self.juju('quickstart', args, extra_env={'JUJU': self.full_path})
 
     def status_until(self, timeout, start=None):
