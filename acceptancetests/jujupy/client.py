@@ -912,6 +912,7 @@ class ModelClient:
             'name',
             'password',
             'private-key',
+            'project-id',
             'region',
             'sdc-key-id',
             'sdc-url',
