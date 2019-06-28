@@ -11,6 +11,7 @@ series:
   - xenial
   - artful
   - bionic
+  - disco
 requires:
   juju-info:
     interface: juju-info

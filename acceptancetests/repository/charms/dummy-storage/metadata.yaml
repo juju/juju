@@ -11,6 +11,7 @@ series:
   - xenial
   - artful
   - bionic
+  - disco
 storage:
   single-fs:
     type: filesystem
