@@ -154,6 +154,49 @@ current-model: controller
 	c.Assert(cmdtesting.Stdout(context), gc.Matches, fmt.Sprintf(expectedOutput, version.Current))
 }
 
+func (s *cmdControllerSuite) TestShowModel(c *gc.C) {
+	s.Factory.MakeMachine(c, nil)
+	two := uint64(2)
+	s.Factory.MakeMachine(c, &factory.MachineParams{Characteristics: &instance.HardwareCharacteristics{CpuCores: &two}})
+	context := s.run(c, "show-model")
+	expectedOutput := `
+controller:
+  name: admin/controller
+  short-name: controller
+  model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  model-type: iaas
+  controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
+  controller-name: kontroll
+  is-controller: true
+  owner: admin
+  cloud: dummy
+  region: dummy-region
+  type: dummy
+  life: alive
+  status:
+    current: available
+    since: just now
+  users:
+    admin:
+      display-name: admin
+      access: admin
+      last-connection: just now
+  machines:
+    "0":
+      cores: 0
+    "1":
+      cores: 2
+  sla: unsupported
+  agent-version: %v
+  credential:
+    name: cred
+    owner: admin
+    cloud: dummy
+    validity-check: valid
+`[1:]
+	c.Assert(cmdtesting.Stdout(context), gc.Matches, fmt.Sprintf(expectedOutput, version.Current))
+}
+
 func (s *cmdControllerSuite) TestListModelsYAMLWithExactTime(c *gc.C) {
 	s.Factory.MakeMachine(c, nil)
 	two := uint64(2)

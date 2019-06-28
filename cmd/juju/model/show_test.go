@@ -4,6 +4,7 @@
 package model_test
 
 import (
+	"github.com/juju/juju/cmd/juju/common"
 	"time"
 
 	"github.com/juju/cmd"
@@ -163,19 +164,22 @@ func (s *ShowCommandSuite) TestShowFormatYaml(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(ctx), jc.YAMLEquals, s.expectedOutput)
 }
 
-func (s *ShowCommandSuite) addCredentialToTestData() {
+func (s *ShowCommandSuite) addCredentialToTestData(credentialValid *bool) {
 	s.fake.info.CloudCredentialTag = "cloudcred-some-cloud_some-owner_some-credential"
+	s.fake.info.CloudCredentialValidity = credentialValid
 
 	modelOutput := s.expectedOutput["mymodel"].(attrs)
 	modelOutput["credential"] = attrs{
-		"name":  "some-credential",
-		"owner": "some-owner",
-		"cloud": "some-cloud",
+		"name":           "some-credential",
+		"owner":          "some-owner",
+		"cloud":          "some-cloud",
+		"validity-check": common.HumanReadableBoolPointer(credentialValid, "valid", "invalid"),
 	}
 }
 
 func (s *ShowCommandSuite) TestShowWithCredentialFormatYaml(c *gc.C) {
-	s.addCredentialToTestData()
+	_true := true
+	s.addCredentialToTestData(&_true)
 	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), jc.YAMLEquals, s.expectedOutput)
@@ -188,7 +192,8 @@ func (s *ShowCommandSuite) TestShowFormatJson(c *gc.C) {
 }
 
 func (s *ShowCommandSuite) TestShowWithCredentialFormatJson(c *gc.C) {
-	s.addCredentialToTestData()
+	_false := false
+	s.addCredentialToTestData(&_false)
 	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), jc.JSONEquals, s.expectedOutput)

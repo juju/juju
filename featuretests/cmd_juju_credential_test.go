@@ -193,6 +193,7 @@ controller-credentials:
     cred:
       content:
         auth-type: userpass
+        validity-check: valid
         username: dummy
       models:
         controller: admin
@@ -209,6 +210,7 @@ controller-credentials:
     cred:
       content:
         auth-type: userpass
+        validity-check: valid
         password: secret
         username: dummy
       models:
