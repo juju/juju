@@ -2756,13 +2756,13 @@ func (u *UniterAPI) WatchConfigSettingsHash(args params.Entities) (params.String
 			continue
 		}
 
-		unit, err := u.getCacheUnit(tag)
+		unit, err := u.getUnit(tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 
-		w, err := unit.WatchConfigSettings()
+		w, err := unit.WatchConfigSettingsHash()
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
