@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
@@ -128,7 +129,10 @@ type bundleDeploySpec struct {
 	bundleStorage       map[string]map[string]storage.Constraints
 	bundleDevices       map[string]map[string]devices.Constraints
 
+	targetModelName string
 	targetModelUUID string
+	controllerName  string
+	accountUser     string
 }
 
 // deployBundle deploys the given bundle data using the given API client and
@@ -239,8 +243,16 @@ type bundleHandler struct {
 	// bundle.
 	warnedLXC bool
 
-	// The UUID of the model where the bundle is about to be deployed.
+	// The name and UUID of the model where the bundle is about to be deployed.
+	targetModelName string
 	targetModelUUID string
+
+	// Controller name required for consuming a offer when deploying a bundle.
+	controllerName string
+
+	// accountUser holds the user of the account associated with the
+	// current controller.
+	accountUser string
 }
 
 func makeBundleHandler(spec bundleDeploySpec) *bundleHandler {
@@ -266,7 +278,10 @@ func makeBundleHandler(spec bundleDeploySpec) *bundleHandler {
 		macaroons:     make(map[*charm.URL]*macaroon.Macaroon),
 		channels:      make(map[*charm.URL]csparams.Channel),
 
+		targetModelName: spec.targetModelName,
 		targetModelUUID: spec.targetModelUUID,
+		controllerName:  spec.controllerName,
+		accountUser:     spec.accountUser,
 	}
 }
 
@@ -376,15 +391,19 @@ func (h *bundleHandler) getChanges() error {
 		return errors.Trace(err)
 	}
 
-	// Filter create offer changes if the feature flag is not enabled. We
+	// Filter cmr-related changes if the feature flag is not enabled. We
 	// need to do it here rather in handleChanges() as the bundle handler
 	// will also iterate the list to print out a changelog.
 	if !featureflag.Enabled(feature.CMRAwareBundles) {
 		var filtered []bundlechanges.Change
 		for _, ch := range changes {
-			if ch.Method() != "createOffer" {
-				filtered = append(filtered, ch)
+			if ch.Method() == "createOffer" ||
+				ch.Method() == "consumeOffer" ||
+				ch.Method() == "grantOfferAccess" {
+				continue
 			}
+
+			filtered = append(filtered, ch)
 		}
 		changes = filtered
 	}
@@ -442,6 +461,10 @@ func (h *bundleHandler) handleChanges() error {
 			err = h.setConstraints(change)
 		case *bundlechanges.CreateOfferChange:
 			err = h.createOffer(change)
+		case *bundlechanges.ConsumeOfferChange:
+			err = h.consumeOffer(change)
+		case *bundlechanges.GrantOfferAccessChange:
+			err = h.grantOfferAccess(change)
 		default:
 			return errors.Errorf("unknown change type: %T", change)
 		}
@@ -1077,6 +1100,82 @@ func (h *bundleHandler) createOffer(change *bundlechanges.CreateOfferChange) err
 	return nil
 }
 
+// consumeOffer consumes an existing offer
+func (h *bundleHandler) consumeOffer(change *bundlechanges.ConsumeOfferChange) error {
+	if h.dryRun {
+		return nil
+	}
+
+	p := change.Params
+	url, err := charm.ParseOfferURL(p.URL)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if url.HasEndpoint() {
+		return errors.Errorf("remote offer %q shouldn't include endpoint", p.URL)
+	}
+	if url.User == "" {
+		url.User = h.accountUser
+	}
+	if url.Source == "" {
+		url.Source = h.controllerName
+	}
+	consumeDetails, err := h.api.GetConsumeDetails(url.AsLocal().String())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// Parse the offer details URL and add the source controller so
+	// things like status can show the original source of the offer.
+	offerURL, err := charm.ParseOfferURL(consumeDetails.Offer.OfferURL)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	offerURL.Source = url.Source
+	consumeDetails.Offer.OfferURL = offerURL.String()
+
+	// construct the cosume application arguments
+	arg := crossmodel.ConsumeApplicationArgs{
+		Offer:            *consumeDetails.Offer,
+		ApplicationAlias: p.ApplicationName,
+		Macaroon:         consumeDetails.Macaroon,
+	}
+	if consumeDetails.ControllerInfo != nil {
+		controllerTag, err := names.ParseControllerTag(consumeDetails.ControllerInfo.ControllerTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		arg.ControllerInfo = &crossmodel.ControllerInfo{
+			ControllerTag: controllerTag,
+			Alias:         consumeDetails.ControllerInfo.Alias,
+			Addrs:         consumeDetails.ControllerInfo.Addrs,
+			CACert:        consumeDetails.ControllerInfo.CACert,
+		}
+	}
+	localName, err := h.api.Consume(arg)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	h.results[change.Id()] = localName
+	h.ctx.Infof("Added %s as %s", url.Path(), localName)
+	return nil
+}
+
+// grantOfferAccess grants access to an offer.
+func (h *bundleHandler) grantOfferAccess(change *bundlechanges.GrantOfferAccessChange) error {
+	if h.dryRun {
+		return nil
+	}
+
+	p := change.Params
+
+	offerURL := fmt.Sprintf("%s.%s", h.targetModelName, p.Offer)
+	if err := h.api.GrantOffer(p.User, p.Access, offerURL); err != nil && !isUserAlreadyHasAccessErr(err) {
+
+		return errors.Annotatef(err, "cannot grant %s access to user %s on offer %s", p.Access, p.User, offerURL)
+	}
+	return nil
+}
+
 // applicationsForMachineChange returns the names of the applications for which an
 // "addMachine" change is required, as adding machines is required to place
 // units, and units belong to applications.
@@ -1680,4 +1779,12 @@ func applicationConfigValue(key string, valueMap interface{}) (interface{}, erro
 func applicationRequiresTrust(appSpec *charm.ApplicationSpec) bool {
 	optRequiresTrust := appSpec.Options != nil && appSpec.Options["trust"] == true
 	return appSpec.RequiresTrust || optRequiresTrust
+}
+
+// isUserAlreadyHasAccessErr returns true if err indicates that the user
+// already has access to an offer. Unfortunately, the server does not set a
+// status code for this error so we need to fall back to a hacky string
+// comparison to be compatible with older controllers.
+func isUserAlreadyHasAccessErr(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "user already has")
 }

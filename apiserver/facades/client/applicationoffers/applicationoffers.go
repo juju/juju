@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/txn"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -241,7 +242,7 @@ func (api *OffersAPI) modifyOneOfferAccess(modelUUID string, isControllerAdmin b
 		return errors.Annotate(err, "could not modify offer access")
 	}
 
-	url, err := jujucrossmodel.ParseOfferURL(arg.OfferURL)
+	url, err := charm.ParseOfferURL(arg.OfferURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -362,7 +363,7 @@ func (api *OffersAPI) ApplicationOffers(urls params.OfferURLs) (params.Applicati
 		fullURLs []string
 	)
 	for i, urlStr := range urls.OfferURLs {
-		url, err := jujucrossmodel.ParseOfferURL(urlStr)
+		url, err := charm.ParseOfferURL(urlStr)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -495,7 +496,7 @@ func (api *OffersAPI) RemoteApplicationInfo(args params.OfferURLs) (params.Remot
 	return params.RemoteApplicationInfoResults{results}, nil
 }
 
-func (api *OffersAPI) filterFromURL(url *jujucrossmodel.OfferURL) params.OfferFilter {
+func (api *OffersAPI) filterFromURL(url *charm.OfferURL) params.OfferFilter {
 	f := params.OfferFilter{
 		OwnerName: url.User,
 		ModelName: url.ModelName,
@@ -505,7 +506,7 @@ func (api *OffersAPI) filterFromURL(url *jujucrossmodel.OfferURL) params.OfferFi
 }
 
 func (api *OffersAPI) oneRemoteApplicationInfo(urlStr string) (*params.RemoteApplicationInfo, error) {
-	url, err := jujucrossmodel.ParseOfferURL(urlStr)
+	url, err := charm.ParseOfferURL(urlStr)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -558,7 +559,7 @@ func destroyOffers(api *OffersAPI, offerURLs []string, force bool) (params.Error
 	}
 
 	for i, one := range offerURLs {
-		url, err := jujucrossmodel.ParseOfferURL(one)
+		url, err := charm.ParseOfferURL(one)
 		if err != nil {
 			result[i].Error = common.ServerError(err)
 			continue
