@@ -4,7 +4,6 @@
 package model_test
 
 import (
-	"github.com/juju/juju/cmd/juju/common"
 	"time"
 
 	"github.com/juju/cmd"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
