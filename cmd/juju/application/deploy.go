@@ -98,8 +98,12 @@ type CharmDeployAPI interface {
 // for creating offers.
 type OfferAPI interface {
 	Offer(modelUUID, application string, endpoints []string, offerName, descr string) ([]apiparams.ErrorResult, error)
-	GetConsumeDetails(url string) (apiparams.ConsumeOfferDetails, error)
 	GrantOffer(user, access string, offerURLs ...string) error
+}
+
+type ConsumeDetails interface {
+	GetConsumeDetails(url string) (apiparams.ConsumeOfferDetails, error)
+	Close() error
 }
 
 var supportedJujuSeries = func() []string {
@@ -314,6 +318,13 @@ func NewDeployCommand() modelcmd.ModelCommand {
 			offerClient:       &offerClient{Client: applicationoffers.NewClient(controllerAPIRoot)},
 		}, nil
 	}
+	deployCmd.NewConsumeDetailsAPI = func(url *charm.OfferURL) (ConsumeDetails, error) {
+		root, err := deployCmd.CommandBase.NewAPIRoot(deployCmd.ClientStore(), url.Source, "")
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return applicationoffers.NewClient(root), nil
+	}
 
 	return modelcmd.Wrap(deployCmd)
 }
@@ -384,6 +395,10 @@ type DeployCommand struct {
 
 	// NewAPIRoot stores a function which returns a new API root.
 	NewAPIRoot func() (DeployAPI, error)
+
+	// NewConsumeDetailsAPI stores a function which will return a new API
+	// for consume details API using the url as the source.
+	NewConsumeDetailsAPI func(url *charm.OfferURL) (ConsumeDetails, error)
 
 	// When deploying a charm, Trust signifies that the charm should be
 	// deployed with access to trusted credentials. That is, hooks run by
@@ -866,10 +881,11 @@ func (c *DeployCommand) deployBundle(spec bundleDeploySpec) (rErr error) {
 		return errors.Annotatef(err, "could not retrieve model name")
 	}
 
-	spec.controllerName, err = c.ControllerName()
+	controllerName, err := c.ControllerName()
 	if err != nil {
 		return errors.Trace(err)
 	}
+	spec.controllerName = controllerName
 	accountDetails, err := c.CurrentAccountDetails()
 	if err != nil {
 		return errors.Trace(err)
@@ -915,6 +931,19 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 				}()
 			}
 		}
+	}
+
+	// set the consumer details API factory method on the spec, so it makes it
+	// possible to communicate with other controllers, that are found within
+	// the local cache.
+	// If no controller is found within the local cache, an error will be raised
+	// which should ask the user to login.
+	spec.getConsumeDetailsAPI = func(url *charm.OfferURL) (ConsumeDetails, error) {
+		// Ensure that we have a url source when querying the controller.
+		if url.Source == "" {
+			url.Source = controllerName
+		}
+		return c.NewConsumeDetailsAPI(url)
 	}
 
 	// TODO(ericsnow) Do something with the CS macaroons that were returned?
