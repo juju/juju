@@ -1130,7 +1130,7 @@ func (h *bundleHandler) consumeOffer(change *bundlechanges.ConsumeOfferChange) e
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer controllerOfferAPI.Close()
+	defer func() { _ = controllerOfferAPI.Close() }()
 
 	// Ensure we use the Local url here as we have to ignore the source (read as
 	// target) controller, as the names of controllers might not match and we
