@@ -619,6 +619,52 @@ applications:
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
+func (s *bundleSuite) TestExportBundleWithSaas(c *gc.C) {
+	s.SetFeatureFlags(feature.CMRAwareBundles)
+	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+		Config: map[string]interface{}{
+			"name": "awesome",
+			"uuid": "some-uuid",
+		},
+		CloudRegion: "some-region"})
+
+	app := s.st.model.AddApplication(s.minimalApplicationArgs(description.IAAS))
+	app.SetStatus(minimalStatusArgs())
+
+	remoteApp := s.st.model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Tag: names.NewApplicationTag("awesome"),
+		URL: "test:admin/default.awesome",
+	})
+	remoteApp.SetStatus(minimalStatusArgs())
+
+	u := app.AddUnit(minimalUnitArgs(app.Type()))
+	u.SetAgentStatus(minimalStatusArgs())
+
+	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
+
+	result, err := s.facade.ExportBundle()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedResult := params.StringResult{nil, `
+series: trusty
+saas:
+  awesome:
+    url: test:admin/default.awesome
+applications:
+  ubuntu:
+    charm: cs:trusty/ubuntu
+    num_units: 1
+    to:
+    - "0"
+    options:
+      key: value
+    bindings:
+      juju-info: vlan2
+`[1:]}
+
+	c.Assert(result, gc.Equals, expectedResult)
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
 func (s *bundleSuite) addApplicationToModel(model description.Model, name string, numUnits int) description.Application {
 	series := "xenial"
 	if model.Type() == "caas" {
