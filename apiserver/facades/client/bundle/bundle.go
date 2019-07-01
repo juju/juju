@@ -466,11 +466,13 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 		data.Machines[machine.Id()] = newMachine
 	}
 
-	for _, application := range model.RemoteApplications() {
-		newSaas := &charm.SaasSpec{
-			URL: application.URL(),
+	if featureflag.Enabled(feature.CMRAwareBundles) {
+		for _, application := range model.RemoteApplications() {
+			newSaas := &charm.SaasSpec{
+				URL: application.URL(),
+			}
+			data.Saas[application.Name()] = newSaas
 		}
-		data.Saas[application.Name()] = newSaas
 	}
 	// If there is only one series used, make it the default and remove
 	// series from all the apps and machines.
