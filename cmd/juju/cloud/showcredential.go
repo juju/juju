@@ -11,6 +11,7 @@ import (
 	apicloud "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
@@ -118,6 +119,7 @@ func (c *showCredentialCommand) NewCredentialAPI() (CredentialContentAPI, error)
 
 type CredentialContent struct {
 	AuthType   string            `yaml:"auth-type"`
+	Validity   string            `yaml:"validity-check,omitempty"`
 	Attributes map[string]string `yaml:",inline"`
 }
 
@@ -151,7 +153,6 @@ func (c *showCredentialCommand) parseContents(ctxt *cmd.Context, in []params.Cre
 		_, ok := out[info.Content.Cloud]
 		if !ok {
 			out[info.Content.Cloud] = NamedCredentials{}
-			//cloudGroup = out[info.Content.Cloud]
 		}
 
 		models := make(map[string]string, len(info.Models))
@@ -166,6 +167,7 @@ func (c *showCredentialCommand) parseContents(ctxt *cmd.Context, in []params.Cre
 			Content: CredentialContent{
 				AuthType:   info.Content.AuthType,
 				Attributes: info.Content.Attributes,
+				Validity:   common.HumanReadableBoolPointer(info.Content.Valid, "valid", "invalid"),
 			},
 			Models: models,
 		}

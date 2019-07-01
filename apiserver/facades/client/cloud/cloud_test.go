@@ -50,14 +50,28 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 		Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 	}
+	credentialOne := statetesting.NewEmptyCredential()
+	credentialOne.Name = "one"
+	credentialOne.Owner = "bruce"
+	credentialOne.Cloud = "meep"
+	tagOne, err := credentialOne.CloudCredentialTag()
+	c.Assert(err, jc.ErrorIsNil)
+
+	credentialTwo := statetesting.CloudCredential(cloud.UserPassAuthType, map[string]string{
+		"username": "admin",
+		"password": "adm1n",
+	})
+	credentialTwo.Name = "two"
+	credentialTwo.Owner = "bruce"
+	credentialTwo.Cloud = "meep"
+	tagTwo, err := credentialTwo.CloudCredentialTag()
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.backend = &mockBackend{
 		cloud: aCloud,
 		creds: map[string]state.Credential{
-			names.NewCloudCredentialTag("meep/bruce/one").Id(): statetesting.NewEmptyCredential(),
-			names.NewCloudCredentialTag("meep/bruce/two").Id(): statetesting.CloudCredential(cloud.UserPassAuthType, map[string]string{
-				"username": "admin",
-				"password": "adm1n",
-			}),
+			tagOne.Id(): credentialOne,
+			tagTwo.Id(): credentialTwo,
 		},
 		controllerCfg:     coretesting.FakeControllerConfig(),
 		credentialModelsF: func(tag names.CloudCredentialTag) (map[string]string, error) { return nil, nil },
@@ -1164,6 +1178,45 @@ func (s *cloudSuite) TestModifyCloudAlreadyHasAccess(c *gc.C) {
 	})
 }
 
+func (s *cloudSuite) TestCredentialContentsAllNoSecrets(c *gc.C) {
+	one := s.backend.creds["meep/bruce/two"]
+	one.Invalid = true
+	s.backend.creds["meep/bruce/two"] = one
+	results, err := s.api.CredentialContents(params.CloudCredentialArgs{})
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "AllCloudCredentials", "Cloud", "CredentialModelsAndOwnerAccess", "CredentialModelsAndOwnerAccess")
+
+	_true := true
+	_false := false
+	expected := []params.CredentialContentResult{
+		{
+			Result: &params.ControllerCredentialInfo{
+				Content: params.CredentialContent{
+					Name:       "one",
+					Cloud:      "meep",
+					AuthType:   "empty",
+					Valid:      &_true,
+					Attributes: map[string]string{},
+				},
+			},
+		},
+		{
+			Result: &params.ControllerCredentialInfo{
+				Content: params.CredentialContent{
+					Name:     "two",
+					Cloud:    "meep",
+					AuthType: "userpass",
+					Valid:    &_false,
+					Attributes: map[string]string{
+						"username": "admin",
+					},
+				},
+			},
+		},
+	}
+	c.Assert(results.Results, jc.DeepEquals, expected)
+}
+
 type mockBackend struct {
 	gitjujutesting.Stub
 	cloudfacade.Backend
@@ -1173,6 +1226,7 @@ type mockBackend struct {
 	controllerCfg controller.Config
 
 	credentialModelsF func(tag names.CloudCredentialTag) (map[string]string, error)
+	credsModels       []state.CredentialOwnerModelAccess
 }
 
 func (st *mockBackend) ControllerTag() names.ControllerTag {
@@ -1235,17 +1289,21 @@ func (st *mockBackend) UpdateCloud(cloud cloud.Cloud) error {
 
 func (st *mockBackend) RemoveCloud(name string) error {
 	st.MethodCall(st, "RemoveCloud", name)
-	return errors.NewNotImplemented(nil, "This mock is used for v1, so RemoveCloud")
+	return errors.NotImplementedf("RemoveCloud")
 }
 
 func (st *mockBackend) AllCloudCredentials(user names.UserTag) ([]state.Credential, error) {
 	st.MethodCall(st, "AllCloudCredentials", user)
-	return nil, errors.NewNotImplemented(nil, "This mock is used for v1, so AllCloudCredentials")
+	var result []state.Credential
+	for _, v := range st.creds {
+		result = append(result, v)
+	}
+	return result, st.NextErr()
 }
 
 func (st *mockBackend) CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]state.CredentialOwnerModelAccess, error) {
 	st.MethodCall(st, "CredentialModelsAndOwnerAccess", tag)
-	return nil, errors.NewNotImplemented(nil, "This mock is used for v1, so CredentialModelsAndOwnerAccess")
+	return st.credsModels, st.NextErr()
 }
 
 func (st *mockBackend) CredentialModels(tag names.CloudCredentialTag) (map[string]string, error) {

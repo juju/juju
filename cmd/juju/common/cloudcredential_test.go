@@ -174,3 +174,22 @@ func (s *cloudCredentialSuite) TestGetOrDetectCredentialInvalidCredentialName(c 
 		},
 	)
 }
+
+func (s *cloudCredentialSuite) TestParseBoolPointer(c *gc.C) {
+	_true := true
+	_false := false
+	for _, t := range []struct {
+		pointer  *bool
+		trueV    string
+		falseV   string
+		expected string
+	}{
+		{nil, "a", "b", "b"},
+		{&_false, "a", "b", "b"},
+		{&_true, "a", "b", "a"},
+	} {
+
+		got := common.HumanReadableBoolPointer(t.pointer, t.trueV, t.falseV)
+		c.Assert(got, gc.Equals, t.expected)
+	}
+}

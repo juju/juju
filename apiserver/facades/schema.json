@@ -9616,6 +9616,9 @@
                         "cloud-credential-tag": {
                             "type": "string"
                         },
+                        "cloud-credential-validity": {
+                            "type": "boolean"
+                        },
                         "cloud-region": {
                             "type": "string"
                         },
@@ -10524,7 +10527,7 @@
     },
     {
         "Name": "Cloud",
-        "Version": 5,
+        "Version": 6,
         "Schema": {
             "type": "object",
             "properties": {
@@ -11091,6 +11094,9 @@
                         },
                         "name": {
                             "type": "string"
+                        },
+                        "valid": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false,
@@ -22773,7 +22779,7 @@
     },
     {
         "Name": "ModelManager",
-        "Version": 7,
+        "Version": 8,
         "Schema": {
             "type": "object",
             "properties": {
@@ -23365,6 +23371,9 @@
                         },
                         "cloud-credential-tag": {
                             "type": "string"
+                        },
+                        "cloud-credential-validity": {
+                            "type": "boolean"
                         },
                         "cloud-region": {
                             "type": "string"

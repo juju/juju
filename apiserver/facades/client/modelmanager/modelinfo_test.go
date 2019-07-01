@@ -174,11 +174,35 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
-	info := s.getModelInfo(c, s.st.model.cfg.UUID())
+func (s *modelInfoSuite) TestModelInfoV7(c *gc.C) {
+	api := &modelmanager.ModelManagerAPIV7{s.modelmanager}
+
+	results, err := api.ModelInfo(params.Entities{
+		Entities: []params.Entity{{
+			names.NewModelTag(s.st.model.cfg.UUID()).String(),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Check(results.Results[0].Result, gc.NotNil)
+	c.Check(results.Results[0].Error, gc.IsNil)
+	s.assertModelInfo(c, *results.Results[0].Result, s.expectedModelInfo(c, nil))
+	s.st.CheckCalls(c, []gitjujutesting.StubCall{
+		{"ControllerTag", nil},
+		{"ModelUUID", nil},
+		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
+		{"Model", nil},
+		{"IsController", nil},
+		{"AllMachines", nil},
+		{"ControllerNodes", nil},
+		{"LatestMigration", nil},
+	})
+}
+
+func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) params.ModelInfo {
 	expectedAgentVersion, exists := s.st.model.cfg.AgentVersion()
 	c.Assert(exists, jc.IsTrue)
-	c.Assert(info, jc.DeepEquals, params.ModelInfo{
+	info := params.ModelInfo{
 		Name:               "testmodel",
 		UUID:               s.st.model.cfg.UUID(),
 		Type:               string(s.st.model.Type()),
@@ -229,7 +253,15 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 			Owner: "user",
 		},
 		AgentVersion: &expectedAgentVersion,
-	})
+	}
+	info.CloudCredentialValidity = credentialValidity
+	return info
+}
+
+func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
+	info := s.getModelInfo(c, s.st.model.cfg.UUID())
+	_true := true
+	s.assertModelInfo(c, info, s.expectedModelInfo(c, &_true))
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
 		{"ModelUUID", nil},
@@ -239,7 +271,12 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"AllMachines", nil},
 		{"ControllerNodes", nil},
 		{"LatestMigration", nil},
+		{"CloudCredential", []interface{}{names.NewCloudCredentialTag("some-cloud/bob/some-credential")}},
 	})
+}
+
+func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo) {
+	c.Assert(got, jc.DeepEquals, expected)
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
 		{"UUID", nil},
 		{"Name", nil},

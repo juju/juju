@@ -70,6 +70,7 @@ func (s *ShowCredentialSuite) TestShowCredentialNone(c *gc.C) {
 }
 
 func (s *ShowCredentialSuite) TestShowCredentialOne(c *gc.C) {
+	_true := true
 	s.api.contents = []params.CredentialContentResult{
 		{
 			Result: &params.ControllerCredentialInfo{
@@ -77,6 +78,7 @@ func (s *ShowCredentialSuite) TestShowCredentialOne(c *gc.C) {
 					Cloud:    "aws",
 					Name:     "credential-name",
 					AuthType: "userpass",
+					Valid:    &_true,
 					Attributes: map[string]string{
 						"username": "fred",
 						"password": "sekret"},
@@ -99,6 +101,7 @@ controller-credentials:
     credential-name:
       content:
         auth-type: userpass
+        validity-check: valid
         password: sekret
         username: fred
       models:
@@ -169,11 +172,13 @@ controller-credentials:
     one:
       content:
         auth-type: userpass
+        validity-check: invalid
         username: fred
       models: {}
     two:
       content:
         auth-type: userpass
+        validity-check: invalid
         hidden: very-very-sekret
         password: sekret
         something: visible-attr
@@ -186,6 +191,7 @@ controller-credentials:
     three:
       content:
         auth-type: oauth1
+        validity-check: invalid
         something: visible-attr
       models:
         klmmodel: write

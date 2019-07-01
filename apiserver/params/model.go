@@ -147,6 +147,9 @@ type ModelInfo struct {
 	CloudRegion        string `json:"cloud-region,omitempty"`
 	CloudCredentialTag string `json:"cloud-credential-tag,omitempty"`
 
+	// CloudCredentialValidity contains if model credential is valid, if known.
+	CloudCredentialValidity *bool `json:"cloud-credential-validity,omitempty"`
+
 	// OwnerTag is the tag of the user that owns the model.
 	OwnerTag string `json:"owner-tag"`
 

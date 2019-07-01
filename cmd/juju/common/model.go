@@ -78,9 +78,10 @@ func FriendlyDuration(when *time.Time, now time.Time) string {
 
 // ModelCredential contains model credential basic details.
 type ModelCredential struct {
-	Name  string `json:"name" yaml:"name"`
-	Owner string `json:"owner" yaml:"owner"`
-	Cloud string `json:"cloud" yaml:"cloud"`
+	Name     string `json:"name" yaml:"name"`
+	Owner    string `json:"owner" yaml:"owner"`
+	Cloud    string `json:"cloud" yaml:"cloud"`
+	Validity string `json:"validity-check,omitempty" yaml:"validity-check,omitempty"`
 }
 
 // ModelInfoFromParams translates a params.ModelInfo to ModelInfo.
@@ -150,9 +151,10 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 			return ModelInfo{}, errors.Trace(err)
 		}
 		modelInfo.Credential = &ModelCredential{
-			Name:  credTag.Name(),
-			Owner: credTag.Owner().Id(),
-			Cloud: credTag.Cloud().Id(),
+			Name:     credTag.Name(),
+			Owner:    credTag.Owner().Id(),
+			Cloud:    credTag.Cloud().Id(),
+			Validity: HumanReadableBoolPointer(info.CloudCredentialValidity, "valid", "invalid"),
 		}
 	}
 
