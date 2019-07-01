@@ -61,7 +61,7 @@ type SecretSpec struct {
 	Name        string            `yaml:"name"`
 	Type        core.SecretType   `yaml:"type,omitempty"`
 	Annotations map[string]string `yaml:"annotations,omitempty"`
-	Data        map[string][]byte `yaml:"data,omitempty"`
+	Data        map[string]string `yaml:"data,omitempty"`
 	StringData  map[string]string `yaml:"stringData,omitempty"`
 }
 
@@ -80,6 +80,16 @@ type ServiceAccountSpec struct {
 	Secrets                      []SecretSpec `yaml:"secrets,omitempty"`
 }
 
+// Validate returns an error if the secret spec is not valid.
+func (spec *ServiceAccountSpec) Validate() error {
+	for _, s := range spec.Secrets {
+		if err := s.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 // PodSpec defines the data values used to configure
 // a pod on the CAAS substrate.
 type PodSpec struct {
@@ -88,7 +98,7 @@ type PodSpec struct {
 	Containers                []ContainerSpec                                              `yaml:"-"`
 	InitContainers            []ContainerSpec                                              `yaml:"-"`
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `yaml:"-"`
-	ServiceAccount            ServiceAccountSpec                                           `yaml:"-"`
+	ServiceAccount            *ServiceAccountSpec                                          `yaml:"-"`
 
 	// ProviderPod defines config which is specific to a substrate, eg k8s
 	ProviderPod `yaml:"-"`
@@ -113,6 +123,9 @@ func (spec *PodSpec) Validate() error {
 	}
 	if spec.ProviderPod != nil {
 		return spec.ProviderPod.Validate()
+	}
+	if spec.ServiceAccount != nil {
+		return spec.ServiceAccount.Validate()
 	}
 	return nil
 }

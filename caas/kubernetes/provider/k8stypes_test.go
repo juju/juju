@@ -153,6 +153,26 @@ customResourceDefinitions:
                     type: integer
                     minimum: 1
                     maximum: 1
+serviceAccount:
+  name: build-robot
+  automountServiceAccountToken: false
+  secrets:
+  - name: build-robot-secret
+    annotations:
+      kubernetes.io/service-account.name: build-robot
+    type: kubernetes.io/service-account-token
+    stringData:
+      config.yaml: |-
+        apiUrl: "https://my.api.com/api/v1"
+        username: fred
+        password: shhhh
+  - name: another-build-robot-secret
+    annotations:
+      kubernetes.io/service-account.name: build-robot
+    type: Opaque
+    data:
+      username: YWRtaW4=
+      password: MWYyZDFlMmU2N2Rm
 `[1:]
 
 	expectedFileContent := `
@@ -325,6 +345,35 @@ echo "do some stuff here for gitlab-init container"
 								},
 							},
 						},
+					},
+				},
+			},
+		},
+		ServiceAccount: &caas.ServiceAccountSpec{
+			Name:                         "build-robot",
+			AutomountServiceAccountToken: boolPtr(false),
+			Secrets: []caas.SecretSpec{
+				caas.SecretSpec{
+					Name: "build-robot-secret",
+					Type: "kubernetes.io/service-account-token",
+					Annotations: map[string]string{
+						"kubernetes.io/service-account.name": "build-robot",
+					},
+					StringData: map[string]string{
+						"config.yaml": `
+apiUrl: "https://my.api.com/api/v1"
+username: fred
+password: shhhh`[1:]},
+				},
+				caas.SecretSpec{
+					Name: "another-build-robot-secret",
+					Type: "Opaque",
+					Annotations: map[string]string{
+						"kubernetes.io/service-account.name": "build-robot",
+					},
+					Data: map[string]string{
+						"username": "YWRtaW4=",
+						"password": "MWYyZDFlMmU2N2Rm",
 					},
 				},
 			},

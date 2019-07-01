@@ -1224,6 +1224,15 @@ func (k *kubernetesClient) EnsureService(
 		}
 		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName) })
 	}
+
+	if params.PodSpec.ServiceAccount != nil {
+		cleanupsForSvcAccount, err := k.ensureServiceAccount(params.PodSpec.ServiceAccount)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating service account")
+		}
+		cleanups = append(cleanups, cleanupsForSvcAccount...)
+	}
+
 	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
 	// Defensively check to see if a stateful set is already used.
 	var useStatefulSet bool
@@ -1306,8 +1315,61 @@ func (k *kubernetesClient) EnsureService(
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
 	}
-
 	return nil
+}
+
+func (k *kubernetesClient) ensureServiceAccount(caasSpec *caas.ServiceAccountSpec) ([]func(), error) {
+	var cleanups []func()
+
+	spec := &core.ServiceAccount{
+		AutomountServiceAccountToken: caasSpec.AutomountServiceAccountToken,
+	}
+	spec.SetName(caasSpec.Name)
+
+	for _, caasSecret := range caasSpec.Secrets {
+		secret := &core.Secret{
+			ObjectMeta: v1.ObjectMeta{
+				Name:        caasSecret.Name,
+				Namespace:   k.namespace,
+				Annotations: caasSecret.Annotations,
+			},
+			Type:       caasSecret.Type,
+			StringData: caasSecret.StringData,
+			Data:       make(map[string][]byte),
+		}
+		for k, v := range caasSecret.Data {
+			secret.Data[k] = []byte(v)
+		}
+		if err := k.updateSecret(secret); err != nil {
+			if !k8serrors.IsNotFound(err) {
+				return cleanups, errors.Trace(err)
+			}
+			if err = k.createSecret(secret); err != nil {
+				return cleanups, errors.Trace(err)
+			}
+			cleanups = append(cleanups, func() { k.deleteSecret(secret.Name) })
+		}
+		spec.Secrets = append(spec.Secrets, core.ObjectReference{Name: secret.Name})
+	}
+
+	resource, err := k.client().CoreV1().ServiceAccounts(k.namespace).Update(spec)
+	if k8serrors.IsNotFound(err) {
+		if resource, err = k.client().CoreV1().ServiceAccounts(k.namespace).Create(spec); err != nil {
+			return cleanups, errors.Trace(err)
+		}
+		cleanups = append(cleanups, func() { k.deleteServiceAccount(resource.GetName()) })
+	}
+	return cleanups, errors.Trace(err)
+}
+
+func (k *kubernetesClient) deleteServiceAccount(name string) error {
+	err := k.client().CoreV1().ServiceAccounts(k.namespace).Delete(name, &v1.DeleteOptions{
+		PropagationPolicy: &defaultPropagationPolicy,
+	})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
 }
 
 // Upgrade sets the OCI image for the app's operator to the specified version.
@@ -1673,6 +1735,7 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 	// TODO(caas) - allow extra storage to be added
 	existing.Spec.Replicas = spec.Spec.Replicas
 	existing.Spec.Template.Spec.Containers = existingPodSpec.Containers
+	existing.Spec.Template.Spec.ServiceAccountName = existingPodSpec.ServiceAccountName
 	// NB: we can't update the Spec.ServiceName as it is immutable.
 	_, err = statefulsets.Update(existing)
 	return errors.Trace(err)
@@ -2555,6 +2618,9 @@ func makeUnitSpec(appName, deploymentName string, podSpec *caas.PodSpec) (*unitS
 		unitSpec.Pod.AutomountServiceAccountToken = spec.AutomountServiceAccountToken
 		unitSpec.Pod.ReadinessGates = spec.ReadinessGates
 		unitSpec.Service = spec.Service
+	}
+	if unitSpec.Pod.ServiceAccountName == "" && podSpec.ServiceAccount != nil {
+		unitSpec.Pod.ServiceAccountName = podSpec.ServiceAccount.Name
 	}
 	return &unitSpec, nil
 }
