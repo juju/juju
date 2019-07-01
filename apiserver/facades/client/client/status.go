@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
@@ -514,7 +515,7 @@ type statusContext struct {
 	units                     map[string]map[string]*state.Unit
 	latestCharms              map[charm.URL]*state.Charm
 	leaders                   map[string]string
-	branches                  map[string]ModelCacheBranch
+	branches                  map[string]cache.Branch
 }
 
 // fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
@@ -799,10 +800,10 @@ func fetchRelations(st Backend) (map[string][]*state.Relation, map[int]*state.Re
 	return out, outById, nil
 }
 
-func fetchBranches(m ModelCache) map[string]ModelCacheBranch {
-	// modelCache.Branches() returns only active branches.
+func fetchBranches(m *cache.Model) map[string]cache.Branch {
+	// m.Branches() returns only active branches.
 	b := m.Branches()
-	branches := make(map[string]ModelCacheBranch, len(b))
+	branches := make(map[string]cache.Branch, len(b))
 	for _, branch := range b {
 		branches[branch.Name()] = branch
 	}

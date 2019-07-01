@@ -9,7 +9,6 @@ import (
 
 // Filtering exports
 var (
-	GetCachedModel  = &getCachedModel
 	MatchPortRanges = matchPortRanges
 	MatchSubnet     = matchSubnet
 )

@@ -6,7 +6,6 @@ package client_test
 import (
 	"time"
 
-	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -14,10 +13,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/client"
-	"github.com/juju/juju/apiserver/facades/client/client/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/params"
@@ -831,11 +828,9 @@ func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.Application
 type filteringBranchesSuite struct {
 	baseSuite
 
-	model    *mocks.MockModelCache
-	branches []*mocks.MockModelCacheBranch
-	appA     string
-	appB     string
-	subB     string
+	appA string
+	appB string
+	subB string
 }
 
 var _ = gc.Suite(&filteringBranchesSuite{})
@@ -891,30 +886,24 @@ func (s *filteringBranchesSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *filteringBranchesSuite) TestFullStatusBranchNoFilter(c *gc.C) {
-	defer s.setup(c, 1).Finish()
-
-	s.expectBranchName(0, "apple")
-	s.expectBranchAssignedUnits(0, nil)
+	err := s.State.AddBranch("apple", "test-user")
+	c.Assert(err, jc.ErrorIsNil)
 
 	client := s.clientForTest(c)
 
 	status, err := client.FullStatus(params.StatusParams{})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("%#v", status.Branches)
 	b, ok := status.Branches["apple"]
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string(nil))
+	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{})
 	c.Assert(status.Applications, gc.HasLen, 3)
 }
 
 func (s *filteringBranchesSuite) TestFullStatusBranchFilterUnit(c *gc.C) {
-	defer s.setup(c, 2).Finish()
-
-	s.expectBranchName(0, "apple")
-	s.expectBranchAssignedUnits(0, map[string][]string{
-		s.appA: {s.appA + "/0"},
-	})
-	s.expectBranchName(1, "banana")
-	s.expectBranchAssignedUnits(1, nil)
+	s.assertBranchAssignUnit(c, "apple", s.appA+"/0")
+	err := s.State.AddBranch("banana", "test-user")
+	c.Assert(err, jc.ErrorIsNil)
 
 	client := s.clientForTest(c)
 
@@ -930,14 +919,9 @@ func (s *filteringBranchesSuite) TestFullStatusBranchFilterUnit(c *gc.C) {
 }
 
 func (s *filteringBranchesSuite) TestFullStatusBranchFilterApplication(c *gc.C) {
-	defer s.setup(c, 2).Finish()
-
-	s.expectBranchName(0, "apple")
-	s.expectBranchAssignedUnits(0, nil)
-	s.expectBranchName(1, "banana")
-	s.expectBranchAssignedUnits(1, map[string][]string{
-		s.appB: {},
-	})
+	err := s.State.AddBranch("apple", "test-user")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertBranchAssignApplication(c, "banana", s.appB)
 
 	client := s.clientForTest(c)
 
@@ -953,18 +937,10 @@ func (s *filteringBranchesSuite) TestFullStatusBranchFilterApplication(c *gc.C) 
 }
 
 func (s *filteringBranchesSuite) TestFullStatusBranchFilterSubordinateUnit(c *gc.C) {
-	defer s.setup(c, 3).Finish()
-
-	s.expectBranchName(0, "apple")
-	s.expectBranchAssignedUnits(0, map[string][]string{
-		s.subB: {s.subB + "/0"},
-	})
-	s.expectBranchName(1, "banana")
-	s.expectBranchAssignedUnits(1, map[string][]string{
-		"testme": {"testme/0"},
-	})
-	s.expectBranchName(2, "cucumber")
-	s.expectBranchAssignedUnits(2, nil)
+	s.assertBranchAssignUnit(c, "apple", s.subB+"/0")
+	s.assertBranchAssignUnit(c, "banana", "testme/0")
+	err := s.State.AddBranch("cucumber", "test-user")
+	c.Assert(err, jc.ErrorIsNil)
 
 	client := s.clientForTest(c)
 
@@ -981,20 +957,9 @@ func (s *filteringBranchesSuite) TestFullStatusBranchFilterSubordinateUnit(c *gc
 }
 
 func (s *filteringBranchesSuite) TestFullStatusBranchFilterTwoBranchesSubordinateUnit(c *gc.C) {
-	defer s.setup(c, 3).Finish()
-
-	s.expectBranchName(0, "apple")
-	s.expectBranchAssignedUnits(0, map[string][]string{
-		s.subB: {s.subB + "/0"},
-	})
-	s.expectBranchName(1, "banana")
-	s.expectBranchAssignedUnits(1, map[string][]string{
-		"testme": {"testme/1"},
-	})
-	s.expectBranchName(2, "cucumber")
-	s.expectBranchAssignedUnits(2, map[string][]string{
-		s.appB: {s.appB + "/0"},
-	})
+	s.assertBranchAssignUnit(c, "apple", s.subB+"/0")
+	s.assertBranchAssignUnit(c, "banana", "testme/1")
+	s.assertBranchAssignUnit(c, "cucumber", s.appB+"/0")
 
 	client := s.clientForTest(c)
 
@@ -1012,28 +977,14 @@ func (s *filteringBranchesSuite) TestFullStatusBranchFilterTwoBranchesSubordinat
 	c.Assert(status.Applications, gc.HasLen, 2)
 }
 
-func (s *filteringBranchesSuite) setup(c *gc.C, branchCnt int) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.model = mocks.NewMockModelCache(ctrl)
-	s.branches = make([]*mocks.MockModelCacheBranch, branchCnt)
-	for i := 0; i < branchCnt; i += 1 {
-		s.branches[i] = mocks.NewMockModelCacheBranch(ctrl)
-	}
-
-	s.expectBranchCreated()
-	s.expectBranches()
-
-	return ctrl
-}
-
 func (s *filteringBranchesSuite) clientForTest(c *gc.C) *client.Client {
-	s.PatchValue(client.GetCachedModel, func(ctx facade.Context, modelUUID string) (client.ModelCache, error) {
-		return s.model, nil
-	})
+	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
 	ctx := &facadetest.Context{
-		State_:     s.State,
-		StatePool_: s.StatePool,
+		Controller_: s.Controller,
+		State_:      s.State,
+		StatePool_:  s.StatePool,
 		Auth_: apiservertesting.FakeAuthorizer{
 			Tag:        s.AdminUserTag(c),
 			Controller: true,
@@ -1046,26 +997,24 @@ func (s *filteringBranchesSuite) clientForTest(c *gc.C) *client.Client {
 	return client
 }
 
-func (s *filteringBranchesSuite) expectBranches() {
-	bs := make([]client.ModelCacheBranch, len(s.branches))
-	for i, b := range s.branches {
-		bs[i] = b
-	}
-	s.model.EXPECT().Branches().Return(bs, nil).AnyTimes()
+func (s *filteringBranchesSuite) assertBranchAssignUnit(c *gc.C, bName, uName string) {
+	err := s.State.AddBranch(bName, "test-user")
+	c.Assert(err, jc.ErrorIsNil)
+	gen, err := s.State.Branch(bName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gen, gc.NotNil)
+	err = gen.AssignUnit(uName)
+	c.Assert(gen, gc.NotNil)
 }
 
-func (s *filteringBranchesSuite) expectBranchName(index int, name string) {
-	s.branches[index].EXPECT().Name().Return(name).AnyTimes()
-}
-
-func (s *filteringBranchesSuite) expectBranchAssignedUnits(index int, assignedUnits map[string][]string) {
-	s.branches[index].EXPECT().AssignedUnits().Return(assignedUnits).AnyTimes()
-}
-
-func (s *filteringBranchesSuite) expectBranchCreated() {
-	for _, b := range s.branches {
-		b.EXPECT().Created().Return(int64(0)).AnyTimes()
-	}
+func (s *filteringBranchesSuite) assertBranchAssignApplication(c *gc.C, bName, aName string) {
+	err := s.State.AddBranch(bName, "test-user")
+	c.Assert(err, jc.ErrorIsNil)
+	gen, err := s.State.Branch(bName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gen, gc.NotNil)
+	err = gen.AssignApplication(aName)
+	c.Assert(gen, gc.NotNil)
 }
 
 type mockLeadershipReader struct{}
