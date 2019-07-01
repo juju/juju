@@ -89,7 +89,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 
 	// Apply any branch-based deltas to the master settings.
 	var deltas settings.ItemChanges
-	branches, _ := u.model.Branches()
+	branches := u.model.Branches()
 	for _, b := range branches {
 		if units := b.AssignedUnits()[appName]; len(units) > 0 {
 			if set.NewStrings(units...).Contains(u.details.Name) {

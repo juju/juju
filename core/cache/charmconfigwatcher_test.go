@@ -190,12 +190,12 @@ func (m *stubCharmConfigModel) Application(name string) (Application, error) {
 	return Application{}, errors.NotFoundf("application %q", name)
 }
 
-func (m *stubCharmConfigModel) Branches() ([]Branch, error) {
+func (m *stubCharmConfigModel) Branches() []Branch {
 	branches := make([]Branch, len(m.branches))
 	i := 0
 	for _, b := range m.branches {
 		branches[i] = b.copy()
 		i += 1
 	}
-	return branches, nil
+	return branches
 }

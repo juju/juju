@@ -100,7 +100,7 @@ func (m *Model) Report() map[string]interface{} {
 }
 
 // Branches returns all active branches in the model.
-func (m *Model) Branches() ([]Branch, error) {
+func (m *Model) Branches() []Branch {
 	m.mu.Lock()
 
 	branches := make([]Branch, len(m.branches))
@@ -111,7 +111,7 @@ func (m *Model) Branches() ([]Branch, error) {
 	}
 
 	m.mu.Unlock()
-	return branches, nil
+	return branches
 }
 
 // Branch returns the branch with the input name.

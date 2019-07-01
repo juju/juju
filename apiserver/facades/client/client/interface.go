@@ -8,7 +8,7 @@ package client
 // ModelCache represents point of use methods from the cache
 // model.
 type ModelCache interface {
-	Branches() ([]ModelCacheBranch, error)
+	Branches() []ModelCacheBranch
 }
 
 // ModelCache represents point of use methods from a cache

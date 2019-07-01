@@ -225,9 +225,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if context.controllerTimestamp, err = c.api.stateAccessor.ControllerTimestamp(); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch controller timestamp")
 	}
-	if context.branches, err = fetchBranches(c.api.modelCache); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch branches")
-	}
+	context.branches = fetchBranches(c.api.modelCache)
 
 	logger.Tracef("Applications: %v", context.allAppsUnitsCharmBindings.applications)
 	logger.Tracef("Remote applications: %v", context.consumerRemoteApplications)
@@ -801,17 +799,14 @@ func fetchRelations(st Backend) (map[string][]*state.Relation, map[int]*state.Re
 	return out, outById, nil
 }
 
-func fetchBranches(m ModelCache) (map[string]ModelCacheBranch, error) {
+func fetchBranches(m ModelCache) map[string]ModelCacheBranch {
 	// modelCache.Branches() returns only active branches.
-	b, err := m.Branches()
-	if err != nil {
-		return nil, err
-	}
+	b := m.Branches()
 	branches := make(map[string]ModelCacheBranch, len(b))
 	for _, branch := range b {
 		branches[branch.Name()] = branch
 	}
-	return branches, nil
+	return branches
 }
 
 func (c *statusContext) processMachines() map[string]params.MachineStatus {
