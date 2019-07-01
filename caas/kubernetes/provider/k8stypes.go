@@ -28,6 +28,7 @@ type k8sContainers struct {
 	Containers                []k8sContainer                                               `json:"containers"`
 	InitContainers            []k8sContainer                                               `json:"initContainers"`
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `yaml:"customResourceDefinitions,omitempty"`
+	ServiceAccount            *caas.ServiceAccountSpec                                     `yaml:"serviceAccount,omitempty"`
 }
 
 // K8sContainerSpec is a subset of v1.Container which defines
@@ -133,6 +134,7 @@ func parseK8sPodSpec(in string) (*caas.PodSpec, error) {
 		spec.InitContainers[i] = containerFromK8sSpec(c)
 	}
 	spec.CustomResourceDefinitions = containers.CustomResourceDefinitions
+	spec.ServiceAccount = containers.ServiceAccount
 	return &spec, nil
 }
 
