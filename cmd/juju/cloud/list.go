@@ -32,7 +32,6 @@ type listCloudsCommand struct {
 
 	// Used when querying a controller for its cloud details
 	controllerName    string
-	store             jujuclient.ClientStore
 	listCloudsAPIFunc func(controllerName string) (ListCloudsAPI, error)
 }
 
@@ -106,7 +105,6 @@ func NewListCloudsCommand() cmd.Command {
 			Store:       store,
 			EnabledFlag: feature.MultiCloud,
 		},
-		store: store,
 	}
 	c.listCloudsAPIFunc = c.cloudAPI
 
@@ -114,7 +112,7 @@ func NewListCloudsCommand() cmd.Command {
 }
 
 func (c *listCloudsCommand) cloudAPI(controllerName string) (ListCloudsAPI, error) {
-	root, err := c.NewAPIRoot(c.store, controllerName, "")
+	root, err := c.NewAPIRoot(c.Store, controllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
