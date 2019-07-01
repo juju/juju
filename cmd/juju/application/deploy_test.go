@@ -800,6 +800,9 @@ func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 		NewAPIRoot: func() (DeployAPI, error) {
 			return fakeAPI, nil
 		},
+		NewConsumeDetailsAPI: func(url *charm.OfferURL) (ConsumeDetails, error) {
+			return fakeAPI, nil
+		},
 	}
 
 	s.SetFeatureFlags(feature.CMRAwareBundles)
