@@ -1819,6 +1819,28 @@ func (s *UnitSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *UnitSuite) TestRemoveUnassignsFromBranch(c *gc.C) {
+	// Add unit to a branch
+	c.Assert(s.Model.AddBranch("apple", "testuser"), jc.ErrorIsNil)
+	branch, err := s.Model.Branch("apple")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(branch.AssignUnit(s.unit.Name()), jc.ErrorIsNil)
+	c.Assert(branch.Refresh(), jc.ErrorIsNil)
+	c.Assert(branch.AssignedUnits(), gc.DeepEquals, map[string][]string{
+		s.application.Name(): {s.unit.Name()},
+	})
+
+	// remove the unit
+	c.Assert(s.unit.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(s.unit.Remove(), jc.ErrorIsNil)
+
+	// verify branch no longer tracks unit
+	c.Assert(branch.Refresh(), jc.ErrorIsNil)
+	c.Assert(branch.AssignedUnits(), gc.DeepEquals, map[string][]string{
+		s.application.Name(): {},
+	})
+}
+
 func (s *UnitSuite) TestRemovePathological(c *gc.C) {
 	// Add a relation between wordpress and mysql...
 	wordpress := s.application

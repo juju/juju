@@ -372,6 +372,32 @@ func (s *generationSuite) TestBranches(c *gc.C) {
 	c.Check(branches[0].BranchName(), gc.Equals, newBranchName)
 }
 
+func (s *generationSuite) TestUnitBranch(c *gc.C) {
+	s.setupTestingClock(c)
+
+	branchA := s.setupAssignAllUnits(c)
+	c.Assert(branchA.AssignUnit("riak/0"), jc.ErrorIsNil)
+	c.Assert(branchA.AssignUnit("riak/2"), jc.ErrorIsNil)
+
+	c.Assert(s.Model.AddBranch("banana", newBranchCreator), jc.ErrorIsNil)
+	branchB, err := s.Model.Branch("banana")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(branchB.AssignUnit("riak/1"), jc.ErrorIsNil)
+
+	unit2Branch, err := state.UnitBranch(s.Model, "riak/2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit2Branch.BranchName(), gc.Equals, branchA.BranchName())
+
+	unit1Branch, err := state.UnitBranch(s.Model, "riak/1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit1Branch.BranchName(), gc.Equals, branchB.BranchName())
+
+	// Idempotent.
+	unit2BranchTake2, err := state.UnitBranch(s.Model, "riak/2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit2BranchTake2.BranchName(), gc.Equals, unit2Branch.BranchName())
+}
+
 func (s *generationSuite) setupAssignAllUnits(c *gc.C) *state.Generation {
 	var cfgYAML = `
 options:
