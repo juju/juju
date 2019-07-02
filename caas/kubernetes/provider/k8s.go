@@ -464,6 +464,7 @@ func (k *kubernetesClient) ensureOCIImageSecret(
 			core.DockerConfigJsonKey: secretData,
 		},
 	}
+	logger.Debugf("ensuring docker secret %q", imageSecretName)
 	return errors.Trace(k.ensureSecret(newSecret))
 }
 
@@ -479,6 +480,9 @@ func (k *kubernetesClient) ensureSecret(sec *core.Secret) error {
 // updateSecret updates a secret resource.
 func (k *kubernetesClient) updateSecret(sec *core.Secret) error {
 	_, err := k.client().CoreV1().Secrets(k.namespace).Update(sec)
+	if k8serrors.IsNotFound(err) {
+		return errors.NotFoundf("secret %q", sec.GetName())
+	}
 	return errors.Trace(err)
 }
 
@@ -1227,10 +1231,10 @@ func (k *kubernetesClient) EnsureService(
 
 	if params.PodSpec.ServiceAccount != nil {
 		cleanupsForSvcAccount, err := k.ensureServiceAccount(params.PodSpec.ServiceAccount)
+		cleanups = append(cleanups, cleanupsForSvcAccount...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating service account")
 		}
-		cleanups = append(cleanups, cleanupsForSvcAccount...)
 	}
 
 	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
@@ -1318,14 +1322,15 @@ func (k *kubernetesClient) EnsureService(
 	return nil
 }
 
-func (k *kubernetesClient) ensureServiceAccount(caasSpec *caas.ServiceAccountSpec) ([]func(), error) {
+func (k *kubernetesClient) ensureServiceAccount(caasSpec *caas.ServiceAccountSpec) (_ []func(), err error) {
 	var cleanups []func()
-
 	spec := &core.ServiceAccount{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      caasSpec.Name,
+			Namespace: k.namespace,
+		},
 		AutomountServiceAccountToken: caasSpec.AutomountServiceAccountToken,
 	}
-	spec.SetName(caasSpec.Name)
-
 	for _, caasSecret := range caasSpec.Secrets {
 		secret := &core.Secret{
 			ObjectMeta: v1.ObjectMeta{
@@ -1335,13 +1340,16 @@ func (k *kubernetesClient) ensureServiceAccount(caasSpec *caas.ServiceAccountSpe
 			},
 			Type:       caasSecret.Type,
 			StringData: caasSecret.StringData,
-			Data:       make(map[string][]byte),
 		}
-		for k, v := range caasSecret.Data {
-			secret.Data[k] = []byte(v)
+		if caasSecret.Data != nil {
+			secret.Data = make(map[string][]byte)
+			for k, v := range caasSecret.Data {
+				secret.Data[k] = []byte(v)
+			}
 		}
+		logger.Debugf("ensuring secret %q for service account %q", secret.GetName(), spec.GetName())
 		if err := k.updateSecret(secret); err != nil {
-			if !k8serrors.IsNotFound(err) {
+			if !errors.IsNotFound(err) {
 				return cleanups, errors.Trace(err)
 			}
 			if err = k.createSecret(secret); err != nil {

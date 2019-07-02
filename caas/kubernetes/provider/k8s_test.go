@@ -1402,6 +1402,171 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionUpdate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *K8sBrokerSuite) TestEnsureServiceServiceAccountCreateNew(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	podSpec := basicPodspec
+	podSpec.ServiceAccount = &caas.ServiceAccountSpec{
+		Name:                         "build-robot",
+		AutomountServiceAccountToken: boolPtr(false),
+		Secrets: []caas.SecretSpec{
+			caas.SecretSpec{
+				Name: "build-robot-secret",
+				Type: "kubernetes.io/service-account-token",
+				Annotations: map[string]string{
+					"kubernetes.io/service-account.name": "build-robot",
+				},
+				StringData: map[string]string{
+					"config.yaml": `apiUrl: "https://my.api.com/api/v1"
+username: fred
+password: shhhh`},
+			},
+			caas.SecretSpec{
+				Name: "another-build-robot-secret",
+				Type: "Opaque",
+				Annotations: map[string]string{
+					"kubernetes.io/service-account.name": "build-robot",
+				},
+				Data: map[string]string{
+					"username": "YWRtaW4=",
+					"password": "MWYyZDFlMmU2N2Rm",
+				},
+			},
+		},
+	}
+
+	numUnits := int32(2)
+	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", podSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	deploymentArg := &appsv1.Deployment{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred": "mary",
+			}},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &numUnits,
+			Selector: &v1.LabelSelector{
+				MatchLabels: map[string]string{"juju-app": "app-name"},
+			},
+			Template: core.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					GenerateName: "app-name-",
+					Labels: map[string]string{
+						"juju-app": "app-name",
+					},
+					Annotations: map[string]string{
+						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
+						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+						"fred": "mary",
+					},
+				},
+				Spec: provider.PodSpec(unitSpec),
+			},
+		},
+	}
+	serviceArg := &core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred": "mary",
+				"a":    "b",
+			}},
+		Spec: core.ServiceSpec{
+			Selector: map[string]string{"juju-app": "app-name"},
+			Type:     "nodeIP",
+			Ports: []core.ServicePort{
+				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
+				{Port: 8080, Protocol: "TCP", Name: "fred"},
+			},
+			LoadBalancerIP: "10.0.0.1",
+			ExternalName:   "ext-name",
+		},
+	}
+
+	svcAccount := &core.ServiceAccount{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "build-robot",
+			Namespace: "test",
+		},
+		AutomountServiceAccountToken: boolPtr(false),
+	}
+	svcAccountSecret1 := &core.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "build-robot-secret",
+			Namespace: "test",
+			Annotations: map[string]string{
+				"kubernetes.io/service-account.name": "build-robot",
+			},
+		},
+		Type: "kubernetes.io/service-account-token",
+		StringData: map[string]string{
+			"config.yaml": `apiUrl: "https://my.api.com/api/v1"
+username: fred
+password: shhhh`},
+	}
+	svcAccountSecret2 := &core.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "another-build-robot-secret",
+			Namespace: "test",
+			Annotations: map[string]string{
+				"kubernetes.io/service-account.name": "build-robot",
+			},
+		},
+		Type: "Opaque",
+		Data: map[string][]byte{
+			"username": []byte("YWRtaW4="),
+			"password": []byte("MWYyZDFlMmU2N2Rm"),
+		},
+	}
+	svcAccount.Secrets = []core.ObjectReference{
+		{Name: svcAccountSecret1.GetName()},
+		{Name: svcAccountSecret2.GetName()},
+	}
+
+	secretArg := s.secretArg(c, map[string]string{"fred": "mary"})
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Update(secretArg).Times(1).Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Create(secretArg).Times(1).Return(nil, nil),
+		s.mockSecrets.EXPECT().Update(svcAccountSecret1).Times(1).Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Create(svcAccountSecret1).Times(1).Return(nil, nil),
+		s.mockSecrets.EXPECT().Update(svcAccountSecret2).Times(1).Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Create(svcAccountSecret2).Times(1).Return(nil, nil),
+		s.mockServiceAccounts.EXPECT().Update(svcAccount).Times(1).Return(nil, s.k8sNotFoundError()),
+		s.mockServiceAccounts.EXPECT().Create(svcAccount).Times(1).Return(svcAccount, nil),
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(serviceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(serviceArg).Times(1).
+			Return(nil, nil),
+		s.mockDeployments.EXPECT().Update(deploymentArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Create(deploymentArg).Times(1).
+			Return(nil, nil),
+	)
+
+	params := &caas.ServiceParams{
+		PodSpec:      podSpec,
+		ResourceTags: map[string]string{"fred": "mary"},
+	}
+	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+		"kubernetes-service-externalname":    "ext-name",
+		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
