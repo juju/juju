@@ -63,6 +63,8 @@ type BaseSuite struct {
 	mockApiextensionsClient      *mocks.MockApiExtensionsClientInterface
 	mockCustomResourceDefinition *mocks.MockCustomResourceDefinitionInterface
 
+	mockServiceAccounts *mocks.MockServiceAccountInterface
+
 	watchers []*provider.KubernetesWatcher
 }
 
@@ -196,6 +198,9 @@ func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller, namespa
 	s.mockCustomResourceDefinition = mocks.NewMockCustomResourceDefinitionInterface(ctrl)
 	s.mockApiextensionsClient.EXPECT().ApiextensionsV1beta1().AnyTimes().Return(s.mockApiextensionsV1)
 	s.mockApiextensionsV1.EXPECT().CustomResourceDefinitions().AnyTimes().Return(s.mockCustomResourceDefinition)
+
+	s.mockServiceAccounts = mocks.NewMockServiceAccountInterface(ctrl)
+	mockCoreV1.EXPECT().ServiceAccounts(namespace).AnyTimes().Return(s.mockServiceAccounts)
 
 	return func(cfg *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error) {
 		c.Assert(cfg.Username, gc.Equals, "fred")
