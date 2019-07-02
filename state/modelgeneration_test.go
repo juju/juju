@@ -377,11 +377,12 @@ func (s *generationSuite) TestUnitBranch(c *gc.C) {
 
 	branchA := s.setupAssignAllUnits(c)
 	c.Assert(branchA.AssignUnit("riak/0"), jc.ErrorIsNil)
-	c.Assert(branchA.AssignUnit("riak/2"), jc.ErrorIsNil)
 
+	c.Assert(branchA.AssignUnit("riak/2"), jc.ErrorIsNil)
 	c.Assert(s.Model.AddBranch("banana", newBranchCreator), jc.ErrorIsNil)
 	branchB, err := s.Model.Branch("banana")
 	c.Assert(err, jc.ErrorIsNil)
+
 	c.Assert(branchB.AssignUnit("riak/1"), jc.ErrorIsNil)
 
 	unit2Branch, err := state.UnitBranch(s.Model, "riak/2")
@@ -396,6 +397,38 @@ func (s *generationSuite) TestUnitBranch(c *gc.C) {
 	unit2BranchTake2, err := state.UnitBranch(s.Model, "riak/2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit2BranchTake2.BranchName(), gc.Equals, unit2Branch.BranchName())
+}
+
+func (s *generationSuite) TestApplicationBranches(c *gc.C) {
+	s.setupTestingClock(c)
+
+	branchA := s.setupAssignAllUnits(c)
+	c.Assert(branchA.AssignUnit("riak/0"), jc.ErrorIsNil)
+
+	appBranchesA, err := state.ApplicationBranches(s.Model, "riak")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appBranchesA, gc.HasLen, 1)
+	c.Assert(appBranchesA[0].BranchName(), gc.Equals, branchA.BranchName())
+
+	c.Assert(s.Model.AddBranch("banana", newBranchCreator), jc.ErrorIsNil)
+	branchB, err := s.Model.Branch("banana")
+	c.Assert(err, jc.ErrorIsNil)
+
+	appBranchesATake2, err := state.ApplicationBranches(s.Model, "riak")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appBranchesATake2, gc.HasLen, 1)
+	c.Assert(appBranchesA[0].BranchName(), gc.Equals, appBranchesATake2[0].BranchName())
+
+	c.Assert(branchB.AssignUnit("riak/1"), jc.ErrorIsNil)
+
+	appBranchesA, err = state.ApplicationBranches(s.Model, "riak")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appBranchesA, gc.HasLen, 2)
+
+	// Idempotent.
+	appBranchesATake2, err = state.ApplicationBranches(s.Model, "riak")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appBranchesATake2, gc.DeepEquals, appBranchesA)
 }
 
 func (s *generationSuite) setupAssignAllUnits(c *gc.C) *state.Generation {
