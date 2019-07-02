@@ -41,6 +41,19 @@ func (c *Client) AddBranch(branchName string) error {
 	return nil
 }
 
+// Abort aborts an existing branch to the model.
+func (c *Client) AbortBranch(branchName string) error {
+	var result params.ErrorResult
+	err := c.facade.FacadeCall("AbortBranch", argForBranch(branchName), &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if result.Error != nil {
+		return errors.Trace(result.Error)
+	}
+	return nil
+}
+
 // CommitBranch commits the branch with the input name to the model,
 // effectively completing it and applying all branch changes across the model.
 // The new generation ID of the model is returned.
