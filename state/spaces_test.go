@@ -97,6 +97,10 @@ func (s *SpacesSuite) assertSpaceMatchesArgs(c *gc.C, space *state.Space, args a
 
 	c.Assert(space.Life(), gc.Equals, state.Alive)
 	c.Assert(space.String(), gc.Equals, args.Name)
+
+	// The space ID is not empty and not equivalent to the default space.
+	c.Assert(space.Id(), gc.Not(gc.Equals), "")
+	c.Assert(space.Id(), gc.Not(gc.Equals), "0")
 }
 
 func (s *SpacesSuite) TestAddSpaceWithNoSubnetsAndEmptyProviderId(c *gc.C) {
@@ -279,7 +283,7 @@ func (s *SpacesSuite) TestAddTwoSpacesWithDifferentNamesButSameProviderIdFailsIn
 }
 
 func (s *SpacesSuite) assertProviderIdNotUniqueErrorForArgs(c *gc.C, err error, args addSpaceArgs) {
-	expectedError := fmt.Sprintf("adding space %q: ProviderId %q not unique", args.Name, args.ProviderId)
+	expectedError := fmt.Sprintf("adding space %q: provider ID %q not unique", args.Name, args.ProviderId)
 	c.Assert(err, gc.ErrorMatches, expectedError)
 }
 

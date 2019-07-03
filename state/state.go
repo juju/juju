@@ -2413,6 +2413,24 @@ func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId net
 	}
 }
 
+func (st *State) networkEntityGlobalKeyExists(globalKey string, providerId network.Id) (bool, error) {
+	col, closer := st.db().GetCollection(providerIDsC)
+	defer closer()
+
+	key := st.networkEntityGlobalKey(globalKey, providerId)
+	doc := &providerIdDoc{}
+	err := col.FindId(key).One(doc)
+
+	switch err {
+	case nil:
+		return true, nil
+	case mgo.ErrNotFound:
+		return false, nil
+	default:
+		return false, errors.Annotatef(err, "reading provider ID %q", key)
+	}
+}
+
 func (st *State) networkEntityGlobalKey(globalKey string, providerId network.Id) string {
 	return st.docID(globalKey + ":" + string(providerId))
 }

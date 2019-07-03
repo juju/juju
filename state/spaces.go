@@ -4,6 +4,8 @@
 package state
 
 import (
+	"strconv"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -20,10 +22,17 @@ type Space struct {
 }
 
 type spaceDoc struct {
+	DocId      string `bson:"_id"`
+	Id         string `bson:"spaceid"`
 	Life       Life   `bson:"life"`
 	Name       string `bson:"name"`
 	IsPublic   bool   `bson:"is-public"`
 	ProviderId string `bson:"providerid,omitempty"`
+}
+
+// Id returns the space ID.
+func (s *Space) Id() string {
+	return s.doc.Id
 }
 
 // Life returns whether the space is Alive, Dying or Dead.
@@ -81,25 +90,82 @@ func (s *Space) Subnets() (results []*Subnet, err error) {
 }
 
 // AddSpace creates and returns a new space.
-func (st *State) AddSpace(name string, providerId network.Id, subnets []string, isPublic bool) (newSpace *Space, err error) {
+func (st *State) AddSpace(
+	name string, providerId network.Id, subnets []string, isPublic bool) (newSpace *Space, err error,
+) {
 	defer errors.DeferredAnnotatef(&err, "adding space %q", name)
 	if !names.IsValidSpace(name) {
 		return nil, errors.NewNotValid(nil, "invalid space name")
 	}
 
-	spaceDoc := spaceDoc{
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if _, err := st.Space(name); err != nil {
+			if !errors.IsNotFound(err) {
+				return nil, errors.Annotatef(err, "checking for existing space")
+			}
+		} else {
+			return nil, errors.AlreadyExistsf("space %q", name)
+		}
+
+		for _, subnetId := range subnets {
+			subnet, err := st.Subnet(subnetId)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if subnet.FanLocalUnderlay() != "" {
+				return nil, errors.Errorf(
+					"cannot set space for FAN subnet %q - it is always inherited from underlay", subnet.CIDR())
+			}
+		}
+
+		// The ops will assert that the ID is unique,
+		// but we check explicitly in order to return an indicative error.
+		if providerId != "" {
+			exists, err := st.networkEntityGlobalKeyExists("space", providerId)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if exists {
+				return nil, errors.Errorf("provider ID %q not unique", providerId)
+			}
+		}
+
+		ops, err := st.addSpaceTxnOps(name, providerId, subnets, isPublic)
+		return ops, errors.Trace(err)
+	}
+
+	err = st.db().Run(buildTxn)
+	if err != nil {
+		err = onAbort(err, ErrDead)
+		logger.Errorf("cannot add space to the model: %v", err)
+		return nil, errors.Trace(err)
+	}
+
+	space, err := st.Space(name)
+	return space, errors.Trace(err)
+}
+
+func (st *State) addSpaceTxnOps(name string, providerId network.Id, subnets []string, isPublic bool) ([]txn.Op, error) {
+	// Space with ID zero is the default space; start at 1.
+	seq, err := sequenceWithMin(st, "space", 1)
+	if err != nil {
+		return nil, err
+	}
+	id := strconv.Itoa(seq)
+
+	doc := spaceDoc{
+		Id:         id,
 		Life:       Alive,
 		Name:       name,
 		IsPublic:   isPublic,
 		ProviderId: string(providerId),
 	}
-	newSpace = &Space{doc: spaceDoc, st: st}
 
 	ops := []txn.Op{{
 		C:      spacesC,
-		Id:     name,
+		Id:     id,
 		Assert: txn.DocMissing,
-		Insert: spaceDoc,
+		Insert: doc,
 	}}
 
 	if providerId != "" {
@@ -113,35 +179,13 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 		ops = append(ops, txn.Op{
 			C:      subnetsC,
 			Id:     subnetId,
-			Assert: bson.D{bson.DocElem{"fan-local-underlay", bson.D{{"$exists", false}}}},
+			Assert: bson.D{bson.DocElem{Name: "fan-local-underlay", Value: bson.D{{"$exists", false}}}},
+			// TODO (manadart 2019-07-02): Change this to use the space ID.
 			Update: bson.D{{"$set", bson.D{{"space-name", name}}}},
 		})
 	}
 
-	if err := st.db().RunTransaction(ops); err == txn.ErrAborted {
-		if _, err := st.Space(name); err == nil {
-			return nil, errors.AlreadyExistsf("space %q", name)
-		}
-		for _, subnetId := range subnets {
-			subnet, err := st.Subnet(subnetId)
-			if errors.IsNotFound(err) {
-				return nil, err
-			}
-			if subnet.FanLocalUnderlay() != "" {
-				return nil, errors.Errorf("Can't set space for FAN subnet %q - it's always inherited from underlay", subnet.CIDR())
-			}
-		}
-		if err := newSpace.Refresh(); err != nil {
-			if errors.IsNotFound(err) {
-				return nil, errors.Errorf("ProviderId %q not unique", providerId)
-			}
-			return nil, errors.Trace(err)
-		}
-		return nil, errors.Trace(err)
-	} else if err != nil {
-		return nil, err
-	}
-	return newSpace, nil
+	return ops, nil
 }
 
 // Space returns a space from state that matches the provided name. An error
@@ -152,7 +196,7 @@ func (st *State) Space(name string) (*Space, error) {
 	defer closer()
 
 	var doc spaceDoc
-	err := spaces.FindId(name).One(&doc)
+	err := spaces.Find(bson.M{"name": name}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("space %q", name)
 	}
@@ -167,7 +211,7 @@ func (st *State) AllSpaces() ([]*Space, error) {
 	spacesCollection, closer := st.db().GetCollection(spacesC)
 	defer closer()
 
-	docs := []spaceDoc{}
+	var docs []spaceDoc
 	err := spacesCollection.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all spaces")
@@ -191,7 +235,7 @@ func (s *Space) EnsureDead() (err error) {
 
 	ops := []txn.Op{{
 		C:      spacesC,
-		Id:     s.doc.Name,
+		Id:     s.doc.Id,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 		Assert: isAliveDoc,
 	}}
@@ -215,7 +259,7 @@ func (s *Space) Remove() (err error) {
 
 	ops := []txn.Op{{
 		C:      spacesC,
-		Id:     s.doc.Name,
+		Id:     s.doc.Id,
 		Remove: true,
 		Assert: isDeadDoc,
 	}}
@@ -238,7 +282,7 @@ func (s *Space) Refresh() error {
 	defer closer()
 
 	var doc spaceDoc
-	err := spaces.FindId(s.doc.Name).One(&doc)
+	err := spaces.FindId(s.doc.Id).One(&doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("space %q", s)
 	} else if err != nil {
