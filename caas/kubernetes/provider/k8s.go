@@ -517,6 +517,21 @@ func (k *kubernetesClient) deleteSecret(secretName string) error {
 	return errors.Trace(err)
 }
 
+func (k *kubernetesClient) deleteSecrets(appName string) error {
+	secretList, err := k.client().CoreV1().Secrets(k.namespace).List(v1.ListOptions{
+		LabelSelector: applicationSelector(appName),
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, s := range secretList.Items {
+		if err := k.deleteSecret(s.Name); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 // OperatorExists indicates if the operator for the specified
 // application exists, and whether the operator is terminating.
 func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, error) {
@@ -1013,17 +1028,11 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteDeployment(deploymentName); err != nil {
 		return errors.Trace(err)
 	}
-	secrets := k.client().CoreV1().Secrets(k.namespace)
-	secretList, err := secrets.List(v1.ListOptions{
-		LabelSelector: applicationSelector(appName),
-	})
-	if err != nil {
+	if err := k.deleteSecrets(appName); err != nil {
 		return errors.Trace(err)
 	}
-	for _, s := range secretList.Items {
-		if err := k.deleteSecret(s.Name); err != nil {
-			return errors.Trace(err)
-		}
+	if err := k.deleteServiceAccounts(appName); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -1230,8 +1239,8 @@ func (k *kubernetesClient) EnsureService(
 		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName) })
 	}
 	if params.PodSpec.ServiceAccount != nil {
-		cleanupsForSvcAccount, err := k.ensureServiceAccount(appName, params.PodSpec.ServiceAccount)
-		cleanups = append(cleanups, cleanupsForSvcAccount...)
+		saCleanups, err := k.ensureServiceAccount(appName, params.PodSpec.ServiceAccount)
+		cleanups = append(cleanups, saCleanups...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating service account")
 		}
@@ -1322,8 +1331,7 @@ func (k *kubernetesClient) EnsureService(
 	return nil
 }
 
-func (k *kubernetesClient) ensureServiceAccount(appName string, caasSpec *caas.ServiceAccountSpec) (_ []func(), err error) {
-	var cleanups []func()
+func (k *kubernetesClient) ensureServiceAccount(appName string, caasSpec *caas.ServiceAccountSpec) (cleanups []func(), err error) {
 	labels := map[string]string{labelApplication: appName}
 	saSpec := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
@@ -1366,11 +1374,11 @@ func (k *kubernetesClient) ensureServiceAccount(appName string, caasSpec *caas.S
 			}
 			cleanups = append(cleanups, func() { k.deleteSecret(secret.Name) })
 		}
-		saSpec.Secrets = append(saSpec.Secrets, core.ObjectReference{Name: secret.Name})
+		saSpec.Secrets = append(saSpec.Secrets, core.ObjectReference{Name: secret.GetName()})
 	}
 
 	resource, err := k.updateServiceAccount(saSpec)
-	if k8serrors.IsNotFound(err) {
+	if errors.IsNotFound(err) {
 		if resource, err = k.createServiceAccount(saSpec); err != nil {
 			return cleanups, errors.Trace(err)
 		}
@@ -1379,12 +1387,20 @@ func (k *kubernetesClient) ensureServiceAccount(appName string, caasSpec *caas.S
 	return cleanups, errors.Trace(err)
 }
 
-func (k *kubernetesClient) createServiceAccount(sa *core.ServiceAccount) (*core.ServiceAccount, error) {
-	return k.client().CoreV1().ServiceAccounts(k.namespace).Create(sa)
+func (k *kubernetesClient) createServiceAccount(sa *core.ServiceAccount) (out *core.ServiceAccount, err error) {
+	out, err = k.client().CoreV1().ServiceAccounts(k.namespace).Create(sa)
+	if k8serrors.IsAlreadyExists(err) {
+		return nil, errors.AlreadyExistsf("service account %q", sa.GetName())
+	}
+	return out, errors.Trace(err)
 }
 
-func (k *kubernetesClient) updateServiceAccount(sa *core.ServiceAccount) (*core.ServiceAccount, error) {
-	return k.client().CoreV1().ServiceAccounts(k.namespace).Update(sa)
+func (k *kubernetesClient) updateServiceAccount(sa *core.ServiceAccount) (out *core.ServiceAccount, err error) {
+	out, err = k.client().CoreV1().ServiceAccounts(k.namespace).Update(sa)
+	if k8serrors.IsNotFound(err) {
+		return nil, errors.NotFoundf("service account %q", sa.GetName())
+	}
+	return out, errors.Trace(err)
 }
 
 func (k *kubernetesClient) deleteServiceAccount(name string) error {
@@ -1395,6 +1411,21 @@ func (k *kubernetesClient) deleteServiceAccount(name string) error {
 		return nil
 	}
 	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) deleteServiceAccounts(appName string) error {
+	saList, err := k.client().CoreV1().ServiceAccounts(k.namespace).List(v1.ListOptions{
+		LabelSelector: applicationSelector(appName),
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, s := range saList.Items {
+		if err := k.deleteServiceAccount(s.GetName()); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // Upgrade sets the OCI image for the app's operator to the specified version.
