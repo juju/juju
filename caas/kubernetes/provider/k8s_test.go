@@ -1185,7 +1185,8 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionCreate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	podSpec := basicPodspec
+	podSpec := &caas.PodSpec{}
+	*podSpec = *basicPodspec
 	podSpec.CustomResourceDefinitions = map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
 		"tfjobs.kubeflow.org": {
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
@@ -1295,7 +1296,8 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionUpdate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	podSpec := basicPodspec
+	podSpec := &caas.PodSpec{}
+	*podSpec = *basicPodspec
 	podSpec.CustomResourceDefinitions = map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
 		"tfjobs.kubeflow.org": {
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
@@ -1406,7 +1408,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceServiceAccountCreateNew(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	podSpec := basicPodspec
+	podSpec := &caas.PodSpec{}
+	*podSpec = *basicPodspec
 	podSpec.ServiceAccount = &caas.ServiceAccountSpec{
 		Name:                         "build-robot",
 		AutomountServiceAccountToken: boolPtr(false),
@@ -1492,6 +1495,7 @@ password: shhhh`},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "build-robot",
 			Namespace: "test",
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		AutomountServiceAccountToken: boolPtr(false),
 	}
@@ -1502,6 +1506,7 @@ password: shhhh`},
 			Annotations: map[string]string{
 				"kubernetes.io/service-account.name": "build-robot",
 			},
+			Labels: map[string]string{"juju-app": "app-name"},
 		},
 		Type: "kubernetes.io/service-account-token",
 		StringData: map[string]string{
@@ -1516,11 +1521,12 @@ password: shhhh`},
 			Annotations: map[string]string{
 				"kubernetes.io/service-account.name": "build-robot",
 			},
+			Labels: map[string]string{"juju-app": "app-name"},
 		},
 		Type: "Opaque",
 		Data: map[string][]byte{
-			"username": []byte("YWRtaW4="),
-			"password": []byte("MWYyZDFlMmU2N2Rm"),
+			"username": []byte("admin"),
+			"password": []byte("1f2d1e2e67df"),
 		},
 	}
 	svcAccount.Secrets = []core.ObjectReference{

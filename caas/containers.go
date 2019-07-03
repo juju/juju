@@ -61,16 +61,8 @@ type SecretSpec struct {
 	Name        string            `yaml:"name"`
 	Type        core.SecretType   `yaml:"type,omitempty"`
 	Annotations map[string]string `yaml:"annotations,omitempty"`
-	Data        map[string]string `yaml:"data,omitempty"`
+	Data        map[string]string `yaml:"data,omitempty"` // base64 encoded string
 	StringData  map[string]string `yaml:"stringData,omitempty"`
-}
-
-// Validate returns an error if the secret spec is not valid.
-func (spec *SecretSpec) Validate() error {
-	if spec.Data != nil && spec.StringData != nil {
-		return errors.New("")
-	}
-	return nil
 }
 
 // ServiceAccountSpec defines spec for referencing to or creating a service account.
@@ -78,16 +70,6 @@ type ServiceAccountSpec struct {
 	Name                         string       `yaml:"name"`
 	AutomountServiceAccountToken *bool        `yaml:"automountServiceAccountToken,omitempty"`
 	Secrets                      []SecretSpec `yaml:"secrets,omitempty"`
-}
-
-// Validate returns an error if the secret spec is not valid.
-func (spec *ServiceAccountSpec) Validate() error {
-	for _, s := range spec.Secrets {
-		if err := s.Validate(); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
 }
 
 // PodSpec defines the data values used to configure
@@ -123,9 +105,6 @@ func (spec *PodSpec) Validate() error {
 	}
 	if spec.ProviderPod != nil {
 		return spec.ProviderPod.Validate()
-	}
-	if spec.ServiceAccount != nil {
-		return spec.ServiceAccount.Validate()
 	}
 	return nil
 }

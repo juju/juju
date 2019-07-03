@@ -6,6 +6,7 @@ package provider
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -1228,9 +1229,8 @@ func (k *kubernetesClient) EnsureService(
 		}
 		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName) })
 	}
-
 	if params.PodSpec.ServiceAccount != nil {
-		cleanupsForSvcAccount, err := k.ensureServiceAccount(params.PodSpec.ServiceAccount)
+		cleanupsForSvcAccount, err := k.ensureServiceAccount(appName, params.PodSpec.ServiceAccount)
 		cleanups = append(cleanups, cleanupsForSvcAccount...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating service account")
@@ -1322,32 +1322,41 @@ func (k *kubernetesClient) EnsureService(
 	return nil
 }
 
-func (k *kubernetesClient) ensureServiceAccount(caasSpec *caas.ServiceAccountSpec) (_ []func(), err error) {
+func (k *kubernetesClient) ensureServiceAccount(appName string, caasSpec *caas.ServiceAccountSpec) (_ []func(), err error) {
 	var cleanups []func()
-	spec := &core.ServiceAccount{
+	labels := map[string]string{labelApplication: appName}
+	saSpec := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      caasSpec.Name,
 			Namespace: k.namespace,
+			Labels:    labels,
 		},
 		AutomountServiceAccountToken: caasSpec.AutomountServiceAccountToken,
 	}
-	for _, caasSecret := range caasSpec.Secrets {
+	for _, cs := range caasSpec.Secrets {
 		secret := &core.Secret{
 			ObjectMeta: v1.ObjectMeta{
-				Name:        caasSecret.Name,
-				Namespace:   k.namespace,
-				Annotations: caasSecret.Annotations,
+				Name:      cs.Name,
+				Namespace: k.namespace,
+				Labels:    labels,
+				Annotations: k8sannotations.New(cs.Annotations).
+					Add("kubernetes.io/service-account.name", saSpec.GetName()).
+					ToMap(),
 			},
-			Type:       caasSecret.Type,
-			StringData: caasSecret.StringData,
+			Type:       cs.Type,
+			StringData: cs.StringData,
 		}
-		if caasSecret.Data != nil {
+		if cs.Data != nil {
 			secret.Data = make(map[string][]byte)
-			for k, v := range caasSecret.Data {
-				secret.Data[k] = []byte(v)
+			for k, v := range cs.Data {
+				data, err := base64.StdEncoding.DecodeString(v)
+				if err != nil {
+					return cleanups, errors.Trace(err)
+				}
+				secret.Data[k] = data
 			}
 		}
-		logger.Debugf("ensuring secret %q for service account %q", secret.GetName(), spec.GetName())
+		logger.Debugf("ensuring secret %q for service account %q", secret.GetName(), saSpec.GetName())
 		if err := k.updateSecret(secret); err != nil {
 			if !errors.IsNotFound(err) {
 				return cleanups, errors.Trace(err)
@@ -1357,17 +1366,25 @@ func (k *kubernetesClient) ensureServiceAccount(caasSpec *caas.ServiceAccountSpe
 			}
 			cleanups = append(cleanups, func() { k.deleteSecret(secret.Name) })
 		}
-		spec.Secrets = append(spec.Secrets, core.ObjectReference{Name: secret.Name})
+		saSpec.Secrets = append(saSpec.Secrets, core.ObjectReference{Name: secret.Name})
 	}
 
-	resource, err := k.client().CoreV1().ServiceAccounts(k.namespace).Update(spec)
+	resource, err := k.updateServiceAccount(saSpec)
 	if k8serrors.IsNotFound(err) {
-		if resource, err = k.client().CoreV1().ServiceAccounts(k.namespace).Create(spec); err != nil {
+		if resource, err = k.createServiceAccount(saSpec); err != nil {
 			return cleanups, errors.Trace(err)
 		}
 		cleanups = append(cleanups, func() { k.deleteServiceAccount(resource.GetName()) })
 	}
 	return cleanups, errors.Trace(err)
+}
+
+func (k *kubernetesClient) createServiceAccount(sa *core.ServiceAccount) (*core.ServiceAccount, error) {
+	return k.client().CoreV1().ServiceAccounts(k.namespace).Create(sa)
+}
+
+func (k *kubernetesClient) updateServiceAccount(sa *core.ServiceAccount) (*core.ServiceAccount, error) {
+	return k.client().CoreV1().ServiceAccounts(k.namespace).Update(sa)
 }
 
 func (k *kubernetesClient) deleteServiceAccount(name string) error {
