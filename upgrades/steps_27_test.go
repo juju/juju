@@ -25,3 +25,9 @@ func (s *steps27Suite) TestCreateControllerNodes(c *gc.C) {
 	// Logic for step itself is tested in state package.
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
+
+func (s *steps27Suite) TestAddSpaceIdToSpaceDocs(c *gc.C) {
+	step := findStateStep(c, v27, `recreated spaces with IDs`)
+	// Logic for step itself is tested in state package.
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
