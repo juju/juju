@@ -983,6 +983,12 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 			}}}, nil),
 		s.mockSecrets.EXPECT().Delete("secret", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
+		s.mockServiceAccounts.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==test"}).Times(1).
+			Return(&core.ServiceAccountList{Items: []core.ServiceAccount{{
+				ObjectMeta: v1.ObjectMeta{Name: "sa"},
+			}}}, nil),
+		s.mockServiceAccounts.EXPECT().Delete("sa", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+			Return(s.k8sNotFoundError()),
 	)
 
 	err := s.broker.DeleteService("test")
@@ -1414,19 +1420,20 @@ func (s *K8sBrokerSuite) TestEnsureServiceServiceAccountCreateNew(c *gc.C) {
 		Name:                         "build-robot",
 		AutomountServiceAccountToken: boolPtr(false),
 		Secrets: []caas.SecretSpec{
-			caas.SecretSpec{
-				Name: "build-robot-secret",
-				Type: "kubernetes.io/service-account-token",
+			{
+				Name: "build-robot-secret1",
+				Type: "Opaque",
 				Annotations: map[string]string{
 					"kubernetes.io/service-account.name": "build-robot",
 				},
 				StringData: map[string]string{
-					"config.yaml": `apiUrl: "https://my.api.com/api/v1"
+					"config.yaml": `
+apiUrl: "https://my.api.com/api/v1"
 username: fred
-password: shhhh`},
+password: shhhh`[1:]},
 			},
-			caas.SecretSpec{
-				Name: "another-build-robot-secret",
+			{
+				Name: "build-robot-secret2",
 				Type: "Opaque",
 				Annotations: map[string]string{
 					"kubernetes.io/service-account.name": "build-robot",
@@ -1434,6 +1441,13 @@ password: shhhh`},
 				Data: map[string]string{
 					"username": "YWRtaW4=",
 					"password": "MWYyZDFlMmU2N2Rm",
+				},
+			},
+			{
+				Name: "build-robot-secret3",
+				Type: "kubernetes.io/service-account-token",
+				Annotations: map[string]string{
+					"kubernetes.io/service-account.name": "build-robot",
 				},
 			},
 		},
@@ -1501,14 +1515,14 @@ password: shhhh`},
 	}
 	svcAccountSecret1 := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "build-robot-secret",
+			Name:      "build-robot-secret1",
 			Namespace: "test",
 			Annotations: map[string]string{
 				"kubernetes.io/service-account.name": "build-robot",
 			},
 			Labels: map[string]string{"juju-app": "app-name"},
 		},
-		Type: "kubernetes.io/service-account-token",
+		Type: "Opaque",
 		StringData: map[string]string{
 			"config.yaml": `apiUrl: "https://my.api.com/api/v1"
 username: fred
@@ -1516,7 +1530,7 @@ password: shhhh`},
 	}
 	svcAccountSecret2 := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "another-build-robot-secret",
+			Name:      "build-robot-secret2",
 			Namespace: "test",
 			Annotations: map[string]string{
 				"kubernetes.io/service-account.name": "build-robot",
@@ -1529,9 +1543,21 @@ password: shhhh`},
 			"password": []byte("1f2d1e2e67df"),
 		},
 	}
+	svcAccountSecret3 := &core.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "build-robot-secret3",
+			Namespace: "test",
+			Annotations: map[string]string{
+				"kubernetes.io/service-account.name": "build-robot",
+			},
+			Labels: map[string]string{"juju-app": "app-name"},
+		},
+		Type: "kubernetes.io/service-account-token",
+	}
 	svcAccount.Secrets = []core.ObjectReference{
 		{Name: svcAccountSecret1.GetName()},
 		{Name: svcAccountSecret2.GetName()},
+		{Name: svcAccountSecret3.GetName()},
 	}
 
 	secretArg := s.secretArg(c, map[string]string{"fred": "mary"})
@@ -1544,6 +1570,8 @@ password: shhhh`},
 		s.mockSecrets.EXPECT().Create(svcAccountSecret1).Times(1).Return(nil, nil),
 		s.mockSecrets.EXPECT().Update(svcAccountSecret2).Times(1).Return(nil, s.k8sNotFoundError()),
 		s.mockSecrets.EXPECT().Create(svcAccountSecret2).Times(1).Return(nil, nil),
+		s.mockSecrets.EXPECT().Update(svcAccountSecret3).Times(1).Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Create(svcAccountSecret3).Times(1).Return(nil, nil),
 		s.mockServiceAccounts.EXPECT().Update(svcAccount).Times(1).Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Times(1).Return(svcAccount, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).

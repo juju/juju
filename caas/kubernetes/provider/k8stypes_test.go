@@ -157,22 +157,26 @@ serviceAccount:
   name: build-robot
   automountServiceAccountToken: false
   secrets:
-  - name: build-robot-secret
+  - name: build-robot-secret1
     annotations:
       kubernetes.io/service-account.name: build-robot
-    type: kubernetes.io/service-account-token
+    type: Opaque
     stringData:
       config.yaml: |-
         apiUrl: "https://my.api.com/api/v1"
         username: fred
         password: shhhh
-  - name: another-build-robot-secret
+  - name: build-robot-secret2
     annotations:
       kubernetes.io/service-account.name: build-robot
     type: Opaque
     data:
       username: YWRtaW4=
       password: MWYyZDFlMmU2N2Rm
+  - name: build-robot-secret3
+    annotations:
+      kubernetes.io/service-account.name: build-robot
+    type: kubernetes.io/service-account-token
 `[1:]
 
 	expectedFileContent := `
@@ -353,9 +357,9 @@ echo "do some stuff here for gitlab-init container"
 			Name:                         "build-robot",
 			AutomountServiceAccountToken: boolPtr(false),
 			Secrets: []caas.SecretSpec{
-				caas.SecretSpec{
-					Name: "build-robot-secret",
-					Type: "kubernetes.io/service-account-token",
+				{
+					Name: "build-robot-secret1",
+					Type: "Opaque",
 					Annotations: map[string]string{
 						"kubernetes.io/service-account.name": "build-robot",
 					},
@@ -365,8 +369,8 @@ apiUrl: "https://my.api.com/api/v1"
 username: fred
 password: shhhh`[1:]},
 				},
-				caas.SecretSpec{
-					Name: "another-build-robot-secret",
+				{
+					Name: "build-robot-secret2",
 					Type: "Opaque",
 					Annotations: map[string]string{
 						"kubernetes.io/service-account.name": "build-robot",
@@ -374,6 +378,13 @@ password: shhhh`[1:]},
 					Data: map[string]string{
 						"username": "YWRtaW4=",
 						"password": "MWYyZDFlMmU2N2Rm",
+					},
+				},
+				{
+					Name: "build-robot-secret3",
+					Type: "kubernetes.io/service-account-token",
+					Annotations: map[string]string{
+						"kubernetes.io/service-account.name": "build-robot",
 					},
 				},
 			},
