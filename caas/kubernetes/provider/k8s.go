@@ -1341,6 +1341,17 @@ func (k *kubernetesClient) ensureServiceAccount(appName string, caasSpec *caas.S
 		},
 		AutomountServiceAccountToken: caasSpec.AutomountServiceAccountToken,
 	}
+	// ensure service account before ensuring secret;
+	resource, err := k.updateServiceAccount(saSpec)
+	if errors.IsNotFound(err) {
+		if resource, err = k.createServiceAccount(saSpec); err != nil {
+			return cleanups, errors.Trace(err)
+		}
+		cleanups = append(cleanups, func() { k.deleteServiceAccount(resource.GetName()) })
+	}
+	if err != nil {
+		return cleanups, errors.Trace(err)
+	}
 	for _, cs := range caasSpec.Secrets {
 		secret := &core.Secret{
 			ObjectMeta: v1.ObjectMeta{
@@ -1376,14 +1387,8 @@ func (k *kubernetesClient) ensureServiceAccount(appName string, caasSpec *caas.S
 		}
 		saSpec.Secrets = append(saSpec.Secrets, core.ObjectReference{Name: secret.GetName()})
 	}
-
-	resource, err := k.updateServiceAccount(saSpec)
-	if errors.IsNotFound(err) {
-		if resource, err = k.createServiceAccount(saSpec); err != nil {
-			return cleanups, errors.Trace(err)
-		}
-		cleanups = append(cleanups, func() { k.deleteServiceAccount(resource.GetName()) })
-	}
+	// update service account's secret ObjectReferences.
+	_, err = k.updateServiceAccount(saSpec)
 	return cleanups, errors.Trace(err)
 }
 
