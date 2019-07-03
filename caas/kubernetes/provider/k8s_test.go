@@ -1513,6 +1513,8 @@ password: shhhh`[1:]},
 		},
 		AutomountServiceAccountToken: boolPtr(false),
 	}
+	svcAccountExisting := &core.ServiceAccount{}
+	*svcAccountExisting = *svcAccount
 	svcAccountSecret1 := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "build-robot-secret1",
@@ -1554,7 +1556,7 @@ password: shhhh`},
 		},
 		Type: "kubernetes.io/service-account-token",
 	}
-	svcAccount.Secrets = []core.ObjectReference{
+	svcAccountExisting.Secrets = []core.ObjectReference{
 		{Name: svcAccountSecret1.GetName()},
 		{Name: svcAccountSecret2.GetName()},
 		{Name: svcAccountSecret3.GetName()},
@@ -1566,14 +1568,15 @@ password: shhhh`},
 			Return(nil, s.k8sNotFoundError()),
 		s.mockSecrets.EXPECT().Update(secretArg).Times(1).Return(nil, s.k8sNotFoundError()),
 		s.mockSecrets.EXPECT().Create(secretArg).Times(1).Return(nil, nil),
+		s.mockServiceAccounts.EXPECT().Update(svcAccount).Times(1).Return(nil, s.k8sNotFoundError()),
+		s.mockServiceAccounts.EXPECT().Create(svcAccount).Times(1).Return(svcAccount, nil),
 		s.mockSecrets.EXPECT().Update(svcAccountSecret1).Times(1).Return(nil, s.k8sNotFoundError()),
 		s.mockSecrets.EXPECT().Create(svcAccountSecret1).Times(1).Return(nil, nil),
 		s.mockSecrets.EXPECT().Update(svcAccountSecret2).Times(1).Return(nil, s.k8sNotFoundError()),
 		s.mockSecrets.EXPECT().Create(svcAccountSecret2).Times(1).Return(nil, nil),
 		s.mockSecrets.EXPECT().Update(svcAccountSecret3).Times(1).Return(nil, s.k8sNotFoundError()),
 		s.mockSecrets.EXPECT().Create(svcAccountSecret3).Times(1).Return(nil, nil),
-		s.mockServiceAccounts.EXPECT().Update(svcAccount).Times(1).Return(nil, s.k8sNotFoundError()),
-		s.mockServiceAccounts.EXPECT().Create(svcAccount).Times(1).Return(svcAccount, nil),
+		s.mockServiceAccounts.EXPECT().Update(svcAccountExisting).Times(1).Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
