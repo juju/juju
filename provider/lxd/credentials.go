@@ -55,7 +55,6 @@ type CertificateGenerator interface {
 
 // NetLookup groups methods for looking up hosts and interface addresses.
 type NetLookup interface {
-
 	// LookupHost looks up the given host using the local resolver.
 	// It returns a slice of that host's addresses.
 	LookupHost(string) ([]string, error)
@@ -83,18 +82,21 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 				CredentialAttr: cloud.CredentialAttr{
 					Description:    "the path to the PEM-encoded LXD server certificate file",
 					ExpandFilePath: true,
+					Hidden:         true,
 				},
 			}, {
 				Name: credAttrClientCert,
 				CredentialAttr: cloud.CredentialAttr{
 					Description:    "the path to the PEM-encoded LXD client certificate file",
 					ExpandFilePath: true,
+					Hidden:         true,
 				},
 			}, {
 				Name: credAttrClientKey,
 				CredentialAttr: cloud.CredentialAttr{
 					Description:    "the path to the PEM-encoded LXD client key file",
 					ExpandFilePath: true,
+					Hidden:         true,
 				},
 			},
 		},
