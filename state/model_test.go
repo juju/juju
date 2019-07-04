@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
@@ -331,6 +332,10 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 
 	// Ensure the model is functional by adding a machine
 	_, err = st.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the default model was created.
+	_, err = st.Space(environs.DefaultSpaceName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

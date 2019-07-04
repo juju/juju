@@ -402,6 +402,9 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 	}
 	ops = append(ops, incCloudRefOp)
 
+	// Create a record for the default space.
+	ops = append(ops, createDefaultSpaceOp())
+
 	err = newSt.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
 		// Check that the cloud exists.

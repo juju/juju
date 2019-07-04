@@ -2310,19 +2310,7 @@ func AddSpaceIdToSpaceDocs(pool *StatePool) (err error) {
 			})
 		}
 
-		// Insert the default space at the end in case there was
-		// a space in the model named "0".
-		defaultDoc := spaceDoc{
-			Id:       "0",
-			Life:     Alive,
-			Name:     "",
-			IsPublic: true,
-		}
-		ops = append(ops, txn.Op{
-			C:      spacesC,
-			Id:     "0",
-			Insert: defaultDoc,
-		})
+		ops = append(ops, createDefaultSpaceOp())
 
 		return errors.Trace(st.db().RunTransaction(ops))
 	}))

@@ -12,6 +12,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 )
 
@@ -290,4 +291,19 @@ func (s *Space) Refresh() error {
 	}
 	s.doc = doc
 	return nil
+}
+
+// createDefaultSpaceOp returns a transaction operation
+// that creates the default space (id=0).
+func createDefaultSpaceOp() txn.Op {
+	return txn.Op{
+		C:  spacesC,
+		Id: "0",
+		Insert: spaceDoc{
+			Id:       "0",
+			Life:     Alive,
+			Name:     environs.DefaultSpaceName,
+			IsPublic: true,
+		},
+	}
 }
