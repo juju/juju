@@ -33,6 +33,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(appName string, caasSpec *
 	}
 
 	roleSpec := caasSpec.Capabilities.Role
+	logger.Criticalf("roleSpec -> \n%+v", roleSpec)
 	var roleRef rbacv1.RoleRef
 	// no rule specified, reference to existing Role/ClusterRole.
 	switch roleSpec.Type {
@@ -82,14 +83,21 @@ func (k *kubernetesClient) ensureServiceAccountForApp(appName string, caasSpec *
 				return cleanups, errors.Trace(err)
 			}
 		}
+		logger.Criticalf("cr --> %+v", cr)
 		roleRef = rbacv1.RoleRef{
 			Name: cr.GetName(),
-			Kind: cr.Kind,
+			// TOOD: why cr.Kind == ""
+			// Kind: cr.Kind,
+			Kind: string(roleSpec.Type),
 		}
+	default:
+		// this should never happen.
+		return cleanups, errors.New("unsupported Role type")
 	}
 	logger.Criticalf("roleRef --> %+v", roleRef)
 
 	rbSpec := caasSpec.Capabilities.RoleBinding
+	logger.Criticalf("rbSpec -> \n%+v", rbSpec)
 	roleBindingMeta := v1.ObjectMeta{
 		Name:      rbSpec.Name,
 		Namespace: sa.GetNamespace(),
@@ -113,6 +121,9 @@ func (k *kubernetesClient) ensureServiceAccountForApp(appName string, caasSpec *
 			RoleRef:    roleRef,
 			Subjects:   []rbacv1.Subject{roleBindingSASubject},
 		})
+	default:
+		// this should never happen.
+		return cleanups, errors.New("unsupported Role binding type")
 	}
 	return cleanups, errors.Trace(err)
 }
@@ -160,9 +171,50 @@ func (k *kubernetesClient) deleteServiceAccount(name string) error {
 }
 
 func (k *kubernetesClient) deleteServiceAccountsRolesBindings(appName string) error {
-	saList, err := k.client().CoreV1().ServiceAccounts(k.namespace).List(v1.ListOptions{
+	listOps := v1.ListOptions{
 		LabelSelector: applicationSelector(appName),
-	})
+	}
+	rbList, err := k.client().RbacV1().RoleBindings(k.namespace).List(listOps)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, s := range rbList.Items {
+		if err := k.deleteRoleBinding(s.GetName()); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	crbList, err := k.client().RbacV1().ClusterRoleBindings().List(listOps)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, s := range crbList.Items {
+		if err := k.deleteClusterRoleBinding(s.GetName()); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	rList, err := k.client().RbacV1().Roles(k.namespace).List(listOps)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, s := range rList.Items {
+		if err := k.deleteRole(s.GetName()); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	crList, err := k.client().RbacV1().ClusterRoles().List(listOps)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, s := range crList.Items {
+		if err := k.deleteClusterRole(s.GetName()); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	saList, err := k.client().CoreV1().ServiceAccounts(k.namespace).List(listOps)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -171,7 +223,6 @@ func (k *kubernetesClient) deleteServiceAccountsRolesBindings(appName string) er
 			return errors.Trace(err)
 		}
 	}
-	// TODO: delete roles, cluster roles, role bindings, cluster role bindings by selector.
 	return nil
 }
 
