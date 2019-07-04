@@ -4,7 +4,6 @@
 package cloud_test
 
 import (
-	"github.com/juju/juju/apiserver/common"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -15,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
