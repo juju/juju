@@ -85,6 +85,11 @@ func NewRemoteServer(spec ServerSpec) (*Server, error) {
 		return nil, errors.Trace(err)
 	}
 	svr, err := NewServer(cSvr)
+	// If we're not clustered we should set the name to the name of the cloud
+	// spec name, so that we can use that name for the zones.
+	if err == nil && !svr.IsClustered() {
+		svr.name = spec.Name
+	}
 	return svr, err
 }
 
