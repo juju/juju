@@ -776,7 +776,7 @@ func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 		crossmodel.ConsumeApplicationArgs{
 			Offer: params.ApplicationOfferDetails{
 				OfferName: "mysql",
-				OfferURL:  "test:admin/default.mysql",
+				OfferURL:  "kontroll:admin/default.mysql",
 			},
 			ApplicationAlias: "mysql",
 			Macaroon:         mac,
@@ -809,6 +809,45 @@ func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "wordpress-with-saas")
 	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), bundlePath)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *DeploySuite) TestDeployBundleWithSAASAndNoLocalController(c *gc.C) {
+	cfgAttrs := map[string]interface{}{
+		"name": "name",
+		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"type": "foo",
+	}
+	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
+	withAllWatcher(fakeAPI)
+
+	inURL := charm.MustParseURL("wordpress")
+	withCharmRepoResolvable(fakeAPI, inURL)
+
+	withCharmDeployable(
+		fakeAPI, inURL, "bionic",
+		&charm.Meta{Name: "wordpress", Series: []string{"bionic"}},
+		nil, false, false, 0, nil, nil,
+	)
+
+	fakeAPI.Call("AddUnits", application.AddUnitsParams{
+		ApplicationName: "wordpress",
+		NumUnits:        1,
+	}).Returns([]string{"wordpress/0"}, error(nil))
+
+	deploy := &DeployCommand{
+		NewAPIRoot: func() (DeployAPI, error) {
+			return fakeAPI, nil
+		},
+		NewConsumeDetailsAPI: func(url *charm.OfferURL) (ConsumeDetails, error) {
+			return fakeAPI, nil
+		},
+	}
+
+	s.SetFeatureFlags(feature.CMRAwareBundles)
+	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "wordpress-with-saas-no-local-ctrl")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), bundlePath)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), jc.Contains, `Controller "doesnotexist" not found locally`)
 }
 
 type fakeProvider struct {
