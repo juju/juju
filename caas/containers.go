@@ -166,7 +166,7 @@ func (sa ServiceAccountSpec) Validate() error {
 		return errors.New("capabilities is required for service account")
 	}
 	if err := sa.Capabilities.Validate(); err != nil {
-		errors.Trace(err)
+		return errors.Trace(err)
 	}
 	return nil
 }
