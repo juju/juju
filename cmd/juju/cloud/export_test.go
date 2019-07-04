@@ -93,14 +93,18 @@ func NewUpdateCloudCommandForTest(
 }
 
 func NewListCredentialsCommandForTest(
-	testStore jujuclient.CredentialGetter,
+	testStore jujuclient.ClientStore,
 	personalCloudsFunc func() (map[string]jujucloud.Cloud, error),
 	cloudByNameFunc func(string) (*jujucloud.Cloud, error),
+	apiF func(controllerName string) (ListCredentialsAPI, error),
 ) *listCredentialsCommand {
 	return &listCredentialsCommand{
-		store:              testStore,
-		personalCloudsFunc: personalCloudsFunc,
-		cloudByNameFunc:    cloudByNameFunc,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
+			Store: testStore,
+		},
+		personalCloudsFunc:     personalCloudsFunc,
+		cloudByNameFunc:        cloudByNameFunc,
+		listCredentialsAPIFunc: apiF,
 	}
 }
 
@@ -157,8 +161,8 @@ func NewUpdateCredentialCommandForTest(testStore jujuclient.ClientStore, api cre
 }
 
 func NewShowCredentialCommandForTest(api CredentialContentAPI) cmd.Command {
-	cmd := &showCredentialCommand{newAPIFunc: func() (CredentialContentAPI, error) {
+	command := &showCredentialCommand{newAPIFunc: func() (CredentialContentAPI, error) {
 		return api, nil
 	}}
-	return modelcmd.WrapBase(cmd)
+	return modelcmd.WrapBase(command)
 }

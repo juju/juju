@@ -1188,33 +1188,29 @@ func (s *cloudSuite) TestCredentialContentsAllNoSecrets(c *gc.C) {
 
 	_true := true
 	_false := false
-	expected := []params.CredentialContentResult{
-		{
-			Result: &params.ControllerCredentialInfo{
-				Content: params.CredentialContent{
-					Name:       "one",
-					Cloud:      "meep",
-					AuthType:   "empty",
-					Valid:      &_true,
-					Attributes: map[string]string{},
-				},
-			},
+	expected := map[string]params.CredentialContent{
+		"one": {
+			Name:       "one",
+			Cloud:      "meep",
+			AuthType:   "empty",
+			Valid:      &_true,
+			Attributes: map[string]string{},
 		},
-		{
-			Result: &params.ControllerCredentialInfo{
-				Content: params.CredentialContent{
-					Name:     "two",
-					Cloud:    "meep",
-					AuthType: "userpass",
-					Valid:    &_false,
-					Attributes: map[string]string{
-						"username": "admin",
-					},
-				},
+		"two": {
+			Name:     "two",
+			Cloud:    "meep",
+			AuthType: "userpass",
+			Valid:    &_false,
+			Attributes: map[string]string{
+				"username": "admin",
 			},
 		},
 	}
-	c.Assert(results.Results, jc.DeepEquals, expected)
+
+	c.Assert(results.Results, gc.HasLen, len(expected))
+	for _, one := range results.Results {
+		c.Assert(one.Result.Content, gc.DeepEquals, expected[one.Result.Content.Name])
+	}
 }
 
 type mockBackend struct {
