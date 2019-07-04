@@ -6,7 +6,6 @@ package provider
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -1031,7 +1030,7 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteSecrets(appName); err != nil {
 		return errors.Trace(err)
 	}
-	if err := k.deleteServiceAccounts(appName); err != nil {
+	if err := k.deleteServiceAccountsRolesBindings(appName); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -1239,7 +1238,7 @@ func (k *kubernetesClient) EnsureService(
 		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName) })
 	}
 	if params.PodSpec.ServiceAccount != nil {
-		saCleanups, err := k.ensureServiceAccount(appName, params.PodSpec.ServiceAccount)
+		saCleanups, err := k.ensureServiceAccountForApp(appName, params.PodSpec.ServiceAccount)
 		cleanups = append(cleanups, saCleanups...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating service account")
@@ -1327,108 +1326,6 @@ func (k *kubernetesClient) EnsureService(
 			return errors.Annotate(err, "creating or updating DeploymentController")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
-	}
-	return nil
-}
-
-func (k *kubernetesClient) ensureServiceAccount(appName string, caasSpec *caas.ServiceAccountSpec) (cleanups []func(), err error) {
-	labels := map[string]string{labelApplication: appName}
-	saSpec := &core.ServiceAccount{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      caasSpec.Name,
-			Namespace: k.namespace,
-			Labels:    labels,
-		},
-		AutomountServiceAccountToken: caasSpec.AutomountServiceAccountToken,
-	}
-	// ensure service account before ensuring secret;
-	resource, err := k.updateServiceAccount(saSpec)
-	if errors.IsNotFound(err) {
-		if resource, err = k.createServiceAccount(saSpec); err != nil {
-			return cleanups, errors.Trace(err)
-		}
-		cleanups = append(cleanups, func() { k.deleteServiceAccount(resource.GetName()) })
-	}
-	if err != nil {
-		return cleanups, errors.Trace(err)
-	}
-	for _, cs := range caasSpec.Secrets {
-		secret := &core.Secret{
-			ObjectMeta: v1.ObjectMeta{
-				Name:      cs.Name,
-				Namespace: k.namespace,
-				Labels:    labels,
-				Annotations: k8sannotations.New(cs.Annotations).
-					Add("kubernetes.io/service-account.name", saSpec.GetName()).
-					ToMap(),
-			},
-			Type:       cs.Type,
-			StringData: cs.StringData,
-		}
-		if cs.Data != nil {
-			secret.Data = make(map[string][]byte)
-			for k, v := range cs.Data {
-				data, err := base64.StdEncoding.DecodeString(v)
-				if err != nil {
-					return cleanups, errors.Trace(err)
-				}
-				secret.Data[k] = data
-			}
-		}
-		logger.Debugf("ensuring secret %q for service account %q", secret.GetName(), saSpec.GetName())
-		if err := k.updateSecret(secret); err != nil {
-			if !errors.IsNotFound(err) {
-				return cleanups, errors.Trace(err)
-			}
-			if err = k.createSecret(secret); err != nil {
-				return cleanups, errors.Trace(err)
-			}
-			cleanups = append(cleanups, func() { k.deleteSecret(secret.Name) })
-		}
-		saSpec.Secrets = append(saSpec.Secrets, core.ObjectReference{Name: secret.GetName()})
-	}
-	// update service account's secret ObjectReferences.
-	_, err = k.updateServiceAccount(saSpec)
-	return cleanups, errors.Trace(err)
-}
-
-func (k *kubernetesClient) createServiceAccount(sa *core.ServiceAccount) (out *core.ServiceAccount, err error) {
-	out, err = k.client().CoreV1().ServiceAccounts(k.namespace).Create(sa)
-	if k8serrors.IsAlreadyExists(err) {
-		return nil, errors.AlreadyExistsf("service account %q", sa.GetName())
-	}
-	return out, errors.Trace(err)
-}
-
-func (k *kubernetesClient) updateServiceAccount(sa *core.ServiceAccount) (out *core.ServiceAccount, err error) {
-	out, err = k.client().CoreV1().ServiceAccounts(k.namespace).Update(sa)
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("service account %q", sa.GetName())
-	}
-	return out, errors.Trace(err)
-}
-
-func (k *kubernetesClient) deleteServiceAccount(name string) error {
-	err := k.client().CoreV1().ServiceAccounts(k.namespace).Delete(name, &v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) deleteServiceAccounts(appName string) error {
-	saList, err := k.client().CoreV1().ServiceAccounts(k.namespace).List(v1.ListOptions{
-		LabelSelector: applicationSelector(appName),
-	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, s := range saList.Items {
-		if err := k.deleteServiceAccount(s.GetName()); err != nil {
-			return errors.Trace(err)
-		}
 	}
 	return nil
 }
