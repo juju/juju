@@ -89,7 +89,7 @@ type RoleSpec struct {
 	Name string   `yaml:"name"`
 	Type RbacType `yaml:"type"`
 	// We assume this is an existing Role/ClusterRole if Rules is empty.
-	// Exisitng Role/ClusterRoles can be only referenced but will never be deleted or updated by Juju.
+	// Existing Role/ClusterRoles can be only referenced but will never be deleted or updated by Juju.
 	// Role/ClusterRoles are created by Juju will be properly labeled.
 	Rules []rbacv1.PolicyRule `yaml:"rules"`
 }
