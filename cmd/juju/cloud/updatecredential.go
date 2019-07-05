@@ -207,23 +207,34 @@ func credentialsFromFile(credentialsFile, cloudName, credentialName string) (map
 }
 
 func credentialsFromLocalCache(store jujuclient.ClientStore, cloudName, credentialName string) (map[string]jujucloud.CloudCredential, error) {
-	cloudCredentials, err := store.CredentialForCloud(cloudName)
-	if err != nil {
-		return nil, errors.Annotate(err, "loading credentials")
+	all := map[string]jujucloud.CloudCredential{}
+	var err error
+	if cloudName == "" {
+		all, err = store.AllCredentials()
+		if err != nil {
+			return nil, errors.Annotate(err, "loading credentials")
+		}
+	} else {
+		var cloudCredentials *jujucloud.CloudCredential
+		cloudCredentials, err = store.CredentialForCloud(cloudName)
+		if err != nil {
+			return nil, errors.Annotate(err, "loading credentials")
+		}
+		all[cloudName] = *cloudCredentials
 	}
-
-	found := map[string]jujucloud.CloudCredential{}
 	if credentialName == "" {
-		found[cloudName] = *cloudCredentials
-		return found, nil
+		return all, nil
 	}
-	for name, aCredential := range cloudCredentials.AuthCredentials {
-		if name == credentialName {
-			found[cloudName] = jujucloud.CloudCredential{
-				AuthCredentials: map[string]jujucloud.Credential{name: aCredential},
-				DefaultRegion:   cloudCredentials.DefaultRegion,
+	found := map[string]jujucloud.CloudCredential{}
+	for cloudName, cloudCredentials := range all {
+		for name, aCredential := range cloudCredentials.AuthCredentials {
+			if name == credentialName {
+				found[cloudName] = jujucloud.CloudCredential{
+					AuthCredentials: map[string]jujucloud.Credential{name: aCredential},
+					DefaultRegion:   cloudCredentials.DefaultRegion,
+				}
+				return found, nil
 			}
-			return found, nil
 		}
 	}
 	return nil, errors.NotFoundf("credential %q for cloud %q in local client cache", credentialName, cloudName)

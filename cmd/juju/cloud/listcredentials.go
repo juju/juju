@@ -297,7 +297,7 @@ func (c *listCredentialsCommand) localCredentials(ctxt *cmd.Context) (map[string
 			continue
 		}
 		if !c.showSecrets {
-			if err := c.removeSecrets(cloudName, cred); err != nil {
+			if err := removeSecrets(cloudName, cred, c.cloudByNameFunc); err != nil {
 				if errors.IsNotValid(err) {
 					missingClouds = append(missingClouds, cloudName)
 					continue
@@ -329,8 +329,8 @@ func (c *listCredentialsCommand) localCredentials(ctxt *cmd.Context) (map[string
 	return displayCredentials, nil
 }
 
-func (c *listCredentialsCommand) removeSecrets(cloudName string, cloudCred *jujucloud.CloudCredential) error {
-	cloud, err := common.CloudOrProvider(cloudName, c.cloudByNameFunc)
+func removeSecrets(cloudName string, cloudCred *jujucloud.CloudCredential, cloudFinder func(string) (*jujucloud.Cloud, error)) error {
+	cloud, err := common.CloudOrProvider(cloudName, cloudFinder)
 	if err != nil {
 		return err
 	}
