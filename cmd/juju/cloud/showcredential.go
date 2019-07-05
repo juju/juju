@@ -51,7 +51,7 @@ func (c *showCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 		"yaml": cmd.FormatYaml,
 	})
 	f.BoolVar(&c.ShowSecrets, "show-secrets", false, "Display credential secret attributes")
-	f.BoolVar(&c.Local, "local", false, "Local operation only; controller not affected")
+	f.BoolVar(&c.Local, "local", false, "Local operation only; controller credentials not shown")
 }
 
 func (c *showCredentialCommand) Init(args []string) error {
