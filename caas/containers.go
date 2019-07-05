@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 )
@@ -57,15 +56,6 @@ type ContainerSpec struct {
 
 	// ProviderContainer defines config which is specific to a substrate, eg k8s
 	ProviderContainer `yaml:"-"`
-}
-
-// SecretSpec defines config for referencing to or creating a secret.
-type SecretSpec struct {
-	Name        string            `yaml:"name"`
-	Type        core.SecretType   `yaml:"type"`
-	Annotations map[string]string `yaml:"annotations,omitempty"`
-	Data        map[string]string `yaml:"data,omitempty"` // base64 encoded string
-	StringData  map[string]string `yaml:"stringData,omitempty"`
 }
 
 // RbacType describes Role/Binding type.

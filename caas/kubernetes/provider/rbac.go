@@ -13,7 +13,9 @@ import (
 	"github.com/juju/juju/caas"
 )
 
-func (k *kubernetesClient) ensureServiceAccountForApp(appName string, caasSpec *caas.ServiceAccountSpec) (cleanups []func(), err error) {
+func (k *kubernetesClient) ensureServiceAccountForApp(
+	appName string, caasSpec *caas.ServiceAccountSpec,
+) (cleanups []func(), err error) {
 	labels := map[string]string{labelApplication: appName}
 	saSpec := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
@@ -33,7 +35,6 @@ func (k *kubernetesClient) ensureServiceAccountForApp(appName string, caasSpec *
 	}
 
 	roleSpec := caasSpec.Capabilities.Role
-	logger.Criticalf("roleSpec -> \n%+v", roleSpec)
 	var roleRef rbacv1.RoleRef
 	// no rule specified, reference to existing Role/ClusterRole.
 	switch roleSpec.Type {
@@ -60,7 +61,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(appName string, caasSpec *
 		}
 		roleRef = rbacv1.RoleRef{
 			Name: r.GetName(),
-			Kind: r.Kind,
+			Kind: string(roleSpec.Type),
 		}
 	case caas.ClusterRole:
 		var cr *rbacv1.ClusterRole
@@ -83,18 +84,14 @@ func (k *kubernetesClient) ensureServiceAccountForApp(appName string, caasSpec *
 				return cleanups, errors.Trace(err)
 			}
 		}
-		logger.Criticalf("cr --> %+v", cr)
 		roleRef = rbacv1.RoleRef{
 			Name: cr.GetName(),
-			// TOOD: why cr.Kind == ""
-			// Kind: cr.Kind,
 			Kind: string(roleSpec.Type),
 		}
 	default:
 		// this should never happen.
 		return cleanups, errors.New("unsupported Role type")
 	}
-	logger.Criticalf("roleRef --> %+v", roleRef)
 
 	rbSpec := caasSpec.Capabilities.RoleBinding
 	logger.Criticalf("rbSpec -> \n%+v", rbSpec)

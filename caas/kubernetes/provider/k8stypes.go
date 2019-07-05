@@ -60,12 +60,16 @@ type K8sServiceSpec struct {
 // K8sPodSpec is a subset of v1.PodSpec which defines
 // attributes we expose for charms to set.
 type K8sPodSpec struct {
-	ServiceAccountName            string                   `json:"serviceAccountName,omitempty"`
+	// TODO(caas): remove ServiceAccountName and AutomountServiceAccountToken in the future
+	// because we have service account spec in caas.PodSpec now.
+	// Keep it for now because it will be a breaking change to remove it.
+	ServiceAccountName           string `json:"serviceAccountName,omitempty"`
+	AutomountServiceAccountToken *bool  `json:"automountServiceAccountToken,omitempty"`
+
 	RestartPolicy                 core.RestartPolicy       `json:"restartPolicy,omitempty"`
 	TerminationGracePeriodSeconds *int64                   `json:"terminationGracePeriodSeconds,omitempty"`
 	ActiveDeadlineSeconds         *int64                   `json:"activeDeadlineSeconds,omitempty"`
 	DNSPolicy                     core.DNSPolicy           `json:"dnsPolicy,omitempty"`
-	AutomountServiceAccountToken  *bool                    `json:"automountServiceAccountToken,omitempty"`
 	SecurityContext               *core.PodSecurityContext `json:"securityContext,omitempty"`
 	Hostname                      string                   `json:"hostname,omitempty"`
 	Subdomain                     string                   `json:"subdomain,omitempty"`
