@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -155,28 +156,18 @@ customResourceDefinitions:
                     maximum: 1
 serviceAccount:
   name: build-robot
-  automountServiceAccountToken: false
-  secrets:
-  - name: build-robot-secret1
-    annotations:
-      kubernetes.io/service-account.name: build-robot
-    type: Opaque
-    stringData:
-      config.yaml: |-
-        apiUrl: "https://my.api.com/api/v1"
-        username: fred
-        password: shhhh
-  - name: build-robot-secret2
-    annotations:
-      kubernetes.io/service-account.name: build-robot
-    type: Opaque
-    data:
-      username: YWRtaW4=
-      password: MWYyZDFlMmU2N2Rm
-  - name: build-robot-secret3
-    annotations:
-      kubernetes.io/service-account.name: build-robot
-    type: kubernetes.io/service-account-token
+  automountServiceAccountToken: true
+  capabilities:
+    roleBinding:
+      name: read-pods
+      type: ClusterRoleBinding
+    role:
+      name: pod-reader
+      type: ClusterRole
+      rules:
+      - apiGroups: [""]
+        resources: ["pods"]
+        verbs: ["get", "watch", "list"]
 `[1:]
 
 	expectedFileContent := `
@@ -355,36 +346,21 @@ echo "do some stuff here for gitlab-init container"
 		},
 		ServiceAccount: &caas.ServiceAccountSpec{
 			Name:                         "build-robot",
-			AutomountServiceAccountToken: boolPtr(false),
-			Secrets: []caas.SecretSpec{
-				{
-					Name: "build-robot-secret1",
-					Type: "Opaque",
-					Annotations: map[string]string{
-						"kubernetes.io/service-account.name": "build-robot",
-					},
-					StringData: map[string]string{
-						"config.yaml": `
-apiUrl: "https://my.api.com/api/v1"
-username: fred
-password: shhhh`[1:]},
+			AutomountServiceAccountToken: boolPtr(true),
+			Capabilities: &caas.Capabilities{
+				RoleBinding: &caas.RoleBindingSpec{
+					Name: "read-pods",
+					Type: caas.ClusterRoleBinding,
 				},
-				{
-					Name: "build-robot-secret2",
-					Type: "Opaque",
-					Annotations: map[string]string{
-						"kubernetes.io/service-account.name": "build-robot",
-					},
-					Data: map[string]string{
-						"username": "YWRtaW4=",
-						"password": "MWYyZDFlMmU2N2Rm",
-					},
-				},
-				{
-					Name: "build-robot-secret3",
-					Type: "kubernetes.io/service-account-token",
-					Annotations: map[string]string{
-						"kubernetes.io/service-account.name": "build-robot",
+				Role: &caas.RoleSpec{
+					Name: "pod-reader",
+					Type: caas.ClusterRole,
+					Rules: []rbacv1.PolicyRule{
+						{
+							APIGroups: []string{""},
+							Resources: []string{"pods"},
+							Verbs:     []string{"get", "watch", "list"},
+						},
 					},
 				},
 			},

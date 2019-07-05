@@ -63,7 +63,11 @@ type BaseSuite struct {
 	mockApiextensionsClient      *mocks.MockApiExtensionsClientInterface
 	mockCustomResourceDefinition *mocks.MockCustomResourceDefinitionInterface
 
-	mockServiceAccounts *mocks.MockServiceAccountInterface
+	mockServiceAccounts     *mocks.MockServiceAccountInterface
+	mockRoles               *mocks.MockRoleInterface
+	mockClusterRoles        *mocks.MockClusterRoleInterface
+	mockRoleBindings        *mocks.MockRoleBindingInterface
+	mockClusterRoleBindings *mocks.MockClusterRoleBindingInterface
 
 	watchers []*provider.KubernetesWatcher
 }
@@ -201,6 +205,18 @@ func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller, namespa
 
 	s.mockServiceAccounts = mocks.NewMockServiceAccountInterface(ctrl)
 	mockCoreV1.EXPECT().ServiceAccounts(namespace).AnyTimes().Return(s.mockServiceAccounts)
+
+	mockRbacV1 := mocks.NewMockRbacV1Interface(ctrl)
+	s.k8sClient.EXPECT().RbacV1().AnyTimes().Return(mockRbacV1)
+
+	s.mockRoles = mocks.NewMockRoleInterface(ctrl)
+	mockRbacV1.EXPECT().Roles(namespace).AnyTimes().Return(s.mockRoles)
+	s.mockClusterRoles = mocks.NewMockClusterRoleInterface(ctrl)
+	mockRbacV1.EXPECT().ClusterRoles().AnyTimes().Return(s.mockClusterRoles)
+	s.mockRoleBindings = mocks.NewMockRoleBindingInterface(ctrl)
+	mockRbacV1.EXPECT().RoleBindings(namespace).AnyTimes().Return(s.mockRoleBindings)
+	s.mockClusterRoleBindings = mocks.NewMockClusterRoleBindingInterface(ctrl)
+	mockRbacV1.EXPECT().ClusterRoleBindings().AnyTimes().Return(s.mockClusterRoleBindings)
 
 	return func(cfg *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error) {
 		c.Assert(cfg.Username, gc.Equals, "fred")
