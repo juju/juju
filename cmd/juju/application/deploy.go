@@ -943,6 +943,17 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 		if url.Source == "" {
 			url.Source = controllerName
 		}
+
+		// if we know the controller isn't available locally, then we should
+		// let the user know as soon as possible, so that we can instruct them
+		// to login.
+		cs := c.ClientStore()
+		if _, err := cs.AccountDetails(url.Source); err != nil && errors.IsNotFound(err) {
+			return nil, errors.Errorf("Controller %q not found locally.\n"+
+				"Please try logging in to the controller using `juju login` to enable\n"+
+				"accessing the controller locally.", url.Source)
+		}
+
 		return c.NewConsumeDetailsAPI(url)
 	}
 
