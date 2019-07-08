@@ -2567,6 +2567,7 @@ func makeUnitSpec(appName, deploymentName string, podSpec *caas.PodSpec) (*unitS
 		}
 		unitSpec.Pod.ActiveDeadlineSeconds = spec.ActiveDeadlineSeconds
 		unitSpec.Pod.ServiceAccountName = spec.ServiceAccountName
+		unitSpec.Pod.AutomountServiceAccountToken = spec.AutomountServiceAccountToken
 		unitSpec.Pod.TerminationGracePeriodSeconds = spec.TerminationGracePeriodSeconds
 		unitSpec.Pod.Hostname = spec.Hostname
 		unitSpec.Pod.Subdomain = spec.Subdomain
@@ -2576,12 +2577,12 @@ func makeUnitSpec(appName, deploymentName string, podSpec *caas.PodSpec) (*unitS
 		unitSpec.Pod.PriorityClassName = spec.PriorityClassName
 		unitSpec.Pod.SecurityContext = spec.SecurityContext
 		unitSpec.Pod.RestartPolicy = spec.RestartPolicy
-		unitSpec.Pod.AutomountServiceAccountToken = spec.AutomountServiceAccountToken
 		unitSpec.Pod.ReadinessGates = spec.ReadinessGates
 		unitSpec.Service = spec.Service
 	}
-	if unitSpec.Pod.ServiceAccountName == "" && podSpec.ServiceAccount != nil {
+	if podSpec.ServiceAccount != nil {
 		unitSpec.Pod.ServiceAccountName = podSpec.ServiceAccount.Name
+		unitSpec.Pod.AutomountServiceAccountToken = podSpec.ServiceAccount.AutomountServiceAccountToken
 	}
 	return &unitSpec, nil
 }

@@ -26,7 +26,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		AutomountServiceAccountToken: caasSpec.AutomountServiceAccountToken,
 	}
 	// ensure service account;
-	sa, err := k.updateServiceAccount(saSpec)
+	sa, err := k.updateServiceAccountForApp(appName, saSpec)
 	if errors.IsNotFound(err) {
 		if sa, err = k.createServiceAccount(saSpec); err != nil {
 			return cleanups, errors.Trace(err)
@@ -151,6 +151,14 @@ func (k *kubernetesClient) updateServiceAccount(sa *core.ServiceAccount) (*core.
 	return out, errors.Trace(err)
 }
 
+func (k *kubernetesClient) updateServiceAccountForApp(appName string, sa *core.ServiceAccount) (*core.ServiceAccount, error) {
+	_, err := k.listServiceAccount(appName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return k.updateServiceAccount(sa)
+}
+
 func (k *kubernetesClient) ensureServiceAccount(sa *core.ServiceAccount) (*core.ServiceAccount, error) {
 	out, err := k.updateServiceAccount(sa)
 	if errors.IsNotFound(err) {
@@ -177,9 +185,25 @@ func (k *kubernetesClient) deleteServiceAccount(name string) error {
 	return errors.Trace(err)
 }
 
+func (k *kubernetesClient) listServiceAccount(appName string) ([]core.ServiceAccount, error) {
+	listOps := v1.ListOptions{
+		LabelSelector:        applicationSelector(appName),
+		IncludeUninitialized: true,
+	}
+	saList, err := k.client().CoreV1().ServiceAccounts(k.namespace).List(listOps)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(saList.Items) == 0 {
+		return nil, errors.NotFoundf("service account for application %q", appName)
+	}
+	return saList.Items, nil
+}
+
 func (k *kubernetesClient) deleteServiceAccountsRolesBindings(appName string) error {
 	listOps := v1.ListOptions{
-		LabelSelector: applicationSelector(appName),
+		LabelSelector:        applicationSelector(appName),
+		IncludeUninitialized: true,
 	}
 	rbList, err := k.client().RbacV1().RoleBindings(k.namespace).List(listOps)
 	if err != nil {
@@ -277,7 +301,8 @@ func (k *kubernetesClient) deleteRole(name string) error {
 
 func (k *kubernetesClient) deleteRoles(appName string) error {
 	roleList, err := k.client().RbacV1().Roles(k.namespace).List(v1.ListOptions{
-		LabelSelector: applicationSelector(appName),
+		LabelSelector:        applicationSelector(appName),
+		IncludeUninitialized: true,
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -334,7 +359,8 @@ func (k *kubernetesClient) deleteClusterRole(name string) error {
 
 func (k *kubernetesClient) deleteClusterRoles(appName string) error {
 	clusterRoleList, err := k.client().RbacV1().ClusterRoles().List(v1.ListOptions{
-		LabelSelector: applicationSelector(appName),
+		LabelSelector:        applicationSelector(appName),
+		IncludeUninitialized: true,
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -391,7 +417,8 @@ func (k *kubernetesClient) deleteRoleBinding(name string) error {
 
 func (k *kubernetesClient) deleteRoleBindings(appName string) error {
 	roleBindingList, err := k.client().RbacV1().RoleBindings(k.namespace).List(v1.ListOptions{
-		LabelSelector: applicationSelector(appName),
+		LabelSelector:        applicationSelector(appName),
+		IncludeUninitialized: true,
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -448,7 +475,8 @@ func (k *kubernetesClient) deleteClusterRoleBinding(name string) error {
 
 func (k *kubernetesClient) deleteClusterRoleBindings(appName string) error {
 	clusterRoleBindingList, err := k.client().RbacV1().ClusterRoleBindings().List(v1.ListOptions{
-		LabelSelector: applicationSelector(appName),
+		LabelSelector:        applicationSelector(appName),
+		IncludeUninitialized: true,
 	})
 	if err != nil {
 		return errors.Trace(err)
