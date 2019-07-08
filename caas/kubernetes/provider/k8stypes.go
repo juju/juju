@@ -97,7 +97,6 @@ func parseK8sPodSpec(in string) (*caas.PodSpec, error) {
 	if err := yaml.Unmarshal([]byte(in), &spec); err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	// Do the k8s pod attributes.
 	var pod k8sPod
 	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
@@ -108,6 +107,10 @@ func parseK8sPodSpec(in string) (*caas.PodSpec, error) {
 		spec.ProviderPod = pod.K8sPodSpec
 	}
 	if pod.ServiceAccount != nil {
+		if pod.K8sPodSpec != nil && pod.ServiceAccountName != "" {
+			return nil, errors.New(`
+either use ServiceAccountName to reference to existing service account or define ServiceAccount spec to create a new one`[1:])
+		}
 		spec.ServiceAccount = pod.ServiceAccount
 	}
 

@@ -4,8 +4,6 @@
 package caas
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -58,28 +56,28 @@ type ContainerSpec struct {
 	ProviderContainer `yaml:"-"`
 }
 
-// RbacType describes Role/Binding type.
-type RbacType string
+// RBACType describes Role/Binding type.
+type RBACType string
 
 const (
 	// Role is the single namespace based.
-	Role RbacType = "Role"
+	Role RBACType = "Role"
 	// ClusterRole is the all namespaces based.
-	ClusterRole RbacType = "ClusterRole"
+	ClusterRole RBACType = "ClusterRole"
 
 	// RoleBinding is the single namespace based.
-	RoleBinding RbacType = "RoleBinding"
+	RoleBinding RBACType = "RoleBinding"
 	// ClusterRoleBinding is the all namespaces based.
-	ClusterRoleBinding RbacType = "ClusterRoleBinding"
+	ClusterRoleBinding RBACType = "ClusterRoleBinding"
 )
 
 var (
 	// RoleTypes defines supported role types.
-	RoleTypes = []RbacType{
+	RoleTypes = []RBACType{
 		Role, ClusterRole,
 	}
 	// RoleBindingTypes defines supported role binding types.
-	RoleBindingTypes = []RbacType{
+	RoleBindingTypes = []RBACType{
 		RoleBinding, ClusterRoleBinding,
 	}
 )
@@ -87,7 +85,7 @@ var (
 // RoleSpec defines config for referencing to or creating a Role or Cluster resource.
 type RoleSpec struct {
 	Name string   `yaml:"name"`
-	Type RbacType `yaml:"type"`
+	Type RBACType `yaml:"type"`
 	// We assume this is an existing Role/ClusterRole if Rules is empty.
 	// Existing Role/ClusterRoles can be only referenced but will never be deleted or updated by Juju.
 	// Role/ClusterRoles are created by Juju will be properly labeled.
@@ -101,13 +99,13 @@ func (r RoleSpec) Validate() error {
 			return nil
 		}
 	}
-	return errors.New(fmt.Sprintf("%q is not in %v", r.Type, RoleTypes))
+	return errors.NotSupportedf("%q", r.Type)
 }
 
 // RoleBindingSpec defines config for referencing to or creating a RoleBinding or ClusterRoleBinding resource.
 type RoleBindingSpec struct {
 	Name string   `yaml:"name"`
-	Type RbacType `yaml:"type"`
+	Type RBACType `yaml:"type"`
 }
 
 // Validate returns an error if the spec is not valid.
@@ -117,7 +115,7 @@ func (rb RoleBindingSpec) Validate() error {
 			return nil
 		}
 	}
-	return errors.New(fmt.Sprintf("%q is not in %v", rb.Type, RoleBindingTypes))
+	return errors.NotSupportedf("%q", rb.Type)
 }
 
 // Capabilities defines RBAC related config.
