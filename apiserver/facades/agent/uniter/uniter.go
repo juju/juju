@@ -840,7 +840,7 @@ func (u *UniterAPI) waitForCacheUnit(tag names.UnitTag, condition func(cu cache.
 			return errors.New("timed out waiting for change to be reflected in cache")
 		default:
 			cu, err := u.getCacheUnit(tag)
-			if err != nil {
+			if err != nil && !errors.IsNotFound(err) {
 				return err
 			}
 			if condition(cu) {
