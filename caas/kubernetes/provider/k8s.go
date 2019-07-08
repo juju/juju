@@ -2658,6 +2658,19 @@ func (k *kubernetesClient) deploymentName(appName string) string {
 	return appName
 }
 
+func labelsToSelector(labels map[string]string) string {
+	selector := ""
+	for k, v := range labels {
+		item := fmt.Sprintf("%v==%v", k, v)
+		if selector == "" {
+			selector = item
+		} else {
+			selector += "," + item
+		}
+	}
+	return selector
+}
+
 func isLegacyName(resourceName string) bool {
 	return strings.HasPrefix(resourceName, "juju-")
 }

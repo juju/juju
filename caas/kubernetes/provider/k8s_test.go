@@ -987,36 +987,26 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 		s.mockSecrets.EXPECT().Delete("secret", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
 
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==test", IncludeUninitialized: true}).Times(1).
-			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{{
-				ObjectMeta: v1.ObjectMeta{Name: "rb"},
-			}}}, nil),
-		s.mockRoleBindings.EXPECT().Delete("rb", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
-			Return(s.k8sNotFoundError()),
-		s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==test", IncludeUninitialized: true}).Times(1).
-			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{{
-				ObjectMeta: v1.ObjectMeta{Name: "crb"},
-			}}}, nil),
-		s.mockClusterRoleBindings.EXPECT().Delete("crb", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
-			Return(s.k8sNotFoundError()),
-		s.mockRoles.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==test", IncludeUninitialized: true}).Times(1).
-			Return(&rbacv1.RoleList{Items: []rbacv1.Role{{
-				ObjectMeta: v1.ObjectMeta{Name: "r"},
-			}}}, nil),
-		s.mockRoles.EXPECT().Delete("r", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
-			Return(s.k8sNotFoundError()),
-		s.mockClusterRoles.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==test", IncludeUninitialized: true}).Times(1).
-			Return(&rbacv1.ClusterRoleList{Items: []rbacv1.ClusterRole{{
-				ObjectMeta: v1.ObjectMeta{Name: "cr"},
-			}}}, nil),
-		s.mockClusterRoles.EXPECT().Delete("cr", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
-			Return(s.k8sNotFoundError()),
-		s.mockServiceAccounts.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==test", IncludeUninitialized: true}).Times(1).
-			Return(&core.ServiceAccountList{Items: []core.ServiceAccount{{
-				ObjectMeta: v1.ObjectMeta{Name: "sa"},
-			}}}, nil),
-		s.mockServiceAccounts.EXPECT().Delete("sa", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
-			Return(s.k8sNotFoundError()),
+		s.mockRoleBindings.EXPECT().DeleteCollection(
+			s.deleteOptions(v1.DeletePropagationForeground),
+			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
+		).Times(1).Return(nil),
+		s.mockClusterRoleBindings.EXPECT().DeleteCollection(
+			s.deleteOptions(v1.DeletePropagationForeground),
+			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
+		).Times(1).Return(nil),
+		s.mockRoles.EXPECT().DeleteCollection(
+			s.deleteOptions(v1.DeletePropagationForeground),
+			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
+		).Times(1).Return(nil),
+		s.mockClusterRoles.EXPECT().DeleteCollection(
+			s.deleteOptions(v1.DeletePropagationForeground),
+			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
+		).Times(1).Return(nil),
+		s.mockServiceAccounts.EXPECT().DeleteCollection(
+			s.deleteOptions(v1.DeletePropagationForeground),
+			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
+		).Times(1).Return(nil),
 	)
 
 	err := s.broker.DeleteService("test")
@@ -1519,7 +1509,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountCreateNewClusterRole
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "build-robot",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
@@ -1527,7 +1517,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountCreateNewClusterRole
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "pod-reader",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -1541,7 +1531,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountCreateNewClusterRole
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "read-pods",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Name: "pod-reader",
@@ -1673,7 +1663,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountRefToExistingCluster
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "build-robot",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
@@ -1681,7 +1671,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountRefToExistingCluster
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "pod-reader",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -1695,7 +1685,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountRefToExistingCluster
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "read-pods",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name"},
+			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Name: "pod-reader",
