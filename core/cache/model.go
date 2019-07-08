@@ -126,7 +126,7 @@ func (m *Model) Branch(name string) (Branch, error) {
 			return b.copy(), nil
 		}
 	}
-	return Branch{}, errors.NotFoundf("branch %q", name)
+	return Branch{}, errors.NotFoundf("cached branch %q", name)
 }
 
 // Application returns the application for the input name.
@@ -136,7 +136,7 @@ func (m *Model) Application(appName string) (Application, error) {
 
 	app, found := m.applications[appName]
 	if !found {
-		return Application{}, errors.NotFoundf("application %q", appName)
+		return Application{}, errors.NotFoundf("cached application %q", appName)
 	}
 	return app.copy(), nil
 }
@@ -161,7 +161,7 @@ func (m *Model) Unit(unitName string) (Unit, error) {
 
 	unit, found := m.units[unitName]
 	if !found {
-		return Unit{}, errors.NotFoundf("unit %q", unitName)
+		return Unit{}, errors.NotFoundf("cached unit %q", unitName)
 	}
 	return unit.copy(), nil
 }
@@ -186,7 +186,7 @@ func (m *Model) Machine(machineId string) (Machine, error) {
 
 	machine, found := m.machines[machineId]
 	if !found {
-		return Machine{}, errors.NotFoundf("machine %q", machineId)
+		return Machine{}, errors.NotFoundf("cached machine %q", machineId)
 	}
 	return machine.copy(), nil
 }
@@ -198,14 +198,14 @@ func (m *Model) Charm(charmURL string) (Charm, error) {
 
 	charm, found := m.charms[charmURL]
 	if !found {
-		return Charm{}, errors.NotFoundf("charm %q", charmURL)
+		return Charm{}, errors.NotFoundf("cached charm %q", charmURL)
 	}
 	return charm.copy(), nil
 }
 
 // WatchMachines returns a PredicateStringsWatcher to notify about
-// added and removed machines in the model.  The initial event contains
-// a slice of the current machine ids.  Containers are excluded.
+// added and removed machines in the model. The initial event contains
+// a slice of the current machine ids. Containers are excluded.
 func (m *Model) WatchMachines() (*PredicateStringsWatcher, error) {
 	defer m.doLocked()()
 
