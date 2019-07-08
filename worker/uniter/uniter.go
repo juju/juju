@@ -592,7 +592,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 			Installed: true,
 		}
 		if err := u.unit.SetCharmURL(charmURL); err != nil {
-			return errors.Trace(err)
+			return errors.Annotate(err, "setting charm URL")
 		}
 	}
 	operationExecutor, err := u.newOperationExecutor(u.paths.State.OperationsFile, initialState, u.acquireExecutionLock)
