@@ -13,10 +13,17 @@ import (
 	"github.com/juju/juju/caas"
 )
 
+func (k *kubernetesClient) getRBACLabels(appName string) map[string]string {
+	return map[string]string{
+		labelApplication: appName,
+		labelModel:       k.namespace,
+	}
+}
+
 func (k *kubernetesClient) ensureServiceAccountForApp(
 	appName string, caasSpec *caas.ServiceAccountSpec,
 ) (cleanups []func(), err error) {
-	labels := map[string]string{labelApplication: appName}
+	labels := k.getRBACLabels(appName)
 	saSpec := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      caasSpec.Name,
@@ -27,7 +34,10 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 	}
 	// ensure service account;
 	sa, err := k.updateServiceAccountForApp(appName, saSpec)
-	if errors.IsNotFound(err) {
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return cleanups, errors.Trace(err)
+		}
 		if sa, err = k.createServiceAccount(saSpec); err != nil {
 			return cleanups, errors.Trace(err)
 		}
@@ -185,6 +195,19 @@ func (k *kubernetesClient) deleteServiceAccount(name string) error {
 	return errors.Trace(err)
 }
 
+func (k *kubernetesClient) deleteServiceAccounts(appName string) error {
+	err := k.client().CoreV1().ServiceAccounts(k.namespace).DeleteCollection(&v1.DeleteOptions{
+		PropagationPolicy: &defaultPropagationPolicy,
+	}, v1.ListOptions{
+		LabelSelector:        labelsToSelector(k.getRBACLabels(appName)),
+		IncludeUninitialized: true,
+	})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
+}
+
 func (k *kubernetesClient) listServiceAccount(appName string) ([]core.ServiceAccount, error) {
 	listOps := v1.ListOptions{
 		LabelSelector:        applicationSelector(appName),
@@ -201,58 +224,20 @@ func (k *kubernetesClient) listServiceAccount(appName string) ([]core.ServiceAcc
 }
 
 func (k *kubernetesClient) deleteServiceAccountsRolesBindings(appName string) error {
-	listOps := v1.ListOptions{
-		LabelSelector:        applicationSelector(appName),
-		IncludeUninitialized: true,
-	}
-	rbList, err := k.client().RbacV1().RoleBindings(k.namespace).List(listOps)
-	if err != nil {
+	if err := k.deleteRoleBindings(appName); err != nil {
 		return errors.Trace(err)
 	}
-	for _, s := range rbList.Items {
-		if err := k.deleteRoleBinding(s.GetName()); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	crbList, err := k.client().RbacV1().ClusterRoleBindings().List(listOps)
-	if err != nil {
+	if err := k.deleteClusterRoleBindings(appName); err != nil {
 		return errors.Trace(err)
 	}
-	for _, s := range crbList.Items {
-		if err := k.deleteClusterRoleBinding(s.GetName()); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	rList, err := k.client().RbacV1().Roles(k.namespace).List(listOps)
-	if err != nil {
+	if err := k.deleteRoles(appName); err != nil {
 		return errors.Trace(err)
 	}
-	for _, s := range rList.Items {
-		if err := k.deleteRole(s.GetName()); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	crList, err := k.client().RbacV1().ClusterRoles().List(listOps)
-	if err != nil {
+	if err := k.deleteClusterRoles(appName); err != nil {
 		return errors.Trace(err)
 	}
-	for _, s := range crList.Items {
-		if err := k.deleteClusterRole(s.GetName()); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	saList, err := k.client().CoreV1().ServiceAccounts(k.namespace).List(listOps)
-	if err != nil {
+	if err := k.deleteServiceAccounts(appName); err != nil {
 		return errors.Trace(err)
-	}
-	for _, s := range saList.Items {
-		if err := k.deleteServiceAccount(s.GetName()); err != nil {
-			return errors.Trace(err)
-		}
 	}
 	return nil
 }
@@ -300,19 +285,16 @@ func (k *kubernetesClient) deleteRole(name string) error {
 }
 
 func (k *kubernetesClient) deleteRoles(appName string) error {
-	roleList, err := k.client().RbacV1().Roles(k.namespace).List(v1.ListOptions{
-		LabelSelector:        applicationSelector(appName),
+	err := k.client().RbacV1().Roles(k.namespace).DeleteCollection(&v1.DeleteOptions{
+		PropagationPolicy: &defaultPropagationPolicy,
+	}, v1.ListOptions{
+		LabelSelector:        labelsToSelector(k.getRBACLabels(appName)),
 		IncludeUninitialized: true,
 	})
-	if err != nil {
-		return errors.Trace(err)
+	if k8serrors.IsNotFound(err) {
+		return nil
 	}
-	for _, s := range roleList.Items {
-		if err := k.deleteRole(s.GetName()); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 func (k *kubernetesClient) createClusterRole(cRole *rbacv1.ClusterRole) (*rbacv1.ClusterRole, error) {
@@ -358,19 +340,16 @@ func (k *kubernetesClient) deleteClusterRole(name string) error {
 }
 
 func (k *kubernetesClient) deleteClusterRoles(appName string) error {
-	clusterRoleList, err := k.client().RbacV1().ClusterRoles().List(v1.ListOptions{
-		LabelSelector:        applicationSelector(appName),
+	err := k.client().RbacV1().ClusterRoles().DeleteCollection(&v1.DeleteOptions{
+		PropagationPolicy: &defaultPropagationPolicy,
+	}, v1.ListOptions{
+		LabelSelector:        labelsToSelector(k.getRBACLabels(appName)),
 		IncludeUninitialized: true,
 	})
-	if err != nil {
-		return errors.Trace(err)
+	if k8serrors.IsNotFound(err) {
+		return nil
 	}
-	for _, s := range clusterRoleList.Items {
-		if err := k.deleteClusterRole(s.GetName()); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 func (k *kubernetesClient) createRoleBinding(rb *rbacv1.RoleBinding) (*rbacv1.RoleBinding, error) {
@@ -416,19 +395,16 @@ func (k *kubernetesClient) deleteRoleBinding(name string) error {
 }
 
 func (k *kubernetesClient) deleteRoleBindings(appName string) error {
-	roleBindingList, err := k.client().RbacV1().RoleBindings(k.namespace).List(v1.ListOptions{
-		LabelSelector:        applicationSelector(appName),
+	err := k.client().RbacV1().RoleBindings(k.namespace).DeleteCollection(&v1.DeleteOptions{
+		PropagationPolicy: &defaultPropagationPolicy,
+	}, v1.ListOptions{
+		LabelSelector:        labelsToSelector(k.getRBACLabels(appName)),
 		IncludeUninitialized: true,
 	})
-	if err != nil {
-		return errors.Trace(err)
+	if k8serrors.IsNotFound(err) {
+		return nil
 	}
-	for _, s := range roleBindingList.Items {
-		if err := k.deleteRoleBinding(s.GetName()); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 func (k *kubernetesClient) createClusterRoleBinding(crb *rbacv1.ClusterRoleBinding) (*rbacv1.ClusterRoleBinding, error) {
@@ -474,17 +450,14 @@ func (k *kubernetesClient) deleteClusterRoleBinding(name string) error {
 }
 
 func (k *kubernetesClient) deleteClusterRoleBindings(appName string) error {
-	clusterRoleBindingList, err := k.client().RbacV1().ClusterRoleBindings().List(v1.ListOptions{
-		LabelSelector:        applicationSelector(appName),
+	err := k.client().RbacV1().ClusterRoleBindings().DeleteCollection(&v1.DeleteOptions{
+		PropagationPolicy: &defaultPropagationPolicy,
+	}, v1.ListOptions{
+		LabelSelector:        labelsToSelector(k.getRBACLabels(appName)),
 		IncludeUninitialized: true,
 	})
-	if err != nil {
-		return errors.Trace(err)
+	if k8serrors.IsNotFound(err) {
+		return nil
 	}
-	for _, s := range clusterRoleBindingList.Items {
-		if err := k.deleteClusterRole(s.GetName()); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
+	return errors.Trace(err)
 }
