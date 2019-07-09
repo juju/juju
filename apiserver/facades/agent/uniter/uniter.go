@@ -840,8 +840,8 @@ func (u *UniterAPI) waitForCacheUnit(tag names.UnitTag, condition func(cu cache.
 			return errors.New("timed out waiting for change to be reflected in cache")
 		default:
 			cu, err := u.getCacheUnit(tag)
-			if err != nil {
-				return err
+			if err != nil && !errors.IsNotFound(err) {
+				return errors.Trace(err)
 			}
 			if condition(cu) {
 				return nil
@@ -1062,8 +1062,9 @@ func (u *UniterAPI) ConfigSettings(args params.Entities) (params.ConfigSettingsR
 		}
 		err = common.ErrPerm
 		if canAccess(tag) {
-			var unit cache.Unit
-			unit, err = u.getCacheUnit(tag)
+			var unit unit
+			unit, err = u.getUnitFallback(tag)
+
 			if err == nil {
 				var settings charm.Settings
 				settings, err = unit.ConfigSettings()
@@ -1677,6 +1678,24 @@ func (u *UniterAPIV8) WatchUnitAddresses(args params.Entities) (params.NotifyWat
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+// getUnitFallback returns a unit indirection by first checking the cache,
+// then if not found, state.
+func (u *UniterAPI) getUnitFallback(tag names.UnitTag) (unit, error) {
+	var cUnit cache.Unit
+	var unit unit
+
+	cUnit, err := u.getCacheUnit(tag)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			unit, err = u.getUnit(tag)
+		}
+	} else {
+		unit = cacheUnit{&cUnit}
+	}
+
+	return unit, errors.Trace(err)
 }
 
 func (u *UniterAPI) getUnit(tag names.UnitTag) (*state.Unit, error) {
@@ -2794,13 +2813,13 @@ func (u *UniterAPI) WatchConfigSettingsHash(args params.Entities) (params.String
 			continue
 		}
 
-		unit, err := u.getCacheUnit(tag)
+		unit, err := u.getUnitFallback(tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 
-		w, err := unit.WatchConfigSettings()
+		w, err := unit.WatchConfigSettingsHash()
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
