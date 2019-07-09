@@ -64,7 +64,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	}
 	s.hub = pubsub.NewStructuredHub(nil)
 
-	controller, err := controller.NewControllerAPIv7(
+	controller, err := controller.NewControllerAPIv8(
 		facadetest.Context{
 			State_:     s.State,
 			StatePool_: s.StatePool,

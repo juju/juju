@@ -11654,7 +11654,7 @@
     },
     {
         "Name": "Controller",
-        "Version": 7,
+        "Version": 8,
         "Schema": {
             "type": "object",
             "properties": {
@@ -11701,6 +11701,14 @@
                     "properties": {
                         "Result": {
                             "$ref": "#/definitions/ControllerConfigResult"
+                        }
+                    }
+                },
+                "ControllerVersion": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/ControllerVersionResults"
                         }
                     }
                 },
@@ -12023,6 +12031,22 @@
                     "additionalProperties": false,
                     "required": [
                         "config"
+                    ]
+                },
+                "ControllerVersionResults": {
+                    "type": "object",
+                    "properties": {
+                        "git-commit": {
+                            "type": "string"
+                        },
+                        "version": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "version",
+                        "git-commit"
                     ]
                 },
                 "DestroyControllerArgs": {

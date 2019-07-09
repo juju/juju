@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	apicontroller "github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
@@ -48,6 +49,10 @@ func (s *ShowControllerSuite) SetUpTest(c *gc.C) {
 		units:          map[string]int{"def": 4},
 		access:         permission.SuperuserAccess,
 		bestAPIVersion: 8,
+		controllerVersion: apicontroller.ControllerVersion{
+			Version:   "999.99.99",
+			GitCommit: "badf00d0badf00d0badf00d0badf00d0badf00d0",
+		},
 	}
 	s.api = func(controllerName string) controller.ControllerAccessAPI {
 		s.fakeController.controllerName = controllerName
@@ -78,6 +83,8 @@ mallards:
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     cloud: mallards
     agent-version: 999.99.99
+    agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
+    controller-model-version: 999.99.99
     mongo-version: 3.5.12
     ca-cert: this-is-another-ca-cert
   models:
@@ -111,6 +118,8 @@ k8s-controller:
     cloud: microk8s
     region: localhost
     agent-version: 999.99.99
+    agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
+    controller-model-version: 999.99.99
     mongo-version: 3.5.12
     ca-cert: this-is-a-k8s-ca-cert
   controller-nodes:
@@ -153,6 +162,8 @@ mallards:
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     cloud: mallards
     agent-version: 999.99.99
+    agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
+    controller-model-version: 999.99.99
     mongo-version: 3.5.12
     ca-cert: this-is-another-ca-cert
   models:
@@ -210,6 +221,8 @@ mallards:
     cloud: mallards
     region: mallards1
     agent-version: 999.99.99
+    agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
+    controller-model-version: 999.99.99
     mongo-version: 3.5.12
     ca-cert: this-is-another-ca-cert
   models:
@@ -244,6 +257,8 @@ aws-test:
     cloud: aws
     region: us-east-1
     agent-version: 999.99.99
+    agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
+    controller-model-version: 999.99.99
     mongo-version: 3.5.12
     ca-cert: this-is-aws-test-ca-cert
   controller-machines:
@@ -281,6 +296,8 @@ aws-test:
     cloud: aws
     region: us-east-1
     agent-version: 999.99.99
+    agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
+    controller-model-version: 999.99.99
     mongo-version: 3.5.12
     ca-cert: this-is-aws-test-ca-cert
   controller-machines:
@@ -310,6 +327,8 @@ mark-test-prodstack:
     api-endpoints: [this-is-one-of-many-api-endpoints]
     cloud: prodstack
     agent-version: 999.99.99
+    agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
+    controller-model-version: 999.99.99
     mongo-version: 3.5.12
     ca-cert: this-is-a-ca-cert
   account:
@@ -344,7 +363,7 @@ mallards:
     controller-uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     cloud: mallards
-    agent-version: 999.99.99
+    controller-model-version: 999.99.99
     ca-cert: this-is-another-ca-cert
   models:
     controller:
@@ -370,7 +389,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 	s.createTestClientStore(c)
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}}}
 `[1:]
 
 	s.assertShowController(c, "--format", "json", "aws-test")
@@ -379,7 +398,7 @@ func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
 func (s *ShowControllerSuite) TestShowControllerJsonMany(c *gc.C) {
 	s.createTestClientStore(c)
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"cloud":"prodstack","agent-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-a-ca-cert"},"account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"cloud":"prodstack","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-a-ca-cert"},"account":{"user":"admin","access":"superuser"}}}
 `[1:]
 	s.assertShowController(c, "--format", "json", "aws-test", "mark-test-prodstack")
 }
@@ -402,7 +421,7 @@ func (s *ShowControllerSuite) TestShowControllerNoArgs(c *gc.C) {
 	store.CurrentControllerName = "aws-test"
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"cloud":"aws","region":"us-east-1","agent-version":"999.99.99","agent-git-commit":"badf00d0badf00d0badf00d0badf00d0badf00d0","controller-model-version":"999.99.99","mongo-version":"3.5.12","ca-cert":"this-is-aws-test-ca-cert"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}}}
 `[1:]
 	s.assertShowController(c, "--format", "json")
 }
@@ -480,6 +499,8 @@ mallards:
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     cloud: mallards
     agent-version: 999.99.99
+    agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
+    controller-model-version: 999.99.99
     ca-cert: this-is-another-ca-cert
   current-model: admin/my-model
   account:
@@ -540,6 +561,8 @@ mallards:
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     cloud: mallards
     agent-version: 999.99.99
+    agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
+    controller-model-version: 999.99.99
     mongo-version: 3.5.12
     ca-fingerprint: 93:D9:8E:B8:99:36:E8:8E:23:D5:95:5E:81:29:80:B2:D2:89:A7:38:20:7B:1B:BD:96:C8:D9:C1:03:88:55:70
     ca-cert: |-
@@ -593,13 +616,14 @@ func (s *ShowControllerSuite) assertShowController(c *gc.C, args ...string) {
 }
 
 type fakeController struct {
-	controllerName string
-	machines       map[string][]base.Machine
-	units          map[string]int
-	modelTypes     map[string]model.ModelType
-	access         permission.Access
-	bestAPIVersion int
-	identityURL    string
+	controllerName    string
+	machines          map[string][]base.Machine
+	units             map[string]int
+	modelTypes        map[string]model.ModelType
+	access            permission.Access
+	bestAPIVersion    int
+	identityURL       string
+	controllerVersion apicontroller.ControllerVersion
 }
 
 func (c *fakeController) GetControllerAccess(user string) (permission.Access, error) {
@@ -654,6 +678,10 @@ func (c *fakeController) AllModels() (result []base.UserModel, _ error) {
 
 func (c *fakeController) IdentityProviderURL() (string, error) {
 	return c.identityURL, nil
+}
+
+func (c *fakeController) ControllerVersion() (apicontroller.ControllerVersion, error) {
+	return c.controllerVersion, nil
 }
 
 func (*fakeController) Close() error {
