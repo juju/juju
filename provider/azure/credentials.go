@@ -61,10 +61,9 @@ func (c environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud
 	interactiveSchema := cloud.CredentialSchema{{
 		credAttrSubscriptionId, cloud.CredentialAttr{Description: "Azure subscription ID"},
 	}}
-	if _, err := c.azureCLI.ShowAccount(""); err == nil {
-		// If az account show returns successfully then we can
-		// use that to get at least some login details, otherwise
-		// we need the user to supply their subscription ID.
+
+	accounts, err := c.azureCLI.ListAccounts()
+	if err == nil && len(accounts) == 1 {
 		interactiveSchema[0].CredentialAttr.Optional = true
 	}
 	return map[cloud.AuthType]cloud.CredentialSchema{
