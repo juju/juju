@@ -2777,8 +2777,6 @@ func (u *UniterAPI) goalStateUnits(app *state.Application, principalName string)
 // save this hash and use it to decide whether the config-changed hook
 // needs to be run (or whether this was just an agent restart with no
 // substantive config change).
-// TODO (manadart 2019-06-24): When other hash watchers are moved from state
-// over to the model cache, they can all share the `watchHashes` abstraction.
 func (u *UniterAPI) WatchConfigSettingsHash(args params.Entities) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
@@ -2794,13 +2792,13 @@ func (u *UniterAPI) WatchConfigSettingsHash(args params.Entities) (params.String
 			continue
 		}
 
-		unit, err := u.getCacheUnit(tag)
+		unit, err := u.getUnit(tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 
-		w, err := unit.WatchConfigSettings()
+		w, err := unit.WatchConfigSettingsHash()
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue

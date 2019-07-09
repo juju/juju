@@ -543,28 +543,22 @@ func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
 
+	// Initial event - this is the sha-256 hash of an empty bson.D.
 	// See core/cache/hash.go for the hash implementation.
-	// This is a hash of the charm URL PLUS an empty map[string]interface{}.
-	wc.AssertChange("0affda4fb1eaa8df870459625aa93c85e9fd6fc5374ac69f509575d139032262")
+	wc.AssertChange("e8d7e8dfff0eed1e77b15638581672f7b25ecc1163cc5fd5a52d29d51d096c00")
 
 	err = s.wordpressApplication.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
 		"blog-title": "sauceror central",
 	})
 
-	s.State.StartSync()
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
-
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("bfeb5aee52e6dea59d9c2a0c35a4d7fffa690c7230b1dd66f16832e4094905ae")
+	wc.AssertChange("7ed6151e9c3d5144faf0946d20c283c466b4885dded6a6122ff3fdac7ee2334f")
 
 	// Non-change is not reported.
 	err = s.wordpressApplication.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.State.StartSync()
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	wc.AssertNoChange()
 }
