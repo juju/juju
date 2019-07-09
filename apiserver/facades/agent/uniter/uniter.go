@@ -1062,8 +1062,8 @@ func (u *UniterAPI) ConfigSettings(args params.Entities) (params.ConfigSettingsR
 		}
 		err = common.ErrPerm
 		if canAccess(tag) {
-			var unit cache.Unit
-			unit, err = u.getCacheUnit(tag)
+			var unit *state.Unit
+			unit, err = u.getUnit(tag)
 			if err == nil {
 				var settings charm.Settings
 				settings, err = unit.ConfigSettings()

@@ -522,9 +522,6 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.State.StartSync()
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
-
 	settings, err = s.apiUnit.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
