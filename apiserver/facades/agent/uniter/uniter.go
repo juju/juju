@@ -7,7 +7,6 @@ package uniter
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -806,49 +805,12 @@ func (u *UniterAPI) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorResul
 				curl, err = charm.ParseURL(entity.CharmURL)
 				if err == nil {
 					err = unit.SetCharmURL(curl)
-					if err == nil {
-						// The uniter sets the charm URL at installation.
-						// It can then watch or request the unit's
-						// configuration any time after. We must ensure that
-						// the change is reflected in the cache, or those
-						// operations can result in an error.
-						err = u.waitForCacheUnit(
-							tag, func(cu cache.Unit) bool { return cu.CharmURL() == entity.CharmURL },
-						)
-					}
 				}
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
-}
-
-// waitForCacheUnit watches the cache for the input unit tag and returns with
-// a nil error when the input condition is satisfied.
-// If the cache is not up-to-date within a minute (this is quite generous),
-// then an error is returned.
-// TODO (manadart 2019-06-28): This is a temporary solution.
-// A sufficiently generic approach should be arrived at in order to ensure
-// cache synchronisation with DB writes where it is operationally critical.
-func (u *UniterAPI) waitForCacheUnit(tag names.UnitTag, condition func(cu cache.Unit) bool) error {
-	timeout := time.After(time.Minute)
-
-	for {
-		select {
-		case <-timeout:
-			return errors.New("timed out waiting for change to be reflected in cache")
-		default:
-			cu, err := u.getCacheUnit(tag)
-			if err != nil {
-				return err
-			}
-			if condition(cu) {
-				return nil
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-	}
 }
 
 // WorkloadVersion returns the workload version for all given units or applications.
@@ -1681,11 +1643,6 @@ func (u *UniterAPIV8) WatchUnitAddresses(args params.Entities) (params.NotifyWat
 
 func (u *UniterAPI) getUnit(tag names.UnitTag) (*state.Unit, error) {
 	return u.st.Unit(tag.Id())
-}
-
-func (u *UniterAPI) getCacheUnit(tag names.UnitTag) (cache.Unit, error) {
-	unit, err := u.cacheModel.Unit(tag.Id())
-	return unit, errors.Trace(err)
 }
 
 func (u *UniterAPI) getApplication(tag names.ApplicationTag) (*state.Application, error) {
