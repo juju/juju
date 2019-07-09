@@ -2418,8 +2418,8 @@ func (st *State) networkEntityGlobalKeyExists(globalKey string, providerId netwo
 	defer closer()
 
 	key := st.networkEntityGlobalKey(globalKey, providerId)
-	doc := &providerIdDoc{}
-	err := col.FindId(key).One(doc)
+	var doc providerIdDoc
+	err := col.FindId(key).One(&doc)
 
 	switch err {
 	case nil:
