@@ -544,7 +544,6 @@ func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	defer wc.AssertStops()
 
 	// Initial event - this is the sha-256 hash of an empty bson.D.
-	// See core/cache/hash.go for the hash implementation.
 	wc.AssertChange("e8d7e8dfff0eed1e77b15638581672f7b25ecc1163cc5fd5a52d29d51d096c00")
 
 	err = s.wordpressApplication.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
