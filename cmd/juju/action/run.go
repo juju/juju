@@ -51,47 +51,79 @@ type runCommand struct {
 }
 
 const runDoc = `
-Queue an Action for execution on a given unit, with a given set of params.
-The Action ID is returned for use with 'juju show-action-output <ID>' or
-'juju show-action-status <ID>'.
+Queue an action for execution on a given unit, with a given set of params.
 
-Valid unit identifiers are: 
-  a standard unit ID, such as mysql/0 or;
-  leader syntax of the form <application>/leader, such as mysql/leader.
+Valid unit identifiers are:
+
+  - <application-name>/<unit-number>, such as mysql/0 or postgresql/4
+  - <application-name>/leader, such as mysql/leader
 
 If the leader syntax is used, the leader unit for the application will be
 resolved before the action is enqueued.
 
-Params are validated according to the charm for the unit's application.  The
-valid params can be seen using "juju actions <application> --schema".
-Params may be in a yaml file which is passed with the --params option, or they
-may be specified by a key.key.key...=value format (see examples below.)
+Many actions take parameters. Params can be supplied as a YAML file or as 
+arguments on the command line. Specify a file with the --params <params.yaml>.
+Arguments directly on the command line use a <key>=<value> syntax. Nested keys 
+require dots as a delimiter: <key1>.<key2>.<key3>=<value> (See examples below)
+
+By default, the action's ID is returned immediately for later use with 
+'juju show-action-output <id>' and 'juju show-action-status <id>'. To wait 
+for the action to complete, provide the --wait option.
 
 Params given in the CLI invocation will be parsed as YAML unless the
---string-args option is set.  This can be helpful for values such as 'y', which
-is a boolean true in YAML.
+--string-args option is set.  This can be helpful for values such as 'y' and 
+'no', which evaluate to boolean values in YAML.
 
-If --params is passed, along with key.key...=value explicit arguments, the
-explicit arguments will override the parameter file.
+Params provided on the command line override params defined in the file
+provided by --params.
+
+Parameters are validated before the action is taken. Use the 
+"juju actions <application-name> --schema" command to view the valid 
+inputs for the action.
 
 Examples:
 
+Enqueue the "backup" action on unit "mysql/3":
+
+	juju run-action mysql/3 backup
+
+Enqueue the "backup" action on unit "mysql/3", and wait until when the action 
+has completed before returning:
+
     juju run-action mysql/3 backup --wait
-    juju run-action mysql/3 backup
+    
+Specify the current leader unit of the "mysql" application:
+
     juju run-action mysql/leader backup
-    juju show-action-output <ID>
+
+Provide parameters to the action:
+
     juju run-action mysql/3 backup --params parameters.yml
     juju run-action mysql/3 backup out=out.tar.bz2 file.kind=xz file.quality=high
     juju run-action mysql/3 backup --params p.yml file.kind=xz file.quality=high
+
+Provide a param that will be interpreted as an integer:
+
     juju run-action sleeper/0 pause time=1000
+
+Provide a param that will be interpreted as a string:
+
     juju run-action sleeper/0 pause --string-args time=1000
+
+Related Commands:
+	actions
+	show-action-output
+	show-action-status
+
+Further Reading:
+	 https://docs.jujucharms.com/working-with-actions 
 `
 
 // SetFlags offers an option for YAML output.
 func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ActionCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
-	f.Var(&c.paramsYAML, "params", "Path to yaml-formatted params file")
+	f.Var(&c.paramsYAML, "params", "Path to YAML-formatted params file")
 	f.BoolVar(&c.parseStrings, "string-args", false, "Use raw string values of CLI args")
 	f.Var(&c.wait, "wait", "Wait for results, with optional timeout")
 }
@@ -99,7 +131,7 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *runCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "run-action",
-		Args:    "<unit> [<unit> ...] <action name> [key.key.key...=value]",
+		Args:    "<unit> [<unit> ...] <action-name> [key[.key]=value]",
 		Purpose: "Queue an action for execution.",
 		Doc:     runDoc,
 	})
@@ -129,7 +161,7 @@ func (c *runCommand) Init(args []string) (err error) {
 	for _, arg := range args[len(c.unitReceivers)+1:] {
 		thisArg := strings.SplitN(arg, "=", 2)
 		if len(thisArg) != 2 {
-			return errors.Errorf("argument %q must be of the form key...=value", arg)
+			return errors.Errorf("argument %q must be of the form key[.key]=value", arg)
 		}
 		keySlice := strings.Split(thisArg[0], ".")
 		// check each key for validity
