@@ -230,10 +230,17 @@ func initCAASVersions(
 		filterVersion.Major--
 	}
 	logger.Debugf("searching for agent images with major: %d", filterVersion.Major)
-	imagePath := podcfg.GetJujuOCIImagePath(controllerCfg, version.Zero)
+	imagePath, err := podcfg.GetJujuOCIImagePath(controllerCfg, version.Zero)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	imagePath, err = podcfg.NormaliseImagePath(imagePath)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	availableTags, err := docker.ListOperatorImages(imagePath)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	logger.Debugf("found available tags: %v", availableTags)
 	var matchingTags tools.Versions

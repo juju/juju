@@ -301,6 +301,27 @@ func (c *controllerStack) Deploy() (err error) {
 		}
 	}()
 
+	operatorImages, err := c.pcfg.GetControllerImagePath()
+	if err != nil {
+		return errors.Annotate(err, "failed to get operator image path")
+	}
+	selectedOperatorImage := ""
+	for _, img := range operatorImages {
+		logger.Debugf("prepulling operator image %s", img)
+		err = c.broker.operatorImagePrepullCheck(img)
+		if errors.IsNotFound(err) {
+			logger.Debugf("operator image %s not found", img)
+			continue
+		} else if err != nil {
+			return errors.Annotate(err, "operator image prepull check")
+		}
+		selectedOperatorImage = img
+		break
+	}
+	if selectedOperatorImage == "" {
+		return errors.Errorf("could not find suitable operator image")
+	}
+
 	// create service for controller pod.
 	if err = c.createControllerService(); err != nil {
 		return errors.Annotate(err, "creating service for controller")
@@ -332,7 +353,7 @@ func (c *controllerStack) Deploy() (err error) {
 	}
 
 	// create statefulset to ensure controller stack.
-	if err = c.createControllerStatefulset(); err != nil {
+	if err = c.createControllerStatefulset(selectedOperatorImage); err != nil {
 		return errors.Annotate(err, "creating statefulset for controller")
 	}
 	return nil
@@ -511,7 +532,7 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf() error {
 	return c.broker.ensureConfigMap(cm)
 }
 
-func (c *controllerStack) createControllerStatefulset() error {
+func (c *controllerStack) createControllerStatefulset(operatorImage string) error {
 	numberOfPods := int32(1) // TODO(caas): HA mode!
 	spec := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
@@ -541,7 +562,7 @@ func (c *controllerStack) createControllerStatefulset() error {
 	if err := c.buildStorageSpecForController(spec); err != nil {
 		return errors.Trace(err)
 	}
-	if err := c.buildContainerSpecForController(spec); err != nil {
+	if err := c.buildContainerSpecForController(spec, operatorImage); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -799,7 +820,7 @@ func (c *controllerStack) buildStorageSpecForController(statefulset *apps.Statef
 	return nil
 }
 
-func (c *controllerStack) buildContainerSpecForController(statefulset *apps.StatefulSet) error {
+func (c *controllerStack) buildContainerSpecForController(statefulset *apps.StatefulSet, operatorImage string) error {
 	var wiredTigerCacheSize float32
 	if c.pcfg.Controller.Config.MongoMemoryProfile() == string(mongo.MemoryProfileLow) {
 		wiredTigerCacheSize = mongo.Mongo34LowCacheSize
@@ -904,7 +925,7 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 		containerSpec = append(containerSpec, core.Container{
 			Name:            apiServerContainerName,
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           c.pcfg.GetControllerImagePath(),
+			Image:           operatorImage,
 			Command: []string{
 				"/bin/sh",
 			},

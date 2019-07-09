@@ -95,6 +95,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	s.controllerUUID = "9bec388c-d264-4cde-8b29-3e675959157a"
 	s.namespace = s.cfg.Name()
+	s.watchers = nil
 }
 
 func (s *BaseSuite) TearDownTest(c *gc.C) {

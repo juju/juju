@@ -5,6 +5,7 @@ package provider
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -126,4 +127,12 @@ func GetStorageParameters(cfg *storageConfig) map[string]string {
 
 func GetCloudProviderFromNodeMeta(node core.Node) (string, string) {
 	return getCloudRegionFromNodeMeta(node)
+}
+
+func OperatorImagePrepullCheck(k *kubernetesClient, image string) error {
+	return k.operatorImagePrepullCheck(image)
+}
+
+func SelectOperatorImage(k *kubernetesClient, appName, imageHint string, vers version.Number) (string, error) {
+	return k.selectOperatorImage(appName, imageHint, vers)
 }

@@ -112,9 +112,11 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 			fmt.Sprintf("agent version is missing in model config %q", modelConfig.Name()),
 		)
 	}
-	vers.Build = 0
 
-	imagePath := podcfg.GetJujuOCIImagePath(cfg, vers)
+	imagePath, err := podcfg.GetJujuOCIImagePath(cfg, vers)
+	if err != nil {
+		return params.OperatorProvisioningInfo{}, errors.Trace(err)
+	}
 	storageClassName, _ := modelConfig.AllAttrs()[provider.OperatorStorageKey].(string)
 	if storageClassName == "" {
 		return params.OperatorProvisioningInfo{}, errors.New("no operator storage class defined")
@@ -138,6 +140,7 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 	)
 	charmStorageParams.Tags = resourceTags
 
+	vers.Build = 0
 	return params.OperatorProvisioningInfo{
 		ImagePath:    imagePath,
 		Version:      vers,

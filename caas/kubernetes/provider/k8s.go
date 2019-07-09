@@ -32,6 +32,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	apimachineryversion "k8s.io/apimachinery/pkg/version"
@@ -535,6 +536,11 @@ func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, e
 func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) error {
 	logger.Debugf("creating/updating %s operator", appName)
 
+	operatorImagePath, err := k.selectOperatorImage(appName, config.OperatorImagePath, config.Version)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	operatorName := k.operatorName(appName)
 	// TODO(caas) use secrets for storing agent password?
 	if config.AgentConf == nil {
@@ -596,7 +602,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		operatorName,
 		appName,
 		agentPath,
-		config.OperatorImagePath,
+		operatorImagePath,
 		config.Version.String(),
 		annotations.Copy(),
 	)
@@ -1310,6 +1316,52 @@ func (k *kubernetesClient) EnsureService(
 	return nil
 }
 
+func (k *kubernetesClient) currentControllerImage() (string, error) {
+	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
+	controllerStatefulSet, err := statefulsets.Get(JujuControllerStackName, v1.GetOptions{IncludeUninitialized: true})
+	if k8serrors.IsNotFound(err) {
+		return "", errors.NotFoundf("controller statefulset not found")
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+	for _, c := range controllerStatefulSet.Spec.Template.Spec.Containers {
+		if podcfg.IsJujuOCIImage(c.Image) {
+			return c.Image, nil
+		}
+	}
+	return "", errors.NotFoundf("controller container not found")
+}
+
+func (k *kubernetesClient) selectOperatorImage(appName, imageHint string, vers version.Number) (string, error) {
+	operatorImages, err := podcfg.RebuildOldOperatorImagePath(imageHint, vers)
+	if err != nil {
+		return "", errors.Annotatef(err, "failed to rebuild image path %s", imageHint)
+	}
+	controllerImage := ""
+	if appName != JujuControllerStackName {
+		controllerImage, err = k.currentControllerImage()
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+	}
+	for _, img := range operatorImages {
+		// If the controller is already using the same image, skip precheck.
+		if img == controllerImage {
+			return img, nil
+		}
+		logger.Debugf("prepulling operator image %s", img)
+		err = k.operatorImagePrepullCheck(img)
+		if errors.IsNotFound(err) {
+			logger.Debugf("operator image %s not found", img)
+			continue
+		} else if err != nil {
+			return "", errors.Annotate(err, "operator image prepull check")
+		}
+		return img, nil
+	}
+	return "", errors.Errorf("could not find suitable operator image to replace %s", imageHint)
+}
+
 // Upgrade sets the OCI image for the app's operator to the specified version.
 func (k *kubernetesClient) Upgrade(appName string, vers version.Number) error {
 	var resourceName string
@@ -1331,11 +1383,16 @@ func (k *kubernetesClient) Upgrade(appName string, vers version.Number) error {
 	if err != nil {
 		return errors.NotSupportedf("upgrading %v", appName)
 	}
+
 	for i, c := range existingStatefulSet.Spec.Template.Spec.Containers {
-		if !podcfg.IsJujuOCIImage(c.Image) {
-			continue
+		if podcfg.IsJujuOCIImage(c.Image) {
+			c.Image, err = k.selectOperatorImage(appName, c.Image, vers)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		} else if podcfg.IsJujuDBOCIImage(c.Image) {
+			// TODO(caas): Upgrade juju-db image when upgrading controller.
 		}
-		c.Image = podcfg.RebuildOldOperatorImagePath(c.Image, vers)
 		existingStatefulSet.Spec.Template.Spec.Containers[i] = c
 	}
 
@@ -2111,6 +2168,20 @@ func (k *kubernetesClient) getPod(podName string) (*core.Pod, error) {
 		return nil, errors.Trace(err)
 	}
 	return pod, nil
+}
+
+func (k *kubernetesClient) watchPod(podName string) (watcher.NotifyWatcher, error) {
+	selector := fields.OneTermEqualSelector("metadata.name", podName).String()
+	logger.Debugf("selecting pods %q to watch", selector)
+	w, err := k.client().CoreV1().Pods(k.namespace).Watch(v1.ListOptions{
+		FieldSelector:        selector,
+		Watch:                true,
+		IncludeUninitialized: true,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return k.newWatcher(w, podName, k.clock)
 }
 
 func (k *kubernetesClient) volumeInfoForEmptyDir(vol core.Volume, volMount core.VolumeMount, now time.Time) (*caas.FilesystemInfo, error) {

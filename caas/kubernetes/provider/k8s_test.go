@@ -4,6 +4,8 @@
 package provider_test
 
 import (
+	"bytes"
+	"crypto/rand"
 	"net/url"
 	"strings"
 	"time"
@@ -22,6 +24,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,6 +43,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type K8sSuite struct {
@@ -267,7 +271,7 @@ var operatorPodspec = core.PodSpec{
 	Containers: []core.Container{{
 		Name:            "juju-operator",
 		ImagePullPolicy: core.PullIfNotPresent,
-		Image:           "/path/to/image",
+		Image:           "path/to/jujud-operator:2.99.0",
 		WorkingDir:      "/var/lib/juju",
 		Command: []string{
 			"/bin/sh",
@@ -880,7 +884,21 @@ func (s *K8sBrokerSuite) TestEnsureOperator(c *gc.C) {
 	}
 	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage")
 
+	controllerSpec := &apps.StatefulSet{
+		Spec: apps.StatefulSetSpec{
+			Template: core.PodTemplateSpec{
+				Spec: core.PodSpec{
+					Containers: []core.Container{
+						{Image: "path/to/jujud-operator:2.99.0"},
+					},
+				},
+			},
+		},
+	}
+
 	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("controller", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(controllerSpec, nil),
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockConfigMaps.EXPECT().Update(configMapArg).Times(1),
@@ -893,7 +911,7 @@ func (s *K8sBrokerSuite) TestEnsureOperator(c *gc.C) {
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-		OperatorImagePath: "/path/to/image",
+		OperatorImagePath: "path/to/jujud-operator:2.99.0",
 		Version:           version.MustParse("2.99.0"),
 		AgentConf:         []byte("agent-conf-data"),
 		ResourceTags:      map[string]string{"fred": "mary"},
@@ -911,8 +929,22 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
+	controllerSpec := &apps.StatefulSet{
+		Spec: apps.StatefulSetSpec{
+			Template: core.PodTemplateSpec{
+				Spec: core.PodSpec{
+					Containers: []core.Container{
+						{Image: "path/to/jujud-operator:2.99.0"},
+					},
+				},
+			},
+		},
+	}
+
 	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage")
 	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("controller", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(controllerSpec, nil),
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockConfigMaps.EXPECT().Get("test-operator-config", v1.GetOptions{IncludeUninitialized: true}).Times(1).
@@ -926,7 +958,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-		OperatorImagePath: "/path/to/image",
+		OperatorImagePath: "path/to/jujud-operator:2.99.0",
 		Version:           version.MustParse("2.99.0"),
 		ResourceTags:      map[string]string{"fred": "mary"},
 		CharmStorage: caas.CharmStorageParams{
@@ -943,7 +975,21 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
+	controllerSpec := &apps.StatefulSet{
+		Spec: apps.StatefulSetSpec{
+			Template: core.PodTemplateSpec{
+				Spec: core.PodSpec{
+					Containers: []core.Container{
+						{Image: "path/to/jujud-operator:2.99.0"},
+					},
+				},
+			},
+		},
+	}
+
 	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("controller", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(controllerSpec, nil),
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockConfigMaps.EXPECT().Get("test-operator-config", v1.GetOptions{IncludeUninitialized: true}).Times(1).
@@ -951,7 +997,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-		OperatorImagePath: "/path/to/image",
+		OperatorImagePath: "path/to/jujud-operator:2.99.0",
 		Version:           version.MustParse("2.99.0"),
 		CharmStorage: caas.CharmStorageParams{
 			Size:     uint64(10),
@@ -2058,4 +2104,295 @@ func (s *K8sBrokerSuite) TestUpgradeNotSupported(c *gc.C) {
 
 	err := s.broker.Upgrade("test-app", version.MustParse("6.6.6"))
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
+func (s *K8sBrokerSuite) TestSelectOperatorImageGit(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	s.PatchValue(&rand.Reader, bytes.NewReader([]byte{
+		0xf0, 0x0d, 0xba, 0xad,
+	}))
+	s.PatchValue(&jujuversion.Current, version.MustParse("2.99.1"))
+	s.PatchValue(&jujuversion.GitCommit, "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0")
+
+	podSpec := core.Pod{
+		ObjectMeta: v1.ObjectMeta{
+			Namespace: s.getNamespace(),
+			Name:      "operator-image-prepull-f00dbaad",
+		},
+		Spec: core.PodSpec{
+			RestartPolicy: core.RestartPolicyNever,
+			Containers: []core.Container{
+				core.Container{
+					Name:            "jujud",
+					Image:           "jujusoul-utions/jujud-operator-git:2.99.1-f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0",
+					ImagePullPolicy: core.PullIfNotPresent,
+					Command:         []string{"/opt/jujud"},
+					Args:            []string{"version"},
+				},
+			},
+		},
+	}
+	pod0 := podSpec
+	pod0.Status = core.PodStatus{
+		Phase: core.PodPending,
+	}
+	pod1 := podSpec
+	pod1.Status = core.PodStatus{
+		Phase: core.PodPending,
+		ContainerStatuses: []core.ContainerStatus{
+			core.ContainerStatus{
+				Name: "jujud",
+				State: core.ContainerState{
+					Waiting: &core.ContainerStateWaiting{
+						Reason: "ErrImagePull",
+					},
+				},
+			},
+		},
+	}
+	pod2 := podSpec
+	pod2.Status = core.PodStatus{
+		Phase: core.PodSucceeded,
+	}
+
+	controllerSpec := &apps.StatefulSet{
+		Spec: apps.StatefulSetSpec{
+			Template: core.PodTemplateSpec{
+				Spec: core.PodSpec{
+					Containers: []core.Container{
+						{Image: "path/to/jujud-operator:2.99.0"},
+					},
+				},
+			},
+		},
+	}
+
+	podWatcher := s.k8sNewFakeWatcher()
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("controller", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(controllerSpec, nil),
+		s.mockPods.EXPECT().Watch(
+			v1.ListOptions{
+				FieldSelector:        "metadata.name=operator-image-prepull-f00dbaad",
+				Watch:                true,
+				IncludeUninitialized: true,
+			},
+		).
+			Return(podWatcher, nil).Times(1),
+		s.mockPods.EXPECT().Create(&podSpec).
+			DoAndReturn(func(_ *core.Pod) (*core.Pod, error) {
+				podWatcher.Action("PodCreated", nil)
+				s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
+				return &pod0, nil
+			}).Times(1),
+		s.mockPods.EXPECT().Get("operator-image-prepull-f00dbaad", metav1.GetOptions{IncludeUninitialized: true}).
+			DoAndReturn(func(_ string, _ metav1.GetOptions) (*core.Pod, error) {
+				podWatcher.Action("PodPending", nil)
+				s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
+				return &pod1, nil
+			}).Times(1),
+		s.mockPods.EXPECT().Get("operator-image-prepull-f00dbaad", metav1.GetOptions{IncludeUninitialized: true}).
+			DoAndReturn(func(_ string, _ metav1.GetOptions) (*core.Pod, error) {
+				podWatcher.Action("PodSucceeded", nil)
+				s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
+				return &pod2, nil
+			}).Times(1),
+		s.mockPods.EXPECT().Delete("operator-image-prepull-f00dbaad", &v1.DeleteOptions{}).
+			Return(nil).Times(1),
+	)
+
+	image, err := provider.SelectOperatorImage(s.broker, "wow", "jujusoul-utions/jujud-operator:2.99.0", version.MustParse("2.99.1"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(image, gc.Equals, "jujusoul-utions/jujud-operator-git:2.99.1-f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0")
+	c.Assert(s.watchers, gc.HasLen, 1)
+	c.Assert(workertest.CheckKilled(c, s.watchers[0]), jc.ErrorIsNil)
+	c.Assert(podWatcher.IsStopped(), jc.IsTrue)
+}
+
+func (s *K8sBrokerSuite) TestSelectOperatorImageGitCached(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	s.PatchValue(&rand.Reader, bytes.NewReader([]byte{
+		0xf0, 0x0d, 0xba, 0xad,
+	}))
+	s.PatchValue(&jujuversion.Current, version.MustParse("2.99.1"))
+	s.PatchValue(&jujuversion.GitCommit, "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0")
+
+	controllerSpec := &apps.StatefulSet{
+		Spec: apps.StatefulSetSpec{
+			Template: core.PodTemplateSpec{
+				Spec: core.PodSpec{
+					Containers: []core.Container{
+						{Image: "jujusoul-utions/jujud-operator-git:2.99.1-f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0"},
+					},
+				},
+			},
+		},
+	}
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("controller", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(controllerSpec, nil),
+	)
+
+	image, err := provider.SelectOperatorImage(s.broker, "wow", "jujusoul-utions/jujud-operator:2.99.0", version.MustParse("2.99.1"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(image, gc.Equals, "jujusoul-utions/jujud-operator-git:2.99.1-f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0")
+}
+
+func (s *K8sBrokerSuite) TestSelectOperatorImageGitMissing(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	s.PatchValue(&rand.Reader, bytes.NewReader([]byte{
+		0xba, 0xad, 0xf0, 0x0d,
+		0xf0, 0x0d, 0xba, 0xad,
+	}))
+	s.PatchValue(&jujuversion.Current, version.MustParse("2.99.1"))
+	s.PatchValue(&jujuversion.GitCommit, "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0")
+
+	podFailedSpec := core.Pod{
+		ObjectMeta: v1.ObjectMeta{
+			Namespace: s.getNamespace(),
+			Name:      "operator-image-prepull-baadf00d",
+		},
+		Spec: core.PodSpec{
+			RestartPolicy: core.RestartPolicyNever,
+			Containers: []core.Container{
+				core.Container{
+					Name:            "jujud",
+					Image:           "jujusoul-utions/jujud-operator-git:2.99.1-f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0",
+					ImagePullPolicy: core.PullIfNotPresent,
+					Command:         []string{"/opt/jujud"},
+					Args:            []string{"version"},
+				},
+			},
+		},
+	}
+	podFailed := podFailedSpec
+	podFailed.Status = core.PodStatus{
+		Phase: core.PodPending,
+		ContainerStatuses: []core.ContainerStatus{
+			core.ContainerStatus{
+				Name: "jujud",
+				State: core.ContainerState{
+					Waiting: &core.ContainerStateWaiting{
+						Reason: "ImagePullBackOff",
+					},
+				},
+			},
+		},
+	}
+
+	podSpec := core.Pod{
+		ObjectMeta: v1.ObjectMeta{
+			Namespace: s.getNamespace(),
+			Name:      "operator-image-prepull-f00dbaad",
+		},
+		Spec: core.PodSpec{
+			RestartPolicy: core.RestartPolicyNever,
+			Containers: []core.Container{
+				core.Container{
+					Name:            "jujud",
+					Image:           "jujusoul-utions/jujud-operator:2.99.1",
+					ImagePullPolicy: core.PullIfNotPresent,
+					Command:         []string{"/opt/jujud"},
+					Args:            []string{"version"},
+				},
+			},
+		},
+	}
+	pod0 := podSpec
+	pod0.Status = core.PodStatus{
+		Phase: core.PodPending,
+	}
+	pod1 := podSpec
+	pod1.Status = core.PodStatus{
+		Phase: core.PodPending,
+		ContainerStatuses: []core.ContainerStatus{
+			core.ContainerStatus{
+				Name: "jujud",
+				State: core.ContainerState{
+					Waiting: &core.ContainerStateWaiting{
+						Reason: "ErrImagePull",
+					},
+				},
+			},
+		},
+	}
+	pod2 := podSpec
+	pod2.Status = core.PodStatus{
+		Phase: core.PodSucceeded,
+	}
+
+	controllerSpec := &apps.StatefulSet{
+		Spec: apps.StatefulSetSpec{
+			Template: core.PodTemplateSpec{
+				Spec: core.PodSpec{
+					Containers: []core.Container{
+						{Image: "path/to/jujud-operator:2.99.0"},
+					},
+				},
+			},
+		},
+	}
+
+	podFailedWatcher := s.k8sNewFakeWatcher()
+	podWatcher := s.k8sNewFakeWatcher()
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("controller", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(controllerSpec, nil),
+		s.mockPods.EXPECT().Watch(
+			v1.ListOptions{
+				FieldSelector:        "metadata.name=operator-image-prepull-baadf00d",
+				Watch:                true,
+				IncludeUninitialized: true,
+			},
+		).
+			Return(podFailedWatcher, nil).Times(1),
+		s.mockPods.EXPECT().Create(&podFailedSpec).
+			Return(&podFailed, nil).Times(1),
+		s.mockPods.EXPECT().Delete("operator-image-prepull-baadf00d", &v1.DeleteOptions{}).
+			Return(nil).Times(1),
+		s.mockPods.EXPECT().Watch(
+			v1.ListOptions{
+				FieldSelector:        "metadata.name=operator-image-prepull-f00dbaad",
+				Watch:                true,
+				IncludeUninitialized: true,
+			},
+		).
+			Return(podWatcher, nil).Times(1),
+		s.mockPods.EXPECT().Create(&podSpec).
+			DoAndReturn(func(_ *core.Pod) (*core.Pod, error) {
+				podWatcher.Action("PodCreated", nil)
+				s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
+				return &pod0, nil
+			}).Times(1),
+		s.mockPods.EXPECT().Get("operator-image-prepull-f00dbaad", metav1.GetOptions{IncludeUninitialized: true}).
+			DoAndReturn(func(_ string, _ metav1.GetOptions) (*core.Pod, error) {
+				podWatcher.Action("PodPending", nil)
+				s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
+				return &pod1, nil
+			}).Times(1),
+		s.mockPods.EXPECT().Get("operator-image-prepull-f00dbaad", metav1.GetOptions{IncludeUninitialized: true}).
+			DoAndReturn(func(_ string, _ metav1.GetOptions) (*core.Pod, error) {
+				podWatcher.Action("PodSucceeded", nil)
+				s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
+				return &pod2, nil
+			}).Times(1),
+		s.mockPods.EXPECT().Delete("operator-image-prepull-f00dbaad", &v1.DeleteOptions{}).
+			Return(nil).Times(1),
+	)
+
+	image, err := provider.SelectOperatorImage(s.broker, "wow", "jujusoul-utions/jujud-operator:2.99.0", version.MustParse("2.99.1"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(image, gc.Equals, "jujusoul-utions/jujud-operator:2.99.1")
+	c.Assert(s.watchers, gc.HasLen, 2)
+	c.Assert(workertest.CheckKilled(c, s.watchers[0]), jc.ErrorIsNil)
+	c.Assert(workertest.CheckKilled(c, s.watchers[1]), jc.ErrorIsNil)
+	c.Assert(podFailedWatcher.IsStopped(), jc.IsTrue)
+	c.Assert(podWatcher.IsStopped(), jc.IsTrue)
 }

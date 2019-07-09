@@ -29,11 +29,9 @@ GIT_TREE_STATE = $(if $(shell git status --porcelain),dirty,clean)
 # Compile with debug flags if requested.
 ifeq ($(DEBUG_JUJU), 1)
     COMPILE_FLAGS = -gcflags "all=-N -l"
-    LINK_FLAGS =
     LINK_FLAGS = -ldflags "-X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE)"
 else
     COMPILE_FLAGS =
-    LINK_FLAGS = -ldflags "-s -w"
     LINK_FLAGS = -ldflags "-s -w -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE)"
 endif
 
@@ -166,8 +164,23 @@ DOCKER_USERNAME          ?= jujusolutions
 JUJUD_STAGING_DIR        ?= /tmp/jujud-operator
 JUJUD_BIN_DIR            ?= ${GOPATH}/bin
 OPERATOR_IMAGE_BUILD_SRC ?= true
-OPERATOR_IMAGE_TAG       ?= $(shell jujud version | rev | cut -d- -f3- | rev)
-OPERATOR_IMAGE_PATH      = ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG}
+OPERATOR_IMAGE_TAG ?=
+
+define JUJUD_VERSION
+$$(${JUJUD_BIN_DIR}/jujud version | rev | cut -d- -f3- | rev)
+endef
+
+define COMPUTED_OPERATOR_IMAGE_TAG
+${if ${value OPERATOR_IMAGE_TAG},${value OPERATOR_IMAGE_TAG},${call JUJUD_VERSION}}
+endef
+
+define OPERATOR_IMAGE_PATH
+${DOCKER_USERNAME}/jujud-operator:${call COMPUTED_OPERATOR_IMAGE_TAG}
+endef
+
+define OPERATOR_IMAGE_PATH_GIT
+${DOCKER_USERNAME}/jujud-operator-git:${call COMPUTED_OPERATOR_IMAGE_TAG}-${GIT_COMMIT}
+endef
 
 operator-image:
     ifeq ($(OPERATOR_IMAGE_BUILD_SRC),true)
@@ -180,14 +193,17 @@ operator-image:
 	cp ${JUJUD_BIN_DIR}/jujud ${JUJUD_STAGING_DIR}
 	cp caas/jujud-operator-dockerfile ${JUJUD_STAGING_DIR}
 	cp caas/jujud-operator-requirements.txt ${JUJUD_STAGING_DIR}
-	docker build -f ${JUJUD_STAGING_DIR}/jujud-operator-dockerfile -t ${OPERATOR_IMAGE_PATH} ${JUJUD_STAGING_DIR}
+	# package build context with tar due to the docker snap being unable to read from host /tmp
+	tar -C ${JUJUD_STAGING_DIR} -cf - . | docker build -f jujud-operator-dockerfile -t ${call OPERATOR_IMAGE_PATH_GIT} -t ${call OPERATOR_IMAGE_PATH} -
 	rm -rf ${JUJUD_STAGING_DIR}
 
 push-operator-image: operator-image
-	docker push ${OPERATOR_IMAGE_PATH}
+	docker push ${call OPERATOR_IMAGE_PATH_GIT}
+	docker push ${call OPERATOR_IMAGE_PATH}
 
 microk8s-operator-update: operator-image
-	docker save ${OPERATOR_IMAGE_PATH} | microk8s.ctr -n k8s.io image import -
+	docker save ${call OPERATOR_IMAGE_PATH_GIT} | microk8s.ctr -n k8s.io image import -
+	docker save ${call OPERATOR_IMAGE_PATH} | microk8s.ctr -n k8s.io image import -
 
 check-k8s-model:
 	@:$(if $(value JUJU_K8S_MODEL),, $(error Undefined JUJU_K8S_MODEL))
@@ -195,7 +211,7 @@ check-k8s-model:
 
 local-operator-update: check-k8s-model operator-image
 	$(eval kubeworkers != juju status -m ${JUJU_K8S_MODEL} kubernetes-worker --format json | jq -c '.machines | keys' | tr  -c '[:digit:]' ' ' 2>&1)
-	docker save ${OPERATOR_IMAGE_PATH} | gzip > /tmp/jujud-operator-image.tar.gz
+	docker save ${call OPERATOR_IMAGE_PATH} | gzip > /tmp/jujud-operator-image.tar.gz
 	$(foreach wm,$(kubeworkers), juju scp -m ${JUJU_K8S_MODEL} /tmp/jujud-operator-image.tar.gz $(wm):/tmp/jujud-operator-image.tar.gz ; )
 	$(foreach wm,$(kubeworkers), juju ssh -m ${JUJU_K8S_MODEL} $(wm) -- "zcat /tmp/jujud-operator-image.tar.gz | docker load" ; )
 

@@ -4,6 +4,8 @@
 package provider_test
 
 import (
+	"bytes"
+	"crypto/rand"
 	"fmt"
 	"time"
 
@@ -639,10 +641,91 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --machine-id 0 --debug
 		},
 	}
 
+	s.PatchValue(&rand.Reader, bytes.NewReader([]byte{
+		0xf0, 0x0d, 0xba, 0xad,
+		0x00, 0xff, 0xba, 0xad,
+	}))
+	s.PatchValue(&jujuversion.GitCommit, "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f")
+	prepullPodFailSpec := core.Pod{
+		ObjectMeta: v1.ObjectMeta{
+			Namespace: s.getNamespace(),
+			Name:      "operator-image-prepull-f00dbaad",
+		},
+		Spec: core.PodSpec{
+			RestartPolicy: core.RestartPolicyNever,
+			Containers: []core.Container{
+				core.Container{
+					Name:            "jujud",
+					Image:           fmt.Sprintf("jujusolutions/jujud-operator-git:%s-0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f", jujuversion.Current),
+					ImagePullPolicy: core.PullIfNotPresent,
+					Command:         []string{"/opt/jujud"},
+					Args:            []string{"version"},
+				},
+			},
+		},
+	}
+	prepullPodFail := prepullPodFailSpec
+	prepullPodFail.Status = core.PodStatus{
+		Phase: core.PodPending,
+		ContainerStatuses: []core.ContainerStatus{
+			core.ContainerStatus{
+				Name: "jujud",
+				State: core.ContainerState{
+					Waiting: &core.ContainerStateWaiting{
+						Reason: "ImagePullBackOff",
+					},
+				},
+			},
+		},
+	}
+	prepullPodFailWatcher := s.k8sNewFakeWatcher()
+	prepullPodSpec := prepullPodFailSpec
+	prepullPodSpec.ObjectMeta.Name = "operator-image-prepull-00ffbaad"
+	prepullPodSpec.Spec.Containers = []core.Container{
+		core.Container{
+			Name:            "jujud",
+			Image:           fmt.Sprintf("jujusolutions/jujud-operator:%s", jujuversion.Current),
+			ImagePullPolicy: core.PullIfNotPresent,
+			Command:         []string{"/opt/jujud"},
+			Args:            []string{"version"},
+		},
+	}
+	prepullPod := prepullPodSpec
+	prepullPod.Status = core.PodStatus{
+		Phase: core.PodSucceeded,
+	}
+	prepullPodWatcher := s.k8sNewFakeWatcher()
+
 	gomock.InOrder(
 		// create namespace.
 		s.mockNamespaces.EXPECT().Create(ns).Times(1).
 			Return(ns, nil),
+
+		// prepull operator image
+		s.mockPods.EXPECT().Watch(
+			v1.ListOptions{
+				FieldSelector:        "metadata.name=operator-image-prepull-f00dbaad",
+				Watch:                true,
+				IncludeUninitialized: true,
+			},
+		).
+			Return(prepullPodFailWatcher, nil).Times(1),
+		s.mockPods.EXPECT().Create(&prepullPodFailSpec).
+			Return(&prepullPodFail, nil).Times(1),
+		s.mockPods.EXPECT().Delete("operator-image-prepull-f00dbaad", &v1.DeleteOptions{}).
+			Return(nil).Times(1),
+		s.mockPods.EXPECT().Watch(
+			v1.ListOptions{
+				FieldSelector:        "metadata.name=operator-image-prepull-00ffbaad",
+				Watch:                true,
+				IncludeUninitialized: true,
+			},
+		).
+			Return(prepullPodWatcher, nil).Times(1),
+		s.mockPods.EXPECT().Create(&prepullPodSpec).
+			Return(&prepullPod, nil).Times(1),
+		s.mockPods.EXPECT().Delete("operator-image-prepull-00ffbaad", &v1.DeleteOptions{}).
+			Return(nil).Times(1),
 
 		// ensure service
 		s.mockServices.EXPECT().Get("juju-controller-test-service", v1.GetOptions{IncludeUninitialized: true}).Times(1).
@@ -775,11 +858,15 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --machine-id 0 --debug
 	select {
 	case err := <-errChan:
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(s.watchers, gc.HasLen, 2)
+		c.Assert(s.watchers, gc.HasLen, 4)
 		c.Assert(workertest.CheckKilled(c, s.watchers[0]), jc.ErrorIsNil)
 		c.Assert(workertest.CheckKilled(c, s.watchers[1]), jc.ErrorIsNil)
+		c.Assert(workertest.CheckKilled(c, s.watchers[2]), jc.ErrorIsNil)
+		c.Assert(workertest.CheckKilled(c, s.watchers[3]), jc.ErrorIsNil)
 		c.Assert(podWatcher.IsStopped(), jc.IsTrue)
 		c.Assert(eventWatcher.IsStopped(), jc.IsTrue)
+		c.Assert(prepullPodFailWatcher.IsStopped(), jc.IsTrue)
+		c.Assert(prepullPodWatcher.IsStopped(), jc.IsTrue)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for deploy return")
 	}
