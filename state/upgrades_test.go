@@ -3325,6 +3325,7 @@ func (s *upgradesSuite) TestAddSpaceIdToSpaceDocs(c *gc.C) {
 
 	uuid1 := model1.ModelUUID()
 	uuid2 := model2.ModelUUID()
+	uuidc := s.state.controllerModelTag.Id()
 
 	err := col.Insert(bson.M{
 		"_id":        ensureModelUUID(uuid1, "space1"),
@@ -3360,7 +3361,7 @@ func (s *upgradesSuite) TestAddSpaceIdToSpaceDocs(c *gc.C) {
 			"name":       "space2",
 			"is-public":  false,
 		},
-		// The default space for each model.
+		// The default space for each model, including the controller.
 		{
 			"_id":        uuid1 + ":0",
 			"model-uuid": uuid1,
@@ -3371,6 +3372,13 @@ func (s *upgradesSuite) TestAddSpaceIdToSpaceDocs(c *gc.C) {
 		}, {
 			"_id":        uuid2 + ":0",
 			"model-uuid": uuid2,
+			"spaceid":    "0",
+			"life":       0,
+			"name":       "",
+			"is-public":  true,
+		}, {
+			"_id":        uuidc + ":0",
+			"model-uuid": uuidc,
 			"spaceid":    "0",
 			"life":       0,
 			"name":       "",

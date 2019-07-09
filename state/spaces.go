@@ -155,6 +155,7 @@ func (st *State) addSpaceTxnOps(name string, providerId network.Id, subnets []st
 	id := strconv.Itoa(seq)
 
 	doc := spaceDoc{
+		DocId:      st.docID(id),
 		Id:         id,
 		Life:       Alive,
 		Name:       name,
@@ -164,7 +165,7 @@ func (st *State) addSpaceTxnOps(name string, providerId network.Id, subnets []st
 
 	ops := []txn.Op{{
 		C:      spacesC,
-		Id:     id,
+		Id:     doc.DocId,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}

@@ -2252,11 +2252,6 @@ func AddControllerNodeDocs(pool *StatePool) error {
 // It also adds a doc for the default space (ID=0).
 func AddSpaceIdToSpaceDocs(pool *StatePool) (err error) {
 	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
-		// Make sure we do not add a default space to the controller model.
-		if st.isController() {
-			return nil
-		}
-
 		col, closer := st.db().GetCollection(spacesC)
 		defer closer()
 
@@ -2296,6 +2291,7 @@ func AddSpaceIdToSpaceDocs(pool *StatePool) (err error) {
 			id := strconv.Itoa(seq)
 
 			newDoc := spaceDoc{
+				DocId:      st.docID(id),
 				Id:         id,
 				Life:       oldDoc.Life,
 				Name:       oldDoc.Name,
@@ -2305,7 +2301,7 @@ func AddSpaceIdToSpaceDocs(pool *StatePool) (err error) {
 
 			ops = append(ops, txn.Op{
 				C:      spacesC,
-				Id:     id,
+				Id:     newDoc.DocId,
 				Insert: newDoc,
 			})
 		}
