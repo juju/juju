@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/juju/juju/environs"
+
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -1232,10 +1234,17 @@ func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
 	return doc
 }
 
+// spaces imports spaces without subnets, which are added later.
 func (i *importer) spaces() error {
 	i.logger.Debugf("importing spaces")
 	for _, s := range i.model.Spaces() {
-		// The subnets are added after the spaces.
+		// We do not import the default space because it is created by default
+		// with the new model. This is OK, because it is immutable.
+		// Any subnets added to the space will be imported subsequently.
+		if s.Name() == environs.DefaultSpaceName {
+			continue
+		}
+
 		_, err := i.st.AddSpace(s.Name(), network.Id(s.ProviderID()), nil, s.Public())
 		if err != nil {
 			i.logger.Errorf("error importing space %s: %s", s.Name(), err)
