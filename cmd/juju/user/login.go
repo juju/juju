@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
@@ -213,7 +214,6 @@ func (c *loginCommand) run(ctx *cmd.Context) error {
 		if err := ensureNotKnownEndpoint(store, c.domain); err != nil {
 			return err
 		}
-
 		// Note: the controller name is guaranteed to be non-empty
 		// in this case via the test at the start of this function.
 		conn, publicControllerDetails, accountDetails, err = c.publicControllerLogin(ctx, c.domain, c.controllerName, oldAccountDetails)
@@ -332,6 +332,9 @@ func (c *loginCommand) publicControllerLogin(
 	dialOpts := api.DefaultDialOpts()
 	dialOpts.BakeryClient = bclient
 	dialOpts.VerifyCA = c.promptUserToTrustCA(ctx, ctrlDetails)
+	// TODO(tsm) identify underlying reason why a retry happens at 60 seconds
+	//           when the dialOps.RetryDelay is set to 10 minutes
+	dialOpts.Timeout = time.Second * 59 // Prevents a spurious retry (see lp:1673926)
 
 	// Keep track of existing visitors as the dial callback will create
 	// a new visitor each time it gets invoked.
