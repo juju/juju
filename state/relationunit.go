@@ -404,12 +404,8 @@ func (op *LeaveScopeOperation) internalLeaveScope() ([]txn.Op, error) {
 	// the database is actually changed).
 	logger.Debugf("%v leaving scope", op.Description())
 	count, err := relationScopes.FindId(key).Count()
-	if err != nil {
-		err := fmt.Errorf("cannot examine scope for %s: %v", op.Description(), err)
-		if !op.Force {
-			return nil, err
-		}
-		op.AddError(err)
+	if op.FatalError(errors.Annotatef(err, "cannot examine scope for %s", op.Description())) {
+		return nil, err
 	} else if count == 0 {
 		return nil, jujutxn.ErrNoOperations
 	}
@@ -438,11 +434,8 @@ func (op *LeaveScopeOperation) internalLeaveScope() ([]txn.Op, error) {
 		// and accumulate all operational errors encountered in the operation.
 		// If the 'force' is not set, any error will be fatal and no operations will be returned.
 		relOps, err := op.ru.relation.removeOps("", op.ru.unitName, &op.ForcedOperation)
-		if err != nil {
-			if !op.Force {
-				return nil, err
-			}
-			op.AddError(err)
+		if op.FatalError(err) {
+			return nil, err
 		}
 		ops = append(ops, relOps...)
 	}
