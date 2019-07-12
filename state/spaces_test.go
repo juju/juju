@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
@@ -408,7 +409,12 @@ func (s *SpacesSuite) TestAddSpaceWithNonEmptyProviderIdAndInvalidNameFails(c *g
 func (s *SpacesSuite) assertInvalidSpaceNameErrorAndWasNotAdded(c *gc.C, err error, name string) {
 	expectedError := fmt.Sprintf("adding space %q: invalid space name", name)
 	c.Assert(err, gc.ErrorMatches, expectedError)
-	s.assertSpaceNotFound(c, name)
+
+	// The default space will be present, although we cannot add it.
+	// Only check non-default names.
+	if name != environs.DefaultSpaceName {
+		s.assertSpaceNotFound(c, name)
+	}
 }
 
 func (s *SpacesSuite) TestAddSpaceWithEmptyProviderIdAndInvalidNameFails(c *gc.C) {
@@ -446,7 +452,7 @@ func (s *SpacesSuite) TestSubnetsReturnsExpectedSubnets(c *gc.C) {
 	space, err := s.addSpaceWithSubnets(c, args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := []*state.Subnet{}
+	var expected []*state.Subnet
 	for _, cidr := range args.SubnetCIDRs {
 		subnet, err := s.State.Subnet(cidr)
 		c.Assert(err, jc.ErrorIsNil)
@@ -458,9 +464,12 @@ func (s *SpacesSuite) TestSubnetsReturnsExpectedSubnets(c *gc.C) {
 }
 
 func (s *SpacesSuite) TestAllSpaces(c *gc.C) {
+	defaultSpace, err := s.State.Space("")
+	c.Assert(err, jc.ErrorIsNil)
+
 	spaces, err := s.State.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spaces, jc.DeepEquals, []*state.Space{})
+	c.Assert(spaces, jc.DeepEquals, []*state.Space{defaultSpace})
 
 	subnets := []string{"1.1.1.0/24", "2.1.1.0/24", "3.1.1.0/24"}
 	isPublic := false
@@ -475,7 +484,7 @@ func (s *SpacesSuite) TestAllSpaces(c *gc.C) {
 
 	actual, err := s.State.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actual, jc.SameContents, []*state.Space{first, second, third})
+	c.Assert(actual, jc.SameContents, []*state.Space{first, second, third, defaultSpace})
 }
 
 func (s *SpacesSuite) TestEnsureDeadSetsLifeToDeadWhenAlive(c *gc.C) {

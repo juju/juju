@@ -1237,8 +1237,7 @@ func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
 func (i *importer) spaces() error {
 	i.logger.Debugf("importing spaces")
 	for _, s := range i.model.Spaces() {
-		// We do not import the default space because it is created by default
-		// with the new model. This is OK, because it is immutable.
+		// The default space should not have been exported, but be defensive.
 		// Any subnets added to the space will be imported subsequently.
 		if s.Name() == environs.DefaultSpaceName {
 			continue

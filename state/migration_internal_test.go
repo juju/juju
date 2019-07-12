@@ -595,10 +595,12 @@ func (s *MigrationSuite) TestHistoricalStatusDocFields(c *gc.C) {
 
 func (s *MigrationSuite) TestSpaceDocFields(c *gc.C) {
 	ignored := set.NewStrings(
+		"DocId",
 		// Always alive, not explicitly exported.
 		"Life",
 	)
 	migrated := set.NewStrings(
+		"Id",
 		"Name",
 		"IsPublic",
 		"ProviderId",
