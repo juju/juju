@@ -109,7 +109,7 @@ func parseK8sPodSpec(in string) (*caas.PodSpec, error) {
 	if pod.ServiceAccount != nil {
 		if pod.K8sPodSpec != nil && pod.ServiceAccountName != "" {
 			return nil, errors.New(`
-either use ServiceAccountName to reference to existing service account or define ServiceAccount spec to create a new one`[1:])
+either use ServiceAccountName to reference existing service account or define ServiceAccount spec to create a new one`[1:])
 		}
 		spec.ServiceAccount = pod.ServiceAccount
 	}
