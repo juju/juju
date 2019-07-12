@@ -2659,16 +2659,12 @@ func (k *kubernetesClient) deploymentName(appName string) string {
 }
 
 func labelsToSelector(labels map[string]string) string {
-	selector := ""
+	var selectors []string
 	for k, v := range labels {
-		item := fmt.Sprintf("%v==%v", k, v)
-		if selector == "" {
-			selector = item
-		} else {
-			selector += "," + item
-		}
+		selectors = append(selectors, fmt.Sprintf("%v==%v", k, v))
 	}
-	return selector
+	sort.Strings(selectors) // for testing.
+	return strings.Join(selectors, ",")
 }
 
 func isLegacyName(resourceName string) bool {

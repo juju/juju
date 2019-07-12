@@ -529,7 +529,7 @@ serviceAccount:
         verbs: ["get", "watch", "list"]
 `[1:]
 	_, err := provider.ParseK8sPodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, "either use ServiceAccountName to reference to existing service account or define ServiceAccount spec to create a new one")
+	c.Assert(err, gc.ErrorMatches, "either use ServiceAccountName to reference existing service account or define ServiceAccount spec to create a new one")
 
 }
 
