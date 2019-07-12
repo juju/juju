@@ -8904,6 +8904,30 @@
                         "Arch"
                     ]
                 },
+                "BranchStatus": {
+                    "type": "object",
+                    "properties": {
+                        "assigned-units": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        },
+                        "created": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "assigned-units",
+                        "created"
+                    ]
+                },
                 "BundleChange": {
                     "type": "object",
                     "properties": {
@@ -9277,6 +9301,14 @@
                                 }
                             }
                         },
+                        "branches": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/BranchStatus"
+                                }
+                            }
+                        },
                         "controller-timestamp": {
                             "type": "string",
                             "format": "date-time"
@@ -9323,7 +9355,8 @@
                         "remote-applications",
                         "offers",
                         "relations",
-                        "controller-timestamp"
+                        "controller-timestamp",
+                        "branches"
                     ]
                 },
                 "GetConstraintsResults": {
