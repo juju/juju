@@ -24,6 +24,7 @@ import (
 	environsTesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/all"
+	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
 
@@ -46,11 +47,17 @@ func (s *addCredentialSuite) SetUpSuite(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) {
 		unreg()
 	})
+}
+
+func (s *addCredentialSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.store.Credentials = make(map[string]jujucloud.CloudCredential)
 	s.cloudByNameFunc = func(cloud string) (*jujucloud.Cloud, error) {
 		if cloud != "somecloud" && cloud != "anothercloud" {
 			return nil, errors.NotFoundf("cloud %v", cloud)
 		}
 		return &jujucloud.Cloud{
+			Name:             cloud,
 			Type:             "mock-addcredential-provider",
 			AuthTypes:        s.authTypes,
 			Endpoint:         "cloud-endpoint",
@@ -59,20 +66,20 @@ func (s *addCredentialSuite) SetUpSuite(c *gc.C) {
 	}
 }
 
-func (s *addCredentialSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.store.Credentials = make(map[string]jujucloud.CloudCredential)
-}
-
-func (s *addCredentialSuite) run(c *gc.C, stdin io.Reader, args ...string) (*cmd.Context, error) {
+func (s *addCredentialSuite) runCmd(c *gc.C, stdin io.Reader, args ...string) (*cmd.Context, *cloud.AddCredentialCommand, error) {
 	addCmd := cloud.NewAddCredentialCommandForTest(s.store, s.cloudByNameFunc)
 	err := cmdtesting.InitCommand(addCmd, args)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = stdin
-	return ctx, addCmd.Run(ctx)
+	return ctx, addCmd, addCmd.Run(ctx)
+}
+
+func (s *addCredentialSuite) run(c *gc.C, stdin io.Reader, args ...string) (*cmd.Context, error) {
+	ctx, _, err := s.runCmd(c, stdin, args...)
+	return ctx, err
 }
 
 func (s *addCredentialSuite) TestBadArgs(c *gc.C) {
@@ -142,6 +149,7 @@ func (s *addCredentialSuite) TestAddFromFileNoCredentialsFound(c *gc.C) {
 }
 
 func (s *addCredentialSuite) TestAddFromFileExisting(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType, jujucloud.AccessKeyAuthType}
 	s.store.Credentials = map[string]jujucloud.CloudCredential{
 		"somecloud": {
 			AuthCredentials: map[string]jujucloud.Credential{"cred": {}},
@@ -149,7 +157,158 @@ func (s *addCredentialSuite) TestAddFromFileExisting(c *gc.C) {
 	}
 	sourceFile := s.createTestCredentialData(c)
 	_, err := s.run(c, nil, "somecloud", "-f", sourceFile)
-	c.Assert(err, gc.ErrorMatches, `local credentials for cloud "somecloud" already exist; use --replace to overwrite / merge`)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
+		"somecloud": {
+			AuthCredentials: map[string]jujucloud.Credential{
+				"cred": {},
+				"me": jujucloud.NewCredential(jujucloud.AccessKeyAuthType, map[string]string{
+					"access-key": "<key>",
+					"secret-key": "<secret>",
+				})},
+		},
+	})
+}
+
+func (s *addCredentialSuite) TestAddInvalidRegionSpecified(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.AccessKeyAuthType}
+	_, err := s.run(c, nil, "somecloud", "--region", "someregion")
+	c.Assert(err, gc.ErrorMatches, `provided region "someregion" for cloud "somecloud" not valid`)
+}
+
+func (s *addCredentialSuite) testCloudWithRegions(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType}
+	s.cloudByNameFunc = func(cloudName string) (*jujucloud.Cloud, error) {
+		return &jujucloud.Cloud{
+			Name:             cloudName,
+			Type:             "dummy",
+			AuthTypes:        s.authTypes,
+			Endpoint:         "cloud-endpoint",
+			IdentityEndpoint: "cloud-identity-endpoint",
+			Regions: []jujucloud.Region{
+				{Name: "anotherregion", Endpoint: "specialendpoint", IdentityEndpoint: "specialidentityendpoint", StorageEndpoint: "storageendpoint"},
+				{Name: "specialregion", Endpoint: "specialendpoint", IdentityEndpoint: "specialidentityendpoint", StorageEndpoint: "storageendpoint"},
+			},
+		}, nil
+	}
+	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{})
+}
+
+func (s *addCredentialSuite) createFileForAddCredential(c *gc.C) string {
+	dir := c.MkDir()
+	credsFile := filepath.Join(dir, "cred.yaml")
+	data := `
+credentials:
+  somecloud:
+    fred:
+      auth-type: userpass
+      username: user
+      password: password
+`[1:]
+	err := ioutil.WriteFile(credsFile, []byte(data), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+	return credsFile
+}
+
+func (s *addCredentialSuite) TestAddWithFileRegionSpecified(c *gc.C) {
+	s.testCloudWithRegions(c)
+	args := []string{"somecloud", "-f", s.createFileForAddCredential(c)}
+	s.assertCredentialAdded(c, "", args, "specialregion", "specialregion")
+}
+
+func (s *addCredentialSuite) TestAddWithFileNoRegionSpecified(c *gc.C) {
+	s.testCloudWithRegions(c)
+	args := []string{"somecloud", "-f", s.createFileForAddCredential(c)}
+	s.assertCredentialAdded(c, "", args, "", "")
+}
+
+func (s *addCredentialSuite) TestAddInteractiveNoRegionSpecified(c *gc.C) {
+	s.testCloudWithRegions(c)
+	args := []string{"somecloud"}
+
+	ctxt := s.assertCredentialAdded(c, "fred\n\nuser\npassword\n", args, "", "")
+	c.Assert(cmdtesting.Stdout(ctxt), gc.Equals, `
+Enter credential name: 
+Regions
+  anotherregion
+  specialregion
+
+Select region [any region, credential is not region specific]: 
+Using auth-type "userpass".
+
+Enter username: 
+Enter password: 
+Credential "fred" added locally for cloud "somecloud".
+
+`[1:])
+	c.Assert(cmdtesting.Stderr(ctxt), gc.Equals, "")
+}
+
+func (s *addCredentialSuite) TestAddInteractiveInvalidRegionEntered(c *gc.C) {
+	s.testCloudWithRegions(c)
+	args := []string{"somecloud"}
+
+	ctxt := s.assertCredentialAdded(c, "fred\nnotknownregion\n\nuser\npassword\n", args, "", "")
+	c.Assert(cmdtesting.Stdout(ctxt), gc.Equals, `
+Enter credential name: 
+Regions
+  anotherregion
+  specialregion
+
+Select region [any region, credential is not region specific]: provided region "notknownregion" for cloud "somecloud" not valid
+
+Select region [any region, credential is not region specific]: 
+Using auth-type "userpass".
+
+Enter username: 
+Enter password: 
+Credential "fred" added locally for cloud "somecloud".
+
+`[1:])
+	c.Assert(cmdtesting.Stderr(ctxt), gc.Equals, "")
+}
+
+func (s *addCredentialSuite) TestAddInteractiveRegionSpecified(c *gc.C) {
+	s.testCloudWithRegions(c)
+	args := []string{"somecloud"}
+
+	ctxt := s.assertCredentialAdded(c, "fred\nuser\npassword\n", args, "specialregion", "specialregion")
+	c.Assert(cmdtesting.Stdout(ctxt), gc.Equals, `
+Enter credential name: 
+User specified region "specialregion", using it.
+
+Using auth-type "userpass".
+
+Enter username: 
+Enter password: 
+Credential "fred" added locally for cloud "somecloud".
+
+`[1:])
+	c.Assert(cmdtesting.Stderr(ctxt), gc.Equals, "")
+}
+
+func (s *addCredentialSuite) assertCredentialAdded(c *gc.C, input string, args []string, specifiedRegion, expectedRegion string) *cmd.Context {
+	var stdin *strings.Reader
+	if input != "" {
+		stdin = strings.NewReader(input)
+	}
+	if specifiedRegion != "" {
+		args = append(args, "--region", specifiedRegion)
+	}
+
+	ctxt, runCmd, err := s.runCmd(c, stdin, args...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(runCmd.Region, gc.Equals, expectedRegion)
+	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
+		"somecloud": {
+			AuthCredentials: map[string]jujucloud.Credential{
+				"fred": jujucloud.NewCredential(jujucloud.UserPassAuthType, map[string]string{
+					"username": "user",
+					"password": "password",
+				})},
+		},
+	})
+	return ctxt
 }
 
 func (s *addCredentialSuite) TestAddFromFileExistingReplace(c *gc.C) {

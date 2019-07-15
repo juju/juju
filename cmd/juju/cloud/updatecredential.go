@@ -5,6 +5,7 @@ package cloud
 
 import (
 	"fmt"
+	"github.com/juju/juju/environs"
 	"io/ioutil"
 
 	"github.com/juju/cmd"
@@ -267,19 +268,30 @@ func (c *updateCredentialCommand) updateLocalCredentials(ctx *cmd.Context, updat
 			continue
 		}
 
-		region := cloudCredentials.DefaultRegion
 		if c.Region != "" {
-			region = c.Region
-		}
-		for credentialName, credential := range cloudCredentials.AuthCredentials {
-			verified, err := modelcmd.VerifyCredentials(ctx, aCloud, &credential, credentialName, region)
-			if err != nil {
+			if err := ValidCloudRegion(aCloud, c.Region); err != nil {
 				logger.Errorf("%v", err)
-				ctx.Warningf("Could not verify credential %v for cloud %v locally", credentialName, cloudName)
+				ctx.Warningf("Region %q is not valid for cloud %v.", c.Region, cloudName)
 				erred = true
 				continue
 			}
-			storedCredentials.AuthCredentials[credentialName] = *verified
+		}
+		provider, err := environs.Provider(aCloud.Type)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for credentialName, credential := range cloudCredentials.AuthCredentials {
+			if ShouldFinalizeCredential(provider, credential) {
+				newCredential, err := FinalizeProvider(ctx, aCloud, c.Region, cloudCredentials.DefaultRegion, credential.AuthType(), credential.Attributes())
+				if err != nil {
+					logger.Errorf("%v", err)
+					logger.Warningf("Could not verify credential %v for cloud %v locally", credentialName, aCloud.Name)
+					erred = true
+					continue
+				}
+				credential = *newCredential
+			}
+			storedCredentials.AuthCredentials[credentialName] = credential
 		}
 		err = c.ClientStore().UpdateCredential(cloudName, *storedCredentials)
 		if err != nil {
