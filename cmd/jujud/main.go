@@ -110,11 +110,16 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 		CommandName: commandName,
 		Args:        args[1:],
 	}
-	socketPath, err := getenv("JUJU_AGENT_SOCKET")
+	socket := sockets.Socket{}
+	socket.Address, err = getenv("JUJU_AGENT_SOCKET")
 	if err != nil {
 		return
 	}
-	client, err := sockets.Dial(socketPath)
+	socket.Network, err = getenv("JUJU_AGENT_NETWORK")
+	if err != nil {
+		return
+	}
+	client, err := sockets.Dial(socket)
 	if err != nil {
 		return
 	}

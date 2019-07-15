@@ -46,16 +46,16 @@ type CommandRunner interface {
 
 // RunListenerConfig contains the configuration for a RunListener.
 type RunListenerConfig struct {
-	// SocketPath is the path of the socket to listen on for run commands.
-	SocketPath string
+	// Socket is the network and path of the socket to listen on for run commands.
+	Socket *sockets.Socket
 
 	// CommandRunner is the CommandRunner that will run commands.
 	CommandRunner CommandRunner
 }
 
 func (cfg *RunListenerConfig) Validate() error {
-	if cfg.SocketPath == "" {
-		return errors.NotValidf("SocketPath unspecified")
+	if cfg.Socket == nil {
+		return errors.NotValidf("Socket unspecified")
 	}
 	if cfg.CommandRunner == nil {
 		return errors.NotValidf("CommandRunner unspecified")
@@ -83,7 +83,7 @@ func NewRunListener(cfg RunListenerConfig) (*RunListener, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	listener, err := sockets.Listen(cfg.SocketPath)
+	listener, err := sockets.Listen(*cfg.Socket)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

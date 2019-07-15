@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -42,7 +43,7 @@ type Paths interface {
 	// GetJujucSocket returns the path to the socket used by the hook tools
 	// to communicate back to the executing uniter process. It might be a
 	// filesystem path, or it might be abstract.
-	GetJujucSocket() string
+	GetJujucSocket() sockets.Socket
 
 	// GetMetricsSpoolDir returns the path to a metrics spool dir, used
 	// to store metrics recorded during a single hook run.
@@ -649,7 +650,8 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 		"CHARM_DIR="+paths.GetCharmDir(), // legacy, embarrassing
 		"JUJU_CHARM_DIR="+paths.GetCharmDir(),
 		"JUJU_CONTEXT_ID="+context.id,
-		"JUJU_AGENT_SOCKET="+paths.GetJujucSocket(),
+		"JUJU_AGENT_SOCKET="+paths.GetJujucSocket().Address,
+		"JUJU_AGENT_NETWORK="+paths.GetJujucSocket().Network,
 		"JUJU_UNIT_NAME="+context.unitName,
 		"JUJU_MODEL_UUID="+context.uuid,
 		"JUJU_MODEL_NAME="+context.modelName,
