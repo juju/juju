@@ -71,6 +71,9 @@ const (
 	gpuAffinityNodeSelectorKey = "gpu"
 
 	annotationPrefix = "juju.io"
+
+	// OperatorPodIPEnvName is the environment name for operator pod IP.
+	OperatorPodIPEnvName = "JUJU_OPERATOR_POD_IP"
 )
 
 var (
@@ -2469,6 +2472,14 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 				},
 				Env: []core.EnvVar{
 					{Name: "JUJU_APPLICATION", Value: appName},
+					{
+						Name: OperatorPodIPEnvName,
+						ValueFrom: &core.EnvVarSource{
+							FieldRef: &core.ObjectFieldSelector{
+								FieldPath: "status.podIP",
+							},
+						},
+					},
 				},
 				VolumeMounts: []core.VolumeMount{{
 					Name:      configVolName,
