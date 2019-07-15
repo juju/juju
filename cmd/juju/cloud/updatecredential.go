@@ -269,7 +269,7 @@ func (c *updateCredentialCommand) updateLocalCredentials(ctx *cmd.Context, updat
 		}
 
 		if c.Region != "" {
-			if err := ValidCloudRegion(aCloud, c.Region); err != nil {
+			if err := validCloudRegion(aCloud, c.Region); err != nil {
 				logger.Errorf("%v", err)
 				ctx.Warningf("Region %q is not valid for cloud %v.", c.Region, cloudName)
 				erred = true
@@ -281,8 +281,8 @@ func (c *updateCredentialCommand) updateLocalCredentials(ctx *cmd.Context, updat
 			return errors.Trace(err)
 		}
 		for credentialName, credential := range cloudCredentials.AuthCredentials {
-			if ShouldFinalizeCredential(provider, credential) {
-				newCredential, err := FinalizeProvider(ctx, aCloud, c.Region, cloudCredentials.DefaultRegion, credential.AuthType(), credential.Attributes())
+			if shouldFinalizeCredential(provider, credential) {
+				newCredential, err := finalizeProvider(ctx, aCloud, c.Region, cloudCredentials.DefaultRegion, credential.AuthType(), credential.Attributes())
 				if err != nil {
 					logger.Errorf("%v", err)
 					logger.Warningf("Could not verify credential %v for cloud %v locally", credentialName, aCloud.Name)

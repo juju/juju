@@ -176,7 +176,7 @@ func (s *addCredentialSuite) TestAddInvalidRegionSpecified(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `provided region "someregion" for cloud "somecloud" not valid`)
 }
 
-func (s *addCredentialSuite) testCloudWithRegions(c *gc.C) {
+func (s *addCredentialSuite) setupCloudWithRegions(c *gc.C) {
 	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType}
 	s.cloudByNameFunc = func(cloudName string) (*jujucloud.Cloud, error) {
 		return &jujucloud.Cloud{
@@ -211,19 +211,19 @@ credentials:
 }
 
 func (s *addCredentialSuite) TestAddWithFileRegionSpecified(c *gc.C) {
-	s.testCloudWithRegions(c)
+	s.setupCloudWithRegions(c)
 	args := []string{"somecloud", "-f", s.createFileForAddCredential(c)}
 	s.assertCredentialAdded(c, "", args, "specialregion", "specialregion")
 }
 
 func (s *addCredentialSuite) TestAddWithFileNoRegionSpecified(c *gc.C) {
-	s.testCloudWithRegions(c)
+	s.setupCloudWithRegions(c)
 	args := []string{"somecloud", "-f", s.createFileForAddCredential(c)}
 	s.assertCredentialAdded(c, "", args, "", "")
 }
 
 func (s *addCredentialSuite) TestAddInteractiveNoRegionSpecified(c *gc.C) {
-	s.testCloudWithRegions(c)
+	s.setupCloudWithRegions(c)
 	args := []string{"somecloud"}
 
 	ctxt := s.assertCredentialAdded(c, "fred\n\nuser\npassword\n", args, "", "")
@@ -245,7 +245,7 @@ Credential "fred" added locally for cloud "somecloud".
 }
 
 func (s *addCredentialSuite) TestAddInteractiveInvalidRegionEntered(c *gc.C) {
-	s.testCloudWithRegions(c)
+	s.setupCloudWithRegions(c)
 	args := []string{"somecloud"}
 
 	ctxt := s.assertCredentialAdded(c, "fred\nnotknownregion\n\nuser\npassword\n", args, "", "")
@@ -269,7 +269,7 @@ Credential "fred" added locally for cloud "somecloud".
 }
 
 func (s *addCredentialSuite) TestAddInteractiveRegionSpecified(c *gc.C) {
-	s.testCloudWithRegions(c)
+	s.setupCloudWithRegions(c)
 	args := []string{"somecloud"}
 
 	ctxt := s.assertCredentialAdded(c, "fred\nuser\npassword\n", args, "specialregion", "specialregion")

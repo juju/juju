@@ -14,6 +14,10 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
+var (
+	ShouldFinalizeCredential = shouldFinalizeCredential
+)
+
 type (
 	UpdateCloudCommand   = updateCloudCommand
 	AddCredentialCommand = addCredentialCommand

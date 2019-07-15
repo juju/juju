@@ -122,7 +122,7 @@ type addCredentialCommand struct {
 
 	cloud *jujucloud.Cloud
 
-	// Region is the region that credentials will be validated for before an update.
+	// Region used to complete credentials' creation.
 	Region string
 }
 
@@ -187,7 +187,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	if c.Region != "" {
-		if err := ValidCloudRegion(c.cloud, c.Region); err != nil {
+		if err := validCloudRegion(c.cloud, c.Region); err != nil {
 			return err
 		}
 	}
@@ -252,8 +252,8 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 		// bootstrap happens or improve security models, where by we remove any
 		// shared/secret passwords (lxd remote security).
 		// This is optional and is backwards compatible with other providers.
-		if ShouldFinalizeCredential(provider, cred) {
-			newCredential, err := FinalizeProvider(ctxt, c.cloud, c.Region, existingCredentials.DefaultRegion, cred.AuthType(), cred.Attributes())
+		if shouldFinalizeCredential(provider, cred) {
+			newCredential, err := finalizeProvider(ctxt, c.cloud, c.Region, existingCredentials.DefaultRegion, cred.AuthType(), cred.Attributes())
 			if err != nil {
 				return errors.Errorf("Could not verify credential %v for cloud %v locally: %v", name, c.CloudName, err)
 			}
@@ -342,7 +342,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 		return errors.Trace(err)
 	}
 
-	newCredential, err := FinalizeProvider(ctxt, c.cloud, c.Region, existingCredentials.DefaultRegion, authType, attrs)
+	newCredential, err := finalizeProvider(ctxt, c.cloud, c.Region, existingCredentials.DefaultRegion, authType, attrs)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -356,7 +356,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 	return nil
 }
 
-func FinalizeProvider(ctxt *cmd.Context, cloud *jujucloud.Cloud, regionName, defaultRegion string, authType jujucloud.AuthType, attrs map[string]string) (*jujucloud.Credential, error) {
+func finalizeProvider(ctxt *cmd.Context, cloud *jujucloud.Cloud, regionName, defaultRegion string, authType jujucloud.AuthType, attrs map[string]string) (*jujucloud.Credential, error) {
 	cloudEndpoint := cloud.Endpoint
 	cloudStorageEndpoint := cloud.StorageEndpoint
 	cloudIdentityEndpoint := cloud.IdentityEndpoint
@@ -435,7 +435,7 @@ func (c *addCredentialCommand) promptCloudRegion(p *interact.Pollster, existingC
 		if value == "" {
 			return true, "", nil
 		}
-		if regionErr := ValidCloudRegion(c.cloud, value); regionErr != nil {
+		if regionErr := validCloudRegion(c.cloud, value); regionErr != nil {
 			return false, regionErr.Error(), nil
 		}
 		return true, "", nil
@@ -581,14 +581,14 @@ func enterFile(name, descr string, p *interact.Pollster, expanded, optional bool
 	return string(contents), errors.Trace(err)
 }
 
-func ShouldFinalizeCredential(provider environs.EnvironProvider, cred jujucloud.Credential) bool {
+func shouldFinalizeCredential(provider environs.EnvironProvider, cred jujucloud.Credential) bool {
 	if finalizer, ok := provider.(environs.RequestFinalizeCredential); ok {
 		return finalizer.ShouldFinalizeCredential(cred)
 	}
 	return false
 }
 
-func ValidCloudRegion(aCloud *jujucloud.Cloud, region string) error {
+func validCloudRegion(aCloud *jujucloud.Cloud, region string) error {
 	for _, r := range aCloud.Regions {
 		if r.Name == region {
 			return nil
