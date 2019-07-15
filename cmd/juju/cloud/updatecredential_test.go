@@ -4,6 +4,7 @@
 package cloud_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -296,7 +297,7 @@ credentials:
 	c.Assert(after, gc.DeepEquals, "555")
 }
 
-func (s *updateCredentialSuite) TestUpdateCredentialWithFilePath(c *gc.C) {
+func (s *updateCredentialSuite) TestUpdateRemoteCredentialWithFilePath(c *gc.C) {
 	tmpFile, err := ioutil.TempFile("", "juju-bootstrap-test")
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
@@ -344,6 +345,48 @@ func (s *updateCredentialSuite) TestUpdateCredentialWithFilePath(c *gc.C) {
 	}
 	_, err = cmdtesting.RunCommand(c, s.testCommand, "google", "gce")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *updateCredentialSuite) TestUpdateLocalCredentialWithFilePath(c *gc.C) {
+	tmpFile, err := ioutil.TempFile("", "juju-bootstrap-test")
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		tmpFile.Close()
+		err := os.Remove(tmpFile.Name())
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	s.store.Accounts = map[string]jujuclient.AccountDetails{
+		"controller": {
+			User: "admin@local",
+		},
+	}
+	s.store.Credentials = map[string]jujucloud.CloudCredential{
+		"google": {
+			AuthCredentials: map[string]jujucloud.Credential{
+				"gce": jujucloud.NewCredential(
+					jujucloud.JSONFileAuthType,
+					map[string]string{"file": "old-file-name"},
+				),
+			},
+		},
+	}
+
+	contents := []byte("{something: special}\n")
+	err = ioutil.WriteFile(tmpFile.Name(), contents, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	testFile := s.makeCredentialsTestFile(c, fmt.Sprintf(`
+credentials:
+  google:
+    gce:
+      auth-type: jsonfile
+      file: %v
+`, tmpFile.Name()))
+	_, err = cmdtesting.RunCommand(c, s.testCommand, "google", "gce", "--local", "-f", testFile)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.store.Credentials["google"].AuthCredentials["gce"].Attributes()["file"], gc.Not(jc.Contains), string(contents))
+	c.Assert(s.store.Credentials["google"].AuthCredentials["gce"].Attributes()["file"], gc.Equals, tmpFile.Name())
 }
 
 func (s *updateCredentialSuite) TestUpdateRemote(c *gc.C) {

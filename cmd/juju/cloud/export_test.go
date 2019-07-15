@@ -19,10 +19,11 @@ var (
 )
 
 type (
-	UpdateCloudCommand = updateCloudCommand
-	UpdateCloudAPI     = updateCloudAPI
-	ShowCloudAPI       = showCloudAPI
-	RemoveCloudAPI     = removeCloudAPI
+	UpdateCloudCommand   = updateCloudCommand
+	AddCredentialCommand = addCredentialCommand
+	UpdateCloudAPI       = updateCloudAPI
+	ShowCloudAPI         = showCloudAPI
+	RemoveCloudAPI       = removeCloudAPI
 )
 
 var (
@@ -127,7 +128,7 @@ func NewDetectCredentialsCommandForTest(
 func NewAddCredentialCommandForTest(
 	testStore jujuclient.CredentialStore,
 	cloudByNameFunc func(string) (*jujucloud.Cloud, error),
-) *addCredentialCommand {
+) *AddCredentialCommand {
 	return &addCredentialCommand{
 		store:           testStore,
 		cloudByNameFunc: cloudByNameFunc,
