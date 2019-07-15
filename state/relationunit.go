@@ -20,7 +20,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/environs"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 )
 
@@ -641,7 +641,7 @@ func NetworksForRelation(
 	// If the endpoint for this relation is not bound to a space, or
 	// is bound to the default space, we need to look up the ingress
 	// address info which is aware of cross model relations.
-	if boundSpace == environs.DefaultSpaceName || err != nil {
+	if boundSpace == corenetwork.DefaultSpaceName || err != nil {
 		_, crossmodel, err := rel.RemoteApplication()
 		if err != nil {
 			return "", nil, nil, errors.Trace(err)

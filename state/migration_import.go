@@ -21,8 +21,8 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
@@ -1239,7 +1239,7 @@ func (i *importer) spaces() error {
 	for _, s := range i.model.Spaces() {
 		// The default space should not have been exported, but be defensive.
 		// Any subnets added to the space will be imported subsequently.
-		if s.Name() == environs.DefaultSpaceName {
+		if s.Name() == corenetwork.DefaultSpaceName {
 			continue
 		}
 

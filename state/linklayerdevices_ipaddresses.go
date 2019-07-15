@@ -138,7 +138,7 @@ func (addr *Address) DeviceName() string {
 	return addr.doc.DeviceName
 }
 
-// Device returns the LinkLayeyDevice this IP address is assigned to.
+// Device returns the LinkLayerDevice this IP address is assigned to.
 func (addr *Address) Device() (*LinkLayerDevice, error) {
 	return addr.machineProxy().LinkLayerDevice(addr.doc.DeviceName)
 }

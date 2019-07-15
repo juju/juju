@@ -12,7 +12,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/mongo/utils"
 )
 
@@ -111,7 +111,7 @@ func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta) (map[stri
 
 		updated[key] = effectiveValue
 	}
-	if defaultBinding != environs.DefaultSpaceName {
+	if defaultBinding != network.DefaultSpaceName {
 		updated[defaultEndpointName] = defaultBinding
 	}
 
@@ -276,7 +276,7 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 		if endpoint != defaultEndpointName && !endpointsNamesSet.Contains(endpoint) {
 			return errors.NotValidf("unknown endpoint %q", endpoint)
 		}
-		if space != environs.DefaultSpaceName && !spacesNamesSet.Contains(space) {
+		if space != network.DefaultSpaceName && !spacesNamesSet.Contains(space) {
 			return errors.NotValidf("unknown space %q", space)
 		}
 	}
@@ -290,10 +290,10 @@ func DefaultEndpointBindingsForCharm(charmMeta *charm.Meta) map[string]string {
 	allRelations := charmMeta.CombinedRelations()
 	bindings := make(map[string]string, len(allRelations)+len(charmMeta.ExtraBindings))
 	for name := range allRelations {
-		bindings[name] = environs.DefaultSpaceName
+		bindings[name] = network.DefaultSpaceName
 	}
 	for name := range charmMeta.ExtraBindings {
-		bindings[name] = environs.DefaultSpaceName
+		bindings[name] = network.DefaultSpaceName
 	}
 	return bindings
 }

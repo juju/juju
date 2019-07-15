@@ -12,7 +12,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/environs"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 )
 
@@ -301,9 +301,9 @@ func createDefaultSpaceOp() txn.Op {
 		C:  spacesC,
 		Id: "0",
 		Insert: spaceDoc{
-			Id:       "0",
+			Id:       corenetwork.DefaultSpaceId,
 			Life:     Alive,
-			Name:     environs.DefaultSpaceName,
+			Name:     corenetwork.DefaultSpaceName,
 			IsPublic: true,
 		},
 	}
