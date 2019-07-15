@@ -5,7 +5,6 @@ package cloud
 
 import (
 	"fmt"
-	"github.com/juju/juju/environs"
 	"io/ioutil"
 
 	"github.com/juju/cmd"
@@ -19,6 +18,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 )
 
