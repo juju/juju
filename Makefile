@@ -199,3 +199,6 @@ local-operator-update: check-k8s-model operator-image
 .PHONY: install-dependencies
 .PHONY: rebuild-dependencies
 .PHONY: dep check-deps
+
+lint-copyright:
+	@./scripts/copyright.bash
