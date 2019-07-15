@@ -167,7 +167,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 	}
 	u := &Uniter{
 		st:                   uniterParams.UniterFacade,
-		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
+		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.ModelType == model.CAAS),
 		modelType:            uniterParams.ModelType,
 		hookLock:             uniterParams.MachineLock,
 		leadershipTracker:    uniterParams.LeadershipTracker,
@@ -601,7 +601,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	u.operationExecutor = operationExecutor
 
-	logger.Debugf("starting juju-run listener on unix:%s", u.paths.Runtime.JujuRunSocket)
 	commandRunner, err := NewChannelCommandRunner(ChannelCommandRunnerConfig{
 		Abort:          u.catacomb.Dying(),
 		Commands:       u.commands,
@@ -610,8 +609,10 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return errors.Annotate(err, "creating command runner")
 	}
+	socket := u.paths.Runtime.JujuRunSocket
+	logger.Debugf("starting juju-run listener on %v", socket)
 	u.runListener, err = NewRunListener(RunListenerConfig{
-		SocketPath:    u.paths.Runtime.JujuRunSocket,
+		Socket:        &socket,
 		CommandRunner: commandRunner,
 	})
 	if err != nil {

@@ -54,7 +54,9 @@ func (w *hookRunner) acquireExecutionLock(action string, interrupt <-chan struct
 
 func (w *hookRunner) RunHook(code, info string, interrupt <-chan struct{}) (runErr error) {
 	unitTag := w.tag
-	paths := uniter.NewPaths(w.config.DataDir(), unitTag)
+	// TODO:
+	isCAAS := false
+	paths := uniter.NewPaths(w.config.DataDir(), unitTag, isCAAS)
 	ctx := NewLimitedContext(unitTag.String())
 	ctx.SetEnvVars(map[string]string{
 		"JUJU_METER_STATUS": code,

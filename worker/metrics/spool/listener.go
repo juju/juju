@@ -34,7 +34,7 @@ type socketListener struct {
 
 // NewSocketListener returns a new socket listener struct.
 func NewSocketListener(socketPath string, handler ConnectionHandler) (*socketListener, error) {
-	listener, err := sockets.Listen(socketPath)
+	listener, err := sockets.Listen(sockets.Socket{Network: "unix", Address: socketPath})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

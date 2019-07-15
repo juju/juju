@@ -270,6 +270,12 @@ func (runner *runner) startJujucServer() (*jujuc.Server, error) {
 		}
 		return jujuc.NewCommand(runner.context, cmdName)
 	}
+	logger.Criticalf(
+		"runner.context.UnitName() -> %q, runner.context.Id() -> %q, runner.paths.GetJujucSocket() -> %q",
+		runner.context.UnitName(),
+		runner.context.Id(),
+		runner.paths.GetJujucSocket(),
+	)
 	srv, err := jujuc.NewServer(getCmd, runner.paths.GetJujucSocket())
 	if err != nil {
 		return nil, errors.Annotate(err, "starting jujuc server")
