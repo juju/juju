@@ -32,6 +32,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	apimachineryversion "k8s.io/apimachinery/pkg/version"
@@ -2666,6 +2667,18 @@ func labelsToSelector(labels map[string]string) string {
 	}
 	sort.Strings(selectors) // for testing.
 	return strings.Join(selectors, ",")
+}
+
+func newUIDPreconditions(uid k8stypes.UID) *v1.Preconditions {
+	return &v1.Preconditions{UID: &uid}
+}
+
+func newPreconditionDeleteOptions(uid k8stypes.UID) *v1.DeleteOptions {
+	// TODO(caas): refactor all deleting single resource operation has this UID ensured precondition.
+	return &v1.DeleteOptions{
+		Preconditions:     newUIDPreconditions(uid),
+		PropagationPolicy: &defaultPropagationPolicy,
+	}
 }
 
 func isLegacyName(resourceName string) bool {

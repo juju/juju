@@ -16,6 +16,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -239,8 +240,15 @@ func (s *BaseSuite) k8sAlreadyExistsError() *k8serrors.StatusError {
 	return k8serrors.NewAlreadyExists(schema.GroupResource{}, "test")
 }
 
-func (s *BaseSuite) deleteOptions(policy v1.DeletionPropagation) *v1.DeleteOptions {
-	return &v1.DeleteOptions{PropagationPolicy: &policy}
+func (s *BaseSuite) deleteOptions(policy v1.DeletionPropagation, uid *types.UID) *v1.DeleteOptions {
+	ops := &v1.DeleteOptions{
+		PropagationPolicy: &policy,
+	}
+	if uid != nil {
+		// TODO(caas): change uid is required once all delete operation refactored.
+		ops.Preconditions = &v1.Preconditions{UID: uid}
+	}
+	return ops
 }
 
 func (s *BaseSuite) k8sNewFakeWatcher() *watch.RaceFreeFakeWatcher {

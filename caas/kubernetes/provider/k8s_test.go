@@ -651,10 +651,10 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 			Return(namespaceWatcher, nil),
 		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(ns, nil),
-		s.mockNamespaces.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+		s.mockNamespaces.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground, nil)).Times(1).
 			Return(nil),
 		s.mockStorageClass.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground),
+			s.deleteOptions(v1.DeletePropagationForeground, nil),
 			v1.ListOptions{LabelSelector: "juju-model==test"},
 		).Times(1).
 			Return(s.k8sNotFoundError()),
@@ -738,11 +738,11 @@ func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockConfigMaps.EXPECT().Delete("test-operator-config", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+		s.mockConfigMaps.EXPECT().Delete("test-operator-config", s.deleteOptions(v1.DeletePropagationForeground, nil)).Times(1).
 			Return(s.k8sNotFoundError()),
-		s.mockConfigMaps.EXPECT().Delete("test-configurations-config", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+		s.mockConfigMaps.EXPECT().Delete("test-configurations-config", s.deleteOptions(v1.DeletePropagationForeground, nil)).Times(1).
 			Return(s.k8sNotFoundError()),
-		s.mockStatefulSets.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+		s.mockStatefulSets.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, nil)).Times(1).
 			Return(s.k8sNotFoundError()),
 		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator==test"}).
 			Return(&core.PodList{Items: []core.Pod{{
@@ -758,13 +758,13 @@ func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
 					}},
 				},
 			}}}, nil),
-		s.mockSecrets.EXPECT().Delete("test-jujud-secret", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+		s.mockSecrets.EXPECT().Delete("test-jujud-secret", s.deleteOptions(v1.DeletePropagationForeground, nil)).Times(1).
 			Return(s.k8sNotFoundError()),
-		s.mockPersistentVolumeClaims.EXPECT().Delete("test-operator-volume", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+		s.mockPersistentVolumeClaims.EXPECT().Delete("test-operator-volume", s.deleteOptions(v1.DeletePropagationForeground, nil)).Times(1).
 			Return(s.k8sNotFoundError()),
-		s.mockPersistentVolumes.EXPECT().Delete("test-operator-volume", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+		s.mockPersistentVolumes.EXPECT().Delete("test-operator-volume", s.deleteOptions(v1.DeletePropagationForeground, nil)).Times(1).
 			Return(s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+		s.mockDeployments.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, nil)).Times(1).
 			Return(s.k8sNotFoundError()),
 	)
 
@@ -972,38 +972,38 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+		s.mockServices.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground, nil)).Times(1).
 			Return(s.k8sNotFoundError()),
-		s.mockStatefulSets.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+		s.mockStatefulSets.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground, nil)).Times(1).
 			Return(s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Delete("test-endpoints", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+		s.mockServices.EXPECT().Delete("test-endpoints", s.deleteOptions(v1.DeletePropagationForeground, nil)).Times(1).
 			Return(s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+		s.mockDeployments.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground, nil)).Times(1).
 			Return(s.k8sNotFoundError()),
 		s.mockSecrets.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==test"}).Times(1).
 			Return(&core.SecretList{Items: []core.Secret{{
 				ObjectMeta: v1.ObjectMeta{Name: "secret"},
 			}}}, nil),
-		s.mockSecrets.EXPECT().Delete("secret", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
+		s.mockSecrets.EXPECT().Delete("secret", s.deleteOptions(v1.DeletePropagationForeground, nil)).Times(1).
 			Return(s.k8sNotFoundError()),
 		s.mockRoleBindings.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground),
+			s.deleteOptions(v1.DeletePropagationForeground, nil),
 			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
 		).Times(1).Return(nil),
 		s.mockClusterRoleBindings.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground),
+			s.deleteOptions(v1.DeletePropagationForeground, nil),
 			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
 		).Times(1).Return(nil),
 		s.mockRoles.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground),
+			s.deleteOptions(v1.DeletePropagationForeground, nil),
 			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
 		).Times(1).Return(nil),
 		s.mockClusterRoles.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground),
+			s.deleteOptions(v1.DeletePropagationForeground, nil),
 			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
 		).Times(1).Return(nil),
 		s.mockServiceAccounts.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground),
+			s.deleteOptions(v1.DeletePropagationForeground, nil),
 			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
 		).Times(1).Return(nil),
 	)
@@ -1702,6 +1702,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 			},
 		},
 	}
+	crbUID := crb.GetUID()
 
 	secretArg := s.secretArg(c, map[string]string{"fred": "mary"})
 	gomock.InOrder(
@@ -1719,7 +1720,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 		s.mockClusterRoles.EXPECT().Update(cr).Times(1).Return(cr, nil),
 		s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).Times(1).
 			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{*crb}}, nil),
-		s.mockClusterRoleBindings.EXPECT().Delete("read-pods", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).Return(nil),
+		s.mockClusterRoleBindings.EXPECT().Delete("read-pods", s.deleteOptions(v1.DeletePropagationForeground, &crbUID)).Times(1).Return(nil),
 		s.mockClusterRoleBindings.EXPECT().Create(crb).Times(1).Return(crb, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
@@ -1861,6 +1862,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountReferenceExistingClu
 			},
 		},
 	}
+	crbUID := crb.GetUID()
 
 	secretArg := s.secretArg(c, map[string]string{"fred": "mary"})
 	gomock.InOrder(
@@ -1872,7 +1874,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountReferenceExistingClu
 		s.mockClusterRoles.EXPECT().Get("pod-reader", v1.GetOptions{IncludeUninitialized: true}).Times(1).Return(cr, nil),
 		s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).Times(1).
 			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{*crb}}, nil),
-		s.mockClusterRoleBindings.EXPECT().Delete("read-pods", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).Return(nil),
+		s.mockClusterRoleBindings.EXPECT().Delete("read-pods", s.deleteOptions(v1.DeletePropagationForeground, &crbUID)).Times(1).Return(nil),
 		s.mockClusterRoleBindings.EXPECT().Create(crb).Times(1).Return(crb, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
