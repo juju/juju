@@ -67,9 +67,6 @@ func (st *State) SaveSubnetsFromProvider(subnets []network.SubnetInfo, spaceName
 	}
 
 	for _, subnet := range subnets {
-		if modelSubnetIds.Contains(string(subnet.ProviderId)) {
-			continue
-		}
 		ip, _, err := net.ParseCIDR(subnet.CIDR)
 		if err != nil {
 			return errors.Trace(err)
@@ -81,14 +78,21 @@ func (st *State) SaveSubnetsFromProvider(subnets []network.SubnetInfo, spaceName
 		if len(subnet.AvailabilityZones) > 0 {
 			firstZone = subnet.AvailabilityZones[0]
 		}
-		_, err = st.AddSubnet(SubnetInfo{
+		info := SubnetInfo{
 			ProviderId:        subnet.ProviderId,
 			ProviderNetworkId: subnet.ProviderNetworkId,
 			CIDR:              subnet.CIDR,
 			SpaceName:         spaceName,
 			VLANTag:           subnet.VLANTag,
 			AvailabilityZone:  firstZone,
-		})
+		}
+
+		if modelSubnetIds.Contains(string(subnet.ProviderId)) {
+			err = st.SubnetUpdate(info)
+		} else {
+			_, err = st.AddSubnet(info)
+		}
+
 		if err != nil {
 			return errors.Trace(err)
 		}

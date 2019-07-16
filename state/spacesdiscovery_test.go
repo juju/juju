@@ -285,6 +285,29 @@ func (s *SpacesDiscoverySuite) TestReloadSpacesSubnetsOnlyAddsSubnets(c *gc.C) {
 	checkSubnetsEqual(c, subnets, fourSubnets)
 }
 
+func (s *SpacesDiscoverySuite) TestReloadSpacesSubnetsUpdatesSubnets(c *gc.C) {
+	s.environ = networkedEnviron{
+		stub:           &testing.Stub{},
+		spaceDiscovery: false,
+		subnets:        twoSubnets,
+	}
+	s.usedEnviron = &s.environ
+	err := s.State.ReloadSpaces(s.usedEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.environ.spaceDiscovery = true
+	s.environ.spaces = spaceOne
+	err = s.State.ReloadSpaces(s.usedEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subnets, err := s.State.AllSubnets()
+	c.Assert(err, jc.ErrorIsNil)
+	twoSubnetsWithSpace := twoSubnets
+	twoSubnetsWithSpace[0].SpaceProviderId = spaceOne[0].ProviderId
+	twoSubnetsWithSpace[1].SpaceProviderId = spaceOne[0].ProviderId
+	checkSubnetsEqual(c, subnets, twoSubnetsWithSpace)
+}
+
 // TODO(wpk) 2017-05-24 this test will have to be enabled only when we we support removing spaces/subnets in discovery.
 func (s *SpacesDiscoverySuite) TestReloadSpacesSubnetsOnlyReplacesSubnets(c *gc.C) {
 	c.Skip("Removing subnets not supported")

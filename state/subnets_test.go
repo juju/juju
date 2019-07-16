@@ -9,7 +9,9 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -291,4 +293,70 @@ func (s *SubnetSuite) TestAllSubnets(c *gc.C) {
 		}
 		c.Check(subnet.AvailabilityZone(), gc.Equals, subnetInfos[i].AvailabilityZone)
 	}
+}
+
+func (s *SubnetSuite) TestAdditiveUpdateMAASUndefinedSpace(c *gc.C) {
+	subnetInfo := state.SubnetInfo{CIDR: "8.8.8.0/24", SpaceName: "undefined"}
+	subnet, err := s.State.AddSubnet(subnetInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace(names.NewSpaceTag("undefined").Id(), network.Id("-1"), []string{"8.8.8.0/24"}, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subnetInfo.SpaceName = "testme"
+	_, err = s.State.AddSpace(names.NewSpaceTag(subnetInfo.SpaceName).Id(), network.Id("2"), []string{}, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = subnet.Update(subnetInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = subnet.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnet.SpaceName(), gc.Equals, subnetInfo.SpaceName)
+}
+
+func (s *SubnetSuite) TestAdditiveUpdateEmpty(c *gc.C) {
+	subnetInfo := state.SubnetInfo{CIDR: "8.8.8.0/24"}
+	subnet, err := s.State.AddSubnet(subnetInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subnetInfo.VLANTag = 76
+	subnetInfo.AvailabilityZone = "testme-az"
+	subnetInfo.SpaceName = "testme"
+	_, err = s.State.AddSpace(names.NewSpaceTag(subnetInfo.SpaceName).Id(), network.Id("2"), []string{}, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = subnet.Update(subnetInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = subnet.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnet.VLANTag(), gc.Equals, subnetInfo.VLANTag)
+	c.Assert(subnet.AvailabilityZone(), gc.Equals, subnetInfo.AvailabilityZone)
+	c.Assert(subnet.SpaceName(), gc.Equals, subnetInfo.SpaceName)
+}
+
+func (s *SubnetSuite) TestAdditiveUpdateNonEmpty(c *gc.C) {
+	expectedSubnetInfo := state.SubnetInfo{CIDR: "8.8.8.0/24", SpaceName: "changeme", VLANTag: 42, AvailabilityZone: "changeme-az"}
+	subnet, err := s.State.AddSubnet(expectedSubnetInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace(names.NewSpaceTag(expectedSubnetInfo.SpaceName).Id(), network.Id("2"), []string{}, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newSubnetInfo := state.SubnetInfo{
+		CIDR:             subnet.CIDR(),
+		SpaceName:        "testme",
+		VLANTag:          76,
+		AvailabilityZone: "testme-az",
+	}
+	_, err = s.State.AddSpace(names.NewSpaceTag(newSubnetInfo.SpaceName).Id(), network.Id("7"), []string{}, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = subnet.Update(newSubnetInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = subnet.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnet.SpaceName(), gc.Equals, expectedSubnetInfo.SpaceName)
+	c.Assert(subnet.VLANTag(), gc.Equals, expectedSubnetInfo.VLANTag)
+	c.Assert(subnet.AvailabilityZone(), gc.Equals, expectedSubnetInfo.AvailabilityZone)
 }
