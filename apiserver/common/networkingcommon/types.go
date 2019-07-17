@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
@@ -33,7 +34,7 @@ type BackingSubnet interface {
 	AvailabilityZones() []string
 	Status() string
 	SpaceName() string
-	Life() params.Life
+	Life() life.Value
 }
 
 // BackingSubnetInfo describes a single subnet to be added in the
@@ -42,9 +43,6 @@ type BackingSubnet interface {
 // TODO(dimitern): Replace state.SubnetInfo with this and remove
 // BackingSubnetInfo, once the rest of state backing methods and the
 // following pre-reqs are done:
-// * subnetDoc.AvailabilityZone becomes subnetDoc.AvailabilityZones,
-//   adding an upgrade step to migrate existing non empty zones on
-//   subnet docs. Also change state.Subnet.AvailabilityZone to
 // * Subnets need a reference count to calculate Status.
 // * ensure EC2 and MAAS providers accept empty IDs as Subnets() args
 //   and return all subnets, including the AvailabilityZones (for EC2;
@@ -132,21 +130,27 @@ func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
 	cidr := subnet.CIDR()
 	vlantag := subnet.VLANTag()
 	providerid := subnet.ProviderId()
+	providerNetworkid := subnet.ProviderNetworkId()
 	zones := subnet.AvailabilityZones()
 	status := subnet.Status()
-	var spaceTag names.SpaceTag
+
+	// TODO(babbageclunk): make the empty string a valid space
+	// name, rather than treating blank as "doesn't have a space".
+	// lp:1672888
+	var spaceTag string
 	if subnet.SpaceName() != "" {
-		spaceTag = names.NewSpaceTag(subnet.SpaceName())
+		spaceTag = names.NewSpaceTag(subnet.SpaceName()).String()
 	}
 
 	return params.Subnet{
-		CIDR:       cidr,
-		VLANTag:    vlantag,
-		ProviderId: string(providerid),
-		Zones:      zones,
-		Status:     status,
-		SpaceTag:   spaceTag.String(),
-		Life:       subnet.Life(),
+		CIDR:              cidr,
+		VLANTag:           vlantag,
+		ProviderId:        string(providerid),
+		ProviderNetworkId: string(providerNetworkid),
+		Zones:             zones,
+		Status:            status,
+		SpaceTag:          spaceTag,
+		Life:              params.Life(subnet.Life()),
 	}
 }
 

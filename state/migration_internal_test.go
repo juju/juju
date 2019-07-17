@@ -654,7 +654,7 @@ func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
 		"VLANTag",
 		"SpaceName",
 		"ProviderId",
-		"AvailabilityZone",
+		"AvailabilityZones",
 		"ProviderNetworkId",
 		"FanLocalUnderlay",
 		"FanOverlay",

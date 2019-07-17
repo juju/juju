@@ -181,11 +181,7 @@ func checkSubnetsEqual(c *gc.C, subnets []*state.Subnet, subnetInfos []network.S
 	for i, subnetInfo := range subnetInfos {
 		subnet := subnets[i]
 		c.Check(subnetInfo.CIDR, gc.Equals, subnet.CIDR())
-		if len(subnetInfo.AvailabilityZones) > 0 {
-			c.Check(subnetInfo.AvailabilityZones[0], gc.Equals, subnet.AvailabilityZone())
-		} else {
-			c.Check(subnet.AvailabilityZone(), gc.Equals, "")
-		}
+		c.Check(subnetInfo.AvailabilityZones, gc.DeepEquals, subnet.AvailabilityZones())
 		c.Check(subnetInfo.ProviderId, gc.Equals, subnet.ProviderId())
 		c.Check(subnetInfo.ProviderNetworkId, gc.Equals, subnet.ProviderNetworkId())
 		c.Check(subnetInfo.VLANTag, gc.Equals, subnet.VLANTag())

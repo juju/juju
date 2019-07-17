@@ -62,14 +62,14 @@ func (s *Space) ProviderId() network.Id {
 }
 
 // Subnets returns all the subnets associated with the Space.
-func (s *Space) Subnets() (results []*Subnet, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot fetch subnets")
+func (s *Space) Subnets() ([]*Subnet, error) {
 	name := s.Name()
 
 	subnetsCollection, closer := s.st.db().GetCollection(subnetsC)
 	defer closer()
 
 	var doc subnetDoc
+	var results []*Subnet
 	// We ignore space-name field for FAN subnets...
 	iter := subnetsCollection.Find(bson.D{{"space-name", name}, bson.DocElem{"fan-local-underlay", bson.D{{"$exists", false}}}}).Iter()
 	defer iter.Close()
@@ -84,7 +84,7 @@ func (s *Space) Subnets() (results []*Subnet, err error) {
 		}
 	}
 	if err := iter.Close(); err != nil {
-		return nil, err
+		return nil, errors.Annotatef(err, "cannot fetch subnets")
 	}
 	return results, nil
 }

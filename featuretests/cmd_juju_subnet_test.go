@@ -112,7 +112,7 @@ func (s *cmdSubnetSuite) TestSubnetAddWithoutZonesWhenProviderHasZones(c *gc.C) 
 	c.Assert(subnet.CIDR(), gc.Equals, "0.10.0.0/24")
 	c.Assert(subnet.SpaceName(), gc.Equals, "myspace")
 	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("dummy-private"))
-	c.Assert(subnet.AvailabilityZone(), gc.Equals, "zone1")
+	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, []string{"zone1", "zone2"})
 }
 
 func (s *cmdSubnetSuite) TestSubnetAddWithUnavailableZones(c *gc.C) {
@@ -136,7 +136,7 @@ func (s *cmdSubnetSuite) TestSubnetAddWithZonesWithNoProviderZones(c *gc.C) {
 	c.Assert(subnet.CIDR(), gc.Equals, "0.20.0.0/24")
 	c.Assert(subnet.SpaceName(), gc.Equals, "myspace")
 	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("dummy-public"))
-	c.Assert(subnet.AvailabilityZone(), gc.Equals, "zone1")
+	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, []string{"zone1"})
 }
 
 func (s *cmdSubnetSuite) TestSubnetListNoResults(c *gc.C) {

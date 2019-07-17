@@ -59,15 +59,6 @@ type SubnetInfo struct {
 	FanInfo *FanCIDRs
 }
 
-// AvailabilityZone returns the first of any availability zones,
-// or an empty string.
-func (s *SubnetInfo) AvailabilityZone() string {
-	if len(s.AvailabilityZones) > 0 {
-		return s.AvailabilityZones[0]
-	}
-	return ""
-}
-
 // SetFan sets the fan networking information for the subnet.
 func (s *SubnetInfo) SetFan(underlay, overlay string) {
 	s.FanInfo = newFanCIDRs(overlay, underlay)

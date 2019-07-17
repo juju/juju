@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
@@ -18,67 +18,33 @@ import (
 
 // subnetShim forwards and adapts state.Subnets methods to BackingSubnet.
 type subnetShim struct {
-	subnet *state.Subnet
+	*state.Subnet
 }
 
-func (s *subnetShim) CIDR() string {
-	return s.subnet.CIDR()
-}
-
-func (s *subnetShim) VLANTag() int {
-	return s.subnet.VLANTag()
-}
-
-func (s *subnetShim) ProviderNetworkId() corenetwork.Id {
-	return s.subnet.ProviderNetworkId()
-}
-
-func (s *subnetShim) ProviderId() corenetwork.Id {
-	return s.subnet.ProviderId()
-}
-
-func (s *subnetShim) AvailabilityZones() []string {
-	// TODO(dimitern): Add multiple zones to state.Subnet.
-	return []string{s.subnet.AvailabilityZone()}
-}
-
-func (s *subnetShim) Life() params.Life {
-	return params.Life(s.subnet.Life().String())
+func (s *subnetShim) Life() life.Value {
+	return life.Value(s.Subnet.Life().String())
 }
 
 func (s *subnetShim) Status() string {
-	// TODO(dimitern): This should happen in a cleaner way.
-	if s.Life() != params.Alive {
+	if life.IsNotAlive(s.Life()) {
 		return "terminating"
 	}
 	return "in-use"
 }
 
-func (s *subnetShim) SpaceName() string {
-	return s.subnet.SpaceName()
-}
-
 // spaceShim forwards and adapts state.Space methods to BackingSpace.
 type spaceShim struct {
-	space *state.Space
-}
-
-func (s *spaceShim) Name() string {
-	return s.space.Name()
-}
-
-func (s *spaceShim) ProviderId() corenetwork.Id {
-	return s.space.ProviderId()
+	*state.Space
 }
 
 func (s *spaceShim) Subnets() ([]BackingSubnet, error) {
-	results, err := s.space.Subnets()
+	results, err := s.Space.Subnets()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	subnets := make([]BackingSubnet, len(results))
 	for i, result := range results {
-		subnets[i] = &subnetShim{subnet: result}
+		subnets[i] = &subnetShim{Subnet: result}
 	}
 	return subnets, nil
 }
@@ -107,14 +73,13 @@ func (s *stateShim) AddSpace(name string, providerId corenetwork.Id, subnetIds [
 }
 
 func (s *stateShim) AllSpaces() ([]BackingSpace, error) {
-	// TODO(dimitern): Make this ListSpaces() instead.
 	results, err := s.st.AllSpaces()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	spaces := make([]BackingSpace, len(results))
 	for i, result := range results {
-		spaces[i] = &spaceShim{space: result}
+		spaces[i] = &spaceShim{Space: result}
 	}
 	return spaces, nil
 }
@@ -138,7 +103,7 @@ func (s *stateShim) AllSubnets() ([]BackingSubnet, error) {
 	}
 	subnets := make([]BackingSubnet, len(results))
 	for i, result := range results {
-		subnets[i] = &subnetShim{subnet: result}
+		subnets[i] = &subnetShim{Subnet: result}
 	}
 	return subnets, nil
 }
