@@ -57,7 +57,7 @@ See also:
 type updateCredentialCommand struct {
 	modelcmd.ControllerCommandBase
 
-	api credentialAPI
+	api CredentialAPI
 
 	cloud      string
 	credential string
@@ -117,14 +117,14 @@ func (c *updateCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Region, "region", "", "Cloud region that credential is valid for")
 }
 
-type credentialAPI interface {
+type CredentialAPI interface {
 	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
 	UpdateCloudsCredentials(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error)
 	BestAPIVersion() int
 	Close() error
 }
 
-func (c *updateCredentialCommand) getAPI() (credentialAPI, error) {
+func (c *updateCredentialCommand) getAPI() (CredentialAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -330,6 +330,11 @@ func (c *updateCredentialCommand) updateRemoteCredentials(ctx *cmd.Context, upda
 
 	var erred error
 	verified := map[string]jujucloud.Credential{}
+	mapUnion := func(new map[string]jujucloud.Credential) {
+		for k, v := range new {
+			verified[k] = v
+		}
+	}
 	for cloudName, cloudCredentials := range update {
 		remoteCloud, ok := remoteUserClouds[names.NewCloudTag(cloudName)]
 		if !ok {
@@ -337,26 +342,14 @@ func (c *updateCredentialCommand) updateRemoteCredentials(ctx *cmd.Context, upda
 			erred = cmd.ErrSilent
 			continue
 		}
-
-		for credentialName, aCredential := range cloudCredentials.AuthCredentials {
-			id := fmt.Sprintf("%s/%s/%s", cloudName, accountDetails.User, credentialName)
-			if !names.IsValidCloudCredential(id) {
-				ctx.Warningf("Could not update controller credential %v for user %v on cloud %v: %v", credentialName, accountDetails.User, cloudName, errors.NotValidf("cloud credential ID %q", id))
-				erred = cmd.ErrSilent
-				continue
-			}
-			region := cloudCredentials.DefaultRegion
-			if c.Region != "" {
-				region = c.Region
-			}
-			verifiedCredential, err := modelcmd.VerifyCredentials(ctx, &remoteCloud, &aCredential, credentialName, region)
-			if err != nil {
-				logger.Errorf("%v", err)
-				ctx.Warningf("Could not verify credential %v for cloud %v locally", credentialName, cloudName)
-				erred = cmd.ErrSilent
-				continue
-			}
-			verified[names.NewCloudCredentialTag(id).String()] = *verifiedCredential
+		region := cloudCredentials.DefaultRegion
+		if c.Region != "" {
+			region = c.Region
+		}
+		newlyVerified, err := verifyCredentialsForUpload(ctx, accountDetails, &remoteCloud, region, cloudCredentials.AuthCredentials)
+		mapUnion(newlyVerified)
+		if err != nil {
+			erred = err
 		}
 	}
 
@@ -369,6 +362,36 @@ func (c *updateCredentialCommand) updateRemoteCredentials(ctx *cmd.Context, upda
 		ctx.Warningf("Could not update credentials remotely, on controller %q", controllerName)
 		erred = cmd.ErrSilent
 	}
+	if err := processUpdateCredentialResult(ctx, accountDetails, "updat", results); err != nil {
+		return err
+	}
+	return erred
+}
+
+func verifyCredentialsForUpload(ctx *cmd.Context, accountDetails *jujuclient.AccountDetails, aCloud *jujucloud.Cloud, region string, all map[string]jujucloud.Credential) (map[string]jujucloud.Credential, error) {
+	verified := map[string]jujucloud.Credential{}
+	var erred error
+	for credentialName, aCredential := range all {
+		id := fmt.Sprintf("%s/%s/%s", aCloud.Name, accountDetails.User, credentialName)
+		if !names.IsValidCloudCredential(id) {
+			ctx.Warningf("Could not update controller credential %v for user %v on cloud %v: %v", credentialName, accountDetails.User, aCloud.Name, errors.NotValidf("cloud credential ID %q", id))
+			erred = cmd.ErrSilent
+			continue
+		}
+		verifiedCredential, err := modelcmd.VerifyCredentials(ctx, aCloud, &aCredential, credentialName, region)
+		if err != nil {
+			logger.Errorf("%v", err)
+			ctx.Warningf("Could not verify credential %v for cloud %v locally", credentialName, aCloud.Name)
+			erred = cmd.ErrSilent
+			continue
+		}
+		verified[names.NewCloudCredentialTag(id).String()] = *verifiedCredential
+	}
+	return verified, erred
+}
+
+func processUpdateCredentialResult(ctx *cmd.Context, accountDetails *jujuclient.AccountDetails, op string, results []params.UpdateCredentialResult) error {
+	var erred error
 	for _, result := range results {
 		tag, err := names.ParseCloudCredentialTag(result.CredentialTag)
 		if err != nil {
@@ -379,7 +402,7 @@ func (c *updateCredentialCommand) updateRemoteCredentials(ctx *cmd.Context, upda
 		// We always want to display models information if there is any.
 		common.OutputUpdateCredentialModelResult(ctx, result.Models, true)
 		if result.Error != nil {
-			ctx.Warningf("Controller credential %q for user %q on cloud %q not updated: %v.", tag.Name(), accountDetails.User, tag.Cloud().Id(), result.Error)
+			ctx.Warningf("Controller credential %q for user %q on cloud %q not %ved: %v.", tag.Name(), accountDetails.User, tag.Cloud().Id(), op, result.Error)
 			if len(result.Models) != 0 {
 				ctx.Infof("Failed models may require a different credential.")
 				ctx.Infof("Use ‘juju set-credential’ to change credential for these models before repeating this update.")
@@ -389,9 +412,9 @@ func (c *updateCredentialCommand) updateRemoteCredentials(ctx *cmd.Context, upda
 			continue
 		}
 		ctx.Infof(`
-Controller credential %q for user %q on cloud %q updated.
+Controller credential %q for user %q on cloud %q %ved.
 For more information, see ‘juju show-credential %v %v’.`[1:],
-			tag.Name(), accountDetails.User, tag.Cloud().Id(),
+			tag.Name(), accountDetails.User, tag.Cloud().Id(), op,
 			tag.Cloud().Id(), tag.Name())
 	}
 	return erred
