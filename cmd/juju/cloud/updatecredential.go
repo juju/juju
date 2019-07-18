@@ -330,8 +330,8 @@ func (c *updateCredentialCommand) updateRemoteCredentials(ctx *cmd.Context, upda
 
 	var erred error
 	verified := map[string]jujucloud.Credential{}
-	mapUnion := func(new map[string]jujucloud.Credential) {
-		for k, v := range new {
+	mapUnion := func(items map[string]jujucloud.Credential) {
+		for k, v := range items {
 			verified[k] = v
 		}
 	}
@@ -362,7 +362,7 @@ func (c *updateCredentialCommand) updateRemoteCredentials(ctx *cmd.Context, upda
 		ctx.Warningf("Could not update credentials remotely, on controller %q", controllerName)
 		erred = cmd.ErrSilent
 	}
-	if err := processUpdateCredentialResult(ctx, accountDetails, "updat", results); err != nil {
+	if err := processUpdateCredentialResult(ctx, accountDetails, "updated", results); err != nil {
 		return err
 	}
 	return erred
@@ -402,7 +402,7 @@ func processUpdateCredentialResult(ctx *cmd.Context, accountDetails *jujuclient.
 		// We always want to display models information if there is any.
 		common.OutputUpdateCredentialModelResult(ctx, result.Models, true)
 		if result.Error != nil {
-			ctx.Warningf("Controller credential %q for user %q on cloud %q not %ved: %v.", tag.Name(), accountDetails.User, tag.Cloud().Id(), op, result.Error)
+			ctx.Warningf("Controller credential %q for user %q on cloud %q not %v: %v.", tag.Name(), accountDetails.User, tag.Cloud().Id(), op, result.Error)
 			if len(result.Models) != 0 {
 				ctx.Infof("Failed models may require a different credential.")
 				ctx.Infof("Use ‘juju set-credential’ to change credential for these models before repeating this update.")
@@ -412,7 +412,7 @@ func processUpdateCredentialResult(ctx *cmd.Context, accountDetails *jujuclient.
 			continue
 		}
 		ctx.Infof(`
-Controller credential %q for user %q on cloud %q %ved.
+Controller credential %q for user %q on cloud %q %v.
 For more information, see ‘juju show-credential %v %v’.`[1:],
 			tag.Name(), accountDetails.User, tag.Cloud().Id(), op,
 			tag.Cloud().Id(), tag.Name())
