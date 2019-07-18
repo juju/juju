@@ -153,7 +153,7 @@ func NewSetDefaultRegionCommandForTest(testStore jujuclient.CredentialStore) *se
 	}
 }
 
-func NewUpdateCredentialCommandForTest(testStore jujuclient.ClientStore, api credentialAPI) cmd.Command {
+func NewUpdateCredentialCommandForTest(testStore jujuclient.ClientStore, api CredentialAPI) cmd.Command {
 	c := &updateCredentialCommand{
 		api: api,
 	}
