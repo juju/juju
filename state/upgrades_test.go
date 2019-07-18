@@ -3390,6 +3390,50 @@ func (s *upgradesSuite) TestAddSpaceIdToSpaceDocs(c *gc.C) {
 	s.assertUpgradedData(c, AddSpaceIdToSpaceDocs, expectUpgradedData{col, expected})
 }
 
+func (s *upgradesSuite) TestChangeSubnetAZtoSlice(c *gc.C) {
+	col, closer := s.state.db().GetRawCollection(subnetsC)
+	defer closer()
+
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	err := col.Insert(bson.M{
+		"_id":              ensureModelUUID(uuid1, "0"),
+		"model-uuid":       uuid1,
+		"providerid":       "provider1",
+		"availabilityzone": "testme",
+	}, bson.M{
+		"_id":        ensureModelUUID(uuid2, "0"),
+		"model-uuid": uuid2,
+		"is-public":  true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		// The altered spaces:
+		{
+			"_id":                uuid1 + ":0",
+			"model-uuid":         uuid1,
+			"providerid":         "provider1",
+			"availability-zones": []interface{}{"testme"},
+		}, {
+			"_id":        uuid2 + ":0",
+			"model-uuid": uuid2,
+			"is-public":  true,
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, ChangeSubnetAZtoSlice, expectUpgradedData{col, expected})
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

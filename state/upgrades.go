@@ -2311,3 +2311,44 @@ func AddSpaceIdToSpaceDocs(pool *StatePool) (err error) {
 		return errors.Trace(st.db().RunTransaction(ops))
 	}))
 }
+
+// ChangeSubnetAZtoSlice changes AvailabilityZone in every subnet document
+// to AvailabilityZones, a slice of strings.
+func ChangeSubnetAZtoSlice(pool *StatePool) (err error) {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(subnetsC)
+		defer closer()
+
+		type oldSubnetDoc struct {
+			DocId            string `bson:"_id"`
+			AvailabilityZone string `bson:"availabilityzone"`
+		}
+
+		var docs []oldSubnetDoc
+		err := col.Find(nil).All(&docs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, sDoc := range docs {
+
+			if sDoc.AvailabilityZone == "" {
+				continue
+			}
+
+			ops = append(ops, txn.Op{
+				C:  subnetsC,
+				Id: sDoc.DocId,
+				Update: bson.D{
+					{"$set", bson.D{{"availability-zones", []string{sDoc.AvailabilityZone}}}},
+					{"$unset", bson.D{{"availabilityzone", nil}}},
+				},
+			})
+		}
+
+		ops = append(ops, st.createDefaultSpaceOp())
+
+		return errors.Trace(st.db().RunTransaction(ops))
+	}))
+}

@@ -31,3 +31,9 @@ func (s *steps27Suite) TestAddSpaceIdToSpaceDocs(c *gc.C) {
 	// Logic for step itself is tested in state package.
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
+
+func (s *steps27Suite) TestChangeSubnetAZtoSlice(c *gc.C) {
+	step := findStateStep(c, v27, `change subnet AvailabilityZone to AvailabilityZones`)
+	// Logic for step itself is tested in state package.
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
