@@ -17,7 +17,9 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -31,15 +33,15 @@ import (
 type addCredentialSuite struct {
 	testing.BaseSuite
 
-	store           *jujuclient.MemStore
-	schema          map[jujucloud.AuthType]jujucloud.CredentialSchema
-	authTypes       []jujucloud.AuthType
-	cloudByNameFunc func(string) (*jujucloud.Cloud, error)
+	store             *jujuclient.MemStore
+	schema            map[jujucloud.AuthType]jujucloud.CredentialSchema
+	authTypes         []jujucloud.AuthType
+	cloudByNameFunc   func(string) (*jujucloud.Cloud, error)
+	credentialAPIFunc func() (cloud.CredentialAPI, error)
+	api               *fakeUpdateCredentialAPI
 }
 
-var _ = gc.Suite(&addCredentialSuite{
-	store: jujuclient.NewMemStore(),
-})
+var _ = gc.Suite(&addCredentialSuite{})
 
 func (s *addCredentialSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
@@ -51,6 +53,7 @@ func (s *addCredentialSuite) SetUpSuite(c *gc.C) {
 
 func (s *addCredentialSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.store = jujuclient.NewMemStore()
 	s.store.Credentials = make(map[string]jujucloud.CloudCredential)
 	s.cloudByNameFunc = func(cloud string) (*jujucloud.Cloud, error) {
 		if cloud != "somecloud" && cloud != "anothercloud" {
@@ -64,10 +67,15 @@ func (s *addCredentialSuite) SetUpTest(c *gc.C) {
 			IdentityEndpoint: "cloud-identity-endpoint",
 		}, nil
 	}
+	s.api = &fakeUpdateCredentialAPI{
+		v:      5,
+		clouds: func() (map[names.CloudTag]jujucloud.Cloud, error) { return nil, nil },
+	}
+	s.credentialAPIFunc = func() (cloud.CredentialAPI, error) { return s.api, nil }
 }
 
 func (s *addCredentialSuite) runCmd(c *gc.C, stdin io.Reader, args ...string) (*cmd.Context, *cloud.AddCredentialCommand, error) {
-	addCmd := cloud.NewAddCredentialCommandForTest(s.store, s.cloudByNameFunc)
+	addCmd := cloud.NewAddCredentialCommandForTest(s.store, s.cloudByNameFunc, s.credentialAPIFunc)
 	err := cmdtesting.InitCommand(addCmd, args)
 	if err != nil {
 		return nil, nil, err
@@ -89,9 +97,11 @@ func (s *addCredentialSuite) TestBadArgs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
-func (s *addCredentialSuite) TestBadCloudName(c *gc.C) {
-	_, err := s.run(c, nil, "badcloud")
-	c.Assert(err, gc.ErrorMatches, "cloud badcloud not valid")
+func (s *addCredentialSuite) TestBadLocalCloudName(c *gc.C) {
+	ctx, err := s.run(c, nil, "badcloud")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "To view all available clouds, use 'juju clouds'.\nTo add new cloud, use 'juju add-cloud'.\n")
+	c.Assert(c.GetTestLog(), jc.Contains, "cloud badcloud not valid")
 }
 
 func (s *addCredentialSuite) TestAddFromFileBadFilename(c *gc.C) {
@@ -110,17 +120,20 @@ func (s *addCredentialSuite) createTestCredentialData(c *gc.C) string {
 }
 
 func (s *addCredentialSuite) createTestCredentialDataWithAuthType(c *gc.C, authType string) string {
-	dir := c.MkDir()
-	credsFile := filepath.Join(dir, "cred.yaml")
-	data := fmt.Sprintf(`
+	return s.createTestCredentialFile(c, fmt.Sprintf(`
 credentials:
   somecloud:
     me:
       auth-type: %v
       access-key: <key>
       secret-key: <secret>
-`[1:], authType)
-	err := ioutil.WriteFile(credsFile, []byte(data), 0600)
+`[1:], authType))
+}
+
+func (s *addCredentialSuite) createTestCredentialFile(c *gc.C, content string) string {
+	dir := c.MkDir()
+	credsFile := filepath.Join(dir, "cred.yaml")
+	err := ioutil.WriteFile(credsFile, []byte(content), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	return credsFile
 }
@@ -591,7 +604,7 @@ func (s *addCredentialSuite) assertAddFileCredential(c *gc.C, input, fileKey str
 	c.Assert(err, jc.ErrorIsNil)
 
 	stdin := strings.NewReader(fmt.Sprintf(input, filename))
-	addCmd := cloud.NewAddCredentialCommandForTest(s.store, s.cloudByNameFunc)
+	addCmd := cloud.NewAddCredentialCommandForTest(s.store, s.cloudByNameFunc, s.credentialAPIFunc)
 	err = cmdtesting.InitCommand(addCmd, []string{"somecloud"})
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.ContextForDir(c, dir)
@@ -776,4 +789,108 @@ func (s *addCredentialSuite) TestShouldFinalizeCredentialFailure(c *gc.C) {
 
 	got := cloud.ShouldFinalizeCredential(provider, cred)
 	c.Assert(got, jc.IsFalse)
+}
+
+func (s *addCredentialSuite) setupStore(c *gc.C) {
+	s.store.Controllers["controller"] = jujuclient.ControllerDetails{ControllerUUID: "cdcssc"}
+	s.store.CurrentControllerName = "controller"
+	s.store.Accounts = map[string]jujuclient.AccountDetails{
+		"controller": {
+			User: "admin@local",
+		},
+	}
+}
+
+func (s *addCredentialSuite) TestAddRemoteFromFile(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.JSONFileAuthType}
+	s.schema = map[jujucloud.AuthType]jujucloud.CredentialSchema{
+		jujucloud.JSONFileAuthType: {
+			{
+				"file",
+				jujucloud.CredentialAttr{
+					Description: "path to the credential file",
+					Optional:    false,
+					FilePath:    true,
+				},
+			},
+		},
+	}
+	stdout := `
+Enter credential name: 
+Using auth-type "jsonfile".
+
+Enter path to the credential file: 
+Credential "blah" added locally for cloud "somecloud".
+
+`[1:]
+	stderr := `
+Controller credential "blah" for user "admin@local" on cloud "somecloud" added.
+For more information, see ‘juju show-credential somecloud blah’.
+`[1:]
+
+	s.assertAddedCredentialForCloud(c, "somecloud", stdout, stderr)
+}
+
+func (s *addCredentialSuite) assertAddedCredentialForCloud(c *gc.C, cloudName, expectedStdout, expectedStderr string) {
+	s.setupStore(c)
+	expectedContents := fmt.Sprintf(`
+credentials:
+  %v:
+    blah:
+      auth-type: jsonfile
+      access-key: <key>
+      secret-key: <secret>
+`[1:], cloudName)
+	sourceFile := s.createTestCredentialFile(c, expectedContents)
+
+	called := false
+	s.api.updateCloudsCredentials = func(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error) {
+		c.Assert(cloudCredentials, gc.HasLen, 1)
+		called = true
+		expectedTag := names.NewCloudCredentialTag(fmt.Sprintf("%v/admin@local/blah", cloudName)).String()
+		for k, v := range cloudCredentials {
+			c.Assert(k, gc.DeepEquals, expectedTag)
+			c.Assert(v.Attributes()["file"], gc.Equals, expectedContents)
+		}
+		return []params.UpdateCredentialResult{{CredentialTag: expectedTag}}, nil
+	}
+
+	stdin := strings.NewReader(fmt.Sprintf("blah\n%s\n", sourceFile))
+
+	ctx, err := s.run(c, stdin, cloudName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedStdout)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expectedStderr)
+
+	c.Assert(s.store.Credentials[cloudName].AuthCredentials["blah"].Attributes()["file"], gc.Not(jc.Contains), expectedContents)
+	c.Assert(s.store.Credentials[cloudName].AuthCredentials["blah"].Attributes()["file"], gc.Equals, sourceFile)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *addCredentialSuite) TestAddRemoteCloudOnlyNoLocal(c *gc.C) {
+	s.api.clouds = func() (map[names.CloudTag]jujucloud.Cloud, error) {
+		return map[names.CloudTag]jujucloud.Cloud{
+			names.NewCloudTag("remote"): {
+				Name:      "remote",
+				Type:      "gce",
+				AuthTypes: []jujucloud.AuthType{jujucloud.JSONFileAuthType},
+			},
+		}, nil
+	}
+	stdout := `
+Enter credential name: 
+Using auth-type "jsonfile".
+
+Enter path to the .json file containing a service account key for your project
+(detailed instructions available at https://discourse.jujucharms.com/t/1508).
+Path: 
+Credential "blah" added locally for cloud "remote".
+
+`[1:]
+	stderr := `
+Using  remote cloud "remote" from the controller to verify credentials.
+Controller credential "blah" for user "admin@local" on cloud "remote" added.
+For more information, see ‘juju show-credential remote blah’.
+`[1:]
+	s.assertAddedCredentialForCloud(c, "remote", stdout, stderr)
 }
