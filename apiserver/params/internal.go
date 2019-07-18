@@ -672,6 +672,10 @@ type RunParams struct {
 	Machines     []string      `json:"machines,omitempty"`
 	Applications []string      `json:"applications,omitempty"`
 	Units        []string      `json:"units,omitempty"`
+
+	// WorkloadContext for CAAS is true when the Commands should be run on
+	// the workload not the operator.
+	WorkloadContext bool `json:"workload-context,omitempty"`
 }
 
 // RunResult contains the result from an individual run call on a machine.

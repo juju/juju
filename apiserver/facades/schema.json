@@ -1,7 +1,7 @@
 [
     {
         "Name": "Action",
-        "Version": 3,
+        "Version": 4,
         "Schema": {
             "type": "object",
             "properties": {
@@ -470,6 +470,9 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "workload-context": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false,

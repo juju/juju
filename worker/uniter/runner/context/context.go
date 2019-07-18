@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/version"
@@ -147,6 +148,9 @@ type HookContext struct {
 
 	// modelName is the human friendly name of the environment.
 	modelName string
+
+	// modelType
+	modelType model.ModelType
 
 	// unitName is the human friendly name of the local unit.
 	unitName string
@@ -307,6 +311,11 @@ func (ctx *HookContext) Id() string {
 
 func (ctx *HookContext) UnitName() string {
 	return ctx.unitName
+}
+
+// ModelType of the context we are running in.
+func (ctx *HookContext) ModelType() model.ModelType {
+	return ctx.modelType
 }
 
 // UnitStatus will return the status for the current Unit.

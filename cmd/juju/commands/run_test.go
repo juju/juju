@@ -23,7 +23,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
 
@@ -33,8 +34,25 @@ type RunSuite struct {
 
 var _ = gc.Suite(&RunSuite{})
 
-func newTestRunCommand(clock clock.Clock) cmd.Command {
-	return newRunCommand(jujuclienttesting.MinimalStore(), clock.After)
+func newTestRunCommand(clock clock.Clock, modelType model.ModelType) cmd.Command {
+	return newRunCommand(minimalStore(modelType), clock.After)
+}
+
+func minimalStore(modelType model.ModelType) *jujuclient.MemStore {
+	store := jujuclient.NewMemStore()
+	store.CurrentControllerName = "arthur"
+	store.Controllers["arthur"] = jujuclient.ControllerDetails{}
+	store.Models["arthur"] = &jujuclient.ControllerModels{
+		CurrentModel: "king/sword",
+		Models: map[string]jujuclient.ModelDetails{"king/sword": {
+			ModelType:    modelType,
+			ActiveBranch: model.GenerationMaster,
+		}},
+	}
+	store.Accounts["arthur"] = jujuclient.AccountDetails{
+		User: "king",
+	}
+	return store
 }
 
 func (*RunSuite) TestTargetArgParsing(c *gc.C) {
@@ -47,32 +65,39 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		applications []string
 		commands     string
 		errMatch     string
+		modeType     model.ModelType
 	}{{
 		message:  "no args",
 		errMatch: "no commands specified",
+		modeType: model.IAAS,
 	}, {
 		message:  "no target",
 		args:     []string{"sudo reboot"},
 		errMatch: "You must specify a target, either through --all, --machine, --application or --unit",
+		modeType: model.IAAS,
 	}, {
 		message:  "command to all machines",
 		args:     []string{"--all", "sudo reboot"},
 		all:      true,
 		commands: "sudo reboot",
+		modeType: model.IAAS,
 	}, {
 		message:  "multiple args",
 		args:     []string{"--all", "echo", "la lia"},
 		all:      true,
 		commands: `echo "la lia"`,
+		modeType: model.IAAS,
 	}, {
 		message:  "all and defined machines",
 		args:     []string{"--all", "--machine=1,2", "sudo reboot"},
 		errMatch: `You cannot specify --all and individual machines`,
+		modeType: model.IAAS,
 	}, {
 		message:  "command to machines 1, 2, and 1/kvm/0",
 		args:     []string{"--machine=1,2,1/kvm/0", "sudo reboot"},
 		commands: "sudo reboot",
 		machines: []string{"1", "2", "1/kvm/0"},
+		modeType: model.IAAS,
 	}, {
 		message: "bad machine names",
 		args:    []string{"--machine=foo,machine-2", "sudo reboot"},
@@ -80,20 +105,24 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 			"The following run targets are not valid:\n" +
 			"  \"foo\" is not a valid machine id\n" +
 			"  \"machine-2\" is not a valid machine id",
+		modeType: model.IAAS,
 	}, {
 		message:  "all and defined applications",
 		args:     []string{"--all", "--application=wordpress,mysql", "sudo reboot"},
 		errMatch: `You cannot specify --all and individual applications`,
+		modeType: model.IAAS,
 	}, {
 		message:      "command to applications wordpress and mysql",
 		args:         []string{"--application=wordpress,mysql", "sudo reboot"},
 		commands:     "sudo reboot",
 		applications: []string{"wordpress", "mysql"},
+		modeType:     model.IAAS,
 	}, {
 		message:      "command to application mysql",
 		args:         []string{"--app", "mysql", "uname -a"},
 		commands:     "uname -a",
 		applications: []string{"mysql"},
+		modeType:     model.IAAS,
 	}, {
 		message: "bad application names",
 		args:    []string{"--application", "foo,2,foo/0", "sudo reboot"},
@@ -101,30 +130,36 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 			"The following run targets are not valid:\n" +
 			"  \"2\" is not a valid application name\n" +
 			"  \"foo/0\" is not a valid application name",
+		modeType: model.IAAS,
 	}, {
 		message:      "command to application mysql",
 		args:         []string{"--app", "mysql", "sudo reboot"},
 		commands:     "sudo reboot",
 		applications: []string{"mysql"},
+		modeType:     model.IAAS,
 	}, {
 		message:      "command to application wordpress",
 		args:         []string{"-a", "wordpress", "sudo reboot"},
 		commands:     "sudo reboot",
 		applications: []string{"wordpress"},
+		modeType:     model.IAAS,
 	}, {
 		message:  "all and defined units",
 		args:     []string{"--all", "--unit=wordpress/0,mysql/1", "sudo reboot"},
 		errMatch: `You cannot specify --all and individual units`,
+		modeType: model.IAAS,
 	}, {
 		message:  "command to valid unit",
 		args:     []string{"-u", "mysql/0", "sudo reboot"},
 		commands: "sudo reboot",
 		units:    []string{"mysql/0"},
+		modeType: model.IAAS,
 	}, {
 		message:  "command to valid units",
 		args:     []string{"--unit=wordpress/0,wordpress/1,mysql/0", "sudo reboot"},
 		commands: "sudo reboot",
 		units:    []string{"wordpress/0", "wordpress/1", "mysql/0"},
+		modeType: model.IAAS,
 	}, {
 		message: "bad unit names",
 		args:    []string{"--unit", "foo,2,foo/0,foo/$leader", "sudo reboot"},
@@ -133,6 +168,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 			"  \"foo\" is not a valid unit name\n" +
 			"  \"2\" is not a valid unit name\n" +
 			"  \"foo/\\$leader\" is not a valid unit name",
+		modeType: model.IAAS,
 	}, {
 		message:      "command to mixed valid targets",
 		args:         []string{"--machine=0", "--unit=wordpress/0,wordpress/1,consul/leader", "--application=mysql", "sudo reboot"},
@@ -140,10 +176,17 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		machines:     []string{"0"},
 		applications: []string{"mysql"},
 		units:        []string{"wordpress/0", "wordpress/1", "consul/leader"},
+		modeType:     model.IAAS,
+	}, {
+		message:  "command to unit operator",
+		args:     []string{"--operator", "--unit", "mysql/0", "echo hello"},
+		commands: "echo hello",
+		units:    []string{"mysql/0"},
+		modeType: model.CAAS,
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		cmd := &runCommand{}
-		cmd.SetClientStore(jujuclienttesting.MinimalStore())
+		cmd.SetClientStore(minimalStore(test.modeType))
 		runCmd := modelcmd.Wrap(cmd)
 		cmdtesting.TestInit(c, runCmd, test.args, test.errMatch)
 		if test.errMatch == "" {
@@ -162,26 +205,31 @@ func (*RunSuite) TestTimeoutArgParsing(c *gc.C) {
 		args     []string
 		errMatch string
 		timeout  time.Duration
+		modeType model.ModelType
 	}{{
-		message: "default time",
-		args:    []string{"--all", "sudo reboot"},
-		timeout: 5 * time.Minute,
+		message:  "default time",
+		args:     []string{"--all", "sudo reboot"},
+		timeout:  5 * time.Minute,
+		modeType: model.IAAS,
 	}, {
 		message:  "invalid time",
 		args:     []string{"--timeout=foo", "--all", "sudo reboot"},
 		errMatch: `invalid value "foo" for option --timeout: time: invalid duration foo`,
+		modeType: model.IAAS,
 	}, {
-		message: "two hours",
-		args:    []string{"--timeout=2h", "--all", "sudo reboot"},
-		timeout: 2 * time.Hour,
+		message:  "two hours",
+		args:     []string{"--timeout=2h", "--all", "sudo reboot"},
+		timeout:  2 * time.Hour,
+		modeType: model.IAAS,
 	}, {
-		message: "3 minutes 30 seconds",
-		args:    []string{"--timeout=3m30s", "--all", "sudo reboot"},
-		timeout: (3 * time.Minute) + (30 * time.Second),
+		message:  "3 minutes 30 seconds",
+		args:     []string{"--timeout=3m30s", "--all", "sudo reboot"},
+		timeout:  (3 * time.Minute) + (30 * time.Second),
+		modeType: model.IAAS,
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		cmd := &runCommand{}
-		cmd.SetClientStore(jujuclienttesting.MinimalStore())
+		cmd.SetClientStore(minimalStore(test.modeType))
 		runCmd := modelcmd.Wrap(cmd)
 		cmdtesting.TestInit(c, runCmd, test.args, test.errMatch)
 		if test.errMatch == "" {
@@ -290,7 +338,7 @@ func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 	err := cmd.FormatJson(buff, unformatted)
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}),
+	context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}, model.IAAS),
 		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -302,7 +350,7 @@ func (s *RunSuite) TestBlockRunForMachineAndUnit(c *gc.C) {
 	mock := s.setupMockAPI()
 	// Block operation
 	mock.block = true
-	_, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}),
+	_, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}, model.IAAS),
 		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
 	)
 	testing.AssertOperationWasBlocked(c, err, ".*To enable changes.*")
@@ -350,7 +398,7 @@ func (s *RunSuite) TestAllMachines(c *gc.C) {
 	err := cmd.FormatJson(buff, unformatted)
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}), "--format=json", "--all", "hostname")
+	context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}, model.IAAS), "--format=json", "--all", "hostname")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(cmdtesting.Stdout(context), gc.Equals, buff.String())
@@ -395,7 +443,7 @@ func (s *RunSuite) TestTimeout(c *gc.C) {
 
 	var clock mockClock
 	context, err := cmdtesting.RunCommand(
-		c, newTestRunCommand(&clock),
+		c, newTestRunCommand(&clock, model.IAAS),
 		"--format=json", "--all", "hostname", "--timeout", "99s",
 	)
 	c.Assert(err, gc.ErrorMatches, "timed out waiting for results from: machine 1, machine 2")
@@ -417,7 +465,7 @@ func (s *RunSuite) TestUnitLeaderSyntaxWithUnsupportedAPIVersion(c *gc.C) {
 
 	mock.bestAPIVersion = 2
 	_, err := cmdtesting.RunCommand(
-		c, newTestRunCommand(&clock),
+		c, newTestRunCommand(&clock, model.IAAS),
 		"--unit", "foo/leader", "hostname",
 	)
 
@@ -425,6 +473,123 @@ func (s *RunSuite) TestUnitLeaderSyntaxWithUnsupportedAPIVersion(c *gc.C) {
 		"\nleader determination is unsupported by this API"+
 		"\neither upgrade your controller, or explicitly specify a unit", "foo")
 	c.Assert(err, gc.ErrorMatches, expErr)
+}
+
+func (s *RunSuite) TestCAASCantRunWithUnsupportedAPIVersion(c *gc.C) {
+	var (
+		clock mockClock
+		mock  = s.setupMockAPI()
+	)
+
+	mock.bestAPIVersion = 3
+	_, err := cmdtesting.RunCommand(
+		c, newTestRunCommand(&clock, model.CAAS),
+		"--unit", "unit/0", "echo hello",
+	)
+
+	expErr := "CAAS controller does not support juju run\n" +
+		"consider upgrading your controller"
+	c.Assert(err, gc.ErrorMatches, expErr)
+}
+
+func (s *RunSuite) TestCAASCantTargetMachine(c *gc.C) {
+	s.setupMockAPI()
+	var clock mockClock
+
+	_, err := cmdtesting.RunCommand(
+		c, newTestRunCommand(&clock, model.CAAS),
+		"--machine", "0", "echo hello",
+	)
+
+	expErr := "unable to target machines with a CAAS controller"
+	c.Assert(err, gc.ErrorMatches, expErr)
+}
+
+func (s *RunSuite) TestIAASCantTargetOperator(c *gc.C) {
+	s.setupMockAPI()
+	var clock mockClock
+
+	_, err := cmdtesting.RunCommand(
+		c, newTestRunCommand(&clock, model.IAAS),
+		"--unit", "unit/0", "--operator", "echo hello",
+	)
+
+	expErr := "only CAAS models support the --operator flag"
+	c.Assert(err, gc.ErrorMatches, expErr)
+}
+
+func (s *RunSuite) TestCAASRunOnOperator(c *gc.C) {
+	mock := s.setupMockAPI()
+	unitResponse := mockResponse{
+		stdout:  "bumblebee",
+		unitTag: "unit-unit-0",
+	}
+	mock.setResponse("unit/0", unitResponse)
+
+	unitResult := mock.runResponses["unit/0"]
+	mock.actionResponses = map[string]params.ActionResult{
+		mock.receiverIdMap["unit/0"]: unitResult,
+	}
+
+	unitQuery := makeActionQuery(mock.receiverIdMap["unit/0"], "UnitId", names.NewUnitTag("unit/0"))
+	unformatted := []interface{}{
+		ConvertActionResults(unitResult, unitQuery),
+	}
+
+	buff := &bytes.Buffer{}
+	err := cmd.FormatJson(buff, unformatted)
+	c.Assert(err, jc.ErrorIsNil)
+
+	context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}, model.CAAS),
+		"--format=json", "--unit=unit/0", "--operator", "hostname",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(mock.runParams, jc.DeepEquals, &params.RunParams{
+		Commands:        "hostname",
+		Timeout:         300 * time.Second,
+		Units:           []string{"unit/0"},
+		WorkloadContext: false,
+	})
+
+	c.Check(cmdtesting.Stdout(context), gc.Equals, buff.String())
+}
+
+func (s *RunSuite) TestCAASRunOnWorkload(c *gc.C) {
+	mock := s.setupMockAPI()
+	unitResponse := mockResponse{
+		stdout:  "bumblebee",
+		unitTag: "unit-unit-0",
+	}
+	mock.setResponse("unit/0", unitResponse)
+
+	unitResult := mock.runResponses["unit/0"]
+	mock.actionResponses = map[string]params.ActionResult{
+		mock.receiverIdMap["unit/0"]: unitResult,
+	}
+
+	unitQuery := makeActionQuery(mock.receiverIdMap["unit/0"], "UnitId", names.NewUnitTag("unit/0"))
+	unformatted := []interface{}{
+		ConvertActionResults(unitResult, unitQuery),
+	}
+
+	buff := &bytes.Buffer{}
+	err := cmd.FormatJson(buff, unformatted)
+	c.Assert(err, jc.ErrorIsNil)
+
+	context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}, model.CAAS),
+		"--format=json", "--unit=unit/0", "hostname",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(mock.runParams, jc.DeepEquals, &params.RunParams{
+		Commands:        "hostname",
+		Timeout:         300 * time.Second,
+		Units:           []string{"unit/0"},
+		WorkloadContext: true,
+	})
+
+	c.Check(cmdtesting.Stdout(context), gc.Equals, buff.String())
 }
 
 type mockClock struct {
@@ -463,7 +628,7 @@ func (s *RunSuite) TestBlockAllMachines(c *gc.C) {
 	mock := s.setupMockAPI()
 	// Block operation
 	mock.block = true
-	_, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}), "--format=json", "--all", "hostname")
+	_, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}, model.IAAS), "--format=json", "--all", "hostname")
 	testing.AssertOperationWasBlocked(c, err, ".*To enable changes.*")
 }
 
@@ -522,7 +687,7 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 			args = append(args, "--format", test.format)
 		}
 		args = append(args, "--all", "ignored")
-		context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}), args...)
+		context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}, model.IAAS), args...)
 		if test.errorMatch != "" {
 			c.Check(err, gc.ErrorMatches, test.errorMatch)
 		} else {
@@ -534,7 +699,9 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 }
 
 func (s *RunSuite) setupMockAPI() *mockRunAPI {
-	mock := &mockRunAPI{}
+	mock := &mockRunAPI{
+		bestAPIVersion: 4,
+	}
 	s.PatchValue(&getRunAPIClient, func(_ *runCommand) (RunClient, error) {
 		return mock, nil
 	})
@@ -554,6 +721,8 @@ type mockRunAPI struct {
 	block           bool
 	//
 	bestAPIVersion int
+	// recevied values
+	runParams *params.RunParams
 }
 
 type mockResponse struct {
@@ -661,6 +830,8 @@ func (m *mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([
 
 func (m *mockRunAPI) Run(runParams params.RunParams) ([]params.ActionResult, error) {
 	var result []params.ActionResult
+
+	m.runParams = &runParams
 
 	if m.block {
 		return result, common.OperationBlockedError("the operation has been blocked")

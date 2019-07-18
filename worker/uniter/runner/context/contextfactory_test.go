@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/model"
 	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -241,6 +242,7 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.UnitName(), gc.Equals, "storage-block/0")
+	c.Assert(ctx.ModelType(), gc.Equals, model.IAAS)
 	s.AssertStorageContext(c, ctx, "data/0", storage.StorageAttachmentInfo{
 		Kind:     storage.StorageKindBlock,
 		Location: "/dev/sdb",
@@ -286,6 +288,7 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.UnitName(), gc.Equals, unit.Name())
+	c.Assert(ctx.ModelType(), gc.Equals, model.CAAS)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
 	s.AssertNotStorageContext(c, ctx)

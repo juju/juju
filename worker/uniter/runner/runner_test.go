@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6/hooks"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -156,6 +157,7 @@ type MockContext struct {
 	flushBadge      string
 	flushFailure    error
 	flushResult     error
+	modelType       model.ModelType
 }
 
 func (ctx *MockContext) UnitName() string {
@@ -196,6 +198,13 @@ func (ctx *MockContext) UpdateActionResults(keys []string, value string) error {
 		ctx.actionResults[key] = value
 	}
 	return nil
+}
+
+func (ctx *MockContext) ModelType() model.ModelType {
+	if ctx.modelType == "" {
+		return model.IAAS
+	}
+	return ctx.modelType
 }
 
 type RunMockContextSuite struct {
@@ -359,4 +368,45 @@ func (s *RunMockContextSuite) TestRunCommandsFlushFailure(c *gc.C) {
 	c.Assert(ctx.flushBadge, gc.Equals, "run commands")
 	c.Assert(ctx.flushFailure, gc.IsNil) // exit code in _ result, as tested elsewhere
 	s.assertRecordedPid(c, ctx.expectPid)
+}
+
+func (s *RunMockContextSuite) TestRunActionCAASSuccess(c *gc.C) {
+	ctx := &MockContext{
+		modelType:  model.CAAS,
+		actionData: &context.ActionData{},
+		actionParams: map[string]interface{}{
+			"command":          "echo 1",
+			"timeout":          0,
+			"workload-context": true,
+		},
+		actionResults: map[string]interface{}{},
+	}
+	err := runner.NewRunner(ctx, s.paths).RunAction("juju-run")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
+	// TODO(caas): handle implemented
+	c.Assert(ctx.flushFailure, gc.ErrorMatches, `run in CAAS workload not implemented`)
+	//c.Assert(ctx.actionResults["Code"], gc.Equals, "0")
+	//c.Assert(strings.TrimRight(ctx.actionResults["Stdout"].(string), "\r\n"), gc.Equals, "1")
+	//c.Assert(ctx.actionResults["Stderr"], gc.Equals, "")
+}
+
+func (s *RunMockContextSuite) TestRunActionOnWorkloadIgnoredIAAS(c *gc.C) {
+	ctx := &MockContext{
+		modelType:  model.IAAS,
+		actionData: &context.ActionData{},
+		actionParams: map[string]interface{}{
+			"command":          "echo 1",
+			"timeout":          0,
+			"workload-context": true,
+		},
+		actionResults: map[string]interface{}{},
+	}
+	err := runner.NewRunner(ctx, s.paths).RunAction("juju-run")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
+	c.Assert(ctx.flushFailure, gc.IsNil)
+	c.Assert(ctx.actionResults["Code"], gc.Equals, "0")
+	c.Assert(strings.TrimRight(ctx.actionResults["Stdout"].(string), "\r\n"), gc.Equals, "1")
+	c.Assert(ctx.actionResults["Stderr"], gc.Equals, "")
 }
