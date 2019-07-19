@@ -156,6 +156,7 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 		RemoteUnitName:  c.remoteUnitName,
 		ForceRemoteUnit: c.forceRemoteUnit,
 	}
+	logger.Criticalf("executeInUnitContextOnLocal c.getSocket() -> %+v, args -> %#v", c.getSocket(), args)
 	err = client.Call(uniter.JujuRunEndpoint, args, &result)
 	return &result, errors.Trace(err)
 }

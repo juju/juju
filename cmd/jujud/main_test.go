@@ -157,7 +157,7 @@ func run(c *gc.C, sockPath string, contextId string, exit int, stdin []byte, cmd
 	ps.Stdin = bytes.NewBuffer(stdin)
 	ps.Dir = c.MkDir()
 	ps.Env = []string{
-		fmt.Sprintf("JUJU_AGENT_SOCKET=%s", sockPath),
+		fmt.Sprintf("JUJU_AGENT_SOCKET_ADDRESS=%s", sockPath),
 		fmt.Sprintf("JUJU_CONTEXT_ID=%s", contextId),
 		// Code that imports github.com/juju/juju/testing needs to
 		// be able to find that module at runtime (via build.Import),
@@ -260,7 +260,7 @@ func (s *HookToolMainSuite) TestNoSockPath(c *gc.C) {
 		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
 	}
 	output := run(c, "", "bill", 1, nil, "remote")
-	c.Assert(output, jc.Contains, "JUJU_AGENT_SOCKET not set\n")
+	c.Assert(output, jc.Contains, "JUJU_AGENT_SOCKET_ADDRESS not set\n")
 }
 
 func (s *HookToolMainSuite) TestBadSockPath(c *gc.C) {

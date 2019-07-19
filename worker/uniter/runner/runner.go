@@ -4,6 +4,7 @@
 package runner
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"os"
@@ -19,6 +20,7 @@ import (
 	jujuos "github.com/juju/os"
 	utilexec "github.com/juju/utils/exec"
 
+	caasexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -38,7 +40,7 @@ type Runner interface {
 	RunHook(name string) error
 
 	// RunAction executes the action with the supplied name.
-	RunAction(name string) error
+	RunAction(name string, runOnRemote bool) error
 
 	// RunCommands executes the supplied script.
 	RunCommands(commands string) (*utilexec.ExecResponse, error)
@@ -75,13 +77,13 @@ func (runner *runner) Context() Context {
 
 // RunCommands exists to satisfy the Runner interface.
 func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, error) {
-	result, err := runner.runCommandsWithTimeout(commands, 0, clock.WallClock)
+	result, err := runner.runCommandsWithTimeout(commands, 0, clock.WallClock, false)
 	return result, runner.context.Flush("run commands", err)
 }
 
 // runCommandsWithTimeout is a helper to abstract common code between run commands and
 // juju-run as an action
-func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Duration, clock clock.Clock) (*utilexec.ExecResponse, error) {
+func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Duration, clock clock.Clock, runOnRemote bool) (*utilexec.ExecResponse, error) {
 	srv, err := runner.startJujucServer()
 	if err != nil {
 		return nil, err
@@ -92,18 +94,6 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	command := utilexec.RunParams{
-		Commands:    commands,
-		WorkingDir:  runner.paths.GetCharmDir(),
-		Environment: env,
-		Clock:       clock,
-	}
-
-	err = command.Run()
-	if err != nil {
-		return nil, err
-	}
-	runner.context.SetProcess(hookProcess{command.Process()})
 
 	var cancel chan struct{}
 	if timeout != 0 {
@@ -114,12 +104,68 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 		}()
 	}
 
+	executer := runner.runOnMachine
+	if runOnRemote {
+		executer = runner.runOnRemote
+	}
+	logger.Criticalf("runJujuRunAction \nenv -> %+v, \nRunParams -> %+v", env, commands)
+	return executer(commands, env, clock, cancel)
+}
+
+// for TEST execframework, neeed to plugin this from manifold level into uniter !!!!!!!!!!
+func (runner *runner) runOnRemote(commands string, env []string, clock clock.Clock, cancel chan struct{}) (*utilexec.ExecResponse, error) {
+	// TODO: exec to workload pod !!!!!!!!!!!!
+	c, cfg, err := caasexec.GetInClusterClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	// TODO: how to get model name properly.
+	if err := caasexec.New(
+		// runner.context.ModelName(),
+		"t1",
+		c, cfg,
+	).Exec(
+		caasexec.ExecParams{
+			// TODO: how to get pod name using runner.context.UnitName()
+			PodName:    "mariadb-k8s-0",
+			Commands:   []string{commands},
+			WorkingDir: runner.paths.GetCharmDir(),
+			Env:        env,
+			Stdin:      nil,
+			Stdout:     &stdout,
+			Stderr:     &stderr,
+		},
+	); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &utilexec.ExecResponse{
+		Stdout: stdout.Bytes(),
+		Stderr: stderr.Bytes(),
+	}, nil
+	// return nil, errors.NotSupportedf("runCommandsWithTimeout cmd -> %q", commands)
+}
+
+func (runner *runner) runOnMachine(commands string, env []string, clock clock.Clock, cancel chan struct{}) (*utilexec.ExecResponse, error) {
+	command := utilexec.RunParams{
+		Commands:    commands,
+		WorkingDir:  runner.paths.GetCharmDir(),
+		Environment: env,
+		Clock:       clock,
+	}
+	err := command.Run()
+	if err != nil {
+		return nil, err
+	}
+	// TODO: refactor kill process and implemente kill for caas exec!!!!!!!!!!!!
+	runner.context.SetProcess(hookProcess{command.Process()})
 	// Block and wait for process to finish
 	return command.WaitWithCancel(cancel)
 }
 
 // runJujuRunAction is the function that executes when a juju-run action is ran.
-func (runner *runner) runJujuRunAction() (err error) {
+func (runner *runner) runJujuRunAction(runOnRemote bool) (err error) {
 	params, err := runner.context.ActionParams()
 	if err != nil {
 		return errors.Trace(err)
@@ -136,8 +182,7 @@ func (runner *runner) runJujuRunAction() (err error) {
 		logger.Debugf("unable to read juju-run action timeout, will continue running action without one")
 	}
 
-	results, err := runner.runCommandsWithTimeout(command, time.Duration(timeout), clock.WallClock)
-
+	results, err := runner.runCommandsWithTimeout(command, time.Duration(timeout), clock.WallClock, runOnRemote)
 	if err != nil {
 		return runner.context.Flush("juju-run", err)
 	}
@@ -189,22 +234,23 @@ func (runner *runner) updateActionResults(results *utilexec.ExecResponse) error 
 }
 
 // RunAction exists to satisfy the Runner interface.
-func (runner *runner) RunAction(actionName string) error {
+func (runner *runner) RunAction(actionName string, runOnRemote bool) error {
 	if _, err := runner.context.ActionData(); err != nil {
 		return errors.Trace(err)
 	}
 	if actionName == actions.JujuRunActionName {
-		return runner.runJujuRunAction()
+		return runner.runJujuRunAction(runOnRemote)
 	}
-	return runner.runCharmHookWithLocation(actionName, "actions")
+	// run actions on remote workload pod for caas.
+	return runner.runCharmHookWithLocation(actionName, "actions", runOnRemote)
 }
 
 // RunHook exists to satisfy the Runner interface.
 func (runner *runner) RunHook(hookName string) error {
-	return runner.runCharmHookWithLocation(hookName, "hooks")
+	return runner.runCharmHookWithLocation(hookName, "hooks", false)
 }
 
-func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string) error {
+func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, runOnRemote bool) (err error) {
 	srv, err := runner.startJujucServer()
 	if err != nil {
 		return err
@@ -222,17 +268,27 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string) e
 		env = mergeWindowsEnvironment(env, os.Environ())
 	}
 
+	defer func() {
+		err = runner.context.Flush(hookName, err)
+	}()
+
 	debugctx := debug.NewHooksContext(runner.context.UnitName())
 	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
 		logger.Infof("executing %s via debug-hooks", hookName)
-		err = session.RunHook(hookName, runner.paths.GetCharmDir(), env)
-	} else {
-		err = runner.runCharmHook(hookName, env, charmLocation)
+		return session.RunHook(hookName, runner.paths.GetCharmDir(), env)
 	}
-	return runner.context.Flush(hookName, err)
+	if runOnRemote {
+		return runner.runCharmHookOnRemote(hookName, env, charmLocation)
+	}
+	return runner.runCharmHookOnLocal(hookName, env, charmLocation)
 }
 
-func (runner *runner) runCharmHook(hookName string, env []string, charmLocation string) error {
+func (runner *runner) runCharmHookOnRemote(hookName string, env []string, charmLocation string) error {
+	// TODO: use exec framework to run on workload pod !!!!!!!!!
+	return errors.NotSupportedf("runCharmHookOnRemote hookName -> %q, env -> %+v, charmLocation -> %q", hookName, env, charmLocation)
+}
+
+func (runner *runner) runCharmHookOnLocal(hookName string, env []string, charmLocation string) error {
 	charmDir := runner.paths.GetCharmDir()
 	hook, err := searchHook(charmDir, filepath.Join(charmLocation, hookName))
 	if err != nil {
@@ -268,6 +324,7 @@ func (runner *runner) startJujucServer() (*jujuc.Server, error) {
 		if ctxId != runner.context.Id() {
 			return nil, errors.Errorf("expected context id %q, got %q", runner.context.Id(), ctxId)
 		}
+		logger.Criticalf("runner.startJujucServer.getCmd cmdName -> %q", cmdName, runner.context.Id())
 		return jujuc.NewCommand(runner.context, cmdName)
 	}
 	logger.Criticalf(

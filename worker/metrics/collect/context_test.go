@@ -62,7 +62,7 @@ func (s *ContextSuite) TestHookContextEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	varMap, err := keyvalues.Parse(vars, true)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(varMap["JUJU_AGENT_SOCKET"], gc.Equals, "/dummy/jujuc.sock")
+	c.Assert(varMap["JUJU_AGENT_SOCKET_ADDRESS"], gc.Equals, "/dummy/jujuc.sock")
 	c.Assert(varMap["JUJU_UNIT_NAME"], gc.Equals, "u/0")
 	c.Assert(varMap["JUJU_CHARM_DIR"], gc.Equals, "/dummy/charm")
 	c.Assert(varMap["CHARM_DIR"], gc.Equals, "/dummy/charm")

@@ -101,8 +101,8 @@ following characteristics:
     which the hooks can interact with juju.
   * $CHARM_DIR holds the path to the charm directory.
   * $JUJU_UNIT_NAME holds the name of the local unit.
-  * $JUJU_CONTEXT_ID and $JUJU_AGENT_SOCKET are set (but should not be messed
-    with: the command line tools won't work without them).
+  * $JUJU_CONTEXT_ID, $JUJU_AGENT_SOCKET_NETWORK and $JUJU_AGENT_SOCKET_ADDRESS 
+    are set (but should not be messed with: the command line tools won't work without them).
   * $JUJU_API_ADDRESSES holds a space separated list of juju API addresses.
   * $JUJU_MODEL_NAME holds the human friendly name of the current model.
   * $JUJU_PRINCIPAL_UNIT holds the name of the principal unit if the current unit is a subordinate.

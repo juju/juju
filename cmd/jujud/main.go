@@ -60,7 +60,7 @@ https://jujucharms.com/
 
 The jujud command can also forward invocations over RPC for execution by the
 juju unit agent. When used in this way, it expects to be called via a symlink
-named for the desired remote command, and expects JUJU_AGENT_SOCKET and
+named for the desired remote command, and expects JUJU_AGENT_SOCKET_ADDRESS and
 JUJU_CONTEXT_ID be set in its model.
 `
 
@@ -91,7 +91,7 @@ func getwd() (string, error) {
 	return abs, nil
 }
 
-// hookToolMain uses JUJU_CONTEXT_ID and JUJU_AGENT_SOCKET to ask a running unit agent
+// hookToolMain uses JUJU_CONTEXT_ID and JUJU_AGENT_SOCKET_ADDRESS to ask a running unit agent
 // to execute a Command on our behalf. Individual commands should be exposed
 // by symlinking the command name to this executable.
 func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int, err error) {
@@ -111,11 +111,11 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 		Args:        args[1:],
 	}
 	socket := sockets.Socket{}
-	socket.Address, err = getenv("JUJU_AGENT_SOCKET")
+	socket.Address, err = getenv("JUJU_AGENT_SOCKET_ADDRESS")
 	if err != nil {
 		return
 	}
-	socket.Network, err = getenv("JUJU_AGENT_NETWORK")
+	socket.Network, err = getenv("JUJU_AGENT_SOCKET_NETWORK")
 	if err != nil {
 		return
 	}

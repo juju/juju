@@ -143,9 +143,10 @@ func (s *RunListener) Close() error {
 }
 
 // RunCommands executes the supplied commands in a hook context.
-func (r *RunListener) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
+func (s *RunListener) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
 	logger.Tracef("run commands: %s", args.Commands)
-	return r.CommandRunner.RunCommands(args)
+	logger.Criticalf("RunListener.RunCommands: %+v", args)
+	return s.CommandRunner.RunCommands(args)
 }
 
 // newRunListenerWrapper returns a worker that will Close the supplied run
@@ -193,6 +194,7 @@ type JujuRunServer struct {
 // response structure.
 func (r *JujuRunServer) RunCommands(args RunCommandsArgs, result *exec.ExecResponse) error {
 	logger.Debugf("RunCommands: %+v", args)
+	logger.Criticalf("JujuRunServer.RunCommands: %+v", args)
 	runResult, err := r.runner.RunCommands(args)
 	if err != nil {
 		return errors.Annotate(err, "r.runner.RunCommands")

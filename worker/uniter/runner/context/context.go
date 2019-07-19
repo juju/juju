@@ -310,6 +310,10 @@ func (ctx *HookContext) UnitName() string {
 	return ctx.unitName
 }
 
+// func (ctx *HookContext) ModelName() string {
+// 	return ctx.modelName
+// }
+
 // UnitStatus will return the status for the current Unit.
 func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 	if ctx.status == nil {
@@ -650,8 +654,8 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 		"CHARM_DIR="+paths.GetCharmDir(), // legacy, embarrassing
 		"JUJU_CHARM_DIR="+paths.GetCharmDir(),
 		"JUJU_CONTEXT_ID="+context.id,
-		"JUJU_AGENT_SOCKET="+paths.GetJujucSocket().Address,
-		"JUJU_AGENT_NETWORK="+paths.GetJujucSocket().Network,
+		"JUJU_AGENT_SOCKET_ADDRESS="+paths.GetJujucSocket().Address,
+		"JUJU_AGENT_SOCKET_NETWORK="+paths.GetJujucSocket().Network,
 		"JUJU_UNIT_NAME="+context.unitName,
 		"JUJU_MODEL_UUID="+context.uuid,
 		"JUJU_MODEL_NAME="+context.modelName,
@@ -692,6 +696,7 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 			"JUJU_ACTION_TAG="+context.actionData.Tag.String(),
 		)
 	}
+
 	return append(vars, OSDependentEnvVars(paths)...), nil
 }
 
