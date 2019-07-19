@@ -47,7 +47,6 @@ func newRunCommand(store jujuclient.ClientStore, timeAfter func(time.Duration) <
 // runCommand is responsible for running arbitrary commands on remote machines.
 type runCommand struct {
 	modelcmd.ModelCommandBase
-	modelcmd.IAASOnlyCommand
 	out          cmd.Output
 	all          bool
 	timeout      time.Duration
