@@ -585,7 +585,6 @@ func (c *addCredentialCommand) promptFieldValue(p *interact.Pollster, attr jujuc
 }
 
 func (c *addCredentialCommand) credentialsAPI() (CredentialAPI, error) {
-	var err error
 	root, err := c.NewAPIRoot(c.Store, c.controllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
