@@ -1540,11 +1540,14 @@ func (k *kubernetesClient) configurePodFiles(podSpec *core.PodSpec, containers [
 	return nil
 }
 
+// TODO(caas): only apply apparmor if it's supported and enabled in the cluster (latest microk8s's containerd does not support for example).
+// https://kubernetes.io/docs/tutorials/clusters/apparmor/
 func podAnnotations(annotations k8sannotations.Annotation) k8sannotations.Annotation {
 	// Add standard security annotations.
-	return annotations.
-		Add("apparmor.security.beta.kubernetes.io/pod", "runtime/default").
-		Add("seccomp.security.beta.kubernetes.io/pod", "docker/default")
+	// return annotations.
+	// 	Add("apparmor.security.beta.kubernetes.io/pod", "runtime/default").
+	// 	Add("seccomp.security.beta.kubernetes.io/pod", "docker/default")
+	return annotations
 }
 
 func (k *kubernetesClient) configureDeployment(
@@ -2576,11 +2579,12 @@ func boolPtr(b bool) *bool {
 
 func defaultSecurityContext() *core.SecurityContext {
 	// TODO - consider locking this down more but charms will break
-	return &core.SecurityContext{
-		AllowPrivilegeEscalation: boolPtr(false),
-		ReadOnlyRootFilesystem:   boolPtr(false),
-		RunAsNonRoot:             boolPtr(false),
-	}
+	// return &core.SecurityContext{
+	// 	AllowPrivilegeEscalation: boolPtr(false),
+	// 	ReadOnlyRootFilesystem:   boolPtr(false),
+	// 	RunAsNonRoot:             boolPtr(false),
+	// }
+	return nil
 }
 
 func populateContainerDetails(deploymentName string, pod *core.PodSpec, podContainers []core.Container, containers []caas.ContainerSpec) error {
