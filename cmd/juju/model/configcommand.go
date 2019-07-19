@@ -93,7 +93,7 @@ func (c *configCommand) Info() *cmd.Info {
 		Purpose: modelConfigSummary,
 	}
 	if details, err := c.modelConfigDetails(); err == nil {
-		if output, err := formatGlobalModelConfigDetails(details); err == nil {
+		if output, err := common.FormatConfigSchema(details); err == nil {
 			info.Doc = fmt.Sprintf("%s%s\n%s%s",
 				modelConfigHelpDocPartOne,
 				modelConfigHelpDocKeys,
@@ -437,13 +437,4 @@ func (c *configCommand) modelConfigDetails() (map[string]interface{}, error) {
 		}
 	}
 	return specifics, nil
-}
-
-func formatGlobalModelConfigDetails(values interface{}) (string, error) {
-	out := &bytes.Buffer{}
-	err := cmd.FormatSmart(out, values)
-	if err != nil {
-		return "", err
-	}
-	return out.String(), nil
 }

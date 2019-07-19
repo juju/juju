@@ -1659,7 +1659,6 @@ func Schema(extra environschema.Fields) (environschema.Fields, error) {
 
 // configSchema holds information on all the fields defined by
 // the config package.
-// TODO(rog) make this available to external packages.
 var configSchema = environschema.Fields{
 	AgentMetadataURLKey: {
 		Description: "URL of private stream",
