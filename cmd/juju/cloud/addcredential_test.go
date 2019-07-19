@@ -815,6 +815,17 @@ func (s *addCredentialSuite) TestAddRemoteFromFile(c *gc.C) {
 			},
 		},
 	}
+	s.api.clouds = func() (map[names.CloudTag]jujucloud.Cloud, error) {
+		return map[names.CloudTag]jujucloud.Cloud{
+			names.NewCloudTag("somecloud"): {
+				Name:             "somecloud",
+				Type:             "mock-addcredential-provider",
+				AuthTypes:        s.authTypes,
+				Endpoint:         "cloud-endpoint",
+				IdentityEndpoint: "cloud-identity-endpoint",
+			},
+		}, nil
+	}
 	stdout := `
 Enter credential name: 
 Using auth-type "jsonfile".
@@ -824,14 +835,15 @@ Credential "blah" added locally for cloud "somecloud".
 
 `[1:]
 	stderr := `
+Using  remote cloud "somecloud" from the controller to verify credentials.
 Controller credential "blah" for user "admin@local" on cloud "somecloud" added.
 For more information, see ‘juju show-credential somecloud blah’.
 `[1:]
 
-	s.assertAddedCredentialForCloud(c, "somecloud", stdout, stderr)
+	s.assertAddedCredentialForCloud(c, "somecloud", stdout, stderr, true)
 }
 
-func (s *addCredentialSuite) assertAddedCredentialForCloud(c *gc.C, cloudName, expectedStdout, expectedStderr string) {
+func (s *addCredentialSuite) assertAddedCredentialForCloud(c *gc.C, cloudName, expectedStdout, expectedStderr string, uploaded bool) {
 	s.setupStore(c)
 	expectedContents := fmt.Sprintf(`
 credentials:
@@ -864,7 +876,7 @@ credentials:
 
 	c.Assert(s.store.Credentials[cloudName].AuthCredentials["blah"].Attributes()["file"], gc.Not(jc.Contains), expectedContents)
 	c.Assert(s.store.Credentials[cloudName].AuthCredentials["blah"].Attributes()["file"], gc.Equals, sourceFile)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(called, gc.Equals, uploaded)
 }
 
 func (s *addCredentialSuite) TestAddRemoteCloudOnlyNoLocal(c *gc.C) {
@@ -892,5 +904,33 @@ Using  remote cloud "remote" from the controller to verify credentials.
 Controller credential "blah" for user "admin@local" on cloud "remote" added.
 For more information, see ‘juju show-credential remote blah’.
 `[1:]
-	s.assertAddedCredentialForCloud(c, "remote", stdout, stderr)
+	s.assertAddedCredentialForCloud(c, "remote", stdout, stderr, true)
+}
+
+func (s *addCredentialSuite) TestAddRemoteNoRemoteCloud(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.JSONFileAuthType}
+	s.schema = map[jujucloud.AuthType]jujucloud.CredentialSchema{
+		jujucloud.JSONFileAuthType: {
+			{
+				"file",
+				jujucloud.CredentialAttr{
+					Description: "path to the credential file",
+					Optional:    false,
+					FilePath:    true,
+				},
+			},
+		},
+	}
+	stdout := `
+Enter credential name: 
+Using auth-type "jsonfile".
+
+Enter path to the credential file: 
+Credential "blah" added locally for cloud "somecloud".
+
+No remote cloud somecloud found on the controller controller: credentials are not added remotely.
+Use 'juju clouds -c controller' to see what clouds are available remotely.
+User 'juju add-cloud somecloud -c controller' to add your cloud to the controller.
+`[1:]
+	s.assertAddedCredentialForCloud(c, "somecloud", stdout, "", false)
 }
