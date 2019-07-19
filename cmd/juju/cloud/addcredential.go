@@ -137,6 +137,7 @@ type addCredentialCommand struct {
 
 	// These attributes are used when adding credentials to a controller.
 	controllerName    string
+	remoteCloudFound  bool
 	credentialAPIFunc func() (CredentialAPI, error)
 }
 
@@ -606,6 +607,7 @@ func (c *addCredentialCommand) maybeRemoteCloud(ctxt *cmd.Context) error {
 	if remoteCloud, ok := remoteUserClouds[names.NewCloudTag(c.CloudName)]; ok {
 		ctxt.Infof("Using  remote cloud %q from the controller to verify credentials.", c.CloudName)
 		c.cloud = &remoteCloud
+		c.remoteCloudFound = true
 	}
 	return nil
 }
@@ -613,6 +615,13 @@ func (c *addCredentialCommand) maybeRemoteCloud(ctxt *cmd.Context) error {
 func (c *addCredentialCommand) addRemoteCredentials(ctxt *cmd.Context, all map[string]jujucloud.Credential) error {
 	if len(all) == 0 {
 		fmt.Fprintf(ctxt.Stdout, "No remote credentials for cloud %q added.\n", c.CloudName)
+		return nil
+	}
+	if !c.remoteCloudFound {
+		fmt.Fprintf(ctxt.Stdout, "No remote cloud %v found on the controller %v: credentials are not added remotely.\n"+
+			"Use 'juju clouds -c %v' to see what clouds are available remotely.\n"+
+			"User 'juju add-cloud %v -c %v' to add your cloud to the controller.\n",
+			c.CloudName, c.controllerName, c.controllerName, c.CloudName, c.controllerName)
 		return nil
 	}
 
