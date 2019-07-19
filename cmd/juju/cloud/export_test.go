@@ -126,12 +126,14 @@ func NewDetectCredentialsCommandForTest(
 }
 
 func NewAddCredentialCommandForTest(
-	testStore jujuclient.CredentialStore,
+	testStore jujuclient.ClientStore,
 	cloudByNameFunc func(string) (*jujucloud.Cloud, error),
+	f func() (CredentialAPI, error),
 ) *AddCredentialCommand {
 	return &addCredentialCommand{
-		store:           testStore,
-		cloudByNameFunc: cloudByNameFunc,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: testStore},
+		cloudByNameFunc:           cloudByNameFunc,
+		credentialAPIFunc:         f,
 	}
 }
 
