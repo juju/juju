@@ -5,9 +5,9 @@ package vsphereclient
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	"github.com/juju/utils"
@@ -182,6 +182,12 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 		res.Res = &types.CreateFilterResponse{
 			Returnval: req.Spec.ObjectSet[0].Obj,
 		}
+	case *methods.HttpNfcLeaseProgressBody:
+		req := req.(*methods.HttpNfcLeaseProgressBody).Req
+		r.MethodCall(r, "HttpNfcLeaseProgressBody", req.This.Value)
+		logger.Infof("%s", req.This.Value)
+		//delete(r.collectors, req.This.Value)
+		res.Res = &types.HttpNfcLeaseProgressResponse{}
 	case *methods.HttpNfcLeaseCompleteBody:
 		req := req.(*methods.HttpNfcLeaseCompleteBody).Req
 		r.MethodCall(r, "HttpNfcLeaseComplete", req.This.Value)
@@ -249,10 +255,15 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 				Value: "z0",
 			},
 		}
+	case *methods.MarkAsTemplateBody:
+		req := req.(*methods.MarkAsTemplateBody).Req
+		r.MethodCall(r, "MarkAsTemplateBody", req.This.Value)
+		res.Res = &types.MarkAsTemplateResponse{}
 
 	default:
 		logger.Debugf("mockRoundTripper: unknown res type %T", res)
-		return errors.Errorf("unknown type %T", res)
+		panic(fmt.Sprintf("unknown type %T", res))
+		//		return errors.Errorf("unknown type %T", res)
 	}
 	return nil
 }
@@ -286,6 +297,7 @@ func (r *mockRoundTripper) retrieveProperties(req *types.RetrieveProperties) *ty
 			}
 		}
 	}
+	logger.Debugf("received %s", contents)
 	return &types.RetrievePropertiesResponse{contents}
 }
 
