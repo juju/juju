@@ -60,10 +60,11 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusUpdates, jc.DeepEquals, []string{
-		"uploading juju-vmdks/ctrl/xenial/4d9f679a703b95c99189eab283c8c1b36caa062321c531f3dac8163a59c70087.vmdk.tmp: 100.00% (0B/s)",
+		"creating template",
 		"creating import spec",
-		`creating VM "vm-0"`,
-		"VM cloned",
+		`creating template VM "vm-0-template"`,
+		"streaming vmdk: 100.00% (0B/s)",
+		"cloning template",
 		"powering on",
 	})
 
@@ -72,6 +73,8 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(contents), gc.Equals, "FakeVmdkContent")
 
+	templateCisp := baseCisp()
+	templateCisp.EntityName = vmTemplateName(templateCisp.EntityName)
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
@@ -80,91 +83,57 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		retrievePropertiesStubCall("FakeDatacenter"),
 		retrievePropertiesStubCall("FakeVmFolder"),
 		retrievePropertiesStubCall("FakeHostFolder"),
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeDatacenter"),
+		retrievePropertiesStubCall("FakeVmFolder"),
+		retrievePropertiesStubCall("FakeVmFolder"),
+		retrievePropertiesStubCall("FakeControllerVmFolder"),
+		retrievePropertiesStubCall("FakeModelVmFolder"),
+		retrievePropertiesStubCall("FakeDatacenter"),
 		retrievePropertiesStubCall("FakeDatastore1", "FakeDatastore2"),
-		retrievePropertiesStubCall("FakeDatastore2"),
-
-		{"SearchDatastore", []interface{}{
-			"[datastore2] juju-vmdks/ctrl/xenial",
-			&types.HostDatastoreBrowserSearchSpec{
-				MatchPattern: []string{"4d9f679a703b95c99189eab283c8c1b36caa062321c531f3dac8163a59c70087.vmdk"},
-				Details: &types.FileQueryFlags{
-					FileType:     true,
-					FileSize:     true,
-					Modification: true,
-					FileOwner:    newBool(true),
-				},
-			},
-		}},
-		{"CreatePropertyCollector", nil},
-		{"CreateFilter", nil},
-		{"WaitForUpdatesEx", nil},
-
-		{"DeleteDatastoreFile", []interface{}{
-			"[datastore2] juju-vmdks/ctrl/xenial",
-		}},
-		{"CreatePropertyCollector", nil},
-		{"CreateFilter", nil},
-		{"WaitForUpdatesEx", nil},
-
-		{"MakeDirectory", []interface{}{
-			"[datastore2] juju-vmdks/ctrl/xenial",
-		}},
-
-		{"MoveDatastoreFile", []interface{}{
-			"[datastore2] juju-vmdks/ctrl/xenial/4d9f679a703b95c99189eab283c8c1b36caa062321c531f3dac8163a59c70087.vmdk.tmp",
-			"[datastore2] juju-vmdks/ctrl/xenial/4d9f679a703b95c99189eab283c8c1b36caa062321c531f3dac8163a59c70087.vmdk",
-			newBool(true),
-		}},
-		{"CreatePropertyCollector", nil},
-		{"CreateFilter", nil},
-		{"WaitForUpdatesEx", nil},
-
 		{"CreateImportSpec", []interface{}{
 			UbuntuOVF,
 			types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"},
-			baseCisp(),
+			templateCisp,
 		}},
 		retrievePropertiesStubCall("network-0", "network-1"),
-		retrievePropertiesStubCall("onetwork-0"),
+		retrievePropertiesStubCall("onetwork-0"), // "opaque network"
 		retrievePropertiesStubCall("dvportgroup-0"),
-		{"ImportVApp", []interface{}{&types.VirtualMachineImportSpec{
-			ConfigSpec: types.VirtualMachineConfigSpec{
-				Name: "vm-name.tmp",
-				ExtraConfig: []types.BaseOptionValue{
-					&types.OptionValue{Key: "k", Value: "v"},
+		{"ImportVApp", []interface{}{
+			&types.VirtualMachineImportSpec{
+				ConfigSpec: types.VirtualMachineConfigSpec{
+					Name: "vm-name",
+					ExtraConfig: []types.BaseOptionValue{
+						&types.OptionValue{Key: "k", Value: "v"},
+					},
+					Flags: &types.VirtualMachineFlagInfo{
+						DiskUuidEnabled: newBool(true),
+					},
 				},
-				Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
 			},
-		}}},
+		}},
 		{"CreatePropertyCollector", nil},
 		{"CreateFilter", nil},
 		{"WaitForUpdatesEx", nil},
-
 		{"HttpNfcLeaseComplete", []interface{}{"FakeLease"}},
-
+		{"MarkAsTemplateBody", []interface{}{"FakeVm0"}},
 		{"CloneVM_Task", nil},
 		{"CreatePropertyCollector", nil},
 		{"CreateFilter", nil},
 		{"WaitForUpdatesEx", nil},
-
-		retrievePropertiesStubCall("FakeVm0"),
-
+		retrievePropertiesStubCall("network-0", "network-1"),
+		retrievePropertiesStubCall("onetwork-0"),
+		retrievePropertiesStubCall("dvportgroup-0"),
 		{"ReconfigVM_Task", nil},
 		{"CreatePropertyCollector", nil},
 		{"CreateFilter", nil},
 		{"WaitForUpdatesEx", nil},
-
 		{"PowerOnVM_Task", nil},
 		{"CreatePropertyCollector", nil},
 		{"CreateFilter", nil},
 		{"WaitForUpdatesEx", nil},
-
 		retrievePropertiesStubCall(""),
-
-		{"Destroy_Task", nil},
-		{"CreatePropertyCollector", nil},
-		{"CreateFilter", nil},
-		{"WaitForUpdatesEx", nil},
 	})
 }
 
@@ -175,50 +144,15 @@ func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *gc.C) {
 	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.roundTripper.CheckCall(c, 26, "ImportVApp", &types.VirtualMachineImportSpec{
+	s.roundTripper.CheckCall(c, 20, "ImportVApp", &types.VirtualMachineImportSpec{
 		ConfigSpec: types.VirtualMachineConfigSpec{
-			Name: "vm-name.tmp",
+			Name: "vm-name",
 			ExtraConfig: []types.BaseOptionValue{
 				&types.OptionValue{Key: "k", Value: "v"},
 			},
-			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(false)},
+			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(args.EnableDiskUUID)},
 		},
 	})
-}
-
-func (s *clientSuite) TestCreateVirtualMachineVMDKDirectoryNotFound(c *gc.C) {
-	// FileNotFound is returned when the *directory* doesn't exist.
-	s.roundTripper.taskError[searchDatastoreTask] = &types.LocalizedMethodFault{
-		Fault: &types.FileNotFound{},
-	}
-
-	args := baseCreateVirtualMachineParams(c)
-	client := s.newFakeClient(&s.roundTripper, "dc0")
-	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	calls := s.roundTripper.Calls()
-	assertNoCall(c, calls, "DeleteDatastoreFile")
-	findStubCall(c, calls, "MakeDirectory")
-}
-
-func (s *clientSuite) TestCreateVirtualMachineDiskAlreadyCached(c *gc.C) {
-	results := types.HostDatastoreBrowserSearchResults{
-		File: []types.BaseFileInfo{&types.VmDiskFileInfo{}},
-	}
-	s.roundTripper.taskResult[searchDatastoreTask] = results
-
-	args := baseCreateVirtualMachineParams(c)
-	client := s.newFakeClient(&s.roundTripper, "dc0")
-	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// There should be no upload, and the VMDK directory should neither
-	// have been deleted nor created.
-	calls := s.roundTripper.Calls()
-	assertNoCall(c, calls, "DeleteDatastoreFile")
-	assertNoCall(c, calls, "MakeDirectory")
-	c.Assert(s.uploadRequests, gc.HasLen, 0)
 }
 
 func (s *clientSuite) TestCreateVirtualMachineDatastoreSpecified(c *gc.C) {
@@ -237,10 +171,14 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreSpecified(c *gc.C) {
 	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
+	//findStubCall(c, s.roundTripper.Calls(), "?")
+
+	cisp := baseCisp()
+	cisp.EntityName = vmTemplateName(cisp.EntityName)
 	s.roundTripper.CheckCall(
-		c, 22, "CreateImportSpec", UbuntuOVF,
+		c, 16, "CreateImportSpec", UbuntuOVF,
 		types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"},
-		baseCisp(),
+		cisp,
 	)
 }
 
@@ -251,7 +189,7 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreNotFound(c *gc.C) {
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `could not find datastore "datastore3", datastore\(s\) accessible: "datastore2"`)
+	c.Assert(err, gc.ErrorMatches, `creating template VM: could not find datastore "datastore3", datastore\(s\) accessible: "datastore2"`)
 }
 
 func (s *clientSuite) TestCreateVirtualMachineDatastoreNoneAccessible(c *gc.C) {
@@ -263,7 +201,7 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreNoneAccessible(c *gc.C) {
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, "no accessible datastores available")
+	c.Assert(err, gc.ErrorMatches, "creating template VM: no accessible datastores available")
 }
 
 func (s *clientSuite) TestCreateVirtualMachineDatastoreNotFoundWithMultipleAvailable(c *gc.C) {
@@ -286,7 +224,7 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreNotFoundWithMultipleAvail
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `could not find datastore "datastore3", datastore\(s\) accessible: "datastore1", "datastore2"`)
+	c.Assert(err, gc.ErrorMatches, `creating template VM: could not find datastore "datastore3", datastore\(s\) accessible: "datastore1", "datastore2"`)
 }
 
 func (s *clientSuite) TestCreateVirtualMachineDatastoreNotFoundWithNoAvailable(c *gc.C) {
@@ -309,7 +247,7 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreNotFoundWithNoAvailable(c
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `no accessible datastores available`)
+	c.Assert(err, gc.ErrorMatches, `creating template VM: no accessible datastores available`)
 }
 
 func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefault(c *gc.C) {
@@ -349,9 +287,9 @@ func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefa
 		},
 	}
 
-	s.roundTripper.CheckCall(c, 26, "ImportVApp", &types.VirtualMachineImportSpec{
+	s.roundTripper.CheckCall(c, 20, "ImportVApp", &types.VirtualMachineImportSpec{
 		ConfigSpec: types.VirtualMachineConfigSpec{
-			Name: "vm-name.tmp",
+			Name: "vm-name",
 			ExtraConfig: []types.BaseOptionValue{
 				&types.OptionValue{Key: "k", Value: "v"},
 			},
@@ -395,14 +333,15 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *gc.
 	}
 
 	retrieveDVSCall := retrievePropertiesStubCall("dvs-0")
-	s.roundTripper.CheckCall(c, 26, retrieveDVSCall.FuncName, retrieveDVSCall.Args...)
+	s.roundTripper.CheckCall(c, 20, retrieveDVSCall.FuncName, retrieveDVSCall.Args...)
+	s.roundTripper.CheckCall(c, 34, retrieveDVSCall.FuncName, retrieveDVSCall.Args...)
 
 	// When the external network is a distributed virtual portgroup,
 	// we must make an additional RetrieveProperties call to fetch
 	// the DVS's UUID. This bumps the ImportVApp position by one.
-	s.roundTripper.CheckCall(c, 27, "ImportVApp", &types.VirtualMachineImportSpec{
+	s.roundTripper.CheckCall(c, 21, "ImportVApp", &types.VirtualMachineImportSpec{
 		ConfigSpec: types.VirtualMachineConfigSpec{
-			Name: "vm-name.tmp",
+			Name: "vm-name",
 			ExtraConfig: []types.BaseOptionValue{
 				&types.OptionValue{Key: "k", Value: "v"},
 			},
@@ -425,7 +364,7 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkNotFound(c *gc.C) {
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `creating import spec: network "fourtytwo" not found`)
+	c.Assert(err, gc.ErrorMatches, `creating template VM: creating import spec: network "fourtytwo" not found`)
 }
 
 func (s *clientSuite) TestCreateVirtualMachineInvalidMAC(c *gc.C) {
@@ -436,7 +375,7 @@ func (s *clientSuite) TestCreateVirtualMachineInvalidMAC(c *gc.C) {
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `creating import spec: adding network device 0 - network VM Network: Invalid MAC address: "00:11:22:33:44:55"`)
+	c.Assert(err, gc.ErrorMatches, `creating template VM: creating import spec: adding network device 0 - network VM Network: Invalid MAC address: "00:11:22:33:44:55"`)
 }
 
 func (s *clientSuite) TestCreateVirtualMachineRootDiskSize(c *gc.C) {
@@ -628,7 +567,9 @@ func newBool(v bool) *bool {
 }
 
 func findStubCall(c *gc.C, calls []testing.StubCall, name string) testing.StubCall {
-	for _, call := range calls {
+	c.Logf("finding stub \"%s\"", name)
+	for i, call := range calls {
+		c.Logf("stub %d: %s(%v)", i, call.FuncName, call.Args)
 		if call.FuncName == name {
 			return call
 		}
