@@ -2063,6 +2063,14 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 		if m.Type() == ModelTypeCAAS {
 			ops = append(ops, u.removeCloudContainerOps()...)
 		}
+		branchOps, err := unassignUnitFromBranchOp(u.doc.Name, a.doc.Name, m)
+		if err != nil {
+			if !op.Force {
+				return nil, errors.Trace(err)
+			}
+			op.AddError(err)
+		}
+		ops = append(ops, branchOps...)
 	}
 
 	sb, err := NewStorageBackend(a.st)
@@ -2134,6 +2142,18 @@ func removeUnitResourcesOps(st *State, unitID string) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 	return ops, nil
+}
+
+func unassignUnitFromBranchOp(unitName, appName string, m *Model) ([]txn.Op, error) {
+	branch, err := m.unitBranch(unitName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if branch == nil {
+		// Nothing to see here, move along.
+		return nil, nil
+	}
+	return branch.unassignUnitOps(unitName, appName), nil
 }
 
 // AllUnits returns all units of the application.
