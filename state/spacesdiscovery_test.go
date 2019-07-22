@@ -193,9 +193,17 @@ func checkSubnetsEqual(c *gc.C, subnets []*state.Subnet, subnetInfos []network.S
 }
 
 func checkSpacesEqual(c *gc.C, spaces []*state.Space, spaceInfos []network.SpaceInfo) {
-	c.Assert(len(spaceInfos), gc.Equals, len(spaces))
+	// Filter out the default space for comparisons.
+	filtered := spaces[:0]
+	for _, s := range spaces {
+		if s.Name() != environs.DefaultSpaceName {
+			filtered = append(filtered, s)
+		}
+	}
+
+	c.Assert(len(spaceInfos), gc.Equals, len(filtered))
 	for i, spaceInfo := range spaceInfos {
-		space := spaces[i]
+		space := filtered[i]
 		c.Check(spaceInfo.Name, gc.Equals, space.Name())
 		c.Check(spaceInfo.ProviderId, gc.Equals, space.ProviderId())
 		subnets, err := space.Subnets()

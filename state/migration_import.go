@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
@@ -1232,10 +1233,16 @@ func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
 	return doc
 }
 
+// spaces imports spaces without subnets, which are added later.
 func (i *importer) spaces() error {
 	i.logger.Debugf("importing spaces")
 	for _, s := range i.model.Spaces() {
-		// The subnets are added after the spaces.
+		// The default space should not have been exported, but be defensive.
+		// Any subnets added to the space will be imported subsequently.
+		if s.Name() == environs.DefaultSpaceName {
+			continue
+		}
+
 		_, err := i.st.AddSpace(s.Name(), network.Id(s.ProviderID()), nil, s.Public())
 		if err != nil {
 			i.logger.Errorf("error importing space %s: %s", s.Name(), err)

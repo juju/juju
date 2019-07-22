@@ -17,6 +17,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/resource"
@@ -1119,6 +1120,14 @@ func (e *exporter) spaces() error {
 	e.logger.Debugf("read %d spaces", len(spaces))
 
 	for _, space := range spaces {
+		// We do not export the default space because it is created by default
+		// with the new model. This is OK, because it is immutable.
+		// Any subnets added to the space will still be exported.
+		if space.Name() == environs.DefaultSpaceName {
+			continue
+		}
+
+		// TODO (manadart 2019-07-12): Update juju/description and export IDs.
 		e.model.AddSpace(description.SpaceArgs{
 			Name:       space.Name(),
 			Public:     space.IsPublic(),

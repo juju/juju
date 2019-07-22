@@ -383,8 +383,13 @@ func allCollections() CollectionSchema {
 
 		// -----
 
-		providerIDsC:          {},
-		spacesC:               {},
+		providerIDsC: {},
+		spacesC: {
+			indexes: []mgo.Index{
+				{Key: []string{"model-uuid", "spaceid"}},
+				{Key: []string{"model-uuid", "name"}},
+			},
+		},
 		subnetsC:              {},
 		linkLayerDevicesC:     {},
 		linkLayerDevicesRefsC: {},
