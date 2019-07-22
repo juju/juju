@@ -44,7 +44,6 @@ func NewAddCloudCommandForTest(
 		Ping: func(p environs.EnvironProvider, endpoint string) error {
 			return nil
 		},
-		store:           store,
 		addCloudAPIFunc: cloudAPI,
 	}
 }

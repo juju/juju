@@ -6,7 +6,6 @@ package controller_test
 import (
 	"fmt"
 	"io/ioutil"
-	"regexp"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -255,8 +254,16 @@ func (s *AddModelSuite) TestCredentialsOtherUserCredentialNotFound(c *gc.C) {
 	// Have the API respond with no credentials.
 	s.PatchValue(&s.fakeCloudAPI.credentials, []names.CloudCredentialTag{})
 
-	_, err := s.run(c, "test", "--credential", "other/secrets")
-	c.Assert(err, gc.ErrorMatches, "credential 'other/secrets' not found")
+	ctx, err := s.run(c, "test", "--credential", "other/secrets")
+	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+Use 
+* 'juju add-credential -c' to upload a credential to a controller or
+* 'juju autoload-credentials' to add credenitals from local files or
+* 'juju add-model --credential' to use a local credential.
+Use 'juju credentials' to list all available credentials.
+`[1:])
+	c.Assert(c.GetTestLog(), jc.Contains, "credential 'other/secrets' not found")
 
 	// There should be no detection or UpdateCredentials call.
 	s.fakeCloudAPI.CheckCallNames(c, "Clouds", "Cloud", "UserCredentials")
@@ -332,8 +339,17 @@ func (s *AddModelSuite) TestControllerCredentialsDetectedAmbiguous(c *gc.C) {
 		},
 	})
 
-	_, err := s.run(c, "test")
-	c.Assert(err, gc.ErrorMatches, `
+	ctx, err := s.run(c, "test")
+	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+Use 
+* 'juju add-credential -c' to upload a credential to a controller or
+* 'juju autoload-credentials' to add credenitals from local files or
+* 'juju add-model --credential' to use a local credential.
+Use 'juju credentials' to list all available credentials.
+`[1:])
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(c.GetTestLog(), jc.Contains, `
 more than one credential detected. Add all detected credentials
 to the client with:
 
@@ -374,8 +390,10 @@ func (s *AddModelSuite) TestDefaultCloudRegionPassedThrough(c *gc.C) {
 
 func (s *AddModelSuite) TestNoDefaultCloudRegion(c *gc.C) {
 	s.fakeCloudAPI.clouds = nil
-	_, err := s.run(c, "test", "us-west-1")
-	c.Assert(err, gc.ErrorMatches, `
+	ctx, err := s.run(c, "test", "us-west-1")
+	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Use 'juju clouds' to see a list of all available clouds or 'juju add-cloud' to a add one.\n")
+	c.Assert(c.GetTestLog(), jc.Contains, `
 you do not have add-model access to any clouds on this controller.
 Please ask the controller administrator to grant you add-model permission
 for a particular cloud to which you want to add a model.`[1:])
@@ -387,8 +405,10 @@ for a particular cloud to which you want to add a model.`[1:])
 
 func (s *AddModelSuite) TestAmbiguousCloud(c *gc.C) {
 	s.fakeCloudAPI.clouds[names.NewCloudTag("lxd")] = cloud.Cloud{}
-	_, err := s.run(c, "test", "us-west-1")
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`
+	ctx, err := s.run(c, "test", "us-west-1")
+	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Use 'juju clouds' to see a list of all available clouds or 'juju add-cloud' to a add one.\n")
+	c.Assert(c.GetTestLog(), jc.Contains, `
 this controller manages more than one cloud.
 Please specify which cloud/region to use:
 
@@ -399,7 +419,7 @@ The clouds/regions supported by this controller are:
 Cloud  Regions
 aws    us-east-1, us-west-1
 lxd    
-`)[1:])
+`[1:])
 	s.fakeCloudAPI.CheckCalls(c, []gitjujutesting.StubCall{
 		{"Cloud", []interface{}{names.NewCloudTag("us-west-1")}},
 		{"Clouds", nil},
@@ -454,8 +474,10 @@ func (s *AddModelSuite) TestCloudDefaultRegionUsedIfSet(c *gc.C) {
 }
 
 func (s *AddModelSuite) TestInvalidCloudOrRegionName(c *gc.C) {
-	_, err := s.run(c, "test", "oro")
-	c.Assert(err, gc.ErrorMatches, `
+	ctx, err := s.run(c, "test", "oro")
+	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Use 'juju clouds' to see a list of all available clouds or 'juju add-cloud' to a add one.\n")
+	c.Assert(c.GetTestLog(), jc.Contains, `
 "oro" is neither a cloud supported by this controller,
 nor a region in the controller's default cloud "aws".
 The clouds/regions supported by this controller are:
