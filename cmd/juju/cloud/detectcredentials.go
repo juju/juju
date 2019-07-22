@@ -496,7 +496,7 @@ func (c *detectCredentialsCommand) addRemoteCredentials(ctxt *cmd.Context, cloud
 		}
 	}
 	if moreCloudInfoNeeded {
-		ctxt.Infof("Use 'juju clouds' to view all avalaible clouds and 'juju add-cloud' to add missing ones.")
+		ctxt.Infof("Use 'juju clouds' to view all available clouds and 'juju add-cloud' to add missing ones.")
 	}
 	return processUpdateCredentialResult(ctxt, accountDetails, "loaded", results)
 }
