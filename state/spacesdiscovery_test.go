@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
@@ -196,7 +197,7 @@ func checkSpacesEqual(c *gc.C, spaces []*state.Space, spaceInfos []network.Space
 	// Filter out the default space for comparisons.
 	filtered := spaces[:0]
 	for _, s := range spaces {
-		if s.Name() != environs.DefaultSpaceName {
+		if s.Name() != corenetwork.DefaultSpaceName {
 			filtered = append(filtered, s)
 		}
 	}

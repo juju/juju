@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/permission"
@@ -467,7 +468,7 @@ func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.Appli
 			if result.Bindings == nil {
 				result.Bindings = make(map[string]string)
 			}
-			result.Bindings[ep.Name] = environs.DefaultSpaceName
+			result.Bindings[ep.Name] = network.DefaultSpaceName
 		}
 		spaceNames.Add(spaceName)
 	}
@@ -524,7 +525,7 @@ func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceNames []string) (m
 	results := make(map[string]params.RemoteSpace)
 	for _, name := range spaceNames {
 		space := environs.DefaultSpaceInfo
-		if name != environs.DefaultSpaceName {
+		if name != network.DefaultSpaceName {
 			dbSpace, err := backend.Space(name)
 			if err != nil {
 				return nil, errors.Trace(err)

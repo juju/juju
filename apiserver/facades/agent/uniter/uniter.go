@@ -2161,7 +2161,7 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 			defaultIngressAddresses = append(defaultIngressAddresses, a.Value)
 		}
 		networkInfos = make(map[string]state.MachineNetworkInfoResult)
-		networkInfos[environs.DefaultSpaceName] = state.MachineNetworkInfoResult{
+		networkInfos[corenetwork.DefaultSpaceName] = state.MachineNetworkInfoResult{
 			NetworkInfos: []network.NetworkInfo{{Addresses: interfaceAddr}},
 		}
 	}

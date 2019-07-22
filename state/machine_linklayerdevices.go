@@ -14,7 +14,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/environs"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 )
 
@@ -1125,17 +1125,18 @@ func addAddressToResult(networkInfos []network.NetworkInfo, address *Address) ([
 // GetNetworkInfoForSpaces returns MachineNetworkInfoResult with a list of devices for each space in spaces
 // TODO(wpk): 2017-05-04 This does not work for L2-only devices as it iterates over addresses, needs to be fixed.
 // When changing the method we have to keep the ordering.
-func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string](MachineNetworkInfoResult) {
-	results := make(map[string](MachineNetworkInfoResult))
+func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string]MachineNetworkInfoResult {
+	results := make(map[string]MachineNetworkInfoResult)
 
 	var privateAddress network.Address
 
-	if spaces.Contains(environs.DefaultSpaceName) {
+	if spaces.Contains(corenetwork.DefaultSpaceName) {
 		var err error
 		privateAddress, err = m.PrivateAddress()
 		if err != nil {
-			results[environs.DefaultSpaceName] = MachineNetworkInfoResult{Error: errors.Annotatef(err, "getting machine %q preferred private address", m.MachineTag())}
-			spaces.Remove(environs.DefaultSpaceName)
+			results[corenetwork.DefaultSpaceName] = MachineNetworkInfoResult{Error: errors.Annotatef(
+				err, "getting machine %q preferred private address", m.MachineTag())}
+			spaces.Remove(corenetwork.DefaultSpaceName)
 		}
 	}
 
@@ -1170,13 +1171,13 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string](Machin
 					results[space] = r
 				}
 			}
-			if spaces.Contains(environs.DefaultSpaceName) && privateAddress.Value == addr.Value() {
-				r := results[environs.DefaultSpaceName]
+			if spaces.Contains(corenetwork.DefaultSpaceName) && privateAddress.Value == addr.Value() {
+				r := results[corenetwork.DefaultSpaceName]
 				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
 				if err != nil {
 					r.Error = err
 				} else {
-					results[environs.DefaultSpaceName] = r
+					results[corenetwork.DefaultSpaceName] = r
 				}
 			}
 		}
@@ -1184,20 +1185,21 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string](Machin
 
 	// For a spaceless model we won't find a subnet that's linked to privateAddress,
 	// we have to work around that and at least return minimal information.
-	if r, filledPrivateAddress := results[environs.DefaultSpaceName]; !filledPrivateAddress && spaces.Contains(environs.DefaultSpaceName) {
+	if r, ok := results[corenetwork.DefaultSpaceName]; !ok && spaces.Contains(corenetwork.DefaultSpaceName) {
 		r.NetworkInfos = []network.NetworkInfo{{
 			Addresses: []network.InterfaceAddress{{
 				Address: privateAddress.Value,
 			}},
 		}}
-		results[environs.DefaultSpaceName] = r
+		results[corenetwork.DefaultSpaceName] = r
 	}
 	actualSpacesStr := network.QuoteSpaceSet(actualSpaces)
 
 	for space := range spaces {
 		if _, ok := results[space]; !ok {
 			results[space] = MachineNetworkInfoResult{
-				Error: errors.Errorf("machine %q has no devices in space %q, only spaces %s", m.doc.Id, space, actualSpacesStr),
+				Error: errors.Errorf("machine %q has no devices in space %q, only spaces %s",
+					m.doc.Id, space, actualSpacesStr),
 			}
 		}
 	}

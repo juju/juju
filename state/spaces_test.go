@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
@@ -412,7 +412,7 @@ func (s *SpacesSuite) assertInvalidSpaceNameErrorAndWasNotAdded(c *gc.C, err err
 
 	// The default space will be present, although we cannot add it.
 	// Only check non-default names.
-	if name != environs.DefaultSpaceName {
+	if name != corenetwork.DefaultSpaceName {
 		s.assertSpaceNotFound(c, name)
 	}
 }

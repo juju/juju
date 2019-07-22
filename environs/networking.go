@@ -21,11 +21,6 @@ var SupportsNetworking = supportsNetworking
 // to get information about the default space.
 var DefaultSpaceInfo *network.SpaceInfo
 
-// TODO (manadart 2019-07-03): Move this to core.
-// DefaultSpaceName is the name of the default space (to which
-// application endpoints are bound if no explicit binding is given).
-const DefaultSpaceName = ""
-
 // Networking interface defines methods that environments
 // with networking capabilities must implement.
 type Networking interface {
