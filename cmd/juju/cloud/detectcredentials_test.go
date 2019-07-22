@@ -272,6 +272,46 @@ func (s *detectCredentialsSuite) TestDetectCredentialInvalidChoice(c *gc.C) {
 	c.Assert(s.store.Credentials, gc.HasLen, 0)
 }
 
+func (s *detectCredentialsSuite) TestDetectCredentialCloudMismatch(c *gc.C) {
+	s.aCredential = jujucloud.CloudCredential{
+		DefaultRegion: "detected region",
+		AuthCredentials: map[string]jujucloud.Credential{
+			"test":    s.credentialWithLabel(jujucloud.AccessKeyAuthType, "credential 1"),
+			"another": s.credentialWithLabel(jujucloud.AccessKeyAuthType, "credential 2")},
+	}
+	clouds := map[string]jujucloud.Cloud{
+		"aws": {
+			Name:             "aws",
+			Type:             "aws",
+			AuthTypes:        []jujucloud.AuthType{jujucloud.AccessKeyAuthType},
+			Endpoint:         "cloud-endpoint",
+			IdentityEndpoint: "cloud-identity-endpoint",
+			Regions: []jujucloud.Region{
+				{Name: "default region", Endpoint: "specialendpoint", IdentityEndpoint: "specialidentityendpoint", StorageEndpoint: "storageendpoint"},
+			},
+		},
+	}
+
+	stdin := strings.NewReader("1\naws\nQ\n")
+	ctx, err := s.run(c, stdin, clouds)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+
+Looking for cloud and credential information locally...
+
+1. credential 2 (new)
+2. credential 1 (new)
+Select a credential to save by number, or type Q to quit: 
+Select the cloud it belongs to, or type Q to quit []: 
+chosen credentials not compatible with a aws cloud
+
+1. credential 2 (new)
+2. credential 1 (new)
+Select a credential to save by number, or type Q to quit: 
+`[1:])
+	c.Assert(s.store.Credentials, gc.HasLen, 0)
+}
+
 func (s *detectCredentialsSuite) TestDetectCredentialQuitOnCloud(c *gc.C) {
 	s.aCredential = jujucloud.CloudCredential{
 		DefaultRegion: "detected region",
