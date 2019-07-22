@@ -504,7 +504,7 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 	// Make sure ConfigSettings returns an error when
 	// no charm URL is set, as its state counterpart does.
 	settings, err := s.apiUnit.ConfigSettings()
-	c.Assert(err, gc.ErrorMatches, "unit charm not set")
+	c.Assert(err, gc.ErrorMatches, "unit's charm URL must be set before retrieving config")
 
 	// Now set the charm and try again.
 	err = s.apiUnit.SetCharmURL(s.wordpressCharm.URL())
@@ -533,7 +533,7 @@ func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	// Make sure WatchConfigSettingsHash returns an error when
 	// no charm URL is set, as its state counterpart does.
 	w, err := s.apiUnit.WatchConfigSettingsHash()
-	c.Assert(err, gc.ErrorMatches, "unit charm not set")
+	c.Assert(err, gc.ErrorMatches, "unit's charm URL must be set before watching config")
 
 	// Now set the charm and try again.
 	err = s.apiUnit.SetCharmURL(s.wordpressCharm.URL())

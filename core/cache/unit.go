@@ -74,7 +74,7 @@ func (u *Unit) Ports() []network.Port {
 // taking into account whether it is tracking a model branch.
 func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	if u.details.CharmURL == "" {
-		return nil, errors.New("unit charm not set")
+		return nil, errors.New("unit's charm URL must be set before retrieving config")
 	}
 
 	appName := u.details.Application
@@ -128,7 +128,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 // effective application charm config for this unit changes.
 func (u *Unit) WatchConfigSettings() (*CharmConfigWatcher, error) {
 	if u.details.CharmURL == "" {
-		return nil, errors.New("unit charm not set")
+		return nil, errors.New("unit's charm URL must be set before watching config")
 	}
 
 	cfg := charmConfigWatcherConfig{

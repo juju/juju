@@ -1771,7 +1771,7 @@ func (a *Application) WatchCharmConfig() (NotifyWatcher, error) {
 // could be somewhat simpler.
 func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 	if u.doc.CharmURL == nil {
-		return nil, fmt.Errorf("unit charm not set")
+		return nil, fmt.Errorf("unit's charm URL must be set before watching config")
 	}
 	charmConfigKey := applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL)
 	return newEntityWatcher(u.st, settingsC, u.st.docID(charmConfigKey)), nil
@@ -1790,7 +1790,7 @@ func (u *Unit) WatchApplicationConfigSettings() (NotifyWatcher, error) {
 // URL is not changed.
 func (u *Unit) WatchConfigSettingsHash() (StringsWatcher, error) {
 	if u.doc.CharmURL == nil {
-		return nil, fmt.Errorf("unit charm not set")
+		return nil, fmt.Errorf("unit's charm URL must be set before watching config")
 	}
 	charmConfigKey := applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL)
 	return newSettingsHashWatcher(u.st, charmConfigKey), nil
