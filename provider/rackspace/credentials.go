@@ -4,6 +4,8 @@
 package rackspace
 
 import (
+	"fmt"
+
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/provider/openstack"
 )
@@ -50,7 +52,9 @@ func (c Credentials) DetectCredentials() (*cloud.CloudCredential, error) {
 	for k, v := range result.AuthCredentials {
 		attr := v.Attributes()
 		delete(attr, openstack.CredAttrDomainName)
-		result.AuthCredentials[k] = cloud.NewCredential(v.AuthType(), attr)
+		one := cloud.NewCredential(v.AuthType(), attr)
+		one.Label = fmt.Sprintf("rackspace credential for user %q", attr[openstack.CredAttrUserName])
+		result.AuthCredentials[k] = one
 	}
 	return result, nil
 }
