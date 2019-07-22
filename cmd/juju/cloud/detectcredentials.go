@@ -466,6 +466,12 @@ func (c *detectCredentialsCommand) addRemoteCredentials(ctxt *cmd.Context, cloud
 		return err
 	}
 
+	client, err := c.credentialAPIFunc()
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
 	var results []params.UpdateCredentialResult
 	moreCloudInfoNeeded := false
 	for cloud, byCloud := range all {
@@ -480,11 +486,6 @@ func (c *detectCredentialsCommand) addRemoteCredentials(ctxt *cmd.Context, cloud
 			if len(verified) == 0 {
 				return erred
 			}
-			client, err := c.credentialAPIFunc()
-			if err != nil {
-				return err
-			}
-			defer client.Close()
 			result, err := client.UpdateCloudsCredentials(verified)
 			if err != nil {
 				logger.Errorf("%v", err)
