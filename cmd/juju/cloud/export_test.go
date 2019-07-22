@@ -110,19 +110,29 @@ func NewListCredentialsCommandForTest(
 }
 
 func NewDetectCredentialsCommandForTest(
-	testStore jujuclient.CredentialStore,
+	testStore jujuclient.ClientStore,
 	registeredProvidersFunc func() []string,
 	allCloudsFunc func() (map[string]jujucloud.Cloud, error),
 	cloudsByNameFunc func(string) (*jujucloud.Cloud, error),
 	cloudType string,
+	f func() (CredentialAPI, error),
 ) *detectCredentialsCommand {
-	return &detectCredentialsCommand{
-		store:                   testStore,
-		registeredProvidersFunc: registeredProvidersFunc,
-		allCloudsFunc:           allCloudsFunc,
-		cloudByNameFunc:         cloudsByNameFunc,
-		cloudType:               cloudType,
+	command := &detectCredentialsCommand{
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: testStore},
+		registeredProvidersFunc:   registeredProvidersFunc,
+		cloudByNameFunc:           jujucloud.CloudByName,
+		cloudType:                 cloudType,
+		credentialAPIFunc:         f,
 	}
+	if allCloudsFunc != nil {
+		command.allCloudsFunc = allCloudsFunc
+	} else {
+		command.allCloudsFunc = command.allClouds
+	}
+	if cloudsByNameFunc != nil {
+		command.cloudByNameFunc = cloudsByNameFunc
+	}
+	return command
 }
 
 func NewAddCredentialCommandForTest(
@@ -171,4 +181,18 @@ func NewShowCredentialCommandForTest(testStore jujuclient.ClientStore, api Crede
 		},
 	}
 	return modelcmd.WrapBase(command)
+}
+
+func AddLoadedCredentialForTest(
+	all map[string]map[string]map[string]jujucloud.Credential,
+	cloudName, regionName, credentialName string,
+	credential jujucloud.Credential,
+) {
+
+	discovered := discoveredCredential{
+		region:         regionName,
+		credential:     credential,
+		credentialName: credentialName,
+	}
+	addLoadedCredential(all, cloudName, discovered)
 }
