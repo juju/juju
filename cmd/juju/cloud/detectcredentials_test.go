@@ -466,7 +466,7 @@ Saved credential to cloud test-cloud locally
 Select a credential to save by number, or type Q to quit: 
 
 Cloud "test-cloud" does not exist on the controller: not uploading credentials for it...
-Use 'juju clouds' to view all avalaible clouds and 'juju add-cloud' to add missing ones.
+Use 'juju clouds' to view all available clouds and 'juju add-cloud' to add missing ones.
 `[1:])
 	c.Assert(called, jc.IsFalse)
 }
