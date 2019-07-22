@@ -93,14 +93,7 @@ func (s *cmdSubnetSuite) TestSubnetAddValidCIDRUnknownByTheProvider(c *gc.C) {
 	s.RunAdd(c, expectedError, "10.0.0.0/8", "myspace")
 }
 
-func (s *cmdSubnetSuite) TestSubnetAddWithoutAnySpaces(c *gc.C) {
-	expectedError := `cannot add subnet: no spaces defined`
-	s.RunAdd(c, expectedError, "0.10.0.0/24", "whatever")
-}
-
 func (s *cmdSubnetSuite) TestSubnetAddWithUnknownSpace(c *gc.C) {
-	s.AddSpace(c, "yourspace", nil, true)
-
 	expectedError := `cannot add subnet: space "myspace" not found`
 	s.RunAdd(c, expectedError, "0.10.0.0/24", "myspace")
 }

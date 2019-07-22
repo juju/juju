@@ -173,18 +173,25 @@ func (s *cmdSpaceSuite) TestSpaceCreateWithSubnets(c *gc.C) {
 	c.Assert(subnets[1].SpaceName(), gc.Equals, "myspace")
 }
 
-func (s *cmdSpaceSuite) TestSpaceListNoResults(c *gc.C) {
-	_, stderr, err := s.Run(c, "spaces")
+// TODO (manadart 2019-07-22): Fix this so that spaces are output with IDs.
+func (s *cmdSpaceSuite) TestSpaceListDefaultOnly(c *gc.C) {
+	stdout, _, err := s.Run(c, "spaces")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stderr, jc.Contains,
-		"no spaces to display\n",
-	)
+
+	expected := `
+Space  Subnets
+
+
+`[1:]
+
+	c.Assert(stdout, gc.Equals, expected)
 }
 
 func (s *cmdSpaceSuite) TestSpaceListOneResultNoSubnets(c *gc.C) {
 	s.AddSpace(c, "myspace", nil, true)
 
-	expectedOutput := "{\"spaces\":{\"myspace\":{}}}\n"
+	// The default space is listed in addition to the one we added.
+	expectedOutput := "{\"spaces\":{\"\":{},\"myspace\":{}}}\n"
 	stdout, _, err := s.Run(c, "list-spaces", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stdout, jc.Contains, expectedOutput)
