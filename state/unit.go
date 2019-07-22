@@ -144,7 +144,7 @@ func (u *Unit) Application() (*Application, error) {
 // specified.
 func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	if u.doc.CharmURL == nil {
-		return nil, fmt.Errorf("unit charm not set")
+		return nil, fmt.Errorf("unit's charm URL must be set before retrieving config")
 	}
 
 	// TODO (manadart 2019-02-21) Factor the current generation into this call.
