@@ -130,7 +130,7 @@ func (st *State) AddSpace(
 			}
 		}
 
-		ops, err := st.addSpaceTxnOps(name, providerId, subnets, isPublic)
+		ops, err := st.addSpaceWithSubnetsTxnOps(name, providerId, subnets, isPublic)
 		return ops, errors.Trace(err)
 	}
 
@@ -145,7 +145,7 @@ func (st *State) AddSpace(
 	return space, errors.Trace(err)
 }
 
-func (st *State) addSpaceTxnOps(
+func (st *State) addSpaceWithSubnetsTxnOps(
 	name string, providerId network.Id, subnets []string, isPublic bool,
 ) ([]txn.Op, error) {
 	// Space with ID zero is the default space; start at 1.
@@ -155,6 +155,25 @@ func (st *State) addSpaceTxnOps(
 	}
 	id := strconv.Itoa(seq)
 
+	ops := st.addSpaceTxnOps(id, name, providerId, isPublic)
+
+	for _, subnetId := range subnets {
+		// TODO:(mfoord) once we have refcounting for subnets we should
+		// also assert that the refcount is zero as moving the space of a
+		// subnet in use is not permitted.
+		ops = append(ops, txn.Op{
+			C:      subnetsC,
+			Id:     subnetId,
+			Assert: bson.D{bson.DocElem{Name: "fan-local-underlay", Value: bson.D{{"$exists", false}}}},
+			// TODO (manadart 2019-07-02): Change this to use the space ID.
+			Update: bson.D{{"$set", bson.D{{"space-name", name}}}},
+		})
+	}
+
+	return ops, nil
+}
+
+func (st *State) addSpaceTxnOps(id, name string, providerId network.Id, isPublic bool) []txn.Op {
 	doc := spaceDoc{
 		DocId:      st.docID(id),
 		Id:         id,
@@ -175,20 +194,7 @@ func (st *State) addSpaceTxnOps(
 		ops = append(ops, st.networkEntityGlobalKeyOp("space", providerId))
 	}
 
-	for _, subnetId := range subnets {
-		// TODO:(mfoord) once we have refcounting for subnets we should
-		// also assert that the refcount is zero as moving the space of a
-		// subnet in use is not permitted.
-		ops = append(ops, txn.Op{
-			C:      subnetsC,
-			Id:     subnetId,
-			Assert: bson.D{bson.DocElem{Name: "fan-local-underlay", Value: bson.D{{"$exists", false}}}},
-			// TODO (manadart 2019-07-02): Change this to use the space ID.
-			Update: bson.D{{"$set", bson.D{{"space-name", name}}}},
-		})
-	}
-
-	return ops, nil
+	return ops
 }
 
 // Space returns a space from state that matches the provided name. An error

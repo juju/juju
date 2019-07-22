@@ -1242,8 +1242,16 @@ func (i *importer) spaces() error {
 			continue
 		}
 
-		_, err := i.st.AddSpace(s.Name(), network.Id(s.ProviderID()), nil, s.Public())
-		if err != nil {
+		if s.Id() == "" {
+			if _, err := i.st.AddSpace(s.Name(), network.Id(s.ProviderID()), nil, s.Public()); err != nil {
+				i.logger.Errorf("error importing space %s: %s", s.Name(), err)
+				return errors.Annotate(err, s.Name())
+			}
+			continue
+		}
+
+		ops := i.st.addSpaceTxnOps(s.Id(), s.Name(), network.Id(s.ProviderID()), s.Public())
+		if err := i.st.db().RunTransaction(ops); err != nil {
 			i.logger.Errorf("error importing space %s: %s", s.Name(), err)
 			return errors.Annotate(err, s.Name())
 		}

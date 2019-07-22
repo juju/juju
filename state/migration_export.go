@@ -1127,8 +1127,8 @@ func (e *exporter) spaces() error {
 			continue
 		}
 
-		// TODO (manadart 2019-07-12): Update juju/description and export IDs.
 		e.model.AddSpace(description.SpaceArgs{
+			Id:         space.Id(),
 			Name:       space.Name(),
 			Public:     space.IsPublic(),
 			ProviderID: string(space.ProviderId()),
