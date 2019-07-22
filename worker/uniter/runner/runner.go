@@ -112,31 +112,73 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 	return executer(commands, env, clock, cancel)
 }
 
-// for TEST execframework, neeed to plugin this from manifold level into uniter !!!!!!!!!!
-func (runner *runner) runOnRemote(commands string, env []string, clock clock.Clock, cancel chan struct{}) (*utilexec.ExecResponse, error) {
-	// TODO: exec to workload pod !!!!!!!!!!!!
+//TODO: for TEST execframework, neeed to plugin this from manifold level into uniter !!!!!!!!!!
+func (runner *runner) runOnRemote(commands string, env []string, clock clock.Clock, cancel <-chan struct{}) (*utilexec.ExecResponse, error) {
 	c, cfg, err := caasexec.GetInClusterClient()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	var stdout, stderr bytes.Buffer
-	// TODO: how to get model name properly.
-	if err := caasexec.New(
+	client := caasexec.New(
 		// runner.context.ModelName(),
 		"t1",
 		c, cfg,
-	).Exec(
+	)
+
+	var stdout, stderr bytes.Buffer
+
+	if err := client.Exec(
+		caasexec.ExecParams{
+			// TODO: how to get pod name using runner.context.UnitName()
+			PodName:  "mariadb-k8s-0",
+			Commands: []string{"mkdir", "-p", "/var/lib/juju"},
+			Stdout:   &stdout,
+			Stderr:   &stderr,
+		},
+		cancel,
+	); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// push files
+	// TODO: add a new cmd for checking jujud version, charm/version etc???
+	// exec run this new cmd to decide if we need repush files or not.
+	for _, sync := range []caasexec.CopyParam{
+		{
+			Src: caasexec.FileResource{
+				Path: "/var/lib/juju/agents/",
+			},
+			Dest: caasexec.FileResource{
+				Path:    "/var/lib/juju/agents/",
+				PodName: "mariadb-k8s-0",
+			},
+		},
+		{
+			Src: caasexec.FileResource{
+				Path: "/var/lib/juju/tools/",
+			},
+			Dest: caasexec.FileResource{
+				Path:    "/var/lib/juju/tools/",
+				PodName: "mariadb-k8s-0",
+			},
+		},
+	} {
+		if err := client.Copy(sync, cancel); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	// TODO: how to get model name properly.
+	if err := client.Exec(
 		caasexec.ExecParams{
 			// TODO: how to get pod name using runner.context.UnitName()
 			PodName:    "mariadb-k8s-0",
 			Commands:   []string{commands},
 			WorkingDir: runner.paths.GetCharmDir(),
 			Env:        env,
-			Stdin:      nil,
 			Stdout:     &stdout,
 			Stderr:     &stderr,
 		},
+		cancel,
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -147,7 +189,7 @@ func (runner *runner) runOnRemote(commands string, env []string, clock clock.Clo
 	// return nil, errors.NotSupportedf("runCommandsWithTimeout cmd -> %q", commands)
 }
 
-func (runner *runner) runOnMachine(commands string, env []string, clock clock.Clock, cancel chan struct{}) (*utilexec.ExecResponse, error) {
+func (runner *runner) runOnMachine(commands string, env []string, clock clock.Clock, cancel <-chan struct{}) (*utilexec.ExecResponse, error) {
 	command := utilexec.RunParams{
 		Commands:    commands,
 		WorkingDir:  runner.paths.GetCharmDir(),
