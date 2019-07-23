@@ -205,6 +205,12 @@ type UnitStatus struct {
 	Address    string `json:"address,omitempty"`
 }
 
+// UnitStatusResult contains an UnitStatus or an error.
+type UnitStatusResult struct {
+	Result *UnitStatus `json:"result,omitempty"`
+	Error  *Error      `json:"error,omitempty"`
+}
+
 // RelationStatus holds status info about a relation.
 type RelationStatus struct {
 	Id        int              `json:"id"`

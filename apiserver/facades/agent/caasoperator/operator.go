@@ -229,6 +229,50 @@ func (f *Facade) WatchUnits(args params.Entities) (params.StringsWatchResults, e
 	return results, nil
 }
 
+// Units returns units' status.
+func (f *Facade) Units(args params.Entities) ([]params.UnitStatusResult, error) {
+	results := make([]params.UnitStatusResult, len(args.Entities))
+	authTag := f.auth.GetAuthTag()
+	for i, entity := range args.Entities {
+		unitTag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		if unitTag != authTag {
+			results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		unit, err := f.state.Unit(unitTag.Id())
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		var unitStatus *params.UnitStatus
+		container, err := unit.ContainerInfo()
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		addr := container.Address()
+		if addr != nil {
+			unitStatus.Address = addr.Value
+		}
+		unitStatus.ProviderId = container.ProviderId()
+
+		unitPorts, _ := unit.OpenedPorts()
+		for _, port := range unitPorts {
+			unitStatus.OpenedPorts = append(unitStatus.OpenedPorts, port.String())
+		}
+		curl, _ := unit.CharmURL()
+		if curl != nil {
+			unitStatus.Charm = curl.String()
+		}
+		results[i].Result = unitStatus
+	}
+	return results, nil
+}
+
 func (f *Facade) watchUnits(tagString string) (string, []string, error) {
 	tag, err := names.ParseApplicationTag(tagString)
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
@@ -23,6 +24,7 @@ type CAASOperatorState interface {
 	APIHostPortsForAgents() ([][]network.HostPort, error)
 	Addresses() ([]string, error)
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
+	Unit(name string) (Unit, error)
 }
 
 // Model provides the subset of CAAS model state required
@@ -43,6 +45,15 @@ type Application interface {
 	SetOperatorStatus(status.StatusInfo) error
 	WatchUnits() state.StringsWatcher
 	AllUnits() ([]Unit, error)
+}
+
+// Unit provides the subset of unit state required by the CAAS operator facade.
+type Unit interface {
+	ContainerInfo() (state.CloudContainer, error)
+	PublicAddress() (network.Address, error)
+	Tag() names.Tag
+	OpenedPorts() ([]corenetwork.PortRange, error)
+	CharmURL() (*charm.URL, bool)
 }
 
 // Charm provides the subset of charm state required by the
@@ -72,6 +83,10 @@ func (s stateShim) Model() (Model, error) {
 	return model.CAASModel()
 }
 
+func (s stateShim) Unit(name string) (Unit, error) {
+	return s.State.Unit(name)
+}
+
 type applicationShim struct {
 	*state.Application
 }
@@ -90,8 +105,4 @@ func (a applicationShim) AllUnits() ([]Unit, error) {
 		result[i] = u
 	}
 	return result, nil
-}
-
-type Unit interface {
-	Tag() names.Tag
 }

@@ -185,6 +185,16 @@ func (c *Client) WatchUnits(application string) (watcher.StringsWatcher, error) 
 	return w, nil
 }
 
+// Units returns units' status.
+func (c *Client) Units(tags ...names.Tag) ([]params.UnitStatusResult, error) {
+	var result []params.UnitStatusResult
+	args := entities(tags...)
+	if err := c.facade.FacadeCall("Units", args, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return result, nil
+}
+
 // RemoveUnit removes the specified unit from the current model.
 func (c *Client) RemoveUnit(unitName string) error {
 	if !names.IsValidUnit(unitName) {
