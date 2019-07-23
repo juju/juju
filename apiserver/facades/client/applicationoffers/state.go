@@ -145,10 +145,6 @@ type subnetShim struct {
 	*state.Subnet
 }
 
-func (s *subnetShim) AvailabilityZones() []string {
-	return []string{s.Subnet.AvailabilityZone()}
-}
-
 type Space interface {
 	Name() string
 	Subnets() ([]Subnet, error)

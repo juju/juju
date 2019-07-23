@@ -20,5 +20,12 @@ func stateStepsFor27() []Step {
 				return context.State().AddSpaceIdToSpaceDocs()
 			},
 		},
+		&upgradeStep{
+			description: "change subnet AvailabilityZone to AvailabilityZones",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().ChangeSubnetAZtoSlice()
+			},
+		},
 	}
 }

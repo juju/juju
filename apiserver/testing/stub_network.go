@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -329,8 +330,8 @@ func (f *FakeSubnet) SpaceName() string {
 	return f.Info.SpaceName
 }
 
-func (f *FakeSubnet) Life() params.Life {
-	return f.Info.Life
+func (f *FakeSubnet) Life() life.Value {
+	return life.Value(f.Info.Life)
 }
 
 // ResetStub resets all recorded calls and errors of the given stub.

@@ -418,24 +418,8 @@ func ListSubnets(api NetworkBacking, args params.SubnetsFilters) (results params
 			)
 			continue
 		}
-		// TODO(babbageclunk): make the empty string a valid space
-		// name, rather than treating blank as "doesn't have a space".
-		// lp:1672888
-		var spaceTag string
-		if subnet.SpaceName() != "" {
-			spaceTag = names.NewSpaceTag(subnet.SpaceName()).String()
-		}
-		result := params.Subnet{
-			CIDR:              subnet.CIDR(),
-			ProviderId:        string(subnet.ProviderId()),
-			ProviderNetworkId: string(subnet.ProviderNetworkId()),
-			VLANTag:           subnet.VLANTag(),
-			Life:              subnet.Life(),
-			SpaceTag:          spaceTag,
-			Zones:             subnet.AvailabilityZones(),
-			Status:            subnet.Status(),
-		}
-		results.Results = append(results.Results, result)
+
+		results.Results = append(results.Results, BackingSubnetToParamsSubnet(subnet))
 	}
 	return results, nil
 }

@@ -53,7 +53,7 @@ func (s *SubnetSuite) assertSubnetMatchesInfo(c *gc.C, subnet *state.Subnet, inf
 	c.Assert(subnet.ProviderId(), gc.Equals, info.ProviderId)
 	c.Assert(subnet.CIDR(), gc.Equals, info.CIDR)
 	c.Assert(subnet.VLANTag(), gc.Equals, info.VLANTag)
-	c.Assert(subnet.AvailabilityZone(), gc.Equals, info.AvailabilityZone())
+	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, info.AvailabilityZones)
 	c.Assert(subnet.String(), gc.Equals, info.CIDR)
 	c.Assert(subnet.GoString(), gc.Equals, info.CIDR)
 	c.Assert(subnet.SpaceName(), gc.Equals, info.SpaceName)
@@ -290,6 +290,6 @@ func (s *SubnetSuite) TestAllSubnets(c *gc.C) {
 			// Special case
 			c.Check(subnet.SpaceName(), gc.Equals, "bar")
 		}
-		c.Check(subnet.AvailabilityZone(), gc.Equals, subnetInfos[i].AvailabilityZone())
+		c.Check(subnet.AvailabilityZones(), gc.DeepEquals, subnetInfos[i].AvailabilityZones)
 	}
 }

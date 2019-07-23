@@ -1176,14 +1176,9 @@ func (e *exporter) subnets() error {
 			ProviderNetworkId: string(subnet.ProviderNetworkId()),
 			VLANTag:           subnet.VLANTag(),
 			SpaceName:         subnet.SpaceName(),
+			AvailabilityZones: subnet.AvailabilityZones(),
 			FanLocalUnderlay:  subnet.FanLocalUnderlay(),
 			FanOverlay:        subnet.FanOverlay(),
-		}
-		// TODO(babbageclunk): at the moment state.Subnet only stores
-		// one AZ.
-		az := subnet.AvailabilityZone()
-		if az != "" {
-			args.AvailabilityZones = []string{az}
 		}
 		e.model.AddSubnet(args)
 	}

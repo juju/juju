@@ -21,14 +21,14 @@ type Subnet struct {
 }
 
 type subnetDoc struct {
-	DocID             string `bson:"_id"`
-	ModelUUID         string `bson:"model-uuid"`
-	Life              Life   `bson:"life"`
-	ProviderId        string `bson:"providerid,omitempty"`
-	ProviderNetworkId string `bson:"provider-network-id,omitempty"`
-	CIDR              string `bson:"cidr"`
-	VLANTag           int    `bson:"vlantag,omitempty"`
-	AvailabilityZone  string `bson:"availabilityzone,omitempty"`
+	DocID             string   `bson:"_id"`
+	ModelUUID         string   `bson:"model-uuid"`
+	Life              Life     `bson:"life"`
+	ProviderId        string   `bson:"providerid,omitempty"`
+	ProviderNetworkId string   `bson:"provider-network-id,omitempty"`
+	CIDR              string   `bson:"cidr"`
+	VLANTag           int      `bson:"vlantag,omitempty"`
+	AvailabilityZones []string `bson:"availability-zones,omitempty"`
 	// TODO: add IsPublic to SubnetArgs, add an IsPublic method and add
 	// IsPublic to migration import/export.
 	IsPublic         bool   `bson:"is-public,omitempty"`
@@ -134,10 +134,10 @@ func (s *Subnet) VLANTag() int {
 	return s.doc.VLANTag
 }
 
-// AvailabilityZone returns the availability zone of the subnet. If the subnet
-// is not associated with an availability zone it will be the empty string.
-func (s *Subnet) AvailabilityZone() string {
-	return s.doc.AvailabilityZone
+// AvailabilityZones returns the availability zones of the subnet. If the subnet
+// is not associated with an availability zones it will be the empty slice.
+func (s *Subnet) AvailabilityZones() []string {
+	return s.doc.AvailabilityZones
 }
 
 // SpaceName returns the space the subnet is associated with. If the subnet is
@@ -241,7 +241,7 @@ func (st *State) newSubnetFromArgs(args network.SubnetInfo) (*Subnet, error) {
 		VLANTag:           args.VLANTag,
 		ProviderId:        string(args.ProviderId),
 		ProviderNetworkId: string(args.ProviderNetworkId),
-		AvailabilityZone:  args.AvailabilityZone(),
+		AvailabilityZones: args.AvailabilityZones,
 		SpaceName:         args.SpaceName,
 		FanLocalUnderlay:  args.FanLocalUnderlay(),
 		FanOverlay:        args.FanOverlay(),
@@ -264,7 +264,7 @@ func (st *State) addSubnetOps(args network.SubnetInfo) []txn.Op {
 		VLANTag:           args.VLANTag,
 		ProviderId:        string(args.ProviderId),
 		ProviderNetworkId: string(args.ProviderNetworkId),
-		AvailabilityZone:  args.AvailabilityZone(),
+		AvailabilityZones: args.AvailabilityZones,
 		SpaceName:         args.SpaceName,
 		FanLocalUnderlay:  args.FanLocalUnderlay(),
 		FanOverlay:        args.FanOverlay(),
