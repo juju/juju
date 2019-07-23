@@ -174,6 +174,8 @@ func (s *credentialsSuite) TestRemoteDetectCredentials(c *gc.C) {
 		},
 	}, nil)
 	deps.configReader.EXPECT().ReadCert(".config/lxc/servercerts/nuc1.crt").Return([]byte(coretesting.ServerCert), nil)
+	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
+	deps.server.EXPECT().ServerCertificate().Return(coretesting.ServerCert)
 
 	credentials, err := deps.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
@@ -188,9 +190,20 @@ func (s *credentialsSuite) TestRemoteDetectCredentials(c *gc.C) {
 	)
 	nuc1Credential.Label = `LXD credential "nuc1"`
 
+	localCredential := cloud.NewCredential(
+		cloud.CertificateAuthType,
+		map[string]string{
+			"client-cert": coretesting.CACert,
+			"client-key":  coretesting.CAKey,
+			"server-cert": coretesting.ServerCert,
+		},
+	)
+	localCredential.Label = `LXD credential "localhost"`
+
 	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{
-			"nuc1": nuc1Credential,
+			"nuc1":      nuc1Credential,
+			"localhost": localCredential,
 		},
 	})
 }
@@ -204,6 +217,7 @@ func (s *credentialsSuite) TestRemoteDetectCredentialsWithConfigFailure(c *gc.C)
 	s.setupLocalhost(deps, c)
 
 	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{}, errors.New("bad"))
+	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errors.New("bad"))
 
 	credentials, err := deps.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
@@ -231,6 +245,7 @@ func (s *credentialsSuite) TestRemoteDetectCredentialsWithCertFailure(c *gc.C) {
 		},
 	}, nil)
 	deps.configReader.EXPECT().ReadCert(".config/lxc/servercerts/nuc1.crt").Return(nil, errors.New("bad"))
+	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errors.New("bad"))
 
 	credentials, err := deps.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
