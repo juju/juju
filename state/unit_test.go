@@ -69,7 +69,7 @@ func (s *UnitSuite) TestApplication(c *gc.C) {
 
 func (s *UnitSuite) TestConfigSettingsNeedCharmURLSet(c *gc.C) {
 	_, err := s.unit.ConfigSettings()
-	c.Assert(err, gc.ErrorMatches, "unit charm not set")
+	c.Assert(err, gc.ErrorMatches, "unit's charm URL must be set before retrieving config")
 }
 
 func (s *UnitSuite) TestConfigSettingsIncludeDefaults(c *gc.C) {
@@ -119,7 +119,7 @@ func (s *UnitSuite) TestConfigSettingsReflectCharm(c *gc.C) {
 
 func (s *UnitSuite) TestWatchConfigSettingsNeedsCharmURL(c *gc.C) {
 	_, err := s.unit.WatchConfigSettings()
-	c.Assert(err, gc.ErrorMatches, "unit charm not set")
+	c.Assert(err, gc.ErrorMatches, "unit's charm URL must be set before watching config")
 }
 
 func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
@@ -1838,6 +1838,28 @@ func (s *UnitSuite) TestRemove(c *gc.C) {
 	c.Assert(units, gc.HasLen, 0)
 	err = s.unit.Remove()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *UnitSuite) TestRemoveUnassignsFromBranch(c *gc.C) {
+	// Add unit to a branch
+	c.Assert(s.Model.AddBranch("apple", "testuser"), jc.ErrorIsNil)
+	branch, err := s.Model.Branch("apple")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(branch.AssignUnit(s.unit.Name()), jc.ErrorIsNil)
+	c.Assert(branch.Refresh(), jc.ErrorIsNil)
+	c.Assert(branch.AssignedUnits(), gc.DeepEquals, map[string][]string{
+		s.application.Name(): {s.unit.Name()},
+	})
+
+	// remove the unit
+	c.Assert(s.unit.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(s.unit.Remove(), jc.ErrorIsNil)
+
+	// verify branch no longer tracks unit
+	c.Assert(branch.Refresh(), jc.ErrorIsNil)
+	c.Assert(branch.AssignedUnits(), gc.DeepEquals, map[string][]string{
+		s.application.Name(): {},
+	})
 }
 
 func (s *UnitSuite) TestRemovePathological(c *gc.C) {

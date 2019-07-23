@@ -315,11 +315,8 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 // constructed up until the error will be discarded and the error will be returned.
 func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	rels, err := op.app.Relations()
-	if err != nil {
-		if !op.Force {
-			return nil, err
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, err
 	}
 	if len(rels) != op.app.doc.RelationCount {
 		// This is just an early bail out. The relations obtained may still
@@ -358,11 +355,8 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 		return nil, op.LastError()
 	}
 	resOps, err := removeResourcesOps(op.app.st, op.app.doc.Name)
-	if err != nil {
-		if !op.Force {
-			return nil, errors.Trace(err)
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
 	}
 	ops = append(ops, resOps...)
 
@@ -508,11 +502,8 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 
 	// Remove application offers.
 	removeOfferOps, err := removeApplicationOffersOps(a.st, a.doc.Name)
-	if err != nil {
-		if !op.Force {
-			return nil, errors.Trace(err)
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
 	}
 	ops = append(ops, removeOfferOps...)
 
@@ -532,10 +523,9 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 			// the application is already removed, reload yourself and try again
 			return nil, errRefresh
 		}
-		if !op.Force {
+		if op.FatalError(err) {
 			return nil, errors.Trace(err)
 		}
-		op.AddError(err)
 	}
 	ops = append(ops, charmOps...)
 
@@ -2009,25 +1999,16 @@ func (a *Application) AddUnit(args AddUnitParams) (unit *Unit, err error) {
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
 func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation, destroyStorage bool) ([]txn.Op, error) {
 	hostOps, err := u.destroyHostOps(a, op)
-	if err != nil {
-		if !op.Force {
-			return nil, errors.Trace(err)
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
 	}
 	portsOps, err := removePortsForUnitOps(a.st, u)
-	if err != nil {
-		if !op.Force {
-			return nil, errors.Trace(err)
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
 	}
 	resOps, err := removeUnitResourcesOps(a.st, u.doc.Name)
-	if err != nil {
-		if !op.Force {
-			return nil, errors.Trace(err)
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
 	}
 
 	observedFieldsMatch := bson.D{
@@ -2054,30 +2035,29 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	ops = append(ops, hostOps...)
 
 	m, err := a.st.Model()
-	if err != nil {
-		if !op.Force {
-			return nil, errors.Trace(err)
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
 	} else {
 		if m.Type() == ModelTypeCAAS {
 			ops = append(ops, u.removeCloudContainerOps()...)
 		}
-	}
-
-	sb, err := NewStorageBackend(a.st)
-	if err != nil {
-		if !op.Force {
-			return nil, errors.Trace(err)
-		}
-		op.AddError(err)
-	} else {
-		storageInstanceOps, err := removeStorageInstancesOps(sb, u.Tag(), op.Force)
+		branchOps, err := unassignUnitFromBranchOp(u.doc.Name, a.doc.Name, m)
 		if err != nil {
 			if !op.Force {
 				return nil, errors.Trace(err)
 			}
 			op.AddError(err)
+		}
+		ops = append(ops, branchOps...)
+	}
+
+	sb, err := NewStorageBackend(a.st)
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	} else {
+		storageInstanceOps, err := removeStorageInstancesOps(sb, u.Tag(), op.Force)
+		if op.FatalError(err) {
+			return nil, errors.Trace(err)
 		}
 		ops = append(ops, storageInstanceOps...)
 	}
@@ -2092,11 +2072,8 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 		decOps, err := appCharmDecRefOps(a.st, a.doc.Name, u.doc.CharmURL, maybeDoFinal, op)
 		if errors.IsNotFound(err) {
 			return nil, errRefresh
-		} else if err != nil {
-			if !op.Force {
-				return nil, errors.Trace(err)
-			}
-			op.AddError(err)
+		} else if op.FatalError(err) {
+			return nil, errors.Trace(err)
 		}
 		ops = append(ops, decOps...)
 	}
@@ -2134,6 +2111,18 @@ func removeUnitResourcesOps(st *State, unitID string) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 	return ops, nil
+}
+
+func unassignUnitFromBranchOp(unitName, appName string, m *Model) ([]txn.Op, error) {
+	branch, err := m.unitBranch(unitName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if branch == nil {
+		// Nothing to see here, move along.
+		return nil, nil
+	}
+	return branch.unassignUnitOps(unitName, appName), nil
 }
 
 // AllUnits returns all units of the application.

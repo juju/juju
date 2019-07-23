@@ -13,7 +13,7 @@ import (
 
 type charmConfigModel interface {
 	Application(string) (Application, error)
-	Branches() map[string]Branch
+	Branches() []Branch
 }
 
 // charmConfigWatchConfig contains data required for a
@@ -106,7 +106,8 @@ func (w *CharmConfigWatcher) init(model charmConfigModel) error {
 	}
 	w.masterSettings = app.Config()
 
-	for _, b := range model.Branches() {
+	branches := model.Branches()
+	for _, b := range branches {
 		if w.isTracking(b) {
 			w.branchName = b.Name()
 			w.branchDeltas = b.AppConfig(w.appName)
