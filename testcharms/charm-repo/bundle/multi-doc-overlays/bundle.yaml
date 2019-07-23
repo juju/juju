@@ -1,19 +1,19 @@
-series: bionic
+series: trusty
 applications:
   apache2:
     charm: cs:apache2-26
----
-series: bionic
+    num_units: 1
+--- # overlay 1
 applications:
   apache2:
     offers:
       my-offer:
         endpoints:
         - apache-website
-        - website-cache
         acl:
           admin: admin
-          bar: consume
-      my-other-offer:
-        endpoints:
-        - apache-website
+--- # overlay 2
+applications:
+  wordpress:
+    charm: cs:trusty/wordpress-5
+    num_units: 1
