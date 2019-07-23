@@ -116,7 +116,7 @@ type bundleDeploySpec struct {
 	force  bool
 	trust  bool
 
-	bundleData        *charm.BundleData
+	bundleDataSource  charm.BundleDataSource
 	bundleDir         string
 	bundleURL         *charm.URL
 	bundleOverlayFile []string
@@ -136,19 +136,41 @@ type bundleDeploySpec struct {
 	accountUser     string
 }
 
-// deployBundle deploys the given bundle data using the given API client and
-// charm store client. The deployment is not transactional, and its progress is
-// notified using the given deployment logger.
-func deployBundle(spec bundleDeploySpec) (map[*charm.URL]*macaroon.Macaroon, error) {
-	if err := composeBundle(spec.bundleData, spec.ctx, spec.bundleDir, spec.bundleOverlayFile); err != nil {
+func composeAndVerifyBundle(base charm.BundleDataSource, pathToOverlays []string) (*charm.BundleData, error) {
+	var (
+		dsList []charm.BundleDataSource
+		err    error
+	)
+
+	dsList = append(dsList, base)
+	for _, pathToOverlay := range pathToOverlays {
+		ds, err := charm.LocalBundleDataSource(pathToOverlay)
+		if err != nil {
+			return nil, errors.Annotatef(err, "unable to process overlays")
+		}
+		dsList = append(dsList, ds)
+	}
+
+	bundleData, err := charm.ReadAndMergeBundleData(dsList...)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := verifyBundle(spec.bundleData, spec.bundleDir); err != nil {
+	if err = verifyBundle(bundleData, base.BasePath()); err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	return bundleData, nil
+}
+
+// deployBundle deploys the given bundle data using the given API client and
+// charm store client. The deployment is not transactional, and its progress is
+// notified using the given deployment logger.
+//
+// Note: deployBundle expects that spec.BundleData points to a verified bundle
+// that has all required external overlays applied.
+func deployBundle(bundleData *charm.BundleData, spec bundleDeploySpec) (map[*charm.URL]*macaroon.Macaroon, error) {
 	// TODO: move bundle parsing and checking into the handler.
-	h := makeBundleHandler(spec)
+	h := makeBundleHandler(bundleData, spec)
 	if err := h.makeModel(spec.useExistingMachines, spec.bundleMachines); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -257,9 +279,9 @@ type bundleHandler struct {
 	accountUser string
 }
 
-func makeBundleHandler(spec bundleDeploySpec) *bundleHandler {
+func makeBundleHandler(bundleData *charm.BundleData, spec bundleDeploySpec) *bundleHandler {
 	applications := set.NewStrings()
-	for name := range spec.bundleData.Applications {
+	for name := range bundleData.Applications {
 		applications.Add(name)
 	}
 	return &bundleHandler{
@@ -275,7 +297,7 @@ func makeBundleHandler(spec bundleDeploySpec) *bundleHandler {
 		bundleStorage:        spec.bundleStorage,
 		bundleDevices:        spec.bundleDevices,
 		ctx:                  spec.ctx,
-		data:                 spec.bundleData,
+		data:                 bundleData,
 		bundleURL:            spec.bundleURL,
 		unitStatus:           make(map[string]string),
 		macaroons:            make(map[*charm.URL]*macaroon.Macaroon),

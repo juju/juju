@@ -743,7 +743,7 @@ charm path in application "mysql" does not exist: .*mysql`,
 }, {
 	about:   "invalid bundle content",
 	content: "!",
-	err:     `(?s)cannot unmarshal bundle data: yaml: .*`,
+	err:     `(?s)cannot unmarshal bundle contents:.* yaml: unmarshal errors:.*`,
 }, {
 	about: "invalid bundle data",
 	content: `
@@ -951,7 +951,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadConfig(c
             - ["wordpress:db", "mysql:server"]
     `, wordpressPath, mysqlPath),
 		"--overlay", "missing-file")
-	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: unable to process overlays: unable to read bundle overlay file .*")
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: unable to process overlays: "missing-file" not found`)
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentLXDProfile(c *gc.C) {
