@@ -63,7 +63,7 @@ func (s *bundleSuite) TestGetChangesBundleContentError(c *gc.C) {
 		BundleDataYAML: ":",
 	}
 	r, err := s.facade.GetChanges(args)
-	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: cannot unmarshal bundle data: yaml: did not find expected key`)
+	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: unmarshal document 0: yaml: did not find expected key`)
 	c.Assert(r, gc.DeepEquals, params.BundleChangesResults{})
 }
 
