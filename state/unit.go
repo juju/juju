@@ -558,24 +558,21 @@ func (op *DestroyUnitOperation) Done(err error) error {
 func (op *DestroyUnitOperation) eraseHistory() error {
 	if err := eraseStatusHistory(op.unit.st, op.unit.globalKey()); err != nil {
 		one := errors.Annotate(err, "workload")
-		if !op.Force {
+		if op.FatalError(one) {
 			return one
 		}
-		op.AddError(one)
 	}
 	if err := eraseStatusHistory(op.unit.st, op.unit.globalAgentKey()); err != nil {
 		one := errors.Annotate(err, "agent")
-		if !op.Force {
+		if op.FatalError(one) {
 			return one
 		}
-		op.AddError(one)
 	}
 	if err := eraseStatusHistory(op.unit.st, op.unit.globalWorkloadVersionKey()); err != nil {
 		one := errors.Annotate(err, "version")
-		if !op.Force {
+		if op.FatalError(one) {
 			return one
 		}
-		op.AddError(one)
 	}
 	return nil
 }
@@ -686,10 +683,9 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	case status.Error, status.Allocating:
 	default:
 		err := errors.Errorf("unexpected unit state - unit with status %v is not deployed", agentStatusInfo.Status)
-		if !op.Force {
+		if op.FatalError(err) {
 			return nil, err
 		}
-		op.AddError(err)
 	}
 
 	statusOp := txn.Op{
@@ -714,11 +710,8 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	removeOps, err := op.unit.removeOps(removeAsserts, &op.ForcedOperation, op.DestroyStorage)
 	if err == errAlreadyRemoved {
 		return nil, errAlreadyDying
-	} else if err != nil {
-		if !op.Force {
-			return nil, err
-		}
-		op.AddError(err)
+	} else if op.FatalError(err) {
+		return nil, err
 	}
 	ops := []txn.Op{statusOp, minUnitsOp}
 	ops = append(ops, removeOps...)
@@ -753,11 +746,8 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 
 	containerCheck := true // whether container conditions allow destroying the host machine
 	containers, err := m.Containers()
-	if err != nil {
-		if !op.Force {
-			return nil, err
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, err
 	}
 	if len(containers) > 0 {
 		ops = append(ops, txn.Op{
@@ -921,38 +911,6 @@ func (u *Unit) RemoveOperation(force bool) *RemoveUnitOperation {
 	}
 }
 
-// ForcedOperation that allowas accumulation of operational errors and
-// can be forced.
-type ForcedOperation struct {
-	// Force controls whether or not the removal of a unit
-	// will be forced, i.e. ignore operational errors.
-	Force bool
-
-	// Errors contains errors encountered while applying this operation.
-	// Generally, these are non-fatal errors that have been encountered
-	// during, say, force. They may not have prevented the operation from being
-	// aborted but the user might still want to know about them.
-	Errors []error
-
-	// MaxWait specifies the amount of time that each step in relation destroy process
-	// will wait before forcing the next step to kick-off. This parameter
-	// only makes sense in combination with 'force' set to 'true'.
-	MaxWait time.Duration
-}
-
-// AddError adds an error to the collection of errors for this operation.
-func (op *ForcedOperation) AddError(one ...error) {
-	op.Errors = append(op.Errors, one...)
-}
-
-// LastError returns last added error for this operation.
-func (op *ForcedOperation) LastError() error {
-	if len(op.Errors) == 0 {
-		return nil
-	}
-	return op.Errors[len(op.Errors)-1]
-}
-
 // RemoveUnitOperation is a model operation for removing a unit.
 type RemoveUnitOperation struct {
 	// ForcedOperation stores needed information to force this operation.
@@ -1033,11 +991,8 @@ func (op *RemoveUnitOperation) removeOps() (ops []txn.Op, err error) {
 	// only point at which we can safely backstop lp:1233457 and mitigate
 	// the impact of unit agent bugs that leave relation scopes occupied).
 	relations, err := applicationRelations(op.unit.st, op.unit.doc.Application)
-	if err != nil {
-		if !op.Force {
-			return nil, err
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, err
 	} else {
 		failRelations := false
 		for _, rel := range relations {
@@ -1062,11 +1017,8 @@ func (op *RemoveUnitOperation) removeOps() (ops []txn.Op, err error) {
 	// Now we're sure we haven't left any scopes occupied by this unit, we
 	// can safely remove the document.
 	unitRemoveOps, err := op.unit.removeOps(isDeadDoc, &op.ForcedOperation, false)
-	if err != nil {
-		if !op.Force {
-			return nil, err
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, err
 	}
 	return append(ops, unitRemoveOps...), nil
 }

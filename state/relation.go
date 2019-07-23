@@ -342,30 +342,21 @@ func (op *DestroyRelationOperation) internalDestroy() (ops []txn.Op, err error) 
 	rel := &Relation{op.r.st, op.r.doc}
 
 	remoteApp, isCrossModel, err := op.r.RemoteApplication()
-	if err != nil {
-		if !op.Force {
-			return nil, errors.Trace(err)
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
 	} else {
 		// If the status of the consumed app is terminated, we will never
 		// get an orderly exit of units from scope so force the issue.
 		if isCrossModel {
 			statusInfo, err := remoteApp.Status()
-			if err != nil && !errors.IsNotFound(err) {
-				if !op.Force {
-					return nil, errors.Trace(err)
-				}
-				op.AddError(err)
+			if op.FatalError(err) && !errors.IsNotFound(err) {
+				return nil, errors.Trace(err)
 			}
 			if err == nil && statusInfo.Status == status.Terminated {
 				logger.Debugf("forcing cleanup of units for %v", remoteApp.Name())
 				remoteUnits, err := rel.AllRemoteUnits(remoteApp.Name())
-				if err != nil {
-					if !op.Force {
-						return nil, errors.Trace(err)
-					}
-					op.AddError(err)
+				if op.FatalError(err) {
+					return nil, errors.Trace(err)
 				}
 				logger.Debugf("got %v relation units to clean", len(remoteUnits))
 				failRemoteUnits := false
@@ -394,11 +385,8 @@ func (op *DestroyRelationOperation) internalDestroy() (ops []txn.Op, err error) 
 	destroyOps, _, err := rel.destroyOps("", &op.ForcedOperation)
 	if err == errAlreadyDying {
 		return nil, jujutxn.ErrNoOperations
-	} else if err != nil {
-		if !op.Force {
-			return nil, err
-		}
-		op.AddError(err)
+	} else if op.FatalError(err) {
+		return nil, err
 	}
 	return append(ops, destroyOps...), nil
 }

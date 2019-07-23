@@ -79,37 +79,28 @@ func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL, maybeDo
 	ops := []txn.Op{}
 	charmKey := charmGlobalKey(curl)
 	charmOp, err := nsRefcounts.AliveDecRefOp(refcounts, charmKey)
-	if err != nil {
-		err = errors.Annotate(err, "charm reference")
-		if !op.Force {
-			return fail(err)
-		}
-		op.AddError(err)
-	} else {
+	if op.FatalError(err) {
+		return fail(errors.Annotate(err, "charm reference"))
+	}
+	if err == nil {
 		ops = append(ops, charmOp)
 	}
 
 	settingsKey := applicationCharmConfigKey(appName, curl)
 	settingsOp, isFinal, err := nsRefcounts.DyingDecRefOp(refcounts, settingsKey)
-	if err != nil {
-		err = errors.Annotatef(err, "settings reference %s", settingsKey)
-		if !op.Force {
-			return fail(err)
-		}
-		op.AddError(err)
-	} else {
+	if op.FatalError(err) {
+		return fail(errors.Annotatef(err, "settings reference %s", settingsKey))
+	}
+	if err == nil {
 		ops = append(ops, settingsOp)
 	}
 
 	storageConstraintsKey := applicationStorageConstraintsKey(appName, curl)
 	storageConstraintsOp, _, err := nsRefcounts.DyingDecRefOp(refcounts, storageConstraintsKey)
-	if err != nil {
-		err = errors.Annotatef(err, "storage constraints reference %s", storageConstraintsKey)
-		if !op.Force {
-			return fail(err)
-		}
-		op.AddError(err)
-	} else {
+	if op.FatalError(err) {
+		return fail(errors.Annotatef(err, "storage constraints reference %s", storageConstraintsKey))
+	}
+	if err == nil {
 		ops = append(ops, storageConstraintsOp)
 	}
 
