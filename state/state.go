@@ -38,6 +38,7 @@ import (
 	coreglobalclock "github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/feature"
@@ -2394,7 +2395,7 @@ func (st *State) SetAdminMongoPassword(password string) error {
 	return errors.Trace(err)
 }
 
-func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId network.Id) txn.Op {
+func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId corenetwork.Id) txn.Op {
 	key := st.networkEntityGlobalKey(globalKey, providerId)
 	return txn.Op{
 		C:      providerIDsC,
@@ -2404,7 +2405,7 @@ func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId network.I
 	}
 }
 
-func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId network.Id) txn.Op {
+func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId corenetwork.Id) txn.Op {
 	key := st.networkEntityGlobalKey(globalKey, providerId)
 	return txn.Op{
 		C:      providerIDsC,
@@ -2413,7 +2414,7 @@ func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId net
 	}
 }
 
-func (st *State) networkEntityGlobalKeyExists(globalKey string, providerId network.Id) (bool, error) {
+func (st *State) networkEntityGlobalKeyExists(globalKey string, providerId corenetwork.Id) (bool, error) {
 	col, closer := st.db().GetCollection(providerIDsC)
 	defer closer()
 
@@ -2431,7 +2432,7 @@ func (st *State) networkEntityGlobalKeyExists(globalKey string, providerId netwo
 	}
 }
 
-func (st *State) networkEntityGlobalKey(globalKey string, providerId network.Id) string {
+func (st *State) networkEntityGlobalKey(globalKey string, providerId corenetwork.Id) string {
 	return st.docID(globalKey + ":" + string(providerId))
 }
 

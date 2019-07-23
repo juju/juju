@@ -16,9 +16,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
 )
 
@@ -333,7 +333,9 @@ func (cache *addSubnetsCache) validateSubnet(ctx context.ProviderCallContext, su
 
 // addOneSubnet validates the given arguments, using cache for lookups
 // (initialized on first use), then adds it to the backing store, if successful.
-func addOneSubnet(ctx context.ProviderCallContext, api NetworkBacking, args params.AddSubnetParams, cache *addSubnetsCache) error {
+func addOneSubnet(
+	ctx context.ProviderCallContext, api NetworkBacking, args params.AddSubnetParams, cache *addSubnetsCache,
+) error {
 	subnetInfo, err := cache.validateSubnet(ctx, args.SubnetTag, args.SubnetProviderId)
 	if err != nil {
 		return errors.Trace(err)

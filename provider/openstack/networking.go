@@ -16,6 +16,7 @@ import (
 	"gopkg.in/goose.v2/nova"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 )
 
@@ -38,7 +39,7 @@ type Networking interface {
 	// Subnets returns basic information about subnets known
 	// by OpenStack for the environment.
 	// Needed for Environ.Networking
-	Subnets(instance.Id, []network.Id) ([]network.SubnetInfo, error)
+	Subnets(instance.Id, []corenetwork.Id) ([]corenetwork.SubnetInfo, error)
 
 	// NetworkInterfaces requests information about the network
 	// interfaces on the given instance.
@@ -113,7 +114,9 @@ func (n *switchingNetworking) ResolveNetwork(name string, external bool) (string
 }
 
 // Subnets is part of the Networking interface.
-func (n *switchingNetworking) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (n *switchingNetworking) Subnets(
+	instId instance.Id, subnetIds []corenetwork.Id,
+) ([]corenetwork.SubnetInfo, error) {
 	if err := n.initNetworking(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -176,8 +179,8 @@ func (n *NeutronNetworking) AllocatePublicIP(instId instance.Id) (*string, error
 		// Create slice of network.Ids for external networks in the same AZ as
 		// the instance's network, to find an existing floating ip in, or allocate
 		// a new floating ip from.
-		network := n.env.ecfg().network()
-		netId, err := resolveNeutronNetwork(neutronClient, network, false)
+		net := n.env.ecfg().network()
+		netId, err := resolveNeutronNetwork(neutronClient, net, false)
 		netDetails, err := neutronClient.GetNetworkV2(netId)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -191,7 +194,8 @@ func (n *NeutronNetworking) AllocatePublicIP(instId instance.Id) (*string, error
 		}
 
 		if len(extNetworkIds) == 0 {
-			return nil, errors.NewNotFound(nil, fmt.Sprintf("could not find an external network in availability zone %s", netDetails.AvailabilityZones))
+			return nil, errors.NotFoundf(
+				"could not find an external network in availability zone %s", netDetails.AvailabilityZones)
 		}
 	}
 
@@ -299,25 +303,24 @@ func resolveNeutronNetwork(neutron *neutron.Client, name string, external bool) 
 	return processResolveNetworkIds(name, networkIds)
 }
 
-func makeSubnetInfo(neutron *neutron.Client, subnet neutron.SubnetV2) (network.SubnetInfo, error) {
+func makeSubnetInfo(neutron *neutron.Client, subnet neutron.SubnetV2) (corenetwork.SubnetInfo, error) {
 	_, _, err := net.ParseCIDR(subnet.Cidr)
 	if err != nil {
-		return network.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", subnet.Cidr)
+		return corenetwork.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", subnet.Cidr)
 	}
 	net, err := neutron.GetNetworkV2(subnet.NetworkId)
 	if err != nil {
-		return network.SubnetInfo{}, err
+		return corenetwork.SubnetInfo{}, err
 	}
 
 	// TODO (hml) 2017-03-20:
 	// With goose updates, VLANTag can be updated to be
 	// network.segmentation_id, if network.network_type equals vlan
-	info := network.SubnetInfo{
+	info := corenetwork.SubnetInfo{
 		CIDR:              subnet.Cidr,
-		ProviderId:        network.Id(subnet.Id),
+		ProviderId:        corenetwork.Id(subnet.Id),
 		VLANTag:           0,
 		AvailabilityZones: net.AvailabilityZones,
-		SpaceProviderId:   "",
 	}
 	logger.Tracef("found subnet with info %#v", info)
 	return info, nil
@@ -326,7 +329,7 @@ func makeSubnetInfo(neutron *neutron.Client, subnet neutron.SubnetV2) (network.S
 // Subnets returns basic information about the specified subnets known
 // by the provider for the specified instance or list of ids. subnetIds can be
 // empty, in which case all known are returned.
-func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []corenetwork.Id) ([]corenetwork.SubnetInfo, error) {
 	netIds := set.NewStrings()
 	neutron := n.env.neutron()
 	internalNet := n.env.ecfg().network()
@@ -361,7 +364,7 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) 
 		subIdSet.Add(string(subId))
 	}
 
-	var results []network.SubnetInfo
+	var results []corenetwork.SubnetInfo
 	if instId != instance.UnknownId {
 		// TODO(hml): 2017-03-20
 		// Implement Subnets() for case where instId is specified

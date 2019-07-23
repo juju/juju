@@ -17,6 +17,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
@@ -947,8 +948,10 @@ func (e *Environ) allSubnetsAsMap(modelUUID string) (map[string]ociCore.Subnet, 
 }
 
 // Subnets is defined on the environs.Networking interface.
-func (e *Environ) Subnets(ctx envcontext.ProviderCallContext, id instance.Id, subnets []network.Id) ([]network.SubnetInfo, error) {
-	var results []network.SubnetInfo
+func (e *Environ) Subnets(
+	ctx envcontext.ProviderCallContext, id instance.Id, subnets []corenetwork.Id,
+) ([]corenetwork.SubnetInfo, error) {
+	var results []corenetwork.SubnetInfo
 	subIdSet := set.NewStrings()
 	for _, subId := range subnets {
 		subIdSet.Add(string(subId))
@@ -990,9 +993,9 @@ func (e *Environ) Subnets(ctx envcontext.ProviderCallContext, id instance.Id, su
 			if !ok {
 				continue
 			}
-			info := network.SubnetInfo{
+			info := corenetwork.SubnetInfo{
 				CIDR:       *subnet.CidrBlock,
-				ProviderId: network.Id(*nic.Vnic.SubnetId),
+				ProviderId: corenetwork.Id(*nic.Vnic.SubnetId),
 			}
 			results = append(results, info)
 		}
@@ -1023,18 +1026,18 @@ func (e *Environ) Subnets(ctx envcontext.ProviderCallContext, id instance.Id, su
 	return results, nil
 }
 
-func makeSubnetInfo(subnet ociCore.Subnet) (network.SubnetInfo, error) {
+func makeSubnetInfo(subnet ociCore.Subnet) (corenetwork.SubnetInfo, error) {
 	if subnet.CidrBlock == nil {
-		return network.SubnetInfo{}, errors.Errorf("nil cidr block in subnet")
+		return corenetwork.SubnetInfo{}, errors.Errorf("nil cidr block in subnet")
 	}
 	_, _, err := net.ParseCIDR(*subnet.CidrBlock)
 	if err != nil {
-		return network.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", *subnet.CidrBlock)
+		return corenetwork.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", *subnet.CidrBlock)
 	}
 
-	info := network.SubnetInfo{
+	info := corenetwork.SubnetInfo{
 		CIDR:              *subnet.CidrBlock,
-		ProviderId:        network.Id(*subnet.Id),
+		ProviderId:        corenetwork.Id(*subnet.Id),
 		AvailabilityZones: []string{*subnet.AvailabilityDomain},
 	}
 	return info, nil
@@ -1074,11 +1077,11 @@ func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, instId i
 		nic := network.InterfaceInfo{
 			InterfaceName:    fmt.Sprintf("unsupported%d", iface.Idx),
 			DeviceIndex:      iface.Idx,
-			ProviderId:       network.Id(*iface.Vnic.Id),
+			ProviderId:       corenetwork.Id(*iface.Vnic.Id),
 			MACAddress:       *iface.Vnic.MacAddress,
 			Address:          addr,
 			InterfaceType:    network.EthernetInterface,
-			ProviderSubnetId: network.Id(*iface.Vnic.SubnetId),
+			ProviderSubnetId: corenetwork.Id(*iface.Vnic.SubnetId),
 			CIDR:             *subnet.CidrBlock,
 		}
 		info = append(info, nic)
@@ -1094,11 +1097,13 @@ func (e *Environ) SupportsSpaceDiscovery(ctx envcontext.ProviderCallContext) (bo
 	return false, nil
 }
 
-func (e *Environ) Spaces(ctx envcontext.ProviderCallContext) ([]network.SpaceInfo, error) {
+func (e *Environ) Spaces(ctx envcontext.ProviderCallContext) ([]corenetwork.SpaceInfo, error) {
 	return nil, errors.NotSupportedf("Spaces")
 }
 
-func (e *Environ) ProviderSpaceInfo(ctx envcontext.ProviderCallContext, space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+func (e *Environ) ProviderSpaceInfo(
+	ctx envcontext.ProviderCallContext, space *corenetwork.SpaceInfo,
+) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("ProviderSpaceInfo")
 }
 
@@ -1114,8 +1119,8 @@ func (e *Environ) AllocateContainerAddresses(
 	ctx envcontext.ProviderCallContext,
 	hostInstanceID instance.Id,
 	containerTag names.MachineTag,
-	preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
-
+	preparedInfo []network.InterfaceInfo,
+) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("AllocateContainerAddresses")
 }
 

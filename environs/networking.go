@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 )
@@ -19,14 +20,16 @@ var SupportsNetworking = supportsNetworking
 
 // DefaultSpaceInfo should be passed into Networking.ProviderSpaceInfo
 // to get information about the default space.
-var DefaultSpaceInfo *network.SpaceInfo
+var DefaultSpaceInfo *corenetwork.SpaceInfo
 
 // Networking interface defines methods that environments
 // with networking capabilities must implement.
 type Networking interface {
 	// Subnets returns basic information about subnets known
 	// by the provider for the environment.
-	Subnets(ctx context.ProviderCallContext, inst instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error)
+	Subnets(
+		ctx context.ProviderCallContext, inst instance.Id, subnetIds []corenetwork.Id,
+	) ([]corenetwork.SubnetInfo, error)
 
 	// SuperSubnets returns information about aggregated subnets - eg. global CIDR
 	// for EC2 VPC.
@@ -49,7 +52,7 @@ type Networking interface {
 	// Spaces returns a slice of network.SpaceInfo with info, including
 	// details of all associated subnets, about all spaces known to the
 	// provider that have subnets available.
-	Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error)
+	Spaces(ctx context.ProviderCallContext) ([]corenetwork.SpaceInfo, error)
 
 	// ProviderSpaceInfo returns the details of the space requested as
 	// a ProviderSpaceInfo. This will contain everything needed to
@@ -70,7 +73,7 @@ type Networking interface {
 	// authoritative. In that case the provider should collect up any
 	// other information needed to determine routability and include
 	// the passed-in space info in the ProviderSpaceInfo returned.
-	ProviderSpaceInfo(ctx context.ProviderCallContext, space *network.SpaceInfo) (*ProviderSpaceInfo, error)
+	ProviderSpaceInfo(ctx context.ProviderCallContext, space *corenetwork.SpaceInfo) (*ProviderSpaceInfo, error)
 
 	// AreSpacesRoutable returns whether the communication between the
 	// two spaces can use cloud-local addresses.
@@ -146,7 +149,7 @@ func SupportsContainerAddresses(ctx context.ProviderCallContext, env BootstrapEn
 // ProviderSpaceInfo contains all the information about a space needed
 // by another environ to decide whether it can be routed to.
 type ProviderSpaceInfo struct {
-	network.SpaceInfo
+	corenetwork.SpaceInfo
 
 	// Cloud type governs what attributes will exist in the
 	// provider-specific map.

@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 )
@@ -22,7 +22,7 @@ type cmdSpaceSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-func (s *cmdSpaceSuite) AddSubnets(c *gc.C, infos []state.SubnetInfo) []*state.Subnet {
+func (s *cmdSpaceSuite) AddSubnets(c *gc.C, infos []network.SubnetInfo) []*state.Subnet {
 	results := make([]*state.Subnet, len(infos))
 	for i, info := range infos {
 		subnet, err := s.State.AddSubnet(info)
@@ -34,19 +34,19 @@ func (s *cmdSpaceSuite) AddSubnets(c *gc.C, infos []state.SubnetInfo) []*state.S
 }
 
 func (s *cmdSpaceSuite) MakeSubnetInfos(c *gc.C, space string, cidrTemplate string, count int) (
-	infos []state.SubnetInfo,
+	infos []network.SubnetInfo,
 	ids []string,
 ) {
-	infos = make([]state.SubnetInfo, count)
+	infos = make([]network.SubnetInfo, count)
 	ids = make([]string, count)
 	for i := range infos {
 		ids[i] = fmt.Sprintf(cidrTemplate, i)
-		infos[i] = state.SubnetInfo{
+		infos[i] = network.SubnetInfo{
 			// ProviderId it needs to be unique in state.
-			ProviderId:       network.Id(fmt.Sprintf("sub-%d", rand.Int())),
-			CIDR:             ids[i],
-			SpaceName:        space,
-			AvailabilityZone: "zone1",
+			ProviderId:        network.Id(fmt.Sprintf("sub-%d", rand.Int())),
+			CIDR:              ids[i],
+			SpaceName:         space,
+			AvailabilityZones: []string{"zone1"},
 		}
 	}
 	return infos, ids

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -225,17 +226,17 @@ func (suite *maas2EnvironSuite) TestSpaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	c.Assert(result[0].Name, gc.Equals, "freckles")
-	c.Assert(result[0].ProviderId, gc.Equals, network.Id("4567"))
+	c.Assert(result[0].ProviderId, gc.Equals, corenetwork.Id("4567"))
 	subnets := result[0].Subnets
 	c.Assert(subnets, gc.HasLen, 2)
-	c.Assert(subnets[0].ProviderId, gc.Equals, network.Id("99"))
+	c.Assert(subnets[0].ProviderId, gc.Equals, corenetwork.Id("99"))
 	c.Assert(subnets[0].VLANTag, gc.Equals, 66)
 	c.Assert(subnets[0].CIDR, gc.Equals, "192.168.10.0/24")
-	c.Assert(subnets[0].SpaceProviderId, gc.Equals, network.Id("4567"))
-	c.Assert(subnets[1].ProviderId, gc.Equals, network.Id("98"))
+	c.Assert(subnets[0].ProviderSpaceId, gc.Equals, corenetwork.Id("4567"))
+	c.Assert(subnets[1].ProviderId, gc.Equals, corenetwork.Id("98"))
 	c.Assert(subnets[1].VLANTag, gc.Equals, 67)
 	c.Assert(subnets[1].CIDR, gc.Equals, "192.168.11.0/24")
-	c.Assert(subnets[1].SpaceProviderId, gc.Equals, network.Id("4567"))
+	c.Assert(subnets[1].ProviderSpaceId, gc.Equals, corenetwork.Id("4567"))
 }
 
 func (suite *maas2EnvironSuite) TestSpacesError(c *gc.C) {
@@ -806,11 +807,11 @@ func (suite *maas2EnvironSuite) TestSubnetsNoFilters(c *gc.C) {
 	env := suite.makeEnviron(c, nil)
 	subnets, err := env.Subnets(suite.callCtx, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := []network.SubnetInfo{
-		{CIDR: "192.168.10.0/24", ProviderId: "99", VLANTag: 66, SpaceProviderId: "5"},
-		{CIDR: "192.168.11.0/24", ProviderId: "100", VLANTag: 66, SpaceProviderId: "6"},
-		{CIDR: "192.168.12.0/24", ProviderId: "101", VLANTag: 66, SpaceProviderId: "7"},
-		{CIDR: "192.168.13.0/24", ProviderId: "102", VLANTag: 66, SpaceProviderId: "8"},
+	expected := []corenetwork.SubnetInfo{
+		{CIDR: "192.168.10.0/24", ProviderId: "99", VLANTag: 66, ProviderSpaceId: "5"},
+		{CIDR: "192.168.11.0/24", ProviderId: "100", VLANTag: 66, ProviderSpaceId: "6"},
+		{CIDR: "192.168.12.0/24", ProviderId: "101", VLANTag: 66, ProviderSpaceId: "7"},
+		{CIDR: "192.168.13.0/24", ProviderId: "102", VLANTag: 66, ProviderSpaceId: "8"},
 	}
 	c.Assert(subnets, jc.DeepEquals, expected)
 }
@@ -829,11 +830,11 @@ func (suite *maas2EnvironSuite) TestSubnetsSubnetIds(c *gc.C) {
 		spaces: getFourSpaces(),
 	})
 	env := suite.makeEnviron(c, nil)
-	subnets, err := env.Subnets(suite.callCtx, "", []network.Id{"99", "100"})
+	subnets, err := env.Subnets(suite.callCtx, "", []corenetwork.Id{"99", "100"})
 	c.Assert(err, jc.ErrorIsNil)
-	expected := []network.SubnetInfo{
-		{CIDR: "192.168.10.0/24", ProviderId: "99", VLANTag: 66, SpaceProviderId: "5"},
-		{CIDR: "192.168.11.0/24", ProviderId: "100", VLANTag: 66, SpaceProviderId: "6"},
+	expected := []corenetwork.SubnetInfo{
+		{CIDR: "192.168.10.0/24", ProviderId: "99", VLANTag: 66, ProviderSpaceId: "5"},
+		{CIDR: "192.168.11.0/24", ProviderId: "100", VLANTag: 66, ProviderSpaceId: "6"},
 	}
 	c.Assert(subnets, jc.DeepEquals, expected)
 }
@@ -843,7 +844,7 @@ func (suite *maas2EnvironSuite) TestSubnetsSubnetIdsMissing(c *gc.C) {
 		spaces: getFourSpaces(),
 	})
 	env := suite.makeEnviron(c, nil)
-	_, err := env.Subnets(suite.callCtx, "", []network.Id{"99", "missing"})
+	_, err := env.Subnets(suite.callCtx, "", []corenetwork.Id{"99", "missing"})
 	msg := "failed to find the following subnets: missing"
 	c.Assert(err, gc.ErrorMatches, msg)
 }
@@ -881,10 +882,10 @@ func (suite *maas2EnvironSuite) TestSubnetsInstId(c *gc.C) {
 	env := suite.makeEnviron(c, nil)
 	subnets, err := env.Subnets(suite.callCtx, "William Gibson", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := []network.SubnetInfo{
-		{CIDR: "192.168.10.0/24", ProviderId: "99", VLANTag: 66, SpaceProviderId: "5"},
-		{CIDR: "192.168.11.0/24", ProviderId: "100", VLANTag: 0, SpaceProviderId: "6"},
-		{CIDR: "192.168.12.0/24", ProviderId: "101", VLANTag: 2, SpaceProviderId: "7"},
+	expected := []corenetwork.SubnetInfo{
+		{CIDR: "192.168.10.0/24", ProviderId: "99", VLANTag: 66, ProviderSpaceId: "5"},
+		{CIDR: "192.168.11.0/24", ProviderId: "100", VLANTag: 0, ProviderSpaceId: "6"},
+		{CIDR: "192.168.12.0/24", ProviderId: "101", VLANTag: 2, ProviderSpaceId: "7"},
 	}
 	c.Assert(subnets, jc.DeepEquals, expected)
 }

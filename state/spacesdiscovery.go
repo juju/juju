@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 )
@@ -60,7 +61,7 @@ func (st *State) ReloadSpaces(environ environs.BootstrapEnviron) error {
 
 // SaveSubnetsFromProvider loads subnets into state.
 // Currently it does not delete removed subnets.
-func (st *State) SaveSubnetsFromProvider(subnets []network.SubnetInfo, spaceName string) error {
+func (st *State) SaveSubnetsFromProvider(subnets []corenetwork.SubnetInfo, spaceName string) error {
 	modelSubnetIds, err := st.getModelSubnets()
 	if err != nil {
 		return errors.Trace(err)
@@ -77,22 +78,12 @@ func (st *State) SaveSubnetsFromProvider(subnets []network.SubnetInfo, spaceName
 		if ip.IsInterfaceLocalMulticast() || ip.IsLinkLocalMulticast() || ip.IsLinkLocalUnicast() {
 			continue
 		}
-		var firstZone string
-		if len(subnet.AvailabilityZones) > 0 {
-			firstZone = subnet.AvailabilityZones[0]
-		}
-		_, err = st.AddSubnet(SubnetInfo{
-			ProviderId:        subnet.ProviderId,
-			ProviderNetworkId: subnet.ProviderNetworkId,
-			CIDR:              subnet.CIDR,
-			SpaceName:         spaceName,
-			VLANTag:           subnet.VLANTag,
-			AvailabilityZone:  firstZone,
-		})
+
+		subnet.SpaceName = spaceName
+		_, err = st.AddSubnet(subnet)
 		if err != nil {
 			return errors.Trace(err)
 		}
-
 	}
 
 	// We process FAN subnets separately for clarity.
@@ -132,20 +123,12 @@ func (st *State) SaveSubnetsFromProvider(subnets []network.SubnetInfo, spaceName
 				return errors.Trace(err)
 			}
 			if overlaySegment != nil {
-				var firstZone string
-				if len(subnet.AvailabilityZones) > 0 {
-					firstZone = subnet.AvailabilityZones[0]
-				}
-				_, err := st.AddSubnet(SubnetInfo{
-					ProviderId:        network.Id(id),
-					ProviderNetworkId: subnet.ProviderNetworkId,
-					CIDR:              overlaySegment.String(),
-					SpaceName:         spaceName,
-					VLANTag:           subnet.VLANTag,
-					AvailabilityZone:  firstZone,
-					FanLocalUnderlay:  subnet.CIDR,
-					FanOverlay:        fan.Overlay.String(),
-				})
+				subnet.ProviderId = corenetwork.Id(id)
+				subnet.SpaceName = spaceName
+				subnet.SetFan(subnet.CIDR, fan.Overlay.String())
+				subnet.CIDR = overlaySegment.String()
+
+				_, err := st.AddSubnet(subnet)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -158,12 +141,12 @@ func (st *State) SaveSubnetsFromProvider(subnets []network.SubnetInfo, spaceName
 
 // SaveSpacesFromProvider loads providerSpaces into state.
 // Currently it does not delete removed spaces.
-func (st *State) SaveSpacesFromProvider(providerSpaces []network.SpaceInfo) error {
+func (st *State) SaveSpacesFromProvider(providerSpaces []corenetwork.SpaceInfo) error {
 	stateSpaces, err := st.AllSpaces()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	modelSpaceMap := make(map[network.Id]*Space)
+	modelSpaceMap := make(map[corenetwork.Id]*Space)
 	spaceNames := make(set.Strings)
 	for _, space := range stateSpaces {
 		modelSpaceMap[space.ProviderId()] = space

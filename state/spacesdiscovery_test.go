@@ -10,10 +10,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -197,7 +196,7 @@ func checkSpacesEqual(c *gc.C, spaces []*state.Space, spaceInfos []network.Space
 	// Filter out the default space for comparisons.
 	filtered := spaces[:0]
 	for _, s := range spaces {
-		if s.Name() != corenetwork.DefaultSpaceName {
+		if s.Name() != network.DefaultSpaceName {
 			filtered = append(filtered, s)
 		}
 	}
@@ -434,8 +433,10 @@ func (s *SpacesDiscoverySuite) TestReloadSubnetsWithFAN(c *gc.C) {
 	}
 	s.usedEnviron = &s.environ
 
-	s.Model.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16=253.0.0.0/8"}, nil)
-	err := s.State.ReloadSpaces(s.usedEnviron)
+	err := s.Model.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16=253.0.0.0/8"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.ReloadSpaces(s.usedEnviron)
 	c.Assert(err, jc.ErrorIsNil)
 
 	subnets, err := s.State.AllSubnets()
@@ -455,8 +456,11 @@ func (s *SpacesDiscoverySuite) TestReloadSubnetsIgnoredWithFAN(c *gc.C) {
 	// This is just a test configuration. This configuration may be
 	// considered invalid in the future. Here we show that this
 	// configuration is ignored.
-	s.Model.UpdateModelConfig(map[string]interface{}{"fan-config": "fe80:dead:beef::/48=fe80:dead:beef::/24"}, nil)
-	err := s.State.ReloadSpaces(s.usedEnviron)
+	err := s.Model.UpdateModelConfig(
+		map[string]interface{}{"fan-config": "fe80:dead:beef::/48=fe80:dead:beef::/24"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.ReloadSpaces(s.usedEnviron)
 	c.Assert(err, jc.ErrorIsNil)
 
 	subnets, err := s.State.AllSubnets()
@@ -473,8 +477,10 @@ func (s *SpacesDiscoverySuite) TestReloadSpacesWithFAN(c *gc.C) {
 	}
 	s.usedEnviron = &s.environ
 
-	s.Model.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16=253.0.0.0/8"}, nil)
-	err := s.State.ReloadSpaces(s.usedEnviron)
+	err := s.Model.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16=253.0.0.0/8"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.ReloadSpaces(s.usedEnviron)
 	c.Assert(err, jc.ErrorIsNil)
 
 	spaces, err := s.State.AllSpaces()

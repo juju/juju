@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/lxc/lxd/shared/api"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 )
 
@@ -96,7 +97,7 @@ func (s *Server) GetNICsFromProfile(profName string) (map[string]device, error) 
 	nics := getProfileNICs(profile)
 	for name := range nics {
 		if nics[name]["hwaddr"] == "" {
-			nics[name]["hwaddr"] = network.GenerateVirtualMACAddress()
+			nics[name]["hwaddr"] = corenetwork.GenerateVirtualMACAddress()
 		}
 	}
 	return nics, nil

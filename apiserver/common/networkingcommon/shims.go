@@ -8,7 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/network"
+	corenetwork "github.com/juju/juju/core/network"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -29,11 +29,11 @@ func (s *subnetShim) VLANTag() int {
 	return s.subnet.VLANTag()
 }
 
-func (s *subnetShim) ProviderNetworkId() network.Id {
+func (s *subnetShim) ProviderNetworkId() corenetwork.Id {
 	return s.subnet.ProviderNetworkId()
 }
 
-func (s *subnetShim) ProviderId() network.Id {
+func (s *subnetShim) ProviderId() corenetwork.Id {
 	return s.subnet.ProviderId()
 }
 
@@ -67,7 +67,7 @@ func (s *spaceShim) Name() string {
 	return s.space.Name()
 }
 
-func (s *spaceShim) ProviderId() network.Id {
+func (s *spaceShim) ProviderId() corenetwork.Id {
 	return s.space.ProviderId()
 }
 
@@ -101,7 +101,7 @@ type stateShim struct {
 	m  *state.Model
 }
 
-func (s *stateShim) AddSpace(name string, providerId network.Id, subnetIds []string, public bool) error {
+func (s *stateShim) AddSpace(name string, providerId corenetwork.Id, subnetIds []string, public bool) error {
 	_, err := s.st.AddSpace(name, providerId, subnetIds, public)
 	return err
 }
@@ -120,18 +120,12 @@ func (s *stateShim) AllSpaces() ([]BackingSpace, error) {
 }
 
 func (s *stateShim) AddSubnet(info BackingSubnetInfo) (BackingSubnet, error) {
-	// TODO(babbageclunk): we only take the first zone because
-	// state.Subnet currently only stores one.
-	var firstZone string
-	if len(info.AvailabilityZones) > 0 {
-		firstZone = info.AvailabilityZones[0]
-	}
-	_, err := s.st.AddSubnet(state.SubnetInfo{
+	_, err := s.st.AddSubnet(corenetwork.SubnetInfo{
 		CIDR:              info.CIDR,
 		VLANTag:           info.VLANTag,
 		ProviderId:        info.ProviderId,
 		ProviderNetworkId: info.ProviderNetworkId,
-		AvailabilityZone:  firstZone,
+		AvailabilityZones: info.AvailabilityZones,
 		SpaceName:         info.SpaceName,
 	})
 	return nil, err // Drop the first result, as it's unused.

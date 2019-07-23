@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -283,7 +284,7 @@ func (m *containerManager) networkDevicesFromConfig(netConfig *container.Network
 		return DevicesFromInterfaceInfo(netConfig.Interfaces)
 	} else if netConfig.Device != "" {
 		return map[string]device{
-			"eth0": newNICDevice("eth0", netConfig.Device, network.GenerateVirtualMACAddress(), netConfig.MTU),
+			"eth0": newNICDevice("eth0", netConfig.Device, corenetwork.GenerateVirtualMACAddress(), netConfig.MTU),
 		}, nil, nil
 	}
 

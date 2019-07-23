@@ -6,13 +6,13 @@ package oci_test
 import (
 	"context"
 
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
+	ociCore "github.com/oracle/oci-go-sdk/core"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
-
-	ociCore "github.com/oracle/oci-go-sdk/core"
 )
 
 type networkingSuite struct {
@@ -244,10 +244,10 @@ func (n *networkingSuite) TestNetworkInterfaces(c *gc.C) {
 	c.Assert(info[0].Address, gc.Equals, network.NewScopedAddress("1.1.1.1", network.ScopeCloudLocal))
 	c.Assert(info[0].InterfaceName, gc.Equals, "unsupported0")
 	c.Assert(info[0].DeviceIndex, gc.Equals, 0)
-	c.Assert(info[0].ProviderId, gc.Equals, network.Id(vnicID))
+	c.Assert(info[0].ProviderId, gc.Equals, corenetwork.Id(vnicID))
 	c.Assert(info[0].MACAddress, gc.Equals, "aa:aa:aa:aa:aa:aa")
 	c.Assert(info[0].InterfaceType, gc.Equals, network.EthernetInterface)
-	c.Assert(info[0].ProviderSubnetId, gc.Equals, network.Id("fakeSubnetId"))
+	c.Assert(info[0].ProviderSubnetId, gc.Equals, corenetwork.Id("fakeSubnetId"))
 	c.Assert(info[0].CIDR, gc.Equals, "1.0.0.0/8")
 }
 
@@ -257,16 +257,16 @@ func (n *networkingSuite) TestSubnets(c *gc.C) {
 
 	n.setupListSubnetsExpectations()
 
-	lookFor := []network.Id{
-		network.Id("fakeSubnetId"),
+	lookFor := []corenetwork.Id{
+		corenetwork.Id("fakeSubnetId"),
 	}
 	info, err := n.env.Subnets(nil, instance.UnknownId, lookFor)
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.HasLen, 1)
 	c.Assert(info[0].CIDR, gc.Equals, "1.0.0.0/8")
 
-	lookFor = []network.Id{
-		network.Id("IDontExist"),
+	lookFor = []corenetwork.Id{
+		corenetwork.Id("IDontExist"),
 	}
 	_, err = n.env.Subnets(nil, instance.UnknownId, lookFor)
 	c.Check(err, gc.ErrorMatches, "failed to find the following subnet ids:.*IDontExist.*")
@@ -278,16 +278,16 @@ func (n *networkingSuite) TestSubnetsKnownInstanceId(c *gc.C) {
 
 	n.setupSubnetsKnownInstanceExpectations()
 
-	lookFor := []network.Id{
-		network.Id("fakeSubnetId"),
+	lookFor := []corenetwork.Id{
+		corenetwork.Id("fakeSubnetId"),
 	}
 	info, err := n.env.Subnets(nil, instance.Id(n.testInstanceID), lookFor)
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.HasLen, 1)
 	c.Assert(info[0].CIDR, gc.Equals, "1.0.0.0/8")
 
-	lookFor = []network.Id{
-		network.Id("notHere"),
+	lookFor = []corenetwork.Id{
+		corenetwork.Id("notHere"),
 	}
 	_, err = n.env.Subnets(nil, instance.Id(n.testInstanceID), lookFor)
 	c.Check(err, gc.ErrorMatches, "failed to find the following subnet ids:.*notHere.*")

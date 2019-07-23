@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -208,7 +209,9 @@ func (e *OracleEnviron) getCloudInitConfig(series string, networks map[string]oc
 // buildSpacesMap builds a map with juju converted names from provider space names
 //
 // shamelessly copied from the MAAS provider
-func (e *OracleEnviron) buildSpacesMap(ctx context.ProviderCallContext) (map[string]network.SpaceInfo, map[string]string, error) {
+func (e *OracleEnviron) buildSpacesMap(
+	ctx context.ProviderCallContext,
+) (map[string]corenetwork.SpaceInfo, map[string]string, error) {
 	empty := set.Strings{}
 	providerIdMap := map[string]string{}
 	// NOTE (gsamfira): This seems brittle to me, and I would much rather get this
@@ -221,7 +224,7 @@ func (e *OracleEnviron) buildSpacesMap(ctx context.ProviderCallContext) (map[str
 	if err != nil {
 		return nil, providerIdMap, errors.Trace(err)
 	}
-	spaceMap := make(map[string]network.SpaceInfo)
+	spaceMap := make(map[string]corenetwork.SpaceInfo)
 	for _, space := range spaces {
 		jujuName := network.ConvertSpaceName(space.Name, empty)
 		spaceMap[jujuName] = space

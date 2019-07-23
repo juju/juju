@@ -853,7 +853,7 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 				ProviderId:        string(subnet.ProviderId),
 				VLANTag:           subnet.VLANTag,
 				AvailabilityZones: copyStrings(subnet.AvailabilityZones),
-				ProviderSpaceId:   string(subnet.SpaceProviderId),
+				ProviderSpaceId:   string(subnet.ProviderSpaceId),
 				ProviderNetworkId: string(subnet.ProviderNetworkId),
 			}
 		}

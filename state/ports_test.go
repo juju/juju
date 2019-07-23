@@ -41,7 +41,7 @@ func (s *PortsDocSuite) SetUpTest(c *gc.C) {
 	s.unit2 = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application, Machine: s.machine})
 
 	var err error
-	s.subnet, err = s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
+	s.subnet, err = s.State.AddSubnet(network.SubnetInfo{CIDR: "0.1.2.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.portsOnSubnet, err = state.GetOrCreatePorts(s.State, s.machine.Id(), s.subnet.CIDR())

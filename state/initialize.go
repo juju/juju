@@ -388,7 +388,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 			args.EnvironVersion,
 		),
 		createUniqueOwnerModelNameOp(args.Owner, args.Config.Name()),
-		createDefaultSpaceOp(),
+		st.createDefaultSpaceOp(),
 	)
 	ops = append(ops, modelUserOps...)
 	return ops, modelStatusDoc, nil

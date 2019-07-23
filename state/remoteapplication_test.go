@@ -13,9 +13,9 @@ import (
 	"gopkg.in/juju/charm.v6"
 
 	apitesting "github.com/juju/juju/api/testing"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -65,7 +65,7 @@ func (s *remoteApplicationSuite) SetUpTest(c *gc.C) {
 				ProviderId:        "juju-subnet-12",
 				CIDR:              "1.2.3.0/24",
 				AvailabilityZones: []string{"az1", "az2"},
-				SpaceProviderId:   "juju-space-public",
+				ProviderSpaceId:   "juju-space-public",
 				ProviderNetworkId: "network-1",
 			}},
 		},
@@ -83,7 +83,7 @@ func (s *remoteApplicationSuite) SetUpTest(c *gc.C) {
 				ProviderId:        "juju-subnet-24",
 				CIDR:              "1.2.4.0/24",
 				AvailabilityZones: []string{"az1", "az2"},
-				SpaceProviderId:   "juju-space-private",
+				ProviderSpaceId:   "juju-space-private",
 				ProviderNetworkId: "network-1",
 			}},
 		},

@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/migration"
+	corenetwork "github.com/juju/juju/core/network"
 	corepresence "github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -3889,7 +3890,7 @@ type addSpace struct {
 func (sp addSpace) step(c *gc.C, ctx *context) {
 	f := factory.NewFactory(ctx.st, ctx.pool)
 	f.MakeSpace(c, &factory.SpaceParams{
-		Name: sp.spaceName, ProviderID: network.Id("provider"), IsPublic: true})
+		Name: sp.spaceName, ProviderID: corenetwork.Id("provider"), IsPublic: true})
 }
 
 type setAddresses struct {

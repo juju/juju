@@ -14,7 +14,7 @@ func stateStepsFor27() []Step {
 			},
 		},
 		&upgradeStep{
-			description: "recreated spaces with IDs",
+			description: "recreate spaces with IDs",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return context.State().AddSpaceIdToSpaceDocs()

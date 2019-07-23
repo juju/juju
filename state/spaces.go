@@ -12,8 +12,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // Space represents the state of a juju network space.
@@ -146,7 +145,9 @@ func (st *State) AddSpace(
 	return space, errors.Trace(err)
 }
 
-func (st *State) addSpaceTxnOps(name string, providerId network.Id, subnets []string, isPublic bool) ([]txn.Op, error) {
+func (st *State) addSpaceTxnOps(
+	name string, providerId network.Id, subnets []string, isPublic bool,
+) ([]txn.Op, error) {
 	// Space with ID zero is the default space; start at 1.
 	seq, err := sequenceWithMin(st, "space", 1)
 	if err != nil {
@@ -237,7 +238,7 @@ func (s *Space) EnsureDead() (err error) {
 
 	ops := []txn.Op{{
 		C:      spacesC,
-		Id:     s.doc.Id,
+		Id:     s.doc.DocId,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 		Assert: isAliveDoc,
 	}}
@@ -296,14 +297,14 @@ func (s *Space) Refresh() error {
 
 // createDefaultSpaceOp returns a transaction operation
 // that creates the default space (id=0).
-func createDefaultSpaceOp() txn.Op {
+func (st *State) createDefaultSpaceOp() txn.Op {
 	return txn.Op{
 		C:  spacesC,
-		Id: "0",
+		Id: st.docID(network.DefaultSpaceId),
 		Insert: spaceDoc{
-			Id:       corenetwork.DefaultSpaceId,
+			Id:       network.DefaultSpaceId,
 			Life:     Alive,
-			Name:     corenetwork.DefaultSpaceName,
+			Name:     network.DefaultSpaceName,
 			IsPublic: true,
 		},
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
@@ -298,11 +299,11 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 			MACAddress:          cfg.MACAddress,
 			CIDR:                cfg.CIDR,
 			MTU:                 cfg.MTU,
-			ProviderId:          network.Id(cfg.ProviderId),
-			ProviderSubnetId:    network.Id(cfg.ProviderSubnetId),
-			ProviderSpaceId:     network.Id(cfg.ProviderSpaceId),
-			ProviderVLANId:      network.Id(cfg.ProviderVLANId),
-			ProviderAddressId:   network.Id(cfg.ProviderAddressId),
+			ProviderId:          corenetwork.Id(cfg.ProviderId),
+			ProviderSubnetId:    corenetwork.Id(cfg.ProviderSubnetId),
+			ProviderSpaceId:     corenetwork.Id(cfg.ProviderSpaceId),
+			ProviderVLANId:      corenetwork.Id(cfg.ProviderVLANId),
+			ProviderAddressId:   corenetwork.Id(cfg.ProviderAddressId),
 			VLANTag:             cfg.VLANTag,
 			InterfaceName:       cfg.InterfaceName,
 			ParentInterfaceName: cfg.ParentInterfaceName,

@@ -12,3 +12,17 @@ const (
 	// DefaultSpaceName is the name of the default network space.
 	DefaultSpaceName = ""
 )
+
+// SpaceInfo defines a network space.
+type SpaceInfo struct {
+	// Name is the name of the space.
+	// It is used by operators for identifying a space and should be unique.
+	Name string
+
+	// ProviderId is the provider's unique identifier for the space,
+	// such as used by MAAS.
+	ProviderId Id
+
+	// Subnets are the subnets that have been grouped into this network space.
+	Subnets []SubnetInfo
+}

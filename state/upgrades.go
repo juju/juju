@@ -2306,7 +2306,7 @@ func AddSpaceIdToSpaceDocs(pool *StatePool) (err error) {
 			})
 		}
 
-		ops = append(ops, createDefaultSpaceOp())
+		ops = append(ops, st.createDefaultSpaceOp())
 
 		return errors.Trace(st.db().RunTransaction(ops))
 	}))
