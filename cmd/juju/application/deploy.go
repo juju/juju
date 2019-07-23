@@ -7,7 +7,6 @@ import (
 	"archive/zip"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
