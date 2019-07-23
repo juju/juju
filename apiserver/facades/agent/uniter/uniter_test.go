@@ -68,9 +68,6 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 
 	s.setupState(c)
 
-	s.State.StartSync()
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming the wordpress unit has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -169,9 +166,6 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAAS
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.State.StartSync()
-	s.WaitForModelWatchersIdle(c, m.UUID())
 
 	apiInfo, err := environs.APIInfo(
 		context.NewCloudCallContext(),
@@ -1043,9 +1037,6 @@ func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	s.State.StartSync()
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
@@ -1058,8 +1049,7 @@ func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{
 				StringsWatcherId: "1",
-				// See core/cache/hash.go for the hash implementation.
-				Changes: []string{"754ed70cf17d2df2cc6a2dcb6cbfcb569a8357b97b5708e7a7ca0409505e1d0b"},
+				Changes:          []string{"af35e298300150f2c357b4a1c40c1109bde305841c6343113b634b9dada22d00"},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
@@ -1248,9 +1238,6 @@ func (s *uniterSuite) TestWatchActionNotificationsPermissionDenied(c *gc.C) {
 func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.State.StartSync()
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	settings, err := s.wordpressUnit.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3384,9 +3371,6 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 		Machine:     s.machine1,
 	})
 
-	s.State.StartSync()
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-
 	// Create the resource registry separately to track invocations to register.
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
@@ -4202,9 +4186,6 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 
 	c.Assert(wp.Refresh(), jc.ErrorIsNil)
 	c.Assert(wpUnit.Refresh(), jc.ErrorIsNil)
-
-	s.State.StartSync()
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	args := params.NetworkInfoParams{
 		Unit:     wpUnit.Tag().String(),

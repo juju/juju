@@ -304,6 +304,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	formatterParams := newStatusFormatterParams{
 		status:         status,
 		controllerName: controllerName,
+		outputName:     c.out.Name(),
 		isoTime:        c.isoTime,
 		showRelations:  showRelations,
 	}

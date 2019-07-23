@@ -2110,6 +2110,11 @@ var statusTests = []testCase{
 		setUnitAsLeader{"logging/1"},
 		setUnitAsLeader{"wordpress/0"},
 
+		addBranch{"apple"},
+		addBranch{"banana"},
+		trackBranch{"apple", "logging/1"},
+		trackBranch{"banana", "wordpress/0"},
+
 		expect{
 			what: "multiples related peer units",
 			output: M{
@@ -2152,6 +2157,7 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.1.1",
 								"leader":         true,
+								"branch":         "banana",
 							},
 						},
 						"endpoint-bindings": M{
@@ -2199,6 +2205,7 @@ var statusTests = []testCase{
 										},
 										"public-address": "10.0.2.1",
 										"leader":         true,
+										"branch":         "apple",
 									},
 								},
 								"public-address": "10.0.2.1",
@@ -2220,6 +2227,14 @@ var statusTests = []testCase{
 				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
+				},
+				"branches": M{
+					"apple": M{
+						"created": "15:04:05+07:00",
+					},
+					"banana": M{
+						"created": "15:04:05+07:00",
+					},
 				},
 			},
 		},
@@ -2267,6 +2282,7 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.1.1",
 								"leader":         true,
+								"branch":         "banana",
 							},
 						},
 						"endpoint-bindings": M{
@@ -2314,6 +2330,7 @@ var statusTests = []testCase{
 										},
 										"public-address": "10.0.2.1",
 										"leader":         true,
+										"branch":         "apple",
 									},
 								},
 								"public-address": "10.0.2.1",
@@ -2335,6 +2352,14 @@ var statusTests = []testCase{
 				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
+				},
+				"branches": M{
+					"apple": M{
+						"created": "15:04:05+07:00",
+					},
+					"banana": M{
+						"created": "15:04:05+07:00",
+					},
 				},
 			},
 		},
@@ -2381,6 +2406,7 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.1.1",
 								"leader":         true,
+								"branch":         "banana",
 							},
 						},
 						"endpoint-bindings": M{
@@ -2403,6 +2429,11 @@ var statusTests = []testCase{
 				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
+				},
+				"branches": M{
+					"banana": M{
+						"created": "15:04:05+07:00",
+					},
 				},
 			},
 		},
@@ -4430,6 +4461,26 @@ func (s setCharmProfiles) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+type addBranch struct {
+	name string
+}
+
+func (s addBranch) step(c *gc.C, ctx *context) {
+	err := ctx.st.AddBranch(s.name, "testuser")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type trackBranch struct {
+	branch   string
+	unitName string
+}
+
+func (s trackBranch) step(c *gc.C, ctx *context) {
+	gen, err := ctx.st.Branch(s.branch)
+	c.Assert(err, jc.ErrorIsNil)
+	err = gen.AssignUnit(s.unitName)
+}
+
 type scopedExpect struct {
 	what   string
 	scope  []string
@@ -5829,6 +5880,7 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 		Controller: &controllerStatus{
 			Timestamp: common.FormatTimeAsTimestamp(&now, isoTime),
 		},
+		Branches: map[string]branchStatus{},
 	})
 }
 
@@ -5874,6 +5926,7 @@ func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
 		Applications:       map[string]applicationStatus{},
 		RemoteApplications: map[string]remoteApplicationStatus{},
 		Offers:             map[string]offerStatus{},
+		Branches:           map[string]branchStatus{},
 	})
 }
 
@@ -5924,6 +5977,7 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
 		Controller: &controllerStatus{
 			Timestamp: common.FormatTimeAsTimestamp(&now, isoTime),
 		},
+		Branches: map[string]branchStatus{},
 	})
 }
 

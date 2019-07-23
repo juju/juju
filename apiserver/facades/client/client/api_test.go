@@ -329,6 +329,7 @@ var scenarioStatus = &params.FullStatus{
 			},
 		},
 	},
+	Branches: map[string]params.BranchStatus{},
 }
 
 // setUpScenario makes a model scenario suitable for
