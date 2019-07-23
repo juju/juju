@@ -365,6 +365,7 @@ type mockBundle struct {
 
 func (b *mockBundle) Data() *charm.BundleData { return b.data }
 func (b *mockBundle) ReadMe() string          { return "" }
+func (b *mockBundle) ContainsOverlays() bool  { return false }
 
 type mockAPIRoot struct {
 	base.APICallCloser
