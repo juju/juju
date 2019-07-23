@@ -43,5 +43,6 @@ func (CredentialSuite) TestDetectCredentialsNoDomain(c *gc.C) {
 		if _, ok := attr[openstack.CredAttrDomainName]; ok {
 			c.Fatal("Domain name exists in rackspace creds and should not.")
 		}
+		c.Assert(v.Label, gc.Not(gc.Equals), "")
 	}
 }

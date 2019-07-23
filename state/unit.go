@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
 	mgoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
@@ -3205,8 +3204,8 @@ func (u *Unit) GetSpaceForBinding(bindingName string) (string, error) {
 	boundSpace, known := bindings[bindingName]
 	if !known {
 		// If default binding is not explicitly defined we'll use default space
-		if bindingName == environs.DefaultSpaceName {
-			return environs.DefaultSpaceName, nil
+		if bindingName == corenetwork.DefaultSpaceName {
+			return corenetwork.DefaultSpaceName, nil
 		}
 		return "", errors.NewNotValid(nil, fmt.Sprintf("binding name %q not defined by the unit's charm", bindingName))
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils"
 	utilscert "github.com/juju/utils/cert"
 	"gopkg.in/juju/charmrepo.v3/csclient"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 
@@ -931,3 +932,142 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CharmStoreURL:           csclient.ServerURL,
 	MeteringURL:             romulus.DefaultAPIRoot,
 })
+
+// ConfigSchema holds information on all the fields defined by
+// the config package.
+var ConfigSchema = environschema.Fields{
+	AuditingEnabled: {
+		Description: "Determines if the controller records auditing information",
+		Type:        environschema.Tbool,
+	},
+	AuditLogCaptureArgs: {
+		Description: `Determines if the audit log contains the arguments passed to API methods`,
+		Type:        environschema.Tbool,
+	},
+	AuditLogMaxSize: {
+		Description: "The maximum size for the current controller audit log file",
+		Type:        environschema.Tstring,
+	},
+	AuditLogMaxBackups: {
+		Type:        environschema.Tint,
+		Description: "The number of old audit log files to keep (compressed)",
+	},
+	AuditLogExcludeMethods: {
+		Type:        environschema.FieldType("list of strings"),
+		Description: "The list of Facade.Method names that aren't interesting for audit logging purposes.",
+	},
+	APIPort: {
+		Type:        environschema.Tint,
+		Description: "The port used for api connections",
+	},
+	APIPortOpenDelay: {
+		Type: environschema.Tstring,
+		Description: `The duration that the controller will wait 
+between when the controller has been deemed to be ready to open 
+the api-port and when the api-port is actually opened 
+(only used when a controller-api-port value is set).`,
+	},
+	ControllerAPIPort: {
+		Type: environschema.Tint,
+		Description: `An optional port that may be set for controllers
+that have a very heavy load. If this port is set, this port is used by
+the controllers to talk to each other - used for the local API connection
+as well as the pubsub forwarders, and the raft workers. If this value is
+set, the api-port isn't opened until the controllers have started properly.`,
+	},
+	StatePort: {
+		Type:        environschema.Tint,
+		Description: `The port used for mongo connections`,
+	},
+	IdentityURL: {
+		Type:        environschema.Tstring,
+		Description: `The url of the identity manager`,
+	},
+	IdentityPublicKey: {
+		Type:        environschema.Tstring,
+		Description: `The public key of the identity manager`,
+	},
+	SetNUMAControlPolicyKey: {
+		Type:        environschema.Tbool,
+		Description: `Determines if the NUMA control policy is set`,
+	},
+	AutocertURLKey: {
+		Type:        environschema.Tstring,
+		Description: `The URL used to obtain official TLS certificates when a client connects to the API`,
+	},
+	AutocertDNSNameKey: {
+		Type:        environschema.Tstring,
+		Description: `The DNS name of the controller`,
+	},
+	AllowModelAccessKey: {
+		Type: environschema.Tbool,
+		Description: `Determines if the controller allows users to 
+connect to models they have been authorized for even when 
+they don't have any access rights to the controller itself`,
+	},
+	MongoMemoryProfile: {
+		Type:        environschema.Tstring,
+		Description: `Sets mongo memory profile`,
+	},
+	MaxLogsAge: {
+		Type:        environschema.Tstring,
+		Description: `The maximum age for log entries`,
+	},
+	MaxLogsSize: {
+		Type:        environschema.Tstring,
+		Description: `The maximum size the log collection can grow to before it is pruned`,
+	},
+	MaxTxnLogSize: {
+		Type:        environschema.Tstring,
+		Description: `The maximum size the of capped txn log collection`,
+	},
+	MaxPruneTxnBatchSize: {
+		Type:        environschema.Tint,
+		Description: `(deprecated) The maximum number of transactions evaluated in one go when pruning`,
+	},
+	MaxPruneTxnPasses: {
+		Type:        environschema.Tint,
+		Description: `(deprecated) The maximum number of batches processed when pruning`,
+	},
+	ModelLogsSize: {
+		Type:        environschema.Tstring,
+		Description: `The size of the capped collections used to hold the logs for the models`,
+	},
+	PruneTxnQueryCount: {
+		Type:        environschema.Tint,
+		Description: `The number of transactions to read in a single query`,
+	},
+	PruneTxnSleepTime: {
+		Type:        environschema.Tstring,
+		Description: `The amount of time to sleep between processing each batch query`,
+	},
+	JujuHASpace: {
+		Type:        environschema.Tstring,
+		Description: `The network space within which the MongoDB replica-set should communicate`,
+	},
+	JujuManagementSpace: {
+		Type:        environschema.Tstring,
+		Description: `The network space that agents should use to communicate with controllers`,
+	},
+	CAASOperatorImagePath: {
+		Type: environschema.Tstring,
+		Description: `(deprected) The url of the docker image used for the application operator.
+Use "caas-image-repo" instead.`,
+	},
+	CAASImageRepo: {
+		Type:        environschema.Tstring,
+		Description: `The docker repo to use for the jujud operator and mongo images`,
+	},
+	Features: {
+		Type:        environschema.FieldType("list of strings"),
+		Description: `A list of runtime changeable features to be updated`,
+	},
+	CharmStoreURL: {
+		Type:        environschema.Tstring,
+		Description: `The url for charmstore API calls`,
+	},
+	MeteringURL: {
+		Type:        environschema.Tstring,
+		Description: `The url for metrics`,
+	},
+}

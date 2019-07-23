@@ -66,6 +66,8 @@ type StateBackend interface {
 	UpdateK8sModelNameIndex() error
 	AddModelLogsSize() error
 	AddControllerNodeDocs() error
+	AddSpaceIdToSpaceDocs() error
+	ChangeSubnetAZtoSlice() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -258,4 +260,12 @@ func (s stateBackend) AddModelLogsSize() error {
 
 func (s stateBackend) AddControllerNodeDocs() error {
 	return state.AddControllerNodeDocs(s.pool)
+}
+
+func (s stateBackend) AddSpaceIdToSpaceDocs() error {
+	return state.AddSpaceIdToSpaceDocs(s.pool)
+}
+
+func (s stateBackend) ChangeSubnetAZtoSlice() error {
+	return state.ChangeSubnetAZtoSlice(s.pool)
 }

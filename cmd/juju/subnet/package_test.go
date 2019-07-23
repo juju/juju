@@ -17,9 +17,9 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
 

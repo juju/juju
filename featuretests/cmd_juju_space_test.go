@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 )
@@ -22,7 +22,7 @@ type cmdSpaceSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-func (s *cmdSpaceSuite) AddSubnets(c *gc.C, infos []state.SubnetInfo) []*state.Subnet {
+func (s *cmdSpaceSuite) AddSubnets(c *gc.C, infos []network.SubnetInfo) []*state.Subnet {
 	results := make([]*state.Subnet, len(infos))
 	for i, info := range infos {
 		subnet, err := s.State.AddSubnet(info)
@@ -34,19 +34,19 @@ func (s *cmdSpaceSuite) AddSubnets(c *gc.C, infos []state.SubnetInfo) []*state.S
 }
 
 func (s *cmdSpaceSuite) MakeSubnetInfos(c *gc.C, space string, cidrTemplate string, count int) (
-	infos []state.SubnetInfo,
+	infos []network.SubnetInfo,
 	ids []string,
 ) {
-	infos = make([]state.SubnetInfo, count)
+	infos = make([]network.SubnetInfo, count)
 	ids = make([]string, count)
 	for i := range infos {
 		ids[i] = fmt.Sprintf(cidrTemplate, i)
-		infos[i] = state.SubnetInfo{
+		infos[i] = network.SubnetInfo{
 			// ProviderId it needs to be unique in state.
-			ProviderId:       network.Id(fmt.Sprintf("sub-%d", rand.Int())),
-			CIDR:             ids[i],
-			SpaceName:        space,
-			AvailabilityZone: "zone1",
+			ProviderId:        network.Id(fmt.Sprintf("sub-%d", rand.Int())),
+			CIDR:              ids[i],
+			SpaceName:         space,
+			AvailabilityZones: []string{"zone1"},
 		}
 	}
 	return infos, ids
@@ -173,18 +173,25 @@ func (s *cmdSpaceSuite) TestSpaceCreateWithSubnets(c *gc.C) {
 	c.Assert(subnets[1].SpaceName(), gc.Equals, "myspace")
 }
 
-func (s *cmdSpaceSuite) TestSpaceListNoResults(c *gc.C) {
-	_, stderr, err := s.Run(c, "spaces")
+// TODO (manadart 2019-07-22): Fix this so that spaces are output with IDs.
+func (s *cmdSpaceSuite) TestSpaceListDefaultOnly(c *gc.C) {
+	stdout, _, err := s.Run(c, "spaces")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stderr, jc.Contains,
-		"no spaces to display\n",
-	)
+
+	expected := `
+Space  Subnets
+
+
+`[1:]
+
+	c.Assert(stdout, gc.Equals, expected)
 }
 
 func (s *cmdSpaceSuite) TestSpaceListOneResultNoSubnets(c *gc.C) {
 	s.AddSpace(c, "myspace", nil, true)
 
-	expectedOutput := "{\"spaces\":{\"myspace\":{}}}\n"
+	// The default space is listed in addition to the one we added.
+	expectedOutput := "{\"spaces\":{\"\":{},\"myspace\":{}}}\n"
 	stdout, _, err := s.Run(c, "list-spaces", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stdout, jc.Contains, expectedOutput)

@@ -21,9 +21,9 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -1232,10 +1232,16 @@ func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
 	return doc
 }
 
+// spaces imports spaces without subnets, which are added later.
 func (i *importer) spaces() error {
 	i.logger.Debugf("importing spaces")
 	for _, s := range i.model.Spaces() {
-		// The subnets are added after the spaces.
+		// The default space should not have been exported, but be defensive.
+		// Any subnets added to the space will be imported subsequently.
+		if s.Name() == network.DefaultSpaceName {
+			continue
+		}
+
 		_, err := i.st.AddSpace(s.Name(), network.Id(s.ProviderID()), nil, s.Public())
 		if err != nil {
 			i.logger.Errorf("error importing space %s: %s", s.Name(), err)
@@ -1329,21 +1335,16 @@ func (i *importer) addLinkLayerDevice(device description.LinkLayerDevice) error 
 func (i *importer) subnets() error {
 	i.logger.Debugf("importing subnets")
 	for _, subnet := range i.model.Subnets() {
-		info := SubnetInfo{
+		info := network.SubnetInfo{
 			CIDR:              subnet.CIDR(),
 			ProviderId:        network.Id(subnet.ProviderId()),
 			ProviderNetworkId: network.Id(subnet.ProviderNetworkId()),
 			VLANTag:           subnet.VLANTag(),
 			SpaceName:         subnet.SpaceName(),
-			FanLocalUnderlay:  subnet.FanLocalUnderlay(),
-			FanOverlay:        subnet.FanOverlay(),
+			AvailabilityZones: subnet.AvailabilityZones(),
 		}
-		// TODO(babbageclunk): at the moment state.Subnet only stores
-		// one AZ.
-		zones := subnet.AvailabilityZones()
-		if len(zones) > 0 {
-			info.AvailabilityZone = zones[0]
-		}
+		info.SetFan(subnet.FanLocalUnderlay(), subnet.FanOverlay())
+
 		err := i.addSubnet(info)
 		if err != nil {
 			return errors.Trace(err)
@@ -1353,7 +1354,7 @@ func (i *importer) subnets() error {
 	return nil
 }
 
-func (i *importer) addSubnet(args SubnetInfo) error {
+func (i *importer) addSubnet(args network.SubnetInfo) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		subnet, err := i.st.newSubnetFromArgs(args)
 		if err != nil {

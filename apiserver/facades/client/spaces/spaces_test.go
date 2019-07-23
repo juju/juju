@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/spaces"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -46,7 +46,13 @@ func (s *SpacesSuite) TearDownSuite(c *gc.C) {
 
 func (s *SpacesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedNetworkingEnvironName, apiservertesting.WithZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
+	apiservertesting.BackingInstance.SetUp(
+		c,
+		apiservertesting.StubZonedNetworkingEnvironName,
+		apiservertesting.WithZones,
+		apiservertesting.WithSpaces,
+		apiservertesting.WithSubnets,
+	)
 
 	s.resources = common.NewResources()
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -144,7 +150,9 @@ func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 	}
 
 	// AddSpace from the api always uses an empty ProviderId.
-	addSpaceCalls := append(baseCalls, apiservertesting.BackingCall("AddSpace", p.Name, network.Id(""), p.Subnets, p.Public))
+	addSpaceCalls := append(
+		baseCalls, apiservertesting.BackingCall("AddSpace", p.Name, network.Id(""), p.Subnets, p.Public),
+	)
 
 	if p.Error == "" || p.MakesCall {
 		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, addSpaceCalls...)

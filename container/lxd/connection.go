@@ -206,5 +206,5 @@ func EnsureHostPort(address string) (string, error) {
 	if uri.Port() == "" {
 		uri.Host = fmt.Sprintf("%s:%d", uri.Host, defaultPort)
 	}
-	return uri.String(), nil
+	return strings.TrimRight(uri.String(), "/"), nil
 }

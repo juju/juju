@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
@@ -49,7 +50,7 @@ func (s *ipAddressesStateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add the few subnets used by the tests into both models.
-	subnetInfos := []state.SubnetInfo{{
+	subnetInfos := []corenetwork.SubnetInfo{{
 		CIDR: "0.1.2.0/24",
 	}, {
 		CIDR: "fc00::/64",
@@ -342,7 +343,7 @@ func (s *ipAddressesStateSuite) TestAllSpacesHandlesUnknownSubnets(c *gc.C) {
 	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{})
 }
 
-func resetSubnet(c *gc.C, st *state.State, subnetInfo state.SubnetInfo) {
+func resetSubnet(c *gc.C, st *state.State, subnetInfo corenetwork.SubnetInfo) {
 	// We currently don't allow updating a subnet's information, so remove it
 	// and add it with the new value.
 	// XXX(jam): We should add mutation operations instead of this ugly hack
@@ -360,12 +361,12 @@ func (s *ipAddressesStateSuite) TestAllSpacesOneSpace(c *gc.C) {
 	s.addTwoDevicesWithTwoAddressesEach(c)
 	_, err := s.State.AddSpace("default", "default", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	resetSubnet(c, s.State, state.SubnetInfo{
+	resetSubnet(c, s.State, corenetwork.SubnetInfo{
 		CIDR:      "10.20.0.0/16",
 		SpaceName: "default",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	resetSubnet(c, s.State, state.SubnetInfo{
+	resetSubnet(c, s.State, corenetwork.SubnetInfo{
 		CIDR:      "fc00::/64",
 		SpaceName: "default",
 	})
@@ -379,12 +380,12 @@ func (s *ipAddressesStateSuite) TestAllSpacesMultiSpace(c *gc.C) {
 	s.addTwoDevicesWithTwoAddressesEach(c)
 	_, err := s.State.AddSpace("default", "default", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	resetSubnet(c, s.State, state.SubnetInfo{
+	resetSubnet(c, s.State, corenetwork.SubnetInfo{
 		CIDR:      "10.20.0.0/16",
 		SpaceName: "default",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	resetSubnet(c, s.State, state.SubnetInfo{
+	resetSubnet(c, s.State, corenetwork.SubnetInfo{
 		CIDR:      "fc00::/64",
 		SpaceName: "dmz-ipv6",
 	})
@@ -497,7 +498,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesOKWhenCIDRAddressDoesNotM
 
 	// Add the subnet so it's known and retry setting the same address to verify
 	// SubnetID gets updated.
-	_, err = s.State.AddSubnet(state.SubnetInfo{CIDR: "192.168.0.0/16"})
+	_, err = s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "192.168.0.0/16"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetDevicesAddresses(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -715,7 +716,7 @@ func (s *ipAddressesStateSuite) addDeviceWithAddressAndProviderIDForMachine(c *g
 		DeviceName:   "eth0",
 		ConfigMethod: state.StaticAddress,
 		CIDRAddress:  "0.1.2.3/24",
-		ProviderID:   network.Id(providerID),
+		ProviderID:   corenetwork.Id(providerID),
 	}
 	err := machine.SetDevicesAddresses(addressArgs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -772,7 +773,7 @@ func (s *ipAddressesStateSuite) testMachineSetDevicesAddressesIdempotently(c *gc
 	c.Assert(allAddresses, gc.HasLen, len(args))
 	for _, address := range allAddresses {
 		if address.ConfigMethod() != state.LoopbackAddress && address.ConfigMethod() != state.ManualAddress {
-			c.Check(address.ProviderID(), gc.Not(gc.Equals), network.Id(""))
+			c.Check(address.ProviderID(), gc.Not(gc.Equals), corenetwork.Id(""))
 		}
 	}
 }

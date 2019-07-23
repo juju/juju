@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -2031,7 +2032,9 @@ func validateAuthURL(authURL string) error {
 }
 
 // Subnets is specified on environs.Networking.
-func (e *Environ) Subnets(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (e *Environ) Subnets(
+	ctx context.ProviderCallContext, instId instance.Id, subnetIds []corenetwork.Id,
+) ([]corenetwork.SubnetInfo, error) {
 	subnets, err := e.networking.Subnets(instId, subnetIds)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
@@ -2061,7 +2064,7 @@ func (e *Environ) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool,
 }
 
 // Spaces is specified on environs.Networking.
-func (e *Environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
+func (e *Environ) Spaces(ctx context.ProviderCallContext) ([]corenetwork.SpaceInfo, error) {
 	return nil, errors.NotSupportedf("spaces")
 }
 
@@ -2095,7 +2098,9 @@ func (e *Environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, int
 }
 
 // ProviderSpaceInfo is specified on environs.NetworkingEnviron.
-func (*Environ) ProviderSpaceInfo(ctx context.ProviderCallContext, space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+func (*Environ) ProviderSpaceInfo(
+	ctx context.ProviderCallContext, space *corenetwork.SpaceInfo,
+) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("provider space info")
 }
 

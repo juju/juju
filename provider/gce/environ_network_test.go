@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
@@ -92,27 +93,24 @@ func (s *environNetSuite) TestGettingAllSubnets(c *gc.C) {
 	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.UnknownId, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(subnets, gc.DeepEquals, []network.SubnetInfo{{
+	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
 		ProviderId:        "go-team",
 		ProviderNetworkId: "go-team1",
 		CIDR:              "10.0.10.0/24",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		VLANTag:           0,
-		SpaceProviderId:   "",
 	}, {
 		ProviderId:        "shellac",
 		ProviderNetworkId: "albini",
 		CIDR:              "10.0.20.0/24",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		VLANTag:           0,
-		SpaceProviderId:   "",
 	}, {
 		ProviderId:        "legacy",
 		ProviderNetworkId: "legacy",
 		CIDR:              "10.240.0.0/16",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		VLANTag:           0,
-		SpaceProviderId:   "",
 	}})
 }
 
@@ -132,24 +130,23 @@ func (s *environNetSuite) TestSuperSubnets(c *gc.C) {
 func (s *environNetSuite) TestRestrictingToSubnets(c *gc.C) {
 	s.cannedData()
 
-	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.UnknownId, []network.Id{
+	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.UnknownId, []corenetwork.Id{
 		"shellac",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets, gc.DeepEquals, []network.SubnetInfo{{
+	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
 		ProviderId:        "shellac",
 		ProviderNetworkId: "albini",
 		CIDR:              "10.0.20.0/24",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		VLANTag:           0,
-		SpaceProviderId:   "",
 	}})
 }
 
 func (s *environNetSuite) TestRestrictingToSubnetsWithMissing(c *gc.C) {
 	s.cannedData()
 
-	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.UnknownId, []network.Id{"shellac", "brunettes"})
+	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.UnknownId, []corenetwork.Id{"shellac", "brunettes"})
 	c.Assert(err, gc.ErrorMatches, `subnets \["brunettes"\] not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(subnets, gc.IsNil)
@@ -162,13 +159,12 @@ func (s *environNetSuite) TestSpecificInstance(c *gc.C) {
 	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.Id("moana"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(subnets, gc.DeepEquals, []network.SubnetInfo{{
+	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
 		ProviderId:        "go-team",
 		ProviderNetworkId: "go-team1",
 		CIDR:              "10.0.10.0/24",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		VLANTag:           0,
-		SpaceProviderId:   "",
 	}})
 }
 
@@ -176,16 +172,15 @@ func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnets(c *gc.C) {
 	s.cannedData()
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
 
-	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.Id("moana"), []network.Id{"go-team"})
+	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.Id("moana"), []corenetwork.Id{"go-team"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(subnets, gc.DeepEquals, []network.SubnetInfo{{
+	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
 		ProviderId:        "go-team",
 		ProviderNetworkId: "go-team1",
 		CIDR:              "10.0.10.0/24",
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		VLANTag:           0,
-		SpaceProviderId:   "",
 	}})
 }
 
@@ -193,7 +188,7 @@ func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnetsWithMissing(c 
 	s.cannedData()
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
 
-	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.Id("moana"), []network.Id{"go-team", "shellac"})
+	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.Id("moana"), []corenetwork.Id{"go-team", "shellac"})
 	c.Assert(err, gc.ErrorMatches, `subnets \["shellac"\] not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(subnets, gc.IsNil)

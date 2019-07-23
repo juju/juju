@@ -10,9 +10,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -181,11 +181,7 @@ func checkSubnetsEqual(c *gc.C, subnets []*state.Subnet, subnetInfos []network.S
 	for i, subnetInfo := range subnetInfos {
 		subnet := subnets[i]
 		c.Check(subnetInfo.CIDR, gc.Equals, subnet.CIDR())
-		if len(subnetInfo.AvailabilityZones) > 0 {
-			c.Check(subnetInfo.AvailabilityZones[0], gc.Equals, subnet.AvailabilityZone())
-		} else {
-			c.Check(subnet.AvailabilityZone(), gc.Equals, "")
-		}
+		c.Check(subnetInfo.AvailabilityZones, gc.DeepEquals, subnet.AvailabilityZones())
 		c.Check(subnetInfo.ProviderId, gc.Equals, subnet.ProviderId())
 		c.Check(subnetInfo.ProviderNetworkId, gc.Equals, subnet.ProviderNetworkId())
 		c.Check(subnetInfo.VLANTag, gc.Equals, subnet.VLANTag())
@@ -193,9 +189,17 @@ func checkSubnetsEqual(c *gc.C, subnets []*state.Subnet, subnetInfos []network.S
 }
 
 func checkSpacesEqual(c *gc.C, spaces []*state.Space, spaceInfos []network.SpaceInfo) {
-	c.Assert(len(spaceInfos), gc.Equals, len(spaces))
+	// Filter out the default space for comparisons.
+	filtered := spaces[:0]
+	for _, s := range spaces {
+		if s.Name() != network.DefaultSpaceName {
+			filtered = append(filtered, s)
+		}
+	}
+
+	c.Assert(len(spaceInfos), gc.Equals, len(filtered))
 	for i, spaceInfo := range spaceInfos {
-		space := spaces[i]
+		space := filtered[i]
 		c.Check(spaceInfo.Name, gc.Equals, space.Name())
 		c.Check(spaceInfo.ProviderId, gc.Equals, space.ProviderId())
 		subnets, err := space.Subnets()
@@ -448,8 +452,10 @@ func (s *SpacesDiscoverySuite) TestReloadSubnetsWithFAN(c *gc.C) {
 	}
 	s.usedEnviron = &s.environ
 
-	s.Model.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16=253.0.0.0/8"}, nil)
-	err := s.State.ReloadSpaces(s.usedEnviron)
+	err := s.Model.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16=253.0.0.0/8"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.ReloadSpaces(s.usedEnviron)
 	c.Assert(err, jc.ErrorIsNil)
 
 	subnets, err := s.State.AllSubnets()
@@ -469,8 +475,11 @@ func (s *SpacesDiscoverySuite) TestReloadSubnetsIgnoredWithFAN(c *gc.C) {
 	// This is just a test configuration. This configuration may be
 	// considered invalid in the future. Here we show that this
 	// configuration is ignored.
-	s.Model.UpdateModelConfig(map[string]interface{}{"fan-config": "fe80:dead:beef::/48=fe80:dead:beef::/24"}, nil)
-	err := s.State.ReloadSpaces(s.usedEnviron)
+	err := s.Model.UpdateModelConfig(
+		map[string]interface{}{"fan-config": "fe80:dead:beef::/48=fe80:dead:beef::/24"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.ReloadSpaces(s.usedEnviron)
 	c.Assert(err, jc.ErrorIsNil)
 
 	subnets, err := s.State.AllSubnets()
@@ -487,8 +496,10 @@ func (s *SpacesDiscoverySuite) TestReloadSpacesWithFAN(c *gc.C) {
 	}
 	s.usedEnviron = &s.environ
 
-	s.Model.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16=253.0.0.0/8"}, nil)
-	err := s.State.ReloadSpaces(s.usedEnviron)
+	err := s.Model.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16=253.0.0.0/8"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.ReloadSpaces(s.usedEnviron)
 	c.Assert(err, jc.ErrorIsNil)
 
 	spaces, err := s.State.AllSpaces()

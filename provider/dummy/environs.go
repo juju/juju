@@ -63,6 +63,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/lxdprofile"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -184,8 +185,8 @@ type OpNetworkInterfaces struct {
 type OpSubnets struct {
 	Env        string
 	InstanceId instance.Id
-	SubnetIds  []network.Id
-	Info       []network.SubnetInfo
+	SubnetIds  []corenetwork.Id
+	Info       []corenetwork.SubnetInfo
 }
 
 type OpStartInstance struct {
@@ -195,7 +196,7 @@ type OpStartInstance struct {
 	PossibleTools     coretools.List
 	Instance          instances.Instance
 	Constraints       constraints.Value
-	SubnetsToZones    map[network.Id][]string
+	SubnetsToZones    map[corenetwork.Id][]string
 	NetworkInfo       []network.InterfaceInfo
 	Volumes           []storage.Volume
 	VolumeAttachments []storage.VolumeAttachment
@@ -1223,16 +1224,16 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	}
 	// Simulate subnetsToZones gets populated when spaces given in constraints.
 	spaces := args.Constraints.IncludeSpaces()
-	var subnetsToZones map[network.Id][]string
+	var subnetsToZones map[corenetwork.Id][]string
 	for isp := range spaces {
 		// Simulate 2 subnets per space.
 		if subnetsToZones == nil {
-			subnetsToZones = make(map[network.Id][]string)
+			subnetsToZones = make(map[corenetwork.Id][]string)
 		}
 		for isn := 0; isn < 2; isn++ {
 			providerId := fmt.Sprintf("subnet-%d", isp+isn)
 			zone := fmt.Sprintf("zone%d", isp+isn)
-			subnetsToZones[network.Id(providerId)] = []string{zone}
+			subnetsToZones[corenetwork.Id(providerId)] = []string{zone}
 		}
 	}
 	// Simulate creating volumes when requested.
@@ -1368,36 +1369,36 @@ func (env *environ) SupportsContainerAddresses(ctx context.ProviderCallContext) 
 }
 
 // Spaces is specified on environs.Networking.
-func (env *environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
+func (env *environ) Spaces(ctx context.ProviderCallContext) ([]corenetwork.SpaceInfo, error) {
 	if err := env.checkBroken("Spaces"); err != nil {
-		return []network.SpaceInfo{}, err
+		return []corenetwork.SpaceInfo{}, err
 	}
-	return []network.SpaceInfo{{
+	return []corenetwork.SpaceInfo{{
 		Name:       "foo",
-		ProviderId: network.Id("0"),
-		Subnets: []network.SubnetInfo{{
-			ProviderId:        network.Id("1"),
+		ProviderId: corenetwork.Id("0"),
+		Subnets: []corenetwork.SubnetInfo{{
+			ProviderId:        corenetwork.Id("1"),
 			AvailabilityZones: []string{"zone1"},
 		}, {
-			ProviderId:        network.Id("2"),
+			ProviderId:        corenetwork.Id("2"),
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
 		Name:       "Another Foo 99!",
 		ProviderId: "1",
-		Subnets: []network.SubnetInfo{{
-			ProviderId:        network.Id("3"),
+		Subnets: []corenetwork.SubnetInfo{{
+			ProviderId:        corenetwork.Id("3"),
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
 		Name:       "foo-",
 		ProviderId: "2",
-		Subnets: []network.SubnetInfo{{
-			ProviderId:        network.Id("4"),
+		Subnets: []corenetwork.SubnetInfo{{
+			ProviderId:        corenetwork.Id("4"),
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
 		Name:       "---",
 		ProviderId: "3",
-		Subnets: []network.SubnetInfo{{
-			ProviderId:        network.Id("5"),
+		Subnets: []corenetwork.SubnetInfo{{
+			ProviderId:        corenetwork.Id("5"),
 			AvailabilityZones: []string{"zone1"},
 		}}}}, nil
 }
@@ -1421,8 +1422,8 @@ func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId in
 	for i, netName := range []string{"private", "public", "disabled"} {
 		info[i] = network.InterfaceInfo{
 			DeviceIndex:      i,
-			ProviderId:       network.Id(fmt.Sprintf("dummy-eth%d", i)),
-			ProviderSubnetId: network.Id("dummy-" + netName),
+			ProviderId:       corenetwork.Id(fmt.Sprintf("dummy-eth%d", i)),
+			ProviderSubnetId: corenetwork.Id("dummy-" + netName),
 			InterfaceType:    network.EthernetInterface,
 			CIDR:             fmt.Sprintf("0.%d.0.0/24", (i+1)*10),
 			InterfaceName:    fmt.Sprintf("eth%d", i),
@@ -1509,7 +1510,9 @@ func (env *environ) DeriveAvailabilityZones(ctx context.ProviderCallContext, arg
 }
 
 // Subnets implements environs.Environ.Subnets.
-func (env *environ) Subnets(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (env *environ) Subnets(
+	ctx context.ProviderCallContext, instId instance.Id, subnetIds []corenetwork.Id,
+) ([]corenetwork.SubnetInfo, error) {
 	if err := env.checkBroken("Subnets"); err != nil {
 		return nil, err
 	}
@@ -1526,7 +1529,7 @@ func (env *environ) Subnets(ctx context.ProviderCallContext, instId instance.Id,
 		return env.subnetsForSpaceDiscovery(estate)
 	}
 
-	allSubnets := []network.SubnetInfo{{
+	allSubnets := []corenetwork.SubnetInfo{{
 		CIDR:              "0.10.0.0/24",
 		ProviderId:        "dummy-private",
 		AvailabilityZones: []string{"zone1", "zone2"},
@@ -1536,7 +1539,7 @@ func (env *environ) Subnets(ctx context.ProviderCallContext, instId instance.Id,
 	}}
 
 	// Filter result by ids, if given.
-	var result []network.SubnetInfo
+	var result []corenetwork.SubnetInfo
 	for _, subId := range subnetIds {
 		switch subId {
 		case "dummy-private":
@@ -1546,7 +1549,7 @@ func (env *environ) Subnets(ctx context.ProviderCallContext, instId instance.Id,
 		}
 	}
 	if len(subnetIds) == 0 {
-		result = append([]network.SubnetInfo{}, allSubnets...)
+		result = append([]corenetwork.SubnetInfo{}, allSubnets...)
 	}
 	if len(result) == 0 {
 		// No results, so just return them now.
@@ -1568,33 +1571,33 @@ func (env *environ) Subnets(ctx context.ProviderCallContext, instId instance.Id,
 	return result, nil
 }
 
-func (env *environ) subnetsForSpaceDiscovery(estate *environState) ([]network.SubnetInfo, error) {
-	result := []network.SubnetInfo{{
-		ProviderId:        network.Id("1"),
+func (env *environ) subnetsForSpaceDiscovery(estate *environState) ([]corenetwork.SubnetInfo, error) {
+	result := []corenetwork.SubnetInfo{{
+		ProviderId:        corenetwork.Id("1"),
 		AvailabilityZones: []string{"zone1"},
 		CIDR:              "192.168.1.0/24",
 	}, {
-		ProviderId:        network.Id("2"),
+		ProviderId:        corenetwork.Id("2"),
 		AvailabilityZones: []string{"zone1"},
 		CIDR:              "192.168.2.0/24",
 		VLANTag:           1,
 	}, {
-		ProviderId:        network.Id("3"),
+		ProviderId:        corenetwork.Id("3"),
 		AvailabilityZones: []string{"zone1"},
 		CIDR:              "192.168.3.0/24",
 	}, {
-		ProviderId:        network.Id("4"),
+		ProviderId:        corenetwork.Id("4"),
 		AvailabilityZones: []string{"zone1"},
 		CIDR:              "192.168.4.0/24",
 	}, {
-		ProviderId:        network.Id("5"),
+		ProviderId:        corenetwork.Id("5"),
 		AvailabilityZones: []string{"zone1"},
 		CIDR:              "192.168.5.0/24",
 	}}
 	estate.ops <- OpSubnets{
 		Env:        env.name,
 		InstanceId: instance.UnknownId,
-		SubnetIds:  []network.Id{},
+		SubnetIds:  []corenetwork.Id{},
 		Info:       result,
 	}
 	return result, nil
@@ -1897,7 +1900,9 @@ func (e *environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, int
 }
 
 // ProviderSpaceInfo implements NetworkingEnviron.
-func (*environ) ProviderSpaceInfo(ctx context.ProviderCallContext, space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+func (*environ) ProviderSpaceInfo(
+	ctx context.ProviderCallContext, space *corenetwork.SpaceInfo,
+) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("provider space info")
 }
 

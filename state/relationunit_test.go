@@ -18,6 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
@@ -909,13 +910,13 @@ func (s *RelationUnitSuite) addDevicesWithAddresses(c *gc.C, machine *state.Mach
 }
 
 func (s *RelationUnitSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
-	s.State.AddSubnet(state.SubnetInfo{CIDR: "1.2.0.0/16"})
+	s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "1.2.0.0/16"})
 	s.State.AddSpace("space-1", "pid-1", []string{"1.2.0.0/16"}, false)
-	s.State.AddSubnet(state.SubnetInfo{CIDR: "2.2.0.0/16"})
+	s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "2.2.0.0/16"})
 	s.State.AddSpace("space-2", "pid-2", []string{"2.2.0.0/16"}, false)
-	s.State.AddSubnet(state.SubnetInfo{CIDR: "3.2.0.0/16"})
+	s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "3.2.0.0/16"})
 	s.State.AddSpace("space-3", "pid-3", []string{"2.2.0.0/16"}, false)
-	s.State.AddSubnet(state.SubnetInfo{CIDR: "4.3.0.0/16"})
+	s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "4.3.0.0/16"})
 	s.State.AddSpace("public-4", "pid-4", []string{"4.3.0.0/16"}, true)
 
 	// We want to have all bindings set so that no actual binding is

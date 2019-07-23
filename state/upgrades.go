@@ -2246,3 +2246,109 @@ func AddControllerNodeDocs(pool *StatePool) error {
 	}
 	return nil
 }
+
+// AddSpaceIdToSpaceDocs ensures that every space document includes a
+// a sequentially generated ID.
+// It also adds a doc for the default space (ID=0).
+func AddSpaceIdToSpaceDocs(pool *StatePool) (err error) {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(spacesC)
+		defer closer()
+
+		type oldSpaceDoc struct {
+			SpaceId    string `bson:"spaceid"`
+			Life       Life   `bson:"life"`
+			Name       string `bson:"name"`
+			IsPublic   bool   `bson:"is-public"`
+			ProviderId string `bson:"providerid,omitempty"`
+		}
+
+		var docs []oldSpaceDoc
+		err := col.Find(nil).All(&docs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, oldDoc := range docs {
+			// A doc with a space ID has already been upgraded.
+			if oldDoc.SpaceId != "" {
+				continue
+			}
+
+			// We cannot edit _id, so we need to delete and re-create each doc.
+			ops = append(ops, txn.Op{
+				C:      spacesC,
+				Id:     oldDoc.Name,
+				Assert: txn.DocExists,
+				Remove: true,
+			})
+
+			seq, err := sequenceWithMin(st, "space", 1)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			id := strconv.Itoa(seq)
+
+			newDoc := spaceDoc{
+				DocId:      st.docID(id),
+				Id:         id,
+				Life:       oldDoc.Life,
+				Name:       oldDoc.Name,
+				IsPublic:   oldDoc.IsPublic,
+				ProviderId: oldDoc.ProviderId,
+			}
+
+			ops = append(ops, txn.Op{
+				C:      spacesC,
+				Id:     newDoc.DocId,
+				Insert: newDoc,
+			})
+		}
+
+		ops = append(ops, st.createDefaultSpaceOp())
+
+		return errors.Trace(st.db().RunTransaction(ops))
+	}))
+}
+
+// ChangeSubnetAZtoSlice changes AvailabilityZone in every subnet document
+// to AvailabilityZones, a slice of strings.
+func ChangeSubnetAZtoSlice(pool *StatePool) (err error) {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(subnetsC)
+		defer closer()
+
+		type oldSubnetDoc struct {
+			DocId            string `bson:"_id"`
+			AvailabilityZone string `bson:"availabilityzone"`
+		}
+
+		var docs []oldSubnetDoc
+		err := col.Find(nil).All(&docs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, sDoc := range docs {
+
+			if sDoc.AvailabilityZone == "" {
+				continue
+			}
+
+			ops = append(ops, txn.Op{
+				C:  subnetsC,
+				Id: sDoc.DocId,
+				Update: bson.D{
+					{"$set", bson.D{{"availability-zones", []string{sDoc.AvailabilityZone}}}},
+					{"$unset", bson.D{{"availabilityzone", nil}}},
+				},
+			})
+		}
+
+		ops = append(ops, st.createDefaultSpaceOp())
+
+		return errors.Trace(st.db().RunTransaction(ops))
+	}))
+}

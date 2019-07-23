@@ -14,20 +14,25 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
+	"github.com/juju/naturalsort"
 
+	apicloud "github.com/juju/juju/api/cloud"
+	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 )
 
 type detectCredentialsCommand struct {
+	modelcmd.OptionalControllerCommand
 	cmd.CommandBase
 	out cmd.Output
 
 	cloudType string
-	store     jujuclient.CredentialStore
 
 	// registeredProvidersFunc is set by tests to return all registered environ providers
 	registeredProvidersFunc func() []string
@@ -37,6 +42,11 @@ type detectCredentialsCommand struct {
 
 	// cloudByNameFunc is set by tests to return a named cloud.
 	cloudByNameFunc func(string) (*jujucloud.Cloud, error)
+
+	// These attributes are used when adding credentials to a controller.
+	controllerName    string
+	credentialAPIFunc func() (CredentialAPI, error)
+	remoteClouds      map[string]jujucloud.Cloud
 }
 
 const detectCredentialsSummary = `Attempts to automatically add or replace credentials for a cloud.`
@@ -45,6 +55,12 @@ var detectCredentialsDoc = `
 Well known locations for specific clouds are searched and any found
 information is presented interactively to the user.
 An alternative to this command is ` + "`juju add-credential`" + `.
+
+By default, after validating the contents, credentials are loaded both 
+on the current controller and the current client device. 
+Use --controller option to load credentials to a different controller. 
+Use --local option to load credentials to the current device only.
+
 Below are the cloud types for which credentials may be autoloaded,
 including the locations searched.
 
@@ -86,14 +102,17 @@ See also:
 // NewDetectCredentialsCommand returns a command to add credential information to credentials.yaml.
 func NewDetectCredentialsCommand() cmd.Command {
 	c := &detectCredentialsCommand{
-		store:                   jujuclient.NewFileCredentialStore(),
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
+			Store: jujuclient.NewFileClientStore(),
+		},
 		registeredProvidersFunc: environs.RegisteredProviders,
 		cloudByNameFunc:         jujucloud.CloudByName,
 	}
 	c.allCloudsFunc = func() (map[string]jujucloud.Cloud, error) {
 		return c.allClouds()
 	}
-	return c
+	c.credentialAPIFunc = c.credentialsAPI
+	return modelcmd.WrapBase(c)
 }
 
 func (c *detectCredentialsCommand) Info() *cmd.Info {
@@ -105,10 +124,23 @@ func (c *detectCredentialsCommand) Info() *cmd.Info {
 	})
 }
 
+func (c *detectCredentialsCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.OptionalControllerCommand.SetFlags(f)
+}
+
 func (c *detectCredentialsCommand) Init(args []string) (err error) {
 	if len(args) > 0 {
 		c.cloudType = strings.ToLower(args[0])
 		return cmd.CheckEmpty(args[1:])
+	}
+	c.controllerName, err = c.ControllerNameFromArg()
+	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
+		return errors.Trace(err)
+	}
+	if c.controllerName == "" {
+		// No controller was specified explicitly and we did not detect a current controller,
+		// this operation should be local only.
+		c.Local = true
 	}
 	return cmd.CheckEmpty(args)
 }
@@ -122,10 +154,26 @@ type discoveredCredential struct {
 	isNew            bool
 }
 
+func (c *detectCredentialsCommand) credentialsAPI() (CredentialAPI, error) {
+	var err error
+	root, err := c.NewAPIRoot(c.Store, c.controllerName, "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return apicloud.NewClient(root), nil
+}
+
 func (c *detectCredentialsCommand) allClouds() (map[string]jujucloud.Cloud, error) {
 	clouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
 	if err != nil {
 		return nil, err
+	}
+	builtinClouds, err := common.BuiltInClouds()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for k, v := range builtinClouds {
+		clouds[k] = v
 	}
 	personalClouds, err := jujucloud.PersonalCloudMetadata()
 	if err != nil {
@@ -133,6 +181,26 @@ func (c *detectCredentialsCommand) allClouds() (map[string]jujucloud.Cloud, erro
 	}
 	for k, v := range personalClouds {
 		clouds[k] = v
+	}
+	if !c.Local {
+		// If there is a cloud definition for the same cloud both
+		// on the controller and on the client and they conflict,
+		// we want definition from the controller to take precedence.
+		client, err := c.credentialAPIFunc()
+		if err != nil {
+			return nil, err
+		}
+		defer client.Close()
+
+		remoteUserClouds, err := client.Clouds()
+		if err != nil {
+			return nil, err
+		}
+		c.remoteClouds = map[string]jujucloud.Cloud{}
+		for k, v := range remoteUserClouds {
+			clouds[k.Id()] = v
+			c.remoteClouds[k.Id()] = v
+		}
 	}
 	return clouds, nil
 }
@@ -191,9 +259,15 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 			if errors.IsNotFound(err) || len(detected.AuthCredentials) == 0 {
 				continue
 			}
+			sortedName := []string{}
+			for credName := range detected.AuthCredentials {
+				sortedName = append(sortedName, credName)
+			}
+			naturalsort.Sort(sortedName)
 
 			// For each credential, construct meta info for which cloud it may pertain to etc.
-			for credName, newCred := range detected.AuthCredentials {
+			for _, credName := range sortedName {
+				newCred := detected.AuthCredentials[credName]
 				if credName == "" {
 					logger.Debugf("ignoring unnamed credential for provider %s", providerName)
 					continue
@@ -238,7 +312,7 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 		fmt.Fprintln(ctxt.Stderr, "No cloud credentials found.")
 		return nil
 	}
-	return c.interactiveCredentialsUpdate(ctxt, discovered)
+	return c.interactiveCredentialsUpdate(ctxt, clouds, discovered)
 }
 
 // guessCloudInfo looks at all the compatible clouds for the provider name and
@@ -257,7 +331,7 @@ func (c *detectCredentialsCommand) guessCloudInfo(
 		if cloud.Type != providerName {
 			continue
 		}
-		credentials, err := c.store.CredentialForCloud(cloudName)
+		credentials, err := c.Store.CredentialForCloud(cloudName)
 		if err != nil && !errors.IsNotFound(err) {
 			return "", "", false, errors.Trace(err)
 		}
@@ -282,7 +356,12 @@ func (c *detectCredentialsCommand) guessCloudInfo(
 
 // interactiveCredentialsUpdate prints a list of the discovered credentials
 // and prompts the user to update their local credentials.
-func (c *detectCredentialsCommand) interactiveCredentialsUpdate(ctxt *cmd.Context, discovered []discoveredCredential) error {
+func (c *detectCredentialsCommand) interactiveCredentialsUpdate(ctxt *cmd.Context, clouds map[string]jujucloud.Cloud, discovered []discoveredCredential) error {
+	// by cloud, by region
+	loaded := map[string]map[string]map[string]jujucloud.Credential{}
+	quit := func(in string) bool {
+		return strings.ToLower(in) == "q"
+	}
 	for {
 		// Prompt for a credential to save.
 		c.printCredentialOptions(ctxt, discovered)
@@ -293,14 +372,13 @@ func (c *detectCredentialsCommand) interactiveCredentialsUpdate(ctxt *cmd.Contex
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if strings.ToLower(input) == "q" {
-				return nil
+			if quit(input) {
+				goto upload
 			}
 			if input != "" {
 				break
 			}
 		}
-
 		// Check the entered number.
 		num, err := strconv.Atoi(input)
 		if err != nil || num < 1 || num > len(discovered) {
@@ -309,18 +387,31 @@ func (c *detectCredentialsCommand) interactiveCredentialsUpdate(ctxt *cmd.Contex
 		}
 		cred := discovered[num-1]
 		// Prompt for the cloud for which to save the credential.
-		cloudName, err := c.promptCloudName(ctxt.Stderr, ctxt.Stdin, cred.defaultCloudName, cred.cloudType)
+		cloudName, err := c.promptCloudName(ctxt.Stderr, ctxt.Stdin, cred.defaultCloudName)
 		if err != nil {
 			fmt.Fprintln(ctxt.Stderr, err.Error())
 			continue
 		}
+		if quit(cloudName) {
+			goto upload
+		}
+
 		if cloudName == "" {
 			fmt.Fprintln(ctxt.Stderr, "No cloud name entered.")
 			continue
 		}
+		cloud, err := common.CloudOrProvider(cloudName, c.cloudByNameFunc)
+		if err != nil {
+			fmt.Fprintln(ctxt.Stderr, err.Error())
+			continue
+		}
+		if cloud.Type != cred.cloudType {
+			fmt.Fprintln(ctxt.Stderr, errors.Errorf("chosen credentials not compatible with a %s cloud", cloud.Type))
+			continue
+		}
 
 		// Reading existing info so we can apply updated values.
-		existing, err := c.store.CredentialForCloud(cloudName)
+		existing, err := c.Store.CredentialForCloud(cloudName)
 		if err != nil && !errors.IsNotFound(err) {
 			fmt.Fprintf(ctxt.Stderr, "error reading credential file: %v\n", err)
 			continue
@@ -334,15 +425,80 @@ func (c *detectCredentialsCommand) interactiveCredentialsUpdate(ctxt *cmd.Contex
 			existing.DefaultRegion = cred.region
 		}
 		existing.AuthCredentials[cred.credentialName] = cred.credential
-		if err := c.store.UpdateCredential(cloudName, *existing); err != nil {
-			fmt.Fprintf(ctxt.Stderr, "error saving credential: %v\n", err)
+		addLoadedCredential(loaded, cloudName, cred)
+		if err := c.Store.UpdateCredential(cloudName, *existing); err != nil {
+			fmt.Fprintf(ctxt.Stderr, "error saving credential locally: %v\n", err)
 		} else {
 			// Update so we display correctly next time list is printed.
 			cred.isNew = false
 			discovered[num-1] = cred
-			fmt.Fprintf(ctxt.Stderr, "Saved %s to cloud %s\n", cred.credential.Label, cloudName)
+			fmt.Fprintf(ctxt.Stderr, "Saved %s to cloud %s locally\n", cred.credential.Label, cloudName)
 		}
 	}
+upload:
+	if !c.Local {
+		fmt.Fprintln(ctxt.Stderr)
+		return c.addRemoteCredentials(ctxt, clouds, loaded)
+	}
+	return nil
+}
+
+func addLoadedCredential(all map[string]map[string]map[string]jujucloud.Credential, cloudName string, cred discoveredCredential) {
+	byCloud, ok := all[cloudName]
+	if !ok {
+		all[cloudName] = map[string]map[string]jujucloud.Credential{}
+		byCloud = all[cloudName]
+	}
+	byRegion, ok := byCloud[cred.region]
+	if !ok {
+		byCloud[cred.region] = map[string]jujucloud.Credential{}
+		byRegion = byCloud[cred.region]
+	}
+	byRegion[cred.credentialName] = cred.credential
+}
+
+func (c *detectCredentialsCommand) addRemoteCredentials(ctxt *cmd.Context, clouds map[string]jujucloud.Cloud, all map[string]map[string]map[string]jujucloud.Credential) error {
+	if len(all) == 0 {
+		fmt.Fprintf(ctxt.Stdout, "No credentials loaded remotely.\n")
+		return nil
+	}
+	accountDetails, err := c.Store.AccountDetails(c.controllerName)
+	if err != nil {
+		return err
+	}
+
+	client, err := c.credentialAPIFunc()
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	var results []params.UpdateCredentialResult
+	moreCloudInfoNeeded := false
+	for cloud, byCloud := range all {
+		for region, byRegion := range byCloud {
+			aCloud, ok := c.remoteClouds[cloud]
+			if !ok {
+				ctxt.Infof("Cloud %q does not exist on the controller: not uploading credentials for it...", cloud)
+				moreCloudInfoNeeded = true
+				continue
+			}
+			verified, erred := verifyCredentialsForUpload(ctxt, accountDetails, &aCloud, region, byRegion)
+			if len(verified) == 0 {
+				return erred
+			}
+			result, err := client.UpdateCloudsCredentials(verified)
+			if err != nil {
+				logger.Errorf("%v", err)
+				ctxt.Warningf("Could not add credentials remotely, on controller %q", c.controllerName)
+			}
+			results = append(results, result...)
+		}
+	}
+	if moreCloudInfoNeeded {
+		ctxt.Infof("Use 'juju clouds' to view all available clouds and 'juju add-cloud' to add missing ones.")
+	}
+	return processUpdateCredentialResult(ctxt, accountDetails, "loaded", results)
 }
 
 func (c *detectCredentialsCommand) printCredentialOptions(ctxt *cmd.Context, discovered []discoveredCredential) {
@@ -366,7 +522,7 @@ func (c *detectCredentialsCommand) promptCredentialNumber(out io.Writer, in io.R
 	return strings.TrimSpace(input), nil
 }
 
-func (c *detectCredentialsCommand) promptCloudName(out io.Writer, in io.Reader, defaultCloudName, cloudType string) (string, error) {
+func (c *detectCredentialsCommand) promptCloudName(out io.Writer, in io.Reader, defaultCloudName string) (string, error) {
 	text := fmt.Sprintf(`Select the cloud it belongs to, or type Q to quit [%s]: `, defaultCloudName)
 	fmt.Fprint(out, text)
 	defer out.Write([]byte{'\n'})
@@ -374,21 +530,11 @@ func (c *detectCredentialsCommand) promptCloudName(out io.Writer, in io.Reader, 
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	cloudName := strings.TrimSpace(input)
-	if strings.ToLower(cloudName) == "q" {
-		return "", nil
+	input = strings.TrimSpace(input)
+	if input == "" {
+		input = defaultCloudName
 	}
-	if cloudName == "" {
-		return defaultCloudName, nil
-	}
-	cloud, err := common.CloudOrProvider(cloudName, c.cloudByNameFunc)
-	if err != nil {
-		return "", err
-	}
-	if cloud.Type != cloudType {
-		return "", errors.Errorf("chosen credentials not compatible with a %s cloud", cloud.Type)
-	}
-	return cloudName, nil
+	return input, nil
 }
 
 func readLine(stdin io.Reader) (string, error) {

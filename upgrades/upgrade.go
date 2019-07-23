@@ -115,15 +115,6 @@ func hasStateTarget(targets []Target) bool {
 	return false
 }
 
-func hasDatabaseMasterTarget(targets []Target) bool {
-	for _, target := range targets {
-		if target == DatabaseMaster {
-			return true
-		}
-	}
-	return false
-}
-
 // runUpgradeSteps finds all the upgrade operations relevant to
 // the targets given and runs the associated upgrade steps.
 //

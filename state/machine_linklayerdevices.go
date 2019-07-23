@@ -14,7 +14,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/environs"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 )
 
@@ -117,7 +117,7 @@ func (m *Machine) removeAllLinkLayerDevicesOps() ([]txn.Op, error) {
 		removeOps := removeLinkLayerDeviceUnconditionallyOps(resultDoc.DocID)
 		ops = append(ops, removeOps...)
 		if resultDoc.ProviderID != "" {
-			providerId := network.Id(resultDoc.ProviderID)
+			providerId := corenetwork.Id(resultDoc.ProviderID)
 			op := m.st.networkEntityGlobalKeyRemoveOp("linklayerdevice", providerId)
 			ops = append(ops, op)
 		}
@@ -141,7 +141,7 @@ type LinkLayerDeviceArgs struct {
 
 	// ProviderID is a provider-specific ID of the device. Empty when not
 	// supported by the provider. Cannot be cleared once set.
-	ProviderID network.Id
+	ProviderID corenetwork.Id
 
 	// Type is the type of the underlying link-layer device.
 	Type LinkLayerDeviceType
@@ -486,7 +486,7 @@ func (m *Machine) insertLinkLayerDeviceOps(newDoc *linkLayerDeviceDoc) ([]txn.Op
 		}
 	}
 	if newDoc.ProviderID != "" {
-		id := network.Id(newDoc.ProviderID)
+		id := corenetwork.Id(newDoc.ProviderID)
 		ops = append(ops, m.st.networkEntityGlobalKeyOp("linklayerdevice", id))
 	}
 	return append(ops,
@@ -551,7 +551,7 @@ func (m *Machine) updateLinkLayerDeviceOps(existingDoc, newDoc *linkLayerDeviceD
 		}
 		if existingDoc.ProviderID != newDoc.ProviderID {
 			// Need to insert the new provider id in providerIDsC
-			id := network.Id(newDoc.ProviderID)
+			id := corenetwork.Id(newDoc.ProviderID)
 			ops = append(ops, m.st.networkEntityGlobalKeyOp("linklayerdevice", id))
 		}
 	}
@@ -569,7 +569,7 @@ type LinkLayerDeviceAddress struct {
 
 	// ProviderID is the provider-specific ID of the address. Empty when not
 	// supported. Cannot be changed once set to non-empty.
-	ProviderID network.Id
+	ProviderID corenetwork.Id
 
 	// CIDRAddress is the IP address assigned to the device, in CIDR format
 	// (e.g. 10.20.30.5/24 or fc00:1234::/64).
@@ -789,7 +789,7 @@ func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.
 			hasChanges = true
 			thisDeviceOps = append(thisDeviceOps, insertIPAddressDocOp(&newDoc))
 			if newDoc.ProviderID != "" {
-				id := network.Id(newDoc.ProviderID)
+				id := corenetwork.Id(newDoc.ProviderID)
 				thisDeviceOps = append(thisDeviceOps, m.st.networkEntityGlobalKeyOp("address", id))
 			}
 		} else if err == nil {
@@ -803,7 +803,7 @@ func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.
 				}
 				if existingDoc.ProviderID != newDoc.ProviderID {
 					// Need to insert the new provider id in providerIDsC
-					id := network.Id(newDoc.ProviderID)
+					id := corenetwork.Id(newDoc.ProviderID)
 					thisDeviceOps = append(thisDeviceOps, m.st.networkEntityGlobalKeyOp("address", id))
 					hasChanges = true
 				}
@@ -1125,17 +1125,18 @@ func addAddressToResult(networkInfos []network.NetworkInfo, address *Address) ([
 // GetNetworkInfoForSpaces returns MachineNetworkInfoResult with a list of devices for each space in spaces
 // TODO(wpk): 2017-05-04 This does not work for L2-only devices as it iterates over addresses, needs to be fixed.
 // When changing the method we have to keep the ordering.
-func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string](MachineNetworkInfoResult) {
-	results := make(map[string](MachineNetworkInfoResult))
+func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string]MachineNetworkInfoResult {
+	results := make(map[string]MachineNetworkInfoResult)
 
 	var privateAddress network.Address
 
-	if spaces.Contains(environs.DefaultSpaceName) {
+	if spaces.Contains(corenetwork.DefaultSpaceName) {
 		var err error
 		privateAddress, err = m.PrivateAddress()
 		if err != nil {
-			results[environs.DefaultSpaceName] = MachineNetworkInfoResult{Error: errors.Annotatef(err, "getting machine %q preferred private address", m.MachineTag())}
-			spaces.Remove(environs.DefaultSpaceName)
+			results[corenetwork.DefaultSpaceName] = MachineNetworkInfoResult{Error: errors.Annotatef(
+				err, "getting machine %q preferred private address", m.MachineTag())}
+			spaces.Remove(corenetwork.DefaultSpaceName)
 		}
 	}
 
@@ -1170,13 +1171,13 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string](Machin
 					results[space] = r
 				}
 			}
-			if spaces.Contains(environs.DefaultSpaceName) && privateAddress.Value == addr.Value() {
-				r := results[environs.DefaultSpaceName]
+			if spaces.Contains(corenetwork.DefaultSpaceName) && privateAddress.Value == addr.Value() {
+				r := results[corenetwork.DefaultSpaceName]
 				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
 				if err != nil {
 					r.Error = err
 				} else {
-					results[environs.DefaultSpaceName] = r
+					results[corenetwork.DefaultSpaceName] = r
 				}
 			}
 		}
@@ -1184,20 +1185,21 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string](Machin
 
 	// For a spaceless model we won't find a subnet that's linked to privateAddress,
 	// we have to work around that and at least return minimal information.
-	if r, filledPrivateAddress := results[environs.DefaultSpaceName]; !filledPrivateAddress && spaces.Contains(environs.DefaultSpaceName) {
+	if r, ok := results[corenetwork.DefaultSpaceName]; !ok && spaces.Contains(corenetwork.DefaultSpaceName) {
 		r.NetworkInfos = []network.NetworkInfo{{
 			Addresses: []network.InterfaceAddress{{
 				Address: privateAddress.Value,
 			}},
 		}}
-		results[environs.DefaultSpaceName] = r
+		results[corenetwork.DefaultSpaceName] = r
 	}
 	actualSpacesStr := network.QuoteSpaceSet(actualSpaces)
 
 	for space := range spaces {
 		if _, ok := results[space]; !ok {
 			results[space] = MachineNetworkInfoResult{
-				Error: errors.Errorf("machine %q has no devices in space %q, only spaces %s", m.doc.Id, space, actualSpacesStr),
+				Error: errors.Errorf("machine %q has no devices in space %q, only spaces %s",
+					m.doc.Id, space, actualSpacesStr),
 			}
 		}
 	}

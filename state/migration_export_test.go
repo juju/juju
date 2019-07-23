@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
@@ -813,7 +814,7 @@ func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {
 
 func (s *MigrationExportSuite) TestEndpointBindings(c *gc.C) {
 	s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+		Name: "one", ProviderID: corenetwork.Id("provider"), IsPublic: true})
 	state.AddTestingApplicationWithBindings(
 		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
 		map[string]string{"db": "one"})
@@ -959,7 +960,7 @@ func (s *MigrationExportSuite) TestSubordinateRelations(c *gc.C) {
 
 func (s *MigrationExportSuite) TestSpaces(c *gc.C) {
 	s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+		Name: "one", ProviderID: corenetwork.Id("provider"), IsPublic: true})
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1091,16 +1092,17 @@ func (s *MigrationBaseSuite) TestRelationScopeSkipped(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
-	_, err := s.State.AddSubnet(state.SubnetInfo{
+	sn := corenetwork.SubnetInfo{
 		CIDR:              "10.0.0.0/24",
-		ProviderId:        network.Id("foo"),
-		ProviderNetworkId: network.Id("rust"),
+		ProviderId:        corenetwork.Id("foo"),
+		ProviderNetworkId: corenetwork.Id("rust"),
 		VLANTag:           64,
-		AvailabilityZone:  "bar",
+		AvailabilityZones: []string{"bar"},
 		SpaceName:         "bam",
-		FanLocalUnderlay:  "100.2.0.0/16",
-		FanOverlay:        "253.0.0.0/8",
-	})
+	}
+	sn.SetFan("100.2.0.0/16", "253.0.0.0/8")
+
+	_, err := s.State.AddSubnet(sn)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSpace("bam", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1125,7 +1127,7 @@ func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
+	_, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "0.1.2.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name: "foo",
@@ -1166,7 +1168,7 @@ func (s *MigrationExportSuite) TestIPAddressesSkipped(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
+	_, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "0.1.2.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name: "foo",
@@ -1945,14 +1947,14 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 				"thing2":  "halberd",
 				"network": "network-1",
 			},
-			SpaceInfo: network.SpaceInfo{
+			SpaceInfo: corenetwork.SpaceInfo{
 				Name:       "public",
 				ProviderId: "juju-space-public",
-				Subnets: []network.SubnetInfo{{
+				Subnets: []corenetwork.SubnetInfo{{
 					ProviderId:        "juju-subnet-12",
 					CIDR:              "1.2.3.0/24",
 					AvailabilityZones: []string{"az1", "az2"},
-					SpaceProviderId:   "juju-space-public",
+					ProviderSpaceId:   "juju-space-public",
 					ProviderNetworkId: "network-1",
 				}},
 			},
@@ -1963,14 +1965,14 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 				"thing2":  "bardiche",
 				"network": "network-1",
 			},
-			SpaceInfo: network.SpaceInfo{
+			SpaceInfo: corenetwork.SpaceInfo{
 				Name:       "private",
 				ProviderId: "juju-space-private",
-				Subnets: []network.SubnetInfo{{
+				Subnets: []corenetwork.SubnetInfo{{
 					ProviderId:        "juju-subnet-24",
 					CIDR:              "1.2.4.0/24",
 					AvailabilityZones: []string{"az1", "az2"},
-					SpaceProviderId:   "juju-space-private",
+					ProviderSpaceId:   "juju-space-private",
 					ProviderNetworkId: "network-1",
 				}},
 			},

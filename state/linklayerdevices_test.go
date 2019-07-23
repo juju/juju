@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/network/containerizer"
 	"github.com/juju/juju/state"
@@ -302,7 +303,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesDoesNotClearProvider
 	c.Assert(err, jc.ErrorIsNil)
 	device, err := s.machine.LinkLayerDevice(args.Name)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(device.ProviderID(), gc.Equals, network.Id("42"))
+	c.Assert(device.ProviderID(), gc.Equals, corenetwork.Id("42"))
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesMultipleArgsWithSameNameFails(c *gc.C) {
@@ -631,9 +632,9 @@ func (s *linkLayerDevicesStateSuite) TestMachineRemoveAllLinkLayerDevicesNoError
 }
 
 func (s *linkLayerDevicesStateSuite) createSpaceAndSubnet(c *gc.C, spaceName, CIDR string) {
-	_, err := s.State.AddSpace(spaceName, network.Id(spaceName), nil, true)
+	_, err := s.State.AddSpace(spaceName, corenetwork.Id(spaceName), nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSubnet(state.SubnetInfo{
+	_, err = s.State.AddSubnet(corenetwork.SubnetInfo{
 		CIDR:      CIDR,
 		SpaceName: spaceName,
 	})
@@ -1460,7 +1461,7 @@ func (s *linkLayerDevicesStateSuite) testMachineSetParentLinkLayerDevicesBeforeT
 	c.Assert(allDevices, gc.HasLen, len(nestedDevicesArgs))
 	for _, device := range allDevices {
 		if device.Type() != state.LoopbackDevice && device.Type() != state.BridgeDevice {
-			c.Check(device.ProviderID(), gc.Not(gc.Equals), network.Id(""))
+			c.Check(device.ProviderID(), gc.Not(gc.Equals), corenetwork.Id(""))
 		}
 	}
 }

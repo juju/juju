@@ -11,7 +11,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // ErrCharmAlreadyUploaded is returned by UpdateUploadedCharm() when

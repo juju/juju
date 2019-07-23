@@ -16,6 +16,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 )
@@ -364,7 +365,7 @@ func (addr *address) networkAddress() network.Address {
 		Type:            network.AddressType(addr.AddressType),
 		Scope:           network.Scope(addr.Scope),
 		SpaceName:       network.SpaceName(addr.SpaceName),
-		SpaceProviderId: network.Id(addr.SpaceProviderId),
+		SpaceProviderId: corenetwork.Id(addr.SpaceProviderId),
 	}
 }
 

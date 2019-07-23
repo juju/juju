@@ -82,7 +82,7 @@ type NetworkConfig struct {
 	CIDR string `json:"cidr"`
 
 	// MTU is the Maximum Transmission Unit controlling the maximum size of the
-	// protocol packats that the interface can pass through. It is only used
+	// protocol packets that the interface can pass through. It is only used
 	// when > 0.
 	MTU int `json:"mtu"`
 
@@ -310,7 +310,7 @@ func (addr Address) NetworkAddress() network.Address {
 		Type:            network.AddressType(addr.Type),
 		Scope:           network.Scope(addr.Scope),
 		SpaceName:       network.SpaceName(addr.SpaceName),
-		SpaceProviderId: network.Id(addr.SpaceProviderId),
+		SpaceProviderId: corenetwork.Id(addr.SpaceProviderId),
 	}
 }
 

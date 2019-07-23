@@ -35,9 +35,9 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -1959,7 +1959,7 @@ func providerSpaceInfoFromParams(space params.RemoteSpace) *environs.ProviderSpa
 			CIDR:              subnet.CIDR,
 			ProviderId:        network.Id(subnet.ProviderId),
 			ProviderNetworkId: network.Id(subnet.ProviderNetworkId),
-			SpaceProviderId:   network.Id(subnet.ProviderSpaceId),
+			ProviderSpaceId:   network.Id(subnet.ProviderSpaceId),
 			VLANTag:           subnet.VLANTag,
 			AvailabilityZones: subnet.Zones,
 		}

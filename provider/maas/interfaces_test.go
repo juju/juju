@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 )
 
@@ -25,7 +26,7 @@ type interfacesSuite struct {
 
 var _ = gc.Suite(&interfacesSuite{})
 
-func newAddressOnSpaceWithId(space string, id network.Id, address string) network.Address {
+func newAddressOnSpaceWithId(space string, id corenetwork.Id, address string) network.Address {
 	newAddress := network.NewAddressOnSpace(space, address)
 	newAddress.SpaceProviderId = id
 	return newAddress
@@ -518,11 +519,11 @@ var exampleParsedInterfaceSetJSON = []network.InterfaceInfo{{
 	Disabled:            false,
 	NoAutoStart:         false,
 	ConfigType:          "static",
-	Address:             newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.103"),
+	Address:             newAddressOnSpaceWithId("storage", corenetwork.Id("3"), "10.250.19.103"),
 	DNSServers:          nil,
 	DNSSearchDomains:    nil,
 	MTU:                 1500,
-	GatewayAddress:      newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.2"),
+	GatewayAddress:      newAddressOnSpaceWithId("storage", corenetwork.Id("3"), "10.250.19.2"),
 }, {
 	DeviceIndex:         4,
 	MACAddress:          "52:54:00:08:24:2d",
@@ -559,11 +560,11 @@ var exampleParsedInterfaceSetJSON = []network.InterfaceInfo{{
 	Disabled:            false,
 	NoAutoStart:         false,
 	ConfigType:          "dhcp",
-	Address:             newAddressOnSpaceWithId("space-0", network.Id("4"), "192.168.20.192"),
+	Address:             newAddressOnSpaceWithId("space-0", corenetwork.Id("4"), "192.168.20.192"),
 	DNSServers:          nil,
 	DNSSearchDomains:    nil,
 	MTU:                 1500,
-	GatewayAddress:      newAddressOnSpaceWithId("space-0", network.Id("4"), "192.168.20.2"),
+	GatewayAddress:      newAddressOnSpaceWithId("space-0", corenetwork.Id("4"), "192.168.20.2"),
 }}
 
 func (s *interfacesSuite) TestParseInterfacesNoJSON(c *gc.C) {
@@ -787,10 +788,10 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
         "interface_set": %s
     }`, exampleInterfaceSetJSON)
 	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
-	subnetsMap := make(map[string]network.Id)
-	subnetsMap["10.250.19.0/24"] = network.Id("3")
-	subnetsMap["192.168.1.0/24"] = network.Id("0")
-	subnetsMap["192.168.20.0/24"] = network.Id("4")
+	subnetsMap := make(map[string]corenetwork.Id)
+	subnetsMap["10.250.19.0/24"] = corenetwork.Id("3")
+	subnetsMap["192.168.1.0/24"] = corenetwork.Id("0")
+	subnetsMap["192.168.20.0/24"] = corenetwork.Id("4")
 
 	infos, err := maasObjectNetworkInterfaces(s.callCtx, &obj, subnetsMap)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1050,9 +1051,9 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		},
 	}
 
-	subnetsMap := make(map[string]network.Id)
-	subnetsMap["10.250.19.0/24"] = network.Id("3")
-	subnetsMap["192.168.1.0/24"] = network.Id("0")
+	subnetsMap := make(map[string]corenetwork.Id)
+	subnetsMap["10.250.19.0/24"] = corenetwork.Id("3")
+	subnetsMap["192.168.1.0/24"] = corenetwork.Id("0")
 
 	expected := []network.InterfaceInfo{{
 		DeviceIndex:       0,
@@ -1153,11 +1154,11 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		Disabled:            false,
 		NoAutoStart:         false,
 		ConfigType:          "static",
-		Address:             newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.103"),
+		Address:             newAddressOnSpaceWithId("storage", corenetwork.Id("3"), "10.250.19.103"),
 		DNSServers:          nil,
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
-		GatewayAddress:      newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.2"),
+		GatewayAddress:      newAddressOnSpaceWithId("storage", corenetwork.Id("3"), "10.250.19.2"),
 	}}
 	machine := &fakeMachine{interfaceSet: exampleInterfaces}
 	instance := &maas2Instance{machine: machine}
@@ -1226,7 +1227,7 @@ func (s *interfacesSuite) TestMAAS2InterfacesNilVLAN(c *gc.C) {
 		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
 	}}
 
-	infos, err := maas2NetworkInterfaces(s.callCtx, instance, map[string]network.Id{})
+	infos, err := maas2NetworkInterfaces(s.callCtx, instance, map[string]corenetwork.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(infos, jc.DeepEquals, expected)
 }

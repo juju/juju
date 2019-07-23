@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -34,7 +35,7 @@ var _ = gc.Suite(&firewallerSuite{})
 func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	s.firewallerBaseSuite.setUpTest(c)
 
-	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "10.20.30.0/24"})
+	_, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.20.30.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloudSpecAPI := cloudspec.NewCloudSpec(
