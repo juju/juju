@@ -18,9 +18,8 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/crossmodel"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -335,7 +334,7 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the default model was created.
-	_, err = st.Space(corenetwork.DefaultSpaceName)
+	_, err = st.Space(network.DefaultSpaceName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -6,7 +6,6 @@ package network
 import (
 	"bufio"
 	"fmt"
-	"math/rand"
 	"net"
 	"os"
 	"regexp"
@@ -16,6 +15,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+
+	corenetwork "github.com/juju/juju/core/network"
 )
 
 var logger = loggo.GetLogger("juju.network")
@@ -44,14 +45,6 @@ func IsNoAddressError(err error) bool {
 	_, ok := err.(*noAddress)
 	return ok
 }
-
-// Id defines a provider-specific network id.
-type Id string
-
-// AnySubnet when passed as a subnet id should be interpreted by the
-// providers as "the subnet id does not matter". It's up to the
-// provider how to handle this case - it might return an error.
-const AnySubnet Id = ""
 
 // UnknownId can be used whenever an Id is needed but not known.
 const UnknownId = ""
@@ -102,45 +95,6 @@ func ConvertSpaceName(name string, existing set.Strings) string {
 	return name
 }
 
-// SubnetInfo describes the bare minimum information for a subnet,
-// which the provider knows about but juju might not yet.
-type SubnetInfo struct {
-	// CIDR of the network, in 123.45.67.89/24 format. Can be empty if
-	// unknown.
-	CIDR string
-
-	// ProviderId is a provider-specific subnet id. This the only
-	// required field.
-	ProviderId Id
-
-	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
-	// normal networks. It's defined by IEEE 802.1Q standard, and used
-	// to define a VLAN network. For more information, see:
-	// http://en.wikipedia.org/wiki/IEEE_802.1Q.
-	VLANTag int
-
-	// AvailabilityZones describes which availability zone(s) this
-	// subnet is in. It can be empty if the provider does not support
-	// availability zones.
-	AvailabilityZones []string
-
-	// SpaceProviderId holds the provider Id of the space associated
-	// with this subnet. Can be empty if not supported.
-	// TODO(babbageclunk): change this to ProviderSpaceId to be
-	// consistent with the InterfaceInfo.Provider*Id fields.
-	SpaceProviderId Id
-
-	// ProviderNetworkId holds the provider id of the network
-	// containing this subnet, for example VPC id for EC2.
-	ProviderNetworkId Id
-}
-
-type SpaceInfo struct {
-	Name       string
-	ProviderId Id
-	Subnets    []SubnetInfo
-}
-
 // InterfaceConfigType defines valid network interface configuration
 // types. See interfaces(5) for details
 type InterfaceConfigType string
@@ -182,26 +136,26 @@ type InterfaceInfo struct {
 	CIDR string
 
 	// ProviderId is a provider-specific NIC id.
-	ProviderId Id
+	ProviderId corenetwork.Id
 
 	// ProviderSubnetId is the provider-specific id for the associated
 	// subnet.
-	ProviderSubnetId Id
+	ProviderSubnetId corenetwork.Id
 
 	// ProviderNetworkId is the provider-specific id for the
 	// associated network.
-	ProviderNetworkId Id
+	ProviderNetworkId corenetwork.Id
 
 	// ProviderSpaceId is the provider-specific id for the associated space, if
 	// known and supported.
-	ProviderSpaceId Id
+	ProviderSpaceId corenetwork.Id
 
 	// ProviderVLANId is the provider-specific id of the VLAN for this
 	// interface.
-	ProviderVLANId Id
+	ProviderVLANId corenetwork.Id
 
 	// ProviderAddressId is the provider-specific id of the assigned address.
-	ProviderAddressId Id
+	ProviderAddressId corenetwork.Id
 
 	// AvailabilityZones describes the availability zones the associated
 	// subnet is in.
@@ -391,7 +345,7 @@ type ProviderInterfaceInfo struct {
 	InterfaceName string
 
 	// ProviderId is a provider-specific NIC id.
-	ProviderId Id
+	ProviderId corenetwork.Id
 
 	// MACAddress is the network interface's hardware MAC address
 	// (e.g. "aa:bb:cc:dd:ee:ff").
@@ -633,21 +587,4 @@ func FormatAsCIDR(addresses []string) ([]string, error) {
 		result[i] = cidr
 	}
 	return result, nil
-}
-
-// macAddressTemplate is suitable for generating virtual MAC addresses,
-// particularly for use by container devices.
-// The last 3 segments are randomised.
-// TODO (manadart 2018-06-21) Depending on where this is utilised,
-// ensuring MAC address uniqueness within a model might be prudent.
-const macAddressTemplate = "00:16:3e:%02x:%02x:%02x"
-
-// GenerateVirtualMACAddress creates a random MAC address within the address
-// space implied by macAddressTemplate above.
-var GenerateVirtualMACAddress = func() string {
-	digits := make([]interface{}, 3)
-	for i := range digits {
-		digits[i] = rand.Intn(256)
-	}
-	return fmt.Sprintf(macAddressTemplate, digits...)
 }

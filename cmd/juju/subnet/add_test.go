@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/subnet"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 type AddSuite struct {

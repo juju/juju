@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/juju/core/network"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/description"
 	"github.com/juju/errors"
@@ -19,6 +17,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/resource"

@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
 )

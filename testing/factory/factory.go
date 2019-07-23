@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
@@ -150,7 +151,7 @@ type ModelParams struct {
 
 type SpaceParams struct {
 	Name       string
-	ProviderID network.Id
+	ProviderID corenetwork.Id
 	Subnets    []string
 	IsPublic   bool
 }

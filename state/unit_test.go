@@ -1389,7 +1389,7 @@ func (s *UnitSuite) TestOpenedPortsOnUnknownSubnet(c *gc.C) {
 func (s *UnitSuite) TestOpenedPortsOnDeadSubnet(c *gc.C) {
 	// We're adding the 0.1.2.0/24 subnet first and then setting it to Dead to
 	// check the "not alive" case.
-	subnet, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
+	subnet, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "0.1.2.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = subnet.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1398,14 +1398,14 @@ func (s *UnitSuite) TestOpenedPortsOnDeadSubnet(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenedPortsOnAliveIPv4Subnet(c *gc.C) {
-	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "192.168.0.0/16"})
+	_, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "192.168.0.0/16"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.testOpenedPorts(c, "192.168.0.0/16", "")
 }
 
 func (s *UnitSuite) TestOpenedPortsOnAliveIPv6Subnet(c *gc.C) {
-	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "2001:db8::/64"})
+	_, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "2001:db8::/64"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.testOpenedPorts(c, "2001:db8::/64", "")

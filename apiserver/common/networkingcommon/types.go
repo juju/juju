@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
@@ -27,8 +28,8 @@ import (
 type BackingSubnet interface {
 	CIDR() string
 	VLANTag() int
-	ProviderId() network.Id
-	ProviderNetworkId() network.Id
+	ProviderId() corenetwork.Id
+	ProviderNetworkId() corenetwork.Id
 	AvailabilityZones() []string
 	Status() string
 	SpaceName() string
@@ -50,12 +51,12 @@ type BackingSubnet interface {
 //   empty for MAAS as zones are orthogonal to networks).
 type BackingSubnetInfo struct {
 	// ProviderId is a provider-specific network id. This may be empty.
-	ProviderId network.Id
+	ProviderId corenetwork.Id
 
 	// ProviderNetworkId is the id of the network containing this
 	// subnet from the provider's perspective. It can be empty if the
 	// provider doesn't support distinct networks.
-	ProviderNetworkId network.Id
+	ProviderNetworkId corenetwork.Id
 
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
@@ -91,7 +92,7 @@ type BackingSpace interface {
 	Subnets() ([]BackingSubnet, error)
 
 	// ProviderId returns the network ID of the provider
-	ProviderId() network.Id
+	ProviderId() corenetwork.Id
 }
 
 // NetworkBacking defines the methods needed by the API facade to store and
@@ -109,7 +110,7 @@ type NetworkBacking interface {
 	SetAvailabilityZones([]providercommon.AvailabilityZone) error
 
 	// AddSpace creates a space
-	AddSpace(Name string, ProviderId network.Id, Subnets []string, Public bool) error
+	AddSpace(Name string, ProviderId corenetwork.Id, Subnets []string, Public bool) error
 
 	// AllSpaces returns all known Juju network spaces.
 	AllSpaces() ([]BackingSpace, error)
@@ -219,7 +220,7 @@ func NetworkConfigsToStateArgs(networkConfig []params.NetworkConfig) (
 			args := state.LinkLayerDeviceArgs{
 				Name:        netConfig.InterfaceName,
 				MTU:         mtu,
-				ProviderID:  network.Id(netConfig.ProviderId),
+				ProviderID:  corenetwork.Id(netConfig.ProviderId),
 				Type:        state.LinkLayerDeviceType(netConfig.InterfaceType),
 				MACAddress:  netConfig.MACAddress,
 				IsAutoStart: !netConfig.NoAutoStart,
@@ -263,7 +264,7 @@ func NetworkConfigsToStateArgs(networkConfig []params.NetworkConfig) (
 
 		addr := state.LinkLayerDeviceAddress{
 			DeviceName:       netConfig.InterfaceName,
-			ProviderID:       network.Id(netConfig.ProviderAddressId),
+			ProviderID:       corenetwork.Id(netConfig.ProviderAddressId),
 			ConfigMethod:     derivedConfigMethod,
 			CIDRAddress:      cidrAddress,
 			DNSServers:       netConfig.DNSServers,

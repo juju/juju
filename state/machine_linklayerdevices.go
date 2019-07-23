@@ -117,7 +117,7 @@ func (m *Machine) removeAllLinkLayerDevicesOps() ([]txn.Op, error) {
 		removeOps := removeLinkLayerDeviceUnconditionallyOps(resultDoc.DocID)
 		ops = append(ops, removeOps...)
 		if resultDoc.ProviderID != "" {
-			providerId := network.Id(resultDoc.ProviderID)
+			providerId := corenetwork.Id(resultDoc.ProviderID)
 			op := m.st.networkEntityGlobalKeyRemoveOp("linklayerdevice", providerId)
 			ops = append(ops, op)
 		}
@@ -141,7 +141,7 @@ type LinkLayerDeviceArgs struct {
 
 	// ProviderID is a provider-specific ID of the device. Empty when not
 	// supported by the provider. Cannot be cleared once set.
-	ProviderID network.Id
+	ProviderID corenetwork.Id
 
 	// Type is the type of the underlying link-layer device.
 	Type LinkLayerDeviceType
@@ -486,7 +486,7 @@ func (m *Machine) insertLinkLayerDeviceOps(newDoc *linkLayerDeviceDoc) ([]txn.Op
 		}
 	}
 	if newDoc.ProviderID != "" {
-		id := network.Id(newDoc.ProviderID)
+		id := corenetwork.Id(newDoc.ProviderID)
 		ops = append(ops, m.st.networkEntityGlobalKeyOp("linklayerdevice", id))
 	}
 	return append(ops,
@@ -551,7 +551,7 @@ func (m *Machine) updateLinkLayerDeviceOps(existingDoc, newDoc *linkLayerDeviceD
 		}
 		if existingDoc.ProviderID != newDoc.ProviderID {
 			// Need to insert the new provider id in providerIDsC
-			id := network.Id(newDoc.ProviderID)
+			id := corenetwork.Id(newDoc.ProviderID)
 			ops = append(ops, m.st.networkEntityGlobalKeyOp("linklayerdevice", id))
 		}
 	}
@@ -569,7 +569,7 @@ type LinkLayerDeviceAddress struct {
 
 	// ProviderID is the provider-specific ID of the address. Empty when not
 	// supported. Cannot be changed once set to non-empty.
-	ProviderID network.Id
+	ProviderID corenetwork.Id
 
 	// CIDRAddress is the IP address assigned to the device, in CIDR format
 	// (e.g. 10.20.30.5/24 or fc00:1234::/64).
@@ -789,7 +789,7 @@ func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.
 			hasChanges = true
 			thisDeviceOps = append(thisDeviceOps, insertIPAddressDocOp(&newDoc))
 			if newDoc.ProviderID != "" {
-				id := network.Id(newDoc.ProviderID)
+				id := corenetwork.Id(newDoc.ProviderID)
 				thisDeviceOps = append(thisDeviceOps, m.st.networkEntityGlobalKeyOp("address", id))
 			}
 		} else if err == nil {
@@ -803,7 +803,7 @@ func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.
 				}
 				if existingDoc.ProviderID != newDoc.ProviderID {
 					// Need to insert the new provider id in providerIDsC
-					id := network.Id(newDoc.ProviderID)
+					id := corenetwork.Id(newDoc.ProviderID)
 					thisDeviceOps = append(thisDeviceOps, m.st.networkEntityGlobalKeyOp("address", id))
 					hasChanges = true
 				}

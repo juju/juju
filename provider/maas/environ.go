@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -718,8 +719,10 @@ func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
 
 var dashSuffix = regexp.MustCompile("^(.*)-\\d+$")
 
-func spaceNamesToSpaceInfo(spaces []string, spaceMap map[string]network.SpaceInfo) ([]network.SpaceInfo, error) {
-	spaceInfos := []network.SpaceInfo{}
+func spaceNamesToSpaceInfo(
+	spaces []string, spaceMap map[string]corenetwork.SpaceInfo,
+) ([]corenetwork.SpaceInfo, error) {
+	var spaceInfos []corenetwork.SpaceInfo
 	for _, name := range spaces {
 		info, ok := spaceMap[name]
 		if !ok {
@@ -739,12 +742,12 @@ func spaceNamesToSpaceInfo(spaces []string, spaceMap map[string]network.SpaceInf
 	return spaceInfos, nil
 }
 
-func (env *maasEnviron) buildSpaceMap(ctx context.ProviderCallContext) (map[string]network.SpaceInfo, error) {
+func (env *maasEnviron) buildSpaceMap(ctx context.ProviderCallContext) (map[string]corenetwork.SpaceInfo, error) {
 	spaces, err := env.Spaces(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	spaceMap := make(map[string]network.SpaceInfo)
+	spaceMap := make(map[string]corenetwork.SpaceInfo)
 	empty := set.Strings{}
 	for _, space := range spaces {
 		jujuName := network.ConvertSpaceName(space.Name, empty)
@@ -753,7 +756,9 @@ func (env *maasEnviron) buildSpaceMap(ctx context.ProviderCallContext) (map[stri
 	return spaceMap, nil
 }
 
-func (env *maasEnviron) spaceNamesToSpaceInfo(ctx context.ProviderCallContext, positiveSpaces, negativeSpaces []string) ([]network.SpaceInfo, []network.SpaceInfo, error) {
+func (env *maasEnviron) spaceNamesToSpaceInfo(
+	ctx context.ProviderCallContext, positiveSpaces, negativeSpaces []string,
+) ([]corenetwork.SpaceInfo, []corenetwork.SpaceInfo, error) {
 	spaceMap, err := env.buildSpaceMap(ctx)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -1124,7 +1129,9 @@ func (env *maasEnviron) StartInstance(
 	}, nil
 }
 
-func instanceConfiguredInterfaceNames(ctx context.ProviderCallContext, usingMAAS2 bool, inst instances.Instance, subnetsMap map[string]network.Id) ([]string, error) {
+func instanceConfiguredInterfaceNames(
+	ctx context.ProviderCallContext, usingMAAS2 bool, inst instances.Instance, subnetsMap map[string]corenetwork.Id,
+) ([]string, error) {
 	var (
 		interfaces []network.InterfaceInfo
 		err        error
@@ -1709,8 +1716,10 @@ func (env *maasEnviron) subnetsFromNode(ctx context.ProviderCallContext, nodeId 
 // subnetFromJson populates a network.SubnetInfo from a gomaasapi.JSONObject
 // representing a single subnet. This can come from either the subnets api
 // endpoint or the node endpoint.
-func (env *maasEnviron) subnetFromJson(subnet gomaasapi.JSONObject, spaceId network.Id) (network.SubnetInfo, error) {
-	var subnetInfo network.SubnetInfo
+func (env *maasEnviron) subnetFromJson(
+	subnet gomaasapi.JSONObject, spaceId corenetwork.Id,
+) (corenetwork.SubnetInfo, error) {
+	var subnetInfo corenetwork.SubnetInfo
 	fields, err := subnet.GetMap()
 	if err != nil {
 		return subnetInfo, errors.Trace(err)
@@ -1735,11 +1744,11 @@ func (env *maasEnviron) subnetFromJson(subnet gomaasapi.JSONObject, spaceId netw
 		vid = int(vidFloat)
 	}
 
-	subnetInfo = network.SubnetInfo{
-		ProviderId:      network.Id(subnetId),
+	subnetInfo = corenetwork.SubnetInfo{
+		ProviderId:      corenetwork.Id(subnetId),
 		VLANTag:         vid,
 		CIDR:            cidr,
-		SpaceProviderId: spaceId,
+		ProviderSpaceId: spaceId,
 	}
 	return subnetInfo, nil
 }
@@ -1748,7 +1757,9 @@ func (env *maasEnviron) subnetFromJson(subnet gomaasapi.JSONObject, spaceId netw
 // slice of subnetIds. If subnetIds is empty then all subnets for that node are
 // fetched. If nodeId is empty, all subnets are returned (filtering by subnetIds
 // first, if set).
-func (env *maasEnviron) filteredSubnets(ctx context.ProviderCallContext, nodeId string, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (env *maasEnviron) filteredSubnets(
+	ctx context.ProviderCallContext, nodeId string, subnetIds []corenetwork.Id,
+) ([]corenetwork.SubnetInfo, error) {
 	var jsonNets []gomaasapi.JSONObject
 	var err error
 	if nodeId != "" {
@@ -1772,7 +1783,7 @@ func (env *maasEnviron) filteredSubnets(ctx context.ProviderCallContext, nodeId 
 		return nil, errors.Trace(err)
 	}
 
-	var subnets []network.SubnetInfo
+	var subnets []corenetwork.SubnetInfo
 	for _, jsonNet := range jsonNets {
 		fields, err := jsonNet.GetMap()
 		if err != nil {
@@ -1847,8 +1858,8 @@ func (env *maasEnviron) fetchAllSubnets(ctx context.ProviderCallContext) ([]goma
 
 // subnetToSpaceIds fetches the spaces from MAAS and builds a map of subnets to
 // space ids.
-func (env *maasEnviron) subnetToSpaceIds(ctx context.ProviderCallContext) (map[string]network.Id, error) {
-	subnetsMap := make(map[string]network.Id)
+func (env *maasEnviron) subnetToSpaceIds(ctx context.ProviderCallContext) (map[string]corenetwork.Id, error) {
+	subnetsMap := make(map[string]corenetwork.Id)
 	spaces, err := env.Spaces(ctx)
 	if err != nil {
 		return subnetsMap, errors.Trace(err)
@@ -1864,14 +1875,14 @@ func (env *maasEnviron) subnetToSpaceIds(ctx context.ProviderCallContext) (map[s
 // Spaces returns all the spaces, that have subnets, known to the provider.
 // Space name is not filled in as the provider doesn't know the juju name for
 // the space.
-func (env *maasEnviron) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
+func (env *maasEnviron) Spaces(ctx context.ProviderCallContext) ([]corenetwork.SpaceInfo, error) {
 	if !env.usingMAAS2() {
 		return env.spaces1(ctx)
 	}
 	return env.spaces2(ctx)
 }
 
-func (env *maasEnviron) spaces1(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
+func (env *maasEnviron) spaces1(ctx context.ProviderCallContext) ([]corenetwork.SpaceInfo, error) {
 	spacesClient := env.getMAASClient().GetSubObject("spaces")
 	spacesJson, err := spacesClient.CallGet("", nil)
 	if err != nil {
@@ -1882,7 +1893,7 @@ func (env *maasEnviron) spaces1(ctx context.ProviderCallContext) ([]network.Spac
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	spaces := []network.SpaceInfo{}
+	var spaces []corenetwork.SpaceInfo
 	for _, spaceJson := range spacesArray {
 		spaceMap, err := spaceJson.GetMap()
 		if err != nil {
@@ -1892,13 +1903,13 @@ func (env *maasEnviron) spaces1(ctx context.ProviderCallContext) ([]network.Spac
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		providerId := network.Id(fmt.Sprintf("%.0f", providerIdRaw))
+		providerId := corenetwork.Id(fmt.Sprintf("%.0f", providerIdRaw))
 		name, err := spaceMap["name"].GetString()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		space := network.SpaceInfo{Name: name, ProviderId: providerId}
+		space := corenetwork.SpaceInfo{Name: name, ProviderId: providerId}
 		subnetsArray, err := spaceMap["subnets"].GetArray()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1918,28 +1929,28 @@ func (env *maasEnviron) spaces1(ctx context.ProviderCallContext) ([]network.Spac
 	return spaces, nil
 }
 
-func (env *maasEnviron) spaces2(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
+func (env *maasEnviron) spaces2(ctx context.ProviderCallContext) ([]corenetwork.SpaceInfo, error) {
 	spaces, err := env.maasController.Spaces()
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		return nil, errors.Trace(err)
 	}
-	var result []network.SpaceInfo
+	var result []corenetwork.SpaceInfo
 	for _, space := range spaces {
 		if len(space.Subnets()) == 0 {
 			continue
 		}
-		outSpace := network.SpaceInfo{
+		outSpace := corenetwork.SpaceInfo{
 			Name:       space.Name(),
-			ProviderId: network.Id(strconv.Itoa(space.ID())),
-			Subnets:    make([]network.SubnetInfo, len(space.Subnets())),
+			ProviderId: corenetwork.Id(strconv.Itoa(space.ID())),
+			Subnets:    make([]corenetwork.SubnetInfo, len(space.Subnets())),
 		}
 		for i, subnet := range space.Subnets() {
-			subnetInfo := network.SubnetInfo{
-				ProviderId:      network.Id(strconv.Itoa(subnet.ID())),
+			subnetInfo := corenetwork.SubnetInfo{
+				ProviderId:      corenetwork.Id(strconv.Itoa(subnet.ID())),
 				VLANTag:         subnet.VLAN().VID(),
 				CIDR:            subnet.CIDR(),
-				SpaceProviderId: network.Id(strconv.Itoa(space.ID())),
+				ProviderSpaceId: corenetwork.Id(strconv.Itoa(space.ID())),
 			}
 			outSpace.Subnets[i] = subnetInfo
 		}
@@ -1951,14 +1962,18 @@ func (env *maasEnviron) spaces2(ctx context.ProviderCallContext) ([]network.Spac
 // Subnets returns basic information about the specified subnets known
 // by the provider for the specified instance. subnetIds must not be
 // empty. Implements NetworkingEnviron.Subnets.
-func (env *maasEnviron) Subnets(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (env *maasEnviron) Subnets(
+	ctx context.ProviderCallContext, instId instance.Id, subnetIds []corenetwork.Id,
+) ([]corenetwork.SubnetInfo, error) {
 	if env.usingMAAS2() {
 		return env.subnets2(ctx, instId, subnetIds)
 	}
 	return env.subnets1(ctx, instId, subnetIds)
 }
 
-func (env *maasEnviron) subnets1(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (env *maasEnviron) subnets1(
+	ctx context.ProviderCallContext, instId instance.Id, subnetIds []corenetwork.Id,
+) ([]corenetwork.SubnetInfo, error) {
 	var nodeId string
 	if instId != instance.UnknownId {
 		inst, err := env.getInstance(ctx, instId)
@@ -1983,8 +1998,10 @@ func (env *maasEnviron) subnets1(ctx context.ProviderCallContext, instId instanc
 	return subnets, nil
 }
 
-func (env *maasEnviron) subnets2(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	subnets := []network.SubnetInfo{}
+func (env *maasEnviron) subnets2(
+	ctx context.ProviderCallContext, instId instance.Id, subnetIds []corenetwork.Id,
+) ([]corenetwork.SubnetInfo, error) {
+	var subnets []corenetwork.SubnetInfo
 	if instId == instance.UnknownId {
 		spaces, err := env.Spaces(ctx)
 		if err != nil {
@@ -2004,7 +2021,7 @@ func (env *maasEnviron) subnets2(ctx context.ProviderCallContext, instId instanc
 	if len(subnetIds) == 0 {
 		return subnets, nil
 	}
-	result := []network.SubnetInfo{}
+	var result []corenetwork.SubnetInfo
 	subnetMap := make(map[string]bool)
 	for _, subnetId := range subnetIds {
 		subnetMap[string(subnetId)] = false
@@ -2022,7 +2039,9 @@ func (env *maasEnviron) subnets2(ctx context.ProviderCallContext, instId instanc
 	return result, checkNotFound(subnetMap)
 }
 
-func (env *maasEnviron) filteredSubnets2(ctx context.ProviderCallContext, instId instance.Id) ([]network.SubnetInfo, error) {
+func (env *maasEnviron) filteredSubnets2(
+	ctx context.ProviderCallContext, instId instance.Id,
+) ([]corenetwork.SubnetInfo, error) {
 	args := gomaasapi.MachinesArgs{
 		AgentName: env.uuid,
 		SystemIDs: []string{string(instId)},
@@ -2043,7 +2062,7 @@ func (env *maasEnviron) filteredSubnets2(ctx context.ProviderCallContext, instId
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := []network.SubnetInfo{}
+	var result []corenetwork.SubnetInfo
 	for _, iface := range machine.InterfaceSet() {
 		for _, link := range iface.Links() {
 			subnet := link.Subnet()
@@ -2051,11 +2070,11 @@ func (env *maasEnviron) filteredSubnets2(ctx context.ProviderCallContext, instId
 			if !ok {
 				return nil, errors.Errorf("missing space %v on subnet %v", subnet.Space(), subnet.CIDR())
 			}
-			subnetInfo := network.SubnetInfo{
-				ProviderId:      network.Id(strconv.Itoa(subnet.ID())),
+			subnetInfo := corenetwork.SubnetInfo{
+				ProviderId:      corenetwork.Id(strconv.Itoa(subnet.ID())),
 				VLANTag:         subnet.VLAN().VID(),
 				CIDR:            subnet.CIDR(),
-				SpaceProviderId: space.ProviderId,
+				ProviderSpaceId: space.ProviderId,
 			}
 			result = append(result, subnetInfo)
 		}
@@ -2406,7 +2425,9 @@ func (env *maasEnviron) AdoptResources(ctx context.ProviderCallContext, controll
 }
 
 // ProviderSpaceInfo implements environs.NetworkingEnviron.
-func (*maasEnviron) ProviderSpaceInfo(ctx context.ProviderCallContext, space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+func (*maasEnviron) ProviderSpaceInfo(
+	ctx context.ProviderCallContext, space *corenetwork.SpaceInfo,
+) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("provider space info")
 }
 

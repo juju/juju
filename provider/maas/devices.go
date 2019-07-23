@@ -15,6 +15,7 @@ import (
 	"github.com/juju/gomaasapi"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 )
 
@@ -200,8 +201,8 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 			MACAddress:          nic.MACAddress,
 			MTU:                 nic.EffectveMTU,
 			VLANTag:             nic.VLAN.VID,
-			ProviderId:          network.Id(strconv.Itoa(nic.ID)),
-			ProviderVLANId:      network.Id(strconv.Itoa(nic.VLAN.ID)),
+			ProviderId:          corenetwork.Id(strconv.Itoa(nic.ID)),
+			ProviderVLANId:      corenetwork.Id(strconv.Itoa(nic.VLAN.ID)),
 			Disabled:            !nic.Enabled,
 			NoAutoStart:         !nic.Enabled,
 			ParentInterfaceName: nameToParentName[nic.Name],
@@ -230,8 +231,8 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 
 			nicInfo.CIDR = link.Subnet.CIDR
 			nicInfo.Address = network.NewAddressOnSpace(link.Subnet.Space, link.IPAddress)
-			nicInfo.ProviderSubnetId = network.Id(strconv.Itoa(link.Subnet.ID))
-			nicInfo.ProviderAddressId = network.Id(strconv.Itoa(link.ID))
+			nicInfo.ProviderSubnetId = corenetwork.Id(strconv.Itoa(link.Subnet.ID))
+			nicInfo.ProviderAddressId = corenetwork.Id(strconv.Itoa(link.ID))
 			if link.Subnet.GatewayIP != "" {
 				nicInfo.GatewayAddress = network.NewAddressOnSpace(link.Subnet.Space, link.Subnet.GatewayIP)
 			}
@@ -266,8 +267,8 @@ func (env *maasEnviron) deviceInterfaceInfo2(device gomaasapi.Device, nameToPare
 			MACAddress:          nic.MACAddress(),
 			MTU:                 nic.EffectiveMTU(),
 			VLANTag:             vlanVid,
-			ProviderId:          network.Id(strconv.Itoa(nic.ID())),
-			ProviderVLANId:      network.Id(strconv.Itoa(vlanId)),
+			ProviderId:          corenetwork.Id(strconv.Itoa(nic.ID())),
+			ProviderVLANId:      corenetwork.Id(strconv.Itoa(vlanId)),
 			Disabled:            !nic.Enabled(),
 			NoAutoStart:         !nic.Enabled(),
 			ParentInterfaceName: nameToParentName[nic.Name()],
@@ -305,8 +306,8 @@ func (env *maasEnviron) deviceInterfaceInfo2(device gomaasapi.Device, nameToPare
 
 			nicInfo.CIDR = subnet.CIDR()
 			nicInfo.Address = network.NewAddressOnSpace(subnet.Space(), link.IPAddress())
-			nicInfo.ProviderSubnetId = network.Id(strconv.Itoa(subnet.ID()))
-			nicInfo.ProviderAddressId = network.Id(strconv.Itoa(link.ID()))
+			nicInfo.ProviderSubnetId = corenetwork.Id(strconv.Itoa(subnet.ID()))
+			nicInfo.ProviderAddressId = corenetwork.Id(strconv.Itoa(link.ID()))
 			if subnet.Gateway() != "" {
 				nicInfo.GatewayAddress = network.NewAddressOnSpace(subnet.Space(), subnet.Gateway())
 			}

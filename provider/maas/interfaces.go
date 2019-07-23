@@ -12,6 +12,7 @@ import (
 	"github.com/juju/gomaasapi"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 )
@@ -112,7 +113,9 @@ func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, instI
 // maasObject to extract all the relevant InterfaceInfo fields. It returns an
 // error satisfying errors.IsNotSupported() if it cannot find the required
 // "interface_set" node details field.
-func maasObjectNetworkInterfaces(ctx context.ProviderCallContext, maasObject *gomaasapi.MAASObject, subnetsMap map[string]network.Id) ([]network.InterfaceInfo, error) {
+func maasObjectNetworkInterfaces(
+	_ context.ProviderCallContext, maasObject *gomaasapi.MAASObject, subnetsMap map[string]corenetwork.Id,
+) ([]network.InterfaceInfo, error) {
 	interfaceSet, ok := maasObject.GetMap()["interface_set"]
 	if !ok || interfaceSet.IsNil() {
 		// This means we're using an older MAAS API.
@@ -162,7 +165,7 @@ func maasObjectNetworkInterfaces(ctx context.ProviderCallContext, maasObject *go
 		nicInfo := network.InterfaceInfo{
 			DeviceIndex:         i,
 			MACAddress:          iface.MACAddress,
-			ProviderId:          network.Id(fmt.Sprintf("%v", iface.ID)),
+			ProviderId:          corenetwork.Id(fmt.Sprintf("%v", iface.ID)),
 			VLANTag:             iface.VLAN.VID,
 			InterfaceName:       iface.Name,
 			InterfaceType:       nicType,
@@ -187,7 +190,7 @@ func maasObjectNetworkInterfaces(ctx context.ProviderCallContext, maasObject *go
 				// We set it here initially without a space, just so we don't
 				// lose it when we have no linked subnet below.
 				nicInfo.Address = network.NewAddress(link.IPAddress)
-				nicInfo.ProviderAddressId = network.Id(fmt.Sprintf("%v", link.ID))
+				nicInfo.ProviderAddressId = corenetwork.Id(fmt.Sprintf("%v", link.ID))
 			}
 
 			sub := link.Subnet
@@ -198,8 +201,8 @@ func maasObjectNetworkInterfaces(ctx context.ProviderCallContext, maasObject *go
 			}
 
 			nicInfo.CIDR = sub.CIDR
-			nicInfo.ProviderSubnetId = network.Id(fmt.Sprintf("%v", sub.ID))
-			nicInfo.ProviderVLANId = network.Id(fmt.Sprintf("%v", sub.VLAN.ID))
+			nicInfo.ProviderSubnetId = corenetwork.Id(fmt.Sprintf("%v", sub.ID))
+			nicInfo.ProviderVLANId = corenetwork.Id(fmt.Sprintf("%v", sub.VLAN.ID))
 
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
@@ -233,7 +236,12 @@ func maasObjectNetworkInterfaces(ctx context.ProviderCallContext, maasObject *go
 	return infos, nil
 }
 
-func maas2NetworkInterfaces(ctx context.ProviderCallContext, instance *maas2Instance, subnetsMap map[string]network.Id, dnsSearchDomains ...string) ([]network.InterfaceInfo, error) {
+func maas2NetworkInterfaces(
+	_ context.ProviderCallContext,
+	instance *maas2Instance,
+	subnetsMap map[string]corenetwork.Id,
+	dnsSearchDomains ...string,
+) ([]network.InterfaceInfo, error) {
 	interfaces := instance.machine.InterfaceSet()
 	infos := make([]network.InterfaceInfo, 0, len(interfaces))
 	for i, iface := range interfaces {
@@ -267,7 +275,7 @@ func maas2NetworkInterfaces(ctx context.ProviderCallContext, instance *maas2Inst
 		nicInfo := network.InterfaceInfo{
 			DeviceIndex:         i,
 			MACAddress:          iface.MACAddress(),
-			ProviderId:          network.Id(fmt.Sprintf("%v", iface.ID())),
+			ProviderId:          corenetwork.Id(fmt.Sprintf("%v", iface.ID())),
 			VLANTag:             vlanTag,
 			InterfaceName:       iface.Name(),
 			InterfaceType:       nicType,
@@ -292,7 +300,7 @@ func maas2NetworkInterfaces(ctx context.ProviderCallContext, instance *maas2Inst
 				// We set it here initially without a space, just so we don't
 				// lose it when we have no linked subnet below.
 				nicInfo.Address = network.NewAddress(link.IPAddress())
-				nicInfo.ProviderAddressId = network.Id(fmt.Sprintf("%v", link.ID()))
+				nicInfo.ProviderAddressId = corenetwork.Id(fmt.Sprintf("%v", link.ID()))
 			}
 
 			sub := link.Subnet()
@@ -303,8 +311,8 @@ func maas2NetworkInterfaces(ctx context.ProviderCallContext, instance *maas2Inst
 			}
 
 			nicInfo.CIDR = sub.CIDR()
-			nicInfo.ProviderSubnetId = network.Id(fmt.Sprintf("%v", sub.ID()))
-			nicInfo.ProviderVLANId = network.Id(fmt.Sprintf("%v", sub.VLAN().ID()))
+			nicInfo.ProviderSubnetId = corenetwork.Id(fmt.Sprintf("%v", sub.ID()))
+			nicInfo.ProviderVLANId = corenetwork.Id(fmt.Sprintf("%v", sub.VLAN().ID()))
 
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.

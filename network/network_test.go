@@ -415,8 +415,3 @@ func (s *CIDRSuite) TestParseCIDR(c *gc.C) {
 		c.Assert(actualCIDR, gc.Equals, expectedCIDR)
 	}
 }
-
-func (s *NetworkSuite) TestGenerateVirtualMACAddress(c *gc.C) {
-	mac := network.GenerateVirtualMACAddress()
-	c.Check(mac, gc.Matches, "^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$")
-}

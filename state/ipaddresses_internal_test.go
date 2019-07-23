@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -48,12 +49,12 @@ func (s *ipAddressesInternalSuite) newIPAddressWithDummyState(doc ipAddressDoc) 
 
 func (s *ipAddressesInternalSuite) TestProviderIDIsEmptyWhenNotSet(c *gc.C) {
 	result := s.newIPAddressWithDummyState(ipAddressDoc{})
-	c.Assert(result.ProviderID(), gc.Equals, network.Id(""))
+	c.Assert(result.ProviderID(), gc.Equals, corenetwork.Id(""))
 }
 
 func (s *ipAddressesInternalSuite) TestProviderID(c *gc.C) {
 	result := s.newIPAddressWithDummyState(ipAddressDoc{ProviderID: "foo"})
-	c.Assert(result.ProviderID(), gc.Equals, network.Id("foo"))
+	c.Assert(result.ProviderID(), gc.Equals, corenetwork.Id("foo"))
 }
 
 func (s *ipAddressesInternalSuite) TestIPAddressGlobalKeyHelper(c *gc.C) {

@@ -11,8 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -36,16 +35,16 @@ func (s *SpacesSuite) addSubnetsForState(c *gc.C, CIDRs []string, st *state.Stat
 	}
 }
 
-func (s *SpacesSuite) makeSubnetInfosForCIDRs(c *gc.C, CIDRs []string) []state.SubnetInfo {
-	infos := make([]state.SubnetInfo, len(CIDRs))
+func (s *SpacesSuite) makeSubnetInfosForCIDRs(c *gc.C, CIDRs []string) []network.SubnetInfo {
+	infos := make([]network.SubnetInfo, len(CIDRs))
 	for i, cidr := range CIDRs {
 		_, _, err := net.ParseCIDR(cidr)
 		c.Assert(err, jc.ErrorIsNil)
 
-		infos[i] = state.SubnetInfo{
-			CIDR:             cidr,
-			VLANTag:          79,
-			AvailabilityZone: "AvailabilityZone",
+		infos[i] = network.SubnetInfo{
+			CIDR:              cidr,
+			VLANTag:           79,
+			AvailabilityZones: []string{"AvailabilityZone"},
 		}
 
 	}
@@ -412,7 +411,7 @@ func (s *SpacesSuite) assertInvalidSpaceNameErrorAndWasNotAdded(c *gc.C, err err
 
 	// The default space will be present, although we cannot add it.
 	// Only check non-default names.
-	if name != corenetwork.DefaultSpaceName {
+	if name != network.DefaultSpaceName {
 		s.assertSpaceNotFound(c, name)
 	}
 }
@@ -582,13 +581,12 @@ func (s *SpacesSuite) TestFanSubnetInheritsSpace(c *gc.C) {
 	space, err := s.addSpaceWithSubnets(c, args)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertSpaceMatchesArgs(c, space, args)
-	info := state.SubnetInfo{
-		CIDR:             "253.1.0.0/16",
-		VLANTag:          79,
-		AvailabilityZone: "AvailabilityZone",
-		FanOverlay:       "253.0.0.0/8",
-		FanLocalUnderlay: "1.1.1.0/24",
+	info := network.SubnetInfo{
+		CIDR:              "253.1.0.0/16",
+		VLANTag:           79,
+		AvailabilityZones: []string{"AvailabilityZone"},
 	}
+	info.SetFan("1.1.1.0/24", "253.0.0.0/8")
 	_, err = s.State.AddSubnet(info)
 	c.Assert(err, jc.ErrorIsNil)
 

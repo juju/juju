@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net/http"
 
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	ociCore "github.com/oracle/oci-go-sdk/core"

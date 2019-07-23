@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/context"
@@ -495,12 +496,12 @@ func (suite *environSuite) TestSupportsContainerAddresses(c *gc.C) {
 
 func (suite *environSuite) TestSubnetsWithInstanceIdAndSubnetIds(c *gc.C) {
 	server := suite.testMAASObject.TestServer
-	var subnetIDs []network.Id
+	var subnetIDs []corenetwork.Id
 	var uintIDs []uint
 	for _, i := range []uint{1, 2, 3} {
 		server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: fmt.Sprintf("space-%d", i)}))
 		id := suite.addSubnet(c, i, i, "node1")
-		subnetIDs = append(subnetIDs, network.Id(fmt.Sprintf("%v", id)))
+		subnetIDs = append(subnetIDs, corenetwork.Id(fmt.Sprintf("%v", id)))
 		uintIDs = append(uintIDs, id)
 		suite.addSubnet(c, i+5, i, "node2")
 		suite.addSubnet(c, i+10, i, "") // not linked to a node
@@ -510,7 +511,7 @@ func (suite *environSuite) TestSubnetsWithInstanceIdAndSubnetIds(c *gc.C) {
 
 	subnetsInfo, err := env.Subnets(suite.callCtx, testInstance.Id(), subnetIDs)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedInfo := []network.SubnetInfo{
+	expectedInfo := []corenetwork.SubnetInfo{
 		createSubnetInfo(uintIDs[0], 2, 1),
 		createSubnetInfo(uintIDs[1], 3, 2),
 		createSubnetInfo(uintIDs[2], 4, 3),
@@ -528,7 +529,7 @@ func (suite *environSuite) createTwoSpaces() {
 	server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-2"}))
 }
 
-func (suite *environSuite) TestSubnetsWithInstaceIdNoSubnetIds(c *gc.C) {
+func (suite *environSuite) TestSubnetsWithInstanceIdNoSubnetIds(c *gc.C) {
 	suite.createTwoSpaces()
 	id1 := suite.addSubnet(c, 1, 1, "node1")
 	id2 := suite.addSubnet(c, 2, 2, "node1")
@@ -537,9 +538,9 @@ func (suite *environSuite) TestSubnetsWithInstaceIdNoSubnetIds(c *gc.C) {
 	testInstance := suite.getInstance("node1")
 	env := suite.makeEnviron()
 
-	subnetsInfo, err := env.Subnets(suite.callCtx, testInstance.Id(), []network.Id{})
+	subnetsInfo, err := env.Subnets(suite.callCtx, testInstance.Id(), []corenetwork.Id{})
 	c.Assert(err, jc.ErrorIsNil)
-	expectedInfo := []network.SubnetInfo{
+	expectedInfo := []corenetwork.SubnetInfo{
 		createSubnetInfo(id1, 2, 1),
 		createSubnetInfo(id2, 3, 2),
 	}
@@ -555,7 +556,7 @@ func (suite *environSuite) TestSubnetsInvalidInstaceIdAnySubnetIds(c *gc.C) {
 	suite.addSubnet(c, 1, 1, "node1")
 	suite.addSubnet(c, 2, 2, "node2")
 
-	_, err := suite.makeEnviron().Subnets(suite.callCtx, "invalid", []network.Id{"anything"})
+	_, err := suite.makeEnviron().Subnets(suite.callCtx, "invalid", []corenetwork.Id{"anything"})
 	c.Assert(err, gc.ErrorMatches, `instance "invalid" not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -564,14 +565,14 @@ func (suite *environSuite) TestSubnetsNoInstanceIdWithSubnetIds(c *gc.C) {
 	suite.createTwoSpaces()
 	id1 := suite.addSubnet(c, 1, 1, "node1")
 	id2 := suite.addSubnet(c, 2, 2, "node2")
-	subnetIDs := []network.Id{
-		network.Id(fmt.Sprintf("%v", id1)),
-		network.Id(fmt.Sprintf("%v", id2)),
+	subnetIDs := []corenetwork.Id{
+		corenetwork.Id(fmt.Sprintf("%v", id1)),
+		corenetwork.Id(fmt.Sprintf("%v", id2)),
 	}
 
 	subnetsInfo, err := suite.makeEnviron().Subnets(suite.callCtx, instance.UnknownId, subnetIDs)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedInfo := []network.SubnetInfo{
+	expectedInfo := []corenetwork.SubnetInfo{
 		createSubnetInfo(id1, 2, 1),
 		createSubnetInfo(id2, 3, 2),
 	}
@@ -584,9 +585,9 @@ func (suite *environSuite) TestSubnetsNoInstanceIdNoSubnetIds(c *gc.C) {
 	id2 := suite.addSubnet(c, 2, 2, "node2")
 	env := suite.makeEnviron()
 
-	subnetsInfo, err := suite.makeEnviron().Subnets(suite.callCtx, instance.UnknownId, []network.Id{})
+	subnetsInfo, err := suite.makeEnviron().Subnets(suite.callCtx, instance.UnknownId, []corenetwork.Id{})
 	c.Assert(err, jc.ErrorIsNil)
-	expectedInfo := []network.SubnetInfo{
+	expectedInfo := []corenetwork.SubnetInfo{
 		createSubnetInfo(id1, 2, 1),
 		createSubnetInfo(id2, 3, 2),
 	}
@@ -607,24 +608,24 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 
 	spaces, err := suite.makeEnviron().Spaces(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedSpaces := []network.SpaceInfo{{
+	expectedSpaces := []corenetwork.SpaceInfo{{
 		Name:       "space-1",
 		ProviderId: "2",
-		Subnets: []network.SubnetInfo{
+		Subnets: []corenetwork.SubnetInfo{
 			createSubnetInfo(1, 2, 1),
 			createSubnetInfo(2, 2, 6),
 		},
 	}, {
 		Name:       "space-2",
 		ProviderId: "3",
-		Subnets: []network.SubnetInfo{
+		Subnets: []corenetwork.SubnetInfo{
 			createSubnetInfo(3, 3, 2),
 			createSubnetInfo(4, 3, 7),
 		},
 	}, {
 		Name:       "space-3",
 		ProviderId: "4",
-		Subnets: []network.SubnetInfo{
+		Subnets: []corenetwork.SubnetInfo{
 			createSubnetInfo(5, 4, 3),
 			createSubnetInfo(6, 4, 8),
 		},
@@ -632,7 +633,7 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 	c.Assert(spaces, jc.DeepEquals, expectedSpaces)
 }
 
-func (suite *environSuite) assertSpaces(c *gc.C, numberOfSubnets int, filters []network.Id) {
+func (suite *environSuite) assertSpaces(c *gc.C, numberOfSubnets int, filters []corenetwork.Id) {
 	server := suite.testMAASObject.TestServer
 	testInstance := suite.getInstance("node1")
 	systemID := "node1"
@@ -649,7 +650,7 @@ func (suite *environSuite) assertSpaces(c *gc.C, numberOfSubnets int, filters []
 
 	subnets, err := suite.makeEnviron().Subnets(suite.callCtx, testInstance.Id(), filters)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedSubnets := []network.SubnetInfo{
+	expectedSubnets := []corenetwork.SubnetInfo{
 		createSubnetInfo(1, 2, 1),
 		createSubnetInfo(3, 4, 3),
 	}
@@ -658,11 +659,11 @@ func (suite *environSuite) assertSpaces(c *gc.C, numberOfSubnets int, filters []
 }
 
 func (suite *environSuite) TestSubnetsAllSubnets(c *gc.C) {
-	suite.assertSpaces(c, 3, []network.Id{})
+	suite.assertSpaces(c, 3, []corenetwork.Id{})
 }
 
 func (suite *environSuite) TestSubnetsFilteredIds(c *gc.C) {
-	suite.assertSpaces(c, 4, []network.Id{"1", "3"})
+	suite.assertSpaces(c, 4, []corenetwork.Id{"1", "3"})
 }
 
 func (suite *environSuite) TestSubnetsMissingSubnet(c *gc.C) {
@@ -671,7 +672,7 @@ func (suite *environSuite) TestSubnetsMissingSubnet(c *gc.C) {
 		suite.addSubnet(c, i, i, "node1")
 	}
 
-	_, err := suite.makeEnviron().Subnets(suite.callCtx, testInstance.Id(), []network.Id{"1", "3", "6"})
+	_, err := suite.makeEnviron().Subnets(suite.callCtx, testInstance.Id(), []corenetwork.Id{"1", "3", "6"})
 	errorRe := regexp.MustCompile("failed to find the following subnets: (\\d), (\\d)$")
 	errorText := err.Error()
 	c.Assert(errorRe.MatchString(errorText), jc.IsTrue)

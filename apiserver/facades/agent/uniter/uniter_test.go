@@ -3331,7 +3331,7 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 	s.uniterSuiteBase.JujuConnSuite.SetUpTest(c)
 
 	// Add the spaces and subnets used by the test.
-	subnetInfos := []state.SubnetInfo{{
+	subnetInfos := []corenetwork.SubnetInfo{{
 		CIDR:      "8.8.0.0/16",
 		SpaceName: "public",
 	}, {
@@ -3575,7 +3575,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.uniterSuiteBase.JujuConnSuite.SetUpTest(c)
 
 	// Add the spaces and subnets used by the test.
-	subnetInfos := []state.SubnetInfo{{
+	subnetInfos := []corenetwork.SubnetInfo{{
 		CIDR:      "8.8.0.0/16",
 		SpaceName: "public",
 	}, {

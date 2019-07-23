@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -213,7 +214,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 	c *gc.C, m *state.Machine,
 	secret string, cons constraints.Value,
 	networkInfo []network.InterfaceInfo,
-	subnetsToZones map[network.Id][]string,
+	subnetsToZones map[corenetwork.Id][]string,
 	volumes []storage.Volume,
 	volumeAttachments []storage.VolumeAttachment,
 	checkPossibleTools coretools.List,
@@ -236,7 +237,7 @@ func (s *CommonProvisionerSuite) checkStartInstancesCustom(
 	c *gc.C, machines []*state.Machine,
 	secret string, cons constraints.Value,
 	networkInfo []network.InterfaceInfo,
-	subnetsToZones map[network.Id][]string,
+	subnetsToZones map[corenetwork.Id][]string,
 	volumes []storage.Volume,
 	volumeAttachments []storage.VolumeAttachment,
 	checkPossibleTools coretools.List,
@@ -1026,12 +1027,12 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 
 	// Add 1 subnet into space1, and 2 into space2.
 	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
-	testing.AddSubnetsWithTemplate(c, s.State, 3, state.SubnetInfo{
-		CIDR:             "10.10.{{.}}.0/24",
-		ProviderId:       "subnet-{{.}}",
-		AvailabilityZone: "zone{{.}}",
-		SpaceName:        "{{if (eq . 0)}}space1{{else}}space2{{end}}",
-		VLANTag:          42,
+	testing.AddSubnetsWithTemplate(c, s.State, 3, corenetwork.SubnetInfo{
+		CIDR:              "10.10.{{.}}.0/24",
+		ProviderId:        "subnet-{{.}}",
+		AvailabilityZones: []string{"zone{{.}}"},
+		SpaceName:         "{{if (eq . 0)}}space1{{else}}space2{{end}}",
+		VLANTag:           42,
 	})
 
 	// Add and provision a machine with spaces specified.
@@ -1039,7 +1040,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 		s.defaultConstraints.String(), "spaces=space2,^space1",
 	)
 	// The dummy provider simulates 2 subnets per included space.
-	expectedSubnetsToZones := map[network.Id][]string{
+	expectedSubnetsToZones := map[corenetwork.Id][]string{
 		"subnet-0": {"zone0"},
 		"subnet-1": {"zone1"},
 	}
