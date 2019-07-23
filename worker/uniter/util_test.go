@@ -409,7 +409,7 @@ func (csau createApplicationAndUnit) step(c *gc.C, ctx *context) {
 
 type createUniter struct {
 	minion               bool
-	executorFunc         uniter.NewExecutorFunc
+	executorFunc         uniter.NewOperationExecutorFunc
 	translateResolverErr func(error) error
 }
 
@@ -457,7 +457,7 @@ func (waitAddresses) step(c *gc.C, ctx *context) {
 
 type startUniter struct {
 	unitTag              string
-	newExecutorFunc      uniter.NewExecutorFunc
+	newExecutorFunc      uniter.NewOperationExecutorFunc
 	translateResolverErr func(error) error
 }
 

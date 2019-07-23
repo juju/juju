@@ -23,8 +23,6 @@ import (
 
 var logger = loggo.GetLogger("juju.kubernetes.provider.exec")
 
-// this is inspired by kubectl cmd package.
-// - https://github.com/kubernetes/kubernetes/blob/master/pkg/kubectl/cmd/exec/exec.go
 type client struct {
 	namesapce string
 	clientset kubernetes.Interface
@@ -184,6 +182,7 @@ func getValidatedPodContainer(
 	}
 	var pod *core.Pod
 	pod, err = podGetter.Get(podName, metav1.GetOptions{})
+	// TODO: if not found, try list and find it using .ID coz cloudcontainer.providerId currently cloud be "podName" or "Id" !!!!!!!!!!!!!!!!!!!!!!!!!
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return "", "", errors.NotFoundf("pod %q", podName)

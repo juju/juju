@@ -80,6 +80,8 @@ func (c client) copyFromPod(params CopyParam, cancel <-chan struct{}) error {
 	return errors.NotSupportedf("copy from pod")
 }
 
+// this is inspired by kubectl cmd package.
+// - https://github.com/kubernetes/kubernetes/blob/master/pkg/kubectl/cmd/cp/cp.go
 func (c client) copyToPod(params CopyParam, cancel <-chan struct{}) (err error) {
 	src := params.Src
 	dest := params.Dest
@@ -95,7 +97,6 @@ func (c client) copyToPod(params CopyParam, cancel <-chan struct{}) (err error) 
 
 	if err = c.checkRemotePathIsDir(dest, cancel); err == nil {
 		dest.Path = path.Join(dest.Path, path.Base(src.Path))
-		// dest.Path = dest.Path + "/" + path.Base(src.Path)
 	}
 
 	reader, writer := io.Pipe()
@@ -143,7 +144,7 @@ func (c client) checkRemotePathIsDir(rec FileResource, cancel <-chan struct{}) e
 	return errors.Trace(c.Exec(execParams, cancel))
 }
 
-// Based on code from https://github.com/kubernetes/kubernetes/blob/master/pkg/kubectl.
+// Based on code from https://github.com/kubernetes/kubernetes/blob/master/pkg/kubectl/cmd/cp/cp.go
 func makeTar(srcPath, destPath string, writer io.Writer) error {
 	tarWriter := tar.NewWriter(writer)
 	defer tarWriter.Close()
@@ -152,7 +153,7 @@ func makeTar(srcPath, destPath string, writer io.Writer) error {
 	return recursiveTar(path.Dir(srcPath), path.Base(srcPath), path.Dir(destPath), path.Base(destPath), tarWriter)
 }
 
-// Based on code from https://github.com/kubernetes/kubernetes/blob/master/pkg/kubectl.
+// Based on code from https://github.com/kubernetes/kubernetes/blob/master/pkg/kubectl/cmd/cp/cp.go
 func recursiveTar(srcBase, srcFile, destBase, destFile string, tw *tar.Writer) error {
 	srcPath := path.Join(srcBase, srcFile)
 	matchedPaths, err := filepath.Glob(srcPath)

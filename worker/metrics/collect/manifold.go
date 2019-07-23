@@ -264,7 +264,7 @@ func (h *hookRunner) do(recorder spool.MetricRecorder) error {
 		return errors.Annotatef(err, "error adding 'juju-units' metric")
 	}
 
-	r := runner.NewRunner(ctx, h.paths)
+	r := runner.NewRunner(ctx, h.paths, runner.ExecOnMachine)
 	err = r.RunHook(string(hooks.CollectMetrics))
 	if err != nil {
 		return errors.Annotatef(err, "error running 'collect-metrics' hook")

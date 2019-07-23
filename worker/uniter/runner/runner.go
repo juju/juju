@@ -4,12 +4,13 @@
 package runner
 
 import (
-	"bytes"
+	// "bytes"
 	"encoding/base64"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -20,7 +21,7 @@ import (
 	jujuos "github.com/juju/os"
 	utilexec "github.com/juju/utils/exec"
 
-	caasexec "github.com/juju/juju/caas/kubernetes/provider/exec"
+	// caasexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -61,14 +62,50 @@ type Context interface {
 }
 
 // NewRunner returns a Runner backed by the supplied context and paths.
-func NewRunner(context Context, paths context.Paths) Runner {
-	return &runner{context, paths}
+func NewRunner(context Context, paths context.Paths, executor ExecFunc) Runner {
+	return &runner{context, paths, executor}
 }
+
+// ExecOnMachine executes commands on current machine.
+func ExecOnMachine(
+	commands []string,
+	env []string,
+	workingDir string,
+	clock clock.Clock,
+	processSetter func(context.HookProcess),
+	cancel <-chan struct{},
+) (*utilexec.ExecResponse, error) {
+	command := utilexec.RunParams{
+		Commands:    strings.Join(commands, " "),
+		WorkingDir:  workingDir,
+		Environment: env,
+		Clock:       clock,
+	}
+	err := command.Run()
+	if err != nil {
+		return nil, err
+	}
+	// TODO: refactor kill process and implemente kill for caas exec!!!!!!!!!!!!
+	processSetter(hookProcess{command.Process()})
+	// Block and wait for process to finish
+	return command.WaitWithCancel(cancel)
+}
+
+// ExecFunc is the exec func type.
+type ExecFunc func(
+	commands []string,
+	env []string,
+	workingDir string,
+	clock clock.Clock,
+	processSetter func(context.HookProcess),
+	cancel <-chan struct{},
+) (*utilexec.ExecResponse, error)
 
 // runner implements Runner.
 type runner struct {
-	context Context
-	paths   context.Paths
+	context  Context
+	paths    context.Paths
+	executor ExecFunc
 }
 
 func (runner *runner) Context() Context {
@@ -103,108 +140,103 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 			close(cancel)
 		}()
 	}
-
-	executer := runner.runOnMachine
-	if runOnRemote {
-		executer = runner.runOnRemote
-	}
-	logger.Criticalf("runJujuRunAction \nenv -> %+v, \nRunParams -> %+v", env, commands)
-	return executer(commands, env, clock, cancel)
+	logger.Criticalf("runJujuRunAction \nenv -> %+v, \ncommands -> %q, workingdir -> %q", env, commands, runner.paths.GetCharmDir())
+	return runner.executor([]string{commands}, env, runner.paths.GetCharmDir(), clock, runner.context.SetProcess, cancel)
 }
 
-//TODO: for TEST execframework, neeed to plugin this from manifold level into uniter !!!!!!!!!!
-func (runner *runner) runOnRemote(commands string, env []string, clock clock.Clock, cancel <-chan struct{}) (*utilexec.ExecResponse, error) {
-	c, cfg, err := caasexec.GetInClusterClient()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	client := caasexec.New(
-		// runner.context.ModelName(),
-		"t1",
-		c, cfg,
-	)
+// //TODO: for TEST execframework, neeed to plugin this from manifold level into uniter !!!!!!!!!!
+// func (runner *runner) runOnRemote(commands string, env []string, clock clock.Clock, cancel <-chan struct{}) (*utilexec.ExecResponse, error) {
+// 	c, cfg, err := caasexec.GetInClusterClient()
+// 	if err != nil {
+// 		return nil, errors.Trace(err)
+// 	}
+// 	client := caasexec.New(
+// 		// runner.context.ModelName(),
+// 		"t1",
+// 		c, cfg,
+// 	)
 
-	var stdout, stderr bytes.Buffer
+// 	var stdout, stderr bytes.Buffer
 
-	if err := client.Exec(
-		caasexec.ExecParams{
-			// TODO: how to get pod name using runner.context.UnitName()
-			PodName:  "mariadb-k8s-0",
-			Commands: []string{"mkdir", "-p", "/var/lib/juju"},
-			Stdout:   &stdout,
-			Stderr:   &stderr,
-		},
-		cancel,
-	); err != nil {
-		return nil, errors.Trace(err)
-	}
+// 	if err := client.Exec(
+// 		caasexec.ExecParams{
+// 			// TODO: how to get pod name using runner.context.UnitName()
+// 			PodName:  "mariadb-k8s-0",
+// 			Commands: []string{"mkdir", "-p", "/var/lib/juju"},
+// 			Stdout:   &stdout,
+// 			Stderr:   &stderr,
+// 		},
+// 		cancel,
+// 	); err != nil {
+// 		return nil, errors.Trace(err)
+// 	}
 
-	// push files
-	// TODO: add a new cmd for checking jujud version, charm/version etc???
-	// exec run this new cmd to decide if we need repush files or not.
-	for _, sync := range []caasexec.CopyParam{
-		{
-			Src: caasexec.FileResource{
-				Path: "/var/lib/juju/agents/",
-			},
-			Dest: caasexec.FileResource{
-				Path:    "/var/lib/juju/agents/",
-				PodName: "mariadb-k8s-0",
-			},
-		},
-		{
-			Src: caasexec.FileResource{
-				Path: "/var/lib/juju/tools/",
-			},
-			Dest: caasexec.FileResource{
-				Path:    "/var/lib/juju/tools/",
-				PodName: "mariadb-k8s-0",
-			},
-		},
-	} {
-		if err := client.Copy(sync, cancel); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
+// 	// push files
+// 	// TODO: add a new cmd for checking jujud version, charm/version etc???
+// 	// exec run this new cmd to decide if we need repush files or not.
+// 	for _, sync := range []caasexec.CopyParam{
+// 		{
+// 			Src: caasexec.FileResource{
+// 				Path: "/var/lib/juju/agents/",
+// 			},
+// 			Dest: caasexec.FileResource{
+// 				Path:    "/var/lib/juju/agents/",
+// 				PodName: "mariadb-k8s-0",
+// 			},
+// 		},
+// 		{
+// 			Src: caasexec.FileResource{
+// 				Path: "/var/lib/juju/tools/",
+// 			},
+// 			Dest: caasexec.FileResource{
+// 				Path:    "/var/lib/juju/tools/",
+// 				PodName: "mariadb-k8s-0",
+// 			},
+// 		},
+// 	} {
+// 		if err := client.Copy(sync, cancel); err != nil {
+// 			return nil, errors.Trace(err)
+// 		}
+// 	}
 
-	// TODO: how to get model name properly.
-	if err := client.Exec(
-		caasexec.ExecParams{
-			// TODO: how to get pod name using runner.context.UnitName()
-			PodName:    "mariadb-k8s-0",
-			Commands:   []string{commands},
-			WorkingDir: runner.paths.GetCharmDir(),
-			Env:        env,
-			Stdout:     &stdout,
-			Stderr:     &stderr,
-		},
-		cancel,
-	); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &utilexec.ExecResponse{
-		Stdout: stdout.Bytes(),
-		Stderr: stderr.Bytes(),
-	}, nil
-	// return nil, errors.NotSupportedf("runCommandsWithTimeout cmd -> %q", commands)
-}
+// 	// TODO: how to get model name properly.
+// 	if err := client.Exec(
+// 		caasexec.ExecParams{
+// 			// TODO: how to get pod name using runner.context.UnitName()
+// 			PodName:    "mariadb-k8s-0",
+// 			Commands:   []string{commands},
+// 			WorkingDir: runner.paths.GetCharmDir(),
+// 			Env:        env,
+// 			Stdout:     &stdout,
+// 			Stderr:     &stderr,
+// 		},
+// 		cancel,
+// 	); err != nil {
+// 		return nil, errors.Trace(err)
+// 	}
+// 	return &utilexec.ExecResponse{
+// 		Stdout: stdout.Bytes(),
+// 		Stderr: stderr.Bytes(),
+// 	}, nil
+// 	// return nil, errors.NotSupportedf("runCommandsWithTimeout cmd -> %q", commands)
+// }
 
-func (runner *runner) runOnMachine(commands string, env []string, clock clock.Clock, cancel <-chan struct{}) (*utilexec.ExecResponse, error) {
-	command := utilexec.RunParams{
-		Commands:    commands,
-		WorkingDir:  runner.paths.GetCharmDir(),
-		Environment: env,
-		Clock:       clock,
-	}
-	err := command.Run()
-	if err != nil {
-		return nil, err
-	}
-	// TODO: refactor kill process and implemente kill for caas exec!!!!!!!!!!!!
-	runner.context.SetProcess(hookProcess{command.Process()})
-	// Block and wait for process to finish
-	return command.WaitWithCancel(cancel)
-}
+// func (runner *runner) ExecOnMachine(commands string, env []string, clock clock.Clock, cancel <-chan struct{}) (*utilexec.ExecResponse, error) {
+// 	command := utilexec.RunParams{
+// 		Commands:    commands,
+// 		WorkingDir:  runner.paths.GetCharmDir(),
+// 		Environment: env,
+// 		Clock:       clock,
+// 	}
+// 	err := command.Run()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	// TODO: refactor kill process and implemente kill for caas exec!!!!!!!!!!!!
+// 	runner.context.SetProcess(hookProcess{command.Process()})
+// 	// Block and wait for process to finish
+// 	return command.WaitWithCancel(cancel)
+// }
 
 // runJujuRunAction is the function that executes when a juju-run action is ran.
 func (runner *runner) runJujuRunAction(runOnRemote bool) (err error) {

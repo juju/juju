@@ -83,7 +83,8 @@ type Uniter struct {
 
 	operationFactory     operation.Factory
 	operationExecutor    operation.Executor
-	newOperationExecutor NewExecutorFunc
+	newOperationExecutor NewOperationExecutorFunc
+	newRunnerExecutor    NewRunnerExecutorFunc
 	translateResolverErr func(error) error
 
 	leadershipTracker leadership.TrackerWorker
@@ -130,7 +131,8 @@ type UniterParams struct {
 	CharmDirGuard        fortress.Guard
 	UpdateStatusSignal   remotestate.UpdateStatusTimerFunc
 	HookRetryStrategy    params.RetryStrategy
-	NewOperationExecutor NewExecutorFunc
+	NewOperationExecutor NewOperationExecutorFunc
+	NewRunnerExecutor    NewRunnerExecutorFunc
 	TranslateResolverErr func(error) error
 	Clock                clock.Clock
 	ApplicationChannel   watcher.NotifyChannel
@@ -140,7 +142,10 @@ type UniterParams struct {
 	Observer UniterExecutionObserver
 }
 
-type NewExecutorFunc func(string, operation.State, func(string) (func(), error)) (operation.Executor, error)
+type NewOperationExecutorFunc func(string, operation.State, func(string) (func(), error)) (operation.Executor, error)
+
+// NewRunnerExecutorFunc ss.
+type NewRunnerExecutorFunc func(unit names.UnitTag) (runner.ExecFunc, error)
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
@@ -175,6 +180,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 		updateStatusAt:       uniterParams.UpdateStatusSignal,
 		hookRetryStrategy:    uniterParams.HookRetryStrategy,
 		newOperationExecutor: uniterParams.NewOperationExecutor,
+		newRunnerExecutor:    uniterParams.NewRunnerExecutor,
 		translateResolverErr: translateResolverErr,
 		observer:             uniterParams.Observer,
 		clock:                uniterParams.Clock,
@@ -558,8 +564,12 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return err
 	}
+	runnerExecutor, err := u.newRunnerExecutor(u.unit.Tag())
+	if err != nil {
+		return errors.Trace(err)
+	}
 	runnerFactory, err := runner.NewFactory(
-		u.st, u.paths, contextFactory,
+		u.st, u.paths, contextFactory, runnerExecutor,
 	)
 	if err != nil {
 		return errors.Trace(err)
