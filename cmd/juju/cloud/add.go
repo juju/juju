@@ -468,10 +468,11 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	ctxt.Infof("Cloud %q successfully added", name)
-	ctxt.Infof("")
-	ctxt.Infof("You will need to add credentials for this cloud (`juju add-credential %s`)", name)
-	ctxt.Infof("before creating a controller (`juju bootstrap %s`).", name)
-
+	if len(newCloud.AuthTypes) != 0 {
+		ctxt.Infof("")
+		ctxt.Infof("You will need to add credentials for this cloud (`juju add-credential %s`)", name)
+		ctxt.Infof("before creating a controller (`juju bootstrap %s`).", name)
+	}
 	return nil
 }
 
