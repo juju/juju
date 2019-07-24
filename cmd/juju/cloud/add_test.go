@@ -515,9 +515,10 @@ func (*addSuite) TestInteractiveMaas(c *gc.C) {
 	err := cmdtesting.InitCommand(command, []string{"--local"})
 	c.Assert(err, jc.ErrorIsNil)
 
+	out := &bytes.Buffer{}
 	ctx := &cmd.Context{
 		Stdout: ioutil.Discard,
-		Stderr: ioutil.Discard,
+		Stderr: out,
 		Stdin: strings.NewReader("" +
 			/* Select cloud type: */ "maas\n" +
 			/* Enter a name for the cloud: */ "m1\n" +
@@ -529,10 +530,17 @@ func (*addSuite) TestInteractiveMaas(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(numCallsToWrite(), gc.Equals, 1)
+	c.Assert(out.String(), gc.Equals, "Cloud \"m1\" successfully added\n\n"+
+		"You will need to add credentials for this cloud (`juju add-credential m1`)\n"+
+		"before creating a controller (`juju bootstrap m1`).\n")
 }
 
 func (*addSuite) TestInteractiveManual(c *gc.C) {
-	manCloud := manualCloud
+	manCloud := jujucloud.Cloud{
+		Name:     "manual",
+		Type:     "manual",
+		Endpoint: "192.168.1.6",
+	}
 	manCloud.Name = "man"
 	fake := newFakeCloudMetadataStore()
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]jujucloud.Cloud{}, false, nil)
@@ -545,9 +553,11 @@ func (*addSuite) TestInteractiveManual(c *gc.C) {
 	err := cmdtesting.InitCommand(command, []string{"--local"})
 	c.Assert(err, jc.ErrorIsNil)
 
+	out := &bytes.Buffer{}
+	errOut := &bytes.Buffer{}
 	ctx := &cmd.Context{
-		Stdout: ioutil.Discard,
-		Stderr: ioutil.Discard,
+		Stdout: out,
+		Stderr: errOut,
 		Stdin: strings.NewReader("" +
 			/* Select cloud type: */ "manual\n" +
 			/* Enter a name for the cloud: */ "man\n" +
@@ -559,6 +569,19 @@ func (*addSuite) TestInteractiveManual(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	c.Check(numCallsToWrite(), gc.Equals, 1)
+	c.Assert(out.String(), gc.Equals, `
+Cloud Types
+  lxd
+  maas
+  manual
+  openstack
+  vsphere
+
+Select cloud type: 
+Enter a name for your manual cloud: 
+Enter the ssh connection string for controller, username@<hostname or IP> or <hostname or IP>: 
+`[1:])
+	c.Assert(errOut.String(), gc.Equals, "Cloud \"man\" successfully added\n")
 }
 
 func (*addSuite) TestInteractiveManualInvalidName(c *gc.C) {
