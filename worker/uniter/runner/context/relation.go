@@ -103,14 +103,17 @@ func (ctx *ContextRelation) ApplicationSettings() (jujuc.Settings, error) {
 
 // WriteSettings persists all changes made to the unit's relation settings.
 func (ctx *ContextRelation) WriteSettings() error {
+	if ctx.applicationSettings != nil {
+		// Write the application settings first, as we might have lost leadership.
+		// This makes this slightly riskier and thus failing this should fail
+		// the rest of the hook.
+		// ctx.applicationSettings.Write()
+	}
 	if ctx.settings != nil {
 		err := ctx.settings.Write()
 		if err != nil {
 			return err
 		}
-	}
-	if ctx.applicationSettings != nil {
-		// ctx.applicationSettings.Write()
 	}
 	return nil
 }
