@@ -579,6 +579,47 @@ func (g *Generation) unassignUnitOps(unitName, appName string) []txn.Op {
 	}}
 }
 
+// HasChangesFor returns true when the generation has config changes for
+// the provided application.
+func (g *Generation) HasChangesFor(appName string) bool {
+	_, ok := g.doc.Config[appName]
+	return ok
+}
+
+// unassignAppOps returns operations to remove the tracking and config data
+// for the application from the generation.
+func (g *Generation) unassignAppOps(appName string) []txn.Op {
+	assigned := g.doc.AssignedUnits
+	delete(assigned, appName)
+	ops := []txn.Op{{
+		C:      generationsC,
+		Id:     g.doc.DocId,
+		Assert: bson.D{{"txn-revno", g.doc.TxnRevno}},
+		Update: bson.D{
+			{"$set", bson.D{{"assigned-units", assigned}}},
+		},
+	}}
+	currentCfg := g.doc.Config
+	if _, ok := currentCfg[appName]; ok {
+		newCfg := map[string][]itemChange{}
+		for app, cfg := range currentCfg {
+			if app == appName {
+				continue
+			}
+			newCfg[app] = cfg
+		}
+		ops = append(ops, txn.Op{
+			C:      generationsC,
+			Id:     g.doc.DocId,
+			Assert: bson.D{{"txn-revno", g.doc.TxnRevno}},
+			Update: bson.D{
+				{"$set", bson.D{{"charm-config", newCfg}}},
+			},
+		})
+	}
+	return ops
+}
+
 // AddBranch creates a new branch in the current model.
 func (m *Model) AddBranch(branchName, userName string) error {
 	return errors.Trace(m.st.AddBranch(branchName, userName))
@@ -661,6 +702,24 @@ func (st *State) Branches() ([]*Generation, error) {
 func (m *Model) Branch(name string) (*Generation, error) {
 	gen, err := m.st.Branch(name)
 	return gen, errors.Trace(err)
+}
+
+func (m *Model) applicationBranches(appName string) ([]*Generation, error) {
+	branches, err := m.Branches()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	foundBranches := make([]*Generation, 0)
+	for _, branch := range branches {
+		if branch.HasChangesFor(appName) {
+			foundBranches = append(foundBranches, branch)
+			continue
+		}
+		if _, ok := branch.doc.AssignedUnits[appName]; ok {
+			foundBranches = append(foundBranches, branch)
+		}
+	}
+	return foundBranches, nil
 }
 
 // Branch retrieves the generation with the the input branch name from the
