@@ -4,11 +4,8 @@
 package maas
 
 import (
-	"bytes"
 	"fmt"
-	"text/template"
 
-	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -798,123 +795,6 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 	c.Check(infos, jc.DeepEquals, exampleParsedInterfaceSetJSON)
 }
 
-const (
-	notUsingMAAS2 = false
-	notUsingMAAS1 = true
-)
-
-func (s *interfacesSuite) TestInstanceConfiguredInterfaceNamesWithExampleMAAS1InterfaceSet(c *gc.C) {
-	nodeJSON := fmt.Sprintf(`{
-        "system_id": "foo",
-        "interface_set": %s
-    }`, exampleInterfaceSetJSON)
-	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
-
-	inst := &maas1Instance{maasObject: &obj}
-	names, err := instanceConfiguredInterfaceNames(s.callCtx, notUsingMAAS2, inst, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(names, jc.DeepEquals, []string{"eth0", "eth0:1", "eth0.50", "eth0.100", "eth0.250", "br-ens3"})
-}
-
-func (s *interfacesSuite) TestInstanceConfiguredNamesWithoutInterfaceSetMAAS1(c *gc.C) {
-	nodeJSON := `{"system_id": "foo"}`
-	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
-
-	inst := &maas1Instance{maasObject: &obj}
-	names, err := instanceConfiguredInterfaceNames(s.callCtx, notUsingMAAS2, inst, nil)
-	c.Assert(err, gc.ErrorMatches, "interface_set not supported")
-	c.Check(err, jc.Satisfies, errors.IsNotSupported)
-	c.Check(names, gc.HasLen, 0)
-}
-
-func (s *interfacesSuite) TestInstanceConfiguredInterfaceNamesPartiallyConfiguredMAAS1(c *gc.C) {
-	nodeJSON := `{
-        "system_id": "foo",
-        "interface_set": [{
-          "name": "eth0",
-          "links": [
-              {"subnet": {"cidr": "1.2.3.4/5"}, "mode": "static", "ip_address": "1.2.3.4"},
-              {"subnet": {"cidr": "1.2.3.4/5"}, "mode": "auto"},
-              {"subnet": {"cidr": "1.2.3.4/5"}, "mode": "dhcp"}
-          ]
-        }, {
-          "name": "eth1",
-          "links": [{"mode": "link_up"}]
-        }, {
-          "name": "eth1.99",
-          "links": [{"subnet": {"cidr": "192.168.99.0/24"}, "mode": "auto"}]
-        }]}`
-	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
-
-	inst := &maas1Instance{maasObject: &obj}
-	names, err := instanceConfiguredInterfaceNames(s.callCtx, notUsingMAAS2, inst, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(names, jc.DeepEquals, []string{"eth0", "eth0:1", "eth0:2", "eth1.99"})
-}
-
-func (s *interfacesSuite) TestInstanceConfiguredInterfaceNamesWithoutInterfaceSetMAAS2(c *gc.C) {
-	inst := &maas2Instance{machine: &fakeMachine{interfaceSet: nil}}
-
-	names, err := instanceConfiguredInterfaceNames(s.callCtx, notUsingMAAS1, inst, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(names, gc.HasLen, 0)
-}
-
-func (s *interfacesSuite) TestInstanceConfiguredInterfaceNamesPartiallyConfiguredMAAS2(c *gc.C) {
-
-	subnet50 := &fakeSubnet{
-		cidr: "10.50.19.0/24",
-		vlan: &fakeVLAN{id: 5050},
-	}
-	subnet250 := &fakeSubnet{
-		cidr: "10.250.19.0/24",
-		vlan: &fakeVLAN{id: 5250},
-	}
-
-	interfaces := []gomaasapi.Interface{
-		&fakeInterface{
-			name: "eth0",
-			links: []gomaasapi.Link{
-				&fakeLink{mode: "link_up"},
-			},
-		},
-		&fakeInterface{
-			name: "eth0.50",
-			links: []gomaasapi.Link{
-				&fakeLink{
-					subnet:    subnet50,
-					ipAddress: "10.50.19.103",
-					mode:      "static",
-				},
-				&fakeLink{ // alias :1
-					subnet: subnet50,
-					mode:   "auto", // no address yet, but will have at startNode time
-				},
-				&fakeLink{ // alias :2
-					subnet: subnet50,
-					mode:   "dhcp", // will get address at boot via DHCP
-				},
-			},
-		},
-		&fakeInterface{name: "eth0.100", links: nil},
-		&fakeInterface{
-			name: "eth0.250",
-			links: []gomaasapi.Link{
-				&fakeLink{
-					subnet: subnet250,
-					mode:   "auto",
-				},
-			},
-		},
-	}
-
-	inst := &maas2Instance{machine: &fakeMachine{interfaceSet: interfaces}}
-
-	names, err := instanceConfiguredInterfaceNames(s.callCtx, notUsingMAAS1, inst, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(names, jc.DeepEquals, []string{"eth0.50", "eth0.50:1", "eth0.50:2", "eth0.250"})
-}
-
 func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 	vlan0 := fakeVLAN{
 		id:  5001,
@@ -1255,16 +1135,3 @@ const lshwXMLTemplate = `
 </node>
 </list>
 `
-
-func (suite *environSuite) generateHWTemplate(netMacs map[string]ifaceInfo) (string, error) {
-	tmpl, err := template.New("test").Parse(lshwXMLTemplate)
-	if err != nil {
-		return "", err
-	}
-	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, netMacs)
-	if err != nil {
-		return "", err
-	}
-	return string(buf.Bytes()), nil
-}

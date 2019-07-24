@@ -1129,57 +1129,6 @@ func (env *maasEnviron) StartInstance(
 	}, nil
 }
 
-func instanceConfiguredInterfaceNames(
-	ctx context.ProviderCallContext, usingMAAS2 bool, inst instances.Instance, subnetsMap map[string]corenetwork.Id,
-) ([]string, error) {
-	var (
-		interfaces []network.InterfaceInfo
-		err        error
-	)
-	if !usingMAAS2 {
-		inst1 := inst.(*maas1Instance)
-		interfaces, err = maasObjectNetworkInterfaces(ctx, inst1.maasObject, subnetsMap)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	} else {
-		inst2 := inst.(*maas2Instance)
-		interfaces, err = maas2NetworkInterfaces(ctx, inst2, subnetsMap)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
-	nameToNumAliases := make(map[string]int)
-	var linkedNames []string
-	for _, iface := range interfaces {
-		if iface.CIDR == "" { // CIDR comes from a linked subnet.
-			continue
-		}
-
-		switch iface.ConfigType {
-		case network.ConfigUnknown, network.ConfigManual:
-			continue // link is unconfigured
-		}
-
-		finalName := iface.InterfaceName
-		numAliases, seen := nameToNumAliases[iface.InterfaceName]
-		if !seen {
-			nameToNumAliases[iface.InterfaceName] = 0
-		} else {
-			numAliases++ // aliases start from 1
-			finalName += fmt.Sprintf(":%d", numAliases)
-			nameToNumAliases[iface.InterfaceName] = numAliases
-		}
-
-		linkedNames = append(linkedNames, finalName)
-	}
-	systemID := extractSystemId(inst.Id())
-	logger.Infof("interface names to bridge for node %q: %v", systemID, linkedNames)
-
-	return linkedNames, nil
-}
-
 func (env *maasEnviron) tagInstance1(inst *maas1Instance, instanceConfig *instancecfg.InstanceConfig) {
 	if !multiwatcher.AnyJobNeedsState(instanceConfig.Jobs...) {
 		return

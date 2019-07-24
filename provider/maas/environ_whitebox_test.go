@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"text/template"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -953,7 +954,7 @@ func (s *environSuite) newNode(c *gc.C, nodename, hostname string, attrs map[str
 	data, err := json.Marshal(allAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.testMAASObject.TestServer.NewNode(string(data))
-	lshwXML, err := s.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
+	lshwXML, err := generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
 	c.Assert(err, jc.ErrorIsNil)
 	s.testMAASObject.TestServer.AddNodeDetails(nodename, lshwXML)
 }
@@ -1078,4 +1079,17 @@ func (s *environSuite) TestUsingUnknownVersionURLForAPI(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotURL.String(), gc.Equals, configuredURL)
+}
+
+func generateHWTemplate(netMacs map[string]ifaceInfo) (string, error) {
+	tmpl, err := template.New("test").Parse(lshwXMLTemplate)
+	if err != nil {
+		return "", err
+	}
+	var buf bytes.Buffer
+	err = tmpl.Execute(&buf, netMacs)
+	if err != nil {
+		return "", err
+	}
+	return string(buf.Bytes()), nil
 }
