@@ -13,6 +13,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade/facadetest"
+	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/params"
@@ -60,6 +62,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	c.Check(status.Offers, gc.HasLen, 0)
 	c.Check(status.Machines, gc.HasLen, 1)
 	c.Check(status.ControllerTimestamp, gc.NotNil)
+	c.Check(status.Branches, gc.HasLen, 0)
 	resultMachine, ok := status.Machines[machine.Id()]
 	if !ok {
 		c.Fatalf("Missing machine with id %q", machine.Id())
@@ -820,4 +823,202 @@ func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.Application
 		},
 		EndpointBindings: map[string]string{"server": "", "server-admin": ""},
 	})
+}
+
+type filteringBranchesSuite struct {
+	baseSuite
+
+	appA string
+	appB string
+	subB string
+}
+
+var _ = gc.Suite(&filteringBranchesSuite{})
+
+func (s *filteringBranchesSuite) SetUpTest(c *gc.C) {
+	s.baseSuite.SetUpTest(c)
+
+	s.appA = "mysql"
+	s.appB = "wordpress"
+	s.subB = "logging"
+
+	// Application A has no touch points with application C
+	// but will have a unit on the same machine is a unit of an application B.
+	applicationA := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: s.appA,
+		}),
+	})
+
+	// Application B will have a unit on the same machine as a unit of an application A
+	// and will have a relation to an application C.
+	applicationB := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: s.appB,
+		}),
+	})
+	endpoint1, err := applicationB.Endpoint("juju-info")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: applicationA,
+	})
+	appBUnit := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: applicationB,
+	})
+
+	// Application C has a relation to application B but has no touch points with
+	// an application A.
+	applicationC := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: s.subB}),
+	})
+	endpoint2, err := applicationC.Endpoint("info")
+	c.Assert(err, jc.ErrorIsNil)
+	rel := s.Factory.MakeRelation(c, &factory.RelationParams{
+		Endpoints: []state.Endpoint{endpoint2, endpoint1},
+	})
+	// Trigger the creation of the subordinate unit by entering scope
+	// on the principal unit.
+	ru, err := rel.Unit(appBUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *filteringBranchesSuite) TestFullStatusBranchNoFilter(c *gc.C) {
+	err := s.State.AddBranch("apple", "test-user")
+	c.Assert(err, jc.ErrorIsNil)
+
+	client := s.clientForTest(c)
+
+	status, err := client.FullStatus(params.StatusParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("%#v", status.Branches)
+	b, ok := status.Branches["apple"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{})
+	c.Assert(status.Applications, gc.HasLen, 3)
+}
+
+func (s *filteringBranchesSuite) TestFullStatusBranchFilterUnit(c *gc.C) {
+	s.assertBranchAssignUnit(c, "apple", s.appA+"/0")
+	err := s.State.AddBranch("banana", "test-user")
+	c.Assert(err, jc.ErrorIsNil)
+
+	client := s.clientForTest(c)
+
+	status, err := client.FullStatus(params.StatusParams{
+		Patterns: []string{s.appA + "/0"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Branches, gc.HasLen, 1)
+	b, ok := status.Branches["apple"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{s.appA: {s.appA + "/0"}})
+	c.Assert(status.Applications, gc.HasLen, 1)
+}
+
+func (s *filteringBranchesSuite) TestFullStatusBranchFilterApplication(c *gc.C) {
+	err := s.State.AddBranch("apple", "test-user")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertBranchAssignApplication(c, "banana", s.appB)
+
+	client := s.clientForTest(c)
+
+	status, err := client.FullStatus(params.StatusParams{
+		Patterns: []string{s.appB},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Branches, gc.HasLen, 1)
+	b, ok := status.Branches["banana"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{s.appB: {}})
+	c.Assert(status.Applications, gc.HasLen, 2)
+}
+
+func (s *filteringBranchesSuite) TestFullStatusBranchFilterSubordinateUnit(c *gc.C) {
+	s.assertBranchAssignUnit(c, "apple", s.subB+"/0")
+	s.assertBranchAssignUnit(c, "banana", "testme/0")
+	err := s.State.AddBranch("cucumber", "test-user")
+	c.Assert(err, jc.ErrorIsNil)
+
+	client := s.clientForTest(c)
+
+	status, err := client.FullStatus(params.StatusParams{
+		Patterns: []string{s.subB + "/0"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Branches, gc.HasLen, 1)
+	b, ok := status.Branches["apple"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{s.subB: {s.subB + "/0"}})
+	c.Assert(status.Applications, gc.HasLen, 2)
+
+}
+
+func (s *filteringBranchesSuite) TestFullStatusBranchFilterTwoBranchesSubordinateUnit(c *gc.C) {
+	s.assertBranchAssignUnit(c, "apple", s.subB+"/0")
+	s.assertBranchAssignUnit(c, "banana", "testme/1")
+	s.assertBranchAssignUnit(c, "cucumber", s.appB+"/0")
+
+	client := s.clientForTest(c)
+
+	status, err := client.FullStatus(params.StatusParams{
+		Patterns: []string{s.appB + "/0"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.Branches, gc.HasLen, 2)
+	b, ok := status.Branches["apple"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{s.subB: {s.subB + "/0"}})
+	b, ok = status.Branches["cucumber"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(b.AssignedUnits, jc.DeepEquals, map[string][]string{s.appB: {s.appB + "/0"}})
+	c.Assert(status.Applications, gc.HasLen, 2)
+}
+
+func (s *filteringBranchesSuite) clientForTest(c *gc.C) *client.Client {
+	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
+	ctx := &facadetest.Context{
+		Controller_: s.Controller,
+		State_:      s.State,
+		StatePool_:  s.StatePool,
+		Auth_: apiservertesting.FakeAuthorizer{
+			Tag:        s.AdminUserTag(c),
+			Controller: true,
+		},
+		Resources_:        common.NewResources(),
+		LeadershipReader_: mockLeadershipReader{},
+	}
+	client, err := client.NewFacade(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	return client
+}
+
+func (s *filteringBranchesSuite) assertBranchAssignUnit(c *gc.C, bName, uName string) {
+	err := s.State.AddBranch(bName, "test-user")
+	c.Assert(err, jc.ErrorIsNil)
+	gen, err := s.State.Branch(bName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gen, gc.NotNil)
+	err = gen.AssignUnit(uName)
+	c.Assert(gen, gc.NotNil)
+}
+
+func (s *filteringBranchesSuite) assertBranchAssignApplication(c *gc.C, bName, aName string) {
+	err := s.State.AddBranch(bName, "test-user")
+	c.Assert(err, jc.ErrorIsNil)
+	gen, err := s.State.Branch(bName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gen, gc.NotNil)
+	err = gen.AssignApplication(aName)
+	c.Assert(gen, gc.NotNil)
+}
+
+type mockLeadershipReader struct{}
+
+func (m mockLeadershipReader) Leaders() (map[string]string, error) {
+	return make(map[string]string), nil
 }

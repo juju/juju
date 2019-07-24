@@ -29,6 +29,7 @@ type FullStatus struct {
 	Offers              map[string]ApplicationOfferStatus  `json:"offers"`
 	Relations           []RelationStatus                   `json:"relations"`
 	ControllerTimestamp *time.Time                         `json:"controller-timestamp"`
+	Branches            map[string]BranchStatus            `json:"branches"`
 }
 
 // IsEmpty checks all collections on FullStatus to determine if the status is empty.
@@ -331,3 +332,9 @@ const (
 	Suspended RelationStatusValue = "suspended"
 	Broken    RelationStatusValue = "broken"
 )
+
+// BranchStatus holds the results for an branch Full Status.
+type BranchStatus struct {
+	AssignedUnits map[string][]string `json:"assigned-units"`
+	Created       int64               `json:"created"`
+}
