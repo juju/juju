@@ -68,9 +68,6 @@ func (st *State) SaveSubnetsFromProvider(subnets []corenetwork.SubnetInfo, space
 	}
 
 	for _, subnet := range subnets {
-		if modelSubnetIds.Contains(string(subnet.ProviderId)) {
-			continue
-		}
 		ip, _, err := net.ParseCIDR(subnet.CIDR)
 		if err != nil {
 			return errors.Trace(err)
@@ -80,7 +77,12 @@ func (st *State) SaveSubnetsFromProvider(subnets []corenetwork.SubnetInfo, space
 		}
 
 		subnet.SpaceName = spaceName
-		_, err = st.AddSubnet(subnet)
+		if modelSubnetIds.Contains(string(subnet.ProviderId)) {
+			err = st.SubnetUpdate(subnet)
+		} else {
+			_, err = st.AddSubnet(subnet)
+		}
+
 		if err != nil {
 			return errors.Trace(err)
 		}

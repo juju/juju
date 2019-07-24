@@ -640,6 +640,8 @@ func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
 	ignored := set.NewStrings(
 		// DocID is the model + name
 		"DocID",
+		// TxnRevno is mgo internals and should not be migrated.
+		"TxnRevno",
 		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
 		"ModelUUID",

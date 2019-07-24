@@ -6,7 +6,9 @@ package state
 import (
 	"net"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -22,6 +24,7 @@ type Subnet struct {
 
 type subnetDoc struct {
 	DocID             string   `bson:"_id"`
+	TxnRevno          int64    `bson:"txn-revno"`
 	ModelUUID         string   `bson:"model-uuid"`
 	Life              Life     `bson:"life"`
 	ProviderId        string   `bson:"providerid,omitempty"`
@@ -195,6 +198,80 @@ func (s *Subnet) Refresh() error {
 		}
 	}
 	return nil
+}
+
+// Update adds new info to the subnet based on provided info.  Currently no
+// data is changed, unless it is the default space from MAAS.  There are
+// restrictions to the additions allowed:
+//   - no change to CIDR, more work to determine how to handle needs to
+// be done.
+//   - no change to ProviderId nor ProviderNetworkID, these are immutable.
+func (s *Subnet) Update(args network.SubnetInfo) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt != 0 {
+			if err := s.Refresh(); err != nil {
+				if errors.IsNotFound(err) {
+					return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
+				}
+				return nil, errors.Trace(err)
+			}
+		}
+		makeSpaceNameUpdate, err := s.updateSpaceName(args.SpaceName)
+		if err != nil {
+			return nil, err
+		}
+		var bsonSet bson.D
+		if makeSpaceNameUpdate {
+			bsonSet = append(bsonSet, bson.DocElem{"space-name", args.SpaceName})
+		}
+		if len(args.AvailabilityZones) > 0 {
+			currentAZ := set.NewStrings(args.AvailabilityZones...)
+			newAZ := currentAZ.Difference(set.NewStrings(s.doc.AvailabilityZones...))
+			if !newAZ.IsEmpty() {
+				bsonSet = append(bsonSet, bson.DocElem{"availability-zones", append(s.doc.AvailabilityZones, newAZ.Values()...)})
+			}
+		}
+		if s.doc.VLANTag == 0 && args.VLANTag > 0 {
+			bsonSet = append(bsonSet, bson.DocElem{"vlantag", args.VLANTag})
+		}
+		if len(bsonSet) == 0 {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return []txn.Op{{
+			C:      subnetsC,
+			Id:     s.doc.DocID,
+			Assert: bson.D{{"txn-revno", s.doc.TxnRevno}},
+			Update: bson.D{{"$set", bsonSet}},
+		}}, nil
+	}
+	return errors.Trace(s.st.db().Run(buildTxn))
+}
+
+func (s *Subnet) updateSpaceName(spaceName string) (bool, error) {
+	var spaceNameChange bool
+	sp, err := s.st.Space(s.doc.SpaceName)
+	switch {
+	case err != nil && !errors.IsNotFound(err):
+		return false, errors.Trace(err)
+	case errors.IsNotFound(err):
+		spaceNameChange = true
+	case err == nil:
+		// Only change space name it's a default one at this time.
+		//
+		// The undefined space from MAAS has a providerId of -1.
+		// The juju default space will be 0.
+		spaceNameChange = sp.doc.ProviderId == "-1" || sp.doc.Id == network.DefaultSpaceId
+	}
+	return spaceNameChange && spaceName != "" && s.doc.FanLocalUnderlay == "", nil
+}
+
+// SubnetUpdate adds new info to the subnet based on provided info.
+func (st *State) SubnetUpdate(args network.SubnetInfo) error {
+	s, err := st.Subnet(args.CIDR)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return s.Update(args)
 }
 
 // AddSubnet creates and returns a new subnet
