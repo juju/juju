@@ -83,7 +83,9 @@ type Snapshot struct {
 	UpgradeSeriesStatus model.UpgradeSeriesStatus
 }
 
+// RelationSnapshot tracks the state of a relationship from the viewpoint of the local unit.
 type RelationSnapshot struct {
+	// Life indicates
 	Life      params.Life
 	Suspended bool
 	Members   map[string]int64

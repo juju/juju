@@ -6,6 +6,9 @@ package context
 import (
 	"sort"
 
+	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -24,6 +27,9 @@ type RelationCache struct {
 	// members' keys define the relation's membership; non-nil values hold
 	// cached settings.
 	members SettingsMap
+	// applicationSettings is the cached settings for the application as a whole
+	// it may be nil if it has not been cached yet.
+	applicationSettings params.Settings
 	// others is a short-term cache for non-member settings.
 	others SettingsMap
 }
@@ -62,6 +68,16 @@ func (cache *RelationCache) MemberNames() (memberNames []string) {
 // Settings returns the settings of the named remote unit. It's valid to get
 // the settings of any unit that has ever been in the relation.
 func (cache *RelationCache) Settings(unitName string) (params.Settings, error) {
+	if cache.applicationSettings == nil {
+		appname, err := names.UnitApplication(unitName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cache.applicationSettings, err = cache.readSettings(appname)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 	settings, isMember := cache.members[unitName]
 	if settings == nil {
 		if !isMember {
@@ -71,7 +87,7 @@ func (cache *RelationCache) Settings(unitName string) (params.Settings, error) {
 			var err error
 			settings, err = cache.readSettings(unitName)
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 		}
 	}
@@ -80,7 +96,20 @@ func (cache *RelationCache) Settings(unitName string) (params.Settings, error) {
 	} else {
 		cache.others[unitName] = settings
 	}
-	return settings, nil
+	return cache.mergeSettings(cache.applicationSettings, settings), nil
+}
+
+// mergeSettings overlays the per-unit settings on top of the overall application settings.
+func (cache *RelationCache) mergeSettings(application, unit params.Settings) params.Settings {
+	result := make(params.Settings)
+	for k, v := range application {
+		result[k] = v
+	}
+	// unit settings explicitly override application settings
+	for k, v := range unit {
+		result[k] = v
+	}
+	return result
 }
 
 // InvalidateMember ensures that the named remote unit will be considered a
