@@ -227,3 +227,51 @@ func (s *RelationCacheSuite) TestPruneUncachesOtherSettings(c *gc.C) {
 	c.Assert(settings, jc.DeepEquals, params.Settings{"baz": "qux"})
 	c.Assert(s.calls, jc.DeepEquals, []string{"x", "x/2", "x/2"})
 }
+
+func (s *RelationCacheSuite) TestInvalidateApplicationSettings(c *gc.C) {
+	s.results = []settingsResult{{
+		params.Settings{}, nil, // application settings
+	}, {
+		params.Settings{"foo": "bar"}, nil, // unit settings
+	}, {
+		params.Settings{"baz": "qux"}, nil, // updated application
+	}}
+	cache := context.NewRelationCache(s.ReadSettings, []string{"x/2"})
+
+	settings, err := cache.Settings("x/2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"x", "x/2"})
+	// Reading it a second time just uses the cache
+	settings, err = cache.Settings("x/2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"x", "x/2"})
+	// Invalidating the application causes it to be reread
+	cache.InvalidateApplication()
+	settings, err = cache.Settings("x/2")
+	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar", "baz": "qux"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"x", "x/2", "x"})
+}
+
+func (s *RelationCacheSuite) TestUnitSettingsOverrideApplicationSettings(c *gc.C) {
+	s.results = []settingsResult{{
+		params.Settings{"foo": "app"}, nil, // application settings
+	}, {
+		params.Settings{"foo": "unit"}, nil, // unit settings
+	}, {
+		params.Settings{}, nil, // unit settings that are wiped
+	}}
+	cache := context.NewRelationCache(s.ReadSettings, []string{"x/2"})
+
+	settings, err := cache.Settings("x/2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "unit"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"x", "x/2"})
+	cache.InvalidateMember("x/2")
+	// Reading a unit settings that no longer overrides the application gives the application value
+	settings, err = cache.Settings("x/2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "app"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"x", "x/2", "x/2"})
+}
