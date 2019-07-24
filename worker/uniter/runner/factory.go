@@ -39,7 +39,7 @@ func NewFactory(
 	state *uniter.State,
 	paths context.Paths,
 	contextFactory context.ContextFactory,
-	executor ExecFunc,
+	remoteExecutor ExecFunc,
 ) (
 	Factory, error,
 ) {
@@ -47,7 +47,7 @@ func NewFactory(
 		state:          state,
 		paths:          paths,
 		contextFactory: contextFactory,
-		executor:       executor,
+		remoteExecutor: remoteExecutor,
 	}
 
 	return f, nil
@@ -60,8 +60,8 @@ type factory struct {
 	state *uniter.State
 
 	// Fields that shouldn't change in a factory's lifetime.
-	paths    context.Paths
-	executor ExecFunc
+	paths          context.Paths
+	remoteExecutor ExecFunc
 }
 
 // NewCommandRunner exists to satisfy the Factory interface.
@@ -70,7 +70,7 @@ func (f *factory) NewCommandRunner(commandInfo context.CommandInfo) (Runner, err
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	runner := NewRunner(ctx, f.paths, f.executor)
+	runner := NewRunner(ctx, f.paths, f.remoteExecutor)
 	return runner, nil
 }
 
@@ -84,7 +84,7 @@ func (f *factory) NewHookRunner(hookInfo hook.Info) (Runner, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	runner := NewRunner(ctx, f.paths, f.executor)
+	runner := NewRunner(ctx, f.paths, f.remoteExecutor)
 	return runner, nil
 }
 
@@ -127,7 +127,7 @@ func (f *factory) NewActionRunner(actionId string) (Runner, error) {
 
 	actionData := context.NewActionData(name, &tag, params)
 	ctx, err := f.contextFactory.ActionContext(actionData)
-	runner := NewRunner(ctx, f.paths, f.executor)
+	runner := NewRunner(ctx, f.paths, f.remoteExecutor)
 	return runner, nil
 }
 

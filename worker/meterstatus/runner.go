@@ -62,7 +62,7 @@ func (w *hookRunner) RunHook(code, info string, interrupt <-chan struct{}) (runE
 		"JUJU_METER_STATUS": code,
 		"JUJU_METER_INFO":   info,
 	})
-	r := runner.NewRunner(ctx, paths, runner.ExecOnMachine)
+	r := runner.NewRunner(ctx, paths, nil)
 	releaser, err := w.acquireExecutionLock(string(hooks.MeterStatusChanged), interrupt)
 	if err != nil {
 		return errors.Annotate(err, "failed to acquire machine lock")

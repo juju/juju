@@ -159,9 +159,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				LeadershipTrackerFunc: leadershipTrackerFunc,
 				UniterFacadeFunc:      newUniterFunc,
 				UniterParams: &uniter.UniterParams{
-					NewOperationExecutor: operation.NewExecutor,
-					NewRunnerExecutor:    getNewRunnerExecutor(model.Name, clock, client),
-					// NewRunnerExecutor:    func(_ names.UnitTag) (runner.ExecFunc, error) { return runner.ExecOnMachine, nil },
+					NewOperationExecutor:    operation.NewExecutor,
+					NewRemoteRunnerExecutor: getNewRunnerExecutor(model.Name, clock, client),
+					// NewRemoteRunnerExecutor:    func(_ names.UnitTag) (runner.ExecFunc, error) { return runner.ExecOnMachine, nil },
 					DataDir:              agentConfig.DataDir(),
 					Clock:                clock,
 					MachineLock:          config.MachineLock,

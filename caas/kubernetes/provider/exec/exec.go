@@ -13,7 +13,6 @@ import (
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	// "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -152,7 +151,6 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) error {
 	case err := <-errChan:
 		return errors.Trace(err)
 	case <-cancel:
-		logger.Criticalf("timeout -> exec ")
 		return errors.New(fmt.Sprintf("exec cancelled: %v", opts))
 	}
 }
@@ -183,6 +181,8 @@ func getValidatedPodContainer(
 	var pod *core.Pod
 	pod, err = podGetter.Get(podName, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
+		logger.Debugf("can not get pod by name for %q", podName)
+		logger.Debugf("try get pod by UID for %q", podName)
 		pods, err := podGetter.List(metav1.ListOptions{})
 		// TODO(caas): remove getting pod by Id (a bit expensive) once we started to cache podName in cloudContainer doc.
 		if err != nil {
@@ -190,6 +190,7 @@ func getValidatedPodContainer(
 		}
 		for _, p := range pods.Items {
 			if string(p.GetUID()) == podName {
+				podName = p.GetName()
 				pod = &p
 				break
 			}
@@ -200,7 +201,9 @@ func getValidatedPodContainer(
 	}
 
 	if pod.Status.Phase == core.PodSucceeded || pod.Status.Phase == core.PodFailed {
-		return "", "", errors.New(fmt.Sprintf("cannot exec into a container in a completed pod; current phase is %s", pod.Status.Phase))
+		return "", "", errors.New(fmt.Sprintf(
+			"cannot exec into a container in a completed pod; current phase is %s", pod.Status.Phase,
+		))
 	}
 
 	checkContainerExists := func(name string) error {

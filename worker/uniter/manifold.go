@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/resolver"
-	"github.com/juju/juju/worker/uniter/runner"
+	// "github.com/juju/juju/worker/uniter/runner"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a
@@ -104,7 +104,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UpdateStatusSignal:   NewUpdateStatusTimer(),
 				HookRetryStrategy:    hookRetryStrategy,
 				NewOperationExecutor: operation.NewExecutor,
-				NewRunnerExecutor:    func(_ names.UnitTag) (runner.ExecFunc, error) { return runner.ExecOnMachine, nil },
+				// NewRemoteRunnerExecutor: func(_ names.UnitTag) (runner.ExecFunc, error) { return runner.ExecOnMachine, nil },
 				TranslateResolverErr: config.TranslateResolverErr,
 				Clock:                manifoldConfig.Clock,
 			})

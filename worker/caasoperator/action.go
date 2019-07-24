@@ -5,7 +5,6 @@ package caasoperator
 
 import (
 	"bytes"
-	// "time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -31,7 +30,7 @@ func ensurePath(client exec.Executer, podName string, stdout, stderr bytes.Buffe
 }
 
 func syncFiles(client exec.Executer, podName string, stdout, stderr bytes.Buffer, cancel <-chan struct{}) error {
-	// TODO: add a new cmd for checking jujud version, charm/version etc???
+	// TODO(caas): add a new cmd for checking jujud version, charm/version etc.
 	// exec run this new cmd to decide if we need repush files or not.
 	for _, sync := range []exec.CopyParam{
 		{
@@ -60,14 +59,16 @@ func syncFiles(client exec.Executer, podName string, stdout, stderr bytes.Buffer
 	return nil
 }
 
-func getPodNameForUnit(c UnitGetter, tag names.UnitTag) (string, error) {
+func fetchPodNameForUnit(c UnitGetter, tag names.UnitTag) (string, error) {
 	result, err := c.Units(tag)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	logger.Criticalf("getPodNameForUnit units -> %v", result.Results)
+	if len(result.Results) == 0 {
+		return "", errors.NotFoundf("unit %q", tag.Id())
+	}
 	unit := result.Results[0]
-	logger.Criticalf("getPodNameForUnit unit.Result -> %v, unit.Error -> %v", unit.Result, unit.Error)
+	logger.Criticalf("fetchPodNameForUnit unit.Result -> %v, unit.Error -> %v", unit.Result, unit.Error)
 	if unit.Error != nil {
 		return "", unit.Error
 	}
@@ -76,8 +77,6 @@ func getPodNameForUnit(c UnitGetter, tag names.UnitTag) (string, error) {
 }
 
 func getNewRunnerExecutor(modelName string, clk clock.Clock, uniterGetter UnitGetter) func(unit names.UnitTag) (runner.ExecFunc, error) {
-	// podName, err := getPodNameForUnit(uniterGetter, names.NewUnitTag("mariadb-k8s/0"))
-	// logger.Criticalf("getPodNameForUnit podName -> %v, err -> %v", podName, err)
 	return func(unit names.UnitTag) (runner.ExecFunc, error) {
 		c, cfg, err := exec.GetInClusterClient()
 		if err != nil {
@@ -87,14 +86,6 @@ func getNewRunnerExecutor(modelName string, clk clock.Clock, uniterGetter UnitGe
 			modelName, c, cfg,
 		)
 
-		podName, err := getPodNameForUnit(uniterGetter, unit)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		logger.Criticalf("getPodNameForUnit podName -> %v", podName)
-
-		// return runner.ExecOnMachine, nil
-
 		return func(
 			commands []string,
 			env []string,
@@ -103,11 +94,12 @@ func getNewRunnerExecutor(modelName string, clk clock.Clock, uniterGetter UnitGe
 			_ func(context.HookProcess),
 			cancel <-chan struct{},
 		) (*utilexec.ExecResponse, error) {
-			// cancel := make(chan struct{})
-			// go func() {
-			// 	<-clk.After(20 * time.Second)
-			// 	close(cancel)
-			// }()
+
+			podName, err := fetchPodNameForUnit(uniterGetter, unit)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			logger.Criticalf("fetchPodNameForUnit podName -> %v", podName)
 
 			var stdout, stderr bytes.Buffer
 
@@ -124,7 +116,6 @@ func getNewRunnerExecutor(modelName string, clk clock.Clock, uniterGetter UnitGe
 			}
 			logger.Debugf("syncing files %q", stdout.String())
 
-			// var stdout, stderr bytes.Buffer
 			if err := client.Exec(
 				exec.ExecParams{
 					PodName:    podName,

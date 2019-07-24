@@ -81,11 +81,11 @@ type Uniter struct {
 	lastReportedStatus  status.Status
 	lastReportedMessage string
 
-	operationFactory     operation.Factory
-	operationExecutor    operation.Executor
-	newOperationExecutor NewOperationExecutorFunc
-	newRunnerExecutor    NewRunnerExecutorFunc
-	translateResolverErr func(error) error
+	operationFactory        operation.Factory
+	operationExecutor       operation.Executor
+	newOperationExecutor    NewOperationExecutorFunc
+	newRemoteRunnerExecutor NewRunnerExecutorFunc
+	translateResolverErr    func(error) error
 
 	leadershipTracker leadership.TrackerWorker
 	charmDirGuard     fortress.Guard
@@ -121,21 +121,21 @@ type Uniter struct {
 
 // UniterParams hold all the necessary parameters for a new Uniter.
 type UniterParams struct {
-	UniterFacade         *uniter.State
-	UnitTag              names.UnitTag
-	ModelType            model.ModelType
-	LeadershipTracker    leadership.TrackerWorker
-	DataDir              string
-	Downloader           charm.Downloader
-	MachineLock          machinelock.Lock
-	CharmDirGuard        fortress.Guard
-	UpdateStatusSignal   remotestate.UpdateStatusTimerFunc
-	HookRetryStrategy    params.RetryStrategy
-	NewOperationExecutor NewOperationExecutorFunc
-	NewRunnerExecutor    NewRunnerExecutorFunc
-	TranslateResolverErr func(error) error
-	Clock                clock.Clock
-	ApplicationChannel   watcher.NotifyChannel
+	UniterFacade            *uniter.State
+	UnitTag                 names.UnitTag
+	ModelType               model.ModelType
+	LeadershipTracker       leadership.TrackerWorker
+	DataDir                 string
+	Downloader              charm.Downloader
+	MachineLock             machinelock.Lock
+	CharmDirGuard           fortress.Guard
+	UpdateStatusSignal      remotestate.UpdateStatusTimerFunc
+	HookRetryStrategy       params.RetryStrategy
+	NewOperationExecutor    NewOperationExecutorFunc
+	NewRemoteRunnerExecutor NewRunnerExecutorFunc
+	TranslateResolverErr    func(error) error
+	Clock                   clock.Clock
+	ApplicationChannel      watcher.NotifyChannel
 	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
 	// the observer is only a stop gap to be used in tests. A better approach would be to have the uniter tests start hooks
 	// that write to files, and have the tests watch the output to know that hooks have finished.
@@ -171,21 +171,21 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 		translateResolverErr = func(err error) error { return err }
 	}
 	u := &Uniter{
-		st:                   uniterParams.UniterFacade,
-		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.ModelType == model.CAAS),
-		modelType:            uniterParams.ModelType,
-		hookLock:             uniterParams.MachineLock,
-		leadershipTracker:    uniterParams.LeadershipTracker,
-		charmDirGuard:        uniterParams.CharmDirGuard,
-		updateStatusAt:       uniterParams.UpdateStatusSignal,
-		hookRetryStrategy:    uniterParams.HookRetryStrategy,
-		newOperationExecutor: uniterParams.NewOperationExecutor,
-		newRunnerExecutor:    uniterParams.NewRunnerExecutor,
-		translateResolverErr: translateResolverErr,
-		observer:             uniterParams.Observer,
-		clock:                uniterParams.Clock,
-		downloader:           uniterParams.Downloader,
-		applicationChannel:   uniterParams.ApplicationChannel,
+		st:                      uniterParams.UniterFacade,
+		paths:                   NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.ModelType == model.CAAS),
+		modelType:               uniterParams.ModelType,
+		hookLock:                uniterParams.MachineLock,
+		leadershipTracker:       uniterParams.LeadershipTracker,
+		charmDirGuard:           uniterParams.CharmDirGuard,
+		updateStatusAt:          uniterParams.UpdateStatusSignal,
+		hookRetryStrategy:       uniterParams.HookRetryStrategy,
+		newOperationExecutor:    uniterParams.NewOperationExecutor,
+		newRemoteRunnerExecutor: uniterParams.NewRemoteRunnerExecutor,
+		translateResolverErr:    translateResolverErr,
+		observer:                uniterParams.Observer,
+		clock:                   uniterParams.Clock,
+		downloader:              uniterParams.Downloader,
+		applicationChannel:      uniterParams.ApplicationChannel,
 	}
 	startFunc := func() (worker.Worker, error) {
 		if err := catacomb.Invoke(catacomb.Plan{
@@ -564,12 +564,15 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return err
 	}
-	runnerExecutor, err := u.newRunnerExecutor(u.unit.Tag())
-	if err != nil {
-		return errors.Trace(err)
+	var remoteExecutor runner.ExecFunc
+	if u.newRemoteRunnerExecutor != nil {
+		remoteExecutor, err = u.newRemoteRunnerExecutor(u.unit.Tag())
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 	runnerFactory, err := runner.NewFactory(
-		u.st, u.paths, contextFactory, runnerExecutor,
+		u.st, u.paths, contextFactory, remoteExecutor,
 	)
 	if err != nil {
 		return errors.Trace(err)
