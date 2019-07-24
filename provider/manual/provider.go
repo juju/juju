@@ -96,13 +96,12 @@ func pingMachine(endpoint string) error {
 	// If "endpoint" contains connection user, test it as-is.
 	if strings.Contains(endpoint, "@") {
 		return echo(endpoint)
-	} else {
-		// Try using "endpoint" directly - it is either an IP address or a hostname
-		// and as such ssh Command will try using the user name of the user from the current client device.
-		if err := echo(endpoint); err != nil {
-			// If it fails, try to use ubuntu user, lp#1649721.
-			return echo(fmt.Sprintf("ubuntu@%v", endpoint))
-		}
+	}
+	// Try using "endpoint" directly - it is either an IP address or a hostname
+	// and as such ssh Command will try using the user name of the user from the current client device.
+	if err := echo(endpoint); err != nil {
+		// If it fails, try to use ubuntu user, lp#1649721.
+		return echo(fmt.Sprintf("ubuntu@%v", endpoint))
 	}
 	return nil
 }
