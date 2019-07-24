@@ -76,7 +76,7 @@ func (st *State) SaveSubnetsFromProvider(subnets []corenetwork.SubnetInfo, space
 			continue
 		}
 
-    subnet.SpaceName = spaceName
+		subnet.SpaceName = spaceName
 		if modelSubnetIds.Contains(string(subnet.ProviderId)) {
 			err = st.SubnetUpdate(subnet)
 		} else {

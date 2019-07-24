@@ -307,8 +307,8 @@ func (s *SpacesDiscoverySuite) TestReloadSpacesSubnetsUpdatesSubnets(c *gc.C) {
 	subnets, err := s.State.AllSubnets()
 	c.Assert(err, jc.ErrorIsNil)
 	twoSubnetsWithSpace := twoSubnets
-	twoSubnetsWithSpace[0].SpaceProviderId = spaceOne[0].ProviderId
-	twoSubnetsWithSpace[1].SpaceProviderId = spaceOne[0].ProviderId
+	twoSubnetsWithSpace[0].ProviderSpaceId = spaceOne[0].ProviderId
+	twoSubnetsWithSpace[1].ProviderSpaceId = spaceOne[0].ProviderId
 	checkSubnetsEqual(c, subnets, twoSubnetsWithSpace)
 }
 
@@ -351,7 +351,7 @@ func (s *SpacesDiscoverySuite) TestReloadSpacesSubnetsOnlyIdempotent(c *gc.C) {
 
 	subnets2, err := s.State.AllSubnets()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(subnets1, gc.DeepEquals, subnets2)
+	c.Check(subnets1, jc.DeepEquals, subnets2)
 }
 
 func (s *SpacesDiscoverySuite) TestReloadSpacesSpacesBroken(c *gc.C) {
