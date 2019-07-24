@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -60,6 +61,13 @@ func (ctx *limitedContext) SetEnvVars(vars map[string]string) {
 // UnitName implements runner.Context.
 func (ctx *limitedContext) UnitName() string {
 	return ctx.unitName
+}
+
+// ModelType implements runner.Context
+func (ctx *limitedContext) ModelType() model.ModelType {
+	// Can return IAAS constant because meter status is only used in Uniter.
+	// TODO(caas): Required for CAAS support.
+	return model.IAAS
 }
 
 // SetProcess implements runner.Context.

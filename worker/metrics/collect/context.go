@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -44,6 +45,13 @@ func (ctx *hookContext) HookVars(paths context.Paths) ([]string, error) {
 // UnitName implements runner.Context.
 func (ctx *hookContext) UnitName() string {
 	return ctx.unitName
+}
+
+// ModelType implements runner.Context
+func (ctx *hookContext) ModelType() model.ModelType {
+	// Can return IAAS constant because collect-metrics is only used in Uniter.
+	// TODO(caas): Required for CAAS support.
+	return model.IAAS
 }
 
 // Flush implements runner.Context.

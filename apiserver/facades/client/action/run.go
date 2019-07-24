@@ -99,7 +99,7 @@ func (a *ActionAPI) Run(run params.RunParams) (results params.ActionResults, err
 		machines[i] = names.NewMachineTag(machineId)
 	}
 
-	actionParams := a.createActionsParams(append(units, machines...), run.Commands, run.Timeout)
+	actionParams := a.createActionsParams(append(units, machines...), run.Commands, run.Timeout, run.WorkloadContext)
 
 	return queueActions(a, actionParams)
 }
@@ -114,6 +114,14 @@ func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.Actio
 		return results, errors.Trace(err)
 	}
 
+	m, err := a.state.Model()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	if m.Type() != state.ModelTypeIAAS {
+		return results, errors.Errorf("cannot run on all machines with a %s model", m.Type())
+	}
+
 	machines, err := a.state.AllMachines()
 	if err != nil {
 		return results, err
@@ -123,18 +131,20 @@ func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.Actio
 		machineTags[i] = machine.Tag()
 	}
 
-	actionParams := a.createActionsParams(machineTags, run.Commands, run.Timeout)
+	actionParams := a.createActionsParams(machineTags, run.Commands, run.Timeout, false)
 
 	return queueActions(a, actionParams)
 }
 
-func (a *ActionAPI) createActionsParams(actionReceiverTags []names.Tag, quotedCommands string, timeout time.Duration) params.Actions {
+func (a *ActionAPI) createActionsParams(actionReceiverTags []names.Tag, quotedCommands string,
+	timeout time.Duration, workloadContext bool) params.Actions {
 
 	apiActionParams := params.Actions{Actions: []params.Action{}}
 
 	actionParams := map[string]interface{}{}
 	actionParams["command"] = quotedCommands
 	actionParams["timeout"] = timeout.Nanoseconds()
+	actionParams["workload-context"] = workloadContext
 
 	for _, tag := range actionReceiverTags {
 		apiActionParams.Actions = append(apiActionParams.Actions, params.Action{

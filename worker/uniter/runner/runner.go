@@ -20,6 +20,7 @@ import (
 	utilexec "github.com/juju/utils/exec"
 
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/debug"
@@ -53,6 +54,7 @@ type Context interface {
 	SetProcess(process context.HookProcess)
 	HasExecutionSetUnitStatus() bool
 	ResetExecutionSetUnitStatus()
+	ModelType() model.ModelType
 
 	Prepare() error
 	Flush(badge string, failure error) error
@@ -120,6 +122,7 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 
 // runJujuRunAction is the function that executes when a juju-run action is ran.
 func (runner *runner) runJujuRunAction() (err error) {
+	logger.Debugf("juju-run action is running")
 	params, err := runner.context.ActionParams()
 	if err != nil {
 		return errors.Trace(err)
@@ -136,8 +139,14 @@ func (runner *runner) runJujuRunAction() (err error) {
 		logger.Debugf("unable to read juju-run action timeout, will continue running action without one")
 	}
 
-	results, err := runner.runCommandsWithTimeout(command, time.Duration(timeout), clock.WallClock)
+	if runner.context.ModelType() == model.CAAS {
+		runInWorkloadContext, _ := params["workload-context"].(bool)
+		if runInWorkloadContext {
+			return runner.runInCAASWorkload()
+		}
+	}
 
+	results, err := runner.runCommandsWithTimeout(command, time.Duration(timeout), clock.WallClock)
 	if err != nil {
 		return runner.context.Flush("juju-run", err)
 	}
@@ -147,6 +156,15 @@ func (runner *runner) runJujuRunAction() (err error) {
 	}
 
 	return runner.context.Flush("juju-run", nil)
+}
+
+func (runner *runner) runInCAASWorkload() error {
+	// TODO(caas): run on workload.
+	logger.Warningf("juju-run in workload %s", runner.context.UnitName())
+	/*if err := runner.updateActionResults(results); err != nil {
+		return runner.context.Flush("juju-run", err)
+	}*/
+	return runner.context.Flush("juju-run", errors.NotImplementedf("run in CAAS workload"))
 }
 
 func encodeBytes(input []byte) (value string, encoding string) {
@@ -205,6 +223,10 @@ func (runner *runner) RunHook(hookName string) error {
 }
 
 func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string) error {
+	if runner.context.ModelType() == model.CAAS {
+		// TODO(caas): run on workload.
+	}
+
 	srv, err := runner.startJujucServer()
 	if err != nil {
 		return err
