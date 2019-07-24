@@ -106,9 +106,9 @@ func (s *toolsSuite) TestToolsUploadedSecurely(c *gc.C) {
 	url := s.toolsURL("")
 	url.Scheme = "http"
 	apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
-		Method:      "PUT",
-		URL:         url.String(),
-		ExpectError: `.*malformed HTTP response.*`,
+		Method:       "PUT",
+		URL:          url.String(),
+		ExpectStatus: http.StatusBadRequest,
 	})
 }
 
