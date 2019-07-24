@@ -24,11 +24,14 @@ type Relation struct {
 	Units map[string]Settings
 	// UnitName is data for jujuc.ContextRelation.
 	UnitName string
+	// ApplicationSettings is data for jujuc.ContextRelation
+	ApplicationSettings Settings
 }
 
 // Reset clears the Relation's settings.
 func (r *Relation) Reset() {
 	r.Units = nil
+	r.ApplicationSettings = nil
 }
 
 // SetRelated adds the relation settings for the unit.
@@ -37,6 +40,10 @@ func (r *Relation) SetRelated(name string, settings Settings) {
 		r.Units = make(map[string]Settings)
 	}
 	r.Units[name] = settings
+}
+
+func (r *Relation) SetRelatedApplicationSettings(settings Settings) {
+	r.ApplicationSettings = settings
 }
 
 // ContextRelation is a test double for jujuc.ContextRelation.
@@ -81,6 +88,16 @@ func (r *ContextRelation) Settings() (jujuc.Settings, error) {
 		return nil, errors.Errorf("no settings for %q", r.info.UnitName)
 	}
 	return settings, nil
+}
+
+// ApplicationSettings implements jujuc.ContextRelation.
+func (r *ContextRelation) ApplicationSettings() (jujuc.Settings, error) {
+	r.stub.AddCall("ApplicationSettings")
+	if err := r.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return r.info.ApplicationSettings, nil
 }
 
 // UnitNames implements jujuc.ContextRelation.

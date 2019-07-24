@@ -262,6 +262,10 @@ type ContextRelation interface {
 	// this relation.
 	Settings() (Settings, error)
 
+	// ApplicationSettings allows read/write access to the application settings in
+	// this relation, but only if the current unit is leader.
+	ApplicationSettings() (Settings, error)
+
 	// UnitNames returns a list of the remote units in the relation.
 	UnitNames() []string
 

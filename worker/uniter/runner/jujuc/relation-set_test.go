@@ -46,12 +46,16 @@ Summary:
 set relation settings
 
 Options:
+--application  (= false)
+    change application settings instead of unit settings
 --file  (= )
     file containing key-value pairs
 --format (= "")
     deprecated format flag
 -r, --relation  (= %s)
     specify a relation by id
+--unit  (= false)
+    explicitly set unit settings (default)
 
 Details:
 "relation-set" writes the local unit's settings for some relation.
@@ -314,6 +318,18 @@ var relationSetInitTests = []relationSetInitTest{
 		args:     []string{"--file", "-"},
 		content:  "{foo: bar}",
 		settings: map[string]string{"foo": "bar"},
+	}, {
+		summary:  "pass --application",
+		args:     []string{"--application", "baz=qux"},
+		settings: map[string]string{"baz": "qux"},
+	}, {
+		summary:  "pass --unit",
+		args:     []string{"--unit", "baz=qux"},
+		settings: map[string]string{"baz": "qux"},
+	}, {
+		summary: "pass both --application and --unit",
+		args:    []string{"--unit", "--application", "baz=qux"},
+		err:     "cannot set both --unit and --application",
 	},
 }
 

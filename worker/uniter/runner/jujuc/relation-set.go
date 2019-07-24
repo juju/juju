@@ -40,6 +40,8 @@ type RelationSetCommand struct {
 	Settings        map[string]string
 	settingsFile    cmd.FileVar
 	formatFlag      string // deprecated
+	setUnit         bool
+	setApplication  bool
 }
 
 func NewRelationSetCommand(ctx Context) (cmd.Command, error) {
@@ -69,6 +71,8 @@ func (c *RelationSetCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	c.settingsFile.SetStdin()
 	f.Var(&c.settingsFile, "file", "file containing key-value pairs")
+	f.BoolVar(&c.setApplication, "application", false, "change application settings instead of unit settings")
+	f.BoolVar(&c.setUnit, "unit", false, "explicitly set unit settings (default)")
 
 	f.StringVar(&c.formatFlag, "format", "", "deprecated format flag")
 }
@@ -76,6 +80,10 @@ func (c *RelationSetCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *RelationSetCommand) Init(args []string) error {
 	if c.RelationId == -1 {
 		return errors.Errorf("no relation id specified")
+	}
+
+	if c.setUnit && c.setApplication {
+		return errors.New("cannot set both --unit and --application")
 	}
 
 	// The overrides will be applied during Run when c.settingsFile is handled.
@@ -137,7 +145,12 @@ func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	settings, err := r.Settings()
+	var settings Settings
+	if c.setApplication {
+		settings, err = r.ApplicationSettings()
+	} else {
+		settings, err = r.Settings()
+	}
 	if err != nil {
 		return errors.Annotate(err, "cannot read relation settings")
 	}

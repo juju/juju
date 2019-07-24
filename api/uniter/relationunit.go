@@ -118,6 +118,9 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 	return newSettings(ru.st, ru.relation.tag.String(), ru.unit.tag.String(), result.Settings), nil
 }
 
+// TODO(jam) 2019-07-24: RelationUnit.ApplicationSettings() This might just be
+//  'ReadSettings' but passing the application tag instead of a unit tag.
+
 // ReadSettings returns a map holding the settings of the unit with the
 // supplied name within this relation. An error will be returned if the
 // relation no longer exists, or if the unit's application is not part of the

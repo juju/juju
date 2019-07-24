@@ -26,6 +26,9 @@ type ContextRelation struct {
 	// settings allows read and write access to the relation unit settings.
 	settings *uniter.Settings
 
+	// applicationSettings allows read and write access to the relation application settings.
+	applicationSettings jujuc.Settings
+
 	// cache holds remote unit membership and settings.
 	cache *RelationCache
 }
@@ -72,12 +75,44 @@ func (ctx *ContextRelation) Settings() (jujuc.Settings, error) {
 	return ctx.settings, nil
 }
 
-// WriteSettings persists all changes made to the unit's relation settings.
-func (ctx *ContextRelation) WriteSettings() (err error) {
-	if ctx.settings != nil {
-		err = ctx.settings.Write()
+type bogusSettings params.Settings
+
+func (b bogusSettings) Map() params.Settings {
+	return params.Settings(b)
+}
+
+func (b bogusSettings) Set(k, v string) {
+	b[k] = v
+}
+
+func (b bogusSettings) Delete(k string) {
+	b[k] = ""
+}
+
+func (ctx *ContextRelation) ApplicationSettings() (jujuc.Settings, error) {
+	if ctx.applicationSettings == nil {
+		// TODO(jam): 2019-07-24
+		// Eventually this will be an API call that gets the application settings
+		// for this unit, and also does a leadership test for this unit.
+		// For now, we just fake it with something that will keep values we
+		// set, but forget them entirely when we are done.
+		ctx.applicationSettings = make(bogusSettings)
 	}
-	return
+	return ctx.applicationSettings, nil
+}
+
+// WriteSettings persists all changes made to the unit's relation settings.
+func (ctx *ContextRelation) WriteSettings() error {
+	if ctx.settings != nil {
+		err := ctx.settings.Write()
+		if err != nil {
+			return err
+		}
+	}
+	if ctx.applicationSettings != nil {
+		// ctx.applicationSettings.Write()
+	}
+	return nil
 }
 
 // Suspended returns true if the relation is suspended.

@@ -31,11 +31,6 @@ func newSettings(st *State, relationTag, unitTag string, settings params.Setting
 }
 
 // Map returns all keys and values of the node.
-//
-// TODO(dimitern): This differes from state.Settings.Map() - it does
-// not return map[string]interface{}, but since all values are
-// expected to be strings anyway, we need to fix the uniter code
-// accordingly when migrating to the API.
 func (s *Settings) Map() params.Settings {
 	settingsCopy := make(params.Settings)
 	for k, v := range s.settings {
@@ -48,9 +43,6 @@ func (s *Settings) Map() params.Settings {
 }
 
 // Set sets key to value.
-//
-// TODO(dimitern): value must be a string. Change the code that uses
-// this accordingly.
 func (s *Settings) Set(key, value string) {
 	s.settings[key] = value
 }
@@ -65,14 +57,6 @@ func (s *Settings) Delete(key string) {
 // Write writes changes made to s back onto its node. Keys set to
 // empty values will be deleted, others will be updated to the new
 // value.
-//
-// TODO(dimitern): 2013-09-06 bug 1221798
-// Once the machine addressability changes lands, we may need to
-// revise the logic here to take into account that the
-// "private-address" setting for a unit can be changed outside of the
-// uniter's control. So we may need to send diffs of what has changed
-// to make sure we update the address (and other settings) correctly,
-// without overwritting.
 func (s *Settings) Write() error {
 	// First make a copy of the map, including deleted keys.
 	settingsCopy := make(params.Settings)
@@ -88,6 +72,9 @@ func (s *Settings) Write() error {
 			Settings: settingsCopy,
 		}},
 	}
+	// TODO(jam): 2019-07-24 Implement support for UpdateSettings and Application settings.
+	//  This might just be UpdateSettings taking an application tag, or we might
+	//  want a different API.
 	err := s.st.facade.FacadeCall("UpdateSettings", args, &result)
 	if err != nil {
 		return err
