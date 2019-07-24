@@ -93,12 +93,12 @@ type NetworkConfig struct {
 	// interface is attached to.
 	ProviderSubnetId string `json:"provider-subnet-id"`
 
-	// ProviderSpaceId is a provider-specific space id, to which the interface
-	// is attached to, if known and supported.
+	// ProviderSpaceId is a provider-specific space id to which the interface
+	// is attached, if known and supported.
 	ProviderSpaceId string `json:"provider-space-id"`
 
-	// ProviderAddressId is the provider-specific id of the assigned address, if
-	// supported and known.
+	// ProviderAddressId is the provider-specific id of the assigned address,
+	// if supported and known.
 	ProviderAddressId string `json:"provider-address-id"`
 
 	// ProviderVLANId is the provider-specific id of the assigned address's
