@@ -6,6 +6,7 @@ package state
 import (
 	"net"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
@@ -22,14 +23,14 @@ type Subnet struct {
 }
 
 type subnetDoc struct {
-	DocID             string `bson:"_id"`
-	TxnRevno          int64  `bson:"txn-revno"`
-	ModelUUID         string `bson:"model-uuid"`
-	Life              Life   `bson:"life"`
-	ProviderId        string `bson:"providerid,omitempty"`
-	ProviderNetworkId string `bson:"provider-network-id,omitempty"`
-	CIDR              string `bson:"cidr"`
-	VLANTag           int    `bson:"vlantag,omitempty"`
+	DocID             string   `bson:"_id"`
+	TxnRevno          int64    `bson:"txn-revno"`
+	ModelUUID         string   `bson:"model-uuid"`
+	Life              Life     `bson:"life"`
+	ProviderId        string   `bson:"providerid,omitempty"`
+	ProviderNetworkId string   `bson:"provider-network-id,omitempty"`
+	CIDR              string   `bson:"cidr"`
+	VLANTag           int      `bson:"vlantag,omitempty"`
 	AvailabilityZones []string `bson:"availability-zones,omitempty"`
 	// TODO: add IsPublic to SubnetArgs, add an IsPublic method and add
 	// IsPublic to migration import/export.
@@ -205,7 +206,7 @@ func (s *Subnet) Refresh() error {
 //   - no change to CIDR, more work to determine how to handle needs to
 // be done.
 //   - no change to ProviderId nor ProviderNetworkID, these are immutable.
-func (s *Subnet) Update(args SubnetInfo) error {
+func (s *Subnet) Update(args network.SubnetInfo) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt != 0 {
 			if err := s.Refresh(); err != nil {
@@ -219,26 +220,28 @@ func (s *Subnet) Update(args SubnetInfo) error {
 		if err != nil {
 			return nil, err
 		}
-		var set bson.D
+		var bsonSet bson.D
 		if makeSpaceNameUpdate {
-			set = append(set, bson.DocElem{"space-name", args.SpaceName})
+			bsonSet = append(bsonSet, bson.DocElem{"space-name", args.SpaceName})
 		}
-		// TODO (hml) 2019-07-16
-		// Updated once SubnetInfo.AvailablityZone is a slice
-		if s.doc.AvailabilityZone == "" && args.AvailabilityZone != "" {
-			set = append(set, bson.DocElem{"availabilityzone", args.AvailabilityZone})
+		if len(args.AvailabilityZones) > 0 {
+			currentAZ := set.NewStrings(args.AvailabilityZones...)
+			newAZ := currentAZ.Difference(set.NewStrings(s.doc.AvailabilityZones...))
+			if !newAZ.IsEmpty() {
+				bsonSet = append(bsonSet, bson.DocElem{"availability-zones", append(s.doc.AvailabilityZones, newAZ.Values()...)})
+			}
 		}
 		if s.doc.VLANTag == 0 && args.VLANTag > 0 {
-			set = append(set, bson.DocElem{"vlantag", args.VLANTag})
+			bsonSet = append(bsonSet, bson.DocElem{"vlantag", args.VLANTag})
 		}
-		if len(set) == 0 {
+		if len(bsonSet) == 0 {
 			return nil, jujutxn.ErrNoOperations
 		}
 		return []txn.Op{{
 			C:      subnetsC,
 			Id:     s.doc.DocID,
 			Assert: bson.D{{"txn-revno", s.doc.TxnRevno}},
-			Update: bson.D{{"$set", set}},
+			Update: bson.D{{"$set", bsonSet}},
 		}}, nil
 	}
 	return errors.Trace(s.st.db().Run(buildTxn))
@@ -253,18 +256,17 @@ func (s *Subnet) updateSpaceName(spaceName string) (bool, error) {
 	case errors.IsNotFound(err):
 		spaceNameChange = true
 	case err == nil:
-		// TODO (hml) 2019-07-16
-		// Update once network.DefaultSpaceId code has landed.
+		// Only change space name it's a default one at this time.
 		//
 		// The undefined space from MAAS has a providerId of -1.
 		// The juju default space will be 0.
-		spaceNameChange = sp.doc.ProviderId == "-1"
+		spaceNameChange = sp.doc.ProviderId == "-1" || sp.doc.Id == network.DefaultSpaceId
 	}
 	return spaceNameChange && spaceName != "" && s.doc.FanLocalUnderlay == "", nil
 }
 
 // SubnetUpdate adds new info to the subnet based on provided info.
-func (st *State) SubnetUpdate(args SubnetInfo) error {
+func (st *State) SubnetUpdate(args network.SubnetInfo) error {
 	s, err := st.Subnet(args.CIDR)
 	if err != nil {
 		return errors.Trace(err)
