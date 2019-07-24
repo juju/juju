@@ -62,7 +62,7 @@
   name = "github.com/juju/bundlechanges"
 
 [[constraint]]
-  revision = "9daa941ef37578e70e66a5f97ab64b1f2b2bd410"
+  revision = "e5397239cbdadecd1ee144b827efb904f3108fbb"
   name = "github.com/juju/description"
 
 [[constraint]]

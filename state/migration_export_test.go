@@ -967,7 +967,10 @@ func (s *MigrationExportSuite) TestSpaces(c *gc.C) {
 
 	spaces := model.Spaces()
 	c.Assert(spaces, gc.HasLen, 1)
+
 	space := spaces[0]
+
+	c.Assert(space.Id(), gc.Not(gc.Equals), "")
 	c.Assert(space.Name(), gc.Equals, "one")
 	c.Assert(space.ProviderID(), gc.Equals, "provider")
 	c.Assert(space.Public(), jc.IsTrue)

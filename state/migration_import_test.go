@@ -65,7 +65,9 @@ func (s *MigrationImportSuite) TestExisting(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
-func (s *MigrationImportSuite) importModel(c *gc.C, st *state.State, transform ...func(map[string]interface{})) (*state.Model, *state.State) {
+func (s *MigrationImportSuite) importModel(
+	c *gc.C, st *state.State, transform ...func(map[string]interface{}),
+) (*state.Model, *state.State) {
 	out, err := st.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1052,14 +1054,31 @@ func (s *MigrationImportSuite) TestSpaces(c *gc.C) {
 	space := s.Factory.MakeSpace(c, &factory.SpaceParams{
 		Name: "one", ProviderID: corenetwork.Id("provider"), IsPublic: true})
 
-	_, newSt := s.importModel(c, s.State)
+	spaceNoID := s.Factory.MakeSpace(c, &factory.SpaceParams{
+		Name: "no-id", ProviderID: corenetwork.Id("provider2"), IsPublic: true})
+
+	// Blank the ID from the second space to check that import creates it.
+	_, newSt := s.importModel(c, s.State, func(desc map[string]interface{}) {
+		spaces := desc["spaces"].(map[interface{}]interface{})
+		for _, item := range spaces["spaces"].([]interface{}) {
+			sp := item.(map[interface{}]interface{})
+			if sp["name"] == spaceNoID.Name() {
+				sp["id"] = ""
+			}
+		}
+	})
 
 	imported, err := newSt.Space(space.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(imported.Name(), gc.Equals, space.Name())
-	c.Assert(imported.ProviderId(), gc.Equals, space.ProviderId())
-	c.Assert(imported.IsPublic(), gc.Equals, space.IsPublic())
+	c.Check(imported.Id(), gc.Equals, space.Id())
+	c.Check(imported.Name(), gc.Equals, space.Name())
+	c.Check(imported.ProviderId(), gc.Equals, space.ProviderId())
+	c.Check(imported.IsPublic(), gc.Equals, space.IsPublic())
+
+	imported, err = newSt.Space(spaceNoID.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(imported.Id(), gc.Not(gc.Equals), "")
 }
 
 func (s *MigrationImportSuite) TestDestroyEmptyModel(c *gc.C) {
