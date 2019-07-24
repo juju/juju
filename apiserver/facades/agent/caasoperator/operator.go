@@ -5,6 +5,7 @@ package caasoperator
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -16,6 +17,9 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+var logger = loggo.GetLogger("juju.apiserver.caasoperator")
+
+// Facade provides access to the CAASOperator facade.
 type Facade struct {
 	auth      facade.Authorizer
 	resources facade.Resources
@@ -29,11 +33,34 @@ type Facade struct {
 	model Model
 }
 
-// NewStateFacade provides the signature required for facade registration.
-func NewStateFacade(ctx facade.Context) (*Facade, error) {
+// FacadeV1 provides v1 of the CAASOperator facade.
+type FacadeV1 struct {
+	*FacadeV2
+}
+
+// FacadeV2 provides the latest(v2) of the CAASOperator facade.
+type FacadeV2 struct {
+	*Facade
+}
+
+// NewStateFacadeV1 provides the version 1 of CAASOperator facade.
+func NewStateFacadeV1(ctx facade.Context) (*FacadeV1, error) {
+	facadeV2, err := NewStateFacadeV2(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &FacadeV1{facadeV2}, nil
+}
+
+// NewStateFacadeV2 provides the version 2 of CAASOperator facade.
+func NewStateFacadeV2(ctx facade.Context) (*FacadeV2, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
-	return NewFacade(resources, authorizer, stateShim{ctx.State()})
+	facade, err := NewFacade(resources, authorizer, stateShim{ctx.State()})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &FacadeV2{facade}, nil
 }
 
 // NewFacade returns a new CAASOperator facade.
@@ -53,30 +80,9 @@ func NewFacade(
 		common.AuthFuncForTagKind(names.ApplicationTagKind),
 		common.AuthFuncForTagKind(names.UnitTagKind),
 	)
+
 	accessUnit := func() (common.AuthFunc, error) {
-		switch tag := authorizer.GetAuthTag().(type) {
-		case names.ApplicationTag:
-			// Any of the units belonging to
-			// the application can be accessed.
-			app, err := st.Application(tag.Name)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			allUnits, err := app.AllUnits()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return func(tag names.Tag) bool {
-				for _, u := range allUnits {
-					if u.Tag() == tag {
-						return true
-					}
-				}
-				return false
-			}, nil
-		default:
-			return nil, errors.Errorf("expected names.ApplicationTag, got %T", tag)
-		}
+		return getAccessUnitChecker(st, authorizer.GetAuthTag())
 	}
 	return &Facade{
 		LifeGetter:         common.NewLifeGetter(st, canRead),
@@ -88,6 +94,28 @@ func NewFacade(
 		resources:          resources,
 		state:              st,
 		model:              model,
+	}, nil
+}
+
+func getAccessUnitChecker(st CAASOperatorState, authTag names.Tag) (common.AuthFunc, error) {
+	appTag := names.NewApplicationTag(authTag.Id())
+	// Any of the units belonging to
+	// the application can be accessed.
+	app, err := st.Application(appTag.Name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	allUnits, err := app.AllUnits()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return func(tag names.Tag) bool {
+		for _, u := range allUnits {
+			if u.Tag() == tag {
+				return true
+			}
+		}
+		return false
 	}, nil
 }
 
@@ -229,29 +257,38 @@ func (f *Facade) WatchUnits(args params.Entities) (params.StringsWatchResults, e
 	return results, nil
 }
 
+// Units isn't on the V1 facade.
+func (f *FacadeV1) Units(_, _ struct{}) {}
+
 // Units returns units' status.
-func (f *Facade) Units(args params.Entities) ([]params.UnitStatusResult, error) {
-	results := make([]params.UnitStatusResult, len(args.Entities))
-	authTag := f.auth.GetAuthTag()
+func (f *Facade) Units(args params.Entities) (params.UnitStatusResults, error) {
+	results := params.UnitStatusResults{
+		Results: make([]params.UnitStatusResult, len(args.Entities)),
+	}
+
+	canAccessUnit, err := getAccessUnitChecker(f.state, f.auth.GetAuthTag())
+	if err != nil {
+		return results, errors.Trace(err)
+	}
 	for i, entity := range args.Entities {
 		unitTag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		if unitTag != authTag {
-			results[i].Error = common.ServerError(common.ErrPerm)
+		if !canAccessUnit(unitTag) {
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		unit, err := f.state.Unit(unitTag.Id())
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		var unitStatus *params.UnitStatus
+		unitStatus := &params.UnitStatus{}
 		container, err := unit.ContainerInfo()
 		if err != nil {
-			results[i].Error = common.ServerError(err)
+			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		addr := container.Address()
@@ -268,7 +305,7 @@ func (f *Facade) Units(args params.Entities) ([]params.UnitStatusResult, error) 
 		if curl != nil {
 			unitStatus.Charm = curl.String()
 		}
-		results[i].Result = unitStatus
+		results.Results[i].Result = unitStatus
 	}
 	return results, nil
 }

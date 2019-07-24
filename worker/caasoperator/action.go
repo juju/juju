@@ -5,7 +5,7 @@ package caasoperator
 
 import (
 	"bytes"
-	"time"
+	// "time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -61,11 +61,13 @@ func syncFiles(client exec.Executer, podName string, stdout, stderr bytes.Buffer
 }
 
 func getPodNameForUnit(c UnitGetter, tag names.UnitTag) (string, error) {
-	units, err := c.Units(tag)
+	result, err := c.Units(tag)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	unit := units[0]
+	logger.Criticalf("getPodNameForUnit units -> %v", result.Results)
+	unit := result.Results[0]
+	logger.Criticalf("getPodNameForUnit unit.Result -> %v, unit.Error -> %v", unit.Result, unit.Error)
 	if unit.Error != nil {
 		return "", unit.Error
 	}
@@ -74,39 +76,24 @@ func getPodNameForUnit(c UnitGetter, tag names.UnitTag) (string, error) {
 }
 
 func getNewRunnerExecutor(modelName string, clk clock.Clock, uniterGetter UnitGetter) func(unit names.UnitTag) (runner.ExecFunc, error) {
+	// podName, err := getPodNameForUnit(uniterGetter, names.NewUnitTag("mariadb-k8s/0"))
+	// logger.Criticalf("getPodNameForUnit podName -> %v, err -> %v", podName, err)
 	return func(unit names.UnitTag) (runner.ExecFunc, error) {
 		c, cfg, err := exec.GetInClusterClient()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		client := exec.New(
-			modelName,
-			c, cfg,
+			modelName, c, cfg,
 		)
 
-		cancel := make(chan struct{})
-		go func() {
-			<-clk.After(20 * time.Second)
-			close(cancel)
-		}()
-
-		var stdout, stderr bytes.Buffer
 		podName, err := getPodNameForUnit(uniterGetter, unit)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		// ensure /var/lib/juju
-		if err := ensurePath(client, podName, stdout, stderr, cancel); err != nil {
-			logger.Errorf("ensuring /var/lib/juju %q", stderr.String())
-			return nil, errors.Trace(err)
-		}
-		logger.Debugf("ensuring /var/lib/juju %q", stdout.String())
+		logger.Criticalf("getPodNameForUnit podName -> %v", podName)
 
-		if err := syncFiles(client, podName, stdout, stderr, cancel); err != nil {
-			logger.Errorf("syncing files %q", stderr.String())
-			return nil, errors.Trace(err)
-		}
-		logger.Debugf("syncing files %q", stdout.String())
+		// return runner.ExecOnMachine, nil
 
 		return func(
 			commands []string,
@@ -116,7 +103,28 @@ func getNewRunnerExecutor(modelName string, clk clock.Clock, uniterGetter UnitGe
 			_ func(context.HookProcess),
 			cancel <-chan struct{},
 		) (*utilexec.ExecResponse, error) {
+			// cancel := make(chan struct{})
+			// go func() {
+			// 	<-clk.After(20 * time.Second)
+			// 	close(cancel)
+			// }()
+
 			var stdout, stderr bytes.Buffer
+
+			// ensure /var/lib/juju
+			if err := ensurePath(client, podName, stdout, stderr, cancel); err != nil {
+				logger.Errorf("ensuring /var/lib/juju %q", stderr.String())
+				return nil, errors.Trace(err)
+			}
+			logger.Debugf("ensuring /var/lib/juju %q", stdout.String())
+
+			if err := syncFiles(client, podName, stdout, stderr, cancel); err != nil {
+				logger.Errorf("syncing files %q", stderr.String())
+				return nil, errors.Trace(err)
+			}
+			logger.Debugf("syncing files %q", stdout.String())
+
+			// var stdout, stderr bytes.Buffer
 			if err := client.Exec(
 				exec.ExecParams{
 					PodName:    podName,

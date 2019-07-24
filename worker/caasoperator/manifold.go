@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/operation"
+	// "github.com/juju/juju/worker/uniter/runner"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a
@@ -160,6 +161,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UniterParams: &uniter.UniterParams{
 					NewOperationExecutor: operation.NewExecutor,
 					NewRunnerExecutor:    getNewRunnerExecutor(model.Name, clock, client),
+					// NewRunnerExecutor:    func(_ names.UnitTag) (runner.ExecFunc, error) { return runner.ExecOnMachine, nil },
 					DataDir:              agentConfig.DataDir(),
 					Clock:                clock,
 					MachineLock:          config.MachineLock,

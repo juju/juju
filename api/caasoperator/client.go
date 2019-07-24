@@ -186,11 +186,11 @@ func (c *Client) WatchUnits(application string) (watcher.StringsWatcher, error) 
 }
 
 // Units returns units' status.
-func (c *Client) Units(tags ...names.Tag) ([]params.UnitStatusResult, error) {
-	var result []params.UnitStatusResult
+func (c *Client) Units(tags ...names.Tag) (params.UnitStatusResults, error) {
+	var result params.UnitStatusResults
 	args := entities(tags...)
 	if err := c.facade.FacadeCall("Units", args, &result); err != nil {
-		return nil, errors.Trace(err)
+		return result, errors.Trace(err)
 	}
 	return result, nil
 }

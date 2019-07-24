@@ -211,6 +211,11 @@ type UnitStatusResult struct {
 	Error  *Error      `json:"error,omitempty"`
 }
 
+// UnitStatusResults contains an set of UnitStatusResult.
+type UnitStatusResults struct {
+	Results []UnitStatusResult `json:"results"`
+}
+
 // RelationStatus holds status info about a relation.
 type RelationStatus struct {
 	Id        int              `json:"id"`

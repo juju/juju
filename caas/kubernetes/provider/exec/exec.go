@@ -182,12 +182,21 @@ func getValidatedPodContainer(
 	}
 	var pod *core.Pod
 	pod, err = podGetter.Get(podName, metav1.GetOptions{})
-	// TODO: if not found, try list and find it using .ID coz cloudcontainer.providerId currently cloud be "podName" or "Id" !!!!!!!!!!!!!!!!!!!!!!!!!
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return "", "", errors.NotFoundf("pod %q", podName)
+	if k8serrors.IsNotFound(err) {
+		pods, err := podGetter.List(metav1.ListOptions{})
+		// TODO(caas): remove getting pod by Id (a bit expensive) once we started to cache podName in cloudContainer doc.
+		if err != nil {
+			return "", "", errors.Trace(err)
 		}
-		return "", "", errors.Trace(err)
+		for _, p := range pods.Items {
+			if string(p.GetUID()) == podName {
+				pod = &p
+				break
+			}
+		}
+	}
+	if pod == nil {
+		return "", "", errors.NotFoundf("pod %q", podName)
 	}
 
 	if pod.Status.Phase == core.PodSucceeded || pod.Status.Phase == core.PodFailed {
