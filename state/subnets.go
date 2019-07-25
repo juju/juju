@@ -17,9 +17,10 @@ import (
 )
 
 type Subnet struct {
-	st        *State
-	doc       subnetDoc
-	spaceName string
+	st  *State
+	doc subnetDoc
+	// spaceID is the space id from the subnet's FanLocalUnderlay, or this subnet's space id,
+	spaceID string
 }
 
 type subnetDoc struct {
@@ -35,7 +36,7 @@ type subnetDoc struct {
 	// TODO: add IsPublic to SubnetArgs, add an IsPublic method and add
 	// IsPublic to migration import/export.
 	IsPublic         bool   `bson:"is-public,omitempty"`
-	SpaceName        string `bson:"space-name,omitempty"`
+	SpaceID          string `bson:"space-id,omitempty"`
 	FanLocalUnderlay string `bson:"fan-local-underlay,omitempty"`
 	FanOverlay       string `bson:"fan-overlay,omitempty"`
 }
@@ -143,10 +144,25 @@ func (s *Subnet) AvailabilityZones() []string {
 	return s.doc.AvailabilityZones
 }
 
+// TODO (hml) 2019-07-24
+// SpaceName() should be removed in favor of SpaceID() or return an
+// error.
+//
 // SpaceName returns the space the subnet is associated with. If the subnet is
 // not associated with a space it will be the empty string.
 func (s *Subnet) SpaceName() string {
-	return s.spaceName
+	sp, err := s.st.SpaceByID(s.spaceID)
+	if err != nil {
+		logger.Errorf("error finding space %q: %s", s.spaceID, err)
+		return network.DefaultSpaceName
+	}
+	return sp.Name()
+}
+
+// SpaceID returns the id of the space the subnet is associated with. If the subnet is
+// not associated with a space it will be network.DefaultSpaceId.
+func (s *Subnet) SpaceID() string {
+	return s.spaceID
 }
 
 // ProviderNetworkId returns the provider id of the network containing
@@ -187,14 +203,14 @@ func (s *Subnet) Refresh() error {
 	if err != nil {
 		return errors.Errorf("cannot refresh subnet %q: %v", s, err)
 	}
-	s.spaceName = s.doc.SpaceName
+	s.spaceID = s.doc.SpaceID
 	if s.doc.FanLocalUnderlay != "" {
 		overlayDoc := &subnetDoc{}
 		err = subnets.FindId(s.doc.FanLocalUnderlay).One(overlayDoc)
 		if err != nil {
 			return errors.Annotatef(err, "finding underlay network %v for FAN %v", s.doc.FanLocalUnderlay, s.doc.CIDR)
 		} else {
-			s.spaceName = overlayDoc.SpaceName
+			s.spaceID = overlayDoc.SpaceID
 		}
 	}
 	return nil
@@ -222,7 +238,13 @@ func (s *Subnet) Update(args network.SubnetInfo) error {
 		}
 		var bsonSet bson.D
 		if makeSpaceNameUpdate {
-			bsonSet = append(bsonSet, bson.DocElem{"space-name", args.SpaceName})
+			// TODO (hml) 2019-07-25
+			// Update for SpaceID once SubnetInfo Updated
+			sp, err := s.st.Space(args.SpaceName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			bsonSet = append(bsonSet, bson.DocElem{"space-id", sp.Id()})
 		}
 		if len(args.AvailabilityZones) > 0 {
 			currentAZ := set.NewStrings(args.AvailabilityZones...)
@@ -249,7 +271,7 @@ func (s *Subnet) Update(args network.SubnetInfo) error {
 
 func (s *Subnet) updateSpaceName(spaceName string) (bool, error) {
 	var spaceNameChange bool
-	sp, err := s.st.Space(s.doc.SpaceName)
+	sp, err := s.st.SpaceByID(s.doc.SpaceID)
 	switch {
 	case err != nil && !errors.IsNotFound(err):
 		return false, errors.Trace(err)
@@ -262,6 +284,9 @@ func (s *Subnet) updateSpaceName(spaceName string) (bool, error) {
 		// The juju default space will be 0.
 		spaceNameChange = sp.doc.ProviderId == "-1" || sp.doc.Id == network.DefaultSpaceId
 	}
+	// TODO (hml) 2019-07-25
+	// Update when there is a s.doc.spaceID, which has done the calculation of
+	// ID from the CIDR or FAN.
 	return spaceNameChange && spaceName != "" && s.doc.FanLocalUnderlay == "", nil
 }
 
@@ -309,6 +334,12 @@ func (st *State) AddSubnet(args network.SubnetInfo) (subnet *Subnet, err error) 
 }
 
 func (st *State) newSubnetFromArgs(args network.SubnetInfo) (*Subnet, error) {
+	// TODO (hml) 2019-07-24
+	// Temporary until SubnetInfo.SpaceName is changed to SubnetInfo.SpaceID
+	sp, err := st.Space(args.SpaceName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	subnetID := st.docID(args.CIDR)
 	subDoc := subnetDoc{
 		DocID:             subnetID,
@@ -319,12 +350,12 @@ func (st *State) newSubnetFromArgs(args network.SubnetInfo) (*Subnet, error) {
 		ProviderId:        string(args.ProviderId),
 		ProviderNetworkId: string(args.ProviderNetworkId),
 		AvailabilityZones: args.AvailabilityZones,
-		SpaceName:         args.SpaceName,
+		SpaceID:           sp.Id(),
 		FanLocalUnderlay:  args.FanLocalUnderlay(),
 		FanOverlay:        args.FanOverlay(),
 	}
-	subnet := &Subnet{doc: subDoc, st: st, spaceName: args.SpaceName}
-	err := subnet.Validate()
+	subnet := &Subnet{doc: subDoc, st: st, spaceID: sp.Id()}
+	err = subnet.Validate()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -332,6 +363,12 @@ func (st *State) newSubnetFromArgs(args network.SubnetInfo) (*Subnet, error) {
 }
 
 func (st *State) addSubnetOps(args network.SubnetInfo) []txn.Op {
+	// TODO (hml) 2019-07-24
+	// Temporary until SubnetInfo.SpaceName is changed to SubnetInfo.SpaceID
+	sp, err := st.Space(args.SpaceName)
+	if err != nil {
+		//return nil, errors.Trace(err)
+	}
 	subnetID := st.docID(args.CIDR)
 	subDoc := subnetDoc{
 		DocID:             subnetID,
@@ -342,7 +379,7 @@ func (st *State) addSubnetOps(args network.SubnetInfo) []txn.Op {
 		ProviderId:        string(args.ProviderId),
 		ProviderNetworkId: string(args.ProviderNetworkId),
 		AvailabilityZones: args.AvailabilityZones,
-		SpaceName:         args.SpaceName,
+		SpaceID:           sp.Id(),
 		FanLocalUnderlay:  args.FanLocalUnderlay(),
 		FanOverlay:        args.FanOverlay(),
 	}
@@ -373,7 +410,7 @@ func (st *State) Subnet(cidr string) (*Subnet, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get subnet %q", cidr)
 	}
-	spaceName := doc.SpaceName
+	spaceID := doc.SpaceID
 	if doc.FanLocalUnderlay != "" {
 		overlayDoc := &subnetDoc{}
 		err = subnets.FindId(doc.FanLocalUnderlay).One(overlayDoc)
@@ -381,11 +418,11 @@ func (st *State) Subnet(cidr string) (*Subnet, error) {
 			return nil, errors.Annotatef(
 				err, "Can't find underlay network %v for FAN %v", doc.FanLocalUnderlay, doc.CIDR)
 		} else {
-			spaceName = overlayDoc.SpaceName
+			spaceID = overlayDoc.SpaceID
 		}
 	}
 
-	return &Subnet{st, doc, spaceName}, nil
+	return &Subnet{st: st, doc: doc, spaceID: spaceID}, nil
 }
 
 // AllSubnets returns all known subnets in the model.
@@ -400,16 +437,16 @@ func (st *State) AllSubnets() (subnets []*Subnet, err error) {
 	}
 	cidrToSpace := make(map[string]string)
 	for _, doc := range docs {
-		cidrToSpace[doc.CIDR] = doc.SpaceName
+		cidrToSpace[doc.CIDR] = doc.SpaceID
 	}
 	for _, doc := range docs {
-		spaceName := doc.SpaceName
+		spaceID := doc.SpaceID
 		if doc.FanLocalUnderlay != "" {
 			if space, ok := cidrToSpace[doc.FanLocalUnderlay]; ok {
-				spaceName = space
+				spaceID = space
 			}
 		}
-		subnets = append(subnets, &Subnet{st, doc, spaceName})
+		subnets = append(subnets, &Subnet{st: st, doc: doc, spaceID: spaceID})
 	}
 	return subnets, nil
 }

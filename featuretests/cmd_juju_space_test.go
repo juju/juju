@@ -35,21 +35,18 @@ func (s *cmdSpaceSuite) AddSubnets(c *gc.C, infos []network.SubnetInfo) []*state
 
 func (s *cmdSpaceSuite) MakeSubnetInfos(c *gc.C, space string, cidrTemplate string, count int) (
 	infos []network.SubnetInfo,
-	ids []string,
 ) {
 	infos = make([]network.SubnetInfo, count)
-	ids = make([]string, count)
 	for i := range infos {
-		ids[i] = fmt.Sprintf(cidrTemplate, i)
 		infos[i] = network.SubnetInfo{
 			// ProviderId it needs to be unique in state.
 			ProviderId:        network.Id(fmt.Sprintf("sub-%d", rand.Int())),
-			CIDR:              ids[i],
+			CIDR:              fmt.Sprintf(cidrTemplate, i),
 			SpaceName:         space,
 			AvailabilityZones: []string{"zone1"},
 		}
 	}
-	return infos, ids
+	return infos
 }
 
 func (s *cmdSpaceSuite) AddSpace(c *gc.C, name string, ids []string, public bool) *state.Space {
@@ -151,7 +148,7 @@ func (s *cmdSpaceSuite) TestSpaceCreateNoSubnets(c *gc.C) {
 }
 
 func (s *cmdSpaceSuite) TestSpaceCreateWithSubnets(c *gc.C) {
-	infos, _ := s.MakeSubnetInfos(c, "", "10.1%d.0.0/16", 2)
+	infos := s.MakeSubnetInfos(c, "", "10.1%d.0.0/16", 2)
 	s.AddSubnets(c, infos)
 
 	_, stderr, err := s.Run(
@@ -198,13 +195,13 @@ func (s *cmdSpaceSuite) TestSpaceListOneResultNoSubnets(c *gc.C) {
 }
 
 func (s *cmdSpaceSuite) TestSpaceListMoreResults(c *gc.C) {
-	infos1, ids1 := s.MakeSubnetInfos(c, "space1", "10.10.%d.0/24", 3)
+	infos1 := s.MakeSubnetInfos(c, "space1", "10.10.%d.0/24", 3)
+	s.AddSpace(c, "space1", nil, true)
 	s.AddSubnets(c, infos1)
-	s.AddSpace(c, "space1", ids1, true)
 
-	infos2, ids2 := s.MakeSubnetInfos(c, "space2", "10.20.%d.0/24", 1)
+	infos2 := s.MakeSubnetInfos(c, "space2", "10.20.%d.0/24", 1)
+	s.AddSpace(c, "space2", nil, false)
 	s.AddSubnets(c, infos2)
-	s.AddSpace(c, "space2", ids2, false)
 
 	stdout, stderr, err := s.Run(c, "list-spaces", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)

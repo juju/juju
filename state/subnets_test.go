@@ -22,6 +22,9 @@ type SubnetSuite struct {
 var _ = gc.Suite(&SubnetSuite{})
 
 func (s *SubnetSuite) TestAddSubnetSucceedsWithFullyPopulatedInfo(c *gc.C) {
+	_, err := s.State.AddSpace("foo", "4", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
 	fanOverlaySubnetInfo := network.SubnetInfo{
 		ProviderId: "foo2",
 		CIDR:       "10.0.0.0/8",
@@ -264,6 +267,10 @@ func (s *SubnetSuite) TestRefreshFailsWithNotFoundWhenRemoved(c *gc.C) {
 }
 
 func (s *SubnetSuite) TestAllSubnets(c *gc.C) {
+	_, err := s.State.AddSpace("bar", "4", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("notreally", "5", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
 	subnetInfos := []network.SubnetInfo{
 		{CIDR: "192.168.1.0/24"},
 		{CIDR: "8.8.8.0/24", SpaceName: "bar"},
@@ -296,7 +303,7 @@ func (s *SubnetSuite) TestAllSubnets(c *gc.C) {
 }
 
 func (s *SubnetSuite) TestUpdateMAASUndefinedSpace(c *gc.C) {
-	subnetInfo := network.SubnetInfo{CIDR: "8.8.8.0/24", SpaceName: "undefined"}
+	subnetInfo := network.SubnetInfo{CIDR: "8.8.8.0/24"}
 	subnet, err := s.State.AddSubnet(subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSpace(names.NewSpaceTag("undefined").Id(), network.Id("-1"), []string{"8.8.8.0/24"}, false)
@@ -336,10 +343,10 @@ func (s *SubnetSuite) TestUpdateEmpty(c *gc.C) {
 }
 
 func (s *SubnetSuite) TestUpdateNonEmpty(c *gc.C) {
-	expectedSubnetInfo := network.SubnetInfo{CIDR: "8.8.8.0/24", SpaceName: "changeme", VLANTag: 42, AvailabilityZones: []string{"changeme-az", "testme-az"}}
+	expectedSubnetInfo := network.SubnetInfo{CIDR: "8.8.8.0/24", VLANTag: 42, AvailabilityZones: []string{"changeme-az", "testme-az"}}
 	subnet, err := s.State.AddSubnet(expectedSubnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace(names.NewSpaceTag(expectedSubnetInfo.SpaceName).Id(), network.Id("2"), []string{}, false)
+	expectedSpace, err := s.State.AddSpace("changeme", network.Id("2"), []string{"8.8.8.0/24"}, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newSubnetInfo := network.SubnetInfo{
@@ -356,7 +363,7 @@ func (s *SubnetSuite) TestUpdateNonEmpty(c *gc.C) {
 
 	err = subnet.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnet.SpaceName(), gc.Equals, expectedSubnetInfo.SpaceName)
+	c.Assert(subnet.SpaceID(), gc.Equals, expectedSpace.Id())
 	c.Assert(subnet.VLANTag(), gc.Equals, expectedSubnetInfo.VLANTag)
 	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, expectedSubnetInfo.AvailabilityZones)
 }

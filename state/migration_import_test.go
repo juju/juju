@@ -1179,13 +1179,14 @@ func (s *MigrationImportSuite) TestLinkLayerDeviceMigratesReferences(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
+	// TODO (hml) 2019-07-25
+	// Add SpaceID once migration piece done.
 	original, err := s.State.AddSubnet(corenetwork.SubnetInfo{
 		CIDR:              "10.0.0.0/24",
 		ProviderId:        corenetwork.Id("foo"),
 		ProviderNetworkId: corenetwork.Id("elm"),
 		VLANTag:           64,
 		AvailabilityZones: []string{"bar"},
-		SpaceName:         "bam",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSpace("bam", "", nil, true)
@@ -1201,15 +1202,15 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 	c.Assert(subnet.ProviderNetworkId(), gc.Equals, corenetwork.Id("elm"))
 	c.Assert(subnet.VLANTag(), gc.Equals, 64)
 	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, []string{"bar"})
-	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
 	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "")
 	c.Assert(subnet.FanOverlay(), gc.Equals, "")
 }
 
 func (s *MigrationImportSuite) TestSubnetsWithFan(c *gc.C) {
+	// TODO (hml) 2019-07-25
+	// Add SpaceID once migration piece done.
 	_, err := s.State.AddSubnet(corenetwork.SubnetInfo{
-		CIDR:      "100.2.0.0/16",
-		SpaceName: "bam",
+		CIDR: "100.2.0.0/16",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1237,7 +1238,6 @@ func (s *MigrationImportSuite) TestSubnetsWithFan(c *gc.C) {
 	c.Assert(subnet.ProviderNetworkId(), gc.Equals, corenetwork.Id("elm"))
 	c.Assert(subnet.VLANTag(), gc.Equals, 64)
 	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, []string{"bar"})
-	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
 	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "100.2.0.0/16")
 	c.Assert(subnet.FanOverlay(), gc.Equals, "253.0.0.0/8")
 }

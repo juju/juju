@@ -63,7 +63,7 @@ func (s *Space) ProviderId() network.Id {
 
 // Subnets returns all the subnets associated with the Space.
 func (s *Space) Subnets() ([]*Subnet, error) {
-	name := s.Name()
+	id := s.Id()
 
 	subnetsCollection, closer := s.st.db().GetCollection(subnetsC)
 	defer closer()
@@ -71,15 +71,15 @@ func (s *Space) Subnets() ([]*Subnet, error) {
 	var doc subnetDoc
 	var results []*Subnet
 	// We ignore space-name field for FAN subnets...
-	iter := subnetsCollection.Find(bson.D{{"space-name", name}, bson.DocElem{"fan-local-underlay", bson.D{{"$exists", false}}}}).Iter()
+	iter := subnetsCollection.Find(bson.D{{"space-id", id}, bson.DocElem{"fan-local-underlay", bson.D{{"$exists", false}}}}).Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		subnet := &Subnet{s.st, doc, name}
+		subnet := &Subnet{s.st, doc, id}
 		results = append(results, subnet)
 		// ...and then add them explicitly as descendants of underlay network.
 		childIter := subnetsCollection.Find(bson.D{{"fan-local-underlay", doc.CIDR}}).Iter()
 		for childIter.Next(&doc) {
-			subnet := &Subnet{s.st, doc, name}
+			subnet := &Subnet{s.st, doc, id}
 			results = append(results, subnet)
 		}
 	}
@@ -165,8 +165,7 @@ func (st *State) addSpaceWithSubnetsTxnOps(
 			C:      subnetsC,
 			Id:     subnetId,
 			Assert: bson.D{bson.DocElem{Name: "fan-local-underlay", Value: bson.D{{"$exists", false}}}},
-			// TODO (manadart 2019-07-02): Change this to use the space ID.
-			Update: bson.D{{"$set", bson.D{{"space-name", name}}}},
+			Update: bson.D{{"$set", bson.D{{"space-id", id}}}},
 		})
 	}
 
@@ -211,6 +210,24 @@ func (st *State) Space(name string) (*Space, error) {
 	}
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get space %q", name)
+	}
+	return &Space{st, doc}, nil
+}
+
+// SpaceByID returns a space from state that matches the provided ID. An error
+// is returned if the space doesn't exist or if there was a problem accessing
+// its information.
+func (st *State) SpaceByID(id string) (*Space, error) {
+	spaces, closer := st.db().GetCollection(spacesC)
+	defer closer()
+
+	var doc spaceDoc
+	err := spaces.Find(bson.M{"spaceid": id}).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("space id %q", id)
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get space id %q", id)
 	}
 	return &Space{st, doc}, nil
 }
