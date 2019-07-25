@@ -24,6 +24,11 @@ setting values are not inspected and are stored as strings. Setting
 an empty string causes the setting to be removed. Duplicate settings
 are not allowed.
 
+If the unit is the leader, it can chose to use "--context=application"
+to set application settings. These settings will be visible to
+remove applications as though they were set by each individual
+unit.
+
 The --file option should be used when one or more key-value pairs are
 too long to fit within the command length limit of the shell or
 operating system. The file will contain a YAML map containing the
@@ -40,8 +45,7 @@ type RelationSetCommand struct {
 	Settings        map[string]string
 	settingsFile    cmd.FileVar
 	formatFlag      string // deprecated
-	setUnit         bool
-	setApplication  bool
+	context         *enumValue
 }
 
 func NewRelationSetCommand(ctx Context) (cmd.Command, error) {
@@ -52,6 +56,8 @@ func NewRelationSetCommand(ctx Context) (cmd.Command, error) {
 		return nil, errors.Trace(err)
 	}
 	c.relationIdProxy = rV
+
+	c.context = NewEnumValue("unit", []string{"unit", "application"})
 
 	return c, nil
 }
@@ -71,8 +77,8 @@ func (c *RelationSetCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	c.settingsFile.SetStdin()
 	f.Var(&c.settingsFile, "file", "file containing key-value pairs")
-	f.BoolVar(&c.setApplication, "application", false, "change application settings instead of unit settings")
-	f.BoolVar(&c.setUnit, "unit", false, "explicitly set unit settings (default)")
+
+	f.Var(c.context, "context", `pick whether you are setting "application" settings or "unit" settings`)
 
 	f.StringVar(&c.formatFlag, "format", "", "deprecated format flag")
 }
@@ -80,10 +86,6 @@ func (c *RelationSetCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *RelationSetCommand) Init(args []string) error {
 	if c.RelationId == -1 {
 		return errors.Errorf("no relation id specified")
-	}
-
-	if c.setUnit && c.setApplication {
-		return errors.New("cannot set both --unit and --application")
 	}
 
 	// The overrides will be applied during Run when c.settingsFile is handled.
@@ -146,7 +148,7 @@ func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 	var settings Settings
-	if c.setApplication {
+	if c.context.String() == "application" {
 		settings, err = r.ApplicationSettings()
 	} else {
 		settings, err = r.Settings()

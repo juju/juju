@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -46,16 +47,14 @@ Summary:
 set relation settings
 
 Options:
---application  (= false)
-    change application settings instead of unit settings
+--context  (= unit)
+    pick whether you are setting "application" settings or "unit" settings
 --file  (= )
     file containing key-value pairs
 --format (= "")
     deprecated format flag
 -r, --relation  (= %s)
     specify a relation by id
---unit  (= false)
-    explicitly set unit settings (default)
 
 Details:
 "relation-set" writes the local unit's settings for some relation.
@@ -63,6 +62,11 @@ If no relation is specified then the current relation is used. The
 setting values are not inspected and are stored as strings. Setting
 an empty string causes the setting to be removed. Duplicate settings
 are not allowed.
+
+If the unit is the leader, it can chose to use "--context=application"
+to set application settings. These settings will be visible to
+remove applications as though they were set by each individual
+unit.
 
 The --file option should be used when one or more key-value pairs are
 too long to fit within the command length limit of the shell or
@@ -319,17 +323,17 @@ var relationSetInitTests = []relationSetInitTest{
 		content:  "{foo: bar}",
 		settings: map[string]string{"foo": "bar"},
 	}, {
-		summary:  "pass --application",
-		args:     []string{"--application", "baz=qux"},
+		summary:  "pass --context=application",
+		args:     []string{"--context=application", "baz=qux"},
 		settings: map[string]string{"baz": "qux"},
 	}, {
-		summary:  "pass --unit",
-		args:     []string{"--unit", "baz=qux"},
+		summary:  "pass --context=unit",
+		args:     []string{"--context=unit", "baz=qux"},
 		settings: map[string]string{"baz": "qux"},
 	}, {
-		summary: "pass both --application and --unit",
-		args:    []string{"--unit", "--application", "baz=qux"},
-		err:     "cannot set both --unit and --application",
+		summary: "pass --context=both",
+		args:    []string{"--context=both", "baz=qux"},
+		err:     `invalid value "both" for option --context: valid values: unit, application`,
 	},
 }
 
@@ -399,4 +403,20 @@ func (s *RelationSetSuite) TestRunDeprecationWarning(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "--format flag deprecated for command \"relation-set\"")
+}
+
+type EnumValueSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&EnumValueSuite{})
+
+func (s *EnumValueSuite) TestEnumSet(c *gc.C) {
+	v := jujuc.NewEnumValue("default", []string{"default", "newval"})
+	c.Check(v.String(), gc.Equals, "default")
+	c.Assert(v.Set("newval"), jc.ErrorIsNil)
+	c.Check(v.String(), gc.Equals, "newval")
+	err := v.Set("otherval")
+	c.Assert(err, gc.NotNil)
+	c.Check(err.Error(), gc.Equals, `valid values: default, newval`)
 }

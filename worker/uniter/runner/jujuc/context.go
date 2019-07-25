@@ -360,3 +360,31 @@ func (v *relationIdValue) Set(value string) error {
 	v.value = value
 	return nil
 }
+
+// NewEnumValue returns a gnuflag.Value that can only take on specific strings.
+func NewEnumValue(orig string, accepted []string) *enumValue {
+	return &enumValue{
+		Value:    orig,
+		Accepted: accepted,
+	}
+}
+
+type enumValue struct {
+	Value    string
+	Accepted []string
+}
+
+func (v *enumValue) String() string {
+	return v.Value
+}
+
+func (v *enumValue) Set(value string) error {
+	for _, a := range v.Accepted {
+		if a == value {
+			v.Value = value
+			return nil
+		}
+	}
+	accepted := strings.Join(v.Accepted, ", ")
+	return fmt.Errorf("valid values: %v", accepted)
+}
