@@ -18,6 +18,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/network"
 )
 
 // NewListCommand returns a command used to list spaces.
@@ -92,7 +93,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 		if c.Short {
 			result := formattedShortList{}
 			for _, space := range spaces {
-				result.Spaces = append(result.Spaces, space.Name)
+				result.Spaces = append(result.Spaces, spaceName(space.Name))
 			}
 			return c.out.Write(ctx, result)
 		}
@@ -103,7 +104,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 		}
 
 		for _, space := range spaces {
-			result.Spaces[space.Name] = make(map[string]formattedSubnet)
+			result.Spaces[spaceName(space.Name)] = make(map[string]formattedSubnet)
 			for _, subnet := range space.Subnets {
 				subResult := formattedSubnet{
 					Type:       typeUnknown,
@@ -134,7 +135,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 				} else if ip.To16() != nil {
 					subResult.Type = typeIPv6
 				}
-				result.Spaces[space.Name][subnet.CIDR] = subResult
+				result.Spaces[spaceName(space.Name)][subnet.CIDR] = subResult
 			}
 		}
 		return c.out.Write(ctx, result)
@@ -149,11 +150,11 @@ func (c *ListCommand) printTabular(writer io.Writer, value interface{}) error {
 		if !ok {
 			return errors.New("unexpected value")
 		}
-		fmt.Fprintln(tw, "Space")
+		_, _ = fmt.Fprintln(tw, "Space")
 		spaces := list.Spaces
 		sort.Strings(spaces)
 		for _, space := range spaces {
-			fmt.Fprintf(tw, "%v\n", space)
+			_, _ = fmt.Fprintf(tw, "%v\n", space)
 		}
 	} else {
 		list, ok := value.(formattedList)
@@ -161,30 +162,30 @@ func (c *ListCommand) printTabular(writer io.Writer, value interface{}) error {
 			return errors.New("unexpected value")
 		}
 
-		fmt.Fprintf(tw, "%s\t%s\n", "Space", "Subnets")
-		spaces := []string{}
+		_, _ = fmt.Fprintf(tw, "%s\t%s\n", "Space", "Subnets")
+		var spaces []string
 		for name := range list.Spaces {
 			spaces = append(spaces, name)
 		}
 		sort.Strings(spaces)
 		for _, name := range spaces {
 			subnets := list.Spaces[name]
-			fmt.Fprintf(tw, "%s", name)
+			_, _ = fmt.Fprintf(tw, "%s", name)
 			if len(subnets) == 0 {
-				fmt.Fprintf(tw, "\n")
+				_, _ = fmt.Fprintf(tw, "\n")
 				continue
 			}
-			cidrs := []string{}
+			var cidrs []string
 			for subnet := range subnets {
 				cidrs = append(cidrs, subnet)
 			}
 			sort.Strings(cidrs)
 			for _, cidr := range cidrs {
-				fmt.Fprintf(tw, "\t%v\n", cidr)
+				_, _ = fmt.Fprintf(tw, "\t%v\n", cidr)
 			}
 		}
 	}
-	tw.Flush()
+	_ = tw.Flush()
 	return nil
 }
 
@@ -213,4 +214,11 @@ type formattedSubnet struct {
 	ProviderId string   `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
 	Status     string   `json:"status,omitempty" yaml:"status,omitempty"`
 	Zones      []string `json:"zones" yaml:"zones"`
+}
+
+func spaceName(name string) string {
+	if name == network.DefaultSpaceName {
+		return "(default)"
+	}
+	return name
 }

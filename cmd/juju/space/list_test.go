@@ -88,6 +88,7 @@ func (s *ListSuite) TestOutputFormats(c *gc.C) {
 	outDir := c.MkDir()
 	expectedYAML := `
 spaces:
+  (default): {}
   space1:
     2001:db8::/32:
       type: ipv6
@@ -120,6 +121,7 @@ spaces:
 	expectedJSON := unwrap.ReplaceAllLiteralString(`
 {
   "spaces": {
+    "(default)": {},
     "space1": {
       "2001:db8::/32": {
         "type": "ipv6",
@@ -160,6 +162,7 @@ spaces:
 	)
 	expectedShortYAML := `
 spaces:
+- (default)
 - space1
 - space2
 `[1:]
@@ -167,24 +170,30 @@ spaces:
 	expectedShortJSON := unwrap.ReplaceAllLiteralString(`
 {
   "spaces": [
+    "(default)",
     "space1",
     "space2"
   ]
 }
 `, "") + "\n"
 
-	expectedTabular := `Space   Subnets
+	expectedTabular := `
+Space  Subnets
+(default)
 space1  2001:db8::/32
         invalid
 space2  10.1.2.0/24
         4.3.2.0/28
 
-`
-	expectedShortTabular := `Space
+`[1:]
+
+	expectedShortTabular := `
+Space
+(default)
 space1
 space2
 
-`
+`[1:]
 
 	assertAPICalls := func() {
 		// Verify the API calls and reset the recorded calls.
@@ -204,7 +213,8 @@ space2
 	assertOutput := func(format, expected string, short bool) {
 		outFile := filepath.Join(outDir, "output")
 		c.Assert(outFile, jc.DoesNotExist)
-		defer os.Remove(outFile)
+		defer func() { _ = os.Remove(outFile) }()
+
 		// Check -o works.
 		var args []string
 		args = makeArgs(format, short, "-o", outFile)
@@ -220,10 +230,12 @@ space2
 		// same as -o).
 		outFile1 := filepath.Join(outDir, "output1")
 		c.Assert(outFile1, jc.DoesNotExist)
-		defer os.Remove(outFile1)
+		defer func() { _ = os.Remove(outFile1) }()
+
 		outFile2 := filepath.Join(outDir, "output2")
 		c.Assert(outFile2, jc.DoesNotExist)
-		defer os.Remove(outFile2)
+		defer func() { _ = os.Remove(outFile2) }()
+
 		// Write something in outFile2 to verify its contents are
 		// overwritten.
 		err = ioutil.WriteFile(outFile2, []byte("some contents"), 0644)
@@ -309,7 +321,7 @@ func (s *ListSuite) TestRunWhenSpacesNotSupported(c *gc.C) {
 func (s *ListSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
 	s.api.SetErrors(errors.New("boom"))
 
-	s.AssertRunFails(c, "cannot list spaces: boom")
+	_ = s.AssertRunFails(c, "cannot list spaces: boom")
 
 	s.api.CheckCallNames(c, "ListSpaces", "Close")
 	s.api.CheckCall(c, 0, "ListSpaces")

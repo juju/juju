@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
@@ -190,6 +191,8 @@ func NewStubAPI() *StubAPI {
 		VLANTag:    42,
 	}}
 	spaces := []params.Space{{
+		Name: network.DefaultSpaceName,
+	}, {
 		Name:    "space1",
 		Subnets: append([]params.Subnet{}, subnets[:2]...),
 	}, {
