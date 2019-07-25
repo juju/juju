@@ -393,22 +393,22 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The model cache initialized gate is used to make sure the api server
 		// isn't created before the model cache has been initialized with the
 		// initial state of the world.
-		modelCacheInitializedGateName: gate.Manifold(),
-		modelCacheInitializedFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+		modelCacheInitializedGateName: ifController(gate.Manifold()),
+		modelCacheInitializedFlagName: ifController(gate.FlagManifold(gate.FlagManifoldConfig{
 			GateName:  modelCacheInitializedGateName,
 			NewWorker: gate.NewFlagWorker,
-		}),
+		})),
 
 		// The modelcache manifold creates a cache.Controller and keeps
 		// it up to date using an all model watcher. The controller is then
 		// used by the apiserver.
-		modelCacheName: modelcache.Manifold(modelcache.ManifoldConfig{
+		modelCacheName: ifController(modelcache.Manifold(modelcache.ManifoldConfig{
 			StateName:            stateName,
 			InitializedGateName:  modelCacheInitializedGateName,
 			Logger:               loggo.GetLogger("juju.worker.modelcache"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            modelcache.NewWorker,
-		}),
+		})),
 
 		// The api-config-watcher manifold monitors the API server
 		// addresses in the agent config and bounces when they

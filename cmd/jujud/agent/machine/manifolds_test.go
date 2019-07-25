@@ -289,6 +289,9 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"certificate-watcher",
 		"audit-config-updater",
 		"is-primary-controller-flag",
+		"model-cache",
+		"model-cache-initialized-flag",
+		"model-cache-initialized-gate",
 		"lease-manager",
 		"legacy-leases-flag",
 		"raft-transport",
@@ -731,16 +734,26 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 
 	"model-cache": {
 		"agent",
+		"is-controller-flag",
 		"model-cache-initialized-gate",
 		"state",
 		"state-config-watcher",
 	},
 
 	"model-cache-initialized-flag": {
+		"agent",
+		"is-controller-flag",
 		"model-cache-initialized-gate",
+		"state",
+		"state-config-watcher",
 	},
 
-	"model-cache-initialized-gate": {},
+	"model-cache-initialized-gate": {
+		"agent",
+		"is-controller-flag",
+		"state",
+		"state-config-watcher",
+	},
 
 	"model-worker-manager": {
 		"agent",
