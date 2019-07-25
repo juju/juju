@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/network/containerizer"
 	"github.com/juju/juju/state"
@@ -104,9 +105,9 @@ func (s *bridgePolicyStateSuite) assertAllLinkLayerDevicesOnMachineMatchCount(
 }
 
 func (s *bridgePolicyStateSuite) createSpaceAndSubnet(c *gc.C, spaceName, CIDR string) {
-	_, err := s.State.AddSpace(spaceName, network.Id(spaceName), nil, true)
+	_, err := s.State.AddSpace(spaceName, corenetwork.Id(spaceName), nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSubnet(state.SubnetInfo{
+	_, err = s.State.AddSubnet(corenetwork.SubnetInfo{
 		CIDR:      CIDR,
 		SpaceName: spaceName,
 	})
@@ -264,7 +265,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesCorrectlyP
 	for i, devArg := range devicesArgs {
 		subnet := i*10 + 1
 		subnetCIDR := fmt.Sprintf("10.%d.0.0/24", subnet)
-		_, err = s.State.AddSubnet(state.SubnetInfo{
+		_, err = s.State.AddSubnet(corenetwork.SubnetInfo{
 			CIDR:      subnetCIDR,
 			SpaceName: "default",
 		})

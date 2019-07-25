@@ -62,7 +62,7 @@
   name = "github.com/juju/bundlechanges"
 
 [[constraint]]
-  revision = "9daa941ef37578e70e66a5f97ab64b1f2b2bd410"
+  revision = "e5397239cbdadecd1ee144b827efb904f3108fbb"
   name = "github.com/juju/description"
 
 [[constraint]]
@@ -114,7 +114,7 @@
   name = "github.com/juju/romulus"
 
 [[constraint]]
-  revision = "6570bd8f8541d15ce654437084f8edcd7b76637b"
+  revision = "e81189438503b1e5c94efe95a604372b33eee7a2"
   name = "github.com/juju/testing"
 
 [[constraint]]

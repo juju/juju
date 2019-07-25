@@ -37,8 +37,8 @@ const (
 	// BootstrapNonce is used as a nonce for the initial controller machine.
 	BootstrapNonce = "user-admin:bootstrap"
 
-	// BootstrapMachineId is the ID of the initial controller machine.
-	BootstrapMachineId = "0"
+	// BootstrapControllerId is the ID of the initial controller.
+	BootstrapControllerId = "0"
 )
 
 // These are base values used for the corresponding defaults.

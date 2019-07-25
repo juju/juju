@@ -6,46 +6,15 @@ package state
 import (
 	"net"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
-
-// SubnetInfo describes a single subnet.
-type SubnetInfo struct {
-	// ProviderId is a provider-specific id for the subnet. This may be empty.
-	ProviderId network.Id
-
-	// ProviderNetworkId is the id of the network containing this
-	// subnet from the provider's perspective. It can be empty if the
-	// provider doesn't support distinct networks.
-	ProviderNetworkId network.Id
-
-	// CIDR of the network, in 123.45.67.89/24 format.
-	CIDR string
-
-	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for normal
-	// networks. It's defined by IEEE 802.1Q standard.
-	VLANTag int
-
-	// AvailabilityZone describes which availability zone this subnet is in. It can
-	// be empty if the provider does not support availability zones.
-	AvailabilityZone string
-
-	// SpaceName is the name of the space the subnet is associated with. It
-	// can be empty if the subnet is not associated with a space yet.
-	SpaceName string
-
-	// FanUnderlay is the CIDR of the local underlaying fan network, it allows easy
-	// identification of the device the FAN is running on. Empty if not a FAN subnet.
-	FanLocalUnderlay string
-
-	// FanOverlay is the CIDR of the complete FAN setup. Empty if not a FAN subnet.
-	FanOverlay string
-}
 
 type Subnet struct {
 	st        *State
@@ -54,14 +23,15 @@ type Subnet struct {
 }
 
 type subnetDoc struct {
-	DocID             string `bson:"_id"`
-	ModelUUID         string `bson:"model-uuid"`
-	Life              Life   `bson:"life"`
-	ProviderId        string `bson:"providerid,omitempty"`
-	ProviderNetworkId string `bson:"provider-network-id,omitempty"`
-	CIDR              string `bson:"cidr"`
-	VLANTag           int    `bson:"vlantag,omitempty"`
-	AvailabilityZone  string `bson:"availabilityzone,omitempty"`
+	DocID             string   `bson:"_id"`
+	TxnRevno          int64    `bson:"txn-revno"`
+	ModelUUID         string   `bson:"model-uuid"`
+	Life              Life     `bson:"life"`
+	ProviderId        string   `bson:"providerid,omitempty"`
+	ProviderNetworkId string   `bson:"provider-network-id,omitempty"`
+	CIDR              string   `bson:"cidr"`
+	VLANTag           int      `bson:"vlantag,omitempty"`
+	AvailabilityZones []string `bson:"availability-zones,omitempty"`
 	// TODO: add IsPublic to SubnetArgs, add an IsPublic method and add
 	// IsPublic to migration import/export.
 	IsPublic         bool   `bson:"is-public,omitempty"`
@@ -167,10 +137,10 @@ func (s *Subnet) VLANTag() int {
 	return s.doc.VLANTag
 }
 
-// AvailabilityZone returns the availability zone of the subnet. If the subnet
-// is not associated with an availability zone it will be the empty string.
-func (s *Subnet) AvailabilityZone() string {
-	return s.doc.AvailabilityZone
+// AvailabilityZones returns the availability zones of the subnet. If the subnet
+// is not associated with an availability zones it will be the empty slice.
+func (s *Subnet) AvailabilityZones() []string {
+	return s.doc.AvailabilityZones
 }
 
 // SpaceName returns the space the subnet is associated with. If the subnet is
@@ -222,7 +192,7 @@ func (s *Subnet) Refresh() error {
 		overlayDoc := &subnetDoc{}
 		err = subnets.FindId(s.doc.FanLocalUnderlay).One(overlayDoc)
 		if err != nil {
-			return errors.Annotatef(err, "Can't find underlay network %v for FAN %v", s.doc.FanLocalUnderlay, s.doc.CIDR)
+			return errors.Annotatef(err, "finding underlay network %v for FAN %v", s.doc.FanLocalUnderlay, s.doc.CIDR)
 		} else {
 			s.spaceName = overlayDoc.SpaceName
 		}
@@ -230,8 +200,82 @@ func (s *Subnet) Refresh() error {
 	return nil
 }
 
+// Update adds new info to the subnet based on provided info.  Currently no
+// data is changed, unless it is the default space from MAAS.  There are
+// restrictions to the additions allowed:
+//   - no change to CIDR, more work to determine how to handle needs to
+// be done.
+//   - no change to ProviderId nor ProviderNetworkID, these are immutable.
+func (s *Subnet) Update(args network.SubnetInfo) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt != 0 {
+			if err := s.Refresh(); err != nil {
+				if errors.IsNotFound(err) {
+					return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
+				}
+				return nil, errors.Trace(err)
+			}
+		}
+		makeSpaceNameUpdate, err := s.updateSpaceName(args.SpaceName)
+		if err != nil {
+			return nil, err
+		}
+		var bsonSet bson.D
+		if makeSpaceNameUpdate {
+			bsonSet = append(bsonSet, bson.DocElem{"space-name", args.SpaceName})
+		}
+		if len(args.AvailabilityZones) > 0 {
+			currentAZ := set.NewStrings(args.AvailabilityZones...)
+			newAZ := currentAZ.Difference(set.NewStrings(s.doc.AvailabilityZones...))
+			if !newAZ.IsEmpty() {
+				bsonSet = append(bsonSet, bson.DocElem{"availability-zones", append(s.doc.AvailabilityZones, newAZ.Values()...)})
+			}
+		}
+		if s.doc.VLANTag == 0 && args.VLANTag > 0 {
+			bsonSet = append(bsonSet, bson.DocElem{"vlantag", args.VLANTag})
+		}
+		if len(bsonSet) == 0 {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return []txn.Op{{
+			C:      subnetsC,
+			Id:     s.doc.DocID,
+			Assert: bson.D{{"txn-revno", s.doc.TxnRevno}},
+			Update: bson.D{{"$set", bsonSet}},
+		}}, nil
+	}
+	return errors.Trace(s.st.db().Run(buildTxn))
+}
+
+func (s *Subnet) updateSpaceName(spaceName string) (bool, error) {
+	var spaceNameChange bool
+	sp, err := s.st.Space(s.doc.SpaceName)
+	switch {
+	case err != nil && !errors.IsNotFound(err):
+		return false, errors.Trace(err)
+	case errors.IsNotFound(err):
+		spaceNameChange = true
+	case err == nil:
+		// Only change space name it's a default one at this time.
+		//
+		// The undefined space from MAAS has a providerId of -1.
+		// The juju default space will be 0.
+		spaceNameChange = sp.doc.ProviderId == "-1" || sp.doc.Id == network.DefaultSpaceId
+	}
+	return spaceNameChange && spaceName != "" && s.doc.FanLocalUnderlay == "", nil
+}
+
+// SubnetUpdate adds new info to the subnet based on provided info.
+func (st *State) SubnetUpdate(args network.SubnetInfo) error {
+	s, err := st.Subnet(args.CIDR)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return s.Update(args)
+}
+
 // AddSubnet creates and returns a new subnet
-func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
+func (st *State) AddSubnet(args network.SubnetInfo) (subnet *Subnet, err error) {
 	defer errors.DeferredAnnotatef(&err, "adding subnet %q", args.CIDR)
 
 	subnet, err = st.newSubnetFromArgs(args)
@@ -241,7 +285,6 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	ops := st.addSubnetOps(args)
 	ops = append(ops, assertModelActiveOp(st.ModelUUID()))
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-
 		if attempt != 0 {
 			if err := checkModelActive(st); err != nil {
 				return nil, errors.Trace(err)
@@ -251,7 +294,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 			}
 			if err := subnet.Refresh(); err != nil {
 				if errors.IsNotFound(err) {
-					return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
+					return nil, errors.Errorf("provider ID %q not unique", args.ProviderId)
 				}
 				return nil, errors.Trace(err)
 			}
@@ -265,7 +308,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	return subnet, nil
 }
 
-func (st *State) newSubnetFromArgs(args SubnetInfo) (*Subnet, error) {
+func (st *State) newSubnetFromArgs(args network.SubnetInfo) (*Subnet, error) {
 	subnetID := st.docID(args.CIDR)
 	subDoc := subnetDoc{
 		DocID:             subnetID,
@@ -275,10 +318,10 @@ func (st *State) newSubnetFromArgs(args SubnetInfo) (*Subnet, error) {
 		VLANTag:           args.VLANTag,
 		ProviderId:        string(args.ProviderId),
 		ProviderNetworkId: string(args.ProviderNetworkId),
-		AvailabilityZone:  args.AvailabilityZone,
+		AvailabilityZones: args.AvailabilityZones,
 		SpaceName:         args.SpaceName,
-		FanLocalUnderlay:  args.FanLocalUnderlay,
-		FanOverlay:        args.FanOverlay,
+		FanLocalUnderlay:  args.FanLocalUnderlay(),
+		FanOverlay:        args.FanOverlay(),
 	}
 	subnet := &Subnet{doc: subDoc, st: st, spaceName: args.SpaceName}
 	err := subnet.Validate()
@@ -288,7 +331,7 @@ func (st *State) newSubnetFromArgs(args SubnetInfo) (*Subnet, error) {
 	return subnet, nil
 }
 
-func (st *State) addSubnetOps(args SubnetInfo) []txn.Op {
+func (st *State) addSubnetOps(args network.SubnetInfo) []txn.Op {
 	subnetID := st.docID(args.CIDR)
 	subDoc := subnetDoc{
 		DocID:             subnetID,
@@ -298,10 +341,10 @@ func (st *State) addSubnetOps(args SubnetInfo) []txn.Op {
 		VLANTag:           args.VLANTag,
 		ProviderId:        string(args.ProviderId),
 		ProviderNetworkId: string(args.ProviderNetworkId),
-		AvailabilityZone:  args.AvailabilityZone,
+		AvailabilityZones: args.AvailabilityZones,
 		SpaceName:         args.SpaceName,
-		FanLocalUnderlay:  args.FanLocalUnderlay,
-		FanOverlay:        args.FanOverlay,
+		FanLocalUnderlay:  args.FanLocalUnderlay(),
+		FanOverlay:        args.FanOverlay(),
 	}
 	ops := []txn.Op{
 		{
@@ -322,8 +365,8 @@ func (st *State) Subnet(cidr string) (*Subnet, error) {
 	subnets, closer := st.db().GetCollection(subnetsC)
 	defer closer()
 
-	doc := &subnetDoc{}
-	err := subnets.FindId(cidr).One(doc)
+	var doc subnetDoc
+	err := subnets.FindId(cidr).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("subnet %q", cidr)
 	}
@@ -335,13 +378,14 @@ func (st *State) Subnet(cidr string) (*Subnet, error) {
 		overlayDoc := &subnetDoc{}
 		err = subnets.FindId(doc.FanLocalUnderlay).One(overlayDoc)
 		if err != nil {
-			return nil, errors.Annotatef(err, "Can't find underlay network %v for FAN %v", doc.FanLocalUnderlay, doc.CIDR)
+			return nil, errors.Annotatef(
+				err, "Can't find underlay network %v for FAN %v", doc.FanLocalUnderlay, doc.CIDR)
 		} else {
 			spaceName = overlayDoc.SpaceName
 		}
 	}
 
-	return &Subnet{st, *doc, spaceName}, nil
+	return &Subnet{st, doc, spaceName}, nil
 }
 
 // AllSubnets returns all known subnets in the model.
@@ -349,7 +393,7 @@ func (st *State) AllSubnets() (subnets []*Subnet, err error) {
 	subnetsCollection, closer := st.db().GetCollection(subnetsC)
 	defer closer()
 
-	docs := []subnetDoc{}
+	var docs []subnetDoc
 	err = subnetsCollection.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all subnets")

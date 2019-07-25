@@ -75,7 +75,19 @@ clouds:
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx, err = s.run(c, "update-credential", "dummy", "cred")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(c.GetTestLog(), jc.Contains, `ERROR juju.cmd.juju.cloud finalizing "cred" credential for cloud "dummy": unknown key "tenant-name" (value "hrm")`)
+	store.UpdateCredential("dummy", cloud.CloudCredential{
+		AuthCredentials: map[string]cloud.Credential{
+			"cred": cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+				"username": user,
+				"password": pass,
+			}),
+		},
+	})
+	ctx, err = s.run(c, "update-credential", "dummy", "cred")
 	c.Assert(err, jc.ErrorIsNil)
+
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 Credential valid for:
   controller
@@ -94,8 +106,7 @@ For more information, see ‘juju show-credential dummy cred’.
 		{Result: &params.CloudCredential{
 			AuthType: "userpass",
 			Attributes: map[string]string{
-				"username":    user,
-				"tenant-name": tenantName,
+				"username": user,
 			},
 			Redacted: []string{"password"},
 		}},
@@ -177,11 +188,13 @@ func (s *CmdCredentialSuite) TestShowCredentialCommandAll(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+local-credentials: {}
 controller-credentials:
   dummy:
     cred:
       content:
         auth-type: userpass
+        validity-check: valid
         username: dummy
       models:
         controller: admin
@@ -191,13 +204,15 @@ controller-credentials:
 func (s *CmdCredentialSuite) TestShowCredentialCommandWithName(c *gc.C) {
 	ctx, err := s.run(c, "show-credential", "dummy", "cred", "--show-secrets")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "local credential content lookup failed: loading credentials: credentials for cloud dummy not found\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+local-credentials: {}
 controller-credentials:
   dummy:
     cred:
       content:
         auth-type: userpass
+        validity-check: valid
         password: secret
         username: dummy
       models:

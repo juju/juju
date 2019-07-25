@@ -13,9 +13,10 @@ import (
 	"github.com/juju/go-oracle-cloud/common"
 	"github.com/juju/go-oracle-cloud/response"
 	"github.com/juju/loggo"
-	names "gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
@@ -56,8 +57,10 @@ func NewEnviron(api NetworkingAPI, env commonProvider.OracleInstancer) *Environ 
 }
 
 // Subnets is defined on the environs.Networking interface.
-func (e Environ) Subnets(ctx context.ProviderCallContext, id instance.Id, subnets []network.Id) ([]network.SubnetInfo, error) {
-	ret := []network.SubnetInfo{}
+func (e Environ) Subnets(
+	ctx context.ProviderCallContext, id instance.Id, subnets []corenetwork.Id,
+) ([]corenetwork.SubnetInfo, error) {
+	ret := []corenetwork.SubnetInfo{}
 	found := make(map[string]bool)
 	if id != instance.UnknownId {
 		instanceNets, err := e.NetworkInterfaces(ctx, id)
@@ -74,10 +77,10 @@ func (e Environ) Subnets(ctx context.ProviderCallContext, id instance.Id, subnet
 				continue
 			} else {
 				found[string(val.ProviderSubnetId)] = true
-				subnetInfo := network.SubnetInfo{
+				subnetInfo := corenetwork.SubnetInfo{
 					CIDR:            val.CIDR,
 					ProviderId:      val.ProviderSubnetId,
-					SpaceProviderId: val.ProviderSpaceId,
+					ProviderSpaceId: val.ProviderSpaceId,
 				}
 				ret = append(ret, subnetInfo)
 			}
@@ -115,12 +118,12 @@ func (e Environ) Subnets(ctx context.ProviderCallContext, id instance.Id, subnet
 
 // getSubnetInfoAsMap will return the subnet information
 // for the getSubnetInfo as a map rather than a slice
-func (e Environ) getSubnetInfoAsMap() (map[string]network.SubnetInfo, error) {
+func (e Environ) getSubnetInfoAsMap() (map[string]corenetwork.SubnetInfo, error) {
 	subnets, err := e.getSubnetInfo()
 	if err != nil {
 		return nil, err
 	}
-	ret := make(map[string]network.SubnetInfo, len(subnets))
+	ret := make(map[string]corenetwork.SubnetInfo, len(subnets))
 	for _, val := range subnets {
 		ret[string(val.ProviderId)] = val
 	}
@@ -129,22 +132,22 @@ func (e Environ) getSubnetInfoAsMap() (map[string]network.SubnetInfo, error) {
 
 // getSubnetInfo returns subnet information for all subnets known to
 // the oracle provider
-func (e Environ) getSubnetInfo() ([]network.SubnetInfo, error) {
+func (e Environ) getSubnetInfo() ([]corenetwork.SubnetInfo, error) {
 	networks, err := e.client.AllIpNetworks(nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	subnets := make([]network.SubnetInfo, len(networks.Result))
+	subnets := make([]corenetwork.SubnetInfo, len(networks.Result))
 	idx := 0
 	for _, val := range networks.Result {
-		var spaceId network.Id
+		var spaceId corenetwork.Id
 		if val.IpNetworkExchange != nil {
-			spaceId = network.Id(*val.IpNetworkExchange)
+			spaceId = corenetwork.Id(*val.IpNetworkExchange)
 		}
-		subnets[idx] = network.SubnetInfo{
-			ProviderId:      network.Id(val.Name),
+		subnets[idx] = corenetwork.SubnetInfo{
+			ProviderId:      corenetwork.Id(val.Name),
 			CIDR:            val.IpAddressPrefix,
-			SpaceProviderId: spaceId,
+			ProviderSpaceId: spaceId,
 			AvailabilityZones: []string{
 				"default",
 			},
@@ -201,7 +204,7 @@ func (e Environ) NetworkInterfaces(ctx context.ProviderCallContext, instId insta
 		nic := network.InterfaceInfo{
 			InterfaceName: name,
 			DeviceIndex:   deviceIndex,
-			ProviderId:    network.Id(deviceAttributes.Id),
+			ProviderId:    corenetwork.Id(deviceAttributes.Id),
 			MACAddress:    mac,
 			Address:       addr,
 			InterfaceType: network.EthernetInterface,
@@ -220,7 +223,7 @@ func (e Environ) NetworkInterfaces(ctx context.ProviderCallContext, instId insta
 		// IPNetworks (user defined)
 		if nicObj.GetType() == common.VNic {
 			nicSubnetDetails := subnetInfo[deviceAttributes.Ipnetwork]
-			nic.ProviderSpaceId = nicSubnetDetails.SpaceProviderId
+			nic.ProviderSpaceId = nicSubnetDetails.ProviderSpaceId
 			nic.ProviderSubnetId = nicSubnetDetails.ProviderId
 			nic.CIDR = nicSubnetDetails.CIDR
 		}
@@ -303,19 +306,18 @@ func (e Environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, inte
 }
 
 // Spaces is defined on the environs.Networking interface.
-func (e Environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
+func (e Environ) Spaces(ctx context.ProviderCallContext) ([]corenetwork.SpaceInfo, error) {
 	networks, err := e.getSubnetInfo()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	exchanges := map[string]network.SpaceInfo{}
+	exchanges := map[string]corenetwork.SpaceInfo{}
 	for _, val := range networks {
-		if val.SpaceProviderId == "" {
+		if val.ProviderSpaceId == "" {
 			continue
 		}
-		logger.Infof("found network %s with space %s",
-			string(val.ProviderId), string(val.SpaceProviderId))
-		providerID := string(val.SpaceProviderId)
+		logger.Infof("found network %s with space %s", string(val.ProviderId), string(val.ProviderSpaceId))
+		providerID := string(val.ProviderSpaceId)
 		tmp := strings.Split(providerID, `/`)
 		name := tmp[len(tmp)-1]
 		// Oracle allows us to attach an IP network to a space belonging to
@@ -329,10 +331,10 @@ func (e Environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, e
 		if space, ok := exchanges[name]; !ok {
 			logger.Infof("creating new space obj for %s and adding %s",
 				name, string(val.ProviderId))
-			exchanges[name] = network.SpaceInfo{
+			exchanges[name] = corenetwork.SpaceInfo{
 				Name:       name,
-				ProviderId: val.SpaceProviderId,
-				Subnets: []network.SubnetInfo{
+				ProviderId: val.ProviderSpaceId,
+				Subnets: []corenetwork.SubnetInfo{
 					val,
 				},
 			}
@@ -343,7 +345,7 @@ func (e Environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, e
 		}
 
 	}
-	var ret []network.SpaceInfo
+	var ret []corenetwork.SpaceInfo
 	for _, val := range exchanges {
 		ret = append(ret, val)
 	}
@@ -353,7 +355,9 @@ func (e Environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, e
 }
 
 // ProviderSpaceInfo is defined on the environs.NetworkingEnviron interface.
-func (Environ) ProviderSpaceInfo(ctx context.ProviderCallContext, space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+func (Environ) ProviderSpaceInfo(
+	ctx context.ProviderCallContext, space *corenetwork.SpaceInfo,
+) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("provider space info")
 }
 

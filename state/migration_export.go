@@ -17,6 +17,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/resource"
@@ -1119,7 +1120,15 @@ func (e *exporter) spaces() error {
 	e.logger.Debugf("read %d spaces", len(spaces))
 
 	for _, space := range spaces {
+		// We do not export the default space because it is created by default
+		// with the new model. This is OK, because it is immutable.
+		// Any subnets added to the space will still be exported.
+		if space.Name() == network.DefaultSpaceName {
+			continue
+		}
+
 		e.model.AddSpace(description.SpaceArgs{
+			Id:         space.Id(),
 			Name:       space.Name(),
 			Public:     space.IsPublic(),
 			ProviderID: string(space.ProviderId()),
@@ -1167,14 +1176,9 @@ func (e *exporter) subnets() error {
 			ProviderNetworkId: string(subnet.ProviderNetworkId()),
 			VLANTag:           subnet.VLANTag(),
 			SpaceName:         subnet.SpaceName(),
+			AvailabilityZones: subnet.AvailabilityZones(),
 			FanLocalUnderlay:  subnet.FanLocalUnderlay(),
 			FanOverlay:        subnet.FanOverlay(),
-		}
-		// TODO(babbageclunk): at the moment state.Subnet only stores
-		// one AZ.
-		az := subnet.AvailabilityZone()
-		if az != "" {
-			args.AvailabilityZones = []string{az}
 		}
 		e.model.AddSubnet(args)
 	}

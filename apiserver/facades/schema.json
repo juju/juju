@@ -1,7 +1,7 @@
 [
     {
         "Name": "Action",
-        "Version": 3,
+        "Version": 4,
         "Schema": {
             "type": "object",
             "properties": {
@@ -470,6 +470,9 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "workload-context": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false,
@@ -1428,7 +1431,7 @@
     },
     {
         "Name": "Application",
-        "Version": 9,
+        "Version": 10,
         "Schema": {
             "type": "object",
             "properties": {
@@ -2708,6 +2711,12 @@
                     "properties": {
                         "application-tag": {
                             "type": "string"
+                        },
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "max-wait": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
@@ -9784,6 +9793,9 @@
                         "cloud-credential-tag": {
                             "type": "string"
                         },
+                        "cloud-credential-validity": {
+                            "type": "boolean"
+                        },
                         "cloud-region": {
                             "type": "string"
                         },
@@ -10692,7 +10704,7 @@
     },
     {
         "Name": "Cloud",
-        "Version": 5,
+        "Version": 6,
         "Schema": {
             "type": "object",
             "properties": {
@@ -11259,6 +11271,9 @@
                         },
                         "name": {
                             "type": "string"
+                        },
+                        "valid": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false,
@@ -16294,19 +16309,7 @@
                                 "type": "string"
                             }
                         },
-                        "demoted": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
                         "maintained": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "promoted": {
                             "type": "array",
                             "items": {
                                 "type": "string"
@@ -22953,7 +22956,7 @@
     },
     {
         "Name": "ModelManager",
-        "Version": 7,
+        "Version": 8,
         "Schema": {
             "type": "object",
             "properties": {
@@ -23545,6 +23548,9 @@
                         },
                         "cloud-credential-tag": {
                             "type": "string"
+                        },
+                        "cloud-credential-validity": {
+                            "type": "boolean"
                         },
                         "cloud-region": {
                             "type": "string"

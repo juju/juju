@@ -499,11 +499,11 @@
   revision = "9be91dc79b7c185fa8b08e7ceceee40562055c83"
 
 [[projects]]
-  digest = "1:446b7fde9070a70bcbbda3bfc163a26994f6486c99f86e65be83b7da588e6b80"
+  digest = "1:5aa491dc49e09cab723640e2b5d6d5e75cb98d442dcea04dd880089f06fd6721"
   name = "github.com/juju/description"
   packages = ["."]
   pruneopts = ""
-  revision = "9daa941ef37578e70e66a5f97ab64b1f2b2bd410"
+  revision = "e5397239cbdadecd1ee144b827efb904f3108fbb"
 
 [[projects]]
   digest = "1:594030c0f0ed3842773b68708d4f9716d809556b9c631460051f99b15057512d"
@@ -749,7 +749,7 @@
   revision = "9b925afd677234e4146dde3cb1a11e187cbed64e"
 
 [[projects]]
-  digest = "1:4cb2e360aaa18a7369e22b26d997dc141ad7f336d964fadeaeca0976611d9995"
+  digest = "1:41acc45bab6f3fcbe700b6e0b5db88c8c42a045306dbe4d63f5c6bc949aec66d"
   name = "github.com/juju/testing"
   packages = [
     ".",
@@ -758,7 +758,7 @@
     "httptesting",
   ]
   pruneopts = ""
-  revision = "6570bd8f8541d15ce654437084f8edcd7b76637b"
+  revision = "e81189438503b1e5c94efe95a604372b33eee7a2"
 
 [[projects]]
   digest = "1:c43a754dcd24720e8f651933c9685511be5cba937faabaf6abbc4360b5b1f228"

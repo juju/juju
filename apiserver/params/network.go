@@ -82,7 +82,7 @@ type NetworkConfig struct {
 	CIDR string `json:"cidr"`
 
 	// MTU is the Maximum Transmission Unit controlling the maximum size of the
-	// protocol packats that the interface can pass through. It is only used
+	// protocol packets that the interface can pass through. It is only used
 	// when > 0.
 	MTU int `json:"mtu"`
 
@@ -93,12 +93,12 @@ type NetworkConfig struct {
 	// interface is attached to.
 	ProviderSubnetId string `json:"provider-subnet-id"`
 
-	// ProviderSpaceId is a provider-specific space id, to which the interface
-	// is attached to, if known and supported.
+	// ProviderSpaceId is a provider-specific space id to which the interface
+	// is attached, if known and supported.
 	ProviderSpaceId string `json:"provider-space-id"`
 
-	// ProviderAddressId is the provider-specific id of the assigned address, if
-	// supported and known.
+	// ProviderAddressId is the provider-specific id of the assigned address,
+	// if supported and known.
 	ProviderAddressId string `json:"provider-address-id"`
 
 	// ProviderVLANId is the provider-specific id of the assigned address's
@@ -310,7 +310,7 @@ func (addr Address) NetworkAddress() network.Address {
 		Type:            network.AddressType(addr.Type),
 		Scope:           network.Scope(addr.Scope),
 		SpaceName:       network.SpaceName(addr.SpaceName),
-		SpaceProviderId: network.Id(addr.SpaceProviderId),
+		SpaceProviderId: corenetwork.Id(addr.SpaceProviderId),
 	}
 }
 

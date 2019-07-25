@@ -56,12 +56,16 @@ func (st *stateShim) Machine(id string) (Machine, error) {
 	return st.origStateInterface.Machine(id)
 }
 
+type ControllerNode interface {
+	Id() string
+	HasVote() bool
+	WantsVote() bool
+}
+
 type Machine interface {
 	Id() string
 	InstanceId() (instance.Id, error)
 	InstanceNames() (instance.Id, string, error)
-	WantsVote() bool
-	HasVote() bool
 	Status() (status.StatusInfo, error)
 	ContainerType() instance.ContainerType
 	HardwareCharacteristics() (*instance.HardwareCharacteristics, error)
@@ -105,6 +109,16 @@ func ModelMachineInfo(st ModelManagerBackend) (machineInfo []params.ModelMachine
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	controllerNodes, err := st.ControllerNodes()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	hasVote := make(map[string]bool)
+	wantsVote := make(map[string]bool)
+	for _, n := range controllerNodes {
+		hasVote[n.Id()] = n.HasVote()
+		wantsVote[n.Id()] = n.WantsVote()
+	}
 	for _, m := range machines {
 		if m.Life() != state.Alive {
 			continue
@@ -112,18 +126,20 @@ func ModelMachineInfo(st ModelManagerBackend) (machineInfo []params.ModelMachine
 		var status string
 		// This is suboptimal as if there are many machines,
 		// we are making many calls into the DB for each machine.
+		var statusMessage string
 		statusInfo, err := m.Status()
 		if err == nil {
 			status = string(statusInfo.Status)
+			statusMessage = statusInfo.Message
 		} else {
 			status = err.Error()
 		}
 		mInfo := params.ModelMachineInfo{
 			Id:        m.Id(),
-			HasVote:   m.HasVote(),
-			WantsVote: m.WantsVote(),
+			HasVote:   hasVote[m.Id()],
+			WantsVote: wantsVote[m.Id()],
 			Status:    status,
-			Message:   statusInfo.Message,
+			Message:   statusMessage,
 		}
 		instId, displayName, err := m.InstanceNames()
 		switch {

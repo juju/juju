@@ -147,6 +147,18 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 			life: state.Dead,
 		},
 	}
+	s.st.controllerNodes = []common.ControllerNode{
+		&mockControllerNode{
+			id:        "1",
+			hasVote:   true,
+			wantsVote: true,
+		},
+		&mockControllerNode{
+			id:        "2",
+			hasVote:   false,
+			wantsVote: true,
+		},
+	}
 
 	s.callContext = context.NewCloudCallContext()
 
@@ -162,11 +174,35 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
-	info := s.getModelInfo(c, s.st.model.cfg.UUID())
+func (s *modelInfoSuite) TestModelInfoV7(c *gc.C) {
+	api := &modelmanager.ModelManagerAPIV7{s.modelmanager}
+
+	results, err := api.ModelInfo(params.Entities{
+		Entities: []params.Entity{{
+			names.NewModelTag(s.st.model.cfg.UUID()).String(),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Check(results.Results[0].Result, gc.NotNil)
+	c.Check(results.Results[0].Error, gc.IsNil)
+	s.assertModelInfo(c, *results.Results[0].Result, s.expectedModelInfo(c, nil))
+	s.st.CheckCalls(c, []gitjujutesting.StubCall{
+		{"ControllerTag", nil},
+		{"ModelUUID", nil},
+		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
+		{"Model", nil},
+		{"IsController", nil},
+		{"AllMachines", nil},
+		{"ControllerNodes", nil},
+		{"LatestMigration", nil},
+	})
+}
+
+func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) params.ModelInfo {
 	expectedAgentVersion, exists := s.st.model.cfg.AgentVersion()
 	c.Assert(exists, jc.IsTrue)
-	c.Assert(info, jc.DeepEquals, params.ModelInfo{
+	info := params.ModelInfo{
 		Name:               "testmodel",
 		UUID:               s.st.model.cfg.UUID(),
 		Type:               string(s.st.model.Type()),
@@ -204,17 +240,28 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 			Access:         params.ModelWriteAccess,
 		}},
 		Machines: []params.ModelMachineInfo{{
-			Id:       "1",
-			Hardware: &params.MachineHardware{Cores: pUint64(1)},
+			Id:        "1",
+			Hardware:  &params.MachineHardware{Cores: pUint64(1)},
+			HasVote:   true,
+			WantsVote: true,
 		}, {
-			Id: "2",
+			Id:        "2",
+			WantsVote: true,
 		}},
 		SLA: &params.ModelSLAInfo{
 			Level: "essential",
 			Owner: "user",
 		},
 		AgentVersion: &expectedAgentVersion,
-	})
+	}
+	info.CloudCredentialValidity = credentialValidity
+	return info
+}
+
+func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
+	info := s.getModelInfo(c, s.st.model.cfg.UUID())
+	_true := true
+	s.assertModelInfo(c, info, s.expectedModelInfo(c, &_true))
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
 		{"ModelUUID", nil},
@@ -222,8 +269,14 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"Model", nil},
 		{"IsController", nil},
 		{"AllMachines", nil},
+		{"ControllerNodes", nil},
 		{"LatestMigration", nil},
+		{"CloudCredential", []interface{}{names.NewCloudCredentialTag("some-cloud/bob/some-credential")}},
 	})
+}
+
+func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo) {
+	c.Assert(got, jc.DeepEquals, expected)
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
 		{"UUID", nil},
 		{"Name", nil},
@@ -576,6 +629,7 @@ type mockState struct {
 	users           []permission.UserAccess
 	cred            state.Credential
 	machines        []common.Machine
+	controllerNodes []common.ControllerNode
 	cfgDefaults     config.ModelDefaultAttributes
 	blockMsg        string
 	block           state.BlockType
@@ -726,6 +780,11 @@ func (st *mockState) ControllerConfig() (controller.Config, error) {
 	return controller.Config{
 		controller.ControllerUUIDKey: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 	}, st.NextErr()
+}
+
+func (st *mockState) ControllerNodes() ([]common.ControllerNode, error) {
+	st.MethodCall(st, "ControllerNodes")
+	return st.controllerNodes, st.NextErr()
 }
 
 func (st *mockState) Model() (common.Model, error) {
@@ -905,6 +964,24 @@ func (m mockBlock) Message() string { return m.m }
 
 func (m mockBlock) ModelUUID() string { return "" }
 
+type mockControllerNode struct {
+	id        string
+	hasVote   bool
+	wantsVote bool
+}
+
+func (m *mockControllerNode) Id() string {
+	return m.id
+}
+
+func (m *mockControllerNode) WantsVote() bool {
+	return m.wantsVote
+}
+
+func (m *mockControllerNode) HasVote() bool {
+	return m.hasVote
+}
+
 type mockMachine struct {
 	common.Machine
 	id            string
@@ -939,10 +1016,6 @@ func (m *mockMachine) InstanceId() (instance.Id, error) {
 
 func (m *mockMachine) InstanceNames() (instance.Id, string, error) {
 	return "", "", nil
-}
-
-func (m *mockMachine) WantsVote() bool {
-	return false
 }
 
 func (m *mockMachine) HasVote() bool {

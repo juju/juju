@@ -1065,6 +1065,10 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineId string, maxWait 
 		return errors.Trace(err)
 	}
 	if machine.IsManager() {
+		node, err := st.ControllerNode(machineId)
+		if err != nil {
+			return errors.Annotatef(err, "cannot get controller node for machine %v", machineId)
+		}
 		if machine.HasVote() {
 			// we remove the vote from the machine so that it can be torn down cleanly. Note that this isn't reflected
 			// in the actual replicaset, so users using --force should be careful.
@@ -1077,17 +1081,17 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineId string, maxWait 
 						return nil, jujutxn.ErrNoOperations
 					}
 				}
-				return []txn.Op{{
-					C:      machinesC,
-					Id:     machine.doc.Id,
-					Update: bson.D{{"$set", bson.D{{"hasvote", false}}}},
-				}}, nil
+				ops, err := machine.setHasVoteOps(false)
+				if err == ErrDead {
+					return nil, nil
+				}
+				return ops, errors.Trace(err)
 			}
 			if err := st.db().Run(hasVoteTxn); err != nil {
 				return errors.Trace(err)
 			}
 		}
-		if err := st.RemoveControllerMachine(machine); err != nil {
+		if err := st.RemoveControllerReference(node); err != nil {
 			return errors.Trace(err)
 		}
 	}

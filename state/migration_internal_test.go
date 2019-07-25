@@ -91,6 +91,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		autocertCacheC,
 		// We don't export the controller model at this stage.
 		controllersC,
+		controllerNodesC,
 		// Clouds aren't migrated. They must exist in the
 		// target controller already.
 		cloudsC,
@@ -316,9 +317,8 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		"ModelUUID",
 		// Life is always alive, confirmed by export precheck.
 		"Life",
-		// NoVote and HasVote only matter for machines with manage state job
+		// HasVote only matters for machines with manage state job
 		// and we don't support migrating the controller model.
-		"NoVote",
 		"HasVote",
 		// Ignored at this stage, could be an issue if mongo 3.0 isn't
 		// available.
@@ -595,10 +595,12 @@ func (s *MigrationSuite) TestHistoricalStatusDocFields(c *gc.C) {
 
 func (s *MigrationSuite) TestSpaceDocFields(c *gc.C) {
 	ignored := set.NewStrings(
+		"DocId",
 		// Always alive, not explicitly exported.
 		"Life",
 	)
 	migrated := set.NewStrings(
+		"Id",
 		"Name",
 		"IsPublic",
 		"ProviderId",
@@ -638,6 +640,8 @@ func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
 	ignored := set.NewStrings(
 		// DocID is the model + name
 		"DocID",
+		// TxnRevno is mgo internals and should not be migrated.
+		"TxnRevno",
 		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
 		"ModelUUID",
@@ -652,7 +656,7 @@ func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
 		"VLANTag",
 		"SpaceName",
 		"ProviderId",
-		"AvailabilityZone",
+		"AvailabilityZones",
 		"ProviderNetworkId",
 		"FanLocalUnderlay",
 		"FanOverlay",

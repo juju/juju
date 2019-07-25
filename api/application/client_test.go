@@ -444,7 +444,10 @@ func (s *applicationSuite) TestDestroyConsumedApplications(c *gc.C) {
 		*out = params.ErrorResults{expectedResults}
 		return nil
 	})
-	results, err := client.DestroyConsumedApplication("foo", "bar")
+	destroyParams := application.DestroyConsumedApplicationParams{
+		[]string{"foo", "bar"}, false, nil,
+	}
+	results, err := client.DestroyConsumedApplication(destroyParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }
@@ -453,8 +456,94 @@ func (s *applicationSuite) TestDestroyConsumedApplicationsArity(c *gc.C) {
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		return nil
 	})
-	_, err := client.DestroyConsumedApplication("foo")
+	destroyParams := application.DestroyConsumedApplicationParams{
+		[]string{"foo"}, false, nil,
+	}
+	_, err := client.DestroyConsumedApplication(destroyParams)
 	c.Assert(err, gc.ErrorMatches, `expected 1 result\(s\), got 0`)
+}
+
+func (s *applicationSuite) TestDestroyConsumedApplicationsForcev9(c *gc.C) {
+	var called bool
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				c.Assert(request, gc.Equals, "DestroyConsumedApplications")
+				c.Assert(a, jc.DeepEquals, params.DestroyConsumedApplicationsParams{
+					Applications: []params.DestroyConsumedApplicationParams{
+						{ApplicationTag: "application-foo"}, // check that Force and MaxWait are not supplied to the controller
+					},
+				})
+				called = true
+				return nil
+			},
+		),
+		BestVersion: 9, // v9 does not support --force or --no-wait
+	})
+	destroyParams := application.DestroyConsumedApplicationParams{
+		[]string{"foo"}, true, nil,
+	}
+	results, err := client.DestroyConsumedApplication(destroyParams)
+	c.Check(err, gc.ErrorMatches, "this controller does not support --force")
+	c.Check(results, gc.HasLen, 0)
+	c.Assert(called, jc.IsFalse)
+
+	noWait := time.Minute * 0
+	destroyParams = application.DestroyConsumedApplicationParams{
+		[]string{"foo"}, false, &noWait,
+	}
+	results, err = client.DestroyConsumedApplication(destroyParams)
+	c.Check(err, gc.ErrorMatches, "this controller does not support --no-wait")
+	c.Check(results, gc.HasLen, 0)
+	c.Assert(called, jc.IsFalse)
+
+	destroyParams = application.DestroyConsumedApplicationParams{
+		[]string{"foo"}, false, nil,
+	}
+	_, err = client.DestroyConsumedApplication(destroyParams)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *applicationSuite) TestDestroyConsumedApplicationsForcev10(c *gc.C) {
+	var called bool
+	noWait := 0 * time.Minute
+	force := true
+	expectedResults := []params.ErrorResult{{}, {}}
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				c.Assert(request, gc.Equals, "DestroyConsumedApplications")
+				c.Assert(a, jc.DeepEquals, params.DestroyConsumedApplicationsParams{
+					Applications: []params.DestroyConsumedApplicationParams{
+						{ApplicationTag: "application-foo", Force: &force, MaxWait: &noWait},
+						{ApplicationTag: "application-bar", Force: &force, MaxWait: &noWait},
+					},
+				})
+				called = true
+				c.Assert(response, gc.FitsTypeOf, &params.ErrorResults{})
+				out := response.(*params.ErrorResults)
+				*out = params.ErrorResults{expectedResults}
+				return nil
+			},
+		),
+		BestVersion: 10,
+	})
+
+	destroyParams := application.DestroyConsumedApplicationParams{
+		[]string{"foo"}, false, &noWait,
+	}
+	results, err := client.DestroyConsumedApplication(destroyParams)
+	c.Check(err, gc.ErrorMatches, "--force is required when --max-wait is provided")
+	c.Check(results, gc.HasLen, 0)
+	c.Assert(called, jc.IsFalse)
+
+	destroyParams = application.DestroyConsumedApplicationParams{
+		[]string{"foo", "bar"}, force, &noWait,
+	}
+	results, err = client.DestroyConsumedApplication(destroyParams)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(results, gc.HasLen, 2)
+	c.Assert(called, jc.IsTrue)
 }
 
 func (s *applicationSuite) TestDestroyUnits(c *gc.C) {

@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -1020,8 +1021,8 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId inst
 			DeviceIndex:       iface.Attachment.DeviceIndex,
 			MACAddress:        iface.MACAddress,
 			CIDR:              cidr,
-			ProviderId:        network.Id(iface.Id),
-			ProviderSubnetId:  network.Id(iface.SubnetId),
+			ProviderId:        corenetwork.Id(iface.Id),
+			ProviderSubnetId:  corenetwork.Id(iface.SubnetId),
 			AvailabilityZones: []string{subnet.AvailZone},
 			VLANTag:           0, // Not supported on EC2.
 			// Getting the interface name is not supported on EC2, so fake it.
@@ -1036,13 +1037,15 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId inst
 	return result, nil
 }
 
-func makeSubnetInfo(cidr string, subnetId, providerNetworkId network.Id, availZones []string) (network.SubnetInfo, error) {
+func makeSubnetInfo(
+	cidr string, subnetId, providerNetworkId corenetwork.Id, availZones []string,
+) (corenetwork.SubnetInfo, error) {
 	_, _, err := net.ParseCIDR(cidr)
 	if err != nil {
-		return network.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", cidr)
+		return corenetwork.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", cidr)
 	}
 
-	info := network.SubnetInfo{
+	info := corenetwork.SubnetInfo{
 		CIDR:              cidr,
 		ProviderId:        subnetId,
 		ProviderNetworkId: providerNetworkId,
@@ -1056,7 +1059,7 @@ func makeSubnetInfo(cidr string, subnetId, providerNetworkId network.Id, availZo
 
 // Spaces is not implemented by the ec2 provider as we don't currently have
 // provider level spaces.
-func (e *environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
+func (e *environ) Spaces(ctx context.ProviderCallContext) ([]corenetwork.SpaceInfo, error) {
 	return nil, errors.NotSupportedf("Spaces")
 }
 
@@ -1064,8 +1067,10 @@ func (e *environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, 
 // by the provider for the specified instance or list of ids. subnetIds can be
 // empty, in which case all known are returned. Implements
 // NetworkingEnviron.Subnets.
-func (e *environ) Subnets(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	var results []network.SubnetInfo
+func (e *environ) Subnets(
+	ctx context.ProviderCallContext, instId instance.Id, subnetIds []corenetwork.Id,
+) ([]corenetwork.SubnetInfo, error) {
+	var results []corenetwork.SubnetInfo
 	subIdSet := make(map[string]bool)
 	for _, subId := range subnetIds {
 		subIdSet[string(subId)] = false
@@ -1088,7 +1093,8 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, instId instance.Id, s
 				continue
 			}
 			subIdSet[string(iface.ProviderSubnetId)] = true
-			info, err := makeSubnetInfo(iface.CIDR, iface.ProviderSubnetId, iface.ProviderNetworkId, iface.AvailabilityZones)
+			info, err := makeSubnetInfo(
+				iface.CIDR, iface.ProviderSubnetId, iface.ProviderNetworkId, iface.AvailabilityZones)
 			if err != nil {
 				// Error will already have been logged.
 				continue
@@ -1114,7 +1120,8 @@ func (e *environ) Subnets(ctx context.ProviderCallContext, instId instance.Id, s
 			}
 			subIdSet[subnet.Id] = true
 			cidr := subnet.CIDRBlock
-			info, err := makeSubnetInfo(cidr, network.Id(subnet.Id), network.Id(subnet.VPCId), []string{subnet.AvailZone})
+			info, err := makeSubnetInfo(
+				cidr, corenetwork.Id(subnet.Id), corenetwork.Id(subnet.VPCId), []string{subnet.AvailZone})
 			if err != nil {
 				// Error will already have been logged.
 				continue
@@ -2051,7 +2058,9 @@ func (e *environ) hasDefaultVPC(ctx context.ProviderCallContext) (bool, error) {
 }
 
 // ProviderSpaceInfo implements NetworkingEnviron.
-func (*environ) ProviderSpaceInfo(ctx context.ProviderCallContext, space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+func (*environ) ProviderSpaceInfo(
+	ctx context.ProviderCallContext, space *corenetwork.SpaceInfo,
+) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("provider space info")
 }
 

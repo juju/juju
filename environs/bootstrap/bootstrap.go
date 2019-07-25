@@ -228,11 +228,11 @@ func bootstrapCAAS(
 	jujuVersion := jujuversion.Current
 
 	// set agent version before finalizing bootstrap config
-	if err := setBootstrapToolsVersion(environ, jujuVersion); err != nil {
+	if err := setBootstrapAgentVersion(environ, jujuVersion); err != nil {
 		return errors.Trace(err)
 	}
 	podConfig.JujuVersion = jujuVersion
-	if err := finalizePodBootstrapConfig(ctx, podConfig, args, environ.Config()); err != nil {
+	if err := finalizePodBootstrapConfig(podConfig, args, environ.Config()); err != nil {
 		return errors.Annotate(err, "finalizing bootstrap instance config")
 	}
 	if err := result.CaasBootstrapFinalizer(ctx, podConfig, args.DialOpts); err != nil {
@@ -339,7 +339,7 @@ func bootstrapIAAS(
 	}
 	bootstrapParams.BootstrapConstraints = bootstrapConstraints
 
-	// The arch we use to find tools isn't the boostrapConstraints arch.
+	// The arch we use to find tools isn't the bootstrapConstraints arch.
 	// We copy the constraints arch to a separate variable and
 	// update it from the host arch if not specified.
 	// (axw) This is still not quite right:
@@ -502,7 +502,7 @@ func bootstrapIAAS(
 	// in that case the specific version will be the only version available.
 	newestToolVersion, _ := matchingTools.Newest()
 	// set agent version before finalizing bootstrap config
-	if err := setBootstrapToolsVersion(environ, newestToolVersion); err != nil {
+	if err := setBootstrapAgentVersion(environ, newestToolVersion); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -631,7 +631,6 @@ func finalizeInstanceBootstrapConfig(
 }
 
 func finalizePodBootstrapConfig(
-	ctx environs.BootstrapContext,
 	pcfg *podcfg.ControllerPodConfig,
 	args BootstrapParams,
 	cfg *config.Config,
@@ -821,8 +820,8 @@ func getBootstrapToolsVersion(possibleTools coretools.List) (coretools.List, err
 	return toolsList, nil
 }
 
-// setBootstrapToolsVersion updates the agent-version configuration attribute.
-func setBootstrapToolsVersion(environ environs.Configer, toolsVersion version.Number) error {
+// setBootstrapAgentVersion updates the agent-version configuration attribute.
+func setBootstrapAgentVersion(environ environs.Configer, toolsVersion version.Number) error {
 	cfg := environ.Config()
 	if agentVersion, _ := cfg.AgentVersion(); agentVersion != toolsVersion {
 		cfg, err := cfg.Apply(map[string]interface{}{

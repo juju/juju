@@ -19,10 +19,11 @@ import (
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/network"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -84,7 +85,7 @@ type mockEnviron struct {
 
 func (e *mockEnviron) ProviderSpaceInfo(ctx context.ProviderCallContext, space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
 	e.stub.MethodCall(e, "ProviderSpaceInfo", space)
-	spaceName := environs.DefaultSpaceName
+	spaceName := corenetwork.DefaultSpaceName
 	if space != nil {
 		spaceName = space.Name
 	}

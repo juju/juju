@@ -20,12 +20,15 @@ import (
 	"github.com/juju/juju/environs"
 )
 
+//go:generate mockgen -package mocks -destination mocks/mutatercontext_mock.go github.com/juju/juju/worker/instancemutater MutaterContext
+
 // lifetimeContext was extracted to allow the various Context clients to get
 // the benefits of the catacomb encapsulating everything that should happen
 // here. A clean implementation would almost certainly not need this.
 type lifetimeContext interface {
+	KillWithError(error)
+
 	add(worker.Worker) error
-	kill(error)
 	dying() <-chan struct{}
 	errDying() error
 }
@@ -43,14 +46,14 @@ type MutaterMachine struct {
 	id         string
 }
 
-type mutaterContext interface {
+type MutaterContext interface {
 	MachineContext
 	newMachineContext() MachineContext
 	getMachine(tag names.MachineTag) (instancemutater.MutaterMachine, error)
 }
 
 type mutater struct {
-	context     mutaterContext
+	context     MutaterContext
 	logger      Logger
 	machines    map[names.MachineTag]chan struct{}
 	machineDead chan instancemutater.MutaterMachine
@@ -120,15 +123,15 @@ func runMachine(machine MutaterMachine, removed <-chan struct{}, died chan<- ins
 	profileChangeWatcher, err := machine.machineApi.WatchLXDProfileVerificationNeeded()
 	if err != nil {
 		machine.logger.Errorf(errors.Annotatef(err, "failed to start watching application lxd profiles for machine-%s", machine.id).Error())
-		machine.context.kill(err)
+		machine.context.KillWithError(err)
 		return
 	}
 	if err := machine.context.add(profileChangeWatcher); err != nil {
-		machine.context.kill(err)
+		machine.context.KillWithError(err)
 		return
 	}
 	if err := machine.watchProfileChangesLoop(removed, profileChangeWatcher); err != nil {
-		machine.context.kill(err)
+		machine.context.KillWithError(err)
 	}
 }
 

@@ -32,7 +32,7 @@ const (
 
 type desiredPeerGroupTest struct {
 	about    string
-	machines []*machineTracker
+	machines []*controllerTracker
 	statuses []replicaset.MemberStatus
 	members  []replicaset.Member
 
@@ -102,7 +102,7 @@ func membersToTestMembers(m []replicaset.Member) []TestMember {
 func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 	return []desiredPeerGroupTest{
 		{
-			about:         "one machine, one more proposed member",
+			about:         "one controller, one more proposed member",
 			machines:      mkMachines("10v 11v", ipVersion),
 			statuses:      mkStatuses("0p", ipVersion),
 			members:       mkMembers("0v", ipVersion),
@@ -110,7 +110,7 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			expectVoting:  []bool{true, false},
 			expectChanged: true,
 		}, {
-			about:         "one machine, two more proposed members",
+			about:         "one controller, two more proposed members",
 			machines:      mkMachines("10v 11v 12v", ipVersion),
 			statuses:      mkStatuses("0p", ipVersion),
 			members:       mkMembers("0v", ipVersion),
@@ -118,7 +118,7 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			expectVoting:  []bool{true, false, false},
 			expectChanged: true,
 		}, {
-			about:         "single machine, no change",
+			about:         "single controller, no change",
 			machines:      mkMachines("11v", ipVersion),
 			members:       mkMembers("1v", ipVersion),
 			statuses:      mkStatuses("1p", ipVersion),
@@ -131,7 +131,7 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			members:      mkMembers("1v 2v", ipVersion),
 			statuses:     mkStatuses("1p 2s", ipVersion),
 			expectVoting: []bool{true},
-			expectErr:    "voting non-machine member.* found in peer group",
+			expectErr:    "non voting member.* found in peer group",
 		}, {
 			about:    "extra member with >1 votes",
 			machines: mkMachines("11v", ipVersion),
@@ -145,9 +145,9 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			}),
 			statuses:     mkStatuses("1p 2s", ipVersion),
 			expectVoting: []bool{true},
-			expectErr:    "voting non-machine member.* found in peer group",
+			expectErr:    "non voting member.* found in peer group",
 		}, {
-			about:         "one machine has become ready to vote (no change)",
+			about:         "one controller has become ready to vote (no change)",
 			machines:      mkMachines("11v 12v", ipVersion),
 			members:       mkMembers("1v 2", ipVersion),
 			statuses:      mkStatuses("1p 2s", ipVersion),
@@ -163,7 +163,7 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			expectMembers: mkMembers("1v 2v 3v", ipVersion),
 			expectChanged: true,
 		}, {
-			about:         "one machine has become ready to vote but one is not healthy",
+			about:         "one controller has become ready to vote but one is not healthy",
 			machines:      mkMachines("11v 12v", ipVersion),
 			members:       mkMembers("1v 2", ipVersion),
 			statuses:      mkStatuses("1p 2sH", ipVersion),
@@ -187,7 +187,7 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			expectMembers: mkMembers("1v 2v 3v 4", ipVersion),
 			expectChanged: true,
 		}, {
-			about:         "one machine ready to lose vote with no others -> no change",
+			about:         "one controller ready to lose vote with no others -> no change",
 			machines:      mkMachines("11", ipVersion),
 			members:       mkMembers("1v", ipVersion),
 			statuses:      mkStatuses("1p", ipVersion),
@@ -195,7 +195,7 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			expectMembers: mkMembers("1v", ipVersion),
 			expectChanged: false,
 		}, {
-			about:         "one machine ready to lose vote -> votes removed from secondaries",
+			about:         "one controller ready to lose vote -> votes removed from secondaries",
 			machines:      mkMachines("11v 12v 13", ipVersion),
 			members:       mkMembers("1v 2v 3v", ipVersion),
 			statuses:      mkStatuses("1s 2p 3s", ipVersion),
@@ -219,7 +219,7 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			expectMembers: mkMembers("1v", ipVersion),
 			expectChanged: true,
 		}, {
-			about:         "machine removed as controller -> removed from member",
+			about:         "controller removed as controller -> removed from member",
 			machines:      mkMachines("11v 12", ipVersion),
 			members:       mkMembers("1v 2 3", ipVersion),
 			statuses:      mkStatuses("1p 2s 3s", ipVersion),
@@ -243,8 +243,8 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			expectMembers: mkMembers("1v 2v 3 4 5 6v 7v 8v", ipVersion),
 			expectChanged: true,
 		}, {
-			about: "a changed machine address should propagate to the members",
-			machines: append(mkMachines("11v 12v", ipVersion), &machineTracker{
+			about: "a changed controller address should propagate to the members",
+			machines: append(mkMachines("11v 12v", ipVersion), &controllerTracker{
 				id:        "13",
 				wantsVote: true,
 				addresses: []network.Address{{
@@ -263,8 +263,8 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			}),
 			expectChanged: true,
 		}, {
-			about: "a machine's address is ignored if it changes to empty",
-			machines: append(mkMachines("11v 12v", ipVersion), &machineTracker{
+			about: "a controller's address is ignored if it changes to empty",
+			machines: append(mkMachines("11v 12v", ipVersion), &controllerTracker{
 				id:        "13",
 				wantsVote: true,
 			}),
@@ -314,7 +314,7 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			expectMembers: mkMembers("1 2 3v", ipVersion),
 			expectChanged: true,
 		}, {
-			about:         "add machine, non-voting still add it to the replica set",
+			about:         "add controller, non-voting still add it to the replica set",
 			machines:      mkMachines("11v 12v 13v 14", ipVersion),
 			members:       mkMembers("1v 2v 3v", ipVersion),
 			statuses:      mkStatuses("1s 2s 3p", ipVersion),
@@ -322,7 +322,7 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			expectMembers: mkMembers("1v 2v 3v 4", ipVersion),
 			expectChanged: true,
 		}, {
-			about:          "remove primary machine",
+			about:          "remove primary controller",
 			machines:       mkMachines("11 12v 13v", ipVersion),
 			members:        mkMembers("1v 2v 3v", ipVersion),
 			statuses:       mkStatuses("1p 2s 3s", ipVersion),
@@ -345,7 +345,7 @@ func (s *desiredPeerGroupSuite) TestDesiredPeerGroupIPv6(c *gc.C) {
 func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIPVersion) {
 	for ti, test := range desiredPeerGroupTests(ipVersion) {
 		c.Logf("\ntest %d: %s", ti, test.about)
-		trackerMap := make(map[string]*machineTracker)
+		trackerMap := make(map[string]*controllerTracker)
 		for _, m := range test.machines {
 			c.Assert(trackerMap[m.Id()], gc.IsNil)
 			trackerMap[m.Id()] = m
@@ -374,9 +374,9 @@ func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIP
 		c.Assert(desired.stepDownPrimary, gc.Equals, test.expectStepDown)
 		c.Assert(membersToTestMembers(members), jc.DeepEquals, membersToTestMembers(test.expectMembers))
 		for i, m := range test.machines {
-			vote, votePresent := desired.machineVoting[m.Id()]
+			vote, votePresent := desired.nodeVoting[m.Id()]
 			c.Check(votePresent, jc.IsTrue)
-			c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.Id()))
+			c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("controller %s", m.Id()))
 		}
 
 		// Assure ourselves that the total number of desired votes is odd in
@@ -390,14 +390,15 @@ func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIP
 		c.Assert(info, gc.NotNil)
 
 		desired, err = desiredPeerGroup(info)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(desired.isChanged, jc.IsFalse)
 		c.Assert(desired.stepDownPrimary, jc.IsFalse)
 		countPrimaries := 0
 		c.Assert(err, gc.IsNil)
 		for i, m := range test.machines {
-			vote, votePresent := desired.machineVoting[m.Id()]
+			vote, votePresent := desired.nodeVoting[m.Id()]
 			c.Check(votePresent, jc.IsTrue)
-			c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.Id()))
+			c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("controller %s", m.Id()))
 			if isPrimaryMember(info, m.Id()) {
 				countPrimaries += 1
 			}
@@ -418,7 +419,7 @@ func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsErrorWhenVoterFound(
 		info: &peerGroupInfo{extra: []replicaset.Member{{Votes: &v}}},
 	}
 	err := peerChanges.checkExtraMembers()
-	c.Check(err, gc.ErrorMatches, "voting non-machine member .+ found in peer group")
+	c.Check(err, gc.ErrorMatches, "non voting member .+ found in peer group")
 }
 
 func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsTrueWhenCheckMade(c *gc.C) {
@@ -462,14 +463,14 @@ func newFloat64(f float64) *float64 {
 
 // mkMachines returns a slice of *machineTracker based on
 // the given description.
-// Each machine in the description is white-space separated
-// and holds the decimal machine id followed by an optional
-// "v" if the machine wants a vote.
-func mkMachines(description string, ipVersion TestIPVersion) []*machineTracker {
+// Each controller in the description is white-space separated
+// and holds the decimal controller id followed by an optional
+// "v" if the controller wants a vote.
+func mkMachines(description string, ipVersion TestIPVersion) []*controllerTracker {
 	descrs := parseDescr(description)
-	ms := make([]*machineTracker, len(descrs))
+	ms := make([]*controllerTracker, len(descrs))
 	for i, d := range descrs {
-		ms[i] = &machineTracker{
+		ms[i] = &controllerTracker{
 			id: fmt.Sprint(d.id),
 			addresses: []network.Address{{
 				Value: fmt.Sprintf(ipVersion.formatHost, d.id),
@@ -483,7 +484,7 @@ func mkMachines(description string, ipVersion TestIPVersion) []*machineTracker {
 }
 
 func memberTag(id string) map[string]string {
-	return map[string]string{jujuMachineKey: id}
+	return map[string]string{jujuNodeKey: id}
 }
 
 // mkMembers returns a slice of replicaset.Member based on the given
@@ -491,8 +492,8 @@ func memberTag(id string) map[string]string {
 // Each member in the description is white-space separated and holds the decimal
 // replica-set id optionally followed by the characters:
 //	- 'v' if the member is voting.
-// 	- 'T' if the member has no associated machine tags.
-// Unless the T flag is specified, the machine tag
+// 	- 'T' if the member has no associated controller tags.
+// Unless the T flag is specified, the controller tag
 // will be the replica-set id + 10.
 func mkMembers(description string, ipVersion TestIPVersion) []replicaset.Member {
 	descrs := parseDescr(description)

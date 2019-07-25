@@ -86,6 +86,9 @@ func allCollections() CollectionSchema {
 		// everything in state.
 		controllersC: {global: true},
 
+		// This collection holds the details of the HA-ness of controllers.
+		controllerNodesC: {},
+
 		// This collection is used to track progress when restoring a
 		// controller from backup.
 		restoreInfoC: {global: true},
@@ -380,8 +383,13 @@ func allCollections() CollectionSchema {
 
 		// -----
 
-		providerIDsC:          {},
-		spacesC:               {},
+		providerIDsC: {},
+		spacesC: {
+			indexes: []mgo.Index{
+				{Key: []string{"model-uuid", "spaceid"}},
+				{Key: []string{"model-uuid", "name"}},
+			},
+		},
 		subnetsC:              {},
 		linkLayerDevicesC:     {},
 		linkLayerDevicesRefsC: {},
@@ -553,6 +561,7 @@ const (
 	constraintsC               = "constraints"
 	containerRefsC             = "containerRefs"
 	controllersC               = "controllers"
+	controllerNodesC           = "controllerNodes"
 	controllerUsersC           = "controllerusers"
 	dockerResourcesC           = "dockerResources"
 	filesystemAttachmentsC     = "filesystemAttachments"

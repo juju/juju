@@ -154,10 +154,9 @@ type watchInfo struct {
 }
 
 type event struct {
-	ch        chan<- Change
-	key       watchKey
-	isDeleted bool
-	revno     int64
+	ch    chan<- Change
+	key   watchKey
+	revno int64
 }
 
 // Period is the delay between each sync.
@@ -600,23 +599,21 @@ func (w *Watcher) sync() error {
 						continue
 					}
 					evt := event{
-						ch:        info.ch,
-						key:       key,
-						isDeleted: revno == -1,
-						revno:     revno,
+						ch:    info.ch,
+						key:   key,
+						revno: revno,
 					}
 					w.syncEvents = append(w.syncEvents, evt)
 				}
 				// Queue notifications for per-document watches.
 				infos := w.watches[key]
 				for i, info := range infos {
-					if revno > info.revno || revno < 0 && info.revno >= 0 {
+					if revno > info.revno || (revno < 0 && info.revno >= 0) {
 						infos[i].revno = revno
 						evt := event{
-							ch:        info.ch,
-							key:       key,
-							isDeleted: revno == -1,
-							revno:     revno,
+							ch:    info.ch,
+							key:   key,
+							revno: revno,
 						}
 						w.syncEvents = append(w.syncEvents, evt)
 					}

@@ -30,6 +30,22 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.cloud")
 
+// CloudV6 defines the methods on the cloud API facade, version 6.
+type CloudV6 interface {
+	AddCloud(cloudArgs params.AddCloudArgs) error
+	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	CheckCredentialsModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error)
+	Cloud(args params.Entities) (params.CloudResults, error)
+	Clouds() (params.CloudsResult, error)
+	Credential(args params.Entities) (params.CloudCredentialResults, error)
+	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
+	ModifyCloudAccess(args params.ModifyCloudAccessRequest) (params.ErrorResults, error)
+	RevokeCredentialsCheckModels(args params.RevokeCredentialArgs) (params.ErrorResults, error)
+	UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error)
+	UserCredentials(args params.UserClouds) (params.StringsResults, error)
+	UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.ErrorResults, error)
+}
+
 // CloudV5 defines the methods on the cloud API facade, version 5.
 type CloudV5 interface {
 	AddCloud(cloudArgs params.AddCloudArgs) error
@@ -117,10 +133,16 @@ type CloudAPI struct {
 	pool                   ModelPoolBackend
 }
 
+// CloudAPIV5 provides a way to wrap the different calls
+// between version 5 and version 6 of the cloud API.
+type CloudAPIV5 struct {
+	*CloudAPI
+}
+
 // CloudAPIV4 provides a way to wrap the different calls
 // between version 4 and version 5 of the cloud API.
 type CloudAPIV4 struct {
-	*CloudAPI
+	*CloudAPIV5
 }
 
 // CloudAPIV3 provides a way to wrap the different calls
@@ -142,22 +164,32 @@ type CloudAPIV1 struct {
 }
 
 var (
-	_ CloudV5 = (*CloudAPI)(nil)
+	_ CloudV6 = (*CloudAPI)(nil)
+	_ CloudV5 = (*CloudAPIV5)(nil)
 	_ CloudV4 = (*CloudAPIV4)(nil)
 	_ CloudV3 = (*CloudAPIV3)(nil)
 	_ CloudV2 = (*CloudAPIV2)(nil)
 	_ CloudV1 = (*CloudAPIV1)(nil)
 )
 
-// NewFacadeV5 is used for API registration.
-func NewFacadeV5(context facade.Context) (*CloudAPI, error) {
+// NewFacadeV6 is used for API registration.
+func NewFacadeV6(context facade.Context) (*CloudAPI, error) {
 	st := NewStateBackend(context.State())
 	pool := NewModelPoolBackend(context.StatePool())
 	ctlrSt := NewStateBackend(pool.SystemState())
 	return NewCloudAPI(st, ctlrSt, pool, context.Auth(), state.CallContext(context.State()))
 }
 
-// NewFacadeV3 is used for API registration.
+// NewFacadeV5 is used for API registration.
+func NewFacadeV5(context facade.Context) (*CloudAPIV5, error) {
+	v6, err := NewFacadeV6(context)
+	if err != nil {
+		return nil, err
+	}
+	return &CloudAPIV5{v6}, nil
+}
+
+// NewFacadeV4 is used for API registration.
 func NewFacadeV4(context facade.Context) (*CloudAPIV4, error) {
 	v5, err := NewFacadeV5(context)
 	if err != nil {
@@ -1049,7 +1081,21 @@ func (api *CloudAPI) RemoveClouds(args params.Entities) (params.ErrorResults, er
 // are returned.
 // Only credential owner can see its contents as well as what models use it.
 // Controller admin has no special superpowers here and is treated the same as all other users.
+func (api *CloudAPIV5) CredentialContents(args params.CloudCredentialArgs) (params.CredentialContentResults, error) {
+	return api.internalCredentialContents(args, false)
+}
+
+// CredentialContents returns the specified cloud credentials,
+// including the secrets if requested.
+// If no specific credential name/cloud was passed in, all credentials for this user
+// are returned.
+// Only credential owner can see its contents as well as what models use it.
+// Controller admin has no special superpowers here and is treated the same as all other users.
 func (api *CloudAPI) CredentialContents(args params.CloudCredentialArgs) (params.CredentialContentResults, error) {
+	return api.internalCredentialContents(args, true)
+}
+
+func (api *CloudAPI) internalCredentialContents(args params.CloudCredentialArgs, includeValidity bool) (params.CredentialContentResults, error) {
 	// Helper to look up and cache credential schemas for clouds.
 	schemaCache := make(map[string]map[cloud.AuthType]cloud.CredentialSchema)
 	credentialSchemas := func(cloudName string) (map[cloud.AuthType]cloud.CredentialSchema, error) {
@@ -1094,6 +1140,10 @@ func (api *CloudAPI) CredentialContents(args params.CloudCredentialArgs) (params
 				Attributes: attrs,
 				Cloud:      credential.Cloud,
 			},
+		}
+		if includeValidity {
+			valid := credential.IsValid()
+			info.Content.Valid = &valid
 		}
 
 		// get models

@@ -215,12 +215,16 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(access, gc.Equals, permission.AdminAccess)
 
 	// Check that the cloud's model count is initially 1.
-	cloud, err := s.State.Cloud("dummy")
+	cl, err := s.State.Cloud("dummy")
 	c.Assert(err, jc.ErrorIsNil)
 
-	refCount, err := state.CloudModelRefCount(s.State, cloud.Name)
+	refCount, err := state.CloudModelRefCount(s.State, cl.Name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(refCount, gc.Equals, 1)
+
+	// Check that the default space is created.
+	_, err = s.State.Space("")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {

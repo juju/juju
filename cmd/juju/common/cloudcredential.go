@@ -195,3 +195,11 @@ type TestCloudProvider interface {
 	environs.EnvironProvider
 	environs.ProviderCredentialsRegister
 }
+
+// HumanReadableBoolPointer returns trueValue if given bool pointer contains true, falseValue otherwise.
+func HumanReadableBoolPointer(pointer *bool, trueValue, falseValue string) string {
+	if pointer != nil && *pointer {
+		return trueValue
+	}
+	return falseValue
+}

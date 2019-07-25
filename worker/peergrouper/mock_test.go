@@ -33,8 +33,8 @@ import (
 type fakeState struct {
 	mu               sync.Mutex
 	errors           errorPatterns
-	machines         map[string]*fakeMachine
-	controllers      voyeur.Value // of *state.ControllerInfo
+	controllers      map[string]*fakeController
+	controllerInfo   voyeur.Value // of *state.ControllerInfo
 	statuses         voyeur.Value // of statuses collection
 	controllerConfig voyeur.Value // of controller.Config
 	session          *fakeMongoSession
@@ -43,9 +43,9 @@ type fakeState struct {
 }
 
 var (
-	_ State        = (*fakeState)(nil)
-	_ Machine      = (*fakeMachine)(nil)
-	_ MongoSession = (*fakeMongoSession)(nil)
+	_ State          = (*fakeState)(nil)
+	_ ControllerNode = (*fakeController)(nil)
+	_ MongoSession   = (*fakeMongoSession)(nil)
 )
 
 type errorPatterns struct {
@@ -110,7 +110,7 @@ func (e *errorPatterns) resetErrors() {
 
 func NewFakeState() *fakeState {
 	st := &fakeState{
-		machines: make(map[string]*fakeMachine),
+		controllers: make(map[string]*fakeController),
 	}
 	st.session = newFakeMongoSession(st, &st.errors)
 	st.controllerConfig.Set(controller.Config{})
@@ -146,7 +146,7 @@ func (st *fakeState) checkInvariants() {
 // checkInvariants checks that all the expected invariants
 // in the state hold true. Currently we check that:
 // - total number of votes is odd.
-// - member voting status implies that machine has vote.
+// - member voting status implies that controller has vote.
 func checkInvariants(st *fakeState) error {
 	st.mu.Lock()
 	defer st.mu.Unlock()
@@ -158,15 +158,15 @@ func checkInvariants(st *fakeState) error {
 			votes = *m.Votes
 		}
 		voteCount += votes
-		if id, ok := m.Tags[jujuMachineKey]; ok {
+		if id, ok := m.Tags[jujuNodeKey]; ok {
 			if votes > 0 {
-				m := st.machines[id]
+				m := st.controllers[id]
 				if m == nil {
-					return fmt.Errorf("voting member with machine id %q has no associated Machine", id)
+					return fmt.Errorf("voting member with controller id %q has no associated Controller", id)
 				}
 
 				if !m.doc().hasVote {
-					return fmt.Errorf("machine %q should be marked as having the vote, but does not", id)
+					return fmt.Errorf("controller %q should be marked as having the vote, but does not", id)
 				}
 			}
 		}
@@ -181,59 +181,69 @@ type invariantChecker interface {
 	checkInvariants()
 }
 
-// machine is similar to Machine except that
+// controller is similar to Controller except that
 // it bypasses the error mocking machinery.
-// It returns nil if there is no machine with the
+// It returns nil if there is no controller with the
 // given id.
-func (st *fakeState) machine(id string) *fakeMachine {
+func (st *fakeState) controller(id string) *fakeController {
 	st.mu.Lock()
 	defer st.mu.Unlock()
-	return st.machines[id]
+	return st.controllers[id]
 }
 
-func (st *fakeState) Machine(id string) (Machine, error) {
-	if err := st.errors.errorFor("State.Machine", id); err != nil {
+func (st *fakeState) ControllerNode(id string) (ControllerNode, error) {
+	if err := st.errors.errorFor("State.ControllerNode", id); err != nil {
 		return nil, err
 	}
-	if m := st.machine(id); m != nil {
+	if m := st.controller(id); m != nil {
 		return m, nil
 	}
-	return nil, errors.NotFoundf("machine %s", id)
+	return nil, errors.NotFoundf("controller %s", id)
 }
 
-func (st *fakeState) addMachine(id string, wantsVote bool) *fakeMachine {
+func (st *fakeState) ControllerHost(id string) (ControllerHost, error) {
+	if err := st.errors.errorFor("State.ControllerHost", id); err != nil {
+		return nil, err
+	}
+	if m := st.controller(id); m != nil {
+		return m, nil
+	}
+	return nil, errors.NotFoundf("controller %s", id)
+}
+
+func (st *fakeState) addController(id string, wantsVote bool) *fakeController {
 	st.mu.Lock()
 	defer st.mu.Unlock()
-	logger.Infof("fakeState.addMachine %q", id)
-	if st.machines[id] != nil {
+	logger.Infof("fakeState.addController %q", id)
+	if st.controllers[id] != nil {
 		panic(fmt.Errorf("id %q already used", id))
 	}
-	doc := machineDoc{
+	doc := controllerDoc{
 		id:         id,
 		wantsVote:  wantsVote,
 		statusInfo: status.StatusInfo{Status: status.Started},
 		life:       state.Alive,
 	}
-	m := &fakeMachine{
+	m := &fakeController{
 		errors:  &st.errors,
 		checker: st,
 	}
-	st.machines[id] = m
+	st.controllers[id] = m
 	m.val.Set(doc)
 	return m
 }
 
-func (st *fakeState) removeMachine(id string) {
+func (st *fakeState) removeController(id string) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
-	if st.machines[id] == nil {
-		panic(fmt.Errorf("removing non-existent machine %q", id))
+	if st.controllers[id] == nil {
+		panic(fmt.Errorf("removing non-existent controller %q", id))
 	}
-	delete(st.machines, id)
+	delete(st.controllers, id)
 }
 
 func (st *fakeState) setControllers(ids ...string) {
-	st.controllers.Set(&state.ControllerInfo{
+	st.controllerInfo.Set(&state.ControllerInfo{
 		MachineIds: ids,
 	})
 }
@@ -242,11 +252,11 @@ func (st *fakeState) ControllerInfo() (*state.ControllerInfo, error) {
 	if err := st.errors.errorFor("State.ControllerInfo"); err != nil {
 		return nil, err
 	}
-	return deepCopy(st.controllers.Get()).(*state.ControllerInfo), nil
+	return deepCopy(st.controllerInfo.Get()).(*state.ControllerInfo), nil
 }
 
-func (st *fakeState) WatchControllerInfo() state.NotifyWatcher {
-	return WatchValue(&st.controllers)
+func (st *fakeState) WatchControllerInfo() state.StringsWatcher {
+	return WatchStrings(&st.controllerInfo)
 }
 
 func (st *fakeState) WatchControllerStatusChanges() state.StringsWatcher {
@@ -273,20 +283,20 @@ func (st *fakeState) ControllerConfig() (controller.Config, error) {
 	return deepCopy(st.controllerConfig.Get()).(controller.Config), nil
 }
 
-func (st *fakeState) RemoveControllerMachine(m Machine) error {
+func (st *fakeState) RemoveControllerReference(c ControllerNode) error {
 	st.mu.Lock()
 	defer st.mu.Unlock()
-	controllerInfo := st.controllers.Get().(*state.ControllerInfo)
-	machineIds := controllerInfo.MachineIds
-	var newMachineIds []string
-	machineId := m.Id()
-	for _, id := range machineIds {
-		if id == machineId {
+	controllerInfo := st.controllerInfo.Get().(*state.ControllerInfo)
+	controllerIds := controllerInfo.MachineIds
+	var newControllerIds []string
+	controllerId := c.Id()
+	for _, id := range controllerIds {
+		if id == controllerId {
 			continue
 		}
-		newMachineIds = append(newMachineIds, id)
+		newControllerIds = append(newControllerIds, id)
 	}
-	st.setControllers(newMachineIds...)
+	st.setControllers(newControllerIds...)
 	return nil
 }
 
@@ -299,14 +309,14 @@ func (st *fakeState) setHASpace(spaceName string) {
 	st.controllerConfig.Set(cfg)
 }
 
-type fakeMachine struct {
+type fakeController struct {
 	mu      sync.Mutex
 	errors  *errorPatterns
-	val     voyeur.Value // of machineDoc
+	val     voyeur.Value // of controllerDoc
 	checker invariantChecker
 }
 
-type machineDoc struct {
+type controllerDoc struct {
 	id         string
 	wantsVote  bool
 	hasVote    bool
@@ -316,78 +326,78 @@ type machineDoc struct {
 	life       state.Life
 }
 
-func (m *fakeMachine) doc() machineDoc {
-	return m.val.Get().(machineDoc)
+func (m *fakeController) doc() controllerDoc {
+	return m.val.Get().(controllerDoc)
 }
 
-func (m *fakeMachine) Refresh() error {
+func (m *fakeController) Refresh() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	doc := m.doc()
-	if err := m.errors.errorFor("Machine.Refresh", doc.id); err != nil {
+	if err := m.errors.errorFor("Controller.Refresh", doc.id); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (m *fakeMachine) GoString() string {
+func (m *fakeController) GoString() string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return fmt.Sprintf("&fakeMachine{%#v}", m.doc())
+	return fmt.Sprintf("&fakeController{%#v}", m.doc())
 }
 
-func (m *fakeMachine) Id() string {
+func (m *fakeController) Id() string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.doc().id
 }
 
-func (m *fakeMachine) Life() state.Life {
+func (m *fakeController) Life() state.Life {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.doc().life
 }
 
-func (m *fakeMachine) Watch() state.NotifyWatcher {
+func (m *fakeController) Watch() state.NotifyWatcher {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return WatchValue(&m.val)
 }
 
-func (m *fakeMachine) WantsVote() bool {
+func (m *fakeController) WantsVote() bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.doc().wantsVote
 }
 
-func (m *fakeMachine) HasVote() bool {
+func (m *fakeController) HasVote() bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.doc().hasVote
 }
 
-func (m *fakeMachine) Addresses() []network.Address {
+func (m *fakeController) Addresses() []network.Address {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.doc().addresses
 }
 
-func (m *fakeMachine) Status() (status.StatusInfo, error) {
+func (m *fakeController) Status() (status.StatusInfo, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.doc().statusInfo, nil
 }
 
-func (m *fakeMachine) SetStatus(sInfo status.StatusInfo) error {
-	m.mutate(func(doc *machineDoc) {
+func (m *fakeController) SetStatus(sInfo status.StatusInfo) error {
+	m.mutate(func(doc *controllerDoc) {
 		doc.statusInfo = sInfo
 	})
 	return nil
 }
 
-// mutate atomically changes the machineDoc of
+// mutate atomically changes the controllerDoc of
 // the receiver by mutating it with the provided function.
-func (m *fakeMachine) mutate(f func(*machineDoc)) {
+func (m *fakeController) mutate(f func(*controllerDoc)) {
 	m.mu.Lock()
 	doc := m.doc()
 	f(&doc)
@@ -396,32 +406,32 @@ func (m *fakeMachine) mutate(f func(*machineDoc)) {
 	m.mu.Unlock()
 }
 
-func (m *fakeMachine) setAddresses(addrs ...network.Address) {
-	m.mutate(func(doc *machineDoc) {
+func (m *fakeController) setAddresses(addrs ...network.Address) {
+	m.mutate(func(doc *controllerDoc) {
 		doc.addresses = addrs
 	})
 }
 
-// SetHasVote implements Machine.SetHasVote.
-func (m *fakeMachine) SetHasVote(hasVote bool) error {
+// SetHasVote implements Controller.SetHasVote.
+func (m *fakeController) SetHasVote(hasVote bool) error {
 	doc := m.doc()
-	if err := m.errors.errorFor("Machine.SetHasVote", doc.id, hasVote); err != nil {
+	if err := m.errors.errorFor("Controller.SetHasVote", doc.id, hasVote); err != nil {
 		return err
 	}
-	m.mutate(func(doc *machineDoc) {
+	m.mutate(func(doc *controllerDoc) {
 		doc.hasVote = hasVote
 	})
 	return nil
 }
 
-func (m *fakeMachine) setWantsVote(wantsVote bool) {
-	m.mutate(func(doc *machineDoc) {
+func (m *fakeController) setWantsVote(wantsVote bool) {
+	m.mutate(func(doc *controllerDoc) {
 		doc.wantsVote = wantsVote
 	})
 }
 
-func (m *fakeMachine) advanceLifecycle(life state.Life, wantsVote bool) {
-	m.mutate(func(doc *machineDoc) {
+func (m *fakeController) advanceLifecycle(life state.Life, wantsVote bool) {
+	m.mutate(func(doc *controllerDoc) {
 		doc.life = life
 		doc.wantsVote = wantsVote
 	})

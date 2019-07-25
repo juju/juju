@@ -3117,7 +3117,7 @@ func (s *upgradesSuite) TestEnsureApplicationDeviceConstraints(c *gc.C) {
 	sort.Sort(expected)
 	c.Log(pretty.Sprint(expected))
 	s.assertUpgradedDataWithFilter(c, EnsureApplicationDeviceConstraints,
-		bson.D{{"_id", bson.RegEx{":adc#", ""}}},
+		bson.D{{"_id", bson.RegEx{Pattern: ":adc#"}}},
 		expectUpgradedData{coll, expected},
 	)
 }
@@ -3239,6 +3239,199 @@ func (s *upgradesSuite) TestAddModelLogsSize(c *gc.C) {
 	}
 
 	s.assertUpgradedData(c, AddModelLogsSize, expectUpgradedData{settingsColl, expectedSettings})
+}
+
+func (s *upgradesSuite) TestAddControllerNodeDocs(c *gc.C) {
+	machinesColl, closer := s.state.db().GetRawCollection(machinesC)
+	defer closer()
+	controllerNodesColl, closer2 := s.state.db().GetRawCollection(controllerNodesC)
+	defer closer2()
+
+	// Will will never have different UUIDs in practice but testing
+	// with that scenario avoids any potential bad code assumptions.
+	uuid1 := "uuid1"
+	uuid2 := "uuid2"
+	err := machinesColl.Insert(bson.M{
+		"_id":       ensureModelUUID(uuid1, "1"),
+		"machineid": "1",
+		"novote":    false,
+		"hasvote":   true,
+		"jobs":      []MachineJob{JobManageModel},
+	}, bson.M{
+		"_id":       ensureModelUUID(uuid1, "2"),
+		"machineid": "2",
+		"novote":    false,
+		"hasvote":   false,
+		"jobs":      []MachineJob{JobManageModel},
+	}, bson.M{
+		"_id":       ensureModelUUID(uuid1, "3"),
+		"machineid": "3",
+		"novote":    true,
+		"hasvote":   false,
+		"jobs":      []MachineJob{JobManageModel},
+	}, bson.M{
+		"_id":       ensureModelUUID(uuid1, "4"),
+		"machineid": "3",
+		"jobs":      []MachineJob{JobHostUnits},
+	}, bson.M{
+		"_id":       ensureModelUUID(uuid1, "5"),
+		"machineid": "5",
+		"jobs":      []MachineJob{JobManageModel},
+	}, bson.M{
+		"_id":       ensureModelUUID(uuid2, "1"),
+		"machineid": "1",
+		"novote":    false,
+		"hasvote":   false,
+		"jobs":      []MachineJob{JobManageModel},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		{
+			"_id":        uuid1 + ":1",
+			"has-vote":   true,
+			"wants-vote": true,
+		}, {
+			"_id":        uuid1 + ":2",
+			"has-vote":   false,
+			"wants-vote": true,
+		}, {
+			"_id":        uuid1 + ":3",
+			"has-vote":   false,
+			"wants-vote": false,
+		}, {
+			"_id":        uuid2 + ":1",
+			"has-vote":   false,
+			"wants-vote": true,
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, AddControllerNodeDocs,
+		expectUpgradedData{controllerNodesColl, expected},
+	)
+}
+
+func (s *upgradesSuite) TestAddSpaceIdToSpaceDocs(c *gc.C) {
+	col, closer := s.state.db().GetRawCollection(spacesC)
+	defer closer()
+
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+	uuidc := s.state.controllerModelTag.Id()
+
+	err := col.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "space1"),
+		"model-uuid": uuid1,
+		"life":       Alive,
+		"name":       "space1",
+		"is-public":  true,
+		"providerid": "provider1",
+	}, bson.M{
+		"_id":        ensureModelUUID(uuid2, "space2"),
+		"model-uuid": uuid2,
+		"life":       Alive,
+		"name":       "space2",
+		"is-public":  false,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		// The altered spaces:
+		{
+			"_id":        uuid1 + ":1",
+			"model-uuid": uuid1,
+			"spaceid":    "1",
+			"life":       0,
+			"name":       "space1",
+			"is-public":  true,
+			"providerid": "provider1",
+		}, {
+			"_id":        uuid2 + ":1",
+			"model-uuid": uuid2,
+			"spaceid":    "1",
+			"life":       0,
+			"name":       "space2",
+			"is-public":  false,
+		},
+		// The default space for each model, including the controller.
+		{
+			"_id":        uuid1 + ":0",
+			"model-uuid": uuid1,
+			"spaceid":    "0",
+			"life":       0,
+			"name":       "",
+			"is-public":  true,
+		}, {
+			"_id":        uuid2 + ":0",
+			"model-uuid": uuid2,
+			"spaceid":    "0",
+			"life":       0,
+			"name":       "",
+			"is-public":  true,
+		}, {
+			"_id":        uuidc + ":0",
+			"model-uuid": uuidc,
+			"spaceid":    "0",
+			"life":       0,
+			"name":       "",
+			"is-public":  true,
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, AddSpaceIdToSpaceDocs, expectUpgradedData{col, expected})
+}
+
+func (s *upgradesSuite) TestChangeSubnetAZtoSlice(c *gc.C) {
+	col, closer := s.state.db().GetRawCollection(subnetsC)
+	defer closer()
+
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	err := col.Insert(bson.M{
+		"_id":              ensureModelUUID(uuid1, "0"),
+		"model-uuid":       uuid1,
+		"providerid":       "provider1",
+		"availabilityzone": "testme",
+	}, bson.M{
+		"_id":        ensureModelUUID(uuid2, "0"),
+		"model-uuid": uuid2,
+		"is-public":  true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		// The altered spaces:
+		{
+			"_id":                uuid1 + ":0",
+			"model-uuid":         uuid1,
+			"providerid":         "provider1",
+			"availability-zones": []interface{}{"testme"},
+		}, {
+			"_id":        uuid2 + ":0",
+			"model-uuid": uuid2,
+			"is-public":  true,
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, ChangeSubnetAZtoSlice, expectUpgradedData{col, expected})
 }
 
 type docById []bson.M

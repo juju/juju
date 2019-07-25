@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -18,7 +18,7 @@ type cmdSubnetSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-func (s *cmdSubnetSuite) AddSubnet(c *gc.C, info state.SubnetInfo) *state.Subnet {
+func (s *cmdSubnetSuite) AddSubnet(c *gc.C, info network.SubnetInfo) *state.Subnet {
 	subnet, err := s.State.AddSubnet(info)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnet.CIDR(), gc.Equals, info.CIDR)
@@ -82,7 +82,7 @@ func (s *cmdSubnetSuite) TestSubnetAddCIDRAndInvalidSpaceName(c *gc.C) {
 
 func (s *cmdSubnetSuite) TestSubnetAddAlreadyExistingCIDR(c *gc.C) {
 	s.AddSpace(c, "foo", nil, true)
-	s.AddSubnet(c, state.SubnetInfo{CIDR: "0.10.0.0/24"})
+	s.AddSubnet(c, network.SubnetInfo{CIDR: "0.10.0.0/24"})
 
 	expectedError := `cannot add subnet: adding subnet "0.10.0.0/24": subnet "0.10.0.0/24" already exists`
 	s.RunAdd(c, expectedError, "0.10.0.0/24", "foo")
@@ -93,14 +93,7 @@ func (s *cmdSubnetSuite) TestSubnetAddValidCIDRUnknownByTheProvider(c *gc.C) {
 	s.RunAdd(c, expectedError, "10.0.0.0/8", "myspace")
 }
 
-func (s *cmdSubnetSuite) TestSubnetAddWithoutAnySpaces(c *gc.C) {
-	expectedError := `cannot add subnet: no spaces defined`
-	s.RunAdd(c, expectedError, "0.10.0.0/24", "whatever")
-}
-
 func (s *cmdSubnetSuite) TestSubnetAddWithUnknownSpace(c *gc.C) {
-	s.AddSpace(c, "yourspace", nil, true)
-
 	expectedError := `cannot add subnet: space "myspace" not found`
 	s.RunAdd(c, expectedError, "0.10.0.0/24", "myspace")
 }
@@ -119,7 +112,7 @@ func (s *cmdSubnetSuite) TestSubnetAddWithoutZonesWhenProviderHasZones(c *gc.C) 
 	c.Assert(subnet.CIDR(), gc.Equals, "0.10.0.0/24")
 	c.Assert(subnet.SpaceName(), gc.Equals, "myspace")
 	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("dummy-private"))
-	c.Assert(subnet.AvailabilityZone(), gc.Equals, "zone1")
+	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, []string{"zone1", "zone2"})
 }
 
 func (s *cmdSubnetSuite) TestSubnetAddWithUnavailableZones(c *gc.C) {
@@ -143,7 +136,7 @@ func (s *cmdSubnetSuite) TestSubnetAddWithZonesWithNoProviderZones(c *gc.C) {
 	c.Assert(subnet.CIDR(), gc.Equals, "0.20.0.0/24")
 	c.Assert(subnet.SpaceName(), gc.Equals, "myspace")
 	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("dummy-public"))
-	c.Assert(subnet.AvailabilityZone(), gc.Equals, "zone1")
+	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, []string{"zone1"})
 }
 
 func (s *cmdSubnetSuite) TestSubnetListNoResults(c *gc.C) {
@@ -156,12 +149,12 @@ func (s *cmdSubnetSuite) TestSubnetListNoResults(c *gc.C) {
 
 func (s *cmdSubnetSuite) TestSubnetListResultsWithFilters(c *gc.C) {
 	//	s.AddSpace(c, "myspace", nil, true)
-	s.AddSubnet(c, state.SubnetInfo{
+	s.AddSubnet(c, network.SubnetInfo{
 		CIDR: "10.0.0.0/8",
 	})
-	s.AddSubnet(c, state.SubnetInfo{
-		CIDR:             "10.10.0.0/16",
-		AvailabilityZone: "zone1",
+	s.AddSubnet(c, network.SubnetInfo{
+		CIDR:              "10.10.0.0/16",
+		AvailabilityZones: []string{"zone1"},
 	})
 	s.AddSpace(c, "myspace", []string{"10.10.0.0/16"}, true)
 

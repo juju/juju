@@ -38,6 +38,7 @@ import (
 	coreglobalclock "github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/feature"
@@ -2394,103 +2395,7 @@ func (st *State) SetAdminMongoPassword(password string) error {
 	return errors.Trace(err)
 }
 
-type controllersDoc struct {
-	Id         string   `bson:"_id"`
-	CloudName  string   `bson:"cloud"`
-	ModelUUID  string   `bson:"model-uuid"`
-	MachineIds []string `bson:"machineids"`
-}
-
-// ControllerInfo holds information about currently
-// configured controller machines.
-type ControllerInfo struct {
-	// CloudName is the name of the cloud to which this controller is deployed.
-	CloudName string
-
-	// ModelTag identifies the initial model. Only the initial
-	// model is able to have machines that manage state. The initial
-	// model is the model that is created when bootstrapping.
-	ModelTag names.ModelTag
-
-	// MachineIds holds the ids of all machines configured to run a controller.
-	// Check the individual machine docs to know if a given machine wants to vote and/or has the vote.
-	MachineIds []string
-}
-
-// ControllerInfo returns information about
-// the currently configured controller machines.
-func (st *State) ControllerInfo() (*ControllerInfo, error) {
-	session := st.session.Copy()
-	defer session.Close()
-	return readRawControllerInfo(session)
-}
-
-// readRawControllerInfo reads ControllerInfo direct from the supplied session,
-// falling back to the bootstrap model document to extract the UUID when
-// required.
-func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
-	db := session.DB(jujuDB)
-	controllers := db.C(controllersC)
-
-	var doc controllersDoc
-	err := controllers.Find(bson.D{{"_id", modelGlobalKey}}).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("controllers document")
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get controllers document")
-	}
-	return &ControllerInfo{
-		CloudName:  doc.CloudName,
-		ModelTag:   names.NewModelTag(doc.ModelUUID),
-		MachineIds: doc.MachineIds,
-	}, nil
-}
-
-const stateServingInfoKey = "stateServingInfo"
-
-// StateServingInfo returns information for running a controller machine
-func (st *State) StateServingInfo() (StateServingInfo, error) {
-	controllers, closer := st.db().GetCollection(controllersC)
-	defer closer()
-
-	var info StateServingInfo
-	err := controllers.Find(bson.D{{"_id", stateServingInfoKey}}).One(&info)
-	if err != nil {
-		return info, errors.Trace(err)
-	}
-	if info.StatePort == 0 {
-		return StateServingInfo{}, errors.NotFoundf("state serving info")
-	}
-	return info, nil
-}
-
-// SetStateServingInfo stores information needed for running a controller
-func (st *State) SetStateServingInfo(info StateServingInfo) error {
-	if info.StatePort == 0 || info.APIPort == 0 ||
-		info.Cert == "" || info.PrivateKey == "" {
-		return errors.Errorf("incomplete state serving info set in state")
-	}
-	if info.CAPrivateKey == "" {
-		// No CA certificate key means we can't generate new controller
-		// certificates when needed to add to the certificate SANs.
-		// Older Juju deployments discard the key because no one realised
-		// the certificate was flawed, so at best we can log a warning
-		// until an upgrade process is written.
-		logger.Warningf("state serving info has no CA certificate key")
-	}
-	ops := []txn.Op{{
-		C:      controllersC,
-		Id:     stateServingInfoKey,
-		Update: bson.D{{"$set", info}},
-	}}
-	if err := st.db().RunTransaction(ops); err != nil {
-		return errors.Annotatef(err, "cannot set state serving info")
-	}
-	return nil
-}
-
-func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId network.Id) txn.Op {
+func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId corenetwork.Id) txn.Op {
 	key := st.networkEntityGlobalKey(globalKey, providerId)
 	return txn.Op{
 		C:      providerIDsC,
@@ -2500,7 +2405,7 @@ func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId network.I
 	}
 }
 
-func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId network.Id) txn.Op {
+func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId corenetwork.Id) txn.Op {
 	key := st.networkEntityGlobalKey(globalKey, providerId)
 	return txn.Op{
 		C:      providerIDsC,
@@ -2509,7 +2414,25 @@ func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId net
 	}
 }
 
-func (st *State) networkEntityGlobalKey(globalKey string, providerId network.Id) string {
+func (st *State) networkEntityGlobalKeyExists(globalKey string, providerId corenetwork.Id) (bool, error) {
+	col, closer := st.db().GetCollection(providerIDsC)
+	defer closer()
+
+	key := st.networkEntityGlobalKey(globalKey, providerId)
+	var doc providerIdDoc
+	err := col.FindId(key).One(&doc)
+
+	switch err {
+	case nil:
+		return true, nil
+	case mgo.ErrNotFound:
+		return false, nil
+	default:
+		return false, errors.Annotatef(err, "reading provider ID %q", key)
+	}
+}
+
+func (st *State) networkEntityGlobalKey(globalKey string, providerId corenetwork.Id) string {
 	return st.docID(globalKey + ":" + string(providerId))
 }
 

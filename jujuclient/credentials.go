@@ -23,15 +23,15 @@ func JujuCredentialsPath() string {
 
 // ReadCredentialsFile loads all credentials defined in a given file.
 // If the file is not found, it is not an error.
-func ReadCredentialsFile(file string) (map[string]cloud.CloudCredential, error) {
+func ReadCredentialsFile(file string) (*cloud.CredentialCollection, error) {
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return &cloud.CredentialCollection{}, nil
 		}
 		return nil, err
 	}
-	credentials, err := cloud.ParseCredentials(data)
+	credentials, err := cloud.ParseCredentialCollection(data)
 	if err != nil {
 		return nil, err
 	}
@@ -40,17 +40,10 @@ func ReadCredentialsFile(file string) (map[string]cloud.CloudCredential, error) 
 
 // WriteCredentialsFile marshals to YAML details of the given credentials
 // and writes it to the credentials file.
-func WriteCredentialsFile(credentials map[string]cloud.CloudCredential) error {
-	data, err := yaml.Marshal(credentialsCollection{credentials})
+func WriteCredentialsFile(credentials *cloud.CredentialCollection) error {
+	data, err := yaml.Marshal(credentials)
 	if err != nil {
 		return errors.Annotate(err, "cannot marshal yaml credentials")
 	}
 	return utils.AtomicWriteFile(JujuCredentialsPath(), data, os.FileMode(0600))
-}
-
-// credentialsCollection is a struct containing cloud credential information,
-// used marshalling and unmarshalling.
-type credentialsCollection struct {
-	// Credentials is a map of cloud credentials, keyed on cloud name.
-	Credentials map[string]cloud.CloudCredential `yaml:"credentials"`
 }

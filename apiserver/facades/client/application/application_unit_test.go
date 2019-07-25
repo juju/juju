@@ -29,9 +29,9 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
@@ -54,7 +54,7 @@ type ApplicationSuite struct {
 	env              environs.Environ
 	blockChecker     mockBlockChecker
 	authorizer       apiservertesting.FakeAuthorizer
-	api              *application.APIv9
+	api              *application.APIv10
 	deployParams     map[string]application.DeployApplicationParams
 }
 
@@ -84,7 +84,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		s.storageValidator,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &application.APIv9{api}
+	s.api = &application.APIv10{api}
 }
 
 func (s *ApplicationSuite) SetUpTest(c *gc.C) {
@@ -558,9 +558,45 @@ func (s *ApplicationSuite) TestDestroyConsumedApplication(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{})
 
-	s.backend.CheckCallNames(c, "RemoteApplication")
+	s.backend.CheckCallNames(c, "RemoteApplication", "ApplyOperation")
 	app := s.backend.remoteApplications["hosted-db2"]
-	app.(*mockRemoteApplication).CheckCallNames(c, "Destroy")
+	app.(*mockRemoteApplication).CheckCallNames(c, "DestroyOperation")
+}
+
+func (s *ApplicationSuite) TestForceDestroyConsumedApplication(c *gc.C) {
+	force := true
+	results, err := s.api.DestroyConsumedApplications(params.DestroyConsumedApplicationsParams{
+		Applications: []params.DestroyConsumedApplicationParams{{
+			ApplicationTag: "application-hosted-db2",
+			Force:          &force,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{})
+
+	s.backend.CheckCallNames(c, "RemoteApplication", "ApplyOperation")
+	app := s.backend.remoteApplications["hosted-db2"]
+	app.(*mockRemoteApplication).CheckCallNames(c, "DestroyOperation")
+}
+
+func (s *ApplicationSuite) TestForceDestroyConsumedApplicationNoWait(c *gc.C) {
+	force := true
+	noWait := 0 * time.Minute
+	results, err := s.api.DestroyConsumedApplications(params.DestroyConsumedApplicationsParams{
+		Applications: []params.DestroyConsumedApplicationParams{{
+			ApplicationTag: "application-hosted-db2",
+			Force:          &force,
+			MaxWait:        &noWait,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{})
+
+	s.backend.CheckCallNames(c, "RemoteApplication", "ApplyOperation")
+	app := s.backend.remoteApplications["hosted-db2"]
+	app.(*mockRemoteApplication).CheckCallNames(c, "DestroyOperation")
 }
 
 func (s *ApplicationSuite) TestDestroyConsumedApplicationNotFound(c *gc.C) {

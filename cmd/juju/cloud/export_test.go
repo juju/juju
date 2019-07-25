@@ -19,10 +19,16 @@ var (
 )
 
 type (
-	UpdateCloudCommand = updateCloudCommand
-	UpdateCloudAPI     = updateCloudAPI
-	ShowCloudAPI       = showCloudAPI
-	RemoveCloudAPI     = removeCloudAPI
+	UpdateCloudCommand   = updateCloudCommand
+	AddCredentialCommand = addCredentialCommand
+	UpdateCloudAPI       = updateCloudAPI
+	ShowCloudAPI         = showCloudAPI
+	RemoveCloudAPI       = removeCloudAPI
+)
+
+var (
+	CredentialsFromLocalCache = credentialsFromLocalCache
+	CredentialsFromFile       = credentialsFromFile
 )
 
 func NewAddCloudCommandForTest(
@@ -38,7 +44,6 @@ func NewAddCloudCommandForTest(
 		Ping: func(p environs.EnvironProvider, endpoint string) error {
 			return nil
 		},
-		store:           store,
 		addCloudAPIFunc: cloudAPI,
 	}
 }
@@ -88,40 +93,56 @@ func NewUpdateCloudCommandForTest(
 }
 
 func NewListCredentialsCommandForTest(
-	testStore jujuclient.CredentialGetter,
+	testStore jujuclient.ClientStore,
 	personalCloudsFunc func() (map[string]jujucloud.Cloud, error),
 	cloudByNameFunc func(string) (*jujucloud.Cloud, error),
+	apiF func(controllerName string) (ListCredentialsAPI, error),
 ) *listCredentialsCommand {
 	return &listCredentialsCommand{
-		store:              testStore,
-		personalCloudsFunc: personalCloudsFunc,
-		cloudByNameFunc:    cloudByNameFunc,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
+			Store: testStore,
+		},
+		personalCloudsFunc:     personalCloudsFunc,
+		cloudByNameFunc:        cloudByNameFunc,
+		listCredentialsAPIFunc: apiF,
 	}
 }
 
 func NewDetectCredentialsCommandForTest(
-	testStore jujuclient.CredentialStore,
+	testStore jujuclient.ClientStore,
 	registeredProvidersFunc func() []string,
 	allCloudsFunc func() (map[string]jujucloud.Cloud, error),
 	cloudsByNameFunc func(string) (*jujucloud.Cloud, error),
 	cloudType string,
+	f func() (CredentialAPI, error),
 ) *detectCredentialsCommand {
-	return &detectCredentialsCommand{
-		store:                   testStore,
-		registeredProvidersFunc: registeredProvidersFunc,
-		allCloudsFunc:           allCloudsFunc,
-		cloudByNameFunc:         cloudsByNameFunc,
-		cloudType:               cloudType,
+	command := &detectCredentialsCommand{
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: testStore},
+		registeredProvidersFunc:   registeredProvidersFunc,
+		cloudByNameFunc:           jujucloud.CloudByName,
+		cloudType:                 cloudType,
+		credentialAPIFunc:         f,
 	}
+	if allCloudsFunc != nil {
+		command.allCloudsFunc = allCloudsFunc
+	} else {
+		command.allCloudsFunc = command.allClouds
+	}
+	if cloudsByNameFunc != nil {
+		command.cloudByNameFunc = cloudsByNameFunc
+	}
+	return command
 }
 
 func NewAddCredentialCommandForTest(
-	testStore jujuclient.CredentialStore,
+	testStore jujuclient.ClientStore,
 	cloudByNameFunc func(string) (*jujucloud.Cloud, error),
-) *addCredentialCommand {
+	f func() (CredentialAPI, error),
+) *AddCredentialCommand {
 	return &addCredentialCommand{
-		store:           testStore,
-		cloudByNameFunc: cloudByNameFunc,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: testStore},
+		cloudByNameFunc:           cloudByNameFunc,
+		credentialAPIFunc:         f,
 	}
 }
 
@@ -143,7 +164,7 @@ func NewSetDefaultRegionCommandForTest(testStore jujuclient.CredentialStore) *se
 	}
 }
 
-func NewUpdateCredentialCommandForTest(testStore jujuclient.ClientStore, api credentialAPI) cmd.Command {
+func NewUpdateCredentialCommandForTest(testStore jujuclient.ClientStore, api CredentialAPI) cmd.Command {
 	c := &updateCredentialCommand{
 		api: api,
 	}
@@ -151,9 +172,26 @@ func NewUpdateCredentialCommandForTest(testStore jujuclient.ClientStore, api cre
 	return modelcmd.WrapController(c)
 }
 
-func NewShowCredentialCommandForTest(api CredentialContentAPI) cmd.Command {
-	cmd := &showCredentialCommand{newAPIFunc: func() (CredentialContentAPI, error) {
-		return api, nil
-	}}
-	return modelcmd.WrapBase(cmd)
+func NewShowCredentialCommandForTest(testStore jujuclient.ClientStore, api CredentialContentAPI) cmd.Command {
+	command := &showCredentialCommand{
+		store: testStore,
+		newAPIFunc: func() (CredentialContentAPI, error) {
+			return api, nil
+		},
+	}
+	return modelcmd.WrapBase(command)
+}
+
+func AddLoadedCredentialForTest(
+	all map[string]map[string]map[string]jujucloud.Credential,
+	cloudName, regionName, credentialName string,
+	credential jujucloud.Credential,
+) {
+
+	discovered := discoveredCredential{
+		region:         regionName,
+		credential:     credential,
+		credentialName: credentialName,
+	}
+	addLoadedCredential(all, cloudName, discovered)
 }

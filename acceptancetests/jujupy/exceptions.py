@@ -15,9 +15,7 @@
 
 import re
 import subprocess
-
 from datetime import timedelta
-
 
 __metaclass__ = type
 
@@ -131,7 +129,7 @@ class LXDProfileNotAvailable(Exception):
         self.machine = machine
 
     def __str__(self):
-        return self._fmt.format(env=self.profile_name)
+        return self._fmt.format(profile_name=self.profile_name, machine=self.machine)
 
 class LXDProfilesNotAvailable(Exception):
 
@@ -141,7 +139,7 @@ class LXDProfilesNotAvailable(Exception):
         self.profile_names = profile_names
 
     def __str__(self):
-        return self._fmt.format(env=self.profile_names)
+        return self._fmt.format(profile_names=self.profile_names)
 
 class StatusError(Exception):
     """Generic error for Status."""

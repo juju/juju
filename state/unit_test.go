@@ -18,6 +18,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
@@ -68,7 +69,7 @@ func (s *UnitSuite) TestApplication(c *gc.C) {
 
 func (s *UnitSuite) TestConfigSettingsNeedCharmURLSet(c *gc.C) {
 	_, err := s.unit.ConfigSettings()
-	c.Assert(err, gc.ErrorMatches, "unit charm not set")
+	c.Assert(err, gc.ErrorMatches, "unit's charm URL must be set before retrieving config")
 }
 
 func (s *UnitSuite) TestConfigSettingsIncludeDefaults(c *gc.C) {
@@ -118,7 +119,7 @@ func (s *UnitSuite) TestConfigSettingsReflectCharm(c *gc.C) {
 
 func (s *UnitSuite) TestWatchConfigSettingsNeedsCharmURL(c *gc.C) {
 	_, err := s.unit.WatchConfigSettings()
-	c.Assert(err, gc.ErrorMatches, "unit charm not set")
+	c.Assert(err, gc.ErrorMatches, "unit's charm URL must be set before watching config")
 }
 
 func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
@@ -547,6 +548,8 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 		tc := destroyMachineTestCase{desc: "host has vote", destroyed: false}
 		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
+		_, err = s.State.EnableHA(1, constraints.Value{}, "quantal", []string{tc.host.Id()})
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.host.SetHasVote(true), gc.IsNil)
 		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -630,22 +633,34 @@ func (s *UnitSuite) setMachineVote(c *gc.C, id string, hasVote bool) {
 	c.Assert(m.SetHasVote(hasVote), gc.IsNil)
 }
 
+func (s *UnitSuite) demoteMachine(c *gc.C, m *state.Machine) {
+	s.setMachineVote(c, m.Id(), false)
+	c.Assert(state.SetWantsVote(s.State, m.Id(), false), jc.ErrorIsNil)
+	node, err := s.State.ControllerNode(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveControllerReference(node)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.EnableHA(3, constraints.Value{}, "quantal", []string{host.Id()})
+	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(host.SetHasVote(true), gc.IsNil)
 	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 	flip := jujutxn.TestHook{
 		Before: func() {
-			s.setMachineVote(c, host.Id(), true)
+			s.demoteMachine(c, host)
 		},
 	}
 	flop := jujutxn.TestHook{
 		Before: func() {
-			s.setMachineVote(c, host.Id(), false)
+			s.setMachineVote(c, host.Id(), true)
 		},
 	}
 	// You'll need to adjust the flip-flops to match the number of transaction
@@ -658,6 +673,8 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.EnableHA(3, constraints.Value{}, "quantal", []string{host.Id()})
+	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	target, err := s.application.AddUnit(state.AddUnitParams{})
@@ -666,7 +683,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		s.setMachineVote(c, host.Id(), true)
-	}, nil).Check()
+	}).Check()
 
 	c.Assert(target.Destroy(), gc.IsNil)
 	assertLife(c, host, state.Alive)
@@ -674,6 +691,8 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.EnableHA(3, constraints.Value{}, "quantal", []string{host.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -683,7 +702,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
 	c.Assert(host.SetHasVote(true), gc.IsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		s.setMachineVote(c, host.Id(), false)
+		s.demoteMachine(c, host)
 	}, nil).Check()
 
 	c.Assert(target.Destroy(), gc.IsNil)
@@ -720,6 +739,8 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.EnableHA(1, constraints.Value{}, "quantal", []string{host.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1368,7 +1389,7 @@ func (s *UnitSuite) TestOpenedPortsOnUnknownSubnet(c *gc.C) {
 func (s *UnitSuite) TestOpenedPortsOnDeadSubnet(c *gc.C) {
 	// We're adding the 0.1.2.0/24 subnet first and then setting it to Dead to
 	// check the "not alive" case.
-	subnet, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
+	subnet, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "0.1.2.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = subnet.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1377,14 +1398,14 @@ func (s *UnitSuite) TestOpenedPortsOnDeadSubnet(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenedPortsOnAliveIPv4Subnet(c *gc.C) {
-	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "192.168.0.0/16"})
+	_, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "192.168.0.0/16"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.testOpenedPorts(c, "192.168.0.0/16", "")
 }
 
 func (s *UnitSuite) TestOpenedPortsOnAliveIPv6Subnet(c *gc.C) {
-	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "2001:db8::/64"})
+	_, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "2001:db8::/64"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.testOpenedPorts(c, "2001:db8::/64", "")
@@ -1817,6 +1838,28 @@ func (s *UnitSuite) TestRemove(c *gc.C) {
 	c.Assert(units, gc.HasLen, 0)
 	err = s.unit.Remove()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *UnitSuite) TestRemoveUnassignsFromBranch(c *gc.C) {
+	// Add unit to a branch
+	c.Assert(s.Model.AddBranch("apple", "testuser"), jc.ErrorIsNil)
+	branch, err := s.Model.Branch("apple")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(branch.AssignUnit(s.unit.Name()), jc.ErrorIsNil)
+	c.Assert(branch.Refresh(), jc.ErrorIsNil)
+	c.Assert(branch.AssignedUnits(), gc.DeepEquals, map[string][]string{
+		s.application.Name(): {s.unit.Name()},
+	})
+
+	// remove the unit
+	c.Assert(s.unit.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(s.unit.Remove(), jc.ErrorIsNil)
+
+	// verify branch no longer tracks unit
+	c.Assert(branch.Refresh(), jc.ErrorIsNil)
+	c.Assert(branch.AssignedUnits(), gc.DeepEquals, map[string][]string{
+		s.application.Name(): {},
+	})
 }
 
 func (s *UnitSuite) TestRemovePathological(c *gc.C) {

@@ -7,7 +7,7 @@ endif
 
 PROJECT := github.com/juju/juju
 PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
-PROJECT_PACKAGES := $(shell go list $(PROJECT)/... | grep -v /vendor/)
+PROJECT_PACKAGES := $(shell go list $(PROJECT)/... | grep -v /vendor/ | grep -v /acceptancetests/)
 
 # Allow the tests to take longer on arm platforms.
 ifeq ($(shell uname -p | sed -E 's/.*(armel|armhf|aarch64|ppc64le|ppc64|s390x).*/golang/'), golang)
@@ -126,8 +126,8 @@ endif
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
 install-dependencies:
-	@echo Installing go-1.11 snap
-	@sudo snap install go --channel=1.11/stable --classic
+	@echo Installing go-1.12 snap
+	@sudo snap install go --channel=1.12/stable --classic
 	@echo Adding juju PPA for mongodb
 	@sudo apt-add-repository --yes ppa:juju/stable
 	@sudo apt-get update

@@ -15,23 +15,14 @@
 
 import logging
 from datetime import datetime
-from time import sleep
 from subprocess import CalledProcessError
+from time import sleep
 
-from jujupy.exceptions import (
-    VersionsNotUpdated,
-    AgentsNotStarted,
-    StatusNotMet,
-    LXDProfileNotAvailable,
-    LXDProfilesNotAvailable,
-    )
-from jujupy.status import (
-    Status,
-    )
-from jujupy.utility import (
-    until_timeout,
-    )
-
+from jujupy.exceptions import (AgentsNotStarted, LXDProfileNotAvailable,
+                               LXDProfilesNotAvailable, StatusNotMet,
+                               VersionsNotUpdated)
+from jujupy.status import Status
+from jujupy.utility import until_timeout
 
 log = logging.getLogger(__name__)
 
@@ -226,7 +217,7 @@ class WaitMachineNotPresent(BaseCondition):
             if machine in self.machines:
                 machines.append(machine)
         if len(machines) > 0:
-            yield machine[0], 'still-present'
+            yield machines[0], 'still-present'
 
     def do_raise(self, model_name, status):
         plural = "s"
@@ -488,20 +479,20 @@ class WaitForLXDProfilesConditions(BaseCondition):
     def iter_blocking_state(self, status):
         """Wait until 'profiles' listed in machine lxd-profiles from status.
         """
-        matched = 0
+        profiles_names = self.profile_names(self.profiles)
         for machine_name, status in status.iter_machines(containers=True):
             for profile_name, machines in self.profiles.items():
                 if machine_name in machines:
-                    if not 'lxd-profiles' in status:
-                        yield ('lxd-profile ({})'.format(self.profiles), 'no lxd profile')
-                    if not profile_name in self.profile_names(status['lxd-profiles']):
-                        yield ('lxd-profile ({})'.format(self.profiles), 'missing profile')
-                    matched += 1
-        if matched < self.profile_total():
-            yield ('lxd-profile ({})'.format(self.profiles), 'not matched')
+                    status_profiles = self.profile_names(status.get('lxd-profiles', {}))
+                    if (profile_name in status_profiles) and (profile_name in profiles_names):
+                        profiles_names.remove(profile_name)
+                    if len(profiles_names) == 0:
+                        return
+        if len(profiles_names) > 0:
+            yield ('lxd-profile ({})'.format(profiles_names), 'not matched')
 
     def do_raise(self, model_name, status):
-        raise LXDProfilesNotAvailable(self.profiles)
+        raise LXDProfilesNotAvailable(self.profile_names(self.profiles))
 
     def profile_names(self, profiles):
         """profile names returns all the profile names from applied machines 
@@ -509,14 +500,7 @@ class WaitForLXDProfilesConditions(BaseCondition):
         
         :param profiles: profile configurations applied to machines
         """
-        names = []
+        names = set()
         for name in profiles.keys():
-            names.append(name)
-        return names
-
-    def profile_total(self):
-        """profile total returns the number of profiles to match against"""
-        result = 0
-        for profile_names in self.profiles.values():
-            result += len(profile_names)
-        return result
+            names.add(name)
+        return list(names)

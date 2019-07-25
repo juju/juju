@@ -99,6 +99,10 @@ func (s *connectionSuite) TestEnsureHostPort(c *gc.C) {
 			Input:  "https://somewhere:123",
 			Output: "https://somewhere:123",
 		},
+		{
+			Input:  "https://somewhere:123/",
+			Output: "https://somewhere:123",
+		},
 	} {
 		got, err := lxd.EnsureHostPort(t.Input)
 		c.Assert(err, gc.IsNil)

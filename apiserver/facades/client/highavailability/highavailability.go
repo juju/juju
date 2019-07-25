@@ -272,8 +272,6 @@ func controllersChanges(change state.ControllersChanges) params.ControllersChang
 		Added:      machineIdsToTags(change.Added...),
 		Maintained: machineIdsToTags(change.Maintained...),
 		Removed:    machineIdsToTags(change.Removed...),
-		Promoted:   machineIdsToTags(change.Promoted...),
-		Demoted:    machineIdsToTags(change.Demoted...),
 		Converted:  machineIdsToTags(change.Converted...),
 	}
 }

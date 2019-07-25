@@ -240,6 +240,9 @@ type CredentialContent struct {
 	// AuthType is the authentication type.
 	AuthType string `json:"auth-type"`
 
+	// Valid indicates whether credential is valid.
+	Valid *bool `json:"valid,omitempty"`
+
 	// Attributes contains credential values.
 	Attributes map[string]string `json:"attrs,omitempty"`
 }

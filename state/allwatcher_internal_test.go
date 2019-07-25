@@ -76,8 +76,16 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 	m, err := st.AddMachine("quantal", JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
-	err = m.SetHasVote(true)
+	// Ensure there's one and only one controller.
+	controllerInfo, err := st.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
+	needController := len(controllerInfo.MachineIds) == 0
+	if needController {
+		_, err = st.EnableHA(1, constraints.Value{}, "quantal", []string{m.Id()})
+		c.Assert(err, jc.ErrorIsNil)
+		err = m.SetHasVote(true)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	// TODO(dfc) instance.Id should take a TAG!
 	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -97,6 +105,10 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 			SpaceProviderId: string(addr.SpaceProviderId),
 		})
 	}
+	jobs := []multiwatcher.MachineJob{JobHostUnits.ToParams()}
+	if needController {
+		jobs = append(jobs, JobManageModel.ToParams())
+	}
 	add(&multiwatcher.MachineInfo{
 		ModelUUID:  modelUUID,
 		Id:         "0",
@@ -113,12 +125,12 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 		},
 		Life:                    multiwatcher.Life("alive"),
 		Series:                  "quantal",
-		Jobs:                    []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+		Jobs:                    jobs,
 		Addresses:               addresses,
 		HardwareCharacteristics: hc,
 		CharmProfiles:           cp,
-		HasVote:                 true,
-		WantsVote:               false,
+		HasVote:                 needController,
+		WantsVote:               needController,
 	})
 
 	wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))

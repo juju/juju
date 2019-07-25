@@ -551,6 +551,34 @@ func (g *Generation) Refresh() error {
 	return nil
 }
 
+// IsTracking returns true if the generation is tracking the provided unit.
+func (g *Generation) IsTracking(unitName string) bool {
+	var tracked bool
+	for _, v := range g.doc.AssignedUnits {
+		if tracked = set.NewStrings(v...).Contains(unitName); tracked {
+			break
+		}
+	}
+	return tracked
+}
+
+func (g *Generation) unassignUnitOps(unitName, appName string) []txn.Op {
+	assignedField := "assigned-units"
+	appField := fmt.Sprintf("%s.%s", assignedField, appName)
+
+	// As a proxy for checking that the generation has not changed,
+	// Assert that the txn rev-no has not changed since we materialised
+	// this generation object.
+	return []txn.Op{{
+		C:      generationsC,
+		Id:     g.doc.DocId,
+		Assert: bson.D{{"txn-revno", g.doc.TxnRevno}},
+		Update: bson.D{
+			{"$pull", bson.D{{appField, unitName}}},
+		},
+	}}
+}
+
 // AddBranch creates a new branch in the current model.
 func (m *Model) AddBranch(branchName, userName string) error {
 	return errors.Trace(m.st.AddBranch(branchName, userName))
@@ -665,6 +693,23 @@ func (st *State) getBranchDoc(name string) (*generationDoc, error) {
 		mod, _ := st.modelName()
 		return nil, errors.Annotatef(err, "retrieving branch %q in model %q", name, mod)
 	}
+}
+
+func (m *Model) unitBranch(unitName string) (*Generation, error) {
+	// NOTE (hml) 2019-07-02
+	// Currently a unit may only be tracked in a single generation.
+	// The branches spec indicates that may change in the future.  If
+	// it does, this method and caller will need to be updated accordingly.
+	branches, err := m.Branches()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, b := range branches {
+		if b.IsTracking(unitName) {
+			return b, nil
+		}
+	}
+	return nil, nil
 }
 
 func newGeneration(st *State, doc *generationDoc) *Generation {

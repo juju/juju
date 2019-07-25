@@ -104,7 +104,6 @@ type machineDoc struct {
 	Life          Life
 	Tools         *tools.Tools `bson:",omitempty"`
 	Jobs          []MachineJob
-	NoVote        bool
 	HasVote       bool
 	PasswordHash  string
 	Clean         bool
@@ -149,10 +148,6 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 		doc: *doc,
 	}
 	return machine
-}
-
-func wantsVote(jobs []MachineJob, noVote bool) bool {
-	return hasJob(jobs, JobManageModel) && !noVote
 }
 
 // Id returns the machine id.
@@ -378,12 +373,6 @@ func (m *Machine) SetCharmProfiles(profiles []string) error {
 	return errors.Annotatef(err, "cannot update profiles for %q to %s", m, strings.Join(profiles, ", "))
 }
 
-// WantsVote reports whether the machine is a controller
-// that wants to take part in peer voting.
-func (m *Machine) WantsVote() bool {
-	return wantsVote(m.doc.Jobs, m.doc.NoVote)
-}
-
 // HasVote reports whether that machine is currently a voting
 // member of the replica set.
 func (m *Machine) HasVote() bool {
@@ -407,11 +396,24 @@ func (m *Machine) setHasVoteOps(hasVote bool) ([]txn.Op, error) {
 	if m.Life() == Dead {
 		return nil, ErrDead
 	}
+	var asserts interface{}
+	// TODO(HA)
+	// If setting has-vote=true we want the document to exist.
+	// But if has-vote=false, the doc may not be there because of
+	// older, legacy code which will be removed later.
+	if hasVote {
+		asserts = txn.DocExists
+	}
 	ops := []txn.Op{{
 		C:      machinesC,
 		Id:     m.doc.DocID,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"hasvote", hasVote}}}},
+	}, {
+		C:      controllerNodesC,
+		Id:     m.st.docID(m.doc.Id),
+		Assert: asserts,
+		Update: bson.D{{"$set", bson.D{{"has-vote", hasVote}}}},
 	}}
 	return ops, nil
 }
@@ -596,7 +598,7 @@ func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
 			return nil, errors.Annotatef(err, "reading controller info")
 		}
 		if len(controllerInfo.MachineIds) <= 1 {
-			return nil, errors.Errorf("machine %s is the only controller machine", m.Id())
+			return nil, errors.Errorf("controller %s is the only controller", m.Id())
 		}
 		// We set the machine to Dying if it isn't already dead.
 		var machineOp txn.Op
@@ -607,13 +609,7 @@ func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
 				C:      machinesC,
 				Id:     m.doc.DocID,
 				Assert: bson.D{{"life", bson.D{{"$in", []Life{Alive, Dying}}}}},
-				Update: bson.D{{"$set", bson.D{{"novote", true}, {"life", Dying}}}},
-			}
-		} else {
-			machineOp = txn.Op{
-				C:      machinesC,
-				Id:     m.doc.DocID,
-				Update: bson.D{{"$set", bson.D{{"novote", true}}}},
+				Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 			}
 		}
 		controllerOp := txn.Op{
@@ -627,6 +623,7 @@ func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
 		return []txn.Op{
 			machineOp,
 			controllerOp,
+			setControllerWantsVoteOp(m.st, m.Id(), false),
 			newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id, maxWait),
 		}, nil
 	} else {
@@ -830,14 +827,14 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 			if hasJob(m.doc.Jobs, JobManageModel) || m.doc.HasVote {
 				// If we're responsible for managing the model, make sure we ask to drop our vote
 				ops[0].Update = bson.D{
-					{"$set", bson.D{{"life", life}, {"novote", true}}},
+					{"$set", bson.D{{"life", life}}},
 				}
 				controllerInfo, err := m.st.ControllerInfo()
 				if err != nil {
 					return nil, errors.Annotatef(err, "reading controller info")
 				}
 				if len(controllerInfo.MachineIds) <= 1 {
-					return nil, errors.Errorf("machine %s is the only controller machine", m.Id())
+					return nil, errors.Errorf("controller %s is the only controller", m.Id())
 				}
 				controllerOp := txn.Op{
 					C:      controllersC,
@@ -845,6 +842,7 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 					Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
 				}
 				ops = append(ops, controllerOp)
+				ops = append(ops, setControllerWantsVoteOp(m.st, m.doc.Id, false))
 			}
 			var principalUnitnames []string
 			for _, principalUnit := range m.doc.Principals {
@@ -903,7 +901,7 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 
 		if life == Dead {
 			if hasJob(m.doc.Jobs, JobManageModel) {
-				return nil, errors.Errorf("machine %s is still resposible for being a controller", m.Id())
+				return nil, errors.Errorf("machine %s is still responsible for being a controller", m.Id())
 			}
 			// A machine may not become Dead until it has no more
 			// attachments to detachable storage.
@@ -1054,6 +1052,7 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 
+	ops = append(ops, removeControllerNodeOp(m.st, m.Id()))
 	ops = append(ops, linkLayerDevicesOps...)
 	ops = append(ops, devicesAddressesOps...)
 	ops = append(ops, portsOps...)

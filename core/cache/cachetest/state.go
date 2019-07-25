@@ -123,7 +123,6 @@ func MachineChange(c *gc.C, modelUUID string, machine *state.Machine) cache.Mach
 		HardwareCharacteristics:  hwc,
 		CharmProfiles:            chProf,
 		HasVote:                  machine.HasVote(),
-		WantsVote:                machine.WantsVote(),
 		// TODO: Config, Addresses.
 	}
 

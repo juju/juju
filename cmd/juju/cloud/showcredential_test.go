@@ -12,7 +12,9 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
+	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/all"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -20,7 +22,8 @@ import (
 type ShowCredentialSuite struct {
 	coretesting.BaseSuite
 
-	api *fakeCredentialContentAPI
+	api   *fakeCredentialContentAPI
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&ShowCredentialSuite{})
@@ -28,11 +31,39 @@ var _ = gc.Suite(&ShowCredentialSuite{})
 func (s *ShowCredentialSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
+	s.store = &jujuclient.MemStore{
+		Controllers: map[string]jujuclient.ControllerDetails{
+			"controller": {},
+		},
+		CurrentControllerName: "controller",
+	}
 	s.api = &fakeCredentialContentAPI{v: 2}
 }
 
+func (s *ShowCredentialSuite) putCredentialsInStore(c *gc.C) {
+	authCreds := map[string]string{"access-key": "key", "secret-key": "secret"}
+	s.store.Accounts = map[string]jujuclient.AccountDetails{
+		"controller": {
+			User: "admin@local",
+		},
+	}
+	s.store.Credentials = map[string]jujucloud.CloudCredential{
+		"aws": {
+			AuthCredentials: map[string]jujucloud.Credential{
+				"my-credential": jujucloud.NewCredential(jujucloud.AccessKeyAuthType, authCreds),
+			},
+		},
+		"somecloud": {
+			AuthCredentials: map[string]jujucloud.Credential{
+				"its-credential":         jujucloud.NewCredential(jujucloud.AccessKeyAuthType, authCreds),
+				"its-another-credential": jujucloud.NewCredential(jujucloud.AccessKeyAuthType, authCreds),
+			},
+		},
+	}
+}
+
 func (s *ShowCredentialSuite) TestShowCredentialBadArgs(c *gc.C) {
-	cmd := cloud.NewShowCredentialCommandForTest(s.api)
+	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
 	_, err := cmdtesting.RunCommand(c, cmd, "cloud")
 	c.Assert(err, gc.ErrorMatches, "both cloud and credential name are needed")
 	_, err = cmdtesting.RunCommand(c, cmd, "cloud", "credential", "extra")
@@ -41,35 +72,42 @@ func (s *ShowCredentialSuite) TestShowCredentialBadArgs(c *gc.C) {
 
 func (s *ShowCredentialSuite) TestShowCredentialAPIVersion(c *gc.C) {
 	s.api.v = 1
-	cmd := cloud.NewShowCredentialCommandForTest(s.api)
+	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
 	ctx, err := cmdtesting.RunCommand(c, cmd)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "credential content lookup is not supported by this version of Juju\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+remote credential content lookup failed: remote credential content lookup in Juju v1 not supported
+No local or remote credentials to display.
+`[1:])
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
 	s.api.CheckCallNames(c, "BestAPIVersion", "Close")
 }
 
 func (s *ShowCredentialSuite) TestShowCredentialAPICallError(c *gc.C) {
 	s.api.SetErrors(errors.New("boom"), nil)
-	cmd := cloud.NewShowCredentialCommandForTest(s.api)
+	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
 	ctx, err := cmdtesting.RunCommand(c, cmd)
-	c.Assert(err, gc.ErrorMatches, "boom")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Getting credential content failed with: boom\n")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+remote credential content lookup failed: boom
+No local or remote credentials to display.
+`[1:])
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
 	s.api.CheckCallNames(c, "BestAPIVersion", "CredentialContents", "Close")
 }
 
 func (s *ShowCredentialSuite) TestShowCredentialNone(c *gc.C) {
 	s.api.contents = []params.CredentialContentResult{}
-	cmd := cloud.NewShowCredentialCommandForTest(s.api)
+	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
 	ctx, err := cmdtesting.RunCommand(c, cmd)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No credential to display\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No local or remote credentials to display.\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
 	s.api.CheckCallNames(c, "BestAPIVersion", "CredentialContents", "Close")
 }
 
 func (s *ShowCredentialSuite) TestShowCredentialOne(c *gc.C) {
+	_true := true
 	s.api.contents = []params.CredentialContentResult{
 		{
 			Result: &params.ControllerCredentialInfo{
@@ -77,6 +115,7 @@ func (s *ShowCredentialSuite) TestShowCredentialOne(c *gc.C) {
 					Cloud:    "aws",
 					Name:     "credential-name",
 					AuthType: "userpass",
+					Valid:    &_true,
 					Attributes: map[string]string{
 						"username": "fred",
 						"password": "sekret"},
@@ -89,16 +128,18 @@ func (s *ShowCredentialSuite) TestShowCredentialOne(c *gc.C) {
 			},
 		},
 	}
-	cmd := cloud.NewShowCredentialCommandForTest(s.api)
+	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--show-secrets")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, ``)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+local-credentials: {}
 controller-credentials:
   aws:
     credential-name:
       content:
         auth-type: userpass
+        validity-check: valid
         password: sekret
         username: fred
       models:
@@ -111,6 +152,8 @@ controller-credentials:
 }
 
 func (s *ShowCredentialSuite) TestShowCredentialMany(c *gc.C) {
+	_true := true
+	_false := false
 	s.api.contents = []params.CredentialContentResult{
 		{
 			Result: &params.ControllerCredentialInfo{
@@ -118,6 +161,7 @@ func (s *ShowCredentialSuite) TestShowCredentialMany(c *gc.C) {
 					Cloud:      "cloud-name",
 					Name:       "one",
 					AuthType:   "userpass",
+					Valid:      &_true,
 					Attributes: map[string]string{"username": "fred"},
 				},
 				// Don't have models here.
@@ -130,6 +174,7 @@ func (s *ShowCredentialSuite) TestShowCredentialMany(c *gc.C) {
 					Cloud:    "cloud-name",
 					Name:     "two",
 					AuthType: "userpass",
+					Valid:    &_false,
 					Attributes: map[string]string{
 						"username":  "fred",
 						"something": "visible-attr",
@@ -149,6 +194,7 @@ func (s *ShowCredentialSuite) TestShowCredentialMany(c *gc.C) {
 					Cloud:    "diff-cloud",
 					Name:     "three",
 					AuthType: "oauth1",
+					Valid:    &_true,
 					Attributes: map[string]string{
 						"something": "visible-attr",
 					},
@@ -159,21 +205,23 @@ func (s *ShowCredentialSuite) TestShowCredentialMany(c *gc.C) {
 			},
 		},
 	}
-	cmd := cloud.NewShowCredentialCommandForTest(s.api)
+	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
 	ctx, err := cmdtesting.RunCommand(c, cmd)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "boom\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+local-credentials: {}
 controller-credentials:
   cloud-name:
     one:
       content:
         auth-type: userpass
+        validity-check: valid
         username: fred
-      models: {}
     two:
       content:
         auth-type: userpass
+        validity-check: invalid
         hidden: very-very-sekret
         password: sekret
         something: visible-attr
@@ -186,6 +234,7 @@ controller-credentials:
     three:
       content:
         auth-type: oauth1
+        validity-check: valid
         something: visible-attr
       models:
         klmmodel: write

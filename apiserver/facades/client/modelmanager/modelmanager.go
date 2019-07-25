@@ -39,6 +39,13 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.modelmanager")
 
+// ModelManagerV8 defines the methods on the version 8 facade for the
+// modelmanager API endpoint.
+type ModelManagerV8 interface {
+	ModelManagerV7
+	// ModelInfo gains credential validity in return.
+}
+
 // ModelManagerV7 defines the methods on the version 7 facade for the
 // modelmanager API endpoint.
 type ModelManagerV7 interface {
@@ -121,10 +128,16 @@ type ModelManagerAPI struct {
 	callContext context.ProviderCallContext
 }
 
-// ModelManagerAPIV6 provides a way to wrap the different calls between
-// version 6 and version 6 of the model manager API
-type ModelManagerAPIV6 struct {
+// ModelManagerAPIV7 provides a way to wrap the different calls between
+// version 8 and version 7 of the model manager API
+type ModelManagerAPIV7 struct {
 	*ModelManagerAPI
+}
+
+// ModelManagerAPIV6 provides a way to wrap the different calls between
+// version 7 and version 6 of the model manager API
+type ModelManagerAPIV6 struct {
+	*ModelManagerAPIV7
 }
 
 // ModelManagerAPIV5 provides a way to wrap the different calls between
@@ -152,7 +165,8 @@ type ModelManagerAPIV2 struct {
 }
 
 var (
-	_ ModelManagerV7 = (*ModelManagerAPI)(nil)
+	_ ModelManagerV8 = (*ModelManagerAPI)(nil)
+	_ ModelManagerV7 = (*ModelManagerAPIV7)(nil)
 	_ ModelManagerV6 = (*ModelManagerAPIV6)(nil)
 	_ ModelManagerV5 = (*ModelManagerAPIV5)(nil)
 	_ ModelManagerV4 = (*ModelManagerAPIV4)(nil)
@@ -160,8 +174,8 @@ var (
 	_ ModelManagerV2 = (*ModelManagerAPIV2)(nil)
 )
 
-// NewFacadeV7 is used for API registration.
-func NewFacadeV7(ctx facade.Context) (*ModelManagerAPI, error) {
+// NewFacadeV8 is used for API registration.
+func NewFacadeV8(ctx facade.Context) (*ModelManagerAPI, error) {
 	st := ctx.State()
 	pool := ctx.StatePool()
 	ctlrSt := pool.SystemState()
@@ -196,6 +210,15 @@ func NewFacadeV7(ctx facade.Context) (*ModelManagerAPI, error) {
 		model,
 		state.CallContext(st),
 	)
+}
+
+// NewFacadeV7 is used for API registration.
+func NewFacadeV7(ctx facade.Context) (*ModelManagerAPIV7, error) {
+	v8, err := NewFacadeV8(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &ModelManagerAPIV7{v8}, nil
 }
 
 // NewFacadeV6 is used for API registration.
@@ -1034,7 +1057,16 @@ func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params
 }
 
 // ModelInfo returns information about the specified models.
+func (m *ModelManagerAPIV7) ModelInfo(args params.Entities) (params.ModelInfoResults, error) {
+	return m.internalModelInfo(args, false)
+}
+
+// ModelInfo returns information about the specified models.
 func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResults, error) {
+	return m.internalModelInfo(args, true)
+}
+
+func (m *ModelManagerAPI) internalModelInfo(args params.Entities, includeCredentialValidity bool) (params.ModelInfoResults, error) {
 	results := params.ModelInfoResults{
 		Results: make([]params.ModelInfoResult, len(args.Entities)),
 	}
@@ -1044,7 +1076,23 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
-		return m.getModelInfo(tag)
+		modelInfo, err := m.getModelInfo(tag)
+		if err != nil {
+			return params.ModelInfo{}, errors.Trace(err)
+		}
+		if modelInfo.CloudCredentialTag != "" && includeCredentialValidity {
+			credentialTag, err := names.ParseCloudCredentialTag(modelInfo.CloudCredentialTag)
+			if err != nil {
+				return params.ModelInfo{}, errors.Trace(err)
+			}
+			credential, err := m.state.CloudCredential(credentialTag)
+			if err != nil {
+				return params.ModelInfo{}, errors.Trace(err)
+			}
+			valid := credential.IsValid()
+			modelInfo.CloudCredentialValidity = &valid
+		}
+		return modelInfo, nil
 	}
 
 	for i, arg := range args.Entities {

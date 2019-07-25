@@ -139,6 +139,9 @@ func (s *workerConfigSuite) TestValidConfigValidate(c *gc.C) {
 		Tag:                    names.MachineTag{},
 		GetMachineWatcher:      getMachineWatcher,
 		GetRequiredLXDProfiles: func(_ string) []string { return []string{} },
+		GetRequiredContext: func(w instancemutater.MutaterContext) instancemutater.MutaterContext {
+			return w
+		},
 	}
 	err := config.Validate()
 	c.Assert(err, gc.IsNil)
@@ -153,6 +156,7 @@ type workerSuite struct {
 	machine                map[int]*mocks.MockMutaterMachine
 	machineTag             names.Tag
 	machinesWorker         *workermocks.MockWorker
+	context                *mocks.MockMutaterContext
 	appLXDProfileWorker    map[int]*workermocks.MockWorker
 	getRequiredLXDProfiles instancemutater.RequiredLXDProfilesFunc
 
@@ -160,7 +164,7 @@ type workerSuite struct {
 	// be completed within the test.
 	doneWG sync.WaitGroup
 
-	newWorkerFunc func(instancemutater.Config) (worker.Worker, error)
+	newWorkerFunc func(instancemutater.Config, instancemutater.RequiredMutaterContextFunc) (worker.Worker, error)
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -168,7 +172,7 @@ var _ = gc.Suite(&workerSuite{})
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.newWorkerFunc = instancemutater.NewEnvironWorker
+	s.newWorkerFunc = instancemutater.NewEnvironTestWorker
 	s.machineTag = names.NewMachineTag("0")
 	s.getRequiredLXDProfiles = func(modelName string) []string {
 		return []string{"default", "juju-testing"}
@@ -314,7 +318,12 @@ func (s *workerEnvironSuite) TestCharmProfilingInfoError(c *gc.C) {
 	s.notifyMachineAppLXDProfile(0, 1)
 	s.expectCharmProfileInfoError(0)
 
-	err := s.errorKill(c, s.workerForScenario(c))
+	// This is required so that the waitgroups don't collapse before the
+	// context KillWithError is called with the right method. Otherwise
+	// context.Kill(nil) is called first. This prevents the logical race.
+	s.expectContextKillError()
+
+	err := s.errorKill(c, s.workerForScenarioWithContext(c))
 	c.Assert(err, jc.Satisfies, params.IsCodeNotSupported)
 }
 
@@ -326,6 +335,7 @@ func (s *workerSuite) setup(c *gc.C, machineCount int) *gomock.Controller {
 	s.broker = mocks.NewMockLXDProfiler(ctrl)
 	s.agentConfig = mocks.NewMockConfig(ctrl)
 	s.machinesWorker = workermocks.NewMockWorker(ctrl)
+	s.context = mocks.NewMockMutaterContext(ctrl)
 
 	s.machine = make(map[int]*mocks.MockMutaterMachine, machineCount)
 	s.appLXDProfileWorker = make(map[int]*workermocks.MockWorker)
@@ -351,7 +361,30 @@ func (s *workerSuite) workerForScenario(c *gc.C) worker.Worker {
 		GetRequiredLXDProfiles: s.getRequiredLXDProfiles,
 	}
 
-	w, err := s.newWorkerFunc(config)
+	w, err := s.newWorkerFunc(config, func(ctx instancemutater.MutaterContext) instancemutater.MutaterContext {
+		return ctx
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return w
+}
+
+func (s *workerSuite) workerForScenarioWithContext(c *gc.C) worker.Worker {
+	config := instancemutater.Config{
+		Facade:                 s.facade,
+		Logger:                 s.logger,
+		Broker:                 s.broker,
+		AgentConfig:            s.agentConfig,
+		Tag:                    s.machineTag,
+		GetRequiredLXDProfiles: s.getRequiredLXDProfiles,
+	}
+
+	w, err := s.newWorkerFunc(config, func(ctx instancemutater.MutaterContext) instancemutater.MutaterContext {
+		c := mutaterContextShim{
+			MutaterContext: ctx,
+			mockContext:    s.context,
+		}
+		return c
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return w
 }
@@ -368,7 +401,9 @@ func (s *workerSuite) workerErrorForScenario(c *gc.C) (worker.Worker, error) {
 		Tag:         s.machineTag,
 	}
 
-	return s.newWorkerFunc(config)
+	return s.newWorkerFunc(config, func(ctx instancemutater.MutaterContext) instancemutater.MutaterContext {
+		return ctx
+	})
 }
 
 func (s *workerSuite) expectFacadeMachineTag(machine int) {
@@ -448,7 +483,6 @@ func (s *workerSuite) expectCharmProfileInfoError(machine int) {
 		Code:    params.CodeNotSupported,
 	}
 	s.machine[machine].EXPECT().CharmProfilingInfo().Return(&apiinstancemutater.UnitProfileInfo{}, err).Do(do)
-
 }
 
 func (s *workerSuite) expectAliveAndSetModificationStatusIdle(machine int) {
@@ -456,7 +490,6 @@ func (s *workerSuite) expectAliveAndSetModificationStatusIdle(machine int) {
 	mExp.Refresh().Return(nil)
 	mExp.Life().Return(params.Alive)
 	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
-
 }
 
 func (s *workerSuite) expectMachineAliveStatusIdleMachineDead(machine int, group *sync.WaitGroup) {
@@ -575,6 +608,28 @@ func (s *workerSuite) notifyAppLXDProfile(mock *mocks.MockMutaterMachine, which,
 		}, nil)
 }
 
+// mutaterContextShim is required to override the KillWithError context. We
+// can't mock out the whole thing as their are private methods, so we just
+// compose it and send it back with a new KillWithError method.
+type mutaterContextShim struct {
+	instancemutater.MutaterContext
+	mockContext *mocks.MockMutaterContext
+}
+
+func (c mutaterContextShim) KillWithError(err error) {
+	if c.mockContext != nil {
+		c.mockContext.KillWithError(err)
+	}
+	// We still want to call the original context to ensure that errorKill
+	// still passes.
+	c.MutaterContext.KillWithError(err)
+}
+
+func (s *workerSuite) expectContextKillError() {
+	do := s.workGroupAddGetDoneFunc()
+	s.context.EXPECT().KillWithError(gomock.Any()).Do(do)
+}
+
 // cleanKill waits for notifications to be processed, then waits for the input
 // worker to be killed cleanly. If either ops time out, the test fails.
 func (s *workerSuite) cleanKill(c *gc.C, w worker.Worker) {
@@ -656,7 +711,7 @@ func (s *workerContainerSuite) SetUpTest(c *gc.C) {
 
 	s.lxdContainerTag = names.NewMachineTag("0/lxd/0")
 	s.kvmContainerTag = names.NewMachineTag("0/kvm/0")
-	s.newWorkerFunc = instancemutater.NewContainerWorker
+	s.newWorkerFunc = instancemutater.NewContainerTestWorker
 	s.getRequiredLXDProfiles = func(modelName string) []string {
 		return []string{"default"}
 	}

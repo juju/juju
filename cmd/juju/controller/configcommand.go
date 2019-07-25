@@ -5,6 +5,7 @@ package controller
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -40,7 +41,8 @@ type configCommand struct {
 	setOptions common.ConfigFlag                       // Config values to set.
 }
 
-const configCommandHelpDoc = `
+const (
+	configCommandHelpDocPart1 = `
 By default, all configuration (keys and values) for the controller are
 displayed if a key is not specified. Supplying one key name returns
 only the value for that key.
@@ -50,8 +52,11 @@ this can be repeated for multiple keys. You can also specify a yaml
 file containing key values. Not all keys can be updated after
 bootstrap time.
 
-Available keys and values can be found here:
-https://jujucharms.com/stable/controllers-config
+`
+	controllerConfigHelpDocKeys = `
+The following keys are available:
+`
+	configCommandHelpDocPart2 = `
 
 Examples:
 
@@ -67,16 +72,31 @@ See also:
     model-config
     show-cloud
 `
+)
 
 // Info returns information about this command - it's part of
 // cmd.Command.
 func (c *configCommand) Info() *cmd.Info {
-	return jujucmd.Info(&cmd.Info{
+	info := &cmd.Info{
 		Name:    "controller-config",
 		Args:    "[<attribute key>[=<value>] ...]",
 		Purpose: "Displays or sets configuration settings for a controller.",
-		Doc:     strings.TrimSpace(configCommandHelpDoc),
-	})
+	}
+	if details, err := c.controllerConfigDetails(); err == nil {
+		if output, err := common.FormatConfigSchema(details); err == nil {
+			info.Doc = fmt.Sprintf("%s%s\n%s%s",
+				configCommandHelpDocPart1,
+				controllerConfigHelpDocKeys,
+				output,
+				configCommandHelpDocPart2)
+			return info
+		}
+	}
+	info.Doc = strings.TrimSpace(fmt.Sprintf("%s%s",
+		configCommandHelpDocPart1,
+		configCommandHelpDocPart2))
+
+	return jujucmd.Info(info)
 }
 
 // SetFlags adds command-specific flags to the flag set. It's part of
@@ -205,6 +225,20 @@ func (c *configCommand) setConfig(client controllerAPI, ctx *cmd.Context) error 
 		return errors.Trace(err)
 	}
 	return errors.Trace(client.ConfigSet(attrs))
+}
+
+func (c *configCommand) controllerConfigDetails() (map[string]interface{}, error) {
+	specifics := make(map[string]interface{})
+	for key, attr := range controller.ConfigSchema {
+		if !controller.AllowedUpdateConfigAttributes.Contains(key) {
+			continue
+		}
+		specifics[key] = common.PrintConfigSchema{
+			Description: attr.Description,
+			Type:        fmt.Sprintf("%s", attr.Type),
+		}
+	}
+	return specifics, nil
 }
 
 func formatConfigTabular(writer io.Writer, value interface{}) error {

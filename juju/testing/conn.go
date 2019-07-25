@@ -885,7 +885,11 @@ func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
 		return nil
 	}
 	if profiler, ok := p.Charm.(charm.LXDProfiler); ok {
-		return profiler.LXDProfile()
+		profile := profiler.LXDProfile()
+		if profile == nil {
+			return nil
+		}
+		return profile
 	}
 	return nil
 }

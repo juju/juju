@@ -14,7 +14,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // NewAddCommand returns a command used to add an existing subnet to Juju.

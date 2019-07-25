@@ -13,6 +13,8 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+
+	corenetwork "github.com/juju/juju/core/network"
 )
 
 // Private and special use network ranges for IPv4 and IPv6.
@@ -98,7 +100,7 @@ type Address struct {
 	Type  AddressType
 	Scope
 	SpaceName
-	SpaceProviderId Id
+	SpaceProviderId corenetwork.Id
 }
 
 // String returns a string representation of the address, in the form:
@@ -124,7 +126,7 @@ func (a Address) String() string {
 		buf.WriteByte('@')
 		buf.WriteString(string(a.SpaceName))
 	}
-	if a.SpaceProviderId != Id("") {
+	if a.SpaceProviderId != corenetwork.Id("") {
 		if !spaceFound {
 			buf.WriteByte('@')
 		}

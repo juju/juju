@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -1187,30 +1188,30 @@ func (s *localServerSuite) prepareNetworkingEnviron(c *gc.C, cfg *config.Config)
 func (s *localServerSuite) TestSubnetsFindAll(c *gc.C) {
 	env := s.prepareNetworkingEnviron(c, s.env.Config())
 	// the environ is opened with network:"private_999" which maps to network id "999"
-	obtainedSubnets, err := env.Subnets(s.callCtx, instance.Id(""), []network.Id{})
+	obtainedSubnets, err := env.Subnets(s.callCtx, instance.Id(""), []corenetwork.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	neutronClient := openstack.GetNeutronClient(s.env)
 	openstackSubnets, err := neutronClient.ListSubnetsV2()
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtainedSubnetMap := make(map[network.Id]network.SubnetInfo)
+	obtainedSubnetMap := make(map[corenetwork.Id]corenetwork.SubnetInfo)
 	for _, sub := range obtainedSubnets {
 		obtainedSubnetMap[sub.ProviderId] = sub
 	}
 
-	expectedSubnetMap := make(map[network.Id]network.SubnetInfo)
+	expectedSubnetMap := make(map[corenetwork.Id]corenetwork.SubnetInfo)
 	for _, os := range openstackSubnets {
 		if os.NetworkId != "999" {
 			continue
 		}
 		net, err := neutronClient.GetNetworkV2(os.NetworkId)
 		c.Assert(err, jc.ErrorIsNil)
-		expectedSubnetMap[network.Id(os.Id)] = network.SubnetInfo{
+		expectedSubnetMap[corenetwork.Id(os.Id)] = corenetwork.SubnetInfo{
 			CIDR:              os.Cidr,
-			ProviderId:        network.Id(os.Id),
+			ProviderId:        corenetwork.Id(os.Id),
 			VLANTag:           0,
 			AvailabilityZones: net.AvailabilityZones,
-			SpaceProviderId:   "",
+			ProviderSpaceId:   "",
 		}
 	}
 
@@ -1224,30 +1225,30 @@ func (s *localServerSuite) TestSubnetsFindAllWithExternal(c *gc.C) {
 	env := s.prepareNetworkingEnviron(c, cfg)
 	// private_999 is the internal network, 998 is the external network
 	// the environ is opened with network:"private_999" which maps to network id "999"
-	obtainedSubnets, err := env.Subnets(s.callCtx, instance.Id(""), []network.Id{})
+	obtainedSubnets, err := env.Subnets(s.callCtx, instance.Id(""), []corenetwork.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	neutronClient := openstack.GetNeutronClient(s.env)
 	openstackSubnets, err := neutronClient.ListSubnetsV2()
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtainedSubnetMap := make(map[network.Id]network.SubnetInfo)
+	obtainedSubnetMap := make(map[corenetwork.Id]corenetwork.SubnetInfo)
 	for _, sub := range obtainedSubnets {
 		obtainedSubnetMap[sub.ProviderId] = sub
 	}
 
-	expectedSubnetMap := make(map[network.Id]network.SubnetInfo)
+	expectedSubnetMap := make(map[corenetwork.Id]corenetwork.SubnetInfo)
 	for _, os := range openstackSubnets {
 		if os.NetworkId != "999" && os.NetworkId != "998" {
 			continue
 		}
 		net, err := neutronClient.GetNetworkV2(os.NetworkId)
 		c.Assert(err, jc.ErrorIsNil)
-		expectedSubnetMap[network.Id(os.Id)] = network.SubnetInfo{
+		expectedSubnetMap[corenetwork.Id(os.Id)] = corenetwork.SubnetInfo{
 			CIDR:              os.Cidr,
-			ProviderId:        network.Id(os.Id),
+			ProviderId:        corenetwork.Id(os.Id),
 			VLANTag:           0,
 			AvailabilityZones: net.AvailabilityZones,
-			SpaceProviderId:   "",
+			ProviderSpaceId:   "",
 		}
 	}
 
@@ -1256,7 +1257,7 @@ func (s *localServerSuite) TestSubnetsFindAllWithExternal(c *gc.C) {
 
 func (s *localServerSuite) TestSubnetsWithMissingSubnet(c *gc.C) {
 	env := s.prepareNetworkingEnviron(c, s.env.Config())
-	subnets, err := env.Subnets(s.callCtx, instance.Id(""), []network.Id{"missing"})
+	subnets, err := env.Subnets(s.callCtx, instance.Id(""), []corenetwork.Id{"missing"})
 	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[missing\]`)
 	c.Assert(subnets, gc.HasLen, 0)
 }

@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
 )
 
 // paramsFromProviderSpaceInfo converts a ProviderSpaceInfo into the
@@ -25,7 +25,7 @@ func paramsFromProviderSpaceInfo(info *environs.ProviderSpaceInfo) params.Remote
 			CIDR:              subnet.CIDR,
 			ProviderId:        string(subnet.ProviderId),
 			ProviderNetworkId: string(subnet.ProviderNetworkId),
-			ProviderSpaceId:   string(subnet.SpaceProviderId),
+			ProviderSpaceId:   string(subnet.ProviderSpaceId),
 			VLANTag:           subnet.VLANTag,
 			Zones:             subnet.AvailabilityZones,
 		}
@@ -50,7 +50,7 @@ func providerSpaceInfoFromParams(space params.RemoteSpace) *environs.ProviderSpa
 			CIDR:              subnet.CIDR,
 			ProviderId:        network.Id(subnet.ProviderId),
 			ProviderNetworkId: network.Id(subnet.ProviderNetworkId),
-			SpaceProviderId:   network.Id(subnet.ProviderSpaceId),
+			ProviderSpaceId:   network.Id(subnet.ProviderSpaceId),
 			VLANTag:           subnet.VLANTag,
 			AvailabilityZones: subnet.Zones,
 		}

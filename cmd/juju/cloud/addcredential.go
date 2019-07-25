@@ -14,10 +14,12 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
+	apicloud "github.com/juju/juju/api/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/interact"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 )
@@ -39,7 +41,7 @@ formatted YAML-formatted file. Details of the format are provided at
 
 The ` + "`--replace`" + ` option is required if credential information 
 for the named cloud already exists locally. All such information will be 
-overwritten.
+overwritten. This option is DEPRECATED, use 'juju update-credential' instead.
 
 About credentials.yaml:
 Here is a sample credentials.yaml showing four credentials being stored 
@@ -83,8 +85,11 @@ multiple credentials.
 
 Examples:
     juju add-credential google
+    juju add-credential google --local
+    juju add-credential google -c mycontroller
+    juju add-credential aws -f ~/credentials.yaml -c mycontroller
     juju add-credential aws -f ~/credentials.yaml
-    juju add-credential aws --replace -f ~/credentials.yaml
+    juju add-credential aws -f ~/credentials.yaml --local
 
 Notes:
 If you are setting up Juju for the first time, consider running
@@ -94,6 +99,11 @@ credentials manually.
 This command does not set default regions nor default credentials for the
 cloud. The commands ` + "`juju set-default-region`" + ` and ` + "`juju set-default-credential`" + `
 provide that functionality.
+
+By default, after validating the contents, credentials are added both 
+to the current controller and the current client device. 
+Use --controller option to add credentials to a different controller. 
+Use --local option to add credentials to the current device only.
 
 Further help:
 Please visit https://discourse.jujucharms.com/t/1508 for cloud-specific
@@ -108,8 +118,7 @@ See also:
 `
 
 type addCredentialCommand struct {
-	cmd.CommandBase
-	store           jujuclient.CredentialStore
+	modelcmd.OptionalControllerCommand
 	cloudByNameFunc func(string) (*jujucloud.Cloud, error)
 
 	// Replace, if true, existing credential information is overwritten.
@@ -122,14 +131,27 @@ type addCredentialCommand struct {
 	CredentialsFile string
 
 	cloud *jujucloud.Cloud
+
+	// Region used to complete credentials' creation.
+	Region string
+
+	// These attributes are used when adding credentials to a controller.
+	controllerName    string
+	remoteCloudFound  bool
+	credentialAPIFunc func() (CredentialAPI, error)
 }
 
 // NewAddCredentialCommand returns a command to add credential information.
 func NewAddCredentialCommand() cmd.Command {
-	return &addCredentialCommand{
-		store:           jujuclient.NewFileCredentialStore(),
+	store := jujuclient.NewFileClientStore()
+	c := &addCredentialCommand{
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
+			Store: store,
+		},
 		cloudByNameFunc: jujucloud.CloudByName,
 	}
+	c.credentialAPIFunc = c.credentialsAPI
+	return modelcmd.WrapBase(c)
 }
 
 func (c *addCredentialCommand) Info() *cmd.Info {
@@ -142,9 +164,10 @@ func (c *addCredentialCommand) Info() *cmd.Info {
 }
 
 func (c *addCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CommandBase.SetFlags(f)
+	c.OptionalControllerCommand.SetFlags(f)
 	f.BoolVar(&c.Replace, "replace", false, "Overwrite existing credential information")
 	f.StringVar(&c.CredentialsFile, "f", "", "The YAML file containing credentials to add")
+	f.StringVar(&c.Region, "region", "", "Cloud region that credential is valid for")
 }
 
 func (c *addCredentialCommand) Init(args []string) (err error) {
@@ -152,15 +175,39 @@ func (c *addCredentialCommand) Init(args []string) (err error) {
 		return errors.New("Usage: juju add-credential <cloud-name> [-f <credentials.yaml>]")
 	}
 	c.CloudName = args[0]
+	c.controllerName, err = c.ControllerNameFromArg()
+	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
+		return errors.Trace(err)
+	}
+	if c.controllerName == "" {
+		// No controller was specified explicitly and we did not detect a current controller,
+		// this operation should be local only.
+		c.Local = true
+	}
 	return cmd.CheckEmpty(args[1:])
 }
 
 func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
+	if c.Replace {
+		// TODO (anastasiamac 2019-07-10) --replace and everything related to it should be removed.
+		// https://bugs.launchpad.net/juju/+bug/1821279
+		ctxt.Warningf("--replace is DEPRECATED. Use 'juju update-credential' to update credentials.")
+	}
 	// Check that the supplied cloud is valid.
 	var err error
-	if c.cloud, err = common.CloudOrProvider(c.CloudName, c.cloudByNameFunc); err != nil {
-		if !errors.IsNotFound(err) {
-			return err
+	if !c.Local {
+		if err := c.maybeRemoteCloud(ctxt); err != nil {
+			if !errors.IsNotFound(err) {
+				logger.Errorf("%v", err)
+			}
+			ctxt.Infof("Cloud %q is not remotely found on the controller, looking for a locally stored cloud.", c.CloudName)
+		}
+	}
+	if c.cloud == nil {
+		if c.cloud, err = common.CloudOrProvider(c.CloudName, c.cloudByNameFunc); err != nil {
+			logger.Errorf("%v", err)
+			ctxt.Infof("To view all available clouds, use 'juju clouds'.\nTo add new cloud, use 'juju add-cloud'.")
+			return cmd.ErrSilent
 		}
 	}
 
@@ -174,10 +221,23 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	schemas := credentialsProvider.CredentialSchemas()
-	if c.CredentialsFile == "" {
-		return c.interactiveAddCredential(ctxt, schemas)
+	existingCredentials, err := c.existingCredentialsForCloud()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if c.Region != "" {
+		if err := validCloudRegion(c.cloud, c.Region); err != nil {
+			return err
+		}
 	}
 
+	if c.CredentialsFile == "" {
+		return c.interactiveAddCredential(ctxt, schemas, existingCredentials)
+	}
+
+	if c.Region == "" {
+		c.Region = existingCredentials.DefaultRegion
+	}
 	data, err := ioutil.ReadFile(c.CredentialsFile)
 	if err != nil {
 		return errors.Annotate(err, "reading credentials file")
@@ -190,14 +250,6 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	credentials, ok := specifiedCredentials[c.CloudName]
 	if !ok {
 		return errors.Errorf("no credentials for cloud %s exist in file %s", c.CloudName, c.CredentialsFile)
-	}
-	existingCredentials, err := c.existingCredentialsForCloud()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// If there are *any* credentials already for the cloud, we'll ask for the --replace flag.
-	if !c.Replace && len(existingCredentials.AuthCredentials) > 0 && len(credentials.AuthCredentials) > 0 {
-		return errors.Errorf("local credentials for cloud %q already exist; use --replace to overwrite / merge", c.CloudName)
 	}
 
 	// We could get a duplicate "interactive" entry for the validAuthType() call,
@@ -216,19 +268,23 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 		return false
 	}
 
+	provider, err := environs.Provider(c.cloud.Type)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	var allNames []string
+	added := map[string]jujucloud.Credential{}
 	for name, cred := range credentials.AuthCredentials {
 		if !names.IsValidCloudCredentialName(name) {
 			return errors.Errorf("%q is not a valid credential name", name)
 		}
 
+		if _, ok := existingCredentials.AuthCredentials[name]; ok {
+			ctxt.Warningf("credential %q for cloud %q already exists locally, use 'juju update-credential %v %v' to update it", name, c.CloudName, c.CloudName, name)
+			continue
+		}
 		if !validAuthType(cred.AuthType()) {
 			return errors.Errorf("credential %q contains invalid auth type %q, valid auth types for cloud %q are %v", name, cred.AuthType(), c.CloudName, c.cloud.AuthTypes)
-		}
-
-		provider, err := environs.Provider(c.cloud.Type)
-		if err != nil {
-			return errors.Trace(err)
 		}
 
 		// When in non-interactive mode we still sometimes want to finalize a
@@ -237,29 +293,34 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 		// shared/secret passwords (lxd remote security).
 		// This is optional and is backwards compatible with other providers.
 		if shouldFinalizeCredential(provider, cred) {
-			newCredential, err := c.finalizeProvider(ctxt, cred.AuthType(), cred.Attributes())
+			newCredential, err := finalizeProvider(ctxt, c.cloud, c.Region, existingCredentials.DefaultRegion, cred.AuthType(), cred.Attributes())
 			if err != nil {
-				return errors.Trace(err)
+				return errors.Errorf("Could not verify credential %v for cloud %v locally: %v", name, c.CloudName, err)
 			}
 			cred = *newCredential
 		}
+
 		existingCredentials.AuthCredentials[name] = cred
 		allNames = append(allNames, name)
+		added[name] = cred
 	}
-	err = c.store.UpdateCredential(c.CloudName, *existingCredentials)
+	if len(allNames) == 0 {
+		fmt.Fprintf(ctxt.Stdout, "No local credentials for cloud %q changed.\n", c.CloudName)
+		return nil
+	}
+	err = c.Store.UpdateCredential(c.CloudName, *existingCredentials)
 	if err != nil {
 		return err
 	}
-	verb := "added"
-	if c.Replace {
-		verb = "updated"
+	fmt.Fprintf(ctxt.Stdout, "Credentials %q added locally for cloud %q.\n", strings.Join(allNames, ", "), c.CloudName)
+	if !c.Local {
+		return c.addRemoteCredentials(ctxt, added)
 	}
-	fmt.Fprintf(ctxt.Stdout, "Credentials %q %v for cloud %q.\n", strings.Join(allNames, ", "), verb, c.CloudName)
 	return nil
 }
 
 func (c *addCredentialCommand) existingCredentialsForCloud() (*jujucloud.CloudCredential, error) {
-	existingCredentials, err := c.store.CredentialForCloud(c.CloudName)
+	existingCredentials, err := c.Store.CredentialForCloud(c.CloudName)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Annotate(err, "reading existing credentials for cloud")
 	}
@@ -271,7 +332,7 @@ func (c *addCredentialCommand) existingCredentialsForCloud() (*jujucloud.CloudCr
 	return existingCredentials, nil
 }
 
-func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schemas map[jujucloud.AuthType]jujucloud.CredentialSchema) error {
+func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schemas map[jujucloud.AuthType]jujucloud.CredentialSchema, existingCredentials *jujucloud.CloudCredential) error {
 	errout := interact.NewErrWriter(ctxt.Stdout)
 	pollster := interact.New(ctxt.Stdin, ctxt.Stdout, errout)
 
@@ -280,11 +341,6 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 		return err
 	}
 
-	// Prompt to overwrite if needed.
-	existingCredentials, err := c.existingCredentialsForCloud()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	verb := "added"
 	if _, ok := existingCredentials.AuthCredentials[credentialName]; ok {
 		fmt.Fprint(ctxt.Stdout, fmt.Sprintf("A credential %q already exists locally on this client.\n", credentialName))
@@ -311,6 +367,11 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 			authTypeNames = append(authTypeNames, jujucloud.InteractiveAuthType)
 		}
 	}
+
+	err = c.promptCloudRegion(pollster, existingCredentials, ctxt.Stdout)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	authType, err := c.promptAuthType(pollster, authTypeNames, ctxt.Stdout)
 	if err != nil {
 		return errors.Trace(err)
@@ -325,40 +386,48 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 		return errors.Trace(err)
 	}
 
-	newCredential, err := c.finalizeProvider(ctxt, authType, attrs)
+	newCredential, err := finalizeProvider(ctxt, c.cloud, c.Region, existingCredentials.DefaultRegion, authType, attrs)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	existingCredentials.AuthCredentials[credentialName] = *newCredential
-	err = c.store.UpdateCredential(c.CloudName, *existingCredentials)
+	err = c.Store.UpdateCredential(c.CloudName, *existingCredentials)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	fmt.Fprintf(ctxt.Stdout, "Credential %q %v locally for cloud %q.\n\n", credentialName, verb, c.CloudName)
+	if !c.Local {
+		return c.addRemoteCredentials(ctxt, map[string]jujucloud.Credential{credentialName: *newCredential})
+	}
 	return nil
 }
 
-func (c *addCredentialCommand) finalizeProvider(ctxt *cmd.Context, authType jujucloud.AuthType, attrs map[string]string) (*jujucloud.Credential, error) {
-	cloudEndpoint := c.cloud.Endpoint
-	cloudStorageEndpoint := c.cloud.StorageEndpoint
-	cloudIdentityEndpoint := c.cloud.IdentityEndpoint
-	if len(c.cloud.Regions) > 0 {
-		// NOTE(axw) we use the first region in the cloud,
-		// because this is all we need for Azure right now.
-		// Each region has the same endpoints, so it does
-		// not matter which one we use. If we expand
-		// credential generation to other providers, and
-		// they do have region-specific endpoints, then we
-		// should prompt the user for the region to use.
-		// That would be better left to the provider, though.
-		region := c.cloud.Regions[0]
+func finalizeProvider(ctxt *cmd.Context, cloud *jujucloud.Cloud, regionName, defaultRegion string, authType jujucloud.AuthType, attrs map[string]string) (*jujucloud.Credential, error) {
+	cloudEndpoint := cloud.Endpoint
+	cloudStorageEndpoint := cloud.StorageEndpoint
+	cloudIdentityEndpoint := cloud.IdentityEndpoint
+	if len(cloud.Regions) > 0 {
+		// For some providers we must have a region to construct a valid credential, for e.g. azure.
+		// If a region was specified by the user, we'd use it;
+		// otherwise, we'd use default region if one is set or, if not, the first region.
+		if regionName == "" {
+			regionName = defaultRegion
+		}
+		region := cloud.Regions[0]
+		if regionName != "" {
+			for _, r := range cloud.Regions {
+				if r.Name == regionName {
+					region = r
+				}
+			}
+		}
 		cloudEndpoint = region.Endpoint
 		cloudStorageEndpoint = region.StorageEndpoint
 		cloudIdentityEndpoint = region.IdentityEndpoint
 	}
 
-	credentialsProvider, err := environs.Provider(c.cloud.Type)
+	credentialsProvider, err := environs.Provider(cloud.Type)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -386,6 +455,42 @@ func (c *addCredentialCommand) promptCredentialName(p *interact.Pollster, out io
 	}
 
 	return credentialName, nil
+}
+
+func (c *addCredentialCommand) promptCloudRegion(p *interact.Pollster, existingCredentials *jujucloud.CloudCredential, out io.Writer) error {
+	regions := c.cloud.Regions
+	if len(regions) == 0 {
+		return nil
+	}
+	if c.Region != "" {
+		fmt.Fprintf(out, "User specified region %q, using it.\n\n", c.Region)
+		return nil
+	}
+	choices := make([]string, len(regions))
+	for i, r := range regions {
+		choices[i] = r.Name
+	}
+
+	def := "any region, credential is not region specific"
+	var err error
+	c.Region, err = p.SelectVerify(interact.List{
+		Singular: "region",
+		Plural:   "regions",
+		Options:  choices,
+		Default:  def,
+	}, func(value string) (ok bool, errmsg string, err error) {
+		if value == "" {
+			return true, "", nil
+		}
+		if regionErr := validCloudRegion(c.cloud, value); regionErr != nil {
+			return false, regionErr.Error(), nil
+		}
+		return true, "", nil
+	})
+	if c.Region == def {
+		c.Region = ""
+	}
+	return errors.Trace(err)
 }
 
 func (c *addCredentialCommand) promptAuthType(p *interact.Pollster, authTypes []jujucloud.AuthType, out io.Writer) (jujucloud.AuthType, error) {
@@ -480,6 +585,67 @@ func (c *addCredentialCommand) promptFieldValue(p *interact.Pollster, attr jujuc
 	}
 }
 
+func (c *addCredentialCommand) credentialsAPI() (CredentialAPI, error) {
+	root, err := c.NewAPIRoot(c.Store, c.controllerName, "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return apicloud.NewClient(root), nil
+}
+
+func (c *addCredentialCommand) maybeRemoteCloud(ctxt *cmd.Context) error {
+	client, err := c.credentialAPIFunc()
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	// Get user clouds from the controller
+	remoteUserClouds, err := client.Clouds()
+	if err != nil {
+		return err
+	}
+	if remoteCloud, ok := remoteUserClouds[names.NewCloudTag(c.CloudName)]; ok {
+		ctxt.Infof("Using  remote cloud %q from the controller to verify credentials.", c.CloudName)
+		c.cloud = &remoteCloud
+		c.remoteCloudFound = true
+	}
+	return nil
+}
+
+func (c *addCredentialCommand) addRemoteCredentials(ctxt *cmd.Context, all map[string]jujucloud.Credential) error {
+	if len(all) == 0 {
+		fmt.Fprintf(ctxt.Stdout, "No remote credentials for cloud %q added.\n", c.CloudName)
+		return nil
+	}
+	if !c.remoteCloudFound {
+		fmt.Fprintf(ctxt.Stdout, "No remote cloud %v found on the controller %v: credentials are not added remotely.\n"+
+			"Use 'juju clouds -c %v' to see what clouds are available remotely.\n"+
+			"User 'juju add-cloud %v -c %v' to add your cloud to the controller.\n",
+			c.CloudName, c.controllerName, c.controllerName, c.CloudName, c.controllerName)
+		return nil
+	}
+
+	accountDetails, err := c.Store.AccountDetails(c.controllerName)
+	if err != nil {
+		return err
+	}
+	verified, erred := verifyCredentialsForUpload(ctxt, accountDetails, c.cloud, c.Region, all)
+	if len(verified) == 0 {
+		return erred
+	}
+	client, err := c.credentialAPIFunc()
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	results, err := client.UpdateCloudsCredentials(verified)
+	if err != nil {
+		logger.Errorf("%v", err)
+		ctxt.Warningf("Could not add credentials remotely, on controller %q", c.controllerName)
+	}
+	return processUpdateCredentialResult(ctxt, accountDetails, "added", results)
+}
+
 func enterFile(name, descr string, p *interact.Pollster, expanded, optional bool) (string, error) {
 	inputSuffix := ""
 	if optional {
@@ -528,4 +694,13 @@ func shouldFinalizeCredential(provider environs.EnvironProvider, cred jujucloud.
 		return finalizer.ShouldFinalizeCredential(cred)
 	}
 	return false
+}
+
+func validCloudRegion(aCloud *jujucloud.Cloud, region string) error {
+	for _, r := range aCloud.Regions {
+		if r.Name == region {
+			return nil
+		}
+	}
+	return errors.NotValidf("provided region %q for cloud %q", region, aCloud.Name)
 }

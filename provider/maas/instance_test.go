@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 )
@@ -165,8 +166,8 @@ func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
 		return *mo, nil
 	})
 
-	idFromUint := func(u uint) network.Id {
-		return network.Id(fmt.Sprintf("%d", u))
+	idFromUint := func(u uint) corenetwork.Id {
+		return corenetwork.Id(fmt.Sprintf("%d", u))
 	}
 	expected := []network.Address{
 		newAddressOnSpaceWithId("bar", idFromUint(barSpace.ID), "8.7.6.5"),

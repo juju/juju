@@ -116,7 +116,7 @@ def get_teardown_timeout(client):
     elif client.env.provider == 'gce':
         return 1200
     else:
-        return 600
+        return 900
 
 
 def parse_new_state_server_from_error(error):
@@ -166,17 +166,19 @@ class JujuData:
                 provider = self.provider
             except NoProvider:
                 provider = None
-            self.lxd = ((self._config.get('container') == 'kvm') or (provider == 'lxd'))
+            self.lxd = (self._config.get('container') == 'lxd' or provider == 'lxd')
             self.kvm = (bool(self._config.get('container') == 'kvm'))
             self.maas = bool(provider == 'maas')
             self.joyent = bool(provider == 'joyent')
             self.logging_config = self._config.get('logging-config')
+            self.provider_type = provider
         else:
             self.lxd = False
             self.kvm = False
             self.maas = False
             self.joyent = False
             self.logging_config = None
+            self.provider_type = None
         self.credentials = {}
         self.clouds = {}
         self._cloud_name = cloud_name
@@ -211,6 +213,7 @@ class JujuData:
         result.clouds = deepcopy(self.clouds)
         result._cloud_name = self._cloud_name
         result.logging_config = self.logging_config
+        result.provider_type = self.provider_type
         return result
         
     def set_cloud_name(self, name):
@@ -862,9 +865,9 @@ class ModelClient:
         """
         options = ()
         if force:
-            options = ('--force',)
+            options = options + ('--force',)
         if controller:
-            options = ('-m', 'controller',)
+            options = options + ('-m', 'controller',)
         self.juju('remove-machine', options + tuple(machine_ids))
         return self.make_remove_machine_condition(machine_ids)
 
@@ -1470,6 +1473,10 @@ class ModelClient:
             # For now only maas support spaces in a meaningful way.
             return 'spaces={}'.format(','.join(
                 '^' + space for space in sorted(self.excluded_spaces)))
+        elif self.env.lxd:
+            # LXD should be constrained by memory when running in HA, otherwise
+            # mongo just eats everything.
+            return 'mem=6G'
         else:
             return ''
 
@@ -1697,7 +1704,7 @@ class ModelClient:
         """Return the controller-member-status of the machine if it exists."""
         return info_dict.get('controller-member-status')
 
-    def wait_for_ha(self, timeout=1200, start=None):
+    def wait_for_ha(self, timeout=1200, start=None, quorum=3):
         """Wait for voiting to be enabled.
 
         May only be called on a controller client."""
@@ -1714,7 +1721,7 @@ class ModelClient:
                     continue
                 states.setdefault(status, []).append(machine)
             if list(states.keys()) == [desired_state]:
-                if len(states.get(desired_state, [])) >= 3:
+                if len(states.get(desired_state, [])) >= quorum:
                     return None
             return states
 

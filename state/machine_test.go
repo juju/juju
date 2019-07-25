@@ -58,9 +58,14 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.machine0, err = s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
+	controllerNode, err := s.State.ControllerNode(s.machine0.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerNode.HasVote(), jc.IsFalse)
 	c.Assert(s.machine0.SetHasVote(true), jc.ErrorIsNil)
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.ControllerNode(s.machine.Id())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *MachineSuite) TestSetRebootFlagDeadMachine(c *gc.C) {
@@ -292,12 +297,19 @@ func (s *MachineSuite) TestMachineIsContainer(c *gc.C) {
 func (s *MachineSuite) TestLifeJobManageModel(c *gc.C) {
 	m := s.machine0
 	err := m.Destroy()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
+	c.Assert(err, gc.ErrorMatches, "controller 0 is the only controller")
+	controllerNode, err := s.State.ControllerNode(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerNode.HasVote(), jc.IsTrue)
 	err = m.EnsureDead()
 	c.Assert(err, gc.ErrorMatches, "machine 0 is still a voting controller member")
+	controllerNode, err = s.State.ControllerNode(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerNode.HasVote(), jc.IsTrue)
+
 	// Since this is the only controller machine, we cannot even force destroy it
 	err = m.ForceDestroy(dontWait)
-	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
+	c.Assert(err, gc.ErrorMatches, "controller 0 is the only controller")
 	err = m.EnsureDead()
 	c.Assert(err, gc.ErrorMatches, "machine 0 is still a voting controller member")
 }
@@ -395,7 +407,7 @@ func (s *MachineSuite) TestDestroyOpsForManagerFails(c *gc.C) {
 
 	// ... and assert that we cannot get the destroy ops for it.
 	ops, err := state.ForceDestroyMachineOps(m)
-	c.Assert(err, gc.ErrorMatches, `machine 0 is the only controller machine`)
+	c.Assert(err, gc.ErrorMatches, `controller 0 is the only controller`)
 	c.Assert(ops, gc.IsNil)
 }
 
@@ -545,16 +557,20 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 }
 
 func (s *MachineSuite) TestHasVote(c *gc.C) {
-	c.Assert(s.machine.HasVote(), jc.IsFalse)
+	c.Assert(s.machine0.SetHasVote(false), jc.ErrorIsNil)
+	c.Assert(s.machine0.HasVote(), jc.IsFalse)
 
 	// Make another machine value so that
 	// it won't have the cached HasVote value.
-	m, err := s.State.Machine(s.machine.Id())
+	m, err := s.State.Machine(s.machine0.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine.SetHasVote(true)
+	err = s.machine0.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine.HasVote(), jc.IsTrue)
+	c.Assert(s.machine0.HasVote(), jc.IsTrue)
+	controllerNode, err := s.State.ControllerNode(s.machine0.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerNode.HasVote(), jc.IsTrue)
 	c.Assert(m.HasVote(), jc.IsFalse)
 
 	err = m.Refresh()
@@ -564,11 +580,14 @@ func (s *MachineSuite) TestHasVote(c *gc.C) {
 	err = m.SetHasVote(false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.HasVote(), jc.IsFalse)
-
-	c.Assert(s.machine.HasVote(), jc.IsTrue)
-	err = s.machine.Refresh()
+	controllerNode, err = s.State.ControllerNode(m.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine.HasVote(), jc.IsFalse)
+	c.Assert(controllerNode.HasVote(), jc.IsFalse)
+
+	c.Assert(s.machine0.HasVote(), jc.IsTrue)
+	err = s.machine0.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.machine0.HasVote(), jc.IsFalse)
 }
 
 func (s *MachineSuite) TestRemoveAbort(c *gc.C) {

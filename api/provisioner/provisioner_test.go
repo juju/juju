@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/config"
@@ -534,11 +535,11 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Add 2 subnets into each space.
 	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
-	testing.AddSubnetsWithTemplate(c, s.State, 4, state.SubnetInfo{
-		CIDR:             "10.{{.}}.0.0/16",
-		ProviderId:       "subnet-{{.}}",
-		AvailabilityZone: "zone{{.}}",
-		SpaceName:        "{{if (lt . 2)}}space1{{else}}space2{{end}}",
+	testing.AddSubnetsWithTemplate(c, s.State, 4, corenetwork.SubnetInfo{
+		CIDR:              "10.{{.}}.0.0/16",
+		ProviderId:        "subnet-{{.}}",
+		AvailabilityZones: []string{"zone{{.}}"},
+		SpaceName:         "{{if (lt . 2)}}space1{{else}}space2{{end}}",
 	})
 
 	cons := constraints.MustParse("cores=12 mem=8G spaces=^space1,space2")
@@ -825,9 +826,9 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 	// Create a machine, put it in "default" space with a single NIC. Create
 	// a container that is also in the "default" space, and request the
 	// HostChangesForContainer to see that it wants to bridge that NIC
-	_, err := s.State.AddSpace("default", network.Id("default"), nil, true)
+	_, err := s.State.AddSpace("default", corenetwork.Id("default"), nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSubnet(state.SubnetInfo{
+	_, err = s.State.AddSubnet(corenetwork.SubnetInfo{
 		CIDR:      "10.0.0.0/24",
 		SpaceName: "default",
 	})

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
@@ -176,12 +177,12 @@ func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Add 1 subnet into space1, and 2 into space2.
 	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
-	testing.AddSubnetsWithTemplate(c, s.State, 3, state.SubnetInfo{
-		CIDR:             "10.10.{{.}}.0/24",
-		ProviderId:       "subnet-{{.}}",
-		AvailabilityZone: "zone{{.}}",
-		SpaceName:        "{{if (eq . 0)}}space1{{else}}space2{{end}}",
-		VLANTag:          42,
+	testing.AddSubnetsWithTemplate(c, s.State, 3, network.SubnetInfo{
+		CIDR:              "10.10.{{.}}.0/24",
+		ProviderId:        "subnet-{{.}}",
+		AvailabilityZones: []string{"zone{{.}}"},
+		SpaceName:         "{{if (eq . 0)}}space1{{else}}space2{{end}}",
+		VLANTag:           42,
 	})
 }
 

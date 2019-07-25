@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/gomaasapi"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 )
@@ -76,7 +77,7 @@ func (s *maas2InstanceSuite) TestAddresses(c *gc.C) {
 	addresses, err := instance.Addresses(s.callCtx)
 
 	expectedAddresses := []network.Address{
-		newAddressOnSpaceWithId("freckles", network.Id("4567"), "192.168.10.1"),
+		newAddressOnSpaceWithId("freckles", corenetwork.Id("4567"), "192.168.10.1"),
 	}
 
 	c.Assert(err, jc.ErrorIsNil)

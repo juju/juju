@@ -28,10 +28,10 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage"
@@ -316,6 +316,13 @@ func (m *mockRemoteApplication) AddEndpoints(eps []charm.Relation) error {
 func (m *mockRemoteApplication) Destroy() error {
 	m.MethodCall(m, "Destroy")
 	return nil
+}
+
+func (m *mockRemoteApplication) DestroyOperation(force bool) *state.DestroyRemoteApplicationOperation {
+	m.MethodCall(m, "DestroyOperation")
+	return &state.DestroyRemoteApplicationOperation{
+		ForcedOperation: state.ForcedOperation{Force: force},
+	}
 }
 
 type mockBackend struct {

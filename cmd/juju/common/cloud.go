@@ -4,6 +4,9 @@
 package common
 
 import (
+	"bytes"
+
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/environschema.v1"
@@ -156,4 +159,13 @@ func ProviderConfigSchemaSourceByType(cloudType string) (config.ConfigSchemaSour
 type PrintConfigSchema struct {
 	Type        string `yaml:"type,omitempty" json:"type,omitempty"`
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+}
+
+func FormatConfigSchema(values interface{}) (string, error) {
+	out := &bytes.Buffer{}
+	err := cmd.FormatSmart(out, values)
+	if err != nil {
+		return "", err
+	}
+	return out.String(), nil
 }

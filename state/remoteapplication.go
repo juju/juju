@@ -256,7 +256,7 @@ func (s *RemoteApplication) DestroyOperation(force bool) *DestroyRemoteApplicati
 	}
 }
 
-// LeaveScopeOperation is a model operation to destroy remote application.
+// DestroyRemoteApplicationOperation is a model operation to destroy a remote application.
 type DestroyRemoteApplicationOperation struct {
 	// ForcedOperation stores needed information to force this operation.
 	ForcedOperation
@@ -346,11 +346,10 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 	}
 	haveRels := true
 	rels, err := op.app.Relations()
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
 	if err != nil {
-		if !op.Force {
-			return nil, errors.Trace(err)
-		}
-		op.AddError(err)
 		haveRels = false
 	}
 
@@ -363,11 +362,8 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 
 	// We'll need status below when processing relations.
 	statusInfo, statusErr := op.app.Status()
-	if statusErr != nil && !errors.IsNotFound(statusErr) {
-		if !op.Force {
-			return nil, statusErr
-		}
-		op.AddError(statusErr)
+	if op.FatalError(statusErr) && !errors.IsNotFound(statusErr) {
+		return nil, statusErr
 	}
 
 	removeCount := 0
@@ -426,11 +422,8 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 	if op.app.doc.RelationCount == removeCount {
 		hasLastRefs := bson.D{{"life", Alive}, {"relationcount", removeCount}}
 		removeOps, err := op.app.removeOps(hasLastRefs)
-		if err != nil {
-			if !op.Force {
-				return nil, errors.Trace(err)
-			}
-			op.AddError(err)
+		if op.FatalError(err) {
+			return nil, errors.Trace(err)
 		}
 		ops = append(ops, removeOps...)
 		return ops, nil
@@ -853,7 +846,7 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 				ProviderId:        string(subnet.ProviderId),
 				VLANTag:           subnet.VLANTag,
 				AvailabilityZones: copyStrings(subnet.AvailabilityZones),
-				ProviderSpaceId:   string(subnet.SpaceProviderId),
+				ProviderSpaceId:   string(subnet.ProviderSpaceId),
 				ProviderNetworkId: string(subnet.ProviderNetworkId),
 			}
 		}

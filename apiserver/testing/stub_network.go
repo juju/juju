@@ -12,15 +12,16 @@ import (
 	"github.com/juju/testing"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	names "gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -329,8 +330,8 @@ func (f *FakeSubnet) SpaceName() string {
 	return f.Info.SpaceName
 }
 
-func (f *FakeSubnet) Life() params.Life {
-	return f.Info.Life
+func (f *FakeSubnet) Life() life.Value {
+	return life.Value(f.Info.Life)
 }
 
 // ResetStub resets all recorded calls and errors of the given stub.
@@ -623,7 +624,9 @@ type StubNetworkingEnviron struct {
 
 var _ environs.NetworkingEnviron = (*StubNetworkingEnviron)(nil)
 
-func (se *StubNetworkingEnviron) Subnets(ctx context.ProviderCallContext, instId instance.Id, subIds []network.Id) ([]network.SubnetInfo, error) {
+func (se *StubNetworkingEnviron) Subnets(
+	ctx context.ProviderCallContext, instId instance.Id, subIds []network.Id,
+) ([]network.SubnetInfo, error) {
 	se.MethodCall(se, "Subnets", ctx, instId, subIds)
 	if err := se.NextErr(); err != nil {
 		return nil, err
@@ -668,7 +671,9 @@ func (se *StubZonedNetworkingEnviron) SupportsSpaces(ctx context.ProviderCallCon
 	return true, nil
 }
 
-func (se *StubZonedNetworkingEnviron) Subnets(ctx context.ProviderCallContext, instId instance.Id, subIds []network.Id) ([]network.SubnetInfo, error) {
+func (se *StubZonedNetworkingEnviron) Subnets(
+	ctx context.ProviderCallContext, instId instance.Id, subIds []network.Id,
+) ([]network.SubnetInfo, error) {
 	se.MethodCall(se, "Subnets", ctx, instId, subIds)
 	if err := se.NextErr(); err != nil {
 		return nil, err

@@ -567,17 +567,9 @@ func UpdateModelUserLastConnection(st *State, e permission.UserAccess, when time
 	return model.updateLastModelConnection(e.UserTag, when)
 }
 
-func (m *Machine) SetWantsVote(wantsVote bool) error {
-	err := m.st.runRawTransaction([]txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Update: bson.M{"$set": bson.M{"novote": !wantsVote}},
-	}})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	m.doc.NoVote = !wantsVote
-	return nil
+func SetWantsVote(st *State, id string, wantsVote bool) error {
+	op := setControllerWantsVoteOp(st, id, wantsVote)
+	return st.runRawTransaction([]txn.Op{op})
 }
 
 func RemoveEndpointBindingsForApplication(c *gc.C, app *Application) {
@@ -874,6 +866,10 @@ func ApplicationOperatorStatus(st *State, appName string) (status.StatusInfo, er
 
 func NewInstanceCharmProfileDataCompatibilityWatcher(backend ModelBackendShim, memberId string) StringsWatcher {
 	return watchInstanceCharmProfileCompatibilityData(backend, memberId)
+}
+
+func UnitBranch(m *Model, unitName string) (*Generation, error) {
+	return m.unitBranch(unitName)
 }
 
 // ModelBackendShim is required to live here in the export_test.go file because

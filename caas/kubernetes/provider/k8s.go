@@ -52,7 +52,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/paths"
-	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
@@ -355,7 +354,7 @@ please choose a different hosted model name then try again.`, hostedModelName),
 	return &environs.BootstrapResult{
 		// TODO(bootstrap): review this default arch and series(required for determining DataDir etc.) later.
 		Arch:                   arch.AMD64,
-		Series:                 jujuversion.SupportedLTS(),
+		Series:                 "kubernetes",
 		CaasBootstrapFinalizer: finalizer,
 	}, nil
 }

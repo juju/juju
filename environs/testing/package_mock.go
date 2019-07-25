@@ -5,24 +5,23 @@
 package testing
 
 import (
-	"io"
-	"reflect"
-
-	"github.com/golang/mock/gomock"
-	"github.com/juju/jsonschema"
-	"github.com/juju/version"
+	gomock "github.com/golang/mock/gomock"
+	jsonschema "github.com/juju/jsonschema"
+	cloud "github.com/juju/juju/cloud"
+	constraints "github.com/juju/juju/core/constraints"
+	instance "github.com/juju/juju/core/instance"
+	network "github.com/juju/juju/core/network"
+	environs "github.com/juju/juju/environs"
+	config "github.com/juju/juju/environs/config"
+	context "github.com/juju/juju/environs/context"
+	instances "github.com/juju/juju/environs/instances"
+	network0 "github.com/juju/juju/network"
+	storage "github.com/juju/juju/storage"
+	version "github.com/juju/version"
 	environschema_v1 "gopkg.in/juju/environschema.v1"
 	names_v2 "gopkg.in/juju/names.v2"
-
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/storage"
+	io "io"
+	reflect "reflect"
 )
 
 // MockEnvironProvider is a mock of EnvironProvider interface
@@ -1029,7 +1028,7 @@ func (m *MockFirewaller) EXPECT() *MockFirewallerMockRecorder {
 }
 
 // ClosePorts mocks base method
-func (m *MockFirewaller) ClosePorts(arg0 context.ProviderCallContext, arg1 []network.IngressRule) error {
+func (m *MockFirewaller) ClosePorts(arg0 context.ProviderCallContext, arg1 []network0.IngressRule) error {
 	ret := m.ctrl.Call(m, "ClosePorts", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -1041,9 +1040,9 @@ func (mr *MockFirewallerMockRecorder) ClosePorts(arg0, arg1 interface{}) *gomock
 }
 
 // IngressRules mocks base method
-func (m *MockFirewaller) IngressRules(arg0 context.ProviderCallContext) ([]network.IngressRule, error) {
+func (m *MockFirewaller) IngressRules(arg0 context.ProviderCallContext) ([]network0.IngressRule, error) {
 	ret := m.ctrl.Call(m, "IngressRules", arg0)
-	ret0, _ := ret[0].([]network.IngressRule)
+	ret0, _ := ret[0].([]network0.IngressRule)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1054,7 +1053,7 @@ func (mr *MockFirewallerMockRecorder) IngressRules(arg0 interface{}) *gomock.Cal
 }
 
 // OpenPorts mocks base method
-func (m *MockFirewaller) OpenPorts(arg0 context.ProviderCallContext, arg1 []network.IngressRule) error {
+func (m *MockFirewaller) OpenPorts(arg0 context.ProviderCallContext, arg1 []network0.IngressRule) error {
 	ret := m.ctrl.Call(m, "OpenPorts", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -1386,9 +1385,9 @@ func (mr *MockNetworkingEnvironMockRecorder) AllRunningInstances(arg0 interface{
 }
 
 // AllocateContainerAddresses mocks base method
-func (m *MockNetworkingEnviron) AllocateContainerAddresses(arg0 context.ProviderCallContext, arg1 instance.Id, arg2 names_v2.MachineTag, arg3 []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (m *MockNetworkingEnviron) AllocateContainerAddresses(arg0 context.ProviderCallContext, arg1 instance.Id, arg2 names_v2.MachineTag, arg3 []network0.InterfaceInfo) ([]network0.InterfaceInfo, error) {
 	ret := m.ctrl.Call(m, "AllocateContainerAddresses", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].([]network.InterfaceInfo)
+	ret0, _ := ret[0].([]network0.InterfaceInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1537,9 +1536,9 @@ func (mr *MockNetworkingEnvironMockRecorder) MaintainInstance(arg0, arg1 interfa
 }
 
 // NetworkInterfaces mocks base method
-func (m *MockNetworkingEnviron) NetworkInterfaces(arg0 context.ProviderCallContext, arg1 instance.Id) ([]network.InterfaceInfo, error) {
+func (m *MockNetworkingEnviron) NetworkInterfaces(arg0 context.ProviderCallContext, arg1 instance.Id) ([]network0.InterfaceInfo, error) {
 	ret := m.ctrl.Call(m, "NetworkInterfaces", arg0, arg1)
-	ret0, _ := ret[0].([]network.InterfaceInfo)
+	ret0, _ := ret[0].([]network0.InterfaceInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1599,7 +1598,7 @@ func (mr *MockNetworkingEnvironMockRecorder) ProviderSpaceInfo(arg0, arg1 interf
 }
 
 // ReleaseContainerAddresses mocks base method
-func (m *MockNetworkingEnviron) ReleaseContainerAddresses(arg0 context.ProviderCallContext, arg1 []network.ProviderInterfaceInfo) error {
+func (m *MockNetworkingEnviron) ReleaseContainerAddresses(arg0 context.ProviderCallContext, arg1 []network0.ProviderInterfaceInfo) error {
 	ret := m.ctrl.Call(m, "ReleaseContainerAddresses", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -1611,9 +1610,9 @@ func (mr *MockNetworkingEnvironMockRecorder) ReleaseContainerAddresses(arg0, arg
 }
 
 // SSHAddresses mocks base method
-func (m *MockNetworkingEnviron) SSHAddresses(arg0 context.ProviderCallContext, arg1 []network.Address) ([]network.Address, error) {
+func (m *MockNetworkingEnviron) SSHAddresses(arg0 context.ProviderCallContext, arg1 []network0.Address) ([]network0.Address, error) {
 	ret := m.ctrl.Call(m, "SSHAddresses", arg0, arg1)
-	ret0, _ := ret[0].([]network.Address)
+	ret0, _ := ret[0].([]network0.Address)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

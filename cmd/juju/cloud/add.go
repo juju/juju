@@ -161,7 +161,6 @@ type AddCloudCommand struct {
 	// These attributes are used when adding a cloud to a controller.
 	controllerName  string
 	credentialName  string
-	store           jujuclient.ClientStore
 	addCloudAPIFunc func() (AddCloudAPI, error)
 }
 
@@ -181,14 +180,13 @@ func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 		Ping: func(p environs.EnvironProvider, endpoint string) error {
 			return p.Ping(cloudCallCtx, endpoint)
 		},
-		store: store,
 	}
 	c.addCloudAPIFunc = c.cloudAPI
 	return modelcmd.WrapBase(c)
 }
 
 func (c *AddCloudCommand) cloudAPI() (AddCloudAPI, error) {
-	root, err := c.NewAPIRoot(c.store, c.controllerName, "")
+	root, err := c.NewAPIRoot(c.Store, c.controllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -243,7 +241,7 @@ specify a credential using the --credential argument`[1:],
 )
 
 func (c *AddCloudCommand) findLocalCredential(ctx *cmd.Context, cloud jujucloud.Cloud, credentialName string) (*jujucloud.Credential, string, error) {
-	credential, chosenCredentialName, _, err := modelcmd.GetCredentials(ctx, c.store, modelcmd.GetCredentialsParams{
+	credential, chosenCredentialName, _, err := modelcmd.GetCredentials(ctx, c.Store, modelcmd.GetCredentialsParams{
 		Cloud:          cloud,
 		CredentialName: credentialName,
 	})
@@ -259,12 +257,12 @@ func (c *AddCloudCommand) findLocalCredential(ctx *cmd.Context, cloud jujucloud.
 }
 
 func (c *AddCloudCommand) addCredentialToController(ctx *cmd.Context, cloud jujucloud.Cloud, apiClient AddCloudAPI) error {
-	_, err := c.store.ControllerByName(c.controllerName)
+	_, err := c.Store.ControllerByName(c.controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	currentAccountDetails, err := c.store.AccountDetails(c.controllerName)
+	currentAccountDetails, err := c.Store.AccountDetails(c.controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -325,15 +323,27 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	}
 	defer api.Close()
 	err = api.AddCloud(*newCloud)
-	if err != nil && params.ErrCode(err) != params.CodeAlreadyExists {
-		return err
-	}
-	// Add a credential for the newly added cloud.
-	err = c.addCredentialToController(ctxt, *newCloud, api)
 	if err != nil {
+		if params.ErrCode(err) == params.CodeAlreadyExists {
+			ctxt.Infof("Cloud %q already exists on the controller %q.", c.Cloud, c.controllerName)
+			ctxt.Infof("To upload credentials to the controller for cloud %q, use \n"+
+				"* 'add-model' with --credential option or\n"+
+				"* 'add-credential -c %v'.", newCloud.Name, newCloud.Name)
+			return nil
+		}
 		return err
 	}
 	ctxt.Infof("Cloud %q added to controller %q.", c.Cloud, c.controllerName)
+	// Add a credential for the newly added cloud.
+	err = c.addCredentialToController(ctxt, *newCloud, api)
+	if err != nil {
+		logger.Errorf("%v", err)
+		ctxt.Infof("To upload credentials to the controller for cloud %q, use \n"+
+			"* 'add-model' with --credential option or\n"+
+			"* 'add-credential -c %v'.", newCloud.Name, newCloud.Name)
+		return cmd.ErrSilent
+	}
+	ctxt.Infof("Credentials for cloud %q added to controller %q.", c.Cloud, c.controllerName)
 	return nil
 }
 
@@ -458,10 +468,11 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	ctxt.Infof("Cloud %q successfully added", name)
-	ctxt.Infof("")
-	ctxt.Infof("You will need to add credentials for this cloud (`juju add-credential %s`)", name)
-	ctxt.Infof("before creating a controller (`juju bootstrap %s`).", name)
-
+	if len(newCloud.AuthTypes) != 0 {
+		ctxt.Infof("")
+		ctxt.Infof("You will need to add credentials for this cloud (`juju add-credential %s`)", name)
+		ctxt.Infof("before creating a controller (`juju bootstrap %s`).", name)
+	}
 	return nil
 }
 

@@ -2185,3 +2185,170 @@ func AddModelLogsSize(pool *StatePool) error {
 	}
 	return nil
 }
+
+// AddControllerNodeDocs creates controller nodes for each
+// machine that wants to be a member of the mongo replicaset.
+func AddControllerNodeDocs(pool *StatePool) error {
+	st := pool.SystemState()
+
+	machines, closer := st.db().GetRawCollection(machinesC)
+	defer closer()
+	controllerNodes, closer2 := st.db().GetRawCollection(controllerNodesC)
+	defer closer2()
+
+	var ops []txn.Op
+	var docs []bson.M
+	err := machines.Find(
+		bson.D{{"jobs", bson.D{{"$in", []MachineJob{JobManageModel}}}}},
+	).Select(bson.M{"_id": 1, "machineid": 1, "hasvote": 1, "novote": 1}).All(&docs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, m := range docs {
+		docId := m["_id"].(string)
+		mid := m["machineid"].(string)
+		hasvote, _ := m["hasvote"].(bool)
+		novote, ok := m["novote"].(bool)
+		if !ok {
+			continue
+		}
+		wantsvote := !novote
+		modelUUID, _, ok := splitDocID(docId)
+		if !ok {
+			logger.Warningf("unexpected machine doc id %q", docId)
+			continue
+		}
+
+		expectedId := ensureModelUUID(modelUUID, mid)
+		n, err := controllerNodes.FindId(expectedId).Count()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if n > 0 {
+			continue
+		}
+
+		doc := &controllerNodeDoc{
+			DocID:     ensureModelUUID(modelUUID, mid),
+			HasVote:   hasvote,
+			WantsVote: wantsvote,
+		}
+		ops = append(ops, txn.Op{
+			C:      controllerNodesC,
+			Id:     doc.DocID,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		})
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
+}
+
+// AddSpaceIdToSpaceDocs ensures that every space document includes a
+// a sequentially generated ID.
+// It also adds a doc for the default space (ID=0).
+func AddSpaceIdToSpaceDocs(pool *StatePool) (err error) {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(spacesC)
+		defer closer()
+
+		type oldSpaceDoc struct {
+			SpaceId    string `bson:"spaceid"`
+			Life       Life   `bson:"life"`
+			Name       string `bson:"name"`
+			IsPublic   bool   `bson:"is-public"`
+			ProviderId string `bson:"providerid,omitempty"`
+		}
+
+		var docs []oldSpaceDoc
+		err := col.Find(nil).All(&docs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, oldDoc := range docs {
+			// A doc with a space ID has already been upgraded.
+			if oldDoc.SpaceId != "" {
+				continue
+			}
+
+			// We cannot edit _id, so we need to delete and re-create each doc.
+			ops = append(ops, txn.Op{
+				C:      spacesC,
+				Id:     oldDoc.Name,
+				Assert: txn.DocExists,
+				Remove: true,
+			})
+
+			seq, err := sequenceWithMin(st, "space", 1)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			id := strconv.Itoa(seq)
+
+			newDoc := spaceDoc{
+				DocId:      st.docID(id),
+				Id:         id,
+				Life:       oldDoc.Life,
+				Name:       oldDoc.Name,
+				IsPublic:   oldDoc.IsPublic,
+				ProviderId: oldDoc.ProviderId,
+			}
+
+			ops = append(ops, txn.Op{
+				C:      spacesC,
+				Id:     newDoc.DocId,
+				Insert: newDoc,
+			})
+		}
+
+		ops = append(ops, st.createDefaultSpaceOp())
+
+		return errors.Trace(st.db().RunTransaction(ops))
+	}))
+}
+
+// ChangeSubnetAZtoSlice changes AvailabilityZone in every subnet document
+// to AvailabilityZones, a slice of strings.
+func ChangeSubnetAZtoSlice(pool *StatePool) (err error) {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(subnetsC)
+		defer closer()
+
+		type oldSubnetDoc struct {
+			DocId            string `bson:"_id"`
+			AvailabilityZone string `bson:"availabilityzone"`
+		}
+
+		var docs []oldSubnetDoc
+		err := col.Find(nil).All(&docs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, sDoc := range docs {
+
+			if sDoc.AvailabilityZone == "" {
+				continue
+			}
+
+			ops = append(ops, txn.Op{
+				C:  subnetsC,
+				Id: sDoc.DocId,
+				Update: bson.D{
+					{"$set", bson.D{{"availability-zones", []string{sDoc.AvailabilityZone}}}},
+					{"$unset", bson.D{{"availabilityzone", nil}}},
+				},
+			})
+		}
+
+		ops = append(ops, st.createDefaultSpaceOp())
+
+		return errors.Trace(st.db().RunTransaction(ops))
+	}))
+}

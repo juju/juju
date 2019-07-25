@@ -35,9 +35,9 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -75,6 +75,12 @@ type APIv8 struct {
 
 // APIv9 provides the Application API facade for version 9.
 type APIv9 struct {
+	*APIv10
+}
+
+// APIv10 provides the Application API facade for version 10.
+// It adds --force and --max-wait parameters to remove-saas.
+type APIv10 struct {
 	*APIBase
 }
 
@@ -157,11 +163,19 @@ func NewFacadeV8(ctx facade.Context) (*APIv8, error) {
 }
 
 func NewFacadeV9(ctx facade.Context) (*APIv9, error) {
-	api, err := newFacadeBase(ctx)
+	api, err := NewFacadeV10(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &APIv9{api}, nil
+}
+
+func NewFacadeV10(ctx facade.Context) (*APIv10, error) {
+	api, err := newFacadeBase(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv10{api}, nil
 }
 
 func newFacadeBase(ctx facade.Context) (*APIBase, error) {
@@ -1566,9 +1580,18 @@ func (api *APIBase) DestroyConsumedApplications(args params.DestroyConsumedAppli
 			results[i].Error = common.ServerError(err)
 			continue
 		}
-		// TODO (anastasiamac 2019-03-29) This may need to be forced too.
-		// see https://bugs.launchpad.net/juju/+bug/1822050
-		err = app.Destroy()
+		force := false
+		if arg.Force != nil {
+			force = *arg.Force
+		}
+		op := app.DestroyOperation(force)
+		if force {
+			op.MaxWait = common.MaxWait(arg.MaxWait)
+		}
+		err = api.backend.ApplyOperation(op)
+		if op.Errors != nil && len(op.Errors) > 0 {
+			logger.Warningf("operational error encountered destroying consumed application %v: %v", appTag.Id(), op.Errors)
+		}
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
@@ -1936,7 +1959,7 @@ func providerSpaceInfoFromParams(space params.RemoteSpace) *environs.ProviderSpa
 			CIDR:              subnet.CIDR,
 			ProviderId:        network.Id(subnet.ProviderId),
 			ProviderNetworkId: network.Id(subnet.ProviderNetworkId),
-			SpaceProviderId:   network.Id(subnet.ProviderSpaceId),
+			ProviderSpaceId:   network.Id(subnet.ProviderSpaceId),
 			VLANTag:           subnet.VLANTag,
 			AvailabilityZones: subnet.Zones,
 		}

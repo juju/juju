@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -35,16 +35,16 @@ func (s *SpacesSuite) addSubnetsForState(c *gc.C, CIDRs []string, st *state.Stat
 	}
 }
 
-func (s *SpacesSuite) makeSubnetInfosForCIDRs(c *gc.C, CIDRs []string) []state.SubnetInfo {
-	infos := make([]state.SubnetInfo, len(CIDRs))
+func (s *SpacesSuite) makeSubnetInfosForCIDRs(c *gc.C, CIDRs []string) []network.SubnetInfo {
+	infos := make([]network.SubnetInfo, len(CIDRs))
 	for i, cidr := range CIDRs {
 		_, _, err := net.ParseCIDR(cidr)
 		c.Assert(err, jc.ErrorIsNil)
 
-		infos[i] = state.SubnetInfo{
-			CIDR:             cidr,
-			VLANTag:          79,
-			AvailabilityZone: "AvailabilityZone",
+		infos[i] = network.SubnetInfo{
+			CIDR:              cidr,
+			VLANTag:           79,
+			AvailabilityZones: []string{"AvailabilityZone"},
 		}
 
 	}
@@ -97,6 +97,10 @@ func (s *SpacesSuite) assertSpaceMatchesArgs(c *gc.C, space *state.Space, args a
 
 	c.Assert(space.Life(), gc.Equals, state.Alive)
 	c.Assert(space.String(), gc.Equals, args.Name)
+
+	// The space ID is not empty and not equivalent to the default space.
+	c.Assert(space.Id(), gc.Not(gc.Equals), "")
+	c.Assert(space.Id(), gc.Not(gc.Equals), "0")
 }
 
 func (s *SpacesSuite) TestAddSpaceWithNoSubnetsAndEmptyProviderId(c *gc.C) {
@@ -279,7 +283,7 @@ func (s *SpacesSuite) TestAddTwoSpacesWithDifferentNamesButSameProviderIdFailsIn
 }
 
 func (s *SpacesSuite) assertProviderIdNotUniqueErrorForArgs(c *gc.C, err error, args addSpaceArgs) {
-	expectedError := fmt.Sprintf("adding space %q: ProviderId %q not unique", args.Name, args.ProviderId)
+	expectedError := fmt.Sprintf("adding space %q: provider ID %q not unique", args.Name, args.ProviderId)
 	c.Assert(err, gc.ErrorMatches, expectedError)
 }
 
@@ -404,7 +408,12 @@ func (s *SpacesSuite) TestAddSpaceWithNonEmptyProviderIdAndInvalidNameFails(c *g
 func (s *SpacesSuite) assertInvalidSpaceNameErrorAndWasNotAdded(c *gc.C, err error, name string) {
 	expectedError := fmt.Sprintf("adding space %q: invalid space name", name)
 	c.Assert(err, gc.ErrorMatches, expectedError)
-	s.assertSpaceNotFound(c, name)
+
+	// The default space will be present, although we cannot add it.
+	// Only check non-default names.
+	if name != network.DefaultSpaceName {
+		s.assertSpaceNotFound(c, name)
+	}
 }
 
 func (s *SpacesSuite) TestAddSpaceWithEmptyProviderIdAndInvalidNameFails(c *gc.C) {
@@ -442,7 +451,7 @@ func (s *SpacesSuite) TestSubnetsReturnsExpectedSubnets(c *gc.C) {
 	space, err := s.addSpaceWithSubnets(c, args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := []*state.Subnet{}
+	var expected []*state.Subnet
 	for _, cidr := range args.SubnetCIDRs {
 		subnet, err := s.State.Subnet(cidr)
 		c.Assert(err, jc.ErrorIsNil)
@@ -454,9 +463,12 @@ func (s *SpacesSuite) TestSubnetsReturnsExpectedSubnets(c *gc.C) {
 }
 
 func (s *SpacesSuite) TestAllSpaces(c *gc.C) {
+	defaultSpace, err := s.State.Space("")
+	c.Assert(err, jc.ErrorIsNil)
+
 	spaces, err := s.State.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spaces, jc.DeepEquals, []*state.Space{})
+	c.Assert(spaces, jc.DeepEquals, []*state.Space{defaultSpace})
 
 	subnets := []string{"1.1.1.0/24", "2.1.1.0/24", "3.1.1.0/24"}
 	isPublic := false
@@ -471,7 +483,7 @@ func (s *SpacesSuite) TestAllSpaces(c *gc.C) {
 
 	actual, err := s.State.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actual, jc.SameContents, []*state.Space{first, second, third})
+	c.Assert(actual, jc.SameContents, []*state.Space{first, second, third, defaultSpace})
 }
 
 func (s *SpacesSuite) TestEnsureDeadSetsLifeToDeadWhenAlive(c *gc.C) {
@@ -569,13 +581,12 @@ func (s *SpacesSuite) TestFanSubnetInheritsSpace(c *gc.C) {
 	space, err := s.addSpaceWithSubnets(c, args)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertSpaceMatchesArgs(c, space, args)
-	info := state.SubnetInfo{
-		CIDR:             "253.1.0.0/16",
-		VLANTag:          79,
-		AvailabilityZone: "AvailabilityZone",
-		FanOverlay:       "253.0.0.0/8",
-		FanLocalUnderlay: "1.1.1.0/24",
+	info := network.SubnetInfo{
+		CIDR:              "253.1.0.0/16",
+		VLANTag:           79,
+		AvailabilityZones: []string{"AvailabilityZone"},
 	}
+	info.SetFan("1.1.1.0/24", "253.0.0.0/8")
 	_, err = s.State.AddSubnet(info)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -132,6 +132,7 @@ func AllFacades() *facade.Registry {
 
 	reg("Action", 2, action.NewActionAPIV2)
 	reg("Action", 3, action.NewActionAPIV3)
+	reg("Action", 4, action.NewActionAPIV4)
 	reg("ActionPruner", 1, actionpruner.NewAPI)
 	reg("Agent", 2, agent.NewAgentAPIV2)
 	reg("AgentTools", 1, agenttools.NewFacade)
@@ -148,7 +149,8 @@ func AllFacades() *facade.Registry {
 	reg("Application", 6, application.NewFacadeV6)
 	reg("Application", 7, application.NewFacadeV7)
 	reg("Application", 8, application.NewFacadeV8)
-	reg("Application", 9, application.NewFacadeV9) // ApplicationInfo; generational config; Force on App, Relation and Unit Removal.
+	reg("Application", 9, application.NewFacadeV9)   // ApplicationInfo; generational config; Force on App, Relation and Unit Removal.
+	reg("Application", 10, application.NewFacadeV10) // --force and --no-wait parameters
 
 	reg("ApplicationOffers", 1, applicationoffers.NewOffersAPI)
 	reg("ApplicationOffers", 2, applicationoffers.NewOffersAPIV2)
@@ -169,6 +171,7 @@ func AllFacades() *facade.Registry {
 	reg("Cloud", 3, cloud.NewFacadeV3) // changes signature of UpdateCredentials, adds ModifyCloudAccess
 	reg("Cloud", 4, cloud.NewFacadeV4) // adds UpdateCloud
 	reg("Cloud", 5, cloud.NewFacadeV5) // Removes DefaultCloud, handles config in AddCloud
+	reg("Cloud", 6, cloud.NewFacadeV6) // Adds validity to CredentialContent
 
 	// CAAS related facades.
 	// Move these to the correct place above once the feature flag disappears.
@@ -251,6 +254,7 @@ func AllFacades() *facade.Registry {
 	reg("ModelManager", 5, modelmanager.NewFacadeV5) // adds ChangeModelCredential
 	reg("ModelManager", 6, modelmanager.NewFacadeV6) // adds cloud specific default config
 	reg("ModelManager", 7, modelmanager.NewFacadeV7) // DestroyModels gains 'force' and max-wait' parameters.
+	reg("ModelManager", 8, modelmanager.NewFacadeV8) // ModelInfo gains credential validity in return.
 	reg("ModelUpgrader", 1, modelupgrader.NewStateFacade)
 
 	reg("Payloads", 1, payloads.NewFacade)
