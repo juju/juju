@@ -140,6 +140,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				claimer := apileadership.NewClient(apiCaller)
 				return leadership.NewTracker(unitTag, claimer, clock, config.LeadershipGuarantee)
 			}
+			remoteExecutor, err := getNewRunnerExecutor(model.Name, clock, client)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			w, err := config.NewWorker(Config{
 				ModelUUID:          agentConfig.Model().Id(),
 				ModelName:          model.Name,
@@ -160,7 +164,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UniterFacadeFunc:      newUniterFunc,
 				UniterParams: &uniter.UniterParams{
 					NewOperationExecutor:    operation.NewExecutor,
-					NewRemoteRunnerExecutor: getNewRunnerExecutor(model.Name, clock, client),
+					NewRemoteRunnerExecutor: remoteExecutor,
 					// NewRemoteRunnerExecutor:    func(_ names.UnitTag) (runner.ExecFunc, error) { return runner.ExecOnMachine, nil },
 					DataDir:              agentConfig.DataDir(),
 					Clock:                clock,

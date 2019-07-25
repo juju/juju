@@ -76,16 +76,15 @@ func fetchPodNameForUnit(c UnitGetter, tag names.UnitTag) (string, error) {
 	// return "mariadb-k8s-0", nil
 }
 
-func getNewRunnerExecutor(modelName string, clk clock.Clock, uniterGetter UnitGetter) func(unit names.UnitTag) (runner.ExecFunc, error) {
-	return func(unit names.UnitTag) (runner.ExecFunc, error) {
-		c, cfg, err := exec.GetInClusterClient()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		client := exec.New(
-			modelName, c, cfg,
-		)
+func getNewRunnerExecutor(modelName string, clk clock.Clock, uniterGetter UnitGetter) (func(unit names.UnitTag) (runner.ExecFunc, error), error) {
+	// share same clien for all uniters.
+	c, cfg, err := exec.GetInClusterClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	client := exec.New(modelName, c, cfg)
 
+	return func(unit names.UnitTag) (runner.ExecFunc, error) {
 		return func(
 			commands []string,
 			env []string,
@@ -102,7 +101,6 @@ func getNewRunnerExecutor(modelName string, clk clock.Clock, uniterGetter UnitGe
 			logger.Criticalf("fetchPodNameForUnit podName -> %v", podName)
 
 			var stdout, stderr bytes.Buffer
-
 			// ensure /var/lib/juju
 			if err := ensurePath(client, podName, stdout, stderr, cancel); err != nil {
 				logger.Errorf("ensuring /var/lib/juju %q", stderr.String())
@@ -115,7 +113,6 @@ func getNewRunnerExecutor(modelName string, clk clock.Clock, uniterGetter UnitGe
 				return nil, errors.Trace(err)
 			}
 			logger.Debugf("syncing files %q", stdout.String())
-
 			if err := client.Exec(
 				exec.ExecParams{
 					PodName:    podName,
@@ -135,5 +132,5 @@ func getNewRunnerExecutor(modelName string, clk clock.Clock, uniterGetter UnitGe
 			}, nil
 		}, nil
 
-	}
+	}, nil
 }

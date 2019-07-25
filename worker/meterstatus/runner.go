@@ -54,7 +54,7 @@ func (w *hookRunner) acquireExecutionLock(action string, interrupt <-chan struct
 
 func (w *hookRunner) RunHook(code, info string, interrupt <-chan struct{}) (runErr error) {
 	unitTag := w.tag
-	// TODO:
+	// TODO(caas): add model type
 	isCAAS := false
 	paths := uniter.NewPaths(w.config.DataDir(), unitTag, isCAAS)
 	ctx := NewLimitedContext(unitTag.String())
