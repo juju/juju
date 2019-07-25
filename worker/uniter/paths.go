@@ -63,10 +63,10 @@ func (paths Paths) ComponentDir(name string) string {
 }
 
 const (
-	// TODO: do we have a limit of how many units per application we support???
-	// port
-	jujuRunSocketPort     = 1800
-	jujucServerSocketPort = 1900
+	// TODO(caas): do we have limit of how many units per application we support???
+	maxUnitsPerApplication = 2000
+	jujuRunSocketPort      = 30000                                      // 30000 - 31999
+	jujucServerSocketPort  = jujuRunSocketPort + maxUnitsPerApplication // 32000 - 33999
 )
 
 // RuntimePaths represents the set of paths that are relevant at runtime.
@@ -129,39 +129,32 @@ func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string, isCaas
 	baseDir := join(dataDir, "agents", unitTag.String())
 	stateDir := join(baseDir, "state")
 
-	getSocket := func(name string, abstract bool) (socket sockets.Socket) {
-		defer func() {
-			cwd, err := os.Getwd()
-			logger.Criticalf(
-				"NewWorkerPaths, socket cwd -> %q, err -> %v, socket -> %v, name -> %q, abstract -> %v",
-				cwd, err, socket, name, abstract,
-			)
-		}()
-		socket.Network = "unix"
-		if isCaas {
-			socket.Network = "tcp"
-			podIP := os.Getenv(provider.OperatorPodIPEnvName)
-			// if podIP == "" {
-			// 	return errors.New("dsfsdfsd ")
-			// }
+	newSocket := func(name string, abstract bool) sockets.Socket {
+		podIP := os.Getenv(provider.OperatorPodIPEnvName)
+		if isCaas && podIP != "" {
 			switch name {
 			case "run":
-				socket.Address = fmt.Sprintf("%s:%d", podIP, jujuRunSocketPort+unitTag.Number())
-				return
+				return sockets.Socket{
+					Network: "tcp",
+					Address: fmt.Sprintf("%s:%d", podIP, jujuRunSocketPort+unitTag.Number()),
+				}
 			case "agent":
-				socket.Address = fmt.Sprintf("%s:%d", podIP, jujucServerSocketPort+unitTag.Number())
-				return
+				return sockets.Socket{
+					Network: "tcp",
+					Address: fmt.Sprintf("%s:%d", podIP, jujucServerSocketPort+unitTag.Number()),
+				}
 			default:
-				logger.Errorf("NewWorkerPaths return error here! name -> %q", name)
+				logger.Warningf("caas model socket name %q, fallback to unix protocol", name)
 			}
 		}
+		socket := sockets.Socket{Network: "unix"}
 		if jujuos.HostOS() == jujuos.Windows {
 			base := fmt.Sprintf("%s", unitTag)
 			if worker != "" {
 				base = fmt.Sprintf("%s-%s", unitTag, worker)
 			}
 			socket.Address = fmt.Sprintf(`\\.\pipe\%s-%s`, base, name)
-			return
+			return socket
 		}
 		path := join(baseDir, name+".socket")
 		if worker != "" {
@@ -171,15 +164,15 @@ func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string, isCaas
 			path = "@" + path
 		}
 		socket.Address = path
-		return
+		return socket
 	}
 
 	toolsDir := tools.ToolsDir(dataDir, unitTag.String())
 	return Paths{
 		ToolsDir: filepath.FromSlash(toolsDir),
 		Runtime: RuntimePaths{
-			JujuRunSocket:     getSocket("run", false),
-			JujucServerSocket: getSocket("agent", true),
+			JujuRunSocket:     newSocket("run", false),
+			JujucServerSocket: newSocket("agent", true),
 		},
 		State: StatePaths{
 			BaseDir:         baseDir,
