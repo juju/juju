@@ -93,6 +93,8 @@ func (ms *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"migration-minion",
 			"migration-inactive-flag",
 			"model-cache",
+			"model-cache-initialized-flag",
+			"model-cache-initialized-gate",
 			"model-worker-manager",
 			"peer-grouper",
 			"presence",
@@ -166,6 +168,8 @@ func (ms *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"migration-minion",
 			"migration-inactive-flag",
 			"model-cache",
+			"model-cache-initialized-flag",
+			"model-cache-initialized-gate",
 			"model-worker-manager",
 			"peer-grouper",
 			"presence",
@@ -236,6 +240,8 @@ func (ms *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"legacy-leases-flag",
 		"log-forwarder",
 		"model-cache",
+		"model-cache-initialized-flag",
+		"model-cache-initialized-gate",
 		"model-worker-manager",
 		"peer-grouper",
 		"presence",
@@ -432,6 +438,8 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"model-cache",
+		"model-cache-initialized-flag",
+		"model-cache-initialized-gate",
 		"raft-transport",
 		"restore-watcher",
 		"state",
@@ -558,6 +566,8 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"model-cache",
+		"model-cache-initialized-flag",
+		"model-cache-initialized-gate",
 		"raft-transport",
 		"restore-watcher",
 		"state",
@@ -721,9 +731,16 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 
 	"model-cache": {
 		"agent",
+		"model-cache-initialized-gate",
 		"state",
 		"state-config-watcher",
 	},
+
+	"model-cache-initialized-flag": {
+		"model-cache-initialized-gate",
+	},
+
+	"model-cache-initialized-gate": {},
 
 	"model-worker-manager": {
 		"agent",
