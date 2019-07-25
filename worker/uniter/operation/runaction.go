@@ -34,8 +34,6 @@ func (ra *runAction) String() string {
 // state.
 // Prepare is part of the Operation interface.
 func (ra *runAction) Prepare(state State) (*State, error) {
-	// TODO: runOnRemote = true and ensure jujud, symlinks, charm action
-	// scripts are synced to workload pod if it's caas !!!!!!!!!!!!
 	rnr, err := ra.runnerFactory.NewActionRunner(ra.actionId)
 	if cause := errors.Cause(err); charmrunner.IsBadActionError(cause) {
 		if err := ra.callbacks.FailAction(ra.actionId, err.Error()); err != nil {
@@ -77,8 +75,7 @@ func (ra *runAction) Execute(state State) (*State, error) {
 
 	logger.Criticalf("runAction.Execute ra -> %#v", ra)
 	logger.Criticalf("runAction.Execute state -> %#v", state)
-	// TODO: runOnRemote = true if it's caas !!!!!!!!!
-	err := ra.runner.RunAction(ra.name, true)
+	err := ra.runner.RunAction(ra.name)
 	if err != nil {
 		// This indicates an actual error -- an action merely failing should
 		// be handled inside the Runner, and returned as nil.

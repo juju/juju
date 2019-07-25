@@ -40,7 +40,7 @@ type Runner interface {
 	RunHook(name string) error
 
 	// RunAction executes the action with the supplied name.
-	RunAction(name string, runOnRemote bool) error
+	RunAction(name string) error
 
 	// RunCommands executes the supplied script.
 	RunCommands(commands string) (*utilexec.ExecResponse, error)
@@ -85,7 +85,7 @@ func execOnMachine(
 	if err != nil {
 		return nil, err
 	}
-	// TODO: refactor kill process and implemente kill for caas exec!!!!!!!!!!!!
+	// TODO: refactor kill process and implemente kill for caas exec.
 	processSetter(hookProcess{command.Process()})
 	// Block and wait for process to finish
 	return command.WaitWithCancel(cancel)
@@ -169,6 +169,7 @@ func (runner *runner) runJujuRunAction() (err error) {
 		logger.Debugf("unable to read juju-run action timeout, will continue running action without one")
 	}
 
+	logger.Criticalf("runJujuRunAction params -> %+v", params)
 	var runInWorkloadContext bool
 	if runner.context.ModelType() == model.CAAS {
 		runInWorkloadContext, _ = params["workload-context"].(bool)
@@ -234,12 +235,12 @@ func (runner *runner) updateActionResults(results *utilexec.ExecResponse) error 
 }
 
 // RunAction exists to satisfy the Runner interface.
-func (runner *runner) RunAction(actionName string, runOnRemote bool) error {
+func (runner *runner) RunAction(actionName string) error {
 	if _, err := runner.context.ActionData(); err != nil {
 		return errors.Trace(err)
 	}
 	if actionName == actions.JujuRunActionName {
-		return runner.runJujuRunAction(runOnRemote)
+		return runner.runJujuRunAction()
 	}
 	// run actions on remote workload pod for caas.
 	return runner.runCharmHookWithLocation(actionName, "actions", runner.context.ModelType() == model.CAAS)
@@ -284,8 +285,8 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 }
 
 func (runner *runner) runCharmHookOnRemote(hookName string, env []string, charmLocation string) error {
-	// TODO: use exec framework to run on workload pod !!!!!!!!!
-	return errors.NotSupportedf("runCharmHookOnRemote hookName -> %q, env -> %+v, charmLocation -> %q", hookName, env, charmLocation)
+	// TODO(caas): use exec framework to run on workload pod.
+	return errors.NotSupportedf("run charm hook %q on workload pod", hookName)
 }
 
 func (runner *runner) runCharmHookOnLocal(hookName string, env []string, charmLocation string) error {

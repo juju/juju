@@ -92,9 +92,6 @@ type ContextUnit interface {
 	// UnitName returns the executing unit's name.
 	UnitName() string
 
-	// // ModelName returns the model name of the executing unit.
-	// ModelName() string
-
 	// Config returns the current application configuration of the executing unit.
 	ConfigSettings() (charm.Settings, error)
 
