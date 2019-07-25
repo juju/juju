@@ -27,7 +27,7 @@ type FileResource struct {
 
 func (cp *FileResource) validate(podGetter typedcorev1.PodInterface) (err error) {
 	if cp.Path == "" {
-		return errors.New("Path was missing")
+		return errors.New("path was missing")
 	}
 	if cp.PodName != "" {
 		// remote resouce if podName is not empty.

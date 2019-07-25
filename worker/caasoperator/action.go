@@ -73,7 +73,6 @@ func fetchPodNameForUnit(c UnitGetter, tag names.UnitTag) (string, error) {
 		return "", unit.Error
 	}
 	return unit.Result.ProviderId, nil
-	// return "mariadb-k8s-0", nil
 }
 
 func getNewRunnerExecutor(modelName string, clk clock.Clock, uniterGetter UnitGetter) (func(unit names.UnitTag) (runner.ExecFunc, error), error) {
@@ -101,7 +100,6 @@ func getNewRunnerExecutor(modelName string, clk clock.Clock, uniterGetter UnitGe
 			logger.Criticalf("fetchPodNameForUnit podName -> %v", podName)
 
 			var stdout, stderr bytes.Buffer
-			// ensure /var/lib/juju
 			if err := ensurePath(client, podName, stdout, stderr, cancel); err != nil {
 				logger.Errorf("ensuring /var/lib/juju %q", stderr.String())
 				return nil, errors.Trace(err)

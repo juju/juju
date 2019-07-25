@@ -181,7 +181,7 @@ func getValidatedPodContainer(
 	var pod *core.Pod
 	pod, err = podGetter.Get(podName, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
-		logger.Debugf("can not get pod by name for %q", podName)
+		logger.Debugf("no pod named %q found", podName)
 		logger.Debugf("try get pod by UID for %q", podName)
 		pods, err := podGetter.List(metav1.ListOptions{})
 		// TODO(caas): remove getting pod by Id (a bit expensive) once we started to cache podName in cloudContainer doc.

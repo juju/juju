@@ -118,8 +118,8 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *RunCommand) getSocket() sockets.Socket {
-	// TODO:
-	isCAAS := true
+	// TODO(caas): enable juju-run for caas once we can know model type here.
+	isCAAS := false
 	paths := uniter.NewPaths(cmdutil.DataDir, c.unit, isCAAS)
 	return paths.Runtime.JujuRunSocket
 }

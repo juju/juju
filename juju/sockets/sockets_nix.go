@@ -15,8 +15,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/core/model"
 )
 
 // Socket represents the set of parameters to use for socket to dial/listen.
@@ -27,14 +25,6 @@ type Socket struct {
 
 	// Address is the socket address.
 	Address string
-}
-
-// GetNetwork decides network to use for rpc client/server.
-func GetNetwork(mt model.ModelType) string {
-	if mt == model.CAAS {
-		return "tcp"
-	}
-	return "unix"
 }
 
 func Dial(soc Socket) (*rpc.Client, error) {

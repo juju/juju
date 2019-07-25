@@ -121,7 +121,7 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 	}
 	client, err := sockets.Dial(socket)
 	if err != nil {
-		return
+		return code, err
 	}
 	defer client.Close()
 	var resp exec.ExecResponse

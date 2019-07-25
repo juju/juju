@@ -43,7 +43,7 @@ type FacadeV2 struct {
 	*Facade
 }
 
-// NewStateFacadeV1 provides the version 1 of CAASOperator facade.
+// NewStateFacadeV1 returns a new CAASOperator facade for version 1.
 func NewStateFacadeV1(ctx facade.Context) (*FacadeV1, error) {
 	facadeV2, err := NewStateFacadeV2(ctx)
 	if err != nil {
@@ -52,7 +52,7 @@ func NewStateFacadeV1(ctx facade.Context) (*FacadeV1, error) {
 	return &FacadeV1{facadeV2}, nil
 }
 
-// NewStateFacadeV2 provides the version 2 of CAASOperator facade.
+// NewStateFacadeV2 returns a new CAASOperator facade for version 2.
 func NewStateFacadeV2(ctx facade.Context) (*FacadeV2, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()

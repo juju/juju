@@ -186,15 +186,6 @@ func (runner *runner) runJujuRunAction() (err error) {
 	return runner.context.Flush("juju-run", nil)
 }
 
-func (runner *runner) runInCAASWorkload() error {
-	// TODO(caas): run on workload.
-	logger.Warningf("juju-run in workload %s", runner.context.UnitName())
-	/*if err := runner.updateActionResults(results); err != nil {
-		return runner.context.Flush("juju-run", err)
-	}*/
-	return runner.context.Flush("juju-run", errors.NotImplementedf("run in CAAS workload"))
-}
-
 func encodeBytes(input []byte) (value string, encoding string) {
 	if utf8.Valid(input) {
 		value = string(input)

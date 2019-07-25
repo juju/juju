@@ -46,7 +46,7 @@ type CommandRunner interface {
 
 // RunListenerConfig contains the configuration for a RunListener.
 type RunListenerConfig struct {
-	// Socket is the network and path of the socket to listen on for run commands.
+	// Socket is the network and address of the socket to listen on for run commands.
 	Socket *sockets.Socket
 
 	// CommandRunner is the CommandRunner that will run commands.
@@ -145,7 +145,6 @@ func (s *RunListener) Close() error {
 // RunCommands executes the supplied commands in a hook context.
 func (s *RunListener) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
 	logger.Tracef("run commands: %s", args.Commands)
-	logger.Criticalf("RunListener.RunCommands: %+v", args)
 	return s.CommandRunner.RunCommands(args)
 }
 
@@ -194,7 +193,6 @@ type JujuRunServer struct {
 // response structure.
 func (r *JujuRunServer) RunCommands(args RunCommandsArgs, result *exec.ExecResponse) error {
 	logger.Debugf("RunCommands: %+v", args)
-	logger.Criticalf("JujuRunServer.RunCommands: %+v", args)
 	runResult, err := r.runner.RunCommands(args)
 	if err != nil {
 		return errors.Annotate(err, "r.runner.RunCommands")
