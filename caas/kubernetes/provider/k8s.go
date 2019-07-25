@@ -32,6 +32,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	apimachineryversion "k8s.io/apimachinery/pkg/version"
@@ -107,9 +108,12 @@ type kubernetesClient struct {
 // run "go generate" from the package directory.
 //go:generate mockgen -package mocks -destination mocks/k8sclient_mock.go k8s.io/client-go/kubernetes Interface
 //go:generate mockgen -package mocks -destination mocks/appv1_mock.go k8s.io/client-go/kubernetes/typed/apps/v1 AppsV1Interface,DeploymentInterface,StatefulSetInterface
-//go:generate mockgen -package mocks -destination mocks/corev1_mock.go k8s.io/client-go/kubernetes/typed/core/v1 CoreV1Interface,NamespaceInterface,PodInterface,ServiceInterface,ConfigMapInterface,PersistentVolumeInterface,PersistentVolumeClaimInterface,SecretInterface,NodeInterface
+//go:generate mockgen -package mocks -destination mocks/corev1_mock.go k8s.io/client-go/kubernetes/typed/core/v1 EventInterface,CoreV1Interface,NamespaceInterface,PodInterface,ServiceInterface,ConfigMapInterface,PersistentVolumeInterface,PersistentVolumeClaimInterface,SecretInterface,NodeInterface
 //go:generate mockgen -package mocks -destination mocks/extenstionsv1_mock.go k8s.io/client-go/kubernetes/typed/extensions/v1beta1 ExtensionsV1beta1Interface,IngressInterface
 //go:generate mockgen -package mocks -destination mocks/storagev1_mock.go k8s.io/client-go/kubernetes/typed/storage/v1 StorageV1Interface,StorageClassInterface
+//go:generate mockgen -package mocks -destination mocks/rbacv1_mock.go k8s.io/client-go/kubernetes/typed/rbac/v1 RbacV1Interface,ClusterRoleBindingInterface,ClusterRoleInterface,RoleInterface,RoleBindingInterface
+//go:generate mockgen -package mocks -destination mocks/apiextensions_mock.go k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1 ApiextensionsV1beta1Interface,CustomResourceDefinitionInterface
+//go:generate mockgen -package mocks -destination mocks/apiextensionsclientset_mock.go -mock_names=Interface=MockApiExtensionsClientInterface k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset  Interface
 
 // NewK8sClientFunc defines a function which returns a k8s client based on the supplied config.
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error)
@@ -463,6 +467,7 @@ func (k *kubernetesClient) ensureOCIImageSecret(
 			core.DockerConfigJsonKey: secretData,
 		},
 	}
+	logger.Debugf("ensuring docker secret %q", imageSecretName)
 	return errors.Trace(k.ensureSecret(newSecret))
 }
 
@@ -478,6 +483,9 @@ func (k *kubernetesClient) ensureSecret(sec *core.Secret) error {
 // updateSecret updates a secret resource.
 func (k *kubernetesClient) updateSecret(sec *core.Secret) error {
 	_, err := k.client().CoreV1().Secrets(k.namespace).Update(sec)
+	if k8serrors.IsNotFound(err) {
+		return errors.NotFoundf("secret %q", sec.GetName())
+	}
 	return errors.Trace(err)
 }
 
@@ -509,6 +517,21 @@ func (k *kubernetesClient) deleteSecret(secretName string) error {
 		return nil
 	}
 	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) deleteSecrets(appName string) error {
+	secretList, err := k.client().CoreV1().Secrets(k.namespace).List(v1.ListOptions{
+		LabelSelector: applicationSelector(appName),
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, s := range secretList.Items {
+		if err := k.deleteSecret(s.Name); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 // OperatorExists indicates if the operator for the specified
@@ -1007,17 +1030,11 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteDeployment(deploymentName); err != nil {
 		return errors.Trace(err)
 	}
-	secrets := k.client().CoreV1().Secrets(k.namespace)
-	secretList, err := secrets.List(v1.ListOptions{
-		LabelSelector: applicationSelector(appName),
-	})
-	if err != nil {
+	if err := k.deleteSecrets(appName); err != nil {
 		return errors.Trace(err)
 	}
-	for _, s := range secretList.Items {
-		if err := k.deleteSecret(s.Name); err != nil {
-			return errors.Trace(err)
-		}
+	if err := k.deleteServiceAccountsRolesBindings(appName); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -1223,6 +1240,14 @@ func (k *kubernetesClient) EnsureService(
 		}
 		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName) })
 	}
+	if params.PodSpec.ServiceAccount != nil {
+		saCleanups, err := k.ensureServiceAccountForApp(appName, params.PodSpec.ServiceAccount)
+		cleanups = append(cleanups, saCleanups...)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating service account")
+		}
+	}
+
 	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
 	// Defensively check to see if a stateful set is already used.
 	var useStatefulSet bool
@@ -1305,7 +1330,6 @@ func (k *kubernetesClient) EnsureService(
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
 	}
-
 	return nil
 }
 
@@ -1672,6 +1696,7 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 	// TODO(caas) - allow extra storage to be added
 	existing.Spec.Replicas = spec.Spec.Replicas
 	existing.Spec.Template.Spec.Containers = existingPodSpec.Containers
+	existing.Spec.Template.Spec.ServiceAccountName = existingPodSpec.ServiceAccountName
 	// NB: we can't update the Spec.ServiceName as it is immutable.
 	_, err = statefulsets.Update(existing)
 	return errors.Trace(err)
@@ -2542,6 +2567,7 @@ func makeUnitSpec(appName, deploymentName string, podSpec *caas.PodSpec) (*unitS
 		}
 		unitSpec.Pod.ActiveDeadlineSeconds = spec.ActiveDeadlineSeconds
 		unitSpec.Pod.ServiceAccountName = spec.ServiceAccountName
+		unitSpec.Pod.AutomountServiceAccountToken = spec.AutomountServiceAccountToken
 		unitSpec.Pod.TerminationGracePeriodSeconds = spec.TerminationGracePeriodSeconds
 		unitSpec.Pod.Hostname = spec.Hostname
 		unitSpec.Pod.Subdomain = spec.Subdomain
@@ -2551,9 +2577,12 @@ func makeUnitSpec(appName, deploymentName string, podSpec *caas.PodSpec) (*unitS
 		unitSpec.Pod.PriorityClassName = spec.PriorityClassName
 		unitSpec.Pod.SecurityContext = spec.SecurityContext
 		unitSpec.Pod.RestartPolicy = spec.RestartPolicy
-		unitSpec.Pod.AutomountServiceAccountToken = spec.AutomountServiceAccountToken
 		unitSpec.Pod.ReadinessGates = spec.ReadinessGates
 		unitSpec.Service = spec.Service
+	}
+	if podSpec.ServiceAccount != nil {
+		unitSpec.Pod.ServiceAccountName = podSpec.ServiceAccount.Name
+		unitSpec.Pod.AutomountServiceAccountToken = podSpec.ServiceAccount.AutomountServiceAccountToken
 	}
 	return &unitSpec, nil
 }
@@ -2628,6 +2657,27 @@ func (k *kubernetesClient) deploymentName(appName string) string {
 		return "juju-" + appName
 	}
 	return appName
+}
+
+func labelsToSelector(labels map[string]string) string {
+	var selectors []string
+	for k, v := range labels {
+		selectors = append(selectors, fmt.Sprintf("%v==%v", k, v))
+	}
+	sort.Strings(selectors) // for testing.
+	return strings.Join(selectors, ",")
+}
+
+func newUIDPreconditions(uid k8stypes.UID) *v1.Preconditions {
+	return &v1.Preconditions{UID: &uid}
+}
+
+func newPreconditionDeleteOptions(uid k8stypes.UID) *v1.DeleteOptions {
+	// TODO(caas): refactor all deleting single resource operation has this UID ensured precondition.
+	return &v1.DeleteOptions{
+		Preconditions:     newUIDPreconditions(uid),
+		PropagationPolicy: &defaultPropagationPolicy,
+	}
 }
 
 func isLegacyName(resourceName string) bool {

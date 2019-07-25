@@ -60,12 +60,16 @@ type K8sServiceSpec struct {
 // K8sPodSpec is a subset of v1.PodSpec which defines
 // attributes we expose for charms to set.
 type K8sPodSpec struct {
-	ServiceAccountName            string                   `json:"serviceAccountName,omitempty"`
+	// TODO(caas): remove ServiceAccountName and AutomountServiceAccountToken in the future
+	// because we have service account spec in caas.PodSpec now.
+	// Keep it for now because it will be a breaking change to remove it.
+	ServiceAccountName           string `json:"serviceAccountName,omitempty"`
+	AutomountServiceAccountToken *bool  `json:"automountServiceAccountToken,omitempty"`
+
 	RestartPolicy                 core.RestartPolicy       `json:"restartPolicy,omitempty"`
 	TerminationGracePeriodSeconds *int64                   `json:"terminationGracePeriodSeconds,omitempty"`
 	ActiveDeadlineSeconds         *int64                   `json:"activeDeadlineSeconds,omitempty"`
 	DNSPolicy                     core.DNSPolicy           `json:"dnsPolicy,omitempty"`
-	AutomountServiceAccountToken  *bool                    `json:"automountServiceAccountToken,omitempty"`
 	SecurityContext               *core.PodSecurityContext `json:"securityContext,omitempty"`
 	Hostname                      string                   `json:"hostname,omitempty"`
 	Subdomain                     string                   `json:"subdomain,omitempty"`
@@ -93,7 +97,6 @@ func parseK8sPodSpec(in string) (*caas.PodSpec, error) {
 	if err := yaml.Unmarshal([]byte(in), &spec); err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	// Do the k8s pod attributes.
 	var pod k8sPod
 	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
@@ -102,6 +105,13 @@ func parseK8sPodSpec(in string) (*caas.PodSpec, error) {
 	}
 	if pod.K8sPodSpec != nil {
 		spec.ProviderPod = pod.K8sPodSpec
+	}
+	if pod.ServiceAccount != nil {
+		if pod.K8sPodSpec != nil && pod.ServiceAccountName != "" {
+			return nil, errors.New(`
+either use ServiceAccountName to reference existing service account or define ServiceAccount spec to create a new one`[1:])
+		}
+		spec.ServiceAccount = pod.ServiceAccount
 	}
 
 	// Do the k8s containers.

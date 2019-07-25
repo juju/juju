@@ -16,6 +16,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -62,6 +63,12 @@ type BaseSuite struct {
 	mockApiextensionsV1          *mocks.MockApiextensionsV1beta1Interface
 	mockApiextensionsClient      *mocks.MockApiExtensionsClientInterface
 	mockCustomResourceDefinition *mocks.MockCustomResourceDefinitionInterface
+
+	mockServiceAccounts     *mocks.MockServiceAccountInterface
+	mockRoles               *mocks.MockRoleInterface
+	mockClusterRoles        *mocks.MockClusterRoleInterface
+	mockRoleBindings        *mocks.MockRoleBindingInterface
+	mockClusterRoleBindings *mocks.MockClusterRoleBindingInterface
 
 	watchers []*provider.KubernetesWatcher
 }
@@ -197,6 +204,21 @@ func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller, namespa
 	s.mockApiextensionsClient.EXPECT().ApiextensionsV1beta1().AnyTimes().Return(s.mockApiextensionsV1)
 	s.mockApiextensionsV1.EXPECT().CustomResourceDefinitions().AnyTimes().Return(s.mockCustomResourceDefinition)
 
+	s.mockServiceAccounts = mocks.NewMockServiceAccountInterface(ctrl)
+	mockCoreV1.EXPECT().ServiceAccounts(namespace).AnyTimes().Return(s.mockServiceAccounts)
+
+	mockRbacV1 := mocks.NewMockRbacV1Interface(ctrl)
+	s.k8sClient.EXPECT().RbacV1().AnyTimes().Return(mockRbacV1)
+
+	s.mockRoles = mocks.NewMockRoleInterface(ctrl)
+	mockRbacV1.EXPECT().Roles(namespace).AnyTimes().Return(s.mockRoles)
+	s.mockClusterRoles = mocks.NewMockClusterRoleInterface(ctrl)
+	mockRbacV1.EXPECT().ClusterRoles().AnyTimes().Return(s.mockClusterRoles)
+	s.mockRoleBindings = mocks.NewMockRoleBindingInterface(ctrl)
+	mockRbacV1.EXPECT().RoleBindings(namespace).AnyTimes().Return(s.mockRoleBindings)
+	s.mockClusterRoleBindings = mocks.NewMockClusterRoleBindingInterface(ctrl)
+	mockRbacV1.EXPECT().ClusterRoleBindings().AnyTimes().Return(s.mockClusterRoleBindings)
+
 	return func(cfg *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error) {
 		c.Assert(cfg.Username, gc.Equals, "fred")
 		c.Assert(cfg.Password, gc.Equals, "secret")
@@ -218,8 +240,15 @@ func (s *BaseSuite) k8sAlreadyExistsError() *k8serrors.StatusError {
 	return k8serrors.NewAlreadyExists(schema.GroupResource{}, "test")
 }
 
-func (s *BaseSuite) deleteOptions(policy v1.DeletionPropagation) *v1.DeleteOptions {
-	return &v1.DeleteOptions{PropagationPolicy: &policy}
+func (s *BaseSuite) deleteOptions(policy v1.DeletionPropagation, uid *types.UID) *v1.DeleteOptions {
+	ops := &v1.DeleteOptions{
+		PropagationPolicy: &policy,
+	}
+	if uid != nil {
+		// TODO(caas): change uid is required once all delete operation refactored.
+		ops.Preconditions = &v1.Preconditions{UID: uid}
+	}
+	return ops
 }
 
 func (s *BaseSuite) k8sNewFakeWatcher() *watch.RaceFreeFakeWatcher {
