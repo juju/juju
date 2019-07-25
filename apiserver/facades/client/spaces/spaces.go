@@ -118,6 +118,7 @@ func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error)
 	results.Results = make([]params.Space, len(spaces))
 	for i, space := range spaces {
 		result := params.Space{}
+		result.Id = space.Id()
 		result.Name = space.Name()
 
 		subnets, err := space.Subnets()
