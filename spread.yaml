@@ -1,0 +1,33 @@
+project: juju
+
+environment:
+  GOHOME: /home/go
+  GOPATH: $GOHOME
+  PROJECT_PATH: $GOPATH/src/github.com/juju/juju
+  TESTSLIB: $PROJECT_PATH/tests/lib
+  PATH: $GOPATH/bin:$PATH:$PROJECT_PATH/tests/lib/bin
+  LANG: "C.UTF-8"
+  LANGUAGE: "en"
+
+backends:
+  lxd:
+    systems:
+      - ubuntu-16.04
+      - ubuntu-18.04
+
+path: /home/go/src/github.com/juju/juju
+
+prepare: |
+  "$TESTSLIB/prepare.sh" --prepare-project
+restore: |
+  "$TESTSLIB/prepare.sh" --restore-project
+
+suites:
+  tests/:
+    summary: Integration tests
+
+exclude:
+  - .git
+  - spread.yaml
+
+kill-timeout: 30m
