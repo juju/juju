@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/worker/gate"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
@@ -23,8 +24,9 @@ type Logger interface {
 // ManifoldConfig holds the information necessary to run a model cache worker in
 // a dependency.Engine.
 type ManifoldConfig struct {
-	StateName string
-	Logger    Logger
+	StateName           string
+	InitializedGateName string
+	Logger              Logger
 
 	PrometheusRegisterer prometheus.Registerer
 
@@ -35,6 +37,9 @@ type ManifoldConfig struct {
 func (config ManifoldConfig) Validate() error {
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
+	}
+	if config.InitializedGateName == "" {
+		return errors.NotValidf("empty InitializedGateName")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("missing Logger")
@@ -55,6 +60,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.StateName,
+			config.InitializedGateName,
 		},
 		Start:  config.start,
 		Output: ExtractCacheController,
@@ -66,7 +72,10 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-
+	var unlocker gate.Unlocker
+	if err := context.Get(config.InitializedGateName, &unlocker); err != nil {
+		return nil, errors.Trace(err)
+	}
 	var stTracker workerstate.StateTracker
 	if err := context.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
@@ -78,6 +87,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 
 	w, err := config.NewWorker(Config{
+		InitializedGate:      unlocker,
 		Logger:               config.Logger,
 		WatcherFactory:       func() BackingWatcher { return pool.SystemState().WatchAllModels(pool) },
 		PrometheusRegisterer: config.PrometheusRegisterer,

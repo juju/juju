@@ -22,11 +22,13 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/modelcache"
 )
 
 type WorkerSuite struct {
 	statetesting.StateSuite
+	gate   gate.Lock
 	logger loggo.Logger
 	config modelcache.Config
 	notify func(interface{})
@@ -39,9 +41,11 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.notify = nil
 	s.logger = loggo.GetLogger("test")
 	s.logger.SetLogLevel(loggo.TRACE)
+	s.gate = gate.NewLock()
 
 	s.config = modelcache.Config{
-		Logger: s.logger,
+		InitializedGate: s.gate,
+		Logger:          s.logger,
 		WatcherFactory: func() modelcache.BackingWatcher {
 			return s.StatePool.SystemState().WatchAllModels(s.StatePool)
 		},
@@ -127,6 +131,12 @@ func (s *WorkerSuite) TestInitialModel(c *gc.C) {
 	expected, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	s.checkModel(c, obtained, expected)
+
+	select {
+	case <-s.gate.Unlocked():
+	case <-time.After(testing.LongWait):
+		c.Errorf("worker did not get marked as initialized")
+	}
 }
 
 func (s *WorkerSuite) TestModelConfigChange(c *gc.C) {
