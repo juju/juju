@@ -124,7 +124,7 @@ func (s *settingsSuite) TestWrite(c *gc.C) {
 	settings.Delete("some")
 	settings.Set("foo", "qaz")
 	settings.Set("other", "days")
-	err = settings.Write()
+	err = apiRelUnit.UpdateRelationSettings(settings.FinalResult(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	settings, err = apiRelUnit.Settings()
 	c.Assert(err, jc.ErrorIsNil)

@@ -54,30 +54,13 @@ func (s *Settings) Delete(key string) {
 	s.settings[key] = ""
 }
 
-// Write writes changes made to s back onto its node. Keys set to
-// empty values will be deleted, others will be updated to the new
-// value.
-func (s *Settings) Write() error {
+// FinalResult returns a params.Settings with the final updates applied.
+// This includes entries that were deleted.
+func (s *Settings) FinalResult() params.Settings {
 	// First make a copy of the map, including deleted keys.
 	settingsCopy := make(params.Settings)
 	for k, v := range s.settings {
 		settingsCopy[k] = v
 	}
-
-	var result params.ErrorResults
-	args := params.RelationUnitsSettings{
-		RelationUnits: []params.RelationUnitSettings{{
-			Relation: s.relationTag,
-			Unit:     s.unitTag,
-			Settings: settingsCopy,
-		}},
-	}
-	// TODO(jam): 2019-07-24 Implement support for UpdateSettings and Application settings.
-	//  This might just be UpdateSettings taking an application tag, or we might
-	//  want a different API.
-	err := s.st.facade.FacadeCall("UpdateSettings", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
+	return settingsCopy
 }

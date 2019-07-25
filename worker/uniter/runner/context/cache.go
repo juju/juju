@@ -27,9 +27,8 @@ type RelationCache struct {
 	// members' keys define the relation's membership; non-nil values hold
 	// cached settings.
 	members SettingsMap
-	// applicationSettings is the cached settings for the application as a whole
-	// it may be nil if it has not been cached yet.
-	applicationSettings params.Settings
+	// applications is the cached settings for an application.
+	applications SettingsMap
 	// others is a short-term cache for non-member settings.
 	others SettingsMap
 }
@@ -117,12 +116,6 @@ func (cache *RelationCache) mergeSettings(application, unit params.Settings) par
 // use fresh data.
 func (cache *RelationCache) InvalidateMember(memberName string) {
 	cache.members[memberName] = nil
-}
-
-// InvalidateApplication flags that the application settings are stale and the
-// next attempt to read settings will read fresh application settings.
-func (cache *RelationCache) InvalidateApplication() {
-	cache.applicationSettings = nil
 }
 
 // RemoveMember ensures that the named remote unit will not be considered a

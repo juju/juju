@@ -118,8 +118,41 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 	return newSettings(ru.st, ru.relation.tag.String(), ru.unit.tag.String(), result.Settings), nil
 }
 
-// TODO(jam) 2019-07-24: RelationUnit.ApplicationSettings() This might just be
-//  'ReadSettings' but passing the application tag instead of a unit tag.
+// ApplicationSettings returns a Settings which allows access to the application's settings
+// within the relation. This can only be used from the Leader unit.
+func (ru *RelationUnit) ApplicationSettings() (*Settings, error) {
+	var results params.SettingsResults
+	appname, err := names.UnitApplication(ru.unit.Name())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	appTag := names.NewApplicationTag(appname)
+	args := params.RelationUnits{
+		RelationUnits: []params.RelationUnit{{
+			Relation: ru.relation.tag.String(),
+			Unit:     appTag.String(),
+		}},
+	}
+	// TODO(jam): 2019-07-25 This isn't actually supported by the API yet, so we
+	//  just always return an empty settings result.
+
+	// err = ru.st.facade.FacadeCall("ReadSettings", args, &results)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// if len(results.Results) != 1 {
+	// 	return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	// }
+	// TODO: Remove thss
+	_ = args
+	results.Results = append(results.Results, params.SettingsResult{})
+
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return newSettings(ru.st, ru.relation.tag.String(), appTag.String(), result.Settings), nil
+}
 
 // ReadSettings returns a map holding the settings of the unit with the
 // supplied name within this relation. An error will be returned if the
@@ -153,6 +186,55 @@ func (ru *RelationUnit) ReadSettings(uname string) (params.Settings, error) {
 		return nil, result.Error
 	}
 	return result.Settings, nil
+}
+
+// UpdateRelationSettings is used to record any changes to settings for this unit and/or application.
+// It is only valid to update application settings if this unit is the leader, otherwise
+// it is a NotLeader error. Note that either unit or application is allowed to be nil.
+func (ru *RelationUnit) UpdateRelationSettings(unit, application params.Settings) error {
+	// TODO(jam) 2019-07-25: When the new API is written that gives us both updates in one
+	//  request, use it. For now, approximate it with 2 update calls.
+	var result params.ErrorResults
+	appName, err := names.UnitApplication(ru.unit.Name())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	appTag := names.NewApplicationTag(appName)
+	args := params.RelationUnitsSettings{
+		RelationUnits: []params.RelationUnitSettings{{
+			Relation: ru.relation.tag.String(),
+			Unit:     appTag.String(),
+			Settings: unit,
+		}},
+	}
+	// TODO(jam): 2019-07-24 Implement support for UpdateSettings and Application settings.
+	//  This might just be UpdateSettings taking an application tag, or we might
+	//  want a different API.
+	/// We know this isn't suppported by the API yet anyway.
+	/// err = ru.st.facade.FacadeCall("UpdateSettings", args, &result)
+	/// if err != nil {
+	/// 	return errors.Trace(err)
+	/// }
+	/// err = result.OneError()
+	/// if err != nil {
+	/// 	return errors.Trace(err)
+	/// }
+	args = params.RelationUnitsSettings{
+		RelationUnits: []params.RelationUnitSettings{{
+			Relation: ru.relation.tag.String(),
+			Unit:     ru.unit.tag.String(),
+			Settings: unit,
+		}},
+	}
+	err = ru.st.facade.FacadeCall("UpdateSettings", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = result.OneError()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // Watch returns a watcher that notifies of changes to counterpart

@@ -100,7 +100,7 @@ func (s *RelationCacheSuite) TestSettingsCachesMemberSettings(c *gc.C) {
 		settings, err := cache.Settings("x/2")
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
-		c.Assert(s.calls, jc.DeepEquals, []string{"x", "x/2"})
+		c.Assert(s.calls, jc.DeepEquals, []string{"x/2"})
 	}
 }
 
@@ -117,13 +117,13 @@ func (s *RelationCacheSuite) TestInvalidateMemberUncachesMemberSettings(c *gc.C)
 	settings, err := cache.Settings("x/2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
-	c.Assert(s.calls, jc.DeepEquals, []string{"x", "x/2"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"x/2"})
 
 	cache.InvalidateMember("x/2")
 	settings, err = cache.Settings("x/2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, params.Settings{"baz": "qux"})
-	c.Assert(s.calls, jc.DeepEquals, []string{"x", "x/2", "x/2"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"x/2", "x/2"})
 }
 
 func (s *RelationCacheSuite) TestInvalidateMemberUncachesOtherSettings(c *gc.C) {
@@ -139,13 +139,13 @@ func (s *RelationCacheSuite) TestInvalidateMemberUncachesOtherSettings(c *gc.C) 
 	settings, err := cache.Settings("x/2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
-	c.Assert(s.calls, jc.DeepEquals, []string{"x", "x/2"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"x/2"})
 
 	cache.InvalidateMember("x/2")
 	settings, err = cache.Settings("x/2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, params.Settings{"baz": "qux"})
-	c.Assert(s.calls, jc.DeepEquals, []string{"x", "x/2", "x/2"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"x/2", "x/2"})
 }
 
 func (s *RelationCacheSuite) TestRemoveMemberUncachesMemberSettings(c *gc.C) {
@@ -161,13 +161,13 @@ func (s *RelationCacheSuite) TestRemoveMemberUncachesMemberSettings(c *gc.C) {
 	settings, err := cache.Settings("x/2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
-	c.Assert(s.calls, jc.DeepEquals, []string{"x", "x/2"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"x/2"})
 
 	cache.RemoveMember("x/2")
 	settings, err = cache.Settings("x/2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, params.Settings{"baz": "qux"})
-	c.Assert(s.calls, jc.DeepEquals, []string{"x", "x/2", "x/2"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"x/2", "x/2"})
 }
 
 func (s *RelationCacheSuite) TestSettingsCachesOtherSettings(c *gc.C) {
@@ -182,7 +182,7 @@ func (s *RelationCacheSuite) TestSettingsCachesOtherSettings(c *gc.C) {
 		settings, err := cache.Settings("x/2")
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
-		c.Assert(s.calls, jc.DeepEquals, []string{"x", "x/2"})
+		c.Assert(s.calls, jc.DeepEquals, []string{"x/2"})
 	}
 }
 
@@ -203,7 +203,7 @@ func (s *RelationCacheSuite) TestPrunePreservesMemberSettings(c *gc.C) {
 	settings, err = cache.Settings("foo/2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
-	c.Assert(s.calls, jc.DeepEquals, []string{"foo", "foo/2"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"foo/2"})
 }
 
 func (s *RelationCacheSuite) TestPruneUncachesOtherSettings(c *gc.C) {
@@ -219,13 +219,13 @@ func (s *RelationCacheSuite) TestPruneUncachesOtherSettings(c *gc.C) {
 	settings, err := cache.Settings("x/2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
-	c.Assert(s.calls, jc.DeepEquals, []string{"x", "x/2"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"x/2"})
 
 	cache.Prune(nil)
 	settings, err = cache.Settings("x/2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, params.Settings{"baz": "qux"})
-	c.Assert(s.calls, jc.DeepEquals, []string{"x", "x/2", "x/2"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"x/2", "x/2"})
 }
 
 func (s *RelationCacheSuite) TestInvalidateApplicationSettings(c *gc.C) {
@@ -251,7 +251,7 @@ func (s *RelationCacheSuite) TestInvalidateApplicationSettings(c *gc.C) {
 	cache.InvalidateApplication()
 	settings, err = cache.Settings("x/2")
 	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar", "baz": "qux"})
-	c.Assert(s.calls, jc.DeepEquals, []string{"x", "x/2", "x"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"x/2", "x"})
 }
 
 func (s *RelationCacheSuite) TestUnitSettingsOverrideApplicationSettings(c *gc.C) {

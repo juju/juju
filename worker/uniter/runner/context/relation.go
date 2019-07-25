@@ -27,7 +27,7 @@ type ContextRelation struct {
 	settings *uniter.Settings
 
 	// applicationSettings allows read and write access to the relation application settings.
-	applicationSettings jujuc.Settings
+	applicationSettings *uniter.Settings
 
 	// cache holds remote unit membership and settings.
 	cache *RelationCache
@@ -75,47 +75,28 @@ func (ctx *ContextRelation) Settings() (jujuc.Settings, error) {
 	return ctx.settings, nil
 }
 
-type bogusSettings params.Settings
-
-func (b bogusSettings) Map() params.Settings {
-	return params.Settings(b)
-}
-
-func (b bogusSettings) Set(k, v string) {
-	b[k] = v
-}
-
-func (b bogusSettings) Delete(k string) {
-	b[k] = ""
-}
-
 func (ctx *ContextRelation) ApplicationSettings() (jujuc.Settings, error) {
 	if ctx.applicationSettings == nil {
-		// TODO(jam): 2019-07-24
-		// Eventually this will be an API call that gets the application settings
-		// for this unit, and also does a leadership test for this unit.
-		// For now, we just fake it with something that will keep values we
-		// set, but forget them entirely when we are done.
-		ctx.applicationSettings = make(bogusSettings)
+		settings, err := ctx.ru.ApplicationSettings()
+		if err != nil {
+			return nil, err
+		}
+		ctx.applicationSettings = settings
 	}
 	return ctx.applicationSettings, nil
 }
 
-// WriteSettings persists all changes made to the unit's relation settings.
+// WriteSettings persists all changes made to the relation settings (unit and application)
 func (ctx *ContextRelation) WriteSettings() error {
+	var appSettings params.Settings
 	if ctx.applicationSettings != nil {
-		// Write the application settings first, as we might have lost leadership.
-		// This makes this slightly riskier and thus failing this should fail
-		// the rest of the hook.
-		// ctx.applicationSettings.Write()
+		appSettings = ctx.applicationSettings.FinalResult()
 	}
+	var unitSettings params.Settings
 	if ctx.settings != nil {
-		err := ctx.settings.Write()
-		if err != nil {
-			return err
-		}
+		unitSettings = ctx.settings.FinalResult()
 	}
-	return nil
+	return ctx.ru.UpdateRelationSettings(unitSettings, appSettings)
 }
 
 // Suspended returns true if the relation is suspended.

@@ -191,6 +191,25 @@ func (s *relationUnitSuite) TestSettings(c *gc.C) {
 	})
 }
 
+func (s *relationUnitSuite) TestApplicationSettings(c *gc.C) {
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	settings := map[string]interface{}{
+		"some":  "settings",
+		"other": "things",
+	}
+	err := wpRelUnit.EnterScope(settings)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, wpRelUnit, true)
+	// TODO(jam) 2019-07-25:
+	//  we need a way to set application settings in the database before we can
+	//  test this properly.
+	wpRelUnit.Settings()
+	gotSettings, err := apiRelUnit.ApplicationSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{})
+
+}
+
 func (s *relationUnitSuite) TestReadSettings(c *gc.C) {
 	// First try to read the settings which are not set.
 	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
@@ -275,4 +294,67 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	err = myRelUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
+}
+
+func (s *relationUnitSuite) TestUpdateRelationSettingsForUnit(c *gc.C) {
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	err := wpRelUnit.EnterScope(map[string]interface{}{
+		"some":  "settings",
+		"other": "things",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, wpRelUnit, true)
+	gotSettings, err := apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"some":  "settings",
+		"other": "things",
+	})
+
+	c.Assert(apiRelUnit.UpdateRelationSettings(params.Settings{
+		"some": "thing else",
+	}, nil), jc.ErrorIsNil)
+	gotSettings, err = apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"some":  "thing else",
+		"other": "things",
+	})
+}
+
+func (s *relationUnitSuite) TestUpdateRelationSettingsForUnitWithDelete(c *gc.C) {
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	err := wpRelUnit.EnterScope(map[string]interface{}{
+		"some":  "settings",
+		"other": "things",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, wpRelUnit, true)
+	gotSettings, err := apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"some":  "settings",
+		"other": "things",
+	})
+
+	c.Assert(apiRelUnit.UpdateRelationSettings(params.Settings{
+		"some": "",
+	}, nil), jc.ErrorIsNil)
+	gotSettings, err = apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"other": "things",
+	})
+}
+
+func (s *relationUnitSuite) TestUpdateRelationSettingsForApplication(c *gc.C) {
+}
+
+func (s *relationUnitSuite) TestUpdateRelationSettingsForApplicationNotLeader(c *gc.C) {
+}
+
+func (s *relationUnitSuite) TestUpdateRelationSettingsForUnitAndApplication(c *gc.C) {
+}
+
+func (s *relationUnitSuite) TestUpdateRelationSettingsForUnitAndApplicationNotLeader(c *gc.C) {
 }
