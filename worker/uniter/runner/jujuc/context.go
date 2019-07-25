@@ -272,6 +272,9 @@ type ContextRelation interface {
 	// ReadSettings returns the settings of any remote unit in the relation.
 	ReadSettings(unit string) (params.Settings, error)
 
+	// ReadApplicationSettings returns the application settings of any remote unit in the relation.
+	ReadApplicationSettings(unit string) (params.Settings, error)
+
 	// Suspended returns true if the relation is suspended.
 	Suspended() bool
 

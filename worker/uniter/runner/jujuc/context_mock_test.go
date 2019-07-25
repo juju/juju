@@ -83,6 +83,19 @@ func (mr *MockContextRelationMockRecorder) Name() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockContextRelation)(nil).Name))
 }
 
+// ReadApplicationSettings mocks base method
+func (m *MockContextRelation) ReadApplicationSettings(arg0 string) (params.Settings, error) {
+	ret := m.ctrl.Call(m, "ReadApplicationSettings", arg0)
+	ret0, _ := ret[0].(params.Settings)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadApplicationSettings indicates an expected call of ReadApplicationSettings
+func (mr *MockContextRelationMockRecorder) ReadApplicationSettings(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadApplicationSettings", reflect.TypeOf((*MockContextRelation)(nil).ReadApplicationSettings), arg0)
+}
+
 // ReadSettings mocks base method
 func (m *MockContextRelation) ReadSettings(arg0 string) (params.Settings, error) {
 	ret := m.ctrl.Call(m, "ReadSettings", arg0)

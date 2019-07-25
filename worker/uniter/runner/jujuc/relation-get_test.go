@@ -222,6 +222,8 @@ Summary:
 get relation settings
 
 Options:
+--context  (= )
+    Specify whether you want only "unit", "application", or "both" settings from relation data
 --format  (= smart)
     Specify output format (json|smart|yaml)
 -o, --output (= "")
@@ -232,6 +234,14 @@ Options:
 Details:
 relation-get prints the value of a unit's relation setting, specified by key.
 If no key is given, or if the key is "-", all keys and values will be printed.
+
+A unit can see its own settings by calling "relation-get - MYUNIT", this will include
+any changes that have been made with "relation-set". The default context when reading
+your own setting is "unit", and "both" is not supported. Only the leader unit can
+call "relation-get --context=application - MYUNIT".
+
+When reading remote relation data, the default context is "both" and the per-unit
+data will be overlayed on the application data.
 %s`[1:]
 
 var relationGetHelpTests = []struct {

@@ -64,6 +64,10 @@ func (ctx *ContextRelation) ReadSettings(unit string) (settings params.Settings,
 	return ctx.cache.Settings(unit)
 }
 
+func (ctx *ContextRelation) ReadApplicationSettings(unit string) (settings params.Settings, err error) {
+	return ctx.cache.ApplicationSettings(unit)
+}
+
 func (ctx *ContextRelation) Settings() (jujuc.Settings, error) {
 	if ctx.settings == nil {
 		node, err := ctx.ru.Settings()

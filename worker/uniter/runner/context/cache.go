@@ -53,6 +53,9 @@ func (cache *RelationCache) Prune(memberNames []string) {
 	}
 	cache.members = newMembers
 	cache.others = SettingsMap{}
+	// TODO(jam): 2019-07-25 We should probably prune the application map to just the
+	//  applications that match the member names.
+	cache.applications = SettingsMap{}
 }
 
 // MemberNames returns the names of the remote units present in the relation.
@@ -67,16 +70,6 @@ func (cache *RelationCache) MemberNames() (memberNames []string) {
 // Settings returns the settings of the named remote unit. It's valid to get
 // the settings of any unit that has ever been in the relation.
 func (cache *RelationCache) Settings(unitName string) (params.Settings, error) {
-	if cache.applicationSettings == nil {
-		appname, err := names.UnitApplication(unitName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		cache.applicationSettings, err = cache.readSettings(appname)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
 	settings, isMember := cache.members[unitName]
 	if settings == nil {
 		if !isMember {
@@ -95,20 +88,24 @@ func (cache *RelationCache) Settings(unitName string) (params.Settings, error) {
 	} else {
 		cache.others[unitName] = settings
 	}
-	return cache.mergeSettings(cache.applicationSettings, settings), nil
+	return settings, nil
 }
 
-// mergeSettings overlays the per-unit settings on top of the overall application settings.
-func (cache *RelationCache) mergeSettings(application, unit params.Settings) params.Settings {
-	result := make(params.Settings)
-	for k, v := range application {
-		result[k] = v
+// ApplicationSettings returns the relation settings of the named application.
+func (cache *RelationCache) ApplicationSettings(unitName string) (params.Settings, error) {
+	appName, err := names.UnitApplication(unitName)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	// unit settings explicitly override application settings
-	for k, v := range unit {
-		result[k] = v
+	settings, found := cache.applications[appName]
+	if !found {
+		settings, err = cache.readSettings(appName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cache.applications[appName] = settings
 	}
-	return result
+	return settings, nil
 }
 
 // InvalidateMember ensures that the named remote unit will be considered a
@@ -116,6 +113,13 @@ func (cache *RelationCache) mergeSettings(application, unit params.Settings) par
 // use fresh data.
 func (cache *RelationCache) InvalidateMember(memberName string) {
 	cache.members[memberName] = nil
+}
+
+// InvalidateMember ensures that the named remote unit will be considered a
+// member of the relation, and that the next attempt to read its settings will
+// use fresh data.
+func (cache *RelationCache) InvalidateApplication(appName string) {
+	delete(cache.applications, appName)
 }
 
 // RemoveMember ensures that the named remote unit will not be considered a

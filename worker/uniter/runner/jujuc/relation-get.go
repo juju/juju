@@ -21,6 +21,7 @@ type RelationGetCommand struct {
 
 	RelationId      int
 	relationIdProxy gnuflag.Value
+	relationContext gnuflag.Value
 
 	Key      string
 	UnitName string
@@ -34,6 +35,7 @@ func NewRelationGetCommand(ctx Context) (cmd.Command, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	cmd.relationContext = NewEnumValue("", []string{"both", "unit", "application"})
 
 	return cmd, nil
 }
@@ -44,6 +46,14 @@ func (c *RelationGetCommand) Info() *cmd.Info {
 	doc := `
 relation-get prints the value of a unit's relation setting, specified by key.
 If no key is given, or if the key is "-", all keys and values will be printed.
+
+A unit can see its own settings by calling "relation-get - MYUNIT", this will include
+any changes that have been made with "relation-set". The default context when reading
+your own setting is "unit", and "both" is not supported. Only the leader unit can
+call "relation-get --context=application - MYUNIT".
+
+When reading remote relation data, the default context is "both" and the per-unit
+data will be overlayed on the application data.
 `
 	// There's nothing we can really do about the error here.
 	if name, err := c.ctx.RemoteUnitName(); err == nil {
@@ -65,6 +75,9 @@ func (c *RelationGetCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.Var(c.relationIdProxy, "r", "specify a relation by id")
 	f.Var(c.relationIdProxy, "relation", "")
+
+	f.Var(c.relationContext, "context",
+		`Specify whether you want only "unit", "application", or "both" settings from relation data`)
 }
 
 // Init is part of the cmd.Command interface.
@@ -101,15 +114,41 @@ func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	var settings params.Settings
+	relationContext := c.relationContext.String()
 	if c.UnitName == c.ctx.UnitName() {
-		node, err := r.Settings()
+		var node Settings
+		var err error
+		if relationContext == "both" {
+			return errors.Errorf("merged relation data not supported for your own unit")
+		} else if relationContext == "application" {
+			node, err = r.ApplicationSettings()
+		} else {
+			node, err = r.Settings()
+		}
 		if err != nil {
 			return err
 		}
 		settings = node.Map()
 	} else {
 		var err error
-		settings, err = r.ReadSettings(c.UnitName)
+		if relationContext == "application" {
+			settings, err = r.ReadApplicationSettings(c.UnitName)
+		} else if relationContext == "unit" {
+			settings, err = r.ReadSettings(c.UnitName)
+		} else {
+			settings, err = r.ReadApplicationSettings(c.UnitName)
+			if err != nil {
+				return err
+			}
+			unitSettings, err := r.ReadSettings(c.UnitName)
+			if err != nil {
+				return err
+			}
+			// Overlay Unit settings on top of Application settings
+			for k, v := range unitSettings {
+				settings[k] = v
+			}
+		}
 		if err != nil {
 			return err
 		}

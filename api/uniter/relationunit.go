@@ -118,8 +118,9 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 	return newSettings(ru.st, ru.relation.tag.String(), ru.unit.tag.String(), result.Settings), nil
 }
 
-// ApplicationSettings returns a Settings which allows access to the application's settings
-// within the relation. This can only be used from the Leader unit.
+// ApplicationSettings returns a Settings which allows access to the local unit's application settings
+// within the relation. This can only be used from the Leader unit. Calling it from
+// a non-Leader generates a NotLeader error.
 func (ru *RelationUnit) ApplicationSettings() (*Settings, error) {
 	var results params.SettingsResults
 	appname, err := names.UnitApplication(ru.unit.Name())
@@ -143,7 +144,7 @@ func (ru *RelationUnit) ApplicationSettings() (*Settings, error) {
 	// if len(results.Results) != 1 {
 	// 	return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	// }
-	// TODO: Remove thss
+	// TODO: Remove this
 	_ = args
 	results.Results = append(results.Results, params.SettingsResult{})
 

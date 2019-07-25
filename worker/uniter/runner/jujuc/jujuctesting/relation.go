@@ -127,6 +127,16 @@ func (r *ContextRelation) ReadSettings(name string) (params.Settings, error) {
 	return s.Map(), nil
 }
 
+// ReadApplicationSettings implements jujuc.ContextRelation.
+func (r *ContextRelation) ReadApplicationSettings(name string) (params.Settings, error) {
+	r.stub.AddCall("ReadApplicationSettings", name)
+	if err := r.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return r.info.ApplicationSettings.Map(), nil
+}
+
 // Suspended implements jujuc.ContextRelation.
 func (r *ContextRelation) Suspended() bool {
 	return true
