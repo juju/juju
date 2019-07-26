@@ -197,6 +197,8 @@ func recursiveTar(srcBase, srcFile, destBase, destFile string, tw *tar.Writer) e
 			if err := tw.WriteHeader(hdr); err != nil {
 				return err
 			}
+		} else if stat.Mode()&os.ModeSocket != 0 {
+			logger.Warningf("socket file %q ignored", fpath)
 		} else {
 			//case regular file or other file type like pipe
 			hdr, err := tar.FileInfoHeader(stat, fpath)
