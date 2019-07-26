@@ -35,11 +35,19 @@ type ListCommand struct {
 }
 
 const listCommandDoc = `
-Displays all defined spaces. If --short is not given both spaces and
-their subnets are displayed, otherwise just a list of spaces. The
---format argument has the same semantics as in other CLI commands -
-"yaml" is the default. The --output argument allows the command
-output to be redirected to a file. `
+Displays all defined spaces. By default both spaces and their subnets are displayed.
+Supplying the --short option will list just the space names.
+The --output argument allows the command's output to be redirected to a file. 
+
+Examples:
+	juju spaces
+	juju spaces --short
+	juju spaces --format yaml
+	juju spaces --format json
+
+See also:
+	add-space
+`
 
 // Info is defined on the cmd.Command interface.
 func (c *ListCommand) Info() *cmd.Info {
