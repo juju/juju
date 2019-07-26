@@ -127,7 +127,9 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 		"default": cmd.FormatYaml,
 	})
 	f.BoolVar(&c.all, "all", false, "Run the commands on all the machines")
-	f.BoolVar(&c.operator, "operator", false, "Run the commands on the operator (k8s-only)")
+	if featureflag.Enabled(feature.DeveloperMode) {
+		f.BoolVar(&c.operator, "operator", false, "Run the commands on the operator (k8s-only)")
+	}
 	f.DurationVar(&c.timeout, "timeout", 5*time.Minute, "How long to wait before the remote command is considered to have failed")
 	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "One or more machine ids")
 	f.Var(cmd.NewStringsValue(nil, &c.applications), "a", "One or more application names")
