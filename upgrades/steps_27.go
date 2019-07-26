@@ -27,5 +27,12 @@ func stateStepsFor27() []Step {
 				return context.State().ChangeSubnetAZtoSlice()
 			},
 		},
+		&upgradeStep{
+			description: "change subnet SpaceName to SpaceID",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().ChangeSubnetSpaceNameToSpaceID()
+			},
+		},
 	}
 }
