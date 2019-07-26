@@ -62,12 +62,7 @@ func (paths Paths) ComponentDir(name string) string {
 	return filepath.Join(paths.State.BaseDir, name)
 }
 
-const (
-	// TODO(caas): do we have limit of how many units per application we support???
-	maxUnitsPerApplication = 2000
-	jujuRunSocketPort      = 30000                                      // 30000 - 31999
-	jujucServerSocketPort  = jujuRunSocketPort + maxUnitsPerApplication // 32000 - 33999
-)
+const jujucServerSocketPort = 30000
 
 // RuntimePaths represents the set of paths that are relevant at runtime.
 type RuntimePaths struct {
@@ -117,27 +112,22 @@ type StatePaths struct {
 
 // NewPaths returns the set of filesystem paths that the supplied unit should
 // use, given the supplied root juju data directory path.
-func NewPaths(dataDir string, unitTag names.UnitTag, isCaas bool) Paths {
-	return NewWorkerPaths(dataDir, unitTag, "", isCaas)
+func NewPaths(dataDir string, unitTag names.UnitTag, isRemote bool) Paths {
+	return NewWorkerPaths(dataDir, unitTag, "", isRemote)
 }
 
 // NewWorkerPaths returns the set of filesystem paths that the supplied unit worker should
 // use, given the supplied root juju data directory path and worker identifier.
 // Distinct worker identifiers ensure that runtime paths of different worker do not interfere.
-func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string, isCaas bool) Paths {
+func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string, isRemote bool) Paths {
 	join := filepath.Join
 	baseDir := join(dataDir, "agents", unitTag.String())
 	stateDir := join(baseDir, "state")
 
 	newSocket := func(name string, abstract bool) sockets.Socket {
 		podIP := os.Getenv(provider.OperatorPodIPEnvName)
-		if isCaas && podIP != "" {
+		if isRemote && podIP != "" {
 			switch name {
-			case "run":
-				return sockets.Socket{
-					Network: "tcp",
-					Address: fmt.Sprintf("%s:%d", podIP, jujuRunSocketPort+unitTag.Number()),
-				}
 			case "agent":
 				return sockets.Socket{
 					Network: "tcp",
