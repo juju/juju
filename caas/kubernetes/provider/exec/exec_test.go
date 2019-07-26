@@ -1,0 +1,255 @@
+// Copyright 2019 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package exec_test
+
+import (
+	"bytes"
+	// "time"
+
+	"github.com/golang/mock/gomock"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+	core "k8s.io/api/core/v1"
+	"k8s.io/client-go/rest"
+	// rbacv1 "k8s.io/api/rbac/v1"
+	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	// "k8s.io/client-go/kubernetes/scheme"
+
+	"github.com/juju/juju/caas/kubernetes/provider/exec"
+	// coretesting "github.com/juju/juju/testing"
+)
+
+type exectSuite struct {
+	BaseSuite
+}
+
+var _ = gc.Suite(&exectSuite{})
+
+func (s *exectSuite) TestExecParamsValidateComandsAndPodName(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	type testcase struct {
+		Params  exec.ExecParams
+		Err     string
+		PodName string
+	}
+
+	for _, tc := range []testcase{
+		{
+			Params: exec.ExecParams{},
+			Err:    "empty commands not valid",
+		},
+		{
+			Params: exec.ExecParams{
+				Commands: []string{"echo", "'hello world'"},
+				PodName:  "",
+			},
+			Err: `podName "" not valid`,
+		},
+		{
+			Params: exec.ExecParams{
+				Commands: []string{"echo", "'hello world'"},
+				PodName:  "cm/gitlab-k8s-0",
+			},
+			Err: `podName "cm/gitlab-k8s-0" not valid`,
+		},
+		{
+			Params: exec.ExecParams{
+				Commands: []string{"echo", "'hello world'"},
+				PodName:  "cm/",
+			},
+			Err: `podName "cm/" not valid`,
+		},
+	} {
+		if tc.PodName != "" {
+			err := tc.Params.Validate(s.mockPodGetter)
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(tc.Params.PodName, gc.Equals, tc.PodName)
+		} else {
+			c.Check(tc.Params.Validate(s.mockPodGetter), gc.ErrorMatches, tc.Err)
+		}
+	}
+
+}
+
+func (s *exectSuite) TestProcessEnv(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	c.Assert(exec.ProcessEnv(
+		[]string{
+			"AAA=1", "BBB=1", "CCC=1", "DDD=1", "EEE=1",
+		},
+	), gc.Equals, "export AAA=1; export BBB=1; export CCC=1; export DDD=1; export EEE=1; ")
+}
+
+func (s *exectSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	// failed - completed pod.
+	params := exec.ExecParams{
+		Commands: []string{"echo", "'hello world'"},
+		PodName:  "gitlab-k8s-uid",
+	}
+	pod := core.Pod{}
+	pod.SetUID("gitlab-k8s-uid")
+	pod.SetName("gitlab-k8s-0")
+	pod.Status = core.PodStatus{
+		Phase: core.PodSucceeded,
+	}
+	gomock.InOrder(
+		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).Times(1).
+			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
+	)
+	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, "cannot exec into a container in a completed pod; current phase is Succeeded")
+
+	// failed - failed pod
+	params = exec.ExecParams{
+		Commands: []string{"echo", "'hello world'"},
+		PodName:  "gitlab-k8s-uid",
+	}
+	pod = core.Pod{}
+	pod.SetUID("gitlab-k8s-uid")
+	pod.SetName("gitlab-k8s-0")
+	pod.Status = core.PodStatus{
+		Phase: core.PodFailed,
+	}
+	gomock.InOrder(
+		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).Times(1).
+			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
+	)
+	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, "cannot exec into a container in a completed pod; current phase is Failed")
+
+	// failed - containerName not found
+	params = exec.ExecParams{
+		Commands:      []string{"echo", "'hello world'"},
+		PodName:       "gitlab-k8s-uid",
+		ContainerName: "non-existing-container-name",
+	}
+	pod = core.Pod{}
+	pod.SetUID("gitlab-k8s-uid")
+	pod.SetName("gitlab-k8s-0")
+	gomock.InOrder(
+		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).Times(1).
+			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
+	)
+	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, `container "non-existing-container-name" not found`)
+
+	// all good - container name specified.
+	params = exec.ExecParams{
+		Commands:      []string{"echo", "'hello world'"},
+		PodName:       "gitlab-k8s-uid",
+		ContainerName: "gitlab-container",
+	}
+	pod = core.Pod{
+		Spec: core.PodSpec{
+			Containers: []core.Container{
+				{Name: "gitlab-container"},
+			},
+		},
+	}
+	pod.SetUID("gitlab-k8s-uid")
+	pod.SetName("gitlab-k8s-0")
+	gomock.InOrder(
+		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).Times(1).
+			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
+	)
+	c.Assert(params.Validate(s.mockPodGetter), jc.ErrorIsNil)
+
+	// all good - no container name specified, pick the 1st container.
+	params = exec.ExecParams{
+		Commands: []string{"echo", "'hello world'"},
+		PodName:  "gitlab-k8s-uid",
+	}
+	c.Assert(params.ContainerName, gc.Equals, "")
+	pod = core.Pod{
+		Spec: core.PodSpec{
+			Containers: []core.Container{
+				{Name: "gitlab-container"},
+			},
+		},
+	}
+	pod.SetUID("gitlab-k8s-uid")
+	pod.SetName("gitlab-k8s-0")
+	gomock.InOrder(
+		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).Times(1).
+			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
+	)
+	c.Assert(params.Validate(s.mockPodGetter), jc.ErrorIsNil)
+	c.Assert(params.ContainerName, gc.Equals, "gitlab-container")
+}
+
+func (s *exectSuite) TestExec(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	var stdin, stdout, stderr bytes.Buffer
+	params := exec.ExecParams{
+		Commands: []string{"echo", "'hello world'"},
+		PodName:  "gitlab-k8s-uid",
+		Stdout:   &stdout,
+		Stderr:   &stderr,
+		Stdin:    &stdin,
+	}
+	c.Assert(params.ContainerName, gc.Equals, "")
+	pod := core.Pod{
+		Spec: core.PodSpec{
+			Containers: []core.Container{
+				{Name: "gitlab-container"},
+			},
+		},
+	}
+	pod.SetUID("gitlab-k8s-uid")
+	pod.SetName("gitlab-k8s-0")
+
+	request := &rest.Request{}
+	gomock.InOrder(
+		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).Times(1).
+			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
+
+		s.restClient.EXPECT().Post().Return(request),
+
+		// s.restClient.Post().Resource("pods").Name("gitlab-k8s-0").Namespace("test").
+		// 	SubResource("exec").Param("container", "gitlab-container").VersionedParams(
+		// 	&core.PodExecOptions{
+		// 		Container: "gitlab-container",
+		// 		Command:   []string{""},
+		// 		Stdin:     true,
+		// 		Stdout:    true,
+		// 		Stderr:    true,
+		// 		TTY:       false,
+		// 	}, scheme.ParameterCodec).URL().EXPECT().Times(1).Return(request),
+	)
+
+	cancel := make(chan struct{}, 1)
+	c.Assert(s.execClient.Exec(params, cancel), jc.ErrorIsNil)
+
+	// errChan := make(chan error, 1)
+	// errChan <- s.execClient.Exec(params, cancel)
+	// go func() {
+	// }()
+
+	// select {
+	// case err := <-errChan:
+	// 	c.Assert(params.ContainerName, gc.Equals, "gitlab-container")
+	// 	c.Assert(err, jc.ErrorIsNil)
+	// case <-time.After(coretesting.LongWait):
+	// 	c.Fatalf("timed out waiting for Exec return")
+	// }
+}

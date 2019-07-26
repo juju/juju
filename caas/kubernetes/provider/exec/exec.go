@@ -77,7 +77,7 @@ type ExecParams struct {
 
 func (ep *ExecParams) validate(podGetter typedcorev1.PodInterface) (err error) {
 	if len(ep.Commands) == 0 {
-		return errors.NotValidf("commands %v", ep.Commands)
+		return errors.NotValidf("empty commands")
 	}
 
 	if ep.PodName, ep.ContainerName, err = getValidatedPodContainer(
