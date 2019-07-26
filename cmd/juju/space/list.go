@@ -215,6 +215,7 @@ func printTabularLong(writer io.Writer, value interface{}) error {
 		for cidr := range s.Subnets {
 			cidrs = append(cidrs, cidr)
 		}
+		sort.Strings(cidrs)
 
 		table.AddRow(s.Id, spaceName(s.Name), cidrs[0])
 		for i := 1; i < len(cidrs); i++ {

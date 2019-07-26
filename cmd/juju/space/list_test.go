@@ -88,8 +88,12 @@ func (s *ListSuite) TestOutputFormats(c *gc.C) {
 	outDir := c.MkDir()
 	expectedYAML := `
 spaces:
-  (default): {}
-  space1:
+- id: "0"
+  name: ""
+  subnets: {}
+- id: "1"
+  name: space1
+  subnets:
     2001:db8::/32:
       type: ipv6
       provider-id: subnet-public
@@ -102,7 +106,9 @@ spaces:
       status: 'error: invalid subnet CIDR: invalid'
       zones:
       - zone1
-  space2:
+- id: "2"
+  name: space2
+  subnets:
     4.3.2.0/28:
       type: ipv4
       provider-id: vlan-42
@@ -120,37 +126,58 @@ spaces:
 	unwrap := regexp.MustCompile(`[\s+\n]`)
 	expectedJSON := unwrap.ReplaceAllLiteralString(`
 {
-  "spaces": {
-    "(default)": {},
-    "space1": {
-      "2001:db8::/32": {
-        "type": "ipv6",
-        "provider-id": "subnet-public",
-        "status": "terminating",
-        "zones": ["zone2"]
-      },
-      "invalid": {
-        "type": "unknown",
-        "provider-id": "no-such",
-        "status": "error: invalid subnet CIDR: invalid",
-        "zones": ["zone1"]
+  "spaces": [
+    {
+      "id": "0",
+      "name": "",
+      "subnets": {}
+    },
+    {
+      "id": "1",
+      "name": "space1",
+      "subnets": {
+        "2001:db8::/32": {
+          "type": "ipv6",
+          "provider-id": "subnet-public",
+          "status": "terminating",
+          "zones": [
+            "zone2"
+          ]
+        },
+        "invalid": {
+          "type": "unknown",
+          "provider-id": "no-such",
+          "status": "error: invalid subnet CIDR: invalid",
+          "zones": [
+            "zone1"
+          ]
+        }
       }
     },
-    "space2": {
-      "10.1.2.0/24": {
-        "type": "ipv4",
-        "provider-id": "subnet-private",
-        "status": "in-use",
-        "zones": ["zone1","zone2"]
-      },
-      "4.3.2.0/28": {
-        "type": "ipv4",
-        "provider-id": "vlan-42",
-        "status": "terminating",
-        "zones": ["zone1"]
+    {
+      "id": "2",
+      "name": "space2",
+      "subnets": {
+        "10.1.2.0/24": {
+          "type": "ipv4",
+          "provider-id": "subnet-private",
+          "status": "in-use",
+          "zones": [
+            "zone1",
+            "zone2"
+          ]
+        },
+        "4.3.2.0/28": {
+          "type": "ipv4",
+          "provider-id": "vlan-42",
+          "status": "terminating",
+          "zones": [
+            "zone1"
+          ]
+        }
       }
     }
-  }
+  ]
 }
 `, "") + "\n"
 	// Work around the big unwrap hammer above.
@@ -178,13 +205,13 @@ spaces:
 `, "") + "\n"
 
 	expectedTabular := `
-Space  Subnets
-(default)
-space1  2001:db8::/32
-        invalid
-space2  10.1.2.0/24
-        4.3.2.0/28
-
+Space  Name       Subnets      
+0      (default)               
+1      space1     2001:db8::/32
+                  invalid      
+2      space2     10.1.2.0/24  
+                  4.3.2.0/28   
+                               
 `[1:]
 
 	expectedShortTabular := `
@@ -293,13 +320,13 @@ func (s *ListSuite) TestRunWhenNoSpacesExistSucceedsWithProperFormat(c *gc.C) {
 
 	s.AssertRunSucceeds(c,
 		`no spaces to display\n`,
-		"{\"spaces\":{}}\n", // json formatted stdout.
+		"{\"spaces\":[]}\n", // json formatted stdout.
 		"--format=json",
 	)
 
 	s.AssertRunSucceeds(c,
 		`no spaces to display\n`,
-		"spaces: {}\n", // yaml formatted stdout.
+		"spaces: []\n", // yaml formatted stdout.
 		"--format=yaml",
 	)
 

@@ -191,11 +191,14 @@ func NewStubAPI() *StubAPI {
 		VLANTag:    42,
 	}}
 	spaces := []params.Space{{
+		Id:   "0",
 		Name: network.DefaultSpaceName,
 	}, {
+		Id:      "1",
 		Name:    "space1",
 		Subnets: append([]params.Subnet{}, subnets[:2]...),
 	}, {
+		Id:      "2",
 		Name:    "space2",
 		Subnets: append([]params.Subnet{}, subnets[2:]...),
 	}}
