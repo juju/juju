@@ -100,21 +100,9 @@ func NewPaths(dataDir string, applicationTag names.ApplicationTag) Paths {
 	baseDir := join(dataDir, "agents", applicationTag.String())
 	stateDir := join(baseDir, "state")
 
-	socket := func(name string, abstract bool) string {
-		path := join(baseDir, name+".socket")
-		if abstract {
-			path = "@" + path
-		}
-		return path
-	}
-
 	toolsDir := tools.ToolsDir(dataDir, "")
 	return Paths{
 		ToolsDir: filepath.FromSlash(toolsDir),
-		Runtime: RuntimePaths{
-			JujuRunSocket:           socket("run", false),
-			HookCommandServerSocket: socket("agent", true),
-		},
 		State: StatePaths{
 			BaseDir:         baseDir,
 			CharmDir:        join(baseDir, "charm"),
