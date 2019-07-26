@@ -27,7 +27,7 @@ type SpacesSuite struct {
 
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
-	facade     spaces.API
+	facade     *spaces.API
 
 	callContext  context.ProviderCallContext
 	blockChecker mockBlockChecker
