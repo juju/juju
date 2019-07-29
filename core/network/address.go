@@ -45,14 +45,6 @@ var (
 	classEReserved  = mustParseCIDR("240.0.0.0/4")
 )
 
-const (
-	// LoopbackIPv4CIDR is the loopback CIDR range for IPv4.
-	LoopbackIPv4CIDR = "127.0.0.0/8"
-
-	// LoopbackIPv6CIDR is the loopback CIDR range for IPv6.
-	LoopbackIPv6CIDR = "::1/128"
-)
-
 func mustParseCIDR(s string) *net.IPNet {
 	_, net, err := net.ParseCIDR(s)
 	if err != nil {
@@ -370,19 +362,6 @@ func SelectPublicAddress(addresses []Address) (Address, bool) {
 	return addresses[index], true
 }
 
-// SelectPublicHostPort picks one HostPort from a slice that would be
-// appropriate to display as a publicly accessible endpoint. If there
-// are no suitable candidates, the empty string is returned.
-func SelectPublicHostPort(hps []HostPort) string {
-	index := bestAddressIndex(len(hps), func(i int) Address {
-		return hps[i].Address
-	}, publicMatch)
-	if index < 0 {
-		return ""
-	}
-	return hps[index].NetAddr()
-}
-
 // SelectInternalAddress picks one address from a slice that can be
 // used as an endpoint for juju internal communication. If there are
 // no suitable addresses, then ok is false (and an empty address is
@@ -413,20 +392,6 @@ func SelectInternalAddresses(addresses []Address, machineLocal bool) []Address {
 		out = append(out, addresses[index])
 	}
 	return out
-}
-
-// SelectInternalHostPort picks one HostPort from a slice that can be
-// used as an endpoint for juju internal communication and returns it
-// in its NetAddr form. If there are no suitable addresses, the empty
-// string is returned.
-func SelectInternalHostPort(hps []HostPort, machineLocal bool) string {
-	index := bestAddressIndex(len(hps), func(i int) Address {
-		return hps[i].Address
-	}, internalAddressMatcher(machineLocal))
-	if index < 0 {
-		return ""
-	}
-	return hps[index].NetAddr()
 }
 
 // SelectInternalHostPorts picks the best matching HostPorts from a
@@ -665,27 +630,6 @@ func IPv4ToDecimal(ipv4Addr net.IP) (uint32, error) {
 		return 0, errors.Errorf("%q is not a valid IPv4 address", ipv4Addr.String())
 	}
 	return binary.BigEndian.Uint32([]byte(ip)), nil
-}
-
-// ResolvableHostnames returns the set of all DNS resolvable names
-// from addrs. Note that 'localhost' is always considered resolvable
-// because it can be used both as an IPv4 or IPv6 endpoint (e.g., in
-// IPv6-only networks).
-func ResolvableHostnames(addrs []Address) []Address {
-	resolvableAddrs := make([]Address, 0, len(addrs))
-	for _, addr := range addrs {
-		if addr.Value == "localhost" || net.ParseIP(addr.Value) != nil {
-			resolvableAddrs = append(resolvableAddrs, addr)
-			continue
-		}
-		_, err := netLookupIP(addr.Value)
-		if err != nil {
-			logger.Infof("removing unresolvable address %q: %v", addr.Value, err)
-			continue
-		}
-		resolvableAddrs = append(resolvableAddrs, addr)
-	}
-	return resolvableAddrs
 }
 
 // MergedAddresses provides a single list of addresses without duplicates
