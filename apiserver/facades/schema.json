@@ -2582,15 +2582,61 @@
                         "application-alias": {
                             "type": "string"
                         },
+                        "application-description": {
+                            "type": "string"
+                        },
+                        "bindings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "endpoints": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/RemoteEndpoint"
+                            }
+                        },
                         "external-controller": {
                             "$ref": "#/definitions/ExternalControllerInfo"
                         },
                         "macaroon": {
                             "$ref": "#/definitions/Macaroon"
+                        },
+                        "offer-name": {
+                            "type": "string"
+                        },
+                        "offer-url": {
+                            "type": "string"
+                        },
+                        "offer-uuid": {
+                            "type": "string"
+                        },
+                        "source-model-tag": {
+                            "type": "string"
+                        },
+                        "spaces": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/RemoteSpace"
+                            }
+                        },
+                        "users": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/OfferUserDetails"
+                            }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "source-model-tag",
+                        "offer-uuid",
+                        "offer-url",
+                        "offer-name",
+                        "application-description",
                         "ApplicationOfferDetails"
                     ]
                 },
@@ -3498,8 +3544,19 @@
                         "ApplicationOfferDetails": {
                             "$ref": "#/definitions/ApplicationOfferDetails"
                         },
+                        "application-description": {
+                            "type": "string"
+                        },
                         "application-name": {
                             "type": "string"
+                        },
+                        "bindings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
                         },
                         "charm-url": {
                             "type": "string"
@@ -3509,10 +3566,45 @@
                             "items": {
                                 "$ref": "#/definitions/OfferConnection"
                             }
+                        },
+                        "endpoints": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/RemoteEndpoint"
+                            }
+                        },
+                        "offer-name": {
+                            "type": "string"
+                        },
+                        "offer-url": {
+                            "type": "string"
+                        },
+                        "offer-uuid": {
+                            "type": "string"
+                        },
+                        "source-model-tag": {
+                            "type": "string"
+                        },
+                        "spaces": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/RemoteSpace"
+                            }
+                        },
+                        "users": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/OfferUserDetails"
+                            }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "source-model-tag",
+                        "offer-uuid",
+                        "offer-url",
+                        "offer-name",
+                        "application-description",
                         "ApplicationOfferDetails",
                         "application-name",
                         "charm-url"
@@ -3619,6 +3711,15 @@
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
+                        },
+                        "external-controller": {
+                            "$ref": "#/definitions/ExternalControllerInfo"
+                        },
+                        "macaroon": {
+                            "$ref": "#/definitions/Macaroon"
+                        },
+                        "offer": {
+                            "$ref": "#/definitions/ApplicationOfferDetails"
                         }
                     },
                     "additionalProperties": false,
@@ -5671,15 +5772,35 @@
                         "Arch": {
                             "type": "string"
                         },
+                        "Build": {
+                            "type": "integer"
+                        },
+                        "Major": {
+                            "type": "integer"
+                        },
+                        "Minor": {
+                            "type": "integer"
+                        },
                         "Number": {
                             "$ref": "#/definitions/Number"
                         },
+                        "Patch": {
+                            "type": "integer"
+                        },
                         "Series": {
+                            "type": "string"
+                        },
+                        "Tag": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "Major",
+                        "Minor",
+                        "Tag",
+                        "Patch",
+                        "Build",
                         "Number",
                         "Series",
                         "Arch"
@@ -5846,10 +5967,28 @@
                         },
                         "port": {
                             "type": "integer"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "space-id": {
+                            "type": "string"
+                        },
+                        "space-name": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "value": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "value",
+                        "type",
+                        "scope",
                         "Address",
                         "port"
                     ]
@@ -6313,10 +6452,28 @@
                         },
                         "port": {
                             "type": "integer"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "space-id": {
+                            "type": "string"
+                        },
+                        "space-name": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "value": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "value",
+                        "type",
+                        "scope",
                         "Address",
                         "port"
                     ]
@@ -8899,15 +9056,35 @@
                         "Arch": {
                             "type": "string"
                         },
+                        "Build": {
+                            "type": "integer"
+                        },
+                        "Major": {
+                            "type": "integer"
+                        },
+                        "Minor": {
+                            "type": "integer"
+                        },
                         "Number": {
                             "$ref": "#/definitions/Number"
                         },
+                        "Patch": {
+                            "type": "integer"
+                        },
                         "Series": {
+                            "type": "string"
+                        },
+                        "Tag": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "Major",
+                        "Minor",
+                        "Tag",
+                        "Patch",
+                        "Build",
                         "Number",
                         "Series",
                         "Arch"
@@ -9439,10 +9616,28 @@
                         },
                         "port": {
                             "type": "integer"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "space-id": {
+                            "type": "string"
+                        },
+                        "space-name": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "value": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "value",
+                        "type",
+                        "scope",
                         "Address",
                         "port"
                     ]
@@ -9791,10 +9986,18 @@
                             "items": {
                                 "type": "integer"
                             }
+                        },
+                        "level": {
+                            "type": "string"
+                        },
+                        "owner": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "level",
+                        "owner",
                         "ModelSLAInfo",
                         "creds"
                     ]
@@ -14263,10 +14466,28 @@
                         },
                         "port": {
                             "type": "integer"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "space-id": {
+                            "type": "string"
+                        },
+                        "space-name": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "value": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "value",
+                        "type",
+                        "scope",
                         "Address",
                         "port"
                     ]
@@ -18488,15 +18709,23 @@
                         "LogForwardingID": {
                             "$ref": "#/definitions/LogForwardingID"
                         },
+                        "model": {
+                            "type": "string"
+                        },
                         "record-id": {
                             "type": "integer"
                         },
                         "record-timestamp": {
                             "type": "integer"
+                        },
+                        "sink": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "model",
+                        "sink",
                         "LogForwardingID",
                         "record-id",
                         "record-timestamp"
@@ -20275,10 +20504,28 @@
                         },
                         "port": {
                             "type": "integer"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "space-id": {
+                            "type": "string"
+                        },
+                        "space-name": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "value": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "value",
+                        "type",
+                        "scope",
                         "Address",
                         "port"
                     ]
@@ -22444,10 +22691,18 @@
                             "items": {
                                 "type": "integer"
                             }
+                        },
+                        "level": {
+                            "type": "string"
+                        },
+                        "owner": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "level",
+                        "owner",
                         "ModelSLAInfo",
                         "creds"
                     ]
@@ -24743,10 +24998,14 @@
                         },
                         "payload": {
                             "$ref": "#/definitions/Payload"
+                        },
+                        "tag": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "tag",
                         "Entity",
                         "payload",
                         "not-found"
@@ -24775,10 +25034,14 @@
                         },
                         "status": {
                             "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "tag",
                         "Entity",
                         "status"
                     ]
@@ -25394,15 +25657,35 @@
                         "Arch": {
                             "type": "string"
                         },
+                        "Build": {
+                            "type": "integer"
+                        },
+                        "Major": {
+                            "type": "integer"
+                        },
+                        "Minor": {
+                            "type": "integer"
+                        },
                         "Number": {
                             "$ref": "#/definitions/Number"
                         },
+                        "Patch": {
+                            "type": "integer"
+                        },
                         "Series": {
+                            "type": "string"
+                        },
+                        "Tag": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "Major",
+                        "Minor",
+                        "Tag",
+                        "Patch",
+                        "Build",
                         "Number",
                         "Series",
                         "Arch"
@@ -26070,10 +26353,28 @@
                         },
                         "port": {
                             "type": "integer"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "space-id": {
+                            "type": "string"
+                        },
+                        "space-name": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "value": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "value",
+                        "type",
+                        "scope",
                         "Address",
                         "port"
                     ]
@@ -28652,16 +28953,36 @@
                         "Entity": {
                             "$ref": "#/definitions/Entity"
                         },
+                        "channel": {
+                            "type": "string"
+                        },
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "macaroon": {
+                            "$ref": "#/definitions/Macaroon"
+                        },
                         "resources": {
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/CharmResource"
                             }
+                        },
+                        "tag": {
+                            "type": "string"
+                        },
+                        "url": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "tag",
                         "Entity",
+                        "url",
+                        "channel",
+                        "macaroon",
+                        "force",
                         "AddCharmWithAuthorization",
                         "resources"
                     ]
@@ -28671,6 +28992,9 @@
                     "properties": {
                         "ErrorResult": {
                             "$ref": "#/definitions/ErrorResult"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
                         },
                         "pending-ids": {
                             "type": "array",
@@ -28801,15 +29125,42 @@
                         "application": {
                             "type": "string"
                         },
+                        "description": {
+                            "type": "string"
+                        },
+                        "fingerprint": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
                         "id": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "origin": {
+                            "type": "string"
+                        },
+                        "path": {
                             "type": "string"
                         },
                         "pending-id": {
                             "type": "string"
                         },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "size": {
+                            "type": "integer"
+                        },
                         "timestamp": {
                             "type": "string",
                             "format": "date-time"
+                        },
+                        "type": {
+                            "type": "string"
                         },
                         "username": {
                             "type": "string"
@@ -28817,6 +29168,13 @@
                     },
                     "additionalProperties": false,
                     "required": [
+                        "name",
+                        "type",
+                        "path",
+                        "origin",
+                        "revision",
+                        "fingerprint",
+                        "size",
                         "CharmResource",
                         "id",
                         "pending-id",
@@ -28836,6 +29194,9 @@
                             "items": {
                                 "$ref": "#/definitions/CharmResource"
                             }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
                         },
                         "resources": {
                             "type": "array",
@@ -28892,10 +29253,14 @@
                             "items": {
                                 "$ref": "#/definitions/Resource"
                             }
+                        },
+                        "tag": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "tag",
                         "Entity",
                         "resources",
                         "download-progress"
@@ -29023,15 +29388,42 @@
                         "application": {
                             "type": "string"
                         },
+                        "description": {
+                            "type": "string"
+                        },
+                        "fingerprint": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
                         "id": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "origin": {
+                            "type": "string"
+                        },
+                        "path": {
                             "type": "string"
                         },
                         "pending-id": {
                             "type": "string"
                         },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "size": {
+                            "type": "integer"
+                        },
                         "timestamp": {
                             "type": "string",
                             "format": "date-time"
+                        },
+                        "type": {
+                            "type": "string"
                         },
                         "username": {
                             "type": "string"
@@ -29039,6 +29431,13 @@
                     },
                     "additionalProperties": false,
                     "required": [
+                        "name",
+                        "type",
+                        "path",
+                        "origin",
+                        "revision",
+                        "fingerprint",
+                        "size",
                         "CharmResource",
                         "id",
                         "pending-id",
@@ -29052,6 +29451,9 @@
                     "properties": {
                         "ErrorResult": {
                             "$ref": "#/definitions/ErrorResult"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
                         },
                         "resource": {
                             "$ref": "#/definitions/Resource"
@@ -29068,6 +29470,9 @@
                     "properties": {
                         "ErrorResult": {
                             "$ref": "#/definitions/ErrorResult"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
                         },
                         "resources": {
                             "type": "array",
@@ -30262,6 +30667,12 @@
                         },
                         "life": {
                             "type": "string"
+                        },
+                        "mount-point": {
+                            "type": "string"
+                        },
+                        "read-only": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false,
@@ -30861,8 +31272,23 @@
                         "VolumeAttachmentInfo": {
                             "$ref": "#/definitions/VolumeAttachmentInfo"
                         },
+                        "bus-address": {
+                            "type": "string"
+                        },
+                        "device-link": {
+                            "type": "string"
+                        },
+                        "device-name": {
+                            "type": "string"
+                        },
                         "life": {
                             "type": "string"
+                        },
+                        "plan-info": {
+                            "$ref": "#/definitions/VolumeAttachmentPlanInfo"
+                        },
+                        "read-only": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false,
@@ -34976,10 +35402,28 @@
                         },
                         "port": {
                             "type": "integer"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "space-id": {
+                            "type": "string"
+                        },
+                        "space-name": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "value": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "value",
+                        "type",
+                        "scope",
                         "Address",
                         "port"
                     ]
@@ -36918,15 +37362,35 @@
                         "Arch": {
                             "type": "string"
                         },
+                        "Build": {
+                            "type": "integer"
+                        },
+                        "Major": {
+                            "type": "integer"
+                        },
+                        "Minor": {
+                            "type": "integer"
+                        },
                         "Number": {
                             "$ref": "#/definitions/Number"
                         },
+                        "Patch": {
+                            "type": "integer"
+                        },
                         "Series": {
+                            "type": "string"
+                        },
+                        "Tag": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
+                        "Major",
+                        "Minor",
+                        "Tag",
+                        "Patch",
+                        "Build",
                         "Number",
                         "Series",
                         "Arch"

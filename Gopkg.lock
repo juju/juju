@@ -99,11 +99,12 @@
   revision = "f0300d1749da6fa982027e449ec0c7a145510c3c"
 
 [[projects]]
-  digest = "1:5defd223161d396ecc83945a7015431b321fce3d0656de212b601c72eae52959"
+  digest = "1:430bb635d614478c0a9fa66ccd7bc72398a796ff2181147e431172fb09d435d7"
   name = "github.com/bcsaller/jsonschema"
   packages = ["."]
   pruneopts = ""
-  revision = "66506e52db051b5e238aa63ec4dad0a790fbc236"
+  revision = "6c0c47f99db1d6789ea71b126fd6951df11de2c4"
+  source = "github.com/SimonRichardson/jsonschema"
 
 [[projects]]
   digest = "1:de184b64adb3054bea074db0b1be1327c7dc3aaa04e3fd6cb01f62f339caecd5"
