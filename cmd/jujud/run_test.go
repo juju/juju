@@ -24,6 +24,7 @@ import (
 
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter"
 )
@@ -317,7 +318,7 @@ func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
 		socketPath = fmt.Sprintf("%s/run.socket", agentDir)
 	}
 	listener, err := uniter.NewRunListener(uniter.RunListenerConfig{
-		SocketPath:    socketPath,
+		Socket:        &sockets.Socket{Network: "unitx", Address: socketPath},
 		CommandRunner: &mockRunner{c},
 	})
 	c.Assert(err, jc.ErrorIsNil)

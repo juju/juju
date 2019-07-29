@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
-func ensurePath(client exec.Executer, podName string, stdout, stderr bytes.Buffer, cancel <-chan struct{}) error {
+func ensurePath(client exec.Executor, podName string, stdout, stderr bytes.Buffer, cancel <-chan struct{}) error {
 	err := client.Exec(
 		exec.ExecParams{
 			PodName:  podName,
@@ -29,7 +29,7 @@ func ensurePath(client exec.Executer, podName string, stdout, stderr bytes.Buffe
 	return errors.Trace(err)
 }
 
-func syncFiles(client exec.Executer, podName string, stdout, stderr bytes.Buffer, cancel <-chan struct{}) error {
+func syncFiles(client exec.Executor, podName string, stdout, stderr bytes.Buffer, cancel <-chan struct{}) error {
 	// TODO(caas): add a new cmd for checking jujud version, charm/version etc.
 	// exec run this new cmd to decide if we need repush files or not.
 	for _, sync := range []exec.CopyParam{
@@ -75,15 +75,9 @@ func fetchPodNameForUnit(c UnitGetter, tag names.UnitTag) (string, error) {
 	return unit.Result.ProviderId, nil
 }
 
-func getNewRunnerExecutor(modelName string, clk clock.Clock, uniterGetter UnitGetter) (func(unit names.UnitTag) (runner.ExecFunc, error), error) {
-	// share same clien for all uniters.
-	c, cfg, err := exec.GetInClusterClient()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	client := exec.New(modelName, c, cfg)
-
-	return func(unit names.UnitTag) (runner.ExecFunc, error) {
+//go:generate mockgen -package mocks -destination mocks/exec_mock.go github.com/juju/juju/caas/kubernetes/provider/exec Executor
+func getNewRunnerExecutor(execClient exec.Executor, uniterGetter UnitGetter) func(unit names.UnitTag) runner.ExecFunc {
+	return func(unit names.UnitTag) runner.ExecFunc {
 		return func(
 			commands []string,
 			env []string,
@@ -100,18 +94,18 @@ func getNewRunnerExecutor(modelName string, clk clock.Clock, uniterGetter UnitGe
 			logger.Criticalf("fetchPodNameForUnit podName -> %v", podName)
 
 			var stdout, stderr bytes.Buffer
-			if err := ensurePath(client, podName, stdout, stderr, cancel); err != nil {
+			if err := ensurePath(execClient, podName, stdout, stderr, cancel); err != nil {
 				logger.Errorf("ensuring /var/lib/juju %q", stderr.String())
 				return nil, errors.Trace(err)
 			}
 			logger.Debugf("ensuring /var/lib/juju %q", stdout.String())
 
-			if err := syncFiles(client, podName, stdout, stderr, cancel); err != nil {
+			if err := syncFiles(execClient, podName, stdout, stderr, cancel); err != nil {
 				logger.Errorf("syncing files %q", stderr.String())
 				return nil, errors.Trace(err)
 			}
 			logger.Debugf("syncing files %q", stdout.String())
-			if err := client.Exec(
+			if err := execClient.Exec(
 				exec.ExecParams{
 					PodName:    podName,
 					Commands:   commands,
@@ -128,7 +122,6 @@ func getNewRunnerExecutor(modelName string, clk clock.Clock, uniterGetter UnitGe
 				Stdout: stdout.Bytes(),
 				Stderr: stderr.Bytes(),
 			}, nil
-		}, nil
-
-	}, nil
+		}
+	}
 }

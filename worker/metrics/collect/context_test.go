@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6"
 
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/metrics/collect"
 )
 
@@ -49,9 +50,11 @@ func (s *ContextSuite) TestCtxDeclaredMetric(c *gc.C) {
 
 type dummyPaths struct{}
 
-func (*dummyPaths) GetToolsDir() string             { return "/dummy/tools" }
-func (*dummyPaths) GetCharmDir() string             { return "/dummy/charm" }
-func (*dummyPaths) GetJujucSocket() string          { return "/dummy/jujuc.sock" }
+func (*dummyPaths) GetToolsDir() string { return "/dummy/tools" }
+func (*dummyPaths) GetCharmDir() string { return "/dummy/charm" }
+func (*dummyPaths) GetJujucSocket() sockets.Socket {
+	return sockets.Socket{Network: "unix", Address: "/dummy/jujuc.sock"}
+}
 func (*dummyPaths) GetMetricsSpoolDir() string      { return "/dummy/spool" }
 func (*dummyPaths) ComponentDir(name string) string { return "/dummy/" + name }
 

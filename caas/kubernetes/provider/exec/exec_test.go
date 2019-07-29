@@ -28,7 +28,7 @@ type exectSuite struct {
 var _ = gc.Suite(&exectSuite{})
 
 func (s *exectSuite) TestExecParamsValidateComandsAndPodName(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
 	type testcase struct {
@@ -77,7 +77,7 @@ func (s *exectSuite) TestExecParamsValidateComandsAndPodName(c *gc.C) {
 }
 
 func (s *exectSuite) TestProcessEnv(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
 	c.Assert(exec.ProcessEnv(
@@ -88,7 +88,7 @@ func (s *exectSuite) TestProcessEnv(c *gc.C) {
 }
 
 func (s *exectSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
 	// failed - completed pod.
@@ -195,7 +195,7 @@ func (s *exectSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 }
 
 func (s *exectSuite) TestExec(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
 	var stdin, stdout, stderr bytes.Buffer
@@ -254,7 +254,7 @@ func (s *exectSuite) TestExec(c *gc.C) {
 		).Times(1).Return(nil),
 	)
 
-	cancel := make(chan struct{}, 1)
+	cancel := make(<-chan struct{}, 1)
 	errChan := make(chan error, 1)
 	go func() {
 		errChan <- s.execClient.Exec(params, cancel)

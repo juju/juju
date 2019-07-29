@@ -145,7 +145,7 @@ type UniterParams struct {
 type NewOperationExecutorFunc func(string, operation.State, func(string) (func(), error)) (operation.Executor, error)
 
 // NewRunnerExecutorFunc ss.
-type NewRunnerExecutorFunc func(unit names.UnitTag) (runner.ExecFunc, error)
+type NewRunnerExecutorFunc func(unit names.UnitTag) runner.ExecFunc
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
@@ -566,10 +566,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	var remoteExecutor runner.ExecFunc
 	if u.newRemoteRunnerExecutor != nil {
-		remoteExecutor, err = u.newRemoteRunnerExecutor(u.unit.Tag())
-		if err != nil {
-			return errors.Trace(err)
-		}
+		remoteExecutor = u.newRemoteRunnerExecutor(u.unit.Tag())
 	}
 	runnerFactory, err := runner.NewFactory(
 		u.st, u.paths, contextFactory, remoteExecutor,

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	caasoperatorapi "github.com/juju/juju/api/caasoperator"
+	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/status"
@@ -250,6 +251,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 			NewCharmDownloader: func(caller base.APICaller) caasoperator.Downloader {
 				return api.NewCharmDownloader(caller)
+			},
+			NewExecClient: func(modelName string) (exec.Executor, error) {
+				c, cfg, err := exec.GetInClusterClient()
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				return exec.New(modelName, c, cfg), nil
 			},
 		})),
 	}

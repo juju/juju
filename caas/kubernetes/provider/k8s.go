@@ -1539,14 +1539,11 @@ func (k *kubernetesClient) configurePodFiles(podSpec *core.PodSpec, containers [
 	return nil
 }
 
-// TODO(caas): only apply apparmor if it's supported and enabled in the cluster (latest microk8s's containerd does not support for example).
-// https://kubernetes.io/docs/tutorials/clusters/apparmor/
 func podAnnotations(annotations k8sannotations.Annotation) k8sannotations.Annotation {
 	// Add standard security annotations.
 	return annotations.
 		Add("apparmor.security.beta.kubernetes.io/pod", "runtime/default").
 		Add("seccomp.security.beta.kubernetes.io/pod", "docker/default")
-	// return annotations
 }
 
 func (k *kubernetesClient) configureDeployment(
@@ -2037,8 +2034,8 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		// TODO(caas): uniter now requires podName to exec into the pod, so we need change here to always use podName.!!!
-		providerId := string(p.UID)
+		// TODO(caas): uniter now requires podName to exec into the pod, consider to change here to always use podName.
+		providerId := string(p.GetUID())
 		stateful := false
 
 		// Pods managed by a stateful set use the pod name
@@ -2578,7 +2575,7 @@ func boolPtr(b bool) *bool {
 }
 
 func defaultSecurityContext() *core.SecurityContext {
-	// TODO - consider locking this down more but charms will break
+	// TODO(caas): consider locking this down more but charms will break
 	return &core.SecurityContext{
 		AllowPrivilegeEscalation: boolPtr(true), // allow privilege for juju run and actions.
 		ReadOnlyRootFilesystem:   boolPtr(false),

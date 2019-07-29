@@ -25,13 +25,13 @@ import (
 )
 
 func (s *exectSuite) TestFileResourceValidate(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 	c.Assert((&exec.FileResource{}).Validate(), gc.ErrorMatches, `path was missing`)
 }
 
 func (s *exectSuite) TestCopyParamValidate(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
 	type testcase struct {
@@ -97,7 +97,7 @@ func (s *exectSuite) TestCopyParamValidate(c *gc.C) {
 }
 
 func (s *exectSuite) TestCopyFromPodNotSupported(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
 	cancel := make(chan struct{}, 1)
@@ -116,7 +116,7 @@ func (s *exectSuite) TestCopyFromPodNotSupported(c *gc.C) {
 }
 
 func (s *exectSuite) TestCopyToPod(c *gc.C) {
-	ctrl := s.setupBroker(c)
+	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
 	srcPath, err := ioutil.TempFile(c.MkDir(), "testfile")
@@ -216,7 +216,7 @@ func (s *exectSuite) TestCopyToPod(c *gc.C) {
 		).Times(1).Return(nil),
 	)
 
-	cancel := make(chan struct{}, 1)
+	cancel := make(<-chan struct{}, 1)
 	errChan := make(chan error, 1)
 	go func() {
 		errChan <- s.execClient.Copy(params, cancel)

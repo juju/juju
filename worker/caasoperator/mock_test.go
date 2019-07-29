@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -110,6 +111,23 @@ func (c *fakeClient) WatchUnits(application string) (watcher.StringsWatcher, err
 		return nil, err
 	}
 	return c.unitsWatcher, nil
+}
+
+func (c *fakeClient) Units(units ...names.Tag) (params.UnitStatusResults, error) {
+	c.MethodCall(c, "Units", units)
+	if err := c.NextErr(); err != nil {
+		return params.UnitStatusResults{}, err
+	}
+	return params.UnitStatusResults{
+		Results: []params.UnitStatusResult{
+			{
+				Result: &params.UnitStatus{
+					ProviderId: "gitlab-xxxx",
+					Charm:      "cs:gitlab-1",
+				},
+			},
+		},
+	}, nil
 }
 
 func (c *fakeClient) Watch(application string) (watcher.NotifyWatcher, error) {

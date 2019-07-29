@@ -33,20 +33,22 @@ type client struct {
 	podGetter typedcorev1.PodInterface
 }
 
-// Executer provides the API to exec or cp on a pod inside the cluster.
-type Executer interface {
+// Executor provides the API to exec or cp on a pod inside the cluster.
+type Executor interface {
 	Exec(params ExecParams, cancel <-chan struct{}) error
 	Copy(params CopyParam, cancel <-chan struct{}) error
 }
 
+// // NewInClusterClient returns an executor using in-cluster k8s client.
+
 // GetInClusterClient returns a in-cluster kubernetes clientset.
 func GetInClusterClient() (kubernetes.Interface, *rest.Config, error) {
-	// creates the in-cluster config
+	// creates the in-cluster config.
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	// creates the clientset
+	// creates the clientset.
 	c, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -56,7 +58,7 @@ func GetInClusterClient() (kubernetes.Interface, *rest.Config, error) {
 
 // New contructs an executor.
 // no cross model/namespace allowed.
-func New(namesapce string, clientset kubernetes.Interface, config *rest.Config) Executer {
+func New(namesapce string, clientset kubernetes.Interface, config *rest.Config) Executor {
 	return new(
 		namesapce,
 		clientset,
@@ -72,7 +74,7 @@ func new(
 	config *rest.Config,
 	remoteCMDNewer func(config *rest.Config, method string, url *url.URL) (remotecommand.Executor, error),
 	pipGetter func() (io.Reader, io.WriteCloser),
-) Executer {
+) Executor {
 	return &client{
 		namesapce: namesapce,
 		clientset: clientset,
@@ -154,7 +156,7 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) error {
 			TTY:       false,
 		}, scheme.ParameterCodec)
 
-	executer, err := c.remoteCmdExecutorGetter("POST", req.URL())
+	executor, err := c.remoteCmdExecutorGetter("POST", req.URL())
 	logger.Criticalf("req.URL() -> %+v", req.URL())
 	if err != nil {
 		return errors.Trace(err)
@@ -162,7 +164,7 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) error {
 
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- executer.Stream(remotecommand.StreamOptions{
+		errChan <- executor.Stream(remotecommand.StreamOptions{
 			Stdin:  opts.Stdin,
 			Stdout: opts.Stdout,
 			Stderr: opts.Stderr,

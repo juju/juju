@@ -17,6 +17,7 @@ import (
 	apileadership "github.com/juju/juju/api/leadership"
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	coreleadership "github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/worker/fortress"
@@ -41,6 +42,8 @@ type ManifoldConfig struct {
 	NewWorker          func(Config) (worker.Worker, error)
 	NewClient          func(base.APICaller) Client
 	NewCharmDownloader func(base.APICaller) Downloader
+
+	NewExecClient func(modelName string) (exec.Executor, error)
 }
 
 func (config ManifoldConfig) Validate() error {
@@ -73,6 +76,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.LeadershipGuarantee == 0 {
 		return errors.NotValidf("missing LeadershipGuarantee")
+	}
+	if config.NewExecClient == nil {
+		return errors.NotValidf("missing NewExecClient")
 	}
 	return nil
 }
@@ -139,7 +145,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				claimer := apileadership.NewClient(apiCaller)
 				return leadership.NewTracker(unitTag, claimer, clock, config.LeadershipGuarantee)
 			}
-			remoteExecutor, err := getNewRunnerExecutor(model.Name, clock, client)
+
+			execClient, err := config.NewExecClient(model.Name)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -163,7 +170,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UniterFacadeFunc:      newUniterFunc,
 				UniterParams: &uniter.UniterParams{
 					NewOperationExecutor:    operation.NewExecutor,
-					NewRemoteRunnerExecutor: remoteExecutor,
+					NewRemoteRunnerExecutor: getNewRunnerExecutor(execClient, client),
 					DataDir:                 agentConfig.DataDir(),
 					Clock:                   clock,
 					MachineLock:             config.MachineLock,

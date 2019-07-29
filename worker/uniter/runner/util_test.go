@@ -116,6 +116,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 		s.uniter,
 		s.paths,
 		s.contextFactory,
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.factory = factory

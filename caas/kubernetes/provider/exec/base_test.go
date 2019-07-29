@@ -26,7 +26,7 @@ type BaseSuite struct {
 	namespace             string
 	k8sClient             *mocks.MockInterface
 	restClient            *mocks.MockRestClientInterface
-	execClient            exec.Executer
+	execClient            exec.Executor
 	mockPodGetter         *mocks.MockPodInterface
 	mockRemoteCmdExecutor *execmocks.MockExecutor
 
@@ -49,7 +49,7 @@ func (s *BaseSuite) TearDownTest(c *gc.C) {
 	s.pipWriter.Close()
 }
 
-func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
+func (s *BaseSuite) setupExecClient(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.k8sClient = mocks.NewMockInterface(ctrl)
 

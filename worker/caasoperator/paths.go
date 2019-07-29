@@ -41,11 +41,6 @@ func (paths Paths) GetCharmDir() string {
 	return paths.State.CharmDir
 }
 
-// GetHookCommandSocket exists to satisfy the context.Paths interface.
-func (paths Paths) GetHookCommandSocket() string {
-	return paths.Runtime.HookCommandServerSocket
-}
-
 // GetMetricsSpoolDir exists to satisfy the runner.Paths interface.
 func (paths Paths) GetMetricsSpoolDir() string {
 	return paths.State.MetricsSpoolDir
