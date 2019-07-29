@@ -6,6 +6,7 @@ package exec
 import (
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 
 	"github.com/juju/errors"
@@ -22,10 +23,12 @@ import (
 
 var logger = loggo.GetLogger("juju.kubernetes.provider.exec")
 
+//go:generate mockgen -package mocks -destination mocks/remotecommand_mock.go k8s.io/client-go/tools/remotecommand Executor
 type client struct {
-	namesapce string
-	clientset kubernetes.Interface
-	config    *rest.Config
+	namesapce               string
+	clientset               kubernetes.Interface
+	remoteCmdExecutorGetter func(method string, url *url.URL) (remotecommand.Executor, error)
+	pipGetter               func() (io.Reader, io.WriteCloser)
 
 	podGetter typedcorev1.PodInterface
 }
@@ -51,14 +54,33 @@ func GetInClusterClient() (kubernetes.Interface, *rest.Config, error) {
 	return c, config, nil
 }
 
-// New contructs an executer.
+// New contructs an executor.
+// no cross model/namespace allowed.
 func New(namesapce string, clientset kubernetes.Interface, config *rest.Config) Executer {
-	// no cross model/namespace allowed.
+	return new(
+		namesapce,
+		clientset,
+		config,
+		remotecommand.NewSPDYExecutor,
+		func() (io.Reader, io.WriteCloser) { return io.Pipe() },
+	)
+}
+
+func new(
+	namesapce string,
+	clientset kubernetes.Interface,
+	config *rest.Config,
+	remoteCMDNewer func(config *rest.Config, method string, url *url.URL) (remotecommand.Executor, error),
+	pipGetter func() (io.Reader, io.WriteCloser),
+) Executer {
 	return &client{
 		namesapce: namesapce,
 		clientset: clientset,
-		config:    config,
+		remoteCmdExecutorGetter: func(method string, url *url.URL) (remotecommand.Executor, error) {
+			return remoteCMDNewer(config, method, url)
+		},
 		podGetter: clientset.CoreV1().Pods(namesapce),
+		pipGetter: pipGetter,
 	}
 }
 
@@ -132,7 +154,7 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) error {
 			TTY:       false,
 		}, scheme.ParameterCodec)
 
-	executer, err := remotecommand.NewSPDYExecutor(c.config, "POST", req.URL())
+	executer, err := c.remoteCmdExecutorGetter("POST", req.URL())
 	logger.Criticalf("req.URL() -> %+v", req.URL())
 	if err != nil {
 		return errors.Trace(err)

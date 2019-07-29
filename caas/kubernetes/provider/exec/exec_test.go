@@ -5,20 +5,20 @@ package exec_test
 
 import (
 	"bytes"
-	// "time"
+	"net/url"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
-	"k8s.io/client-go/rest"
-	// rbacv1 "k8s.io/api/rbac/v1"
-	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	// "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
 
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
-	// coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type exectSuite struct {
@@ -63,14 +63,15 @@ func (s *exectSuite) TestExecParamsValidateComandsAndPodName(c *gc.C) {
 			},
 			Err: `podName "cm/" not valid`,
 		},
+		{
+			Params: exec.ExecParams{
+				Commands: []string{"echo", "'hello world'"},
+				PodName:  "pod/",
+			},
+			Err: `podName "pod/" not valid`,
+		},
 	} {
-		if tc.PodName != "" {
-			err := tc.Params.Validate(s.mockPodGetter)
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(tc.Params.PodName, gc.Equals, tc.PodName)
-		} else {
-			c.Check(tc.Params.Validate(s.mockPodGetter), gc.ErrorMatches, tc.Err)
-		}
+		c.Check(tc.Params.Validate(s.mockPodGetter), gc.ErrorMatches, tc.Err)
 	}
 
 }
@@ -216,7 +217,26 @@ func (s *exectSuite) TestExec(c *gc.C) {
 	pod.SetUID("gitlab-k8s-uid")
 	pod.SetName("gitlab-k8s-0")
 
-	request := &rest.Request{}
+	request := rest.NewRequest(
+		nil,
+		"POST",
+		&url.URL{Path: "/path/"},
+		"",
+		rest.ContentConfig{GroupVersion: &core.SchemeGroupVersion},
+		rest.Serializers{},
+		nil,
+		nil,
+		0,
+	).Resource("pods").Name("gitlab-k8s-0").Namespace("test").
+		SubResource("exec").Param("container", "gitlab-container").VersionedParams(
+		&core.PodExecOptions{
+			Container: "gitlab-container",
+			Command:   []string{""},
+			Stdin:     true,
+			Stdout:    true,
+			Stderr:    true,
+			TTY:       false,
+		}, scheme.ParameterCodec)
 	gomock.InOrder(
 		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
@@ -224,32 +244,26 @@ func (s *exectSuite) TestExec(c *gc.C) {
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 
 		s.restClient.EXPECT().Post().Return(request),
-
-		// s.restClient.Post().Resource("pods").Name("gitlab-k8s-0").Namespace("test").
-		// 	SubResource("exec").Param("container", "gitlab-container").VersionedParams(
-		// 	&core.PodExecOptions{
-		// 		Container: "gitlab-container",
-		// 		Command:   []string{""},
-		// 		Stdin:     true,
-		// 		Stdout:    true,
-		// 		Stderr:    true,
-		// 		TTY:       false,
-		// 	}, scheme.ParameterCodec).URL().EXPECT().Times(1).Return(request),
+		s.mockRemoteCmdExecutor.EXPECT().Stream(
+			remotecommand.StreamOptions{
+				Stdin:  &stdin,
+				Stdout: &stdout,
+				Stderr: &stderr,
+				Tty:    false,
+			},
+		).Times(1).Return(nil),
 	)
 
 	cancel := make(chan struct{}, 1)
-	c.Assert(s.execClient.Exec(params, cancel), jc.ErrorIsNil)
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- s.execClient.Exec(params, cancel)
+	}()
 
-	// errChan := make(chan error, 1)
-	// errChan <- s.execClient.Exec(params, cancel)
-	// go func() {
-	// }()
-
-	// select {
-	// case err := <-errChan:
-	// 	c.Assert(params.ContainerName, gc.Equals, "gitlab-container")
-	// 	c.Assert(err, jc.ErrorIsNil)
-	// case <-time.After(coretesting.LongWait):
-	// 	c.Fatalf("timed out waiting for Exec return")
-	// }
+	select {
+	case err := <-errChan:
+		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for Exec return")
+	}
 }

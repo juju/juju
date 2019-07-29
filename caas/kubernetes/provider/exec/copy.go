@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 // FileResource holds all the necessary parameters for the resource or destination of copy request.
@@ -25,15 +24,9 @@ type FileResource struct {
 	ContainerName string
 }
 
-func (cp *FileResource) validate(podGetter typedcorev1.PodInterface) (err error) {
+func (cp *FileResource) validate() (err error) {
 	if cp.Path == "" {
 		return errors.New("path was missing")
-	}
-	if cp.PodName != "" {
-		// remote resouce if podName is not empty.
-		if cp.PodName, cp.ContainerName, err = getValidatedPodContainer(podGetter, cp.PodName, cp.ContainerName); err != nil {
-			return errors.Trace(err)
-		}
 	}
 	return nil
 }
@@ -45,25 +38,25 @@ type CopyParam struct {
 	noPreserveOwnershipPermissions bool
 }
 
-func (cp *CopyParam) validate(podGetter typedcorev1.PodInterface) error {
-	if err := cp.Src.validate(podGetter); err != nil {
+func (cp *CopyParam) validate() error {
+	if err := cp.Src.validate(); err != nil {
 		return errors.Trace(err)
 	}
-	if err := cp.Dest.validate(podGetter); err != nil {
+	if err := cp.Dest.validate(); err != nil {
 		return errors.Trace(err)
 	}
 	if cp.Src.PodName != "" && cp.Dest.PodName != "" {
 		return errors.New("cross pods copy is not supported")
 	}
 	if cp.Src.PodName == "" && cp.Dest.PodName == "" {
-		return errors.New("copy either from pod or to pod is required")
+		return errors.New("copy either from pod nor to pod")
 	}
 	return nil
 }
 
 // Exec copys files/directorys from host to a pod or from a pod to host.
 func (c client) Copy(params CopyParam, cancel <-chan struct{}) error {
-	if err := params.validate(c.podGetter); err != nil {
+	if err := params.validate(); err != nil {
 		return errors.Trace(err)
 	}
 	if params.Src.PodName != "" {
@@ -99,7 +92,7 @@ func (c client) copyToPod(params CopyParam, cancel <-chan struct{}) (err error) 
 		dest.Path = path.Join(dest.Path, path.Base(src.Path))
 	}
 
-	reader, writer := io.Pipe()
+	reader, writer := c.pipGetter()
 
 	go func() {
 		defer writer.Close()

@@ -9,8 +9,17 @@ import (
 
 var (
 	ProcessEnv = processEnv
+	NewForTest = new
 )
 
 func (ep *ExecParams) Validate(podGetter typedcorev1.PodInterface) error {
 	return ep.validate(podGetter)
+}
+
+func (fr *FileResource) Validate() error {
+	return fr.validate()
+}
+
+func (cp *CopyParam) Validate() error {
+	return cp.validate()
 }
