@@ -5,10 +5,11 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/network"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/core/network"
 )
 
 // CloudServicer represents the state of a CAAS service.

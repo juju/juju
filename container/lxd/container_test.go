@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/container/lxd/mocks"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	"github.com/juju/juju/core/constraints"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/network"
 )
@@ -240,11 +241,11 @@ func (s *containerSuite) TestContainerAddresses(c *gc.C) {
 	addrs, err := jujuSvr.ContainerAddresses("c1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := []network.Address{
+	expected := []corenetwork.Address{
 		{
 			Value: "10.0.8.173",
-			Type:  network.IPv4Address,
-			Scope: network.ScopeCloudLocal,
+			Type:  corenetwork.IPv4Address,
+			Scope: corenetwork.ScopeCloudLocal,
 		},
 	}
 	c.Check(addrs, gc.DeepEquals, expected)

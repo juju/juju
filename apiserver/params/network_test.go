@@ -10,8 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 type (
@@ -249,7 +248,7 @@ func (s *NetworkSuite) TestMachinePortRange(c *gc.C) {
 }
 
 func (s *NetworkSuite) TestPortConvenience(c *gc.C) {
-	networkPort := corenetwork.Port{
+	networkPort := network.Port{
 		Protocol: "udp",
 		Number:   55555,
 	}
@@ -258,7 +257,7 @@ func (s *NetworkSuite) TestPortConvenience(c *gc.C) {
 }
 
 func (s *NetworkSuite) TestPortRangeConvenience(c *gc.C) {
-	networkPortRange := corenetwork.PortRange{
+	networkPortRange := network.PortRange{
 		FromPort: 61001,
 		ToPort:   61010,
 		Protocol: "tcp",

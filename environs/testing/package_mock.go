@@ -1610,9 +1610,9 @@ func (mr *MockNetworkingEnvironMockRecorder) ReleaseContainerAddresses(arg0, arg
 }
 
 // SSHAddresses mocks base method
-func (m *MockNetworkingEnviron) SSHAddresses(arg0 context.ProviderCallContext, arg1 []network0.Address) ([]network0.Address, error) {
+func (m *MockNetworkingEnviron) SSHAddresses(arg0 context.ProviderCallContext, arg1 []network.Address) ([]network.Address, error) {
 	ret := m.ctrl.Call(m, "SSHAddresses", arg0, arg1)
-	ret0, _ := ret[0].([]network0.Address)
+	ret0, _ := ret[0].([]network.Address)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

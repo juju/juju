@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/replicaset"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/network"
 )
 
 // jujuNodeKey is the key for the tag where we save a member's node id.

@@ -9,6 +9,7 @@ import (
 	"gopkg.in/amz.v3/ec2"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -54,18 +55,18 @@ func (inst *ec2Instance) Status(ctx context.ProviderCallContext) instance.Status
 
 // Addresses implements network.Addresses() returning generic address
 // details for the instance, and requerying the ec2 api if required.
-func (inst *ec2Instance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
-	var addresses []network.Address
-	possibleAddresses := []network.Address{
+func (inst *ec2Instance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
+	var addresses []corenetwork.Address
+	possibleAddresses := []corenetwork.Address{
 		{
 			Value: inst.IPAddress,
-			Type:  network.IPv4Address,
-			Scope: network.ScopePublic,
+			Type:  corenetwork.IPv4Address,
+			Scope: corenetwork.ScopePublic,
 		},
 		{
 			Value: inst.PrivateIPAddress,
-			Type:  network.IPv4Address,
-			Scope: network.ScopeCloudLocal,
+			Type:  corenetwork.IPv4Address,
+			Scope: corenetwork.ScopeCloudLocal,
 		},
 	}
 	for _, address := range possibleAddresses {

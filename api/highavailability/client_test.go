@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/juju/api/highavailability"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"

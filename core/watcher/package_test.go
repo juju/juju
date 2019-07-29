@@ -30,11 +30,7 @@ func (*ImportTest) TestImports(c *gc.C) {
 		"core/network",
 		"core/status",
 		//  TODO: these have been brought in from migration and this is BAD.
-		"network",
-		"network/debinterfaces",
-		"network/netplan",
 		"resource",
-		"utils/scriptrunner",
 	})
 
 }

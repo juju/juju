@@ -311,10 +311,10 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 			Disabled:            cfg.Disabled,
 			NoAutoStart:         cfg.NoAutoStart,
 			ConfigType:          network.InterfaceConfigType(cfg.ConfigType),
-			Address:             network.NewAddress(cfg.Address),
-			DNSServers:          network.NewAddresses(cfg.DNSServers...),
+			Address:             corenetwork.NewAddress(cfg.Address),
+			DNSServers:          corenetwork.NewAddresses(cfg.DNSServers...),
 			DNSSearchDomains:    cfg.DNSSearchDomains,
-			GatewayAddress:      network.NewAddress(cfg.GatewayAddress),
+			GatewayAddress:      corenetwork.NewAddress(cfg.GatewayAddress),
 			Routes:              routes,
 		}
 	}

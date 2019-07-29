@@ -423,7 +423,7 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringResults, e
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				var address network.Address
+				var address corenetwork.Address
 				address, err = unit.PublicAddress()
 				if err == nil {
 					result.Results[i].Result = address.Value
@@ -457,7 +457,7 @@ func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringResults, 
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				var address network.Address
+				var address corenetwork.Address
 				address, err = unit.PrivateAddress()
 				if err == nil {
 					result.Results[i].Result = address.Value
@@ -2104,7 +2104,7 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
-		network.SortAddresses(addr)
+		corenetwork.SortAddresses(addr)
 
 		// We record the interface addresses as the machine local ones - these
 		// are used later as the binding addresses.
@@ -2112,7 +2112,7 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		// addresses so record those in the default ingress address slice.
 		var interfaceAddr []network.InterfaceAddress
 		for _, a := range addr {
-			if a.Scope == network.ScopeMachineLocal {
+			if a.Scope == corenetwork.ScopeMachineLocal {
 				interfaceAddr = append(interfaceAddr, network.InterfaceAddress{Address: a.Value})
 			}
 			defaultIngressAddresses = append(defaultIngressAddresses, a.Value)

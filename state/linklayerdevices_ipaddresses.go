@@ -10,8 +10,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // ipAddressDoc describes the persistent state of an IP address assigned to a
@@ -113,8 +112,8 @@ func (addr *Address) DocID() string {
 }
 
 // ProviderID returns the provider-specific IP address ID, if set.
-func (addr *Address) ProviderID() corenetwork.Id {
-	return corenetwork.Id(addr.doc.ProviderID)
+func (addr *Address) ProviderID() network.Id {
+	return network.Id(addr.doc.ProviderID)
 }
 
 // MachineID returns the ID of the machine this IP address belongs to.
@@ -332,7 +331,7 @@ func (st *State) removeMatchingIPAddressesDocOps(findQuery bson.D) ([]txn.Op, er
 	callbackFunc := func(resultDoc *ipAddressDoc) {
 		ops = append(ops, removeIPAddressDocOp(resultDoc.DocID))
 		if resultDoc.ProviderID != "" {
-			addrID := corenetwork.Id(resultDoc.ProviderID)
+			addrID := network.Id(resultDoc.ProviderID)
 			op := st.networkEntityGlobalKeyRemoveOp("address", addrID)
 			ops = append(ops, op)
 		}

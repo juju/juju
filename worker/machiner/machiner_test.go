@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
@@ -242,7 +243,7 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 	s.accessor.machine.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "SetMachineAddresses",
 		Args: []interface{}{
-			network.NewAddresses(
+			corenetwork.NewAddresses(
 				"255.255.255.255",
 				"0.0.0.0",
 			),
@@ -355,11 +356,11 @@ LXC_BRIDGE="ignored"`[1:])
 
 	mr := s.makeMachiner(c, false)
 	c.Assert(stopWorker(mr), jc.ErrorIsNil)
-	s.accessor.machine.CheckCall(c, 0, "SetMachineAddresses", []network.Address{
-		network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal),
-		network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
-		network.NewScopedAddress("::1", network.ScopeMachineLocal),
-		network.NewAddress("2001:db8::1"),
+	s.accessor.machine.CheckCall(c, 0, "SetMachineAddresses", []corenetwork.Address{
+		corenetwork.NewScopedAddress("10.0.0.1", corenetwork.ScopeCloudLocal),
+		corenetwork.NewScopedAddress("127.0.0.1", corenetwork.ScopeMachineLocal),
+		corenetwork.NewScopedAddress("::1", corenetwork.ScopeMachineLocal),
+		corenetwork.NewAddress("2001:db8::1"),
 	})
 }
 
@@ -374,7 +375,7 @@ func (s *MachinerSuite) TestSetMachineAddressesEmpty(c *gc.C) {
 func (s *MachinerSuite) TestMachineAddressesWithClearFlag(c *gc.C) {
 	mr := s.makeMachiner(c, true)
 	c.Assert(stopWorker(mr), jc.ErrorIsNil)
-	s.accessor.machine.CheckCall(c, 0, "SetMachineAddresses", []network.Address(nil))
+	s.accessor.machine.CheckCall(c, 0, "SetMachineAddresses", []corenetwork.Address(nil))
 }
 
 func (s *MachinerSuite) TestGetObservedNetworkConfigEmpty(c *gc.C) {

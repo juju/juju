@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -303,7 +302,7 @@ func (s *ipAddressesStateSuite) TestMachineAllAddressesSuccess(c *gc.C) {
 
 func (s *ipAddressesStateSuite) TestMachineAllNetworkAddresses(c *gc.C) {
 	addedAddresses := s.addTwoDevicesWithTwoAddressesEach(c)
-	expected := make([]network.Address, len(addedAddresses))
+	expected := make([]corenetwork.Address, len(addedAddresses))
 	for i := range addedAddresses {
 		expected[i] = addedAddresses[i].NetworkAddress()
 	}

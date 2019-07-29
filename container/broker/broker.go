@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
 )
@@ -141,7 +142,7 @@ func findDNSServerConfig() (*network.DNSConfig, error) {
 			continue
 		}
 		for _, nameServer := range dnsConfig.Nameservers {
-			if nameServer.Scope != network.ScopeMachineLocal {
+			if nameServer.Scope != corenetwork.ScopeMachineLocal {
 				logger.Debugf("The DNS configuration from %s has been selected for use", dnsConfigFile)
 				return dnsConfig, nil
 			}

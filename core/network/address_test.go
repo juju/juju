@@ -11,8 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/testing"
 )
 
@@ -145,13 +144,13 @@ func (s *AddressSuite) TestNewAddressesOnSpace(c *gc.C) {
 		Type:            "ipv4",
 		Scope:           "public",
 		SpaceName:       "bar",
-		SpaceProviderId: corenetwork.Id(""),
+		SpaceProviderId: network.Id(""),
 	}, {
 		Value:           "fc00::1",
 		Type:            "ipv6",
 		Scope:           "local-cloud",
 		SpaceName:       "bar",
-		SpaceProviderId: corenetwork.Id(""),
+		SpaceProviderId: network.Id(""),
 	}})
 }
 
@@ -737,7 +736,7 @@ var stringTests = []struct {
 		Type:            network.HostName,
 		Value:           "foo.com",
 		Scope:           network.ScopePublic,
-		SpaceProviderId: corenetwork.Id("3"),
+		SpaceProviderId: network.Id("3"),
 	},
 	str: "public:foo.com@(id:3)",
 }, {
@@ -754,7 +753,7 @@ var stringTests = []struct {
 		Value:           "foo.com",
 		Scope:           network.ScopePublic,
 		SpaceName:       "badlands",
-		SpaceProviderId: corenetwork.Id("3"),
+		SpaceProviderId: network.Id("3"),
 	},
 	str: "public:foo.com@badlands(id:3)",
 }}

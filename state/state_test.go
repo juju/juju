@@ -35,12 +35,11 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -698,7 +697,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				return st.WatchSubnets(nil)
 			},
 			triggerEvent: func(st *state.State) {
-				_, err := st.AddSubnet(corenetwork.SubnetInfo{
+				_, err := st.AddSubnet(network.SubnetInfo{
 					CIDR: "10.0.0.0/24",
 				})
 				c.Assert(err, jc.ErrorIsNil)
@@ -3620,9 +3619,9 @@ func (s *StateSuite) TestWatchSubnets(c *gc.C) {
 	wc.AssertChange()
 	wc.AssertNoChange()
 
-	_, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "10.20.0.0/24"})
+	_, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.20.0.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "10.0.0.0/24"})
+	_, err = s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.0.0/24"})
 	wc.AssertChange("10.0.0.0/24")
 	wc.AssertNoChange()
 }

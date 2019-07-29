@@ -14,6 +14,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 
 	// Used for some constants and things like LinkLayerDevice[Args]
@@ -99,7 +100,7 @@ func (p *BridgePolicy) determineContainerSpaces(m Machine, containerMachine Cont
 // to be in, and what spaces the host machine is already in, and tries to
 // find the devices on the host that are useful for the container.
 func (p *BridgePolicy) findSpacesAndDevicesForContainer(m Machine, containerMachine Container) (set.Strings, map[string][]LinkLayerDevice, error) {
-	containerSpaces, err := p.determineContainerSpaces(m, containerMachine, "")
+	containerSpaces, err := p.determineContainerSpaces(m, containerMachine, corenetwork.DefaultSpaceName)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/network"
+	network "github.com/juju/juju/core/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -24,14 +24,14 @@ var _ = gc.Suite(&HostPortSuite{})
 
 type hostPortTest struct {
 	about         string
-	hostPorts     []network.HostPort
+	hostPorts     []corenetwork.HostPort
 	expectedIndex int
 }
 
 // hostPortTest returns the HostPort equivalent test to the
 // receiving selectTest.
 func (t selectTest) hostPortTest() hostPortTest {
-	hps := network.AddressesWithPort(t.addresses, 9999)
+	hps := corenetwork.AddressesWithPort(t.addresses, 9999)
 	for i := range hps {
 		hps[i].Port = i + 1
 	}
@@ -55,7 +55,7 @@ func (*HostPortSuite) TestSelectPublicHostPort(c *gc.C) {
 	for i, t0 := range selectPublicTests {
 		t := t0.hostPortTest()
 		c.Logf("test %d: %s", i, t.about)
-		c.Check(network.SelectPublicHostPort(t.hostPorts), jc.DeepEquals, t.expected())
+		c.Check(corenetwork.SelectPublicHostPort(t.hostPorts), jc.DeepEquals, t.expected())
 	}
 }
 
@@ -63,7 +63,7 @@ func (*HostPortSuite) TestSelectInternalHostPort(c *gc.C) {
 	for i, t0 := range selectInternalTests {
 		t := t0.hostPortTest()
 		c.Logf("test %d: %s", i, t.about)
-		c.Check(network.SelectInternalHostPort(t.hostPorts, false), jc.DeepEquals, t.expected())
+		c.Check(corenetwork.SelectInternalHostPort(t.hostPorts, false), jc.DeepEquals, t.expected())
 	}
 }
 
@@ -71,7 +71,7 @@ func (*HostPortSuite) TestSelectInternalMachineHostPort(c *gc.C) {
 	for i, t0 := range selectInternalMachineTests {
 		t := t0.hostPortTest()
 		c.Logf("test %d: %s", i, t.about)
-		c.Check(network.SelectInternalHostPort(t.hostPorts, true), gc.DeepEquals, t.expected())
+		c.Check(corenetwork.SelectInternalHostPort(t.hostPorts, true), gc.DeepEquals, t.expected())
 	}
 }
 

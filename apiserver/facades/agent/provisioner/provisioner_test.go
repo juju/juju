@@ -26,12 +26,11 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	environtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/network/containerizer"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -1923,7 +1922,7 @@ func (s *provisionerMockSuite) expectNetworkingEnviron() {
 func (s *provisionerMockSuite) expectLinkLayerDevices() {
 	devName := "eth0"
 	mtu := uint(1500)
-	mac := corenetwork.GenerateVirtualMACAddress()
+	mac := network.GenerateVirtualMACAddress()
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name:       devName,
 		Type:       state.EthernetDevice,

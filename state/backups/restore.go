@@ -24,6 +24,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -122,13 +123,13 @@ func updateMongoEntries(newInstId instance.Id, newMachineId, oldMachineId string
 
 // updateMachineAddresses will update the machine doc to the current addresses
 func updateMachineAddresses(machine *state.Machine, privateAddress, publicAddress string) error {
-	privateAddressAddress := network.Address{
+	privateAddressAddress := corenetwork.Address{
 		Value: privateAddress,
-		Type:  network.DeriveAddressType(privateAddress),
+		Type:  corenetwork.DeriveAddressType(privateAddress),
 	}
-	publicAddressAddress := network.Address{
+	publicAddressAddress := corenetwork.Address{
 		Value: publicAddress,
-		Type:  network.DeriveAddressType(publicAddress),
+		Type:  corenetwork.DeriveAddressType(publicAddress),
 	}
 	if err := machine.SetProviderAddresses(publicAddressAddress, privateAddressAddress); err != nil {
 		return errors.Trace(err)
