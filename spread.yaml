@@ -10,10 +10,12 @@ environment:
   LANGUAGE: "en"
 
 backends:
-  lxd:
+  qemu:
+    memory: 1024M
     systems:
-      - ubuntu-16.04
-      - ubuntu-18.04
+      - ubuntu-16.04:
+          username: ubuntu
+          password: ubuntu
 
 path: /home/go/src/github.com/juju/juju
 

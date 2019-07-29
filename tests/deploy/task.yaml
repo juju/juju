@@ -1,8 +1,6 @@
 summary: Test deploying a charm succeeds
 
 prepare: |
-  echo $GOPATH
-  ls -la $GOPATH
   juju bootstrap lxd tester --no-gui
 
 execute: |

@@ -1,8 +1,10 @@
 #!/bin/bash
 
+set -eux
+
 prepare_project() {
     apt-get update
-    apt-get install -y build-essential
+    apt-get install -y build-essential snapd
 
     cd $PROJECT_PATH
 
