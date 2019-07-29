@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -787,4 +789,66 @@ func (s *RelationSuite) TestResumeRelationNoConsumeAccessRace(c *gc.C) {
 	err = rel.SetSuspended(false, "")
 	c.Assert(err, gc.ErrorMatches,
 		`cannot resume relation "wordpress:db mysql:server" where user "fred" does not have consume permission`)
+}
+
+func (s *RelationSuite) TestApplicationSettings(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	settingsMap, err := relation.ApplicationSettings(mysql)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settingsMap, gc.HasLen, 0)
+
+	settings := state.NewStateSettings(s.State)
+	key := fmt.Sprintf("r#%d#provider#mysql", relation.Id())
+	err = settings.ReplaceSettings(key, map[string]interface{}{
+		"bailterspace": "blammo",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	settingsMap, err = relation.ApplicationSettings(mysql)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settingsMap, gc.DeepEquals, map[string]interface{}{
+		"bailterspace": "blammo",
+	})
+}
+
+func (s *RelationSuite) TestApplicationSettingsPeer(c *gc.C) {
+	app := state.AddTestingApplication(c, s.State, "riak", state.AddTestingCharm(c, s.State, "riak"))
+	ep, err := app.Endpoint("ring")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.EndpointsRelation(ep)
+	c.Assert(err, jc.ErrorIsNil)
+
+	settings := state.NewStateSettings(s.State)
+	key := fmt.Sprintf("r#%d#peer#riak", rel.Id())
+	err = settings.ReplaceSettings(key, map[string]interface{}{
+		"mermaidens": "disappear",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	settingsMap, err := rel.ApplicationSettings(app)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settingsMap, gc.DeepEquals, map[string]interface{}{
+		"mermaidens": "disappear",
+	})
+}
+
+func (s *RelationSuite) TestApplicationSettingsErrors(c *gc.C) {
+	app := state.AddTestingApplication(c, s.State, "riak", state.AddTestingCharm(c, s.State, "riak"))
+	ep, err := app.Endpoint("ring")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.EndpointsRelation(ep)
+	c.Assert(err, jc.ErrorIsNil)
+
+	unrelated := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+
+	var nothing map[string]interface{}
+	settings, err := rel.ApplicationSettings(unrelated)
+	c.Assert(err, gc.ErrorMatches, `application "wordpress" is not a member of "riak:ring"`)
+	c.Assert(settings, gc.DeepEquals, nothing)
 }

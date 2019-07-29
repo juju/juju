@@ -1105,12 +1105,16 @@ func (st *State) addPeerRelationsOps(applicationname string, peers map[string]ch
 			ModelUUID: st.ModelUUID(),
 			Updated:   now.UnixNano(),
 		}
-		ops = append(ops, txn.Op{
-			C:      relationsC,
-			Id:     relDoc.DocID,
-			Assert: txn.DocMissing,
-			Insert: relDoc,
-		}, createStatusOp(st, relationGlobalScope(relId), relationStatusDoc))
+		ops = append(ops,
+			txn.Op{
+				C:      relationsC,
+				Id:     relDoc.DocID,
+				Assert: txn.DocMissing,
+				Insert: relDoc,
+			},
+			createStatusOp(st, relationGlobalScope(relId), relationStatusDoc),
+			createSettingsOp(settingsC, relationApplicationSettingsKey(relId, eps[0]), nil),
+		)
 	}
 	return ops, nil
 }
@@ -2165,6 +2169,12 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			Assert: txn.DocMissing,
 			Insert: doc,
 		}, createStatusOp(st, relationGlobalScope(id), relationStatusDoc))
+
+		for _, ep := range eps {
+			key := relationApplicationSettingsKey(id, ep)
+			settingsOp := createSettingsOp(settingsC, key, nil)
+			ops = append(ops, settingsOp)
+		}
 		return ops, nil
 	}
 	if err = st.db().Run(buildTxn); err == nil {

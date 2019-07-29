@@ -780,3 +780,22 @@ func (change relationSettingsCleanupChange) Prepare(db Database) ([]txn.Op, erro
 	return ops, nil
 
 }
+
+func relationApplicationSettingsKey(id int, ep Endpoint) string {
+	return fmt.Sprintf("%s#%s#%s", relationGlobalScope(id), ep.Role, ep.ApplicationName)
+}
+
+// ApplicationSettings returns the application-level settings for the
+// specified application in this relation.
+func (r *Relation) ApplicationSettings(app *Application) (map[string]interface{}, error) {
+	ep, err := r.Endpoint(app.Name())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	applicationKey := relationApplicationSettingsKey(r.Id(), ep)
+	s, err := readSettings(r.st.db(), settingsC, applicationKey)
+	if err != nil {
+		return nil, errors.Annotatef(err, "relation %q application %q", r.String(), app.Name())
+	}
+	return s.Map(), nil
+}
