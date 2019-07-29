@@ -1017,20 +1017,19 @@ func (s *MigrationBaseSuite) TestRelationScopeSkipped(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
-	// TODO (hml) 2019-07-25
-	// Add SpaceID once migration piece done.
+	sp, err := s.State.AddSpace("bam", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
 	sn := network.SubnetInfo{
 		CIDR:              "10.0.0.0/24",
 		ProviderId:        network.Id("foo"),
 		ProviderNetworkId: network.Id("rust"),
 		VLANTag:           64,
 		AvailabilityZones: []string{"bar"},
+		SpaceName:         sp.Name(),
 	}
 	sn.SetFan("100.2.0.0/16", "253.0.0.0/8")
 
-	_, err := s.State.AddSubnet(sn)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("bam", "", nil, true)
+	_, err = s.State.AddSubnet(sn)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
@@ -1044,6 +1043,7 @@ func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 	c.Assert(subnet.ProviderNetworkId(), gc.Equals, "rust")
 	c.Assert(subnet.VLANTag(), gc.Equals, 64)
 	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, []string{"bar"})
+	c.Assert(subnet.SpaceID(), gc.Equals, sp.Id())
 	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "100.2.0.0/16")
 	c.Assert(subnet.FanOverlay(), gc.Equals, "253.0.0.0/8")
 }
@@ -1052,7 +1052,9 @@ func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	_, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "0.1.2.0/24"})
+	_, err := s.State.AddSpace("testme", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(network.SubnetInfo{CIDR: "0.1.2.0/24", SpaceName: "testme"})
 	c.Assert(err, jc.ErrorIsNil)
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name: "foo",
