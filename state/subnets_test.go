@@ -40,6 +40,7 @@ func (s *SubnetSuite) TestAddSubnetSucceedsWithFullyPopulatedInfo(c *gc.C) {
 		AvailabilityZones: []string{"Timbuktu"},
 		SpaceName:         "foo",
 		ProviderNetworkId: "wildbirds",
+		IsPublic:          true,
 	}
 	subnetInfo.SetFan("10.0.0.0/8", "172.16.0.0/16")
 
@@ -64,6 +65,7 @@ func (s *SubnetSuite) assertSubnetMatchesInfo(c *gc.C, subnet *state.Subnet, inf
 	c.Assert(subnet.ProviderNetworkId(), gc.Equals, info.ProviderNetworkId)
 	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, info.FanLocalUnderlay())
 	c.Assert(subnet.FanOverlay(), gc.Equals, info.FanOverlay())
+	c.Assert(subnet.IsPublic(), gc.Equals, info.IsPublic)
 }
 
 func (s *SubnetSuite) TestAddSubnetFailsWithEmptyCIDR(c *gc.C) {

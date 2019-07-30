@@ -33,12 +33,10 @@ type subnetDoc struct {
 	CIDR              string   `bson:"cidr"`
 	VLANTag           int      `bson:"vlantag,omitempty"`
 	AvailabilityZones []string `bson:"availability-zones,omitempty"`
-	// TODO: add IsPublic to SubnetArgs, add an IsPublic method and add
-	// IsPublic to migration import/export.
-	IsPublic         bool   `bson:"is-public,omitempty"`
-	SpaceID          string `bson:"space-id,omitempty"`
-	FanLocalUnderlay string `bson:"fan-local-underlay,omitempty"`
-	FanOverlay       string `bson:"fan-overlay,omitempty"`
+	IsPublic          bool     `bson:"is-public,omitempty"`
+	SpaceID           string   `bson:"space-id,omitempty"`
+	FanLocalUnderlay  string   `bson:"fan-local-underlay,omitempty"`
+	FanOverlay        string   `bson:"fan-overlay,omitempty"`
 }
 
 // Life returns whether the subnet is Alive, Dying or Dead.
@@ -67,6 +65,11 @@ func (s *Subnet) FanOverlay() string {
 
 func (s *Subnet) FanLocalUnderlay() string {
 	return s.doc.FanLocalUnderlay
+}
+
+// IsPublic returns true if the subnet is public.
+func (s *Subnet) IsPublic() bool {
+	return s.doc.IsPublic
 }
 
 // EnsureDead sets the Life of the subnet to Dead, if it's Alive. If the subnet
@@ -353,6 +356,7 @@ func (st *State) newSubnetFromArgs(args network.SubnetInfo) (*Subnet, error) {
 		SpaceID:           sp.Id(),
 		FanLocalUnderlay:  args.FanLocalUnderlay(),
 		FanOverlay:        args.FanOverlay(),
+		IsPublic:          args.IsPublic,
 	}
 	subnet := &Subnet{doc: subDoc, st: st, spaceID: sp.Id()}
 	err = subnet.Validate()
@@ -382,6 +386,7 @@ func (st *State) addSubnetOps(args network.SubnetInfo) []txn.Op {
 		SpaceID:           sp.Id(),
 		FanLocalUnderlay:  args.FanLocalUnderlay(),
 		FanOverlay:        args.FanOverlay(),
+		IsPublic:          args.IsPublic,
 	}
 	ops := []txn.Op{
 		{
