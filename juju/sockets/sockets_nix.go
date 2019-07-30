@@ -39,7 +39,6 @@ func Listen(soc Socket) (listener net.Listener, err error) {
 	if err := os.Remove(soc.Address); err != nil {
 		logger.Tracef("ignoring error on removing %q: %v", soc.Address, err)
 	}
-	logger.Criticalf("Listen soc.Network -> %q, soc.Address -> %q", soc.Network, soc.Address)
 	// Listen directly to abstract domain sockets.
 	if strings.HasPrefix(soc.Address, "@") {
 		listener, err = net.Listen(soc.Network, soc.Address)

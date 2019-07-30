@@ -68,7 +68,6 @@ func fetchPodNameForUnit(c UnitGetter, tag names.UnitTag) (string, error) {
 		return "", errors.NotFoundf("unit %q", tag.Id())
 	}
 	unit := result.Results[0]
-	logger.Criticalf("fetchPodNameForUnit unit.Result -> %v, unit.Error -> %v", unit.Result, unit.Error)
 	if unit.Error != nil {
 		return "", unit.Error
 	}
@@ -91,7 +90,6 @@ func getNewRunnerExecutor(execClient exec.Executor, uniterGetter UnitGetter) fun
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			logger.Criticalf("fetchPodNameForUnit podName -> %v", podName)
 
 			var stdout, stderr bytes.Buffer
 			if err := ensurePath(execClient, podName, stdout, stderr, cancel); err != nil {

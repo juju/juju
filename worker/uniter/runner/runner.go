@@ -141,7 +141,6 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 			close(cancel)
 		}()
 	}
-	logger.Criticalf("runJujuRunAction \nenv -> %+v, \ncommands -> %q, workingdir -> %q", env, commands, runner.paths.GetCharmDir())
 
 	executor := execOnMachine
 	if runOnRemote {
@@ -169,7 +168,6 @@ func (runner *runner) runJujuRunAction() (err error) {
 		logger.Debugf("unable to read juju-run action timeout, will continue running action without one")
 	}
 
-	logger.Criticalf("runJujuRunAction params -> %+v", params)
 	var runInWorkloadContext bool
 	if runner.context.ModelType() == model.CAAS {
 		runInWorkloadContext, _ = params["workload-context"].(bool)
@@ -316,15 +314,8 @@ func (runner *runner) startJujucServer() (*jujuc.Server, error) {
 		if ctxId != runner.context.Id() {
 			return nil, errors.Errorf("expected context id %q, got %q", runner.context.Id(), ctxId)
 		}
-		logger.Criticalf("runner.startJujucServer.getCmd cmdName -> %q, runner.context.Id() -> %q", cmdName, runner.context.Id())
 		return jujuc.NewCommand(runner.context, cmdName)
 	}
-	logger.Criticalf(
-		"runner.context.UnitName() -> %q, runner.context.Id() -> %q, runner.paths.GetJujucSocket() -> %q",
-		runner.context.UnitName(),
-		runner.context.Id(),
-		runner.paths.GetJujucSocket(),
-	)
 	srv, err := jujuc.NewServer(getCmd, runner.paths.GetJujucSocket())
 	if err != nil {
 		return nil, errors.Annotate(err, "starting jujuc server")

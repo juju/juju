@@ -139,8 +139,6 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) error {
 	cmd += fmt.Sprintf("%s; ", strings.Join(opts.Commands, " "))
 	cmdArgs := []string{"sh", "-c", cmd}
 
-	logger.Criticalf("exec opts -> %+v", opts)
-	logger.Criticalf("cmdArgs -> %+v", cmdArgs)
 	req := c.clientset.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(opts.PodName).
@@ -157,7 +155,6 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) error {
 		}, scheme.ParameterCodec)
 
 	executor, err := c.remoteCmdExecutorGetter("POST", req.URL())
-	logger.Criticalf("req.URL() -> %+v", req.URL())
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -54,7 +54,7 @@ func (cp *CopyParam) validate() error {
 	return nil
 }
 
-// Exec copys files/directorys from host to a pod or from a pod to host.
+// Exec copy files/directories from host to a pod or from a pod to host.
 func (c client) Copy(params CopyParam, cancel <-chan struct{}) error {
 	if err := params.validate(); err != nil {
 		return errors.Trace(err)

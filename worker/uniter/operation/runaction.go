@@ -72,9 +72,6 @@ func (ra *runAction) Execute(state State) (*State, error) {
 	if err := ra.callbacks.SetExecutingStatus(message); err != nil {
 		return nil, err
 	}
-
-	logger.Criticalf("runAction.Execute ra -> %#v", ra)
-	logger.Criticalf("runAction.Execute state -> %#v", state)
 	err := ra.runner.RunAction(ra.name)
 	if err != nil {
 		// This indicates an actual error -- an action merely failing should
