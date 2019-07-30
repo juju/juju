@@ -5,6 +5,7 @@ package user_test
 
 import (
 	"bytes"
+	"context"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -262,6 +263,17 @@ There are no models available(.|\n)*`[1:])
 	c.Assert(code, gc.Equals, 0)
 }
 
+func (s *LoginCommandSuite) TestLoginAPITimeout(c *gc.C) {
+	s.PatchValue(user.APIOpen, func(c *modelcmd.CommandBase, info *api.Info, opts api.DialOpts) (api.Connection, error) {
+		return nil, context.DeadlineExceeded
+	})
+
+	stdout, stderr, code := runLogin(c, "", "azure")
+	c.Check(stdout, gc.Equals, "")
+	c.Check(stderr, gc.Equals, "ERROR cannot log into \"azure\": context deadline exceeded\n")
+	c.Assert(code, gc.Equals, 1)
+}
+
 func (s *LoginCommandSuite) TestLoginWithCAVerification(c *gc.C) {
 	caCert := testing.CACertX509
 	fingerprint, err := cert.Fingerprint(testing.CACert)
@@ -323,7 +335,6 @@ ERROR cannot log into "127.0.0.1:443": controller CA not trusted
 		c.Logf("test %d: %s", specIndex, spec.descr)
 		_ = s.store.RemoveAccount("foo")
 		_ = s.store.RemoveController("foo")
-
 		*user.APIOpen = func(c *modelcmd.CommandBase, info *api.Info, opts api.DialOpts) (api.Connection, error) {
 			if err := opts.VerifyCA(spec.host, spec.endpoint, caCert); err != nil {
 				return nil, err
