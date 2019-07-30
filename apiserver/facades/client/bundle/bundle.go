@@ -322,6 +322,7 @@ func bundleOutputFromBundleData(bd *charm.BundleData) *bundleOutput {
 		Type:         bd.Type,
 		Description:  bd.Description,
 		Series:       bd.Series,
+		Saas:         bd.Saas,
 		Applications: bd.Applications,
 		Machines:     bd.Machines,
 		Relations:    bd.Relations,
