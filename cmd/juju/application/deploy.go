@@ -302,7 +302,7 @@ func NewDeployCommand() modelcmd.ModelCommand {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
+		cstoreClient := newCharmStoreClient(bakeryClient, csURL)
 
 		return &deployAPIAdapter{
 			Connection:        apiRoot,
