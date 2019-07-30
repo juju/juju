@@ -939,3 +939,61 @@ func (s *RelationSuite) TestUpdateApplicationSettingsRace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settingsMap, gc.HasLen, 0)
 }
+
+func (s *RelationSuite) TestWatchApplicationSettings(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w, err := relation.WatchApplicationSettings(mysql)
+	c.Assert(err, jc.ErrorIsNil)
+	defer testing.AssertStop(c, w)
+
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	err = relation.UpdateApplicationSettings(
+		mysql, &fakeToken{}, map[string]interface{}{
+			"castor": "pollux",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// No notify for a null change.
+	err = relation.UpdateApplicationSettings(
+		mysql, &fakeToken{}, map[string]interface{}{
+			"castor": "pollux",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+}
+
+func (s *RelationSuite) TestWatchApplicationSettingsOtherEnd(c *gc.C) {
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w, err := relation.WatchApplicationSettings(mysql)
+	c.Assert(err, jc.ErrorIsNil)
+	defer testing.AssertStop(c, w)
+
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	// No notify if the other application's settings are changed.
+	err = relation.UpdateApplicationSettings(
+		wordpress, &fakeToken{}, map[string]interface{}{
+			"grand": "palais",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+}

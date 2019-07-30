@@ -820,3 +820,15 @@ func (r *Relation) UpdateApplicationSettings(app *Application, token leadership.
 	}
 	return nil
 }
+
+// WatchApplicationSettings returns a notify watcher that will signal
+// whenever the specified application's relation settings are changed.
+func (r *Relation) WatchApplicationSettings(app *Application) (NotifyWatcher, error) {
+	ep, err := r.Endpoint(app.Name())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	key := relationApplicationSettingsKey(r.Id(), ep)
+	watcher := newEntityWatcher(r.st, settingsC, r.st.docID(key))
+	return watcher, nil
+}
