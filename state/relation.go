@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
-	mgoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/permission"
 )
 
@@ -813,51 +812,11 @@ func (r *Relation) UpdateApplicationSettings(app *Application, token leadership.
 		return errors.Trace(err)
 	}
 	key := relationApplicationSettingsKey(r.Id(), ep)
-	sets := bson.M{}
-	unsets := bson.M{}
-	for unescapedKey, value := range updates {
-		key := mgoutils.EscapeKey(unescapedKey)
-		if value == "" {
-			unsets[key] = 1
-		} else {
-			sets[key] = value
-		}
+	err = updateLeaderSettings(r.st.db(), token, key, updates)
+	if errors.IsNotFound(err) {
+		return errors.NotFoundf("relation %q application %q", r, app.Name())
+	} else if err != nil {
+		return errors.Annotatef(err, "relation %q application %q", r, app.Name())
 	}
-	update := setUnsetUpdateSettings(sets, unsets)
-
-	isNullChange := func(rawMap map[string]interface{}) bool {
-		for key := range unsets {
-			if _, found := rawMap[key]; found {
-				return false
-			}
-		}
-		for key, value := range sets {
-			if current := rawMap[key]; current != value {
-				return false
-			}
-		}
-		return true
-	}
-
-	buildTxn := func(_ int) ([]txn.Op, error) {
-		// Read the current document state so we can abort if there's
-		// no actual change; and the version number so we can assert
-		// on it and prevent these settings from landing late.
-		doc, err := readSettingsDoc(r.st.db(), settingsC, key)
-		if errors.IsNotFound(err) {
-			return nil, errors.NotFoundf("relation %q application %q", r, app.Name())
-		} else if err != nil {
-			return nil, errors.Annotatef(err, "relation %q application %q", r, app.Name())
-		}
-		if isNullChange(doc.Settings) {
-			return nil, jujutxn.ErrNoOperations
-		}
-		return []txn.Op{{
-			C:      settingsC,
-			Id:     key,
-			Assert: bson.D{{"version", doc.Version}},
-			Update: update,
-		}}, nil
-	}
-	return r.st.db().Run(buildTxnWithLeadership(buildTxn, token))
+	return nil
 }

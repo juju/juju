@@ -100,12 +100,12 @@ func (s *ApplicationLeaderSuite) TestTxnRevnoChange(c *gc.C) {
 
 func (s *ApplicationLeaderSuite) TestTokenError(c *gc.C) {
 	err := s.application.UpdateLeaderSettings(&failToken{}, map[string]string{"blah": "blah"})
-	c.Check(err, gc.ErrorMatches, "prerequisites failed: something bad happened")
+	c.Check(err, gc.ErrorMatches, `application "mysql": prerequisites failed: something bad happened`)
 }
 
 func (s *ApplicationLeaderSuite) TestTokenAssertFailure(c *gc.C) {
 	err := s.application.UpdateLeaderSettings(&raceToken{}, map[string]string{"blah": "blah"})
-	c.Check(err, gc.ErrorMatches, "prerequisites failed: too late")
+	c.Check(err, gc.ErrorMatches, `application "mysql": prerequisites failed: too late`)
 }
 
 func (s *ApplicationLeaderSuite) TestReadWriteDying(c *gc.C) {

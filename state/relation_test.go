@@ -906,7 +906,7 @@ func (s *RelationSuite) TestUpdateApplicationSettingsNotLeader(c *gc.C) {
 			"rendezvouse": "rendezvous",
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, "prerequisites failed: not the leader")
+	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" application "mysql": prerequisites failed: not the leader`)
 
 	settingsMap, err := relation.ApplicationSettings(mysql)
 	c.Assert(err, jc.ErrorIsNil)
@@ -932,7 +932,7 @@ func (s *RelationSuite) TestUpdateApplicationSettingsRace(c *gc.C) {
 			"rendezvouse": "rendezvous",
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, "prerequisites failed: too late")
+	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" application "mysql": prerequisites failed: too late`)
 
 	c.Assert(token.checkedOnce, gc.Equals, true)
 	settingsMap, err := relation.ApplicationSettings(mysql)
