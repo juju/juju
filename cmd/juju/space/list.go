@@ -10,11 +10,11 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gosuri/uitable"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/gosuri/uitable"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -40,13 +40,18 @@ Supplying the --short option will list just the space names.
 The --output argument allows the command's output to be redirected to a file. 
 
 Examples:
+
+List spaces and their subnets:
+
 	juju spaces
+
+List spaces:
+
 	juju spaces --short
-	juju spaces --format yaml
-	juju spaces --format json
 
 See also:
 	add-space
+	reload-spaces
 `
 
 // Info is defined on the cmd.Command interface.
