@@ -27,7 +27,7 @@ type SpacesSuite struct {
 
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
-	facade     spaces.API
+	facade     *spaces.API
 
 	callContext  context.ProviderCallContext
 	blockChecker mockBlockChecker
@@ -248,6 +248,7 @@ func (s *SpacesSuite) TestNoSubnets(c *gc.C) {
 
 func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
 	expected := []params.Space{{
+		Id:   "1",
 		Name: "default",
 		Subnets: []params.Subnet{{
 			CIDR:       "192.168.0.0/24",
@@ -263,6 +264,7 @@ func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
 			SpaceTag:   "space-default",
 		}},
 	}, {
+		Id:   "2",
 		Name: "dmz",
 		Subnets: []params.Subnet{{
 			CIDR:       "192.168.1.0/24",
@@ -272,6 +274,7 @@ func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
 			SpaceTag:   "space-dmz",
 		}},
 	}, {
+		Id:   "3",
 		Name: "private",
 		Subnets: []params.Subnet{{
 			CIDR:       "192.168.2.0/24",
@@ -281,9 +284,10 @@ func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
 			SpaceTag:   "space-private",
 		}},
 	}}
-	spaces, err := s.facade.ListSpaces()
+
+	result, err := s.facade.ListSpaces()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spaces.Results, jc.DeepEquals, expected)
+	c.Assert(result.Results, jc.DeepEquals, expected)
 }
 
 func (s *SpacesSuite) TestListSpacesAllSpacesError(c *gc.C) {

@@ -29630,7 +29630,7 @@
     },
     {
         "Name": "Spaces",
-        "Version": 3,
+        "Version": 4,
         "Schema": {
             "type": "object",
             "properties": {
@@ -29769,6 +29769,9 @@
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
+                        "id": {
+                            "type": "string"
+                        },
                         "name": {
                             "type": "string"
                         },
@@ -29781,6 +29784,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
+                        "id",
                         "name",
                         "subnets"
                     ]

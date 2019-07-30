@@ -641,6 +641,7 @@ type ListSpacesResults struct {
 
 // Space holds the information about a single space and its associated subnets.
 type Space struct {
+	Id      string   `json:"id"`
 	Name    string   `json:"name"`
 	Subnets []Subnet `json:"subnets"`
 	Error   *Error   `json:"error,omitempty"`

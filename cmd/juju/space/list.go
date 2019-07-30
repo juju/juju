@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gosuri/uitable"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -18,6 +19,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/network"
 )
 
 // NewListCommand returns a command used to list spaces.
@@ -33,11 +35,24 @@ type ListCommand struct {
 }
 
 const listCommandDoc = `
-Displays all defined spaces. If --short is not given both spaces and
-their subnets are displayed, otherwise just a list of spaces. The
---format argument has the same semantics as in other CLI commands -
-"yaml" is the default. The --output argument allows the command
-output to be redirected to a file. `
+Displays all defined spaces. By default both spaces and their subnets are displayed.
+Supplying the --short option will list just the space names.
+The --output argument allows the command's output to be redirected to a file. 
+
+Examples:
+
+List spaces and their subnets:
+
+	juju spaces
+
+List spaces:
+
+	juju spaces --short
+
+See also:
+	add-space
+	reload-spaces
+`
 
 // Info is defined on the cmd.Command interface.
 func (c *ListCommand) Info() *cmd.Info {
@@ -92,24 +107,33 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 		if c.Short {
 			result := formattedShortList{}
 			for _, space := range spaces {
-				result.Spaces = append(result.Spaces, space.Name)
+				result.Spaces = append(result.Spaces, spaceName(space.Name))
 			}
 			return c.out.Write(ctx, result)
 		}
+
 		// Construct the output list for displaying with the chosen
 		// format.
 		result := formattedList{
-			Spaces: make(map[string]map[string]formattedSubnet),
+			Spaces: make([]formattedSpace, len(spaces)),
 		}
 
-		for _, space := range spaces {
-			result.Spaces[space.Name] = make(map[string]formattedSubnet)
+		for i, space := range spaces {
+			fsp := formattedSpace{
+				Id:   space.Id,
+				Name: space.Name,
+			}
+
+			result.Spaces[i].Id = space.Id
+
+			fsn := make(map[string]formattedSubnet, len(space.Subnets))
 			for _, subnet := range space.Subnets {
 				subResult := formattedSubnet{
 					Type:       typeUnknown,
 					ProviderId: subnet.ProviderId,
 					Zones:      subnet.Zones,
 				}
+
 				// Display correct status according to the life cycle value.
 				//
 				// TODO(dimitern): Do this on the apiserver side, also
@@ -134,8 +158,11 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 				} else if ip.To16() != nil {
 					subResult.Type = typeIPv6
 				}
-				result.Spaces[space.Name][subnet.CIDR] = subResult
+
+				fsn[subnet.CIDR] = subResult
 			}
+			fsp.Subnets = fsn
+			result.Spaces[i] = fsp
 		}
 		return c.out.Write(ctx, result)
 	})
@@ -144,47 +171,65 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 // printTabular prints the list of spaces in tabular format
 func (c *ListCommand) printTabular(writer io.Writer, value interface{}) error {
 	tw := output.TabWriter(writer)
+
+	write := printTabularLong
 	if c.Short {
-		list, ok := value.(formattedShortList)
-		if !ok {
-			return errors.New("unexpected value")
-		}
-		fmt.Fprintln(tw, "Space")
-		spaces := list.Spaces
-		sort.Strings(spaces)
-		for _, space := range spaces {
-			fmt.Fprintf(tw, "%v\n", space)
-		}
-	} else {
-		list, ok := value.(formattedList)
-		if !ok {
-			return errors.New("unexpected value")
+		write = printTabularShort
+	}
+	if err := write(tw, value); err != nil {
+		return errors.Trace(err)
+	}
+
+	return errors.Trace(tw.Flush())
+}
+
+func printTabularShort(writer io.Writer, value interface{}) error {
+	list, ok := value.(formattedShortList)
+	if !ok {
+		return errors.New("unexpected value")
+	}
+
+	_, _ = fmt.Fprintln(writer, "Space")
+	spaces := list.Spaces
+	sort.Strings(spaces)
+	for _, space := range spaces {
+		_, _ = fmt.Fprintf(writer, "%v\n", space)
+	}
+
+	return nil
+}
+
+func printTabularLong(writer io.Writer, value interface{}) error {
+	list, ok := value.(formattedList)
+	if !ok {
+		return errors.New("unexpected value")
+	}
+
+	table := uitable.New()
+	table.MaxColWidth = 50
+	table.Wrap = true
+
+	table.AddRow("Space", "Name", "Subnets")
+	for _, s := range list.Spaces {
+		if len(s.Subnets) == 0 {
+			table.AddRow(s.Id, spaceName(s.Name), "")
+			continue
 		}
 
-		fmt.Fprintf(tw, "%s\t%s\n", "Space", "Subnets")
-		spaces := []string{}
-		for name := range list.Spaces {
-			spaces = append(spaces, name)
+		var cidrs []string
+		for cidr := range s.Subnets {
+			cidrs = append(cidrs, cidr)
 		}
-		sort.Strings(spaces)
-		for _, name := range spaces {
-			subnets := list.Spaces[name]
-			fmt.Fprintf(tw, "%s", name)
-			if len(subnets) == 0 {
-				fmt.Fprintf(tw, "\n")
-				continue
-			}
-			cidrs := []string{}
-			for subnet := range subnets {
-				cidrs = append(cidrs, subnet)
-			}
-			sort.Strings(cidrs)
-			for _, cidr := range cidrs {
-				fmt.Fprintf(tw, "\t%v\n", cidr)
-			}
+		sort.Strings(cidrs)
+
+		table.AddRow(s.Id, spaceName(s.Name), cidrs[0])
+		for i := 1; i < len(cidrs); i++ {
+			table.AddRow("", "", cidrs[i])
 		}
 	}
-	tw.Flush()
+
+	table.AddRow("", "", "")
+	_, _ = fmt.Fprint(writer, table)
 	return nil
 }
 
@@ -197,20 +242,30 @@ const (
 	statusTerminating = "terminating"
 )
 
-// TODO(dimitern): Display space attributes along with subnets (state
-// or error,public,?)
+type formattedSubnet struct {
+	Type       string   `json:"type" yaml:"type"`
+	ProviderId string   `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
+	Status     string   `json:"status,omitempty" yaml:"status,omitempty"`
+	Zones      []string `json:"zones" yaml:"zones"`
+}
+
+type formattedSpace struct {
+	Id      string                     `json:"id" yaml:"id"`
+	Name    string                     `json:"name" yaml:"name"`
+	Subnets map[string]formattedSubnet `json:"subnets" yaml:"subnets"`
+}
 
 type formattedList struct {
-	Spaces map[string]map[string]formattedSubnet `json:"spaces" yaml:"spaces"`
+	Spaces []formattedSpace `json:"spaces" yaml:"spaces"`
 }
 
 type formattedShortList struct {
 	Spaces []string `json:"spaces" yaml:"spaces"`
 }
 
-type formattedSubnet struct {
-	Type       string   `json:"type" yaml:"type"`
-	ProviderId string   `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
-	Status     string   `json:"status,omitempty" yaml:"status,omitempty"`
-	Zones      []string `json:"zones" yaml:"zones"`
+func spaceName(name string) string {
+	if name == network.DefaultSpaceName {
+		return "(default)"
+	}
+	return name
 }

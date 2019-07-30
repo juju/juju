@@ -170,15 +170,14 @@ func (s *cmdSpaceSuite) TestSpaceCreateWithSubnets(c *gc.C) {
 	c.Assert(subnets[1].SpaceName(), gc.Equals, "myspace")
 }
 
-// TODO (manadart 2019-07-22): Fix this so that spaces are output with IDs.
 func (s *cmdSpaceSuite) TestSpaceListDefaultOnly(c *gc.C) {
 	stdout, _, err := s.Run(c, "spaces")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := `
-Space  Subnets
-
-
+Space  Name       Subnets
+0      (default)         
+                         
 `[1:]
 
 	c.Assert(stdout, gc.Equals, expected)
@@ -188,7 +187,7 @@ func (s *cmdSpaceSuite) TestSpaceListOneResultNoSubnets(c *gc.C) {
 	s.AddSpace(c, "myspace", nil, true)
 
 	// The default space is listed in addition to the one we added.
-	expectedOutput := "{\"spaces\":{\"\":{},\"myspace\":{}}}\n"
+	expectedOutput := "{\"spaces\":[{\"id\":\"0\",\"name\":\"\",\"subnets\":{}},{\"id\":\"1\",\"name\":\"myspace\",\"subnets\":{}}]}\n"
 	stdout, _, err := s.Run(c, "list-spaces", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stdout, jc.Contains, expectedOutput)
@@ -210,9 +209,11 @@ func (s *cmdSpaceSuite) TestSpaceListMoreResults(c *gc.C) {
 	// We dont' check the output in detail, just a few things - the
 	// rest it tested separately.
 	c.Assert(stdout, jc.Contains, "spaces:")
-	c.Assert(stdout, jc.Contains, "space1:")
+	c.Assert(stdout, jc.Contains, "id: \"0\"")
+	c.Assert(stdout, jc.Contains, "id: \"1\"")
+	c.Assert(stdout, jc.Contains, "name: space1")
 	c.Assert(stdout, jc.Contains, "10.10.2.0/24:")
-	c.Assert(stdout, jc.Contains, "space2:")
+	c.Assert(stdout, jc.Contains, "name: space2")
 	c.Assert(stdout, jc.Contains, "10.20.0.0/24:")
 	c.Assert(stdout, jc.Contains, "zones:")
 	c.Assert(stdout, jc.Contains, "zone1")

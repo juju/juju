@@ -83,6 +83,9 @@ type BackingSubnetInfo struct {
 // BackingSpace defines the methods supported by a Space entity stored
 // persistently.
 type BackingSpace interface {
+	// ID returns the ID of the space.
+	Id() string
+
 	// Name returns the space name.
 	Name() string
 
