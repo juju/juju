@@ -62,7 +62,7 @@ If the leader syntax is used, the leader unit for the application will be
 resolved before the action is enqueued.
 
 Many actions take parameters. Params can be supplied as a YAML file or as 
-arguments on the command line. Specify a file with the --params <params.yaml>.
+arguments on the command line. Specify a file with --params <params.yaml>.
 Arguments directly on the command line use a <key>=<value> syntax. Nested keys 
 require dots as a delimiter: <key1>.<key2>.<key3>=<value> (See examples below)
 
