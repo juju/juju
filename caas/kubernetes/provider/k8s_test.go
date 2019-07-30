@@ -146,7 +146,7 @@ func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
 				SecurityContext: &core.SecurityContext{
 					RunAsNonRoot:             boolPtr(false),
 					ReadOnlyRootFilesystem:   boolPtr(false),
-					AllowPrivilegeEscalation: boolPtr(false),
+					AllowPrivilegeEscalation: boolPtr(true),
 				},
 			},
 		},
@@ -219,7 +219,7 @@ func (s *K8sSuite) TestMakeUnitSpecWithInitContainers(c *gc.C) {
 				SecurityContext: &core.SecurityContext{
 					RunAsNonRoot:             boolPtr(false),
 					ReadOnlyRootFilesystem:   boolPtr(false),
-					AllowPrivilegeEscalation: boolPtr(false),
+					AllowPrivilegeEscalation: boolPtr(true),
 				},
 			},
 		},
@@ -235,7 +235,7 @@ func (s *K8sSuite) TestMakeUnitSpecWithInitContainers(c *gc.C) {
 				SecurityContext: &core.SecurityContext{
 					RunAsNonRoot:             boolPtr(false),
 					ReadOnlyRootFilesystem:   boolPtr(false),
-					AllowPrivilegeEscalation: boolPtr(false),
+					AllowPrivilegeEscalation: boolPtr(true),
 				},
 			},
 		},
@@ -285,6 +285,14 @@ $JUJU_TOOLS_DIR/jujud caasoperator --application-name=test --debug
 		},
 		Env: []core.EnvVar{
 			{Name: "JUJU_APPLICATION", Value: "test"},
+			{
+				Name: "JUJU_OPERATOR_POD_IP",
+				ValueFrom: &core.EnvVarSource{
+					FieldRef: &core.ObjectFieldSelector{
+						FieldPath: "status.podIP",
+					},
+				},
+			},
 		},
 		VolumeMounts: []core.VolumeMount{{
 			Name:      "test-operator-config",
@@ -385,7 +393,7 @@ func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
 				SecurityContext: &core.SecurityContext{
 					RunAsNonRoot:             boolPtr(false),
 					ReadOnlyRootFilesystem:   boolPtr(false),
-					AllowPrivilegeEscalation: boolPtr(false),
+					AllowPrivilegeEscalation: boolPtr(true),
 				},
 			}, {
 				Name:  "test2",
@@ -395,7 +403,7 @@ func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
 				SecurityContext: &core.SecurityContext{
 					RunAsNonRoot:             boolPtr(false),
 					ReadOnlyRootFilesystem:   boolPtr(false),
-					AllowPrivilegeEscalation: boolPtr(false),
+					AllowPrivilegeEscalation: boolPtr(true),
 				},
 			},
 		},

@@ -8,7 +8,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/juju/juju/juju/sockets"
 	"io"
 	"os"
 	"os/exec"
@@ -26,6 +25,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/sockets"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )

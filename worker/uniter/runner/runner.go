@@ -316,7 +316,7 @@ func (runner *runner) startJujucServer() (*jujuc.Server, error) {
 		if ctxId != runner.context.Id() {
 			return nil, errors.Errorf("expected context id %q, got %q", runner.context.Id(), ctxId)
 		}
-		logger.Criticalf("runner.startJujucServer.getCmd cmdName -> %q", cmdName, runner.context.Id())
+		logger.Criticalf("runner.startJujucServer.getCmd cmdName -> %q, runner.context.Id() -> %q", cmdName, runner.context.Id())
 		return jujuc.NewCommand(runner.context, cmdName)
 	}
 	logger.Criticalf(

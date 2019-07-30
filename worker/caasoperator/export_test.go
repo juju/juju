@@ -3,6 +3,4 @@
 
 package caasoperator
 
-var (
-	GetNewRunnerExecutor = getNewRunnerExecutor
-)
+var GetNewRunnerExecutor = getNewRunnerExecutor
