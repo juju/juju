@@ -131,7 +131,7 @@ func (s *PathsSuite) TestTCPRemote(c *gc.C) {
 		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{
 			JujuRunSocket:     sockets.Socket{Network: "unix", Address: relAgent("run.socket")},
-			JujucServerSocket: sockets.Socket{Network: "tcp", Address: "1.1.1.1:30000"},
+			JujucServerSocket: sockets.Socket{Network: "tcp", Address: "1.1.1.1:30323"},
 		},
 		State: uniter.StatePaths{
 			BaseDir:         relAgent(),
