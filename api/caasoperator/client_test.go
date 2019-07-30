@@ -217,7 +217,7 @@ func (s *operatorSuite) TestUnits(c *gc.C) {
 		*(result.(*params.UnitStatusResults)) = params.UnitStatusResults{
 			Results: []params.UnitStatusResult{{
 				Result: &params.UnitStatus{
-					ProviderId: "gitlab-xxxx",
+					ProviderId: "gitlab-xxxx", Address: "1.1.1.1",
 				},
 			}},
 		}

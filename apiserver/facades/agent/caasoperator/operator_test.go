@@ -284,6 +284,7 @@ func (s *CAASOperatorSuite) TestUnits(c *gc.C) {
 				Result: &params.UnitStatus{
 					ProviderId: "gitlab-xxxx",
 					Charm:      "cs:gitlab-1",
+					Address:    "1.1.1.1",
 				},
 			},
 		},

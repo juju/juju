@@ -310,15 +310,16 @@ func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
 	agentDir := filepath.Join(cmdutil.DataDir, "agents", agent)
 	err := os.MkdirAll(agentDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	var socketPath string
+	socket := sockets.Socket{}
 	switch jujuos.HostOS() {
 	case jujuos.Windows:
-		socketPath = fmt.Sprintf(`\\.\pipe\%s-run`, agent)
+		socket.Address = fmt.Sprintf(`\\.\pipe\%s-run`, agent)
 	default:
-		socketPath = fmt.Sprintf("%s/run.socket", agentDir)
+		socket.Network = "unix"
+		socket.Address = fmt.Sprintf("%s/run.socket", agentDir)
 	}
 	listener, err := uniter.NewRunListener(uniter.RunListenerConfig{
-		Socket:        &sockets.Socket{Network: "unitx", Address: socketPath},
+		Socket:        &socket,
 		CommandRunner: &mockRunner{c},
 	})
 	c.Assert(err, jc.ErrorIsNil)

@@ -4,6 +4,7 @@
 package runner_test
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
 	envtesting "github.com/juju/testing"
@@ -381,14 +383,24 @@ func (s *RunMockContextSuite) TestRunActionCAASSuccess(c *gc.C) {
 		},
 		actionResults: map[string]interface{}{},
 	}
-	err := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-run")
+	execFunc := func(
+		commands []string,
+		env []string,
+		workingDir string,
+		clock clock.Clock,
+		processSetter func(context.HookProcess),
+		cancel <-chan struct{},
+	) (*exec.ExecResponse, error) {
+		return &exec.ExecResponse{
+			Stdout: bytes.NewBufferString("1").Bytes(),
+		}, nil
+	}
+	err := runner.NewRunner(ctx, s.paths, execFunc).RunAction("juju-run")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
-	// TODO(caas): handle implemented
-	c.Assert(ctx.flushFailure, gc.ErrorMatches, `run in CAAS workload not implemented`)
-	//c.Assert(ctx.actionResults["Code"], gc.Equals, "0")
-	//c.Assert(strings.TrimRight(ctx.actionResults["Stdout"].(string), "\r\n"), gc.Equals, "1")
-	//c.Assert(ctx.actionResults["Stderr"], gc.Equals, "")
+	c.Assert(ctx.actionResults["Code"], gc.Equals, "0")
+	c.Assert(strings.TrimRight(ctx.actionResults["Stdout"].(string), "\r\n"), gc.Equals, "1")
+	c.Assert(ctx.actionResults["Stderr"], gc.Equals, "")
 }
 
 func (s *RunMockContextSuite) TestRunActionOnWorkloadIgnoredIAAS(c *gc.C) {

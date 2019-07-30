@@ -142,7 +142,7 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 		}()
 	}
 
-	executor := execOnMachine
+	var executor ExecFunc = execOnMachine
 	if runOnRemote {
 		executor = runner.remoteExecutor
 	}

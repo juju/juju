@@ -6,6 +6,7 @@ package commands
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"sort"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -24,6 +26,7 @@ import (
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
@@ -184,6 +187,11 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		units:    []string{"mysql/0"},
 		modeType: model.CAAS,
 	}} {
+		defer os.Setenv("JUJU_DEV_FEATURE_FLAGS", os.Getenv("JUJU_DEV_FEATURE_FLAGS"))
+		err := os.Setenv("JUJU_DEV_FEATURE_FLAGS", "developer-mode")
+		c.Assert(err, jc.ErrorIsNil)
+		featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		cmd := &runCommand{}
 		cmd.SetClientStore(minimalStore(test.modeType))
@@ -480,14 +488,18 @@ func (s *RunSuite) TestCAASCantRunWithUnsupportedAPIVersion(c *gc.C) {
 		clock mockClock
 		mock  = s.setupMockAPI()
 	)
+	defer os.Setenv("JUJU_DEV_FEATURE_FLAGS", os.Getenv("JUJU_DEV_FEATURE_FLAGS"))
+	err := os.Setenv("JUJU_DEV_FEATURE_FLAGS", "developer-mode")
+	c.Assert(err, jc.ErrorIsNil)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
 	mock.bestAPIVersion = 3
-	_, err := cmdtesting.RunCommand(
+	_, err = cmdtesting.RunCommand(
 		c, newTestRunCommand(&clock, model.CAAS),
 		"--unit", "unit/0", "echo hello",
 	)
 
-	expErr := "CAAS controller does not support juju run\n" +
+	expErr := "k8s controller does not support juju run\n" +
 		"consider upgrading your controller"
 	c.Assert(err, gc.ErrorMatches, expErr)
 }
@@ -496,12 +508,17 @@ func (s *RunSuite) TestCAASCantTargetMachine(c *gc.C) {
 	s.setupMockAPI()
 	var clock mockClock
 
-	_, err := cmdtesting.RunCommand(
+	defer os.Setenv("JUJU_DEV_FEATURE_FLAGS", os.Getenv("JUJU_DEV_FEATURE_FLAGS"))
+	err := os.Setenv("JUJU_DEV_FEATURE_FLAGS", "developer-mode")
+	c.Assert(err, jc.ErrorIsNil)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
+	_, err = cmdtesting.RunCommand(
 		c, newTestRunCommand(&clock, model.CAAS),
 		"--machine", "0", "echo hello",
 	)
 
-	expErr := "unable to target machines with a CAAS controller"
+	expErr := "unable to target machines with a k8s controller"
 	c.Assert(err, gc.ErrorMatches, expErr)
 }
 
@@ -509,12 +526,17 @@ func (s *RunSuite) TestIAASCantTargetOperator(c *gc.C) {
 	s.setupMockAPI()
 	var clock mockClock
 
-	_, err := cmdtesting.RunCommand(
+	defer os.Setenv("JUJU_DEV_FEATURE_FLAGS", os.Getenv("JUJU_DEV_FEATURE_FLAGS"))
+	err := os.Setenv("JUJU_DEV_FEATURE_FLAGS", "developer-mode")
+	c.Assert(err, jc.ErrorIsNil)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
+	_, err = cmdtesting.RunCommand(
 		c, newTestRunCommand(&clock, model.IAAS),
 		"--unit", "unit/0", "--operator", "echo hello",
 	)
 
-	expErr := "only CAAS models support the --operator flag"
+	expErr := "only k8s models support the --operator flag"
 	c.Assert(err, gc.ErrorMatches, expErr)
 }
 
@@ -539,6 +561,11 @@ func (s *RunSuite) TestCAASRunOnOperator(c *gc.C) {
 	buff := &bytes.Buffer{}
 	err := cmd.FormatJson(buff, unformatted)
 	c.Assert(err, jc.ErrorIsNil)
+
+	defer os.Setenv("JUJU_DEV_FEATURE_FLAGS", os.Getenv("JUJU_DEV_FEATURE_FLAGS"))
+	err = os.Setenv("JUJU_DEV_FEATURE_FLAGS", "developer-mode")
+	c.Assert(err, jc.ErrorIsNil)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
 	context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}, model.CAAS),
 		"--format=json", "--unit=unit/0", "--operator", "hostname",
@@ -576,6 +603,11 @@ func (s *RunSuite) TestCAASRunOnWorkload(c *gc.C) {
 	buff := &bytes.Buffer{}
 	err := cmd.FormatJson(buff, unformatted)
 	c.Assert(err, jc.ErrorIsNil)
+
+	defer os.Setenv("JUJU_DEV_FEATURE_FLAGS", os.Getenv("JUJU_DEV_FEATURE_FLAGS"))
+	err = os.Setenv("JUJU_DEV_FEATURE_FLAGS", "developer-mode")
+	c.Assert(err, jc.ErrorIsNil)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
 	context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}, model.CAAS),
 		"--format=json", "--unit=unit/0", "hostname",

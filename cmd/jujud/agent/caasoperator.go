@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apicaasoperator "github.com/juju/juju/api/caasoperator"
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -63,6 +64,8 @@ type CaasOperatorAgent struct {
 	upgradeComplete gate.Lock
 
 	prometheusRegistry *prometheus.Registry
+
+	NewExecClient func(modelName string) (exec.Executor, error)
 }
 
 // NewCaasOperatorAgent creates a new CAASOperatorAgent instance properly initialized.
@@ -79,6 +82,13 @@ func NewCaasOperatorAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLo
 		bufferedLogger:     bufferedLogger,
 		prometheusRegistry: prometheusRegistry,
 		preUpgradeSteps:    upgrades.PreUpgradeSteps,
+		NewExecClient: func(modelName string) (exec.Executor, error) {
+			c, cfg, err := exec.GetInClusterClient()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return exec.New(modelName, c, cfg), nil
+		},
 	}, nil
 }
 
@@ -222,6 +232,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		ValidateMigration:    op.validateMigration,
 		MachineLock:          op.machineLock,
 		PreviousAgentVersion: agentConfig.UpgradedToVersion(),
+		NewExecClient:        op.NewExecClient,
 	})
 
 	engine, err := dependency.NewEngine(dependencyEngineConfig())

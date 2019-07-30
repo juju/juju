@@ -93,6 +93,9 @@ type ManifoldsConfig struct {
 	// PreviousAgentVersion passes through the version the unit
 	// agent was running before the current restart.
 	PreviousAgentVersion version.Number
+
+	// NewExecClient provides k8s execframework functionality for juju run commands or actions.
+	NewExecClient func(modelName string) (exec.Executor, error)
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various
@@ -252,13 +255,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewCharmDownloader: func(caller base.APICaller) caasoperator.Downloader {
 				return api.NewCharmDownloader(caller)
 			},
-			NewExecClient: func(modelName string) (exec.Executor, error) {
-				c, cfg, err := exec.GetInClusterClient()
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				return exec.New(modelName, c, cfg), nil
-			},
+			NewExecClient: config.NewExecClient,
 		})),
 	}
 }

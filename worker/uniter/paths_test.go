@@ -130,7 +130,7 @@ func (s *PathsSuite) TestTCPRemote(c *gc.C) {
 	c.Assert(paths, jc.DeepEquals, uniter.Paths{
 		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{
-			JujuRunSocket:     sockets.Socket{Network: "tcp", Address: relAgent("run.socket")},
+			JujuRunSocket:     sockets.Socket{Network: "unix", Address: relAgent("run.socket")},
 			JujucServerSocket: sockets.Socket{Network: "tcp", Address: "1.1.1.1:30000"},
 		},
 		State: uniter.StatePaths{
@@ -188,6 +188,6 @@ func (s *PathsSuite) TestContextInterface(c *gc.C) {
 	}
 	c.Assert(paths.GetToolsDir(), gc.Equals, "/path/to/tools")
 	c.Assert(paths.GetCharmDir(), gc.Equals, "/path/to/charm")
-	c.Assert(paths.GetJujucSocket(), gc.Equals, "/path/to/socket")
+	c.Assert(paths.GetJujucSocket(), gc.DeepEquals, sockets.Socket{Address: "/path/to/socket", Network: "unix"})
 	c.Assert(paths.GetMetricsSpoolDir(), gc.Equals, "/path/to/spool/metrics")
 }
