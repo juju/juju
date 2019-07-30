@@ -357,12 +357,16 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			continue
 		}
 
-		h.ctx.Infof("Resolving charm: %s", spec.Charm)
+		var fromChannel string
+		if spec.Channel != "" {
+			fromChannel = fmt.Sprintf(" from channel: %s", spec.Channel)
+		}
+		h.ctx.Infof("Resolving charm: %s%s", spec.Charm, fromChannel)
 		ch, err := charm.ParseURL(spec.Charm)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		url, _, _, err := resolveCharm(h.api.ResolveWithChannel, ch)
+		url, _, _, err := resolveCharm(h.api.ResolveWithPreferredChannel, ch, csparams.Channel(spec.Channel))
 		if err != nil {
 			return errors.Annotatef(err, "cannot resolve URL %q", spec.Charm)
 		}
@@ -515,7 +519,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Trace(err)
 	}
 
-	url, channel, _, err := resolveCharm(h.api.ResolveWithChannel, ch)
+	url, channel, _, err := resolveCharm(h.api.ResolveWithPreferredChannel, ch, csparams.Channel(p.Channel))
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}

@@ -136,7 +136,7 @@ type DeployAPI interface {
 	Deploy(application.DeployArgs) error
 	Status(patterns []string) (*apiparams.FullStatus, error)
 
-	ResolveWithChannel(*charm.URL) (*charm.URL, params.Channel, []string, error)
+	ResolveWithPreferredChannel(*charm.URL, params.Channel) (*charm.URL, params.Channel, []string, error)
 
 	GetBundle(*charm.URL) (charm.Bundle, error)
 
@@ -175,7 +175,7 @@ type modelConfigClient struct {
 type charmrepoForDeploy interface {
 	Get(charmURL *charm.URL) (charm.Charm, error)
 	GetBundle(bundleURL *charm.URL) (charm.Bundle, error)
-	ResolveWithChannel(*charm.URL) (*charm.URL, params.Channel, []string, error)
+	ResolveWithPreferredChannel(*charm.URL, params.Channel) (*charm.URL, params.Channel, []string, error)
 }
 
 type charmRepoClient struct {
@@ -246,13 +246,13 @@ func (a *deployAPIAdapter) Deploy(args application.DeployArgs) error {
 	return errors.Trace(a.applicationClient.Deploy(args))
 }
 
-func (a *deployAPIAdapter) Resolve(cfg *config.Config, url *charm.URL) (
+func (a *deployAPIAdapter) Resolve(cfg *config.Config, url *charm.URL, preferredChannel params.Channel) (
 	*charm.URL,
 	params.Channel,
 	[]string,
 	error,
 ) {
-	return resolveCharm(a.charmRepoClient.ResolveWithChannel, url)
+	return resolveCharm(a.charmRepoClient.ResolveWithPreferredChannel, url, preferredChannel)
 }
 
 func (a *deployAPIAdapter) Get(url *charm.URL) (charm.Charm, error) {
@@ -1477,14 +1477,14 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 // URLResolver is the part of charmrepo.Charmstore that we need to
 // resolve a charm url.
 type URLResolver interface {
-	ResolveWithChannel(*charm.URL) (*charm.URL, params.Channel, []string, error)
+	ResolveWithPreferredChannel(*charm.URL, params.Channel) (*charm.URL, params.Channel, []string, error)
 }
 
 // resolveBundleURL tries to interpret maybeBundle as a charmstore
 // bundle. If it turns out to be a bundle, the resolved URL and
 // channel are returned. If it isn't but there wasn't a problem
 // checking it, it returns a nil charm URL.
-func resolveBundleURL(store URLResolver, maybeBundle string) (*charm.URL, params.Channel, error) {
+func resolveBundleURL(store URLResolver, maybeBundle string, preferredChannel params.Channel) (*charm.URL, params.Channel, error) {
 	userRequestedURL, err := charm.ParseURL(maybeBundle)
 	if err != nil {
 		return nil, "", errors.Trace(err)
@@ -1492,7 +1492,7 @@ func resolveBundleURL(store URLResolver, maybeBundle string) (*charm.URL, params
 
 	// Charm or bundle has been supplied as a URL so we resolve and
 	// deploy using the store.
-	storeCharmOrBundleURL, channel, _, err := resolveCharm(store.ResolveWithChannel, userRequestedURL)
+	storeCharmOrBundleURL, channel, _, err := resolveCharm(store.ResolveWithPreferredChannel, userRequestedURL, preferredChannel)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
@@ -1508,7 +1508,7 @@ func resolveBundleURL(store URLResolver, maybeBundle string) (*charm.URL, params
 
 func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (deployFn, error) {
 	return func() (deployFn, error) {
-		bundleURL, channel, err := resolveBundleURL(apiRoot, c.CharmOrBundle)
+		bundleURL, channel, err := resolveBundleURL(apiRoot, c.CharmOrBundle, c.Channel)
 		if charm.IsUnsupportedSeriesError(errors.Cause(err)) {
 			return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 		}
@@ -1587,9 +1587,11 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 			return errors.Trace(err)
 		}
 
-		// Charm or bundle has been supplied as a URL so we resolve and deploy using the store.
+		// Charm or bundle has been supplied as a URL so we resolve and
+		// deploy using the store but pass in the channel command line
+		// argument so users can target a specific channel.
 		storeCharmOrBundleURL, channel, supportedSeries, err := resolveCharm(
-			apiRoot.ResolveWithChannel, userRequestedURL,
+			apiRoot.ResolveWithPreferredChannel, userRequestedURL, c.Channel,
 		)
 		if charm.IsUnsupportedSeriesError(err) {
 			return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
