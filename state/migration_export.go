@@ -1175,6 +1175,8 @@ func (e *exporter) subnets() error {
 			ProviderId:        string(subnet.ProviderId()),
 			ProviderNetworkId: string(subnet.ProviderNetworkId()),
 			VLANTag:           subnet.VLANTag(),
+			// TODO (hml) 2019-07-25
+			// add migration for SpaceID and remove SpaceName once SpaceInfo updated.
 			SpaceName:         subnet.SpaceName(),
 			AvailabilityZones: subnet.AvailabilityZones(),
 			FanLocalUnderlay:  subnet.FanLocalUnderlay(),

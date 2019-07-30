@@ -486,6 +486,16 @@ func (s *SpacesSuite) TestAllSpaces(c *gc.C) {
 	c.Assert(actual, jc.SameContents, []*state.Space{first, second, third, defaultSpace})
 }
 
+func (s *SpacesSuite) TestSpaceByID(c *gc.C) {
+	_, err := s.State.SpaceByID(network.DefaultSpaceId)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SpacesSuite) TestSpaceByIDNotFound(c *gc.C) {
+	_, err := s.State.SpaceByID("42")
+	c.Assert(err, gc.ErrorMatches, "space id \"42\" not found")
+}
+
 func (s *SpacesSuite) TestEnsureDeadSetsLifeToDeadWhenAlive(c *gc.C) {
 	space := s.addAliveSpace(c, "alive")
 

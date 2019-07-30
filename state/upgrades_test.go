@@ -3417,7 +3417,7 @@ func (s *upgradesSuite) TestChangeSubnetAZtoSlice(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := bsonMById{
-		// The altered spaces:
+		// The altered subnets:
 		{
 			"_id":                uuid1 + ":0",
 			"model-uuid":         uuid1,
@@ -3432,6 +3432,70 @@ func (s *upgradesSuite) TestChangeSubnetAZtoSlice(c *gc.C) {
 
 	sort.Sort(expected)
 	s.assertUpgradedData(c, ChangeSubnetAZtoSlice, expectUpgradedData{col, expected})
+}
+
+func (s *upgradesSuite) TestChangeSubnetSpaceNameToSpaceID(c *gc.C) {
+	col, closer := s.state.db().GetRawCollection(subnetsC)
+	defer closer()
+
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	_, err := model1.AddSpace("testme", "42", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = col.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "0"),
+		"model-uuid": uuid1,
+		"space-name": "testme",
+	}, bson.M{
+		"_id":        ensureModelUUID(uuid1, "1"),
+		"model-uuid": uuid1,
+	}, bson.M{
+		"_id":        ensureModelUUID(uuid2, "0"),
+		"model-uuid": uuid2,
+		"space-id":   "6",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		// The altered subnets:
+		{
+			"_id":        uuid1 + ":0",
+			"model-uuid": uuid1,
+			"space-id":   "1",
+		}, {
+			"_id":        uuid1 + ":1",
+			"model-uuid": uuid1,
+			"space-id":   "0",
+		}, {
+			"_id":        uuid2 + ":0",
+			"model-uuid": uuid2,
+			"space-id":   "6",
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, ChangeSubnetSpaceNameToSpaceID, expectUpgradedData{col, expected})
+}
+
+func (s *upgradesSuite) makeSpace(c *gc.C, uuid, name, id string) {
+	coll, closer := s.state.db().GetRawCollection(spacesC)
+	defer closer()
+
+	err := coll.Insert(spaceDoc{
+		DocId: ensureModelUUID(uuid, id),
+		Name:  name,
+		Id:    id,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type docById []bson.M

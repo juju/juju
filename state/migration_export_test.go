@@ -1095,13 +1095,14 @@ func (s *MigrationBaseSuite) TestRelationScopeSkipped(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
+	// TODO (hml) 2019-07-25
+	// Add SpaceID once migration piece done.
 	sn := corenetwork.SubnetInfo{
 		CIDR:              "10.0.0.0/24",
 		ProviderId:        corenetwork.Id("foo"),
 		ProviderNetworkId: corenetwork.Id("rust"),
 		VLANTag:           64,
 		AvailabilityZones: []string{"bar"},
-		SpaceName:         "bam",
 	}
 	sn.SetFan("100.2.0.0/16", "253.0.0.0/8")
 
@@ -1121,7 +1122,6 @@ func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 	c.Assert(subnet.ProviderNetworkId(), gc.Equals, "rust")
 	c.Assert(subnet.VLANTag(), gc.Equals, 64)
 	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, []string{"bar"})
-	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
 	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "100.2.0.0/16")
 	c.Assert(subnet.FanOverlay(), gc.Equals, "253.0.0.0/8")
 }

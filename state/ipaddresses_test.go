@@ -344,6 +344,10 @@ func (s *ipAddressesStateSuite) TestAllSpacesHandlesUnknownSubnets(c *gc.C) {
 }
 
 func resetSubnet(c *gc.C, st *state.State, subnetInfo corenetwork.SubnetInfo) {
+	// TODO (hml) 2019-07-26
+	// This comment is no longer valid.  Changes are in progress.
+	// Update when complete.
+	//
 	// We currently don't allow updating a subnet's information, so remove it
 	// and add it with the new value.
 	// XXX(jam): We should add mutation operations instead of this ugly hack
@@ -384,6 +388,8 @@ func (s *ipAddressesStateSuite) TestAllSpacesMultiSpace(c *gc.C) {
 		CIDR:      "10.20.0.0/16",
 		SpaceName: "default",
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("dmz-ipv6", "not-default", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	resetSubnet(c, s.State, corenetwork.SubnetInfo{
 		CIDR:      "fc00::/64",
