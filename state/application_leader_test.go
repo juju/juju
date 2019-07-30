@@ -220,12 +220,15 @@ func (s *ApplicationLeaderSuite) destroyApplication(c *gc.C) {
 }
 
 // fakeToken implements leadership.Token.
-type fakeToken struct{}
+type fakeToken struct {
+	err error
+}
 
-// Check is part of the leadership.Token interface. It always claims success,
-// and never checks or writes the userdata.
-func (*fakeToken) Check(int, interface{}) error {
-	return nil
+// Check is part of the leadership.Token interface. It returns its
+// contained error (which defaults to nil), and never checks or writes
+// the userdata.
+func (t *fakeToken) Check(int, interface{}) error {
+	return t.err
 }
 
 // failToken implements leadership.Token.

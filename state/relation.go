@@ -17,7 +17,9 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
+	mgoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/permission"
 )
 
@@ -798,4 +800,64 @@ func (r *Relation) ApplicationSettings(app *Application) (map[string]interface{}
 		return nil, errors.Annotatef(err, "relation %q application %q", r.String(), app.Name())
 	}
 	return s.Map(), nil
+}
+
+// UpdateApplicationSettings updates the given application's settings
+// in this relation. It requires a current leadership token.
+func (r *Relation) UpdateApplicationSettings(app *Application, token leadership.Token, updates map[string]interface{}) error {
+	// We can calculate the actual update ahead of time; it's not dependent
+	// upon the current state of the document. (*Writing* it should depend
+	// on document state, but that's handled below.)
+	ep, err := r.Endpoint(app.Name())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	key := relationApplicationSettingsKey(r.Id(), ep)
+	sets := bson.M{}
+	unsets := bson.M{}
+	for unescapedKey, value := range updates {
+		key := mgoutils.EscapeKey(unescapedKey)
+		if value == "" {
+			unsets[key] = 1
+		} else {
+			sets[key] = value
+		}
+	}
+	update := setUnsetUpdateSettings(sets, unsets)
+
+	isNullChange := func(rawMap map[string]interface{}) bool {
+		for key := range unsets {
+			if _, found := rawMap[key]; found {
+				return false
+			}
+		}
+		for key, value := range sets {
+			if current := rawMap[key]; current != value {
+				return false
+			}
+		}
+		return true
+	}
+
+	buildTxn := func(_ int) ([]txn.Op, error) {
+		// Read the current document state so we can abort if there's
+		// no actual change; and the version number so we can assert
+		// on it and prevent these settings from landing late.
+		doc, err := readSettingsDoc(r.st.db(), settingsC, key)
+		if errors.IsNotFound(err) {
+			return nil, errors.NotFoundf("relation %q application %q", r, app.Name())
+		} else if err != nil {
+			return nil, errors.Annotatef(err, "relation %q application %q", r, app.Name())
+		}
+		if isNullChange(doc.Settings) {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return []txn.Op{{
+			C:      settingsC,
+			Id:     key,
+			Assert: bson.D{{"version", doc.Version}},
+			Update: update,
+		}}, nil
+	}
+	return r.st.db().Run(buildTxnWithLeadership(buildTxn, token))
 }

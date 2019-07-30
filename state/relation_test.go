@@ -847,8 +847,95 @@ func (s *RelationSuite) TestApplicationSettingsErrors(c *gc.C) {
 
 	unrelated := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
 
-	var nothing map[string]interface{}
 	settings, err := rel.ApplicationSettings(unrelated)
 	c.Assert(err, gc.ErrorMatches, `application "wordpress" is not a member of "riak:ring"`)
-	c.Assert(settings, gc.DeepEquals, nothing)
+	c.Assert(settings, gc.HasLen, 0)
+}
+
+func (s *RelationSuite) TestUpdateApplicationSettingsSuccess(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// fakeToken always succeeds.
+	err = relation.UpdateApplicationSettings(
+		mysql, &fakeToken{}, map[string]interface{}{
+			"rendezvouse": "rendezvous",
+			"olden":       "yolk",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	settingsMap, err := relation.ApplicationSettings(mysql)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settingsMap, gc.DeepEquals, map[string]interface{}{
+		"rendezvouse": "rendezvous",
+		"olden":       "yolk",
+	})
+
+	// Check that updates only overwrite existing keys.
+	err = relation.UpdateApplicationSettings(
+		mysql, &fakeToken{}, map[string]interface{}{
+			"olden": "times",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	settingsMap, err = relation.ApplicationSettings(mysql)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settingsMap, gc.DeepEquals, map[string]interface{}{
+		"rendezvouse": "rendezvous",
+		"olden":       "times",
+	})
+}
+
+func (s *RelationSuite) TestUpdateApplicationSettingsNotLeader(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = relation.UpdateApplicationSettings(
+		mysql,
+		&fakeToken{errors.New("not the leader")},
+		map[string]interface{}{
+			"rendezvouse": "rendezvous",
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, "prerequisites failed: not the leader")
+
+	settingsMap, err := relation.ApplicationSettings(mysql)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settingsMap, gc.HasLen, 0)
+}
+
+func (s *RelationSuite) TestUpdateApplicationSettingsRace(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// raceToken indicates it holds leadership but yields txn.Ops that
+	// fail assertion to simulate a race in the DB, then fails on the
+	// second attempt indicating that leadership was lost.
+	var token raceToken
+	err = relation.UpdateApplicationSettings(
+		mysql,
+		&token,
+		map[string]interface{}{
+			"rendezvouse": "rendezvous",
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, "prerequisites failed: too late")
+
+	c.Assert(token.checkedOnce, gc.Equals, true)
+	settingsMap, err := relation.ApplicationSettings(mysql)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settingsMap, gc.HasLen, 0)
 }
