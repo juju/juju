@@ -98,25 +98,29 @@ func NewFacade(
 }
 
 func getAccessUnitChecker(st CAASOperatorState, authTag names.Tag) (common.AuthFunc, error) {
-	appTag := names.NewApplicationTag(authTag.Id())
-	// Any of the units belonging to
-	// the application can be accessed.
-	app, err := st.Application(appTag.Name)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	allUnits, err := app.AllUnits()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return func(tag names.Tag) bool {
-		for _, u := range allUnits {
-			if u.Tag() == tag {
-				return true
-			}
+	switch tag := authTag.(type) {
+	case names.ApplicationTag:
+		// Any of the units belonging to
+		// the application can be accessed.
+		app, err := st.Application(tag.Name)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		return false
-	}, nil
+		allUnits, err := app.AllUnits()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return func(tag names.Tag) bool {
+			for _, u := range allUnits {
+				if u.Tag() == tag {
+					return true
+				}
+			}
+			return false
+		}, nil
+	default:
+		return nil, errors.Errorf("expected names.ApplicationTag, got %T", tag)
+	}
 }
 
 // CurrentModel returns the name and UUID for the current juju model.

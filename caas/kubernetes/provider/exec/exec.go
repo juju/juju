@@ -201,7 +201,10 @@ func getValidatedPodContainer(
 	}
 	var pod *core.Pod
 	pod, err = podGetter.Get(podName, metav1.GetOptions{})
-	if k8serrors.IsNotFound(err) {
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return "", "", errors.Trace(err)
+		}
 		logger.Debugf("no pod named %q found", podName)
 		logger.Debugf("try get pod by UID for %q", podName)
 		pods, err := podGetter.List(metav1.ListOptions{})

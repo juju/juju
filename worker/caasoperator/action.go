@@ -33,7 +33,7 @@ func ensurePath(
 		},
 		cancel,
 	)
-	logger.Debugf("ensuring %q %q", path)
+	logger.Debugf("ensuring %q", path)
 	return errors.Trace(err)
 }
 

@@ -205,13 +205,13 @@ type UnitStatus struct {
 	Address    string `json:"address,omitempty"`
 }
 
-// UnitStatusResult contains an UnitStatus or an error.
+// UnitStatusResult contains a UnitStatus or an error.
 type UnitStatusResult struct {
 	Result *UnitStatus `json:"result,omitempty"`
 	Error  *Error      `json:"error,omitempty"`
 }
 
-// UnitStatusResults contains an set of UnitStatusResult.
+// UnitStatusResults contains a set of UnitStatusResult.
 type UnitStatusResults struct {
 	Results []UnitStatusResult `json:"results"`
 }
