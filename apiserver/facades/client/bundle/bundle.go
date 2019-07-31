@@ -5,7 +5,6 @@
 package bundle
 
 import (
-	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
@@ -16,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
@@ -27,7 +25,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/storage"
 )
@@ -274,34 +271,14 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 		return fail(err)
 	}
 
-	// Split the bundle into a base and overlay bundle and encode as a
-	// yaml multi-doc.
-	base, overlay, err := charm.ExtractBaseAndOverlayParts(bundleData)
+	bytes, err := yaml.Marshal(bundleData)
 	if err != nil {
 		return fail(err)
 	}
 
-	var buf bytes.Buffer
-	enc := yaml.NewEncoder(&buf)
-	if err = enc.Encode(bundleOutputFromBundleData(base)); err != nil {
-		return fail(err)
-	} else if err = enc.Encode(overlay); err != nil {
-		return fail(err)
-	} else if err = enc.Close(); err != nil {
-		return fail(err)
-	}
-
-	// If the overlay part is empty, strip it off; otherwise, inject a
-	// comment to let users know that the second document can be extracted
-	// out and used as a standalone overlay.
-	yamlOut := buf.String()
-	if strings.HasSuffix(yamlOut, "--- {}\n") {
-		yamlOut = yamlOut[:strings.Index(yamlOut, "---")]
-	} else {
-		yamlOut = strings.Replace(yamlOut, "---", "--- # overlay.yaml", 1)
-	}
-
-	return params.StringResult{Result: yamlOut}, nil
+	return params.StringResult{
+		Result: string(bytes),
+	}, nil
 }
 
 // bundleOutput has the same top level keys as the charm.BundleData
@@ -316,22 +293,11 @@ type bundleOutput struct {
 	Relations    [][]string                        `yaml:"relations,omitempty"`
 }
 
-func bundleOutputFromBundleData(bd *charm.BundleData) *bundleOutput {
-	return &bundleOutput{
-		Type:         bd.Type,
-		Description:  bd.Description,
-		Series:       bd.Series,
-		Applications: bd.Applications,
-		Machines:     bd.Machines,
-		Relations:    bd.Relations,
-	}
-}
-
 // Mask the new method from V1 API.
 // ExportBundle is not in V1 API.
 func (u *APIv1) ExportBundle() (_, _ struct{}) { return }
 
-func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, error) {
+func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, error) {
 	cfg := model.Config()
 	value, ok := cfg["default-series"]
 	if !ok {
@@ -339,7 +305,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	}
 	defaultSeries := fmt.Sprintf("%v", value)
 
-	data := &charm.BundleData{
+	data := &bundleOutput{
 		Applications: make(map[string]*charm.ApplicationSpec),
 		Machines:     make(map[string]*charm.MachineSpec),
 		Relations:    [][]string{},
@@ -429,17 +395,6 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 			newApplication.RequiresTrust = appConfig[appFacade.TrustConfigOptionName] == true
 		}
 
-		// Populate offer list
-		if offerList := application.Offers(); offerList != nil && featureflag.Enabled(feature.CMRAwareBundles) {
-			newApplication.Offers = make(map[string]*charm.OfferSpec)
-			for _, offer := range offerList {
-				newApplication.Offers[offer.OfferName()] = &charm.OfferSpec{
-					Endpoints: offer.Endpoints(),
-					ACL:       b.filterOfferACL(offer.ACL()),
-				}
-			}
-		}
-
 		data.Applications[application.Name()] = newApplication
 	}
 
@@ -503,13 +458,6 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	}
 
 	return data, nil
-}
-
-// filterOfferACL prunes the input offer ACL to remove internal juju users that
-// we shouldn't export as part of the bundle.
-func (b *BundleAPI) filterOfferACL(in map[string]string) map[string]string {
-	delete(in, common.EveryoneTagName)
-	return in
 }
 
 func (b *BundleAPI) constraints(cons description.Constraints) []string {

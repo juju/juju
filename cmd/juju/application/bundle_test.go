@@ -4,11 +4,14 @@
 package application
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -22,6 +25,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/charmrepo.v3"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -36,6 +40,7 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 	dummystorage "github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/testcharms"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -738,7 +743,7 @@ charm path in application "mysql" does not exist: .*mysql`,
 }, {
 	about:   "invalid bundle content",
 	content: "!",
-	err:     `(?s)cannot unmarshal bundle contents:.* yaml: unmarshal errors:.*`,
+	err:     `(?s)cannot unmarshal bundle data: yaml: .*`,
 }, {
 	about: "invalid bundle data",
 	content: `
@@ -946,7 +951,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadConfig(c
             - ["wordpress:db", "mysql:server"]
     `, wordpressPath, mysqlPath),
 		"--overlay", "missing-file")
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: unable to process overlays: "missing-file" not found`)
+	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: unable to process overlays: unable to read bundle overlay file .*")
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentLXDProfile(c *gc.C) {
@@ -1907,6 +1912,441 @@ func (mockAllWatcher) Stop() error {
 	return nil
 }
 
+type ProcessIncludesSuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&ProcessIncludesSuite{})
+
+func (*ProcessIncludesSuite) TestNonString(c *gc.C) {
+	value := 1234
+	result, changed, err := processValue("", value)
+
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(changed, jc.IsFalse)
+	c.Check(result, gc.Equals, value)
+}
+
+func (*ProcessIncludesSuite) TestSimpleString(c *gc.C) {
+	value := "simple"
+	result, changed, err := processValue("", value)
+
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(changed, jc.IsFalse)
+	c.Check(result, gc.Equals, value)
+}
+
+func (*ProcessIncludesSuite) TestMissingFile(c *gc.C) {
+	value := "include-file://simple"
+	result, changed, err := processValue("", value)
+
+	c.Check(err, gc.ErrorMatches, "unable to read file: "+missingFileRegex("simple"))
+	c.Check(changed, jc.IsFalse)
+	c.Check(result, gc.IsNil)
+}
+
+func (*ProcessIncludesSuite) TestFileNameIsInDir(c *gc.C) {
+	dir := c.MkDir()
+	filename := filepath.Join(dir, "content")
+	err := ioutil.WriteFile(filename, []byte("testing"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	value := "include-file://content"
+	result, changed, err := processValue(dir, value)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(changed, jc.IsTrue)
+	c.Check(result, gc.Equals, "testing")
+}
+
+func (*ProcessIncludesSuite) TestRelativePath(c *gc.C) {
+	dir := c.MkDir()
+	c.Assert(os.Mkdir(filepath.Join(dir, "nested"), 0755), jc.ErrorIsNil)
+
+	filename := filepath.Join(dir, "nested", "content")
+	err := ioutil.WriteFile(filename, []byte("testing"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	value := "include-file://./nested/content"
+	result, changed, err := processValue(dir, value)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(changed, jc.IsTrue)
+	c.Check(result, gc.Equals, "testing")
+}
+
+func (*ProcessIncludesSuite) TestAbsolutePath(c *gc.C) {
+	dir := c.MkDir()
+	c.Assert(os.Mkdir(filepath.Join(dir, "nested"), 0755), jc.ErrorIsNil)
+
+	filename := filepath.Join(dir, "nested", "content")
+	c.Check(filepath.IsAbs(filename), jc.IsTrue)
+	err := ioutil.WriteFile(filename, []byte("testing"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	value := "include-file://" + filename
+	result, changed, err := processValue(dir, value)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(changed, jc.IsTrue)
+	c.Check(result, gc.Equals, "testing")
+}
+
+func (*ProcessIncludesSuite) TestBase64Encode(c *gc.C) {
+	dir := c.MkDir()
+	filename := filepath.Join(dir, "content")
+	err := ioutil.WriteFile(filename, []byte("testing"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	value := "include-base64://content"
+	result, changed, err := processValue(dir, value)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(changed, jc.IsTrue)
+	encoded := base64.StdEncoding.EncodeToString([]byte("testing"))
+	c.Check(result, gc.Equals, encoded)
+}
+
+func (*ProcessIncludesSuite) TestBundleReplacements(c *gc.C) {
+	bundleYAML := `
+        applications:
+            django:
+                charm: cs:django
+                num_units: 1
+                options:
+                    private: include-base64://sekrit.binary
+                annotations:
+                    key1: value1
+                    key2: value2
+                    key3: include-file://annotation
+                to: [1]
+            memcached:
+                charm: xenial/mem-47
+                num_units: 1
+        machines:
+            1:
+                annotations: {foo: bar, baz: "include-file://machine" }
+            2:
+    `
+
+	baseDir := c.MkDir()
+	bundleFile := filepath.Join(baseDir, "bundle.yaml")
+	err := ioutil.WriteFile(bundleFile, []byte(bundleYAML), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(
+		ioutil.WriteFile(
+			filepath.Join(baseDir, "sekrit.binary"),
+			[]byte{42, 12, 0, 23, 8}, 0644),
+		jc.ErrorIsNil)
+	c.Assert(
+		ioutil.WriteFile(
+			filepath.Join(baseDir, "annotation"),
+			[]byte("value3"), 0644),
+		jc.ErrorIsNil)
+	c.Assert(
+		ioutil.WriteFile(
+			filepath.Join(baseDir, "machine"),
+			[]byte("wibble"), 0644),
+		jc.ErrorIsNil)
+
+	bundleData, err := charmrepo.ReadBundleFile(bundleFile)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = processBundleIncludes(baseDir, bundleData)
+	c.Assert(err, jc.ErrorIsNil)
+
+	django := bundleData.Applications["django"]
+	c.Check(django.Annotations["key1"], gc.Equals, "value1")
+	c.Check(django.Annotations["key2"], gc.Equals, "value2")
+	c.Check(django.Annotations["key3"], gc.Equals, "value3")
+	c.Check(django.Options["private"], gc.Equals, "KgwAFwg=")
+	annotations := bundleData.Machines["1"].Annotations
+	c.Check(annotations["foo"], gc.Equals, "bar")
+	c.Check(annotations["baz"], gc.Equals, "wibble")
+}
+
+type ProcessBundleOverlaySuite struct {
+	coretesting.BaseSuite
+
+	bundleData *charm.BundleData
+}
+
+var _ = gc.Suite(&ProcessBundleOverlaySuite{})
+
+func (s *ProcessBundleOverlaySuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
+	baseBundle := `
+        applications:
+            django:
+                expose: true
+                charm: cs:django
+                num_units: 1
+                options:
+                    general: good
+                annotations:
+                    key1: value1
+                    key2: value2
+                to: [1]
+            memcached:
+                charm: xenial/mem-47
+                num_units: 1
+                options:
+                    key: value
+        relations:
+            - - "django"
+              - "memcached"
+        machines:
+            1:
+                annotations: {foo: bar}`
+
+	s.PatchValue(&supportedJujuSeries, func() []string {
+		return defaultSupportedJujuSeries
+	})
+
+	baseDir := c.MkDir()
+	bundleFile := filepath.Join(baseDir, "bundle.yaml")
+	err := ioutil.WriteFile(bundleFile, []byte(baseBundle), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.bundleData, err = charmrepo.ReadBundleFile(bundleFile)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ProcessBundleOverlaySuite) writeFile(c *gc.C, content string) string {
+	// Write the content to a file in a new directoryt and return the file.
+	baseDir := c.MkDir()
+	filename := filepath.Join(baseDir, "config.yaml")
+	err := ioutil.WriteFile(filename, []byte(content), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	return filename
+}
+
+func (s *ProcessBundleOverlaySuite) TestNoFile(c *gc.C) {
+	err := processBundleOverlay(s.bundleData)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ProcessBundleOverlaySuite) TestBadFile(c *gc.C) {
+	err := processBundleOverlay(s.bundleData, "bad")
+	c.Assert(err, gc.ErrorMatches, `unable to read bundle overlay file ".*": bundle not found: .*bad`)
+}
+
+func (s *ProcessBundleOverlaySuite) TestGoodYAML(c *gc.C) {
+	filename := s.writeFile(c, "bad:\n\tindent")
+	err := processBundleOverlay(s.bundleData, filename)
+	c.Assert(err, gc.ErrorMatches, `unable to read bundle overlay file ".*": cannot unmarshal bundle data: yaml: line 2: found character that cannot start any token`)
+}
+
+func (s *ProcessBundleOverlaySuite) TestReplaceZeroValues(c *gc.C) {
+	config := `
+        applications:
+            django:
+                expose: false
+                num_units: 0
+    `
+	filename := s.writeFile(c, config)
+	err := processBundleOverlay(s.bundleData, filename)
+	c.Assert(err, jc.ErrorIsNil)
+	django := s.bundleData.Applications["django"]
+
+	c.Check(django.Expose, jc.IsFalse)
+	c.Check(django.NumUnits, gc.Equals, 0)
+}
+
+func (s *ProcessBundleOverlaySuite) TestMachineReplacement(c *gc.C) {
+	config := `
+        machines:
+            1:
+            2:
+    `
+	filename := s.writeFile(c, config)
+	err := processBundleOverlay(s.bundleData, filename)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var machines []string
+	for key := range s.bundleData.Machines {
+		machines = append(machines, key)
+	}
+	sort.Strings(machines)
+	c.Assert(machines, jc.DeepEquals, []string{"1", "2"})
+}
+
+func (s *ProcessBundleOverlaySuite) assertApplications(c *gc.C, appNames ...string) {
+	var applications []string
+	for key := range s.bundleData.Applications {
+		applications = append(applications, key)
+	}
+	sort.Strings(applications)
+	sort.Strings(appNames)
+	c.Assert(applications, jc.DeepEquals, appNames)
+}
+
+func (s *ProcessBundleOverlaySuite) TestNewApplication(c *gc.C) {
+	config := `
+        applications:
+            postgresql:
+                charm: cs:postgresql
+                num_units: 1
+        relations:
+            - - "postgresql:pgsql"
+              - "django:pgsql"
+    `
+	filename := s.writeFile(c, config)
+	err := processBundleOverlay(s.bundleData, filename)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplications(c, "django", "memcached", "postgresql")
+	c.Assert(s.bundleData.Relations, jc.DeepEquals, [][]string{
+		{"django", "memcached"},
+		{"postgresql:pgsql", "django:pgsql"},
+	})
+}
+
+func (s *ProcessBundleOverlaySuite) TestRemoveApplication(c *gc.C) {
+	config := `
+        applications:
+            memcached:
+    `
+	filename := s.writeFile(c, config)
+	err := processBundleOverlay(s.bundleData, filename)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplications(c, "django")
+	c.Assert(s.bundleData.Relations, gc.HasLen, 0)
+}
+
+func (s *ProcessBundleOverlaySuite) TestRemoveUnknownApplication(c *gc.C) {
+	config := `
+        applications:
+            unknown:
+    `
+	filename := s.writeFile(c, config)
+	err := processBundleOverlay(s.bundleData, filename)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplications(c, "django", "memcached")
+	c.Assert(s.bundleData.Relations, jc.DeepEquals, [][]string{
+		{"django", "memcached"},
+	})
+}
+
+func (s *ProcessBundleOverlaySuite) TestIncludes(c *gc.C) {
+	config := `
+        applications:
+            django:
+                options:
+                    private: include-base64://sekrit.binary
+                annotations:
+                    key3: include-file://annotation
+    `
+	filename := s.writeFile(c, config)
+	baseDir := filepath.Dir(filename)
+
+	c.Assert(
+		ioutil.WriteFile(
+			filepath.Join(baseDir, "sekrit.binary"),
+			[]byte{42, 12, 0, 23, 8}, 0644),
+		jc.ErrorIsNil)
+	c.Assert(
+		ioutil.WriteFile(
+			filepath.Join(baseDir, "annotation"),
+			[]byte("value3"), 0644),
+		jc.ErrorIsNil)
+
+	err := processBundleOverlay(s.bundleData, filename)
+	c.Assert(err, jc.ErrorIsNil)
+	django := s.bundleData.Applications["django"]
+	c.Check(django.Annotations, jc.DeepEquals, map[string]string{
+		"key1": "value1",
+		"key2": "value2",
+		"key3": "value3"})
+	c.Check(django.Options, jc.DeepEquals, map[string]interface{}{
+		"general": "good",
+		"private": "KgwAFwg="})
+}
+
+func (s *ProcessBundleOverlaySuite) TestRemainingFields(c *gc.C) {
+	// Note that we don't care about the actual values here
+	// as bundle validation is done after replacement.
+	config := `
+        applications:
+            django:
+                charm: cs:django-23
+                series: wisty
+                resources:
+                    something: or other
+                to:
+                - 3
+                constraints: big machine
+                storage:
+                    disk: big
+                devices:
+                    gpu: 1,nvidia.com/gpu
+                bindings:
+                    where: dmz
+    `
+	filename := s.writeFile(c, config)
+	err := processBundleOverlay(s.bundleData, filename)
+	c.Assert(err, jc.ErrorIsNil)
+	django := s.bundleData.Applications["django"]
+
+	c.Check(django.Charm, gc.Equals, "cs:django-23")
+	c.Check(django.Series, gc.Equals, "wisty")
+	c.Check(django.Resources, jc.DeepEquals, map[string]interface{}{
+		"something": "or other"})
+	c.Check(django.To, jc.DeepEquals, []string{"3"})
+	c.Check(django.Constraints, gc.Equals, "big machine")
+	c.Check(django.Storage, jc.DeepEquals, map[string]string{
+		"disk": "big"})
+	c.Check(django.Devices, jc.DeepEquals, map[string]string{
+		"gpu": "1,nvidia.com/gpu"})
+	c.Check(django.EndpointBindings, jc.DeepEquals, map[string]string{
+		"where": "dmz"})
+}
+
+func (s *ProcessBundleOverlaySuite) TestYAMLInterpolation(c *gc.C) {
+
+	removeDjango := s.writeFile(c, `
+applications:
+    django:
+    `)
+
+	addWiki := s.writeFile(c, `
+defaultwiki: &DEFAULTWIKI
+    charm: "cs:trusty/mediawiki-5"
+    num_units: 1
+    options: &WIKIOPTS
+        debug: false
+        name: Please set name of wiki
+        skin: vector
+
+applications:
+    wiki:
+        <<: *DEFAULTWIKI
+        options:
+            <<: *WIKIOPTS
+            name: The name override
+relations:
+    - - "wiki"
+      - "memcached"
+`)
+
+	err := processBundleOverlay(s.bundleData, removeDjango, addWiki)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertApplications(c, "memcached", "wiki")
+	c.Assert(s.bundleData.Relations, jc.DeepEquals, [][]string{
+		{"wiki", "memcached"},
+	})
+	wiki := s.bundleData.Applications["wiki"]
+	c.Assert(wiki.Charm, gc.Equals, "cs:trusty/mediawiki-5")
+	c.Assert(wiki.Options, gc.DeepEquals,
+		map[string]interface{}{
+			"debug": false,
+			"name":  "The name override",
+			"skin":  "vector",
+		})
+}
+
 func (s *BundleDeployCharmStoreSuite) TestDeployBundlePassesSequences(c *gc.C) {
 	testcharms.UploadCharmWithSeries(c, s.client, "xenial/django-42", "dummy", "bionic")
 
@@ -1971,4 +2411,67 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundlePassesSequences(c *gc.C) {
 		"django/2": "2",
 		"django/3": "3",
 	})
+}
+
+type removeRelationsSuite struct{}
+
+var (
+	_ = gc.Suite(&removeRelationsSuite{})
+
+	sampleRelations = [][]string{
+		{"kubernetes-master:kube-control", "kubernetes-worker:kube-control"},
+		{"kubernetes-master:etcd", "etcd:db"},
+		{"kubernetes-worker:kube-api-endpoint", "kubeapi-load-balancer:website"},
+		{"flannel", "etcd"}, // removed :endpoint
+		{"flannel:cni", "kubernetes-master:cni"},
+		{"flannel:cni", "kubernetes-worker:cni"},
+	}
+)
+
+func (*removeRelationsSuite) TestNil(c *gc.C) {
+	result := removeRelations(nil, "foo")
+	c.Assert(result, gc.HasLen, 0)
+}
+
+func (*removeRelationsSuite) TestEmpty(c *gc.C) {
+	result := removeRelations([][]string{}, "foo")
+	c.Assert(result, gc.HasLen, 0)
+}
+
+func (*removeRelationsSuite) TestAppNotThere(c *gc.C) {
+	result := removeRelations(sampleRelations, "foo")
+	c.Assert(result, jc.DeepEquals, sampleRelations)
+}
+
+func (*removeRelationsSuite) TestAppBadRelationsKept(c *gc.C) {
+	badRelations := [][]string{{"single value"}, {"three", "string", "values"}}
+	result := removeRelations(badRelations, "foo")
+	c.Assert(result, jc.DeepEquals, badRelations)
+}
+
+func (*removeRelationsSuite) TestRemoveFromRight(c *gc.C) {
+	result := removeRelations(sampleRelations, "etcd")
+	c.Assert(result, jc.DeepEquals, [][]string{
+		{"kubernetes-master:kube-control", "kubernetes-worker:kube-control"},
+		{"kubernetes-worker:kube-api-endpoint", "kubeapi-load-balancer:website"},
+		{"flannel:cni", "kubernetes-master:cni"},
+		{"flannel:cni", "kubernetes-worker:cni"},
+	})
+}
+
+func (*removeRelationsSuite) TestRemoveFromLeft(c *gc.C) {
+	result := removeRelations(sampleRelations, "flannel")
+	c.Assert(result, jc.DeepEquals, [][]string{
+		{"kubernetes-master:kube-control", "kubernetes-worker:kube-control"},
+		{"kubernetes-master:etcd", "etcd:db"},
+		{"kubernetes-worker:kube-api-endpoint", "kubeapi-load-balancer:website"},
+	})
+}
+
+func missingFileRegex(filename string) string {
+	text := "no such file or directory"
+	if runtime.GOOS == "windows" {
+		text = "The system cannot find the file specified."
+	}
+	return fmt.Sprintf("open .*%s: %s", filename, text)
 }

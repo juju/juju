@@ -186,18 +186,18 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccesssOverwriteFilename(c *
 func (s *ExportBundleCommandSuite) TestPatchOfExportedBundleToExposeTrustFlag(c *gc.C) {
 	s.fakeBundle.result = "applications:\n" +
 		"  aws-integrator:\n" +
-		"    charm: cs:~containers/aws-integrator\n" +
+		"    charm: \"\"\n" +
 		"    num_units: 1\n" +
 		"    to:\n" +
 		"    - \"0\"\n" +
 		"  gcp-integrator:\n" +
-		"    charm: cs:~containers/gcp-integrator\n" +
+		"    charm: \"\"\n" +
 		"    num_units: 2\n" +
 		"    to:\n" +
 		"    - \"0\"\n" +
 		"    - \"1\"\n" +
 		"  ubuntu-lite:\n" +
-		"    charm: cs:~jameinel/ubuntu-lite-7\n" +
+		"    charm: \"\"\n" +
 		"    num_units: 1\n" +
 		"    to:\n" +
 		"    - \"2\"\n" +
@@ -273,19 +273,19 @@ func (s *ExportBundleCommandSuite) TestPatchOfExportedBundleToExposeTrustFlag(c 
 	c.Assert(out, gc.Equals, ""+
 		"applications:\n"+
 		"  aws-integrator:\n"+
-		"    charm: cs:~containers/aws-integrator\n"+
+		"    charm: \"\"\n"+
 		"    num_units: 1\n"+
 		"    to:\n"+
 		"    - \"0\"\n"+
 		"    trust: true\n"+
 		"  gcp-integrator:\n"+
-		"    charm: cs:~containers/gcp-integrator\n"+
+		"    charm: \"\"\n"+
 		"    num_units: 2\n"+
 		"    to:\n"+
 		"    - \"0\"\n"+
 		"    - \"1\"\n"+
 		"  ubuntu-lite:\n"+
-		"    charm: cs:~jameinel/ubuntu-lite-7\n"+
+		"    charm: \"\"\n"+
 		"    num_units: 1\n"+
 		"    to:\n"+
 		"    - \"2\"\n"+
