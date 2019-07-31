@@ -4,6 +4,7 @@
 package caasoperator
 
 import (
+	"bytes"
 	"io"
 	"path/filepath"
 	"strings"
@@ -20,20 +21,20 @@ import (
 func ensurePath(
 	client exec.Executor,
 	podName string,
-	stdout, stderr io.Writer,
 	cancel <-chan struct{},
 	path string,
 ) error {
+	var out bytes.Buffer
 	err := client.Exec(
 		exec.ExecParams{
 			PodName:  podName,
 			Commands: []string{"mkdir", "-p", path},
-			Stdout:   stdout,
-			Stderr:   stderr,
+			Stdout:   &out,
+			Stderr:   &out,
 		},
 		cancel,
 	)
-	logger.Debugf("ensuring %q", path)
+	logger.Debugf("ensuring %q, %q", path, out.String())
 	return errors.Trace(err)
 }
 
@@ -118,7 +119,7 @@ func getNewRunnerExecutor(execClient exec.Executor, uniterGetter UnitGetter, dat
 			}
 
 			// ensuring data dir.
-			if err := ensurePath(execClient, podName, params.Stdout, params.Stderr, params.Cancel, dataDir); err != nil {
+			if err := ensurePath(execClient, podName, params.Cancel, dataDir); err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -136,20 +137,41 @@ func getNewRunnerExecutor(execClient exec.Executor, uniterGetter UnitGetter, dat
 				return nil, errors.Trace(err)
 			}
 
+			if params.Stdout != nil && params.Stderr != nil {
+				if err := execClient.Exec(
+					exec.ExecParams{
+						PodName:    podName,
+						Commands:   params.Commands,
+						WorkingDir: params.WorkingDir,
+						Env:        params.Env,
+						Stdout:     params.Stdout,
+						Stderr:     params.Stderr,
+					},
+					params.Cancel,
+				); err != nil {
+					return nil, errors.Trace(err)
+				}
+				return &utilexec.ExecResponse{}, nil
+			}
+
+			var stdout, stderr bytes.Buffer
 			if err := execClient.Exec(
 				exec.ExecParams{
 					PodName:    podName,
 					Commands:   params.Commands,
 					WorkingDir: params.WorkingDir,
 					Env:        params.Env,
-					Stdout:     params.Stdout,
-					Stderr:     params.Stderr,
+					Stdout:     &stdout,
+					Stderr:     &stderr,
 				},
 				params.Cancel,
 			); err != nil {
 				return nil, errors.Trace(err)
 			}
-			return &utilexec.ExecResponse{}, nil
+			return &utilexec.ExecResponse{
+				Stdout: stdout.Bytes(),
+				Stderr: stderr.Bytes(),
+			}, nil
 		}
 	}
 }

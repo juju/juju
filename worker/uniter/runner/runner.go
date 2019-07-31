@@ -72,11 +72,11 @@ type ExecParams struct {
 	Commands      []string
 	Env           []string
 	WorkingDir    string
-	Stdout        io.Writer
-	Stderr        io.Writer
 	Clock         clock.Clock
 	ProcessSetter func(context.HookProcess)
 	Cancel        <-chan struct{}
+	Stdout        io.ReadWriter
+	Stderr        io.ReadWriter
 }
 
 // execOnMachine executes commands on current machine.
