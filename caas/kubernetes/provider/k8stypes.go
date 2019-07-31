@@ -84,10 +84,10 @@ func (*K8sPodSpec) Validate() error {
 var boolValues = set.NewStrings(
 	strings.Split("y|Y|yes|Yes|YES|n|N|no|No|NO|true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF", "|")...)
 
-// parseK8sPodSpec parses a YAML file which defines how to
+// ParsePodSpec parses a YAML file which defines how to
 // configure a CAAS pod. We allow for generic container
 // set up plus k8s select specific features.
-func parseK8sPodSpec(in string) (*caas.PodSpec, error) {
+func ParsePodSpec(in string) (*caas.PodSpec, error) {
 	// Do the common fields.
 	var spec caas.PodSpec
 	if err := yaml.Unmarshal([]byte(in), &spec); err != nil {
@@ -133,7 +133,8 @@ func parseK8sPodSpec(in string) (*caas.PodSpec, error) {
 		spec.InitContainers[i] = containerFromK8sSpec(c)
 	}
 	spec.CustomResourceDefinitions = containers.CustomResourceDefinitions
-	return &spec, nil
+
+	return &spec, spec.Validate()
 }
 
 func quoteBoolStrings(containers []k8sContainer) {

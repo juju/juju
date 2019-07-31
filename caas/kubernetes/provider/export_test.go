@@ -21,7 +21,6 @@ import (
 
 var (
 	MakeUnitSpec             = makeUnitSpec
-	ParseK8sPodSpec          = parseK8sPodSpec
 	OperatorPod              = operatorPod
 	ExtractRegistryURL       = extractRegistryURL
 	CreateDockerConfigJSON   = createDockerConfigJSON
