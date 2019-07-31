@@ -122,8 +122,7 @@ type bundleDeploySpec struct {
 	bundleOverlayFile []string
 	channel           csparams.Channel
 
-	apiRoot              DeployAPI
-	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
+	apiRoot DeployAPI
 
 	useExistingMachines bool
 	bundleMachines      map[string]string
@@ -196,8 +195,7 @@ type bundleHandler struct {
 	channel csparams.Channel
 
 	// api is used to interact with the environment.
-	api                  DeployAPI
-	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
+	api DeployAPI
 
 	// bundleStorage contains a mapping of application-specific storage
 	// constraints. For each application, the storage constraints in the
@@ -263,23 +261,22 @@ func makeBundleHandler(spec bundleDeploySpec) *bundleHandler {
 		applications.Add(name)
 	}
 	return &bundleHandler{
-		dryRun:               spec.dryRun,
-		force:                spec.force,
-		trust:                spec.trust,
-		bundleDir:            spec.bundleDir,
-		applications:         applications,
-		results:              make(map[string]string),
-		channel:              spec.channel,
-		api:                  spec.apiRoot,
-		getConsumeDetailsAPI: spec.getConsumeDetailsAPI,
-		bundleStorage:        spec.bundleStorage,
-		bundleDevices:        spec.bundleDevices,
-		ctx:                  spec.ctx,
-		data:                 spec.bundleData,
-		bundleURL:            spec.bundleURL,
-		unitStatus:           make(map[string]string),
-		macaroons:            make(map[*charm.URL]*macaroon.Macaroon),
-		channels:             make(map[*charm.URL]csparams.Channel),
+		dryRun:        spec.dryRun,
+		force:         spec.force,
+		trust:         spec.trust,
+		bundleDir:     spec.bundleDir,
+		applications:  applications,
+		results:       make(map[string]string),
+		channel:       spec.channel,
+		api:           spec.apiRoot,
+		bundleStorage: spec.bundleStorage,
+		bundleDevices: spec.bundleDevices,
+		ctx:           spec.ctx,
+		data:          spec.bundleData,
+		bundleURL:     spec.bundleURL,
+		unitStatus:    make(map[string]string),
+		macaroons:     make(map[*charm.URL]*macaroon.Macaroon),
+		channels:      make(map[*charm.URL]csparams.Channel),
 
 		targetModelName: spec.targetModelName,
 		targetModelUUID: spec.targetModelUUID,
@@ -1123,20 +1120,7 @@ func (h *bundleHandler) consumeOffer(change *bundlechanges.ConsumeOfferChange) e
 	if url.Source == "" {
 		url.Source = h.controllerName
 	}
-	// Get the consume details from the offer api. We don't use the generic
-	// DeployAPI as we may have to contact another controller to gain access
-	// to that information.
-	controllerOfferAPI, err := h.getConsumeDetailsAPI(url)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer func() { _ = controllerOfferAPI.Close() }()
-
-	// Ensure we use the Local url here as we have to ignore the source (read as
-	// target) controller, as the names of controllers might not match and we
-	// end up with an error stating that the controller doesn't exist, even
-	// though it's correct.
-	consumeDetails, err := controllerOfferAPI.GetConsumeDetails(url.AsLocal().String())
+	consumeDetails, err := h.api.GetConsumeDetails(url.AsLocal().String())
 	if err != nil {
 		return errors.Trace(err)
 	}
