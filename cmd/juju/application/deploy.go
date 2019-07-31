@@ -92,17 +92,6 @@ type CharmDeployAPI interface {
 	CharmInfo(string) (*apicharms.CharmInfo, error)
 }
 
-// OfferAPI represents the methods of the API the deploy command needs
-// for creating offers.
-type OfferAPI interface {
-	Offer(modelUUID, application string, endpoints []string, offerName, descr string) ([]apiparams.ErrorResult, error)
-}
-
-type ConsumeDetails interface {
-	GetConsumeDetails(url string) (apiparams.ConsumeOfferDetails, error)
-	Close() error
-}
-
 var supportedJujuSeries = func() []string {
 	// We support all of the juju series AND all the ESM supported series.
 	// Juju is congruant with the Ubuntu release cycle for it's own series (not
@@ -128,7 +117,6 @@ type DeployAPI interface {
 	CharmDeployAPI
 	ApplicationAPI
 	ModelAPI
-	OfferAPI
 
 	// ApplicationClient
 	Deploy(application.DeployArgs) error
@@ -208,10 +196,6 @@ func (c *plansClient) PlanURL() string {
 	return c.planURL
 }
 
-type offerClient struct {
-	*applicationoffers.Client
-}
-
 type deployAPIAdapter struct {
 	api.Connection
 	*apiClient
@@ -222,7 +206,6 @@ type deployAPIAdapter struct {
 	*charmstoreClient
 	*annotationsClient
 	*plansClient
-	*offerClient
 }
 
 func (a *deployAPIAdapter) Client() *api.Client {
@@ -312,7 +295,6 @@ func NewDeployCommand() modelcmd.ModelCommand {
 			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
 			charmRepoClient:   &charmRepoClient{charmrepo.NewCharmStoreFromClient(cstoreClient)},
 			plansClient:       &plansClient{planURL: mURL},
-			offerClient:       &offerClient{Client: applicationoffers.NewClient(controllerAPIRoot)},
 		}, nil
 	}
 	deployCmd.NewConsumeDetailsAPI = func(url *charm.OfferURL) (ConsumeDetails, error) {
@@ -868,9 +850,8 @@ func (c *DeployCommand) deployBundle(spec bundleDeploySpec) (rErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	var ok bool
-	if spec.targetModelUUID, ok = spec.apiRoot.ModelUUID(); !ok {
+	modelUUID, ok := spec.apiRoot.ModelUUID()
+	if !ok {
 		return errors.New("API connection is controller-only (should never happen)")
 	}
 
@@ -896,7 +877,7 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 					CharmID:         charmstore.CharmID{URL: charmURL},
 					ApplicationName: application,
 					ApplicationPlan: applicationSpec.Plan,
-					ModelUUID:       spec.targetModelUUID,
+					ModelUUID:       modelUUID,
 					Force:           c.Force,
 				}
 

@@ -451,11 +451,11 @@
   revision = "b99631de12cf04a906c1d4e4ec54fb86eae5863d"
 
 [[projects]]
-  digest = "1:5a419250da75541e7c467fa6b4814a18efd64eecdd6118d1e7e19f592b5f48ad"
+  digest = "1:9aceaa11417d9c5b31c0e9f47094739723046525efbb932381fe50a674a943f7"
   name = "github.com/juju/bundlechanges"
   packages = ["."]
   pruneopts = ""
-  revision = "854a45541379181dcc05bb53406fade1c5d3354b"
+  revision = "a15b892a41663fc698e6fb81c9e3d9e72fbe5c9c"
 
 [[projects]]
   digest = "1:f720ea29e073a9a7109a5080f32753292dc8616a22a905876d425cc64c21bd8d"
