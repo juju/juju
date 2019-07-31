@@ -19,6 +19,7 @@ import (
 	cmdcrossmodel "github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
@@ -276,7 +277,7 @@ func printRemoteApplications(tw *ansiterm.TabWriter, remoteApplications map[stri
 	for _, appName := range naturalsort.Sort(stringKeysFromMap(remoteApplications)) {
 		app := remoteApplications[appName]
 		var store, urlPath string
-		url, err := charm.ParseOfferURL(app.OfferURL)
+		url, err := crossmodel.ParseOfferURL(app.OfferURL)
 		if err == nil {
 			store = url.Source
 			url.Source = ""

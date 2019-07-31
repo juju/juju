@@ -403,7 +403,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, erro
 			for _, offer := range offerList {
 				newApplication.Offers[offer.OfferName()] = &charm.OfferSpec{
 					Endpoints: offer.Endpoints(),
-					ACL:       b.filterOfferACL(offer.ACL()),
+					ACL:       offer.ACL(),
 				}
 			}
 		}
@@ -471,13 +471,6 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, erro
 	}
 
 	return data, nil
-}
-
-// filterOfferACL prunes the input offer ACL to remove internal juju users that
-// we shouldn't export as part of the bundle.
-func (b *BundleAPI) filterOfferACL(in map[string]string) map[string]string {
-	delete(in, common.EveryoneTagName)
-	return in
 }
 
 func (b *BundleAPI) constraints(cons description.Constraints) []string {

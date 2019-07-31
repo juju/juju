@@ -19,6 +19,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 )
@@ -764,7 +765,7 @@ func (p AddRemoteApplicationParams) Validate() error {
 	if p.URL != "" {
 		// URL may be empty, to represent remote applications corresponding
 		// to consumers of an offered application.
-		if _, err := charm.ParseOfferURL(p.URL); err != nil {
+		if _, err := crossmodel.ParseOfferURL(p.URL); err != nil {
 			return errors.Annotate(err, "validating offer URL")
 		}
 	}

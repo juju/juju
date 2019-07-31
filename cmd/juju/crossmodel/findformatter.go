@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/crossmodel"
 )
 
 // formatFindTabular returns a tabular summary of remote applications or
@@ -32,7 +32,7 @@ func formatFoundEndpointsTabular(writer io.Writer, all map[string]ApplicationOff
 	w.Println("Store", "URL", "Access", "Interfaces")
 
 	for urlStr, one := range all {
-		url, err := charm.ParseOfferURL(urlStr)
+		url, err := crossmodel.ParseOfferURL(urlStr)
 		if err != nil {
 			return err
 		}

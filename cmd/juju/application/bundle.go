@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
@@ -131,8 +130,6 @@ type bundleDeploySpec struct {
 	bundleDevices       map[string]map[string]devices.Constraints
 
 	targetModelUUID string
-	controllerName  string
-	accountUser     string
 }
 
 // deployBundle deploys the given bundle data using the given API client and
@@ -246,13 +243,6 @@ type bundleHandler struct {
 
 	// The UUID of the model where the bundle is about to be deployed.
 	targetModelUUID string
-
-	// Controller name required for consuming a offer when deploying a bundle.
-	controllerName string
-
-	// accountUser holds the user of the account associated with the
-	// current controller.
-	accountUser string
 }
 
 func makeBundleHandler(spec bundleDeploySpec) *bundleHandler {
@@ -280,8 +270,6 @@ func makeBundleHandler(spec bundleDeploySpec) *bundleHandler {
 		channels:             make(map[*charm.URL]csparams.Channel),
 
 		targetModelUUID: spec.targetModelUUID,
-		controllerName:  spec.controllerName,
-		accountUser:     spec.accountUser,
 	}
 }
 
@@ -397,12 +385,9 @@ func (h *bundleHandler) getChanges() error {
 	if !featureflag.Enabled(feature.CMRAwareBundles) {
 		var filtered []bundlechanges.Change
 		for _, ch := range changes {
-			if ch.Method() == "createOffer" ||
-				ch.Method() == "consumeOffer" {
-				continue
+			if ch.Method() != "createOffer" {
+				filtered = append(filtered, ch)
 			}
-
-			filtered = append(filtered, ch)
 		}
 		changes = filtered
 	}
@@ -460,8 +445,6 @@ func (h *bundleHandler) handleChanges() error {
 			err = h.setConstraints(change)
 		case *bundlechanges.CreateOfferChange:
 			err = h.createOffer(change)
-		case *bundlechanges.ConsumeOfferChange:
-			err = h.consumeOffer(change)
 		default:
 			return errors.Errorf("unknown change type: %T", change)
 		}
@@ -1094,79 +1077,6 @@ func (h *bundleHandler) createOffer(change *bundlechanges.CreateOfferChange) err
 	if err != nil {
 		return errors.Annotatef(err, "cannot create offer %s", p.OfferName)
 	}
-	return nil
-}
-
-// consumeOffer consumes an existing offer
-func (h *bundleHandler) consumeOffer(change *bundlechanges.ConsumeOfferChange) error {
-	if h.dryRun {
-		return nil
-	}
-
-	p := change.Params
-	url, err := charm.ParseOfferURL(p.URL)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if url.HasEndpoint() {
-		return errors.Errorf("remote offer %q shouldn't include endpoint", p.URL)
-	}
-	if url.User == "" {
-		url.User = h.accountUser
-	}
-	if url.Source == "" {
-		url.Source = h.controllerName
-	}
-	// Get the consume details from the offer api. We don't use the generic
-	// DeployAPI as we may have to contact another controller to gain access
-	// to that information.
-	controllerOfferAPI, err := h.getConsumeDetailsAPI(url)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer func() { _ = controllerOfferAPI.Close() }()
-
-	// Ensure we use the Local url here as we have to ignore the source (read as
-	// target) controller, as the names of controllers might not match and we
-	// end up with an error stating that the controller doesn't exist, even
-	// though it's correct.
-	consumeDetails, err := controllerOfferAPI.GetConsumeDetails(url.AsLocal().String())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// Parse the offer details URL and add the source controller so
-	// things like status can show the original source of the offer.
-	offerURL, err := charm.ParseOfferURL(consumeDetails.Offer.OfferURL)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	offerURL.Source = url.Source
-	consumeDetails.Offer.OfferURL = offerURL.String()
-
-	// construct the cosume application arguments
-	arg := crossmodel.ConsumeApplicationArgs{
-		Offer:            *consumeDetails.Offer,
-		ApplicationAlias: p.ApplicationName,
-		Macaroon:         consumeDetails.Macaroon,
-	}
-	if consumeDetails.ControllerInfo != nil {
-		controllerTag, err := names.ParseControllerTag(consumeDetails.ControllerInfo.ControllerTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		arg.ControllerInfo = &crossmodel.ControllerInfo{
-			ControllerTag: controllerTag,
-			Alias:         consumeDetails.ControllerInfo.Alias,
-			Addrs:         consumeDetails.ControllerInfo.Addrs,
-			CACert:        consumeDetails.ControllerInfo.CACert,
-		}
-	}
-	localName, err := h.api.Consume(arg)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	h.results[change.Id()] = localName
-	h.ctx.Infof("Added %s as %s", url.Path(), localName)
 	return nil
 }
 
