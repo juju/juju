@@ -806,6 +806,12 @@ func fetchRelations(st Backend) (map[string][]*state.Relation, map[int]*state.Re
 }
 
 func fetchBranches(m *cache.Model) map[string]cache.Branch {
+	// Unless you're using the generations feature flag,
+	// the model cache model will be nil.  See note in
+	// newFacade().
+	if m == nil {
+		return make(map[string]cache.Branch)
+	}
 	// m.Branches() returns only active branches.
 	b := m.Branches()
 	branches := make(map[string]cache.Branch, len(b))

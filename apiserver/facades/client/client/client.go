@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/os"
 	"github.com/juju/os/series"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -27,6 +28,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/environs/manual/winrmprovisioner"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -180,9 +182,20 @@ func newFacade(ctx facade.Context) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	modelCache, err := ctx.Controller().Model(modelUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
+	var modelCache *cache.Model
+	if featureflag.Enabled(feature.Generations) {
+		// NOTE:
+		// Issues with the model cache updating fast enough were causing
+		// intermittent failures in statusUnitTestSuite.TestMigrationInProgress
+		// preventing merges and causing angst.  Hide use of the model
+		// cache behind a feature flag until these issues are resolved.
+		// A longer term solution would be to move to using the db for
+		// branch data in status output, if the model cache issues are
+		// not resolved before the branches feature is released.
+		modelCache, err = ctx.Controller().Model(modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	return NewClient(

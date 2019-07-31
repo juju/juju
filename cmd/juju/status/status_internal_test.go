@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -4618,6 +4619,7 @@ func (ua setToolsUpgradeAvailable) step(c *gc.C, ctx *context) {
 }
 
 func (s *StatusSuite) TestStatusAllFormats(c *gc.C) {
+	s.SetFeatureFlags(feature.Generations)
 	for i, t := range statusTests {
 		c.Logf("test %d: %s", i, t.summary)
 		func(t testCase) {
