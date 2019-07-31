@@ -119,8 +119,7 @@ type bundleDeploySpec struct {
 	bundleOverlayFile []string
 	channel           csparams.Channel
 
-	apiRoot              DeployAPI
-	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
+	apiRoot DeployAPI
 
 	useExistingMachines bool
 	bundleMachines      map[string]string
@@ -188,8 +187,7 @@ type bundleHandler struct {
 	channel csparams.Channel
 
 	// api is used to interact with the environment.
-	api                  DeployAPI
-	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
+	api DeployAPI
 
 	// bundleStorage contains a mapping of application-specific storage
 	// constraints. For each application, the storage constraints in the
