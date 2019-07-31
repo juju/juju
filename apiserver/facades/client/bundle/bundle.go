@@ -395,16 +395,6 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, erro
 			newApplication.RequiresTrust = appConfig[appFacade.TrustConfigOptionName] == true
 		}
 
-		// Populate offer list
-		if offerList := application.Offers(); offerList != nil {
-			newApplication.Offers = make(map[string]*charm.OfferSpec)
-			for _, offer := range offerList {
-				newApplication.Offers[offer.OfferName()] = &charm.OfferSpec{
-					Endpoints: offer.Endpoints(),
-				}
-			}
-		}
-
 		data.Applications[application.Name()] = newApplication
 	}
 

@@ -541,60 +541,6 @@ applications:
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
-	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
-		Config: map[string]interface{}{
-			"name": "awesome",
-			"uuid": "some-uuid",
-		},
-		CloudRegion: "some-region"})
-
-	app := s.st.model.AddApplication(s.minimalApplicationArgs(description.IAAS))
-	app.SetStatus(minimalStatusArgs())
-
-	u := app.AddUnit(minimalUnitArgs(app.Type()))
-	u.SetAgentStatus(minimalStatusArgs())
-
-	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
-
-	_ = app.AddOffer(description.ApplicationOfferArgs{
-		OfferName: "my-offer",
-		Endpoints: []string{"endpoint-1", "endpoint-2"},
-	})
-	_ = app.AddOffer(description.ApplicationOfferArgs{
-		OfferName: "my-other-offer",
-		Endpoints: []string{"endpoint-1", "endpoint-2"},
-	})
-
-	result, err := s.facade.ExportBundle()
-	c.Assert(err, jc.ErrorIsNil)
-	expectedResult := params.StringResult{nil, `
-series: trusty
-applications:
-  ubuntu:
-    charm: cs:trusty/ubuntu
-    num_units: 1
-    to:
-    - "0"
-    options:
-      key: value
-    bindings:
-      juju-info: vlan2
-    offers:
-      my-offer:
-        endpoints:
-        - endpoint-1
-        - endpoint-2
-      my-other-offer:
-        endpoints:
-        - endpoint-1
-        - endpoint-2
-`[1:]}
-
-	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
-}
-
 func (s *bundleSuite) addApplicationToModel(model description.Model, name string, numUnits int) description.Application {
 	series := "xenial"
 	if model.Type() == "caas" {
