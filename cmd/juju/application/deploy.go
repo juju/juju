@@ -7,6 +7,7 @@ import (
 	"archive/zip"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -891,24 +892,16 @@ func (c *DeployCommand) deployBundle(spec bundleDeploySpec) (rErr error) {
 	}
 	spec.accountUser = accountDetails.User
 
-	// Compose bundle to be deployed and check its validity before running
-	// any pre/post checks.
-	var bundleData *charm.BundleData
-	if bundleData, err = composeAndVerifyBundle(spec.bundleDataSource, spec.bundleOverlayFile); err != nil {
-		return errors.Annotatef(err, "cannot deploy bundle")
-	}
-	spec.bundleDir = spec.bundleDataSource.BasePath()
-
 	// Short-circuit trust checks if the operator specifies '--force'
 	if !c.Trust {
-		if tl := appsRequiringTrust(bundleData.Applications); len(tl) != 0 && !c.Force {
+		if tl := appsRequiringTrust(spec.bundleData.Applications); len(tl) != 0 && !c.Force {
 			return errors.Errorf(`Bundle cannot be deployed without trusting applications with your cloud credentials.
 Please repeat the deploy command with the --trust argument if you consent to trust the following application(s):
   - %s`, strings.Join(tl, "\n  - "))
 		}
 	}
 
-	for application, applicationSpec := range bundleData.Applications {
+	for application, applicationSpec := range spec.bundleData.Applications {
 		if applicationSpec.Plan != "" {
 			for _, step := range c.Steps {
 				s := step
@@ -967,7 +960,7 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 	// TODO(ericsnow) Do something with the CS macaroons that were returned?
 	// Deploying bundles does not allow the use force, it's expected that the
 	// bundle is correct and therefore the charms are also.
-	if _, err := deployBundle(bundleData, spec); err != nil {
+	if _, err := deployBundle(spec); err != nil {
 		return errors.Annotate(err, "cannot deploy bundle")
 	}
 	return nil
@@ -1345,10 +1338,54 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 	}, nil
 }
 
+// readLocalBundle returns the bundle data and bundle dir (for
+// resolving includes) for the bundleFile passed in. If the bundle
+// file doesn't exist we return nil.
+func readLocalBundle(ctx *cmd.Context, bundleFile string) (*charm.BundleData, string, error) {
+	bundleData, err := charmrepo.ReadBundleFile(bundleFile)
+	if err == nil {
+		// If the bundle is defined with just a yaml file, the bundle
+		// path is the directory that holds the file.
+		return bundleData, filepath.Dir(ctx.AbsPath(bundleFile)), nil
+	}
+
+	// We may have been given a local bundle archive or exploded directory.
+	bundle, _, pathErr := charmrepo.NewBundleAtPath(bundleFile)
+	if charmrepo.IsInvalidPathError(pathErr) {
+		return nil, "", pathErr
+	}
+	if pathErr != nil {
+		// If the bundle files existed but we couldn't read them,
+		// then return that error rather than trying to interpret
+		// as a charm.
+		if info, statErr := os.Stat(bundleFile); statErr == nil {
+			if info.IsDir() {
+				if _, ok := pathErr.(*charmrepo.NotFoundError); !ok {
+					return nil, "", errors.Trace(pathErr)
+				}
+			}
+		}
+
+		logger.Debugf("cannot interpret as local bundle: %v", err)
+		return nil, "", errors.NotValidf("local bundle %q", bundleFile)
+	}
+	bundleData = bundle.Data()
+
+	// If we get to here bundleFile is a directory, in which case
+	// we should use the absolute path as the bundFilePath, or it is
+	// an archive, in which case we should pass the empty string.
+	var bundleDir string
+	if info, err := os.Stat(bundleFile); err == nil && info.IsDir() {
+		bundleDir = ctx.AbsPath(bundleFile)
+	}
+
+	return bundleData, bundleDir, nil
+}
+
 func (c *DeployCommand) maybeReadLocalBundle(ctx *cmd.Context) (deployFn, error) {
 	bundleFile := c.CharmOrBundle
-	_, statErr := os.Stat(bundleFile)
-	if statErr == nil && !charm.IsValidLocalCharmOrBundlePath(bundleFile) {
+	bundleData, bundleDir, err := readLocalBundle(ctx, bundleFile)
+	if charmrepo.IsInvalidPathError(err) {
 		return nil, errors.Errorf(""+
 			"The charm or bundle %q is ambiguous.\n"+
 			"To deploy a local charm or bundle, run `juju deploy ./%[1]s`.\n"+
@@ -1356,11 +1393,10 @@ func (c *DeployCommand) maybeReadLocalBundle(ctx *cmd.Context) (deployFn, error)
 			bundleFile,
 		)
 	}
-
-	ds, err := charm.LocalBundleDataSource(bundleFile)
-	if errors.IsNotFound(err) {
-		// Not a local bundle. Return nil, nil to indicate the fallback
-		// pipeline should try the next possibility.
+	if errors.IsNotValid(err) {
+		// No problem reading it, but it's not a local bundle. Return
+		// nil, nil to indicate the fallback pipeline should try the
+		// next possibility.
 		return nil, nil
 	}
 	if err != nil {
@@ -1376,7 +1412,8 @@ func (c *DeployCommand) maybeReadLocalBundle(ctx *cmd.Context) (deployFn, error)
 			dryRun:              c.DryRun,
 			force:               c.Force,
 			trust:               c.Trust,
-			bundleDataSource:    ds,
+			bundleDir:           bundleDir,
+			bundleData:          bundleData,
 			bundleOverlayFile:   c.BundleOverlayFile,
 			channel:             c.Channel,
 			apiRoot:             apiRoot,
@@ -1535,31 +1572,19 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (d
 		}
 
 		return func(ctx *cmd.Context, apiRoot DeployAPI) error {
-			// Ideally, we would like to expose a GetBundleDataSource
-			// method for the charmstore. As we want to avoid further
-			// diverging charmrepo.v3 from charmrepo.v4, the best
-			// solution would be to converge to a charmrepo.v5.
-			// Unfortunately, the macaroon-related changes from v4
-			// wreak havoc with our bakery.v2/v2-unstable includes
-			// and therefore require quite a bit of effort to fix.
-			//
-			// As a short-term solution and given that we don't
-			// want to support (for now at least) multi-doc bundles
-			// from the charmstore we simply use the existing
-			// charmrepo.v3 API to read the base bundle and
-			// wrap it in a BundleDataSource for use by deployBundle.
 			bundle, err := apiRoot.GetBundle(bundleURL)
 			if err != nil {
 				return errors.Trace(err)
 			}
 			ctx.Infof("Located bundle %q", bundleURL)
+			data := bundle.Data()
 
 			return errors.Trace(c.deployBundle(bundleDeploySpec{
 				ctx:                 ctx,
 				dryRun:              c.DryRun,
 				force:               c.Force,
 				trust:               c.Trust,
-				bundleDataSource:    newResolvedBundle(bundle),
+				bundleData:          data,
 				bundleURL:           bundleURL,
 				bundleOverlayFile:   c.BundleOverlayFile,
 				channel:             channel,
@@ -1761,36 +1786,4 @@ func appsRequiringTrust(appSpecList map[string]*charm.ApplicationSpec) []string 
 	// consistent output in any errors containing the returned list contents.
 	sort.Strings(tl)
 	return tl
-}
-
-// resolvedBundle decorates a charm.Bundle instance with a type that implements
-// the charm.BundleDataSource interface.
-type resolvedBundle struct {
-	parts []*charm.BundleDataPart
-}
-
-func newResolvedBundle(b charm.Bundle) resolvedBundle {
-	return resolvedBundle{
-		parts: []*charm.BundleDataPart{
-			{
-				Data:        b.Data(),
-				PresenceMap: make(charm.FieldPresenceMap),
-			},
-		},
-	}
-}
-
-// Parts implements charm.BundleDataSource.
-func (rb resolvedBundle) Parts() []*charm.BundleDataPart {
-	return rb.parts
-}
-
-// BasePath implements charm.BundleDataSource.
-func (resolvedBundle) BasePath() string {
-	return ""
-}
-
-// ResolveInclude implements charm.BundleDataSource.
-func (resolvedBundle) ResolveInclude(_ string) ([]byte, error) {
-	return nil, errors.NotSupportedf("remote bundle includes")
 }

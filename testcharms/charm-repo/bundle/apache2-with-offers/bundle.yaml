@@ -2,10 +2,6 @@ series: bionic
 applications:
   apache2:
     charm: cs:apache2-26
----
-series: bionic
-applications:
-  apache2:
     offers:
       my-offer:
         endpoints:

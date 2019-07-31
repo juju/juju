@@ -63,7 +63,7 @@ func (s *bundleSuite) TestGetChangesBundleContentError(c *gc.C) {
 		BundleDataYAML: ":",
 	}
 	r, err := s.facade.GetChanges(args)
-	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: unmarshal document 0: yaml: did not find expected key`)
+	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: cannot unmarshal bundle data: yaml: did not find expected key`)
 	c.Assert(r, gc.DeepEquals, params.BundleChangesResults{})
 }
 
@@ -553,8 +553,11 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 
 	app := s.st.model.AddApplication(s.minimalApplicationArgs(description.IAAS))
 	app.SetStatus(minimalStatusArgs())
+
 	u := app.AddUnit(minimalUnitArgs(app.Type()))
 	u.SetAgentStatus(minimalStatusArgs())
+
+	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
 	_ = app.AddOffer(description.ApplicationOfferArgs{
 		OfferName: "my-offer",
@@ -570,25 +573,11 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 		Endpoints: []string{"endpoint-1", "endpoint-2"},
 	})
 
-	// Add second app without an offer
-	app2Args := s.minimalApplicationArgs(description.IAAS)
-	app2Args.Tag = names.NewApplicationTag("foo")
-	app2 := s.st.model.AddApplication(app2Args)
-	app2.SetStatus(minimalStatusArgs())
-
-	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
-
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{nil, `
 series: trusty
 applications:
-  foo:
-    charm: cs:trusty/ubuntu
-    options:
-      key: value
-    bindings:
-      juju-info: vlan2
   ubuntu:
     charm: cs:trusty/ubuntu
     num_units: 1
@@ -598,9 +587,6 @@ applications:
       key: value
     bindings:
       juju-info: vlan2
---- # overlay.yaml
-applications:
-  ubuntu:
     offers:
       my-offer:
         endpoints:

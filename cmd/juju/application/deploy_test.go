@@ -259,7 +259,7 @@ func (s *DeploySuite) TestInvalidFileFormat(c *gc.C) {
 	err := ioutil.WriteFile(path, []byte(":"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.runDeploy(c, path)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot unmarshal bundle contents:.* yaml:.*`)
+	c.Assert(err, gc.ErrorMatches, `invalid charm or bundle provided at ".*bundle.yaml"`)
 }
 
 func (s *DeploySuite) TestPathWithNoCharmOrBundle(c *gc.C) {

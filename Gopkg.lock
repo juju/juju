@@ -1014,14 +1014,6 @@
   version = "1.0.1"
 
 [[projects]]
-  branch = "master"
-  digest = "1:bdbab69b21c3c0409e24b3ec53a9bdf2c2dbc3d80bbe73e8d0c8ebc47f660e3d"
-  name = "github.com/mohae/deepcopy"
-  packages = ["."]
-  pruneopts = ""
-  revision = "c48cc78d482608239f6c4c92a4abd87eb8761c90"
-
-[[projects]]
   digest = "1:7a4827b2062a21ba644241bdec27959a5be2670f8aa4038ba14cfe2ce389e8d2"
   name = "github.com/ncw/swift"
   packages = ["."]
@@ -1476,7 +1468,7 @@
   revision = "51fa6e26128d74e445c72d3a91af555151cc3654"
 
 [[projects]]
-  digest = "1:f33ecd7fc165d99a08d28f3559396da2426a35c9877443dadfa230aef2560054"
+  digest = "1:87acf5bcd274b72ff707bdd18abe2c3a19429ffc542035c2e4425571cdd0c780"
   name = "gopkg.in/juju/charm.v6"
   packages = [
     ".",
@@ -1484,7 +1476,7 @@
     "resource",
   ]
   pruneopts = ""
-  revision = "b0e282572b0939cfc2658678d24adb74d2b9435a"
+  revision = "52b617a34c5a360391bb84d0e7fe40912141ff17"
 
 [[projects]]
   digest = "1:86df7d2874a5250cf64324e2ce4e88fea552aa1f5c1a3f065599bd1f381ce939"
