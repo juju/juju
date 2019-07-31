@@ -24,7 +24,7 @@ import (
 const listCommandDoc = `
 List information about applications' endpoints that have been shared and who is connected.
 
-The default tabular output shows each user connected (relating to) the offer, and the
+The default tabular output shows each user connected (relating to) the offer, and the 
 relation id of the relation.
 
 The summary output shows one row per offer, with a count of active/total relations.
@@ -50,7 +50,7 @@ Examples:
     $ juju offers hosted-mysql --active-only
 
 See also:
-   find-offers
+   find-offers   
    show-offer
 `
 
@@ -249,7 +249,7 @@ func formatApplicationOfferDetails(store string, all []*crossmodel.ApplicationOf
 		if activeOnly && len(one.Connections) == 0 {
 			continue
 		}
-		url, err := charm.ParseOfferURL(one.OfferURL)
+		url, err := crossmodel.ParseOfferURL(one.OfferURL)
 		if err != nil {
 			return nil, errors.Annotatef(err, "%v", one.OfferURL)
 		}
@@ -263,7 +263,7 @@ func formatApplicationOfferDetails(store string, all []*crossmodel.ApplicationOf
 	return result, nil
 }
 
-func convertOfferToListItem(url *charm.OfferURL, offer *crossmodel.ApplicationOfferDetails) ListOfferItem {
+func convertOfferToListItem(url *crossmodel.OfferURL, offer *crossmodel.ApplicationOfferDetails) ListOfferItem {
 	item := ListOfferItem{
 		OfferName:       offer.OfferName,
 		ApplicationName: offer.ApplicationName,
