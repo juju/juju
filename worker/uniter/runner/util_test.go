@@ -104,7 +104,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	s.contextFactory, err = context.NewContextFactory(context.FactoryConfig{
 		State:            s.uniter,
 		UnitTag:          s.unit.Tag().(names.UnitTag),
-		Tracker:          runnertesting.FakeTracker{},
+		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
 		Paths:            s.paths,

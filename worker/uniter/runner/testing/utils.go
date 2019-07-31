@@ -120,8 +120,30 @@ func (c *ContextStorage) Location() string {
 type FakeTracker struct {
 	leadership.Tracker
 	worker.Worker
+
+	AllowClaimLeader bool
 }
 
-func (FakeTracker) ApplicationName() string {
+func (t *FakeTracker) ApplicationName() string {
 	return "application-name"
+}
+
+func (t *FakeTracker) ClaimLeader() leadership.Ticket {
+	return &FakeTicket{t.AllowClaimLeader}
+}
+
+type FakeTicket struct {
+	WaitResult bool
+}
+
+var _ leadership.Ticket = &FakeTicket{}
+
+func (ft *FakeTicket) Wait() bool {
+	return ft.WaitResult
+}
+
+func (ft *FakeTicket) Ready() <-chan struct{} {
+	c := make(chan struct{})
+	close(c)
+	return c
 }
