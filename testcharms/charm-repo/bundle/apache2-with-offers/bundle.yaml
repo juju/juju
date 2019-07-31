@@ -7,9 +7,6 @@ applications:
         endpoints:
         - apache-website
         - website-cache
-        acl:
-          admin: admin
-          bar: consume
       my-other-offer:
         endpoints:
         - apache-website

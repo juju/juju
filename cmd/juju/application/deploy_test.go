@@ -694,17 +694,6 @@ func (s *DeploySuite) TestDeployBundleWithOffers(c *gc.C) {
 		"",
 	).Returns([]params.ErrorResult{}, nil)
 
-	fakeAPI.Call("GrantOffer",
-		"admin",
-		"admin",
-		[]string{"controller.my-offer"},
-	).Returns(errors.New(`cannot grant admin access to user admin on offer admin/controller.my-offer: user already has "admin" access or greater`))
-	fakeAPI.Call("GrantOffer",
-		"bar",
-		"consume",
-		[]string{"controller.my-offer"},
-	).Returns(nil)
-
 	deploy := &DeployCommand{
 		NewAPIRoot: func() (DeployAPI, error) {
 			return fakeAPI, nil
@@ -717,17 +706,12 @@ func (s *DeploySuite) TestDeployBundleWithOffers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var offerCallCount int
-	var grantOfferCallCount int
 	for _, call := range fakeAPI.Calls() {
-		switch call.FuncName {
-		case "Offer":
+		if call.FuncName == "Offer" {
 			offerCallCount++
-		case "GrantOffer":
-			grantOfferCallCount++
 		}
 	}
 	c.Assert(offerCallCount, gc.Equals, 2)
-	c.Assert(grantOfferCallCount, gc.Equals, 2)
 }
 
 func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
@@ -2769,11 +2753,6 @@ func (f *fakeDeployAPI) GetConsumeDetails(offerURL string) (params.ConsumeOfferD
 func (f *fakeDeployAPI) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) {
 	results := f.MethodCall(f, "Consume", arg)
 	return results[0].(string), jujutesting.TypeAssertError(results[1])
-}
-
-func (f *fakeDeployAPI) GrantOffer(user, access string, offerURLs ...string) error {
-	res := f.MethodCall(f, "GrantOffer", user, access, offerURLs)
-	return jujutesting.TypeAssertError(res[0])
 }
 
 func stringToInterface(args []string) []interface{} {

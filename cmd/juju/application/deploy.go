@@ -98,7 +98,7 @@ type CharmDeployAPI interface {
 // for creating offers.
 type OfferAPI interface {
 	Offer(modelUUID, application string, endpoints []string, offerName, descr string) ([]apiparams.ErrorResult, error)
-	GrantOffer(user, access string, offerURLs ...string) error
+	GetConsumeDetails(url string) (apiparams.ConsumeOfferDetails, error)
 }
 
 type ConsumeDetails interface {
@@ -877,15 +877,10 @@ func (c *DeployCommand) deployBundle(spec bundleDeploySpec) (rErr error) {
 		return errors.New("API connection is controller-only (should never happen)")
 	}
 
-	if spec.targetModelName, _, err = c.ModelDetails(); err != nil {
-		return errors.Annotatef(err, "could not retrieve model name")
-	}
-
-	controllerName, err := c.ControllerName()
+	spec.controllerName, err = c.ControllerName()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	spec.controllerName = controllerName
 	accountDetails, err := c.CurrentAccountDetails()
 	if err != nil {
 		return errors.Trace(err)
