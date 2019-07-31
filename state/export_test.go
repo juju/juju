@@ -872,6 +872,10 @@ func UnitBranch(m *Model, unitName string) (*Generation, error) {
 	return m.unitBranch(unitName)
 }
 
+func ApplicationBranches(m *Model, appName string) ([]*Generation, error) {
+	return m.applicationBranches(appName)
+}
+
 // ModelBackendShim is required to live here in the export_test.go file because
 // there is issues placing this in the test files themselves. The strangeness
 // exhibits itself from the fact that `clock() clock.Clock` doesn't type

@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/api/applicationoffers"
 	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
@@ -43,7 +42,6 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -72,7 +70,6 @@ type ApplicationAPI interface {
 	SetConstraints(application string, constraints constraints.Value) error
 	Update(apiparams.ApplicationUpdate) error
 	ScaleApplication(application.ScaleApplicationParams) (apiparams.ScaleApplicationResult, error)
-	Consume(arg crossmodel.ConsumeApplicationArgs) (string, error)
 }
 
 type ModelAPI interface {
@@ -92,14 +89,6 @@ type MeteredDeployAPI interface {
 // command needs for charms.
 type CharmDeployAPI interface {
 	CharmInfo(string) (*apicharms.CharmInfo, error)
-}
-
-// OfferAPI represents the methods of the API the deploy command needs
-// for creating offers.
-type OfferAPI interface {
-	Offer(modelUUID, application string, endpoints []string, offerName, descr string) ([]apiparams.ErrorResult, error)
-	GetConsumeDetails(url string) (apiparams.ConsumeOfferDetails, error)
-	GrantOffer(user, access string, offerURLs ...string) error
 }
 
 var supportedJujuSeries = func() []string {
@@ -127,7 +116,6 @@ type DeployAPI interface {
 	CharmDeployAPI
 	ApplicationAPI
 	ModelAPI
-	OfferAPI
 
 	// ApplicationClient
 	Deploy(application.DeployArgs) error
@@ -207,10 +195,6 @@ func (c *plansClient) PlanURL() string {
 	return c.planURL
 }
 
-type offerClient struct {
-	*applicationoffers.Client
-}
-
 type deployAPIAdapter struct {
 	api.Connection
 	*apiClient
@@ -221,7 +205,6 @@ type deployAPIAdapter struct {
 	*charmstoreClient
 	*annotationsClient
 	*plansClient
-	*offerClient
 }
 
 func (a *deployAPIAdapter) Client() *api.Client {
@@ -311,7 +294,6 @@ func NewDeployCommand() modelcmd.ModelCommand {
 			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
 			charmRepoClient:   &charmRepoClient{charmrepo.NewCharmStoreFromClient(cstoreClient)},
 			plansClient:       &plansClient{planURL: mURL},
-			offerClient:       &offerClient{Client: applicationoffers.NewClient(controllerAPIRoot)},
 		}, nil
 	}
 
@@ -856,25 +838,10 @@ func (c *DeployCommand) deployBundle(spec bundleDeploySpec) (rErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	var ok bool
-	if spec.targetModelUUID, ok = spec.apiRoot.ModelUUID(); !ok {
+	modelUUID, ok := spec.apiRoot.ModelUUID()
+	if !ok {
 		return errors.New("API connection is controller-only (should never happen)")
 	}
-
-	if spec.targetModelName, _, err = c.ModelDetails(); err != nil {
-		return errors.Annotatef(err, "could not retrieve model name")
-	}
-
-	spec.controllerName, err = c.ControllerName()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	accountDetails, err := c.CurrentAccountDetails()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	spec.accountUser = accountDetails.User
 
 	// Short-circuit trust checks if the operator specifies '--force'
 	if !c.Trust {
@@ -898,7 +865,7 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 					CharmID:         charmstore.CharmID{URL: charmURL},
 					ApplicationName: application,
 					ApplicationPlan: applicationSpec.Plan,
-					ModelUUID:       spec.targetModelUUID,
+					ModelUUID:       modelUUID,
 					Force:           c.Force,
 				}
 

@@ -16,7 +16,6 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"
@@ -43,7 +42,6 @@ type ExportConfig struct {
 	SkipMachineAgentBinaries bool
 	SkipRelationData         bool
 	SkipInstanceData         bool
-	SkipApplicationOffers    bool
 }
 
 // ExportPartial the current model for the State optionally skipping
@@ -611,11 +609,6 @@ func (e *exporter) applications() error {
 		return errors.Trace(err)
 	}
 
-	appOfferMap, err := e.groupOffersByApplicationName()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	for _, application := range applications {
 		applicationUnits := e.units[application.Name()]
 		leader := leaders[application.Name()]
@@ -623,7 +616,7 @@ func (e *exporter) applications() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		appCtx := addApplicationContext{
+		if err := e.addApplication(addApplicationContext{
 			application:      application,
 			units:            applicationUnits,
 			meterStatus:      meterStatus,
@@ -634,16 +627,9 @@ func (e *exporter) applications() error {
 			payloads:         payloads,
 			resources:        resources,
 			endpoingBindings: bindings,
-		}
-
-		if appOfferMap != nil {
-			appCtx.offers = appOfferMap[application.Name()]
-		}
-
-		if err := e.addApplication(appCtx); err != nil {
+		}); err != nil {
 			return errors.Trace(err)
 		}
-
 	}
 	return nil
 }
@@ -704,9 +690,6 @@ type addApplicationContext struct {
 	podSpecs        map[string]string
 	cloudServices   map[string]*cloudServiceDoc
 	cloudContainers map[string]*cloudContainerDoc
-
-	// Offers
-	offers []*crossmodel.ApplicationOffer
 }
 
 func (e *exporter) addApplication(ctx addApplicationContext) error {
@@ -764,34 +747,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		args.StorageConstraints = e.storageConstraints(constraints)
 	}
 	exApplication := e.model.AddApplication(args)
-
-	// Populate offer list
-	for _, offer := range ctx.offers {
-		endpoints := make([]string, 0, len(offer.Endpoints))
-		for _, ep := range offer.Endpoints {
-			endpoints = append(endpoints, ep.Name)
-		}
-
-		userMap, err := e.st.GetOfferUsers(offer.OfferUUID)
-		if err != nil {
-			return errors.Annotatef(err, "ACL for offer %s", offer.OfferName)
-		}
-
-		var acl map[string]string
-		if len(userMap) != 0 {
-			acl = make(map[string]string, len(userMap))
-			for user, access := range userMap {
-				acl[user] = accessToString(access)
-			}
-		}
-
-		_ = exApplication.AddOffer(description.ApplicationOfferArgs{
-			OfferName: offer.OfferName,
-			Endpoints: endpoints,
-			ACL:       acl,
-		})
-	}
-
 	// Find the current application status.
 	statusArgs, err := e.statusArgs(globalKey)
 	if err != nil {
@@ -2202,27 +2157,6 @@ func (e *exporter) storagePools() error {
 		})
 	}
 	return nil
-}
-
-func (e *exporter) groupOffersByApplicationName() (map[string][]*crossmodel.ApplicationOffer, error) {
-	if e.cfg.SkipApplicationOffers {
-		return nil, nil
-	}
-
-	offerList, err := NewApplicationOffers(e.st).AllApplicationOffers()
-	if err != nil {
-		return nil, errors.Annotate(err, "listing offers")
-	}
-
-	if len(offerList) == 0 {
-		return nil, nil
-	}
-
-	appMap := make(map[string][]*crossmodel.ApplicationOffer)
-	for _, offer := range offerList {
-		appMap[offer.ApplicationName] = append(appMap[offer.ApplicationName], offer)
-	}
-	return appMap, nil
 }
 
 type storagePoolSettingsManager struct {

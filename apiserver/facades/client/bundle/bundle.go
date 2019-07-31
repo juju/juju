@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
@@ -26,7 +25,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/storage"
 )
@@ -397,17 +395,6 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, erro
 			newApplication.RequiresTrust = appConfig[appFacade.TrustConfigOptionName] == true
 		}
 
-		// Populate offer list
-		if offerList := application.Offers(); offerList != nil && featureflag.Enabled(feature.CMRAwareBundles) {
-			newApplication.Offers = make(map[string]*charm.OfferSpec)
-			for _, offer := range offerList {
-				newApplication.Offers[offer.OfferName()] = &charm.OfferSpec{
-					Endpoints: offer.Endpoints(),
-					ACL:       b.filterOfferACL(offer.ACL()),
-				}
-			}
-		}
-
 		data.Applications[application.Name()] = newApplication
 	}
 
@@ -471,13 +458,6 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, erro
 	}
 
 	return data, nil
-}
-
-// filterOfferACL prunes the input offer ACL to remove internal juju users that
-// we shouldn't export as part of the bundle.
-func (b *BundleAPI) filterOfferACL(in map[string]string) map[string]string {
-	delete(in, common.EveryoneTagName)
-	return in
 }
 
 func (b *BundleAPI) constraints(cons description.Constraints) []string {

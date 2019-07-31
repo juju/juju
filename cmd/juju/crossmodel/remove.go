@@ -10,12 +10,12 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/api/applicationoffers"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -122,7 +122,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	for i, urlStr := range c.offers {
-		url, err := charm.ParseOfferURL(urlStr)
+		url, err := crossmodel.ParseOfferURL(urlStr)
 		if err != nil {
 			url, err = makeURLFromCurrentModel(urlStr, c.offerSource, currentModel)
 			if err != nil {
@@ -164,7 +164,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	return block.ProcessBlockedError(err, block.BlockRemove)
 }
 
-func makeURLFromCurrentModel(urlStr, offerSource, currentModel string) (*charm.OfferURL, error) {
+func makeURLFromCurrentModel(urlStr, offerSource, currentModel string) (*crossmodel.OfferURL, error) {
 	// We may have just been given an offer name.
 	// Try again with the current model as the host model.
 	modelName := currentModel
@@ -177,6 +177,6 @@ func makeURLFromCurrentModel(urlStr, offerSource, currentModel string) (*charm.O
 		modelName = baseName
 		userName = userTag.Name()
 	}
-	derivedUrl := charm.MakeURL(userName, modelName, urlStr, offerSource)
-	return charm.ParseOfferURL(derivedUrl)
+	derivedUrl := crossmodel.MakeURL(userName, modelName, urlStr, offerSource)
+	return crossmodel.ParseOfferURL(derivedUrl)
 }

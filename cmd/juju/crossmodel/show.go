@@ -7,7 +7,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	jujucmd "github.com/juju/juju/cmd"
@@ -27,7 +26,7 @@ from the model 'default' on the same Juju controller:
 
      juju show-offer default.prod
 
-The supplied URL can also include a username where offers require them.
+The supplied URL can also include a username where offers require them. 
 This will be given as part of the URL retrieved from the
 'juju find-offers' command. To show information for the application
 'prod' from the model 'default' from the user 'admin':
@@ -96,7 +95,7 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	url, err := charm.ParseOfferURL(c.url)
+	url, err := crossmodel.ParseOfferURL(c.url)
 	if err != nil {
 		store := c.ClientStore()
 		currentModel, err := store.CurrentModel(controllerName)
@@ -183,7 +182,7 @@ func convertOffers(
 		if one.ApplicationDescription != "" {
 			app.Description = one.ApplicationDescription
 		}
-		url, err := charm.ParseOfferURL(one.OfferURL)
+		url, err := crossmodel.ParseOfferURL(one.OfferURL)
 		if err != nil {
 			return nil, err
 		}

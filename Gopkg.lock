@@ -451,11 +451,11 @@
   revision = "b99631de12cf04a906c1d4e4ec54fb86eae5863d"
 
 [[projects]]
-  digest = "1:de54a8a2f94ace7552f36b0eca53166f3751886e338cf5953e192d2e30123de5"
+  digest = "1:9aceaa11417d9c5b31c0e9f47094739723046525efbb932381fe50a674a943f7"
   name = "github.com/juju/bundlechanges"
   packages = ["."]
   pruneopts = ""
-  revision = "bb96ad9a5018f64e67f46f63496580c8956b4fbf"
+  revision = "a15b892a41663fc698e6fb81c9e3d9e72fbe5c9c"
 
 [[projects]]
   digest = "1:f720ea29e073a9a7109a5080f32753292dc8616a22a905876d425cc64c21bd8d"
@@ -738,7 +738,7 @@
   revision = "9b925afd677234e4146dde3cb1a11e187cbed64e"
 
 [[projects]]
-  digest = "1:41acc45bab6f3fcbe700b6e0b5db88c8c42a045306dbe4d63f5c6bc949aec66d"
+  digest = "1:6d9048e037a012d6f673e1f5084b53a589c93fbd481cc76528a3b8f525feff22"
   name = "github.com/juju/testing"
   packages = [
     ".",
@@ -747,7 +747,7 @@
     "httptesting",
   ]
   pruneopts = ""
-  revision = "e81189438503b1e5c94efe95a604372b33eee7a2"
+  revision = "ce30eb24acd2c45a1bc42208835468ca619685a9"
 
 [[projects]]
   digest = "1:c43a754dcd24720e8f651933c9685511be5cba937faabaf6abbc4360b5b1f228"
@@ -1468,7 +1468,7 @@
   revision = "51fa6e26128d74e445c72d3a91af555151cc3654"
 
 [[projects]]
-  digest = "1:87acf5bcd274b72ff707bdd18abe2c3a19429ffc542035c2e4425571cdd0c780"
+  digest = "1:0fc30411ea4cf01b4dec77e49f2f618c9fb8138fd16bff9e6cf3279d58553371"
   name = "gopkg.in/juju/charm.v6"
   packages = [
     ".",
@@ -1476,7 +1476,7 @@
     "resource",
   ]
   pruneopts = ""
-  revision = "52b617a34c5a360391bb84d0e7fe40912141ff17"
+  revision = "f915791435aa68df6d2b87b7ec16dac9f695a63e"
 
 [[projects]]
   digest = "1:86df7d2874a5250cf64324e2ce4e88fea552aa1f5c1a3f065599bd1f381ce939"
