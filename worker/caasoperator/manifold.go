@@ -170,7 +170,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UniterFacadeFunc:      newUniterFunc,
 				UniterParams: &uniter.UniterParams{
 					NewOperationExecutor:    operation.NewExecutor,
-					NewRemoteRunnerExecutor: getNewRunnerExecutor(execClient, client),
+					NewRemoteRunnerExecutor: getNewRunnerExecutor(execClient, client, agentConfig.DataDir()),
 					DataDir:                 agentConfig.DataDir(),
 					Clock:                   clock,
 					MachineLock:             config.MachineLock,

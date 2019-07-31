@@ -5,6 +5,8 @@ package caasoperator
 
 import (
 	"bytes"
+	"path/filepath"
+	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -12,15 +14,55 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
+	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
-func ensurePath(client exec.Executor, podName string, stdout, stderr bytes.Buffer, cancel <-chan struct{}) error {
+func ensurePath(
+	client exec.Executor,
+	podName string,
+	stdout, stderr bytes.Buffer,
+	cancel <-chan struct{},
+	path string,
+) error {
 	err := client.Exec(
 		exec.ExecParams{
 			PodName:  podName,
-			Commands: []string{"mkdir", "-p", "/var/lib/juju"},
+			Commands: []string{"mkdir", "-p", path},
+			Stdout:   &stdout,
+			Stderr:   &stderr,
+		},
+		cancel,
+	)
+	logger.Debugf("ensuring %q %q", path, stderr.String())
+	return errors.Trace(err)
+}
+
+type symlink struct {
+	Link   string
+	Target string
+}
+
+// ensureSymlinks ensure a list of symlinks on a pod.
+func ensureSymlinks(
+	client exec.Executor,
+	podName string,
+	stdout, stderr bytes.Buffer,
+	cancel <-chan struct{},
+	links []symlink,
+) error {
+	var commands []string
+	for _, link := range links {
+		logger.Debugf("ensuring symlink %q targeting to %q", link.Link, link.Target)
+		commands = append(commands,
+			strings.Join([]string{"ln", "-s", link.Target, link.Link}, " "),
+		)
+	}
+	err := client.Exec(
+		exec.ExecParams{
+			PodName:  podName,
+			Commands: []string{strings.Join(commands, " && ")},
 			Stdout:   &stdout,
 			Stderr:   &stderr,
 		},
@@ -29,30 +71,23 @@ func ensurePath(client exec.Executor, podName string, stdout, stderr bytes.Buffe
 	return errors.Trace(err)
 }
 
-func syncFiles(client exec.Executor, podName string, stdout, stderr bytes.Buffer, cancel <-chan struct{}) error {
-	// TODO(caas): add a new cmd for checking jujud version, charm/version etc.
-	// exec run this new cmd to decide if we need repush files or not.
-	for _, sync := range []exec.CopyParam{
-		{
+func syncFiles(
+	client exec.Executor,
+	podName string,
+	cancel <-chan struct{},
+	filesDirs []string,
+) error {
+	for _, path := range filesDirs {
+		logger.Debugf("syncing files at %q", path)
+		if err := client.Copy(exec.CopyParam{
 			Src: exec.FileResource{
-				Path: "/var/lib/juju/agents/",
+				Path: path,
 			},
 			Dest: exec.FileResource{
-				Path:    "/var/lib/juju/agents/",
+				Path:    path,
 				PodName: podName,
 			},
-		},
-		{
-			Src: exec.FileResource{
-				Path: "/var/lib/juju/tools/",
-			},
-			Dest: exec.FileResource{
-				Path:    "/var/lib/juju/tools/",
-				PodName: podName,
-			},
-		},
-	} {
-		if err := client.Copy(sync, cancel); err != nil {
+		}, cancel); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -75,8 +110,8 @@ func fetchPodNameForUnit(c UnitGetter, tag names.UnitTag) (string, error) {
 }
 
 //go:generate mockgen -package mocks -destination mocks/exec_mock.go github.com/juju/juju/caas/kubernetes/provider/exec Executor
-func getNewRunnerExecutor(execClient exec.Executor, uniterGetter UnitGetter) func(unit names.UnitTag) runner.ExecFunc {
-	return func(unit names.UnitTag) runner.ExecFunc {
+func getNewRunnerExecutor(execClient exec.Executor, uniterGetter UnitGetter, dataDir string) func(unit names.UnitTag, paths uniter.Paths) runner.ExecFunc {
+	return func(unit names.UnitTag, paths uniter.Paths) runner.ExecFunc {
 		return func(
 			commands []string,
 			env []string,
@@ -92,17 +127,25 @@ func getNewRunnerExecutor(execClient exec.Executor, uniterGetter UnitGetter) fun
 			}
 
 			var stdout, stderr bytes.Buffer
-			if err := ensurePath(execClient, podName, stdout, stderr, cancel); err != nil {
-				logger.Errorf("ensuring /var/lib/juju %q", stderr.String())
+			// ensuring data dir.
+			if err := ensurePath(execClient, podName, stdout, stderr, cancel, dataDir); err != nil {
 				return nil, errors.Trace(err)
 			}
-			logger.Debugf("ensuring /var/lib/juju %q", stdout.String())
 
-			if err := syncFiles(execClient, podName, stdout, stderr, cancel); err != nil {
-				logger.Errorf("syncing files %q", stderr.String())
+			// syncing files.
+			// TODO(caas): add a new cmd for checking jujud version, charm/version etc.
+			// exec run this new cmd to decide if we need re-push files or not.
+			if err := syncFiles(
+				execClient, podName, cancel,
+				[]string{
+					// TODO(caas): only sync files required for actions/run.
+					filepath.Join(dataDir, "agents"),
+					filepath.Join(dataDir, "tools"),
+				},
+			); err != nil {
 				return nil, errors.Trace(err)
 			}
-			logger.Debugf("syncing files %q", stdout.String())
+
 			if err := execClient.Exec(
 				exec.ExecParams{
 					PodName:    podName,

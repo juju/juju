@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/caasoperator/mocks"
+	"github.com/juju/juju/worker/uniter"
 )
 
 type actionSuite struct {
@@ -41,7 +42,7 @@ func (s *actionSuite) TestRunnerExecFunc(c *gc.C) {
 	defer ctrl.Finish()
 
 	gitlabTag := names.NewUnitTag("gitlab-k8s/0")
-	runnerExecFuncGetter := caasoperator.GetNewRunnerExecutor(s.executor, s.client)(gitlabTag)
+	runnerExecFuncGetter := caasoperator.GetNewRunnerExecutor(s.executor, s.client, "/var/lib/juju")(gitlabTag, uniter.Paths{})
 	cancel := make(<-chan struct{}, 1)
 	var stdout, stderr bytes.Buffer
 	gomock.InOrder(
@@ -53,19 +54,19 @@ func (s *actionSuite) TestRunnerExecFunc(c *gc.C) {
 		}, cancel).Times(1).Return(nil),
 		s.executor.EXPECT().Copy(exec.CopyParam{
 			Src: exec.FileResource{
-				Path: "/var/lib/juju/agents/",
+				Path: "/var/lib/juju/agents",
 			},
 			Dest: exec.FileResource{
-				Path:    "/var/lib/juju/agents/",
+				Path:    "/var/lib/juju/agents",
 				PodName: "gitlab-xxxx",
 			},
 		}, cancel).Times(1).Return(nil),
 		s.executor.EXPECT().Copy(exec.CopyParam{
 			Src: exec.FileResource{
-				Path: "/var/lib/juju/tools/",
+				Path: "/var/lib/juju/tools",
 			},
 			Dest: exec.FileResource{
-				Path:    "/var/lib/juju/tools/",
+				Path:    "/var/lib/juju/tools",
 				PodName: "gitlab-xxxx",
 			},
 		}, cancel).Times(1).Return(nil),
