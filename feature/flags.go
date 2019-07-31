@@ -64,4 +64,4 @@ const MultiCloud = "multi-cloud"
 
 // CMRAwareBundles allows Juju to recognize and handle offer and saas blocks
 // when deploying bundles.
-const CMRAwareBundles = "bundle-cmr"
+const CMRAwareBundles = "cmr-aware-bundles"

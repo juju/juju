@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
@@ -26,7 +25,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/storage"
 )
@@ -398,12 +396,11 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, erro
 		}
 
 		// Populate offer list
-		if offerList := application.Offers(); offerList != nil && featureflag.Enabled(feature.CMRAwareBundles) {
+		if offerList := application.Offers(); offerList != nil {
 			newApplication.Offers = make(map[string]*charm.OfferSpec)
 			for _, offer := range offerList {
 				newApplication.Offers[offer.OfferName()] = &charm.OfferSpec{
 					Endpoints: offer.Endpoints(),
-					ACL:       offer.ACL(),
 				}
 			}
 		}

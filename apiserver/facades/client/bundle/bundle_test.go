@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -543,7 +542,6 @@ applications:
 }
 
 func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
-	s.SetFeatureFlags(feature.CMRAwareBundles)
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config: map[string]interface{}{
 			"name": "awesome",
@@ -562,12 +560,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 	_ = app.AddOffer(description.ApplicationOfferArgs{
 		OfferName: "my-offer",
 		Endpoints: []string{"endpoint-1", "endpoint-2"},
-		ACL: map[string]string{
-			"admin": "admin",
-			"foo":   "consume",
-		},
 	})
-
 	_ = app.AddOffer(description.ApplicationOfferArgs{
 		OfferName: "my-other-offer",
 		Endpoints: []string{"endpoint-1", "endpoint-2"},
@@ -592,9 +585,6 @@ applications:
         endpoints:
         - endpoint-1
         - endpoint-2
-        acl:
-          admin: admin
-          foo: consume
       my-other-offer:
         endpoints:
         - endpoint-1

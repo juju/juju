@@ -549,8 +549,7 @@ func (s *MigrationExportSuite) TestMultipleApplications(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestApplicationExposingOffers(c *gc.C) {
-	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "admin"})
-	fooUser := s.Factory.MakeUser(c, &factory.UserParams{Name: "foo"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "admin"})
 	_, err := s.State.AddSpace("server", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSpace("server-admin", "", nil, true)
@@ -575,14 +574,6 @@ func (s *MigrationExportSuite) TestApplicationExposingOffers(c *gc.C) {
 				"server-admin": "server-admin",
 			},
 		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Allow "foo" to consume offer
-	err = s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag("my-offer"),
-		fooUser.UserTag(),
-		permission.ConsumeAccess,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -615,12 +606,6 @@ func (s *MigrationExportSuite) TestApplicationExposingOffers(c *gc.C) {
 	endpoints := appOffers[0].Endpoints()
 	sort.Strings(endpoints)
 	c.Assert(endpoints, gc.DeepEquals, []string{"server", "server-admin"})
-
-	appACL := appOffers[0].ACL()
-	c.Assert(appACL, gc.DeepEquals, map[string]string{
-		"admin": "admin",
-		"foo":   "consume",
-	})
 }
 
 func (s *MigrationExportSuite) TestUnits(c *gc.C) {
