@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
 	envtesting "github.com/juju/testing"
@@ -282,6 +281,51 @@ func (s *RunMockContextSuite) TestRunActionFlushSuccess(c *gc.C) {
 	s.assertRecordedPid(c, ctx.expectPid)
 }
 
+func (s *RunMockContextSuite) TestRunActionFlushCharmActionsCAASSuccess(c *gc.C) {
+	expectErr := errors.New("pew pew pew")
+	ctx := &MockContext{
+		flushResult: expectErr,
+		actionData:  &context.ActionData{},
+		modelType:   model.CAAS,
+	}
+	makeCharm(c, hookSpec{
+		dir:  "actions",
+		name: hookName,
+		perm: 0700,
+	}, s.paths.GetCharmDir())
+
+	execFuncCalled := false
+	c.Assert(execFuncCalled, jc.IsFalse)
+	execFunc := func(params runner.ExecParams) (*exec.ExecResponse, error) {
+		execFuncCalled = true
+		return &exec.ExecResponse{
+			Stdout: bytes.NewBufferString("1").Bytes(),
+		}, nil
+	}
+	actualErr := runner.NewRunner(ctx, s.paths, execFunc).RunAction("something-happened")
+	c.Assert(execFuncCalled, jc.IsTrue)
+	c.Assert(actualErr, gc.Equals, expectErr)
+	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
+	c.Assert(ctx.flushFailure, gc.IsNil)
+}
+
+func (s *RunMockContextSuite) TestRunActionFlushCharmActionsCAASFailed(c *gc.C) {
+	ctx := &MockContext{
+		flushResult: errors.New("pew pew pew"),
+		actionData:  &context.ActionData{},
+		modelType:   model.CAAS,
+	}
+	makeCharm(c, hookSpec{
+		dir:  "actions",
+		name: hookName,
+		perm: 0700,
+	}, s.paths.GetCharmDir())
+	actualErr := runner.NewRunner(ctx, s.paths, nil).RunAction("something-happened")
+	c.Assert(actualErr, gc.Equals, ctx.flushResult)
+	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
+	c.Assert(ctx.flushFailure, jc.Satisfies, errors.IsNotSupported)
+}
+
 func (s *RunMockContextSuite) TestRunActionFlushFailure(c *gc.C) {
 	expectErr := errors.New("pew pew pew")
 	ctx := &MockContext{
@@ -383,14 +427,7 @@ func (s *RunMockContextSuite) TestRunActionCAASSuccess(c *gc.C) {
 		},
 		actionResults: map[string]interface{}{},
 	}
-	execFunc := func(
-		commands []string,
-		env []string,
-		workingDir string,
-		clock clock.Clock,
-		processSetter func(context.HookProcess),
-		cancel <-chan struct{},
-	) (*exec.ExecResponse, error) {
+	execFunc := func(params runner.ExecParams) (*exec.ExecResponse, error) {
 		return &exec.ExecResponse{
 			Stdout: bytes.NewBufferString("1").Bytes(),
 		}, nil

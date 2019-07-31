@@ -4,11 +4,10 @@
 package caasoperator
 
 import (
-	"bytes"
+	"io"
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	utilexec "github.com/juju/utils/exec"
 	"gopkg.in/juju/names.v2"
@@ -16,13 +15,12 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/runner"
-	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 func ensurePath(
 	client exec.Executor,
 	podName string,
-	stdout, stderr bytes.Buffer,
+	stdout, stderr io.Writer,
 	cancel <-chan struct{},
 	path string,
 ) error {
@@ -30,12 +28,12 @@ func ensurePath(
 		exec.ExecParams{
 			PodName:  podName,
 			Commands: []string{"mkdir", "-p", path},
-			Stdout:   &stdout,
-			Stderr:   &stderr,
+			Stdout:   stdout,
+			Stderr:   stderr,
 		},
 		cancel,
 	)
-	logger.Debugf("ensuring %q %q", path, stderr.String())
+	logger.Debugf("ensuring %q %q", path)
 	return errors.Trace(err)
 }
 
@@ -48,7 +46,7 @@ type symlink struct {
 func ensureSymlinks(
 	client exec.Executor,
 	podName string,
-	stdout, stderr bytes.Buffer,
+	stdout, stderr io.Writer,
 	cancel <-chan struct{},
 	links []symlink,
 ) error {
@@ -63,8 +61,8 @@ func ensureSymlinks(
 		exec.ExecParams{
 			PodName:  podName,
 			Commands: []string{strings.Join(commands, " && ")},
-			Stdout:   &stdout,
-			Stderr:   &stderr,
+			Stdout:   stdout,
+			Stderr:   stderr,
 		},
 		cancel,
 	)
@@ -112,23 +110,15 @@ func fetchPodNameForUnit(c UnitGetter, tag names.UnitTag) (string, error) {
 //go:generate mockgen -package mocks -destination mocks/exec_mock.go github.com/juju/juju/caas/kubernetes/provider/exec Executor
 func getNewRunnerExecutor(execClient exec.Executor, uniterGetter UnitGetter, dataDir string) func(unit names.UnitTag, paths uniter.Paths) runner.ExecFunc {
 	return func(unit names.UnitTag, paths uniter.Paths) runner.ExecFunc {
-		return func(
-			commands []string,
-			env []string,
-			workingDir string,
-			clock clock.Clock,
-			_ func(context.HookProcess),
-			cancel <-chan struct{},
-		) (*utilexec.ExecResponse, error) {
+		return func(params runner.ExecParams) (*utilexec.ExecResponse, error) {
 
 			podName, err := fetchPodNameForUnit(uniterGetter, unit)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			var stdout, stderr bytes.Buffer
 			// ensuring data dir.
-			if err := ensurePath(execClient, podName, stdout, stderr, cancel, dataDir); err != nil {
+			if err := ensurePath(execClient, podName, params.Stdout, params.Stderr, params.Cancel, dataDir); err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -136,7 +126,7 @@ func getNewRunnerExecutor(execClient exec.Executor, uniterGetter UnitGetter, dat
 			// TODO(caas): add a new cmd for checking jujud version, charm/version etc.
 			// exec run this new cmd to decide if we need re-push files or not.
 			if err := syncFiles(
-				execClient, podName, cancel,
+				execClient, podName, params.Cancel,
 				[]string{
 					// TODO(caas): only sync files required for actions/run.
 					filepath.Join(dataDir, "agents"),
@@ -149,20 +139,17 @@ func getNewRunnerExecutor(execClient exec.Executor, uniterGetter UnitGetter, dat
 			if err := execClient.Exec(
 				exec.ExecParams{
 					PodName:    podName,
-					Commands:   commands,
-					WorkingDir: workingDir,
-					Env:        env,
-					Stdout:     &stdout,
-					Stderr:     &stderr,
+					Commands:   params.Commands,
+					WorkingDir: params.WorkingDir,
+					Env:        params.Env,
+					Stdout:     params.Stdout,
+					Stderr:     params.Stderr,
 				},
-				cancel,
+				params.Cancel,
 			); err != nil {
 				return nil, errors.Trace(err)
 			}
-			return &utilexec.ExecResponse{
-				Stdout: stdout.Bytes(),
-				Stderr: stderr.Bytes(),
-			}, nil
+			return &utilexec.ExecResponse{}, nil
 		}
 	}
 }

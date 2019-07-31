@@ -6,6 +6,7 @@ package runner
 import (
 	"encoding/base64"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -66,40 +67,38 @@ func NewRunner(context Context, paths context.Paths, remoteExecutor ExecFunc) Ru
 	return &runner{context, paths, remoteExecutor}
 }
 
+// ExecParams holds all the necessary parameters for ExecFunc.
+type ExecParams struct {
+	Commands      []string
+	Env           []string
+	WorkingDir    string
+	Stdout        io.Writer
+	Stderr        io.Writer
+	Clock         clock.Clock
+	ProcessSetter func(context.HookProcess)
+	Cancel        <-chan struct{}
+}
+
 // execOnMachine executes commands on current machine.
-func execOnMachine(
-	commands []string,
-	env []string,
-	workingDir string,
-	clock clock.Clock,
-	processSetter func(context.HookProcess),
-	cancel <-chan struct{},
-) (*utilexec.ExecResponse, error) {
+func execOnMachine(params ExecParams) (*utilexec.ExecResponse, error) {
 	command := utilexec.RunParams{
-		Commands:    strings.Join(commands, " "),
-		WorkingDir:  workingDir,
-		Environment: env,
-		Clock:       clock,
+		Commands:    strings.Join(params.Commands, " "),
+		WorkingDir:  params.WorkingDir,
+		Environment: params.Env,
+		Clock:       params.Clock,
 	}
 	err := command.Run()
 	if err != nil {
 		return nil, err
 	}
-	// TODO: refactor kill process and implemente kill for caas exec.
-	processSetter(hookProcess{command.Process()})
+	// TODO: refactor kill process and implement kill for caas exec.
+	params.ProcessSetter(hookProcess{command.Process()})
 	// Block and wait for process to finish
-	return command.WaitWithCancel(cancel)
+	return command.WaitWithCancel(params.Cancel)
 }
 
 // ExecFunc is the exec func type.
-type ExecFunc func(
-	commands []string,
-	env []string,
-	workingDir string,
-	clock clock.Clock,
-	processSetter func(context.HookProcess),
-	cancel <-chan struct{},
-) (*utilexec.ExecResponse, error)
+type ExecFunc func(ExecParams) (*utilexec.ExecResponse, error)
 
 // runner implements Runner.
 type runner struct {
@@ -111,6 +110,13 @@ type runner struct {
 
 func (runner *runner) Context() Context {
 	return runner.context
+}
+
+func (runner *runner) getRemoteExecutor() (ExecFunc, error) {
+	if runner.remoteExecutor == nil {
+		return nil, errors.NotSupportedf("run command on remote pod.")
+	}
+	return runner.remoteExecutor, nil
 }
 
 // RunCommands exists to satisfy the Runner interface.
@@ -144,9 +150,19 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 
 	var executor ExecFunc = execOnMachine
 	if runOnRemote {
-		executor = runner.remoteExecutor
+		executor, err = runner.getRemoteExecutor()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
-	return executor([]string{commands}, env, runner.paths.GetCharmDir(), clock, runner.context.SetProcess, cancel)
+	return executor(ExecParams{
+		Commands:      []string{commands},
+		Env:           env,
+		WorkingDir:    runner.paths.GetCharmDir(),
+		Clock:         clock,
+		ProcessSetter: runner.context.SetProcess,
+		Cancel:        cancel,
+	})
 }
 
 // runJujuRunAction is the function that executes when a juju-run action is ran.
@@ -219,7 +235,6 @@ func (runner *runner) updateActionResults(results *utilexec.ExecResponse) error 
 			return errors.Trace(err)
 		}
 	}
-
 	return nil
 }
 
@@ -274,8 +289,35 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 }
 
 func (runner *runner) runCharmHookOnRemote(hookName string, env []string, charmLocation string) error {
-	// TODO(caas): use exec framework to run on workload pod.
-	return errors.NotSupportedf("run charm hook %q on workload pod", hookName)
+	charmDir := runner.paths.GetCharmDir()
+	hook := filepath.Join(charmDir, filepath.Join(charmLocation, hookName))
+
+	var cancel chan struct{}
+	outReader, outWriter, err := os.Pipe()
+	if err != nil {
+		return errors.Errorf("cannot make logging pipe: %v", err)
+	}
+	defer outWriter.Close()
+
+	hookLogger := charmrunner.NewHookLogger(runner.getLogger(hookName), outReader)
+	defer hookLogger.Stop()
+	go hookLogger.Run()
+
+	executor, err := runner.getRemoteExecutor()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, err = executor(
+		ExecParams{
+			Commands:   []string{hook},
+			Env:        env,
+			WorkingDir: charmDir,
+			Stdout:     outWriter,
+			Stderr:     outWriter,
+			Cancel:     cancel,
+		},
+	)
+	return errors.Trace(err)
 }
 
 func (runner *runner) runCharmHookOnLocal(hookName string, env []string, charmLocation string) error {

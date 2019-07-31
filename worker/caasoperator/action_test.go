@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/caasoperator/mocks"
 	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 type actionSuite struct {
@@ -80,7 +81,13 @@ func (s *actionSuite) TestRunnerExecFunc(c *gc.C) {
 	)
 
 	_, err := runnerExecFuncGetter(
-		[]string{"storage-list"}, []string{"AAAA=1111"}, "", nil, nil, cancel,
+		runner.ExecParams{
+			Commands: []string{"storage-list"},
+			Env:      []string{"AAAA=1111"},
+			Stdout:   &stdout,
+			Stderr:   &stderr,
+			Cancel:   cancel,
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.client.CheckCall(c, 0, "Units", []names.Tag{gitlabTag})
