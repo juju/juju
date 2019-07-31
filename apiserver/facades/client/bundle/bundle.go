@@ -290,14 +290,13 @@ type bundleOutput struct {
 	Type         string                            `yaml:"bundle,omitempty"`
 	Description  string                            `yaml:"description,omitempty"`
 	Series       string                            `yaml:"series,omitempty"`
-	Saas         map[string]*charm.SaasSpec        `yaml:"saas,omitempty"`
 	Applications map[string]*charm.ApplicationSpec `yaml:"applications,omitempty"`
 	Machines     map[string]*charm.MachineSpec     `yaml:"machines,omitempty"`
 	Relations    [][]string                        `yaml:"relations,omitempty"`
 }
 
-// ExportBundle is not in V1 API.
 // Mask the new method from V1 API.
+// ExportBundle is not in V1 API.
 func (u *APIv1) ExportBundle() (_, _ struct{}) { return }
 
 func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, error) {
@@ -309,7 +308,6 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, erro
 	defaultSeries := fmt.Sprintf("%v", value)
 
 	data := &bundleOutput{
-		Saas:         make(map[string]*charm.SaasSpec),
 		Applications: make(map[string]*charm.ApplicationSpec),
 		Machines:     make(map[string]*charm.MachineSpec),
 		Relations:    [][]string{},
@@ -431,15 +429,6 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, erro
 		}
 
 		data.Machines[machine.Id()] = newMachine
-	}
-
-	if featureflag.Enabled(feature.CMRAwareBundles) {
-		for _, application := range model.RemoteApplications() {
-			newSaas := &charm.SaasSpec{
-				URL: application.URL(),
-			}
-			data.Saas[application.Name()] = newSaas
-		}
 	}
 	// If there is only one series used, make it the default and remove
 	// series from all the apps and machines.
