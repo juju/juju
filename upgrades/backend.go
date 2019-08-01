@@ -71,6 +71,7 @@ type StateBackend interface {
 	ChangeSubnetSpaceNameToSpaceID() error
 	AddSubnetIdToSubnetDocs() error
 	ReplacePortsDocSubnetIDCIDR() error
+	EnsureRelationApplicationSettings() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -283,4 +284,8 @@ func (s stateBackend) AddSubnetIdToSubnetDocs() error {
 
 func (s stateBackend) ReplacePortsDocSubnetIDCIDR() error {
 	return state.ReplacePortsDocSubnetIDCIDR(s.pool)
+}
+
+func (s stateBackend) EnsureRelationApplicationSettings() error {
+	return state.EnsureRelationApplicationSettings(s.pool)
 }

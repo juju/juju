@@ -2543,3 +2543,52 @@ func ReplacePortsDocSubnetIDCIDR(pool *StatePool) (err error) {
 		return nil
 	}))
 }
+
+// EnsureRelationApplicationSettings creates an application settings
+// doc for each endpoint in each relation if one doesn't already
+// exist.
+func EnsureRelationApplicationSettings(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		settingsCol, closer := st.db().GetCollection(settingsC)
+		defer closer()
+
+		allSettings := set.NewStrings()
+		settingsIter := settingsCol.Find(nil).Iter()
+		defer settingsIter.Close()
+
+		var doc struct {
+			ID string `bson:"_id"`
+		}
+		for settingsIter.Next(&doc) {
+			allSettings.Add(doc.ID)
+		}
+		if err := settingsIter.Close(); err != nil {
+			return errors.Trace(err)
+		}
+
+		relations, err := st.AllRelations()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, rel := range relations {
+			if rel.Life() != Alive {
+				continue
+			}
+			for _, ep := range rel.Endpoints() {
+				key := relationApplicationSettingsKey(rel.Id(), ep)
+				id := st.docID(key)
+				if allSettings.Contains(id) {
+					continue
+				}
+				ops = append(ops, createSettingsOp(settingsC, key, nil))
+			}
+		}
+
+		if len(ops) == 0 {
+			return nil
+		}
+		return errors.Trace(st.db().RunTransaction(ops))
+	}))
+}
