@@ -272,11 +272,11 @@ func (s *CAASOperatorSuite) TestModel(c *gc.C) {
 	})
 }
 
-func (s *CAASOperatorSuite) TestUnits(c *gc.C) {
+func (s *CAASOperatorSuite) TestUnitsStatus(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-gitlab-0"},
 	}}
-	result, err := s.facade.Units(args)
+	result, err := s.facade.UnitsStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.UnitStatusResults{
 		Results: []params.UnitStatusResult{

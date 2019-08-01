@@ -5437,7 +5437,7 @@
     },
     {
         "Name": "CAASOperator",
-        "Version": 2,
+        "Version": 1,
         "Schema": {
             "type": "object",
             "properties": {
@@ -5539,7 +5539,7 @@
                         }
                     }
                 },
-                "Units": {
+                "UnitsStatus": {
                     "type": "object",
                     "properties": {
                         "Params": {

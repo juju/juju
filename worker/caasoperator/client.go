@@ -43,7 +43,7 @@ type CharmGetter interface {
 type UnitGetter interface {
 	WatchUnits(string) (watcher.StringsWatcher, error)
 	Life(string) (life.Value, error)
-	Units(units ...names.Tag) (params.UnitStatusResults, error)
+	UnitsStatus(units ...names.Tag) (params.UnitStatusResults, error)
 }
 
 // UnitRemover provides an interface for

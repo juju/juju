@@ -33,34 +33,11 @@ type Facade struct {
 	model Model
 }
 
-// FacadeV1 provides v1 of the CAASOperator facade.
-type FacadeV1 struct {
-	*FacadeV2
-}
-
-// FacadeV2 provides the latest(v2) of the CAASOperator facade.
-type FacadeV2 struct {
-	*Facade
-}
-
-// NewStateFacadeV1 returns a new CAASOperator facade for version 1.
-func NewStateFacadeV1(ctx facade.Context) (*FacadeV1, error) {
-	facadeV2, err := NewStateFacadeV2(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &FacadeV1{facadeV2}, nil
-}
-
-// NewStateFacadeV2 returns a new CAASOperator facade for version 2.
-func NewStateFacadeV2(ctx facade.Context) (*FacadeV2, error) {
+// NewStateFacade returns a new CAASOperator facade for version 2.
+func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
-	facade, err := NewFacade(resources, authorizer, stateShim{ctx.State()})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &FacadeV2{facade}, nil
+	return NewFacade(resources, authorizer, stateShim{ctx.State()})
 }
 
 // NewFacade returns a new CAASOperator facade.
@@ -261,11 +238,8 @@ func (f *Facade) WatchUnits(args params.Entities) (params.StringsWatchResults, e
 	return results, nil
 }
 
-// Units isn't on the V1 facade.
-func (f *FacadeV1) Units(_, _ struct{}) {}
-
-// Units returns units' status.
-func (f *Facade) Units(args params.Entities) (params.UnitStatusResults, error) {
+// UnitsStatus returns units' status.
+func (f *Facade) UnitsStatus(args params.Entities) (params.UnitStatusResults, error) {
 	results := params.UnitStatusResults{
 		Results: make([]params.UnitStatusResult, len(args.Entities)),
 	}

@@ -113,8 +113,8 @@ func (c *fakeClient) WatchUnits(application string) (watcher.StringsWatcher, err
 	return c.unitsWatcher, nil
 }
 
-func (c *fakeClient) Units(units ...names.Tag) (params.UnitStatusResults, error) {
-	c.MethodCall(c, "Units", units)
+func (c *fakeClient) UnitsStatus(units ...names.Tag) (params.UnitStatusResults, error) {
+	c.MethodCall(c, "UnitsStatus", units)
 	if err := c.NextErr(); err != nil {
 		return params.UnitStatusResults{}, err
 	}

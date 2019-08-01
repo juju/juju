@@ -208,14 +208,15 @@ func getValidatedPodContainer(
 		logger.Debugf("no pod named %q found", podName)
 		logger.Debugf("try get pod by UID for %q", podName)
 		pods, err := podGetter.List(metav1.ListOptions{})
-		// TODO(caas): remove getting pod by Id (a bit expensive) once we started to cache podName in cloudContainer doc.
+		// TODO(caas): remove getting pod by Id (a bit expensive) once we started to store podName in cloudContainer doc.
 		if err != nil {
 			return "", "", errors.Trace(err)
 		}
-		for _, p := range pods.Items {
-			if string(p.GetUID()) == podName {
+		for _, v := range pods.Items {
+			if string(v.GetUID()) == podName {
+				p := &v
 				podName = p.GetName()
-				pod = &p
+				pod = p
 				break
 			}
 		}
