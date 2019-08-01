@@ -258,19 +258,21 @@ func (s *JujuConnSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
 // want to do things with those models where the actions may touch
 // the model cache.
 func (s *JujuConnSuite) EnsureCachedModel(c *gc.C, uuid string) {
-	start := time.Now()
+	timeout := time.After(testing.LongWait)
+	retry := time.After(0)
 	for {
-		_, err := s.Controller.Model(uuid)
-		if err == nil {
-			break
-		}
-		if errors.IsNotFound(err) {
-			time.Sleep(testing.ShortWait)
-		} else {
-			c.Errorf("problem getting model from cache: %v", err)
-		}
-		if time.Now().Sub(start) > testing.LongWait {
-			c.Errorf("model %v not seen in cache", uuid)
+		select {
+		case <-retry:
+			_, err := s.Controller.Model(uuid)
+			if err == nil {
+				return
+			}
+			if !errors.IsNotFound(err) {
+				c.Fatalf("problem getting model from cache: %v", err)
+			}
+			retry = time.After(testing.ShortWait)
+		case <-timeout:
+			c.Fatalf("model %v not seen in cache after %v", uuid, testing.LongWait)
 		}
 	}
 }
