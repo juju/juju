@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -54,7 +55,7 @@ func (inst *environInstance) Status(ctx context.ProviderCallContext) instance.St
 }
 
 // Addresses implements instances.Instance.
-func (inst *environInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
+func (inst *environInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
 	return inst.base.Addresses(), nil
 }
 

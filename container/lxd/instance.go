@@ -11,6 +11,7 @@ import (
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -33,7 +34,7 @@ func (*lxdInstance) Refresh() error {
 	return nil
 }
 
-func (lxd *lxdInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
+func (lxd *lxdInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
 	return nil, errors.NotImplementedf("lxdInstance.Addresses")
 }
 

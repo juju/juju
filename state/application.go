@@ -30,9 +30,9 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
 )

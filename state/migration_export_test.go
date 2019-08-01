@@ -25,11 +25,10 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/provider/dummy"
@@ -737,7 +736,7 @@ func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {
 
 func (s *MigrationExportSuite) TestEndpointBindings(c *gc.C) {
 	s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "one", ProviderID: corenetwork.Id("provider"), IsPublic: true})
+		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
 	state.AddTestingApplicationWithBindings(
 		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
 		map[string]string{"db": "one"})
@@ -883,7 +882,7 @@ func (s *MigrationExportSuite) TestSubordinateRelations(c *gc.C) {
 
 func (s *MigrationExportSuite) TestSpaces(c *gc.C) {
 	s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "one", ProviderID: corenetwork.Id("provider"), IsPublic: true})
+		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1020,10 +1019,10 @@ func (s *MigrationBaseSuite) TestRelationScopeSkipped(c *gc.C) {
 func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 	// TODO (hml) 2019-07-25
 	// Add SpaceID once migration piece done.
-	sn := corenetwork.SubnetInfo{
+	sn := network.SubnetInfo{
 		CIDR:              "10.0.0.0/24",
-		ProviderId:        corenetwork.Id("foo"),
-		ProviderNetworkId: corenetwork.Id("rust"),
+		ProviderId:        network.Id("foo"),
+		ProviderNetworkId: network.Id("rust"),
 		VLANTag:           64,
 		AvailabilityZones: []string{"bar"},
 	}
@@ -1053,7 +1052,7 @@ func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	_, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "0.1.2.0/24"})
+	_, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "0.1.2.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name: "foo",
@@ -1094,7 +1093,7 @@ func (s *MigrationExportSuite) TestIPAddressesSkipped(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	_, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "0.1.2.0/24"})
+	_, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "0.1.2.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name: "foo",
@@ -1873,10 +1872,10 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 				"thing2":  "halberd",
 				"network": "network-1",
 			},
-			SpaceInfo: corenetwork.SpaceInfo{
+			SpaceInfo: network.SpaceInfo{
 				Name:       "public",
 				ProviderId: "juju-space-public",
-				Subnets: []corenetwork.SubnetInfo{{
+				Subnets: []network.SubnetInfo{{
 					ProviderId:        "juju-subnet-12",
 					CIDR:              "1.2.3.0/24",
 					AvailabilityZones: []string{"az1", "az2"},
@@ -1891,10 +1890,10 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 				"thing2":  "bardiche",
 				"network": "network-1",
 			},
-			SpaceInfo: corenetwork.SpaceInfo{
+			SpaceInfo: network.SpaceInfo{
 				Name:       "private",
 				ProviderId: "juju-space-private",
-				Subnets: []corenetwork.SubnetInfo{{
+				Subnets: []network.SubnetInfo{{
 					ProviderId:        "juju-subnet-24",
 					CIDR:              "1.2.4.0/24",
 					AvailabilityZones: []string{"az1", "az2"},

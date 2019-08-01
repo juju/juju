@@ -148,8 +148,8 @@ func instancePublicIPAddresses(
 }
 
 // Addresses is specified in the Instance interface.
-func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) ([]jujunetwork.Address, error) {
-	addresses := make([]jujunetwork.Address, 0, len(inst.networkInterfaces)+len(inst.publicIPAddresses))
+func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
+	addresses := make([]corenetwork.Address, 0, len(inst.networkInterfaces)+len(inst.publicIPAddresses))
 	for _, nic := range inst.networkInterfaces {
 		if nic.IPConfigurations == nil {
 			continue
@@ -159,9 +159,9 @@ func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) ([]jujunet
 			if privateIpAddress == nil {
 				continue
 			}
-			addresses = append(addresses, jujunetwork.NewScopedAddress(
+			addresses = append(addresses, corenetwork.NewScopedAddress(
 				to.String(privateIpAddress),
-				jujunetwork.ScopeCloudLocal,
+				corenetwork.ScopeCloudLocal,
 			))
 		}
 	}
@@ -169,9 +169,9 @@ func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) ([]jujunet
 		if pip.IPAddress == nil {
 			continue
 		}
-		addresses = append(addresses, jujunetwork.NewScopedAddress(
+		addresses = append(addresses, corenetwork.NewScopedAddress(
 			to.String(pip.IPAddress),
-			jujunetwork.ScopePublic,
+			corenetwork.ScopePublic,
 		))
 	}
 	return addresses, nil
@@ -180,7 +180,7 @@ func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) ([]jujunet
 // primaryNetworkAddress returns the instance's primary jujunetwork.Address for
 // the internal virtual network. This address is used to identify the machine in
 // network security rules.
-func (inst *azureInstance) primaryNetworkAddress() (jujunetwork.Address, error) {
+func (inst *azureInstance) primaryNetworkAddress() (corenetwork.Address, error) {
 	for _, nic := range inst.networkInterfaces {
 		if nic.IPConfigurations == nil {
 			continue
@@ -196,13 +196,13 @@ func (inst *azureInstance) primaryNetworkAddress() (jujunetwork.Address, error) 
 			if privateIpAddress == nil {
 				continue
 			}
-			return jujunetwork.NewScopedAddress(
+			return corenetwork.NewScopedAddress(
 				to.String(privateIpAddress),
-				jujunetwork.ScopeCloudLocal,
+				corenetwork.ScopeCloudLocal,
 			), nil
 		}
 	}
-	return jujunetwork.Address{}, errors.NotFoundf("internal network address")
+	return corenetwork.Address{}, errors.NotFoundf("internal network address")
 }
 
 // OpenPorts is specified in the Instance interface.

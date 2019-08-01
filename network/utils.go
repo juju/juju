@@ -12,12 +12,14 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/core/network"
 )
 
 // DNSConfig holds a list of DNS nameserver addresses and default search
 // domains.
 type DNSConfig struct {
-	Nameservers   []Address
+	Nameservers   []network.Address
 	SearchDomains []string
 }
 
@@ -86,7 +88,7 @@ func ParseResolvConf(path string) (*DNSConfig, error) {
 	}
 
 	return &DNSConfig{
-		Nameservers:   NewAddresses(nameservers...),
+		Nameservers:   network.NewAddresses(nameservers...),
 		SearchDomains: searchDomains,
 	}, nil
 }

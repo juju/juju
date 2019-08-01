@@ -193,12 +193,12 @@ type InterfaceInfo struct {
 	// Address contains an optional static IP address to configure for
 	// this network interface. The subnet mask to set will be inferred
 	// from the CIDR value.
-	Address Address
+	Address corenetwork.Address
 
 	// DNSServers contains an optional list of IP addresses and/or
 	// hostnames to configure as DNS servers for this network
 	// interface.
-	DNSServers []Address
+	DNSServers []corenetwork.Address
 
 	// MTU is the Maximum Transmission Unit controlling the maximum size of the
 	// protocol packats that the interface can pass through. It is only used
@@ -212,7 +212,7 @@ type InterfaceInfo struct {
 	// Gateway address, if set, defines the default gateway to
 	// configure for this network interface. For containers this
 	// usually is (one of) the host address(es).
-	GatewayAddress Address
+	GatewayAddress corenetwork.Address
 
 	// Routes defines a list of routes that should be added when this interface
 	// is brought up, and removed when this interface is stopped.
@@ -424,8 +424,8 @@ func addrMapToIPNetAndName(bridgeToAddrs map[string][]net.Addr) []ipNetAndName {
 // that line up with removeAddresses. Note that net.Addr may be just an IP or
 // may be a CIDR.  removeAddresses should be a map of 'bridge name' to list of
 // addresses, so that we can report why the address was filtered.
-func filterAddrs(allAddresses []Address, removeAddresses map[string][]net.Addr) []Address {
-	filtered := make([]Address, 0, len(allAddresses))
+func filterAddrs(allAddresses []corenetwork.Address, removeAddresses map[string][]net.Addr) []corenetwork.Address {
+	filtered := make([]corenetwork.Address, 0, len(allAddresses))
 	// Convert all
 	ipNets := addrMapToIPNetAndName(removeAddresses)
 	for _, addr := range allAddresses {
@@ -506,7 +506,7 @@ func gatherBridgeAddresses(bridgeName string, toRemove map[string][]net.Addr) {
 // FilterBridgeAddresses removes addresses seen as a Bridge address (the IP
 // address used only to connect to local containers), rather than a remote
 // accessible address.
-func FilterBridgeAddresses(addresses []Address) []Address {
+func FilterBridgeAddresses(addresses []corenetwork.Address) []corenetwork.Address {
 	addressesToRemove := make(map[string][]net.Addr)
 	gatherLXCAddresses(addressesToRemove)
 	gatherBridgeAddresses(DefaultLXDBridge, addressesToRemove)

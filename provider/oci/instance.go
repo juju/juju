@@ -15,6 +15,7 @@ import (
 	ociCore "github.com/oracle/oci-go-sdk/core"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
@@ -133,27 +134,27 @@ func (o *ociInstance) getVnics() ([]vnicWithIndex, error) {
 	return nics, nil
 }
 
-func (o *ociInstance) getAddresses() ([]network.Address, error) {
+func (o *ociInstance) getAddresses() ([]corenetwork.Address, error) {
 	vnics, err := o.getVnics()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var addresses []network.Address
+	var addresses []corenetwork.Address
 	for _, val := range vnics {
 		if val.Vnic.PrivateIp != nil {
-			privateAddress := network.Address{
+			privateAddress := corenetwork.Address{
 				Value: *val.Vnic.PrivateIp,
-				Type:  network.IPv4Address,
-				Scope: network.ScopeCloudLocal,
+				Type:  corenetwork.IPv4Address,
+				Scope: corenetwork.ScopeCloudLocal,
 			}
 			addresses = append(addresses, privateAddress)
 		}
 		if val.Vnic.PublicIp != nil {
-			publicAddress := network.Address{
+			publicAddress := corenetwork.Address{
 				Value: *val.Vnic.PublicIp,
-				Type:  network.IPv4Address,
-				Scope: network.ScopePublic,
+				Type:  corenetwork.IPv4Address,
+				Scope: corenetwork.ScopePublic,
 			}
 			addresses = append(addresses, publicAddress)
 		}
@@ -162,7 +163,7 @@ func (o *ociInstance) getAddresses() ([]network.Address, error) {
 }
 
 // Addresses implements instances.Instance
-func (o *ociInstance) Addresses(ctx envcontext.ProviderCallContext) ([]network.Address, error) {
+func (o *ociInstance) Addresses(ctx envcontext.ProviderCallContext) ([]corenetwork.Address, error) {
 	addresses, err := o.getAddresses()
 	ocicommon.HandleCredentialError(err, ctx)
 	return addresses, err
@@ -192,7 +193,7 @@ func (o *ociInstance) waitForPublicIP(ctx envcontext.ProviderCallContext) error 
 		}
 
 		for _, val := range addresses {
-			if val.Scope == network.ScopePublic {
+			if val.Scope == corenetwork.ScopePublic {
 				logger.Infof("Found public IP: %s", val)
 				return nil
 			}
@@ -359,7 +360,7 @@ func (o *ociInstance) getInstanceConfigurator(
 	// so the cloud-local IPs are no good if a controller is trying to
 	// configure an instance in another model.
 	for _, addr := range addresses {
-		if addr.Scope == network.ScopePublic {
+		if addr.Scope == corenetwork.ScopePublic {
 			return o.newInstanceConfigurator(addr.Value), nil
 		}
 	}

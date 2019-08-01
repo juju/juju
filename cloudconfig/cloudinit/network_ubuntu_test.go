@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/container"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 )
@@ -71,10 +72,10 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 		CIDR:             "0.1.2.0/24",
 		ConfigType:       network.ConfigStatic,
 		NoAutoStart:      false,
-		Address:          network.NewAddress("0.1.2.3"),
-		DNSServers:       network.NewAddresses("ns1.invalid", "ns2.invalid"),
+		Address:          corenetwork.NewAddress("0.1.2.3"),
+		DNSServers:       corenetwork.NewAddresses("ns1.invalid", "ns2.invalid"),
 		DNSSearchDomains: []string{"foo", "bar"},
-		GatewayAddress:   network.NewAddress("0.1.2.1"),
+		GatewayAddress:   corenetwork.NewAddress("0.1.2.1"),
 		MACAddress:       "aa:bb:cc:dd:ee:f0",
 		MTU:              8317,
 	}, {
@@ -82,10 +83,10 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 		CIDR:             "0.2.2.0/24",
 		ConfigType:       network.ConfigStatic,
 		NoAutoStart:      false,
-		Address:          network.NewAddress("0.2.2.4"),
-		DNSServers:       network.NewAddresses("ns1.invalid", "ns2.invalid"),
+		Address:          corenetwork.NewAddress("0.2.2.4"),
+		DNSServers:       corenetwork.NewAddresses("ns1.invalid", "ns2.invalid"),
 		DNSSearchDomains: []string{"foo", "bar"},
-		GatewayAddress:   network.NewAddress("0.2.2.1"),
+		GatewayAddress:   corenetwork.NewAddress("0.2.2.1"),
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
 		Routes: []network.Route{{
 			DestinationCIDR: "0.5.6.0/24",
@@ -113,8 +114,8 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 		MACAddress:     "aa:bb:cc:dd:ee:f5",
 		NoAutoStart:    false,
 		CIDR:           "2001:db8::/64",
-		Address:        network.NewAddress("2001:db8::dead:beef"),
-		GatewayAddress: network.NewAddress("2001:db8::dead:f00"),
+		Address:        corenetwork.NewAddress("2001:db8::dead:beef"),
+		GatewayAddress: corenetwork.NewAddress("2001:db8::dead:f00"),
 	}}
 
 	for _, version := range []string{

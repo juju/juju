@@ -17,7 +17,7 @@ import (
 	"github.com/juju/loggo"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	jujussh "github.com/juju/juju/network/ssh"
 )
 

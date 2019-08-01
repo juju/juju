@@ -9,8 +9,8 @@ import (
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/network"
 )
 
 // environMongo implements state/lease.Mongo to expose environ-filtered mongo

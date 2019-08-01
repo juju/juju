@@ -20,8 +20,8 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/utils/proxy"
 
 	lxdclient "github.com/lxc/lxd/client"

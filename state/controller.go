@@ -14,7 +14,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	jujucontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 const (

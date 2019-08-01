@@ -23,8 +23,8 @@ type interfacesSuite struct {
 
 var _ = gc.Suite(&interfacesSuite{})
 
-func newAddressOnSpaceWithId(space string, id corenetwork.Id, address string) network.Address {
-	newAddress := network.NewAddressOnSpace(space, address)
+func newAddressOnSpaceWithId(space string, id corenetwork.Id, address string) corenetwork.Address {
+	newAddress := corenetwork.NewAddressOnSpace(space, address)
 	newAddress.SpaceProviderId = id
 	return newAddress
 }
@@ -432,11 +432,11 @@ var exampleParsedInterfaceSetJSON = []network.InterfaceInfo{{
 	Disabled:          false,
 	NoAutoStart:       false,
 	ConfigType:        "static",
-	Address:           network.NewAddressOnSpace("default", "10.20.19.103"),
-	DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+	Address:           corenetwork.NewAddressOnSpace("default", "10.20.19.103"),
+	DNSServers:        corenetwork.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
 	DNSSearchDomains:  nil,
 	MTU:               1500,
-	GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+	GatewayAddress:    corenetwork.NewAddressOnSpace("default", "10.20.19.2"),
 }, {
 	DeviceIndex:       0,
 	MACAddress:        "52:54:00:70:9b:fe",
@@ -452,11 +452,11 @@ var exampleParsedInterfaceSetJSON = []network.InterfaceInfo{{
 	Disabled:          false,
 	NoAutoStart:       false,
 	ConfigType:        "static",
-	Address:           network.NewAddressOnSpace("default", "10.20.19.104"),
-	DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+	Address:           corenetwork.NewAddressOnSpace("default", "10.20.19.104"),
+	DNSServers:        corenetwork.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
 	DNSSearchDomains:  nil,
 	MTU:               1500,
-	GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+	GatewayAddress:    corenetwork.NewAddressOnSpace("default", "10.20.19.2"),
 }, {
 	DeviceIndex:         1,
 	MACAddress:          "52:54:00:70:9b:fe",
@@ -473,11 +473,11 @@ var exampleParsedInterfaceSetJSON = []network.InterfaceInfo{{
 	Disabled:            false,
 	NoAutoStart:         false,
 	ConfigType:          "static",
-	Address:             network.NewAddressOnSpace("admin", "10.50.19.103"),
+	Address:             corenetwork.NewAddressOnSpace("admin", "10.50.19.103"),
 	DNSServers:          nil,
 	DNSSearchDomains:    nil,
 	MTU:                 1500,
-	GatewayAddress:      network.NewAddressOnSpace("admin", "10.50.19.2"),
+	GatewayAddress:      corenetwork.NewAddressOnSpace("admin", "10.50.19.2"),
 }, {
 	DeviceIndex:         2,
 	MACAddress:          "52:54:00:70:9b:fe",
@@ -494,11 +494,11 @@ var exampleParsedInterfaceSetJSON = []network.InterfaceInfo{{
 	Disabled:            false,
 	NoAutoStart:         false,
 	ConfigType:          "static",
-	Address:             network.NewAddressOnSpace("public", "10.100.19.103"),
+	Address:             corenetwork.NewAddressOnSpace("public", "10.100.19.103"),
 	DNSServers:          nil,
 	DNSSearchDomains:    nil,
 	MTU:                 1500,
-	GatewayAddress:      network.NewAddressOnSpace("public", "10.100.19.2"),
+	GatewayAddress:      corenetwork.NewAddressOnSpace("public", "10.100.19.2"),
 }, {
 	DeviceIndex:         3,
 	MACAddress:          "52:54:00:70:9b:fe",
@@ -950,11 +950,11 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("default", "10.20.19.103"),
-		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+		Address:           corenetwork.NewAddressOnSpace("default", "10.20.19.103"),
+		DNSServers:        corenetwork.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
 		DNSSearchDomains:  nil,
 		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+		GatewayAddress:    corenetwork.NewAddressOnSpace("default", "10.20.19.2"),
 	}, {
 		DeviceIndex:       0,
 		MACAddress:        "52:54:00:70:9b:fe",
@@ -970,11 +970,11 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("default", "10.20.19.104"),
-		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+		Address:           corenetwork.NewAddressOnSpace("default", "10.20.19.104"),
+		DNSServers:        corenetwork.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
 		DNSSearchDomains:  nil,
 		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+		GatewayAddress:    corenetwork.NewAddressOnSpace("default", "10.20.19.2"),
 	}, {
 		DeviceIndex:         1,
 		MACAddress:          "52:54:00:70:9b:fe",
@@ -991,11 +991,11 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		Disabled:            false,
 		NoAutoStart:         false,
 		ConfigType:          "static",
-		Address:             network.NewAddressOnSpace("admin", "10.50.19.103"),
+		Address:             corenetwork.NewAddressOnSpace("admin", "10.50.19.103"),
 		DNSServers:          nil,
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
-		GatewayAddress:      network.NewAddressOnSpace("admin", "10.50.19.2"),
+		GatewayAddress:      corenetwork.NewAddressOnSpace("admin", "10.50.19.2"),
 	}, {
 		DeviceIndex:         2,
 		MACAddress:          "52:54:00:70:9b:fe",
@@ -1012,11 +1012,11 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		Disabled:            false,
 		NoAutoStart:         false,
 		ConfigType:          "static",
-		Address:             network.NewAddressOnSpace("public", "10.100.19.103"),
+		Address:             corenetwork.NewAddressOnSpace("public", "10.100.19.103"),
 		DNSServers:          nil,
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
-		GatewayAddress:      network.NewAddressOnSpace("public", "10.100.19.2"),
+		GatewayAddress:      corenetwork.NewAddressOnSpace("public", "10.100.19.2"),
 	}, {
 		DeviceIndex:         3,
 		MACAddress:          "52:54:00:70:9b:fe",
@@ -1100,11 +1100,11 @@ func (s *interfacesSuite) TestMAAS2InterfacesNilVLAN(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("default", "10.20.19.103"),
-		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+		Address:           corenetwork.NewAddressOnSpace("default", "10.20.19.103"),
+		DNSServers:        corenetwork.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
 		DNSSearchDomains:  nil,
 		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+		GatewayAddress:    corenetwork.NewAddressOnSpace("default", "10.20.19.2"),
 	}}
 
 	infos, err := maas2NetworkInterfaces(s.callCtx, instance, map[string]corenetwork.Id{})

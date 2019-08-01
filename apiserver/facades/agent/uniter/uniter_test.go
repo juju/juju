@@ -29,13 +29,12 @@ import (
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
@@ -994,7 +993,7 @@ func (s *uniterSuite) TestOpenPorts(c *gc.C) {
 	// Verify the wordpressUnit's port is opened.
 	openedPorts, err = s.wordpressUnit.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(openedPorts, gc.DeepEquals, []corenetwork.PortRange{
+	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
 		{Protocol: "udp", FromPort: 4321, ToPort: 5000},
 	})
 }
@@ -1005,7 +1004,7 @@ func (s *uniterSuite) TestClosePorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	openedPorts, err := s.wordpressUnit.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(openedPorts, gc.DeepEquals, []corenetwork.PortRange{
+	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
 		{Protocol: "udp", FromPort: 4321, ToPort: 5000},
 	})
 
@@ -3318,7 +3317,7 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 	s.uniterSuiteBase.JujuConnSuite.SetUpTest(c)
 
 	// Add the spaces and subnets used by the test.
-	subnetInfos := []corenetwork.SubnetInfo{{
+	subnetInfos := []network.SubnetInfo{{
 		CIDR:      "8.8.0.0/16",
 		SpaceName: "public",
 	}, {
@@ -3559,7 +3558,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.uniterSuiteBase.JujuConnSuite.SetUpTest(c)
 
 	// Add the spaces and subnets used by the test.
-	subnetInfos := []corenetwork.SubnetInfo{{
+	subnetInfos := []network.SubnetInfo{{
 		CIDR:      "8.8.0.0/16",
 		SpaceName: "public",
 	}, {

@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -103,12 +104,12 @@ var fakeInterfaceInfo = network.InterfaceInfo{
 	MACAddress:     "aa:bb:cc:dd:ee:ff",
 	CIDR:           "0.1.2.0/24",
 	InterfaceName:  "dummy0",
-	Address:        network.NewAddress("0.1.2.3"),
-	GatewayAddress: network.NewAddress("0.1.2.1"),
+	Address:        corenetwork.NewAddress("0.1.2.3"),
+	GatewayAddress: corenetwork.NewAddress("0.1.2.1"),
 	// Explicitly set only DNSServers, but not DNSSearchDomains to test this is
 	// detected and the latter populated by parsing the fake resolv.conf created
 	// by patchResolvConf(). See LP bug http://pad.lv/1575940 for more info.
-	DNSServers:       network.NewAddresses("ns1.dummy"),
+	DNSServers:       corenetwork.NewAddresses("ns1.dummy"),
 	DNSSearchDomains: nil,
 }
 
@@ -266,7 +267,7 @@ func (m *mockInstance) Status(context.ProviderCallContext) instance.Status {
 }
 
 // Addresses implements instances.Instance.Addresses.
-func (m *mockInstance) Addresses(context.ProviderCallContext) ([]network.Address, error) {
+func (m *mockInstance) Addresses(context.ProviderCallContext) ([]corenetwork.Address, error) {
 	return nil, nil
 }
 

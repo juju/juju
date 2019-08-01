@@ -16,9 +16,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/network"
 )
 
 // controllerAddresses returns the list of internal addresses of the state
@@ -365,7 +364,7 @@ func (addr *address) networkAddress() network.Address {
 		Type:            network.AddressType(addr.AddressType),
 		Scope:           network.Scope(addr.Scope),
 		SpaceName:       network.SpaceName(addr.SpaceName),
-		SpaceProviderId: corenetwork.Id(addr.SpaceProviderId),
+		SpaceProviderId: network.Id(addr.SpaceProviderId),
 	}
 }
 

@@ -16,10 +16,10 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasunitprovisioner"
 )

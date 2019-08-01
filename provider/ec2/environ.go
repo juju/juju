@@ -1031,7 +1031,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId inst
 			NoAutoStart:   false,
 			ConfigType:    network.ConfigDHCP,
 			InterfaceType: network.EthernetInterface,
-			Address:       network.NewScopedAddress(iface.PrivateIPAddress, network.ScopeCloudLocal),
+			Address:       corenetwork.NewScopedAddress(iface.PrivateIPAddress, corenetwork.ScopeCloudLocal),
 		}
 	}
 	return result, nil
@@ -2070,7 +2070,7 @@ func (*environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space
 }
 
 // SSHAddresses implements environs.SSHAddresses.
-func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses []network.Address) ([]network.Address, error) {
+func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses []corenetwork.Address) ([]corenetwork.Address, error) {
 	return addresses, nil
 }
 

@@ -18,6 +18,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 )
 
@@ -75,7 +76,7 @@ nameserver 8.8.8.8 #comment #still the same comment
 	result, err := network.ParseResolvConf(fakeConf)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, &network.DNSConfig{
-		Nameservers:   network.NewAddresses("8.8.8.8"),
+		Nameservers:   corenetwork.NewAddresses("8.8.8.8"),
 		SearchDomains: []string{"foo", "example.com", "bar."},
 	})
 }

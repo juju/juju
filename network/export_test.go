@@ -4,7 +4,6 @@
 package network
 
 var (
-	NetLookupIP                    = &netLookupIP
 	NetListen                      = &netListen
 	RunCommand                     = runCommand
 	NewEtcNetworkInterfacesBridger = newEtcNetworkInterfacesBridger

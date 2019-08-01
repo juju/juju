@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -123,7 +124,7 @@ func (env *mockZonedEnviron) DeriveAvailabilityZones(ctx context.ProviderCallCon
 
 type mockInstance struct {
 	id                 string
-	addresses          []network.Address
+	addresses          []corenetwork.Address
 	addressesErr       error
 	dnsName            string
 	dnsNameErr         error
@@ -139,7 +140,7 @@ func (inst *mockInstance) Status(context.ProviderCallContext) instance.Status {
 	return inst.status
 }
 
-func (inst *mockInstance) Addresses(context.ProviderCallContext) ([]network.Address, error) {
+func (inst *mockInstance) Addresses(context.ProviderCallContext) ([]corenetwork.Address, error) {
 	return inst.addresses, inst.addressesErr
 }
 
