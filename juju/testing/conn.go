@@ -253,6 +253,30 @@ func (s *JujuConnSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
 	}
 }
 
+// EnsureCachedModel is used to ensure that the model specified is
+// in the model cache. This is used when tests create models and then
+// want to do things with those models where the actions may touch
+// the model cache.
+func (s *JujuConnSuite) EnsureCachedModel(c *gc.C, uuid string) {
+	timeout := time.After(testing.LongWait)
+	retry := time.After(0)
+	for {
+		select {
+		case <-retry:
+			_, err := s.Controller.Model(uuid)
+			if err == nil {
+				return
+			}
+			if !errors.IsNotFound(err) {
+				c.Fatalf("problem getting model from cache: %v", err)
+			}
+			retry = time.After(testing.ShortWait)
+		case <-timeout:
+			c.Fatalf("model %v not seen in cache after %v", uuid, testing.LongWait)
+		}
+	}
+}
+
 func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
 	owner, err := s.State.ControllerOwner()
 	c.Assert(err, jc.ErrorIsNil)

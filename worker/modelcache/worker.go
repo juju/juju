@@ -29,8 +29,14 @@ type BackingWatcher interface {
 	Stop() error
 }
 
+// Unlocker is used to indicate that the model cache is ready to be used.
+type Unlocker interface {
+	Unlock()
+}
+
 // Config describes the necessary fields for NewWorker.
 type Config struct {
+	InitializedGate      Unlocker
 	Logger               Logger
 	PrometheusRegisterer prometheus.Registerer
 	Cleanup              func()
@@ -49,6 +55,9 @@ type Config struct {
 
 // Validate ensures all the necessary values are specified
 func (c *Config) Validate() error {
+	if c.InitializedGate == nil {
+		return errors.NotValidf("missing initialized gate")
+	}
 	if c.Logger == nil {
 		return errors.NotValidf("missing logger")
 	}
@@ -188,6 +197,7 @@ func (c *cacheWorker) loop() error {
 		}
 	}()
 
+	first := true
 	for {
 		select {
 		case <-c.catacomb.Dying():
@@ -211,6 +221,12 @@ func (c *cacheWorker) loop() error {
 
 			// Evict any stale residents.
 			c.controller.Sweep()
+
+			if first {
+				// Indicate that the cache is now ready to be used.
+				c.config.InitializedGate.Unlock()
+				first = false
+			}
 		}
 	}
 }
