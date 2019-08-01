@@ -93,6 +93,31 @@ func syncFiles(
 	return nil
 }
 
+func prepare(
+	client exec.Executor,
+	podName string,
+	dataDir string,
+	cancel <-chan struct{},
+) error {
+	// ensuring data dir.
+	if err := ensurePath(client, podName, cancel, dataDir); err != nil {
+		return errors.Trace(err)
+	}
+
+	// syncing files.
+	// TODO(caas): add a new cmd for checking jujud version, charm/version etc.
+	// exec run this new cmd to decide if we need re-push files or not.
+	err := syncFiles(
+		client, podName, cancel,
+		[]string{
+			// TODO(caas): only sync files required for actions/run.
+			filepath.Join(dataDir, "agents"),
+			filepath.Join(dataDir, "tools"),
+		},
+	)
+	return errors.Trace(err)
+}
+
 func fetchPodNameForUnit(c UnitGetter, tag names.UnitTag) (string, error) {
 	result, err := c.UnitsStatus(tag.Id())
 	if err != nil {
@@ -118,26 +143,12 @@ func getNewRunnerExecutor(execClient exec.Executor, uniterGetter UnitGetter, dat
 				return nil, errors.Trace(err)
 			}
 
-			// ensuring data dir.
-			if err := ensurePath(execClient, podName, params.Cancel, dataDir); err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			// syncing files.
-			// TODO(caas): add a new cmd for checking jujud version, charm/version etc.
-			// exec run this new cmd to decide if we need re-push files or not.
-			if err := syncFiles(
-				execClient, podName, params.Cancel,
-				[]string{
-					// TODO(caas): only sync files required for actions/run.
-					filepath.Join(dataDir, "agents"),
-					filepath.Join(dataDir, "tools"),
-				},
-			); err != nil {
+			if err := prepare(execClient, podName, dataDir, params.Cancel); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			if params.Stdout != nil && params.Stderr != nil {
+				// run action - stream stdout and stderr to logger.
 				if err := execClient.Exec(
 					exec.ExecParams{
 						PodName:    podName,
@@ -154,6 +165,7 @@ func getNewRunnerExecutor(execClient exec.Executor, uniterGetter UnitGetter, dat
 				return &utilexec.ExecResponse{}, nil
 			}
 
+			// juju run - return stdout and stderr to ExecResponse.
 			var stdout, stderr bytes.Buffer
 			if err := execClient.Exec(
 				exec.ExecParams{

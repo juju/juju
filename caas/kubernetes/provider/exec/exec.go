@@ -39,8 +39,6 @@ type Executor interface {
 	Copy(params CopyParam, cancel <-chan struct{}) error
 }
 
-// // NewInClusterClient returns an executor using in-cluster k8s client.
-
 // GetInClusterClient returns a in-cluster kubernetes clientset.
 func GetInClusterClient() (kubernetes.Interface, *rest.Config, error) {
 	// creates the in-cluster config.
@@ -214,9 +212,9 @@ func getValidatedPodContainer(
 		}
 		for _, v := range pods.Items {
 			if string(v.GetUID()) == podName {
-				p := &v
+				p := v
 				podName = p.GetName()
-				pod = p
+				pod = &p
 				break
 			}
 		}

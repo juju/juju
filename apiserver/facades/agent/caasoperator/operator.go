@@ -33,7 +33,7 @@ type Facade struct {
 	model Model
 }
 
-// NewStateFacade returns a new CAASOperator facade for version 2.
+// NewStateFacade provides the signature required for facade registration.
 func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
