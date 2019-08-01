@@ -6,7 +6,6 @@ package caasoperator
 import (
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
@@ -43,7 +42,7 @@ type CharmGetter interface {
 type UnitGetter interface {
 	WatchUnits(string) (watcher.StringsWatcher, error)
 	Life(string) (life.Value, error)
-	UnitsStatus(units ...names.Tag) (params.UnitStatusResults, error)
+	UnitsStatus(units ...string) (params.UnitStatusResults, error)
 }
 
 // UnitRemover provides an interface for

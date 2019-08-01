@@ -225,7 +225,7 @@ func (s *operatorSuite) TestUnits(c *gc.C) {
 	})
 
 	client := caasoperator.NewClient(apiCaller)
-	result, err := client.UnitsStatus(names.NewUnitTag("gitlab/0"))
+	result, err := client.UnitsStatus("gitlab/0")
 	c.Assert(err, gc.IsNil)
 	c.Logf("%+v", result.Results[0].Result)
 	c.Assert(result, gc.DeepEquals, params.UnitStatusResults{

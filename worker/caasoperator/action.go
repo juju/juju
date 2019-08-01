@@ -94,7 +94,7 @@ func syncFiles(
 }
 
 func fetchPodNameForUnit(c UnitGetter, tag names.UnitTag) (string, error) {
-	result, err := c.UnitsStatus(tag)
+	result, err := c.UnitsStatus(tag.Id())
 	if err != nil {
 		return "", errors.Trace(err)
 	}

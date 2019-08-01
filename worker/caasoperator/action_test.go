@@ -90,5 +90,5 @@ func (s *actionSuite) TestRunnerExecFunc(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.client.CheckCall(c, 0, "UnitsStatus", []names.Tag{gitlabTag})
+	s.client.CheckCall(c, 0, "UnitsStatus", []string{"gitlab-k8s/0"})
 }
