@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -352,14 +353,16 @@ func (s *statusUnitTestSuite) TestWorkloadVersionOkWithUnset(c *gc.C) {
 }
 
 func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
-	c.Skip("this test is quite flaky and causes about 8/10 CI runs to fail")
-
+	s.SetFeatureFlags(feature.Generations)
 	// Create a host model because controller models can't be migrated.
 	state2 := s.Factory.MakeModel(c, nil)
 	defer state2.Close()
 
 	model2, err := state2.Model()
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.State.StartSync()
+	s.WaitForModelWatchersIdle(c, model2.UUID())
 
 	// Get API connection to hosted model.
 	apiInfo := s.APIInfo(c)
@@ -842,6 +845,7 @@ var _ = gc.Suite(&filteringBranchesSuite{})
 
 func (s *filteringBranchesSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.Generations)
 
 	s.appA = "mysql"
 	s.appB = "wordpress"
