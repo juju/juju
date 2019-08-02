@@ -16,13 +16,12 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/caas"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 )
@@ -1182,16 +1181,7 @@ func (context *statusContext) processApplication(application *state.Application)
 			return params.ApplicationStatus{Err: common.ServerError(err)}
 		}
 		if specStr != "" {
-			provider, err := environs.Provider(context.providerType)
-			if err != nil {
-				return params.ApplicationStatus{Err: common.ServerError(err)}
-			}
-			caasProvider, ok := provider.(caas.ContainerEnvironProvider)
-			if !ok {
-				err := errors.NotValidf("container environ provider %T", provider)
-				return params.ApplicationStatus{Err: common.ServerError(err)}
-			}
-			spec, err := caasProvider.ParsePodSpec(specStr)
+			spec, err := k8sprovider.ParsePodSpec(specStr)
 			if err != nil {
 				return params.ApplicationStatus{Err: common.ServerError(err)}
 			}

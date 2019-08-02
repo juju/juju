@@ -10,9 +10,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/caas"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -176,19 +175,6 @@ func (f *Facade) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResults, 
 		Results: make([]params.ErrorResult, len(args.Specs)),
 	}
 
-	cfg, err := f.model.ModelConfig()
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	provider, err := environs.Provider(cfg.Type())
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	caasProvider, ok := provider.(caas.ContainerEnvironProvider)
-	if !ok {
-		return params.ErrorResults{}, errors.NotValidf("container environ provider %T", provider)
-	}
-
 	for i, arg := range args.Specs {
 		tag, err := names.ParseApplicationTag(arg.Tag)
 		if err != nil {
@@ -199,7 +185,7 @@ func (f *Facade) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResults, 
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		if _, err := caasProvider.ParsePodSpec(arg.Value); err != nil {
+		if _, err := k8sprovider.ParsePodSpec(arg.Value); err != nil {
 			results.Results[i].Error = common.ServerError(errors.New("invalid pod spec"))
 			continue
 		}

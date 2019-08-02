@@ -31,9 +31,6 @@ type ContainerEnvironProvider interface {
 	// Open should not perform any expensive operations, such as querying
 	// the cloud API, as it will be called frequently.
 	Open(args environs.OpenParams) (Broker, error)
-
-	// ParsePodSpec unmarshalls the given YAML pod spec.
-	ParsePodSpec(in string) (*PodSpec, error)
 }
 
 // RegisterContainerProvider is used for providers that we want to use for managing 'instances',
