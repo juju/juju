@@ -1348,11 +1348,22 @@ func (i *importer) subnets() error {
 			ProviderId:        network.Id(subnet.ProviderId()),
 			ProviderNetworkId: network.Id(subnet.ProviderNetworkId()),
 			VLANTag:           subnet.VLANTag(),
-			// TODO (hml) 2019-07-25
-			// add migration for SpaceID once SubnetInfo Updated
 			AvailabilityZones: subnet.AvailabilityZones(),
 		}
 		info.SetFan(subnet.FanLocalUnderlay(), subnet.FanOverlay())
+
+		// TODO (hml) 2019-07-25
+		// update migration for SpaceID once SubnetInfo Updated.
+		spID := subnet.SpaceID()
+		if spID != "" {
+			sp, err := i.st.SpaceByID(spID)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			info.SpaceName = sp.Name()
+		} else {
+			info.SpaceName = subnet.SpaceName()
+		}
 
 		err := i.addSubnet(info)
 		if err != nil {
