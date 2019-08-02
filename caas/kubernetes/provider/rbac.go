@@ -4,6 +4,9 @@
 package provider
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -13,6 +16,27 @@ import (
 
 	"github.com/juju/juju/caas"
 )
+
+type nameGetterSetter interface {
+	GetName() string
+	SetName(string)
+}
+
+func (k *kubernetesClient) getJujuRBACName(name string) string {
+	prefix := fmt.Sprintf("juju-%s-", k.namespace)
+	if strings.HasPrefix(name, prefix) {
+		return name
+	}
+	return prefix + name
+}
+
+func (k *kubernetesClient) prefixRBACResourceName(appName string, r nameGetterSetter) {
+	name := r.GetName()
+	if name == "" {
+		name = appName
+	}
+	r.SetName(k.getJujuRBACName(name))
+}
 
 func (k *kubernetesClient) getRBACLabels(appName string) map[string]string {
 	return map[string]string{
@@ -34,6 +58,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		AutomountServiceAccountToken: caasSpec.AutomountServiceAccountToken,
 	}
 	// ensure service account;
+	k.prefixRBACResourceName(appName, saSpec)
 	sa, saCleanups, err := k.ensureServiceAccount(saSpec)
 	cleanups = append(cleanups, saCleanups...)
 	if err != nil {
@@ -53,15 +78,17 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 				return cleanups, errors.Trace(err)
 			}
 		} else {
-			// create or update Role.
-			r, rCleanups, err = k.ensureRole(&rbacv1.Role{
+			r = &rbacv1.Role{
 				ObjectMeta: v1.ObjectMeta{
 					Name:      roleSpec.Name,
 					Namespace: k.namespace,
 					Labels:    labels,
 				},
 				Rules: roleSpec.Rules,
-			})
+			}
+			k.prefixRBACResourceName(appName, r)
+			// create or update Role.
+			r, rCleanups, err = k.ensureRole(r)
 			cleanups = append(cleanups, rCleanups...)
 			if err != nil {
 				return cleanups, errors.Trace(err)
@@ -81,15 +108,17 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 				return cleanups, errors.Trace(err)
 			}
 		} else {
-			// create or update ClusterRole.
-			cr, cRCleanups, err = k.ensureClusterRole(&rbacv1.ClusterRole{
+			cr = &rbacv1.ClusterRole{
 				ObjectMeta: v1.ObjectMeta{
 					Name:      roleSpec.Name,
 					Namespace: k.namespace,
 					Labels:    labels,
 				},
 				Rules: roleSpec.Rules,
-			})
+			}
+			k.prefixRBACResourceName(appName, cr)
+			// create or update ClusterRole.
+			cr, cRCleanups, err = k.ensureClusterRole(cr)
 			cleanups = append(cleanups, cRCleanups...)
 			if err != nil {
 				return cleanups, errors.Trace(err)
@@ -110,6 +139,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		Namespace: sa.GetNamespace(),
 		Labels:    labels,
 	}
+	k.prefixRBACResourceName(appName, &roleBindingMeta)
 	roleBindingSASubject := rbacv1.Subject{
 		Kind:      rbacv1.ServiceAccountKind,
 		Name:      sa.GetName(),
@@ -117,21 +147,23 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 	}
 	switch rbSpec.Type {
 	case caas.RoleBinding:
-		_, rBCleanups, err := k.ensureRoleBinding(&rbacv1.RoleBinding{
+		rb := &rbacv1.RoleBinding{
 			ObjectMeta: roleBindingMeta,
 			RoleRef:    roleRef,
 			Subjects:   []rbacv1.Subject{roleBindingSASubject},
-		})
+		}
+		_, rBCleanups, err := k.ensureRoleBinding(rb)
 		cleanups = append(cleanups, rBCleanups...)
 		if err != nil {
 			return cleanups, errors.Trace(err)
 		}
 	case caas.ClusterRoleBinding:
-		_, cRBCleanups, err := k.ensureClusterRoleBinding(&rbacv1.ClusterRoleBinding{
+		crb := &rbacv1.ClusterRoleBinding{
 			ObjectMeta: roleBindingMeta,
 			RoleRef:    roleRef,
 			Subjects:   []rbacv1.Subject{roleBindingSASubject},
-		})
+		}
+		_, cRBCleanups, err := k.ensureClusterRoleBinding(crb)
 		cleanups = append(cleanups, cRBCleanups...)
 		if err != nil {
 			return cleanups, errors.Trace(err)
