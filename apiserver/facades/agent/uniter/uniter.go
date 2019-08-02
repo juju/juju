@@ -1495,29 +1495,49 @@ func (u *UniterAPI) ReadSettings(args params.RelationUnits) (params.SettingsResu
 	result := params.SettingsResults{
 		Results: make([]params.SettingsResult, len(args.RelationUnits)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccessUnit, err := u.accessUnit()
 	if err != nil {
-		return params.SettingsResults{}, err
+		return params.SettingsResults{}, errors.Trace(err)
+	}
+	canAccessApp, err := u.accessApplication()
+	if err != nil {
+		return params.SettingsResults{}, errors.Trace(err)
 	}
 
 	readOneSettings := func(arg params.RelationUnit) (params.Settings, error) {
-		unit, err := names.ParseUnitTag(arg.Unit)
+		tag, err := names.ParseTag(arg.Unit)
 		if err != nil {
 			return nil, common.ErrPerm
 		}
 
-		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, unit)
+		var settings map[string]interface{}
+
+		switch tag := tag.(type) {
+		case names.UnitTag:
+			var relUnit *state.RelationUnit
+			relUnit, err = u.getRelationUnit(canAccessUnit, arg.Relation, tag)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			var node *state.Settings
+			node, err = relUnit.Settings()
+			settings = node.Map()
+		case names.ApplicationTag:
+			token := u.leadershipChecker.LeadershipCheck(tag.Id(), u.auth.GetAuthTag().Id())
+			canAccess := func(tag names.Tag) bool {
+				// Only allow the leader unit to read the application
+				// settings.
+				return canAccessApp(tag) && token.Check(0, nil) == nil
+			}
+			settings, err = u.getRelationAppSettings(canAccess, arg.Relation, tag)
+		default:
+			return nil, common.ErrPerm
+		}
+
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
-		var settings *state.Settings
-		settings, err = relUnit.Settings()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		return convertRelationSettings(settings.Map())
+		return convertRelationSettings(settings)
 	}
 
 	for i, arg := range args.RelationUnits {
@@ -1846,6 +1866,32 @@ func (u *UniterAPI) getOneRelation(canAccess common.AuthFunc, relTag, unitTag st
 		return nothing, err
 	}
 	return u.prepareRelationResult(rel, unit.ApplicationName())
+}
+
+func (u *UniterAPI) getRelationAppSettings(canAccess common.AuthFunc, relTag string, appTag names.ApplicationTag) (map[string]interface{}, error) {
+	tag, err := names.ParseRelationTag(relTag)
+	if err != nil {
+		return nil, common.ErrPerm
+	}
+	rel, err := u.st.KeyRelation(tag.Id())
+	if errors.IsNotFound(err) {
+		return nil, common.ErrPerm
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if !canAccess(appTag) {
+		return nil, common.ErrPerm
+	}
+
+	app, err := u.st.Application(appTag.Id())
+	if errors.IsNotFound(err) {
+		return nil, common.ErrPerm
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return rel.ApplicationSettings(app)
 }
 
 func (u *UniterAPI) destroySubordinates(principal *state.Unit) error {

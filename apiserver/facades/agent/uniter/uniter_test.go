@@ -2219,6 +2219,16 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
+	err = s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	token := s.State.LeadershipChecker().LeadershipCheck("wordpress", "wordpress/0")
+
+	err = rel.UpdateApplicationSettings(s.wordpress, token, map[string]interface{}{
+		"wanda": "firebaugh",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: "relation-42", Unit: "unit-foo-0"},
 		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0"},
@@ -2246,8 +2256,44 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
+			{Settings: params.Settings{
+				"wanda": "firebaugh",
+			}},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestReadSettingsForApplicationWhenNotLeader(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	settings := map[string]interface{}{
+		"some": "settings",
+	}
+	err = relUnit.EnterScope(settings)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, relUnit, true)
+
+	// This is a unit that doesn't exist.
+	err = s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/1", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	token := s.State.LeadershipChecker().LeadershipCheck("wordpress", "wordpress/1")
+
+	err = rel.UpdateApplicationSettings(s.wordpress, token, map[string]interface{}{
+		"wanda": "firebaugh",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: rel.Tag().String(), Unit: "application-wordpress"},
+	}}
+	result, err := s.uniter.ReadSettings(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.SettingsResults{
+		Results: []params.SettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
