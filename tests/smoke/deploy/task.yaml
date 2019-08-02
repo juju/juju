@@ -1,0 +1,20 @@
+summary: Test deploying a charm succeeds
+
+prepare: |
+  RAND_ID=$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 16 | head -n 1)
+  MODEL_ID="model-$RAND_ID"
+  juju add-model $MODEL_ID
+
+execute: |
+  echo "Ensure deploy of a charm succeeds"
+  set -eux
+
+  wait_for () {
+    until juju status --format json | jq ".applications | select(.[\"$1\"] | .units | .[\"$1/0\"] | .[\"juju-status\"] | .current==\"idle\") | keys | .[]" | grep "$1"; do
+      juju status
+      sleep 4;
+    done
+  }
+
+  juju deploy ./dummy
+  wait_for "dummy"

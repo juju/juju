@@ -3,13 +3,17 @@
 set -eux
 
 prepare_project() {
-    apt-get update
-    apt-get install -y build-essential snapd
-
     cd $PROJECT_PATH
 
     make install-dependencies setup-lxd
-    make release-install
+    if [ -d "vendor" ]; then
+        make go-install
+    else
+        make install
+    fi
+    if [ "$SPREAD_BACKEND" = qemu ]; then
+        juju bootstrap lxd test --no-gui
+    fi
 }
 
 restore_project() {
@@ -18,6 +22,9 @@ restore_project() {
     # point in keeping them.
     if [ -n "$GOPATH" ]; then
         rm -rf "${GOPATH%%:*}"
+    fi
+    if [ command -v juju ]; then
+        juju destroy-controller test --destroy-all-models -y
     fi
 }
 

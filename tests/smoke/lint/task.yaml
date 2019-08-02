@@ -1,0 +1,17 @@
+summary: Linting the code
+
+execute: |
+  echo "Ensure linting succeeds"
+  set -eux
+
+  if [ -n "${SKIP_STATIC:-}" ]; then
+    echo "==> SKIP: Asked to skip static analysis"
+    exit 0
+  fi
+
+  cd $PROJECT_PATH
+
+  ## go vet, if it exists
+  if go help vet >/dev/null 2>&1; then
+    go vet -composites=false ./...
+  fi

@@ -11,9 +11,12 @@ environment:
 
 backends:
   qemu:
-    memory: 1024M
+    memory: 8192M
     systems:
       - ubuntu-16.04:
+          username: ubuntu
+          password: ubuntu
+      - ubuntu-18.04:
           username: ubuntu
           password: ubuntu
 
@@ -25,8 +28,9 @@ restore: |
   "$TESTSLIB/prepare.sh" --restore-project
 
 suites:
-  tests/:
-    summary: Integration tests
+  tests/smoke/:
+    summary: Essential system level tests for juju
+
 
 exclude:
   - .git
