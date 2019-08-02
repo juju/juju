@@ -1499,21 +1499,31 @@ func (u *UniterAPI) ReadSettings(args params.RelationUnits) (params.SettingsResu
 	if err != nil {
 		return params.SettingsResults{}, err
 	}
-	for i, arg := range args.RelationUnits {
+
+	readOneSettings := func(arg params.RelationUnit) (params.Settings, error) {
 		unit, err := names.ParseUnitTag(arg.Unit)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
+			return nil, common.ErrPerm
 		}
+
 		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, unit)
-		if err == nil {
-			var settings *state.Settings
-			settings, err = relUnit.Settings()
-			if err == nil {
-				result.Results[i].Settings, err = convertRelationSettings(settings.Map())
-			}
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
+
+		var settings *state.Settings
+		settings, err = relUnit.Settings()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		return convertRelationSettings(settings.Map())
+	}
+
+	for i, arg := range args.RelationUnits {
+		settings, err := readOneSettings(arg)
 		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Settings = settings
 	}
 	return result, nil
 }
