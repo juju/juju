@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -2343,6 +2344,58 @@ func ChangeSubnetAZtoSlice(pool *StatePool) (err error) {
 				Update: bson.D{
 					{"$set", bson.D{{"availability-zones", []string{sDoc.AvailabilityZone}}}},
 					{"$unset", bson.D{{"availabilityzone", nil}}},
+				},
+			})
+		}
+
+		ops = append(ops, st.createDefaultSpaceOp())
+
+		return errors.Trace(st.db().RunTransaction(ops))
+	}))
+}
+
+// ChangeSubnetSpaceNameToSpaceID replaces the SpaceName with the
+// SpaceID in a subnet.
+func ChangeSubnetSpaceNameToSpaceID(pool *StatePool) (err error) {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(subnetsC)
+		defer closer()
+
+		type oldSubnetDoc struct {
+			DocID     string `bson:"_id"`
+			SpaceName string `bson:"space-name"`
+			SpaceID   string `bson:"space-id"`
+		}
+
+		var docs []oldSubnetDoc
+		err := col.Find(nil).All(&docs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, sDoc := range docs {
+			if sDoc.SpaceID != "" {
+				continue
+			}
+
+			var id string
+			if sDoc.SpaceName == network.DefaultSpaceName {
+				id = network.DefaultSpaceId
+			} else {
+				space, err := st.Space(sDoc.SpaceName)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				id = space.Id()
+			}
+
+			ops = append(ops, txn.Op{
+				C:  subnetsC,
+				Id: sDoc.DocID,
+				Update: bson.D{
+					{"$set", bson.D{{"space-id", id}}},
+					{"$unset", bson.D{{"space-name", nil}}},
 				},
 			})
 		}

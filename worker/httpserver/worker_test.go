@@ -243,7 +243,7 @@ func (s *WorkerSuite) TestMinTLSVersion(c *gc.C) {
 	tlsConfig.MaxVersion = tls.VersionSSL30
 
 	conn, err := tls.Dial("tcp", parsed.Host, tlsConfig)
-	c.Assert(err, gc.ErrorMatches, "tls: no supported versions satisfy MinVersion and MaxVersion")
+	c.Assert(err, gc.ErrorMatches, ".*tls:.*version.*")
 	c.Assert(conn, gc.IsNil)
 }
 

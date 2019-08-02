@@ -14,10 +14,9 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	_ "github.com/juju/juju/caas/kubernetes/provider"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -214,7 +213,7 @@ func (u *mockUnit) PublicAddress() (network.Address, error) {
 	return network.Address{}, nil
 }
 
-func (u *mockUnit) OpenedPorts() ([]corenetwork.PortRange, error) {
+func (u *mockUnit) OpenedPorts() ([]network.PortRange, error) {
 	u.MethodCall(u, "OpenedPorts")
 	return nil, nil
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -381,12 +382,12 @@ func (e *fakeInstance) Refresh(callCtx context.ProviderCallContext) error {
 	return nil
 }
 
-func (e *fakeInstance) Addresses(callCtx context.ProviderCallContext) ([]network.Address, error) {
+func (e *fakeInstance) Addresses(callCtx context.ProviderCallContext) ([]corenetwork.Address, error) {
 	e.Push("Addresses", callCtx)
-	return []network.Address{{
+	return []corenetwork.Address{{
 		Value: "1.1.1.1",
-		Type:  network.IPv4Address,
-		Scope: network.ScopePublic,
+		Type:  corenetwork.IPv4Address,
+		Scope: corenetwork.ScopePublic,
 	}}, nil
 }
 

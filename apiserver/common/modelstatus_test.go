@@ -56,7 +56,7 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 		AdminTag: s.Owner,
 	}
 
-	controller, err := controller.NewControllerAPIv7(
+	controller, err := controller.NewControllerAPIv8(
 		facadetest.Context{
 			State_:     s.State,
 			Resources_: s.resources,

@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/environs"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
@@ -24,7 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	corenetwork "github.com/juju/juju/core/network"
@@ -423,7 +422,7 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringResults, e
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				var address network.Address
+				var address corenetwork.Address
 				address, err = unit.PublicAddress()
 				if err == nil {
 					result.Results[i].Result = address.Value
@@ -457,7 +456,7 @@ func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringResults, 
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				var address network.Address
+				var address corenetwork.Address
 				address, err = unit.PrivateAddress()
 				if err == nil {
 					result.Results[i].Result = address.Value
@@ -2063,7 +2062,7 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 			if err != nil {
 				return params.NetworkInfoResults{}, err
 			}
-			svcType := cfg.GetString(provider.ServiceTypeConfigKey, "")
+			svcType := cfg.GetString(k8sprovider.ServiceTypeConfigKey, "")
 			switch k8score.ServiceType(svcType) {
 			case k8score.ServiceTypeLoadBalancer, k8score.ServiceTypeExternalName:
 				pollPublic = true
@@ -2104,7 +2103,7 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
-		network.SortAddresses(addr)
+		corenetwork.SortAddresses(addr)
 
 		// We record the interface addresses as the machine local ones - these
 		// are used later as the binding addresses.
@@ -2112,7 +2111,7 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		// addresses so record those in the default ingress address slice.
 		var interfaceAddr []network.InterfaceAddress
 		for _, a := range addr {
-			if a.Scope == network.ScopeMachineLocal {
+			if a.Scope == corenetwork.ScopeMachineLocal {
 				interfaceAddr = append(interfaceAddr, network.InterfaceAddress{Address: a.Value})
 			}
 			defaultIngressAddresses = append(defaultIngressAddresses, a.Value)
@@ -2488,19 +2487,6 @@ func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResult
 		return false
 	}
 
-	cfg, err := u.m.ModelConfig()
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	provider, err := environs.Provider(cfg.Type())
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	cassProvider, ok := provider.(caas.ContainerEnvironProvider)
-	if !ok {
-		return params.ErrorResults{}, errors.NotValidf("container environ provider %T", provider)
-	}
-
 	for i, arg := range args.Specs {
 		tag, err := names.ParseApplicationTag(arg.Tag)
 		if err != nil {
@@ -2511,7 +2497,7 @@ func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResult
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		if _, err := cassProvider.ParsePodSpec(arg.Value); err != nil {
+		if _, err := k8sprovider.ParsePodSpec(arg.Value); err != nil {
 			results.Results[i].Error = common.ServerError(errors.Annotate(err, "invalid pod spec"))
 			continue
 		}

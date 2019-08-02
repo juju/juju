@@ -21,8 +21,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
@@ -104,7 +104,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	s.contextFactory, err = context.NewContextFactory(context.FactoryConfig{
 		State:            s.uniter,
 		UnitTag:          s.unit.Tag().(names.UnitTag),
-		Tracker:          runnertesting.FakeTracker{},
+		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
 		Paths:            s.paths,

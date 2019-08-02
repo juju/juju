@@ -603,8 +603,8 @@ func NetworksForRelation(
 		return "", nil, nil, errors.Trace(err)
 	}
 
-	fetchAddr := func(fetcher func() (network.Address, error)) (network.Address, error) {
-		var address network.Address
+	fetchAddr := func(fetcher func() (corenetwork.Address, error)) (corenetwork.Address, error) {
+		var address corenetwork.Address
 		retryArg := PreferredAddressRetryArgs()
 		retryArg.Func = func() error {
 			var err error
@@ -683,7 +683,7 @@ func NetworksForRelation(
 					"no service address for unit %q in relation %q",
 					unit.Name(), rel)
 			} else {
-				network.SortAddresses(addr)
+				corenetwork.SortAddresses(addr)
 				for _, a := range addr {
 					ingress = append(ingress, a.Value)
 				}

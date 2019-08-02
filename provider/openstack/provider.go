@@ -444,7 +444,7 @@ func (inst *openstackInstance) getAddresses(ctx context.ProviderCallContext) (ma
 
 // Addresses implements network.Addresses() returning generic address
 // details for the instances, and calling the openstack api if needed.
-func (inst *openstackInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
+func (inst *openstackInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
 	addresses, err := inst.getAddresses(ctx)
 	if err != nil {
 		return nil, err
@@ -458,19 +458,19 @@ func (inst *openstackInstance) Addresses(ctx context.ProviderCallContext) ([]net
 }
 
 // convertNovaAddresses returns nova addresses in generic format
-func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress) []network.Address {
-	var machineAddresses []network.Address
+func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress) []corenetwork.Address {
+	var machineAddresses []corenetwork.Address
 	if publicIP != "" {
-		publicAddr := network.NewScopedAddress(publicIP, network.ScopePublic)
+		publicAddr := corenetwork.NewScopedAddress(publicIP, corenetwork.ScopePublic)
 		machineAddresses = append(machineAddresses, publicAddr)
 	}
 	// TODO(gz) Network ordering may be significant but is not preserved by
 	// the map, see lp:1188126 for example. That could potentially be fixed
 	// in goose, or left to be derived by other means.
 	for netName, ips := range addresses {
-		networkScope := network.ScopeUnknown
+		networkScope := corenetwork.ScopeUnknown
 		if netName == "public" {
-			networkScope = network.ScopePublic
+			networkScope = corenetwork.ScopePublic
 		}
 		for _, address := range ips {
 			// If this address has already been added as a floating IP, skip it.
@@ -478,11 +478,11 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 				continue
 			}
 			// Assume IPv4 unless specified otherwise
-			addrtype := network.IPv4Address
+			addrtype := corenetwork.IPv4Address
 			if address.Version == 6 {
-				addrtype = network.IPv6Address
+				addrtype = corenetwork.IPv6Address
 			}
-			machineAddr := network.NewScopedAddress(address.Address, networkScope)
+			machineAddr := corenetwork.NewScopedAddress(address.Address, networkScope)
 			if machineAddr.Type != addrtype {
 				logger.Warningf("derived address type %v, nova reports %v", machineAddr.Type, addrtype)
 			}
@@ -2110,6 +2110,6 @@ func (*Environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space
 }
 
 // SSHAddresses is specified on environs.SSHAddresses.
-func (*Environ) SSHAddresses(ctx context.ProviderCallContext, addresses []network.Address) ([]network.Address, error) {
+func (*Environ) SSHAddresses(ctx context.ProviderCallContext, addresses []corenetwork.Address) ([]corenetwork.Address, error) {
 	return addresses, nil
 }

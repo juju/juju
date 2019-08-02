@@ -1348,7 +1348,8 @@ func (i *importer) subnets() error {
 			ProviderId:        network.Id(subnet.ProviderId()),
 			ProviderNetworkId: network.Id(subnet.ProviderNetworkId()),
 			VLANTag:           subnet.VLANTag(),
-			SpaceName:         subnet.SpaceName(),
+			// TODO (hml) 2019-07-25
+			// add migration for SpaceID once SubnetInfo Updated
 			AvailabilityZones: subnet.AvailabilityZones(),
 		}
 		info.SetFan(subnet.FanLocalUnderlay(), subnet.FanOverlay())

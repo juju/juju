@@ -16,13 +16,12 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/caas"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 )
@@ -825,6 +824,12 @@ func fetchRelations(st Backend) (map[string][]*state.Relation, map[int]*state.Re
 }
 
 func fetchBranches(m *cache.Model) map[string]cache.Branch {
+	// Unless you're using the generations feature flag,
+	// the model cache model will be nil.  See note in
+	// newFacade().
+	if m == nil {
+		return make(map[string]cache.Branch)
+	}
 	// m.Branches() returns only active branches.
 	b := m.Branches()
 	branches := make(map[string]cache.Branch, len(b))
@@ -1176,16 +1181,7 @@ func (context *statusContext) processApplication(application *state.Application)
 			return params.ApplicationStatus{Err: common.ServerError(err)}
 		}
 		if specStr != "" {
-			provider, err := environs.Provider(context.providerType)
-			if err != nil {
-				return params.ApplicationStatus{Err: common.ServerError(err)}
-			}
-			caasProvider, ok := provider.(caas.ContainerEnvironProvider)
-			if !ok {
-				err := errors.NotValidf("container environ provider %T", provider)
-				return params.ApplicationStatus{Err: common.ServerError(err)}
-			}
-			spec, err := caasProvider.ParsePodSpec(specStr)
+			spec, err := k8sprovider.ParsePodSpec(specStr)
 			if err != nil {
 				return params.ApplicationStatus{Err: common.ServerError(err)}
 			}

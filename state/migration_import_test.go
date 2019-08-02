@@ -23,9 +23,8 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -1011,7 +1010,7 @@ func (s *MigrationImportSuite) TestRelationsMissingStatusNoUnits(c *gc.C) {
 func (s *MigrationImportSuite) TestEndpointBindings(c *gc.C) {
 	// Endpoint bindings need both valid charms, applications, and spaces.
 	s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "one", ProviderID: corenetwork.Id("provider"), IsPublic: true})
+		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
 	state.AddTestingApplicationWithBindings(
 		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
 		map[string]string{"db": "one"})
@@ -1043,7 +1042,7 @@ func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 	ports, err := imported.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 1)
-	c.Assert(ports[0], gc.Equals, corenetwork.PortRange{
+	c.Assert(ports[0], gc.Equals, network.PortRange{
 		FromPort: 1234,
 		ToPort:   2345,
 		Protocol: "tcp",
@@ -1052,10 +1051,10 @@ func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 
 func (s *MigrationImportSuite) TestSpaces(c *gc.C) {
 	space := s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "one", ProviderID: corenetwork.Id("provider"), IsPublic: true})
+		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
 
 	spaceNoID := s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "no-id", ProviderID: corenetwork.Id("provider2"), IsPublic: true})
+		Name: "no-id", ProviderID: network.Id("provider2"), IsPublic: true})
 
 	// Blank the ID from the second space to check that import creates it.
 	_, newSt := s.importModel(c, s.State, func(desc map[string]interface{}) {
@@ -1179,13 +1178,14 @@ func (s *MigrationImportSuite) TestLinkLayerDeviceMigratesReferences(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
-	original, err := s.State.AddSubnet(corenetwork.SubnetInfo{
+	// TODO (hml) 2019-07-25
+	// Add SpaceID once migration piece done.
+	original, err := s.State.AddSubnet(network.SubnetInfo{
 		CIDR:              "10.0.0.0/24",
-		ProviderId:        corenetwork.Id("foo"),
-		ProviderNetworkId: corenetwork.Id("elm"),
+		ProviderId:        network.Id("foo"),
+		ProviderNetworkId: network.Id("elm"),
 		VLANTag:           64,
 		AvailabilityZones: []string{"bar"},
-		SpaceName:         "bam",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSpace("bam", "", nil, true)
@@ -1197,26 +1197,26 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
-	c.Assert(subnet.ProviderId(), gc.Equals, corenetwork.Id("foo"))
-	c.Assert(subnet.ProviderNetworkId(), gc.Equals, corenetwork.Id("elm"))
+	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("foo"))
+	c.Assert(subnet.ProviderNetworkId(), gc.Equals, network.Id("elm"))
 	c.Assert(subnet.VLANTag(), gc.Equals, 64)
 	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, []string{"bar"})
-	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
 	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "")
 	c.Assert(subnet.FanOverlay(), gc.Equals, "")
 }
 
 func (s *MigrationImportSuite) TestSubnetsWithFan(c *gc.C) {
-	_, err := s.State.AddSubnet(corenetwork.SubnetInfo{
-		CIDR:      "100.2.0.0/16",
-		SpaceName: "bam",
+	// TODO (hml) 2019-07-25
+	// Add SpaceID once migration piece done.
+	_, err := s.State.AddSubnet(network.SubnetInfo{
+		CIDR: "100.2.0.0/16",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	sn := corenetwork.SubnetInfo{
+	sn := network.SubnetInfo{
 		CIDR:              "10.0.0.0/24",
-		ProviderId:        corenetwork.Id("foo"),
-		ProviderNetworkId: corenetwork.Id("elm"),
+		ProviderId:        network.Id("foo"),
+		ProviderNetworkId: network.Id("elm"),
 		VLANTag:           64,
 		AvailabilityZones: []string{"bar"},
 	}
@@ -1233,11 +1233,10 @@ func (s *MigrationImportSuite) TestSubnetsWithFan(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
-	c.Assert(subnet.ProviderId(), gc.Equals, corenetwork.Id("foo"))
-	c.Assert(subnet.ProviderNetworkId(), gc.Equals, corenetwork.Id("elm"))
+	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("foo"))
+	c.Assert(subnet.ProviderNetworkId(), gc.Equals, network.Id("elm"))
 	c.Assert(subnet.VLANTag(), gc.Equals, 64)
 	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, []string{"bar"})
-	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
 	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "100.2.0.0/16")
 	c.Assert(subnet.FanOverlay(), gc.Equals, "253.0.0.0/8")
 }
@@ -1246,7 +1245,7 @@ func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	_, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "0.1.2.0/24"})
+	_, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "0.1.2.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name: "foo",
@@ -1277,7 +1276,7 @@ func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
 	c.Assert(addr.DeviceName(), gc.Equals, "foo")
 	c.Assert(addr.ConfigMethod(), gc.Equals, state.StaticAddress)
 	c.Assert(addr.SubnetCIDR(), gc.Equals, "0.1.2.0/24")
-	c.Assert(addr.ProviderID(), gc.Equals, corenetwork.Id("bar"))
+	c.Assert(addr.ProviderID(), gc.Equals, network.Id("bar"))
 	c.Assert(addr.DNSServers(), jc.DeepEquals, []string{"bam", "mam"})
 	c.Assert(addr.DNSSearchDomains(), jc.DeepEquals, []string{"weeee"})
 	c.Assert(addr.GatewayAddress(), gc.Equals, "0.1.2.1")

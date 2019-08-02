@@ -15,9 +15,9 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	"github.com/juju/juju/core/network"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/juju/paths"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/proxyupdater"
 )
 

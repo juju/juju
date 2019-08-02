@@ -68,6 +68,7 @@ type StateBackend interface {
 	AddControllerNodeDocs() error
 	AddSpaceIdToSpaceDocs() error
 	ChangeSubnetAZtoSlice() error
+	ChangeSubnetSpaceNameToSpaceID() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -268,4 +269,8 @@ func (s stateBackend) AddSpaceIdToSpaceDocs() error {
 
 func (s stateBackend) ChangeSubnetAZtoSlice() error {
 	return state.ChangeSubnetAZtoSlice(s.pool)
+}
+
+func (s stateBackend) ChangeSubnetSpaceNameToSpaceID() error {
+	return state.ChangeSubnetSpaceNameToSpaceID(s.pool)
 }

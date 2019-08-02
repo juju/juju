@@ -30,9 +30,9 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
 )
@@ -399,6 +399,15 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 		}
 	}
 
+	branchOps, err := op.unassignBranchOps()
+	if err != nil {
+		if !op.Force {
+			return nil, errors.Trace(err)
+		}
+		op.AddError(err)
+	}
+	ops = append(ops, branchOps...)
+
 	// If the application has no units, and all its known relations will be
 	// removed, the application can also be removed.
 	if op.app.doc.UnitCount == 0 && op.app.doc.RelationCount == removeCount {
@@ -465,6 +474,29 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 		Assert: notLastRefs,
 		Update: update,
 	})
+	return ops, nil
+}
+
+func (op *DestroyApplicationOperation) unassignBranchOps() ([]txn.Op, error) {
+	m, err := op.app.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	appName := op.app.doc.Name
+	branches, err := m.applicationBranches(appName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(branches) == 0 {
+		return nil, nil
+	}
+	ops := []txn.Op{}
+	for _, b := range branches {
+		// assumption: branches from applicationBranches will
+		// ALWAYS have the appName in assigned-units, but not
+		// always in config.
+		ops = append(ops, b.unassignAppOps(appName)...)
+	}
 	return ops, nil
 }
 

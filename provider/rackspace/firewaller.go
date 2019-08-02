@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -105,7 +106,7 @@ func (c *rackspaceFirewaller) changeIngressRules(ctx context.ProviderCallContext
 	}
 
 	for _, addr := range addresses {
-		if addr.Scope == network.ScopePublic {
+		if addr.Scope == corenetwork.ScopePublic {
 			err = sshClient.ChangeIngressRules(addr.Value, insert, rules)
 			if err != nil {
 				common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
@@ -116,7 +117,7 @@ func (c *rackspaceFirewaller) changeIngressRules(ctx context.ProviderCallContext
 	return nil
 }
 
-func (c *rackspaceFirewaller) getInstanceConfigurator(ctx context.ProviderCallContext, inst instances.Instance) ([]network.Address, common.InstanceConfigurator, error) {
+func (c *rackspaceFirewaller) getInstanceConfigurator(ctx context.ProviderCallContext, inst instances.Instance) ([]corenetwork.Address, common.InstanceConfigurator, error) {
 	addresses, err := inst.Addresses(ctx)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)

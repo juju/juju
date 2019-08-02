@@ -5,6 +5,7 @@ package instances
 
 import (
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 )
@@ -19,7 +20,7 @@ type Instance interface {
 
 	// Addresses returns a list of hostnames or ip addresses
 	// associated with the instance.
-	Addresses(context.ProviderCallContext) ([]network.Address, error)
+	Addresses(context.ProviderCallContext) ([]corenetwork.Address, error)
 }
 
 // InstanceFirewaller provides instance-level firewall functionality

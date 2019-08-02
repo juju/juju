@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -231,7 +232,7 @@ type HookContext struct {
 	componentDir   func(string) string
 	componentFuncs map[string]ComponentFunc
 
-	//  slaLevel contains the current SLA level.
+	// slaLevel contains the current SLA level.
 	slaLevel string
 
 	// The cloud specification
@@ -239,6 +240,9 @@ type HookContext struct {
 
 	// The cloud API version, if available.
 	cloudAPIVersion string
+
+	// podSpecYaml is the pending pod spec to be committed.
+	podSpecYaml *string
 }
 
 // Component implements hooks.Context.
@@ -533,16 +537,12 @@ func (ctx *HookContext) SetPodSpec(specYaml string) error {
 		return ErrIsNotLeader
 	}
 	entityName = ctx.unit.ApplicationName()
-	err = ctx.state.SetPodSpec(entityName, specYaml)
+	_, err = k8sprovider.ParsePodSpec(specYaml)
 	if err != nil {
-		if err2 := ctx.SetApplicationStatus(jujuc.StatusInfo{
-			Status: status.Blocked.String(),
-			Info:   fmt.Sprintf("setting pod spec: %v", err),
-		}); err2 != nil {
-			logger.Errorf("updating agent status: %v", err2)
-		}
+		return errors.Trace(err)
 	}
-	return errors.Trace(err)
+	ctx.podSpecYaml = &specYaml
+	return nil
 }
 
 // CloudSpec return the cloud specification for the running unit's model
@@ -817,6 +817,13 @@ func (ctx *HookContext) Flush(process string, ctxErr error) (err error) {
 		}
 	}
 
+	if ctx.podSpecYaml != nil && writeChanges {
+		err := ctx.commitPodSpec()
+		if ctxErr == nil {
+			ctxErr = err
+		}
+	}
+
 	// TODO (tasdomas) 2014 09 03: context finalization needs to modified to apply all
 	//                             changes in one api call to minimize the risk
 	//                             of partial failures.
@@ -826,6 +833,34 @@ func (ctx *HookContext) Flush(process string, ctxErr error) (err error) {
 	}
 
 	return ctxErr
+}
+
+// commitPodSpec dispatches pending SetPodSpec call.
+func (ctx *HookContext) commitPodSpec() error {
+	if ctx.podSpecYaml == nil {
+		return nil
+	}
+	specYaml := *ctx.podSpecYaml
+	entityName := ctx.unitName
+	isLeader, err := ctx.IsLeader()
+	if err != nil {
+		return errors.Annotatef(err, "cannot determine leadership")
+	}
+	if !isLeader {
+		logger.Errorf("%v is not the leader but is setting application pod spec", entityName)
+		return ErrIsNotLeader
+	}
+	entityName = ctx.unit.ApplicationName()
+	err = ctx.state.SetPodSpec(entityName, specYaml)
+	if err != nil {
+		if err2 := ctx.SetApplicationStatus(jujuc.StatusInfo{
+			Status: status.Blocked.String(),
+			Info:   fmt.Sprintf("setting pod spec: %v", err),
+		}); err2 != nil {
+			logger.Errorf("updating agent status: %v", err2)
+		}
+	}
+	return nil
 }
 
 // finalizeAction passes back the final status of an Action hook to state.

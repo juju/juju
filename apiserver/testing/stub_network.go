@@ -121,6 +121,7 @@ type errReturner func() error
 
 // FakeSpace implements networkingcommon.BackingSpace for testing.
 type FakeSpace struct {
+	SpaceId   string
 	SpaceName string
 	SubnetIds []string
 	Public    bool
@@ -128,6 +129,10 @@ type FakeSpace struct {
 }
 
 var _ networkingcommon.BackingSpace = (*FakeSpace)(nil)
+
+func (f *FakeSpace) Id() string {
+	return f.SpaceId
+}
 
 func (f *FakeSpace) Name() string {
 	return f.SpaceName
@@ -396,18 +401,22 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 		// FakeSpace.Subnets().
 		sb.Spaces = []networkingcommon.BackingSpace{
 			&FakeSpace{
+				SpaceId:   "1",
 				SpaceName: "default",
 				SubnetIds: []string{"192.168.0.0/24", "192.168.3.0/24"},
 				NextErr:   sb.NextErr},
 			&FakeSpace{
+				SpaceId:   "2",
 				SpaceName: "dmz",
 				SubnetIds: []string{"192.168.1.0/24"},
 				NextErr:   sb.NextErr},
 			&FakeSpace{
+				SpaceId:   "3",
 				SpaceName: "private",
 				SubnetIds: []string{"192.168.2.0/24"},
 				NextErr:   sb.NextErr},
 			&FakeSpace{
+				SpaceId:   "4",
 				SpaceName: "private",
 				SubnetIds: []string{"192.168.2.0/24"},
 				NextErr:   sb.NextErr}, // duplicates are ignored when caching spaces.

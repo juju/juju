@@ -88,7 +88,12 @@ func (s *ListSuite) TestOutputFormats(c *gc.C) {
 	outDir := c.MkDir()
 	expectedYAML := `
 spaces:
-  space1:
+- id: "0"
+  name: ""
+  subnets: {}
+- id: "1"
+  name: space1
+  subnets:
     2001:db8::/32:
       type: ipv6
       provider-id: subnet-public
@@ -101,7 +106,9 @@ spaces:
       status: 'error: invalid subnet CIDR: invalid'
       zones:
       - zone1
-  space2:
+- id: "2"
+  name: space2
+  subnets:
     4.3.2.0/28:
       type: ipv4
       provider-id: vlan-42
@@ -119,36 +126,58 @@ spaces:
 	unwrap := regexp.MustCompile(`[\s+\n]`)
 	expectedJSON := unwrap.ReplaceAllLiteralString(`
 {
-  "spaces": {
-    "space1": {
-      "2001:db8::/32": {
-        "type": "ipv6",
-        "provider-id": "subnet-public",
-        "status": "terminating",
-        "zones": ["zone2"]
-      },
-      "invalid": {
-        "type": "unknown",
-        "provider-id": "no-such",
-        "status": "error: invalid subnet CIDR: invalid",
-        "zones": ["zone1"]
+  "spaces": [
+    {
+      "id": "0",
+      "name": "",
+      "subnets": {}
+    },
+    {
+      "id": "1",
+      "name": "space1",
+      "subnets": {
+        "2001:db8::/32": {
+          "type": "ipv6",
+          "provider-id": "subnet-public",
+          "status": "terminating",
+          "zones": [
+            "zone2"
+          ]
+        },
+        "invalid": {
+          "type": "unknown",
+          "provider-id": "no-such",
+          "status": "error: invalid subnet CIDR: invalid",
+          "zones": [
+            "zone1"
+          ]
+        }
       }
     },
-    "space2": {
-      "10.1.2.0/24": {
-        "type": "ipv4",
-        "provider-id": "subnet-private",
-        "status": "in-use",
-        "zones": ["zone1","zone2"]
-      },
-      "4.3.2.0/28": {
-        "type": "ipv4",
-        "provider-id": "vlan-42",
-        "status": "terminating",
-        "zones": ["zone1"]
+    {
+      "id": "2",
+      "name": "space2",
+      "subnets": {
+        "10.1.2.0/24": {
+          "type": "ipv4",
+          "provider-id": "subnet-private",
+          "status": "in-use",
+          "zones": [
+            "zone1",
+            "zone2"
+          ]
+        },
+        "4.3.2.0/28": {
+          "type": "ipv4",
+          "provider-id": "vlan-42",
+          "status": "terminating",
+          "zones": [
+            "zone1"
+          ]
+        }
       }
     }
-  }
+  ]
 }
 `, "") + "\n"
 	// Work around the big unwrap hammer above.
@@ -160,6 +189,7 @@ spaces:
 	)
 	expectedShortYAML := `
 spaces:
+- (default)
 - space1
 - space2
 `[1:]
@@ -167,24 +197,30 @@ spaces:
 	expectedShortJSON := unwrap.ReplaceAllLiteralString(`
 {
   "spaces": [
+    "(default)",
     "space1",
     "space2"
   ]
 }
 `, "") + "\n"
 
-	expectedTabular := `Space   Subnets
-space1  2001:db8::/32
-        invalid
-space2  10.1.2.0/24
-        4.3.2.0/28
+	expectedTabular := `
+Space  Name       Subnets      
+0      (default)               
+1      space1     2001:db8::/32
+                  invalid      
+2      space2     10.1.2.0/24  
+                  4.3.2.0/28   
+                               
+`[1:]
 
-`
-	expectedShortTabular := `Space
+	expectedShortTabular := `
+Space
+(default)
 space1
 space2
 
-`
+`[1:]
 
 	assertAPICalls := func() {
 		// Verify the API calls and reset the recorded calls.
@@ -204,7 +240,8 @@ space2
 	assertOutput := func(format, expected string, short bool) {
 		outFile := filepath.Join(outDir, "output")
 		c.Assert(outFile, jc.DoesNotExist)
-		defer os.Remove(outFile)
+		defer func() { _ = os.Remove(outFile) }()
+
 		// Check -o works.
 		var args []string
 		args = makeArgs(format, short, "-o", outFile)
@@ -220,10 +257,12 @@ space2
 		// same as -o).
 		outFile1 := filepath.Join(outDir, "output1")
 		c.Assert(outFile1, jc.DoesNotExist)
-		defer os.Remove(outFile1)
+		defer func() { _ = os.Remove(outFile1) }()
+
 		outFile2 := filepath.Join(outDir, "output2")
 		c.Assert(outFile2, jc.DoesNotExist)
-		defer os.Remove(outFile2)
+		defer func() { _ = os.Remove(outFile2) }()
+
 		// Write something in outFile2 to verify its contents are
 		// overwritten.
 		err = ioutil.WriteFile(outFile2, []byte("some contents"), 0644)
@@ -281,13 +320,13 @@ func (s *ListSuite) TestRunWhenNoSpacesExistSucceedsWithProperFormat(c *gc.C) {
 
 	s.AssertRunSucceeds(c,
 		`no spaces to display\n`,
-		"{\"spaces\":{}}\n", // json formatted stdout.
+		"{\"spaces\":[]}\n", // json formatted stdout.
 		"--format=json",
 	)
 
 	s.AssertRunSucceeds(c,
 		`no spaces to display\n`,
-		"spaces: {}\n", // yaml formatted stdout.
+		"spaces: []\n", // yaml formatted stdout.
 		"--format=yaml",
 	)
 
@@ -309,7 +348,7 @@ func (s *ListSuite) TestRunWhenSpacesNotSupported(c *gc.C) {
 func (s *ListSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
 	s.api.SetErrors(errors.New("boom"))
 
-	s.AssertRunFails(c, "cannot list spaces: boom")
+	_ = s.AssertRunFails(c, "cannot list spaces: boom")
 
 	s.api.CheckCallNames(c, "ListSpaces", "Close")
 	s.api.CheckCall(c, 0, "ListSpaces")

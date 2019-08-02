@@ -31,14 +31,14 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/migration"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	corepresence "github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
@@ -3921,7 +3921,7 @@ type addSpace struct {
 func (sp addSpace) step(c *gc.C, ctx *context) {
 	f := factory.NewFactory(ctx.st, ctx.pool)
 	f.MakeSpace(c, &factory.SpaceParams{
-		Name: sp.spaceName, ProviderID: corenetwork.Id("provider"), IsPublic: true})
+		Name: sp.spaceName, ProviderID: network.Id("provider"), IsPublic: true})
 }
 
 type setAddresses struct {
@@ -4619,6 +4619,7 @@ func (ua setToolsUpgradeAvailable) step(c *gc.C, ctx *context) {
 }
 
 func (s *StatusSuite) TestStatusAllFormats(c *gc.C) {
+	s.SetFeatureFlags(feature.Generations)
 	for i, t := range statusTests {
 		c.Logf("test %d: %s", i, t.summary)
 		func(t testCase) {

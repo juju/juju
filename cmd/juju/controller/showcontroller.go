@@ -93,6 +93,7 @@ type ControllerAccessAPI interface {
 	AllModels() ([]base.UserModel, error)
 	MongoVersion() (string, error)
 	IdentityProviderURL() (string, error)
+	ControllerVersion() (controller.ControllerVersion, error)
 	Close() error
 }
 
@@ -133,20 +134,32 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 		defer client.Close()
+
+		var (
+			details           ShowControllerDetails
+			allModels         []base.UserModel
+			mongoVersion      string
+			controllerVersion string
+			agentGitCommit    string
+		)
+
 		accountDetails, err := c.store.AccountDetails(controllerName)
 		if err != nil {
 			fmt.Fprintln(ctx.Stderr, err)
 			access = "(error)"
 		} else {
 			access = c.userAccess(client, ctx, accountDetails.User)
-			one.AgentVersion = c.agentVersion(client, ctx)
+			controllerVersion = c.controllerModelVersion(client, ctx)
 		}
 
-		var (
-			details      ShowControllerDetails
-			allModels    []base.UserModel
-			mongoVersion string
-		)
+		ver, err := client.ControllerVersion()
+		if err != nil && !errors.IsNotSupported(err) {
+			details.Errors = append(details.Errors, err.Error())
+			agentGitCommit = "(error)"
+		} else if !errors.IsNotSupported(err) {
+			one.AgentVersion = ver.Version
+			agentGitCommit = ver.GitCommit
+		}
 
 		// NOTE: this user may have been granted AddModelAccess which
 		// should allow them to list only the models they have access to.
@@ -163,19 +176,17 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		if permission.Access(access).EqualOrGreaterControllerAccessThan(permission.SuperuserAccess) {
 			if allModels, err = client.AllModels(); err != nil {
 				details.Errors = append(details.Errors, err.Error())
-				continue
+			} else {
+				// Update client store.
+				if err := c.SetControllerModels(c.store, controllerName, allModels); err != nil {
+					details.Errors = append(details.Errors, err.Error())
+				}
 			}
-			// Update client store.
-			if err := c.SetControllerModels(c.store, controllerName, allModels); err != nil {
-				details.Errors = append(details.Errors, err.Error())
-				continue
-			}
-
 			// Fetch mongoVersion if the apiserver supports it
 			mongoVersion, err = client.MongoVersion()
 			if err != nil && !errors.IsNotSupported(err) {
 				details.Errors = append(details.Errors, err.Error())
-				continue
+				mongoVersion = "(error)"
 			}
 		}
 
@@ -183,7 +194,7 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		identityURL, err := client.IdentityProviderURL()
 		if err != nil && !errors.IsNotSupported(err) {
 			details.Errors = append(details.Errors, err.Error())
-			continue
+			identityURL = "(error)"
 		}
 
 		modelTags := make([]names.ModelTag, len(allModels))
@@ -197,11 +208,9 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		modelStatusResults, err := client.ModelStatus(modelTags...)
 		if err != nil {
 			details.Errors = append(details.Errors, err.Error())
-			continue
 		}
 
-		c.convertControllerForShow(&details, controllerName, one, access, allModels, modelStatusResults, mongoVersion, identityURL)
-		controllers[controllerName] = details
+		// Update controller in local store.
 		machineCount := 0
 		for _, r := range modelStatusResults {
 			if r.Error != nil {
@@ -214,10 +223,18 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		}
 		one.MachineCount = &machineCount
 		one.ActiveControllerMachineCount, one.ControllerMachineCount = ControllerMachineCounts(controllerModelUUID, modelStatusResults)
-		err = c.store.UpdateController(controllerName, *one)
-		if err != nil {
-			details.Errors = append(details.Errors, err.Error())
+
+		// Only update the local controller store if no errors were encountered.
+		if len(details.Errors) == 0 {
+			err = c.store.UpdateController(controllerName, *one)
+			if err != nil {
+				details.Errors = append(details.Errors, err.Error())
+			}
 		}
+
+		c.convertControllerForShow(&details, controllerName, one, access, allModels,
+			modelStatusResults, mongoVersion, controllerVersion, agentGitCommit, identityURL)
+		controllers[controllerName] = details
 	}
 	return c.out.Write(ctx, controllers)
 }
@@ -239,7 +256,7 @@ func (c *showControllerCommand) userAccess(client ControllerAccessAPI, ctx *cmd.
 	return access
 }
 
-func (c *showControllerCommand) agentVersion(client ControllerAccessAPI, ctx *cmd.Context) string {
+func (c *showControllerCommand) controllerModelVersion(client ControllerAccessAPI, ctx *cmd.Context) string {
 	var ver string
 	mc, err := client.ModelConfig()
 	if err != nil {
@@ -301,6 +318,12 @@ type ControllerDetails struct {
 	// used in both list-controller and show-controller. show-controller
 	// displays the agent version where list-controller does not.
 	AgentVersion string `yaml:"agent-version,omitempty" json:"agent-version,omitempty"`
+
+	// AgentGitCommit is the git commit hash used to build the controller binary.
+	AgentGitCommit string `yaml:"agent-git-commit,omitempty" json:"agent-git-commit,omitempty"`
+
+	// ControllerModelVersion is the version in the controller model config state.
+	ControllerModelVersion string `yaml:"controller-model-version,omitempty" json:"controller-model-version,omitempty"`
 
 	// MongoVersion is the version of the mongo server running on this
 	// controller.
@@ -368,22 +391,26 @@ func (c *showControllerCommand) convertControllerForShow(
 	allModels []base.UserModel,
 	modelStatusResults []base.ModelStatus,
 	mongoVersion string,
+	controllerVersion string,
+	agentGitCommit string,
 	identityURL string,
 ) {
 	// CA cert will always be valid so no need to check for errors here
 	caFingerprint, _ := cert.Fingerprint(details.CACert)
 
 	controller.Details = ControllerDetails{
-		ControllerUUID:    details.ControllerUUID,
-		OldControllerUUID: details.ControllerUUID,
-		APIEndpoints:      details.APIEndpoints,
-		CACert:            details.CACert,
-		CAFingerprint:     caFingerprint,
-		Cloud:             details.Cloud,
-		CloudRegion:       details.CloudRegion,
-		AgentVersion:      details.AgentVersion,
-		MongoVersion:      mongoVersion,
-		IdentityURL:       identityURL,
+		ControllerUUID:         details.ControllerUUID,
+		OldControllerUUID:      details.ControllerUUID,
+		APIEndpoints:           details.APIEndpoints,
+		CACert:                 details.CACert,
+		CAFingerprint:          caFingerprint,
+		Cloud:                  details.Cloud,
+		CloudRegion:            details.CloudRegion,
+		AgentVersion:           details.AgentVersion,
+		AgentGitCommit:         agentGitCommit,
+		ControllerModelVersion: controllerVersion,
+		MongoVersion:           mongoVersion,
+		IdentityURL:            identityURL,
 	}
 	c.convertModelsForShow(controllerName, controller, allModels, modelStatusResults)
 	c.convertAccountsForShow(controllerName, controller, access)

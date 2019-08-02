@@ -16,10 +16,10 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasunitprovisioner"
 )
@@ -41,17 +41,12 @@ type mockServiceBroker struct {
 	caas.ContainerEnvironProvider
 	ensured        chan<- struct{}
 	deleted        chan<- struct{}
-	podSpec        *caas.PodSpec
 	serviceStatus  status.StatusInfo
 	serviceWatcher *watchertest.MockNotifyWatcher
 }
 
 func (m *mockServiceBroker) Provider() caas.ContainerEnvironProvider {
 	return m
-}
-
-func (m *mockServiceBroker) ParsePodSpec(in string) (*caas.PodSpec, error) {
-	return m.podSpec, nil
 }
 
 func (m *mockServiceBroker) EnsureService(appName string, statusCallback caas.StatusCallbackFunc, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes) error {
@@ -103,10 +98,6 @@ type mockContainerBroker struct {
 
 func (m *mockContainerBroker) Provider() caas.ContainerEnvironProvider {
 	return m
-}
-
-func (m *mockContainerBroker) ParsePodSpec(in string) (*caas.PodSpec, error) {
-	return m.podSpec, nil
 }
 
 func (m *mockContainerBroker) WatchUnits(appName string) (watcher.NotifyWatcher, error) {

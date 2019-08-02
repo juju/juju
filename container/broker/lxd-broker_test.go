@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/container/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
@@ -122,9 +123,9 @@ func (s *lxdBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 		InterfaceName:       "dummy0",
 		ParentInterfaceName: "lxdbr0",
 		MACAddress:          "aa:bb:cc:dd:ee:ff",
-		Address:             network.NewAddress("0.1.2.3"),
-		GatewayAddress:      network.NewAddress("0.1.2.1"),
-		DNSServers:          network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		Address:             corenetwork.NewAddress("0.1.2.3"),
+		GatewayAddress:      corenetwork.NewAddress("0.1.2.1"),
+		DNSServers:          corenetwork.NewAddresses("ns1.dummy", "ns2.dummy"),
 		DNSSearchDomains:    []string{"dummy", "invalid"},
 	})
 }

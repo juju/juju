@@ -4,8 +4,7 @@
 package params
 
 import (
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // -----
@@ -206,7 +205,7 @@ type Port struct {
 
 // FromNetworkPort is a convenience helper to create a parameter
 // out of the network type, here for Port.
-func FromNetworkPort(p corenetwork.Port) Port {
+func FromNetworkPort(p network.Port) Port {
 	return Port{
 		Protocol: p.Protocol,
 		Number:   p.Number,
@@ -215,8 +214,8 @@ func FromNetworkPort(p corenetwork.Port) Port {
 
 // NetworkPort is a convenience helper to return the parameter
 // as network type, here for Port.
-func (p Port) NetworkPort() corenetwork.Port {
-	return corenetwork.Port{
+func (p Port) NetworkPort() network.Port {
+	return network.Port{
 		Protocol: p.Protocol,
 		Number:   p.Number,
 	}
@@ -233,7 +232,7 @@ type PortRange struct {
 
 // FromNetworkPortRange is a convenience helper to create a parameter
 // out of the network type, here for PortRange.
-func FromNetworkPortRange(pr corenetwork.PortRange) PortRange {
+func FromNetworkPortRange(pr network.PortRange) PortRange {
 	return PortRange{
 		FromPort: pr.FromPort,
 		ToPort:   pr.ToPort,
@@ -243,8 +242,8 @@ func FromNetworkPortRange(pr corenetwork.PortRange) PortRange {
 
 // NetworkPortRange is a convenience helper to return the parameter
 // as network type, here for PortRange.
-func (pr PortRange) NetworkPortRange() corenetwork.PortRange {
-	return corenetwork.PortRange{
+func (pr PortRange) NetworkPortRange() network.PortRange {
+	return network.PortRange{
 		FromPort: pr.FromPort,
 		ToPort:   pr.ToPort,
 		Protocol: pr.Protocol,
@@ -310,7 +309,7 @@ func (addr Address) NetworkAddress() network.Address {
 		Type:            network.AddressType(addr.Type),
 		Scope:           network.Scope(addr.Scope),
 		SpaceName:       network.SpaceName(addr.SpaceName),
-		SpaceProviderId: corenetwork.Id(addr.SpaceProviderId),
+		SpaceProviderId: network.Id(addr.SpaceProviderId),
 	}
 }
 
@@ -641,6 +640,7 @@ type ListSpacesResults struct {
 
 // Space holds the information about a single space and its associated subnets.
 type Space struct {
+	Id      string   `json:"id"`
 	Name    string   `json:"name"`
 	Subnets []Subnet `json:"subnets"`
 	Error   *Error   `json:"error,omitempty"`

@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucert "github.com/juju/juju/cert"
 	jujucontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/certupdater"

@@ -9,6 +9,7 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -49,14 +50,14 @@ func (inst *environInstance) Status(ctx context.ProviderCallContext) instance.St
 }
 
 // Addresses implements instances.Instance.
-func (inst *environInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
+func (inst *environInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
 	if inst.base.Guest == nil {
 		return nil, nil
 	}
-	res := make([]network.Address, 0, len(inst.base.Guest.Net))
+	res := make([]corenetwork.Address, 0, len(inst.base.Guest.Net))
 	for _, net := range inst.base.Guest.Net {
 		for _, ip := range net.IpAddress {
-			res = append(res, network.NewAddress(ip))
+			res = append(res, corenetwork.NewAddress(ip))
 		}
 	}
 	return res, nil
@@ -100,7 +101,7 @@ func (inst *environInstance) changeIngressRules(ctx context.ProviderCallContext,
 	}
 
 	for _, addr := range addresses {
-		if addr.Type == network.IPv6Address || addr.Scope != network.ScopePublic {
+		if addr.Type == corenetwork.IPv6Address || addr.Scope != corenetwork.ScopePublic {
 			// TODO(axw) support firewalling IPv6
 			continue
 		}
@@ -111,7 +112,7 @@ func (inst *environInstance) changeIngressRules(ctx context.ProviderCallContext,
 	return nil
 }
 
-func (inst *environInstance) getInstanceConfigurator(ctx context.ProviderCallContext) ([]network.Address, common.InstanceConfigurator, error) {
+func (inst *environInstance) getInstanceConfigurator(ctx context.ProviderCallContext) ([]corenetwork.Address, common.InstanceConfigurator, error) {
 	addresses, err := inst.Addresses(ctx)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -119,7 +120,7 @@ func (inst *environInstance) getInstanceConfigurator(ctx context.ProviderCallCon
 
 	var localAddr string
 	for _, addr := range addresses {
-		if addr.Scope == network.ScopeCloudLocal {
+		if addr.Scope == corenetwork.ScopeCloudLocal {
 			localAddr = addr.Value
 			break
 		}

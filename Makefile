@@ -23,13 +23,18 @@ else
 	CHECK_ARGS =
 endif
 
+GIT_COMMIT = $(shell git -C $(PROJECT_DIR) rev-parse HEAD)
+GIT_TREE_STATE = $(if $(shell git status --porcelain),dirty,clean)
+
 # Compile with debug flags if requested.
 ifeq ($(DEBUG_JUJU), 1)
     COMPILE_FLAGS = -gcflags "all=-N -l"
     LINK_FLAGS =
+    LINK_FLAGS = -ldflags "-X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE)"
 else
     COMPILE_FLAGS =
     LINK_FLAGS = -ldflags "-s -w"
+    LINK_FLAGS = -ldflags "-s -w -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE)"
 endif
 
 define DEPENDENCIES

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/network"
 )
@@ -26,20 +27,20 @@ type APIAddressUpdater struct {
 	setter    APIAddressSetter
 
 	mu      sync.Mutex
-	current [][]network.HostPort
+	current [][]corenetwork.HostPort
 }
 
 // APIAddresser is an interface that is provided to NewAPIAddressUpdater
 // which can be used to watch for API address changes.
 type APIAddresser interface {
-	APIHostPorts() ([][]network.HostPort, error)
+	APIHostPorts() ([][]corenetwork.HostPort, error)
 	WatchAPIHostPorts() (watcher.NotifyWatcher, error)
 }
 
 // APIAddressSetter is an interface that is provided to NewAPIAddressUpdater
 // whose SetAPIHostPorts method will be invoked whenever address changes occur.
 type APIAddressSetter interface {
-	SetAPIHostPorts(servers [][]network.HostPort) error
+	SetAPIHostPorts(servers [][]corenetwork.HostPort) error
 }
 
 // NewAPIAddressUpdater returns a worker.Worker that watches for changes to
@@ -80,7 +81,7 @@ func (c *APIAddressUpdater) Handle(_ <-chan struct{}) error {
 	return nil
 }
 
-func (c *APIAddressUpdater) getAddresses() ([][]network.HostPort, error) {
+func (c *APIAddressUpdater) getAddresses() ([][]corenetwork.HostPort, error) {
 	addresses, err := c.addresser.APIHostPorts()
 	if err != nil {
 		return nil, fmt.Errorf("error getting addresses: %v", err)
@@ -88,11 +89,11 @@ func (c *APIAddressUpdater) getAddresses() ([][]network.HostPort, error) {
 
 	// Filter out any LXC or LXD bridge addresses. See LP bug #1416928. and
 	// bug #1567683
-	hpsToSet := make([][]network.HostPort, 0, len(addresses))
+	hpsToSet := make([][]corenetwork.HostPort, 0, len(addresses))
 	for _, hostPorts := range addresses {
 		// Strip ports, filter, then add ports again.
-		filtered := network.FilterBridgeAddresses(network.HostsWithoutPort(hostPorts))
-		hps := make([]network.HostPort, 0, len(filtered))
+		filtered := network.FilterBridgeAddresses(corenetwork.HostsWithoutPort(hostPorts))
+		hps := make([]corenetwork.HostPort, 0, len(filtered))
 		for _, hostPort := range hostPorts {
 			for _, addr := range filtered {
 				if addr.Value == hostPort.Address.Value {

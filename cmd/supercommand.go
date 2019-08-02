@@ -29,10 +29,25 @@ func init() {
 
 var logger = loggo.GetLogger("juju.cmd")
 
+// versionDetail is populated with version information from juju/juju/cmd
+// and passed into each SuperCommand. It can be printed using `juju version --all`.
+type versionDetail struct {
+	// Version of the current binary.
+	Version string `json:"version" yaml:"version"`
+	// GitCommit of tree used to build the binary.
+	GitCommit string `json:"git-commit,omitempty" yaml:"git-commit,omitempty"`
+	// GitTreeState is "clean" if the working copy used to build the binary had no
+	// uncommitted changes or untracked files, otherwise "dirty".
+	GitTreeState string `json:"git-tree-state,omitempty" yaml:"git-tree-state,omitempty"`
+	// Compiler reported by runtime.Compiler
+	Compiler string `json:"compiler" yaml:"compiler"`
+}
+
 // NewSuperCommand is like cmd.NewSuperCommand but
 // it adds juju-specific functionality:
 // - The default logging configuration is taken from the environment;
 // - The version is configured to the current juju version;
+// - The additional version information is sourced from juju/juju/version;
 // - The command emits a log message when a command runs.
 func NewSuperCommand(p cmd.SuperCommandParams) *cmd.SuperCommand {
 	p.Log = &cmd.Log{
@@ -43,18 +58,25 @@ func NewSuperCommand(p cmd.SuperCommandParams) *cmd.SuperCommand {
 		Arch:   arch.HostArch(),
 		Series: series.MustHostSeries(),
 	}
+	detail := versionDetail{
+		Version:      current.String(),
+		GitCommit:    jujuversion.GitCommit,
+		GitTreeState: jujuversion.GitTreeState,
+		Compiler:     jujuversion.Compiler,
+	}
 
 	// p.Version should be a version.Binary, but juju/cmd does not
 	// import juju/juju/version so this cannot happen. We have
 	// tests to assert that this string value is correct.
-	p.Version = current.String()
+	p.Version = detail.Version
+	p.VersionDetail = detail
 	p.NotifyRun = runNotifier
 	p.FlagKnownAs = "option"
 	return cmd.NewSuperCommand(p)
 }
 
 func runNotifier(name string) {
-	logger.Infof("running %s [%s %s %s]", name, jujuversion.Current, runtime.Compiler, runtime.Version())
+	logger.Infof("running %s [%s %s %s %s]", name, jujuversion.Current, jujuversion.GitCommit, runtime.Compiler, runtime.Version())
 	logger.Debugf("  args: %#v", os.Args)
 }
 

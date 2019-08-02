@@ -166,7 +166,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
 		State:            uniter,
 		UnitTag:          unit.Tag().(names.UnitTag),
-		Tracker:          runnertesting.FakeTracker{},
+		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
 		Paths:            s.paths,

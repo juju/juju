@@ -2386,7 +2386,7 @@ func (*maasEnviron) AreSpacesRoutable(ctx context.ProviderCallContext, space1, s
 }
 
 // SSHAddresses implements environs.SSHAddresses.
-func (*maasEnviron) SSHAddresses(ctx context.ProviderCallContext, addresses []network.Address) ([]network.Address, error) {
+func (*maasEnviron) SSHAddresses(ctx context.ProviderCallContext, addresses []corenetwork.Address) ([]corenetwork.Address, error) {
 	return addresses, nil
 }
 

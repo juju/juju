@@ -50,7 +50,7 @@ func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
 		State:            s.uniter,
 		UnitTag:          s.unit.Tag().(names.UnitTag),
-		Tracker:          runnertesting.FakeTracker{},
+		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
 		Paths:            s.paths,
@@ -119,7 +119,7 @@ func (s *ContextFactorySuite) testLeadershipContextWiring(c *gc.C, createContext
 
 	stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "NewLeadershipContext",
-		Args:     []interface{}{s.uniter.LeadershipSettings, runnertesting.FakeTracker{}, "u/0"},
+		Args:     []interface{}{s.uniter.LeadershipSettings, &runnertesting.FakeTracker{}, "u/0"},
 	}, {
 		FuncName: "IsLeader",
 	}})
@@ -229,7 +229,7 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
 		State:            uniter,
 		UnitTag:          unit.Tag().(names.UnitTag),
-		Tracker:          runnertesting.FakeTracker{},
+		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
 		Paths:            s.paths,
@@ -249,6 +249,79 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	})
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
+}
+
+var podSpec = `
+containers:
+  - name: gitlab
+    image: gitlab/latest
+    ports:
+    - containerPort: 80
+      protocol: TCP
+    - containerPort: 443
+    config:
+      attr: foo=bar; fred=blogs
+      foo: bar
+`[1:]
+
+func (s *ContextFactorySuite) TestHookContextCAASDeferredSetPodSpec(c *gc.C) {
+	st := s.Factory.MakeCAASModel(c, nil)
+	defer st.Close()
+	f := factory.NewFactory(st, s.StatePool)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	appName := names.NewApplicationTag(unit.ApplicationName())
+
+	password, err := utils.RandomPassword()
+	err = unit.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+	apiInfo, err := environs.APIInfo(
+		environscontext.NewCloudCallContext(),
+		s.ControllerConfig.ControllerUUID(), st.ModelUUID(), coretesting.CACert, s.ControllerConfig.APIPort(), s.Environ)
+	apiInfo.Tag = unit.Tag()
+	apiInfo.Password = password
+	apiState, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	uniter, err := apiState.Uniter()
+	c.Assert(err, jc.ErrorIsNil)
+
+	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
+		State:   uniter,
+		UnitTag: unit.Tag().(names.UnitTag),
+		Tracker: &runnertesting.FakeTracker{
+			AllowClaimLeader: true,
+		},
+		GetRelationInfos: s.getRelationInfos,
+		Storage:          s.storage,
+		Paths:            s.paths,
+		Clock:            testclock.NewClock(time.Time{}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	ctx, err := contextFactory.HookContext(hook.Info{
+		Kind: hooks.ConfigChanged,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	sm, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cm, err := sm.CAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ctx.SetPodSpec(podSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = cm.PodSpec(appName)
+	c.Assert(err, gc.ErrorMatches, "pod spec for application gitlab not found")
+
+	err = ctx.Flush("", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ps, err := cm.PodSpec(appName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ps, gc.Equals, podSpec)
 }
 
 func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
@@ -274,9 +347,11 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		State:            uniter,
-		UnitTag:          unit.Tag().(names.UnitTag),
-		Tracker:          runnertesting.FakeTracker{},
+		State:   uniter,
+		UnitTag: unit.Tag().(names.UnitTag),
+		Tracker: &runnertesting.FakeTracker{
+			AllowClaimLeader: true,
+		},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
 		Paths:            s.paths,

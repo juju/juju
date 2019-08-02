@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
@@ -42,7 +43,7 @@ type InitializeStateParams struct {
 	instancecfg.StateInitializationParams
 
 	// BootstrapMachineAddresses holds the bootstrap machine's addresses.
-	BootstrapMachineAddresses []network.Address
+	BootstrapMachineAddresses []corenetwork.Address
 
 	// BootstrapMachineJobs holds the jobs that the bootstrap machine
 	// agent will run.
@@ -444,9 +445,9 @@ func initControllerCloudService(
 }
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
-func initAPIHostPorts(c agent.ConfigSetter, st *state.State, addrs []network.Address, apiPort int) error {
-	hostPorts := network.AddressesWithPort(addrs, apiPort)
-	return st.SetAPIHostPorts([][]network.HostPort{hostPorts})
+func initAPIHostPorts(c agent.ConfigSetter, st *state.State, addrs []corenetwork.Address, apiPort int) error {
+	hostPorts := corenetwork.AddressesWithPort(addrs, apiPort)
+	return st.SetAPIHostPorts([][]corenetwork.HostPort{hostPorts})
 }
 
 // machineJobFromParams returns the job corresponding to params.MachineJob.

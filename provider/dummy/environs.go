@@ -808,7 +808,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 	logger.Infof("creating bootstrap instance")
 	i := &dummyInstance{
 		id:           BootstrapInstanceId,
-		addresses:    network.NewAddresses("localhost"),
+		addresses:    corenetwork.NewAddresses("localhost"),
 		machineId:    agent.BootstrapControllerId,
 		series:       series,
 		firewallMode: e.Config().FirewallMode(),
@@ -1165,7 +1165,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
 	// Add the addresses we want to see in the machine doc. This means both
 	// IPv4 and IPv6 loopback, as well as the DNS name.
-	addrs := network.NewAddresses(idString+".dns", "127.0.0.1", "::1")
+	addrs := corenetwork.NewAddresses(idString+".dns", "127.0.0.1", "::1")
 	logger.Debugf("StartInstance addresses: %v", addrs)
 	i := &dummyInstance{
 		id:           instance.Id(idString),
@@ -1432,11 +1432,11 @@ func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId in
 			Disabled:         i == 2,
 			NoAutoStart:      i%2 != 0,
 			ConfigType:       network.ConfigDHCP,
-			Address: network.NewAddress(
+			Address: corenetwork.NewAddress(
 				fmt.Sprintf("0.%d.0.%d", (i+1)*10, estate.maxAddr+2),
 			),
-			DNSServers: network.NewAddresses("ns1.dummy", "ns2.dummy"),
-			GatewayAddress: network.NewAddress(
+			DNSServers: corenetwork.NewAddresses("ns1.dummy", "ns2.dummy"),
+			GatewayAddress: corenetwork.NewAddress(
 				fmt.Sprintf("0.%d.0.1", (i+1)*10),
 			),
 		}
@@ -1709,7 +1709,7 @@ type dummyInstance struct {
 	controller   bool
 
 	mu        sync.Mutex
-	addresses []network.Address
+	addresses []corenetwork.Address
 	broken    []string
 }
 
@@ -1738,7 +1738,7 @@ func (inst *dummyInstance) Status(ctx context.ProviderCallContext) instance.Stat
 
 // SetInstanceAddresses sets the addresses associated with the given
 // dummy instance.
-func SetInstanceAddresses(inst instances.Instance, addrs []network.Address) {
+func SetInstanceAddresses(inst instances.Instance, addrs []corenetwork.Address) {
 	inst0 := inst.(*dummyInstance)
 	inst0.mu.Lock()
 	inst0.addresses = append(inst0.addresses[:0], addrs...)
@@ -1773,13 +1773,13 @@ func (inst *dummyInstance) checkBroken(method string) error {
 	return nil
 }
 
-func (inst *dummyInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
+func (inst *dummyInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
 	if err := inst.checkBroken("Addresses"); err != nil {
 		return nil, err
 	}
-	return append([]network.Address{}, inst.addresses...), nil
+	return append([]corenetwork.Address{}, inst.addresses...), nil
 }
 
 func (inst *dummyInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
@@ -1928,8 +1928,8 @@ func (env *environ) AssignLXDProfiles(instId string, profilesNames []string, pro
 
 // SSHAddresses implements environs.SSHAddresses.
 // For testing we cut "100.100.100.100" out of this list.
-func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses []network.Address) ([]network.Address, error) {
-	var rv []network.Address
+func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses []corenetwork.Address) ([]corenetwork.Address, error) {
+	var rv []corenetwork.Address
 	for _, addr := range addresses {
 		if addr.Value != "100.100.100.100" {
 			rv = append(rv, addr)

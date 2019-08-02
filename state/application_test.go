@@ -26,8 +26,8 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
@@ -2503,6 +2503,41 @@ func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc
 	cfg := state.GetApplicationCharmConfig(s.State, app)
 	err = cfg.Read()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ApplicationSuite) TestApplicationCleanupRemovesAppFromActiveBranches(c *gc.C) {
+	s.assertNoCleanup(c)
+
+	// setup branch, tracking and app with config changes.
+	app := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	c.Assert(s.Model.AddBranch("apple", "testuser"), jc.ErrorIsNil)
+	branch, err := s.Model.Branch("apple")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(branch.AssignApplication(app.Name()), jc.ErrorIsNil)
+	c.Assert(branch.AssignApplication(s.mysql.Name()), jc.ErrorIsNil)
+	newCfg := map[string]interface{}{"outlook": "testing"}
+	c.Assert(app.UpdateCharmConfig(branch.BranchName(), newCfg), jc.ErrorIsNil)
+
+	// verify the branch setup
+	c.Assert(branch.Refresh(), jc.ErrorIsNil)
+	c.Assert(branch.AssignedUnits(), jc.DeepEquals, map[string][]string{
+		app.Name():     {},
+		s.mysql.Name(): {},
+	})
+	branchCfg := branch.Config()
+	_, ok := branchCfg[app.Name()]
+	c.Assert(ok, jc.IsTrue)
+
+	// destroy the app
+	c.Assert(app.Destroy(), gc.IsNil)
+	assertRemoved(c, app)
+
+	// Check the branch
+	c.Assert(branch.Refresh(), jc.ErrorIsNil)
+	c.Assert(branch.AssignedUnits(), jc.DeepEquals, map[string][]string{
+		s.mysql.Name(): {},
+	})
+	c.Assert(branch.Config(), gc.HasLen, 0)
 }
 
 func (s *ApplicationSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {

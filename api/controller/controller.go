@@ -345,3 +345,19 @@ func macaroonsToJSON(macs []macaroon.Slice) (string, error) {
 	}
 	return string(out), nil
 }
+
+type ControllerVersion struct {
+	Version   string
+	GitCommit string
+}
+
+// ControllerVersion fetches the controller version information.
+func (c *Client) ControllerVersion() (ControllerVersion, error) {
+	result := params.ControllerVersionResults{}
+	err := c.facade.FacadeCall("ControllerVersion", nil, &result)
+	out := ControllerVersion{
+		Version:   result.Version,
+		GitCommit: result.GitCommit,
+	}
+	return out, err
+}

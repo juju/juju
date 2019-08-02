@@ -7,10 +7,9 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -52,7 +51,7 @@ type Unit interface {
 	ContainerInfo() (state.CloudContainer, error)
 	PublicAddress() (network.Address, error)
 	Tag() names.Tag
-	OpenedPorts() ([]corenetwork.PortRange, error)
+	OpenedPorts() ([]network.PortRange, error)
 	CharmURL() (*charm.URL, bool)
 }
 

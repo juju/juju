@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -23,10 +24,9 @@ var _ = gc.Suite(&ContainersSuite{})
 
 func (s *ContainersSuite) TestParse(c *gc.C) {
 
-	specStr := `
+	specStrBase := `
 omitServiceFrontend: true
 activeDeadlineSeconds: 10
-serviceAccountName: serviceAccount
 restartPolicy: OnFailure
 terminationGracePeriodSeconds: 20
 automountServiceAccountToken: true
@@ -160,165 +160,164 @@ customResourceDefinitions:
 foo: bar
 `[1:]
 
-	spec, err := provider.ParseK8sPodSpec(specStr)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spec, jc.DeepEquals, &caas.PodSpec{
-		OmitServiceFrontend: true,
-		ProviderPod: &provider.K8sPodSpec{
-			ActiveDeadlineSeconds:         int64Ptr(10),
-			ServiceAccountName:            "serviceAccount",
-			RestartPolicy:                 core.RestartPolicyOnFailure,
-			TerminationGracePeriodSeconds: int64Ptr(20),
-			AutomountServiceAccountToken:  boolPtr(true),
-			SecurityContext: &core.PodSecurityContext{
-				RunAsNonRoot:       boolPtr(true),
-				SupplementalGroups: []int64{1, 2},
+	getExpectedPodSpecBase := func() *caas.PodSpec {
+		return &caas.PodSpec{
+			OmitServiceFrontend: true,
+			ProviderPod: &provider.K8sPodSpec{
+				ActiveDeadlineSeconds:         int64Ptr(10),
+				RestartPolicy:                 core.RestartPolicyOnFailure,
+				TerminationGracePeriodSeconds: int64Ptr(20),
+				AutomountServiceAccountToken:  boolPtr(true),
+				SecurityContext: &core.PodSecurityContext{
+					RunAsNonRoot:       boolPtr(true),
+					SupplementalGroups: []int64{1, 2},
+				},
+				Hostname:          "host",
+				Subdomain:         "sub",
+				PriorityClassName: "top",
+				Priority:          int32Ptr(30),
+				DNSConfig: &core.PodDNSConfig{
+					Nameservers: []string{"ns1", "ns2"},
+				},
+				DNSPolicy: "ClusterFirstWithHostNet",
+				ReadinessGates: []core.PodReadinessGate{
+					{ConditionType: core.PodScheduled},
+				},
+				Service: &provider.K8sServiceSpec{
+					Annotations: map[string]string{"foo": "bar"},
+				},
 			},
-			Hostname:          "host",
-			Subdomain:         "sub",
-			PriorityClassName: "top",
-			Priority:          int32Ptr(30),
-			DNSConfig: &core.PodDNSConfig{
-				Nameservers: []string{"ns1", "ns2"},
-			},
-			DNSPolicy: "ClusterFirstWithHostNet",
-			ReadinessGates: []core.PodReadinessGate{
-				{ConditionType: core.PodScheduled},
-			},
-			Service: &provider.K8sServiceSpec{
-				Annotations: map[string]string{"foo": "bar"},
-			},
-		},
-		Containers: []caas.ContainerSpec{{
-			Name:  "gitlab",
-			Image: "gitlab/latest",
-			Command: []string{"sh", "-c", `
+			Containers: []caas.ContainerSpec{{
+				Name:  "gitlab",
+				Image: "gitlab/latest",
+				Command: []string{"sh", "-c", `
 set -ex
 echo "do some stuff here for gitlab container"
 `[1:]},
-			Args:       []string{"doIt", "--debug"},
-			WorkingDir: "/path/to/here",
-			Ports: []caas.ContainerPort{
-				{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
-				{ContainerPort: 443, Name: "mary"},
-			},
-			Config: map[string]interface{}{
-				"attr":       "foo=bar; name['fred']='blogs';",
-				"foo":        "bar",
-				"restricted": "'yes'",
-				"switch":     true,
-			},
-			Files: []caas.FileSet{
-				{
-					Name:      "configuration",
-					MountPath: "/var/lib/foo",
-					Files: map[string]string{
-						"file1": expectedFileContent,
-					},
+				Args:       []string{"doIt", "--debug"},
+				WorkingDir: "/path/to/here",
+				Ports: []caas.ContainerPort{
+					{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
+					{ContainerPort: 443, Name: "mary"},
 				},
-			},
-			ProviderContainer: &provider.K8sContainerSpec{
-				ImagePullPolicy: "Always",
-				SecurityContext: &core.SecurityContext{
-					RunAsNonRoot: boolPtr(true),
-					Privileged:   boolPtr(true),
+				Config: map[string]interface{}{
+					"attr":       "foo=bar; name['fred']='blogs';",
+					"foo":        "bar",
+					"restricted": "'yes'",
+					"switch":     true,
 				},
-				LivenessProbe: &core.Probe{
-					InitialDelaySeconds: 10,
-					Handler: core.Handler{
-						HTTPGet: &core.HTTPGetAction{
-							Path: "/ping",
-							Port: intstr.IntOrString{IntVal: 8080},
+				Files: []caas.FileSet{
+					{
+						Name:      "configuration",
+						MountPath: "/var/lib/foo",
+						Files: map[string]string{
+							"file1": expectedFileContent,
 						},
 					},
 				},
-				ReadinessProbe: &core.Probe{
-					InitialDelaySeconds: 10,
-					Handler: core.Handler{
-						HTTPGet: &core.HTTPGetAction{
-							Path: "/pingReady",
-							Port: intstr.IntOrString{StrVal: "www", Type: 1},
+				ProviderContainer: &provider.K8sContainerSpec{
+					ImagePullPolicy: "Always",
+					SecurityContext: &core.SecurityContext{
+						RunAsNonRoot: boolPtr(true),
+						Privileged:   boolPtr(true),
+					},
+					LivenessProbe: &core.Probe{
+						InitialDelaySeconds: 10,
+						Handler: core.Handler{
+							HTTPGet: &core.HTTPGetAction{
+								Path: "/ping",
+								Port: intstr.IntOrString{IntVal: 8080},
+							},
+						},
+					},
+					ReadinessProbe: &core.Probe{
+						InitialDelaySeconds: 10,
+						Handler: core.Handler{
+							HTTPGet: &core.HTTPGetAction{
+								Path: "/pingReady",
+								Port: intstr.IntOrString{StrVal: "www", Type: 1},
+							},
 						},
 					},
 				},
-			},
-		}, {
-			Name:  "gitlab-helper",
-			Image: "gitlab-helper/latest",
-			Ports: []caas.ContainerPort{
-				{ContainerPort: 8080, Protocol: "TCP"},
-			},
-		}, {
-			Name: "secret-image-user",
-			ImageDetails: caas.ImageDetails{
-				ImagePath: "staging.registry.org/testing/testing-image@sha256:deed-beef",
-				Username:  "docker-registry",
-				Password:  "hunter2",
-			},
-		}, {
-			Name: "just-image-details",
-			ImageDetails: caas.ImageDetails{
-				ImagePath: "testing/no-secrets-needed@sha256:deed-beef",
-			},
-		}},
-		InitContainers: []caas.ContainerSpec{{
-			Name:  "gitlab-init",
-			Image: "gitlab-init/latest",
-			Command: []string{"sh", "-c", `
+			}, {
+				Name:  "gitlab-helper",
+				Image: "gitlab-helper/latest",
+				Ports: []caas.ContainerPort{
+					{ContainerPort: 8080, Protocol: "TCP"},
+				},
+			}, {
+				Name: "secret-image-user",
+				ImageDetails: caas.ImageDetails{
+					ImagePath: "staging.registry.org/testing/testing-image@sha256:deed-beef",
+					Username:  "docker-registry",
+					Password:  "hunter2",
+				},
+			}, {
+				Name: "just-image-details",
+				ImageDetails: caas.ImageDetails{
+					ImagePath: "testing/no-secrets-needed@sha256:deed-beef",
+				},
+			}},
+			InitContainers: []caas.ContainerSpec{{
+				Name:  "gitlab-init",
+				Image: "gitlab-init/latest",
+				Command: []string{"sh", "-c", `
 set -ex
 echo "do some stuff here for gitlab-init container"
 `[1:]},
-			Args:       []string{"doIt", "--debug"},
-			WorkingDir: "/path/to/here",
-			Ports: []caas.ContainerPort{
-				{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
-				{ContainerPort: 443, Name: "mary"},
-			},
-			Config: map[string]interface{}{
-				"foo":        "bar",
-				"restricted": "'yes'",
-				"switch":     true,
-			},
-			ProviderContainer: &provider.K8sContainerSpec{
-				ImagePullPolicy: "Always",
-			},
-		}},
-		CustomResourceDefinitions: map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			"tfjobs.kubeflow.org": {
-				Group:   "kubeflow.org",
-				Version: "v1alpha2",
-				Scope:   "Namespaced",
-				Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-					Kind:     "TFJob",
-					Plural:   "tfjobs",
-					Singular: "tfjob",
+				Args:       []string{"doIt", "--debug"},
+				WorkingDir: "/path/to/here",
+				Ports: []caas.ContainerPort{
+					{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
+					{ContainerPort: 443, Name: "mary"},
 				},
-				Validation: &apiextensionsv1beta1.CustomResourceValidation{
-					OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-						Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-							"tfReplicaSpecs": {
-								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-									"PS": {
-										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-											"replicas": {
-												Type: "integer", Minimum: float64Ptr(1),
+				Config: map[string]interface{}{
+					"foo":        "bar",
+					"restricted": "'yes'",
+					"switch":     true,
+				},
+				ProviderContainer: &provider.K8sContainerSpec{
+					ImagePullPolicy: "Always",
+				},
+			}},
+			CustomResourceDefinitions: map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
+				"tfjobs.kubeflow.org": {
+					Group:   "kubeflow.org",
+					Version: "v1alpha2",
+					Scope:   "Namespaced",
+					Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+						Kind:     "TFJob",
+						Plural:   "tfjobs",
+						Singular: "tfjob",
+					},
+					Validation: &apiextensionsv1beta1.CustomResourceValidation{
+						OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"tfReplicaSpecs": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"PS": {
+											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+												"replicas": {
+													Type: "integer", Minimum: float64Ptr(1),
+												},
 											},
 										},
-									},
-									"Chief": {
-										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-											"replicas": {
-												Type:    "integer",
-												Minimum: float64Ptr(1),
-												Maximum: float64Ptr(1),
+										"Chief": {
+											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+												"replicas": {
+													Type:    "integer",
+													Minimum: float64Ptr(1),
+													Maximum: float64Ptr(1),
+												},
 											},
 										},
-									},
-									"Worker": {
-										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-											"replicas": {
-												Type:    "integer",
-												Minimum: float64Ptr(1),
+										"Worker": {
+											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+												"replicas": {
+													Type:    "integer",
+													Minimum: float64Ptr(1),
+												},
 											},
 										},
 									},
@@ -328,8 +327,96 @@ echo "do some stuff here for gitlab-init container"
 					},
 				},
 			},
+		}
+	}
+
+	expectedPodSpecWithServiceAccount := getExpectedPodSpecBase()
+	expectedPodSpecWithServiceAccountName := getExpectedPodSpecBase()
+
+	expectedPodSpecWithServiceAccountName.ProviderPod = &provider.K8sPodSpec{
+		ActiveDeadlineSeconds:         int64Ptr(10),
+		ServiceAccountName:            "serviceAccount",
+		RestartPolicy:                 core.RestartPolicyOnFailure,
+		TerminationGracePeriodSeconds: int64Ptr(20),
+		AutomountServiceAccountToken:  boolPtr(true),
+		SecurityContext: &core.PodSecurityContext{
+			RunAsNonRoot:       boolPtr(true),
+			SupplementalGroups: []int64{1, 2},
 		},
-	})
+		Hostname:          "host",
+		Subdomain:         "sub",
+		PriorityClassName: "top",
+		Priority:          int32Ptr(30),
+		DNSConfig: &core.PodDNSConfig{
+			Nameservers: []string{"ns1", "ns2"},
+		},
+		DNSPolicy: "ClusterFirstWithHostNet",
+		ReadinessGates: []core.PodReadinessGate{
+			{ConditionType: core.PodScheduled},
+		},
+		Service: &provider.K8sServiceSpec{
+			Annotations: map[string]string{"foo": "bar"},
+		},
+	}
+
+	expectedPodSpecWithServiceAccount.ServiceAccount = &caas.ServiceAccountSpec{
+		Name:                         "build-robot",
+		AutomountServiceAccountToken: boolPtr(true),
+		Capabilities: &caas.Capabilities{
+			RoleBinding: &caas.RoleBindingSpec{
+				Name: "read-pods",
+				Type: caas.ClusterRoleBinding,
+			},
+			Role: &caas.RoleSpec{
+				Name: "pod-reader",
+				Type: caas.ClusterRole,
+				Rules: []rbacv1.PolicyRule{
+					{
+						APIGroups: []string{""},
+						Resources: []string{"pods"},
+						Verbs:     []string{"get", "watch", "list"},
+					},
+				},
+			},
+		},
+	}
+	for i, tc := range []struct {
+		title, podSpecStr string
+		podSpec           *caas.PodSpec
+	}{
+		{
+			title: "reference to existing service account by using serviceAccountName",
+			podSpecStr: specStrBase + `
+serviceAccountName: serviceAccount
+`[1:],
+			podSpec: expectedPodSpecWithServiceAccountName,
+		},
+		{
+			title: "create new service account, role/clusterrole, and bindings by providing serviceaccount spec",
+			podSpecStr: specStrBase + `
+serviceAccount:
+  name: build-robot
+  automountServiceAccountToken: true
+  capabilities:
+    roleBinding:
+      name: read-pods
+      type: ClusterRoleBinding
+    role:
+      name: pod-reader
+      type: ClusterRole
+      rules:
+      - apiGroups: [""]
+        resources: ["pods"]
+        verbs: ["get", "watch", "list"]
+`[1:],
+			podSpec: expectedPodSpecWithServiceAccount,
+		},
+	} {
+		c.Logf("%v: %s", i, tc.title)
+		spec, err := provider.ParsePodSpec(tc.podSpecStr)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(spec, jc.DeepEquals, tc.podSpec)
+	}
 }
 
 func float64Ptr(f float64) *float64 {
@@ -354,7 +441,7 @@ func (s *ContainersSuite) TestValidateMissingContainers(c *gc.C) {
 containers:
 `[1:]
 
-	_, err := provider.ParseK8sPodSpec(specStr)
+	_, err := provider.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, "require at least one container spec")
 }
 
@@ -365,9 +452,7 @@ containers:
   - image: gitlab/latest
 `[1:]
 
-	spec, err := provider.ParseK8sPodSpec(specStr)
-	c.Assert(err, jc.ErrorIsNil)
-	err = spec.Validate()
+	_, err := provider.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, "spec name is missing")
 }
 
@@ -378,9 +463,7 @@ containers:
   - name: gitlab
 `[1:]
 
-	spec, err := provider.ParseK8sPodSpec(specStr)
-	c.Assert(err, jc.ErrorIsNil)
-	err = spec.Validate()
+	_, err := provider.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, "spec image details is missing")
 }
 
@@ -397,9 +480,7 @@ containers:
             foo: bar
 `[1:]
 
-	spec, err := provider.ParseK8sPodSpec(specStr)
-	c.Assert(err, jc.ErrorIsNil)
-	err = spec.Validate()
+	_, err := provider.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `file set name is missing`)
 }
 
@@ -417,8 +498,123 @@ containers:
             foo: bar
 `[1:]
 
-	spec, err := provider.ParseK8sPodSpec(specStr)
-	c.Assert(err, jc.ErrorIsNil)
-	err = spec.Validate()
+	_, err := provider.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `mount path is missing for file set "configuration"`)
+}
+
+func (s *ContainersSuite) TestParsePodSpecFailedBothServiceAccountAndServiceAccountNameProvided(c *gc.C) {
+	specStr := `
+serviceAccountName: an-existing-svc-account
+serviceAccount:
+  name: build-robot
+  automountServiceAccountToken: true
+  capabilities:
+    roleBinding:
+      name: read-pods
+      type: ClusterRoleBinding
+    role:
+      name: pod-reader
+      type: ClusterRole
+      rules:
+      - apiGroups: [""]
+        resources: ["pods"]
+        verbs: ["get", "watch", "list"]
+`[1:]
+	_, err := provider.ParsePodSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, "either use ServiceAccountName to reference existing service account or define ServiceAccount spec to create a new one")
+
+}
+
+type serviceAccountTestCase struct {
+	Title, Spec, Err string
+}
+
+var serviceAccountValidationTestCases = []serviceAccountTestCase{
+	{
+		Title: "wrong role binding type",
+		Spec: `
+serviceAccount:
+  name: build-robot
+  automountServiceAccountToken: true
+  capabilities:
+    roleBinding:
+      name: read-pods
+      type: ClusterRoleBinding11
+    role:
+      name: pod-reader
+      type: ClusterRole
+      rules:
+      - apiGroups: [""]
+        resources: ["pods"]
+        verbs: ["get", "watch", "list"]
+`[1:],
+		Err: "\"ClusterRoleBinding11\" not supported",
+	},
+	{
+		Title: "wrong role type",
+		Spec: `
+serviceAccount:
+  name: build-robot
+  automountServiceAccountToken: true
+  capabilities:
+    roleBinding:
+      name: read-pods
+      type: ClusterRoleBinding
+    role:
+      name: pod-reader
+      type: ClusterRole11
+      rules:
+      - apiGroups: [""]
+        resources: ["pods"]
+        verbs: ["get", "watch", "list"]
+`[1:],
+		Err: "\"ClusterRole11\" not supported",
+	},
+	{
+		Title: "missing role",
+		Spec: `
+serviceAccount:
+  name: build-robot
+  automountServiceAccountToken: true
+  capabilities:
+    roleBinding:
+      name: read-pods
+      type: ClusterRoleBinding
+`[1:],
+		Err: `role is required for capabilities`,
+	},
+	{
+		Title: "missing role binding",
+		Spec: `
+serviceAccount:
+  name: build-robot
+  automountServiceAccountToken: true
+  capabilities:
+    role:
+      name: pod-reader
+      type: ClusterRole11
+      rules:
+      - apiGroups: [""]
+        resources: ["pods"]
+        verbs: ["get", "watch", "list"]
+`[1:],
+		Err: `roleBinding is required for capabilities`,
+	},
+}
+
+func (s *ContainersSuite) TestValidateServiceAccountFailed(c *gc.C) {
+	containerSpec := `
+containers:
+  - name: gitlab-helper
+    image: gitlab-helper/latest
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+`[1:]
+
+	for i, tc := range serviceAccountValidationTestCases {
+		c.Logf("%v: %s", i, tc.Title)
+		_, err := provider.ParsePodSpec(containerSpec + tc.Spec)
+		c.Check(err, gc.ErrorMatches, tc.Err)
+	}
 }

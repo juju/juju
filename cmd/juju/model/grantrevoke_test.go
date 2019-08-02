@@ -10,10 +10,10 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/model"
+	"github.com/juju/juju/core/crossmodel"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
@@ -148,11 +148,11 @@ func (s *grantSuite) TestInitOffers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(grantCmd.User, gc.Equals, "bob")
-	url1, err := charm.ParseOfferURL("fred/model.offer1")
+	url1, err := crossmodel.ParseOfferURL("fred/model.offer1")
 	c.Assert(err, jc.ErrorIsNil)
-	url2, err := charm.ParseOfferURL("mary/model.offer2")
+	url2, err := crossmodel.ParseOfferURL("mary/model.offer2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(grantCmd.OfferURLs, jc.DeepEquals, []*charm.OfferURL{url1, url2})
+	c.Assert(grantCmd.OfferURLs, jc.DeepEquals, []*crossmodel.OfferURL{url1, url2})
 	c.Assert(grantCmd.ModelNames, gc.HasLen, 0)
 }
 

@@ -131,49 +131,6 @@ func SortHostPorts(hps []HostPort) {
 	sort.Sort(hostPortsPreferringIPv4Slice(hps))
 }
 
-var netLookupIP = net.LookupIP
-
-// ResolveOrDropHostnames tries to resolve each address of type
-// HostName (except for "localhost" - it's kept unchanged) using the
-// local resolver. If successful, each IP address corresponding to the
-// hostname is inserted in the same order. If not successful, a debug
-// log is added and the hostname is removed from the list. Duplicated
-// addresses after the resolving is done are removed.
-func ResolveOrDropHostnames(hps []HostPort) []HostPort {
-	uniqueAddrs := set.NewStrings()
-	result := make([]HostPort, 0, len(hps))
-	for _, hp := range hps {
-		val := hp.Value
-		if uniqueAddrs.Contains(val) {
-			continue
-		}
-		// localhost is special - do not resolve it, because it can be
-		// used both as an IPv4 or IPv6 endpoint (e.g. in IPv6-only
-		// networks).
-		if hp.Type != HostName || hp.Value == "localhost" {
-			result = append(result, hp)
-			uniqueAddrs.Add(val)
-			continue
-		}
-		ips, err := netLookupIP(val)
-		if err != nil {
-			logger.Debugf("removing unresolvable address %q: %v", val, err)
-			continue
-		}
-		for _, ip := range ips {
-			if ip == nil {
-				continue
-			}
-			addr := NewAddress(ip.String())
-			if !uniqueAddrs.Contains(addr.Value) {
-				result = append(result, HostPort{Address: addr, Port: hp.Port})
-				uniqueAddrs.Add(addr.Value)
-			}
-		}
-	}
-	return result
-}
-
 // FilterUnusableHostPorts returns a copy of the given HostPorts after
 // removing any addresses unlikely to be usable (ScopeMachineLocal or
 // ScopeLinkLocal).

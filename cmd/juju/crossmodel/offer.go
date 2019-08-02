@@ -10,13 +10,13 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/applicationoffers"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -163,7 +163,7 @@ func (c *offerCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	url := charm.MakeURL(ownerTag.Name(), unqualifiedModelName, c.OfferName, "")
+	url := jujucrossmodel.MakeURL(ownerTag.Name(), unqualifiedModelName, c.OfferName, "")
 	ep := strings.Join(c.Endpoints, ", ")
 	ctx.Infof("Application %q endpoints [%s] available at %q", c.Application, ep, url)
 	return nil

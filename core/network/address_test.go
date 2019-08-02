@@ -4,15 +4,12 @@
 package network_test
 
 import (
-	"errors"
-	"fmt"
 	"net"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/testing"
 )
 
@@ -145,13 +142,13 @@ func (s *AddressSuite) TestNewAddressesOnSpace(c *gc.C) {
 		Type:            "ipv4",
 		Scope:           "public",
 		SpaceName:       "bar",
-		SpaceProviderId: corenetwork.Id(""),
+		SpaceProviderId: network.Id(""),
 	}, {
 		Value:           "fc00::1",
 		Type:            "ipv6",
 		Scope:           "local-cloud",
 		SpaceName:       "bar",
-		SpaceProviderId: corenetwork.Id(""),
+		SpaceProviderId: network.Id(""),
 	}})
 }
 
@@ -737,7 +734,7 @@ var stringTests = []struct {
 		Type:            network.HostName,
 		Value:           "foo.com",
 		Scope:           network.ScopePublic,
-		SpaceProviderId: corenetwork.Id("3"),
+		SpaceProviderId: network.Id("3"),
 	},
 	str: "public:foo.com@(id:3)",
 }, {
@@ -754,7 +751,7 @@ var stringTests = []struct {
 		Value:           "foo.com",
 		Scope:           network.ScopePublic,
 		SpaceName:       "badlands",
-		SpaceProviderId: corenetwork.Id("3"),
+		SpaceProviderId: network.Id("3"),
 	},
 	str: "public:foo.com@badlands(id:3)",
 }}
@@ -846,75 +843,6 @@ func (*AddressSuite) TestExactScopeMatch(c *gc.C) {
 	c.Assert(match, jc.IsFalse)
 	match = network.ExactScopeMatch(addr, network.ScopePublic)
 	c.Assert(match, jc.IsTrue)
-}
-
-func (s *AddressSuite) TestResolvableHostnames(c *gc.C) {
-	seq := 0
-
-	s.PatchValue(network.NetLookupIP, func(host string) ([]net.IP, error) {
-		if host == "not-resolvable.com" {
-			return nil, errors.New("no such host")
-		}
-		seq++
-		return []net.IP{net.ParseIP(fmt.Sprintf("1.1.1.%d", seq))}, nil
-	})
-
-	// Test empty input yields empty output.
-	empty := []network.Address{}
-	c.Assert(empty, jc.DeepEquals, network.ResolvableHostnames(empty))
-
-	// Test unresolvable inputs yields empty output.
-	unresolvable := []network.Address{{Value: "not-resolvable.com", Type: network.HostName}}
-	c.Assert(empty, jc.DeepEquals, network.ResolvableHostnames(unresolvable))
-
-	// Test resolvable inputs yields identical outputs.
-	resolvable := []network.Address{{Value: "localhost", Type: network.HostName}}
-	c.Assert(resolvable, jc.DeepEquals, network.ResolvableHostnames(resolvable))
-
-	unscopedAddrs := []network.Address{
-		network.NewAddress("localhost"),
-		network.NewAddress("127.0.0.1"),
-		network.NewAddress("fe80::d806:dbff:fe23:1199"),
-		network.NewAddress("not-resolvable.com"),
-		network.NewAddress("not-resolvable.com"),
-		network.NewAddress("fe80::1"),
-		network.NewAddress("resolvable.com"),
-		network.NewAddress("localhost"),
-		network.NewAddress("resolvable.com"),
-		network.NewAddress("ubuntu.com"),
-	}
-
-	unscopedAddrsExpected := []network.Address{
-		unscopedAddrs[0], unscopedAddrs[1],
-		unscopedAddrs[2], unscopedAddrs[5],
-		unscopedAddrs[6], unscopedAddrs[7],
-		unscopedAddrs[8], unscopedAddrs[9],
-	}
-
-	c.Assert(unscopedAddrsExpected, jc.DeepEquals, network.ResolvableHostnames(unscopedAddrs))
-
-	// Test multiple inputs have their order preserved, that
-	// duplicates are preserved but unresolvable hostnames (except
-	// 'localhost') are removed.
-	scopedAddrs := []network.Address{
-		network.NewScopedAddress("172.16.1.1", network.ScopeCloudLocal),
-		network.NewScopedAddress("not-resolvable.com", network.ScopePublic),
-		network.NewScopedAddress("8.8.8.8", network.ScopePublic),
-		network.NewScopedAddress("resolvable.com", network.ScopePublic),
-		network.NewScopedAddress("fc00:1", network.ScopeCloudLocal),
-		network.NewScopedAddress("localhost", network.ScopePublic),
-		network.NewScopedAddress("192.168.1.1", network.ScopeCloudLocal),
-		network.NewScopedAddress("localhost", network.ScopeCloudLocal),
-		network.NewScopedAddress("not-resolvable.com", network.ScopePublic),
-		network.NewScopedAddress("resolvable.com", network.ScopePublic),
-	}
-
-	scopedAddrsExpected := []network.Address{
-		scopedAddrs[0], scopedAddrs[2], scopedAddrs[3], scopedAddrs[4],
-		scopedAddrs[5], scopedAddrs[6], scopedAddrs[7], scopedAddrs[9],
-	}
-
-	c.Assert(scopedAddrsExpected, jc.DeepEquals, network.ResolvableHostnames(scopedAddrs))
 }
 
 func (s *AddressSuite) TestSelectAddressesBySpaceNamesFiltered(c *gc.C) {

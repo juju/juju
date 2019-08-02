@@ -5,14 +5,11 @@ package network_test
 
 import (
 	"fmt"
-	"net"
-	"strings"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -21,111 +18,6 @@ type HostPortSuite struct {
 }
 
 var _ = gc.Suite(&HostPortSuite{})
-
-type hostPortTest struct {
-	about         string
-	hostPorts     []network.HostPort
-	expectedIndex int
-}
-
-// hostPortTest returns the HostPort equivalent test to the
-// receiving selectTest.
-func (t selectTest) hostPortTest() hostPortTest {
-	hps := network.AddressesWithPort(t.addresses, 9999)
-	for i := range hps {
-		hps[i].Port = i + 1
-	}
-	return hostPortTest{
-		about:         t.about,
-		hostPorts:     hps,
-		expectedIndex: t.expectedIndex,
-	}
-}
-
-// expected returns the expected host:port result
-// of the test.
-func (t hostPortTest) expected() string {
-	if t.expectedIndex == -1 {
-		return ""
-	}
-	return t.hostPorts[t.expectedIndex].NetAddr()
-}
-
-func (*HostPortSuite) TestSelectPublicHostPort(c *gc.C) {
-	for i, t0 := range selectPublicTests {
-		t := t0.hostPortTest()
-		c.Logf("test %d: %s", i, t.about)
-		c.Check(network.SelectPublicHostPort(t.hostPorts), jc.DeepEquals, t.expected())
-	}
-}
-
-func (*HostPortSuite) TestSelectInternalHostPort(c *gc.C) {
-	for i, t0 := range selectInternalTests {
-		t := t0.hostPortTest()
-		c.Logf("test %d: %s", i, t.about)
-		c.Check(network.SelectInternalHostPort(t.hostPorts, false), jc.DeepEquals, t.expected())
-	}
-}
-
-func (*HostPortSuite) TestSelectInternalMachineHostPort(c *gc.C) {
-	for i, t0 := range selectInternalMachineTests {
-		t := t0.hostPortTest()
-		c.Logf("test %d: %s", i, t.about)
-		c.Check(network.SelectInternalHostPort(t.hostPorts, true), gc.DeepEquals, t.expected())
-	}
-}
-
-func (s *HostPortSuite) TestResolveOrDropHostnames(c *gc.C) {
-	seq := 0
-	s.PatchValue(network.NetLookupIP, func(host string) ([]net.IP, error) {
-		if host == "invalid host" {
-			return nil, errors.New("lookup invalid host: no such host")
-		}
-		if host == "localhost" {
-			return []net.IP{net.ParseIP("127.0.0.1")}, nil
-		}
-		// Return 2 IPs for .net hosts, 1 IP otherwise.
-		var ips []net.IP
-		ips = append(ips, net.ParseIP(fmt.Sprintf("0.1.2.%d", seq)))
-		seq++
-		if strings.Contains(host, ".net") {
-			ips = append(ips, net.ParseIP(fmt.Sprintf("0.1.2.%d", seq)))
-			seq++
-		}
-		c.Logf("lookup host %q -> %v", host, ips)
-		return ips, nil
-	})
-	resolved := network.ResolveOrDropHostnames(s.makeHostPorts())
-	c.Assert(
-		c.GetTestLog(),
-		jc.Contains,
-		`DEBUG juju.network removing unresolvable address "invalid host"`,
-	)
-	// Order should be preserved, duplicates dropped and hostnames,
-	// except localhost resolved or dropped.
-	c.Assert(resolved, jc.DeepEquals, network.NewHostPorts(1234,
-		"127.0.0.1",
-		"localhost", // localhost is not resolved intentionally.
-		"0.1.2.0",   // from example.com
-		"127.0.1.1",
-		"0.1.2.1", // from example.org
-		"2001:db8::2",
-		"169.254.1.1",
-		"0.1.2.2", // from example.net
-		"0.1.2.3", // from example.net
-		"fd00::22",
-		"2001:db8::1",
-		"169.254.1.2",
-		"ff01::22",
-		"10.0.0.1",
-		"::1",
-		"fc00::1",
-		"fe80::2",
-		"172.16.0.1",
-		"8.8.8.8",
-		"7.8.8.8",
-	))
-}
 
 func (s *HostPortSuite) TestFilterUnusableHostPorts(c *gc.C) {
 	// The order is preserved, but machine- and link-local addresses

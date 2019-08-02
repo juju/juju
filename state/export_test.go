@@ -26,10 +26,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/state/watcher"
@@ -870,6 +870,10 @@ func NewInstanceCharmProfileDataCompatibilityWatcher(backend ModelBackendShim, m
 
 func UnitBranch(m *Model, unitName string) (*Generation, error) {
 	return m.unitBranch(unitName)
+}
+
+func ApplicationBranches(m *Model, appName string) ([]*Generation, error) {
+	return m.applicationBranches(appName)
 }
 
 // ModelBackendShim is required to live here in the export_test.go file because

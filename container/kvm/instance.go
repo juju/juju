@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -43,7 +44,7 @@ func (*kvmInstance) Refresh() error {
 	return nil
 }
 
-func (kvm *kvmInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
+func (kvm *kvmInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
 	logger.Errorf("kvmInstance.Addresses not implemented")
 	return nil, nil
 }
