@@ -1349,6 +1349,7 @@ func (i *importer) subnets() error {
 			ProviderNetworkId: network.Id(subnet.ProviderNetworkId()),
 			VLANTag:           subnet.VLANTag(),
 			AvailabilityZones: subnet.AvailabilityZones(),
+			IsPublic:          subnet.IsPublic(),
 		}
 		info.SetFan(subnet.FanLocalUnderlay(), subnet.FanOverlay())
 

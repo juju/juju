@@ -647,9 +647,6 @@ func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
 		"ModelUUID",
 		// Always alive, not explicitly exported.
 		"Life",
-
-		// Currently unused (never set or exposed).
-		"IsPublic",
 	)
 	migrated := set.NewStrings(
 		"CIDR",
@@ -660,6 +657,7 @@ func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
 		"ProviderNetworkId",
 		"FanLocalUnderlay",
 		"FanOverlay",
+		"IsPublic",
 	)
 	s.AssertExportedFields(c, subnetDoc{}, migrated.Union(ignored))
 }

@@ -1103,6 +1103,7 @@ func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 		VLANTag:           64,
 		AvailabilityZones: []string{"bar"},
 		SpaceName:         sp.Name(),
+		IsPublic:          true,
 	}
 	sn.SetFan("100.2.0.0/16", "253.0.0.0/8")
 
@@ -1123,6 +1124,7 @@ func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 	c.Assert(subnet.SpaceID(), gc.Equals, sp.Id())
 	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "100.2.0.0/16")
 	c.Assert(subnet.FanOverlay(), gc.Equals, "253.0.0.0/8")
+	c.Assert(subnet.IsPublic(), gc.Equals, true)
 }
 
 func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {

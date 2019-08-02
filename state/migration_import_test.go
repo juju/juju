@@ -1187,6 +1187,7 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 		VLANTag:           64,
 		SpaceName:         "bam",
 		AvailabilityZones: []string{"bar"},
+		IsPublic:          true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1203,6 +1204,7 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 	c.Assert(subnet.SpaceID(), gc.Equals, sp.Id())
 	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "")
 	c.Assert(subnet.FanOverlay(), gc.Equals, "")
+	c.Assert(subnet.IsPublic(), gc.Equals, true)
 }
 
 func (s *MigrationImportSuite) TestSubnetsWithFan(c *gc.C) {

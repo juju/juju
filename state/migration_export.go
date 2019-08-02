@@ -1179,6 +1179,7 @@ func (e *exporter) subnets() error {
 			AvailabilityZones: subnet.AvailabilityZones(),
 			FanLocalUnderlay:  subnet.FanLocalUnderlay(),
 			FanOverlay:        subnet.FanOverlay(),
+			IsPublic:          subnet.IsPublic(),
 		}
 		e.model.AddSubnet(args)
 	}
