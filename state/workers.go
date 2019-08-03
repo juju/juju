@@ -43,6 +43,9 @@ type workers struct {
 const pingFlushInterval = time.Second
 
 func newWorkers(st *State, hub *pubsub.SimpleHub) (*workers, error) {
+	if hub == nil {
+		return nil, errors.NotValidf("missing hub")
+	}
 	ws := &workers{
 		state: st,
 		Runner: worker.NewRunner(worker.RunnerParams{
@@ -53,20 +56,14 @@ func newWorkers(st *State, hub *pubsub.SimpleHub) (*workers, error) {
 			Clock:        st.clock(),
 		}),
 	}
-	if hub == nil {
-		ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
-			return watcher.New(st.getTxnLogCollection()), nil
+	ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
+		return watcher.NewHubWatcher(watcher.HubWatcherConfig{
+			Hub:       hub,
+			Clock:     st.clock(),
+			ModelUUID: st.modelUUID(),
+			Logger:    loggo.GetLogger("juju.state.watcher"),
 		})
-	} else {
-		ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
-			return watcher.NewHubWatcher(watcher.HubWatcherConfig{
-				Hub:       hub,
-				Clock:     st.clock(),
-				ModelUUID: st.modelUUID(),
-				Logger:    loggo.GetLogger("juju.state.watcher"),
-			})
-		})
-	}
+	})
 	ws.StartWorker(presenceWorker, func() (worker.Worker, error) {
 		return presence.NewWatcher(st.getPresenceCollection(), st.modelTag), nil
 	})
