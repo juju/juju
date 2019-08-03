@@ -655,6 +655,7 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 	// TODO(thumper): as work on proxies progress, there will be additional
 	// proxy settings to be added.
 	vars = append(vars,
+		"LANG=C.UTF-8",
 		"CHARM_DIR="+paths.GetCharmDir(), // legacy, embarrassing
 		"JUJU_CHARM_DIR="+paths.GetCharmDir(),
 		"JUJU_CONTEXT_ID="+context.id,
