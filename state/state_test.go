@@ -182,33 +182,24 @@ func (s *StateSuite) TestStrictLocalIDWithNoPrefix(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unexpected id: "wordpress"`)
 }
 
-func (s *StateSuite) TestDialAgain(c *gc.C) {
-	// Ensure idempotent operations on Dial are working fine.
-	for i := 0; i < 2; i++ {
-		st, err := state.Open(s.testOpenParams())
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(st.Close(), gc.IsNil)
-	}
-}
-
-func (s *StateSuite) TestOpenRequiresExtantModelTag(c *gc.C) {
+func (s *StateSuite) TestOpenControllerRequiresExtantModelTag(c *gc.C) {
 	uuid := utils.MustNewUUID()
 	params := s.testOpenParams()
 	params.ControllerModelTag = names.NewModelTag(uuid.String())
-	st, err := state.Open(params)
-	if !c.Check(st, gc.IsNil) {
-		c.Check(st.Close(), jc.ErrorIsNil)
+	controller, err := state.OpenController(params)
+	if !c.Check(controller, gc.IsNil) {
+		c.Check(controller.Close(), jc.ErrorIsNil)
 	}
 	expect := fmt.Sprintf("cannot read model %s: model %q not found", uuid, uuid)
 	c.Check(err, gc.ErrorMatches, expect)
 }
 
-func (s *StateSuite) TestOpenSetsModelTag(c *gc.C) {
-	st, err := state.Open(s.testOpenParams())
+func (s *StateSuite) TestOpenControllerSetsModelTag(c *gc.C) {
+	controller, err := state.OpenController(s.testOpenParams())
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	defer controller.Close()
 
-	m, err := st.Model()
+	m, err := controller.SystemState().Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(m.ModelTag(), gc.Equals, s.modelTag)
@@ -4055,15 +4046,15 @@ func testWatcherDiesWhenStateCloses(
 	controllerTag names.ControllerTag,
 	startWatcher func(c *gc.C, st *state.State) waiter,
 ) {
-	st, err := state.Open(state.OpenParams{
+	controller, err := state.OpenController(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      controllerTag,
 		ControllerModelTag: modelTag,
 		MongoSession:       session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	watcher := startWatcher(c, st)
-	err = st.Close()
+	watcher := startWatcher(c, controller.SystemState())
+	err = controller.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	done := make(chan error)
 	go func() {
@@ -4097,11 +4088,11 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 
-	st, err := state.Open(s.testOpenParams())
+	controller, err := state.OpenController(s.testOpenParams())
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	defer controller.Close()
 
-	info, err = s.State.ControllerInfo()
+	info, err = controller.SystemState().ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 }
@@ -4527,9 +4518,10 @@ func (s *StateSuite) TestRunTransactionObserver(c *gc.C) {
 			err:       err,
 		})
 	}
-	st, err := state.Open(params)
+	controller, err := state.OpenController(params)
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	defer controller.Close()
+	st := controller.SystemState()
 
 	c.Assert(getCalls(), gc.HasLen, 0)
 
