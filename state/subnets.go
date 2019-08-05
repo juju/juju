@@ -4,7 +4,7 @@
 package state
 
 import (
-	"net"
+	"strconv"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -14,6 +14,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/mongo"
 )
 
 type Subnet struct {
@@ -26,6 +27,7 @@ type Subnet struct {
 type subnetDoc struct {
 	DocID             string   `bson:"_id"`
 	TxnRevno          int64    `bson:"txn-revno"`
+	ID                string   `bson:"subnet-id"`
 	ModelUUID         string   `bson:"model-uuid"`
 	Life              Life     `bson:"life"`
 	ProviderId        string   `bson:"providerid,omitempty"`
@@ -46,7 +48,7 @@ func (s *Subnet) Life() Life {
 
 // ID returns the unique id for the subnet, for other entities to reference it.
 func (s *Subnet) ID() string {
-	return s.doc.DocID
+	return s.doc.ID
 }
 
 // String implements fmt.Stringer.
@@ -174,24 +176,6 @@ func (s *Subnet) ProviderNetworkId() network.Id {
 	return network.Id(s.doc.ProviderNetworkId)
 }
 
-// Validate validates the subnet, checking the CIDR, and VLANTag, if present.
-func (s *Subnet) Validate() error {
-	if s.doc.CIDR != "" {
-		_, _, err := net.ParseCIDR(s.doc.CIDR)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	} else {
-		return errors.Errorf("missing CIDR")
-	}
-
-	if s.doc.VLANTag < 0 || s.doc.VLANTag > 4094 {
-		return errors.Errorf("invalid VLAN tag %d: must be between 0 and 4094", s.doc.VLANTag)
-	}
-
-	return nil
-}
-
 // Refresh refreshes the contents of the Subnet from the underlying
 // state. It an error that satisfies errors.IsNotFound if the Subnet has
 // been removed.
@@ -206,16 +190,30 @@ func (s *Subnet) Refresh() error {
 	if err != nil {
 		return errors.Errorf("cannot refresh subnet %q: %v", s, err)
 	}
-	s.spaceID = s.doc.SpaceID
-	if s.doc.FanLocalUnderlay != "" {
-		overlayDoc := &subnetDoc{}
-		err = subnets.FindId(s.doc.FanLocalUnderlay).One(overlayDoc)
-		if err != nil {
-			return errors.Annotatef(err, "finding underlay network %v for FAN %v", s.doc.FanLocalUnderlay, s.doc.CIDR)
-		} else {
-			s.spaceID = overlayDoc.SpaceID
-		}
+	if err = s.setSpace(subnets); err != nil {
+		return err
 	}
+	return nil
+}
+
+func (s *Subnet) setSpace(subnets mongo.Collection) error {
+	s.spaceID = s.doc.SpaceID
+	if s.doc.FanLocalUnderlay == "" {
+		return nil
+	}
+	if subnets == nil {
+		// Some callers have the mongo subnet collection already,
+		// some do not.
+		var closer SessionCloser
+		subnets, closer = s.st.db().GetCollection(subnetsC)
+		defer closer()
+	}
+	overlayDoc := &subnetDoc{}
+	err := subnets.FindId(s.doc.FanLocalUnderlay).One(overlayDoc)
+	if err != nil {
+		return errors.Annotatef(err, "finding underlay network %v for FAN %v", s.doc.FanLocalUnderlay, s.doc.CIDR)
+	}
+	s.spaceID = overlayDoc.SpaceID
 	return nil
 }
 
@@ -306,18 +304,19 @@ func (st *State) SubnetUpdate(args network.SubnetInfo) error {
 func (st *State) AddSubnet(args network.SubnetInfo) (subnet *Subnet, err error) {
 	defer errors.DeferredAnnotatef(&err, "adding subnet %q", args.CIDR)
 
-	subnet, err = st.newSubnetFromArgs(args)
+	if err := args.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	seq, err := sequence(st, "subnet")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ops := st.addSubnetOps(args)
-	ops = append(ops, assertModelActiveOp(st.ModelUUID()))
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt != 0 {
 			if err := checkModelActive(st); err != nil {
 				return nil, errors.Trace(err)
 			}
-			if _, err = st.Subnet(args.CIDR); err == nil {
+			if _, err = st.SubnetByID(subnet.ID()); err == nil {
 				return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
 			}
 			if err := subnet.Refresh(); err != nil {
@@ -327,55 +326,34 @@ func (st *State) AddSubnet(args network.SubnetInfo) (subnet *Subnet, err error) 
 				return nil, errors.Trace(err)
 			}
 		}
+		subDoc, ops, err := st.addSubnetOps(strconv.Itoa(seq), args)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		subnet = &Subnet{st: st, doc: subDoc}
+		ops = append(ops, assertModelActiveOp(st.ModelUUID()))
 		return ops, nil
 	}
 	err = st.db().Run(buildTxn)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return subnet, nil
-}
-
-func (st *State) newSubnetFromArgs(args network.SubnetInfo) (*Subnet, error) {
-	// TODO (hml) 2019-07-24
-	// Temporary until SubnetInfo.SpaceName is changed to SubnetInfo.SpaceID
-	sp, err := st.Space(args.SpaceName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	subnetID := st.docID(args.CIDR)
-	subDoc := subnetDoc{
-		DocID:             subnetID,
-		ModelUUID:         st.ModelUUID(),
-		Life:              Alive,
-		CIDR:              args.CIDR,
-		VLANTag:           args.VLANTag,
-		ProviderId:        string(args.ProviderId),
-		ProviderNetworkId: string(args.ProviderNetworkId),
-		AvailabilityZones: args.AvailabilityZones,
-		SpaceID:           sp.Id(),
-		FanLocalUnderlay:  args.FanLocalUnderlay(),
-		FanOverlay:        args.FanOverlay(),
-		IsPublic:          args.IsPublic,
-	}
-	subnet := &Subnet{doc: subDoc, st: st, spaceID: sp.Id()}
-	err = subnet.Validate()
-	if err != nil {
+	if err := subnet.setSpace(nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return subnet, nil
 }
 
-func (st *State) addSubnetOps(args network.SubnetInfo) []txn.Op {
+func (st *State) addSubnetOps(id string, args network.SubnetInfo) (subnetDoc, []txn.Op, error) {
 	// TODO (hml) 2019-07-24
 	// Temporary until SubnetInfo.SpaceName is changed to SubnetInfo.SpaceID
 	sp, err := st.Space(args.SpaceName)
 	if err != nil {
-		//return nil, errors.Trace(err)
+		return subnetDoc{}, nil, errors.Trace(err)
 	}
-	subnetID := st.docID(args.CIDR)
 	subDoc := subnetDoc{
-		DocID:             subnetID,
+		DocID:             st.docID(id),
+		ID:                id,
 		ModelUUID:         st.ModelUUID(),
 		Life:              Alive,
 		CIDR:              args.CIDR,
@@ -391,7 +369,7 @@ func (st *State) addSubnetOps(args network.SubnetInfo) []txn.Op {
 	ops := []txn.Op{
 		{
 			C:      subnetsC,
-			Id:     subnetID,
+			Id:     subDoc.DocID,
 			Assert: txn.DocMissing,
 			Insert: subDoc,
 		},
@@ -399,35 +377,36 @@ func (st *State) addSubnetOps(args network.SubnetInfo) []txn.Op {
 	if args.ProviderId != "" {
 		ops = append(ops, st.networkEntityGlobalKeyOp("subnet", args.ProviderId))
 	}
-	return ops
+	return subDoc, ops, nil
 }
 
 // Subnet returns the subnet specified by the cidr.
 func (st *State) Subnet(cidr string) (*Subnet, error) {
+	return st.subnet(bson.M{"cidr": cidr}, cidr)
+}
+
+// SubnetByID returns the subnet specified by the id.
+func (st *State) SubnetByID(id string) (*Subnet, error) {
+	return st.subnet(bson.M{"subnet-id": id}, id)
+}
+
+func (st *State) subnet(exp bson.M, thing string) (*Subnet, error) {
 	subnets, closer := st.db().GetCollection(subnetsC)
 	defer closer()
 
 	var doc subnetDoc
-	err := subnets.FindId(cidr).One(&doc)
+	err := subnets.Find(exp).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("subnet %q", cidr)
+		return nil, errors.NotFoundf("subnet %q", thing)
 	}
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get subnet %q", cidr)
+		return nil, errors.Annotatef(err, "cannot get subnet %q", thing)
 	}
-	spaceID := doc.SpaceID
-	if doc.FanLocalUnderlay != "" {
-		overlayDoc := &subnetDoc{}
-		err = subnets.FindId(doc.FanLocalUnderlay).One(overlayDoc)
-		if err != nil {
-			return nil, errors.Annotatef(
-				err, "Can't find underlay network %v for FAN %v", doc.FanLocalUnderlay, doc.CIDR)
-		} else {
-			spaceID = overlayDoc.SpaceID
-		}
+	subnet := &Subnet{st: st, doc: doc}
+	if err := subnet.setSpace(subnets); err != nil {
+		return nil, err
 	}
-
-	return &Subnet{st: st, doc: doc, spaceID: spaceID}, nil
+	return subnet, nil
 }
 
 // AllSubnets returns all known subnets in the model.
