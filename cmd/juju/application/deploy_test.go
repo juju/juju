@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/loggo"
@@ -711,7 +710,6 @@ func (s *DeploySuite) TestDeployBundleWithOffers(c *gc.C) {
 		},
 	}
 
-	s.SetFeatureFlags(feature.CMRAwareBundles)
 	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "apache2-with-offers")
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), bundlePath)
 	c.Assert(err, jc.ErrorIsNil)
@@ -805,7 +803,6 @@ func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 		},
 	}
 
-	s.SetFeatureFlags(feature.CMRAwareBundles)
 	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "wordpress-with-saas")
 	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), bundlePath)
 	c.Assert(err, jc.ErrorIsNil)

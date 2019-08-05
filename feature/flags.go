@@ -61,7 +61,3 @@ const MongoDbSSTXN = "mongodb-sstxn"
 // MultiCloud tells Juju to allow a different IAAS cloud to the one the controller
 // was bootstrapped on to be added to the controller.
 const MultiCloud = "multi-cloud"
-
-// CMRAwareBundles allows Juju to recognize and handle offer and saas blocks
-// when deploying bundles.
-const CMRAwareBundles = "bundle-cmr"

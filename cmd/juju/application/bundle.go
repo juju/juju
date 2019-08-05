@@ -16,7 +16,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/featureflag"
 	"github.com/kr/pretty"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
@@ -38,7 +37,6 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
@@ -396,23 +394,6 @@ func (h *bundleHandler) getChanges() error {
 		})
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	// Filter cmr-related changes if the feature flag is not enabled. We
-	// need to do it here rather in handleChanges() as the bundle handler
-	// will also iterate the list to print out a changelog.
-	if !featureflag.Enabled(feature.CMRAwareBundles) {
-		var filtered []bundlechanges.Change
-		for _, ch := range changes {
-			if ch.Method() == "createOffer" ||
-				ch.Method() == "consumeOffer" ||
-				ch.Method() == "grantOfferAccess" {
-				continue
-			}
-
-			filtered = append(filtered, ch)
-		}
-		changes = filtered
 	}
 
 	h.changes = changes
