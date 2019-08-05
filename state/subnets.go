@@ -4,8 +4,6 @@
 package state
 
 import (
-	"net"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
@@ -174,24 +172,6 @@ func (s *Subnet) ProviderNetworkId() network.Id {
 	return network.Id(s.doc.ProviderNetworkId)
 }
 
-// Validate validates the subnet, checking the CIDR, and VLANTag, if present.
-func (s *Subnet) Validate() error {
-	if s.doc.CIDR != "" {
-		_, _, err := net.ParseCIDR(s.doc.CIDR)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	} else {
-		return errors.Errorf("missing CIDR")
-	}
-
-	if s.doc.VLANTag < 0 || s.doc.VLANTag > 4094 {
-		return errors.Errorf("invalid VLAN tag %d: must be between 0 and 4094", s.doc.VLANTag)
-	}
-
-	return nil
-}
-
 // Refresh refreshes the contents of the Subnet from the underlying
 // state. It an error that satisfies errors.IsNotFound if the Subnet has
 // been removed.
@@ -343,6 +323,10 @@ func (st *State) newSubnetFromArgs(args network.SubnetInfo) (*Subnet, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	err = args.Validate()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	subnetID := st.docID(args.CIDR)
 	subDoc := subnetDoc{
 		DocID:             subnetID,
@@ -358,12 +342,7 @@ func (st *State) newSubnetFromArgs(args network.SubnetInfo) (*Subnet, error) {
 		FanOverlay:        args.FanOverlay(),
 		IsPublic:          args.IsPublic,
 	}
-	subnet := &Subnet{doc: subDoc, st: st, spaceID: sp.Id()}
-	err = subnet.Validate()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return subnet, nil
+	return &Subnet{doc: subDoc, st: st, spaceID: sp.Id()}, nil
 }
 
 func (st *State) addSubnetOps(args network.SubnetInfo) []txn.Op {
