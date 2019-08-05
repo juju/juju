@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
@@ -27,7 +26,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/storage"
 )
@@ -433,7 +431,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 		}
 
 		// Populate offer list
-		if offerList := application.Offers(); offerList != nil && featureflag.Enabled(feature.CMRAwareBundles) {
+		if offerList := application.Offers(); offerList != nil {
 			newApplication.Offers = make(map[string]*charm.OfferSpec)
 			for _, offer := range offerList {
 				newApplication.Offers[offer.OfferName()] = &charm.OfferSpec{
@@ -466,14 +464,13 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 		data.Machines[machine.Id()] = newMachine
 	}
 
-	if featureflag.Enabled(feature.CMRAwareBundles) {
-		for _, application := range model.RemoteApplications() {
-			newSaas := &charm.SaasSpec{
-				URL: application.URL(),
-			}
-			data.Saas[application.Name()] = newSaas
+	for _, application := range model.RemoteApplications() {
+		newSaas := &charm.SaasSpec{
+			URL: application.URL(),
 		}
+		data.Saas[application.Name()] = newSaas
 	}
+
 	// If there is only one series used, make it the default and remove
 	// series from all the apps and machines.
 	size := usedSeries.Size()

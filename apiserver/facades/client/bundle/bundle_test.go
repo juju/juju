@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -543,7 +542,6 @@ applications:
 }
 
 func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
-	s.SetFeatureFlags(feature.CMRAwareBundles)
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config: map[string]interface{}{
 			"name": "awesome",
@@ -620,7 +618,6 @@ applications:
 }
 
 func (s *bundleSuite) TestExportBundleWithSaas(c *gc.C) {
-	s.SetFeatureFlags(feature.CMRAwareBundles)
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config: map[string]interface{}{
 			"name": "awesome",
