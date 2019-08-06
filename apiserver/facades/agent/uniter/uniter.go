@@ -1558,27 +1558,33 @@ func (u *UniterAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.Se
 	if err != nil {
 		return params.SettingsResults{}, err
 	}
-	for i, arg := range args.RelationUnitPairs {
+
+	readOneSettings := func(arg params.RelationUnitPair) (params.Settings, error) {
 		unit, err := names.ParseUnitTag(arg.LocalUnit)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
+			return nil, common.ErrPerm
 		}
 		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, unit)
-		if err == nil {
-			// TODO(dfc) rework this logic
-			remoteUnit := ""
-			remoteUnit, err = u.checkRemoteUnit(relUnit, arg.RemoteUnit)
-			if err == nil {
-				var settings map[string]interface{}
-				settings, err = relUnit.ReadSettings(remoteUnit)
-				if err == nil {
-					result.Results[i].Settings, err = convertRelationSettings(settings)
-				}
-			}
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		result.Results[i].Error = common.ServerError(err)
+		remoteUnit, err := u.checkRemoteUnit(relUnit, arg.RemoteUnit)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		settings, err := relUnit.ReadSettings(remoteUnit)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return convertRelationSettings(settings)
 	}
+
+	for i, arg := range args.RelationUnitPairs {
+		settings, err := readOneSettings(arg)
+		result.Results[i].Error = common.ServerError(err)
+		result.Results[i].Settings = settings
+	}
+
 	return result, nil
 }
 
