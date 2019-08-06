@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/settings"
+	"github.com/juju/juju/state"
 )
 
 //go:generate mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/facades/client/modelgeneration State,Model,Generation,Application,ModelCache
@@ -18,6 +19,7 @@ type State interface {
 	ControllerTag() names.ControllerTag
 	Model() (Model, error)
 	Application(string) (Application, error)
+	ApplyOperation(state.ModelOperation) error
 }
 
 // Model describes model state used by the model generation API.
@@ -46,7 +48,6 @@ type Generation interface {
 	AssignUnits(string, int) error
 	AssignUnit(string) error
 	AssignedUnits() map[string][]string
-	Commit(string) (int, error)
 	Abort(string) error
 	Config() map[string]settings.ItemChanges
 	GenerationId() int
