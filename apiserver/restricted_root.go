@@ -4,8 +4,8 @@
 package apiserver
 
 import (
+	"github.com/SimonRichardson/rpcreflect"
 	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/rpcreflect"
 )
 
 // restrictRoot wraps the provided root so that the check function is

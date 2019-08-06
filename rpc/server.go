@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/rpc/rpcreflect"
+	"github.com/SimonRichardson/rpcreflect"
 )
 
 const codeNotImplemented = "not implemented"

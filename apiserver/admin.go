@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/SimonRichardson/rpcreflect"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
 	statepresence "github.com/juju/juju/state/presence"
 	jujuversion "github.com/juju/juju/version"
