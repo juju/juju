@@ -5,10 +5,10 @@ package gen
 import (
 	"reflect"
 
+	"github.com/bcsaller/jsonschema"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/generate/schemagen/jsonschema"
 	"github.com/juju/juju/rpc/rpcreflect"
 )
 
