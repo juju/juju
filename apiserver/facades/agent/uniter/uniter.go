@@ -1568,11 +1568,26 @@ func (u *UniterAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.Se
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		remoteUnit, err := u.checkRemoteUnit(relUnit, arg.RemoteUnit)
+		remoteTag, err := names.ParseTag(arg.RemoteUnit)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, common.ErrPerm
 		}
-		settings, err := relUnit.ReadSettings(remoteUnit)
+
+		var settings map[string]interface{}
+
+		switch tag := remoteTag.(type) {
+		case names.UnitTag:
+			var remoteUnit string
+			remoteUnit, err = u.checkRemoteUnit(relUnit, tag)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			settings, err = relUnit.ReadSettings(remoteUnit)
+		case names.ApplicationTag:
+			settings, err = u.getRemoteRelationAppSettings(relUnit.Relation(), tag)
+		default:
+			return nil, common.ErrPerm
+		}
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1900,6 +1915,41 @@ func (u *UniterAPI) getRelationAppSettings(canAccess common.AuthFunc, relTag str
 	return rel.ApplicationSettings(app)
 }
 
+func (u *UniterAPI) getRemoteRelationAppSettings(rel *state.Relation, appTag names.ApplicationTag) (map[string]interface{}, error) {
+	// Check that the application is actually remote.
+	var localAppTag names.ApplicationTag
+	switch tag := u.auth.GetAuthTag().(type) {
+	case names.UnitTag:
+		unit, err := u.st.Unit(tag.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		app, err := unit.Application()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		localAppTag = app.ApplicationTag()
+	case names.ApplicationTag:
+		localAppTag = tag
+	}
+	if localAppTag == appTag {
+		return nil, common.ErrPerm
+	}
+
+	// Check that the application is actually related.
+	_, err := rel.Endpoint(appTag.Id())
+	if err != nil {
+		return nil, common.ErrPerm
+	}
+
+	app, err := u.st.Application(appTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return rel.ApplicationSettings(app)
+}
+
 func (u *UniterAPI) destroySubordinates(principal *state.Unit) error {
 	subordinates := principal.SubordinateNames()
 	for _, subName := range subordinates {
@@ -1974,11 +2024,11 @@ func (u *UniterAPI) watchOneRelationUnit(relUnit *state.RelationUnit) (params.Re
 	return params.RelationUnitsWatchResult{}, watcher.EnsureErr(watch)
 }
 
-func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag string) (string, error) {
+func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag names.UnitTag) (string, error) {
 	// Make sure the unit is indeed remote.
 	switch tag := u.auth.GetAuthTag().(type) {
 	case names.UnitTag:
-		if remoteUnitTag == tag.String() {
+		if remoteUnitTag == tag {
 			return "", common.ErrPerm
 		}
 	case names.ApplicationTag:
@@ -1993,7 +2043,7 @@ func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag s
 			return "", errors.Trace(err)
 		}
 		for _, unit := range allUnits {
-			if remoteUnitTag == unit.Tag().String() {
+			if remoteUnitTag == unit.Tag() {
 				return "", common.ErrPerm
 			}
 		}
@@ -2003,11 +2053,7 @@ func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag s
 	// the *Unit, because it might have been removed; but its relation settings will
 	// persist until the relation itself has been removed (and must remain accessible
 	// because the local unit's view of reality may be time-shifted).
-	tag, err := names.ParseUnitTag(remoteUnitTag)
-	if err != nil {
-		return "", common.ErrPerm
-	}
-	remoteUnitName := tag.Id()
+	remoteUnitName := remoteUnitTag.Id()
 	remoteApplicationName, err := names.UnitApplication(remoteUnitName)
 	if err != nil {
 		return "", common.ErrPerm
