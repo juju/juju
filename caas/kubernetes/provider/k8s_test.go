@@ -1185,38 +1185,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceServiceWithoutPortsNotValid(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	// unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", getBasicPodspec())
-	// c.Assert(err, jc.ErrorIsNil)
-	// podSpec := provider.PodSpec(unitSpec)
-
-	// numUnits := int32(2)
-	// statefulSetArg := &appsv1.StatefulSet{
-	// 	ObjectMeta: v1.ObjectMeta{
-	// 		Name: "app-name",
-	// 		Annotations: map[string]string{
-	// 			"juju-app-uuid": "appuuid",
-	// 		},
-	// 	},
-	// 	Spec: appsv1.StatefulSetSpec{
-	// 		Replicas: &numUnits,
-	// 		Selector: &v1.LabelSelector{
-	// 			MatchLabels: map[string]string{"juju-app": "app-name"},
-	// 		},
-	// 		Template: core.PodTemplateSpec{
-	// 			ObjectMeta: v1.ObjectMeta{
-	// 				Labels: map[string]string{"juju-app": "app-name"},
-	// 				Annotations: map[string]string{
-	// 					"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
-	// 					"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-	// 				},
-	// 			},
-	// 			Spec: podSpec,
-	// 		},
-	// 		PodManagementPolicy: apps.ParallelPodManagement,
-	// 		ServiceName:         "app-name-endpoints",
-	// 	},
-	// }
-
 	serviceArg := *basicServiceArg
 	serviceArg.Spec.Type = core.ServiceTypeExternalName
 	gomock.InOrder(
