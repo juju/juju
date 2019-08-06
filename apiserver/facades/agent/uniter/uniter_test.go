@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
@@ -2292,6 +2293,7 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 		{Relation: "relation-42", LocalUnit: "unit-foo-0", RemoteUnit: "foo"},
 		{Relation: rel.Tag().String(), LocalUnit: "unit-wordpress-0", RemoteUnit: "unit-wordpress-0"},
 		{Relation: rel.Tag().String(), LocalUnit: "unit-wordpress-0", RemoteUnit: "unit-mysql-0"},
+		{Relation: rel.Tag().String(), LocalUnit: "unit-wordpress-0", RemoteUnit: "application-mysql"},
 		{Relation: "relation-42", LocalUnit: "unit-wordpress-0", RemoteUnit: ""},
 		{Relation: "relation-foo", LocalUnit: "", RemoteUnit: ""},
 		{Relation: "application-wordpress", LocalUnit: "unit-foo-0", RemoteUnit: "user-foo"},
@@ -2303,14 +2305,20 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	}}
 	result, err := s.uniter.ReadRemoteSettings(args)
 
-	// We don't set the remote unit settings on purpose to test the error.
+	// We don't set the remote unit settings on purpose
+	// to test the error.
 	expectErr := `cannot read settings for unit "mysql/0" in relation "wordpress:db mysql:server": unit "mysql/0": settings`
+
+	// The application settings are always initialised to empty when
+	// the relation is created.
 	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("%s", pretty.Sprint(result))
 	c.Assert(result, jc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.NotFoundError(expectErr)},
+			{Settings: params.Settings{}},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -2360,6 +2368,52 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	err = s.mysqlUnit.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	result, err = s.uniter.ReadRemoteSettings(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, expect)
+}
+
+func (s *uniterSuite) TestReadRemoteSettingsForApplication(c *gc.C) {
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
+	rel := s.addRelation(c, "wordpress", "mysql")
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	settings := map[string]interface{}{
+		"some": "settings",
+	}
+	err = relUnit.EnterScope(settings)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, relUnit, true)
+
+	// Set some application settings for mysql and check that we can
+	// see them.
+	err = rel.UpdateApplicationSettings(s.mysql, &fakeToken{}, map[string]interface{}{
+		"problem thinker": "fireproof",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{{
+		Relation:   rel.Tag().String(),
+		LocalUnit:  "unit-wordpress-0",
+		RemoteUnit: "application-mysql",
+	}, {
+		Relation:   rel.Tag().String(),
+		LocalUnit:  "unit-wordpress-0",
+		RemoteUnit: "application-wordpress",
+	}, {
+		Relation:   rel.Tag().String(),
+		LocalUnit:  "unit-wordpress-0",
+		RemoteUnit: "application-logging",
+	}}}
+	expect := params.SettingsResults{
+		Results: []params.SettingsResult{
+			{Settings: params.Settings{
+				"problem thinker": "fireproof",
+			}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	}
+	result, err := s.uniter.ReadRemoteSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, expect)
 }
@@ -4470,4 +4524,12 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 	})
 
 	c.Assert(err, gc.ErrorMatches, "kaboom")
+}
+
+type fakeToken struct {
+	err error
+}
+
+func (t *fakeToken) Check(int, interface{}) error {
+	return t.err
 }
