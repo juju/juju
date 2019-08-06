@@ -390,15 +390,25 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			SetStatePool:           config.SetStatePool,
 		}),
 
+		// The model cache initialized gate is used to make sure the api server
+		// isn't created before the model cache has been initialized with the
+		// initial state of the world.
+		modelCacheInitializedGateName: ifController(gate.Manifold()),
+		modelCacheInitializedFlagName: ifController(gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  modelCacheInitializedGateName,
+			NewWorker: gate.NewFlagWorker,
+		})),
+
 		// The modelcache manifold creates a cache.Controller and keeps
 		// it up to date using an all model watcher. The controller is then
 		// used by the apiserver.
-		modelCacheName: modelcache.Manifold(modelcache.ManifoldConfig{
+		modelCacheName: ifController(modelcache.Manifold(modelcache.ManifoldConfig{
 			StateName:            stateName,
+			InitializedGateName:  modelCacheInitializedGateName,
 			Logger:               loggo.GetLogger("juju.worker.modelcache"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            modelcache.NewWorker,
-		}),
+		})),
 
 		// The api-config-watcher manifold monitors the API server
 		// addresses in the agent config and bounces when they
@@ -679,7 +689,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:            httpserver.NewWorkerShim,
 		}),
 
-		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
+		apiServerName: ifModelCacheInitialized(apiserver.Manifold(apiserver.ManifoldConfig{
 			AgentName:              agentName,
 			AuthenticatorName:      httpServerArgsName,
 			ClockName:              clockName,
@@ -701,7 +711,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Presence:                          config.PresenceRecorder,
 			NewWorker:                         apiserver.NewWorker,
 			NewMetricsCollector:               apiserver.NewMetricsCollector,
-		}),
+		})),
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 			StateName:      stateName,
@@ -1016,6 +1026,12 @@ var ifLegacyLeasesEnabled = engine.Housing{
 	},
 }.Decorate
 
+var ifModelCacheInitialized = engine.Housing{
+	Flags: []string{
+		modelCacheInitializedFlagName,
+	},
+}.Decorate
+
 const (
 	agentName              = "agent"
 	agentConfigUpdaterName = "agent-config-updater"
@@ -1067,6 +1083,8 @@ const (
 	txnPrunerName                 = "transaction-pruner"
 	certificateWatcherName        = "certificate-watcher"
 	modelCacheName                = "model-cache"
+	modelCacheInitializedFlagName = "model-cache-initialized-flag"
+	modelCacheInitializedGateName = "model-cache-initialized-gate"
 	modelWorkerManagerName        = "model-worker-manager"
 	peergrouperName               = "peer-grouper"
 	restoreWatcherName            = "restore-watcher"

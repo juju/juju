@@ -855,6 +855,11 @@ func (s *loginSuite) TestOtherModel(c *gc.C) {
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	info.ModelTag = model.ModelTag()
+
+	// Ensure that the model has been added to the cache before
+	// we try to log in.
+	s.EnsureCachedModel(c, model.UUID())
+
 	st := s.openAPIWithoutLogin(c, info)
 
 	err = st.Login(modelOwner.UserTag(), "password", "", nil)

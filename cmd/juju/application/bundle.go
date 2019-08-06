@@ -353,7 +353,23 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			}
 		}
 
+		// While the bundle verifier code takes the bundle base path
+		// into account when checking for the presence of local charms,
+		// the bundlechanges code doesn't do the same and instead uses
+		// the current working directory for resolving local charms. If
+		// the CWD does not match the bundle base path then the code in
+		// bundlechanges (which assumes that the bundle has already
+		// been properly validated) will panic trying to parse local
+		// charm paths as URLs.
+		//
+		// As a work-around for making everything work as expected, we
+		// will handle relative charm path resolution at this point.
 		if h.isLocalCharm(spec.Charm) {
+			path, err := h.resolveRelativeCharmPath(name, spec.Charm)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			spec.Charm = path
 			continue
 		}
 
@@ -378,6 +394,27 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 	// effort, so for now the bundle handling is doing no implicit endpoint
 	// handling.
 	return nil
+}
+
+func (h *bundleHandler) resolveRelativeCharmPath(app, path string) (string, error) {
+	if filepath.IsAbs(path) {
+		return path, nil
+	}
+
+	absPath, err := filepath.Abs(filepath.Join(h.bundleDir, path))
+	if err != nil {
+		return "", errors.NotValidf("charm path %q in application %q", path, app)
+	}
+
+	if _, err = os.Stat(absPath); err == nil {
+		return absPath, nil
+	}
+
+	if os.IsNotExist(err) {
+		return "", errors.Errorf("charm path in application %q does not exist: %s", app, path)
+	}
+
+	return "", errors.Annotatef(err, "stat operation for local charm path %q failed", absPath)
 }
 
 func (h *bundleHandler) getChanges() error {

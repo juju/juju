@@ -367,6 +367,10 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	// Get API connection to hosted model.
 	apiInfo := s.APIInfo(c)
 	apiInfo.ModelTag = model2.ModelTag()
+	// To avoid the race between the cache on the model creation,
+	// make sure the cache has the model before progressing.
+	s.EnsureCachedModel(c, model2.UUID())
+
 	conn, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	client := conn.Client()

@@ -82,6 +82,7 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/lease"
 	"github.com/juju/juju/worker/modelcache"
 )
@@ -926,8 +927,10 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				return errors.Trace(err)
 			}
 
+			initialized := gate.NewLock()
 			modelCache, err := modelcache.NewWorker(modelcache.Config{
-				Logger: loggo.GetLogger("dummy"),
+				InitializedGate: initialized,
+				Logger:          loggo.GetLogger("dummy"),
 				WatcherFactory: func() modelcache.BackingWatcher {
 					return statePool.SystemState().WatchAllModels(statePool)
 				},
@@ -936,6 +939,11 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			})
 			if err != nil {
 				return errors.Trace(err)
+			}
+			select {
+			case <-initialized.Unlocked():
+			case <-time.After(10 * time.Second):
+				return errors.New("model cache not initialized after 10 seconds")
 			}
 			estate.modelCacheWorker = modelCache
 			err = modelcache.ExtractCacheController(modelCache, &estate.controller)

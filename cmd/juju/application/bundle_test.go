@@ -1040,6 +1040,28 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleO
 	c.Assert(settings["blog-title"], gc.Equals, "magic bundle config")
 }
 
+func (s *BundleDeployCharmStoreSuite) TestDeployLocalBundleWithRelativeCharmPaths(c *gc.C) {
+	bundleDir := c.MkDir()
+	_ = testcharms.RepoWithSeries("bionic").ClonedDirPath(bundleDir, "dummy")
+
+	bundleFile := filepath.Join(bundleDir, "bundle.yaml")
+	bundleContent := `
+series: bionic
+applications:
+  dummy:
+    charm: ./dummy
+`
+	c.Assert(
+		ioutil.WriteFile(bundleFile, []byte(bundleContent), 0644),
+		jc.ErrorIsNil)
+
+	err := runDeploy(c, bundleFile)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.Application("dummy")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c *gc.C) {
 	charmsPath := c.MkDir()
 	_, wpch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-42", "wordpress", "bionic")
