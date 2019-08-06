@@ -99,14 +99,6 @@
   revision = "f0300d1749da6fa982027e449ec0c7a145510c3c"
 
 [[projects]]
-  digest = "1:430bb635d614478c0a9fa66ccd7bc72398a796ff2181147e431172fb09d435d7"
-  name = "github.com/bcsaller/jsonschema"
-  packages = ["."]
-  pruneopts = ""
-  revision = "6c0c47f99db1d6789ea71b126fd6951df11de2c4"
-  source = "github.com/SimonRichardson/jsonschema"
-
-[[projects]]
   digest = "1:de184b64adb3054bea074db0b1be1327c7dc3aaa04e3fd6cb01f62f339caecd5"
   name = "github.com/beorn7/perks"
   packages = ["quantile"]
@@ -1879,7 +1871,6 @@
     "github.com/altoros/gosigma/mock",
     "github.com/armon/go-metrics",
     "github.com/armon/go-metrics/prometheus",
-    "github.com/bcsaller/jsonschema",
     "github.com/bmizerany/pat",
     "github.com/coreos/go-systemd/dbus",
     "github.com/coreos/go-systemd/unit",
