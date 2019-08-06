@@ -56,6 +56,28 @@ type ContainerSpec struct {
 	ProviderContainer `yaml:"-"`
 }
 
+// Validate is defined on ProviderContainer.
+func (spec *ContainerSpec) Validate() error {
+	if spec.Name == "" {
+		return errors.New("spec name is missing")
+	}
+	if spec.Image == "" && spec.ImageDetails.ImagePath == "" {
+		return errors.New("spec image details is missing")
+	}
+	for _, fs := range spec.Files {
+		if fs.Name == "" {
+			return errors.New("file set name is missing")
+		}
+		if fs.MountPath == "" {
+			return errors.Errorf("mount path is missing for file set %q", fs.Name)
+		}
+	}
+	if spec.ProviderContainer != nil {
+		return spec.ProviderContainer.Validate()
+	}
+	return nil
+}
+
 // RBACType describes Role/Binding type.
 type RBACType string
 
@@ -195,28 +217,6 @@ func (spec *PodSpec) Validate() error {
 	}
 	if spec.ServiceAccount != nil {
 		return spec.ServiceAccount.Validate()
-	}
-	return nil
-}
-
-// Validate is defined on ProviderContainer.
-func (spec *ContainerSpec) Validate() error {
-	if spec.Name == "" {
-		return errors.New("spec name is missing")
-	}
-	if spec.Image == "" && spec.ImageDetails.ImagePath == "" {
-		return errors.New("spec image details is missing")
-	}
-	for _, fs := range spec.Files {
-		if fs.Name == "" {
-			return errors.New("file set name is missing")
-		}
-		if fs.MountPath == "" {
-			return errors.Errorf("mount path is missing for file set %q", fs.Name)
-		}
-	}
-	if spec.ProviderContainer != nil {
-		return spec.ProviderContainer.Validate()
 	}
 	return nil
 }
