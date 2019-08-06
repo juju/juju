@@ -537,6 +537,10 @@
   revision = "4d05e43ad98c1edcf2f52291685bd9bbc12fd2cd"
 
 [[constraint]]
-  revision = "6c0c47f99db1d6789ea71b126fd6951df11de2c4"
-  name = "github.com/bcsaller/jsonschema"
-  source = "github.com/SimonRichardson/jsonschema"
+  revision = "1cefd32714820322a3b1f1f19157b69e51038fde"
+  name = "github.com/juju/jsonschema-gen"
+  source = "github.com/SimonRichardson/jsonschema-gen"
+
+[[constraint]]
+  revision = "cca922e065df403dc5088294f7f546e838d13708"
+  name = "github.com/SimonRichardson/rpcreflect"

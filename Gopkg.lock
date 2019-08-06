@@ -69,6 +69,13 @@
   revision = "4e5a4a63d9b78757b4891b8de60be2606d8972ee"
 
 [[projects]]
+  digest = "1:49b61a2d186cbe71f1e72021b7bba7012b9433af2215f7ef07456344216efeff"
+  name = "github.com/SimonRichardson/rpcreflect"
+  packages = ["."]
+  pruneopts = ""
+  revision = "cca922e065df403dc5088294f7f546e838d13708"
+
+[[projects]]
   digest = "1:7b42eeb05f45af1cd224ce9c9b1b80d128290a15846826ea447d01126b2728fd"
   name = "github.com/ajstarks/svgo"
   packages = ["."]
@@ -97,14 +104,6 @@
   ]
   pruneopts = ""
   revision = "f0300d1749da6fa982027e449ec0c7a145510c3c"
-
-[[projects]]
-  digest = "1:430bb635d614478c0a9fa66ccd7bc72398a796ff2181147e431172fb09d435d7"
-  name = "github.com/bcsaller/jsonschema"
-  packages = ["."]
-  pruneopts = ""
-  revision = "6c0c47f99db1d6789ea71b126fd6951df11de2c4"
-  source = "github.com/SimonRichardson/jsonschema"
 
 [[projects]]
   digest = "1:de184b64adb3054bea074db0b1be1327c7dc3aaa04e3fd6cb01f62f339caecd5"
@@ -590,6 +589,14 @@
   packages = ["."]
   pruneopts = ""
   revision = "a0ef8b74ebcffeeff9fc374854deb4af388f037e"
+
+[[projects]]
+  digest = "1:9399b3848ed57708c03102511caf3edb0b56eb720c0157dfcbde088795ca2d89"
+  name = "github.com/juju/jsonschema-gen"
+  packages = ["."]
+  pruneopts = ""
+  revision = "1cefd32714820322a3b1f1f19157b69e51038fde"
+  source = "github.com/SimonRichardson/jsonschema-gen"
 
 [[projects]]
   digest = "1:e460f07bec03866640127c47aae303167e9c79ee426c5fab03c180001eb4a39f"
@@ -1874,12 +1881,12 @@
     "github.com/Azure/go-autorest/autorest/validation",
     "github.com/Azure/go-autorest/tracing",
     "github.com/EvilSuperstars/go-cidrman",
+    "github.com/SimonRichardson/rpcreflect",
     "github.com/altoros/gosigma",
     "github.com/altoros/gosigma/data",
     "github.com/altoros/gosigma/mock",
     "github.com/armon/go-metrics",
     "github.com/armon/go-metrics/prometheus",
-    "github.com/bcsaller/jsonschema",
     "github.com/bmizerany/pat",
     "github.com/coreos/go-systemd/dbus",
     "github.com/coreos/go-systemd/unit",
@@ -1920,6 +1927,7 @@
     "github.com/juju/httprequest",
     "github.com/juju/idmclient/ussologin",
     "github.com/juju/jsonschema",
+    "github.com/juju/jsonschema-gen",
     "github.com/juju/loggo",
     "github.com/juju/loggo/loggocolor",
     "github.com/juju/mutex",
