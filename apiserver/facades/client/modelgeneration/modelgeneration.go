@@ -29,6 +29,7 @@ type API struct {
 	st                State
 	model             Model
 	modelCache        ModelCache
+	opFactory         OpFactory
 }
 
 type APIV3 struct {
@@ -55,7 +56,7 @@ func NewModelGenerationFacadeV4(ctx facade.Context) (*API, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewModelGenerationAPI(st, authorizer, m, &modelCacheShim{Model: mc})
+	return NewModelGenerationAPI(st, authorizer, m, &modelCacheShim{Model: mc}, newOpFactory(ctx.State()))
 }
 
 // NewModelGenerationFacadeV3 provides the signature required for facade registration.
@@ -87,30 +88,32 @@ func NewModelGenerationFacade(ctx facade.Context) (*APIV1, error) {
 // NewModelGenerationAPI creates a new API endpoint for dealing with model generations.
 func NewModelGenerationAPI(
 	st State,
-	authorizer facade.Authorizer,
+	auth facade.Authorizer,
 	m Model,
 	mc ModelCache,
+	of OpFactory,
 ) (*API, error) {
-	if !authorizer.AuthClient() {
+	if !auth.AuthClient() {
 		return nil, common.ErrPerm
 	}
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.
-	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
+	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 	// Pretty much all of the user manager methods have special casing for admin
 	// users, so look once when we start and remember if the user is an admin.
-	isAdmin, err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
+	isAdmin, err := auth.HasPermission(permission.SuperuserAccess, st.ControllerTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return &API{
-		authorizer:        authorizer,
+		authorizer:        auth,
 		isControllerAdmin: isAdmin,
 		apiUser:           apiUser,
 		st:                st,
 		model:             m,
 		modelCache:        mc,
+		opFactory:         of,
 	}, nil
 }
 
@@ -190,32 +193,6 @@ func (api *API) TrackBranch(arg params.BranchTrackArg) (params.ErrorResults, err
 			result.Results[i].Error = common.ServerError(
 				errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag))
 		}
-	}
-	return result, nil
-}
-
-// CommitBranch commits the input branch, making its changes applicable to
-// the whole model and marking it complete.
-func (api *API) CommitBranch(arg params.BranchArg) (params.IntResult, error) {
-	result := params.IntResult{}
-
-	isModelAdmin, err := api.hasAdminAccess()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if !isModelAdmin && !api.isControllerAdmin {
-		return result, common.ErrPerm
-	}
-
-	branch, err := api.model.Branch(arg.BranchName)
-	if err != nil {
-		return intResultsError(err)
-	}
-
-	if genId, err := branch.Commit(api.apiUser.Name()); err != nil {
-		result.Error = common.ServerError(err)
-	} else {
-		result.Result = genId
 	}
 	return result, nil
 }
