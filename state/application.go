@@ -3154,3 +3154,9 @@ func appUnitNames(st *State, appName string) ([]string, error) {
 	}
 	return unitNames, nil
 }
+
+// ----- New methods for model operation example:
+
+func (a *Application) CharmConfigKey() string {
+	return a.CharmConfigKey()
+}

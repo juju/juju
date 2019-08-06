@@ -373,119 +373,37 @@ func (g *Generation) UpdateCharmConfig(appName string, master *Settings, validCh
 
 // Commit marks the generation as completed and assigns it the next value from
 // the generation sequence. The new generation ID is returned.
-func (g *Generation) Commit(userName string) (int, error) {
+func (g *Generation) CompleteOps(assigned map[string][]string, now *time.Time, userName string) ([]txn.Op, int, error) {
 	var newGenId int
 
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := g.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-
-		if g.IsCompleted() {
-			if g.GenerationId() == 0 {
-				return nil, errors.New("branch was already aborted")
-			}
-			return nil, jujutxn.ErrNoOperations
-		}
-
-		now, err := g.st.ControllerTimestamp()
+	// Get the new sequence as late as we can.
+	// If assigned is empty, indicating no changes under this branch,
+	// then the generation ID in not incremented.
+	// This effectively means the generation is aborted, not committed.
+	if len(assigned) > 0 {
+		id, err := sequenceWithMin(g.st, "generation", 1)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, 0, errors.Trace(err)
 		}
-		assigned, err := g.assignedWithAllUnits()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops, err := g.commitConfigTxnOps()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		// Get the new sequence as late as we can.
-		// If assigned is empty, indicating no changes under this branch,
-		// then the generation ID in not incremented.
-		// This effectively means the generation is aborted, not committed.
-		if len(assigned) > 0 {
-			id, err := sequenceWithMin(g.st, "generation", 1)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			newGenId = id
-		}
-
-		// As a proxy for checking that the generation has not changed,
-		// Assert that the txn rev-no has not changed since we materialised
-		// this generation object.
-		ops = append(ops, txn.Op{
-			C:      generationsC,
-			Id:     g.doc.DocId,
-			Assert: bson.D{{"txn-revno", g.doc.TxnRevno}},
-			Update: bson.D{
-				{"$set", bson.D{
-					{"assigned-units", assigned},
-					{"completed", now.Unix()},
-					{"completed-by", userName},
-					{"generation-id", newGenId},
-				}},
-			},
-		})
-		return ops, nil
+		newGenId = id
 	}
 
-	if err := g.st.db().Run(buildTxn); err != nil {
-		return 0, errors.Trace(err)
-	}
-	return newGenId, nil
-}
-
-// assignedWithAllUnits generates a new value for the branch's
-// AssignedUnits field, to indicate that all units of changed applications
-// are tracking the branch.
-func (g *Generation) assignedWithAllUnits() (map[string][]string, error) {
-	assigned := g.AssignedUnits()
-	for app := range assigned {
-		units, err := appUnitNames(g.st, app)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		assigned[app] = units
-	}
-	return assigned, nil
-}
-
-// commitConfigTxnOps iterates over all the applications with configuration
-// deltas, determines their effective new settings, then gathers the
-// operations representing the changes so that they can all be applied in a
-// single transaction.
-func (g *Generation) commitConfigTxnOps() ([]txn.Op, error) {
-	var ops []txn.Op
-	for appName, delta := range g.Config() {
-		if len(delta) == 0 {
-			continue
-		}
-		app, err := g.st.Application(appName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		// Apply the branch delta to the application's charm config settings.
-		cfg, err := readSettings(g.st.db(), settingsC, app.charmConfigKey())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		cfg.applyChanges(delta)
-
-		_, updates := cfg.settingsUpdateOps()
-		// Assert that the settings document has not changed underneath us
-		// in addition to appending the field changes.
-		if len(updates) > 0 {
-			ops = append(ops, cfg.assertUnchangedOp())
-			ops = append(ops, updates...)
-		}
-	}
-	return ops, nil
+	// As a proxy for checking that the generation has not changed,
+	// Assert that the txn rev-no has not changed since we materialised
+	// this generation object.
+	return []txn.Op{{
+		C:      generationsC,
+		Id:     g.doc.DocId,
+		Assert: bson.D{{"txn-revno", g.doc.TxnRevno}},
+		Update: bson.D{
+			{"$set", bson.D{
+				{"assigned-units", assigned},
+				{"completed", now.Unix()},
+				{"completed-by", userName},
+				{"generation-id", newGenId},
+			}},
+		},
+	}}, newGenId, nil
 }
 
 // Abort marks the generation as completed however no value is assigned from
@@ -636,6 +554,16 @@ func (g *Generation) unassignAppOps(appName string) []txn.Op {
 		})
 	}
 	return ops
+}
+
+func (g *Generation) ValidateForCompletion() error {
+	if !g.IsCompleted() {
+		return nil
+	}
+	if g.GenerationId() == 0 {
+		return errors.New("branch was already aborted")
+	}
+	return jujutxn.ErrNoOperations
 }
 
 // AddBranch creates a new branch in the current model.
@@ -901,5 +829,4 @@ func (change branchesCleanupChange) Prepare(db Database) ([]txn.Op, error) {
 		}
 	}
 	return ops, nil
-
 }
