@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/juju/description"
@@ -1366,7 +1367,15 @@ func (i *importer) subnets() error {
 			info.SpaceName = subnet.SpaceName()
 		}
 
-		err := i.addSubnet(info)
+		snID := subnet.ID()
+		if snID == "" {
+			seq, err := sequence(i.st, "subnet")
+			if err != nil {
+				return errors.Trace(err)
+			}
+			snID = strconv.Itoa(seq)
+		}
+		err := i.addSubnet(snID, info)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1375,15 +1384,15 @@ func (i *importer) subnets() error {
 	return nil
 }
 
-func (i *importer) addSubnet(args network.SubnetInfo) error {
+func (i *importer) addSubnet(id string, args network.SubnetInfo) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		subnet, err := i.st.newSubnetFromArgs(args)
+		subnetDoc, ops, err := i.st.addSubnetOps(id, args)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops := i.st.addSubnetOps(args)
+		subnet := &Subnet{st: i.st, doc: subnetDoc}
 		if attempt != 0 {
-			if _, err = i.st.Subnet(args.CIDR); err == nil {
+			if _, err = i.st.SubnetByID(id); err == nil {
 				return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
 			}
 			if err := subnet.Refresh(); err != nil {
