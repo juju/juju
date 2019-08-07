@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	csiapi "k8s.io/csi-api/pkg/client/clientset/versioned"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
@@ -94,6 +95,7 @@ type kubernetesClient struct {
 	envCfgUnlocked              *config.Config
 	clientUnlocked              kubernetes.Interface
 	apiextensionsClientUnlocked apiextensionsclientset.Interface
+	csiClientUnlocked           csiapi.Interface
 
 	newClient NewK8sClientFunc
 
@@ -106,7 +108,7 @@ type kubernetesClient struct {
 
 // To regenerate the mocks for the kubernetes Client used by this broker,
 // run "go generate" from the package directory.
-//go:generate mockgen -package mocks -destination mocks/k8sclient_mock.go k8s.io/client-go/kubernetes Interface
+//go:generate mockgen -package mocks -destination mocks/k8sclient_mock.go -mock_names Interface=MockKubernetesClientSetInterface k8s.io/client-go/kubernetes Interface
 //go:generate mockgen -package mocks -destination mocks/appv1_mock.go k8s.io/client-go/kubernetes/typed/apps/v1 AppsV1Interface,DeploymentInterface,StatefulSetInterface
 //go:generate mockgen -package mocks -destination mocks/corev1_mock.go k8s.io/client-go/kubernetes/typed/core/v1 EventInterface,CoreV1Interface,NamespaceInterface,PodInterface,ServiceInterface,ConfigMapInterface,PersistentVolumeInterface,PersistentVolumeClaimInterface,SecretInterface,NodeInterface
 //go:generate mockgen -package mocks -destination mocks/extenstionsv1_mock.go k8s.io/client-go/kubernetes/typed/extensions/v1beta1 ExtensionsV1beta1Interface,IngressInterface
@@ -114,9 +116,12 @@ type kubernetesClient struct {
 //go:generate mockgen -package mocks -destination mocks/rbacv1_mock.go k8s.io/client-go/kubernetes/typed/rbac/v1 RbacV1Interface,ClusterRoleBindingInterface,ClusterRoleInterface,RoleInterface,RoleBindingInterface
 //go:generate mockgen -package mocks -destination mocks/apiextensions_mock.go k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1 ApiextensionsV1beta1Interface,CustomResourceDefinitionInterface
 //go:generate mockgen -package mocks -destination mocks/apiextensionsclientset_mock.go -mock_names=Interface=MockApiExtensionsClientInterface k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset  Interface
+//go:generate mockgen -package mocks -destination mocks/csiclientset_mock.go -mock_names Interface=MockCsiClientSetInterface k8s.io/csi-api/pkg/client/clientset/versioned Interface
+//go:generate mockgen -package mocks -destination mocks/csiv1alpha_mock.go k8s.io/csi-api/pkg/client/clientset/versioned/typed/csi/v1alpha1 CsiV1alpha1Interface,CSIDriverInterface
+//go:generate mockgen -package mocks -destination mocks/discovery_mock.go k8s.io/client-go/discovery DiscoveryInterface
 
 // NewK8sClientFunc defines a function which returns a k8s client based on the supplied config.
-type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error)
+type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, csiapi.Interface, error)
 
 // NewK8sWatcherFunc defines a function which returns a k8s watcher based on the supplied config.
 type NewK8sWatcherFunc func(wi watch.Interface, name string, clock jujuclock.Clock) (*kubernetesWatcher, error)
@@ -131,7 +136,7 @@ func newK8sBroker(
 	clock jujuclock.Clock,
 ) (*kubernetesClient, error) {
 
-	k8sClient, apiextensionsClient, err := newClient(k8sRestConfig)
+	k8sClient, apiextensionsClient, csiClient, err := newClient(k8sRestConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -148,6 +153,7 @@ func newK8sBroker(
 		clock:                       clock,
 		clientUnlocked:              k8sClient,
 		apiextensionsClientUnlocked: apiextensionsClient,
+		csiClientUnlocked:           csiClient,
 		envCfgUnlocked:              newCfg.Config,
 		namespace:                   newCfg.Name(),
 		modelUUID:                   modelUUID,
@@ -180,10 +186,17 @@ func (k *kubernetesClient) client() kubernetes.Interface {
 	return client
 }
 
-func (k *kubernetesClient) extendedCient() apiextensionsclientset.Interface {
+func (k *kubernetesClient) extendedClient() apiextensionsclientset.Interface {
 	k.lock.Lock()
 	defer k.lock.Unlock()
 	client := k.apiextensionsClientUnlocked
+	return client
+}
+
+func (k *kubernetesClient) csiClient() csiapi.Interface {
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	client := k.csiClientUnlocked
 	return client
 }
 
@@ -217,7 +230,7 @@ func (k *kubernetesClient) SetCloudSpec(spec environs.CloudSpec) error {
 		return errors.Annotate(err, "cannot set cloud spec")
 	}
 
-	k.clientUnlocked, k.apiextensionsClientUnlocked, err = k.newClient(k8sRestConfig)
+	k.clientUnlocked, k.apiextensionsClientUnlocked, k.csiClientUnlocked, err = k.newClient(k8sRestConfig)
 	if err != nil {
 		return errors.Annotate(err, "cannot set cloud spec")
 	}
@@ -1060,7 +1073,7 @@ func (k *kubernetesClient) ensureCustomResourceDefinitionTemplate(name string, s
 		},
 		Spec: spec,
 	}
-	apiextensionsV1beta1 := k.extendedCient().ApiextensionsV1beta1()
+	apiextensionsV1beta1 := k.extendedClient().ApiextensionsV1beta1()
 	logger.Debugf("creating crd %#v", crdIn)
 	crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Create(crdIn)
 	if k8serrors.IsAlreadyExists(err) {

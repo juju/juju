@@ -11,8 +11,8 @@ import (
 )
 
 var k8sCloudCheckers map[string][]k8slabels.Selector
-var jujuPreferredWorkloadStorage map[string]caas.PreferredStorage
-var jujuPreferredOperatorStorage map[string]caas.PreferredStorage
+var jujuPreferredWorkloadStorage map[string][]caas.PreferredStorage
+var jujuPreferredOperatorStorage map[string][]caas.PreferredStorage
 
 func init() {
 	caas.RegisterContainerProvider(CAASProviderType, providerInstance)
@@ -23,26 +23,38 @@ func init() {
 
 	// jujuPreferredWorkloadStorage defines the opinionated storage
 	// that Juju requires to be available on supported clusters.
-	jujuPreferredWorkloadStorage = map[string]caas.PreferredStorage{
-		caas.K8sCloudMicrok8s: {
+	jujuPreferredWorkloadStorage = map[string][]caas.PreferredStorage{
+		caas.K8sCloudMicrok8s: {{
 			Name:        "hostpath",
 			Provisioner: "microk8s.io/hostpath",
-		},
-		caas.K8sCloudGCE: {
+		}},
+		caas.K8sCloudGCE: {{
 			Name:        "GCE Persistent Disk",
 			Provisioner: "kubernetes.io/gce-pd",
-		},
-		caas.K8sCloudAzure: {
+		}},
+		caas.K8sCloudAzure: {{
 			Name:        "Azure Disk",
 			Provisioner: "kubernetes.io/azure-disk",
-		},
-		caas.K8sCloudEC2: {
+		}},
+		caas.K8sCloudEC2: {{
 			Name:        "EBS Volume",
 			Provisioner: "kubernetes.io/aws-ebs",
-		},
+		}},
 		caas.K8sCloudOpenStack: {
-			Name:        "Cinder Disk",
-			Provisioner: "csi-cinderplugin",
+			{
+				Name:        "Cinder Disk",
+				Provisioner: "cinder.csi.openstack.org",
+				CSI:         true,
+			},
+			{
+				Name:        "Cinder Disk",
+				Provisioner: "csi-cinderplugin",
+				CSI:         true,
+			},
+			{
+				Name:        "Cinder Disk",
+				Provisioner: "kubernetes.io/cinder",
+			},
 		},
 	}
 
@@ -92,6 +104,12 @@ func compileK8sCloudCheckers() map[string][]k8slabels.Selector {
 			// CDK on Azure.
 			newLabelRequirements(
 				requirementParams{"juju.io/cloud", selection.Equals, []string{"azure"}},
+			),
+		},
+		caas.K8sCloudOpenStack: {
+			// CDK on Openstack.
+			newLabelRequirements(
+				requirementParams{"juju.io/cloud", selection.Equals, []string{"openstack"}},
 			),
 		},
 		// format - cloudType: requirements.

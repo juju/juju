@@ -12,9 +12,11 @@ import (
 	core "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	csiv1alpha1 "k8s.io/csi-api/pkg/apis/csi/v1alpha1"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/core/annotations"
 )
 
 type K8sMetadataSuite struct {
@@ -108,6 +110,13 @@ var hostRegionsTestCases = []hostRegionTestcase{
 		}),
 	},
 	{
+		expectedCloud:   "openstack",
+		expectedRegions: set.NewStrings(""),
+		nodes: newNodeList(map[string]string{
+			"juju.io/cloud": "openstack",
+		}),
+	},
+	{
 		expectedCloud:   "azure",
 		expectedRegions: set.NewStrings(""),
 		nodes: newNodeList(map[string]string{
@@ -190,6 +199,32 @@ func (s *K8sMetadataSuite) TestListHostCloudRegions(c *gc.C) {
 				Return(v.nodes, nil),
 			s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
 				Return(&storagev1.StorageClassList{}, nil),
+			s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+				Return(&v1.APIResourceList{
+					GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+					APIResources: []v1.APIResource{
+						{Name: "CSIDrivers"},
+					},
+				}, nil),
+			s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+				&csiv1alpha1.CSIDriverList{
+					Items: []csiv1alpha1.CSIDriver{
+						{ObjectMeta: v1.ObjectMeta{Name: "csi-plugin-foo"}},
+					},
+				}, nil),
+			s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+				Return(&v1.APIResourceList{
+					GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+					APIResources: []v1.APIResource{
+						{Name: "CSIDrivers"},
+					},
+				}, nil),
+			s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+				&csiv1alpha1.CSIDriverList{
+					Items: []csiv1alpha1.CSIDriver{
+						{ObjectMeta: v1.ObjectMeta{Name: "csi-plugin-foo"}},
+					},
+				}, nil),
 		)
 		metadata, err := s.broker.GetClusterMetadata("")
 		c.Check(err, jc.ErrorIsNil)
@@ -210,6 +245,32 @@ func (s *K8sMetadataSuite) TestNoDefaultStorageClasses(c *gc.C) {
 				Provisioner: "a-provisioner",
 				Parameters:  map[string]string{"foo": "bar"},
 			}}}, nil),
+		s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+			Return(&v1.APIResourceList{
+				GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+				APIResources: []v1.APIResource{
+					{Name: "CSIDrivers"},
+				},
+			}, nil),
+		s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+			&csiv1alpha1.CSIDriverList{
+				Items: []csiv1alpha1.CSIDriver{
+					{ObjectMeta: v1.ObjectMeta{Name: "csi-plugin-foo"}},
+				},
+			}, nil),
+		s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+			Return(&v1.APIResourceList{
+				GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+				APIResources: []v1.APIResource{
+					{Name: "CSIDrivers"},
+				},
+			}, nil),
+		s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+			&csiv1alpha1.CSIDriverList{
+				Items: []csiv1alpha1.CSIDriver{
+					{ObjectMeta: v1.ObjectMeta{Name: "csi-plugin-foo"}},
+				},
+			}, nil),
 	)
 	metadata, err := s.broker.GetClusterMetadata("")
 	c.Check(err, jc.ErrorIsNil)
@@ -234,6 +295,32 @@ func (s *K8sMetadataSuite) TestNoDefaultStorageClassesTooMany(c *gc.C) {
 				Provisioner: "b-provisioner",
 				Parameters:  map[string]string{"foo": "bar"},
 			}}}, nil),
+		s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+			Return(&v1.APIResourceList{
+				GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+				APIResources: []v1.APIResource{
+					{Name: "CSIDrivers"},
+				},
+			}, nil),
+		s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+			&csiv1alpha1.CSIDriverList{
+				Items: []csiv1alpha1.CSIDriver{
+					{ObjectMeta: v1.ObjectMeta{Name: "csi-plugin-foo"}},
+				},
+			}, nil),
+		s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+			Return(&v1.APIResourceList{
+				GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+				APIResources: []v1.APIResource{
+					{Name: "CSIDrivers"},
+				},
+			}, nil),
+		s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+			&csiv1alpha1.CSIDriverList{
+				Items: []csiv1alpha1.CSIDriver{
+					{ObjectMeta: v1.ObjectMeta{Name: "csi-plugin-foo"}},
+				},
+			}, nil),
 	)
 	metadata, err := s.broker.GetClusterMetadata("")
 	c.Check(err, jc.ErrorIsNil)
@@ -256,12 +343,40 @@ func (s *K8sMetadataSuite) TestPreferDefaultStorageClass(c *gc.C) {
 				Provisioner: "b-provisioner",
 				Parameters:  map[string]string{"foo": "bar"},
 			}}}, nil),
+		s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+			Return(&v1.APIResourceList{
+				GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+				APIResources: []v1.APIResource{
+					{Name: "CSIDrivers"},
+				},
+			}, nil),
+		s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+			&csiv1alpha1.CSIDriverList{
+				Items: []csiv1alpha1.CSIDriver{
+					{ObjectMeta: v1.ObjectMeta{Name: "csi-plugin-foo"}},
+				},
+			}, nil),
+		s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+			Return(&v1.APIResourceList{
+				GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+				APIResources: []v1.APIResource{
+					{Name: "CSIDrivers"},
+				},
+			}, nil),
+		s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+			&csiv1alpha1.CSIDriverList{
+				Items: []csiv1alpha1.CSIDriver{
+					{ObjectMeta: v1.ObjectMeta{Name: "csi-plugin-foo"}},
+				},
+			}, nil),
 	)
 	metadata, err := s.broker.GetClusterMetadata("")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
 		Provisioner: "a-provisioner",
 		Parameters:  map[string]string{"foo": "bar"},
+		Default:     true,
+		Annotations: annotations.Annotation{"storageclass.kubernetes.io/is-default-class": "true"},
 	})
 }
 
@@ -281,12 +396,40 @@ func (s *K8sMetadataSuite) TestBetaDefaultStorageClass(c *gc.C) {
 				Provisioner: "b-provisioner",
 				Parameters:  map[string]string{"foo": "bar"},
 			}}}, nil),
+		s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+			Return(&v1.APIResourceList{
+				GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+				APIResources: []v1.APIResource{
+					{Name: "CSIDrivers"},
+				},
+			}, nil),
+		s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+			&csiv1alpha1.CSIDriverList{
+				Items: []csiv1alpha1.CSIDriver{
+					{ObjectMeta: v1.ObjectMeta{Name: "csi-plugin-foo"}},
+				},
+			}, nil),
+		s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+			Return(&v1.APIResourceList{
+				GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+				APIResources: []v1.APIResource{
+					{Name: "CSIDrivers"},
+				},
+			}, nil),
+		s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+			&csiv1alpha1.CSIDriverList{
+				Items: []csiv1alpha1.CSIDriver{
+					{ObjectMeta: v1.ObjectMeta{Name: "csi-plugin-foo"}},
+				},
+			}, nil),
 	)
 	metadata, err := s.broker.GetClusterMetadata("")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
 		Provisioner: "a-provisioner",
 		Parameters:  map[string]string{"foo": "bar"},
+		Default:     true,
+		Annotations: annotations.Annotation{"storageclass.beta.kubernetes.io/is-default-class": "true"},
 	})
 }
 
@@ -299,22 +442,90 @@ func (s *K8sMetadataSuite) TestUserSpecifiedStorageClasses(c *gc.C) {
 			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
 				Labels: map[string]string{"manufacturer": "amazon_ec2"},
 			}}}}, nil),
-		s.mockStorageClass.EXPECT().Get("foo", v1.GetOptions{IncludeUninitialized: true}).Times(1).
-			Return(&storagev1.StorageClass{
-				ObjectMeta:  v1.ObjectMeta{Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"}},
-				Provisioner: "a-provisioner",
-				Parameters:  map[string]string{"foo": "bar"},
-			}, nil),
 		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
 			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
 				Provisioner: "kubernetes.io/aws-ebs",
+			}, {
+				ObjectMeta:  v1.ObjectMeta{Name: "foo", Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"}},
+				Provisioner: "a-provisioner",
+				Parameters:  map[string]string{"foo": "bar"},
 			}}}, nil),
+		s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+			Return(&v1.APIResourceList{
+				GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+				APIResources: []v1.APIResource{
+					{Name: "CSIDrivers"},
+				},
+			}, nil),
+		s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+			&csiv1alpha1.CSIDriverList{
+				Items: []csiv1alpha1.CSIDriver{
+					{ObjectMeta: v1.ObjectMeta{Name: "csi-plugin-foo"}},
+				},
+			}, nil),
 	)
 	metadata, err := s.broker.GetClusterMetadata("foo")
 	c.Check(err, jc.ErrorIsNil)
+	c.Assert(metadata, gc.NotNil)
 	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+		Name:        "foo",
 		Provisioner: "a-provisioner",
 		Parameters:  map[string]string{"foo": "bar"},
+		Default:     true,
+		Annotations: annotations.Annotation{"storageclass.kubernetes.io/is-default-class": "true"},
+	})
+	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+		Provisioner: "kubernetes.io/aws-ebs",
+	})
+}
+
+func (s *K8sMetadataSuite) TestOperatorStorageClassMultiplePreferred(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
+			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
+				Labels: map[string]string{"manufacturer": "amazon_ec2"},
+			}}}}, nil),
+		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
+			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
+				Provisioner: "kubernetes.io/aws-ebs",
+			}, {
+				Provisioner: "kubernetes.io/aws-ebs",
+				Parameters:  map[string]string{"foo": "bar"},
+			}}}, nil),
+		s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+			Return(&v1.APIResourceList{
+				GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+				APIResources: []v1.APIResource{
+					{Name: "CSIDrivers"},
+				},
+			}, nil),
+		s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+			&csiv1alpha1.CSIDriverList{
+				Items: []csiv1alpha1.CSIDriver{
+					{ObjectMeta: v1.ObjectMeta{Name: "csi-plugin-foo"}},
+				},
+			}, nil),
+		s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+			Return(&v1.APIResourceList{
+				GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+				APIResources: []v1.APIResource{
+					{Name: "CSIDrivers"},
+				},
+			}, nil),
+		s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+			&csiv1alpha1.CSIDriverList{
+				Items: []csiv1alpha1.CSIDriver{
+					{ObjectMeta: v1.ObjectMeta{Name: "csi-plugin-foo"}},
+				},
+			}, nil),
+	)
+	metadata, err := s.broker.GetClusterMetadata("")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+		Provisioner: "kubernetes.io/aws-ebs",
 	})
 	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
 		Provisioner: "kubernetes.io/aws-ebs",
@@ -332,20 +543,42 @@ func (s *K8sMetadataSuite) TestOperatorStorageClassNoDefault(c *gc.C) {
 			}}}}, nil),
 		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
 			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
-				Provisioner: "kubernetes.io/aws-ebs",
+				Provisioner: "a-provisioner",
 			}, {
-				Provisioner: "kubernetes.io/aws-ebs",
-				Parameters:  map[string]string{"foo": "bar"},
+				Provisioner: "b-provisioner",
 			}}}, nil),
+		s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+			Return(&v1.APIResourceList{
+				GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+				APIResources: []v1.APIResource{
+					{Name: "CSIDrivers"},
+				},
+			}, nil),
+		s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+			&csiv1alpha1.CSIDriverList{
+				Items: []csiv1alpha1.CSIDriver{
+					{ObjectMeta: v1.ObjectMeta{Name: "csi-plugin-foo"}},
+				},
+			}, nil),
+		s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+			Return(&v1.APIResourceList{
+				GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+				APIResources: []v1.APIResource{
+					{Name: "CSIDrivers"},
+				},
+			}, nil),
+		s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+			&csiv1alpha1.CSIDriverList{
+				Items: []csiv1alpha1.CSIDriver{
+					{ObjectMeta: v1.ObjectMeta{Name: "csi-plugin-foo"}},
+				},
+			}, nil),
 	)
 	metadata, err := s.broker.GetClusterMetadata("")
 	c.Check(err, jc.ErrorIsNil)
-	// More than one match so need to be explicit for workload storage.
+	// No matching preferred storage class and multiple non-default sc
 	c.Check(metadata.NominatedStorageClass, gc.IsNil)
-	// Take the first match for operator storage.
-	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
-		Provisioner: "kubernetes.io/aws-ebs",
-	})
+	c.Check(metadata.OperatorStorageClass, gc.IsNil)
 }
 
 func (s *K8sMetadataSuite) TestOperatorStorageClassPrefersDefault(c *gc.C) {
@@ -365,16 +598,46 @@ func (s *K8sMetadataSuite) TestOperatorStorageClassPrefersDefault(c *gc.C) {
 				Provisioner: "kubernetes.io/aws-ebs",
 				Parameters:  map[string]string{"foo": "bar"},
 			}}}, nil),
+		s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+			Return(&v1.APIResourceList{
+				GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+				APIResources: []v1.APIResource{
+					{Name: "CSIDrivers"},
+				},
+			}, nil),
+		s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+			&csiv1alpha1.CSIDriverList{
+				Items: []csiv1alpha1.CSIDriver{
+					{ObjectMeta: v1.ObjectMeta{Name: "csi-plugin-foo"}},
+				},
+			}, nil),
+		s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+			Return(&v1.APIResourceList{
+				GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+				APIResources: []v1.APIResource{
+					{Name: "CSIDrivers"},
+				},
+			}, nil),
+		s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+			&csiv1alpha1.CSIDriverList{
+				Items: []csiv1alpha1.CSIDriver{
+					{ObjectMeta: v1.ObjectMeta{Name: "csi-plugin-foo"}},
+				},
+			}, nil),
 	)
 	metadata, err := s.broker.GetClusterMetadata("")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
 		Provisioner: "kubernetes.io/aws-ebs",
 		Parameters:  map[string]string{"foo": "bar"},
+		Default:     true,
+		Annotations: annotations.Annotation{"storageclass.kubernetes.io/is-default-class": "true"},
 	})
 	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
 		Provisioner: "kubernetes.io/aws-ebs",
 		Parameters:  map[string]string{"foo": "bar"},
+		Default:     true,
+		Annotations: annotations.Annotation{"storageclass.kubernetes.io/is-default-class": "true"},
 	})
 }
 
@@ -398,6 +661,19 @@ func (s *K8sMetadataSuite) TestAnnotatedWorkloadStorageClass(c *gc.C) {
 				Provisioner: "kubernetes.io/aws-ebs",
 				Parameters:  map[string]string{"foo": "bar"},
 			}}}, nil),
+		s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+			Return(&v1.APIResourceList{
+				GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+				APIResources: []v1.APIResource{
+					{Name: "CSIDrivers"},
+				},
+			}, nil),
+		s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+			&csiv1alpha1.CSIDriverList{
+				Items: []csiv1alpha1.CSIDriver{
+					{ObjectMeta: v1.ObjectMeta{Name: "csi-plugin-foo"}},
+				},
+			}, nil),
 	)
 	metadata, err := s.broker.GetClusterMetadata("")
 	c.Check(err, jc.ErrorIsNil)
@@ -405,18 +681,19 @@ func (s *K8sMetadataSuite) TestAnnotatedWorkloadStorageClass(c *gc.C) {
 		Name:        "juju-preferred-workload-storage",
 		Provisioner: "kubernetes.io/aws-ebs",
 		Parameters:  map[string]string{"foo": "bar"},
+		Annotations: annotations.Annotation{"juju.io/workload-storage": "true"},
 	})
 	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
 		Name:        "juju-preferred-workload-storage",
 		Provisioner: "kubernetes.io/aws-ebs",
 		Parameters:  map[string]string{"foo": "bar"},
+		Annotations: annotations.Annotation{"juju.io/workload-storage": "true"},
 	})
 }
 
 func (s *K8sMetadataSuite) TestAnnotatedWorkloadAndOperatorStorageClass(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
-
 	gomock.InOrder(
 		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
 			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
@@ -452,11 +729,13 @@ func (s *K8sMetadataSuite) TestAnnotatedWorkloadAndOperatorStorageClass(c *gc.C)
 		Name:        "juju-preferred-workload-storage",
 		Provisioner: "kubernetes.io/aws-ebs",
 		Parameters:  map[string]string{"foo": "bar"},
+		Annotations: annotations.Annotation{"juju.io/workload-storage": "true"},
 	})
 	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
 		Name:        "juju-preferred-operator-storage",
 		Provisioner: "kubernetes.io/aws-ebs",
 		Parameters:  map[string]string{"foo": "bar"},
+		Annotations: annotations.Annotation{"juju.io/operator-storage": "true"},
 	})
 }
 
@@ -472,9 +751,84 @@ func (s *K8sMetadataSuite) TestCheckDefaultWorkloadStorageNonpreferred(c *gc.C) 
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
+	gomock.InOrder(
+		s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+			Return(&v1.APIResourceList{
+				GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+				APIResources: []v1.APIResource{
+					{Name: "CSIDrivers"},
+				},
+			}, nil),
+		s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+			&csiv1alpha1.CSIDriverList{
+				Items: []csiv1alpha1.CSIDriver{
+					{ObjectMeta: v1.ObjectMeta{Name: "csi-plugin-foo"}},
+				},
+			}, nil),
+	)
+
 	err := s.broker.CheckDefaultWorkloadStorage("microk8s", &caas.StorageProvisioner{Provisioner: "foo"})
 	c.Assert(err, jc.Satisfies, caas.IsNonPreferredStorageError)
 	npse, ok := errors.Cause(err).(*caas.NonPreferredStorageError)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(npse.Provisioner, gc.Equals, "microk8s.io/hostpath")
+}
+
+func (s *K8sMetadataSuite) TestMatchCSIAvailableProvisioners(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
+			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
+				Labels: map[string]string{"juju.io/cloud": "openstack"},
+			}}}}, nil),
+		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
+			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
+				ObjectMeta:  v1.ObjectMeta{Name: "a"},
+				Provisioner: "cinder.csi.openstack.org",
+			}, {
+				ObjectMeta:  v1.ObjectMeta{Name: "b"},
+				Provisioner: "csi-cinderplugin",
+			}, {
+				ObjectMeta:  v1.ObjectMeta{Name: "c"},
+				Provisioner: "kubernetes.io/cinder",
+			}}}, nil),
+		s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+			Return(&v1.APIResourceList{
+				GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+				APIResources: []v1.APIResource{
+					{Name: "CSIDrivers"},
+				},
+			}, nil),
+		s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+			&csiv1alpha1.CSIDriverList{
+				Items: []csiv1alpha1.CSIDriver{
+					{ObjectMeta: v1.ObjectMeta{Name: "cinder.csi.openstack.org"}},
+				},
+			}, nil),
+		s.mockDiscovery.EXPECT().ServerResourcesForGroupVersion(csiv1alpha1.SchemeGroupVersion.String()).Times(1).
+			Return(&v1.APIResourceList{
+				GroupVersion: csiv1alpha1.SchemeGroupVersion.String(),
+				APIResources: []v1.APIResource{
+					{Name: "CSIDrivers"},
+				},
+			}, nil),
+		s.mockCSIDrivers.EXPECT().List(v1.ListOptions{}).Times(1).Return(
+			&csiv1alpha1.CSIDriverList{
+				Items: []csiv1alpha1.CSIDriver{
+					{ObjectMeta: v1.ObjectMeta{Name: "cinder.csi.openstack.org"}},
+				},
+			}, nil),
+	)
+	metadata, err := s.broker.GetClusterMetadata("")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(metadata.NominatedStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+		Name:        "a",
+		Provisioner: "cinder.csi.openstack.org",
+	})
+	c.Check(metadata.OperatorStorageClass, jc.DeepEquals, &caas.StorageProvisioner{
+		Name:        "a",
+		Provisioner: "cinder.csi.openstack.org",
+	})
 }

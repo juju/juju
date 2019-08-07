@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/juju/core/annotations"
 )
 
 const (
@@ -50,15 +51,20 @@ type PreferredStorage struct {
 	Name        string
 	Provisioner string
 	Parameters  map[string]string
+
+	// CSI is true when this is a CSI-based provisioner.
+	CSI bool
 }
 
-// StorageProvisioner defines the a storage provisioner available on a cluster.
+// StorageProvisioner defines a storage provisioner available on a cluster.
 type StorageProvisioner struct {
 	Name          string
 	Provisioner   string
 	Parameters    map[string]string
 	Namespace     string
 	ReclaimPolicy string
+	Default       bool
+	Annotations   annotations.Annotation
 }
 
 // ClusterMetadata defines metadata about a cluster.

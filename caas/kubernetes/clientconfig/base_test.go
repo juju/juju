@@ -19,7 +19,7 @@ type BaseSuite struct {
 
 	namespace string
 
-	k8sClient              *mocks.MockInterface
+	k8sClient              *mocks.MockKubernetesClientSetInterface
 	mockRbacV1             *mocks.MockRbacV1Interface
 	mockClusterRoles       *mocks.MockClusterRoleInterface
 	mockClusterRoleBinding *mocks.MockClusterRoleBindingInterface
@@ -34,7 +34,7 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 
 func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.k8sClient = mocks.NewMockInterface(ctrl)
+	s.k8sClient = mocks.NewMockKubernetesClientSetInterface(ctrl)
 
 	mockCoreV1 := mocks.NewMockCoreV1Interface(ctrl)
 	s.k8sClient.EXPECT().CoreV1().AnyTimes().Return(mockCoreV1)

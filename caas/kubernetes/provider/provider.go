@@ -13,6 +13,7 @@ import (
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	csiapi "k8s.io/csi-api/pkg/client/clientset/versioned"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
@@ -58,17 +59,21 @@ func (defaultRunner) RunCommands(run exec.RunParams) (*exec.ExecResponse, error)
 	return exec.RunCommands(run)
 }
 
-func newK8sClient(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error) {
+func newK8sClient(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, csiapi.Interface, error) {
 	k8sClient, err := kubernetes.NewForConfig(c)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	var apiextensionsclient *apiextensionsclientset.Clientset
 	apiextensionsclient, err = apiextensionsclientset.NewForConfig(c)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return k8sClient, apiextensionsclient, nil
+	csiClient, err := csiapi.NewForConfig(c)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return k8sClient, apiextensionsclient, csiClient, nil
 }
 
 func cloudSpecToK8sRestConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {

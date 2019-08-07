@@ -20,6 +20,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	csiapi "k8s.io/csi-api/pkg/client/clientset/versioned"
 
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/mocks"
@@ -41,7 +42,7 @@ type BaseSuite struct {
 
 	controllerUUID string
 
-	k8sClient                  *mocks.MockInterface
+	k8sClient                  *mocks.MockKubernetesClientSetInterface
 	mockRestClient             *mocks.MockRestClientInterface
 	mockNamespaces             *mocks.MockNamespaceInterface
 	mockApps                   *mocks.MockAppsV1Interface
@@ -69,6 +70,12 @@ type BaseSuite struct {
 	mockClusterRoles        *mocks.MockClusterRoleInterface
 	mockRoleBindings        *mocks.MockRoleBindingInterface
 	mockClusterRoleBindings *mocks.MockClusterRoleBindingInterface
+
+	mockCSIAlphaV1 *mocks.MockCsiV1alpha1Interface
+	mockCSIClient  *mocks.MockCsiClientSetInterface
+	mockCSIDrivers *mocks.MockCSIDriverInterface
+
+	mockDiscovery *mocks.MockDiscoveryInterface
 
 	watchers []*provider.KubernetesWatcher
 }
@@ -144,13 +151,16 @@ func (s *BaseSuite) setupBroker(c *gc.C, ctrl *gomock.Controller,
 }
 
 func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller, namespace string) provider.NewK8sClientFunc {
-	s.k8sClient = mocks.NewMockInterface(ctrl)
+	s.k8sClient = mocks.NewMockKubernetesClientSetInterface(ctrl)
+
+	s.mockDiscovery = mocks.NewMockDiscoveryInterface(ctrl)
 
 	// Plug in the various k8s client modules we need.
 	// eg namespaces, pods, services, ingress resources, volumes etc.
 	// We make the mock and assign it to the corresponding core getter function.
 	mockCoreV1 := mocks.NewMockCoreV1Interface(ctrl)
 	s.k8sClient.EXPECT().CoreV1().AnyTimes().Return(mockCoreV1)
+	s.k8sClient.EXPECT().Discovery().AnyTimes().Return(s.mockDiscovery)
 
 	s.mockRestClient = mocks.NewMockRestClientInterface(ctrl)
 	mockCoreV1.EXPECT().RESTClient().AnyTimes().Return(s.mockRestClient)
@@ -199,6 +209,7 @@ func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller, namespa
 	s.mockStorage.EXPECT().StorageClasses().AnyTimes().Return(s.mockStorageClass)
 
 	s.mockApiextensionsClient = mocks.NewMockApiExtensionsClientInterface(ctrl)
+	s.mockApiextensionsClient.EXPECT().Discovery().AnyTimes().Return(s.mockDiscovery)
 	s.mockApiextensionsV1 = mocks.NewMockApiextensionsV1beta1Interface(ctrl)
 	s.mockCustomResourceDefinition = mocks.NewMockCustomResourceDefinitionInterface(ctrl)
 	s.mockApiextensionsClient.EXPECT().ApiextensionsV1beta1().AnyTimes().Return(s.mockApiextensionsV1)
@@ -219,7 +230,14 @@ func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller, namespa
 	s.mockClusterRoleBindings = mocks.NewMockClusterRoleBindingInterface(ctrl)
 	mockRbacV1.EXPECT().ClusterRoleBindings().AnyTimes().Return(s.mockClusterRoleBindings)
 
-	return func(cfg *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error) {
+	s.mockCSIClient = mocks.NewMockCsiClientSetInterface(ctrl)
+	s.mockCSIClient.EXPECT().Discovery().AnyTimes().Return(s.mockDiscovery)
+	s.mockCSIAlphaV1 = mocks.NewMockCsiV1alpha1Interface(ctrl)
+	s.mockCSIClient.EXPECT().CsiV1alpha1().AnyTimes().Return(s.mockCSIAlphaV1)
+	s.mockCSIDrivers = mocks.NewMockCSIDriverInterface(ctrl)
+	s.mockCSIAlphaV1.EXPECT().CSIDrivers().AnyTimes().Return(s.mockCSIDrivers)
+
+	return func(cfg *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, csiapi.Interface, error) {
 		c.Assert(cfg.Username, gc.Equals, "fred")
 		c.Assert(cfg.Password, gc.Equals, "secret")
 		c.Assert(cfg.Host, gc.Equals, "some-host")
@@ -228,7 +246,7 @@ func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller, namespa
 			KeyData:  []byte("cert-key"),
 			CAData:   []byte(testing.CACert),
 		})
-		return s.k8sClient, s.mockApiextensionsClient, nil
+		return s.k8sClient, s.mockApiextensionsClient, s.mockCSIClient, nil
 	}
 }
 

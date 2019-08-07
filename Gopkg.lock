@@ -1869,6 +1869,19 @@
   pruneopts = ""
   revision = "3db81bdd128696db1c2fcba8a426ed0a3993824d"
 
+[[projects]]
+  branch = "master"
+  digest = "1:78d86663f97023a4a7b2c05a15d498d215216622f401b3d38ff50d15b4d03f60"
+  name = "k8s.io/csi-api"
+  packages = [
+    "pkg/apis/csi/v1alpha1",
+    "pkg/client/clientset/versioned",
+    "pkg/client/clientset/versioned/scheme",
+    "pkg/client/clientset/versioned/typed/csi/v1alpha1",
+  ]
+  pruneopts = ""
+  revision = "94ac839bf26cd8861226396b93ddf920cbb7ccc9"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -1901,6 +1914,7 @@
     "github.com/dustin/go-humanize",
     "github.com/golang/mock/gomock",
     "github.com/google/go-querystring/query",
+    "github.com/googleapis/gnostic/OpenAPIv2",
     "github.com/gorilla/handlers",
     "github.com/gorilla/schema",
     "github.com/gorilla/websocket",
@@ -2153,6 +2167,9 @@
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",
     "k8s.io/client-go/util/flowcontrol",
+    "k8s.io/csi-api/pkg/apis/csi/v1alpha1",
+    "k8s.io/csi-api/pkg/client/clientset/versioned",
+    "k8s.io/csi-api/pkg/client/clientset/versioned/typed/csi/v1alpha1",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

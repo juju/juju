@@ -543,3 +543,7 @@
 [[constraint]]
   revision = "cca922e065df403dc5088294f7f546e838d13708"
   name = "github.com/juju/rpcreflect"
+
+[[constraint]]
+  branch = "master"
+  name = "k8s.io/csi-api"
