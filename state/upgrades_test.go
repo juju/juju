@@ -3486,6 +3486,59 @@ func (s *upgradesSuite) TestChangeSubnetSpaceNameToSpaceID(c *gc.C) {
 	s.assertUpgradedData(c, ChangeSubnetSpaceNameToSpaceID, expectUpgradedData{col, expected})
 }
 
+func (s *upgradesSuite) TestAddSubnetIdToSubnetDocs(c *gc.C) {
+	col, closer := s.state.db().GetRawCollection(subnetsC)
+	defer closer()
+
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+	cidr1 := "10.0.0.0/16"
+	cidr2 := "10.0.42.0/16"
+
+	err := col.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, cidr1),
+		"model-uuid": uuid1,
+		"life":       Alive,
+		"providerid": "provider1",
+		"cidr":       cidr1,
+	}, bson.M{
+		"_id":        ensureModelUUID(uuid2, cidr2),
+		"model-uuid": uuid2,
+		"life":       Alive,
+		"is-public":  false,
+		"cidr":       cidr2,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		// The altered subnets:
+		{
+			"_id":        uuid1 + ":0",
+			"model-uuid": uuid1,
+			"subnet-id":  "0",
+			"life":       0,
+			"providerid": "provider1",
+			"cidr":       cidr1,
+		}, {
+			"_id":        uuid2 + ":0",
+			"model-uuid": uuid2,
+			"subnet-id":  "0",
+			"life":       0,
+			"cidr":       cidr2,
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, AddSubnetIdToSubnetDocs, expectUpgradedData{col, expected})
+}
+
 func (s *upgradesSuite) makeSpace(c *gc.C, uuid, name, id string) {
 	coll, closer := s.state.db().GetRawCollection(spacesC)
 	defer closer()

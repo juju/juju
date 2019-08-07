@@ -2405,3 +2405,53 @@ func ChangeSubnetSpaceNameToSpaceID(pool *StatePool) (err error) {
 		return errors.Trace(st.db().RunTransaction(ops))
 	}))
 }
+
+// AddSubnetIdToSubnetDocs ensures that every subnet document includes a
+// a sequentially generated ID.
+func AddSubnetIdToSubnetDocs(pool *StatePool) (err error) {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(subnetsC)
+		defer closer()
+
+		var docs []subnetDoc
+		err := col.Find(nil).All(&docs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, oldDoc := range docs {
+			// A doc with a subnet ID has already been upgraded.
+			if oldDoc.ID != "" {
+				continue
+			}
+
+			// We cannot edit _id, so we need to delete and re-create each doc.
+			ops = append(ops, txn.Op{
+				C:      subnetsC,
+				Id:     oldDoc.DocID,
+				Assert: txn.DocExists,
+				Remove: true,
+			})
+
+			seq, err := sequence(st, "subnet")
+			if err != nil {
+				return errors.Trace(err)
+			}
+			id := strconv.Itoa(seq)
+
+			newDoc := oldDoc
+			newDoc.TxnRevno = 0
+			newDoc.DocID = st.docID(id)
+			newDoc.ID = id
+
+			ops = append(ops, txn.Op{
+				C:      subnetsC,
+				Id:     newDoc.DocID,
+				Insert: newDoc,
+			})
+		}
+
+		return errors.Trace(st.db().RunTransaction(ops))
+	}))
+}
