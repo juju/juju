@@ -13,8 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-
-	"github.com/SimonRichardson/rpcreflect"
+	"github.com/juju/rpcreflect"
 )
 
 const codeNotImplemented = "not implemented"

@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/rpcreflect"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/SimonRichardson/rpcreflect"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
