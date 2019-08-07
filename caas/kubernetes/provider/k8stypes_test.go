@@ -160,7 +160,7 @@ customResourceDefinitions:
 foo: bar
 `[1:]
 
-	spec, err := provider.ParseK8sPodSpec(specStr)
+	spec, err := provider.ParsePodSpec(specStr)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spec, jc.DeepEquals, &caas.PodSpec{
 		OmitServiceFrontend: true,
@@ -354,7 +354,7 @@ func (s *ContainersSuite) TestValidateMissingContainers(c *gc.C) {
 containers:
 `[1:]
 
-	_, err := provider.ParseK8sPodSpec(specStr)
+	_, err := provider.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, "require at least one container spec")
 }
 
@@ -365,9 +365,7 @@ containers:
   - image: gitlab/latest
 `[1:]
 
-	spec, err := provider.ParseK8sPodSpec(specStr)
-	c.Assert(err, jc.ErrorIsNil)
-	err = spec.Validate()
+	_, err := provider.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, "spec name is missing")
 }
 
@@ -378,9 +376,7 @@ containers:
   - name: gitlab
 `[1:]
 
-	spec, err := provider.ParseK8sPodSpec(specStr)
-	c.Assert(err, jc.ErrorIsNil)
-	err = spec.Validate()
+	_, err := provider.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, "spec image details is missing")
 }
 
@@ -397,9 +393,7 @@ containers:
             foo: bar
 `[1:]
 
-	spec, err := provider.ParseK8sPodSpec(specStr)
-	c.Assert(err, jc.ErrorIsNil)
-	err = spec.Validate()
+	_, err := provider.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `file set name is missing`)
 }
 
@@ -417,8 +411,6 @@ containers:
             foo: bar
 `[1:]
 
-	spec, err := provider.ParseK8sPodSpec(specStr)
-	c.Assert(err, jc.ErrorIsNil)
-	err = spec.Validate()
+	_, err := provider.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `mount path is missing for file set "configuration"`)
 }

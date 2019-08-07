@@ -114,15 +114,6 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 	return controllerCorelation(broker)
 }
 
-// ParsePodSpec is part of the ContainerEnvironProvider interface.
-func (kubernetesEnvironProvider) ParsePodSpec(in string) (*caas.PodSpec, error) {
-	spec, err := parseK8sPodSpec(in)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return spec, spec.Validate()
-}
-
 // CloudSchema returns the schema for adding new clouds of this type.
 func (p kubernetesEnvironProvider) CloudSchema() *jsonschema.Schema {
 	return nil
