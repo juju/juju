@@ -242,25 +242,27 @@ func (s *K8sSuite) TestMakeUnitSpecWithInitContainers(c *gc.C) {
 	})
 }
 
-var basicPodspec = &caas.PodSpec{
-	Containers: []caas.ContainerSpec{{
-		Name:         "test",
-		Ports:        []caas.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
-		ImageDetails: caas.ImageDetails{ImagePath: "juju/image", Username: "fred", Password: "secret"},
-		Command:      []string{"sh", "-c"},
-		Args:         []string{"doIt", "--debug"},
-		WorkingDir:   "/path/to/here",
-		Config: map[string]interface{}{
-			"foo":        "bar",
-			"restricted": "'yes'",
-			"bar":        true,
-			"switch":     "on",
-		},
-	}, {
-		Name:  "test2",
-		Ports: []caas.ContainerPort{{ContainerPort: 8080, Protocol: "TCP", Name: "fred"}},
-		Image: "juju/image2",
-	}},
+func getBasicPodspec() *caas.PodSpec {
+	return &caas.PodSpec{
+		Containers: []caas.ContainerSpec{{
+			Name:         "test",
+			Ports:        []caas.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
+			ImageDetails: caas.ImageDetails{ImagePath: "juju/image", Username: "fred", Password: "secret"},
+			Command:      []string{"sh", "-c"},
+			Args:         []string{"doIt", "--debug"},
+			WorkingDir:   "/path/to/here",
+			Config: map[string]interface{}{
+				"foo":        "bar",
+				"restricted": "'yes'",
+				"bar":        true,
+				"switch":     "on",
+			},
+		}, {
+			Name:  "test2",
+			Ports: []caas.ContainerPort{{ContainerPort: 8080, Protocol: "TCP", Name: "fred"}},
+			Image: "juju/image2",
+		}},
+	}
 }
 
 var operatorPodspec = core.PodSpec{
@@ -343,7 +345,7 @@ var basicHeadlessServiceArg = &core.Service{
 }
 
 func (s *K8sBrokerSuite) secretArg(c *gc.C, annotations map[string]string) *core.Secret {
-	secretData, err := provider.CreateDockerConfigJSON(&basicPodspec.Containers[0].ImageDetails)
+	secretData, err := provider.CreateDockerConfigJSON(&getBasicPodspec().Containers[0].ImageDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	if annotations == nil {
 		annotations = map[string]string{}
@@ -363,7 +365,7 @@ func (s *K8sBrokerSuite) secretArg(c *gc.C, annotations map[string]string) *core
 }
 
 func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
-	spec, err := provider.MakeUnitSpec("app-name", "app-name", basicPodspec)
+	spec, err := provider.MakeUnitSpec("app-name", "app-name", getBasicPodspec())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.PodSpec(spec), jc.DeepEquals, core.PodSpec{
 		ImagePullSecrets: []core.LocalObjectReference{{Name: "app-name-test-secret"}},
@@ -1019,7 +1021,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	defer ctrl.Finish()
 
 	numUnits := int32(2)
-	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", basicPodspec)
+	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", getBasicPodspec())
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.PodSpec(unitSpec)
 
@@ -1092,7 +1094,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:      basicPodspec,
+		PodSpec:      getBasicPodspec(),
 		ResourceTags: map[string]string{"fred": "mary"},
 	}
 	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
@@ -1108,7 +1110,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", basicPodspec)
+	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", getBasicPodspec())
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.PodSpec(unitSpec)
 
@@ -1168,7 +1170,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec: basicPodspec,
+		PodSpec: getBasicPodspec(),
 		Deployment: caas.DeploymentParams{
 			DeploymentType: caas.DeploymentStateful,
 			ServiceType:    caas.ServiceExternal,
@@ -1194,7 +1196,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceServiceWithoutPortsNotValid(c *gc.C) {
 			Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
-		s.mockSecrets.EXPECT().Delete("app-name-test-secret", s.deleteOptions(v1.DeletePropagationForeground, nil)).Times(1).
+		s.mockSecrets.EXPECT().Delete("app-name-test-secret", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(nil),
 	)
 	caasPodSpec := getBasicPodspec()
@@ -1229,7 +1231,7 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionCreate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	podSpec := basicPodspec
+	podSpec := getBasicPodspec()
 	podSpec.CustomResourceDefinitions = map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
 		"tfjobs.kubeflow.org": {
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
@@ -1339,7 +1341,7 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionUpdate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	podSpec := basicPodspec
+	podSpec := getBasicPodspec()
 	podSpec.CustomResourceDefinitions = map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
 		"tfjobs.kubeflow.org": {
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
@@ -1450,7 +1452,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", basicPodspec)
+	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", getBasicPodspec())
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.PodSpec(unitSpec)
 	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
@@ -1501,7 +1503,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec: basicPodspec,
+		PodSpec: getBasicPodspec(),
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
 			Size:        100,
@@ -1534,7 +1536,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 	defer ctrl.Finish()
 
 	numUnits := int32(2)
-	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", basicPodspec)
+	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", getBasicPodspec())
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.PodSpec(unitSpec)
 	podSpec.NodeSelector = map[string]string{"accelerator": "nvidia-tesla-p100"}
@@ -1593,7 +1595,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec: basicPodspec,
+		PodSpec: getBasicPodspec(),
 		Devices: []devices.KubernetesDeviceParams{
 			{
 				Type:       "nvidia.com/gpu",
@@ -1614,7 +1616,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", basicPodspec)
+	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", getBasicPodspec())
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.PodSpec(unitSpec)
 	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
@@ -1664,7 +1666,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec: basicPodspec,
+		PodSpec: getBasicPodspec(),
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
 			Size:        100,
@@ -1695,7 +1697,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", basicPodspec)
+	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", getBasicPodspec())
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.PodSpec(unitSpec)
 	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
@@ -1742,7 +1744,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec: basicPodspec,
+		PodSpec: getBasicPodspec(),
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
 			Size:        100,
@@ -1767,7 +1769,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", basicPodspec)
+	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", getBasicPodspec())
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.PodSpec(unitSpec)
 	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
@@ -1827,7 +1829,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec: basicPodspec,
+		PodSpec: getBasicPodspec(),
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
 			Size:        100,
@@ -1852,7 +1854,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", basicPodspec)
+	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", getBasicPodspec())
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.PodSpec(unitSpec)
 	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
@@ -1904,7 +1906,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec: basicPodspec,
+		PodSpec: getBasicPodspec(),
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
 			Size:        100,
