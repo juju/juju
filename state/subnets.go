@@ -209,9 +209,16 @@ func (s *Subnet) setSpace(subnets mongo.Collection) error {
 		defer closer()
 	}
 	overlayDoc := &subnetDoc{}
-	err := subnets.FindId(s.doc.FanLocalUnderlay).One(overlayDoc)
+	// TODO: (hml) 2019-08-06
+	// Rethink the bson logic once multiple subnets can have the same cidr.
+	err := subnets.Find(bson.M{"cidr": s.doc.FanLocalUnderlay}).One(overlayDoc)
+	if err == mgo.ErrNotFound {
+		logger.Errorf("unable to update spaceID for subnet %q %q: underlay network %q: %s",
+			s.doc.ID, s.doc.CIDR, s.doc.FanLocalUnderlay, err.Error())
+		return nil
+	}
 	if err != nil {
-		return errors.Annotatef(err, "finding underlay network %v for FAN %v", s.doc.FanLocalUnderlay, s.doc.CIDR)
+		return errors.Annotatef(err, "underlay network %v for FAN %v", s.doc.FanLocalUnderlay, s.doc.CIDR)
 	}
 	s.spaceID = overlayDoc.SpaceID
 	return nil
@@ -300,14 +307,16 @@ func (st *State) SubnetUpdate(args network.SubnetInfo) error {
 	return s.Update(args)
 }
 
-// AddSubnet creates and returns a new subnet
+// AddSubnet creates and returns a new subnet.
 func (st *State) AddSubnet(args network.SubnetInfo) (subnet *Subnet, err error) {
+	logger.Debugf("AddSubnet(%s)", args.CIDR)
 	defer errors.DeferredAnnotatef(&err, "adding subnet %q", args.CIDR)
 
 	if err := args.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	seq, err := sequence(st, "subnet")
+	var seq int
+	seq, err = sequence(st, "subnet")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -326,7 +335,9 @@ func (st *State) AddSubnet(args network.SubnetInfo) (subnet *Subnet, err error) 
 				return nil, errors.Trace(err)
 			}
 		}
-		subDoc, ops, err := st.addSubnetOps(strconv.Itoa(seq), args)
+		var ops []txn.Op
+		var subDoc subnetDoc
+		subDoc, ops, err = st.addSubnetOps(strconv.Itoa(seq), args)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -347,6 +358,15 @@ func (st *State) AddSubnet(args network.SubnetInfo) (subnet *Subnet, err error) 
 func (st *State) addSubnetOps(id string, args network.SubnetInfo) (subnetDoc, []txn.Op, error) {
 	// TODO (hml) 2019-07-24
 	// Temporary until SubnetInfo.SpaceName is changed to SubnetInfo.SpaceID
+	unique, err := st.uniqueSubnet(args.CIDR, string(args.ProviderId))
+	if err != nil {
+		return subnetDoc{}, nil, errors.Trace(err)
+	}
+	if !unique {
+		logger.Debugf("unique(%q, %q) is NOT unique", args.CIDR, string(args.ProviderId))
+		return subnetDoc{}, nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
+	}
+	logger.Debugf("unique(%q, %q) is unique", args.CIDR, string(args.ProviderId))
 	sp, err := st.Space(args.SpaceName)
 	if err != nil {
 		return subnetDoc{}, nil, errors.Trace(err)
@@ -380,6 +400,27 @@ func (st *State) addSubnetOps(id string, args network.SubnetInfo) (subnetDoc, []
 	return subDoc, ops, nil
 }
 
+func (st *State) uniqueSubnet(cidr, providerID string) (bool, error) {
+	subnets, closer := st.db().GetCollection(subnetsC)
+	defer closer()
+
+	count, err := subnets.Find(bson.D{{"$and", []bson.D{
+		{{"cidr", cidr}},
+		{{"providerid", providerID}},
+	}}}).Count()
+	if err == mgo.ErrNotFound {
+		return false, errors.NotFoundf("subnet cidr %q", cidr)
+	}
+	if err != nil {
+		return false, errors.Annotatef(err, "cannot get subnet cidr %q", cidr)
+	}
+	return count == 0, nil
+}
+
+// TODO (hml) 2019-08-06
+// This will need to be updated or removed once cidrs
+// are no longer unique identifiers of juju subnets.
+//
 // Subnet returns the subnet specified by the cidr.
 func (st *State) Subnet(cidr string) (*Subnet, error) {
 	return st.subnet(bson.M{"cidr": cidr}, cidr)

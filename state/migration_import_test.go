@@ -1190,10 +1190,27 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 		IsPublic:          true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	originalNoID, err := s.State.AddSubnet(network.SubnetInfo{
+		CIDR:              "10.76.0.0/24",
+		ProviderId:        network.Id("bar"),
+		ProviderNetworkId: network.Id("oak"),
+		VLANTag:           64,
+		SpaceName:         "bam",
+		AvailabilityZones: []string{"bar"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
-	_, newSt := s.importModel(c, s.State)
+	_, newSt := s.importModel(c, s.State, func(desc map[string]interface{}) {
+		subnets := desc["subnets"].(map[interface{}]interface{})
+		for _, item := range subnets["subnets"].([]interface{}) {
+			sp := item.(map[interface{}]interface{})
+			if sp["subnet-id"] == originalNoID.ID() {
+				sp["subnet-id"] = ""
+			}
+		}
+	})
 
-	subnet, err := newSt.Subnet(original.CIDR())
+	subnet, err := newSt.SubnetByID(original.ID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
@@ -1205,6 +1222,10 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "")
 	c.Assert(subnet.FanOverlay(), gc.Equals, "")
 	c.Assert(subnet.IsPublic(), gc.Equals, true)
+
+	imported, err := newSt.Subnet(originalNoID.CIDR())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(imported, gc.Not(gc.Equals), "")
 }
 
 func (s *MigrationImportSuite) TestSubnetsWithFan(c *gc.C) {

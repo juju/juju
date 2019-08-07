@@ -1171,6 +1171,7 @@ func (e *exporter) subnets() error {
 
 	for _, subnet := range subnets {
 		args := description.SubnetArgs{
+			ID:                subnet.ID(),
 			CIDR:              subnet.CIDR(),
 			ProviderId:        string(subnet.ProviderId()),
 			ProviderNetworkId: string(subnet.ProviderNetworkId()),
