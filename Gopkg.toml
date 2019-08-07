@@ -537,5 +537,6 @@
   revision = "4d05e43ad98c1edcf2f52291685bd9bbc12fd2cd"
 
 [[constraint]]
-  revision = "66506e52db051b5e238aa63ec4dad0a790fbc236"
+  revision = "6c0c47f99db1d6789ea71b126fd6951df11de2c4"
   name = "github.com/bcsaller/jsonschema"
+  source = "github.com/SimonRichardson/jsonschema"
