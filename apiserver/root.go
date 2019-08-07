@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/rpcreflect"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
 )
 
