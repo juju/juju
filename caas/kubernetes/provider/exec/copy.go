@@ -17,7 +17,7 @@ import (
 	"github.com/juju/errors"
 )
 
-// FileResource holds all the necessary parameters for the resource or destination of copy request.
+// FileResource holds all the necessary parameters for the source or destination of a copy request.
 type FileResource struct {
 	Path          string
 	PodName       string
@@ -33,9 +33,9 @@ func (cp *FileResource) validate() (err error) {
 
 // CopyParam holds all the necessary parameters for a copy request.
 type CopyParam struct {
-	Src                            FileResource
-	Dest                           FileResource
-	noPreserveOwnershipPermissions bool
+	Src                           FileResource
+	Dest                          FileResource
+	overwriteOwnershipPermissions bool
 }
 
 func (cp *CopyParam) validate() error {
@@ -49,7 +49,7 @@ func (cp *CopyParam) validate() error {
 		return errors.New("cross pods copy is not supported")
 	}
 	if cp.Src.PodName == "" && cp.Dest.PodName == "" {
-		return errors.New("copy either from pod nor to pod")
+		return errors.New("copy either from pod to host or from host to pod")
 	}
 	return nil
 }
@@ -103,7 +103,7 @@ func (c client) copyToPod(params CopyParam, cancel <-chan struct{}) (err error) 
 	}()
 
 	cmds := []string{"tar", "-xmf", "-"}
-	if params.noPreserveOwnershipPermissions {
+	if params.overwriteOwnershipPermissions {
 		cmds = []string{"tar", "--no-same-permissions", "--no-same-owner", "-xmf", "-"}
 	}
 	destDir := path.Dir(dest.Path)

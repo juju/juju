@@ -103,49 +103,49 @@ func NewRunListener(cfg RunListenerConfig) (*RunListener, error) {
 
 // Run accepts new connections until it encounters an error, or until Close is
 // called, and then blocks until all existing connections have been closed.
-func (s *RunListener) Run() (err error) {
+func (r *RunListener) Run() (err error) {
 	logger.Debugf("juju-run listener running")
 	var conn net.Conn
 	for {
-		conn, err = s.listener.Accept()
+		conn, err = r.listener.Accept()
 		if err != nil {
 			break
 		}
-		s.wg.Add(1)
+		r.wg.Add(1)
 		go func(conn net.Conn) {
-			s.server.ServeConn(conn)
-			s.wg.Done()
+			r.server.ServeConn(conn)
+			r.wg.Done()
 		}(conn)
 	}
 	logger.Debugf("juju-run listener stopping")
 	select {
-	case <-s.closing:
+	case <-r.closing:
 		// Someone has called Close(), so it is overwhelmingly likely that
 		// the error from Accept is a direct result of the Listener being
 		// closed, and can therefore be safely ignored.
 		err = nil
 	default:
 	}
-	s.wg.Wait()
-	close(s.closed)
+	r.wg.Wait()
+	close(r.closed)
 	return
 }
 
 // Close immediately stops accepting connections, and blocks until all existing
 // connections have been closed.
-func (s *RunListener) Close() error {
+func (r *RunListener) Close() error {
 	defer func() {
-		<-s.closed
+		<-r.closed
 		logger.Debugf("juju-run listener stopped")
 	}()
-	close(s.closing)
-	return s.listener.Close()
+	close(r.closing)
+	return r.listener.Close()
 }
 
 // RunCommands executes the supplied commands in a hook context.
-func (s *RunListener) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
+func (r *RunListener) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
 	logger.Tracef("run commands: %s", args.Commands)
-	return s.CommandRunner.RunCommands(args)
+	return r.CommandRunner.RunCommands(args)
 }
 
 // newRunListenerWrapper returns a worker that will Close the supplied run

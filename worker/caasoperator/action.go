@@ -43,33 +43,6 @@ type symlink struct {
 	Target string
 }
 
-// ensureSymlinks ensure a list of symlinks on a pod.
-func ensureSymlinks(
-	client exec.Executor,
-	podName string,
-	stdout, stderr io.Writer,
-	cancel <-chan struct{},
-	links []symlink,
-) error {
-	var commands []string
-	for _, link := range links {
-		logger.Debugf("ensuring symlink %q targeting to %q", link.Link, link.Target)
-		commands = append(commands,
-			strings.Join([]string{"ln", "-s", link.Target, link.Link}, " "),
-		)
-	}
-	err := client.Exec(
-		exec.ExecParams{
-			PodName:  podName,
-			Commands: []string{strings.Join(commands, " && ")},
-			Stdout:   stdout,
-			Stderr:   stderr,
-		},
-		cancel,
-	)
-	return errors.Trace(err)
-}
-
 func syncFiles(
 	client exec.Executor,
 	podName string,

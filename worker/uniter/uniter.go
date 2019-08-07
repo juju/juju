@@ -144,7 +144,7 @@ type UniterParams struct {
 
 type NewOperationExecutorFunc func(string, operation.State, func(string) (func(), error)) (operation.Executor, error)
 
-// NewRunnerExecutorFunc ss.
+// NewRunnerExecutorFunc defines the type of the NewRunnerExecutor.
 type NewRunnerExecutorFunc func(unit names.UnitTag, paths Paths) runner.ExecFunc
 
 // NewUniter creates a new Uniter which will install, run, and upgrade

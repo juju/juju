@@ -6,7 +6,6 @@ package commands
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"sort"
 	"time"
 
@@ -17,7 +16,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
-	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -26,7 +24,7 @@ import (
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
@@ -36,6 +34,11 @@ type RunSuite struct {
 }
 
 var _ = gc.Suite(&RunSuite{})
+
+func (s *RunSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.DeveloperMode)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+}
 
 func newTestRunCommand(clock clock.Clock, modelType model.ModelType) cmd.Command {
 	return newRunCommand(minimalStore(modelType), clock.After)
@@ -187,11 +190,6 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		units:    []string{"mysql/0"},
 		modeType: model.CAAS,
 	}} {
-		defer os.Setenv("JUJU_DEV_FEATURE_FLAGS", os.Getenv("JUJU_DEV_FEATURE_FLAGS"))
-		err := os.Setenv("JUJU_DEV_FEATURE_FLAGS", "developer-mode")
-		c.Assert(err, jc.ErrorIsNil)
-		featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		cmd := &runCommand{}
 		cmd.SetClientStore(minimalStore(test.modeType))
@@ -488,13 +486,9 @@ func (s *RunSuite) TestCAASCantRunWithUnsupportedAPIVersion(c *gc.C) {
 		clock mockClock
 		mock  = s.setupMockAPI()
 	)
-	defer os.Setenv("JUJU_DEV_FEATURE_FLAGS", os.Getenv("JUJU_DEV_FEATURE_FLAGS"))
-	err := os.Setenv("JUJU_DEV_FEATURE_FLAGS", "developer-mode")
-	c.Assert(err, jc.ErrorIsNil)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
 	mock.bestAPIVersion = 3
-	_, err = cmdtesting.RunCommand(
+	_, err := cmdtesting.RunCommand(
 		c, newTestRunCommand(&clock, model.CAAS),
 		"--unit", "unit/0", "echo hello",
 	)
@@ -508,12 +502,7 @@ func (s *RunSuite) TestCAASCantTargetMachine(c *gc.C) {
 	s.setupMockAPI()
 	var clock mockClock
 
-	defer os.Setenv("JUJU_DEV_FEATURE_FLAGS", os.Getenv("JUJU_DEV_FEATURE_FLAGS"))
-	err := os.Setenv("JUJU_DEV_FEATURE_FLAGS", "developer-mode")
-	c.Assert(err, jc.ErrorIsNil)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-
-	_, err = cmdtesting.RunCommand(
+	_, err := cmdtesting.RunCommand(
 		c, newTestRunCommand(&clock, model.CAAS),
 		"--machine", "0", "echo hello",
 	)
@@ -526,12 +515,7 @@ func (s *RunSuite) TestIAASCantTargetOperator(c *gc.C) {
 	s.setupMockAPI()
 	var clock mockClock
 
-	defer os.Setenv("JUJU_DEV_FEATURE_FLAGS", os.Getenv("JUJU_DEV_FEATURE_FLAGS"))
-	err := os.Setenv("JUJU_DEV_FEATURE_FLAGS", "developer-mode")
-	c.Assert(err, jc.ErrorIsNil)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-
-	_, err = cmdtesting.RunCommand(
+	_, err := cmdtesting.RunCommand(
 		c, newTestRunCommand(&clock, model.IAAS),
 		"--unit", "unit/0", "--operator", "echo hello",
 	)
@@ -561,11 +545,6 @@ func (s *RunSuite) TestCAASRunOnOperator(c *gc.C) {
 	buff := &bytes.Buffer{}
 	err := cmd.FormatJson(buff, unformatted)
 	c.Assert(err, jc.ErrorIsNil)
-
-	defer os.Setenv("JUJU_DEV_FEATURE_FLAGS", os.Getenv("JUJU_DEV_FEATURE_FLAGS"))
-	err = os.Setenv("JUJU_DEV_FEATURE_FLAGS", "developer-mode")
-	c.Assert(err, jc.ErrorIsNil)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
 	context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}, model.CAAS),
 		"--format=json", "--unit=unit/0", "--operator", "hostname",
@@ -603,11 +582,6 @@ func (s *RunSuite) TestCAASRunOnWorkload(c *gc.C) {
 	buff := &bytes.Buffer{}
 	err := cmd.FormatJson(buff, unformatted)
 	c.Assert(err, jc.ErrorIsNil)
-
-	defer os.Setenv("JUJU_DEV_FEATURE_FLAGS", os.Getenv("JUJU_DEV_FEATURE_FLAGS"))
-	err = os.Setenv("JUJU_DEV_FEATURE_FLAGS", "developer-mode")
-	c.Assert(err, jc.ErrorIsNil)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
 	context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}, model.CAAS),
 		"--format=json", "--unit=unit/0", "hostname",

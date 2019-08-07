@@ -260,7 +260,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 
 	if modelType == model.CAAS {
 		if !featureflag.Enabled(feature.DeveloperMode) {
-			return errors.New("k8s support is under development, enable developer model to try again")
+			return errors.New("k8s support is under development, enable the developer-model feature flag and try again")
 		}
 
 		if client.BestAPIVersion() < 4 {

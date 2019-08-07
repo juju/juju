@@ -38,13 +38,15 @@ import (
 var (
 	logger = loggo.GetLogger("juju.worker.caasoperator")
 
-	jujuRun          = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
-	jujuDumpLogs     = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
-	jujuIntrospect   = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
-	jujuUpdateSeries = paths.MustSucceed(paths.JujuUpdateSeries(series.MustHostSeries()))
+	jujuRun        = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
+	jujuDumpLogs   = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
+	jujuIntrospect = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
 
-	// TODO(caas): add other symlinks: juju-dumplogs, juju-introspect, etc.
-	jujudSymlinks = []string{jujuRun}
+	jujudSymlinks = []string{
+		jujuRun,
+		jujuDumpLogs,
+		jujuIntrospect,
+	}
 )
 
 // caasOperator implements the capabilities of the caasoperator agent. It is not intended to

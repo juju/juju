@@ -2059,7 +2059,6 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		// TODO(caas): uniter now requires podName to exec into the pod, consider to change here to always use podName.
 		providerId := string(p.GetUID())
 		stateful := false
 

@@ -76,7 +76,7 @@ func (s *exectSuite) TestCopyParamValidate(c *gc.C) {
 					PodName: "",
 				},
 			},
-			Err: "copy either from pod nor to pod",
+			Err: "copy either from pod to host or from host to pod",
 		},
 	} {
 		c.Check(tc.Params.Validate(), gc.ErrorMatches, tc.Err)
