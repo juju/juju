@@ -7,8 +7,8 @@ import (
 
 	"github.com/juju/errors"
 	jsonschema "github.com/juju/jsonschema-gen"
+	"github.com/juju/rpcreflect"
 
-	"github.com/SimonRichardson/rpcreflect"
 	"github.com/juju/juju/apiserver/facade"
 )
 

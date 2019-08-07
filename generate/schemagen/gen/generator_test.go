@@ -7,11 +7,11 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	jsonschema "github.com/juju/jsonschema-gen"
+	"github.com/juju/rpcreflect"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/SimonRichardson/rpcreflect"
 	"github.com/juju/juju/apiserver/facade"
 )
 
