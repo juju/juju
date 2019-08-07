@@ -38,6 +38,8 @@ type workers struct {
 	state *State
 	//	model *Model
 	*worker.Runner
+
+	hub *pubsub.SimpleHub
 }
 
 const pingFlushInterval = time.Second
@@ -48,6 +50,7 @@ func newWorkers(st *State, hub *pubsub.SimpleHub) (*workers, error) {
 	}
 	ws := &workers{
 		state: st,
+		hub:   hub,
 		Runner: worker.NewRunner(worker.RunnerParams{
 			// TODO add a Logger parameter to RunnerParams:
 			// Logger: loggo.GetLogger(logger.Name() + ".workers"),
