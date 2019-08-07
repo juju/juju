@@ -99,13 +99,6 @@
   revision = "f0300d1749da6fa982027e449ec0c7a145510c3c"
 
 [[projects]]
-  digest = "1:5defd223161d396ecc83945a7015431b321fce3d0656de212b601c72eae52959"
-  name = "github.com/bcsaller/jsonschema"
-  packages = ["."]
-  pruneopts = ""
-  revision = "66506e52db051b5e238aa63ec4dad0a790fbc236"
-
-[[projects]]
   digest = "1:de184b64adb3054bea074db0b1be1327c7dc3aaa04e3fd6cb01f62f339caecd5"
   name = "github.com/beorn7/perks"
   packages = ["quantile"]
@@ -591,6 +584,13 @@
   revision = "a0ef8b74ebcffeeff9fc374854deb4af388f037e"
 
 [[projects]]
+  digest = "1:bb616b3cb33db532e55c2209ea9b6fe4364953f3ac28010e274e7a37762c7e99"
+  name = "github.com/juju/jsonschema-gen"
+  packages = ["."]
+  pruneopts = ""
+  revision = "8a53421608bbf30e65082e0210d89c2dc34d52c2"
+
+[[projects]]
   digest = "1:e460f07bec03866640127c47aae303167e9c79ee426c5fab03c180001eb4a39f"
   name = "github.com/juju/loggo"
   packages = [
@@ -719,6 +719,13 @@
   ]
   pruneopts = ""
   revision = "958d8b71e5ffa51212133b12a998ddf8362739df"
+
+[[projects]]
+  digest = "1:49b61a2d186cbe71f1e72021b7bba7012b9433af2215f7ef07456344216efeff"
+  name = "github.com/juju/rpcreflect"
+  packages = ["."]
+  pruneopts = ""
+  revision = "cca922e065df403dc5088294f7f546e838d13708"
 
 [[projects]]
   digest = "1:635b65b0b4a17f59ab380b6ec8efb91783e20c6b1b48f0a7ef12cb0d953d1d50"
@@ -1886,7 +1893,6 @@
     "github.com/altoros/gosigma/mock",
     "github.com/armon/go-metrics",
     "github.com/armon/go-metrics/prometheus",
-    "github.com/bcsaller/jsonschema",
     "github.com/bmizerany/pat",
     "github.com/coreos/go-systemd/dbus",
     "github.com/coreos/go-systemd/unit",
@@ -1927,6 +1933,7 @@
     "github.com/juju/httprequest",
     "github.com/juju/idmclient/ussologin",
     "github.com/juju/jsonschema",
+    "github.com/juju/jsonschema-gen",
     "github.com/juju/loggo",
     "github.com/juju/loggo/loggocolor",
     "github.com/juju/mutex",
@@ -1953,6 +1960,7 @@
     "github.com/juju/romulus/wireformat/metrics",
     "github.com/juju/romulus/wireformat/plan",
     "github.com/juju/romulus/wireformat/sla",
+    "github.com/juju/rpcreflect",
     "github.com/juju/schema",
     "github.com/juju/terms-client/api",
     "github.com/juju/terms-client/api/wireformat",

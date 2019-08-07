@@ -5,11 +5,11 @@ package gen
 import (
 	"reflect"
 
-	"github.com/bcsaller/jsonschema"
 	"github.com/juju/errors"
+	jsonschema "github.com/juju/jsonschema-gen"
+	"github.com/juju/rpcreflect"
 
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/rpc/rpcreflect"
 )
 
 //go:generate mockgen -package gen -destination describeapi_mock.go github.com/juju/juju/generate/schemagen/gen APIServer,Registry

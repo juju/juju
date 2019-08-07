@@ -7,10 +7,10 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/juju/rpcreflect"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/testing"
 )
 
