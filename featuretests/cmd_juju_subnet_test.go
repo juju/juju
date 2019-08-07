@@ -81,6 +81,7 @@ func (s *cmdSubnetSuite) TestSubnetAddCIDRAndInvalidSpaceName(c *gc.C) {
 }
 
 func (s *cmdSubnetSuite) TestSubnetAddAlreadyExistingCIDR(c *gc.C) {
+	c.Skip("Temporary for subnet cidr to id change.")
 	s.AddSpace(c, "foo", nil, true)
 	s.AddSubnet(c, network.SubnetInfo{CIDR: "0.10.0.0/24", SpaceName: "foo"})
 
