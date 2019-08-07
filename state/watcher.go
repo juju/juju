@@ -2987,6 +2987,11 @@ func (w *openedPortsWatcher) Changes() <-chan []string {
 	return w.out
 }
 
+// TODO (hml) 2019-08-06
+// WatchOpenedPorts not used today, see note in apiserver.
+// This code needs to be reviewed based on subnet docID change
+// from cidr to subnet id.
+//
 // transformId converts a global key for a ports document (e.g.
 // "m#42#0.1.2.0/24") into a colon-separated string with the machine and subnet
 // IDs (e.g. "42:0.1.2.0/24"). Subnet ID (a.k.a. CIDR) can be empty for

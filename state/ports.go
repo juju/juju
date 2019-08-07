@@ -240,7 +240,11 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 		} else {
 			// Update an existing document.
 			assert := bson.D{{"txn-revno", ports.doc.TxnRevno}}
-			ops = append(ops, updatePortsDocOps(p.st, ports.doc, assert, portRange)...)
+			updateOps, err := updatePortsDocOps(p.st, ports.doc, assert, portRange)
+			if err != nil {
+				return []txn.Op{}, err
+			}
+			ops = append(ops, updateOps...)
 		}
 		return ops, nil
 	}
@@ -263,7 +267,7 @@ func (p *Ports) verifySubnetAliveWhenSet() error {
 	if err != nil {
 		return errors.Trace(err)
 	} else if subnet.Life() != Alive {
-		return errors.Errorf("subnet %q not alive", subnet.CIDR())
+		return errors.Errorf("subnet %q (%s) not alive", subnet.ID(), subnet.CIDR())
 	}
 	return nil
 }
@@ -313,7 +317,11 @@ func (p *Ports) ClosePorts(portRange PortRange) (err error) {
 			return p.removeOps(), nil
 		} else {
 			assert := bson.D{{"txn-revno", ports.doc.TxnRevno}}
-			return setPortsDocOps(p.st, ports.doc, assert, newPorts...), nil
+			ops, err := setPortsDocOps(p.st, ports.doc, assert, newPorts...)
+			if err != nil {
+				return []txn.Op{}, err
+			}
+			return ops, nil
 		}
 	}
 	if err = p.st.db().Run(buildTxn); err != nil {
@@ -425,7 +433,7 @@ func addPortsDocOpsFunc(st *State, pDoc *portsDoc, portsAssert interface{}, port
 	})
 }
 
-func assertMachineNotDeadAndSubnetNotDeadWhenSetOps(st *State, pDoc *portsDoc) []txn.Op {
+func assertMachineNotDeadAndSubnetNotDeadWhenSetOps(st *State, pDoc *portsDoc) ([]txn.Op, error) {
 	ops := []txn.Op{{
 		C:      machinesC,
 		Id:     st.docID(pDoc.MachineID),
@@ -433,13 +441,20 @@ func assertMachineNotDeadAndSubnetNotDeadWhenSetOps(st *State, pDoc *portsDoc) [
 	}}
 
 	if pDoc.SubnetID != "" {
+		// TODO (hml) 2019-08-07
+		// portsDoc.SubnetID is a CIDR, and does not match
+		// the subnet.ID value.  This
+		sn, err := st.Subnet(pDoc.SubnetID)
+		if err != nil {
+			return []txn.Op{}, errors.Trace(err)
+		}
 		ops = append(ops, txn.Op{
 			C:      subnetsC,
-			Id:     st.docID(pDoc.SubnetID),
+			Id:     st.docID(sn.ID()),
 			Assert: notDeadDoc,
 		})
 	}
-	return ops
+	return ops, nil
 }
 
 // updatePortsDocOps returns the ops for adding a port range to an
@@ -447,8 +462,11 @@ func assertMachineNotDeadAndSubnetNotDeadWhenSetOps(st *State, pDoc *portsDoc) [
 // statement on the openedPorts collection op.
 var updatePortsDocOps = updatePortsDocOpsFunc
 
-func updatePortsDocOpsFunc(st *State, pDoc portsDoc, portsAssert interface{}, portRange PortRange) []txn.Op {
-	ops := assertMachineNotDeadAndSubnetNotDeadWhenSetOps(st, &pDoc)
+func updatePortsDocOpsFunc(st *State, pDoc portsDoc, portsAssert interface{}, portRange PortRange) ([]txn.Op, error) {
+	ops, err := assertMachineNotDeadAndSubnetNotDeadWhenSetOps(st, &pDoc)
+	if err != nil {
+		return []txn.Op{}, err
+	}
 	return append(ops, []txn.Op{{
 		C:      unitsC,
 		Id:     st.docID(portRange.UnitName),
@@ -458,7 +476,7 @@ func updatePortsDocOpsFunc(st *State, pDoc portsDoc, portsAssert interface{}, po
 		Id:     pDoc.DocID,
 		Assert: portsAssert,
 		Update: bson.D{{"$addToSet", bson.D{{"ports", portRange}}}},
-	}}...)
+	}}...), nil
 }
 
 // setPortsDocOps returns the ops for setting given port ranges to an
@@ -466,14 +484,17 @@ func updatePortsDocOpsFunc(st *State, pDoc portsDoc, portsAssert interface{}, po
 // statement on the openedPorts collection op.
 var setPortsDocOps = setPortsDocOpsFunc
 
-func setPortsDocOpsFunc(st *State, pDoc portsDoc, portsAssert interface{}, ports ...PortRange) []txn.Op {
-	ops := assertMachineNotDeadAndSubnetNotDeadWhenSetOps(st, &pDoc)
+func setPortsDocOpsFunc(st *State, pDoc portsDoc, portsAssert interface{}, ports ...PortRange) ([]txn.Op, error) {
+	ops, err := assertMachineNotDeadAndSubnetNotDeadWhenSetOps(st, &pDoc)
+	if err != nil {
+		return []txn.Op{}, err
+	}
 	return append(ops, txn.Op{
 		C:      openedPortsC,
 		Id:     pDoc.DocID,
 		Assert: portsAssert,
 		Update: bson.D{{"$set", bson.D{{"ports", ports}}}},
-	})
+	}), nil
 }
 
 // removeOps returns the ops for removing the ports document from

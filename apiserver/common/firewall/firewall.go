@@ -48,6 +48,10 @@ func WatchEgressAddressesForRelations(resources facade.Resources, st State, rela
 
 		// TODO(wallyworld) - we will need to watch subnets too, but only
 		// when we support using cloud local addresses
+		//
+		// (hml) when used, update to handle subnetIDs rather than
+		// using a cidr as a unique id for a subnet.
+		//
 		//filter := func(id interface{}) bool {
 		//	include, err := includeAsIngressSubnet(id.(string))
 		//	if err != nil {
