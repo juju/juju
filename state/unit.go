@@ -805,9 +805,6 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 		}}}
 		if isController {
 			controllerNodeAssert = txn.DocExists
-			if len(m.doc.Principals) == 1 && m.doc.Principals[0] == u.doc.Name {
-				controllerNodeAssert = bson.D{{"has-vote", true}}
-			}
 		}
 	}
 

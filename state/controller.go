@@ -200,7 +200,6 @@ type ControllerInfo struct {
 	ModelTag names.ModelTag
 
 	// MachineIds holds the ids of all machines configured to run a controller.
-	// Check the individual machine docs to know if a given machine wants to vote and/or has the vote.
 	MachineIds []string
 }
 
