@@ -37,17 +37,18 @@ func ubuntuEnv(paths Paths) []string {
 	env := []string{
 		"APT_LISTCHANGES_FRONTEND=none",
 		"DEBIAN_FRONTEND=noninteractive",
+		"LANG=C.UTF-8",
 	}
 	env = append(env, path...)
 	return env
 }
 
 func centosEnv(paths Paths) []string {
-	return appendPath(paths)
+	return append(appendPath(paths), "LANG=C.UTF-8")
 }
 
 func opensuseEnv(paths Paths) []string {
-	return appendPath(paths)
+	return append(appendPath(paths), "LANG=C.UTF-8")
 }
 
 // windowsEnv adds windows specific environment variables. PSModulePath
