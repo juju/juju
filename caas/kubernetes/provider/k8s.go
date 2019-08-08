@@ -1118,9 +1118,6 @@ func (k *kubernetesClient) EnsureService(
 	if params == nil || params.PodSpec == nil {
 		return errors.Errorf("missing pod spec")
 	}
-	if params.PodSpec.OmitServiceFrontend && len(params.Filesystems) == 0 {
-		return errors.Errorf("kubernetes service is required when using storage")
-	}
 
 	var cleanups []func()
 	defer func() {
@@ -1294,6 +1291,9 @@ func (k *kubernetesClient) EnsureService(
 				}
 				ports = append(ports, p)
 			}
+		}
+		if len(ports) == 0 {
+			return errors.Errorf("ports are required for kubernetes service")
 		}
 
 		serviceAnnotations := annotations.Copy()
@@ -1752,7 +1752,8 @@ func (k *kubernetesClient) deleteVolumeClaims(appName string, p *core.Pod) ([]st
 }
 
 func (k *kubernetesClient) configureService(
-	appName, deploymentName string, containerPorts []core.ContainerPort,
+	appName, deploymentName string,
+	containerPorts []core.ContainerPort,
 	params *caas.ServiceParams,
 	config application.ConfigAttributes,
 ) error {
