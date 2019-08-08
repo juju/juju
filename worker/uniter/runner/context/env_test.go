@@ -172,9 +172,10 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 	os.Setenv("PATH", "foo:bar")
 	ubuntuVars := []string{
-		"PATH=path-to-tools:foo:bar",
 		"APT_LISTCHANGES_FRONTEND=none",
 		"DEBIAN_FRONTEND=noninteractive",
+		"LANG=C.UTF-8",
+		"PATH=path-to-tools:foo:bar",
 	}
 
 	ctx, contextVars := s.getContext(false)
