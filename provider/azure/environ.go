@@ -1672,7 +1672,7 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx context.Provi
 
 	// Walk all the pages of results so we can get a total list of groups to remove.
 	var groupNames []*string
-	for ; result.NotDone(); err = result.NextWithContext(sdkCtx) {
+	for ; result.NotDone(); result.NextWithContext(sdkCtx) {
 		for _, group := range result.Values() {
 			groupNames = append(groupNames, group.Name)
 		}

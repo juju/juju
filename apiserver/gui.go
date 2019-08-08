@@ -590,6 +590,9 @@ func (h *guiArchiveHandler) handlePost(w http.ResponseWriter, req *http.Request)
 
 	// Read and validate the archive data.
 	data, hash, err := readAndHash(req.Body)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	size := int64(len(data))
 	if size != req.ContentLength {
 		return errors.BadRequestf("archive does not match provided content length")

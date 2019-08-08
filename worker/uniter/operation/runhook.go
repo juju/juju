@@ -64,7 +64,7 @@ func (rh *runHook) Prepare(state State) (*State, error) {
 	if hooks.Kind(name) == hooks.LeaderElected {
 		// Check if leadership has changed between queueing of the hook and
 		// Actual execution. Skip execution if we are no longer the leader.
-		isLeader := false
+		var isLeader bool
 		isLeader, err = rnr.Context().IsLeader()
 		if err == nil && !isLeader {
 			logger.Infof("unit is no longer the leader; skipping %q execution", name)

@@ -35,7 +35,7 @@ func (inst *ec2Instance) Id() instance.Id {
 
 func (inst *ec2Instance) Status(ctx context.ProviderCallContext) instance.Status {
 	// pending | running | shutting-down | terminated | stopping | stopped
-	jujuStatus := status.Pending
+	var jujuStatus status.Status
 	switch inst.State.Name {
 	case "pending":
 		jujuStatus = status.Pending

@@ -166,7 +166,8 @@ func (u *modelUserEntity) UpdateLastLogin() error {
 			return errors.NotValidf("%s as model user", u.modelUser.Object.Kind())
 		}
 
-		model, err := u.st.Model()
+		var model *state.Model
+		model, err = u.st.Model()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -177,7 +178,7 @@ func (u *modelUserEntity) UpdateLastLogin() error {
 	if u.user != nil {
 		err1 := u.user.UpdateLastLogin()
 		if err == nil {
-			return err1
+			return errors.Trace(err1)
 		}
 	}
 	if err != nil {

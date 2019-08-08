@@ -138,6 +138,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 	c.Assert(err, jc.ErrorIsNil)
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), "released", vers)
 	err = envtools.MergeAndWriteMetadata(stor, "released", "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
+	c.Assert(err, jc.ErrorIsNil)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag.String(), vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)

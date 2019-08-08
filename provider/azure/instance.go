@@ -41,7 +41,7 @@ func (inst *azureInstance) Id() instance.Id {
 
 // Status is specified in the Instance interface.
 func (inst *azureInstance) Status(ctx context.ProviderCallContext) instance.Status {
-	instanceStatus := status.Empty
+	var instanceStatus status.Status
 	message := inst.provisioningState
 	switch inst.provisioningState {
 	case "Succeeded":
@@ -114,7 +114,7 @@ func instanceNetworkInterfaces(
 		return nil, nil
 	}
 	instanceNics := make(map[instance.Id][]network.Interface)
-	for ; nicsResult.NotDone(); err = nicsResult.NextWithContext(sdkCtx) {
+	for ; nicsResult.NotDone(); nicsResult.NextWithContext(sdkCtx) {
 		nic := nicsResult.Value()
 		instanceId := instance.Id(to.String(nic.Tags[jujuMachineNameTag]))
 		instanceNics[instanceId] = append(instanceNics[instanceId], nic)
@@ -139,7 +139,7 @@ func instancePublicIPAddresses(
 		return nil, nil
 	}
 	instancePips := make(map[instance.Id][]network.PublicIPAddress)
-	for ; pipsResult.NotDone(); err = pipsResult.NextWithContext(sdkCtx) {
+	for ; pipsResult.NotDone(); pipsResult.NextWithContext(sdkCtx) {
 		pip := pipsResult.Value()
 		instanceId := instance.Id(to.String(pip.Tags[jujuMachineNameTag]))
 		instancePips[instanceId] = append(instancePips[instanceId], pip)

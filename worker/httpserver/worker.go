@@ -319,6 +319,9 @@ func (w *Worker) newDualPortListener() (listener, error) {
 	// would be a bit of a waste of time.
 	listenAddr := net.JoinHostPort("", strconv.Itoa(w.config.ControllerAPIPort))
 	listener, err := net.Listen("tcp", listenAddr)
+	if err != nil {
+		return nil, err
+	}
 	logger.Infof("listening for controller connections on %q", listener.Addr())
 	dual := &dualListener{
 		agentName:          w.config.AgentName,

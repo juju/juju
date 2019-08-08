@@ -576,7 +576,7 @@ func (c *loginCommand) promptUserToTrustCA(ctx *cmd.Context, ctrlDetails *jujucl
 			prettyName = fmt.Sprintf("%q (%s)", host, endpoint)
 		}
 		fmt.Fprintf(ctx.Stderr, "Controller %s presented a CA cert that could not be verified.\nCA fingerprint: [%s]\n", prettyName, fingerprint)
-		trust, err := c.pollster.YN("Trust remote controller", false)
+		trust, _ := c.pollster.YN("Trust remote controller", false)
 		if !trust {
 			return errors.New("controller CA not trusted")
 		}

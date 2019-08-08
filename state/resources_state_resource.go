@@ -286,7 +286,7 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 	case charmresource.TypeContainerImage:
 		var dockerDetails resources.DockerImageDetails
 		respBuf := new(bytes.Buffer)
-		_, err := respBuf.ReadFrom(r)
+		_, err = respBuf.ReadFrom(r)
 		if err != nil {
 			return errors.Trace(err)
 		}

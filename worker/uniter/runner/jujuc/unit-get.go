@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 )
 
@@ -52,7 +53,8 @@ func (c *UnitGetCommand) Run(ctx *cmd.Context) error {
 	var value string
 	var err error
 	if c.Key == "private-address" {
-		networkInfos, err := c.ctx.NetworkInfo([]string{""}, -1)
+		var networkInfos map[string]params.NetworkInfoResult
+		networkInfos, err = c.ctx.NetworkInfo([]string{""}, -1)
 		if err == nil {
 			if networkInfos[""].Error != nil {
 				err = errors.Trace(networkInfos[""].Error)

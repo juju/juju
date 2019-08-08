@@ -84,6 +84,9 @@ func (m *Machine) clearFlag() error {
 
 	docID := m.doc.DocID
 	count, err := reboot.FindId(docID).Count()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if count == 0 {
 		return nil
 	}

@@ -2285,6 +2285,9 @@ func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 	terminated := opPod.DeletionTimestamp != nil
 	now := time.Now()
 	statusMessage, opStatus, since, err := k.getPODStatus(opPod, now)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &caas.Operator{
 		Id:    string(opPod.UID),
 		Dying: terminated,

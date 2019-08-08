@@ -209,6 +209,9 @@ func (w *backstopWorker) recoverCluster(server *raft.Server) error {
 	}
 	w.config.Logger.Debugf("appending recovery configuration: %#v", configuration)
 	data, err := encodeConfiguration(configuration)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// Work out the last term and index.
 	lastIndex, err := w.config.LogStore.LastIndex()

@@ -294,8 +294,9 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 		rels, err2 := op.app.st.AllRelations()
 		if err2 != nil {
 			err = errors.Trace(err2)
+		} else {
+			err = errors.Errorf("application is used by %d offer%s", len(rels), plural(len(rels)))
 		}
-		err = errors.Errorf("application is used by %d offer%s", len(rels), plural(len(rels)))
 	} else {
 		err = errors.NewNotSupported(err, "change to the application detected")
 	}
@@ -2638,6 +2639,9 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 		// info coming from the operator pod as well; It may need to
 		// override what is set here.
 		operatorStatus, err := getStatus(a.st.db(), applicationGlobalOperatorKey(a.Name()), "operator")
+		if err != nil {
+			return errors.Trace(err)
+		}
 		expectWorkload, err := expectWorkload(a.st, a.Name())
 		if err != nil {
 			return errors.Trace(err)
@@ -3052,6 +3056,9 @@ func (op *AddUnitOperation) Done(err error) error {
 				updated:          timeOrNow(unitStatus.Since, u.st.clock()),
 				historyOverwrite: newHistory,
 			})
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 
