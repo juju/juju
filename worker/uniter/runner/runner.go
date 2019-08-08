@@ -31,6 +31,13 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter.runner")
 
+type runMode int
+
+const (
+	runOnLocal runMode = iota
+	runOnRemote
+)
+
 // Runner is responsible for invoking commands in a context.
 type Runner interface {
 
@@ -112,22 +119,27 @@ func (runner *runner) Context() Context {
 	return runner.context
 }
 
-func (runner *runner) getRemoteExecutor() (ExecFunc, error) {
-	if runner.remoteExecutor == nil {
-		return nil, errors.NotSupportedf("run command on remote pod.")
+func (runner *runner) getRemoteExecutor(rModel runMode) (ExecFunc, error) {
+	switch rModel {
+	case runOnLocal:
+		return execOnMachine, nil
+	case runOnRemote:
+		if runner.remoteExecutor != nil {
+			return runner.remoteExecutor, nil
+		}
 	}
-	return runner.remoteExecutor, nil
+	return nil, errors.NotSupportedf("run command model %q", rModel)
 }
 
 // RunCommands exists to satisfy the Runner interface.
 func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, error) {
-	result, err := runner.runCommandsWithTimeout(commands, 0, clock.WallClock, false)
+	result, err := runner.runCommandsWithTimeout(commands, 0, clock.WallClock, runOnLocal)
 	return result, runner.context.Flush("run commands", err)
 }
 
 // runCommandsWithTimeout is a helper to abstract common code between run commands and
 // juju-run as an action
-func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Duration, clock clock.Clock, runOnRemote bool) (*utilexec.ExecResponse, error) {
+func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Duration, clock clock.Clock, model runMode) (*utilexec.ExecResponse, error) {
 	srv, err := runner.startJujucServer()
 	if err != nil {
 		return nil, err
@@ -148,12 +160,9 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 		}()
 	}
 
-	var executor ExecFunc = execOnMachine
-	if runOnRemote {
-		executor, err = runner.getRemoteExecutor()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	executor, err := runner.getRemoteExecutor(model)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	return executor(ExecParams{
 		Commands:      []string{commands},
@@ -184,11 +193,13 @@ func (runner *runner) runJujuRunAction() (err error) {
 		logger.Debugf("unable to read juju-run action timeout, will continue running action without one")
 	}
 
-	var runInWorkloadContext bool
+	rMode := runOnLocal
 	if runner.context.ModelType() == model.CAAS {
-		runInWorkloadContext, _ = params["workload-context"].(bool)
+		if workloadContext, _ := params["workload-context"].(bool); workloadContext {
+			rMode = runOnRemote
+		}
 	}
-	results, err := runner.runCommandsWithTimeout(command, time.Duration(timeout), clock.WallClock, runInWorkloadContext)
+	results, err := runner.runCommandsWithTimeout(command, time.Duration(timeout), clock.WallClock, rMode)
 	if err != nil {
 		return runner.context.Flush("juju-run", err)
 	}
@@ -246,16 +257,20 @@ func (runner *runner) RunAction(actionName string) error {
 	if actionName == actions.JujuRunActionName {
 		return runner.runJujuRunAction()
 	}
+	rMode := runOnLocal
+	if runner.context.ModelType() == model.CAAS {
+		rMode = runOnRemote
+	}
 	// run actions on remote workload pod for caas.
-	return runner.runCharmHookWithLocation(actionName, "actions", runner.context.ModelType() == model.CAAS)
+	return runner.runCharmHookWithLocation(actionName, "actions", rMode)
 }
 
 // RunHook exists to satisfy the Runner interface.
 func (runner *runner) RunHook(hookName string) error {
-	return runner.runCharmHookWithLocation(hookName, "hooks", false)
+	return runner.runCharmHookWithLocation(hookName, "hooks", runOnLocal)
 }
 
-func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, runOnRemote bool) (err error) {
+func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, rMode runMode) (err error) {
 	srv, err := runner.startJujucServer()
 	if err != nil {
 		return err
@@ -282,7 +297,7 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 		logger.Infof("executing %s via debug-hooks", hookName)
 		return session.RunHook(hookName, runner.paths.GetCharmDir(), env)
 	}
-	if runOnRemote {
+	if rMode == runOnRemote {
 		return runner.runCharmHookOnRemote(hookName, env, charmLocation)
 	}
 	return runner.runCharmHookOnLocal(hookName, env, charmLocation)
@@ -303,7 +318,7 @@ func (runner *runner) runCharmHookOnRemote(hookName string, env []string, charmL
 	defer hookLogger.Stop()
 	go hookLogger.Run()
 
-	executor, err := runner.getRemoteExecutor()
+	executor, err := runner.getRemoteExecutor(runOnRemote)
 	if err != nil {
 		return errors.Trace(err)
 	}
