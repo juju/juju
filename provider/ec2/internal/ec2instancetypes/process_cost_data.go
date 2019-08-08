@@ -169,7 +169,8 @@ func process(in io.Reader) (map[string][]instanceType, metadata, error) {
 	}
 	for _, sku := range skus.SortedValues() {
 		productInfo := index.Products[sku]
-		if productInfo.ProductFamily != "Compute Instance" {
+		if productInfo.ProductFamily != "Compute Instance" &&
+			productInfo.ProductFamily != "Compute Instance (bare metal)" {
 			continue
 		}
 		if productInfo.OperatingSystem != "Linux" {
