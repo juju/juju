@@ -356,6 +356,7 @@ func locationToRegion(loc string) (string, bool) {
 		"Asia Pacific (Sydney)":      "ap-southeast-2",
 		"Asia Pacific (Mumbai)":      "ap-south-1",
 		"Asia Pacific (Hong Kong)":   "ap-east-1",
+		"Middle East (Bahrain)":      "me-south-1",
 		"South America (Sao Paulo)":  "sa-east-1",
 		"AWS GovCloud (US-East)":     "us-gov-east-1",
 		"AWS GovCloud (US)":          "us-gov-west-1",
