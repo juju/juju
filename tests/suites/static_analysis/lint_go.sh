@@ -10,9 +10,13 @@ test_static_analysis_go() {
     cd ../
 
     ## Functions starting by empty line
-    OUT=$(grep -Rrn --exclude-dir=vendor "^$" -B1 . | grep "func " | grep -v "}$" || true)
+    OUT=$(grep -Rrn --include \*.go --exclude-dir=vendor "^$" -B1 . | \
+        grep "func " | grep -v "}$" | \
+        sed -E "s/^(.+\\.go)-([0-9]+)-(.+)$/sed '\2d' \1/" | \
+        sed -E "s/^\.\///" \
+        || true)
     if [ -n "${OUT}" ]; then
-      printf "ERROR: Functions must not start with an empty line: \\n%s" "${OUT}"
+      printf "ERROR: Functions must not start with an empty line: \\n%s\\n" "${OUT}"
       exit 1
     fi
 

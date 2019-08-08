@@ -136,7 +136,6 @@ func (s *environInstanceSuite) TestInstances(c *gc.C) {
 }
 
 func (s *environInstanceSuite) TestInstancesFail(c *gc.C) {
-
 	newClientFunc := newClient
 	s.PatchValue(&newClient, func(spec environs.CloudSpec, uuid string) (*environClient, error) {
 		spec.Endpoint = "https://0.1.2.3:2000/api/2.0/"

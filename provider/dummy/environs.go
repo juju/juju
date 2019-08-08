@@ -1135,7 +1135,6 @@ func (*environ) MaintainInstance(ctx context.ProviderCallContext, args environs.
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-
 	defer delay()
 	machineId := args.InstanceConfig.MachineId
 	logger.Infof("dummy startinstance, machine %s", machineId)

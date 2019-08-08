@@ -278,7 +278,6 @@ type report struct {
 }
 
 func (c *lock) Report(opts ...ReportOption) (string, error) {
-
 	includeStack := contains(opts, ShowStack)
 	detailsYAML := contains(opts, ShowDetailsYAML)
 
