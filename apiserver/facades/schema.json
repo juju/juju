@@ -36363,6 +36363,9 @@
                         "Life": {
                             "type": "string"
                         },
+                        "ProviderID": {
+                            "type": "string"
+                        },
                         "Resolved": {
                             "type": "string"
                         }
@@ -36371,6 +36374,7 @@
                     "required": [
                         "Life",
                         "Resolved",
+                        "ProviderID",
                         "Error"
                     ]
                 },

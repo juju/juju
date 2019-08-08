@@ -169,15 +169,19 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				LeadershipTrackerFunc: leadershipTrackerFunc,
 				UniterFacadeFunc:      newUniterFunc,
 				UniterParams: &uniter.UniterParams{
-					NewOperationExecutor:    operation.NewExecutor,
-					NewRemoteRunnerExecutor: getNewRunnerExecutor(execClient, client, agentConfig.DataDir()),
-					DataDir:                 agentConfig.DataDir(),
-					Clock:                   clock,
-					MachineLock:             config.MachineLock,
-					CharmDirGuard:           charmDirGuard,
-					UpdateStatusSignal:      uniter.NewUpdateStatusTimer(),
-					HookRetryStrategy:       hookRetryStrategy,
-					TranslateResolverErr:    config.TranslateResolverErr,
+					NewOperationExecutor: operation.NewExecutor,
+					NewRemoteRunnerExecutor: getNewRunnerExecutor(
+						execClient,
+						// client,
+						agentConfig.DataDir(),
+					),
+					DataDir:              agentConfig.DataDir(),
+					Clock:                clock,
+					MachineLock:          config.MachineLock,
+					CharmDirGuard:        charmDirGuard,
+					UpdateStatusSignal:   uniter.NewUpdateStatusTimer(),
+					HookRetryStrategy:    hookRetryStrategy,
+					TranslateResolverErr: config.TranslateResolverErr,
 				},
 			})
 			if err != nil {

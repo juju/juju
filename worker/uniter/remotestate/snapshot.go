@@ -41,6 +41,9 @@ type Snapshot struct {
 	// hook execution errors.
 	ResolvedMode params.ResolvedMode
 
+	// ProviderID is the cloud container's provider ID.
+	ProviderID string
+
 	// RetryHookVersion increments each time a failed
 	// hook is meant to be retried if ResolvedMode is
 	// set to ResolvedNone.

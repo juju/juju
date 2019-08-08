@@ -35,6 +35,7 @@ type State interface {
 type Unit interface {
 	Life() params.Life
 	Refresh() error
+	ProviderID() string
 	Resolved() params.ResolvedMode
 	Application() (Application, error)
 	Tag() names.UnitTag

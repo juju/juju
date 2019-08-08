@@ -5,9 +5,7 @@ package caasoperator
 
 import (
 	"bytes"
-	"io"
 	"path/filepath"
-	"strings"
 
 	"github.com/juju/errors"
 	utilexec "github.com/juju/utils/exec"
@@ -107,16 +105,24 @@ func fetchPodNameForUnit(c UnitGetter, tag names.UnitTag) (string, error) {
 }
 
 //go:generate mockgen -package mocks -destination mocks/exec_mock.go github.com/juju/juju/caas/kubernetes/provider/exec Executor
-func getNewRunnerExecutor(execClient exec.Executor, uniterGetter UnitGetter, dataDir string) func(unit names.UnitTag, paths uniter.Paths) runner.ExecFunc {
-	return func(unit names.UnitTag, paths uniter.Paths) runner.ExecFunc {
+func getNewRunnerExecutor(
+	execClient exec.Executor,
+	// uniterGetter UnitGetter,
+	dataDir string,
+) uniter.NewRunnerExecutorFunc {
+	return func(providerIDGetter uniter.ProviderIDGetter) runner.ExecFunc {
 		return func(params runner.ExecParams) (*utilexec.ExecResponse, error) {
-
-			podName, err := fetchPodNameForUnit(uniterGetter, unit)
-			if err != nil {
+			// podName, err := fetchPodNameForUnit(uniterGetter, unit)
+			// if err != nil {
+			// 	return nil, errors.Trace(err)
+			// }
+			if err := providerIDGetter.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
+			podNameOrID := providerIDGetter.ProviderID()
+			logger.Criticalf("getNewRunnerExecutor podNameOrID -> %q", podNameOrID)
 
-			if err := prepare(execClient, podName, dataDir, params.Cancel); err != nil {
+			if err := prepare(execClient, podNameOrID, dataDir, params.Cancel); err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -124,7 +130,7 @@ func getNewRunnerExecutor(execClient exec.Executor, uniterGetter UnitGetter, dat
 				// run action - stream stdout and stderr to logger.
 				if err := execClient.Exec(
 					exec.ExecParams{
-						PodName:    podName,
+						PodName:    podNameOrID,
 						Commands:   params.Commands,
 						WorkingDir: params.WorkingDir,
 						Env:        params.Env,
@@ -142,7 +148,7 @@ func getNewRunnerExecutor(execClient exec.Executor, uniterGetter UnitGetter, dat
 			var stdout, stderr bytes.Buffer
 			if err := execClient.Exec(
 				exec.ExecParams{
-					PodName:    podName,
+					PodName:    podNameOrID,
 					Commands:   params.Commands,
 					WorkingDir: params.WorkingDir,
 					Env:        params.Env,
