@@ -333,9 +333,6 @@ func (st *State) removeControllerReferenceOps(cid string, controllerInfo *Contro
 	return []txn.Op{{
 		C:  machinesC,
 		Id: st.docID(cid),
-		Assert: bson.D{
-			{"hasvote", false},
-		},
 		Update: bson.D{
 			{"$pull", bson.D{{"jobs", JobManageModel}}},
 		},
@@ -448,7 +445,24 @@ func (c *controllerNode) SetHasVote(hasVote bool) error {
 			}
 		}
 
-		return c.setHasVoteOps(hasVote), nil
+		var ops []txn.Op
+		// Check the host entity life (machine on IAAS models).
+		host, err := c.st.Machine(c.Id())
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		if err == nil {
+			if host.Life() == Dead {
+				return nil, ErrDead
+			}
+			ops = []txn.Op{{
+				C:      machinesC,
+				Id:     host.doc.DocID,
+				Assert: notDeadDoc,
+			}}
+		}
+		ops = append(ops, c.setHasVoteOps(hasVote)...)
+		return ops, nil
 	}
 	if err := c.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
@@ -462,12 +476,6 @@ func (c *controllerNode) setHasVoteOps(hasVote bool) []txn.Op {
 		Id:     c.doc.DocID,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"has-vote", hasVote}}}},
-	}, {
-		// TODO(HA) - remove when machine loses "hasvote"
-		C:      machinesC,
-		Id:     c.doc.DocID,
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"hasvote", hasVote}}}},
 	}}
 }
 

@@ -811,8 +811,11 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 	machines[1], err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machines[0].SetHasVote(true)
+	node, err := s.State.ControllerNode(machines[0].Id())
 	c.Assert(err, jc.ErrorIsNil)
+	err = node.SetHasVote(true)
+	c.Assert(err, jc.ErrorIsNil)
+
 	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.DeepEquals, []string{"2", "3"})

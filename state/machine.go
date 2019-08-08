@@ -105,7 +105,6 @@ type machineDoc struct {
 	Life          Life
 	Tools         *tools.Tools `bson:",omitempty"`
 	Jobs          []MachineJob
-	HasVote       bool
 	PasswordHash  string
 	Clean         bool
 
@@ -372,51 +371,6 @@ func (m *Machine) SetCharmProfiles(profiles []string) error {
 	}
 	err := m.st.db().Run(buildTxn)
 	return errors.Annotatef(err, "cannot update profiles for %q to %s", m, strings.Join(profiles, ", "))
-}
-
-// HasVote reports whether that machine is currently a voting
-// member of the replica set.
-func (m *Machine) HasVote() bool {
-	return m.doc.HasVote
-}
-
-// SetHasVote sets whether the machine is currently a voting
-// member of the replica set. It should only be called
-// from the worker that maintains the replica set.
-func (m *Machine) SetHasVote(hasVote bool) error {
-	op := m.UpdateOperation()
-	op.HasVote = &hasVote
-	if err := m.st.ApplyOperation(op); err != nil {
-		return errors.Trace(err)
-	}
-	m.doc.HasVote = hasVote
-	return nil
-}
-
-func (m *Machine) setHasVoteOps(hasVote bool) ([]txn.Op, error) {
-	if m.Life() == Dead {
-		return nil, ErrDead
-	}
-	var asserts interface{}
-	// TODO(HA)
-	// If setting has-vote=true we want the document to exist.
-	// But if has-vote=false, the doc may not be there because of
-	// older, legacy code which will be removed later.
-	if hasVote {
-		asserts = txn.DocExists
-	}
-	ops := []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{"hasvote", hasVote}}}},
-	}, {
-		C:      controllerNodesC,
-		Id:     m.st.docID(m.doc.Id),
-		Assert: asserts,
-		Update: bson.D{{"$set", bson.D{{"has-vote", hasVote}}}},
-	}}
-	return ops, nil
 }
 
 // SetStopMongoUntilVersion sets a version that is to be checked against
@@ -789,6 +743,12 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 		} else if err != nil {
 			return nil, err
 		}
+		node, err := m.st.ControllerNode(m.doc.Id)
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, err
+		}
+		hasVote := err == nil && node.HasVote()
+
 		// Check that the life change is sane, and collect the assertions
 		// necessary to determine that it remains so.
 		switch life {
@@ -803,17 +763,24 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 			if m.doc.Life == Dead {
 				return nil, jujutxn.ErrNoOperations
 			}
-			if m.doc.HasVote {
+			if hasVote {
 				return nil, fmt.Errorf("machine %s is still a voting controller member", m.doc.Id)
 			}
 			if m.IsManager() {
 				return nil, errors.Errorf("machine %s is still a controller member", m.Id())
 			}
-			asserts = append(asserts, bson.D{
-				{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}},
-				{"hasvote", bson.M{"$ne": true}},
-			}...)
+			asserts = append(asserts, bson.DocElem{
+				"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}})
 			asserts = append(asserts, notDeadDoc...)
+			controllerOp := txn.Op{
+				C:  controllersC,
+				Id: modelGlobalKey,
+				Assert: bson.D{
+					{"has-vote", bson.M{"$ne": true}},
+					{"wants-vote", bson.M{"$ne": true}},
+				},
+			}
+			ops = append(ops, controllerOp)
 		default:
 			panic(fmt.Errorf("cannot advance lifecycle to %v", life))
 		}
@@ -825,7 +792,7 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 		// destroy a machine with units as it will be a lie.
 		if life == Dying {
 			canDie := true
-			if hasJob(m.doc.Jobs, JobManageModel) || m.doc.HasVote {
+			if hasJob(m.doc.Jobs, JobManageModel) || hasVote {
 				// If we're responsible for managing the model, make sure we ask to drop our vote
 				ops[0].Update = bson.D{
 					{"$set", bson.D{{"life", life}}},
@@ -2221,7 +2188,6 @@ type UpdateMachineOperation struct {
 
 	AgentVersion      *version.Binary
 	Constraints       *constraints.Value
-	HasVote           *bool
 	MachineAddresses  *[]corenetwork.Address
 	ProviderAddresses *[]corenetwork.Address
 	PasswordHash      *string
@@ -2249,14 +2215,6 @@ func (op *UpdateMachineOperation) Build(attempt int) ([]txn.Op, error) {
 		ops, err := op.m.setConstraintsOps(*op.Constraints)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot set constraints")
-		}
-		allOps = append(allOps, ops...)
-	}
-
-	if op.HasVote != nil {
-		ops, err := op.m.setHasVoteOps(*op.HasVote)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot set has-vote")
 		}
 		allOps = append(allOps, ops...)
 	}

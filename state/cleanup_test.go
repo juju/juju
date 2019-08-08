@@ -315,7 +315,9 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 
 func (s *CleanupSuite) TestDestroyControllerMachineErrors(c *gc.C) {
 	manager, err := s.State.AddMachine("quantal", state.JobManageModel)
-	manager.SetHasVote(true)
+	node, err := s.State.ControllerNode(manager.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	node.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 	err = manager.Destroy()
@@ -362,7 +364,9 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetHasVote(true)
+	node, err := s.State.ControllerNode(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	err = node.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
 	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -373,7 +377,9 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	for _, mid := range changes.Added {
 		m, err := s.State.Machine(mid)
 		c.Assert(err, jc.ErrorIsNil)
-		m.SetHasVote(true)
+		node, err := s.State.ControllerNode(m.Id())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(node.SetHasVote(true), jc.ErrorIsNil)
 	}
 	s.assertDoesNotNeedCleanup(c)
 	err = machine.ForceDestroy(time.Minute)
@@ -382,10 +388,10 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	// controller member anymore
 	c.Assert(machine.Refresh(), jc.ErrorIsNil)
 	c.Check(machine.Life(), gc.Equals, state.Dying)
-	node, err := s.State.ControllerNode(machine.Id())
+	node, err = s.State.ControllerNode(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(node.WantsVote(), jc.IsFalse)
-	c.Check(machine.HasVote(), jc.IsTrue)
+	c.Check(node.HasVote(), jc.IsTrue)
 	c.Check(machine.Jobs(), jc.DeepEquals, []state.MachineJob{state.JobManageModel})
 	controllerInfo, err := s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
@@ -393,7 +399,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	// ForceDestroy still won't kill the controller if it is flagged as having a vote
 	// We don't see the error because it is logged, but not returned.
 	s.assertCleanupRuns(c)
-	c.Assert(machine.SetHasVote(false), jc.ErrorIsNil)
+	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
 	// However, if we remove the vote, it can be cleaned up.
 	// ForceDestroy sets up a cleanupForceDestroyedMachine, which
 	// calls advanceLifecycle(Dead) which sets up a

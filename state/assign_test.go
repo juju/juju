@@ -825,9 +825,9 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *gc.C) {
 	c.Assert(m, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
 
-	m0, err := s.State.Machine("0")
+	node, err := s.State.ControllerNode("0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = m0.SetHasVote(true)
+	err = node.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add two controller machines and check they are not chosen.

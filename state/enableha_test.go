@@ -23,6 +23,41 @@ type EnableHASuite struct {
 
 var _ = gc.Suite(&EnableHASuite{})
 
+func (s *EnableHASuite) TestHasVote(c *gc.C) {
+	controller, err := s.State.AddMachine("bionic", state.JobHostUnits, state.JobManageModel)
+	c.Assert(err, jc.ErrorIsNil)
+
+	node, err := s.State.ControllerNode(controller.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
+	c.Assert(node.HasVote(), jc.IsFalse)
+
+	// Make another node value so that
+	// it won't have the cached HasVote value.
+	nodeCopy, err := s.State.ControllerNode(controller.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = node.SetHasVote(true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(node.Refresh(), jc.ErrorIsNil)
+	c.Assert(node.HasVote(), jc.IsTrue)
+	c.Assert(nodeCopy.HasVote(), jc.IsFalse)
+
+	err = nodeCopy.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(nodeCopy.HasVote(), jc.IsTrue)
+
+	err = nodeCopy.SetHasVote(false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(nodeCopy.Refresh(), jc.ErrorIsNil)
+	c.Assert(nodeCopy.HasVote(), jc.IsFalse)
+
+	c.Assert(node.HasVote(), jc.IsTrue)
+	err = node.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(node.HasVote(), jc.IsFalse)
+}
+
 func (s *EnableHASuite) TestEnableHAFailsWithBadCount(c *gc.C) {
 	for _, n := range []int{-1, 2, 6} {
 		changes, err := s.State.EnableHA(n, constraints.Value{}, "", nil)
@@ -202,7 +237,9 @@ func (s *EnableHASuite) TestEnableHAMockBootstrap(c *gc.C) {
 	// Testing based on lp:1748275 - Juju HA fails due to demotion of Machine 0
 	m0, err := s.State.AddMachine("bionic", state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m0.SetHasVote(true)
+	node, err := s.State.ControllerNode(m0.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	err = node.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	changes, err := s.State.EnableHA(3, constraints.Value{}, "bionic", nil)
@@ -252,7 +289,7 @@ func (s *EnableHASuite) progressControllerToDead(c *gc.C, id string) {
 	c.Check(node.WantsVote(), jc.IsFalse)
 	// Pretend to be the peergrouper, notice the machine doesn't want to vote, so get rid of its vote, and remove it
 	// as a controller machine.
-	c.Check(m.SetHasVote(false), jc.ErrorIsNil)
+	c.Check(node.SetHasVote(false), jc.ErrorIsNil)
 	// TODO(HA) - no longer need to refresh once HasVote is moved off machine
 	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	c.Assert(s.State.RemoveControllerReference(node), jc.ErrorIsNil)
@@ -267,9 +304,9 @@ func (s *EnableHASuite) TestEnableHAGoesToNextOdd(c *gc.C) {
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
 	// "run the peergrouper" and give all the controllers the vote
 	for _, id := range []string{"0", "1", "2"} {
-		m, err := s.State.Machine(id)
+		node, err := s.State.ControllerNode(id)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(m.SetHasVote(true), jc.ErrorIsNil)
+		c.Assert(node.SetHasVote(true), jc.ErrorIsNil)
 	}
 	// Remove machine 0, so that we are down to 2 machines that want to vote. Requesting a count of '0' should
 	// still bring us back to 3
@@ -431,7 +468,9 @@ func (s *EnableHASuite) TestDestroyFromHA(c *gc.C) {
 func (s *EnableHASuite) TestForceDestroyFromHA(c *gc.C) {
 	m0, err := s.State.AddMachine("bionic", state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m0.SetHasVote(true)
+	node, err := s.State.ControllerNode(m0.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	err = node.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
 	// ForceDestroy must be blocked if there is only 1 machine.
 	err = m0.ForceDestroy(dontWait)
@@ -445,8 +484,7 @@ func (s *EnableHASuite) TestForceDestroyFromHA(c *gc.C) {
 	c.Assert(m0.Refresh(), jc.ErrorIsNil)
 	// Could this actually get all the way to Dead?
 	c.Check(m0.Life(), gc.Equals, state.Dying)
-	node, err := s.State.ControllerNode(m0.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	c.Assert(node.WantsVote(), jc.IsFalse)
 }
 
@@ -458,25 +496,24 @@ func (s *EnableHASuite) TestDestroyRaceLastController(c *gc.C) {
 	c.Assert(changes.Added, gc.HasLen, 2)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
 	for _, id := range []string{"0", "1", "2"} {
-		m, err := s.State.Machine(id)
+		node, err := s.State.ControllerNode(id)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(m.SetHasVote(true), jc.ErrorIsNil)
+		c.Assert(node.SetHasVote(true), jc.ErrorIsNil)
 	}
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		// We remove the other 2 controllers just before controller "0" would be destroyed
 		for _, id := range []string{"1", "2"} {
-			m, err := s.State.Machine(id)
-			c.Check(err, jc.ErrorIsNil)
 			c.Check(state.SetWantsVote(s.State, id, false), jc.ErrorIsNil)
-			c.Check(m.SetHasVote(false), jc.ErrorIsNil)
 			node, err := s.State.ControllerNode(id)
 			c.Assert(err, jc.ErrorIsNil)
+			c.Check(node.SetHasVote(false), jc.ErrorIsNil)
+			c.Check(node.Refresh(), jc.ErrorIsNil)
 			c.Check(s.State.RemoveControllerReference(node), jc.ErrorIsNil)
 			c.Logf("removed machine %s", id)
 			c.Assert(m0.Refresh(), jc.ErrorIsNil)
 			c.Assert(node.Refresh(), jc.ErrorIsNil)
-			c.Logf("machine 0: %s wants %t has %t", m0.Life(), node.WantsVote(), m0.HasVote())
+			c.Logf("machine 0: %s wants %t has %t", m0.Life(), node.WantsVote(), node.HasVote())
 		}
 	}).Check()
 	c.Logf("destroying machine 0")
@@ -485,7 +522,6 @@ func (s *EnableHASuite) TestDestroyRaceLastController(c *gc.C) {
 	c.Logf("attempted to destroy machine 0 finished")
 	c.Assert(m0.Refresh(), jc.ErrorIsNil)
 	c.Check(m0.Life(), gc.Equals, state.Alive)
-	c.Check(m0.HasVote(), jc.IsTrue)
 	node, err := s.State.ControllerNode(m0.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(node.HasVote(), jc.IsTrue)
@@ -495,9 +531,9 @@ func (s *EnableHASuite) TestDestroyRaceLastController(c *gc.C) {
 func (s *EnableHASuite) TestRemoveControllerMachineOneMachine(c *gc.C) {
 	m0, err := s.State.AddMachine("bionic", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m0.SetHasVote(true), jc.ErrorIsNil)
 	node, err := s.State.ControllerNode(m0.Id())
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(node.SetHasVote(true), jc.ErrorIsNil)
 	err = s.State.RemoveControllerReference(node)
 	c.Assert(err, gc.ErrorMatches, "controller 0 cannot be removed as it still wants to vote")
 	c.Assert(state.SetWantsVote(s.State, m0.Id(), false), jc.ErrorIsNil)
@@ -505,7 +541,7 @@ func (s *EnableHASuite) TestRemoveControllerMachineOneMachine(c *gc.C) {
 	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	err = s.State.RemoveControllerReference(node)
 	c.Assert(err, gc.ErrorMatches, "controller 0 cannot be removed as it still has a vote")
-	c.Assert(m0.SetHasVote(false), jc.ErrorIsNil)
+	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
 	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	// it seems odd that we would end up the last controller but not have a vote, but we care about the DB integrity
 	err = s.State.RemoveControllerReference(node)
@@ -514,19 +550,21 @@ func (s *EnableHASuite) TestRemoveControllerMachineOneMachine(c *gc.C) {
 
 func (s *EnableHASuite) TestRemoveControllerMachine(c *gc.C) {
 	m0, err := s.State.AddMachine("bionic", state.JobManageModel)
-	m0.SetHasVote(true)
+	c.Assert(err, jc.ErrorIsNil)
+	node, err := s.State.ControllerNode(m0.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(node.SetHasVote(true), jc.ErrorIsNil)
 	changes, err := s.State.EnableHA(3, constraints.Value{}, "bionic", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(changes.Added, gc.HasLen, 2)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
 	c.Assert(m0.Destroy(), jc.ErrorIsNil)
-	m0.SetHasVote(false)
-	node, err := s.State.ControllerNode(m0.Id())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
+	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	err = s.State.RemoveControllerReference(node)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertControllerInfo(c, []string{"1", "2"}, []string{"1", "2"}, nil)
-	m0.Refresh()
+	c.Assert(m0.Refresh(), jc.ErrorIsNil)
 	c.Check(m0.Jobs(), jc.DeepEquals, []state.MachineJob{})
 }
 
@@ -538,7 +576,9 @@ func (s *EnableHASuite) TestRemoveControllerMachineVoteRace(c *gc.C) {
 	m0, err := s.State.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(state.SetWantsVote(s.State, m0.Id(), false), jc.ErrorIsNil)
-	m0.SetHasVote(false)
+	node, err := s.State.ControllerNode(m0.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
 	// It no longer wants the vote, but does have the JobManageModel
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"1", "2"}, nil)
 	defer state.SetBeforeHooks(c, s.State, func() {
@@ -547,13 +587,12 @@ func (s *EnableHASuite) TestRemoveControllerMachineVoteRace(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(state.SetWantsVote(s.State, m0.Id(), true), jc.ErrorIsNil)
 	}).Check()
-	node, err := s.State.ControllerNode(m0.Id())
-	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveControllerReference(node)
 	c.Check(err, gc.ErrorMatches, "controller 0 cannot be removed as it still wants to vote")
-	m0.Refresh()
-	c.Check(m0.HasVote(), jc.IsFalse)
+	c.Assert(m0.Refresh(), jc.ErrorIsNil)
 	c.Check(m0.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageModel})
+	c.Assert(node.Refresh(), jc.ErrorIsNil)
+	c.Check(node.HasVote(), jc.IsFalse)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
 }
 
@@ -567,7 +606,7 @@ func (s *EnableHASuite) TestRemoveControllerMachineRace(c *gc.C) {
 	c.Assert(state.SetWantsVote(s.State, m0.Id(), false), jc.ErrorIsNil)
 	node, err := s.State.ControllerNode(m0.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m0.SetHasVote(false), jc.ErrorIsNil)
+	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
 	removeOne := func(id string) {
 		c.Check(state.SetWantsVote(s.State, id, false), jc.ErrorIsNil)
 		node, err := s.State.ControllerNode(id)
@@ -585,7 +624,7 @@ func (s *EnableHASuite) TestRemoveControllerMachineRace(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "controller 0 cannot be removed as it is the last controller")
 	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	c.Check(node.WantsVote(), jc.IsFalse)
+	c.Check(node.HasVote(), jc.IsFalse)
 	c.Assert(m0.Refresh(), jc.ErrorIsNil)
-	c.Check(m0.HasVote(), jc.IsFalse)
 	c.Check(m0.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageModel})
 }

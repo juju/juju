@@ -3310,6 +3310,41 @@ func (s *upgradesSuite) TestAddControllerNodeDocs(c *gc.C) {
 	s.assertUpgradedData(c, AddControllerNodeDocs,
 		expectUpgradedData{controllerNodesColl, expected},
 	)
+
+	// Ensure obsolete machine doc fields are gone.
+	var mdocs bsonMById
+	err = machinesColl.Find(nil).All(&mdocs)
+	c.Assert(err, jc.ErrorIsNil)
+	sort.Sort(mdocs)
+	for _, d := range mdocs {
+		delete(d, "txn-queue")
+		delete(d, "txn-revno")
+	}
+	c.Assert(mdocs, jc.DeepEquals, bsonMById{{
+		"_id":       ensureModelUUID(uuid1, "1"),
+		"machineid": "1",
+		"jobs":      []interface{}{2},
+	}, bson.M{
+		"_id":       ensureModelUUID(uuid1, "2"),
+		"machineid": "2",
+		"jobs":      []interface{}{2},
+	}, bson.M{
+		"_id":       ensureModelUUID(uuid1, "3"),
+		"machineid": "3",
+		"jobs":      []interface{}{2},
+	}, bson.M{
+		"_id":       ensureModelUUID(uuid1, "4"),
+		"machineid": "3",
+		"jobs":      []interface{}{1},
+	}, bson.M{
+		"_id":       ensureModelUUID(uuid1, "5"),
+		"machineid": "5",
+		"jobs":      []interface{}{2},
+	}, bson.M{
+		"_id":       ensureModelUUID(uuid2, "1"),
+		"machineid": "1",
+		"jobs":      []interface{}{2},
+	}})
 }
 
 func (s *upgradesSuite) TestAddSpaceIdToSpaceDocs(c *gc.C) {

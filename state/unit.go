@@ -742,6 +742,13 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 		}
 		return nil, err
 	}
+	hasVote := false
+	node, err := u.st.ControllerNode(u.doc.MachineId)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	}
+	haveControllerNode := err == nil
+	hasVote = haveControllerNode && node.HasVote()
 
 	containerCheck := true // whether container conditions allow destroying the host machine
 	containers, err := m.Containers()
@@ -774,7 +781,7 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 		// Check that the machine does not have any responsibilities that
 		// prevent a lifecycle change.
 		machineCheck = false
-	} else if m.doc.HasVote {
+	} else if hasVote {
 		machineCheck = false
 	}
 
@@ -786,21 +793,21 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 		machineAssert = bson.D{{"$and", []bson.D{
 			{{"principals", []string{u.doc.Name}}},
 			{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
-			{{"hasvote", bson.D{{"$ne", true}}}},
 		}}}
 		controllerNodeAssert = txn.DocMissing
-		_, err = m.st.ControllerNode(m.Id())
-		if err == nil {
+		if haveControllerNode {
 			controllerNodeAssert = bson.D{{"has-vote", false}}
 		}
 	} else {
 		machineAssert = bson.D{{"$or", []bson.D{
 			{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
 			{{"jobs", bson.D{{"$in", []MachineJob{JobManageModel}}}}},
-			{{"hasvote", true}},
 		}}}
 		if isController {
 			controllerNodeAssert = txn.DocExists
+			if len(m.doc.Principals) == 1 && m.doc.Principals[0] == u.doc.Name {
+				controllerNodeAssert = bson.D{{"has-vote", true}}
+			}
 		}
 	}
 

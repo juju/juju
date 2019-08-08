@@ -83,7 +83,9 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 	if needController {
 		_, err = st.EnableHA(1, constraints.Value{}, "quantal", []string{m.Id()})
 		c.Assert(err, jc.ErrorIsNil)
-		err = m.SetHasVote(true)
+		node, err := st.ControllerNode(m.Id())
+		c.Assert(err, jc.ErrorIsNil)
+		err = node.SetHasVote(true)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	// TODO(dfc) instance.Id should take a TAG!

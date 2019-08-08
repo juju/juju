@@ -388,7 +388,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	// bootstrap machine always gets the vote
-	return m.SetHasVote(true)
+	node, err := st.ControllerNode(m.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return node.SetHasVote(true)
 }
 
 func getAddressesForMongo(
