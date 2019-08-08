@@ -1274,7 +1274,7 @@ func (u *UniterAPI) Refresh(args params.Entities) (params.UnitRefreshResults, er
 				result.Results[i].Resolved = params.ResolvedMode(unit.Resolved())
 
 				// initially, it returns not found error, so just ignore it.
-				result.Results[i].ProviderID, err = u.getProviderID(unit)
+				result.Results[i].ProviderID, _ = u.getProviderID(unit)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
