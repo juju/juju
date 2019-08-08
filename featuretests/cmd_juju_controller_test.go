@@ -175,7 +175,7 @@ controller:
   life: alive
   status:
     current: available
-    since: just now
+    since: .*
   users:
     admin:
       display-name: admin
