@@ -2,7 +2,7 @@
 [ -n "${GOPATH:-}" ] && export "PATH=${GOPATH}/bin:${PATH}"
 
 # Always ignore SC2230 ('which' is non-standard. Use builtin 'command -v' instead.)
-export SHELLCHECK_OPTS="-e SC2230 -e SC2039"
+export SHELLCHECK_OPTS="-e SC2230 -e SC2039 -e SC2028"
 
 import_subdir_files() {
     test "$1"
@@ -16,7 +16,7 @@ import_subdir_files() {
 import_subdir_files includes
 
 echo "==> Checking for dependencies"
-check_dependencies curl jq shellcheck
+check_dependencies curl jq shellcheck juju
 
 if [ "${USER:-'root'}" = "root" ]; then
     echo "The testsuite must not be run as root." >&2
@@ -41,6 +41,8 @@ cleanup() {
     fi
 
     echo "==> Cleaning up"
+
+    cleanup_jujus
 
     echo ""
     echo ""
@@ -88,5 +90,7 @@ if [ "$#" -gt 0 ]; then
 fi
 
 run_test test_static_analysis "running static analysis"
+run_test test_smoke "running smoke tests"
+run_test test_cmr_bundles "running cmr bundle acceptance tests"
 
 TEST_RESULT=success

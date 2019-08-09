@@ -1,5 +1,5 @@
 run_shellcheck() {
-  OUT=$(shellcheck --shell sh tests/*.sh tests/includes/*.sh tests/suites/**/*.sh)
+  OUT=$(shellcheck --shell sh tests/*.sh tests/includes/*.sh tests/suites/**/*.sh 2>&1 || true)
   if [ -n "${OUT}" ]; then
     printf "\\nFound some typos"
     echo "${OUT}"
@@ -7,12 +7,23 @@ run_shellcheck() {
   fi
 }
 
-test_static_analysis_shell() {
-  if [ -n "${SKIP_STATIC:-}" ]; then
-    echo "==> SKIP: Asked to skip static analysis"
-    return
+run_whitespace() {
+  OUT=$(grep -Pr '\t' tests/ | grep '\.sh:' || true)
+  if [ -n "${OUT}" ]; then
+    echo "\\nERROR: mixed tabs and spaces in script: ${OUT}"
+    exit 1
   fi
+}
 
+run_trailing_whitespace() {
+  OUT=$(grep -r " $" tests/ | grep '\.sh:' || true)
+  if [ -n "${OUT}" ]; then
+    echo "\\nERROR: trailing whitespace in script: ${OUT}"
+    exit 1
+  fi
+}
+
+test_static_analysis_shell() {
   (
     set -e
 
@@ -20,23 +31,15 @@ test_static_analysis_shell() {
 
     # Shell static analysis
     if which shellcheck >/dev/null 2>&1; then
-      run "shellcheck" run_shellcheck
+      run "shellcheck"
     else
       echo "shellcheck not found, shell static analysis disabled"
     fi
 
     ## Mixed tabs/spaces in scripts
-    OUT=$(grep -Pr '\t' tests/ | grep '\.sh:' || true)
-    if [ -n "${OUT}" ]; then
-      echo "ERROR: mixed tabs and spaces in script: ${OUT}"
-      false
-    fi
+    run "whitespace"
 
     ## Trailing whitespace in scripts
-    OUT=$(grep -r " $" tests/ | grep '\.sh:' || true)
-    if [ -n "${OUT}" ]; then
-      echo "ERROR: trailing whitespace in script: ${OUT}"
-      false
-    fi
+    run "trailing whitespace"
   )
 }

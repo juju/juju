@@ -20,17 +20,17 @@ run_go_lint() {
 run_deadcode() {
   OUT=$(deadcode ./ 2>&1 || true)
   if [ -n "${OUT}" ]; then
-  # shellcheck disable=SC2028
+    printf "\\nFound some issues"
     echo "\\n${OUT}" >&2
     exit 1
   fi
 }
 
 run_misspell() {
-  FILES=$(find ./* -name '*.go' -not -name '.#*' -not -name '*_mock.go' | grep -v vendor/ | grep -v acceptancetests/)
-  OUT=$(misspell -source=go 2>/dev/null "$FILES" || true)
+  FILES=${2}
+  OUT=$(misspell -source=go 2>/dev/null "${FILES}" || true)
   if [ -n "${OUT}" ]; then
-    printf "\\nFound some typos"
+    printf "\\nFound some issues"
     echo "${OUT}"
     exit 1
   fi
@@ -46,52 +46,55 @@ run_ineffassign() {
 }
 
 run_go_fmt() {
-  gofmt -w -s ./
-
-  git add -u :/
-  git diff --exit-code
+  FILES=${2}
+  OUT=$(echo "$FILES" | xargs gofmt -l -s)
+  if [ -n "${OUT}" ]; then
+    OUT=$(echo "${OUT}" | sed "s/^/  /")
+    printf "\\nFound some issues"
+    for ITEM in ${OUT}; do
+      echo "gofmt -s -w ${ITEM}"
+    done
+    exit 1
+  fi
 }
 
 test_static_analysis_go() {
-  if [ -n "${SKIP_STATIC:-}" ]; then
-    echo "==> SKIP: Asked to skip static analysis"
-    return
-  fi
-
   (
     set -e
 
     cd ../
 
+    FILES=$(find ./* -name '*.go' -not -name '.#*' -not -name '*_mock.go' | grep -v vendor/ | grep -v acceptancetests/)
+
     ## Functions starting by empty line
-    run "func vet" run_func_vet
+    run "func vet"
 
     ## go vet, if it exists
     if go help vet >/dev/null 2>&1; then
-      run "go vet" run_go_vet
+      run "go vet"
     fi
 
     ## golint
     if which golint >/dev/null 2>&1; then
-      run "go lint" run_go_lint
+      run "go lint"
     fi
 
     ## deadcode
     if which deadcode >/dev/null 2>&1; then
-      run "deadcode" run_deadcode
+      run "deadcode"
     fi
 
     ## misspell
     if which misspell >/dev/null 2>&1; then
-      run "misspell" run_misspell
+      run "misspell" "${FILES}"
     fi
 
     ## ineffassign
     if which ineffassign >/dev/null 2>&1; then
-      run "ineffassign" run_ineffassign
+      run "ineffassign"
     fi
 
     ## go fmt
-    # run "gofmt" run_go_fmt
+    run "go fmt" "${FILES}"
   )
 }
