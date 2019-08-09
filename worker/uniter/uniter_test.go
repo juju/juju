@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
@@ -947,6 +948,7 @@ func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterRelations(c *gc.C) {
+	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	waitDyingHooks := custom{func(c *gc.C, ctx *context) {
 		// There is no ordering relationship between relation hooks and
 		// leader-settings-changed hooks; and while we're dying we may
