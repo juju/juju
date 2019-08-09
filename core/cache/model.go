@@ -81,6 +81,9 @@ func (m *Model) Name() string {
 
 // WatchConfig creates a watcher for the model config.
 func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	return newConfigWatcher(keys, m.hashCache, m.hub, modelConfigChange, m.Resident)
 }
 

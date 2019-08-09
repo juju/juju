@@ -4,6 +4,8 @@
 package cache
 
 import (
+	"sync"
+
 	"github.com/juju/pubsub"
 )
 
@@ -19,6 +21,7 @@ func newApplication(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resid
 		Resident: res,
 		metrics:  metrics,
 		hub:      hub,
+		mu:       &sync.Mutex{},
 	}
 	return a
 }
@@ -32,6 +35,7 @@ type Application struct {
 	// Link to model?
 	metrics *ControllerGauges
 	hub     *pubsub.SimpleHub
+	mu      *sync.Mutex
 
 	details    ApplicationChange
 	configHash string
@@ -58,6 +62,9 @@ func (a *Application) Config() map[string]interface{} {
 // It is not aware of branch-based config deltas
 // and only deals with master settings.
 func (a *Application) WatchConfig(keys ...string) *ConfigWatcher {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	w := newConfigWatcher(keys, a.hashCache, a.hub, a.topic(applicationConfigChange), a.Resident)
 	return w
 }
@@ -70,6 +77,9 @@ type appCharmUrlChange struct {
 }
 
 func (a *Application) setDetails(details ApplicationChange) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	// If this is the first receipt of details, set the removal message.
 	if a.removalMessage == nil {
 		a.removalMessage = RemoveApplication{
@@ -99,6 +109,7 @@ func (a *Application) setDetails(details ApplicationChange) {
 // copy returns a copy of the unit, ensuring appropriate deep copying.
 func (a *Application) copy() Application {
 	ca := *a
+	ca.mu = &sync.Mutex{}
 	ca.details = ca.details.copy()
 	return ca
 }
