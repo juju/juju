@@ -1107,7 +1107,7 @@ func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 	}
 	sn.SetFan("100.2.0.0/16", "253.0.0.0/8")
 
-	_, err = s.State.AddSubnet(sn)
+	expectedSubnet, err := s.State.AddSubnet(sn)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
@@ -1116,15 +1116,16 @@ func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 	subnets := model.Subnets()
 	c.Assert(subnets, gc.HasLen, 1)
 	subnet := subnets[0]
-	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
-	c.Assert(subnet.ProviderId(), gc.Equals, "foo")
-	c.Assert(subnet.ProviderNetworkId(), gc.Equals, "rust")
-	c.Assert(subnet.VLANTag(), gc.Equals, 64)
-	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, []string{"bar"})
+	c.Assert(subnet.CIDR(), gc.Equals, sn.CIDR)
+	c.Assert(subnet.ID(), gc.Equals, expectedSubnet.ID())
+	c.Assert(subnet.ProviderId(), gc.Equals, string(sn.ProviderId))
+	c.Assert(subnet.ProviderNetworkId(), gc.Equals, string(sn.ProviderNetworkId))
+	c.Assert(subnet.VLANTag(), gc.Equals, sn.VLANTag)
+	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, sn.AvailabilityZones)
 	c.Assert(subnet.SpaceID(), gc.Equals, sp.Id())
 	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "100.2.0.0/16")
 	c.Assert(subnet.FanOverlay(), gc.Equals, "253.0.0.0/8")
-	c.Assert(subnet.IsPublic(), gc.Equals, true)
+	c.Assert(subnet.IsPublic(), gc.Equals, sn.IsPublic)
 }
 
 func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
