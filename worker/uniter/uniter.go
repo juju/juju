@@ -148,6 +148,7 @@ type NewOperationExecutorFunc func(string, operation.State, func(string) (func()
 type ProviderIDGetter interface {
 	ProviderID() string
 	Refresh() error
+	Name() string
 }
 
 // NewRunnerExecutorFunc defines the type of the NewRunnerExecutor.

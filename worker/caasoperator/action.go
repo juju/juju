@@ -36,11 +36,6 @@ func ensurePath(
 	return errors.Trace(err)
 }
 
-type symlink struct {
-	Link   string
-	Target string
-}
-
 func syncFiles(
 	client exec.Executor,
 	podName string,
@@ -121,6 +116,9 @@ func getNewRunnerExecutor(
 			}
 			podNameOrID := providerIDGetter.ProviderID()
 			logger.Criticalf("getNewRunnerExecutor podNameOrID -> %q", podNameOrID)
+			if podNameOrID == "" {
+				return nil, errors.NotFoundf("pod for %q", providerIDGetter.Name())
+			}
 
 			if err := prepare(execClient, podNameOrID, dataDir, params.Cancel); err != nil {
 				return nil, errors.Trace(err)
