@@ -708,7 +708,12 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 				continue
 			}
 			ruw, err := w.st.WatchRelationUnits(relationTag, w.unit.Tag())
-			if err != nil {
+			// Deal with the race where the Relation call above returned
+			// a valid, perhaps dying relation, but by the time we ask to
+			// watch it, we get unauthorized because it is no longer around.
+			if params.IsCodeNotFoundOrCodeUnauthorized(err) {
+				continue
+			} else if err != nil {
 				return errors.Trace(err)
 			}
 			// Because of the delay before handing off responsibility to
