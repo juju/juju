@@ -182,33 +182,24 @@ func (s *StateSuite) TestStrictLocalIDWithNoPrefix(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unexpected id: "wordpress"`)
 }
 
-func (s *StateSuite) TestDialAgain(c *gc.C) {
-	// Ensure idempotent operations on Dial are working fine.
-	for i := 0; i < 2; i++ {
-		st, err := state.Open(s.testOpenParams())
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(st.Close(), gc.IsNil)
-	}
-}
-
-func (s *StateSuite) TestOpenRequiresExtantModelTag(c *gc.C) {
+func (s *StateSuite) TestOpenControllerRequiresExtantModelTag(c *gc.C) {
 	uuid := utils.MustNewUUID()
 	params := s.testOpenParams()
 	params.ControllerModelTag = names.NewModelTag(uuid.String())
-	st, err := state.Open(params)
-	if !c.Check(st, gc.IsNil) {
-		c.Check(st.Close(), jc.ErrorIsNil)
+	controller, err := state.OpenController(params)
+	if !c.Check(controller, gc.IsNil) {
+		c.Check(controller.Close(), jc.ErrorIsNil)
 	}
 	expect := fmt.Sprintf("cannot read model %s: model %q not found", uuid, uuid)
 	c.Check(err, gc.ErrorMatches, expect)
 }
 
-func (s *StateSuite) TestOpenSetsModelTag(c *gc.C) {
-	st, err := state.Open(s.testOpenParams())
+func (s *StateSuite) TestOpenControllerSetsModelTag(c *gc.C) {
+	controller, err := state.OpenController(s.testOpenParams())
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	defer controller.Close()
 
-	m, err := st.Model()
+	m, err := controller.SystemState().Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(m.ModelTag(), gc.Equals, s.modelTag)
@@ -4057,15 +4048,15 @@ func testWatcherDiesWhenStateCloses(
 	controllerTag names.ControllerTag,
 	startWatcher func(c *gc.C, st *state.State) waiter,
 ) {
-	st, err := state.Open(state.OpenParams{
+	controller, err := state.OpenController(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      controllerTag,
 		ControllerModelTag: modelTag,
 		MongoSession:       session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	watcher := startWatcher(c, st)
-	err = st.Close()
+	watcher := startWatcher(c, controller.SystemState())
+	err = controller.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	done := make(chan error)
 	go func() {
@@ -4077,6 +4068,415 @@ func testWatcherDiesWhenStateCloses(
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher %T did not exit when state closed", watcher)
 	}
+}
+
+func (s *StateSuite) TestControllerInfo(c *gc.C) {
+	ids, err := s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ids.CloudName, gc.Equals, "dummy")
+	c.Assert(ids.ModelTag, gc.Equals, s.modelTag)
+	c.Assert(ids.MachineIds, gc.HasLen, 0)
+
+	// TODO(rog) more testing here when we can actually add
+	// controllers.
+}
+
+func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
+	expected := &state.ControllerInfo{
+		CloudName: "dummy",
+		ModelTag:  s.modelTag,
+	}
+	info, err := s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, expected)
+
+	controller, err := state.OpenController(s.testOpenParams())
+	c.Assert(err, jc.ErrorIsNil)
+	defer controller.Close()
+
+	info, err = controller.SystemState().ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, expected)
+}
+
+func (s *StateSuite) TestStateServingInfo(c *gc.C) {
+	info, err := s.State.StateServingInfo()
+	c.Assert(err, gc.ErrorMatches, "state serving info not found")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	data := state.StateServingInfo{
+		APIPort:      69,
+		StatePort:    80,
+		Cert:         "Some cert",
+		PrivateKey:   "Some key",
+		SharedSecret: "Some Keyfile",
+	}
+	err = s.State.SetStateServingInfo(data)
+	c.Assert(err, jc.ErrorIsNil)
+
+	info, err = s.State.StateServingInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, data)
+}
+
+var setStateServingInfoWithInvalidInfoTests = []func(info *state.StateServingInfo){
+	func(info *state.StateServingInfo) { info.APIPort = 0 },
+	func(info *state.StateServingInfo) { info.StatePort = 0 },
+	func(info *state.StateServingInfo) { info.Cert = "" },
+	func(info *state.StateServingInfo) { info.PrivateKey = "" },
+}
+
+func (s *StateSuite) TestSetStateServingInfoWithInvalidInfo(c *gc.C) {
+	origData := state.StateServingInfo{
+		APIPort:      69,
+		StatePort:    80,
+		Cert:         "Some cert",
+		PrivateKey:   "Some key",
+		SharedSecret: "Some Keyfile",
+	}
+	for i, test := range setStateServingInfoWithInvalidInfoTests {
+		c.Logf("test %d", i)
+		data := origData
+		test(&data)
+		err := s.State.SetStateServingInfo(data)
+		c.Assert(err, gc.ErrorMatches, "incomplete state serving info set in state")
+	}
+}
+
+func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
+	addrs, err := s.State.APIHostPortsForClients()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+
+	newHostPorts := [][]network.HostPort{{{
+		Address: network.Address{
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Port: 1,
+	}, {
+		Address: network.Address{
+			Value: "0.4.8.16",
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
+		},
+		Port: 2,
+	}}, {{
+		Address: network.Address{
+			Value: "0.6.1.2",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Port: 5,
+	}}}
+	err = s.State.SetAPIHostPorts(newHostPorts)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotHostPorts, err := s.State.APIHostPortsForClients()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
+
+	gotHostPorts, err = s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
+
+	newHostPorts = [][]network.HostPort{{{
+		Address: network.Address{
+			Value: "0.2.4.6",
+			Type:  network.IPv6Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Port: 13,
+	}}}
+	err = s.State.SetAPIHostPorts(newHostPorts)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotHostPorts, err = s.State.APIHostPortsForClients()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
+
+	gotHostPorts, err = s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
+}
+
+func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(c *gc.C) {
+	hostPorts := [][]network.HostPort{{{
+		Address: network.Address{
+			Value: "0.4.8.16",
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
+		},
+		Port: 2,
+	}}, {{
+		Address: network.Address{
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Port: 1,
+	}}}
+
+	// API host ports are concurrently changed to the same
+	// desired value; second arrival will fail its assertion,
+	// refresh finding nothing to do, and then issue a
+	// read-only assertion that succeeds.
+	ctrC := state.ControllersC
+	var prevRevno int64
+	var prevAgentsRevno int64
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.State.SetAPIHostPorts(hostPorts)
+		c.Assert(err, jc.ErrorIsNil)
+		revno, err := state.TxnRevno(s.State, ctrC, "apiHostPorts")
+		c.Assert(err, jc.ErrorIsNil)
+		prevRevno = revno
+		revno, err = state.TxnRevno(s.State, ctrC, "apiHostPortsForAgents")
+		c.Assert(err, jc.ErrorIsNil)
+		prevAgentsRevno = revno
+	}).Check()
+
+	err := s.State.SetAPIHostPorts(hostPorts)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(prevRevno, gc.Not(gc.Equals), 0)
+
+	revno, err := state.TxnRevno(s.State, ctrC, "apiHostPorts")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(revno, gc.Equals, prevRevno)
+
+	revno, err = state.TxnRevno(s.State, ctrC, "apiHostPortsForAgents")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(revno, gc.Equals, prevAgentsRevno)
+}
+
+func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDifferent(c *gc.C) {
+	hostPorts0 := []network.HostPort{{
+		Address: network.Address{
+			Value: "0.4.8.16",
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
+		},
+		Port: 2,
+	}}
+	hostPorts1 := []network.HostPort{{
+		Address: network.Address{
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Port: 1,
+	}}
+
+	// API host ports are concurrently changed to different
+	// values; second arrival will fail its assertion, refresh
+	// finding and reattempt.
+
+	ctrC := state.ControllersC
+	var prevRevno int64
+	var prevAgentsRevno int64
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.State.SetAPIHostPorts([][]network.HostPort{hostPorts0})
+		c.Assert(err, jc.ErrorIsNil)
+		revno, err := state.TxnRevno(s.State, ctrC, "apiHostPorts")
+		c.Assert(err, jc.ErrorIsNil)
+		prevRevno = revno
+		revno, err = state.TxnRevno(s.State, ctrC, "apiHostPortsForAgents")
+		c.Assert(err, jc.ErrorIsNil)
+		prevAgentsRevno = revno
+	}).Check()
+
+	err := s.State.SetAPIHostPorts([][]network.HostPort{hostPorts1})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(prevRevno, gc.Not(gc.Equals), 0)
+
+	revno, err := state.TxnRevno(s.State, ctrC, "apiHostPorts")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(revno, gc.Not(gc.Equals), prevRevno)
+
+	revno, err = state.TxnRevno(s.State, ctrC, "apiHostPortsForAgents")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(revno, gc.Not(gc.Equals), prevAgentsRevno)
+
+	hostPorts, err := s.State.APIHostPortsForClients()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hostPorts, gc.DeepEquals, [][]network.HostPort{hostPorts1})
+
+	hostPorts, err = s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hostPorts, gc.DeepEquals, [][]network.HostPort{hostPorts1})
+}
+
+func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
+	s.SetJujuManagementSpace(c, "mgmt01")
+
+	addrs, err := s.State.APIHostPortsForClients()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+
+	hostPort1 := network.HostPort{
+		Address: network.Address{
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Port: 1,
+	}
+	hostPort2 := network.HostPort{
+		Address: network.Address{
+			Value:     "0.4.8.16",
+			Type:      network.IPv4Address,
+			Scope:     network.ScopePublic,
+			SpaceName: "mgmt01",
+		},
+		Port: 2,
+	}
+	hostPort3 := network.HostPort{
+		Address: network.Address{
+			Value: "0.6.1.2",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Port: 5,
+	}
+	newHostPorts := [][]network.HostPort{{hostPort1, hostPort2}, {hostPort3}}
+
+	err = s.State.SetAPIHostPorts(newHostPorts)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotHostPorts, err := s.State.APIHostPortsForClients()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
+
+	gotHostPorts, err = s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	// First slice filtered down to the address in the management space.
+	// Second filtered to zero elements, so retains the supplied slice.
+	c.Assert(gotHostPorts, jc.DeepEquals, [][]network.HostPort{{hostPort2}, {hostPort3}})
+}
+
+func (s *StateSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.C) {
+	addrs, err := s.State.APIHostPortsForClients()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+
+	newHostPorts := [][]network.HostPort{{{
+		Address: network.Address{
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Port: 1,
+	}}}
+
+	// Delete the addresses for agents document before setting.
+	col := s.State.MongoSession().DB("juju").C(state.ControllersC)
+	key := "apiHostPortsForAgents"
+	err = col.RemoveId(key)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(col.FindId(key).One(&bson.D{}), gc.Equals, mgo.ErrNotFound)
+
+	err = s.State.SetAPIHostPorts(newHostPorts)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotHostPorts, err := s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
+}
+
+func (s *StateSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) {
+	addrs, err := s.State.APIHostPortsForClients()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+
+	newHostPorts := [][]network.HostPort{{{
+		Address: network.Address{
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Port: 1,
+	}}}
+
+	err = s.State.SetAPIHostPorts(newHostPorts)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Delete the addresses for agents document after setting.
+	col := s.State.MongoSession().DB("juju").C(state.ControllersC)
+	key := "apiHostPortsForAgents"
+	err = col.RemoveId(key)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(col.FindId(key).One(&bson.D{}), gc.Equals, mgo.ErrNotFound)
+
+	gotHostPorts, err := s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
+}
+
+func (s *StateSuite) TestWatchAPIHostPortsForClients(c *gc.C) {
+	w := s.State.WatchAPIHostPortsForClients()
+	defer statetesting.AssertStop(c, w)
+
+	// Initial event.
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	err := s.State.SetAPIHostPorts([][]network.HostPort{
+		network.NewHostPorts(99, "0.1.2.3"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertOneChange()
+
+	// Stop, check closed.
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *StateSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
+	s.SetJujuManagementSpace(c, "mgmt01")
+
+	w := s.State.WatchAPIHostPortsForAgents()
+	defer statetesting.AssertStop(c, w)
+
+	// Initial event.
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	mgmtHP := network.HostPort{
+		Address: network.Address{
+			Value:     "0.4.8.16",
+			Type:      network.IPv4Address,
+			Scope:     network.ScopeCloudLocal,
+			SpaceName: "mgmt01",
+		},
+		Port: 2,
+	}
+
+	err := s.State.SetAPIHostPorts([][]network.HostPort{{
+		mgmtHP,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// This should cause no change to APIHostPortsForAgents.
+	// We expect only one watcher notification.
+	err = s.State.SetAPIHostPorts([][]network.HostPort{{
+		mgmtHP,
+		network.HostPort{
+			Address: network.Address{
+				Value: "0.1.2.3",
+				Type:  network.IPv4Address,
+				Scope: network.ScopeCloudLocal,
+			},
+			Port: 99,
+		},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Stop, check closed.
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
 }
 
 func (s *StateSuite) TestNowToTheSecond(c *gc.C) {
@@ -4120,9 +4520,10 @@ func (s *StateSuite) TestRunTransactionObserver(c *gc.C) {
 			err:       err,
 		})
 	}
-	st, err := state.Open(params)
+	controller, err := state.OpenController(params)
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	defer controller.Close()
+	st := controller.SystemState()
 
 	c.Assert(getCalls(), gc.HasLen, 0)
 
