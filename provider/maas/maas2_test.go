@@ -642,6 +642,10 @@ func (d *fakeDevice) Hostname() string {
 	return ""
 }
 
+func (d *fakeDevice) Pool() gomaasapi.Pool {
+	return nil
+}
+
 func (d *fakeDevice) IPAddresses() []string {
 	addrs := make([]string, 0, len(d.interfaceSet))
 	for _, iface := range d.interfaceSet {

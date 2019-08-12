@@ -193,7 +193,7 @@ LXC_BRIDGE="ignored"`[1:])
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	ctlr, m, err := agentbootstrap.InitializeState(
+	ctlr, err := agentbootstrap.InitializeState(
 		adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -274,6 +274,8 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(hostedCfg.AuthorizedKeys(), gc.Equals, newModelCfg.AuthorizedKeys())
 
 	// Check that the bootstrap machine looks correct.
+	m, err := st.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, "0")
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
 	c.Assert(m.Series(), gc.Equals, series.MustHostSeries())
@@ -368,7 +370,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 	args := agentbootstrap.InitializeStateParams{}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	_, _, err = agentbootstrap.InitializeState(adminUser, cfg, args, mongotest.DialOpts(), nil)
+	_, err = agentbootstrap.InitializeState(adminUser, cfg, args, mongotest.DialOpts(), nil)
 	// InitializeState will fail attempting to get the api port information
 	c.Assert(err, gc.ErrorMatches, "state serving information not available")
 }
@@ -428,13 +430,13 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	st, _, err := agentbootstrap.InitializeState(
+	st, err := agentbootstrap.InitializeState(
 		adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 
-	st, _, err = agentbootstrap.InitializeState(
+	st, err = agentbootstrap.InitializeState(
 		adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 	)
 	if err == nil {

@@ -584,7 +584,7 @@ func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 	var called int
-	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, args agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, _ state.NewPolicyFunc) (_ *state.Controller, _ *state.Machine, resultErr error) {
+	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, args agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, _ state.NewPolicyFunc) (_ *state.Controller, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.Timeout, gc.Equals, 30*time.Second)
@@ -593,7 +593,7 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 			"name": "hosted-model",
 			"uuid": s.hostedModelUUID,
 		})
-		return nil, nil, errors.New("failed to initialize state")
+		return nil, errors.New("failed to initialize state")
 	}
 	s.PatchValue(&agentInitializeState, initializeState)
 	_, cmd, err := s.initBootstrapCommand(c, nil, "--timeout", "123s", s.bootstrapParamsFile)
@@ -605,11 +605,11 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	var called int
-	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, _ agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, _ state.NewPolicyFunc) (_ *state.Controller, _ *state.Machine, resultErr error) {
+	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, _ agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, _ state.NewPolicyFunc) (_ *state.Controller, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
-		return nil, nil, errors.New("failed to initialize state")
+		return nil, errors.New("failed to initialize state")
 	}
 
 	s.PatchValue(&agentInitializeState, initializeState)

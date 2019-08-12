@@ -305,7 +305,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var controller *state.Controller
-	var m *state.Machine
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		var stateErr error
 		dialOpts := mongo.DefaultDialOpts()
@@ -322,7 +321,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		dialOpts.Direct = true
 
 		adminTag := names.NewLocalUserTag(adminUserName)
-		controller, m, stateErr = agentInitializeState(
+		controller, stateErr = agentInitializeState(
 			adminTag,
 			agentConfig,
 			agentbootstrap.InitializeStateParams{
@@ -387,8 +386,8 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		logger.Debugf("Juju GUI successfully set up")
 	}
 
-	// bootstrap machine always gets the vote
-	node, err := st.ControllerNode(m.Id())
+	// bootstrap nodes always get the vote
+	node, err := st.ControllerNode(agent.BootstrapControllerId)
 	if err != nil {
 		return errors.Trace(err)
 	}
