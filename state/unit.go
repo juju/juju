@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -1433,11 +1434,13 @@ func (u *Unit) OpenPortsOnSubnet(subnetID, protocol string, fromPort, toPort int
 func (u *Unit) checkSubnetAliveWhenSet(subnetID string) error {
 	if subnetID == "" {
 		return nil
-	} else if !names.IsValidSubnet(subnetID) {
+	}
+
+	if _, err := strconv.Atoi(subnetID); err != nil {
 		return errors.Errorf("invalid subnet ID %q", subnetID)
 	}
 
-	subnet, err := u.st.Subnet(subnetID)
+	subnet, err := u.st.SubnetByID(subnetID)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Annotatef(err, "getting subnet %q", subnetID)
 	} else if errors.IsNotFound(err) || subnet.Life() != Alive {

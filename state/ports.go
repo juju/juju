@@ -259,7 +259,7 @@ func (p *Ports) verifySubnetAliveWhenSet() error {
 		return nil
 	}
 
-	subnet, err := p.st.Subnet(p.doc.SubnetID)
+	subnet, err := p.st.SubnetByID(p.doc.SubnetID)
 	if err != nil {
 		return errors.Trace(err)
 	} else if subnet.Life() != Alive {
