@@ -444,11 +444,11 @@
   revision = "b99631de12cf04a906c1d4e4ec54fb86eae5863d"
 
 [[projects]]
-  digest = "1:de54a8a2f94ace7552f36b0eca53166f3751886e338cf5953e192d2e30123de5"
+  digest = "1:3bf45368929d01a44755247cee64f93057c8a0f012ade9a227e4a60a6d2b85ff"
   name = "github.com/juju/bundlechanges"
   packages = ["."]
   pruneopts = ""
-  revision = "bb96ad9a5018f64e67f46f63496580c8956b4fbf"
+  revision = "2ab5b6004f111b9f4792a67b14e2f03c37e0af1d"
 
 [[projects]]
   digest = "1:f720ea29e073a9a7109a5080f32753292dc8616a22a905876d425cc64c21bd8d"
@@ -1494,18 +1494,7 @@
   revision = "77bc1b09aca2e72adbb0a608f2ba4ede37e9f704"
 
 [[projects]]
-  digest = "1:86df7d2874a5250cf64324e2ce4e88fea552aa1f5c1a3f065599bd1f381ce939"
-  name = "gopkg.in/juju/charmrepo.v2"
-  packages = [
-    ".",
-    "csclient",
-    "csclient/params",
-  ]
-  pruneopts = ""
-  revision = "653bbd81990d2d7d48e0fb931a3b0f52c694572f"
-
-[[projects]]
-  digest = "1:58b987791edd26aa46f1964df3fad56359386e5b872bd145c4cd5eadfb7be646"
+  digest = "1:dc05394e66d3dfe6ecc7b966cc0ac4ab40c3d10b0249499af92f4c4ae3ad6e85"
   name = "gopkg.in/juju/charmrepo.v3"
   packages = [
     ".",
@@ -1514,7 +1503,7 @@
     "testing",
   ]
   pruneopts = ""
-  revision = "7778a447283bd71109671c20818544514e16e9d9"
+  revision = "2adcece4e962a51e0793b8562560cf9da874026f"
 
 [[projects]]
   digest = "1:74fbfdf0898041a163a696f0a901b6f4740a47ceffb1839d514ba75699a60c3e"

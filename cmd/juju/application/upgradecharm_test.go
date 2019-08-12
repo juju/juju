@@ -87,10 +87,11 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.resolveCharm = func(
-		resolveWithChannel func(*charm.URL) (*charm.URL, csclientparams.Channel, []string, error),
+		resolveWithChannel func(*charm.URL, csclientparams.Channel) (*charm.URL, csclientparams.Channel, []string, error),
 		url *charm.URL,
+		preferredChannel csclientparams.Channel,
 	) (*charm.URL, csclientparams.Channel, []string, error) {
-		s.AddCall("ResolveCharm", resolveWithChannel, url)
+		s.AddCall("ResolveCharm", resolveWithChannel, url, preferredChannel)
 		if err := s.NextErr(); err != nil {
 			return nil, csclientparams.NoChannel, nil, err
 		}
@@ -656,13 +657,13 @@ var upgradeCharmAuthorizationTests = []struct {
 	uploadURL:    "cs:~bob/trusty/wordpress5-10",
 	switchURL:    "cs:~bob/trusty/wordpress5",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id&include=supported-series&include=published": access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?channel=stable&include=id&include=supported-series&include=published": access denied for user "client-username"`,
 }, {
 	about:        "non-public charm, fully resolved, access denied",
 	uploadURL:    "cs:~bob/trusty/wordpress6-47",
 	switchURL:    "cs:~bob/trusty/wordpress6-47",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id&include=supported-series&include=published": access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?channel=stable&include=id&include=supported-series&include=published": access denied for user "client-username"`,
 }}
 
 func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmAuthorization(c *gc.C) {

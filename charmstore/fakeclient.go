@@ -427,9 +427,8 @@ func (r Repository) Resolve(ref *charm.URL) (canonRef *charm.URL, supportedSerie
 // ResolveWithChannel disambiguates a charm to a specific revision.
 //
 // Part of the cmd/juju/application.DeployAPI interface
-func (r Repository) ResolveWithChannel(ref *charm.URL) (*charm.URL, params.Channel, []string, error) {
-	canonRef, supportedSeries, err := r.Resolve(ref)
-	return canonRef, r.channel, supportedSeries, err
+func (r Repository) ResolveWithPreferredChannel(ref *charm.URL, preferredChannel params.Channel) (*charm.URL, params.Channel, []string, error) {
+	return r.addRevision(ref), preferredChannel, []string{"trusty", "wily", "quantal"}, nil
 }
 
 // Get retrieves a charm from the repository.

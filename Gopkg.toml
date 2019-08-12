@@ -58,7 +58,7 @@
   name = "github.com/hashicorp/raft-boltdb"
 
 [[constraint]]
-  revision = "bb96ad9a5018f64e67f46f63496580c8956b4fbf"
+  revision = "2ab5b6004f111b9f4792a67b14e2f03c37e0af1d"
   name = "github.com/juju/bundlechanges"
 
 [[constraint]]
@@ -150,7 +150,7 @@
   revision = "77bc1b09aca2e72adbb0a608f2ba4ede37e9f704"
 
 [[constraint]]
-  revision = "7778a447283bd71109671c20818544514e16e9d9"
+  revision = "2adcece4e962a51e0793b8562560cf9da874026f"
   name = "gopkg.in/juju/charmrepo.v3"
 
 [[constraint]]
@@ -493,10 +493,6 @@
 [[override]]
   name = "gopkg.in/httprequest.v1"
   revision = "1a21782420ea13c3c6fb1d03578f446b3248edb1"
-
-[[override]]
-  name = "gopkg.in/juju/charmrepo.v2"
-  revision = "653bbd81990d2d7d48e0fb931a3b0f52c694572f"
 
 [[constraint]]
   name = "gopkg.in/juju/worker.v1"

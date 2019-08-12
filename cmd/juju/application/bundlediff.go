@@ -179,9 +179,7 @@ func (c *bundleDiffCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleData
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bundleURL, _, err := resolveBundleURL(
-		charmStore, c.bundle,
-	)
+	bundleURL, _, err := resolveBundleURL(charmStore, c.bundle, c.channel)
 	if err != nil && !errors.IsNotValid(err) {
 		return nil, errors.Trace(err)
 	}

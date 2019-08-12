@@ -36,7 +36,7 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
-		Args:   []interface{}{"django", ""},
+		Args:   []interface{}{"django", "", ""},
 	}, {
 		Id:     "deploy-1",
 		Method: "deploy",
@@ -55,7 +55,7 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 	}, {
 		Id:     "addCharm-2",
 		Method: "addCharm",
-		Args:   []interface{}{"cs:trusty/haproxy-42", "trusty"},
+		Args:   []interface{}{"cs:trusty/haproxy-42", "trusty", ""},
 	}, {
 		Id:     "deploy-3",
 		Method: "deploy",

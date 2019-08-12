@@ -2570,13 +2570,13 @@ func (f *fakeDeployAPI) ModelGet() (map[string]interface{}, error) {
 	return results[0].(map[string]interface{}), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) ResolveWithChannel(url *charm.URL) (
+func (f *fakeDeployAPI) ResolveWithPreferredChannel(url *charm.URL, preferredChannel csclientparams.Channel) (
 	*charm.URL,
 	csclientparams.Channel,
 	[]string,
 	error,
 ) {
-	results := f.MethodCall(f, "ResolveWithChannel", url)
+	results := f.MethodCall(f, "ResolveWithPreferredChannel", url, preferredChannel)
 
 	return results[0].(*charm.URL),
 		results[1].(csclientparams.Channel),
@@ -2805,7 +2805,7 @@ func withCharmRepoResolvable(
 	fakeAPI *fakeDeployAPI,
 	url *charm.URL,
 ) {
-	fakeAPI.Call("ResolveWithChannel", url).Returns(
+	fakeAPI.Call("ResolveWithPreferredChannel", url, csclientparams.NoChannel).Returns(
 		url,
 		csclientparams.Channel(""),
 		[]string{"bionic"}, // Supported series
