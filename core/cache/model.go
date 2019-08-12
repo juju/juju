@@ -74,8 +74,15 @@ func (m *Model) Config() map[string]interface{} {
 	return cfg
 }
 
+// UUID returns the model's model-uuid.
+func (m *Model) UUID() string {
+	defer m.doLocked()()
+	return m.details.ModelUUID
+}
+
 // Name returns the current model's name.
 func (m *Model) Name() string {
+	defer m.doLocked()()
 	return m.details.Name
 }
 

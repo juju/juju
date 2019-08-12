@@ -195,7 +195,7 @@ func newFacade(ctx facade.Context) (*Client, error) {
 		// A longer term solution would be to move to using the db for
 		// branch data in status output, if the model cache issues are
 		// not resolved before the branches feature is released.
-		modelCache, err = ctx.Controller().Model(modelUUID)
+		modelCache, err = ctx.CachedModel(modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
