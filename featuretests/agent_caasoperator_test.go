@@ -33,6 +33,10 @@ type CAASOperatorSuite struct {
 	agenttest.AgentSuite
 }
 
+func newExecClient(modelName string) (exec.Executor, error) {
+	return nil, nil
+}
+
 func (s *CAASOperatorSuite) SetUpSuite(c *gc.C) {
 	s.AgentSuite.SetUpSuite(c)
 }
@@ -146,9 +150,8 @@ var (
 )
 
 func (s *CAASOperatorSuite) newCaasOperatorAgent(c *gc.C, ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter) (*jujudagent.CaasOperatorAgent, error) {
-	a, err := jujudagent.NewCaasOperatorAgent(ctx, s.newBufferedLogWriter())
+	a, err := jujudagent.NewCaasOperatorAgent(ctx, s.newBufferedLogWriter(), newExecClient)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(&a.NewExecClient, func(modelName string) (exec.Executor, error) { return nil, nil })
 	return a, nil
 }
 

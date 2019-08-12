@@ -39,19 +39,20 @@ type Executor interface {
 	Copy(params CopyParam, cancel <-chan struct{}) error
 }
 
-// GetInClusterClient returns a in-cluster kubernetes clientset.
-func GetInClusterClient() (kubernetes.Interface, *rest.Config, error) {
+// NewInCluster returns a in-cluster exec client.
+func NewInCluster(modelName string) (Executor, error) {
 	// creates the in-cluster config.
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	// creates the clientset.
 	c, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return c, config, nil
+
+	return New(modelName, c, config), nil
 }
 
 // New contructs an executor.

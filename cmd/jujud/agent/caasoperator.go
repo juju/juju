@@ -65,11 +65,15 @@ type CaasOperatorAgent struct {
 
 	prometheusRegistry *prometheus.Registry
 
-	NewExecClient func(modelName string) (exec.Executor, error)
+	newExecClient func(modelName string) (exec.Executor, error)
 }
 
 // NewCaasOperatorAgent creates a new CAASOperatorAgent instance properly initialized.
-func NewCaasOperatorAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter) (*CaasOperatorAgent, error) {
+func NewCaasOperatorAgent(
+	ctx *cmd.Context,
+	bufferedLogger *logsender.BufferedLogWriter,
+	newExecClient func(modelName string) (exec.Executor, error),
+) (*CaasOperatorAgent, error) {
 	prometheusRegistry, err := newPrometheusRegistry()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -82,13 +86,7 @@ func NewCaasOperatorAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLo
 		bufferedLogger:     bufferedLogger,
 		prometheusRegistry: prometheusRegistry,
 		preUpgradeSteps:    upgrades.PreUpgradeSteps,
-		NewExecClient: func(modelName string) (exec.Executor, error) {
-			c, cfg, err := exec.GetInClusterClient()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return exec.New(modelName, c, cfg), nil
-		},
+		newExecClient:      newExecClient,
 	}, nil
 }
 
@@ -232,7 +230,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		ValidateMigration:    op.validateMigration,
 		MachineLock:          op.machineLock,
 		PreviousAgentVersion: agentConfig.UpgradedToVersion(),
-		NewExecClient:        op.NewExecClient,
+		NewExecClient:        op.newExecClient,
 	})
 
 	engine, err := dependency.NewEngine(dependencyEngineConfig())

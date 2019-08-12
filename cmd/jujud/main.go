@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/juju/sockets"
 
 	// Import the providers.
+	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/utils/proxy"
@@ -193,7 +194,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	}
 	jujud.Register(unitAgent)
 
-	caasOperatorAgent, err := agentcmd.NewCaasOperatorAgent(ctx, bufferedLogger)
+	caasOperatorAgent, err := agentcmd.NewCaasOperatorAgent(ctx, bufferedLogger, k8sexec.NewCaasOperatorAgent)
 	if err != nil {
 		return -1, errors.Trace(err)
 	}
