@@ -4,9 +4,7 @@
 package controller
 
 import (
-	"bytes"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -24,7 +22,6 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -94,10 +91,7 @@ are the ones used to create any future resources within the model.
 If no cloud/region is specified, then the model will be deployed to
 the same cloud/region as the controller model. If a region is specified
 without a cloud qualifier, then it is assumed to be in the same cloud
-as the controller model. It is not currently possible for a controller
-to manage multiple clouds, so the only valid cloud is the same cloud
-as the controller model is deployed to. This may change in a future
-release.
+as the controller model.
 
 Examples:
 
@@ -204,14 +198,21 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	var cloud jujucloud.Cloud
 	var cloudRegion string
 	if c.CloudRegion != "" {
-		cloudTag, cloud, cloudRegion, err = c.getCloudRegion(cloudClient)
+		cloudRegionParams := common.CloudRegionValidationParams{
+			RemoteCloudClient: cloudClient,
+			LocalStore:        store,
+			CloudRegion:       c.CloudRegion,
+			Command:           c.Info().Name,
+			RemoteOnly:        true,
+		}
+		cloudTag, cloud, cloudRegion, err = common.ParseCloudRegion(cloudRegionParams)
 		if err != nil {
 			logger.Errorf("%v", err)
 			ctx.Infof("Use 'juju clouds' to see a list of all available clouds or 'juju add-cloud' to a add one.")
 			return cmd.ErrSilent
 		}
 	} else {
-		if cloudTag, cloud, err = maybeGetControllerCloud(cloudClient); err != nil {
+		if cloudTag, cloud, err = common.MaybeGetControllerCloud(cloudClient, c.Info().Name); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -313,131 +314,6 @@ before "juju ssh", "juju scp", or "juju debug-hooks" will work.`)
 	}
 
 	return nil
-}
-
-func (c *addModelCommand) getCloudRegion(cloudClient CloudAPI) (cloudTag names.CloudTag, cloud jujucloud.Cloud, cloudRegion string, err error) {
-	fail := func(err error) (names.CloudTag, jujucloud.Cloud, string, error) {
-		return names.CloudTag{}, jujucloud.Cloud{}, "", err
-	}
-
-	var cloudName string
-	sep := strings.IndexRune(c.CloudRegion, '/')
-	if sep >= 0 {
-		// User specified "cloud/region".
-		cloudName, cloudRegion = c.CloudRegion[:sep], c.CloudRegion[sep+1:]
-		if !names.IsValidCloud(cloudName) {
-			return fail(errors.NotValidf("cloud name %q", cloudName))
-		}
-		cloudTag = names.NewCloudTag(cloudName)
-		if cloud, err = cloudClient.Cloud(cloudTag); err != nil {
-			return fail(errors.Trace(err))
-		}
-	} else {
-		// User specified "cloud" or "region". We'll try first
-		// for cloud (check if it's a valid cloud name, and
-		// whether there is a cloud by that name), and then
-		// as a region within the default cloud.
-		if names.IsValidCloud(c.CloudRegion) {
-			cloudName = c.CloudRegion
-		} else {
-			cloudRegion = c.CloudRegion
-		}
-		if cloudName != "" {
-			cloudTag = names.NewCloudTag(cloudName)
-			cloud, err = cloudClient.Cloud(cloudTag)
-			if params.IsCodeNotFound(err) {
-				// No such cloud with the specified name,
-				// so we'll try the name as a region in
-				// the default cloud.
-				cloudRegion, cloudName = cloudName, ""
-			} else if err != nil {
-				return fail(errors.Trace(err))
-			}
-		}
-		if cloudName == "" {
-			cloudTag, cloud, err = maybeGetControllerCloud(cloudClient)
-			if err != nil {
-				return fail(errors.Trace(err))
-			}
-		}
-	}
-	if cloudRegion != "" {
-		// A region has been specified, make sure it exists.
-		if _, err := jujucloud.RegionByName(cloud.Regions, cloudRegion); err != nil {
-			if cloudRegion == c.CloudRegion {
-				// The string is not in the format cloud/region,
-				// so we should tell that the user that it is
-				// neither a cloud nor a region in the
-				// controller's cloud.
-				clouds, err := cloudClient.Clouds()
-				if err != nil {
-					return fail(errors.Annotate(err, "querying supported clouds"))
-				}
-				return fail(unsupportedCloudOrRegionError(clouds, c.CloudRegion))
-			}
-			return fail(errors.Trace(err))
-		}
-	}
-	return cloudTag, cloud, cloudRegion, nil
-}
-
-func unsupportedCloudOrRegionError(clouds map[names.CloudTag]jujucloud.Cloud, cloudRegion string) (err error) {
-	cloudNames := make([]string, 0, len(clouds))
-	for tag := range clouds {
-		cloudNames = append(cloudNames, tag.Id())
-	}
-	sort.Strings(cloudNames)
-
-	var buf bytes.Buffer
-	tw := output.TabWriter(&buf)
-	fmt.Fprintln(tw, "Cloud\tRegions")
-	for _, cloudName := range cloudNames {
-		cloud := clouds[names.NewCloudTag(cloudName)]
-		regionNames := make([]string, len(cloud.Regions))
-		for i, region := range cloud.Regions {
-			regionNames[i] = region.Name
-		}
-		fmt.Fprintf(tw, "%s\t%s\n", cloudName, strings.Join(regionNames, ", "))
-	}
-	tw.Flush()
-
-	var prefix string
-	switch len(clouds) {
-	case 0:
-		return errors.New(`
-you do not have add-model access to any clouds on this controller.
-Please ask the controller administrator to grant you add-model permission
-for a particular cloud to which you want to add a model.`[1:])
-	case 1:
-		for cloudTag := range clouds {
-			prefix = fmt.Sprintf(`
-%q is neither a cloud supported by this controller,
-nor a region in the controller's default cloud %q.`[1:],
-				cloudRegion, cloudTag.Id())
-		}
-	default:
-		prefix = `
-this controller manages more than one cloud.
-Please specify which cloud/region to use:
-
-    juju add-model [options] <model-name> cloud[/region]
-`[1:]
-	}
-	return errors.Errorf("%s\nThe clouds/regions supported by this controller are:\n\n%s", prefix, buf.String())
-}
-
-func maybeGetControllerCloud(cloudClient CloudAPI) (names.CloudTag, jujucloud.Cloud, error) {
-	clouds, err := cloudClient.Clouds()
-	if err != nil {
-		return names.CloudTag{}, jujucloud.Cloud{}, errors.Trace(err)
-	}
-	if len(clouds) != 1 {
-		return names.CloudTag{}, jujucloud.Cloud{}, unsupportedCloudOrRegionError(clouds, "")
-	}
-	for cloudTag, cloud := range clouds {
-		return cloudTag, cloud, nil
-	}
-	panic("unreachable")
 }
 
 var ambiguousDetectedCredentialError = errors.New(`

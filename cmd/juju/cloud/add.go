@@ -30,16 +30,11 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-type PersonalCloudMetadataStore interface {
-	PersonalCloudMetadata() (map[string]jujucloud.Cloud, error)
-	WritePersonalCloudMetadata(cloudsMap map[string]jujucloud.Cloud) error
-}
-
 type CloudMetadataStore interface {
 	ParseCloudMetadataFile(path string) (map[string]jujucloud.Cloud, error)
 	ParseOneCloud(data []byte) (jujucloud.Cloud, error)
 	PublicCloudMetadata(searchPaths ...string) (result map[string]jujucloud.Cloud, fallbackUsed bool, _ error)
-	PersonalCloudMetadataStore
+	common.PersonalCloudMetadataStore
 }
 
 var usageAddCloudSummary = `
@@ -129,7 +124,8 @@ See also:
 
 // AddCloudAPI - Implemented by cloudapi.Client.
 type AddCloudAPI interface {
-	AddCloud(jujucloud.Cloud) error
+	common.UploadAPI
+	// AddCredential uploads credential to the controller
 	AddCredential(tag string, credential jujucloud.Credential) error
 	Close() error
 }
@@ -312,7 +308,7 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 			ctxt.Infof(
 				"There are no controllers running.\nAdding cloud to local cache so you can use it to bootstrap a controller.\n")
 		}
-		return addLocalCloud(c.cloudMetadataStore, *newCloud)
+		return common.AddLocalCloud(c.cloudMetadataStore, *newCloud)
 	}
 
 	// A controller has been specified so upload the cloud details
@@ -322,8 +318,7 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 		return err
 	}
 	defer api.Close()
-	err = api.AddCloud(*newCloud)
-	if err != nil {
+	if err = common.AddRemoteCloud(api, *newCloud); err != nil {
 		if params.ErrCode(err) == params.CodeAlreadyExists {
 			ctxt.Infof("Cloud %q already exists on the controller %q.", c.Cloud, c.controllerName)
 			ctxt.Infof("To upload credentials to the controller for cloud %q, use \n"+
@@ -464,7 +459,7 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
 	}
 	newCloud.Name = name
 	newCloud.Type = cloudType
-	if err := addLocalCloud(c.cloudMetadataStore, newCloud); err != nil {
+	if err := common.AddLocalCloud(c.cloudMetadataStore, newCloud); err != nil {
 		return errors.Trace(err)
 	}
 	ctxt.Infof("Cloud %q successfully added", name)
@@ -632,18 +627,6 @@ func queryCloudType(pollster *interact.Pollster) (string, error) {
 		Plural:   "cloud types",
 		Options:  providers,
 	}, cloudVerify)
-}
-
-func addLocalCloud(cloudMetadataStore PersonalCloudMetadataStore, newCloud jujucloud.Cloud) error {
-	personalClouds, err := cloudMetadataStore.PersonalCloudMetadata()
-	if err != nil {
-		return err
-	}
-	if personalClouds == nil {
-		personalClouds = make(map[string]jujucloud.Cloud)
-	}
-	personalClouds[newCloud.Name] = newCloud
-	return cloudMetadataStore.WritePersonalCloudMetadata(personalClouds)
 }
 
 type cloudFileReader struct {

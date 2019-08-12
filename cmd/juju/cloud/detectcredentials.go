@@ -483,7 +483,7 @@ func (c *detectCredentialsCommand) addRemoteCredentials(ctxt *cmd.Context, cloud
 				moreCloudInfoNeeded = true
 				continue
 			}
-			verified, erred := verifyCredentialsForUpload(ctxt, accountDetails, &aCloud, region, byRegion)
+			verified, erred := common.VerifyCredentialsForUpload(ctxt, accountDetails, &aCloud, region, byRegion)
 			if len(verified) == 0 {
 				return erred
 			}

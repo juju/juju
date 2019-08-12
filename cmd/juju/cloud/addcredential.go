@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	apicloud "github.com/juju/juju/api/cloud"
+	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
@@ -392,8 +393,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 	}
 
 	existingCredentials.AuthCredentials[credentialName] = *newCredential
-	err = c.Store.UpdateCredential(c.CloudName, *existingCredentials)
-	if err != nil {
+	if err = common.AddLocalCredentials(c.Store, c.CloudName, *existingCredentials); err != nil {
 		return errors.Trace(err)
 	}
 	fmt.Fprintf(ctxt.Stdout, "Credential %q %v locally for cloud %q.\n\n", credentialName, verb, c.CloudName)
@@ -629,7 +629,7 @@ func (c *addCredentialCommand) addRemoteCredentials(ctxt *cmd.Context, all map[s
 	if err != nil {
 		return err
 	}
-	verified, erred := verifyCredentialsForUpload(ctxt, accountDetails, c.cloud, c.Region, all)
+	verified, erred := common.VerifyCredentialsForUpload(ctxt, accountDetails, c.cloud, c.Region, all)
 	if len(verified) == 0 {
 		return erred
 	}
@@ -697,6 +697,10 @@ func shouldFinalizeCredential(provider environs.EnvironProvider, cred jujucloud.
 }
 
 func validCloudRegion(aCloud *jujucloud.Cloud, region string) error {
+	// microk8s is special.
+	if aCloud.Type == caas.K8sCloudMicrok8s && region == caas.Microk8sRegion {
+		return nil
+	}
 	for _, r := range aCloud.Regions {
 		if r.Name == region {
 			return nil

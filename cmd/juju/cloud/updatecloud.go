@@ -12,6 +12,7 @@ import (
 	cloudapi "github.com/juju/juju/api/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
@@ -163,7 +164,7 @@ func (c *updateCloudCommand) updateLocalCacheFromFile(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return addLocalCloud(c.cloudMetadataStore, *newCloud)
+	return common.AddLocalCloud(c.cloudMetadataStore, *newCloud)
 }
 
 func (c *updateCloudCommand) updateControllerFromFile(ctxt *cmd.Context) error {

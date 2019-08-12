@@ -4,7 +4,6 @@
 package cloud
 
 import (
-	"fmt"
 	"io/ioutil"
 
 	"github.com/juju/cmd"
@@ -346,7 +345,7 @@ func (c *updateCredentialCommand) updateRemoteCredentials(ctx *cmd.Context, upda
 		if c.Region != "" {
 			region = c.Region
 		}
-		newlyVerified, err := verifyCredentialsForUpload(ctx, accountDetails, &remoteCloud, region, cloudCredentials.AuthCredentials)
+		newlyVerified, err := common.VerifyCredentialsForUpload(ctx, accountDetails, &remoteCloud, region, cloudCredentials.AuthCredentials)
 		mapUnion(newlyVerified)
 		if err != nil {
 			erred = err
@@ -366,28 +365,6 @@ func (c *updateCredentialCommand) updateRemoteCredentials(ctx *cmd.Context, upda
 		return err
 	}
 	return erred
-}
-
-func verifyCredentialsForUpload(ctx *cmd.Context, accountDetails *jujuclient.AccountDetails, aCloud *jujucloud.Cloud, region string, all map[string]jujucloud.Credential) (map[string]jujucloud.Credential, error) {
-	verified := map[string]jujucloud.Credential{}
-	var erred error
-	for credentialName, aCredential := range all {
-		id := fmt.Sprintf("%s/%s/%s", aCloud.Name, accountDetails.User, credentialName)
-		if !names.IsValidCloudCredential(id) {
-			ctx.Warningf("Could not update controller credential %v for user %v on cloud %v: %v", credentialName, accountDetails.User, aCloud.Name, errors.NotValidf("cloud credential ID %q", id))
-			erred = cmd.ErrSilent
-			continue
-		}
-		verifiedCredential, err := modelcmd.VerifyCredentials(ctx, aCloud, &aCredential, credentialName, region)
-		if err != nil {
-			logger.Errorf("%v", err)
-			ctx.Warningf("Could not verify credential %v for cloud %v locally", credentialName, aCloud.Name)
-			erred = cmd.ErrSilent
-			continue
-		}
-		verified[names.NewCloudCredentialTag(id).String()] = *verifiedCredential
-	}
-	return verified, erred
 }
 
 func processUpdateCredentialResult(ctx *cmd.Context, accountDetails *jujuclient.AccountDetails, op string, results []params.UpdateCredentialResult) error {
