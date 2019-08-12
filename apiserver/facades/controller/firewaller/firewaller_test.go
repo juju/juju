@@ -4,6 +4,7 @@
 package firewaller_test
 
 import (
+	"fmt"
 	"sort"
 
 	jc "github.com/juju/testing/checkers"
@@ -28,6 +29,7 @@ type firewallerSuite struct {
 	*commontesting.ModelWatcherTest
 
 	firewaller *firewaller.FirewallerAPIV3
+	subnet     *state.Subnet
 }
 
 var _ = gc.Suite(&firewallerSuite{})
@@ -35,8 +37,9 @@ var _ = gc.Suite(&firewallerSuite{})
 func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	s.firewallerBaseSuite.setUpTest(c)
 
-	_, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.20.30.0/24"})
+	subnet, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.20.30.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
+	s.subnet = subnet
 
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		s.resources,
@@ -97,7 +100,7 @@ func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
 
 func (s *firewallerSuite) openPorts(c *gc.C) {
 	// Open some ports on the units.
-	err := s.units[0].OpenPortsOnSubnet("10.20.30.0/24", "tcp", 1234, 1400)
+	err := s.units[0].OpenPortsOnSubnet(s.subnet.ID(), "tcp", 1234, 1400)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.units[0].OpenPort("tcp", 4321)
 	c.Assert(err, jc.ErrorIsNil)
@@ -106,13 +109,12 @@ func (s *firewallerSuite) openPorts(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
-	c.Skip("Temporary for subnet cidr to id change.")
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	s.openPorts(c)
 	expectChanges := []string{
 		"0:", // empty subnet is ok (until it can be made mandatory)
-		"0:10.20.30.0/24",
+		fmt.Sprintf("0:%s", s.subnet.ID()),
 		"2:",
 	}
 
@@ -154,10 +156,9 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestGetMachinePorts(c *gc.C) {
-	c.Skip("Temporary for subnet cidr to id change.")
 	s.openPorts(c)
 
-	subnetTag := names.NewSubnetTag("10.20.30.0/24").String()
+	subnetTag := names.NewSubnetTag(s.subnet.CIDR()).String()
 	args := params.MachinePortsParams{
 		Params: []params.MachinePorts{
 			{MachineTag: s.machines[0].Tag().String(), SubnetTag: ""},
@@ -203,10 +204,9 @@ func (s *firewallerSuite) TestGetMachinePorts(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestGetMachineActiveSubnets(c *gc.C) {
-	c.Skip("Temporary for subnet cidr to id change.")
 	s.openPorts(c)
 
-	subnetTag := names.NewSubnetTag("10.20.30.0/24").String()
+	subnetTag := names.NewSubnetTag(s.subnet.CIDR()).String()
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag().String()},
 		{Tag: s.machines[1].Tag().String()},
