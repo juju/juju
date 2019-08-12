@@ -36,7 +36,7 @@ func (s *cmdSubnetSuite) AddSpace(c *gc.C, name string, ids []string, public boo
 }
 
 func (s *cmdSubnetSuite) Run(c *gc.C, expectedError string, args ...string) *cmd.Context {
-	context, err := runJujuCommand(c, args...)
+	context, err := runCommand(c, args...)
 	if expectedError != "" {
 		c.Assert(err, gc.ErrorMatches, expectedError)
 	} else {
@@ -47,7 +47,7 @@ func (s *cmdSubnetSuite) Run(c *gc.C, expectedError string, args ...string) *cmd
 
 func (s *cmdSubnetSuite) RunAdd(c *gc.C, expectedError string, args ...string) (string, string, error) {
 	cmdArgs := append([]string{"add-subnet"}, args...)
-	ctx, err := runJujuCommand(c, cmdArgs...)
+	ctx, err := runCommand(c, cmdArgs...)
 	stdout, stderr := "", ""
 	if ctx != nil {
 		stdout = cmdtesting.Stdout(ctx)

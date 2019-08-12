@@ -62,7 +62,7 @@ func (s *cmdSpaceSuite) AddSpace(c *gc.C, name string, ids []string, public bool
 const expectedSuccess = ""
 
 func (s *cmdSpaceSuite) Run(c *gc.C, args ...string) (string, string, error) {
-	context, err := runJujuCommand(c, args...)
+	context, err := runCommand(c, args...)
 	stdout, stderr := "", ""
 	if context != nil {
 		stdout = cmdtesting.Stdout(context)
