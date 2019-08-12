@@ -5,17 +5,12 @@ package mongo
 
 import (
 	"fmt"
-	"os"
 
 	"gopkg.in/mgo.v2"
 )
 
 // AdminUser is the name of the user that is initially created in mongo.
 const AdminUser = "admin"
-
-var (
-	processSignal = (*os.Process).Signal
-)
 
 // SetAdminMongoPassword sets the administrative password
 // to access a mongo database. If the password is non-empty,

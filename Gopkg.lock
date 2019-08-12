@@ -544,11 +544,11 @@
   revision = "e1ad140384f254c82f89450d9a7c8dd38a632838"
 
 [[projects]]
-  digest = "1:3fb893d982a2db5906d00c288322edb39d6719910afba169da28552ca46f6410"
+  digest = "1:f8d71df5366f8cd94412859a652e23ba428eae9ff21f0d8baac52017b3eca99b"
   name = "github.com/juju/gomaasapi"
   packages = ["."]
   pruneopts = ""
-  revision = "8a8cec793ba70659ba95f1b9a491ba807169bfc3"
+  revision = "7f9373c5e79e1b4f27e46dfe1166a9ec0c147b81"
 
 [[projects]]
   branch = "master"
@@ -1562,11 +1562,11 @@
   revision = "1ebf5c5481e815de683e57e0f46705ac567e4e58"
 
 [[projects]]
-  digest = "1:f6e8802a71eceffa9b5ea7588ad541425202968d4f0dd0a9d8a5a4c7ae75709a"
+  digest = "1:60bf1190a2ff2f54984d2580596caf172359c0e1be26cbdb9109a3df8eaa9608"
   name = "gopkg.in/juju/names.v2"
   packages = ["."]
   pruneopts = ""
-  revision = "fd59336b4621bc2a70bf96d9e2f49954115ad19b"
+  revision = "35a970b00c44984ca675453f9e0144aed5219369"
 
 [[projects]]
   digest = "1:5081ff05b4471731df7fa7457083397c2663791cd5809858a899306cdfe29b63"

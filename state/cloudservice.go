@@ -62,7 +62,7 @@ func newCloudService(st *State, doc *cloudServiceDoc) *CloudService {
 
 // Id implements CloudServicer.
 func (c *CloudService) Id() string {
-	return c.doc.DocID
+	return c.st.localID(c.doc.DocID)
 }
 
 // ProviderId implements CloudServicer.
@@ -90,7 +90,7 @@ func (c *CloudService) cloudServiceDoc() (*cloudServiceDoc, error) {
 	defer closer()
 
 	var doc cloudServiceDoc
-	err := coll.FindId(c.Id()).One(&doc)
+	err := coll.FindId(c.doc.DocID).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("cloud service %v", c.Id())
 	}

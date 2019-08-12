@@ -1527,13 +1527,13 @@ func (s *StateSuite) TestSaveCloudService(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(svc.Refresh(), jc.ErrorIsNil)
-	c.Assert(state.LocalID(s.State, svc.Id()), gc.Equals, "a#cloud-svc-ID")
+	c.Assert(svc.Id(), gc.Equals, "a#cloud-svc-ID")
 	c.Assert(svc.ProviderId(), gc.Equals, "provider-id")
 	c.Assert(svc.Addresses(), gc.DeepEquals, network.NewAddresses("1.1.1.1"))
 
 	getResult, err := s.State.CloudService("cloud-svc-ID")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(state.LocalID(s.State, getResult.Id()), gc.Equals, "a#cloud-svc-ID")
+	c.Assert(getResult.Id(), gc.Equals, "a#cloud-svc-ID")
 	c.Assert(getResult.ProviderId(), gc.Equals, "provider-id")
 	c.Assert(getResult.Addresses(), gc.DeepEquals, network.NewAddresses("1.1.1.1"))
 }
@@ -1558,7 +1558,7 @@ func (s *StateSuite) TestSaveCloudServiceChangeAddressesAllGood(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(svc.Refresh(), jc.ErrorIsNil)
-	c.Assert(state.LocalID(s.State, svc.Id()), gc.Equals, "a#cloud-svc-ID")
+	c.Assert(svc.Id(), gc.Equals, "a#cloud-svc-ID")
 	c.Assert(svc.ProviderId(), gc.Equals, "provider-id")
 	c.Assert(svc.Addresses(), gc.DeepEquals, network.NewAddresses("2.2.2.2"))
 }

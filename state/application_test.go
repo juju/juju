@@ -4012,6 +4012,38 @@ func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *CAASApplicationSuite) TestWatchCloudService(c *gc.C) {
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+	cloudSvc, err := s.State.SaveCloudService(state.SaveCloudServiceArgs{
+		Id: s.app.Name(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	w := cloudSvc.Watch()
+	defer testing.AssertStop(c, w)
+
+	// Initial event.
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	_, err = s.State.SaveCloudService(state.SaveCloudServiceArgs{
+		Id:         s.app.Name(),
+		ProviderId: "123",
+	})
+	wc.AssertOneChange()
+
+	// Stop, check closed.
+	testing.AssertStop(c, w)
+	wc.AssertClosed()
+
+	// Remove service by removing app, start new watch, check single event.
+	err = s.app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+	w = cloudSvc.Watch()
+	defer testing.AssertStop(c, w)
+	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
+}
+
 func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",

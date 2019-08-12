@@ -79,30 +79,30 @@ func InitializeState(
 	args InitializeStateParams,
 	dialOpts mongo.DialOpts,
 	newPolicy state.NewPolicyFunc,
-) (_ *state.Controller, _ *state.Machine, resultErr error) {
+) (_ *state.Controller, resultErr error) {
 	if c.Tag() != names.NewMachineTag(agent.BootstrapControllerId) {
-		return nil, nil, errors.Errorf("InitializeState not called with bootstrap machine's configuration")
+		return nil, errors.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
 	servingInfo, ok := c.StateServingInfo()
 	if !ok {
-		return nil, nil, errors.Errorf("state serving information not available")
+		return nil, errors.Errorf("state serving information not available")
 	}
 	// N.B. no users are set up when we're initializing the state,
 	// so don't use any tag or password when opening it.
 	info, ok := c.MongoInfo()
 	if !ok {
-		return nil, nil, errors.Errorf("stateinfo not available")
+		return nil, errors.Errorf("stateinfo not available")
 	}
 	info.Tag = nil
 	info.Password = c.OldPassword()
 
 	if err := initRaft(c); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	session, err := initMongo(info.Info, dialOpts, info.Password)
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "failed to initialize mongo")
+		return nil, errors.Annotate(err, "failed to initialize mongo")
 	}
 	defer session.Close()
 
@@ -116,7 +116,7 @@ func InitializeState(
 			args.ControllerCloudCredentialName,
 		)
 		if !names.IsValidCloudCredential(id) {
-			return nil, nil, errors.NotValidf("cloud credential ID %q", id)
+			return nil, errors.NotValidf("cloud credential ID %q", id)
 		}
 		cloudCredentialTag = names.NewCloudCredentialTag(id)
 		cloudCredentials[cloudCredentialTag] = *args.ControllerCloudCredential
@@ -152,12 +152,12 @@ func InitializeState(
 		NewPolicy:                 newPolicy,
 	})
 	if err != nil {
-		return nil, nil, errors.Errorf("failed to initialize state: %v", err)
+		return nil, errors.Errorf("failed to initialize state: %v", err)
 	}
 	logger.Debugf("connected to initial state")
 	defer func() {
 		if resultErr != nil {
-			ctrl.Close()
+			_ = ctrl.Close()
 		}
 	}()
 	servingInfo.SharedSecret = args.SharedSecret
@@ -166,16 +166,12 @@ func InitializeState(
 	// Filter out any LXC or LXD bridge addresses from the machine addresses.
 	args.BootstrapMachineAddresses = network.FilterBridgeAddresses(args.BootstrapMachineAddresses)
 	st := ctrl.SystemState()
-	if err = initAPIHostPorts(c, st, args.BootstrapMachineAddresses, servingInfo.APIPort); err != nil {
-		return nil, nil, err
+	if err = initAPIHostPorts(st, args.BootstrapMachineAddresses, servingInfo.APIPort); err != nil {
+		return nil, err
 	}
 	ssi := paramsStateServingInfoToStateStateServingInfo(servingInfo)
 	if err := st.SetStateServingInfo(ssi); err != nil {
-		return nil, nil, errors.Errorf("cannot set state serving info: %v", err)
-	}
-	m, err := initBootstrapMachine(c, st, args)
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "cannot initialize bootstrap machine")
+		return nil, errors.Errorf("cannot set state serving info: %v", err)
 	}
 
 	cloudSpec, err := environs.MakeCloudSpec(
@@ -184,24 +180,33 @@ func InitializeState(
 		args.ControllerCloudCredential,
 	)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	provider, err := args.Provider(cloudSpec.Type)
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "getting environ provider")
+		return nil, errors.Annotate(err, "getting environ provider")
 	}
 
 	if isCAAS {
 		if err := initControllerCloudService(cloudSpec, provider, st, args); err != nil {
-			return nil, nil, errors.Annotate(err, "cannot initialize cloud service")
+			return nil, errors.Annotate(err, "cannot initialize cloud service")
 		}
+	}
+	// TODO - create a controller node not a machine for CAAS models
+	m, err := initBootstrapMachine(c, st, args)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot initialize bootstrap machine")
+	}
+	// Sanity check.
+	if m.Id() != agent.BootstrapControllerId {
+		return nil, errors.Errorf("unexpected controller id %q created", m.Id())
 	}
 
 	if err := ensureHostedModel(cloudSpec, provider, args, st, ctrl, adminUser, cloudCredentialTag); err != nil {
-		return nil, nil, errors.Annotate(err, "ensuring hosted model")
+		return nil, errors.Annotate(err, "ensuring hosted model")
 	}
-	return ctrl, m, nil
+	return ctrl, nil
 }
 
 // ensureHostedModel ensures hosted model.
@@ -445,7 +450,7 @@ func initControllerCloudService(
 }
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
-func initAPIHostPorts(c agent.ConfigSetter, st *state.State, addrs []corenetwork.Address, apiPort int) error {
+func initAPIHostPorts(st *state.State, addrs []corenetwork.Address, apiPort int) error {
 	hostPorts := corenetwork.AddressesWithPort(addrs, apiPort)
 	return st.SetAPIHostPorts([][]corenetwork.HostPort{hostPorts})
 }
