@@ -24,13 +24,13 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-func (s *exectSuite) TestFileResourceValidate(c *gc.C) {
+func (s *execSuite) TestFileResourceValidate(c *gc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 	c.Assert((&exec.FileResource{}).Validate(), gc.ErrorMatches, `path was missing`)
 }
 
-func (s *exectSuite) TestCopyParamValidate(c *gc.C) {
+func (s *execSuite) TestCopyParamValidate(c *gc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -96,7 +96,7 @@ func (s *exectSuite) TestCopyParamValidate(c *gc.C) {
 	c.Assert(params.Validate(), gc.ErrorMatches, "cross pods copy is not supported")
 }
 
-func (s *exectSuite) TestCopyFromPodNotSupported(c *gc.C) {
+func (s *execSuite) TestCopyFromPodNotSupported(c *gc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -115,7 +115,7 @@ func (s *exectSuite) TestCopyFromPodNotSupported(c *gc.C) {
 	c.Assert(s.execClient.Copy(params, cancel), jc.Satisfies, errors.IsNotSupported)
 }
 
-func (s *exectSuite) TestCopyToPod(c *gc.C) {
+func (s *execSuite) TestCopyToPod(c *gc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
