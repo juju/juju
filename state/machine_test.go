@@ -62,7 +62,7 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	controllerNode, err := s.State.ControllerNode(s.machine0.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerNode.HasVote(), jc.IsFalse)
-	c.Assert(s.machine0.SetHasVote(true), jc.ErrorIsNil)
+	c.Assert(controllerNode.SetHasVote(true), jc.ErrorIsNil)
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.ControllerNode(s.machine.Id())
@@ -555,40 +555,6 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 	// Removing an already removed machine is OK.
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *MachineSuite) TestHasVote(c *gc.C) {
-	c.Assert(s.machine0.SetHasVote(false), jc.ErrorIsNil)
-	c.Assert(s.machine0.HasVote(), jc.IsFalse)
-
-	// Make another machine value so that
-	// it won't have the cached HasVote value.
-	m, err := s.State.Machine(s.machine0.Id())
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.machine0.SetHasVote(true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine0.HasVote(), jc.IsTrue)
-	controllerNode, err := s.State.ControllerNode(s.machine0.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerNode.HasVote(), jc.IsTrue)
-	c.Assert(m.HasVote(), jc.IsFalse)
-
-	err = m.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.HasVote(), jc.IsTrue)
-
-	err = m.SetHasVote(false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.HasVote(), jc.IsFalse)
-	controllerNode, err = s.State.ControllerNode(m.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerNode.HasVote(), jc.IsFalse)
-
-	c.Assert(s.machine0.HasVote(), jc.IsTrue)
-	err = s.machine0.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine0.HasVote(), jc.IsFalse)
 }
 
 func (s *MachineSuite) TestRemoveAbort(c *gc.C) {

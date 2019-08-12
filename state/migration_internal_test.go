@@ -317,9 +317,6 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		"ModelUUID",
 		// Life is always alive, confirmed by export precheck.
 		"Life",
-		// HasVote only matters for machines with manage state job
-		// and we don't support migrating the controller model.
-		"HasVote",
 		// Ignored at this stage, could be an issue if mongo 3.0 isn't
 		// available.
 		"StopMongoUntilVersion",

@@ -547,9 +547,9 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	st, closer = s.getSystemState(c)
 	defer closer()
 
-	m, err := st.Machine("0")
+	node, err := st.ControllerNode("0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.HasVote(), jc.IsTrue)
+	c.Assert(node.HasVote(), jc.IsTrue)
 }
 
 var bootstrapArgTests = []struct {

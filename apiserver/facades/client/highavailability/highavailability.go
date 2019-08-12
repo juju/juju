@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -284,43 +283,4 @@ func machineIdsToTags(ids ...string) []string {
 		result = append(result, names.NewMachineTag(id).String())
 	}
 	return result
-}
-
-// StopHAReplicationForUpgrade will prompt the HA cluster to enter upgrade
-// mongo mode.
-func (api *HighAvailabilityAPI) StopHAReplicationForUpgrade(args params.UpgradeMongoParams) (
-	params.MongoUpgradeResults, error,
-) {
-	ha, err := api.state.SetUpgradeMongoMode(mongo.Version{
-		Major:         args.Target.Major,
-		Minor:         args.Target.Minor,
-		Patch:         args.Target.Patch,
-		StorageEngine: mongo.StorageEngine(args.Target.StorageEngine),
-	})
-	if err != nil {
-		return params.MongoUpgradeResults{}, errors.Annotate(err, "cannot stop HA for upgrade")
-	}
-	members := make([]params.HAMember, len(ha.Members))
-	for i, m := range ha.Members {
-		members[i] = params.HAMember{
-			Tag:           m.Tag,
-			PublicAddress: m.PublicAddress,
-			Series:        m.Series,
-		}
-	}
-	return params.MongoUpgradeResults{
-		Master: params.HAMember{
-			Tag:           ha.Master.Tag,
-			PublicAddress: ha.Master.PublicAddress,
-			Series:        ha.Master.Series,
-		},
-		Members:   members,
-		RsMembers: ha.RsMembers,
-	}, nil
-}
-
-// ResumeHAReplicationAfterUpgrade will add the upgraded members of HA
-// cluster to the upgraded master.
-func (api *HighAvailabilityAPI) ResumeHAReplicationAfterUpgrade(args params.ResumeReplicationParams) error {
-	return api.state.ResumeReplication(args.Members)
 }

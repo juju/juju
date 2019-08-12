@@ -469,9 +469,10 @@ func (s *clientSuite) TestEnableHA0Preserves(c *gc.C) {
 	// EnableHA(0) again will cause us to start another machine
 	c.Assert(machines[2].Destroy(), jc.ErrorIsNil)
 	c.Assert(machines[2].Refresh(), jc.ErrorIsNil)
-	c.Assert(machines[2].SetHasVote(false), jc.ErrorIsNil)
 	node, err := s.State.ControllerNode(machines[2].Id())
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
+	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	c.Assert(s.State.RemoveControllerReference(node), jc.ErrorIsNil)
 	c.Assert(machines[2].EnsureDead(), jc.ErrorIsNil)
 	enableHAResult, err = s.enableHA(c, 0, emptyCons, defaultSeries, nil)
@@ -498,19 +499,23 @@ func (s *clientSuite) TestEnableHA0Preserves5(c *gc.C) {
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 5)
-	for _, m := range machines {
-		m.SetHasVote(true)
+	nodes, err := s.State.ControllerNodes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(nodes, gc.HasLen, 5)
+	for _, n := range nodes {
+		c.Assert(n.SetHasVote(true), jc.ErrorIsNil)
 	}
 
 	s.setMachineAddresses(c, "1")
 	s.setMachineAddresses(c, "2")
 	s.setMachineAddresses(c, "3")
 	s.setMachineAddresses(c, "4")
-	c.Assert(machines[4].SetHasVote(false), jc.ErrorIsNil)
 	c.Assert(machines[4].Destroy(), jc.ErrorIsNil)
 	c.Assert(machines[4].Refresh(), jc.ErrorIsNil)
 	node, err := s.State.ControllerNode(machines[4].Id())
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
+	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	c.Assert(s.State.RemoveControllerReference(node), jc.ErrorIsNil)
 	c.Assert(machines[4].EnsureDead(), jc.ErrorIsNil)
 

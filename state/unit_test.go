@@ -550,7 +550,9 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 		c.Assert(err, jc.ErrorIsNil)
 		_, err = s.State.EnableHA(1, constraints.Value{}, "quantal", []string{tc.host.Id()})
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(tc.host.SetHasVote(true), gc.IsNil)
+		node, err := s.State.ControllerNode(tc.host.Id())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(node.SetHasVote(true), gc.IsNil)
 		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
@@ -627,14 +629,14 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroy(c *gc.C) {
 	c.Assert(host.Destroy(), gc.NotNil)
 }
 
-func (s *UnitSuite) setMachineVote(c *gc.C, id string, hasVote bool) {
-	m, err := s.State.Machine(id)
+func (s *UnitSuite) setControllerVote(c *gc.C, id string, hasVote bool) {
+	node, err := s.State.ControllerNode(id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.SetHasVote(hasVote), gc.IsNil)
+	c.Assert(node.SetHasVote(hasVote), gc.IsNil)
 }
 
-func (s *UnitSuite) demoteMachine(c *gc.C, m *state.Machine) {
-	s.setMachineVote(c, m.Id(), false)
+func (s *UnitSuite) demoteController(c *gc.C, m *state.Machine) {
+	s.setControllerVote(c, m.Id(), false)
 	c.Assert(state.SetWantsVote(s.State, m.Id(), false), jc.ErrorIsNil)
 	node, err := s.State.ControllerNode(m.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -649,18 +651,18 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(host.SetHasVote(true), gc.IsNil)
+	s.setControllerVote(c, host.Id(), true)
 	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 	flip := jujutxn.TestHook{
 		Before: func() {
-			s.demoteMachine(c, host)
+			s.demoteController(c, host)
 		},
 	}
 	flop := jujutxn.TestHook{
 		Before: func() {
-			s.setMachineVote(c, host.Id(), true)
+			s.setControllerVote(c, host.Id(), true)
 		},
 	}
 	// You'll need to adjust the flip-flops to match the number of transaction
@@ -682,7 +684,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		s.setMachineVote(c, host.Id(), true)
+		s.setControllerVote(c, host.Id(), true)
 	}).Check()
 
 	c.Assert(target.Destroy(), gc.IsNil)
@@ -699,10 +701,10 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
 	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
-	c.Assert(host.SetHasVote(true), gc.IsNil)
+	s.setControllerVote(c, host.Id(), true)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		s.demoteMachine(c, host)
+		s.demoteController(c, host)
 	}, nil).Check()
 
 	c.Assert(target.Destroy(), gc.IsNil)
@@ -752,17 +754,16 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
 	colocated, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(host.SetHasVote(true), gc.IsNil)
+	s.setControllerVote(c, host.Id(), true)
 
 	defer state.SetTestHooks(c, s.State, jujutxn.TestHook{
 		Before: func() {
-			hostHandle, err := s.State.Machine(host.Id())
-			c.Assert(err, jc.ErrorIsNil)
-
 			// Original assertion preventing host removal is no longer valid
-			c.Assert(hostHandle.SetHasVote(false), gc.IsNil)
+			s.setControllerVote(c, host.Id(), false)
 
 			// But now the host gets a colocated unit, a different condition preventing removal
+			hostHandle, err := s.State.Machine(host.Id())
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(colocated.AssignToMachine(hostHandle), gc.IsNil)
 		},
 	}).Check()

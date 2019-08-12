@@ -2200,14 +2200,35 @@ func AddControllerNodeDocs(pool *StatePool) error {
 	var ops []txn.Op
 	var docs []bson.M
 	err := machines.Find(
-		bson.D{{"jobs", bson.D{{"$in", []MachineJob{JobManageModel}}}}},
-	).Select(bson.M{"_id": 1, "machineid": 1, "hasvote": 1, "novote": 1}).All(&docs)
+		nil,
+	).Select(bson.M{"_id": 1, "machineid": 1, "jobs": 1, "hasvote": 1, "novote": 1}).All(&docs)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	for _, m := range docs {
 		docId := m["_id"].(string)
+		ops = append(ops, txn.Op{
+			C:  machinesC,
+			Id: docId,
+			Update: bson.D{
+				{"$unset", bson.D{{"hasvote", nil}}},
+				{"$unset", bson.D{{"novote", nil}}},
+			},
+		})
+		jobs := m["jobs"].([]interface{})
+		isController := false
+		for _, j := range jobs {
+			job, ok := j.(int)
+			isController = ok && job == int(JobManageModel)
+			if isController {
+				break
+			}
+		}
+		if !isController {
+			continue
+		}
+
 		mid := m["machineid"].(string)
 		hasvote, _ := m["hasvote"].(bool)
 		novote, ok := m["novote"].(bool)

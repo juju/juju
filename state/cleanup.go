@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -1069,25 +1068,10 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineId string, maxWait 
 		if err != nil {
 			return errors.Annotatef(err, "cannot get controller node for machine %v", machineId)
 		}
-		if machine.HasVote() {
-			// we remove the vote from the machine so that it can be torn down cleanly. Note that this isn't reflected
+		if node.HasVote() {
+			// we remove the vote from the controller so that it can be torn down cleanly. Note that this isn't reflected
 			// in the actual replicaset, so users using --force should be careful.
-			hasVoteTxn := func(attempt int) ([]txn.Op, error) {
-				if attempt != 0 {
-					if err := machine.Refresh(); err != nil {
-						return nil, errors.Trace(err)
-					}
-					if !machine.HasVote() {
-						return nil, jujutxn.ErrNoOperations
-					}
-				}
-				ops, err := machine.setHasVoteOps(false)
-				if err == ErrDead {
-					return nil, nil
-				}
-				return ops, errors.Trace(err)
-			}
-			if err := st.db().Run(hasVoteTxn); err != nil {
+			if err := node.SetHasVote(false); err != nil {
 				return errors.Trace(err)
 			}
 		}
