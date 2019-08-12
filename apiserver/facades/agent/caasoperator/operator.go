@@ -5,7 +5,6 @@ package caasoperator
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -16,9 +15,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.caasoperator")
-
-// Facade provides access to the CAASOperator facade.
 type Facade struct {
 	auth      facade.Authorizer
 	resources facade.Resources
@@ -56,9 +52,30 @@ func NewFacade(
 		common.AuthFuncForTagKind(names.ApplicationTagKind),
 		common.AuthFuncForTagKind(names.UnitTagKind),
 	)
-
 	accessUnit := func() (common.AuthFunc, error) {
-		return getAccessUnitChecker(st, authorizer.GetAuthTag())
+		switch tag := authorizer.GetAuthTag().(type) {
+		case names.ApplicationTag:
+			// Any of the units belonging to
+			// the application can be accessed.
+			app, err := st.Application(tag.Name)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			allUnits, err := app.AllUnits()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return func(tag names.Tag) bool {
+				for _, u := range allUnits {
+					if u.Tag() == tag {
+						return true
+					}
+				}
+				return false
+			}, nil
+		default:
+			return nil, errors.Errorf("expected names.ApplicationTag, got %T", tag)
+		}
 	}
 	return &Facade{
 		LifeGetter:         common.NewLifeGetter(st, canRead),
@@ -71,32 +88,6 @@ func NewFacade(
 		state:              st,
 		model:              model,
 	}, nil
-}
-
-func getAccessUnitChecker(st CAASOperatorState, authTag names.Tag) (common.AuthFunc, error) {
-	switch tag := authTag.(type) {
-	case names.ApplicationTag:
-		// Any of the units belonging to
-		// the application can be accessed.
-		app, err := st.Application(tag.Name)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		allUnits, err := app.AllUnits()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return func(tag names.Tag) bool {
-			for _, u := range allUnits {
-				if u.Tag() == tag {
-					return true
-				}
-			}
-			return false
-		}, nil
-	default:
-		return nil, errors.Errorf("expected names.ApplicationTag, got %T", tag)
-	}
 }
 
 // CurrentModel returns the name and UUID for the current juju model.
@@ -220,56 +211,6 @@ func (f *Facade) WatchUnits(args params.Entities) (params.StringsWatchResults, e
 		}
 		results.Results[i].StringsWatcherId = id
 		results.Results[i].Changes = changes
-	}
-	return results, nil
-}
-
-// UnitsStatus returns units' status.
-func (f *Facade) UnitsStatus(args params.Entities) (params.UnitStatusResults, error) {
-	results := params.UnitStatusResults{
-		Results: make([]params.UnitStatusResult, len(args.Entities)),
-	}
-
-	canAccessUnit, err := getAccessUnitChecker(f.state, f.auth.GetAuthTag())
-	if err != nil {
-		return results, errors.Trace(err)
-	}
-	for i, entity := range args.Entities {
-		unitTag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		if !canAccessUnit(unitTag) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		unit, err := f.state.Unit(unitTag.Id())
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		unitStatus := &params.UnitStatus{}
-		container, err := unit.ContainerInfo()
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		addr := container.Address()
-		if addr != nil {
-			unitStatus.Address = addr.Value
-		}
-		unitStatus.ProviderId = container.ProviderId()
-
-		unitPorts, _ := unit.OpenedPorts()
-		for _, port := range unitPorts {
-			unitStatus.OpenedPorts = append(unitStatus.OpenedPorts, port.String())
-		}
-		curl, _ := unit.CharmURL()
-		if curl != nil {
-			unitStatus.Charm = curl.String()
-		}
-		results.Results[i].Result = unitStatus
 	}
 	return results, nil
 }

@@ -5539,17 +5539,6 @@
                         }
                     }
                 },
-                "UnitsStatus": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/UnitStatusResults"
-                        }
-                    }
-                },
                 "Watch": {
                     "type": "object",
                     "properties": {
@@ -5694,52 +5683,6 @@
                         "Number",
                         "Series",
                         "Arch"
-                    ]
-                },
-                "DetailedStatus": {
-                    "type": "object",
-                    "properties": {
-                        "data": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "err": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "info": {
-                            "type": "string"
-                        },
-                        "kind": {
-                            "type": "string"
-                        },
-                        "life": {
-                            "type": "string"
-                        },
-                        "since": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "status": {
-                            "type": "string"
-                        },
-                        "version": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "status",
-                        "info",
-                        "data",
-                        "since",
-                        "kind",
-                        "version",
-                        "life"
                     ]
                 },
                 "Entities": {
@@ -6110,90 +6053,6 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/StringsWatchResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "UnitStatus": {
-                    "type": "object",
-                    "properties": {
-                        "address": {
-                            "type": "string"
-                        },
-                        "agent-status": {
-                            "$ref": "#/definitions/DetailedStatus"
-                        },
-                        "charm": {
-                            "type": "string"
-                        },
-                        "leader": {
-                            "type": "boolean"
-                        },
-                        "machine": {
-                            "type": "string"
-                        },
-                        "opened-ports": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "provider-id": {
-                            "type": "string"
-                        },
-                        "public-address": {
-                            "type": "string"
-                        },
-                        "subordinates": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "$ref": "#/definitions/UnitStatus"
-                                }
-                            }
-                        },
-                        "workload-status": {
-                            "$ref": "#/definitions/DetailedStatus"
-                        },
-                        "workload-version": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "agent-status",
-                        "workload-status",
-                        "workload-version",
-                        "machine",
-                        "opened-ports",
-                        "public-address",
-                        "charm",
-                        "subordinates"
-                    ]
-                },
-                "UnitStatusResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "$ref": "#/definitions/UnitStatus"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "UnitStatusResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/UnitStatusResult"
                             }
                         }
                     },

@@ -5,11 +5,11 @@ package caasoperator
 
 import (
 	"bytes"
+	"io"
 	"path/filepath"
 
 	"github.com/juju/errors"
 	utilexec "github.com/juju/utils/exec"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/worker/uniter"
@@ -19,20 +19,21 @@ import (
 func ensurePath(
 	client exec.Executor,
 	podName string,
-	cancel <-chan struct{},
 	path string,
+	stdout io.Writer,
+	stderr io.Writer,
+	cancel <-chan struct{},
 ) error {
-	var out bytes.Buffer
+	logger.Debugf("ensuring %q", path)
 	err := client.Exec(
 		exec.ExecParams{
 			PodName:  podName,
 			Commands: []string{"mkdir", "-p", path},
-			Stdout:   &out,
-			Stderr:   &out,
+			Stdout:   stdout,
+			Stderr:   stderr,
 		},
 		cancel,
 	)
-	logger.Debugf("ensuring %q, %q", path, out.String())
 	return errors.Trace(err)
 }
 
@@ -63,10 +64,12 @@ func prepare(
 	client exec.Executor,
 	podName string,
 	dataDir string,
+	stdout io.Writer,
+	stderr io.Writer,
 	cancel <-chan struct{},
 ) error {
 	// ensuring data dir.
-	if err := ensurePath(client, podName, cancel, dataDir); err != nil {
+	if err := ensurePath(client, podName, dataDir, stdout, stderr, cancel); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -84,83 +87,56 @@ func prepare(
 	return errors.Trace(err)
 }
 
-func fetchPodNameForUnit(c UnitGetter, tag names.UnitTag) (string, error) {
-	result, err := c.UnitsStatus(tag.Id())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if len(result.Results) == 0 {
-		return "", errors.NotFoundf("unit %q", tag.Id())
-	}
-	unit := result.Results[0]
-	if unit.Error != nil {
-		return "", unit.Error
-	}
-	return unit.Result.ProviderId, nil
-}
-
 //go:generate mockgen -package mocks -destination mocks/exec_mock.go github.com/juju/juju/caas/kubernetes/provider/exec Executor
+//go:generate mockgen -package mocks -destination mocks/uniter_mock.go github.com/juju/juju/worker/uniter ProviderIDGetter
 func getNewRunnerExecutor(
 	execClient exec.Executor,
-	// uniterGetter UnitGetter,
 	dataDir string,
 ) uniter.NewRunnerExecutorFunc {
 	return func(providerIDGetter uniter.ProviderIDGetter) runner.ExecFunc {
 		return func(params runner.ExecParams) (*utilexec.ExecResponse, error) {
-			// podName, err := fetchPodNameForUnit(uniterGetter, unit)
-			// if err != nil {
-			// 	return nil, errors.Trace(err)
-			// }
+
 			if err := providerIDGetter.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
 			podNameOrID := providerIDGetter.ProviderID()
-			logger.Criticalf("getNewRunnerExecutor podNameOrID -> %q", podNameOrID)
+			unitName := providerIDGetter.Name()
+			logger.Debugf("exec on pod %q for unit %q, cmd %v", podNameOrID, unitName, params.Commands)
 			if podNameOrID == "" {
-				return nil, errors.NotFoundf("pod for %q", providerIDGetter.Name())
+				return nil, errors.NotFoundf("pod for %q", unitName)
 			}
 
-			if err := prepare(execClient, podNameOrID, dataDir, params.Cancel); err != nil {
+			if err := prepare(execClient, podNameOrID, dataDir, params.Stdout, params.Stderr, params.Cancel); err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			if params.Stdout != nil && params.Stderr != nil {
-				// run action - stream stdout and stderr to logger.
-				if err := execClient.Exec(
-					exec.ExecParams{
-						PodName:    podNameOrID,
-						Commands:   params.Commands,
-						WorkingDir: params.WorkingDir,
-						Env:        params.Env,
-						Stdout:     params.Stdout,
-						Stderr:     params.Stderr,
-					},
-					params.Cancel,
-				); err != nil {
-					return nil, errors.Trace(err)
-				}
-				return &utilexec.ExecResponse{}, nil
-			}
-
 			// juju run - return stdout and stderr to ExecResponse.
-			var stdout, stderr bytes.Buffer
 			if err := execClient.Exec(
 				exec.ExecParams{
 					PodName:    podNameOrID,
 					Commands:   params.Commands,
 					WorkingDir: params.WorkingDir,
 					Env:        params.Env,
-					Stdout:     &stdout,
-					Stderr:     &stderr,
+					Stdout:     params.Stdout,
+					Stderr:     params.Stderr,
 				},
 				params.Cancel,
 			); err != nil {
 				return nil, errors.Trace(err)
 			}
-			return &utilexec.ExecResponse{
-				Stdout: stdout.Bytes(),
-				Stderr: stderr.Bytes(),
-			}, nil
+
+			readBytes := func(r io.Reader) []byte {
+				var o bytes.Buffer
+				o.ReadFrom(r)
+				return o.Bytes()
+			}
+			if params.ProcessResponse {
+				return &utilexec.ExecResponse{
+					Stdout: readBytes(params.Stdout),
+					Stderr: readBytes(params.Stderr),
+				}, nil
+			}
+			return &utilexec.ExecResponse{}, nil
 		}
 	}
 }

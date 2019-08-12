@@ -172,7 +172,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					NewOperationExecutor: operation.NewExecutor,
 					NewRemoteRunnerExecutor: getNewRunnerExecutor(
 						execClient,
-						// client,
 						agentConfig.DataDir(),
 					),
 					DataDir:              agentConfig.DataDir(),

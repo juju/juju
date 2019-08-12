@@ -197,6 +197,7 @@ func (st *mockState) WatchUpdateStatusHookInterval() (watcher.NotifyWatcher, err
 type mockUnit struct {
 	tag                              names.UnitTag
 	life                             params.Life
+	providerID                       string
 	resolved                         params.ResolvedMode
 	application                      mockApplication
 	unitWatcher                      *mockNotifyWatcher
@@ -215,6 +216,10 @@ func (u *mockUnit) Life() params.Life {
 
 func (u *mockUnit) Refresh() error {
 	return nil
+}
+
+func (u *mockUnit) ProviderID() string {
+	return u.providerID
 }
 
 func (u *mockUnit) Resolved() params.ResolvedMode {

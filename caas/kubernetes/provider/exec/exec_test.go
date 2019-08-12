@@ -21,13 +21,13 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type exectSuite struct {
+type execSuite struct {
 	BaseSuite
 }
 
-var _ = gc.Suite(&exectSuite{})
+var _ = gc.Suite(&execSuite{})
 
-func (s *exectSuite) TestExecParamsValidateComandsAndPodName(c *gc.C) {
+func (s *execSuite) TestExecParamsValidateComandsAndPodName(c *gc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -76,7 +76,7 @@ func (s *exectSuite) TestExecParamsValidateComandsAndPodName(c *gc.C) {
 
 }
 
-func (s *exectSuite) TestProcessEnv(c *gc.C) {
+func (s *execSuite) TestProcessEnv(c *gc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -87,7 +87,7 @@ func (s *exectSuite) TestProcessEnv(c *gc.C) {
 	), gc.Equals, "export AAA=1; export BBB=1; export CCC=1; export DDD=1; export EEE=1; ")
 }
 
-func (s *exectSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
+func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -194,7 +194,7 @@ func (s *exectSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 	c.Assert(params.ContainerName, gc.Equals, "gitlab-container")
 }
 
-func (s *exectSuite) TestExec(c *gc.C) {
+func (s *execSuite) TestExec(c *gc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 

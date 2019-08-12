@@ -142,13 +142,6 @@ func applicationTag(application string) (names.ApplicationTag, error) {
 	return names.NewApplicationTag(application), nil
 }
 
-func unitTag(unit string) (names.UnitTag, error) {
-	if !names.IsValidUnit(unit) {
-		return names.UnitTag{}, errors.NotValidf("unit name %q", unit)
-	}
-	return names.NewUnitTag(unit), nil
-}
-
 // Watch returns a watcher for observing changes to an application.
 func (c *Client) Watch(application string) (watcher.NotifyWatcher, error) {
 	tag, err := c.appTag(application)
@@ -190,24 +183,6 @@ func (c *Client) WatchUnits(application string) (watcher.StringsWatcher, error) 
 	}
 	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), results.Results[0])
 	return w, nil
-}
-
-// UnitsStatus returns units' status.
-func (c *Client) UnitsStatus(tags ...string) (params.UnitStatusResults, error) {
-	var result params.UnitStatusResults
-	var unitTags []names.Tag
-	for _, v := range tags {
-		uTag, err := unitTag(v)
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-		unitTags = append(unitTags, uTag)
-	}
-	args := entities(unitTags...)
-	if err := c.facade.FacadeCall("UnitsStatus", args, &result); err != nil {
-		return result, errors.Trace(err)
-	}
-	return result, nil
 }
 
 // RemoveUnit removes the specified unit from the current model.

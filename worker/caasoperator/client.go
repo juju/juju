@@ -7,7 +7,6 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
@@ -42,7 +41,6 @@ type CharmGetter interface {
 type UnitGetter interface {
 	WatchUnits(string) (watcher.StringsWatcher, error)
 	Life(string) (life.Value, error)
-	UnitsStatus(units ...string) (params.UnitStatusResults, error)
 }
 
 // UnitRemover provides an interface for

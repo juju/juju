@@ -35,23 +35,21 @@ type mockState struct {
 func newMockState() *mockState {
 	unitsChanges := make(chan []string, 1)
 	appChanges := make(chan struct{}, 1)
-	charm := mockCharm{
-		url:    charm.MustParseURL("cs:gitlab-1"),
-		sha256: "fake-sha256",
-	}
 	st := &mockState{
 		entities: make(map[string]state.Entity),
 		app: mockApplication{
-			life:         state.Alive,
-			charm:        charm,
+			life: state.Alive,
+			charm: mockCharm{
+				url:    charm.MustParseURL("cs:gitlab-1"),
+				sha256: "fake-sha256",
+			},
 			unitsChanges: unitsChanges,
 			appChanges:   appChanges,
 			unitsWatcher: statetesting.NewMockStringsWatcher(unitsChanges),
 			watcher:      statetesting.NewMockNotifyWatcher(appChanges),
 		},
 		unit: mockUnit{
-			life:  state.Dying,
-			charm: charm,
+			life: state.Dying,
 		},
 	}
 	st.entities[st.app.Tag().String()] = &st.app
@@ -83,14 +81,6 @@ func (st *mockState) Model() (caasoperator.Model, error) {
 		return nil, err
 	}
 	return &st.model, nil
-}
-
-func (st *mockState) Unit(name string) (caasoperator.Unit, error) {
-	st.MethodCall(st, "Unit")
-	if err := st.NextErr(); err != nil {
-		return nil, err
-	}
-	return &st.unit, nil
 }
 
 func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
@@ -199,31 +189,7 @@ func (a *mockApplication) SetAgentVersion(vers version.Binary) error {
 
 type mockUnit struct {
 	testing.Stub
-	life  state.Life
-	charm mockCharm
-}
-
-func (u *mockUnit) ContainerInfo() (state.CloudContainer, error) {
-	u.MethodCall(u, "ContainerInfo")
-	return &mockCloudContainer{unit: u.Tag()}, nil
-}
-
-func (u *mockUnit) PublicAddress() (network.Address, error) {
-	u.MethodCall(u, "PublicAddress")
-	return network.Address{}, nil
-}
-
-func (u *mockUnit) OpenedPorts() ([]network.PortRange, error) {
-	u.MethodCall(u, "OpenedPorts")
-	return nil, nil
-}
-
-func (u *mockUnit) CharmURL() (*charm.URL, bool) {
-	u.MethodCall(u, "CharmURL")
-	if err := u.NextErr(); err != nil {
-		return nil, false
-	}
-	return u.charm.URL(), false
+	life state.Life
 }
 
 func (*mockUnit) Tag() names.Tag {
@@ -242,31 +208,6 @@ func (u *mockUnit) Remove() error {
 
 func (u *mockUnit) EnsureDead() error {
 	u.MethodCall(u, "EnsureDead")
-	return nil
-}
-
-type mockCloudContainer struct {
-	testing.Stub
-	unit names.Tag
-}
-
-func (cc *mockCloudContainer) Unit() string {
-	cc.MethodCall(cc, "Unit")
-	return cc.unit.Id()
-}
-
-func (cc *mockCloudContainer) ProviderId() string {
-	cc.MethodCall(cc, "ProviderId")
-	return "gitlab-xxxx"
-}
-
-func (cc *mockCloudContainer) Address() *network.Address {
-	cc.MethodCall(cc, "Address")
-	return &network.Address{Value: "1.1.1.1"}
-}
-
-func (cc *mockCloudContainer) Ports() []string {
-	cc.MethodCall(cc, "Ports")
 	return nil
 }
 

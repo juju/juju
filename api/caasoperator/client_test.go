@@ -202,41 +202,6 @@ func (s *operatorSuite) TestWatchUnits(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
-func (s *operatorSuite) TestUnits(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "CAASOperator")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "UnitsStatus")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
-			Entities: []params.Entity{{
-				Tag: "unit-gitlab-0",
-			}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.UnitStatusResults{})
-		*(result.(*params.UnitStatusResults)) = params.UnitStatusResults{
-			Results: []params.UnitStatusResult{{
-				Result: &params.UnitStatus{
-					ProviderId: "gitlab-xxxx", Address: "1.1.1.1",
-				},
-			}},
-		}
-		return nil
-	})
-
-	client := caasoperator.NewClient(apiCaller)
-	result, err := client.UnitsStatus("gitlab/0")
-	c.Assert(err, gc.IsNil)
-	c.Logf("%+v", result.Results[0].Result)
-	c.Assert(result, gc.DeepEquals, params.UnitStatusResults{
-		Results: []params.UnitStatusResult{{
-			Result: &params.UnitStatus{
-				ProviderId: "gitlab-xxxx", Address: "1.1.1.1",
-			},
-		}},
-	})
-}
-
 func (s *operatorSuite) TestRemoveUnit(c *gc.C) {
 	called := false
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {

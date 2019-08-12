@@ -4,6 +4,7 @@
 package runner
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -76,14 +77,15 @@ func NewRunner(context Context, paths context.Paths, remoteExecutor ExecFunc) Ru
 
 // ExecParams holds all the necessary parameters for ExecFunc.
 type ExecParams struct {
-	Commands      []string
-	Env           []string
-	WorkingDir    string
-	Clock         clock.Clock
-	ProcessSetter func(context.HookProcess)
-	Cancel        <-chan struct{}
-	Stdout        io.ReadWriter
-	Stderr        io.ReadWriter
+	Commands        []string
+	Env             []string
+	WorkingDir      string
+	Clock           clock.Clock
+	ProcessSetter   func(context.HookProcess)
+	Cancel          <-chan struct{}
+	Stdout          io.ReadWriter
+	Stderr          io.ReadWriter
+	ProcessResponse bool
 }
 
 // execOnMachine executes commands on current machine.
@@ -164,13 +166,17 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	var stdout, stderr bytes.Buffer
 	return executor(ExecParams{
-		Commands:      []string{commands},
-		Env:           env,
-		WorkingDir:    runner.paths.GetCharmDir(),
-		Clock:         clock,
-		ProcessSetter: runner.context.SetProcess,
-		Cancel:        cancel,
+		Commands:        []string{commands},
+		Env:             env,
+		WorkingDir:      runner.paths.GetCharmDir(),
+		Clock:           clock,
+		ProcessSetter:   runner.context.SetProcess,
+		Cancel:          cancel,
+		Stdout:          &stdout,
+		Stderr:          &stderr,
+		ProcessResponse: true,
 	})
 }
 

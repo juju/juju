@@ -25,7 +25,7 @@ var logger = loggo.GetLogger("juju.kubernetes.provider.exec")
 
 //go:generate mockgen -package mocks -destination mocks/remotecommand_mock.go k8s.io/client-go/tools/remotecommand Executor
 type client struct {
-	namesapce               string
+	namespace               string
 	clientset               kubernetes.Interface
 	remoteCmdExecutorGetter func(method string, url *url.URL) (remotecommand.Executor, error)
 	pipGetter               func() (io.Reader, io.WriteCloser)
@@ -56,9 +56,9 @@ func GetInClusterClient() (kubernetes.Interface, *rest.Config, error) {
 
 // New contructs an executor.
 // no cross model/namespace allowed.
-func New(namesapce string, clientset kubernetes.Interface, config *rest.Config) Executor {
+func New(namespace string, clientset kubernetes.Interface, config *rest.Config) Executor {
 	return new(
-		namesapce,
+		namespace,
 		clientset,
 		config,
 		remotecommand.NewSPDYExecutor,
@@ -67,19 +67,19 @@ func New(namesapce string, clientset kubernetes.Interface, config *rest.Config) 
 }
 
 func new(
-	namesapce string,
+	namespace string,
 	clientset kubernetes.Interface,
 	config *rest.Config,
 	remoteCMDNewer func(config *rest.Config, method string, url *url.URL) (remotecommand.Executor, error),
 	pipGetter func() (io.Reader, io.WriteCloser),
 ) Executor {
 	return &client{
-		namesapce: namesapce,
+		namespace: namespace,
 		clientset: clientset,
 		remoteCmdExecutorGetter: func(method string, url *url.URL) (remotecommand.Executor, error) {
 			return remoteCMDNewer(config, method, url)
 		},
-		podGetter: clientset.CoreV1().Pods(namesapce),
+		podGetter: clientset.CoreV1().Pods(namespace),
 		pipGetter: pipGetter,
 	}
 }
@@ -140,7 +140,7 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) error {
 	req := c.clientset.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(opts.PodName).
-		Namespace(c.namesapce).
+		Namespace(c.namespace).
 		SubResource("exec").
 		Param("container", opts.ContainerName).
 		VersionedParams(&core.PodExecOptions{
