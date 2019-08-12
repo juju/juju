@@ -19,8 +19,8 @@ import (
 
 // Controller pubsub topics
 const (
-	// A new model has been added to the controller.
-	newModelTopic = "new-model"
+	// A model has been updated in the controller.
+	modelUpdatedTopic = "updated-model"
 
 	// modelAppearingTimeout is how long the controller will wait for a model to
 	// exist before it either times out or returns a not found.
@@ -206,11 +206,10 @@ func (c *Controller) Model(uuid string) (*Model, error) {
 
 // WaitForModel waits for a time for the specified model to appear in the cache.
 func (c *Controller) WaitForModel(uuid string, clock Clock) (*Model, error) {
-	timeout := clock.After(modelAppearingTimeout)
 	watcher := c.modelWatcher(uuid)
 	defer watcher.Kill()
 	select {
-	case <-timeout:
+	case <-clock.After(modelAppearingTimeout):
 		return nil, errors.Timeoutf("model %q did not appear in cache", uuid)
 	case model := <-watcher.Changes():
 		return model, nil
@@ -231,7 +230,9 @@ func (c *Controller) modelWatcher(uuid string) ModelWatcher {
 // updateModel will add or update the model details as
 // described in the ModelChange.
 func (c *Controller) updateModel(ch ModelChange) {
-	c.ensureModel(ch.ModelUUID).setDetails(ch)
+	model := c.ensureModel(ch.ModelUUID)
+	model.setDetails(ch)
+	c.hub.Publish(modelUpdatedTopic, model)
 }
 
 // removeModel removes the model from the cache.
@@ -326,8 +327,9 @@ func (c *Controller) ensureModel(modelUUID string) *Model {
 	if !found {
 		model = newModel(c.metrics, newPubSubHub(), c.manager.new())
 		c.models[modelUUID] = model
-		c.hub.Publish(newModelTopic, model)
+		logger.Criticalf("not found")
 	} else {
+		logger.Criticalf("found")
 		model.setStale(false)
 	}
 
