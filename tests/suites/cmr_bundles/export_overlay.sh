@@ -8,7 +8,11 @@ run_export_overlay() {
     juju add-user bar
     juju deploy ./testcharms/charm-repo/bundle/apache2-with-offers
 
-    juju export-bundle
+    OUT=$(juju export-bundle 2>&1)
+    echo "${OUT}"
+
+    # ensure that overlay.yaml is exported
+    echo "${OUT}" | grep -- "--- # overlay.yaml"
 
     juju add-model test1
 
@@ -22,7 +26,13 @@ applications:
 EOT
 
     juju deploy ./testcharms/charm-repo/bundle/multi-doc-overlays --overlay overlay.yaml
-    juju export-bundle
+    OUT=$(juju export-bundle 2>&1)
+    echo "${OUT}"
+
+    # did the annotations and overlay get exported?
+    echo "${OUT}" | grep -- "--- # overlay.yaml"
+    echo "${OUT}" | grep "enc: bXktaW5jbHVkZQ=="
+    echo "${OUT}" | grep "raw: my-include"
 }
 
 test_export_overlay() {
