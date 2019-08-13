@@ -33,6 +33,8 @@ EOT
     echo "${OUT}" | grep -- "--- # overlay.yaml"
     echo "${OUT}" | grep "enc: bXktaW5jbHVkZQ=="
     echo "${OUT}" | grep "raw: my-include"
+
+    destroy "cmr_bundles_test_export_overlay"
 }
 
 test_export_overlay() {

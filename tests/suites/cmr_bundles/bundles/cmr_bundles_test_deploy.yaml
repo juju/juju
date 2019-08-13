@@ -1,0 +1,11 @@
+series: bionic
+saas:
+  mysql:
+    url: cmr_bundles_test_deploy:admin/default.mysql
+applications:
+  wordpress:
+    charm: wordpress
+    num_units: 1
+relations:
+- - wordpress:db
+  - mysql:db

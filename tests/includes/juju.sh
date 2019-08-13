@@ -10,6 +10,13 @@ bootstrap() {
     output=${1}
     shift
 
+    OUT=$(juju controllers --format=json | jq '.controllers | keys' | grep "${name}" || true)
+    if [ -n "${OUT}" ]; then
+        echo "${name} already exists. Use the following to clean up the environment:"
+        echo "    juju destroy-controller --destroy-all-models -y ${name}"
+        exit 1
+    fi
+
     echo "====> Bootstrapping juju"
     if [ -n "${output}" ]; then
         juju bootstrap "${provider}" "${name}" "$@" > "${output}" 2>&1
@@ -30,7 +37,7 @@ destroy() {
     # shellcheck disable=SC2034
     OUT=$(juju controllers --format=json | jq '.controllers | keys' | grep "${name}" || true)
     # shellcheck disable=SC2181
-    if [ $? -ne 0 ]; then
+    if [ -z "${OUT}" ]; then
         return
     fi
 
@@ -55,4 +62,16 @@ cleanup_jujus() {
             destroy "${juju_name}"
         done < "${TEST_DIR}/jujus"
     fi
+}
+
+wait_for() {
+    local name query
+
+    name=${1}
+    query=${2}
+
+    until [ $(juju status --format=json 2> /dev/null | jq "${query}" | grep "${name}") ]; do
+        juju status --relations
+        sleep 5
+    done
 }
