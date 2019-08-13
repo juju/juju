@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time" // only uses time.Time values
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -29,6 +30,7 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/state/mocks"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -431,6 +433,49 @@ func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(devices, jc.DeepEquals, []state.BlockDeviceInfo{sda, sdb})
+}
+
+func (s *MigrationImportSuite) TestMachinePortOpsSubnetID(c *gc.C) {
+	subnet, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.0.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+	s.testMachinePortOps(c, subnet.ID(), subnet.ID())
+}
+
+func (s *MigrationImportSuite) TestMachinePortOpsSubnetCIDR(c *gc.C) {
+	subnet, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.0.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+	s.testMachinePortOps(c, subnet.CIDR(), subnet.ID())
+}
+
+func (s *MigrationImportSuite) TestMachinePortOpsSubnetEmpty(c *gc.C) {
+	s.testMachinePortOps(c, "", "")
+}
+
+func (s *MigrationImportSuite) testMachinePortOps(c *gc.C, setup, validate string) {
+	ctrl, mockMachine := setupMockOpenedPorts(c, "3", setup)
+	defer ctrl.Finish()
+
+	ops, err := state.MachinePortOps(s.State, mockMachine)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, 1)
+	c.Assert(ops[0].Id, gc.Equals, fmt.Sprintf("m#3#%s", validate))
+}
+
+//go:generate mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description Machine,OpenedPorts
+func setupMockOpenedPorts(c *gc.C, mID, subnetID string) (*gomock.Controller, *mocks.MockMachine) {
+	ctrl := gomock.NewController(c)
+	mockMachine := mocks.NewMockMachine(ctrl)
+	mockOpenedPorts := mocks.NewMockOpenedPorts(ctrl)
+
+	mExp := mockMachine.EXPECT()
+	mExp.Id().Return(mID)
+	mExp.OpenedPorts().Return([]description.OpenedPorts{mockOpenedPorts})
+
+	opExp := mockOpenedPorts.EXPECT()
+	opExp.SubnetID().Return(subnetID)
+	opExp.OpenPorts().Return(nil)
+
+	return ctrl, mockMachine
 }
 
 func (s *MigrationImportSuite) setupSourceApplications(
