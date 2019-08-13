@@ -123,15 +123,20 @@ func (s *BaseSuite) setupController(c *gc.C) *gomock.Controller {
 		s.watchers = append(s.watchers, w)
 		return w, err
 	}
-	return s.setupBroker(c, ctrl, newK8sRestClientFunc, newK8sWatcherForTest)
+	randomPrefixFunc := func() (string, error) {
+		return "appuuid", nil
+	}
+	return s.setupBroker(c, ctrl, newK8sRestClientFunc, newK8sWatcherForTest, randomPrefixFunc)
 }
 
 func (s *BaseSuite) setupBroker(c *gc.C, ctrl *gomock.Controller,
 	newK8sRestClientFunc provider.NewK8sClientFunc,
-	newK8sWatcherFunc provider.NewK8sWatcherFunc) *gomock.Controller {
+	newK8sWatcherFunc provider.NewK8sWatcherFunc,
+	randomPrefixFunc provider.RandomPrefixFunc) *gomock.Controller {
 	s.clock = testclock.NewClock(time.Time{})
 	var err error
-	s.broker, err = provider.NewK8sBroker(s.controllerUUID, s.k8sRestConfig, s.cfg, newK8sRestClientFunc, newK8sWatcherFunc, s.clock)
+	s.broker, err = provider.NewK8sBroker(s.controllerUUID, s.k8sRestConfig, s.cfg, newK8sRestClientFunc,
+		newK8sWatcherFunc, randomPrefixFunc, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl
 }

@@ -102,6 +102,9 @@ type kubernetesClient struct {
 
 	// newWatcher is the k8s watcher generator.
 	newWatcher NewK8sWatcherFunc
+
+	// randomPrefix generates an annotation for stateful sets.
+	randomPrefix RandomPrefixFunc
 }
 
 // To regenerate the mocks for the kubernetes Client used by this broker,
@@ -118,6 +121,9 @@ type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsc
 // NewK8sWatcherFunc defines a function which returns a k8s watcher based on the supplied config.
 type NewK8sWatcherFunc func(wi watch.Interface, name string, clock jujuclock.Clock) (*kubernetesWatcher, error)
 
+// RandomPrefixFunc defines a function used to generate a random hex string.
+type RandomPrefixFunc func() (string, error)
+
 // newK8sBroker returns a kubernetes client for the specified k8s cluster.
 func newK8sBroker(
 	controllerUUID string,
@@ -125,6 +131,7 @@ func newK8sBroker(
 	cfg *config.Config,
 	newClient NewK8sClientFunc,
 	newWatcher NewK8sWatcherFunc,
+	randomPrefix RandomPrefixFunc,
 	clock jujuclock.Clock,
 ) (*kubernetesClient, error) {
 
@@ -150,6 +157,7 @@ func newK8sBroker(
 		modelUUID:                   modelUUID,
 		newWatcher:                  newWatcher,
 		newClient:                   newClient,
+		randomPrefix:                randomPrefix,
 		annotations: k8sannotations.New(nil).
 			Add(annotationModelUUIDKey, modelUUID),
 	}
@@ -1224,7 +1232,7 @@ func (k *kubernetesClient) EnsureService(
 	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
 	// Defensively check to see if a stateful set is already used.
 	var useStatefulSet bool
-	if params.Deployment.ServiceType != "" {
+	if params.Deployment.DeploymentType != "" {
 		useStatefulSet = params.Deployment.DeploymentType == caas.DeploymentStateful
 	} else {
 		useStatefulSet = len(params.Filesystems) > 0
@@ -1249,11 +1257,10 @@ func (k *kubernetesClient) EnsureService(
 			randPrefix = existingStatefulSet.Annotations[labelApplicationUUID]
 		}
 		if randPrefix == "" {
-			var randPrefixBytes [4]byte
-			if _, err := io.ReadFull(rand.Reader, randPrefixBytes[0:4]); err != nil {
+			randPrefix, err = k.randomPrefix()
+			if err != nil {
 				return errors.Trace(err)
 			}
-			randPrefix = fmt.Sprintf("%x", randPrefixBytes)
 		}
 	}
 
@@ -1308,6 +1315,14 @@ func (k *kubernetesClient) EnsureService(
 	}
 
 	return nil
+}
+
+func randomPrefix() (string, error) {
+	var randPrefixBytes [4]byte
+	if _, err := io.ReadFull(rand.Reader, randPrefixBytes[0:4]); err != nil {
+		return "", errors.Trace(err)
+	}
+	return fmt.Sprintf("%x", randPrefixBytes), nil
 }
 
 // Upgrade sets the OCI image for the app's operator to the specified version.

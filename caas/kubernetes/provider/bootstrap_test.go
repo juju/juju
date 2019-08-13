@@ -192,7 +192,10 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		s.watchers = append(s.watchers, w)
 		return w, err
 	}
-	s.setupBroker(c, ctrl, newK8sRestClientFunc, newK8sWatcherForTest)
+	randomPrefixFunc := func() (string, error) {
+		return "appuuid", nil
+	}
+	s.setupBroker(c, ctrl, newK8sRestClientFunc, newK8sWatcherForTest, randomPrefixFunc)
 	// Broker's namespace is "controller" now - controllerModelConfig.Name()
 	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller")
 	c.Assert(
