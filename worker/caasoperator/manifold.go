@@ -146,11 +146,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return leadership.NewTracker(unitTag, claimer, clock, config.LeadershipGuarantee)
 			}
 
-			execClient, err := config.NewExecClient(model.Name)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			w, err := config.NewWorker(Config{
+			wCfg := Config{
 				ModelUUID:          agentConfig.Model().Id(),
 				ModelName:          model.Name,
 				Application:        applicationTag.Id(),
@@ -168,21 +164,29 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 				LeadershipTrackerFunc: leadershipTrackerFunc,
 				UniterFacadeFunc:      newUniterFunc,
-				UniterParams: &uniter.UniterParams{
-					NewOperationExecutor: operation.NewExecutor,
-					NewRemoteRunnerExecutor: getNewRunnerExecutor(
-						execClient,
-						agentConfig.DataDir(),
-					),
-					DataDir:              agentConfig.DataDir(),
-					Clock:                clock,
-					MachineLock:          config.MachineLock,
-					CharmDirGuard:        charmDirGuard,
-					UpdateStatusSignal:   uniter.NewUpdateStatusTimer(),
-					HookRetryStrategy:    hookRetryStrategy,
-					TranslateResolverErr: config.TranslateResolverErr,
-				},
-			})
+			}
+
+			execClient, err := config.NewExecClient(model.Name)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			wCfg.UniterParams = &uniter.UniterParams{
+				NewOperationExecutor: operation.NewExecutor,
+				NewRemoteRunnerExecutor: getNewRunnerExecutor(
+					execClient,
+					wCfg.getPath(),
+				),
+				DataDir:              agentConfig.DataDir(),
+				Clock:                clock,
+				MachineLock:          config.MachineLock,
+				CharmDirGuard:        charmDirGuard,
+				UpdateStatusSignal:   uniter.NewUpdateStatusTimer(),
+				HookRetryStrategy:    hookRetryStrategy,
+				TranslateResolverErr: config.TranslateResolverErr,
+			}
+
+			w, err := config.NewWorker(wCfg)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

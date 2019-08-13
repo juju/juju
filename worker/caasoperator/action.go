@@ -6,6 +6,7 @@ package caasoperator
 import (
 	"bytes"
 	"io"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/errors"
@@ -28,7 +29,7 @@ func ensurePath(
 	err := client.Exec(
 		exec.ExecParams{
 			PodName:  podName,
-			Commands: []string{"mkdir", "-p", path},
+			Commands: []string{"test", "-d", path, "||", "mkdir", "-p", path},
 			Stdout:   stdout,
 			Stderr:   stderr,
 		},
@@ -37,20 +38,42 @@ func ensurePath(
 	return errors.Trace(err)
 }
 
-func syncFiles(
+func prepare(
 	client exec.Executor,
 	podName string,
+	operatorPaths Paths,
+	unitPaths uniter.Paths,
+	stdout io.Writer,
+	stderr io.Writer,
 	cancel <-chan struct{},
-	filesDirs []string,
 ) error {
-	for _, path := range filesDirs {
-		logger.Debugf("syncing files at %q", path)
+	for _, path := range []string{
+		// order matters here.
+		operatorPaths.GetCharmDir(),
+		unitPaths.GetCharmDir(),
+
+		filepath.Join(operatorPaths.GetToolsDir(), "jujud"),
+		unitPaths.GetToolsDir(),
+	} {
+
+		_, err := os.Stat(path)
+		if os.IsNotExist(err) {
+			return errors.NotFoundf("file or path %q", path)
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+		destPath := filepath.Dir(path)
+		if err := ensurePath(client, podName, destPath, stdout, stderr, cancel); err != nil {
+			return errors.Trace(err)
+		}
+
 		if err := client.Copy(exec.CopyParam{
 			Src: exec.FileResource{
 				Path: path,
 			},
 			Dest: exec.FileResource{
-				Path:    path,
+				Path:    destPath,
 				PodName: podName,
 			},
 		}, cancel); err != nil {
@@ -60,40 +83,13 @@ func syncFiles(
 	return nil
 }
 
-func prepare(
-	client exec.Executor,
-	podName string,
-	dataDir string,
-	stdout io.Writer,
-	stderr io.Writer,
-	cancel <-chan struct{},
-) error {
-	// ensuring data dir.
-	if err := ensurePath(client, podName, dataDir, stdout, stderr, cancel); err != nil {
-		return errors.Trace(err)
-	}
-
-	// syncing files.
-	// TODO(caas): add a new cmd for checking jujud version, charm/version etc.
-	// exec run this new cmd to decide if we need re-push files or not.
-	err := syncFiles(
-		client, podName, cancel,
-		[]string{
-			// TODO(caas): only sync files required for actions/run.
-			filepath.Join(dataDir, "agents"),
-			filepath.Join(dataDir, "tools"),
-		},
-	)
-	return errors.Trace(err)
-}
-
 //go:generate mockgen -package mocks -destination mocks/exec_mock.go github.com/juju/juju/caas/kubernetes/provider/exec Executor
 //go:generate mockgen -package mocks -destination mocks/uniter_mock.go github.com/juju/juju/worker/uniter ProviderIDGetter
 func getNewRunnerExecutor(
 	execClient exec.Executor,
-	dataDir string,
+	operatorPaths Paths,
 ) uniter.NewRunnerExecutorFunc {
-	return func(providerIDGetter uniter.ProviderIDGetter) runner.ExecFunc {
+	return func(providerIDGetter uniter.ProviderIDGetter, unitPaths uniter.Paths) runner.ExecFunc {
 		return func(params runner.ExecParams) (*utilexec.ExecResponse, error) {
 
 			if err := providerIDGetter.Refresh(); err != nil {
@@ -106,7 +102,12 @@ func getNewRunnerExecutor(
 				return nil, errors.NotFoundf("pod for %q", unitName)
 			}
 
-			if err := prepare(execClient, podNameOrID, dataDir, params.Stdout, params.Stderr, params.Cancel); err != nil {
+			if err := prepare(
+				execClient, podNameOrID,
+				operatorPaths, unitPaths,
+				params.Stdout, params.Stderr, params.Cancel,
+			); err != nil {
+				logger.Errorf("ensuring dirs and syncing files %v", err)
 				return nil, errors.Trace(err)
 			}
 

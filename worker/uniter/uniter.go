@@ -152,7 +152,7 @@ type ProviderIDGetter interface {
 }
 
 // NewRunnerExecutorFunc defines the type of the NewRunnerExecutor.
-type NewRunnerExecutorFunc func(ProviderIDGetter) runner.ExecFunc
+type NewRunnerExecutorFunc func(ProviderIDGetter, Paths) runner.ExecFunc
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
@@ -194,7 +194,6 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 		downloader:              uniterParams.Downloader,
 		applicationChannel:      uniterParams.ApplicationChannel,
 	}
-	logger.Criticalf("Uniter.paths.Runtime -> %+v", u.paths.Runtime)
 	startFunc := func() (worker.Worker, error) {
 		if err := catacomb.Invoke(catacomb.Plan{
 			Site: &u.catacomb,
@@ -574,7 +573,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	var remoteExecutor runner.ExecFunc
 	if u.newRemoteRunnerExecutor != nil {
-		remoteExecutor = u.newRemoteRunnerExecutor(u.unit)
+		remoteExecutor = u.newRemoteRunnerExecutor(u.unit, u.paths)
 	}
 	runnerFactory, err := runner.NewFactory(
 		u.st, u.paths, contextFactory, remoteExecutor,

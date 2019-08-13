@@ -170,6 +170,10 @@ func (config Config) Validate() error {
 	return nil
 }
 
+func (config Config) getPath() Paths {
+	return NewPaths(config.DataDir, names.NewApplicationTag(config.Application))
+}
+
 // NewWorker creates a new worker which will install and operate a
 // CaaS-based application, by executing hooks and operations in
 // response to application state changes.
@@ -177,7 +181,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	paths := NewPaths(config.DataDir, names.NewApplicationTag(config.Application))
+	paths := config.getPath()
 	deployer, err := jujucharm.NewDeployer(
 		paths.State.CharmDir,
 		paths.State.DeployerDir,

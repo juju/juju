@@ -137,7 +137,7 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) error {
 	}
 	cmd += fmt.Sprintf("%s; ", strings.Join(opts.Commands, " "))
 	cmdArgs := []string{"sh", "-c", cmd}
-
+	logger.Debugf("exec on pod %q for cmd %v", opts.PodName, cmdArgs)
 	req := c.clientset.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(opts.PodName).

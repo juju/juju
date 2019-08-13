@@ -46,6 +46,12 @@ func (paths Paths) GetMetricsSpoolDir() string {
 	return paths.State.MetricsSpoolDir
 }
 
+// ComponentDir returns the filesystem path to the directory
+// containing all data files for a component.
+func (paths Paths) ComponentDir(name string) string {
+	return filepath.Join(paths.State.BaseDir, name)
+}
+
 // RuntimePaths represents the set of paths that are relevant at runtime.
 type RuntimePaths struct {
 
