@@ -43,27 +43,33 @@ func main() {
 	for k, facade := range input {
 		methods := make([]FacadeMethod, 0, len(facade.Schema.Properties))
 		for k, prop := range facade.Schema.Properties {
-
-			paramRef := prop.Properties.Params.Ref
-			resultRef := prop.Properties.Result.Ref
-
 			methods = append(methods, FacadeMethod{
-				Name:       k,
-				ParamName:  strings.TrimPrefix(paramRef, "#/definitions/"),
-				ParamRef:   strings.ReplaceAll(paramRef, "/", "_"),
-				ResultName: strings.TrimPrefix(resultRef, "#/definitions/"),
-				ResultRef:  strings.ReplaceAll(resultRef, "/", "_"),
+				Name:   k,
+				Param:  prop.Properties.Params.Ref,
+				Result: prop.Properties.Result.Ref,
 			})
 		}
-
 		sort.Slice(methods, func(i, j int) bool {
 			return methods[i].Name < methods[j].Name
 		})
 
+		definitions := make([]FacadeDefinition, 0, len(facade.Schema.Definitions))
+		for k, prop := range facade.Schema.Definitions {
+			definitions = append(definitions, FacadeDefinition{
+				Name: k,
+				Type: prop.Type,
+				Ref:  fmt.Sprintf(""),
+			})
+		}
+		sort.Slice(definitions, func(i, j int) bool {
+			return definitions[i].Name < definitions[j].Name
+		})
+
 		output[k] = Facade{
-			Name:    facade.Name,
-			Version: facade.Version,
-			Methods: methods,
+			Name:        facade.Name,
+			Version:     facade.Version,
+			Methods:     methods,
+			Definitions: definitions,
 		}
 	}
 
@@ -83,8 +89,9 @@ type JSONFacade struct {
 }
 
 type JSONFacadeSchema struct {
-	Type       string                    `json:"type"`
-	Properties map[string]PropertySchema `json:"properties"`
+	Type        string                      `json:"type"`
+	Properties  map[string]PropertySchema   `json:"properties"`
+	Definitions map[string]DefinitionSchema `json:"definitions"`
 }
 
 type PropertySchema struct {
@@ -101,18 +108,30 @@ type Ref struct {
 	Ref string `json:"$ref"`
 }
 
+type DefinitionSchema struct {
+	Type                 string                      `json:"type"`
+	Properties           map[string]DefinitionSchema `json:"properties"`
+	AdditionalProperties bool                        `json:"additionalProperties"`
+	Required             []string                    `json:"required"`
+}
+
 type Facade struct {
-	Name    string
-	Version int
-	Methods []FacadeMethod
+	Name        string
+	Version     int
+	Methods     []FacadeMethod
+	Definitions []FacadeDefinition
 }
 
 type FacadeMethod struct {
-	Name       string
-	ParamName  string
-	ParamRef   string
-	ResultName string
-	ResultRef  string
+	Name   string
+	Param  string
+	Result string
+}
+
+type FacadeDefinition struct {
+	Name string
+	Type string
+	Ref  string
 }
 
 var htmlTmpl = `
@@ -146,7 +165,11 @@ var htmlTmpl = `
 <body>
 <h1>Juju API facades</h1>
 {{range .}}
+   {{$facade_name:=.Name}}
 	<h2 id="{{.Name}}"><a href="#{{.Name}}">{{.Name}}</a> v{{.Version}}</h2>
+	<ul>
+	  <li><a href="#{{.Name}}_definitions">Definitions</a></li>
+	</ul>
 	<table>
 		<tr>
 			<th>Name</th>
@@ -156,11 +179,28 @@ var htmlTmpl = `
 		{{range .Methods}}
 		<tr>
 			<td>{{.Name}}</td>
-			<td><a href="{{.ParamRef}}">{{.ParamName}}</a></td>
-			<td><a href="{{.ResultRef}}">{{.ResultName}}</a></td>
+			<td><a href="#{{$facade_name}}_{{.Param | defLink}}">{{.Param | defName}}</a></td>
+			<td><a href="#{{$facade_name}}_{{.Result | defLink}}">{{.Result | defName}}</a></td>
 		</tr>
 		{{end}}
 	</table>
+	<h3 id="{{.Name}}_definitions"><a href="#{{.Name}}_definitions">{{.Name}} Definitions</a></h3>
+	<ul>
+	  <li><a href="#{{.Name}}">Methods</a></li>
+	</ul>
+	<table>
+		<tr>
+			<th>Name</th>
+			<th>Type</th>
+		</tr>
+		{{range .Definitions}}
+		<tr>
+			<td><a href="#{{$facade_name}}_definitions_{{.Name}}" id="{{$facade_name}}_definitions_{{.Name}}">{{.Name}}</td>
+			<td>{{.Type}}</td>
+		</tr>
+		{{end}}
+	</table>
+	<hr />
 {{end}}
 </body>
 </html>
@@ -169,5 +209,14 @@ var htmlTmpl = `
 var tmplFuncs = template.FuncMap{
 	"join": func(sep string, ss []string) string {
 		return strings.Join(ss, sep)
+	},
+	"defLink": func(name string) string {
+		if strings.HasPrefix(name, "#/") {
+			name = name[2:]
+		}
+		return strings.ReplaceAll(name, "/", "_")
+	},
+	"defName": func(name string) string {
+		return strings.TrimPrefix(name, "#/definitions/")
 	},
 }
