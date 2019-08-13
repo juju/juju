@@ -41,5 +41,12 @@ func stateStepsFor27() []Step {
 				return context.State().AddSubnetIdToSubnetDocs()
 			},
 		},
+		&upgradeStep{
+			description: "replace portsDoc.SubnetID as a CIDR with an ID.",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().ReplacePortsDocSubnetIDCIDR()
+			},
+		},
 	}
 }

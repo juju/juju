@@ -49,3 +49,9 @@ func (s *steps27Suite) TestAddSubnetIdToSubnetDocs(c *gc.C) {
 	// Logic for step itself is tested in state package.
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
+
+func (s *steps27Suite) TestReplacePortsDocSubnetIDCIDR(c *gc.C) {
+	step := findStateStep(c, v27, `replace portsDoc.SubnetID as a CIDR with an ID.`)
+	// Logic for step itself is tested in state package.
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
