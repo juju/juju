@@ -175,7 +175,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				NewOperationExecutor: operation.NewExecutor,
 				NewRemoteRunnerExecutor: getNewRunnerExecutor(
 					execClient,
-					wCfg.getPath(),
+					wCfg.getPaths(),
 				),
 				DataDir:              agentConfig.DataDir(),
 				Clock:                clock,

@@ -170,7 +170,7 @@ func (config Config) Validate() error {
 	return nil
 }
 
-func (config Config) getPath() Paths {
+func (config Config) getPaths() Paths {
 	return NewPaths(config.DataDir, names.NewApplicationTag(config.Application))
 }
 
@@ -181,7 +181,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	paths := config.getPath()
+	paths := config.getPaths()
 	deployer, err := jujucharm.NewDeployer(
 		paths.State.CharmDir,
 		paths.State.DeployerDir,
