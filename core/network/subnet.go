@@ -106,3 +106,12 @@ func (s *SubnetInfo) Validate() error {
 
 	return nil
 }
+
+// IsValidCidr returns whether cidr is a valid subnet CIDR.
+func IsValidCidr(cidr string) bool {
+	_, ipNet, err := net.ParseCIDR(cidr)
+	if err == nil && ipNet.String() == cidr {
+		return true
+	}
+	return false
+}
