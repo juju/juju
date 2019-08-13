@@ -59,6 +59,11 @@ run_go_fmt() {
 }
 
 test_static_analysis_go() {
+  if [ -n "${SKIP_STATIC_GO:-}" ]; then
+      echo "==> SKIP: Asked to skip static go analysis"
+      return
+  fi
+
   (
     set -e
 

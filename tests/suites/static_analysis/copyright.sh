@@ -9,6 +9,11 @@ run_copyright() {
 }
 
 test_copyright() {
+    if [ -n "${SKIP_STATIC_COPYRIGHT:-}" ]; then
+        echo "==> SKIP: Asked to skip static copyright analysis"
+        return
+    fi
+
     (
         set -e
 

@@ -17,6 +17,11 @@ run_schema() {
 }
 
 test_schema() {
+    if [ -n "${SKIP_STATIC_SCHEMA:-}" ]; then
+        echo "==> SKIP: Asked to skip static schema analysis"
+        return
+    fi
+
     (
         set -e
 

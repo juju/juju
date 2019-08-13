@@ -61,11 +61,6 @@ trap cleanup EXIT HUP INT TERM
 
 # Setup test directory
 TEST_DIR=$(mktemp -d tmp.XXX)
-chmod +x "${TEST_DIR}"
-
-THERM_DIR=$(mktemp -d -p "${TEST_DIR}" XXX)
-export THERM_DIR
-chmod +x "${THERM_DIR}"
 
 run_test() {
     TEST_CURRENT=${1}

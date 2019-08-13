@@ -8,6 +8,11 @@ run_build() {
 }
 
 test_build() {
+    if [ -n "${SKIP_SMOKE_BUILD:-}" ]; then
+        echo "==> SKIP: Asked to skip smoke build tests"
+        return
+    fi
+
     (
         set -e
 

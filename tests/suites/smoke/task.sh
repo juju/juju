@@ -5,4 +5,5 @@ test_smoke() {
     fi
 
     test_build
+    test_deploy
 }

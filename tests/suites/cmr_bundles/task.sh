@@ -4,5 +4,5 @@ test_cmr_bundles() {
         return
     fi
 
-    juju bootstrap lxd "cmr_bundles_test"
+    boostrap lxd "cmr_bundles_test"
 }

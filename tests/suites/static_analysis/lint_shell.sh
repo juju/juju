@@ -24,6 +24,11 @@ run_trailing_whitespace() {
 }
 
 test_static_analysis_shell() {
+  if [ -n "${SKIP_STATIC_SHELL:-}" ]; then
+      echo "==> SKIP: Asked to skip static shell analysis"
+      return
+  fi
+
   (
     set -e
 
