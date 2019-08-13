@@ -142,7 +142,6 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 // runCommandsWithTimeout is a helper to abstract common code between run commands and
 // juju-run as an action
 func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Duration, clock clock.Clock, model runMode) (*utilexec.ExecResponse, error) {
-	logger.Criticalf("%v %v", commands, model)
 	srv, err := runner.startJujucServer()
 	if err != nil {
 		return nil, err
@@ -164,7 +163,6 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 	}
 
 	executor, err := runner.getRemoteExecutor(model)
-	logger.Criticalf("%+v %v", executor, err)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -279,7 +277,6 @@ func (runner *runner) RunHook(hookName string) error {
 }
 
 func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, rMode runMode) (err error) {
-	logger.Criticalf("%v %v %v", hookName, charmLocation, rMode)
 	srv, err := runner.startJujucServer()
 	if err != nil {
 		return err
