@@ -5,6 +5,7 @@ package cache
 
 import (
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -15,6 +16,21 @@ import (
 // We use a package level logger here because the cache is only
 // ever in machine agents, so will never need to be in an alternative
 // logging context.
+
+// Controller pubsub topics
+const (
+	// A model has been updated in the controller.
+	modelUpdatedTopic = "updated-model"
+
+	// modelAppearingTimeout is how long the controller will wait for a model to
+	// exist before it either times out or returns a not found.
+	modelAppearingTimeout = 5 * time.Second
+)
+
+// Clock defines the clockish methods used by the controller.
+type Clock interface {
+	After(time.Duration) <-chan time.Time
+}
 
 // ControllerConfig is a simple config value struct for the controller.
 type ControllerConfig struct {
@@ -44,6 +60,7 @@ type Controller struct {
 
 	changes <-chan interface{}
 	notify  func(interface{})
+	hub     *pubsub.SimpleHub
 	models  map[string]*Model
 
 	tomb    tomb.Tomb
@@ -69,6 +86,7 @@ func newController(config ControllerConfig, manager *residentManager) (*Controll
 		manager: manager,
 		changes: config.Changes,
 		notify:  config.Notify,
+		hub:     newPubSubHub(),
 		models:  make(map[string]*Model),
 		metrics: createControllerGauges(),
 	}
@@ -186,10 +204,35 @@ func (c *Controller) Model(uuid string) (*Model, error) {
 	return model, nil
 }
 
+// WaitForModel waits for a time for the specified model to appear in the cache.
+func (c *Controller) WaitForModel(uuid string, clock Clock) (*Model, error) {
+	watcher := c.modelWatcher(uuid)
+	defer watcher.Kill()
+	select {
+	case <-clock.After(modelAppearingTimeout):
+		return nil, errors.Timeoutf("model %q did not appear in cache", uuid)
+	case model := <-watcher.Changes():
+		return model, nil
+	}
+}
+
+// modelWatcher creates a watcher that will pass the Model
+// down the changes channel when it becomes available. It may
+// be immediately available.
+func (c *Controller) modelWatcher(uuid string) ModelWatcher {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	model, _ := c.models[uuid]
+	return newModelWatcher(uuid, c.hub, model)
+}
+
 // updateModel will add or update the model details as
 // described in the ModelChange.
 func (c *Controller) updateModel(ch ModelChange) {
-	c.ensureModel(ch.ModelUUID).setDetails(ch)
+	model := c.ensureModel(ch.ModelUUID)
+	model.setDetails(ch)
+	c.hub.Publish(modelUpdatedTopic, model)
 }
 
 // removeModel removes the model from the cache.

@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/rpcreflect"
 	"gopkg.in/juju/names.v2"
@@ -172,6 +173,7 @@ func (s *srvCaller) Call(ctx context.Context, objId string, arg reflect.Value) (
 
 // apiRoot implements basic method dispatching to the facade registry.
 type apiRoot struct {
+	clock       clock.Clock
 	state       *state.State
 	shared      *sharedServerContext
 	facades     *facade.Registry
@@ -182,8 +184,9 @@ type apiRoot struct {
 }
 
 // newAPIRoot returns a new apiRoot.
-func newAPIRoot(st *state.State, shared *sharedServerContext, facades *facade.Registry, resources *common.Resources, authorizer facade.Authorizer) *apiRoot {
+func newAPIRoot(clock clock.Clock, st *state.State, shared *sharedServerContext, facades *facade.Registry, resources *common.Resources, authorizer facade.Authorizer) *apiRoot {
 	r := &apiRoot{
+		clock:       clock,
 		state:       st,
 		shared:      shared,
 		facades:     facades,
@@ -435,6 +438,23 @@ func (ctx *facadeContext) Hub() facade.Hub {
 // Controller implements facade.Context.
 func (ctx *facadeContext) Controller() *cache.Controller {
 	return ctx.r.shared.controller
+}
+
+// CachedModel implements facade.Context.
+func (ctx *facadeContext) CachedModel(uuid string) (*cache.Model, error) {
+	model, err := ctx.r.shared.controller.WaitForModel(uuid, ctx.r.clock)
+	if err != nil {
+		// Check the database...
+		exists, err2 := ctx.r.state.ModelExists(uuid)
+		if err2 != nil {
+			return nil, errors.Trace(err2)
+		}
+		if exists {
+			return nil, errors.Trace(err)
+		}
+		return nil, errors.NotFoundf("model %q", uuid)
+	}
+	return model, nil
 }
 
 // State is part of of the facade.Context interface.

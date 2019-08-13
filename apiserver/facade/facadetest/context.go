@@ -4,6 +4,8 @@
 package facadetest
 
 import (
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
@@ -50,6 +52,11 @@ func (context Context) Hub() facade.Hub {
 // Controller is part of the facade.Context interface.
 func (context Context) Controller() *cache.Controller {
 	return context.Controller_
+}
+
+// CachedModel is part of the facade.Context interface.
+func (context Context) CachedModel(uuid string) (*cache.Model, error) {
+	return context.Controller_.WaitForModel(uuid, clock.WallClock)
 }
 
 // Resources is part of the facade.Context interface.
