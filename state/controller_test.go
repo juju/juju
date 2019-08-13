@@ -212,11 +212,12 @@ func (s *ControllerSuite) TestReopenWithNoMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 
-	st, err := state.Open(s.testOpenParams())
+	controller, err := state.OpenController(s.testOpenParams())
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	defer controller.Close()
+	st := controller.SystemState()
 
-	info, err = s.State.ControllerInfo()
+	info, err = st.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 }

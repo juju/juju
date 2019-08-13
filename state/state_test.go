@@ -4119,30 +4119,6 @@ func (s *StateSuite) TestStateServingInfo(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, data)
 }
 
-var setStateServingInfoWithInvalidInfoTests = []func(info *state.StateServingInfo){
-	func(info *state.StateServingInfo) { info.APIPort = 0 },
-	func(info *state.StateServingInfo) { info.StatePort = 0 },
-	func(info *state.StateServingInfo) { info.Cert = "" },
-	func(info *state.StateServingInfo) { info.PrivateKey = "" },
-}
-
-func (s *StateSuite) TestSetStateServingInfoWithInvalidInfo(c *gc.C) {
-	origData := state.StateServingInfo{
-		APIPort:      69,
-		StatePort:    80,
-		Cert:         "Some cert",
-		PrivateKey:   "Some key",
-		SharedSecret: "Some Keyfile",
-	}
-	for i, test := range setStateServingInfoWithInvalidInfoTests {
-		c.Logf("test %d", i)
-		data := origData
-		test(&data)
-		err := s.State.SetStateServingInfo(data)
-		c.Assert(err, gc.ErrorMatches, "incomplete state serving info set in state")
-	}
-}
-
 func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 	addrs, err := s.State.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
