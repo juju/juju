@@ -4,5 +4,6 @@ test_cmr_bundles() {
         return
     fi
 
-    boostrap lxd "cmr_bundles_test"
+    test_deploy
+    test_export_overlay
 }

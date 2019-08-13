@@ -2,7 +2,7 @@
 [ -n "${GOPATH:-}" ] && export "PATH=${GOPATH}/bin:${PATH}"
 
 # Always ignore SC2230 ('which' is non-standard. Use builtin 'command -v' instead.)
-export SHELLCHECK_OPTS="-e SC2230 -e SC2039 -e SC2028"
+export SHELLCHECK_OPTS="-e SC2230 -e SC2039 -e SC2028 -e SC2002"
 
 import_subdir_files() {
     test "$1"

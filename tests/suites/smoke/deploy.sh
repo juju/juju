@@ -1,7 +1,7 @@
 run_deploy() {
     echo
 
-    file="${TEST_DIR}/smoke_deploy.txt"
+    file="${TEST_DIR}/smoke_test_deploy.txt"
 
     bootstrap lxd "smoke_test_deploy" "${file}"
     CHK=$(cat "${file}" | grep -i "ERROR" || true)

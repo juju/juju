@@ -41,9 +41,11 @@ destroy() {
 }
 
 cleanup_jujus() {
-    echo "====> Cleaning up jujus"
+    if [ -f "${TEST_DIR}/jujus" ]; then
+        echo "====> Cleaning up jujus"
 
-    while read -r juju_name; do
-        destroy "${juju_name}"
-    done < "${TEST_DIR}/jujus"
+        while read -r juju_name; do
+            destroy "${juju_name}"
+        done < "${TEST_DIR}/jujus"
+    fi
 }
