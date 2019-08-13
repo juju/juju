@@ -315,7 +315,7 @@ func (s *crossmodelSuite) TestAddRelationFromURL(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, crossmodel.NewOfferCommand(),
 		"mysql:server", "hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = runJujuCommand(c, "add-relation", "wordpress", "admin/controller.hosted-mysql")
+	_, err = runCommand(c, "add-relation", "wordpress", "admin/controller.hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := s.State.RemoteApplication("hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -342,7 +342,7 @@ func (s *crossmodelSuite) TestAddRelationFromURL(c *gc.C) {
 }
 
 func (s *crossmodelSuite) assertAddRelationSameControllerSuccess(c *gc.C, otherModeluser string) {
-	_, err := runJujuCommand(c, "add-relation", "-m", "admin/controller", "wordpress", otherModeluser+"/othermodel.hosted-mysql")
+	_, err := runCommand(c, "add-relation", "-m", "admin/controller", "wordpress", otherModeluser+"/othermodel.hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.RemoteApplication("hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -449,8 +449,8 @@ func (s *crossmodelSuite) changeUserPassword(c *gc.C, user, password string) {
 }
 
 func (s *crossmodelSuite) createTestUser(c *gc.C) {
-	runJujuCommand(c, "add-user", "test")
-	runJujuCommand(c, "grant", "test", "read", "controller")
+	runCommand(c, "add-user", "test")
+	runCommand(c, "grant", "test", "read", "controller")
 	s.changeUserPassword(c, "test", "hunter2")
 }
 
@@ -458,12 +458,12 @@ func (s *crossmodelSuite) loginTestUser(c *gc.C) {
 	// logout "admin" first; we'll need to give it
 	// a non-random password before we can do so.
 	s.changeUserPassword(c, "admin", "hunter2")
-	runJujuCommand(c, "logout")
+	runCommand(c, "logout")
 	s.runJujuCommndWithStdin(c, strings.NewReader("hunter2\nhunter2\n"), "login", "-u", "test")
 }
 
 func (s *crossmodelSuite) loginAdminUser(c *gc.C) {
-	runJujuCommand(c, "logout")
+	runCommand(c, "logout")
 	s.runJujuCommndWithStdin(c, strings.NewReader("hunter2\nhunter2\n"), "login", "-u", "admin")
 }
 
@@ -474,7 +474,7 @@ func (s *crossmodelSuite) TestAddRelationSameControllerPermissionDenied(c *gc.C)
 
 	s.createTestUser(c)
 	s.loginTestUser(c)
-	context, err := runJujuCommand(c, "add-relation", "-m", "admin/controller", "wordpress", "otheruser/othermodel.hosted-mysql")
+	context, err := runCommand(c, "add-relation", "-m", "admin/controller", "wordpress", "otheruser/othermodel.hosted-mysql")
 	c.Assert(err, gc.NotNil)
 	c.Assert(cmdtesting.Stderr(context), jc.Contains, `application offer "otheruser/othermodel.hosted-mysql" not found`)
 }
@@ -487,8 +487,8 @@ func (s *crossmodelSuite) TestAddRelationSameControllerPermissionAllowed(c *gc.C
 	s.createTestUser(c)
 
 	// Users with consume permission to the offer can add relations.
-	runJujuCommand(c, "grant", "test", "consume", "otheruser/othermodel.hosted-mysql")
-	runJujuCommand(c, "grant", "test", "write", "admin/controller")
+	runCommand(c, "grant", "test", "consume", "otheruser/othermodel.hosted-mysql")
+	runCommand(c, "grant", "test", "write", "admin/controller")
 
 	s.loginTestUser(c)
 	s.assertAddRelationSameControllerSuccess(c, "otheruser")
