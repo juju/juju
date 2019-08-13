@@ -60,12 +60,16 @@ TEST_RESULT=failure
 trap cleanup EXIT HUP INT TERM
 
 # Setup test directory
-TEST_DIR=$(mktemp -d tmp.XXX)
+TEST_DIR=$(mktemp -d tmp.XXX | xargs -I % echo "$(pwd)/%")
 
 run_test() {
     TEST_CURRENT=${1}
     TEST_CURRENT_DESCRIPTION=${2:-${1}}
     TEST_CURRENT_NAME=${TEST_CURRENT#"test_"}
+
+    if [ -n "${4}" ]; then
+        TEST_CURRENT=${4}
+    fi
 
     import_subdir_files "suites/${TEST_CURRENT_NAME}"
 
@@ -79,7 +83,7 @@ run_test() {
 
 # allow for running a specific set of tests
 if [ "$#" -gt 0 ]; then
-    run_test "test_${1}"
+    run_test "test_${1}" "" "$@"
     TEST_RESULT=success
     exit
 fi

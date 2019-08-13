@@ -10,6 +10,8 @@ run_deploy() {
         cat "${file}" | xargs echo -I % "\\n%"
         exit 1
     fi
+
+    destroy "smoke_test_deploy"
 }
 
 test_deploy() {

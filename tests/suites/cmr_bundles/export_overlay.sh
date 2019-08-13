@@ -34,6 +34,8 @@ test_export_overlay() {
     (
         set -e
 
+        cd ../
+
         run "export overlay"
     )
 }

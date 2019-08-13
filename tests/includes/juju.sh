@@ -27,6 +27,13 @@ destroy() {
     name=${1}
     shift
 
+    # shellcheck disable=SC2034
+    OUT=$(juju controllers --format=json | jq '.controllers | keys' | grep "${name}" || true)
+    # shellcheck disable=SC2181
+    if [ $? -ne 0 ]; then
+        return
+    fi
+
     file="${TEST_DIR}/${name}_destroy.txt"
 
     echo "====> Destroying juju ${name}"

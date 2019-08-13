@@ -9,6 +9,15 @@ run_func_vet() {
   fi
 }
 
+run_dep_check() {
+  OUT=$(dep check)
+  if [ -n "${OUT}" ]; then
+    printf "\\nFound some issues"
+    echo "\\n${OUT}" >&2
+    exit 1
+  fi
+}
+
 run_go_vet() {
   go vet -composites=false ./...
 }
@@ -74,6 +83,11 @@ test_static_analysis_go() {
     ## Functions starting by empty line
     run "func vet"
 
+    ## Check dependency is correct
+    if which dep >/dev/null 2>&1; then
+      run "dep check"
+    fi
+
     ## go vet, if it exists
     if go help vet >/dev/null 2>&1; then
       run "go vet"
@@ -95,9 +109,9 @@ test_static_analysis_go() {
     fi
 
     ## ineffassign
-    if which ineffassign >/dev/null 2>&1; then
-      run "ineffassign"
-    fi
+    # if which ineffassign >/dev/null 2>&1; then
+    #  run "ineffassign"
+    # fi
 
     ## go fmt
     run "go fmt" "${FILES}"
