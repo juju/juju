@@ -123,6 +123,16 @@ func NewHubWatcher(config HubWatcherConfig) (*HubWatcher, error) {
 	return watcher, nil
 }
 
+// NewDead returns a new watcher that is already dead
+// and always returns the given error from its Err method.
+func NewDead(err error) *HubWatcher {
+	w := &HubWatcher{
+		logger: noOpLogger{},
+	}
+	w.tomb.Kill(errors.Trace(err))
+	return w
+}
+
 func newHubWatcher(hub HubSource, clock Clock, modelUUID string, logger Logger) (*HubWatcher, <-chan struct{}) {
 	if logger == nil {
 		logger = noOpLogger{}

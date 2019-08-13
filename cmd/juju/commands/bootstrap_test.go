@@ -1929,6 +1929,7 @@ ap-southeast-2
 ap-northeast-1
 ap-northeast-2
 ap-northeast-3
+me-south-1
 sa-east-1
 `[1:])
 }
@@ -1937,7 +1938,7 @@ func (s *BootstrapSuite) TestBootstrapInvalidRegion(c *gc.C) {
 	resetJujuXDGDataHome(c)
 	ctx, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "aws/eu-west")
 	c.Assert(err, gc.ErrorMatches, `region "eu-west" for cloud "aws" not valid`)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Available cloud regions are ap-east-1, ap-northeast-1, ap-northeast-2, ap-northeast-3, ap-south-1, ap-southeast-1, ap-southeast-2, ca-central-1, eu-central-1, eu-north-1, eu-west-1, eu-west-2, eu-west-3, sa-east-1, us-east-1, us-east-2, us-west-1, us-west-2\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Available cloud regions are ap-east-1, ap-northeast-1, ap-northeast-2, ap-northeast-3, ap-south-1, ap-southeast-1, ap-southeast-2, ca-central-1, eu-central-1, eu-north-1, eu-west-1, eu-west-2, eu-west-3, me-south-1, sa-east-1, us-east-1, us-east-2, us-west-1, us-west-2\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
 }
 

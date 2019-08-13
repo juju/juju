@@ -164,6 +164,10 @@ func (ctx *context) setAgentPresence(c *gc.C, p presence.Agent) *presence.Pinger
 
 func (s *StatusSuite) newContext(c *gc.C) *context {
 	st := s.Environ.(testing.GetStater).GetStateInAPIServer()
+	err := st.UpdateControllerConfig(map[string]interface{}{
+		"features": []interface{}{feature.Generations},
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// We make changes in the API server's state so that
 	// our changes to presence are immediately noticed
@@ -4619,7 +4623,6 @@ func (ua setToolsUpgradeAvailable) step(c *gc.C, ctx *context) {
 }
 
 func (s *StatusSuite) TestStatusAllFormats(c *gc.C) {
-	s.SetFeatureFlags(feature.Generations)
 	for i, t := range statusTests {
 		c.Logf("test %d: %s", i, t.summary)
 		func(t testCase) {

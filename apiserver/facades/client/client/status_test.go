@@ -353,7 +353,7 @@ func (s *statusUnitTestSuite) TestWorkloadVersionOkWithUnset(c *gc.C) {
 }
 
 func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
-	s.SetFeatureFlags(feature.Generations)
+	setGenerationsControllerConfig(c, s.State)
 	// Create a host model because controller models can't be migrated.
 	state2 := s.Factory.MakeModel(c, nil)
 	defer state2.Close()
@@ -845,7 +845,7 @@ var _ = gc.Suite(&filteringBranchesSuite{})
 
 func (s *filteringBranchesSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.Generations)
+	setGenerationsControllerConfig(c, s.State)
 
 	s.appA = "mysql"
 	s.appB = "wordpress"
@@ -1030,4 +1030,11 @@ type mockLeadershipReader struct{}
 
 func (m mockLeadershipReader) Leaders() (map[string]string, error) {
 	return make(map[string]string), nil
+}
+
+func setGenerationsControllerConfig(c *gc.C, st *state.State) {
+	err := st.UpdateControllerConfig(map[string]interface{}{
+		"features": []interface{}{feature.Generations},
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
 }

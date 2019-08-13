@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/mongo"
 )
 
 // Register the state tracker as a new profile.
@@ -83,44 +82,6 @@ func OpenController(args OpenParams) (*Controller, error) {
 		pool:     pool,
 		ownsPool: true,
 	}, nil
-}
-
-// Open connects to the server with the given parameters, waits for it
-// to be initialized, and returns a new State representing the model
-// connected to.
-//
-// Open returns unauthorizedError if access is unauthorized.
-func Open(args OpenParams) (*State, error) {
-	if err := args.Validate(); err != nil {
-		return nil, errors.Annotate(err, "validating args")
-	}
-	session := args.MongoSession.Copy()
-	st, err := open(
-		args.ControllerModelTag,
-		session,
-		args.InitDatabaseFunc,
-		nil,
-		args.NewPolicy,
-		args.Clock,
-		args.RunTransactionObserver,
-	)
-	if err != nil {
-		session.Close()
-		return nil, errors.Trace(err)
-	}
-	if _, err := st.Model(); err != nil {
-		if err := st.Close(); err != nil {
-			logger.Errorf("closing State for %s: %v", args.ControllerModelTag, err)
-		}
-		return nil, mongo.MaybeUnauthorizedf(err, "cannot read model %s", args.ControllerModelTag.Id())
-	}
-
-	// State should only be Opened on behalf of a controller environ; all
-	// other *States must be obtained via StatePool.
-	if err := st.start(args.ControllerTag, nil); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return st, nil
 }
 
 func open(

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/os"
 	"github.com/juju/os/series"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -183,8 +182,12 @@ func newFacade(ctx facade.Context) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 
+	controllerCfg, err := st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	var modelCache *cache.Model
-	if featureflag.Enabled(feature.Generations) {
+	if controllerCfg.Features().Contains(feature.Generations) {
 		// NOTE:
 		// Issues with the model cache updating fast enough were causing
 		// intermittent failures in statusUnitTestSuite.TestMigrationInProgress
