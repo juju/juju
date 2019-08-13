@@ -36,17 +36,16 @@ func newModelWatcher(uuid string, hub *pubsub.SimpleHub, model *Model) *modelWat
 		changes:   make(chan *Model, 1),
 		modelUUID: uuid,
 	}
-	if model == nil {
-		unsub := hub.Subscribe(modelUpdatedTopic, w.newModel)
-		w.tomb.Go(func() error {
-			<-w.tomb.Dying()
-			unsub()
-			return nil
-		})
-	} else {
+	if model != nil {
 		// Since changes is buffered, this doesn't block.
 		w.changes <- model
 	}
+	unsub := hub.Subscribe(modelUpdatedTopic, w.onUpdate)
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		unsub()
+		return nil
+	})
 
 	return w
 }
@@ -84,7 +83,7 @@ func (w *modelWatcher) Stop() error {
 	return w.Wait()
 }
 
-func (w *modelWatcher) newModel(topic string, data interface{}) {
+func (w *modelWatcher) onUpdate(topic string, data interface{}) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -94,17 +93,23 @@ func (w *modelWatcher) newModel(topic string, data interface{}) {
 
 	model, ok := data.(*Model)
 	if !ok {
-		logger.Warningf("programming error: topic data expected *Model, got %T", data)
+		logger.Criticalf("programming error: topic data expected *Model, got %T", data)
 		return
 	}
 
 	if model.UUID() == w.modelUUID {
-		// Now in theory we should never block because the caller should
-		// stop this watcher once they have received the model they care about.
-		// But be defensive…
+		// If there is no cached change, then we should be able to send immediately
+		// with no block.
+		//
+		// We explicitly don't sent with a select on the dying channel because we are inside
+		// the mutex, so no one else would be able to kill the watcher. If we try to move this
+		// outside of the mutex, we hit the potential for someone to kill the worker while we are
+		// trying to send, which would cause us to send down a closed channel which causes a panic.
 		select {
 		case w.changes <- model:
-		case <-w.tomb.Dying():
+		default:
+			// If there is a pending change then that is fine. We know the controller doesn't
+			// recreate models, and any new model will have a different UUID.
 		}
 	}
 }

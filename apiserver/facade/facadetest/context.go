@@ -5,6 +5,7 @@ package facadetest
 
 import (
 	"github.com/juju/clock"
+
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
