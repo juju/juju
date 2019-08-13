@@ -327,9 +327,7 @@ func (c *Controller) ensureModel(modelUUID string) *Model {
 	if !found {
 		model = newModel(c.metrics, newPubSubHub(), c.manager.new())
 		c.models[modelUUID] = model
-		logger.Criticalf("not found")
 	} else {
-		logger.Criticalf("found")
 		model.setStale(false)
 	}
 
