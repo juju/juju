@@ -6,10 +6,11 @@ package cache
 import (
 	"time"
 
-	"github.com/juju/juju/testing"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1/workertest"
+
+	"github.com/juju/juju/testing"
 )
 
 type modelWatcherSuite struct {
