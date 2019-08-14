@@ -846,25 +846,36 @@ func (*AddressSuite) TestExactScopeMatch(c *gc.C) {
 }
 
 func (s *AddressSuite) TestSelectAddressesBySpaceNamesFiltered(c *gc.C) {
-	sp := "thaSpace"
-	addrsSpace := []network.Address{network.NewAddressOnSpace(sp, "192.168.5.5")}
+	sp := network.SpaceInfo{
+		Name:       "thaSpace",
+		ProviderId: "",
+		Subnets:    nil,
+	}
+
+	addrsSpace := []network.Address{network.NewAddressOnSpace(string(sp.Name), "192.168.5.5")}
 	addrsNoSpace := []network.Address{network.NewAddress("127.0.0.1")}
 
-	filtered, ok := network.SelectAddressesBySpaceNames(append(addrsSpace, addrsNoSpace...), network.SpaceName(sp))
+	filtered, ok := network.SelectAddressesBySpaces(append(addrsSpace, addrsNoSpace...), sp)
 	c.Check(ok, jc.IsTrue)
 	c.Check(filtered, jc.DeepEquals, addrsSpace)
 }
 
 func (s *AddressSuite) TestSelectAddressesBySpaceNoSpaceFalse(c *gc.C) {
 	addrs := []network.Address{network.NewAddress("127.0.0.1")}
-	filtered, ok := network.SelectAddressesBySpaceNames(addrs)
+	filtered, ok := network.SelectAddressesBySpaces(addrs)
 	c.Check(ok, jc.IsFalse)
 	c.Check(filtered, jc.DeepEquals, addrs)
 }
 
 func (s *AddressSuite) TestSelectAddressesBySpaceNoneFound(c *gc.C) {
+	sp := network.SpaceInfo{
+		Name:       "noneSpace",
+		ProviderId: "",
+		Subnets:    nil,
+	}
+
 	addrs := []network.Address{network.NewAddress("127.0.0.1")}
-	filtered, ok := network.SelectAddressesBySpaceNames(addrs, "noneSpace")
+	filtered, ok := network.SelectAddressesBySpaces(addrs, sp)
 	c.Check(ok, jc.IsFalse)
 	c.Check(filtered, jc.DeepEquals, addrs)
 }

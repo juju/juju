@@ -10,7 +10,6 @@ import (
 	"math/rand"
 	"net"
 	"sort"
-	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -70,28 +69,6 @@ const (
 // containers.
 type Scope string
 
-// SpaceName holds the Juju space name of an address.
-type SpaceName string
-type spaceNameList []SpaceName
-
-func (s spaceNameList) String() string {
-	namesString := make([]string, len(s))
-	for i, v := range s {
-		namesString[i] = string(v)
-	}
-
-	return strings.Join(namesString, ", ")
-}
-
-func (s spaceNameList) IndexOf(name SpaceName) int {
-	for i := range s {
-		if s[i] == name {
-			return i
-		}
-	}
-	return -1
-}
-
 const (
 	ScopeUnknown      Scope = ""
 	ScopePublic       Scope = "public"
@@ -104,10 +81,10 @@ const (
 // Address represents the location of a machine, including metadata
 // about what kind of location the address describes.
 type Address struct {
-	Value string
-	Type  AddressType
-	Scope
-	SpaceName
+	Value     string
+	Type      AddressType
+	Scope     Scope
+	SpaceName SpaceName
 	// TODO (manadart 2019-07-12): Rename to ProviderSpaceId for consistency.
 	SpaceProviderId Id
 }
@@ -288,15 +265,17 @@ func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
 
 // SelectAddressesBySpaceNames filters the input slice of Addresses down to
 // those in the input space names.
-func SelectAddressesBySpaceNames(addresses []Address, spaceNames ...SpaceName) ([]Address, bool) {
-	if len(spaceNames) == 0 {
+func SelectAddressesBySpaces(addresses []Address, spaces ...SpaceInfo) ([]Address, bool) {
+	if len(spaces) == 0 {
 		logger.Errorf("addresses not filtered - no spaces given.")
 		return addresses, false
 	}
 
+	spaceInfos := SpaceInfos(spaces)
+
 	var selectedAddresses []Address
 	for _, addr := range addresses {
-		if spaceNameList(spaceNames).IndexOf(addr.SpaceName) >= 0 {
+		if spaceInfos.HasSpaceWithName(addr.SpaceName) {
 			logger.Debugf("selected %q as an address in space %q", addr.Value, addr.SpaceName)
 			selectedAddresses = append(selectedAddresses, addr)
 		}
@@ -306,21 +285,23 @@ func SelectAddressesBySpaceNames(addresses []Address, spaceNames ...SpaceName) (
 		return selectedAddresses, true
 	}
 
-	logger.Errorf("no addresses found in spaces %s", spaceNames)
+	logger.Errorf("no addresses found in spaces %s", spaceInfos)
 	return addresses, false
 }
 
 // SelectHostPortsBySpaceNames filters the input slice of HostPorts down to
 // those in the input space names.
-func SelectHostPortsBySpaceNames(hps []HostPort, spaceNames ...SpaceName) ([]HostPort, bool) {
-	if len(spaceNames) == 0 {
+func SelectHostPortsBySpaces(hps []HostPort, spaces ...SpaceInfo) ([]HostPort, bool) {
+	if len(spaces) == 0 {
 		logger.Errorf("host ports not filtered - no spaces given.")
 		return hps, false
 	}
 
+	spaceInfos := SpaceInfos(spaces)
+
 	var selectedHostPorts []HostPort
 	for _, hp := range hps {
-		if spaceNameList(spaceNames).IndexOf(hp.SpaceName) >= 0 {
+		if spaceInfos.HasSpaceWithName(hp.SpaceName) {
 			logger.Debugf("selected %q as a hostPort in space %q", hp.Value, hp.SpaceName)
 			selectedHostPorts = append(selectedHostPorts, hp)
 		}
@@ -330,7 +311,7 @@ func SelectHostPortsBySpaceNames(hps []HostPort, spaceNames ...SpaceName) ([]Hos
 		return selectedHostPorts, true
 	}
 
-	logger.Errorf("no hostPorts found in spaces %s", spaceNames)
+	logger.Errorf("no hostPorts found in spaces %s", spaceInfos)
 	return hps, false
 }
 
