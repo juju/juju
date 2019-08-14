@@ -404,10 +404,6 @@ func (c *Client) createImportSpec(
 	c.logger.Debugf("Creating import spec")
 	cisp := types.OvfCreateImportSpecParams{
 		EntityName: vmTemplateName(args),
-		PropertyMapping: []types.KeyValue{
-			{Key: "user-data", Value: args.UserData},
-			{Key: "hostname", Value: args.Name},
-		},
 	}
 
 	c.logger.Debugf("Fetching OVF manager")
