@@ -468,11 +468,17 @@ func (c *Client) cloneVM(
 		args.UpdateProgress,
 		args.UpdateProgressInterval,
 	}
+
 	vmConfigSpec := &types.VirtualMachineConfigSpec{}
 	err = c.buildConfigSpec(ctx, args, vmConfigSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	newVAppConfig, err := customiseVAppConfig(ctx, srcVM, args)
+	if err != nil {
+		return nil, errors.Annotate(err, "changing VApp config")
+	}
+	vmConfigSpec.VAppConfig = newVAppConfig
 
 	task, err := srcVM.Clone(ctx, vmFolder, args.Name, types.VirtualMachineCloneSpec{
 		Config: vmConfigSpec,
@@ -507,6 +513,47 @@ func (c *Client) cloneVM(
 	}
 
 	return vm, nil
+}
+
+func customiseVAppConfig(
+	ctx context.Context,
+	srcVM *object.VirtualMachine,
+	args CreateVirtualMachineParams,
+) (*types.VmConfigSpec, error) {
+	var vmProps mo.VirtualMachine
+	if err := srcVM.Properties(ctx, srcVM.Reference(), []string{"config.vAppConfig"}, &vmProps); err != nil {
+		return nil, errors.Annotate(err, "getting vAppConfig from template")
+	}
+
+	hostnameKey := int32(-1)
+	userDataKey := int32(-1)
+
+	vmConfigInfo := vmProps.Config.VAppConfig.GetVmConfigInfo()
+	for _, property := range vmConfigInfo.Property {
+		switch property.Id {
+		case "hostname":
+			hostnameKey = property.Key
+		case "user-data":
+			userDataKey = property.Key
+		}
+	}
+
+	if hostnameKey == -1 {
+		return nil, errors.Errorf("couldn't find hostname property on template %q", srcVM.InventoryPath)
+	}
+	if userDataKey == -1 {
+		return nil, errors.Errorf("couldn't find user-data property on template %q", srcVM.InventoryPath)
+	}
+
+	return &types.VmConfigSpec{
+		Property: []types.VAppPropertySpec{{
+			ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+			Info:            &types.VAppPropertyInfo{Key: hostnameKey, Value: args.Name},
+		}, {
+			ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+			Info:            &types.VAppPropertyInfo{Key: userDataKey, Value: args.UserData},
+		}},
+	}, nil
 }
 
 func (c *Client) getDiskWithFileBacking(

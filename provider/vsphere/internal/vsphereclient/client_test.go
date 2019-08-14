@@ -281,6 +281,67 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 						Value: "FakeResourcePool0",
 					},
 				},
+				{
+					Name: "config.vAppConfig",
+					Val: &types.VmConfigInfo{
+						Product: []types.VAppProductInfo{
+							{
+								Key:  0,
+								Name: "Ubuntu 16.04 Server (20170815)",
+							},
+						},
+						Property: []types.VAppPropertyInfo{{
+							Key:              0,
+							Id:               "instance-id",
+							Label:            "A Unique Instance ID for this instance",
+							Type:             "string",
+							UserConfigurable: types.NewBool(true),
+							DefaultValue:     "id-ovf",
+							Value:            "",
+						}, {
+							Key:              1,
+							Id:               "hostname",
+							Label:            "hostname",
+							Type:             "string",
+							UserConfigurable: types.NewBool(true),
+							DefaultValue:     "ubuntuguest",
+							Value:            "",
+							Description:      "Specifies the hostname for the appliance",
+						}, {
+							Key:              2,
+							Id:               "seedfrom",
+							Label:            "Url to seed instance data from",
+							Type:             "string",
+							UserConfigurable: types.NewBool(true),
+							DefaultValue:     "",
+							Value:            "",
+						}, {
+							Key:              3,
+							Id:               "public-keys",
+							Label:            "ssh public keys",
+							Type:             "string",
+							UserConfigurable: types.NewBool(true),
+							DefaultValue:     "",
+							Value:            "",
+						}, {
+							Key:              4,
+							Id:               "user-data",
+							Label:            "Encoded user-data",
+							Type:             "string",
+							UserConfigurable: types.NewBool(true),
+							DefaultValue:     "",
+							Value:            "",
+						}, {
+							Key:              5,
+							Id:               "password",
+							Label:            "Default User's password",
+							Type:             "string",
+							UserConfigurable: types.NewBool(true),
+							DefaultValue:     "",
+							Value:            "",
+						}},
+					},
+				},
 			},
 		}},
 		"FakeVm1": {{
@@ -559,8 +620,8 @@ func (s *clientSuite) TestEnsureVMFolder(c *gc.C) {
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
-		{"CreateFolder", nil},
-		{"CreateFolder", nil},
+		{"CreateFolder", []interface{}{"foo"}},
+		{"CreateFolder", []interface{}{"bar"}},
 	})
 }
 

@@ -5,6 +5,7 @@ package vsphereclient
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -60,9 +61,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusUpdates, jc.DeepEquals, []string{
-		"creating template",
-		"creating import spec",
-		`creating template VM "vm-0-template"`,
+		fmt.Sprintf(`creating template VM "juju-template-%s"`, args.OVASHA256),
 		"streaming vmdk: 100.00% (0B/s)",
 		"cloning template",
 		"powering on",
@@ -74,7 +73,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 	c.Assert(string(contents), gc.Equals, "FakeVmdkContent")
 
 	templateCisp := baseCisp()
-	templateCisp.EntityName = vmTemplateName(templateCisp.EntityName)
+	templateCisp.EntityName = vmTemplateName(args)
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
@@ -88,8 +87,6 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		retrievePropertiesStubCall("FakeDatacenter"),
 		retrievePropertiesStubCall("FakeVmFolder"),
 		retrievePropertiesStubCall("FakeVmFolder"),
-		retrievePropertiesStubCall("FakeControllerVmFolder"),
-		retrievePropertiesStubCall("FakeModelVmFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
 		retrievePropertiesStubCall("FakeDatastore1", "FakeDatastore2"),
 		{"CreateImportSpec", []interface{}{
@@ -100,6 +97,12 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		retrievePropertiesStubCall("network-0", "network-1"),
 		retrievePropertiesStubCall("onetwork-0"), // "opaque network"
 		retrievePropertiesStubCall("dvportgroup-0"),
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeDatacenter"),
+		{"CreateFolder", []interface{}{"juju-vmdks"}},
+		{"CreateFolder", []interface{}{"ctrl"}},
+		{"CreateFolder", []interface{}{"xenial"}},
 		{"ImportVApp", []interface{}{
 			&types.VirtualMachineImportSpec{
 				ConfigSpec: types.VirtualMachineConfigSpec{
@@ -118,14 +121,23 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		{"WaitForUpdatesEx", nil},
 		{"HttpNfcLeaseComplete", []interface{}{"FakeLease"}},
 		{"MarkAsTemplateBody", []interface{}{"FakeVm0"}},
-		{"CloneVM_Task", nil},
-		{"CreatePropertyCollector", nil},
-		{"CreateFilter", nil},
-		{"WaitForUpdatesEx", nil},
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("network-0", "network-1"),
 		retrievePropertiesStubCall("onetwork-0"),
 		retrievePropertiesStubCall("dvportgroup-0"),
-		{"ReconfigVM_Task", nil},
+		retrievePropertiesStubCall("FakeVm0"),
+		{"CloneVM_Task", []interface{}{
+			&types.VmConfigSpec{
+				Property: []types.VAppPropertySpec{{
+					ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+					Info:            &types.VAppPropertyInfo{Key: 1, Value: "vm-0"},
+				}, {
+					ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+					Info:            &types.VAppPropertyInfo{Key: 4, Value: "baz"},
+				}},
+			},
+		}},
 		{"CreatePropertyCollector", nil},
 		{"CreateFilter", nil},
 		{"WaitForUpdatesEx", nil},
@@ -144,7 +156,7 @@ func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *gc.C) {
 	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.roundTripper.CheckCall(c, 20, "ImportVApp", &types.VirtualMachineImportSpec{
+	s.roundTripper.CheckCall(c, 24, "ImportVApp", &types.VirtualMachineImportSpec{
 		ConfigSpec: types.VirtualMachineConfigSpec{
 			Name: "vm-name",
 			ExtraConfig: []types.BaseOptionValue{
@@ -174,9 +186,9 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreSpecified(c *gc.C) {
 	//findStubCall(c, s.roundTripper.Calls(), "?")
 
 	cisp := baseCisp()
-	cisp.EntityName = vmTemplateName(cisp.EntityName)
+	cisp.EntityName = vmTemplateName(args)
 	s.roundTripper.CheckCall(
-		c, 16, "CreateImportSpec", UbuntuOVF,
+		c, 14, "CreateImportSpec", UbuntuOVF,
 		types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"},
 		cisp,
 	)
@@ -287,7 +299,7 @@ func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefa
 		},
 	}
 
-	s.roundTripper.CheckCall(c, 20, "ImportVApp", &types.VirtualMachineImportSpec{
+	s.roundTripper.CheckCall(c, 24, "ImportVApp", &types.VirtualMachineImportSpec{
 		ConfigSpec: types.VirtualMachineConfigSpec{
 			Name: "vm-name",
 			ExtraConfig: []types.BaseOptionValue{
@@ -333,13 +345,13 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *gc.
 	}
 
 	retrieveDVSCall := retrievePropertiesStubCall("dvs-0")
-	s.roundTripper.CheckCall(c, 20, retrieveDVSCall.FuncName, retrieveDVSCall.Args...)
-	s.roundTripper.CheckCall(c, 34, retrieveDVSCall.FuncName, retrieveDVSCall.Args...)
+	s.roundTripper.CheckCall(c, 18, retrieveDVSCall.FuncName, retrieveDVSCall.Args...)
+	s.roundTripper.CheckCall(c, 36, retrieveDVSCall.FuncName, retrieveDVSCall.Args...)
 
 	// When the external network is a distributed virtual portgroup,
 	// we must make an additional RetrieveProperties call to fetch
 	// the DVS's UUID. This bumps the ImportVApp position by one.
-	s.roundTripper.CheckCall(c, 21, "ImportVApp", &types.VirtualMachineImportSpec{
+	s.roundTripper.CheckCall(c, 25, "ImportVApp", &types.VirtualMachineImportSpec{
 		ConfigSpec: types.VirtualMachineConfigSpec{
 			Name: "vm-name",
 			ExtraConfig: []types.BaseOptionValue{
@@ -555,10 +567,6 @@ func baseCreateVirtualMachineParams(c *gc.C) CreateVirtualMachineParams {
 func baseCisp() types.OvfCreateImportSpecParams {
 	return types.OvfCreateImportSpecParams{
 		EntityName: "vm-0",
-		PropertyMapping: []types.KeyValue{
-			{Key: "user-data", Value: "baz"},
-			{Key: "hostname", Value: "vm-0"},
-		},
 	}
 }
 
