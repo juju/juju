@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	jworker "github.com/juju/juju/worker"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1/catacomb"
 )
@@ -81,6 +82,12 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 }
 
 func (w *RemoteStateWatcher) loop() (err error) {
+	defer func() {
+		if errors.IsNotFound(err) {
+			err = jworker.ErrTerminateAgent
+		}
+	}()
+
 	var requiredEvents int
 
 	var seenApplicationChange bool
@@ -118,7 +125,6 @@ func (w *RemoteStateWatcher) loop() (err error) {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-
 		case _, ok := <-applicationChanges:
 			logger.Debugf("got application change")
 			if !ok {
