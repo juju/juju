@@ -58,7 +58,6 @@ func newNotifyWatcherBase() *notifyWatcherBase {
 }
 
 // Changes is part of the core watcher definition.
-// The changes channel is never closed.
 func (w *notifyWatcherBase) Changes() <-chan struct{} {
 	return w.changes
 }
