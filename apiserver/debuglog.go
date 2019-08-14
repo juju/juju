@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -34,6 +35,8 @@ type debugLogHandler struct {
 }
 
 type debugLogHandlerFunc func(
+	clock.Clock,
+	time.Duration,
 	state.LogTailerState,
 	debugLogParams,
 	debugLogSocket,
@@ -112,7 +115,10 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		if err := h.handle(st, params, socket, h.ctxt.stop()); err != nil {
+		clock := h.ctxt.srv.clock
+		maxDuration := h.ctxt.srv.shared.maxDebugLogDuration()
+
+		if err := h.handle(clock, maxDuration, st, params, socket, h.ctxt.stop()); err != nil {
 			if isBrokenPipe(err) {
 				logger.Tracef("debug-log handler stopped (client disconnected)")
 			} else {
