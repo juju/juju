@@ -461,14 +461,14 @@
   revision = "9c5c9712527c7986f012361e7d13756b4d99543d"
 
 [[projects]]
-  digest = "1:c14a973d9b66b6a4b8b21ae7a345a032c80d3574cc1391d37d59a2c793892356"
+  digest = "1:7699a4597477ccffbf8310edc22eb2c976782fae3790b463eea62a0b39f42898"
   name = "github.com/juju/cmd"
   packages = [
     ".",
     "cmdtesting",
   ]
   pruneopts = ""
-  revision = "26546fa0123cbf702dff02aec8700af5cd944c2d"
+  revision = "0ed15c27f59d51d10b1f1fe3671825f8f785ff72"
 
 [[projects]]
   digest = "1:243ec2217cb77ad028a956bf4d886b0f070d2dbfe861ceadfcf270412c2e7b90"

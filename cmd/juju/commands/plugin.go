@@ -47,6 +47,7 @@ func extractJujuArgs(args []string) []string {
 	return jujuArgs
 }
 
+// RunPlugin attempts to find the plugin on path to run
 func RunPlugin(callback cmd.MissingCallback) cmd.MissingCallback {
 	return func(ctx *cmd.Context, subcommand string, args []string) error {
 		cmdName := JujuPluginPrefix + subcommand

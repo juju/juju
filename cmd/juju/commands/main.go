@@ -248,7 +248,7 @@ type NotFoundCommand struct {
 func (c NotFoundCommand) Error() string {
 	return fmt.Sprintf(`juju: %q is not a juju command. See "juju --help".
 
-Did you mean this?
+Did you mean:
 	%s`, c.ArgName, c.CmdName)
 }
 
