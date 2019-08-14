@@ -1284,7 +1284,6 @@ func (u *UniterAPI) Refresh(args params.Entities) (params.UnitRefreshResults, er
 
 func (u *UniterAPI) getProviderID(unit *state.Unit) (string, error) {
 	container, err := unit.ContainerInfo()
-	logger.Criticalf("UniterAPI.getProviderID -> %v, %v", container, err)
 	if err != nil {
 		return "", err
 	}
