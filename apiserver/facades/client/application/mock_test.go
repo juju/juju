@@ -594,7 +594,7 @@ func (m *mockBackend) AddRemoteApplication(args state.AddRemoteApplicationParams
 	for _, sp := range args.Spaces {
 		remoteSpaceInfo := state.RemoteSpace{
 			CloudType:          sp.CloudType,
-			Name:               sp.Name,
+			Name:               string(sp.Name),
 			ProviderId:         string(sp.ProviderId),
 			ProviderAttributes: sp.ProviderAttributes,
 		}
