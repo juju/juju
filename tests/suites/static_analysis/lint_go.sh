@@ -81,7 +81,8 @@ test_static_analysis_go() {
     FILES=$(find ./* -name '*.go' -not -name '.#*' -not -name '*_mock.go' | grep -v vendor/ | grep -v acceptancetests/)
 
     ## Functions starting by empty line
-    run "func vet"
+    # turned off until we get approval of test suite
+    # run "func vet"
 
     ## Check dependency is correct
     if which dep >/dev/null 2>&1; then
@@ -109,6 +110,7 @@ test_static_analysis_go() {
     fi
 
     ## ineffassign
+    # turned off until we get approval of test suite
     # if which ineffassign >/dev/null 2>&1; then
     #  run "ineffassign"
     # fi
