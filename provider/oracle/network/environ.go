@@ -332,7 +332,7 @@ func (e Environ) Spaces(ctx context.ProviderCallContext) ([]corenetwork.SpaceInf
 			logger.Infof("creating new space obj for %s and adding %s",
 				name, string(val.ProviderId))
 			exchanges[name] = corenetwork.SpaceInfo{
-				Name:       name,
+				Name:       corenetwork.SpaceName(name),
 				ProviderId: val.ProviderSpaceId,
 				Subnets: []corenetwork.SubnetInfo{
 					val,
