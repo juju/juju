@@ -287,11 +287,9 @@ func (env *sessionEnviron) AllInstances(ctx context.ProviderCallContext) ([]inst
 		return nil, errors.Trace(err)
 	}
 
-	// Turn mo.VirtualMachine values into *environInstance values,
-	// whether or not we got an error.
-	results := make([]instances.Instance, len(vms))
-	for i, vm := range vms {
-		results[i] = newInstance(vm, env.environ)
+	var results []instances.Instance
+	for _, vm := range vms {
+		results = append(results, newInstance(vm, env.environ))
 	}
 	return results, err
 }

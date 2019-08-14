@@ -5,11 +5,13 @@ package vsphereclient
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"path"
 	"strings"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -441,38 +443,117 @@ func (c *Client) DeleteDatastoreFile(ctx context.Context, datastorePath string) 
 	return nil
 }
 
-func (c *Client) destroyVM(
-	ctx context.Context,
-	vm *object.VirtualMachine,
-	taskWaiter *taskWaiter,
-) error {
-	task, err := vm.Destroy(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	_, err = taskWaiter.waitTask(ctx, task, "destroying VM")
-	return errors.Trace(err)
+// megabytesToB converts the root disk constraint (which uses megabytes for its unit) to bytes
+func megabytesToB(diskMiB uint64) uint64 {
+	return diskMiB * 1024 * 1024
+}
+
+// megabytesToKiB converts the root disk constraint (which uses megabytes for its unit) to kibibytes
+func megabytesToKiB(diskMiB uint64) uint64 {
+	return diskMiB * 1024
 }
 
 func (c *Client) cloneVM(
 	ctx context.Context,
+	args CreateVirtualMachineParams,
 	srcVM *object.VirtualMachine,
-	dstName string,
 	vmFolder *object.Folder,
-	taskWaiter *taskWaiter,
 ) (*object.VirtualMachine, error) {
-	task, err := srcVM.Clone(ctx, vmFolder, dstName, types.VirtualMachineCloneSpec{
-		Config:   &types.VirtualMachineConfigSpec{},
-		Location: types.VirtualMachineRelocateSpec{},
+	_, datacenter, err := c.finder(ctx)
+	if err != nil {
+		return nil, err
+	}
+	taskWaiter := &taskWaiter{
+		args.Clock,
+		args.UpdateProgress,
+		args.UpdateProgressInterval,
+	}
+
+	vmConfigSpec := &types.VirtualMachineConfigSpec{}
+	err = c.buildConfigSpec(ctx, args, vmConfigSpec)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	newVAppConfig, err := customiseVAppConfig(ctx, srcVM, args)
+	if err != nil {
+		return nil, errors.Annotate(err, "changing VApp config")
+	}
+	vmConfigSpec.VAppConfig = newVAppConfig
+
+	task, err := srcVM.Clone(ctx, vmFolder, args.Name, types.VirtualMachineCloneSpec{
+		Config: vmConfigSpec,
+		Location: types.VirtualMachineRelocateSpec{
+			Pool: &args.ResourcePool,
+		},
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	info, err := taskWaiter.waitTask(ctx, task, "cloning VM")
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	return object.NewVirtualMachine(c.client.Client, info.Result.(types.ManagedObjectReference)), nil
+
+	vm := object.NewVirtualMachine(c.client.Client, info.Result.(types.ManagedObjectReference))
+
+	if args.Constraints.RootDisk != nil {
+		// The user specified a root disk, so extend the VM's
+		// disk before powering the VM on.
+		args.UpdateProgress(fmt.Sprintf(
+			"extending disk to %s",
+			humanize.IBytes(megabytesToB(*args.Constraints.RootDisk)),
+		))
+		if err := c.extendVMRootDisk(
+			ctx, vm, datacenter,
+			*args.Constraints.RootDisk,
+			taskWaiter,
+		); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	return vm, nil
+}
+
+func customiseVAppConfig(
+	ctx context.Context,
+	srcVM *object.VirtualMachine,
+	args CreateVirtualMachineParams,
+) (*types.VmConfigSpec, error) {
+	var vmProps mo.VirtualMachine
+	if err := srcVM.Properties(ctx, srcVM.Reference(), []string{"config.vAppConfig"}, &vmProps); err != nil {
+		return nil, errors.Annotate(err, "getting vAppConfig from template")
+	}
+
+	hostnameKey := int32(-1)
+	userDataKey := int32(-1)
+
+	vmConfigInfo := vmProps.Config.VAppConfig.GetVmConfigInfo()
+	for _, property := range vmConfigInfo.Property {
+		switch property.Id {
+		case "hostname":
+			hostnameKey = property.Key
+		case "user-data":
+			userDataKey = property.Key
+		}
+	}
+
+	if hostnameKey == -1 {
+		return nil, errors.Errorf("couldn't find hostname property on template %q", srcVM.InventoryPath)
+	}
+	if userDataKey == -1 {
+		return nil, errors.Errorf("couldn't find user-data property on template %q", srcVM.InventoryPath)
+	}
+
+	return &types.VmConfigSpec{
+		Property: []types.VAppPropertySpec{{
+			ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+			Info:            &types.VAppPropertyInfo{Key: hostnameKey, Value: args.Name},
+		}, {
+			ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+			Info:            &types.VAppPropertyInfo{Key: userDataKey, Value: args.UserData},
+		}},
+	}, nil
 }
 
 func (c *Client) getDiskWithFileBacking(
@@ -549,52 +630,10 @@ func (c *Client) extendDisk(
 	return errors.Trace(ErrExtendDisk)
 }
 
-func (c *Client) detachDisk(
-	ctx context.Context,
-	vm *object.VirtualMachine,
-	taskWaiter *taskWaiter,
-) (string, error) {
-
-	var mo mo.VirtualMachine
-	if err := c.client.RetrieveOne(ctx, vm.Reference(), []string{"config.hardware"}, &mo); err != nil {
-		return "", errors.Trace(err)
-	}
-
-	var spec types.VirtualMachineConfigSpec
-	var vmdkDatastorePath string
-	for _, dev := range mo.Config.Hardware.Device {
-		dev, ok := dev.(*types.VirtualDisk)
-		if !ok {
-			continue
-		}
-		backing, ok := dev.Backing.(types.BaseVirtualDeviceFileBackingInfo)
-		if !ok {
-			continue
-		}
-		vmdkDatastorePath = backing.GetVirtualDeviceFileBackingInfo().FileName
-		spec.DeviceChange = []types.BaseVirtualDeviceConfigSpec{
-			&types.VirtualDeviceConfigSpec{
-				Operation: types.VirtualDeviceConfigSpecOperationRemove,
-				Device:    dev,
-			},
-		}
-		break
-	}
-	if len(spec.DeviceChange) != 1 {
-		return "", errors.New("disk device not found")
-	}
-
-	task, err := vm.Reconfigure(ctx, spec)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if _, err := taskWaiter.waitTask(ctx, task, "detaching disk"); err != nil {
-		return "", errors.Trace(err)
-	}
-	return vmdkDatastorePath, nil
-}
-
 func isManagedObjectNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
 	if f, ok := err.(types.HasFault); ok {
 		switch f.Fault().(type) {
 		case *types.ManagedObjectNotFound:
