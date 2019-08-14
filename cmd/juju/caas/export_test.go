@@ -85,3 +85,7 @@ func (f *fakeCluster) ensureExecutable() error {
 func FakeCluster(config string) k8sCluster {
 	return &fakeCluster{config: config, cloudType: "gce"}
 }
+
+var (
+	CheckCloudRegion = checkCloudRegion
+)
