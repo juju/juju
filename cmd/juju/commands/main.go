@@ -218,15 +218,38 @@ func juju2xConfigDataExists() bool {
 
 // NewJujuCommand ...
 func NewJujuCommand(ctx *cmd.Context) cmd.Command {
-	jcmd := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name:                "juju",
-		Doc:                 jujuDoc,
-		MissingCallback:     RunPlugin,
+	var jcmd *cmd.SuperCommand
+	jcmd = jujucmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name: "juju",
+		Doc:  jujuDoc,
+		MissingCallback: RunPlugin(func(ctx *cmd.Context, subcommand string, args []string) error {
+			if cmdName, _, ok := jcmd.FindClosestSubCommand(subcommand); ok {
+				return NotFoundCommand{
+					ArgName: subcommand,
+					CmdName: cmdName,
+				}
+			}
+			return &cmd.UnrecognizedCommand{Name: subcommand}
+		}),
 		UserAliasesFilename: osenv.JujuXDGDataHomePath("aliases"),
 		FlagKnownAs:         "option",
 	})
 	registerCommands(jcmd, ctx)
 	return jcmd
+}
+
+// NotFoundCommand gives valuable feedback to the operator about what commands
+// could be available if a mistake around the subcommand name is given.
+type NotFoundCommand struct {
+	ArgName string
+	CmdName string
+}
+
+func (c NotFoundCommand) Error() string {
+	return fmt.Sprintf(`juju: %q is not a juju command. See "juju --help".
+
+Did you mean this?
+	%s`, c.ArgName, c.CmdName)
 }
 
 type commandRegistry interface {

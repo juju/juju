@@ -47,31 +47,34 @@ func extractJujuArgs(args []string) []string {
 	return jujuArgs
 }
 
-func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
-	cmdName := JujuPluginPrefix + subcommand
-	plugin := &PluginCommand{name: cmdName}
+func RunPlugin(callback cmd.MissingCallback) cmd.MissingCallback {
+	return func(ctx *cmd.Context, subcommand string, args []string) error {
+		cmdName := JujuPluginPrefix + subcommand
+		plugin := &PluginCommand{name: cmdName}
 
-	// We process common flags supported by Juju commands.
-	// To do this, we extract only those supported flags from the
-	// argument list to avoid confusing flags.Parse().
-	flags := gnuflag.NewFlagSetWithFlagKnownAs(cmdName, gnuflag.ContinueOnError, "option")
-	flags.SetOutput(ioutil.Discard)
-	plugin.SetFlags(flags)
-	jujuArgs := extractJujuArgs(args)
-	if err := flags.Parse(false, jujuArgs); err != nil {
-		return err
+		// We process common flags supported by Juju commands.
+		// To do this, we extract only those supported flags from the
+		// argument list to avoid confusing flags.Parse().
+		flags := gnuflag.NewFlagSetWithFlagKnownAs(cmdName, gnuflag.ContinueOnError, "option")
+		flags.SetOutput(ioutil.Discard)
+		plugin.SetFlags(flags)
+		jujuArgs := extractJujuArgs(args)
+		if err := flags.Parse(false, jujuArgs); err != nil {
+			return err
+		}
+		if err := plugin.Init(args); err != nil {
+			return err
+		}
+		err := plugin.Run(ctx)
+		_, execError := err.(*exec.Error)
+		// exec.Error results are for when the executable isn't found, in
+		// those cases, drop through.
+		if !execError {
+			return err
+		}
+
+		return callback(ctx, subcommand, args)
 	}
-	if err := plugin.Init(args); err != nil {
-		return err
-	}
-	err := plugin.Run(ctx)
-	_, execError := err.(*exec.Error)
-	// exec.Error results are for when the executable isn't found, in
-	// those cases, drop through.
-	if !execError {
-		return err
-	}
-	return &cmd.UnrecognizedCommand{Name: subcommand}
 }
 
 type PluginCommand struct {
