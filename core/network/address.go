@@ -263,8 +263,8 @@ func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
 	return false
 }
 
-// SelectAddressesBySpaceNames filters the input slice of Addresses down to
-// those in the input space names.
+// SelectAddressesBySpaceNames filters the input slice of
+// Addresses down to those in the input spaces.
 func SelectAddressesBySpaces(addresses []Address, spaces ...SpaceInfo) ([]Address, bool) {
 	if len(spaces) == 0 {
 		logger.Errorf("addresses not filtered - no spaces given.")

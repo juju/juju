@@ -101,7 +101,7 @@ func (c *controllerTracker) SelectMongoAddressFromSpace(port int, space network.
 	addrs, ok := network.SelectHostPortsBySpaces(hostPorts, space)
 	if ok {
 		addr := addrs[0].NetAddr()
-		logger.Debugf("controller node %q selected address %q by space %q from %v", c.id, addr, space, hostPorts)
+		logger.Debugf("controller node %q selected address %q by space %q from %v", c.id, addr, space.Name, hostPorts)
 		return addr, nil
 	}
 
