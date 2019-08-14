@@ -71,7 +71,8 @@ func (s *Space) Subnets() ([]*Subnet, error) {
 	var doc subnetDoc
 	var results []*Subnet
 	// We ignore space-name field for FAN subnets...
-	iter := subnetsCollection.Find(bson.D{{"space-id", id}, bson.DocElem{"fan-local-underlay", bson.D{{"$exists", false}}}}).Iter()
+	iter := subnetsCollection.Find(
+		bson.D{{"space-id", id}, bson.DocElem{Name: "fan-local-underlay", Value: bson.D{{"$exists", false}}}}).Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
 		subnet := &Subnet{s.st, doc, id}
@@ -87,6 +88,15 @@ func (s *Space) Subnets() ([]*Subnet, error) {
 		return nil, errors.Annotatef(err, "cannot fetch subnets")
 	}
 	return results, nil
+}
+
+func (s *Space) NetworkSpace() network.SpaceInfo {
+	return network.SpaceInfo{
+		Name:       network.SpaceName(s.Name()),
+		ProviderId: s.ProviderId(),
+		// TODO (manadart 2019-08-13): Populate these after subnet refactor.
+		Subnets: nil,
+	}
 }
 
 // AddSpace creates and returns a new space.

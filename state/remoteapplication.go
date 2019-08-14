@@ -774,7 +774,7 @@ func (p AddRemoteApplicationParams) Validate() error {
 	}
 	spaceNames := set.NewStrings()
 	for _, space := range p.Spaces {
-		spaceNames.Add(space.Name)
+		spaceNames.Add(string(space.Name))
 	}
 	for endpoint, space := range p.Bindings {
 		if !spaceNames.Contains(space) {
@@ -836,7 +836,7 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 	for i, space := range args.Spaces {
 		spaces[i] = remoteSpaceDoc{
 			CloudType:          space.CloudType,
-			Name:               space.Name,
+			Name:               string(space.Name),
 			ProviderId:         string(space.ProviderId),
 			ProviderAttributes: space.ProviderAttributes,
 		}

@@ -158,15 +158,14 @@ func (st *State) SaveSpacesFromProvider(providerSpaces []corenetwork.SpaceInfo) 
 	// TODO(mfoord): we need to delete spaces and subnets that no longer
 	// exist, so long as they're not in use.
 	for _, space := range providerSpaces {
-		// Check if the space is already in state, in which case we know
-		// its name.
+		// Check if the space is already in state,
+		// in which case we know its name.
 		stateSpace, ok := modelSpaceMap[space.ProviderId]
 		var spaceTag names.SpaceTag
 		if ok {
 			spaceName := stateSpace.Name()
 			if !names.IsValidSpace(spaceName) {
-				// Can only happen if an invalid name is stored
-				// in state.
+				// Can only happen if an invalid name is stored in state.
 				logger.Errorf("space %q has an invalid name, ignoring", spaceName)
 				continue
 
@@ -174,15 +173,11 @@ func (st *State) SaveSpacesFromProvider(providerSpaces []corenetwork.SpaceInfo) 
 			spaceTag = names.NewSpaceTag(spaceName)
 
 		} else {
-			// The space is new, we need to create a valid name for it
-			// in state.
-			spaceName := space.Name
-			// Convert the name into a valid name that isn't already in
-			// use.
-			spaceName = network.ConvertSpaceName(spaceName, spaceNames)
+			// The space is new, we need to create a valid name for it in state.
+			// Convert the name into a valid name that is not already in use.
+			spaceName := network.ConvertSpaceName(string(space.Name), spaceNames)
 			spaceNames.Add(spaceName)
 			spaceTag = names.NewSpaceTag(spaceName)
-			// We need to create the space.
 
 			logger.Debugf("Adding space %s from provider %s", spaceTag.String(), string(space.ProviderId))
 			_, err = st.AddSpace(spaceTag.Id(), space.ProviderId, []string{}, false)

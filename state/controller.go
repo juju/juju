@@ -157,20 +157,24 @@ func checkUpdateControllerConfig(name string) error {
 
 // checkSpaceIsAvailableToAllControllers checks if each controller machine has
 // at least one address in the input space. If not, an error is returned.
-func (st *State) checkSpaceIsAvailableToAllControllers(configSpace string) error {
+func (st *State) checkSpaceIsAvailableToAllControllers(spaceName string) error {
 	info, err := st.ControllerInfo()
 	if err != nil {
 		return errors.Annotate(err, "cannot get controller info")
 	}
 
+	space, err := st.Space(spaceName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	var missing []string
-	spaceName := network.SpaceName(configSpace)
 	for _, id := range info.MachineIds {
 		m, err := st.Machine(id)
 		if err != nil {
 			return errors.Annotate(err, "cannot get machine")
 		}
-		if _, ok := network.SelectAddressesBySpaceNames(m.Addresses(), spaceName); !ok {
+		if _, ok := network.SelectAddressesBySpaces(m.Addresses(), space.NetworkSpace()); !ok {
 			missing = append(missing, id)
 		}
 	}
