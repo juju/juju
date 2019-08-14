@@ -225,7 +225,7 @@ func (suite *maas2EnvironSuite) TestSpaces(c *gc.C) {
 	result, err := env.Spaces(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
-	c.Assert(result[0].Name, gc.Equals, "freckles")
+	c.Assert(result[0].Name, gc.Equals, corenetwork.SpaceName("freckles"))
 	c.Assert(result[0].ProviderId, gc.Equals, corenetwork.Id("4567"))
 	subnets := result[0].Subnets
 	c.Assert(subnets, gc.HasLen, 2)
