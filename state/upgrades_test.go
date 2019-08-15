@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	mongoutils "github.com/juju/juju/mongo/utils"
@@ -3537,6 +3538,64 @@ func (s *upgradesSuite) TestAddSubnetIdToSubnetDocs(c *gc.C) {
 
 	sort.Sort(expected)
 	s.assertUpgradedData(c, AddSubnetIdToSubnetDocs, expectUpgradedData{col, expected})
+}
+
+func (s *upgradesSuite) TestReplacePortsDocSubnetIDCIDR(c *gc.C) {
+	col, closer := s.state.db().GetRawCollection(openedPortsC)
+	defer closer()
+
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	subnet2, err := model2.AddSubnet(network.SubnetInfo{CIDR: "10.0.0.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = col.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "m#3#42"),
+		"model-uuid": uuid1,
+		"machine-id": "3",
+		"subnet-id":  "42",
+	}, bson.M{
+		"_id":        ensureModelUUID(uuid1, "m#4#"),
+		"model-uuid": uuid1,
+		"machine-id": "4",
+	}, bson.M{
+		"_id":        ensureModelUUID(uuid2, "m#4#"+subnet2.CIDR()),
+		"model-uuid": uuid2,
+		"machine-id": "4",
+		"subnet-id":  subnet2.CIDR(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		// The altered portDocs:
+		{
+			"_id":        uuid1 + ":m#3#42",
+			"model-uuid": uuid1,
+			"machine-id": "3",
+			"subnet-id":  "42",
+		}, {
+			"_id":        uuid1 + ":m#4#",
+			"model-uuid": uuid1,
+			"machine-id": "4",
+		}, {
+			"_id":        uuid2 + ":m#4#" + subnet2.ID(),
+			"model-uuid": uuid2,
+			"machine-id": "4",
+			"subnet-id":  subnet2.ID(),
+			"ports":      []interface{}{},
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, ReplacePortsDocSubnetIDCIDR, expectUpgradedData{col, expected})
 }
 
 func (s *upgradesSuite) makeSpace(c *gc.C, uuid, name, id string) {

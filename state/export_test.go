@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -874,6 +875,11 @@ func UnitBranch(m *Model, unitName string) (*Generation, error) {
 
 func ApplicationBranches(m *Model, appName string) ([]*Generation, error) {
 	return m.applicationBranches(appName)
+}
+
+func MachinePortOps(st *State, m description.Machine) ([]txn.Op, error) {
+	resolver := &importer{st: st}
+	return resolver.machinePortsOps(m)
 }
 
 // ModelBackendShim is required to live here in the export_test.go file because

@@ -2348,9 +2348,10 @@ func ChangeSubnetAZtoSlice(pool *StatePool) (err error) {
 			})
 		}
 
-		ops = append(ops, st.createDefaultSpaceOp())
-
-		return errors.Trace(st.db().RunTransaction(ops))
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
 	}))
 }
 
@@ -2400,9 +2401,10 @@ func ChangeSubnetSpaceNameToSpaceID(pool *StatePool) (err error) {
 			})
 		}
 
-		ops = append(ops, st.createDefaultSpaceOp())
-
-		return errors.Trace(st.db().RunTransaction(ops))
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
 	}))
 }
 
@@ -2452,6 +2454,63 @@ func AddSubnetIdToSubnetDocs(pool *StatePool) (err error) {
 			})
 		}
 
-		return errors.Trace(st.db().RunTransaction(ops))
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
+	}))
+}
+
+// ReplacePortsDocSubnetIDCIDR ensures that every ports document use an
+// ID rather than a CIDR for subnetID.
+func ReplacePortsDocSubnetIDCIDR(pool *StatePool) (err error) {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(openedPortsC)
+		defer closer()
+
+		var docs []portsDoc
+		err := col.Find(nil).All(&docs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, oldDoc := range docs {
+			// A doc with a subnet ID has already been upgraded.
+			if !network.IsValidCidr(oldDoc.SubnetID) {
+				continue
+			}
+
+			// We cannot edit _id, so we need to delete and re-create each doc.
+			ops = append(ops, txn.Op{
+				C:      openedPortsC,
+				Id:     oldDoc.DocID,
+				Assert: txn.DocExists,
+				Remove: true,
+			})
+
+			// If we're upgrading from a model which has cidrs for
+			// subnetIDs, there can be only 1 of that cidr in the model.
+			subnet, err := st.Subnet(oldDoc.SubnetID)
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			newDoc := oldDoc
+			newDoc.TxnRevno = 0
+			newDoc.DocID = portsGlobalKey(newDoc.MachineID, subnet.ID())
+			newDoc.SubnetID = subnet.ID()
+
+			ops = append(ops, txn.Op{
+				C:      openedPortsC,
+				Id:     newDoc.DocID,
+				Insert: newDoc,
+			})
+		}
+
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
 	}))
 }

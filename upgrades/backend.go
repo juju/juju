@@ -70,6 +70,7 @@ type StateBackend interface {
 	ChangeSubnetAZtoSlice() error
 	ChangeSubnetSpaceNameToSpaceID() error
 	AddSubnetIdToSubnetDocs() error
+	ReplacePortsDocSubnetIDCIDR() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -278,4 +279,8 @@ func (s stateBackend) ChangeSubnetSpaceNameToSpaceID() error {
 
 func (s stateBackend) AddSubnetIdToSubnetDocs() error {
 	return state.AddSubnetIdToSubnetDocs(s.pool)
+}
+
+func (s stateBackend) ReplacePortsDocSubnetIDCIDR() error {
+	return state.ReplacePortsDocSubnetIDCIDR(s.pool)
 }
