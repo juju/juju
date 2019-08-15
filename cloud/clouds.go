@@ -302,9 +302,13 @@ func RegionByName(regions []Region, name string) (*Region, error) {
 		}
 		return &region, nil
 	}
+	availableRegions := "cloud has no regions"
+	if len(regions) > 0 {
+		availableRegions = fmt.Sprintf("expected one of %q", RegionNames(regions))
+	}
 	return nil, errors.NewNotFound(nil, fmt.Sprintf(
-		"region %q not found (expected one of %q)",
-		name, RegionNames(regions),
+		"region %q not found (%v)",
+		name, availableRegions,
 	))
 }
 
