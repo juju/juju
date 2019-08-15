@@ -94,9 +94,6 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 			types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"},
 			templateCisp,
 		}},
-		retrievePropertiesStubCall("network-0", "network-1"),
-		retrievePropertiesStubCall("onetwork-0"), // "opaque network"
-		retrievePropertiesStubCall("dvportgroup-0"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
@@ -107,12 +104,6 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 			&types.VirtualMachineImportSpec{
 				ConfigSpec: types.VirtualMachineConfigSpec{
 					Name: "vm-name",
-					ExtraConfig: []types.BaseOptionValue{
-						&types.OptionValue{Key: "k", Value: "v"},
-					},
-					Flags: &types.VirtualMachineFlagInfo{
-						DiskUuidEnabled: newBool(true),
-					},
 				},
 			},
 		}},
@@ -128,14 +119,23 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		retrievePropertiesStubCall("dvportgroup-0"),
 		retrievePropertiesStubCall("FakeVm0"),
 		{"CloneVM_Task", []interface{}{
-			&types.VmConfigSpec{
-				Property: []types.VAppPropertySpec{{
-					ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
-					Info:            &types.VAppPropertyInfo{Key: 1, Value: "vm-0"},
-				}, {
-					ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
-					Info:            &types.VAppPropertyInfo{Key: 4, Value: "baz"},
-				}},
+			"vm-0",
+			&types.VirtualMachineConfigSpec{
+				ExtraConfig: []types.BaseOptionValue{
+					&types.OptionValue{Key: "k", Value: "v"},
+				},
+				Flags: &types.VirtualMachineFlagInfo{
+					DiskUuidEnabled: newBool(true),
+				},
+				VAppConfig: &types.VmConfigSpec{
+					Property: []types.VAppPropertySpec{{
+						ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+						Info:            &types.VAppPropertyInfo{Key: 1, Value: "vm-0"},
+					}, {
+						ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+						Info:            &types.VAppPropertyInfo{Key: 4, Value: "baz"},
+					}},
+				},
 			},
 		}},
 		{"CreatePropertyCollector", nil},
@@ -156,13 +156,19 @@ func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *gc.C) {
 	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.roundTripper.CheckCall(c, 24, "ImportVApp", &types.VirtualMachineImportSpec{
-		ConfigSpec: types.VirtualMachineConfigSpec{
-			Name: "vm-name",
-			ExtraConfig: []types.BaseOptionValue{
-				&types.OptionValue{Key: "k", Value: "v"},
-			},
-			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(args.EnableDiskUUID)},
+	s.roundTripper.CheckCall(c, 33, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
+		ExtraConfig: []types.BaseOptionValue{
+			&types.OptionValue{Key: "k", Value: "v"},
+		},
+		Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(args.EnableDiskUUID)},
+		VAppConfig: &types.VmConfigSpec{
+			Property: []types.VAppPropertySpec{{
+				ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+				Info:            &types.VAppPropertyInfo{Key: 1, Value: "vm-0"},
+			}, {
+				ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+				Info:            &types.VAppPropertyInfo{Key: 4, Value: "baz"},
+			}},
 		},
 	})
 }
@@ -299,23 +305,34 @@ func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefa
 		},
 	}
 
-	s.roundTripper.CheckCall(c, 24, "ImportVApp", &types.VirtualMachineImportSpec{
+	s.roundTripper.CheckCall(c, 21, "ImportVApp", &types.VirtualMachineImportSpec{
 		ConfigSpec: types.VirtualMachineConfigSpec{
 			Name: "vm-name",
-			ExtraConfig: []types.BaseOptionValue{
-				&types.OptionValue{Key: "k", Value: "v"},
+		},
+	})
+	s.roundTripper.CheckCall(c, 33, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
+		ExtraConfig: []types.BaseOptionValue{
+			&types.OptionValue{Key: "k", Value: "v"},
+		},
+		DeviceChange: []types.BaseVirtualDeviceConfigSpec{
+			&types.VirtualDeviceConfigSpec{
+				Operation: "add",
+				Device:    &networkDevice1,
 			},
-			DeviceChange: []types.BaseVirtualDeviceConfigSpec{
-				&types.VirtualDeviceConfigSpec{
-					Operation: "add",
-					Device:    &networkDevice1,
-				},
-				&types.VirtualDeviceConfigSpec{
-					Operation: "add",
-					Device:    &networkDevice2,
-				},
+			&types.VirtualDeviceConfigSpec{
+				Operation: "add",
+				Device:    &networkDevice2,
 			},
-			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
+		},
+		Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
+		VAppConfig: &types.VmConfigSpec{
+			Property: []types.VAppPropertySpec{{
+				ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+				Info:            &types.VAppPropertyInfo{Key: 1, Value: "vm-0"},
+			}, {
+				ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+				Info:            &types.VAppPropertyInfo{Key: 4, Value: "baz"},
+			}},
 		},
 	})
 }
@@ -345,25 +362,30 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *gc.
 	}
 
 	retrieveDVSCall := retrievePropertiesStubCall("dvs-0")
-	s.roundTripper.CheckCall(c, 18, retrieveDVSCall.FuncName, retrieveDVSCall.Args...)
-	s.roundTripper.CheckCall(c, 36, retrieveDVSCall.FuncName, retrieveDVSCall.Args...)
+	s.roundTripper.CheckCall(c, 32, retrieveDVSCall.FuncName, retrieveDVSCall.Args...)
 
 	// When the external network is a distributed virtual portgroup,
 	// we must make an additional RetrieveProperties call to fetch
 	// the DVS's UUID. This bumps the ImportVApp position by one.
-	s.roundTripper.CheckCall(c, 25, "ImportVApp", &types.VirtualMachineImportSpec{
-		ConfigSpec: types.VirtualMachineConfigSpec{
-			Name: "vm-name",
-			ExtraConfig: []types.BaseOptionValue{
-				&types.OptionValue{Key: "k", Value: "v"},
+	s.roundTripper.CheckCall(c, 34, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
+		ExtraConfig: []types.BaseOptionValue{
+			&types.OptionValue{Key: "k", Value: "v"},
+		},
+		DeviceChange: []types.BaseVirtualDeviceConfigSpec{
+			&types.VirtualDeviceConfigSpec{
+				Operation: "add",
+				Device:    &networkDevice,
 			},
-			DeviceChange: []types.BaseVirtualDeviceConfigSpec{
-				&types.VirtualDeviceConfigSpec{
-					Operation: "add",
-					Device:    &networkDevice,
-				},
-			},
-			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
+		},
+		Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
+		VAppConfig: &types.VmConfigSpec{
+			Property: []types.VAppPropertySpec{{
+				ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+				Info:            &types.VAppPropertyInfo{Key: 1, Value: "vm-0"},
+			}, {
+				ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+				Info:            &types.VAppPropertyInfo{Key: 4, Value: "baz"},
+			}},
 		},
 	})
 }
@@ -376,7 +398,7 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkNotFound(c *gc.C) {
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `creating template VM: creating import spec: network "fourtytwo" not found`)
+	c.Assert(err, gc.ErrorMatches, `cloning template VM: building clone VM config: network "fourtytwo" not found`)
 }
 
 func (s *clientSuite) TestCreateVirtualMachineInvalidMAC(c *gc.C) {
@@ -387,7 +409,7 @@ func (s *clientSuite) TestCreateVirtualMachineInvalidMAC(c *gc.C) {
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `creating template VM: creating import spec: adding network device 0 - network VM Network: Invalid MAC address: "00:11:22:33:44:55"`)
+	c.Assert(err, gc.ErrorMatches, `cloning template VM: building clone VM config: adding network device 0 - network VM Network: Invalid MAC address: "00:11:22:33:44:55"`)
 }
 
 func (s *clientSuite) TestCreateVirtualMachineRootDiskSize(c *gc.C) {
@@ -483,7 +505,7 @@ func (s *clientSuite) TestCreateVirtualMachineTimesOut(c *gc.C) {
 
 	select {
 	case err := <-errCh:
-		c.Assert(err, gc.ErrorMatches, "extending disk failed")
+		c.Assert(err, gc.ErrorMatches, "cloning template VM: extending disk failed")
 		c.Assert(err, jc.Satisfies, IsExtendDiskError)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for CreateVirtualMachine")

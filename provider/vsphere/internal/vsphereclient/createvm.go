@@ -298,7 +298,7 @@ func (c *Client) CreateVirtualMachine(
 	args.UpdateProgress("cloning template")
 	vm, err := c.cloneVM(ctx, args, templateVM, vmFolder)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "cloning template VM")
 	}
 
 	taskWaiter := &taskWaiter{
@@ -414,11 +414,6 @@ func (c *Client) createImportSpec(
 		return nil, errors.Trace(err)
 	} else if spec.Error != nil {
 		return nil, errors.New(spec.Error[0].LocalizedMessage)
-	}
-	s := &spec.ImportSpec.(*types.VirtualMachineImportSpec).ConfigSpec
-	err = c.buildConfigSpec(ctx, args, s)
-	if err != nil {
-		return nil, errors.Trace(err)
 	}
 	return spec, nil
 }

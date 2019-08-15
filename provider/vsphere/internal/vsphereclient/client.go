@@ -472,7 +472,7 @@ func (c *Client) cloneVM(
 	vmConfigSpec := &types.VirtualMachineConfigSpec{}
 	err = c.buildConfigSpec(ctx, args, vmConfigSpec)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "building clone VM config")
 	}
 	newVAppConfig, err := customiseVAppConfig(ctx, srcVM, args)
 	if err != nil {
