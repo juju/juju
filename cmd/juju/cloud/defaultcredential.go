@@ -4,6 +4,8 @@
 package cloud
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
@@ -27,8 +29,12 @@ This command sets a locally stored credential to be used as a default.
 Default credentials avoid the need to specify a particular set of 
 credentials when more than one are available for a given cloud.
 
+To unset previously set default credential for a cloud, use the command
+without a credential name argument.
+
 Examples:
     juju set-default-credential google credential_name
+    juju set-default-credential google
 
 See also: 
     credentials
@@ -54,19 +60,23 @@ func NewSetDefaultCredentialCommand() cmd.Command {
 func (c *setDefaultCredentialCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "set-default-credential",
-		Args:    "<cloud name> <credential name>",
+		Args:    "<cloud name> [<credential name>]",
 		Purpose: usageSetDefaultCredentialSummary,
 		Doc:     usageSetDefaultCredentialDetails,
 	})
 }
 
 func (c *setDefaultCredentialCommand) Init(args []string) (err error) {
-	if len(args) < 2 {
-		return errors.New("Usage: juju set-default-credential <cloud-name> <credential-name>")
+	if len(args) < 1 {
+		return errors.New("Usage: juju set-default-credential <cloud-name> [<credential-name>]")
 	}
 	c.cloud = args[0]
-	c.credential = args[1]
-	return cmd.CheckEmpty(args[2:])
+	end := 1
+	if len(args) > 1 {
+		c.credential = args[1]
+		end = 2
+	}
+	return cmd.CheckEmpty(args[end:])
 }
 
 func hasCredential(credential string, credentials map[string]jujucloud.Credential) bool {
@@ -88,14 +98,17 @@ func (c *setDefaultCredentialCommand) Run(ctxt *cmd.Context) error {
 	} else if err != nil {
 		return err
 	}
-	if !hasCredential(c.credential, cred.AuthCredentials) {
-		return errors.NotValidf("credential %q for cloud %s", c.credential, c.cloud)
+	msg := fmt.Sprintf("Default credential for cloud %q is no longer set on this client.", c.cloud)
+	if c.credential != "" {
+		if !hasCredential(c.credential, cred.AuthCredentials) {
+			return errors.NotValidf("credential %q for cloud %s", c.credential, c.cloud)
+		}
+		msg = fmt.Sprintf("Local credential %q is set to be default for %q for this client.", c.credential, c.cloud)
 	}
-
 	cred.DefaultCredential = c.credential
 	if err := c.store.UpdateCredential(c.cloud, *cred); err != nil {
 		return err
 	}
-	ctxt.Infof("Local credential %q is set to be default for %q for this client.", c.credential, c.cloud)
+	ctxt.Infof(msg)
 	return nil
 }

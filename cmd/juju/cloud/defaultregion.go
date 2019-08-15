@@ -5,7 +5,6 @@ package cloud
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -30,8 +29,12 @@ Sets the default region for a cloud.`[1:]
 var usageSetDefaultRegionDetails = `
 The default region is specified directly as an argument.
 
+To unset previously set default region for a cloud, use the command
+without a region argument.
+
 Examples:
     juju set-default-region azure-china chinaeast
+    juju set-default-region azure-china
 
 See also:
     add-credential`[1:]
@@ -46,28 +49,23 @@ func NewSetDefaultRegionCommand() cmd.Command {
 func (c *setDefaultRegionCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "set-default-region",
-		Args:    "<cloud name> <region>",
+		Args:    "<cloud name> [<region>]",
 		Purpose: usageSetDefaultRegionSummary,
 		Doc:     usageSetDefaultRegionDetails,
 	})
 }
 
 func (c *setDefaultRegionCommand) Init(args []string) (err error) {
-	if len(args) < 2 {
-		return errors.New("Usage: juju set-default-region <cloud-name> <region>")
+	if len(args) < 1 {
+		return errors.New("Usage: juju set-default-region <cloud-name> [<region>]")
 	}
 	c.cloud = args[0]
-	c.region = args[1]
-	return cmd.CheckEmpty(args[2:])
-}
-
-func getRegion(region string, regions []jujucloud.Region) string {
-	for _, r := range regions {
-		if strings.EqualFold(r.Name, region) {
-			return r.Name
-		}
+	end := 1
+	if len(args) > 1 {
+		c.region = args[1]
+		end = 2
 	}
-	return ""
+	return cmd.CheckEmpty(args[end:])
 }
 
 func (c *setDefaultRegionCommand) Run(ctxt *cmd.Context) error {
@@ -78,17 +76,16 @@ func (c *setDefaultRegionCommand) Run(ctxt *cmd.Context) error {
 	if len(cloudDetails.Regions) == 0 {
 		return errors.Errorf("cloud %s has no regions", c.cloud)
 	}
-	if region := getRegion(c.region, cloudDetails.Regions); region == "" {
-		var regionNames []string
-		for _, r := range cloudDetails.Regions {
-			regionNames = append(regionNames, r.Name)
+	msg := fmt.Sprintf("Default region for cloud %q is no longer set on this client.", c.cloud)
+	if c.region != "" {
+		// Ensure region exists.
+		region, err := jujucloud.RegionByName(cloudDetails.Regions, c.region)
+		if err != nil {
+			return err
 		}
-		return errors.NewNotValid(
-			nil,
-			fmt.Sprintf("region %q for cloud %s not valid, valid regions are %s",
-				c.region, c.cloud, strings.Join(regionNames, ", ")))
-	} else {
-		c.region = region
+		// This is needed since user may have specified UPPER cases but regions are case sensitive.
+		c.region = region.Name
+		msg = fmt.Sprintf("Default region in %s set to %q.", c.cloud, c.region)
 	}
 	var cred *jujucloud.CloudCredential
 	cred, err = c.store.CredentialForCloud(c.cloud)
@@ -101,6 +98,6 @@ func (c *setDefaultRegionCommand) Run(ctxt *cmd.Context) error {
 	if err := c.store.UpdateCredential(c.cloud, *cred); err != nil {
 		return err
 	}
-	ctxt.Infof("Default region in %s set to %q.", c.cloud, c.region)
+	ctxt.Infof(msg)
 	return nil
 }

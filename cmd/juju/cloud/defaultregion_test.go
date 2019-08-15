@@ -25,22 +25,22 @@ type defaultRegionSuite struct {
 var _ = gc.Suite(&defaultRegionSuite{})
 
 func (s *defaultRegionSuite) TestBadArgs(c *gc.C) {
-	cmd := cloud.NewSetDefaultRegionCommand()
-	_, err := cmdtesting.RunCommand(c, cmd)
-	c.Assert(err, gc.ErrorMatches, "Usage: juju set-default-region <cloud-name> <region>")
-	_, err = cmdtesting.RunCommand(c, cmd, "cloud", "region", "extra")
+	command := cloud.NewSetDefaultRegionCommand()
+	_, err := cmdtesting.RunCommand(c, command)
+	c.Assert(err, gc.ErrorMatches, `Usage: juju set-default-region <cloud-name> \[<region>\]`)
+	_, err = cmdtesting.RunCommand(c, command, "cloud", "region", "extra")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
 func (s *defaultRegionSuite) TestBadRegion(c *gc.C) {
-	cmd := cloud.NewSetDefaultRegionCommand()
-	_, err := cmdtesting.RunCommand(c, cmd, "aws", "foo")
-	c.Assert(err, gc.ErrorMatches, `region "foo" for cloud aws not valid, valid regions are .*`)
+	command := cloud.NewSetDefaultRegionCommand()
+	_, err := cmdtesting.RunCommand(c, command, "aws", "foo")
+	c.Assert(err, gc.ErrorMatches, `region "foo" not found .*`)
 }
 
 func (s *defaultRegionSuite) TestBadCloudName(c *gc.C) {
-	cmd := cloud.NewSetDefaultRegionCommand()
-	_, err := cmdtesting.RunCommand(c, cmd, "somecloud", "us-west-1")
+	command := cloud.NewSetDefaultRegionCommand()
+	_, err := cmdtesting.RunCommand(c, command, "somecloud", "us-west-1")
 	c.Assert(err, gc.ErrorMatches, `cloud somecloud not valid`)
 }
 
@@ -69,8 +69,8 @@ func (s *defaultRegionSuite) TestSetDefaultRegion(c *gc.C) {
 		AuthCredentials: map[string]jujucloud.Credential{
 			"one": {},
 		}}
-	cmd := cloud.NewSetDefaultRegionCommandForTest(store)
-	s.assertSetDefaultRegion(c, cmd, store, "aws", "")
+	command := cloud.NewSetDefaultRegionCommandForTest(store)
+	s.assertSetDefaultRegion(c, command, store, "aws", "")
 }
 
 func (s *defaultRegionSuite) TestSetDefaultRegionBuiltIn(c *gc.C) {
@@ -79,9 +79,9 @@ func (s *defaultRegionSuite) TestSetDefaultRegionBuiltIn(c *gc.C) {
 		AuthCredentials: map[string]jujucloud.Credential{
 			"one": {},
 		}}
-	cmd := cloud.NewSetDefaultRegionCommandForTest(store)
+	command := cloud.NewSetDefaultRegionCommandForTest(store)
 	// Cloud 'localhost' is of type lxd.
-	s.assertSetCustomDefaultRegion(c, cmd, store, "localhost", "localhost", "")
+	s.assertSetCustomDefaultRegion(c, command, store, "localhost", "localhost", "")
 }
 
 func (s *defaultRegionSuite) TestOverwriteDefaultRegion(c *gc.C) {
@@ -91,8 +91,8 @@ func (s *defaultRegionSuite) TestOverwriteDefaultRegion(c *gc.C) {
 			"one": {},
 		},
 		DefaultRegion: "us-east-1"}
-	cmd := cloud.NewSetDefaultRegionCommandForTest(store)
-	s.assertSetDefaultRegion(c, cmd, store, "aws", "")
+	command := cloud.NewSetDefaultRegionCommandForTest(store)
+	s.assertSetDefaultRegion(c, command, store, "aws", "")
 }
 
 func (s *defaultRegionSuite) TestCaseInsensitiveRegionSpecification(c *gc.C) {
@@ -103,8 +103,23 @@ func (s *defaultRegionSuite) TestCaseInsensitiveRegionSpecification(c *gc.C) {
 		},
 		DefaultRegion: "us-east-1"}
 
-	cmd := cloud.NewSetDefaultRegionCommandForTest(store)
-	_, err := cmdtesting.RunCommand(c, cmd, "aws", "us-WEST-1")
+	command := cloud.NewSetDefaultRegionCommandForTest(store)
+	_, err := cmdtesting.RunCommand(c, command, "aws", "us-WEST-1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(store.Credentials["aws"].DefaultRegion, gc.Equals, "us-west-1")
+}
+
+func (s *defaultRegionSuite) TestUnsetDefaultRegion(c *gc.C) {
+	cloudName := "aws"
+	store := jujuclient.NewMemStore()
+	store.Credentials[cloudName] = jujucloud.CloudCredential{
+		DefaultRegion: "my-sekrets",
+	}
+	command := cloud.NewSetDefaultRegionCommandForTest(store)
+	ctx, err := cmdtesting.RunCommand(c, command, cloudName)
+	c.Assert(err, jc.ErrorIsNil)
+	output := cmdtesting.Stderr(ctx)
+	output = strings.Replace(output, "\n", "", -1)
+	c.Assert(output, gc.Equals, fmt.Sprintf(`Default region for cloud %q is no longer set on this client.`, cloudName))
+	c.Assert(store.Credentials[cloudName].DefaultCredential, gc.Equals, "")
 }
