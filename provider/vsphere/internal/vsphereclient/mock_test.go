@@ -116,11 +116,7 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 	case *methods.CloneVM_TaskBody:
 		req := req.(*methods.CloneVM_TaskBody).Req
 		specConfig := req.Spec.Config
-		var vAppConfig types.BaseVmConfigSpec
-		if specConfig != nil {
-			vAppConfig = specConfig.VAppConfig
-		}
-		r.MethodCall(r, "CloneVM_Task", vAppConfig)
+		r.MethodCall(r, "CloneVM_Task", req.Name, specConfig)
 		res.Res = &types.CloneVM_TaskResponse{cloneVMTask}
 	case *methods.CreateFolderBody:
 		req := req.(*methods.CreateFolderBody).Req
