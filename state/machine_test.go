@@ -276,6 +276,7 @@ func (s *MachineSuite) TestMachineIsManual(c *gc.C) {
 		})
 		c.Assert(err, jc.ErrorIsNil)
 		isManual, err := m.IsManual()
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(isManual, gc.Equals, test.isManual)
 	}
 }
@@ -766,6 +767,7 @@ func (s *MachineSuite) TestMachineInstanceNamesReturnsIsNotProvisionedWhenNotPro
 
 func (s *MachineSuite) TestDesiredSpacesNone(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
 	spaces, err := machine.DesiredSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{})
@@ -2457,6 +2459,7 @@ func (s *MachineSuite) TestSetSupportedContainersMultipleExistingWithDifferentIn
 func (s *MachineSuite) TestSetSupportedContainersSetsUnknownToError(c *gc.C) {
 	// Create a machine and add lxd and kvm containers prior to calling SetSupportedContainers
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
 	template := state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
@@ -2488,6 +2491,7 @@ func (s *MachineSuite) TestSetSupportedContainersSetsUnknownToError(c *gc.C) {
 func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
 	// Create a machine and add all container types prior to calling SupportsNoContainers
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
 	var containers []*state.Machine
 	template := state.MachineTemplate{
 		Series: "quantal",
@@ -2720,6 +2724,7 @@ func (s *MachineSuite) TestUpdateMachineSeriesPrincipalsListChange(c *gc.C) {
 func (s *MachineSuite) TestUpdateMachineSeriesSubordinateListChangeIncompatibleSeries(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
 	err := mach.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
 
 	unit, err := s.State.Unit("multi-series/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2764,6 +2769,7 @@ func (s *MachineSuite) addMachineUnit(c *gc.C, mach *state.Machine) *state.Unit 
 		_ = state.AddTestingApplicationForSeries(c, s.State, mach.Series(), "multi-series-subordinate", subCh)
 	} else {
 		app, err = units[0].Application()
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	unit, err := app.AddUnit(state.AddUnitParams{})

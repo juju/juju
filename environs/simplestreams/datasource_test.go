@@ -31,6 +31,7 @@ func (s *datasourceSuite) TestFetch(c *gc.C) {
 	defer rc.Close()
 	c.Assert(url, gc.Equals, "test:/streams/v1/tools_metadata.json")
 	data, err := ioutil.ReadAll(rc)
+	c.Assert(err, jc.ErrorIsNil)
 	cloudMetadata, err := simplestreams.ParseCloudMetadata(data, "products:1.0", url, imagemetadata.ImageMetadata{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(cloudMetadata.Products), jc.GreaterThan, 0)

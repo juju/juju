@@ -340,6 +340,7 @@ func (s *targetSuite) TestTrapdoorAttempt1ThisHolderInDB(c *gc.C) {
 	trapdoor := raftlease.MakeTrapdoorFunc(s.mongo, collection)(lease.Key{"ns", "model", "landfall"}, "roy")
 	var result []txn.Op
 	err = trapdoor(0, &result)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []txn.Op{{
 		C:      collection,
 		Id:     "model:ns#landfall#",

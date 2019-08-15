@@ -19,6 +19,8 @@ fi
 $GOPATH/bin/golangci-lint run \
     --disable-all \
     --no-config \
+    --max-issues-per-linter=50 \
+    --max-same-issues=50 \
     --issues-exit-code=0 \
     --enable=gofmt \
     --enable=goimports \

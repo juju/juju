@@ -59,6 +59,7 @@ func (s *AuditLogSuite) TestAuditLogFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	bytes, err := ioutil.ReadFile(filepath.Join(dir, "audit.log"))
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(bytes), gc.Equals, expectedLogContents)
 }
 
@@ -103,6 +104,7 @@ func (s *AuditLogSuite) TestRecorder(c *gc.C) {
 			Code:    "bad request",
 		}},
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	log.stub.CheckCallNames(c, "AddConversation", "AddRequest", "AddResponse")
 	calls := log.stub.Calls()

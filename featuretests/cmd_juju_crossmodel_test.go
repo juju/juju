@@ -420,6 +420,7 @@ func (s *crossmodelSuite) addOtherModelApplication(c *gc.C) *state.State {
 		Name:  "mysql",
 		Charm: ch,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	offersAPi := state.NewApplicationOffers(otherModel)
 	_, err = offersAPi.AddOffer(jujucrossmodel.AddApplicationOfferArgs{

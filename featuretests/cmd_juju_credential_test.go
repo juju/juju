@@ -85,7 +85,7 @@ clouds:
 			}),
 		},
 	})
-	ctx, err = s.run(c, "update-credential", "dummy", "cred")
+	ctx, err := s.run(c, "update-credential", "dummy", "cred")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `

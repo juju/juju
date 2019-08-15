@@ -778,6 +778,7 @@ func (s *UnitSuite) TestRemoveUnitWRelationLastUnit(c *gc.C) {
 	mysqlCharm := s.AddTestingCharm(c, "mysql")
 	mysqlApp := s.AddTestingApplication(c, "mysql", mysqlCharm)
 	mysqlUnit, err := mysqlApp.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mysqlUnit.AssignToNewMachine(), jc.ErrorIsNil)
 	endpoints, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1176,6 +1177,7 @@ func (s *UnitSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		err = s.unit.SetWorkloadVersion(fmt.Sprintf("v.%d", i))
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	filter := status.StatusHistoryFilter{Size: 100}
@@ -2304,6 +2306,7 @@ func (s *CAASUnitSuite) TestCannotShortCircuitDestroyAllocatedUnit(c *gc.C) {
 	// This test is similar to TestShortCircuitDestroyUnit but
 	// the unit has been allocated and a pod created.
 	unit, err := s.application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
 	now := coretesting.NonZeroTime()
 	err = unit.SetAgentStatus(status.StatusInfo{
 		Status:  status.Error,

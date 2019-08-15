@@ -56,6 +56,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingDoesntCha
 	err := s.Model.UpdateModelConfig(map[string]interface{}{
 		"container-networking-method": "provider",
 	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.Model.AutoConfigureContainerNetworking(containerTestNetworkLessEnviron{})
 	c.Assert(err, jc.ErrorIsNil)
 	config, err := s.Model.ModelConfig()

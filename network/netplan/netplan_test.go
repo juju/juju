@@ -1439,6 +1439,7 @@ network:
 	}
 
 	data, err := ioutil.ReadFile(generatedFile)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(data), gc.Equals, expected)
 
 	err = np.Rollback()
@@ -1467,6 +1468,7 @@ network:
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(outPath, gc.Equals, myPath)
 	data, err = ioutil.ReadFile(outPath)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(data), gc.Equals, expected)
 
 	err = np.MoveYamlsToBak()
@@ -1486,6 +1488,7 @@ func (s *NetplanSuite) TestReadDirectoryAccessDenied(c *gc.C) {
 	coretesting.SkipIfWindowsBug(c, "lp:1771077")
 	tempDir := c.MkDir()
 	err := ioutil.WriteFile(path.Join(tempDir, "00-file.yaml"), []byte("network:\n"), 00000)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = netplan.ReadDirectory(tempDir)
 	c.Check(err, gc.ErrorMatches, "open .*/00-file.yaml: permission denied")
 }
@@ -1493,6 +1496,7 @@ func (s *NetplanSuite) TestReadDirectoryAccessDenied(c *gc.C) {
 func (s *NetplanSuite) TestReadDirectoryBrokenYaml(c *gc.C) {
 	tempDir := c.MkDir()
 	err := ioutil.WriteFile(path.Join(tempDir, "00-file.yaml"), []byte("I am not a yaml file!\nreally!\n"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = netplan.ReadDirectory(tempDir)
 	c.Check(err, gc.ErrorMatches, "yaml: unmarshal errors:\n.*")
 }
@@ -1544,6 +1548,7 @@ network:
 	c.Assert(err, jc.ErrorIsNil)
 
 	fileName, err := np.Write("")
+	c.Assert(err, jc.ErrorIsNil)
 
 	writtenContent, err := ioutil.ReadFile(fileName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1604,6 +1609,7 @@ func (s *NetplanSuite) TestNetplanExamples(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil, gc.Commentf("failed to marshal %s", example.filename))
 		var roundtripped map[interface{}]interface{}
 		err = yaml.UnmarshalStrict(out, &roundtripped)
+		c.Assert(err, jc.ErrorIsNil)
 		if !reflect.DeepEqual(orig, roundtripped) {
 			pretty.Ldiff(c, orig, roundtripped)
 			c.Errorf("marshalling and unmarshalling %s did not contain the same content", example.filename)

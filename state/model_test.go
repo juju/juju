@@ -561,6 +561,7 @@ func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	listBindings, err := model.AllEndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(listBindings, gc.HasLen, 1)
 
 	c.Assert(listBindings[0], jc.DeepEquals, state.ApplicationEndpointBindings{

@@ -365,6 +365,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			},
 			triggerEvent: func(st *state.State) {
 				m, err := st.Machine("0")
+				c.Assert(err, jc.ErrorIsNil)
 				_, err = st.AddMachineInsideMachine(
 					state.MachineTemplate{
 						Series: "trusty",
@@ -1611,6 +1612,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mysql.Name(), gc.Equals, "mysql")
 	sInfo, err := mysql.Status()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sInfo.Status, gc.Equals, status.Waiting)
 	c.Assert(sInfo.Message, gc.Equals, "waiting for machine")
 
@@ -1656,6 +1658,7 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 	c.Assert(outconfig, gc.DeepEquals, inconfig.Attributes())
 
 	sInfo, err := gitlab.Status()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sInfo.Status, gc.Equals, status.Waiting)
 	c.Assert(sInfo.Message, gc.Equals, "waiting for container")
 
@@ -3169,6 +3172,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	m1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	m2, err := s.State.Machine(m1.Id())
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m1, jc.DeepEquals, m2)
 
 	charm1 := s.AddTestingCharm(c, "wordpress")
@@ -3194,8 +3198,10 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	relation1, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 	relation2, err := s.State.EndpointsRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(relation1, jc.DeepEquals, relation2)
 	relation3, err := s.State.Relation(relation1.Id())
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(relation1, jc.DeepEquals, relation3)
 }
 
@@ -3404,6 +3410,7 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	action, err := s.model.Action(f.Id())
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(action.Tag(), gc.Equals, names.NewActionTag(action.Id()))
 	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, action.Tag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -3616,6 +3623,7 @@ func (s *StateSuite) TestWatchSubnets(c *gc.C) {
 	_, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.20.0.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.0.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("10.0.0.0/24")
 	wc.AssertNoChange()
 }

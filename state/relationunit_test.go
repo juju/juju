@@ -874,6 +874,7 @@ func (s *RelationUnitSuite) TestNetworksForRelation(c *gc.C) {
 		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
 		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
 	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.pu0, prr.rel, nil, true)
 	c.Assert(err, jc.ErrorIsNil)

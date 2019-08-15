@@ -45,6 +45,7 @@ func (s *MachineRemovalSuite) TestMarkingAndCompletingMachineRemoval(c *gc.C) {
 	err = s.State.CompleteMachineRemovals(m1.Id(), "100")
 	c.Assert(err, jc.ErrorIsNil)
 	removals2, err := s.State.AllMachineRemovals()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(removals2, jc.SameContents, []string{m2.Id()})
 
 	_, err = s.State.Machine(m1.Id())

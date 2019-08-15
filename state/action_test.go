@@ -1087,7 +1087,7 @@ func (s *ActionPruningSuite) TestDoNotPruneIncompleteActions(c *gc.C) {
 	const numZeroValueEntries = 5
 	state.PrimeActions(c, time.Time{}, unit, numZeroValueEntries)
 
-	_, err := unit.Actions()
+	_, err = unit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = state.PruneActions(s.State, 1*time.Hour, 0)

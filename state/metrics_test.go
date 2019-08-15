@@ -690,8 +690,10 @@ func (s *MetricSuite) TestUnitMetricBatchesMatchesAllCharms(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	metricBatches, err := s.State.MetricBatchesForUnit("metered/0")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 1)
 	metricBatches, err = s.State.MetricBatchesForUnit("localmetered/0")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 1)
 }
 
@@ -991,8 +993,10 @@ func (s *MetricLocalCharmSuite) TestUnitMetricBatchesReturnsAllCharms(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	metricBatches, err := s.State.MetricBatchesForUnit("metered/0")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 1)
 	metricBatches, err = s.State.MetricBatchesForUnit("csmetered/0")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 1)
 }
 

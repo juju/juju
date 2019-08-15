@@ -628,6 +628,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 	s.expectConf(c, conf)
 	conf.Env["a"] = "c"
 	svc, err := systemd.NewService(s.name, conf, "/lib/systemd/system", func() (systemd.DBusAPI, error) { return s.dBus, nil }, renderer.Join(s.dataDir, "init"))
+	c.Assert(err, jc.ErrorIsNil)
 
 	dirName := fmt.Sprintf("%s/%s", "/lib/systemd/system", s.name)
 	fileName := fmt.Sprintf("%s/%s.service", dirName, s.name)

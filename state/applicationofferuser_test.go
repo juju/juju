@@ -94,6 +94,7 @@ func (s *ApplicationOfferUserSuite) TestAddAdminModelUser(c *gc.C) {
 func (s *ApplicationOfferUserSuite) TestUpdateOfferAccess(c *gc.C) {
 	offer, user := s.makeOffer(c, permission.AdminAccess)
 	err := s.State.UpdateOfferAccess(names.NewApplicationOfferTag(offer.OfferName), user, permission.ReadAccess)
+	c.Assert(err, jc.ErrorIsNil)
 
 	access, err := s.State.GetOfferAccess(offer.OfferUUID, user)
 	c.Assert(err, jc.ErrorIsNil)

@@ -315,6 +315,7 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 
 func (s *CleanupSuite) TestDestroyControllerMachineErrors(c *gc.C) {
 	manager, err := s.State.AddMachine("quantal", state.JobManageModel)
+	c.Assert(err, jc.ErrorIsNil)
 	node, err := s.State.ControllerNode(manager.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	node.SetHasVote(true)
@@ -784,6 +785,7 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 
 	// Destroy the application, so we can destroy the machine.
 	err = unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 	err = application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)

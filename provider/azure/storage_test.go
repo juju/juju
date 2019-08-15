@@ -621,6 +621,7 @@ func (s *storageSuite) TestDescribeVolumesWithInvalidCredential(c *gc.C) {
 
 	c.Assert(s.invalidCredential, jc.IsFalse)
 	_, err := volumeSource.DescribeVolumes(s.cloudCallCtx, []string{"volume-0"})
+	c.Assert(err, jc.ErrorIsNil)
 	results, err := volumeSource.DescribeVolumes(s.cloudCallCtx, []string{"volume-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results[0].Error, gc.NotNil)

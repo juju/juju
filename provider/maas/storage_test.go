@@ -94,6 +94,7 @@ func (s *storageSuite) TestRetrieveFileObjectReturnsFileObject(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(uri, gc.Equals, fileURI)
 	content, err := obj.GetField("content")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(content, gc.Equals, fileContent)
 }
 
@@ -241,6 +242,7 @@ func (s *storageSuite) TestPutStoresRetrievableFile(c *gc.C) {
 	stor := NewStorage(s.makeEnviron())
 
 	err := stor.Put(filename, bytes.NewReader(contents), length)
+	c.Assert(err, jc.ErrorIsNil)
 
 	reader, err := storage.Get(stor, filename)
 	c.Assert(err, jc.ErrorIsNil)

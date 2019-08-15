@@ -595,6 +595,7 @@ func (s *MigrationImportSuite) TestApplicationStatus(c *gc.C) {
 	newApp, err := newSt.Application(application.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	appStatus, err := newApp.Status()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appStatus.Status, gc.Equals, status.Active)
 	c.Assert(appStatus.Message, gc.Equals, "unit active")
 }
@@ -654,6 +655,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G")
 	testCharm, application, _ := s.setupSourceApplications(c, caasSt, cons, false)
 	ss, err := application.Status()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("status: %s", ss)
 
 	addUnitFactory := factory.NewFactory(caasSt, s.StatePool)
@@ -705,6 +707,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Must use derived status
 	appStatus, err := newApp.Status()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appStatus.Status, gc.Equals, status.Active)
 	c.Assert(appStatus.Message, gc.Equals, "unit active")
 }
@@ -772,6 +775,7 @@ func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	sUnits, err := subordinate.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
 	for _, u := range sUnits {
 		// For some reason the EnterScope call doesn't set up the
 		// version or enter the scope for the subordinate unit on the
@@ -1651,6 +1655,7 @@ func (s *MigrationImportSuite) TestStorage(c *gc.C) {
 	c.Check(state.StorageAttachmentCount(testInstance), gc.Equals, originalCount)
 
 	attachments, err := newSb.StorageAttachments(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachments, gc.HasLen, 1)
 	c.Assert(attachments[0].Unit(), gc.Equals, u.UnitTag())
 }

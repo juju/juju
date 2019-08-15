@@ -751,6 +751,7 @@ func (s *ApplicationSuite) TestSetCharmWhenDead(c *gc.C) {
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		_, err := s.mysql.AddUnit(state.AddUnitParams{})
+		c.Assert(err, jc.ErrorIsNil)
 		err = s.mysql.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 		assertLife(c, s.mysql, state.Dying)
@@ -2636,6 +2637,7 @@ func (s *ApplicationSuite) TestConstraints(c *gc.C) {
 	// Constraints can be set.
 	cons2 := constraints.Value{Mem: uint64p(4096)}
 	err = s.mysql.SetConstraints(cons2)
+	c.Assert(err, jc.ErrorIsNil)
 	cons3, err := s.mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons3, gc.DeepEquals, cons2)
@@ -2974,6 +2976,7 @@ func (s *ApplicationSuite) TestMetricCredentials(c *gc.C) {
 	c.Assert(s.mysql.MetricCredentials(), gc.DeepEquals, []byte("hello there"))
 
 	application, err := s.State.Application(s.mysql.Name())
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application.MetricCredentials(), gc.DeepEquals, []byte("hello there"))
 }
 
@@ -4030,6 +4033,7 @@ func (s *CAASApplicationSuite) TestWatchCloudService(c *gc.C) {
 		Id:         s.app.Name(),
 		ProviderId: "123",
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Stop, check closed.

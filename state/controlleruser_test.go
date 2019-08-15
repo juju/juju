@@ -53,6 +53,7 @@ func (s *ControllerUserSuite) TestSetAccessControllerUser(c *gc.C) {
 	s.State.SetUserAccess(userTag, ctag, permission.SuperuserAccess)
 
 	controllerUser, err = s.State.UserAccess(user.UserTag(), ctag)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerUser.Access, gc.Equals, permission.SuperuserAccess)
 }
 

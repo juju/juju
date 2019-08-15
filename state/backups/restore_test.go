@@ -61,6 +61,7 @@ func (r *RestoreSuite) TestReplicasetIsReset(c *gc.C) {
 	dialInfo = server.DialInfo()
 	dialInfo.Addrs = []string{mgoAddr}
 	err = resetReplicaSet(dialInfo, mgoAddr)
+	c.Assert(err, jc.ErrorIsNil)
 
 	session, err := server.Dial()
 	c.Assert(err, jc.ErrorIsNil)
