@@ -469,16 +469,10 @@ func (c *Client) cloneVM(
 		args.UpdateProgressInterval,
 	}
 
-	vmConfigSpec := &types.VirtualMachineConfigSpec{}
-	err = c.buildConfigSpec(ctx, args, vmConfigSpec)
+	vmConfigSpec, err := c.buildConfigSpec(ctx, args, srcVM)
 	if err != nil {
 		return nil, errors.Annotate(err, "building clone VM config")
 	}
-	newVAppConfig, err := customiseVAppConfig(ctx, srcVM, args)
-	if err != nil {
-		return nil, errors.Annotate(err, "changing VApp config")
-	}
-	vmConfigSpec.VAppConfig = newVAppConfig
 
 	task, err := srcVM.Clone(ctx, vmFolder, args.Name, types.VirtualMachineCloneSpec{
 		Config: vmConfigSpec,
@@ -515,6 +509,66 @@ func (c *Client) cloneVM(
 	return vm, nil
 }
 
+func (c *Client) buildConfigSpec(
+	ctx context.Context,
+	args CreateVirtualMachineParams,
+	srcVM *object.VirtualMachine,
+) (*types.VirtualMachineConfigSpec, error) {
+	var spec types.VirtualMachineConfigSpec
+	if args.Constraints.HasCpuCores() {
+		spec.NumCPUs = int32(*args.Constraints.CpuCores)
+	}
+	if args.Constraints.HasMem() {
+		spec.MemoryMB = int64(*args.Constraints.Mem)
+	}
+	if args.Constraints.HasCpuPower() {
+		cpuPower := int64(*args.Constraints.CpuPower)
+		spec.CpuAllocation = &types.ResourceAllocationInfo{
+			Limit:       &cpuPower,
+			Reservation: &cpuPower,
+		}
+	}
+	spec.Flags = &types.VirtualMachineFlagInfo{
+		DiskUuidEnabled: types.NewBool(args.EnableDiskUUID),
+	}
+
+	for k, v := range args.Metadata {
+		spec.ExtraConfig = append(spec.ExtraConfig, &types.OptionValue{Key: k, Value: v})
+	}
+
+	networks, dvportgroupConfig, err := c.computeResourceNetworks(ctx, args.ComputeResource)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for i, networkDevice := range args.NetworkDevices {
+		network := networkDevice.Network
+		if network == "" {
+			network = defaultNetwork
+		}
+
+		networkReference, err := findNetwork(networks, network)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		device, err := c.addNetworkDevice(ctx, &spec, networkReference, networkDevice.MAC, dvportgroupConfig)
+		if err != nil {
+			return nil, errors.Annotatef(err, "adding network device %d - network %s", i, network)
+		}
+		c.logger.Debugf("network device: %+v", device)
+	}
+
+	newVAppConfig, err := customiseVAppConfig(ctx, srcVM, args)
+	if err != nil {
+		return nil, errors.Annotate(err, "changing VApp config")
+	}
+	spec.VAppConfig = newVAppConfig
+
+	return &spec, nil
+}
+
+// customiseVAppConfig gets the existing VApp config properties from
+// the template VM passed in and uses them to construct edits for the
+// new cloned VM.
 func customiseVAppConfig(
 	ctx context.Context,
 	srcVM *object.VirtualMachine,
