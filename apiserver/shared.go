@@ -5,11 +5,13 @@ package apiserver
 
 import (
 	"sync"
+	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
+	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/presence"
@@ -42,8 +44,9 @@ type sharedServerContext struct {
 	leaseManager lease.Manager
 	logger       loggo.Logger
 
-	featuresMutex sync.RWMutex
-	features      set.Strings
+	configMutex      sync.RWMutex
+	controllerConfig jujucontroller.Config
+	features         set.Strings
 
 	unsubscribe func()
 }
@@ -80,17 +83,18 @@ func newSharedServerContex(config sharedServerConfig) (*sharedServerContext, err
 	if err := config.validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	ctx := &sharedServerContext{
-		statePool:    config.statePool,
-		controller:   config.controller,
-		centralHub:   config.centralHub,
-		presence:     config.presence,
-		leaseManager: config.leaseManager,
-		logger:       config.logger,
-	}
-	controllerConfig, err := ctx.statePool.SystemState().ControllerConfig()
+	controllerConfig, err := config.statePool.SystemState().ControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get controller config")
+	}
+	ctx := &sharedServerContext{
+		statePool:        config.statePool,
+		controller:       config.controller,
+		centralHub:       config.centralHub,
+		presence:         config.presence,
+		leaseManager:     config.leaseManager,
+		logger:           config.logger,
+		controllerConfig: controllerConfig,
 	}
 	ctx.features = controllerConfig.Features()
 	// We are able to get the current controller config before subscribing to changes
@@ -117,12 +121,13 @@ func (c *sharedServerContext) onConfigChanged(topic string, data controller.Conf
 
 	features := data.Config.Features()
 
-	c.featuresMutex.Lock()
+	c.configMutex.Lock()
+	c.controllerConfig = data.Config
 	removed := c.features.Difference(features)
 	added := features.Difference(c.features)
 	c.features = features
 	values := features.SortedValues()
-	c.featuresMutex.Unlock()
+	c.configMutex.Unlock()
 
 	if removed.Size() != 0 || added.Size() != 0 {
 		c.logger.Infof("updating features to %v", values)
@@ -141,7 +146,13 @@ func (c *sharedServerContext) onConfigChanged(topic string, data controller.Conf
 }
 
 func (c *sharedServerContext) featureEnabled(flag string) bool {
-	c.featuresMutex.RLock()
-	defer c.featuresMutex.RUnlock()
+	c.configMutex.RLock()
+	defer c.configMutex.RUnlock()
 	return c.features.Contains(flag)
+}
+
+func (c *sharedServerContext) maxDebugLogDuration() time.Duration {
+	c.configMutex.RLock()
+	defer c.configMutex.RUnlock()
+	return c.controllerConfig.MaxDebugLogDuration()
 }

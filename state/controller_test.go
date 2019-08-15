@@ -39,6 +39,7 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.JujuManagementSpace,
 		controller.AuditLogExcludeMethods,
 		// TODO(thumper): remove MaxLogsAge and MaxLogsSize in 2.7 branch.
+		controller.MaxDebugLogDuration,
 		controller.MaxLogsAge,
 		controller.MaxLogsSize,
 		controller.MaxPruneTxnBatchSize,

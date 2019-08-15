@@ -289,6 +289,13 @@ var validateTests = []struct {
 		controller.MongoMemoryProfile: "not-valid",
 	},
 	expectError: `mongo-memory-profile: expected one of "low" or "default" got string\("not-valid"\)`,
+}, {
+	about: "max-debug-log-duration not valid",
+	config: controller.Config{
+		controller.CACertKey:           testing.CACert,
+		controller.MaxDebugLogDuration: time.Duration(0),
+	},
+	expectError: `max-debug-log-duration cannot be zero`,
 }}
 
 func (s *ConfigSuite) TestValidate(c *gc.C) {
@@ -586,4 +593,37 @@ func (s *ConfigSuite) TestMeteringURLSettingValue(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.MeteringURL(), gc.Equals, mURL)
+}
+
+func (s *ConfigSuite) TestMaxDebugLogDuration(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			"max-debug-log-duration": "90m",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.MaxDebugLogDuration(), gc.Equals, 90*time.Minute)
+}
+
+func (s *ConfigSuite) TestMaxDebugLogDurationSchemaCoerce(c *gc.C) {
+	_, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			"max-debug-log-duration": "12",
+		},
+	)
+	c.Assert(err.Error(), gc.Equals, "max-debug-log-duration: conversion to duration: time: missing unit in duration 12")
+}
+
+func (s *ConfigSuite) TestMaxDebugLogDurationDefault(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.MaxDebugLogDuration(), gc.Equals, controller.DefaultMaxDebugLogDuration)
 }
