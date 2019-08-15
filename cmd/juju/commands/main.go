@@ -224,12 +224,12 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 		Doc:  jujuDoc,
 		MissingCallback: RunPlugin(func(ctx *cmd.Context, subcommand string, args []string) error {
 			if cmdName, _, ok := jcmd.FindClosestSubCommand(subcommand); ok {
-				return NotFoundCommand{
+				return &NotFoundCommand{
 					ArgName: subcommand,
 					CmdName: cmdName,
 				}
 			}
-			return &cmd.UnrecognizedCommand{Name: subcommand}
+			return cmd.DefaultUnrecognizedCommand(subcommand)
 		}),
 		UserAliasesFilename: osenv.JujuXDGDataHomePath("aliases"),
 		FlagKnownAs:         "option",
@@ -237,6 +237,11 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 	registerCommands(jcmd, ctx)
 	return jcmd
 }
+
+const notFoundCommandMessage = `juju: %q is not a juju command. See "juju --help".
+
+Did you mean:
+	%s`
 
 // NotFoundCommand gives valuable feedback to the operator about what commands
 // could be available if a mistake around the subcommand name is given.
@@ -246,10 +251,7 @@ type NotFoundCommand struct {
 }
 
 func (c NotFoundCommand) Error() string {
-	return fmt.Sprintf(`juju: %q is not a juju command. See "juju --help".
-
-Did you mean:
-	%s`, c.ArgName, c.CmdName)
+	return fmt.Sprintf(notFoundCommandMessage, c.ArgName, c.CmdName)
 }
 
 type commandRegistry interface {
