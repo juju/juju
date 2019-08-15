@@ -39,11 +39,11 @@ func main() {
 		return f1.Version > f2.Version
 	})
 
-	output := make([]Facade, len(input))
+	output := make([]TemplateFacade, len(input))
 	for k, facade := range input {
-		methods := make([]FacadeMethod, 0, len(facade.Schema.Properties))
+		methods := make([]TemplateMethod, 0, len(facade.Schema.Properties))
 		for k, prop := range facade.Schema.Properties {
-			methods = append(methods, FacadeMethod{
+			methods = append(methods, TemplateMethod{
 				Name:   k,
 				Param:  prop.Properties.Params.Ref,
 				Result: prop.Properties.Result.Ref,
@@ -53,19 +53,32 @@ func main() {
 			return methods[i].Name < methods[j].Name
 		})
 
-		definitions := make([]FacadeDefinition, 0, len(facade.Schema.Definitions))
+		definitions := make([]TemplateDefinition, 0, len(facade.Schema.Definitions))
 		for k, prop := range facade.Schema.Definitions {
-			definitions = append(definitions, FacadeDefinition{
-				Name: k,
-				Type: prop.Type,
-				Ref:  fmt.Sprintf(""),
+			properties := make([]TemplateProperty, 0, len(prop.Properties))
+			for k, v := range prop.Properties {
+				properties = append(properties, TemplateProperty{
+					Name:   k,
+					Type:   v.Type,
+					Format: v.Format,
+					Ref:    "",
+				})
+			}
+			sort.Slice(properties, func(i, j int) bool {
+				return properties[i].Name < properties[j].Name
+			})
+
+			definitions = append(definitions, TemplateDefinition{
+				Name:       k,
+				Type:       prop.Type,
+				Properties: properties,
 			})
 		}
 		sort.Slice(definitions, func(i, j int) bool {
 			return definitions[i].Name < definitions[j].Name
 		})
 
-		output[k] = Facade{
+		output[k] = TemplateFacade{
 			Name:        facade.Name,
 			Version:     facade.Version,
 			Methods:     methods,
@@ -82,56 +95,74 @@ func main() {
 	}
 }
 
+// JSONFacade represents the facade in json schema form
 type JSONFacade struct {
 	Name    string
 	Version int
 	Schema  JSONFacadeSchema
 }
 
+// JSONFacadeSchema represents the facade schema object in json schema form
 type JSONFacadeSchema struct {
 	Type        string                      `json:"type"`
 	Properties  map[string]PropertySchema   `json:"properties"`
 	Definitions map[string]DefinitionSchema `json:"definitions"`
 }
 
+// PropertySchema represents the property schema object in json schema form
 type PropertySchema struct {
 	Type       string   `json:"type"`
 	Properties Property `json:"properties"`
 }
 
+// Property represents the property object in json schema form
 type Property struct {
 	Params Ref
 	Result Ref
 }
 
+// Ref represents a reference to another object
 type Ref struct {
 	Ref string `json:"$ref"`
 }
 
+// DefinitionSchema represents a definition in json schema form
 type DefinitionSchema struct {
+	Ref
 	Type                 string                      `json:"type"`
+	Format               string                      `json:"format"`
 	Properties           map[string]DefinitionSchema `json:"properties"`
 	AdditionalProperties bool                        `json:"additionalProperties"`
 	Required             []string                    `json:"required"`
 }
 
-type Facade struct {
+// TemplateFacade represents a facade for templating usage
+type TemplateFacade struct {
 	Name        string
 	Version     int
-	Methods     []FacadeMethod
-	Definitions []FacadeDefinition
+	Methods     []TemplateMethod
+	Definitions []TemplateDefinition
 }
 
-type FacadeMethod struct {
+// TemplateMethod represents a facade method for templating usage
+type TemplateMethod struct {
 	Name   string
 	Param  string
 	Result string
 }
 
-type FacadeDefinition struct {
-	Name string
-	Type string
-	Ref  string
+// TemplateDefinition represents a facade definition for templating usage
+type TemplateDefinition struct {
+	Name       string
+	Type       string
+	Properties []TemplateProperty
+}
+
+type TemplateProperty struct {
+	Name   string
+	Type   string
+	Format string
+	Ref    string
 }
 
 var htmlTmpl = `
@@ -153,7 +184,8 @@ var htmlTmpl = `
 		padding-left: 25px;
 	}
 	table {
-		margin: 50px 0;
+		margin: 0 0 50px 0;
+		width: 100%;
 	}
 	tr:nth-child(even) {
 		background-color: #f1f1f1;
@@ -210,18 +242,25 @@ var htmlTmpl = `
 	<ul>
 	  <li><a href="#{{.Name}}">Methods</a></li>
 	</ul>
+	{{range .Definitions}}
+	<h4 id="{{$facade_name}}_definitions_{{.Name}}"><a href="#{{$facade_name}}_definitions_{{.Name}}">{{.Name}}</a></h4>
 	<table>
 		<tr>
 			<th>Name</th>
 			<th>Type</th>
+			<th>Format</th>
+			<th>Reference</th>
 		</tr>
-		{{range .Definitions}}
+		{{range .Properties}}
 		<tr>
-			<td><a href="#{{$facade_name}}_definitions_{{.Name}}" id="{{$facade_name}}_definitions_{{.Name}}">{{.Name}}</td>
-			<td>{{.Type}}</td>
+			<td>{{.Name}}</td>
+			<td>{{.Type | typeRef .Ref}}</td>
+			<td>{{.Format}}</td>
+			<td>{{.Ref}}</td>
 		</tr>
 		{{end}}
 	</table>
+	{{end}}
 	<hr />
 {{end}}
 </body>
@@ -240,5 +279,11 @@ var tmplFuncs = template.FuncMap{
 	},
 	"defName": func(name string) string {
 		return strings.TrimPrefix(name, "#/definitions/")
+	},
+	"typeRef": func(t, ref string) string {
+		if strings.HasPrefix(ref, "#/") {
+			return "Ref"
+		}
+		return t
 	},
 }
