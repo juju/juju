@@ -298,7 +298,7 @@ func (c *Client) CreateVirtualMachine(
 	args.UpdateProgress("cloning template")
 	vm, err := c.cloneVM(ctx, args, templateVM, vmFolder)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "cloning template VM")
 	}
 
 	taskWaiter := &taskWaiter{
@@ -345,57 +345,6 @@ func (c *Client) extendVMRootDisk(
 	))
 }
 
-func (c *Client) buildConfigSpec(ctx context.Context,
-	args CreateVirtualMachineParams,
-	spec *types.VirtualMachineConfigSpec) error {
-	if spec == nil {
-		spec = &types.VirtualMachineConfigSpec{}
-	}
-	if args.Constraints.HasCpuCores() {
-		spec.NumCPUs = int32(*args.Constraints.CpuCores)
-	}
-	if args.Constraints.HasMem() {
-		spec.MemoryMB = int64(*args.Constraints.Mem)
-	}
-	if args.Constraints.HasCpuPower() {
-		cpuPower := int64(*args.Constraints.CpuPower)
-		spec.CpuAllocation = &types.ResourceAllocationInfo{
-			Limit:       &cpuPower,
-			Reservation: &cpuPower,
-		}
-	}
-	if spec.Flags == nil {
-		spec.Flags = &types.VirtualMachineFlagInfo{}
-	}
-	spec.Flags.DiskUuidEnabled = types.NewBool(args.EnableDiskUUID)
-
-	for k, v := range args.Metadata {
-		spec.ExtraConfig = append(spec.ExtraConfig, &types.OptionValue{Key: k, Value: v})
-	}
-
-	networks, dvportgroupConfig, err := c.computeResourceNetworks(ctx, args.ComputeResource)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for i, networkDevice := range args.NetworkDevices {
-		network := networkDevice.Network
-		if network == "" {
-			network = defaultNetwork
-		}
-
-		networkReference, err := findNetwork(networks, network)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		device, err := c.addNetworkDevice(ctx, spec, networkReference, networkDevice.MAC, dvportgroupConfig)
-		if err != nil {
-			return errors.Annotatef(err, "adding network device %d - network %s", i, network)
-		}
-		c.logger.Debugf("network device: %+v", device)
-	}
-	return nil
-}
-
 func (c *Client) createImportSpec(
 	ctx context.Context,
 	args CreateVirtualMachineParams,
@@ -414,11 +363,6 @@ func (c *Client) createImportSpec(
 		return nil, errors.Trace(err)
 	} else if spec.Error != nil {
 		return nil, errors.New(spec.Error[0].LocalizedMessage)
-	}
-	s := &spec.ImportSpec.(*types.VirtualMachineImportSpec).ConfigSpec
-	err = c.buildConfigSpec(ctx, args, s)
-	if err != nil {
-		return nil, errors.Trace(err)
 	}
 	return spec, nil
 }
