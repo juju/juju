@@ -288,7 +288,7 @@
 
 [[constraint]]
   name = "github.com/juju/cmd"
-  revision = "26546fa0123cbf702dff02aec8700af5cd944c2d"
+  revision = "0c5c82a8dfc6992939365fc947d7399e0e2428ae"
 
 [[constraint]]
   name = "github.com/juju/collections"

@@ -75,6 +75,13 @@ func syncToolsHelpText() string {
 func (s *MainSuite) TestRunMain(c *gc.C) {
 	jujuclienttesting.SetupMinimalFileStore(c)
 
+	missingCommandMessage := func(wanted, actual string) string {
+		return fmt.Sprintf("ERROR %s\n", NotFoundCommand{
+			ArgName: wanted,
+			CmdName: actual,
+		}.Error())
+	}
+
 	// The test array structure needs to be inline here as some of the
 	// expected values below use deployHelpText().  This constructs the deploy
 	// command and runs gets the help for it.  When the deploy command is
@@ -90,7 +97,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "juju help foo doesn't exist",
 		args:    []string{"help", "foo"},
 		code:    1,
-		out:     "ERROR unknown command or topic for foo\n",
+		out:     missingCommandMessage("foo", "gui"),
 	}, {
 		summary: "juju help deploy shows the default help without global options",
 		args:    []string{"help", "deploy"},
@@ -117,10 +124,15 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		code:    0,
 		out:     configHelpText(),
 	}, {
-		summary: "unknown command",
+		summary: "unknown command with match",
 		args:    []string{"discombobulate"},
 		code:    1,
-		out:     "ERROR unrecognized command: juju discombobulate\n",
+		out:     missingCommandMessage("discombobulate", "diff-bundle"),
+	}, {
+		summary: "unknown command",
+		args:    []string{"pseudopseudohypoparathyroidism"},
+		code:    1,
+		out:     "ERROR unrecognized command: juju pseudopseudohypoparathyroidism\n",
 	}, {
 		summary: "unknown option before command",
 		args:    []string{"--cheese", "bootstrap"},
