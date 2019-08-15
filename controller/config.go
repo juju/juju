@@ -206,7 +206,9 @@ const (
 	// DefaultMongoMemoryProfile is the default profile used by mongo.
 	DefaultMongoMemoryProfile = MongoProfDefault
 
-	DefaultMaxDebugLogDuration = "24h"
+	// DefaultMaxDebugLogDuration is the default duration that debug-log commands
+	// can run before being terminated by the API server.
+	DefaultMaxDebugLogDuration = 24 * time.Hour
 
 	// TODO(thumper): remove DefaultMaxLogsAgeDays and DefaultMaxLogCollectionMB in 2.7 branch.
 
@@ -609,12 +611,11 @@ func (c Config) ModelLogsSizeMB() int {
 // MaxDebugLogDuration is the maximum time a debug-log session is allowed
 // to run before it is terminated by the server.
 func (c Config) MaxDebugLogDuration() time.Duration {
-	asStr, ok := c[MaxDebugLogDuration].(string)
+	duration, ok := c[MaxDebugLogDuration].(time.Duration)
 	if !ok {
-		asStr = DefaultMaxDebugLogDuration
+		duration = DefaultMaxDebugLogDuration
 	}
-	val, _ := time.ParseDuration(asStr)
-	return val
+	return duration
 }
 
 // MaxTxnLogSizeMB is the maximum size in MiB of the txn log collection.
@@ -727,12 +728,11 @@ func Validate(c Config) error {
 		}
 	}
 
-	if v, ok := c[MaxDebugLogDuration].(string); ok {
-		if _, err := time.ParseDuration(v); err != nil {
-			return errors.Annotate(err, "invalid max-debug-log-duration in configuration")
+	if v, ok := c[MaxDebugLogDuration].(time.Duration); ok {
+		if v == 0 {
+			return errors.Errorf("%s cannot be zero", MaxDebugLogDuration)
 		}
 	}
-
 	// TODO(thumper): remove MaxLogsAge and MaxLogsSize validation in 2.7 branch.
 	if v, ok := c[MaxLogsAge].(string); ok {
 		if _, err := time.ParseDuration(v); err != nil {
@@ -913,7 +913,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AutocertDNSNameKey:      schema.String(),
 	AllowModelAccessKey:     schema.Bool(),
 	MongoMemoryProfile:      schema.String(),
-	MaxDebugLogDuration:     schema.String(),
+	MaxDebugLogDuration:     schema.TimeDuration(),
 	MaxLogsAge:              schema.String(),
 	MaxLogsSize:             schema.String(),
 	MaxTxnLogSize:           schema.String(),

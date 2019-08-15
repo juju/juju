@@ -728,11 +728,11 @@
   revision = "cca922e065df403dc5088294f7f546e838d13708"
 
 [[projects]]
-  digest = "1:635b65b0b4a17f59ab380b6ec8efb91783e20c6b1b48f0a7ef12cb0d953d1d50"
+  digest = "1:db82eb6a66dc5e2608a5769dbaa2f874dfc036953cbe7681e6987fe10c27235c"
   name = "github.com/juju/schema"
   packages = ["."]
   pruneopts = ""
-  revision = "64a6158e90710d0a16c6bd3cf0a6be6b2e80193c"
+  revision = "1f8aaeef09898fcee40fe43b8de422533b0cac2b"
 
 [[projects]]
   digest = "1:e3f03b6b31f1b273e4b37b1ac54fb10a0553fbc6c66441fe5388450caa385129"
