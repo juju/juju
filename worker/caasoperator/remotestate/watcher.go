@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	jworker "github.com/juju/juju/worker"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1/catacomb"
 )
@@ -84,7 +83,8 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 func (w *RemoteStateWatcher) loop() (err error) {
 	defer func() {
 		if errors.IsNotFound(err) {
-			err = jworker.ErrTerminateAgent
+			logger.Debugf("ignoring error %v and exit", err)
+			err = nil
 		}
 	}()
 
