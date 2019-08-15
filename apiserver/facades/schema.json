@@ -36475,6 +36475,9 @@
                         },
                         "Resolved": {
                             "type": "string"
+                        },
+                        "provider-id": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,

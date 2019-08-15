@@ -71,6 +71,9 @@ const (
 	gpuAffinityNodeSelectorKey = "gpu"
 
 	annotationPrefix = "juju.io"
+
+	// OperatorPodIPEnvName is the environment name for operator pod IP.
+	OperatorPodIPEnvName = "JUJU_OPERATOR_POD_IP"
 )
 
 var (
@@ -2072,7 +2075,7 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		providerId := string(p.UID)
+		providerId := string(p.GetUID())
 		stateful := false
 
 		// Pods managed by a stateful set use the pod name
@@ -2509,6 +2512,14 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 				},
 				Env: []core.EnvVar{
 					{Name: "JUJU_APPLICATION", Value: appName},
+					{
+						Name: OperatorPodIPEnvName,
+						ValueFrom: &core.EnvVarSource{
+							FieldRef: &core.ObjectFieldSelector{
+								FieldPath: "status.podIP",
+							},
+						},
+					},
 				},
 				VolumeMounts: []core.VolumeMount{{
 					Name:      configVolName,
@@ -2608,9 +2619,9 @@ func boolPtr(b bool) *bool {
 }
 
 func defaultSecurityContext() *core.SecurityContext {
-	// TODO - consider locking this down more but charms will break
+	// TODO(caas): consider locking this down more but charms will break
 	return &core.SecurityContext{
-		AllowPrivilegeEscalation: boolPtr(false),
+		AllowPrivilegeEscalation: boolPtr(true), // allow privilege for juju run and actions.
 		ReadOnlyRootFilesystem:   boolPtr(false),
 		RunAsNonRoot:             boolPtr(false),
 	}

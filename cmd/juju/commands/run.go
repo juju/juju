@@ -15,6 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 
 	actionapi "github.com/juju/juju/api/action"
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -87,7 +89,7 @@ had two units, "mysql/0" and "mysql/1", then
 is equivalent to
   --unit mysql/0,mysql/1
 
-If --operator is provided on CAAS modelas, commands are executed on the operator
+If --operator is provided on k8s models, commands are executed on the operator
 instead of the workload. On IAAS models, --operator has no effect.
 
 Commands run for applications or units are executed in a 'hook context' for
@@ -125,7 +127,9 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 		"default": cmd.FormatYaml,
 	})
 	f.BoolVar(&c.all, "all", false, "Run the commands on all the machines")
-	f.BoolVar(&c.operator, "operator", false, "Run the commands on the operator (CAAS-only)")
+	if featureflag.Enabled(feature.DeveloperMode) {
+		f.BoolVar(&c.operator, "operator", false, "Run the commands on the operator (k8s-only)")
+	}
 	f.DurationVar(&c.timeout, "timeout", 5*time.Minute, "How long to wait before the remote command is considered to have failed")
 	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "One or more machine ids")
 	f.Var(cmd.NewStringsValue(nil, &c.applications), "a", "One or more application names")
@@ -255,12 +259,16 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if modelType == model.CAAS {
+		if !featureflag.Enabled(feature.DeveloperMode) {
+			return errors.New("k8s support is under development, enable the developer-model feature flag and try again")
+		}
+
 		if client.BestAPIVersion() < 4 {
-			return errors.Errorf("CAAS controller does not support juju run" +
+			return errors.Errorf("k8s controller does not support juju run" +
 				"\nconsider upgrading your controller")
 		}
 		if len(c.machines) > 0 {
-			return errors.Errorf("unable to target machines with a CAAS controller")
+			return errors.Errorf("unable to target machines with a k8s controller")
 		}
 	}
 
@@ -287,7 +295,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		}
 		if c.operator {
 			if modelType != model.CAAS {
-				return errors.Errorf("only CAAS models support the --operator flag")
+				return errors.Errorf("only k8s models support the --operator flag")
 			}
 		}
 		if modelType == model.CAAS {

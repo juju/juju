@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -26,18 +27,18 @@ type fops interface {
 type RealPaths struct {
 	tools         string
 	charm         string
-	socket        string
+	socket        sockets.Socket
 	metricsspool  string
 	componentDirs map[string]string
 	fops          fops
 }
 
-func osDependentSockPath(c *gc.C) string {
+func osDependentSockPath(c *gc.C) sockets.Socket {
 	sockPath := filepath.Join(c.MkDir(), "test.sock")
 	if runtime.GOOS == "windows" {
-		return `\\.\pipe` + sockPath[2:]
+		return sockets.Socket{Network: "unix", Address: `\\.\pipe` + sockPath[2:]}
 	}
-	return sockPath
+	return sockets.Socket{Network: "unix", Address: sockPath}
 }
 
 func NewRealPaths(c *gc.C) RealPaths {
@@ -63,7 +64,7 @@ func (p RealPaths) GetCharmDir() string {
 	return p.charm
 }
 
-func (p RealPaths) GetJujucSocket() string {
+func (p RealPaths) GetJujucSocket() sockets.Socket {
 	return p.socket
 }
 

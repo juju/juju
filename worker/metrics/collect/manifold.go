@@ -153,7 +153,7 @@ func newCollect(config ManifoldConfig, context dependency.Context) (*collect, er
 	if !ok {
 		return nil, errors.Errorf("expected a unit tag, got %v", tag)
 	}
-	paths := uniter.NewWorkerPaths(agentConfig.DataDir(), unitTag, "metrics-collect")
+	paths := uniter.NewWorkerPaths(agentConfig.DataDir(), unitTag, "metrics-collect", false)
 	runner := &hookRunner{
 		unitTag: unitTag.String(),
 		paths:   paths,
@@ -222,7 +222,7 @@ func (w *collect) Do(stop <-chan struct{}) (err error) {
 	if !ok {
 		return errors.Errorf("expected a unit tag, got %v", tag)
 	}
-	paths := uniter.NewWorkerPaths(config.DataDir(), unitTag, "metrics-collect")
+	paths := uniter.NewWorkerPaths(config.DataDir(), unitTag, "metrics-collect", false)
 
 	recorder, err := newRecorder(unitTag, paths, w.metricFactory)
 	if errors.Cause(err) == errMetricsNotDefined {
@@ -264,7 +264,7 @@ func (h *hookRunner) do(recorder spool.MetricRecorder) error {
 		return errors.Annotatef(err, "error adding 'juju-units' metric")
 	}
 
-	r := runner.NewRunner(ctx, h.paths)
+	r := runner.NewRunner(ctx, h.paths, nil)
 	err = r.RunHook(string(hooks.CollectMetrics))
 	if err != nil {
 		return errors.Annotatef(err, "error running 'collect-metrics' hook")

@@ -1272,11 +1272,26 @@ func (u *UniterAPI) Refresh(args params.Entities) (params.UnitRefreshResults, er
 			if unit, err = u.getUnit(tag); err == nil {
 				result.Results[i].Life = params.Life(unit.Life().String())
 				result.Results[i].Resolved = params.ResolvedMode(unit.Resolved())
+
+				var err1 error
+				result.Results[i].ProviderID, err1 = u.getProviderID(unit)
+				if err1 != nil && !errors.IsNotFound(err1) {
+					// initially, it returns not found error, so just ignore it.
+					err = err1
+				}
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+func (u *UniterAPI) getProviderID(unit *state.Unit) (string, error) {
+	container, err := unit.ContainerInfo()
+	if err != nil {
+		return "", err
+	}
+	return container.ProviderId(), nil
 }
 
 // CurrentModel returns the name and UUID for the current juju model.

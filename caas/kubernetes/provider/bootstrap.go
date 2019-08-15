@@ -72,7 +72,7 @@ var controllerServiceSpecs = map[string]*controllerServiceSpec{
 		ServiceType: core.ServiceTypeClusterIP,
 	},
 	caas.K8sCloudOpenStack: {
-		ServiceType: core.ServiceTypeLoadBalancer, // TODO(caas): test and verify this.
+		ServiceType: core.ServiceTypeLoadBalancer,
 	},
 	caas.K8sCloudMAAS: {
 		ServiceType: core.ServiceTypeLoadBalancer, // TODO(caas): test and verify this.

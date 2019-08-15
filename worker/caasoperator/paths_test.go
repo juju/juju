@@ -35,10 +35,6 @@ func (s *PathsSuite) TestPaths(c *gc.C) {
 	relAgent := relPathFunc(relData("agents", "application-foo"))
 	c.Assert(paths, jc.DeepEquals, caasoperator.Paths{
 		ToolsDir: relData("tools"),
-		Runtime: caasoperator.RuntimePaths{
-			JujuRunSocket:           relAgent("run.socket"),
-			HookCommandServerSocket: "@" + relAgent("agent.socket"),
-		},
 		State: caasoperator.StatePaths{
 			BaseDir:         relAgent(),
 			CharmDir:        relAgent("charm"),
@@ -54,9 +50,6 @@ func (s *PathsSuite) TestPaths(c *gc.C) {
 func (s *PathsSuite) TestContextInterface(c *gc.C) {
 	paths := caasoperator.Paths{
 		ToolsDir: "/path/to/tools",
-		Runtime: caasoperator.RuntimePaths{
-			HookCommandServerSocket: "/path/to/socket",
-		},
 		State: caasoperator.StatePaths{
 			CharmDir:        "/path/to/charm",
 			MetricsSpoolDir: "/path/to/spool/metrics",
@@ -64,6 +57,5 @@ func (s *PathsSuite) TestContextInterface(c *gc.C) {
 	}
 	c.Assert(paths.GetToolsDir(), gc.Equals, "/path/to/tools")
 	c.Assert(paths.GetCharmDir(), gc.Equals, "/path/to/charm")
-	c.Assert(paths.GetHookCommandSocket(), gc.Equals, "/path/to/socket")
 	c.Assert(paths.GetMetricsSpoolDir(), gc.Equals, "/path/to/spool/metrics")
 }

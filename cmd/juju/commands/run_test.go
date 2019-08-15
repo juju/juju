@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
@@ -33,6 +34,11 @@ type RunSuite struct {
 }
 
 var _ = gc.Suite(&RunSuite{})
+
+func (s *RunSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.DeveloperMode)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+}
 
 func newTestRunCommand(clock clock.Clock, modelType model.ModelType) cmd.Command {
 	return newRunCommand(minimalStore(modelType), clock.After)
@@ -487,7 +493,7 @@ func (s *RunSuite) TestCAASCantRunWithUnsupportedAPIVersion(c *gc.C) {
 		"--unit", "unit/0", "echo hello",
 	)
 
-	expErr := "CAAS controller does not support juju run\n" +
+	expErr := "k8s controller does not support juju run\n" +
 		"consider upgrading your controller"
 	c.Assert(err, gc.ErrorMatches, expErr)
 }
@@ -501,7 +507,7 @@ func (s *RunSuite) TestCAASCantTargetMachine(c *gc.C) {
 		"--machine", "0", "echo hello",
 	)
 
-	expErr := "unable to target machines with a CAAS controller"
+	expErr := "unable to target machines with a k8s controller"
 	c.Assert(err, gc.ErrorMatches, expErr)
 }
 
@@ -514,7 +520,7 @@ func (s *RunSuite) TestIAASCantTargetOperator(c *gc.C) {
 		"--unit", "unit/0", "--operator", "echo hello",
 	)
 
-	expErr := "only CAAS models support the --operator flag"
+	expErr := "only k8s models support the --operator flag"
 	c.Assert(err, gc.ErrorMatches, expErr)
 }
 

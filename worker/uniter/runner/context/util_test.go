@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -361,8 +362,8 @@ func (MockEnvPaths) GetCharmDir() string {
 	return "path-to-charm"
 }
 
-func (MockEnvPaths) GetJujucSocket() string {
-	return "path-to-jujuc.socket"
+func (MockEnvPaths) GetJujucSocket() sockets.Socket {
+	return sockets.Socket{Network: "unix", Address: "path-to-jujuc.socket"}
 }
 
 func (MockEnvPaths) GetMetricsSpoolDir() string {

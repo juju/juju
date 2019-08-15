@@ -117,8 +117,9 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 	return cmd.NewRcPassthroughError(result.Code)
 }
 
-func (c *RunCommand) socketPath() string {
-	paths := uniter.NewPaths(cmdutil.DataDir, c.unit)
+func (c *RunCommand) getSocket() sockets.Socket {
+	// TODO(caas): enable juju-run for caas once we can know model type here.
+	paths := uniter.NewPaths(cmdutil.DataDir, c.unit, false)
 	return paths.Runtime.JujuRunSocket
 }
 
@@ -141,7 +142,7 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	if len(c.remoteUnitName) > 0 && relationId == -1 {
 		return nil, errors.Errorf("remote unit: %s, provided without a relation", c.remoteUnitName)
 	}
-	client, err := sockets.Dial(c.socketPath())
+	client, err := sockets.Dial(c.getSocket())
 	if err != nil {
 		return nil, errors.Annotate(err, "dialing juju run socket")
 	}

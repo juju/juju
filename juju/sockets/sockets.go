@@ -11,3 +11,13 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.juju.sockets")
+
+// Socket represents the set of parameters to use for socket to dial/listen.
+type Socket struct {
+
+	// Network is the socket network.
+	Network string
+
+	// Address is the socket address.
+	Address string
+}

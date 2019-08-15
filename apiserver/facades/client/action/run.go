@@ -4,6 +4,7 @@
 package action
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -99,8 +100,10 @@ func (a *ActionAPI) Run(run params.RunParams) (results params.ActionResults, err
 		machines[i] = names.NewMachineTag(machineId)
 	}
 
-	actionParams := a.createActionsParams(append(units, machines...), run.Commands, run.Timeout, run.WorkloadContext)
-
+	actionParams, err := a.createActionsParams(append(units, machines...), run.Commands, run.Timeout, run.WorkloadContext)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
 	return queueActions(a, actionParams)
 }
 
@@ -131,15 +134,25 @@ func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.Actio
 		machineTags[i] = machine.Tag()
 	}
 
-	actionParams := a.createActionsParams(machineTags, run.Commands, run.Timeout, false)
-
+	actionParams, err := a.createActionsParams(machineTags, run.Commands, run.Timeout, false)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
 	return queueActions(a, actionParams)
 }
 
-func (a *ActionAPI) createActionsParams(actionReceiverTags []names.Tag, quotedCommands string,
-	timeout time.Duration, workloadContext bool) params.Actions {
-
+func (a *ActionAPI) createActionsParams(
+	actionReceiverTags []names.Tag,
+	quotedCommands string,
+	timeout time.Duration,
+	workloadContext bool,
+) (params.Actions, error) {
 	apiActionParams := params.Actions{Actions: []params.Action{}}
+
+	actionRunnerName := actions.JujuRunActionName
+	if strings.Contains(quotedCommands, actionRunnerName) {
+		return apiActionParams, errors.NewNotSupported(nil, fmt.Sprintf("cannot use %q as an action command", quotedCommands))
+	}
 
 	actionParams := map[string]interface{}{}
 	actionParams["command"] = quotedCommands
@@ -149,12 +162,12 @@ func (a *ActionAPI) createActionsParams(actionReceiverTags []names.Tag, quotedCo
 	for _, tag := range actionReceiverTags {
 		apiActionParams.Actions = append(apiActionParams.Actions, params.Action{
 			Receiver:   tag.String(),
-			Name:       actions.JujuRunActionName,
+			Name:       actionRunnerName,
 			Parameters: actionParams,
 		})
 	}
 
-	return apiActionParams
+	return apiActionParams, nil
 }
 
 var queueActions = func(a *ActionAPI, args params.Actions) (results params.ActionResults, err error) {

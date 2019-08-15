@@ -177,6 +177,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 		uniter,
 		s.paths,
 		contextFactory,
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

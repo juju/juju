@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	caasoperatorapi "github.com/juju/juju/api/caasoperator"
+	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/status"
@@ -92,6 +93,9 @@ type ManifoldsConfig struct {
 	// PreviousAgentVersion passes through the version the unit
 	// agent was running before the current restart.
 	PreviousAgentVersion version.Number
+
+	// NewExecClient provides k8s execframework functionality for juju run commands or actions.
+	NewExecClient func(modelName string) (exec.Executor, error)
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various
@@ -251,6 +255,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewCharmDownloader: func(caller base.APICaller) caasoperator.Downloader {
 				return api.NewCharmDownloader(caller)
 			},
+			NewExecClient: config.NewExecClient,
 		})),
 	}
 }

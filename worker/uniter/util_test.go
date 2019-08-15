@@ -409,7 +409,7 @@ func (csau createApplicationAndUnit) step(c *gc.C, ctx *context) {
 
 type createUniter struct {
 	minion               bool
-	executorFunc         uniter.NewExecutorFunc
+	executorFunc         uniter.NewOperationExecutorFunc
 	translateResolverErr func(error) error
 }
 
@@ -457,7 +457,7 @@ func (waitAddresses) step(c *gc.C, ctx *context) {
 
 type startUniter struct {
 	unitTag              string
-	newExecutorFunc      uniter.NewExecutorFunc
+	newExecutorFunc      uniter.NewOperationExecutorFunc
 	translateResolverErr func(error) error
 }
 
@@ -665,7 +665,7 @@ func (s verifyDownloadsCleared) step(c *gc.C, ctx *context) {
 }
 
 func downloadDir(ctx *context) string {
-	paths := uniter.NewPaths(ctx.dataDir, ctx.unit.UnitTag())
+	paths := uniter.NewPaths(ctx.dataDir, ctx.unit.UnitTag(), false)
 	return filepath.Join(paths.State.BundlesDir, "downloads")
 }
 
@@ -1503,7 +1503,7 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 	go func() {
 		defer ctx.wg.Done()
 		// make sure the socket exists
-		client, err := sockets.Dial(socketPath)
+		client, err := sockets.Dial(sockets.Socket{Network: "unix", Address: socketPath})
 		// Don't use asserts in go routines.
 		if !c.Check(err, jc.ErrorIsNil) {
 			return

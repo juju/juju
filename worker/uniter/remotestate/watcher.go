@@ -614,6 +614,9 @@ func (w *RemoteStateWatcher) unitChanged() error {
 	defer w.mu.Unlock()
 	w.current.Life = w.unit.Life()
 	w.current.ResolvedMode = w.unit.Resolved()
+	// It's ok to sync provider ID by watching unit rather than
+	// cloud container because it will not change once pod created.
+	w.current.ProviderID = w.unit.ProviderID()
 	return nil
 }
 

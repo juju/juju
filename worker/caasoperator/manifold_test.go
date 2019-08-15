@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -20,9 +21,11 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/machinelock"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperator"
+	"github.com/juju/juju/worker/caasoperator/mocks"
 	"github.com/juju/juju/worker/uniter"
 )
 
@@ -56,6 +59,10 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
+}
+
+func (s *ManifoldSuite) setupManifold(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
 	s.manifold = caasoperator.Manifold(caasoperator.ManifoldConfig{
 		AgentName:             "agent",
 		APICallerName:         "api-caller",
@@ -67,7 +74,11 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		NewClient:             s.newClient,
 		NewCharmDownloader:    s.newCharmDownloader,
 		LeadershipGuarantee:   30 * time.Second,
+		NewExecClient: func(modelName string) (exec.Executor, error) {
+			return mocks.NewMockExecutor(ctrl), nil
+		},
 	})
+	return ctrl
 }
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
@@ -107,10 +118,16 @@ func (s *ManifoldSuite) newCharmDownloader(caller base.APICaller) caasoperator.D
 var expectedInputs = []string{"agent", "api-caller", "clock", "charm-dir", "hook-retry-strategy"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
+	ctrl := s.setupManifold(c)
+	defer ctrl.Finish()
+
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
 }
 
 func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
+	ctrl := s.setupManifold(c)
+	defer ctrl.Finish()
+
 	for _, input := range expectedInputs {
 		context := s.newContext(map[string]interface{}{
 			input: dependency.ErrMissing,
@@ -140,11 +157,13 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config.StartUniterFunc, gc.NotNil)
 	c.Assert(config.UniterParams.UpdateStatusSignal, gc.NotNil)
 	c.Assert(config.UniterParams.NewOperationExecutor, gc.NotNil)
+	c.Assert(config.UniterParams.NewRemoteRunnerExecutor, gc.NotNil)
 	config.LeadershipTrackerFunc = nil
 	config.StartUniterFunc = nil
 	config.UniterFacadeFunc = nil
 	config.UniterParams.UpdateStatusSignal = nil
 	config.UniterParams.NewOperationExecutor = nil
+	config.UniterParams.NewRemoteRunnerExecutor = nil
 
 	c.Assert(config, jc.DeepEquals, caasoperator.Config{
 		ModelUUID:          coretesting.ModelTag.Id(),
@@ -170,6 +189,9 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 }
 
 func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
+	ctrl := s.setupManifold(c)
+	defer ctrl.Finish()
+
 	w, err := s.manifold.Start(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)

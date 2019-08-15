@@ -4,11 +4,14 @@
 package runner
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -28,6 +31,13 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.runner")
+
+type runMode int
+
+const (
+	runOnLocal runMode = iota
+	runOnRemote
+)
 
 // Runner is responsible for invoking commands in a context.
 type Runner interface {
@@ -61,29 +71,77 @@ type Context interface {
 }
 
 // NewRunner returns a Runner backed by the supplied context and paths.
-func NewRunner(context Context, paths context.Paths) Runner {
-	return &runner{context, paths}
+func NewRunner(context Context, paths context.Paths, remoteExecutor ExecFunc) Runner {
+	return &runner{context, paths, remoteExecutor}
 }
+
+// ExecParams holds all the necessary parameters for ExecFunc.
+type ExecParams struct {
+	Commands        []string
+	Env             []string
+	WorkingDir      string
+	Clock           clock.Clock
+	ProcessSetter   func(context.HookProcess)
+	Cancel          <-chan struct{}
+	Stdout          io.ReadWriter
+	Stderr          io.ReadWriter
+	ProcessResponse bool
+}
+
+// execOnMachine executes commands on current machine.
+func execOnMachine(params ExecParams) (*utilexec.ExecResponse, error) {
+	command := utilexec.RunParams{
+		Commands:    strings.Join(params.Commands, " "),
+		WorkingDir:  params.WorkingDir,
+		Environment: params.Env,
+		Clock:       params.Clock,
+	}
+	err := command.Run()
+	if err != nil {
+		return nil, err
+	}
+	// TODO: refactor kill process and implement kill for caas exec.
+	params.ProcessSetter(hookProcess{command.Process()})
+	// Block and wait for process to finish
+	return command.WaitWithCancel(params.Cancel)
+}
+
+// ExecFunc is the exec func type.
+type ExecFunc func(ExecParams) (*utilexec.ExecResponse, error)
 
 // runner implements Runner.
 type runner struct {
 	context Context
 	paths   context.Paths
+	// remoteExecutor executes commands on a remote workload pod for CAAS.
+	remoteExecutor ExecFunc
 }
 
 func (runner *runner) Context() Context {
 	return runner.context
 }
 
+func (runner *runner) getRemoteExecutor(rModel runMode) (ExecFunc, error) {
+	switch rModel {
+	case runOnLocal:
+		return execOnMachine, nil
+	case runOnRemote:
+		if runner.remoteExecutor != nil {
+			return runner.remoteExecutor, nil
+		}
+	}
+	return nil, errors.NotSupportedf("run command model %q", rModel)
+}
+
 // RunCommands exists to satisfy the Runner interface.
 func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, error) {
-	result, err := runner.runCommandsWithTimeout(commands, 0, clock.WallClock)
+	result, err := runner.runCommandsWithTimeout(commands, 0, clock.WallClock, runOnLocal)
 	return result, runner.context.Flush("run commands", err)
 }
 
 // runCommandsWithTimeout is a helper to abstract common code between run commands and
 // juju-run as an action
-func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Duration, clock clock.Clock) (*utilexec.ExecResponse, error) {
+func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Duration, clock clock.Clock, model runMode) (*utilexec.ExecResponse, error) {
 	srv, err := runner.startJujucServer()
 	if err != nil {
 		return nil, err
@@ -94,18 +152,6 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	command := utilexec.RunParams{
-		Commands:    commands,
-		WorkingDir:  runner.paths.GetCharmDir(),
-		Environment: env,
-		Clock:       clock,
-	}
-
-	err = command.Run()
-	if err != nil {
-		return nil, err
-	}
-	runner.context.SetProcess(hookProcess{command.Process()})
 
 	var cancel chan struct{}
 	if timeout != 0 {
@@ -116,8 +162,22 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 		}()
 	}
 
-	// Block and wait for process to finish
-	return command.WaitWithCancel(cancel)
+	executor, err := runner.getRemoteExecutor(model)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var stdout, stderr bytes.Buffer
+	return executor(ExecParams{
+		Commands:        []string{commands},
+		Env:             env,
+		WorkingDir:      runner.paths.GetCharmDir(),
+		Clock:           clock,
+		ProcessSetter:   runner.context.SetProcess,
+		Cancel:          cancel,
+		Stdout:          &stdout,
+		Stderr:          &stderr,
+		ProcessResponse: true,
+	})
 }
 
 // runJujuRunAction is the function that executes when a juju-run action is ran.
@@ -139,14 +199,13 @@ func (runner *runner) runJujuRunAction() (err error) {
 		logger.Debugf("unable to read juju-run action timeout, will continue running action without one")
 	}
 
+	rMode := runOnLocal
 	if runner.context.ModelType() == model.CAAS {
-		runInWorkloadContext, _ := params["workload-context"].(bool)
-		if runInWorkloadContext {
-			return runner.runInCAASWorkload()
+		if workloadContext, _ := params["workload-context"].(bool); workloadContext {
+			rMode = runOnRemote
 		}
 	}
-
-	results, err := runner.runCommandsWithTimeout(command, time.Duration(timeout), clock.WallClock)
+	results, err := runner.runCommandsWithTimeout(command, time.Duration(timeout), clock.WallClock, rMode)
 	if err != nil {
 		return runner.context.Flush("juju-run", err)
 	}
@@ -156,15 +215,6 @@ func (runner *runner) runJujuRunAction() (err error) {
 	}
 
 	return runner.context.Flush("juju-run", nil)
-}
-
-func (runner *runner) runInCAASWorkload() error {
-	// TODO(caas): run on workload.
-	logger.Warningf("juju-run in workload %s", runner.context.UnitName())
-	/*if err := runner.updateActionResults(results); err != nil {
-		return runner.context.Flush("juju-run", err)
-	}*/
-	return runner.context.Flush("juju-run", errors.NotImplementedf("run in CAAS workload"))
 }
 
 func encodeBytes(input []byte) (value string, encoding string) {
@@ -202,7 +252,6 @@ func (runner *runner) updateActionResults(results *utilexec.ExecResponse) error 
 			return errors.Trace(err)
 		}
 	}
-
 	return nil
 }
 
@@ -214,19 +263,20 @@ func (runner *runner) RunAction(actionName string) error {
 	if actionName == actions.JujuRunActionName {
 		return runner.runJujuRunAction()
 	}
-	return runner.runCharmHookWithLocation(actionName, "actions")
+	rMode := runOnLocal
+	if runner.context.ModelType() == model.CAAS {
+		rMode = runOnRemote
+	}
+	// run actions on remote workload pod for caas.
+	return runner.runCharmHookWithLocation(actionName, "actions", rMode)
 }
 
 // RunHook exists to satisfy the Runner interface.
 func (runner *runner) RunHook(hookName string) error {
-	return runner.runCharmHookWithLocation(hookName, "hooks")
+	return runner.runCharmHookWithLocation(hookName, "hooks", runOnLocal)
 }
 
-func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string) error {
-	if runner.context.ModelType() == model.CAAS {
-		// TODO(caas): run on workload.
-	}
-
+func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, rMode runMode) (err error) {
 	srv, err := runner.startJujucServer()
 	if err != nil {
 		return err
@@ -244,17 +294,54 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string) e
 		env = mergeWindowsEnvironment(env, os.Environ())
 	}
 
+	defer func() {
+		err = runner.context.Flush(hookName, err)
+	}()
+
 	debugctx := debug.NewHooksContext(runner.context.UnitName())
 	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
 		logger.Infof("executing %s via debug-hooks", hookName)
-		err = session.RunHook(hookName, runner.paths.GetCharmDir(), env)
-	} else {
-		err = runner.runCharmHook(hookName, env, charmLocation)
+		return session.RunHook(hookName, runner.paths.GetCharmDir(), env)
 	}
-	return runner.context.Flush(hookName, err)
+	if rMode == runOnRemote {
+		return runner.runCharmHookOnRemote(hookName, env, charmLocation)
+	}
+	return runner.runCharmHookOnLocal(hookName, env, charmLocation)
 }
 
-func (runner *runner) runCharmHook(hookName string, env []string, charmLocation string) error {
+func (runner *runner) runCharmHookOnRemote(hookName string, env []string, charmLocation string) error {
+	charmDir := runner.paths.GetCharmDir()
+	hook := filepath.Join(charmDir, filepath.Join(charmLocation, hookName))
+
+	var cancel chan struct{}
+	outReader, outWriter, err := os.Pipe()
+	if err != nil {
+		return errors.Errorf("cannot make logging pipe: %v", err)
+	}
+	defer outWriter.Close()
+
+	hookLogger := charmrunner.NewHookLogger(runner.getLogger(hookName), outReader)
+	defer hookLogger.Stop()
+	go hookLogger.Run()
+
+	executor, err := runner.getRemoteExecutor(runOnRemote)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, err = executor(
+		ExecParams{
+			Commands:   []string{hook},
+			Env:        env,
+			WorkingDir: charmDir,
+			Stdout:     outWriter,
+			Stderr:     outWriter,
+			Cancel:     cancel,
+		},
+	)
+	return errors.Trace(err)
+}
+
+func (runner *runner) runCharmHookOnLocal(hookName string, env []string, charmLocation string) error {
 	charmDir := runner.paths.GetCharmDir()
 	hook, err := searchHook(charmDir, filepath.Join(charmLocation, hookName))
 	if err != nil {

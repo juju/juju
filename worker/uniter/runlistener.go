@@ -46,16 +46,16 @@ type CommandRunner interface {
 
 // RunListenerConfig contains the configuration for a RunListener.
 type RunListenerConfig struct {
-	// SocketPath is the path of the socket to listen on for run commands.
-	SocketPath string
+	// Socket is the network and address of the socket to listen on for run commands.
+	Socket *sockets.Socket
 
 	// CommandRunner is the CommandRunner that will run commands.
 	CommandRunner CommandRunner
 }
 
 func (cfg *RunListenerConfig) Validate() error {
-	if cfg.SocketPath == "" {
-		return errors.NotValidf("SocketPath unspecified")
+	if cfg.Socket == nil {
+		return errors.NotValidf("Socket unspecified")
 	}
 	if cfg.CommandRunner == nil {
 		return errors.NotValidf("CommandRunner unspecified")
@@ -83,7 +83,7 @@ func NewRunListener(cfg RunListenerConfig) (*RunListener, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	listener, err := sockets.Listen(cfg.SocketPath)
+	listener, err := sockets.Listen(*cfg.Socket)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -103,43 +103,43 @@ func NewRunListener(cfg RunListenerConfig) (*RunListener, error) {
 
 // Run accepts new connections until it encounters an error, or until Close is
 // called, and then blocks until all existing connections have been closed.
-func (s *RunListener) Run() (err error) {
+func (r *RunListener) Run() (err error) {
 	logger.Debugf("juju-run listener running")
 	var conn net.Conn
 	for {
-		conn, err = s.listener.Accept()
+		conn, err = r.listener.Accept()
 		if err != nil {
 			break
 		}
-		s.wg.Add(1)
+		r.wg.Add(1)
 		go func(conn net.Conn) {
-			s.server.ServeConn(conn)
-			s.wg.Done()
+			r.server.ServeConn(conn)
+			r.wg.Done()
 		}(conn)
 	}
 	logger.Debugf("juju-run listener stopping")
 	select {
-	case <-s.closing:
+	case <-r.closing:
 		// Someone has called Close(), so it is overwhelmingly likely that
 		// the error from Accept is a direct result of the Listener being
 		// closed, and can therefore be safely ignored.
 		err = nil
 	default:
 	}
-	s.wg.Wait()
-	close(s.closed)
+	r.wg.Wait()
+	close(r.closed)
 	return
 }
 
 // Close immediately stops accepting connections, and blocks until all existing
 // connections have been closed.
-func (s *RunListener) Close() error {
+func (r *RunListener) Close() error {
 	defer func() {
-		<-s.closed
+		<-r.closed
 		logger.Debugf("juju-run listener stopped")
 	}()
-	close(s.closing)
-	return s.listener.Close()
+	close(r.closing)
+	return r.listener.Close()
 }
 
 // RunCommands executes the supplied commands in a hook context.

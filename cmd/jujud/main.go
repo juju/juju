@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
 
+	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/upgrades"
@@ -60,7 +61,7 @@ https://jujucharms.com/
 
 The jujud command can also forward invocations over RPC for execution by the
 juju unit agent. When used in this way, it expects to be called via a symlink
-named for the desired remote command, and expects JUJU_AGENT_SOCKET and
+named for the desired remote command, and expects JUJU_AGENT_SOCKET_ADDRESS and
 JUJU_CONTEXT_ID be set in its model.
 `
 
@@ -91,7 +92,7 @@ func getwd() (string, error) {
 	return abs, nil
 }
 
-// hookToolMain uses JUJU_CONTEXT_ID and JUJU_AGENT_SOCKET to ask a running unit agent
+// hookToolMain uses JUJU_CONTEXT_ID and JUJU_AGENT_SOCKET_ADDRESS to ask a running unit agent
 // to execute a Command on our behalf. Individual commands should be exposed
 // by symlinking the command name to this executable.
 func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int, err error) {
@@ -110,13 +111,18 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 		CommandName: commandName,
 		Args:        args[1:],
 	}
-	socketPath, err := getenv("JUJU_AGENT_SOCKET")
+	socket := sockets.Socket{}
+	socket.Address, err = getenv("JUJU_AGENT_SOCKET_ADDRESS")
 	if err != nil {
 		return
 	}
-	client, err := sockets.Dial(socketPath)
+	socket.Network, err = getenv("JUJU_AGENT_SOCKET_NETWORK")
 	if err != nil {
 		return
+	}
+	client, err := sockets.Dial(socket)
+	if err != nil {
+		return code, err
 	}
 	defer client.Close()
 	var resp exec.ExecResponse
@@ -188,7 +194,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	}
 	jujud.Register(unitAgent)
 
-	caasOperatorAgent, err := agentcmd.NewCaasOperatorAgent(ctx, bufferedLogger)
+	caasOperatorAgent, err := agentcmd.NewCaasOperatorAgent(ctx, bufferedLogger, k8sexec.NewInCluster)
 	if err != nil {
 		return -1, errors.Trace(err)
 	}

@@ -38,7 +38,8 @@ func (ctx *limitedContext) HookVars(paths context.Paths) ([]string, error) {
 		"CHARM_DIR=" + paths.GetCharmDir(), // legacy
 		"JUJU_CHARM_DIR=" + paths.GetCharmDir(),
 		"JUJU_CONTEXT_ID=" + ctx.id,
-		"JUJU_AGENT_SOCKET=" + paths.GetJujucSocket(),
+		"JUJU_AGENT_SOCKET_ADDRESS=" + paths.GetJujucSocket().Address,
+		"JUJU_AGENT_SOCKET_NETWORK=" + paths.GetJujucSocket().Network,
 		"JUJU_UNIT_NAME=" + ctx.unitName,
 	}
 	for key, val := range ctx.env {

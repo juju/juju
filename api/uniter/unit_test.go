@@ -241,6 +241,29 @@ func (s *unitSuite) TestRefreshResolve(c *gc.C) {
 	c.Assert(mode, gc.Equals, params.ResolvedNone)
 }
 
+func (s *unitSuite) TestRefreshUpdateProviderID(c *gc.C) {
+	c.Assert(s.apiUnit.ProviderID(), gc.Equals, "")
+
+	providerID := "provider-id-123"
+	err := s.wordpressApplication.UpdateUnits(
+		&state.UpdateUnitsOperation{
+			Updates: []*state.UpdateUnitOperation{
+				s.wordpressUnit.UpdateOperation(
+					state.UnitUpdateProperties{
+						ProviderId: &providerID,
+					},
+				),
+			},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.apiUnit.ProviderID(), gc.Equals, "")
+
+	err = s.apiUnit.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.apiUnit.ProviderID(), gc.Equals, providerID)
+}
+
 func (s *unitSuite) TestWatch(c *gc.C) {
 	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
 

@@ -19,17 +19,17 @@ import (
 
 type ListenerSuite struct {
 	testing.BaseSuite
-	socketPath string
+	socketPath sockets.Socket
 }
 
 var _ = gc.Suite(&ListenerSuite{})
 
-func sockPath(c *gc.C) string {
+func sockPath(c *gc.C) sockets.Socket {
 	sockPath := filepath.Join(c.MkDir(), "test.listener")
 	if runtime.GOOS == "windows" {
-		return `\\.\pipe` + sockPath[2:]
+		return sockets.Socket{Address: `\\.\pipe` + sockPath[2:], Network: "unix"}
 	}
-	return sockPath
+	return sockets.Socket{Address: sockPath, Network: "unix"}
 }
 
 func (s *ListenerSuite) SetUpTest(c *gc.C) {
@@ -40,7 +40,7 @@ func (s *ListenerSuite) SetUpTest(c *gc.C) {
 // Mirror the params to uniter.NewRunListener, but add cleanup to close it.
 func (s *ListenerSuite) NewRunListener(c *gc.C) *uniter.RunListener {
 	listener, err := uniter.NewRunListener(uniter.RunListenerConfig{
-		SocketPath:    s.socketPath,
+		Socket:        &s.socketPath,
 		CommandRunner: &mockRunner{c},
 	})
 	c.Assert(err, jc.ErrorIsNil)

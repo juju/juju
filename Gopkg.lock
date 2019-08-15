@@ -185,6 +185,17 @@
   revision = "f0cc927784781fa395c06317c58dea2841ece3a9"
 
 [[projects]]
+  branch = "master"
+  digest = "1:d6c13a378213e3de60445e49084b8a0a9ce582776dfc77927775dbeb3ff72a35"
+  name = "github.com/docker/spdystream"
+  packages = [
+    ".",
+    "spdy",
+  ]
+  pruneopts = ""
+  revision = "6480d4af844c189cf5dd913db24ddd339d3a4f85"
+
+[[projects]]
   digest = "1:2f78c76767663449b439f940def67b91cc6c589c09e77900c036f3514747d217"
   name = "github.com/dustin/go-humanize"
   packages = ["."]
@@ -1777,10 +1788,13 @@
     "pkg/util/clock",
     "pkg/util/errors",
     "pkg/util/framer",
+    "pkg/util/httpstream",
+    "pkg/util/httpstream/spdy",
     "pkg/util/intstr",
     "pkg/util/json",
     "pkg/util/naming",
     "pkg/util/net",
+    "pkg/util/remotecommand",
     "pkg/util/runtime",
     "pkg/util/sets",
     "pkg/util/validation",
@@ -1789,6 +1803,7 @@
     "pkg/util/yaml",
     "pkg/version",
     "pkg/watch",
+    "third_party/forked/golang/netutil",
     "third_party/forked/golang/reflect",
   ]
   pruneopts = ""
@@ -1847,9 +1862,12 @@
     "tools/clientcmd/api/v1",
     "tools/metrics",
     "tools/reference",
+    "tools/remotecommand",
     "transport",
+    "transport/spdy",
     "util/cert",
     "util/connrotation",
+    "util/exec",
     "util/flowcontrol",
     "util/homedir",
     "util/integer",
@@ -2107,6 +2125,7 @@
     "k8s.io/apimachinery/pkg/watch",
     "k8s.io/client-go/discovery",
     "k8s.io/client-go/kubernetes",
+    "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/kubernetes/typed/admissionregistration/v1alpha1",
     "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1",
     "k8s.io/client-go/kubernetes/typed/apps/v1",
@@ -2141,6 +2160,7 @@
     "k8s.io/client-go/rest",
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",
+    "k8s.io/client-go/tools/remotecommand",
     "k8s.io/client-go/util/flowcontrol",
   ]
   solver-name = "gps-cdcl"
