@@ -320,7 +320,7 @@ func (manager *Manager) retryingClaim(claim claim) {
 func (manager *Manager) handleClaim(claim claim) (bool, error) {
 	store := manager.config.Store
 	request := lease.Request{Holder: claim.holderName, Duration: claim.duration}
-	err := lease.ErrInvalid
+	var err error
 	var action string
 	select {
 	case <-manager.catacomb.Dying():

@@ -334,7 +334,7 @@ ca-credentials:
 
 func (s *showSuite) TestShowWithCACertificate(c *gc.C) {
 	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(yamlWithCert), 0600)
-
+	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "homestack", "--local")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
