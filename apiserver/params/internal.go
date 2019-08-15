@@ -844,7 +844,7 @@ type UnitRefreshResult struct {
 	Life       Life
 	Resolved   ResolvedMode
 	Error      *Error
-	ProviderID string `json:",omitempty"`
+	ProviderID string `json:"provider-id,omitempty"`
 }
 
 // UnitRefreshResults holds the results for any API call which ends

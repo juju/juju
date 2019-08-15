@@ -36222,10 +36222,10 @@
                         "Life": {
                             "type": "string"
                         },
-                        "ProviderID": {
+                        "Resolved": {
                             "type": "string"
                         },
-                        "Resolved": {
+                        "provider-id": {
                             "type": "string"
                         }
                     },
