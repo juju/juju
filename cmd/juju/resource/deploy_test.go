@@ -510,7 +510,7 @@ username: docker-registry
 password: hunter2
 `
 	data = bytes.NewBufferString(content)
-	dets, err = unMarshalDockerDetails(data)
+	_, err = unMarshalDockerDetails(data)
 	c.Assert(err, gc.ErrorMatches, "docker image path \"\" not valid")
 }
 
@@ -527,10 +527,10 @@ func (s DeploySuite) TestGetDockerDetailsData(c *gc.C) {
 		Password:     "",
 	})
 
-	result, err = getDockerDetailsData("/path/doesnt/exist.yaml", osOpen)
+	_, err = getDockerDetailsData("/path/doesnt/exist.yaml", osOpen)
 	c.Assert(err, gc.ErrorMatches, "filepath or registry path: /path/doesnt/exist.yaml not valid")
 
-	result, err = getDockerDetailsData(".invalid-reg-path", osOpen)
+	_, err = getDockerDetailsData(".invalid-reg-path", osOpen)
 	c.Assert(err, gc.ErrorMatches, "filepath or registry path: .invalid-reg-path not valid")
 
 	dir := c.MkDir()

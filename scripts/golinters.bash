@@ -24,10 +24,11 @@ $GOPATH/bin/golangci-lint run \
     --enable=goimports \
     --enable=misspell \
     --enable=unconvert \
+    --enable=ineffassign \
     --deadline=10m \
     &> $OUTPUT_FILE
 
-# go through each golangci-lint error and check to see if it's related 
+# go through each golangci-lint error and check to see if it's related
 # to a mock file.
 invalidLines=`cat $OUTPUT_FILE | grep -v '\(.*\/[^\/]*\.go\):[[:digit:]]*:[[:digit:]]*:.*' | wc -l`
 if [ $invalidLines -ne 0 ]; then

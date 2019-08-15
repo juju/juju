@@ -908,12 +908,11 @@ func (s *MachineSuite) TestMachineAvailabilityZoneEmpty(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAvailabilityZoneMissing(c *gc.C) {
-	zone := "a_zone"
 	hwc := &instance.HardwareCharacteristics{}
 	err := s.machine.SetProvisioned("umbrella/0", "", "fake_nonce", hwc)
 	c.Assert(err, jc.ErrorIsNil)
 
-	zone, err = s.machine.AvailabilityZone()
+	zone, err := s.machine.AvailabilityZone()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(zone, gc.Equals, "")
 }

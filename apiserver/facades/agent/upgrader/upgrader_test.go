@@ -105,7 +105,7 @@ func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
 		Tag: app.Tag(),
 	}
 	upgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, authorizer)
-
+	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: app.Tag().String()}},
 	}
@@ -232,6 +232,7 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	}
 
 	results, err := anUpgrader.SetTools(args)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 }

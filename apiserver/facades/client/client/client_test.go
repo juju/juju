@@ -1026,6 +1026,7 @@ func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "cloudlocal")
 	err = m1.SetProviderAddresses(cloudLocalAddress, publicAddress)
+	c.Assert(err, jc.ErrorIsNil)
 	addr, err = s.APIState.Client().PublicAddress("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "public")
@@ -1035,6 +1036,7 @@ func (s *clientSuite) TestClientPublicAddressUnit(c *gc.C) {
 	s.setUpScenario(c)
 
 	m1, err := s.State.Machine("1")
+	c.Assert(err, jc.ErrorIsNil)
 	publicAddress := network.NewScopedAddress("public", network.ScopePublic)
 	err = m1.SetProviderAddresses(publicAddress)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1068,6 +1070,7 @@ func (s *clientSuite) TestClientPrivateAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "public")
 	err = m1.SetProviderAddresses(cloudLocalAddress, publicAddress)
+	c.Assert(err, jc.ErrorIsNil)
 	addr, err = s.APIState.Client().PrivateAddress("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "cloudlocal")
@@ -1077,6 +1080,7 @@ func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 	s.setUpScenario(c)
 
 	m1, err := s.State.Machine("1")
+	c.Assert(err, jc.ErrorIsNil)
 	privateAddress := network.NewScopedAddress("private", network.ScopeCloudLocal)
 	err = m1.SetProviderAddresses(privateAddress)
 	c.Assert(err, jc.ErrorIsNil)

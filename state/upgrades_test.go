@@ -2515,6 +2515,7 @@ func (s *upgradesSuite) TestRemoveContainerImageStreamFromNonModelSettings(c *gc
 		delete(expSettings, "txn-revno")
 		delete(expSettings, "version")
 		id, ok := expSettings["_id"]
+		c.Assert(ok, jc.IsTrue)
 		idStr, ok := id.(string)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(idStr, gc.Not(gc.Equals), "")

@@ -586,9 +586,6 @@ func (s *ModelSuite) createTestModelConfig(c *gc.C) (*config.Config, string) {
 func createTestModelConfig(c *gc.C, controllerUUID string) (*config.Config, string) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	if controllerUUID == "" {
-		controllerUUID = uuid.String()
-	}
 	return testing.CustomModelConfig(c, testing.Attrs{
 		"name": "testing",
 		"uuid": uuid.String(),

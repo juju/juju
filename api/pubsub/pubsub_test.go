@@ -185,6 +185,7 @@ func (s *PubSubIntegrationSuite) TestMessages(c *gc.C) {
 			close(done)
 		}
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	first := map[string]interface{}{
 		"key": "value",

@@ -195,12 +195,12 @@ func (s *RunTestSuite) TestNoContextWithLock(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	channel := s.startRunAsync(c, []string{"--no-context", "echo done"})
-	ctx, err := waitForResult(channel, testing.ShortWait)
+	_, err := waitForResult(channel, testing.ShortWait)
 	c.Assert(err, gc.ErrorMatches, "timeout")
 
 	releaser()
 
-	ctx, err = waitForResult(channel, testing.LongWait)
+	ctx, err := waitForResult(channel, testing.LongWait)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(strings.TrimRight(cmdtesting.Stdout(ctx), "\r\n"), gc.Equals, "done")
 }

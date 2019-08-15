@@ -307,7 +307,7 @@ func (s *SettingsSuite) TestMultipleReads(c *gc.C) {
 	value, ok = nodeOne.Get("foo")
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(value, gc.Equals, "bar")
-	value, ok = nodeOne.Get("baz")
+	_, ok = nodeOne.Get("baz")
 	c.Assert(ok, jc.IsFalse)
 
 	// A read resets the data to the empty state.

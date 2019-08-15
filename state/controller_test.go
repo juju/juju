@@ -224,7 +224,7 @@ func (s *ControllerSuite) TestReopenWithNoMachines(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestStateServingInfo(c *gc.C) {
-	info, err := s.State.StateServingInfo()
+	_, err := s.State.StateServingInfo()
 	c.Assert(err, gc.ErrorMatches, "state serving info not found")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
@@ -238,7 +238,7 @@ func (s *ControllerSuite) TestStateServingInfo(c *gc.C) {
 	err = s.State.SetStateServingInfo(data)
 	c.Assert(err, jc.ErrorIsNil)
 
-	info, err = s.State.StateServingInfo()
+	info, err := s.State.StateServingInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, data)
 }

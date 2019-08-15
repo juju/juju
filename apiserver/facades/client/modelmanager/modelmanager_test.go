@@ -1433,6 +1433,7 @@ func (s *modelManagerStateSuite) TestGrantModelAddAdminUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.grant(c, user.UserTag(), params.ModelWriteAccess, m.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
 
 	modelUser, err := st.UserAccess(user.UserTag(), m.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1623,6 +1624,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 	})
 	defer modelState.Close()
 	model, err := modelState.Model()
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Migrate the model and delete it from the state
 	mig, err := modelState.CreateMigration(state.MigrationSpec{

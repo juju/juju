@@ -1316,6 +1316,7 @@ func (s *iaasProvisionerSuite) TestVolumeBlockDevicesPlanBlockInfoSet(c *gc.C) {
 		names.NewVolumeTag("0/0"),
 		state.VolumeAttachmentInfo{},
 	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	deviceAttrs := map[string]string{
 		"iqn":         "bogusIQN",

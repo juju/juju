@@ -68,7 +68,7 @@ Welcome, bob. You are now logged into "bob-controller".
 There are no models available. (.|\n)*
 `[1:])
 
-	context = run(c, prompter, "register", arg)
+	run(c, prompter, "register", arg)
 	prompter.AssertDone()
 
 	// Make sure that the saved server details are sufficient to connect

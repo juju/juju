@@ -1013,7 +1013,7 @@ func (s *filteringBranchesSuite) assertBranchAssignUnit(c *gc.C, bName, uName st
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gen, gc.NotNil)
 	err = gen.AssignUnit(uName)
-	c.Assert(gen, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *filteringBranchesSuite) assertBranchAssignApplication(c *gc.C, bName, aName string) {
@@ -1023,7 +1023,7 @@ func (s *filteringBranchesSuite) assertBranchAssignApplication(c *gc.C, bName, a
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gen, gc.NotNil)
 	err = gen.AssignApplication(aName)
-	c.Assert(gen, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type mockLeadershipReader struct{}

@@ -244,7 +244,9 @@ func (s *ModelSuite) TestUnitReturnsCopy(c *gc.C) {
 
 	// Make a change to the slice returned in the copy.
 	ports := u1.Ports()
-	ports = append(ports, network.Port{Protocol: "tcp", Number: 54321})
+	if len(ports) > 0 {
+		ports[0] = network.Port{Protocol: "tcp", Number: 54321}
+	}
 
 	// Get another copy from the model and ensure it is unchanged.
 	u2, err := m.Unit(unitChange.Name)

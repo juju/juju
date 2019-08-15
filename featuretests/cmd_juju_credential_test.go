@@ -71,10 +71,10 @@ clouds:
 		},
 	})
 
-	ctx, err := s.run(c, "show-credential", "dummy", "cred")
+	_, err := s.run(c, "show-credential", "dummy", "cred")
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx, err = s.run(c, "update-credential", "dummy", "cred")
+	_, err = s.run(c, "update-credential", "dummy", "cred")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(c.GetTestLog(), jc.Contains, `ERROR juju.cmd.juju.cloud finalizing "cred" credential for cloud "dummy": unknown key "tenant-name" (value "hrm")`)
 	store.UpdateCredential("dummy", cloud.CloudCredential{

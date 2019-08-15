@@ -427,7 +427,7 @@ func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin 
 		everyoneGroupAccess = everyoneGroupUser.Access
 	}
 
-	controllerAccess := permission.NoAccess
+	var controllerAccess permission.Access
 	if controllerUser, err := state.ControllerAccess(a.root.state, userTag); err == nil {
 		controllerAccess = controllerUser.Access
 	} else if errors.IsNotFound(err) {

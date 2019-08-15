@@ -422,8 +422,7 @@ func (s *discoverySuite) TestNewShellSelectCommandPosix(c *gc.C) {
 	script := "init_system=$(" + discoveryScript + ")\n"
 	// The script will fail with exit 1 if it cannot match in init system.
 	script += service.NewShellSelectCommand("init_system", "exit 1", handler)
-	commands, filename := s.writeScript(c, "test_shell_select.sh", script)
-	commands += "sh " + filename
+	s.writeScript(c, "test_shell_select.sh", script)
 	response, err := exec.RunCommands(exec.RunParams{
 		Commands: script,
 	})

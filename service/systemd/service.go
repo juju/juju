@@ -249,12 +249,12 @@ func (s *Service) readConf() (common.Conf, error) {
 	} else if err != nil && strings.Contains(err.Error(), "No such file or directory") {
 		// give another try to check if db service exists in /var/lib/juju/init.
 		// this check can be useful for installing mongoDB during upgrade.
-		data, err = Cmdline{}.conf(s.Service.Name, renderer.Join(s.FallBackDirName, s.Service.Name))
+		_, err = Cmdline{}.conf(s.Service.Name, renderer.Join(s.FallBackDirName, s.Service.Name))
 		if err != nil {
 			return conf, s.errorf(err, "failed to read conf from systemd")
-		} else {
-			return common.Conf{}, nil
 		}
+		// FIXME: (stickupkid) - I think this is wrong, as we never use the retry.
+		return common.Conf{}, nil
 	}
 
 	conf, err = s.deserialize(data)

@@ -320,6 +320,7 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 		"outlook":     "good",
 		"skill-level": 1,
 	}, sampleApplicationConfigSchema(), nil)
+	c.Assert(err, jc.ErrorIsNil)
 	app, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName:   "bob",
