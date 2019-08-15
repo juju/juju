@@ -5,13 +5,11 @@ package vsphereclient
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"path"
 	"strings"
 	"time"
 
-	"github.com/dustin/go-humanize"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -459,10 +457,6 @@ func (c *Client) cloneVM(
 	srcVM *object.VirtualMachine,
 	vmFolder *object.Folder,
 ) (*object.VirtualMachine, error) {
-	_, datacenter, err := c.finder(ctx)
-	if err != nil {
-		return nil, err
-	}
 	taskWaiter := &taskWaiter{
 		args.Clock,
 		args.UpdateProgress,
@@ -489,23 +483,6 @@ func (c *Client) cloneVM(
 	}
 
 	vm := object.NewVirtualMachine(c.client.Client, info.Result.(types.ManagedObjectReference))
-
-	if args.Constraints.RootDisk != nil {
-		// The user specified a root disk, so extend the VM's
-		// disk before powering the VM on.
-		args.UpdateProgress(fmt.Sprintf(
-			"extending disk to %s",
-			humanize.IBytes(megabytesToB(*args.Constraints.RootDisk)),
-		))
-		if err := c.extendVMRootDisk(
-			ctx, vm, datacenter,
-			*args.Constraints.RootDisk,
-			taskWaiter,
-		); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
 	return vm, nil
 }
 

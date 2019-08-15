@@ -64,6 +64,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		fmt.Sprintf(`creating template VM "juju-template-%s"`, args.OVASHA256),
 		"streaming vmdk: 100.00% (0B/s)",
 		"cloning template",
+		"VM cloned",
 		"powering on",
 	})
 
@@ -112,8 +113,6 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		{"WaitForUpdatesEx", nil},
 		{"HttpNfcLeaseComplete", []interface{}{"FakeLease"}},
 		{"MarkAsTemplateBody", []interface{}{"FakeVm0"}},
-		retrievePropertiesStubCall("FakeRootFolder"),
-		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("network-0", "network-1"),
 		retrievePropertiesStubCall("onetwork-0"),
 		retrievePropertiesStubCall("dvportgroup-0"),
@@ -156,7 +155,7 @@ func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *gc.C) {
 	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.roundTripper.CheckCall(c, 33, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
+	s.roundTripper.CheckCall(c, 31, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
 		ExtraConfig: []types.BaseOptionValue{
 			&types.OptionValue{Key: "k", Value: "v"},
 		},
@@ -310,7 +309,7 @@ func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefa
 			Name: "vm-name",
 		},
 	})
-	s.roundTripper.CheckCall(c, 33, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
+	s.roundTripper.CheckCall(c, 31, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
 		ExtraConfig: []types.BaseOptionValue{
 			&types.OptionValue{Key: "k", Value: "v"},
 		},
@@ -362,12 +361,12 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *gc.
 	}
 
 	retrieveDVSCall := retrievePropertiesStubCall("dvs-0")
-	s.roundTripper.CheckCall(c, 32, retrieveDVSCall.FuncName, retrieveDVSCall.Args...)
+	s.roundTripper.CheckCall(c, 30, retrieveDVSCall.FuncName, retrieveDVSCall.Args...)
 
 	// When the external network is a distributed virtual portgroup,
 	// we must make an additional RetrieveProperties call to fetch
 	// the DVS's UUID. This bumps the ImportVApp position by one.
-	s.roundTripper.CheckCall(c, 34, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
+	s.roundTripper.CheckCall(c, 32, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
 		ExtraConfig: []types.BaseOptionValue{
 			&types.OptionValue{Key: "k", Value: "v"},
 		},
@@ -505,11 +504,17 @@ func (s *clientSuite) TestCreateVirtualMachineTimesOut(c *gc.C) {
 
 	select {
 	case err := <-errCh:
-		c.Assert(err, gc.ErrorMatches, "cloning template VM: extending disk failed")
+		c.Assert(err, gc.ErrorMatches, "extending disk failed")
 		c.Assert(err, jc.Satisfies, IsExtendDiskError)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for CreateVirtualMachine")
 	}
+
+	// Check that we destroyed the VM if extending the disk timed out.
+	lastCall := len(s.roundTripper.Calls()) - 1
+	s.roundTripper.CheckCall(c, lastCall-3, "Destroy_Task")
+	// (The ones in between are CreatePropertyCollector and CreateFilter.)
+	s.roundTripper.CheckCall(c, lastCall, "WaitForUpdatesEx")
 }
 
 func (s *clientSuite) TestVerifyMAC(c *gc.C) {
