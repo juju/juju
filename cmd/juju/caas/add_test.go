@@ -820,10 +820,10 @@ func (s *addCAASSuite) TestGivenCloudMatch(c *gc.C) {
 
 func (s *addCAASSuite) TestGivenCloudMismatch(c *gc.C) {
 	err := caas.CheckCloudRegion("maas", "gce")
-	c.Assert(err, gc.ErrorMatches, `given cloud "maas" was different to the detected cloud "gce": re-run the command without specifying the cloud`)
+	c.Assert(err, gc.ErrorMatches, `specified cloud "maas" was different to the detected cloud "gce": re-run the command without specifying the cloud`)
 
 	err = caas.CheckCloudRegion("maas", "gce/us-east1")
-	c.Assert(err, gc.ErrorMatches, `given cloud "maas" was different to the detected cloud "gce": re-run the command without specifying the cloud`)
+	c.Assert(err, gc.ErrorMatches, `specified cloud "maas" was different to the detected cloud "gce": re-run the command without specifying the cloud`)
 }
 
 func (s *addCAASSuite) TestGivenRegionMatch(c *gc.C) {
@@ -836,7 +836,7 @@ func (s *addCAASSuite) TestGivenRegionMatch(c *gc.C) {
 
 func (s *addCAASSuite) TestGivenRegionMismatch(c *gc.C) {
 	err := caas.CheckCloudRegion("gce/us-east1", "gce/us-east10")
-	c.Assert(err, gc.ErrorMatches, `given region "us-east1" was different to the detected region "us-east10": re-run the command without specifying the region`)
+	c.Assert(err, gc.ErrorMatches, `specified region "us-east1" was different to the detected region "us-east10": re-run the command without specifying the region`)
 }
 
 func (s *addCAASSuite) assertStoreClouds(c *gc.C, hostCloud string) {

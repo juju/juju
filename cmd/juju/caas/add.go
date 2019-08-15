@@ -480,11 +480,11 @@ func checkCloudRegion(given, detected string) error {
 		if givenRegion != "" || givenCloud != detectedRegion {
 			// If givenRegion is empty, then givenCloud may be a region.
 			// Check that it is not a region.
-			return errors.Errorf("given cloud %q was different to the detected cloud %q: re-run the command without specifying the cloud", givenCloud, detectedCloud)
+			return errors.Errorf("specified cloud %q was different to the detected cloud %q: re-run the command without specifying the cloud", givenCloud, detectedCloud)
 		}
 	}
 	if givenRegion != "" && givenRegion != detectedRegion {
-		return errors.Errorf("given region %q was different to the detected region %q: re-run the command without specifying the region", givenRegion, detectedRegion)
+		return errors.Errorf("specified region %q was different to the detected region %q: re-run the command without specifying the region", givenRegion, detectedRegion)
 	}
 	return nil
 }
