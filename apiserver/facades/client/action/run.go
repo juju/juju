@@ -4,6 +4,7 @@
 package action
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -150,7 +151,7 @@ func (a *ActionAPI) createActionsParams(
 
 	actionRunnerName := actions.JujuRunActionName
 	if strings.Contains(quotedCommands, actionRunnerName) {
-		return apiActionParams, errors.NotSupportedf(quotedCommands)
+		return apiActionParams, errors.NewNotSupported(nil, fmt.Sprintf("cannot use %q as an action command", quotedCommands))
 	}
 
 	actionParams := map[string]interface{}{}

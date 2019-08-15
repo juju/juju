@@ -36233,7 +36233,6 @@
                     "required": [
                         "Life",
                         "Resolved",
-                        "ProviderID",
                         "Error"
                     ]
                 },

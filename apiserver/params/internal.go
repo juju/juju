@@ -843,8 +843,8 @@ type ResourceUploadResult struct {
 type UnitRefreshResult struct {
 	Life       Life
 	Resolved   ResolvedMode
-	ProviderID string
 	Error      *Error
+	ProviderID string `json:",omitempty"`
 }
 
 // UnitRefreshResults holds the results for any API call which ends
