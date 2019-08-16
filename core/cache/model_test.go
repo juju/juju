@@ -237,16 +237,17 @@ func (s *ModelSuite) TestUnitNotFoundError(c *gc.C) {
 
 func (s *ModelSuite) TestUnitReturnsCopy(c *gc.C) {
 	m := s.NewModel(modelChange)
-	m.UpdateUnit(unitChange, s.Manager)
+
+	ch := unitChange
+	ch.Ports = []network.Port{{Protocol: "tcp", Number: 54321}}
+
+	m.UpdateUnit(ch, s.Manager)
 
 	u1, err := m.Unit(unitChange.Name)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make a change to the slice returned in the copy.
-	ports := u1.Ports()
-	if len(ports) > 0 {
-		ports[0] = network.Port{Protocol: "tcp", Number: 54321}
-	}
+	u1.Ports()[0] = network.Port{Protocol: "tcp", Number: 65432}
 
 	// Get another copy from the model and ensure it is unchanged.
 	u2, err := m.Unit(unitChange.Name)
