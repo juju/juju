@@ -77,7 +77,7 @@ func ConvertSpaceName(name string, existing set.Strings) string {
 	name = dashPrefix.ReplaceAllString(name, "")
 	// And any at the end.
 	name = dashSuffix.ReplaceAllString(name, "")
-	// Repleace multiple dashes with a single dash.
+	// Replace multiple dashes with a single dash.
 	name = multipleDashes.ReplaceAllString(name, "-")
 	// Special case of when the space name was only dashes or invalid
 	// characters!

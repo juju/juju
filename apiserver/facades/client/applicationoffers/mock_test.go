@@ -87,9 +87,9 @@ func (e *mockEnviron) ProviderSpaceInfo(ctx context.ProviderCallContext, space *
 	e.stub.MethodCall(e, "ProviderSpaceInfo", space)
 	spaceName := corenetwork.DefaultSpaceName
 	if space != nil {
-		spaceName = space.Name
+		spaceName = string(space.Name)
 	}
-	if e.spaceInfo == nil || spaceName != e.spaceInfo.Name {
+	if e.spaceInfo == nil || spaceName != string(e.spaceInfo.Name) {
 		return nil, errors.NotFoundf("space %q", spaceName)
 	}
 	return e.spaceInfo, e.stub.NextErr()

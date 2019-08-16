@@ -162,6 +162,9 @@ func (s *ControllerSuite) TestRemovingUnknownName(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestUpdateControllerConfigRejectsSpaceWithoutAddresses(c *gc.C) {
+	_, err := s.State.AddSpace("mgmt-space", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
 	m, err := s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.SetMachineAddresses(network.NewAddress("192.168.9.9")), jc.ErrorIsNil)
@@ -174,6 +177,9 @@ func (s *ControllerSuite) TestUpdateControllerConfigRejectsSpaceWithoutAddresses
 }
 
 func (s *ControllerSuite) TestUpdateControllerConfigAcceptsSpaceWithAddresses(c *gc.C) {
+	_, err := s.State.AddSpace("mgmt-space", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
 	m, err := s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.SetProviderAddresses(network.NewAddressOnSpace("mgmt-space", "192.168.9.9")), jc.ErrorIsNil)

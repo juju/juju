@@ -750,7 +750,7 @@ func (env *maasEnviron) buildSpaceMap(ctx context.ProviderCallContext) (map[stri
 	spaceMap := make(map[string]corenetwork.SpaceInfo)
 	empty := set.Strings{}
 	for _, space := range spaces {
-		jujuName := network.ConvertSpaceName(space.Name, empty)
+		jujuName := network.ConvertSpaceName(string(space.Name), empty)
 		spaceMap[jujuName] = space
 	}
 	return spaceMap, nil
@@ -1858,7 +1858,7 @@ func (env *maasEnviron) spaces1(ctx context.ProviderCallContext) ([]corenetwork.
 			return nil, errors.Trace(err)
 		}
 
-		space := corenetwork.SpaceInfo{Name: name, ProviderId: providerId}
+		space := corenetwork.SpaceInfo{Name: corenetwork.SpaceName(name), ProviderId: providerId}
 		subnetsArray, err := spaceMap["subnets"].GetArray()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1890,7 +1890,7 @@ func (env *maasEnviron) spaces2(ctx context.ProviderCallContext) ([]corenetwork.
 			continue
 		}
 		outSpace := corenetwork.SpaceInfo{
-			Name:       space.Name(),
+			Name:       corenetwork.SpaceName(space.Name()),
 			ProviderId: corenetwork.Id(strconv.Itoa(space.ID())),
 			Subnets:    make([]corenetwork.SubnetInfo, len(space.Subnets())),
 		}

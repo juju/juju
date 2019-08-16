@@ -13,8 +13,7 @@ import (
 )
 
 // This file holds code that translates from State
-// to the interface expected internally by the
-// worker.
+// to the interface expected internally by the worker.
 
 type StateShim struct {
 	*state.State
@@ -72,6 +71,10 @@ func (*cloudServiceShim) Status() (status.StatusInfo, error) {
 func (*cloudServiceShim) SetStatus(status.StatusInfo) error {
 	// We don't record the status of a cloud service entity.
 	return nil
+}
+
+type spaceShim struct {
+	*state.Space
 }
 
 // MongoSessionShim wraps a *mgo.Session to conform to the

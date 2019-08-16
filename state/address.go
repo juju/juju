@@ -190,15 +190,19 @@ func (st *State) getOpsForHostPortsChange(
 func (st *State) filterHostPortsForManagementSpace(apiHostPorts [][]network.HostPort) ([][]network.HostPort, error) {
 	config, err := st.ControllerConfig()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	var hostPortsForAgents [][]network.HostPort
-	if mgmtSpace := config.JujuManagementSpace(); mgmtSpace != "" {
+	if mgmtSpace := config.JujuManagementSpace(); mgmtSpace != network.DefaultSpaceName {
+		sp, err := st.Space(mgmtSpace)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		hostPortsForAgents = make([][]network.HostPort, len(apiHostPorts))
-		sp := network.SpaceName(mgmtSpace)
 		for i := range apiHostPorts {
-			if filtered, ok := network.SelectHostPortsBySpaceNames(apiHostPorts[i], sp); ok {
+			if filtered, ok := network.SelectHostPortsBySpaces(apiHostPorts[i], sp.NetworkSpace()); ok {
 				hostPortsForAgents[i] = filtered
 			} else {
 				hostPortsForAgents[i] = apiHostPorts[i]
@@ -207,6 +211,7 @@ func (st *State) filterHostPortsForManagementSpace(apiHostPorts [][]network.Host
 	} else {
 		hostPortsForAgents = apiHostPorts
 	}
+
 	return hostPortsForAgents, nil
 }
 

@@ -226,10 +226,10 @@ func (e *OracleEnviron) buildSpacesMap(
 	}
 	spaceMap := make(map[string]corenetwork.SpaceInfo)
 	for _, space := range spaces {
-		jujuName := network.ConvertSpaceName(space.Name, empty)
+		jujuName := network.ConvertSpaceName(string(space.Name), empty)
 		spaceMap[jujuName] = space
 		empty.Add(jujuName)
-		providerIdMap[string(space.ProviderId)] = space.Name
+		providerIdMap[string(space.ProviderId)] = string(space.Name)
 	}
 	return spaceMap, providerIdMap, nil
 

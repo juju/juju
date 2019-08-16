@@ -1950,7 +1950,7 @@ func providerSpaceInfoFromParams(space params.RemoteSpace) *environs.ProviderSpa
 		CloudType:          space.CloudType,
 		ProviderAttributes: space.ProviderAttributes,
 		SpaceInfo: network.SpaceInfo{
-			Name:       space.Name,
+			Name:       network.SpaceName(space.Name),
 			ProviderId: network.Id(space.ProviderId),
 		},
 	}

@@ -536,11 +536,13 @@ type clientSuite struct {
 }
 
 func (s *clientSuite) SetUpTest(c *gc.C) {
-	if s.ControllerConfigAttrs == nil {
-		s.ControllerConfigAttrs = make(map[string]interface{})
-	}
-	s.ControllerConfigAttrs[controller.JujuManagementSpace] = "mgmt01"
 	s.baseSuite.SetUpTest(c)
+
+	_, err := s.State.AddSpace("mgmt01", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.UpdateControllerConfig(map[string]interface{}{controller.JujuManagementSpace: "mgmt01"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 var _ = gc.Suite(&clientSuite{})

@@ -16,7 +16,7 @@ import (
 func paramsFromProviderSpaceInfo(info *environs.ProviderSpaceInfo) params.RemoteSpace {
 	result := params.RemoteSpace{
 		CloudType:          info.CloudType,
-		Name:               info.Name,
+		Name:               string(info.Name),
 		ProviderId:         string(info.ProviderId),
 		ProviderAttributes: info.ProviderAttributes,
 	}
@@ -41,7 +41,7 @@ func providerSpaceInfoFromParams(space params.RemoteSpace) *environs.ProviderSpa
 		CloudType:          space.CloudType,
 		ProviderAttributes: space.ProviderAttributes,
 		SpaceInfo: network.SpaceInfo{
-			Name:       space.Name,
+			Name:       network.SpaceName(space.Name),
 			ProviderId: network.Id(space.ProviderId),
 		},
 	}
@@ -63,7 +63,7 @@ func providerSpaceInfoFromParams(space params.RemoteSpace) *environs.ProviderSpa
 // network.SpaceInfo.
 func spaceInfoFromState(space Space) (*network.SpaceInfo, error) {
 	result := &network.SpaceInfo{
-		Name:       space.Name(),
+		Name:       network.SpaceName(space.Name()),
 		ProviderId: space.ProviderId(),
 	}
 	subnets, err := space.Subnets()

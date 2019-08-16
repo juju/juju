@@ -54,9 +54,15 @@ func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 	if s.ControllerConfigAttrs == nil {
 		s.ControllerConfigAttrs = make(map[string]interface{})
 	}
-	s.ControllerConfigAttrs[corecontroller.JujuManagementSpace] = "mgmt01"
+
 	s.JujuConnSuite.SetUpTest(c)
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
+
+	_, err := s.State.AddSpace("mgmt01", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.UpdateControllerConfig(map[string]interface{}{corecontroller.JujuManagementSpace: "mgmt01"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *baseLoginSuite) newServer(c *gc.C) (*api.Info, *apiserver.Server) {
@@ -107,7 +113,7 @@ func (s *baseLoginSuite) openAPIWithoutLogin(c *gc.C, info0 *api.Info) api.Conne
 	info.Macaroons = nil
 	st, err := api.Open(&info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { st.Close() })
+	s.AddCleanup(func(*gc.C) { _ = st.Close() })
 	return st
 }
 

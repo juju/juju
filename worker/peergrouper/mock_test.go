@@ -40,12 +40,14 @@ type fakeState struct {
 	session          *fakeMongoSession
 	checkMu          sync.Mutex
 	check            func(st *fakeState) error
+	spaces           map[string]*fakeSpace
 }
 
 var (
 	_ State          = (*fakeState)(nil)
 	_ ControllerNode = (*fakeController)(nil)
 	_ MongoSession   = (*fakeMongoSession)(nil)
+	_ Space          = (*fakeSpace)(nil)
 )
 
 type errorPatterns struct {
@@ -304,9 +306,33 @@ func (st *fakeState) setHASpace(spaceName string) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 
+	// Ensure the configured space always exists in state.
+	if spaceName != network.DefaultSpaceName {
+		if st.spaces == nil {
+			st.spaces = make(map[string]*fakeSpace)
+		}
+		st.spaces[spaceName] = &fakeSpace{network.SpaceInfo{Name: network.SpaceName(spaceName)}}
+	}
+
 	cfg := st.controllerConfig.Get().(controller.Config)
 	cfg[controller.JujuHASpace] = spaceName
 	st.controllerConfig.Set(cfg)
+}
+
+func (st *fakeState) Space(name string) (Space, error) {
+	// Return a representation of the default space whenever requested.
+	if name == network.DefaultSpaceName {
+		return &fakeSpace{network.SpaceInfo{}}, nil
+	}
+
+	st.mu.Lock()
+	defer st.mu.Unlock()
+
+	space, ok := st.spaces[name]
+	if !ok {
+		return nil, errors.NotFoundf("space %q", name)
+	}
+	return space, nil
 }
 
 type fakeController struct {
@@ -435,6 +461,14 @@ func (m *fakeController) advanceLifecycle(life state.Life, wantsVote bool) {
 		doc.life = life
 		doc.wantsVote = wantsVote
 	})
+}
+
+type fakeSpace struct {
+	network.SpaceInfo
+}
+
+func (s *fakeSpace) NetworkSpace() network.SpaceInfo {
+	return s.SpaceInfo
 }
 
 type fakeMongoSession struct {

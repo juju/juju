@@ -4286,6 +4286,9 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDifferent(c *gc.C) 
 }
 
 func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
+	_, err := s.State.AddSpace("mgmt01", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.SetJujuManagementSpace(c, "mgmt01")
 
 	addrs, err := s.State.APIHostPortsForClients()
@@ -4412,6 +4415,9 @@ func (s *StateSuite) TestWatchAPIHostPortsForClients(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
+	_, err := s.State.AddSpace("mgmt01", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.SetJujuManagementSpace(c, "mgmt01")
 
 	w := s.State.WatchAPIHostPortsForAgents()
@@ -4431,7 +4437,7 @@ func (s *StateSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
 		Port: 2,
 	}
 
-	err := s.State.SetAPIHostPorts([][]network.HostPort{{
+	err = s.State.SetAPIHostPorts([][]network.HostPort{{
 		mgmtHP,
 	}})
 	c.Assert(err, jc.ErrorIsNil)

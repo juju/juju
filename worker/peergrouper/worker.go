@@ -38,10 +38,7 @@ type State interface {
 	WatchControllerInfo() state.StringsWatcher
 	WatchControllerStatusChanges() state.StringsWatcher
 	WatchControllerConfig() state.NotifyWatcher
-}
-
-type Space interface {
-	Name() string
+	Space(name string) (Space, error)
 }
 
 type ControllerNode interface {
@@ -61,6 +58,10 @@ type ControllerHost interface {
 	SetStatus(status.StatusInfo) error
 	Refresh() error
 	Addresses() []network.Address
+}
+
+type Space interface {
+	NetworkSpace() network.SpaceInfo
 }
 
 type MongoSession interface {
@@ -697,14 +698,19 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 	return newPeerGroupInfo(w.controllerTrackers, sts.Members, members, w.config.MongoPort, haSpace)
 }
 
-// getHASpaceFromConfig returns a SpaceName from the controller config for
-// HA space. If unset, the empty space ("") will be returned.
-func (w *pgWorker) getHASpaceFromConfig() (network.SpaceName, error) {
+// getHASpaceFromConfig returns a space based on the controller's
+// configuration for the HA space.
+func (w *pgWorker) getHASpaceFromConfig() (network.SpaceInfo, error) {
 	config, err := w.config.State.ControllerConfig()
 	if err != nil {
-		return network.SpaceName(""), err
+		return network.SpaceInfo{}, errors.Trace(err)
 	}
-	return network.SpaceName(config.JujuHASpace()), nil
+
+	space, err := w.config.State.Space(config.JujuHASpace())
+	if err != nil {
+		return network.SpaceInfo{}, errors.Trace(err)
+	}
+	return space.NetworkSpace(), nil
 }
 
 // setHasVote sets the HasVote status of all the given nodes to hasVote.
