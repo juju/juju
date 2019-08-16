@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
@@ -29,12 +30,15 @@ This command sets a locally stored credential to be used as a default.
 Default credentials avoid the need to specify a particular set of 
 credentials when more than one are available for a given cloud.
 
-To unset previously set default credential for a cloud, use the command
+To unset previously set default credential for a cloud, use --reset option.
+
+To view currently set default credential for a cloud, use the command
 without a credential name argument.
 
 Examples:
-    juju set-default-credential google credential_name
-    juju set-default-credential google
+    juju default-credential google credential_name
+    juju default-credential google
+    juju default-credential google --reset
 
 See also: 
     credentials
@@ -48,6 +52,7 @@ type setDefaultCredentialCommand struct {
 	store      jujuclient.CredentialStore
 	cloud      string
 	credential string
+	reset      bool
 }
 
 // NewSetDefaultCredentialCommand returns a command to set the default credential for a cloud.
@@ -59,7 +64,8 @@ func NewSetDefaultCredentialCommand() cmd.Command {
 
 func (c *setDefaultCredentialCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "set-default-credential",
+		Name:    "default-credential",
+		Aliases: []string{"set-default-credential"},
 		Args:    "<cloud name> [<credential name>]",
 		Purpose: usageSetDefaultCredentialSummary,
 		Doc:     usageSetDefaultCredentialDetails,
@@ -68,7 +74,7 @@ func (c *setDefaultCredentialCommand) Info() *cmd.Info {
 
 func (c *setDefaultCredentialCommand) Init(args []string) (err error) {
 	if len(args) < 1 {
-		return errors.New("Usage: juju set-default-credential <cloud-name> [<credential-name>]")
+		return errors.New("Usage: juju default-credential <cloud-name> [<credential-name>]")
 	}
 	c.cloud = args[0]
 	end := 1
@@ -77,6 +83,11 @@ func (c *setDefaultCredentialCommand) Init(args []string) (err error) {
 		end = 2
 	}
 	return cmd.CheckEmpty(args[end:])
+}
+
+// SetFlags initializes the flags supported by the command.
+func (c *setDefaultCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.BoolVar(&c.reset, "reset", false, "Reset default region for the cloud")
 }
 
 func hasCredential(credential string, credentials map[string]jujucloud.Credential) bool {
@@ -97,6 +108,15 @@ func (c *setDefaultCredentialCommand) Run(ctxt *cmd.Context) error {
 		cred = &jujucloud.CloudCredential{}
 	} else if err != nil {
 		return err
+	}
+	if !c.reset && c.credential == "" {
+		// We are just reading the value.
+		if cred.DefaultCredential != "" {
+			ctxt.Infof("Default credential for cloud %q is %q on this client.", c.cloud, cred.DefaultCredential)
+			return nil
+		}
+		ctxt.Infof("Default credential for cloud %q is not set on this client.", c.cloud)
+		return nil
 	}
 	msg := fmt.Sprintf("Default credential for cloud %q is no longer set on this client.", c.cloud)
 	if c.credential != "" {

@@ -27,7 +27,7 @@ var _ = gc.Suite(&defaultRegionSuite{})
 func (s *defaultRegionSuite) TestBadArgs(c *gc.C) {
 	command := cloud.NewSetDefaultRegionCommand()
 	_, err := cmdtesting.RunCommand(c, command)
-	c.Assert(err, gc.ErrorMatches, `Usage: juju set-default-region <cloud-name> \[<region>\]`)
+	c.Assert(err, gc.ErrorMatches, `Usage: juju default-region <cloud-name> \[<region>\]`)
 	_, err = cmdtesting.RunCommand(c, command, "cloud", "region", "extra")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
@@ -109,14 +109,40 @@ func (s *defaultRegionSuite) TestCaseInsensitiveRegionSpecification(c *gc.C) {
 	c.Assert(store.Credentials["aws"].DefaultRegion, gc.Equals, "us-west-1")
 }
 
-func (s *defaultRegionSuite) TestUnsetDefaultRegion(c *gc.C) {
+func (s *defaultRegionSuite) TestReadDefaultRegion(c *gc.C) {
 	cloudName := "aws"
 	store := jujuclient.NewMemStore()
 	store.Credentials[cloudName] = jujucloud.CloudCredential{
-		DefaultRegion: "my-sekrets",
+		DefaultRegion: "us-east-1",
 	}
 	command := cloud.NewSetDefaultRegionCommandForTest(store)
 	ctx, err := cmdtesting.RunCommand(c, command, cloudName)
+	c.Assert(err, jc.ErrorIsNil)
+	output := cmdtesting.Stderr(ctx)
+	output = strings.Replace(output, "\n", "", -1)
+	c.Assert(output, gc.Equals, fmt.Sprintf(`Default region for cloud %q is "us-east-1" on this client.`, cloudName))
+}
+
+func (s *defaultRegionSuite) TestReadDefaultRegionNoneSet(c *gc.C) {
+	cloudName := "aws"
+	store := jujuclient.NewMemStore()
+	store.Credentials[cloudName] = jujucloud.CloudCredential{}
+	command := cloud.NewSetDefaultRegionCommandForTest(store)
+	ctx, err := cmdtesting.RunCommand(c, command, cloudName)
+	c.Assert(err, jc.ErrorIsNil)
+	output := cmdtesting.Stderr(ctx)
+	output = strings.Replace(output, "\n", "", -1)
+	c.Assert(output, gc.Equals, fmt.Sprintf(`Default region for cloud %q is not set on this client.`, cloudName))
+}
+
+func (s *defaultRegionSuite) TestResetDefaultRegion(c *gc.C) {
+	cloudName := "aws"
+	store := jujuclient.NewMemStore()
+	store.Credentials[cloudName] = jujucloud.CloudCredential{
+		DefaultRegion: "us-east-1",
+	}
+	command := cloud.NewSetDefaultRegionCommandForTest(store)
+	ctx, err := cmdtesting.RunCommand(c, command, cloudName, "--reset")
 	c.Assert(err, jc.ErrorIsNil)
 	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
