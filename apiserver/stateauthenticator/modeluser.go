@@ -160,6 +160,11 @@ func (u *modelUserEntity) LastLogin() (time.Time, error) {
 // UpdateLastLogin implements loginEntity.UpdateLastLogin.
 func (u *modelUserEntity) UpdateLastLogin() error {
 	updateLastLogin := func() error {
+		// If user is nil, don't attempt to perform the update and exit early.
+		if u.user == nil {
+			return nil
+		}
+
 		if err := u.user.UpdateLastLogin(); err != nil {
 			return errors.Trace(err)
 		}
