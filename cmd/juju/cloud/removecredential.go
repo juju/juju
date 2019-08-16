@@ -33,7 +33,7 @@ Examples:
 See also: 
     credentials
     add-credential
-    set-default-credential
+    default-credential
     autoload-credentials`
 
 // NewremoveCredentialCommand returns a command to remove a named credential for a cloud.

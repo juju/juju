@@ -97,7 +97,7 @@ If you are setting up Juju for the first time, consider running
 credentials manually.
 
 This command does not set default regions nor default credentials for the
-cloud. The commands ` + "`juju set-default-region`" + ` and ` + "`juju set-default-credential`" + `
+cloud. The commands ` + "`juju default-region`" + ` and ` + "`juju default-credential`" + `
 provide that functionality.
 
 By default, after validating the contents, credentials are added both 
@@ -112,8 +112,8 @@ instructions.
 See also: 
     credentials
     remove-credential
-    set-default-credential
-    set-default-region
+    default-credential
+    default-region
     autoload-credentials
 `
 

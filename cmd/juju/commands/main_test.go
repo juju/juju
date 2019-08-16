@@ -451,6 +451,8 @@ var commandNames = []string{
 	"debug-hook",
 	"debug-hooks",
 	"debug-log",
+	"default-credential",
+	"default-region",
 	"deploy",
 	"destroy-controller",
 	"destroy-model",
