@@ -87,7 +87,7 @@ func (c *setDefaultCredentialCommand) Init(args []string) (err error) {
 
 // SetFlags initializes the flags supported by the command.
 func (c *setDefaultCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.reset, "reset", false, "Reset default region for the cloud")
+	f.BoolVar(&c.reset, "reset", false, "Reset default credential for the cloud")
 }
 
 func hasCredential(credential string, credentials map[string]jujucloud.Credential) bool {
