@@ -114,7 +114,10 @@ func instanceNetworkInterfaces(
 		return nil, nil
 	}
 	instanceNics := make(map[instance.Id][]network.Interface)
-	for ; nicsResult.NotDone(); nicsResult.NextWithContext(sdkCtx) {
+	for ; nicsResult.NotDone(); err = nicsResult.NextWithContext(sdkCtx) {
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		nic := nicsResult.Value()
 		instanceId := instance.Id(to.String(nic.Tags[jujuMachineNameTag]))
 		instanceNics[instanceId] = append(instanceNics[instanceId], nic)
@@ -139,7 +142,10 @@ func instancePublicIPAddresses(
 		return nil, nil
 	}
 	instancePips := make(map[instance.Id][]network.PublicIPAddress)
-	for ; pipsResult.NotDone(); pipsResult.NextWithContext(sdkCtx) {
+	for ; pipsResult.NotDone(); err = pipsResult.NextWithContext(sdkCtx) {
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		pip := pipsResult.Value()
 		instanceId := instance.Id(to.String(pip.Tags[jujuMachineNameTag]))
 		instancePips[instanceId] = append(instancePips[instanceId], pip)
