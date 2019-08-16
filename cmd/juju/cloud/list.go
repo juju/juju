@@ -86,8 +86,8 @@ See also:
     credentials
     controllers
     regions
-    set-default-credential
-    set-default-region
+    default-credential
+    default-region
     show-cloud
     update-clouds
 `

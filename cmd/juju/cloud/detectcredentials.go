@@ -95,7 +95,7 @@ Example:
 See also:
     list-credentials
     remove-credential
-    set-default-credential
+    default-credential
     add-credential
 `[1:]
 

@@ -81,7 +81,7 @@ See also:
     add-credential
     update-credential
     remove-credential
-    set-default-credential
+    default-credential
     autoload-credentials
     show-credentials
 `
