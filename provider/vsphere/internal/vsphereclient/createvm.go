@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/mutex"
@@ -273,7 +274,7 @@ func (c *Client) ensureTemplateVM(
 func (c *Client) CreateVirtualMachine(
 	ctx context.Context,
 	args CreateVirtualMachineParams,
-) (_ *mo.VirtualMachine, resultErr error) {
+) (_ *mo.VirtualMachine, err error) {
 	finder, datacenter, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -300,12 +301,40 @@ func (c *Client) CreateVirtualMachine(
 	if err != nil {
 		return nil, errors.Annotate(err, "cloning template VM")
 	}
+	args.UpdateProgress("VM cloned")
 
 	taskWaiter := &taskWaiter{
 		args.Clock,
 		args.UpdateProgress,
 		args.UpdateProgressInterval,
 	}
+
+	// Make sure to delete the VM if anything goes wrong before we've finished with it.
+	defer func() {
+		if err == nil {
+			return
+		}
+		if err := c.cleanupVM(ctx, vm, taskWaiter); err != nil {
+			c.logger.Warningf("cleaning up cloned VM %q failed: %s", vm.InventoryPath, err)
+		}
+	}()
+
+	if args.Constraints.RootDisk != nil {
+		// The user specified a root disk, so extend the VM's
+		// disk before powering the VM on.
+		args.UpdateProgress(fmt.Sprintf(
+			"extending disk to %s",
+			humanize.IBytes(megabytesToB(*args.Constraints.RootDisk)),
+		))
+		if err := c.extendVMRootDisk(
+			ctx, vm, datacenter,
+			*args.Constraints.RootDisk,
+			taskWaiter,
+		); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	args.UpdateProgress("powering on")
 	task, err := vm.PowerOn(ctx)
 	if err != nil {
@@ -320,6 +349,19 @@ func (c *Client) CreateVirtualMachine(
 		return nil, errors.Trace(err)
 	}
 	return &res, nil
+}
+
+func (c *Client) cleanupVM(
+	ctx context.Context,
+	vm *object.VirtualMachine,
+	taskWaiter *taskWaiter,
+) error {
+	task, err := vm.Destroy(ctx)
+	if err != nil {
+		return errors.Annotate(err, "destroying VM")
+	}
+	_, err = taskWaiter.waitTask(ctx, task, "destroying vm")
+	return errors.Annotate(err, "waiting for destroy task")
 }
 
 func (c *Client) extendVMRootDisk(
