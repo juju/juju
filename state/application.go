@@ -2638,14 +2638,11 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 		// Application status for a caas model needs to consider status
 		// info coming from the operator pod as well; It may need to
 		// override what is set here.
-		operatorStatus, err := getStatus(a.st.db(), applicationGlobalOperatorKey(a.Name()), "operator")
-		if err != nil {
-			return errors.Trace(err)
-		}
 		expectWorkload, err := expectWorkload(a.st, a.Name())
 		if err != nil {
 			return errors.Trace(err)
 		}
+		operatorStatus, err := getStatus(a.st.db(), applicationGlobalOperatorKey(a.Name()), "operator")
 		if err == nil {
 			newHistory, err = caasHistoryRewriteDoc(statusInfo, operatorStatus, expectWorkload, caasApplicationDisplayStatus, a.st.clock())
 			if err != nil {
