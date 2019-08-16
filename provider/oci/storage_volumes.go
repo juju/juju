@@ -549,15 +549,21 @@ func (v *volumeSource) AttachVolumes(ctx envcontext.ProviderCallContext, params 
 	if len(instanceIds) == 0 {
 		return []storage.AttachVolumesResult{}, nil
 	}
+	ret := make([]storage.AttachVolumesResult, len(params))
 	instancesAsMap, err := v.env.getOciInstancesAsMap(ctx, instanceIds...)
 	if err != nil {
 		if isAuthFailure(err, ctx) {
 			common.HandleCredentialError(err, ctx)
+			// Exit out early to improve readibilty on handling credential
+			// errors.
+			for idx := range params {
+				ret[idx].Error = errors.Trace(err)
+			}
+			return ret, nil
 		}
 		return []storage.AttachVolumesResult{}, errors.Trace(err)
 	}
 
-	ret := make([]storage.AttachVolumesResult, len(params))
 	for idx, volParam := range params {
 		_, ok := instancesAsMap[volParam.InstanceId]
 		if !ok {
