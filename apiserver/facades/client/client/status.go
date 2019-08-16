@@ -133,8 +133,10 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 			continue
 		}
 
-		var err error
-		var hist []params.DetailedStatus
+		var (
+			err  error
+			hist []params.DetailedStatus
+		)
 		kind := status.HistoryKind(request.Kind)
 		switch kind {
 		case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
