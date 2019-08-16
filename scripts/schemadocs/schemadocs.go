@@ -59,7 +59,11 @@ func main() {
 			for k, v := range prop.Properties {
 				ref := v.Ref.Ref
 				if v.Type == "array" {
-					ref = v.Items.Ref
+					if v.Items.Type != "" {
+						ref = v.Items.Type
+					} else {
+						ref = v.Items.Ref
+					}
 				}
 				properties = append(properties, TemplateProperty{
 					Name:   k,
@@ -127,7 +131,8 @@ type Property struct {
 
 // Ref represents a reference to another object
 type Ref struct {
-	Ref string `json:"$ref"`
+	Ref  string `json:"$ref"`
+	Type string `json:"type"`
 }
 
 // DefinitionSchema represents a definition in json schema form
