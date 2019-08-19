@@ -3610,7 +3610,7 @@ func (s *StateSuite) TestWatchMinUnitsDiesOnStateClose(c *gc.C) {
 
 func (s *StateSuite) TestWatchSubnets(c *gc.C) {
 	filter := func(id interface{}) bool {
-		return id != "10.20.0.0/24"
+		return id != "0"
 	}
 	w := s.State.WatchSubnets(filter)
 	defer statetesting.AssertStop(c, w)
@@ -3624,7 +3624,7 @@ func (s *StateSuite) TestWatchSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.0.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("10.0.0.0/24")
+	wc.AssertChange("1")
 	wc.AssertNoChange()
 }
 

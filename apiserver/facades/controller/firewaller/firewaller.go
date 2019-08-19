@@ -239,7 +239,21 @@ func (f *FirewallerAPIV3) GetMachinePorts(args params.MachinePortsParams) (param
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		ports, err := machine.OpenedPorts(subnetTag.Id())
+		// TODO (hml) 2019-08-09
+		// Do we change the subnetTag from a Cidr to an ID?
+		// In the firewaller yes, for some of the juju cmds
+		// no?
+		var subnetID string
+		if subnetTag.Id() != "" {
+			// subnetTag.ID() is a CIDR not a subnet ID.
+			subnet, err := f.st.Subnet(subnetTag.Id())
+			if err != nil {
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			}
+			subnetID = subnet.ID()
+		}
+		ports, err := machine.OpenedPorts(subnetID)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -292,21 +306,19 @@ func (f *FirewallerAPIV3) GetMachineActiveSubnets(args params.Entities) (params.
 			continue
 		}
 		for _, port := range ports {
-			subnetID := port.SubnetID()
-			if subnetID != "" && !names.IsValidSubnet(subnetID) {
-				// The error message below will look like e.g. `ports for
-				// machine "0", subnet "bad" not valid`.
-				err = errors.NotValidf("%s", ports)
-				result.Results[i].Error = common.ServerError(err)
-				continue
-			} else if subnetID != "" && names.IsValidSubnet(subnetID) {
-				subnetTag := names.NewSubnetTag(subnetID).String()
-				result.Results[i].Result = append(result.Results[i].Result, subnetTag)
+			if port.SubnetID() == "" {
+				// TODO(dimitern): Empty subnet CIDRs for ports are still OK until
+				// we can enforce it across all providers.
+				result.Results[i].Result = append(result.Results[i].Result, "")
 				continue
 			}
-			// TODO(dimitern): Empty subnet CIDRs for ports are still OK until
-			// we can enforce it across all providers.
-			result.Results[i].Result = append(result.Results[i].Result, "")
+			subnet, err := f.st.SubnetByID(port.SubnetID())
+			if err != nil {
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			}
+			subnetTag := names.NewSubnetTag(subnet.CIDR()).String()
+			result.Results[i].Result = append(result.Results[i].Result, subnetTag)
 		}
 	}
 	return result, nil

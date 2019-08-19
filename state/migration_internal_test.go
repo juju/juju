@@ -647,6 +647,7 @@ func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
 	)
 	migrated := set.NewStrings(
 		"CIDR",
+		"ID",
 		"VLANTag",
 		"SpaceID",
 		"ProviderId",

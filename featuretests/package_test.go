@@ -92,10 +92,9 @@ func TestPackage(t *testing.T) {
 }
 
 func runCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	// Writers need to be reset, because
-	// they are set globally in the juju/cmd package and will
-	// return an error if we attempt to run two commands in the
-	// same test.
+	// Writers need to be reset, because they are set globally in the
+	// juju/cmd package and will return an error if we attempt to run
+	// two commands in the same test.
 	loggo.ResetWriters()
 	ctx := cmdtesting.Context(c)
 	command := jujucmd.NewJujuCommand(ctx)
