@@ -8,10 +8,10 @@ help navigate the types found with in juju.
 
 To generate the html file, you need to ensure you have downloaded juju and have
 the files checked out correctly on your filesystem. Then run the following
-command (assuming you have go installed) from the root of the juju project:
+command (assuming you have go installed):
 
 ```
-go run ./scripts/schemadocs/schemadocs.go ./apiserver/facades/schema.json > output.html
+make output.html
 ```
 
 Open the resulting output.html in your browser and enjoy.
