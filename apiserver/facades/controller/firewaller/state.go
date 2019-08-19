@@ -25,6 +25,10 @@ type State interface {
 	FindEntity(tag names.Tag) (state.Entity, error)
 
 	FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error)
+
+	SubnetByID(id string) (Subnet, error)
+
+	Subnet(cidr string) (Subnet, error)
 }
 
 // TODO(wallyworld) - for tests, remove when remaining firewaller tests become unit tests.
@@ -57,4 +61,17 @@ func (st stateShim) WatchOpenedPorts() state.StringsWatcher {
 func (s stateShim) FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error) {
 	api := state.NewFirewallRules(s.st)
 	return api.Rule(service)
+}
+
+type Subnet interface {
+	ID() string
+	CIDR() string
+}
+
+func (s stateShim) SubnetByID(id string) (Subnet, error) {
+	return s.st.SubnetByID(id)
+}
+
+func (s stateShim) Subnet(cidr string) (Subnet, error) {
+	return s.st.Subnet(cidr)
 }

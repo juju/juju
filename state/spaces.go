@@ -99,6 +99,9 @@ func (s *Space) NetworkSpace() network.SpaceInfo {
 	}
 }
 
+// TODO (hml) 2019-08-06
+// slice of subnets, should be subnet ids not cidrs.
+//
 // AddSpace creates and returns a new space.
 func (st *State) AddSpace(
 	name string, providerId network.Id, subnets []string, isPublic bool) (newSpace *Space, err error,
@@ -167,13 +170,17 @@ func (st *State) addSpaceWithSubnetsTxnOps(
 
 	ops := st.addSpaceTxnOps(id, name, providerId, isPublic)
 
-	for _, subnetId := range subnets {
+	for _, cidr := range subnets {
+		sn, err := st.Subnet(cidr)
+		if err != nil {
+			return nil, err
+		}
 		// TODO:(mfoord) once we have refcounting for subnets we should
 		// also assert that the refcount is zero as moving the space of a
 		// subnet in use is not permitted.
 		ops = append(ops, txn.Op{
 			C:      subnetsC,
-			Id:     subnetId,
+			Id:     sn.ID(),
 			Assert: bson.D{bson.DocElem{Name: "fan-local-underlay", Value: bson.D{{"$exists", false}}}},
 			Update: bson.D{{"$set", bson.D{{"space-id", id}}}},
 		})

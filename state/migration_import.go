@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/juju/description"
@@ -169,6 +170,14 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	if err := restore.modelUsers(); err != nil {
 		return nil, nil, errors.Annotate(err, "modelUsers")
 	}
+	// Spaces are needed to migrate Subnets
+	if err := restore.spaces(); err != nil {
+		return nil, nil, errors.Annotate(err, "spaces")
+	}
+	// Subnets are needed to migrate machine portsDocs
+	if err := restore.subnets(); err != nil {
+		return nil, nil, errors.Annotate(err, "subnets")
+	}
 	if err := restore.machines(); err != nil {
 		return nil, nil, errors.Annotate(err, "machines")
 	}
@@ -178,14 +187,8 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	if err := restore.relations(); err != nil {
 		return nil, nil, errors.Annotate(err, "relations")
 	}
-	if err := restore.spaces(); err != nil {
-		return nil, nil, errors.Annotate(err, "spaces")
-	}
 	if err := restore.linklayerdevices(); err != nil {
 		return nil, nil, errors.Annotate(err, "linklayerdevices")
-	}
-	if err := restore.subnets(); err != nil {
-		return nil, nil, errors.Annotate(err, "subnets")
 	}
 	if err := restore.ipaddresses(); err != nil {
 		return nil, nil, errors.Annotate(err, "ipaddresses")
@@ -421,7 +424,11 @@ func (i *importer) machine(m description.Machine) error {
 	ops := append(prereqOps, machineOp)
 
 	// 5. add any ops that we may need to add the opened ports information.
-	ops = append(ops, i.machinePortsOps(m)...)
+	portOps, err := i.machinePortsOps(m)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ops = append(ops, portOps...)
 
 	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
@@ -477,12 +484,21 @@ func (i *importer) importMachineBlockDevices(machine *Machine, m description.Mac
 	return nil
 }
 
-func (i *importer) machinePortsOps(m description.Machine) []txn.Op {
+func (i *importer) machinePortsOps(m description.Machine) ([]txn.Op, error) {
 	var result []txn.Op
 	machineID := m.Id()
 
 	for _, ports := range m.OpenedPorts() {
 		subnetID := ports.SubnetID()
+		if network.IsValidCidr(subnetID) {
+			// If we're migrating from a controller which has cidrs for
+			// subnetIDs, there can be only 1 of that cidr in the model.
+			subnet, err := i.st.Subnet(subnetID)
+			if err != nil {
+				return []txn.Op{}, errors.Trace(err)
+			}
+			subnetID = subnet.ID()
+		}
 		doc := &portsDoc{
 			MachineID: machineID,
 			SubnetID:  subnetID,
@@ -503,7 +519,7 @@ func (i *importer) machinePortsOps(m description.Machine) []txn.Op {
 		})
 	}
 
-	return result
+	return result, nil
 }
 
 func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudInstance) txn.Op {
@@ -1365,7 +1381,15 @@ func (i *importer) subnets() error {
 			info.SpaceName = subnet.SpaceName()
 		}
 
-		err := i.addSubnet(info)
+		snID := subnet.ID()
+		if snID == "" {
+			seq, err := sequence(i.st, "subnet")
+			if err != nil {
+				return errors.Trace(err)
+			}
+			snID = strconv.Itoa(seq)
+		}
+		err := i.addSubnet(snID, info)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1374,15 +1398,15 @@ func (i *importer) subnets() error {
 	return nil
 }
 
-func (i *importer) addSubnet(args network.SubnetInfo) error {
+func (i *importer) addSubnet(id string, args network.SubnetInfo) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		subnet, err := i.st.newSubnetFromArgs(args)
+		subnetDoc, ops, err := i.st.addSubnetOps(id, args)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops := i.st.addSubnetOps(args)
+		subnet := &Subnet{st: i.st, doc: subnetDoc}
 		if attempt != 0 {
-			if _, err = i.st.Subnet(args.CIDR); err == nil {
+			if _, err = i.st.SubnetByID(id); err == nil {
 				return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
 			}
 			if err := subnet.Refresh(); err != nil {
