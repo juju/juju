@@ -252,7 +252,7 @@ func (s *ModelSuite) TestUnitReturnsCopy(c *gc.C) {
 	// Get another copy from the model and ensure it is unchanged.
 	u2, err := m.Unit(unitChange.Name)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(u2.Ports(), gc.DeepEquals, unitChange.Ports)
+	c.Assert(u2.Ports(), gc.DeepEquals, ch.Ports)
 }
 
 func (s *ModelSuite) TestBranchNotFoundError(c *gc.C) {
