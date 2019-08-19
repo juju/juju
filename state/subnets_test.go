@@ -108,8 +108,10 @@ func (s *SubnetSuite) TestAddSubnetSuccessForDuplicateCIDRDiffProviderIDInSameMo
 	s.assertSubnetMatchesInfo(c, subnet, subnetInfo)
 
 	subnetInfo.ProviderId = "testme"
-	subnet, err = s.State.AddSubnet(subnetInfo)
+	subnet2, err := s.State.AddSubnet(subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnet.ID(), gc.Not(gc.Equals), subnet2.ID())
+	c.Assert(subnet.CIDR(), gc.Equals, subnet2.CIDR())
 }
 
 func (s *SubnetSuite) TestAddSubnetSucceedsForDuplicateCIDRInDifferentModels(c *gc.C) {
