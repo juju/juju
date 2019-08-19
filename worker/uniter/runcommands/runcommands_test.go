@@ -191,8 +191,7 @@ func (s *runcommandsSuite) TestRunCommandsError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = op.Execute(operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(execErr, gc.ErrorMatches, "executing commands: echo foxtrot")
+	c.Assert(err, gc.NotNil)
 	c.Assert(execErr, gc.ErrorMatches, "executing commands: echo foxtrot")
 }
 
