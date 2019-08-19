@@ -1013,7 +1013,7 @@ func (s *filteringBranchesSuite) assertBranchAssignUnit(c *gc.C, bName, uName st
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gen, gc.NotNil)
 	err = gen.AssignUnit(uName)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.NotNil)
 }
 
 func (s *filteringBranchesSuite) assertBranchAssignApplication(c *gc.C, bName, aName string) {
