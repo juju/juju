@@ -1332,7 +1332,7 @@ func (s *applicationSuite) TestSpecializeStoreOnDeployApplicationSetCharmAndAddC
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.NotNil)
 	c.Assert(repo.testMode, jc.IsTrue)
 
 	// Check that the store's test mode is enabled when calling AddCharm.
