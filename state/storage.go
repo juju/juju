@@ -406,11 +406,8 @@ func (sb *storageBackend) destroyStorageInstance(
 		case nil:
 			return ops, nil
 		default:
-			if !force {
-				return nil, errors.Trace(err)
-			}
 			logger.Warningf("could not destroy storage instance %v: %v", tag.Id(), err)
-			return ops, nil
+			return nil, errors.Trace(err)
 		}
 	}
 	return sb.mb.db().Run(buildTxn)

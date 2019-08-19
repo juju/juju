@@ -88,6 +88,13 @@ func (c *Client) SetStatus(
 	return result.OneError()
 }
 
+func convertNotFound(err error) error {
+	if params.IsCodeNotFound(err) {
+		return errors.NewNotFound(err, "")
+	}
+	return err
+}
+
 // Charm returns information about the charm currently assigned
 // to the application, including url, force upgrade and sha etc.
 func (c *Client) Charm(application string) (_ *charm.URL, forceUpgrade bool, sha256 string, vers int, _ error) {
@@ -106,7 +113,7 @@ func (c *Client) Charm(application string) (_ *charm.URL, forceUpgrade bool, sha
 		return nil, false, "", 0, errors.Errorf("expected 1 result, got %d", n)
 	}
 	if err := results.Results[0].Error; err != nil {
-		return nil, false, "", 0, errors.Trace(err)
+		return nil, false, "", 0, errors.Trace(convertNotFound(err))
 	}
 	result := results.Results[0].Result
 	curl, err := charm.ParseURL(result.URL)

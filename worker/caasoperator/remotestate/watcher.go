@@ -81,6 +81,13 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 }
 
 func (w *RemoteStateWatcher) loop() (err error) {
+	defer func() {
+		if errors.IsNotFound(err) {
+			logger.Debugf("ignoring error %v and exit", err)
+			err = nil
+		}
+	}()
+
 	var requiredEvents int
 
 	var seenApplicationChange bool
@@ -118,7 +125,6 @@ func (w *RemoteStateWatcher) loop() (err error) {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-
 		case _, ok := <-applicationChanges:
 			logger.Debugf("got application change")
 			if !ok {

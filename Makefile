@@ -26,6 +26,10 @@ endif
 GIT_COMMIT = $(shell git -C $(PROJECT_DIR) rev-parse HEAD)
 GIT_TREE_STATE = $(if $(shell git status --porcelain),dirty,clean)
 
+# Build tags passed to go install/build.
+# Example: BUILD_TAGS="minimal provider_kubernetes"
+BUILD_TAGS ?= 
+
 # Compile with debug flags if requested.
 ifeq ($(DEBUG_JUJU), 1)
     COMPILE_FLAGS = -gcflags "all=-N -l"
@@ -84,11 +88,11 @@ clean:
 	go clean -n -r --cache --testcache $(PROJECT_PACKAGES)
 
 go-install:
-	@echo 'go install $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$PROJECT_PACKAGES'
-	@go install $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(PROJECT_PACKAGES)
+	@echo 'go install -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $$PROJECT_PACKAGES'
+	@go install -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(LINK_FLAGS) -v $(PROJECT_PACKAGES)
 
 go-build:
-	@go build $(COMPILE_FLAGS) $(PROJECT_PACKAGES)
+	@go build -tags "$(BUILD_TAGS)" $(COMPILE_FLAGS) $(PROJECT_PACKAGES)
 
 else # --------------------------------
 
@@ -171,7 +175,7 @@ OPERATOR_IMAGE_PATH      = ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TA
 
 operator-image:
     ifeq ($(OPERATOR_IMAGE_BUILD_SRC),true)
-		@make install
+		@BUILD_TAGS="minimal provider_kubernetes" make install
     else
 		@echo "skipping to build jujud bin, use existing one at ${JUJUD_BIN_DIR}/jujud."
     endif
