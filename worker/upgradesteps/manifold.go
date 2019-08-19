@@ -72,14 +72,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			// application tag for CAAS operator, machine or unit tag for agents.
+			// application tag for CAAS operator, controller, machine or unit tag for agents.
 			isOperator := agent.CurrentConfig().Tag().Kind() == names.ApplicationTagKind
 			if isOperator {
 				return NewWorker(
 					upgradeStepsLock,
 					agent,
 					apiConn,
-					nil,
+					false,
 					config.OpenStateForUpgrade,
 					config.PreUpgradeSteps,
 					statusSetter,
@@ -87,13 +87,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				)
 			}
 
-			// Get the agent's jobs.
-			// TODO(fwereade): use appropriate facade!
-			agentFacade, err := apiagent.NewState(apiConn)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			entity, err := agentFacade.Entity(agent.CurrentConfig().Tag())
+			isController, err := apiagent.IsController(apiConn, agent.CurrentConfig().Tag())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -101,7 +95,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				upgradeStepsLock,
 				agent,
 				apiConn,
-				entity.Jobs(),
+				isController,
 				config.OpenStateForUpgrade,
 				config.PreUpgradeSteps,
 				statusSetter,

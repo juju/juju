@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
@@ -484,7 +485,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	logStreamHandler := newLogStreamEndpointHandler(httpCtxt)
 	debugLogHandler := newDebugLogDBHandler(
 		httpCtxt, srv.authenticator,
-		tagKindAuthorizer{names.MachineTagKind, names.UserTagKind, names.ApplicationTagKind})
+		tagKindAuthorizer{names.MachineTagKind, names.ControllerAgentTagKind, names.UserTagKind, names.ApplicationTagKind})
 	pubsubHandler := newPubSubHandler(httpCtxt, srv.shared.centralHub)
 	logSinkHandler := logsink.NewHTTPHandler(
 		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.dbloggers),
@@ -493,7 +494,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
 		controllerModelUUID,
 	)
-	logSinkAuthorizer := tagKindAuthorizer{names.MachineTagKind, names.UnitTagKind, names.ApplicationTagKind}
+	logSinkAuthorizer := tagKindAuthorizer(stateauthenticator.AgentTags)
 	logTransferHandler := logsink.NewHTTPHandler(
 		// We don't need to save the migrated logs
 		// to a logfile as well as to the DB.

@@ -82,7 +82,7 @@ func (s *AgentConfigUpdaterSuite) TestNotMachine(c *gc.C) {
 	})
 	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "agent's tag is not a machine tag")
+	c.Check(err, gc.ErrorMatches, "agent's tag is not a machine or controller agent tag")
 }
 
 func (s *AgentConfigUpdaterSuite) TestEntityLookupFailure(c *gc.C) {

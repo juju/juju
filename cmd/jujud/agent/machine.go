@@ -57,6 +57,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	jujunames "github.com/juju/juju/juju/names"
@@ -127,7 +128,7 @@ func init() {
 	}
 }
 
-type machineAgentFactoryFnType func(string, bool) (*MachineAgent, error)
+type machineAgentFactoryFnType func(names.Tag, bool) (*MachineAgent, error)
 
 // AgentInitializer handles initializing a type for use as a Jujud
 // agent.
@@ -179,16 +180,27 @@ type machineAgentCmd struct {
 	// This group is for debugging purposes.
 	logToStdErr bool
 
+	isCaas   bool
+	agentTag names.Tag
+
 	// The following are set via command-line flags.
 	machineId string
+	// TODO(controlleragent) - this will be in a new controller agent command
+	controllerId string
 }
 
 // Init is called by the cmd system to initialize the structure for
 // running.
 func (a *machineAgentCmd) Init(args []string) error {
 
-	if !names.IsValidMachine(a.machineId) {
-		return errors.Errorf("--machine-id option must be set, and expects a non-negative integer")
+	if a.machineId == "" && a.controllerId == "" {
+		return errors.New("either machine-id or controller-id must be set")
+	}
+	if a.machineId != "" && !names.IsValidMachine(a.machineId) {
+		return errors.Errorf("--machine-id option must be a non-negative integer")
+	}
+	if a.controllerId != "" && !names.IsValidControllerAgent(a.controllerId) {
+		return errors.Errorf("--controller-id option must be a non-negative integer")
 	}
 	if err := a.agentInitializer.CheckArgs(args); err != nil {
 		return err
@@ -200,33 +212,36 @@ func (a *machineAgentCmd) Init(args []string) error {
 	// lines of all logging in the log file.
 	loggo.RemoveWriter("logfile")
 
-	if a.logToStdErr {
-		return nil
+	if a.machineId != "" {
+		a.agentTag = names.NewMachineTag(a.machineId)
+	} else {
+		a.agentTag = names.NewControllerAgentTag(a.controllerId)
 	}
-
-	if err := a.currentConfig.ReadConfig(a.tag().String()); err != nil {
+	if err := readAgentConfig(a.currentConfig, a.agentTag.Id()); err != nil {
 		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
 	config := a.currentConfig.CurrentConfig()
-	// the context's stderr is set as the loggo writer in github.com/juju/cmd/logging.go
-	a.ctx.Stderr = &lumberjack.Logger{
-		Filename:   agent.LogFilename(config),
-		MaxSize:    300, // megabytes
-		MaxBackups: 2,
-		Compress:   true,
+	if err := os.MkdirAll(config.LogDir(), 0644); err != nil {
+		logger.Warningf("cannot create log dir: %v", err)
 	}
-	return nil
-}
+	a.isCaas = config.Value(agent.ProviderType) == k8sprovider.CAASProviderType
 
-func (a *machineAgentCmd) tag() names.Tag {
-	return names.NewMachineTag(a.machineId)
+	if !a.logToStdErr {
+		// the context's stderr is set as the loggo writer in github.com/juju/cmd/logging.go
+		a.ctx.Stderr = &lumberjack.Logger{
+			Filename:   agent.LogFilename(config),
+			MaxSize:    300, // megabytes
+			MaxBackups: 2,
+			Compress:   true,
+		}
+	}
+
+	return nil
 }
 
 // Run instantiates a MachineAgent and runs it.
 func (a *machineAgentCmd) Run(c *cmd.Context) error {
-	config := a.currentConfig.CurrentConfig()
-	isCaasMachineAgent := config.Value(agent.ProviderType) == k8sprovider.CAASProviderType
-	machineAgent, err := a.machineAgentFactory(a.machineId, isCaasMachineAgent)
+	machineAgent, err := a.machineAgentFactory(a.agentTag, a.isCaas)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -237,6 +252,8 @@ func (a *machineAgentCmd) Run(c *cmd.Context) error {
 func (a *machineAgentCmd) SetFlags(f *gnuflag.FlagSet) {
 	a.agentInitializer.AddFlags(f)
 	f.StringVar(&a.machineId, "machine-id", "", "id of the machine to run")
+	f.StringVar(&a.controllerId, "controller-id", "", "id of the controller to run")
+	f.BoolVar(&a.logToStdErr, "log-to-stderr", false, "log to stderr instead of logsink.log")
 }
 
 // Info returns usage information for the command.
@@ -256,9 +273,9 @@ func MachineAgentFactoryFn(
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
 	rootDir string,
 ) machineAgentFactoryFnType {
-	return func(machineId string, isCaasMachineAgent bool) (*MachineAgent, error) {
+	return func(agentTag names.Tag, isCaasAgent bool) (*MachineAgent, error) {
 		return NewMachineAgent(
-			machineId,
+			agentTag,
 			agentConfWriter,
 			bufferedLogger,
 			worker.NewRunner(worker.RunnerParams{
@@ -270,14 +287,14 @@ func MachineAgentFactoryFn(
 			newIntrospectionSocketName,
 			preUpgradeSteps,
 			rootDir,
-			isCaasMachineAgent,
+			isCaasAgent,
 		)
 	}
 }
 
 // NewMachineAgent instantiates a new MachineAgent.
 func NewMachineAgent(
-	machineId string,
+	agentTag names.Tag,
 	agentConfWriter AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
 	runner *worker.Runner,
@@ -285,14 +302,14 @@ func NewMachineAgent(
 	newIntrospectionSocketName func(names.Tag) string,
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
 	rootDir string,
-	isCaasMachineAgent bool,
+	isCaasAgent bool,
 ) (*MachineAgent, error) {
 	prometheusRegistry, err := newPrometheusRegistry()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	a := &MachineAgent{
-		machineId:                   machineId,
+		agentTag:                    agentTag,
 		AgentConfigWriter:           agentConfWriter,
 		configChangedVal:            voyeur.NewValue(true),
 		bufferedLogger:              bufferedLogger,
@@ -307,7 +324,7 @@ func NewMachineAgent(
 		mongoTxnCollector:           mongometrics.NewTxnCollector(),
 		mongoDialCollector:          mongometrics.NewDialCollector(),
 		preUpgradeSteps:             preUpgradeSteps,
-		isCaasMachineAgent:          isCaasMachineAgent,
+		isCaasAgent:                 isCaasAgent,
 	}
 	return a, nil
 }
@@ -344,7 +361,7 @@ type MachineAgent struct {
 
 	dead             chan struct{}
 	errReason        error
-	machineId        string
+	agentTag         names.Tag
 	runner           *worker.Runner
 	rootDir          string
 	bufferedLogger   *logsender.BufferedLogWriter
@@ -372,7 +389,7 @@ type MachineAgent struct {
 	// peergrouper have manifolds.
 	centralHub *pubsub.StructuredHub
 
-	isCaasMachineAgent bool
+	isCaasAgent bool
 }
 
 // Wait waits for the machine agent to finish.
@@ -459,7 +476,7 @@ func (a *MachineAgent) Run(*cmd.Context) (err error) {
 
 	// When the API server and peergrouper have manifolds, they can
 	// have dependencies on a central hub worker.
-	a.centralHub = centralhub.New(a.Tag().(names.MachineTag))
+	a.centralHub = centralhub.New(a.Tag())
 
 	// Before doing anything else, we need to make sure the certificate generated for
 	// use by mongo to validate controller connections is correct. This needs to be done
@@ -569,7 +586,7 @@ func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion 
 			UpdateLoggerConfig:      updateAgentConfLogging,
 			UpdateControllerAPIPort: updateControllerAPIPort,
 			NewAgentStatusSetter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
-				return a.machine(apiConn)
+				return a.statusSetter(apiConn)
 			},
 			ControllerLeaseDuration:           time.Minute,
 			LogPruneInterval:                  5 * time.Minute,
@@ -583,7 +600,7 @@ func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion 
 			NewBrokerFunc:                     newBroker,
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
-		if a.isCaasMachineAgent {
+		if a.isCaasAgent {
 			manifolds = caasMachineManifolds(manifoldsCfg)
 		}
 		if err := dependency.Install(engine, manifolds); err != nil {
@@ -651,6 +668,10 @@ var (
 // dependency engine. Once they have all been converted, this method -
 // and the apiworkers manifold - can be removed.
 func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker, outErr error) {
+	// CAAS agents do not have any api workers.
+	if a.isCaasAgent {
+		return nil, dependency.ErrUninstall
+	}
 	agentConfig := a.CurrentConfig()
 
 	apiSt, err := apiagent.NewState(apiConn)
@@ -660,17 +681,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	entity, err := apiSt.Entity(a.Tag())
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	var isModelManager bool
-	for _, job := range entity.Jobs() {
-		switch job {
-		case multiwatcher.JobManageModel:
-			isModelManager = true
-		default:
-			// TODO(dimitern): Once all workers moved over to using
-			// the API, report "unknown job type" here.
-		}
 	}
 
 	runner := worker.NewRunner(worker.RunnerParams{
@@ -695,7 +705,17 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		return nil, errors.Annotate(err, "setting up container support")
 	}
 
-	if isModelManager {
+	var isController bool
+	for _, job := range entity.Jobs() {
+		switch job {
+		case multiwatcher.JobManageModel:
+			isController = true
+		default:
+			// TODO(dimitern): Once all workers moved over to using
+			// the API, report "unknown job type" here.
+		}
+	}
+	if isController {
 		// We don't have instance info set and the network config for the
 		// bootstrap machine only, so update it now. All the other machines will
 		// have instance info including network config set at provisioning time.
@@ -719,16 +739,34 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	return runner, nil
 }
 
+type noopStatusSetter struct{}
+
+// SetStatus implements upgradesteps.StatusSetter
+func (a *noopStatusSetter) SetStatus(setableStatus status.Status, info string, data map[string]interface{}) error {
+	return nil
+}
+
+func (a *MachineAgent) statusSetter(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
+	if a.agentTag.Kind() != names.MachineTagKind {
+		// TODO - support set status for controller agents
+		return &noopStatusSetter{}, nil
+	}
+	machinerAPI := apimachiner.NewState(apiConn)
+	return machinerAPI.Machine(a.Tag().(names.MachineTag))
+}
+
 func (a *MachineAgent) machine(apiConn api.Connection) (*apimachiner.Machine, error) {
 	machinerAPI := apimachiner.NewState(apiConn)
 	agentConfig := a.CurrentConfig()
 
-	tag := agentConfig.Tag().(names.MachineTag)
+	tag, ok := agentConfig.Tag().(names.MachineTag)
+	if !ok {
+		return nil, errors.Errorf("%q is not a machine tag", agentConfig.Tag().String())
+	}
 	return machinerAPI.Machine(tag)
 }
 
 func (a *MachineAgent) setControllerNetworkConfig(apiConn api.Connection) error {
-	// TODO(bootstrap): do we need this for k8s???
 	machine, err := a.machine(apiConn)
 	if errors.IsNotFound(err) || err == nil && machine.Life() == params.Dead {
 		return jworker.ErrTerminateAgent
@@ -807,8 +845,12 @@ func (a *MachineAgent) openStateForUpgrade() (*state.StatePool, error) {
 // that the agent will be ok when connected to a new controller.
 func (a *MachineAgent) validateMigration(apiCaller base.APICaller) error {
 	// TODO(mjs) - more extensive checks to come.
-	facade := apimachiner.NewState(apiCaller)
-	_, err := facade.Machine(names.NewMachineTag(a.machineId))
+	var err error
+	// TODO(controlleragent) - add k8s controller check.
+	if a.agentTag.Kind() == names.MachineTagKind {
+		facade := apimachiner.NewState(apiCaller)
+		_, err = facade.Machine(a.agentTag.(names.MachineTag))
+	}
 	return errors.Trace(err)
 }
 
@@ -965,7 +1007,7 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	pool, _, err := openStatePool(
+	pool, err := openStatePool(
 		agentConfig,
 		dialOpts,
 		a.mongoTxnCollector.AfterRunTransaction,
@@ -1046,7 +1088,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		}
 	}()
 
-	if a.isCaasMachineAgent {
+	if a.isCaasAgent {
 		return nil
 	}
 	// EnsureMongoServer installs/upgrades the init config as necessary.
@@ -1075,14 +1117,14 @@ func openStatePool(
 	agentConfig agent.Config,
 	dialOpts mongo.DialOpts,
 	runTransactionObserver state.RunTransactionObserverFunc,
-) (_ *state.StatePool, _ *state.Machine, err error) {
+) (_ *state.StatePool, err error) {
 	info, ok := agentConfig.MongoInfo()
 	if !ok {
-		return nil, nil, errors.Errorf("no state info available")
+		return nil, errors.Errorf("no state info available")
 	}
 	session, err := mongo.DialWithInfo(*info, dialOpts)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	defer session.Close()
 
@@ -1095,7 +1137,7 @@ func openStatePool(
 		RunTransactionObserver: runTransactionObserver,
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	defer func() {
 		if err != nil {
@@ -1103,25 +1145,31 @@ func openStatePool(
 		}
 	}()
 	st := pool.SystemState()
-	m0, err := st.FindEntity(agentConfig.Tag())
+	controller, err := st.FindEntity(agentConfig.Tag())
 	if err != nil {
 		if errors.IsNotFound(err) {
 			err = jworker.ErrTerminateAgent
 		}
-		return nil, nil, err
+		return nil, err
 	}
-	m := m0.(*state.Machine)
+
+	// Only machines (not controller agents) need to be provisioned.
+	// TODO(controlleragent) - this needs to be reworked
+	m, ok := controller.(*state.Machine)
+	if !ok {
+		return pool, err
+	}
 	if m.Life() == state.Dead {
-		return nil, nil, jworker.ErrTerminateAgent
+		return nil, jworker.ErrTerminateAgent
 	}
 	// Check the machine nonce as provisioned matches the agent.Conf value.
 	if !m.CheckProvisioned(agentConfig.Nonce()) {
 		// The agent is running on a different machine to the one it
 		// should be according to state. It must stop immediately.
 		logger.Errorf("running machine %v agent on inappropriate instance", m)
-		return nil, nil, jworker.ErrTerminateAgent
+		return nil, jworker.ErrTerminateAgent
 	}
-	return pool, m, nil
+	return pool, nil
 }
 
 // startWorkerAfterUpgrade starts a worker to run the specified child worker
@@ -1175,7 +1223,7 @@ func (a *MachineAgent) WorkersStarted() <-chan struct{} {
 }
 
 func (a *MachineAgent) Tag() names.Tag {
-	return names.NewMachineTag(a.machineId)
+	return a.agentTag
 }
 
 func (a *MachineAgent) createJujudSymlinks(dataDir string) error {

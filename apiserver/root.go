@@ -586,9 +586,11 @@ func (r *adminRoot) FindMethod(rootName string, version int, methodName string) 
 }
 
 // AuthMachineAgent returns whether the current client is a machine agent.
+// TODO(controlleragent) - add AuthControllerAgent function
 func (r *apiHandler) AuthMachineAgent() bool {
 	_, isMachine := r.GetAuthTag().(names.MachineTag)
-	return isMachine
+	_, isControllerAgent := r.GetAuthTag().(names.ControllerAgentTag)
+	return isMachine || isControllerAgent
 }
 
 // AuthApplicationAgent returns whether the current client is an application operator.

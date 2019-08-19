@@ -172,3 +172,15 @@ func dependencyEngineConfig() dependency.EngineConfig {
 		Logger:           loggo.GetLogger("juju.worker.dependency"),
 	}
 }
+
+// readAgentConfig is a helper to read either machine or controller agent config,
+// whichever is there. Machine config gets precedence.
+func readAgentConfig(c AgentConfigWriter, agentId string) error {
+	var tag names.Tag = names.NewMachineTag(agentId)
+	err := c.ReadConfig(tag.String())
+	if err != nil {
+		tag = names.NewControllerAgentTag(agentId)
+		err = c.ReadConfig(tag.String())
+	}
+	return errors.Trace(err)
+}

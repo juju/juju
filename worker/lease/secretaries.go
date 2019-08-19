@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
 
+	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/core/lease"
 )
 
@@ -29,8 +30,12 @@ func (s SingularSecretary) CheckLease(key lease.Key) error {
 
 // CheckHolder is part of the lease.Secretary interface.
 func (s SingularSecretary) CheckHolder(name string) error {
-	if _, err := names.ParseMachineTag(name); err != nil {
-		return errors.New("expected machine tag")
+	tag, err := names.ParseTag(name)
+	if err != nil {
+		return errors.Annotate(err, "expected a valid tag")
+	}
+	if !agent.IsAllowedControllerTag(tag.Kind()) {
+		return errors.New("expected machine or controller tag")
 	}
 	return nil
 }

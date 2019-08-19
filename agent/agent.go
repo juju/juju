@@ -419,12 +419,12 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		return nil, errors.Trace(requiredError("entity tag"))
 	}
 	switch configParams.Tag.(type) {
-	case names.MachineTag, names.UnitTag, names.ApplicationTag:
+	case names.MachineTag, names.UnitTag, names.ApplicationTag, names.ControllerAgentTag:
 		// These are the only three type of tags that can represent an agent
 		// IAAS - machine and unit
-		// CAAS - application
+		// CAAS - application, controller agent
 	default:
-		return nil, errors.Errorf("entity tag must be MachineTag, UnitTag or ApplicationTag, got %T", configParams.Tag)
+		return nil, errors.Errorf("entity tag must be MachineTag, UnitTag, ApplicationTag or ControllerAgentTag, got %T", configParams.Tag)
 	}
 	if configParams.UpgradedToVersion == version.Zero {
 		return nil, errors.Trace(requiredError("upgradedToVersion"))

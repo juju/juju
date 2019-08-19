@@ -23,6 +23,14 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// AgentTags are those used by any Juju agent.
+var AgentTags = []string{
+	names.MachineTagKind,
+	names.ControllerAgentTagKind,
+	names.UnitTagKind,
+	names.ApplicationTagKind,
+}
+
 // Authenticator is an implementation of httpcontext.Authenticator,
 // using *state.State for authentication.
 //
@@ -117,7 +125,9 @@ func (a *Authenticator) AuthenticateLoginRequest(
 			// TODO(axw) move out of common?
 			return httpcontext.AuthInfo{}, errors.Trace(err)
 		}
-		if _, ok := authTag.(names.MachineTag); ok && !st.IsController() {
+		_, isMachineTag := authTag.(names.MachineTag)
+		_, isControllerAgentTag := authTag.(names.ControllerAgentTag)
+		if (isMachineTag || isControllerAgentTag) && !st.IsController() {
 			// Controller agents are allowed to log into any model.
 			var err2 error
 			authInfo, err2 = a.checkCreds(

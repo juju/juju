@@ -77,7 +77,7 @@ func (s *IntrospectCommandSuite) TestAutoDetectMachineAgentFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.run(c, "query")
-	c.Assert(err, gc.ErrorMatches, "could not determine machine tag")
+	c.Assert(err, gc.ErrorMatches, "could not determine machine or controller agent tag")
 }
 
 func (s *IntrospectCommandSuite) TestAgentSpecified(c *gc.C) {

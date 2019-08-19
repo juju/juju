@@ -153,17 +153,19 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 	defer errors.DeferredAnnotatef(&err, "cannot add a new machine")
 	var ms []*Machine
 	var ops []txn.Op
-	var mdocs []*machineDoc
+	var controllerIds []string
 	for _, template := range templates {
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		mdocs = append(mdocs, mdoc)
+		if isController(mdoc) {
+			controllerIds = append(controllerIds, mdoc.Id)
+		}
 		ms = append(ms, newMachine(st, mdoc))
 		ops = append(ops, addOps...)
 	}
-	ssOps, err := st.maintainControllersOps(mdocs, nil)
+	ssOps, err := st.maintainControllersOps(controllerIds, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -304,7 +306,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 			},
 		})
 	}
-	if hasJob(mdoc.Jobs, JobManageModel) {
+	if isController(mdoc) {
 		prereqOps = append(prereqOps, addControllerNodeOp(st, mdoc.Id, false))
 	}
 

@@ -192,9 +192,9 @@ func NewTestMachineAgentFactory(
 	preUpgradeSteps := func(_ *state.StatePool, _ agent.Config, isController, isMaster, isCaas bool) error {
 		return nil
 	}
-	return func(machineId string, isCAAS bool) (*MachineAgent, error) {
+	return func(agentTag names.Tag, isCAAS bool) (*MachineAgent, error) {
 		return NewMachineAgent(
-			machineId,
+			agentTag,
 			agentConfWriter,
 			bufferedLogger,
 			worker.NewRunner(worker.RunnerParams{
@@ -217,7 +217,7 @@ func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
 	logger := s.newBufferedLogWriter()
 	machineAgentFactory := NewTestMachineAgentFactory(&agentConf, logger, c.MkDir())
-	machineAgent, err := machineAgentFactory(m.Id(), false)
+	machineAgent, err := machineAgentFactory(m.Tag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 	return machineAgent
 }

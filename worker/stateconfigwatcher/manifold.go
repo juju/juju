@@ -7,12 +7,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/voyeur"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
+	apiagent "github.com/juju/juju/api/agent"
 )
 
 var logger = loggo.GetLogger("juju.worker.stateconfigwatcher")
@@ -47,8 +47,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.NotValidf("nil AgentConfigChanged")
 			}
 
-			if _, ok := a.CurrentConfig().Tag().(names.MachineTag); !ok {
-				return nil, errors.New("manifold can only be used with a machine agent")
+			tagKind := a.CurrentConfig().Tag().Kind()
+			if !apiagent.IsAllowedControllerTag(tagKind) {
+				return nil, errors.New("manifold can only be used with a machine or controller agent")
 			}
 
 			w := &stateConfigWatcher{

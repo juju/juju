@@ -109,14 +109,13 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *MachineLegacyLeasesSuite) TestParseNonsense(c *gc.C) {
-	for _, args := range [][]string{
-		{},
-		{"--machine-id", "-4004"},
-	} {
-		var agentConf agentConf
-		err := ParseAgentCommand(&machineAgentCmd{agentInitializer: &agentConf}, args)
-		c.Assert(err, gc.ErrorMatches, "--machine-id option must be set, and expects a non-negative integer")
-	}
+	var agentConf agentConf
+	err := ParseAgentCommand(&machineAgentCmd{agentInitializer: &agentConf}, nil)
+	c.Assert(err, gc.ErrorMatches, "either machine-id or controller-id must be set")
+	err = ParseAgentCommand(&machineAgentCmd{agentInitializer: &agentConf}, []string{"--machine-id", "-4004"})
+	c.Assert(err, gc.ErrorMatches, "--machine-id option must be a non-negative integer")
+	err = ParseAgentCommand(&machineAgentCmd{agentInitializer: &agentConf}, []string{"--controller-id", "-4004"})
+	c.Assert(err, gc.ErrorMatches, "--controller-id option must be a non-negative integer")
 }
 
 func (s *MachineLegacyLeasesSuite) TestParseUnknown(c *gc.C) {
@@ -129,6 +128,7 @@ func (s *MachineLegacyLeasesSuite) TestParseUnknown(c *gc.C) {
 func (s *MachineLegacyLeasesSuite) TestParseSuccess(c *gc.C) {
 	create := func() (cmd.Command, AgentConf) {
 		agentConf := agentConf{dataDir: s.DataDir()}
+		s.PrimeAgent(c, names.NewMachineTag("42"), initialMachinePassword)
 		logger := s.newBufferedLogWriter()
 		a := NewMachineAgentCmd(
 			nil,
@@ -136,11 +136,9 @@ func (s *MachineLegacyLeasesSuite) TestParseSuccess(c *gc.C) {
 			&agentConf,
 			&agentConf,
 		)
-		a.(*machineAgentCmd).logToStdErr = true
-
 		return a, &agentConf
 	}
-	a := CheckAgentCommand(c, create, []string{"--machine-id", "42"})
+	a := CheckAgentCommand(c, s.DataDir(), create, []string{"--machine-id", "42", "--log-to-stderr", "--data-dir", s.DataDir()})
 	c.Assert(a.(*machineAgentCmd).machineId, gc.Equals, "42")
 }
 

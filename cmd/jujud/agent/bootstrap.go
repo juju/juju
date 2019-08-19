@@ -43,7 +43,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -100,12 +99,6 @@ func (c *BootstrapCommand) Init(args []string) error {
 	return c.AgentConf.CheckArgs(args[1:])
 }
 
-// Tag returns current machine tag.
-func (c *BootstrapCommand) Tag() names.Tag {
-	// bootstrap-state command always runs on machine-0.
-	return names.NewMachineTag("0")
-}
-
 func copyFileFromTemplate(to, from string) (err error) {
 	if _, err := os.Stat(to); os.IsNotExist(err) {
 		logger.Debugf("copying file from %q to %s", from, to)
@@ -119,14 +112,15 @@ func copyFileFromTemplate(to, from string) (err error) {
 }
 
 func (c *BootstrapCommand) ensureConfigFilesForCaas() error {
+	tag := names.NewControllerAgentTag(agent.BootstrapControllerId)
 	for _, v := range []struct {
 		to, from string
 	}{
 		{
 			// ensure agent.conf
-			to: agent.ConfigPath(c.AgentConf.DataDir(), c.Tag()),
+			to: agent.ConfigPath(c.AgentConf.DataDir(), tag),
 			from: filepath.Join(
-				agent.Dir(c.AgentConf.DataDir(), c.Tag()),
+				agent.Dir(c.AgentConf.DataDir(), tag),
 				caasprovider.TemplateFileNameAgentConf,
 			),
 		},
@@ -165,22 +159,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if isCAAS {
 		if err := c.ensureConfigFilesForCaas(); err != nil {
 			return errors.Trace(err)
-		}
-	}
-
-	if err := c.ReadConfig(c.Tag().String()); err != nil {
-		return errors.Annotate(err, "cannot read config")
-	}
-	agentConfig := c.CurrentConfig()
-
-	// agent.Jobs is an optional field in the agent config, and was
-	// introduced after 1.17.2. We default to allowing units on
-	// machine-0 if missing.
-	jobs := agentConfig.Jobs()
-	if len(jobs) == 0 {
-		jobs = []multiwatcher.MachineJob{
-			multiwatcher.JobManageModel,
-			multiwatcher.JobHostUnits,
 		}
 	}
 
@@ -261,6 +239,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return nil
 	}
 
+	if err := readAgentConfig(c, agent.BootstrapControllerId); err != nil {
+		return errors.Annotate(err, "cannot read config")
+	}
+	agentConfig := c.CurrentConfig()
 	info, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return fmt.Errorf("bootstrap machine config has no state serving info")
@@ -327,7 +309,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			agentbootstrap.InitializeStateParams{
 				StateInitializationParams: args,
 				BootstrapMachineAddresses: addrs,
-				BootstrapMachineJobs:      jobs,
+				BootstrapMachineJobs:      agentConfig.Jobs(),
 				SharedSecret:              info.SharedSecret,
 				Provider:                  environs.Provider,
 				StorageProviderRegistry:   stateenvirons.NewStorageProviderRegistry(env),

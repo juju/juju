@@ -89,11 +89,11 @@ func (a *fakeUnitAuthenticator) SetMongoPassword(pass string) error {
 // fakeMachineAuthenticator simulates a machine entity.
 type fakeMachineAuthenticator struct {
 	fakeUnitAuthenticator
-	jobs []state.MachineJob
+	isManager bool
 }
 
-func (a *fakeMachineAuthenticator) Jobs() []state.MachineJob {
-	return a.jobs
+func (a *fakeMachineAuthenticator) IsManager() bool {
+	return a.isManager
 }
 
 func (a *fakeMachineAuthenticator) Tag() names.Tag {
@@ -112,8 +112,8 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 				fetchError: "x3 error",
 			},
 			u("x/4"): &fakeUnitAuthenticator{},
-			u("x/5"): &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobHostUnits}},
-			u("x/6"): &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobManageModel}},
+			u("x/5"): &fakeMachineAuthenticator{},
+			u("x/6"): &fakeMachineAuthenticator{isManager: true},
 		},
 	}
 	getCanChange := func() (common.AuthFunc, error) {
