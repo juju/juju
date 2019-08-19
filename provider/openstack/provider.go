@@ -369,7 +369,7 @@ func (inst *openstackInstance) Id() instance.Id {
 
 func (inst *openstackInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	instStatus := inst.getServerDetail().Status
-	jujuStatus := status.Pending
+	var jujuStatus status.Status
 	switch instStatus {
 	case nova.StatusActive:
 		jujuStatus = status.Running
@@ -971,11 +971,12 @@ func identityClientVersion(authURL string) (int, error) {
 	// The last part of the path should be the version #, prefixed with a 'v' or 'V'
 	// Example: https://keystone.foo:443/v3/
 	// Example: https://sharedhost.foo:443/identity/v3/
+	var tail string
 	urlpath := strings.ToLower(url.Path)
-	urlpath, tail := path.Split(urlpath)
+	urlpath, tail = path.Split(urlpath)
 	if len(tail) == 0 && len(urlpath) > 2 {
 		// trailing /, remove it and split again
-		urlpath, tail = path.Split(strings.TrimRight(urlpath, "/"))
+		_, tail = path.Split(strings.TrimRight(urlpath, "/"))
 	}
 	versionNumStr := strings.TrimPrefix(tail, "v")
 	logger.Tracef("authURL: %s", authURL)

@@ -222,6 +222,7 @@ func (s *ConfigCommandSuite) TestPassesValues(c *gc.C) {
 
 func (s *ConfigCommandSuite) TestPassesCloudInitUserDataLong(c *gc.C) {
 	modelCfg, err := s.fake.ModelGet()
+	c.Assert(err, jc.ErrorIsNil)
 	modelCfg["cloudinit-userdata"] = "test data"
 	err = s.fake.ModelSet(modelCfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -245,6 +246,7 @@ func (s *ConfigCommandSuite) TestPassesCloudInitUserDataLong(c *gc.C) {
 
 func (s *ConfigCommandSuite) TestPassesCloudInitUserDataShort(c *gc.C) {
 	modelCfg, err := s.fake.ModelGet()
+	c.Assert(err, jc.ErrorIsNil)
 	modelCfg["cloudinit-userdata"] = ""
 	err = s.fake.ModelSet(modelCfg)
 	c.Assert(err, jc.ErrorIsNil)

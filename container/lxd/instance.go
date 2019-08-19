@@ -40,7 +40,6 @@ func (lxd *lxdInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwor
 
 // Status implements instances.Instance.Status.
 func (lxd *lxdInstance) Status(ctx context.ProviderCallContext) instance.Status {
-	jujuStatus := status.Pending
 	instStatus, _, err := lxd.server.GetContainerState(lxd.id)
 	if err != nil {
 		return instance.Status{
@@ -48,6 +47,7 @@ func (lxd *lxdInstance) Status(ctx context.ProviderCallContext) instance.Status 
 			Message: fmt.Sprintf("could not get status: %v", err),
 		}
 	}
+	var jujuStatus status.Status
 	switch instStatus.StatusCode {
 	case api.Starting, api.Started:
 		jujuStatus = status.Allocating

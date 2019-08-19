@@ -297,6 +297,7 @@ func (s *ModelSummariesSuite) TestContainsModelStatus(c *gc.C) {
 	defer ph.Release()
 	c.Assert(err, jc.ErrorIsNil)
 	err = shared.SetStatus(expectedStatus["shared"])
+	c.Assert(err, jc.ErrorIsNil)
 	user1, ph, err := s.StatePool.GetModel(modelNameToUUID["user1model"])
 	defer ph.Release()
 	c.Assert(err, jc.ErrorIsNil)

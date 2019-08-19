@@ -128,6 +128,7 @@ func (s *BufferedLoggerSuite) TestTimerFlushes(c *gc.C) {
 
 	// Log again; the timer should not have been reset.
 	err = b.Log(in[1:])
+	c.Assert(err, jc.ErrorIsNil)
 	s.mock.CheckNoCalls(c)
 
 	// Advance to to the flush interval.

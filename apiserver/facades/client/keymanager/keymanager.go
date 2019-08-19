@@ -262,6 +262,7 @@ func runSSHKeyImport(keyIds []string) map[string][]importedSSHKey {
 		output, err := RunSSHImportId(keyId)
 		if err != nil {
 			keyInfo = append(keyInfo, importedSSHKey{err: err})
+			importResults[keyId] = keyInfo
 			continue
 		}
 		lines := strings.Split(output, "\n")

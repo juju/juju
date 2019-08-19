@@ -414,6 +414,7 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *gc.C) {
 
 	// After the required delay the port eventually opens.
 	err = s.clock.WaitAdvance(5*time.Second, coretesting.LongWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// The reported url changes to the regular port.
 	for a := coretesting.LongAttempt.Start(); a.Next(); {

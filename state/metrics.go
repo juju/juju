@@ -149,6 +149,9 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 		return nil, errors.Trace(err)
 	}
 	application, err := unit.Application()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	slaCreds, err := st.SLACredential()
 	if err != nil {

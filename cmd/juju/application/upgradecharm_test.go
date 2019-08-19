@@ -669,6 +669,7 @@ var upgradeCharmAuthorizationTests = []struct {
 func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmAuthorization(c *gc.C) {
 	testcharms.UploadCharmWithSeries(c, s.client, "cs:~other/trusty/wordpress-0", "wordpress", "bionic")
 	err := runDeploy(c, "cs:~other/trusty/wordpress-0")
+	c.Assert(err, jc.ErrorIsNil)
 
 	riak, err := s.State.Application("wordpress")
 	c.Assert(err, jc.ErrorIsNil)

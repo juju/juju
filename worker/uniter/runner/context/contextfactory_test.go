@@ -220,6 +220,7 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.OpenAPIAs(c, unit.Tag(), password)
@@ -276,11 +277,13 @@ func (s *ContextFactorySuite) TestHookContextCAASDeferredSetPodSpec(c *gc.C) {
 	appName := names.NewApplicationTag(unit.ApplicationName())
 
 	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo, err := environs.APIInfo(
 		environscontext.NewCloudCallContext(),
 		s.ControllerConfig.ControllerUUID(), st.ModelUUID(), coretesting.CACert, s.ControllerConfig.APIPort(), s.Environ)
+	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = unit.Tag()
 	apiInfo.Password = password
 	apiState, err := api.Open(apiInfo, api.DialOpts{})
@@ -334,11 +337,13 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo, err := environs.APIInfo(
 		environscontext.NewCloudCallContext(),
 		s.ControllerConfig.ControllerUUID(), st.ModelUUID(), coretesting.CACert, s.ControllerConfig.APIPort(), s.Environ)
+	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = unit.Tag()
 	apiInfo.Password = password
 	apiState, err := api.Open(apiInfo, api.DialOpts{})

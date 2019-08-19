@@ -46,8 +46,10 @@ func ValidateUpgradeSeriesStatus(status UpgradeSeriesStatus) (UpgradeSeriesStatu
 // the second is greater -1 is returned; 1 is returned otherwise. An error is
 // returned if either argument is an invalid status.
 func CompareUpgradeSeriesStatus(status1 UpgradeSeriesStatus, status2 UpgradeSeriesStatus) (int, error) {
-	var err error
 	st1, err := ValidateUpgradeSeriesStatus(status1)
+	if err != nil {
+		return 0, err
+	}
 	st2, err := ValidateUpgradeSeriesStatus(status2)
 	if err != nil {
 		return 0, err

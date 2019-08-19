@@ -566,6 +566,7 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
 		}},
 	}
 	out, err := s.controller.InitiateMigration(args)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.Results, gc.HasLen, 1)
 	c.Check(out.Results[0].Error, gc.ErrorMatches, "boom")
 

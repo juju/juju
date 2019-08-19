@@ -1087,13 +1087,13 @@ func (s *ActionPruningSuite) TestDoNotPruneIncompleteActions(c *gc.C) {
 	const numZeroValueEntries = 5
 	state.PrimeActions(c, time.Time{}, unit, numZeroValueEntries)
 
-	actions, err := unit.Actions()
+	_, err = unit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = state.PruneActions(s.State, 1*time.Hour, 0)
 	c.Assert(err, jc.ErrorIsNil)
 
-	actions, err = unit.Actions()
+	actions, err := unit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
 	actionsLen := len(actions)
 

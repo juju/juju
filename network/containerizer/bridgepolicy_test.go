@@ -269,6 +269,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesCorrectlyP
 			CIDR:      subnetCIDR,
 			SpaceName: "default",
 		})
+		c.Assert(err, jc.ErrorIsNil)
 		devAddresses[i] = state.LinkLayerDeviceAddress{
 			DeviceName:   devArg.Name,
 			CIDRAddress:  fmt.Sprintf("10.%d.0.10/24", subnet),
@@ -914,6 +915,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerTwoSpacesOneB
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"default", "dmz"},
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	missing, reconfigureDelay, err := s.bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
 	c.Assert(err, jc.ErrorIsNil)
 	// both default and dmz are needed, but default needs to be bridged
@@ -937,6 +939,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerMultipleSpace
 	err := s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"default", "dmz", "abba"},
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	missing, reconfigureDelay, err := s.bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
 	c.Assert(err, jc.ErrorIsNil)
 	// both default and dmz are needed, but default needs to be bridged
@@ -980,6 +983,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerBondedNICs(c 
 			IsUp:       true,
 		},
 	)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetDevicesAddresses(
 		state.LinkLayerDeviceAddress{
 			DeviceName:   "zbond0",
@@ -1007,6 +1011,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerBondedNICs(c 
 	err = s.containerMachine.SetConstraints(constraints.Value{
 		Spaces: &[]string{"default"},
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	missing, reconfigureDelay, err := s.bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
 	c.Assert(err, jc.ErrorIsNil)
 	// both default and dmz are needed, but default needs to be bridged

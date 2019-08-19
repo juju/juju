@@ -1772,6 +1772,7 @@ func (s *localServerSuite) TestMatchingGroup(c *gc.C) {
 	}
 
 	err := bootstrapEnv(c, s.env)
+	c.Assert(err, jc.ErrorIsNil)
 	group1, err := openstack.EnsureGroup(s.env, s.callCtx,
 		openstack.MachineGroupName(s.env, s.ControllerUUID, "1"), rule)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2972,6 +2973,7 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 	envtesting.UploadFakeTools(c, toolsStorage, "released", "released")
 	s.PatchValue(&tools.DefaultBaseURL, storageDir)
 	imageStorage, err := filestorage.NewFileStorageWriter(imagesDir)
+	c.Assert(err, jc.ErrorIsNil)
 	openstack.UseTestImageData(imageStorage, s.cred)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, storageDir)
 

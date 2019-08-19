@@ -1219,6 +1219,9 @@ func (u *UniterAPI) RelationsStatus(args params.Entities) (params.RelationUnitSt
 			return nil, errors.Trace(err)
 		}
 		relations, err := app.Relations()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		for _, rel := range relations {
 			rus, err := oneRelationUnitStatus(rel, unit)
 			if err != nil {

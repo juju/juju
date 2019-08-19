@@ -140,6 +140,7 @@ func (s *BaseBackupsSuite) checkArchive(c *gc.C) {
 	})
 
 	data, err := ioutil.ReadAll(archive)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(data), gc.Equals, s.data)
 }
 

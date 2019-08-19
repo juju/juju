@@ -223,6 +223,7 @@ func (s *generationSuite) TestCommitAppliesConfigDeltas(c *gc.C) {
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 
 	_, err = gen.Commit(branchCommitter)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 
 	cfg, err := app.CharmConfig(model.GenerationMaster)

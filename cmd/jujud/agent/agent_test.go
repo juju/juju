@@ -29,6 +29,7 @@ type acCreator func() (cmd.Command, AgentConf)
 func CheckAgentCommand(c *gc.C, create acCreator, args []string) cmd.Command {
 	com, conf := create()
 	err := cmdtesting.InitCommand(com, args)
+	c.Assert(err, jc.ErrorIsNil)
 	dataDir, err := paths.DataDir(series.MustHostSeries())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conf.DataDir(), gc.Equals, dataDir)

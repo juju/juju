@@ -117,6 +117,9 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 
 	// Get the repo from the constructor
 	repo, err := repoFn()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// Get the charm and its information from the store.
 	downloadedCharm, err := repo.Get(charmURL)

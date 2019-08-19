@@ -127,6 +127,9 @@ func (f *factory) NewActionRunner(actionId string) (Runner, error) {
 
 	actionData := context.NewActionData(name, &tag, params)
 	ctx, err := f.contextFactory.ActionContext(actionData)
+	if err != nil {
+		return nil, charmrunner.NewBadActionError(name, err.Error())
+	}
 	runner := NewRunner(ctx, f.paths, f.remoteExecutor)
 	return runner, nil
 }

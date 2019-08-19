@@ -122,6 +122,7 @@ func (s *CredentialModelsSuite) TestCredentialModelsExcludesDeadModels(c *gc.C) 
 
 	// Set one of the models to Dead.
 	m, r, err := s.StatePool.GetModel(s.abcModelTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
 	defer r.Release()
 
 	err = m.SetDead()

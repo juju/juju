@@ -247,9 +247,11 @@ func (s *MetricSenderSuite) TestHoldMetricsSetsMeterStatus(c *gc.C) {
 	c.Assert(sender.Data[0], gc.HasLen, 1)
 	c.Assert(sender.Data[0][0].UUID, gc.Equals, unsent1.UUID())
 	msCred, err := s.credUnit.GetMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(msCred.Code, gc.Equals, state.MeterGreen)
 	c.Assert(msCred.Info, gc.Equals, "known starting point")
 	msMetered, err := s.meteredUnit.GetMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(msMetered.Code, gc.Equals, state.MeterRed)
 	c.Assert(msMetered.Info, gc.Equals, "transmit-vendor-metrics turned off")
 }

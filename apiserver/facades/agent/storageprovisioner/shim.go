@@ -33,7 +33,11 @@ func NewFacadeV3(st *state.State, resources facade.Resources, authorizer facade.
 	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
 		model,
 		stateenvirons.GetNewEnvironFunc(environs.New),
-		stateenvirons.GetNewCAASBrokerFunc(caas.New))
+		stateenvirons.GetNewCAASBrokerFunc(caas.New),
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
 
 	backend, storageBackend, err := NewStateBackends(st)

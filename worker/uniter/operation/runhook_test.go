@@ -388,14 +388,14 @@ func (s *RunHookSuite) testExecuteThenCharmStatus(
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(midState, gc.NotNil)
 
-	status, err := f.MockNewHookRunner.runner.Context().UnitStatus()
+	_, err = f.MockNewHookRunner.runner.Context().UnitStatus()
 	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Execute(*midState)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.DeepEquals, &after)
 
-	status, err = f.MockNewHookRunner.runner.Context().UnitStatus()
+	status, err := f.MockNewHookRunner.runner.Context().UnitStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	testAfterHookStatus(c, kind, status, after.StatusSet)
 }

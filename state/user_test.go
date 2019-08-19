@@ -252,7 +252,7 @@ func (s *UserSuite) TestRemoveUserUppercaseName(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	// Check to verify the user cannot be retrieved.
-	u, err = s.State.User(user.UserTag())
+	_, err = s.State.User(user.UserTag())
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf(`user "%s" is permanently deleted`, name))
 }
 

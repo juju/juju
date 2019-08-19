@@ -352,6 +352,7 @@ func (s *ModelConfigSourceSuite) TestNewModelConfigForksControllerValue(c *gc.C)
 	defer st.Close()
 
 	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 
 	modelCfg, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -531,6 +532,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 
 	// remove the dummy-region setting
 	err = s.State.UpdateModelConfigDefaultValues(nil, []string{"no-proxy"}, rspec)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// and check again
 	cfg, err = s.State.ModelConfigDefaultValues(s.Model.Cloud())

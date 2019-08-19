@@ -99,6 +99,7 @@ func (s *legacySuite) TestDestroyController(c *gc.C) {
 
 func (s *legacySuite) TestListBlockedModels(c *gc.C) {
 	err := s.State.SwitchBlockOn(state.ChangeBlock, "change block for controller")
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SwitchBlockOn(state.DestroyBlock, "destroy block for controller")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -205,6 +206,7 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 	apiInfo := s.APIInfo(c)
 	apiInfo.ModelTag = names.ModelTag{}
 	apiState, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
 	sysManager := controller.NewClient(apiState)
 	defer sysManager.Close()
 

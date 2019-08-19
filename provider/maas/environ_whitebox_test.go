@@ -637,7 +637,7 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 func (suite *environSuite) assertSpaces(c *gc.C, numberOfSubnets int, filters []corenetwork.Id) {
 	server := suite.testMAASObject.TestServer
 	testInstance := suite.getInstance("node1")
-	systemID := "node1"
+	var systemID string
 	for i := 1; i <= numberOfSubnets; i++ {
 		server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: fmt.Sprintf("space-%d", i)}))
 		// Put most, but not all, of the subnets on node1.

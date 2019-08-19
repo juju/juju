@@ -277,6 +277,7 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		newState, err := op.Commit(test.before)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(newState, jc.DeepEquals, &test.after)
 	}
 }

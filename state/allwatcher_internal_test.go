@@ -1794,6 +1794,7 @@ func (s *allModelWatcherStateSuite) TestMissingModelSettings(c *gc.C) {
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}
 	err = s.state.db().RunTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Trigger an update and check the model is removed from the store.
 	err = b.Changed(all, watcher.Change{
@@ -1837,6 +1838,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	// Add a branch.
 	c.Assert(st1.AddBranch("new-branch", "test-user"), jc.ErrorIsNil)
 	br, err := st1.Branch("new-branch")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(br, gc.NotNil)
 
 	now := st0.clock().Now()

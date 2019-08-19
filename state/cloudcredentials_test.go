@@ -311,6 +311,7 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialInvalidAuthType(c *gc.C
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType},
 	}, s.Owner.Name())
+	c.Assert(err, jc.ErrorIsNil)
 	tag := names.NewCloudCredentialTag("stratus/bob/foobar")
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
 	err = s.State.UpdateCloudCredential(tag, cred)

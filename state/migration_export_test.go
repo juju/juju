@@ -139,6 +139,7 @@ func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-"+kind, ch, storage)
 	unit, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	machine := s.Factory.MakeMachine(c, nil)
 	err = unit.AssignToMachine(machine)

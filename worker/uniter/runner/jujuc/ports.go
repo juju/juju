@@ -96,11 +96,11 @@ func parseArguments(args []string) (portRange, error) {
 	}
 	ports := parts[0]
 	portParts := strings.SplitN(ports, "-", 2)
-	fromPort, toPort := 0, 0
+	var fromPort int
 	if len(portParts) >= 1 {
 		if portParts[0] == "icmp" {
 			protocol = "icmp"
-			fromPort, toPort = -1, -1
+			fromPort = -1
 		} else {
 			port, err := strconv.Atoi(portParts[0])
 			if err != nil {
@@ -109,6 +109,7 @@ func parseArguments(args []string) (portRange, error) {
 			fromPort = port
 		}
 	}
+	var toPort int
 	if len(portParts) == 2 {
 		port, err := strconv.Atoi(portParts[1])
 		if err != nil {

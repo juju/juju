@@ -52,6 +52,7 @@ func (s *datasourceSuite) TestFetch(c *gc.C) {
 	defer rc.Close()
 	c.Assert(url, gc.Equals, s.baseURL+"/foo/bar/data.txt")
 	data, err := ioutil.ReadAll(rc)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.DeepEquals, []byte(sampleData))
 }
 
@@ -64,6 +65,7 @@ func (s *datasourceSuite) TestFetchWithBasePath(c *gc.C) {
 	defer rc.Close()
 	c.Assert(url, gc.Equals, s.baseURL+"/base/foo/bar/data.txt")
 	data, err := ioutil.ReadAll(rc)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.DeepEquals, []byte(sampleData))
 }
 

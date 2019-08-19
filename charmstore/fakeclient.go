@@ -28,6 +28,7 @@ import (
 	"crypto/sha512"
 	"fmt"
 	"io"
+	"reflect"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -56,7 +57,11 @@ func (d datastore) Get(path string, data interface{}) error {
 	if current == nil {
 		return errors.NotFoundf(path)
 	}
-	data = current
+	value := reflect.ValueOf(data)
+	if value.Type().Kind() != reflect.Ptr {
+		return errors.New("data not a ptr")
+	}
+	value.Elem().Set(reflect.ValueOf(current))
 	return nil
 }
 

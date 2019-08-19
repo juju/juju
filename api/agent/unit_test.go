@@ -50,6 +50,7 @@ func (s *unitSuite) TestUnitEntity(c *gc.C) {
 	c.Assert(m, gc.IsNil)
 
 	apiSt, err = apiagent.NewState(s.st)
+	c.Assert(err, jc.ErrorIsNil)
 	m, err = apiSt.Entity(s.unit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, s.unit.Tag().String())
@@ -62,6 +63,7 @@ func (s *unitSuite) TestUnitEntity(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiSt, err = apiagent.NewState(s.st)
+	c.Assert(err, jc.ErrorIsNil)
 	m, err = apiSt.Entity(s.unit.Tag())
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("unit %q not found", s.unit.Name()))
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)

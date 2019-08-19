@@ -77,6 +77,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
@@ -90,6 +91,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	meteredState := s.OpenAPIAs(c, meteredUnit.Tag(), password)
 	meteredUniter, err := meteredState.Uniter()
+	c.Assert(err, jc.ErrorIsNil)
 	s.meteredAPIUnit, err = meteredUniter.Unit(meteredUnit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 

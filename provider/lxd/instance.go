@@ -36,7 +36,7 @@ func (i *environInstance) Id() instance.Id {
 
 // Status implements instances.Instance.
 func (i *environInstance) Status(ctx context.ProviderCallContext) instance.Status {
-	jujuStatus := status.Pending
+	var jujuStatus status.Status
 	code := i.container.StatusCode
 	switch code {
 	case api.Starting, api.Started:

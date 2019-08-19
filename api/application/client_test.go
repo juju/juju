@@ -501,6 +501,7 @@ func (s *applicationSuite) TestDestroyConsumedApplicationsForcev9(c *gc.C) {
 		[]string{"foo"}, false, nil,
 	}
 	_, err = client.DestroyConsumedApplication(destroyParams)
+	c.Check(err, gc.NotNil)
 	c.Assert(called, jc.IsTrue)
 }
 

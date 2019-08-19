@@ -121,6 +121,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), vers)
 	s.patchVersion(agentTools.Version)
 	err = envtools.MergeAndWriteMetadata(stor, "released", "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.machine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 

@@ -26,7 +26,7 @@ func (inst *joyentInstance) Id() instance.Id {
 
 func (inst *joyentInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	instStatus := inst.machine.State
-	jujuStatus := status.Pending
+	var jujuStatus status.Status
 	switch instStatus {
 	case "configured", "incomplete", "unavailable", "provisioning":
 		jujuStatus = status.Allocating

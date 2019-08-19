@@ -1009,6 +1009,7 @@ func (*metadataHelperSuite) TestReadMetadataPrefersNewIndex(c *gc.C) {
 
 	// Read back all metadata, expecting to find metadata in index2.json.
 	out, err := tools.ReadAllMetadata(stor)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, outMetadata := range out {
 		for _, md := range outMetadata {
 			// FullPath is set by ReadAllMetadata.

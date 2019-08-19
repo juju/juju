@@ -184,6 +184,7 @@ func (s *ModelUserSuite) TestSetAccessModelUser(c *gc.C) {
 	s.State.SetUserAccess(modelUser.UserTag, s.Model.ModelTag(), permission.ReadAccess)
 
 	modelUser, err = s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)
 }
 
@@ -384,6 +385,7 @@ func (s *ModelUserSuite) TestModelUUIDsForUser(c *gc.C) {
 
 	modelTag := names.NewModelTag(models[0])
 	access, err := s.State.UserAccess(user.UserTag(), modelTag)
+	c.Assert(err, jc.ErrorIsNil)
 	when, err := s.Model.LastModelConnection(access.UserTag)
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(when.IsZero(), jc.IsTrue)

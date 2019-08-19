@@ -57,6 +57,7 @@ func (s *ModelHandlersSuite) TestImplied(c *gc.C) {
 	defer resp.Body.Close()
 
 	out, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, coretesting.ModelTag.Id())
 }
 
@@ -67,6 +68,7 @@ func (s *ModelHandlersSuite) TestQuery(c *gc.C) {
 	defer resp.Body.Close()
 
 	out, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, coretesting.ModelTag.Id())
 }
 
@@ -77,5 +79,6 @@ func (s *ModelHandlersSuite) TestQueryInvalidModelUUID(c *gc.C) {
 	defer resp.Body.Close()
 
 	out, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, `invalid model UUID "zing"`+"\n")
 }

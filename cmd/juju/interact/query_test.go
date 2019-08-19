@@ -103,6 +103,6 @@ func (Suite) TestFindMatch(c *gc.C) {
 	c.Check(m, gc.Equals, "BAR")
 	c.Check(ok, jc.IsTrue)
 
-	m, ok = FindMatch("baz", options)
+	_, ok = FindMatch("baz", options)
 	c.Check(ok, jc.IsFalse)
 }

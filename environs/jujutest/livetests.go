@@ -454,6 +454,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	rules, err = fwInst1.IngressRules(t.ProviderCallContext, "1")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.HasLen, 0)
 
 	// Check that we can close ports that aren't there.
@@ -465,6 +466,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	rules, err = fwInst2.IngressRules(t.ProviderCallContext, "2")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
 		[]network.IngressRule{

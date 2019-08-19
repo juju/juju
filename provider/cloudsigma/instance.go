@@ -34,7 +34,7 @@ func (i sigmaInstance) Id() instance.Id {
 func (i sigmaInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	entityStatus := i.server.Status()
 	logger.Tracef("sigmaInstance.Status: %s", entityStatus)
-	jujuStatus := status.Pending
+	var jujuStatus status.Status
 	switch entityStatus {
 	case gosigma.ServerStarting:
 		jujuStatus = status.Allocating

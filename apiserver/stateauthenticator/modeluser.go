@@ -159,7 +159,17 @@ func (u *modelUserEntity) LastLogin() (time.Time, error) {
 
 // UpdateLastLogin implements loginEntity.UpdateLastLogin.
 func (u *modelUserEntity) UpdateLastLogin() error {
-	var err error
+	updateLastLogin := func() error {
+		// If user is nil, don't attempt to perform the update and exit early.
+		if u.user == nil {
+			return nil
+		}
+
+		if err := u.user.UpdateLastLogin(); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}
 
 	if !permission.IsEmptyUserAccess(u.modelUser) {
 		if u.modelUser.Object.Kind() != names.ModelTagKind {
@@ -171,17 +181,16 @@ func (u *modelUserEntity) UpdateLastLogin() error {
 			return errors.Trace(err)
 		}
 
-		err = model.UpdateLastModelConnection(u.modelUser.UserTag)
-	}
-
-	if u.user != nil {
-		err1 := u.user.UpdateLastLogin()
-		if err == nil {
-			return err1
+		if err := model.UpdateLastModelConnection(u.modelUser.UserTag); err != nil {
+			// Attempt to update the users last login data, if the update
+			// fails, then just report it as a log message and return the
+			// original error message.
+			if err := updateLastLogin(); err != nil {
+				logger.Warningf("Unable to update last login with %s", err.Error())
+			}
+			return errors.Trace(err)
 		}
 	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+
+	return updateLastLogin()
 }

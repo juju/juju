@@ -260,7 +260,7 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 		return errors.Trace(err)
 	}
 
-	unitServices, allConfirmed, err = w.compareUnitAgentServices(w.completedUnits)
+	_, allConfirmed, err = w.compareUnitAgentServices(w.completedUnits)
 	if err != nil {
 		return errors.Trace(err)
 	}

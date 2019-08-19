@@ -134,11 +134,11 @@ func (s *binaryStorageSuite) TestAllMetadata(c *gc.C) {
 }
 
 func (s *binaryStorageSuite) TestMetadata(c *gc.C) {
-	metadata, err := s.storage.Metadata(current)
+	_, err := s.storage.Metadata(current)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	s.addMetadataDoc(c, current, 3, "hash(abc)", "path")
-	metadata, err = s.storage.Metadata(current)
+	metadata, err := s.storage.Metadata(current)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadata, gc.Equals, binarystorage.Metadata{
 		Version: current,

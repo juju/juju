@@ -1335,6 +1335,9 @@ func (m *Machine) DesiredSpaces() (set.Strings, error) {
 			return nil, errors.Trace(err)
 		}
 		endpointBindings, err := app.EndpointBindings()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		for _, space := range endpointBindings {
 			if space != "" {
 				bindings.Add(space)

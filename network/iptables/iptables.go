@@ -249,7 +249,7 @@ func parseIngressRule(line string) (network.IngressRule, bool, error) {
 			// "tcp dpt:N" or "udp dpt:N".
 			return fail(errors.New("unexpected parameter prefix"))
 		}
-		field, line, ok = popField(line)
+		field, _, ok = popField(line)
 		if !ok || !strings.HasPrefix(field, "dpt:") {
 			return fail(errors.New("could not extract destination port"))
 		}

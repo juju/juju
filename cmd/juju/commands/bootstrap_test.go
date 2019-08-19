@@ -1486,6 +1486,7 @@ func (s *BootstrapSuite) TestBootstrapProviderFileCredential(c *gc.C) {
 
 	contents := []byte("{something: special}\n")
 	err = ioutil.WriteFile(tmpFile.Name(), contents, 0644)
+	c.Assert(err, jc.ErrorIsNil)
 
 	unfinalizedCredential := cloud.NewEmptyCredential()
 	finalizedCredential := cloud.NewEmptyCredential()
@@ -1712,6 +1713,7 @@ func (s *BootstrapSuite) TestBootstrapMultipleConfigFiles(c *gc.C) {
 	err = ioutil.WriteFile(configFile2, []byte(
 		"controller: false\n",
 	), 0644)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.setupAutoUploadTest(c, "1.8.3", "raring")
 	_, err = cmdtesting.RunCommand(

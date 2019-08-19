@@ -48,6 +48,9 @@ func (s *Server) FindImage(
 	localAlias := seriesLocalAlias(series, arch)
 	var target string
 	entry, _, err := s.GetImageAlias(localAlias)
+	if err != nil {
+		return SourcedImage{}, errors.Trace(err)
+	}
 	if entry != nil {
 		// We already have an image with the given alias, so just use that.
 		target = entry.Target

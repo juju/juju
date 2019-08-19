@@ -1737,6 +1737,9 @@ func LegacyLeases(pool *StatePool, localTime time.Time) (map[corelease.Key]corel
 		return nil, errors.Trace(err)
 	}
 	globalTime, err := reader.Now()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// This needs to be the raw collection so we see all leases across
 	// models.
