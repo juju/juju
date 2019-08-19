@@ -73,7 +73,6 @@ func NewShowCloudCommand() cmd.Command {
 			Store:       store,
 			EnabledFlag: feature.MultiCloud,
 		},
-		store: store,
 	}
 	c.showCloudAPIFunc = c.cloudAPI
 	return modelcmd.WrapBase(c)
@@ -161,12 +160,12 @@ func (c *showCloudCommand) getControllerCloud() (*CloudDetails, error) {
 	if err != nil {
 		return nil, err
 	}
-	cloud := makeCloudDetails(controllerCloud)
+	cloud := makeCloudDetails(c.Store, controllerCloud)
 	return cloud, nil
 }
 
 func (c *showCloudCommand) getLocalCloud() (*CloudDetails, error) {
-	details, err := GetAllCloudDetails()
+	details, err := GetAllCloudDetails(c.Store)
 	if err != nil {
 		return nil, err
 	}
@@ -194,6 +193,8 @@ type CloudDetails struct {
 	Endpoint         string   `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
 	IdentityEndpoint string   `yaml:"identity-endpoint,omitempty" json:"identity-endpoint,omitempty"`
 	StorageEndpoint  string   `yaml:"storage-endpoint,omitempty" json:"storage-endpoint,omitempty"`
+	// DefaultRegion is a default region as known to this client.
+	DefaultRegion string `yaml:"default-region,omitempty" json:"default-region,omitempty"`
 	// Regions is for when we want to print regions in order for yaml output.
 	Regions yaml.MapSlice `yaml:"regions,omitempty" json:"-"`
 	// Regions map is for json marshalling where format is important but not order.
@@ -203,7 +204,7 @@ type CloudDetails struct {
 	CACredentials []string                 `yaml:"ca-credentials,omitempty" json:"ca-credentials,omitempty"`
 }
 
-func makeCloudDetails(cloud jujucloud.Cloud) *CloudDetails {
+func makeCloudDetails(store jujuclient.CredentialGetter, cloud jujucloud.Cloud) *CloudDetails {
 	result := &CloudDetails{
 		Source:           "public",
 		CloudType:        cloud.Type,
@@ -233,6 +234,9 @@ func makeCloudDetails(cloud jujucloud.Cloud) *CloudDetails {
 		}
 		result.Regions = append(result.Regions, yaml.MapItem{r.Name, r})
 		result.RegionsMap[region.Name] = r
+	}
+	if cred, err := store.CredentialForCloud(cloud.Name); err == nil {
+		result.DefaultRegion = cred.DefaultRegion
 	}
 	return result
 }
@@ -266,8 +270,8 @@ func getCloudConfigDetails(cloudType string) map[string]interface{} {
 }
 
 // GetAllCloudDetails returns a list of all cloud details.
-func GetAllCloudDetails() (map[string]*CloudDetails, error) {
-	result, err := listCloudDetails()
+func GetAllCloudDetails(store jujuclient.CredentialGetter) (map[string]*CloudDetails, error) {
+	result, err := listCloudDetails(store)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

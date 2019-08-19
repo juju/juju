@@ -301,7 +301,7 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	} else {
 		// No cloud file specified so we try and use a named
 		// cloud that already has been added to the local cache.
-		newCloud, err = cloudFromLocal(c.Cloud)
+		newCloud, err = cloudFromLocal(c.Store, c.Cloud)
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -347,8 +347,8 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	return nil
 }
 
-func cloudFromLocal(cloudName string) (*jujucloud.Cloud, error) {
-	details, err := listCloudDetails()
+func cloudFromLocal(store jujuclient.CredentialGetter, cloudName string) (*jujucloud.Cloud, error) {
+	details, err := listCloudDetails(store)
 	if err != nil {
 		return nil, err
 	}
