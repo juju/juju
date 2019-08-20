@@ -3,7 +3,7 @@ run_deploy() {
 
     file="${TEST_DIR}/smoke_test_deploy.txt"
 
-    bootstrap lxd "smoke_test_deploy" "${file}"
+    bootstrap "smoke-test-deploy" "${file}"
     CHK=$(cat "${file}" | grep -i "ERROR" || true)
     if [ -n "${CHK}" ]; then
         printf "\\nFound some issues"
@@ -11,7 +11,7 @@ run_deploy() {
         exit 1
     fi
 
-    destroy "smoke_test_deploy"
+    destroy "smoke-test-deploy"
 }
 
 test_deploy() {

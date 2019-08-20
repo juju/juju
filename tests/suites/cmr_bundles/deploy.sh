@@ -3,7 +3,7 @@ run_deploy() {
 
     file="${TEST_DIR}/cmr_bundles_test_deploy.txt"
 
-    bootstrap lxd "cmr_bundles_test_deploy" "${file}"
+    bootstrap "cmr-bundles-test-deploy" "${file}"
 
     juju deploy mysql
     wait_for "mysql" ".applications | keys[0]"
@@ -12,9 +12,12 @@ run_deploy() {
     juju add-model other
 
     juju switch other
-    juju deploy ./tests/suites/cmr_bundles/bundles/cmr_bundles_test_deploy.yaml
 
-    destroy "cmr_bundles_test_deploy"
+    bundle=./tests/suites/cmr_bundles/bundles/cmr_bundles_test_deploy.yaml
+    sed "s/{{BOOTSTRAPPED_JUJU_CTRL_NAME}}/${BOOTSTRAPPED_JUJU_CTRL_NAME}/g" "${bundle}" > "${TEST_DIR}/cmr_bundles_test_deploy.yaml"
+    juju deploy "${TEST_DIR}/cmr_bundles_test_deploy.yaml"
+
+    destroy "cmr-bundles-test-deploy"
 }
 
 test_deploy() {

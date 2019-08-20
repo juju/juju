@@ -1,7 +1,7 @@
 series: bionic
 saas:
   mysql:
-    url: cmr_bundles_test_deploy:admin/default.mysql
+    url: {{BOOTSTRAPPED_JUJU_CTRL_NAME}}:admin/cmr-bundles-test-deploy.mysql
 applications:
   wordpress:
     charm: wordpress

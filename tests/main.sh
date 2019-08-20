@@ -48,9 +48,10 @@ cleanup() {
     echo ""
     if [ "$TEST_RESULT" != "success" ]; then
         echo "==> TEST DONE: ${TEST_CURRENT_DESCRIPTION}"
+    else
+        rm -rf "${TEST_DIR}"
+        echo "==> Tests Removed: ${TEST_DIR}"
     fi
-    rm -rf "${TEST_DIR}"
-    echo "==> Tests Removed: ${TEST_DIR}"
     echo "==> Test result: ${TEST_RESULT}"
 }
 

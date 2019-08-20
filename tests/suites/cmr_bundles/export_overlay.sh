@@ -3,7 +3,7 @@ run_export_overlay() {
 
     file="${TEST_DIR}/cmr_bundles_test_export_overlay.txt"
 
-    bootstrap lxd "cmr_bundles_test_export_overlay" "${file}"
+    bootstrap "cmr-bundles-test-export-overlay" "${file}"
 
     juju add-user bar
     juju deploy ./testcharms/charm-repo/bundle/apache2-with-offers
@@ -34,7 +34,7 @@ EOT
     echo "${OUT}" | grep "enc: bXktaW5jbHVkZQ=="
     echo "${OUT}" | grep "raw: my-include"
 
-    destroy "cmr_bundles_test_export_overlay"
+    destroy "cmr-bundles-test-export-overlay"
 }
 
 test_export_overlay() {
