@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
@@ -60,6 +61,7 @@ func (*podcfgSuite) TestOperatorImagesDefaultRepo(c *gc.C) {
 		cfg,
 		"controller-1",
 		"kubernetes",
+		constraints.Value{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	podConfig.JujuVersion = version.MustParse("6.6.6")
@@ -74,9 +76,23 @@ func (*podcfgSuite) TestOperatorImagesCustomRepo(c *gc.C) {
 		cfg,
 		"controller-1",
 		"kubernetes",
+		constraints.Value{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	podConfig.JujuVersion = version.MustParse("6.6.6")
 	c.Assert(podConfig.GetControllerImagePath(), gc.Equals, "path/to/my/repo/jujud-operator:6.6.6")
 	c.Assert(podConfig.GetJujuDbOCIImagePath(), gc.Equals, "path/to/my/repo/juju-db:4.0")
+}
+
+func (*podcfgSuite) TestBootstrapConstraints(c *gc.C) {
+	cfg := testing.FakeControllerConfig()
+	cons := constraints.MustParse("mem=4G")
+	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
+		cfg,
+		"controller-1",
+		"kubernetes",
+		cons,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(podConfig.Bootstrap.BootstrapMachineConstraints, gc.DeepEquals, cons)
 }

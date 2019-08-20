@@ -207,9 +207,19 @@ func bootstrapCAAS(
 	if args.BootstrapSeries != "" {
 		return errors.NewNotSupported(nil, "--bootstrap-series when bootstrapping a k8s controller")
 	}
-	if !constraints.IsEmpty(&args.BootstrapConstraints) {
-		return errors.NewNotSupported(nil, "--bootstrap-constraints when bootstrapping a k8s controller")
+
+	constraintsValidator, err := environ.ConstraintsValidator(callCtx)
+	if err != nil {
+		return err
 	}
+	bootstrapConstraints, err := constraintsValidator.Merge(
+		args.ModelConstraints, args.BootstrapConstraints,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	bootstrapConstraints = withDefaultControllerConstraints(bootstrapConstraints)
+	bootstrapParams.BootstrapConstraints = bootstrapConstraints
 
 	result, err := environ.Bootstrap(ctx, callCtx, bootstrapParams)
 	if err != nil {
@@ -220,6 +230,7 @@ func bootstrapCAAS(
 		args.ControllerConfig,
 		args.ControllerName,
 		result.Series,
+		bootstrapConstraints,
 	)
 	if err != nil {
 		return errors.Trace(err)

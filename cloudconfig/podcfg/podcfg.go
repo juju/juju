@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
@@ -19,7 +18,6 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/paths"
@@ -340,6 +338,7 @@ func NewBootstrapControllerPodConfig(
 	config controller.Config,
 	controllerName,
 	series string,
+	bootstrapConstraints constraints.Value,
 ) (*ControllerPodConfig, error) {
 	// For a bootstrap pod, the caller must provide the state.Info
 	// and the api.Info. The machine id must *always* be "0".
@@ -354,23 +353,10 @@ func NewBootstrapControllerPodConfig(
 	for k, v := range config {
 		pcfg.Controller.Config[k] = v
 	}
-	// TODO(bootstrap): remove me.
-	arch := arch.AMD64
-	var cores uint64 = 2
-	var mem uint64 = 123
-	var rootDisk uint64 = 123
 	pcfg.Bootstrap = &BootstrapConfig{
 		BootstrapConfig: instancecfg.BootstrapConfig{
 			StateInitializationParams: instancecfg.StateInitializationParams{
-				// TODO(bootstrap): remove me once agentbootstrap.initBootstrapMachine works for CAAS bootstrap in jujud.
-				BootstrapMachineHardwareCharacteristics: &instance.HardwareCharacteristics{
-					Arch:     &arch,
-					CpuCores: &cores,
-					Mem:      &mem,
-					RootDisk: &rootDisk,
-				},
-				BootstrapMachineInstanceId:  "i-0a373a526fcf5c882",
-				BootstrapMachineConstraints: constraints.Value{Mem: &mem},
+				BootstrapMachineConstraints: bootstrapConstraints,
 			},
 		},
 	}
