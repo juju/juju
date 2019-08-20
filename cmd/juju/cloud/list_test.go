@@ -138,14 +138,7 @@ func (s *listSuite) TestListKubernetes(c *gc.C) {
 	c.Assert(out, gc.Matches, `^beehive:.*type:\ k8s.*`)
 }
 
-func (s *listSuite) TestListTabular(c *gc.C) {
-	var controllerAPICalled string
-	cmd := cloud.NewListCloudCommandForTest(
-		s.store,
-		func(controllerName string) (cloud.ListCloudsAPI, error) {
-			controllerAPICalled = controllerName
-			return s.api, nil
-		})
+func (s *listSuite) assertListTabular(c *gc.C, expectedOutput string) {
 	s.api.controllerClouds = make(map[names.CloudTag]jujucloud.Cloud)
 	s.api.controllerClouds[names.NewCloudTag("beehive")] = jujucloud.Cloud{
 		Name:      "beehive",
@@ -171,6 +164,13 @@ func (s *listSuite) TestListTabular(c *gc.C) {
 			},
 		},
 	}
+	var controllerAPICalled string
+	cmd := cloud.NewListCloudCommandForTest(
+		s.store,
+		func(controllerName string) (cloud.ListCloudsAPI, error) {
+			controllerAPICalled = controllerName
+			return s.api, nil
+		})
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller", "--format", "tabular")
 	c.Assert(err, jc.ErrorIsNil)
@@ -182,10 +182,24 @@ func (s *listSuite) TestListTabular(c *gc.C) {
 	c.Assert(out, gc.Matches, `Clouds on controller "mycontroller":.*`)
 
 	out = cmdtesting.Stdout(ctx)
-	c.Assert(out, jc.DeepEquals, `
+	c.Assert(out, jc.DeepEquals, expectedOutput)
+}
+
+func (s *listSuite) TestListTabular(c *gc.C) {
+	s.assertListTabular(c, `
 Cloud    Regions  Default  Type       Description
 antnest        1  default  openstack  
 beehive        1  default  k8s        
+
+`[1:])
+}
+
+func (s *listSuite) TestListTabularWithClientDefaultRegion(c *gc.C) {
+	s.store.Credentials["antnest"] = jujucloud.CloudCredential{DefaultRegion: "anotherregion"}
+	s.assertListTabular(c, `
+Cloud    Regions  Default        Type       Description
+antnest        1  anotherregion  openstack  
+beehive        1  default        k8s        
 
 `[1:])
 }

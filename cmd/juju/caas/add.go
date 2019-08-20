@@ -157,13 +157,13 @@ type AddCAASCommand struct {
 	cloudMetadataStore    CloudMetadataStore
 	newClientConfigReader func(string) (clientconfig.ClientConfigFunc, error)
 
-	getAllCloudDetails func() (map[string]*jujucmdcloud.CloudDetails, error)
+	getAllCloudDetails func(jujuclient.CredentialGetter) (map[string]*jujucmdcloud.CloudDetails, error)
 }
 
 // NewAddCAASCommand returns a command to add caas information.
 func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 	store := jujuclient.NewFileClientStore()
-	cmd := &AddCAASCommand{
+	command := &AddCAASCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
 			Store:       store,
 			EnabledFlag: feature.MultiCloud,
@@ -174,17 +174,17 @@ func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 			return clientconfig.NewClientConfigReader(caasType)
 		},
 	}
-	cmd.addCloudAPIFunc = func() (AddCloudAPI, error) {
-		root, err := cmd.NewAPIRoot(cmd.store, cmd.controllerName, "")
+	command.addCloudAPIFunc = func() (AddCloudAPI, error) {
+		root, err := command.NewAPIRoot(command.store, command.controllerName, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return cloudapi.NewClient(root), nil
 	}
 
-	cmd.brokerGetter = cmd.newK8sClusterBroker
-	cmd.getAllCloudDetails = jujucmdcloud.GetAllCloudDetails
-	return modelcmd.WrapBase(cmd)
+	command.brokerGetter = command.newK8sClusterBroker
+	command.getAllCloudDetails = jujucmdcloud.GetAllCloudDetails
+	return modelcmd.WrapBase(command)
 }
 
 // Info returns help information about the command.
@@ -536,7 +536,7 @@ func (c *AddCAASCommand) tryEnsureCloudTypeForHostRegion(cloudOption, regionOpti
 	}
 	logger.Debugf("cloud %q region %q", cloudNameOrType, region)
 
-	clouds, err := c.getAllCloudDetails()
+	clouds, err := c.getAllCloudDetails(c.Store)
 	if err != nil {
 		return "", errors.Annotate(err, "listing cloud regions")
 	}
@@ -576,7 +576,7 @@ func (c *AddCAASCommand) validateCloudRegion(ctx *cmd.Context, cloudRegion strin
 		return cloudRegion, nil
 	}
 
-	clouds, err := c.getAllCloudDetails()
+	clouds, err := c.getAllCloudDetails(c.Store)
 	if err != nil {
 		return "", errors.Annotate(err, "listing cloud regions")
 	}
@@ -594,6 +594,10 @@ func (c *AddCAASCommand) validateCloudRegion(ctx *cmd.Context, cloudRegion strin
 					))
 				}
 				return details.CloudType, nil
+			}
+			if region == "" && details.DefaultRegion != "" {
+				logger.Debugf("cloud region not provided by user, using client default %q", details.DefaultRegion)
+				region = details.DefaultRegion
 			}
 			for k := range details.RegionsMap {
 				if k == region {
