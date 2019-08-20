@@ -596,8 +596,8 @@ func (c *AddCAASCommand) validateCloudRegion(ctx *cmd.Context, cloudRegion strin
 				return details.CloudType, nil
 			}
 			if region == "" && details.DefaultRegion != "" {
-				logger.Debugf("cloud region not provided, using client default %q", details.DefaultRegion)
-				return jujucloud.BuildHostCloudRegion(details.CloudType, details.DefaultRegion), nil
+				logger.Debugf("cloud region not provided by user, using client default %q", details.DefaultRegion)
+				region = details.DefaultRegion
 			}
 			for k := range details.RegionsMap {
 				if k == region {

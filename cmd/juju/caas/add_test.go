@@ -319,6 +319,19 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists, emptyClientConfig, 
 					},
 					DefaultRegion: "aregion",
 				},
+				"brokenteststack": {
+					Source:           "private",
+					CloudType:        "azure",
+					CloudDescription: "azure for this test",
+					AuthTypes:        []string{"jsonfile", "oauth2"},
+					Regions: yaml.MapSlice{
+						{Key: "aregion", Value: map[string]string{"Name": "aregion", "Endpoint": "endpoint"}},
+					},
+					RegionsMap: map[string]jujucmdcloud.RegionDetails{
+						"aregion": {Name: "aregion", Endpoint: "endpoint"},
+					},
+					DefaultRegion: "notknownregion",
+				},
 				"maas1": {
 					CloudType:        "maas",
 					CloudDescription: "maas Cloud",
@@ -451,6 +464,11 @@ func (s *addCAASSuite) TestCloudAndRegionFlag(c *gc.C) {
 			title:          "missing region --cloud=ec2 with no cloud default region",
 			cloud:          "ec2",
 			expectedErrStr: `validating cloud region "ec2": cloud region "ec2" not valid`,
+		},
+		{
+			title:          "missing region --cloud=brokenteststack and cloud's default region is not a cloud region",
+			cloud:          "brokenteststack",
+			expectedErrStr: `validating cloud region "azure": cloud region "azure" not valid`,
 		},
 		{
 			title: "missing region --cloud=teststack but cloud has default region",
