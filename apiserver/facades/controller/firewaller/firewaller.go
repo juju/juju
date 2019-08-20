@@ -6,7 +6,7 @@ package firewaller
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
@@ -239,21 +239,7 @@ func (f *FirewallerAPIV3) GetMachinePorts(args params.MachinePortsParams) (param
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		// TODO (hml) 2019-08-09
-		// Do we change the subnetTag from a Cidr to an ID?
-		// In the firewaller yes, for some of the juju cmds
-		// no?
-		var subnetID string
-		if subnetTag.Id() != "" {
-			// subnetTag.ID() is a CIDR not a subnet ID.
-			subnet, err := f.st.Subnet(subnetTag.Id())
-			if err != nil {
-				result.Results[i].Error = common.ServerError(err)
-				continue
-			}
-			subnetID = subnet.ID()
-		}
-		ports, err := machine.OpenedPorts(subnetID)
+		ports, err := machine.OpenedPorts(subnetTag.Id())
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -307,17 +293,12 @@ func (f *FirewallerAPIV3) GetMachineActiveSubnets(args params.Entities) (params.
 		}
 		for _, port := range ports {
 			if port.SubnetID() == "" {
-				// TODO(dimitern): Empty subnet CIDRs for ports are still OK until
+				// TODO(dimitern): Empty subnet IDs for ports are still OK until
 				// we can enforce it across all providers.
 				result.Results[i].Result = append(result.Results[i].Result, "")
 				continue
 			}
-			subnet, err := f.st.SubnetByID(port.SubnetID())
-			if err != nil {
-				result.Results[i].Error = common.ServerError(err)
-				continue
-			}
-			subnetTag := names.NewSubnetTag(subnet.CIDR()).String()
+			subnetTag := names.NewSubnetTag(port.SubnetID()).String()
 			result.Results[i].Result = append(result.Results[i].Result, subnetTag)
 		}
 	}
