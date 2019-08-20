@@ -492,11 +492,12 @@
   revision = "9be91dc79b7c185fa8b08e7ceceee40562055c83"
 
 [[projects]]
-  digest = "1:173727e65f74610595a945b25b4f6de2e85980bc76e411ab6fa129bfda261029"
+  digest = "1:e4830591c9936451e63b0f90b3d1c0694f4c0615042ce79e2b33a2ac16fa0701"
   name = "github.com/juju/description"
   packages = ["."]
   pruneopts = ""
-  revision = "04755bd60156009bd35788e17c06115c5532c233"
+  revision = "780d9315d7ca5097ab2b732e5b3d0f96c64b9fdd"
+  source = "github.com/hmlanigan/description.git"
 
 [[projects]]
   digest = "1:594030c0f0ed3842773b68708d4f9716d809556b9c631460051f99b15057512d"
@@ -1569,6 +1570,14 @@
   revision = "35a970b00c44984ca675453f9e0144aed5219369"
 
 [[projects]]
+  digest = "1:9248d4a0789201f02379a65091cb884e3d92390c69382fce95c44ce3a5c1ed2c"
+  name = "gopkg.in/juju/names.v3"
+  packages = ["."]
+  pruneopts = ""
+  revision = "f66cc824b990a832353f8f2126ae4a71cf281ea1"
+  source = "github.com/hmlanigan/names.git"
+
+[[projects]]
   digest = "1:5081ff05b4471731df7fa7457083397c2663791cd5809858a899306cdfe29b63"
   name = "gopkg.in/juju/worker.v1"
   packages = [
@@ -2081,6 +2090,7 @@
     "gopkg.in/juju/environschema.v1",
     "gopkg.in/juju/environschema.v1/form",
     "gopkg.in/juju/names.v2",
+    "gopkg.in/juju/names.v3",
     "gopkg.in/juju/worker.v1",
     "gopkg.in/juju/worker.v1/catacomb",
     "gopkg.in/juju/worker.v1/dependency",
