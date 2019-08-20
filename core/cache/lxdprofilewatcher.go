@@ -315,7 +315,7 @@ func (w *MachineLXDProfileWatcher) removeUnit(_ string, value interface{}) {
 
 	app, ok := w.applications[rUnit.Application()]
 	if !ok {
-		w.logError("programming error, unit removed before being added, application name not found")
+		w.logDebug("unit removed before being added, application name not found")
 		return
 	}
 	if !app.units.Contains(rUnit.Name()) {
@@ -354,5 +354,10 @@ func (w *MachineLXDProfileWatcher) provisionedChange(_ string, _ interface{}) {
 
 func (w *MachineLXDProfileWatcher) logError(msg string) {
 	logger.Errorf(msg)
+	w.metrics.LXDProfileChangeError.Inc()
+}
+
+func (w *MachineLXDProfileWatcher) logDebug(msg string) {
+	logger.Debugf(msg)
 	w.metrics.LXDProfileChangeError.Inc()
 }
