@@ -442,10 +442,6 @@ func (api *CloudAPI) getCloudInfo(tag names.CloudTag) (*params.CloudInfo, error)
 			DisplayName: displayName,
 			Access:      string(perm),
 		}
-
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		info.Users = append(info.Users, userInfo)
 	}
 
@@ -947,11 +943,11 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 			if err != nil {
 				return nil, err
 			}
-			provider, err := environs.Provider(aCloud.Type)
+			aProvider, err := environs.Provider(aCloud.Type)
 			if err != nil {
 				return nil, err
 			}
-			schema := provider.CredentialSchemas()
+			schema := aProvider.CredentialSchemas()
 			schemaCache[cloudName] = schema
 			return schema, nil
 		}
@@ -1012,6 +1008,23 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 		}
 	}
 
+	if cloudArgs.Cloud.Type != string(provider.K8s_ProviderType) {
+		// All non-k8s cloud need to go through whitelist.
+		controllerInfo, err := api.backend.ControllerInfo()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		controllerCloud, err := api.backend.Cloud(controllerInfo.CloudName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := cloud.CurrentWhiteList().Check(controllerCloud.Type, cloudArgs.Cloud.Type); err != nil {
+			if cloudArgs.Force == nil || !*cloudArgs.Force {
+				return errors.Trace(err)
+			}
+			logger.Infof("force adding cloud %q of type %q to controller bootstrapped on cloud type %q", cloudArgs.Name, cloudArgs.Cloud.Type, controllerCloud.Type)
+		}
+	}
 	err = api.backend.AddCloud(common.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud), api.apiUser.Name())
 	return errors.Trace(err)
 }
@@ -1027,8 +1040,8 @@ func (api *CloudAPI) UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.Error
 	} else if !isAdmin {
 		return results, common.ServerError(common.ErrPerm)
 	}
-	for i, cloud := range cloudArgs.Clouds {
-		err := api.backend.UpdateCloud(common.CloudFromParams(cloud.Name, cloud.Cloud))
+	for i, aCloud := range cloudArgs.Clouds {
+		err := api.backend.UpdateCloud(common.CloudFromParams(aCloud.Name, aCloud.Cloud))
 		results.Results[i].Error = common.ServerError(err)
 	}
 	return results, nil
@@ -1106,11 +1119,11 @@ func (api *CloudAPI) internalCredentialContents(args params.CloudCredentialArgs,
 		if err != nil {
 			return nil, err
 		}
-		provider, err := environs.Provider(aCloud.Type)
+		aProvider, err := environs.Provider(aCloud.Type)
 		if err != nil {
 			return nil, err
 		}
-		schema := provider.CredentialSchemas()
+		schema := aProvider.CredentialSchemas()
 		schemaCache[cloudName] = schema
 		return schema, nil
 	}

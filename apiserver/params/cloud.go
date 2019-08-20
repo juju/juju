@@ -29,6 +29,7 @@ type CloudRegion struct {
 type AddCloudArgs struct {
 	Cloud Cloud  `json:"cloud"`
 	Name  string `json:"name"`
+	Force *bool  `json:"force,omitempty"`
 }
 
 // UpdateCloudArgs holds a cloud to be updated with its name.

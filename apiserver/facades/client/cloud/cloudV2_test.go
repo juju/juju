@@ -230,18 +230,18 @@ func (s *cloudSuiteV2) TestAddCloudInV2(c *gc.C) {
 	paramsCloud := params.AddCloudArgs{
 		Name: "newcloudname",
 		Cloud: params.Cloud{
-			Type:      "fake",
+			Type:      "maas",
 			AuthTypes: []string{"empty", "userpass"},
 			Endpoint:  "fake-endpoint",
 			Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
 		}}
 	err := s.apiv2.AddCloud(paramsCloud)
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ControllerTag", "ControllerConfig", "AddCloud")
+	s.backend.CheckCallNames(c, "ControllerTag", "ControllerConfig", "ControllerInfo", "Cloud", "AddCloud")
 	s.backend.CheckCall(c, 0, "ControllerTag")
-	s.backend.CheckCall(c, 2, "AddCloud", cloud.Cloud{
+	s.backend.CheckCall(c, 4, "AddCloud", cloud.Cloud{
 		Name:      "newcloudname",
-		Type:      "fake",
+		Type:      "maas",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 		Endpoint:  "fake-endpoint",
 		Regions:   []cloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
@@ -457,6 +457,11 @@ type mockBackendV2 struct {
 	models            map[names.CloudCredentialTag][]state.CredentialOwnerModelAccess
 	controllerCfg     controller.Config
 	credentialModelsF func(tag names.CloudCredentialTag) (map[string]string, error)
+}
+
+func (st *mockBackendV2) ControllerInfo() (*state.ControllerInfo, error) {
+	st.MethodCall(st, "ControllerInfo")
+	return &state.ControllerInfo{CloudName: "maas"}, nil
 }
 
 func (st *mockBackendV2) ControllerConfig() (controller.Config, error) {

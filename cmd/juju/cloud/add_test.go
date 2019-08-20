@@ -348,8 +348,8 @@ func (api *fakeAddCloudAPI) Close() error {
 	return nil
 }
 
-func (api *fakeAddCloudAPI) AddCloud(cloud jujucloud.Cloud) error {
-	api.AddCall("AddCloud", cloud)
+func (api *fakeAddCloudAPI) AddCloud(cloud jujucloud.Cloud, force bool) error {
+	api.AddCall("AddCloud", cloud, force)
 	return nil
 }
 
@@ -394,23 +394,36 @@ func (s *addSuite) setupControllerCloudScenario(c *gc.C) (
 	return cloudfile.Name(), command, store, api, cred, callCounter
 }
 
-func (s *addSuite) TestAddToController(c *gc.C) {
+func (s *addSuite) asssertAddToController(c *gc.C, force bool) {
 	cloudFileName, command, _, api, cred, _ := s.setupControllerCloudScenario(c)
-	ctx, err := cmdtesting.RunCommand(
-		c, command, "garage-maas", cloudFileName)
+	args := []string{"garage-maas", cloudFileName}
+	if force {
+		args = append(args, "--force")
+	}
+	ctx, err := cmdtesting.RunCommand(c, command, args...)
 	c.Assert(err, jc.ErrorIsNil)
 	api.CheckCallNames(c, "AddCloud", "AddCredential", "Close")
-	api.CheckCall(c, 0, "AddCloud", jujucloud.Cloud{
-		Name:        "garage-maas",
-		Type:        "maas",
-		Description: "Metal As A Service",
-		AuthTypes:   jujucloud.AuthTypes{"oauth1"},
-		Endpoint:    "http://garagemaas",
-	})
+	api.CheckCall(c, 0, "AddCloud",
+		jujucloud.Cloud{
+			Name:        "garage-maas",
+			Type:        "maas",
+			Description: "Metal As A Service",
+			AuthTypes:   jujucloud.AuthTypes{"oauth1"},
+			Endpoint:    "http://garagemaas",
+		},
+		force)
 	api.CheckCall(c, 1, "AddCredential", "cloudcred-garage-maas_fred_default", cred)
 	out := cmdtesting.Stderr(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	c.Assert(out, gc.Matches, `Cloud "garage-maas" added to controller "mycontroller".Credentials for cloud "garage-maas" added to controller "mycontroller".`)
+}
+
+func (s *addSuite) TestAddToController(c *gc.C) {
+	s.asssertAddToController(c, false)
+}
+
+func (s *addSuite) TestForceAddToController(c *gc.C) {
+	s.asssertAddToController(c, true)
 }
 
 func (s *addSuite) TestAddLocal(c *gc.C) {
