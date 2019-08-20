@@ -19,7 +19,7 @@ import (
 	storage "github.com/juju/juju/storage"
 	version "github.com/juju/version"
 	environschema_v1 "gopkg.in/juju/environschema.v1"
-	names_v2 "gopkg.in/juju/names.v2"
+	names_v2 "gopkg.in/juju/names.v3"
 	io "io"
 	reflect "reflect"
 )

@@ -15,7 +15,7 @@ import (
 	"github.com/juju/gnuflag"
 	jujuos "github.com/juju/os"
 	"github.com/juju/utils/exec"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	jujucmd "github.com/juju/juju/cmd"

@@ -8,7 +8,7 @@ import (
 	"net"
 
 	"github.com/hashicorp/raft"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"

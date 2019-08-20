@@ -8,7 +8,7 @@ import (
 	"github.com/juju/juju/core/settings"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 )
 
 const (

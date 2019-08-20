@@ -6,7 +6,7 @@ package migrationmaster
 import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/migration"

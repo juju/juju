@@ -12,7 +12,7 @@ import (
 	"github.com/juju/schema"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/instance"

@@ -29,7 +29,7 @@ import (
 	"github.com/juju/utils/shell"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/juju/paths"

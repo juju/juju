@@ -6,7 +6,7 @@ package firewaller
 import (
 	"fmt"
 
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"

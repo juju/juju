@@ -17,7 +17,7 @@ import (
 	utilscert "github.com/juju/utils/cert"
 	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 
 	"github.com/juju/juju/cert"

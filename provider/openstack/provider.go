@@ -30,7 +30,7 @@ import (
 	gooselogging "gopkg.in/goose.v2/logging"
 	"gopkg.in/goose.v2/neutron"
 	"gopkg.in/goose.v2/nova"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"

@@ -19,7 +19,7 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/controller"

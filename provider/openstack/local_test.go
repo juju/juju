@@ -38,7 +38,7 @@ import (
 	"gopkg.in/goose.v2/testservices/neutronservice"
 	"gopkg.in/goose.v2/testservices/novaservice"
 	"gopkg.in/goose.v2/testservices/openstackservice"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"

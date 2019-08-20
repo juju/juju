@@ -7,7 +7,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/machinelock"

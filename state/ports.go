@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	statetxn "github.com/juju/txn"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"

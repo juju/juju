@@ -4,7 +4,7 @@
 package context
 
 import (
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 )
 
 // ActionData contains the tag, parameters, and results of an Action.

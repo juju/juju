@@ -17,7 +17,7 @@ import (
 	"github.com/juju/utils/arch"
 	jujusymlink "github.com/juju/utils/symlink"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 

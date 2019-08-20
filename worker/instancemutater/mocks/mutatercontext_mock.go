@@ -9,7 +9,7 @@ import (
 	instancemutater "github.com/juju/juju/api/instancemutater"
 	environs "github.com/juju/juju/environs"
 	instancemutater0 "github.com/juju/juju/worker/instancemutater"
-	names_v2 "gopkg.in/juju/names.v2"
+	names_v2 "gopkg.in/juju/names.v3"
 	worker_v1 "gopkg.in/juju/worker.v1"
 	reflect "reflect"
 )

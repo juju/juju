@@ -9,7 +9,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/worker/lease"

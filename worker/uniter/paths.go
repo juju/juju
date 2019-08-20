@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 
 	jujuos "github.com/juju/os"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas/kubernetes/provider"

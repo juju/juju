@@ -4,7 +4,7 @@
 package modelconfig
 
 import (
-	names "gopkg.in/juju/names.v2"
+	names "gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/environs/config"

@@ -10,7 +10,7 @@ import (
 	cache "github.com/juju/juju/core/cache"
 	settings "github.com/juju/juju/core/settings"
 	charm_v6 "gopkg.in/juju/charm.v6"
-	names_v2 "gopkg.in/juju/names.v2"
+	names_v2 "gopkg.in/juju/names.v3"
 	reflect "reflect"
 )
 

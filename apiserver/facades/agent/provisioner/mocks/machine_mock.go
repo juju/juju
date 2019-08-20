@@ -13,7 +13,7 @@ import (
 	instance "github.com/juju/juju/core/instance"
 	containerizer "github.com/juju/juju/network/containerizer"
 	state "github.com/juju/juju/state"
-	names_v2 "gopkg.in/juju/names.v2"
+	names_v2 "gopkg.in/juju/names.v3"
 )
 
 // MockMachine is a mock of Machine interface

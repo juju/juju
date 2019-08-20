@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	names "gopkg.in/juju/names.v2"
+	names "gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 

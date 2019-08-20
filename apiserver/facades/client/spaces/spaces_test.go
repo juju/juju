@@ -10,7 +10,7 @@ import (
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/spaces"
@@ -122,9 +122,14 @@ func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 	if p.Name != "" {
 		args.SpaceTag = "space-" + p.Name
 	}
+
+	// TODO (hml) 2019-08-20
+	// Update callers of checkAddSpaces:
+	// []checkAddSpacesParams.Subnets should be IDs
+	// no CIDRs
 	if len(p.Subnets) > 0 {
-		for _, cidr := range p.Subnets {
-			args.SubnetTags = append(args.SubnetTags, "subnet-"+cidr)
+		for _, id := range p.Subnets {
+			args.SubnetTags = append(args.SubnetTags, "subnet-"+id)
 		}
 	}
 	args.Public = p.Public

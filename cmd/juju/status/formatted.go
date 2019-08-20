@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/core/instance"

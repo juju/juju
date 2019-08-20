@@ -3,7 +3,7 @@
 package upgradeseries_test
 
 import (
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/golang/mock/gomock"

@@ -8,7 +8,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	httprequest "github.com/juju/httprequest"
 	base "github.com/juju/juju/api/base"
-	names_v2 "gopkg.in/juju/names.v2"
+	names_v2 "gopkg.in/juju/names.v3"
 	httpbakery "gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	http "net/http"
 	url "net/url"

@@ -13,7 +13,7 @@ import (
 	multiwatcher "github.com/juju/juju/state/multiwatcher"
 	shell "github.com/juju/utils/shell"
 	version "github.com/juju/version"
-	names_v2 "gopkg.in/juju/names.v2"
+	names_v2 "gopkg.in/juju/names.v3"
 	reflect "reflect"
 )
 

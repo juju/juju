@@ -8,7 +8,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	status "github.com/juju/juju/core/status"
 	state "github.com/juju/juju/state"
-	names_v2 "gopkg.in/juju/names.v2"
+	names_v2 "gopkg.in/juju/names.v3"
 	reflect "reflect"
 	time "time"
 )

@@ -62,9 +62,8 @@
   name = "github.com/juju/bundlechanges"
 
 [[constraint]]
-  revision = "780d9315d7ca5097ab2b732e5b3d0f96c64b9fdd"
+  revision = "7eee51ddb1f5033244c6501ec83b399af9d23861"
   name = "github.com/juju/description"
-  source = "github.com/hmlanigan/description.git"
 
 [[constraint]]
   revision = "2ce1bb71843d6d179b3f1c1c9cb4a72cd067fc65"
@@ -163,9 +162,8 @@
   name = "gopkg.in/juju/names.v2"
 
 [[constraint]]
-  revision = "f66cc824b990a832353f8f2126ae4a71cf281ea1"
+  revision = "5ed389481ee8344db732cf8a65a8bbfeb42dc79d"
   name = "gopkg.in/juju/names.v3"
-  source = "github.com/hmlanigan/names.git"
 
 [[constraint]]
   revision = "c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6"

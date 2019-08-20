@@ -6,7 +6,7 @@ package uniter
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	names "gopkg.in/juju/names.v2"
+	names "gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"

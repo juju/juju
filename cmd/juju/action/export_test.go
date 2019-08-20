@@ -5,7 +5,7 @@ package action
 
 import (
 	"github.com/juju/cmd"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"

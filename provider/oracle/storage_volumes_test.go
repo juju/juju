@@ -11,7 +11,7 @@ import (
 	"github.com/juju/go-oracle-cloud/response"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"

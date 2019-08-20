@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-	names "gopkg.in/juju/names.v2"
+	names "gopkg.in/juju/names.v3"
 	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
