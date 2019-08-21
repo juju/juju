@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/lxdprofile"
@@ -1183,7 +1183,7 @@ func (context *statusContext) processApplication(application *state.Application)
 			return params.ApplicationStatus{Err: common.ServerError(err)}
 		}
 		if specStr != "" {
-			spec, err := k8sprovider.ParsePodSpec(specStr)
+			spec, err := k8sspecs.ParsePodSpec(specStr)
 			if err != nil {
 				return params.ApplicationStatus{Err: common.ServerError(err)}
 			}

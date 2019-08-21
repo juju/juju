@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state/watcher"
 )
@@ -185,7 +185,7 @@ func (f *Facade) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResults, 
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		if _, err := k8sprovider.ParsePodSpec(arg.Value); err != nil {
+		if _, err := k8sspecs.ParsePodSpec(arg.Value); err != nil {
 			results.Results[i].Error = common.ServerError(errors.New("invalid pod spec"))
 			continue
 		}

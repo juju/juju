@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -146,7 +147,7 @@ func (w *deploymentWorker) loop() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		spec, err := k8sprovider.ParsePodSpec(specStr)
+		spec, err := k8sspecs.ParsePodSpec(specStr)
 		if err != nil {
 			return errors.Annotate(err, "cannot parse pod spec")
 		}

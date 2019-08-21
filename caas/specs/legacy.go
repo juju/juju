@@ -14,7 +14,6 @@ import (
 type PodSpecLegacy struct {
 	podSpec
 
-	OmitServiceFrontend       bool                                                         `yaml:"omitServiceFrontend"`
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `yaml:"-"`
 }
 

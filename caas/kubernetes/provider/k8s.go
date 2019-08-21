@@ -1544,7 +1544,7 @@ func (k *kubernetesClient) configureStorage(
 	return nil
 }
 
-func (k *kubernetesClient) configureDevices(unitSpec *unitSpec, devices []devices.KubernetesDeviceParams) error {
+func (k *kubernetesClient) configureDevices(unitSpec *svcSpec, devices []devices.KubernetesDeviceParams) error {
 	for i := range unitSpec.Pod.Containers {
 		resources := unitSpec.Pod.Containers[i].Resources
 		for _, dev := range devices {
@@ -1579,7 +1579,7 @@ func configureConstraint(pod *core.PodSpec, constraint, value string) error {
 
 type configMapNameFunc func(fileSetName string) string
 
-func (k *kubernetesClient) configurePodFiles(podSpec *core.PodSpec, containers []caas.ContainerSpec, cfgMapName configMapNameFunc) error {
+func (k *kubernetesClient) configurePodFiles(podSpec *core.PodSpec, containers []specs.ContainerSpec, cfgMapName configMapNameFunc) error {
 	for i, container := range containers {
 		for _, fileSet := range container.Files {
 			cfgName := cfgMapName(fileSet.Name)
@@ -1612,8 +1612,8 @@ func podAnnotations(annotations k8sannotations.Annotation) k8sannotations.Annota
 func (k *kubernetesClient) configureDeployment(
 	appName, deploymentName string,
 	annotations k8sannotations.Annotation,
-	unitSpec *unitSpec,
-	containers []caas.ContainerSpec,
+	unitSpec *svcSpec,
+	containers []specs.ContainerSpec,
 	replicas *int32,
 ) error {
 	logger.Debugf("creating/updating deployment for %s", appName)
@@ -1671,8 +1671,8 @@ func (k *kubernetesClient) deleteDeployment(name string) error {
 }
 
 func (k *kubernetesClient) configureStatefulSet(
-	appName, deploymentName, randPrefix string, annotations k8sannotations.Annotation, unitSpec *unitSpec,
-	containers []caas.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
+	appName, deploymentName, randPrefix string, annotations k8sannotations.Annotation, unitSpec *svcSpec,
+	containers []specs.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
 ) error {
 	logger.Debugf("creating/updating stateful set for %s", appName)
 
@@ -2444,7 +2444,7 @@ func (k *kubernetesClient) jujuVolumeStatus(pvPhase core.PersistentVolumePhase) 
 
 // filesetConfigMap returns a *core.ConfigMap for a pod
 // of the specified unit, with the specified files.
-func filesetConfigMap(configMapName string, files *caas.FileSet) *core.ConfigMap {
+func filesetConfigMap(configMapName string, files *specs.FileSet) *core.ConfigMap {
 	result := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
 			Name: configMapName,
@@ -2590,6 +2590,7 @@ type svcSpec struct {
 	Pod     core.PodSpec `json:"pod"`
 	Service *k8sspecs.K8sServiceSpec
 
+	ServiceAccount            *k8sspecs.ServiceAccountSpec
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
 }
 
@@ -2676,7 +2677,7 @@ func populateContainerDetails(deploymentName string, pod *core.PodSpec, podConta
 			podContainers[i].SecurityContext = defaultSecurityContext()
 			continue
 		}
-		spec, ok := c.ProviderContainer.(*K8sContainerSpec)
+		spec, ok := c.ProviderContainer.(*k8sspecs.K8sContainerSpec)
 		if !ok {
 			return errors.Errorf("unexpected kubernetes container spec type %T", c.ProviderContainer)
 		}

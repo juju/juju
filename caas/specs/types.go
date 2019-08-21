@@ -97,8 +97,9 @@ type PodSpecVersion struct {
 // a pod on the CAAS substrate.
 type podSpec struct {
 	PodSpecVersion
-	Containers     []ContainerSpec `yaml:"-"`
-	InitContainers []ContainerSpec `yaml:"-"`
+	OmitServiceFrontend bool            `yaml:"omitServiceFrontend"`
+	Containers          []ContainerSpec `yaml:"-"`
+	InitContainers      []ContainerSpec `yaml:"-"`
 
 	// ProviderPod defines config which is specific to a substrate, eg k8s
 	ProviderPod `yaml:"-"`
