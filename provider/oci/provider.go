@@ -275,6 +275,9 @@ func (e *EnvironProvider) Open(params environs.OpenParams) (environs.Environ, er
 	}
 
 	env.namespace, err = instance.NewNamespace(env.Config().UUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	cfg := env.ecfg()
 	if cfg.compartmentID() == nil {

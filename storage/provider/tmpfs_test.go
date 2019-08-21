@@ -189,6 +189,7 @@ func (s *tmpfsSuite) TestAttachFilesystemsAlreadyMounted(c *gc.C) {
 		Filesystem: names.NewFilesystemTag("123"),
 		Path:       "exists",
 	}})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []storage.AttachFilesystemsResult{{
 		FilesystemAttachment: &storage.FilesystemAttachment{
 			Filesystem: names.NewFilesystemTag("123"),

@@ -1737,6 +1737,9 @@ func LegacyLeases(pool *StatePool, localTime time.Time) (map[corelease.Key]corel
 		return nil, errors.Trace(err)
 	}
 	globalTime, err := reader.Now()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// This needs to be the raw collection so we see all leases across
 	// models.
@@ -2369,9 +2372,10 @@ func ChangeSubnetAZtoSlice(pool *StatePool) (err error) {
 			})
 		}
 
-		ops = append(ops, st.createDefaultSpaceOp())
-
-		return errors.Trace(st.db().RunTransaction(ops))
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
 	}))
 }
 
@@ -2421,8 +2425,116 @@ func ChangeSubnetSpaceNameToSpaceID(pool *StatePool) (err error) {
 			})
 		}
 
-		ops = append(ops, st.createDefaultSpaceOp())
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
+	}))
+}
 
-		return errors.Trace(st.db().RunTransaction(ops))
+// AddSubnetIdToSubnetDocs ensures that every subnet document includes a
+// a sequentially generated ID.
+func AddSubnetIdToSubnetDocs(pool *StatePool) (err error) {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(subnetsC)
+		defer closer()
+
+		var docs []subnetDoc
+		err := col.Find(nil).All(&docs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, oldDoc := range docs {
+			// A doc with a subnet ID has already been upgraded.
+			if oldDoc.ID != "" {
+				continue
+			}
+
+			// We cannot edit _id, so we need to delete and re-create each doc.
+			ops = append(ops, txn.Op{
+				C:      subnetsC,
+				Id:     oldDoc.DocID,
+				Assert: txn.DocExists,
+				Remove: true,
+			})
+
+			seq, err := sequence(st, "subnet")
+			if err != nil {
+				return errors.Trace(err)
+			}
+			id := strconv.Itoa(seq)
+
+			newDoc := oldDoc
+			newDoc.TxnRevno = 0
+			newDoc.DocID = st.docID(id)
+			newDoc.ID = id
+
+			ops = append(ops, txn.Op{
+				C:      subnetsC,
+				Id:     newDoc.DocID,
+				Insert: newDoc,
+			})
+		}
+
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
+	}))
+}
+
+// ReplacePortsDocSubnetIDCIDR ensures that every ports document use an
+// ID rather than a CIDR for subnetID.
+func ReplacePortsDocSubnetIDCIDR(pool *StatePool) (err error) {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(openedPortsC)
+		defer closer()
+
+		var docs []portsDoc
+		err := col.Find(nil).All(&docs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, oldDoc := range docs {
+			// A doc with a subnet ID has already been upgraded.
+			if !network.IsValidCidr(oldDoc.SubnetID) {
+				continue
+			}
+
+			// We cannot edit _id, so we need to delete and re-create each doc.
+			ops = append(ops, txn.Op{
+				C:      openedPortsC,
+				Id:     oldDoc.DocID,
+				Assert: txn.DocExists,
+				Remove: true,
+			})
+
+			// If we're upgrading from a model which has cidrs for
+			// subnetIDs, there can be only 1 of that cidr in the model.
+			subnet, err := st.Subnet(oldDoc.SubnetID)
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			newDoc := oldDoc
+			newDoc.TxnRevno = 0
+			newDoc.DocID = portsGlobalKey(newDoc.MachineID, subnet.ID())
+			newDoc.SubnetID = subnet.ID()
+
+			ops = append(ops, txn.Op{
+				C:      openedPortsC,
+				Id:     newDoc.DocID,
+				Insert: newDoc,
+			})
+		}
+
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
 	}))
 }

@@ -259,6 +259,7 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w, err := apiRelUnit.Watch()
+	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewRelationUnitsWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
 

@@ -77,7 +77,7 @@ func (s *listAgreementsSuite) TestGetUsersAgreements(c *gc.C) {
 
 	s.client.setError("well, this is embarrassing")
 
-	ctx, err = s.runCommand(c)
+	_, err = s.runCommand(c)
 	c.Assert(err, gc.ErrorMatches, "failed to list user agreements: well, this is embarrassing")
 	c.Assert(s.client.called, jc.IsTrue)
 
@@ -110,7 +110,7 @@ func (s *listAgreementsSuite) TestGetUsersAgreements(c *gc.C) {
 
 func (s *listAgreementsSuite) TestGetUsersAgreementsWithTermOwner(c *gc.C) {
 	s.client.setError("well, this is embarrassing")
-	ctx, err := s.runCommand(c)
+	_, err := s.runCommand(c)
 	c.Assert(err, gc.ErrorMatches, "failed to list user agreements: well, this is embarrassing")
 	c.Assert(s.client.called, jc.IsTrue)
 
@@ -123,7 +123,7 @@ func (s *listAgreementsSuite) TestGetUsersAgreementsWithTermOwner(c *gc.C) {
 	}}
 	s.client.setAgreements(agreements)
 
-	ctx, err = s.runCommand(c)
+	ctx, err := s.runCommand(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedListAgreementsTabularOutputWithOwner)

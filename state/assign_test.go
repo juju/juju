@@ -746,6 +746,7 @@ func (s *assignCleanSuite) setupMachines(c *gc.C) (hostMachine *state.Machine, c
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, hostMachine.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostMachine.Clean(), jc.IsTrue)
 	s.assertMachineNotEmpty(c, hostMachine)
 
@@ -1136,6 +1137,7 @@ func (s *assignCleanSuite) TestAssignUnitWithNonDynamicStorageAndZonePlacementDi
 		s.State.ModelUUID(), "zone=test",
 	}
 	err = s.State.AssignUnitWithPlacement(unit, placement)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the machine on the unit is set.
 	machineId, err := unit.AssignedMachineId()
@@ -1230,6 +1232,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, hostMachine.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostMachine.Clean(), jc.IsTrue)
 	s.assertMachineNotEmpty(c, hostMachine)
 	if s.policy == state.AssignClean {
@@ -1271,6 +1274,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, hostMachine.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
 	err = hostMachine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostMachine.Clean(), jc.IsTrue)

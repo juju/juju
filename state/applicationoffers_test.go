@@ -518,6 +518,7 @@ func (s *applicationOffersSuite) addOfferConnection(c *gc.C, offerUUID string) *
 		Username:        "admin",
 		SourceModelUUID: testing.ModelTag.Id(),
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	return app
 }
@@ -606,6 +607,7 @@ func (s *applicationOffersSuite) TestRemoveOffersSucceedsWhenLocalRelationAdded(
 	offer := s.createDefaultOffer(c)
 	s.AddTestingApplication(c, "local-wordpress", s.AddTestingCharm(c, "wordpress"))
 	_, err := s.State.Application(offer.ApplicationName)
+	c.Assert(err, jc.ErrorIsNil)
 	eps, err := s.State.InferEndpoints("local-wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(eps...)
@@ -685,6 +687,7 @@ func (s *applicationOffersSuite) TestRemovingApplicationFailsRace(c *gc.C) {
 	s.createDefaultOffer(c)
 	wp := s.AddTestingApplication(c, "local-wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints(wp.Name(), s.mysql.Name())
+	c.Assert(err, jc.ErrorIsNil)
 
 	addRelation := func() {
 		_, err := s.State.AddRelation(eps...)

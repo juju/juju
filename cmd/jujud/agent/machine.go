@@ -948,7 +948,7 @@ func (a *MachineAgent) initController(agentConfig agent.Config) (*state.Controll
 		NewPolicy:              stateenvirons.GetNewPolicyFunc(),
 		RunTransactionObserver: a.mongoTxnCollector.AfterRunTransaction,
 	})
-	return ctrl, nil
+	return ctrl, errors.Trace(err)
 }
 
 func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, error) {

@@ -751,6 +751,7 @@ func (s *ApplicationSuite) TestSetCharmWhenDead(c *gc.C) {
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		_, err := s.mysql.AddUnit(state.AddUnitParams{})
+		c.Assert(err, jc.ErrorIsNil)
 		err = s.mysql.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 		assertLife(c, s.mysql, state.Dying)
@@ -1486,7 +1487,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	// refcount.
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	curl, ok := u.CharmURL()
+	_, ok := u.CharmURL()
 	c.Assert(ok, jc.IsFalse)
 	assertSettingsRef(c, s.State, appName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, appName, newCh)
@@ -1495,7 +1496,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	// used by app as well, hence 2.
 	err = u.SetCharmURL(oldCh.URL())
 	c.Assert(err, jc.ErrorIsNil)
-	curl, ok = u.CharmURL()
+	curl, ok := u.CharmURL()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(curl, gc.DeepEquals, oldCh.URL())
 	assertSettingsRef(c, s.State, appName, oldCh, 2)
@@ -2636,6 +2637,7 @@ func (s *ApplicationSuite) TestConstraints(c *gc.C) {
 	// Constraints can be set.
 	cons2 := constraints.Value{Mem: uint64p(4096)}
 	err = s.mysql.SetConstraints(cons2)
+	c.Assert(err, jc.ErrorIsNil)
 	cons3, err := s.mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons3, gc.DeepEquals, cons2)
@@ -2974,6 +2976,7 @@ func (s *ApplicationSuite) TestMetricCredentials(c *gc.C) {
 	c.Assert(s.mysql.MetricCredentials(), gc.DeepEquals, []byte("hello there"))
 
 	application, err := s.State.Application(s.mysql.Name())
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application.MetricCredentials(), gc.DeepEquals, []byte("hello there"))
 }
 
@@ -3829,6 +3832,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	c.Assert(unitHistory[0].Message, gc.Equals, status.MessageInitializingAgent)
 
 	u, ok = unitsById["new-unit-uuid"]
+	c.Assert(ok, jc.IsTrue)
 	info, ok = containerInfoById["new-unit-uuid"]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(u.Name(), gc.Equals, "gitlab/3")
@@ -4029,6 +4033,7 @@ func (s *CAASApplicationSuite) TestWatchCloudService(c *gc.C) {
 		Id:         s.app.Name(),
 		ProviderId: "123",
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Stop, check closed.

@@ -63,6 +63,7 @@ func (t *StateFileSuite) TestWriteReadExtra(c *gc.C) {
 	}
 
 	err = t.state.Write(code, info, &disconnected)
+	c.Assert(err, jc.ErrorIsNil)
 
 	rCode, rInfo, rDisconnected, err = t.state.Read()
 	c.Assert(err, jc.ErrorIsNil)

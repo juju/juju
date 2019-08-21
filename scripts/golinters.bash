@@ -19,15 +19,18 @@ fi
 $GOPATH/bin/golangci-lint run \
     --disable-all \
     --no-config \
+    --max-issues-per-linter=50 \
+    --max-same-issues=50 \
     --issues-exit-code=0 \
     --enable=gofmt \
     --enable=goimports \
     --enable=misspell \
     --enable=unconvert \
+    --enable=ineffassign \
     --deadline=10m \
     &> $OUTPUT_FILE
 
-# go through each golangci-lint error and check to see if it's related 
+# go through each golangci-lint error and check to see if it's related
 # to a mock file.
 invalidLines=`cat $OUTPUT_FILE | grep -v '\(.*\/[^\/]*\.go\):[[:digit:]]*:[[:digit:]]*:.*' | wc -l`
 if [ $invalidLines -ne 0 ]; then

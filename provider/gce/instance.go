@@ -37,7 +37,7 @@ func (inst *environInstance) Id() instance.Id {
 // Status implements instances.Instance.
 func (inst *environInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	instStatus := inst.base.Status()
-	jujuStatus := status.Provisioning
+	var jujuStatus status.Status
 	switch instStatus {
 	case "PROVISIONING", "STAGING":
 		jujuStatus = status.Provisioning

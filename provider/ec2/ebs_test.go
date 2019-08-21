@@ -1114,6 +1114,16 @@ func (*blockDeviceMappingSuite) TestBlockDeviceNamer(c *gc.C) {
 	expect("/dev/sdn", "xvdn")
 	expect("/dev/sdo", "xvdo")
 	expect("/dev/sdp", "xvdp")
+	expect("/dev/sdq", "xvdq")
+	expect("/dev/sdr", "xvdr")
+	expect("/dev/sds", "xvds")
+	expect("/dev/sdt", "xvdt")
+	expect("/dev/sdu", "xvdu")
+	expect("/dev/sdv", "xvdv")
+	expect("/dev/sdw", "xvdw")
+	expect("/dev/sdx", "xvdx")
+	expect("/dev/sdy", "xvdy")
+	expect("/dev/sdz", "xvdz")
 	expectErr("too many EBS volumes to attach")
 
 	// Now with numbers.
@@ -1134,6 +1144,16 @@ func (*blockDeviceMappingSuite) TestBlockDeviceNamer(c *gc.C) {
 	expectN("/dev/sdn", "xvdn")
 	expectN("/dev/sdo", "xvdo")
 	expectN("/dev/sdp", "xvdp")
+	expectN("/dev/sdq", "xvdq")
+	expectN("/dev/sdr", "xvdr")
+	expectN("/dev/sds", "xvds")
+	expectN("/dev/sdt", "xvdt")
+	expectN("/dev/sdu", "xvdu")
+	expectN("/dev/sdv", "xvdv")
+	expectN("/dev/sdw", "xvdw")
+	expectN("/dev/sdx", "xvdx")
+	expectN("/dev/sdy", "xvdy")
+	expectN("/dev/sdz", "xvdz")
 	expectErr("too many EBS volumes to attach")
 }
 

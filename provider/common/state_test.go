@@ -169,6 +169,7 @@ func (suite *StateSuite) TestRemoveStateInstancesPartial(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	storedState, err := common.LoadState(storage)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storedState, gc.DeepEquals, &common.BootstrapState{
 		StateInstances: []instance.Id{
 			state.StateInstances[1],
@@ -191,6 +192,7 @@ func (suite *StateSuite) TestRemoveStateInstancesNone(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	storedState, err := common.LoadState(storage)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storedState, gc.DeepEquals, &state)
 }
 

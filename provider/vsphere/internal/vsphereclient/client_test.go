@@ -229,27 +229,36 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		"FakeModelVmFolder": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "VirtualMachine",
-				Value: "FakeVm0",
+				Value: "FakeVmTemplate",
 			},
 			PropSet: []types.DynamicProperty{
-				{Name: "name", Val: "vm-0"},
+				{Name: "name", Val: "juju-vm-template"},
 			},
-		}, {
-			Obj: types.ManagedObjectReference{
-				Type:  "VirtualMachine",
-				Value: "FakeVm1",
-			},
-			PropSet: []types.DynamicProperty{
-				{Name: "name", Val: "vm-1"},
-			},
-		}},
+		},
+			{
+				Obj: types.ManagedObjectReference{
+					Type:  "VirtualMachine",
+					Value: "FakeVm0",
+				},
+				PropSet: []types.DynamicProperty{
+					{Name: "name", Val: "juju-vm-0"},
+				},
+			}, {
+				Obj: types.ManagedObjectReference{
+					Type:  "VirtualMachine",
+					Value: "FakeVm1",
+				},
+				PropSet: []types.DynamicProperty{
+					{Name: "name", Val: "juju-vm-1"},
+				},
+			}},
 		"FakeVm0": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "VirtualMachine",
 				Value: "FakeVm0",
 			},
 			PropSet: []types.DynamicProperty{
-				{Name: "name", Val: "vm-0"},
+				{Name: "name", Val: "juju-vm-0"},
 				{Name: "runtime.powerState", Val: "poweredOff"},
 				{
 					Name: "config.hardware.device",
@@ -272,6 +281,67 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 						Value: "FakeResourcePool0",
 					},
 				},
+				{
+					Name: "config.vAppConfig",
+					Val: &types.VmConfigInfo{
+						Product: []types.VAppProductInfo{
+							{
+								Key:  0,
+								Name: "Ubuntu 16.04 Server (20170815)",
+							},
+						},
+						Property: []types.VAppPropertyInfo{{
+							Key:              0,
+							Id:               "instance-id",
+							Label:            "A Unique Instance ID for this instance",
+							Type:             "string",
+							UserConfigurable: types.NewBool(true),
+							DefaultValue:     "id-ovf",
+							Value:            "",
+						}, {
+							Key:              1,
+							Id:               "hostname",
+							Label:            "hostname",
+							Type:             "string",
+							UserConfigurable: types.NewBool(true),
+							DefaultValue:     "ubuntuguest",
+							Value:            "",
+							Description:      "Specifies the hostname for the appliance",
+						}, {
+							Key:              2,
+							Id:               "seedfrom",
+							Label:            "Url to seed instance data from",
+							Type:             "string",
+							UserConfigurable: types.NewBool(true),
+							DefaultValue:     "",
+							Value:            "",
+						}, {
+							Key:              3,
+							Id:               "public-keys",
+							Label:            "ssh public keys",
+							Type:             "string",
+							UserConfigurable: types.NewBool(true),
+							DefaultValue:     "",
+							Value:            "",
+						}, {
+							Key:              4,
+							Id:               "user-data",
+							Label:            "Encoded user-data",
+							Type:             "string",
+							UserConfigurable: types.NewBool(true),
+							DefaultValue:     "",
+							Value:            "",
+						}, {
+							Key:              5,
+							Id:               "password",
+							Label:            "Default User's password",
+							Type:             "string",
+							UserConfigurable: types.NewBool(true),
+							DefaultValue:     "",
+							Value:            "",
+						}},
+					},
+				},
 			},
 		}},
 		"FakeVm1": {{
@@ -280,8 +350,40 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				Value: "FakeVm1",
 			},
 			PropSet: []types.DynamicProperty{
-				{Name: "name", Val: "vm-1"},
+				{Name: "name", Val: "juju-vm-1"},
 				{Name: "runtime.powerState", Val: "poweredOn"},
+				{
+					Name: "config.hardware.device",
+					Val: []types.BaseVirtualDevice{
+						&types.VirtualDisk{
+							VirtualDevice: types.VirtualDevice{
+								Backing: &types.VirtualDiskFlatVer2BackingInfo{
+									VirtualDeviceFileBackingInfo: types.VirtualDeviceFileBackingInfo{
+										FileName: "disk.vmdk",
+									},
+								},
+							},
+							CapacityInKB: 1024 * 1024 * 10, // 10 GiB
+						},
+					},
+				},
+				{
+					Name: "resourcePool",
+					Val: types.ManagedObjectReference{
+						Type:  "ResourcePool",
+						Value: "FakeResourcePool1",
+					},
+				},
+			},
+		}},
+		"FakeVmTemplate": {{
+			Obj: types.ManagedObjectReference{
+				Type:  "VirtualMachine",
+				Value: "FakeVmTemplate",
+			},
+			PropSet: []types.DynamicProperty{
+				{Name: "name", Val: "juju-vm-template"},
+				{Name: "runtime.powerState", Val: "poweredOff"},
 				{
 					Name: "config.hardware.device",
 					Val: []types.BaseVirtualDevice{
@@ -395,6 +497,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.uploadRequests = nil
 	s.onImageUpload = nil
 	s.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger.Infof("HTTP %#v", r)
 		var buf bytes.Buffer
 		io.Copy(&buf, r.Body)
 		rcopy := *r
@@ -517,8 +620,8 @@ func (s *clientSuite) TestEnsureVMFolder(c *gc.C) {
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
-		{"CreateFolder", nil},
-		{"CreateFolder", nil},
+		{"CreateFolder", []interface{}{"foo"}},
+		{"CreateFolder", []interface{}{"bar"}},
 	})
 }
 
@@ -590,10 +693,14 @@ func (s *clientSuite) TestRemoveVirtualMachines(c *gc.C) {
 		retrievePropertiesStubCall("FakeVmFolder"),
 		retrievePropertiesStubCall("FakeControllerVmFolder"),
 		retrievePropertiesStubCall("FakeModelVmFolder"),
-		retrievePropertiesStubCall("FakeVm0", "FakeVm1"),
+		retrievePropertiesStubCall("FakeVmTemplate", "FakeVm0", "FakeVm1"),
+		{"Destroy_Task", nil},
 		{"Destroy_Task", nil},
 		{"PowerOffVM_Task", nil},
 		{"Destroy_Task", nil},
+		{"CreatePropertyCollector", nil},
+		{"CreateFilter", nil},
+		{"WaitForUpdatesEx", nil},
 		{"CreatePropertyCollector", nil},
 		{"CreateFilter", nil},
 		{"WaitForUpdatesEx", nil},
@@ -651,13 +758,15 @@ func (s *clientSuite) TestVirtualMachines(c *gc.C) {
 		retrievePropertiesStubCall("FakeVmFolder"),
 		retrievePropertiesStubCall("FakeControllerVmFolder"),
 		retrievePropertiesStubCall("FakeModelVmFolder"),
+		retrievePropertiesStubCall("FakeVmTemplate"),
 		retrievePropertiesStubCall("FakeVm0"),
 		retrievePropertiesStubCall("FakeVm1"),
 	})
 
-	c.Assert(result, gc.HasLen, 2)
-	c.Assert(result[0].Name, gc.Equals, "vm-0")
-	c.Assert(result[1].Name, gc.Equals, "vm-1")
+	c.Assert(result, gc.HasLen, 3)
+	c.Assert(result[0].Name, gc.Equals, "juju-vm-template")
+	c.Assert(result[1].Name, gc.Equals, "juju-vm-0")
+	c.Assert(result[2].Name, gc.Equals, "juju-vm-1")
 }
 
 func (s *clientSuite) TestDatastores(c *gc.C) {

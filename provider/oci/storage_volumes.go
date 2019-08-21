@@ -542,8 +542,6 @@ func (v *volumeSource) getAttachmentStatus(resourceID *string) (string, error) {
 }
 
 func (v *volumeSource) AttachVolumes(ctx envcontext.ProviderCallContext, params []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
-	var credErr error
-
 	instanceIds := []instance.Id{}
 	for _, val := range params {
 		instanceIds = append(instanceIds, val.InstanceId)
@@ -551,21 +549,22 @@ func (v *volumeSource) AttachVolumes(ctx envcontext.ProviderCallContext, params 
 	if len(instanceIds) == 0 {
 		return []storage.AttachVolumesResult{}, nil
 	}
+	ret := make([]storage.AttachVolumesResult, len(params))
 	instancesAsMap, err := v.env.getOciInstancesAsMap(ctx, instanceIds...)
 	if err != nil {
 		if isAuthFailure(err, ctx) {
 			common.HandleCredentialError(err, ctx)
-			credErr = err
+			// Exit out early to improve readibilty on handling credential
+			// errors.
+			for idx := range params {
+				ret[idx].Error = errors.Trace(err)
+			}
+			return ret, nil
 		}
 		return []storage.AttachVolumesResult{}, errors.Trace(err)
 	}
 
-	ret := make([]storage.AttachVolumesResult, len(params))
 	for idx, volParam := range params {
-		if credErr != nil {
-			ret[idx].Error = errors.Trace(credErr)
-			continue
-		}
 		_, ok := instancesAsMap[volParam.InstanceId]
 		if !ok {
 			// this really should not happen, given how getOciInstancesAsMap()
@@ -578,7 +577,6 @@ func (v *volumeSource) AttachVolumes(ctx envcontext.ProviderCallContext, params 
 		if err != nil {
 			if isAuthFailure(err, ctx) {
 				common.HandleCredentialError(err, ctx)
-				credErr = err
 			}
 			ret[idx].Error = errors.Trace(err)
 		} else {

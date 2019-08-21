@@ -181,6 +181,9 @@ func (n *NeutronNetworking) AllocatePublicIP(instId instance.Id) (*string, error
 		// a new floating ip from.
 		net := n.env.ecfg().network()
 		netId, err := resolveNeutronNetwork(neutronClient, net, false)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		netDetails, err := neutronClient.GetNetworkV2(netId)
 		if err != nil {
 			return nil, errors.Trace(err)

@@ -101,6 +101,19 @@ func (s *SubnetSuite) TestAddSubnetFailsWithAlreadyExistsForDuplicateCIDRInSameM
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
+func (s *SubnetSuite) TestAddSubnetSuccessForDuplicateCIDRDiffProviderIDInSameModel(c *gc.C) {
+	subnetInfo := network.SubnetInfo{CIDR: "192.168.0.1/24"}
+	subnet, err := s.State.AddSubnet(subnetInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertSubnetMatchesInfo(c, subnet, subnetInfo)
+
+	subnetInfo.ProviderId = "testme"
+	subnet2, err := s.State.AddSubnet(subnetInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnet.ID(), gc.Not(gc.Equals), subnet2.ID())
+	c.Assert(subnet.CIDR(), gc.Equals, subnet2.CIDR())
+}
+
 func (s *SubnetSuite) TestAddSubnetSucceedsForDuplicateCIDRInDifferentModels(c *gc.C) {
 	subnetInfo1 := network.SubnetInfo{CIDR: "192.168.0.1/24"}
 	subnetInfo2 := network.SubnetInfo{CIDR: "10.0.0.0/24"}

@@ -588,6 +588,8 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 	err := s.machine0.SetProviderAddresses(
 		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.Model.UpdateModelConfig(map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2352,6 +2354,7 @@ func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 		"other": "stuff",
 	}
 	err = relUnit.EnterScope(settings)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
 	newSettings := params.Settings{
@@ -2695,6 +2698,7 @@ func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.OpenAPIAs(c, unit.Tag(), password)

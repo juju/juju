@@ -422,6 +422,7 @@ regions:
 	c.Assert(err, jc.ErrorIsNil)
 
 	p, err := environs.Provider("openstack")
+	c.Assert(err, jc.ErrorIsNil)
 	err = p.CloudSchema().Validate(v)
 	c.Assert(err, jc.ErrorIsNil)
 }

@@ -776,6 +776,8 @@ func (s *remoteRelationsSuite) TestRemoteRelationSuspended(c *gc.C) {
 	mac, err := apitesting.NewMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)
 	apiMac, err := apitesting.NewMacaroon("apimac")
+	c.Assert(err, jc.ErrorIsNil)
+
 	relTag := names.NewRelationTag("db2:db django:db")
 	// When resuming, it's similar to setting things up for a new relation
 	// except that the call to create te life/status listener is missing.

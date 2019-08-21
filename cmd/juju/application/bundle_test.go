@@ -359,7 +359,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 	_, mysqlch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/mysql-42", "mysql", "bionic")
 	_, wpch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-47", "wordpress", "bionic")
 	testcharms.UploadBundleWithSeries(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple", "bionic")
-	stdOut, stdErr, err := runDeployWithOutput(c, "bundle/wordpress-simple")
+	stdOut, _, err := runDeployWithOutput(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
@@ -373,7 +373,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 		"- add unit mysql/0 to new machine 0\n"+
 		"- add unit wordpress/0 to new machine 1",
 	)
-	stdOut, stdErr, err = runDeployWithOutput(c, "bundle/wordpress-simple")
+	stdOut, stdErr, err := runDeployWithOutput(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	// Nothing to do...
 	c.Check(stdOut, gc.Equals, "")

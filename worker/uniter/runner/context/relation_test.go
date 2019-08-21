@@ -54,6 +54,7 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	unit, err := s.app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
 	s.ru, err = s.rel.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.ru.EnterScope(nil)

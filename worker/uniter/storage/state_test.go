@@ -98,7 +98,7 @@ func (s *stateSuite) TestReadStateFileFileNotExist(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(state, gc.NotNil)
 
-	data, err := ioutil.ReadFile(filepath.Join(dir, "data-0"))
+	_, err = ioutil.ReadFile(filepath.Join(dir, "data-0"))
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	err = state.CommitHook(hook.Info{
@@ -107,7 +107,7 @@ func (s *stateSuite) TestReadStateFileFileNotExist(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	data, err = ioutil.ReadFile(filepath.Join(dir, "data-0"))
+	data, err := ioutil.ReadFile(filepath.Join(dir, "data-0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, "attached: true\n")
 }

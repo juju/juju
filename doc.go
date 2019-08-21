@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Juju is devops distilled.
+// Package juju is devops distilled.
 //
 // Project homepage: https://github.com/juju/juju
 //

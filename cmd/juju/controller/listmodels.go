@@ -117,7 +117,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	}
 	defer modelmanagerAPI.Close()
 
-	haveModels := false
+	var haveModels bool
 	if modelmanagerAPI.BestAPIVersion() > 3 {
 		haveModels, err = c.getModelSummaries(ctx, modelmanagerAPI, now)
 		if err != nil {

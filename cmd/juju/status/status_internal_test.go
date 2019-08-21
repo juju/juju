@@ -4256,6 +4256,7 @@ func (s setUnitAsLeader) step(c *gc.C, ctx *context) {
 	// manager running in the state workers collection.
 	stater := ctx.env.(testing.GetStater)
 	claimer, err := stater.GetLeaseManagerInAPIServer().Claimer("application-leadership", ctx.st.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = claimer.Claim(u.ApplicationName(), u.Name(), time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4484,6 +4485,7 @@ func (s trackBranch) step(c *gc.C, ctx *context) {
 	gen, err := ctx.st.Branch(s.branch)
 	c.Assert(err, jc.ErrorIsNil)
 	err = gen.AssignUnit(s.unitName)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type scopedExpect struct {

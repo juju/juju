@@ -383,7 +383,7 @@ func (s *unitSuite) TestHasSubordinates(c *gc.C) {
 }
 
 func (s *unitSuite) TestPublicAddress(c *gc.C) {
-	address, err := s.apiUnit.PublicAddress()
+	_, err := s.apiUnit.PublicAddress()
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no public address set`)
 
 	err = s.wordpressMachine.SetProviderAddresses(
@@ -391,13 +391,13 @@ func (s *unitSuite) TestPublicAddress(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	address, err = s.apiUnit.PublicAddress()
+	address, err := s.apiUnit.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(address, gc.Equals, "1.2.3.4")
 }
 
 func (s *unitSuite) TestPrivateAddress(c *gc.C) {
-	address, err := s.apiUnit.PrivateAddress()
+	_, err := s.apiUnit.PrivateAddress()
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no private address set`)
 
 	err = s.wordpressMachine.SetProviderAddresses(
@@ -405,7 +405,7 @@ func (s *unitSuite) TestPrivateAddress(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	address, err = s.apiUnit.PrivateAddress()
+	address, err := s.apiUnit.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(address, gc.Equals, "1.2.3.4")
 }
@@ -525,14 +525,14 @@ func (s *unitSuite) TestNetworkInfo(c *gc.C) {
 func (s *unitSuite) TestConfigSettings(c *gc.C) {
 	// Make sure ConfigSettings returns an error when
 	// no charm URL is set, as its state counterpart does.
-	settings, err := s.apiUnit.ConfigSettings()
+	_, err := s.apiUnit.ConfigSettings()
 	c.Assert(err, gc.ErrorMatches, "unit's charm URL must be set before retrieving config")
 
 	// Now set the charm and try again.
 	err = s.apiUnit.SetCharmURL(s.wordpressCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
-	settings, err = s.apiUnit.ConfigSettings()
+	settings, err := s.apiUnit.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"blog-title": "My Title",
@@ -554,14 +554,15 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	// Make sure WatchConfigSettingsHash returns an error when
 	// no charm URL is set, as its state counterpart does.
-	w, err := s.apiUnit.WatchConfigSettingsHash()
+	_, err := s.apiUnit.WatchConfigSettingsHash()
 	c.Assert(err, gc.ErrorMatches, "unit's charm URL must be set before watching config")
 
 	// Now set the charm and try again.
 	err = s.apiUnit.SetCharmURL(s.wordpressCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
-	w, err = s.apiUnit.WatchConfigSettingsHash()
+	w, err := s.apiUnit.WatchConfigSettingsHash()
+	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
 

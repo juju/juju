@@ -561,6 +561,7 @@ func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	listBindings, err := model.AllEndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(listBindings, gc.HasLen, 1)
 
 	c.Assert(listBindings[0], jc.DeepEquals, state.ApplicationEndpointBindings{
@@ -586,9 +587,6 @@ func (s *ModelSuite) createTestModelConfig(c *gc.C) (*config.Config, string) {
 func createTestModelConfig(c *gc.C, controllerUUID string) (*config.Config, string) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	if controllerUUID == "" {
-		controllerUUID = uuid.String()
-	}
 	return testing.CustomModelConfig(c, testing.Attrs{
 		"name": "testing",
 		"uuid": uuid.String(),

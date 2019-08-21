@@ -69,7 +69,7 @@ func (*ScriptRunnerSuite) TestScriptRunnerCheckStderr(c *gc.C) {
 
 func (*ScriptRunnerSuite) TestScriptRunnerTimeout(c *gc.C) {
 	result, err := network.RunCommand("sleep 6", os.Environ(), clock.WallClock, 500*time.Microsecond)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.NotNil)
 	c.Assert(result.TimedOut, gc.Equals, true)
 	c.Assert(result.Code, gc.Equals, 0)
 }

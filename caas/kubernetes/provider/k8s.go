@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"k8s.io/apiextensions-apiserver/pkg/registry/customresourcedefinition"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -48,6 +47,7 @@ import (
 	"github.com/juju/juju/cloudconfig/podcfg"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -1106,6 +1106,96 @@ func resourceTagsToAnnotations(in map[string]string) k8sannotations.Annotation {
 	return out
 }
 
+func processConstraints(pod *core.PodSpec, appName string, cons constraints.Value) error {
+	if mem := cons.Mem; mem != nil {
+		if err := configureConstraint(pod, "memory", fmt.Sprintf("%dMi", *mem)); err != nil {
+			return errors.Annotatef(err, "configuring memory constraint for %s", appName)
+		}
+	}
+	if cpu := cons.CpuPower; cpu != nil {
+		if err := configureConstraint(pod, "cpu", fmt.Sprintf("%dm", *cpu)); err != nil {
+			return errors.Annotatef(err, "configuring cpu constraint for %s", appName)
+		}
+	}
+
+	// Translate tags to node affinity.
+	if cons.Tags != nil {
+		affinityLabels := *cons.Tags
+		var (
+			affinityTags     = make(map[string]string)
+			antiAffinityTags = make(map[string]string)
+		)
+		for _, labelPair := range affinityLabels {
+			parts := strings.Split(labelPair, "=")
+			if len(parts) != 2 {
+				return errors.Errorf("invalid node affinity constraints: %v", affinityLabels)
+			}
+			key := strings.Trim(parts[0], " ")
+			value := strings.Trim(parts[1], " ")
+			if strings.HasPrefix(key, "^") {
+				if len(key) == 1 {
+					return errors.Errorf("invalid node affinity constraints: %v", affinityLabels)
+				}
+				antiAffinityTags[key[1:]] = value
+			} else {
+				affinityTags[key] = value
+			}
+		}
+
+		updateSelectorTerms := func(nodeSelectorTerm *core.NodeSelectorTerm, tags map[string]string, op core.NodeSelectorOperator) {
+			// Sort for stable ordering.
+			var keys []string
+			for k := range tags {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, tag := range keys {
+				allValues := strings.Split(tags[tag], "|")
+				for i, v := range allValues {
+					allValues[i] = strings.Trim(v, " ")
+				}
+				nodeSelectorTerm.MatchExpressions = append(nodeSelectorTerm.MatchExpressions, core.NodeSelectorRequirement{
+					Key:      tag,
+					Operator: op,
+					Values:   allValues,
+				})
+			}
+		}
+		var nodeSelectorTerm core.NodeSelectorTerm
+		updateSelectorTerms(&nodeSelectorTerm, affinityTags, core.NodeSelectorOpIn)
+		updateSelectorTerms(&nodeSelectorTerm, antiAffinityTags, core.NodeSelectorOpNotIn)
+		pod.Affinity = &core.Affinity{
+			NodeAffinity: &core.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
+					NodeSelectorTerms: []core.NodeSelectorTerm{nodeSelectorTerm},
+				},
+			},
+		}
+	}
+	if cons.Zones != nil {
+		zones := *cons.Zones
+		affinity := pod.Affinity
+		if affinity == nil {
+			affinity = &core.Affinity{
+				NodeAffinity: &core.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
+						NodeSelectorTerms: []core.NodeSelectorTerm{{}},
+					},
+				},
+			}
+			pod.Affinity = affinity
+		}
+		nodeSelector := &affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0]
+		nodeSelector.MatchExpressions = append(nodeSelector.MatchExpressions,
+			core.NodeSelectorRequirement{
+				Key:      "failure-domain.beta.kubernetes.io/zone",
+				Operator: core.NodeSelectorOpIn,
+				Values:   zones,
+			})
+	}
+	return nil
+}
+
 // EnsureService creates or updates a service for pods with the given params.
 func (k *kubernetesClient) EnsureService(
 	appName string,
@@ -1173,91 +1263,8 @@ func (k *kubernetesClient) EnsureService(
 			return errors.Annotatef(err, "configuring devices for %s", appName)
 		}
 	}
-	if mem := params.Constraints.Mem; mem != nil {
-		if err = k.configureConstraint(svcSpec, "memory", fmt.Sprintf("%dMi", *mem)); err != nil {
-			return errors.Annotatef(err, "configuring memory constraint for %s", appName)
-		}
-	}
-	if cpu := params.Constraints.CpuPower; cpu != nil {
-		if err = k.configureConstraint(svcSpec, "cpu", fmt.Sprintf("%dm", *cpu)); err != nil {
-			return errors.Annotatef(err, "configuring cpu constraint for %s", appName)
-		}
-	}
-
-	// Translate tags to node affinity.
-	if params.Constraints.Tags != nil {
-		affinityLabels := *params.Constraints.Tags
-		var (
-			affinityTags     = make(map[string]string)
-			antiAffinityTags = make(map[string]string)
-		)
-		for _, labelPair := range affinityLabels {
-			parts := strings.Split(labelPair, "=")
-			if len(parts) != 2 {
-				return errors.Errorf("invalid node affinity constraints: %v", affinityLabels)
-			}
-			key := strings.Trim(parts[0], " ")
-			value := strings.Trim(parts[1], " ")
-			if strings.HasPrefix(key, "^") {
-				if len(key) == 1 {
-					return errors.Errorf("invalid node affinity constraints: %v", affinityLabels)
-				}
-				antiAffinityTags[key[1:]] = value
-			} else {
-				affinityTags[key] = value
-			}
-		}
-
-		updateSelectorTerms := func(nodeSelectorTerm *core.NodeSelectorTerm, tags map[string]string, op core.NodeSelectorOperator) {
-			// Sort for stable ordering.
-			var keys []string
-			for k := range tags {
-				keys = append(keys, k)
-			}
-			sort.Strings(keys)
-			for _, tag := range keys {
-				allValues := strings.Split(tags[tag], "|")
-				for i, v := range allValues {
-					allValues[i] = strings.Trim(v, " ")
-				}
-				nodeSelectorTerm.MatchExpressions = append(nodeSelectorTerm.MatchExpressions, core.NodeSelectorRequirement{
-					Key:      tag,
-					Operator: op,
-					Values:   allValues,
-				})
-			}
-		}
-		var nodeSelectorTerm core.NodeSelectorTerm
-		updateSelectorTerms(&nodeSelectorTerm, affinityTags, core.NodeSelectorOpIn)
-		updateSelectorTerms(&nodeSelectorTerm, antiAffinityTags, core.NodeSelectorOpNotIn)
-		svcSpec.Pod.Affinity = &core.Affinity{
-			NodeAffinity: &core.NodeAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
-					NodeSelectorTerms: []core.NodeSelectorTerm{nodeSelectorTerm},
-				},
-			},
-		}
-	}
-	if params.Constraints.Zones != nil {
-		zones := *params.Constraints.Zones
-		affinity := svcSpec.Pod.Affinity
-		if affinity == nil {
-			affinity = &core.Affinity{
-				NodeAffinity: &core.NodeAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
-						NodeSelectorTerms: []core.NodeSelectorTerm{{}},
-					},
-				},
-			}
-			svcSpec.Pod.Affinity = affinity
-		}
-		nodeSelector := &affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0]
-		nodeSelector.MatchExpressions = append(nodeSelector.MatchExpressions,
-			core.NodeSelectorRequirement{
-				Key:      "failure-domain.beta.kubernetes.io/zone",
-				Operator: core.NodeSelectorOpIn,
-				Values:   zones,
-			})
+	if err := processConstraints(&svcSpec.Pod, appName, params.Constraints); err != nil {
+		return errors.Trace(err)
 	}
 
 	annotations := resourceTagsToAnnotations(params.ResourceTags)
@@ -1558,14 +1565,14 @@ func (k *kubernetesClient) configureDevices(unitSpec *unitSpec, devices []device
 	return nil
 }
 
-func (k *kubernetesClient) configureConstraint(unitSpec *unitSpec, constraint, value string) error {
-	for i := range unitSpec.Pod.Containers {
-		resources := unitSpec.Pod.Containers[i].Resources
+func configureConstraint(pod *core.PodSpec, constraint, value string) error {
+	for i := range pod.Containers {
+		resources := pod.Containers[i].Resources
 		err := mergeConstraint(constraint, value, &resources)
 		if err != nil {
 			return errors.Annotatef(err, "merging constraint %q to %#v", constraint, resources)
 		}
-		unitSpec.Pod.Containers[i].Resources = resources
+		pod.Containers[i].Resources = resources
 	}
 	return nil
 }
@@ -2302,6 +2309,9 @@ func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 	terminated := opPod.DeletionTimestamp != nil
 	now := time.Now()
 	statusMessage, opStatus, since, err := k.getPODStatus(opPod, now)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &caas.Operator{
 		Id:    string(opPod.UID),
 		Dying: terminated,

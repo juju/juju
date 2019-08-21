@@ -87,7 +87,7 @@ func (s *cmdModelSuite) TestRevokeModelCmdStack(c *gc.C) {
 func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
 	// Firstly share an model with a user
 	username := "bar@ubuntuone"
-	context := s.run(c, "grant", username, "read", "controller")
+	s.run(c, "grant", username, "read", "controller")
 	user := names.NewUserTag(username)
 	modelUser, err := s.State.UserAccess(user, s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -98,7 +98,7 @@ func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
 	// to clear the logging writers here.
 	loggo.RemoveWriter("warning")
 
-	context = s.run(c, "list-users", "controller")
+	context := s.run(c, "list-users", "controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Name           Display name  Access  Last connection\n"+

@@ -1619,6 +1619,9 @@ func (w *unitsWatcher) loop(coll, id string) error {
 			return tomb.ErrDying
 		case <-rootCh:
 			changes, err = w.update(changes)
+			if err != nil {
+				return err
+			}
 			if len(changes) > 0 {
 				out = w.out
 			}

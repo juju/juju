@@ -506,6 +506,9 @@ func (fw *Firewaller) reconcileGlobal() error {
 		machines = append(machines, machined)
 	}
 	want, err := fw.gatherIngressRules(machines...)
+	if err != nil {
+		return err
+	}
 	initialPortRanges, err := fw.environFirewaller.IngressRules(fw.cloudCallContext)
 	if err != nil {
 		return err

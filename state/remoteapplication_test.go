@@ -160,6 +160,7 @@ func (s *remoteApplicationSuite) TestStatus(c *gc.C) {
 	app, err := s.State.RemoteApplication("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	appStatus, err := app.Status()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appStatus.Since, gc.NotNil)
 	appStatus.Since = nil
 	c.Assert(appStatus, gc.DeepEquals, status.StatusInfo{
@@ -1097,6 +1098,7 @@ func (s *remoteApplicationSuite) TestTerminateOperationLeavesScopes(c *gc.C) {
 	eps2, err := s.State.InferEndpoints("wp2", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel2, err := s.State.AddRelation(eps2...)
+	c.Assert(err, jc.ErrorIsNil)
 
 	ru1, err := rel1.RemoteUnit("mysql/0")
 	c.Assert(err, jc.ErrorIsNil)

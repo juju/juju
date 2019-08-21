@@ -3,6 +3,12 @@
 
 package network
 
+import (
+	"net"
+
+	"github.com/juju/errors"
+)
+
 // FanCIDRs describes the subnets relevant to a fan network.
 type FanCIDRs struct {
 	// FanLocalUnderlay is the CIDR of the local underlying fan network.
@@ -81,4 +87,31 @@ func (s *SubnetInfo) FanOverlay() string {
 		return ""
 	}
 	return s.FanInfo.FanOverlay
+}
+
+// Validate validates the subnet, checking the CIDR, and VLANTag, if present.
+func (s *SubnetInfo) Validate() error {
+	if s.CIDR != "" {
+		_, _, err := net.ParseCIDR(s.CIDR)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		return errors.Errorf("missing CIDR")
+	}
+
+	if s.VLANTag < 0 || s.VLANTag > 4094 {
+		return errors.Errorf("invalid VLAN tag %d: must be between 0 and 4094", s.VLANTag)
+	}
+
+	return nil
+}
+
+// IsValidCidr returns whether cidr is a valid subnet CIDR.
+func IsValidCidr(cidr string) bool {
+	_, ipNet, err := net.ParseCIDR(cidr)
+	if err == nil && ipNet.String() == cidr {
+		return true
+	}
+	return false
 }

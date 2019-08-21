@@ -118,7 +118,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 
 	// If requireAdmin is true, the user must be a controller superuser
 	// or model admin to proceed.
-	isAdmin := false
+	var isAdmin bool
 	err = api.checkAdmin(backend)
 	if err != nil && err != common.ErrPerm {
 		return nil, errors.Trace(err)

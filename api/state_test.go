@@ -148,6 +148,7 @@ func (s *stateSuite) TestLoginToMigratedModel(c *gc.C) {
 	})
 	defer modelState.Close()
 	model, err := modelState.Model()
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Migrate the model and delete it from the state
 	mig, err := modelState.CreateMigration(state.MigrationSpec{

@@ -289,6 +289,7 @@ func assertIndex(c *gc.C, obtainedIndex []byte, expectedIndex string) {
 	// Unmarshall into objects so an order independent comparison can be done.
 	var obtained interface{}
 	err := json.Unmarshal(obtainedIndex, &obtained)
+	c.Assert(err, jc.ErrorIsNil)
 	var expected interface{}
 	err = json.Unmarshal([]byte(expectedIndex), &expected)
 	c.Assert(err, jc.ErrorIsNil)

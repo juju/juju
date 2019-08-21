@@ -95,7 +95,7 @@ var getAPI = func(c *CommandBase) (APIClient, int, error) {
 	}
 	version := root.BestFacadeVersion("Backups")
 	client, err := backups.NewClient(root)
-	return client, version, nil
+	return client, version, errors.Trace(err)
 }
 
 // dumpMetadata writes the formatted backup metadata to stdout.

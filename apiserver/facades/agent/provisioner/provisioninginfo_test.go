@@ -496,6 +496,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 
 	// Only machine 0 and containers therein can be accessed.
 	results, err := aProvisioner.ProvisioningInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
 	controllerCfg := coretesting.FakeControllerConfig()
 	// Dummy provider uses a random port, which is added to cfg used to create environment.
 	apiPort := dummy.APIPort(s.Environ.Provider())

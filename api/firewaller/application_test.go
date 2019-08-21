@@ -23,8 +23,8 @@ var _ = gc.Suite(&applicationSuite{})
 func (s *applicationSuite) SetUpTest(c *gc.C) {
 	s.firewallerSuite.SetUpTest(c)
 
-	var err error
 	apiUnit, err := s.firewaller.Unit(s.units[0].Tag().(names.UnitTag))
+	c.Assert(err, jc.ErrorIsNil)
 	s.apiApplication, err = apiUnit.Application()
 	c.Assert(err, jc.ErrorIsNil)
 }

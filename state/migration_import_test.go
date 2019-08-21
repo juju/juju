@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time" // only uses time.Time values
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -29,6 +30,7 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/state/mocks"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -433,6 +435,49 @@ func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
 	c.Check(devices, jc.DeepEquals, []state.BlockDeviceInfo{sda, sdb})
 }
 
+func (s *MigrationImportSuite) TestMachinePortOpsSubnetID(c *gc.C) {
+	subnet, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.0.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+	s.testMachinePortOps(c, subnet.ID(), subnet.ID())
+}
+
+func (s *MigrationImportSuite) TestMachinePortOpsSubnetCIDR(c *gc.C) {
+	subnet, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.0.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+	s.testMachinePortOps(c, subnet.CIDR(), subnet.ID())
+}
+
+func (s *MigrationImportSuite) TestMachinePortOpsSubnetEmpty(c *gc.C) {
+	s.testMachinePortOps(c, "", "")
+}
+
+func (s *MigrationImportSuite) testMachinePortOps(c *gc.C, setup, validate string) {
+	ctrl, mockMachine := setupMockOpenedPorts(c, "3", setup)
+	defer ctrl.Finish()
+
+	ops, err := state.MachinePortOps(s.State, mockMachine)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, 1)
+	c.Assert(ops[0].Id, gc.Equals, fmt.Sprintf("m#3#%s", validate))
+}
+
+//go:generate mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description Machine,OpenedPorts
+func setupMockOpenedPorts(c *gc.C, mID, subnetID string) (*gomock.Controller, *mocks.MockMachine) {
+	ctrl := gomock.NewController(c)
+	mockMachine := mocks.NewMockMachine(ctrl)
+	mockOpenedPorts := mocks.NewMockOpenedPorts(ctrl)
+
+	mExp := mockMachine.EXPECT()
+	mExp.Id().Return(mID)
+	mExp.OpenedPorts().Return([]description.OpenedPorts{mockOpenedPorts})
+
+	opExp := mockOpenedPorts.EXPECT()
+	opExp.SubnetID().Return(subnetID)
+	opExp.OpenPorts().Return(nil)
+
+	return ctrl, mockMachine
+}
+
 func (s *MigrationImportSuite) setupSourceApplications(
 	c *gc.C, st *state.State, cons constraints.Value, primeStatusHistory bool,
 ) (*state.Charm, *state.Application, string) {
@@ -595,6 +640,7 @@ func (s *MigrationImportSuite) TestApplicationStatus(c *gc.C) {
 	newApp, err := newSt.Application(application.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	appStatus, err := newApp.Status()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appStatus.Status, gc.Equals, status.Active)
 	c.Assert(appStatus.Message, gc.Equals, "unit active")
 }
@@ -654,6 +700,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G")
 	testCharm, application, _ := s.setupSourceApplications(c, caasSt, cons, false)
 	ss, err := application.Status()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("status: %s", ss)
 
 	addUnitFactory := factory.NewFactory(caasSt, s.StatePool)
@@ -705,6 +752,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Must use derived status
 	appStatus, err := newApp.Status()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appStatus.Status, gc.Equals, status.Active)
 	c.Assert(appStatus.Message, gc.Equals, "unit active")
 }
@@ -772,6 +820,7 @@ func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	sUnits, err := subordinate.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
 	for _, u := range sUnits {
 		// For some reason the EnterScope call doesn't set up the
 		// version or enter the scope for the subordinate unit on the
@@ -1190,10 +1239,27 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 		IsPublic:          true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	originalNoID, err := s.State.AddSubnet(network.SubnetInfo{
+		CIDR:              "10.76.0.0/24",
+		ProviderId:        network.Id("bar"),
+		ProviderNetworkId: network.Id("oak"),
+		VLANTag:           64,
+		SpaceName:         "bam",
+		AvailabilityZones: []string{"bar"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
-	_, newSt := s.importModel(c, s.State)
+	_, newSt := s.importModel(c, s.State, func(desc map[string]interface{}) {
+		subnets := desc["subnets"].(map[interface{}]interface{})
+		for _, item := range subnets["subnets"].([]interface{}) {
+			sp := item.(map[interface{}]interface{})
+			if sp["subnet-id"] == originalNoID.ID() {
+				sp["subnet-id"] = ""
+			}
+		}
+	})
 
-	subnet, err := newSt.Subnet(original.CIDR())
+	subnet, err := newSt.SubnetByID(original.ID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
@@ -1205,6 +1271,10 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "")
 	c.Assert(subnet.FanOverlay(), gc.Equals, "")
 	c.Assert(subnet.IsPublic(), gc.Equals, true)
+
+	imported, err := newSt.Subnet(originalNoID.CIDR())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(imported, gc.Not(gc.Equals), "")
 }
 
 func (s *MigrationImportSuite) TestSubnetsWithFan(c *gc.C) {
@@ -1651,6 +1721,7 @@ func (s *MigrationImportSuite) TestStorage(c *gc.C) {
 	c.Check(state.StorageAttachmentCount(testInstance), gc.Equals, originalCount)
 
 	attachments, err := newSb.StorageAttachments(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachments, gc.HasLen, 1)
 	c.Assert(attachments[0].Unit(), gc.Equals, u.UnitTag())
 }

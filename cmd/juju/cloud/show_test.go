@@ -24,7 +24,7 @@ import (
 type showSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	api   *fakeShowCloudAPI
-	store jujuclient.ClientStore
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&showSuite{})
@@ -43,7 +43,7 @@ func (s *showSuite) TestShowBadArgs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "no cloud specified")
 }
 
-func (s *showSuite) TestShowLocal(c *gc.C) {
+func (s *showSuite) assertShowLocal(c *gc.C, expectedOutput string) {
 	cmd := cloud.NewShowCloudCommandForTest(
 		s.store,
 		func(controllerName string) (cloud.ShowCloudAPI, error) {
@@ -53,11 +53,31 @@ func (s *showSuite) TestShowLocal(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cmd, "aws-china", "--local")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, `
+	c.Assert(out, gc.Equals, expectedOutput)
+}
+
+func (s *showSuite) TestShowLocal(c *gc.C) {
+	s.assertShowLocal(c, `
 defined: public
 type: ec2
 description: Amazon China
 auth-types: [access-key]
+regions:
+  cn-north-1:
+    endpoint: https://ec2.cn-north-1.amazonaws.com.cn
+  cn-northwest-1:
+    endpoint: https://ec2.cn-northwest-1.amazonaws.com.cn
+`[1:])
+}
+
+func (s *showSuite) TestShowLocalWithDefaultCloud(c *gc.C) {
+	s.store.Credentials["aws-china"] = jujucloud.CloudCredential{DefaultRegion: "cn-north-1"}
+	s.assertShowLocal(c, `
+defined: public
+type: ec2
+description: Amazon China
+auth-types: [access-key]
+default-region: cn-north-1
 regions:
   cn-north-1:
     endpoint: https://ec2.cn-north-1.amazonaws.com.cn
@@ -158,7 +178,7 @@ clouds:
       use-default-secgroup: true
 `[1:]
 	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
-
+	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "homestack", "--local")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
@@ -224,7 +244,7 @@ clouds:
         use-floating-ip: true
 `[1:]
 	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
-
+	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "homestack", "--include-config", "--local")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
@@ -334,7 +354,7 @@ ca-credentials:
 
 func (s *showSuite) TestShowWithCACertificate(c *gc.C) {
 	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(yamlWithCert), 0600)
-
+	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "homestack", "--local")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)

@@ -60,6 +60,7 @@ func (s *runSuite) addUnit(c *gc.C, application *state.Application) *state.Unit 
 func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	magic, err := s.State.AddApplication(state.AddApplicationArgs{Name: "magic", Charm: charm})
+	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
 

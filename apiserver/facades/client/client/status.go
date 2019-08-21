@@ -138,7 +138,6 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 			hist []params.DetailedStatus
 		)
 		kind := status.HistoryKind(request.Kind)
-		err = errors.NotValidf("%q requires a unit, got %T", kind, request.Tag)
 		switch kind {
 		case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
 			var u names.UnitTag
@@ -662,6 +661,9 @@ func fetchAllApplicationsAndUnits(
 	unitMap := make(map[string]map[string]*state.Unit)
 	latestCharms := make(map[charm.URL]*state.Charm)
 	applications, err := st.AllApplications()
+	if err != nil {
+		return applicationStatusInfo{}, err
+	}
 	units, err := model.AllUnits()
 	if err != nil {
 		return applicationStatusInfo{}, err

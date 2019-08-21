@@ -102,6 +102,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 			URL:     "http://testing.invalid/tools.tar.gz",
 		},
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	err = instancecfg.FinishInstanceConfig(icfg, modelConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg, err := cloudinit.New(icfg.Series)

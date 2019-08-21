@@ -44,7 +44,7 @@ func (s *PortsDocSuite) SetUpTest(c *gc.C) {
 	s.subnet, err = s.State.AddSubnet(network.SubnetInfo{CIDR: "0.1.2.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.portsOnSubnet, err = state.GetOrCreatePorts(s.State, s.machine.Id(), s.subnet.CIDR())
+	s.portsOnSubnet, err = state.GetOrCreatePorts(s.State, s.machine.Id(), s.subnet.ID())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.portsOnSubnet, gc.NotNil)
 
@@ -54,7 +54,7 @@ func (s *PortsDocSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *PortsDocSuite) TestCreatePortsWithSubnet(c *gc.C) {
-	s.testCreatePortsWithSubnetID(c, s.subnet.CIDR())
+	s.testCreatePortsWithSubnetID(c, s.subnet.ID())
 }
 
 func (s *PortsDocSuite) testCreatePortsWithSubnetID(c *gc.C, subnetID string) {
@@ -81,7 +81,6 @@ func (s *PortsDocSuite) TestCreatePortsWithoutSubnet(c *gc.C) {
 }
 
 func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
-
 	testCases := []struct {
 		about    string
 		existing []state.PortRange
@@ -260,7 +259,7 @@ func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
 
-		ports, err := state.GetOrCreatePorts(s.State, s.machine.Id(), s.subnet.CIDR())
+		ports, err := state.GetOrCreatePorts(s.State, s.machine.Id(), s.subnet.ID())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(ports, gc.NotNil)
 
@@ -372,7 +371,7 @@ func (s *PortsDocSuite) TestRemovePortsDoc(c *gc.C) {
 	err := s.portsOnSubnet.OpenPorts(portRange)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ports, err := state.GetPorts(s.State, s.machine.Id(), s.subnet.CIDR())
+	ports, err := state.GetPorts(s.State, s.machine.Id(), s.subnet.ID())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.NotNil)
 
@@ -384,13 +383,14 @@ func (s *PortsDocSuite) TestRemovePortsDoc(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	ports, err = state.GetPorts(s.State, s.machine.Id(), s.subnet.CIDR())
+	ports, err = state.GetPorts(s.State, s.machine.Id(), s.subnet.ID())
 	c.Assert(ports, gc.IsNil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `ports for machine "0", subnet "0.1.2.0/24" not found`)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`ports for machine %q, subnet %q not found`, s.machine.Id(), s.subnet.ID()))
 }
 
 func (s *PortsDocSuite) TestWatchPorts(c *gc.C) {
+
 	// No port ranges open initially, no changes.
 	w := s.State.WatchOpenedPorts()
 	c.Assert(w, gc.NotNil)
@@ -409,7 +409,7 @@ func (s *PortsDocSuite) TestWatchPorts(c *gc.C) {
 		UnitName: s.unit1.Name(),
 		Protocol: "TCP",
 	}
-	expectChange := fmt.Sprintf("%s:%s", s.machine.Id(), s.subnet.CIDR())
+	expectChange := fmt.Sprintf("%s:%s", s.machine.Id(), s.subnet.ID())
 	// Open a port range, detect a change.
 	err := s.portsOnSubnet.OpenPorts(portRange)
 	c.Assert(err, jc.ErrorIsNil)

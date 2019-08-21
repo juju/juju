@@ -154,8 +154,10 @@ func newcontrollerStack(
 	broker *kubernetesClient,
 	pcfg *podcfg.ControllerPodConfig,
 ) (controllerStacker, error) {
-	// TODO(caas): parse from constrains?
 	storageSizeControllerRaw := "20Gi"
+	if rootDiskSize := pcfg.Bootstrap.BootstrapMachineConstraints.RootDisk; rootDiskSize != nil {
+		storageSizeControllerRaw = fmt.Sprintf("%dMi", *rootDiskSize)
+	}
 	storageSize, err := resource.ParseQuantity(storageSizeControllerRaw)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -542,6 +544,10 @@ func (c *controllerStack) createControllerStatefulset() error {
 		return errors.Trace(err)
 	}
 	if err := c.buildContainerSpecForController(spec); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := processConstraints(&spec.Spec.Template.Spec, c.stackName, c.pcfg.Bootstrap.BootstrapMachineConstraints); err != nil {
 		return errors.Trace(err)
 	}
 

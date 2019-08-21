@@ -231,7 +231,7 @@ func Main(args []string) int {
 		os.Exit(exit_err)
 	}
 
-	code := 1
+	var code int
 	commandName := filepath.Base(args[0])
 	switch commandName {
 	case names.Jujud:

@@ -74,6 +74,7 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 	err = s.register.RunPost(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	authorization, err := json.Marshal([]byte("hello registration"))
+	c.Assert(err, jc.ErrorIsNil)
 	authorization = append(authorization, byte(0xa))
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"IsMetered", []interface{}{"cs:quantal/metered-1"},
@@ -112,6 +113,7 @@ func (s *registrationSuite) TestOptionalPlanMeteredCharm(c *gc.C) {
 	err = s.register.RunPost(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	authorization, err := json.Marshal([]byte("hello registration"))
+	c.Assert(err, jc.ErrorIsNil)
 	authorization = append(authorization, byte(0xa))
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"IsMetered", []interface{}{"cs:quantal/metered-1"},
@@ -150,6 +152,7 @@ func (s *registrationSuite) TestPlanNotSpecifiedCharm(c *gc.C) {
 	err = s.register.RunPost(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	authorization, err := json.Marshal([]byte("hello registration"))
+	c.Assert(err, jc.ErrorIsNil)
 	authorization = append(authorization, byte(0xa))
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"IsMetered", []interface{}{"cs:quantal/metered-1"},
@@ -282,9 +285,6 @@ func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
 	deployError := errors.New("deployment failed")
 	err = s.register.RunPost(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, deployError)
 	c.Assert(err, jc.ErrorIsNil)
-	authorization, err := json.Marshal([]byte("hello registration"))
-	authorization = append(authorization, byte(0xa))
-	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"IsMetered", []interface{}{"cs:quantal/metered-1"},
 	}, {
@@ -317,6 +317,7 @@ func (s *registrationSuite) TestMeteredLocalCharmWithPlan(c *gc.C) {
 	err = s.register.RunPost(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	authorization, err := json.Marshal([]byte("hello registration"))
+	c.Assert(err, jc.ErrorIsNil)
 	authorization = append(authorization, byte(0xa))
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"IsMetered", []interface{}{"local:quantal/metered-1"},
@@ -359,6 +360,7 @@ func (s *registrationSuite) TestMeteredLocalCharmNoPlan(c *gc.C) {
 	err = s.register.RunPost(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	authorization, err := json.Marshal([]byte("hello registration"))
+	c.Assert(err, jc.ErrorIsNil)
 	authorization = append(authorization, byte(0xa))
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"IsMetered", []interface{}{"local:quantal/metered-1"},
@@ -550,9 +552,6 @@ func (s *registrationSuite) TestFailedAuth(c *gc.C) {
 	}
 	err := s.register.RunPre(&mockMeteredDeployAPI{Stub: s.stub}, client, s.ctx, d)
 	c.Assert(err, gc.ErrorMatches, `authorization failed:.*`)
-	authorization, err := json.Marshal([]byte("hello registration"))
-	authorization = append(authorization, byte(0xa))
-	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		"IsMetered", []interface{}{"cs:quantal/metered-1"},
 	}, {

@@ -778,6 +778,7 @@ func (s *UnitSuite) TestRemoveUnitWRelationLastUnit(c *gc.C) {
 	mysqlCharm := s.AddTestingCharm(c, "mysql")
 	mysqlApp := s.AddTestingApplication(c, "mysql", mysqlCharm)
 	mysqlUnit, err := mysqlApp.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mysqlUnit.AssignToNewMachine(), jc.ErrorIsNil)
 	endpoints, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1176,6 +1177,7 @@ func (s *UnitSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		err = s.unit.SetWorkloadVersion(fmt.Sprintf("v.%d", i))
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	filter := status.StatusHistoryFilter{Size: 100}
@@ -1384,7 +1386,7 @@ func (s *UnitSuite) TestOpenedPortsOnInvalidSubnet(c *gc.C) {
 
 func (s *UnitSuite) TestOpenedPortsOnUnknownSubnet(c *gc.C) {
 	// We're not adding the 127.0.0.0/8 subnet to test the "not found" case.
-	s.testOpenedPorts(c, "127.0.0.0/8", `subnet "127.0.0.0/8" not found or not alive`)
+	s.testOpenedPorts(c, "4", `subnet "4" not found or not alive`)
 }
 
 func (s *UnitSuite) TestOpenedPortsOnDeadSubnet(c *gc.C) {
@@ -1395,21 +1397,21 @@ func (s *UnitSuite) TestOpenedPortsOnDeadSubnet(c *gc.C) {
 	err = subnet.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.testOpenedPorts(c, "0.1.2.0/24", `subnet "0.1.2.0/24" not found or not alive`)
+	s.testOpenedPorts(c, subnet.ID(), fmt.Sprintf(`subnet %q not found or not alive`, subnet.ID()))
 }
 
 func (s *UnitSuite) TestOpenedPortsOnAliveIPv4Subnet(c *gc.C) {
-	_, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "192.168.0.0/16"})
+	subnet, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "192.168.0.0/16"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.testOpenedPorts(c, "192.168.0.0/16", "")
+	s.testOpenedPorts(c, subnet.ID(), "")
 }
 
 func (s *UnitSuite) TestOpenedPortsOnAliveIPv6Subnet(c *gc.C) {
-	_, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "2001:db8::/64"})
+	subnet, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "2001:db8::/64"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.testOpenedPorts(c, "2001:db8::/64", "")
+	s.testOpenedPorts(c, subnet.ID(), "")
 }
 
 func (s *UnitSuite) TestOpenedPortsOnEmptySubnet(c *gc.C) {
@@ -2304,6 +2306,7 @@ func (s *CAASUnitSuite) TestCannotShortCircuitDestroyAllocatedUnit(c *gc.C) {
 	// This test is similar to TestShortCircuitDestroyUnit but
 	// the unit has been allocated and a pod created.
 	unit, err := s.application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
 	now := coretesting.NonZeroTime()
 	err = unit.SetAgentStatus(status.StatusInfo{
 		Status:  status.Error,

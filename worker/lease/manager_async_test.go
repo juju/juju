@@ -446,6 +446,7 @@ func (s *AsyncSuite) TestClaimTimeout(c *gc.C) {
 		// - one is the nextTick timer, set for 1 minute in the future
 		// - two is the claim retry timer
 		err = clock.WaitAdvance(50*time.Millisecond, coretesting.LongWait, 2)
+		c.Assert(err, jc.ErrorIsNil)
 
 		select {
 		case err := <-result:

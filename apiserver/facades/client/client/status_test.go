@@ -947,7 +947,7 @@ func (s *filteringBranchesSuite) TestFullStatusBranchFilterApplication(c *gc.C) 
 
 func (s *filteringBranchesSuite) TestFullStatusBranchFilterSubordinateUnit(c *gc.C) {
 	s.assertBranchAssignUnit(c, "apple", s.subB+"/0")
-	s.assertBranchAssignUnit(c, "banana", "testme/0")
+	s.assertBranchAssignUnit(c, "banana", s.appA+"/0")
 	err := s.State.AddBranch("cucumber", "test-user")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -967,7 +967,7 @@ func (s *filteringBranchesSuite) TestFullStatusBranchFilterSubordinateUnit(c *gc
 
 func (s *filteringBranchesSuite) TestFullStatusBranchFilterTwoBranchesSubordinateUnit(c *gc.C) {
 	s.assertBranchAssignUnit(c, "apple", s.subB+"/0")
-	s.assertBranchAssignUnit(c, "banana", "testme/1")
+	s.assertBranchAssignUnit(c, "banana", s.appA+"/0")
 	s.assertBranchAssignUnit(c, "cucumber", s.appB+"/0")
 
 	client := s.clientForTest(c)
@@ -1013,7 +1013,7 @@ func (s *filteringBranchesSuite) assertBranchAssignUnit(c *gc.C, bName, uName st
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gen, gc.NotNil)
 	err = gen.AssignUnit(uName)
-	c.Assert(gen, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *filteringBranchesSuite) assertBranchAssignApplication(c *gc.C, bName, aName string) {
@@ -1023,7 +1023,7 @@ func (s *filteringBranchesSuite) assertBranchAssignApplication(c *gc.C, bName, a
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gen, gc.NotNil)
 	err = gen.AssignApplication(aName)
-	c.Assert(gen, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type mockLeadershipReader struct{}

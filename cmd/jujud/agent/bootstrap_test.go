@@ -185,6 +185,7 @@ func (s *BootstrapSuite) TestGUIArchiveInfoNotFound(c *gc.C) {
 	defer loggo.RemoveWriter("bootstrap-test")
 
 	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
 		`cannot set up Juju GUI: cannot fetch GUI info: GUI metadata not found`,
@@ -233,6 +234,7 @@ func (s *BootstrapSuite) TestGUIArchiveError(c *gc.C) {
 	defer loggo.RemoveWriter("bootstrap-test")
 
 	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
 		`cannot set up Juju GUI: cannot read GUI archive: .*`,
