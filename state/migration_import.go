@@ -1191,6 +1191,16 @@ func (i *importer) relation(rel description.Relation) error {
 	// unit of the application, and an op that adds the relation settings
 	// for each unit.
 	for _, endpoint := range rel.Endpoints() {
+		importedEp, err := dbRelation.Endpoint(endpoint.ApplicationName())
+		if err != nil {
+			// This should never happen - we just created endpoints
+			// from the import data.
+			return errors.Trace(err)
+		}
+		appKey := relationApplicationSettingsKey(dbRelation.Id(), importedEp)
+		appSettings := endpoint.ApplicationSettings()
+		ops = append(ops, createSettingsOp(settingsC, appKey, appSettings))
+
 		units := i.applicationUnits[endpoint.ApplicationName()]
 		for unitName, settings := range endpoint.AllSettings() {
 			unit, ok := units[unitName]

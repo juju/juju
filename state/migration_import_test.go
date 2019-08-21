@@ -2094,6 +2094,48 @@ func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
 	c.Assert(imported.Type(), gc.Equals, state.ModelTypeIAAS)
 }
 
+func (s *MigrationImportSuite) TestImportingRelationApplicationSettings(c *gc.C) {
+	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wordpressSettings := map[string]interface{}{
+		"venusian": "superbug",
+	}
+	err = rel.UpdateApplicationSettings(wordpress, &fakeToken{}, wordpressSettings)
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlSettings := map[string]interface{}{
+		"planet b": "perihelion",
+	}
+	err = rel.UpdateApplicationSettings(mysql, &fakeToken{}, mysqlSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c, s.State)
+
+	newWordpress, err := newSt.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(state.RelationCount(newWordpress), gc.Equals, 1)
+	rels, err := newWordpress.Relations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rels, gc.HasLen, 1)
+
+	newRel := rels[0]
+
+	newWpSettings, err := newRel.ApplicationSettings(newWordpress)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newWpSettings, gc.DeepEquals, wordpressSettings)
+
+	newMysql, err := newSt.Application("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+
+	newMysqlSettings, err := newRel.ApplicationSettings(newMysql)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newMysqlSettings, gc.DeepEquals, mysqlSettings)
+}
+
 // newModel replaces the uuid and name of the config attributes so we
 // can use all the other data to validate imports. An owner and name of the
 // model are unique together in a controller.
