@@ -12,7 +12,7 @@ import (
 	"github.com/docker/distribution/reference"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/specs"
 )
 
 // These Docker Config datatypes have been pulled from
@@ -21,8 +21,8 @@ import (
 // to flatten the deps.
 // The specific package in this case is golog.
 
-// DockerConfigJson represents ~/.docker/config.json file info.
-type DockerConfigJson struct {
+// DockerConfigJSON represents ~/.docker/config.json file info.
+type DockerConfigJSON struct {
 	Auths DockerConfig `json:"auths"`
 }
 
@@ -36,7 +36,7 @@ type DockerConfigEntry struct {
 	Email    string
 }
 
-func createDockerConfigJSON(imageDetails *caas.ImageDetails) ([]byte, error) {
+func createDockerConfigJSON(imageDetails *specs.ImageDetails) ([]byte, error) {
 	dockerEntry := DockerConfigEntry{
 		Username: imageDetails.Username,
 		Password: imageDetails.Password,
@@ -46,7 +46,7 @@ func createDockerConfigJSON(imageDetails *caas.ImageDetails) ([]byte, error) {
 		return nil, errors.Trace(err)
 	}
 
-	dockerConfig := DockerConfigJson{
+	dockerConfig := DockerConfigJSON{
 		Auths: map[string]DockerConfigEntry{
 			registryURL: dockerEntry,
 		},

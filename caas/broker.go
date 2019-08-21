@@ -10,6 +10,7 @@ import (
 	"github.com/juju/version"
 	core "k8s.io/api/core/v1"
 
+	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -98,7 +99,7 @@ type ServiceParams struct {
 	Deployment DeploymentParams
 
 	// PodSpec is the spec used to configure a pod.
-	PodSpec *PodSpec
+	PodSpec *specs.PodSpec
 
 	// ResourceTags is a set of tags to set on the created service.
 	ResourceTags map[string]string
@@ -142,8 +143,8 @@ type Broker interface {
 	// DeleteOperator deletes the specified operator.
 	DeleteOperator(appName string) error
 
-	// EnsureCustomResourceDefinition creates or updates a custom resource definition resource.
-	EnsureCustomResourceDefinition(appName string, podSpec *PodSpec) error
+	// // EnsureCustomResourceDefinition creates or updates a custom resource definition resource.
+	// EnsureCustomResourceDefinition(appName string, podSpec *specs.PodSpec) error
 
 	// WatchUnits returns a watcher which notifies when there
 	// are changes to units of the specified application.

@@ -1,23 +1,24 @@
-// Copyright 2018 Canonical Ltd.
+// Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package provider
+package specs
 
 import (
-	"fmt"
+	// "fmt"
 	"strings"
 
-	"github.com/juju/collections/set"
+	// "github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 	core "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
-	"github.com/juju/juju/caas"
+	// "github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/specs"
 )
 
-type caasContainerSpec caas.ContainerSpec
+type caasContainerSpec specs.ContainerSpec
 
 type k8sContainer struct {
 	caasContainerSpec `json:",inline"`
@@ -25,9 +26,9 @@ type k8sContainer struct {
 }
 
 type k8sContainers struct {
-	Containers                []k8sContainer                                               `json:"containers"`
-	InitContainers            []k8sContainer                                               `json:"initContainers"`
-	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `yaml:"customResourceDefinitions,omitempty"`
+	Containers     []k8sContainer `json:"containers"`
+	InitContainers []k8sContainer `json:"initContainers"`
+	// CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `yaml:"customResourceDefinitions,omitempty"`
 }
 
 // K8sContainerSpec is a subset of v1.Container which defines
@@ -44,7 +45,7 @@ func (*K8sContainerSpec) Validate() error {
 	return nil
 }
 
-type caasPodSpec caas.PodSpec
+type caasPodSpec specs.PodSpecLegacy
 
 type k8sPod struct {
 	caasPodSpec `json:",inline"`
@@ -78,6 +79,9 @@ type K8sPodSpec struct {
 	DNSConfig                     *core.PodDNSConfig       `json:"dnsConfig,omitempty"`
 	ReadinessGates                []core.PodReadinessGate  `json:"readinessGates,omitempty"`
 	Service                       *K8sServiceSpec          `json:"service,omitempty"`
+
+	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `yaml:"customResourceDefinitions,omitempty"`
+	ServiceAccount            *ServiceAccountSpec                                          `yaml:"-"`
 }
 
 // Validate is defined on ProviderPod.
@@ -85,15 +89,9 @@ func (*K8sPodSpec) Validate() error {
 	return nil
 }
 
-var boolValues = set.NewStrings(
-	strings.Split("y|Y|yes|Yes|YES|n|N|no|No|NO|true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF", "|")...)
-
-// ParsePodSpec parses a YAML file which defines how to
-// configure a CAAS pod. We allow for generic container
-// set up plus k8s select specific features.
-func ParsePodSpec(in string) (*caas.PodSpec, error) {
+func parsePodSpecLegacy(in string) (*specs.PodSpec, error) {
 	// Do the common fields.
-	var spec caas.PodSpec
+	var spec specs.PodSpecLegacy
 	if err := yaml.Unmarshal([]byte(in), &spec); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -106,13 +104,13 @@ func ParsePodSpec(in string) (*caas.PodSpec, error) {
 	if pod.K8sPodSpec != nil {
 		spec.ProviderPod = pod.K8sPodSpec
 	}
-	if pod.ServiceAccount != nil {
-		if pod.K8sPodSpec != nil && pod.ServiceAccountName != "" {
-			return nil, errors.New(`
-either use ServiceAccountName to reference existing service account or define ServiceAccount spec to create a new one`[1:])
-		}
-		spec.ServiceAccount = pod.ServiceAccount
-	}
+	// 	if pod.ServiceAccount != nil {
+	// 		if pod.K8sPodSpec != nil && pod.ServiceAccountName != "" {
+	// 			return nil, errors.New(`
+	// either use ServiceAccountName to reference existing service account or define ServiceAccount spec to create a new one`[1:])
+	// 		}
+	// 		spec.ServiceAccount = pod.ServiceAccount
+	// 	}
 
 	// Do the k8s containers.
 	var containers k8sContainers
@@ -128,54 +126,25 @@ either use ServiceAccountName to reference existing service account or define Se
 	quoteBoolStrings(containers.InitContainers)
 
 	// Compose the result.
-	spec.Containers = make([]caas.ContainerSpec, len(containers.Containers))
+	spec.Containers = make([]specs.ContainerSpec, len(containers.Containers))
 	for i, c := range containers.Containers {
 		if err := c.Validate(); err != nil {
 			return nil, errors.Trace(err)
 		}
 		spec.Containers[i] = containerFromK8sSpec(c)
 	}
-	spec.InitContainers = make([]caas.ContainerSpec, len(containers.InitContainers))
+	spec.InitContainers = make([]specs.ContainerSpec, len(containers.InitContainers))
 	for i, c := range containers.InitContainers {
 		if err := c.Validate(); err != nil {
 			return nil, errors.Trace(err)
 		}
 		spec.InitContainers[i] = containerFromK8sSpec(c)
 	}
-	spec.CustomResourceDefinitions = containers.CustomResourceDefinitions
 
-	return &spec, spec.Validate()
-}
-
-func quoteBoolStrings(containers []k8sContainer) {
-	// Any string config values that could be interpreted as bools need to be quoted.
-	for _, container := range containers {
-		for k, v := range container.Config {
-			strValue, ok := v.(string)
-			if !ok {
-				continue
-			}
-			if boolValues.Contains(strValue) {
-				container.Config[k] = fmt.Sprintf("'%s'", strValue)
-			}
-		}
-	}
-}
-
-func containerFromK8sSpec(c k8sContainer) caas.ContainerSpec {
-	result := caas.ContainerSpec{
-		ImageDetails: c.ImageDetails,
-		Name:         c.Name,
-		Image:        c.Image,
-		Ports:        c.Ports,
-		Command:      c.Command,
-		Args:         c.Args,
-		WorkingDir:   c.WorkingDir,
-		Config:       c.Config,
-		Files:        c.Files,
-	}
-	if c.K8sContainerSpec != nil {
-		result.ProviderContainer = c.K8sContainerSpec
-	}
-	return result
+	// construct to latest versiob of podspec.
+	out := &specs.PodSpec{}
+	out.Containers = spec.Containers
+	out.InitContainers = spec.Containers
+	out.ProviderPod = spec.ProviderPod
+	return out, spec.Validate()
 }

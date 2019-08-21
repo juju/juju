@@ -53,11 +53,11 @@ func (s *DockerConfigSuite) TestCreateDockerConfigJSON(c *gc.C) {
 	config, err := provider.CreateDockerConfigJSON(&imageDetails)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var result provider.DockerConfigJson
+	var result provider.DockerConfigJSON
 	err = json.Unmarshal(config, &result)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(result, jc.DeepEquals, provider.DockerConfigJson{
+	c.Assert(result, jc.DeepEquals, provider.DockerConfigJSON{
 		Auths: map[string]provider.DockerConfigEntry{
 			"registry.staging.jujucharms.com": {
 				Username: "docker-registry",

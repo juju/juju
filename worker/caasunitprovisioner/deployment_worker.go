@@ -150,13 +150,7 @@ func (w *deploymentWorker) loop() error {
 		if err != nil {
 			return errors.Annotate(err, "cannot parse pod spec")
 		}
-		if len(spec.CustomResourceDefinitions) > 0 {
-			err = w.broker.EnsureCustomResourceDefinition(w.application, spec)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			logger.Debugf("created/updated custom resource definition for %q.", w.application)
-		}
+
 		serviceParams := &caas.ServiceParams{
 			PodSpec:      spec,
 			Constraints:  info.Constraints,
