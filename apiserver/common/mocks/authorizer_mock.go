@@ -6,7 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	names_v2 "gopkg.in/juju/names.v3"
+	names_v3 "gopkg.in/juju/names.v3"
 	reflect "reflect"
 )
 
@@ -58,9 +58,9 @@ func (mr *MockAuthorizerMockRecorder) AuthMachineAgent() *gomock.Call {
 }
 
 // GetAuthTag mocks base method
-func (m *MockAuthorizer) GetAuthTag() names_v2.Tag {
+func (m *MockAuthorizer) GetAuthTag() names_v3.Tag {
 	ret := m.ctrl.Call(m, "GetAuthTag")
-	ret0, _ := ret[0].(names_v2.Tag)
+	ret0, _ := ret[0].(names_v3.Tag)
 	return ret0
 }
 

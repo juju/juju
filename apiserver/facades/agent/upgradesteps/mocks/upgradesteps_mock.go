@@ -9,7 +9,7 @@ import (
 	instance "github.com/juju/juju/core/instance"
 	status "github.com/juju/juju/core/status"
 	state "github.com/juju/juju/state"
-	names_v2 "gopkg.in/juju/names.v3"
+	names_v3 "gopkg.in/juju/names.v3"
 	reflect "reflect"
 )
 
@@ -37,7 +37,7 @@ func (m *MockUpgradeStepsState) EXPECT() *MockUpgradeStepsStateMockRecorder {
 }
 
 // FindEntity mocks base method
-func (m *MockUpgradeStepsState) FindEntity(arg0 names_v2.Tag) (state.Entity, error) {
+func (m *MockUpgradeStepsState) FindEntity(arg0 names_v3.Tag) (state.Entity, error) {
 	ret := m.ctrl.Call(m, "FindEntity", arg0)
 	ret0, _ := ret[0].(state.Entity)
 	ret1, _ := ret[1].(error)
