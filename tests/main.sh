@@ -4,6 +4,9 @@
 # Always ignore SC2230 ('which' is non-standard. Use builtin 'command -v' instead.)
 export SHELLCHECK_OPTS="-e SC2230 -e SC2039 -e SC2028 -e SC2002"
 
+OPTIND=1
+VERBOSE=0
+
 import_subdir_files() {
     test "$1"
     local file
@@ -14,6 +17,29 @@ import_subdir_files() {
 }
 
 import_subdir_files includes
+
+show_help() {
+    echo "Juju test suite"
+    echo "Usage: cmd [-h] [-v]"
+    echo "    cmd -h        Display this help message"
+    echo "    cmd -v        Verbose and debug messages"
+    exit 0
+}
+
+while getopts "h?:v" opt; do
+    case "${opt}" in
+    h|\?)
+        show_help
+        ;;
+    v)  VERBOSE=1
+        ;;
+    esac
+done
+
+shift $((OPTIND-1))
+
+[ "${1:-}" = "--" ] && shift
+
 
 echo "==> Checking for dependencies"
 check_dependencies curl jq shellcheck juju

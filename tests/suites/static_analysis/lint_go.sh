@@ -10,7 +10,7 @@ run_func_vet() {
 }
 
 run_dep_check() {
-  OUT=$(dep check)
+  OUT=$(dep check 2>&1 || true)
   if [ -n "${OUT}" ]; then
     printf "\\nFound some issues"
     echo "\\n${OUT}" >&2
@@ -19,11 +19,21 @@ run_dep_check() {
 }
 
 run_go_vet() {
-  go vet -composites=false ./...
+  OUT=$(go vet -composites=false ./... 2>&1 || true)
+  if [ -n "${OUT}" ]; then
+    printf "\\nFound some issues"
+    echo "\\n${OUT}" >&2
+    exit 1
+  fi
 }
 
 run_go_lint() {
-  golint -set_exit_status ./
+  OUT=$(golint -set_exit_status ./ 2>&1 || true)
+  if [ -n "${OUT}" ]; then
+    printf "\\nFound some issues"
+    echo "\\n${OUT}" >&2
+    exit 1
+  fi
 }
 
 run_deadcode() {
