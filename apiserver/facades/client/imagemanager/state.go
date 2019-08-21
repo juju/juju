@@ -4,7 +4,7 @@
 package imagemanager
 
 import (
-	names "gopkg.in/juju/names.v3"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/imagestorage"
