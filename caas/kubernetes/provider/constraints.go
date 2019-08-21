@@ -15,7 +15,6 @@ var unsupportedConstraints = []string{
 	constraints.VirtType,
 	constraints.Container,
 	constraints.Arch,
-	constraints.RootDisk,
 	constraints.InstanceType,
 	constraints.Spaces,
 }

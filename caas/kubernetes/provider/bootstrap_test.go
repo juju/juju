@@ -15,6 +15,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	k8sstorage "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
 	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/mongo"
@@ -61,7 +63,8 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.controllerUUID = "9bec388c-d264-4cde-8b29-3e675959157a"
 
 	s.controllerCfg = testing.FakeControllerConfig()
-	pcfg, err := podcfg.NewBootstrapControllerPodConfig(s.controllerCfg, controllerName, "bionic")
+	pcfg, err := podcfg.NewBootstrapControllerPodConfig(
+		s.controllerCfg, controllerName, "bionic", constraints.MustParse("root-disk=10000M mem=4000M"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	pcfg.JujuVersion = jujuversion.Current
@@ -367,7 +370,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 						AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
 						Resources: core.ResourceRequirements{
 							Requests: core.ResourceList{
-								core.ResourceStorage: controllerStacker.GetStorageSize(),
+								core.ResourceStorage: resource.MustParse("10000Mi"),
 							},
 						},
 					},
@@ -514,6 +517,11 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				SuccessThreshold:    1,
 				TimeoutSeconds:      5,
 			},
+			Resources: core.ResourceRequirements{
+				Limits: core.ResourceList{
+					core.ResourceMemory: resource.MustParse("4000Mi"),
+				},
+			},
 			VolumeMounts: []core.VolumeMount{
 				{
 					Name:      "storage",
@@ -559,6 +567,11 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --machine-id 0 --debug
 `[1:],
 			},
 			WorkingDir: "/var/lib/juju",
+			Resources: core.ResourceRequirements{
+				Limits: core.ResourceList{
+					core.ResourceMemory: resource.MustParse("4000Mi"),
+				},
+			},
 			VolumeMounts: []core.VolumeMount{
 				{
 					Name:      "storage",
