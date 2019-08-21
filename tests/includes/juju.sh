@@ -1,6 +1,5 @@
 bootstrap() {
-    set -eux
-    local provider name model
+    local provider name model bootstrapped bootstrapped_name
 
     case "${BOOTSTRAP_PROVIDER:-}" in
         "aws")
@@ -27,17 +26,40 @@ bootstrap() {
         exit 1
     fi
 
-    echo "====> Bootstrapping juju"
-    if [ -n "${output}" ]; then
-        juju bootstrap "${provider}" "${name}" -d "${model}" "$@" > "${output}" 2>&1
-    else
-        juju bootstrap "${provider}" "${name}" -d "${model}" "$@"
+    bootstrapped="false"
+    if [ -n "${BOOTSTRAP_REUSE}" ]; then
+
+        bootstrapped_name=$(grep "." "${TEST_DIR}/jujus" | tail -n 1)
+        if [ -n "${bootstrapped_name}" ]; then
+            echo "====> Reusing bootstrapped juju"
+
+            OUT=$(juju controllers --format=json | jq '.controllers | .["${bootstrapped_name}"] | .cloud' | grep "${provider}" || true)
+            if [ -n "${OUT}" ]; then
+                juju add-model "${model}" "${provider}"
+            else
+                juju add-model "${model}"
+            fi
+            bootstrapped="true"
+            name="${bootstrapped_name}"
+        fi
     fi
-    echo "${name}" >> "${TEST_DIR}/jujus"
+
+    if [ "${bootstrapped}" = "false" ]; then
+        echo "====> Bootstrapping juju"
+        if [ -n "${output}" ]; then
+            juju bootstrap "${provider}" "${name}" -d "${model}" "$@" > "${output}" 2>&1
+        else
+            juju bootstrap "${provider}" "${name}" -d "${model}" "$@"
+        fi
+        echo "${name}" >> "${TEST_DIR}/jujus"
+        bootstrapped="true"
+    fi
+
     echo "${model}" >> "${TEST_DIR}/models"
 
     echo "====> Bootstrapped juju"
 
+    export BOOTSTRAPPED="${bootstrapped}"
     export BOOTSTRAPPED_JUJU_CTRL_NAME="${name}"
 }
 
