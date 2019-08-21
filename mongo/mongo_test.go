@@ -255,7 +255,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
 	s.assertMongoConfigFile(c)
 
 	c.Check(s.data.Installed(), gc.HasLen, 0)
-	s.data.CheckCallNames(c, "Running")
+	s.data.CheckCallNames(c, "Installed", "Exists", "Running")
 }
 
 func (s *MongoSuite) TestEnsureServerSetsSysctlValues(c *gc.C) {
@@ -304,7 +304,28 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
 	s.assertMongoConfigFile(c)
 
 	c.Check(s.data.Installed(), gc.HasLen, 0)
-	s.data.CheckCallNames(c, "Running", "Install", "Stop", "Start")
+	s.data.CheckCallNames(c, "Installed", "Exists", "Running", "Start")
+}
+
+func (s *MongoSuite) TestEnsureServerServerExistsDifferentIsRewritten(c *gc.C) {
+	dataDir := c.MkDir()
+
+	pm, err := coretesting.GetPackageManager()
+	c.Assert(err, jc.ErrorIsNil)
+	testing.PatchExecutableAsEchoArgs(c, s, pm.PackageManager)
+
+	s.data.SetStatus(mongo.ServiceName, "different")
+
+	_, err = mongo.EnsureServer(makeEnsureServerParams(dataDir))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// These should still be written out even if the service was installed.
+	s.assertSSLKeyFile(c, dataDir)
+	s.assertSharedSecretFile(c, dataDir)
+	s.assertMongoConfigFile(c)
+
+	c.Check(s.data.Installed(), gc.HasLen, 0)
+	s.data.CheckCallNames(c, "Installed", "Exists", "Stop", "Install", "Stop", "Start")
 }
 
 func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
@@ -317,15 +338,9 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
 	s.data.SetStatus(mongo.ServiceName, "installed")
 	failure := errors.New("won't start")
 	s.data.SetErrors(
+		nil,     // Installed
+		nil,     // Exists
 		nil,     // Running
-		nil,     // Install
-		nil,     // Stop
-		failure, // Start
-		nil,     // Stop
-		failure, // Start
-		nil,     // Stop
-		failure, // Start
-		nil,     // Stop
 		failure, // Start
 	)
 
@@ -333,18 +348,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	c.Check(s.data.Installed(), gc.HasLen, 0)
-	s.data.CheckCallNames(c,
-		"Running",
-		"Install",
-		"Stop",
-		"Start",
-		"Stop",
-		"Start",
-		"Stop",
-		"Start",
-		"Stop",
-		"Start",
-	)
+	s.data.CheckCallNames(c, "Installed", "Exists", "Running", "Start")
 }
 
 func (s *MongoSuite) TestEnsureServerNUMACtl(c *gc.C) {
@@ -617,7 +621,7 @@ func (s *MongoSuite) assertTestMongoGetFails(c *gc.C, series string, packageMana
 
 	// Verify that EnsureServer continued and started the mongodb service.
 	c.Check(s.data.Installed(), gc.HasLen, 0)
-	s.data.CheckCallNames(c, "Running", "Install", "Stop", "Start")
+	s.data.CheckCallNames(c, "Installed", "Exists", "Running", "Start")
 }
 
 func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
@@ -638,7 +642,7 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.data.Installed(), gc.HasLen, 0)
-	s.data.CheckCallNames(c, "Running")
+	s.data.CheckCallNames(c, "Installed", "Exists", "Running")
 }
 
 func (s *MongoSuite) TestNewServiceWithReplSet(c *gc.C) {
