@@ -640,7 +640,7 @@
   revision = "88a4c6ac59c1950f118f058d920204c9182b9927"
 
 [[projects]]
-  digest = "1:8fd6c21ba9a864b949672e63800d1bd71a3d8ac8e085cc22143b97f1261ad634"
+  digest = "1:477061a46f9584f862cd45dea6096b3149c76106b917ccfcf78d6bba53dabc74"
   name = "github.com/juju/packaging"
   packages = [
     ".",
@@ -649,7 +649,7 @@
     "manager",
   ]
   pruneopts = ""
-  revision = "ba21344fff207f4fa06b0a08bac386b179a2e6a1"
+  revision = "6caf1fe053515833fa8d541cb8ee9b3b50ef3592"
 
 [[projects]]
   digest = "1:529c96edf33ad02d0460dcd152750b00b34a8424d1fb1c42790e5e7a30d003fb"
