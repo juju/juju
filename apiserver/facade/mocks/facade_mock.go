@@ -8,7 +8,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	facade "github.com/juju/juju/apiserver/facade"
 	permission "github.com/juju/juju/permission"
-	names_v2 "gopkg.in/juju/names.v3"
+	names_v3 "gopkg.in/juju/names.v3"
 	reflect "reflect"
 )
 
@@ -143,7 +143,7 @@ func (mr *MockAuthorizerMockRecorder) AuthMachineAgent() *gomock.Call {
 }
 
 // AuthOwner mocks base method
-func (m *MockAuthorizer) AuthOwner(arg0 names_v2.Tag) bool {
+func (m *MockAuthorizer) AuthOwner(arg0 names_v3.Tag) bool {
 	ret := m.ctrl.Call(m, "AuthOwner", arg0)
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -179,9 +179,9 @@ func (mr *MockAuthorizerMockRecorder) ConnectedModel() *gomock.Call {
 }
 
 // GetAuthTag mocks base method
-func (m *MockAuthorizer) GetAuthTag() names_v2.Tag {
+func (m *MockAuthorizer) GetAuthTag() names_v3.Tag {
 	ret := m.ctrl.Call(m, "GetAuthTag")
-	ret0, _ := ret[0].(names_v2.Tag)
+	ret0, _ := ret[0].(names_v3.Tag)
 	return ret0
 }
 
@@ -191,7 +191,7 @@ func (mr *MockAuthorizerMockRecorder) GetAuthTag() *gomock.Call {
 }
 
 // HasPermission mocks base method
-func (m *MockAuthorizer) HasPermission(arg0 permission.Access, arg1 names_v2.Tag) (bool, error) {
+func (m *MockAuthorizer) HasPermission(arg0 permission.Access, arg1 names_v3.Tag) (bool, error) {
 	ret := m.ctrl.Call(m, "HasPermission", arg0, arg1)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
@@ -204,7 +204,7 @@ func (mr *MockAuthorizerMockRecorder) HasPermission(arg0, arg1 interface{}) *gom
 }
 
 // UserHasPermission mocks base method
-func (m *MockAuthorizer) UserHasPermission(arg0 names_v2.UserTag, arg1 permission.Access, arg2 names_v2.Tag) (bool, error) {
+func (m *MockAuthorizer) UserHasPermission(arg0 names_v3.UserTag, arg1 permission.Access, arg2 names_v3.Tag) (bool, error) {
 	ret := m.ctrl.Call(m, "UserHasPermission", arg0, arg1, arg2)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)

@@ -9,7 +9,7 @@ import (
 	common "github.com/juju/juju/apiserver/common"
 	model "github.com/juju/juju/core/model"
 	state "github.com/juju/juju/state"
-	names_v2 "gopkg.in/juju/names.v3"
+	names_v3 "gopkg.in/juju/names.v3"
 	reflect "reflect"
 )
 
@@ -259,9 +259,9 @@ func (mr *MockUpgradeSeriesUnitMockRecorder) SetUpgradeSeriesStatus(arg0, arg1 i
 }
 
 // Tag mocks base method
-func (m *MockUpgradeSeriesUnit) Tag() names_v2.Tag {
+func (m *MockUpgradeSeriesUnit) Tag() names_v3.Tag {
 	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(names_v2.Tag)
+	ret0, _ := ret[0].(names_v3.Tag)
 	return ret0
 }
 

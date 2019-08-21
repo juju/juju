@@ -19,7 +19,7 @@ import (
 	storage "github.com/juju/juju/storage"
 	version "github.com/juju/version"
 	environschema_v1 "gopkg.in/juju/environschema.v1"
-	names_v2 "gopkg.in/juju/names.v3"
+	names_v3 "gopkg.in/juju/names.v3"
 	io "io"
 	reflect "reflect"
 )
@@ -1385,7 +1385,7 @@ func (mr *MockNetworkingEnvironMockRecorder) AllRunningInstances(arg0 interface{
 }
 
 // AllocateContainerAddresses mocks base method
-func (m *MockNetworkingEnviron) AllocateContainerAddresses(arg0 context.ProviderCallContext, arg1 instance.Id, arg2 names_v2.MachineTag, arg3 []network0.InterfaceInfo) ([]network0.InterfaceInfo, error) {
+func (m *MockNetworkingEnviron) AllocateContainerAddresses(arg0 context.ProviderCallContext, arg1 instance.Id, arg2 names_v3.MachineTag, arg3 []network0.InterfaceInfo) ([]network0.InterfaceInfo, error) {
 	ret := m.ctrl.Call(m, "AllocateContainerAddresses", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].([]network0.InterfaceInfo)
 	ret1, _ := ret[1].(error)
