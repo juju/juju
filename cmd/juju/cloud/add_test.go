@@ -22,6 +22,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -32,7 +33,8 @@ import (
 type addSuite struct {
 	jujutesting.IsolationSuite
 
-	store *jujuclient.MemStore
+	store     *jujuclient.MemStore
+	addCloudF func(cloud jujucloud.Cloud, force bool) error
 }
 
 var _ = gc.Suite(&addSuite{})
@@ -43,6 +45,7 @@ func (s *addSuite) SetUpTest(c *gc.C) {
 	store.Controllers["mycontroller"] = jujuclient.ControllerDetails{}
 	store.CurrentControllerName = "mycontroller"
 	s.store = store
+	s.addCloudF = func(cloud jujucloud.Cloud, force bool) error { return nil }
 }
 
 func (s *addSuite) runCommand(c *gc.C, cloudMetadataStore cloud.CloudMetadataStore, args ...string) (*cmd.Context, error) {
@@ -341,6 +344,7 @@ func (s *addSuite) TestAddNewInvalidAuthType(c *gc.C) {
 
 type fakeAddCloudAPI struct {
 	jujutesting.Stub
+	addCloudF func(cloud jujucloud.Cloud, force bool) error
 }
 
 func (api *fakeAddCloudAPI) Close() error {
@@ -350,7 +354,7 @@ func (api *fakeAddCloudAPI) Close() error {
 
 func (api *fakeAddCloudAPI) AddCloud(cloud jujucloud.Cloud, force bool) error {
 	api.AddCall("AddCloud", cloud, force)
-	return nil
+	return api.addCloudF(cloud, force)
 }
 
 func (api *fakeAddCloudAPI) AddCredential(tag string, credential jujucloud.Credential) error {
@@ -387,7 +391,10 @@ func (s *addSuite) setupControllerCloudScenario(c *gc.C) (
 		AuthCredentials: map[string]jujucloud.Credential{"default": cred},
 	}
 
-	api := &fakeAddCloudAPI{}
+	api := &fakeAddCloudAPI{
+		Stub:      jujutesting.Stub{},
+		addCloudF: s.addCloudF,
+	}
 	command := cloud.NewAddCloudCommandForTest(fake, store, func() (cloud.AddCloudAPI, error) {
 		return api, nil
 	})
@@ -420,6 +427,28 @@ func (s *addSuite) asssertAddToController(c *gc.C, force bool) {
 
 func (s *addSuite) TestAddToController(c *gc.C) {
 	s.asssertAddToController(c, false)
+}
+
+func (s *addSuite) TestAddToControllerIncompatibleCloud(c *gc.C) {
+	s.addCloudF = func(cloud jujucloud.Cloud, force bool) error {
+		return params.Error{Code: params.CodeIncompatibleClouds}
+	}
+	cloudFileName, command, _, api, _, _ := s.setupControllerCloudScenario(c)
+	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", cloudFileName)
+	c.Assert(err, jc.ErrorIsNil)
+	api.CheckCallNames(c, "AddCloud", "Close")
+	api.CheckCall(c, 0, "AddCloud",
+		jujucloud.Cloud{
+			Name:        "garage-maas",
+			Type:        "maas",
+			Description: "Metal As A Service",
+			AuthTypes:   jujucloud.AuthTypes{"oauth1"},
+			Endpoint:    "http://garagemaas",
+		},
+		false)
+	out := cmdtesting.Stderr(ctx)
+	out = strings.Replace(out, "\n", "", -1)
+	c.Assert(out, gc.Matches, `Adding a cloud of type "maas" might not function correctly on this controller.If you really want to do this, use --force.`)
 }
 
 func (s *addSuite) TestForceAddToController(c *gc.C) {

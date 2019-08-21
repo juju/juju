@@ -116,7 +116,7 @@ When adding clouds to a controller, some clouds are whitelisted and can be easil
 %v
 
 Other cloud combinations can only be force added as the user must consider
-network routability and other consideration that are outside of Juju concerns.
+network routability and other considerations that are outside of Juju concerns.
 When forced addition is desired, use --force.
 
 Examples:
@@ -341,6 +341,12 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 			ctxt.Infof("To upload credentials to the controller for cloud %q, use \n"+
 				"* 'add-model' with --credential option or\n"+
 				"* 'add-credential -c %v'.", newCloud.Name, newCloud.Name)
+			return nil
+		}
+		if params.ErrCode(err) == params.CodeIncompatibleClouds {
+			logger.Infof("%v", err)
+			ctxt.Infof("Adding a cloud of type %q might not function correctly on this controller.\n"+
+				"If you really want to do this, use --force.", newCloud.Type)
 			return nil
 		}
 		return err

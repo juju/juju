@@ -38,7 +38,7 @@ func (w *WhiteList) String() string {
 	return strings.Join(result, "\n")
 }
 
-// Check will err out if 'exiting' controller cloud type is
+// Check will err out if 'existing' controller cloud type is
 // not compatible with a 'new' cloud type according to this white list.
 func (w *WhiteList) Check(existing, new string) error {
 	if list, ok := w.matrix[existing]; ok {

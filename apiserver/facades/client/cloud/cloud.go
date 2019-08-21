@@ -1020,7 +1020,7 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 		}
 		if err := cloud.CurrentWhiteList().Check(controllerCloud.Type, cloudArgs.Cloud.Type); err != nil {
 			if cloudArgs.Force == nil || !*cloudArgs.Force {
-				return errors.Trace(err)
+				return common.ServerError(params.Error{Code: params.CodeIncompatibleClouds, Message: err.Error()})
 			}
 			logger.Infof("force adding cloud %q of type %q to controller bootstrapped on cloud type %q", cloudArgs.Name, cloudArgs.Cloud.Type, controllerCloud.Type)
 		}
