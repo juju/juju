@@ -616,10 +616,10 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 	}
 	dbDir := DbDir(args.DataDir)
 	if err := makeJournalDirs(dbDir); err != nil {
-		return zeroVersion, fmt.Errorf("error creating journal directories: %v", err)
+		return zeroVersion, errors.Errorf("error creating journal directories: %v", err)
 	}
 	if err := preallocOplog(dbDir, oplogSizeMB); err != nil {
-		return zeroVersion, fmt.Errorf("error creating oplog files: %v", err)
+		return zeroVersion, errors.Errorf("error creating oplog files: %v", err)
 	}
 
 	if err := service.InstallAndStart(svc); err != nil {
