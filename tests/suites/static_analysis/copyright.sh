@@ -9,17 +9,17 @@ run_copyright() {
 }
 
 test_copyright() {
-    if [ -n "${SKIP_STATIC_COPYRIGHT:-}" ]; then
-        echo "==> SKIP: Asked to skip static copyright analysis"
+    if [ "$(skip 'test_copyright')" ]; then
+        echo "==> TEST SKIPPED: static copyright analysis"
         return
     fi
 
     (
-        set -e
+        set_verbosity
 
         cd ../
 
         # Check for copyright notices
-        run "copyright"
+        run "run_copyright"
     )
 }

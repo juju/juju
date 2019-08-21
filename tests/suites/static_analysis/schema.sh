@@ -17,17 +17,17 @@ run_schema() {
 }
 
 test_schema() {
-    if [ -n "${SKIP_STATIC_SCHEMA:-}" ]; then
-        echo "==> SKIP: Asked to skip static schema analysis"
+    if [ "$(skip 'test_schema')" ]; then
+        echo "==> TEST SKIPPED: static schema analysis"
         return
     fi
 
     (
-        set -e
+        set_verbosity
 
         cd ../
 
         # Check for schema changes and ensure they've been committed
-        run "schema"
+        run "run_schema"
     )
 }

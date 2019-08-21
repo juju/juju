@@ -66,7 +66,7 @@ run_ineffassign() {
 
 run_go_fmt() {
   FILES=${2}
-  OUT=$(echo "$FILES" | xargs gofmt -l -s)
+  OUT=$(echo "${FILES}" | xargs gofmt -l -s)
   if [ -n "${OUT}" ]; then
     OUT=$(echo "${OUT}" | sed "s/^/  /")
     printf "\\nFound some issues"
@@ -78,13 +78,13 @@ run_go_fmt() {
 }
 
 test_static_analysis_go() {
-  if [ -n "${SKIP_STATIC_GO:-}" ]; then
-      echo "==> SKIP: Asked to skip static go analysis"
+  if [ "$(skip 'test_static_analysis_go')" ]; then
+      echo "==> TEST SKIPPED: static go analysis"
       return
   fi
 
   (
-    set -e
+    set_verbosity
 
     cd ../
 
@@ -96,27 +96,27 @@ test_static_analysis_go() {
 
     ## Check dependency is correct
     if which dep >/dev/null 2>&1; then
-      run "dep check"
+      run "run_dep_check"
     fi
 
     ## go vet, if it exists
     if go help vet >/dev/null 2>&1; then
-      run "go vet"
+      run "run_go_vet"
     fi
 
     ## golint
     if which golint >/dev/null 2>&1; then
-      run "go lint"
+      run "run_go_lint"
     fi
 
     ## deadcode
     if which deadcode >/dev/null 2>&1; then
-      run "deadcode"
+      run "run_deadcode"
     fi
 
     ## misspell
     if which misspell >/dev/null 2>&1; then
-      run "misspell" "${FILES}"
+      run "run_misspell" "${FILES}"
     fi
 
     ## ineffassign
@@ -126,6 +126,6 @@ test_static_analysis_go() {
     # fi
 
     ## go fmt
-    run "go fmt" "${FILES}"
+    run "run_go_fmt" "${FILES}"
   )
 }

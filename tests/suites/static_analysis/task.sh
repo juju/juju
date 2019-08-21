@@ -1,6 +1,6 @@
 test_static_analysis() {
-    if [ -n "${SKIP_STATIC:-}" ]; then
-        echo "==> SKIP: Asked to skip static analysis"
+    if [ "$(skip 'test_static_analysis')" ]; then
+        echo "==> TEST SKIPPED: skip static analysis"
         return
     fi
 

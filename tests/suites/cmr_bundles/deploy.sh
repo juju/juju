@@ -21,16 +21,16 @@ run_deploy() {
 }
 
 test_deploy() {
-    if [ -n "${SKIP_CMR_BUNDLES_DEPLOY:-}" ]; then
-        echo "==> SKIP: Asked to skip CMR bundle deploy tests"
+    if [ "$(skip 'test_deploy')" ]; then
+        echo "==> TEST SKIPPED: CMR bundle deploy tests"
         return
     fi
 
     (
-        set -e
+        set_verbosity
 
         cd ../
 
-        run "deploy"
+        run "run_deploy"
     )
 }

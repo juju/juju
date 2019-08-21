@@ -24,27 +24,27 @@ run_trailing_whitespace() {
 }
 
 test_static_analysis_shell() {
-  if [ -n "${SKIP_STATIC_SHELL:-}" ]; then
-      echo "==> SKIP: Asked to skip static shell analysis"
+  if [ "$(skip 'test_static_analysis_shell')" ]; then
+      echo "==> TEST SKIPPED: static shell analysis"
       return
   fi
 
   (
-    set -e
+    set_verbosity
 
     cd ../
 
     # Shell static analysis
     if which shellcheck >/dev/null 2>&1; then
-      run "shellcheck"
+      run "run_shellcheck"
     else
       echo "shellcheck not found, shell static analysis disabled"
     fi
 
     ## Mixed tabs/spaces in scripts
-    run "whitespace"
+    run "run_whitespace"
 
     ## Trailing whitespace in scripts
-    run "trailing whitespace"
+    run "run_trailing_whitespace"
   )
 }

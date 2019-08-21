@@ -1,6 +1,6 @@
 test_smoke() {
-    if [ -n "${SKIP_SMOKE:-}" ]; then
-        echo "==> SKIP: Asked to skip smoke tests"
+    if [ "$(skip 'test_smoke')" ]; then
+        echo "==> TEST SKIPPED: smoke tests"
         return
     fi
 

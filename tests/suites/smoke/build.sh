@@ -8,17 +8,17 @@ run_build() {
 }
 
 test_build() {
-    if [ -n "${SKIP_SMOKE_BUILD:-}" ]; then
-        echo "==> SKIP: Asked to skip smoke build tests"
+    if [ "$(skip 'test_build')" ]; then
+        echo "==> TEST SKIPPED: smoke build tests"
         return
     fi
 
     (
-        set -e
+        set_verbosity
 
         cd ../
 
         # Check that build runs
-        run "build"
+        run "run_build"
     )
 }

@@ -16,15 +16,15 @@ run_deploy() {
 }
 
 test_deploy() {
-    if [ -n "${SKIP_SMOKE_DEPLOY:-}" ]; then
-        echo "==> SKIP: Asked to skip smoke deploy tests"
+    if [ "$(skip 'test_deploy')" ]; then
+        echo "==> TEST SKIPPED: smoke deploy tests"
         return
     fi
 
     (
-        set -e
+        set_verbosity
 
         # Check that deploy runs on LXD
-        run "deploy"
+        run "run_deploy"
     )
 }

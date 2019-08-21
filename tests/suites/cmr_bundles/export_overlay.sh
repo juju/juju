@@ -38,16 +38,16 @@ EOT
 }
 
 test_export_overlay() {
-    if [ -n "${SKIP_CMR_BUNDLES_EXPORT_OVERLAY:-}" ]; then
-        echo "==> SKIP: Asked to skip CMR bundle deploy tests"
+    if [ "$(skip 'test_export_overlay')" ]; then
+        echo "==> TEST SKIPPED: CMR bundle deploy tests"
         return
     fi
 
     (
-        set -e
+        set_verbosity
 
         cd ../
 
-        run "export overlay"
+        run "run_export_overlay"
     )
 }
