@@ -588,8 +588,8 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 		return zeroVersion, errors.Trace(err)
 	}
 	if installed {
-		// Exists does a check against the contents of the service config file.
-		// The return value is true iff the contest is the same.
+		// Exists() does a check against the contents of the service config file.
+		// The return value is true iff the content is the same.
 		exists, err := svc.Exists()
 		if err != nil {
 			return zeroVersion, errors.Trace(err)
