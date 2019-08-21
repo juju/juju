@@ -55,6 +55,9 @@ cleanup() {
     echo "==> Test result: ${TEST_RESULT}"
 }
 
+export BOOTSTRAP_REUSE=
+export BOOTSTRAP_PROVIDER="lxd"
+
 TEST_CURRENT=setup
 TEST_RESULT=failure
 

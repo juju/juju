@@ -1,9 +1,10 @@
 run_deploy() {
     echo
 
-    file="${TEST_DIR}/smoke_test_deploy.txt"
+    file="${TEST_DIR}/smoke-test-deploy.txt"
 
-    bootstrap "smoke-test-deploy" "${file}"
+    ensure "smoke-test-deploy" "${file}"
+
     CHK=$(cat "${file}" | grep -i "ERROR" || true)
     if [ -n "${CHK}" ]; then
         printf "\\nFound some issues"
@@ -11,7 +12,7 @@ run_deploy() {
         exit 1
     fi
 
-    destroy "smoke-test-deploy"
+    destroy_model "smoke-test-deploy"
 }
 
 test_deploy() {

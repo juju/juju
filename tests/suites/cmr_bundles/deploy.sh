@@ -1,9 +1,9 @@
 run_deploy() {
     echo
 
-    file="${TEST_DIR}/cmr_bundles_test_deploy.txt"
+    file="${TEST_DIR}/test-cmr-bundles-deploy.txt"
 
-    bootstrap "cmr-bundles-test-deploy" "${file}"
+    ensure "cmr-bundles-test-deploy" "${file}"
 
     juju deploy mysql
     wait_for "mysql" ".applications | keys[0]"
@@ -17,7 +17,7 @@ run_deploy() {
     sed "s/{{BOOTSTRAPPED_JUJU_CTRL_NAME}}/${BOOTSTRAPPED_JUJU_CTRL_NAME}/g" "${bundle}" > "${TEST_DIR}/cmr_bundles_test_deploy.yaml"
     juju deploy "${TEST_DIR}/cmr_bundles_test_deploy.yaml"
 
-    destroy "cmr-bundles-test-deploy"
+    destroy_model "cmr-bundles-test-deploy"
 }
 
 test_deploy() {

@@ -4,6 +4,12 @@ test_smoke() {
         return
     fi
 
+    file="${TEST_DIR}/test-smoke.txt"
+
+    bootstrap "test-smoke" "${file}"
+
     test_build
     test_deploy
+
+    destroy_controller "test-smoke"
 }
