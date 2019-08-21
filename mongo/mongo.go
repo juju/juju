@@ -582,20 +582,44 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 		return mongodVersion, nil
 	}
 
-	running, err := svc.Running()
+	// Installed tells us if there exists a service of the right name.
+	installed, err := svc.Installed()
 	if err != nil {
 		return zeroVersion, errors.Trace(err)
 	}
-	if running {
-		return mongodVersion, nil
+	if installed {
+		// Exists does a check against the contents of the service config file.
+		// The return value is true iff the contest is the same.
+		exists, err := svc.Exists()
+		if err != nil {
+			return zeroVersion, errors.Trace(err)
+		}
+		if exists {
+			logger.Debugf("mongo exists as expected")
+			running, err := svc.Running()
+			if err != nil {
+				return zeroVersion, errors.Trace(err)
+			}
+
+			if !running {
+				return mongodVersion, errors.Trace(svc.Start())
+			}
+			return mongodVersion, nil
+		}
+		logger.Debugf("updating mongo service configuration")
 	}
 
+	// We want to write or rewrite the contents of the service.
+	// Stop is a no-op if the service doesn't exist or isn't running.
+	if err := svc.Stop(); err != nil {
+		return zeroVersion, errors.Annotatef(err, "failed to stop mongo")
+	}
 	dbDir := DbDir(args.DataDir)
 	if err := makeJournalDirs(dbDir); err != nil {
-		return zeroVersion, errors.Errorf("error creating journal directories: %v", err)
+		return zeroVersion, fmt.Errorf("error creating journal directories: %v", err)
 	}
 	if err := preallocOplog(dbDir, oplogSizeMB); err != nil {
-		return zeroVersion, errors.Errorf("error creating oplog files: %v", err)
+		return zeroVersion, fmt.Errorf("error creating oplog files: %v", err)
 	}
 
 	if err := service.InstallAndStart(svc); err != nil {
