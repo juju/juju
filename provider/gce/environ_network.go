@@ -10,7 +10,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"google.golang.org/api/compute/v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"

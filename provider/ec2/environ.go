@@ -19,7 +19,7 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"

@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"

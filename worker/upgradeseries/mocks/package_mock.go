@@ -11,7 +11,7 @@ import (
 	model "github.com/juju/juju/core/model"
 	watcher "github.com/juju/juju/core/watcher"
 	upgradeseries "github.com/juju/juju/worker/upgradeseries"
-	names_v2 "gopkg.in/juju/names.v2"
+	names_v2 "gopkg.in/juju/names.v3"
 )
 
 // MockFacade is a mock of Facade interface

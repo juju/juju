@@ -14,7 +14,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils"
 	"github.com/juju/utils/cert"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/yaml.v2"
 
 	cloudapi "github.com/juju/juju/api/cloud"

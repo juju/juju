@@ -4,7 +4,7 @@
 package caasoperatorprovisioner
 
 import (
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"

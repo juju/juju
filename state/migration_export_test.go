@@ -20,7 +20,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/constraints"

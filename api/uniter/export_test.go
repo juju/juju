@@ -6,7 +6,7 @@ package uniter
 import (
 	"fmt"
 
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/base/testing"

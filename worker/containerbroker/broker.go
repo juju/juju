@@ -4,7 +4,7 @@ package containerbroker
 
 import (
 	"github.com/juju/errors"
-	names "gopkg.in/juju/names.v2"
+	names "gopkg.in/juju/names.v3"
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 	"gopkg.in/juju/worker.v1/dependency"

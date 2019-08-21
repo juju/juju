@@ -9,7 +9,7 @@ import (
 	common "github.com/juju/juju/apiserver/common"
 	model "github.com/juju/juju/core/model"
 	state "github.com/juju/juju/state"
-	names_v2 "gopkg.in/juju/names.v2"
+	names_v2 "gopkg.in/juju/names.v3"
 	reflect "reflect"
 )
 

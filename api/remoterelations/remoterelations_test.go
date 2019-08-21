@@ -6,7 +6,7 @@ package remoterelations_test
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/remoterelations"

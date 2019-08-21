@@ -10,7 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"

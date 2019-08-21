@@ -21,7 +21,7 @@ import (
 	"github.com/juju/pubsub"
 	"github.com/juju/utils"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"

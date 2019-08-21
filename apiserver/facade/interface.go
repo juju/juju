@@ -4,7 +4,7 @@
 package facade
 
 import (
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"

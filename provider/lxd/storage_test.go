@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	containerlxd "github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs/context"

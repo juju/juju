@@ -10,7 +10,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	uniter "github.com/juju/juju/apiserver/facades/agent/uniter"
 	state "github.com/juju/juju/state"
-	names_v2 "gopkg.in/juju/names.v2"
+	names_v2 "gopkg.in/juju/names.v3"
 )
 
 // MockLXDProfileBackend is a mock of LXDProfileBackend interface

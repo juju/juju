@@ -9,7 +9,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	base "github.com/juju/juju/api/base"
-	names_v2 "gopkg.in/juju/names.v2"
+	names_v2 "gopkg.in/juju/names.v3"
 )
 
 // MockModelStatusAPI is a mock of ModelStatusAPI interface

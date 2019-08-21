@@ -19,7 +19,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/juju/worker.v1/workertest"
 

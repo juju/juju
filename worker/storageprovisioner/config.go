@@ -6,7 +6,7 @@ package storageprovisioner
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"

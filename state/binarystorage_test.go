@@ -16,7 +16,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/blobstore.v2"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"

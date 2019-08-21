@@ -11,7 +11,7 @@ import (
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	version "github.com/juju/version"
-	names_v2 "gopkg.in/juju/names.v2"
+	names_v2 "gopkg.in/juju/names.v3"
 	reflect "reflect"
 )
 

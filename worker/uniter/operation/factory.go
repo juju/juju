@@ -6,7 +6,7 @@ package operation
 import (
 	"github.com/juju/errors"
 	corecharm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"

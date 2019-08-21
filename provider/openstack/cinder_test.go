@@ -16,7 +16,7 @@ import (
 	gooseerrors "gopkg.in/goose.v2/errors"
 	"gopkg.in/goose.v2/identity"
 	"gopkg.in/goose.v2/nova"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"

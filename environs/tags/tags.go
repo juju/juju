@@ -3,7 +3,7 @@
 
 package tags
 
-import "gopkg.in/juju/names.v2"
+import "gopkg.in/juju/names.v3"
 
 const (
 	// JujuTagPrefix is the prefix for Juju-managed tags.

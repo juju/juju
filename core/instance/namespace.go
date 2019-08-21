@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 )
 
 // uuidSuffixDigits defines how many of the uuid digits to use.

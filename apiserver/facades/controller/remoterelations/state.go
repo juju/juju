@@ -5,7 +5,7 @@ package remoterelations
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 
 	common "github.com/juju/juju/apiserver/common/crossmodel"

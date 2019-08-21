@@ -6,7 +6,7 @@ package permission
 import (
 	"time"
 
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 )
 
 // UserAccess represents a user access to a target whereas the user

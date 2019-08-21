@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/resource"

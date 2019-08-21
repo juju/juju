@@ -9,7 +9,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
@@ -158,7 +158,7 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 func (s *firewallerSuite) TestGetMachinePorts(c *gc.C) {
 	s.openPorts(c)
 
-	subnetTag := names.NewSubnetTag(s.subnet.CIDR()).String()
+	subnetTag := names.NewSubnetTag(s.subnet.ID()).String()
 	args := params.MachinePortsParams{
 		Params: []params.MachinePorts{
 			{MachineTag: s.machines[0].Tag().String(), SubnetTag: ""},
@@ -206,7 +206,7 @@ func (s *firewallerSuite) TestGetMachinePorts(c *gc.C) {
 func (s *firewallerSuite) TestGetMachineActiveSubnets(c *gc.C) {
 	s.openPorts(c)
 
-	subnetTag := names.NewSubnetTag(s.subnet.CIDR()).String()
+	subnetTag := names.NewSubnetTag(s.subnet.ID()).String()
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag().String()},
 		{Tag: s.machines[1].Tag().String()},

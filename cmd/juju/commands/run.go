@@ -16,7 +16,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"

@@ -15,7 +15,7 @@ import (
 	"github.com/juju/utils/exec"
 	corecharm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 

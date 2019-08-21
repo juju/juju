@@ -21,7 +21,7 @@ import (
 	"gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 	"gopkg.in/yaml.v2"
 

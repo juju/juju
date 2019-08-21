@@ -21,7 +21,7 @@ import (
 	"github.com/juju/os/series"
 	"github.com/juju/utils"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"

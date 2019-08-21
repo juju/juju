@@ -7,7 +7,7 @@ package backups
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 )
 
 // Restore satisfies the Backups interface on non-Linux OSes (e.g.

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
 	"github.com/juju/utils"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 

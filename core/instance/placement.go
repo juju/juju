@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 )
 
 const (

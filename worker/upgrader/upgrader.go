@@ -15,7 +15,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/agent"

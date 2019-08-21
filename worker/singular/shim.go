@@ -5,7 +5,7 @@ package singular
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
