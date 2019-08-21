@@ -5,7 +5,7 @@ package spaces
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -31,27 +31,18 @@ func NewAPI(caller base.APICallCloser) *API {
 	}
 }
 
-func makeCreateSpaceParams(name string, subnetIds []string, public bool) params.CreateSpaceParams {
-	spaceTag := names.NewSpaceTag(name).String()
-	subnetTags := make([]string, len(subnetIds))
-
-	for i, s := range subnetIds {
-		subnetTags[i] = names.NewSubnetTag(s).String()
-	}
-
-	return params.CreateSpaceParams{
-		SpaceTag:   spaceTag,
-		SubnetTags: subnetTags,
-		Public:     public,
-	}
-}
-
 // CreateSpace creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
 func (api *API) CreateSpace(name string, subnetIds []string, public bool) error {
 	var response params.ErrorResults
 	createSpacesParams := params.CreateSpacesParams{
-		Spaces: []params.CreateSpaceParams{makeCreateSpaceParams(name, subnetIds, public)},
+		Spaces: []params.CreateSpaceParams{
+			{
+				SpaceTag: names.NewSpaceTag(name).String(),
+				CIDRs:    subnetIds,
+				Public:   public,
+			},
+		},
 	}
 	err := api.facade.FacadeCall("CreateSpaces", createSpacesParams, &response)
 	if err != nil {

@@ -290,7 +290,8 @@ func AllFacades() *facade.Registry {
 
 	reg("Spaces", 2, spaces.NewAPIv2)
 	reg("Spaces", 3, spaces.NewAPIv3)
-	reg("Spaces", 4, spaces.NewAPI)
+	reg("Spaces", 4, spaces.NewAPIv4)
+	reg("Spaces", 5, spaces.NewAPI)
 
 	reg("StatusHistory", 2, statushistory.NewAPI)
 

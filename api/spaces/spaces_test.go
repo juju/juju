@@ -10,7 +10,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/spaces"
@@ -46,20 +46,15 @@ func (s *SpacesSuite) TestNewAPIWithNilCaller(c *gc.C) {
 	c.Assert(panicFunc, gc.PanicMatches, "caller is nil")
 }
 
-func makeArgs(name string, subnets []string) (string, []string, apitesting.APICall) {
+func makeArgs(name string, cidrs []string) (string, []string, apitesting.APICall) {
 	spaceTag := names.NewSpaceTag(name).String()
-	subnetTags := []string{}
-
-	for _, s := range subnets {
-		subnetTags = append(subnetTags, names.NewSubnetTag(s).String())
-	}
 
 	expectArgs := params.CreateSpacesParams{
 		Spaces: []params.CreateSpaceParams{
 			{
-				SpaceTag:   spaceTag,
-				SubnetTags: subnetTags,
-				Public:     true,
+				SpaceTag: spaceTag,
+				CIDRs:    cidrs,
+				Public:   true,
 			}}}
 
 	expectResults := params.ErrorResults{
@@ -72,7 +67,7 @@ func makeArgs(name string, subnets []string) (string, []string, apitesting.APICa
 		Args:    expectArgs,
 		Results: expectResults,
 	}
-	return name, subnets, args
+	return name, cidrs, args
 }
 
 func (s *SpacesSuite) testCreateSpace(c *gc.C, name string, subnets []string) {
