@@ -164,6 +164,21 @@ func (s *InitialiserSuite) TestNoSeriesPackages(c *gc.C) {
 	})
 }
 
+func (s *InitialiserSuite) TestInstallViaSnap(c *gc.C) {
+	PatchLXDViaSnap(s, false)
+
+	PatchHostSeries(s, "disco")
+
+	paccmder := commands.NewSnapPackageCommander()
+
+	err := NewContainerInitialiser().Initialise()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.calledCmds, gc.DeepEquals, []string{
+		paccmder.InstallCmd("--classic lxd"),
+	})
+}
+
 func (s *InitialiserSuite) TestLXDInitBionic(c *gc.C) {
 	s.patchDF100GB()
 	PatchHostSeries(s, "bionic")

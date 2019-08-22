@@ -17,13 +17,13 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/packaging/config"
-	"github.com/juju/packaging/manager"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/series"
 	"github.com/lxc/lxd/shared"
 
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/packaging"
+	"github.com/juju/juju/packaging/dependency"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 )
@@ -89,18 +89,6 @@ func (ci *containerInitialiser) Initialise() error {
 	}
 
 	return errors.Annotate(err, "running lxd init --auto: "+out)
-}
-
-// getPackageManager is a helper function which returns the
-// package manager implementation for the current system.
-func getPackageManager(series string) (manager.PackageManager, error) {
-	return manager.NewPackageManager(series)
-}
-
-// getPackagingConfigurer is a helper function which returns the
-// packaging configuration manager for the current system.
-func getPackagingConfigurer(series string) (config.PackagingConfigurer, error) {
-	return config.NewPackagingConfigurer(series)
 }
 
 // ConfigureLXDProxies will try to set the lxc config core.proxy_http and
@@ -257,45 +245,18 @@ func editLXDBridgeFile(input string, subnet string) string {
 	return buffer.String()
 }
 
-// ensureDependencies creates a set of install packages using
-// apt.GetPreparePackages and runs each set of packages through
-// apt.GetInstall.
+// ensureDependencies install the required dependencies for running LXD.
 func ensureDependencies(series string) error {
-	if series == "precise" {
-		return errors.NotSupportedf(`LXD containers on series "precise"`)
-	}
-
 	if lxdViaSnap() {
 		logger.Infof("LXD snap is installed; skipping package installation")
 		return nil
 	}
 
-	pacman, err := getPackageManager(series)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	pacconfer, err := getPackagingConfigurer(series)
-	if err != nil {
+	if err := packaging.InstallDependency(dependency.LXD(), series); err != nil {
 		return errors.Trace(err)
 	}
 
-	for _, pack := range requiredPackages {
-		pkg := pack
-		if config.SeriesRequiresCloudArchiveTools(series) &&
-			pacconfer.IsCloudArchivePackage(pack) {
-			pkg = strings.Join(pacconfer.ApplyCloudArchiveTarget(pack), " ")
-		}
-
-		if config.RequiresBackports(series, pack) {
-			pkg = fmt.Sprintf("--target-release %s-backports %s", series, pkg)
-		}
-
-		if err := pacman.Install(pkg); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	return errors.Trace(err)
+	return nil
 }
 
 // lxdViaSnap interrogates the location of the Snap LXD socket in order
