@@ -105,6 +105,16 @@ func (s *baseLoginSuite) addMachine(c *gc.C, job state.MachineJob) (*state.Machi
 	return machine, password
 }
 
+func (s *baseLoginSuite) addController(c *gc.C) (state.ControllerNode, string) {
+	node, err := s.State.AddControllerNode()
+	c.Assert(err, jc.ErrorIsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	err = node.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+	return node, password
+}
+
 func (s *baseLoginSuite) openAPIWithoutLogin(c *gc.C, info0 *api.Info) api.Connection {
 	info := *info0
 	info.Tag = nil
@@ -258,10 +268,28 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 	})
 }
 
+func (s *loginSuite) TestControllerAgentLogin(c *gc.C) {
+	cfg := testserver.DefaultServerConfig(c)
+	cfg.Controller = s.JujuConnSuite.Controller
+	info, srv := s.newServerWithConfig(c, cfg)
+	defer assertStop(c, srv)
+
+	node, password := s.addController(c)
+	info.Tag = node.Tag()
+	info.Password = password
+	info.Nonce = "fake_nonce"
+
+	s.assertAgentLogin(c, info)
+}
+
 func (s *loginSuite) TestLoginAddressesForAgents(c *gc.C) {
 	info, srv := s.newMachineAndServer(c)
 	defer assertStop(c, srv)
 
+	s.assertAgentLogin(c, info)
+}
+
+func (s *loginSuite) assertAgentLogin(c *gc.C, info *api.Info) {
 	err := s.State.SetAPIHostPorts(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -676,6 +704,26 @@ func (s *loginSuite) TestControllerMachineLoginDuringMaintenance(c *gc.C) {
 
 	machine, password := s.addMachine(c, state.JobManageModel)
 	info.Tag = machine.Tag()
+	info.Password = password
+	info.Nonce = "fake_nonce"
+
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st.Close(), jc.ErrorIsNil)
+}
+
+func (s *loginSuite) TestControllerAgentLoginDuringMaintenance(c *gc.C) {
+	cfg := testserver.DefaultServerConfig(c)
+	cfg.UpgradeComplete = func() bool {
+		// upgrade is in progress
+		return false
+	}
+	cfg.Controller = s.JujuConnSuite.Controller
+	info, srv := s.newServerWithConfig(c, cfg)
+	defer assertStop(c, srv)
+
+	node, password := s.addController(c)
+	info.Tag = node.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
 

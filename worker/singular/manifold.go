@@ -22,10 +22,11 @@ type ManifoldConfig struct {
 	Clock         clock.Clock
 	APICallerName string
 	Duration      time.Duration
-	Claimant      names.MachineTag
-	Entity        names.Tag
+	// TODO(controlleragent) - claimaint should be a ControllerAgentTag
+	Claimant names.Tag
+	Entity   names.Tag
 
-	NewFacade func(base.APICaller, names.MachineTag, names.Tag) (Facade, error)
+	NewFacade func(base.APICaller, names.Tag, names.Tag) (Facade, error)
 	NewWorker func(FlagConfig) (worker.Worker, error)
 }
 

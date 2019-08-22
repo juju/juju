@@ -397,7 +397,7 @@ func (m *Machine) StopMongoUntilVersion() (mongo.Version, error) {
 
 // IsManager returns true if the machine has JobManageModel.
 func (m *Machine) IsManager() bool {
-	return hasJob(m.doc.Jobs, JobManageModel)
+	return isController(&m.doc)
 }
 
 // IsManual returns true if the machine was manually provisioned.
@@ -792,7 +792,7 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 		// destroy a machine with units as it will be a lie.
 		if life == Dying {
 			canDie := true
-			if hasJob(m.doc.Jobs, JobManageModel) || hasVote {
+			if isController(&m.doc) || hasVote {
 				// If we're responsible for managing the model, make sure we ask to drop our vote
 				ops[0].Update = bson.D{
 					{"$set", bson.D{{"life", life}}},
@@ -868,7 +868,7 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 		asserts = append(asserts, noUnits)
 
 		if life == Dead {
-			if hasJob(m.doc.Jobs, JobManageModel) {
+			if isController(&m.doc) {
 				return nil, errors.Errorf("machine %s is still responsible for being a controller", m.Id())
 			}
 			// A machine may not become Dead until it has no more

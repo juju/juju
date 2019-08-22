@@ -15,7 +15,6 @@ import (
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold
@@ -36,7 +35,7 @@ func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) 
 	// This bit should be encapsulated in another manifold
 	// satisfying jujud/agent/engine.Flag, as described in
 	// the implementation below. Shouldn't be a concern here.
-	if ok, err := isModelManager(a, apiCaller); err != nil {
+	if ok, err := apiagent.IsController(apiCaller, a.CurrentConfig().Tag()); err != nil {
 		return nil, errors.Trace(err)
 	} else if !ok {
 		// This depends on a job change triggering an agent
@@ -79,23 +78,4 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		APICallerName: config.APICallerName,
 	}
 	return engine.AgentAPIManifold(aaConfig, config.newWorker)
-}
-
-// isModelManager returns whether the agent has JobManageModel,
-// or an error.
-func isModelManager(a agent.Agent, apiCaller base.APICaller) (bool, error) {
-	agentFacade, err := apiagent.NewState(apiCaller)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	entity, err := agentFacade.Entity(a.CurrentConfig().Tag())
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	for _, job := range entity.Jobs() {
-		if job == multiwatcher.JobManageModel {
-			return true, nil
-		}
-	}
-	return false, nil
 }

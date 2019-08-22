@@ -75,8 +75,9 @@ type (
 	CharmDoc       charmDoc
 	ApplicationDoc = applicationDoc
 
-	StorageBackend = storageBackend
-	DeviceBackend  = deviceBackend
+	StorageBackend         = storageBackend
+	DeviceBackend          = deviceBackend
+	ControllerNodeInstance = controllerNode
 )
 
 func NewStateSettingsForCollection(backend modelBackend, collection string) *StateSettings {

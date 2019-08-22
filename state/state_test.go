@@ -3291,6 +3291,8 @@ var findEntityTests = []findEntityTest{{
 }, {
 	tag: names.NewMachineTag("0"),
 }, {
+	tag: names.NewControllerAgentTag("0"),
+}, {
 	tag: names.NewApplicationTag("ser-vice2"),
 }, {
 	tag: names.NewRelationTag("wordpress:db ser-vice2:server"),
@@ -3311,18 +3313,21 @@ var findEntityTests = []findEntityTest{{
 }}
 
 var entityTypes = map[string]interface{}{
-	names.UserTagKind:        (*state.User)(nil),
-	names.ModelTagKind:       (*state.Model)(nil),
-	names.ApplicationTagKind: (*state.Application)(nil),
-	names.UnitTagKind:        (*state.Unit)(nil),
-	names.MachineTagKind:     (*state.Machine)(nil),
-	names.RelationTagKind:    (*state.Relation)(nil),
-	names.ActionTagKind:      (state.Action)(nil),
+	names.UserTagKind:            (*state.User)(nil),
+	names.ModelTagKind:           (*state.Model)(nil),
+	names.ApplicationTagKind:     (*state.Application)(nil),
+	names.UnitTagKind:            (*state.Unit)(nil),
+	names.MachineTagKind:         (*state.Machine)(nil),
+	names.ControllerAgentTagKind: (*state.ControllerNodeInstance)(nil),
+	names.RelationTagKind:        (*state.Relation)(nil),
+	names.ActionTagKind:          (state.Action)(nil),
 }
 
 func (s *StateSuite) TestFindEntity(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "eric"})
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddControllerNode()
 	c.Assert(err, jc.ErrorIsNil)
 	app := s.AddTestingApplication(c, "ser-vice2", s.AddTestingCharm(c, "mysql"))
 	unit, err := app.AddUnit(state.AddUnitParams{})

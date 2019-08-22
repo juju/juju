@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1/catacomb"
 
+	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/core/watcher"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
@@ -87,7 +88,7 @@ func (u *Upgrader) Wait() error {
 
 func (u *Upgrader) loop() error {
 	// Only controllers set their version here - agents do it in the main agent worker loop.
-	if u.tag.Kind() == names.MachineTagKind {
+	if agent.IsAllowedControllerTag(u.tag.Kind()) {
 		if err := u.upgraderClient.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current)); err != nil {
 			return errors.Annotate(err, "cannot set agent version")
 		}

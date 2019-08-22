@@ -244,7 +244,7 @@ func (s *upgradeSuite) newAgent(c *gc.C, m *state.Machine) *agentcmd.MachineAgen
 		noPreUpgradeSteps,
 		c.MkDir(),
 	)
-	a, err := machineAgentFactory(m.Id(), false)
+	a, err := machineAgentFactory(m.Tag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 	return a
 }

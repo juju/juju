@@ -35,7 +35,7 @@ func (s *SingularSuite) TestClaimBadLease(c *gc.C) {
 func (s *SingularSuite) TestClaimBadHolder(c *gc.C) {
 	claimer := s.State.SingularClaimer()
 	err := claimer.Claim(s.modelTag.Id(), "unit-foo-1", time.Minute)
-	c.Check(err, gc.ErrorMatches, `cannot claim lease for holder "unit-foo-1": expected machine tag`)
+	c.Check(err, gc.ErrorMatches, `cannot claim lease for holder "unit-foo-1": expected machine or controller tag`)
 }
 
 func (s *SingularSuite) TestClaimBadDuration(c *gc.C) {

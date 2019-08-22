@@ -10,11 +10,9 @@ import (
 	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
-	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
@@ -41,35 +39,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	cfg := a.CurrentConfig()
 	// Grab the tag and ensure that it's for a machine.
-	tag, ok := cfg.Tag().(names.MachineTag)
-	if !ok {
+	if cfg.Tag().Kind() != names.MachineTagKind {
 		return nil, errors.New("agent's tag is not a machine tag")
 	}
-
-	// Get the machine agent's jobs.
-	// TODO(fwereade): this functionality should be on the
-	// deployer facade instead.
-	agentFacade, err := apiagent.NewState(apiCaller)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	entity, err := agentFacade.Entity(tag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var isUnitHoster bool
-	for _, job := range entity.Jobs() {
-		if job == multiwatcher.JobHostUnits {
-			isUnitHoster = true
-			break
-		}
-	}
-
-	if !isUnitHoster {
-		return nil, dependency.ErrUninstall
-	}
-
 	deployerFacade := apideployer.NewState(apiCaller)
 	context := config.NewDeployContext(deployerFacade, cfg)
 	w, err := NewDeployer(deployerFacade, context)

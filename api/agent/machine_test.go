@@ -115,6 +115,12 @@ func (s *machineSuite) SetUpTest(c *gc.C) {
 	s.st, s.machine = s.OpenAPIAsNewMachine(c)
 }
 
+func (s *machineSuite) TestIsControllerShortCircuits(c *gc.C) {
+	result, err := apiagent.IsController(nil, names.NewControllerAgentTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.IsTrue)
+}
+
 func (s *machineSuite) TestMachineEntity(c *gc.C) {
 	tag := names.NewMachineTag("42")
 	apiSt, err := apiagent.NewState(s.st)

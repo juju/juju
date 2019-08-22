@@ -3290,21 +3290,25 @@ func (s *upgradesSuite) TestAddControllerNodeDocs(c *gc.C) {
 
 	expected := bsonMById{
 		{
-			"_id":        uuid1 + ":1",
-			"has-vote":   true,
-			"wants-vote": true,
+			"_id":           uuid1 + ":1",
+			"has-vote":      true,
+			"wants-vote":    true,
+			"password-hash": "",
 		}, {
-			"_id":        uuid1 + ":2",
-			"has-vote":   false,
-			"wants-vote": true,
+			"_id":           uuid1 + ":2",
+			"has-vote":      false,
+			"wants-vote":    true,
+			"password-hash": "",
 		}, {
-			"_id":        uuid1 + ":3",
-			"has-vote":   false,
-			"wants-vote": false,
+			"_id":           uuid1 + ":3",
+			"has-vote":      false,
+			"wants-vote":    false,
+			"password-hash": "",
 		}, {
-			"_id":        uuid2 + ":1",
-			"has-vote":   false,
-			"wants-vote": true,
+			"_id":           uuid2 + ":1",
+			"has-vote":      false,
+			"wants-vote":    true,
+			"password-hash": "",
 		},
 	}
 

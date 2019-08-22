@@ -19,10 +19,10 @@ import (
 // the supplied tag, on behalf of the authenticated agent.
 func NewAPI(
 	apiCaller base.APICaller,
-	claimant names.MachineTag,
+	claimant names.Tag,
 	entity names.Tag,
 ) (*API, error) {
-	if !names.IsValidMachine(claimant.Id()) {
+	if !names.IsValidMachine(claimant.Id()) && !names.IsValidControllerAgent(claimant.Id()) {
 		return nil, errors.NotValidf("claimant tag")
 	}
 	switch entity.(type) {
@@ -47,7 +47,7 @@ func NewAPI(
 // no other machine to have responsibility for; administration for some model.
 type API struct {
 	facadeCaller base.FacadeCaller
-	claimant     names.MachineTag
+	claimant     names.Tag
 	entity       names.Tag
 }
 

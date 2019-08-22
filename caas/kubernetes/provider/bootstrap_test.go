@@ -18,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	watch "k8s.io/apimachinery/pkg/watch"
+	"k8s.io/apimachinery/pkg/watch"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -562,8 +562,8 @@ export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
 mkdir -p $JUJU_TOOLS_DIR
 cp /opt/jujud $JUJU_TOOLS_DIR/jujud
 
-test -e $JUJU_DATA_DIR/agents/machine-0/agent.conf || $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/bootstrap-params --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s
-$JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --machine-id 0 --debug
+test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf || $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/bootstrap-params --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s
+$JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr --debug
 `[1:],
 			},
 			WorkingDir: "/var/lib/juju",
@@ -579,7 +579,7 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --machine-id 0 --debug
 				},
 				{
 					Name:      "juju-controller-test-agent-conf",
-					MountPath: "/var/lib/juju/agents/machine-0/template-agent.conf",
+					MountPath: "/var/lib/juju/agents/controller-0/template-agent.conf",
 					SubPath:   "template-agent.conf",
 				},
 				{

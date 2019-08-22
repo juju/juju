@@ -27,7 +27,6 @@ import (
 )
 
 type tooler interface {
-	lifer
 	AgentTools() (*tools.Tools, error)
 	SetAgentVersion(v version.Binary) error
 	Refresh() error
@@ -54,9 +53,11 @@ func testAgentTools(c *gc.C, obj tooler, agent string) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(t3.Version, gc.DeepEquals, v2)
 
-	testWhenDying(c, obj, noErr, deadErr, func() error {
-		return obj.SetAgentVersion(v2)
-	})
+	if le, ok := obj.(lifer); ok {
+		testWhenDying(c, le, noErr, deadErr, func() error {
+			return obj.SetAgentVersion(v2)
+		})
+	}
 }
 
 type binaryStorageSuite struct {

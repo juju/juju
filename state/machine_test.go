@@ -598,11 +598,27 @@ func (s *MachineSuite) TestTag(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
+	testSetMongoPassword(c, func(st *state.State, id string) (mongoPasswordSetter, error) {
+		return st.Machine("0")
+	}, s.State.ControllerTag(), s.modelTag, s.Session)
+}
+
+type mongoPasswordSetter interface {
+	SetMongoPassword(password string) error
+	Tag() names.Tag
+}
+
+type mongoPasswordSetterGetter func(st *state.State, id string) (mongoPasswordSetter, error)
+
+func testSetMongoPassword(
+	c *gc.C, entityFunc mongoPasswordSetterGetter,
+	controllerTag names.ControllerTag, modelTag names.ModelTag, mgoSession *mgo.Session,
+) {
 	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
-		ControllerTag:      s.State.ControllerTag(),
-		ControllerModelTag: s.modelTag,
-		MongoSession:       s.Session,
+		ControllerTag:      controllerTag,
+		ControllerModelTag: modelTag,
+		MongoSession:       mgoSession,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	st := pool.SystemState()
@@ -621,7 +637,7 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set the password for the entity
-	ent, err := st.Machine("0")
+	ent, err := entityFunc(st, "0")
 	c.Assert(err, jc.ErrorIsNil)
 	err = ent.SetMongoPassword("foo")
 	c.Assert(err, jc.ErrorIsNil)
@@ -630,9 +646,9 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	info := testing.NewMongoInfo()
 	info.Tag = ent.Tag()
 	info.Password = "bar"
-	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info)
+	err = tryOpenState(modelTag, controllerTag, info)
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
-	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "machine-0": unauthorized mongo access: .*`)
+	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "(machine|controller)-0": unauthorized mongo access: .*`)
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
@@ -642,8 +658,8 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 
 	pool1, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,
-		ControllerTag:      s.State.ControllerTag(),
-		ControllerModelTag: s.modelTag,
+		ControllerTag:      controllerTag,
+		ControllerModelTag: modelTag,
 		MongoSession:       session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -652,25 +668,25 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 
 	// Change the password with an entity derived from the newly
 	// opened and authenticated state.
-	ent, err = st1.Machine("0")
+	ent, err = entityFunc(st1, "0")
 	c.Assert(err, jc.ErrorIsNil)
 	err = ent.SetMongoPassword("bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that we cannot log in with the old password.
 	info.Password = "foo"
-	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info)
+	err = tryOpenState(modelTag, controllerTag, info)
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
-	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "machine-0": unauthorized mongo access: .*`)
+	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "(machine|controller)-0": unauthorized mongo access: .*`)
 
 	// Check that we can log in with the correct password.
 	info.Password = "bar"
-	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info)
+	err = tryOpenState(modelTag, controllerTag, info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the administrator can still log in.
 	info.Tag, info.Password = nil, "admin-secret"
-	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info)
+	err = tryOpenState(modelTag, controllerTag, info)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

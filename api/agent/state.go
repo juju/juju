@@ -149,3 +149,31 @@ func (m *Entity) ClearReboot() error {
 	}
 	return result.OneError()
 }
+
+// IsAllowedControllerTag returns true if the tag kind can be for a controller.
+// TODO(controlleragent) - this method is needed while IAAS controllers are still machines.
+func IsAllowedControllerTag(kind string) bool {
+	return kind == names.ControllerAgentTagKind || kind == names.MachineTagKind
+}
+
+// IsController returns true of the tag is for a controller (machine or agent).
+// TODO(controlleragent) - this method is needed while IAAS controllers are still machines.
+func IsController(caller base.APICaller, tag names.Tag) (bool, error) {
+	if tag.Kind() == names.ControllerAgentTagKind {
+		return true, nil
+	}
+	apiSt, err := NewState(caller)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	machine, err := apiSt.Entity(tag)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	for _, job := range machine.Jobs() {
+		if job.NeedsState() {
+			return true, nil
+		}
+	}
+	return false, nil
+}

@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/worker/containerbroker/mocks"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-	names "gopkg.in/juju/names.v3"
+	"gopkg.in/juju/names.v3"
 )
 
 type brokerConfigSuite struct {

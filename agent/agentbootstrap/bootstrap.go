@@ -17,6 +17,7 @@ import (
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"
+	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
@@ -60,6 +61,12 @@ type InitializeStateParams struct {
 	StorageProviderRegistry storage.ProviderRegistry
 }
 
+type bootstrapController interface {
+	state.Authenticator
+	Id() string
+	SetMongoPassword(password string) error
+}
+
 // InitializeState should be called with the bootstrap machine's agent
 // configuration. It uses that information to create the controller, dial the
 // controller, and initialize it. It also generates a new password for the
@@ -80,8 +87,8 @@ func InitializeState(
 	dialOpts mongo.DialOpts,
 	newPolicy state.NewPolicyFunc,
 ) (_ *state.Controller, resultErr error) {
-	if c.Tag() != names.NewMachineTag(agent.BootstrapControllerId) {
-		return nil, errors.Errorf("InitializeState not called with bootstrap machine's configuration")
+	if c.Tag().Id() != agent.BootstrapControllerId || !apiagent.IsAllowedControllerTag(c.Tag().Kind()) {
+		return nil, errors.Errorf("InitializeState not called with bootstrap controller's configuration")
 	}
 	servingInfo, ok := c.StateServingInfo()
 	if !ok {
@@ -188,20 +195,41 @@ func InitializeState(
 		return nil, errors.Annotate(err, "getting environ provider")
 	}
 
+	var controllerNode bootstrapController
 	if isCAAS {
+		if controllerNode, err = initBootstrapNode(c, st, args); err != nil {
+			return nil, errors.Annotate(err, "cannot initialize bootstrap controller")
+		}
 		if err := initControllerCloudService(cloudSpec, provider, st, args); err != nil {
 			return nil, errors.Annotate(err, "cannot initialize cloud service")
 		}
+	} else {
+		if controllerNode, err = initBootstrapMachine(c, st, args); err != nil {
+			return nil, errors.Annotate(err, "cannot initialize bootstrap machine")
+		}
 	}
-	// TODO - create a controller node not a machine for CAAS models
-	m, err := initBootstrapMachine(c, st, args)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot initialize bootstrap machine")
-	}
+
 	// Sanity check.
-	if m.Id() != agent.BootstrapControllerId {
-		return nil, errors.Errorf("unexpected controller id %q created", m.Id())
+	if controllerNode.Id() != agent.BootstrapControllerId {
+		return nil, errors.Errorf("bootstrap controller expected id 0, got %q", controllerNode.Id())
 	}
+
+	// Read the machine agent's password and change it to
+	// a new password (other agents will change their password
+	// via the API connection).
+	logger.Debugf("create new random password for controller %v", controllerNode.Id())
+
+	newPassword, err := utils.RandomPassword()
+	if err != nil {
+		return nil, err
+	}
+	if err := controllerNode.SetPassword(newPassword); err != nil {
+		return nil, err
+	}
+	if err := controllerNode.SetMongoPassword(newPassword); err != nil {
+		return nil, err
+	}
+	c.SetPassword(newPassword)
 
 	if err := ensureHostedModel(cloudSpec, provider, args, st, ctrl, adminUser, cloudCredentialTag); err != nil {
 		return nil, errors.Annotate(err, "ensuring hosted model")
@@ -355,7 +383,7 @@ func initBootstrapMachine(
 	c agent.ConfigSetter,
 	st *state.State,
 	args InitializeStateParams,
-) (*state.Machine, error) {
+) (bootstrapController, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -390,26 +418,26 @@ func initBootstrapMachine(
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create bootstrap machine in state")
 	}
-	if m.Id() != agent.BootstrapControllerId {
-		return nil, errors.Errorf("bootstrap machine expected id 0, got %q", m.Id())
-	}
-	// Read the machine agent's password and change it to
-	// a new password (other agents will change their password
-	// via the API connection).
-	logger.Debugf("create new random password for machine %v", m.Id())
-
-	newPassword, err := utils.RandomPassword()
-	if err != nil {
-		return nil, err
-	}
-	if err := m.SetPassword(newPassword); err != nil {
-		return nil, err
-	}
-	if err := m.SetMongoPassword(newPassword); err != nil {
-		return nil, err
-	}
-	c.SetPassword(newPassword)
 	return m, nil
+}
+
+// initBootstrapNode initializes the initial caas bootstrap controller in state.
+func initBootstrapNode(
+	c agent.ConfigSetter,
+	st *state.State,
+	args InitializeStateParams,
+) (bootstrapController, error) {
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	logger.Debugf("initialising bootstrap node for %q model with config: %+v", model.Type(), args)
+
+	node, err := st.AddControllerNode()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot create bootstrap controller in state")
+	}
+	return node, nil
 }
 
 // initControllerCloudService creates cloud service for controller service.

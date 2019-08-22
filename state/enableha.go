@@ -4,9 +4,16 @@
 package state
 
 import (
+	"fmt"
+	"strconv"
+
 	"github.com/juju/errors"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/tools"
 	"github.com/juju/replicaset"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -16,9 +23,9 @@ import (
 	"github.com/juju/juju/core/instance"
 )
 
-func hasJob(jobs []MachineJob, job MachineJob) bool {
-	for _, j := range jobs {
-		if j == job {
+func isController(mdoc *machineDoc) bool {
+	for _, j := range mdoc.Jobs {
+		if j == JobManageModel {
 			return true
 		}
 	}
@@ -44,20 +51,13 @@ func (st *State) getVotingMachineCount(info *ControllerInfo) (int, error) {
 // are added to the machines collection. If currentInfo is nil,
 // there can be only one machine document and it must have
 // id 0 (this is a special case to allow adding the bootstrap machine)
-func (st *State) maintainControllersOps(mdocs []*machineDoc, currentInfo *ControllerInfo) ([]txn.Op, error) {
-	var newIds []string
-	for _, doc := range mdocs {
-		if !hasJob(doc.Jobs, JobManageModel) {
-			continue
-		}
-		newIds = append(newIds, doc.Id)
-	}
+func (st *State) maintainControllersOps(newIds []string, currentInfo *ControllerInfo) ([]txn.Op, error) {
 	if len(newIds) == 0 {
 		return nil, nil
 	}
 	if currentInfo == nil {
 		// Allow bootstrap machine only.
-		if len(mdocs) != 1 || mdocs[0].Id != "0" {
+		if len(newIds) != 1 || newIds[0] != "0" {
 			return nil, errControllerNotAllowed
 		}
 		var err error
@@ -195,8 +195,8 @@ func (st *State) enableHAIntentionOps(
 		return result, constraints.Value{}
 	}
 
-	mdocs := make([]*machineDoc, intent.newCount)
-	for i := range mdocs {
+	var controllerIds []string
+	for i := 0; i < intent.newCount; i++ {
 		placement, cons := getPlacementConstraints()
 		template := MachineTemplate{
 			Series: series,
@@ -211,7 +211,9 @@ func (st *State) enableHAIntentionOps(
 		if err != nil {
 			return nil, ControllersChanges{}, err
 		}
-		mdocs[i] = mdoc
+		if isController(mdoc) {
+			controllerIds = append(controllerIds, mdoc.Id)
+		}
 		ops = append(ops, addOps...)
 		change.Added = append(change.Added, mdoc.Id)
 	}
@@ -219,7 +221,7 @@ func (st *State) enableHAIntentionOps(
 	for _, m := range intent.maintain {
 		change.Maintained = append(change.Maintained, m.Id())
 	}
-	ssOps, err := st.maintainControllersOps(mdocs, currentInfo)
+	ssOps, err := st.maintainControllersOps(controllerIds, currentInfo)
 	if err != nil {
 		return nil, ControllersChanges{}, errors.Annotate(err, "cannot prepare machine add operations")
 	}
@@ -354,11 +356,13 @@ func (st *State) removeControllerReferenceOps(cid string, controllerInfo *Contro
 // ControllerNode represents an instance of a HA controller.
 type ControllerNode interface {
 	Id() string
+	Tag() names.Tag
 	Refresh() error
 	WantsVote() bool
 	HasVote() bool
 	SetHasVote(hasVote bool) error
 	Watch() NotifyWatcher
+	SetMongoPassword(password string) error
 }
 
 // ControllerNode returns the controller node with the given id.
@@ -368,6 +372,34 @@ func (st *State) ControllerNode(id string) (ControllerNode, error) {
 		return nil, errors.Trace(err)
 	}
 	return &controllerNode{*cdoc, st}, nil
+}
+
+// AddControllerNode creates a new controller node.
+func (st *State) AddControllerNode() (*controllerNode, error) {
+	seq, err := sequence(st, "controller")
+	if err != nil {
+		return nil, err
+	}
+	id := strconv.Itoa(seq)
+	doc := controllerNodeDoc{
+		DocID:     st.docID(id),
+		WantsVote: true,
+	}
+
+	currentInfo, err := st.ControllerInfo()
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	ops := []txn.Op{addControllerNodeOp(st, id, false)}
+	ssOps, err := st.maintainControllersOps([]string{id}, currentInfo)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, ssOps...)
+	if err := st.db().RunTransaction(ops); err != nil {
+		return nil, errors.Annotate(err, "cannot add controller node")
+	}
+	return &controllerNode{doc: doc, st: st}, nil
 }
 
 // ControllerNodes returns all the controller nodes.
@@ -393,9 +425,11 @@ type controllerNode struct {
 }
 
 type controllerNodeDoc struct {
-	DocID     string `bson:"_id"`
-	HasVote   bool   `bson:"has-vote"`
-	WantsVote bool   `bson:"wants-vote"`
+	DocID        string       `bson:"_id"`
+	HasVote      bool         `bson:"has-vote"`
+	WantsVote    bool         `bson:"wants-vote"`
+	PasswordHash string       `bson:"password-hash"`
+	AgentVersion *tools.Tools `bson:"agent-version,omitempty"`
 }
 
 // Id returns the controller id.
@@ -403,7 +437,88 @@ func (c *controllerNode) Id() string {
 	return c.st.localID(c.doc.DocID)
 }
 
-// Refresh reloads the controller state..
+// Life is always alive for controller nodes.
+// This API is used when a controller agent attempts
+// to connect to a controller, currently only for CAAS.
+// IAAS models still connect to machines as controllers.
+// TODO(controlleragent) - model life on controller nodes
+func (c *controllerNode) Life() Life {
+	return Alive
+}
+
+// IsManager is always true for controller nodes.
+func (c *controllerNode) IsManager() bool {
+	return true
+}
+
+// Tag returns the controller tag.
+func (c *controllerNode) Tag() names.Tag {
+	return names.NewControllerAgentTag(c.Id())
+}
+
+func (c *controllerNode) SetMongoPassword(password string) error {
+	return mongo.SetAdminMongoPassword(c.st.session, c.Tag().String(), password)
+}
+
+// SetPassword implements Authenticator.
+func (c *controllerNode) SetPassword(password string) error {
+	if len(password) < utils.MinAgentPasswordLength {
+		return errors.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
+	}
+	passwordHash := utils.AgentPasswordHash(password)
+	ops := []txn.Op{{
+		C:      controllerNodesC,
+		Id:     c.doc.DocID,
+		Update: bson.D{{"$set", bson.D{{"password-hash", passwordHash}}}},
+	}}
+	err := c.st.db().RunTransaction(ops)
+	if err != nil {
+		return fmt.Errorf("cannot set password of controller node %q: %v", c.Id(), err)
+	}
+	c.doc.PasswordHash = passwordHash
+	return nil
+}
+
+// PasswordValid implements Authenticator.
+func (c *controllerNode) PasswordValid(password string) bool {
+	agentHash := utils.AgentPasswordHash(password)
+	if agentHash == c.doc.PasswordHash {
+		return true
+	}
+	return false
+}
+
+func (c *controllerNode) AgentTools() (*tools.Tools, error) {
+	if c.doc.AgentVersion == nil {
+		return nil, errors.NotFoundf("agent binaries for controller %v", c)
+	}
+	agentVersion := *c.doc.AgentVersion
+	return &agentVersion, nil
+}
+
+func (c *controllerNode) SetAgentVersion(v version.Binary) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot set agent version for controller %s", c.Id())
+	if err := checkVersionValidity(v); err != nil {
+		return err
+	}
+	tools := &tools.Tools{Version: v}
+	ops := []txn.Op{{
+		C:      controllerNodesC,
+		Id:     c.doc.DocID,
+		Assert: notDeadDoc,
+		Update: bson.D{{"$set", bson.D{{"agent-version", tools}}}},
+	}}
+	// A "raw" transaction is needed here because this function gets
+	// called before database migrations have run so we don't
+	// necessarily want the model UUID added to the id.
+	if err := c.st.runRawTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	c.doc.AgentVersion = tools
+	return nil
+}
+
+// Refresh reloads the controller state.
 func (c *controllerNode) Refresh() error {
 	id := c.st.localID(c.doc.DocID)
 	cdoc, err := c.st.getControllerNodeDoc(id)
@@ -488,9 +603,16 @@ func setControllerWantsVoteOp(st *State, id string, wantsVote bool) txn.Op {
 	}
 }
 
+type controllerReference interface {
+	Id() string
+	Refresh() error
+	WantsVote() bool
+	HasVote() bool
+}
+
 // RemoveControllerReference will unregister Controller from being part of the set of Controllers.
 // It must not have or want to vote, and it must not be the last controller.
-func (st *State) RemoveControllerReference(c ControllerNode) error {
+func (st *State) RemoveControllerReference(c controllerReference) error {
 	logger.Infof("removing controller machine %q", c.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt != 0 {

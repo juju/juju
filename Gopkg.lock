@@ -1562,11 +1562,11 @@
   revision = "1ebf5c5481e815de683e57e0f46705ac567e4e58"
 
 [[projects]]
-  digest = "1:60bf1190a2ff2f54984d2580596caf172359c0e1be26cbdb9109a3df8eaa9608"
+  digest = "1:4eaefc824f6794f155150392c6eea2c3f898b392e0b90e497cc3dd79bc4c99d5"
   name = "gopkg.in/juju/names.v2"
   packages = ["."]
   pruneopts = ""
-  revision = "35a970b00c44984ca675453f9e0144aed5219369"
+  revision = "e057c73bd1beb18e9634151a2410c422bd2057f2"
 
 [[projects]]
   digest = "1:9248d4a0789201f02379a65091cb884e3d92390c69382fce95c44ce3a5c1ed2c"
