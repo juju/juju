@@ -1722,28 +1722,33 @@ func (u *UniterAPI) UpdateSettings(args params.RelationUnitsSettings) (params.Er
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
-	for i, arg := range args.RelationUnits {
+
+	updateOne := func(arg params.RelationUnitSettings) error {
 		unit, err := names.ParseUnitTag(arg.Unit)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
+			return common.ErrPerm
 		}
 		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, unit)
-		if err == nil {
-			var settings *state.Settings
-			settings, err = relUnit.Settings()
-			if err == nil {
-				for k, v := range arg.Settings {
-					if v == "" {
-						settings.Delete(k)
-					} else {
-						settings.Set(k, v)
-					}
-				}
-				_, err = settings.Write()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		settings, err := relUnit.Settings()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for k, v := range arg.Settings {
+			if v == "" {
+				settings.Delete(k)
+			} else {
+				settings.Set(k, v)
 			}
 		}
-		result.Results[i].Error = common.ServerError(err)
+		_, err = settings.Write()
+		return errors.Trace(err)
+	}
+
+	for i, arg := range args.RelationUnits {
+		result.Results[i].Error = common.ServerError(updateOne(arg))
 	}
 	return result, nil
 }
