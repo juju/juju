@@ -10948,6 +10948,9 @@
                         "cloud": {
                             "$ref": "#/definitions/Cloud"
                         },
+                        "force": {
+                            "type": "boolean"
+                        },
                         "name": {
                             "type": "string"
                         }

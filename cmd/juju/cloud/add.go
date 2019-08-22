@@ -112,8 +112,16 @@ do that. If there's only one credential for the cloud it will be
 uploaded to the controller. If the cloud has multiple local credentials
 you can specify which to upload with the --credential option.
 
+When adding clouds to a controller, some clouds are whitelisted and can be easily added:
+%v
+
+Other cloud combinations can only be force added as the user must consider
+network routability and other considerations that are outside of Juju concerns.
+When forced addition is desired, use --force.
+
 Examples:
     juju add-cloud
+    juju add-cloud --force
     juju add-cloud mycloud ~/mycloud.yaml
 
 If the "multi-cloud" feature flag is turned on in the controller:
@@ -129,7 +137,7 @@ See also:
 
 // AddCloudAPI - Implemented by cloudapi.Client.
 type AddCloudAPI interface {
-	AddCloud(jujucloud.Cloud) error
+	AddCloud(jujucloud.Cloud, bool) error
 	AddCredential(tag string, credential jujucloud.Credential) error
 	Close() error
 }
@@ -162,6 +170,9 @@ type AddCloudCommand struct {
 	controllerName  string
 	credentialName  string
 	addCloudAPIFunc func() (AddCloudAPI, error)
+
+	// Force holds whether user wants to force addition of the cloud.
+	Force bool
 }
 
 // NewAddCloudCommand returns a command to add cloud information.
@@ -199,7 +210,7 @@ func (c *AddCloudCommand) Info() *cmd.Info {
 		Name:    "add-cloud",
 		Args:    "<cloud name> [<cloud definition file>]",
 		Purpose: usageAddCloudSummary,
-		Doc:     usageAddCloudDetails,
+		Doc:     fmt.Sprintf(usageAddCloudDetails, jujucloud.CurrentWhiteList()),
 	})
 }
 
@@ -207,6 +218,7 @@ func (c *AddCloudCommand) Info() *cmd.Info {
 func (c *AddCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
 	f.BoolVar(&c.Replace, "replace", false, "DEPRECATED: Overwrite any existing cloud information for <cloud name>")
+	f.BoolVar(&c.Force, "force", false, "Force add cloud to the controller")
 	f.StringVar(&c.CloudFile, "f", "", "The path to a cloud definition file")
 	f.StringVar(&c.credentialName, "credential", "", "Credential to use for new cloud")
 }
@@ -322,13 +334,19 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 		return err
 	}
 	defer api.Close()
-	err = api.AddCloud(*newCloud)
+	err = api.AddCloud(*newCloud, c.Force)
 	if err != nil {
 		if params.ErrCode(err) == params.CodeAlreadyExists {
 			ctxt.Infof("Cloud %q already exists on the controller %q.", c.Cloud, c.controllerName)
 			ctxt.Infof("To upload credentials to the controller for cloud %q, use \n"+
 				"* 'add-model' with --credential option or\n"+
 				"* 'add-credential -c %v'.", newCloud.Name, newCloud.Name)
+			return nil
+		}
+		if params.ErrCode(err) == params.CodeIncompatibleClouds {
+			logger.Infof("%v", err)
+			ctxt.Infof("Adding a cloud of type %q might not function correctly on this controller.\n"+
+				"If you really want to do this, use --force.", newCloud.Type)
 			return nil
 		}
 		return err

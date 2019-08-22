@@ -173,6 +173,7 @@ const (
 	CodeRetry                     = "retry"
 	CodeIncompatibleSeries        = "incompatible series"
 	CodeCloudRegionRequired       = "cloud region required"
+	CodeIncompatibleClouds        = "incompatible clouds"
 )
 
 // ErrCode returns the error code associated with
