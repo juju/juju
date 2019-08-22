@@ -194,10 +194,11 @@ LXC_BRIDGE="ignored"`[1:])
 
 	adminUser := names.NewLocalUserTag("agent-admin")
 	ctlr, err := agentbootstrap.InitializeState(
-		adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
+		&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	defer ctlr.Close()
+	defer func() { _ = ctlr.Close() }()
+
 	st := ctlr.SystemState()
 	err = cfg.Write()
 	c.Assert(err, jc.ErrorIsNil)
@@ -370,7 +371,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 	args := agentbootstrap.InitializeStateParams{}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	_, err = agentbootstrap.InitializeState(adminUser, cfg, args, mongotest.DialOpts(), nil)
+	_, err = agentbootstrap.InitializeState(&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), nil)
 	// InitializeState will fail attempting to get the api port information
 	c.Assert(err, gc.ErrorMatches, "state serving information not available")
 }
@@ -431,16 +432,16 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 
 	adminUser := names.NewLocalUserTag("agent-admin")
 	st, err := agentbootstrap.InitializeState(
-		adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
+		&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	st.Close()
+	_ = st.Close()
 
 	st, err = agentbootstrap.InitializeState(
-		adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
+		&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 	)
 	if err == nil {
-		st.Close()
+		_ = st.Close()
 	}
 	c.Assert(err, gc.ErrorMatches, "bootstrapping raft cluster: bootstrap only works on new clusters")
 }

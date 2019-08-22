@@ -78,9 +78,10 @@ type bootstrapController interface {
 // constraints. The connection to the controller will respect the
 // given timeout parameter.
 //
-// InitializeState returns the newly initialized state and bootstrap
-// machine. If it fails, the state may well be irredeemably compromised.
+// InitializeState returns the newly initialized state and bootstrap machine.
+// If it fails, the state may well be irredeemably compromised.
 func InitializeState(
+	env environs.BootstrapEnviron,
 	adminUser names.UserTag,
 	c agent.ConfigSetter,
 	args InitializeStateParams,
@@ -98,7 +99,7 @@ func InitializeState(
 	// so don't use any tag or password when opening it.
 	info, ok := c.MongoInfo()
 	if !ok {
-		return nil, errors.Errorf("stateinfo not available")
+		return nil, errors.Errorf("state info not available")
 	}
 	info.Tag = nil
 	info.Password = c.OldPassword()
@@ -113,20 +114,9 @@ func InitializeState(
 	}
 	defer session.Close()
 
-	cloudCredentials := make(map[names.CloudCredentialTag]cloud.Credential)
-	var cloudCredentialTag names.CloudCredentialTag
-	if args.ControllerCloudCredential != nil && args.ControllerCloudCredentialName != "" {
-		id := fmt.Sprintf(
-			"%s/%s/%s",
-			args.ControllerCloud.Name,
-			adminUser.Id(),
-			args.ControllerCloudCredentialName,
-		)
-		if !names.IsValidCloudCredential(id) {
-			return nil, errors.NotValidf("cloud credential ID %q", id)
-		}
-		cloudCredentialTag = names.NewCloudCredentialTag(id)
-		cloudCredentials[cloudCredentialTag] = *args.ControllerCloudCredential
+	cloudCreds, cloudCredTag, err := getCloudCredentials(adminUser, args)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	logger.Debugf("initializing address %v", info.Addrs)
@@ -145,12 +135,12 @@ func InitializeState(
 			Constraints:             args.ModelConstraints,
 			CloudName:               args.ControllerCloud.Name,
 			CloudRegion:             args.ControllerCloudRegion,
-			CloudCredential:         cloudCredentialTag,
+			CloudCredential:         cloudCredTag,
 			StorageProviderRegistry: args.StorageProviderRegistry,
 			EnvironVersion:          args.ControllerModelEnvironVersion,
 		},
 		Cloud:                     args.ControllerCloud,
-		CloudCredentials:          cloudCredentials,
+		CloudCredentials:          cloudCreds,
 		ControllerConfig:          args.ControllerConfig,
 		ControllerInheritedConfig: args.ControllerInheritedConfig,
 		RegionInheritedConfig:     args.RegionInheritedConfig,
@@ -173,6 +163,19 @@ func InitializeState(
 	// Filter out any LXC or LXD bridge addresses from the machine addresses.
 	args.BootstrapMachineAddresses = network.FilterBridgeAddresses(args.BootstrapMachineAddresses)
 	st := ctrl.SystemState()
+
+	// Fetch spaces from substrate.
+	// We need to do this before setting the API host-ports,
+	// because any space names in the bootstrap machine addresses must be
+	// reconcilable with space IDs at that point.
+	if err = st.ReloadSpaces(env); err != nil {
+		if errors.IsNotSupported(err) {
+			logger.Debugf("Not performing spaces load on a non-networking environment")
+		} else {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	if err = initAPIHostPorts(st, args.BootstrapMachineAddresses, servingInfo.APIPort); err != nil {
 		return nil, err
 	}
@@ -231,10 +234,31 @@ func InitializeState(
 	}
 	c.SetPassword(newPassword)
 
-	if err := ensureHostedModel(cloudSpec, provider, args, st, ctrl, adminUser, cloudCredentialTag); err != nil {
+	if err := ensureHostedModel(cloudSpec, provider, args, st, ctrl, adminUser, cloudCredTag); err != nil {
 		return nil, errors.Annotate(err, "ensuring hosted model")
 	}
 	return ctrl, nil
+}
+
+func getCloudCredentials(
+	adminUser names.UserTag, args InitializeStateParams,
+) (map[names.CloudCredentialTag]cloud.Credential, names.CloudCredentialTag, error) {
+	cloudCredentials := make(map[names.CloudCredentialTag]cloud.Credential)
+	var cloudCredentialTag names.CloudCredentialTag
+	if args.ControllerCloudCredential != nil && args.ControllerCloudCredentialName != "" {
+		id := fmt.Sprintf(
+			"%s/%s/%s",
+			args.ControllerCloud.Name,
+			adminUser.Id(),
+			args.ControllerCloudCredentialName,
+		)
+		if !names.IsValidCloudCredential(id) {
+			return nil, cloudCredentialTag, errors.NotValidf("cloud credential ID %q", id)
+		}
+		cloudCredentialTag = names.NewCloudCredentialTag(id)
+		cloudCredentials[cloudCredentialTag] = *args.ControllerCloudCredential
+	}
+	return cloudCredentials, cloudCredentialTag, nil
 }
 
 // ensureHostedModel ensures hosted model.
@@ -303,8 +327,7 @@ func ensureHostedModel(
 	if err != nil {
 		return errors.Annotate(err, "creating hosted model")
 	}
-
-	defer hostedModelState.Close()
+	defer func() { _ = hostedModelState.Close() }()
 
 	if err := model.AutoConfigureContainerNetworking(hostedModelEnv); err != nil {
 		return errors.Annotate(err, "autoconfiguring container networking")
