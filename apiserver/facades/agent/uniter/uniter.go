@@ -1724,33 +1724,72 @@ func (u *UniterAPI) UpdateSettings(args params.RelationUnitsSettings) (params.Er
 	}
 
 	updateOne := func(arg params.RelationUnitSettings) error {
-		unit, err := names.ParseUnitTag(arg.Unit)
+		unitTag, err := names.ParseUnitTag(arg.Unit)
 		if err != nil {
 			return common.ErrPerm
 		}
-		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, unit)
+		rel, unit, err := u.getRelationAndUnit(canAccess, arg.Relation, unitTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		settings, err := relUnit.Settings()
+		relUnit, err := rel.Unit(unit)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		for k, v := range arg.Settings {
-			if v == "" {
-				settings.Delete(k)
-			} else {
-				settings.Set(k, v)
-			}
+		err = u.updateApplicationSettings(rel, unit, arg.ApplicationSettings)
+		if err != nil {
+			return errors.Trace(err)
 		}
-		_, err = settings.Write()
-		return errors.Trace(err)
+		err = u.updateUnitSettings(relUnit, arg.Settings)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
 	}
 
 	for i, arg := range args.RelationUnits {
 		result.Results[i].Error = common.ServerError(updateOne(arg))
 	}
 	return result, nil
+}
+
+func (u *UniterAPI) updateUnitSettings(relUnit *state.RelationUnit, newSettings params.Settings) error {
+	if len(newSettings) == 0 {
+		return nil
+	}
+	settings, err := relUnit.Settings()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for k, v := range newSettings {
+		if v == "" {
+			settings.Delete(k)
+		} else {
+			settings.Set(k, v)
+		}
+	}
+	_, err = settings.Write()
+	return errors.Trace(err)
+}
+
+func (u *UniterAPI) updateApplicationSettings(rel *state.Relation, unit *state.Unit, settings params.Settings) error {
+	if len(settings) == 0 {
+		return nil
+	}
+	token := u.leadershipChecker.LeadershipCheck(unit.ApplicationName(), unit.Name())
+	application, err := unit.Application()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	settingsMap := make(map[string]interface{}, len(settings))
+	for k, v := range settings {
+		settingsMap[k] = v
+	}
+	err = rel.UpdateApplicationSettings(application, token, settingsMap)
+	if leadership.IsNotLeaderError(err) {
+		return common.ErrPerm
+	}
+	return errors.Trace(err)
 }
 
 // WatchRelationUnits returns a RelationUnitsWatcher for observing

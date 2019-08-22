@@ -2522,6 +2522,7 @@ func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "application-wordpress", Settings: nil},
 		{Relation: rel.Tag().String(), Unit: "application-mysql", Settings: nil},
 		{Relation: rel.Tag().String(), Unit: "user-foo", Settings: nil},
+		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0", ApplicationSettings: newSettings},
 	}}
 	result, err := s.uniter.UpdateSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2529,6 +2530,7 @@ func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 		Results: []params.ErrorResult{
 			{apiservertesting.ErrUnauthorized},
 			{nil},
+			{apiservertesting.ErrUnauthorized},
 			{apiservertesting.ErrUnauthorized},
 			{apiservertesting.ErrUnauthorized},
 			{apiservertesting.ErrUnauthorized},
@@ -2546,6 +2548,102 @@ func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
 		"some": "different",
+	})
+}
+
+func (s *uniterSuite) TestUpdateSettingsWithAppSettings(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	settings := map[string]interface{}{
+		"some":  "settings",
+		"other": "stuff",
+	}
+	err = relUnit.EnterScope(settings)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, relUnit, true)
+
+	newSettings := params.Settings{
+		"some":  "different",
+		"other": "",
+	}
+
+	err = s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	token := s.State.LeadershipChecker().LeadershipCheck("wordpress", "wordpress/0")
+
+	appSettings := map[string]interface{}{
+		"black midi": "ducter",
+		"battles":    "the yabba",
+	}
+	err = rel.UpdateApplicationSettings(s.wordpress, token, appSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newAppSettings := params.Settings{
+		"black midi": "of schlagenheim",
+		"battles":    "",
+	}
+
+	args := params.RelationUnitsSettings{RelationUnits: []params.RelationUnitSettings{{
+		Relation:            rel.Tag().String(),
+		Unit:                "unit-wordpress-0",
+		Settings:            newSettings,
+		ApplicationSettings: newAppSettings,
+	}}}
+	result, err := s.uniter.UpdateSettings(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{nil}},
+	})
+
+	readSettings, err := rel.ApplicationSettings(s.wordpress)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
+		"black midi": "of schlagenheim",
+	})
+}
+
+func (s *uniterSuite) TestUpdateSettingsWithAppSettingsOnly(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, relUnit, true)
+
+	err = s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	token := s.State.LeadershipChecker().LeadershipCheck("wordpress", "wordpress/0")
+
+	appSettings := map[string]interface{}{
+		"black midi": "ducter",
+		"battles":    "the yabba",
+	}
+	err = rel.UpdateApplicationSettings(s.wordpress, token, appSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newAppSettings := params.Settings{
+		"black midi": "of schlagenheim",
+		"battles":    "",
+	}
+
+	args := params.RelationUnitsSettings{RelationUnits: []params.RelationUnitSettings{{
+		Relation:            rel.Tag().String(),
+		Unit:                "unit-wordpress-0",
+		ApplicationSettings: newAppSettings,
+	}}}
+	result, err := s.uniter.UpdateSettings(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{nil}},
+	})
+
+	readSettings, err := rel.ApplicationSettings(s.wordpress)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
+		"black midi": "of schlagenheim",
 	})
 }
 

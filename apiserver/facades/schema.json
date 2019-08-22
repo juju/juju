@@ -36081,6 +36081,14 @@
                 "RelationUnitSettings": {
                     "type": "object",
                     "properties": {
+                        "application-settings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
                         "relation": {
                             "type": "string"
                         },
@@ -36100,7 +36108,8 @@
                     "required": [
                         "relation",
                         "unit",
-                        "settings"
+                        "settings",
+                        "application-settings"
                     ]
                 },
                 "RelationUnitStatus": {
