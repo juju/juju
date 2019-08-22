@@ -99,6 +99,14 @@ address.
     # How often to refresh controller addresses from the API server.
     bootstrap-addresses-delay: 10 # default: 10 seconds
 
+It is possible to override the series Juju attempts to bootstrap on to, by
+supplying a series argument to '--bootstrap-series'.
+
+An error is emitted if the determined series is not supported. Using the
+'--force' option to override this check:
+
+	juju bootstrap --bootstrap-series=eoan --force
+
 Private clouds may need to specify their own custom image metadata and
 tools/agent. Use '--metadata-source' whose value is a local directory.
 
@@ -188,6 +196,9 @@ type bootstrapCommand struct {
 	noGUI               bool
 	noSwitch            bool
 	interactive         bool
+
+	// Force is used to allow a bootstrap to be run on unsupported series.
+	Force bool
 }
 
 func (c *bootstrapCommand) Info() *cmd.Info {
@@ -226,6 +237,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.showRegionsForCloud, "regions", "", "Print the available regions for the specified cloud")
 	f.BoolVar(&c.noGUI, "no-gui", false, "Do not install the Juju GUI in the controller when bootstrapping")
 	f.BoolVar(&c.noSwitch, "no-switch", false, "Do not switch to the newly created controller")
+	f.BoolVar(&c.Force, "force", false, "Allow the bypassing of checks such as supported series")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -266,6 +278,8 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	if c.AgentVersionParam != "" && c.BuildAgent {
 		return errors.New("--agent-version and --build-agent can't be used together")
 	}
+	// charm.IsValidSeries doesn't actually check against a list of bootstrap
+	// series, but instead, just validates if it conforms to a regexp.
 	if c.BootstrapSeries != "" && !charm.IsValidSeries(c.BootstrapSeries) {
 		return errors.NotValidf("series %q", c.BootstrapSeries)
 	}

@@ -90,6 +90,7 @@ func BootstrapInstance(
 	availableTools, err := args.AvailableTools.Match(coretools.Filter{
 		Series: selectedSeries,
 	})
+	fmt.Println(">>>", err)
 	if err != nil {
 		return nil, "", nil, err
 	}

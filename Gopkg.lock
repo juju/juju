@@ -641,14 +641,16 @@
   revision = "5b81707e882b8293e6cf77854b4cd49f29776e11"
 
 [[projects]]
-  digest = "1:3e72155e0539d15e73b75829b9ba0878bd633ae44b5f4c34ed94b16038042032"
+  branch = "workload-crtl-series"
+  digest = "1:dd78bf18c5654c33fa0ede71675da84850e567a5cfffffb834b8a3188798a5fe"
   name = "github.com/juju/os"
   packages = [
     ".",
     "series",
   ]
   pruneopts = ""
-  revision = "88a4c6ac59c1950f118f058d920204c9182b9927"
+  revision = "0d12cb5478472cb9cf89bd9ee31298cbb144b8d2"
+  source = "github.com/SimonRichardson/os"
 
 [[projects]]
   digest = "1:8fd6c21ba9a864b949672e63800d1bd71a3d8ac8e085cc22143b97f1261ad634"

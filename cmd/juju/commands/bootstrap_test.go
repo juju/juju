@@ -53,7 +53,6 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
-	supportedversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
@@ -235,7 +234,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	}
 	bootstrapVersion := v100p64
 	if test.version != "" {
-		useVersion := strings.Replace(test.version, "%LTS%", supportedversion.SupportedLTS(), 1)
+		useVersion := strings.Replace(test.version, "%LTS%", series.DefaultSupportedLTS(), 1)
 		bootstrapVersion = version.MustParseBinary(useVersion)
 		restore = restore.Add(testing.PatchValue(&jujuversion.Current, bootstrapVersion.Number))
 		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return bootstrapVersion.Arch }))
@@ -1278,7 +1277,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
 }
 
 func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
-	s.PatchValue(&series.MustHostSeries, func() string { return supportedversion.SupportedLTS() })
+	s.PatchValue(&series.MustHostSeries, func() string { return series.DefaultSupportedLTS() })
 	s.setupAutoUploadTest(c, "1.7.3", "quantal")
 	// Run command and check for that upload has been run for tools matching
 	// the current juju version.

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/description"
 	"github.com/juju/errors"
+	"github.com/juju/os/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -26,7 +27,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/juju/version"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -213,7 +213,7 @@ func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) pa
 		CloudTag:           "cloud-some-cloud",
 		CloudRegion:        "some-region",
 		CloudCredentialTag: "cloudcred-some-cloud_bob_some-credential",
-		DefaultSeries:      version.SupportedLTS(),
+		DefaultSeries:      series.DefaultSupportedLTS(),
 		Life:               params.Dying,
 		Status: params.EntityStatus{
 			Status: status.Destroying,

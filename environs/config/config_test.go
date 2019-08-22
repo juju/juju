@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	"github.com/juju/proxy"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
-	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/testing"
 )
 
@@ -55,7 +55,7 @@ var sampleConfig = testing.Attrs{
 	"unknown":                    "my-unknown",
 	"ssl-hostname-verification":  true,
 	"development":                false,
-	"default-series":             jujuversion.SupportedLTS(),
+	"default-series":             series.DefaultSupportedLTS(),
 	"disable-network-management": false,
 	"ignore-machine-addresses":   false,
 	"automatically-retry-hooks":  true,
@@ -636,7 +636,7 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	if seriesAttr != "" {
 		c.Assert(defaultSeries, gc.Equals, seriesAttr)
 	} else {
-		c.Assert(defaultSeries, gc.Equals, jujuversion.SupportedLTS())
+		c.Assert(defaultSeries, gc.Equals, series.DefaultSupportedLTS())
 	}
 
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
@@ -782,7 +782,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"firewall-mode":              config.FwInstance,
 		"unknown":                    "my-unknown",
 		"ssl-hostname-verification":  true,
-		"default-series":             jujuversion.SupportedLTS(),
+		"default-series":             series.DefaultSupportedLTS(),
 		"disable-network-management": false,
 		"ignore-machine-addresses":   false,
 		"automatically-retry-hooks":  true,

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	"github.com/juju/proxy"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
-	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/logfwd/syslog"
 	"github.com/juju/juju/network"
 )
@@ -323,7 +323,7 @@ func PreferredSeries(cfg HasDefaultSeries) string {
 	if series, ok := cfg.DefaultSeries(); ok {
 		return series
 	}
-	return jujuversion.SupportedLTS()
+	return series.DefaultSupportedLTS()
 }
 
 // Config holds an immutable environment configuration.
@@ -432,7 +432,7 @@ var defaultConfigValues = map[string]interface{}{
 	NetBondReconfigureDelayKey: 17,
 	ContainerNetworkingMethod:  "",
 
-	"default-series":              jujuversion.SupportedLTS(),
+	"default-series":              series.DefaultSupportedLTS(),
 	ProvisionerHarvestModeKey:     HarvestDestroyed.String(),
 	ResourceTagsKey:               "",
 	"logging-config":              "",
