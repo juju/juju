@@ -164,7 +164,7 @@ func (info *UpgradeInfo) AllProvisionedControllersReady() (bool, error) {
 func (info *UpgradeInfo) getProvisionedControllers() ([]string, error) {
 	var provisioned []string
 
-	controllerInfo, err := info.st.ControllerInfo()
+	controllerIds, err := info.st.ControllerIds()
 	if err != nil {
 		return provisioned, errors.Annotate(err, "cannot read controllers")
 	}
@@ -175,7 +175,7 @@ func (info *UpgradeInfo) getProvisionedControllers() ([]string, error) {
 
 	query := bson.D{
 		{"model-uuid", info.st.ModelUUID()},
-		{"machineid", bson.D{{"$in", controllerInfo.MachineIds}}},
+		{"machineid", bson.D{{"$in", controllerIds}}},
 	}
 	iter := instanceData.Find(query).Select(bson.D{{"machineid", true}}).Iter()
 
@@ -270,11 +270,10 @@ func (info *UpgradeInfo) SetStatus(status UpgradeStatus) error {
 
 // EnsureUpgradeInfo returns an UpgradeInfo describing a current upgrade between the
 // supplied versions. If a matching upgrade is in progress, that upgrade is returned;
-// if there's a mismatch, an error is returned. The supplied machine id must correspond
-// to a current controller.
-func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVersion version.Number) (*UpgradeInfo, error) {
+// if there's a mismatch, an error is returned.
+func (st *State) EnsureUpgradeInfo(controllerId string, previousVersion, targetVersion version.Number) (*UpgradeInfo, error) {
 
-	assertSanity, err := checkUpgradeInfoSanity(st, machineId, previousVersion, targetVersion)
+	assertSanity, err := checkUpgradeInfoSanity(st, controllerId, previousVersion, targetVersion)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -285,10 +284,10 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 		TargetVersion:    targetVersion,
 		Status:           UpgradePending,
 		Started:          st.clock().Now().UTC(),
-		ControllersReady: []string{machineId},
+		ControllersReady: []string{controllerId},
 	}
 
-	machine, err := st.Machine(machineId)
+	machine, err := st.Machine(controllerId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -309,15 +308,15 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 		return nil, errors.Annotate(err, "cannot create upgrade info")
 	}
 
-	if provisioned, err := st.isMachineProvisioned(machineId); err != nil {
+	if provisioned, err := st.isMachineProvisioned(controllerId); err != nil {
 		return nil, errors.Trace(err)
 	} else if !provisioned {
 		return nil, errors.Errorf(
 			"machine %s is not provisioned and should not be participating in upgrades",
-			machineId)
+			controllerId)
 	}
 
-	if info, err := ensureUpgradeInfoUpdated(st, machineId, previousVersion, targetVersion); err == nil {
+	if info, err := ensureUpgradeInfoUpdated(st, controllerId, previousVersion, targetVersion); err == nil {
 		return info, nil
 	} else if errors.Cause(err) != errUpgradeInfoNotUpdated {
 		return nil, errors.Trace(err)
@@ -328,12 +327,12 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 		Id:     currentUpgradeId,
 		Assert: assertSanity,
 		Update: bson.D{{
-			"$addToSet", bson.D{{"controllersReady", machineId}},
+			"$addToSet", bson.D{{"controllersReady", controllerId}},
 		}},
 	}}
 	switch err := st.db().RunTransaction(ops); err {
 	case nil:
-		return ensureUpgradeInfoUpdated(st, machineId, previousVersion, targetVersion)
+		return ensureUpgradeInfoUpdated(st, controllerId, previousVersion, targetVersion)
 	case txn.ErrAborted:
 		return nil, errors.New("upgrade info changed during update")
 	}
@@ -384,12 +383,12 @@ func ensureUpgradeInfoUpdated(st *State, machineId string, previousVersion, targ
 	return &UpgradeInfo{st: st, doc: doc}, nil
 }
 
-// SetControllerDone marks the supplied state machineId as having
+// SetControllerDone marks the supplied state controllerId as having
 // completed its upgrades. When SetControllerDone is called by the
 // last provisioned controller, the current upgrade info document
 // will be archived with a status of UpgradeComplete.
-func (info *UpgradeInfo) SetControllerDone(machineId string) error {
-	assertSanity, err := checkUpgradeInfoSanity(info.st, machineId,
+func (info *UpgradeInfo) SetControllerDone(controllerId string) error {
+	assertSanity, err := checkUpgradeInfoSanity(info.st, controllerId,
 		info.doc.PreviousVersion, info.doc.TargetVersion)
 	if err != nil {
 		return errors.Trace(err)
@@ -408,10 +407,10 @@ func (info *UpgradeInfo) SetControllerDone(machineId string) error {
 		}
 
 		controllersDone := set.NewStrings(doc.ControllersDone...)
-		if controllersDone.Contains(machineId) {
+		if controllersDone.Contains(controllerId) {
 			return nil, jujutxn.ErrNoOperations
 		}
-		controllersDone.Add(machineId)
+		controllersDone.Add(controllerId)
 
 		controllersReady := set.NewStrings(doc.ControllersReady...)
 		controllersNotDone := controllersReady.Difference(controllersDone)
@@ -440,7 +439,7 @@ func (info *UpgradeInfo) SetControllerDone(machineId string) error {
 			Assert: append(assertSanity, bson.D{{
 				"controllersDone", bson.D{{"$nin", controllersNotDone.Values()}},
 			}}...),
-			Update: bson.D{{"$addToSet", bson.D{{"controllersDone", machineId}}}},
+			Update: bson.D{{"$addToSet", bson.D{{"controllersDone", controllerId}}}},
 		}}, nil
 	}
 	err = info.st.db().Run(buildTxn)
@@ -532,11 +531,11 @@ func checkUpgradeInfoSanity(st *State, machineId string, previousVersion, target
 	if previousVersion.Compare(targetVersion) != -1 {
 		return nil, errors.Errorf("cannot sanely upgrade from %s to %s", previousVersion, targetVersion)
 	}
-	controllerInfo, err := st.ControllerInfo()
+	controllerIds, err := st.SafeControllerIds()
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot read controllers")
+		return nil, errors.Annotate(err, "cannot read controller ids")
 	}
-	validIds := set.NewStrings(controllerInfo.MachineIds...)
+	validIds := set.NewStrings(controllerIds...)
 	if !validIds.Contains(machineId) {
 		return nil, errors.Errorf("machine %q is not a controller", machineId)
 	}

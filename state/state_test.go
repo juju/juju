@@ -1411,10 +1411,9 @@ func (s *StateSuite) TestAddMachineCanOnlyAddControllerForMachine0(c *gc.C) {
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
 
 	// Check that the controller information is correct.
-	info, err := s.State.ControllerInfo()
+	controllerIds, err := s.State.ControllerIds()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.ModelTag, gc.Equals, s.modelTag)
-	c.Assert(info.MachineIds, gc.DeepEquals, []string{"0"})
+	c.Assert(controllerIds, gc.DeepEquals, []string{"0"})
 
 	const errCannotAdd = "cannot add a new machine: controller jobs specified but not allowed"
 	m, err = s.State.AddOneMachine(template)
@@ -4091,7 +4090,7 @@ func (s *StateSuite) TestControllerInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids.CloudName, gc.Equals, "dummy")
 	c.Assert(ids.ModelTag, gc.Equals, s.modelTag)
-	c.Assert(ids.MachineIds, gc.HasLen, 0)
+	c.Assert(ids.ControllerIds, gc.HasLen, 0)
 
 	// TODO(rog) more testing here when we can actually add
 	// controllers.

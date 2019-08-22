@@ -32,7 +32,7 @@ var logger = loggo.GetLogger("juju.worker.peergrouper")
 type State interface {
 	RemoveControllerReference(m ControllerNode) error
 	ControllerConfig() (controller.Config, error)
-	ControllerInfo() (*state.ControllerInfo, error)
+	ControllerIds() ([]string, error)
 	ControllerNode(id string) (ControllerNode, error)
 	ControllerHost(id string) (ControllerHost, error)
 	WatchControllerInfo() state.StringsWatcher
@@ -368,17 +368,17 @@ func (w *pgWorker) watchForConfigChanges() (<-chan struct{}, error) {
 // controller nodes, as well as starting and stopping trackers for
 // them as they are added and removed.
 func (w *pgWorker) updateControllerNodes() (bool, error) {
-	info, err := w.config.State.ControllerInfo()
+	controllerIds, err := w.config.State.ControllerIds()
 	if err != nil {
-		return false, fmt.Errorf("cannot get controller info: %v", err)
+		return false, fmt.Errorf("cannot get controller ids: %v", err)
 	}
 
-	logger.Debugf("controller nodes in state: %#v", info.MachineIds)
+	logger.Debugf("controller nodes in state: %#v", controllerIds)
 	changed := false
 
 	// Stop controller goroutines that no longer correspond to controller nodes.
 	for _, m := range w.controllerTrackers {
-		if !inStrings(m.Id(), info.MachineIds) {
+		if !inStrings(m.Id(), controllerIds) {
 			worker.Stop(m)
 			delete(w.controllerTrackers, m.Id())
 			changed = true
@@ -386,7 +386,7 @@ func (w *pgWorker) updateControllerNodes() (bool, error) {
 	}
 
 	// Start nodes with no watcher
-	for _, id := range info.MachineIds {
+	for _, id := range controllerIds {
 		controllerNode, err := w.config.State.ControllerNode(id)
 		if err != nil {
 			if errors.IsNotFound(err) {

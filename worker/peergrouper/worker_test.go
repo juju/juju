@@ -388,8 +388,8 @@ var fatalErrorsTests = []struct {
 	expectErr    string
 	advanceCount int
 }{{
-	errPattern: "State.ControllerInfo",
-	expectErr:  "cannot get controller info: sample",
+	errPattern: "State.ControllerIds",
+	expectErr:  "cannot get controller ids: sample",
 }, {
 	errPattern:   "Controller.SetHasVote 11 true",
 	expectErr:    `adding new voters: cannot set voting status of "11" to true: sample`,

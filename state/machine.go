@@ -548,11 +548,11 @@ func (m *Machine) ForceDestroy(maxWait time.Duration) error {
 
 func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
 	if m.IsManager() {
-		controllerInfo, err := m.st.ControllerInfo()
+		controllerIds, err := m.st.ControllerIds()
 		if err != nil {
 			return nil, errors.Annotatef(err, "reading controller info")
 		}
-		if len(controllerInfo.MachineIds) <= 1 {
+		if len(controllerIds) <= 1 {
 			return nil, errors.Errorf("controller %s is the only controller", m.Id())
 		}
 		// We set the machine to Dying if it isn't already dead.
@@ -570,7 +570,7 @@ func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
 		controllerOp := txn.Op{
 			C:      controllersC,
 			Id:     modelGlobalKey,
-			Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
+			Assert: bson.D{{"controller-ids", controllerIds}},
 		}
 		// Note that ForceDestroy does *not* cleanup the replicaset, so it might cause problems.
 		// However, we're letting the user handle times when the machine agent isn't running, etc.
@@ -797,17 +797,17 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 				ops[0].Update = bson.D{
 					{"$set", bson.D{{"life", life}}},
 				}
-				controllerInfo, err := m.st.ControllerInfo()
+				controllerIds, err := m.st.ControllerIds()
 				if err != nil {
 					return nil, errors.Annotatef(err, "reading controller info")
 				}
-				if len(controllerInfo.MachineIds) <= 1 {
+				if len(controllerIds) <= 1 {
 					return nil, errors.Errorf("controller %s is the only controller", m.Id())
 				}
 				controllerOp := txn.Op{
 					C:      controllersC,
 					Id:     modelGlobalKey,
-					Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
+					Assert: bson.D{{"controller-ids", controllerIds}},
 				}
 				ops = append(ops, controllerOp)
 				ops = append(ops, setControllerWantsVoteOp(m.st, m.doc.Id, false))

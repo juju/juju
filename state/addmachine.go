@@ -165,7 +165,7 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 		ms = append(ms, newMachine(st, mdoc))
 		ops = append(ops, addOps...)
 	}
-	ssOps, err := st.maintainControllersOps(controllerIds, nil)
+	ssOps, err := st.maintainControllersOps(controllerIds, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
