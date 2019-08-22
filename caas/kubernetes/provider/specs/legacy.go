@@ -4,63 +4,62 @@
 package specs
 
 import (
-	// "fmt"
 	"strings"
 
-	// "github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 	core "k8s.io/api/core/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	// apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	// "github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/specs"
 )
 
-type caasContainerSpec specs.ContainerSpec
-
-type k8sContainer struct {
-	caasContainerSpec `json:",inline"`
-	*K8sContainerSpec `json:",inline"`
+type podSpecLegacy struct {
+	CaaSSpec specs.PodSpecLegacy
+	K8sSpec  K8sPodSpecLegacy
 }
 
-type k8sContainers struct {
-	Containers     []k8sContainer `json:"containers"`
-	InitContainers []k8sContainer `json:"initContainers"`
-	// CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `yaml:"customResourceDefinitions,omitempty"`
+// Validate is defined on ProviderPod.
+func (p *podSpecLegacy) Validate() error {
+	if err := p.CaaSSpec.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(p.K8sSpec.Validate())
 }
 
-// K8sContainerSpec is a subset of v1.Container which defines
+func (p *podSpecLegacy) ToLatest() *specs.PodSpec {
+	pSpec := &specs.PodSpec{}
+	pSpec.Version = specs.CurrentVersion
+	pSpec.OmitServiceFrontend = p.CaaSSpec.OmitServiceFrontend
+	pSpec.Containers = p.CaaSSpec.Containers
+	pSpec.InitContainers = p.CaaSSpec.InitContainers
+	pSpec.ProviderPod = &K8sPodSpec{
+		ServiceAccount: &ServiceAccountSpec{
+			Name:                         p.K8sSpec.ServiceAccountName,
+			AutomountServiceAccountToken: p.K8sSpec.AutomountServiceAccountToken,
+		},
+		RestartPolicy:                 p.K8sSpec.RestartPolicy,
+		TerminationGracePeriodSeconds: p.K8sSpec.TerminationGracePeriodSeconds,
+		ActiveDeadlineSeconds:         p.K8sSpec.ActiveDeadlineSeconds,
+		DNSPolicy:                     p.K8sSpec.DNSPolicy,
+		SecurityContext:               p.K8sSpec.SecurityContext,
+		Hostname:                      p.K8sSpec.Hostname,
+		Subdomain:                     p.K8sSpec.Subdomain,
+		PriorityClassName:             p.K8sSpec.PriorityClassName,
+		Priority:                      p.K8sSpec.Priority,
+		DNSConfig:                     p.K8sSpec.DNSConfig,
+		ReadinessGates:                p.K8sSpec.ReadinessGates,
+		Service:                       p.K8sSpec.Service,
+		CustomResourceDefinitions:     p.CaaSSpec.CustomResourceDefinitions,
+	}
+	return pSpec
+}
+
+// K8sPodSpecLegacy is a subset of v1.PodSpec which defines
 // attributes we expose for charms to set.
-type K8sContainerSpec struct {
-	LivenessProbe   *core.Probe           `json:"livenessProbe,omitempty"`
-	ReadinessProbe  *core.Probe           `json:"readinessProbe,omitempty"`
-	SecurityContext *core.SecurityContext `json:"securityContext,omitempty"`
-	ImagePullPolicy core.PullPolicy       `json:"imagePullPolicy,omitempty"`
-}
-
-// Validate is defined on ProviderContainer.
-func (*K8sContainerSpec) Validate() error {
-	return nil
-}
-
-type caasPodSpec specs.PodSpecLegacy
-
-type k8sPod struct {
-	caasPodSpec `json:",inline"`
-	*K8sPodSpec `json:",inline"`
-}
-
-// K8sServiceSpec contains attributes to be set on v1.Service when
-// the application is deployed.
-type K8sServiceSpec struct {
-	Annotations map[string]string `json:"annotations,omitempty"`
-}
-
-// K8sPodSpec is a subset of v1.PodSpec which defines
-// attributes we expose for charms to set.
-type K8sPodSpec struct {
+type K8sPodSpecLegacy struct {
 	// TODO(caas): remove ServiceAccountName and AutomountServiceAccountToken in the future
 	// because we have service account spec in caas.PodSpec now.
 	// Keep it for now because it will be a breaking change to remove it.
@@ -79,31 +78,34 @@ type K8sPodSpec struct {
 	DNSConfig                     *core.PodDNSConfig       `json:"dnsConfig,omitempty"`
 	ReadinessGates                []core.PodReadinessGate  `json:"readinessGates,omitempty"`
 	Service                       *K8sServiceSpec          `json:"service,omitempty"`
-
-	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `yaml:"customResourceDefinitions,omitempty"`
-	ServiceAccount            *ServiceAccountSpec                                          `yaml:"-"`
 }
 
 // Validate is defined on ProviderPod.
-func (*K8sPodSpec) Validate() error {
+func (*K8sPodSpecLegacy) Validate() error {
 	return nil
 }
 
 func parsePodSpecLegacy(in string) (*specs.PodSpec, error) {
 	// Do the common fields.
-	var spec specs.PodSpecLegacy
-	if err := yaml.Unmarshal([]byte(in), &spec); err != nil {
+	var spec podSpecLegacy
+	var caasPodSpecLegacy specs.PodSpecLegacy
+	if err := yaml.Unmarshal([]byte(in), &caasPodSpecLegacy); err != nil {
 		return nil, errors.Trace(err)
 	}
+	logger.Criticalf("in ---> \n%s", in)
+	logger.Criticalf("caasPodSpecLegacy -----> %#v", caasPodSpecLegacy)
+	logger.Criticalf("caasPodSpecLegacy -----> %#v", caasPodSpecLegacy.CustomResourceDefinitions["tfjobs.kubeflow.org"].Validation)
+	spec.CaaSSpec = caasPodSpecLegacy
 	// Do the k8s pod attributes.
-	var pod k8sPod
+	var pod K8sPodSpecLegacy
 	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
 	if err := decoder.Decode(&pod); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if pod.K8sPodSpec != nil {
-		spec.ProviderPod = pod.K8sPodSpec
-	}
+	spec.K8sSpec = pod
+	// if pod.K8sPodSpecLegacy != nil {
+	// 	spec.ProviderPod = pod.K8sPodSpecLegacy
+	// }
 	// 	if pod.ServiceAccount != nil {
 	// 		if pod.K8sPodSpec != nil && pod.ServiceAccountName != "" {
 	// 			return nil, errors.New(`
@@ -126,25 +128,22 @@ func parsePodSpecLegacy(in string) (*specs.PodSpec, error) {
 	quoteBoolStrings(containers.InitContainers)
 
 	// Compose the result.
-	spec.Containers = make([]specs.ContainerSpec, len(containers.Containers))
+	spec.CaaSSpec.Containers = make([]specs.ContainerSpec, len(containers.Containers))
 	for i, c := range containers.Containers {
 		if err := c.Validate(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		spec.Containers[i] = containerFromK8sSpec(c)
+		spec.CaaSSpec.Containers[i] = containerFromK8sSpec(c)
 	}
-	spec.InitContainers = make([]specs.ContainerSpec, len(containers.InitContainers))
+	spec.CaaSSpec.InitContainers = make([]specs.ContainerSpec, len(containers.InitContainers))
 	for i, c := range containers.InitContainers {
 		if err := c.Validate(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		spec.InitContainers[i] = containerFromK8sSpec(c)
+		spec.CaaSSpec.InitContainers[i] = containerFromK8sSpec(c)
 	}
-
-	// construct to latest versiob of podspec.
-	out := &specs.PodSpec{}
-	out.Containers = spec.Containers
-	out.InitContainers = spec.Containers
-	out.ProviderPod = spec.ProviderPod
-	return out, spec.Validate()
+	if err := spec.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return spec.ToLatest(), nil
 }

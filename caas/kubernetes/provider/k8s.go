@@ -2586,6 +2586,7 @@ func operatorConfigMap(appName, operatorName string, config *caas.OperatorConfig
 	}
 }
 
+// TODO: move this to ./specs??????????
 type svcSpec struct {
 	Pod     core.PodSpec `json:"pod"`
 	Service *k8sspecs.K8sServiceSpec
@@ -2623,8 +2624,6 @@ func prepareSvcSpec(appName, deploymentName string, podSpec *specs.PodSpec) (*sv
 			return nil, errors.Errorf("unexpected kubernetes pod spec type %T", podSpec.ProviderPod)
 		}
 		spec.Pod.ActiveDeadlineSeconds = pSpec.ActiveDeadlineSeconds
-		spec.Pod.ServiceAccountName = pSpec.ServiceAccountName
-		spec.Pod.AutomountServiceAccountToken = pSpec.AutomountServiceAccountToken
 		spec.Pod.TerminationGracePeriodSeconds = pSpec.TerminationGracePeriodSeconds
 		spec.Pod.Hostname = pSpec.Hostname
 		spec.Pod.Subdomain = pSpec.Subdomain

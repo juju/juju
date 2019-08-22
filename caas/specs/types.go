@@ -90,19 +90,19 @@ type Version int32
 
 // PodSpecVersion indicates the version of the podspec.
 type PodSpecVersion struct {
-	Version Version `yaml:"version,omitempty" json:"version,omitempty"`
+	Version Version `json:"version,omitempty"`
 }
 
 // podSpec defines the data values used to configure
 // a pod on the CAAS substrate.
 type podSpec struct {
-	PodSpecVersion
-	OmitServiceFrontend bool            `yaml:"omitServiceFrontend"`
-	Containers          []ContainerSpec `yaml:"-"`
-	InitContainers      []ContainerSpec `yaml:"-"`
+	PodSpecVersion      `yaml:",inline"`
+	OmitServiceFrontend bool            `json:"omitServiceFrontend" yaml:"omitServiceFrontend"`
+	Containers          []ContainerSpec `json:"containers" yaml:"containers"`
+	InitContainers      []ContainerSpec `json:"initContainers" yaml:"initContainers"`
 
 	// ProviderPod defines config which is specific to a substrate, eg k8s
-	ProviderPod `yaml:"-"`
+	ProviderPod `json:"-" yaml:"-"`
 }
 
 // ProviderPod defines a provider specific pod.

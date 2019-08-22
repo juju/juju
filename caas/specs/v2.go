@@ -10,8 +10,7 @@ import (
 // PodSpecV2 defines the data values used to configure
 // a pod on the CAAS substrate for version 2.
 type PodSpecV2 struct {
-	// TODO: should be V1 but not V2 ???????????
-	podSpec
+	podSpec `yaml:",inline"`
 }
 
 // Version2 defines the version number for pod spec version 2.

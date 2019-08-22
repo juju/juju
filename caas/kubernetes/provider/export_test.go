@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	MakeUnitSpec             = makeUnitSpec
+	MakeSvcSpec              = prepareSvcSpec
 	OperatorPod              = operatorPod
 	ExtractRegistryURL       = extractRegistryURL
 	CreateDockerConfigJSON   = createDockerConfigJSON
@@ -82,7 +82,7 @@ func NewcontrollerStackForTest(
 	return cs.(*controllerStack), err
 }
 
-func PodSpec(u *unitSpec) core.PodSpec {
+func PodSpec(u *svcSpec) core.PodSpec {
 	return u.Pod
 }
 

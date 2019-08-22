@@ -12,9 +12,9 @@ import (
 // PodSpecLegacy defines the legacy version of data values used to configure
 // a pod on the CAAS substrate.
 type PodSpecLegacy struct {
-	podSpec
+	podSpec `yaml:",inline"`
 
-	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `yaml:"-"`
+	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `json:"customResourceDefinitions,omitempty" yaml:"customResourceDefinitions,omitempty"`
 }
 
 // VersionLegacy defines the version number for pod spec version 0 - legacy.
