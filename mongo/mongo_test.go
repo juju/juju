@@ -12,7 +12,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -63,8 +62,9 @@ var expectedArgs = struct {
 }{
 	MongoInstall: []jc.SimpleMessage{
 		{loggo.INFO, "Ensuring mongo server is running; data directory.*"},
+		{loggo.INFO, regexp.QuoteMeta(`installing "epel-release" via "yum"`)},
 		{loggo.INFO, "Running: yum --assumeyes --debuglevel=1 install epel-release"},
-		{loggo.INFO, regexp.QuoteMeta("installing [mongodb-server]")},
+		{loggo.INFO, regexp.QuoteMeta(`installing "mongodb-server" via "yum"`)},
 		{loggo.INFO, "Running: yum --assumeyes --debuglevel=1 install mongodb-server"},
 	},
 	YumBase: []string{
@@ -74,7 +74,7 @@ var expectedArgs = struct {
 	},
 	AptGetBase: []string{
 		"--option=Dpkg::Options::=--force-confold",
-		"--option=Dpkg::options::=--force-unsafe-io",
+		"--option=Dpkg::Options::=--force-unsafe-io",
 		"--assume-yes",
 		"--quiet",
 		"install",
@@ -389,94 +389,34 @@ func (s *MongoSuite) testEnsureServerNUMACtl(c *gc.C, setNUMAPolicy bool) string
 	return dataDir
 }
 
-func (s *MongoSuite) TestInstallMongod(c *gc.C) {
+func (s *MongoSuite) TestInstallMongodOnUbuntuViaApt(c *gc.C) {
 	type installs struct {
-		series string
-		cmd    [][]string
+		series  string
+		pkgs    []string
+		expOpts []string
 	}
 
 	tests := []installs{
-		{"precise", [][]string{{"--target-release", "precise-updates/cloud-tools", "mongodb-server"}}},
-		{"trusty", [][]string{{"juju-mongodb"}}},
-		{"xenial", [][]string{{"juju-mongodb3.2"}, {"juju-mongo-tools3.2"}}},
-		{"bionic", [][]string{{"mongodb-server-core"}}},
-	}
-
-	testing.PatchExecutableAsEchoArgs(c, s, "add-apt-repository")
-	testing.PatchExecutableAsEchoArgs(c, s, "apt-get")
-	for _, test := range tests {
-		c.Logf("install for series %v", test.series)
-		dataDir := c.MkDir()
-		s.patchSeries(test.series)
-		_, err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
-		c.Assert(err, jc.ErrorIsNil)
-
-		for _, cmd := range test.cmd {
-			match := append(expectedArgs.AptGetBase, cmd...)
-			testing.AssertEchoArgs(c, "apt-get", match...)
-		}
-	}
-}
-
-var fakeInstallScript = `#!/bin/bash
-if [ $# -lt 1 ]
-then
-        echo "Install fail - not enough arguments"
-        exit 1
-fi
-
-# The package name is the last argument
-package=${@: -1}
-echo $package >> %s
-
-if [ $package == "juju-mongodb" ]
-then
-        echo "Installed successfully!"
-        exit 0
-fi
-
-if [ $package == "mongodb-server" ]
-then
-        echo "Installed successfully!"
-        exit 0
-fi
-
-echo "Unable to locate package $package"
-exit 100
-`
-
-func (s *MongoSuite) TestInstallMongodFallsBack(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("Skipping TestInstallMongodFallsBack as mongo is not installed on windows")
-	}
-
-	type installs struct {
-		series string
-		cmd    string
-	}
-
-	tests := []installs{
-		{"precise", "mongodb-server"},
-		{"trusty", "juju-mongodb"},
-		{"xenial", "juju-mongodb3.2"},
-		{"bionic", "mongodb-server-core"},
+		{"trusty", []string{"juju-mongodb"}, nil},
+		{"xenial", []string{"juju-mongodb3.2", "juju-mongo-tools3.2"}, nil},
+		{"bionic", []string{"mongodb-server-core", "mongodb-clients"}, nil},
 	}
 
 	dataDir := c.MkDir()
-	outputFile := filepath.Join(dataDir, "apt-get-args")
-	testing.PatchExecutable(c, s, "apt-get", fmt.Sprintf(fakeInstallScript, outputFile))
 	for _, test := range tests {
 		c.Logf("Testing mongo install for series: %s", test.series)
+		testing.PatchExecutableAsEchoArgs(c, s, "apt-get")
 		s.patchSeries(test.series)
+
 		_, err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, gc.IsNil)
 
-		args, err := ioutil.ReadFile(outputFile)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(strings.TrimSpace(string(args)), gc.Equals, test.cmd)
-
-		err = os.Remove(outputFile)
-		c.Assert(err, jc.ErrorIsNil)
+		for _, pkg := range test.pkgs {
+			exp := append([]string{}, expectedArgs.AptGetBase...)
+			exp = append(exp, test.expOpts...)
+			exp = append(exp, pkg)
+			testing.AssertEchoArgs(c, "apt-get", exp...)
+		}
 	}
 }
 
@@ -525,14 +465,6 @@ func (s *MongoSuite) TestInstallFailSemanageMongodCentOS(c *gc.C) {
 }
 
 func (s *MongoSuite) assertSuccessWithInstallStepFailCentOS(c *gc.C, exec []string, execNameFail string, returnCode int, expectedResult []jc.SimpleMessage) {
-	type installs struct {
-		series string
-		pkg    string
-	}
-	test := installs{
-		"centos7", "mongodb*",
-	}
-
 	for _, e := range exec {
 		testing.PatchExecutableAsEchoArgs(c, s, e)
 	}
@@ -540,7 +472,7 @@ func (s *MongoSuite) assertSuccessWithInstallStepFailCentOS(c *gc.C, exec []stri
 	testing.PatchExecutableThrowError(c, s, execNameFail, returnCode)
 
 	dataDir := c.MkDir()
-	s.patchSeries(test.series)
+	s.patchSeries("centos7")
 
 	var tw loggo.TestWriter
 	c.Assert(loggo.RegisterWriter("mongosuite", &tw), jc.ErrorIsNil)
@@ -554,10 +486,10 @@ func (s *MongoSuite) assertSuccessWithInstallStepFailCentOS(c *gc.C, exec []stri
 func (s *MongoSuite) TestInstallSuccessMongodCentOS(c *gc.C) {
 	type installs struct {
 		series string
-		pkg    string
+		pkgs   []string
 	}
 	test := installs{
-		"centos7", "mongodb*",
+		"centos7", []string{"epel-release", "mongodb-server"},
 	}
 
 	testing.PatchExecutableAsEchoArgs(c, s, "yum")
@@ -570,9 +502,10 @@ func (s *MongoSuite) TestInstallSuccessMongodCentOS(c *gc.C) {
 	_, err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := append(expectedArgs.YumBase, "epel-release")
-
-	testing.AssertEchoArgs(c, "yum", expected...)
+	for _, pkg := range test.pkgs {
+		exp := append(append([]string{}, expectedArgs.YumBase...), pkg)
+		testing.AssertEchoArgs(c, "yum", exp...)
+	}
 
 	testing.AssertEchoArgs(c, "chcon", expectedArgs.Chcon...)
 
@@ -616,7 +549,7 @@ func (s *MongoSuite) assertTestMongoGetFails(c *gc.C, series string, packageMana
 
 	c.Check(tw.Log(), jc.LogMatches, []jc.SimpleMessage{
 		{loggo.ERROR, `packaging command failed: .+`},
-		{loggo.ERROR, `cannot install/upgrade mongod \(will proceed anyway\): packaging command failed`},
+		{loggo.ERROR, `cannot install/upgrade mongod \(will proceed anyway\): installing package.+: packaging command failed:.+`},
 	})
 
 	// Verify that EnsureServer continued and started the mongodb service.
@@ -733,30 +666,6 @@ func (s *MongoSuite) TestGenerateSharedSecret(c *gc.C) {
 	c.Assert(secret, gc.HasLen, 1024)
 	_, err = base64.StdEncoding.DecodeString(secret)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *MongoSuite) TestAddEpelInCentOS(c *gc.C) {
-	testing.PatchExecutableAsEchoArgs(c, s, "yum")
-
-	s.patchSeries("centos7")
-
-	testing.PatchExecutableAsEchoArgs(c, s, "chcon")
-	testing.PatchExecutableAsEchoArgs(c, s, "semanage")
-	testing.PatchExecutableAsEchoArgs(c, s, "yum-config-manager")
-
-	dataDir := c.MkDir()
-	_, err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedEpelRelease := append(expectedArgs.YumBase, "epel-release")
-	testing.AssertEchoArgs(c, "yum", expectedEpelRelease...)
-
-	expectedMongodbServer := append(expectedArgs.YumBase, "mongodb-server")
-	testing.AssertEchoArgs(c, "yum", expectedMongodbServer...)
-
-	testing.AssertEchoArgs(c, "chcon", expectedArgs.Chcon...)
-
-	testing.AssertEchoArgs(c, "semanage", expectedArgs.Semanage...)
 }
 
 // failCmd creates an executable file at the given location that will do nothing
