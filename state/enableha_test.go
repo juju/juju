@@ -185,14 +185,13 @@ func newUint64(i uint64) *uint64 {
 	return &i
 }
 
-func (s *EnableHASuite) assertControllerInfo(c *gc.C, machineIds []string, wantVoteMachineIds []string, placement []string) {
-	info, err := s.State.ControllerInfo()
+func (s *EnableHASuite) assertControllerInfo(c *gc.C, expectedIds []string, wantVoteMachineIds []string, placement []string) {
+	controllerIds, err := s.State.ControllerIds()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(info.ModelTag, gc.Equals, s.modelTag)
-	c.Check(info.MachineIds, jc.SameContents, machineIds)
+	c.Check(controllerIds, jc.SameContents, expectedIds)
 
 	foundVoting := make([]string, 0)
-	for i, id := range machineIds {
+	for i, id := range expectedIds {
 		m, err := s.State.Machine(id)
 		c.Assert(err, jc.ErrorIsNil)
 		if len(placement) == 0 || i >= len(placement) {
@@ -427,9 +426,9 @@ func (s *EnableHASuite) TestWatchControllerInfo(c *gc.C) {
 	info, err := s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{
-		CloudName:  "dummy",
-		ModelTag:   s.modelTag,
-		MachineIds: []string{"0"},
+		CloudName:     "dummy",
+		ModelTag:      s.modelTag,
+		ControllerIds: []string{"0"},
 	})
 
 	changes, err := s.State.EnableHA(3, constraints.Value{}, "bionic", nil)
@@ -441,9 +440,9 @@ func (s *EnableHASuite) TestWatchControllerInfo(c *gc.C) {
 	info, err = s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{
-		CloudName:  "dummy",
-		ModelTag:   s.modelTag,
-		MachineIds: []string{"0", "1", "2"},
+		CloudName:     "dummy",
+		ModelTag:      s.modelTag,
+		ControllerIds: []string{"0", "1", "2"},
 	})
 }
 

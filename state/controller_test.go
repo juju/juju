@@ -191,14 +191,17 @@ func (s *ControllerSuite) TestUpdateControllerConfigAcceptsSpaceWithAddresses(c 
 }
 
 func (s *ControllerSuite) TestControllerInfo(c *gc.C) {
-	ids, err := s.State.ControllerInfo()
+	info, err := s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ids.CloudName, gc.Equals, "dummy")
-	c.Assert(ids.ModelTag, gc.Equals, s.modelTag)
-	c.Assert(ids.MachineIds, gc.HasLen, 0)
+	c.Assert(info.CloudName, gc.Equals, "dummy")
+	c.Assert(info.ModelTag, gc.Equals, s.modelTag)
+	c.Assert(info.ControllerIds, gc.HasLen, 0)
 
-	// TODO(rog) more testing here when we can actually add
-	// controllers.
+	node, err := s.State.AddControllerNode()
+	c.Assert(err, jc.ErrorIsNil)
+	info, err = s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.ControllerIds, jc.DeepEquals, []string{node.Id()})
 }
 
 func (s *ControllerSuite) testOpenParams() state.OpenParams {

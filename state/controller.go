@@ -158,7 +158,7 @@ func checkUpdateControllerConfig(name string) error {
 // checkSpaceIsAvailableToAllControllers checks if each controller machine has
 // at least one address in the input space. If not, an error is returned.
 func (st *State) checkSpaceIsAvailableToAllControllers(spaceName string) error {
-	info, err := st.ControllerInfo()
+	controllerIds, err := st.ControllerIds()
 	if err != nil {
 		return errors.Annotate(err, "cannot get controller info")
 	}
@@ -169,7 +169,7 @@ func (st *State) checkSpaceIsAvailableToAllControllers(spaceName string) error {
 	}
 
 	var missing []string
-	for _, id := range info.MachineIds {
+	for _, id := range controllerIds {
 		m, err := st.Machine(id)
 		if err != nil {
 			return errors.Annotate(err, "cannot get machine")
@@ -186,10 +186,10 @@ func (st *State) checkSpaceIsAvailableToAllControllers(spaceName string) error {
 }
 
 type controllersDoc struct {
-	Id         string   `bson:"_id"`
-	CloudName  string   `bson:"cloud"`
-	ModelUUID  string   `bson:"model-uuid"`
-	MachineIds []string `bson:"machineids"`
+	Id            string   `bson:"_id"`
+	CloudName     string   `bson:"cloud"`
+	ModelUUID     string   `bson:"model-uuid"`
+	ControllerIds []string `bson:"controller-ids"`
 }
 
 // ControllerInfo holds information about currently
@@ -203,8 +203,10 @@ type ControllerInfo struct {
 	// model is the model that is created when bootstrapping.
 	ModelTag names.ModelTag
 
-	// MachineIds holds the ids of all machines configured to run a controller.
-	MachineIds []string
+	// ControllerIds holds the ids of all the controller nodes.
+	// It's main purpose is to allow assertions tha the set of
+	// controllers hasn't changed when adding/removing controller nodes.
+	ControllerIds []string
 }
 
 // ControllerInfo returns information about
@@ -231,9 +233,9 @@ func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
 		return nil, errors.Annotatef(err, "cannot get controllers document")
 	}
 	return &ControllerInfo{
-		CloudName:  doc.CloudName,
-		ModelTag:   names.NewModelTag(doc.ModelUUID),
-		MachineIds: doc.MachineIds,
+		CloudName:     doc.CloudName,
+		ModelTag:      names.NewModelTag(doc.ModelUUID),
+		ControllerIds: doc.ControllerIds,
 	}, nil
 }
 

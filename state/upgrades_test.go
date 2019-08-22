@@ -3248,6 +3248,8 @@ func (s *upgradesSuite) TestAddControllerNodeDocs(c *gc.C) {
 	defer closer()
 	controllerNodesColl, closer2 := s.state.db().GetRawCollection(controllerNodesC)
 	defer closer2()
+	controllersColl, closer3 := s.state.db().GetRawCollection(controllersC)
+	defer closer3()
 
 	// Will will never have different UUIDs in practice but testing
 	// with that scenario avoids any potential bad code assumptions.
@@ -3286,6 +3288,12 @@ func (s *upgradesSuite) TestAddControllerNodeDocs(c *gc.C) {
 		"hasvote":   false,
 		"jobs":      []MachineJob{JobManageModel},
 	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = controllersColl.Update(
+		bson.D{{"_id", modelGlobalKey}},
+		bson.D{{"$set", bson.D{{"machineids", []string{"0", "1"}}}}},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := bsonMById{
@@ -3351,6 +3359,21 @@ func (s *upgradesSuite) TestAddControllerNodeDocs(c *gc.C) {
 		"machineid": "1",
 		"jobs":      []interface{}{2},
 	}})
+
+	// Check machineids has been renamed to controller-ids.
+	var cdocs []bson.M
+	err = controllersColl.FindId(modelGlobalKey).All(&cdocs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cdocs, gc.HasLen, 1)
+	cdoc := cdocs[0]
+	delete(cdoc, "txn-queue")
+	delete(cdoc, "txn-revno")
+	c.Assert(cdoc, jc.DeepEquals, bson.M{
+		"_id":            modelGlobalKey,
+		"model-uuid":     s.state.modelTag.Id(),
+		"cloud":          "dummy",
+		"controller-ids": []interface{}{"0", "1"},
+	})
 }
 
 func (s *upgradesSuite) TestAddSpaceIdToSpaceDocs(c *gc.C) {

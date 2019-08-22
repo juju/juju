@@ -394,9 +394,9 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	c.Check(node.WantsVote(), jc.IsFalse)
 	c.Check(node.HasVote(), jc.IsTrue)
 	c.Check(machine.Jobs(), jc.DeepEquals, []state.MachineJob{state.JobManageModel})
-	controllerInfo, err := s.State.ControllerInfo()
+	controllerIds, err := s.State.ControllerIds()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(controllerInfo.MachineIds, gc.DeepEquals, append([]string{machine.Id()}, changes.Added...))
+	c.Check(controllerIds, gc.DeepEquals, append([]string{machine.Id()}, changes.Added...))
 	// ForceDestroy still won't kill the controller if it is flagged as having a vote
 	// We don't see the error because it is logged, but not returned.
 	s.assertCleanupRuns(c)
@@ -411,12 +411,12 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	// After we've run the cleanup for the controller machine, the machine should be dead, and it should not be
 	// present in the other documents.
 	assertLife(c, machine, state.Dead)
-	controllerInfo, err = s.State.ControllerInfo()
+	controllerIds, err = s.State.ControllerIds()
 	c.Assert(err, jc.ErrorIsNil)
-	sort.Strings(controllerInfo.MachineIds)
+	sort.Strings(controllerIds)
 	sort.Strings(changes.Added)
 	// Only the machines that were added should still be part of the controller
-	c.Check(controllerInfo.MachineIds, gc.DeepEquals, changes.Added)
+	c.Check(controllerIds, gc.DeepEquals, changes.Added)
 }
 
 func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c *gc.C) {

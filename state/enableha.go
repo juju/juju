@@ -34,38 +34,31 @@ func isController(mdoc *machineDoc) bool {
 
 var errControllerNotAllowed = errors.New("controller jobs specified but not allowed")
 
-func (st *State) getVotingMachineCount(info *ControllerInfo) (int, error) {
+func (st *State) getVotingControllerCount() (int, error) {
 	controllerNodesColl, closer := st.db().GetCollection(controllerNodesC)
 	defer closer()
 
-	return controllerNodesColl.Find(
-		bson.M{
-			"_id":        bson.M{"$in": info.MachineIds},
-			"wants-vote": true,
-		},
-	).Count()
+	return controllerNodesColl.Find(bson.M{"wants-vote": true}).Count()
 }
 
 // maintainControllersOps returns a set of operations that will maintain
-// the controller information when the given machine documents
-// are added to the machines collection. If currentInfo is nil,
-// there can be only one machine document and it must have
-// id 0 (this is a special case to allow adding the bootstrap machine)
-func (st *State) maintainControllersOps(newIds []string, currentInfo *ControllerInfo) ([]txn.Op, error) {
+// the controller information when controllers with the given ids
+// are added. If bootstrapOnly is true, there can be only one id = 0;
+// (this is a special case to allow adding the bootstrap node).
+func (st *State) maintainControllersOps(newIds []string, bootstrapOnly bool) ([]txn.Op, error) {
 	if len(newIds) == 0 {
 		return nil, nil
 	}
-	if currentInfo == nil {
+	currentControllerIds, err := st.ControllerIds()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get controller info")
+	}
+	if bootstrapOnly {
 		// Allow bootstrap machine only.
 		if len(newIds) != 1 || newIds[0] != "0" {
 			return nil, errControllerNotAllowed
 		}
-		var err error
-		currentInfo, err = st.ControllerInfo()
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot get controller info")
-		}
-		if len(currentInfo.MachineIds) > 0 {
+		if len(currentControllerIds) > 0 {
 			return nil, errors.New("controllers already exist")
 		}
 	}
@@ -73,12 +66,12 @@ func (st *State) maintainControllersOps(newIds []string, currentInfo *Controller
 		C:  controllersC,
 		Id: modelGlobalKey,
 		Assert: bson.D{
-			{"machineids", bson.D{{"$size", len(currentInfo.MachineIds)}}},
+			{"controller-ids", bson.D{{"$size", len(currentControllerIds)}}},
 		},
 		Update: bson.D{
 			{"$addToSet",
 				bson.D{
-					{"machineids", bson.D{{"$each", newIds}}},
+					{"controller-ids", bson.D{{"$each", newIds}}},
 				},
 			},
 		},
@@ -105,12 +98,8 @@ func (st *State) EnableHA(
 	}
 	var change ControllersChanges
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		currentInfo, err := st.ControllerInfo()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		desiredControllerCount := numControllers
-		votingCount, err := st.getVotingMachineCount(currentInfo)
+		votingCount, err := st.getVotingControllerCount()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -125,7 +114,11 @@ func (st *State) EnableHA(
 			return nil, errors.New("cannot reduce controller count")
 		}
 
-		intent, err := st.enableHAIntentions(currentInfo, placement)
+		controllerIds, err := st.ControllerIds()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		intent, err := st.enableHAIntentions(controllerIds, placement)
 		if err != nil {
 			return nil, err
 		}
@@ -149,7 +142,7 @@ func (st *State) EnableHA(
 		logger.Infof("%d new machines; converting %v", intent.newCount, intent.convert)
 
 		var ops []txn.Op
-		ops, change, err = st.enableHAIntentionOps(intent, currentInfo, cons, series)
+		ops, change, err = st.enableHAIntentionOps(intent, cons, series)
 		return ops, err
 	}
 	if err := st.db().Run(buildTxn); err != nil {
@@ -170,7 +163,6 @@ type ControllersChanges struct {
 // enableHAIntentionOps returns operations to fulfil the desired intent.
 func (st *State) enableHAIntentionOps(
 	intent *enableHAIntent,
-	currentInfo *ControllerInfo,
 	cons constraints.Value,
 	series string,
 ) ([]txn.Op, ControllersChanges, error) {
@@ -221,7 +213,7 @@ func (st *State) enableHAIntentionOps(
 	for _, m := range intent.maintain {
 		change.Maintained = append(change.Maintained, m.Id())
 	}
-	ssOps, err := st.maintainControllersOps(controllerIds, currentInfo)
+	ssOps, err := st.maintainControllersOps(controllerIds, false)
 	if err != nil {
 		return nil, ControllersChanges{}, errors.Annotate(err, "cannot prepare machine add operations")
 	}
@@ -241,7 +233,7 @@ type enableHAIntent struct {
 // to do to maintain the availability of the existing servers
 // mentioned in the given info, including:
 //   gathering available, non-voting machines that may be promoted;
-func (st *State) enableHAIntentions(info *ControllerInfo, placement []string) (*enableHAIntent, error) {
+func (st *State) enableHAIntentions(controllerIds []string, placement []string) (*enableHAIntent, error) {
 	var intent enableHAIntent
 	for _, s := range placement {
 		// TODO(natefinch): Unscoped placements can end up here, though they
@@ -277,7 +269,7 @@ func (st *State) enableHAIntentions(info *ControllerInfo, placement []string) (*
 		return nil, errors.Errorf("unsupported placement directive %q", s)
 	}
 
-	for _, id := range info.MachineIds {
+	for _, id := range controllerIds {
 		node, err := st.ControllerNode(id)
 		if err != nil {
 			return nil, err
@@ -305,7 +297,7 @@ func convertControllerOps(m *Machine) []txn.Op {
 		Id: modelGlobalKey,
 		Update: bson.D{
 			{"$addToSet", bson.D{
-				{"machineids", m.doc.Id},
+				{"controller-ids", m.doc.Id},
 			}},
 		},
 	},
@@ -331,7 +323,7 @@ func (st *State) getControllerNodeDoc(id string) (*controllerNodeDoc, error) {
 	}
 }
 
-func (st *State) removeControllerReferenceOps(cid string, controllerInfo *ControllerInfo) []txn.Op {
+func (st *State) removeControllerReferenceOps(cid string, controllerIds []string) []txn.Op {
 	return []txn.Op{{
 		C:  machinesC,
 		Id: st.docID(cid),
@@ -341,8 +333,8 @@ func (st *State) removeControllerReferenceOps(cid string, controllerInfo *Contro
 	}, {
 		C:      controllersC,
 		Id:     modelGlobalKey,
-		Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
-		Update: bson.D{{"$pull", bson.D{{"machineids", cid}}}},
+		Assert: bson.D{{"controller-ids", controllerIds}},
+		Update: bson.D{{"$pull", bson.D{{"controller-ids", cid}}}},
 	}, {
 		C:  controllerNodesC,
 		Id: st.docID(cid),
@@ -363,6 +355,50 @@ type ControllerNode interface {
 	SetHasVote(hasVote bool) error
 	Watch() NotifyWatcher
 	SetMongoPassword(password string) error
+}
+
+// ControllerIds returns the ids of the controller nodes.
+func (st *State) ControllerIds() ([]string, error) {
+	controllerInfo, err := st.ControllerInfo()
+	if err != nil {
+		return nil, errors.Annotatef(err, "reading controller info")
+	}
+	return controllerInfo.ControllerIds, nil
+}
+
+// SafeControllerIds returns the ids of the controller nodes
+// by looking for the newer "controller-ids" attribute but falling
+// back to the legacy "machineids" if needed.
+// This method is only used when preparing for upgrades since 2.6
+// or earlier used "machineids".
+func (st *State) SafeControllerIds() ([]string, error) {
+	session := st.session.Copy()
+	defer session.Close()
+
+	db := session.DB(jujuDB)
+	controllers := db.C(controllersC)
+
+	var info bson.M
+	err := controllers.Find(bson.D{{"_id", modelGlobalKey}}).One(&info)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("controllers document")
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get controllers document")
+	}
+	var ids []interface{}
+	var ok bool
+	if ids, ok = info["controller-ids"].([]interface{}); !ok {
+		ids, ok = info["machineids"].([]interface{})
+	}
+	if !ok {
+		return nil, nil
+	}
+	result := make([]string, len(ids))
+	for i, id := range ids {
+		result[i] = id.(string)
+	}
+	return result, nil
 }
 
 // ControllerNode returns the controller node with the given id.
@@ -391,7 +427,7 @@ func (st *State) AddControllerNode() (*controllerNode, error) {
 		return nil, errors.Trace(err)
 	}
 	ops := []txn.Op{addControllerNodeOp(st, id, false)}
-	ssOps, err := st.maintainControllersOps([]string{id}, currentInfo)
+	ssOps, err := st.maintainControllersOps([]string{id}, currentInfo == nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -627,14 +663,14 @@ func (st *State) RemoveControllerReference(c controllerReference) error {
 		if c.HasVote() {
 			return nil, errors.Errorf("controller %s cannot be removed as it still has a vote", c.Id())
 		}
-		controllerInfo, err := st.ControllerInfo()
+		controllerIds, err := st.ControllerIds()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if len(controllerInfo.MachineIds) <= 1 {
+		if len(controllerIds) <= 1 {
 			return nil, errors.Errorf("controller %s cannot be removed as it is the last controller", c.Id())
 		}
-		return st.removeControllerReferenceOps(c.Id(), controllerInfo), nil
+		return st.removeControllerReferenceOps(c.Id(), controllerIds), nil
 	}
 	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)

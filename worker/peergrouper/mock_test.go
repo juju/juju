@@ -246,15 +246,15 @@ func (st *fakeState) removeController(id string) {
 
 func (st *fakeState) setControllers(ids ...string) {
 	st.controllerInfo.Set(&state.ControllerInfo{
-		MachineIds: ids,
+		ControllerIds: ids,
 	})
 }
 
-func (st *fakeState) ControllerInfo() (*state.ControllerInfo, error) {
-	if err := st.errors.errorFor("State.ControllerInfo"); err != nil {
+func (st *fakeState) ControllerIds() ([]string, error) {
+	if err := st.errors.errorFor("State.ControllerIds"); err != nil {
 		return nil, err
 	}
-	return deepCopy(st.controllerInfo.Get()).(*state.ControllerInfo), nil
+	return deepCopy(st.controllerInfo.Get()).(*state.ControllerInfo).ControllerIds, nil
 }
 
 func (st *fakeState) WatchControllerInfo() state.StringsWatcher {
@@ -289,7 +289,7 @@ func (st *fakeState) RemoveControllerReference(c ControllerNode) error {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 	controllerInfo := st.controllerInfo.Get().(*state.ControllerInfo)
-	controllerIds := controllerInfo.MachineIds
+	controllerIds := controllerInfo.ControllerIds
 	var newControllerIds []string
 	controllerId := c.Id()
 	for _, id := range controllerIds {

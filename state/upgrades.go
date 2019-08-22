@@ -2266,10 +2266,15 @@ func AddControllerNodeDocs(pool *StatePool) error {
 			Insert: doc,
 		})
 	}
-	if len(ops) > 0 {
-		return errors.Trace(st.runRawTransaction(ops))
-	}
-	return nil
+
+	ops = append(ops, txn.Op{
+		C:  controllersC,
+		Id: modelGlobalKey,
+		Update: bson.D{
+			{"$rename", bson.D{{"machineids", "controller-ids"}}},
+		},
+	})
+	return errors.Trace(st.runRawTransaction(ops))
 }
 
 // AddSpaceIdToSpaceDocs ensures that every space document includes a
