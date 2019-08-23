@@ -88,7 +88,7 @@ func BootstrapInstance(
 		args.BootstrapSeries,
 		config.PreferredSeries(env.Config()),
 	)
-	if err != nil {
+	if !args.Force && err != nil {
 		return nil, "", nil, errors.Annotatef(err, "use --force to override")
 	}
 	availableTools, err := args.AvailableTools.Match(coretools.Filter{

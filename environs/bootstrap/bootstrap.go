@@ -159,6 +159,9 @@ type BootstrapParams struct {
 	// JujuDbSnapAssertionsPath is the path to a local .assertfile that
 	// will be used to test the contents of the .snap at JujuDbSnap.
 	JujuDbSnapAssertionsPath string
+
+	// Force is used to allow a bootstrap to be run on unsupported series.
+	Force bool
 }
 
 // Validate validates the bootstrap parameters.
@@ -313,7 +316,7 @@ func bootstrapIAAS(
 		args.BootstrapSeries,
 		config.PreferredSeries(cfg),
 	)
-	if err != nil {
+	if !args.Force && err != nil {
 		return errors.Annotatef(err, "use --force to override")
 	}
 	bootstrapSeries := &requestedBootstrapSeries
@@ -583,6 +586,7 @@ func Bootstrap(
 		BootstrapSeries:          args.BootstrapSeries,
 		SupportedBootstrapSeries: args.SupportedBootstrapSeries,
 		Placement:                args.Placement,
+		Force:                    args.Force,
 	}
 	doBootstrap := bootstrapIAAS
 	if jujucloud.CloudIsCAAS(args.Cloud) {

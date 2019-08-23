@@ -678,6 +678,7 @@ to create a new model to deploy k8s workloads.
 			RetryDelay:     config.bootstrap.BootstrapRetryDelay,
 			AddressesDelay: config.bootstrap.BootstrapAddressesDelay,
 		},
+		Force: c.Force,
 	}
 
 	environ, err := bootstrapPrepareController(

@@ -201,6 +201,51 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapSeries(c *gc.C) {
 	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{"trusty"})
 }
 
+func (s *bootstrapSuite) TestBootstrapFallbackBootstrapSeries(c *gc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	cfg, err := env.Config().Apply(map[string]interface{}{
+		"default-series": series.DefaultSupportedLTS(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	env.cfg = cfg
+
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+		s.callContext, bootstrap.BootstrapParams{
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: supportedJujuSeries,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(env.bootstrapCount, gc.Equals, 1)
+	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{series.DefaultSupportedLTS()})
+}
+
+func (s *bootstrapSuite) TestBootstrapForcedBootstrapSeries(c *gc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	cfg, err := env.Config().Apply(map[string]interface{}{
+		"default-series": "wily",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	env.cfg = cfg
+
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+		s.callContext, bootstrap.BootstrapParams{
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			BootstrapSeries:          "xenial",
+			SupportedBootstrapSeries: supportedJujuSeries,
+			Force:                    true,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(env.bootstrapCount, gc.Equals, 1)
+	c.Check(env.args.BootstrapSeries, gc.Equals, "xenial")
+	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{"bionic", "trusty", "xenial"})
+}
+
 func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)

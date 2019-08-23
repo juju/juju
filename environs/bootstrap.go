@@ -66,6 +66,9 @@ type BootstrapParams struct {
 	// that rely on it for selecting images. This will be empty for
 	// providers that do not implements simplestreams.HasRegion.
 	ImageMetadata []*imagemetadata.ImageMetadata
+
+	// Force is used to allow a bootstrap to be run on unsupported series.
+	Force bool
 }
 
 // CloudBootstrapFinalizer is a function returned from Environ.Bootstrap.
