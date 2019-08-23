@@ -5,7 +5,9 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -14,6 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	jujuos "github.com/juju/os"
+	"github.com/juju/os/series"
 	"github.com/juju/utils/exec"
 	"gopkg.in/juju/names.v3"
 
@@ -21,12 +24,14 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/uniter"
 )
 
 type RunCommand struct {
 	cmd.CommandBase
+	dataDir         string
 	MachineLock     machinelock.Lock
 	unit            names.UnitTag
 	commands        string
@@ -48,6 +53,9 @@ or the unit id:
 If --no-context is specified, the <unit-name> positional
 argument is not needed.
 
+If the there's one and only one unit on this host, <unit-name>
+is automatically inferred and the positional argument is not needed.
+
 The commands are executed with '/bin/bash -s', and the output returned.
 `
 
@@ -55,7 +63,7 @@ The commands are executed with '/bin/bash -s', and the output returned.
 func (c *RunCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "juju-run",
-		Args:    "<unit-name> <commands>",
+		Args:    "[<unit-name>] <commands>",
 		Purpose: "run commands in a unit's hook context",
 		Doc:     runCommandDoc,
 	})
@@ -78,18 +86,27 @@ func (c *RunCommand) Init(args []string) error {
 		if len(args) < 1 {
 			return fmt.Errorf("missing unit-name")
 		}
-		var unitName string
-		unitName, args = args[0], args[1:]
+		var unitName = args[0]
 		// If the command line param is a unit id (like application/2) we need to
 		// change it to the unit tag as that is the format of the agent directory
 		// on disk (unit-application-2).
 		if names.IsValidUnit(unitName) {
 			c.unit = names.NewUnitTag(unitName)
+			args = args[1:]
 		} else {
 			var err error
 			c.unit, err = names.ParseUnitTag(unitName)
-			if err != nil {
-				return errors.Trace(err)
+			if err == nil {
+				args = args[1:]
+			} else {
+				// If arg[0] is neither a unit name not unit tag, perhaps
+				// we are running where there's only one unit, in which case
+				// we can safely use that.
+				var err2 error
+				c.unit, err2 = c.maybeGetUnitTag()
+				if err2 != nil {
+					return errors.Trace(err)
+				}
 			}
 		}
 	}
@@ -98,6 +115,33 @@ func (c *RunCommand) Init(args []string) error {
 	}
 	c.commands, args = args[0], args[1:]
 	return cmd.CheckEmpty(args)
+}
+
+// maybeGetUnitTag looks at the contents of the agents directory
+// and if there's one (and only one) valid unit tag there, returns it.
+func (c *RunCommand) maybeGetUnitTag() (names.UnitTag, error) {
+	dataDir := c.dataDir
+	if dataDir == "" {
+		// We don't care about errors here. This is a fallback and
+		// if there's an issue, we'll exit back to the use anyway.
+		hostSeries, _ := series.HostSeries()
+		dataDir, _ = paths.DataDir(hostSeries)
+	}
+	agentDir := filepath.Join(dataDir, "agents")
+	files, _ := ioutil.ReadDir(agentDir)
+	var unitTags []names.UnitTag
+	for _, f := range files {
+		if f.IsDir() {
+			unitTag, err := names.ParseUnitTag(f.Name())
+			if err == nil {
+				unitTags = append(unitTags, unitTag)
+			}
+		}
+	}
+	if len(unitTags) == 1 {
+		return unitTags[0], nil
+	}
+	return names.UnitTag{}, errors.New("no unit")
 }
 
 func (c *RunCommand) Run(ctx *cmd.Context) error {
