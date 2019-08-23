@@ -140,10 +140,3 @@ func GetVersion(strSpec string) (Version, error) {
 	}
 	return versionSpec.Version, nil
 }
-
-// func (spec *podSpec) validateVersion(currentVersion Version) error {
-// 	if spec.Version != currentVersion {
-// 		return errors.NewNotValid(nil, fmt.Sprintf("expected version %q, but found %q", currentVersion, spec.Version))
-// 	}
-// 	return nil
-// }

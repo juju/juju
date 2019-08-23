@@ -72,9 +72,11 @@ func (s *K8sSuite) TestMakeSvcSpecNoConfigConfig(c *gc.C) {
 
 	podSpec.ProviderPod = &k8sspecs.K8sPodSpec{
 		ActiveDeadlineSeconds: int64Ptr(10),
-		ServiceAccount: &k8sspecs.ServiceAccountSpec{
-			Name:                         "serviceAccount",
-			AutomountServiceAccountToken: boolPtr(true),
+		KubernetesResources: &k8sspecs.KubernetesResources{
+			ServiceAccount: &k8sspecs.ServiceAccountSpec{
+				Name:                         "serviceAccount",
+				AutomountServiceAccountToken: boolPtr(true),
+			},
 		},
 		Hostname:                      "host",
 		Subdomain:                     "sub",

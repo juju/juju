@@ -2635,8 +2635,8 @@ func prepareSvcSpec(appName, deploymentName string, podSpec *specs.PodSpec) (*sv
 		spec.Pod.RestartPolicy = pSpec.RestartPolicy
 		spec.Pod.ReadinessGates = pSpec.ReadinessGates
 		spec.Service = pSpec.Service
-		spec.CustomResourceDefinitions = pSpec.CustomResourceDefinitions
-		spec.ServiceAccount = pSpec.ServiceAccount
+		spec.CustomResourceDefinitions = pSpec.KubernetesResources.CustomResourceDefinitions
+		spec.ServiceAccount = pSpec.KubernetesResources.ServiceAccount
 
 		sa := spec.ServiceAccount
 		if sa != nil {

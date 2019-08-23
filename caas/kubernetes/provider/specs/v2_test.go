@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -15,21 +16,23 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type legacySpecsSuite struct {
+type v2SpecsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&legacySpecsSuite{})
+var _ = gc.Suite(&v2SpecsSuite{})
 
-func (s *legacySpecsSuite) TestParse(c *gc.C) {
+var versionHeader = `
+version: 2
+`[1:]
 
-	specStrBase := `
+func (s *v2SpecsSuite) TestParse(c *gc.C) {
+
+	specStrBase := versionHeader + `
 omitServiceFrontend: true
 activeDeadlineSeconds: 10
 restartPolicy: OnFailure
 terminationGracePeriodSeconds: 20
-automountServiceAccountToken: true
-serviceAccountName: serviceAccountFoo
 securityContext:
   runAsNonRoot: true
   supplementalGroups: [1,2]
@@ -123,36 +126,51 @@ initContainers:
 service:
   annotations:
     foo: bar
-customResourceDefinitions:
-  tfjobs.kubeflow.org:
-    group: kubeflow.org
-    version: v1alpha2
-    scope: Namespaced
-    names:
-      plural: "tfjobs"
-      singular: "tfjob"
-      kind: TFJob
-    validation:
-      openAPIV3Schema:
-        properties:
-          tfReplicaSpecs:
-            properties:
-              Worker:
-                properties:
-                  replicas:
-                    type: integer
-                    minimum: 1
-              PS:
-                properties:
-                  replicas:
-                    type: integer
-                    minimum: 1
-              Chief:
-                properties:
-                  replicas:
-                    type: integer
-                    minimum: 1
-                    maximum: 1
+kubernetesResources:
+  customResourceDefinitions:
+    tfjobs.kubeflow.org:
+      group: kubeflow.org
+      version: v1alpha2
+      scope: Namespaced
+      names:
+        plural: "tfjobs"
+        singular: "tfjob"
+        kind: TFJob
+      validation:
+        openAPIV3Schema:
+          properties:
+            tfReplicaSpecs:
+              properties:
+                Worker:
+                  properties:
+                    replicas:
+                      type: integer
+                      minimum: 1
+                PS:
+                  properties:
+                    replicas:
+                      type: integer
+                      minimum: 1
+                Chief:
+                  properties:
+                    replicas:
+                      type: integer
+                      minimum: 1
+                      maximum: 1
+  serviceAccount:
+    name: build-robot
+    automountServiceAccountToken: true
+    capabilities:
+      roleBinding:
+        name: read-pods
+        type: ClusterRoleBinding
+      role:
+        name: pod-reader
+        type: ClusterRole
+        rules:
+        - apiGroups: [""]
+          resources: ["pods"]
+          verbs: ["get", "watch", "list"]
 `[1:]
 
 	expectedFileContent := `
@@ -308,8 +326,25 @@ echo "do some stuff here for gitlab-init container"
 			},
 			KubernetesResources: &k8sspecs.KubernetesResources{
 				ServiceAccount: &k8sspecs.ServiceAccountSpec{
-					Name:                         "serviceAccountFoo",
+					Name:                         "build-robot",
 					AutomountServiceAccountToken: boolPtr(true),
+					Capabilities: &k8sspecs.Capabilities{
+						RoleBinding: &k8sspecs.RoleBindingSpec{
+							Name: "read-pods",
+							Type: k8sspecs.ClusterRoleBinding,
+						},
+						Role: &k8sspecs.RoleSpec{
+							Name: "pod-reader",
+							Type: k8sspecs.ClusterRole,
+							Rules: []rbacv1.PolicyRule{
+								{
+									APIGroups: []string{""},
+									Resources: []string{"pods"},
+									Verbs:     []string{"get", "watch", "list"},
+								},
+							},
+						},
+					},
 				},
 				CustomResourceDefinitions: map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
 					"tfjobs.kubeflow.org": {
@@ -367,25 +402,9 @@ echo "do some stuff here for gitlab-init container"
 	c.Assert(spec, jc.DeepEquals, getExpectedPodSpecBase())
 }
 
-func float64Ptr(f float64) *float64 {
-	return &f
-}
+func (s *v2SpecsSuite) TestValidateMissingContainers(c *gc.C) {
 
-func int32Ptr(i int32) *int32 {
-	return &i
-}
-
-func int64Ptr(i int64) *int64 {
-	return &i
-}
-
-func boolPtr(b bool) *bool {
-	return &b
-}
-
-func (s *legacySpecsSuite) TestValidateMissingContainers(c *gc.C) {
-
-	specStr := `
+	specStr := versionHeader + `
 containers:
 `[1:]
 
@@ -393,9 +412,9 @@ containers:
 	c.Assert(err, gc.ErrorMatches, "require at least one container spec")
 }
 
-func (s *legacySpecsSuite) TestValidateMissingName(c *gc.C) {
+func (s *v2SpecsSuite) TestValidateMissingName(c *gc.C) {
 
-	specStr := `
+	specStr := versionHeader + `
 containers:
   - image: gitlab/latest
 `[1:]
@@ -404,9 +423,9 @@ containers:
 	c.Assert(err, gc.ErrorMatches, "spec name is missing")
 }
 
-func (s *legacySpecsSuite) TestValidateMissingImage(c *gc.C) {
+func (s *v2SpecsSuite) TestValidateMissingImage(c *gc.C) {
 
-	specStr := `
+	specStr := versionHeader + `
 containers:
   - name: gitlab
 `[1:]
@@ -415,9 +434,9 @@ containers:
 	c.Assert(err, gc.ErrorMatches, "spec image details is missing")
 }
 
-func (s *legacySpecsSuite) TestValidateFileSetPath(c *gc.C) {
+func (s *v2SpecsSuite) TestValidateFileSetPath(c *gc.C) {
 
-	specStr := `
+	specStr := versionHeader + `
 containers:
   - name: gitlab
     image: gitlab/latest
@@ -432,9 +451,9 @@ containers:
 	c.Assert(err, gc.ErrorMatches, `file set name is missing`)
 }
 
-func (s *legacySpecsSuite) TestValidateMissingMountPath(c *gc.C) {
+func (s *v2SpecsSuite) TestValidateMissingMountPath(c *gc.C) {
 
-	specStr := `
+	specStr := versionHeader + `
 containers:
   - name: gitlab
     image: gitlab/latest
@@ -448,4 +467,102 @@ containers:
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `mount path is missing for file set "configuration"`)
+}
+
+type serviceAccountTestCase struct {
+	Title, Spec, Err string
+}
+
+var serviceAccountValidationTestCases = []serviceAccountTestCase{
+	{
+		Title: "wrong role binding type",
+		Spec: versionHeader + `
+kubernetesResources:
+  serviceAccount:
+    name: build-robot
+    automountServiceAccountToken: true
+    capabilities:
+      roleBinding:
+        name: read-pods
+        type: ClusterRoleBinding11
+      role:
+        name: pod-reader
+        type: ClusterRole
+        rules:
+        - apiGroups: [""]
+          resources: ["pods"]
+          verbs: ["get", "watch", "list"]
+`[1:],
+		Err: "\"ClusterRoleBinding11\" not supported",
+	},
+	{
+		Title: "wrong role type",
+		Spec: versionHeader + `
+kubernetesResources:
+  serviceAccount:
+    name: build-robot
+    automountServiceAccountToken: true
+    capabilities:
+      roleBinding:
+        name: read-pods
+        type: ClusterRoleBinding
+      role:
+        name: pod-reader
+        type: ClusterRole11
+        rules:
+        - apiGroups: [""]
+          resources: ["pods"]
+          verbs: ["get", "watch", "list"]
+`[1:],
+		Err: "\"ClusterRole11\" not supported",
+	},
+	{
+		Title: "missing role",
+		Spec: versionHeader + `
+kubernetesResources:
+  serviceAccount:
+    name: build-robot
+    automountServiceAccountToken: true
+    capabilities:
+      roleBinding:
+        name: read-pods
+        type: ClusterRoleBinding
+`[1:],
+		Err: `role is required for capabilities`,
+	},
+	{
+		Title: "missing role binding",
+		Spec: versionHeader + `
+kubernetesResources:
+  serviceAccount:
+    name: build-robot
+    automountServiceAccountToken: true
+    capabilities:
+      role:
+        name: pod-reader
+        type: ClusterRole11
+        rules:
+        - apiGroups: [""]
+          resources: ["pods"]
+          verbs: ["get", "watch", "list"]
+`[1:],
+		Err: `roleBinding is required for capabilities`,
+	},
+}
+
+func (s *v2SpecsSuite) TestValidateServiceAccountFailed(c *gc.C) {
+	containerSpec := versionHeader + `
+containers:
+  - name: gitlab-helper
+    image: gitlab-helper/latest
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+`[1:]
+
+	for i, tc := range serviceAccountValidationTestCases {
+		c.Logf("%v: %s", i, tc.Title)
+		_, err := k8sspecs.ParsePodSpec(containerSpec + tc.Spec)
+		c.Check(err, gc.ErrorMatches, tc.Err)
+	}
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 	core "k8s.io/api/core/v1"
-	// apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	// "github.com/juju/juju/caas"
@@ -22,23 +22,29 @@ type podSpecLegacy struct {
 }
 
 // Validate is defined on ProviderPod.
-func (p *podSpecLegacy) Validate() error {
+func (p podSpecLegacy) Validate() error {
 	if err := p.CaaSSpec.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(p.K8sSpec.Validate())
+	if err := p.K8sSpec.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
-func (p *podSpecLegacy) ToLatest() *specs.PodSpec {
+func (p podSpecLegacy) ToLatest() *specs.PodSpec {
 	pSpec := &specs.PodSpec{}
 	pSpec.Version = specs.CurrentVersion
 	pSpec.OmitServiceFrontend = p.CaaSSpec.OmitServiceFrontend
 	pSpec.Containers = p.CaaSSpec.Containers
 	pSpec.InitContainers = p.CaaSSpec.InitContainers
 	pSpec.ProviderPod = &K8sPodSpec{
-		ServiceAccount: &ServiceAccountSpec{
-			Name:                         p.K8sSpec.ServiceAccountName,
-			AutomountServiceAccountToken: p.K8sSpec.AutomountServiceAccountToken,
+		KubernetesResources: &KubernetesResources{
+			ServiceAccount: &ServiceAccountSpec{
+				Name:                         p.K8sSpec.ServiceAccountName,
+				AutomountServiceAccountToken: p.K8sSpec.AutomountServiceAccountToken,
+			},
+			CustomResourceDefinitions: p.K8sSpec.CustomResourceDefinitions,
 		},
 		RestartPolicy:                 p.K8sSpec.RestartPolicy,
 		TerminationGracePeriodSeconds: p.K8sSpec.TerminationGracePeriodSeconds,
@@ -52,7 +58,6 @@ func (p *podSpecLegacy) ToLatest() *specs.PodSpec {
 		DNSConfig:                     p.K8sSpec.DNSConfig,
 		ReadinessGates:                p.K8sSpec.ReadinessGates,
 		Service:                       p.K8sSpec.Service,
-		CustomResourceDefinitions:     p.CaaSSpec.CustomResourceDefinitions,
 	}
 	return pSpec
 }
@@ -78,6 +83,8 @@ type K8sPodSpecLegacy struct {
 	DNSConfig                     *core.PodDNSConfig       `json:"dnsConfig,omitempty"`
 	ReadinessGates                []core.PodReadinessGate  `json:"readinessGates,omitempty"`
 	Service                       *K8sServiceSpec          `json:"service,omitempty"`
+
+	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `yaml:"customResourceDefinitions,omitempty"`
 }
 
 // Validate is defined on ProviderPod.
@@ -85,64 +92,48 @@ func (*K8sPodSpecLegacy) Validate() error {
 	return nil
 }
 
-func parsePodSpecLegacy(in string) (*specs.PodSpec, error) {
+func parsePodSpecLegacy(in string) (_ *specs.PodSpec, err error) {
 	// Do the common fields.
 	var spec podSpecLegacy
-	var caasPodSpecLegacy specs.PodSpecLegacy
-	if err := yaml.Unmarshal([]byte(in), &caasPodSpecLegacy); err != nil {
+	if err = yaml.Unmarshal([]byte(in), &spec.CaaSSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Criticalf("in ---> \n%s", in)
-	logger.Criticalf("caasPodSpecLegacy -----> %#v", caasPodSpecLegacy)
-	logger.Criticalf("caasPodSpecLegacy -----> %#v", caasPodSpecLegacy.CustomResourceDefinitions["tfjobs.kubeflow.org"].Validation)
-	spec.CaaSSpec = caasPodSpecLegacy
+
 	// Do the k8s pod attributes.
-	var pod K8sPodSpecLegacy
 	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
-	if err := decoder.Decode(&pod); err != nil {
+	if err = decoder.Decode(&spec.K8sSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
-	spec.K8sSpec = pod
-	// if pod.K8sPodSpecLegacy != nil {
-	// 	spec.ProviderPod = pod.K8sPodSpecLegacy
-	// }
-	// 	if pod.ServiceAccount != nil {
-	// 		if pod.K8sPodSpec != nil && pod.ServiceAccountName != "" {
-	// 			return nil, errors.New(`
-	// either use ServiceAccountName to reference existing service account or define ServiceAccount spec to create a new one`[1:])
-	// 		}
-	// 		spec.ServiceAccount = pod.ServiceAccount
-	// 	}
+	if spec.K8sSpec.CustomResourceDefinitions != nil {
+		logger.Criticalf(
+			"spec.K8sSpec.CustomResourceDefinitions -----> %#v",
+			spec.K8sSpec.CustomResourceDefinitions["tfjobs.kubeflow.org"].Validation,
+		)
+	}
 
 	// Do the k8s containers.
-	var containers k8sContainers
-	decoder = k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
-	if err := decoder.Decode(&containers); err != nil {
+	containers, err := parseContainers(in)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err = containers.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if len(containers.Containers) == 0 {
-		return nil, errors.New("require at least one container spec")
-	}
-	quoteBoolStrings(containers.Containers)
-	quoteBoolStrings(containers.InitContainers)
-
 	// Compose the result.
-	spec.CaaSSpec.Containers = make([]specs.ContainerSpec, len(containers.Containers))
 	for i, c := range containers.Containers {
-		if err := c.Validate(); err != nil {
+		if err = c.Validate(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		spec.CaaSSpec.Containers[i] = containerFromK8sSpec(c)
+		spec.CaaSSpec.Containers[i] = c.ToContainerSpec()
 	}
-	spec.CaaSSpec.InitContainers = make([]specs.ContainerSpec, len(containers.InitContainers))
 	for i, c := range containers.InitContainers {
-		if err := c.Validate(); err != nil {
+		if err = c.Validate(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		spec.CaaSSpec.InitContainers[i] = containerFromK8sSpec(c)
+		spec.CaaSSpec.InitContainers[i] = c.ToContainerSpec()
 	}
-	if err := spec.Validate(); err != nil {
+	if err = spec.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return spec.ToLatest(), nil
