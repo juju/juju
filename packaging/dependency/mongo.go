@@ -4,6 +4,7 @@
 package dependency
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/packaging"
 )
 
@@ -22,19 +23,13 @@ func (dep mongoDependency) PackageList(series string) ([]packaging.Package, erro
 	var pkgList []string
 	var pm = packaging.AptPackageManager
 
-	// Same package name for all distros (centos, ubuntu etc.)
 	if dep.useNUMA {
 		pkgList = append(pkgList, "numactl")
 	}
 
 	switch series {
-	case "centos7":
-		// Use yum for centos
-		pm = packaging.YumPackageManager
-
-		// CentOS requires also requires "epel-release" for the
-		// epel repo mongodb-server is in.
-		pkgList = append(pkgList, "epel-release", "mongodb-server")
+	case "centos7", "opensuseleap", "precise":
+		return nil, errors.NotSupportedf("installing mongo on series %q", series)
 	case "trusty":
 		pkgList = append(pkgList, "juju-mongodb")
 	case "xenial":
