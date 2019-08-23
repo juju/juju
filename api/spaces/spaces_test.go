@@ -29,7 +29,11 @@ var _ = gc.Suite(&SpacesSuite{})
 
 func (s *SpacesSuite) init(c *gc.C, args apitesting.APICall) {
 	s.apiCaller = apitesting.APICallChecker(c, args)
-	s.api = spaces.NewAPI(s.apiCaller)
+	best := &apitesting.BestVersionCaller{
+		BestVersion:   5,
+		APICallerFunc: s.apiCaller.APICallerFunc,
+	}
+	s.api = spaces.NewAPI(best)
 	c.Check(s.api, gc.NotNil)
 	c.Check(s.apiCaller.CallCount, gc.Equals, 0)
 }
@@ -90,6 +94,40 @@ func (s *SpacesSuite) TestCreateSpace(c *gc.C) {
 		}
 		s.testCreateSpace(c, name, subnets)
 	}
+}
+
+func (s *SpacesSuite) TestCreateSpaceV4(c *gc.C) {
+	var called bool
+	apicaller := &apitesting.BestVersionCaller{
+		APICallerFunc: apitesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Check(objType, gc.Equals, "Spaces")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, "CreateSpaces")
+				c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+				c.Assert(a, jc.DeepEquals, params.CreateSpacesParamsV4{
+					Spaces: []params.CreateSpaceParamsV4{{
+						SpaceTag:   names.NewSpaceTag("testv4").String(),
+						SubnetTags: []string{"subnet-1.1.1.0/24"},
+						Public:     false,
+					}}})
+				*result.(*params.ErrorResults) = params.ErrorResults{
+					Results: []params.ErrorResult{{}},
+				}
+				called = true
+				return nil
+			},
+		),
+		BestVersion: 4,
+	}
+	apiv4 := spaces.NewAPI(apicaller)
+	err := apiv4.CreateSpace("testv4", []string{"1.1.1.0/24"}, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
 }
 
 func (s *SpacesSuite) TestCreateSpaceEmptyResults(c *gc.C) {

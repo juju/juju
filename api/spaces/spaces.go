@@ -31,20 +31,47 @@ func NewAPI(caller base.APICallCloser) *API {
 	}
 }
 
-// CreateSpace creates a new Juju network space, associating the
-// specified subnets with it (optional; can be empty).
-func (api *API) CreateSpace(name string, subnetIds []string, public bool) error {
-	var response params.ErrorResults
-	createSpacesParams := params.CreateSpacesParams{
+func makeCreateSpacesParamsV4(name string, cidrs []string, public bool) params.CreateSpacesParamsV4 {
+	spaceTag := names.NewSpaceTag(name).String()
+	subnetTags := make([]string, len(cidrs))
+
+	for i, cidr := range cidrs {
+		// For backwards compatibility, mimic old SubnetTags from names.v2.
+		// The CIDR will be validated by the facade.
+		subnetTags[i] = "subnet-" + cidr
+	}
+
+	return params.CreateSpacesParamsV4{
+		Spaces: []params.CreateSpaceParamsV4{{
+			SpaceTag:   spaceTag,
+			SubnetTags: subnetTags,
+			Public:     public,
+		}}}
+}
+
+func makeCreateSpacesParams(name string, cidrs []string, public bool) params.CreateSpacesParams {
+	return params.CreateSpacesParams{
 		Spaces: []params.CreateSpaceParams{
 			{
 				SpaceTag: names.NewSpaceTag(name).String(),
-				CIDRs:    subnetIds,
+				CIDRs:    cidrs,
 				Public:   public,
 			},
 		},
 	}
-	err := api.facade.FacadeCall("CreateSpaces", createSpacesParams, &response)
+}
+
+// CreateSpace creates a new Juju network space, associating the
+// specified subnets with it (optional; can be empty).
+func (api *API) CreateSpace(name string, cidrs []string, public bool) error {
+	var response params.ErrorResults
+	var args interface{}
+	if bestVer := api.BestAPIVersion(); bestVer < 5 {
+		args = makeCreateSpacesParamsV4(name, cidrs, public)
+	} else {
+		args = makeCreateSpacesParams(name, cidrs, public)
+	}
+	err := api.facade.FacadeCall("CreateSpaces", args, &response)
 	if err != nil {
 		if params.IsCodeNotSupported(err) {
 			return errors.NewNotSupported(nil, err.Error())
