@@ -853,7 +853,6 @@ func modelsPretty(in map[string]string) string {
 // If the credentials are used by any of the models, the credential deletion will be aborted.
 // If credential-in-use needs to be revoked nonetheless, this method allows the use of force.
 func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialArgs) (params.ErrorResults, error) {
-	// TODO (anastasiamac 2018-11-13) the behavior here needs to be changed to performed promised models checks and authorise use of force.
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Credentials)),
 	}
@@ -885,7 +884,7 @@ func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialAr
 		models, err := api.credentialModels(tag)
 		if err != nil {
 			if !arg.Force {
-				// Could not determine if credential has models - do not continue updating this credential...
+				// Could not determine if credential has models - do not continue revoking this credential...
 				results.Results[i].Error = common.ServerError(err)
 				continue
 			}
@@ -899,7 +898,7 @@ func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialAr
 			)
 			if !arg.Force {
 				// Some models still use this credential - do not delete this credential...
-				results.Results[i].Error = common.ServerError(errors.Errorf("cannot delete credential %v: it is still used by %d model%v", tag, len(models), plural(len(models))))
+				results.Results[i].Error = common.ServerError(errors.Errorf("cannot revoke credential %v: it is still used by %d model%v", tag, len(models), plural(len(models))))
 				continue
 			}
 		}
