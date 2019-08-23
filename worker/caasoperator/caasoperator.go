@@ -44,8 +44,9 @@ var (
 
 	jujudSymlinks = []string{
 		jujuRun,
-		jujuDumpLogs,
-		jujuIntrospect,
+		// TODO(caas) - these are only for the controller operator
+		//jujuDumpLogs,
+		//jujuIntrospect,
 	}
 )
 

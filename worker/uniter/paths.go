@@ -6,11 +6,13 @@ package uniter
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	jujuos "github.com/juju/os"
 	"gopkg.in/juju/names.v3"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -125,13 +127,35 @@ func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string, isRemo
 	stateDir := join(baseDir, "state")
 
 	newSocket := func(name string, abstract bool) sockets.Socket {
+		// IP address to use for the socket can either be an env var
+		// (when we are the caas operator and are creating the socket to listen),
+		// or inside a YAML file (when we are juju-run and need to see where
+		// to connect to).
 		podIP := os.Getenv(provider.OperatorPodIPEnvName)
+		if podIP == "" {
+			ipAddrFile := join(baseDir, provider.OperatorInfoFile)
+			ipAddrData, err := ioutil.ReadFile(ipAddrFile)
+			if err == nil {
+				var data map[string]interface{}
+				if err := yaml.Unmarshal(ipAddrData, &data); err == nil {
+					podIP, _ = data["operator-address"].(string)
+				}
+				// If we have an IP address, it's always remote.
+				isRemote = true
+			}
+		}
+		logger.Debugf("using operator address: %v", podIP)
 		if isRemote && podIP != "" {
 			switch name {
 			case "agent":
 				return sockets.Socket{
 					Network: "tcp",
 					Address: fmt.Sprintf("%s:%d", podIP, jujucServerSocketPort+unitTag.Number()),
+				}
+			case "run":
+				return sockets.Socket{
+					Network: "tcp",
+					Address: fmt.Sprintf("%s:%d", podIP, provider.JujuRunServerSocketPort),
 				}
 			default:
 				logger.Warningf("caas model socket name %q, fallback to unix protocol", name)

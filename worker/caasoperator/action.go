@@ -6,15 +6,19 @@ package caasoperator
 import (
 	"bytes"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"github.com/juju/errors"
 	utilexec "github.com/juju/utils/exec"
+	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 func ensurePath(
@@ -38,48 +42,120 @@ func ensurePath(
 	return errors.Trace(err)
 }
 
+func ensureSymlink(
+	client exec.Executor,
+	podName string,
+	oldName, newName string,
+	stdout io.Writer,
+	stderr io.Writer,
+	cancel <-chan struct{},
+) error {
+	logger.Debugf("making symlink %v->%v", newName, oldName)
+	err := client.Exec(
+		exec.ExecParams{
+			PodName:  podName,
+			Commands: []string{"test", "-f", newName, "||", "ln", "-s", oldName, newName},
+			Stdout:   stdout,
+			Stderr:   stderr,
+		},
+		cancel,
+	)
+	return errors.Trace(err)
+}
+
+type unitOperatorInfo struct {
+	OperatorAddress string `yaml:"operator-address"`
+}
+
 func prepare(
 	client exec.Executor,
 	podName string,
+	serviceAddress string,
 	operatorPaths Paths,
 	unitPaths uniter.Paths,
 	stdout io.Writer,
 	stderr io.Writer,
 	cancel <-chan struct{},
 ) error {
-	for _, path := range []string{
-		// order matters here.
-		operatorPaths.GetCharmDir(),
-		unitPaths.GetCharmDir(),
-
-		filepath.Join(operatorPaths.GetToolsDir(), "jujud"),
-		unitPaths.GetToolsDir(),
+	type workloadPathSpec struct {
+		src, dest string
+	}
+	// Copy the core charm files and jujud binary.
+	for _, pathSpec := range []workloadPathSpec{
+		{
+			src:  operatorPaths.GetCharmDir(),
+			dest: unitPaths.State.BaseDir,
+		}, {
+			src:  filepath.Join(operatorPaths.GetToolsDir(), "jujud"),
+			dest: unitPaths.ToolsDir,
+		},
 	} {
 
-		_, err := os.Stat(path)
+		_, err := os.Stat(pathSpec.src)
 		if os.IsNotExist(err) {
-			return errors.NotFoundf("file or path %q", path)
+			return errors.NotFoundf("file or path %q", pathSpec.src)
 		}
 		if err != nil {
 			return errors.Trace(err)
 		}
-		destPath := filepath.Dir(path)
-		if err := ensurePath(client, podName, destPath, stdout, stderr, cancel); err != nil {
+		logger.Debugf("copy path %q to %q", pathSpec.src, pathSpec.dest)
+		if err := ensurePath(client, podName, pathSpec.dest, stdout, stderr, cancel); err != nil {
 			return errors.Trace(err)
 		}
 
 		if err := client.Copy(exec.CopyParam{
 			Src: exec.FileResource{
-				Path: path,
+				Path: pathSpec.src,
 			},
 			Dest: exec.FileResource{
-				Path:    destPath,
+				Path:    pathSpec.dest,
 				PodName: podName,
 			},
 		}, cancel); err != nil {
 			return errors.Trace(err)
 		}
 	}
+
+	// Create the operator.yaml file containing the operator service address.
+	if err := ensurePath(client, podName, unitPaths.State.BaseDir, stdout, stderr, cancel); err != nil {
+		return errors.Trace(err)
+	}
+	opInfo := unitOperatorInfo{OperatorAddress: serviceAddress}
+	data, err := yaml.Marshal(opInfo)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	operatorFile := filepath.Join(unitPaths.State.BaseDir, provider.OperatorInfoFile)
+	operatorFileSrc := filepath.Join(os.TempDir(), provider.OperatorInfoFile)
+	if err := ioutil.WriteFile(operatorFileSrc, data, 0644); err != nil {
+		return errors.Trace(err)
+	}
+	if err := client.Copy(exec.CopyParam{
+		Src: exec.FileResource{
+			Path: operatorFileSrc,
+		},
+		Dest: exec.FileResource{
+			Path:    operatorFile,
+			PodName: podName,
+		},
+	}, cancel); err != nil {
+		return errors.Trace(err)
+	}
+
+	// set up the symlinks to jujud (hook commands and juju-run etc).
+	jujudPath := filepath.Join(unitPaths.ToolsDir, "jujud")
+	for _, slk := range jujudSymlinks {
+		if err := ensureSymlink(client, podName, jujudPath, slk, stdout, stderr, cancel); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	for _, cmdName := range jujuc.CommandNames() {
+		slk := filepath.Join(unitPaths.ToolsDir, cmdName)
+		if err := ensureSymlink(client, podName, jujudPath, slk, stdout, stderr, cancel); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	return nil
 }
 
@@ -102,8 +178,10 @@ func getNewRunnerExecutor(
 				return nil, errors.NotFoundf("pod for %q", unitName)
 			}
 
+			serviceAddress := os.Getenv(provider.OperatorServiceIPEnvName)
+			logger.Debugf("operator service address: %v", serviceAddress)
 			if err := prepare(
-				execClient, podNameOrID,
+				execClient, podNameOrID, serviceAddress,
 				operatorPaths, unitPaths,
 				params.Stdout, params.Stderr, params.Cancel,
 			); err != nil {

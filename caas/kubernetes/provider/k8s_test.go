@@ -288,6 +288,7 @@ $JUJU_TOOLS_DIR/jujud caasoperator --application-name=test --debug
 		},
 		Env: []core.EnvVar{
 			{Name: "JUJU_APPLICATION", Value: "test"},
+			{Name: "JUJU_OPERATOR_SERVICE_IP", Value: "10.1.2.3"},
 			{
 				Name: "JUJU_OPERATOR_POD_IP",
 				ValueFrom: &core.EnvVarSource{
@@ -350,6 +351,20 @@ var basicHeadlessServiceArg = &core.Service{
 		Type:                     "ClusterIP",
 		ClusterIP:                "None",
 		PublishNotReadyAddresses: true,
+	},
+}
+
+var operatorServiceArg = &core.Service{
+	ObjectMeta: v1.ObjectMeta{
+		Name:   "test-operator",
+		Labels: map[string]string{"juju-operator": "test"},
+	},
+	Spec: core.ServiceSpec{
+		Selector: map[string]string{"juju-operator": "test"},
+		Type:     "ClusterIP",
+		Ports: []core.ServicePort{
+			{Port: 30666, TargetPort: intstr.FromInt(30666), Protocol: "TCP"},
+		},
 	},
 }
 
@@ -417,7 +432,7 @@ func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 	tags := map[string]string{
 		"fred": "mary",
 	}
-	pod, err := provider.OperatorPod("gitlab", "gitlab", "/var/lib/juju", "jujusolutions/jujud-operator", "2.99.0", tags)
+	pod, err := provider.OperatorPod("gitlab", "gitlab", "10666", "/var/lib/juju", "jujusolutions/jujud-operator", "2.99.0", tags)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pod.Name, gc.Equals, "gitlab")
 	c.Assert(pod.Labels, jc.DeepEquals, map[string]string{
@@ -433,6 +448,12 @@ func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 	c.Assert(pod.Spec.Containers[0].Image, gc.Equals, "jujusolutions/jujud-operator")
 	c.Assert(pod.Spec.Containers[0].VolumeMounts, gc.HasLen, 1)
 	c.Assert(pod.Spec.Containers[0].VolumeMounts[0].MountPath, gc.Equals, "/var/lib/juju/agents/application-gitlab/template-agent.conf")
+
+	podEnv := make(map[string]string)
+	for _, env := range pod.Spec.Containers[0].Env {
+		podEnv[env.Name] = env.Value
+	}
+	c.Assert(podEnv["JUJU_OPERATOR_SERVICE_IP"], gc.Equals, "10666")
 }
 
 type K8sBrokerSuite struct {
@@ -750,6 +771,8 @@ func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
 			Return(s.k8sNotFoundError()),
 		s.mockConfigMaps.EXPECT().Delete("test-configurations-config", s.deleteOptions(v1.DeletePropagationForeground, nil)).Times(1).
 			Return(s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, nil)).Times(1).
+			Return(s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, nil)).Times(1).
 			Return(s.k8sNotFoundError()),
 		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator==test"}).
@@ -894,6 +917,14 @@ func (s *K8sBrokerSuite) TestEnsureOperator(c *gc.C) {
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get("test-operator", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(operatorServiceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(operatorServiceArg).Times(1).
+			Return(nil, nil),
+		s.mockServices.EXPECT().Get("test-operator", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(&core.Service{Spec: core.ServiceSpec{ClusterIP: "10.1.2.3"}}, nil),
 		s.mockConfigMaps.EXPECT().Update(configMapArg).Times(1),
 		s.mockStorageClass.EXPECT().Get("test-operator-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
 			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "test-operator-storage"}}, nil),
@@ -926,6 +957,14 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get("test-operator", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(operatorServiceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(operatorServiceArg).Times(1).
+			Return(nil, nil),
+		s.mockServices.EXPECT().Get("test-operator", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(&core.Service{Spec: core.ServiceSpec{ClusterIP: "10.1.2.3"}}, nil),
 		s.mockConfigMaps.EXPECT().Get("test-operator-config", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, nil),
 		s.mockStorageClass.EXPECT().Get("test-operator-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
@@ -957,8 +996,18 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get("test-operator", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(operatorServiceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(operatorServiceArg).Times(1).
+			Return(nil, nil),
+		s.mockServices.EXPECT().Get("test-operator", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(&core.Service{Spec: core.ServiceSpec{ClusterIP: "10.1.2.3"}}, nil),
 		s.mockConfigMaps.EXPECT().Get("test-operator-config", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, nil)).Times(1).
+			Return(s.k8sNotFoundError()),
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
