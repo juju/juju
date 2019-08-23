@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
@@ -55,6 +56,13 @@ import (
 const (
 	useDefaultKeys = true
 	noKeysDefined  = false
+)
+
+var (
+	// Ensure that we add the default supported series so that tests that
+	// use the default supported lts internally will always work in the
+	// future.
+	supportedJujuSeries = set.NewStrings("precise", "trusty", "quantal", "bionic", series.DefaultSupportedLTS())
 )
 
 type bootstrapSuite struct {
@@ -122,9 +130,10 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig: controllerCfg,
-			AdminSecret:      "admin-secret",
-			CAPrivateKey:     coretesting.CAKey,
+			ControllerConfig:         controllerCfg,
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -134,13 +143,15 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 	s.setDummyStorage(c, env)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      "admin-secret",
-			CAPrivateKey:     coretesting.CAKey,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	env.args.AvailableTools = nil
+	env.args.SupportedBootstrapSeries = nil
 	c.Assert(env.args, gc.DeepEquals, environs.BootstrapParams{
 		ControllerConfig:     coretesting.FakeControllerConfig(),
 		BootstrapConstraints: constraints.MustParse("mem=3.5G"),
@@ -154,11 +165,12 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	modelCons := constraints.MustParse("cores=2 mem=4G")
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig:     coretesting.FakeControllerConfig(),
-			AdminSecret:          "admin-secret",
-			CAPrivateKey:         coretesting.CAKey,
-			BootstrapConstraints: bootstrapCons,
-			ModelConstraints:     modelCons,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			BootstrapConstraints:     bootstrapCons,
+			ModelConstraints:         modelCons,
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
@@ -177,10 +189,11 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapSeries(c *gc.C) {
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      "admin-secret",
-			CAPrivateKey:     coretesting.CAKey,
-			BootstrapSeries:  "trusty",
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			BootstrapSeries:          "trusty",
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(env.bootstrapCount, gc.Equals, 1)
@@ -194,10 +207,12 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
 	placement := "directive"
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      "admin-secret",
-			CAPrivateKey:     coretesting.CAKey,
-			Placement:        placement})
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			Placement:                placement,
+			SupportedBootstrapSeries: supportedJujuSeries,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.args.Placement, gc.DeepEquals, placement)
@@ -228,13 +243,14 @@ func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
 	bootstrapCons := constraints.MustParse("arch=amd64")
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig:     coretesting.FakeControllerConfig(),
-			AdminSecret:          "admin-secret",
-			CAPrivateKey:         coretesting.CAKey,
-			BootstrapImage:       "img-id",
-			BootstrapSeries:      "precise",
-			BootstrapConstraints: bootstrapCons,
-			MetadataDir:          metadataDir,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			BootstrapImage:           "img-id",
+			BootstrapSeries:          "precise",
+			SupportedBootstrapSeries: supportedJujuSeries,
+			BootstrapConstraints:     bootstrapCons,
+			MetadataDir:              metadataDir,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
@@ -266,13 +282,14 @@ func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToExistingProviderSupport
 	bootstrapCons := constraints.MustParse(fmt.Sprintf("arch=%v", data.architecture))
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig:     coretesting.FakeControllerConfig(),
-			AdminSecret:          "admin-secret",
-			CAPrivateKey:         coretesting.CAKey,
-			BootstrapImage:       "img-id",
-			BootstrapSeries:      "precise",
-			BootstrapConstraints: bootstrapCons,
-			MetadataDir:          data.metadataDir,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			BootstrapImage:           "img-id",
+			BootstrapSeries:          "precise",
+			SupportedBootstrapSeries: supportedJujuSeries,
+			BootstrapConstraints:     bootstrapCons,
+			MetadataDir:              data.metadataDir,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedCons := bootstrapCons
@@ -348,13 +365,14 @@ func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToProviderWithNoSupported
 	bootstrapCons := constraints.MustParse(fmt.Sprintf("arch=%v", data.architecture))
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig:     coretesting.FakeControllerConfig(),
-			AdminSecret:          "admin-secret",
-			CAPrivateKey:         coretesting.CAKey,
-			BootstrapImage:       "img-id",
-			BootstrapSeries:      "precise",
-			BootstrapConstraints: bootstrapCons,
-			MetadataDir:          data.metadataDir,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			BootstrapImage:           "img-id",
+			BootstrapSeries:          "precise",
+			SupportedBootstrapSeries: supportedJujuSeries,
+			BootstrapConstraints:     bootstrapCons,
+			MetadataDir:              data.metadataDir,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedCons := bootstrapCons
@@ -415,11 +433,12 @@ func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *gc.C) {
 	bootstrapCons := constraints.MustParse("arch=amd64")
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig:     coretesting.FakeControllerConfig(),
-			AdminSecret:          "admin-secret",
-			CAPrivateKey:         coretesting.CAKey,
-			BootstrapConstraints: bootstrapCons,
-			MetadataDir:          metadataDir,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			BootstrapConstraints:     bootstrapCons,
+			MetadataDir:              metadataDir,
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -436,7 +455,7 @@ func (s *bootstrapSuite) TestBootstrapLocalTools(c *gc.C) {
 		c.Skip("issue 1403084: Currently does not work because of jujud problems")
 	}
 
-	// Client host is CentOS, wanting to bootstrap a CentOS
+	// Client host is CentOS system, wanting to bootstrap a trusty
 	// controller. This is fine.
 
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.CentOS })
@@ -453,13 +472,14 @@ func (s *bootstrapSuite) TestBootstrapLocalTools(c *gc.C) {
 			BuildAgentTarball: func(bool, *version.Number, string) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
-			BootstrapSeries: "centos7",
+			BootstrapSeries:          "trusty",
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(env.bootstrapCount, gc.Equals, 1)
-	c.Check(env.args.BootstrapSeries, gc.Equals, "centos7")
-	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{"centos7"})
+	c.Check(env.args.BootstrapSeries, gc.Equals, "trusty")
+	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{"trusty"})
 }
 
 func (s *bootstrapSuite) TestBootstrapLocalToolsMismatchingOS(c *gc.C) {
@@ -484,7 +504,8 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsMismatchingOS(c *gc.C) {
 			BuildAgentTarball: func(bool, *version.Number, string) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
-			BootstrapSeries: "trusty",
+			BootstrapSeries:          "trusty",
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, gc.ErrorMatches, `cannot use agent built for "trusty" using a machine running "Windows"`)
 }
@@ -512,7 +533,8 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *gc.C) {
 			BuildAgentTarball: func(bool, *version.Number, string) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
-			BootstrapSeries: "trusty",
+			BootstrapSeries:          "trusty",
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -558,6 +580,7 @@ func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
 					},
 				}, nil
 			},
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that the model config has the correct version set.
@@ -593,10 +616,11 @@ func (s *bootstrapSuite) assertBootstrapPackagedToolsAvailable(c *gc.C, clientAr
 	env := newEnviron("foo", useDefaultKeys, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
-			AdminSecret:      "admin-secret",
-			CAPrivateKey:     coretesting.CAKey,
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			BootstrapSeries:  "quantal",
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			BootstrapSeries:          "quantal",
+			SupportedBootstrapSeries: supportedJujuSeries,
 			BuildAgentTarball: func(bool, *version.Number, string) (*sync.BuiltAgent, error) {
 				c.Fatal("should not call BuildAgentTarball if there are packaged tools")
 				return nil, nil
@@ -636,6 +660,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 			BuildAgentTarball: func(bool, *version.Number, string) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	// bootstrap.Bootstrap leaves it to the provider to
 	// locate bootstrap tools.
@@ -661,6 +686,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
 			BuildAgentTarball: func(bool, *version.Number, string) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	// bootstrap.Bootstrap leaves it to the provider to
 	// locate bootstrap tools.
@@ -740,10 +766,11 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessRemote(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig:     coretesting.FakeControllerConfig(),
-			AdminSecret:          "admin-secret",
-			CAPrivateKey:         coretesting.CAKey,
-			GUIDataSourceBaseURL: "https://1.2.3.4/gui/sources",
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			GUIDataSourceBaseURL:     "https://1.2.3.4/gui/sources",
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, "Fetching Juju GUI 2.0.42\n")
@@ -762,9 +789,10 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessLocal(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      "admin-secret",
-			CAPrivateKey:     coretesting.CAKey,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, "Fetching Juju GUI 2.2.0 from local archive\n")
@@ -793,9 +821,10 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessNoGUI(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      "admin-secret",
-			CAPrivateKey:     coretesting.CAKey,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, "Juju GUI installation has been disabled\n")
@@ -810,10 +839,11 @@ func (s *bootstrapSuite) TestBootstrapGUINoStreams(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig:     coretesting.FakeControllerConfig(),
-			AdminSecret:          "admin-secret",
-			CAPrivateKey:         coretesting.CAKey,
-			GUIDataSourceBaseURL: "https://1.2.3.4/gui/sources",
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			GUIDataSourceBaseURL:     "https://1.2.3.4/gui/sources",
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, "No available Juju GUI archives found\n")
@@ -828,10 +858,11 @@ func (s *bootstrapSuite) TestBootstrapGUIStreamsFailure(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig:     coretesting.FakeControllerConfig(),
-			AdminSecret:          "admin-secret",
-			CAPrivateKey:         coretesting.CAKey,
-			GUIDataSourceBaseURL: "https://1.2.3.4/gui/sources",
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			GUIDataSourceBaseURL:     "https://1.2.3.4/gui/sources",
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, "Unable to fetch Juju GUI info: bad wolf\n")
@@ -844,9 +875,10 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorNotFound(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      "admin-secret",
-			CAPrivateKey:     coretesting.CAKey,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `Cannot use Juju GUI at "/no/such/file": cannot open Juju GUI archive:`)
@@ -861,9 +893,10 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidArchive(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      "admin-secret",
-			CAPrivateKey:     coretesting.CAKey,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, fmt.Sprintf("Cannot use Juju GUI at %q: cannot read Juju GUI archive", path))
@@ -876,9 +909,10 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidVersion(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      "admin-secret",
-			CAPrivateKey:     coretesting.CAKey,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, fmt.Sprintf(`Cannot use Juju GUI at %q: cannot parse version "invalid"`, path))
@@ -891,9 +925,10 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorUnexpectedArchive(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      "admin-secret",
-			CAPrivateKey:     coretesting.CAKey,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, fmt.Sprintf("Cannot use Juju GUI at %q: cannot find Juju GUI version", path))
@@ -955,10 +990,11 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 	s.setDummyStorage(c, env)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      "admin-secret",
-			CAPrivateKey:     coretesting.CAKey,
-			MetadataDir:      metadataDir,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			MetadataDir:              metadataDir,
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
@@ -986,10 +1022,11 @@ func (s *bootstrapSuite) TestBootstrapMetadataDirNonexistend(c *gc.C) {
 	nonExistentFileName := "/tmp/TestBootstrapMetadataDirNonexistend"
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      "admin-secret",
-			CAPrivateKey:     coretesting.CAKey,
-			MetadataDir:      nonExistentFileName,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			MetadataDir:              nonExistentFileName,
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("simplestreams metadata source: %s not found", nonExistentFileName))
@@ -1010,10 +1047,11 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesNoTools(c *gc.C) {
 		environs.UnregisterImageDataSourceFunc("bootstrap metadata")
 		err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 			s.callContext, bootstrap.BootstrapParams{
-				ControllerConfig: coretesting.FakeControllerConfig(),
-				AdminSecret:      "admin-secret",
-				CAPrivateKey:     coretesting.CAKey,
-				MetadataDir:      filepath.Join(metadataDir, suffix),
+				ControllerConfig:         coretesting.FakeControllerConfig(),
+				AdminSecret:              "admin-secret",
+				CAPrivateKey:             coretesting.CAKey,
+				MetadataDir:              filepath.Join(metadataDir, suffix),
+				SupportedBootstrapSeries: supportedJujuSeries,
 			})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(env.bootstrapCount, gc.Equals, i+1)
@@ -1043,10 +1081,11 @@ func (s *bootstrapSuite) TestBootstrapMetadataToolsNoImages(c *gc.C) {
 	for i, suffix := range []string{"", "tools"} {
 		err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 			s.callContext, bootstrap.BootstrapParams{
-				ControllerConfig: coretesting.FakeControllerConfig(),
-				AdminSecret:      "admin-secret",
-				CAPrivateKey:     coretesting.CAKey,
-				MetadataDir:      filepath.Join(metadataDir, suffix),
+				ControllerConfig:         coretesting.FakeControllerConfig(),
+				AdminSecret:              "admin-secret",
+				CAPrivateKey:             coretesting.CAKey,
+				MetadataDir:              filepath.Join(metadataDir, suffix),
+				SupportedBootstrapSeries: supportedJujuSeries,
 			})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(env.bootstrapCount, gc.Equals, i+1)
@@ -1072,9 +1111,10 @@ func (s *bootstrapSuite) TestBootstrapCloudCredential(c *gc.C) {
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 			Regions:   []cloud.Region{{Name: "region-name"}},
 		},
-		CloudRegion:         "region-name",
-		CloudCredentialName: "credential-name",
-		CloudCredential:     &credential,
+		CloudRegion:              "region-name",
+		CloudCredentialName:      "credential-name",
+		CloudCredential:          &credential,
+		SupportedBootstrapSeries: supportedJujuSeries,
 	}
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, s.callContext, args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1094,9 +1134,10 @@ func (s *bootstrapSuite) TestPublicKeyEnvVar(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      "admin-secret",
-			CAPrivateKey:     coretesting.CAKey,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.instanceConfig.Controller.PublicImageSigningKey, gc.Equals, "publickey")
@@ -1129,6 +1170,7 @@ func (s *bootstrapSuite) TestFinishBootstrapConfig(c *gc.C) {
 			Cloud:                     dummyCloud,
 			AdminSecret:               password,
 			CAPrivateKey:              coretesting.CAKey,
+			SupportedBootstrapSeries:  supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	icfg := env.instanceConfig
@@ -1182,10 +1224,11 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 	s.setDummyStorage(c, env)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		s.callContext, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      "admin-secret",
-			CAPrivateKey:     coretesting.CAKey,
-			MetadataDir:      noImagesDir,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			MetadataDir:              noImagesDir,
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
@@ -1203,7 +1246,6 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, cli
 	currentVersion.Minor = clientMinor
 	currentVersion.Tag = ""
 	s.PatchValue(&jujuversion.Current, currentVersion)
-	s.PatchValue(&series.MustHostSeries, func() string { return "trusty" })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -1213,10 +1255,11 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, cli
 	})
 	defer envtools.UnregisterToolsDataSourceFunc("local storage")
 
+	supportedSeries := series.DefaultSupportedLTS()
 	toolsBinaries := []version.Binary{
-		version.MustParseBinary("10.11.12-trusty-amd64"),
-		version.MustParseBinary("10.11.13-trusty-amd64"),
-		version.MustParseBinary("10.11-beta1-trusty-amd64"),
+		version.MustParseBinary(fmt.Sprintf("10.11.12-%s-amd64", supportedSeries)),
+		version.MustParseBinary(fmt.Sprintf("10.11.13-%s-amd64", supportedSeries)),
+		version.MustParseBinary(fmt.Sprintf("10.11-beta1-%s-amd64", supportedSeries)),
 	}
 	stream := "released"
 	if toolsVersion != nil && toolsVersion.Tag != "" {
@@ -1245,6 +1288,7 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, cli
 				c.Assert(build, jc.IsFalse)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	vers, _ := env.cfg.AgentVersion()
 	return err, env.bootstrapCount, vers
@@ -1326,6 +1370,7 @@ func (s *bootstrapSuite) TestAvailableToolsInvalidArch(c *gc.C) {
 				c.Assert(build, jc.IsTrue)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
+			SupportedBootstrapSeries: supportedJujuSeries,
 		})
 	c.Assert(err, gc.ErrorMatches, `model "foo" of type dummy does not support instances running on "s390x"`)
 }
@@ -1389,7 +1434,7 @@ func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx cont
 		e.instanceConfig = icfg
 		return nil
 	}
-	series := series.MustHostSeries()
+	series := series.DefaultSupportedLTS()
 	if args.BootstrapSeries != "" {
 		series = args.BootstrapSeries
 	}

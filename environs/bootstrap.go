@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
@@ -43,6 +44,10 @@ type BootstrapParams struct {
 	// BootstrapSeries, if specified, is the series to use for the
 	// initial bootstrap machine.
 	BootstrapSeries string
+
+	// SupportedBootstrapSeries is a supported set of series to use for
+	// validating against the bootstrap series.
+	SupportedBootstrapSeries set.Strings
 
 	// Placement, if non-empty, holds an environment-specific placement
 	// directive used to choose the initial instance.

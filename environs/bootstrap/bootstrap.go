@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -71,6 +72,10 @@ type BootstrapParams struct {
 	// BootstrapSeries, if specified, is the series to use for the
 	// initial bootstrap machine.
 	BootstrapSeries string
+
+	// SupportedBootstrapSeries is a supported set of series to use for
+	// validating against the bootstrap series.
+	SupportedBootstrapSeries set.Strings
 
 	// BootstrapImage, if specified, is the image ID to use for the
 	// initial bootstrap machine.
@@ -169,6 +174,9 @@ func (p BootstrapParams) Validate() error {
 	}
 	if p.CAPrivateKey == "" {
 		return errors.New("empty ca-private-key")
+	}
+	if p.SupportedBootstrapSeries == nil || p.SupportedBootstrapSeries.Size() == 0 {
+		return errors.NotValidf("supported bootstrap series")
 	}
 	// TODO(axw) validate other things.
 	return nil
@@ -300,10 +308,15 @@ func bootstrapIAAS(
 		}
 	}
 
-	var bootstrapSeries *string
-	if args.BootstrapSeries != "" {
-		bootstrapSeries = &args.BootstrapSeries
+	requestedBootstrapSeries, err := coreseries.ValidateSeries(
+		args.SupportedBootstrapSeries,
+		args.BootstrapSeries,
+		config.PreferredSeries(cfg),
+	)
+	if err != nil {
+		return errors.Annotatef(err, "use --force to override")
 	}
+	bootstrapSeries := &requestedBootstrapSeries
 
 	var bootstrapArchForImageSearch string
 	if args.BootstrapConstraints.Arch != nil {
@@ -465,13 +478,6 @@ func bootstrapIAAS(
 	// after provider.Bootstrap call in getBootstrapToolsVersion,
 	// should be done here.
 
-	// TODO (anastasiamac 2018-02-02) By this stage, we will have a list
-	// of available tools (agent binaries) but they should all be the same
-	// version. Need to do check here, otherwise the provider.Bootstrap call
-	// may fail. This also means that compatibility check, currently done
-	// after provider.Bootstrap call in getBootstrapToolsVersion,
-	// should be done here.
-
 	// If we're uploading, we must override agent-version;
 	// if we're not uploading, we want to ensure we have an
 	// agent-version set anyway, to appease FinishInstanceConfig.
@@ -516,7 +522,7 @@ func bootstrapIAAS(
 		Series: result.Series,
 	})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "expected tools for %q", result.Series)
 	}
 	selectedToolsList, err := getBootstrapToolsVersion(matchingTools)
 	if err != nil {
@@ -566,17 +572,17 @@ func Bootstrap(
 	callCtx context.ProviderCallContext,
 	args BootstrapParams,
 ) error {
-
 	if err := args.Validate(); err != nil {
 		return errors.Annotate(err, "validating bootstrap parameters")
 	}
 	bootstrapParams := environs.BootstrapParams{
-		CloudName:        args.Cloud.Name,
-		CloudRegion:      args.CloudRegion,
-		ControllerConfig: args.ControllerConfig,
-		ModelConstraints: args.ModelConstraints,
-		BootstrapSeries:  args.BootstrapSeries,
-		Placement:        args.Placement,
+		CloudName:                args.Cloud.Name,
+		CloudRegion:              args.CloudRegion,
+		ControllerConfig:         args.ControllerConfig,
+		ModelConstraints:         args.ModelConstraints,
+		BootstrapSeries:          args.BootstrapSeries,
+		SupportedBootstrapSeries: args.SupportedBootstrapSeries,
+		Placement:                args.Placement,
 	}
 	doBootstrap := bootstrapIAAS
 	if jujucloud.CloudIsCAAS(args.Cloud) {

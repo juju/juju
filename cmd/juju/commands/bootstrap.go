@@ -13,9 +13,11 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/naturalsort"
+	"github.com/juju/os/series"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
@@ -379,6 +381,20 @@ var getBootstrapFuncs = func() BootstrapInterface {
 	return &bootstrapFuncs{}
 }
 
+var supportedJujuSeries = func() set.Strings {
+	// We support all of the juju series AND all the ESM supported series.
+	// Juju is congruant with the Ubuntu release cycle for it's own series (not
+	// including centos and windows), so that should be reflected here.
+	//
+	// For non-LTS releases; they'll appear in juju/os as default available, but
+	// after reading the `/usr/share/distro-info/ubuntu.csv` on the Ubuntu distro
+	// the non-LTS should disapear if they're not in the release window for that
+	// series.
+	supportedJujuSeries := set.NewStrings(series.SupportedJujuControllerSeries()...)
+	esmSupportedJujuSeries := set.NewStrings(series.ESMSupportedJujuSeries()...)
+	return supportedJujuSeries.Union(esmSupportedJujuSeries)
+}
+
 var (
 	bootstrapPrepareController = bootstrap.PrepareController
 	environsDestroy            = environs.Destroy
@@ -642,6 +658,7 @@ to create a new model to deploy k8s workloads.
 	bootstrapParams := bootstrap.BootstrapParams{
 		ControllerName:            c.controllerName,
 		BootstrapSeries:           c.BootstrapSeries,
+		SupportedBootstrapSeries:  supportedJujuSeries(),
 		BootstrapImage:            c.BootstrapImage,
 		Placement:                 c.Placement,
 		BuildAgent:                c.BuildAgent,

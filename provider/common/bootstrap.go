@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -82,15 +83,17 @@ func BootstrapInstance(
 	// no way to make sure that only one succeeds.
 
 	// First thing, ensure we have tools otherwise there's no point.
-	if args.BootstrapSeries != "" {
-		selectedSeries = args.BootstrapSeries
-	} else {
-		selectedSeries = config.PreferredSeries(env.Config())
+	selectedSeries, err = coreseries.ValidateSeries(
+		args.SupportedBootstrapSeries,
+		args.BootstrapSeries,
+		config.PreferredSeries(env.Config()),
+	)
+	if err != nil {
+		return nil, "", nil, errors.Annotatef(err, "use --force to override")
 	}
 	availableTools, err := args.AvailableTools.Match(coretools.Filter{
 		Series: selectedSeries,
 	})
-	fmt.Println(">>>", err)
 	if err != nil {
 		return nil, "", nil, err
 	}
