@@ -11,8 +11,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -22,7 +20,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service/common"
@@ -54,46 +51,14 @@ var testInfo = struct {
 }
 
 var expectedArgs = struct {
-	MongoInstall []jc.SimpleMessage
-	YumBase      []string
-	AptGetBase   []string
-	Semanage     []string
-	Chcon        []string
+	AptGetBase []string
 }{
-	MongoInstall: []jc.SimpleMessage{
-		{loggo.INFO, "Ensuring mongo server is running; data directory.*"},
-		{loggo.INFO, regexp.QuoteMeta(`installing "epel-release" via "yum"`)},
-		{loggo.INFO, "Running: yum --assumeyes --debuglevel=1 install epel-release"},
-		{loggo.INFO, regexp.QuoteMeta(`installing "mongodb-server" via "yum"`)},
-		{loggo.INFO, "Running: yum --assumeyes --debuglevel=1 install mongodb-server"},
-	},
-	YumBase: []string{
-		"--assumeyes",
-		"--debuglevel=1",
-		"install",
-	},
 	AptGetBase: []string{
 		"--option=Dpkg::Options::=--force-confold",
 		"--option=Dpkg::Options::=--force-unsafe-io",
 		"--assume-yes",
 		"--quiet",
 		"install",
-	},
-	Semanage: []string{
-		"port",
-		"-a",
-		"-t",
-		"mongod_port_t",
-		"-p",
-		"tcp",
-		strconv.Itoa(controller.DefaultStatePort),
-	},
-	Chcon: []string{
-		"-R",
-		"-v",
-		"-t",
-		"mongod_var_lib_t",
-		"/var/lib/juju/",
 	},
 }
 
@@ -420,104 +385,8 @@ func (s *MongoSuite) TestInstallMongodOnUbuntuViaApt(c *gc.C) {
 	}
 }
 
-func (s *MongoSuite) TestInstallFailChconMongodCentOS(c *gc.C) {
-	returnCode := 1
-	execNameFail := "chcon"
-
-	exec := []string{"yum", "chcon"}
-
-	expectedResult := append(expectedArgs.MongoInstall, []jc.SimpleMessage{
-		{loggo.INFO, "running " + execNameFail + " .*"},
-		{loggo.ERROR, execNameFail + " failed to change file security context error exit status " + strconv.Itoa(returnCode)},
-		{loggo.ERROR, regexp.QuoteMeta("cannot install/upgrade mongod (will proceed anyway): exit status " + strconv.Itoa(returnCode))},
-	}...)
-	s.assertSuccessWithInstallStepFailCentOS(c, exec, execNameFail, returnCode, expectedResult)
-}
-
-func (s *MongoSuite) TestSemanageRuleExistsDoesNotFail(c *gc.C) {
-	// if the return code is 1 then the rule already exists and we do not fail
-	returnCode := 1
-	execNameFail := "semanage"
-
-	exec := []string{"yum", "chcon"}
-
-	expectedResult := append(expectedArgs.MongoInstall, []jc.SimpleMessage{
-		{loggo.INFO, "running chcon .*"},
-		{loggo.INFO, "running " + execNameFail + " .*"},
-	}...)
-
-	s.assertSuccessWithInstallStepFailCentOS(c, exec, execNameFail, returnCode, expectedResult)
-}
-
-func (s *MongoSuite) TestInstallFailSemanageMongodCentOS(c *gc.C) {
-	returnCode := 2
-	execNameFail := "semanage"
-
-	exec := []string{"yum", "chcon"}
-
-	expectedResult := append(expectedArgs.MongoInstall, []jc.SimpleMessage{
-		{loggo.INFO, "running chcon .*"},
-		{loggo.INFO, "running " + execNameFail + " .*"},
-		{loggo.ERROR, execNameFail + " failed to provide access on port " + strconv.Itoa(controller.DefaultStatePort) + " error exit status " + strconv.Itoa(returnCode)},
-		{loggo.ERROR, regexp.QuoteMeta("cannot install/upgrade mongod (will proceed anyway): exit status " + strconv.Itoa(returnCode))},
-	}...)
-	s.assertSuccessWithInstallStepFailCentOS(c, exec, execNameFail, returnCode, expectedResult)
-}
-
-func (s *MongoSuite) assertSuccessWithInstallStepFailCentOS(c *gc.C, exec []string, execNameFail string, returnCode int, expectedResult []jc.SimpleMessage) {
-	for _, e := range exec {
-		testing.PatchExecutableAsEchoArgs(c, s, e)
-	}
-
-	testing.PatchExecutableThrowError(c, s, execNameFail, returnCode)
-
-	dataDir := c.MkDir()
-	s.patchSeries("centos7")
-
-	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("mongosuite", &tw), jc.ErrorIsNil)
-	defer loggo.RemoveWriter("mongosuite")
-
-	_, err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tw.Log(), jc.LogMatches, expectedResult)
-}
-
-func (s *MongoSuite) TestInstallSuccessMongodCentOS(c *gc.C) {
-	type installs struct {
-		series string
-		pkgs   []string
-	}
-	test := installs{
-		"centos7", []string{"epel-release", "mongodb-server"},
-	}
-
-	testing.PatchExecutableAsEchoArgs(c, s, "yum")
-	testing.PatchExecutableAsEchoArgs(c, s, "chcon")
-	testing.PatchExecutableAsEchoArgs(c, s, "semanage")
-
-	dataDir := c.MkDir()
-	s.patchSeries(test.series)
-
-	_, err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
-	c.Assert(err, jc.ErrorIsNil)
-
-	for _, pkg := range test.pkgs {
-		exp := append(append([]string{}, expectedArgs.YumBase...), pkg)
-		testing.AssertEchoArgs(c, "yum", exp...)
-	}
-
-	testing.AssertEchoArgs(c, "chcon", expectedArgs.Chcon...)
-
-	testing.AssertEchoArgs(c, "semanage", expectedArgs.Semanage...)
-}
-
 func (s *MongoSuite) TestMongoAptGetFails(c *gc.C) {
 	s.assertTestMongoGetFails(c, "trusty", "apt-get")
-}
-
-func (s *MongoSuite) TestMongoYumFails(c *gc.C) {
-	s.assertTestMongoGetFails(c, "centos7", "yum")
 }
 
 func (s *MongoSuite) assertTestMongoGetFails(c *gc.C, series string, packageManager string) {

@@ -25,7 +25,6 @@ import (
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/packaging"
@@ -709,26 +708,6 @@ func installMongod(operatingsystem string, numaCtl bool, dataDir string) error {
 		return err
 	}
 
-	// Work around SELinux on centos7
-	if operatingsystem == "centos7" {
-		cmd := []string{"chcon", "-R", "-v", "-t", "mongod_var_lib_t", "/var/lib/juju/"}
-		logger.Infof("running %s %v", cmd[0], cmd[1:])
-		_, err := utils.RunCommand(cmd[0], cmd[1:]...)
-		if err != nil {
-			logger.Errorf("chcon failed to change file security context error %s", err)
-			return err
-		}
-
-		cmd = []string{"semanage", "port", "-a", "-t", "mongod_port_t", "-p", "tcp", strconv.Itoa(controller.DefaultStatePort)}
-		logger.Infof("running %s %v", cmd[0], cmd[1:])
-		_, err = utils.RunCommand(cmd[0], cmd[1:]...)
-		if err != nil {
-			if !strings.Contains(err.Error(), "exit status 1") {
-				logger.Errorf("semanage failed to provide access on port %d error %s", controller.DefaultStatePort, err)
-				return err
-			}
-		}
-	}
 	return nil
 }
 
