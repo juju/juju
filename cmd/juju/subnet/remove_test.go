@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/feature"
@@ -71,7 +70,7 @@ func (s *RemoveSuite) TestRunWithIPv4CIDRSucceeds(c *gc.C) {
 	)
 
 	s.api.CheckCallNames(c, "RemoveSubnet", "Close")
-	s.api.CheckCall(c, 0, "RemoveSubnet", names.NewSubnetTag("10.20.0.0/16"))
+	s.api.CheckCall(c, 0, "RemoveSubnet", "10.20.0.0/16")
 }
 
 func (s *RemoveSuite) TestRunWithIPv6CIDRSucceeds(c *gc.C) {
@@ -82,7 +81,7 @@ func (s *RemoveSuite) TestRunWithIPv6CIDRSucceeds(c *gc.C) {
 	)
 
 	s.api.CheckCallNames(c, "RemoveSubnet", "Close")
-	s.api.CheckCall(c, 0, "RemoveSubnet", names.NewSubnetTag("2001:db8::/32"))
+	s.api.CheckCall(c, 0, "RemoveSubnet", "2001:db8::/32")
 }
 
 func (s *RemoveSuite) TestRunWithNonExistingSubnetFails(c *gc.C) {
@@ -95,17 +94,18 @@ func (s *RemoveSuite) TestRunWithNonExistingSubnetFails(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	s.api.CheckCallNames(c, "RemoveSubnet", "Close")
-	s.api.CheckCall(c, 0, "RemoveSubnet", names.NewSubnetTag("10.10.0.0/24"))
+	s.api.CheckCall(c, 0, "RemoveSubnet", "10.10.0.0/24")
 }
 
 func (s *RemoveSuite) TestRunWithSubnetInUseFails(c *gc.C) {
 	s.api.SetErrors(errors.Errorf("subnet %q is still in use", "10.10.0.0/24"))
 
-	s.AssertRunFails(c,
+	err := s.AssertRunFails(c,
 		`cannot remove subnet "10.10.0.0/24": subnet "10.10.0.0/24" is still in use`,
 		"10.10.0.0/24",
 	)
+	c.Assert(err, gc.NotNil)
 
 	s.api.CheckCallNames(c, "RemoveSubnet", "Close")
-	s.api.CheckCall(c, 0, "RemoveSubnet", names.NewSubnetTag("10.10.0.0/24"))
+	s.api.CheckCall(c, 0, "RemoveSubnet", "10.10.0.0/24")
 }

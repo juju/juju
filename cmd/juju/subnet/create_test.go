@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/feature"
@@ -126,7 +126,7 @@ func (s *CreateSuite) TestInit(c *gc.C) {
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 			command := command.(*subnet.CreateCommand)
-			c.Check(command.CIDR.Id(), gc.Equals, test.expectCIDR)
+			c.Check(command.CIDR, gc.Equals, test.expectCIDR)
 			c.Check(command.Space.Id(), gc.Equals, test.expectSpace)
 			c.Check(command.Zones.SortedValues(), jc.DeepEquals, test.expectZones)
 			c.Check(command.IsPublic, gc.Equals, test.expectPublic)
@@ -146,7 +146,7 @@ func (s *CreateSuite) TestRunOneZoneSucceeds(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AllZones", "CreateSubnet", "Close")
 	s.api.CheckCall(c, 1, "CreateSubnet",
-		names.NewSubnetTag("10.20.0.0/24"), names.NewSpaceTag("myspace"), s.Strings("zone1"), false,
+		"10.20.0.0/24", names.NewSpaceTag("myspace"), s.Strings("zone1"), false,
 	)
 }
 
@@ -159,7 +159,7 @@ func (s *CreateSuite) TestRunWithPublicAndIPv6CIDRSucceeds(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AllZones", "CreateSubnet", "Close")
 	s.api.CheckCall(c, 1, "CreateSubnet",
-		names.NewSubnetTag("2001:db8::/32"), names.NewSpaceTag("space"), s.Strings("zone1"), true,
+		"2001:db8::/32", names.NewSpaceTag("space"), s.Strings("zone1"), true,
 	)
 }
 
@@ -174,17 +174,18 @@ func (s *CreateSuite) TestRunWithMultipleZonesSucceeds(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AllZones", "CreateSubnet", "Close")
 	s.api.CheckCall(c, 1, "CreateSubnet",
-		names.NewSubnetTag("10.20.0.0/24"), names.NewSpaceTag("foo"), s.Strings("zone1", "zone2"), false,
+		"10.20.0.0/24", names.NewSpaceTag("foo"), s.Strings("zone1", "zone2"), false,
 	)
 }
 
 func (s *CreateSuite) TestRunWithAllZonesErrorFails(c *gc.C) {
 	s.api.SetErrors(errors.New("boom"))
 
-	s.AssertRunFails(c,
+	err := s.AssertRunFails(c,
 		`cannot fetch availability zones: boom`,
 		"10.10.0.0/24", "space", "zone1",
 	)
+	c.Assert(err, gc.NotNil)
 	s.api.CheckCallNames(c, "AllZones", "Close")
 }
 
@@ -199,7 +200,7 @@ func (s *CreateSuite) TestRunWithExistingSubnetFails(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AllZones", "CreateSubnet", "Close")
 	s.api.CheckCall(c, 1, "CreateSubnet",
-		names.NewSubnetTag("10.10.0.0/24"), names.NewSpaceTag("space"), s.Strings("zone1"), false,
+		"10.10.0.0/24", names.NewSpaceTag("space"), s.Strings("zone1"), false,
 	)
 }
 
@@ -214,16 +215,16 @@ func (s *CreateSuite) TestRunWithNonExistingSpaceFails(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AllZones", "CreateSubnet", "Close")
 	s.api.CheckCall(c, 1, "CreateSubnet",
-		names.NewSubnetTag("10.10.0.0/24"), names.NewSpaceTag("space"), s.Strings("zone1"), false,
+		"10.10.0.0/24", names.NewSpaceTag("space"), s.Strings("zone1"), false,
 	)
 }
 
 func (s *CreateSuite) TestRunWithUnknownZonesFails(c *gc.C) {
-	s.AssertRunFails(c,
+	err := s.AssertRunFails(c,
 		// The list of unknown zones is sorted.
 		"unknown zones specified: foo, no-zone",
 		"10.30.30.0/24", "space", "no-zone", "zone1", "foo",
 	)
-
+	c.Assert(err, gc.NotNil)
 	s.api.CheckCallNames(c, "AllZones", "Close")
 }
