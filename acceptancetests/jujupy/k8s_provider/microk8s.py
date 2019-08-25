@@ -69,7 +69,7 @@ class MicroK8s(Base):
     def _ensure_cluster_config(self):
         self.__enable_addons()
         try:
-            self.__tmp_fix_patch_kubedns()
+            self.__tmp_fix_patch_coredns()
         except Exception as e:
             logger.error(e)
 
@@ -94,13 +94,20 @@ class MicroK8s(Base):
             self.sh('microk8s.status', '--wait-ready', '--timeout', self.timeout, '--yaml'),
         )
 
-    def __tmp_fix_patch_kubedns(self):
-        # patch nameservers of kubedns because the google one used in microk8s is blocked in our network.
+    def __tmp_fix_patch_coredns(self):
+        # patch nameservers of coredns because the google one used in microk8s is blocked in our network.
         def ping(addr):
             return os.system('ping -c 1 ' + addr) == 0
 
-        nameservers = dns.resolver.Resolver().nameservers
-        for ns in nameservers:
-            if ping(ns):
-                return self.patch_configmap('kube-system', 'kube-dns', 'upstreamNameservers', json.dumps([ns]))
-        raise Exception('No working nameservers found from %s to use for patching kubedns' % nameservers)
+        def get_nameserver():
+            nameservers = dns.resolver.Resolver().nameservers
+            for ns in nameservers:
+                if ping(ns):
+                    return ns
+            raise Exception('No working nameservers found from %s to use for patching coredns' % nameservers)
+
+        coredns_cm = self.get_configmap('kube-system', 'coredns')
+        data = coredns_cm['data']
+        data['Corefile'] = data['Corefile'].replace('8.8.8.8 8.8.4.4', get_nameserver())
+        coredns_cm['data'] = data
+        self.kubectl_apply(json.dumps(coredns_cm))
