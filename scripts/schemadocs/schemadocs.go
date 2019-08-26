@@ -291,7 +291,7 @@ var tmplFuncs = template.FuncMap{
 		if strings.HasPrefix(name, "#/") {
 			name = name[2:]
 		}
-		return strings.ReplaceAll(name, "/", "_")
+		return strings.Replace(name, "/", "_", -1)
 	},
 	"defName": func(name string) string {
 		return strings.TrimPrefix(name, "#/definitions/")
