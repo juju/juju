@@ -1105,6 +1105,7 @@ func resourceTagsToAnnotations(in map[string]string) k8sannotations.Annotation {
 }
 
 func processConstraints(pod *core.PodSpec, appName string, cons constraints.Value) error {
+	// TODO(caas): Allow constraints to be set at the container level.
 	if mem := cons.Mem; mem != nil {
 		if err := configureConstraint(pod, "memory", fmt.Sprintf("%dMi", *mem)); err != nil {
 			return errors.Annotatef(err, "configuring memory constraint for %s", appName)

@@ -191,6 +191,20 @@ func withDefaultControllerConstraints(cons constraints.Value) constraints.Value 
 	return cons
 }
 
+// withDefaultCAASControllerConstraints returns the given constraints,
+// updated to choose a default instance type appropriate for a
+// controller machine. We use this only if the user does not specify
+// any constraints that would otherwise control the instance type
+// selection.
+func withDefaultCAASControllerConstraints(cons constraints.Value) constraints.Value {
+	if !cons.HasInstanceType() && !cons.HasCpuCores() && !cons.HasCpuPower() && !cons.HasMem() {
+		// TODO(caas): Set memory constraints for mongod and controller containers independently.
+		var mem uint64 = 1.5 * 1024
+		cons.Mem = &mem
+	}
+	return cons
+}
+
 func bootstrapCAAS(
 	ctx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
@@ -218,7 +232,7 @@ func bootstrapCAAS(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	bootstrapConstraints = withDefaultControllerConstraints(bootstrapConstraints)
+	bootstrapConstraints = withDefaultCAASControllerConstraints(bootstrapConstraints)
 	bootstrapParams.BootstrapConstraints = bootstrapConstraints
 
 	result, err := environ.Bootstrap(ctx, callCtx, bootstrapParams)
