@@ -9,21 +9,12 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/juju/loggo"
-	"github.com/juju/pubsub"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apipubsub "github.com/juju/juju/api/pubsub"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/testserver"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type PubSubSuite struct {
@@ -124,92 +115,4 @@ func (s mockStream) NextReader() (messageType int, r io.Reader, err error) {
 func (s mockStream) Close() error {
 	s.conn.closeCount++
 	return nil
-}
-
-type PubSubIntegrationSuite struct {
-	statetesting.StateSuite
-	machineTag names.Tag
-	password   string
-	nonce      string
-	hub        *pubsub.StructuredHub
-	info       *api.Info
-}
-
-var _ = gc.Suite(&PubSubIntegrationSuite{})
-
-func (s *PubSubIntegrationSuite) SetUpTest(c *gc.C) {
-	s.StateSuite.SetUpTest(c)
-	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	s.nonce = "nonce"
-	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Nonce: s.nonce,
-		Jobs:  []state.MachineJob{state.JobManageModel},
-	})
-	s.machineTag = m.Tag()
-	s.password = password
-	s.hub = pubsub.NewStructuredHub(nil)
-
-	config := testserver.DefaultServerConfig(c)
-	config.Hub = s.hub
-	server := testserver.NewServerWithConfig(c, s.StatePool, config)
-	s.AddCleanup(func(c *gc.C) { c.Assert(server.Stop(), jc.ErrorIsNil) })
-
-	s.info = server.Info
-	s.info.ModelTag = s.Model.ModelTag()
-	s.info.Tag = s.machineTag
-	s.info.Password = s.password
-	s.info.Nonce = s.nonce
-}
-
-func (s *PubSubIntegrationSuite) connect(c *gc.C) apipubsub.MessageWriter {
-	conn, err := api.Open(s.info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(_ *gc.C) { conn.Close() })
-
-	a := apipubsub.NewAPI(conn)
-	w, err := a.OpenMessageWriter()
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(_ *gc.C) { w.Close() })
-	return w
-}
-
-func (s *PubSubIntegrationSuite) TestMessages(c *gc.C) {
-	writer := s.connect(c)
-	topic := "test.message"
-	messages := []map[string]interface{}{}
-	done := make(chan struct{})
-	_, err := s.hub.SubscribeMatch(pubsub.MatchAll, func(t string, payload map[string]interface{}) {
-		c.Check(t, gc.Equals, topic)
-		messages = append(messages, payload)
-		if len(messages) == 2 {
-			close(done)
-		}
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	first := map[string]interface{}{
-		"key": "value",
-	}
-	err = writer.ForwardMessage(&params.PubSubMessage{
-		Topic: topic,
-		Data:  first,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	second := map[string]interface{}{
-		"key": "other",
-	}
-	err = writer.ForwardMessage(&params.PubSubMessage{
-		Topic: topic,
-		Data:  second,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	select {
-	case <-done:
-		// messages received
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("messages not received")
-	}
-	c.Assert(messages, jc.DeepEquals, []map[string]interface{}{first, second})
 }

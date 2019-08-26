@@ -184,7 +184,7 @@ type apiRoot struct {
 }
 
 // newAPIRoot returns a new apiRoot.
-func newAPIRoot(clock clock.Clock, st *state.State, shared *sharedServerContext, facades *facade.Registry, resources *common.Resources, authorizer facade.Authorizer) *apiRoot {
+func newAPIRoot(clock clock.Clock, st *state.State, shared *sharedServerContext, facades *facade.Registry, resources *common.Resources, authorizer facade.Authorizer) (*apiRoot, error) {
 	r := &apiRoot{
 		clock:       clock,
 		state:       st,
@@ -194,7 +194,18 @@ func newAPIRoot(clock clock.Clock, st *state.State, shared *sharedServerContext,
 		authorizer:  authorizer,
 		objectCache: make(map[objectKey]reflect.Value),
 	}
-	return r
+	// Ensure that the model being requested is in our model cache.
+	// Client connections need it for status (or very soon will), and agents
+	// require it for model config and others.
+	// In all real cases we have a state object, but some test code avoids passing one
+	// in, in order to just probe endpoints.
+	if st != nil {
+		_, err := r.cachedModel(st.ModelUUID())
+		if err != nil {
+			return nil, errors.Annotate(err, "model cache")
+		}
+	}
+	return r, nil
 }
 
 // restrictAPIRoot calls restrictAPIRootDuringMaintenance, and
@@ -388,6 +399,22 @@ func (r *apiRoot) dispose(key objectKey) {
 	delete(r.objectCache, key)
 }
 
+func (r *apiRoot) cachedModel(uuid string) (*cache.Model, error) {
+	model, err := r.shared.controller.WaitForModel(uuid, r.clock)
+	if err != nil {
+		// Check the database...
+		exists, err2 := r.state.ModelExists(uuid)
+		if err2 != nil {
+			return nil, errors.Trace(err2)
+		}
+		if exists {
+			return nil, errors.Trace(err)
+		}
+		return nil, errors.NotFoundf("model %q", uuid)
+	}
+	return model, nil
+}
+
 func (r *apiRoot) facadeContext(key objectKey) *facadeContext {
 	return &facadeContext{
 		r:   r,
@@ -442,19 +469,7 @@ func (ctx *facadeContext) Controller() *cache.Controller {
 
 // CachedModel implements facade.Context.
 func (ctx *facadeContext) CachedModel(uuid string) (*cache.Model, error) {
-	model, err := ctx.r.shared.controller.WaitForModel(uuid, ctx.r.clock)
-	if err != nil {
-		// Check the database...
-		exists, err2 := ctx.r.state.ModelExists(uuid)
-		if err2 != nil {
-			return nil, errors.Trace(err2)
-		}
-		if exists {
-			return nil, errors.Trace(err)
-		}
-		return nil, errors.NotFoundf("model %q", uuid)
-	}
-	return model, nil
+	return ctx.r.cachedModel(uuid)
 }
 
 // State is part of of the facade.Context interface.

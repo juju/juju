@@ -113,7 +113,8 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	}
 
 	// apiRoot is the API root exposed to the client after login.
-	var apiRoot rpc.Root = newAPIRoot(
+	var apiRoot rpc.Root
+	apiRoot, err = newAPIRoot(
 		a.srv.clock,
 		a.root.state,
 		a.root.shared,
@@ -121,6 +122,9 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		a.root.resources,
 		a.root,
 	)
+	if err != nil {
+		return fail, errors.Trace(err)
+	}
 	apiRoot, err = restrictAPIRoot(
 		a.srv,
 		apiRoot,
