@@ -99,7 +99,7 @@ def assess_upgrade_passing_agent_stream(args, devel_client):
             stable_client, base_dir, 'released')
         setup_agent_metadata(
             stream_server, args.devel_juju_agent,
-            forced_devel_client, base_dir, 'proposed',
+            forced_devel_client, base_dir, 'devel',
             force_version=True)
         with stream_server.server() as url:
             stable_client.env.update_config({
@@ -110,7 +110,7 @@ def assess_upgrade_passing_agent_stream(args, devel_client):
                 assert_upgrade_is_successful(
                     stable_client,
                     forced_devel_client,
-                    ('--agent-stream', 'proposed'))
+                    ('--agent-stream', 'devel'))
 
 
 def assert_upgrade_is_successful(
@@ -128,11 +128,11 @@ def assert_upgrade_is_successful(
 def upgrade_stable_to_devel_version(client, extra_args):
     devel_version = get_stripped_version_number(client.version)
     client.get_controller_client().juju(
-        'upgrade-juju', ('-m', 'controller', '--debug') + extra_args)
+        'upgrade-juju', ('-m', 'controller', '--debug', '--agent-stream', 'devel', '--agent-version', devel_version,) + extra_args)
     assert_model_is_version(client.get_controller_client(), devel_version)
     wait_until_model_upgrades(client)
 
-    client.juju('upgrade-juju', ('--debug',) + extra_args)
+    client.juju('upgrade-juju', ('--debug', '--agent-stream', 'devel', '--agent-version', devel_version,) + extra_args)
     assert_model_is_version(client, devel_version)
     wait_until_model_upgrades(client)
 
