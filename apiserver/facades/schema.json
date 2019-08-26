@@ -29845,7 +29845,7 @@
     },
     {
         "Name": "Spaces",
-        "Version": 4,
+        "Version": 5,
         "Schema": {
             "type": "object",
             "properties": {
@@ -29876,6 +29876,12 @@
                 "CreateSpaceParams": {
                     "type": "object",
                     "properties": {
+                        "cidrs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
                         "provider-id": {
                             "type": "string"
                         },
@@ -29884,17 +29890,11 @@
                         },
                         "space-tag": {
                             "type": "string"
-                        },
-                        "subnet-tags": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "subnet-tags",
+                        "cidrs",
                         "space-tag",
                         "public"
                     ]

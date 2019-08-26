@@ -620,6 +620,20 @@ type CreateSubnetParams struct {
 }
 
 // CreateSpacesParams olds the arguments of the AddSpaces API call.
+type CreateSpacesParamsV4 struct {
+	Spaces []CreateSpaceParamsV4 `json:"spaces"`
+}
+
+// CreateSpaceParams holds the space tag and at least one subnet
+// tag required to create a new space.
+type CreateSpaceParamsV4 struct {
+	SubnetTags []string `json:"subnet-tags"`
+	SpaceTag   string   `json:"space-tag"`
+	Public     bool     `json:"public"`
+	ProviderId string   `json:"provider-id,omitempty"`
+}
+
+// CreateSpacesParams olds the arguments of the AddSpaces API call.
 type CreateSpacesParams struct {
 	Spaces []CreateSpaceParams `json:"spaces"`
 }
@@ -627,7 +641,7 @@ type CreateSpacesParams struct {
 // CreateSpaceParams holds the space tag and at least one subnet
 // tag required to create a new space.
 type CreateSpaceParams struct {
-	SubnetTags []string `json:"subnet-tags"`
+	CIDRs      []string `json:"cidrs"`
 	SpaceTag   string   `json:"space-tag"`
 	Public     bool     `json:"public"`
 	ProviderId string   `json:"provider-id,omitempty"`

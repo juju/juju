@@ -123,14 +123,8 @@ func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 		args.SpaceTag = "space-" + p.Name
 	}
 
-	// TODO (hml) 2019-08-20
-	// Update callers of checkAddSpaces:
-	// []checkAddSpacesParams.Subnets should be IDs
-	// no CIDRs
 	if len(p.Subnets) > 0 {
-		for _, id := range p.Subnets {
-			args.SubnetTags = append(args.SubnetTags, "subnet-"+id)
-		}
+		args.CIDRs = p.Subnets
 	}
 	args.Public = p.Public
 
@@ -217,11 +211,11 @@ func (s *SpacesSuite) TestCreateInvalidSpace(c *gc.C) {
 	s.checkAddSpaces(c, p)
 }
 
-func (s *SpacesSuite) TestCreateInvalidSubnet(c *gc.C) {
+func (s *SpacesSuite) TestCreateInvalidCIDR(c *gc.C) {
 	p := checkAddSpacesParams{
 		Name:    "foo",
 		Subnets: []string{"bar"},
-		Error:   `"subnet-bar" is not a valid subnet tag`,
+		Error:   `"bar" is not a valid CIDR`,
 	}
 	s.checkAddSpaces(c, p)
 }
@@ -415,6 +409,51 @@ func (s *SpacesSuite) TestCreateSpacesBlocked(c *gc.C) {
 	_, err := s.facade.CreateSpaces(params.CreateSpacesParams{})
 	c.Assert(err, gc.ErrorMatches, "test block")
 	c.Assert(err, jc.Satisfies, params.IsCodeOperationBlocked)
+}
+
+func (s *SpacesSuite) TestCreateSpacesAPIv4(c *gc.C) {
+	apiV4 := &spaces.APIv4{s.facade}
+	results, err := apiV4.CreateSpaces(params.CreateSpacesParamsV4{
+		Spaces: []params.CreateSpaceParamsV4{
+			{
+				SpaceTag:   "space-foo",
+				SubnetTags: []string{"subnet-10.0.0.0/24"},
+			},
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
+func (s *SpacesSuite) TestCreateSpacesAPIv4FailCIDR(c *gc.C) {
+	apiV4 := &spaces.APIv4{s.facade}
+	results, err := apiV4.CreateSpaces(params.CreateSpacesParamsV4{
+		Spaces: []params.CreateSpaceParamsV4{
+			{
+				SpaceTag:   "space-foo",
+				SubnetTags: []string{"subnet-bar"},
+			},
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `"bar" is not a valid CIDR`)
+}
+
+func (s *SpacesSuite) TestCreateSpacesAPIv4FailTag(c *gc.C) {
+	apiV4 := &spaces.APIv4{s.facade}
+	results, err := apiV4.CreateSpaces(params.CreateSpacesParamsV4{
+		Spaces: []params.CreateSpaceParamsV4{
+			{
+				SpaceTag:   "space-foo",
+				SubnetTags: []string{"bar"},
+			},
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `"bar" is not valid SubnetTag`)
 }
 
 func (s *SpacesSuite) TestReloadSpacesUserDenied(c *gc.C) {

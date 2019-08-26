@@ -4,8 +4,10 @@
 package networkingcommon
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -27,7 +29,7 @@ func SupportsSpaces(backing environs.EnvironConfigGetter, ctx context.ProviderCa
 	return nil
 }
 
-// CreateSpaces creates a new Juju network space, associating the
+// CreateSpaces creates new Juju network spaces, associating the
 // specified subnets with it (optional; can be empty).
 func CreateSpaces(backing NetworkBacking, ctx context.ProviderCallContext, args params.CreateSpacesParams) (results params.ErrorResults, err error) {
 	err = SupportsSpaces(backing, ctx)
@@ -38,7 +40,7 @@ func CreateSpaces(backing NetworkBacking, ctx context.ProviderCallContext, args 
 	results.Results = make([]params.ErrorResult, len(args.Spaces))
 
 	for i, space := range args.Spaces {
-		err := createOneSpace(backing, space)
+		err := CreateOneSpace(backing, space)
 		if err == nil {
 			continue
 		}
@@ -48,25 +50,23 @@ func CreateSpaces(backing NetworkBacking, ctx context.ProviderCallContext, args 
 	return results, nil
 }
 
-func createOneSpace(backing NetworkBacking, args params.CreateSpaceParams) error {
+// CreateOneSpace creates one new Juju network space, associating the
+// specified subnets with it (optional; can be empty).
+func CreateOneSpace(backing NetworkBacking, args params.CreateSpaceParams) error {
 	// Validate the args, assemble information for api.backing.AddSpaces
-	var subnets []string
-
 	spaceTag, err := names.ParseSpaceTag(args.SpaceTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	for _, tag := range args.SubnetTags {
-		subnetTag, err := names.ParseSubnetTag(tag)
-		if err != nil {
-			return errors.Trace(err)
+	for _, cidr := range args.CIDRs {
+		if !network.IsValidCidr(cidr) {
+			return errors.New(fmt.Sprintf("%q is not a valid CIDR", cidr))
 		}
-		subnets = append(subnets, subnetTag.Id())
 	}
 
 	// Add the validated space.
-	err = backing.AddSpace(spaceTag.Id(), network.Id(args.ProviderId), subnets, args.Public)
+	err = backing.AddSpace(spaceTag.Id(), network.Id(args.ProviderId), args.CIDRs, args.Public)
 	if err != nil {
 		return errors.Trace(err)
 	}
