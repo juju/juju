@@ -1233,13 +1233,13 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}()
 
-	svcSpec, err := prepareSvcSpec(appName, deploymentName, params.PodSpec)
+	workloadSpec, err := prepareSvcSpec(appName, deploymentName, params.PodSpec)
 	if err != nil {
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
 
-	// ensure custom resource definitions first,
-	crds := svcSpec.CustomResourceDefinitions
+	// ensure custom resource definitions first.
+	crds := workloadSpec.CustomResourceDefinitions
 	if len(crds) > 0 {
 		err = k.ensureCustomResourceDefinitions(appName, crds)
 		if err != nil {
@@ -1250,8 +1250,8 @@ func (k *kubernetesClient) EnsureService(
 		logger.Debugf("created/updated custom resource definition for %q.", appName)
 	}
 
-	if svcSpec.ServiceAccount != nil {
-		saCleanups, err := k.ensureServiceAccountForApp(appName, svcSpec.ServiceAccount)
+	if workloadSpec.ServiceAccount != nil {
+		saCleanups, err := k.ensureServiceAccountForApp(appName, workloadSpec.ServiceAccount)
 		cleanups = append(cleanups, saCleanups...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating service account")
@@ -1259,11 +1259,11 @@ func (k *kubernetesClient) EnsureService(
 	}
 
 	if len(params.Devices) > 0 {
-		if err = k.configureDevices(svcSpec, params.Devices); err != nil {
+		if err = k.configureDevices(workloadSpec, params.Devices); err != nil {
 			return errors.Annotatef(err, "configuring devices for %s", appName)
 		}
 	}
-	if err := processConstraints(&svcSpec.Pod, appName, params.Constraints); err != nil {
+	if err := processConstraints(&workloadSpec.Pod, appName, params.Constraints); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1318,7 +1318,7 @@ func (k *kubernetesClient) EnsureService(
 	hasService := !params.PodSpec.OmitServiceFrontend
 	if hasService {
 		var ports []core.ContainerPort
-		for _, c := range svcSpec.Pod.Containers {
+		for _, c := range workloadSpec.Pod.Containers {
 			for _, p := range c.Ports {
 				if p.ContainerPort == 0 {
 					continue
@@ -1332,8 +1332,8 @@ func (k *kubernetesClient) EnsureService(
 
 		serviceAnnotations := annotations.Copy()
 		// Merge any service annotations from the charm.
-		if svcSpec.Service != nil {
-			serviceAnnotations.Merge(k8sannotations.New(svcSpec.Service.Annotations))
+		if workloadSpec.Service != nil {
+			serviceAnnotations.Merge(k8sannotations.New(workloadSpec.Service.Annotations))
 		}
 		// Merge any service annotations from the CLI.
 		deployAnnotations, err := config.GetStringMap(serviceAnnotationsKey, nil)
@@ -1354,12 +1354,12 @@ func (k *kubernetesClient) EnsureService(
 			return errors.Annotate(err, "creating or updating headless service")
 		}
 		cleanups = append(cleanups, func() { k.deleteService(headlessServiceName(deploymentName)) })
-		if err := k.configureStatefulSet(appName, deploymentName, randPrefix, annotations.Copy(), svcSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
+		if err := k.configureStatefulSet(appName, deploymentName, randPrefix, annotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
 			return errors.Annotate(err, "creating or updating StatefulSet")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
 	} else {
-		if err := k.configureDeployment(appName, deploymentName, annotations.Copy(), svcSpec, params.PodSpec.Containers, &numPods); err != nil {
+		if err := k.configureDeployment(appName, deploymentName, annotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods); err != nil {
 			return errors.Annotate(err, "creating or updating DeploymentController")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
@@ -1544,7 +1544,7 @@ func (k *kubernetesClient) configureStorage(
 	return nil
 }
 
-func (k *kubernetesClient) configureDevices(unitSpec *svcSpec, devices []devices.KubernetesDeviceParams) error {
+func (k *kubernetesClient) configureDevices(unitSpec *workloadSpec, devices []devices.KubernetesDeviceParams) error {
 	for i := range unitSpec.Pod.Containers {
 		resources := unitSpec.Pod.Containers[i].Resources
 		for _, dev := range devices {
@@ -1612,7 +1612,7 @@ func podAnnotations(annotations k8sannotations.Annotation) k8sannotations.Annota
 func (k *kubernetesClient) configureDeployment(
 	appName, deploymentName string,
 	annotations k8sannotations.Annotation,
-	unitSpec *svcSpec,
+	unitSpec *workloadSpec,
 	containers []specs.ContainerSpec,
 	replicas *int32,
 ) error {
@@ -1671,7 +1671,7 @@ func (k *kubernetesClient) deleteDeployment(name string) error {
 }
 
 func (k *kubernetesClient) configureStatefulSet(
-	appName, deploymentName, randPrefix string, annotations k8sannotations.Annotation, unitSpec *svcSpec,
+	appName, deploymentName, randPrefix string, annotations k8sannotations.Annotation, unitSpec *workloadSpec,
 	containers []specs.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
 ) error {
 	logger.Debugf("creating/updating stateful set for %s", appName)
@@ -2587,7 +2587,7 @@ func operatorConfigMap(appName, operatorName string, config *caas.OperatorConfig
 }
 
 // TODO: move this to ./specs??????????
-type svcSpec struct {
+type workloadSpec struct {
 	Pod     core.PodSpec `json:"pod"`
 	Service *k8sspecs.K8sServiceSpec
 
@@ -2595,7 +2595,7 @@ type svcSpec struct {
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
 }
 
-func prepareSvcSpec(appName, deploymentName string, podSpec *specs.PodSpec) (*svcSpec, error) {
+func prepareSvcSpec(appName, deploymentName string, podSpec *specs.PodSpec) (*workloadSpec, error) {
 	// Fill out the easy bits using a template.
 	var buf bytes.Buffer
 	if err := defaultPodTemplate.Execute(&buf, podSpec); err != nil {
@@ -2603,7 +2603,7 @@ func prepareSvcSpec(appName, deploymentName string, podSpec *specs.PodSpec) (*sv
 	}
 	unitSpecString := buf.String()
 
-	var spec svcSpec
+	var spec workloadSpec
 	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(unitSpecString), len(unitSpecString))
 	if err := decoder.Decode(&spec); err != nil {
 		logger.Errorf("unable to parse %q pod spec: \n%+v\nunit spec: \n%v", appName, *podSpec, unitSpecString)
