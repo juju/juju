@@ -5,8 +5,10 @@ package main_test
 
 import (
 	"testing"
+
+	gc "gopkg.in/check.v1"
 )
 
-// TestPackage just ensures that this package will build
-func TestPackage(t *testing.T) {
+func TestAll(t *testing.T) {
+	gc.TestingT(t)
 }
