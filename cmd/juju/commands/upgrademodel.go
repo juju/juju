@@ -645,7 +645,7 @@ func (c *upgradeJujuCommand) initVersions(
 	if err != nil {
 		return nil, false, err
 	}
-	logger.Debugf("searching for agent binaries with major: %d", filterVersion.Major)
+	logger.Debugf("searching for %q agent binaries with major: %d", c.AgentStream, filterVersion.Major)
 	findResult, err := client.FindTools(filterVersion.Major, -1, "", "", c.AgentStream)
 	if err != nil {
 		return nil, false, err
