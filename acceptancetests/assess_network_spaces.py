@@ -249,18 +249,30 @@ def non_infan_subnets(subnets):
                 ]
              }
          }
-    Example dict output from juju list-spaces:
+    Example list output from juju list-spaces:
         "spaces": {
-            "space1": {
-                "172.31.16.0/20": {
-                    "provider-id": "subnet-13a6aa67",
-                    "status": "in-use",
-                    "type": "ipv4",
-                    "zones": [
-                        "us-east=1d"
-                    ]
+            [
+                "id": "1",
+                "name": "one-space",
+                "subnets": {
+                    "172.31.0.0/20": {
+                        "type": "ipv4",
+                        "provider-id": "subnet-9b4ed4fc",
+                        "status": "in-use",
+                        "zones": [
+                            "us-east-1c"
+                        ]
+                    },
+                    "252.0.0.0/12": {
+                        "type": "ipv4",
+                        "provider-id": "subnet-9b4ed4fc-INFAN-172-31-0-0-20",
+                        "status": "in-use",
+                        "zones": [
+                            "us-east-1c"
+                        ]
+                    }
                 }
-            }
+            ]
         }
     """
     newsubnets = {}
@@ -271,8 +283,9 @@ def non_infan_subnets(subnets):
                 newsubnets['subnets'][subnet] = details
     if 'spaces' in subnets:
         newsubnets['spaces'] = {}
-        for space, details in subnets['spaces'].iteritems():
-            for subnet, subnet_details in details.iteritems():
+        for details in subnets['spaces']:
+            space = details['name']
+            for subnet, subnet_details in details['subnets'].iteritems():
                 if 'INFAN' not in subnet_details['provider-id']:
                     newsubnets['spaces'].setdefault(space, {})
                     newsubnets['spaces'][space][subnet] = subnet_details
