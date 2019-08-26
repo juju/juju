@@ -181,7 +181,18 @@ class GKE(Base):
         # provision cluster.
         cluster = dict(
             name=self.gke_cluster_name,
-            initial_node_count=1,
+            node_pools=[dict(
+                name='default-pool',
+                initial_node_count=1,
+                config=dict(
+                    machine_type='n1-standard-1',
+                ),
+                autoscaling=dict(
+                    enabled=True,
+                    min_node_count=1,
+                    max_node_count=3,
+                ),
+            )],
         )
         logger.info('creating cluster -> %s', cluster)
         r = self.driver.create_cluster(
