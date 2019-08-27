@@ -632,6 +632,18 @@ type RelationUnitStatusResults struct {
 	Results []RelationUnitStatusResult `json:"results"`
 }
 
+// RelationApplications holds a set of pairs of relation & application
+// tags.
+type RelationApplications struct {
+	RelationApplications []RelationApplication `json:"relation-applications"`
+}
+
+// RelationApplication holds one (relation, application) pair.
+type RelationApplication struct {
+	Relation    string `json:"relation"`
+	Application string `json:"application"`
+}
+
 // MachineStorageIdsWatchResult holds a MachineStorageIdsWatcher id,
 // changes and an error (if any).
 type MachineStorageIdsWatchResult struct {

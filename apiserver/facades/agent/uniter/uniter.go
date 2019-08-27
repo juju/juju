@@ -1539,6 +1539,114 @@ func (u *UniterAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.Se
 	return result, nil
 }
 
+// WatchRelationApplicationSettings watches for changes to a
+// relation's application settings. Only accessible for agents that
+// are members of the relation and counterparts of the requested
+// application.
+func (u *UniterAPI) WatchRelationApplicationSettings(args params.RelationApplications) (params.NotifyWatchResults, error) {
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.RelationApplications)),
+	}
+
+	canAccess := func(rel *state.Relation, app *state.Application) (bool, error) {
+		relatedEPs, err := rel.RelatedEndpoints(app.Name())
+		if errors.IsNotFound(err) {
+			return false, nil
+		}
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+
+		var authApplication string
+		switch tag := u.auth.GetAuthTag().(type) {
+		case names.ApplicationTag:
+			authApplication = tag.Id()
+		case names.UnitTag:
+			unit, err := u.st.Unit(tag.Id())
+			if err != nil {
+				return false, errors.Trace(err)
+			}
+			relUnit, err := rel.Unit(unit)
+			if errors.IsNotFound(err) {
+				return false, nil
+			}
+			if err != nil {
+				return false, errors.Trace(err)
+			}
+			inScope, err := relUnit.InScope()
+			if err != nil {
+				return false, errors.Trace(err)
+			}
+			if !inScope {
+				return false, nil
+			}
+			authApplication = unit.ApplicationName()
+		default:
+			return false, nil
+		}
+		for _, ep := range relatedEPs {
+			if authApplication == ep.ApplicationName {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+
+	watchOne := func(rel, app string) (string, error) {
+		relTag, err := names.ParseRelationTag(rel)
+		if err != nil {
+			return "", common.ErrPerm
+		}
+		relation, err := u.st.KeyRelation(relTag.Id())
+		if errors.IsNotFound(err) {
+			return "", common.ErrPerm
+		}
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+
+		appTag, err := names.ParseApplicationTag(app)
+		if err != nil {
+			return "", common.ErrPerm
+		}
+		application, err := u.st.Application(appTag.Id())
+		if errors.IsNotFound(err) {
+			return "", common.ErrPerm
+		}
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+
+		allowed, err := canAccess(relation, application)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		if !allowed {
+			return "", common.ErrPerm
+		}
+
+		w, err := relation.WatchApplicationSettings(application)
+		if errors.IsNotFound(err) {
+			return "", common.ErrPerm
+		}
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+
+		if _, ok := <-w.Changes(); ok {
+			return u.resources.Register(w), nil
+		}
+		return "", watcher.EnsureErr(w)
+	}
+
+	for i, arg := range args.RelationApplications {
+		id, err := watchOne(arg.Relation, arg.Application)
+		result.Results[i].NotifyWatcherId = id
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
 // UpdateSettings persists all changes made to the local settings of
 // all given pairs of relation and unit. Keys with empty values are
 // considered a signal to delete these values.
