@@ -892,6 +892,7 @@ func (s *filteringBranchesSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = ru.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 }
 
 func (s *filteringBranchesSuite) TestFullStatusBranchNoFilter(c *gc.C) {
