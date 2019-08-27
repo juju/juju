@@ -34515,6 +34515,17 @@
                         }
                     }
                 },
+                "WatchRelationApplicationSettings": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/RelationApplications"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResults"
+                        }
+                    }
+                },
                 "WatchRelationUnits": {
                     "type": "object",
                     "properties": {
@@ -35881,6 +35892,37 @@
                         "from-port",
                         "to-port",
                         "protocol"
+                    ]
+                },
+                "RelationApplication": {
+                    "type": "object",
+                    "properties": {
+                        "application": {
+                            "type": "string"
+                        },
+                        "relation": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "relation",
+                        "application"
+                    ]
+                },
+                "RelationApplications": {
+                    "type": "object",
+                    "properties": {
+                        "relation-applications": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/RelationApplication"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "relation-applications"
                     ]
                 },
                 "RelationIds": {
