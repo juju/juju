@@ -99,6 +99,9 @@ type ManifoldsConfig struct {
 	// This is used by a number of workers to ensure serialisation of actions
 	// across the machine.
 	MachineLock machinelock.Lock
+
+	// Clock supplies timekeeping services to various workers.
+	Clock clock.Clock
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various
@@ -233,7 +236,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:         agentName,
 			APICallerName:     apiCallerName,
 			FortressName:      migrationFortressName,
-			Clock:             clock.WallClock,
+			Clock:             config.Clock,
 			APIOpen:           api.Open,
 			ValidateMigration: config.ValidateMigration,
 			NewFacade:         migrationminion.NewFacade,
@@ -286,7 +289,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		leadershipTrackerName: ifNotMigrating(leadership.Manifold(leadership.ManifoldConfig{
 			AgentName:           agentName,
 			APICallerName:       apiCallerName,
-			Clock:               clock.WallClock,
+			Clock:               config.Clock,
 			LeadershipGuarantee: config.LeadershipGuarantee,
 		})),
 
@@ -308,7 +311,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:             agentName,
 			APICallerName:         apiCallerName,
 			MachineLock:           config.MachineLock,
-			Clock:                 clock.WallClock,
+			Clock:                 config.Clock,
 			LeadershipTrackerName: leadershipTrackerName,
 			CharmDirName:          charmDirName,
 			HookRetryStrategyName: hookRetryStrategyName,
@@ -334,7 +337,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:                agentName,
 			APICallerName:            apiCallerName,
 			MachineLock:              config.MachineLock,
-			Clock:                    clock.WallClock,
+			Clock:                    config.Clock,
 			NewHookRunner:            meterstatus.NewHookRunner,
 			NewMeterStatusAPIClient:  msapi.NewClient,
 			NewConnectedStatusWorker: meterstatus.NewConnectedStatusWorker,

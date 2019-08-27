@@ -204,6 +204,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		UpgradeStepsLock:     a.upgradeComplete,
 		UpgradeCheckLock:     a.initialUpgradeCheckComplete,
 		MachineLock:          machineLock,
+		Clock:                clock.WallClock,
 	})
 
 	engine, err := dependency.NewEngine(dependencyEngineConfig())
