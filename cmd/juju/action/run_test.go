@@ -202,7 +202,7 @@ func (s *RunSuite) TestInit(c *gc.C) {
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
 			wrappedCommand, command := action.NewRunCommandForTest(s.store)
-			c.Logf("test %d: should %s:\n$ juju run-action %s\n", i,
+			c.Logf("test %d: should %s:\n$ juju run (action) %s\n", i,
 				t.should, strings.Join(t.args, " "))
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := cmdtesting.InitCommand(wrappedCommand, args)

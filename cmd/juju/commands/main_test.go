@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	_ "github.com/juju/juju/provider/dummy"
@@ -478,6 +479,7 @@ var commandNames = []string{
 	"enable-destroy-controller",
 	"enable-ha",
 	"enable-user",
+	"exec",
 	"export-bundle",
 	"expose",
 	"find-offers",
@@ -560,7 +562,6 @@ var commandNames = []string{
 	"revoke",
 	"revoke-cloud",
 	"run",
-	"run-action",
 	"scale-application",
 	"scp",
 	"set-credential",
@@ -642,6 +643,9 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	// remove features behind dev_flag for the first test
 	// since they are not enabled.
 	cmdSet := set.NewStrings(commandNames...)
+	if !featureflag.Enabled(feature.JujuV3) {
+		cmdSet.Add("run-action")
+	}
 
 	// 1. Default Commands. Disable all features.
 	setFeatureFlags("")
@@ -740,6 +744,9 @@ func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 	expected := make([]string, len(commandNames))
 	copy(expected, commandNames)
 	expected = append(expected, extraNames...)
+	if !featureflag.Enabled(feature.JujuV3) {
+		expected = append(expected, "run-action")
+	}
 	sort.Strings(expected)
 	c.Check(registry.names, jc.DeepEquals, expected)
 }

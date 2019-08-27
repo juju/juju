@@ -36,19 +36,19 @@ const leaderSnippet = "(" + names.ApplicationSnippet + ")/leader"
 var validLeader = regexp.MustCompile("^" + leaderSnippet + "$")
 
 func newDefaultRunCommand(store jujuclient.ClientStore) cmd.Command {
-	return newRunCommand(store, time.After)
+	return newExecCommand(store, time.After)
 }
 
-func newRunCommand(store jujuclient.ClientStore, timeAfter func(time.Duration) <-chan time.Time) cmd.Command {
-	cmd := modelcmd.Wrap(&runCommand{
+func newExecCommand(store jujuclient.ClientStore, timeAfter func(time.Duration) <-chan time.Time) cmd.Command {
+	cmd := modelcmd.Wrap(&execCommand{
 		timeAfter: timeAfter,
 	})
 	cmd.SetClientStore(store)
 	return cmd
 }
 
-// runCommand is responsible for running arbitrary commands on remote machines.
-type runCommand struct {
+// execCommand is responsible for running arbitrary commands on remote machines.
+type execCommand struct {
 	modelcmd.ModelCommandBase
 	out          cmd.Output
 	all          bool
@@ -61,7 +61,7 @@ type runCommand struct {
 	timeAfter    func(time.Duration) <-chan time.Time
 }
 
-const runDoc = `
+const execDoc = `
 Run a shell command on the specified targets. Only admin users of a model
 are able to use this command.
 
@@ -99,26 +99,32 @@ the unit.
 in the model.  If you specify --all you cannot provide additional
 targets.
 
-Since juju run creates actions, you can query for the status of commands
+Since juju exec creates actions, you can query for the status of commands
 started with juju run by calling "juju show-action-status --name juju-run".
 
 If you need to pass options to the command being run, you must precede the
-command and its arguments with "--", to tell "juju run" to stop processing
+command and its arguments with "--", to tell "juju exec" to stop processing
 those arguments. For example:
 
-    juju run --all -- hostname -f
+    juju exec --all -- hostname -f
+
+NOTE: Juju 2 uses "juju run" which is deprecated in favour of "juju exec".
 `
 
-func (c *runCommand) Info() *cmd.Info {
-	return jujucmd.Info(&cmd.Info{
-		Name:    "run",
+func (c *execCommand) Info() *cmd.Info {
+	info := jujucmd.Info(&cmd.Info{
+		Name:    "exec",
 		Args:    "<commands>",
 		Purpose: "Run the commands on the remote targets specified.",
-		Doc:     runDoc,
+		Doc:     execDoc,
 	})
+	if !featureflag.Enabled(feature.JujuV3) {
+		info.Aliases = []string{"run"}
+	}
+	return info
 }
 
-func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *execCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "default", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
@@ -139,7 +145,7 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewStringsValue(nil, &c.units), "unit", "")
 }
 
-func (c *runCommand) Init(args []string) error {
+func (c *execCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.Errorf("no commands specified")
 	}
@@ -191,7 +197,7 @@ func (c *runCommand) Init(args []string) error {
 		}
 	}
 	if len(nameErrors) > 0 {
-		return errors.Errorf("The following run targets are not valid:\n%s",
+		return errors.Errorf("The following exec targets are not valid:\n%s",
 			strings.Join(nameErrors, "\n"))
 	}
 
@@ -246,8 +252,8 @@ func ConvertActionResults(result params.ActionResult, query actionQuery) map[str
 	return values
 }
 
-func (c *runCommand) Run(ctx *cmd.Context) error {
-	client, err := getRunAPIClient(c)
+func (c *execCommand) Run(ctx *cmd.Context) error {
+	client, err := getExecAPIClient(c)
 	if err != nil {
 		return err
 	}
@@ -264,7 +270,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		}
 
 		if client.BestAPIVersion() < 4 {
-			return errors.Errorf("k8s controller does not support juju run" +
+			return errors.Errorf("k8s controller does not support juju exec" +
 				"\nconsider upgrading your controller")
 		}
 		if len(c.machines) > 0 {
@@ -442,7 +448,7 @@ type actionQuery struct {
 }
 
 // RunClient exposes the capabilities required by the CLI
-type RunClient interface {
+type ExecClient interface {
 	action.APIClient
 	RunOnAllMachines(commands string, timeout time.Duration) ([]params.ActionResult, error)
 	Run(params.RunParams) ([]params.ActionResult, error)
@@ -450,7 +456,7 @@ type RunClient interface {
 
 // In order to be able to easily mock out the API side for testing,
 // the API client is retrieved using a function.
-var getRunAPIClient = func(c *runCommand) (RunClient, error) {
+var getExecAPIClient = func(c *execCommand) (ExecClient, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -459,7 +465,7 @@ var getRunAPIClient = func(c *runCommand) (RunClient, error) {
 }
 
 // getActionResult abstracts over the action CLI function that we use here to fetch results
-var getActionResult = func(c RunClient, actionId string, wait *time.Timer) (params.ActionResult, error) {
+var getActionResult = func(c ExecClient, actionId string, wait *time.Timer) (params.ActionResult, error) {
 	return action.GetActionResult(c, actionId, wait)
 }
 
