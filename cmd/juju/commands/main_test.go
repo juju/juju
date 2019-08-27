@@ -574,6 +574,7 @@ var commandNames = []string{
 	"set-plan",
 	"set-series",
 	"set-wallet",
+	"show-action",
 	"show-action-output",
 	"show-action-status",
 	"show-application",
