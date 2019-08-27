@@ -122,7 +122,7 @@ type JujuConnSuite struct {
 	Factory             *factory.Factory
 	ProviderCallContext context.ProviderCallContext
 
-	idleFuncMutex       sync.Mutex
+	idleFuncMutex       *sync.Mutex
 	txnSyncNotify       chan struct{}
 	modelWatcherIdle    chan string
 	controllerIdle      chan struct{}
@@ -149,6 +149,10 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
+	// This needs to be a pointer as there are other Mixin structures
+	// that copy the lock otherwise. Yet another reason to move away from
+	// the glorious JujuConnSuite.
+	s.idleFuncMutex = &sync.Mutex{}
 	s.txnSyncNotify = make(chan struct{})
 	s.modelWatcherIdle = nil
 	s.controllerIdle = nil
@@ -274,10 +278,10 @@ func (s *JujuConnSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
 			case <-watcherIdleChan:
 			case <-controllerIdleChan:
 			default:
+				logger.Infof("WaitForModelWatchersIdle(%q) done", modelUUID)
 				return
 			}
 		}
-		logger.Infof("WaitForModelWatchersIdle(%q) done", modelUUID)
 	}()
 
 	timeout := time.After(gitjujutesting.LongWait)
