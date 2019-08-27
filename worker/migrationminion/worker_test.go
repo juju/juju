@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -42,6 +43,7 @@ type Suite struct {
 	client *stubMinionClient
 	guard  *stubGuard
 	agent  *stubAgent
+	clock  *testclock.Clock
 }
 
 var _ = gc.Suite(&Suite{})
@@ -52,10 +54,12 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.client = newStubMinionClient(s.stub)
 	s.guard = newStubGuard(s.stub)
 	s.agent = newStubAgent()
+	s.clock = testclock.NewClock(time.Now())
 	s.config = migrationminion.Config{
 		Facade:  s.client,
 		Guard:   s.guard,
 		Agent:   s.agent,
+		Clock:   s.clock,
 		APIOpen: s.apiOpen,
 		ValidateMigration: func(base.APICaller) error {
 			s.stub.AddCall("ValidateMigration")
@@ -204,13 +208,30 @@ func (s *Suite) TestVALIDATIONCantConnect(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
+	// Advance time enough for all of the retries to be exhausted.
+	sleepTime := 50 * time.Millisecond
+	for i := 0; i < 9; i++ {
+		err := s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
+		c.Assert(err, jc.ErrorIsNil)
+		sleepTime = (16 * sleepTime) / 10
+	}
+
 	s.waitForStubCalls(c, []string{
 		"Watch",
 		"Lockdown",
 		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
 		"Report",
 	})
-	s.stub.CheckCall(c, 3, "Report", "id", migration.VALIDATION, false)
+	s.stub.CheckCall(c, 12, "Report", "id", migration.VALIDATION, false)
 }
 
 func (s *Suite) TestVALIDATIONFail(c *gc.C) {
@@ -226,15 +247,61 @@ func (s *Suite) TestVALIDATIONFail(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
+	// Advance time enough for all of the retries to be exhausted.
+	sleepTime := 50 * time.Millisecond
+	for i := 0; i < 9; i++ {
+		err := s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
+		c.Assert(err, jc.ErrorIsNil)
+		sleepTime = (16 * sleepTime) / 10
+	}
+
+	expectedCalls := []string{"Watch", "Lockdown"}
+	for i := 0; i < 10; i++ {
+		expectedCalls = append(expectedCalls, "API open", "ValidateMigration", "API close")
+	}
+	expectedCalls = append(expectedCalls, "Report")
+	s.waitForStubCalls(c, expectedCalls)
+	s.stub.CheckCall(c, 32, "Report", "id", migration.VALIDATION, false)
+}
+
+func (s *Suite) TestVALIDATIONRetrySucceed(c *gc.C) {
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId: "id",
+		Phase:       migration.VALIDATION,
+	}
+	var stub jujutesting.Stub
+	stub.SetErrors(errors.New("nope"), errors.New("not yet"), nil)
+	s.config.ValidateMigration = func(base.APICaller) error {
+		stub.AddCall("ValidateMigration")
+		return stub.NextErr()
+	}
+
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	waitForStubCalls(c, &stub, "ValidateMigration")
+
+	err = s.clock.WaitAdvance(50*time.Millisecond, coretesting.LongWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	waitForStubCalls(c, &stub, "ValidateMigration", "ValidateMigration")
+
+	err = s.clock.WaitAdvance(100*time.Millisecond, coretesting.LongWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.waitForStubCalls(c, []string{
 		"Watch",
 		"Lockdown",
 		"API open",
-		"ValidateMigration",
+		"API close",
+		"API open",
+		"API close",
+		"API open",
 		"API close",
 		"Report",
 	})
-	s.stub.CheckCall(c, 5, "Report", "id", migration.VALIDATION, false)
+	s.stub.CheckCall(c, 8, "Report", "id", migration.VALIDATION, true)
 }
 
 func (s *Suite) TestSUCCESS(c *gc.C) {
@@ -260,9 +327,13 @@ func (s *Suite) TestSUCCESS(c *gc.C) {
 }
 
 func (s *Suite) waitForStubCalls(c *gc.C, expectedCallNames []string) {
+	waitForStubCalls(c, s.stub, expectedCallNames...)
+}
+
+func waitForStubCalls(c *gc.C, stub *jujutesting.Stub, expectedCallNames ...string) {
 	var callNames []string
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		callNames = stubCallNames(s.stub)
+		callNames = stubCallNames(stub)
 		if reflect.DeepEqual(callNames, expectedCallNames) {
 			return
 		}

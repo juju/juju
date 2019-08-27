@@ -4,6 +4,7 @@
 package migrationminion
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -20,6 +21,7 @@ type ManifoldConfig struct {
 	AgentName         string
 	APICallerName     string
 	FortressName      string
+	Clock             clock.Clock
 	APIOpen           func(*api.Info, api.DialOpts) (api.Connection, error)
 	ValidateMigration func(base.APICaller) error
 
@@ -28,7 +30,7 @@ type ManifoldConfig struct {
 }
 
 // validate is called by start to check for bad configuration.
-func (config ManifoldConfig) validate() error {
+func (config ManifoldConfig) Validate() error {
 	if config.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
 	}
@@ -37,6 +39,9 @@ func (config ManifoldConfig) validate() error {
 	}
 	if config.FortressName == "" {
 		return errors.NotValidf("empty FortressName")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	if config.APIOpen == nil {
 		return errors.NotValidf("nil APIOpen")
@@ -55,7 +60,7 @@ func (config ManifoldConfig) validate() error {
 
 // start is a StartFunc for a Worker manifold.
 func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
-	if err := config.validate(); err != nil {
+	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	var agent agent.Agent
@@ -79,6 +84,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Agent:             agent,
 		Facade:            facade,
 		Guard:             guard,
+		Clock:             config.Clock,
 		APIOpen:           config.APIOpen,
 		ValidateMigration: config.ValidateMigration,
 	})

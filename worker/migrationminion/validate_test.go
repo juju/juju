@@ -4,6 +4,7 @@
 package migrationminion_test
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -39,6 +40,12 @@ func (*ValidateSuite) TestMissingFacade(c *gc.C) {
 	checkNotValid(c, config, "nil Facade not valid")
 }
 
+func (*ValidateSuite) TestMissingClock(c *gc.C) {
+	config := validConfig()
+	config.Clock = nil
+	checkNotValid(c, config, "nil Clock not valid")
+}
+
 func (*ValidateSuite) TestMissingGuard(c *gc.C) {
 	config := validConfig()
 	config.Guard = nil
@@ -62,6 +69,7 @@ func validConfig() migrationminion.Config {
 		Agent:             struct{ agent.Agent }{},
 		Guard:             struct{ fortress.Guard }{},
 		Facade:            struct{ migrationminion.Facade }{},
+		Clock:             struct{ clock.Clock }{},
 		APIOpen:           func(*api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
 		ValidateMigration: func(base.APICaller) error { return nil },
 	}

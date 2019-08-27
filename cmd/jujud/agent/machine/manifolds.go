@@ -499,6 +499,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:         agentName,
 			APICallerName:     apiCallerName,
 			FortressName:      migrationFortressName,
+			Clock:             config.Clock,
 			APIOpen:           api.Open,
 			ValidateMigration: config.ValidateMigration,
 			NewFacade:         migrationminion.NewFacade,
