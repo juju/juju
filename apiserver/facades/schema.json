@@ -32887,7 +32887,7 @@
     },
     {
         "Name": "Subnets",
-        "Version": 2,
+        "Version": 3,
         "Schema": {
             "type": "object",
             "properties": {
@@ -32934,6 +32934,9 @@
                 "AddSubnetParams": {
                     "type": "object",
                     "properties": {
+                        "cidr": {
+                            "type": "string"
+                        },
                         "provider-network-id": {
                             "type": "string"
                         },
@@ -32941,9 +32944,6 @@
                             "type": "string"
                         },
                         "subnet-provider-id": {
-                            "type": "string"
-                        },
-                        "subnet-tag": {
                             "type": "string"
                         },
                         "vlan-tag": {

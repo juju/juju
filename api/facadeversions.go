@@ -100,7 +100,7 @@ var facadeVersions = map[string]int{
 	"Storage":                      6,
 	"StorageProvisioner":           4,
 	"StringsWatcher":               1,
-	"Subnets":                      2,
+	"Subnets":                      3,
 	"Undertaker":                   1,
 	"UnitAssigner":                 1,
 	"Uniter":                       12,

@@ -1562,6 +1562,7 @@
   revision = "1ebf5c5481e815de683e57e0f46705ac567e4e58"
 
 [[projects]]
+  branch = "v2"
   digest = "1:4eaefc824f6794f155150392c6eea2c3f898b392e0b90e497cc3dd79bc4c99d5"
   name = "gopkg.in/juju/names.v2"
   packages = ["."]
@@ -2087,7 +2088,6 @@
     "gopkg.in/juju/charmstore.v5",
     "gopkg.in/juju/environschema.v1",
     "gopkg.in/juju/environschema.v1/form",
-    "gopkg.in/juju/names.v2",
     "gopkg.in/juju/names.v3",
     "gopkg.in/juju/worker.v1",
     "gopkg.in/juju/worker.v1/catacomb",

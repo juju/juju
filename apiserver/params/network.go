@@ -591,11 +591,29 @@ type AddSubnetsParams struct {
 	Subnets []AddSubnetParams `json:"subnets"`
 }
 
-// AddSubnetParams holds a subnet and space tags, subnet provider ID,
+// AddSubnetParams holds a cidr and space tags, subnet provider ID,
 // and a list of zones to associate the subnet to. Either SubnetTag or
 // SubnetProviderId must be set, but not both. Zones can be empty if
 // they can be discovered
 type AddSubnetParams struct {
+	CIDR              string   `json:"cidr,omitempty"`
+	SubnetProviderId  string   `json:"subnet-provider-id,omitempty"`
+	ProviderNetworkId string   `json:"provider-network-id,omitempty"`
+	SpaceTag          string   `json:"space-tag"`
+	VLANTag           int      `json:"vlan-tag,omitempty"`
+	Zones             []string `json:"zones,omitempty"`
+}
+
+// AddSubnetsParams holds the arguments of AddSubnets APIv2 call.
+type AddSubnetsParamsV2 struct {
+	Subnets []AddSubnetParamsV2 `json:"subnets"`
+}
+
+// AddSubnetParams holds a subnet and space tags, subnet provider ID,
+// and a list of zones to associate the subnet to. Either SubnetTag or
+// SubnetProviderId must be set, but not both. Zones can be empty if
+// they can be discovered
+type AddSubnetParamsV2 struct {
 	SubnetTag         string   `json:"subnet-tag,omitempty"`
 	SubnetProviderId  string   `json:"subnet-provider-id,omitempty"`
 	ProviderNetworkId string   `json:"provider-network-id,omitempty"`
