@@ -75,6 +75,16 @@ const (
 
 	// OperatorPodIPEnvName is the environment name for operator pod IP.
 	OperatorPodIPEnvName = "JUJU_OPERATOR_POD_IP"
+
+	// OperatorPodIPEnvName is the environment name for operator service IP.
+	OperatorServiceIPEnvName = "JUJU_OPERATOR_SERVICE_IP"
+
+	// OperatorInfoFile is the file containing info about the operator,
+	// copied to the workload pod so the hook tools and juju-run can function.
+	OperatorInfoFile = "operator.yaml"
+
+	// JujuRunServerSocketPort is the port used by juju run callbacks.
+	JujuRunServerSocketPort = 30666
 )
 
 var (
@@ -566,10 +576,43 @@ func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, e
 
 // EnsureOperator creates or updates an operator pod with the given application
 // name, agent path, and operator config.
-func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) error {
+func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) (err error) {
 	logger.Debugf("creating/updating %s operator", appName)
 
 	operatorName := k.operatorName(appName)
+
+	var cleanups []func()
+	defer func() {
+		if err == nil {
+			return
+		}
+		for _, f := range cleanups {
+			f()
+		}
+	}()
+
+	service := &core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   operatorName,
+			Labels: map[string]string{labelOperator: appName},
+		},
+		Spec: core.ServiceSpec{
+			Selector: map[string]string{labelOperator: appName},
+			Type:     core.ServiceTypeClusterIP,
+			Ports: []core.ServicePort{
+				{Protocol: core.ProtocolTCP, Port: JujuRunServerSocketPort, TargetPort: intstr.FromInt(JujuRunServerSocketPort)}},
+		},
+	}
+	if err := k.ensureK8sService(service); err != nil {
+		return errors.Annotatef(err, "creating or updating service for %v operator", appName)
+	}
+	cleanups = append(cleanups, func() { k.deleteService(operatorName) })
+	services := k.client().CoreV1().Services(k.namespace)
+	svc, err := services.Get(operatorName, v1.GetOptions{IncludeUninitialized: false})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// TODO(caas) use secrets for storing agent password?
 	if config.AgentConf == nil {
 		// We expect that the config map already exists,
@@ -629,6 +672,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	pod, err := operatorPod(
 		operatorName,
 		appName,
+		svc.Spec.ClusterIP,
 		agentPath,
 		config.OperatorImagePath,
 		config.Version.String(),
@@ -845,10 +889,13 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 		PropagationPolicy: &defaultPropagationPolicy,
 	})
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return nil
+		return errors.Trace(err)
 	}
 
 	// Finally the operator itself.
+	if err := k.deleteService(operatorName); err != nil {
+		return errors.Trace(err)
+	}
 	if err := k.deleteStatefulSet(operatorName); err != nil {
 		return errors.Trace(err)
 	}
@@ -2483,7 +2530,7 @@ func (k *kubernetesClient) getConfigMap(cmName string) (*core.ConfigMap, error) 
 
 // operatorPod returns a *core.Pod for the operator pod
 // of the specified application.
-func operatorPod(podName, appName, agentPath, operatorImagePath, version string, annotations k8sannotations.Annotation) (*core.Pod, error) {
+func operatorPod(podName, appName, operatorServiceIP, agentPath, operatorImagePath, version string, annotations k8sannotations.Annotation) (*core.Pod, error) {
 	configMapName := operatorConfigMapName(podName)
 	configVolName := configMapName
 
@@ -2524,6 +2571,7 @@ func operatorPod(podName, appName, agentPath, operatorImagePath, version string,
 				},
 				Env: []core.EnvVar{
 					{Name: "JUJU_APPLICATION", Value: appName},
+					{Name: OperatorServiceIPEnvName, Value: operatorServiceIP},
 					{
 						Name: OperatorPodIPEnvName,
 						ValueFrom: &core.EnvVarSource{

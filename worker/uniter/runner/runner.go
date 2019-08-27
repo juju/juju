@@ -135,7 +135,11 @@ func (runner *runner) getRemoteExecutor(rModel runMode) (ExecFunc, error) {
 
 // RunCommands exists to satisfy the Runner interface.
 func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, error) {
-	result, err := runner.runCommandsWithTimeout(commands, 0, clock.WallClock, runOnLocal)
+	runMode := runOnLocal
+	if runner.context.ModelType() == model.CAAS {
+		runMode = runOnRemote
+	}
+	result, err := runner.runCommandsWithTimeout(commands, 0, clock.WallClock, runMode)
 	return result, runner.context.Flush("run commands", err)
 }
 

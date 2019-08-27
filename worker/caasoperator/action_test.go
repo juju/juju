@@ -5,10 +5,13 @@ package caasoperator_test
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -38,6 +41,16 @@ func (s *actionSuite) setupExecClient(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
+func (s *actionSuite) symlinkJujudCommand(out *bytes.Buffer, baseDir string, file string) exec.ExecParams {
+	cmd := fmt.Sprintf("test -f %s || ln -s "+baseDir+"/tools/unit-gitlab-k8s-0/jujud %s", file, file)
+	return exec.ExecParams{
+		PodName:  "gitlab-xxxx",
+		Commands: strings.Split(cmd, " "),
+		Stdout:   out,
+		Stderr:   out,
+	}
+}
+
 func (s *actionSuite) TestRunnerExecFunc(c *gc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
@@ -61,7 +74,8 @@ func (s *actionSuite) TestRunnerExecFunc(c *gc.C) {
 	runnerExecFunc := caasoperator.GetNewRunnerExecutor(s.executor, operatorPaths)(s.unitAPI, unitPaths)
 	cancel := make(<-chan struct{}, 1)
 	out := bytes.NewBufferString("")
-	gomock.InOrder(
+
+	calls := []*gomock.Call{
 		s.unitAPI.EXPECT().Refresh().Times(1).Return(nil),
 		s.unitAPI.EXPECT().ProviderID().Times(1).Return("gitlab-xxxx"),
 		s.unitAPI.EXPECT().Name().Times(1).Return("gitlab-k8s/0"),
@@ -69,7 +83,19 @@ func (s *actionSuite) TestRunnerExecFunc(c *gc.C) {
 		s.executor.EXPECT().Exec(
 			exec.ExecParams{
 				PodName:  "gitlab-xxxx",
-				Commands: []string{"test", "-d", baseDir + "/agents/application-gitlab-k8s", "||", "mkdir", "-p", baseDir + "/agents/application-gitlab-k8s"},
+				Commands: []string{"test", "-f", baseDir + "/agents/unit-gitlab-k8s-0/operator.yaml", "||", "echo notfound"},
+				Stdout:   out,
+				Stderr:   out,
+			}, cancel,
+		).Times(1).DoAndReturn(func(...interface{}) error {
+			out.WriteString("notfound")
+			return nil
+		}),
+
+		s.executor.EXPECT().Exec(
+			exec.ExecParams{
+				PodName:  "gitlab-xxxx",
+				Commands: []string{"test", "-d", baseDir + "/agents/unit-gitlab-k8s-0", "||", "mkdir", "-p", baseDir + "/agents/unit-gitlab-k8s-0"},
 				Stdout:   out,
 				Stderr:   out,
 			}, cancel,
@@ -80,7 +106,27 @@ func (s *actionSuite) TestRunnerExecFunc(c *gc.C) {
 					Path: baseDir + "/agents/application-gitlab-k8s/charm",
 				},
 				Dest: exec.FileResource{
-					Path:    baseDir + "/agents/application-gitlab-k8s",
+					Path:    baseDir + "/agents/unit-gitlab-k8s-0",
+					PodName: "gitlab-xxxx",
+				},
+			}, cancel,
+		).Times(1).Return(nil),
+
+		s.executor.EXPECT().Exec(
+			exec.ExecParams{
+				PodName:  "gitlab-xxxx",
+				Commands: []string{"test", "-d", baseDir + "/tools/unit-gitlab-k8s-0", "||", "mkdir", "-p", baseDir + "/tools/unit-gitlab-k8s-0"},
+				Stdout:   out,
+				Stderr:   out,
+			}, cancel,
+		).Times(1).Return(nil),
+		s.executor.EXPECT().Copy(
+			exec.CopyParam{
+				Src: exec.FileResource{
+					Path: baseDir + "/tools/jujud",
+				},
+				Dest: exec.FileResource{
+					Path:    baseDir + "/tools/unit-gitlab-k8s-0",
 					PodName: "gitlab-xxxx",
 				},
 			}, cancel,
@@ -97,55 +143,24 @@ func (s *actionSuite) TestRunnerExecFunc(c *gc.C) {
 		s.executor.EXPECT().Copy(
 			exec.CopyParam{
 				Src: exec.FileResource{
-					Path: baseDir + "/agents/unit-gitlab-k8s-0/charm",
+					Path: filepath.Join(os.TempDir(), "operator.yaml"),
 				},
 				Dest: exec.FileResource{
-					Path:    baseDir + "/agents/unit-gitlab-k8s-0",
+					Path:    baseDir + "/agents/unit-gitlab-k8s-0/operator.yaml",
 					PodName: "gitlab-xxxx",
 				},
 			}, cancel,
 		).Times(1).Return(nil),
+	}
+	calls = append(calls,
+		s.executor.EXPECT().Exec(s.symlinkJujudCommand(out, baseDir, "/usr/bin/juju-run"),
+			cancel).Times(1).Return(nil))
+	for _, cmdName := range jujuc.CommandNames() {
+		s.executor.EXPECT().Exec(s.symlinkJujudCommand(out, baseDir, baseDir+"/tools/unit-gitlab-k8s-0/"+cmdName),
+			cancel).Times(1).Return(nil)
+	}
 
-		s.executor.EXPECT().Exec(
-			exec.ExecParams{
-				PodName:  "gitlab-xxxx",
-				Commands: []string{"test", "-d", baseDir + "/tools", "||", "mkdir", "-p", baseDir + "/tools"},
-				Stdout:   out,
-				Stderr:   out,
-			}, cancel,
-		).Times(1).Return(nil),
-		s.executor.EXPECT().Copy(
-			exec.CopyParam{
-				Src: exec.FileResource{
-					Path: baseDir + "/tools/jujud",
-				},
-				Dest: exec.FileResource{
-					Path:    baseDir + "/tools",
-					PodName: "gitlab-xxxx",
-				},
-			}, cancel,
-		).Times(1).Return(nil),
-
-		s.executor.EXPECT().Exec(
-			exec.ExecParams{
-				PodName:  "gitlab-xxxx",
-				Commands: []string{"test", "-d", baseDir + "/tools", "||", "mkdir", "-p", baseDir + "/tools"},
-				Stdout:   out,
-				Stderr:   out,
-			}, cancel,
-		).Times(1).Return(nil),
-		s.executor.EXPECT().Copy(
-			exec.CopyParam{
-				Src: exec.FileResource{
-					Path: baseDir + "/tools/unit-gitlab-k8s-0",
-				},
-				Dest: exec.FileResource{
-					Path:    baseDir + "/tools",
-					PodName: "gitlab-xxxx",
-				},
-			}, cancel,
-		).Times(1).Return(nil),
-
+	calls = append(calls,
 		s.executor.EXPECT().Exec(
 			exec.ExecParams{
 				PodName:  "gitlab-xxxx",
@@ -154,8 +169,8 @@ func (s *actionSuite) TestRunnerExecFunc(c *gc.C) {
 				Stdout:   out,
 				Stderr:   out,
 			}, cancel,
-		).Times(1).Return(nil),
-	)
+		).Times(1).Return(nil))
+	gomock.InOrder(calls...)
 
 	_, err = runnerExecFunc(
 		runner.ExecParams{

@@ -555,11 +555,11 @@
   revision = "e1ad140384f254c82f89450d9a7c8dd38a632838"
 
 [[projects]]
-  digest = "1:f8d71df5366f8cd94412859a652e23ba428eae9ff21f0d8baac52017b3eca99b"
+  digest = "1:fa2a8cf80188aa8fc36adeec7c416bbb506fc19acdf0bf91027f0f315e20fc1f"
   name = "github.com/juju/gomaasapi"
   packages = ["."]
   pruneopts = ""
-  revision = "7f9373c5e79e1b4f27e46dfe1166a9ec0c147b81"
+  revision = "0ab1eb636aba97733a62e850ffea2c8729bf9718"
 
 [[projects]]
   branch = "master"
