@@ -258,6 +258,12 @@ func (cache *addSubnetsCache) cacheSubnets(ctx context.ProviderCallContext) erro
 	return nil
 }
 
+// TODO (hml) 2019-08-27
+// This logic needs to be updated when auditing add-subnet and the
+// subnet cache.  You need a providerId or cidr if there is only
+// one of that cidr in the network.  If there are duplicate cidrs
+// in the network, the providerId will be required.
+//
 // validateSubnet ensures either cidr or providerId is valid (not both),
 // then uses the cache to validate and lookup the provider SubnetInfo for the
 // subnet, if found.
