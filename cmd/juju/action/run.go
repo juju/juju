@@ -11,6 +11,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/yaml.v2"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/feature"
 )
 
 // leaderSnippet is a regular expression for unit ID-like syntax that is used
@@ -97,12 +99,17 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *runCommand) Info() *cmd.Info {
-	return jujucmd.Info(&cmd.Info{
+	info := jujucmd.Info(&cmd.Info{
 		Name:    "run-action",
 		Args:    "<unit> [<unit> ...] <action name> [key.key.key...=value]",
 		Purpose: "Queue an action for execution.",
 		Doc:     runDoc,
 	})
+	if featureflag.Enabled(feature.JujuV3) {
+		info.Name = "run"
+		info.Doc = strings.Replace(info.Doc, "run-action", "run", -1)
+	}
+	return info
 }
 
 // Init gets the unit tag(s), action name and action arguments.

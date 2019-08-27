@@ -61,3 +61,6 @@ const MongoDbSSTXN = "mongodb-sstxn"
 // MultiCloud tells Juju to allow a different IAAS cloud to the one the controller
 // was bootstrapped on to be added to the controller.
 const MultiCloud = "multi-cloud"
+
+// JujuV3 indicates that new CLI commands and behaviour for v3 should be enabled.
+const JujuV3 = "juju-v3"
