@@ -22,12 +22,14 @@ import (
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	apiuniter "github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/juju/sockets"
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/caasoperator/remotestate"
@@ -123,6 +125,9 @@ type Config struct {
 
 	// StartUniterFunc starts a uniter worker using the given runner.
 	StartUniterFunc func(runner *worker.Runner, params *uniter.UniterParams) error
+
+	// RunListenerSocketFunc returns a socket used for the juju run listener.
+	RunListenerSocketFunc func() (*sockets.Socket, error)
 }
 
 func (config Config) Validate() error {
@@ -146,6 +151,9 @@ func (config Config) Validate() error {
 	}
 	if config.UniterFacadeFunc == nil {
 		return errors.NotValidf("missing UniterFacadeFunc")
+	}
+	if config.RunListenerSocketFunc == nil {
+		return errors.NotValidf("missing RunListenerSocketFunc")
 	}
 	if config.UniterParams == nil {
 		return errors.NotValidf("missing UniterParams")
@@ -286,7 +294,36 @@ func toBinaryVersion(vers version.Number) version.Binary {
 	return outVers
 }
 
+func runListenerSocket() (*sockets.Socket, error) {
+	podIP := os.Getenv(provider.OperatorPodIPEnvName)
+	if podIP == "" {
+		return nil, errors.New("missing pod IP")
+	}
+	socket := sockets.Socket{
+		Network: "tcp",
+		Address: fmt.Sprintf("%s:%d", podIP, provider.JujuRunServerSocketPort),
+	}
+	return &socket, nil
+}
+
 func (op *caasOperator) init() (*LocalState, error) {
+
+	// Set up a single juju run listener to be used by all units.
+	socket, err := op.config.RunListenerSocketFunc()
+	if err != nil {
+		return nil, errors.Annotate(err, "creating juju run socket")
+	}
+	logger.Debugf("starting caas operator juju-run listener on %v", socket)
+	runListener, err := uniter.NewRunListener(*socket)
+	if err != nil {
+		return nil, errors.Annotate(err, "creating juju run listener")
+	}
+	rlw := uniter.NewRunListenerWrapper(runListener)
+	if err := op.catacomb.Add(rlw); err != nil {
+		return nil, errors.Trace(err)
+	}
+	op.config.UniterParams.RunListener = runListener
+
 	if err := jujucharm.ClearDownloads(op.paths.State.BundlesDir); err != nil {
 		logger.Warningf(err.Error())
 	}

@@ -35,6 +35,8 @@ type RunCommandsArgs struct {
 	RemoteUnitName string
 	// ForceRemoteUnit skips relation membership and existence validation.
 	ForceRemoteUnit bool
+	// UnitName is the unit for which the command is being run.
+	UnitName string
 }
 
 // A CommandRunner is something that will actually execute the commands and
@@ -44,30 +46,17 @@ type CommandRunner interface {
 	RunCommands(RunCommandsArgs RunCommandsArgs) (results *exec.ExecResponse, err error)
 }
 
-// RunListenerConfig contains the configuration for a RunListener.
-type RunListenerConfig struct {
-	// Socket is the network and address of the socket to listen on for run commands.
-	Socket *sockets.Socket
-
-	// CommandRunner is the CommandRunner that will run commands.
-	CommandRunner CommandRunner
-}
-
-func (cfg *RunListenerConfig) Validate() error {
-	if cfg.Socket == nil {
-		return errors.NotValidf("Socket unspecified")
-	}
-	if cfg.CommandRunner == nil {
-		return errors.NotValidf("CommandRunner unspecified")
-	}
-	return nil
-}
-
 // RunListener is responsible for listening on the network connection and
 // setting up the rpc server on that net connection. Also starts the go routine
 // that listens and hands off the work.
 type RunListener struct {
-	RunListenerConfig
+	mu sync.Mutex
+
+	socket *sockets.Socket
+	// commandRunners holds the CommandRunner that will run commands
+	// for each unit name.
+	commandRunners map[string]CommandRunner
+
 	listener net.Listener
 	server   *rpc.Server
 	closed   chan struct{}
@@ -79,20 +68,17 @@ type RunListener struct {
 // socket or named pipe passed in. If a valid RunListener is returned, is
 // has the go routine running, and should be closed by the creator
 // when they are done with it.
-func NewRunListener(cfg RunListenerConfig) (*RunListener, error) {
-	if err := cfg.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	listener, err := sockets.Listen(*cfg.Socket)
+func NewRunListener(socket sockets.Socket) (*RunListener, error) {
+	listener, err := sockets.Listen(socket)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	runListener := &RunListener{
-		RunListenerConfig: cfg,
-		listener:          listener,
-		server:            rpc.NewServer(),
-		closed:            make(chan struct{}),
-		closing:           make(chan struct{}),
+		listener:       listener,
+		commandRunners: make(map[string]CommandRunner),
+		server:         rpc.NewServer(),
+		closed:         make(chan struct{}),
+		closing:        make(chan struct{}),
 	}
 	if err := runListener.server.Register(&JujuRunServer{runListener}); err != nil {
 		return nil, errors.Trace(err)
@@ -142,17 +128,40 @@ func (r *RunListener) Close() error {
 	return r.listener.Close()
 }
 
-// RunCommands executes the supplied commands in a hook context.
-func (r *RunListener) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
-	logger.Tracef("run commands: %s", args.Commands)
-	return r.CommandRunner.RunCommands(args)
+// RegisterRunner registers a command runner for a given unit.
+func (r *RunListener) RegisterRunner(unitName string, runner CommandRunner) {
+	r.mu.Lock()
+	r.commandRunners[unitName] = runner
+	r.mu.Unlock()
 }
 
-// newRunListenerWrapper returns a worker that will Close the supplied run
+// UnregisterRunner unregisters a command runner for a given unit.
+func (r *RunListener) UnregisterRunner(unitName string) {
+	r.mu.Lock()
+	delete(r.commandRunners, unitName)
+	r.mu.Unlock()
+}
+
+// RunCommands executes the supplied commands in a hook context.
+func (r *RunListener) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
+	logger.Debugf("run commands on unit %v: %s", args.UnitName, args.Commands)
+	if args.UnitName == "" {
+		return nil, errors.New("missing unit name running command")
+	}
+	r.mu.Lock()
+	runner, ok := r.commandRunners[args.UnitName]
+	r.mu.Unlock()
+	if !ok {
+		return nil, errors.Errorf("no runner is registered for unit %v", args.UnitName)
+	}
+	return runner.RunCommands(args)
+}
+
+// NewRunListenerWrapper returns a worker that will Close the supplied run
 // listener when the worker is killed. The Wait() method will never return
 // an error -- NewRunListener just drops the Run error on the floor and that's
 // not what I'm fixing here.
-func newRunListenerWrapper(rl *RunListener) worker.Worker {
+func NewRunListenerWrapper(rl *RunListener) worker.Worker {
 	rlw := &runListenerWrapper{rl: rl}
 	rlw.tomb.Go(func() error {
 		defer rlw.tearDown()

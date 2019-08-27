@@ -1458,6 +1458,7 @@ func (cmds relationRunCommands) step(c *gc.C, ctx *context) {
 		Commands:       commands,
 		RelationId:     0,
 		RemoteUnitName: "",
+		UnitName:       "u/0",
 	}
 	result, err := ctx.uniter.RunCommands(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1474,6 +1475,7 @@ func (cmds runCommands) step(c *gc.C, ctx *context) {
 		Commands:       commands,
 		RelationId:     -1,
 		RemoteUnitName: "",
+		UnitName:       "u/0",
 	}
 	result, err := ctx.uniter.RunCommands(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1490,6 +1492,7 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		Commands:       commands,
 		RelationId:     -1,
 		RemoteUnitName: "",
+		UnitName:       "u/0",
 	}
 
 	var socketPath string

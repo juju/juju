@@ -74,7 +74,7 @@
   name = "github.com/juju/gojsonschema"
 
 [[constraint]]
-  revision = "7f9373c5e79e1b4f27e46dfe1166a9ec0c147b81"
+  revision = "0ab1eb636aba97733a62e850ffea2c8729bf9718"
   name = "github.com/juju/gomaasapi"
 
 [[constraint]]

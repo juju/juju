@@ -21,6 +21,7 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	jujucmd "github.com/juju/juju/cmd"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
@@ -161,10 +162,14 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 	return cmd.NewRcPassthroughError(result.Code)
 }
 
-func (c *RunCommand) getSocket() sockets.Socket {
-	// TODO(caas): enable juju-run for caas once we can know model type here.
-	paths := uniter.NewPaths(cmdutil.DataDir, c.unit, false)
-	return paths.Runtime.JujuRunSocket
+func (c *RunCommand) getSocket(baseDir string) sockets.Socket {
+	// juju-run on k8s uses an operator yaml file
+	ipAddrFile := filepath.Join(baseDir, provider.OperatorInfoFile)
+	_, err := os.Stat(ipAddrFile)
+	isRemote := err == nil
+
+	runtimePaths := uniter.NewPaths(cmdutil.DataDir, c.unit, isRemote)
+	return runtimePaths.Runtime.JujuRunSocket
 }
 
 func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
@@ -186,7 +191,7 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	if len(c.remoteUnitName) > 0 && relationId == -1 {
 		return nil, errors.Errorf("remote unit: %s, provided without a relation", c.remoteUnitName)
 	}
-	client, err := sockets.Dial(c.getSocket())
+	client, err := sockets.Dial(c.getSocket(unitDir))
 	if err != nil {
 		return nil, errors.Annotate(err, "dialing juju run socket")
 	}
@@ -196,6 +201,7 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	args := uniter.RunCommandsArgs{
 		Commands:        c.commands,
 		RelationId:      relationId,
+		UnitName:        c.unit.Id(),
 		RemoteUnitName:  c.remoteUnitName,
 		ForceRemoteUnit: c.forceRemoteUnit,
 	}

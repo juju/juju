@@ -83,6 +83,18 @@ func (s *actionSuite) TestRunnerExecFunc(c *gc.C) {
 		s.executor.EXPECT().Exec(
 			exec.ExecParams{
 				PodName:  "gitlab-xxxx",
+				Commands: []string{"test", "-f", baseDir + "/agents/unit-gitlab-k8s-0/operator.yaml", "||", "echo notfound"},
+				Stdout:   out,
+				Stderr:   out,
+			}, cancel,
+		).Times(1).DoAndReturn(func(...interface{}) error {
+			out.WriteString("notfound")
+			return nil
+		}),
+
+		s.executor.EXPECT().Exec(
+			exec.ExecParams{
+				PodName:  "gitlab-xxxx",
 				Commands: []string{"test", "-d", baseDir + "/agents/unit-gitlab-k8s-0", "||", "mkdir", "-p", baseDir + "/agents/unit-gitlab-k8s-0"},
 				Stdout:   out,
 				Stderr:   out,

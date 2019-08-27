@@ -194,7 +194,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	}
 	jujud.Register(unitAgent)
 
-	caasOperatorAgent, err := agentcmd.NewCaasOperatorAgent(ctx, bufferedLogger, k8sexec.NewInCluster)
+	caasOperatorAgent, err := agentcmd.NewCaasOperatorAgent(ctx, bufferedLogger, k8sexec.NewInCluster, nil)
 	if err != nil {
 		return -1, errors.Trace(err)
 	}

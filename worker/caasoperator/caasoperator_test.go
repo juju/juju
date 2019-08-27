@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/downloader"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -54,9 +56,18 @@ type WorkerSuite struct {
 	uniterParams          *uniter.UniterParams
 	leadershipTrackerFunc func(unitTag names.UnitTag) leadership.TrackerWorker
 	uniterFacadeFunc      func(unitTag names.UnitTag) *apiuniter.State
+	runListenerSocketFunc func() (*sockets.Socket, error)
 }
 
 var _ = gc.Suite(&WorkerSuite{})
+
+func sockPath(c *gc.C) sockets.Socket {
+	sockPath := filepath.Join(c.MkDir(), "test.listener")
+	if runtime.GOOS == "windows" {
+		return sockets.Socket{Address: `\\.\pipe` + sockPath[2:], Network: "unix"}
+	}
+	return sockets.Socket{Address: sockPath, Network: "unix"}
+}
 
 func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
@@ -94,6 +105,11 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.uniterFacadeFunc = func(unitTag names.UnitTag) *apiuniter.State {
 		return &apiuniter.State{}
 	}
+	s.runListenerSocketFunc = func() (*sockets.Socket, error) {
+		socket := sockPath(c)
+		return &socket, nil
+	}
+
 	s.config = caasoperator.Config{
 		Application:           "gitlab",
 		CharmGetter:           &s.client,
@@ -109,6 +125,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		UniterParams:          s.uniterParams,
 		LeadershipTrackerFunc: s.leadershipTrackerFunc,
 		UniterFacadeFunc:      s.uniterFacadeFunc,
+		RunListenerSocketFunc: s.runListenerSocketFunc,
 		StartUniterFunc:       func(runner *worker.Runner, params *uniter.UniterParams) error { return nil },
 	}
 
@@ -143,6 +160,10 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.UniterFacadeFunc = nil
 	}, `missing UniterFacadeFunc not valid`)
+
+	s.testValidateConfig(c, func(config *caasoperator.Config) {
+		config.RunListenerSocketFunc = nil
+	}, `missing RunListenerSocketFunc not valid`)
 
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.UniterParams = nil

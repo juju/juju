@@ -175,7 +175,7 @@ OPERATOR_IMAGE_PATH      = ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TA
 
 operator-image:
     ifeq ($(OPERATOR_IMAGE_BUILD_SRC),true)
-		@BUILD_TAGS="minimal provider_kubernetes" make install
+		make install
     else
 		@echo "skipping to build jujud bin, use existing one at ${JUJUD_BIN_DIR}/jujud."
     endif

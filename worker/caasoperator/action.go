@@ -67,30 +67,52 @@ type unitOperatorInfo struct {
 	OperatorAddress string `yaml:"operator-address"`
 }
 
+type workloadPathSpec struct {
+	src, dest string
+}
+
+func workloadFilesToCopy(operatorPaths Paths, unitPaths uniter.Paths) []workloadPathSpec {
+	return []workloadPathSpec{{
+		src:  operatorPaths.GetCharmDir(),
+		dest: unitPaths.State.BaseDir,
+	}, {
+		src:  filepath.Join(operatorPaths.GetToolsDir(), "jujud"),
+		dest: unitPaths.ToolsDir,
+	}}
+}
+
 func prepare(
 	client exec.Executor,
 	podName string,
 	serviceAddress string,
 	operatorPaths Paths,
 	unitPaths uniter.Paths,
-	stdout io.Writer,
+	stdout io.ReadWriter,
 	stderr io.Writer,
 	cancel <-chan struct{},
 ) error {
-	type workloadPathSpec struct {
-		src, dest string
-	}
-	// Copy the core charm files and jujud binary.
-	for _, pathSpec := range []workloadPathSpec{
-		{
-			src:  operatorPaths.GetCharmDir(),
-			dest: unitPaths.State.BaseDir,
-		}, {
-			src:  filepath.Join(operatorPaths.GetToolsDir(), "jujud"),
-			dest: unitPaths.ToolsDir,
+	// TODO(caas) - quick check to see if files have already been copied across.
+	// upgrade-charm and upgrade-juju will need to ensure files are up-to-date.
+	operatorFile := filepath.Join(unitPaths.State.BaseDir, provider.OperatorInfoFile)
+	if err := client.Exec(
+		exec.ExecParams{
+			PodName:  podName,
+			Commands: []string{"test", "-f", operatorFile, "||", "echo notfound"},
+			Stdout:   stdout,
+			Stderr:   stderr,
 		},
-	} {
+		cancel,
+	); err != nil {
+		return errors.Trace(err)
+	}
+	var o bytes.Buffer
+	_, err := o.ReadFrom(stdout)
+	if err == nil && len(o.Bytes()) == 0 {
+		return nil
+	}
 
+	// Copy the core charm files and jujud binary.
+	for _, pathSpec := range workloadFilesToCopy(operatorPaths, unitPaths) {
 		_, err := os.Stat(pathSpec.src)
 		if os.IsNotExist(err) {
 			return errors.NotFoundf("file or path %q", pathSpec.src)
@@ -125,7 +147,6 @@ func prepare(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	operatorFile := filepath.Join(unitPaths.State.BaseDir, provider.OperatorInfoFile)
 	operatorFileSrc := filepath.Join(os.TempDir(), provider.OperatorInfoFile)
 	if err := ioutil.WriteFile(operatorFileSrc, data, 0644); err != nil {
 		return errors.Trace(err)
