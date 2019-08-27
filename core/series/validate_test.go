@@ -55,11 +55,13 @@ func (*SeriesValidateSuite) TestFallbackValidate(c *gc.C) {
 }
 
 func (*SeriesValidateSuite) TestValidateError(c *gc.C) {
-	_, err := ValidateSeries(set.NewStrings("bar"), "foo", "faz")
+	result, err := ValidateSeries(set.NewStrings("bar"), "foo", "faz")
 	c.Assert(err, gc.ErrorMatches, "foo not supported")
+	c.Assert(result, gc.Equals, "foo")
 }
 
 func (*SeriesValidateSuite) TestFallbackValidateError(c *gc.C) {
-	_, err := ValidateSeries(set.NewStrings("bar"), "", "faz")
+	result, err := ValidateSeries(set.NewStrings("bar"), "", "faz")
 	c.Assert(err, gc.ErrorMatches, "faz not supported")
+	c.Assert(result, gc.Equals, "faz")
 }

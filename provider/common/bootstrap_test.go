@@ -88,6 +88,10 @@ func newStorage(suite cleaner, c *gc.C) storage.Storage {
 }
 
 func minimalConfig(c *gc.C) *config.Config {
+	return minimalConfigWithSeries(c, series.DefaultSupportedLTS())
+}
+
+func minimalConfigWithSeries(c *gc.C, series string) *config.Config {
 	attrs := map[string]interface{}{
 		"name":               "whatever",
 		"type":               "anything, really",
@@ -96,7 +100,7 @@ func minimalConfig(c *gc.C) *config.Config {
 		"ca-cert":            coretesting.CACert,
 		"ca-private-key":     coretesting.CAKey,
 		"authorized-keys":    coretesting.FakeAuthKeys,
-		"default-series":     series.DefaultSupportedLTS(),
+		"default-series":     series,
 		"cloudinit-userdata": validCloudInitUserData,
 	}
 	cfg, err := config.New(config.UseDefaults, attrs)
@@ -298,6 +302,103 @@ func (s *BootstrapSuite) TestBootstrapFallbackSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
 	c.Check(result.Series, gc.Equals, series.DefaultSupportedLTS())
+}
+
+func (s *BootstrapSuite) TestBootstrapSeriesWithForce(c *gc.C) {
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	stor := newStorage(s, c)
+	checkInstanceId := "i-success"
+	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
+
+	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
+		instances.Instance,
+		*instance.HardwareCharacteristics,
+		[]network.InterfaceInfo,
+		error,
+	) {
+		return &mockInstance{id: checkInstanceId}, &checkHardware, nil, nil
+	}
+	var mocksConfig = minimalConfig(c)
+	var numGetConfigCalled int
+	getConfig := func() *config.Config {
+		numGetConfigCalled++
+		return mocksConfig
+	}
+	setConfig := func(c *config.Config) error {
+		mocksConfig = c
+		return nil
+	}
+
+	env := &mockEnviron{
+		storage:       stor,
+		startInstance: startInstance,
+		config:        getConfig,
+		setConfig:     setConfig,
+	}
+	ctx := envtesting.BootstrapContext(c)
+	bootstrapSeries := "xenial"
+	availableTools := fakeAvailableTools()
+	availableTools[0].Version.Series = bootstrapSeries
+	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+		ControllerConfig:         coretesting.FakeControllerConfig(),
+		BootstrapSeries:          bootstrapSeries,
+		AvailableTools:           availableTools,
+		SupportedBootstrapSeries: supportedJujuSeries,
+		Force:                    true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
+	c.Check(result.Series, gc.Equals, "xenial")
+}
+
+func (s *BootstrapSuite) TestBootstrapSeriesWithForceAndInvalidFallback(c *gc.C) {
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&config.GetDefaultSupportedLTS, func() string {
+		return ""
+	})
+	stor := newStorage(s, c)
+	checkInstanceId := "i-success"
+	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
+
+	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
+		instances.Instance,
+		*instance.HardwareCharacteristics,
+		[]network.InterfaceInfo,
+		error,
+	) {
+		return &mockInstance{id: checkInstanceId}, &checkHardware, nil, nil
+	}
+	// We want an invalid fallback to trigger the not valid bootstrap series.
+	var mocksConfig = minimalConfigWithSeries(c, "")
+	var numGetConfigCalled int
+	getConfig := func() *config.Config {
+		numGetConfigCalled++
+		return mocksConfig
+	}
+	setConfig := func(c *config.Config) error {
+		mocksConfig = c
+		return nil
+	}
+
+	env := &mockEnviron{
+		storage:       stor,
+		startInstance: startInstance,
+		config:        getConfig,
+		setConfig:     setConfig,
+	}
+	ctx := envtesting.BootstrapContext(c)
+	bootstrapSeries := ""
+	availableTools := fakeAvailableTools()
+	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+		ControllerConfig:         coretesting.FakeControllerConfig(),
+		BootstrapSeries:          bootstrapSeries,
+		AvailableTools:           availableTools,
+		SupportedBootstrapSeries: supportedJujuSeries,
+		Force:                    true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
+	c.Check(result.Series, gc.Equals, "xenial")
 }
 
 func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *gc.C) {

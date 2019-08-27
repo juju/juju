@@ -317,13 +317,20 @@ type HasDefaultSeries interface {
 	DefaultSeries() (string, bool)
 }
 
+// GetDefaultSupportedLTS returns the DefaultSupportedLTS.
+// This is exposed for one reason and one reason only; testing!
+// The fact that PreferredSeries doesn't take an argument for a default series
+// as a fallback. We then have to expose this so we can exercise the branching
+// code for other senarios makes me sad.
+var GetDefaultSupportedLTS = series.DefaultSupportedLTS
+
 // PreferredSeries returns the preferred series to use when a charm does not
 // explicitly specify a series.
 func PreferredSeries(cfg HasDefaultSeries) string {
 	if series, ok := cfg.DefaultSeries(); ok {
 		return series
 	}
-	return series.DefaultSupportedLTS()
+	return GetDefaultSupportedLTS()
 }
 
 // Config holds an immutable environment configuration.

@@ -11,6 +11,8 @@ import (
 // ValidateSeries attempts to validate a series if one is found, otherwise it
 // uses the fallback series and validates that one.
 // Returns the series it validated against or an error if one is found.
+// Note: the selected series will be returned if there is an error to help use
+// that for a fallback during error scenarios.
 func ValidateSeries(supportedSeries set.Strings, series, fallbackPerferedSeries string) (string, error) {
 	// Validate the requested series.
 	// Attempt to do the validation in one place, so it makes it easier to
@@ -26,7 +28,7 @@ func ValidateSeries(supportedSeries set.Strings, series, fallbackPerferedSeries 
 		requestedSeries = fallbackPerferedSeries
 	}
 	if !supportedSeries.Contains(requestedSeries) {
-		return "", errors.NotSupportedf("%s", requestedSeries)
+		return requestedSeries, errors.NotSupportedf("%s", requestedSeries)
 	}
 	return requestedSeries, nil
 }
