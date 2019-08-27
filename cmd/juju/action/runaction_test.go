@@ -1,4 +1,4 @@
-// Copyright 2019 Canonical Ltd.
+// Copyright 2014, 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package action_test
@@ -21,30 +21,14 @@ import (
 	"github.com/juju/juju/cmd/juju/action"
 )
 
-var (
-	validParamsYaml = `
-out: name
-compression:
-  kind: xz
-  quality: high
-`[1:]
-	invalidParamsYaml = `
-broken-map:
-  foo:
-    foo
-    bar: baz
-`[1:]
-	invalidUTFYaml = "out: ok" + string([]byte{0xFF, 0xFF})
-)
-
-type RunSuite struct {
+type RunActionSuite struct {
 	BaseActionSuite
 	dir string
 }
 
-var _ = gc.Suite(&RunSuite{})
+var _ = gc.Suite(&RunActionSuite{})
 
-func (s *RunSuite) SetUpTest(c *gc.C) {
+func (s *RunActionSuite) SetUpTest(c *gc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 	s.dir = c.MkDir()
 	c.Assert(utf8.ValidString(validParamsYaml), jc.IsTrue)
@@ -55,7 +39,7 @@ func (s *RunSuite) SetUpTest(c *gc.C) {
 	setupValueFile(c, s.dir, "invalidUTF.yml", invalidUTFYaml)
 }
 
-func (s *RunSuite) TestInit(c *gc.C) {
+func (s *RunActionSuite) TestInit(c *gc.C) {
 	tests := []struct {
 		should               string
 		args                 []string
@@ -201,8 +185,8 @@ func (s *RunSuite) TestInit(c *gc.C) {
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
-			wrappedCommand, command := action.NewRunCommandForTest(s.store)
-			c.Logf("test %d: should %s:\n$ juju run (action) %s\n", i,
+			wrappedCommand, command := action.NewRunActionCommandForTest(s.store)
+			c.Logf("test %d: should %s:\n$ juju run-action %s\n", i,
 				t.should, strings.Join(t.args, " "))
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := cmdtesting.InitCommand(wrappedCommand, args)
@@ -219,7 +203,7 @@ func (s *RunSuite) TestInit(c *gc.C) {
 	}
 }
 
-func (s *RunSuite) TestRun(c *gc.C) {
+func (s *RunActionSuite) TestRun(c *gc.C) {
 	tests := []struct {
 		should                 string
 		clientSetup            func(client *fakeAPIClient)
@@ -429,7 +413,7 @@ func (s *RunSuite) TestRun(c *gc.C) {
 				restore := s.patchAPIClient(fakeClient)
 				defer restore()
 
-				wrappedCommand, _ := action.NewRunCommandForTest(s.store)
+				wrappedCommand, _ := action.NewRunActionCommandForTest(s.store)
 				args := append([]string{modelFlag, "admin"}, t.withArgs...)
 				ctx, err := cmdtesting.RunCommand(c, wrappedCommand, args...)
 

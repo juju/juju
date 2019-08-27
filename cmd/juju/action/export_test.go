@@ -53,6 +53,30 @@ func (c *RunCommand) Args() [][]string {
 	return c.args
 }
 
+type RunActionCommand struct {
+	*runActionCommand
+}
+
+func (c *RunActionCommand) UnitNames() []string {
+	return c.unitReceivers
+}
+
+func (c *RunActionCommand) ActionName() string {
+	return c.actionName
+}
+
+func (c *RunActionCommand) ParseStrings() bool {
+	return c.parseStrings
+}
+
+func (c *RunActionCommand) ParamsYAML() cmd.FileVar {
+	return c.paramsYAML
+}
+
+func (c *RunActionCommand) Args() [][]string {
+	return c.args
+}
+
 type ListCommand struct {
 	*listCommand
 }
@@ -111,6 +135,12 @@ func NewRunCommandForTest(store jujuclient.ClientStore) (cmd.Command, *RunComman
 	c := &runCommand{}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &RunCommand{c}
+}
+
+func NewRunActionCommandForTest(store jujuclient.ClientStore) (cmd.Command, *RunActionCommand) {
+	c := &runActionCommand{}
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &RunActionCommand{c}
 }
 
 func ActionResultsToMap(results []params.ActionResult) map[string]interface{} {

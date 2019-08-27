@@ -1,17 +1,15 @@
-// Copyright 2019 Canonical Ltd.
+// Copyright 2014-2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package action
 
 import (
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/yaml.v2"
 
@@ -22,22 +20,13 @@ import (
 	"github.com/juju/juju/cmd/output"
 )
 
-// leaderSnippet is a regular expression for unit ID-like syntax that is used
-// to indicate the current leader for an application.
-const leaderSnippet = "(" + names.ApplicationSnippet + ")/leader"
-
-var validLeader = regexp.MustCompile("^" + leaderSnippet + "$")
-
-// nameRule describes the name format of an action or keyName must match to be valid.
-var nameRule = charm.GetActionNameRule()
-
-func NewRunCommand() cmd.Command {
-	return modelcmd.Wrap(&runCommand{})
+func NewRunActionCommand() cmd.Command {
+	return modelcmd.Wrap(&runActionCommand{})
 }
 
-// runCommand enqueues an Action for running on the given unit with given
+// runActionCommand enqueues an Action for running on the given unit with given
 // params
-type runCommand struct {
+type runActionCommand struct {
 	ActionCommandBase
 	api           APIClient
 	unitReceivers []string
@@ -50,7 +39,7 @@ type runCommand struct {
 	args          [][]string
 }
 
-const runDoc = `
+const runActionDoc = `
 Queue an Action for execution on a given unit, with a given set of params.
 The Action ID is returned for use with 'juju show-action-output <ID>' or
 'juju show-action-status <ID>'.
@@ -76,19 +65,19 @@ explicit arguments will override the parameter file.
 
 Examples:
 
-    juju run mysql/3 backup --wait
-    juju run mysql/3 backup
-    juju run mysql/leader backup
+    juju run-action mysql/3 backup --wait
+    juju run-action mysql/3 backup
+    juju run-action mysql/leader backup
     juju show-action-output <ID>
-    juju run mysql/3 backup --params parameters.yml
-    juju run mysql/3 backup out=out.tar.bz2 file.kind=xz file.quality=high
-    juju run mysql/3 backup --params p.yml file.kind=xz file.quality=high
-    juju run sleeper/0 pause time=1000
-    juju run sleeper/0 pause --string-args time=1000
+    juju run-action mysql/3 backup --params parameters.yml
+    juju run-action mysql/3 backup out=out.tar.bz2 file.kind=xz file.quality=high
+    juju run-action mysql/3 backup --params p.yml file.kind=xz file.quality=high
+    juju run-action sleeper/0 pause time=1000
+    juju run-action sleeper/0 pause --string-args time=1000
 `
 
 // SetFlags offers an option for YAML output.
-func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *runActionCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ActionCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.Var(&c.paramsYAML, "params", "Path to yaml-formatted params file")
@@ -96,17 +85,17 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.wait, "wait", "Wait for results, with optional timeout")
 }
 
-func (c *runCommand) Info() *cmd.Info {
+func (c *runActionCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "run",
+		Name:    "run-action",
 		Args:    "<unit> [<unit> ...] <action name> [key.key.key...=value]",
 		Purpose: "Queue an action for execution.",
-		Doc:     runDoc,
+		Doc:     runActionDoc,
 	})
 }
 
 // Init gets the unit tag(s), action name and action arguments.
-func (c *runCommand) Init(args []string) (err error) {
+func (c *runActionCommand) Init(args []string) (err error) {
 	for _, arg := range args {
 		if names.IsValidUnit(arg) || validLeader.MatchString(arg) {
 			c.unitReceivers = append(c.unitReceivers, arg)
@@ -145,7 +134,7 @@ func (c *runCommand) Init(args []string) (err error) {
 	return nil
 }
 
-func (c *runCommand) Run(ctx *cmd.Context) error {
+func (c *runActionCommand) Run(ctx *cmd.Context) error {
 	if err := c.ensureAPI(); err != nil {
 		return errors.Trace(err)
 	}
@@ -301,7 +290,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 	return c.out.Write(ctx, out)
 }
 
-func (c *runCommand) ensureAPI() (err error) {
+func (c *runActionCommand) ensureAPI() (err error) {
 	if c.api != nil {
 		return nil
 	}
