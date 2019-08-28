@@ -804,7 +804,7 @@ func (s *RelationSuite) TestApplicationSettings(c *gc.C) {
 	c.Assert(settingsMap, gc.HasLen, 0)
 
 	settings := state.NewStateSettings(s.State)
-	key := fmt.Sprintf("r#%d#provider#mysql", relation.Id())
+	key := fmt.Sprintf("r#%d#mysql", relation.Id())
 	err = settings.ReplaceSettings(key, map[string]interface{}{
 		"bailterspace": "blammo",
 	})
@@ -825,7 +825,7 @@ func (s *RelationSuite) TestApplicationSettingsPeer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	settings := state.NewStateSettings(s.State)
-	key := fmt.Sprintf("r#%d#peer#riak", rel.Id())
+	key := fmt.Sprintf("r#%d#riak", rel.Id())
 	err = settings.ReplaceSettings(key, map[string]interface{}{
 		"mermaidens": "disappear",
 	})

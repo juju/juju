@@ -1074,7 +1074,7 @@ func (e *exporter) relations() error {
 				Scope:           string(ep.Scope),
 			})
 
-			key := relationApplicationSettingsKey(relation.Id(), ep)
+			key := relationApplicationSettingsKey(relation.Id(), ep.ApplicationName)
 			appSettingsDoc, found := e.modelSettings[key]
 			if !found && !e.cfg.SkipSettings && !e.cfg.SkipRelationData {
 				return errors.Errorf("missing application settings for %q application %q", relation, ep.ApplicationName)

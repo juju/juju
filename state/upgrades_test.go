@@ -331,13 +331,28 @@ func (s *upgradesSuite) TestStripLocalUserDomainLastConnection(c *gc.C) {
 }
 
 func (s *upgradesSuite) assertStrippedUserData(c *gc.C, coll *mgo.Collection, expected []bson.M) {
-	s.assertUpgradedData(c, StripLocalUserDomain, expectUpgradedData{coll, expected, nil})
+	s.assertUpgradedData(c, StripLocalUserDomain, upgradedData(coll, expected))
 }
 
 type expectUpgradedData struct {
 	coll     *mgo.Collection
 	expected []bson.M
 	filter   bson.D
+}
+
+func upgradedData(coll *mgo.Collection, expected []bson.M) expectUpgradedData {
+	return expectUpgradedData{
+		coll:     coll,
+		expected: expected,
+	}
+}
+
+func upgradedDataWithFilter(coll *mgo.Collection, expected []bson.M, filter bson.D) expectUpgradedData {
+	return expectUpgradedData{
+		coll:     coll,
+		expected: expected,
+		filter:   filter,
+	}
 }
 
 func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*StatePool) error, expect ...expectUpgradedData) {
@@ -407,7 +422,7 @@ func (s *upgradesSuite) TestRenameAddModelPermission(c *gc.C) {
 		"subject-global-key": "mary@external",
 		"access":             "add-model",
 	}}
-	s.assertUpgradedData(c, RenameAddModelPermission, expectUpgradedData{coll, expected, nil})
+	s.assertUpgradedData(c, RenameAddModelPermission, upgradedData(coll, expected))
 }
 
 func (s *upgradesSuite) TestAddMigrationAttempt(c *gc.C) {
@@ -438,7 +453,7 @@ func (s *upgradesSuite) TestAddMigrationAttempt(c *gc.C) {
 			"attempt": 2,
 		},
 	}
-	s.assertUpgradedData(c, AddMigrationAttempt, expectUpgradedData{coll, expected, nil})
+	s.assertUpgradedData(c, AddMigrationAttempt, upgradedData(coll, expected))
 }
 
 func (s *upgradesSuite) TestAddLocalCharmSequences(c *gc.C) {
@@ -492,7 +507,7 @@ func (s *upgradesSuite) TestAddLocalCharmSequences(c *gc.C) {
 	}
 	s.assertUpgradedData(
 		c, AddLocalCharmSequences,
-		expectUpgradedData{sequences, expected, nil},
+		upgradedData(sequences, expected),
 	)
 
 	// Expect Dead charm documents to be removed.
@@ -585,8 +600,8 @@ func (s *upgradesSuite) TestUpdateLegacyLXDCloud(c *gc.C) {
 		return UpdateLegacyLXDCloudCredentials(st, "foo", newCred)
 	}
 	s.assertUpgradedData(c, f,
-		expectUpgradedData{cloudColl, expectedClouds, nil},
-		expectUpgradedData{cloudCredColl, expectedCloudCreds, nil},
+		upgradedData(cloudColl, expectedClouds),
+		upgradedData(cloudCredColl, expectedCloudCreds),
 	)
 }
 
@@ -688,8 +703,8 @@ func (s *upgradesSuite) TestUpdateLegacyLXDCloudUnchanged(c *gc.C) {
 		return UpdateLegacyLXDCloudCredentials(st, "foo", newCred)
 	}
 	s.assertUpgradedData(c, f,
-		expectUpgradedData{cloudColl, expectedClouds, nil},
-		expectUpgradedData{cloudCredColl, expectedCloudCreds, nil},
+		upgradedData(cloudColl, expectedClouds),
+		upgradedData(cloudCredColl, expectedCloudCreds),
 	)
 }
 
@@ -731,7 +746,7 @@ func (s *upgradesSuite) TestUpgradeNoProxy(c *gc.C) {
 		}}
 
 	s.assertUpgradedData(c, UpgradeNoProxyDefaults,
-		expectUpgradedData{settingsColl, expectedSettings, nil},
+		upgradedData(settingsColl, expectedSettings),
 	)
 }
 
@@ -880,8 +895,8 @@ func (s *upgradesSuite) TestAddNonDetachableStorageMachineId(c *gc.C) {
 	}}
 
 	s.assertUpgradedData(c, AddNonDetachableStorageMachineId,
-		expectUpgradedData{volumesColl, expectedVolumes, nil},
-		expectUpgradedData{filesystemsColl, expectedFilesystems, nil},
+		upgradedData(volumesColl, expectedVolumes),
+		upgradedData(filesystemsColl, expectedFilesystems),
 	)
 }
 
@@ -938,7 +953,7 @@ func (s *upgradesSuite) TestRemoveNilValueApplicationSettings(c *gc.C) {
 		}}
 
 	s.assertUpgradedData(c, RemoveNilValueApplicationSettings,
-		expectUpgradedData{settingsColl, expectedSettings, nil},
+		upgradedData(settingsColl, expectedSettings),
 	)
 }
 
@@ -976,7 +991,7 @@ func (s *upgradesSuite) TestAddControllerLogCollectionsSizeSettingsKeepExisting(
 	}
 
 	s.assertUpgradedData(c, AddControllerLogCollectionsSizeSettings,
-		expectUpgradedData{settingsColl, expectedSettings, nil},
+		upgradedData(settingsColl, expectedSettings),
 	)
 }
 
@@ -1009,7 +1024,7 @@ func (s *upgradesSuite) TestAddControllerLogCollectionsSizeSettings(c *gc.C) {
 	}
 
 	s.assertUpgradedData(c, AddControllerLogCollectionsSizeSettings,
-		expectUpgradedData{settingsColl, expectedSettings, nil},
+		upgradedData(settingsColl, expectedSettings),
 	)
 }
 
@@ -1103,7 +1118,7 @@ func (s *upgradesSuite) TestAddUpdateStatusHookSettings(c *gc.C) {
 	sort.Sort(expectedSettings)
 
 	s.assertUpgradedData(c, AddUpdateStatusHookSettings,
-		expectUpgradedData{settingsColl, expectedSettings, nil},
+		upgradedData(settingsColl, expectedSettings),
 	)
 }
 
@@ -1325,7 +1340,7 @@ func (s *upgradesSuite) TestAddStorageInstanceConstraints(c *gc.C) {
 	}}
 
 	s.assertUpgradedData(c, AddStorageInstanceConstraints,
-		expectUpgradedData{storageInstancesColl, expectedStorageInstances, nil},
+		upgradedData(storageInstancesColl, expectedStorageInstances),
 	)
 }
 
@@ -1774,8 +1789,8 @@ func (s *upgradesSuite) TestCorrectRelationUnitCounts(c *gc.C) {
 		"departing":  false,
 	}}
 	s.assertUpgradedData(c, CorrectRelationUnitCounts,
-		expectUpgradedData{relations, expectedRelations, nil},
-		expectUpgradedData{scopes, expectedScopes, nil},
+		upgradedData(relations, expectedRelations),
+		upgradedData(scopes, expectedScopes),
 	)
 }
 
@@ -1802,7 +1817,7 @@ func (s *upgradesSuite) TestAddModelEnvironVersion(c *gc.C) {
 		"environ-version": 1,
 	}}
 	s.assertUpgradedData(c, AddModelEnvironVersion,
-		expectUpgradedData{models, expectedModels, nil},
+		upgradedData(models, expectedModels),
 	)
 }
 
@@ -1830,7 +1845,7 @@ func (s *upgradesSuite) TestAddModelType(c *gc.C) {
 		"type": "caas",
 	}}
 	s.assertUpgradedData(c, AddModelType,
-		expectUpgradedData{models, expectedModels, nil})
+		upgradedData(models, expectedModels))
 }
 
 func (s *upgradesSuite) checkAddPruneSettings(c *gc.C, ageProp, sizeProp, defaultAge, defaultSize string, updateFunc func(pool *StatePool) error) {
@@ -1888,7 +1903,7 @@ func (s *upgradesSuite) checkAddPruneSettings(c *gc.C, ageProp, sizeProp, defaul
 	sort.Sort(expectedSettings)
 
 	s.assertUpgradedData(c, updateFunc,
-		expectUpgradedData{settingsColl, expectedSettings, nil},
+		upgradedData(settingsColl, expectedSettings),
 	)
 }
 
@@ -1939,7 +1954,7 @@ func (s *upgradesSuite) TestMigrateLeasesToGlobalTime(c *gc.C) {
 		"writer":     "ghost",
 	}}
 	s.assertUpgradedData(c, MigrateLeasesToGlobalTime,
-		expectUpgradedData{leases, expectedLeases, nil},
+		upgradedData(leases, expectedLeases),
 	)
 }
 
@@ -1980,9 +1995,7 @@ func (s *upgradesSuite) TestMoveOldAuditLogRename(c *gc.C) {
 	}
 	err := auditLog.Insert(data[0], data[1])
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertUpgradedData(c, MoveOldAuditLog,
-		expectUpgradedData{oldLog, data, nil},
-	)
+	s.assertUpgradedData(c, MoveOldAuditLog, upgradedData(oldLog, data))
 
 	db := s.state.MongoSession().DB("juju")
 	cols, err := db.CollectionNames()
@@ -2069,7 +2082,7 @@ func (s *upgradesSuite) TestMigrateLeasesToGlobalTimeWithNewTarget(c *gc.C) {
 		"writer":     "gobble",
 	}}
 	s.assertUpgradedData(c, MigrateLeasesToGlobalTime,
-		expectUpgradedData{leases, expectedLeases, nil},
+		upgradedData(leases, expectedLeases),
 	)
 }
 
@@ -2141,7 +2154,7 @@ func (s *upgradesSuite) TestAddRelationStatus(c *gc.C) {
 	}}
 
 	s.assertUpgradedData(c, AddRelationStatus,
-		expectUpgradedData{statuses, expectedStatuses, nil},
+		upgradedData(statuses, expectedStatuses),
 	)
 }
 
@@ -2186,7 +2199,7 @@ func (s *upgradesSuite) TestDeleteCloudImageMetadata(c *gc.C) {
 
 	coll, closer := s.state.db().GetRawCollection(cloudimagemetadataC)
 	defer closer()
-	s.assertUpgradedData(c, DeleteCloudImageMetadata, expectUpgradedData{coll, expected, nil})
+	s.assertUpgradedData(c, DeleteCloudImageMetadata, upgradedData(coll, expected))
 }
 
 func (s *upgradesSuite) TestCopyMongoSpaceToHASpaceConfigWhenValid(c *gc.C) {
@@ -2342,7 +2355,7 @@ func (s *upgradesSuite) TestCreateMissingApplicationConfig(c *gc.C) {
 	})
 
 	s.assertUpgradedData(c, CreateMissingApplicationConfig,
-		expectUpgradedData{settingsColl, expected, nil})
+		upgradedData(settingsColl, expected))
 }
 
 func (s *upgradesSuite) TestRemoveVotingMachineIds(c *gc.C) {
@@ -2364,7 +2377,7 @@ func (s *upgradesSuite) TestRemoveVotingMachineIds(c *gc.C) {
 		}
 		delete(doc, "votingmachineids")
 	}
-	s.assertUpgradedData(c, RemoveVotingMachineIds, expectUpgradedData{coll: controllerColl, expected: expectedDocs, filter: nil})
+	s.assertUpgradedData(c, RemoveVotingMachineIds, upgradedData(controllerColl, expectedDocs))
 }
 
 func (s *upgradesSuite) TestUpgradeContainerImageStreamDefault(c *gc.C) {
@@ -2442,7 +2455,7 @@ func (s *upgradesSuite) TestUpgradeContainerImageStreamDefault(c *gc.C) {
 	c.Assert(iter.Close(), jc.ErrorIsNil)
 
 	s.assertUpgradedData(c, UpgradeContainerImageStreamDefault,
-		expectUpgradedData{settingsColl, expectedSettings, nil},
+		upgradedData(settingsColl, expectedSettings),
 	)
 }
 
@@ -2532,7 +2545,7 @@ func (s *upgradesSuite) TestRemoveContainerImageStreamFromNonModelSettings(c *gc
 	// because Settings documents have a ton of keys and nested sub documents.
 	// But it is a more accurate depiction of what is in that table.
 	s.assertUpgradedData(c, RemoveContainerImageStreamFromNonModelSettings,
-		expectUpgradedData{settingsColl, expectedSettings, nil},
+		upgradedData(settingsColl, expectedSettings),
 	)
 }
 
@@ -2583,7 +2596,7 @@ func (s *upgradesSuite) TestAddCloudModelCounts(c *gc.C) {
 		"_id":      "cloudModel#dummy",
 		"refcount": 1, // unchanged
 	}}
-	s.assertUpgradedData(c, AddCloudModelCounts, expectUpgradedData{refCountColl, expected, nil})
+	s.assertUpgradedData(c, AddCloudModelCounts, upgradedData(refCountColl, expected))
 }
 
 func (s *upgradesSuite) TestMigrateStorageMachineIdFields(c *gc.C) {
@@ -2713,10 +2726,10 @@ func (s *upgradesSuite) TestMigrateStorageMachineIdFields(c *gc.C) {
 	}}
 
 	s.assertUpgradedData(c, MigrateStorageMachineIdFields,
-		expectUpgradedData{volumesColl, expectedVolumes, nil},
-		expectUpgradedData{filesystemsColl, expectedFilesystems, nil},
-		expectUpgradedData{volumeAttachmentsColl, expectedVolumeAttachments, nil},
-		expectUpgradedData{filesystemAttachmentsColl, expectedFilesystemAttachments, nil},
+		upgradedData(volumesColl, expectedVolumes),
+		upgradedData(filesystemsColl, expectedFilesystems),
+		upgradedData(volumeAttachmentsColl, expectedVolumeAttachments),
+		upgradedData(filesystemAttachmentsColl, expectedFilesystemAttachments),
 	)
 }
 
@@ -2830,7 +2843,7 @@ func (s *upgradesSuite) TestMigrateAddModelPermissions(c *gc.C) {
 		"access":             "login",
 	}}
 	sort.Sort(expected)
-	s.assertUpgradedData(c, MigrateAddModelPermissions, expectUpgradedData{permissionsColl, expected, nil})
+	s.assertUpgradedData(c, MigrateAddModelPermissions, upgradedData(permissionsColl, expected))
 }
 
 func (s *upgradesSuite) TestSetEnableDiskUUIDOnVsphere(c *gc.C) {
@@ -2899,7 +2912,7 @@ func (s *upgradesSuite) TestSetEnableDiskUUIDOnVsphere(c *gc.C) {
 
 	c.Logf(pretty.Sprint(expectedSettings))
 	s.assertUpgradedData(c, SetEnableDiskUUIDOnVsphere,
-		expectUpgradedData{coll, expectedSettings, nil},
+		upgradedData(coll, expectedSettings),
 	)
 }
 
@@ -2925,7 +2938,7 @@ func (s *upgradesSuite) TestUpdateInheritedControllerConfig(c *gc.C) {
 
 	c.Logf(pretty.Sprint(expectedSettings))
 	s.assertUpgradedData(c, UpdateInheritedControllerConfig,
-		expectUpgradedData{coll, expectedSettings, nil},
+		upgradedData(coll, expectedSettings),
 	)
 }
 
@@ -3070,7 +3083,7 @@ func (s *upgradesSuite) TestEnsureDefaultModificationStatus(c *gc.C) {
 	sort.Sort(expected)
 	c.Log(pretty.Sprint(expected))
 	s.assertUpgradedData(c, EnsureDefaultModificationStatus,
-		expectUpgradedData{coll, expected, bson.D{{"_id", bson.RegEx{"#modification$", ""}}}},
+		upgradedDataWithFilter(coll, expected, bson.D{{"_id", bson.RegEx{"#modification$", ""}}}),
 	)
 }
 
@@ -3115,7 +3128,7 @@ func (s *upgradesSuite) TestEnsureApplicationDeviceConstraints(c *gc.C) {
 	sort.Sort(expected)
 	c.Log(pretty.Sprint(expected))
 	s.assertUpgradedData(c, EnsureApplicationDeviceConstraints,
-		expectUpgradedData{coll, expected, bson.D{{"_id", bson.RegEx{Pattern: ":adc#"}}}},
+		upgradedDataWithFilter(coll, expected, bson.D{{"_id", bson.RegEx{Pattern: ":adc#"}}}),
 	)
 }
 
@@ -3201,7 +3214,7 @@ func (s *upgradesSuite) TestUpdateK8sModelNameIndex(c *gc.C) {
 
 	sort.Sort(expected)
 	s.assertUpgradedData(c, UpdateK8sModelNameIndex,
-		expectUpgradedData{modelNameColl, expected, nil},
+		upgradedData(modelNameColl, expected),
 	)
 }
 
@@ -3235,7 +3248,7 @@ func (s *upgradesSuite) TestAddModelLogsSize(c *gc.C) {
 		},
 	}
 
-	s.assertUpgradedData(c, AddModelLogsSize, expectUpgradedData{settingsColl, expectedSettings, nil})
+	s.assertUpgradedData(c, AddModelLogsSize, upgradedData(settingsColl, expectedSettings))
 }
 
 func (s *upgradesSuite) TestAddControllerNodeDocs(c *gc.C) {
@@ -3317,7 +3330,7 @@ func (s *upgradesSuite) TestAddControllerNodeDocs(c *gc.C) {
 
 	sort.Sort(expected)
 	s.assertUpgradedData(c, AddControllerNodeDocs,
-		expectUpgradedData{controllerNodesColl, expected, nil},
+		upgradedData(controllerNodesColl, expected),
 	)
 
 	// Ensure obsolete machine doc fields are gone.
@@ -3446,7 +3459,7 @@ func (s *upgradesSuite) TestAddSpaceIdToSpaceDocs(c *gc.C) {
 	}
 
 	sort.Sort(expected)
-	s.assertUpgradedData(c, AddSpaceIdToSpaceDocs, expectUpgradedData{col, expected, nil})
+	s.assertUpgradedData(c, AddSpaceIdToSpaceDocs, upgradedData(col, expected))
 }
 
 func (s *upgradesSuite) TestEnsureRelationApplicationSettings(c *gc.C) {
@@ -3544,7 +3557,7 @@ func (s *upgradesSuite) TestEnsureRelationApplicationSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = settingsCol.Insert(bson.M{
-		"_id":        ensureModelUUID(uuid1, "r#1#provider#mariadb"),
+		"_id":        ensureModelUUID(uuid1, "r#1#mariadb"),
 		"model-uuid": uuid1,
 		"settings": bson.M{
 			"olden-yolk": "blue paradigm",
@@ -3553,27 +3566,31 @@ func (s *upgradesSuite) TestEnsureRelationApplicationSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := bsonMById{{
-		"_id":        ensureModelUUID(uuid1, "r#0#peer#mariadb"),
+		"_id":        ensureModelUUID(uuid1, "r#0#mariadb"),
 		"model-uuid": uuid1,
 		"settings":   bson.M{},
 	}, {
-		"_id":        ensureModelUUID(uuid1, "r#1#provider#mariadb"),
+		"_id":        ensureModelUUID(uuid1, "r#1#mariadb"),
 		"model-uuid": uuid1,
 		"settings": bson.M{
 			"olden-yolk": "blue paradigm",
 		},
 	}, {
-		"_id":        ensureModelUUID(uuid1, "r#1#requirer#mediawiki"),
+		"_id":        ensureModelUUID(uuid1, "r#1#mediawiki"),
+		"model-uuid": uuid1,
+		"settings":   bson.M{},
+	}, {
+		"_id":        ensureModelUUID(uuid1, "r#2#mediawiki"),
+		"model-uuid": uuid1,
+		"settings":   bson.M{},
+	}, {
+		"_id":        ensureModelUUID(uuid1, "r#2#nrpe"),
 		"model-uuid": uuid1,
 		"settings":   bson.M{},
 	}}
 
 	s.assertUpgradedData(c, EnsureRelationApplicationSettings,
-		expectUpgradedData{
-			coll:     settingsCol,
-			expected: expected,
-			filter:   bson.D{{"_id", bson.RegEx{`:r#\d+#.*#.*$`, ""}}},
-		},
+		upgradedDataWithFilter(settingsCol, expected, bson.D{{"_id", bson.RegEx{`:r#\d+#.*$`, ""}}}),
 	)
 }
 
@@ -3618,7 +3635,7 @@ func (s *upgradesSuite) TestChangeSubnetAZtoSlice(c *gc.C) {
 	}
 
 	sort.Sort(expected)
-	s.assertUpgradedData(c, ChangeSubnetAZtoSlice, expectUpgradedData{col, expected, nil})
+	s.assertUpgradedData(c, ChangeSubnetAZtoSlice, upgradedData(col, expected))
 }
 
 func (s *upgradesSuite) TestChangeSubnetSpaceNameToSpaceID(c *gc.C) {
@@ -3670,7 +3687,7 @@ func (s *upgradesSuite) TestChangeSubnetSpaceNameToSpaceID(c *gc.C) {
 	}
 
 	sort.Sort(expected)
-	s.assertUpgradedData(c, ChangeSubnetSpaceNameToSpaceID, expectUpgradedData{col, expected, nil})
+	s.assertUpgradedData(c, ChangeSubnetSpaceNameToSpaceID, upgradedData(col, expected))
 }
 
 func (s *upgradesSuite) TestAddSubnetIdToSubnetDocs(c *gc.C) {
@@ -3723,7 +3740,7 @@ func (s *upgradesSuite) TestAddSubnetIdToSubnetDocs(c *gc.C) {
 	}
 
 	sort.Sort(expected)
-	s.assertUpgradedData(c, AddSubnetIdToSubnetDocs, expectUpgradedData{col, expected, nil})
+	s.assertUpgradedData(c, AddSubnetIdToSubnetDocs, upgradedData(col, expected))
 }
 
 func (s *upgradesSuite) TestReplacePortsDocSubnetIDCIDR(c *gc.C) {
@@ -3781,7 +3798,7 @@ func (s *upgradesSuite) TestReplacePortsDocSubnetIDCIDR(c *gc.C) {
 	}
 
 	sort.Sort(expected)
-	s.assertUpgradedData(c, ReplacePortsDocSubnetIDCIDR, expectUpgradedData{col, expected, nil})
+	s.assertUpgradedData(c, ReplacePortsDocSubnetIDCIDR, upgradedData(col, expected))
 }
 
 func (s *upgradesSuite) makeSpace(c *gc.C, uuid, name, id string) {

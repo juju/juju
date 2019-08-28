@@ -2573,16 +2573,13 @@ func EnsureRelationApplicationSettings(pool *StatePool) error {
 
 		var ops []txn.Op
 		for _, rel := range relations {
-			if rel.Life() != Alive {
-				continue
-			}
 			for _, ep := range rel.Endpoints() {
-				key := relationApplicationSettingsKey(rel.Id(), ep)
+				key := relationApplicationSettingsKey(rel.Id(), ep.ApplicationName)
 				id := st.docID(key)
 				if allSettings.Contains(id) {
 					continue
 				}
-				ops = append(ops, createSettingsOp(settingsC, key, nil))
+				ops = append(ops, createSettingsOp(settingsC, key, map[string]interface{}{}))
 			}
 		}
 

@@ -4819,11 +4819,11 @@ func (s *StateSuite) TestAddRelationCreatesApplicationSettings(c *gc.C) {
 
 	settings := state.NewStateSettings(s.State)
 
-	mysqlKey := fmt.Sprintf("r#%d#provider#mysql", rel.Id())
+	mysqlKey := fmt.Sprintf("r#%d#mysql", rel.Id())
 	_, err = settings.ReadSettings(mysqlKey)
 	c.Assert(err, jc.ErrorIsNil)
 
-	wpKey := fmt.Sprintf("r#%d#requirer#wordpress", rel.Id())
+	wpKey := fmt.Sprintf("r#%d#wordpress", rel.Id())
 	_, err = settings.ReadSettings(wpKey)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -4837,7 +4837,7 @@ func (s *StateSuite) TestPeerRelationCreatesApplicationSettings(c *gc.C) {
 
 	settings := state.NewStateSettings(s.State)
 
-	key := fmt.Sprintf("r#%d#peer#riak", rel.Id())
+	key := fmt.Sprintf("r#%d#riak", rel.Id())
 	_, err = settings.ReadSettings(key)
 	c.Assert(err, jc.ErrorIsNil)
 }

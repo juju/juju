@@ -1113,7 +1113,11 @@ func (st *State) addPeerRelationsOps(applicationname string, peers map[string]ch
 				Insert: relDoc,
 			},
 			createStatusOp(st, relationGlobalScope(relId), relationStatusDoc),
-			createSettingsOp(settingsC, relationApplicationSettingsKey(relId, eps[0]), nil),
+			createSettingsOp(
+				settingsC,
+				relationApplicationSettingsKey(relId, eps[0].ApplicationName),
+				map[string]interface{}{},
+			),
 		)
 	}
 	return ops, nil
@@ -2171,8 +2175,8 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		}, createStatusOp(st, relationGlobalScope(id), relationStatusDoc))
 
 		for _, ep := range eps {
-			key := relationApplicationSettingsKey(id, ep)
-			settingsOp := createSettingsOp(settingsC, key, nil)
+			key := relationApplicationSettingsKey(id, ep.ApplicationName)
+			settingsOp := createSettingsOp(settingsC, key, map[string]interface{}{})
 			ops = append(ops, settingsOp)
 		}
 		return ops, nil

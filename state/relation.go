@@ -782,8 +782,8 @@ func (change relationSettingsCleanupChange) Prepare(db Database) ([]txn.Op, erro
 
 }
 
-func relationApplicationSettingsKey(id int, ep Endpoint) string {
-	return fmt.Sprintf("%s#%s#%s", relationGlobalScope(id), ep.Role, ep.ApplicationName)
+func relationApplicationSettingsKey(id int, application string) string {
+	return fmt.Sprintf("%s#%s", relationGlobalScope(id), application)
 }
 
 // ApplicationSettings returns the application-level settings for the
@@ -793,7 +793,7 @@ func (r *Relation) ApplicationSettings(app *Application) (map[string]interface{}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	applicationKey := relationApplicationSettingsKey(r.Id(), ep)
+	applicationKey := relationApplicationSettingsKey(r.Id(), ep.ApplicationName)
 	s, err := readSettings(r.st.db(), settingsC, applicationKey)
 	if err != nil {
 		return nil, errors.Annotatef(err, "relation %q application %q", r.String(), app.Name())
@@ -811,7 +811,7 @@ func (r *Relation) UpdateApplicationSettings(app *Application, token leadership.
 	if err != nil {
 		return errors.Trace(err)
 	}
-	key := relationApplicationSettingsKey(r.Id(), ep)
+	key := relationApplicationSettingsKey(r.Id(), ep.ApplicationName)
 	err = updateLeaderSettings(r.st.db(), token, key, updates)
 	if errors.IsNotFound(err) {
 		return errors.NotFoundf("relation %q application %q", r, app.Name())
@@ -828,7 +828,7 @@ func (r *Relation) WatchApplicationSettings(app *Application) (NotifyWatcher, er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	key := relationApplicationSettingsKey(r.Id(), ep)
+	key := relationApplicationSettingsKey(r.Id(), ep.ApplicationName)
 	watcher := newEntityWatcher(r.st, settingsC, r.st.docID(key))
 	return watcher, nil
 }
