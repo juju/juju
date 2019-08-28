@@ -257,7 +257,7 @@ func (st *State) RemoveDyingModel() error {
 	}
 	err = st.removeAllModelDocs(bson.D{{"life", Dead}})
 	if errors.Cause(err) == txn.ErrAborted {
-		return errors.New("can't remove model: model not dead")
+		return errors.Wrap(err, errors.New("can't remove model: model not dead"))
 	}
 	return errors.Trace(err)
 }
@@ -279,7 +279,7 @@ func (st *State) RemoveImportingModelDocs() error {
 func (st *State) RemoveExportingModelDocs() error {
 	err := st.removeAllModelDocs(bson.D{{"migration-mode", MigrationModeExporting}})
 	if errors.Cause(err) == txn.ErrAborted {
-		return errors.New("can't remove model: model not being exported for migration")
+		return errors.Wrap(err, errors.New("can't remove model: model not being exported for migration"))
 	}
 	return errors.Trace(err)
 }
@@ -297,6 +297,10 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
+		if len(ops) == 0 {
+			// Nothing to delete.
+			continue
+		}
 		// Make sure we gate everything on the model assertion.
 		ops = append([]txn.Op{{
 			C:      modelsC,
@@ -305,7 +309,7 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		}}, ops...)
 		err = st.db().RunTransaction(ops)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "removing from collection %q", name)
 		}
 	}
 
