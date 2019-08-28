@@ -4,9 +4,7 @@
 package environs_test
 
 import (
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/os/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -74,7 +72,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 		ControllerConfig:         controllerCfg,
 		AdminSecret:              "admin-secret",
 		CAPrivateKey:             testing.CAKey,
-		SupportedBootstrapSeries: set.NewStrings(series.DefaultSupportedLTS()),
+		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

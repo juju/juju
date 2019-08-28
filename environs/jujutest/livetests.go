@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
 	gitjujutesting "github.com/juju/testing"
@@ -179,13 +178,6 @@ func (t *LiveTests) prepareForBootstrapParams(c *gc.C) bootstrap.PrepareParams {
 	}
 }
 
-var (
-	// Ensure that we add the default supported series so that tests that
-	// use the default supported lts internally will always work in the
-	// future.
-	supportedJujuSeries = set.NewStrings("precise", "trusty", "quantal", "bionic", series.DefaultSupportedLTS())
-)
-
 func (t *LiveTests) bootstrapParams() bootstrap.BootstrapParams {
 	credential := t.Credential
 	if credential.AuthType() == "" {
@@ -212,7 +204,7 @@ func (t *LiveTests) bootstrapParams() bootstrap.BootstrapParams {
 		CloudCredentialName:      "credential",
 		AdminSecret:              AdminSecret,
 		CAPrivateKey:             coretesting.CAKey,
-		SupportedBootstrapSeries: supportedJujuSeries,
+		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 	}
 }
 

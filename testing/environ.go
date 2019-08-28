@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/os/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -28,6 +29,12 @@ func init() {
 		panic("FakeAuthKeys does not hold a valid authorized key: " + err.Error())
 	}
 }
+
+var (
+	// FakeSupportedJujuSeries is used to provide a series of canned results
+	// of series to test bootstrap code against.
+	FakeSupportedJujuSeries = set.NewStrings("precise", "trusty", "quantal", "bionic", series.DefaultSupportedLTS())
+)
 
 // FakeVersionNumber is a valid version number that can be used in testing.
 var FakeVersionNumber = version.MustParse("1.99.0")

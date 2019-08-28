@@ -157,10 +157,11 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	suite.addSubnet(c, 9, 9, "node0")
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:     coretesting.FakeControllerConfig(),
-			AdminSecret:          testing.AdminSecret,
-			CAPrivateKey:         coretesting.CAKey,
-			BootstrapConstraints: constraints.MustParse("mem=1G"),
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              testing.AdminSecret,
+			CAPrivateKey:             coretesting.CAKey,
+			BootstrapConstraints:     constraints.MustParse("mem=1G"),
+			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	// The bootstrap node has been acquired and started.
@@ -359,10 +360,11 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	suite.addSubnet(c, 9, 9, "thenode")
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:     coretesting.FakeControllerConfig(),
-			AdminSecret:          testing.AdminSecret,
-			CAPrivateKey:         coretesting.CAKey,
-			BootstrapConstraints: constraints.MustParse("mem=1G"),
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              testing.AdminSecret,
+			CAPrivateKey:             coretesting.CAKey,
+			BootstrapConstraints:     constraints.MustParse("mem=1G"),
+			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -376,10 +378,11 @@ func (suite *environSuite) TestBootstrapNodeNotDeployed(c *gc.C) {
 	suite.testMAASObject.TestServer.ChangeNode("thenode", "status", "4")
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:     coretesting.FakeControllerConfig(),
-			AdminSecret:          testing.AdminSecret,
-			CAPrivateKey:         coretesting.CAKey,
-			BootstrapConstraints: constraints.MustParse("mem=1G"),
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              testing.AdminSecret,
+			CAPrivateKey:             coretesting.CAKey,
+			BootstrapConstraints:     constraints.MustParse("mem=1G"),
+			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 		})
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state.*")
 }
@@ -393,10 +396,11 @@ func (suite *environSuite) TestBootstrapNodeFailedDeploy(c *gc.C) {
 	suite.testMAASObject.TestServer.ChangeNode("thenode", "status", "11")
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:     coretesting.FakeControllerConfig(),
-			AdminSecret:          testing.AdminSecret,
-			CAPrivateKey:         coretesting.CAKey,
-			BootstrapConstraints: constraints.MustParse("mem=1G"),
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              testing.AdminSecret,
+			CAPrivateKey:             coretesting.CAKey,
+			BootstrapConstraints:     constraints.MustParse("mem=1G"),
+			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 		})
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state. instance \"/api/.*/nodes/thenode/\" failed to deploy")
 }
@@ -411,7 +415,8 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 			CAPrivateKey:     coretesting.CAKey,
 			// Disable auto-uploading by setting the agent version
 			// to something that's not the current version.
-			AgentVersion: &vers,
+			AgentVersion:             &vers,
+			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 		})
 	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no agent binaries are available for your model(.|\n)*")
 }
@@ -421,10 +426,11 @@ func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	env := suite.makeEnviron()
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:     coretesting.FakeControllerConfig(),
-			AdminSecret:          testing.AdminSecret,
-			CAPrivateKey:         coretesting.CAKey,
-			BootstrapConstraints: constraints.MustParse("mem=1G"),
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              testing.AdminSecret,
+			CAPrivateKey:             coretesting.CAKey,
+			BootstrapConstraints:     constraints.MustParse("mem=1G"),
+			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 		})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
@@ -966,11 +972,12 @@ func (s *environSuite) bootstrap(c *gc.C) environs.Environ {
 	env := s.makeEnviron()
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		s.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig:     coretesting.FakeControllerConfig(),
-			Placement:            "bootstrap-host",
-			AdminSecret:          testing.AdminSecret,
-			CAPrivateKey:         coretesting.CAKey,
-			BootstrapConstraints: constraints.MustParse("mem=1G"),
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			Placement:                "bootstrap-host",
+			AdminSecret:              testing.AdminSecret,
+			CAPrivateKey:             coretesting.CAKey,
+			BootstrapConstraints:     constraints.MustParse("mem=1G"),
+			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	return env

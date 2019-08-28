@@ -3028,8 +3028,9 @@ func bootstrapEnv(c *gc.C, env environs.Environ) error {
 	return bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		context.NewCloudCallContext(),
 		bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      testing.AdminSecret,
-			CAPrivateKey:     coretesting.CAKey,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              testing.AdminSecret,
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 		})
 }

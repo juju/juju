@@ -23,7 +23,6 @@ import (
 	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/collections/set"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -1219,10 +1218,11 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
-			ControllerConfig:     testing.FakeControllerConfig(),
-			AvailableTools:       makeToolsList("quantal"),
-			BootstrapSeries:      "quantal",
-			BootstrapConstraints: constraints.MustParse("mem=3.5G"),
+			ControllerConfig:         testing.FakeControllerConfig(),
+			AvailableTools:           makeToolsList("quantal"),
+			BootstrapSeries:          "quantal",
+			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1253,10 +1253,11 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
 	_, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
-			ControllerConfig:     testing.FakeControllerConfig(),
-			AvailableTools:       makeToolsList("quantal"),
-			BootstrapSeries:      "quantal",
-			BootstrapConstraints: constraints.MustParse("mem=3.5G"),
+			ControllerConfig:         testing.FakeControllerConfig(),
+			AvailableTools:           makeToolsList("quantal"),
+			BootstrapSeries:          "quantal",
+			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
 	c.Assert(err, gc.NotNil)
@@ -1289,7 +1290,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 				c.Assert(build, jc.IsFalse)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
-			SupportedBootstrapSeries: set.NewStrings("quantal"),
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
 	// If we aren't on amd64, this should correctly fail. See also:
@@ -1335,7 +1336,7 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 			AvailableTools:           makeToolsList("quantal"),
 			BootstrapSeries:          "quantal",
 			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
-			SupportedBootstrapSeries: set.NewStrings("quantal"),
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

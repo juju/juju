@@ -167,7 +167,8 @@ func (s *environSuite) TestAdoptResourcesPermissionError(c *gc.C) {
 func (s *environSuite) TestBootstrapPermissionError(c *gc.C) {
 	AssertInvalidatesCredential(c, s.client, func(ctx environscontext.ProviderCallContext) error {
 		_, err := s.env.Bootstrap(nil, ctx, environs.BootstrapParams{
-			ControllerConfig: testing.FakeControllerConfig(),
+			ControllerConfig:         testing.FakeControllerConfig(),
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		})
 		return err
 	})

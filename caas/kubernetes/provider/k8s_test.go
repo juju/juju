@@ -496,8 +496,9 @@ func (s *K8sBrokerSuite) TestBootstrapNoOperatorStorage(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	callCtx := &context.CloudCallContext{}
 	bootstrapParams := environs.BootstrapParams{
-		ControllerConfig:     testing.FakeControllerConfig(),
-		BootstrapConstraints: constraints.MustParse("mem=3.5G"),
+		ControllerConfig:         testing.FakeControllerConfig(),
+		BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
+		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 	}
 
 	_, err := s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
@@ -516,8 +517,9 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	callCtx := &context.CloudCallContext{}
 	bootstrapParams := environs.BootstrapParams{
-		ControllerConfig:     testing.FakeControllerConfig(),
-		BootstrapConstraints: constraints.MustParse("mem=3.5G"),
+		ControllerConfig:         testing.FakeControllerConfig(),
+		BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
+		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 	}
 
 	sc := &k8sstorage.StorageClass{

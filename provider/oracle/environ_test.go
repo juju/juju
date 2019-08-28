@@ -172,10 +172,11 @@ func (e *environSuite) TestBootstrap(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	_, err = environ.Bootstrap(ctx, e.callCtx,
 		environs.BootstrapParams{
-			ControllerConfig:     testing.FakeControllerConfig(),
-			AvailableTools:       makeToolsList("xenial"),
-			BootstrapSeries:      "xenial",
-			BootstrapConstraints: constraints.MustParse("mem=3.5G"),
+			ControllerConfig:         testing.FakeControllerConfig(),
+			AvailableTools:           makeToolsList("xenial"),
+			BootstrapSeries:          "xenial",
+			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		})
 	c.Assert(err, gc.IsNil)
 }
