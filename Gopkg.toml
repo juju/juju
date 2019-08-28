@@ -90,9 +90,8 @@
   name = "github.com/juju/naturalsort"
 
 [[constraint]]
-  branch = "workload-crtl-series"
+  revision = "6115736bcd3130ffe464ca312398674a2f626855"
   name = "github.com/juju/os"
-  source = "github.com/SimonRichardson/os"
 
 [[constraint]]
   revision = "ba21344fff207f4fa06b0a08bac386b179a2e6a1"
