@@ -243,7 +243,7 @@ func (s *bootstrapSuite) TestBootstrapForcedBootstrapSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(env.bootstrapCount, gc.Equals, 1)
 	c.Check(env.args.BootstrapSeries, gc.Equals, "xenial")
-	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{"bionic", "trusty", "xenial"})
+	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{"xenial"})
 }
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {

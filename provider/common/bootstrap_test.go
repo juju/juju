@@ -389,16 +389,14 @@ func (s *BootstrapSuite) TestBootstrapSeriesWithForceAndInvalidFallback(c *gc.C)
 	ctx := envtesting.BootstrapContext(c)
 	bootstrapSeries := ""
 	availableTools := fakeAvailableTools()
-	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
+	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		BootstrapSeries:          bootstrapSeries,
 		AvailableTools:           availableTools,
 		SupportedBootstrapSeries: supportedJujuSeries,
 		Force:                    true,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
-	c.Check(result.Series, gc.Equals, "xenial")
+	c.Assert(err, gc.ErrorMatches, "bootstrap instance series not valid")
 }
 
 func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *gc.C) {

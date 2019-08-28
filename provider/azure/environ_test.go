@@ -23,6 +23,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/collections/set"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -1288,6 +1289,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 				c.Assert(build, jc.IsFalse)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
+			SupportedBootstrapSeries: set.NewStrings("quantal"),
 		},
 	)
 	// If we aren't on amd64, this should correctly fail. See also:
@@ -1329,10 +1331,11 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 	config["autocert-dns-name"] = "example.com"
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
-			ControllerConfig:     config,
-			AvailableTools:       makeToolsList("quantal"),
-			BootstrapSeries:      "quantal",
-			BootstrapConstraints: constraints.MustParse("mem=3.5G"),
+			ControllerConfig:         config,
+			AvailableTools:           makeToolsList("quantal"),
+			BootstrapSeries:          "quantal",
+			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
+			SupportedBootstrapSeries: set.NewStrings("quantal"),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
