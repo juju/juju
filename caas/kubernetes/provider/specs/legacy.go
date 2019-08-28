@@ -35,28 +35,38 @@ func (p podSpecLegacy) ToLatest() *specs.PodSpec {
 	pSpec := &specs.PodSpec{}
 	pSpec.Version = specs.CurrentVersion
 	pSpec.OmitServiceFrontend = p.caaSSpec.OmitServiceFrontend
+	pSpec.Service = p.caaSSpec.Service
+	pSpec.ConfigMaps = p.caaSSpec.ConfigMaps
 	pSpec.Containers = p.caaSSpec.Containers
-	pSpec.InitContainers = p.caaSSpec.InitContainers
+	for _, c := range p.caaSSpec.InitContainers {
+		logger.Criticalf("podSpecLegacy init container -> %+v", c)
+		pSpec.Containers = append(pSpec.Containers, c)
+	}
+
 	pSpec.ServiceAccount = &specs.ServiceAccountSpec{
 		Name:                         p.k8sSpec.ServiceAccountName,
 		AutomountServiceAccountToken: p.k8sSpec.AutomountServiceAccountToken,
 	}
+
 	pSpec.ProviderPod = &K8sPodSpec{
 		KubernetesResources: &KubernetesResources{
 			CustomResourceDefinitions: p.k8sSpec.CustomResourceDefinitions,
 		},
-		RestartPolicy:                 p.k8sSpec.RestartPolicy,
-		TerminationGracePeriodSeconds: p.k8sSpec.TerminationGracePeriodSeconds,
-		ActiveDeadlineSeconds:         p.k8sSpec.ActiveDeadlineSeconds,
-		DNSPolicy:                     p.k8sSpec.DNSPolicy,
-		SecurityContext:               p.k8sSpec.SecurityContext,
-		Hostname:                      p.k8sSpec.Hostname,
-		Subdomain:                     p.k8sSpec.Subdomain,
-		PriorityClassName:             p.k8sSpec.PriorityClassName,
-		Priority:                      p.k8sSpec.Priority,
-		DNSConfig:                     p.k8sSpec.DNSConfig,
-		ReadinessGates:                p.k8sSpec.ReadinessGates,
-		Service:                       p.k8sSpec.Service,
+		Pod: &podSpec{
+			RestartPolicy:                 p.k8sSpec.RestartPolicy,
+			ActiveDeadlineSeconds:         p.k8sSpec.ActiveDeadlineSeconds,
+			TerminationGracePeriodSeconds: p.k8sSpec.TerminationGracePeriodSeconds,
+			SecurityContext:               p.k8sSpec.SecurityContext,
+			Priority:                      p.k8sSpec.Priority,
+			ReadinessGates:                p.k8sSpec.ReadinessGates,
+			DNSPolicy:                     p.k8sSpec.DNSPolicy,
+
+			// TODO: should we just ignore below deprecated pod config ?????????
+			// Hostname: p.k8sSpec.Hostname,
+			// Subdomain: p.k8sSpec.Subdomain,
+			// PriorityClassName: p.k8sSpec.PriorityClassName,
+			// DNSConfig: p.k8sSpec.DNSConfig,
+		},
 	}
 	return pSpec
 }
@@ -70,18 +80,12 @@ type K8sPodSpecLegacy struct {
 	ServiceAccountName           string `json:"serviceAccountName,omitempty"`
 	AutomountServiceAccountToken *bool  `json:"automountServiceAccountToken,omitempty"`
 
-	RestartPolicy                 core.RestartPolicy       `json:"restartPolicy,omitempty"`
-	TerminationGracePeriodSeconds *int64                   `json:"terminationGracePeriodSeconds,omitempty"`
-	ActiveDeadlineSeconds         *int64                   `json:"activeDeadlineSeconds,omitempty"`
-	DNSPolicy                     core.DNSPolicy           `json:"dnsPolicy,omitempty"`
-	SecurityContext               *core.PodSecurityContext `json:"securityContext,omitempty"`
-	Hostname                      string                   `json:"hostname,omitempty"`
-	Subdomain                     string                   `json:"subdomain,omitempty"`
-	PriorityClassName             string                   `json:"priorityClassName,omitempty"`
-	Priority                      *int32                   `json:"priority,omitempty"`
-	DNSConfig                     *core.PodDNSConfig       `json:"dnsConfig,omitempty"`
-	ReadinessGates                []core.PodReadinessGate  `json:"readinessGates,omitempty"`
-	Service                       *K8sServiceSpec          `json:"service,omitempty"`
+	podSpec `yaml:",inline"`
+	// TODO: should we just ignore below deprecated pod config ?????????
+	Hostname          string             `json:"hostname,omitempty"`
+	Subdomain         string             `json:"subdomain,omitempty"`
+	PriorityClassName string             `json:"priorityClassName,omitempty"`
+	DNSConfig         *core.PodDNSConfig `json:"dnsConfig,omitempty"`
 
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `yaml:"customResourceDefinitions,omitempty"`
 }
@@ -89,6 +93,16 @@ type K8sPodSpecLegacy struct {
 // Validate is defined on ProviderPod.
 func (*K8sPodSpecLegacy) Validate() error {
 	return nil
+}
+
+type k8sContainersLegacy struct {
+	k8sContainers  `yaml:",inline"`
+	InitContainers []k8sContainer `json:"initContainers"`
+}
+
+// Validate is defined on ProviderContainer.
+func (cs *k8sContainersLegacy) Validate() error {
+	return errors.Trace(cs.k8sContainers.Validate())
 }
 
 func parsePodSpecLegacy(in string) (_ *specs.PodSpec, err error) {
@@ -111,11 +125,8 @@ func parsePodSpecLegacy(in string) (_ *specs.PodSpec, err error) {
 	}
 
 	// Do the k8s containers.
-	containers, err := parseContainers(in)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err = containers.Validate(); err != nil {
+	var containers k8sContainersLegacy
+	if err := parseContainers(in, &containers); err != nil {
 		return nil, errors.Trace(err)
 	}
 

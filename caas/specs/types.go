@@ -47,6 +47,7 @@ type ProviderContainer interface {
 // a container on the CAAS substrate.
 type ContainerSpec struct {
 	Name string `yaml:"name"`
+	Init bool   `yaml:"init,omitempty"`
 	// Image is deprecated in preference to using ImageDetails.
 	Image        string          `yaml:"image,omitempty"`
 	ImageDetails ImageDetails    `yaml:"imageDetails"`
@@ -85,6 +86,12 @@ func (spec *ContainerSpec) Validate() error {
 	return nil
 }
 
+// ServiceSpec contains attributes to be set on v1.Service when
+// the application is deployed.
+type ServiceSpec struct {
+	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
 // Version describes pod spec version type.
 type Version int32
 
@@ -96,10 +103,16 @@ type PodSpecVersion struct {
 // podSpec defines the data values used to configure
 // a pod on the CAAS substrate.
 type podSpec struct {
-	PodSpecVersion      `yaml:",inline"`
-	OmitServiceFrontend bool            `json:"omitServiceFrontend" yaml:"omitServiceFrontend"`
-	Containers          []ContainerSpec `json:"containers" yaml:"containers"`
-	InitContainers      []ContainerSpec `json:"initContainers" yaml:"initContainers"`
+	PodSpecVersion `yaml:",inline"`
+
+	// TODO(caas): remove OmitServiceFrontend later once we deprecate legacy version.
+	// Keep it for now because we have to combine it with the ServerType (from metadata.yaml). ??????????
+	OmitServiceFrontend bool `json:"omitServiceFrontend" yaml:"omitServiceFrontend"`
+
+	Service    *ServiceSpec                 `json:"service,omitempty" yaml:"service,omitempty"`
+	ConfigMaps map[string]map[string]string `json:"configmaps,omitempty" yaml:"configmaps,omitempty"`
+
+	Containers []ContainerSpec `json:"containers" yaml:"containers"`
 
 	// ProviderPod defines config which is specific to a substrate, eg k8s
 	ProviderPod `json:"-" yaml:"-"`
@@ -121,11 +134,7 @@ func (spec *podSpec) Validate(ver Version) error {
 			return errors.Trace(err)
 		}
 	}
-	for _, c := range spec.InitContainers {
-		if err := c.Validate(); err != nil {
-			return errors.Trace(err)
-		}
-	}
+
 	if spec.ProviderPod != nil {
 		return spec.ProviderPod.Validate()
 	}

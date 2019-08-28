@@ -46,6 +46,7 @@ func (c *k8sContainer) ToContainerSpec() specs.ContainerSpec {
 	result := specs.ContainerSpec{
 		ImageDetails: c.ImageDetails,
 		Name:         c.Name,
+		Init:         c.Init,
 		Image:        c.Image,
 		Ports:        c.Ports,
 		Command:      c.Command,
@@ -74,6 +75,18 @@ func (*K8sContainerSpec) Validate() error {
 	return nil
 }
 
+// podSpec is a subset of v1.PodSpec which defines
+// attributes we expose for charms to set.
+type podSpec struct {
+	RestartPolicy                 core.RestartPolicy       `json:"restartPolicy,omitempty"`
+	ActiveDeadlineSeconds         *int64                   `json:"activeDeadlineSeconds,omitempty"`
+	TerminationGracePeriodSeconds *int64                   `json:"terminationGracePeriodSeconds,omitempty"`
+	SecurityContext               *core.PodSecurityContext `json:"securityContext,omitempty"`
+	Priority                      *int32                   `json:"priority,omitempty"`
+	ReadinessGates                []core.PodReadinessGate  `json:"readinessGates,omitempty"`
+	DNSPolicy                     core.DNSPolicy           `json:"dnsPolicy,omitempty"`
+}
+
 var boolValues = set.NewStrings(
 	strings.Split("y|Y|yes|Yes|YES|n|N|no|No|NO|true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF", "|")...,
 )
@@ -92,8 +105,8 @@ func quoteBoolStrings(container *k8sContainer) {
 }
 
 type k8sContainers struct {
-	Containers     []k8sContainer `json:"containers"`
-	InitContainers []k8sContainer `json:"initContainers"`
+	Containers []k8sContainer `json:"containers"`
+	// InitContainers []k8sContainer `json:"initContainers"`
 }
 
 // Validate is defined on ProviderContainer.
@@ -104,18 +117,16 @@ func (cs *k8sContainers) Validate() error {
 	return nil
 }
 
-func parseContainers(in string) (containers k8sContainers, err error) {
-	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
-	if err = decoder.Decode(&containers); err != nil {
-		return containers, errors.Trace(err)
-	}
-	return containers, nil
+type k8sContainersInterface interface {
+	Validate() error
 }
 
-// K8sServiceSpec contains attributes to be set on v1.Service when
-// the application is deployed.
-type K8sServiceSpec struct {
-	Annotations map[string]string `json:"annotations,omitempty"`
+func parseContainers(in string, containerSpec k8sContainersInterface) error {
+	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
+	if err := decoder.Decode(containerSpec); err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(containerSpec.Validate())
 }
 
 // ParsePodSpec parses a YAML file which defines how to

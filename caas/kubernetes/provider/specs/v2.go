@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
-	core "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
@@ -36,7 +35,9 @@ func (p podSpecV2) ToLatest() *specs.PodSpec {
 	pSpec.Version = specs.CurrentVersion
 	pSpec.OmitServiceFrontend = p.caaSSpec.OmitServiceFrontend
 	pSpec.Containers = p.caaSSpec.Containers
-	pSpec.InitContainers = p.caaSSpec.InitContainers
+	pSpec.Service = p.caaSSpec.Service
+	pSpec.ConfigMaps = p.caaSSpec.ConfigMaps
+	pSpec.ServiceAccount = p.caaSSpec.ServiceAccount
 	pSpec.ProviderPod = &p.k8sSpec
 	return pSpec
 }
@@ -44,18 +45,8 @@ func (p podSpecV2) ToLatest() *specs.PodSpec {
 // K8sPodSpecV2 is a subset of v1.PodSpec which defines
 // attributes we expose for charms to set.
 type K8sPodSpecV2 struct {
-	RestartPolicy                 core.RestartPolicy       `json:"restartPolicy,omitempty"`
-	TerminationGracePeriodSeconds *int64                   `json:"terminationGracePeriodSeconds,omitempty"`
-	ActiveDeadlineSeconds         *int64                   `json:"activeDeadlineSeconds,omitempty"`
-	DNSPolicy                     core.DNSPolicy           `json:"dnsPolicy,omitempty"`
-	SecurityContext               *core.PodSecurityContext `json:"securityContext,omitempty"`
-	Hostname                      string                   `json:"hostname,omitempty"`
-	Subdomain                     string                   `json:"subdomain,omitempty"`
-	PriorityClassName             string                   `json:"priorityClassName,omitempty"`
-	Priority                      *int32                   `json:"priority,omitempty"`
-	DNSConfig                     *core.PodDNSConfig       `json:"dnsConfig,omitempty"`
-	ReadinessGates                []core.PodReadinessGate  `json:"readinessGates,omitempty"`
-	Service                       *K8sServiceSpec          `json:"service,omitempty"`
+	// core pod spec.
+	Pod *podSpec `json:"pod,omitempty"`
 
 	// k8s resources.
 	KubernetesResources *KubernetesResources `json:"kubernetesResources,omitempty"`
@@ -106,11 +97,8 @@ func parsePodSpecV2(in string) (_ *specs.PodSpec, err error) {
 	}
 
 	// Do the k8s containers.
-	containers, err := parseContainers(in)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err = containers.Validate(); err != nil {
+	var containers k8sContainers
+	if err := parseContainers(in, &containers); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -121,12 +109,7 @@ func parsePodSpecV2(in string) (_ *specs.PodSpec, err error) {
 		}
 		spec.caaSSpec.Containers[i] = c.ToContainerSpec()
 	}
-	for i, c := range containers.InitContainers {
-		if err = c.Validate(); err != nil {
-			return nil, errors.Trace(err)
-		}
-		spec.caaSSpec.InitContainers[i] = c.ToContainerSpec()
-	}
+
 	if err = spec.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}

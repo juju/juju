@@ -2589,53 +2589,72 @@ func operatorConfigMap(appName, operatorName string, config *caas.OperatorConfig
 // TODO: move this to ./specs??????????
 type workloadSpec struct {
 	Pod     core.PodSpec `json:"pod"`
-	Service *k8sspecs.K8sServiceSpec
+	Service *specs.ServiceSpec
 
 	ServiceAccount            *specs.ServiceAccountSpec
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
 }
 
-func prepareSvcSpec(appName, deploymentName string, podSpec *specs.PodSpec) (*workloadSpec, error) {
+func processContainers(acs []specs.ContainerSpec, spec *core.PodSpec) error {
+	var cs []specs.ContainerSpec
+	var ics []specs.ContainerSpec
+	for _, c := range acs {
+		if c.Init {
+			ics = append(ics, c)
+		} else {
+			cs = append(cs, c)
+		}
+	}
+
 	// Fill out the easy bits using a template.
 	var buf bytes.Buffer
-	if err := defaultPodTemplate.Execute(&buf, podSpec); err != nil {
-		return nil, errors.Trace(err)
+	// fill containers.
+	if err := defaultPodTemplate.Execute(&buf, cs); err != nil {
+		return errors.Trace(err)
+	}
+	// fill init containers.
+	if err := defaultPodTemplate.Execute(&buf, ics); err != nil {
+		return errors.Trace(err)
 	}
 	unitSpecString := buf.String()
-
-	var spec workloadSpec
 	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(unitSpecString), len(unitSpecString))
 	if err := decoder.Decode(&spec); err != nil {
-		logger.Errorf("unable to parse %q pod spec: \n%+v\nunit spec: \n%v", appName, *podSpec, unitSpecString)
-		return nil, errors.Trace(err)
+		logger.Errorf("unable to parse pod spec, unit spec: \n%v", unitSpecString)
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func prepareSvcSpec(appName, deploymentName string, podSpec *specs.PodSpec) (*workloadSpec, error) {
+	var spec workloadSpec
+	if err := processContainers(podSpec.Containers, &spec.Pod); err != nil {
+		logger.Errorf("unable to parse %q pod spec: \n%+v", appName, *podSpec)
+		return nil, errors.Annotatef(err, "processing container specs for app %q", appName)
 	}
 
 	// Now fill in the hard bits progamatically.
 	if err := populateContainerDetails(deploymentName, &spec.Pod, spec.Pod.Containers, podSpec.Containers); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := populateContainerDetails(deploymentName, &spec.Pod, spec.Pod.InitContainers, podSpec.InitContainers); err != nil {
-		return nil, errors.Trace(err)
-	}
 
+	spec.Service = podSpec.Service
 	spec.ServiceAccount = podSpec.ServiceAccount
 	if podSpec.ProviderPod != nil {
 		pSpec, ok := podSpec.ProviderPod.(*k8sspecs.K8sPodSpec)
 		if !ok {
 			return nil, errors.Errorf("unexpected kubernetes pod spec type %T", podSpec.ProviderPod)
 		}
-		spec.Pod.ActiveDeadlineSeconds = pSpec.ActiveDeadlineSeconds
-		spec.Pod.TerminationGracePeriodSeconds = pSpec.TerminationGracePeriodSeconds
-		spec.Pod.Hostname = pSpec.Hostname
-		spec.Pod.Subdomain = pSpec.Subdomain
-		spec.Pod.DNSConfig = pSpec.DNSConfig
-		spec.Pod.DNSPolicy = pSpec.DNSPolicy
-		spec.Pod.Priority = pSpec.Priority
-		spec.Pod.PriorityClassName = pSpec.PriorityClassName
-		spec.Pod.SecurityContext = pSpec.SecurityContext
-		spec.Pod.RestartPolicy = pSpec.RestartPolicy
-		spec.Pod.ReadinessGates = pSpec.ReadinessGates
-		spec.Service = pSpec.Service
+		spec.Pod.ActiveDeadlineSeconds = pSpec.Pod.ActiveDeadlineSeconds
+		spec.Pod.TerminationGracePeriodSeconds = pSpec.Pod.TerminationGracePeriodSeconds
+		spec.Pod.DNSPolicy = pSpec.Pod.DNSPolicy
+		spec.Pod.Priority = pSpec.Pod.Priority
+		spec.Pod.SecurityContext = pSpec.Pod.SecurityContext
+		spec.Pod.RestartPolicy = pSpec.Pod.RestartPolicy
+		spec.Pod.ReadinessGates = pSpec.Pod.ReadinessGates
+		// spec.Pod.Hostname = pSpec.Hostname
+		// spec.Pod.Subdomain = pSpec.Subdomain
+		// spec.Pod.DNSConfig = pSpec.DNSConfig
+		// spec.Pod.PriorityClassName = pSpec.PriorityClassName
 		spec.CustomResourceDefinitions = pSpec.KubernetesResources.CustomResourceDefinitions
 
 		sa := spec.ServiceAccount

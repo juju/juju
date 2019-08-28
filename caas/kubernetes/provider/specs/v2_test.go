@@ -203,7 +203,7 @@ foo: bar
 			ReadinessGates: []core.PodReadinessGate{
 				{ConditionType: core.PodScheduled},
 			},
-			Service: &k8sspecs.K8sServiceSpec{
+			Service: &specs.ServiceSpec{
 				Annotations: map[string]string{"foo": "bar"},
 			},
 		}
@@ -321,7 +321,7 @@ echo "do some stuff here for gitlab-init container"
 			ReadinessGates: []core.PodReadinessGate{
 				{ConditionType: core.PodScheduled},
 			},
-			Service: &k8sspecs.K8sServiceSpec{
+			Service: &specs.ServiceSpec{
 				Annotations: map[string]string{"foo": "bar"},
 			},
 			KubernetesResources: &k8sspecs.KubernetesResources{
