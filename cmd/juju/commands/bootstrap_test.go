@@ -19,6 +19,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujuos "github.com/juju/os"
@@ -188,6 +189,13 @@ func (s *BootstrapSuite) TestRunTests(c *gc.C) {
 	}
 }
 
+// defaultSupportedJujuSeries is used to return canned information about what
+// juju supports in terms of the release cycle
+// see juju/os and documentation https://www.ubuntu.com/about/release-cycle
+var defaultSupportedJujuSeries = set.NewStrings("bionic", "xenial", "trusty", kubernetesSeriesName)
+
+const kubernetesSeriesName = "kubernetes"
+
 type bootstrapTest struct {
 	info string
 	// binary version string used to set jujuversion.Current
@@ -210,6 +218,9 @@ type bootstrapTest struct {
 func (s *BootstrapSuite) patchVersionAndSeries(c *gc.C, hostSeries string) {
 	resetJujuXDGDataHome(c)
 	s.PatchValue(&series.MustHostSeries, func() string { return hostSeries })
+	s.PatchValue(&supportedJujuSeries, func() set.Strings {
+		return set.NewStrings(hostSeries).Union(defaultSupportedJujuSeries)
+	})
 	s.patchVersion(c)
 }
 
@@ -225,7 +236,7 @@ func (s *BootstrapSuite) patchVersion(c *gc.C) {
 func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	// Create home with dummy provider and remove all
 	// of its envtools.
-	resetJujuXDGDataHome(c)
+	s.setupAutoUploadTest(c, "1.0.0", "precise")
 	dummy.Reset(c)
 	s.tw.Clear()
 
@@ -234,7 +245,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	}
 	bootstrapVersion := v100p64
 	if test.version != "" {
-		useVersion := strings.Replace(test.version, "%LTS%", series.DefaultSupportedLTS(), 1)
+		useVersion := strings.Replace(test.version, "%LTS%", "precise", 1)
 		bootstrapVersion = version.MustParseBinary(useVersion)
 		restore = restore.Add(testing.PatchValue(&jujuversion.Current, bootstrapVersion.Number))
 		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return bootstrapVersion.Arch }))
@@ -257,7 +268,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	// Run command and check for uploads.
 	args := append([]string{
 		cloudName, controllerName,
-		"--config", "default-series=raring",
+		"--config", "default-series=precise",
 	}, test.args...)
 	opc, errc := cmdtest.RunCommandWithDummyProvider(cmdtesting.Context(c), s.newBootstrapCommand(), args...)
 	var err error
@@ -331,7 +342,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	expected := map[string]interface{}{
 		"name":            bootstrap.ControllerModelName,
 		"type":            "dummy",
-		"default-series":  "raring",
+		"default-series":  "precise",
 		"authorized-keys": "public auth key\n",
 		// Dummy provider defaults
 		"broken":     "",
@@ -383,7 +394,7 @@ var bootstrapTests = []bootstrapTest{{
 	version:     "1.3.3-saucy-ppc64el",
 	hostArch:    "ppc64el",
 	args:        []string{"--build-agent", "--constraints", "arch=ppc64el"},
-	upload:      "1.3.3.1-raring-ppc64el", // from jujuversion.Current
+	upload:      "1.3.3.1-precise-ppc64el", // from jujuversion.Current
 	constraints: constraints.MustParse("arch=ppc64el"),
 }, {
 	info:      "--build-agent rejects mismatched arch",
@@ -408,7 +419,7 @@ var bootstrapTests = []bootstrapTest{{
 	version:  "1.2.3.4-raring-amd64",
 	hostArch: "amd64",
 	args:     []string{"--build-agent"},
-	upload:   "1.2.3.5-raring-amd64",
+	upload:   "1.2.3.5-precise-amd64",
 }, {
 	info:      "placement",
 	args:      []string{"--to", "something"},
@@ -1099,10 +1110,11 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 	stderr := cmdtesting.Stderr(ctx)
 	c.Check(stderr, gc.Matches,
 		"Creating Juju controller \"devcontroller\" on dummy/dummy\n"+
-			"Looking for packaged Juju agent version 1.2.0 for amd64\n",
+			"Looking for packaged Juju agent version 1.2.0 for amd64\n"+
+			"No packaged binary found, preparing local Juju agent binary\n",
 	)
 	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.ERROR, "failed to bootstrap model: no matching agent binaries available"},
+		{loggo.ERROR, "failed to bootstrap model: cannot package bootstrap agent binary: no agent binaries for you"},
 	})
 }
 
@@ -1231,7 +1243,6 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 
 func (s *BootstrapSuite) TestInteractiveBootstrap(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "precise")
-	//s.patchVersionAndSeries(c, "raring")
 
 	cmd := s.newBootstrapCommand()
 	err := cmdtesting.InitCommand(cmd, nil)
@@ -1270,6 +1281,9 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
 	// so we can test that an upload is forced.
 	s.PatchValue(&jujuversion.Current, version.MustParse(vers))
 	s.PatchValue(&series.MustHostSeries, func() string { return ser })
+	s.PatchValue(&supportedJujuSeries, func() set.Strings {
+		return set.NewStrings(ser).Union(defaultSupportedJujuSeries)
+	})
 
 	// Create home with dummy provider and remove all
 	// of its envtools.
@@ -1277,8 +1291,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
 }
 
 func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
-	s.PatchValue(&series.MustHostSeries, func() string { return series.DefaultSupportedLTS() })
-	s.setupAutoUploadTest(c, "1.7.3", "quantal")
+	s.setupAutoUploadTest(c, "1.7.3", "raring")
 	// Run command and check for that upload has been run for tools matching
 	// the current juju version.
 	opc, errc := cmdtest.RunCommandWithDummyProvider(
@@ -1304,7 +1317,7 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 
 	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
 		"dummy-cloud/region-1", "devcontroller",
-		"--config", "default-series=raring", "--agent-version=1.8.4",
+		"--config", "default-series=precise", "--agent-version=1.8.4",
 	)
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{{
@@ -1314,7 +1327,6 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
-
 	BuildAgentTarballAlwaysFails := func(build bool, forceVersion *version.Number, stream string) (*sync.BuiltAgent, error) {
 		return nil, errors.New("an error")
 	}
@@ -1325,7 +1337,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
 		"dummy-cloud/region-1", "devcontroller",
-		"--config", "default-series=raring",
+		"--config", "default-series=precise",
 		"--config", "agent-stream=proposed",
 		"--auto-upgrade", "--agent-version=1.7.3",
 	)
@@ -1431,6 +1443,7 @@ func (s *BootstrapSuite) TestBootstrapProviderNoRegionDetection(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderNoRegions(c *gc.C) {
+	s.setupAutoUploadTest(c, "1.8.3", "precise")
 	ctx, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "no-cloud-regions", "ctrl",
 		"--config", "default-series=precise",
@@ -1440,7 +1453,7 @@ func (s *BootstrapSuite) TestBootstrapProviderNoRegions(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapCloudNoRegions(c *gc.C) {
-	resetJujuXDGDataHome(c)
+	s.setupAutoUploadTest(c, "1.8.3", "precise")
 	ctx, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "dummy-cloud-without-regions", "ctrl",
 		"--config", "default-series=precise",
@@ -1471,6 +1484,47 @@ func (s *BootstrapSuite) TestBootstrapProviderManyDetectedCredentials(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ambiguousDetectedCredentialError.Error())
 }
 
+func (s *BootstrapSuite) TestBootstrapWithBootstrapSeries(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+	ctx, err := cmdtesting.RunCommand(
+		c, s.newBootstrapCommand(), "no-cloud-regions", "ctrl", "--bootstrap-series", "spock",
+	)
+	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Creating Juju controller \"ctrl\" on no-cloud-regions(.|\n)*")
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{
+		{loggo.ERROR, "failed to bootstrap model: use --force to override: spock not supported"},
+		{loggo.DEBUG, "(error details.*)"},
+	})
+}
+
+func (s *BootstrapSuite) TestBootstrapWithNoBootstrapSeriesUsesFallbackButStillFails(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+	ctx, err := cmdtesting.RunCommand(
+		c, s.newBootstrapCommand(), "no-cloud-regions", "ctrl", "--config", "default-series=spock",
+	)
+	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Creating Juju controller \"ctrl\" on no-cloud-regions(.|\n)*")
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{
+		{loggo.ERROR, "failed to bootstrap model: use --force to override: spock not supported"},
+		{loggo.DEBUG, "(error details.*)"},
+	})
+}
+
+func (s *BootstrapSuite) TestBootstrapWithBootstrapSeriesDoesNotUseFallbackButStillFails(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+	ctx, err := cmdtesting.RunCommand(
+		c, s.newBootstrapCommand(), "no-cloud-regions", "ctrl",
+		"--bootstrap-series", "spock",
+		"--config", "default-series=kirk",
+	)
+	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Creating Juju controller \"ctrl\" on no-cloud-regions(.|\n)*")
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{
+		{loggo.ERROR, "failed to bootstrap model: use --force to override: spock not supported"},
+		{loggo.DEBUG, "(error details.*)"},
+	})
+}
+
 func (s *BootstrapSuite) TestBootstrapProviderFileCredential(c *gc.C) {
 	dummyProvider, err := environs.Provider("dummy")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1496,7 +1550,7 @@ func (s *BootstrapSuite) TestBootstrapProviderFileCredential(c *gc.C) {
 		&finalizedCredential}
 	environs.RegisterProvider("file-credentials", fp)
 
-	resetJujuXDGDataHome(c)
+	s.setupAutoUploadTest(c, "1.8.3", "precise")
 	_, err = cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "file-credentials", "ctrl",
 		"--config", "default-series=precise",
