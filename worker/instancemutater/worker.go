@@ -153,11 +153,9 @@ func newWorker(config Config) (*mutaterWorker, error) {
 	err = catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: w.loop,
+		Init: []worker.Worker{watcher},
 	})
 	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := w.catacomb.Add(watcher); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return w, nil
