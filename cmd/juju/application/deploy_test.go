@@ -1211,7 +1211,7 @@ func (s *DeploySuite) TestDeployLocalWithSeriesAndForce(c *gc.C) {
 }
 
 func (s *DeploySuite) setupNonESMSeries(c *gc.C) (string, string) {
-	supported := set.NewStrings(series.SupportedJujuSeries()...)
+	supported := set.NewStrings(series.SupportedJujuWorkloadSeries()...)
 	// Allowing kubernetes as an option, can lead to an unrelated failure:
 	// 		series "kubernetes" in a non container model not valid
 	supported.Remove("kubernetes")

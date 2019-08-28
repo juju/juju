@@ -67,7 +67,16 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-const ControllerName = "kontroll"
+const (
+	ControllerName = "kontroll"
+
+	kubernetesSeriesName = "kubernetes"
+)
+
+// defaultSupportedJujuSeries is used to return canned information about what
+// juju supports in terms of the release cycle
+// see juju/os and documentation https://www.ubuntu.com/about/release-cycle
+var defaultSupportedJujuSeries = set.NewStrings("bionic", "xenial", "trusty", kubernetesSeriesName)
 
 // JujuConnSuite provides a freshly bootstrapped juju.Conn
 // for each test. It also includes testing.BaseSuite.
@@ -572,10 +581,11 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 				},
 			},
 		},
-		CloudCredential:     cloudSpec.Credential,
-		CloudCredentialName: "cred",
-		AdminSecret:         AdminSecret,
-		CAPrivateKey:        testing.CAKey,
+		CloudCredential:          cloudSpec.Credential,
+		CloudCredentialName:      "cred",
+		AdminSecret:              AdminSecret,
+		CAPrivateKey:             testing.CAKey,
+		SupportedBootstrapSeries: defaultSupportedJujuSeries,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
