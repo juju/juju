@@ -2591,7 +2591,7 @@ type workloadSpec struct {
 	Pod     core.PodSpec `json:"pod"`
 	Service *k8sspecs.K8sServiceSpec
 
-	ServiceAccount            *k8sspecs.ServiceAccountSpec
+	ServiceAccount            *specs.ServiceAccountSpec
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
 }
 
@@ -2618,6 +2618,7 @@ func prepareSvcSpec(appName, deploymentName string, podSpec *specs.PodSpec) (*wo
 		return nil, errors.Trace(err)
 	}
 
+	spec.ServiceAccount = podSpec.ServiceAccount
 	if podSpec.ProviderPod != nil {
 		pSpec, ok := podSpec.ProviderPod.(*k8sspecs.K8sPodSpec)
 		if !ok {
@@ -2636,7 +2637,6 @@ func prepareSvcSpec(appName, deploymentName string, podSpec *specs.PodSpec) (*wo
 		spec.Pod.ReadinessGates = pSpec.ReadinessGates
 		spec.Service = pSpec.Service
 		spec.CustomResourceDefinitions = pSpec.KubernetesResources.CustomResourceDefinitions
-		spec.ServiceAccount = pSpec.KubernetesResources.ServiceAccount
 
 		sa := spec.ServiceAccount
 		if sa != nil {

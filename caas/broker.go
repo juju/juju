@@ -143,9 +143,6 @@ type Broker interface {
 	// DeleteOperator deletes the specified operator.
 	DeleteOperator(appName string) error
 
-	// // EnsureCustomResourceDefinition creates or updates a custom resource definition resource.
-	// EnsureCustomResourceDefinition(appName string, podSpec *specs.PodSpec) error
-
 	// WatchUnits returns a watcher which notifies when there
 	// are changes to units of the specified application.
 	WatchUnits(appName string) (watcher.NotifyWatcher, error)

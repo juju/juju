@@ -16,16 +16,16 @@ import (
 )
 
 type podSpecV2 struct {
-	CaaSSpec specs.PodSpecV2
-	K8sSpec  K8sPodSpecV2
+	caaSSpec specs.PodSpecV2
+	k8sSpec  K8sPodSpecV2
 }
 
 // Validate is defined on ProviderPod.
 func (p podSpecV2) Validate() error {
-	if err := p.CaaSSpec.Validate(); err != nil {
+	if err := p.caaSSpec.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	if err := p.K8sSpec.Validate(); err != nil {
+	if err := p.k8sSpec.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -34,10 +34,10 @@ func (p podSpecV2) Validate() error {
 func (p podSpecV2) ToLatest() *specs.PodSpec {
 	pSpec := &specs.PodSpec{}
 	pSpec.Version = specs.CurrentVersion
-	pSpec.OmitServiceFrontend = p.CaaSSpec.OmitServiceFrontend
-	pSpec.Containers = p.CaaSSpec.Containers
-	pSpec.InitContainers = p.CaaSSpec.InitContainers
-	pSpec.ProviderPod = &p.K8sSpec
+	pSpec.OmitServiceFrontend = p.caaSSpec.OmitServiceFrontend
+	pSpec.Containers = p.caaSSpec.Containers
+	pSpec.InitContainers = p.caaSSpec.InitContainers
+	pSpec.ProviderPod = &p.k8sSpec
 	return pSpec
 }
 
@@ -74,40 +74,34 @@ func (p *K8sPodSpecV2) Validate() error {
 // KubernetesResources is the k8s related resources.
 type KubernetesResources struct {
 	// TODO: move secret, cm etc here for V2 ??????????
-	ServiceAccount            *ServiceAccountSpec                                          `json:"serviceAccount,omitempty"`
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `json:"customResourceDefinitions,omitempty" yaml:"customResourceDefinitions,omitempty"`
 }
 
 // Validate is defined on ProviderPod.
 func (krs *KubernetesResources) Validate() error {
-	if krs.ServiceAccount != nil {
-		if err := krs.ServiceAccount.Validate(); err != nil {
-			return errors.Trace(err)
-		}
-	}
 	return nil
 }
 
 func parsePodSpecV2(in string) (_ *specs.PodSpec, err error) {
 	// Do the common fields.
 	var spec podSpecV2
-	if err = yaml.Unmarshal([]byte(in), &spec.CaaSSpec); err != nil {
+	if err = yaml.Unmarshal([]byte(in), &spec.caaSSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
+	logger.Criticalf(
+		"spec.caaSSpec.ServiceAccount -----> %#v",
+		spec.caaSSpec.ServiceAccount,
+	)
 
 	// Do the k8s pod attributes.
 	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
-	if err = decoder.Decode(&spec.K8sSpec); err != nil {
+	if err = decoder.Decode(&spec.k8sSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if spec.K8sSpec.KubernetesResources != nil {
+	if spec.k8sSpec.KubernetesResources != nil {
 		logger.Criticalf(
-			"spec.K8sSpec.KubernetesResources.CustomResourceDefinitions -----> %#v",
-			spec.K8sSpec.KubernetesResources.CustomResourceDefinitions["tfjobs.kubeflow.org"].Validation,
-		)
-		logger.Criticalf(
-			"spec.K8sSpec.KubernetesResources.ServiceAccount -----> %#v",
-			spec.K8sSpec.KubernetesResources.ServiceAccount,
+			"spec.k8sSpec.KubernetesResources.CustomResourceDefinitions -----> %#v",
+			spec.k8sSpec.KubernetesResources.CustomResourceDefinitions["tfjobs.kubeflow.org"].Validation,
 		)
 	}
 
@@ -125,13 +119,13 @@ func parsePodSpecV2(in string) (_ *specs.PodSpec, err error) {
 		if err = c.Validate(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		spec.CaaSSpec.Containers[i] = c.ToContainerSpec()
+		spec.caaSSpec.Containers[i] = c.ToContainerSpec()
 	}
 	for i, c := range containers.InitContainers {
 		if err = c.Validate(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		spec.CaaSSpec.InitContainers[i] = c.ToContainerSpec()
+		spec.caaSSpec.InitContainers[i] = c.ToContainerSpec()
 	}
 	if err = spec.Validate(); err != nil {
 		return nil, errors.Trace(err)

@@ -12,21 +12,20 @@ import (
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
-	// "github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/specs"
 )
 
 type podSpecLegacy struct {
-	CaaSSpec specs.PodSpecLegacy
-	K8sSpec  K8sPodSpecLegacy
+	caaSSpec specs.PodSpecLegacy
+	k8sSpec  K8sPodSpecLegacy
 }
 
 // Validate is defined on ProviderPod.
 func (p podSpecLegacy) Validate() error {
-	if err := p.CaaSSpec.Validate(); err != nil {
+	if err := p.caaSSpec.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	if err := p.K8sSpec.Validate(); err != nil {
+	if err := p.k8sSpec.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -35,29 +34,29 @@ func (p podSpecLegacy) Validate() error {
 func (p podSpecLegacy) ToLatest() *specs.PodSpec {
 	pSpec := &specs.PodSpec{}
 	pSpec.Version = specs.CurrentVersion
-	pSpec.OmitServiceFrontend = p.CaaSSpec.OmitServiceFrontend
-	pSpec.Containers = p.CaaSSpec.Containers
-	pSpec.InitContainers = p.CaaSSpec.InitContainers
+	pSpec.OmitServiceFrontend = p.caaSSpec.OmitServiceFrontend
+	pSpec.Containers = p.caaSSpec.Containers
+	pSpec.InitContainers = p.caaSSpec.InitContainers
+	pSpec.ServiceAccount = &specs.ServiceAccountSpec{
+		Name:                         p.k8sSpec.ServiceAccountName,
+		AutomountServiceAccountToken: p.k8sSpec.AutomountServiceAccountToken,
+	}
 	pSpec.ProviderPod = &K8sPodSpec{
 		KubernetesResources: &KubernetesResources{
-			ServiceAccount: &ServiceAccountSpec{
-				Name:                         p.K8sSpec.ServiceAccountName,
-				AutomountServiceAccountToken: p.K8sSpec.AutomountServiceAccountToken,
-			},
-			CustomResourceDefinitions: p.K8sSpec.CustomResourceDefinitions,
+			CustomResourceDefinitions: p.k8sSpec.CustomResourceDefinitions,
 		},
-		RestartPolicy:                 p.K8sSpec.RestartPolicy,
-		TerminationGracePeriodSeconds: p.K8sSpec.TerminationGracePeriodSeconds,
-		ActiveDeadlineSeconds:         p.K8sSpec.ActiveDeadlineSeconds,
-		DNSPolicy:                     p.K8sSpec.DNSPolicy,
-		SecurityContext:               p.K8sSpec.SecurityContext,
-		Hostname:                      p.K8sSpec.Hostname,
-		Subdomain:                     p.K8sSpec.Subdomain,
-		PriorityClassName:             p.K8sSpec.PriorityClassName,
-		Priority:                      p.K8sSpec.Priority,
-		DNSConfig:                     p.K8sSpec.DNSConfig,
-		ReadinessGates:                p.K8sSpec.ReadinessGates,
-		Service:                       p.K8sSpec.Service,
+		RestartPolicy:                 p.k8sSpec.RestartPolicy,
+		TerminationGracePeriodSeconds: p.k8sSpec.TerminationGracePeriodSeconds,
+		ActiveDeadlineSeconds:         p.k8sSpec.ActiveDeadlineSeconds,
+		DNSPolicy:                     p.k8sSpec.DNSPolicy,
+		SecurityContext:               p.k8sSpec.SecurityContext,
+		Hostname:                      p.k8sSpec.Hostname,
+		Subdomain:                     p.k8sSpec.Subdomain,
+		PriorityClassName:             p.k8sSpec.PriorityClassName,
+		Priority:                      p.k8sSpec.Priority,
+		DNSConfig:                     p.k8sSpec.DNSConfig,
+		ReadinessGates:                p.k8sSpec.ReadinessGates,
+		Service:                       p.k8sSpec.Service,
 	}
 	return pSpec
 }
@@ -95,19 +94,19 @@ func (*K8sPodSpecLegacy) Validate() error {
 func parsePodSpecLegacy(in string) (_ *specs.PodSpec, err error) {
 	// Do the common fields.
 	var spec podSpecLegacy
-	if err = yaml.Unmarshal([]byte(in), &spec.CaaSSpec); err != nil {
+	if err = yaml.Unmarshal([]byte(in), &spec.caaSSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// Do the k8s pod attributes.
 	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
-	if err = decoder.Decode(&spec.K8sSpec); err != nil {
+	if err = decoder.Decode(&spec.k8sSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if spec.K8sSpec.CustomResourceDefinitions != nil {
+	if spec.k8sSpec.CustomResourceDefinitions != nil {
 		logger.Criticalf(
-			"spec.K8sSpec.CustomResourceDefinitions -----> %#v",
-			spec.K8sSpec.CustomResourceDefinitions["tfjobs.kubeflow.org"].Validation,
+			"spec.k8sSpec.CustomResourceDefinitions -----> %#v",
+			spec.k8sSpec.CustomResourceDefinitions["tfjobs.kubeflow.org"].Validation,
 		)
 	}
 
@@ -125,13 +124,13 @@ func parsePodSpecLegacy(in string) (_ *specs.PodSpec, err error) {
 		if err = c.Validate(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		spec.CaaSSpec.Containers[i] = c.ToContainerSpec()
+		spec.caaSSpec.Containers[i] = c.ToContainerSpec()
 	}
 	for i, c := range containers.InitContainers {
 		if err = c.Validate(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		spec.CaaSSpec.InitContainers[i] = c.ToContainerSpec()
+		spec.caaSSpec.InitContainers[i] = c.ToContainerSpec()
 	}
 	if err = spec.Validate(); err != nil {
 		return nil, errors.Trace(err)
