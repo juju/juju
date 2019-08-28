@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -787,4 +789,211 @@ func (s *RelationSuite) TestResumeRelationNoConsumeAccessRace(c *gc.C) {
 	err = rel.SetSuspended(false, "")
 	c.Assert(err, gc.ErrorMatches,
 		`cannot resume relation "wordpress:db mysql:server" where user "fred" does not have consume permission`)
+}
+
+func (s *RelationSuite) TestApplicationSettings(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	settingsMap, err := relation.ApplicationSettings(mysql)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settingsMap, gc.HasLen, 0)
+
+	settings := state.NewStateSettings(s.State)
+	key := fmt.Sprintf("r#%d#mysql", relation.Id())
+	err = settings.ReplaceSettings(key, map[string]interface{}{
+		"bailterspace": "blammo",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	settingsMap, err = relation.ApplicationSettings(mysql)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settingsMap, gc.DeepEquals, map[string]interface{}{
+		"bailterspace": "blammo",
+	})
+}
+
+func (s *RelationSuite) TestApplicationSettingsPeer(c *gc.C) {
+	app := state.AddTestingApplication(c, s.State, "riak", state.AddTestingCharm(c, s.State, "riak"))
+	ep, err := app.Endpoint("ring")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.EndpointsRelation(ep)
+	c.Assert(err, jc.ErrorIsNil)
+
+	settings := state.NewStateSettings(s.State)
+	key := fmt.Sprintf("r#%d#riak", rel.Id())
+	err = settings.ReplaceSettings(key, map[string]interface{}{
+		"mermaidens": "disappear",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	settingsMap, err := rel.ApplicationSettings(app)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settingsMap, gc.DeepEquals, map[string]interface{}{
+		"mermaidens": "disappear",
+	})
+}
+
+func (s *RelationSuite) TestApplicationSettingsErrors(c *gc.C) {
+	app := state.AddTestingApplication(c, s.State, "riak", state.AddTestingCharm(c, s.State, "riak"))
+	ep, err := app.Endpoint("ring")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.EndpointsRelation(ep)
+	c.Assert(err, jc.ErrorIsNil)
+
+	unrelated := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+
+	settings, err := rel.ApplicationSettings(unrelated)
+	c.Assert(err, gc.ErrorMatches, `application "wordpress" is not a member of "riak:ring"`)
+	c.Assert(settings, gc.HasLen, 0)
+}
+
+func (s *RelationSuite) TestUpdateApplicationSettingsSuccess(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// fakeToken always succeeds.
+	err = relation.UpdateApplicationSettings(
+		mysql, &fakeToken{}, map[string]interface{}{
+			"rendezvouse": "rendezvous",
+			"olden":       "yolk",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	settingsMap, err := relation.ApplicationSettings(mysql)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settingsMap, gc.DeepEquals, map[string]interface{}{
+		"rendezvouse": "rendezvous",
+		"olden":       "yolk",
+	})
+
+	// Check that updates only overwrite existing keys.
+	err = relation.UpdateApplicationSettings(
+		mysql, &fakeToken{}, map[string]interface{}{
+			"olden": "times",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	settingsMap, err = relation.ApplicationSettings(mysql)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settingsMap, gc.DeepEquals, map[string]interface{}{
+		"rendezvouse": "rendezvous",
+		"olden":       "times",
+	})
+}
+
+func (s *RelationSuite) TestUpdateApplicationSettingsNotLeader(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = relation.UpdateApplicationSettings(
+		mysql,
+		&fakeToken{errors.New("not the leader")},
+		map[string]interface{}{
+			"rendezvouse": "rendezvous",
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" application "mysql": prerequisites failed: not the leader`)
+
+	settingsMap, err := relation.ApplicationSettings(mysql)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settingsMap, gc.HasLen, 0)
+}
+
+func (s *RelationSuite) TestUpdateApplicationSettingsRace(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// raceToken indicates it holds leadership but yields txn.Ops that
+	// fail assertion to simulate a race in the DB, then fails on the
+	// second attempt indicating that leadership was lost.
+	var token raceToken
+	err = relation.UpdateApplicationSettings(
+		mysql,
+		&token,
+		map[string]interface{}{
+			"rendezvouse": "rendezvous",
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" application "mysql": prerequisites failed: too late`)
+
+	c.Assert(token.checkedOnce, gc.Equals, true)
+	settingsMap, err := relation.ApplicationSettings(mysql)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settingsMap, gc.HasLen, 0)
+}
+
+func (s *RelationSuite) TestWatchApplicationSettings(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w, err := relation.WatchApplicationSettings(mysql)
+	c.Assert(err, jc.ErrorIsNil)
+	defer testing.AssertStop(c, w)
+
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	err = relation.UpdateApplicationSettings(
+		mysql, &fakeToken{}, map[string]interface{}{
+			"castor": "pollux",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// No notify for a null change.
+	err = relation.UpdateApplicationSettings(
+		mysql, &fakeToken{}, map[string]interface{}{
+			"castor": "pollux",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+}
+
+func (s *RelationSuite) TestWatchApplicationSettingsOtherEnd(c *gc.C) {
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w, err := relation.WatchApplicationSettings(mysql)
+	c.Assert(err, jc.ErrorIsNil)
+	defer testing.AssertStop(c, w)
+
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	// No notify if the other application's settings are changed.
+	err = relation.UpdateApplicationSettings(
+		wordpress, &fakeToken{}, map[string]interface{}{
+			"grand": "palais",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
 }

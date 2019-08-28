@@ -4808,3 +4808,36 @@ func (s *StateSuite) TestControllerTimestamp(c *gc.C) {
 
 	c.Assert(*got, jc.DeepEquals, now)
 }
+
+func (s *StateSuite) TestAddRelationCreatesApplicationSettings(c *gc.C) {
+	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	settings := state.NewStateSettings(s.State)
+
+	mysqlKey := fmt.Sprintf("r#%d#mysql", rel.Id())
+	_, err = settings.ReadSettings(mysqlKey)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wpKey := fmt.Sprintf("r#%d#wordpress", rel.Id())
+	_, err = settings.ReadSettings(wpKey)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StateSuite) TestPeerRelationCreatesApplicationSettings(c *gc.C) {
+	app := state.AddTestingApplication(c, s.State, "riak", state.AddTestingCharm(c, s.State, "riak"))
+	ep, err := app.Endpoint("ring")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.EndpointsRelation(ep)
+	c.Assert(err, jc.ErrorIsNil)
+
+	settings := state.NewStateSettings(s.State)
+
+	key := fmt.Sprintf("r#%d#riak", rel.Id())
+	_, err = settings.ReadSettings(key)
+	c.Assert(err, jc.ErrorIsNil)
+}

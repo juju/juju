@@ -1073,6 +1073,15 @@ func (e *exporter) relations() error {
 				Limit:           ep.Limit,
 				Scope:           string(ep.Scope),
 			})
+
+			key := relationApplicationSettingsKey(relation.Id(), ep.ApplicationName)
+			appSettingsDoc, found := e.modelSettings[key]
+			if !found && !e.cfg.SkipSettings && !e.cfg.SkipRelationData {
+				return errors.Errorf("missing application settings for %q application %q", relation, ep.ApplicationName)
+			}
+			delete(e.modelSettings, key)
+			exEndPoint.SetApplicationSettings(appSettingsDoc.Settings)
+
 			// We expect a relationScope and settings for each of the
 			// units of the specified application, unless it is a
 			// remote application.
