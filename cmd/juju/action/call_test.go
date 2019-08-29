@@ -1,4 +1,4 @@
-// Copyright 2014, 2015 Canonical Ltd.
+// Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package action_test
@@ -103,7 +103,7 @@ func (s *RunSuite) TestInit(c *gc.C) {
 	}, {
 		should:      "fail with wrong formatting of k-v args",
 		args:        []string{validUnitId, "valid-action-name", "uh"},
-		expectError: "argument \"uh\" must be of the form key...=value",
+		expectError: "argument \"uh\" must be of the form key.key.key...=value",
 	}, {
 		should:      "fail with wrong formatting of k-v args",
 		args:        []string{validUnitId, "valid-action-name", "foo.Baz=3"},
@@ -201,7 +201,7 @@ func (s *RunSuite) TestInit(c *gc.C) {
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
-			wrappedCommand, command := action.NewRunCommandForTest(s.store)
+			wrappedCommand, command := action.NewCallCommandForTest(s.store)
 			c.Logf("test %d: should %s:\n$ juju run (action) %s\n", i,
 				t.should, strings.Join(t.args, " "))
 			args := append([]string{modelFlag, "admin"}, t.args...)
@@ -429,7 +429,7 @@ func (s *RunSuite) TestRun(c *gc.C) {
 				restore := s.patchAPIClient(fakeClient)
 				defer restore()
 
-				wrappedCommand, _ := action.NewRunCommandForTest(s.store)
+				wrappedCommand, _ := action.NewCallCommandForTest(s.store)
 				args := append([]string{modelFlag, "admin"}, t.withArgs...)
 				ctx, err := cmdtesting.RunCommand(c, wrappedCommand, args...)
 

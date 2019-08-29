@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Canonical Ltd.
+// Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package action
@@ -11,7 +11,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/yaml.v2"
@@ -21,7 +20,6 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/feature"
 )
 
 // leaderSnippet is a regular expression for unit ID-like syntax that is used
@@ -33,13 +31,13 @@ var validLeader = regexp.MustCompile("^" + leaderSnippet + "$")
 // nameRule describes the name format of an action or keyName must match to be valid.
 var nameRule = charm.GetActionNameRule()
 
-func NewRunCommand() cmd.Command {
-	return modelcmd.Wrap(&runCommand{})
+func NewCallCommand() cmd.Command {
+	return modelcmd.Wrap(&callCommand{})
 }
 
-// runCommand enqueues an Action for running on the given unit with given
+// callCommand enqueues an Action for running on the given unit with given
 // params
-type runCommand struct {
+type callCommand struct {
 	ActionCommandBase
 	api           APIClient
 	unitReceivers []string
@@ -52,7 +50,7 @@ type runCommand struct {
 	args          [][]string
 }
 
-const runDoc = `
+const callDoc = `
 Queue an Action for execution on a given unit, with a given set of params.
 The Action ID is returned for use with 'juju show-action-output <ID>' or
 'juju show-action-status <ID>'.
@@ -78,19 +76,19 @@ explicit arguments will override the parameter file.
 
 Examples:
 
-    juju run-action mysql/3 backup --wait
-    juju run-action mysql/3 backup
-    juju run-action mysql/leader backup
+    juju call mysql/3 backup --wait
+    juju call mysql/3 backup
+    juju call mysql/leader backup
     juju show-action-output <ID>
-    juju run-action mysql/3 backup --params parameters.yml
-    juju run-action mysql/3 backup out=out.tar.bz2 file.kind=xz file.quality=high
-    juju run-action mysql/3 backup --params p.yml file.kind=xz file.quality=high
-    juju run-action sleeper/0 pause time=1000
-    juju run-action sleeper/0 pause --string-args time=1000
+    juju call mysql/3 backup --params parameters.yml
+    juju call mysql/3 backup out=out.tar.bz2 file.kind=xz file.quality=high
+    juju call mysql/3 backup --params p.yml file.kind=xz file.quality=high
+    juju call sleeper/0 pause time=1000
+    juju call sleeper/0 pause --string-args time=1000
 `
 
 // SetFlags offers an option for YAML output.
-func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *callCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ActionCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.Var(&c.paramsYAML, "params", "Path to yaml-formatted params file")
@@ -98,22 +96,17 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.wait, "wait", "Wait for results, with optional timeout")
 }
 
-func (c *runCommand) Info() *cmd.Info {
-	info := jujucmd.Info(&cmd.Info{
-		Name:    "run-action",
+func (c *callCommand) Info() *cmd.Info {
+	return jujucmd.Info(&cmd.Info{
+		Name:    "call",
 		Args:    "<unit> [<unit> ...] <action name> [key.key.key...=value]",
 		Purpose: "Queue an action for execution.",
-		Doc:     runDoc,
+		Doc:     callDoc,
 	})
-	if featureflag.Enabled(feature.JujuV3) {
-		info.Name = "run"
-		info.Doc = strings.Replace(info.Doc, "run-action", "run", -1)
-	}
-	return info
 }
 
 // Init gets the unit tag(s), action name and action arguments.
-func (c *runCommand) Init(args []string) (err error) {
+func (c *callCommand) Init(args []string) (err error) {
 	for _, arg := range args {
 		if names.IsValidUnit(arg) || validLeader.MatchString(arg) {
 			c.unitReceivers = append(c.unitReceivers, arg)
@@ -136,7 +129,7 @@ func (c *runCommand) Init(args []string) (err error) {
 	for _, arg := range args[len(c.unitReceivers)+1:] {
 		thisArg := strings.SplitN(arg, "=", 2)
 		if len(thisArg) != 2 {
-			return errors.Errorf("argument %q must be of the form key...=value", arg)
+			return errors.Errorf("argument %q must be of the form key.key.key...=value", arg)
 		}
 		keySlice := strings.Split(thisArg[0], ".")
 		// check each key for validity
@@ -146,13 +139,12 @@ func (c *runCommand) Init(args []string) (err error) {
 					"and contain only lowercase alphanumeric and hyphens", key)
 			}
 		}
-		// c.args={..., [key, key, key, key, value]}
 		c.args = append(c.args, append(keySlice, thisArg[1]))
 	}
 	return nil
 }
 
-func (c *runCommand) Run(ctx *cmd.Context) error {
+func (c *callCommand) Run(ctx *cmd.Context) error {
 	if err := c.ensureAPI(); err != nil {
 		return errors.Trace(err)
 	}
@@ -249,19 +241,19 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 
 		// Legacy Juju 1.25 output format for a single unit, no wait.
 		if !c.wait.forever && c.wait.d.Nanoseconds() <= 0 && len(results.Results) == 1 {
-			out := map[string]string{"Action queued with id": tag.Id()}
-			return c.out.Write(ctx, out)
+			results := map[string]string{"Action queued with id": tag.Id()}
+			return c.out.Write(ctx, results)
 		}
 	}
 
-	out := make(map[string]interface{}, len(results.Results))
+	info := make(map[string]interface{}, len(results.Results))
 
 	// Immediate return. This is the default, although rarely
 	// what cli users want. We should consider changing this
 	// default with Juju 3.0.
 	if !c.wait.forever && c.wait.d.Nanoseconds() <= 0 {
 		for _, result := range results.Results {
-			out[result.Action.Receiver] = result.Action.Tag
+			info[result.Action.Receiver] = result.Action.Tag
 			actionTag, err := names.ParseActionTag(result.Action.Tag)
 			if err != nil {
 				return err
@@ -270,12 +262,12 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 			if err != nil {
 				return err
 			}
-			out[result.Action.Receiver] = map[string]string{
+			info[result.Action.Receiver] = map[string]string{
 				"id":   actionTag.Id(),
 				"unit": unitTag.Id(),
 			}
 		}
-		return c.out.Write(ctx, out)
+		return c.out.Write(ctx, info)
 	}
 
 	var wait *time.Timer
@@ -303,12 +295,12 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		d := FormatActionResult(result)
 		d["id"] = tag.Id()       // Action ID is required in case we timed out.
 		d["unit"] = unitTag.Id() // Formatted unit is nice to have.
-		out[result.Action.Receiver] = d
+		info[result.Action.Receiver] = d
 	}
-	return c.out.Write(ctx, out)
+	return c.out.Write(ctx, info)
 }
 
-func (c *runCommand) ensureAPI() (err error) {
+func (c *callCommand) ensureAPI() (err error) {
 	if c.api != nil {
 		return nil
 	}

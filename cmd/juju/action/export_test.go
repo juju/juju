@@ -29,27 +29,51 @@ type CancelCommand struct {
 	*cancelCommand
 }
 
-type RunCommand struct {
-	*runCommand
+type CallCommand struct {
+	*callCommand
 }
 
-func (c *RunCommand) UnitNames() []string {
+func (c *CallCommand) UnitNames() []string {
 	return c.unitReceivers
 }
 
-func (c *RunCommand) ActionName() string {
+func (c *CallCommand) ActionName() string {
 	return c.actionName
 }
 
-func (c *RunCommand) ParseStrings() bool {
+func (c *CallCommand) ParseStrings() bool {
 	return c.parseStrings
 }
 
-func (c *RunCommand) ParamsYAML() cmd.FileVar {
+func (c *CallCommand) ParamsYAML() cmd.FileVar {
 	return c.paramsYAML
 }
 
-func (c *RunCommand) Args() [][]string {
+func (c *CallCommand) Args() [][]string {
+	return c.args
+}
+
+type RunActionCommand struct {
+	*runActionCommand
+}
+
+func (c *RunActionCommand) UnitNames() []string {
+	return c.unitReceivers
+}
+
+func (c *RunActionCommand) ActionName() string {
+	return c.actionName
+}
+
+func (c *RunActionCommand) ParseStrings() bool {
+	return c.parseStrings
+}
+
+func (c *RunActionCommand) ParamsYAML() cmd.FileVar {
+	return c.paramsYAML
+}
+
+func (c *RunActionCommand) Args() [][]string {
 	return c.args
 }
 
@@ -107,10 +131,16 @@ func NewShowCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ShowComm
 	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &ShowCommand{c}
 }
 
-func NewRunCommandForTest(store jujuclient.ClientStore) (cmd.Command, *RunCommand) {
-	c := &runCommand{}
+func NewCallCommandForTest(store jujuclient.ClientStore) (cmd.Command, *CallCommand) {
+	c := &callCommand{}
 	c.SetClientStore(store)
-	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &RunCommand{c}
+	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &CallCommand{c}
+}
+
+func NewRunActionCommandForTest(store jujuclient.ClientStore) (cmd.Command, *RunActionCommand) {
+	c := &runActionCommand{}
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &RunActionCommand{c}
 }
 
 func ActionResultsToMap(results []params.ActionResult) map[string]interface{} {
