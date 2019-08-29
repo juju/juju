@@ -4,13 +4,13 @@
 package action_test
 
 import (
-	"errors"
 	"io/ioutil"
 	"testing"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -23,8 +23,10 @@ import (
 
 const (
 	validActionTagString   = "action-f47ac10b-58cc-4372-a567-0e02b2c3d479"
+	validActionTagString2  = "action-f47ac10b-58cc-4372-a567-0e02b2c3d478"
 	invalidActionTagString = "action-f47ac10b-58cc-4372-a567-0e02b2c3d47"
 	validActionId          = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+	validActionId2         = "f47ac10b-58cc-4372-a567-0e02b2c3d478"
 	validUnitId            = "mysql/0"
 	validUnitId2           = "mysql/1"
 	invalidUnitId          = "something-strange-"
@@ -194,6 +196,23 @@ func (c *fakeAPIClient) ApplicationCharmActions(params.Entity) (map[string]param
 	return c.charmActions, c.apiErr
 }
 
+func (c *fakeAPIClient) getActionResults(entities []params.Entity) params.ActionResults {
+	var result params.ActionResults
+	for _, a := range c.actionResults {
+		if a.Error != nil || a.Action == nil {
+			result.Results = append(result.Results, a)
+			continue
+		}
+		for _, e := range entities {
+			if a.Action.Tag == e.Tag {
+				result.Results = append(result.Results, a)
+				break
+			}
+		}
+	}
+	return result
+}
+
 func (c *fakeAPIClient) Actions(args params.Entities) (params.ActionResults, error) {
 	// If the test supplies a delay time too long, we'll return an error
 	// to prevent the test hanging.  If the given wait is up, then return
@@ -201,12 +220,12 @@ func (c *fakeAPIClient) Actions(args params.Entities) (params.ActionResults, err
 
 	if c.delay == nil {
 		// No delay requested, just return immediately.
-		return params.ActionResults{Results: c.actionResults}, c.apiErr
+		return c.getActionResults(args.Entities), c.apiErr
 	}
 	select {
 	case _ = <-c.delay.C:
-		// The API delay timer is up.  Pass pre-canned results back.
-		return params.ActionResults{Results: c.actionResults}, c.apiErr
+		// The API delay timer is up.
+		return c.getActionResults(args.Entities), c.apiErr
 	case _ = <-c.timeout.C:
 		// Timeout to prevent tests from hanging.
 		return params.ActionResults{}, errors.New("test timed out before wait time")

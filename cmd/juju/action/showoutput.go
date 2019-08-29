@@ -10,11 +10,13 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/feature"
 )
 
 func NewShowOutputCommand() cmd.Command {
@@ -49,18 +51,27 @@ func (c *showOutputCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *showOutputCommand) Info() *cmd.Info {
-	return jujucmd.Info(&cmd.Info{
+	info := jujucmd.Info(&cmd.Info{
 		Name:    "show-action-output",
 		Args:    "<action ID>",
 		Purpose: "Show results of an action by ID.",
 		Doc:     showOutputDoc,
 	})
+	if featureflag.Enabled(feature.JujuV3) {
+		info.Name = "show-operation"
+		info.Args = "<operation ID>"
+		info.Purpose = "Show results of an operation by ID."
+	}
+	return info
 }
 
 // Init validates the action ID and any other options.
 func (c *showOutputCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
+		if featureflag.Enabled(feature.JujuV3) {
+			return errors.New("no operation ID specified")
+		}
 		return errors.New("no action ID specified")
 	case 1:
 		c.requestedId = args[0]
