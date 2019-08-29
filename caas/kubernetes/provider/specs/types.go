@@ -25,7 +25,7 @@ type (
 
 type k8sContainer struct {
 	specs.ContainerSpec `json:",inline"`
-	*K8sContainerSpec   `json:",inline"`
+	Kubernetes          *K8sContainerSpec `json:"kubernetes,omitempty"`
 }
 
 // Validate validates k8sContainer.
@@ -33,16 +33,21 @@ func (c *k8sContainer) Validate() error {
 	if err := c.ContainerSpec.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	if c.K8sContainerSpec != nil {
-		if err := c.K8sContainerSpec.Validate(); err != nil {
+	if c.Kubernetes != nil {
+		if err := c.Kubernetes.Validate(); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
+type k8sContainerInterface interface {
+	Validate() error
+	ToContainerSpec() specs.ContainerSpec
+}
+
 func (c *k8sContainer) ToContainerSpec() specs.ContainerSpec {
-	quoteBoolStrings(c)
+	quoteBoolStrings(c.Config)
 	result := specs.ContainerSpec{
 		ImageDetails: c.ImageDetails,
 		Name:         c.Name,
@@ -55,8 +60,8 @@ func (c *k8sContainer) ToContainerSpec() specs.ContainerSpec {
 		Config:       c.Config,
 		Files:        c.Files,
 	}
-	if c.K8sContainerSpec != nil {
-		result.ProviderContainer = c.K8sContainerSpec
+	if c.Kubernetes != nil {
+		result.ProviderContainer = c.Kubernetes
 	}
 	return result
 }
@@ -91,22 +96,21 @@ var boolValues = set.NewStrings(
 	strings.Split("y|Y|yes|Yes|YES|n|N|no|No|NO|true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF", "|")...,
 )
 
-func quoteBoolStrings(container *k8sContainer) {
+func quoteBoolStrings(config map[string]interface{}) {
 	// Any string config values that could be interpreted as bools need to be quoted.
-	for k, v := range container.Config {
+	for k, v := range config {
 		strValue, ok := v.(string)
 		if !ok {
 			continue
 		}
 		if boolValues.Contains(strValue) {
-			container.Config[k] = fmt.Sprintf("'%s'", strValue)
+			config[k] = fmt.Sprintf("'%s'", strValue)
 		}
 	}
 }
 
 type k8sContainers struct {
 	Containers []k8sContainer `json:"containers"`
-	// InitContainers []k8sContainer `json:"initContainers"`
 }
 
 // Validate is defined on ProviderContainer.
@@ -146,7 +150,7 @@ func ParsePodSpec(in string) (*specs.PodSpec, error) {
 
 type parserType func(string) (*specs.PodSpec, error)
 
-func getParser(specVersion specs.Version) (p parserType, _ error) {
+func getParser(specVersion specs.Version) (parserType, error) {
 	logger.Criticalf("getParser ---> %v", specVersion)
 	switch specVersion {
 	case specs.Version2:

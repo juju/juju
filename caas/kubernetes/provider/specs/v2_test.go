@@ -33,7 +33,6 @@ omitServiceFrontend: true
 containers:
   - name: gitlab
     image: gitlab/latest
-    imagePullPolicy: Always
     command:
       - sh
       - -c
@@ -43,24 +42,26 @@ containers:
     args: ["doIt", "--debug"]
     workingDir: "/path/to/here"
     ports:
-    - containerPort: 80
-      name: fred
-      protocol: TCP
-    - containerPort: 443
-      name: mary
-    securityContext:
-      runAsNonRoot: true
-      privileged: true
-    livenessProbe:
-      initialDelaySeconds: 10
-      httpGet:
-        path: /ping
-        port: 8080
-    readinessProbe:
-      initialDelaySeconds: 10
-      httpGet:
-        path: /pingReady
-        port: www
+      - containerPort: 80
+        name: fred
+        protocol: TCP
+      - containerPort: 443
+        name: mary
+    kubernetes:
+      imagePullPolicy: Always
+      securityContext:
+        runAsNonRoot: true
+        privileged: true
+      livenessProbe:
+        initialDelaySeconds: 10
+        httpGet:
+          path: /ping
+          port: 8080
+      readinessProbe:
+        initialDelaySeconds: 10
+        httpGet:
+          path: /pingReady
+          port: www
     config:
       attr: foo=bar; name['fred']='blogs';
       foo: bar
@@ -89,7 +90,8 @@ containers:
   - name: gitlab-init
     image: gitlab-init/latest
     init: true
-    imagePullPolicy: Always
+    kubernetes:
+      imagePullPolicy: Always
     command:
       - sh
       - -c
@@ -108,6 +110,10 @@ containers:
       foo: bar
       restricted: 'yes'
       switch: on
+configMaps:
+  mydata:
+    foo: bar
+    hello: world
 service:
   annotations:
     foo: bar
@@ -217,6 +223,12 @@ foo: bar
 		}
 		pSpecs.Service = &specs.ServiceSpec{
 			Annotations: map[string]string{"foo": "bar"},
+		}
+		pSpecs.ConfigMaps = map[string]map[string]string{
+			"mydata": map[string]string{
+				"foo":   "bar",
+				"hello": "world",
+			},
 		}
 		// always parse to latest version.
 		pSpecs.Version = specs.CurrentVersion

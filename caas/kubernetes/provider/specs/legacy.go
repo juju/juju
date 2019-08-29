@@ -14,6 +14,44 @@ import (
 	"github.com/juju/juju/caas/specs"
 )
 
+type k8sContainerLegacy struct {
+	specs.ContainerSpec `json:",inline"`
+	*K8sContainerSpec   `json:",inline"`
+}
+
+// Validate validates k8sContainerLegacy.
+func (c *k8sContainerLegacy) Validate() error {
+	if err := c.ContainerSpec.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if c.K8sContainerSpec != nil {
+		if err := c.K8sContainerSpec.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (c *k8sContainerLegacy) ToContainerSpec() specs.ContainerSpec {
+	quoteBoolStrings(c.Config)
+	result := specs.ContainerSpec{
+		ImageDetails: c.ImageDetails,
+		Name:         c.Name,
+		Init:         c.Init,
+		Image:        c.Image,
+		Ports:        c.Ports,
+		Command:      c.Command,
+		Args:         c.Args,
+		WorkingDir:   c.WorkingDir,
+		Config:       c.Config,
+		Files:        c.Files,
+	}
+	if c.K8sContainerSpec != nil {
+		result.ProviderContainer = c.K8sContainerSpec
+	}
+	return result
+}
+
 type podSpecLegacy struct {
 	caaSSpec specs.PodSpecLegacy
 	k8sSpec  K8sPodSpecLegacy
@@ -95,13 +133,16 @@ func (*K8sPodSpecLegacy) Validate() error {
 }
 
 type k8sContainersLegacy struct {
-	k8sContainers  `yaml:",inline"`
-	InitContainers []k8sContainer `json:"initContainers"`
+	Containers     []k8sContainerLegacy `json:"containers"`
+	InitContainers []k8sContainerLegacy `json:"initContainers"`
 }
 
 // Validate is defined on ProviderContainer.
 func (cs *k8sContainersLegacy) Validate() error {
-	return errors.Trace(cs.k8sContainers.Validate())
+	if len(cs.Containers) == 0 {
+		return errors.New("require at least one container spec")
+	}
+	return nil
 }
 
 func parsePodSpecLegacy(in string) (_ *specs.PodSpec, err error) {
