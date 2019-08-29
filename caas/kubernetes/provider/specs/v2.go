@@ -63,7 +63,7 @@ func (p *K8sPodSpecV2) Validate() error {
 
 // KubernetesResources is the k8s related resources.
 type KubernetesResources struct {
-	// TODO: move secret, cm etc here for V2 ??????????
+	Secrets                   []Secret                                                     `json:"secrets" yaml:"secrets"`
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `json:"customResourceDefinitions,omitempty" yaml:"customResourceDefinitions,omitempty"`
 }
 
