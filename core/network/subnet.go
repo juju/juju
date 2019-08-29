@@ -54,9 +54,13 @@ type SubnetInfo struct {
 	// availability zones.
 	AvailabilityZones []string
 
+	// SpaceID is the id of the space the subnet is associated with.
+	// It can be empty if the subnet is not associated with a space yet.
+	// SpaceID is preferred over SpaceName.
+	SpaceID string
+
 	// SpaceName is the name of the space the subnet is associated with.
 	// It can be empty if the subnet is not associated with a space yet.
-	// TODO (manadart 2019-07-11): Remove in lieu of SpaceId?
 	SpaceName string
 
 	// FanInfo describes the fan networking setup for the subnet.
