@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -64,7 +64,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if !ok {
 				return nil, errors.Errorf("expected a unit tag, got %v", tag)
 			}
-			paths := uniter.NewWorkerPaths(agentConfig.DataDir(), unitTag, "metrics-send")
+			paths := uniter.NewWorkerPaths(agentConfig.DataDir(), unitTag, "metrics-send", false)
 
 			client := newMetricAdderClient(apicaller)
 

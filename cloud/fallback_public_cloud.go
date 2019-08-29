@@ -30,6 +30,10 @@ clouds:
         endpoint: https://ec2.eu-west-3.amazonaws.com
       eu-central-1:
         endpoint: https://ec2.eu-central-1.amazonaws.com
+      eu-north-1:
+        endpoint: https://ec2.eu-north-1.amazonaws.com
+      ap-east-1:
+        endpoint: https://ec2.ap-east-1.amazonaws.com
       ap-south-1:
         endpoint: https://ec2.ap-south-1.amazonaws.com
       ap-southeast-1:
@@ -40,6 +44,10 @@ clouds:
         endpoint: https://ec2.ap-northeast-1.amazonaws.com
       ap-northeast-2:
         endpoint: https://ec2.ap-northeast-2.amazonaws.com
+      ap-northeast-3:
+        endpoint: https://ec2.ap-northeast-3.amazonaws.com
+      me-south-1:
+        endpoint: https://ec2.me-south-1.amazonaws.com
       sa-east-1:
         endpoint: https://ec2.sa-east-1.amazonaws.com
   aws-china:
@@ -58,6 +66,8 @@ clouds:
     regions:
       us-gov-west-1:
         endpoint: https://ec2.us-gov-west-1.amazonaws.com
+      us-gov-east-1:
+        endpoint: https://ec2.us-gov-east-1.amazonaws.com
   google:
     type: gce
     description: Google Cloud Platform
@@ -211,7 +221,19 @@ clouds:
       francecentral:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net       
+        identity-endpoint: https://graph.windows.net
+      francesouth:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
+      southafricanorth:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
+      southafricawest:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
   azure-china:
     type: azure
     description: Microsoft Azure China
@@ -317,5 +339,4 @@ clouds:
         endpoint: https://compute.em2.oraclecloud.com
       em3:
         endpoint: https://compute.em3.oraclecloud.com
-
 `

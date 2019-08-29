@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -690,8 +690,10 @@ func (s *MetricSuite) TestUnitMetricBatchesMatchesAllCharms(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	metricBatches, err := s.State.MetricBatchesForUnit("metered/0")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 1)
 	metricBatches, err = s.State.MetricBatchesForUnit("localmetered/0")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 1)
 }
 
@@ -991,8 +993,10 @@ func (s *MetricLocalCharmSuite) TestUnitMetricBatchesReturnsAllCharms(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	metricBatches, err := s.State.MetricBatchesForUnit("metered/0")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 1)
 	metricBatches, err = s.State.MetricBatchesForUnit("csmetered/0")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 1)
 }
 

@@ -13,7 +13,7 @@ import (
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
@@ -41,7 +41,7 @@ func (inst *azureInstance) Id() instance.Id {
 
 // Status is specified in the Instance interface.
 func (inst *azureInstance) Status(ctx context.ProviderCallContext) instance.Status {
-	instanceStatus := status.Empty
+	var instanceStatus status.Status
 	message := inst.provisioningState
 	switch inst.provisioningState {
 	case "Succeeded":
@@ -115,6 +115,9 @@ func instanceNetworkInterfaces(
 	}
 	instanceNics := make(map[instance.Id][]network.Interface)
 	for ; nicsResult.NotDone(); err = nicsResult.NextWithContext(sdkCtx) {
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		nic := nicsResult.Value()
 		instanceId := instance.Id(to.String(nic.Tags[jujuMachineNameTag]))
 		instanceNics[instanceId] = append(instanceNics[instanceId], nic)
@@ -140,6 +143,9 @@ func instancePublicIPAddresses(
 	}
 	instancePips := make(map[instance.Id][]network.PublicIPAddress)
 	for ; pipsResult.NotDone(); err = pipsResult.NextWithContext(sdkCtx) {
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		pip := pipsResult.Value()
 		instanceId := instance.Id(to.String(pip.Tags[jujuMachineNameTag]))
 		instancePips[instanceId] = append(instancePips[instanceId], pip)
@@ -148,8 +154,8 @@ func instancePublicIPAddresses(
 }
 
 // Addresses is specified in the Instance interface.
-func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) ([]jujunetwork.Address, error) {
-	addresses := make([]jujunetwork.Address, 0, len(inst.networkInterfaces)+len(inst.publicIPAddresses))
+func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
+	addresses := make([]corenetwork.Address, 0, len(inst.networkInterfaces)+len(inst.publicIPAddresses))
 	for _, nic := range inst.networkInterfaces {
 		if nic.IPConfigurations == nil {
 			continue
@@ -159,9 +165,9 @@ func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) ([]jujunet
 			if privateIpAddress == nil {
 				continue
 			}
-			addresses = append(addresses, jujunetwork.NewScopedAddress(
+			addresses = append(addresses, corenetwork.NewScopedAddress(
 				to.String(privateIpAddress),
-				jujunetwork.ScopeCloudLocal,
+				corenetwork.ScopeCloudLocal,
 			))
 		}
 	}
@@ -169,9 +175,9 @@ func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) ([]jujunet
 		if pip.IPAddress == nil {
 			continue
 		}
-		addresses = append(addresses, jujunetwork.NewScopedAddress(
+		addresses = append(addresses, corenetwork.NewScopedAddress(
 			to.String(pip.IPAddress),
-			jujunetwork.ScopePublic,
+			corenetwork.ScopePublic,
 		))
 	}
 	return addresses, nil
@@ -180,7 +186,7 @@ func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) ([]jujunet
 // primaryNetworkAddress returns the instance's primary jujunetwork.Address for
 // the internal virtual network. This address is used to identify the machine in
 // network security rules.
-func (inst *azureInstance) primaryNetworkAddress() (jujunetwork.Address, error) {
+func (inst *azureInstance) primaryNetworkAddress() (corenetwork.Address, error) {
 	for _, nic := range inst.networkInterfaces {
 		if nic.IPConfigurations == nil {
 			continue
@@ -196,13 +202,13 @@ func (inst *azureInstance) primaryNetworkAddress() (jujunetwork.Address, error) 
 			if privateIpAddress == nil {
 				continue
 			}
-			return jujunetwork.NewScopedAddress(
+			return corenetwork.NewScopedAddress(
 				to.String(privateIpAddress),
-				jujunetwork.ScopeCloudLocal,
+				corenetwork.ScopeCloudLocal,
 			), nil
 		}
 	}
-	return jujunetwork.Address{}, errors.NotFoundf("internal network address")
+	return corenetwork.Address{}, errors.NotFoundf("internal network address")
 }
 
 // OpenPorts is specified in the Instance interface.

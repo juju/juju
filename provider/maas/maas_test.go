@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -29,7 +30,6 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/keys"
 	supportedversion "github.com/juju/juju/juju/version"
-	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -194,7 +194,7 @@ func createSubnetInfo(subnetID, spaceID, ipRange uint) network.SubnetInfo {
 	return network.SubnetInfo{
 		CIDR:            fmt.Sprintf("192.168.%d.0/24", ipRange),
 		ProviderId:      network.Id(strconv.Itoa(int(subnetID))),
-		SpaceProviderId: network.Id(fmt.Sprintf("%d", spaceID)),
+		ProviderSpaceId: network.Id(fmt.Sprintf("%d", spaceID)),
 	}
 }
 

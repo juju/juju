@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/pubsub/controller"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/lease"
 	"github.com/juju/juju/worker/modelcache"
 )
@@ -38,8 +39,10 @@ var _ = gc.Suite(&sharedServerContextSuite{})
 func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 
+	initialized := gate.NewLock()
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
-		Logger: loggo.GetLogger("test"),
+		InitializedGate: initialized,
+		Logger:          loggo.GetLogger("test"),
 		WatcherFactory: func() modelcache.BackingWatcher {
 			return s.StatePool.SystemState().WatchAllModels(s.StatePool)
 		},

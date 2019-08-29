@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api"
 	apiuniter "github.com/juju/juju/api/uniter"
@@ -54,6 +54,7 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	unit, err := s.app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
 	s.ru, err = s.rel.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.ru.EnterScope(nil)

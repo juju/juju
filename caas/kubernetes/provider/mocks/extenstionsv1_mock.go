@@ -5,8 +5,6 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,6 +12,7 @@ import (
 	watch "k8s.io/apimachinery/pkg/watch"
 	v1beta10 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
 	rest "k8s.io/client-go/rest"
+	reflect "reflect"
 )
 
 // MockExtensionsV1beta1Interface is a mock of ExtensionsV1beta1Interface interface

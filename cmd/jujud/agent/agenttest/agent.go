@@ -18,7 +18,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"
@@ -26,13 +26,13 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/filestorage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	coretesting "github.com/juju/juju/testing"
@@ -138,6 +138,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 	c.Assert(err, jc.ErrorIsNil)
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), "released", vers)
 	err = envtools.MergeAndWriteMetadata(stor, "released", "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
+	c.Assert(err, jc.ErrorIsNil)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag.String(), vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)

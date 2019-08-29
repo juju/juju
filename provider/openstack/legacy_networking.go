@@ -9,6 +9,7 @@ import (
 	"gopkg.in/goose.v2/nova"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 )
 
@@ -69,18 +70,20 @@ func (n *LegacyNovaNetworking) ResolveNetwork(name string, external bool) (strin
 	if err != nil {
 		return "", err
 	}
-	for _, network := range networks {
+	for _, net := range networks {
 		// Assuming a positive match on "" makes this behave the same as the
 		// server-side filtering in Neutron networking.
-		if name == "" || network.Label == name {
-			networkIds = append(networkIds, network.Id)
+		if name == "" || net.Label == name {
+			networkIds = append(networkIds, net.Id)
 		}
 	}
 	return processResolveNetworkIds(name, networkIds)
 }
 
 // Subnets is part of the Networking interface.
-func (n *LegacyNovaNetworking) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (n *LegacyNovaNetworking) Subnets(
+	instId instance.Id, subnetIds []corenetwork.Id,
+) ([]corenetwork.SubnetInfo, error) {
 	return nil, errors.NotSupportedf("nova subnet")
 }
 

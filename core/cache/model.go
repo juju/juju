@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 )
 
 const (
@@ -74,13 +74,23 @@ func (m *Model) Config() map[string]interface{} {
 	return cfg
 }
 
+// UUID returns the model's model-uuid.
+func (m *Model) UUID() string {
+	defer m.doLocked()()
+	return m.details.ModelUUID
+}
+
 // Name returns the current model's name.
 func (m *Model) Name() string {
+	defer m.doLocked()()
 	return m.details.Name
 }
 
 // WatchConfig creates a watcher for the model config.
 func (m *Model) WatchConfig(keys ...string) *ConfigWatcher {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	return newConfigWatcher(keys, m.hashCache, m.hub, modelConfigChange, m.Resident)
 }
 
@@ -100,12 +110,14 @@ func (m *Model) Report() map[string]interface{} {
 }
 
 // Branches returns all active branches in the model.
-func (m *Model) Branches() map[string]Branch {
+func (m *Model) Branches() []Branch {
 	m.mu.Lock()
 
-	branches := make(map[string]Branch, len(m.branches))
-	for id, b := range m.branches {
-		branches[id] = b.copy()
+	branches := make([]Branch, len(m.branches))
+	i := 0
+	for _, b := range m.branches {
+		branches[i] = b.copy()
+		i += 1
 	}
 
 	m.mu.Unlock()

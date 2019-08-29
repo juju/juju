@@ -122,7 +122,8 @@ func MachineChange(c *gc.C, modelUUID string, machine *state.Machine) cache.Mach
 		SupportedContainersKnown: scKnown,
 		HardwareCharacteristics:  hwc,
 		CharmProfiles:            chProf,
-		HasVote:                  machine.HasVote(),
+		HasVote:                  true,
+		WantsVote:                true,
 		// TODO: Config, Addresses.
 	}
 

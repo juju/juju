@@ -15,7 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	charmresource "gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/resources"
@@ -286,7 +286,7 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 	case charmresource.TypeContainerImage:
 		var dockerDetails resources.DockerImageDetails
 		respBuf := new(bytes.Buffer)
-		_, err := respBuf.ReadFrom(r)
+		_, err = respBuf.ReadFrom(r)
 		if err != nil {
 			return errors.Trace(err)
 		}

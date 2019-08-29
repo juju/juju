@@ -16,7 +16,6 @@ import (
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -291,7 +290,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 	}
 
 	agentConfig := config.Agent.CurrentConfig()
-	machineTag := agentConfig.Tag().(names.MachineTag)
+	agentTag := agentConfig.Tag()
 	controllerTag := agentConfig.Controller()
 
 	leaseFSM := raftlease.NewFSM()
@@ -390,15 +389,25 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			SetStatePool:           config.SetStatePool,
 		}),
 
+		// The model cache initialized gate is used to make sure the api server
+		// isn't created before the model cache has been initialized with the
+		// initial state of the world.
+		modelCacheInitializedGateName: ifController(gate.Manifold()),
+		modelCacheInitializedFlagName: ifController(gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  modelCacheInitializedGateName,
+			NewWorker: gate.NewFlagWorker,
+		})),
+
 		// The modelcache manifold creates a cache.Controller and keeps
 		// it up to date using an all model watcher. The controller is then
 		// used by the apiserver.
-		modelCacheName: modelcache.Manifold(modelcache.ManifoldConfig{
+		modelCacheName: ifController(modelcache.Manifold(modelcache.ManifoldConfig{
 			StateName:            stateName,
+			InitializedGateName:  modelCacheInitializedGateName,
 			Logger:               loggo.GetLogger("juju.worker.modelcache"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            modelcache.NewWorker,
-		}),
+		})),
 
 		// The api-config-watcher manifold monitors the API server
 		// addresses in the agent config and bounces when they
@@ -490,26 +499,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:         agentName,
 			APICallerName:     apiCallerName,
 			FortressName:      migrationFortressName,
+			Clock:             config.Clock,
 			APIOpen:           api.Open,
 			ValidateMigration: config.ValidateMigration,
 			NewFacade:         migrationminion.NewFacade,
 			NewWorker:         migrationminion.NewWorker,
 		}),
 
-		// We run clock updaters for every controller machine to
-		// ensure the lease clock is updated monotonically and at a
-		// rate no faster than real time.
-		//
-		// If the legacy-leases feature flag is set the global clock
-		// updater updates the lease clock in the database.  .
-		globalClockUpdaterName: ifLegacyLeasesEnabled(globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
-			Clock:          config.Clock,
-			StateName:      stateName,
-			NewWorker:      globalclockupdater.NewWorker,
-			UpdateInterval: globalClockUpdaterUpdateInterval,
-			BackoffDelay:   globalClockUpdaterBackoffDelay,
-			Logger:         loggo.GetLogger("juju.worker.globalclockupdater.mongo"),
-		})),
 		// We also run another clock updater to feed time updates into
 		// the lease FSM.
 		leaseClockUpdaterName: globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
@@ -529,7 +525,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:         config.Clock,
 			APICallerName: apiCallerName,
 			Duration:      config.ControllerLeaseDuration,
-			Claimant:      machineTag,
+			Claimant:      agentTag,
 			Entity:        controllerTag,
 			NewFacade:     singular.NewFacade,
 			NewWorker:     singular.NewWorker,
@@ -565,32 +561,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpdateAgentFunc: config.UpdateLoggerConfig,
 		})),
 
-		// The diskmanager worker periodically lists block devices on the
-		// machine it runs on. This worker will be run on all Juju-managed
-		// machines (one per machine agent).
-		diskManagerName: ifNotMigrating(diskmanager.Manifold(diskmanager.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-		})),
-
-		// The api address updater is a leaf worker that rewrites agent config
-		// as the state server addresses change. We should only need one of
-		// these in a consolidated agent.
-		apiAddressUpdaterName: ifNotMigrating(apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-		})),
-
-		// The machiner Worker will wait for the identified machine to become
-		// Dying and make it Dead; or until the machine becomes Dead by other
-		// means. This worker needs to be launched after fanconfigurer
-		// so that it reports interfaces created by it.
-		machinerName: ifNotMigrating(machiner.Manifold(machiner.ManifoldConfig{
-			AgentName:         agentName,
-			APICallerName:     apiCallerName,
-			FanConfigurerName: fanConfigurerName,
-		})),
-
 		// The log sender is a leaf worker that sends log messages to some
 		// API server, when configured so to do. We should only need one of
 		// these in a consolidated agent.
@@ -616,13 +586,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		identityFileWriterName: ifNotMigrating(identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-		})),
-
-		machineActionName: ifNotMigrating(machineactions.Manifold(machineactions.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			NewFacade:     machineactions.NewFacade,
-			NewWorker:     machineactions.NewMachineActionsWorker,
 		})),
 
 		externalControllerUpdaterName: ifNotMigrating(ifPrimaryController(externalcontrollerupdater.Manifold(
@@ -679,7 +642,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:            httpserver.NewWorkerShim,
 		}),
 
-		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
+		apiServerName: ifModelCacheInitialized(apiserver.Manifold(apiserver.ManifoldConfig{
 			AgentName:              agentName,
 			AuthenticatorName:      httpServerArgsName,
 			ClockName:              clockName,
@@ -701,7 +664,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Presence:                          config.PresenceRecorder,
 			NewWorker:                         apiserver.NewWorker,
 			NewMetricsCollector:               apiserver.NewMetricsCollector,
-		}),
+		})),
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 			StateName:      stateName,
@@ -806,25 +769,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:     credentialvalidator.NewFacade,
 			NewWorker:     credentialvalidator.NewWorker,
 		}),
-
-		legacyLeasesFlagName: ifController(featureflag.Manifold(featureflag.ManifoldConfig{
-			StateName: stateName,
-			FlagName:  feature.LegacyLeases,
-			Logger:    loggo.GetLogger("juju.worker.legacyleasesenabled"),
-			NewWorker: featureflag.NewWorker,
-		})),
-
-		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
-			AgentName:                agentName,
-			StateName:                stateName,
-			NewWorker:                certupdater.NewCertificateUpdater,
-			NewMachineAddressWatcher: certupdater.NewMachineAddressWatcher,
-		})),
-
-		fanConfigurerName: ifNotMigrating(fanconfigurer.Manifold(fanconfigurer.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Clock:         config.Clock,
-		})),
 	}
 
 	return manifolds
@@ -866,6 +810,73 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			RootDir:       config.RootDir,
 			NewFacade:     hostkeyreporter.NewFacade,
 			NewWorker:     hostkeyreporter.NewWorker,
+		})),
+
+		fanConfigurerName: ifNotMigrating(fanconfigurer.Manifold(fanconfigurer.ManifoldConfig{
+			APICallerName: apiCallerName,
+			Clock:         config.Clock,
+		})),
+
+		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
+			AgentName:                agentName,
+			StateName:                stateName,
+			NewWorker:                certupdater.NewCertificateUpdater,
+			NewMachineAddressWatcher: certupdater.NewMachineAddressWatcher,
+		})),
+
+		// The machiner Worker will wait for the identified machine to become
+		// Dying and make it Dead; or until the machine becomes Dead by other
+		// means. This worker needs to be launched after fanconfigurer
+		// so that it reports interfaces created by it.
+		machinerName: ifNotMigrating(machiner.Manifold(machiner.ManifoldConfig{
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			FanConfigurerName: fanConfigurerName,
+		})),
+
+		// The diskmanager worker periodically lists block devices on the
+		// machine it runs on. This worker will be run on all Juju-managed
+		// machines (one per machine agent).
+		diskManagerName: ifNotMigrating(diskmanager.Manifold(diskmanager.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+		})),
+
+		// The api address updater is a leaf worker that rewrites agent config
+		// as the state server addresses change. We should only need one of
+		// these in a consolidated agent.
+		apiAddressUpdaterName: ifNotMigrating(apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+		})),
+
+		machineActionName: ifNotMigrating(machineactions.Manifold(machineactions.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			NewFacade:     machineactions.NewFacade,
+			NewWorker:     machineactions.NewMachineActionsWorker,
+		})),
+
+		legacyLeasesFlagName: ifController(featureflag.Manifold(featureflag.ManifoldConfig{
+			StateName: stateName,
+			FlagName:  feature.LegacyLeases,
+			Logger:    loggo.GetLogger("juju.worker.legacyleasesenabled"),
+			NewWorker: featureflag.NewWorker,
+		})),
+
+		// We run clock updaters for every controller machine to
+		// ensure the lease clock is updated monotonically and at a
+		// rate no faster than real time.
+		//
+		// If the legacy-leases feature flag is set the global clock
+		// updater updates the lease clock in the database.  .
+		globalClockUpdaterName: ifLegacyLeasesEnabled(globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
+			Clock:          config.Clock,
+			StateName:      stateName,
+			NewWorker:      globalclockupdater.NewWorker,
+			UpdateInterval: globalClockUpdaterUpdateInterval,
+			BackoffDelay:   globalClockUpdaterBackoffDelay,
+			Logger:         loggo.GetLogger("juju.worker.globalclockupdater.mongo"),
 		})),
 
 		// The upgrader is a leaf worker that returns a specific error
@@ -1016,6 +1027,12 @@ var ifLegacyLeasesEnabled = engine.Housing{
 	},
 }.Decorate
 
+var ifModelCacheInitialized = engine.Housing{
+	Flags: []string{
+		modelCacheInitializedFlagName,
+	},
+}.Decorate
+
 const (
 	agentName              = "agent"
 	agentConfigUpdaterName = "agent-config-updater"
@@ -1067,6 +1084,8 @@ const (
 	txnPrunerName                 = "transaction-pruner"
 	certificateWatcherName        = "certificate-watcher"
 	modelCacheName                = "model-cache"
+	modelCacheInitializedFlagName = "model-cache-initialized-flag"
+	modelCacheInitializedGateName = "model-cache-initialized-gate"
 	modelWorkerManagerName        = "model-worker-manager"
 	peergrouperName               = "peer-grouper"
 	restoreWatcherName            = "restore-watcher"

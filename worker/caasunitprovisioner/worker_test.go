@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -150,7 +150,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.serviceBroker = mockServiceBroker{
 		ensured:        s.serviceEnsured,
 		deleted:        s.serviceDeleted,
-		podSpec:        &parsedSpec,
 		serviceWatcher: watchertest.NewMockNotifyWatcher(s.caasServiceChanges),
 	}
 	s.statusSetter = mockProvisioningStatusSetter{}
@@ -426,7 +425,7 @@ func (s *WorkerSuite) TestNewPodSpecChange(c *gc.C) {
 		anotherSpec = `
 containers:
   - name: gitlab
-    image-name: gitlab/latest
+    image: gitlab/latest
 `[1:]
 
 		anotherParsedSpec = caas.PodSpec{
@@ -435,8 +434,6 @@ containers:
 				Image: "gitlab/latest",
 			}}}
 	)
-
-	s.serviceBroker.podSpec = &anotherParsedSpec
 
 	s.podSpecGetter.setProvisioningInfo(apicaasunitprovisioner.ProvisioningInfo{
 		PodSpec: anotherSpec,
@@ -498,6 +495,9 @@ customResourceDefinitions:
                   replicas:
                     type: integer
                     minimum: 1
+containers:
+  - name: gitlab
+    image: gitlab/latest
 `[1:]
 
 		anotherParsedSpec = caas.PodSpec{
@@ -531,10 +531,12 @@ customResourceDefinitions:
 					},
 				},
 			},
+			Containers: []caas.ContainerSpec{{
+				Name:  "gitlab",
+				Image: "gitlab/latest",
+			}},
 		}
 	)
-
-	s.serviceBroker.podSpec = &anotherParsedSpec
 
 	s.podSpecGetter.setProvisioningInfo(apicaasunitprovisioner.ProvisioningInfo{
 		PodSpec: anotherSpec,

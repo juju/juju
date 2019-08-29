@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -20,16 +21,16 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/state/watcher"
@@ -74,8 +75,9 @@ type (
 	CharmDoc       charmDoc
 	ApplicationDoc = applicationDoc
 
-	StorageBackend = storageBackend
-	DeviceBackend  = deviceBackend
+	StorageBackend         = storageBackend
+	DeviceBackend          = deviceBackend
+	ControllerNodeInstance = controllerNode
 )
 
 func NewStateSettingsForCollection(backend modelBackend, collection string) *StateSettings {
@@ -866,6 +868,19 @@ func ApplicationOperatorStatus(st *State, appName string) (status.StatusInfo, er
 
 func NewInstanceCharmProfileDataCompatibilityWatcher(backend ModelBackendShim, memberId string) StringsWatcher {
 	return watchInstanceCharmProfileCompatibilityData(backend, memberId)
+}
+
+func UnitBranch(m *Model, unitName string) (*Generation, error) {
+	return m.unitBranch(unitName)
+}
+
+func ApplicationBranches(m *Model, appName string) ([]*Generation, error) {
+	return m.applicationBranches(appName)
+}
+
+func MachinePortOps(st *State, m description.Machine) ([]txn.Op, error) {
+	resolver := &importer{st: st}
+	return resolver.machinePortsOps(m)
 }
 
 // ModelBackendShim is required to live here in the export_test.go file because

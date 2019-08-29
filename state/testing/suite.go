@@ -12,7 +12,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	retry "gopkg.in/retry.v1"
 
 	"github.com/juju/juju/cloud"

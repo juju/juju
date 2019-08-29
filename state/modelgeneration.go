@@ -13,7 +13,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -551,6 +551,75 @@ func (g *Generation) Refresh() error {
 	return nil
 }
 
+// IsTracking returns true if the generation is tracking the provided unit.
+func (g *Generation) IsTracking(unitName string) bool {
+	var tracked bool
+	for _, v := range g.doc.AssignedUnits {
+		if tracked = set.NewStrings(v...).Contains(unitName); tracked {
+			break
+		}
+	}
+	return tracked
+}
+
+func (g *Generation) unassignUnitOps(unitName, appName string) []txn.Op {
+	assignedField := "assigned-units"
+	appField := fmt.Sprintf("%s.%s", assignedField, appName)
+
+	// As a proxy for checking that the generation has not changed,
+	// Assert that the txn rev-no has not changed since we materialised
+	// this generation object.
+	return []txn.Op{{
+		C:      generationsC,
+		Id:     g.doc.DocId,
+		Assert: bson.D{{"txn-revno", g.doc.TxnRevno}},
+		Update: bson.D{
+			{"$pull", bson.D{{appField, unitName}}},
+		},
+	}}
+}
+
+// HasChangesFor returns true when the generation has config changes for
+// the provided application.
+func (g *Generation) HasChangesFor(appName string) bool {
+	_, ok := g.doc.Config[appName]
+	return ok
+}
+
+// unassignAppOps returns operations to remove the tracking and config data
+// for the application from the generation.
+func (g *Generation) unassignAppOps(appName string) []txn.Op {
+	assigned := g.doc.AssignedUnits
+	delete(assigned, appName)
+	ops := []txn.Op{{
+		C:      generationsC,
+		Id:     g.doc.DocId,
+		Assert: bson.D{{"txn-revno", g.doc.TxnRevno}},
+		Update: bson.D{
+			{"$set", bson.D{{"assigned-units", assigned}}},
+		},
+	}}
+	currentCfg := g.doc.Config
+	if _, ok := currentCfg[appName]; ok {
+		newCfg := map[string][]itemChange{}
+		for app, cfg := range currentCfg {
+			if app == appName {
+				continue
+			}
+			newCfg[app] = cfg
+		}
+		ops = append(ops, txn.Op{
+			C:      generationsC,
+			Id:     g.doc.DocId,
+			Assert: bson.D{{"txn-revno", g.doc.TxnRevno}},
+			Update: bson.D{
+				{"$set", bson.D{{"charm-config", newCfg}}},
+			},
+		})
+	}
+	return ops
+}
+
 // AddBranch creates a new branch in the current model.
 func (m *Model) AddBranch(branchName, userName string) error {
 	return errors.Trace(m.st.AddBranch(branchName, userName))
@@ -635,6 +704,24 @@ func (m *Model) Branch(name string) (*Generation, error) {
 	return gen, errors.Trace(err)
 }
 
+func (m *Model) applicationBranches(appName string) ([]*Generation, error) {
+	branches, err := m.Branches()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	foundBranches := make([]*Generation, 0)
+	for _, branch := range branches {
+		if branch.HasChangesFor(appName) {
+			foundBranches = append(foundBranches, branch)
+			continue
+		}
+		if _, ok := branch.doc.AssignedUnits[appName]; ok {
+			foundBranches = append(foundBranches, branch)
+		}
+	}
+	return foundBranches, nil
+}
+
 // Branch retrieves the generation with the the input branch name from the
 // collection of not-yet-completed generations.
 func (st *State) Branch(name string) (*Generation, error) {
@@ -665,6 +752,23 @@ func (st *State) getBranchDoc(name string) (*generationDoc, error) {
 		mod, _ := st.modelName()
 		return nil, errors.Annotatef(err, "retrieving branch %q in model %q", name, mod)
 	}
+}
+
+func (m *Model) unitBranch(unitName string) (*Generation, error) {
+	// NOTE (hml) 2019-07-02
+	// Currently a unit may only be tracked in a single generation.
+	// The branches spec indicates that may change in the future.  If
+	// it does, this method and caller will need to be updated accordingly.
+	branches, err := m.Branches()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, b := range branches {
+		if b.IsTracking(unitName) {
+			return b, nil
+		}
+	}
+	return nil, nil
 }
 
 func newGeneration(st *State, doc *generationDoc) *Generation {

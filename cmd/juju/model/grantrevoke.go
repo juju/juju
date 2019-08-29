@@ -6,13 +6,13 @@ package model
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/applicationoffers"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/permission"
 )
@@ -65,7 +65,7 @@ Grant user 'sam' 'read' access to application offers 'fred/prod.hosted-mysql' an
 
     juju grant sam read fred/prod.hosted-mysql mary/test.hosted-mysql
 
-See also:
+See also: 
     revoke
     add-user`[1:]
 
@@ -96,7 +96,7 @@ Revoke 'consume' access from user 'sam' for models 'fred/prod.hosted-mysql' and 
 
     juju revoke sam consume fred/prod.hosted-mysql mary/test.hosted-mysql
 
-See also:
+See also: 
     grant`[1:]
 
 type accessCommand struct {
@@ -104,7 +104,7 @@ type accessCommand struct {
 
 	User       string
 	ModelNames []string
-	OfferURLs  []*charm.OfferURL
+	OfferURLs  []*crossmodel.OfferURL
 	Access     string
 }
 
@@ -122,7 +122,7 @@ func (c *accessCommand) Init(args []string) error {
 	c.Access = args[1]
 	// The remaining args are either model names or offer names.
 	for _, arg := range args[2:] {
-		url, err := charm.ParseOfferURL(arg)
+		url, err := crossmodel.ParseOfferURL(arg)
 		if err == nil {
 			c.OfferURLs = append(c.OfferURLs, url)
 			continue
@@ -386,7 +386,7 @@ type accountDetailsGetter interface {
 
 // setUnsetUsers sets any empty user entries in the given offer URLs
 // to the currently logged in user.
-func setUnsetUsers(c accountDetailsGetter, offerURLs []*charm.OfferURL) error {
+func setUnsetUsers(c accountDetailsGetter, offerURLs []*crossmodel.OfferURL) error {
 	var currentAccountDetails *jujuclient.AccountDetails
 	for _, url := range offerURLs {
 		if url.User != "" {
@@ -405,7 +405,7 @@ func setUnsetUsers(c accountDetailsGetter, offerURLs []*charm.OfferURL) error {
 }
 
 // offersForModel group the offer URLs per model.
-func offersForModel(offerURLs []*charm.OfferURL) map[string][]string {
+func offersForModel(offerURLs []*crossmodel.OfferURL) map[string][]string {
 	offersForModel := make(map[string][]string)
 	for _, url := range offerURLs {
 		fullName := jujuclient.JoinOwnerModelName(names.NewUserTag(url.User), url.ModelName)

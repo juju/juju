@@ -672,6 +672,10 @@ type RunParams struct {
 	Machines     []string      `json:"machines,omitempty"`
 	Applications []string      `json:"applications,omitempty"`
 	Units        []string      `json:"units,omitempty"`
+
+	// WorkloadContext for CAAS is true when the Commands should be run on
+	// the workload not the operator.
+	WorkloadContext bool `json:"workload-context,omitempty"`
 }
 
 // RunResult contains the result from an individual run call on a machine.
@@ -837,9 +841,10 @@ type ResourceUploadResult struct {
 // UnitRefreshResult is used to return the latest values for attributes
 // on a unit.
 type UnitRefreshResult struct {
-	Life     Life
-	Resolved ResolvedMode
-	Error    *Error
+	Life       Life
+	Resolved   ResolvedMode
+	Error      *Error
+	ProviderID string `json:"provider-id,omitempty"`
 }
 
 // UnitRefreshResults holds the results for any API call which ends

@@ -6,11 +6,11 @@ package applicationoffers
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -143,10 +143,6 @@ type Subnet interface {
 
 type subnetShim struct {
 	*state.Subnet
-}
-
-func (s *subnetShim) AvailabilityZones() []string {
-	return []string{s.Subnet.AvailabilityZone()}
 }
 
 type Space interface {

@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // CachingAPIHostPortsSetter is an APIHostPortsSetter that caches the

@@ -5,7 +5,7 @@ package credentialvalidator
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/state"

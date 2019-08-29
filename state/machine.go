@@ -14,7 +14,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	"github.com/kr/pretty"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -104,7 +105,6 @@ type machineDoc struct {
 	Life          Life
 	Tools         *tools.Tools `bson:",omitempty"`
 	Jobs          []MachineJob
-	HasVote       bool
 	PasswordHash  string
 	Clean         bool
 
@@ -373,51 +373,6 @@ func (m *Machine) SetCharmProfiles(profiles []string) error {
 	return errors.Annotatef(err, "cannot update profiles for %q to %s", m, strings.Join(profiles, ", "))
 }
 
-// HasVote reports whether that machine is currently a voting
-// member of the replica set.
-func (m *Machine) HasVote() bool {
-	return m.doc.HasVote
-}
-
-// SetHasVote sets whether the machine is currently a voting
-// member of the replica set. It should only be called
-// from the worker that maintains the replica set.
-func (m *Machine) SetHasVote(hasVote bool) error {
-	op := m.UpdateOperation()
-	op.HasVote = &hasVote
-	if err := m.st.ApplyOperation(op); err != nil {
-		return errors.Trace(err)
-	}
-	m.doc.HasVote = hasVote
-	return nil
-}
-
-func (m *Machine) setHasVoteOps(hasVote bool) ([]txn.Op, error) {
-	if m.Life() == Dead {
-		return nil, ErrDead
-	}
-	var asserts interface{}
-	// TODO(HA)
-	// If setting has-vote=true we want the document to exist.
-	// But if has-vote=false, the doc may not be there because of
-	// older, legacy code which will be removed later.
-	if hasVote {
-		asserts = txn.DocExists
-	}
-	ops := []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{"hasvote", hasVote}}}},
-	}, {
-		C:      controllerNodesC,
-		Id:     m.st.docID(m.doc.Id),
-		Assert: asserts,
-		Update: bson.D{{"$set", bson.D{{"has-vote", hasVote}}}},
-	}}
-	return ops, nil
-}
-
 // SetStopMongoUntilVersion sets a version that is to be checked against
 // the agent config before deciding if mongo must be started on a
 // state server.
@@ -442,7 +397,7 @@ func (m *Machine) StopMongoUntilVersion() (mongo.Version, error) {
 
 // IsManager returns true if the machine has JobManageModel.
 func (m *Machine) IsManager() bool {
-	return hasJob(m.doc.Jobs, JobManageModel)
+	return isController(&m.doc)
 }
 
 // IsManual returns true if the machine was manually provisioned.
@@ -593,11 +548,11 @@ func (m *Machine) ForceDestroy(maxWait time.Duration) error {
 
 func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
 	if m.IsManager() {
-		controllerInfo, err := m.st.ControllerInfo()
+		controllerIds, err := m.st.ControllerIds()
 		if err != nil {
 			return nil, errors.Annotatef(err, "reading controller info")
 		}
-		if len(controllerInfo.MachineIds) <= 1 {
+		if len(controllerIds) <= 1 {
 			return nil, errors.Errorf("controller %s is the only controller", m.Id())
 		}
 		// We set the machine to Dying if it isn't already dead.
@@ -615,7 +570,7 @@ func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
 		controllerOp := txn.Op{
 			C:      controllersC,
 			Id:     modelGlobalKey,
-			Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
+			Assert: bson.D{{"controller-ids", controllerIds}},
 		}
 		// Note that ForceDestroy does *not* cleanup the replicaset, so it might cause problems.
 		// However, we're letting the user handle times when the machine agent isn't running, etc.
@@ -788,6 +743,12 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 		} else if err != nil {
 			return nil, err
 		}
+		node, err := m.st.ControllerNode(m.doc.Id)
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, err
+		}
+		hasVote := err == nil && node.HasVote()
+
 		// Check that the life change is sane, and collect the assertions
 		// necessary to determine that it remains so.
 		switch life {
@@ -802,17 +763,24 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 			if m.doc.Life == Dead {
 				return nil, jujutxn.ErrNoOperations
 			}
-			if m.doc.HasVote {
+			if hasVote {
 				return nil, fmt.Errorf("machine %s is still a voting controller member", m.doc.Id)
 			}
 			if m.IsManager() {
 				return nil, errors.Errorf("machine %s is still a controller member", m.Id())
 			}
-			asserts = append(asserts, bson.D{
-				{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}},
-				{"hasvote", bson.M{"$ne": true}},
-			}...)
+			asserts = append(asserts, bson.DocElem{
+				"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}})
 			asserts = append(asserts, notDeadDoc...)
+			controllerOp := txn.Op{
+				C:  controllersC,
+				Id: modelGlobalKey,
+				Assert: bson.D{
+					{"has-vote", bson.M{"$ne": true}},
+					{"wants-vote", bson.M{"$ne": true}},
+				},
+			}
+			ops = append(ops, controllerOp)
 		default:
 			panic(fmt.Errorf("cannot advance lifecycle to %v", life))
 		}
@@ -824,22 +792,22 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 		// destroy a machine with units as it will be a lie.
 		if life == Dying {
 			canDie := true
-			if hasJob(m.doc.Jobs, JobManageModel) || m.doc.HasVote {
+			if isController(&m.doc) || hasVote {
 				// If we're responsible for managing the model, make sure we ask to drop our vote
 				ops[0].Update = bson.D{
 					{"$set", bson.D{{"life", life}}},
 				}
-				controllerInfo, err := m.st.ControllerInfo()
+				controllerIds, err := m.st.ControllerIds()
 				if err != nil {
 					return nil, errors.Annotatef(err, "reading controller info")
 				}
-				if len(controllerInfo.MachineIds) <= 1 {
+				if len(controllerIds) <= 1 {
 					return nil, errors.Errorf("controller %s is the only controller", m.Id())
 				}
 				controllerOp := txn.Op{
 					C:      controllersC,
 					Id:     modelGlobalKey,
-					Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
+					Assert: bson.D{{"controller-ids", controllerIds}},
 				}
 				ops = append(ops, controllerOp)
 				ops = append(ops, setControllerWantsVoteOp(m.st, m.doc.Id, false))
@@ -900,7 +868,7 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 		asserts = append(asserts, noUnits)
 
 		if life == Dead {
-			if hasJob(m.doc.Jobs, JobManageModel) {
+			if isController(&m.doc) {
 				return nil, errors.Errorf("machine %s is still responsible for being a controller", m.Id())
 			}
 			// A machine may not become Dead until it has no more
@@ -1367,6 +1335,9 @@ func (m *Machine) DesiredSpaces() (set.Strings, error) {
 			return nil, errors.Trace(err)
 		}
 		endpointBindings, err := app.EndpointBindings()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		for _, space := range endpointBindings {
 			if space != "" {
 				bindings.Add(space)
@@ -1526,8 +1497,8 @@ func (m *Machine) SetInstanceInfo(
 // that the machine reported with the same address value.
 // Provider-reported addresses always come before machine-reported
 // addresses. Duplicates are removed.
-func (m *Machine) Addresses() (addresses []network.Address) {
-	return network.MergedAddresses(networkAddresses(m.doc.MachineAddresses), networkAddresses(m.doc.Addresses))
+func (m *Machine) Addresses() (addresses []corenetwork.Address) {
+	return corenetwork.MergedAddresses(networkAddresses(m.doc.MachineAddresses), networkAddresses(m.doc.Addresses))
 }
 
 func containsAddress(addresses []address, address address) bool {
@@ -1541,7 +1512,7 @@ func containsAddress(addresses []address, address address) bool {
 
 // PublicAddress returns a public address for the machine. If no address is
 // available it returns an error that satisfies network.IsNoAddressError().
-func (m *Machine) PublicAddress() (network.Address, error) {
+func (m *Machine) PublicAddress() (corenetwork.Address, error) {
 	publicAddress := m.doc.PreferredPublicAddress.networkAddress()
 	var err error
 	if publicAddress.Value == "" {
@@ -1558,7 +1529,7 @@ func maybeGetNewAddress(
 	addr address,
 	providerAddresses,
 	machineAddresses []address,
-	getAddr func([]address) network.Address,
+	getAddr func([]address) corenetwork.Address,
 	checkScope func(address) bool,
 ) (address, bool) {
 	// For picking the best address, try provider addresses first.
@@ -1599,7 +1570,7 @@ func maybeGetNewAddress(
 
 // PrivateAddress returns a private address for the machine. If no address is
 // available it returns an error that satisfies network.IsNoAddressError().
-func (m *Machine) PrivateAddress() (network.Address, error) {
+func (m *Machine) PrivateAddress() (corenetwork.Address, error) {
 	privateAddress := m.doc.PreferredPrivateAddress.networkAddress()
 	var err error
 	if privateAddress.Value == "" {
@@ -1658,11 +1629,11 @@ func (m *Machine) setPublicAddressOps(providerAddresses []address, machineAddres
 
 	// Always prefer an exact match if available.
 	checkScope := func(addr address) bool {
-		return network.ExactScopeMatch(addr.networkAddress(), network.ScopePublic)
+		return corenetwork.ExactScopeMatch(addr.networkAddress(), corenetwork.ScopePublic)
 	}
 	// Without an exact match, prefer a fallback match.
-	getAddr := func(addresses []address) network.Address {
-		addr, _ := network.SelectPublicAddress(networkAddresses(addresses))
+	getAddr := func(addresses []address) corenetwork.Address {
+		addr, _ := corenetwork.SelectPublicAddress(networkAddresses(addresses))
 		return addr
 	}
 
@@ -1680,12 +1651,12 @@ func (m *Machine) setPrivateAddressOps(providerAddresses []address, machineAddre
 	privateAddress := m.doc.PreferredPrivateAddress
 	// Always prefer an exact match if available.
 	checkScope := func(addr address) bool {
-		return network.ExactScopeMatch(
-			addr.networkAddress(), network.ScopeMachineLocal, network.ScopeCloudLocal, network.ScopeFanLocal)
+		return corenetwork.ExactScopeMatch(
+			addr.networkAddress(), corenetwork.ScopeMachineLocal, corenetwork.ScopeCloudLocal, corenetwork.ScopeFanLocal)
 	}
 	// Without an exact match, prefer a fallback match.
-	getAddr := func(addresses []address) network.Address {
-		addr, _ := network.SelectInternalAddress(networkAddresses(addresses), false)
+	getAddr := func(addresses []address) corenetwork.Address {
+		addr, _ := corenetwork.SelectInternalAddress(networkAddresses(addresses), false)
 		return addr
 	}
 
@@ -1700,14 +1671,14 @@ func (m *Machine) setPrivateAddressOps(providerAddresses []address, machineAddre
 
 // SetProviderAddresses records any addresses related to the machine, sourced
 // by asking the provider.
-func (m *Machine) SetProviderAddresses(addresses ...network.Address) error {
+func (m *Machine) SetProviderAddresses(addresses ...corenetwork.Address) error {
 	err := m.setAddresses(nil, &addresses)
 	return errors.Annotatef(err, "cannot set addresses of machine %v", m)
 }
 
 // ProviderAddresses returns any hostnames and ips associated with a machine,
 // as determined by asking the provider.
-func (m *Machine) ProviderAddresses() (addresses []network.Address) {
+func (m *Machine) ProviderAddresses() (addresses []corenetwork.Address) {
 	for _, address := range m.doc.Addresses {
 		addresses = append(addresses, address.networkAddress())
 	}
@@ -1716,7 +1687,7 @@ func (m *Machine) ProviderAddresses() (addresses []network.Address) {
 
 // MachineAddresses returns any hostnames and ips associated with a machine,
 // determined by asking the machine itself.
-func (m *Machine) MachineAddresses() (addresses []network.Address) {
+func (m *Machine) MachineAddresses() (addresses []corenetwork.Address) {
 	for _, address := range m.doc.MachineAddresses {
 		addresses = append(addresses, address.networkAddress())
 	}
@@ -1725,7 +1696,7 @@ func (m *Machine) MachineAddresses() (addresses []network.Address) {
 
 // SetMachineAddresses records any addresses related to the machine, sourced
 // by asking the machine.
-func (m *Machine) SetMachineAddresses(addresses ...network.Address) error {
+func (m *Machine) SetMachineAddresses(addresses ...corenetwork.Address) error {
 	err := m.setAddresses(&addresses, nil)
 	return errors.Annotatef(err, "cannot set machine addresses of machine %v", m)
 }
@@ -1734,7 +1705,7 @@ func (m *Machine) SetMachineAddresses(addresses ...network.Address) error {
 // MachineAddresses, depending on the field argument). Changes are
 // only predicated on the machine not being Dead; concurrent address
 // changes are ignored.
-func (m *Machine) setAddresses(machineAddresses, providerAddresses *[]network.Address) error {
+func (m *Machine) setAddresses(machineAddresses, providerAddresses *[]corenetwork.Address) error {
 	var (
 		machineStateAddresses, providerStateAddresses []address
 		newPrivate, newPublic                         *address
@@ -1782,17 +1753,17 @@ func (m *Machine) setAddresses(machineAddresses, providerAddresses *[]network.Ad
 }
 
 func (m *Machine) setAddressesOps(
-	machineAddresses, providerAddresses *[]network.Address,
+	machineAddresses, providerAddresses *[]corenetwork.Address,
 ) (_ []txn.Op, machineStateAddresses, providerStateAddresses []address, newPrivate, newPublic *address, _ error) {
 
 	if m.doc.Life == Dead {
 		return nil, nil, nil, nil, nil, ErrDead
 	}
 
-	fromNetwork := func(in []network.Address, origin Origin) []address {
-		sorted := make([]network.Address, len(in))
+	fromNetwork := func(in []corenetwork.Address, origin Origin) []address {
+		sorted := make([]corenetwork.Address, len(in))
 		copy(sorted, in)
-		network.SortAddresses(sorted)
+		corenetwork.SortAddresses(sorted)
 		return fromNetworkAddresses(sorted, origin)
 	}
 
@@ -2220,9 +2191,8 @@ type UpdateMachineOperation struct {
 
 	AgentVersion      *version.Binary
 	Constraints       *constraints.Value
-	HasVote           *bool
-	MachineAddresses  *[]network.Address
-	ProviderAddresses *[]network.Address
+	MachineAddresses  *[]corenetwork.Address
+	ProviderAddresses *[]corenetwork.Address
 	PasswordHash      *string
 }
 
@@ -2248,14 +2218,6 @@ func (op *UpdateMachineOperation) Build(attempt int) ([]txn.Op, error) {
 		ops, err := op.m.setConstraintsOps(*op.Constraints)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot set constraints")
-		}
-		allOps = append(allOps, ops...)
-	}
-
-	if op.HasVote != nil {
-		ops, err := op.m.setHasVoteOps(*op.HasVote)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot set has-vote")
 		}
 		allOps = append(allOps, ops...)
 	}

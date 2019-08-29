@@ -18,7 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -874,6 +874,7 @@ func (s *RelationUnitSuite) TestNetworksForRelation(c *gc.C) {
 		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
 		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
 	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.pu0, prr.rel, nil, true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -909,13 +910,13 @@ func (s *RelationUnitSuite) addDevicesWithAddresses(c *gc.C, machine *state.Mach
 }
 
 func (s *RelationUnitSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
-	s.State.AddSubnet(state.SubnetInfo{CIDR: "1.2.0.0/16"})
+	s.State.AddSubnet(network.SubnetInfo{CIDR: "1.2.0.0/16"})
 	s.State.AddSpace("space-1", "pid-1", []string{"1.2.0.0/16"}, false)
-	s.State.AddSubnet(state.SubnetInfo{CIDR: "2.2.0.0/16"})
+	s.State.AddSubnet(network.SubnetInfo{CIDR: "2.2.0.0/16"})
 	s.State.AddSpace("space-2", "pid-2", []string{"2.2.0.0/16"}, false)
-	s.State.AddSubnet(state.SubnetInfo{CIDR: "3.2.0.0/16"})
+	s.State.AddSubnet(network.SubnetInfo{CIDR: "3.2.0.0/16"})
 	s.State.AddSpace("space-3", "pid-3", []string{"2.2.0.0/16"}, false)
-	s.State.AddSubnet(state.SubnetInfo{CIDR: "4.3.0.0/16"})
+	s.State.AddSubnet(network.SubnetInfo{CIDR: "4.3.0.0/16"})
 	s.State.AddSpace("public-4", "pid-4", []string{"4.3.0.0/16"}, true)
 
 	// We want to have all bindings set so that no actual binding is

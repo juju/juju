@@ -14,7 +14,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
 	csclientparams "gopkg.in/juju/charmrepo.v3/csclient/params"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1/catacomb"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/macaroon.v2-unstable"
@@ -583,7 +583,7 @@ func (c *upgradeCharmCommand) addCharm(
 	}
 
 	// Charm has been supplied as a URL so we resolve and deploy using the store.
-	newURL, channel, supportedSeries, err := c.ResolveCharm(charmRepo.ResolveWithChannel, refURL)
+	newURL, channel, supportedSeries, err := c.ResolveCharm(charmRepo.ResolveWithPreferredChannel, refURL, c.Channel)
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}

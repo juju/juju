@@ -18,7 +18,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
@@ -28,10 +28,10 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage"
@@ -594,7 +594,7 @@ func (m *mockBackend) AddRemoteApplication(args state.AddRemoteApplicationParams
 	for _, sp := range args.Spaces {
 		remoteSpaceInfo := state.RemoteSpace{
 			CloudType:          sp.CloudType,
-			Name:               sp.Name,
+			Name:               string(sp.Name),
 			ProviderId:         string(sp.ProviderId),
 			ProviderAttributes: sp.ProviderAttributes,
 		}

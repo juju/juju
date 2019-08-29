@@ -102,6 +102,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 			URL:     "http://testing.invalid/tools.tar.gz",
 		},
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	err = instancecfg.FinishInstanceConfig(icfg, modelConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg, err := cloudinit.New(icfg.Series)
@@ -122,7 +123,7 @@ func checkIff(checker gc.Checker, condition bool) gc.Checker {
 	return gc.Not(checker)
 }
 
-var aptgetRegexp = "(.|\n)*" + regexp.QuoteMeta("apt-get --option=Dpkg::Options::=--force-confold --option=Dpkg::options::=--force-unsafe-io --assume-yes --quiet ")
+var aptgetRegexp = "(.|\n)*" + regexp.QuoteMeta("apt-get --option=Dpkg::Options::=--force-confold --option=Dpkg::Options::=--force-unsafe-io --assume-yes --quiet ")
 
 func (s *configureSuite) TestAptSources(c *gc.C) {
 	for _, series := range allSeries {

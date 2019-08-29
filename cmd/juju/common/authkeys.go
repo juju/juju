@@ -44,7 +44,7 @@ func FinalizeAuthorizedKeys(ctx *cmd.Context, attrs map[string]interface{}) erro
 	}
 	coercedAttrs := coerced.(map[string]interface{})
 
-	authorizedKeys, haveAuthorizedKeys := coercedAttrs[config.AuthorizedKeysKey].(string)
+	_, haveAuthorizedKeys := coercedAttrs[config.AuthorizedKeysKey].(string)
 	authorizedKeysPath, haveAuthorizedKeysPath := coercedAttrs[authorizedKeysPathKey].(string)
 	if haveAuthorizedKeys && haveAuthorizedKeysPath {
 		return errors.Errorf(
@@ -57,7 +57,7 @@ func FinalizeAuthorizedKeys(ctx *cmd.Context, attrs map[string]interface{}) erro
 		return nil
 	}
 
-	authorizedKeys, err = ReadAuthorizedKeys(ctx, authorizedKeysPath)
+	authorizedKeys, err := ReadAuthorizedKeys(ctx, authorizedKeysPath)
 	if err != nil {
 		return errors.Annotate(err, "reading authorized-keys")
 	}

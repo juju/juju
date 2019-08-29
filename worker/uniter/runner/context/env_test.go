@@ -15,7 +15,7 @@ import (
 	"github.com/juju/utils/keyvalues"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -43,7 +43,8 @@ func (s *EnvSuite) getPaths() (paths context.Paths, expectVars []string) {
 	return MockEnvPaths{}, []string{
 		"CHARM_DIR=path-to-charm",
 		"JUJU_CHARM_DIR=path-to-charm",
-		"JUJU_AGENT_SOCKET=path-to-jujuc.socket",
+		"JUJU_AGENT_SOCKET_ADDRESS=path-to-jujuc.socket",
+		"JUJU_AGENT_SOCKET_NETWORK=unix",
 	}
 }
 
@@ -172,9 +173,10 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 	os.Setenv("PATH", "foo:bar")
 	ubuntuVars := []string{
-		"PATH=path-to-tools:foo:bar",
 		"APT_LISTCHANGES_FRONTEND=none",
 		"DEBIAN_FRONTEND=noninteractive",
+		"LANG=C.UTF-8",
+		"PATH=path-to-tools:foo:bar",
 	}
 
 	ctx, contextVars := s.getContext(false)

@@ -115,8 +115,6 @@ func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testclock.Clock)
 		case <-testDone:
 		case <-timeout:
 			c.Errorf("test took >10s to complete")
-			// If we timed out here, then we need to timeout storeDone as well
-			timeout = time.After(0)
 		}
 		// Wait for the store to be done in the happy path, but
 		// don't wait any longer than 10s total.

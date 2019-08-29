@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner"
@@ -1316,6 +1316,7 @@ func (s *iaasProvisionerSuite) TestVolumeBlockDevicesPlanBlockInfoSet(c *gc.C) {
 		names.NewVolumeTag("0/0"),
 		state.VolumeAttachmentInfo{},
 	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	deviceAttrs := map[string]string{
 		"iqn":         "bogusIQN",

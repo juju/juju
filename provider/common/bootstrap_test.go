@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -343,7 +344,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	var innerInstanceConfig *instancecfg.InstanceConfig
 	inst := &mockInstance{
 		id:        checkInstanceId,
-		addresses: network.NewAddresses("testing.invalid"),
+		addresses: corenetwork.NewAddresses("testing.invalid"),
 	}
 	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
@@ -449,7 +450,7 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 	var innerInstanceConfig *instancecfg.InstanceConfig
 	inst := &mockInstance{
 		id:        "i-success",
-		addresses: network.NewAddresses("testing.invalid"),
+		addresses: corenetwork.NewAddresses("testing.invalid"),
 	}
 	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
@@ -523,7 +524,7 @@ type neverAddresses struct {
 	neverRefreshes
 }
 
-func (neverAddresses) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
+func (neverAddresses) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
 	return nil, nil
 }
 
@@ -585,7 +586,7 @@ type brokenAddresses struct {
 	neverRefreshes
 }
 
-func (brokenAddresses) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
+func (brokenAddresses) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
 	return nil, errors.Errorf("Addresses will never work")
 }
 
@@ -604,8 +605,8 @@ type neverOpensPort struct {
 	addr string
 }
 
-func (n *neverOpensPort) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
-	return network.NewAddresses(n.addr), nil
+func (n *neverOpensPort) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
+	return corenetwork.NewAddresses(n.addr), nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
@@ -629,7 +630,7 @@ type interruptOnDial struct {
 	returned    bool
 }
 
-func (i *interruptOnDial) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
+func (i *interruptOnDial) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
 	// kill the tomb the second time Addresses is called
 	if !i.returned {
 		i.returned = true
@@ -639,7 +640,7 @@ func (i *interruptOnDial) Addresses(ctx context.ProviderCallContext) ([]network.
 			i.interrupted = nil
 		}
 	}
-	return network.NewAddresses(i.name), nil
+	return corenetwork.NewAddresses(i.name), nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
@@ -673,8 +674,8 @@ func (ac *addressesChange) Status(ctx context.ProviderCallContext) instance.Stat
 	return instance.Status{}
 }
 
-func (ac *addressesChange) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
-	return network.NewAddresses(ac.addrs[0]...), nil
+func (ac *addressesChange) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
+	return corenetwork.NewAddresses(ac.addrs[0]...), nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {

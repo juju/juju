@@ -5,7 +5,7 @@ package remotestate
 
 import (
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
@@ -40,6 +40,9 @@ type Snapshot struct {
 	// ResolvedMode reports the method of resolving
 	// hook execution errors.
 	ResolvedMode params.ResolvedMode
+
+	// ProviderID is the cloud container's provider ID.
+	ProviderID string
 
 	// RetryHookVersion increments each time a failed
 	// hook is meant to be retried if ResolvedMode is

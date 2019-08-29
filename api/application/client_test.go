@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/application"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -501,6 +501,7 @@ func (s *applicationSuite) TestDestroyConsumedApplicationsForcev9(c *gc.C) {
 		[]string{"foo"}, false, nil,
 	}
 	_, err = client.DestroyConsumedApplication(destroyParams)
+	c.Check(err, gc.NotNil)
 	c.Assert(called, jc.IsTrue)
 }
 

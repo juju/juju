@@ -21,7 +21,7 @@ import (
 	"github.com/juju/proxy"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"

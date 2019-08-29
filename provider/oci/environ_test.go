@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net/http"
 
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	ociCore "github.com/oracle/oci-go-sdk/core"
@@ -451,6 +451,32 @@ func (e *environSuite) TestControllerInstancesOneController(c *gc.C) {
 	ids, err := e.env.ControllerInstances(nil, e.controllerUUID)
 	c.Assert(err, gc.IsNil)
 	c.Check(len(ids), gc.Equals, 1)
+}
+
+func (e *environSuite) TestCloudInit(c *gc.C) {
+	cfg, err := oci.GetCloudInitConfig(e.env, "quantal", 1234, 4321)
+	c.Assert(err, jc.ErrorIsNil)
+	script, err := cfg.RenderScript()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(script, jc.Contains, "/sbin/iptables -I INPUT -p tcp --dport 1234 -j ACCEPT")
+	c.Check(script, jc.Contains, "/sbin/iptables -I INPUT -p tcp --dport 4321 -j ACCEPT")
+	c.Check(script, jc.Contains, "/etc/init.d/netfilter-persistent save")
+
+	cfg, err = oci.GetCloudInitConfig(e.env, "quantal", 0, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	script, err = cfg.RenderScript()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(script, gc.Not(jc.Contains), "/sbin/iptables -I INPUT -p tcp --dport 1234 -j ACCEPT")
+	c.Check(script, gc.Not(jc.Contains), "/sbin/iptables -I INPUT -p tcp --dport 4321 -j ACCEPT")
+	c.Check(script, gc.Not(jc.Contains), "/etc/init.d/netfilter-persistent save")
+
+	cfg, err = oci.GetCloudInitConfig(e.env, "centos7", 1234, 4321)
+	c.Assert(err, jc.ErrorIsNil)
+	script, err = cfg.RenderScript()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(script, jc.Contains, "firewall-cmd --zone=public --add-port=1234/tcp --permanent")
+	c.Check(script, jc.Contains, "firewall-cmd --zone=public --add-port=4321/tcp --permanent")
+	c.Check(script, jc.Contains, "firewall-cmd --reload")
 }
 
 type instanceTermination struct {

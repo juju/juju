@@ -7,7 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	cloudapi "github.com/juju/juju/api/cloud"
 	jujucloud "github.com/juju/juju/cloud"
@@ -178,7 +178,7 @@ func (c *updateCloudCommand) updateControllerFromFile(ctxt *cmd.Context) error {
 }
 
 func (c *updateCloudCommand) updateControllerCacheFromLocalCache(ctxt *cmd.Context) error {
-	newCloud, err := cloudFromLocal(c.Cloud)
+	newCloud, err := cloudFromLocal(c.Store, c.Cloud)
 	if err != nil {
 		return errors.Trace(err)
 	}

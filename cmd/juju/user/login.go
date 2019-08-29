@@ -17,7 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/httprequest"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
 	"github.com/juju/juju/api"
@@ -576,7 +576,10 @@ func (c *loginCommand) promptUserToTrustCA(ctx *cmd.Context, ctrlDetails *jujucl
 			prettyName = fmt.Sprintf("%q (%s)", host, endpoint)
 		}
 		fmt.Fprintf(ctx.Stderr, "Controller %s presented a CA cert that could not be verified.\nCA fingerprint: [%s]\n", prettyName, fingerprint)
-		trust, err := c.pollster.YN("Trust remote controller", false)
+		// If the user does not type Y, pollster returns false (and an error
+		// which doesn't really matter) causing the if block below to abort
+		// the connection attempt with an error.
+		trust, _ := c.pollster.YN("Trust remote controller", false)
 		if !trust {
 			return errors.New("controller CA not trusted")
 		}

@@ -15,7 +15,7 @@ import (
 	"github.com/juju/retry"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -404,12 +404,8 @@ func (op *LeaveScopeOperation) internalLeaveScope() ([]txn.Op, error) {
 	// the database is actually changed).
 	logger.Debugf("%v leaving scope", op.Description())
 	count, err := relationScopes.FindId(key).Count()
-	if err != nil {
-		err := fmt.Errorf("cannot examine scope for %s: %v", op.Description(), err)
-		if !op.Force {
-			return nil, err
-		}
-		op.AddError(err)
+	if op.FatalError(errors.Annotatef(err, "cannot examine scope for %s", op.Description())) {
+		return nil, err
 	} else if count == 0 {
 		return nil, jujutxn.ErrNoOperations
 	}
@@ -438,11 +434,8 @@ func (op *LeaveScopeOperation) internalLeaveScope() ([]txn.Op, error) {
 		// and accumulate all operational errors encountered in the operation.
 		// If the 'force' is not set, any error will be fatal and no operations will be returned.
 		relOps, err := op.ru.relation.removeOps("", op.ru.unitName, &op.ForcedOperation)
-		if err != nil {
-			if !op.Force {
-				return nil, err
-			}
-			op.AddError(err)
+		if op.FatalError(err) {
+			return nil, err
 		}
 		ops = append(ops, relOps...)
 	}
@@ -610,8 +603,8 @@ func NetworksForRelation(
 		return "", nil, nil, errors.Trace(err)
 	}
 
-	fetchAddr := func(fetcher func() (network.Address, error)) (network.Address, error) {
-		var address network.Address
+	fetchAddr := func(fetcher func() (corenetwork.Address, error)) (corenetwork.Address, error) {
+		var address corenetwork.Address
 		retryArg := PreferredAddressRetryArgs()
 		retryArg.Func = func() error {
 			var err error
@@ -690,7 +683,7 @@ func NetworksForRelation(
 					"no service address for unit %q in relation %q",
 					unit.Name(), rel)
 			} else {
-				network.SortAddresses(addr)
+				corenetwork.SortAddresses(addr)
 				for _, a := range addr {
 					ingress = append(ingress, a.Value)
 				}

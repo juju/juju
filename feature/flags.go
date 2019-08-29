@@ -62,6 +62,5 @@ const MongoDbSSTXN = "mongodb-sstxn"
 // was bootstrapped on to be added to the controller.
 const MultiCloud = "multi-cloud"
 
-// CMRAwareBundles allows Juju to recognize and handle offer and saas blocks
-// when deploying bundles.
-const CMRAwareBundles = "bundle-cmr"
+// JujuV3 indicates that new CLI commands and behaviour for v3 should be enabled.
+const JujuV3 = "juju-v3"

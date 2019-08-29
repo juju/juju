@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -149,6 +149,9 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 		return nil, errors.Trace(err)
 	}
 	application, err := unit.Application()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	slaCreds, err := st.SLACredential()
 	if err != nil {

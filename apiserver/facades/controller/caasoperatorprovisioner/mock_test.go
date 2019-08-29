@@ -6,15 +6,15 @@ package caasoperatorprovisioner_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"

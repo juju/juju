@@ -48,7 +48,7 @@ func main() {
 	} else {
 		hash := utils.AgentPasswordHash(passwd)
 		fmt.Printf("oldpassword: %s\n", passwd)
-		collection := "UNKNOWN"
+		var collection string
 		if strings.Index(agent, "/") < 0 {
 			// must be a machine
 			collection = "machines"

@@ -9,7 +9,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
@@ -189,6 +189,7 @@ func (s *tmpfsSuite) TestAttachFilesystemsAlreadyMounted(c *gc.C) {
 		Filesystem: names.NewFilesystemTag("123"),
 		Path:       "exists",
 	}})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []storage.AttachFilesystemsResult{{
 		FilesystemAttachment: &storage.FilesystemAttachment{
 			Filesystem: names.NewFilesystemTag("123"),

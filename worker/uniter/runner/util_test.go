@@ -16,13 +16,13 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/fs"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
@@ -76,6 +76,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	}
 
 	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
@@ -104,7 +105,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	s.contextFactory, err = context.NewContextFactory(context.FactoryConfig{
 		State:            s.uniter,
 		UnitTag:          s.unit.Tag().(names.UnitTag),
-		Tracker:          runnertesting.FakeTracker{},
+		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
 		Paths:            s.paths,
@@ -116,6 +117,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 		s.uniter,
 		s.paths,
 		s.contextFactory,
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.factory = factory

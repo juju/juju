@@ -13,7 +13,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // linkLayerDeviceDoc describes the persistent state of a link-layer network

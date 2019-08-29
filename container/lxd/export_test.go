@@ -10,7 +10,7 @@ import (
 	lxdclient "github.com/lxc/lxd/client"
 
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 var (

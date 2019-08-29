@@ -6,11 +6,15 @@ package featuretests
 import (
 	"time"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
@@ -20,7 +24,7 @@ import (
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
 )
 
@@ -36,7 +40,7 @@ func (s *dblogSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 }
 
-func (s *dblogSuite) TestMachineAgentLogsGoToDBCAAS(c *gc.C) {
+func (s *dblogSuite) TestControllerAgentLogsGoToDBCAAS(c *gc.C) {
 	// Set up a CAAS model to replace the IAAS one.
 	st := s.Factory.MakeCAASModel(c, nil)
 	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
@@ -47,28 +51,42 @@ func (s *dblogSuite) TestMachineAgentLogsGoToDBCAAS(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
 	s.Factory = factory.NewFactory(st, s.StatePool)
+	node, err := s.State.AddControllerNode()
+	c.Assert(err, jc.ErrorIsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	err = node.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertMachineAgentLogsGoToDB(c, true)
+	// Ensure controller config matches agent config so the agent worker
+	// does not exist with ErrRestartAgent.
+	err = s.State.UpdateControllerConfig(map[string]interface{}{
+		controller.MongoMemoryProfile: controller.MongoProfLow}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	vers := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: "kuebernetes",
+	}
+	s.PrimeAgentVersion(c, node.Tag(), password, vers)
+	s.assertAgentLogsGoToDB(c, node.Tag(), true)
 }
 
 func (s *dblogSuite) TestMachineAgentLogsGoToDBIAAS(c *gc.C) {
-	s.assertMachineAgentLogsGoToDB(c, false)
-}
-
-func (s *dblogSuite) assertMachineAgentLogsGoToDB(c *gc.C, isCaas bool) {
 	// Create a machine and an agent for it.
-	series := "quantal"
-	if isCaas {
-		series = "kubernetes"
-	}
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce:  agent.BootstrapNonce,
-		Series: series,
+		Series: "quantal",
 	})
 
 	s.PrimeAgent(c, m.Tag(), password)
+	s.assertAgentLogsGoToDB(c, m.Tag(), false)
+}
+
+func (s *dblogSuite) assertAgentLogsGoToDB(c *gc.C, tag names.Tag, isCaas bool) {
 	agentConf := agentcmd.NewAgentConf(s.DataDir())
-	agentConf.ReadConfig(m.Tag().String())
+	err := agentConf.ReadConfig(tag.String())
+	c.Assert(err, jc.ErrorIsNil)
 	logger, err := logsender.InstallBufferedLogWriter(1000)
 	c.Assert(err, jc.ErrorIsNil)
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
@@ -78,17 +96,17 @@ func (s *dblogSuite) assertMachineAgentLogsGoToDB(c *gc.C, isCaas bool) {
 		noPreUpgradeSteps,
 		c.MkDir(),
 	)
-	a, err := machineAgentFactory(m.Id(), isCaas)
+	a, err := machineAgentFactory(tag, isCaas)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure there's no logs to begin with.
-	c.Assert(s.getLogCount(c, m.Tag()), gc.Equals, 0)
+	c.Assert(s.getLogCount(c, tag), gc.Equals, 0)
 
 	// Start the agent.
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer a.Stop()
 
-	foundLogs := s.waitForLogs(c, m.Tag())
+	foundLogs := s.waitForLogs(c, tag)
 	c.Assert(foundLogs, jc.IsTrue)
 }
 
@@ -179,7 +197,7 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 	err := dbLogger.Log([]state.LogRecord{{
 		Time:     t,
 		Entity:   "not-a-tag",
-		Version:  version.Current,
+		Version:  jujuversion.Current,
 		Module:   "juju.foo",
 		Location: "code.go:42",
 		Level:    loggo.INFO,
@@ -187,7 +205,7 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 	}, {
 		Time:     t.Add(time.Second),
 		Entity:   "not-a-tag",
-		Version:  version.Current,
+		Version:  jujuversion.Current,
 		Module:   "juju.bar",
 		Location: "go.go:99",
 		Level:    loggo.ERROR,
@@ -237,7 +255,7 @@ func (s *debugLogDbSuite1) TestLogsAPI(c *gc.C) {
 	err = dbLogger.Log([]state.LogRecord{{
 		Time:     t.Add(2 * time.Second),
 		Entity:   "not-a-tag",
-		Version:  version.Current,
+		Version:  jujuversion.Current,
 		Module:   "ju.jitsu",
 		Location: "no.go:3",
 		Level:    loggo.WARNING,
@@ -265,7 +283,7 @@ func (s *debugLogDbSuite2) TestLogsUsesStartTime(c *gc.C) {
 
 	entity := "not-a-tag"
 
-	version := version.Current
+	vers := jujuversion.Current
 	t1 := time.Date(2015, 6, 23, 13, 8, 49, 100, time.UTC)
 	// Check that start time has subsecond resolution.
 	t2 := time.Date(2015, 6, 23, 13, 8, 51, 50, time.UTC)
@@ -274,7 +292,7 @@ func (s *debugLogDbSuite2) TestLogsUsesStartTime(c *gc.C) {
 	err := dbLogger.Log([]state.LogRecord{{
 		Time:     t1,
 		Entity:   entity,
-		Version:  version,
+		Version:  vers,
 		Module:   "juju.foo",
 		Location: "code.go:42",
 		Level:    loggo.INFO,
@@ -282,7 +300,7 @@ func (s *debugLogDbSuite2) TestLogsUsesStartTime(c *gc.C) {
 	}, {
 		Time:     t2,
 		Entity:   entity,
-		Version:  version,
+		Version:  vers,
 		Module:   "juju.quux",
 		Location: "ok.go:101",
 		Level:    loggo.INFO,
@@ -290,7 +308,7 @@ func (s *debugLogDbSuite2) TestLogsUsesStartTime(c *gc.C) {
 	}, {
 		Time:     t3,
 		Entity:   entity,
-		Version:  version,
+		Version:  vers,
 		Module:   "juju.bar",
 		Location: "go.go:99",
 		Level:    loggo.ERROR,
@@ -298,7 +316,7 @@ func (s *debugLogDbSuite2) TestLogsUsesStartTime(c *gc.C) {
 	}, {
 		Time:     t4,
 		Entity:   entity,
-		Version:  version,
+		Version:  vers,
 		Module:   "juju.baz",
 		Location: "go.go.go:23",
 		Level:    loggo.WARNING,

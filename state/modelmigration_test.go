@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 
 	apitesting "github.com/juju/juju/api/testing"
@@ -274,6 +274,7 @@ func (s *MigrationSuite) TestGetsLatestAttempt(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		mig, err := s.State2.LatestMigration()
+		c.Assert(err, jc.ErrorIsNil)
 		c.Check(mig.Id(), gc.Equals, fmt.Sprintf("%s:%d", modelUUID, i))
 
 		c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
@@ -491,6 +492,7 @@ func (s *MigrationSuite) TestIllegalPhaseTransition(c *gc.C) {
 
 func (s *MigrationSuite) TestPhaseChangeRace(c *gc.C) {
 	mig, err := s.State2.CreateMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mig, gc.Not(gc.IsNil))
 
 	defer state.SetBeforeHooks(c, s.State2, func() {
@@ -512,6 +514,7 @@ func (s *MigrationSuite) TestPhaseChangeRace(c *gc.C) {
 
 func (s *MigrationSuite) TestStatusMessage(c *gc.C) {
 	mig, err := s.State2.CreateMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mig, gc.Not(gc.IsNil))
 
 	mig2, err := s.State2.LatestMigration()
@@ -845,6 +848,7 @@ func (s *MigrationSuite) TestModelUserAccess(c *gc.C) {
 	c.Assert(len(modelUsers), gc.Not(gc.Equals), 0)
 
 	mig, err := s.State2.CreateMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for _, modelUser := range modelUsers {
 		c.Logf("check that migration doc lists user %q having permission %q", modelUser.UserTag, modelUser.Access)

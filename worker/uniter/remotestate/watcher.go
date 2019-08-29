@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
@@ -614,6 +614,9 @@ func (w *RemoteStateWatcher) unitChanged() error {
 	defer w.mu.Unlock()
 	w.current.Life = w.unit.Life()
 	w.current.ResolvedMode = w.unit.Resolved()
+	// It's ok to sync provider ID by watching unit rather than
+	// cloud container because it will not change once pod created.
+	w.current.ProviderID = w.unit.ProviderID()
 	return nil
 }
 
@@ -708,7 +711,12 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 				continue
 			}
 			ruw, err := w.st.WatchRelationUnits(relationTag, w.unit.Tag())
-			if err != nil {
+			// Deal with the race where the Relation call above returned
+			// a valid, perhaps dying relation, but by the time we ask to
+			// watch it, we get unauthorized because it is no longer around.
+			if params.IsCodeNotFoundOrCodeUnauthorized(err) {
+				continue
+			} else if err != nil {
 				return errors.Trace(err)
 			}
 			// Because of the delay before handing off responsibility to

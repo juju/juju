@@ -42,6 +42,9 @@ func instanceTypes(mm *MachineManagerAPI,
 	}
 
 	env, err := getEnviron(backend, environs.New)
+	if err != nil {
+		return params.InstanceTypesResults{}, errors.Trace(err)
+	}
 	result := make([]params.InstanceTypesResult, len(cons.Constraints))
 	// TODO(perrito666) Cache the results to avoid excessive querying of the cloud.
 	for i, c := range cons.Constraints {

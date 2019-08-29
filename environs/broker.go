@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -73,12 +74,12 @@ type StartInstanceParams struct {
 	// id to a list of availability zone names the subnet is available
 	// in. It is only populated when valid positive spaces constraints
 	// are present.
-	SubnetsToZones map[network.Id][]string
+	SubnetsToZones map[corenetwork.Id][]string
 
 	// EndpointBindings holds the mapping between application endpoint names to
 	// provider-specific space IDs. It is populated when provisioning a machine
 	// to host a unit of an application with endpoint bindings.
-	EndpointBindings map[string]network.Id
+	EndpointBindings map[string]corenetwork.Id
 
 	// ImageMetadata is a collection of image metadata
 	// that may be used to start this instance.

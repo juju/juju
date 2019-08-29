@@ -19,7 +19,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
 	"github.com/juju/juju/api"
@@ -36,8 +36,8 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -54,9 +54,15 @@ func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 	if s.ControllerConfigAttrs == nil {
 		s.ControllerConfigAttrs = make(map[string]interface{})
 	}
-	s.ControllerConfigAttrs[corecontroller.JujuManagementSpace] = "mgmt01"
+
 	s.JujuConnSuite.SetUpTest(c)
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
+
+	_, err := s.State.AddSpace("mgmt01", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.UpdateControllerConfig(map[string]interface{}{corecontroller.JujuManagementSpace: "mgmt01"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *baseLoginSuite) newServer(c *gc.C) (*api.Info, *apiserver.Server) {
@@ -99,6 +105,16 @@ func (s *baseLoginSuite) addMachine(c *gc.C, job state.MachineJob) (*state.Machi
 	return machine, password
 }
 
+func (s *baseLoginSuite) addController(c *gc.C) (state.ControllerNode, string) {
+	node, err := s.State.AddControllerNode()
+	c.Assert(err, jc.ErrorIsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	err = node.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+	return node, password
+}
+
 func (s *baseLoginSuite) openAPIWithoutLogin(c *gc.C, info0 *api.Info) api.Connection {
 	info := *info0
 	info.Tag = nil
@@ -107,7 +123,7 @@ func (s *baseLoginSuite) openAPIWithoutLogin(c *gc.C, info0 *api.Info) api.Conne
 	info.Macaroons = nil
 	st, err := api.Open(&info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { st.Close() })
+	s.AddCleanup(func(*gc.C) { _ = st.Close() })
 	return st
 }
 
@@ -252,10 +268,28 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 	})
 }
 
+func (s *loginSuite) TestControllerAgentLogin(c *gc.C) {
+	cfg := testserver.DefaultServerConfig(c)
+	cfg.Controller = s.JujuConnSuite.Controller
+	info, srv := s.newServerWithConfig(c, cfg)
+	defer assertStop(c, srv)
+
+	node, password := s.addController(c)
+	info.Tag = node.Tag()
+	info.Password = password
+	info.Nonce = "fake_nonce"
+
+	s.assertAgentLogin(c, info)
+}
+
 func (s *loginSuite) TestLoginAddressesForAgents(c *gc.C) {
 	info, srv := s.newMachineAndServer(c)
 	defer assertStop(c, srv)
 
+	s.assertAgentLogin(c, info)
+}
+
+func (s *loginSuite) assertAgentLogin(c *gc.C, info *api.Info) {
 	err := s.State.SetAPIHostPorts(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -678,6 +712,26 @@ func (s *loginSuite) TestControllerMachineLoginDuringMaintenance(c *gc.C) {
 	c.Assert(st.Close(), jc.ErrorIsNil)
 }
 
+func (s *loginSuite) TestControllerAgentLoginDuringMaintenance(c *gc.C) {
+	cfg := testserver.DefaultServerConfig(c)
+	cfg.UpgradeComplete = func() bool {
+		// upgrade is in progress
+		return false
+	}
+	cfg.Controller = s.JujuConnSuite.Controller
+	info, srv := s.newServerWithConfig(c, cfg)
+	defer assertStop(c, srv)
+
+	node, password := s.addController(c)
+	info.Tag = node.Tag()
+	info.Password = password
+	info.Nonce = "fake_nonce"
+
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st.Close(), jc.ErrorIsNil)
+}
+
 func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	modelOwner := s.Factory.MakeUser(c, &factory.UserParams{
 		Password: "secret",
@@ -687,6 +741,7 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	})
 	defer modelState.Close()
 	model, err := modelState.Model()
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Migrate the model and delete it from the state
 	mig, err := modelState.CreateMigration(state.MigrationSpec{
@@ -855,6 +910,11 @@ func (s *loginSuite) TestOtherModel(c *gc.C) {
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	info.ModelTag = model.ModelTag()
+
+	// Ensure that the model has been added to the cache before
+	// we try to log in.
+	s.EnsureCachedModel(c, model.UUID())
+
 	st := s.openAPIWithoutLogin(c, info)
 
 	err = st.Login(modelOwner.UserTag(), "password", "", nil)

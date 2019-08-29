@@ -11,7 +11,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 	dt "gopkg.in/juju/worker.v1/dependency/testing"
@@ -37,7 +37,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		Clock:         testclock.NewClock(time.Now()),
 		APICallerName: "api-caller",
 		Duration:      time.Minute,
-		NewFacade: func(base.APICaller, names.MachineTag, names.Tag) (singular.Facade, error) {
+		NewFacade: func(base.APICaller, names.Tag, names.Tag) (singular.Facade, error) {
 			return nil, errors.NotImplementedf("NewFacade")
 		},
 		NewWorker: func(config singular.FlagConfig) (worker.Worker, error) {
@@ -142,7 +142,7 @@ func (s *ManifoldSuite) TestStartNewFacadeError(c *gc.C) {
 	expectAPICaller := &fakeAPICaller{}
 	s.config.Claimant = names.NewMachineTag("123")
 	s.config.Entity = coretesting.ModelTag
-	s.config.NewFacade = func(apiCaller base.APICaller, claimant names.MachineTag, entity names.Tag) (singular.Facade, error) {
+	s.config.NewFacade = func(apiCaller base.APICaller, claimant names.Tag, entity names.Tag) (singular.Facade, error) {
 		c.Check(apiCaller, gc.Equals, expectAPICaller)
 		c.Check(claimant.String(), gc.Equals, "machine-123")
 		c.Check(entity, gc.Equals, coretesting.ModelTag)
@@ -160,7 +160,7 @@ func (s *ManifoldSuite) TestStartNewFacadeError(c *gc.C) {
 
 func (s *ManifoldSuite) TestStartNewWorkerError(c *gc.C) {
 	expectFacade := &fakeFacade{}
-	s.config.NewFacade = func(base.APICaller, names.MachineTag, names.Tag) (singular.Facade, error) {
+	s.config.NewFacade = func(base.APICaller, names.Tag, names.Tag) (singular.Facade, error) {
 		return expectFacade, nil
 	}
 	s.config.NewWorker = func(config singular.FlagConfig) (worker.Worker, error) {
@@ -182,7 +182,7 @@ func (s *ManifoldSuite) TestStartNewWorkerError(c *gc.C) {
 func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	var stub testing.Stub
 	expectWorker := newStubWorker(&stub)
-	s.config.NewFacade = func(base.APICaller, names.MachineTag, names.Tag) (singular.Facade, error) {
+	s.config.NewFacade = func(base.APICaller, names.Tag, names.Tag) (singular.Facade, error) {
 		return &fakeFacade{}, nil
 	}
 	s.config.NewWorker = func(_ singular.FlagConfig) (worker.Worker, error) {
@@ -209,7 +209,7 @@ func (s *ManifoldSuite) TestWorkerBouncesOnRefresh(c *gc.C) {
 	var stub testing.Stub
 	stub.SetErrors(singular.ErrRefresh)
 	errWorker := newStubWorker(&stub)
-	s.config.NewFacade = func(base.APICaller, names.MachineTag, names.Tag) (singular.Facade, error) {
+	s.config.NewFacade = func(base.APICaller, names.Tag, names.Tag) (singular.Facade, error) {
 		return &fakeFacade{}, nil
 	}
 	s.config.NewWorker = func(_ singular.FlagConfig) (worker.Worker, error) {

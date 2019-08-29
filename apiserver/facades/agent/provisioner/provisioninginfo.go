@@ -11,7 +11,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
@@ -295,16 +295,12 @@ func (p *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]
 			logger.Warningf(warningPrefix + "no ProviderId set")
 			continue
 		}
-		// TODO(dimitern): Once state.Subnet supports multiple zones,
-		// use all of them below.
-		//
-		// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119979611
-		zone := subnet.AvailabilityZone()
-		if zone == "" {
+		zones := subnet.AvailabilityZones()
+		if len(zones) == 0 {
 			logger.Warningf(warningPrefix + "no availability zone(s) set")
 			continue
 		}
-		subnetsToZones[string(providerId)] = []string{zone}
+		subnetsToZones[string(providerId)] = zones
 	}
 	return subnetsToZones, nil
 }

@@ -28,6 +28,7 @@ import (
 	"crypto/sha512"
 	"fmt"
 	"io"
+	"reflect"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -56,7 +57,11 @@ func (d datastore) Get(path string, data interface{}) error {
 	if current == nil {
 		return errors.NotFoundf(path)
 	}
-	data = current
+	value := reflect.ValueOf(data)
+	if value.Type().Kind() != reflect.Ptr {
+		return errors.New("data not a ptr")
+	}
+	value.Elem().Set(reflect.ValueOf(current))
 	return nil
 }
 
@@ -427,9 +432,8 @@ func (r Repository) Resolve(ref *charm.URL) (canonRef *charm.URL, supportedSerie
 // ResolveWithChannel disambiguates a charm to a specific revision.
 //
 // Part of the cmd/juju/application.DeployAPI interface
-func (r Repository) ResolveWithChannel(ref *charm.URL) (*charm.URL, params.Channel, []string, error) {
-	canonRef, supportedSeries, err := r.Resolve(ref)
-	return canonRef, r.channel, supportedSeries, err
+func (r Repository) ResolveWithPreferredChannel(ref *charm.URL, preferredChannel params.Channel) (*charm.URL, params.Channel, []string, error) {
+	return r.addRevision(ref), preferredChannel, []string{"trusty", "wily", "quantal"}, nil
 }
 
 // Get retrieves a charm from the repository.

@@ -5,7 +5,6 @@ package identityfilewriter
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -13,7 +12,6 @@ import (
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
-	"github.com/juju/juju/state/multiwatcher"
 	jworker "github.com/juju/juju/worker"
 )
 
@@ -31,30 +29,16 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	cfg := a.CurrentConfig()
 
-	// Grab the tag and ensure that it's for a machine.
-	tag, ok := cfg.Tag().(names.MachineTag)
-	if !ok {
-		return nil, errors.New("this manifold may only be used inside a machine agent")
+	// Grab the tag and ensure that it's for a controller.
+	if !apiagent.IsAllowedControllerTag(cfg.Tag().Kind()) {
+		return nil, errors.New("this manifold may only be used inside a machine or controller agent")
 	}
 
-	// Get the machine agent's jobs.
-	apiSt, err := apiagent.NewState(apiCaller)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	entity, err := apiSt.Entity(tag)
+	isController, err := apiagent.IsController(apiCaller, cfg.Tag())
 	if err != nil {
 		return nil, err
 	}
-	var isModelManager bool
-	for _, job := range entity.Jobs() {
-		if job == multiwatcher.JobManageModel {
-			isModelManager = true
-			break
-		}
-	}
-
-	if !isModelManager {
+	if !isController {
 		return nil, dependency.ErrMissing
 	}
 

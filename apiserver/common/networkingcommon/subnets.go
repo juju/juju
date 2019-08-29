@@ -11,14 +11,14 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
 )
 
@@ -258,24 +258,27 @@ func (cache *addSubnetsCache) cacheSubnets(ctx context.ProviderCallContext) erro
 	return nil
 }
 
-// validateSubnet ensures either subnetTag or providerId is valid (not both),
+// TODO (hml) 2019-08-27
+// This logic needs to be updated when auditing add-subnet and the
+// subnet cache.  You need a providerId or cidr if there is only
+// one of that cidr in the network.  If there are duplicate cidrs
+// in the network, the providerId will be required.
+//
+// validateSubnet ensures either cidr or providerId is valid (not both),
 // then uses the cache to validate and lookup the provider SubnetInfo for the
 // subnet, if found.
-func (cache *addSubnetsCache) validateSubnet(ctx context.ProviderCallContext, subnetTag, providerId string) (*network.SubnetInfo, error) {
-	haveTag := subnetTag != ""
+func (cache *addSubnetsCache) validateSubnet(ctx context.ProviderCallContext, cidr, providerId string) (*network.SubnetInfo, error) {
+	haveCidr := cidr != ""
 	haveProviderId := providerId != ""
 
-	if !haveTag && !haveProviderId {
-		return nil, errors.Errorf("either SubnetTag or SubnetProviderId is required")
-	} else if haveTag && haveProviderId {
-		return nil, errors.Errorf("SubnetTag and SubnetProviderId cannot be both set")
+	if !haveCidr && !haveProviderId {
+		return nil, errors.Errorf("either CIDR or SubnetProviderId is required")
+	} else if haveCidr && haveProviderId {
+		return nil, errors.Errorf("CIDR and SubnetProviderId cannot be both set")
 	}
-	var tag names.SubnetTag
-	if haveTag {
-		var err error
-		tag, err = names.ParseSubnetTag(subnetTag)
-		if err != nil {
-			return nil, errors.Annotate(err, "given SubnetTag is invalid")
+	if haveCidr {
+		if !network.IsValidCidr(cidr) {
+			return nil, errors.New(fmt.Sprintf("%q is not a valid CIDR", cidr))
 		}
 	}
 
@@ -284,16 +287,16 @@ func (cache *addSubnetsCache) validateSubnet(ctx context.ProviderCallContext, su
 		return nil, errors.Trace(err)
 	}
 
-	if haveTag {
-		providerIds, ok := cache.providerIdsByCIDR[tag.Id()]
+	if haveCidr {
+		providerIds, ok := cache.providerIdsByCIDR[cidr]
 		if !ok || providerIds.IsEmpty() {
-			return nil, errors.NotFoundf("subnet with CIDR %q", tag.Id())
+			return nil, errors.NotFoundf("subnet with CIDR %q", cidr)
 		}
 		if providerIds.Size() > 1 {
 			ids := `"` + strings.Join(providerIds.SortedValues(), `", "`) + `"`
 			return nil, errors.Errorf(
 				"multiple subnets with CIDR %q: retry using ProviderId from: %s",
-				tag.Id(), ids,
+				cidr, ids,
 			)
 		}
 		// A single CIDR matched.
@@ -304,11 +307,11 @@ func (cache *addSubnetsCache) validateSubnet(ctx context.ProviderCallContext, su
 	if !ok || info == nil {
 		return nil, errors.NotFoundf(
 			"subnet with CIDR %q and ProviderId %q",
-			tag.Id(), providerId,
+			cidr, providerId,
 		)
 	}
 	// Do last-call validation.
-	if !names.IsValidSubnet(info.CIDR) {
+	if !network.IsValidCidr(info.CIDR) {
 		_, ipnet, err := net.ParseCIDR(info.CIDR)
 		if err != nil && info.CIDR != "" {
 			// The underlying error is not important here, just that
@@ -333,8 +336,10 @@ func (cache *addSubnetsCache) validateSubnet(ctx context.ProviderCallContext, su
 
 // addOneSubnet validates the given arguments, using cache for lookups
 // (initialized on first use), then adds it to the backing store, if successful.
-func addOneSubnet(ctx context.ProviderCallContext, api NetworkBacking, args params.AddSubnetParams, cache *addSubnetsCache) error {
-	subnetInfo, err := cache.validateSubnet(ctx, args.SubnetTag, args.SubnetProviderId)
+func addOneSubnet(
+	ctx context.ProviderCallContext, api NetworkBacking, args params.AddSubnetParams, cache *addSubnetsCache,
+) error {
+	subnetInfo, err := cache.validateSubnet(ctx, args.CIDR, args.SubnetProviderId)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -416,24 +421,8 @@ func ListSubnets(api NetworkBacking, args params.SubnetsFilters) (results params
 			)
 			continue
 		}
-		// TODO(babbageclunk): make the empty string a valid space
-		// name, rather than treating blank as "doesn't have a space".
-		// lp:1672888
-		var spaceTag string
-		if subnet.SpaceName() != "" {
-			spaceTag = names.NewSpaceTag(subnet.SpaceName()).String()
-		}
-		result := params.Subnet{
-			CIDR:              subnet.CIDR(),
-			ProviderId:        string(subnet.ProviderId()),
-			ProviderNetworkId: string(subnet.ProviderNetworkId()),
-			VLANTag:           subnet.VLANTag(),
-			Life:              subnet.Life(),
-			SpaceTag:          spaceTag,
-			Zones:             subnet.AvailabilityZones(),
-			Status:            subnet.Status(),
-		}
-		results.Results = append(results.Results, result)
+
+		results.Results = append(results.Results, BackingSubnetToParamsSubnet(subnet))
 	}
 	return results, nil
 }

@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/container/kvm/mock"

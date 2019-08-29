@@ -10,7 +10,7 @@ import (
 	cache "github.com/juju/juju/core/cache"
 	settings "github.com/juju/juju/core/settings"
 	charm_v6 "gopkg.in/juju/charm.v6"
-	names_v2 "gopkg.in/juju/names.v2"
+	names_v3 "gopkg.in/juju/names.v3"
 	reflect "reflect"
 )
 
@@ -51,9 +51,9 @@ func (mr *MockStateMockRecorder) Application(arg0 interface{}) *gomock.Call {
 }
 
 // ControllerTag mocks base method
-func (m *MockState) ControllerTag() names_v2.ControllerTag {
+func (m *MockState) ControllerTag() names_v3.ControllerTag {
 	ret := m.ctrl.Call(m, "ControllerTag")
-	ret0, _ := ret[0].(names_v2.ControllerTag)
+	ret0, _ := ret[0].(names_v3.ControllerTag)
 	return ret0
 }
 
@@ -137,9 +137,9 @@ func (mr *MockModelMockRecorder) Branches() *gomock.Call {
 }
 
 // ModelTag mocks base method
-func (m *MockModel) ModelTag() names_v2.ModelTag {
+func (m *MockModel) ModelTag() names_v3.ModelTag {
 	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(names_v2.ModelTag)
+	ret0, _ := ret[0].(names_v3.ModelTag)
 	return ret0
 }
 

@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/api"
@@ -29,13 +29,12 @@ import (
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
@@ -67,9 +66,6 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	s.setupState(c)
-
-	s.State.StartSync()
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming the wordpress unit has logged in.
@@ -169,9 +165,6 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAAS
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.State.StartSync()
-	s.WaitForModelWatchersIdle(c, m.UUID())
 
 	apiInfo, err := environs.APIInfo(
 		context.NewCloudCallContext(),
@@ -595,6 +588,8 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 	err := s.machine0.SetProviderAddresses(
 		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.Model.UpdateModelConfig(map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1000,7 +995,7 @@ func (s *uniterSuite) TestOpenPorts(c *gc.C) {
 	// Verify the wordpressUnit's port is opened.
 	openedPorts, err = s.wordpressUnit.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(openedPorts, gc.DeepEquals, []corenetwork.PortRange{
+	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
 		{Protocol: "udp", FromPort: 4321, ToPort: 5000},
 	})
 }
@@ -1011,7 +1006,7 @@ func (s *uniterSuite) TestClosePorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	openedPorts, err := s.wordpressUnit.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(openedPorts, gc.DeepEquals, []corenetwork.PortRange{
+	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
 		{Protocol: "udp", FromPort: 4321, ToPort: 5000},
 	})
 
@@ -1043,9 +1038,6 @@ func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	s.State.StartSync()
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
@@ -1058,8 +1050,7 @@ func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{
 				StringsWatcherId: "1",
-				// See core/cache/hash.go for the hash implementation.
-				Changes: []string{"754ed70cf17d2df2cc6a2dcb6cbfcb569a8357b97b5708e7a7ca0409505e1d0b"},
+				Changes:          []string{"af35e298300150f2c357b4a1c40c1109bde305841c6343113b634b9dada22d00"},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
@@ -1248,9 +1239,6 @@ func (s *uniterSuite) TestWatchActionNotificationsPermissionDenied(c *gc.C) {
 func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.State.StartSync()
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	settings, err := s.wordpressUnit.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2366,6 +2354,7 @@ func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 		"other": "stuff",
 	}
 	err = relUnit.EnterScope(settings)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
 	newSettings := params.Settings{
@@ -2709,6 +2698,7 @@ func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.OpenAPIAs(c, unit.Tag(), password)
@@ -3331,7 +3321,7 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 	s.uniterSuiteBase.JujuConnSuite.SetUpTest(c)
 
 	// Add the spaces and subnets used by the test.
-	subnetInfos := []state.SubnetInfo{{
+	subnetInfos := []network.SubnetInfo{{
 		CIDR:      "8.8.0.0/16",
 		SpaceName: "public",
 	}, {
@@ -3383,9 +3373,6 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 		Application: s.mysql,
 		Machine:     s.machine1,
 	})
-
-	s.State.StartSync()
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	// Create the resource registry separately to track invocations to register.
 	s.resources = common.NewResources()
@@ -3575,7 +3562,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.uniterSuiteBase.JujuConnSuite.SetUpTest(c)
 
 	// Add the spaces and subnets used by the test.
-	subnetInfos := []state.SubnetInfo{{
+	subnetInfos := []network.SubnetInfo{{
 		CIDR:      "8.8.0.0/16",
 		SpaceName: "public",
 	}, {
@@ -4202,9 +4189,6 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 
 	c.Assert(wp.Refresh(), jc.ErrorIsNil)
 	c.Assert(wpUnit.Refresh(), jc.ErrorIsNil)
-
-	s.State.StartSync()
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	args := params.NetworkInfoParams{
 		Unit:     wpUnit.Tag().String(),

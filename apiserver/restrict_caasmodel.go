@@ -13,6 +13,7 @@ import (
 // commonModelFacadeNames lists facades that are shared between CAAS
 // and IAAS models.
 var commonModelFacadeNames = set.NewStrings(
+	"Action",
 	"ActionPruner",
 	"AllWatcher",
 	"Agent",

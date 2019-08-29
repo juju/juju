@@ -10,7 +10,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-07-01/storage"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/environs/config"
 )

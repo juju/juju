@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -27,7 +28,7 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -1672,6 +1673,9 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx context.Provi
 	// Walk all the pages of results so we can get a total list of groups to remove.
 	var groupNames []*string
 	for ; result.NotDone(); err = result.NextWithContext(sdkCtx) {
+		if err != nil {
+			return errors.Trace(err)
+		}
 		for _, group := range result.Values() {
 			groupNames = append(groupNames, group.Name)
 		}
@@ -1775,22 +1779,72 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx context.ProviderCallContext)
 		return env.instanceTypes, nil
 	}
 
-	location := env.location
-	client := compute.VirtualMachineSizesClient{env.compute}
+	client := compute.ResourceSkusClient{env.compute}
 
-	result, err := client.List(stdcontext.Background(), location)
+	res, err := client.ListComplete(stdcontext.Background())
 	if err != nil {
 		return nil, errorutils.HandleCredentialError(errors.Annotate(err, "listing VM sizes"), ctx)
 	}
 	instanceTypes := make(map[string]instances.InstanceType)
-	if result.Value != nil {
-		for _, size := range *result.Value {
-			instanceType := newInstanceType(size)
-			instanceTypes[instanceType.Name] = instanceType
-			// Create aliases for standard role sizes.
-			if strings.HasPrefix(instanceType.Name, "Standard_") {
-				instanceTypes[instanceType.Name[len("Standard_"):]] = instanceType
+	sdkCtx := stdcontext.Background()
+	for ; res.NotDone(); err = res.NextWithContext(sdkCtx) {
+		if err != nil {
+			return nil, errors.Annotate(err, "listing resources")
+		}
+		resource := res.Value()
+		if resource.ResourceType == nil || *resource.ResourceType != "virtualMachines" {
+			continue
+		}
+		if resource.Restrictions != nil {
+			for _, r := range *resource.Restrictions {
+				if r.ReasonCode == compute.NotAvailableForSubscription {
+					continue
+				}
 			}
+		}
+		locationOk := false
+		if resource.Locations != nil {
+			for _, loc := range *resource.Locations {
+				if strings.ToLower(loc) == env.location {
+					locationOk = true
+					break
+				}
+			}
+		}
+		if !locationOk {
+			continue
+		}
+		var (
+			cores    *int32
+			mem      *int32
+			rootDisk *int32
+		)
+		for _, capability := range *resource.Capabilities {
+			if capability.Name == nil || capability.Value == nil {
+				continue
+			}
+			switch *capability.Name {
+			case "MemoryGB":
+				memValue, _ := strconv.ParseFloat(*capability.Value, 32)
+				mem = to.Int32Ptr(int32(1024 * memValue))
+			case "vCPUsAvailable", "vCPUs":
+				coresValue, _ := strconv.Atoi(*capability.Value)
+				cores = to.Int32Ptr(int32(coresValue))
+			case "OSVhdSizeMB":
+				rootDiskValue, _ := strconv.Atoi(*capability.Value)
+				rootDisk = to.Int32Ptr(int32(rootDiskValue))
+			}
+		}
+		instanceType := newInstanceType(compute.VirtualMachineSize{
+			Name:           resource.Name,
+			NumberOfCores:  cores,
+			OsDiskSizeInMB: rootDisk,
+			MemoryInMB:     mem,
+		})
+		instanceTypes[instanceType.Name] = instanceType
+		// Create aliases for standard role sizes.
+		if strings.HasPrefix(instanceType.Name, "Standard_") {
+			instanceTypes[instanceType.Name[len("Standard_"):]] = instanceType
 		}
 	}
 	env.instanceTypes = instanceTypes

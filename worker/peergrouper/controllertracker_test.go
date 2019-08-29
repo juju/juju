@@ -8,7 +8,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -20,6 +20,7 @@ var _ = gc.Suite(&machineTrackerSuite{})
 
 func (s *machineTrackerSuite) TestSelectMongoAddressFromSpaceReturnsCorrectAddress(c *gc.C) {
 	spaceName := network.SpaceName("ha-space")
+	space := network.SpaceInfo{Name: spaceName}
 
 	m := &controllerTracker{
 		addresses: []network.Address{
@@ -40,7 +41,7 @@ func (s *machineTrackerSuite) TestSelectMongoAddressFromSpaceReturnsCorrectAddre
 		},
 	}
 
-	addr, err := m.SelectMongoAddressFromSpace(666, spaceName)
+	addr, err := m.SelectMongoAddressFromSpace(666, space)
 	c.Assert(err, gc.IsNil)
 	c.Check(addr, gc.Equals, "192.168.5.5:666")
 }
@@ -56,7 +57,7 @@ func (s *machineTrackerSuite) TestSelectMongoAddressFromSpaceEmptyWhenNoAddressF
 		},
 	}
 
-	addrs, err := m.SelectMongoAddressFromSpace(666, "bad-space")
+	addrs, err := m.SelectMongoAddressFromSpace(666, network.SpaceInfo{Name: "bad-space"})
 	c.Check(addrs, gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, `addresses for controller node "3" in space "bad-space" not found`)
 }
@@ -66,7 +67,7 @@ func (s *machineTrackerSuite) TestSelectMongoAddressFromSpaceErrorForEmptySpace(
 		id: "3",
 	}
 
-	_, err := m.SelectMongoAddressFromSpace(666, "")
+	_, err := m.SelectMongoAddressFromSpace(666, network.SpaceInfo{})
 	c.Check(err, gc.ErrorMatches, `empty space supplied as an argument for selecting Mongo address for controller node "3"`)
 }
 

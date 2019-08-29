@@ -17,7 +17,7 @@ import (
 	utilscert "github.com/juju/utils/cert"
 	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 
 	"github.com/juju/juju/cert"
@@ -123,6 +123,14 @@ const (
 	// detault
 	MongoMemoryProfile = "mongo-memory-profile"
 
+	// MaxDebugLogDuration is used to provide a backstop to the execution of a debug-log
+	// command. If someone starts a debug-log session in a remote screen for example, it
+	// is very easy to disconnect from the screen while leaving the debug-log process
+	// running. This causes unnecessary load on the API Server. The max debug-log duration
+	// has a default of 24 hours, which should be more than enough time for a debugging
+	// session. If the user needs more information, perhaps debug-log isn't the right source.
+	MaxDebugLogDuration = "max-debug-log-duration"
+
 	// TODO(thumper): remove max-logs-age and max-logs-size in 2.7 branch.
 
 	// MaxLogsAge is the maximum age for log entries, eg "72h"
@@ -198,6 +206,10 @@ const (
 	// DefaultMongoMemoryProfile is the default profile used by mongo.
 	DefaultMongoMemoryProfile = MongoProfDefault
 
+	// DefaultMaxDebugLogDuration is the default duration that debug-log commands
+	// can run before being terminated by the API server.
+	DefaultMaxDebugLogDuration = 24 * time.Hour
+
 	// TODO(thumper): remove DefaultMaxLogsAgeDays and DefaultMaxLogCollectionMB in 2.7 branch.
 
 	// DefaultMaxLogsAgeDays is the maximum age in days of log entries.
@@ -272,6 +284,7 @@ var (
 		SetNUMAControlPolicyKey,
 		StatePort,
 		MongoMemoryProfile,
+		MaxDebugLogDuration,
 		// TODO(thumper): remove MaxLogsAge and MaxLogsSize in 2.7 branch.
 		MaxLogsSize,
 		MaxLogsAge,
@@ -305,6 +318,7 @@ var (
 		// TODO Juju 3.0: ControllerAPIPort should be required and treated
 		// more like api-port.
 		ControllerAPIPort,
+		MaxDebugLogDuration,
 		MaxPruneTxnBatchSize,
 		MaxPruneTxnPasses,
 		// TODO(thumper): remove MaxLogsAge and MaxLogsSize in 2.7 branch.
@@ -594,6 +608,16 @@ func (c Config) ModelLogsSizeMB() int {
 	return int(val)
 }
 
+// MaxDebugLogDuration is the maximum time a debug-log session is allowed
+// to run before it is terminated by the server.
+func (c Config) MaxDebugLogDuration() time.Duration {
+	duration, ok := c[MaxDebugLogDuration].(time.Duration)
+	if !ok {
+		duration = DefaultMaxDebugLogDuration
+	}
+	return duration
+}
+
 // MaxTxnLogSizeMB is the maximum size in MiB of the txn log collection.
 func (c Config) MaxTxnLogSizeMB() int {
 	// Value has already been validated.
@@ -704,6 +728,11 @@ func Validate(c Config) error {
 		}
 	}
 
+	if v, ok := c[MaxDebugLogDuration].(time.Duration); ok {
+		if v == 0 {
+			return errors.Errorf("%s cannot be zero", MaxDebugLogDuration)
+		}
+	}
 	// TODO(thumper): remove MaxLogsAge and MaxLogsSize validation in 2.7 branch.
 	if v, ok := c[MaxLogsAge].(string); ok {
 		if _, err := time.ParseDuration(v); err != nil {
@@ -884,6 +913,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AutocertDNSNameKey:      schema.String(),
 	AllowModelAccessKey:     schema.Bool(),
 	MongoMemoryProfile:      schema.String(),
+	MaxDebugLogDuration:     schema.TimeDuration(),
 	MaxLogsAge:              schema.String(),
 	MaxLogsSize:             schema.String(),
 	MaxTxnLogSize:           schema.String(),
@@ -916,6 +946,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AutocertDNSNameKey:      schema.Omit,
 	AllowModelAccessKey:     schema.Omit,
 	MongoMemoryProfile:      DefaultMongoMemoryProfile,
+	MaxDebugLogDuration:     DefaultMaxDebugLogDuration,
 	MaxLogsAge:              fmt.Sprintf("%vh", DefaultMaxLogsAgeDays*24),
 	MaxLogsSize:             fmt.Sprintf("%vM", DefaultMaxLogCollectionMB),
 	MaxTxnLogSize:           fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
@@ -1008,6 +1039,10 @@ they don't have any access rights to the controller itself`,
 	MongoMemoryProfile: {
 		Type:        environschema.Tstring,
 		Description: `Sets mongo memory profile`,
+	},
+	MaxDebugLogDuration: {
+		Type:        environschema.Tstring,
+		Description: `The maximum amout of time a debug-log session is allowed to run`,
 	},
 	MaxLogsAge: {
 		Type:        environschema.Tstring,

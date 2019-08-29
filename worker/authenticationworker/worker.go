@@ -11,7 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/os"
 	"github.com/juju/utils/ssh"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
 

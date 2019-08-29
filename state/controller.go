@@ -8,13 +8,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	jujucontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 const (
@@ -157,20 +157,24 @@ func checkUpdateControllerConfig(name string) error {
 
 // checkSpaceIsAvailableToAllControllers checks if each controller machine has
 // at least one address in the input space. If not, an error is returned.
-func (st *State) checkSpaceIsAvailableToAllControllers(configSpace string) error {
-	info, err := st.ControllerInfo()
+func (st *State) checkSpaceIsAvailableToAllControllers(spaceName string) error {
+	controllerIds, err := st.ControllerIds()
 	if err != nil {
 		return errors.Annotate(err, "cannot get controller info")
 	}
 
+	space, err := st.Space(spaceName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	var missing []string
-	spaceName := network.SpaceName(configSpace)
-	for _, id := range info.MachineIds {
+	for _, id := range controllerIds {
 		m, err := st.Machine(id)
 		if err != nil {
 			return errors.Annotate(err, "cannot get machine")
 		}
-		if _, ok := network.SelectAddressesBySpaceNames(m.Addresses(), spaceName); !ok {
+		if _, ok := network.SelectAddressesBySpaces(m.Addresses(), space.NetworkSpace()); !ok {
 			missing = append(missing, id)
 		}
 	}
@@ -182,10 +186,10 @@ func (st *State) checkSpaceIsAvailableToAllControllers(configSpace string) error
 }
 
 type controllersDoc struct {
-	Id         string   `bson:"_id"`
-	CloudName  string   `bson:"cloud"`
-	ModelUUID  string   `bson:"model-uuid"`
-	MachineIds []string `bson:"machineids"`
+	Id            string   `bson:"_id"`
+	CloudName     string   `bson:"cloud"`
+	ModelUUID     string   `bson:"model-uuid"`
+	ControllerIds []string `bson:"controller-ids"`
 }
 
 // ControllerInfo holds information about currently
@@ -199,9 +203,10 @@ type ControllerInfo struct {
 	// model is the model that is created when bootstrapping.
 	ModelTag names.ModelTag
 
-	// MachineIds holds the ids of all machines configured to run a controller.
-	// Check the individual machine docs to know if a given machine wants to vote and/or has the vote.
-	MachineIds []string
+	// ControllerIds holds the ids of all the controller nodes.
+	// It's main purpose is to allow assertions tha the set of
+	// controllers hasn't changed when adding/removing controller nodes.
+	ControllerIds []string
 }
 
 // ControllerInfo returns information about
@@ -228,9 +233,9 @@ func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
 		return nil, errors.Annotatef(err, "cannot get controllers document")
 	}
 	return &ControllerInfo{
-		CloudName:  doc.CloudName,
-		ModelTag:   names.NewModelTag(doc.ModelUUID),
-		MachineIds: doc.MachineIds,
+		CloudName:     doc.CloudName,
+		ModelTag:      names.NewModelTag(doc.ModelUUID),
+		ControllerIds: doc.ControllerIds,
 	}, nil
 }
 

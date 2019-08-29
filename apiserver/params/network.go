@@ -4,8 +4,7 @@
 package params
 
 import (
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // -----
@@ -82,7 +81,7 @@ type NetworkConfig struct {
 	CIDR string `json:"cidr"`
 
 	// MTU is the Maximum Transmission Unit controlling the maximum size of the
-	// protocol packats that the interface can pass through. It is only used
+	// protocol packets that the interface can pass through. It is only used
 	// when > 0.
 	MTU int `json:"mtu"`
 
@@ -93,12 +92,12 @@ type NetworkConfig struct {
 	// interface is attached to.
 	ProviderSubnetId string `json:"provider-subnet-id"`
 
-	// ProviderSpaceId is a provider-specific space id, to which the interface
-	// is attached to, if known and supported.
+	// ProviderSpaceId is a provider-specific space id to which the interface
+	// is attached, if known and supported.
 	ProviderSpaceId string `json:"provider-space-id"`
 
-	// ProviderAddressId is the provider-specific id of the assigned address, if
-	// supported and known.
+	// ProviderAddressId is the provider-specific id of the assigned address,
+	// if supported and known.
 	ProviderAddressId string `json:"provider-address-id"`
 
 	// ProviderVLANId is the provider-specific id of the assigned address's
@@ -206,7 +205,7 @@ type Port struct {
 
 // FromNetworkPort is a convenience helper to create a parameter
 // out of the network type, here for Port.
-func FromNetworkPort(p corenetwork.Port) Port {
+func FromNetworkPort(p network.Port) Port {
 	return Port{
 		Protocol: p.Protocol,
 		Number:   p.Number,
@@ -215,8 +214,8 @@ func FromNetworkPort(p corenetwork.Port) Port {
 
 // NetworkPort is a convenience helper to return the parameter
 // as network type, here for Port.
-func (p Port) NetworkPort() corenetwork.Port {
-	return corenetwork.Port{
+func (p Port) NetworkPort() network.Port {
+	return network.Port{
 		Protocol: p.Protocol,
 		Number:   p.Number,
 	}
@@ -233,7 +232,7 @@ type PortRange struct {
 
 // FromNetworkPortRange is a convenience helper to create a parameter
 // out of the network type, here for PortRange.
-func FromNetworkPortRange(pr corenetwork.PortRange) PortRange {
+func FromNetworkPortRange(pr network.PortRange) PortRange {
 	return PortRange{
 		FromPort: pr.FromPort,
 		ToPort:   pr.ToPort,
@@ -243,8 +242,8 @@ func FromNetworkPortRange(pr corenetwork.PortRange) PortRange {
 
 // NetworkPortRange is a convenience helper to return the parameter
 // as network type, here for PortRange.
-func (pr PortRange) NetworkPortRange() corenetwork.PortRange {
-	return corenetwork.PortRange{
+func (pr PortRange) NetworkPortRange() network.PortRange {
+	return network.PortRange{
 		FromPort: pr.FromPort,
 		ToPort:   pr.ToPort,
 		Protocol: pr.Protocol,
@@ -592,11 +591,29 @@ type AddSubnetsParams struct {
 	Subnets []AddSubnetParams `json:"subnets"`
 }
 
-// AddSubnetParams holds a subnet and space tags, subnet provider ID,
+// AddSubnetParams holds a cidr and space tags, subnet provider ID,
 // and a list of zones to associate the subnet to. Either SubnetTag or
 // SubnetProviderId must be set, but not both. Zones can be empty if
 // they can be discovered
 type AddSubnetParams struct {
+	CIDR              string   `json:"cidr,omitempty"`
+	SubnetProviderId  string   `json:"subnet-provider-id,omitempty"`
+	ProviderNetworkId string   `json:"provider-network-id,omitempty"`
+	SpaceTag          string   `json:"space-tag"`
+	VLANTag           int      `json:"vlan-tag,omitempty"`
+	Zones             []string `json:"zones,omitempty"`
+}
+
+// AddSubnetsParams holds the arguments of AddSubnets APIv2 call.
+type AddSubnetsParamsV2 struct {
+	Subnets []AddSubnetParamsV2 `json:"subnets"`
+}
+
+// AddSubnetParams holds a subnet and space tags, subnet provider ID,
+// and a list of zones to associate the subnet to. Either SubnetTag or
+// SubnetProviderId must be set, but not both. Zones can be empty if
+// they can be discovered
+type AddSubnetParamsV2 struct {
 	SubnetTag         string   `json:"subnet-tag,omitempty"`
 	SubnetProviderId  string   `json:"subnet-provider-id,omitempty"`
 	ProviderNetworkId string   `json:"provider-network-id,omitempty"`
@@ -621,6 +638,20 @@ type CreateSubnetParams struct {
 }
 
 // CreateSpacesParams olds the arguments of the AddSpaces API call.
+type CreateSpacesParamsV4 struct {
+	Spaces []CreateSpaceParamsV4 `json:"spaces"`
+}
+
+// CreateSpaceParams holds the space tag and at least one subnet
+// tag required to create a new space.
+type CreateSpaceParamsV4 struct {
+	SubnetTags []string `json:"subnet-tags"`
+	SpaceTag   string   `json:"space-tag"`
+	Public     bool     `json:"public"`
+	ProviderId string   `json:"provider-id,omitempty"`
+}
+
+// CreateSpacesParams olds the arguments of the AddSpaces API call.
 type CreateSpacesParams struct {
 	Spaces []CreateSpaceParams `json:"spaces"`
 }
@@ -628,7 +659,7 @@ type CreateSpacesParams struct {
 // CreateSpaceParams holds the space tag and at least one subnet
 // tag required to create a new space.
 type CreateSpaceParams struct {
-	SubnetTags []string `json:"subnet-tags"`
+	CIDRs      []string `json:"cidrs"`
 	SpaceTag   string   `json:"space-tag"`
 	Public     bool     `json:"public"`
 	ProviderId string   `json:"provider-id,omitempty"`
@@ -641,6 +672,7 @@ type ListSpacesResults struct {
 
 // Space holds the information about a single space and its associated subnets.
 type Space struct {
+	Id      string   `json:"id"`
 	Name    string   `json:"name"`
 	Subnets []Subnet `json:"subnets"`
 	Error   *Error   `json:"error,omitempty"`

@@ -1,7 +1,7 @@
 series: bionic
 saas:
   mysql:
-    url: kontroll:admin/default.mysql
+    url: test:admin/default.mysql
 applications:
   wordpress:
     charm: wordpress

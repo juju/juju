@@ -12,9 +12,9 @@ import (
 	"gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 )
 

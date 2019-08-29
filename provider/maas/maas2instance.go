@@ -9,7 +9,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
+
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 )
@@ -63,7 +65,7 @@ func (mi *maas2Instance) Id() instance.Id {
 	return instance.Id(mi.machine.SystemID())
 }
 
-func (mi *maas2Instance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
+func (mi *maas2Instance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
 	subnetsMap, err := mi.environ.subnetToSpaceIds(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -75,7 +77,7 @@ func (mi *maas2Instance) Addresses(ctx context.ProviderCallContext) ([]network.A
 		return nil, errors.Trace(err)
 	}
 
-	var addresses []network.Address
+	var addresses []corenetwork.Address
 	for _, iface := range interfaces {
 		if iface.Address.Value != "" {
 			addresses = append(addresses, iface.Address)

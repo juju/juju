@@ -6,7 +6,7 @@ package firewaller
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
@@ -292,21 +292,14 @@ func (f *FirewallerAPIV3) GetMachineActiveSubnets(args params.Entities) (params.
 			continue
 		}
 		for _, port := range ports {
-			subnetID := port.SubnetID()
-			if subnetID != "" && !names.IsValidSubnet(subnetID) {
-				// The error message below will look like e.g. `ports for
-				// machine "0", subnet "bad" not valid`.
-				err = errors.NotValidf("%s", ports)
-				result.Results[i].Error = common.ServerError(err)
-				continue
-			} else if subnetID != "" && names.IsValidSubnet(subnetID) {
-				subnetTag := names.NewSubnetTag(subnetID).String()
-				result.Results[i].Result = append(result.Results[i].Result, subnetTag)
+			if port.SubnetID() == "" {
+				// TODO(dimitern): Empty subnet IDs for ports are still OK until
+				// we can enforce it across all providers.
+				result.Results[i].Result = append(result.Results[i].Result, "")
 				continue
 			}
-			// TODO(dimitern): Empty subnet CIDRs for ports are still OK until
-			// we can enforce it across all providers.
-			result.Results[i].Result = append(result.Results[i].Result, "")
+			subnetTag := names.NewSubnetTag(port.SubnetID()).String()
+			result.Results[i].Result = append(result.Results[i].Result, subnetTag)
 		}
 	}
 	return result, nil

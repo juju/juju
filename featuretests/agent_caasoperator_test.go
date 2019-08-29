@@ -6,17 +6,21 @@ package featuretests
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujudagent "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -29,6 +33,10 @@ const (
 
 type CAASOperatorSuite struct {
 	agenttest.AgentSuite
+}
+
+func newExecClient(modelName string) (exec.Executor, error) {
+	return nil, nil
 }
 
 func (s *CAASOperatorSuite) SetUpSuite(c *gc.C) {
@@ -60,7 +68,7 @@ func (s *CAASOperatorSuite) primeAgent(c *gc.C) (*state.Application, agent.Confi
 }
 
 func (s *CAASOperatorSuite) newAgent(c *gc.C, app *state.Application) *jujudagent.CaasOperatorAgent {
-	a, err := jujudagent.NewCaasOperatorAgent(nil, s.newBufferedLogWriter())
+	a, err := s.newCaasOperatorAgent(c, nil, s.newBufferedLogWriter())
 	c.Assert(err, jc.ErrorIsNil)
 	s.InitAgent(c, a, "--application-name", app.Name())
 	err = a.ReadConfig(app.Tag().String())
@@ -143,6 +151,23 @@ var (
 	}
 )
 
+func sockPath(c *gc.C) sockets.Socket {
+	sockPath := filepath.Join(c.MkDir(), "test.listener")
+	if runtime.GOOS == "windows" {
+		return sockets.Socket{Address: `\\.\pipe` + sockPath[2:], Network: "unix"}
+	}
+	return sockets.Socket{Address: sockPath, Network: "unix"}
+}
+
+func (s *CAASOperatorSuite) newCaasOperatorAgent(c *gc.C, ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter) (*jujudagent.CaasOperatorAgent, error) {
+	a, err := jujudagent.NewCaasOperatorAgent(ctx, s.newBufferedLogWriter(), newExecClient, func() (*sockets.Socket, error) {
+		socket := sockPath(c)
+		return &socket, nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return a, nil
+}
+
 func (s *CAASOperatorSuite) TestWorkers(c *gc.C) {
 	tracker := agenttest.NewEngineTracker()
 	instrumented := TrackCAASOperator(c, tracker, jujudagent.CaasOperatorManifolds)
@@ -150,7 +175,7 @@ func (s *CAASOperatorSuite) TestWorkers(c *gc.C) {
 
 	app, _, _ := s.primeAgent(c)
 	ctx := cmdtesting.Context(c)
-	a, err := jujudagent.NewCaasOperatorAgent(ctx, s.newBufferedLogWriter())
+	a, err := s.newCaasOperatorAgent(c, ctx, s.newBufferedLogWriter())
 	c.Assert(err, jc.ErrorIsNil)
 	s.InitAgent(c, a, "--application-name", app.Name())
 

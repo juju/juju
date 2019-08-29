@@ -965,7 +965,7 @@ network:
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(device, gc.Equals, "eno7")
 
-	device, err = np.FindEthernetByName("eno5")
+	_, err = np.FindEthernetByName("eno5")
 	c.Check(err, gc.ErrorMatches, "Ethernet device with name \"eno5\" not found")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -1008,7 +1008,7 @@ network:
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(device, gc.Equals, "id1")
 
-	device, err = np.FindEthernetByMAC("00:11:22:33:44:88")
+	_, err = np.FindEthernetByMAC("00:11:22:33:44:88")
 	c.Check(err, gc.ErrorMatches, "Ethernet device with MAC \"00:11:22:33:44:88\" not found")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 
@@ -1049,7 +1049,7 @@ network:
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(device, gc.Equals, "id0.123")
 
-	device, err = np.FindVLANByName("id0")
+	_, err = np.FindVLANByName("id0")
 	c.Check(err, gc.ErrorMatches, "VLAN device with name \"id0\" not found")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -1089,7 +1089,7 @@ network:
 	c.Check(device, gc.Equals, "id0.123")
 
 	// This is an Ethernet, not a VLAN
-	device, err = np.FindVLANByMAC("00:11:22:33:44:55")
+	_, err = np.FindVLANByMAC("00:11:22:33:44:55")
 	c.Check(err, gc.ErrorMatches, `VLAN device with MAC "00:11:22:33:44:55" not found`)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -1137,12 +1137,12 @@ network:
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(device, gc.Equals, "bond1")
 
-	device, err = np.FindBondByName("bond3")
+	_, err = np.FindBondByName("bond3")
 	c.Check(err, gc.ErrorMatches, "bond device with name \"bond3\" not found")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 
 	// eno4 is an Ethernet, not a Bond
-	device, err = np.FindBondByName("eno4")
+	_, err = np.FindBondByName("eno4")
 	c.Check(err, gc.ErrorMatches, "bond device with name \"eno4\" not found")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -1186,12 +1186,12 @@ network:
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(device, gc.Equals, "bond1")
 
-	device, err = np.FindBondByMAC("00:11:22:33:44:99")
+	_, err = np.FindBondByMAC("00:11:22:33:44:99")
 	c.Check(err, gc.ErrorMatches, `bond device with MAC "00:11:22:33:44:99" not found`)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 
 	// This is an Ethernet, not a Bond
-	device, err = np.FindBondByMAC("00:11:22:33:44:55")
+	_, err = np.FindBondByMAC("00:11:22:33:44:55")
 	c.Check(err, gc.ErrorMatches, `bond device with MAC "00:11:22:33:44:55" not found`)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -1439,6 +1439,7 @@ network:
 	}
 
 	data, err := ioutil.ReadFile(generatedFile)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(data), gc.Equals, expected)
 
 	err = np.Rollback()
@@ -1467,6 +1468,7 @@ network:
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(outPath, gc.Equals, myPath)
 	data, err = ioutil.ReadFile(outPath)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(data), gc.Equals, expected)
 
 	err = np.MoveYamlsToBak()
@@ -1486,6 +1488,7 @@ func (s *NetplanSuite) TestReadDirectoryAccessDenied(c *gc.C) {
 	coretesting.SkipIfWindowsBug(c, "lp:1771077")
 	tempDir := c.MkDir()
 	err := ioutil.WriteFile(path.Join(tempDir, "00-file.yaml"), []byte("network:\n"), 00000)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = netplan.ReadDirectory(tempDir)
 	c.Check(err, gc.ErrorMatches, "open .*/00-file.yaml: permission denied")
 }
@@ -1493,6 +1496,7 @@ func (s *NetplanSuite) TestReadDirectoryAccessDenied(c *gc.C) {
 func (s *NetplanSuite) TestReadDirectoryBrokenYaml(c *gc.C) {
 	tempDir := c.MkDir()
 	err := ioutil.WriteFile(path.Join(tempDir, "00-file.yaml"), []byte("I am not a yaml file!\nreally!\n"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = netplan.ReadDirectory(tempDir)
 	c.Check(err, gc.ErrorMatches, "yaml: unmarshal errors:\n.*")
 }
@@ -1544,6 +1548,7 @@ network:
 	c.Assert(err, jc.ErrorIsNil)
 
 	fileName, err := np.Write("")
+	c.Assert(err, jc.ErrorIsNil)
 
 	writtenContent, err := ioutil.ReadFile(fileName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1604,6 +1609,7 @@ func (s *NetplanSuite) TestNetplanExamples(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil, gc.Commentf("failed to marshal %s", example.filename))
 		var roundtripped map[interface{}]interface{}
 		err = yaml.UnmarshalStrict(out, &roundtripped)
+		c.Assert(err, jc.ErrorIsNil)
 		if !reflect.DeepEqual(orig, roundtripped) {
 			pretty.Ldiff(c, orig, roundtripped)
 			c.Errorf("marshalling and unmarshalling %s did not contain the same content", example.filename)

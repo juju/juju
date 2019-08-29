@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/permission"
@@ -122,6 +122,7 @@ func (s *CredentialModelsSuite) TestCredentialModelsExcludesDeadModels(c *gc.C) 
 
 	// Set one of the models to Dead.
 	m, r, err := s.StatePool.GetModel(s.abcModelTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
 	defer r.Release()
 
 	err = m.SetDead()

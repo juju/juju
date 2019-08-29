@@ -18,7 +18,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -244,7 +244,7 @@ func (s *upgradeSuite) newAgent(c *gc.C, m *state.Machine) *agentcmd.MachineAgen
 		noPreUpgradeSteps,
 		c.MkDir(),
 	)
-	a, err := machineAgentFactory(m.Id(), false)
+	a, err := machineAgentFactory(m.Tag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 	return a
 }

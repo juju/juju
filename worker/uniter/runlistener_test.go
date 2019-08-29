@@ -19,17 +19,17 @@ import (
 
 type ListenerSuite struct {
 	testing.BaseSuite
-	socketPath string
+	socketPath sockets.Socket
 }
 
 var _ = gc.Suite(&ListenerSuite{})
 
-func sockPath(c *gc.C) string {
+func sockPath(c *gc.C) sockets.Socket {
 	sockPath := filepath.Join(c.MkDir(), "test.listener")
 	if runtime.GOOS == "windows" {
-		return `\\.\pipe` + sockPath[2:]
+		return sockets.Socket{Address: `\\.\pipe` + sockPath[2:], Network: "unix"}
 	}
-	return sockPath
+	return sockets.Socket{Address: sockPath, Network: "unix"}
 }
 
 func (s *ListenerSuite) SetUpTest(c *gc.C) {
@@ -39,12 +39,9 @@ func (s *ListenerSuite) SetUpTest(c *gc.C) {
 
 // Mirror the params to uniter.NewRunListener, but add cleanup to close it.
 func (s *ListenerSuite) NewRunListener(c *gc.C) *uniter.RunListener {
-	listener, err := uniter.NewRunListener(uniter.RunListenerConfig{
-		SocketPath:    s.socketPath,
-		CommandRunner: &mockRunner{c},
-	})
+	listener, err := uniter.NewRunListener(s.socketPath)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(listener, gc.NotNil)
+	listener.RegisterRunner("test/0", &mockRunner{c})
 	s.AddCleanup(func(*gc.C) {
 		c.Assert(listener.Close(), jc.ErrorIsNil)
 	})
@@ -72,6 +69,7 @@ func (s *ListenerSuite) TestClientCall(c *gc.C) {
 		RelationId:      -1,
 		RemoteUnitName:  "",
 		ForceRemoteUnit: false,
+		UnitName:        "test/0",
 	}
 	err = client.Call(uniter.JujuRunEndpoint, args, &result)
 	c.Assert(err, jc.ErrorIsNil)
@@ -79,6 +77,26 @@ func (s *ListenerSuite) TestClientCall(c *gc.C) {
 	c.Assert(string(result.Stdout), gc.Equals, "some-command stdout")
 	c.Assert(string(result.Stderr), gc.Equals, "some-command stderr")
 	c.Assert(result.Code, gc.Equals, 42)
+}
+
+func (s *ListenerSuite) TestUnregisterRunner(c *gc.C) {
+	listener := s.NewRunListener(c)
+	listener.UnregisterRunner("test/0")
+
+	client, err := sockets.Dial(s.socketPath)
+	c.Assert(err, jc.ErrorIsNil)
+	defer client.Close()
+
+	var result exec.ExecResponse
+	args := uniter.RunCommandsArgs{
+		Commands:        "some-command",
+		RelationId:      -1,
+		RemoteUnitName:  "",
+		ForceRemoteUnit: false,
+		UnitName:        "test/0",
+	}
+	err = client.Call(uniter.JujuRunEndpoint, args, &result)
+	c.Assert(err, gc.ErrorMatches, ".*no runner is registered for unit test/0")
 }
 
 type ChannelCommandRunnerSuite struct {

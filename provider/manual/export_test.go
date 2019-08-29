@@ -6,4 +6,5 @@ package manual
 var (
 	ProviderInstance = ManualProvider{}
 	InitUbuntuUser   = &initUbuntuUser
+	Echo             = &echo
 )

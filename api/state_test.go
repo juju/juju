@@ -10,15 +10,15 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -148,6 +148,7 @@ func (s *stateSuite) TestLoginToMigratedModel(c *gc.C) {
 	})
 	defer modelState.Close()
 	model, err := modelState.Model()
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Migrate the model and delete it from the state
 	mig, err := modelState.CreateMigration(state.MigrationSpec{

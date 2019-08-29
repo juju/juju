@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/core/model"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
@@ -197,6 +197,7 @@ func (st *mockState) WatchUpdateStatusHookInterval() (watcher.NotifyWatcher, err
 type mockUnit struct {
 	tag                              names.UnitTag
 	life                             params.Life
+	providerID                       string
 	resolved                         params.ResolvedMode
 	application                      mockApplication
 	unitWatcher                      *mockNotifyWatcher
@@ -215,6 +216,10 @@ func (u *mockUnit) Life() params.Life {
 
 func (u *mockUnit) Refresh() error {
 	return nil
+}
+
+func (u *mockUnit) ProviderID() string {
+	return u.providerID
 }
 
 func (u *mockUnit) Resolved() params.ResolvedMode {

@@ -4,15 +4,13 @@
 package maas
 
 import (
-	"bytes"
 	"fmt"
-	"text/template"
 
-	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 )
 
@@ -25,8 +23,8 @@ type interfacesSuite struct {
 
 var _ = gc.Suite(&interfacesSuite{})
 
-func newAddressOnSpaceWithId(space string, id network.Id, address string) network.Address {
-	newAddress := network.NewAddressOnSpace(space, address)
+func newAddressOnSpaceWithId(space string, id corenetwork.Id, address string) corenetwork.Address {
+	newAddress := corenetwork.NewAddressOnSpace(space, address)
 	newAddress.SpaceProviderId = id
 	return newAddress
 }
@@ -434,11 +432,11 @@ var exampleParsedInterfaceSetJSON = []network.InterfaceInfo{{
 	Disabled:          false,
 	NoAutoStart:       false,
 	ConfigType:        "static",
-	Address:           network.NewAddressOnSpace("default", "10.20.19.103"),
-	DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+	Address:           corenetwork.NewAddressOnSpace("default", "10.20.19.103"),
+	DNSServers:        corenetwork.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
 	DNSSearchDomains:  nil,
 	MTU:               1500,
-	GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+	GatewayAddress:    corenetwork.NewAddressOnSpace("default", "10.20.19.2"),
 }, {
 	DeviceIndex:       0,
 	MACAddress:        "52:54:00:70:9b:fe",
@@ -454,11 +452,11 @@ var exampleParsedInterfaceSetJSON = []network.InterfaceInfo{{
 	Disabled:          false,
 	NoAutoStart:       false,
 	ConfigType:        "static",
-	Address:           network.NewAddressOnSpace("default", "10.20.19.104"),
-	DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+	Address:           corenetwork.NewAddressOnSpace("default", "10.20.19.104"),
+	DNSServers:        corenetwork.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
 	DNSSearchDomains:  nil,
 	MTU:               1500,
-	GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+	GatewayAddress:    corenetwork.NewAddressOnSpace("default", "10.20.19.2"),
 }, {
 	DeviceIndex:         1,
 	MACAddress:          "52:54:00:70:9b:fe",
@@ -475,11 +473,11 @@ var exampleParsedInterfaceSetJSON = []network.InterfaceInfo{{
 	Disabled:            false,
 	NoAutoStart:         false,
 	ConfigType:          "static",
-	Address:             network.NewAddressOnSpace("admin", "10.50.19.103"),
+	Address:             corenetwork.NewAddressOnSpace("admin", "10.50.19.103"),
 	DNSServers:          nil,
 	DNSSearchDomains:    nil,
 	MTU:                 1500,
-	GatewayAddress:      network.NewAddressOnSpace("admin", "10.50.19.2"),
+	GatewayAddress:      corenetwork.NewAddressOnSpace("admin", "10.50.19.2"),
 }, {
 	DeviceIndex:         2,
 	MACAddress:          "52:54:00:70:9b:fe",
@@ -496,11 +494,11 @@ var exampleParsedInterfaceSetJSON = []network.InterfaceInfo{{
 	Disabled:            false,
 	NoAutoStart:         false,
 	ConfigType:          "static",
-	Address:             network.NewAddressOnSpace("public", "10.100.19.103"),
+	Address:             corenetwork.NewAddressOnSpace("public", "10.100.19.103"),
 	DNSServers:          nil,
 	DNSSearchDomains:    nil,
 	MTU:                 1500,
-	GatewayAddress:      network.NewAddressOnSpace("public", "10.100.19.2"),
+	GatewayAddress:      corenetwork.NewAddressOnSpace("public", "10.100.19.2"),
 }, {
 	DeviceIndex:         3,
 	MACAddress:          "52:54:00:70:9b:fe",
@@ -518,11 +516,11 @@ var exampleParsedInterfaceSetJSON = []network.InterfaceInfo{{
 	Disabled:            false,
 	NoAutoStart:         false,
 	ConfigType:          "static",
-	Address:             newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.103"),
+	Address:             newAddressOnSpaceWithId("storage", corenetwork.Id("3"), "10.250.19.103"),
 	DNSServers:          nil,
 	DNSSearchDomains:    nil,
 	MTU:                 1500,
-	GatewayAddress:      newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.2"),
+	GatewayAddress:      newAddressOnSpaceWithId("storage", corenetwork.Id("3"), "10.250.19.2"),
 }, {
 	DeviceIndex:         4,
 	MACAddress:          "52:54:00:08:24:2d",
@@ -559,11 +557,11 @@ var exampleParsedInterfaceSetJSON = []network.InterfaceInfo{{
 	Disabled:            false,
 	NoAutoStart:         false,
 	ConfigType:          "dhcp",
-	Address:             newAddressOnSpaceWithId("space-0", network.Id("4"), "192.168.20.192"),
+	Address:             newAddressOnSpaceWithId("space-0", corenetwork.Id("4"), "192.168.20.192"),
 	DNSServers:          nil,
 	DNSSearchDomains:    nil,
 	MTU:                 1500,
-	GatewayAddress:      newAddressOnSpaceWithId("space-0", network.Id("4"), "192.168.20.2"),
+	GatewayAddress:      newAddressOnSpaceWithId("space-0", corenetwork.Id("4"), "192.168.20.2"),
 }}
 
 func (s *interfacesSuite) TestParseInterfacesNoJSON(c *gc.C) {
@@ -787,131 +785,14 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
         "interface_set": %s
     }`, exampleInterfaceSetJSON)
 	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
-	subnetsMap := make(map[string]network.Id)
-	subnetsMap["10.250.19.0/24"] = network.Id("3")
-	subnetsMap["192.168.1.0/24"] = network.Id("0")
-	subnetsMap["192.168.20.0/24"] = network.Id("4")
+	subnetsMap := make(map[string]corenetwork.Id)
+	subnetsMap["10.250.19.0/24"] = corenetwork.Id("3")
+	subnetsMap["192.168.1.0/24"] = corenetwork.Id("0")
+	subnetsMap["192.168.20.0/24"] = corenetwork.Id("4")
 
 	infos, err := maasObjectNetworkInterfaces(s.callCtx, &obj, subnetsMap)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(infos, jc.DeepEquals, exampleParsedInterfaceSetJSON)
-}
-
-const (
-	notUsingMAAS2 = false
-	notUsingMAAS1 = true
-)
-
-func (s *interfacesSuite) TestInstanceConfiguredInterfaceNamesWithExampleMAAS1InterfaceSet(c *gc.C) {
-	nodeJSON := fmt.Sprintf(`{
-        "system_id": "foo",
-        "interface_set": %s
-    }`, exampleInterfaceSetJSON)
-	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
-
-	inst := &maas1Instance{maasObject: &obj}
-	names, err := instanceConfiguredInterfaceNames(s.callCtx, notUsingMAAS2, inst, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(names, jc.DeepEquals, []string{"eth0", "eth0:1", "eth0.50", "eth0.100", "eth0.250", "br-ens3"})
-}
-
-func (s *interfacesSuite) TestInstanceConfiguredNamesWithoutInterfaceSetMAAS1(c *gc.C) {
-	nodeJSON := `{"system_id": "foo"}`
-	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
-
-	inst := &maas1Instance{maasObject: &obj}
-	names, err := instanceConfiguredInterfaceNames(s.callCtx, notUsingMAAS2, inst, nil)
-	c.Assert(err, gc.ErrorMatches, "interface_set not supported")
-	c.Check(err, jc.Satisfies, errors.IsNotSupported)
-	c.Check(names, gc.HasLen, 0)
-}
-
-func (s *interfacesSuite) TestInstanceConfiguredInterfaceNamesPartiallyConfiguredMAAS1(c *gc.C) {
-	nodeJSON := `{
-        "system_id": "foo",
-        "interface_set": [{
-          "name": "eth0",
-          "links": [
-              {"subnet": {"cidr": "1.2.3.4/5"}, "mode": "static", "ip_address": "1.2.3.4"},
-              {"subnet": {"cidr": "1.2.3.4/5"}, "mode": "auto"},
-              {"subnet": {"cidr": "1.2.3.4/5"}, "mode": "dhcp"}
-          ]
-        }, {
-          "name": "eth1",
-          "links": [{"mode": "link_up"}]
-        }, {
-          "name": "eth1.99",
-          "links": [{"subnet": {"cidr": "192.168.99.0/24"}, "mode": "auto"}]
-        }]}`
-	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
-
-	inst := &maas1Instance{maasObject: &obj}
-	names, err := instanceConfiguredInterfaceNames(s.callCtx, notUsingMAAS2, inst, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(names, jc.DeepEquals, []string{"eth0", "eth0:1", "eth0:2", "eth1.99"})
-}
-
-func (s *interfacesSuite) TestInstanceConfiguredInterfaceNamesWithoutInterfaceSetMAAS2(c *gc.C) {
-	inst := &maas2Instance{machine: &fakeMachine{interfaceSet: nil}}
-
-	names, err := instanceConfiguredInterfaceNames(s.callCtx, notUsingMAAS1, inst, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(names, gc.HasLen, 0)
-}
-
-func (s *interfacesSuite) TestInstanceConfiguredInterfaceNamesPartiallyConfiguredMAAS2(c *gc.C) {
-
-	subnet50 := &fakeSubnet{
-		cidr: "10.50.19.0/24",
-		vlan: &fakeVLAN{id: 5050},
-	}
-	subnet250 := &fakeSubnet{
-		cidr: "10.250.19.0/24",
-		vlan: &fakeVLAN{id: 5250},
-	}
-
-	interfaces := []gomaasapi.Interface{
-		&fakeInterface{
-			name: "eth0",
-			links: []gomaasapi.Link{
-				&fakeLink{mode: "link_up"},
-			},
-		},
-		&fakeInterface{
-			name: "eth0.50",
-			links: []gomaasapi.Link{
-				&fakeLink{
-					subnet:    subnet50,
-					ipAddress: "10.50.19.103",
-					mode:      "static",
-				},
-				&fakeLink{ // alias :1
-					subnet: subnet50,
-					mode:   "auto", // no address yet, but will have at startNode time
-				},
-				&fakeLink{ // alias :2
-					subnet: subnet50,
-					mode:   "dhcp", // will get address at boot via DHCP
-				},
-			},
-		},
-		&fakeInterface{name: "eth0.100", links: nil},
-		&fakeInterface{
-			name: "eth0.250",
-			links: []gomaasapi.Link{
-				&fakeLink{
-					subnet: subnet250,
-					mode:   "auto",
-				},
-			},
-		},
-	}
-
-	inst := &maas2Instance{machine: &fakeMachine{interfaceSet: interfaces}}
-
-	names, err := instanceConfiguredInterfaceNames(s.callCtx, notUsingMAAS1, inst, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(names, jc.DeepEquals, []string{"eth0.50", "eth0.50:1", "eth0.50:2", "eth0.250"})
 }
 
 func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
@@ -1050,9 +931,9 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		},
 	}
 
-	subnetsMap := make(map[string]network.Id)
-	subnetsMap["10.250.19.0/24"] = network.Id("3")
-	subnetsMap["192.168.1.0/24"] = network.Id("0")
+	subnetsMap := make(map[string]corenetwork.Id)
+	subnetsMap["10.250.19.0/24"] = corenetwork.Id("3")
+	subnetsMap["192.168.1.0/24"] = corenetwork.Id("0")
 
 	expected := []network.InterfaceInfo{{
 		DeviceIndex:       0,
@@ -1069,11 +950,11 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("default", "10.20.19.103"),
-		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+		Address:           corenetwork.NewAddressOnSpace("default", "10.20.19.103"),
+		DNSServers:        corenetwork.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
 		DNSSearchDomains:  nil,
 		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+		GatewayAddress:    corenetwork.NewAddressOnSpace("default", "10.20.19.2"),
 	}, {
 		DeviceIndex:       0,
 		MACAddress:        "52:54:00:70:9b:fe",
@@ -1089,11 +970,11 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("default", "10.20.19.104"),
-		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+		Address:           corenetwork.NewAddressOnSpace("default", "10.20.19.104"),
+		DNSServers:        corenetwork.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
 		DNSSearchDomains:  nil,
 		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+		GatewayAddress:    corenetwork.NewAddressOnSpace("default", "10.20.19.2"),
 	}, {
 		DeviceIndex:         1,
 		MACAddress:          "52:54:00:70:9b:fe",
@@ -1110,11 +991,11 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		Disabled:            false,
 		NoAutoStart:         false,
 		ConfigType:          "static",
-		Address:             network.NewAddressOnSpace("admin", "10.50.19.103"),
+		Address:             corenetwork.NewAddressOnSpace("admin", "10.50.19.103"),
 		DNSServers:          nil,
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
-		GatewayAddress:      network.NewAddressOnSpace("admin", "10.50.19.2"),
+		GatewayAddress:      corenetwork.NewAddressOnSpace("admin", "10.50.19.2"),
 	}, {
 		DeviceIndex:         2,
 		MACAddress:          "52:54:00:70:9b:fe",
@@ -1131,11 +1012,11 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		Disabled:            false,
 		NoAutoStart:         false,
 		ConfigType:          "static",
-		Address:             network.NewAddressOnSpace("public", "10.100.19.103"),
+		Address:             corenetwork.NewAddressOnSpace("public", "10.100.19.103"),
 		DNSServers:          nil,
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
-		GatewayAddress:      network.NewAddressOnSpace("public", "10.100.19.2"),
+		GatewayAddress:      corenetwork.NewAddressOnSpace("public", "10.100.19.2"),
 	}, {
 		DeviceIndex:         3,
 		MACAddress:          "52:54:00:70:9b:fe",
@@ -1153,11 +1034,11 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		Disabled:            false,
 		NoAutoStart:         false,
 		ConfigType:          "static",
-		Address:             newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.103"),
+		Address:             newAddressOnSpaceWithId("storage", corenetwork.Id("3"), "10.250.19.103"),
 		DNSServers:          nil,
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
-		GatewayAddress:      newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.2"),
+		GatewayAddress:      newAddressOnSpaceWithId("storage", corenetwork.Id("3"), "10.250.19.2"),
 	}}
 	machine := &fakeMachine{interfaceSet: exampleInterfaces}
 	instance := &maas2Instance{machine: machine}
@@ -1219,14 +1100,14 @@ func (s *interfacesSuite) TestMAAS2InterfacesNilVLAN(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("default", "10.20.19.103"),
-		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+		Address:           corenetwork.NewAddressOnSpace("default", "10.20.19.103"),
+		DNSServers:        corenetwork.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
 		DNSSearchDomains:  nil,
 		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+		GatewayAddress:    corenetwork.NewAddressOnSpace("default", "10.20.19.2"),
 	}}
 
-	infos, err := maas2NetworkInterfaces(s.callCtx, instance, map[string]network.Id{})
+	infos, err := maas2NetworkInterfaces(s.callCtx, instance, map[string]corenetwork.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(infos, jc.DeepEquals, expected)
 }
@@ -1254,16 +1135,3 @@ const lshwXMLTemplate = `
 </node>
 </list>
 `
-
-func (suite *environSuite) generateHWTemplate(netMacs map[string]ifaceInfo) (string, error) {
-	tmpl, err := template.New("test").Parse(lshwXMLTemplate)
-	if err != nil {
-		return "", err
-	}
-	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, netMacs)
-	if err != nil {
-		return "", err
-	}
-	return string(buf.Bytes()), nil
-}

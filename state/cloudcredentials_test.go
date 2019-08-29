@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/status"
@@ -311,6 +311,7 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialInvalidAuthType(c *gc.C
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType},
 	}, s.Owner.Name())
+	c.Assert(err, jc.ErrorIsNil)
 	tag := names.NewCloudCredentialTag("stratus/bob/foobar")
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
 	err = s.State.UpdateCloudCredential(tag, cred)

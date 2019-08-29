@@ -11,8 +11,8 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -60,9 +60,7 @@ func (s *SpacesSuite) checkCreateSpaces(c *gc.C, p checkCreateSpacesParams) {
 		args.SpaceTag = "space-" + p.Name
 	}
 	if len(p.Subnets) > 0 {
-		for _, cidr := range p.Subnets {
-			args.SubnetTags = append(args.SubnetTags, "subnet-"+cidr)
-		}
+		args.CIDRs = p.Subnets
 	}
 	args.Public = p.Public
 	args.ProviderId = p.ProviderId
@@ -106,11 +104,11 @@ func (s *SpacesSuite) TestCreateInvalidSpace(c *gc.C) {
 	s.checkCreateSpaces(c, p)
 }
 
-func (s *SpacesSuite) TestCreateInvalidSubnet(c *gc.C) {
+func (s *SpacesSuite) TestCreateInvalidCIDR(c *gc.C) {
 	p := checkCreateSpacesParams{
 		Name:    "foo",
 		Subnets: []string{"bar"},
-		Error:   `"subnet-bar" is not a valid subnet tag`,
+		Error:   `"bar" is not a valid CIDR`,
 	}
 	s.checkCreateSpaces(c, p)
 }

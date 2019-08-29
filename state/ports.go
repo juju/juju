@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	statetxn "github.com/juju/txn"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -259,7 +259,7 @@ func (p *Ports) verifySubnetAliveWhenSet() error {
 		return nil
 	}
 
-	subnet, err := p.st.Subnet(p.doc.SubnetID)
+	subnet, err := p.st.SubnetByID(p.doc.SubnetID)
 	if err != nil {
 		return errors.Trace(err)
 	} else if subnet.Life() != Alive {

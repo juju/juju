@@ -9,8 +9,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -119,7 +118,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 
 	// If requireAdmin is true, the user must be a controller superuser
 	// or model admin to proceed.
-	isAdmin := false
+	var isAdmin bool
 	err = api.checkAdmin(backend)
 	if err != nil && err != common.ErrPerm {
 		return nil, errors.Trace(err)
@@ -271,7 +270,7 @@ func (api *BaseAPI) getModelsFromOffers(offerURLs ...string) ([]offerModel, erro
 	// Cache the models found so far so we don't look them up more than once.
 	modelsCache := make(map[string]Model)
 	oneModel := func(offerURL string) (Model, error) {
-		url, err := charm.ParseOfferURL(offerURL)
+		url, err := jujucrossmodel.ParseOfferURL(offerURL)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -385,7 +384,7 @@ func (api *BaseAPI) getApplicationOffersDetails(
 		model := models[modelUUID]
 
 		for _, offerDetails := range offers {
-			offerDetails.OfferURL = charm.MakeURL(model.Owner().Name(), model.Name(), offerDetails.OfferName, "")
+			offerDetails.OfferURL = jujucrossmodel.MakeURL(model.Owner().Name(), model.Name(), offerDetails.OfferName, "")
 			result = append(result, offerDetails)
 		}
 	}

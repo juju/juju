@@ -4,9 +4,7 @@
 package application
 
 import (
-	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -18,14 +16,12 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 	"github.com/kr/pretty"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 	"gopkg.in/yaml.v2"
 
@@ -41,7 +37,6 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
@@ -62,21 +57,6 @@ type allWatcher interface {
 type deploymentLogger interface {
 	// Infof formats and logs the given message.
 	Infof(string, ...interface{})
-}
-
-// composeBundle adds the overlays and bundle includes into the passed bundle
-// data struct.
-func composeBundle(data *charm.BundleData, ctx *cmd.Context, bundleDir string, overlayFileNames []string) error {
-	if err := processBundleOverlay(data, overlayFileNames...); err != nil {
-		return errors.Annotate(err, "unable to process overlays")
-	}
-	if bundleDir == "" {
-		bundleDir = ctx.Dir
-	}
-	if err := processBundleIncludes(bundleDir, data); err != nil {
-		return errors.Annotate(err, "unable to process includes")
-	}
-	return nil
 }
 
 func verifyBundle(data *charm.BundleData, bundleDir string) error {
@@ -116,7 +96,7 @@ type bundleDeploySpec struct {
 	force  bool
 	trust  bool
 
-	bundleData        *charm.BundleData
+	bundleDataSource  charm.BundleDataSource
 	bundleDir         string
 	bundleURL         *charm.URL
 	bundleOverlayFile []string
@@ -136,19 +116,41 @@ type bundleDeploySpec struct {
 	accountUser     string
 }
 
-// deployBundle deploys the given bundle data using the given API client and
-// charm store client. The deployment is not transactional, and its progress is
-// notified using the given deployment logger.
-func deployBundle(spec bundleDeploySpec) (map[*charm.URL]*macaroon.Macaroon, error) {
-	if err := composeBundle(spec.bundleData, spec.ctx, spec.bundleDir, spec.bundleOverlayFile); err != nil {
+func composeAndVerifyBundle(base charm.BundleDataSource, pathToOverlays []string) (*charm.BundleData, error) {
+	var (
+		dsList []charm.BundleDataSource
+		err    error
+	)
+
+	dsList = append(dsList, base)
+	for _, pathToOverlay := range pathToOverlays {
+		ds, err := charm.LocalBundleDataSource(pathToOverlay)
+		if err != nil {
+			return nil, errors.Annotatef(err, "unable to process overlays")
+		}
+		dsList = append(dsList, ds)
+	}
+
+	bundleData, err := charm.ReadAndMergeBundleData(dsList...)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := verifyBundle(spec.bundleData, spec.bundleDir); err != nil {
+	if err = verifyBundle(bundleData, base.BasePath()); err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	return bundleData, nil
+}
+
+// deployBundle deploys the given bundle data using the given API client and
+// charm store client. The deployment is not transactional, and its progress is
+// notified using the given deployment logger.
+//
+// Note: deployBundle expects that spec.BundleData points to a verified bundle
+// that has all required external overlays applied.
+func deployBundle(bundleData *charm.BundleData, spec bundleDeploySpec) (map[*charm.URL]*macaroon.Macaroon, error) {
 	// TODO: move bundle parsing and checking into the handler.
-	h := makeBundleHandler(spec)
+	h := makeBundleHandler(bundleData, spec)
 	if err := h.makeModel(spec.useExistingMachines, spec.bundleMachines); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -257,9 +259,9 @@ type bundleHandler struct {
 	accountUser string
 }
 
-func makeBundleHandler(spec bundleDeploySpec) *bundleHandler {
+func makeBundleHandler(bundleData *charm.BundleData, spec bundleDeploySpec) *bundleHandler {
 	applications := set.NewStrings()
-	for name := range spec.bundleData.Applications {
+	for name := range bundleData.Applications {
 		applications.Add(name)
 	}
 	return &bundleHandler{
@@ -275,7 +277,7 @@ func makeBundleHandler(spec bundleDeploySpec) *bundleHandler {
 		bundleStorage:        spec.bundleStorage,
 		bundleDevices:        spec.bundleDevices,
 		ctx:                  spec.ctx,
-		data:                 spec.bundleData,
+		data:                 bundleData,
 		bundleURL:            spec.bundleURL,
 		unitStatus:           make(map[string]string),
 		macaroons:            make(map[*charm.URL]*macaroon.Macaroon),
@@ -355,12 +357,16 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			continue
 		}
 
-		h.ctx.Infof("Resolving charm: %s", spec.Charm)
+		var fromChannel string
+		if spec.Channel != "" {
+			fromChannel = fmt.Sprintf(" from channel: %s", spec.Channel)
+		}
+		h.ctx.Infof("Resolving charm: %s%s", spec.Charm, fromChannel)
 		ch, err := charm.ParseURL(spec.Charm)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		url, _, _, err := resolveCharm(h.api.ResolveWithChannel, ch)
+		url, _, _, err := resolveCharm(h.api.ResolveWithPreferredChannel, ch, csparams.Channel(spec.Channel))
 		if err != nil {
 			return errors.Annotatef(err, "cannot resolve URL %q", spec.Charm)
 		}
@@ -392,23 +398,6 @@ func (h *bundleHandler) getChanges() error {
 		})
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	// Filter cmr-related changes if the feature flag is not enabled. We
-	// need to do it here rather in handleChanges() as the bundle handler
-	// will also iterate the list to print out a changelog.
-	if !featureflag.Enabled(feature.CMRAwareBundles) {
-		var filtered []bundlechanges.Change
-		for _, ch := range changes {
-			if ch.Method() == "createOffer" ||
-				ch.Method() == "consumeOffer" ||
-				ch.Method() == "grantOfferAccess" {
-				continue
-			}
-
-			filtered = append(filtered, ch)
-		}
-		changes = filtered
 	}
 
 	h.changes = changes
@@ -530,7 +519,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Trace(err)
 	}
 
-	url, channel, _, err := resolveCharm(h.api.ResolveWithChannel, ch)
+	url, channel, _, err := resolveCharm(h.api.ResolveWithPreferredChannel, ch, csparams.Channel(p.Channel))
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}
@@ -1321,293 +1310,6 @@ func resolve(placeholder string, results map[string]string) string {
 	}
 	id := placeholder[1:]
 	return results[id]
-}
-
-func processBundleIncludes(baseDir string, data *charm.BundleData) error {
-	for app, appData := range data.Applications {
-		// A bundle isn't valid if there are no applications, and applications must
-		// specify a charm at least, so we know appData must be non-nil.
-		for key, value := range appData.Options {
-			result, processed, err := processValue(baseDir, value)
-			if err != nil {
-				return errors.Annotatef(err, "processing options value %s for application %s", key, app)
-			}
-			if processed {
-				appData.Options[key] = result
-			}
-		}
-		for key, value := range appData.Annotations {
-			result, processed, err := processValue(baseDir, value)
-			if err != nil {
-				return errors.Annotatef(err, "processing annotation value %s for application %s", key, app)
-			}
-			if processed {
-				appData.Annotations[key] = result.(string)
-			}
-		}
-	}
-
-	for machine, machineData := range data.Machines {
-		if machineData == nil {
-			continue
-		}
-		for key, value := range machineData.Annotations {
-			result, processed, err := processValue(baseDir, value)
-			if err != nil {
-				return errors.Annotatef(err, "processing annotation value %s for machine %s", key, machine)
-			}
-			if processed {
-				machineData.Annotations[key] = result.(string)
-			}
-		}
-	}
-	return nil
-}
-
-func processValue(baseDir string, v interface{}) (interface{}, bool, error) {
-
-	const (
-		includeFile   = "include-file://"
-		includeBase64 = "include-base64://"
-	)
-
-	value, ok := v.(string)
-	if !ok {
-		// Not a string, just return it unchanged.
-		return v, false, nil
-	}
-
-	encode := false
-	readFile := false
-	filename := ""
-
-	if strings.HasPrefix(value, includeFile) {
-		readFile = true
-		filename = value[len(includeFile):]
-	} else if strings.HasPrefix(value, includeBase64) {
-		encode = true
-		readFile = true
-		filename = value[len(includeBase64):]
-	}
-
-	if !readFile {
-		// Unchanged, just return it.
-		return v, false, nil
-	}
-
-	if !filepath.IsAbs(filename) {
-		filename = filepath.Clean(filepath.Join(baseDir, filename))
-	}
-
-	bytes, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, false, errors.Annotate(err, "unable to read file")
-	}
-
-	var result string
-	if encode {
-		result = base64.StdEncoding.EncodeToString(bytes)
-	} else {
-		result = string(bytes)
-	}
-
-	return result, true, nil
-}
-
-type bundleOverlayValueExists struct {
-	Applications map[string]map[string]interface{} `yaml:"applications"`
-}
-
-func processBundleOverlay(data *charm.BundleData, bundleOverlayFiles ...string) error {
-	for _, filename := range bundleOverlayFiles {
-		bundleOverlayFile, err := utils.NormalizePath(filename)
-		if err != nil {
-			return errors.Annotate(err, "unable to normalise bundle overlay file")
-		}
-		// Make sure the filename is absolute.
-		if !filepath.IsAbs(bundleOverlayFile) {
-			// TODO(babbageclunk): pass in ctx.Dir rather than using os.Getwd.
-			cwd, err := os.Getwd()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			bundleOverlayFile = filepath.Clean(filepath.Join(cwd, bundleOverlayFile))
-		}
-		if err := processSingleBundleOverlay(data, bundleOverlayFile); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
-func processSingleBundleOverlay(data *charm.BundleData, bundleOverlayFile string) error {
-	config, err := charmrepo.ReadBundleFile(bundleOverlayFile)
-	if err != nil {
-		return errors.Annotatef(err, "unable to read bundle overlay file %q", bundleOverlayFile)
-	}
-
-	// From here we walk through the new bundleData, and override values
-	// in the current bundle.
-
-	// If a new application is added, the content is added.
-	// If an application is defined but with no content, that means
-	// remove the application from the parent bundle.
-	//   - if this is happening, all related relations are also removed.
-	// If the application exists in both, values here override values there.
-	// If machines are defined, they override the entire machines section.
-
-	content, err := ioutil.ReadFile(bundleOverlayFile)
-	if err != nil {
-		return errors.Annotate(err, "unable to open bundle overlay file")
-	}
-	baseDir := filepath.Dir(bundleOverlayFile)
-
-	// If this works, then this deserialisation should certainly succeed.
-	// Since we are only looking to overwrite the values in the underlying bundle
-	// for config values that are set, we need to know if they were actually set,
-	// and not just zero. The configCheck structure is a map that allows us to check
-	// if the fields were actually in the underlying YAML.
-	var configCheck bundleOverlayValueExists
-	if err := yaml.Unmarshal(content, &configCheck); err != nil {
-		return errors.Annotate(err, "unable to deserialize config structure")
-	}
-	// Here there is a possibility that the config file uses top level
-	// applications, whereas the bundleOverlayValueExists only defines the newer
-	// applications. If that is the case, we error out and tell the user.
-	if len(configCheck.Applications) == 0 && len(config.Applications) > 0 {
-		return errors.Errorf("bundle overlay file %q used deprecated 'services' key, this is not valid for bundle overlay files", bundleOverlayFile)
-	}
-
-	// We want to confirm that all the applications mentioned in the config
-	// actually exist in the bundle data.
-	for appName, bc := range config.Applications {
-		app, found := data.Applications[appName]
-		// If bc is nil, that means to remove it from data.
-		if bc == nil {
-			delete(data.Applications, appName)
-			data.Relations = removeRelations(data.Relations, appName)
-			continue
-		}
-		if !found {
-			// Add it in.
-			data.Applications[appName] = bc
-			continue
-		}
-
-		fieldCheck := configCheck.Applications[appName]
-
-		if _, set := fieldCheck["charm"]; set {
-			app.Charm = bc.Charm
-		}
-		if _, set := fieldCheck["series"]; set {
-			app.Series = bc.Series
-		}
-		if _, set := fieldCheck["resources"]; set {
-			if app.Resources == nil {
-				app.Resources = make(map[string]interface{})
-			}
-			for key, value := range bc.Resources {
-				app.Resources[key] = value
-			}
-		}
-		if _, set := fieldCheck["num_units"]; set {
-			app.NumUnits = bc.NumUnits
-		}
-		if _, set := fieldCheck["to"]; set {
-			app.To = bc.To
-		}
-		if _, set := fieldCheck["expose"]; set {
-			app.Expose = bc.Expose
-		}
-		if _, set := fieldCheck["options"]; set {
-			if app.Options == nil {
-				app.Options = make(map[string]interface{})
-			}
-			for key, value := range bc.Options {
-				result, _, err := processValue(baseDir, value)
-				if err != nil {
-					return errors.Annotatef(err, "processing config options value %s for application %s", key, appName)
-				}
-				app.Options[key] = result
-			}
-		}
-		if _, set := fieldCheck["annotations"]; set {
-			if app.Annotations == nil {
-				app.Annotations = make(map[string]string)
-			}
-			for key, value := range bc.Annotations {
-				result, _, err := processValue(baseDir, value)
-				if err != nil {
-					return errors.Annotatef(err, "processing config annotations value %s for application %s", key, appName)
-				}
-				app.Annotations[key] = result.(string)
-			}
-		}
-		if _, set := fieldCheck["constraints"]; set {
-			app.Constraints = bc.Constraints
-		}
-		if _, set := fieldCheck["storage"]; set {
-			if app.Storage == nil {
-				app.Storage = make(map[string]string)
-			}
-			for key, value := range bc.Storage {
-				app.Storage[key] = value
-			}
-		}
-		if _, set := fieldCheck["devices"]; set {
-			if app.Devices == nil {
-				app.Devices = make(map[string]string)
-			}
-			for key, value := range bc.Devices {
-				app.Devices[key] = value
-			}
-		}
-		if _, set := fieldCheck["bindings"]; set {
-			if app.EndpointBindings == nil {
-				app.EndpointBindings = make(map[string]string)
-			}
-			for key, value := range bc.EndpointBindings {
-				app.EndpointBindings[key] = value
-			}
-		}
-	}
-
-	// If series is set in the config, it overrides the bundle.
-	if config.Series != "" {
-		data.Series = config.Series
-	}
-
-	// Next process relations.
-	for _, relation := range config.Relations {
-		data.Relations = append(data.Relations, relation)
-	}
-
-	// Finally, if the bundle overlay overrode the machines definition use
-	// that.
-	if config.Machines != nil {
-		data.Machines = config.Machines
-	}
-
-	return nil
-}
-
-// removeRelations removes any relation defined in data that references
-// the application appName.
-func removeRelations(data [][]string, appName string) [][]string {
-	var result [][]string
-	for _, relation := range data {
-		// Keep the dud relation in the set, it will be caught by the bundle
-		// verify code.
-		if len(relation) == 2 {
-			left, right := relation[0], relation[1]
-			if left == appName || strings.HasPrefix(left, appName+":") ||
-				right == appName || strings.HasPrefix(right, appName+":") {
-				continue
-			}
-		}
-		result = append(result, relation)
-	}
-	return result
 }
 
 // ModelExtractor provides everything we need to build a

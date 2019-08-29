@@ -5,7 +5,9 @@ package apiserver
 
 import (
 	"net/http"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/httpcontext"
@@ -22,6 +24,8 @@ func newDebugLogDBHandler(
 }
 
 func handleDebugLogDBRequest(
+	clock clock.Clock,
+	maxDuration time.Duration,
 	st state.LogTailerState,
 	reqParams debugLogParams,
 	socket debugLogSocket,
@@ -37,10 +41,14 @@ func handleDebugLogDBRequest(
 	// Indicate that all is well.
 	socket.sendOk()
 
+	timeout := clock.After(maxDuration)
+
 	var lineCount uint
 	for {
 		select {
 		case <-stop:
+			return nil
+		case <-timeout:
 			return nil
 		case rec, ok := <-tailer.Logs():
 			if !ok {

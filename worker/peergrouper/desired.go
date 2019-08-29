@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/replicaset"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/network"
 )
 
 // jujuNodeKey is the key for the tag where we save a member's node id.
@@ -39,7 +39,7 @@ type peerGroupInfo struct {
 	extra       []replicaset.Member
 	maxMemberId int
 	mongoPort   int
-	haSpace     network.SpaceName
+	haSpace     network.SpaceInfo
 }
 
 // desiredChanges tracks the specific changes we are asking to be made to the peer group.
@@ -81,7 +81,7 @@ func newPeerGroupInfo(
 	statuses []replicaset.MemberStatus,
 	members []replicaset.Member,
 	mongoPort int,
-	haSpace network.SpaceName,
+	haSpace network.SpaceInfo,
 ) (*peerGroupInfo, error) {
 	if len(members) == 0 {
 		return nil, fmt.Errorf("current member set is empty")
@@ -477,7 +477,7 @@ func (p *peerGroupChanges) getNodesVoting() {
 // the HA space if one is configured.
 func (p *peerGroupChanges) updateAddresses() error {
 	var err error
-	if p.info.haSpace == "" {
+	if p.info.haSpace.Name == network.DefaultSpaceName {
 		err = p.updateAddressesFromInternal()
 	} else {
 		err = p.updateAddressesFromSpace()
@@ -580,7 +580,7 @@ func (p *peerGroupChanges) updateAddressesFromSpace() error {
 		if err != nil {
 			if errors.IsNotFound(err) {
 				noAddresses = append(noAddresses, id)
-				msg := fmt.Sprintf("no addresses in configured juju-ha-space %q", space)
+				msg := fmt.Sprintf("no addresses in configured juju-ha-space %q", space.Name)
 				if err := m.host.SetStatus(getStatusInfo(msg)); err != nil {
 					return errors.Trace(err)
 				}
@@ -596,7 +596,8 @@ func (p *peerGroupChanges) updateAddressesFromSpace() error {
 
 	if len(noAddresses) > 0 {
 		ids := strings.Join(noAddresses, ", ")
-		return fmt.Errorf("no usable Mongo addresses found in configured juju-ha-space %q for nodes: %s", space, ids)
+		return fmt.Errorf(
+			"no usable Mongo addresses found in configured juju-ha-space %q for nodes: %s", space.Name, ids)
 	}
 	return nil
 }

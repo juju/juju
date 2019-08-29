@@ -4,11 +4,12 @@
 package firewaller_test
 
 import (
+	"fmt"
 	"sort"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -27,6 +29,7 @@ type firewallerSuite struct {
 	*commontesting.ModelWatcherTest
 
 	firewaller *firewaller.FirewallerAPIV3
+	subnet     *state.Subnet
 }
 
 var _ = gc.Suite(&firewallerSuite{})
@@ -34,8 +37,9 @@ var _ = gc.Suite(&firewallerSuite{})
 func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	s.firewallerBaseSuite.setUpTest(c)
 
-	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "10.20.30.0/24"})
+	subnet, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.20.30.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
+	s.subnet = subnet
 
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		s.resources,
@@ -96,7 +100,7 @@ func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
 
 func (s *firewallerSuite) openPorts(c *gc.C) {
 	// Open some ports on the units.
-	err := s.units[0].OpenPortsOnSubnet("10.20.30.0/24", "tcp", 1234, 1400)
+	err := s.units[0].OpenPortsOnSubnet(s.subnet.ID(), "tcp", 1234, 1400)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.units[0].OpenPort("tcp", 4321)
 	c.Assert(err, jc.ErrorIsNil)
@@ -110,7 +114,7 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 	s.openPorts(c)
 	expectChanges := []string{
 		"0:", // empty subnet is ok (until it can be made mandatory)
-		"0:10.20.30.0/24",
+		fmt.Sprintf("0:%s", s.subnet.ID()),
 		"2:",
 	}
 
@@ -154,7 +158,7 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 func (s *firewallerSuite) TestGetMachinePorts(c *gc.C) {
 	s.openPorts(c)
 
-	subnetTag := names.NewSubnetTag("10.20.30.0/24").String()
+	subnetTag := names.NewSubnetTag(s.subnet.ID()).String()
 	args := params.MachinePortsParams{
 		Params: []params.MachinePorts{
 			{MachineTag: s.machines[0].Tag().String(), SubnetTag: ""},
@@ -202,7 +206,7 @@ func (s *firewallerSuite) TestGetMachinePorts(c *gc.C) {
 func (s *firewallerSuite) TestGetMachineActiveSubnets(c *gc.C) {
 	s.openPorts(c)
 
-	subnetTag := names.NewSubnetTag("10.20.30.0/24").String()
+	subnetTag := names.NewSubnetTag(s.subnet.ID()).String()
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag().String()},
 		{Tag: s.machines[1].Tag().String()},

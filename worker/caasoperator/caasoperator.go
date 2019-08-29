@@ -15,18 +15,21 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/symlink"
+	jujusymlink "github.com/juju/utils/symlink"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	apiuniter "github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	jujunames "github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/juju/sockets"
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/caasoperator/remotestate"
@@ -34,7 +37,20 @@ import (
 	jujucharm "github.com/juju/juju/worker/uniter/charm"
 )
 
-var logger = loggo.GetLogger("juju.worker.caasoperator")
+var (
+	logger = loggo.GetLogger("juju.worker.caasoperator")
+
+	jujuRun        = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
+	jujuDumpLogs   = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
+	jujuIntrospect = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
+
+	jujudSymlinks = []string{
+		jujuRun,
+		// TODO(caas) - these are only for the controller operator
+		//jujuDumpLogs,
+		//jujuIntrospect,
+	}
+)
 
 // caasOperator implements the capabilities of the caasoperator agent. It is not intended to
 // implement the actual *behaviour* of the caasoperator agent; that responsibility is
@@ -109,6 +125,9 @@ type Config struct {
 
 	// StartUniterFunc starts a uniter worker using the given runner.
 	StartUniterFunc func(runner *worker.Runner, params *uniter.UniterParams) error
+
+	// RunListenerSocketFunc returns a socket used for the juju run listener.
+	RunListenerSocketFunc func() (*sockets.Socket, error)
 }
 
 func (config Config) Validate() error {
@@ -132,6 +151,9 @@ func (config Config) Validate() error {
 	}
 	if config.UniterFacadeFunc == nil {
 		return errors.NotValidf("missing UniterFacadeFunc")
+	}
+	if config.RunListenerSocketFunc == nil {
+		return errors.NotValidf("missing RunListenerSocketFunc")
 	}
 	if config.UniterParams == nil {
 		return errors.NotValidf("missing UniterParams")
@@ -157,6 +179,10 @@ func (config Config) Validate() error {
 	return nil
 }
 
+func (config Config) getPaths() Paths {
+	return NewPaths(config.DataDir, names.NewApplicationTag(config.Application))
+}
+
 // NewWorker creates a new worker which will install and operate a
 // CaaS-based application, by executing hooks and operations in
 // response to application state changes.
@@ -164,7 +190,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	paths := NewPaths(config.DataDir, names.NewApplicationTag(config.Application))
+	paths := config.getPaths()
 	deployer, err := jujucharm.NewDeployer(
 		paths.State.CharmDir,
 		paths.State.DeployerDir,
@@ -212,7 +238,7 @@ func (op *caasOperator) makeAgentSymlinks(unitTag names.UnitTag) error {
 		return errors.Trace(err)
 	}
 	jujudPath := filepath.Join(agentBinaryDir, jujunames.Jujud)
-	err = symlink.New(jujudPath, filepath.Join(unitToolsDir, jujunames.Jujud))
+	err = jujusymlink.New(jujudPath, filepath.Join(unitToolsDir, jujunames.Jujud))
 	// Ignore permission denied as this won't happen in production
 	// but may happen in testing depending on setup of /tmp
 	if err != nil && !os.IsExist(err) && !os.IsPermission(err) {
@@ -226,9 +252,16 @@ func (op *caasOperator) makeAgentSymlinks(unitTag names.UnitTag) error {
 	if err != nil && !os.IsExist(err) {
 		return errors.Trace(err)
 	}
-	err = symlink.New(jujudPath, filepath.Join(legacyMachineDir, jujunames.Jujud))
+	err = jujusymlink.New(jujudPath, filepath.Join(legacyMachineDir, jujunames.Jujud))
 	if err != nil && !os.IsExist(err) && !os.IsPermission(err) {
 		return errors.Trace(err)
+	}
+
+	for _, slk := range jujudSymlinks {
+		err = jujusymlink.New(jujudPath, slk)
+		if err != nil && !os.IsExist(err) && !os.IsPermission(err) {
+			return errors.Trace(err)
+		}
 	}
 
 	// Second the charm directory.
@@ -238,7 +271,7 @@ func (op *caasOperator) makeAgentSymlinks(unitTag names.UnitTag) error {
 		return errors.Trace(err)
 	}
 	agentCharmDir := op.paths.GetCharmDir()
-	err = symlink.New(agentCharmDir, filepath.Join(unitAgentDir, "charm"))
+	err = jujusymlink.New(agentCharmDir, filepath.Join(unitAgentDir, "charm"))
 	// Ignore permission denied as this won't happen in production
 	// but may happen in testing depending on setup of /tmp
 	if err != nil && !os.IsExist(err) && !os.IsPermission(err) {
@@ -261,7 +294,36 @@ func toBinaryVersion(vers version.Number) version.Binary {
 	return outVers
 }
 
+func runListenerSocket() (*sockets.Socket, error) {
+	podIP := os.Getenv(provider.OperatorPodIPEnvName)
+	if podIP == "" {
+		return nil, errors.New("missing pod IP")
+	}
+	socket := sockets.Socket{
+		Network: "tcp",
+		Address: fmt.Sprintf("%s:%d", podIP, provider.JujuRunServerSocketPort),
+	}
+	return &socket, nil
+}
+
 func (op *caasOperator) init() (*LocalState, error) {
+
+	// Set up a single juju run listener to be used by all units.
+	socket, err := op.config.RunListenerSocketFunc()
+	if err != nil {
+		return nil, errors.Annotate(err, "creating juju run socket")
+	}
+	logger.Debugf("starting caas operator juju-run listener on %v", socket)
+	runListener, err := uniter.NewRunListener(*socket)
+	if err != nil {
+		return nil, errors.Annotate(err, "creating juju run listener")
+	}
+	rlw := uniter.NewRunListenerWrapper(runListener)
+	if err := op.catacomb.Add(rlw); err != nil {
+		return nil, errors.Trace(err)
+	}
+	op.config.UniterParams.RunListener = runListener
+
 	if err := jujucharm.ClearDownloads(op.paths.State.BundlesDir); err != nil {
 		logger.Warningf(err.Error())
 	}

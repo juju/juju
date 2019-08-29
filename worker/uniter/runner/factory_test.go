@@ -14,7 +14,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common/charmrunner"
@@ -157,6 +157,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.OpenAPIAs(c, unit.Tag(), password)
@@ -166,7 +167,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
 		State:            uniter,
 		UnitTag:          unit.Tag().(names.UnitTag),
-		Tracker:          runnertesting.FakeTracker{},
+		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
 		Paths:            s.paths,
@@ -177,6 +178,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 		uniter,
 		s.paths,
 		contextFactory,
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

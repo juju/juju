@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/testing/factory"
@@ -53,6 +53,7 @@ func (s *ControllerUserSuite) TestSetAccessControllerUser(c *gc.C) {
 	s.State.SetUserAccess(userTag, ctag, permission.SuperuserAccess)
 
 	controllerUser, err = s.State.UserAccess(user.UserTag(), ctag)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerUser.Access, gc.Equals, permission.SuperuserAccess)
 }
 

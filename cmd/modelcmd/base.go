@@ -15,7 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"golang.org/x/crypto/ssh/terminal"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
 	"github.com/juju/juju/api"
@@ -25,11 +25,11 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/network"
 )
 
 var errNoNameSpecified = errors.New("no name specified")

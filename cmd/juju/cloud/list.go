@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	cloudapi "github.com/juju/juju/api/cloud"
 	jujucloud "github.com/juju/juju/cloud"
@@ -86,8 +86,8 @@ See also:
     credentials
     controllers
     regions
-    set-default-credential
-    set-default-region
+    default-credential
+    default-region
     show-cloud
     update-clouds
 `
@@ -149,7 +149,7 @@ func (c *listCloudsCommand) Init(args []string) (err error) {
 
 func (c *listCloudsCommand) getCloudList() (*cloudList, error) {
 	if c.controllerName == "" {
-		details, err := listCloudDetails()
+		details, err := listCloudDetails(c.Store)
 
 		if err != nil {
 			return nil, err
@@ -168,7 +168,7 @@ func (c *listCloudsCommand) getCloudList() (*cloudList, error) {
 	}
 	details := newCloudList()
 	for _, cloud := range controllerClouds {
-		cloudDetails := makeCloudDetails(cloud)
+		cloudDetails := makeCloudDetails(c.Store, cloud)
 		// TODO: Better categorization than public.
 		details.public[cloud.Name] = cloudDetails
 	}
@@ -180,14 +180,14 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	var output interface{}
+	var result interface{}
 	switch c.out.Name() {
 	case "yaml", "json":
 		clouds := details.all()
 		for _, cloud := range clouds {
 			cloud.CloudType = displayCloudType(cloud.CloudType)
 		}
-		output = clouds
+		result = clouds
 	default:
 		if c.controllerName == "" && !c.Local {
 			ctxt.Infof(
@@ -197,10 +197,10 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 			ctxt.Infof(
 				"Clouds on controller %q:\n\n", c.controllerName)
 		}
-		output = details
+		result = details
 	}
 
-	err = c.out.Write(ctxt, output)
+	err = c.out.Write(ctxt, result)
 	if err != nil {
 		return err
 	}
@@ -239,14 +239,14 @@ func (c *cloudList) all() map[string]*CloudDetails {
 	return result
 }
 
-func listCloudDetails() (*cloudList, error) {
+func listCloudDetails(store jujuclient.CredentialGetter) (*cloudList, error) {
 	clouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
 	if err != nil {
 		return nil, err
 	}
 	details := newCloudList()
 	for name, cloud := range clouds {
-		cloudDetails := makeCloudDetails(cloud)
+		cloudDetails := makeCloudDetails(store, cloud)
 		details.public[name] = cloudDetails
 	}
 
@@ -256,7 +256,7 @@ func listCloudDetails() (*cloudList, error) {
 		return nil, errors.Trace(err)
 	}
 	for name, cloud := range builtinClouds {
-		cloudDetails := makeCloudDetails(cloud)
+		cloudDetails := makeCloudDetails(store, cloud)
 		cloudDetails.Source = "built-in"
 		details.builtin[name] = cloudDetails
 	}
@@ -266,7 +266,7 @@ func listCloudDetails() (*cloudList, error) {
 		return nil, err
 	}
 	for name, cloud := range personalClouds {
-		cloudDetails := makeCloudDetails(cloud)
+		cloudDetails := makeCloudDetails(store, cloud)
 		cloudDetails.Source = "local"
 		details.personal[name] = cloudDetails
 		// Delete any built-in or public clouds with same name.
@@ -291,12 +291,12 @@ func formatCloudsTabular(writer io.Writer, value interface{}) error {
 
 	cloudNamesSorted := func(someClouds map[string]*CloudDetails) []string {
 		// For tabular we'll sort alphabetically, user clouds last.
-		var names []string
+		var cloudNames []string
 		for name := range someClouds {
-			names = append(names, name)
+			cloudNames = append(cloudNames, name)
 		}
-		sort.Strings(names)
-		return names
+		sort.Strings(cloudNames)
+		return cloudNames
 	}
 
 	printClouds := func(someClouds map[string]*CloudDetails, color *ansiterm.Context) {
@@ -304,9 +304,11 @@ func formatCloudsTabular(writer io.Writer, value interface{}) error {
 
 		for _, name := range cloudNames {
 			info := someClouds[name]
-			defaultRegion := ""
-			if len(info.Regions) > 0 {
-				defaultRegion = info.RegionsMap[info.Regions[0].Key.(string)].Name
+			defaultRegion := info.DefaultRegion
+			if defaultRegion == "" {
+				if len(info.Regions) > 0 {
+					defaultRegion = info.RegionsMap[info.Regions[0].Key.(string)].Name
+				}
 			}
 			description := info.CloudDescription
 			if len(description) > 40 {

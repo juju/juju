@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -169,6 +169,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		LeadershipContext:  leadershipContext,
 		uuid:               f.modelUUID,
 		modelName:          f.modelName,
+		modelType:          f.modelType,
 		unitName:           f.unit.Name(),
 		assignedMachineTag: f.machineTag,
 		relations:          f.getContextRelations(),
@@ -252,6 +253,11 @@ func (f *contextFactory) CommandContext(commandInfo CommandInfo) (*HookContext, 
 	ctx.remoteUnitName = remoteUnitName
 	ctx.id = f.newId("run-commands")
 	return ctx, nil
+}
+
+// ModelType is part of the ContextFactory interface.
+func (f *contextFactory) ModelType() model.ModelType {
+	return f.modelType
 }
 
 // getContextRelations updates the factory's relation caches, and uses them

@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 )
@@ -29,9 +30,9 @@ func (s *InterfaceInfoSuite) SetUpTest(c *gc.C) {
 		{VLANTag: 0, DeviceIndex: 1, InterfaceName: "eth1"},
 		{VLANTag: 42, DeviceIndex: 2, InterfaceName: "br2"},
 		{ConfigType: network.ConfigDHCP, NoAutoStart: true},
-		{Address: network.NewAddress("0.1.2.3")},
-		{DNSServers: network.NewAddresses("1.1.1.1", "2.2.2.2")},
-		{GatewayAddress: network.NewAddress("4.3.2.1")},
+		{Address: corenetwork.NewAddress("0.1.2.3")},
+		{DNSServers: corenetwork.NewAddresses("1.1.1.1", "2.2.2.2")},
+		{GatewayAddress: corenetwork.NewAddress("4.3.2.1")},
 		{AvailabilityZones: []string{"foo", "bar"}},
 		{Routes: []network.Route{{
 			DestinationCIDR: "0.1.2.3/24",
@@ -62,9 +63,9 @@ func (s *InterfaceInfoSuite) TestIsVLAN(c *gc.C) {
 func (s *InterfaceInfoSuite) TestAdditionalFields(c *gc.C) {
 	c.Check(s.info[3].ConfigType, gc.Equals, network.ConfigDHCP)
 	c.Check(s.info[3].NoAutoStart, jc.IsTrue)
-	c.Check(s.info[4].Address, jc.DeepEquals, network.NewAddress("0.1.2.3"))
-	c.Check(s.info[5].DNSServers, jc.DeepEquals, network.NewAddresses("1.1.1.1", "2.2.2.2"))
-	c.Check(s.info[6].GatewayAddress, jc.DeepEquals, network.NewAddress("4.3.2.1"))
+	c.Check(s.info[4].Address, jc.DeepEquals, corenetwork.NewAddress("0.1.2.3"))
+	c.Check(s.info[5].DNSServers, jc.DeepEquals, corenetwork.NewAddresses("1.1.1.1", "2.2.2.2"))
+	c.Check(s.info[6].GatewayAddress, jc.DeepEquals, corenetwork.NewAddress("4.3.2.1"))
 	c.Check(s.info[7].AvailabilityZones, jc.DeepEquals, []string{"foo", "bar"})
 	c.Check(s.info[8].Routes, jc.DeepEquals, []network.Route{{
 		DestinationCIDR: "0.1.2.3/24",
@@ -244,7 +245,7 @@ LXC_BRIDGE="ignored"`[1:])
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfig)
 
-	inputAddresses := network.NewAddresses(
+	inputAddresses := corenetwork.NewAddresses(
 		"127.0.0.1",
 		"2001:db8::1",
 		"10.0.0.1",
@@ -259,7 +260,7 @@ LXC_BRIDGE="ignored"`[1:])
 		"192.168.123.42",
 		"localhost", // unfiltered because it isn't an IP address
 	)
-	filteredAddresses := network.NewAddresses(
+	filteredAddresses := corenetwork.NewAddresses(
 		"127.0.0.1",
 		"2001:db8::1",
 		"10.0.0.1",
@@ -414,9 +415,4 @@ func (s *CIDRSuite) TestParseCIDR(c *gc.C) {
 		actualCIDR := actualCIDRs[0]
 		c.Assert(actualCIDR, gc.Equals, expectedCIDR)
 	}
-}
-
-func (s *NetworkSuite) TestGenerateVirtualMACAddress(c *gc.C) {
-	mac := network.GenerateVirtualMACAddress()
-	c.Check(mac, gc.Matches, "^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$")
 }

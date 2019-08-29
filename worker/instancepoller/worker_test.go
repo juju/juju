@@ -12,17 +12,17 @@ import (
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api"
 	apiinstancepoller "github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -98,6 +98,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 				return checkInstanceInfo(i, m, "running")
 			}
 			instanceStatus, err := m.InstanceStatus()
+			c.Assert(err, jc.ErrorIsNil)
 			c.Logf("instance message is: %q", instanceStatus.Info)
 			c.Assert(instanceStatus.Status, gc.Equals, status.Pending.String())
 			stm, err := s.State.Machine(m.Id())
@@ -126,6 +127,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 			}
 			// Machines in second half still have no addresses, nor status.
 			instanceStatus, err := m.InstanceStatus()
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(instanceStatus.Status, gc.Equals, status.Pending.String())
 			stm, err := s.State.Machine(m.Id())
 			c.Assert(err, jc.ErrorIsNil)

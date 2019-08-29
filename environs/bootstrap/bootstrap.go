@@ -22,7 +22,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -191,6 +191,20 @@ func withDefaultControllerConstraints(cons constraints.Value) constraints.Value 
 	return cons
 }
 
+// withDefaultCAASControllerConstraints returns the given constraints,
+// updated to choose a default instance type appropriate for a
+// controller machine. We use this only if the user does not specify
+// any constraints that would otherwise control the instance type
+// selection.
+func withDefaultCAASControllerConstraints(cons constraints.Value) constraints.Value {
+	if !cons.HasInstanceType() && !cons.HasCpuCores() && !cons.HasCpuPower() && !cons.HasMem() {
+		// TODO(caas): Set memory constraints for mongod and controller containers independently.
+		var mem uint64 = 1.5 * 1024
+		cons.Mem = &mem
+	}
+	return cons
+}
+
 func bootstrapCAAS(
 	ctx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
@@ -207,9 +221,19 @@ func bootstrapCAAS(
 	if args.BootstrapSeries != "" {
 		return errors.NewNotSupported(nil, "--bootstrap-series when bootstrapping a k8s controller")
 	}
-	if !constraints.IsEmpty(&args.BootstrapConstraints) {
-		return errors.NewNotSupported(nil, "--bootstrap-constraints when bootstrapping a k8s controller")
+
+	constraintsValidator, err := environ.ConstraintsValidator(callCtx)
+	if err != nil {
+		return err
 	}
+	bootstrapConstraints, err := constraintsValidator.Merge(
+		args.ModelConstraints, args.BootstrapConstraints,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	bootstrapConstraints = withDefaultCAASControllerConstraints(bootstrapConstraints)
+	bootstrapParams.BootstrapConstraints = bootstrapConstraints
 
 	result, err := environ.Bootstrap(ctx, callCtx, bootstrapParams)
 	if err != nil {
@@ -220,6 +244,7 @@ func bootstrapCAAS(
 		args.ControllerConfig,
 		args.ControllerName,
 		result.Series,
+		bootstrapConstraints,
 	)
 	if err != nil {
 		return errors.Trace(err)

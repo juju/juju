@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/network/netplan"
 )
@@ -161,9 +162,9 @@ func GenerateNetplan(interfaces []network.InterfaceInfo) (string, error) {
 
 		if info.GatewayAddress.Value != "" {
 			switch {
-			case info.GatewayAddress.Type == network.IPv4Address:
+			case info.GatewayAddress.Type == corenetwork.IPv4Address:
 				iface.Gateway4 = info.GatewayAddress.Value
-			case info.GatewayAddress.Type == network.IPv6Address:
+			case info.GatewayAddress.Type == corenetwork.IPv6Address:
 				iface.Gateway6 = info.GatewayAddress.Value
 			}
 		}
@@ -230,9 +231,9 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 	for _, info := range interfaces {
 		if info.IsDefaultGateway {
 			switch info.GatewayAddress.Type {
-			case network.IPv4Address:
+			case corenetwork.IPv4Address:
 				gateway4Address = info.GatewayAddress.Value
-			case network.IPv6Address:
+			case corenetwork.IPv6Address:
 				gateway6Address = info.GatewayAddress.Value
 			}
 		}
@@ -262,10 +263,10 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 
 		if info.GatewayAddress.Value != "" {
 			switch {
-			case gateway4Address == "" && info.GatewayAddress.Type == network.IPv4Address:
+			case gateway4Address == "" && info.GatewayAddress.Type == corenetwork.IPv4Address:
 				gateway4Address = info.GatewayAddress.Value
 
-			case gateway6Address == "" && info.GatewayAddress.Type == network.IPv6Address:
+			case gateway6Address == "" && info.GatewayAddress.Type == corenetwork.IPv6Address:
 				gateway6Address = info.GatewayAddress.Value
 			}
 		}

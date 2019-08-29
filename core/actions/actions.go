@@ -29,6 +29,10 @@ var PredefinedActionsSpec = map[string]charm.ActionSpec{
 					"type":        "number",
 					"description": "timeout for command execution",
 				},
+				"workload-context": map[string]interface{}{
+					"type":        "boolean",
+					"description": "run the command in k8s workload context",
+				},
 			},
 		},
 	},

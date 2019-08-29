@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -121,7 +122,7 @@ LXC_BRIDGE="ignored"`[1:])
 	expectBootstrapConstraints := constraints.MustParse("mem=1024M")
 	expectModelConstraints := constraints.MustParse("mem=512M")
 	expectHW := instance.MustParseHardware("mem=2048M")
-	initialAddrs := network.NewAddresses(
+	initialAddrs := corenetwork.NewAddresses(
 		"zeroonetwothree",
 		"0.1.2.3",
 		"10.0.3.1", // lxc bridge address filtered.
@@ -131,7 +132,7 @@ LXC_BRIDGE="ignored"`[1:])
 		"10.0.4.4", // lxd bridge address filtered.
 		"10.0.4.5", // not an lxd bridge address
 	)
-	filteredAddrs := network.NewAddresses(
+	filteredAddrs := corenetwork.NewAddresses(
 		"zeroonetwothree",
 		"0.1.2.3",
 		"10.0.3.3",
@@ -192,11 +193,12 @@ LXC_BRIDGE="ignored"`[1:])
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	ctlr, m, err := agentbootstrap.InitializeState(
-		adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
+	ctlr, err := agentbootstrap.InitializeState(
+		&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	defer ctlr.Close()
+	defer func() { _ = ctlr.Close() }()
+
 	st := ctlr.SystemState()
 	err = cfg.Write()
 	c.Assert(err, jc.ErrorIsNil)
@@ -273,6 +275,8 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(hostedCfg.AuthorizedKeys(), gc.Equals, newModelCfg.AuthorizedKeys())
 
 	// Check that the bootstrap machine looks correct.
+	m, err := st.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, "0")
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
 	c.Assert(m.Series(), gc.Equals, series.MustHostSeries())
@@ -289,8 +293,8 @@ LXC_BRIDGE="ignored"`[1:])
 	// Check that the API host ports are initialised correctly.
 	apiHostPorts, err := st.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiHostPorts, jc.DeepEquals, [][]network.HostPort{
-		network.AddressesWithPort(filteredAddrs, 1234),
+	c.Assert(apiHostPorts, jc.DeepEquals, [][]corenetwork.HostPort{
+		corenetwork.AddressesWithPort(filteredAddrs, 1234),
 	})
 
 	// Check that the state serving info is initialised correctly.
@@ -367,7 +371,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 	args := agentbootstrap.InitializeStateParams{}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	_, _, err = agentbootstrap.InitializeState(adminUser, cfg, args, mongotest.DialOpts(), nil)
+	_, err = agentbootstrap.InitializeState(&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), nil)
 	// InitializeState will fail attempting to get the api port information
 	c.Assert(err, gc.ErrorMatches, "state serving information not available")
 }
@@ -427,17 +431,17 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	st, _, err := agentbootstrap.InitializeState(
-		adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
+	st, err := agentbootstrap.InitializeState(
+		&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	st.Close()
+	_ = st.Close()
 
-	st, _, err = agentbootstrap.InitializeState(
-		adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
+	st, err = agentbootstrap.InitializeState(
+		&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 	)
 	if err == nil {
-		st.Close()
+		_ = st.Close()
 	}
 	c.Assert(err, gc.ErrorMatches, "bootstrapping raft cluster: bootstrap only works on new clusters")
 }

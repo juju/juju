@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/voyeur"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 	dt "gopkg.in/juju/worker.v1/dependency/testing"
@@ -74,7 +74,7 @@ func (s *ManifoldSuite) TestNilAgentConfigChanged(c *gc.C) {
 func (s *ManifoldSuite) TestNotMachineAgent(c *gc.C) {
 	s.agent.conf.tag = names.NewUnitTag("foo/0")
 	_, err := s.manifold.Start(s.goodContext)
-	c.Assert(err, gc.ErrorMatches, "manifold can only be used with a machine agent")
+	c.Assert(err, gc.ErrorMatches, "manifold can only be used with a machine or controller agent")
 }
 
 func (s *ManifoldSuite) TestStart(c *gc.C) {

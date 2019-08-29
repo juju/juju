@@ -24,7 +24,7 @@ func NewAddCAASCommandForTest(
 	newClientConfigReaderFunc func(string) (clientconfig.ClientConfigFunc, error),
 	getAllCloudDetails func() (map[string]*jujucmdcloud.CloudDetails, error),
 ) cmd.Command {
-	cmd := &AddCAASCommand{
+	command := &AddCAASCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
 		cloudMetadataStore:        cloudMetadataStore,
 		store:                     store,
@@ -32,9 +32,11 @@ func NewAddCAASCommandForTest(
 		brokerGetter:              brokerGetter,
 		k8sCluster:                k8sCluster,
 		newClientConfigReader:     newClientConfigReaderFunc,
-		getAllCloudDetails:        getAllCloudDetails,
+		getAllCloudDetails: func(jujuclient.CredentialGetter) (map[string]*jujucmdcloud.CloudDetails, error) {
+			return getAllCloudDetails()
+		},
 	}
-	return cmd
+	return command
 }
 
 func NewRemoveCAASCommandForTest(
@@ -42,13 +44,13 @@ func NewRemoveCAASCommandForTest(
 	store jujuclient.ClientStore,
 	removeCloudAPIFunc func() (RemoveCloudAPI, error),
 ) cmd.Command {
-	cmd := &RemoveCAASCommand{
+	command := &RemoveCAASCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
 		cloudMetadataStore:        cloudMetadataStore,
 		store:                     store,
 		apiFunc:                   removeCloudAPIFunc,
 	}
-	return cmd
+	return command
 }
 
 type fakeCluster struct {
@@ -82,6 +84,11 @@ func (f *fakeCluster) ensureExecutable() error {
 	return nil
 }
 
+// TODO exported function with unexported type :(
 func FakeCluster(config string) k8sCluster {
 	return &fakeCluster{config: config, cloudType: "gce"}
 }
+
+var (
+	CheckCloudRegion = checkCloudRegion
+)

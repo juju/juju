@@ -221,6 +221,7 @@ func (s *constraintsValidationSuite) TestMachineConstraints(c *gc.C) {
 		err := s.State.SetModelConstraints(constraints.MustParse(t.consFallback))
 		c.Check(err, jc.ErrorIsNil)
 		econs, err := s.State.ModelConstraints()
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(econs, jc.DeepEquals, constraints.MustParse(t.effectiveModelCons))
 		// Set the machine provisioning constraints.
 		m, err := s.addOneMachine(c, constraints.MustParse(t.consToSet))
@@ -250,6 +251,7 @@ func (s *constraintsValidationSuite) TestApplicationConstraints(c *gc.C) {
 		err := s.State.SetModelConstraints(constraints.MustParse(t.consFallback))
 		c.Check(err, jc.ErrorIsNil)
 		econs, err := s.State.ModelConstraints()
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(econs, jc.DeepEquals, constraints.MustParse(t.effectiveModelCons))
 		// Set the application deployment constraints.
 		err = application.SetConstraints(constraints.MustParse(t.consToSet))

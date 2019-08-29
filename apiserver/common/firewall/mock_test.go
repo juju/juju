@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 	"gopkg.in/tomb.v2"
 
@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -347,7 +348,7 @@ type mockUnit struct {
 	mu            sync.Mutex
 	name          string
 	assigned      bool
-	publicAddress network.Address
+	publicAddress corenetwork.Address
 	machineId     string
 }
 
@@ -363,19 +364,19 @@ func (u *mockUnit) Name() string {
 	return u.name
 }
 
-func (u *mockUnit) PublicAddress() (network.Address, error) {
+func (u *mockUnit) PublicAddress() (corenetwork.Address, error) {
 	u.MethodCall(u, "PublicAddress")
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
 	if err := u.NextErr(); err != nil {
-		return network.Address{}, err
+		return corenetwork.Address{}, err
 	}
 	if !u.assigned {
-		return network.Address{}, errors.NotAssignedf(u.name)
+		return corenetwork.Address{}, errors.NotAssignedf(u.name)
 	}
 	if u.publicAddress.Value == "" {
-		return network.Address{}, network.NoAddressError("public")
+		return corenetwork.Address{}, network.NoAddressError("public")
 	}
 	return u.publicAddress, nil
 }
@@ -395,7 +396,7 @@ func (u *mockUnit) updateAddress(value string) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
-	u.publicAddress = network.Address{Value: value}
+	u.publicAddress = corenetwork.Address{Value: value}
 }
 
 type mockMachine struct {

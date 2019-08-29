@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1/catacomb"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // controllerTracker is a worker which reports changes of interest to
@@ -88,26 +88,27 @@ func (c *controllerTracker) Addresses() []network.Address {
 // SelectMongoAddress returns the best address on the controller node for MongoDB peer
 // use, using the input space.
 // An error is returned if the empty space is supplied.
-func (c *controllerTracker) SelectMongoAddressFromSpace(port int, space network.SpaceName) (string, error) {
-	if space == "" {
-		return "", fmt.Errorf("empty space supplied as an argument for selecting Mongo address for controller node %q", c.id)
+func (c *controllerTracker) SelectMongoAddressFromSpace(port int, space network.SpaceInfo) (string, error) {
+	if space.Name == network.DefaultSpaceName {
+		return "", fmt.Errorf(
+			"empty space supplied as an argument for selecting Mongo address for controller node %q", c.id)
 	}
 
 	c.mu.Lock()
 	hostPorts := network.AddressesWithPort(c.addresses, port)
 	c.mu.Unlock()
 
-	addrs, ok := network.SelectHostPortsBySpaceNames(hostPorts, space)
+	addrs, ok := network.SelectHostPortsBySpaces(hostPorts, space)
 	if ok {
 		addr := addrs[0].NetAddr()
-		logger.Debugf("controller node %q selected address %q by space %q from %v", c.id, addr, space, hostPorts)
+		logger.Debugf("controller node %q selected address %q by space %q from %v", c.id, addr, space.Name, hostPorts)
 		return addr, nil
 	}
 
 	// If we end up here, then there are no addresses available in the
 	// specified space. This should not happen, because the configured
 	// space is used as a constraint when first enabling HA.
-	return "", errors.NotFoundf("addresses for controller node %q in space %q", c.id, space)
+	return "", errors.NotFoundf("addresses for controller node %q in space %q", c.id, space.Name)
 }
 
 // GetPotentialMongoHostPorts simply returns all the available addresses

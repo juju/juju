@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/clock"
@@ -18,7 +19,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/juju/worker.v1/workertest"
 
@@ -37,6 +38,7 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/modelcache"
 )
 
@@ -77,16 +79,25 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 	s.tlsConfig.Certificates = []tls.Certificate{*coretesting.ServerTLSCert}
 	s.mux = apiserverhttp.NewMux()
 
+	initialized := gate.NewLock()
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
-		Logger: loggo.GetLogger("test"),
+		InitializedGate: initialized,
+		Logger:          loggo.GetLogger("test"),
 		WatcherFactory: func() modelcache.BackingWatcher {
 			return s.StatePool.SystemState().WatchAllModels(s.StatePool)
 		},
 		PrometheusRegisterer: noopRegisterer{},
 		Cleanup:              func() {},
 	})
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, modelCache) })
 	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, modelCache) })
+
+	select {
+	case <-initialized.Unlocked():
+	case <-time.After(10 * time.Second):
+		c.Error("model cache not initialized after 10 seconds")
+	}
+
 	var controller *cache.Controller
 	err = modelcache.ExtractCacheController(modelCache, &controller)
 	c.Assert(err, jc.ErrorIsNil)

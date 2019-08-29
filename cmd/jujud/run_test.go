@@ -20,10 +20,11 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter"
 )
@@ -137,6 +138,17 @@ func (s *RunTestSuite) runCommand() *RunCommand {
 	}
 }
 
+func (s *RunTestSuite) TestInferredUnit(c *gc.C) {
+	dataDir := c.MkDir()
+	runCommand := &RunCommand{dataDir: dataDir}
+	err := os.MkdirAll(filepath.Join(dataDir, "agents", "unit-foo-66"), 0700)
+	c.Assert(err, jc.ErrorIsNil)
+	err = cmdtesting.InitCommand(runCommand, []string{"status-get"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(runCommand.unit.String(), gc.Equals, "unit-foo-66")
+	c.Assert(runCommand.commands, gc.Equals, "status-get")
+}
+
 func (s *RunTestSuite) TestInsideContext(c *gc.C) {
 	s.PatchEnvironment("JUJU_CONTEXT_ID", "fake-id")
 	runCommand := s.runCommand()
@@ -194,12 +206,12 @@ func (s *RunTestSuite) TestNoContextWithLock(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	channel := s.startRunAsync(c, []string{"--no-context", "echo done"})
-	ctx, err := waitForResult(channel, testing.ShortWait)
+	_, err = waitForResult(channel, testing.ShortWait)
 	c.Assert(err, gc.ErrorMatches, "timeout")
 
 	releaser()
 
-	ctx, err = waitForResult(channel, testing.LongWait)
+	ctx, err := waitForResult(channel, testing.LongWait)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(strings.TrimRight(cmdtesting.Stdout(ctx), "\r\n"), gc.Equals, "done")
 }
@@ -309,19 +321,17 @@ func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
 	agentDir := filepath.Join(cmdutil.DataDir, "agents", agent)
 	err := os.MkdirAll(agentDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	var socketPath string
+	socket := sockets.Socket{}
 	switch jujuos.HostOS() {
 	case jujuos.Windows:
-		socketPath = fmt.Sprintf(`\\.\pipe\%s-run`, agent)
+		socket.Address = fmt.Sprintf(`\\.\pipe\%s-run`, agent)
 	default:
-		socketPath = fmt.Sprintf("%s/run.socket", agentDir)
+		socket.Network = "unix"
+		socket.Address = fmt.Sprintf("%s/run.socket", agentDir)
 	}
-	listener, err := uniter.NewRunListener(uniter.RunListenerConfig{
-		SocketPath:    socketPath,
-		CommandRunner: &mockRunner{c},
-	})
+	listener, err := uniter.NewRunListener(socket)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(listener, gc.NotNil)
+	listener.RegisterRunner("foo/1", &mockRunner{c})
 	s.AddCleanup(func(*gc.C) {
 		c.Assert(listener.Close(), jc.ErrorIsNil)
 	})

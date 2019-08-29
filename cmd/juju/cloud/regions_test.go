@@ -45,11 +45,15 @@ eu-west-1
 eu-west-2
 eu-west-3
 eu-central-1
+eu-north-1
+ap-east-1
 ap-south-1
 ap-southeast-1
 ap-southeast-2
 ap-northeast-1
 ap-northeast-2
+ap-northeast-3
+me-south-1
 sa-east-1
 
 `[1:])
@@ -85,6 +89,10 @@ eu-west-3:
   endpoint: https://ec2.eu-west-3.amazonaws.com
 eu-central-1:
   endpoint: https://ec2.eu-central-1.amazonaws.com
+eu-north-1:
+  endpoint: https://ec2.eu-north-1.amazonaws.com
+ap-east-1:
+  endpoint: https://ec2.ap-east-1.amazonaws.com
 ap-south-1:
   endpoint: https://ec2.ap-south-1.amazonaws.com
 ap-southeast-1:
@@ -95,6 +103,10 @@ ap-northeast-1:
   endpoint: https://ec2.ap-northeast-1.amazonaws.com
 ap-northeast-2:
   endpoint: https://ec2.ap-northeast-2.amazonaws.com
+ap-northeast-3:
+  endpoint: https://ec2.ap-northeast-3.amazonaws.com
+me-south-1:
+  endpoint: https://ec2.me-south-1.amazonaws.com
 sa-east-1:
   endpoint: https://ec2.sa-east-1.amazonaws.com
 `[1:])
@@ -212,5 +224,8 @@ func (s *regionsSuite) TestListRegionsJson(c *gc.C) {
 		"koreacentral":       {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
 		"koreasouth":         {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
 		"francecentral":      {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
+		"francesouth":        {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
+		"southafricanorth":   {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
+		"southafricawest":    {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
 	})
 }

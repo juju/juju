@@ -11,7 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
 
@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
@@ -93,21 +92,21 @@ func NewWorker(
 	upgradeComplete gate.Lock,
 	agent agent.Agent,
 	apiConn api.Connection,
-	jobs []multiwatcher.MachineJob,
+	isController bool,
 	openState func() (*state.StatePool, error),
 	preUpgradeSteps func(st *state.StatePool, agentConf agent.Config, isController, isMasterServer, isCaas bool) error,
-	machine StatusSetter,
+	entity StatusSetter,
 	isCaas bool,
 ) (worker.Worker, error) {
 	w := &upgradesteps{
 		upgradeComplete: upgradeComplete,
 		agent:           agent,
 		apiConn:         apiConn,
-		jobs:            jobs,
 		openState:       openState,
 		preUpgradeSteps: preUpgradeSteps,
-		machine:         machine,
+		entity:          entity,
 		tag:             agent.CurrentConfig().Tag(),
+		isController:    isController,
 		isCaas:          isCaas,
 	}
 	w.tomb.Go(w.run)
@@ -119,15 +118,16 @@ type upgradesteps struct {
 	upgradeComplete gate.Lock
 	agent           agent.Agent
 	apiConn         api.Connection
-	jobs            []multiwatcher.MachineJob
 	openState       func() (*state.StatePool, error)
 	preUpgradeSteps func(st *state.StatePool, agentConf agent.Config, isController, isMaster, isCaas bool) error
-	machine         StatusSetter
+	entity          StatusSetter
 
-	fromVersion  version.Number
-	toVersion    version.Number
-	tag          names.Tag
-	isMaster     bool
+	fromVersion version.Number
+	toVersion   version.Number
+	tag         names.Tag
+	isMaster    bool
+	// If the agent is a machine agent for a controller, flag that state
+	// needs to be opened before running upgrade steps
 	isController bool
 	isCaas       bool
 	pool         *state.StatePool
@@ -183,16 +183,6 @@ func (w *upgradesteps) run() error {
 		return nil
 	}
 
-	if w.jobs != nil {
-		// If the agent is a machine agent for a controller, flag that state
-		// needs to be opened before running upgrade steps
-		for _, job := range w.jobs {
-			if job == multiwatcher.JobManageModel {
-				w.isController = true
-			}
-		}
-	}
-
 	// We need a *state.State for upgrades. We open it independently
 	// of StateWorker, because we have no guarantees about when
 	// and how often StateWorker might run.
@@ -232,7 +222,7 @@ func (w *upgradesteps) run() error {
 	} else {
 		// Upgrade succeeded - signal that the upgrade is complete.
 		logger.Infof("upgrade to %v completed successfully.", w.toVersion)
-		w.machine.SetStatus(status.Started, "", nil)
+		w.entity.SetStatus(status.Started, "", nil)
 		w.upgradeComplete.Unlock()
 	}
 	return nil
@@ -355,14 +345,16 @@ func (w *upgradesteps) waitForOtherControllers(info *state.UpgradeInfo) error {
 // This function conforms to the agent.ConfigMutator type and is
 // designed to be called via an agent's ChangeConfig method.
 func (w *upgradesteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
-	var upgradeErr error
-	w.machine.SetStatus(status.Started, fmt.Sprintf("upgrading to %v", w.toVersion), nil)
+	if err := w.entity.SetStatus(status.Started, fmt.Sprintf("upgrading to %v", w.toVersion), nil); err != nil {
+		return errors.Trace(err)
+	}
 
+	var upgradeErr error
 	stBackend := upgrades.NewStateBackend(w.pool)
 	context := upgrades.NewContext(agentConfig, w.apiConn, stBackend)
 	logger.Infof("starting upgrade from %v to %v for %q", w.fromVersion, w.toVersion, w.tag)
 
-	targets := jobsToTargets(w.jobs, w.isMaster)
+	targets := upgradeTargets(w.isController, w.isMaster)
 	attempts := getUpgradeRetryStrategy()
 	for attempt := attempts.Start(); attempt.Next(); {
 		upgradeErr = PerformUpgrade(w.fromVersion, targets, context)
@@ -391,7 +383,7 @@ func (w *upgradesteps) reportUpgradeFailure(err error, willRetry bool) {
 	}
 	logger.Errorf("upgrade from %v to %v for %q failed (%s): %v",
 		w.fromVersion, w.toVersion, w.tag, retryText, err)
-	w.machine.SetStatus(status.Error,
+	w.entity.SetStatus(status.Error,
 		fmt.Sprintf("upgrade to %v failed (%s): %v", w.toVersion, retryText, err), nil)
 }
 
@@ -462,23 +454,16 @@ var getUpgradeRetryStrategy = func() utils.AttemptStrategy {
 	}
 }
 
-// jobsToTargets determines the upgrade targets corresponding to the
-// jobs assigned to an agent. This determines the upgrade steps
+// upgradeTargets determines the upgrade targets corresponding to the
+// role of an agent. This determines the upgrade steps
 // which will run during an upgrade.
-func jobsToTargets(jobs []multiwatcher.MachineJob, isMaster bool) (targets []upgrades.Target) {
-	if jobs == nil {
-		return
-	}
-	for _, job := range jobs {
-		switch job {
-		case multiwatcher.JobManageModel:
-			targets = append(targets, upgrades.Controller)
-			if isMaster {
-				targets = append(targets, upgrades.DatabaseMaster)
-			}
-		case multiwatcher.JobHostUnits:
-			targets = append(targets, upgrades.HostMachine)
+func upgradeTargets(isController, isMaster bool) []upgrades.Target {
+	var targets []upgrades.Target
+	if isController {
+		targets = append(targets, upgrades.Controller)
+		if isMaster {
+			targets = append(targets, upgrades.DatabaseMaster)
 		}
 	}
-	return
+	return append(targets, upgrades.HostMachine)
 }

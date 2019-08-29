@@ -9,7 +9,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
@@ -629,12 +629,12 @@ func (p *ProvisionerAPI) DistributionGroup(args params.Entities) (params.Distrib
 
 // controllerInstances returns all environ manager instances.
 func controllerInstances(st *state.State) ([]instance.Id, error) {
-	info, err := st.ControllerInfo()
+	controllerIds, err := st.ControllerIds()
 	if err != nil {
 		return nil, err
 	}
-	instances := make([]instance.Id, 0, len(info.MachineIds))
-	for _, id := range info.MachineIds {
+	instances := make([]instance.Id, 0, len(controllerIds))
+	for _, id := range controllerIds {
 		machine, err := st.Machine(id)
 		if err != nil {
 			return nil, err
@@ -717,11 +717,11 @@ func (p *ProvisionerAPI) DistributionGroupByMachineId(args params.Entities) (par
 
 // controllerMachineIds returns a slice of all other environ manager machine.Ids.
 func controllerMachineIds(st *state.State, m *state.Machine) ([]string, error) {
-	info, err := st.ControllerInfo()
+	ids, err := st.ControllerIds()
 	if err != nil {
 		return nil, err
 	}
-	result := set.NewStrings(info.MachineIds...)
+	result := set.NewStrings(ids...)
 	result.Remove(m.Id())
 	return result.SortedValues(), nil
 }

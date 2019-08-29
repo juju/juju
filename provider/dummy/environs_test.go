@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/context"
@@ -249,9 +250,9 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       network.ConfigDHCP,
-		Address:          network.NewAddress("0.10.0.2"),
-		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress:   network.NewAddress("0.10.0.1"),
+		Address:          corenetwork.NewAddress("0.10.0.2"),
+		DNSServers:       corenetwork.NewAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress:   corenetwork.NewAddress("0.10.0.1"),
 	}, {
 		ProviderId:       "dummy-eth1",
 		ProviderSubnetId: "dummy-public",
@@ -264,9 +265,9 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:         false,
 		NoAutoStart:      true,
 		ConfigType:       network.ConfigDHCP,
-		Address:          network.NewAddress("0.20.0.2"),
-		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress:   network.NewAddress("0.20.0.1"),
+		Address:          corenetwork.NewAddress("0.20.0.2"),
+		DNSServers:       corenetwork.NewAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress:   corenetwork.NewAddress("0.20.0.1"),
 	}, {
 		ProviderId:       "dummy-eth2",
 		ProviderSubnetId: "dummy-disabled",
@@ -279,9 +280,9 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:         true,
 		NoAutoStart:      false,
 		ConfigType:       network.ConfigDHCP,
-		Address:          network.NewAddress("0.30.0.2"),
-		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress:   network.NewAddress("0.30.0.1"),
+		Address:          corenetwork.NewAddress("0.30.0.2"),
+		DNSServers:       corenetwork.NewAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress:   corenetwork.NewAddress("0.30.0.1"),
 	}}
 	info, err := e.NetworkInterfaces(s.callCtx, "i-42")
 	c.Assert(err, jc.ErrorIsNil)
@@ -305,7 +306,7 @@ func (s *suite) TestSubnets(c *gc.C) {
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
 
-	expectInfo := []network.SubnetInfo{{
+	expectInfo := []corenetwork.SubnetInfo{{
 		CIDR:              "0.10.0.0/24",
 		ProviderId:        "dummy-private",
 		AvailabilityZones: []string{"zone1", "zone2"},
@@ -314,7 +315,7 @@ func (s *suite) TestSubnets(c *gc.C) {
 		ProviderId: "dummy-public",
 	}}
 
-	ids := []network.Id{"dummy-private", "dummy-public", "foo-bar"}
+	ids := []corenetwork.Id{"dummy-private", "dummy-public", "foo-bar"}
 	netInfo, err := e.Subnets(s.callCtx, "i-foo", ids)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(netInfo, jc.DeepEquals, expectInfo)
@@ -362,8 +363,8 @@ func assertSubnets(
 	e environs.Environ,
 	opc chan dummy.Operation,
 	instId instance.Id,
-	subnetIds []network.Id,
-	expectInfo []network.SubnetInfo,
+	subnetIds []corenetwork.Id,
+	expectInfo []corenetwork.SubnetInfo,
 ) {
 	select {
 	case op := <-opc:

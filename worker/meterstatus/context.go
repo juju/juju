@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -37,7 +38,8 @@ func (ctx *limitedContext) HookVars(paths context.Paths) ([]string, error) {
 		"CHARM_DIR=" + paths.GetCharmDir(), // legacy
 		"JUJU_CHARM_DIR=" + paths.GetCharmDir(),
 		"JUJU_CONTEXT_ID=" + ctx.id,
-		"JUJU_AGENT_SOCKET=" + paths.GetJujucSocket(),
+		"JUJU_AGENT_SOCKET_ADDRESS=" + paths.GetJujucSocket().Address,
+		"JUJU_AGENT_SOCKET_NETWORK=" + paths.GetJujucSocket().Network,
 		"JUJU_UNIT_NAME=" + ctx.unitName,
 	}
 	for key, val := range ctx.env {
@@ -60,6 +62,13 @@ func (ctx *limitedContext) SetEnvVars(vars map[string]string) {
 // UnitName implements runner.Context.
 func (ctx *limitedContext) UnitName() string {
 	return ctx.unitName
+}
+
+// ModelType implements runner.Context
+func (ctx *limitedContext) ModelType() model.ModelType {
+	// Can return IAAS constant because meter status is only used in Uniter.
+	// TODO(caas): Required for CAAS support.
+	return model.IAAS
 }
 
 // SetProcess implements runner.Context.

@@ -15,8 +15,9 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
+	apiagent "github.com/juju/juju/api/agent"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -156,11 +157,11 @@ func (c *IntrospectCommand) getAgentTag() (names.Tag, error) {
 		if err != nil {
 			continue
 		}
-		if tag.Kind() == names.MachineTagKind {
+		if apiagent.IsAllowedControllerTag(tag.Kind()) {
 			return tag, nil
 		}
 	}
-	return nil, errors.New("could not determine machine tag")
+	return nil, errors.New("could not determine machine or controller agent tag")
 }
 
 func unixSocketHTTPClient(socketPath string) *http.Client {

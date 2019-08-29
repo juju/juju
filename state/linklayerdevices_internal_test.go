@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -58,7 +58,6 @@ func (s *linkLayerDevicesInternalSuite) TestProviderIDDoesNotIncludeModelUUIDWhe
 	const localProviderID = "foo"
 	result := s.newLinkLayerDeviceWithDummyState(linkLayerDeviceDoc{ProviderID: localProviderID})
 	c.Assert(result.ProviderID(), gc.Equals, network.Id(localProviderID))
-
 }
 
 func (s *linkLayerDevicesInternalSuite) TestParentDeviceReturnsNoErrorWhenParentNameNotSet(c *gc.C) {

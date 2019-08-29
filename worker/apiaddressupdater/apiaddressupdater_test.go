@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/worker.v1/workertest"
 
 	apimachiner "github.com/juju/juju/api/machiner"
+	corenetwork "github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -40,11 +41,11 @@ func (s *APIAddressUpdaterSuite) SetUpTest(c *gc.C) {
 }
 
 type apiAddressSetter struct {
-	servers chan [][]network.HostPort
+	servers chan [][]corenetwork.HostPort
 	err     error
 }
 
-func (s *apiAddressSetter) SetAPIHostPorts(servers [][]network.HostPort) error {
+func (s *apiAddressSetter) SetAPIHostPorts(servers [][]corenetwork.HostPort) error {
 	s.servers <- servers
 	return s.err
 }
@@ -58,13 +59,13 @@ func (s *APIAddressUpdaterSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
-	updatedServers := [][]network.HostPort{
-		network.NewHostPorts(1234, "localhost", "127.0.0.1"),
+	updatedServers := [][]corenetwork.HostPort{
+		corenetwork.NewHostPorts(1234, "localhost", "127.0.0.1"),
 	}
 	err := s.State.SetAPIHostPorts(updatedServers)
 	c.Assert(err, jc.ErrorIsNil)
 
-	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
+	setter := &apiAddressSetter{servers: make(chan [][]corenetwork.HostPort, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	updater, err := apiaddressupdater.NewAPIAddressUpdater(apimachiner.NewState(st), setter)
 	c.Assert(err, jc.ErrorIsNil)
@@ -88,15 +89,15 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 }
 
 func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
-	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
+	setter := &apiAddressSetter{servers: make(chan [][]corenetwork.HostPort, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	worker, err := apiaddressupdater.NewAPIAddressUpdater(apimachiner.NewState(st), setter)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 	s.BackingState.StartSync()
-	updatedServers := [][]network.HostPort{
-		network.NewHostPorts(1234, "localhost", "127.0.0.1"),
+	updatedServers := [][]corenetwork.HostPort{
+		corenetwork.NewHostPorts(1234, "localhost", "127.0.0.1"),
 	}
 	// SetAPIHostPorts should be called with the initial value (empty),
 	// and then the updated value.
@@ -151,9 +152,9 @@ LXC_BRIDGE="ignored"`[1:])
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfig)
 
-	initialServers := [][]network.HostPort{
-		network.NewHostPorts(1234, "localhost", "127.0.0.1"),
-		network.NewHostPorts(
+	initialServers := [][]corenetwork.HostPort{
+		corenetwork.NewHostPorts(1234, "localhost", "127.0.0.1"),
+		corenetwork.NewHostPorts(
 			4321,
 			"10.0.3.1",      // filtered
 			"10.0.3.3",      // not filtered (not a lxc bridge address)
@@ -161,27 +162,27 @@ LXC_BRIDGE="ignored"`[1:])
 			"10.0.4.2",      // not filtered
 			"192.168.122.1", // filtered default virbr0
 		),
-		network.NewHostPorts(4242, "10.0.3.4"), // filtered
+		corenetwork.NewHostPorts(4242, "10.0.3.4"), // filtered
 	}
 	err = s.State.SetAPIHostPorts(initialServers)
 	c.Assert(err, jc.ErrorIsNil)
 
-	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
+	setter := &apiAddressSetter{servers: make(chan [][]corenetwork.HostPort, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	worker, err := apiaddressupdater.NewAPIAddressUpdater(apimachiner.NewState(st), setter)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 	s.BackingState.StartSync()
-	updatedServers := [][]network.HostPort{
-		network.NewHostPorts(1234, "localhost", "127.0.0.1"),
-		network.NewHostPorts(
+	updatedServers := [][]corenetwork.HostPort{
+		corenetwork.NewHostPorts(1234, "localhost", "127.0.0.1"),
+		corenetwork.NewHostPorts(
 			4001,
 			"10.0.3.1", // filtered
 			"10.0.3.3", // not filtered (not a lxc bridge address)
 		),
-		network.NewHostPorts(4200, "10.0.3.4"), // filtered
-		network.NewHostPorts(4200, "10.0.4.1"), // filtered
+		corenetwork.NewHostPorts(4200, "10.0.3.4"), // filtered
+		corenetwork.NewHostPorts(4200, "10.0.4.1"), // filtered
 	}
 	// SetAPIHostPorts should be called with the initial value, and
 	// then the updated value, but filtering occurs in both cases.
@@ -190,9 +191,9 @@ LXC_BRIDGE="ignored"`[1:])
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called initially")
 	case servers := <-setter.servers:
 		c.Assert(servers, gc.HasLen, 2)
-		c.Assert(servers, jc.DeepEquals, [][]network.HostPort{
-			network.NewHostPorts(1234, "localhost", "127.0.0.1"),
-			network.NewHostPorts(4321, "10.0.3.3", "10.0.4.2"),
+		c.Assert(servers, jc.DeepEquals, [][]corenetwork.HostPort{
+			corenetwork.NewHostPorts(1234, "localhost", "127.0.0.1"),
+			corenetwork.NewHostPorts(4321, "10.0.3.3", "10.0.4.2"),
 		})
 	}
 	err = s.State.SetAPIHostPorts(updatedServers)
@@ -203,9 +204,9 @@ LXC_BRIDGE="ignored"`[1:])
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
 	case servers := <-setter.servers:
 		c.Assert(servers, gc.HasLen, 2)
-		c.Assert(servers, jc.DeepEquals, [][]network.HostPort{
-			network.NewHostPorts(1234, "localhost", "127.0.0.1"),
-			network.NewHostPorts(4001, "10.0.3.3"),
+		c.Assert(servers, jc.DeepEquals, [][]corenetwork.HostPort{
+			corenetwork.NewHostPorts(1234, "localhost", "127.0.0.1"),
+			corenetwork.NewHostPorts(4001, "10.0.3.3"),
 		})
 	}
 }

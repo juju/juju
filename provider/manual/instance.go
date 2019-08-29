@@ -5,6 +5,7 @@ package manual
 
 import (
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual"
@@ -31,12 +32,12 @@ func (manualBootstrapInstance) Refresh(ctx context.ProviderCallContext) error {
 	return nil
 }
 
-func (inst manualBootstrapInstance) Addresses(ctx context.ProviderCallContext) (addresses []network.Address, err error) {
+func (inst manualBootstrapInstance) Addresses(ctx context.ProviderCallContext) (addresses []corenetwork.Address, err error) {
 	addr, err := manual.HostAddress(inst.host)
 	if err != nil {
 		return nil, err
 	}
-	return []network.Address{addr}, nil
+	return []corenetwork.Address{addr}, nil
 }
 
 func (manualBootstrapInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {

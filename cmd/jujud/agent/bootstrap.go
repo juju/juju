@@ -20,7 +20,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
@@ -32,6 +32,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -39,11 +40,9 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -100,12 +99,6 @@ func (c *BootstrapCommand) Init(args []string) error {
 	return c.AgentConf.CheckArgs(args[1:])
 }
 
-// Tag returns current machine tag.
-func (c *BootstrapCommand) Tag() names.Tag {
-	// bootstrap-state command always runs on machine-0.
-	return names.NewMachineTag("0")
-}
-
 func copyFileFromTemplate(to, from string) (err error) {
 	if _, err := os.Stat(to); os.IsNotExist(err) {
 		logger.Debugf("copying file from %q to %s", from, to)
@@ -119,14 +112,15 @@ func copyFileFromTemplate(to, from string) (err error) {
 }
 
 func (c *BootstrapCommand) ensureConfigFilesForCaas() error {
+	tag := names.NewControllerAgentTag(agent.BootstrapControllerId)
 	for _, v := range []struct {
 		to, from string
 	}{
 		{
 			// ensure agent.conf
-			to: agent.ConfigPath(c.AgentConf.DataDir(), c.Tag()),
+			to: agent.ConfigPath(c.AgentConf.DataDir(), tag),
 			from: filepath.Join(
-				agent.Dir(c.AgentConf.DataDir(), c.Tag()),
+				agent.Dir(c.AgentConf.DataDir(), tag),
 				caasprovider.TemplateFileNameAgentConf,
 			),
 		},
@@ -150,7 +144,6 @@ var (
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
-
 	bootstrapParamsData, err := ioutil.ReadFile(c.BootstrapParamsFile)
 	if err != nil {
 		return errors.Annotate(err, "reading bootstrap params file")
@@ -165,22 +158,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if isCAAS {
 		if err := c.ensureConfigFilesForCaas(); err != nil {
 			return errors.Trace(err)
-		}
-	}
-
-	if err := c.ReadConfig(c.Tag().String()); err != nil {
-		return errors.Annotate(err, "cannot read config")
-	}
-	agentConfig := c.CurrentConfig()
-
-	// agent.Jobs is an optional field in the agent config, and was
-	// introduced after 1.17.2. We default to allowing units on
-	// machine-0 if missing.
-	jobs := agentConfig.Jobs()
-	if len(jobs) == 0 {
-		jobs = []multiwatcher.MachineJob{
-			multiwatcher.JobManageModel,
-			multiwatcher.JobHostUnits,
 		}
 	}
 
@@ -248,7 +225,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			newConfigAttrs["agent-version"] = jujuversion.Current.String()
 		} else if toolsErr != nil {
 			logger.Errorf("cannot find newer agent binaries: %v", toolsErr)
-			return toolsErr
+			return errors.Trace(toolsErr)
 		}
 	}
 
@@ -261,6 +238,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return nil
 	}
 
+	if err := readAgentConfig(c, agent.BootstrapControllerId); err != nil {
+		return errors.Annotate(err, "cannot read config")
+	}
+	agentConfig := c.CurrentConfig()
 	info, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return fmt.Errorf("bootstrap machine config has no state serving info")
@@ -305,7 +286,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var controller *state.Controller
-	var m *state.Machine
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		var stateErr error
 		dialOpts := mongo.DefaultDialOpts()
@@ -322,13 +302,14 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		dialOpts.Direct = true
 
 		adminTag := names.NewLocalUserTag(adminUserName)
-		controller, m, stateErr = agentInitializeState(
+		controller, stateErr = agentInitializeState(
+			env,
 			adminTag,
 			agentConfig,
 			agentbootstrap.InitializeStateParams{
 				StateInitializationParams: args,
 				BootstrapMachineAddresses: addrs,
-				BootstrapMachineJobs:      jobs,
+				BootstrapMachineJobs:      agentConfig.Jobs(),
 				SharedSecret:              info.SharedSecret,
 				Provider:                  environs.Provider,
 				StorageProviderRegistry:   stateenvirons.NewStorageProviderRegistry(env),
@@ -339,9 +320,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return stateErr
 	})
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	defer controller.Close()
+	defer func() { _ = controller.Close() }()
 	st := controller.SystemState()
 
 	// Set up default container networking mode
@@ -351,16 +332,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 	if err = model.AutoConfigureContainerNetworking(env); err != nil {
 		if errors.IsNotSupported(err) {
-			logger.Debugf("Not performing container networking autoconfiguration on a non-networking environment")
-		} else {
-			return err
-		}
-	}
-
-	// Fetch spaces from substrate
-	if err = st.ReloadSpaces(env); err != nil {
-		if errors.IsNotSupported(err) {
-			logger.Debugf("Not performing spaces load on a non-networking environment")
+			logger.Debugf("Not performing container networking auto-configuration on a non-networking environment")
 		} else {
 			return err
 		}
@@ -387,8 +359,12 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		logger.Debugf("Juju GUI successfully set up")
 	}
 
-	// bootstrap machine always gets the vote
-	return m.SetHasVote(true)
+	// bootstrap nodes always get the vote
+	node, err := st.ControllerNode(agent.BootstrapControllerId)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return node.SetHasVote(true)
 }
 
 func getAddressesForMongo(
@@ -527,7 +503,7 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Bootstrap
 		Arch:   arch.HostArch(),
 		Series: hostSeries,
 	}
-	tools, err := agenttools.ReadTools(dataDir, current)
+	agentTools, err := agenttools.ReadTools(dataDir, current)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -540,38 +516,38 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Bootstrap
 		return errors.Trace(err)
 	}
 
-	toolstorage, err := st.ToolsStorage()
+	toolStorage, err := st.ToolsStorage()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer toolstorage.Close()
+	defer func() { _ = toolStorage.Close() }()
 
 	var toolsVersions []version.Binary
-	if strings.HasPrefix(tools.URL, "file://") {
+	if strings.HasPrefix(agentTools.URL, "file://") {
 		// Tools were uploaded: clone for each series of the same OS.
-		os, err := series.GetOSFromSeries(tools.Version.Series)
+		opSys, err := series.GetOSFromSeries(agentTools.Version.Series)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		osSeries := series.OSSupportedSeries(os)
-		for _, series := range osSeries {
-			toolsVersion := tools.Version
-			toolsVersion.Series = series
+		osSeries := series.OSSupportedSeries(opSys)
+		for _, s := range osSeries {
+			toolsVersion := agentTools.Version
+			toolsVersion.Series = s
 			toolsVersions = append(toolsVersions, toolsVersion)
 		}
 	} else {
 		// Tools were downloaded from an external source: don't clone.
-		toolsVersions = []version.Binary{tools.Version}
+		toolsVersions = []version.Binary{agentTools.Version}
 	}
 
 	for _, toolsVersion := range toolsVersions {
 		metadata := binarystorage.Metadata{
 			Version: toolsVersion.String(),
-			Size:    tools.Size,
-			SHA256:  tools.SHA256,
+			Size:    agentTools.Size,
+			SHA256:  agentTools.SHA256,
 		}
 		logger.Debugf("Adding agent binaries: %v", toolsVersion)
-		if err := toolstorage.Add(bytes.NewReader(data), metadata); err != nil {
+		if err := toolStorage.Add(bytes.NewReader(data), metadata); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -583,31 +559,33 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Bootstrap
 func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.BootstrapEnviron) error {
 	agentConfig := c.CurrentConfig()
 	dataDir := agentConfig.DataDir()
-	guistorage, err := st.GUIStorage()
+
+	guiStorage, err := st.GUIStorage()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer guistorage.Close()
+	defer func() { _ = guiStorage.Close() }()
+
 	gui, err := agenttools.ReadGUIArchive(dataDir)
 	if err != nil {
 		return errors.Annotate(err, "cannot fetch GUI info")
 	}
+
 	f, err := os.Open(filepath.Join(agenttools.SharedGUIDir(dataDir), "gui.tar.bz2"))
 	if err != nil {
 		return errors.Annotate(err, "cannot read GUI archive")
 	}
-	defer f.Close()
-	if err := guistorage.Add(f, binarystorage.Metadata{
+	defer func() { _ = f.Close() }()
+
+	if err := guiStorage.Add(f, binarystorage.Metadata{
 		Version: gui.Version.String(),
 		Size:    gui.Size,
 		SHA256:  gui.SHA256,
 	}); err != nil {
 		return errors.Annotate(err, "cannot store GUI archive")
 	}
-	if err = st.GUISetVersion(gui.Version); err != nil {
-		return errors.Annotate(err, "cannot set current GUI version")
-	}
-	return nil
+
+	return errors.Annotate(st.GUISetVersion(gui.Version), "cannot set current GUI version")
 }
 
 // Override for testing.

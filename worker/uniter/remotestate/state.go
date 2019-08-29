@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -35,6 +35,7 @@ type State interface {
 type Unit interface {
 	Life() params.Life
 	Refresh() error
+	ProviderID() string
 	Resolved() params.ResolvedMode
 	Application() (Application, error)
 	Tag() names.UnitTag

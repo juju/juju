@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/txn"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
@@ -442,10 +442,6 @@ func (api *CloudAPI) getCloudInfo(tag names.CloudTag) (*params.CloudInfo, error)
 			DisplayName: displayName,
 			Access:      string(perm),
 		}
-
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		info.Users = append(info.Users, userInfo)
 	}
 
@@ -857,7 +853,6 @@ func modelsPretty(in map[string]string) string {
 // If the credentials are used by any of the models, the credential deletion will be aborted.
 // If credential-in-use needs to be revoked nonetheless, this method allows the use of force.
 func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialArgs) (params.ErrorResults, error) {
-	// TODO (anastasiamac 2018-11-13) the behavior here needs to be changed to performed promised models checks and authorise use of force.
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Credentials)),
 	}
@@ -889,7 +884,7 @@ func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialAr
 		models, err := api.credentialModels(tag)
 		if err != nil {
 			if !arg.Force {
-				// Could not determine if credential has models - do not continue updating this credential...
+				// Could not determine if credential has models - do not continue revoking this credential...
 				results.Results[i].Error = common.ServerError(err)
 				continue
 			}
@@ -903,7 +898,7 @@ func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialAr
 			)
 			if !arg.Force {
 				// Some models still use this credential - do not delete this credential...
-				results.Results[i].Error = common.ServerError(errors.Errorf("cannot delete credential %v: it is still used by %d model%v", tag, len(models), plural(len(models))))
+				results.Results[i].Error = common.ServerError(errors.Errorf("cannot revoke credential %v: it is still used by %d model%v", tag, len(models), plural(len(models))))
 				continue
 			}
 		}
@@ -947,11 +942,11 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 			if err != nil {
 				return nil, err
 			}
-			provider, err := environs.Provider(aCloud.Type)
+			aProvider, err := environs.Provider(aCloud.Type)
 			if err != nil {
 				return nil, err
 			}
-			schema := provider.CredentialSchemas()
+			schema := aProvider.CredentialSchemas()
 			schemaCache[cloudName] = schema
 			return schema, nil
 		}
@@ -1012,6 +1007,23 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 		}
 	}
 
+	if cloudArgs.Cloud.Type != string(provider.K8s_ProviderType) {
+		// All non-k8s cloud need to go through whitelist.
+		controllerInfo, err := api.backend.ControllerInfo()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		controllerCloud, err := api.backend.Cloud(controllerInfo.CloudName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := cloud.CurrentWhiteList().Check(controllerCloud.Type, cloudArgs.Cloud.Type); err != nil {
+			if cloudArgs.Force == nil || !*cloudArgs.Force {
+				return common.ServerError(params.Error{Code: params.CodeIncompatibleClouds, Message: err.Error()})
+			}
+			logger.Infof("force adding cloud %q of type %q to controller bootstrapped on cloud type %q", cloudArgs.Name, cloudArgs.Cloud.Type, controllerCloud.Type)
+		}
+	}
 	err = api.backend.AddCloud(common.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud), api.apiUser.Name())
 	return errors.Trace(err)
 }
@@ -1027,8 +1039,8 @@ func (api *CloudAPI) UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.Error
 	} else if !isAdmin {
 		return results, common.ServerError(common.ErrPerm)
 	}
-	for i, cloud := range cloudArgs.Clouds {
-		err := api.backend.UpdateCloud(common.CloudFromParams(cloud.Name, cloud.Cloud))
+	for i, aCloud := range cloudArgs.Clouds {
+		err := api.backend.UpdateCloud(common.CloudFromParams(aCloud.Name, aCloud.Cloud))
 		results.Results[i].Error = common.ServerError(err)
 	}
 	return results, nil
@@ -1106,11 +1118,11 @@ func (api *CloudAPI) internalCredentialContents(args params.CloudCredentialArgs,
 		if err != nil {
 			return nil, err
 		}
-		provider, err := environs.Provider(aCloud.Type)
+		aProvider, err := environs.Provider(aCloud.Type)
 		if err != nil {
 			return nil, err
 		}
-		schema := provider.CredentialSchemas()
+		schema := aProvider.CredentialSchemas()
 		schemaCache[cloudName] = schema
 		return schema, nil
 	}

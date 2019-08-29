@@ -77,7 +77,10 @@ func (suite *PluginSuite) TestFindPluginsIgnoreNotExec(c *gc.C) {
 func (suite *PluginSuite) TestRunPluginExising(c *gc.C) {
 	suite.makeWorkingPlugin("foo", 0755)
 	ctx := cmdtesting.Context(c)
-	err := RunPlugin(ctx, "foo", []string{"some params"})
+	err := RunPlugin(func(ctx *cmd.Context, subcommand string, args []string) error {
+		c.Fatal("failed if called")
+		return nil
+	})(ctx, "foo", []string{"some params"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "foo some params\n")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
@@ -86,7 +89,10 @@ func (suite *PluginSuite) TestRunPluginExising(c *gc.C) {
 func (suite *PluginSuite) TestRunPluginWithFailing(c *gc.C) {
 	suite.makeFailingPlugin("foo", 2)
 	ctx := cmdtesting.Context(c)
-	err := RunPlugin(ctx, "foo", []string{"some params"})
+	err := RunPlugin(func(ctx *cmd.Context, subcommand string, args []string) error {
+		c.Fatal("failed if called")
+		return nil
+	})(ctx, "foo", []string{"some params"})
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 2")
 	c.Assert(err, jc.Satisfies, cmd.IsRcPassthroughError)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "failing\n")
@@ -143,7 +149,11 @@ something useful
 
 func (suite *PluginSuite) TestHelpPluginNameNotAPlugin(c *gc.C) {
 	output := badrun(c, 0, "help", "foo")
-	expectedHelp := "ERROR unknown command or topic for foo\n"
+	expectedHelp := `ERROR juju: "foo" is not a juju command. See "juju --help".
+
+Did you mean:
+	gui
+`
 	c.Assert(output, gc.Matches, expectedHelp)
 }
 

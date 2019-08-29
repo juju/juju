@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -33,7 +34,7 @@ func (i sigmaInstance) Id() instance.Id {
 func (i sigmaInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	entityStatus := i.server.Status()
 	logger.Tracef("sigmaInstance.Status: %s", entityStatus)
-	jujuStatus := status.Pending
+	var jujuStatus status.Status
 	switch entityStatus {
 	case gosigma.ServerStarting:
 		jujuStatus = status.Allocating
@@ -58,21 +59,21 @@ func (i sigmaInstance) Status(ctx context.ProviderCallContext) instance.Status {
 // Addresses returns a list of hostnames or ip addresses
 // associated with the instance. This will supercede DNSName
 // which can be implemented by selecting a preferred address.
-func (i sigmaInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
+func (i sigmaInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
 	ip := i.findIPv4()
 
 	if ip != "" {
-		addr := network.Address{
+		addr := corenetwork.Address{
 			Value: ip,
-			Type:  network.IPv4Address,
-			Scope: network.ScopePublic,
+			Type:  corenetwork.IPv4Address,
+			Scope: corenetwork.ScopePublic,
 		}
 
 		logger.Tracef("sigmaInstance.Addresses: %v", addr)
 
-		return []network.Address{addr}, nil
+		return []corenetwork.Address{addr}, nil
 	}
-	return []network.Address{}, nil
+	return []corenetwork.Address{}, nil
 }
 
 // OpenPorts opens the given ports on the instance, which

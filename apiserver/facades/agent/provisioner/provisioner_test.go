@@ -15,7 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -26,11 +26,11 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	environtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/network/containerizer"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -552,6 +552,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
 		anAuthorizer)
+	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
 		Status:  status.Running,
@@ -1617,6 +1618,7 @@ func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) 
 	}
 	// Only machine 0 can have it's containers updated.
 	results, err := aProvisioner.SetSupportedContainers(args)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},

@@ -18,7 +18,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -106,8 +106,8 @@ func (api *fakeAddCloudAPI) Close() error {
 	return nil
 }
 
-func (api *fakeAddCloudAPI) AddCloud(kloud cloud.Cloud) error {
-	api.MethodCall(api, "AddCloud", kloud)
+func (api *fakeAddCloudAPI) AddCloud(kloud cloud.Cloud, force bool) error {
+	api.MethodCall(api, "AddCloud", kloud, force)
 	if kloud.HostCloudRegion == "" && api.isCloudRegionRequired {
 		return params.Error{Code: params.CodeCloudRegionRequired}
 	}
@@ -306,6 +306,32 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists, emptyClientConfig, 
 						"ap-southeast-2": {Name: "ap-southeast-2", Endpoint: "https://ec2.ap-northeast-2.amazonaws.com"},
 					},
 				},
+				"teststack": {
+					Source:           "private",
+					CloudType:        "openstack",
+					CloudDescription: "openstack for this test",
+					AuthTypes:        []string{"jsonfile", "oauth2"},
+					Regions: yaml.MapSlice{
+						{Key: "aregion", Value: map[string]string{"Name": "aregion", "Endpoint": "endpoint"}},
+					},
+					RegionsMap: map[string]jujucmdcloud.RegionDetails{
+						"aregion": {Name: "aregion", Endpoint: "endpoint"},
+					},
+					DefaultRegion: "aregion",
+				},
+				"brokenteststack": {
+					Source:           "private",
+					CloudType:        "azure",
+					CloudDescription: "azure for this test",
+					AuthTypes:        []string{"jsonfile", "oauth2"},
+					Regions: yaml.MapSlice{
+						{Key: "aregion", Value: map[string]string{"Name": "aregion", "Endpoint": "endpoint"}},
+					},
+					RegionsMap: map[string]jujucmdcloud.RegionDetails{
+						"aregion": {Name: "aregion", Endpoint: "endpoint"},
+					},
+					DefaultRegion: "notknownregion",
+				},
 				"maas1": {
 					CloudType:        "maas",
 					CloudDescription: "maas Cloud",
@@ -329,38 +355,38 @@ func (s *addCAASSuite) runCommand(c *gc.C, stdin io.Reader, com cmd.Command, arg
 }
 
 func (s *addCAASSuite) TestAddExtraArg(c *gc.C) {
-	cmd := s.makeCommand(c, true, true, true)
-	_, err := s.runCommand(c, nil, cmd, "k8sname", "extra")
+	command := s.makeCommand(c, true, true, true)
+	_, err := s.runCommand(c, nil, command, "k8sname", "extra")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
 func (s *addCAASSuite) TestEmptyKubeConfigFileWithoutStdin(c *gc.C) {
-	cmd := s.makeCommand(c, true, true, true)
-	_, err := s.runCommand(c, nil, cmd, "k8sname")
+	command := s.makeCommand(c, true, true, true)
+	_, err := s.runCommand(c, nil, command, "k8sname")
 	c.Assert(err, gc.ErrorMatches, `No k8s cluster definitions found in config`)
 }
 
 func (s *addCAASSuite) TestAddNameClash(c *gc.C) {
-	cmd := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, cmd, "mrcloud1")
+	command := s.makeCommand(c, true, false, true)
+	_, err := s.runCommand(c, nil, command, "mrcloud1")
 	c.Assert(err, gc.ErrorMatches, `"mrcloud1" is the name of a public cloud`)
 }
 
 func (s *addCAASSuite) TestMissingName(c *gc.C) {
-	cmd := s.makeCommand(c, true, true, true)
-	_, err := s.runCommand(c, nil, cmd)
+	command := s.makeCommand(c, true, true, true)
+	_, err := s.runCommand(c, nil, command)
 	c.Assert(err, gc.ErrorMatches, `missing k8s name.`)
 }
 
 func (s *addCAASSuite) TestMissingArgs(c *gc.C) {
-	cmd := s.makeCommand(c, true, true, true)
-	_, err := s.runCommand(c, nil, cmd)
+	command := s.makeCommand(c, true, true, true)
+	_, err := s.runCommand(c, nil, command)
 	c.Assert(err, gc.ErrorMatches, `missing k8s name.`)
 }
 
 func (s *addCAASSuite) TestNonExistClusterName(c *gc.C) {
-	cmd := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "non existing cluster name")
+	command := s.makeCommand(c, true, false, true)
+	_, err := s.runCommand(c, nil, command, "myk8s", "--cluster-name", "non existing cluster name")
 	c.Assert(err, gc.ErrorMatches, `context for cluster name "non existing cluster name" not found`)
 }
 
@@ -389,8 +415,8 @@ func (s *addCAASSuite) TestInit(c *gc.C) {
 		},
 	} {
 		args := append([]string{"myk8s"}, ts.args...)
-		cmd := s.makeCommand(c, true, false, true)
-		_, err := s.runCommand(c, nil, cmd, args...)
+		command := s.makeCommand(c, true, false, true)
+		_, err := s.runCommand(c, nil, command, args...)
 		c.Check(err, gc.ErrorMatches, ts.expectedErrStr)
 	}
 }
@@ -435,9 +461,18 @@ func (s *addCAASSuite) TestCloudAndRegionFlag(c *gc.C) {
 			expectedErrStr: `validating cloud region "maas/non-existing-region": cloud "maas" does not have a region, but "non-existing-region" provided`,
 		},
 		{
-			title:          "missing region --cloud=ec2",
+			title:          "missing region --cloud=ec2 with no cloud default region",
 			cloud:          "ec2",
 			expectedErrStr: `validating cloud region "ec2": cloud region "ec2" not valid`,
+		},
+		{
+			title:          "missing region --cloud=brokenteststack and cloud's default region is not a cloud region",
+			cloud:          "brokenteststack",
+			expectedErrStr: `validating cloud region "azure": cloud region "azure" not valid`,
+		},
+		{
+			title: "missing region --cloud=teststack but cloud has default region",
+			cloud: "teststack",
 		},
 		{
 			title:          "cloud option contains region --cloud=gce/us-east1",
@@ -470,7 +505,7 @@ func (s *addCAASSuite) TestCloudAndRegionFlag(c *gc.C) {
 	} {
 		c.Logf("%v: %s", i, ts.title)
 		delete(s.initialCloudMap, "myk8s")
-		cmd := s.makeCommand(c, true, false, true)
+		command := s.makeCommand(c, true, false, true)
 		args := []string{
 			"myk8s", "-c", "foo", "--cluster-name", "mrcloud2",
 		}
@@ -480,18 +515,18 @@ func (s *addCAASSuite) TestCloudAndRegionFlag(c *gc.C) {
 		if ts.cloud != "" {
 			args = append(args, "--cloud", ts.cloud)
 		}
-		_, err := s.runCommand(c, nil, cmd, args...)
+		_, err := s.runCommand(c, nil, command, args...)
 		if ts.expectedErrStr == "" {
-			c.Check(err, jc.ErrorIsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		} else {
-			c.Check(err, gc.ErrorMatches, ts.expectedErrStr)
+			c.Assert(err, gc.ErrorMatches, ts.expectedErrStr)
 		}
 	}
 }
 
 func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *gc.C) {
-	cmd := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, cmd, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2")
+	command := s.makeCommand(c, true, false, true)
+	_, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
@@ -567,7 +602,7 @@ func (s *addCAASSuite) assertAddCloudResult(
 	if localOnly {
 		s.fakeCloudAPI.CheckNoCalls(c)
 	} else {
-		s.fakeCloudAPI.CheckCall(c, 0, "AddCloud", expectedCloudToAdd)
+		s.fakeCloudAPI.CheckCall(c, 0, "AddCloud", expectedCloudToAdd, false)
 	}
 	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
@@ -604,8 +639,8 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionMatchesAndPassThrough(c 
 	s.fakeCloudAPI.isCloudRegionRequired = true
 	cloudRegion := "gce/us-east1"
 
-	cmd := s.makeCommand(c, true, false, true)
-	ctx, err := s.runCommand(c, nil, cmd, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2")
+	command := s.makeCommand(c, true, false, true)
+	ctx, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(strings.Trim(cmdtesting.Stdout(ctx), "\n"), gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s".`)
 	s.assertAddCloudResult(c, cloudRegion, "", "operator-sc", false)
@@ -615,8 +650,8 @@ func (s *addCAASSuite) TestGatherClusterMetadataError(c *gc.C) {
 	var result *jujucaas.ClusterMetadata
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(result, errors.New("oops"))
 
-	cmd := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, cmd, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2")
+	command := s.makeCommand(c, true, false, true)
+	_, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2")
 	expectedErr := `
 	Juju needs to query the k8s cluster to ensure that the recommended
 	storage defaults are available and to detect the cluster's cloud/region.
@@ -631,8 +666,8 @@ func (s *addCAASSuite) TestGatherClusterMetadataNoRegions(c *gc.C) {
 	var result jujucaas.ClusterMetadata
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(&result, nil)
 
-	cmd := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "mrcloud2")
+	command := s.makeCommand(c, true, false, true)
+	_, err := s.runCommand(c, nil, command, "myk8s", "--cluster-name", "mrcloud2")
 	expectedErr := `
 	Juju needs to query the k8s cluster to ensure that the recommended
 	storage defaults are available and to detect the cluster's cloud/region.
@@ -651,8 +686,8 @@ func (s *addCAASSuite) TestGatherClusterMetadataUnknownError(c *gc.C) {
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(result, nil)
 	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(errors.NotFoundf("foo"))
 
-	cmd := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "mrcloud2")
+	command := s.makeCommand(c, true, false, true)
+	_, err := s.runCommand(c, nil, command, "myk8s", "--cluster-name", "mrcloud2")
 	expectedErr := `
 	Juju needs to query the k8s cluster to ensure that the recommended
 	storage defaults are available and to detect the cluster's cloud/region.
@@ -666,8 +701,8 @@ func (s *addCAASSuite) TestGatherClusterMetadataNoRecommendedStorageError(c *gc.
 	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(
 		&jujucaas.NonPreferredStorageError{PreferredStorage: jujucaas.PreferredStorage{Name: "disk"}})
 
-	cmd := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "mrcloud2")
+	command := s.makeCommand(c, true, false, true)
+	_, err := s.runCommand(c, nil, command, "myk8s", "--cluster-name", "mrcloud2")
 	expectedErr := `
 	No recommended storage configuration is defined on this cluster.
 	Run add-k8s again with --storage=<name> and Juju will use the
@@ -690,8 +725,8 @@ func (s *addCAASSuite) TestUnknownClusterExistingStorageClass(c *gc.C) {
 		Name: "mystorage",
 	}).Returns(storageProvisioner, nil)
 
-	cmd := s.makeCommand(c, true, false, true)
-	ctx, err := s.runCommand(c, nil, cmd, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--storage", "mystorage")
+	command := s.makeCommand(c, true, false, true)
+	ctx, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--storage", "mystorage")
 	c.Assert(err, jc.ErrorIsNil)
 	result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
 	result = strings.Replace(result, "\n", " ", -1)
@@ -716,8 +751,8 @@ func (s *addCAASSuite) TestCreateDefaultStorageProvisioner(c *gc.C) {
 		Provisioner: "kubernetes.io/gce-pd",
 	}).Returns(storageProvisioner, nil)
 
-	cmd := s.makeCommand(c, true, false, true)
-	ctx, err := s.runCommand(c, nil, cmd, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--storage", "mystorage")
+	command := s.makeCommand(c, true, false, true)
+	ctx, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--storage", "mystorage")
 	c.Assert(err, jc.ErrorIsNil)
 	result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
 	result = strings.Replace(result, "\n", " ", -1)
@@ -739,8 +774,8 @@ func (s *addCAASSuite) TestCreateCustomStorageProvisioner(c *gc.C) {
 		Name: "mystorage",
 	}).Returns(storageProvisioner, nil)
 
-	cmd := s.makeCommand(c, true, false, true)
-	ctx, err := s.runCommand(c, nil, cmd, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--storage", "mystorage")
+	command := s.makeCommand(c, true, false, true)
+	ctx, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--storage", "mystorage")
 	c.Assert(err, jc.ErrorIsNil)
 	result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
 	result = strings.Replace(result, "\n", " ", -1)
@@ -763,8 +798,8 @@ func (s *addCAASSuite) TestFoundStorageProvisionerViaAnnationForMAASWIthoutStora
 		Name: "mystorage",
 	}).Returns(storageProvisioner, nil)
 
-	cmd := s.makeCommand(c, true, false, true)
-	ctx, err := s.runCommand(c, nil, cmd, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--cloud", "maas")
+	command := s.makeCommand(c, true, false, true)
+	ctx, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--cloud", "maas")
 	c.Assert(err, jc.ErrorIsNil)
 	result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
 	result = strings.Replace(result, "\n", " ", -1)
@@ -776,8 +811,8 @@ func (s *addCAASSuite) TestLocalOnly(c *gc.C) {
 	s.fakeCloudAPI.isCloudRegionRequired = true
 	cloudRegion := "gce/us-east1"
 
-	cmd := s.makeCommand(c, true, false, true)
-	ctx, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "mrcloud2", "--local")
+	command := s.makeCommand(c, true, false, true)
+	ctx, err := s.runCommand(c, nil, command, "myk8s", "--cluster-name", "mrcloud2", "--local")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `k8s substrate "mrcloud2" added as cloud "myk8s".You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`
 	c.Assert(strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1), gc.Equals, expected)
@@ -797,20 +832,46 @@ func mockStdinPipe(content string) (*os.File, error) {
 }
 
 func (s *addCAASSuite) TestCorrectParseFromStdIn(c *gc.C) {
-	cmd := s.makeCommand(c, true, true, false)
+	command := s.makeCommand(c, true, true, false)
 	stdIn, err := mockStdinPipe(kubeConfigStr)
 	defer stdIn.Close()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.runCommand(c, stdIn, cmd, "myk8s", "-c", "foo")
+	_, err = s.runCommand(c, stdIn, command, "myk8s", "-c", "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStoreClouds(c, "gce/us-east1")
 }
 
 func (s *addCAASSuite) TestAddGkeCluster(c *gc.C) {
-	cmd := s.makeCommand(c, true, true, false)
-	_, err := s.runCommand(c, nil, cmd, "-c", "foo", "--gke", "myk8s", "--region", "us-east1")
+	command := s.makeCommand(c, true, true, false)
+	_, err := s.runCommand(c, nil, command, "-c", "foo", "--gke", "myk8s", "--region", "us-east1")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStoreClouds(c, "gce/us-east1")
+}
+
+func (s *addCAASSuite) TestGivenCloudMatch(c *gc.C) {
+	err := caas.CheckCloudRegion("gce", "gce/us-east1")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *addCAASSuite) TestGivenCloudMismatch(c *gc.C) {
+	err := caas.CheckCloudRegion("maas", "gce")
+	c.Assert(err, gc.ErrorMatches, `specified cloud "maas" was different to the detected cloud "gce": re-run the command without specifying the cloud`)
+
+	err = caas.CheckCloudRegion("maas", "gce/us-east1")
+	c.Assert(err, gc.ErrorMatches, `specified cloud "maas" was different to the detected cloud "gce": re-run the command without specifying the cloud`)
+}
+
+func (s *addCAASSuite) TestGivenRegionMatch(c *gc.C) {
+	err := caas.CheckCloudRegion("/us-east1", "gce/us-east1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = caas.CheckCloudRegion("us-east1", "gce/us-east1")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *addCAASSuite) TestGivenRegionMismatch(c *gc.C) {
+	err := caas.CheckCloudRegion("gce/us-east1", "gce/us-east10")
+	c.Assert(err, gc.ErrorMatches, `specified region "us-east1" was different to the detected region "us-east10": re-run the command without specifying the region`)
 }
 
 func (s *addCAASSuite) assertStoreClouds(c *gc.C, hostCloud string) {
@@ -864,8 +925,8 @@ func (s *addCAASSuite) assertStoreClouds(c *gc.C, hostCloud string) {
 }
 
 func (s *addCAASSuite) TestCorrectUseCurrentContext(c *gc.C) {
-	cmd := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, cmd, "-c", "foo", "myk8s")
+	command := s.makeCommand(c, true, false, true)
+	_, err := s.runCommand(c, nil, command, "-c", "foo", "myk8s")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
@@ -914,8 +975,8 @@ func (s *addCAASSuite) TestCorrectUseCurrentContext(c *gc.C) {
 }
 
 func (s *addCAASSuite) TestCorrectSelectContext(c *gc.C) {
-	cmd := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, cmd, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2")
+	command := s.makeCommand(c, true, false, true)
+	_, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
@@ -964,7 +1025,7 @@ func (s *addCAASSuite) TestCorrectSelectContext(c *gc.C) {
 }
 
 func (s *addCAASSuite) TestOnlyOneClusterProvider(c *gc.C) {
-	cmd := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, cmd, "myk8s", "-c", "foo", "--aks", "--gke")
+	command := s.makeCommand(c, true, false, true)
+	_, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--aks", "--gke")
 	c.Assert(err, gc.ErrorMatches, "only one of '--gke' or '--aks' can be supplied")
 }

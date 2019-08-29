@@ -63,7 +63,6 @@ func formatCloudDetailsTabular(ctx *cmd.Context, clouds cloudList, credStore juj
 				} else {
 					p("", credName, "")
 				}
-				i++
 			}
 		}
 		return nil

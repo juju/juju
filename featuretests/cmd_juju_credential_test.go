@@ -10,7 +10,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	names "gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	apicloud "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/apiserver/params"
@@ -71,10 +71,10 @@ clouds:
 		},
 	})
 
-	ctx, err := s.run(c, "show-credential", "dummy", "cred")
+	_, err := s.run(c, "show-credential", "dummy", "cred")
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx, err = s.run(c, "update-credential", "dummy", "cred")
+	_, err = s.run(c, "update-credential", "dummy", "cred")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(c.GetTestLog(), jc.Contains, `ERROR juju.cmd.juju.cloud finalizing "cred" credential for cloud "dummy": unknown key "tenant-name" (value "hrm")`)
 	store.UpdateCredential("dummy", cloud.CloudCredential{
@@ -85,7 +85,7 @@ clouds:
 			}),
 		},
 	})
-	ctx, err = s.run(c, "update-credential", "dummy", "cred")
+	ctx, err := s.run(c, "update-credential", "dummy", "cred")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `

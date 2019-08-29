@@ -13,12 +13,13 @@ import (
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 )
@@ -346,11 +347,10 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 	}
 	haveRels := true
 	rels, err := op.app.Relations()
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	}
 	if err != nil {
-		if !op.Force {
-			return nil, errors.Trace(err)
-		}
-		op.AddError(err)
 		haveRels = false
 	}
 
@@ -363,11 +363,8 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 
 	// We'll need status below when processing relations.
 	statusInfo, statusErr := op.app.Status()
-	if statusErr != nil && !errors.IsNotFound(statusErr) {
-		if !op.Force {
-			return nil, statusErr
-		}
-		op.AddError(statusErr)
+	if op.FatalError(statusErr) && !errors.IsNotFound(statusErr) {
+		return nil, statusErr
 	}
 
 	removeCount := 0
@@ -426,11 +423,8 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 	if op.app.doc.RelationCount == removeCount {
 		hasLastRefs := bson.D{{"life", Alive}, {"relationcount", removeCount}}
 		removeOps, err := op.app.removeOps(hasLastRefs)
-		if err != nil {
-			if !op.Force {
-				return nil, errors.Trace(err)
-			}
-			op.AddError(err)
+		if op.FatalError(err) {
+			return nil, errors.Trace(err)
 		}
 		ops = append(ops, removeOps...)
 		return ops, nil
@@ -771,7 +765,7 @@ func (p AddRemoteApplicationParams) Validate() error {
 	if p.URL != "" {
 		// URL may be empty, to represent remote applications corresponding
 		// to consumers of an offered application.
-		if _, err := charm.ParseOfferURL(p.URL); err != nil {
+		if _, err := crossmodel.ParseOfferURL(p.URL); err != nil {
 			return errors.Annotate(err, "validating offer URL")
 		}
 	}
@@ -780,7 +774,7 @@ func (p AddRemoteApplicationParams) Validate() error {
 	}
 	spaceNames := set.NewStrings()
 	for _, space := range p.Spaces {
-		spaceNames.Add(space.Name)
+		spaceNames.Add(string(space.Name))
 	}
 	for endpoint, space := range p.Bindings {
 		if !spaceNames.Contains(space) {
@@ -842,7 +836,7 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 	for i, space := range args.Spaces {
 		spaces[i] = remoteSpaceDoc{
 			CloudType:          space.CloudType,
-			Name:               space.Name,
+			Name:               string(space.Name),
 			ProviderId:         string(space.ProviderId),
 			ProviderAttributes: space.ProviderAttributes,
 		}
@@ -853,7 +847,7 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 				ProviderId:        string(subnet.ProviderId),
 				VLANTag:           subnet.VLANTag,
 				AvailabilityZones: copyStrings(subnet.AvailabilityZones),
-				ProviderSpaceId:   string(subnet.SpaceProviderId),
+				ProviderSpaceId:   string(subnet.ProviderSpaceId),
 				ProviderNetworkId: string(subnet.ProviderNetworkId),
 			}
 		}

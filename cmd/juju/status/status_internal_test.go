@@ -21,7 +21,7 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -31,13 +31,14 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/network"
 	corepresence "github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
@@ -163,6 +164,10 @@ func (ctx *context) setAgentPresence(c *gc.C, p presence.Agent) *presence.Pinger
 
 func (s *StatusSuite) newContext(c *gc.C) *context {
 	st := s.Environ.(testing.GetStater).GetStateInAPIServer()
+	err := st.UpdateControllerConfig(map[string]interface{}{
+		"features": []interface{}{feature.Generations},
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// We make changes in the API server's state so that
 	// our changes to presence are immediately noticed
@@ -2110,6 +2115,11 @@ var statusTests = []testCase{
 		setUnitAsLeader{"logging/1"},
 		setUnitAsLeader{"wordpress/0"},
 
+		addBranch{"apple"},
+		addBranch{"banana"},
+		trackBranch{"apple", "logging/1"},
+		trackBranch{"banana", "wordpress/0"},
+
 		expect{
 			what: "multiples related peer units",
 			output: M{
@@ -2152,6 +2162,7 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.1.1",
 								"leader":         true,
+								"branch":         "banana",
 							},
 						},
 						"endpoint-bindings": M{
@@ -2199,6 +2210,7 @@ var statusTests = []testCase{
 										},
 										"public-address": "10.0.2.1",
 										"leader":         true,
+										"branch":         "apple",
 									},
 								},
 								"public-address": "10.0.2.1",
@@ -2220,6 +2232,14 @@ var statusTests = []testCase{
 				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
+				},
+				"branches": M{
+					"apple": M{
+						"created": "15:04:05+07:00",
+					},
+					"banana": M{
+						"created": "15:04:05+07:00",
+					},
 				},
 			},
 		},
@@ -2267,6 +2287,7 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.1.1",
 								"leader":         true,
+								"branch":         "banana",
 							},
 						},
 						"endpoint-bindings": M{
@@ -2314,6 +2335,7 @@ var statusTests = []testCase{
 										},
 										"public-address": "10.0.2.1",
 										"leader":         true,
+										"branch":         "apple",
 									},
 								},
 								"public-address": "10.0.2.1",
@@ -2335,6 +2357,14 @@ var statusTests = []testCase{
 				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
+				},
+				"branches": M{
+					"apple": M{
+						"created": "15:04:05+07:00",
+					},
+					"banana": M{
+						"created": "15:04:05+07:00",
+					},
 				},
 			},
 		},
@@ -2381,6 +2411,7 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.1.1",
 								"leader":         true,
+								"branch":         "banana",
 							},
 						},
 						"endpoint-bindings": M{
@@ -2403,6 +2434,11 @@ var statusTests = []testCase{
 				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
+				},
+				"branches": M{
+					"banana": M{
+						"created": "15:04:05+07:00",
+					},
 				},
 			},
 		},
@@ -4220,6 +4256,7 @@ func (s setUnitAsLeader) step(c *gc.C, ctx *context) {
 	// manager running in the state workers collection.
 	stater := ctx.env.(testing.GetStater)
 	claimer, err := stater.GetLeaseManagerInAPIServer().Claimer("application-leadership", ctx.st.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = claimer.Claim(u.ApplicationName(), u.Name(), time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4427,6 +4464,27 @@ func (s setCharmProfiles) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(s.machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetCharmProfiles(s.profiles)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type addBranch struct {
+	name string
+}
+
+func (s addBranch) step(c *gc.C, ctx *context) {
+	err := ctx.st.AddBranch(s.name, "testuser")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type trackBranch struct {
+	branch   string
+	unitName string
+}
+
+func (s trackBranch) step(c *gc.C, ctx *context) {
+	gen, err := ctx.st.Branch(s.branch)
+	c.Assert(err, jc.ErrorIsNil)
+	err = gen.AssignUnit(s.unitName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -5829,6 +5887,7 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 		Controller: &controllerStatus{
 			Timestamp: common.FormatTimeAsTimestamp(&now, isoTime),
 		},
+		Branches: map[string]branchStatus{},
 	})
 }
 
@@ -5874,6 +5933,7 @@ func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
 		Applications:       map[string]applicationStatus{},
 		RemoteApplications: map[string]remoteApplicationStatus{},
 		Offers:             map[string]offerStatus{},
+		Branches:           map[string]branchStatus{},
 	})
 }
 
@@ -5924,6 +5984,7 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
 		Controller: &controllerStatus{
 			Timestamp: common.FormatTimeAsTimestamp(&now, isoTime),
 		},
+		Branches: map[string]branchStatus{},
 	})
 }
 

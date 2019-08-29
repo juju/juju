@@ -7,14 +7,12 @@ package uniter
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/environs"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	k8score "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -25,7 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	corenetwork "github.com/juju/juju/core/network"
@@ -424,7 +422,7 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringResults, e
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				var address network.Address
+				var address corenetwork.Address
 				address, err = unit.PublicAddress()
 				if err == nil {
 					result.Results[i].Result = address.Value
@@ -458,7 +456,7 @@ func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringResults, 
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				var address network.Address
+				var address corenetwork.Address
 				address, err = unit.PrivateAddress()
 				if err == nil {
 					result.Results[i].Result = address.Value
@@ -806,49 +804,12 @@ func (u *UniterAPI) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorResul
 				curl, err = charm.ParseURL(entity.CharmURL)
 				if err == nil {
 					err = unit.SetCharmURL(curl)
-					if err == nil {
-						// The uniter sets the charm URL at installation.
-						// It can then watch or request the unit's
-						// configuration any time after. We must ensure that
-						// the change is reflected in the cache, or those
-						// operations can result in an error.
-						err = u.waitForCacheUnit(
-							tag, func(cu cache.Unit) bool { return cu.CharmURL() == entity.CharmURL },
-						)
-					}
 				}
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
-}
-
-// waitForCacheUnit watches the cache for the input unit tag and returns with
-// a nil error when the input condition is satisfied.
-// If the cache is not up-to-date within a minute (this is quite generous),
-// then an error is returned.
-// TODO (manadart 2019-06-28): This is a temporary solution.
-// A sufficiently generic approach should be arrived at in order to ensure
-// cache synchronisation with DB writes where it is operationally critical.
-func (u *UniterAPI) waitForCacheUnit(tag names.UnitTag, condition func(cu cache.Unit) bool) error {
-	timeout := time.After(time.Minute)
-
-	for {
-		select {
-		case <-timeout:
-			return errors.New("timed out waiting for change to be reflected in cache")
-		default:
-			cu, err := u.getCacheUnit(tag)
-			if err != nil {
-				return err
-			}
-			if condition(cu) {
-				return nil
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-	}
 }
 
 // WorkloadVersion returns the workload version for all given units or applications.
@@ -1062,8 +1023,8 @@ func (u *UniterAPI) ConfigSettings(args params.Entities) (params.ConfigSettingsR
 		}
 		err = common.ErrPerm
 		if canAccess(tag) {
-			var unit cache.Unit
-			unit, err = u.getCacheUnit(tag)
+			var unit *state.Unit
+			unit, err = u.getUnit(tag)
 			if err == nil {
 				var settings charm.Settings
 				settings, err = unit.ConfigSettings()
@@ -1258,6 +1219,9 @@ func (u *UniterAPI) RelationsStatus(args params.Entities) (params.RelationUnitSt
 			return nil, errors.Trace(err)
 		}
 		relations, err := app.Relations()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		for _, rel := range relations {
 			rus, err := oneRelationUnitStatus(rel, unit)
 			if err != nil {
@@ -1311,11 +1275,26 @@ func (u *UniterAPI) Refresh(args params.Entities) (params.UnitRefreshResults, er
 			if unit, err = u.getUnit(tag); err == nil {
 				result.Results[i].Life = params.Life(unit.Life().String())
 				result.Results[i].Resolved = params.ResolvedMode(unit.Resolved())
+
+				var err1 error
+				result.Results[i].ProviderID, err1 = u.getProviderID(unit)
+				if err1 != nil && !errors.IsNotFound(err1) {
+					// initially, it returns not found error, so just ignore it.
+					err = err1
+				}
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+func (u *UniterAPI) getProviderID(unit *state.Unit) (string, error) {
+	container, err := unit.ContainerInfo()
+	if err != nil {
+		return "", err
+	}
+	return container.ProviderId(), nil
 }
 
 // CurrentModel returns the name and UUID for the current juju model.
@@ -1681,11 +1660,6 @@ func (u *UniterAPIV8) WatchUnitAddresses(args params.Entities) (params.NotifyWat
 
 func (u *UniterAPI) getUnit(tag names.UnitTag) (*state.Unit, error) {
 	return u.st.Unit(tag.Id())
-}
-
-func (u *UniterAPI) getCacheUnit(tag names.UnitTag) (cache.Unit, error) {
-	unit, err := u.cacheModel.Unit(tag.Id())
-	return unit, errors.Trace(err)
 }
 
 func (u *UniterAPI) getApplication(tag names.ApplicationTag) (*state.Application, error) {
@@ -2106,7 +2080,7 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 			if err != nil {
 				return params.NetworkInfoResults{}, err
 			}
-			svcType := cfg.GetString(provider.ServiceTypeConfigKey, "")
+			svcType := cfg.GetString(k8sprovider.ServiceTypeConfigKey, "")
 			switch k8score.ServiceType(svcType) {
 			case k8score.ServiceTypeLoadBalancer, k8score.ServiceTypeExternalName:
 				pollPublic = true
@@ -2147,7 +2121,7 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
-		network.SortAddresses(addr)
+		corenetwork.SortAddresses(addr)
 
 		// We record the interface addresses as the machine local ones - these
 		// are used later as the binding addresses.
@@ -2155,7 +2129,7 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		// addresses so record those in the default ingress address slice.
 		var interfaceAddr []network.InterfaceAddress
 		for _, a := range addr {
-			if a.Scope == network.ScopeMachineLocal {
+			if a.Scope == corenetwork.ScopeMachineLocal {
 				interfaceAddr = append(interfaceAddr, network.InterfaceAddress{Address: a.Value})
 			}
 			defaultIngressAddresses = append(defaultIngressAddresses, a.Value)
@@ -2531,19 +2505,6 @@ func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResult
 		return false
 	}
 
-	cfg, err := u.m.ModelConfig()
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	provider, err := environs.Provider(cfg.Type())
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	cassProvider, ok := provider.(caas.ContainerEnvironProvider)
-	if !ok {
-		return params.ErrorResults{}, errors.NotValidf("container environ provider %T", provider)
-	}
-
 	for i, arg := range args.Specs {
 		tag, err := names.ParseApplicationTag(arg.Tag)
 		if err != nil {
@@ -2554,7 +2515,7 @@ func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResult
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		if _, err := cassProvider.ParsePodSpec(arg.Value); err != nil {
+		if _, err := k8sprovider.ParsePodSpec(arg.Value); err != nil {
 			results.Results[i].Error = common.ServerError(errors.Annotate(err, "invalid pod spec"))
 			continue
 		}
@@ -2777,8 +2738,6 @@ func (u *UniterAPI) goalStateUnits(app *state.Application, principalName string)
 // save this hash and use it to decide whether the config-changed hook
 // needs to be run (or whether this was just an agent restart with no
 // substantive config change).
-// TODO (manadart 2019-06-24): When other hash watchers are moved from state
-// over to the model cache, they can all share the `watchHashes` abstraction.
 func (u *UniterAPI) WatchConfigSettingsHash(args params.Entities) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
@@ -2794,13 +2753,13 @@ func (u *UniterAPI) WatchConfigSettingsHash(args params.Entities) (params.String
 			continue
 		}
 
-		unit, err := u.getCacheUnit(tag)
+		unit, err := u.getUnit(tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 
-		w, err := unit.WatchConfigSettings()
+		w, err := unit.WatchConfigSettingsHash()
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue

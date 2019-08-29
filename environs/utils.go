@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
 )
 
 // AddressesRefreshAttempt is the attempt strategy used when

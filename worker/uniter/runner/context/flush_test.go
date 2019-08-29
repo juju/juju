@@ -225,7 +225,7 @@ func (s *FlushContextSuite) TestBuiltinMetricNotGeneratedIfNotDefined(c *gc.C) {
 	reader, err := spool.NewJSONMetricReader(
 		paths.GetMetricsSpoolDir(),
 	)
-
+	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.Flush("some badge", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	batches, err := reader.Read()

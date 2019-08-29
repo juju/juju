@@ -115,7 +115,7 @@ func (s *clientSuite) TestPrivateRSAKey(c *gc.C) {
 	c.Assert(pkey, gc.IsNil)
 
 	s.config.Passphrase = ocitesting.PrivateKeyPassphrase
-	pkey, err = s.config.PrivateRSAKey()
+	_, err = s.config.PrivateRSAKey()
 	c.Assert(err, gc.IsNil)
 }
 
@@ -126,6 +126,6 @@ func (s *clientSuite) TestKeyID(c *gc.C) {
 	c.Check(keyID, gc.Equals, id)
 
 	s.config.Tenancy = ""
-	keyID, err = s.config.KeyID()
+	_, err = s.config.KeyID()
 	c.Assert(err, gc.ErrorMatches, "config provider is not properly initialized")
 }

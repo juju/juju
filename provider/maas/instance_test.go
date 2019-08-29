@@ -13,8 +13,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 )
 
 type instanceTest struct {

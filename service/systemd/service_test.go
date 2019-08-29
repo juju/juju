@@ -15,7 +15,7 @@ import (
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/shell"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service"
@@ -628,6 +628,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 	s.expectConf(c, conf)
 	conf.Env["a"] = "c"
 	svc, err := systemd.NewService(s.name, conf, "/lib/systemd/system", func() (systemd.DBusAPI, error) { return s.dBus, nil }, renderer.Join(s.dataDir, "init"))
+	c.Assert(err, jc.ErrorIsNil)
 
 	dirName := fmt.Sprintf("%s/%s", "/lib/systemd/system", s.name)
 	fileName := fmt.Sprintf("%s/%s.service", dirName, s.name)

@@ -18,7 +18,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/kr/pretty"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v2"
@@ -1619,6 +1619,9 @@ func (w *unitsWatcher) loop(coll, id string) error {
 			return tomb.ErrDying
 		case <-rootCh:
 			changes, err = w.update(changes)
+			if err != nil {
+				return err
+			}
 			if len(changes) > 0 {
 				out = w.out
 			}
@@ -1652,6 +1655,11 @@ func (st *State) WatchControllerInfo() StringsWatcher {
 // WatchControllerConfig returns a NotifyWatcher for controller settings.
 func (st *State) WatchControllerConfig() NotifyWatcher {
 	return newEntityWatcher(st, controllersC, controllerSettingsGlobalKey)
+}
+
+// Watch returns a watcher for observing changes to a controller service.
+func (c *CloudService) Watch() NotifyWatcher {
+	return newEntityWatcher(c.st, cloudServicesC, c.doc.DocID)
 }
 
 // Watch returns a watcher for observing changes to a machine.
@@ -1771,7 +1779,7 @@ func (a *Application) WatchCharmConfig() (NotifyWatcher, error) {
 // could be somewhat simpler.
 func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 	if u.doc.CharmURL == nil {
-		return nil, fmt.Errorf("unit charm not set")
+		return nil, fmt.Errorf("unit's charm URL must be set before watching config")
 	}
 	charmConfigKey := applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL)
 	return newEntityWatcher(u.st, settingsC, u.st.docID(charmConfigKey)), nil
@@ -1790,7 +1798,7 @@ func (u *Unit) WatchApplicationConfigSettings() (NotifyWatcher, error) {
 // URL is not changed.
 func (u *Unit) WatchConfigSettingsHash() (StringsWatcher, error) {
 	if u.doc.CharmURL == nil {
-		return nil, fmt.Errorf("unit charm not set")
+		return nil, fmt.Errorf("unit's charm URL must be set before watching config")
 	}
 	charmConfigKey := applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL)
 	return newSettingsHashWatcher(u.st, charmConfigKey), nil

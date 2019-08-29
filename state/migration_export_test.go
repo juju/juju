@@ -20,17 +20,17 @@ import (
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/provider/dummy"
@@ -139,6 +139,7 @@ func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *
 	}
 	application := s.AddTestingApplicationWithStorage(c, "storage-"+kind, ch, storage)
 	unit, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	machine := s.Factory.MakeMachine(c, nil)
 	err = unit.AssignToMachine(machine)
@@ -859,6 +860,18 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	err = ru.EnterScope(mysqlSettings)
 	c.Assert(err, jc.ErrorIsNil)
 
+	wordpressAppSettings := map[string]interface{}{
+		"war": "worlds",
+	}
+	err = rel.UpdateApplicationSettings(wordpress, &fakeToken{}, wordpressAppSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mysqlAppSettings := map[string]interface{}{
+		"million": "one",
+	}
+	err = rel.UpdateApplicationSettings(mysql, &fakeToken{}, mysqlAppSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -876,21 +889,22 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 		exEndpoint description.Endpoint,
 		unitName string,
 		ep state.Endpoint,
-		settings map[string]interface{},
+		settings, appSettings map[string]interface{},
 	) {
 		c.Logf("%#v", exEndpoint)
 		c.Check(exEndpoint.ApplicationName(), gc.Equals, ep.ApplicationName)
 		c.Check(exEndpoint.Name(), gc.Equals, ep.Name)
 		c.Check(exEndpoint.UnitCount(), gc.Equals, 1)
 		c.Check(exEndpoint.Settings(unitName), jc.DeepEquals, settings)
+		c.Check(exEndpoint.ApplicationSettings(), jc.DeepEquals, appSettings)
 		c.Check(exEndpoint.Role(), gc.Equals, string(ep.Role))
 		c.Check(exEndpoint.Interface(), gc.Equals, ep.Interface)
 		c.Check(exEndpoint.Optional(), gc.Equals, ep.Optional)
 		c.Check(exEndpoint.Limit(), gc.Equals, ep.Limit)
 		c.Check(exEndpoint.Scope(), gc.Equals, string(ep.Scope))
 	}
-	checkEndpoint(exEps[0], mysql_0.Name(), msEp, mysqlSettings)
-	checkEndpoint(exEps[1], wordpress_0.Name(), wpEp, wordpressSettings)
+	checkEndpoint(exEps[0], mysql_0.Name(), msEp, mysqlSettings, mysqlAppSettings)
+	checkEndpoint(exEps[1], wordpress_0.Name(), wpEp, wordpressSettings, wordpressAppSettings)
 
 	// Make sure there is a status.
 	status := exRel.Status()
@@ -966,7 +980,10 @@ func (s *MigrationExportSuite) TestSpaces(c *gc.C) {
 
 	spaces := model.Spaces()
 	c.Assert(spaces, gc.HasLen, 1)
+
 	space := spaces[0]
+
+	c.Assert(space.Id(), gc.Not(gc.Equals), "")
 	c.Assert(space.Name(), gc.Equals, "one")
 	c.Assert(space.ProviderID(), gc.Equals, "provider")
 	c.Assert(space.Public(), jc.IsTrue)
@@ -1091,18 +1108,20 @@ func (s *MigrationBaseSuite) TestRelationScopeSkipped(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
-	_, err := s.State.AddSubnet(state.SubnetInfo{
+	sp, err := s.State.AddSpace("bam", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	sn := network.SubnetInfo{
 		CIDR:              "10.0.0.0/24",
 		ProviderId:        network.Id("foo"),
 		ProviderNetworkId: network.Id("rust"),
 		VLANTag:           64,
-		AvailabilityZone:  "bar",
-		SpaceName:         "bam",
-		FanLocalUnderlay:  "100.2.0.0/16",
-		FanOverlay:        "253.0.0.0/8",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("bam", "", nil, true)
+		AvailabilityZones: []string{"bar"},
+		SpaceName:         sp.Name(),
+		IsPublic:          true,
+	}
+	sn.SetFan("100.2.0.0/16", "253.0.0.0/8")
+
+	expectedSubnet, err := s.State.AddSubnet(sn)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
@@ -1111,21 +1130,25 @@ func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 	subnets := model.Subnets()
 	c.Assert(subnets, gc.HasLen, 1)
 	subnet := subnets[0]
-	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
-	c.Assert(subnet.ProviderId(), gc.Equals, "foo")
-	c.Assert(subnet.ProviderNetworkId(), gc.Equals, "rust")
-	c.Assert(subnet.VLANTag(), gc.Equals, 64)
-	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, []string{"bar"})
-	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
+	c.Assert(subnet.CIDR(), gc.Equals, sn.CIDR)
+	c.Assert(subnet.ID(), gc.Equals, expectedSubnet.ID())
+	c.Assert(subnet.ProviderId(), gc.Equals, string(sn.ProviderId))
+	c.Assert(subnet.ProviderNetworkId(), gc.Equals, string(sn.ProviderNetworkId))
+	c.Assert(subnet.VLANTag(), gc.Equals, sn.VLANTag)
+	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, sn.AvailabilityZones)
+	c.Assert(subnet.SpaceID(), gc.Equals, sp.Id())
 	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "100.2.0.0/16")
 	c.Assert(subnet.FanOverlay(), gc.Equals, "253.0.0.0/8")
+	c.Assert(subnet.IsPublic(), gc.Equals, sn.IsPublic)
 }
 
 func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
+	_, err := s.State.AddSpace("testme", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(network.SubnetInfo{CIDR: "0.1.2.0/24", SpaceName: "testme"})
 	c.Assert(err, jc.ErrorIsNil)
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name: "foo",
@@ -1166,7 +1189,7 @@ func (s *MigrationExportSuite) TestIPAddressesSkipped(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
+	_, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "0.1.2.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name: "foo",
@@ -1952,7 +1975,7 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 					ProviderId:        "juju-subnet-12",
 					CIDR:              "1.2.3.0/24",
 					AvailabilityZones: []string{"az1", "az2"},
-					SpaceProviderId:   "juju-space-public",
+					ProviderSpaceId:   "juju-space-public",
 					ProviderNetworkId: "network-1",
 				}},
 			},
@@ -1970,7 +1993,7 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 					ProviderId:        "juju-subnet-24",
 					CIDR:              "1.2.4.0/24",
 					AvailabilityZones: []string{"az1", "az2"},
-					SpaceProviderId:   "juju-space-private",
+					ProviderSpaceId:   "juju-space-private",
 					ProviderNetworkId: "network-1",
 				}},
 			},

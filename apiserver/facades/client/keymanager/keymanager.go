@@ -12,7 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/ssh"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -262,6 +262,7 @@ func runSSHKeyImport(keyIds []string) map[string][]importedSSHKey {
 		output, err := RunSSHImportId(keyId)
 		if err != nil {
 			keyInfo = append(keyInfo, importedSSHKey{err: err})
+			importResults[keyId] = keyInfo
 			continue
 		}
 		lines := strings.Split(output, "\n")

@@ -14,7 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/txn"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.controller")
@@ -50,10 +51,16 @@ type ControllerAPI struct {
 	hub        facade.Hub
 }
 
+// ControllerAPIv7 provides the v7 Controller API. The only difference
+// between this and v8 is that v7 doesn't have the ControllerVersion method.
+type ControllerAPIv7 struct {
+	*ControllerAPI
+}
+
 // ControllerAPIv6 provides the v6 Controller API. The only difference
 // between this and v7 is that v6 doesn't have the IdentityProviderURL method.
 type ControllerAPIv6 struct {
-	*ControllerAPI
+	*ControllerAPIv7
 }
 
 // ControllerAPIv5 provides the v5 Controller API. The only difference
@@ -74,8 +81,8 @@ type ControllerAPIv3 struct {
 	*ControllerAPIv4
 }
 
-// NewControllerAPIv7 creates a new ControllerAPIv7.
-func NewControllerAPIv7(ctx facade.Context) (*ControllerAPI, error) {
+// NewControllerAPIv8 creates a new ControllerAPIv7.
+func NewControllerAPIv8(ctx facade.Context) (*ControllerAPI, error) {
 	st := ctx.State()
 	authorizer := ctx.Auth()
 	pool := ctx.StatePool()
@@ -91,6 +98,15 @@ func NewControllerAPIv7(ctx facade.Context) (*ControllerAPI, error) {
 		presence,
 		hub,
 	)
+}
+
+// NewControllerAPIv7 creates a new ControllerAPIv7.
+func NewControllerAPIv7(ctx facade.Context) (*ControllerAPIv7, error) {
+	v8, err := NewControllerAPIv8(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ControllerAPIv7{v8}, nil
 }
 
 // NewControllerAPIv6 creates a new ControllerAPIv6.
@@ -183,6 +199,22 @@ func (c *ControllerAPI) checkHasAdmin() error {
 		return common.ServerError(common.ErrPerm)
 	}
 	return nil
+}
+
+// ControllerVersion isn't on the v7 API.
+func (c *ControllerAPIv7) ControllerVersion(_, _ struct{}) {}
+
+// ControllerVersion returns the version information associated with this
+// controller binary.
+//
+// NOTE: the implementation intentionally does not check for SuperuserAccess
+// as the Version is known even to users with login access.
+func (c *ControllerAPI) ControllerVersion() (params.ControllerVersionResults, error) {
+	result := params.ControllerVersionResults{
+		Version:   jujuversion.Current.String(),
+		GitCommit: jujuversion.GitCommit,
+	}
+	return result, nil
 }
 
 // IdentityProviderURL isn't on the v6 API.

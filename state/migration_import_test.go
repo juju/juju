@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time" // only uses time.Time values
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -17,19 +18,19 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/state/mocks"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -65,7 +66,9 @@ func (s *MigrationImportSuite) TestExisting(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
-func (s *MigrationImportSuite) importModel(c *gc.C, st *state.State, transform ...func(map[string]interface{})) (*state.Model, *state.State) {
+func (s *MigrationImportSuite) importModel(
+	c *gc.C, st *state.State, transform ...func(map[string]interface{}),
+) (*state.Model, *state.State) {
 	out, err := st.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -432,6 +435,49 @@ func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
 	c.Check(devices, jc.DeepEquals, []state.BlockDeviceInfo{sda, sdb})
 }
 
+func (s *MigrationImportSuite) TestMachinePortOpsSubnetID(c *gc.C) {
+	subnet, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.0.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+	s.testMachinePortOps(c, subnet.ID(), subnet.ID())
+}
+
+func (s *MigrationImportSuite) TestMachinePortOpsSubnetCIDR(c *gc.C) {
+	subnet, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.0.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+	s.testMachinePortOps(c, subnet.CIDR(), subnet.ID())
+}
+
+func (s *MigrationImportSuite) TestMachinePortOpsSubnetEmpty(c *gc.C) {
+	s.testMachinePortOps(c, "", "")
+}
+
+func (s *MigrationImportSuite) testMachinePortOps(c *gc.C, setup, validate string) {
+	ctrl, mockMachine := setupMockOpenedPorts(c, "3", setup)
+	defer ctrl.Finish()
+
+	ops, err := state.MachinePortOps(s.State, mockMachine)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, 1)
+	c.Assert(ops[0].Id, gc.Equals, fmt.Sprintf("m#3#%s", validate))
+}
+
+//go:generate mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description Machine,OpenedPorts
+func setupMockOpenedPorts(c *gc.C, mID, subnetID string) (*gomock.Controller, *mocks.MockMachine) {
+	ctrl := gomock.NewController(c)
+	mockMachine := mocks.NewMockMachine(ctrl)
+	mockOpenedPorts := mocks.NewMockOpenedPorts(ctrl)
+
+	mExp := mockMachine.EXPECT()
+	mExp.Id().Return(mID)
+	mExp.OpenedPorts().Return([]description.OpenedPorts{mockOpenedPorts})
+
+	opExp := mockOpenedPorts.EXPECT()
+	opExp.SubnetID().Return(subnetID)
+	opExp.OpenPorts().Return(nil)
+
+	return ctrl, mockMachine
+}
+
 func (s *MigrationImportSuite) setupSourceApplications(
 	c *gc.C, st *state.State, cons constraints.Value, primeStatusHistory bool,
 ) (*state.Charm, *state.Application, string) {
@@ -594,6 +640,7 @@ func (s *MigrationImportSuite) TestApplicationStatus(c *gc.C) {
 	newApp, err := newSt.Application(application.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	appStatus, err := newApp.Status()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appStatus.Status, gc.Equals, status.Active)
 	c.Assert(appStatus.Message, gc.Equals, "unit active")
 }
@@ -653,6 +700,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G")
 	testCharm, application, _ := s.setupSourceApplications(c, caasSt, cons, false)
 	ss, err := application.Status()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("status: %s", ss)
 
 	addUnitFactory := factory.NewFactory(caasSt, s.StatePool)
@@ -704,6 +752,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Must use derived status
 	appStatus, err := newApp.Status()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appStatus.Status, gc.Equals, status.Active)
 	c.Assert(appStatus.Message, gc.Equals, "unit active")
 }
@@ -771,6 +820,7 @@ func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	sUnits, err := subordinate.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
 	for _, u := range sUnits {
 		// For some reason the EnterScope call doesn't set up the
 		// version or enter the scope for the subordinate unit on the
@@ -1041,7 +1091,7 @@ func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 	ports, err := imported.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 1)
-	c.Assert(ports[0], gc.Equals, corenetwork.PortRange{
+	c.Assert(ports[0], gc.Equals, network.PortRange{
 		FromPort: 1234,
 		ToPort:   2345,
 		Protocol: "tcp",
@@ -1052,14 +1102,31 @@ func (s *MigrationImportSuite) TestSpaces(c *gc.C) {
 	space := s.Factory.MakeSpace(c, &factory.SpaceParams{
 		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
 
-	_, newSt := s.importModel(c, s.State)
+	spaceNoID := s.Factory.MakeSpace(c, &factory.SpaceParams{
+		Name: "no-id", ProviderID: network.Id("provider2"), IsPublic: true})
+
+	// Blank the ID from the second space to check that import creates it.
+	_, newSt := s.importModel(c, s.State, func(desc map[string]interface{}) {
+		spaces := desc["spaces"].(map[interface{}]interface{})
+		for _, item := range spaces["spaces"].([]interface{}) {
+			sp := item.(map[interface{}]interface{})
+			if sp["name"] == spaceNoID.Name() {
+				sp["id"] = ""
+			}
+		}
+	})
 
 	imported, err := newSt.Space(space.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(imported.Name(), gc.Equals, space.Name())
-	c.Assert(imported.ProviderId(), gc.Equals, space.ProviderId())
-	c.Assert(imported.IsPublic(), gc.Equals, space.IsPublic())
+	c.Check(imported.Id(), gc.Equals, space.Id())
+	c.Check(imported.Name(), gc.Equals, space.Name())
+	c.Check(imported.ProviderId(), gc.Equals, space.ProviderId())
+	c.Check(imported.IsPublic(), gc.Equals, space.IsPublic())
+
+	imported, err = newSt.Space(spaceNoID.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(imported.Id(), gc.Not(gc.Equals), "")
 }
 
 func (s *MigrationImportSuite) TestDestroyEmptyModel(c *gc.C) {
@@ -1160,50 +1227,74 @@ func (s *MigrationImportSuite) TestLinkLayerDeviceMigratesReferences(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
-	original, err := s.State.AddSubnet(state.SubnetInfo{
+	sp, err := s.State.AddSpace("bam", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	original, err := s.State.AddSubnet(network.SubnetInfo{
 		CIDR:              "10.0.0.0/24",
 		ProviderId:        network.Id("foo"),
 		ProviderNetworkId: network.Id("elm"),
 		VLANTag:           64,
-		AvailabilityZone:  "bar",
 		SpaceName:         "bam",
+		AvailabilityZones: []string{"bar"},
+		IsPublic:          true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("bam", "", nil, true)
+	originalNoID, err := s.State.AddSubnet(network.SubnetInfo{
+		CIDR:              "10.76.0.0/24",
+		ProviderId:        network.Id("bar"),
+		ProviderNetworkId: network.Id("oak"),
+		VLANTag:           64,
+		SpaceName:         "bam",
+		AvailabilityZones: []string{"bar"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, newSt := s.importModel(c, s.State)
+	_, newSt := s.importModel(c, s.State, func(desc map[string]interface{}) {
+		subnets := desc["subnets"].(map[interface{}]interface{})
+		for _, item := range subnets["subnets"].([]interface{}) {
+			sp := item.(map[interface{}]interface{})
+			if sp["subnet-id"] == originalNoID.ID() {
+				sp["subnet-id"] = ""
+			}
+		}
+	})
 
-	subnet, err := newSt.Subnet(original.CIDR())
+	subnet, err := newSt.SubnetByID(original.ID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
 	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("foo"))
 	c.Assert(subnet.ProviderNetworkId(), gc.Equals, network.Id("elm"))
 	c.Assert(subnet.VLANTag(), gc.Equals, 64)
-	c.Assert(subnet.AvailabilityZone(), gc.Equals, "bar")
-	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
+	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, []string{"bar"})
+	c.Assert(subnet.SpaceID(), gc.Equals, sp.Id())
 	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "")
 	c.Assert(subnet.FanOverlay(), gc.Equals, "")
+	c.Assert(subnet.IsPublic(), gc.Equals, true)
+
+	imported, err := newSt.Subnet(originalNoID.CIDR())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(imported, gc.Not(gc.Equals), "")
 }
 
 func (s *MigrationImportSuite) TestSubnetsWithFan(c *gc.C) {
-	_, err := s.State.AddSubnet(state.SubnetInfo{
-		CIDR:      "100.2.0.0/16",
-		SpaceName: "bam",
+	_, err := s.State.AddSubnet(network.SubnetInfo{
+		CIDR: "100.2.0.0/16",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	original, err := s.State.AddSubnet(state.SubnetInfo{
+	sp, err := s.State.AddSpace("bam", "", []string{"100.2.0.0/16"}, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	sn := network.SubnetInfo{
 		CIDR:              "10.0.0.0/24",
 		ProviderId:        network.Id("foo"),
 		ProviderNetworkId: network.Id("elm"),
 		VLANTag:           64,
-		AvailabilityZone:  "bar",
-		FanLocalUnderlay:  "100.2.0.0/16",
-		FanOverlay:        "253.0.0.0/8",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("bam", "", nil, true)
+		AvailabilityZones: []string{"bar"},
+	}
+	sn.SetFan("100.2.0.0/16", "253.0.0.0/8")
+
+	original, err := s.State.AddSubnet(sn)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c, s.State)
@@ -1215,8 +1306,8 @@ func (s *MigrationImportSuite) TestSubnetsWithFan(c *gc.C) {
 	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("foo"))
 	c.Assert(subnet.ProviderNetworkId(), gc.Equals, network.Id("elm"))
 	c.Assert(subnet.VLANTag(), gc.Equals, 64)
-	c.Assert(subnet.AvailabilityZone(), gc.Equals, "bar")
-	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
+	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, []string{"bar"})
+	c.Assert(subnet.SpaceID(), gc.Equals, sp.Id())
 	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "100.2.0.0/16")
 	c.Assert(subnet.FanOverlay(), gc.Equals, "253.0.0.0/8")
 }
@@ -1225,7 +1316,9 @@ func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
+	_, err := s.State.AddSpace("testme", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(network.SubnetInfo{CIDR: "0.1.2.0/24", SpaceName: "testme"})
 	c.Assert(err, jc.ErrorIsNil)
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name: "foo",
@@ -1628,6 +1721,7 @@ func (s *MigrationImportSuite) TestStorage(c *gc.C) {
 	c.Check(state.StorageAttachmentCount(testInstance), gc.Equals, originalCount)
 
 	attachments, err := newSb.StorageAttachments(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachments, gc.HasLen, 1)
 	c.Assert(attachments[0].Unit(), gc.Equals, u.UnitTag())
 }
@@ -1998,6 +2092,48 @@ func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
 	defer newSt.Close()
 
 	c.Assert(imported.Type(), gc.Equals, state.ModelTypeIAAS)
+}
+
+func (s *MigrationImportSuite) TestImportingRelationApplicationSettings(c *gc.C) {
+	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wordpressSettings := map[string]interface{}{
+		"venusian": "superbug",
+	}
+	err = rel.UpdateApplicationSettings(wordpress, &fakeToken{}, wordpressSettings)
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlSettings := map[string]interface{}{
+		"planet b": "perihelion",
+	}
+	err = rel.UpdateApplicationSettings(mysql, &fakeToken{}, mysqlSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c, s.State)
+
+	newWordpress, err := newSt.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(state.RelationCount(newWordpress), gc.Equals, 1)
+	rels, err := newWordpress.Relations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rels, gc.HasLen, 1)
+
+	newRel := rels[0]
+
+	newWpSettings, err := newRel.ApplicationSettings(newWordpress)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newWpSettings, gc.DeepEquals, wordpressSettings)
+
+	newMysql, err := newSt.Application("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+
+	newMysqlSettings, err := newRel.ApplicationSettings(newMysql)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newMysqlSettings, gc.DeepEquals, mysqlSettings)
 }
 
 // newModel replaces the uuid and name of the config attributes so we

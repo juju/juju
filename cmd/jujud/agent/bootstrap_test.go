@@ -26,7 +26,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"
@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -55,7 +56,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -185,6 +185,7 @@ func (s *BootstrapSuite) TestGUIArchiveInfoNotFound(c *gc.C) {
 	defer loggo.RemoveWriter("bootstrap-test")
 
 	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
 		`cannot set up Juju GUI: cannot fetch GUI info: GUI metadata not found`,
@@ -233,6 +234,7 @@ func (s *BootstrapSuite) TestGUIArchiveError(c *gc.C) {
 	defer loggo.RemoveWriter("bootstrap-test")
 
 	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
 		`cannot set up Juju GUI: cannot read GUI archive: .*`,
@@ -547,9 +549,9 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	st, closer = s.getSystemState(c)
 	defer closer()
 
-	m, err := st.Machine("0")
+	node, err := st.ControllerNode("0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.HasVote(), jc.IsTrue)
+	c.Assert(node.HasVote(), jc.IsTrue)
 }
 
 var bootstrapArgTests = []struct {
@@ -584,7 +586,14 @@ func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 	var called int
-	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, args agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, _ state.NewPolicyFunc) (_ *state.Controller, _ *state.Machine, resultErr error) {
+	initializeState := func(
+		_ environs.BootstrapEnviron,
+		_ names.UserTag,
+		_ agent.ConfigSetter,
+		args agentbootstrap.InitializeStateParams,
+		dialOpts mongo.DialOpts,
+		_ state.NewPolicyFunc,
+	) (_ *state.Controller, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.Timeout, gc.Equals, 30*time.Second)
@@ -593,7 +602,7 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 			"name": "hosted-model",
 			"uuid": s.hostedModelUUID,
 		})
-		return nil, nil, errors.New("failed to initialize state")
+		return nil, errors.New("failed to initialize state")
 	}
 	s.PatchValue(&agentInitializeState, initializeState)
 	_, cmd, err := s.initBootstrapCommand(c, nil, "--timeout", "123s", s.bootstrapParamsFile)
@@ -605,11 +614,18 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	var called int
-	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, _ agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, _ state.NewPolicyFunc) (_ *state.Controller, _ *state.Machine, resultErr error) {
+	initializeState := func(
+		_ environs.BootstrapEnviron,
+		_ names.UserTag,
+		_ agent.ConfigSetter,
+		_ agentbootstrap.InitializeStateParams,
+		dialOpts mongo.DialOpts,
+		_ state.NewPolicyFunc,
+	) (_ *state.Controller, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
-		return nil, nil, errors.New("failed to initialize state")
+		return nil, errors.New("failed to initialize state")
 	}
 
 	s.PatchValue(&agentInitializeState, initializeState)

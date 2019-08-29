@@ -634,6 +634,7 @@ func (s *UpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	upgradeInfos, err := state.GetAllUpgradeInfos(s.State)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(upgradeInfos), gc.Equals, 0)
 
 	// Now create a UpgradeInfo to abort.

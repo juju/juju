@@ -15,7 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -93,6 +93,7 @@ func main() {
 		hostCounter := holderTag.Number() % len(infos)
 		info := infos[hostCounter]
 		var conn api.Connection
+		delay := time.Second
 		for i := 0; i < 5; i++ {
 			var err error
 			start := time.Now()
@@ -100,7 +101,6 @@ func main() {
 			sinceStart := time.Since(agentStart).Round(time.Millisecond).Seconds()
 			fmt.Fprintf(os.Stdout, "%9.3fs connected [%6d] %4d %s in %s\n",
 				sinceStart, os.Getpid(), htCount, holderTag.Id(), time.Since(start).Round(time.Millisecond))
-			delay := time.Second
 			if err == nil {
 				break
 			} else {

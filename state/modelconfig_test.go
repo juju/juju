@@ -6,14 +6,13 @@ package state_test
 import (
 	"strings"
 
-	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
@@ -353,6 +352,7 @@ func (s *ModelConfigSourceSuite) TestNewModelConfigForksControllerValue(c *gc.C)
 	defer st.Close()
 
 	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 
 	modelCfg, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -462,19 +462,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
 	err = s.State.UpdateModelConfigDefaultValues(attrs, []string{"http-proxy", "https-proxy"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	anotherState, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      s.State.ControllerTag(),
-		ControllerModelTag: s.modelTag,
-		MongoSession:       s.Session,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	defer anotherState.Close()
-
-	anotherModel, err := anotherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	cfg, err := anotherModel.State().ModelConfigDefaultValues(anotherModel.Cloud())
+	cfg, err := s.State.ModelConfigDefaultValues(s.Model.Cloud())
 	c.Assert(err, jc.ErrorIsNil)
 	expectedValues := make(config.ModelDefaultAttributes)
 	for attr, val := range config.ConfigDefaults() {
@@ -515,20 +503,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 	err = s.State.UpdateModelConfigDefaultValues(attrs, nil, rspec)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Then check in another state.
-	anotherState, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      s.State.ControllerTag(),
-		ControllerModelTag: s.modelTag,
-		MongoSession:       s.Session,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	defer anotherState.Close()
-
-	anotherModel, err := anotherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	cfg, err := anotherModel.State().ModelConfigDefaultValues(anotherModel.Cloud())
+	cfg, err := s.State.ModelConfigDefaultValues(s.Model.Cloud())
 	c.Assert(err, jc.ErrorIsNil)
 	expectedValues := make(config.ModelDefaultAttributes)
 	for attr, val := range config.ConfigDefaults() {
@@ -557,11 +532,10 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 
 	// remove the dummy-region setting
 	err = s.State.UpdateModelConfigDefaultValues(nil, []string{"no-proxy"}, rspec)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// and check again
-	cfg, err = anotherModel.State().ModelConfigDefaultValues(anotherModel.Cloud())
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, err = anotherModel.State().ModelConfigDefaultValues(anotherModel.Cloud())
+	cfg, err = s.State.ModelConfigDefaultValues(s.Model.Cloud())
 	c.Assert(err, jc.ErrorIsNil)
 	expectedValues = make(config.ModelDefaultAttributes)
 	for attr, val := range config.ConfigDefaults() {

@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	testclock "github.com/juju/clock/testclock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -55,7 +56,6 @@ import (
 	supportedversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/provider/openstack"
 	coretesting "github.com/juju/juju/testing"
@@ -1486,6 +1486,7 @@ func (s *BootstrapSuite) TestBootstrapProviderFileCredential(c *gc.C) {
 
 	contents := []byte("{something: special}\n")
 	err = ioutil.WriteFile(tmpFile.Name(), contents, 0644)
+	c.Assert(err, jc.ErrorIsNil)
 
 	unfinalizedCredential := cloud.NewEmptyCredential()
 	finalizedCredential := cloud.NewEmptyCredential()
@@ -1712,6 +1713,7 @@ func (s *BootstrapSuite) TestBootstrapMultipleConfigFiles(c *gc.C) {
 	err = ioutil.WriteFile(configFile2, []byte(
 		"controller: false\n",
 	), 0644)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.setupAutoUploadTest(c, "1.8.3", "raring")
 	_, err = cmdtesting.RunCommand(
@@ -1921,11 +1923,15 @@ eu-west-1
 eu-west-2
 eu-west-3
 eu-central-1
+eu-north-1
+ap-east-1
 ap-south-1
 ap-southeast-1
 ap-southeast-2
 ap-northeast-1
 ap-northeast-2
+ap-northeast-3
+me-south-1
 sa-east-1
 `[1:])
 }
@@ -1934,7 +1940,7 @@ func (s *BootstrapSuite) TestBootstrapInvalidRegion(c *gc.C) {
 	resetJujuXDGDataHome(c)
 	ctx, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "aws/eu-west")
 	c.Assert(err, gc.ErrorMatches, `region "eu-west" for cloud "aws" not valid`)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Available cloud regions are ap-northeast-1, ap-northeast-2, ap-south-1, ap-southeast-1, ap-southeast-2, ca-central-1, eu-central-1, eu-west-1, eu-west-2, eu-west-3, sa-east-1, us-east-1, us-east-2, us-west-1, us-west-2\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Available cloud regions are ap-east-1, ap-northeast-1, ap-northeast-2, ap-northeast-3, ap-south-1, ap-southeast-1, ap-southeast-2, ca-central-1, eu-central-1, eu-north-1, eu-west-1, eu-west-2, eu-west-3, me-south-1, sa-east-1, us-east-1, us-east-2, us-west-1, us-west-2\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
 }
 

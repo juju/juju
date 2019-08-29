@@ -6,12 +6,13 @@ package provisioner
 import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
@@ -298,11 +299,11 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 			MACAddress:          cfg.MACAddress,
 			CIDR:                cfg.CIDR,
 			MTU:                 cfg.MTU,
-			ProviderId:          network.Id(cfg.ProviderId),
-			ProviderSubnetId:    network.Id(cfg.ProviderSubnetId),
-			ProviderSpaceId:     network.Id(cfg.ProviderSpaceId),
-			ProviderVLANId:      network.Id(cfg.ProviderVLANId),
-			ProviderAddressId:   network.Id(cfg.ProviderAddressId),
+			ProviderId:          corenetwork.Id(cfg.ProviderId),
+			ProviderSubnetId:    corenetwork.Id(cfg.ProviderSubnetId),
+			ProviderSpaceId:     corenetwork.Id(cfg.ProviderSpaceId),
+			ProviderVLANId:      corenetwork.Id(cfg.ProviderVLANId),
+			ProviderAddressId:   corenetwork.Id(cfg.ProviderAddressId),
 			VLANTag:             cfg.VLANTag,
 			InterfaceName:       cfg.InterfaceName,
 			ParentInterfaceName: cfg.ParentInterfaceName,
@@ -310,10 +311,10 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 			Disabled:            cfg.Disabled,
 			NoAutoStart:         cfg.NoAutoStart,
 			ConfigType:          network.InterfaceConfigType(cfg.ConfigType),
-			Address:             network.NewAddress(cfg.Address),
-			DNSServers:          network.NewAddresses(cfg.DNSServers...),
+			Address:             corenetwork.NewAddress(cfg.Address),
+			DNSServers:          corenetwork.NewAddresses(cfg.DNSServers...),
 			DNSSearchDomains:    cfg.DNSSearchDomains,
-			GatewayAddress:      network.NewAddress(cfg.GatewayAddress),
+			GatewayAddress:      corenetwork.NewAddress(cfg.GatewayAddress),
 			Routes:              routes,
 		}
 	}

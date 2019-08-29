@@ -243,7 +243,7 @@ func (s *WorkerSuite) TestMinTLSVersion(c *gc.C) {
 	tlsConfig.MaxVersion = tls.VersionSSL30
 
 	conn, err := tls.Dial("tcp", parsed.Host, tlsConfig)
-	c.Assert(err, gc.ErrorMatches, "tls: no supported versions satisfy MinVersion and MaxVersion")
+	c.Assert(err, gc.ErrorMatches, ".*tls:.*version.*")
 	c.Assert(conn, gc.IsNil)
 }
 
@@ -414,6 +414,7 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *gc.C) {
 
 	// After the required delay the port eventually opens.
 	err = s.clock.WaitAdvance(5*time.Second, coretesting.LongWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// The reported url changes to the regular port.
 	for a := coretesting.LongAttempt.Start(); a.Next(); {

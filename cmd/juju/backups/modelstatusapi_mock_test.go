@@ -5,11 +5,10 @@
 package backups_test
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	base "github.com/juju/juju/api/base"
-	names_v2 "gopkg.in/juju/names.v2"
+	names_v3 "gopkg.in/juju/names.v3"
+	reflect "reflect"
 )
 
 // MockModelStatusAPI is a mock of ModelStatusAPI interface
@@ -48,7 +47,7 @@ func (mr *MockModelStatusAPIMockRecorder) Close() *gomock.Call {
 }
 
 // ModelStatus mocks base method
-func (m *MockModelStatusAPI) ModelStatus(arg0 ...names_v2.ModelTag) ([]base.ModelStatus, error) {
+func (m *MockModelStatusAPI) ModelStatus(arg0 ...names_v3.ModelTag) ([]base.ModelStatus, error) {
 	varargs := []interface{}{}
 	for _, a := range arg0 {
 		varargs = append(varargs, a)

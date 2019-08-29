@@ -5,6 +5,7 @@
 package bundle
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
@@ -15,9 +16,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/storage"
 )
@@ -273,14 +272,34 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 		return fail(err)
 	}
 
-	bytes, err := yaml.Marshal(bundleData)
+	// Split the bundle into a base and overlay bundle and encode as a
+	// yaml multi-doc.
+	base, overlay, err := charm.ExtractBaseAndOverlayParts(bundleData)
 	if err != nil {
 		return fail(err)
 	}
 
-	return params.StringResult{
-		Result: string(bytes),
-	}, nil
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	if err = enc.Encode(bundleOutputFromBundleData(base)); err != nil {
+		return fail(err)
+	} else if err = enc.Encode(overlay); err != nil {
+		return fail(err)
+	} else if err = enc.Close(); err != nil {
+		return fail(err)
+	}
+
+	// If the overlay part is empty, strip it off; otherwise, inject a
+	// comment to let users know that the second document can be extracted
+	// out and used as a standalone overlay.
+	yamlOut := buf.String()
+	if strings.HasSuffix(yamlOut, "--- {}\n") {
+		yamlOut = yamlOut[:strings.Index(yamlOut, "---")]
+	} else {
+		yamlOut = strings.Replace(yamlOut, "---", "--- # overlay.yaml", 1)
+	}
+
+	return params.StringResult{Result: yamlOut}, nil
 }
 
 // bundleOutput has the same top level keys as the charm.BundleData
@@ -296,11 +315,23 @@ type bundleOutput struct {
 	Relations    [][]string                        `yaml:"relations,omitempty"`
 }
 
+func bundleOutputFromBundleData(bd *charm.BundleData) *bundleOutput {
+	return &bundleOutput{
+		Type:         bd.Type,
+		Description:  bd.Description,
+		Series:       bd.Series,
+		Saas:         bd.Saas,
+		Applications: bd.Applications,
+		Machines:     bd.Machines,
+		Relations:    bd.Relations,
+	}
+}
+
 // ExportBundle is not in V1 API.
 // Mask the new method from V1 API.
 func (u *APIv1) ExportBundle() (_, _ struct{}) { return }
 
-func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, error) {
+func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, error) {
 	cfg := model.Config()
 	value, ok := cfg["default-series"]
 	if !ok {
@@ -308,7 +339,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, erro
 	}
 	defaultSeries := fmt.Sprintf("%v", value)
 
-	data := &bundleOutput{
+	data := &charm.BundleData{
 		Saas:         make(map[string]*charm.SaasSpec),
 		Applications: make(map[string]*charm.ApplicationSpec),
 		Machines:     make(map[string]*charm.MachineSpec),
@@ -400,7 +431,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, erro
 		}
 
 		// Populate offer list
-		if offerList := application.Offers(); offerList != nil && featureflag.Enabled(feature.CMRAwareBundles) {
+		if offerList := application.Offers(); offerList != nil {
 			newApplication.Offers = make(map[string]*charm.OfferSpec)
 			for _, offer := range offerList {
 				newApplication.Offers[offer.OfferName()] = &charm.OfferSpec{
@@ -433,14 +464,13 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*bundleOutput, erro
 		data.Machines[machine.Id()] = newMachine
 	}
 
-	if featureflag.Enabled(feature.CMRAwareBundles) {
-		for _, application := range model.RemoteApplications() {
-			newSaas := &charm.SaasSpec{
-				URL: application.URL(),
-			}
-			data.Saas[application.Name()] = newSaas
+	for _, application := range model.RemoteApplications() {
+		newSaas := &charm.SaasSpec{
+			URL: application.URL(),
 		}
+		data.Saas[application.Name()] = newSaas
 	}
+
 	// If there is only one series used, make it the default and remove
 	// series from all the apps and machines.
 	size := usedSeries.Size()

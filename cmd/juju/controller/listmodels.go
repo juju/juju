@@ -13,7 +13,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -117,7 +117,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	}
 	defer modelmanagerAPI.Close()
 
-	haveModels := false
+	var haveModels bool
 	if modelmanagerAPI.BestAPIVersion() > 3 {
 		haveModels, err = c.getModelSummaries(ctx, modelmanagerAPI, now)
 		if err != nil {

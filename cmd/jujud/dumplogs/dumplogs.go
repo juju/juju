@@ -20,7 +20,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	jujucmd "github.com/juju/juju/cmd"
@@ -84,17 +84,19 @@ func (c *dumpLogsCommand) Init(args []string) error {
 		return errors.Trace(err)
 	}
 
+	var agentTag names.Tag
 	if c.machineId == "" {
-		machineId, err := c.findMachineId(c.agentConfig.DataDir())
+		agentTag, err = c.findAgentTag(c.agentConfig.DataDir())
 		if err != nil {
 			return errors.Trace(err)
 		}
-		c.machineId = machineId
 	} else if !names.IsValidMachine(c.machineId) {
 		return errors.New("--machine-id option expects a non-negative integer")
+	} else {
+		agentTag = names.NewMachineTag(c.machineId)
 	}
 
-	err = c.agentConfig.ReadConfig(names.NewMachineTag(c.machineId).String())
+	err = c.agentConfig.ReadConfig(agentTag.String())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -141,20 +143,25 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *dumpLogsCommand) findMachineId(dataDir string) (string, error) {
+func (c *dumpLogsCommand) findAgentTag(dataDir string) (names.Tag, error) {
 	entries, err := ioutil.ReadDir(agent.BaseDir(dataDir))
 	if err != nil {
-		return "", errors.Annotate(err, "failed to read agent configuration base directory")
+		return nil, errors.Annotate(err, "failed to read agent configuration base directory")
 	}
 	for _, entry := range entries {
 		if entry.IsDir() {
-			tag, err := names.ParseMachineTag(entry.Name())
+			var tag names.Tag
+			tag, err = names.ParseMachineTag(entry.Name())
 			if err == nil {
-				return tag.Id(), nil
+				return tag, nil
+			}
+			tag, err = names.ParseControllerAgentTag(entry.Name())
+			if err == nil {
+				return tag, nil
 			}
 		}
 	}
-	return "", errors.New("no machine agent configuration found")
+	return nil, errors.New("no machine or controller agent configuration found")
 }
 
 func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, statePool *state.StatePool, tag names.ModelTag) error {

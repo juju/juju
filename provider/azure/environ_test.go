@@ -29,7 +29,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -107,7 +107,7 @@ type environSuite struct {
 	envTags            map[string]*string
 	vmTags             map[string]*string
 	group              *resources.Group
-	vmSizes            *compute.VirtualMachineSizeListResult
+	skus               *compute.ResourceSkusResult
 	storageAccounts    []storage.Account
 	storageAccount     *storage.Account
 	storageAccountKeys *storage.AccountListKeysResult
@@ -164,29 +164,50 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	vmSizes := []compute.VirtualMachineSize{{
-		Name:                 to.StringPtr("Standard_A1"),
-		NumberOfCores:        to.Int32Ptr(1),
-		OsDiskSizeInMB:       to.Int32Ptr(1047552),
-		ResourceDiskSizeInMB: to.Int32Ptr(71680),
-		MemoryInMB:           to.Int32Ptr(1792),
-		MaxDataDiskCount:     to.Int32Ptr(2),
+	resourceSkus := []compute.ResourceSku{{
+		Name:         to.StringPtr("Standard_A1"),
+		Locations:    to.StringSlicePtr([]string{"westus"}),
+		ResourceType: to.StringPtr("virtualMachines"),
+		Capabilities: &[]compute.ResourceSkuCapabilities{{
+			Name:  to.StringPtr("MemoryGB"),
+			Value: to.StringPtr("1.75"),
+		}, {
+			Name:  to.StringPtr("vCPUs"),
+			Value: to.StringPtr("1"),
+		}, {
+			Name:  to.StringPtr("OSVhdSizeMB"),
+			Value: to.StringPtr("1047552"),
+		}},
 	}, {
-		Name:                 to.StringPtr("Standard_D1"),
-		NumberOfCores:        to.Int32Ptr(1),
-		OsDiskSizeInMB:       to.Int32Ptr(1047552),
-		ResourceDiskSizeInMB: to.Int32Ptr(51200),
-		MemoryInMB:           to.Int32Ptr(3584),
-		MaxDataDiskCount:     to.Int32Ptr(2),
+		Name:         to.StringPtr("Standard_D1"),
+		Locations:    to.StringSlicePtr([]string{"westus"}),
+		ResourceType: to.StringPtr("virtualMachines"),
+		Capabilities: &[]compute.ResourceSkuCapabilities{{
+			Name:  to.StringPtr("MemoryGB"),
+			Value: to.StringPtr("3.5"),
+		}, {
+			Name:  to.StringPtr("vCPUs"),
+			Value: to.StringPtr("1"),
+		}, {
+			Name:  to.StringPtr("OSVhdSizeMB"),
+			Value: to.StringPtr("1047552"),
+		}},
 	}, {
-		Name:                 to.StringPtr("Standard_D2"),
-		NumberOfCores:        to.Int32Ptr(2),
-		OsDiskSizeInMB:       to.Int32Ptr(1047552),
-		ResourceDiskSizeInMB: to.Int32Ptr(102400),
-		MemoryInMB:           to.Int32Ptr(7168),
-		MaxDataDiskCount:     to.Int32Ptr(4),
+		Name:         to.StringPtr("Standard_D2"),
+		Locations:    to.StringSlicePtr([]string{"westus"}),
+		ResourceType: to.StringPtr("virtualMachines"),
+		Capabilities: &[]compute.ResourceSkuCapabilities{{
+			Name:  to.StringPtr("MemoryGB"),
+			Value: to.StringPtr("7"),
+		}, {
+			Name:  to.StringPtr("vCPUs"),
+			Value: to.StringPtr("2"),
+		}, {
+			Name:  to.StringPtr("OSVhdSizeMB"),
+			Value: to.StringPtr("1047552"),
+		}},
 	}}
-	s.vmSizes = &compute.VirtualMachineSizeListResult{Value: &vmSizes}
+	s.skus = &compute.ResourceSkusResult{Value: &resourceSkus}
 
 	s.storageAccount = &storage.Account{
 		Name: to.StringPtr("my-storage-account"),
@@ -362,7 +383,7 @@ func (s *environSuite) initResourceGroupSenders() azuretesting.Senders {
 }
 
 func (s *environSuite) startInstanceSenders(bootstrap bool) azuretesting.Senders {
-	senders := azuretesting.Senders{s.vmSizesSender()}
+	senders := azuretesting.Senders{s.resourceSkusSender()}
 	if s.ubuntuServerSKUs != nil {
 		senders = append(senders, s.makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs))
 	}
@@ -405,8 +426,8 @@ func (s *environSuite) publicIPAddressesSender(pips ...network.PublicIPAddress) 
 	return s.makeSender(".*/publicIPAddresses", network.PublicIPAddressListResult{Value: &pips})
 }
 
-func (s *environSuite) vmSizesSender() *azuretesting.MockSender {
-	return s.makeSender(".*/vmSizes", s.vmSizes)
+func (s *environSuite) resourceSkusSender() *azuretesting.MockSender {
+	return s.makeSender(".*/skus", s.skus)
 }
 
 func (s *environSuite) storageAccountSender() *azuretesting.MockSender {
@@ -1253,7 +1274,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
 
-	s.sender = append(s.sender, s.vmSizesSender())
+	s.sender = append(s.sender, s.resourceSkusSender())
 	s.sender = append(s.sender, s.initResourceGroupSenders()...)
 	s.sender = append(s.sender, s.startInstanceSendersNoSizes()...)
 	s.requests = nil
@@ -1588,7 +1609,7 @@ func (s *environSuite) TestConstraintsValidatorMerge(c *gc.C) {
 
 func (s *environSuite) constraintsValidator(c *gc.C) constraints.Validator {
 	env := s.openEnviron(c)
-	s.sender = azuretesting.Senders{s.vmSizesSender()}
+	s.sender = azuretesting.Senders{s.resourceSkusSender()}
 	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	return validator

@@ -21,8 +21,8 @@ import (
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/state"
 )
@@ -32,16 +32,13 @@ var logger = loggo.GetLogger("juju.worker.peergrouper")
 type State interface {
 	RemoveControllerReference(m ControllerNode) error
 	ControllerConfig() (controller.Config, error)
-	ControllerInfo() (*state.ControllerInfo, error)
+	ControllerIds() ([]string, error)
 	ControllerNode(id string) (ControllerNode, error)
 	ControllerHost(id string) (ControllerHost, error)
 	WatchControllerInfo() state.StringsWatcher
 	WatchControllerStatusChanges() state.StringsWatcher
 	WatchControllerConfig() state.NotifyWatcher
-}
-
-type Space interface {
-	Name() string
+	Space(name string) (Space, error)
 }
 
 type ControllerNode interface {
@@ -61,6 +58,10 @@ type ControllerHost interface {
 	SetStatus(status.StatusInfo) error
 	Refresh() error
 	Addresses() []network.Address
+}
+
+type Space interface {
+	NetworkSpace() network.SpaceInfo
 }
 
 type MongoSession interface {
@@ -367,17 +368,17 @@ func (w *pgWorker) watchForConfigChanges() (<-chan struct{}, error) {
 // controller nodes, as well as starting and stopping trackers for
 // them as they are added and removed.
 func (w *pgWorker) updateControllerNodes() (bool, error) {
-	info, err := w.config.State.ControllerInfo()
+	controllerIds, err := w.config.State.ControllerIds()
 	if err != nil {
-		return false, fmt.Errorf("cannot get controller info: %v", err)
+		return false, fmt.Errorf("cannot get controller ids: %v", err)
 	}
 
-	logger.Debugf("controller nodes in state: %#v", info.MachineIds)
+	logger.Debugf("controller nodes in state: %#v", controllerIds)
 	changed := false
 
 	// Stop controller goroutines that no longer correspond to controller nodes.
 	for _, m := range w.controllerTrackers {
-		if !inStrings(m.Id(), info.MachineIds) {
+		if !inStrings(m.Id(), controllerIds) {
 			worker.Stop(m)
 			delete(w.controllerTrackers, m.Id())
 			changed = true
@@ -385,7 +386,7 @@ func (w *pgWorker) updateControllerNodes() (bool, error) {
 	}
 
 	// Start nodes with no watcher
-	for _, id := range info.MachineIds {
+	for _, id := range controllerIds {
 		controllerNode, err := w.config.State.ControllerNode(id)
 		if err != nil {
 			if errors.IsNotFound(err) {
@@ -697,14 +698,19 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 	return newPeerGroupInfo(w.controllerTrackers, sts.Members, members, w.config.MongoPort, haSpace)
 }
 
-// getHASpaceFromConfig returns a SpaceName from the controller config for
-// HA space. If unset, the empty space ("") will be returned.
-func (w *pgWorker) getHASpaceFromConfig() (network.SpaceName, error) {
+// getHASpaceFromConfig returns a space based on the controller's
+// configuration for the HA space.
+func (w *pgWorker) getHASpaceFromConfig() (network.SpaceInfo, error) {
 	config, err := w.config.State.ControllerConfig()
 	if err != nil {
-		return network.SpaceName(""), err
+		return network.SpaceInfo{}, errors.Trace(err)
 	}
-	return network.SpaceName(config.JujuHASpace()), nil
+
+	space, err := w.config.State.Space(config.JujuHASpace())
+	if err != nil {
+		return network.SpaceInfo{}, errors.Trace(err)
+	}
+	return space.NetworkSpace(), nil
 }
 
 // setHasVote sets the HasVote status of all the given nodes to hasVote.

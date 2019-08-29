@@ -6,7 +6,7 @@ package runner
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -39,6 +39,7 @@ func NewFactory(
 	state *uniter.State,
 	paths context.Paths,
 	contextFactory context.ContextFactory,
+	remoteExecutor ExecFunc,
 ) (
 	Factory, error,
 ) {
@@ -46,6 +47,7 @@ func NewFactory(
 		state:          state,
 		paths:          paths,
 		contextFactory: contextFactory,
+		remoteExecutor: remoteExecutor,
 	}
 
 	return f, nil
@@ -58,7 +60,8 @@ type factory struct {
 	state *uniter.State
 
 	// Fields that shouldn't change in a factory's lifetime.
-	paths context.Paths
+	paths          context.Paths
+	remoteExecutor ExecFunc
 }
 
 // NewCommandRunner exists to satisfy the Factory interface.
@@ -67,7 +70,7 @@ func (f *factory) NewCommandRunner(commandInfo context.CommandInfo) (Runner, err
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	runner := NewRunner(ctx, f.paths)
+	runner := NewRunner(ctx, f.paths, f.remoteExecutor)
 	return runner, nil
 }
 
@@ -81,7 +84,7 @@ func (f *factory) NewHookRunner(hookInfo hook.Info) (Runner, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	runner := NewRunner(ctx, f.paths)
+	runner := NewRunner(ctx, f.paths, f.remoteExecutor)
 	return runner, nil
 }
 
@@ -124,7 +127,10 @@ func (f *factory) NewActionRunner(actionId string) (Runner, error) {
 
 	actionData := context.NewActionData(name, &tag, params)
 	ctx, err := f.contextFactory.ActionContext(actionData)
-	runner := NewRunner(ctx, f.paths)
+	if err != nil {
+		return nil, charmrunner.NewBadActionError(name, err.Error())
+	}
+	runner := NewRunner(ctx, f.paths, f.remoteExecutor)
 	return runner, nil
 }
 

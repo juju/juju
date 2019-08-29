@@ -20,7 +20,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api/base"

@@ -58,11 +58,11 @@
   name = "github.com/hashicorp/raft-boltdb"
 
 [[constraint]]
-  revision = "bb96ad9a5018f64e67f46f63496580c8956b4fbf"
+  revision = "2ab5b6004f111b9f4792a67b14e2f03c37e0af1d"
   name = "github.com/juju/bundlechanges"
 
 [[constraint]]
-  revision = "9daa941ef37578e70e66a5f97ab64b1f2b2bd410"
+  revision = "7eee51ddb1f5033244c6501ec83b399af9d23861"
   name = "github.com/juju/description"
 
 [[constraint]]
@@ -74,7 +74,7 @@
   name = "github.com/juju/gojsonschema"
 
 [[constraint]]
-  revision = "8a8cec793ba70659ba95f1b9a491ba807169bfc3"
+  revision = "0ab1eb636aba97733a62e850ffea2c8729bf9718"
   name = "github.com/juju/gomaasapi"
 
 [[constraint]]
@@ -94,7 +94,7 @@
   name = "github.com/juju/os"
 
 [[constraint]]
-  revision = "ba21344fff207f4fa06b0a08bac386b179a2e6a1"
+  revision = "6caf1fe053515833fa8d541cb8ee9b3b50ef3592"
   name = "github.com/juju/packaging"
 
 [[constraint]]
@@ -114,7 +114,7 @@
   name = "github.com/juju/romulus"
 
 [[constraint]]
-  revision = "e81189438503b1e5c94efe95a604372b33eee7a2"
+  revision = "ce30eb24acd2c45a1bc42208835468ca619685a9"
   name = "github.com/juju/testing"
 
 [[constraint]]
@@ -147,10 +147,10 @@
 
 [[constraint]]
   name = "gopkg.in/juju/charm.v6"
-  revision = "52b617a34c5a360391bb84d0e7fe40912141ff17"
+  revision = "cf3ec8f263e4b35e70f76f8b660284ac26517958"
 
 [[constraint]]
-  revision = "7778a447283bd71109671c20818544514e16e9d9"
+  revision = "2adcece4e962a51e0793b8562560cf9da874026f"
   name = "gopkg.in/juju/charmrepo.v3"
 
 [[constraint]]
@@ -158,8 +158,8 @@
   name = "gopkg.in/juju/environschema.v1"
 
 [[constraint]]
-  revision = "fd59336b4621bc2a70bf96d9e2f49954115ad19b"
-  name = "gopkg.in/juju/names.v2"
+  revision = "5ed389481ee8344db732cf8a65a8bbfeb42dc79d"
+  name = "gopkg.in/juju/names.v3"
 
 [[constraint]]
   revision = "c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6"
@@ -288,7 +288,7 @@
 
 [[constraint]]
   name = "github.com/juju/cmd"
-  revision = "a8c88215d37e4d65036822bca0522d11f888f7eb"
+  revision = "0c5c82a8dfc6992939365fc947d7399e0e2428ae"
 
 [[constraint]]
   name = "github.com/juju/collections"
@@ -336,7 +336,7 @@
 
 [[constraint]]
   name = "github.com/juju/schema"
-  revision = "64a6158e90710d0a16c6bd3cf0a6be6b2e80193c"
+  revision = "1f8aaeef09898fcee40fe43b8de422533b0cac2b"
 
 [[constraint]]
   name = "github.com/juju/terms-client"
@@ -494,10 +494,6 @@
   name = "gopkg.in/httprequest.v1"
   revision = "1a21782420ea13c3c6fb1d03578f446b3248edb1"
 
-[[override]]
-  name = "gopkg.in/juju/charmrepo.v2"
-  revision = "653bbd81990d2d7d48e0fb931a3b0f52c694572f"
-
 [[constraint]]
   name = "gopkg.in/juju/worker.v1"
   revision = "40da96d5fd22ba01076f56ba5fc6aa06315153c5"
@@ -537,5 +533,9 @@
   revision = "4d05e43ad98c1edcf2f52291685bd9bbc12fd2cd"
 
 [[constraint]]
-  revision = "66506e52db051b5e238aa63ec4dad0a790fbc236"
-  name = "github.com/bcsaller/jsonschema"
+  revision = "8a53421608bbf30e65082e0210d89c2dc34d52c2"
+  name = "github.com/juju/jsonschema-gen"
+
+[[constraint]]
+  revision = "cca922e065df403dc5088294f7f546e838d13708"
+  name = "github.com/juju/rpcreflect"

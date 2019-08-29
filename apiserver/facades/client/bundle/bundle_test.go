@@ -9,13 +9,12 @@ import (
 	"github.com/juju/description"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	appFacade "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -63,7 +62,7 @@ func (s *bundleSuite) TestGetChangesBundleContentError(c *gc.C) {
 		BundleDataYAML: ":",
 	}
 	r, err := s.facade.GetChanges(args)
-	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: cannot unmarshal bundle data: yaml: did not find expected key`)
+	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: unmarshal document 0: yaml: did not find expected key`)
 	c.Assert(r, gc.DeepEquals, params.BundleChangesResults{})
 }
 
@@ -170,7 +169,7 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
-		Args:   []interface{}{"django", ""},
+		Args:   []interface{}{"django", "", ""},
 	}, {
 		Id:     "deploy-1",
 		Method: "deploy",
@@ -190,7 +189,7 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 	}, {
 		Id:     "addCharm-2",
 		Method: "addCharm",
-		Args:   []interface{}{"cs:trusty/haproxy-42", "trusty"},
+		Args:   []interface{}{"cs:trusty/haproxy-42", "trusty", ""},
 	}, {
 		Id:     "deploy-3",
 		Method: "deploy",
@@ -242,7 +241,7 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
 	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
-		Args:   []interface{}{"django", "kubernetes"},
+		Args:   []interface{}{"django", "kubernetes", ""},
 	}, {
 		Id:     "deploy-1",
 		Method: "deploy",
@@ -262,7 +261,7 @@ func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
 	}, {
 		Id:     "addCharm-2",
 		Method: "addCharm",
-		Args:   []interface{}{"cs:haproxy-42", "kubernetes"},
+		Args:   []interface{}{"cs:haproxy-42", "kubernetes", ""},
 	}, {
 		Id:     "deploy-3",
 		Method: "deploy",
@@ -312,7 +311,7 @@ func (s *bundleSuite) TestGetChangesSuccessV1(c *gc.C) {
 	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
-		Args:   []interface{}{"django", ""},
+		Args:   []interface{}{"django", "", ""},
 	}, {
 		Id:     "deploy-1",
 		Method: "deploy",
@@ -331,7 +330,7 @@ func (s *bundleSuite) TestGetChangesSuccessV1(c *gc.C) {
 	}, {
 		Id:     "addCharm-2",
 		Method: "addCharm",
-		Args:   []interface{}{"cs:trusty/haproxy-42", "trusty"},
+		Args:   []interface{}{"cs:trusty/haproxy-42", "trusty", ""},
 	}, {
 		Id:     "deploy-3",
 		Method: "deploy",
@@ -543,7 +542,6 @@ applications:
 }
 
 func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
-	s.SetFeatureFlags(feature.CMRAwareBundles)
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config: map[string]interface{}{
 			"name": "awesome",
@@ -553,11 +551,8 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 
 	app := s.st.model.AddApplication(s.minimalApplicationArgs(description.IAAS))
 	app.SetStatus(minimalStatusArgs())
-
 	u := app.AddUnit(minimalUnitArgs(app.Type()))
 	u.SetAgentStatus(minimalStatusArgs())
-
-	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
 	_ = app.AddOffer(description.ApplicationOfferArgs{
 		OfferName: "my-offer",
@@ -573,11 +568,25 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 		Endpoints: []string{"endpoint-1", "endpoint-2"},
 	})
 
+	// Add second app without an offer
+	app2Args := s.minimalApplicationArgs(description.IAAS)
+	app2Args.Tag = names.NewApplicationTag("foo")
+	app2 := s.st.model.AddApplication(app2Args)
+	app2.SetStatus(minimalStatusArgs())
+
+	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
+
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{nil, `
 series: trusty
 applications:
+  foo:
+    charm: cs:trusty/ubuntu
+    options:
+      key: value
+    bindings:
+      juju-info: vlan2
   ubuntu:
     charm: cs:trusty/ubuntu
     num_units: 1
@@ -587,6 +596,9 @@ applications:
       key: value
     bindings:
       juju-info: vlan2
+--- # overlay.yaml
+applications:
+  ubuntu:
     offers:
       my-offer:
         endpoints:
@@ -606,7 +618,6 @@ applications:
 }
 
 func (s *bundleSuite) TestExportBundleWithSaas(c *gc.C) {
-	s.SetFeatureFlags(feature.CMRAwareBundles)
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config: map[string]interface{}{
 			"name": "awesome",

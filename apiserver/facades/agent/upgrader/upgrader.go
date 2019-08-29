@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -39,7 +39,7 @@ func NewUpgraderFacade(st *state.State, resources facade.Resources, auth facade.
 		return nil, common.ErrPerm
 	}
 	switch tag.(type) {
-	case names.MachineTag, names.ApplicationTag:
+	case names.MachineTag, names.ControllerAgentTag, names.ApplicationTag:
 		return NewUpgraderAPI(st, resources, auth)
 	case names.UnitTag:
 		return NewUnitUpgraderAPI(st, resources, auth)

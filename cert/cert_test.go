@@ -196,12 +196,14 @@ func (certSuite) TestWithNonUTCExpiry(c *gc.C) {
 	expiry, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", "2012-11-28 15:53:57 +0100 CET")
 	c.Assert(err, jc.ErrorIsNil)
 	certPEM, keyPEM, err := cert.NewCA("foo", "1", expiry)
+	c.Assert(err, jc.ErrorIsNil)
 	xcert, err := utilscert.ParseCert(certPEM)
 	c.Assert(err, jc.ErrorIsNil)
 	checkNotAfter(c, xcert, expiry)
 
 	var noHostnames []string
 	certPEM, _, err = cert.NewServer(certPEM, keyPEM, expiry, noHostnames)
+	c.Assert(err, jc.ErrorIsNil)
 	xcert, err = utilscert.ParseCert(certPEM)
 	c.Assert(err, jc.ErrorIsNil)
 	checkNotAfter(c, xcert, expiry)

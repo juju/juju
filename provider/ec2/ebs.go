@@ -14,7 +14,7 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"gopkg.in/amz.v3/ec2"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -995,7 +995,7 @@ func blockDeviceNamer(numbers bool) func() (requestName, actualName string, err 
 		// deviceLetterMin is the first letter to use for EBS block device names.
 		deviceLetterMin = 'f'
 		// deviceLetterMax is the last letter to use for EBS block device names.
-		deviceLetterMax = 'p'
+		deviceLetterMax = 'z'
 		// deviceNumMax is the maximum value for trailing numbers on block device name.
 		deviceNumMax = 6
 	)

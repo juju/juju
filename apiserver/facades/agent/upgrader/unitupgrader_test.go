@@ -10,7 +10,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/upgrader"
@@ -205,6 +205,7 @@ func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	}
 
 	results, err := anUpgrader.SetTools(args)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 }

@@ -17,7 +17,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
@@ -171,4 +171,16 @@ func dependencyEngineConfig() dependency.EngineConfig {
 		Clock:            clock.WallClock,
 		Logger:           loggo.GetLogger("juju.worker.dependency"),
 	}
+}
+
+// readAgentConfig is a helper to read either machine or controller agent config,
+// whichever is there. Machine config gets precedence.
+func readAgentConfig(c AgentConfigWriter, agentId string) error {
+	var tag names.Tag = names.NewMachineTag(agentId)
+	err := c.ReadConfig(tag.String())
+	if err != nil {
+		tag = names.NewControllerAgentTag(agentId)
+		err = c.ReadConfig(tag.String())
+	}
+	return errors.Trace(err)
 }

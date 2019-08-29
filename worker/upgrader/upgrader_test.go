@@ -19,7 +19,7 @@ import (
 	"github.com/juju/utils/symlink"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
@@ -121,6 +121,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), vers)
 	s.patchVersion(agentTools.Version)
 	err = envtools.MergeAndWriteMetadata(stor, "released", "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.machine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 

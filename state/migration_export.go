@@ -8,17 +8,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/juju/core/network"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/featureflag"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/resource"
@@ -1074,6 +1073,15 @@ func (e *exporter) relations() error {
 				Limit:           ep.Limit,
 				Scope:           string(ep.Scope),
 			})
+
+			key := relationApplicationSettingsKey(relation.Id(), ep.ApplicationName)
+			appSettingsDoc, found := e.modelSettings[key]
+			if !found && !e.cfg.SkipSettings && !e.cfg.SkipRelationData {
+				return errors.Errorf("missing application settings for %q application %q", relation, ep.ApplicationName)
+			}
+			delete(e.modelSettings, key)
+			exEndPoint.SetApplicationSettings(appSettingsDoc.Settings)
+
 			// We expect a relationScope and settings for each of the
 			// units of the specified application, unless it is a
 			// remote application.
@@ -1128,8 +1136,8 @@ func (e *exporter) spaces() error {
 			continue
 		}
 
-		// TODO (manadart 2019-07-12): Update juju/description and export IDs.
 		e.model.AddSpace(description.SpaceArgs{
+			Id:         space.Id(),
 			Name:       space.Name(),
 			Public:     space.IsPublic(),
 			ProviderID: string(space.ProviderId()),
@@ -1172,19 +1180,16 @@ func (e *exporter) subnets() error {
 
 	for _, subnet := range subnets {
 		args := description.SubnetArgs{
+			ID:                subnet.ID(),
 			CIDR:              subnet.CIDR(),
 			ProviderId:        string(subnet.ProviderId()),
 			ProviderNetworkId: string(subnet.ProviderNetworkId()),
 			VLANTag:           subnet.VLANTag(),
-			SpaceName:         subnet.SpaceName(),
+			SpaceID:           subnet.SpaceID(),
+			AvailabilityZones: subnet.AvailabilityZones(),
 			FanLocalUnderlay:  subnet.FanLocalUnderlay(),
 			FanOverlay:        subnet.FanOverlay(),
-		}
-		// TODO(babbageclunk): at the moment state.Subnet only stores
-		// one AZ.
-		az := subnet.AvailabilityZone()
-		if az != "" {
-			args.AvailabilityZones = []string{az}
+			IsPublic:          subnet.IsPublic(),
 		}
 		e.model.AddSubnet(args)
 	}

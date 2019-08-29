@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6"
 
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/metrics/collect"
 )
 
@@ -49,9 +50,11 @@ func (s *ContextSuite) TestCtxDeclaredMetric(c *gc.C) {
 
 type dummyPaths struct{}
 
-func (*dummyPaths) GetToolsDir() string             { return "/dummy/tools" }
-func (*dummyPaths) GetCharmDir() string             { return "/dummy/charm" }
-func (*dummyPaths) GetJujucSocket() string          { return "/dummy/jujuc.sock" }
+func (*dummyPaths) GetToolsDir() string { return "/dummy/tools" }
+func (*dummyPaths) GetCharmDir() string { return "/dummy/charm" }
+func (*dummyPaths) GetJujucSocket() sockets.Socket {
+	return sockets.Socket{Network: "unix", Address: "/dummy/jujuc.sock"}
+}
 func (*dummyPaths) GetMetricsSpoolDir() string      { return "/dummy/spool" }
 func (*dummyPaths) ComponentDir(name string) string { return "/dummy/" + name }
 
@@ -62,7 +65,7 @@ func (s *ContextSuite) TestHookContextEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	varMap, err := keyvalues.Parse(vars, true)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(varMap["JUJU_AGENT_SOCKET"], gc.Equals, "/dummy/jujuc.sock")
+	c.Assert(varMap["JUJU_AGENT_SOCKET_ADDRESS"], gc.Equals, "/dummy/jujuc.sock")
 	c.Assert(varMap["JUJU_UNIT_NAME"], gc.Equals, "u/0")
 	c.Assert(varMap["JUJU_CHARM_DIR"], gc.Equals, "/dummy/charm")
 	c.Assert(varMap["CHARM_DIR"], gc.Equals, "/dummy/charm")

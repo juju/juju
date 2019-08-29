@@ -82,6 +82,9 @@ func process(dir, key, passphrase string) error {
 	logger.Debugf("processing directory %q", dir)
 	// Do any json files in dir
 	filenames, err := filepath.Glob(filepath.Join(dir, "*"+simplestreams.UnsignedSuffix))
+	if err != nil {
+		return err
+	}
 	if len(filenames) > 0 {
 		logger.Infof("signing %d file(s) in %q", len(filenames), dir)
 	}

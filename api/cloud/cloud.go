@@ -6,7 +6,7 @@ package cloud
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
@@ -227,15 +227,21 @@ func (c *Client) AddCredential(tag string, credential jujucloud.Credential) erro
 }
 
 // AddCloud adds a new cloud to current controller.
-func (c *Client) AddCloud(cloud jujucloud.Cloud) error {
+func (c *Client) AddCloud(cloud jujucloud.Cloud, force bool) error {
 	bestVer := c.BestAPIVersion()
 	if bestVer < 2 {
 		return errors.NotImplementedf("AddCloud() (need v2+, have v%d)", bestVer)
+	}
+	if bestVer < 6 && force {
+		return errors.NotImplementedf("AddCloud() with force (need v6+, have v%d)", bestVer)
 	}
 	if (len(cloud.Config) > 0 || len(cloud.RegionConfig) > 0) && bestVer < 5 {
 		return errors.New("adding a cloud with config parameters is not supported by this version of Juju")
 	}
 	args := params.AddCloudArgs{Name: cloud.Name, Cloud: common.CloudToParams(cloud)}
+	if force {
+		args.Force = &force
+	}
 	err := c.facade.FacadeCall("AddCloud", args, nil)
 	if err != nil {
 		return errors.Trace(err)

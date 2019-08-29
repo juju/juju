@@ -308,6 +308,7 @@ func (s *OSSearchToolsSuite) TestGetCommandOutputExitNonzero(c *gc.C) {
 echo "hello $1"
 exit 1
 `), 0755)
+	c.Assert(err, jc.ErrorIsNil)
 	tools := mongo.OSSearchTools{}
 	out, err := tools.GetCommandOutput(path, "argument")
 	c.Assert(err, gc.NotNil)
@@ -323,6 +324,7 @@ func (s *OSSearchToolsSuite) TestGetCommandOutputNonExecutable(c *gc.C) {
 	err := ioutil.WriteFile(path, []byte(`#!/bin/bash --norc
 echo "shouldn't happen $1"
 `), 0644)
+	c.Assert(err, jc.ErrorIsNil)
 	tools := mongo.OSSearchTools{}
 	out, err := tools.GetCommandOutput(path, "argument")
 	c.Assert(err, gc.NotNil)

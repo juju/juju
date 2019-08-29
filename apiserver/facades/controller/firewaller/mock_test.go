@@ -4,23 +4,21 @@
 package firewaller_test
 
 import (
-	"sync"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/firewall"
+	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -120,6 +118,14 @@ func (st *mockState) FirewallRule(service state.WellKnownServiceType) (*state.Fi
 	return r, nil
 }
 
+func (st *mockState) Subnet(cidr string) (firewaller.Subnet, error) {
+	return nil, errors.NotImplementedf("Subnet")
+}
+
+func (st *mockState) SubnetByID(id string) (firewaller.Subnet, error) {
+	return nil, errors.NotImplementedf("SubnetByID")
+}
+
 type mockWatcher struct {
 	testing.Stub
 	tomb.Tomb
@@ -182,18 +188,6 @@ type mockNotifyWatcher struct {
 func (w *mockNotifyWatcher) Changes() <-chan struct{} {
 	w.MethodCall(w, "Changes")
 	return w.changes
-}
-
-type mockApplication struct {
-	testing.Stub
-	name  string
-	units []*mockUnit
-}
-
-func newMockApplication(name string) *mockApplication {
-	return &mockApplication{
-		name: name,
-	}
 }
 
 type mockControllerInfo struct {
@@ -286,60 +280,4 @@ func (st *mockState) KeyRelation(key string) (firewall.Relation, error) {
 		return nil, errors.NotFoundf("relation %q", key)
 	}
 	return r, nil
-}
-
-type mockUnit struct {
-	testing.Stub
-	mu            sync.Mutex
-	name          string
-	assigned      bool
-	publicAddress network.Address
-	machineId     string
-}
-
-func newMockUnit(name string) *mockUnit {
-	return &mockUnit{
-		name:     name,
-		assigned: true,
-	}
-}
-
-func (u *mockUnit) Name() string {
-	u.MethodCall(u, "Name")
-	return u.name
-}
-
-func (u *mockUnit) PublicAddress() (network.Address, error) {
-	u.MethodCall(u, "PublicAddress")
-	u.mu.Lock()
-	defer u.mu.Unlock()
-
-	if err := u.NextErr(); err != nil {
-		return network.Address{}, err
-	}
-	if !u.assigned {
-		return network.Address{}, errors.NotAssignedf(u.name)
-	}
-	if u.publicAddress.Value == "" {
-		return network.Address{}, network.NoAddressError("public")
-	}
-	return u.publicAddress, nil
-}
-
-func (u *mockUnit) AssignedMachineId() (string, error) {
-	u.MethodCall(u, "AssignedMachineId")
-	if err := u.NextErr(); err != nil {
-		return "", err
-	}
-	if !u.assigned {
-		return "", errors.NotAssignedf(u.name)
-	}
-	return u.machineId, nil
-}
-
-func (u *mockUnit) updateAddress(value string) {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-
-	u.publicAddress = network.Address{Value: value}
 }

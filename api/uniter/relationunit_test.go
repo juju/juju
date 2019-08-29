@@ -7,7 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -278,6 +278,7 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w, err := apiRelUnit.Watch()
+	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewRelationUnitsWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
 

@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
@@ -260,7 +260,7 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 		return errors.Trace(err)
 	}
 
-	unitServices, allConfirmed, err = w.compareUnitAgentServices(w.completedUnits)
+	_, allConfirmed, err = w.compareUnitAgentServices(w.completedUnits)
 	if err != nil {
 		return errors.Trace(err)
 	}

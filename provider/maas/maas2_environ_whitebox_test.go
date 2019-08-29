@@ -15,13 +15,14 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -224,18 +225,18 @@ func (suite *maas2EnvironSuite) TestSpaces(c *gc.C) {
 	result, err := env.Spaces(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
-	c.Assert(result[0].Name, gc.Equals, "freckles")
-	c.Assert(result[0].ProviderId, gc.Equals, network.Id("4567"))
+	c.Assert(result[0].Name, gc.Equals, corenetwork.SpaceName("freckles"))
+	c.Assert(result[0].ProviderId, gc.Equals, corenetwork.Id("4567"))
 	subnets := result[0].Subnets
 	c.Assert(subnets, gc.HasLen, 2)
-	c.Assert(subnets[0].ProviderId, gc.Equals, network.Id("99"))
+	c.Assert(subnets[0].ProviderId, gc.Equals, corenetwork.Id("99"))
 	c.Assert(subnets[0].VLANTag, gc.Equals, 66)
 	c.Assert(subnets[0].CIDR, gc.Equals, "192.168.10.0/24")
-	c.Assert(subnets[0].SpaceProviderId, gc.Equals, network.Id("4567"))
-	c.Assert(subnets[1].ProviderId, gc.Equals, network.Id("98"))
+	c.Assert(subnets[0].ProviderSpaceId, gc.Equals, corenetwork.Id("4567"))
+	c.Assert(subnets[1].ProviderId, gc.Equals, corenetwork.Id("98"))
 	c.Assert(subnets[1].VLANTag, gc.Equals, 67)
 	c.Assert(subnets[1].CIDR, gc.Equals, "192.168.11.0/24")
-	c.Assert(subnets[1].SpaceProviderId, gc.Equals, network.Id("4567"))
+	c.Assert(subnets[1].ProviderSpaceId, gc.Equals, corenetwork.Id("4567"))
 }
 
 func (suite *maas2EnvironSuite) TestSpacesError(c *gc.C) {
@@ -806,11 +807,11 @@ func (suite *maas2EnvironSuite) TestSubnetsNoFilters(c *gc.C) {
 	env := suite.makeEnviron(c, nil)
 	subnets, err := env.Subnets(suite.callCtx, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := []network.SubnetInfo{
-		{CIDR: "192.168.10.0/24", ProviderId: "99", VLANTag: 66, SpaceProviderId: "5"},
-		{CIDR: "192.168.11.0/24", ProviderId: "100", VLANTag: 66, SpaceProviderId: "6"},
-		{CIDR: "192.168.12.0/24", ProviderId: "101", VLANTag: 66, SpaceProviderId: "7"},
-		{CIDR: "192.168.13.0/24", ProviderId: "102", VLANTag: 66, SpaceProviderId: "8"},
+	expected := []corenetwork.SubnetInfo{
+		{CIDR: "192.168.10.0/24", ProviderId: "99", VLANTag: 66, ProviderSpaceId: "5"},
+		{CIDR: "192.168.11.0/24", ProviderId: "100", VLANTag: 66, ProviderSpaceId: "6"},
+		{CIDR: "192.168.12.0/24", ProviderId: "101", VLANTag: 66, ProviderSpaceId: "7"},
+		{CIDR: "192.168.13.0/24", ProviderId: "102", VLANTag: 66, ProviderSpaceId: "8"},
 	}
 	c.Assert(subnets, jc.DeepEquals, expected)
 }
@@ -829,11 +830,11 @@ func (suite *maas2EnvironSuite) TestSubnetsSubnetIds(c *gc.C) {
 		spaces: getFourSpaces(),
 	})
 	env := suite.makeEnviron(c, nil)
-	subnets, err := env.Subnets(suite.callCtx, "", []network.Id{"99", "100"})
+	subnets, err := env.Subnets(suite.callCtx, "", []corenetwork.Id{"99", "100"})
 	c.Assert(err, jc.ErrorIsNil)
-	expected := []network.SubnetInfo{
-		{CIDR: "192.168.10.0/24", ProviderId: "99", VLANTag: 66, SpaceProviderId: "5"},
-		{CIDR: "192.168.11.0/24", ProviderId: "100", VLANTag: 66, SpaceProviderId: "6"},
+	expected := []corenetwork.SubnetInfo{
+		{CIDR: "192.168.10.0/24", ProviderId: "99", VLANTag: 66, ProviderSpaceId: "5"},
+		{CIDR: "192.168.11.0/24", ProviderId: "100", VLANTag: 66, ProviderSpaceId: "6"},
 	}
 	c.Assert(subnets, jc.DeepEquals, expected)
 }
@@ -843,7 +844,7 @@ func (suite *maas2EnvironSuite) TestSubnetsSubnetIdsMissing(c *gc.C) {
 		spaces: getFourSpaces(),
 	})
 	env := suite.makeEnviron(c, nil)
-	_, err := env.Subnets(suite.callCtx, "", []network.Id{"99", "missing"})
+	_, err := env.Subnets(suite.callCtx, "", []corenetwork.Id{"99", "missing"})
 	msg := "failed to find the following subnets: missing"
 	c.Assert(err, gc.ErrorMatches, msg)
 }
@@ -881,10 +882,10 @@ func (suite *maas2EnvironSuite) TestSubnetsInstId(c *gc.C) {
 	env := suite.makeEnviron(c, nil)
 	subnets, err := env.Subnets(suite.callCtx, "William Gibson", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := []network.SubnetInfo{
-		{CIDR: "192.168.10.0/24", ProviderId: "99", VLANTag: 66, SpaceProviderId: "5"},
-		{CIDR: "192.168.11.0/24", ProviderId: "100", VLANTag: 0, SpaceProviderId: "6"},
-		{CIDR: "192.168.12.0/24", ProviderId: "101", VLANTag: 2, SpaceProviderId: "7"},
+	expected := []corenetwork.SubnetInfo{
+		{CIDR: "192.168.10.0/24", ProviderId: "99", VLANTag: 66, ProviderSpaceId: "5"},
+		{CIDR: "192.168.11.0/24", ProviderId: "100", VLANTag: 0, ProviderSpaceId: "6"},
+		{CIDR: "192.168.12.0/24", ProviderId: "101", VLANTag: 2, ProviderSpaceId: "7"},
 	}
 	c.Assert(subnets, jc.DeepEquals, expected)
 }
@@ -993,11 +994,11 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("default", "10.20.19.103"),
-		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+		Address:           corenetwork.NewAddressOnSpace("default", "10.20.19.103"),
+		DNSServers:        corenetwork.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
 		DNSSearchDomains:  nil,
 		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+		GatewayAddress:    corenetwork.NewAddressOnSpace("default", "10.20.19.2"),
 	}, {
 		DeviceIndex:       0,
 		MACAddress:        "52:54:00:70:9b:fe",
@@ -1013,11 +1014,11 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("default", "10.20.19.104"),
-		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+		Address:           corenetwork.NewAddressOnSpace("default", "10.20.19.104"),
+		DNSServers:        corenetwork.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
 		DNSSearchDomains:  nil,
 		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+		GatewayAddress:    corenetwork.NewAddressOnSpace("default", "10.20.19.2"),
 	}, {
 		DeviceIndex:         1,
 		MACAddress:          "52:54:00:70:9b:fe",
@@ -1034,11 +1035,11 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 		Disabled:            false,
 		NoAutoStart:         false,
 		ConfigType:          "static",
-		Address:             network.NewAddressOnSpace("admin", "10.50.19.103"),
+		Address:             corenetwork.NewAddressOnSpace("admin", "10.50.19.103"),
 		DNSServers:          nil,
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
-		GatewayAddress:      network.NewAddressOnSpace("admin", "10.50.19.2"),
+		GatewayAddress:      corenetwork.NewAddressOnSpace("admin", "10.50.19.2"),
 	},
 	}
 	c.Assert(result.NetworkInfo, jc.DeepEquals, expected)
@@ -1165,10 +1166,10 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 		InterfaceName:     "eth1",
 		InterfaceType:     "ethernet",
 		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("freckles", "192.168.1.127"),
-		DNSServers:        network.NewAddressesOnSpace("freckles", "10.20.19.2", "10.20.19.3"),
+		Address:           corenetwork.NewAddressOnSpace("freckles", "192.168.1.127"),
+		DNSServers:        corenetwork.NewAddressesOnSpace("freckles", "10.20.19.2", "10.20.19.3"),
 		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("freckles", "192.168.1.1"),
+		GatewayAddress:    corenetwork.NewAddressOnSpace("freckles", "192.168.1.1"),
 		Routes: []network.Route{{
 			DestinationCIDR: subnet1.CIDR(),
 			GatewayIP:       "192.168.1.1",
@@ -1294,10 +1295,10 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesNoStaticRoutesAPI(
 		InterfaceName:     "eth0",
 		InterfaceType:     "ethernet",
 		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("freckles", "10.20.19.104"),
-		DNSServers:        network.NewAddressesOnSpace("freckles", "10.20.19.2", "10.20.19.3"),
+		Address:           corenetwork.NewAddressOnSpace("freckles", "10.20.19.104"),
+		DNSServers:        corenetwork.NewAddressesOnSpace("freckles", "10.20.19.2", "10.20.19.3"),
 		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("freckles", "10.20.19.2"),
+		GatewayAddress:    corenetwork.NewAddressOnSpace("freckles", "10.20.19.2"),
 		Routes:            []network.Route{},
 	}}
 	c.Assert(result, jc.DeepEquals, expected)
@@ -1534,10 +1535,10 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 		InterfaceName:     "eth0",
 		InterfaceType:     "ethernet",
 		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("freckles", "10.20.19.127"),
-		DNSServers:        network.NewAddressesOnSpace("freckles", "10.20.19.2", "10.20.19.3"),
+		Address:           corenetwork.NewAddressOnSpace("freckles", "10.20.19.127"),
+		DNSServers:        corenetwork.NewAddressesOnSpace("freckles", "10.20.19.2", "10.20.19.3"),
 		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("freckles", "10.20.19.2"),
+		GatewayAddress:    corenetwork.NewAddressOnSpace("freckles", "10.20.19.2"),
 	}, {
 		DeviceIndex:       1,
 		MACAddress:        "52:54:00:70:9b:f4",
@@ -1549,10 +1550,10 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 		InterfaceName:     "eth1",
 		InterfaceType:     "ethernet",
 		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("freckles", "192.168.1.127"),
-		DNSServers:        network.NewAddressesOnSpace("freckles", "10.20.19.2", "10.20.19.3"),
+		Address:           corenetwork.NewAddressOnSpace("freckles", "192.168.1.127"),
+		DNSServers:        corenetwork.NewAddressesOnSpace("freckles", "10.20.19.2", "10.20.19.3"),
 		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("freckles", "192.168.1.1"),
+		GatewayAddress:    corenetwork.NewAddressOnSpace("freckles", "192.168.1.1"),
 		Routes: []network.Route{{
 			DestinationCIDR: "10.20.19.0/24",
 			GatewayIP:       "192.168.1.1",
@@ -1990,10 +1991,10 @@ func (suite *maas2EnvironSuite) TestAllocateContainerReuseExistingDevice(c *gc.C
 		InterfaceName:     "eth0",
 		InterfaceType:     "ethernet",
 		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("space-1", "10.20.19.105"),
-		DNSServers:        network.NewAddressesOnSpace("space-1", "10.20.19.2", "10.20.19.3"),
+		Address:           corenetwork.NewAddressOnSpace("space-1", "10.20.19.105"),
+		DNSServers:        corenetwork.NewAddressesOnSpace("space-1", "10.20.19.2", "10.20.19.3"),
 		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("space-1", "10.20.19.2"),
+		GatewayAddress:    corenetwork.NewAddressOnSpace("space-1", "10.20.19.2"),
 		Routes:            []network.Route{},
 	}}
 	c.Assert(result, jc.DeepEquals, expected)
@@ -2189,10 +2190,10 @@ func (suite *maas2EnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *g
 		InterfaceName:     "eth0",
 		InterfaceType:     "ethernet",
 		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("freckles", "10.20.19.105"),
-		DNSServers:        network.NewAddressesOnSpace("freckles", "10.20.19.2", "10.20.19.3"),
+		Address:           corenetwork.NewAddressOnSpace("freckles", "10.20.19.105"),
+		DNSServers:        corenetwork.NewAddressesOnSpace("freckles", "10.20.19.2", "10.20.19.3"),
 		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("freckles", "10.20.19.2"),
+		GatewayAddress:    corenetwork.NewAddressOnSpace("freckles", "10.20.19.2"),
 		Routes:            []network.Route{},
 	}, {
 		DeviceIndex:       1,
@@ -2206,10 +2207,10 @@ func (suite *maas2EnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *g
 		InterfaceName:     "eth1",
 		InterfaceType:     "ethernet",
 		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("freckles", "192.168.1.101"),
-		DNSServers:        network.NewAddressesOnSpace("freckles", "192.168.1.2"),
+		Address:           corenetwork.NewAddressOnSpace("freckles", "192.168.1.101"),
+		DNSServers:        corenetwork.NewAddressesOnSpace("freckles", "192.168.1.2"),
 		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("freckles", "192.168.1.1"),
+		GatewayAddress:    corenetwork.NewAddressOnSpace("freckles", "192.168.1.1"),
 		Routes:            []network.Route{},
 	}}
 	c.Assert(result, jc.DeepEquals, expected)

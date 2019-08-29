@@ -14,16 +14,16 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/utils"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver/params"
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 )
 
 var (

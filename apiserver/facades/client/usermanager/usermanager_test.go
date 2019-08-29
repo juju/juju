@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -794,6 +794,7 @@ func (s *userManagerSuite) TestRemoveUserBulkSharedModels(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	users, err := model.Users()
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the users exist.
 	var userNames []string
@@ -816,10 +817,11 @@ func (s *userManagerSuite) TestRemoveUserBulkSharedModels(c *gc.C) {
 
 	// Make sure users were deleted.
 	err = jjam.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(jjam.IsDeleted(), jc.IsTrue)
 	err = alice.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(alice.IsDeleted(), jc.IsTrue)
-
 }
 
 func (s *userManagerSuite) TestResetPassword(c *gc.C) {

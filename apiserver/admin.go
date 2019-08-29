@@ -10,7 +10,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"github.com/juju/rpcreflect"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
@@ -19,11 +20,10 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
 	statepresence "github.com/juju/juju/state/presence"
 	jujuversion "github.com/juju/juju/version"
@@ -113,13 +113,18 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	}
 
 	// apiRoot is the API root exposed to the client after login.
-	var apiRoot rpc.Root = newAPIRoot(
+	var apiRoot rpc.Root
+	apiRoot, err = newAPIRoot(
+		a.srv.clock,
 		a.root.state,
 		a.root.shared,
 		a.srv.facades,
 		a.root.resources,
 		a.root,
 	)
+	if err != nil {
+		return fail, errors.Trace(err)
+	}
 	apiRoot, err = restrictAPIRoot(
 		a.srv,
 		apiRoot,
@@ -426,7 +431,7 @@ func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin 
 		everyoneGroupAccess = everyoneGroupUser.Access
 	}
 
-	controllerAccess := permission.NoAccess
+	var controllerAccess permission.Access
 	if controllerUser, err := state.ControllerAccess(a.root.state, userTag); err == nil {
 		controllerAccess = controllerUser.Access
 	} else if errors.IsNotFound(err) {

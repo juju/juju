@@ -13,8 +13,8 @@ import (
 	"github.com/juju/gomaasapi"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 )
 
 var unsupportedConstraints = []string{
@@ -60,7 +60,7 @@ func convertConstraints(cons constraints.Value) url.Values {
 }
 
 // convertConstraints2 converts the given constraints into a
-// gomaasapi.AllocateMachineArgs for paasing to MAAS 2.
+// gomaasapi.AllocateMachineArgs for passing to MAAS 2.
 func convertConstraints2(cons constraints.Value) gomaasapi.AllocateMachineArgs {
 	params := gomaasapi.AllocateMachineArgs{}
 	if cons.Arch != nil {
@@ -149,12 +149,12 @@ type interfaceBinding struct {
 }
 
 // numericLabelLimit is a sentinel value used in addInterfaces to limit the
-// number of disabmiguation inner loop iterations in case named labels clash
+// number of disambiguation inner loop iterations in case named labels clash
 // with numeric labels for spaces coming from constraints. It's defined here to
 // facilitate testing this behavior.
 var numericLabelLimit uint = 0xffff
 
-// addInterfaces converts a slice of interface bindings, postiveSpaces and
+// addInterfaces converts a slice of interface bindings, positiveSpaces and
 // negativeSpaces coming from constraints to the format MAAS expects for the
 // "interfaces" and "not_networks" arguments to acquire node. Returns an error
 // satisfying errors.IsNotValid() if the bindings contains duplicates, empty
@@ -179,8 +179,8 @@ func addInterfaces(
 	}
 	if len(negatives) > 0 {
 		for _, binding := range negatives {
-			not_network := fmt.Sprintf("space:%s", binding.SpaceProviderId)
-			params.Add("not_networks", not_network)
+			notNetwork := fmt.Sprintf("space:%s", binding.SpaceProviderId)
+			params.Add("not_networks", notNetwork)
 		}
 	}
 	return nil
@@ -287,7 +287,7 @@ func addInterfaces2(
 	if len(combinedBindings) > 0 {
 		interfaceSpecs := make([]gomaasapi.InterfaceSpec, len(combinedBindings))
 		for i, space := range combinedBindings {
-			interfaceSpecs[i] = gomaasapi.InterfaceSpec{space.Name, space.SpaceProviderId}
+			interfaceSpecs[i] = gomaasapi.InterfaceSpec{Label: space.Name, Space: space.SpaceProviderId}
 		}
 		params.Interfaces = interfaceSpecs
 	}

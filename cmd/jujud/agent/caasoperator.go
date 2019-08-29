@@ -18,7 +18,7 @@ import (
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -26,10 +26,12 @@ import (
 	"github.com/juju/juju/api/base"
 	apicaasoperator "github.com/juju/juju/api/caasoperator"
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
@@ -63,10 +65,18 @@ type CaasOperatorAgent struct {
 	upgradeComplete gate.Lock
 
 	prometheusRegistry *prometheus.Registry
+
+	newExecClient     func(modelName string) (exec.Executor, error)
+	runListenerSocket func() (*sockets.Socket, error)
 }
 
 // NewCaasOperatorAgent creates a new CAASOperatorAgent instance properly initialized.
-func NewCaasOperatorAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter) (*CaasOperatorAgent, error) {
+func NewCaasOperatorAgent(
+	ctx *cmd.Context,
+	bufferedLogger *logsender.BufferedLogWriter,
+	newExecClient func(modelName string) (exec.Executor, error),
+	runListenerSocket func() (*sockets.Socket, error),
+) (*CaasOperatorAgent, error) {
 	prometheusRegistry, err := newPrometheusRegistry()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -79,6 +89,8 @@ func NewCaasOperatorAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLo
 		bufferedLogger:     bufferedLogger,
 		prometheusRegistry: prometheusRegistry,
 		preUpgradeSteps:    upgrades.PreUpgradeSteps,
+		newExecClient:      newExecClient,
+		runListenerSocket:  runListenerSocket,
 	}, nil
 }
 
@@ -222,6 +234,8 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		ValidateMigration:    op.validateMigration,
 		MachineLock:          op.machineLock,
 		PreviousAgentVersion: agentConfig.UpgradedToVersion(),
+		NewExecClient:        op.newExecClient,
+		RunListenerSocket:    op.runListenerSocket,
 	})
 
 	engine, err := dependency.NewEngine(dependencyEngineConfig())

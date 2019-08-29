@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
@@ -344,4 +344,20 @@ func macaroonsToJSON(macs []macaroon.Slice) (string, error) {
 		return "", errors.Annotate(err, "marshalling macaroons")
 	}
 	return string(out), nil
+}
+
+type ControllerVersion struct {
+	Version   string
+	GitCommit string
+}
+
+// ControllerVersion fetches the controller version information.
+func (c *Client) ControllerVersion() (ControllerVersion, error) {
+	result := params.ControllerVersionResults{}
+	err := c.facade.FacadeCall("ControllerVersion", nil, &result)
+	out := ControllerVersion{
+		Version:   result.Version,
+		GitCommit: result.GitCommit,
+	}
+	return out, err
 }

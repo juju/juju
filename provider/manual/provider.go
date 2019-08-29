@@ -4,10 +4,13 @@
 package manual
 
 import (
+	"bytes"
+	"fmt"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
+	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -48,7 +51,7 @@ var cloudSchema = &jsonschema.Schema{
 	Required: []string{cloud.EndpointKey},
 	Properties: map[string]*jsonschema.Schema{
 		cloud.EndpointKey: {
-			Singular: "the controller's hostname or IP address",
+			Singular: "the ssh connection string for controller, username@<hostname or IP> or <hostname or IP>",
 			Type:     []jsonschema.Type{jsonschema.StringType},
 			Format:   jsonschema.FormatURI,
 		},
@@ -68,24 +71,38 @@ func (p ManualProvider) Ping(ctx context.ProviderCallContext, endpoint string) e
 	return pingMachine(endpoint)
 }
 
+var echo = func(s string) error {
+	logger.Infof("trying to ssh using %q", s)
+	command := ssh.Command(s, []string{"echo", "hi"}, nil)
+	// os/exec just returns an error that contains the error code from the
+	// executable, which is basically useless, but stderr usually shows
+	// something useful, so we show that instead.
+	buf := bytes.Buffer{}
+	command.Stderr = &buf
+	if err := command.Run(); err != nil {
+		if buf.Len() > 0 {
+			return errors.New(buf.String())
+		}
+		return err
+	}
+	return nil
+}
+
 // pingMachine is what is used in production by ManualProvider.Ping().
 // It does nothing at the moment.
 func pingMachine(endpoint string) error {
-	// (anastasiamac 2017-03-30) This method was introduced to verify
-	// manual endpoint by attempting to SSH into it.
-	// However, what we really wanted to do was to determine if
-	// we could connect to the endpoint not whether we could authenticate.
-	// In other words, we wanted to ignore authentication errors.
-	// These errors, at verification stage, when adding cloud details, are meaningless
-	// since authentication is configurable at bootstrap.
-	// With OpenSSH and crypto/ssh, both underlying current SSH client implementations, it is not
-	// possible to cleanly distinguish between authentication and connection failures
-	// without examining error string and looking for various matches.
-	// This feels dirty and flaky as the error messages can easily change
-	// between different libraries and their versions.
-	// So, it has been decided to just accept endpoint.
-	// If this ping(..) call will be used for other purposes, this decision may
-	// need to be re-visited.
+	// There's no "just connect" command for utils/ssh, so we run a command that
+	// should always work.
+	// If "endpoint" contains connection user, test it as-is.
+	if strings.Contains(endpoint, "@") {
+		return echo(endpoint)
+	}
+	// Try using "endpoint" directly - it is either an IP address or a hostname
+	// and as such ssh Command will try using the user name of the user from the current client device.
+	if err := echo(endpoint); err != nil {
+		// If it fails, try to use ubuntu user, lp#1649721.
+		return echo(fmt.Sprintf("ubuntu@%v", endpoint))
+	}
 	return nil
 }
 

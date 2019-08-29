@@ -51,9 +51,6 @@ func (s *uniterGoalStateSuite) SetUpTest(c *gc.C) {
 		Charm: loggingCharm,
 	})
 
-	s.State.StartSync()
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming the MySQL unit has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{

@@ -140,7 +140,8 @@ func (d deployUploader) validateResourceDetails(res map[string]string) error {
 		case charmresource.TypeFile:
 			err = d.checkFile(name, value)
 		case charmresource.TypeContainerImage:
-			dockerDetails, err := getDockerDetailsData(value, d.osOpen)
+			var dockerDetails resources.DockerImageDetails
+			dockerDetails, err = getDockerDetailsData(value, d.osOpen)
 			if err != nil {
 				return err
 			}

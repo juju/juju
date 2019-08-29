@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -68,7 +68,7 @@ func AddControllerMachine(c *gc.C, st *state.State) *state.Machine {
 //     AvailabilityZone: "zone-1",
 //     VLANTag: 42,
 // })
-func AddSubnetsWithTemplate(c *gc.C, st *state.State, numSubnets uint, infoTemplate state.SubnetInfo) {
+func AddSubnetsWithTemplate(c *gc.C, st *state.State, numSubnets uint, infoTemplate network.SubnetInfo) {
 	for subnetIndex := 0; subnetIndex < int(numSubnets); subnetIndex++ {
 		info := infoTemplate // make a copy each time.
 
@@ -86,8 +86,13 @@ func AddSubnetsWithTemplate(c *gc.C, st *state.State, numSubnets uint, infoTempl
 
 		info.ProviderId = network.Id(permute(string(info.ProviderId)))
 		info.CIDR = permute(info.CIDR)
-		info.AvailabilityZone = permute(info.AvailabilityZone)
 		info.SpaceName = permute(info.SpaceName)
+
+		zones := make([]string, len(info.AvailabilityZones))
+		for i, az := range info.AvailabilityZones {
+			zones[i] = permute(az)
+		}
+		info.AvailabilityZones = zones
 
 		_, err := st.AddSubnet(info)
 		c.Assert(err, jc.ErrorIsNil)

@@ -317,9 +317,6 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		"ModelUUID",
 		// Life is always alive, confirmed by export precheck.
 		"Life",
-		// HasVote only matters for machines with manage state job
-		// and we don't support migrating the controller model.
-		"HasVote",
 		// Ignored at this stage, could be an issue if mongo 3.0 isn't
 		// available.
 		"StopMongoUntilVersion",
@@ -640,24 +637,25 @@ func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
 	ignored := set.NewStrings(
 		// DocID is the model + name
 		"DocID",
+		// TxnRevno is mgo internals and should not be migrated.
+		"TxnRevno",
 		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
 		"ModelUUID",
 		// Always alive, not explicitly exported.
 		"Life",
-
-		// Currently unused (never set or exposed).
-		"IsPublic",
 	)
 	migrated := set.NewStrings(
 		"CIDR",
+		"ID",
 		"VLANTag",
-		"SpaceName",
+		"SpaceID",
 		"ProviderId",
-		"AvailabilityZone",
+		"AvailabilityZones",
 		"ProviderNetworkId",
 		"FanLocalUnderlay",
 		"FanOverlay",
+		"IsPublic",
 	)
 	s.AssertExportedFields(c, subnetDoc{}, migrated.Union(ignored))
 }

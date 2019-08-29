@@ -14,7 +14,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	api "github.com/juju/romulus/api/plan"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api/application"

@@ -119,14 +119,13 @@ func (c *bundleDiffCommand) Run(ctx *cmd.Context) error {
 	defer apiRoot.Close()
 
 	// Load up the bundle data, with includes and overlays.
-	bundle, bundleDir, err := c.readBundle(ctx)
+	baseSrc, err := c.bundleDataSource(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := composeBundle(bundle, ctx, bundleDir, c.bundleOverlays); err != nil {
-		return errors.Trace(err)
-	}
-	if err := verifyBundle(bundle, bundleDir); err != nil {
+
+	bundle, err := composeAndVerifyBundle(baseSrc, c.bundleOverlays)
+	if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -163,39 +162,38 @@ func (c *bundleDiffCommand) newAPIRoot() (base.APICallCloser, error) {
 	return c.NewAPIRoot()
 }
 
-func (c *bundleDiffCommand) readBundle(ctx *cmd.Context) (*charm.BundleData, string, error) {
-	bundleData, bundleDir, err := readLocalBundle(ctx, c.bundle)
-	// NotValid means we should try interpreting it as a charm store
+func (c *bundleDiffCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleDataSource, error) {
+	ds, err := charm.LocalBundleDataSource(c.bundle)
+
+	// NotValid/NotFound means we should try interpreting it as a charm store
 	// bundle URL.
-	if err != nil && !errors.IsNotValid(err) {
-		return nil, "", errors.Trace(err)
+	if err != nil && !errors.IsNotValid(err) && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
 	}
-	if bundleData != nil {
-		return bundleData, bundleDir, nil
+	if ds != nil {
+		return ds, nil
 	}
 
 	// Not a local bundle, so it must be from the charmstore.
 	charmStore, err := c.charmStore()
 	if err != nil {
-		return nil, "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	bundleURL, _, err := resolveBundleURL(
-		charmStore, c.bundle,
-	)
+	bundleURL, _, err := resolveBundleURL(charmStore, c.bundle, c.channel)
 	if err != nil && !errors.IsNotValid(err) {
-		return nil, "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	if bundleURL == nil {
 		// This isn't a charmstore bundle either! Complain.
-		return nil, "", errors.Errorf("couldn't interpret %q as a local or charmstore bundle", c.bundle)
+		return nil, errors.Errorf("couldn't interpret %q as a local or charmstore bundle", c.bundle)
 	}
 
 	bundle, err := charmStore.GetBundle(bundleURL)
 	if err != nil {
-		return nil, "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	return bundle.Data(), "", nil
+	return newResolvedBundle(bundle), nil
 }
 
 func (c *bundleDiffCommand) charmStore() (BundleResolver, error) {

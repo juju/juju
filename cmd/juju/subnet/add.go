@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // NewAddCommand returns a command used to add an existing subnet to Juju.
@@ -26,7 +26,7 @@ func NewAddCommand() modelcmd.ModelCommand {
 type AddCommand struct {
 	SubnetCommandBase
 
-	CIDR       names.SubnetTag
+	CIDR       string
 	RawCIDR    string // before normalizing (e.g. 10.10.0.0/8 to 10.0.0.0/8)
 	ProviderId string
 	Space      names.SpaceTag
@@ -35,7 +35,7 @@ type AddCommand struct {
 
 const addCommandDoc = `
 Adds an existing subnet to Juju, making it available for use. Unlike
-"juju add-subnet", this command does not create a new subnet, so it
+"juju create-subnet", this command does not create a new subnet, so it
 is supported on a wider variety of clouds (where SDN features are not
 available, e.g. MAAS). The subnet will be associated with the given
 existing Juju network space.
@@ -100,10 +100,10 @@ func (c *AddCommand) Init(args []string) (err error) {
 // Run implements Command.Run.
 func (c *AddCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api SubnetAPI, ctx *cmd.Context) error {
-		if c.CIDR.Id() != "" && c.RawCIDR != c.CIDR.Id() {
+		if c.CIDR != "" && c.RawCIDR != c.CIDR {
 			ctx.Infof(
 				"WARNING: using CIDR %q instead of the incorrectly specified %q.",
-				c.CIDR.Id(), c.RawCIDR,
+				c.CIDR, c.RawCIDR,
 			)
 		}
 
@@ -124,7 +124,7 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 		if c.ProviderId != "" {
 			ctx.Infof("added subnet with ProviderId %q in space %q", c.ProviderId, c.Space.Id())
 		} else {
-			ctx.Infof("added subnet with CIDR %q in space %q", c.CIDR.Id(), c.Space.Id())
+			ctx.Infof("added subnet with CIDR %q in space %q", c.CIDR, c.Space.Id())
 		}
 		return nil
 	})

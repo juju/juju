@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -24,7 +23,7 @@ func NewRemoveCommand() modelcmd.ModelCommand {
 type RemoveCommand struct {
 	SubnetCommandBase
 
-	CIDR names.SubnetTag
+	CIDR string
 }
 
 const removeCommandDoc = `
@@ -74,10 +73,10 @@ func (c *RemoveCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api SubnetAPI, ctx *cmd.Context) error {
 		// Try removing the subnet.
 		if err := api.RemoveSubnet(c.CIDR); err != nil {
-			return errors.Annotatef(err, "cannot remove subnet %q", c.CIDR.Id())
+			return errors.Annotatef(err, "cannot remove subnet %q", c.CIDR)
 		}
 
-		ctx.Infof("marked subnet %q for removal", c.CIDR.Id())
+		ctx.Infof("marked subnet %q for removal", c.CIDR)
 		return nil
 	})
 }

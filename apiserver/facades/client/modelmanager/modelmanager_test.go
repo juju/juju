@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	// Register the providers for the field check test
 	"github.com/juju/juju/apiserver/common"
@@ -23,12 +23,12 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	_ "github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/dummy"
@@ -1433,6 +1433,7 @@ func (s *modelManagerStateSuite) TestGrantModelAddAdminUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.grant(c, user.UserTag(), params.ModelWriteAccess, m.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
 
 	modelUser, err := st.UserAccess(user.UserTag(), m.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1623,6 +1624,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 	})
 	defer modelState.Close()
 	model, err := modelState.Model()
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Migrate the model and delete it from the state
 	mig, err := modelState.CreateMigration(state.MigrationSpec{

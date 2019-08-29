@@ -175,7 +175,7 @@ OS_PROJECT_DOMAIN_NAME=project-domain
 `[1:]
 	novarc := filepath.Join(dir, ".novarc")
 	err = ioutil.WriteFile(novarc, []byte(content), 0600)
-
+	c.Assert(err, jc.ErrorIsNil)
 	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials.DefaultRegion, gc.Equals, "region")

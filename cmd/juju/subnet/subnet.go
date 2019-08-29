@@ -10,13 +10,13 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/subnets"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // SubnetAPI defines the necessary API methods needed by the subnet
@@ -25,7 +25,7 @@ type SubnetAPI interface {
 	io.Closer
 
 	// AddSubnet adds an existing subnet to Juju.
-	AddSubnet(cidr names.SubnetTag, id network.Id, spaceTag names.SpaceTag, zones []string) error
+	AddSubnet(cidr string, id network.Id, spaceTag names.SpaceTag, zones []string) error
 
 	// ListSubnets returns information about subnets known to Juju,
 	// optionally filtered by space and/or zone (both can be empty).
@@ -38,13 +38,13 @@ type SubnetAPI interface {
 	AllSpaces() ([]names.Tag, error)
 
 	// CreateSubnet creates a new Juju subnet.
-	CreateSubnet(subnetCIDR names.SubnetTag, spaceTag names.SpaceTag, zones []string, isPublic bool) error
+	CreateSubnet(subnetCIDR string, spaceTag names.SpaceTag, zones []string, isPublic bool) error
 
 	// RemoveSubnet marks an existing subnet as no longer used, which
 	// will cause it to get removed at some point after all its
 	// related entites are cleaned up. It will fail if the subnet is
 	// still in use by any machines.
-	RemoveSubnet(subnetCIDR names.SubnetTag) error
+	RemoveSubnet(subnetCIDR string) error
 }
 
 // mvpAPIShim forwards SubnetAPI methods to the real API facade for
@@ -60,7 +60,7 @@ func (m *mvpAPIShim) Close() error {
 	return m.apiState.Close()
 }
 
-func (m *mvpAPIShim) AddSubnet(cidr names.SubnetTag, id network.Id, spaceTag names.SpaceTag, zones []string) error {
+func (m *mvpAPIShim) AddSubnet(cidr string, id network.Id, spaceTag names.SpaceTag, zones []string) error {
 	return m.facade.AddSubnet(cidr, id, spaceTag, zones)
 }
 
@@ -135,18 +135,18 @@ func (s *SubnetCommandBase) CheckNumArgs(args []string, errors []error) error {
 // expected format is returned instead without an error. Otherwise,
 // when strict is true and given is incorrectly formatted, an error
 // will be returned.
-func (s *SubnetCommandBase) ValidateCIDR(given string, strict bool) (names.SubnetTag, error) {
+func (s *SubnetCommandBase) ValidateCIDR(given string, strict bool) (string, error) {
 	_, ipNet, err := net.ParseCIDR(given)
 	if err != nil {
 		logger.Debugf("cannot parse CIDR %q: %v", given, err)
-		return names.SubnetTag{}, errors.Errorf("%q is not a valid CIDR", given)
+		return "", errors.Errorf("%q is not a valid CIDR", given)
 	}
 	if strict && given != ipNet.String() {
 		expected := ipNet.String()
-		return names.SubnetTag{}, errors.Errorf("%q is not correctly specified, expected %q", given, expected)
+		return "", errors.Errorf("%q is not correctly specified, expected %q", given, expected)
 	}
 	// Already validated, so shouldn't error here.
-	return names.NewSubnetTag(ipNet.String()), nil
+	return ipNet.String(), nil
 }
 
 // ValidateSpace parses given and returns an error if it's not a valid

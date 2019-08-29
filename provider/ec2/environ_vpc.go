@@ -11,9 +11,9 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/amz.v3/ec2"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 )
 
 const (

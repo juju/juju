@@ -7,7 +7,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
@@ -388,7 +388,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 			args.EnvironVersion,
 		),
 		createUniqueOwnerModelNameOp(args.Owner, args.Config.Name()),
-		createDefaultSpaceOp(),
+		st.createDefaultSpaceOp(),
 	)
 	ops = append(ops, modelUserOps...)
 	return ops, modelStatusDoc, nil

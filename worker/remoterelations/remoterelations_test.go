@@ -12,7 +12,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 	"gopkg.in/macaroon.v2-unstable"
@@ -776,6 +776,8 @@ func (s *remoteRelationsSuite) TestRemoteRelationSuspended(c *gc.C) {
 	mac, err := apitesting.NewMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)
 	apiMac, err := apitesting.NewMacaroon("apimac")
+	c.Assert(err, jc.ErrorIsNil)
+
 	relTag := names.NewRelationTag("db2:db django:db")
 	// When resuming, it's similar to setting things up for a new relation
 	// except that the call to create te life/status listener is missing.

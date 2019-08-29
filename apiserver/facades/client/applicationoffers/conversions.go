@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
 )
 
 // paramsFromProviderSpaceInfo converts a ProviderSpaceInfo into the
@@ -16,7 +16,7 @@ import (
 func paramsFromProviderSpaceInfo(info *environs.ProviderSpaceInfo) params.RemoteSpace {
 	result := params.RemoteSpace{
 		CloudType:          info.CloudType,
-		Name:               info.Name,
+		Name:               string(info.Name),
 		ProviderId:         string(info.ProviderId),
 		ProviderAttributes: info.ProviderAttributes,
 	}
@@ -25,7 +25,7 @@ func paramsFromProviderSpaceInfo(info *environs.ProviderSpaceInfo) params.Remote
 			CIDR:              subnet.CIDR,
 			ProviderId:        string(subnet.ProviderId),
 			ProviderNetworkId: string(subnet.ProviderNetworkId),
-			ProviderSpaceId:   string(subnet.SpaceProviderId),
+			ProviderSpaceId:   string(subnet.ProviderSpaceId),
 			VLANTag:           subnet.VLANTag,
 			Zones:             subnet.AvailabilityZones,
 		}
@@ -41,7 +41,7 @@ func providerSpaceInfoFromParams(space params.RemoteSpace) *environs.ProviderSpa
 		CloudType:          space.CloudType,
 		ProviderAttributes: space.ProviderAttributes,
 		SpaceInfo: network.SpaceInfo{
-			Name:       space.Name,
+			Name:       network.SpaceName(space.Name),
 			ProviderId: network.Id(space.ProviderId),
 		},
 	}
@@ -50,7 +50,7 @@ func providerSpaceInfoFromParams(space params.RemoteSpace) *environs.ProviderSpa
 			CIDR:              subnet.CIDR,
 			ProviderId:        network.Id(subnet.ProviderId),
 			ProviderNetworkId: network.Id(subnet.ProviderNetworkId),
-			SpaceProviderId:   network.Id(subnet.ProviderSpaceId),
+			ProviderSpaceId:   network.Id(subnet.ProviderSpaceId),
 			VLANTag:           subnet.VLANTag,
 			AvailabilityZones: subnet.Zones,
 		}
@@ -63,7 +63,7 @@ func providerSpaceInfoFromParams(space params.RemoteSpace) *environs.ProviderSpa
 // network.SpaceInfo.
 func spaceInfoFromState(space Space) (*network.SpaceInfo, error) {
 	result := &network.SpaceInfo{
-		Name:       space.Name(),
+		Name:       network.SpaceName(space.Name()),
 		ProviderId: space.ProviderId(),
 	}
 	subnets, err := space.Subnets()

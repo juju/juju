@@ -13,7 +13,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
@@ -81,6 +81,7 @@ func (s *BasicAuthHandlerSuite) TestSuccess(c *gc.C) {
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 	defer resp.Body.Close()
 	out, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, "hullo!")
 	s.stub.CheckCallNames(c, "Authenticate", "Authorize")
 }
@@ -94,6 +95,7 @@ func (s *BasicAuthHandlerSuite) TestAuthenticationFailure(c *gc.C) {
 	defer resp.Body.Close()
 
 	out, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, "authentication failed: username/password invalid\n")
 	c.Assert(resp.Header.Get("WWW-Authenticate"), gc.Equals, `Basic realm="juju"`)
 	s.stub.CheckCallNames(c, "Authenticate")
@@ -107,6 +109,7 @@ func (s *BasicAuthHandlerSuite) TestAuthorizationFailure(c *gc.C) {
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusForbidden)
 	defer resp.Body.Close()
 	out, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, "authorization failed: unauthorized access for resource\n")
 	s.stub.CheckCallNames(c, "Authenticate", "Authorize")
 }

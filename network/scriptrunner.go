@@ -49,5 +49,5 @@ func runCommand(command string, environ []string, clock clock.Clock, timeout tim
 		Stderr:   result.Stderr,
 		Code:     result.Code,
 		TimedOut: timedOut,
-	}, nil
+	}, errors.Trace(err)
 }

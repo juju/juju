@@ -9,7 +9,7 @@ import (
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -93,6 +93,8 @@ func (ms *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"migration-minion",
 			"migration-inactive-flag",
 			"model-cache",
+			"model-cache-initialized-flag",
+			"model-cache-initialized-gate",
 			"model-worker-manager",
 			"peer-grouper",
 			"presence",
@@ -136,36 +138,30 @@ func (ms *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 		[]string{
 			"agent",
 			"agent-config-updater",
-			"api-address-updater",
 			"api-caller",
 			"api-config-watcher",
 			"api-server",
 			"audit-config-updater",
 			"central-hub",
-			"certificate-updater",
 			"certificate-watcher",
 			"clock",
 			"controller-port",
-			"disk-manager",
 			"external-controller-updater",
-			"fan-configurer",
-			"global-clock-updater",
 			"http-server",
 			"http-server-args",
 			"is-controller-flag",
 			"is-primary-controller-flag",
 			"lease-clock-updater",
 			"lease-manager",
-			"legacy-leases-flag",
 			"log-sender",
 			"logging-config-updater",
-			"machine-action-runner",
-			"machiner",
 			"mgo-txn-resumer",
 			"migration-fortress",
 			"migration-minion",
 			"migration-inactive-flag",
 			"model-cache",
+			"model-cache-initialized-flag",
+			"model-cache-initialized-gate",
 			"model-worker-manager",
 			"peer-grouper",
 			"presence",
@@ -236,6 +232,8 @@ func (ms *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"legacy-leases-flag",
 		"log-forwarder",
 		"model-cache",
+		"model-cache-initialized-flag",
+		"model-cache-initialized-gate",
 		"model-worker-manager",
 		"peer-grouper",
 		"presence",
@@ -283,6 +281,9 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"certificate-watcher",
 		"audit-config-updater",
 		"is-primary-controller-flag",
+		"model-cache",
+		"model-cache-initialized-flag",
+		"model-cache-initialized-gate",
 		"lease-manager",
 		"legacy-leases-flag",
 		"raft-transport",
@@ -432,6 +433,8 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"model-cache",
+		"model-cache-initialized-flag",
+		"model-cache-initialized-gate",
 		"raft-transport",
 		"restore-watcher",
 		"state",
@@ -558,6 +561,8 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"model-cache",
+		"model-cache-initialized-flag",
+		"model-cache-initialized-gate",
 		"raft-transport",
 		"restore-watcher",
 		"state",
@@ -721,6 +726,23 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 
 	"model-cache": {
 		"agent",
+		"is-controller-flag",
+		"model-cache-initialized-gate",
+		"state",
+		"state-config-watcher",
+	},
+
+	"model-cache-initialized-flag": {
+		"agent",
+		"is-controller-flag",
+		"model-cache-initialized-gate",
+		"state",
+		"state-config-watcher",
+	},
+
+	"model-cache-initialized-gate": {
+		"agent",
+		"is-controller-flag",
 		"state",
 		"state-config-watcher",
 	},

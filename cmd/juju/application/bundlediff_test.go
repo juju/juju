@@ -349,8 +349,8 @@ type mockCharmStore struct {
 	bundle  *mockBundle
 }
 
-func (s *mockCharmStore) ResolveWithChannel(url *charm.URL) (*charm.URL, csparams.Channel, []string, error) {
-	s.stub.AddCall("ResolveWithChannel", url)
+func (s *mockCharmStore) ResolveWithPreferredChannel(url *charm.URL, preferredChannel csparams.Channel) (*charm.URL, csparams.Channel, []string, error) {
+	s.stub.AddCall("ResolveWithPreferredChannel", url, preferredChannel)
 	return s.url, s.channel, s.series, s.stub.NextErr()
 }
 
@@ -365,6 +365,7 @@ type mockBundle struct {
 
 func (b *mockBundle) Data() *charm.BundleData { return b.data }
 func (b *mockBundle) ReadMe() string          { return "" }
+func (b *mockBundle) ContainsOverlays() bool  { return false }
 
 type mockAPIRoot struct {
 	base.APICallCloser

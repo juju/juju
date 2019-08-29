@@ -52,6 +52,7 @@ func (s *MachineSuite) TestIsParentLockedForSeriesUpgrade(c *gc.C) {
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	child, err := s.State.AddMachineInsideMachine(template, parent.Id(), "lxd")
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = parent.CreateUpgradeSeriesLock([]string{}, "bionic")
 	c.Assert(err, jc.ErrorIsNil)
@@ -199,6 +200,7 @@ func (s *MachineSuite) TestUpgradeSeriesCompletedResetsInstanceStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleted, "")
+	c.Assert(err, jc.ErrorIsNil)
 
 	iStatus, err := s.machine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)

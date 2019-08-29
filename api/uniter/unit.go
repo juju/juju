@@ -6,7 +6,7 @@ package uniter
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -22,11 +22,17 @@ type Unit struct {
 	tag          names.UnitTag
 	life         params.Life
 	resolvedMode params.ResolvedMode
+	providerID   string
 }
 
 // Tag returns the unit's tag.
 func (u *Unit) Tag() names.UnitTag {
 	return u.tag
+}
+
+// ProviderID returns the provider Id of the unit.
+func (u *Unit) ProviderID() string {
+	return u.providerID
 }
 
 // Name returns the name of the unit.
@@ -71,6 +77,7 @@ func (u *Unit) Refresh() error {
 
 	u.life = result.Life
 	u.resolvedMode = result.Resolved
+	u.providerID = result.ProviderID
 	return nil
 }
 

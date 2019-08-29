@@ -7,11 +7,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/network"
@@ -86,7 +87,7 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	if mr.config.ClearMachineAddressesOnStart {
 		logger.Debugf("machiner configured to reset machine %q addresses to empty", mr.config.Tag)
 		if err := m.SetMachineAddresses(nil); err != nil {
-			return nil, errors.Annotate(err, "reseting machine addresses")
+			return nil, errors.Annotate(err, "resetting machine addresses")
 		}
 	} else {
 		// Set the addresses in state to the host's addresses.
@@ -113,7 +114,7 @@ func setMachineAddresses(tag names.MachineTag, m Machine) error {
 	if err != nil {
 		return err
 	}
-	var hostAddresses []network.Address
+	var hostAddresses []corenetwork.Address
 	for _, addr := range addrs {
 		var ip net.IP
 		switch addr := addr.(type) {
@@ -124,9 +125,9 @@ func setMachineAddresses(tag names.MachineTag, m Machine) error {
 		default:
 			continue
 		}
-		address := network.NewAddress(ip.String())
+		address := corenetwork.NewAddress(ip.String())
 		// Filter out link-local addresses as we cannot reliably use them.
-		if address.Scope == network.ScopeLinkLocal {
+		if address.Scope == corenetwork.ScopeLinkLocal {
 			continue
 		}
 		hostAddresses = append(hostAddresses, address)

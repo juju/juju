@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -39,6 +39,7 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.JujuManagementSpace,
 		controller.AuditLogExcludeMethods,
 		// TODO(thumper): remove MaxLogsAge and MaxLogsSize in 2.7 branch.
+		controller.MaxDebugLogDuration,
 		controller.MaxLogsAge,
 		controller.MaxLogsSize,
 		controller.MaxPruneTxnBatchSize,
@@ -161,6 +162,9 @@ func (s *ControllerSuite) TestRemovingUnknownName(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestUpdateControllerConfigRejectsSpaceWithoutAddresses(c *gc.C) {
+	_, err := s.State.AddSpace("mgmt-space", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
 	m, err := s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.SetMachineAddresses(network.NewAddress("192.168.9.9")), jc.ErrorIsNil)
@@ -173,6 +177,9 @@ func (s *ControllerSuite) TestUpdateControllerConfigRejectsSpaceWithoutAddresses
 }
 
 func (s *ControllerSuite) TestUpdateControllerConfigAcceptsSpaceWithAddresses(c *gc.C) {
+	_, err := s.State.AddSpace("mgmt-space", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
 	m, err := s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.SetProviderAddresses(network.NewAddressOnSpace("mgmt-space", "192.168.9.9")), jc.ErrorIsNil)
@@ -184,14 +191,17 @@ func (s *ControllerSuite) TestUpdateControllerConfigAcceptsSpaceWithAddresses(c 
 }
 
 func (s *ControllerSuite) TestControllerInfo(c *gc.C) {
-	ids, err := s.State.ControllerInfo()
+	info, err := s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ids.CloudName, gc.Equals, "dummy")
-	c.Assert(ids.ModelTag, gc.Equals, s.modelTag)
-	c.Assert(ids.MachineIds, gc.HasLen, 0)
+	c.Assert(info.CloudName, gc.Equals, "dummy")
+	c.Assert(info.ModelTag, gc.Equals, s.modelTag)
+	c.Assert(info.ControllerIds, gc.HasLen, 0)
 
-	// TODO(rog) more testing here when we can actually add
-	// controllers.
+	node, err := s.State.AddControllerNode()
+	c.Assert(err, jc.ErrorIsNil)
+	info, err = s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.ControllerIds, jc.DeepEquals, []string{node.Id()})
 }
 
 func (s *ControllerSuite) testOpenParams() state.OpenParams {
@@ -212,17 +222,18 @@ func (s *ControllerSuite) TestReopenWithNoMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 
-	st, err := state.Open(s.testOpenParams())
+	controller, err := state.OpenController(s.testOpenParams())
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	defer controller.Close()
+	st := controller.SystemState()
 
-	info, err = s.State.ControllerInfo()
+	info, err = st.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 }
 
 func (s *ControllerSuite) TestStateServingInfo(c *gc.C) {
-	info, err := s.State.StateServingInfo()
+	_, err := s.State.StateServingInfo()
 	c.Assert(err, gc.ErrorMatches, "state serving info not found")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
@@ -236,7 +247,7 @@ func (s *ControllerSuite) TestStateServingInfo(c *gc.C) {
 	err = s.State.SetStateServingInfo(data)
 	c.Assert(err, jc.ErrorIsNil)
 
-	info, err = s.State.StateServingInfo()
+	info, err := s.State.StateServingInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, data)
 }

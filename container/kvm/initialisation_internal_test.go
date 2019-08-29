@@ -8,6 +8,8 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/juju/juju/packaging"
+	"github.com/juju/juju/packaging/dependency"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -90,11 +92,20 @@ func (initialisationInternalSuite) TestAutoStartPool(c *gc.C) {
 }
 
 func (initialisationInternalSuite) TestRequiredPackagesAMD64(c *gc.C) {
-	got := getRequiredPackages("amd64")
-	c.Assert(got, jc.DeepEquals, []string{"qemu-kvm", "qemu-utils", "genisoimage", "libvirt-bin"})
+	got, err := dependency.KVM("amd64").PackageList("bionic")
+	c.Assert(err, gc.IsNil)
+	assertPkgListMatches(c, got, []string{"qemu-kvm", "qemu-utils", "genisoimage", "libvirt-bin"})
 }
 
 func (initialisationInternalSuite) TestRequiredPackagesARM64(c *gc.C) {
-	got := getRequiredPackages("arm64")
-	c.Assert(got, jc.DeepEquals, []string{"qemu-efi", "qemu-kvm", "qemu-utils", "genisoimage", "libvirt-bin"})
+	got, err := dependency.KVM("arm64").PackageList("bionic")
+	c.Assert(err, gc.IsNil)
+	assertPkgListMatches(c, got, []string{"qemu-efi", "qemu-kvm", "qemu-utils", "genisoimage", "libvirt-bin"})
+}
+
+func assertPkgListMatches(c *gc.C, got []packaging.Package, exp []string) {
+	c.Assert(len(got), gc.Equals, len(exp))
+	for i := 0; i < len(got); i++ {
+		c.Assert(got[i].Name, gc.Equals, exp[i])
+	}
 }

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -17,8 +17,10 @@ import (
 	apileadership "github.com/juju/juju/api/leadership"
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	coreleadership "github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter"
@@ -41,6 +43,9 @@ type ManifoldConfig struct {
 	NewWorker          func(Config) (worker.Worker, error)
 	NewClient          func(base.APICaller) Client
 	NewCharmDownloader func(base.APICaller) Downloader
+
+	NewExecClient     func(modelName string) (exec.Executor, error)
+	RunListenerSocket func() (*sockets.Socket, error)
 }
 
 func (config ManifoldConfig) Validate() error {
@@ -73,6 +78,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.LeadershipGuarantee == 0 {
 		return errors.NotValidf("missing LeadershipGuarantee")
+	}
+	if config.NewExecClient == nil {
+		return errors.NotValidf("missing NewExecClient")
 	}
 	return nil
 }
@@ -139,35 +147,53 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				claimer := apileadership.NewClient(apiCaller)
 				return leadership.NewTracker(unitTag, claimer, clock, config.LeadershipGuarantee)
 			}
-			w, err := config.NewWorker(Config{
-				ModelUUID:          agentConfig.Model().Id(),
-				ModelName:          model.Name,
-				Application:        applicationTag.Id(),
-				CharmGetter:        client,
-				Clock:              clock,
-				PodSpecSetter:      client,
-				DataDir:            agentConfig.DataDir(),
-				Downloader:         downloader,
-				StatusSetter:       client,
-				UnitGetter:         client,
-				UnitRemover:        client,
-				ApplicationWatcher: client,
-				VersionSetter:      client,
-				StartUniterFunc:    uniter.StartUniter,
+
+			runListenerSocketFunc := config.RunListenerSocket
+			if runListenerSocketFunc == nil {
+				runListenerSocketFunc = runListenerSocket
+			}
+			wCfg := Config{
+				ModelUUID:             agentConfig.Model().Id(),
+				ModelName:             model.Name,
+				Application:           applicationTag.Id(),
+				CharmGetter:           client,
+				Clock:                 clock,
+				PodSpecSetter:         client,
+				DataDir:               agentConfig.DataDir(),
+				Downloader:            downloader,
+				StatusSetter:          client,
+				UnitGetter:            client,
+				UnitRemover:           client,
+				ApplicationWatcher:    client,
+				VersionSetter:         client,
+				StartUniterFunc:       uniter.StartUniter,
+				RunListenerSocketFunc: runListenerSocketFunc,
 
 				LeadershipTrackerFunc: leadershipTrackerFunc,
 				UniterFacadeFunc:      newUniterFunc,
-				UniterParams: &uniter.UniterParams{
-					NewOperationExecutor: operation.NewExecutor,
-					DataDir:              agentConfig.DataDir(),
-					Clock:                clock,
-					MachineLock:          config.MachineLock,
-					CharmDirGuard:        charmDirGuard,
-					UpdateStatusSignal:   uniter.NewUpdateStatusTimer(),
-					HookRetryStrategy:    hookRetryStrategy,
-					TranslateResolverErr: config.TranslateResolverErr,
-				},
-			})
+			}
+
+			execClient, err := config.NewExecClient(model.Name)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			wCfg.UniterParams = &uniter.UniterParams{
+				NewOperationExecutor: operation.NewExecutor,
+				NewRemoteRunnerExecutor: getNewRunnerExecutor(
+					execClient,
+					wCfg.getPaths(),
+				),
+				DataDir:              agentConfig.DataDir(),
+				Clock:                clock,
+				MachineLock:          config.MachineLock,
+				CharmDirGuard:        charmDirGuard,
+				UpdateStatusSignal:   uniter.NewUpdateStatusTimer(),
+				HookRetryStrategy:    hookRetryStrategy,
+				TranslateResolverErr: config.TranslateResolverErr,
+			}
+
+			w, err := config.NewWorker(wCfg)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

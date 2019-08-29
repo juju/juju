@@ -21,7 +21,7 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api/base"
@@ -30,9 +30,9 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/downloader"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 )
 

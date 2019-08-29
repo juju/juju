@@ -26,6 +26,7 @@ import (
 	containerlxd "github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -103,7 +104,7 @@ type BaseSuiteUnpatched struct {
 	Provider  *environProvider
 	Env       *environ
 
-	Addresses     []network.Address
+	Addresses     []corenetwork.Address
 	Instance      *environInstance
 	Container     *lxd.Container
 	InstName      string
@@ -215,10 +216,10 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		"limits.cpu":                                             "1",
 		"limits.memory":                                          strconv.Itoa(3750 * 1024 * 1024),
 	}
-	s.Addresses = []network.Address{{
+	s.Addresses = []corenetwork.Address{{
 		Value: "10.0.0.1",
-		Type:  network.IPv4Address,
-		Scope: network.ScopeCloudLocal,
+		Type:  corenetwork.IPv4Address,
+		Scope: corenetwork.ScopeCloudLocal,
 	}}
 	// NOTE: the instance ids used throughout this package are not at all
 	// representative of what they would normally be. They would normally
@@ -647,16 +648,16 @@ func (conn *StubClient) AliveContainers(prefix string) ([]lxd.Container, error) 
 	return conn.Containers, nil
 }
 
-func (conn *StubClient) ContainerAddresses(name string) ([]network.Address, error) {
+func (conn *StubClient) ContainerAddresses(name string) ([]corenetwork.Address, error) {
 	conn.AddCall("ContainerAddresses", name)
 	if err := conn.NextErr(); err != nil {
 		return nil, err
 	}
 
-	return []network.Address{{
+	return []corenetwork.Address{{
 		Value: "10.0.0.1",
-		Type:  network.IPv4Address,
-		Scope: network.ScopeCloudLocal,
+		Type:  corenetwork.IPv4Address,
+		Scope: corenetwork.ScopeCloudLocal,
 	}}, nil
 }
 

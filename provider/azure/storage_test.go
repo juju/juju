@@ -16,7 +16,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"
@@ -621,6 +621,7 @@ func (s *storageSuite) TestDescribeVolumesWithInvalidCredential(c *gc.C) {
 
 	c.Assert(s.invalidCredential, jc.IsFalse)
 	_, err := volumeSource.DescribeVolumes(s.cloudCallCtx, []string{"volume-0"})
+	c.Assert(err, jc.ErrorIsNil)
 	results, err := volumeSource.DescribeVolumes(s.cloudCallCtx, []string{"volume-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results[0].Error, gc.NotNil)

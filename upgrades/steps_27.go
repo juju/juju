@@ -14,10 +14,45 @@ func stateStepsFor27() []Step {
 			},
 		},
 		&upgradeStep{
-			description: "recreated spaces with IDs",
+			description: "recreate spaces with IDs",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return context.State().AddSpaceIdToSpaceDocs()
+			},
+		},
+		&upgradeStep{
+			description: "change subnet AvailabilityZone to AvailabilityZones",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().ChangeSubnetAZtoSlice()
+			},
+		},
+		&upgradeStep{
+			description: "change subnet SpaceName to SpaceID",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().ChangeSubnetSpaceNameToSpaceID()
+			},
+		},
+		&upgradeStep{
+			description: "recreate subnets with IDs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().AddSubnetIdToSubnetDocs()
+			},
+		},
+		&upgradeStep{
+			description: "replace portsDoc.SubnetID as a CIDR with an ID.",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().ReplacePortsDocSubnetIDCIDR()
+			},
+		},
+		&upgradeStep{
+			description: "ensure application settings exist for all relations",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().EnsureRelationApplicationSettings()
 			},
 		},
 	}

@@ -12,12 +12,13 @@ import (
 	"github.com/juju/go-oracle-cloud/response"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	names "gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	networkenv "github.com/juju/juju/network"
+	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/oracle"
 	"github.com/juju/juju/provider/oracle/network"
 	oracletesting "github.com/juju/juju/provider/oracle/testing"
@@ -116,7 +117,7 @@ func (e *environSuite) TestAllocateContainerAddress(c *gc.C) {
 	var (
 		id   instance.Id
 		tag  names.MachineTag
-		info []networkenv.InterfaceInfo
+		info []jujunetwork.InterfaceInfo
 	)
 
 	addr, err := e.netEnv.AllocateContainerAddresses(e.callCtx, id, tag, info)
@@ -127,7 +128,7 @@ func (e *environSuite) TestAllocateContainerAddress(c *gc.C) {
 }
 
 func (e *environSuite) TestReleaseContainerAddresses(c *gc.C) {
-	var i []networkenv.ProviderInterfaceInfo
+	var i []jujunetwork.ProviderInterfaceInfo
 	err := e.netEnv.ReleaseContainerAddresses(e.callCtx, i)
 	c.Assert(err, gc.NotNil)
 	is := errors.IsNotSupported(err)
@@ -136,14 +137,14 @@ func (e *environSuite) TestReleaseContainerAddresses(c *gc.C) {
 
 func (e *environSuite) TestSubnetsWithEmptyParams(c *gc.C) {
 	info, err := e.netEnv.Subnets(e.callCtx, "", nil)
-	c.Assert(info, jc.DeepEquals, []networkenv.SubnetInfo{})
+	c.Assert(info, jc.DeepEquals, []corenetwork.SubnetInfo{})
 	c.Assert(err, gc.IsNil)
 }
 
 func (e *environSuite) TestSubnets(c *gc.C) {
-	ids := []networkenv.Id{networkenv.Id("0")}
+	ids := []corenetwork.Id{corenetwork.Id("0")}
 	info, err := e.netEnv.Subnets(e.callCtx, instance.Id("0"), ids)
-	c.Assert(info, jc.DeepEquals, []networkenv.SubnetInfo{})
+	c.Assert(info, jc.DeepEquals, []corenetwork.SubnetInfo{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -168,12 +169,12 @@ func (e *environSuite) TestNetworkInterfacesWithEmptyParams(c *gc.C) {
 	c.Assert(netEnv, gc.NotNil)
 
 	info, err := netEnv.NetworkInterfaces(e.callCtx, instance.Id("0"))
-	c.Assert(info, jc.DeepEquals, []networkenv.InterfaceInfo{})
+	c.Assert(info, jc.DeepEquals, []jujunetwork.InterfaceInfo{})
 	c.Assert(err, gc.IsNil)
 }
 
 func (e *environSuite) TestSpaces(c *gc.C) {
 	info, err := e.netEnv.Spaces(e.callCtx)
 	c.Assert(err, gc.IsNil)
-	c.Assert(info, jc.DeepEquals, []networkenv.SpaceInfo{})
+	c.Assert(info, jc.DeepEquals, []corenetwork.SpaceInfo{})
 }

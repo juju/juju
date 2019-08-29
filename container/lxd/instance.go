@@ -11,6 +11,7 @@ import (
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -33,13 +34,12 @@ func (*lxdInstance) Refresh() error {
 	return nil
 }
 
-func (lxd *lxdInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
+func (lxd *lxdInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
 	return nil, errors.NotImplementedf("lxdInstance.Addresses")
 }
 
 // Status implements instances.Instance.Status.
 func (lxd *lxdInstance) Status(ctx context.ProviderCallContext) instance.Status {
-	jujuStatus := status.Pending
 	instStatus, _, err := lxd.server.GetContainerState(lxd.id)
 	if err != nil {
 		return instance.Status{
@@ -47,6 +47,7 @@ func (lxd *lxdInstance) Status(ctx context.ProviderCallContext) instance.Status 
 			Message: fmt.Sprintf("could not get status: %v", err),
 		}
 	}
+	var jujuStatus status.Status
 	switch instStatus.StatusCode {
 	case api.Starting, api.Started:
 		jujuStatus = status.Allocating

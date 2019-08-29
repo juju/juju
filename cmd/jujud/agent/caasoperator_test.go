@@ -15,11 +15,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/voyeur"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/natefinch/lumberjack.v2"
 
+	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	coretesting "github.com/juju/juju/testing"
 	jujuworker "github.com/juju/juju/worker"
@@ -33,6 +34,10 @@ type CAASOperatorSuite struct {
 }
 
 var _ = gc.Suite(&CAASOperatorSuite{})
+
+func newExecClient(modelName string) (exec.Executor, error) {
+	return nil, nil
+}
 
 func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
@@ -51,7 +56,7 @@ func (s *CAASOperatorSuite) newBufferedLogWriter() *logsender.BufferedLogWriter 
 
 func (s *CAASOperatorSuite) TestParseSuccess(c *gc.C) {
 	// Now init actually reads the agent configuration file.
-	a, err := NewCaasOperatorAgent(nil, s.newBufferedLogWriter())
+	a, err := NewCaasOperatorAgent(nil, s.newBufferedLogWriter(), newExecClient, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmdtesting.InitCommand(a, []string{
 		"--data-dir", s.dataDir(),
@@ -63,7 +68,7 @@ func (s *CAASOperatorSuite) TestParseSuccess(c *gc.C) {
 }
 
 func (s *CAASOperatorSuite) TestParseMissing(c *gc.C) {
-	uc, err := NewCaasOperatorAgent(nil, s.newBufferedLogWriter())
+	uc, err := NewCaasOperatorAgent(nil, s.newBufferedLogWriter(), newExecClient, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmdtesting.InitCommand(uc, []string{
 		"--data-dir", "jc",
@@ -80,7 +85,7 @@ func (s *CAASOperatorSuite) TestParseNonsense(c *gc.C) {
 		{"--application-name", "wordpress/wild/9"},
 		{"--application-name", "20"},
 	} {
-		a, err := NewCaasOperatorAgent(nil, s.newBufferedLogWriter())
+		a, err := NewCaasOperatorAgent(nil, s.newBufferedLogWriter(), newExecClient, nil)
 		c.Assert(err, jc.ErrorIsNil)
 
 		err = cmdtesting.InitCommand(a, append(args, "--data-dir", "jc"))
@@ -89,7 +94,7 @@ func (s *CAASOperatorSuite) TestParseNonsense(c *gc.C) {
 }
 
 func (s *CAASOperatorSuite) TestParseUnknown(c *gc.C) {
-	a, err := NewCaasOperatorAgent(nil, s.newBufferedLogWriter())
+	a, err := NewCaasOperatorAgent(nil, s.newBufferedLogWriter(), newExecClient, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = cmdtesting.InitCommand(a, []string{

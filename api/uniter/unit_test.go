@@ -15,7 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base/testing"
@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	jujufactory "github.com/juju/juju/testing/factory"
 )
@@ -242,6 +241,29 @@ func (s *unitSuite) TestRefreshResolve(c *gc.C) {
 	c.Assert(mode, gc.Equals, params.ResolvedNone)
 }
 
+func (s *unitSuite) TestRefreshUpdateProviderID(c *gc.C) {
+	c.Assert(s.apiUnit.ProviderID(), gc.Equals, "")
+
+	providerID := "provider-id-123"
+	err := s.wordpressApplication.UpdateUnits(
+		&state.UpdateUnitsOperation{
+			Updates: []*state.UpdateUnitOperation{
+				s.wordpressUnit.UpdateOperation(
+					state.UnitUpdateProperties{
+						ProviderId: &providerID,
+					},
+				),
+			},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.apiUnit.ProviderID(), gc.Equals, "")
+
+	err = s.apiUnit.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.apiUnit.ProviderID(), gc.Equals, providerID)
+}
+
 func (s *unitSuite) TestWatch(c *gc.C) {
 	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
 
@@ -361,29 +383,29 @@ func (s *unitSuite) TestHasSubordinates(c *gc.C) {
 }
 
 func (s *unitSuite) TestPublicAddress(c *gc.C) {
-	address, err := s.apiUnit.PublicAddress()
+	_, err := s.apiUnit.PublicAddress()
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no public address set`)
 
 	err = s.wordpressMachine.SetProviderAddresses(
-		network.NewScopedAddress("1.2.3.4", network.ScopePublic),
+		corenetwork.NewScopedAddress("1.2.3.4", corenetwork.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	address, err = s.apiUnit.PublicAddress()
+	address, err := s.apiUnit.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(address, gc.Equals, "1.2.3.4")
 }
 
 func (s *unitSuite) TestPrivateAddress(c *gc.C) {
-	address, err := s.apiUnit.PrivateAddress()
+	_, err := s.apiUnit.PrivateAddress()
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no private address set`)
 
 	err = s.wordpressMachine.SetProviderAddresses(
-		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+		corenetwork.NewScopedAddress("1.2.3.4", corenetwork.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	address, err = s.apiUnit.PrivateAddress()
+	address, err := s.apiUnit.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(address, gc.Equals, "1.2.3.4")
 }
@@ -503,14 +525,14 @@ func (s *unitSuite) TestNetworkInfo(c *gc.C) {
 func (s *unitSuite) TestConfigSettings(c *gc.C) {
 	// Make sure ConfigSettings returns an error when
 	// no charm URL is set, as its state counterpart does.
-	settings, err := s.apiUnit.ConfigSettings()
-	c.Assert(err, gc.ErrorMatches, "unit charm not set")
+	_, err := s.apiUnit.ConfigSettings()
+	c.Assert(err, gc.ErrorMatches, "unit's charm URL must be set before retrieving config")
 
 	// Now set the charm and try again.
 	err = s.apiUnit.SetCharmURL(s.wordpressCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
-	settings, err = s.apiUnit.ConfigSettings()
+	settings, err := s.apiUnit.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"blog-title": "My Title",
@@ -522,9 +544,6 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.State.StartSync()
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
-
 	settings, err = s.apiUnit.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
@@ -535,39 +554,33 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	// Make sure WatchConfigSettingsHash returns an error when
 	// no charm URL is set, as its state counterpart does.
-	w, err := s.apiUnit.WatchConfigSettingsHash()
-	c.Assert(err, gc.ErrorMatches, "unit charm not set")
+	_, err := s.apiUnit.WatchConfigSettingsHash()
+	c.Assert(err, gc.ErrorMatches, "unit's charm URL must be set before watching config")
 
 	// Now set the charm and try again.
 	err = s.apiUnit.SetCharmURL(s.wordpressCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
-	w, err = s.apiUnit.WatchConfigSettingsHash()
+	w, err := s.apiUnit.WatchConfigSettingsHash()
+	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
 
-	// See core/cache/hash.go for the hash implementation.
-	// This is a hash of the charm URL PLUS an empty map[string]interface{}.
-	wc.AssertChange("0affda4fb1eaa8df870459625aa93c85e9fd6fc5374ac69f509575d139032262")
+	// Initial event - this is the sha-256 hash of an empty bson.D.
+	wc.AssertChange("e8d7e8dfff0eed1e77b15638581672f7b25ecc1163cc5fd5a52d29d51d096c00")
 
 	err = s.wordpressApplication.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
 		"blog-title": "sauceror central",
 	})
 
-	s.State.StartSync()
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
-
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("bfeb5aee52e6dea59d9c2a0c35a4d7fffa690c7230b1dd66f16832e4094905ae")
+	wc.AssertChange("7ed6151e9c3d5144faf0946d20c283c466b4885dded6a6122ff3fdac7ee2334f")
 
 	// Non-change is not reported.
 	err = s.wordpressApplication.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.State.StartSync()
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	wc.AssertNoChange()
 }
@@ -817,17 +830,17 @@ func (s *unitSuite) TestWatchAddressesHash(c *gc.C) {
 	wc.AssertChange("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 
 	// Update config get an event.
-	err = s.wordpressMachine.SetProviderAddresses(network.NewAddress("0.1.2.4"))
+	err = s.wordpressMachine.SetProviderAddresses(corenetwork.NewAddress("0.1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("e8686213014563c18d8b3838ac3ac247dc2c7ceb0000cb01c19aa401ffc76e80")
 
 	// Non-change is not reported.
-	err = s.wordpressMachine.SetProviderAddresses(network.NewAddress("0.1.2.4"))
+	err = s.wordpressMachine.SetProviderAddresses(corenetwork.NewAddress("0.1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Change is reported for machine addresses.
-	err = s.wordpressMachine.SetMachineAddresses(network.NewAddress("0.1.2.5"))
+	err = s.wordpressMachine.SetMachineAddresses(corenetwork.NewAddress("0.1.2.5"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("ad269642567ef00c2c9c6ff84e9c04ecf3aa3342c1b4d98d76142471781c4495")
 

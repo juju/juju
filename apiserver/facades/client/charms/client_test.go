@@ -32,16 +32,17 @@ var _ = gc.Suite(&charmsSuite{})
 // charmsSuiteContext implements the facade.Context interface.
 type charmsSuiteContext struct{ cs *charmsSuite }
 
-func (ctx *charmsSuiteContext) Abort() <-chan struct{}        { return nil }
-func (ctx *charmsSuiteContext) Auth() facade.Authorizer       { return ctx.cs.auth }
-func (ctx *charmsSuiteContext) Dispose()                      {}
-func (ctx *charmsSuiteContext) Resources() facade.Resources   { return common.NewResources() }
-func (ctx *charmsSuiteContext) State() *state.State           { return ctx.cs.State }
-func (ctx *charmsSuiteContext) StatePool() *state.StatePool   { return nil }
-func (ctx *charmsSuiteContext) ID() string                    { return "" }
-func (ctx *charmsSuiteContext) Presence() facade.Presence     { return nil }
-func (ctx *charmsSuiteContext) Hub() facade.Hub               { return nil }
-func (ctx *charmsSuiteContext) Controller() *cache.Controller { return nil }
+func (ctx *charmsSuiteContext) Abort() <-chan struct{}                        { return nil }
+func (ctx *charmsSuiteContext) Auth() facade.Authorizer                       { return ctx.cs.auth }
+func (ctx *charmsSuiteContext) Dispose()                                      {}
+func (ctx *charmsSuiteContext) Resources() facade.Resources                   { return common.NewResources() }
+func (ctx *charmsSuiteContext) State() *state.State                           { return ctx.cs.State }
+func (ctx *charmsSuiteContext) StatePool() *state.StatePool                   { return nil }
+func (ctx *charmsSuiteContext) ID() string                                    { return "" }
+func (ctx *charmsSuiteContext) Presence() facade.Presence                     { return nil }
+func (ctx *charmsSuiteContext) Hub() facade.Hub                               { return nil }
+func (ctx *charmsSuiteContext) Controller() *cache.Controller                 { return nil }
+func (ctx *charmsSuiteContext) CachedModel(uuid string) (*cache.Model, error) { return nil, nil }
 
 func (ctx *charmsSuiteContext) LeadershipClaimer(string) (leadership.Claimer, error) { return nil, nil }
 func (ctx *charmsSuiteContext) LeadershipChecker() (leadership.Checker, error)       { return nil, nil }

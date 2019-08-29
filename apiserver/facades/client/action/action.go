@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -32,6 +32,11 @@ type APIv2 struct {
 
 // APIv3 provides the Action API facade for version 3.
 type APIv3 struct {
+	*APIv4
+}
+
+// APIv4 provides the Action API facade for version 4.
+type APIv4 struct {
 	*ActionAPI
 }
 
@@ -46,11 +51,20 @@ func NewActionAPIV2(ctx facade.Context) (*APIv2, error) {
 
 // NewActionAPIV3 returns an initialized ActionAPI for version 3.
 func NewActionAPIV3(ctx facade.Context) (*APIv3, error) {
-	api, err := newActionAPI(ctx.State(), ctx.Resources(), ctx.Auth())
+	api, err := NewActionAPIV4(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &APIv3{api}, nil
+}
+
+// NewActionAPIV4 returns an initialized ActionAPI for version 4.
+func NewActionAPIV4(ctx facade.Context) (*APIv4, error) {
+	api, err := newActionAPI(ctx.State(), ctx.Resources(), ctx.Auth())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv4{api}, nil
 }
 
 func newActionAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ActionAPI, error) {

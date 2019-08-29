@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -60,6 +60,7 @@ func (s *runSuite) addUnit(c *gc.C, application *state.Application) *state.Unit 
 func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	magic, err := s.State.AddApplication(state.AddApplicationArgs{Name: "magic", Charm: charm})
+	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
 
@@ -192,8 +193,9 @@ func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 	// We only test that we create the actions correctly
 	// There is no need to test anything else at this level.
 	expectedPayload := map[string]interface{}{
-		"command": "hostname",
-		"timeout": int64(0),
+		"command":          "hostname",
+		"timeout":          int64(0),
+		"workload-context": false,
 	}
 	expectedArgs := params.Actions{
 		Actions: []params.Action{
@@ -226,12 +228,51 @@ func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
+func (s *runSuite) TestRunApplicationWorkload(c *gc.C) {
+	// We only test that we create the actions correctly
+	// There is no need to test anything else at this level.
+	expectedPayload := map[string]interface{}{
+		"command":          "hostname",
+		"timeout":          int64(0),
+		"workload-context": true,
+	}
+	expectedArgs := params.Actions{
+		Actions: []params.Action{
+			{Receiver: "unit-magic-0", Name: "juju-run", Parameters: expectedPayload},
+			{Receiver: "unit-magic-1", Name: "juju-run", Parameters: expectedPayload},
+		},
+	}
+	called := false
+	s.PatchValue(action.QueueActions, func(client *action.ActionAPI, args params.Actions) (params.ActionResults, error) {
+		called = true
+		c.Assert(args, jc.DeepEquals, expectedArgs)
+		return params.ActionResults{}, nil
+	})
+
+	s.addMachine(c)
+
+	charm := s.AddTestingCharm(c, "dummy")
+	magic, err := s.State.AddApplication(state.AddApplicationArgs{Name: "magic", Charm: charm})
+	c.Assert(err, jc.ErrorIsNil)
+	s.addUnit(c, magic)
+	s.addUnit(c, magic)
+
+	s.client.Run(
+		params.RunParams{
+			Commands:        "hostname",
+			Applications:    []string{"magic"},
+			WorkloadContext: true,
+		})
+	c.Assert(called, jc.IsTrue)
+}
+
 func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 	// We only test that we create the actions correctly
 	// There is no need to test anything else at this level.
 	expectedPayload := map[string]interface{}{
-		"command": "hostname",
-		"timeout": testing.LongWait.Nanoseconds(),
+		"command":          "hostname",
+		"timeout":          testing.LongWait.Nanoseconds(),
+		"workload-context": false,
 	}
 	expectedArgs := params.Actions{
 		Actions: []params.Action{

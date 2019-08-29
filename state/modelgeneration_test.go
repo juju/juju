@@ -223,6 +223,7 @@ func (s *generationSuite) TestCommitAppliesConfigDeltas(c *gc.C) {
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 
 	_, err = gen.Commit(branchCommitter)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gen.Refresh(), jc.ErrorIsNil)
 
 	cfg, err := app.CharmConfig(model.GenerationMaster)
@@ -370,6 +371,65 @@ func (s *generationSuite) TestBranches(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(branches, gc.HasLen, 1)
 	c.Check(branches[0].BranchName(), gc.Equals, newBranchName)
+}
+
+func (s *generationSuite) TestUnitBranch(c *gc.C) {
+	s.setupTestingClock(c)
+
+	branchA := s.setupAssignAllUnits(c)
+	c.Assert(branchA.AssignUnit("riak/0"), jc.ErrorIsNil)
+
+	c.Assert(branchA.AssignUnit("riak/2"), jc.ErrorIsNil)
+	c.Assert(s.Model.AddBranch("banana", newBranchCreator), jc.ErrorIsNil)
+	branchB, err := s.Model.Branch("banana")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(branchB.AssignUnit("riak/1"), jc.ErrorIsNil)
+
+	unit2Branch, err := state.UnitBranch(s.Model, "riak/2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit2Branch.BranchName(), gc.Equals, branchA.BranchName())
+
+	unit1Branch, err := state.UnitBranch(s.Model, "riak/1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit1Branch.BranchName(), gc.Equals, branchB.BranchName())
+
+	// Idempotent.
+	unit2BranchTake2, err := state.UnitBranch(s.Model, "riak/2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit2BranchTake2.BranchName(), gc.Equals, unit2Branch.BranchName())
+}
+
+func (s *generationSuite) TestApplicationBranches(c *gc.C) {
+	s.setupTestingClock(c)
+
+	branchA := s.setupAssignAllUnits(c)
+	c.Assert(branchA.AssignUnit("riak/0"), jc.ErrorIsNil)
+
+	appBranchesA, err := state.ApplicationBranches(s.Model, "riak")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appBranchesA, gc.HasLen, 1)
+	c.Assert(appBranchesA[0].BranchName(), gc.Equals, branchA.BranchName())
+
+	c.Assert(s.Model.AddBranch("banana", newBranchCreator), jc.ErrorIsNil)
+	branchB, err := s.Model.Branch("banana")
+	c.Assert(err, jc.ErrorIsNil)
+
+	appBranchesATake2, err := state.ApplicationBranches(s.Model, "riak")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appBranchesATake2, gc.HasLen, 1)
+	c.Assert(appBranchesA[0].BranchName(), gc.Equals, appBranchesATake2[0].BranchName())
+
+	c.Assert(branchB.AssignUnit("riak/1"), jc.ErrorIsNil)
+
+	appBranchesA, err = state.ApplicationBranches(s.Model, "riak")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appBranchesA, gc.HasLen, 2)
+
+	// Idempotent.
+	appBranchesATake2, err = state.ApplicationBranches(s.Model, "riak")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appBranchesATake2, gc.DeepEquals, appBranchesA)
 }
 
 func (s *generationSuite) setupAssignAllUnits(c *gc.C) *state.Generation {

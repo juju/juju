@@ -15,7 +15,7 @@ import (
 	"github.com/juju/txn"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -1087,13 +1087,13 @@ func (s *ActionPruningSuite) TestDoNotPruneIncompleteActions(c *gc.C) {
 	const numZeroValueEntries = 5
 	state.PrimeActions(c, time.Time{}, unit, numZeroValueEntries)
 
-	actions, err := unit.Actions()
+	_, err = unit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = state.PruneActions(s.State, 1*time.Hour, 0)
 	c.Assert(err, jc.ErrorIsNil)
 
-	actions, err = unit.Actions()
+	actions, err := unit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
 	actionsLen := len(actions)
 

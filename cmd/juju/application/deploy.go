@@ -7,7 +7,6 @@ import (
 	"archive/zip"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,7 +22,7 @@ import (
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient/params"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/macaroon.v2-unstable"
 	"gopkg.in/yaml.v2"
@@ -137,7 +136,7 @@ type DeployAPI interface {
 	Deploy(application.DeployArgs) error
 	Status(patterns []string) (*apiparams.FullStatus, error)
 
-	ResolveWithChannel(*charm.URL) (*charm.URL, params.Channel, []string, error)
+	ResolveWithPreferredChannel(*charm.URL, params.Channel) (*charm.URL, params.Channel, []string, error)
 
 	GetBundle(*charm.URL) (charm.Bundle, error)
 
@@ -176,7 +175,7 @@ type modelConfigClient struct {
 type charmrepoForDeploy interface {
 	Get(charmURL *charm.URL) (charm.Charm, error)
 	GetBundle(bundleURL *charm.URL) (charm.Bundle, error)
-	ResolveWithChannel(*charm.URL) (*charm.URL, params.Channel, []string, error)
+	ResolveWithPreferredChannel(*charm.URL, params.Channel) (*charm.URL, params.Channel, []string, error)
 }
 
 type charmRepoClient struct {
@@ -247,13 +246,13 @@ func (a *deployAPIAdapter) Deploy(args application.DeployArgs) error {
 	return errors.Trace(a.applicationClient.Deploy(args))
 }
 
-func (a *deployAPIAdapter) Resolve(cfg *config.Config, url *charm.URL) (
+func (a *deployAPIAdapter) Resolve(cfg *config.Config, url *charm.URL, preferredChannel params.Channel) (
 	*charm.URL,
 	params.Channel,
 	[]string,
 	error,
 ) {
-	return resolveCharm(a.charmRepoClient.ResolveWithChannel, url)
+	return resolveCharm(a.charmRepoClient.ResolveWithPreferredChannel, url, preferredChannel)
 }
 
 func (a *deployAPIAdapter) Get(url *charm.URL) (charm.Charm, error) {
@@ -303,7 +302,7 @@ func NewDeployCommand() modelcmd.ModelCommand {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
+		cstoreClient := newCharmStoreClient(bakeryClient, csURL)
 
 		return &deployAPIAdapter{
 			Connection:        apiRoot,
@@ -892,16 +891,24 @@ func (c *DeployCommand) deployBundle(spec bundleDeploySpec) (rErr error) {
 	}
 	spec.accountUser = accountDetails.User
 
+	// Compose bundle to be deployed and check its validity before running
+	// any pre/post checks.
+	var bundleData *charm.BundleData
+	if bundleData, err = composeAndVerifyBundle(spec.bundleDataSource, spec.bundleOverlayFile); err != nil {
+		return errors.Annotatef(err, "cannot deploy bundle")
+	}
+	spec.bundleDir = spec.bundleDataSource.BasePath()
+
 	// Short-circuit trust checks if the operator specifies '--force'
 	if !c.Trust {
-		if tl := appsRequiringTrust(spec.bundleData.Applications); len(tl) != 0 && !c.Force {
+		if tl := appsRequiringTrust(bundleData.Applications); len(tl) != 0 && !c.Force {
 			return errors.Errorf(`Bundle cannot be deployed without trusting applications with your cloud credentials.
 Please repeat the deploy command with the --trust argument if you consent to trust the following application(s):
   - %s`, strings.Join(tl, "\n  - "))
 		}
 	}
 
-	for application, applicationSpec := range spec.bundleData.Applications {
+	for application, applicationSpec := range bundleData.Applications {
 		if applicationSpec.Plan != "" {
 			for _, step := range c.Steps {
 				s := step
@@ -943,24 +950,13 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 		if url.Source == "" {
 			url.Source = controllerName
 		}
-
-		// if we know the controller isn't available locally, then we should
-		// let the user know as soon as possible, so that we can instruct them
-		// to login.
-		cs := c.ClientStore()
-		if _, err := cs.AccountDetails(url.Source); err != nil && errors.IsNotFound(err) {
-			return nil, errors.Errorf("Controller %q not found locally.\n"+
-				"Please try logging in to the controller using `juju login` to enable\n"+
-				"accessing the controller locally.", url.Source)
-		}
-
 		return c.NewConsumeDetailsAPI(url)
 	}
 
 	// TODO(ericsnow) Do something with the CS macaroons that were returned?
 	// Deploying bundles does not allow the use force, it's expected that the
 	// bundle is correct and therefore the charms are also.
-	if _, err := deployBundle(spec); err != nil {
+	if _, err := deployBundle(bundleData, spec); err != nil {
 		return errors.Annotate(err, "cannot deploy bundle")
 	}
 	return nil
@@ -1338,54 +1334,10 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 	}, nil
 }
 
-// readLocalBundle returns the bundle data and bundle dir (for
-// resolving includes) for the bundleFile passed in. If the bundle
-// file doesn't exist we return nil.
-func readLocalBundle(ctx *cmd.Context, bundleFile string) (*charm.BundleData, string, error) {
-	bundleData, err := charmrepo.ReadBundleFile(bundleFile)
-	if err == nil {
-		// If the bundle is defined with just a yaml file, the bundle
-		// path is the directory that holds the file.
-		return bundleData, filepath.Dir(ctx.AbsPath(bundleFile)), nil
-	}
-
-	// We may have been given a local bundle archive or exploded directory.
-	bundle, _, pathErr := charmrepo.NewBundleAtPath(bundleFile)
-	if charmrepo.IsInvalidPathError(pathErr) {
-		return nil, "", pathErr
-	}
-	if pathErr != nil {
-		// If the bundle files existed but we couldn't read them,
-		// then return that error rather than trying to interpret
-		// as a charm.
-		if info, statErr := os.Stat(bundleFile); statErr == nil {
-			if info.IsDir() {
-				if _, ok := pathErr.(*charmrepo.NotFoundError); !ok {
-					return nil, "", errors.Trace(pathErr)
-				}
-			}
-		}
-
-		logger.Debugf("cannot interpret as local bundle: %v", err)
-		return nil, "", errors.NotValidf("local bundle %q", bundleFile)
-	}
-	bundleData = bundle.Data()
-
-	// If we get to here bundleFile is a directory, in which case
-	// we should use the absolute path as the bundFilePath, or it is
-	// an archive, in which case we should pass the empty string.
-	var bundleDir string
-	if info, err := os.Stat(bundleFile); err == nil && info.IsDir() {
-		bundleDir = ctx.AbsPath(bundleFile)
-	}
-
-	return bundleData, bundleDir, nil
-}
-
 func (c *DeployCommand) maybeReadLocalBundle(ctx *cmd.Context) (deployFn, error) {
 	bundleFile := c.CharmOrBundle
-	bundleData, bundleDir, err := readLocalBundle(ctx, bundleFile)
-	if charmrepo.IsInvalidPathError(err) {
+	_, statErr := os.Stat(bundleFile)
+	if statErr == nil && !charm.IsValidLocalCharmOrBundlePath(bundleFile) {
 		return nil, errors.Errorf(""+
 			"The charm or bundle %q is ambiguous.\n"+
 			"To deploy a local charm or bundle, run `juju deploy ./%[1]s`.\n"+
@@ -1393,10 +1345,11 @@ func (c *DeployCommand) maybeReadLocalBundle(ctx *cmd.Context) (deployFn, error)
 			bundleFile,
 		)
 	}
-	if errors.IsNotValid(err) {
-		// No problem reading it, but it's not a local bundle. Return
-		// nil, nil to indicate the fallback pipeline should try the
-		// next possibility.
+
+	ds, err := charm.LocalBundleDataSource(bundleFile)
+	if errors.IsNotFound(err) {
+		// Not a local bundle. Return nil, nil to indicate the fallback
+		// pipeline should try the next possibility.
 		return nil, nil
 	}
 	if err != nil {
@@ -1412,8 +1365,7 @@ func (c *DeployCommand) maybeReadLocalBundle(ctx *cmd.Context) (deployFn, error)
 			dryRun:              c.DryRun,
 			force:               c.Force,
 			trust:               c.Trust,
-			bundleDir:           bundleDir,
-			bundleData:          bundleData,
+			bundleDataSource:    ds,
 			bundleOverlayFile:   c.BundleOverlayFile,
 			channel:             c.Channel,
 			apiRoot:             apiRoot,
@@ -1525,14 +1477,14 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 // URLResolver is the part of charmrepo.Charmstore that we need to
 // resolve a charm url.
 type URLResolver interface {
-	ResolveWithChannel(*charm.URL) (*charm.URL, params.Channel, []string, error)
+	ResolveWithPreferredChannel(*charm.URL, params.Channel) (*charm.URL, params.Channel, []string, error)
 }
 
 // resolveBundleURL tries to interpret maybeBundle as a charmstore
 // bundle. If it turns out to be a bundle, the resolved URL and
 // channel are returned. If it isn't but there wasn't a problem
 // checking it, it returns a nil charm URL.
-func resolveBundleURL(store URLResolver, maybeBundle string) (*charm.URL, params.Channel, error) {
+func resolveBundleURL(store URLResolver, maybeBundle string, preferredChannel params.Channel) (*charm.URL, params.Channel, error) {
 	userRequestedURL, err := charm.ParseURL(maybeBundle)
 	if err != nil {
 		return nil, "", errors.Trace(err)
@@ -1540,7 +1492,7 @@ func resolveBundleURL(store URLResolver, maybeBundle string) (*charm.URL, params
 
 	// Charm or bundle has been supplied as a URL so we resolve and
 	// deploy using the store.
-	storeCharmOrBundleURL, channel, _, err := resolveCharm(store.ResolveWithChannel, userRequestedURL)
+	storeCharmOrBundleURL, channel, _, err := resolveCharm(store.ResolveWithPreferredChannel, userRequestedURL, preferredChannel)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
@@ -1556,7 +1508,7 @@ func resolveBundleURL(store URLResolver, maybeBundle string) (*charm.URL, params
 
 func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (deployFn, error) {
 	return func() (deployFn, error) {
-		bundleURL, channel, err := resolveBundleURL(apiRoot, c.CharmOrBundle)
+		bundleURL, channel, err := resolveBundleURL(apiRoot, c.CharmOrBundle, c.Channel)
 		if charm.IsUnsupportedSeriesError(errors.Cause(err)) {
 			return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 		}
@@ -1572,19 +1524,31 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (d
 		}
 
 		return func(ctx *cmd.Context, apiRoot DeployAPI) error {
+			// Ideally, we would like to expose a GetBundleDataSource
+			// method for the charmstore. As we want to avoid further
+			// diverging charmrepo.v3 from charmrepo.v4, the best
+			// solution would be to converge to a charmrepo.v5.
+			// Unfortunately, the macaroon-related changes from v4
+			// wreak havoc with our bakery.v2/v2-unstable includes
+			// and therefore require quite a bit of effort to fix.
+			//
+			// As a short-term solution and given that we don't
+			// want to support (for now at least) multi-doc bundles
+			// from the charmstore we simply use the existing
+			// charmrepo.v3 API to read the base bundle and
+			// wrap it in a BundleDataSource for use by deployBundle.
 			bundle, err := apiRoot.GetBundle(bundleURL)
 			if err != nil {
 				return errors.Trace(err)
 			}
 			ctx.Infof("Located bundle %q", bundleURL)
-			data := bundle.Data()
 
 			return errors.Trace(c.deployBundle(bundleDeploySpec{
 				ctx:                 ctx,
 				dryRun:              c.DryRun,
 				force:               c.Force,
 				trust:               c.Trust,
-				bundleData:          data,
+				bundleDataSource:    newResolvedBundle(bundle),
 				bundleURL:           bundleURL,
 				bundleOverlayFile:   c.BundleOverlayFile,
 				channel:             channel,
@@ -1623,9 +1587,11 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 			return errors.Trace(err)
 		}
 
-		// Charm or bundle has been supplied as a URL so we resolve and deploy using the store.
+		// Charm or bundle has been supplied as a URL so we resolve and
+		// deploy using the store but pass in the channel command line
+		// argument so users can target a specific channel.
 		storeCharmOrBundleURL, channel, supportedSeries, err := resolveCharm(
-			apiRoot.ResolveWithChannel, userRequestedURL,
+			apiRoot.ResolveWithPreferredChannel, userRequestedURL, c.Channel,
 		)
 		if charm.IsUnsupportedSeriesError(err) {
 			return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
@@ -1786,4 +1752,36 @@ func appsRequiringTrust(appSpecList map[string]*charm.ApplicationSpec) []string 
 	// consistent output in any errors containing the returned list contents.
 	sort.Strings(tl)
 	return tl
+}
+
+// resolvedBundle decorates a charm.Bundle instance with a type that implements
+// the charm.BundleDataSource interface.
+type resolvedBundle struct {
+	parts []*charm.BundleDataPart
+}
+
+func newResolvedBundle(b charm.Bundle) resolvedBundle {
+	return resolvedBundle{
+		parts: []*charm.BundleDataPart{
+			{
+				Data:        b.Data(),
+				PresenceMap: make(charm.FieldPresenceMap),
+			},
+		},
+	}
+}
+
+// Parts implements charm.BundleDataSource.
+func (rb resolvedBundle) Parts() []*charm.BundleDataPart {
+	return rb.parts
+}
+
+// BasePath implements charm.BundleDataSource.
+func (resolvedBundle) BasePath() string {
+	return ""
+}
+
+// ResolveInclude implements charm.BundleDataSource.
+func (resolvedBundle) ResolveInclude(_ string) ([]byte, error) {
+	return nil, errors.NotSupportedf("remote bundle includes")
 }

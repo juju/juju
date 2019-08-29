@@ -5,11 +5,11 @@ package subnets
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 const subnetsFacade = "Subnets"
@@ -33,23 +33,20 @@ func NewAPI(caller base.APICallCloser) *API {
 }
 
 // AddSubnet adds an existing subnet to the model.
-func (api *API) AddSubnet(subnet names.SubnetTag, providerId network.Id, space names.SpaceTag, zones []string) error {
+func (api *API) AddSubnet(cidr string, providerId network.Id, space names.SpaceTag, zones []string) error {
 	var response params.ErrorResults
 	// Prefer ProviderId when set over CIDR.
-	subnetTag := subnet.String()
 	if providerId != "" {
-		subnetTag = ""
+		cidr = ""
 	}
 
-	params := params.AddSubnetsParams{
-		Subnets: []params.AddSubnetParams{{
-			SubnetTag:        subnetTag,
-			SubnetProviderId: string(providerId),
-			SpaceTag:         space.String(),
-			Zones:            zones,
-		}},
+	var args interface{}
+	if bestVer := api.BestAPIVersion(); bestVer < 3 {
+		args = makeAddSubnetsParamsV2(cidr, providerId, space, zones)
+	} else {
+		args = makeAddSubnetsParams(cidr, providerId, space, zones)
 	}
-	err := api.facade.FacadeCall("AddSubnets", params, &response)
+	err := api.facade.FacadeCall("AddSubnets", args, &response)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -58,20 +55,27 @@ func (api *API) AddSubnet(subnet names.SubnetTag, providerId network.Id, space n
 
 // CreateSubnet creates a new subnet with the provider.
 func (api *API) CreateSubnet(subnet names.SubnetTag, space names.SpaceTag, zones []string, isPublic bool) error {
-	var response params.ErrorResults
-	params := params.CreateSubnetsParams{
-		Subnets: []params.CreateSubnetParams{{
-			SubnetTag: subnet.String(),
-			SpaceTag:  space.String(),
-			Zones:     zones,
-			IsPublic:  isPublic,
-		}},
-	}
-	err := api.facade.FacadeCall("CreateSubnets", params, &response)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return response.OneError()
+	// TODO (hml) 2019-08-23
+	// This call is behind a feature flag and panics due to lack of
+	// facade on the the other end.  It's in the list to be audited
+	// for updates as part of current networking improvements.  Fix
+	// names.v2 SubnetTag at that time.
+	return errors.NewNotImplemented(nil, "CreateSubnet")
+
+	//var response params.ErrorResults
+	//params := params.CreateSubnetsParams{
+	//	Subnets: []params.CreateSubnetParams{{
+	//		SubnetTag: subnet.String(),
+	//		SpaceTag:  space.String(),
+	//		Zones:     zones,
+	//		IsPublic:  isPublic,
+	//	}},
+	//}
+	//err := api.facade.FacadeCall("CreateSubnets", params, &response)
+	//if err != nil {
+	//	return errors.Trace(err)
+	//}
+	//return response.OneError()
 }
 
 // ListSubnets fetches all the subnets known by the model.
@@ -90,4 +94,30 @@ func (api *API) ListSubnets(spaceTag *names.SpaceTag, zone string) ([]params.Sub
 		return nil, errors.Trace(err)
 	}
 	return response.Results, nil
+}
+
+func makeAddSubnetsParamsV2(cidr string, providerId network.Id, space names.SpaceTag, zones []string) params.AddSubnetsParamsV2 {
+	var subnetTag string
+	if cidr != "" {
+		subnetTag = "subnet-" + cidr
+	}
+	return params.AddSubnetsParamsV2{
+		Subnets: []params.AddSubnetParamsV2{{
+			SubnetTag:        subnetTag,
+			SubnetProviderId: string(providerId),
+			SpaceTag:         space.String(),
+			Zones:            zones,
+		}},
+	}
+}
+
+func makeAddSubnetsParams(cidr string, providerId network.Id, space names.SpaceTag, zones []string) params.AddSubnetsParams {
+	return params.AddSubnetsParams{
+		Subnets: []params.AddSubnetParams{{
+			CIDR:             cidr,
+			SubnetProviderId: string(providerId),
+			SpaceTag:         space.String(),
+			Zones:            zones,
+		}},
+	}
 }

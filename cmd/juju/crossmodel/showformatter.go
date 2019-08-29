@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/crossmodel"
 )
 
 const (
@@ -41,7 +41,7 @@ func formatOfferedEndpointsTabular(writer io.Writer, all map[string]ShowOfferedA
 	w.Println("Store", "URL", "Access", "Description", "Endpoint", "Interface", "Role")
 
 	for urlStr, one := range all {
-		url, err := charm.ParseOfferURL(urlStr)
+		url, err := crossmodel.ParseOfferURL(urlStr)
 		if err != nil {
 			return err
 		}

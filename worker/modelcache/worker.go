@@ -29,8 +29,14 @@ type BackingWatcher interface {
 	Stop() error
 }
 
+// Unlocker is used to indicate that the model cache is ready to be used.
+type Unlocker interface {
+	Unlock()
+}
+
 // Config describes the necessary fields for NewWorker.
 type Config struct {
+	InitializedGate      Unlocker
 	Logger               Logger
 	PrometheusRegisterer prometheus.Registerer
 	Cleanup              func()
@@ -49,6 +55,9 @@ type Config struct {
 
 // Validate ensures all the necessary values are specified
 func (c *Config) Validate() error {
+	if c.InitializedGate == nil {
+		return errors.NotValidf("missing initialized gate")
+	}
 	if c.Logger == nil {
 		return errors.NotValidf("missing logger")
 	}
@@ -188,6 +197,7 @@ func (c *cacheWorker) loop() error {
 		}
 	}()
 
+	first := true
 	for {
 		select {
 		case <-c.catacomb.Dying():
@@ -211,6 +221,12 @@ func (c *cacheWorker) loop() error {
 
 			// Evict any stale residents.
 			c.controller.Sweep()
+
+			if first {
+				// Indicate that the cache is now ready to be used.
+				c.config.InitializedGate.Unlock()
+				first = false
+			}
 		}
 	}
 }
@@ -340,7 +356,7 @@ func (c *cacheWorker) translateMachine(d multiwatcher.Delta) interface{} {
 		SupportedContainersKnown: value.SupportedContainersKnown,
 		HardwareCharacteristics:  value.HardwareCharacteristics,
 		CharmProfiles:            value.CharmProfiles,
-		Addresses:                coreNetworkAddresses(value.Addresses),
+		Addresses:                networkAddresses(value.Addresses),
 		HasVote:                  value.HasVote,
 		WantsVote:                value.WantsVote,
 	}
@@ -373,8 +389,8 @@ func (c *cacheWorker) translateUnit(d multiwatcher.Delta) interface{} {
 		PublicAddress:  value.PublicAddress,
 		PrivateAddress: value.PrivateAddress,
 		MachineId:      value.MachineId,
-		Ports:          coreNetworkPorts(value.Ports),
-		PortRanges:     coreNetworkPortRanges(value.PortRanges),
+		Ports:          networkPorts(value.Ports),
+		PortRanges:     networkPortRanges(value.PortRanges),
 		Principal:      value.Principal,
 		Subordinate:    value.Subordinate,
 		WorkloadStatus: coreStatus(value.WorkloadStatus),
@@ -468,7 +484,7 @@ func coreStatus(info multiwatcher.StatusInfo) status.StatusInfo {
 	}
 }
 
-func coreNetworkPorts(delta []multiwatcher.Port) []network.Port {
+func networkPorts(delta []multiwatcher.Port) []network.Port {
 	ports := make([]network.Port, len(delta))
 	for i, d := range delta {
 		ports[i] = network.Port{
@@ -479,7 +495,7 @@ func coreNetworkPorts(delta []multiwatcher.Port) []network.Port {
 	return ports
 }
 
-func coreNetworkPortRanges(delta []multiwatcher.PortRange) []network.PortRange {
+func networkPortRanges(delta []multiwatcher.PortRange) []network.PortRange {
 	ports := make([]network.PortRange, len(delta))
 	for i, d := range delta {
 		ports[i] = network.PortRange{
@@ -491,15 +507,15 @@ func coreNetworkPortRanges(delta []multiwatcher.PortRange) []network.PortRange {
 	return ports
 }
 
-func coreNetworkAddresses(delta []multiwatcher.Address) []network.Address {
+func networkAddresses(delta []multiwatcher.Address) []network.Address {
 	addresses := make([]network.Address, len(delta))
 	for i, d := range delta {
 		addresses[i] = network.Address{
 			Value:           d.Value,
-			Type:            d.Type,
-			Scope:           d.Scope,
-			SpaceName:       d.SpaceName,
-			SpaceProviderId: d.SpaceProviderId,
+			Type:            network.AddressType(d.Type),
+			Scope:           network.Scope(d.Scope),
+			SpaceName:       network.SpaceName(d.SpaceName),
+			SpaceProviderId: network.Id(d.SpaceProviderId),
 		}
 	}
 	return addresses

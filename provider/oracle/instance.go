@@ -14,6 +14,7 @@ import (
 	"github.com/juju/go-oracle-cloud/response"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -367,8 +368,8 @@ func (o *oracleInstance) publicAddressesAssociations() ([]response.IpAssociation
 }
 
 // Addresses is defined on the instances.Instance interface.
-func (o *oracleInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
-	addresses := []network.Address{}
+func (o *oracleInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
+	addresses := []corenetwork.Address{}
 
 	ips, err := o.publicAddressesAssociations()
 	if err != nil {
@@ -378,7 +379,7 @@ func (o *oracleInstance) Addresses(ctx context.ProviderCallContext) ([]network.A
 	if len(o.machine.Attributes.Network) > 0 {
 		for name, val := range o.machine.Attributes.Network {
 			if _, ip, err := oraclenetwork.GetMacAndIP(val.Address); err == nil {
-				address := network.NewScopedAddress(ip, network.ScopeCloudLocal)
+				address := corenetwork.NewScopedAddress(ip, corenetwork.ScopeCloudLocal)
 				addresses = append(addresses, address)
 			} else {
 				logger.Errorf("failed to get IP address for NIC %q: %q", name, err)
@@ -387,7 +388,7 @@ func (o *oracleInstance) Addresses(ctx context.ProviderCallContext) ([]network.A
 	}
 
 	for _, val := range ips {
-		address := network.NewScopedAddress(val.Ip, network.ScopePublic)
+		address := corenetwork.NewScopedAddress(val.Ip, corenetwork.ScopePublic)
 		addresses = append(addresses, address)
 	}
 

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/worker/fortress"
@@ -57,7 +57,7 @@ func (l *handler) Handle(c net.Conn, abort <-chan struct{}) error {
 }
 
 func (l *handler) do(c net.Conn) error {
-	paths := uniter.NewWorkerPaths(l.config.agent.CurrentConfig().DataDir(), l.config.unitTag, "metrics-collect")
+	paths := uniter.NewWorkerPaths(l.config.agent.CurrentConfig().DataDir(), l.config.unitTag, "metrics-collect", false)
 	charmURL, validMetrics, err := readCharm(l.config.unitTag, paths)
 	if err != nil {
 		return errors.Trace(err)

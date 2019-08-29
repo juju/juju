@@ -17,18 +17,21 @@ import (
 	"github.com/juju/errors"
 )
 
-func Dial(socketPath string) (*rpc.Client, error) {
-	return rpc.Dial("unix", socketPath)
+func Dial(soc Socket) (*rpc.Client, error) {
+	return rpc.Dial(soc.Network, soc.Address)
 }
 
-func Listen(socketPath string) (net.Listener, error) {
+func Listen(soc Socket) (listener net.Listener, err error) {
+	if soc.Network == "tcp" {
+		return net.Listen(soc.Network, soc.Address)
+	}
 	// In case the unix socket is present, delete it.
-	if err := os.Remove(socketPath); err != nil {
-		logger.Tracef("ignoring error on removing %q: %v", socketPath, err)
+	if err := os.Remove(soc.Address); err != nil {
+		logger.Tracef("ignoring error on removing %q: %v", soc.Address, err)
 	}
 	// Listen directly to abstract domain sockets.
-	if strings.HasPrefix(socketPath, "@") {
-		listener, err := net.Listen("unix", socketPath)
+	if strings.HasPrefix(soc.Address, "@") {
+		listener, err = net.Listen(soc.Network, soc.Address)
 		return listener, errors.Trace(err)
 	}
 	// We first create the socket in a temporary directory as a subdirectory of
@@ -36,7 +39,7 @@ func Listen(socketPath string) (net.Listener, error) {
 	// rename the socket into the correct place.
 	// ioutil.TempDir creates the temporary directory as 0700 so it starts with
 	// the right perms as well.
-	socketDir := filepath.Dir(socketPath)
+	socketDir := filepath.Dir(soc.Address)
 	tempdir, err := ioutil.TempDir(socketDir, "")
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -45,7 +48,7 @@ func Listen(socketPath string) (net.Listener, error) {
 	// Keep the socket path as short as possible so as not to
 	// exceed the 108 length limit.
 	tempSocketPath := filepath.Join(tempdir, "s")
-	listener, err := net.Listen("unix", tempSocketPath)
+	listener, err = net.Listen(soc.Network, tempSocketPath)
 	if err != nil {
 		logger.Errorf("failed to listen on unix:%s: %v", tempSocketPath, err)
 		return nil, errors.Trace(err)
@@ -54,7 +57,7 @@ func Listen(socketPath string) (net.Listener, error) {
 		listener.Close()
 		return nil, errors.Annotatef(err, "could not chmod socket %v", tempSocketPath)
 	}
-	if err := os.Rename(tempSocketPath, socketPath); err != nil {
+	if err := os.Rename(tempSocketPath, soc.Address); err != nil {
 		listener.Close()
 		return nil, errors.Annotatef(err, "could not rename socket %v", tempSocketPath)
 	}

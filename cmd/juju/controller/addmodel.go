@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/featureflag"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -94,10 +94,7 @@ are the ones used to create any future resources within the model.
 If no cloud/region is specified, then the model will be deployed to
 the same cloud/region as the controller model. If a region is specified
 without a cloud qualifier, then it is assumed to be in the same cloud
-as the controller model. It is not currently possible for a controller
-to manage multiple clouds, so the only valid cloud is the same cloud
-as the controller model is deployed to. This may change in a future
-release.
+as the controller model. 
 
 Examples:
 

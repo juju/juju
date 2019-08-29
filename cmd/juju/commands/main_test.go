@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	_ "github.com/juju/juju/provider/dummy"
@@ -75,6 +76,13 @@ func syncToolsHelpText() string {
 func (s *MainSuite) TestRunMain(c *gc.C) {
 	jujuclienttesting.SetupMinimalFileStore(c)
 
+	missingCommandMessage := func(wanted, actual string) string {
+		return fmt.Sprintf("ERROR %s\n", NotFoundCommand{
+			ArgName: wanted,
+			CmdName: actual,
+		}.Error())
+	}
+
 	// The test array structure needs to be inline here as some of the
 	// expected values below use deployHelpText().  This constructs the deploy
 	// command and runs gets the help for it.  When the deploy command is
@@ -90,7 +98,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "juju help foo doesn't exist",
 		args:    []string{"help", "foo"},
 		code:    1,
-		out:     "ERROR unknown command or topic for foo\n",
+		out:     missingCommandMessage("foo", "gui"),
 	}, {
 		summary: "juju help deploy shows the default help without global options",
 		args:    []string{"help", "deploy"},
@@ -117,10 +125,15 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		code:    0,
 		out:     configHelpText(),
 	}, {
-		summary: "unknown command",
+		summary: "unknown command with match",
 		args:    []string{"discombobulate"},
 		code:    1,
-		out:     "ERROR unrecognized command: juju discombobulate\n",
+		out:     missingCommandMessage("discombobulate", "diff-bundle"),
+	}, {
+		summary: "unknown command",
+		args:    []string{"pseudopseudohypoparathyroidism"},
+		code:    1,
+		out:     "ERROR unrecognized command: juju pseudopseudohypoparathyroidism\n",
 	}, {
 		summary: "unknown option before command",
 		args:    []string{"--cheese", "bootstrap"},
@@ -451,6 +464,8 @@ var commandNames = []string{
 	"debug-hook",
 	"debug-hooks",
 	"debug-log",
+	"default-credential",
+	"default-region",
 	"deploy",
 	"destroy-controller",
 	"destroy-model",
@@ -464,6 +479,7 @@ var commandNames = []string{
 	"enable-destroy-controller",
 	"enable-ha",
 	"enable-user",
+	"exec",
 	"export-bundle",
 	"expose",
 	"find-offers",
@@ -546,7 +562,6 @@ var commandNames = []string{
 	"revoke",
 	"revoke-cloud",
 	"run",
-	"run-action",
 	"scale-application",
 	"scp",
 	"set-credential",
@@ -559,6 +574,7 @@ var commandNames = []string{
 	"set-plan",
 	"set-series",
 	"set-wallet",
+	"show-action",
 	"show-action-output",
 	"show-action-status",
 	"show-application",
@@ -611,12 +627,12 @@ var commandNames = []string{
 
 // devFeatures are feature flags that impact registration of commands.
 var devFeatures = []string{
-	// Currently no feature flags.
+	feature.JujuV3,
 }
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
-// Currently no commands behind feature flags.
+	"call",
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
@@ -628,6 +644,10 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	// remove features behind dev_flag for the first test
 	// since they are not enabled.
 	cmdSet := set.NewStrings(commandNames...)
+	if !featureflag.Enabled(feature.JujuV3) {
+		cmdSet.Add("run-action")
+		cmdSet.Add("run")
+	}
 
 	// 1. Default Commands. Disable all features.
 	setFeatureFlags("")
@@ -645,7 +665,7 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	unknown = registered.Difference(cmdSet)
 	c.Assert(unknown, jc.DeepEquals, set.NewStrings())
 	missing = cmdSet.Difference(registered)
-	c.Assert(missing, jc.DeepEquals, set.NewStrings())
+	c.Assert(missing, jc.DeepEquals, set.NewStrings("run", "run-action"))
 }
 
 func getHelpCommandNames(c *gc.C) set.Strings {
@@ -726,6 +746,9 @@ func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 	expected := make([]string, len(commandNames))
 	copy(expected, commandNames)
 	expected = append(expected, extraNames...)
+	if !featureflag.Enabled(feature.JujuV3) {
+		expected = append(expected, "run-action")
+	}
 	sort.Strings(expected)
 	c.Check(registry.names, jc.DeepEquals, expected)
 }

@@ -69,7 +69,7 @@ func (s *UnitSuite) TestApplication(c *gc.C) {
 
 func (s *UnitSuite) TestConfigSettingsNeedCharmURLSet(c *gc.C) {
 	_, err := s.unit.ConfigSettings()
-	c.Assert(err, gc.ErrorMatches, "unit charm not set")
+	c.Assert(err, gc.ErrorMatches, "unit's charm URL must be set before retrieving config")
 }
 
 func (s *UnitSuite) TestConfigSettingsIncludeDefaults(c *gc.C) {
@@ -119,7 +119,7 @@ func (s *UnitSuite) TestConfigSettingsReflectCharm(c *gc.C) {
 
 func (s *UnitSuite) TestWatchConfigSettingsNeedsCharmURL(c *gc.C) {
 	_, err := s.unit.WatchConfigSettings()
-	c.Assert(err, gc.ErrorMatches, "unit charm not set")
+	c.Assert(err, gc.ErrorMatches, "unit's charm URL must be set before watching config")
 }
 
 func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
@@ -347,13 +347,13 @@ func (s *UnitSuite) setAssignedMachineAddresses(c *gc.C, u *state.Unit) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("i-exist", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProviderAddresses(network.Address{
-		Type:  network.IPv4Address,
-		Scope: network.ScopeCloudLocal,
+	err = machine.SetProviderAddresses(corenetwork.Address{
+		Type:  corenetwork.IPv4Address,
+		Scope: corenetwork.ScopeCloudLocal,
 		Value: "private.address.example.com",
-	}, network.Address{
-		Type:  network.IPv4Address,
-		Scope: network.ScopePublic,
+	}, corenetwork.Address{
+		Type:  corenetwork.IPv4Address,
+		Scope: corenetwork.ScopePublic,
 		Value: "public.address.example.com",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -387,8 +387,8 @@ func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 	_, err = s.unit.PublicAddress()
 	c.Assert(err, jc.Satisfies, network.IsNoAddressError)
 
-	public := network.NewScopedAddress("8.8.8.8", network.ScopePublic)
-	private := network.NewScopedAddress("127.0.0.1", network.ScopeCloudLocal)
+	public := corenetwork.NewScopedAddress("8.8.8.8", corenetwork.ScopePublic)
+	private := corenetwork.NewScopedAddress("127.0.0.1", corenetwork.ScopeCloudLocal)
 
 	err = machine.SetProviderAddresses(public, private)
 	c.Assert(err, jc.ErrorIsNil)
@@ -404,12 +404,12 @@ func (s *UnitSuite) TestStablePrivateAddress(c *gc.C) {
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.2"))
+	err = machine.SetMachineAddresses(corenetwork.NewAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now add an address that would previously have sorted before the
 	// default.
-	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.1"), network.NewAddress("10.0.0.2"))
+	err = machine.SetMachineAddresses(corenetwork.NewAddress("10.0.0.1"), corenetwork.NewAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assert the address is unchanged.
@@ -424,12 +424,12 @@ func (s *UnitSuite) TestStablePublicAddress(c *gc.C) {
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetProviderAddresses(network.NewAddress("8.8.8.8"))
+	err = machine.SetProviderAddresses(corenetwork.NewAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now add an address that would previously have sorted before the
 	// default.
-	err = machine.SetProviderAddresses(network.NewAddress("8.8.4.4"), network.NewAddress("8.8.8.8"))
+	err = machine.SetProviderAddresses(corenetwork.NewAddress("8.8.4.4"), corenetwork.NewAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assert the address is unchanged.
@@ -444,9 +444,9 @@ func (s *UnitSuite) TestPublicAddressMachineAddresses(c *gc.C) {
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	publicProvider := network.NewScopedAddress("8.8.8.8", network.ScopePublic)
-	privateProvider := network.NewScopedAddress("127.0.0.1", network.ScopeCloudLocal)
-	privateMachine := network.NewAddress("127.0.0.2")
+	publicProvider := corenetwork.NewScopedAddress("8.8.8.8", corenetwork.ScopePublic)
+	privateProvider := corenetwork.NewScopedAddress("127.0.0.1", corenetwork.ScopeCloudLocal)
+	privateMachine := corenetwork.NewAddress("127.0.0.2")
 
 	err = machine.SetProviderAddresses(privateProvider)
 	c.Assert(err, jc.ErrorIsNil)
@@ -484,8 +484,8 @@ func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
 	_, err = s.unit.PrivateAddress()
 	c.Assert(err, jc.Satisfies, network.IsNoAddressError)
 
-	public := network.NewScopedAddress("8.8.8.8", network.ScopePublic)
-	private := network.NewScopedAddress("127.0.0.1", network.ScopeCloudLocal)
+	public := corenetwork.NewScopedAddress("8.8.8.8", corenetwork.ScopePublic)
+	private := corenetwork.NewScopedAddress("127.0.0.1", corenetwork.ScopeCloudLocal)
 
 	err = machine.SetProviderAddresses(public, private)
 	c.Assert(err, jc.ErrorIsNil)
@@ -550,7 +550,9 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 		c.Assert(err, jc.ErrorIsNil)
 		_, err = s.State.EnableHA(1, constraints.Value{}, "quantal", []string{tc.host.Id()})
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(tc.host.SetHasVote(true), gc.IsNil)
+		node, err := s.State.ControllerNode(tc.host.Id())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(node.SetHasVote(true), gc.IsNil)
 		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
@@ -627,14 +629,14 @@ func (s *UnitSuite) TestRemoveUnitMachineNoDestroy(c *gc.C) {
 	c.Assert(host.Destroy(), gc.NotNil)
 }
 
-func (s *UnitSuite) setMachineVote(c *gc.C, id string, hasVote bool) {
-	m, err := s.State.Machine(id)
+func (s *UnitSuite) setControllerVote(c *gc.C, id string, hasVote bool) {
+	node, err := s.State.ControllerNode(id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.SetHasVote(hasVote), gc.IsNil)
+	c.Assert(node.SetHasVote(hasVote), gc.IsNil)
 }
 
-func (s *UnitSuite) demoteMachine(c *gc.C, m *state.Machine) {
-	s.setMachineVote(c, m.Id(), false)
+func (s *UnitSuite) demoteController(c *gc.C, m *state.Machine) {
+	s.setControllerVote(c, m.Id(), false)
 	c.Assert(state.SetWantsVote(s.State, m.Id(), false), jc.ErrorIsNil)
 	node, err := s.State.ControllerNode(m.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -649,18 +651,18 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(host.SetHasVote(true), gc.IsNil)
+	s.setControllerVote(c, host.Id(), true)
 	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 	flip := jujutxn.TestHook{
 		Before: func() {
-			s.demoteMachine(c, host)
+			s.demoteController(c, host)
 		},
 	}
 	flop := jujutxn.TestHook{
 		Before: func() {
-			s.setMachineVote(c, host.Id(), true)
+			s.setControllerVote(c, host.Id(), true)
 		},
 	}
 	// You'll need to adjust the flip-flops to match the number of transaction
@@ -682,7 +684,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		s.setMachineVote(c, host.Id(), true)
+		s.setControllerVote(c, host.Id(), true)
 	}).Check()
 
 	c.Assert(target.Destroy(), gc.IsNil)
@@ -699,10 +701,10 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
 	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
-	c.Assert(host.SetHasVote(true), gc.IsNil)
+	s.setControllerVote(c, host.Id(), true)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		s.demoteMachine(c, host)
+		s.demoteController(c, host)
 	}, nil).Check()
 
 	c.Assert(target.Destroy(), gc.IsNil)
@@ -752,17 +754,16 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
 	colocated, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(host.SetHasVote(true), gc.IsNil)
+	s.setControllerVote(c, host.Id(), true)
 
 	defer state.SetTestHooks(c, s.State, jujutxn.TestHook{
 		Before: func() {
-			hostHandle, err := s.State.Machine(host.Id())
-			c.Assert(err, jc.ErrorIsNil)
-
 			// Original assertion preventing host removal is no longer valid
-			c.Assert(hostHandle.SetHasVote(false), gc.IsNil)
+			s.setControllerVote(c, host.Id(), false)
 
 			// But now the host gets a colocated unit, a different condition preventing removal
+			hostHandle, err := s.State.Machine(host.Id())
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(colocated.AssignToMachine(hostHandle), gc.IsNil)
 		},
 	}).Check()
@@ -777,6 +778,7 @@ func (s *UnitSuite) TestRemoveUnitWRelationLastUnit(c *gc.C) {
 	mysqlCharm := s.AddTestingCharm(c, "mysql")
 	mysqlApp := s.AddTestingApplication(c, "mysql", mysqlCharm)
 	mysqlUnit, err := mysqlApp.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mysqlUnit.AssignToNewMachine(), jc.ErrorIsNil)
 	endpoints, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1175,6 +1177,7 @@ func (s *UnitSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		err = s.unit.SetWorkloadVersion(fmt.Sprintf("v.%d", i))
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	filter := status.StatusHistoryFilter{Size: 100}
@@ -1383,32 +1386,32 @@ func (s *UnitSuite) TestOpenedPortsOnInvalidSubnet(c *gc.C) {
 
 func (s *UnitSuite) TestOpenedPortsOnUnknownSubnet(c *gc.C) {
 	// We're not adding the 127.0.0.0/8 subnet to test the "not found" case.
-	s.testOpenedPorts(c, "127.0.0.0/8", `subnet "127.0.0.0/8" not found or not alive`)
+	s.testOpenedPorts(c, "4", `subnet "4" not found or not alive`)
 }
 
 func (s *UnitSuite) TestOpenedPortsOnDeadSubnet(c *gc.C) {
 	// We're adding the 0.1.2.0/24 subnet first and then setting it to Dead to
 	// check the "not alive" case.
-	subnet, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
+	subnet, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "0.1.2.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = subnet.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.testOpenedPorts(c, "0.1.2.0/24", `subnet "0.1.2.0/24" not found or not alive`)
+	s.testOpenedPorts(c, subnet.ID(), fmt.Sprintf(`subnet %q not found or not alive`, subnet.ID()))
 }
 
 func (s *UnitSuite) TestOpenedPortsOnAliveIPv4Subnet(c *gc.C) {
-	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "192.168.0.0/16"})
+	subnet, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "192.168.0.0/16"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.testOpenedPorts(c, "192.168.0.0/16", "")
+	s.testOpenedPorts(c, subnet.ID(), "")
 }
 
 func (s *UnitSuite) TestOpenedPortsOnAliveIPv6Subnet(c *gc.C) {
-	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "2001:db8::/64"})
+	subnet, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "2001:db8::/64"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.testOpenedPorts(c, "2001:db8::/64", "")
+	s.testOpenedPorts(c, subnet.ID(), "")
 }
 
 func (s *UnitSuite) TestOpenedPortsOnEmptySubnet(c *gc.C) {
@@ -1838,6 +1841,28 @@ func (s *UnitSuite) TestRemove(c *gc.C) {
 	c.Assert(units, gc.HasLen, 0)
 	err = s.unit.Remove()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *UnitSuite) TestRemoveUnassignsFromBranch(c *gc.C) {
+	// Add unit to a branch
+	c.Assert(s.Model.AddBranch("apple", "testuser"), jc.ErrorIsNil)
+	branch, err := s.Model.Branch("apple")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(branch.AssignUnit(s.unit.Name()), jc.ErrorIsNil)
+	c.Assert(branch.Refresh(), jc.ErrorIsNil)
+	c.Assert(branch.AssignedUnits(), gc.DeepEquals, map[string][]string{
+		s.application.Name(): {s.unit.Name()},
+	})
+
+	// remove the unit
+	c.Assert(s.unit.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(s.unit.Remove(), jc.ErrorIsNil)
+
+	// verify branch no longer tracks unit
+	c.Assert(branch.Refresh(), jc.ErrorIsNil)
+	c.Assert(branch.AssignedUnits(), gc.DeepEquals, map[string][]string{
+		s.application.Name(): {},
+	})
 }
 
 func (s *UnitSuite) TestRemovePathological(c *gc.C) {
@@ -2281,6 +2306,7 @@ func (s *CAASUnitSuite) TestCannotShortCircuitDestroyAllocatedUnit(c *gc.C) {
 	// This test is similar to TestShortCircuitDestroyUnit but
 	// the unit has been allocated and a pod created.
 	unit, err := s.application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
 	now := coretesting.NonZeroTime()
 	err = unit.SetAgentStatus(status.StatusInfo{
 		Status:  status.Error,
@@ -2312,7 +2338,7 @@ func (s *CAASUnitSuite) TestUpdateCAASUnitProviderId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Unit(), gc.Equals, existingUnit.Name())
 	c.Assert(info.ProviderId(), gc.Equals, "another-uuid")
-	addr := network.NewScopedAddress("192.168.1.1", network.ScopeMachineLocal)
+	addr := corenetwork.NewScopedAddress("192.168.1.1", corenetwork.ScopeMachineLocal)
 	c.Assert(info.Address(), gc.DeepEquals, &addr)
 	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})
 }
@@ -2335,7 +2361,7 @@ func (s *CAASUnitSuite) TestAddCAASUnitProviderId(c *gc.C) {
 	c.Assert(info.Unit(), gc.Equals, existingUnit.Name())
 	c.Assert(info.ProviderId(), gc.Equals, "another-uuid")
 	c.Check(info.Address(), gc.NotNil)
-	c.Check(*info.Address(), jc.DeepEquals, network.NewScopedAddress("192.168.1.1", network.ScopeMachineLocal))
+	c.Check(*info.Address(), jc.DeepEquals, corenetwork.NewScopedAddress("192.168.1.1", corenetwork.ScopeMachineLocal))
 	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})
 }
 
@@ -2357,7 +2383,7 @@ func (s *CAASUnitSuite) TestUpdateCAASUnitAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Unit(), gc.Equals, existingUnit.Name())
 	c.Assert(info.ProviderId(), gc.Equals, "unit-uuid")
-	addr := network.NewScopedAddress("192.168.1.2", network.ScopeMachineLocal)
+	addr := corenetwork.NewScopedAddress("192.168.1.2", corenetwork.ScopeMachineLocal)
 	c.Assert(info.Address(), jc.DeepEquals, &addr)
 	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})
 }
@@ -2380,7 +2406,7 @@ func (s *CAASUnitSuite) TestUpdateCAASUnitPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Unit(), gc.Equals, existingUnit.Name())
 	c.Assert(info.ProviderId(), gc.Equals, "unit-uuid")
-	addr := network.NewScopedAddress("192.168.1.1", network.ScopeMachineLocal)
+	addr := corenetwork.NewScopedAddress("192.168.1.1", corenetwork.ScopeMachineLocal)
 	c.Assert(info.Address(), jc.DeepEquals, &addr)
 	c.Assert(info.Ports(), jc.DeepEquals, []string{"443"})
 }
@@ -2401,45 +2427,45 @@ func (s *CAASUnitSuite) TestRemoveUnitDeletesContainerInfo(c *gc.C) {
 func (s *CAASUnitSuite) TestPrivateAddress(c *gc.C) {
 	existingUnit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.application.UpdateCloudService("", []network.Address{
-		{Value: "192.168.1.2", Scope: network.ScopeCloudLocal, Type: network.IPv4Address},
-		{Value: "54.32.1.2", Scope: network.ScopePublic, Type: network.IPv4Address},
+	err = s.application.UpdateCloudService("", []corenetwork.Address{
+		{Value: "192.168.1.2", Scope: corenetwork.ScopeCloudLocal, Type: corenetwork.IPv4Address},
+		{Value: "54.32.1.2", Scope: corenetwork.ScopePublic, Type: corenetwork.IPv4Address},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := existingUnit.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr, jc.DeepEquals, network.Address{
+	c.Assert(addr, jc.DeepEquals, corenetwork.Address{
 		Value: "192.168.1.2",
-		Scope: network.ScopeCloudLocal,
-		Type:  network.IPv4Address,
+		Scope: corenetwork.ScopeCloudLocal,
+		Type:  corenetwork.IPv4Address,
 	})
 }
 
 func (s *CAASUnitSuite) TestPublicAddress(c *gc.C) {
 	existingUnit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.application.UpdateCloudService("", []network.Address{
-		{Value: "192.168.1.2", Scope: network.ScopeCloudLocal, Type: network.IPv4Address},
-		{Value: "54.32.1.2", Scope: network.ScopePublic, Type: network.IPv4Address},
+	err = s.application.UpdateCloudService("", []corenetwork.Address{
+		{Value: "192.168.1.2", Scope: corenetwork.ScopeCloudLocal, Type: corenetwork.IPv4Address},
+		{Value: "54.32.1.2", Scope: corenetwork.ScopePublic, Type: corenetwork.IPv4Address},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := existingUnit.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr, jc.DeepEquals, network.Address{
+	c.Assert(addr, jc.DeepEquals, corenetwork.Address{
 		Value: "54.32.1.2",
-		Scope: network.ScopePublic,
-		Type:  network.IPv4Address,
+		Scope: corenetwork.ScopePublic,
+		Type:  corenetwork.IPv4Address,
 	})
 }
 
 func (s *CAASUnitSuite) TestAllAddresses(c *gc.C) {
 	existingUnit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.application.UpdateCloudService("", []network.Address{
-		{Value: "192.168.1.2", Scope: network.ScopeCloudLocal, Type: network.IPv4Address},
-		{Value: "54.32.1.2", Scope: network.ScopePublic, Type: network.IPv4Address},
+	err = s.application.UpdateCloudService("", []corenetwork.Address{
+		{Value: "192.168.1.2", Scope: corenetwork.ScopeCloudLocal, Type: corenetwork.IPv4Address},
+		{Value: "54.32.1.2", Scope: corenetwork.ScopePublic, Type: corenetwork.IPv4Address},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2454,14 +2480,14 @@ func (s *CAASUnitSuite) TestAllAddresses(c *gc.C) {
 
 	addr, err := existingUnit.AllAddresses()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr, jc.DeepEquals, []network.Address{{
+	c.Assert(addr, jc.DeepEquals, []corenetwork.Address{{
 		Value: "192.168.1.2",
-		Scope: network.ScopeCloudLocal,
-		Type:  network.IPv4Address,
+		Scope: corenetwork.ScopeCloudLocal,
+		Type:  corenetwork.IPv4Address,
 	}, {
 		Value: "54.32.1.2",
-		Scope: network.ScopePublic,
-		Type:  network.IPv4Address,
+		Scope: corenetwork.ScopePublic,
+		Type:  corenetwork.IPv4Address,
 	}})
 }
 
@@ -2556,12 +2582,12 @@ func (s *CAASUnitSuite) TestWatchServiceAddressesHash(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Set service addresses: reported.
-	err = s.application.UpdateCloudService("1", []network.Address{{Value: "10.0.0.2"}})
+	err = s.application.UpdateCloudService("1", []corenetwork.Address{{Value: "10.0.0.2"}})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("cb5f37b4762871e6bbeccee663cb332438340c469160c634566ecc7c7e01009f")
 
 	// Set different container addresses: reported.
-	err = s.application.UpdateCloudService("1", []network.Address{{Value: "10.0.0.3"}})
+	err = s.application.UpdateCloudService("1", []corenetwork.Address{{Value: "10.0.0.3"}})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("a9a5126d7cca4ab5eecee72061f1e2060f6022266c74209f9fec62e986adc091")
 

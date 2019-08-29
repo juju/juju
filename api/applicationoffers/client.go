@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -195,7 +195,7 @@ func (c *Client) modifyOfferUser(action params.OfferAction, user, access string,
 // ApplicationOffer returns offered remote application details for a given URL.
 func (c *Client) ApplicationOffer(urlStr string) (*crossmodel.ApplicationOfferDetails, error) {
 
-	url, err := charm.ParseOfferURL(urlStr)
+	url, err := crossmodel.ParseOfferURL(urlStr)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -254,7 +254,8 @@ func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFil
 
 // GetConsumeDetails returns details necessary to consue an offer at a given URL.
 func (c *Client) GetConsumeDetails(urlStr string) (params.ConsumeOfferDetails, error) {
-	url, err := charm.ParseOfferURL(urlStr)
+
+	url, err := crossmodel.ParseOfferURL(urlStr)
 	if err != nil {
 		return params.ConsumeOfferDetails{}, errors.Trace(err)
 	}
@@ -300,7 +301,7 @@ func (c *Client) DestroyOffers(force bool, offerURLs ...string) error {
 		OfferURLs: make([]string, len(offerURLs)),
 	}
 	for i, url := range offerURLs {
-		if _, err := charm.ParseOfferURL(url); err != nil {
+		if _, err := crossmodel.ParseOfferURL(url); err != nil {
 			return errors.Trace(err)
 		}
 		args.OfferURLs[i] = url

@@ -14,14 +14,15 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
@@ -76,6 +77,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
@@ -89,6 +91,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	meteredState := s.OpenAPIAs(c, meteredUnit.Tag(), password)
 	meteredUniter, err := meteredState.Uniter()
+	c.Assert(err, jc.ErrorIsNil)
 	s.meteredAPIUnit, err = meteredUniter.Unit(meteredUnit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -361,8 +364,8 @@ func (MockEnvPaths) GetCharmDir() string {
 	return "path-to-charm"
 }
 
-func (MockEnvPaths) GetJujucSocket() string {
-	return "path-to-jujuc.socket"
+func (MockEnvPaths) GetJujucSocket() sockets.Socket {
+	return sockets.Socket{Network: "unix", Address: "path-to-jujuc.socket"}
 }
 
 func (MockEnvPaths) GetMetricsSpoolDir() string {

@@ -10,12 +10,10 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
-	jujucmd "github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
@@ -68,7 +66,7 @@ func (s *cmdStorageSuite) SetUpTest(c *gc.C) {
 
 func runShow(c *gc.C, expectedError string, args ...string) {
 	cmdArgs := append([]string{"show-storage"}, args...)
-	context, err := runJujuCommand(c, cmdArgs...)
+	context, err := runCommand(c, cmdArgs...)
 	if expectedError == "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
@@ -102,7 +100,7 @@ data/0:
         machine: "0"
         life: alive
 `[1:]
-	context, err := runJujuCommand(c, "show-storage", "data/0")
+	context, err := runCommand(c, "show-storage", "data/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Matches, expected)
 }
@@ -120,7 +118,7 @@ func (s *cmdStorageSuite) TestStorageShowNoMatch(c *gc.C) {
 
 func runList(c *gc.C, expectedOutput string, args ...string) {
 	cmdArgs := append([]string{"list-storage"}, args...)
-	context, err := runJujuCommand(c, cmdArgs...)
+	context, err := runCommand(c, cmdArgs...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, expectedOutput)
 }
@@ -180,7 +178,7 @@ data/0:
         machine: "0"
         life: alive
 `[1:]
-	context, err := runJujuCommand(c, "show-storage", "data/0")
+	context, err := runCommand(c, "show-storage", "data/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Matches, expected)
 }
@@ -204,26 +202,14 @@ data/0:
         machine: "0"
         life: alive
 `[1:]
-	context, err := runJujuCommand(c, "show-storage", "data/0")
+	context, err := runCommand(c, "show-storage", "data/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Matches, expected)
 }
 
-func runJujuCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	// NOTE (alesstimec): Writers need to be reset, because
-	// they are set globally in the juju/cmd package and will
-	// return an error if we attempt to run two commands in the
-	// same test.
-	loggo.RemoveWriter("warning")
-	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
-	command := jujucmd.NewJujuCommand(ctx)
-	return cmdtesting.RunCommand(c, command, args...)
-}
-
 func runPoolList(c *gc.C, args ...string) (string, string, error) {
 	cmdArgs := append([]string{"list-storage-pools"}, args...)
-	ctx, err := runJujuCommand(c, cmdArgs...)
+	ctx, err := runCommand(c, cmdArgs...)
 	stdout, stderr := "", ""
 	if ctx != nil {
 		stdout = cmdtesting.Stdout(ctx)
@@ -368,7 +354,7 @@ func (s *cmdStorageSuite) TestListPoolsNotNameAndNotProvider(c *gc.C) {
 
 func runPoolCreate(c *gc.C, args ...string) (string, string, error) {
 	cmdArgs := append([]string{"create-storage-pool"}, args...)
-	ctx, err := runJujuCommand(c, cmdArgs...)
+	ctx, err := runCommand(c, cmdArgs...)
 	stdout, stderr := "", ""
 	if ctx != nil {
 		stdout = cmdtesting.Stdout(ctx)
@@ -454,7 +440,7 @@ func assertPoolExists(c *gc.C, st *state.State, pname, providerType, attr string
 
 func runVolumeList(c *gc.C, args ...string) (string, string, error) {
 	cmdArgs := append([]string{"list-storage", "--volume"}, args...)
-	ctx, err := runJujuCommand(c, cmdArgs...)
+	ctx, err := runCommand(c, cmdArgs...)
 	return cmdtesting.Stdout(ctx), cmdtesting.Stderr(ctx), err
 }
 
@@ -478,17 +464,17 @@ Machine  Unit             Storage id  Volume id  Provider Id  Device  Size  Stat
 
 func runAddToUnit(c *gc.C, args ...string) (*cmd.Context, error) {
 	cmdArgs := append([]string{"add-storage"}, args...)
-	return runJujuCommand(c, cmdArgs...)
+	return runCommand(c, cmdArgs...)
 }
 
 func runAttachStorage(c *gc.C, args ...string) (*cmd.Context, error) {
 	cmdArgs := append([]string{"attach-storage"}, args...)
-	return runJujuCommand(c, cmdArgs...)
+	return runCommand(c, cmdArgs...)
 }
 
 func runDetachStorage(c *gc.C, args ...string) (*cmd.Context, error) {
 	cmdArgs := append([]string{"detach-storage"}, args...)
-	return runJujuCommand(c, cmdArgs...)
+	return runCommand(c, cmdArgs...)
 }
 
 func (s *cmdStorageSuite) TestStorageAddToUnitSuccess(c *gc.C) {
@@ -542,7 +528,7 @@ func (s *cmdStorageSuite) TestStorageAddToUnitCollapseUnitErrors(c *gc.C) {
 
 func (s *cmdStorageSuite) TestStorageAddToUnitInvalidUnitName(c *gc.C) {
 	cmdArgs := append([]string{"add-storage"}, "fluffyunit-0", "allecto=1")
-	context, err := runJujuCommand(c, cmdArgs...)
+	context, err := runCommand(c, cmdArgs...)
 	c.Assert(err, gc.ErrorMatches, `unit name "fluffyunit-0" not valid`)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "ERROR unit name \"fluffyunit-0\" not valid\n")
@@ -586,7 +572,7 @@ func (s *cmdStorageSuite) TestStorageAddToUnitHasVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumesBefore, gc.HasLen, 1)
 
-	context, err := runJujuCommand(c, "storage")
+	context, err := runCommand(c, "storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
 Unit                  Storage id  Type        Size  Status   Message
@@ -607,7 +593,7 @@ storage-filesystem/0  data/0      filesystem        pending
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumesAfter, gc.HasLen, 2)
 
-	context, err = runJujuCommand(c, "list-storage")
+	context, err = runCommand(c, "list-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
 Unit                  Storage id  Type        Size  Status   Message
@@ -659,7 +645,7 @@ func (s *cmdStorageSuite) TestStorageDetachAttach(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = vol.SetStatus(status.StatusInfo{Status: status.Detaching, Since: &time.Time{}})
 	c.Assert(err, jc.ErrorIsNil)
-	ctx, err := runJujuCommand(c, "list-storage")
+	ctx, err := runCommand(c, "list-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 Unit             Storage id  Type   Pool         Size    Status     Message
@@ -687,7 +673,7 @@ storage-block/1  data/1      block                       pending
 	c.Assert(err, jc.ErrorIsNil)
 	err = vol.SetStatus(status.StatusInfo{Status: status.Attaching, Since: &time.Time{}})
 	c.Assert(err, jc.ErrorIsNil)
-	ctx, err = runJujuCommand(c, "list-storage")
+	ctx, err = runCommand(c, "list-storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 Unit             Storage id  Type   Pool         Size    Status     Message
@@ -700,7 +686,7 @@ storage-block/1  data/1      block                       pending
 
 func runPoolUpdate(c *gc.C, args ...string) (string, string, error) {
 	cmdArgs := append([]string{"update-storage-pool"}, args...)
-	ctx, err := runJujuCommand(c, cmdArgs...)
+	ctx, err := runCommand(c, cmdArgs...)
 	stdout, stderr := "", ""
 	if ctx != nil {
 		stdout = cmdtesting.Stdout(ctx)
@@ -726,7 +712,7 @@ func (s *cmdStorageSuite) TestUpdateNoMatch(c *gc.C) {
 
 func runPoolDelete(c *gc.C, args ...string) (string, string, error) {
 	cmdArgs := append([]string{"remove-storage-pool"}, args...)
-	ctx, err := runJujuCommand(c, cmdArgs...)
+	ctx, err := runCommand(c, cmdArgs...)
 	stdout, stderr := "", ""
 	if ctx != nil {
 		stdout = cmdtesting.Stdout(ctx)

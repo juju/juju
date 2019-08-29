@@ -6,8 +6,7 @@ package application
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/applicationoffers"
@@ -90,7 +89,7 @@ func (c *consumeCommand) getTargetAPI() (applicationConsumeAPI, error) {
 	return application.NewClient(root), nil
 }
 
-func (c *consumeCommand) getSourceAPI(url *charm.OfferURL) (applicationConsumeDetailsAPI, error) {
+func (c *consumeCommand) getSourceAPI(url *crossmodel.OfferURL) (applicationConsumeDetailsAPI, error) {
 	if c.sourceAPI != nil {
 		return c.sourceAPI, nil
 	}
@@ -117,7 +116,7 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	url, err := charm.ParseOfferURL(c.remoteApplication)
+	url, err := crossmodel.ParseOfferURL(c.remoteApplication)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -140,7 +139,7 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 	}
 	// Parse the offer details URL and add the source controller so
 	// things like status can show the original source of the offer.
-	offerURL, err := charm.ParseOfferURL(consumeDetails.Offer.OfferURL)
+	offerURL, err := crossmodel.ParseOfferURL(consumeDetails.Offer.OfferURL)
 	if err != nil {
 		return errors.Trace(err)
 	}

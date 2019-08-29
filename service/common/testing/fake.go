@@ -39,6 +39,9 @@ type FakeServiceData struct {
 
 	// runningNames is the set of "currently" running services.
 	runningNames set.Strings
+
+	// differentNames is the set of services where the content is different.
+	differentNames set.Strings
 }
 
 // NewFakeServiceData returns a new FakeServiceData.
@@ -47,6 +50,7 @@ func NewFakeServiceData(names ...string) *FakeServiceData {
 		managedNames:   set.NewStrings(),
 		installedNames: set.NewStrings(),
 		runningNames:   set.NewStrings(),
+		differentNames: set.NewStrings(),
 	}
 	for _, name := range names {
 		fsd.installedNames.Add(name)
@@ -119,6 +123,10 @@ func (f *FakeServiceData) SetStatus(name, status string) error {
 	case "running":
 		f.installedNames.Add(name)
 		f.runningNames.Add(name)
+	case "different":
+		f.installedNames.Add(name)
+		f.runningNames.Add(name)
+		f.differentNames.Add(name)
 	default:
 		return errors.NotSupportedf("status %q", status)
 	}
@@ -205,7 +213,12 @@ func (ss *FakeService) Stop() error {
 func (ss *FakeService) Exists() (bool, error) {
 	ss.AddCall("Exists")
 
-	return ss.managed(), ss.NextErr()
+	managed := ss.managed()
+	ss.mu.Lock()
+	different := ss.FakeServiceData.differentNames.Contains(ss.Service.Name)
+	ss.mu.Unlock()
+
+	return managed && !different, ss.NextErr()
 }
 
 func (ss *FakeService) managed() bool {

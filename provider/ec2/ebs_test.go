@@ -19,7 +19,7 @@ import (
 	awsec2 "gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/ec2/ec2test"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
@@ -1114,6 +1114,16 @@ func (*blockDeviceMappingSuite) TestBlockDeviceNamer(c *gc.C) {
 	expect("/dev/sdn", "xvdn")
 	expect("/dev/sdo", "xvdo")
 	expect("/dev/sdp", "xvdp")
+	expect("/dev/sdq", "xvdq")
+	expect("/dev/sdr", "xvdr")
+	expect("/dev/sds", "xvds")
+	expect("/dev/sdt", "xvdt")
+	expect("/dev/sdu", "xvdu")
+	expect("/dev/sdv", "xvdv")
+	expect("/dev/sdw", "xvdw")
+	expect("/dev/sdx", "xvdx")
+	expect("/dev/sdy", "xvdy")
+	expect("/dev/sdz", "xvdz")
 	expectErr("too many EBS volumes to attach")
 
 	// Now with numbers.
@@ -1134,6 +1144,16 @@ func (*blockDeviceMappingSuite) TestBlockDeviceNamer(c *gc.C) {
 	expectN("/dev/sdn", "xvdn")
 	expectN("/dev/sdo", "xvdo")
 	expectN("/dev/sdp", "xvdp")
+	expectN("/dev/sdq", "xvdq")
+	expectN("/dev/sdr", "xvdr")
+	expectN("/dev/sds", "xvds")
+	expectN("/dev/sdt", "xvdt")
+	expectN("/dev/sdu", "xvdu")
+	expectN("/dev/sdv", "xvdv")
+	expectN("/dev/sdw", "xvdw")
+	expectN("/dev/sdx", "xvdx")
+	expectN("/dev/sdy", "xvdy")
+	expectN("/dev/sdz", "xvdz")
 	expectErr("too many EBS volumes to attach")
 }
 

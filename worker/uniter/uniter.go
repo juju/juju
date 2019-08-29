@@ -15,7 +15,7 @@ import (
 	"github.com/juju/utils/exec"
 	corecharm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
@@ -81,10 +81,11 @@ type Uniter struct {
 	lastReportedStatus  status.Status
 	lastReportedMessage string
 
-	operationFactory     operation.Factory
-	operationExecutor    operation.Executor
-	newOperationExecutor NewExecutorFunc
-	translateResolverErr func(error) error
+	operationFactory        operation.Factory
+	operationExecutor       operation.Executor
+	newOperationExecutor    NewOperationExecutorFunc
+	newRemoteRunnerExecutor NewRunnerExecutorFunc
+	translateResolverErr    func(error) error
 
 	leadershipTracker leadership.TrackerWorker
 	charmDirGuard     fortress.Guard
@@ -120,27 +121,39 @@ type Uniter struct {
 
 // UniterParams hold all the necessary parameters for a new Uniter.
 type UniterParams struct {
-	UniterFacade         *uniter.State
-	UnitTag              names.UnitTag
-	ModelType            model.ModelType
-	LeadershipTracker    leadership.TrackerWorker
-	DataDir              string
-	Downloader           charm.Downloader
-	MachineLock          machinelock.Lock
-	CharmDirGuard        fortress.Guard
-	UpdateStatusSignal   remotestate.UpdateStatusTimerFunc
-	HookRetryStrategy    params.RetryStrategy
-	NewOperationExecutor NewExecutorFunc
-	TranslateResolverErr func(error) error
-	Clock                clock.Clock
-	ApplicationChannel   watcher.NotifyChannel
+	UniterFacade            *uniter.State
+	UnitTag                 names.UnitTag
+	ModelType               model.ModelType
+	LeadershipTracker       leadership.TrackerWorker
+	DataDir                 string
+	Downloader              charm.Downloader
+	MachineLock             machinelock.Lock
+	CharmDirGuard           fortress.Guard
+	UpdateStatusSignal      remotestate.UpdateStatusTimerFunc
+	HookRetryStrategy       params.RetryStrategy
+	NewOperationExecutor    NewOperationExecutorFunc
+	NewRemoteRunnerExecutor NewRunnerExecutorFunc
+	RunListener             *RunListener
+	TranslateResolverErr    func(error) error
+	Clock                   clock.Clock
+	ApplicationChannel      watcher.NotifyChannel
 	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
 	// the observer is only a stop gap to be used in tests. A better approach would be to have the uniter tests start hooks
 	// that write to files, and have the tests watch the output to know that hooks have finished.
 	Observer UniterExecutionObserver
 }
 
-type NewExecutorFunc func(string, operation.State, func(string) (func(), error)) (operation.Executor, error)
+type NewOperationExecutorFunc func(string, operation.State, func(string) (func(), error)) (operation.Executor, error)
+
+// ProviderIDGetter defines the API to get provider ID.
+type ProviderIDGetter interface {
+	ProviderID() string
+	Refresh() error
+	Name() string
+}
+
+// NewRunnerExecutorFunc defines the type of the NewRunnerExecutor.
+type NewRunnerExecutorFunc func(ProviderIDGetter, Paths) runner.ExecFunc
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
@@ -166,20 +179,22 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 		translateResolverErr = func(err error) error { return err }
 	}
 	u := &Uniter{
-		st:                   uniterParams.UniterFacade,
-		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
-		modelType:            uniterParams.ModelType,
-		hookLock:             uniterParams.MachineLock,
-		leadershipTracker:    uniterParams.LeadershipTracker,
-		charmDirGuard:        uniterParams.CharmDirGuard,
-		updateStatusAt:       uniterParams.UpdateStatusSignal,
-		hookRetryStrategy:    uniterParams.HookRetryStrategy,
-		newOperationExecutor: uniterParams.NewOperationExecutor,
-		translateResolverErr: translateResolverErr,
-		observer:             uniterParams.Observer,
-		clock:                uniterParams.Clock,
-		downloader:           uniterParams.Downloader,
-		applicationChannel:   uniterParams.ApplicationChannel,
+		st:                      uniterParams.UniterFacade,
+		paths:                   NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.ModelType == model.CAAS),
+		modelType:               uniterParams.ModelType,
+		hookLock:                uniterParams.MachineLock,
+		leadershipTracker:       uniterParams.LeadershipTracker,
+		charmDirGuard:           uniterParams.CharmDirGuard,
+		updateStatusAt:          uniterParams.UpdateStatusSignal,
+		hookRetryStrategy:       uniterParams.HookRetryStrategy,
+		newOperationExecutor:    uniterParams.NewOperationExecutor,
+		newRemoteRunnerExecutor: uniterParams.NewRemoteRunnerExecutor,
+		translateResolverErr:    translateResolverErr,
+		observer:                uniterParams.Observer,
+		clock:                   uniterParams.Clock,
+		downloader:              uniterParams.Downloader,
+		applicationChannel:      uniterParams.ApplicationChannel,
+		runListener:             uniterParams.RunListener,
 	}
 	startFunc := func() (worker.Worker, error) {
 		if err := catacomb.Invoke(catacomb.Plan{
@@ -417,6 +432,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	if errors.Cause(err) == ErrCAASUnitDead {
 		err = nil
 	}
+	u.runListener.UnregisterRunner(u.unit.Name())
 	logger.Infof("unit %q shutting down: %s", u.unit, err)
 	return err
 }
@@ -558,8 +574,12 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return err
 	}
+	var remoteExecutor runner.ExecFunc
+	if u.newRemoteRunnerExecutor != nil {
+		remoteExecutor = u.newRemoteRunnerExecutor(u.unit, u.paths)
+	}
 	runnerFactory, err := runner.NewFactory(
-		u.st, u.paths, contextFactory,
+		u.st, u.paths, contextFactory, remoteExecutor,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -601,7 +621,18 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	u.operationExecutor = operationExecutor
 
-	logger.Debugf("starting juju-run listener on unix:%s", u.paths.Runtime.JujuRunSocket)
+	if u.runListener == nil {
+		socket := u.paths.Runtime.JujuRunSocket
+		logger.Debugf("starting juju-run listener on %v", socket)
+		u.runListener, err = NewRunListener(socket)
+		if err != nil {
+			return errors.Annotate(err, "creating juju run listener")
+		}
+		rlw := NewRunListenerWrapper(u.runListener)
+		if err := u.catacomb.Add(rlw); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	commandRunner, err := NewChannelCommandRunner(ChannelCommandRunnerConfig{
 		Abort:          u.catacomb.Dying(),
 		Commands:       u.commands,
@@ -610,17 +641,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return errors.Annotate(err, "creating command runner")
 	}
-	u.runListener, err = NewRunListener(RunListenerConfig{
-		SocketPath:    u.paths.Runtime.JujuRunSocket,
-		CommandRunner: commandRunner,
-	})
-	if err != nil {
-		return errors.Annotate(err, "creating juju run listener")
-	}
-	rlw := newRunListenerWrapper(u.runListener)
-	if err := u.catacomb.Add(rlw); err != nil {
-		return errors.Trace(err)
-	}
+	u.runListener.RegisterRunner(u.unit.Name(), commandRunner)
 	return nil
 }
 

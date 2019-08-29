@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
-	"github.com/juju/replicaset"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	"gopkg.in/macaroon.v2-unstable"
@@ -18,7 +17,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
@@ -911,32 +910,12 @@ type MongoVersion struct {
 	StorageEngine string `json:"engine"`
 }
 
-// UpgradeMongoParams holds the arguments required to
-// enter upgrade mongo mode.
-type UpgradeMongoParams struct {
-	Target MongoVersion `json:"target"`
-}
-
 // HAMember holds information that identifies one member
 // of HA.
 type HAMember struct {
 	Tag           string          `json:"tag"`
 	PublicAddress network.Address `json:"public-address"`
 	Series        string          `json:"series"`
-}
-
-// MongoUpgradeResults holds the results of an attempt
-// to enter upgrade mongo mode.
-type MongoUpgradeResults struct {
-	RsMembers []replicaset.Member `json:"rs-members"`
-	Master    HAMember            `json:"master"`
-	Members   []HAMember          `json:"ha-members"`
-}
-
-// ResumeReplicationParams holds the members of a HA that
-// must be resumed.
-type ResumeReplicationParams struct {
-	Members []replicaset.Member `json:"members"`
 }
 
 // MeterStatusParam holds meter status information to be set for the specified tag.

@@ -5,16 +5,14 @@
 package mocks
 
 import (
-	"reflect"
-
-	"github.com/golang/mock/gomock"
+	gomock "github.com/golang/mock/gomock"
+	instance "github.com/juju/juju/core/instance"
+	lxdprofile "github.com/juju/juju/core/lxdprofile"
+	environs "github.com/juju/juju/environs"
+	context "github.com/juju/juju/environs/context"
+	instances "github.com/juju/juju/environs/instances"
 	charm_v6 "gopkg.in/juju/charm.v6"
-
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/instances"
+	reflect "reflect"
 )
 
 // MockLXDProfiler is a mock of LXDProfiler interface

@@ -14,7 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -1736,6 +1737,9 @@ func LegacyLeases(pool *StatePool, localTime time.Time) (map[corelease.Key]corel
 		return nil, errors.Trace(err)
 	}
 	globalTime, err := reader.Now()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// This needs to be the raw collection so we see all leases across
 	// models.
@@ -2199,14 +2203,35 @@ func AddControllerNodeDocs(pool *StatePool) error {
 	var ops []txn.Op
 	var docs []bson.M
 	err := machines.Find(
-		bson.D{{"jobs", bson.D{{"$in", []MachineJob{JobManageModel}}}}},
-	).Select(bson.M{"_id": 1, "machineid": 1, "hasvote": 1, "novote": 1}).All(&docs)
+		nil,
+	).Select(bson.M{"_id": 1, "machineid": 1, "jobs": 1, "hasvote": 1, "novote": 1}).All(&docs)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	for _, m := range docs {
 		docId := m["_id"].(string)
+		ops = append(ops, txn.Op{
+			C:  machinesC,
+			Id: docId,
+			Update: bson.D{
+				{"$unset", bson.D{{"hasvote", nil}}},
+				{"$unset", bson.D{{"novote", nil}}},
+			},
+		})
+		jobs := m["jobs"].([]interface{})
+		isController := false
+		for _, j := range jobs {
+			job, ok := j.(int)
+			isController = ok && job == int(JobManageModel)
+			if isController {
+				break
+			}
+		}
+		if !isController {
+			continue
+		}
+
 		mid := m["machineid"].(string)
 		hasvote, _ := m["hasvote"].(bool)
 		novote, ok := m["novote"].(bool)
@@ -2241,10 +2266,15 @@ func AddControllerNodeDocs(pool *StatePool) error {
 			Insert: doc,
 		})
 	}
-	if len(ops) > 0 {
-		return errors.Trace(st.runRawTransaction(ops))
-	}
-	return nil
+
+	ops = append(ops, txn.Op{
+		C:  controllersC,
+		Id: modelGlobalKey,
+		Update: bson.D{
+			{"$rename", bson.D{{"machineids", "controller-ids"}}},
+		},
+	})
+	return errors.Trace(st.runRawTransaction(ops))
 }
 
 // AddSpaceIdToSpaceDocs ensures that every space document includes a
@@ -2306,8 +2336,256 @@ func AddSpaceIdToSpaceDocs(pool *StatePool) (err error) {
 			})
 		}
 
-		ops = append(ops, createDefaultSpaceOp())
+		ops = append(ops, st.createDefaultSpaceOp())
 
+		return errors.Trace(st.db().RunTransaction(ops))
+	}))
+}
+
+// ChangeSubnetAZtoSlice changes AvailabilityZone in every subnet document
+// to AvailabilityZones, a slice of strings.
+func ChangeSubnetAZtoSlice(pool *StatePool) (err error) {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(subnetsC)
+		defer closer()
+
+		type oldSubnetDoc struct {
+			DocId            string `bson:"_id"`
+			AvailabilityZone string `bson:"availabilityzone"`
+		}
+
+		var docs []oldSubnetDoc
+		err := col.Find(nil).All(&docs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, sDoc := range docs {
+
+			if sDoc.AvailabilityZone == "" {
+				continue
+			}
+
+			ops = append(ops, txn.Op{
+				C:  subnetsC,
+				Id: sDoc.DocId,
+				Update: bson.D{
+					{"$set", bson.D{{"availability-zones", []string{sDoc.AvailabilityZone}}}},
+					{"$unset", bson.D{{"availabilityzone", nil}}},
+				},
+			})
+		}
+
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
+	}))
+}
+
+// ChangeSubnetSpaceNameToSpaceID replaces the SpaceName with the
+// SpaceID in a subnet.
+func ChangeSubnetSpaceNameToSpaceID(pool *StatePool) (err error) {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(subnetsC)
+		defer closer()
+
+		type oldSubnetDoc struct {
+			DocID     string `bson:"_id"`
+			SpaceName string `bson:"space-name"`
+			SpaceID   string `bson:"space-id"`
+		}
+
+		var docs []oldSubnetDoc
+		err := col.Find(nil).All(&docs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, sDoc := range docs {
+			if sDoc.SpaceID != "" {
+				continue
+			}
+
+			var id string
+			if sDoc.SpaceName == network.DefaultSpaceName {
+				id = network.DefaultSpaceId
+			} else {
+				space, err := st.Space(sDoc.SpaceName)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				id = space.Id()
+			}
+
+			ops = append(ops, txn.Op{
+				C:  subnetsC,
+				Id: sDoc.DocID,
+				Update: bson.D{
+					{"$set", bson.D{{"space-id", id}}},
+					{"$unset", bson.D{{"space-name", nil}}},
+				},
+			})
+		}
+
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
+	}))
+}
+
+// AddSubnetIdToSubnetDocs ensures that every subnet document includes a
+// a sequentially generated ID.
+func AddSubnetIdToSubnetDocs(pool *StatePool) (err error) {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(subnetsC)
+		defer closer()
+
+		var docs []subnetDoc
+		err := col.Find(nil).All(&docs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, oldDoc := range docs {
+			// A doc with a subnet ID has already been upgraded.
+			if oldDoc.ID != "" {
+				continue
+			}
+
+			// We cannot edit _id, so we need to delete and re-create each doc.
+			ops = append(ops, txn.Op{
+				C:      subnetsC,
+				Id:     oldDoc.DocID,
+				Assert: txn.DocExists,
+				Remove: true,
+			})
+
+			seq, err := sequence(st, "subnet")
+			if err != nil {
+				return errors.Trace(err)
+			}
+			id := strconv.Itoa(seq)
+
+			newDoc := oldDoc
+			newDoc.TxnRevno = 0
+			newDoc.DocID = st.docID(id)
+			newDoc.ID = id
+
+			ops = append(ops, txn.Op{
+				C:      subnetsC,
+				Id:     newDoc.DocID,
+				Insert: newDoc,
+			})
+		}
+
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
+	}))
+}
+
+// ReplacePortsDocSubnetIDCIDR ensures that every ports document use an
+// ID rather than a CIDR for subnetID.
+func ReplacePortsDocSubnetIDCIDR(pool *StatePool) (err error) {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(openedPortsC)
+		defer closer()
+
+		var docs []portsDoc
+		err := col.Find(nil).All(&docs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, oldDoc := range docs {
+			// A doc with a subnet ID has already been upgraded.
+			if !network.IsValidCidr(oldDoc.SubnetID) {
+				continue
+			}
+
+			// We cannot edit _id, so we need to delete and re-create each doc.
+			ops = append(ops, txn.Op{
+				C:      openedPortsC,
+				Id:     oldDoc.DocID,
+				Assert: txn.DocExists,
+				Remove: true,
+			})
+
+			// If we're upgrading from a model which has cidrs for
+			// subnetIDs, there can be only 1 of that cidr in the model.
+			subnet, err := st.Subnet(oldDoc.SubnetID)
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			newDoc := oldDoc
+			newDoc.TxnRevno = 0
+			newDoc.DocID = portsGlobalKey(newDoc.MachineID, subnet.ID())
+			newDoc.SubnetID = subnet.ID()
+
+			ops = append(ops, txn.Op{
+				C:      openedPortsC,
+				Id:     newDoc.DocID,
+				Insert: newDoc,
+			})
+		}
+
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
+	}))
+}
+
+// EnsureRelationApplicationSettings creates an application settings
+// doc for each endpoint in each relation if one doesn't already
+// exist.
+func EnsureRelationApplicationSettings(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		settingsCol, closer := st.db().GetCollection(settingsC)
+		defer closer()
+
+		allSettings := set.NewStrings()
+		settingsIter := settingsCol.Find(nil).Iter()
+		defer settingsIter.Close()
+
+		var doc struct {
+			ID string `bson:"_id"`
+		}
+		for settingsIter.Next(&doc) {
+			allSettings.Add(doc.ID)
+		}
+		if err := settingsIter.Close(); err != nil {
+			return errors.Trace(err)
+		}
+
+		relations, err := st.AllRelations()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, rel := range relations {
+			for _, ep := range rel.Endpoints() {
+				key := relationApplicationSettingsKey(rel.Id(), ep.ApplicationName)
+				id := st.docID(key)
+				if allSettings.Contains(id) {
+					continue
+				}
+				ops = append(ops, createSettingsOp(settingsC, key, map[string]interface{}{}))
+			}
+		}
+
+		if len(ops) == 0 {
+			return nil
+		}
 		return errors.Trace(st.db().RunTransaction(ops))
 	}))
 }

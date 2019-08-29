@@ -7,13 +7,12 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // Space represents the state of a juju network space.
@@ -63,33 +62,46 @@ func (s *Space) ProviderId() network.Id {
 }
 
 // Subnets returns all the subnets associated with the Space.
-func (s *Space) Subnets() (results []*Subnet, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot fetch subnets")
-	name := s.Name()
+func (s *Space) Subnets() ([]*Subnet, error) {
+	id := s.Id()
 
 	subnetsCollection, closer := s.st.db().GetCollection(subnetsC)
 	defer closer()
 
 	var doc subnetDoc
+	var results []*Subnet
 	// We ignore space-name field for FAN subnets...
-	iter := subnetsCollection.Find(bson.D{{"space-name", name}, bson.DocElem{"fan-local-underlay", bson.D{{"$exists", false}}}}).Iter()
+	iter := subnetsCollection.Find(
+		bson.D{{"space-id", id}, bson.DocElem{Name: "fan-local-underlay", Value: bson.D{{"$exists", false}}}}).Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		subnet := &Subnet{s.st, doc, name}
+		subnet := &Subnet{s.st, doc, id}
 		results = append(results, subnet)
 		// ...and then add them explicitly as descendants of underlay network.
 		childIter := subnetsCollection.Find(bson.D{{"fan-local-underlay", doc.CIDR}}).Iter()
 		for childIter.Next(&doc) {
-			subnet := &Subnet{s.st, doc, name}
+			subnet := &Subnet{s.st, doc, id}
 			results = append(results, subnet)
 		}
 	}
 	if err := iter.Close(); err != nil {
-		return nil, err
+		return nil, errors.Annotatef(err, "cannot fetch subnets")
 	}
 	return results, nil
 }
 
+func (s *Space) NetworkSpace() network.SpaceInfo {
+	return network.SpaceInfo{
+		Name:       network.SpaceName(s.Name()),
+		ProviderId: s.ProviderId(),
+		// TODO (manadart 2019-08-13): Populate these after subnet refactor.
+		Subnets: nil,
+	}
+}
+
+// TODO (hml) 2019-08-06
+// slice of subnets, should be subnet ids not cidrs.
+//
 // AddSpace creates and returns a new space.
 func (st *State) AddSpace(
 	name string, providerId network.Id, subnets []string, isPublic bool) (newSpace *Space, err error,
@@ -131,7 +143,7 @@ func (st *State) AddSpace(
 			}
 		}
 
-		ops, err := st.addSpaceTxnOps(name, providerId, subnets, isPublic)
+		ops, err := st.addSpaceWithSubnetsTxnOps(name, providerId, subnets, isPublic)
 		return ops, errors.Trace(err)
 	}
 
@@ -146,7 +158,9 @@ func (st *State) AddSpace(
 	return space, errors.Trace(err)
 }
 
-func (st *State) addSpaceTxnOps(name string, providerId network.Id, subnets []string, isPublic bool) ([]txn.Op, error) {
+func (st *State) addSpaceWithSubnetsTxnOps(
+	name string, providerId network.Id, subnets []string, isPublic bool,
+) ([]txn.Op, error) {
 	// Space with ID zero is the default space; start at 1.
 	seq, err := sequenceWithMin(st, "space", 1)
 	if err != nil {
@@ -154,6 +168,28 @@ func (st *State) addSpaceTxnOps(name string, providerId network.Id, subnets []st
 	}
 	id := strconv.Itoa(seq)
 
+	ops := st.addSpaceTxnOps(id, name, providerId, isPublic)
+
+	for _, cidr := range subnets {
+		sn, err := st.Subnet(cidr)
+		if err != nil {
+			return nil, err
+		}
+		// TODO:(mfoord) once we have refcounting for subnets we should
+		// also assert that the refcount is zero as moving the space of a
+		// subnet in use is not permitted.
+		ops = append(ops, txn.Op{
+			C:      subnetsC,
+			Id:     sn.ID(),
+			Assert: bson.D{bson.DocElem{Name: "fan-local-underlay", Value: bson.D{{"$exists", false}}}},
+			Update: bson.D{{"$set", bson.D{{"space-id", id}}}},
+		})
+	}
+
+	return ops, nil
+}
+
+func (st *State) addSpaceTxnOps(id, name string, providerId network.Id, isPublic bool) []txn.Op {
 	doc := spaceDoc{
 		DocId:      st.docID(id),
 		Id:         id,
@@ -174,20 +210,7 @@ func (st *State) addSpaceTxnOps(name string, providerId network.Id, subnets []st
 		ops = append(ops, st.networkEntityGlobalKeyOp("space", providerId))
 	}
 
-	for _, subnetId := range subnets {
-		// TODO:(mfoord) once we have refcounting for subnets we should
-		// also assert that the refcount is zero as moving the space of a
-		// subnet in use is not permitted.
-		ops = append(ops, txn.Op{
-			C:      subnetsC,
-			Id:     subnetId,
-			Assert: bson.D{bson.DocElem{Name: "fan-local-underlay", Value: bson.D{{"$exists", false}}}},
-			// TODO (manadart 2019-07-02): Change this to use the space ID.
-			Update: bson.D{{"$set", bson.D{{"space-name", name}}}},
-		})
-	}
-
-	return ops, nil
+	return ops
 }
 
 // Space returns a space from state that matches the provided name. An error
@@ -204,6 +227,24 @@ func (st *State) Space(name string) (*Space, error) {
 	}
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get space %q", name)
+	}
+	return &Space{st, doc}, nil
+}
+
+// SpaceByID returns a space from state that matches the provided ID. An error
+// is returned if the space doesn't exist or if there was a problem accessing
+// its information.
+func (st *State) SpaceByID(id string) (*Space, error) {
+	spaces, closer := st.db().GetCollection(spacesC)
+	defer closer()
+
+	var doc spaceDoc
+	err := spaces.Find(bson.M{"spaceid": id}).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("space id %q", id)
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get space id %q", id)
 	}
 	return &Space{st, doc}, nil
 }
@@ -237,7 +278,7 @@ func (s *Space) EnsureDead() (err error) {
 
 	ops := []txn.Op{{
 		C:      spacesC,
-		Id:     s.doc.Id,
+		Id:     s.doc.DocId,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 		Assert: isAliveDoc,
 	}}
@@ -296,14 +337,14 @@ func (s *Space) Refresh() error {
 
 // createDefaultSpaceOp returns a transaction operation
 // that creates the default space (id=0).
-func createDefaultSpaceOp() txn.Op {
+func (st *State) createDefaultSpaceOp() txn.Op {
 	return txn.Op{
 		C:  spacesC,
-		Id: "0",
+		Id: st.docID(network.DefaultSpaceId),
 		Insert: spaceDoc{
-			Id:       corenetwork.DefaultSpaceId,
+			Id:       network.DefaultSpaceId,
 			Life:     Alive,
-			Name:     corenetwork.DefaultSpaceName,
+			Name:     network.DefaultSpaceName,
 			IsPublic: true,
 		},
 	}

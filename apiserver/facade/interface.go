@@ -4,7 +4,7 @@
 package facade
 
 import (
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
@@ -68,6 +68,15 @@ type Context interface {
 	// Controller returns the in-memory representation of the models
 	// in the database.
 	Controller() *cache.Controller
+
+	// CachedModel returns the in-memory representation of the specified
+	// model. This call will wait for the model to appear in the cache.
+	// The method optimistically expects the model to exist in the cache
+	// or appear very soon. If the model doesn't appear, the database is
+	// checked. A NotFound error is returned if the model no longer exists
+	// in the database, or a Timeout error is returned if the model didn't
+	// appear, but should have.
+	CachedModel(uuid string) (*cache.Model, error)
 
 	// Presence returns an instance that is able to be asked for
 	// the current model presence.

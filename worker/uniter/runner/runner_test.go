@@ -4,6 +4,7 @@
 package runner_test
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -19,6 +20,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6/hooks"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -44,7 +46,7 @@ func (s *RunCommandSuite) TestRunCommandsEnvStdOutAndErrAndRC(c *gc.C) {
 	ctx, err := s.contextFactory.HookContext(hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 	paths := runnertesting.NewRealPaths(c)
-	runner := runner.NewRunner(ctx, paths)
+	runner := runner.NewRunner(ctx, paths, nil)
 
 	commands := `
 echo $JUJU_CHARM_DIR
@@ -121,7 +123,7 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		paths := runnertesting.NewRealPaths(c)
-		rnr := runner.NewRunner(ctx, paths)
+		rnr := runner.NewRunner(ctx, paths, nil)
 		var hookExists bool
 		if t.spec.perm != 0 {
 			spec := t.spec
@@ -156,6 +158,7 @@ type MockContext struct {
 	flushBadge      string
 	flushFailure    error
 	flushResult     error
+	modelType       model.ModelType
 }
 
 func (ctx *MockContext) UnitName() string {
@@ -198,6 +201,13 @@ func (ctx *MockContext) UpdateActionResults(keys []string, value string) error {
 	return nil
 }
 
+func (ctx *MockContext) ModelType() model.ModelType {
+	if ctx.modelType == "" {
+		return model.IAAS
+	}
+	return ctx.modelType
+}
+
 type RunMockContextSuite struct {
 	envtesting.IsolationSuite
 	paths runnertesting.RealPaths
@@ -228,7 +238,7 @@ func (s *RunMockContextSuite) TestRunHookFlushSuccess(c *gc.C) {
 		name: hookName,
 		perm: 0700,
 	}, s.paths.GetCharmDir())
-	actualErr := runner.NewRunner(ctx, s.paths).RunHook("something-happened")
+	actualErr := runner.NewRunner(ctx, s.paths, nil).RunHook("something-happened")
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
 	c.Assert(ctx.flushFailure, gc.IsNil)
@@ -246,7 +256,7 @@ func (s *RunMockContextSuite) TestRunHookFlushFailure(c *gc.C) {
 		perm: 0700,
 		code: 123,
 	}, s.paths.GetCharmDir())
-	actualErr := runner.NewRunner(ctx, s.paths).RunHook("something-happened")
+	actualErr := runner.NewRunner(ctx, s.paths, nil).RunHook("something-happened")
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
 	c.Assert(ctx.flushFailure, gc.ErrorMatches, "exit status 123")
@@ -264,11 +274,56 @@ func (s *RunMockContextSuite) TestRunActionFlushSuccess(c *gc.C) {
 		name: hookName,
 		perm: 0700,
 	}, s.paths.GetCharmDir())
-	actualErr := runner.NewRunner(ctx, s.paths).RunAction("something-happened")
+	actualErr := runner.NewRunner(ctx, s.paths, nil).RunAction("something-happened")
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
 	c.Assert(ctx.flushFailure, gc.IsNil)
 	s.assertRecordedPid(c, ctx.expectPid)
+}
+
+func (s *RunMockContextSuite) TestRunActionFlushCharmActionsCAASSuccess(c *gc.C) {
+	expectErr := errors.New("pew pew pew")
+	ctx := &MockContext{
+		flushResult: expectErr,
+		actionData:  &context.ActionData{},
+		modelType:   model.CAAS,
+	}
+	makeCharm(c, hookSpec{
+		dir:  "actions",
+		name: hookName,
+		perm: 0700,
+	}, s.paths.GetCharmDir())
+
+	execFuncCalled := false
+	c.Assert(execFuncCalled, jc.IsFalse)
+	execFunc := func(params runner.ExecParams) (*exec.ExecResponse, error) {
+		execFuncCalled = true
+		return &exec.ExecResponse{
+			Stdout: bytes.NewBufferString("1").Bytes(),
+		}, nil
+	}
+	actualErr := runner.NewRunner(ctx, s.paths, execFunc).RunAction("something-happened")
+	c.Assert(execFuncCalled, jc.IsTrue)
+	c.Assert(actualErr, gc.Equals, expectErr)
+	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
+	c.Assert(ctx.flushFailure, gc.IsNil)
+}
+
+func (s *RunMockContextSuite) TestRunActionFlushCharmActionsCAASFailed(c *gc.C) {
+	ctx := &MockContext{
+		flushResult: errors.New("pew pew pew"),
+		actionData:  &context.ActionData{},
+		modelType:   model.CAAS,
+	}
+	makeCharm(c, hookSpec{
+		dir:  "actions",
+		name: hookName,
+		perm: 0700,
+	}, s.paths.GetCharmDir())
+	actualErr := runner.NewRunner(ctx, s.paths, nil).RunAction("something-happened")
+	c.Assert(actualErr, gc.Equals, ctx.flushResult)
+	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
+	c.Assert(ctx.flushFailure, jc.Satisfies, errors.IsNotSupported)
 }
 
 func (s *RunMockContextSuite) TestRunActionFlushFailure(c *gc.C) {
@@ -283,7 +338,7 @@ func (s *RunMockContextSuite) TestRunActionFlushFailure(c *gc.C) {
 		perm: 0700,
 		code: 123,
 	}, s.paths.GetCharmDir())
-	actualErr := runner.NewRunner(ctx, s.paths).RunAction("something-happened")
+	actualErr := runner.NewRunner(ctx, s.paths, nil).RunAction("something-happened")
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
 	c.Assert(ctx.flushFailure, gc.ErrorMatches, "exit status 123")
@@ -296,7 +351,7 @@ func (s *RunMockContextSuite) TestRunActionParamsFailure(c *gc.C) {
 		actionData:      &context.ActionData{},
 		actionParamsErr: expectErr,
 	}
-	actualErr := runner.NewRunner(ctx, s.paths).RunAction("juju-run")
+	actualErr := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-run")
 	c.Assert(errors.Cause(actualErr), gc.Equals, expectErr)
 }
 
@@ -309,7 +364,7 @@ func (s *RunMockContextSuite) TestRunActionSuccessful(c *gc.C) {
 		},
 		actionResults: map[string]interface{}{},
 	}
-	err := runner.NewRunner(ctx, s.paths).RunAction("juju-run")
+	err := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-run")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
 	c.Assert(ctx.flushFailure, gc.IsNil)
@@ -328,7 +383,7 @@ func (s *RunMockContextSuite) TestRunActionCancelled(c *gc.C) {
 		},
 		actionResults: map[string]interface{}{},
 	}
-	err := runner.NewRunner(ctx, s.paths).RunAction("juju-run")
+	err := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-run")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
 	c.Assert(ctx.flushFailure, gc.Equals, exec.ErrCancelled)
@@ -342,7 +397,7 @@ func (s *RunMockContextSuite) TestRunCommandsFlushSuccess(c *gc.C) {
 	ctx := &MockContext{
 		flushResult: expectErr,
 	}
-	_, actualErr := runner.NewRunner(ctx, s.paths).RunCommands(echoPidScript)
+	_, actualErr := runner.NewRunner(ctx, s.paths, nil).RunCommands(echoPidScript)
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "run commands")
 	c.Assert(ctx.flushFailure, gc.IsNil)
@@ -354,9 +409,53 @@ func (s *RunMockContextSuite) TestRunCommandsFlushFailure(c *gc.C) {
 	ctx := &MockContext{
 		flushResult: expectErr,
 	}
-	_, actualErr := runner.NewRunner(ctx, s.paths).RunCommands(echoPidScript + "; exit 123")
+	_, actualErr := runner.NewRunner(ctx, s.paths, nil).RunCommands(echoPidScript + "; exit 123")
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "run commands")
 	c.Assert(ctx.flushFailure, gc.IsNil) // exit code in _ result, as tested elsewhere
 	s.assertRecordedPid(c, ctx.expectPid)
+}
+
+func (s *RunMockContextSuite) TestRunActionCAASSuccess(c *gc.C) {
+	ctx := &MockContext{
+		modelType:  model.CAAS,
+		actionData: &context.ActionData{},
+		actionParams: map[string]interface{}{
+			"command":          "echo 1",
+			"timeout":          0,
+			"workload-context": true,
+		},
+		actionResults: map[string]interface{}{},
+	}
+	execFunc := func(params runner.ExecParams) (*exec.ExecResponse, error) {
+		return &exec.ExecResponse{
+			Stdout: bytes.NewBufferString("1").Bytes(),
+		}, nil
+	}
+	err := runner.NewRunner(ctx, s.paths, execFunc).RunAction("juju-run")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
+	c.Assert(ctx.actionResults["Code"], gc.Equals, "0")
+	c.Assert(strings.TrimRight(ctx.actionResults["Stdout"].(string), "\r\n"), gc.Equals, "1")
+	c.Assert(ctx.actionResults["Stderr"], gc.Equals, "")
+}
+
+func (s *RunMockContextSuite) TestRunActionOnWorkloadIgnoredIAAS(c *gc.C) {
+	ctx := &MockContext{
+		modelType:  model.IAAS,
+		actionData: &context.ActionData{},
+		actionParams: map[string]interface{}{
+			"command":          "echo 1",
+			"timeout":          0,
+			"workload-context": true,
+		},
+		actionResults: map[string]interface{}{},
+	}
+	err := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-run")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
+	c.Assert(ctx.flushFailure, gc.IsNil)
+	c.Assert(ctx.actionResults["Code"], gc.Equals, "0")
+	c.Assert(strings.TrimRight(ctx.actionResults["Stdout"].(string), "\r\n"), gc.Equals, "1")
+	c.Assert(ctx.actionResults["Stderr"], gc.Equals, "")
 }

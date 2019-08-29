@@ -5,10 +5,11 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/network"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/core/network"
 )
 
 // CloudServicer represents the state of a CAAS service.
@@ -61,7 +62,7 @@ func newCloudService(st *State, doc *cloudServiceDoc) *CloudService {
 
 // Id implements CloudServicer.
 func (c *CloudService) Id() string {
-	return c.doc.DocID
+	return c.st.localID(c.doc.DocID)
 }
 
 // ProviderId implements CloudServicer.
@@ -89,7 +90,7 @@ func (c *CloudService) cloudServiceDoc() (*cloudServiceDoc, error) {
 	defer closer()
 
 	var doc cloudServiceDoc
-	err := coll.FindId(c.Id()).One(&doc)
+	err := coll.FindId(c.doc.DocID).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("cloud service %v", c.Id())
 	}

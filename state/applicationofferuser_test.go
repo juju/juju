@@ -9,7 +9,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/permission"
@@ -94,6 +94,7 @@ func (s *ApplicationOfferUserSuite) TestAddAdminModelUser(c *gc.C) {
 func (s *ApplicationOfferUserSuite) TestUpdateOfferAccess(c *gc.C) {
 	offer, user := s.makeOffer(c, permission.AdminAccess)
 	err := s.State.UpdateOfferAccess(names.NewApplicationOfferTag(offer.OfferName), user, permission.ReadAccess)
+	c.Assert(err, jc.ErrorIsNil)
 
 	access, err := s.State.GetOfferAccess(offer.OfferUUID, user)
 	c.Assert(err, jc.ErrorIsNil)

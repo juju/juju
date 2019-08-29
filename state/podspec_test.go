@@ -5,7 +5,7 @@ package state_test
 
 import (
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/state"

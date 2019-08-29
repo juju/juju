@@ -10,27 +10,30 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"google.golang.org/api/compute/v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/gce/google"
 )
 
-type subnetMap map[string]network.SubnetInfo
+type subnetMap map[string]corenetwork.SubnetInfo
 type networkMap map[string]*compute.Network
 
 // Subnets implements environs.NetworkingEnviron.
-func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (e *environ) Subnets(
+	ctx context.ProviderCallContext, inst instance.Id, subnetIds []corenetwork.Id,
+) ([]corenetwork.SubnetInfo, error) {
 	// In GCE all the subnets are in all AZs.
 	zones, err := e.zoneNames(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ids := makeIncludeSet(subnetIds)
-	var results []network.SubnetInfo
+	var results []corenetwork.SubnetInfo
 	if inst == instance.UnknownId {
 		results, err = e.getMatchingSubnets(ctx, ids, zones)
 	} else {
@@ -71,7 +74,9 @@ func (e *environ) networksByURL(ctx context.ProviderCallContext) (networkMap, er
 	return results, nil
 }
 
-func (e *environ) getMatchingSubnets(ctx context.ProviderCallContext, subnetIds IncludeSet, zones []string) ([]network.SubnetInfo, error) {
+func (e *environ) getMatchingSubnets(
+	ctx context.ProviderCallContext, subnetIds IncludeSet, zones []string,
+) ([]corenetwork.SubnetInfo, error) {
 	allSubnets, err := e.gce.Subnetworks(e.cloud.Region)
 	if err != nil {
 		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
@@ -80,7 +85,7 @@ func (e *environ) getMatchingSubnets(ctx context.ProviderCallContext, subnetIds 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var results []network.SubnetInfo
+	var results []corenetwork.SubnetInfo
 	for _, subnet := range allSubnets {
 		netwk, ok := networks[subnet.Network]
 		if !ok {
@@ -88,8 +93,8 @@ func (e *environ) getMatchingSubnets(ctx context.ProviderCallContext, subnetIds 
 		}
 		if subnetIds.Include(subnet.Name) {
 			results = append(results, makeSubnetInfo(
-				network.Id(subnet.Name),
-				network.Id(netwk.Name),
+				corenetwork.Id(subnet.Name),
+				corenetwork.Id(netwk.Name),
 				subnet.IpCidrRange,
 				zones,
 			))
@@ -99,8 +104,8 @@ func (e *environ) getMatchingSubnets(ctx context.ProviderCallContext, subnetIds 
 	for _, netwk := range networks {
 		if netwk.IPv4Range != "" && subnetIds.Include(netwk.Name) {
 			results = append(results, makeSubnetInfo(
-				network.Id(netwk.Name),
-				network.Id(netwk.Name),
+				corenetwork.Id(netwk.Name),
+				corenetwork.Id(netwk.Name),
 				netwk.IPv4Range,
 				zones,
 			))
@@ -109,12 +114,14 @@ func (e *environ) getMatchingSubnets(ctx context.ProviderCallContext, subnetIds 
 	return results, nil
 }
 
-func (e *environ) getInstanceSubnets(ctx context.ProviderCallContext, inst instance.Id, subnetIds IncludeSet, zones []string) ([]network.SubnetInfo, error) {
+func (e *environ) getInstanceSubnets(
+	ctx context.ProviderCallContext, inst instance.Id, subnetIds IncludeSet, zones []string,
+) ([]corenetwork.SubnetInfo, error) {
 	ifaces, err := e.NetworkInterfaces(ctx, inst)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var results []network.SubnetInfo
+	var results []corenetwork.SubnetInfo
 	for _, iface := range ifaces {
 		if subnetIds.Include(string(iface.ProviderSubnetId)) {
 			results = append(results, makeSubnetInfo(
@@ -175,12 +182,12 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId inst
 			CIDR:        details.cidr,
 			// The network interface has no id in GCE so it's
 			// identified by the machine's id + its name.
-			ProviderId:        network.Id(fmt.Sprintf("%s/%s", instId, iface.Name)),
+			ProviderId:        corenetwork.Id(fmt.Sprintf("%s/%s", instId, iface.Name)),
 			ProviderSubnetId:  details.subnet,
 			ProviderNetworkId: details.network,
 			AvailabilityZones: copyStrings(zones),
 			InterfaceName:     iface.Name,
-			Address:           network.NewScopedAddress(iface.NetworkIP, network.ScopeCloudLocal),
+			Address:           corenetwork.NewScopedAddress(iface.NetworkIP, corenetwork.ScopeCloudLocal),
 			InterfaceType:     network.EthernetInterface,
 			Disabled:          false,
 			NoAutoStart:       false,
@@ -192,8 +199,8 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId inst
 
 type networkDetails struct {
 	cidr    string
-	subnet  network.Id
-	network network.Id
+	subnet  corenetwork.Id
+	network corenetwork.Id
 }
 
 // findNetworkDetails looks up the network information we need to
@@ -210,7 +217,7 @@ func findNetworkDetails(iface compute.NetworkInterface, subnets subnetMap, netwo
 		}
 		result.cidr = netwk.IPv4Range
 		result.subnet = ""
-		result.network = network.Id(netwk.Name)
+		result.network = corenetwork.Id(netwk.Name)
 	} else {
 		subnet, ok := subnets[iface.Subnetwork]
 		if !ok {
@@ -225,14 +232,14 @@ func findNetworkDetails(iface compute.NetworkInterface, subnets subnetMap, netwo
 
 func (e *environ) subnetsByURL(ctx context.ProviderCallContext, urls []string, networks networkMap, zones []string) (subnetMap, error) {
 	if len(urls) == 0 {
-		return make(map[string]network.SubnetInfo), nil
+		return make(map[string]corenetwork.SubnetInfo), nil
 	}
 	urlSet := includeSet{items: set.NewStrings(urls...)}
 	allSubnets, err := e.gce.Subnetworks(e.cloud.Region)
 	if err != nil {
 		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
 	}
-	results := make(map[string]network.SubnetInfo)
+	results := make(map[string]corenetwork.SubnetInfo)
 	for _, subnet := range allSubnets {
 		netwk, ok := networks[subnet.Network]
 		if !ok {
@@ -240,8 +247,8 @@ func (e *environ) subnetsByURL(ctx context.ProviderCallContext, urls []string, n
 		}
 		if urlSet.Include(subnet.SelfLink) {
 			results[subnet.SelfLink] = makeSubnetInfo(
-				network.Id(subnet.Name),
-				network.Id(netwk.Name),
+				corenetwork.Id(subnet.Name),
+				corenetwork.Id(netwk.Name),
 				subnet.IpCidrRange,
 				zones,
 			)
@@ -264,7 +271,7 @@ func (e *environ) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool,
 }
 
 // Spaces implements environs.NetworkingEnviron.
-func (e *environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
+func (e *environ) Spaces(ctx context.ProviderCallContext) ([]corenetwork.SpaceInfo, error) {
 	return nil, errors.NotSupportedf("spaces")
 }
 
@@ -284,7 +291,9 @@ func (e *environ) ReleaseContainerAddresses(context.ProviderCallContext, []netwo
 }
 
 // ProviderSpaceInfo implements environs.NetworkingEnviron.
-func (*environ) ProviderSpaceInfo(ctx context.ProviderCallContext, space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+func (*environ) ProviderSpaceInfo(
+	ctx context.ProviderCallContext, space *corenetwork.SpaceInfo,
+) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("provider space info")
 }
 
@@ -296,10 +305,10 @@ func (*environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space
 // SSHAddresses implements environs.SSHAddresses.
 // For GCE we want to make sure we're returning only one public address, so that probing won't
 // cause SSHGuard to lock us out
-func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses []network.Address) ([]network.Address, error) {
-	bestAddress, ok := network.SelectPublicAddress(addresses)
+func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses []corenetwork.Address) ([]corenetwork.Address, error) {
+	bestAddress, ok := corenetwork.SelectPublicAddress(addresses)
 	if ok {
-		return []network.Address{bestAddress}, nil
+		return []corenetwork.Address{bestAddress}, nil
 	} else {
 		// fallback
 		return addresses, nil
@@ -328,14 +337,15 @@ func copyStrings(items []string) []string {
 	return result
 }
 
-func makeSubnetInfo(subnetId network.Id, networkId network.Id, cidr string, zones []string) network.SubnetInfo {
-	return network.SubnetInfo{
+func makeSubnetInfo(
+	subnetId corenetwork.Id, networkId corenetwork.Id, cidr string, zones []string,
+) corenetwork.SubnetInfo {
+	return corenetwork.SubnetInfo{
 		ProviderId:        subnetId,
 		ProviderNetworkId: networkId,
 		CIDR:              cidr,
 		AvailabilityZones: copyStrings(zones),
 		VLANTag:           0,
-		SpaceProviderId:   "",
 	}
 }
 
@@ -379,15 +389,15 @@ func (s *includeSet) Missing() []string {
 	return s.items.SortedValues()
 }
 
-func makeIncludeSet(ids []network.Id) IncludeSet {
+func makeIncludeSet(ids []corenetwork.Id) IncludeSet {
 	if len(ids) == 0 {
 		return &includeAny{}
 	}
-	strings := set.NewStrings()
+	str := set.NewStrings()
 	for _, id := range ids {
-		strings.Add(string(id))
+		str.Add(string(id))
 	}
-	return &includeSet{items: strings}
+	return &includeSet{items: str}
 }
 
 func formatMissing(items []string) string {

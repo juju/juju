@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -16,7 +17,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -143,7 +144,7 @@ func (u *Unit) Application() (*Application, error) {
 // specified.
 func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	if u.doc.CharmURL == nil {
-		return nil, fmt.Errorf("unit charm not set")
+		return nil, fmt.Errorf("unit's charm URL must be set before retrieving config")
 	}
 
 	// TODO (manadart 2019-02-21) Factor the current generation into this call.
@@ -366,7 +367,7 @@ func (op *UpdateUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		containerInfo.ProviderId = newProviderId
 	}
 	if op.props.Address != nil {
-		networkAddr := network.NewScopedAddress(*op.props.Address, network.ScopeMachineLocal)
+		networkAddr := corenetwork.NewScopedAddress(*op.props.Address, corenetwork.ScopeMachineLocal)
 		addr := fromNetworkAddress(networkAddr, OriginProvider)
 		containerInfo.Address = &addr
 	}
@@ -557,24 +558,21 @@ func (op *DestroyUnitOperation) Done(err error) error {
 func (op *DestroyUnitOperation) eraseHistory() error {
 	if err := eraseStatusHistory(op.unit.st, op.unit.globalKey()); err != nil {
 		one := errors.Annotate(err, "workload")
-		if !op.Force {
+		if op.FatalError(one) {
 			return one
 		}
-		op.AddError(one)
 	}
 	if err := eraseStatusHistory(op.unit.st, op.unit.globalAgentKey()); err != nil {
 		one := errors.Annotate(err, "agent")
-		if !op.Force {
+		if op.FatalError(one) {
 			return one
 		}
-		op.AddError(one)
 	}
 	if err := eraseStatusHistory(op.unit.st, op.unit.globalWorkloadVersionKey()); err != nil {
 		one := errors.Annotate(err, "version")
-		if !op.Force {
+		if op.FatalError(one) {
 			return one
 		}
-		op.AddError(one)
 	}
 	return nil
 }
@@ -685,10 +683,9 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	case status.Error, status.Allocating:
 	default:
 		err := errors.Errorf("unexpected unit state - unit with status %v is not deployed", agentStatusInfo.Status)
-		if !op.Force {
+		if op.FatalError(err) {
 			return nil, err
 		}
-		op.AddError(err)
 	}
 
 	statusOp := txn.Op{
@@ -713,11 +710,8 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	removeOps, err := op.unit.removeOps(removeAsserts, &op.ForcedOperation, op.DestroyStorage)
 	if err == errAlreadyRemoved {
 		return nil, errAlreadyDying
-	} else if err != nil {
-		if !op.Force {
-			return nil, err
-		}
-		op.AddError(err)
+	} else if op.FatalError(err) {
+		return nil, err
 	}
 	ops := []txn.Op{statusOp, minUnitsOp}
 	ops = append(ops, removeOps...)
@@ -749,14 +743,18 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 		}
 		return nil, err
 	}
+	hasVote := false
+	node, err := u.st.ControllerNode(u.doc.MachineId)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	}
+	haveControllerNode := err == nil
+	hasVote = haveControllerNode && node.HasVote()
 
 	containerCheck := true // whether container conditions allow destroying the host machine
 	containers, err := m.Containers()
-	if err != nil {
-		if !op.Force {
-			return nil, err
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, err
 	}
 	if len(containers) > 0 {
 		ops = append(ops, txn.Op{
@@ -784,7 +782,7 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 		// Check that the machine does not have any responsibilities that
 		// prevent a lifecycle change.
 		machineCheck = false
-	} else if m.doc.HasVote {
+	} else if hasVote {
 		machineCheck = false
 	}
 
@@ -796,18 +794,15 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 		machineAssert = bson.D{{"$and", []bson.D{
 			{{"principals", []string{u.doc.Name}}},
 			{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
-			{{"hasvote", bson.D{{"$ne", true}}}},
 		}}}
 		controllerNodeAssert = txn.DocMissing
-		_, err = m.st.ControllerNode(m.Id())
-		if err == nil {
+		if haveControllerNode {
 			controllerNodeAssert = bson.D{{"has-vote", false}}
 		}
 	} else {
 		machineAssert = bson.D{{"$or", []bson.D{
 			{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
 			{{"jobs", bson.D{{"$in", []MachineJob{JobManageModel}}}}},
-			{{"hasvote", true}},
 		}}}
 		if isController {
 			controllerNodeAssert = txn.DocExists
@@ -937,38 +932,6 @@ func (u *Unit) RemoveOperation(force bool) *RemoveUnitOperation {
 	}
 }
 
-// ForcedOperation that allowas accumulation of operational errors and
-// can be forced.
-type ForcedOperation struct {
-	// Force controls whether or not the removal of a unit
-	// will be forced, i.e. ignore operational errors.
-	Force bool
-
-	// Errors contains errors encountered while applying this operation.
-	// Generally, these are non-fatal errors that have been encountered
-	// during, say, force. They may not have prevented the operation from being
-	// aborted but the user might still want to know about them.
-	Errors []error
-
-	// MaxWait specifies the amount of time that each step in relation destroy process
-	// will wait before forcing the next step to kick-off. This parameter
-	// only makes sense in combination with 'force' set to 'true'.
-	MaxWait time.Duration
-}
-
-// AddError adds an error to the collection of errors for this operation.
-func (op *ForcedOperation) AddError(one ...error) {
-	op.Errors = append(op.Errors, one...)
-}
-
-// LastError returns last added error for this operation.
-func (op *ForcedOperation) LastError() error {
-	if len(op.Errors) == 0 {
-		return nil
-	}
-	return op.Errors[len(op.Errors)-1]
-}
-
 // RemoveUnitOperation is a model operation for removing a unit.
 type RemoveUnitOperation struct {
 	// ForcedOperation stores needed information to force this operation.
@@ -1049,11 +1012,8 @@ func (op *RemoveUnitOperation) removeOps() (ops []txn.Op, err error) {
 	// only point at which we can safely backstop lp:1233457 and mitigate
 	// the impact of unit agent bugs that leave relation scopes occupied).
 	relations, err := applicationRelations(op.unit.st, op.unit.doc.Application)
-	if err != nil {
-		if !op.Force {
-			return nil, err
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, err
 	} else {
 		failRelations := false
 		for _, rel := range relations {
@@ -1078,11 +1038,8 @@ func (op *RemoveUnitOperation) removeOps() (ops []txn.Op, err error) {
 	// Now we're sure we haven't left any scopes occupied by this unit, we
 	// can safely remove the document.
 	unitRemoveOps, err := op.unit.removeOps(isDeadDoc, &op.ForcedOperation, false)
-	if err != nil {
-		if !op.Force {
-			return nil, err
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, err
 	}
 	return append(ops, unitRemoveOps...), nil
 }
@@ -1190,32 +1147,32 @@ func (u *Unit) noAssignedMachineOp() txn.Op {
 }
 
 // PublicAddress returns the public address of the unit.
-func (u *Unit) PublicAddress() (network.Address, error) {
+func (u *Unit) PublicAddress() (corenetwork.Address, error) {
 	if !u.ShouldBeAssigned() {
 		return u.scopedAddress("public")
 	}
 	m, err := u.machine()
 	if err != nil {
 		unitLogger.Tracef("%v", err)
-		return network.Address{}, errors.Trace(err)
+		return corenetwork.Address{}, errors.Trace(err)
 	}
 	return m.PublicAddress()
 }
 
 // PrivateAddress returns the private address of the unit.
-func (u *Unit) PrivateAddress() (network.Address, error) {
+func (u *Unit) PrivateAddress() (corenetwork.Address, error) {
 	if !u.ShouldBeAssigned() {
 		return u.scopedAddress("private")
 	}
 	m, err := u.machine()
 	if err != nil {
 		unitLogger.Tracef("%v", err)
-		return network.Address{}, errors.Trace(err)
+		return corenetwork.Address{}, errors.Trace(err)
 	}
 	return m.PrivateAddress()
 }
 
-func (u *Unit) scopedAddress(scope string) (network.Address, error) {
+func (u *Unit) scopedAddress(scope string) (corenetwork.Address, error) {
 	addr, err := u.serviceAddress(scope)
 	if err == nil {
 		return addr, nil
@@ -1223,14 +1180,14 @@ func (u *Unit) scopedAddress(scope string) (network.Address, error) {
 	if network.IsNoAddressError(err) {
 		return u.containerAddress()
 	}
-	return network.Address{}, errors.Trace(err)
+	return corenetwork.Address{}, errors.Trace(err)
 }
 
 // AllAddresses returns the public and private addresses
 // plus the container address of the unit (if known).
 // Only relevant for CAAS models - will return an empty
 // slice for IAAS models.
-func (u *Unit) AllAddresses() ([]network.Address, error) {
+func (u *Unit) AllAddresses() ([]corenetwork.Address, error) {
 	if u.ShouldBeAssigned() {
 		return nil, nil
 	}
@@ -1257,57 +1214,57 @@ func (u *Unit) AllAddresses() ([]network.Address, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return []network.Address{addr}, nil
+	return []corenetwork.Address{addr}, nil
 }
 
 // containerAddress returns the address of the pod's container.
-func (u *Unit) containerAddress() (network.Address, error) {
+func (u *Unit) containerAddress() (corenetwork.Address, error) {
 	containerInfo, err := u.cloudContainer()
 	if errors.IsNotFound(err) {
-		return network.Address{}, network.NoAddressError("container")
+		return corenetwork.Address{}, network.NoAddressError("container")
 	}
 	if err != nil {
-		return network.Address{}, errors.Trace(err)
+		return corenetwork.Address{}, errors.Trace(err)
 	}
 	addr := containerInfo.Address
 	if addr == nil {
-		return network.Address{}, network.NoAddressError("container")
+		return corenetwork.Address{}, network.NoAddressError("container")
 	}
 	return addr.networkAddress(), nil
 }
 
 // serviceAddress returns the address of the service
 // managing the pods in which the unit workload is running.
-func (u *Unit) serviceAddress(scope string) (network.Address, error) {
+func (u *Unit) serviceAddress(scope string) (corenetwork.Address, error) {
 	addresses, err := u.AllAddresses()
 	if err != nil {
-		return network.Address{}, errors.Trace(err)
+		return corenetwork.Address{}, errors.Trace(err)
 	}
 	if len(addresses) == 0 {
-		return network.Address{}, network.NoAddressError(scope)
+		return corenetwork.Address{}, network.NoAddressError(scope)
 	}
-	getStrictPublicAddr := func(addresses []network.Address) (network.Address, bool) {
-		addr, ok := network.SelectPublicAddress(addresses)
-		return addr, ok && addr.Scope == network.ScopePublic
-	}
-
-	getInternalAddr := func(addresses []network.Address) (network.Address, bool) {
-		return network.SelectInternalAddress(addresses, false)
+	getStrictPublicAddr := func(addresses []corenetwork.Address) (corenetwork.Address, bool) {
+		addr, ok := corenetwork.SelectPublicAddress(addresses)
+		return addr, ok && addr.Scope == corenetwork.ScopePublic
 	}
 
-	var addrMatch func([]network.Address) (network.Address, bool)
+	getInternalAddr := func(addresses []corenetwork.Address) (corenetwork.Address, bool) {
+		return corenetwork.SelectInternalAddress(addresses, false)
+	}
+
+	var addrMatch func([]corenetwork.Address) (corenetwork.Address, bool)
 	switch scope {
 	case "public":
 		addrMatch = getStrictPublicAddr
 	case "private":
 		addrMatch = getInternalAddr
 	default:
-		return network.Address{}, errors.NotValidf("address scope %q", scope)
+		return corenetwork.Address{}, errors.NotValidf("address scope %q", scope)
 	}
 
 	addr, found := addrMatch(addresses)
 	if !found {
-		return network.Address{}, network.NoAddressError(scope)
+		return corenetwork.Address{}, network.NoAddressError(scope)
 	}
 	return addr, nil
 }
@@ -1481,11 +1438,13 @@ func (u *Unit) OpenPortsOnSubnet(subnetID, protocol string, fromPort, toPort int
 func (u *Unit) checkSubnetAliveWhenSet(subnetID string) error {
 	if subnetID == "" {
 		return nil
-	} else if !names.IsValidSubnet(subnetID) {
+	}
+
+	if _, err := strconv.Atoi(subnetID); err != nil {
 		return errors.Errorf("invalid subnet ID %q", subnetID)
 	}
 
-	subnet, err := u.st.Subnet(subnetID)
+	subnet, err := u.st.SubnetByID(subnetID)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Annotatef(err, "getting subnet %q", subnetID)
 	} else if errors.IsNotFound(err) || subnet.Life() != Alive {

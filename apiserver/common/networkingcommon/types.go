@@ -8,11 +8,13 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/life"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
@@ -27,12 +29,12 @@ import (
 type BackingSubnet interface {
 	CIDR() string
 	VLANTag() int
-	ProviderId() network.Id
-	ProviderNetworkId() network.Id
+	ProviderId() corenetwork.Id
+	ProviderNetworkId() corenetwork.Id
 	AvailabilityZones() []string
 	Status() string
 	SpaceName() string
-	Life() params.Life
+	Life() life.Value
 }
 
 // BackingSubnetInfo describes a single subnet to be added in the
@@ -41,21 +43,18 @@ type BackingSubnet interface {
 // TODO(dimitern): Replace state.SubnetInfo with this and remove
 // BackingSubnetInfo, once the rest of state backing methods and the
 // following pre-reqs are done:
-// * subnetDoc.AvailabilityZone becomes subnetDoc.AvailabilityZones,
-//   adding an upgrade step to migrate existing non empty zones on
-//   subnet docs. Also change state.Subnet.AvailabilityZone to
 // * Subnets need a reference count to calculate Status.
 // * ensure EC2 and MAAS providers accept empty IDs as Subnets() args
 //   and return all subnets, including the AvailabilityZones (for EC2;
 //   empty for MAAS as zones are orthogonal to networks).
 type BackingSubnetInfo struct {
 	// ProviderId is a provider-specific network id. This may be empty.
-	ProviderId network.Id
+	ProviderId corenetwork.Id
 
 	// ProviderNetworkId is the id of the network containing this
 	// subnet from the provider's perspective. It can be empty if the
 	// provider doesn't support distinct networks.
-	ProviderNetworkId network.Id
+	ProviderNetworkId corenetwork.Id
 
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
@@ -84,6 +83,9 @@ type BackingSubnetInfo struct {
 // BackingSpace defines the methods supported by a Space entity stored
 // persistently.
 type BackingSpace interface {
+	// ID returns the ID of the space.
+	Id() string
+
 	// Name returns the space name.
 	Name() string
 
@@ -91,7 +93,7 @@ type BackingSpace interface {
 	Subnets() ([]BackingSubnet, error)
 
 	// ProviderId returns the network ID of the provider
-	ProviderId() network.Id
+	ProviderId() corenetwork.Id
 }
 
 // NetworkBacking defines the methods needed by the API facade to store and
@@ -109,7 +111,7 @@ type NetworkBacking interface {
 	SetAvailabilityZones([]providercommon.AvailabilityZone) error
 
 	// AddSpace creates a space
-	AddSpace(Name string, ProviderId network.Id, Subnets []string, Public bool) error
+	AddSpace(Name string, ProviderId corenetwork.Id, Subnets []string, Public bool) error
 
 	// AllSpaces returns all known Juju network spaces.
 	AllSpaces() ([]BackingSpace, error)
@@ -131,21 +133,27 @@ func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
 	cidr := subnet.CIDR()
 	vlantag := subnet.VLANTag()
 	providerid := subnet.ProviderId()
+	providerNetworkid := subnet.ProviderNetworkId()
 	zones := subnet.AvailabilityZones()
 	status := subnet.Status()
-	var spaceTag names.SpaceTag
+
+	// TODO(babbageclunk): make the empty string a valid space
+	// name, rather than treating blank as "doesn't have a space".
+	// lp:1672888
+	var spaceTag string
 	if subnet.SpaceName() != "" {
-		spaceTag = names.NewSpaceTag(subnet.SpaceName())
+		spaceTag = names.NewSpaceTag(subnet.SpaceName()).String()
 	}
 
 	return params.Subnet{
-		CIDR:       cidr,
-		VLANTag:    vlantag,
-		ProviderId: string(providerid),
-		Zones:      zones,
-		Status:     status,
-		SpaceTag:   spaceTag.String(),
-		Life:       subnet.Life(),
+		CIDR:              cidr,
+		VLANTag:           vlantag,
+		ProviderId:        string(providerid),
+		ProviderNetworkId: string(providerNetworkid),
+		Zones:             zones,
+		Status:            status,
+		SpaceTag:          spaceTag,
+		Life:              params.Life(subnet.Life()),
 	}
 }
 
@@ -219,7 +227,7 @@ func NetworkConfigsToStateArgs(networkConfig []params.NetworkConfig) (
 			args := state.LinkLayerDeviceArgs{
 				Name:        netConfig.InterfaceName,
 				MTU:         mtu,
-				ProviderID:  network.Id(netConfig.ProviderId),
+				ProviderID:  corenetwork.Id(netConfig.ProviderId),
 				Type:        state.LinkLayerDeviceType(netConfig.InterfaceType),
 				MACAddress:  netConfig.MACAddress,
 				IsAutoStart: !netConfig.NoAutoStart,
@@ -263,7 +271,7 @@ func NetworkConfigsToStateArgs(networkConfig []params.NetworkConfig) (
 
 		addr := state.LinkLayerDeviceAddress{
 			DeviceName:       netConfig.InterfaceName,
-			ProviderID:       network.Id(netConfig.ProviderAddressId),
+			ProviderID:       corenetwork.Id(netConfig.ProviderAddressId),
 			ConfigMethod:     derivedConfigMethod,
 			CIDRAddress:      cidrAddress,
 			DNSServers:       netConfig.DNSServers,

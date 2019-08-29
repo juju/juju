@@ -6,12 +6,19 @@ package uniter
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 
-	"github.com/juju/os"
-	"gopkg.in/juju/names.v2"
+	"github.com/juju/errors"
+	jujuos "github.com/juju/os"
+	"gopkg.in/juju/names.v3"
+	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/juju/sockets"
 )
 
 // Paths represents the set of filesystem paths a uniter worker has reason to
@@ -44,7 +51,7 @@ func (paths Paths) GetCharmDir() string {
 }
 
 // GetJujucSocket exists to satisfy the context.Paths interface.
-func (paths Paths) GetJujucSocket() string {
+func (paths Paths) GetJujucSocket() sockets.Socket {
 	return paths.Runtime.JujucServerSocket
 }
 
@@ -59,16 +66,18 @@ func (paths Paths) ComponentDir(name string) string {
 	return filepath.Join(paths.State.BaseDir, name)
 }
 
+const jujucServerSocketPort = 30000
+
 // RuntimePaths represents the set of paths that are relevant at runtime.
 type RuntimePaths struct {
 
 	// JujuRunSocket listens for juju-run invocations, and is always
 	// active.
-	JujuRunSocket string
+	JujuRunSocket sockets.Socket
 
 	// JujucServerSocket listens for jujuc invocations, and is only
 	// active when supporting a jujuc execution context.
-	JujucServerSocket string
+	JujucServerSocket sockets.Socket
 }
 
 // StatePaths represents the set of paths that hold persistent local state for
@@ -107,25 +116,72 @@ type StatePaths struct {
 
 // NewPaths returns the set of filesystem paths that the supplied unit should
 // use, given the supplied root juju data directory path.
-func NewPaths(dataDir string, unitTag names.UnitTag) Paths {
-	return NewWorkerPaths(dataDir, unitTag, "")
+func NewPaths(dataDir string, unitTag names.UnitTag, isRemote bool) Paths {
+	return NewWorkerPaths(dataDir, unitTag, "", isRemote)
+}
+
+// TODO(caas) - move me to generic helper for reading operator config yaml
+func socketIP(baseDir string) (string, error) {
+	// IP address to use for the socket can either be an env var
+	// (when we are the caas operator and are creating the socket to listen),
+	// or inside a YAML file (when we are juju-run and need to see where
+	// to connect to).
+	podIP := os.Getenv(provider.OperatorPodIPEnvName)
+	if podIP != "" {
+		return podIP, nil
+	}
+	ipAddrFile := filepath.Join(baseDir, provider.OperatorInfoFile)
+	ipAddrData, err := ioutil.ReadFile(ipAddrFile)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	var socketIP string
+	var data map[string]interface{}
+	if err := yaml.Unmarshal(ipAddrData, &data); err == nil {
+		socketIP, _ = data["operator-address"].(string)
+	}
+	return socketIP, nil
 }
 
 // NewWorkerPaths returns the set of filesystem paths that the supplied unit worker should
 // use, given the supplied root juju data directory path and worker identifier.
 // Distinct worker identifiers ensure that runtime paths of different worker do not interfere.
-func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string) Paths {
+func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string, isRemote bool) Paths {
+	baseDir := agent.Dir(dataDir, unitTag)
 	join := filepath.Join
-	baseDir := join(dataDir, "agents", unitTag.String())
 	stateDir := join(baseDir, "state")
 
-	socket := func(name string, abstract bool) string {
-		if os.HostOS() == os.Windows {
+	newSocket := func(name string, abstract bool) sockets.Socket {
+		if isRemote {
+			socketIP, err := socketIP(baseDir)
+			if err != nil {
+				logger.Warningf("unable to get IP address for jujuc socket: %v", err)
+				return sockets.Socket{}
+			}
+			logger.Debugf("using operator address: %v", socketIP)
+			switch name {
+			case "agent":
+				return sockets.Socket{
+					Network: "tcp",
+					Address: fmt.Sprintf("%s:%d", socketIP, jujucServerSocketPort+unitTag.Number()),
+				}
+			case "run":
+				return sockets.Socket{
+					Network: "tcp",
+					Address: fmt.Sprintf("%s:%d", socketIP, provider.JujuRunServerSocketPort),
+				}
+			default:
+				logger.Warningf("caas model socket name %q, fallback to unix protocol", name)
+			}
+		}
+		socket := sockets.Socket{Network: "unix"}
+		if jujuos.HostOS() == jujuos.Windows {
 			base := fmt.Sprintf("%s", unitTag)
 			if worker != "" {
 				base = fmt.Sprintf("%s-%s", unitTag, worker)
 			}
-			return fmt.Sprintf(`\\.\pipe\%s-%s`, base, name)
+			socket.Address = fmt.Sprintf(`\\.\pipe\%s-%s`, base, name)
+			return socket
 		}
 		path := join(baseDir, name+".socket")
 		if worker != "" {
@@ -134,15 +190,16 @@ func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string) Paths 
 		if abstract {
 			path = "@" + path
 		}
-		return path
+		socket.Address = path
+		return socket
 	}
 
 	toolsDir := tools.ToolsDir(dataDir, unitTag.String())
 	return Paths{
 		ToolsDir: filepath.FromSlash(toolsDir),
 		Runtime: RuntimePaths{
-			JujuRunSocket:     socket("run", false),
-			JujucServerSocket: socket("agent", true),
+			JujuRunSocket:     newSocket("run", false),
+			JujucServerSocket: newSocket("agent", true),
 		},
 		State: StatePaths{
 			BaseDir:         baseDir,

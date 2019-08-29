@@ -41,13 +41,17 @@ func (s *Server) FindImage(
 	callback environs.StatusCallbackFunc,
 ) (SourcedImage, error) {
 	if callback != nil {
-		callback(status.Provisioning, "acquiring LXD image", nil)
+		_ = callback(status.Provisioning, "acquiring LXD image", nil)
 	}
 
 	// First we check if we have the image locally.
 	localAlias := seriesLocalAlias(series, arch)
 	var target string
 	entry, _, err := s.GetImageAlias(localAlias)
+	if err != nil && !IsLXDNotFound(err) {
+		return SourcedImage{}, errors.Trace(err)
+	}
+
 	if entry != nil {
 		// We already have an image with the given alias, so just use that.
 		target = entry.Target
@@ -141,7 +145,7 @@ func (s *Server) CopyRemoteImage(
 			}
 			for _, key := range []string{"fs_progress", "download_progress"} {
 				if value, ok := op.Metadata[key]; ok {
-					callback(status.Provisioning, fmt.Sprintf("Retrieving image: %s", value.(string)), nil)
+					_ = callback(status.Provisioning, fmt.Sprintf("Retrieving image: %s", value.(string)), nil)
 					return
 				}
 			}

@@ -194,32 +194,32 @@ func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
 // Server implements a server that serves command invocations via
 // a unix domain socket.
 type Server struct {
-	socketPath string
-	listener   net.Listener
-	server     *rpc.Server
-	closed     chan bool
-	closing    chan bool
-	wg         sync.WaitGroup
+	socket   sockets.Socket
+	listener net.Listener
+	server   *rpc.Server
+	closed   chan bool
+	closing  chan bool
+	wg       sync.WaitGroup
 }
 
 // NewServer creates an RPC server bound to socketPath, which can execute
 // remote command invocations against an appropriate Context. It will not
 // actually do so until Run is called.
-func NewServer(getCmd CmdGetter, socketPath string) (*Server, error) {
+func NewServer(getCmd CmdGetter, socket sockets.Socket) (*Server, error) {
 	server := rpc.NewServer()
 	if err := server.Register(&Jujuc{getCmd: getCmd}); err != nil {
 		return nil, err
 	}
-	listener, err := sockets.Listen(socketPath)
+	listener, err := sockets.Listen(socket)
 	if err != nil {
 		return nil, errors.Annotate(err, "listening to jujuc socket")
 	}
 	s := &Server{
-		socketPath: socketPath,
-		listener:   listener,
-		server:     server,
-		closed:     make(chan bool),
-		closing:    make(chan bool),
+		socket:   socket,
+		listener: listener,
+		server:   server,
+		closed:   make(chan bool),
+		closing:  make(chan bool),
 	}
 	return s, nil
 }
@@ -263,7 +263,7 @@ func (s *Server) Close() {
 	// Ignore error as we can't do much here
 	// anyway and remove the path if we start the
 	// server again.
-	os.Remove(s.socketPath)
+	_ = os.Remove(s.socket.Address)
 	<-s.closed
 }
 

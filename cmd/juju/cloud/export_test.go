@@ -146,9 +146,14 @@ func NewAddCredentialCommandForTest(
 	}
 }
 
-func NewRemoveCredentialCommandForTest(testStore jujuclient.CredentialStore) *removeCredentialCommand {
+func NewRemoveCredentialCommandForTest(testStore jujuclient.ClientStore,
+	cloudByNameFunc func(string) (*jujucloud.Cloud, error),
+	f func() (RemoveCredentialAPI, error),
+) *removeCredentialCommand {
 	return &removeCredentialCommand{
-		store: testStore,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: testStore},
+		cloudByNameFunc:           cloudByNameFunc,
+		credentialAPIFunc:         f,
 	}
 }
 

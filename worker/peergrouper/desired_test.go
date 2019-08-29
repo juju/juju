@@ -15,7 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 type desiredPeerGroupSuite struct {
@@ -351,7 +351,7 @@ func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIP
 			trackerMap[m.Id()] = m
 		}
 
-		info, err := newPeerGroupInfo(trackerMap, test.statuses, test.members, mongoPort, network.SpaceName(""))
+		info, err := newPeerGroupInfo(trackerMap, test.statuses, test.members, mongoPort, network.SpaceInfo{})
 		c.Assert(err, jc.ErrorIsNil)
 
 		desired, err := desiredPeerGroup(info)
@@ -385,7 +385,7 @@ func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIP
 
 		// Make sure that when the members are set as required, that there
 		// is no further change if desiredPeerGroup is called again.
-		info, err = newPeerGroupInfo(trackerMap, test.statuses, members, mongoPort, network.SpaceName(""))
+		info, err = newPeerGroupInfo(trackerMap, test.statuses, members, mongoPort, network.SpaceInfo{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(info, gc.NotNil)
 
@@ -409,7 +409,7 @@ func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIP
 }
 
 func (s *desiredPeerGroupSuite) TestNewPeerGroupInfoErrWhenNoMembers(c *gc.C) {
-	_, err := newPeerGroupInfo(nil, nil, nil, 666, network.SpaceName(""))
+	_, err := newPeerGroupInfo(nil, nil, nil, 666, network.SpaceInfo{})
 	c.Check(err, gc.ErrorMatches, "current member set is empty")
 }
 

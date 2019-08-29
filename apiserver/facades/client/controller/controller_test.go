@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/apiserver"
@@ -64,7 +64,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	}
 	s.hub = pubsub.NewStructuredHub(nil)
 
-	controller, err := controller.NewControllerAPIv7(
+	controller, err := controller.NewControllerAPIv8(
 		facadetest.Context{
 			State_:     s.State,
 			StatePool_: s.StatePool,
@@ -566,6 +566,7 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
 		}},
 	}
 	out, err := s.controller.InitiateMigration(args)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.Results, gc.HasLen, 1)
 	c.Check(out.Results[0].Error, gc.ErrorMatches, "boom")
 

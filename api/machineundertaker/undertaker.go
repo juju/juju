@@ -5,10 +5,11 @@ package machineundertaker
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/network"
 )
@@ -84,7 +85,7 @@ func (api *API) GetProviderInterfaceInfo(machine names.MachineTag) ([]network.Pr
 	for i, info := range item.Interfaces {
 		infos[i].InterfaceName = info.InterfaceName
 		infos[i].MACAddress = info.MACAddress
-		infos[i].ProviderId = network.Id(info.ProviderId)
+		infos[i].ProviderId = corenetwork.Id(info.ProviderId)
 	}
 	return infos, nil
 }

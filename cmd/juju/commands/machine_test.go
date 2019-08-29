@@ -38,6 +38,7 @@ func (s *MachineSuite) TestMachineAdd(c *gc.C) {
 	count := len(machines)
 
 	ctx, err := s.RunCommand(c, "add-machine")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `created machine`)
 
 	machines, err = s.State.AllMachines()
@@ -49,6 +50,7 @@ func (s *MachineSuite) TestMachineRemove(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
 
 	ctx, err := s.RunCommand(c, "remove-machine", machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 
 	err = machine.Refresh()

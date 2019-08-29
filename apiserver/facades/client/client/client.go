@@ -11,7 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/os"
 	"github.com/juju/os/series"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -19,14 +19,16 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/environs/manual/winrmprovisioner"
-	"github.com/juju/juju/network"
+
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -47,6 +49,7 @@ type API struct {
 	statusSetter     *common.StatusSetter
 	toolsFinder      *common.ToolsFinder
 	leadershipReader leadership.Reader
+	modelCache       *cache.Model
 }
 
 // TODO(wallyworld) - remove this method
@@ -160,7 +163,9 @@ func newFacade(ctx facade.Context) (*Client, error) {
 		}
 	}
 
-	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
+	modelUUID := model.UUID()
+
+	urlGetter := common.NewToolsURLGetter(modelUUID, st)
 	statusSetter := common.NewStatusSetter(st, common.AuthAlways())
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter)
 	blockChecker := common.NewBlockChecker(st)
@@ -171,7 +176,12 @@ func newFacade(ctx facade.Context) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	leadershipReader, err := ctx.LeadershipReader(model.UUID())
+	leadershipReader, err := ctx.LeadershipReader(modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	modelCache, err := ctx.CachedModel(modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -189,6 +199,7 @@ func newFacade(ctx facade.Context) (*Client, error) {
 		blockChecker,
 		state.CallContext(st),
 		leadershipReader,
+		modelCache,
 	)
 }
 
@@ -206,6 +217,7 @@ func NewClient(
 	blockChecker *common.BlockChecker,
 	callCtx context.ProviderCallContext,
 	leadershipReader leadership.Reader,
+	modelCache *cache.Model,
 ) (*Client, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -221,6 +233,7 @@ func NewClient(
 			statusSetter:     statusSetter,
 			toolsFinder:      toolsFinder,
 			leadershipReader: leadershipReader,
+			modelCache:       modelCache,
 		},
 		newEnviron:  newEnviron,
 		check:       blockChecker,

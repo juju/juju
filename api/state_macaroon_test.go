@@ -161,6 +161,7 @@ func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *gc.C) {
 	client := s.OpenAPI(c, info, nil)
 
 	dischargedMacaroons, err := api.ExtractMacaroons(client)
+	c.Assert(err, gc.IsNil)
 	c.Assert(len(dischargedMacaroons), gc.Equals, 1)
 
 	// Mirror the situation in migration logtransfer - the macaroon is

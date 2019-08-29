@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 )
@@ -22,7 +22,7 @@ type cmdSpaceSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-func (s *cmdSpaceSuite) AddSubnets(c *gc.C, infos []state.SubnetInfo) []*state.Subnet {
+func (s *cmdSpaceSuite) AddSubnets(c *gc.C, infos []network.SubnetInfo) []*state.Subnet {
 	results := make([]*state.Subnet, len(infos))
 	for i, info := range infos {
 		subnet, err := s.State.AddSubnet(info)
@@ -34,22 +34,19 @@ func (s *cmdSpaceSuite) AddSubnets(c *gc.C, infos []state.SubnetInfo) []*state.S
 }
 
 func (s *cmdSpaceSuite) MakeSubnetInfos(c *gc.C, space string, cidrTemplate string, count int) (
-	infos []state.SubnetInfo,
-	ids []string,
+	infos []network.SubnetInfo,
 ) {
-	infos = make([]state.SubnetInfo, count)
-	ids = make([]string, count)
+	infos = make([]network.SubnetInfo, count)
 	for i := range infos {
-		ids[i] = fmt.Sprintf(cidrTemplate, i)
-		infos[i] = state.SubnetInfo{
+		infos[i] = network.SubnetInfo{
 			// ProviderId it needs to be unique in state.
-			ProviderId:       network.Id(fmt.Sprintf("sub-%d", rand.Int())),
-			CIDR:             ids[i],
-			SpaceName:        space,
-			AvailabilityZone: "zone1",
+			ProviderId:        network.Id(fmt.Sprintf("sub-%d", rand.Int())),
+			CIDR:              fmt.Sprintf(cidrTemplate, i),
+			SpaceName:         space,
+			AvailabilityZones: []string{"zone1"},
 		}
 	}
-	return infos, ids
+	return infos
 }
 
 func (s *cmdSpaceSuite) AddSpace(c *gc.C, name string, ids []string, public bool) *state.Space {
@@ -65,7 +62,7 @@ func (s *cmdSpaceSuite) AddSpace(c *gc.C, name string, ids []string, public bool
 const expectedSuccess = ""
 
 func (s *cmdSpaceSuite) Run(c *gc.C, args ...string) (string, string, error) {
-	context, err := runJujuCommand(c, args...)
+	context, err := runCommand(c, args...)
 	stdout, stderr := "", ""
 	if context != nil {
 		stdout = cmdtesting.Stdout(context)
@@ -151,7 +148,7 @@ func (s *cmdSpaceSuite) TestSpaceCreateNoSubnets(c *gc.C) {
 }
 
 func (s *cmdSpaceSuite) TestSpaceCreateWithSubnets(c *gc.C) {
-	infos, _ := s.MakeSubnetInfos(c, "", "10.1%d.0.0/16", 2)
+	infos := s.MakeSubnetInfos(c, "", "10.1%d.0.0/16", 2)
 	s.AddSubnets(c, infos)
 
 	_, stderr, err := s.Run(
@@ -173,15 +170,14 @@ func (s *cmdSpaceSuite) TestSpaceCreateWithSubnets(c *gc.C) {
 	c.Assert(subnets[1].SpaceName(), gc.Equals, "myspace")
 }
 
-// TODO (manadart 2019-07-22): Fix this so that spaces are output with IDs.
 func (s *cmdSpaceSuite) TestSpaceListDefaultOnly(c *gc.C) {
 	stdout, _, err := s.Run(c, "spaces")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := `
-Space  Subnets
-
-
+Space  Name       Subnets
+0      (default)         
+                         
 `[1:]
 
 	c.Assert(stdout, gc.Equals, expected)
@@ -191,20 +187,20 @@ func (s *cmdSpaceSuite) TestSpaceListOneResultNoSubnets(c *gc.C) {
 	s.AddSpace(c, "myspace", nil, true)
 
 	// The default space is listed in addition to the one we added.
-	expectedOutput := "{\"spaces\":{\"\":{},\"myspace\":{}}}\n"
+	expectedOutput := "{\"spaces\":[{\"id\":\"0\",\"name\":\"\",\"subnets\":{}},{\"id\":\"1\",\"name\":\"myspace\",\"subnets\":{}}]}\n"
 	stdout, _, err := s.Run(c, "list-spaces", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stdout, jc.Contains, expectedOutput)
 }
 
 func (s *cmdSpaceSuite) TestSpaceListMoreResults(c *gc.C) {
-	infos1, ids1 := s.MakeSubnetInfos(c, "space1", "10.10.%d.0/24", 3)
+	infos1 := s.MakeSubnetInfos(c, "space1", "10.10.%d.0/24", 3)
+	s.AddSpace(c, "space1", nil, true)
 	s.AddSubnets(c, infos1)
-	s.AddSpace(c, "space1", ids1, true)
 
-	infos2, ids2 := s.MakeSubnetInfos(c, "space2", "10.20.%d.0/24", 1)
+	infos2 := s.MakeSubnetInfos(c, "space2", "10.20.%d.0/24", 1)
+	s.AddSpace(c, "space2", nil, false)
 	s.AddSubnets(c, infos2)
-	s.AddSpace(c, "space2", ids2, false)
 
 	stdout, stderr, err := s.Run(c, "list-spaces", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
@@ -213,9 +209,11 @@ func (s *cmdSpaceSuite) TestSpaceListMoreResults(c *gc.C) {
 	// We dont' check the output in detail, just a few things - the
 	// rest it tested separately.
 	c.Assert(stdout, jc.Contains, "spaces:")
-	c.Assert(stdout, jc.Contains, "space1:")
+	c.Assert(stdout, jc.Contains, "id: \"0\"")
+	c.Assert(stdout, jc.Contains, "id: \"1\"")
+	c.Assert(stdout, jc.Contains, "name: space1")
 	c.Assert(stdout, jc.Contains, "10.10.2.0/24:")
-	c.Assert(stdout, jc.Contains, "space2:")
+	c.Assert(stdout, jc.Contains, "name: space2")
 	c.Assert(stdout, jc.Contains, "10.20.0.0/24:")
 	c.Assert(stdout, jc.Contains, "zones:")
 	c.Assert(stdout, jc.Contains, "zone1")

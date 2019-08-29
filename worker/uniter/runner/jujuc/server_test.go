@@ -82,14 +82,14 @@ func factory(contextId, cmdName string) (cmd.Command, error) {
 
 type ServerSuite struct {
 	testing.BaseSuite
-	server   *jujuc.Server
-	sockPath string
-	err      chan error
+	server *jujuc.Server
+	socket sockets.Socket
+	err    chan error
 }
 
 var _ = gc.Suite(&ServerSuite{})
 
-func (s *ServerSuite) osDependentSockPath(c *gc.C) string {
+func (s *ServerSuite) osDependentSockPath(c *gc.C) sockets.Socket {
 	pipeRoot := c.MkDir()
 	var sock string
 	if runtime.GOOS == "windows" {
@@ -97,13 +97,13 @@ func (s *ServerSuite) osDependentSockPath(c *gc.C) string {
 	} else {
 		sock = filepath.Join(pipeRoot, "test.sock")
 	}
-	return sock
+	return sockets.Socket{Network: "unix", Address: sock}
 }
 
 func (s *ServerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.sockPath = s.osDependentSockPath(c)
-	srv, err := jujuc.NewServer(factory, s.sockPath)
+	s.socket = s.osDependentSockPath(c)
+	srv, err := jujuc.NewServer(factory, s.socket)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(srv, gc.NotNil)
 	s.server = srv
@@ -114,13 +114,13 @@ func (s *ServerSuite) SetUpTest(c *gc.C) {
 func (s *ServerSuite) TearDownTest(c *gc.C) {
 	s.server.Close()
 	c.Assert(<-s.err, gc.IsNil)
-	_, err := os.Open(s.sockPath)
+	_, err := os.Open(s.socket.Address)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *ServerSuite) Call(c *gc.C, req jujuc.Request) (resp exec.ExecResponse, err error) {
-	client, err := sockets.Dial(s.sockPath)
+	client, err := sockets.Dial(s.socket)
 	c.Assert(err, jc.ErrorIsNil)
 	defer client.Close()
 	err = client.Call("Jujuc.Main", req, &resp)

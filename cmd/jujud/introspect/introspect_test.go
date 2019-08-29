@@ -22,7 +22,7 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cmd/jujud/introspect"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -77,7 +77,7 @@ func (s *IntrospectCommandSuite) TestAutoDetectMachineAgentFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.run(c, "query")
-	c.Assert(err, gc.ErrorMatches, "could not determine machine tag")
+	c.Assert(err, gc.ErrorMatches, "could not determine machine or controller agent tag")
 }
 
 func (s *IntrospectCommandSuite) TestAgentSpecified(c *gc.C) {

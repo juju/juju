@@ -26,8 +26,8 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
@@ -751,6 +751,7 @@ func (s *ApplicationSuite) TestSetCharmWhenDead(c *gc.C) {
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		_, err := s.mysql.AddUnit(state.AddUnitParams{})
+		c.Assert(err, jc.ErrorIsNil)
 		err = s.mysql.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 		assertLife(c, s.mysql, state.Dying)
@@ -1486,7 +1487,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	// refcount.
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	curl, ok := u.CharmURL()
+	_, ok := u.CharmURL()
 	c.Assert(ok, jc.IsFalse)
 	assertSettingsRef(c, s.State, appName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, appName, newCh)
@@ -1495,7 +1496,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	// used by app as well, hence 2.
 	err = u.SetCharmURL(oldCh.URL())
 	c.Assert(err, jc.ErrorIsNil)
-	curl, ok = u.CharmURL()
+	curl, ok := u.CharmURL()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(curl, gc.DeepEquals, oldCh.URL())
 	assertSettingsRef(c, s.State, appName, oldCh, 2)
@@ -2505,6 +2506,41 @@ func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *ApplicationSuite) TestApplicationCleanupRemovesAppFromActiveBranches(c *gc.C) {
+	s.assertNoCleanup(c)
+
+	// setup branch, tracking and app with config changes.
+	app := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	c.Assert(s.Model.AddBranch("apple", "testuser"), jc.ErrorIsNil)
+	branch, err := s.Model.Branch("apple")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(branch.AssignApplication(app.Name()), jc.ErrorIsNil)
+	c.Assert(branch.AssignApplication(s.mysql.Name()), jc.ErrorIsNil)
+	newCfg := map[string]interface{}{"outlook": "testing"}
+	c.Assert(app.UpdateCharmConfig(branch.BranchName(), newCfg), jc.ErrorIsNil)
+
+	// verify the branch setup
+	c.Assert(branch.Refresh(), jc.ErrorIsNil)
+	c.Assert(branch.AssignedUnits(), jc.DeepEquals, map[string][]string{
+		app.Name():     {},
+		s.mysql.Name(): {},
+	})
+	branchCfg := branch.Config()
+	_, ok := branchCfg[app.Name()]
+	c.Assert(ok, jc.IsTrue)
+
+	// destroy the app
+	c.Assert(app.Destroy(), gc.IsNil)
+	assertRemoved(c, app)
+
+	// Check the branch
+	c.Assert(branch.Refresh(), jc.ErrorIsNil)
+	c.Assert(branch.AssignedUnits(), jc.DeepEquals, map[string][]string{
+		s.mysql.Name(): {},
+	})
+	c.Assert(branch.Config(), gc.HasLen, 0)
+}
+
 func (s *ApplicationSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
 	s.assertNoCleanup(c)
 
@@ -2601,6 +2637,7 @@ func (s *ApplicationSuite) TestConstraints(c *gc.C) {
 	// Constraints can be set.
 	cons2 := constraints.Value{Mem: uint64p(4096)}
 	err = s.mysql.SetConstraints(cons2)
+	c.Assert(err, jc.ErrorIsNil)
 	cons3, err := s.mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons3, gc.DeepEquals, cons2)
@@ -2939,6 +2976,7 @@ func (s *ApplicationSuite) TestMetricCredentials(c *gc.C) {
 	c.Assert(s.mysql.MetricCredentials(), gc.DeepEquals, []byte("hello there"))
 
 	application, err := s.State.Application(s.mysql.Name())
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application.MetricCredentials(), gc.DeepEquals, []byte("hello there"))
 }
 
@@ -3794,6 +3832,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	c.Assert(unitHistory[0].Message, gc.Equals, status.MessageInitializingAgent)
 
 	u, ok = unitsById["new-unit-uuid"]
+	c.Assert(ok, jc.IsTrue)
 	info, ok = containerInfoById["new-unit-uuid"]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(u.Name(), gc.Equals, "gitlab/3")
@@ -3975,6 +4014,39 @@ func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
 	err = s.app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
+}
+
+func (s *CAASApplicationSuite) TestWatchCloudService(c *gc.C) {
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+	cloudSvc, err := s.State.SaveCloudService(state.SaveCloudServiceArgs{
+		Id: s.app.Name(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	w := cloudSvc.Watch()
+	defer testing.AssertStop(c, w)
+
+	// Initial event.
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	_, err = s.State.SaveCloudService(state.SaveCloudServiceArgs{
+		Id:         s.app.Name(),
+		ProviderId: "123",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Stop, check closed.
+	testing.AssertStop(c, w)
+	wc.AssertClosed()
+
+	// Remove service by removing app, start new watch, check single event.
+	err = s.app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+	w = cloudSvc.Watch()
+	defer testing.AssertStop(c, w)
+	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
 }
 
 func (s *CAASApplicationSuite) TestRewriteStatusHistory(c *gc.C) {

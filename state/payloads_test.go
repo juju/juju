@@ -663,8 +663,8 @@ type unitArgs struct {
 }
 
 func addUnit(c *gc.C, s ConnSuite, args unitArgs) *state.Unit {
-	ch := s.AddTestingCharm(c, args.charm)
-	ch = s.AddMetaCharm(c, args.charm, args.metadata, 2)
+	s.AddTestingCharm(c, args.charm)
+	ch := s.AddMetaCharm(c, args.charm, args.metadata, 2)
 
 	app := s.AddTestingApplication(c, args.application, ch)
 	unit, err := app.AddUnit(state.AddUnitParams{})

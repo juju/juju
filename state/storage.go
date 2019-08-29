@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -406,11 +406,8 @@ func (sb *storageBackend) destroyStorageInstance(
 		case nil:
 			return ops, nil
 		default:
-			if !force {
-				return nil, errors.Trace(err)
-			}
 			logger.Warningf("could not destroy storage instance %v: %v", tag.Id(), err)
-			return ops, nil
+			return nil, errors.Trace(err)
 		}
 	}
 	return sb.mb.db().Run(buildTxn)

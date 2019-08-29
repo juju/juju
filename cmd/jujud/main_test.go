@@ -25,6 +25,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/sockets"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -150,14 +151,15 @@ func (c *RemoteCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func run(c *gc.C, sockPath string, contextId string, exit int, stdin []byte, cmd ...string) string {
+func run(c *gc.C, sockPath sockets.Socket, contextId string, exit int, stdin []byte, cmd ...string) string {
 	args := append([]string{"-test.run", "TestRunMain", "-run-main", "--"}, cmd...)
 	c.Logf("check %v %#v", os.Args[0], args)
 	ps := exec.Command(os.Args[0], args...)
 	ps.Stdin = bytes.NewBuffer(stdin)
 	ps.Dir = c.MkDir()
 	ps.Env = []string{
-		fmt.Sprintf("JUJU_AGENT_SOCKET=%s", sockPath),
+		fmt.Sprintf("JUJU_AGENT_SOCKET_ADDRESS=%s", sockPath.Address),
+		fmt.Sprintf("JUJU_AGENT_SOCKET_NETWORK=%s", sockPath.Network),
 		fmt.Sprintf("JUJU_CONTEXT_ID=%s", contextId),
 		// Code that imports github.com/juju/juju/testing needs to
 		// be able to find that module at runtime (via build.Import),
@@ -174,18 +176,18 @@ func run(c *gc.C, sockPath string, contextId string, exit int, stdin []byte, cmd
 }
 
 type HookToolMainSuite struct {
-	sockPath string
+	sockPath sockets.Socket
 	server   *jujuc.Server
 }
 
 var _ = gc.Suite(&HookToolMainSuite{})
 
-func osDependentSockPath(c *gc.C) string {
+func osDependentSockPath(c *gc.C) sockets.Socket {
 	sockPath := filepath.Join(c.MkDir(), "test.sock")
 	if runtime.GOOS == "windows" {
-		return `\\.\pipe` + sockPath[2:]
+		return sockets.Socket{Address: `\\.\pipe` + sockPath[2:]}
 	}
-	return sockPath
+	return sockets.Socket{Network: "unix", Address: sockPath}
 }
 
 func (s *HookToolMainSuite) SetUpSuite(c *gc.C) {
@@ -259,8 +261,8 @@ func (s *HookToolMainSuite) TestNoSockPath(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
 	}
-	output := run(c, "", "bill", 1, nil, "remote")
-	c.Assert(output, jc.Contains, "JUJU_AGENT_SOCKET not set\n")
+	output := run(c, sockets.Socket{}, "bill", 1, nil, "remote")
+	c.Assert(output, jc.Contains, "JUJU_AGENT_SOCKET_ADDRESS not set\n")
 }
 
 func (s *HookToolMainSuite) TestBadSockPath(c *gc.C) {
@@ -268,7 +270,7 @@ func (s *HookToolMainSuite) TestBadSockPath(c *gc.C) {
 		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
 	}
 	badSock := filepath.Join(c.MkDir(), "bad.sock")
-	output := run(c, badSock, "bill", 1, nil, "remote")
+	output := run(c, sockets.Socket{Address: badSock, Network: "unix"}, "bill", 1, nil, "remote")
 	err := fmt.Sprintf("^.* dial unix %s: .*\n", badSock)
 	c.Assert(output, gc.Matches, err)
 }

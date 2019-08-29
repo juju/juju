@@ -30,7 +30,7 @@ import (
 	gooselogging "gopkg.in/goose.v2/logging"
 	"gopkg.in/goose.v2/neutron"
 	"gopkg.in/goose.v2/nova"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -368,7 +369,7 @@ func (inst *openstackInstance) Id() instance.Id {
 
 func (inst *openstackInstance) Status(ctx context.ProviderCallContext) instance.Status {
 	instStatus := inst.getServerDetail().Status
-	jujuStatus := status.Pending
+	var jujuStatus status.Status
 	switch instStatus {
 	case nova.StatusActive:
 		jujuStatus = status.Running
@@ -443,7 +444,7 @@ func (inst *openstackInstance) getAddresses(ctx context.ProviderCallContext) (ma
 
 // Addresses implements network.Addresses() returning generic address
 // details for the instances, and calling the openstack api if needed.
-func (inst *openstackInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
+func (inst *openstackInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
 	addresses, err := inst.getAddresses(ctx)
 	if err != nil {
 		return nil, err
@@ -457,19 +458,19 @@ func (inst *openstackInstance) Addresses(ctx context.ProviderCallContext) ([]net
 }
 
 // convertNovaAddresses returns nova addresses in generic format
-func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress) []network.Address {
-	var machineAddresses []network.Address
+func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress) []corenetwork.Address {
+	var machineAddresses []corenetwork.Address
 	if publicIP != "" {
-		publicAddr := network.NewScopedAddress(publicIP, network.ScopePublic)
+		publicAddr := corenetwork.NewScopedAddress(publicIP, corenetwork.ScopePublic)
 		machineAddresses = append(machineAddresses, publicAddr)
 	}
 	// TODO(gz) Network ordering may be significant but is not preserved by
 	// the map, see lp:1188126 for example. That could potentially be fixed
 	// in goose, or left to be derived by other means.
 	for netName, ips := range addresses {
-		networkScope := network.ScopeUnknown
+		networkScope := corenetwork.ScopeUnknown
 		if netName == "public" {
-			networkScope = network.ScopePublic
+			networkScope = corenetwork.ScopePublic
 		}
 		for _, address := range ips {
 			// If this address has already been added as a floating IP, skip it.
@@ -477,11 +478,11 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 				continue
 			}
 			// Assume IPv4 unless specified otherwise
-			addrtype := network.IPv4Address
+			addrtype := corenetwork.IPv4Address
 			if address.Version == 6 {
-				addrtype = network.IPv6Address
+				addrtype = corenetwork.IPv6Address
 			}
-			machineAddr := network.NewScopedAddress(address.Address, networkScope)
+			machineAddr := corenetwork.NewScopedAddress(address.Address, networkScope)
 			if machineAddr.Type != addrtype {
 				logger.Warningf("derived address type %v, nova reports %v", machineAddr.Type, addrtype)
 			}
@@ -970,11 +971,12 @@ func identityClientVersion(authURL string) (int, error) {
 	// The last part of the path should be the version #, prefixed with a 'v' or 'V'
 	// Example: https://keystone.foo:443/v3/
 	// Example: https://sharedhost.foo:443/identity/v3/
+	var tail string
 	urlpath := strings.ToLower(url.Path)
-	urlpath, tail := path.Split(urlpath)
+	urlpath, tail = path.Split(urlpath)
 	if len(tail) == 0 && len(urlpath) > 2 {
 		// trailing /, remove it and split again
-		urlpath, tail = path.Split(strings.TrimRight(urlpath, "/"))
+		_, tail = path.Split(strings.TrimRight(urlpath, "/"))
 	}
 	versionNumStr := strings.TrimPrefix(tail, "v")
 	logger.Tracef("authURL: %s", authURL)
@@ -2031,7 +2033,9 @@ func validateAuthURL(authURL string) error {
 }
 
 // Subnets is specified on environs.Networking.
-func (e *Environ) Subnets(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (e *Environ) Subnets(
+	ctx context.ProviderCallContext, instId instance.Id, subnetIds []corenetwork.Id,
+) ([]corenetwork.SubnetInfo, error) {
 	subnets, err := e.networking.Subnets(instId, subnetIds)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
@@ -2061,7 +2065,7 @@ func (e *Environ) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool,
 }
 
 // Spaces is specified on environs.Networking.
-func (e *Environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
+func (e *Environ) Spaces(ctx context.ProviderCallContext) ([]corenetwork.SpaceInfo, error) {
 	return nil, errors.NotSupportedf("spaces")
 }
 
@@ -2095,7 +2099,9 @@ func (e *Environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, int
 }
 
 // ProviderSpaceInfo is specified on environs.NetworkingEnviron.
-func (*Environ) ProviderSpaceInfo(ctx context.ProviderCallContext, space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+func (*Environ) ProviderSpaceInfo(
+	ctx context.ProviderCallContext, space *corenetwork.SpaceInfo,
+) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("provider space info")
 }
 
@@ -2105,6 +2111,6 @@ func (*Environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space
 }
 
 // SSHAddresses is specified on environs.SSHAddresses.
-func (*Environ) SSHAddresses(ctx context.ProviderCallContext, addresses []network.Address) ([]network.Address, error) {
+func (*Environ) SSHAddresses(ctx context.ProviderCallContext, addresses []corenetwork.Address) ([]corenetwork.Address, error) {
 	return addresses, nil
 }

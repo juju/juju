@@ -106,3 +106,10 @@ const (
 	GrantControllerAccess  ControllerAction = "grant"
 	RevokeControllerAccess ControllerAction = "revoke"
 )
+
+// ControllerVersionResults holds the results from an api call
+// to get the controller's version information.
+type ControllerVersionResults struct {
+	Version   string `json:"version"`
+	GitCommit string `json:"git-commit"`
+}

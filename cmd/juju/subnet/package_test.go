@@ -12,14 +12,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -192,17 +192,17 @@ func (sa *StubAPI) AllSpaces() ([]names.Tag, error) {
 	return sa.Spaces, nil
 }
 
-func (sa *StubAPI) CreateSubnet(subnetCIDR names.SubnetTag, spaceTag names.SpaceTag, zones []string, isPublic bool) error {
+func (sa *StubAPI) CreateSubnet(subnetCIDR string, spaceTag names.SpaceTag, zones []string, isPublic bool) error {
 	sa.MethodCall(sa, "CreateSubnet", subnetCIDR, spaceTag, zones, isPublic)
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) AddSubnet(cidr names.SubnetTag, id network.Id, spaceTag names.SpaceTag, zones []string) error {
+func (sa *StubAPI) AddSubnet(cidr string, id network.Id, spaceTag names.SpaceTag, zones []string) error {
 	sa.MethodCall(sa, "AddSubnet", cidr, id, spaceTag, zones)
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) RemoveSubnet(subnetCIDR names.SubnetTag) error {
+func (sa *StubAPI) RemoveSubnet(subnetCIDR string) error {
 	sa.MethodCall(sa, "RemoveSubnet", subnetCIDR)
 	return sa.NextErr()
 }

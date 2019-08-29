@@ -7,10 +7,11 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/runner"
 )
@@ -54,13 +55,13 @@ func (w *hookRunner) acquireExecutionLock(action string, interrupt <-chan struct
 
 func (w *hookRunner) RunHook(code, info string, interrupt <-chan struct{}) (runErr error) {
 	unitTag := w.tag
-	paths := uniter.NewPaths(w.config.DataDir(), unitTag)
 	ctx := NewLimitedContext(unitTag.String())
 	ctx.SetEnvVars(map[string]string{
 		"JUJU_METER_STATUS": code,
 		"JUJU_METER_INFO":   info,
 	})
-	r := runner.NewRunner(ctx, paths)
+	paths := uniter.NewPaths(w.config.DataDir(), unitTag, ctx.ModelType() == model.CAAS)
+	r := runner.NewRunner(ctx, paths, nil)
 	releaser, err := w.acquireExecutionLock(string(hooks.MeterStatusChanged), interrupt)
 	if err != nil {
 		return errors.Annotate(err, "failed to acquire machine lock")

@@ -10,14 +10,14 @@ import (
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/spaces"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -27,7 +27,7 @@ type SpacesSuite struct {
 
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
-	facade     spaces.API
+	facade     *spaces.API
 
 	callContext  context.ProviderCallContext
 	blockChecker mockBlockChecker
@@ -46,7 +46,13 @@ func (s *SpacesSuite) TearDownSuite(c *gc.C) {
 
 func (s *SpacesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedNetworkingEnvironName, apiservertesting.WithZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
+	apiservertesting.BackingInstance.SetUp(
+		c,
+		apiservertesting.StubZonedNetworkingEnvironName,
+		apiservertesting.WithZones,
+		apiservertesting.WithSpaces,
+		apiservertesting.WithSubnets,
+	)
 
 	s.resources = common.NewResources()
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -116,10 +122,9 @@ func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 	if p.Name != "" {
 		args.SpaceTag = "space-" + p.Name
 	}
+
 	if len(p.Subnets) > 0 {
-		for _, cidr := range p.Subnets {
-			args.SubnetTags = append(args.SubnetTags, "subnet-"+cidr)
-		}
+		args.CIDRs = p.Subnets
 	}
 	args.Public = p.Public
 
@@ -144,7 +149,9 @@ func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 	}
 
 	// AddSpace from the api always uses an empty ProviderId.
-	addSpaceCalls := append(baseCalls, apiservertesting.BackingCall("AddSpace", p.Name, network.Id(""), p.Subnets, p.Public))
+	addSpaceCalls := append(
+		baseCalls, apiservertesting.BackingCall("AddSpace", p.Name, network.Id(""), p.Subnets, p.Public),
+	)
 
 	if p.Error == "" || p.MakesCall {
 		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, addSpaceCalls...)
@@ -204,11 +211,11 @@ func (s *SpacesSuite) TestCreateInvalidSpace(c *gc.C) {
 	s.checkAddSpaces(c, p)
 }
 
-func (s *SpacesSuite) TestCreateInvalidSubnet(c *gc.C) {
+func (s *SpacesSuite) TestCreateInvalidCIDR(c *gc.C) {
 	p := checkAddSpacesParams{
 		Name:    "foo",
 		Subnets: []string{"bar"},
-		Error:   `"subnet-bar" is not a valid subnet tag`,
+		Error:   `"bar" is not a valid CIDR`,
 	}
 	s.checkAddSpaces(c, p)
 }
@@ -240,6 +247,7 @@ func (s *SpacesSuite) TestNoSubnets(c *gc.C) {
 
 func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
 	expected := []params.Space{{
+		Id:   "1",
 		Name: "default",
 		Subnets: []params.Subnet{{
 			CIDR:       "192.168.0.0/24",
@@ -255,6 +263,7 @@ func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
 			SpaceTag:   "space-default",
 		}},
 	}, {
+		Id:   "2",
 		Name: "dmz",
 		Subnets: []params.Subnet{{
 			CIDR:       "192.168.1.0/24",
@@ -264,6 +273,7 @@ func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
 			SpaceTag:   "space-dmz",
 		}},
 	}, {
+		Id:   "3",
 		Name: "private",
 		Subnets: []params.Subnet{{
 			CIDR:       "192.168.2.0/24",
@@ -273,9 +283,10 @@ func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
 			SpaceTag:   "space-private",
 		}},
 	}}
-	spaces, err := s.facade.ListSpaces()
+
+	result, err := s.facade.ListSpaces()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spaces.Results, jc.DeepEquals, expected)
+	c.Assert(result.Results, jc.DeepEquals, expected)
 }
 
 func (s *SpacesSuite) TestListSpacesAllSpacesError(c *gc.C) {
@@ -398,6 +409,51 @@ func (s *SpacesSuite) TestCreateSpacesBlocked(c *gc.C) {
 	_, err := s.facade.CreateSpaces(params.CreateSpacesParams{})
 	c.Assert(err, gc.ErrorMatches, "test block")
 	c.Assert(err, jc.Satisfies, params.IsCodeOperationBlocked)
+}
+
+func (s *SpacesSuite) TestCreateSpacesAPIv4(c *gc.C) {
+	apiV4 := &spaces.APIv4{s.facade}
+	results, err := apiV4.CreateSpaces(params.CreateSpacesParamsV4{
+		Spaces: []params.CreateSpaceParamsV4{
+			{
+				SpaceTag:   "space-foo",
+				SubnetTags: []string{"subnet-10.0.0.0/24"},
+			},
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
+func (s *SpacesSuite) TestCreateSpacesAPIv4FailCIDR(c *gc.C) {
+	apiV4 := &spaces.APIv4{s.facade}
+	results, err := apiV4.CreateSpaces(params.CreateSpacesParamsV4{
+		Spaces: []params.CreateSpaceParamsV4{
+			{
+				SpaceTag:   "space-foo",
+				SubnetTags: []string{"subnet-bar"},
+			},
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `"bar" is not a valid CIDR`)
+}
+
+func (s *SpacesSuite) TestCreateSpacesAPIv4FailTag(c *gc.C) {
+	apiV4 := &spaces.APIv4{s.facade}
+	results, err := apiV4.CreateSpaces(params.CreateSpacesParamsV4{
+		Spaces: []params.CreateSpaceParamsV4{
+			{
+				SpaceTag:   "space-foo",
+				SubnetTags: []string{"bar"},
+			},
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `"bar" is not valid SubnetTag`)
 }
 
 func (s *SpacesSuite) TestReloadSpacesUserDenied(c *gc.C) {

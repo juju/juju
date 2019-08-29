@@ -154,8 +154,8 @@ func (i *instanceSuite) TestAddresses(c *gc.C) {
 	addresses, err := inst.Addresses(nil)
 	c.Assert(err, gc.IsNil)
 	c.Check(addresses, gc.HasLen, 2)
-	c.Check(addresses[0].Scope, gc.Equals, network.ScopeCloudLocal)
-	c.Check(addresses[1].Scope, gc.Equals, network.ScopePublic)
+	c.Check(addresses[0].Scope, gc.Equals, corenetwork.ScopeCloudLocal)
+	c.Check(addresses[1].Scope, gc.Equals, corenetwork.ScopePublic)
 }
 
 func (i *instanceSuite) TestAddressesNoPublicIP(c *gc.C) {
@@ -171,8 +171,8 @@ func (i *instanceSuite) TestAddressesNoPublicIP(c *gc.C) {
 	addresses, err := inst.Addresses(nil)
 	c.Assert(err, gc.IsNil)
 	c.Check(addresses, gc.HasLen, 2)
-	c.Check(addresses[0].Scope, gc.Equals, network.ScopeCloudLocal)
-	c.Check(addresses[1].Scope, gc.Equals, network.ScopePublic)
+	c.Check(addresses[0].Scope, gc.Equals, corenetwork.ScopeCloudLocal)
+	c.Check(addresses[1].Scope, gc.Equals, corenetwork.ScopePublic)
 }
 
 func (i *instanceSuite) TestInstanceConfiguratorUsesPublicAddress(c *gc.C) {

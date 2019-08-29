@@ -14,7 +14,7 @@ import (
 	"github.com/juju/txn"
 	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -746,6 +746,7 @@ func (s *assignCleanSuite) setupMachines(c *gc.C) (hostMachine *state.Machine, c
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, hostMachine.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostMachine.Clean(), jc.IsTrue)
 	s.assertMachineNotEmpty(c, hostMachine)
 
@@ -825,9 +826,9 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *gc.C) {
 	c.Assert(m, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
 
-	m0, err := s.State.Machine("0")
+	node, err := s.State.ControllerNode("0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = m0.SetHasVote(true)
+	err = node.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add two controller machines and check they are not chosen.
@@ -1136,6 +1137,7 @@ func (s *assignCleanSuite) TestAssignUnitWithNonDynamicStorageAndZonePlacementDi
 		s.State.ModelUUID(), "zone=test",
 	}
 	err = s.State.AssignUnitWithPlacement(unit, placement)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the machine on the unit is set.
 	machineId, err := unit.AssignedMachineId()
@@ -1230,6 +1232,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, hostMachine.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostMachine.Clean(), jc.IsTrue)
 	s.assertMachineNotEmpty(c, hostMachine)
 	if s.policy == state.AssignClean {
@@ -1271,6 +1274,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, hostMachine.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
 	err = hostMachine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostMachine.Clean(), jc.IsTrue)

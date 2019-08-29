@@ -4,6 +4,7 @@
 package manual_test
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/juju/testing"
@@ -130,4 +131,38 @@ func (s *providerSuite) TestSchema(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = p.CloudSchema().Validate(vals)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *providerSuite) TestPingEndpointWithUser(c *gc.C) {
+	endpoint := "user@IP"
+	called := false
+	s.PatchValue(manual.Echo, func(s string) error {
+		c.Assert(s, gc.Equals, endpoint)
+		called = true
+		return nil
+	})
+	p, err := environs.Provider("manual")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(p.Ping(nil, endpoint), jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *providerSuite) TestPingIP(c *gc.C) {
+	endpoint := "P"
+	called := 0
+	s.PatchValue(manual.Echo, func(s string) error {
+		c.Assert(called < 2, jc.IsTrue)
+		if called == 0 {
+			c.Assert(s, gc.Equals, endpoint)
+		} else {
+			c.Assert(s, gc.Equals, fmt.Sprintf("ubuntu@%v", endpoint))
+		}
+		called++
+		return nil
+	})
+	p, err := environs.Provider("manual")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(p.Ping(nil, endpoint), jc.ErrorIsNil)
+	// Expect the call to be made twice.
+	c.Assert(called, gc.Equals, 1)
 }

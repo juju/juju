@@ -13,7 +13,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 	"gopkg.in/macaroon.v2-unstable"
@@ -506,6 +506,9 @@ func (fw *Firewaller) reconcileGlobal() error {
 		machines = append(machines, machined)
 	}
 	want, err := fw.gatherIngressRules(machines...)
+	if err != nil {
+		return err
+	}
 	initialPortRanges, err := fw.environFirewaller.IngressRules(fw.cloudCallContext)
 	if err != nil {
 		return err

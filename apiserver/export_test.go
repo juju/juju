@@ -7,7 +7,7 @@ import (
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -44,7 +44,13 @@ func NewErrRoot(err error) *errRoot {
 // *barely* connected to anything.  Just enough to let you probe some
 // of the interfaces, but not enough to actually do any RPC calls.
 func TestingAPIRoot(facades *facade.Registry) rpc.Root {
-	return newAPIRoot(nil, nil, facades, common.NewResources(), nil)
+	root, err := newAPIRoot(clock.WallClock, nil, nil, facades, common.NewResources(), nil)
+	if err != nil {
+		// While not ideal, this is only in test code, and there are a bunch of other functions
+		// that depend on this one that don't return errors either.
+		panic(err)
+	}
+	return root
 }
 
 // TestingAPIHandler gives you an APIHandler that isn't connected to

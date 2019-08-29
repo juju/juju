@@ -131,7 +131,7 @@ func (s *SubnetCommandBaseSuite) TestValidateCIDR(c *gc.C) {
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 		}
-		c.Check(validated.Id(), gc.Equals, test.output)
+		c.Check(validated, gc.Equals, test.output)
 	}
 }
 

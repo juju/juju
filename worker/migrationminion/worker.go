@@ -4,18 +4,37 @@
 package migrationminion
 
 import (
+	"time"
+
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
+	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/fortress"
+)
+
+const (
+	// maxRetries is the number of times we'll attempt validation
+	// before giving up.
+	maxRetries = 10
+
+	// initialRetryDelay is the starting delay - this will be
+	// increased exponentially up maxRetries.
+	initialRetryDelay = 50 * time.Millisecond
+
+	// retryBackoffFactor is how much longer we wait after a failing
+	// retry.  Retrying 10 times starting at 50ms and backing off 1.6x
+	// gives us a total delay time of about 9s.
+	retryBackoffFactor = 1.6
 )
 
 var logger = loggo.GetLogger("juju.worker.migrationminion")
@@ -31,6 +50,7 @@ type Config struct {
 	Agent             agent.Agent
 	Facade            Facade
 	Guard             fortress.Guard
+	Clock             clock.Clock
 	APIOpen           func(*api.Info, api.DialOpts) (api.Connection, error)
 	ValidateMigration func(base.APICaller) error
 }
@@ -45,6 +65,9 @@ func (config Config) Validate() error {
 	}
 	if config.Guard == nil {
 		return errors.NotValidf("nil Guard")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	if config.APIOpen == nil {
 		return errors.NotValidf("nil APIOpen")
@@ -149,7 +172,25 @@ func (w *Worker) doQUIESCE(status watcher.MigrationStatus) error {
 }
 
 func (w *Worker) doVALIDATION(status watcher.MigrationStatus) error {
-	err := w.validate(status)
+	attempt := retry.StartWithCancel(
+		retry.LimitCount(maxRetries, retry.Exponential{
+			Initial: initialRetryDelay,
+			Factor:  retryBackoffFactor,
+			Jitter:  true,
+		}),
+		w.config.Clock,
+		w.catacomb.Dying(),
+	)
+	var err error
+	for attempt.Next() {
+		err = w.validate(status)
+		if err == nil {
+			break
+		}
+		if attempt.More() {
+			logger.Debugf("validation failed (retrying): %v", err)
+		}
+	}
 	if err != nil {
 		// Don't return this error just log it and report to the
 		// migrationmaster that things didn't work out.

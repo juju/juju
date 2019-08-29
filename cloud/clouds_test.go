@@ -6,7 +6,9 @@ package cloud_test
 import (
 	"io/ioutil"
 	"path/filepath"
+	"regexp"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -328,4 +330,36 @@ ca-certificates: [fakecacert]
 		Endpoint:       "qux",
 		CACertificates: []string{"fakecacert"},
 	})
+}
+
+func (s *cloudSuite) TestRegionByNameNoRegions(c *gc.C) {
+	r, err := cloud.RegionByName([]cloud.Region{}, "star")
+	c.Assert(r, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`region "star" not found (cloud has no regions)`))
+}
+
+func (s *cloudSuite) TestRegionByName(c *gc.C) {
+	regions := []cloud.Region{
+		{Name: "mars"},
+		{Name: "earth"},
+		{Name: "jupiter"},
+	}
+
+	r, err := cloud.RegionByName(regions, "mars")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r, gc.Not(gc.IsNil))
+	c.Assert(r, gc.DeepEquals, &cloud.Region{Name: "mars"})
+}
+
+func (s *cloudSuite) TestRegionByNameNotFound(c *gc.C) {
+	regions := []cloud.Region{
+		{Name: "mars"},
+		{Name: "earth"},
+		{Name: "jupiter"},
+	}
+
+	r, err := cloud.RegionByName(regions, "star")
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`region "star" not found (expected one of ["earth" "jupiter" "mars"])`))
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(r, gc.IsNil)
 }

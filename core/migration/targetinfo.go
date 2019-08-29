@@ -5,10 +5,10 @@ package migration
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 )
 
 // TargetInfo holds the details required to connect to a

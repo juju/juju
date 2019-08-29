@@ -7,7 +7,7 @@ package caasoperator
 import (
 	"path/filepath"
 
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent/tools"
 )
@@ -41,14 +41,15 @@ func (paths Paths) GetCharmDir() string {
 	return paths.State.CharmDir
 }
 
-// GetHookCommandSocket exists to satisfy the context.Paths interface.
-func (paths Paths) GetHookCommandSocket() string {
-	return paths.Runtime.HookCommandServerSocket
-}
-
 // GetMetricsSpoolDir exists to satisfy the runner.Paths interface.
 func (paths Paths) GetMetricsSpoolDir() string {
 	return paths.State.MetricsSpoolDir
+}
+
+// ComponentDir returns the filesystem path to the directory
+// containing all data files for a component.
+func (paths Paths) ComponentDir(name string) string {
+	return filepath.Join(paths.State.BaseDir, name)
 }
 
 // RuntimePaths represents the set of paths that are relevant at runtime.
@@ -100,21 +101,9 @@ func NewPaths(dataDir string, applicationTag names.ApplicationTag) Paths {
 	baseDir := join(dataDir, "agents", applicationTag.String())
 	stateDir := join(baseDir, "state")
 
-	socket := func(name string, abstract bool) string {
-		path := join(baseDir, name+".socket")
-		if abstract {
-			path = "@" + path
-		}
-		return path
-	}
-
 	toolsDir := tools.ToolsDir(dataDir, "")
 	return Paths{
 		ToolsDir: filepath.FromSlash(toolsDir),
-		Runtime: RuntimePaths{
-			JujuRunSocket:           socket("run", false),
-			HookCommandServerSocket: socket("agent", true),
-		},
 		State: StatePaths{
 			BaseDir:         baseDir,
 			CharmDir:        join(baseDir, "charm"),

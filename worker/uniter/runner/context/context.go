@@ -15,14 +15,17 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/proxy"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -42,7 +45,7 @@ type Paths interface {
 	// GetJujucSocket returns the path to the socket used by the hook tools
 	// to communicate back to the executing uniter process. It might be a
 	// filesystem path, or it might be abstract.
-	GetJujucSocket() string
+	GetJujucSocket() sockets.Socket
 
 	// GetMetricsSpoolDir returns the path to a metrics spool dir, used
 	// to store metrics recorded during a single hook run.
@@ -148,6 +151,9 @@ type HookContext struct {
 	// modelName is the human friendly name of the environment.
 	modelName string
 
+	// modelType
+	modelType model.ModelType
+
 	// unitName is the human friendly name of the local unit.
 	unitName string
 
@@ -226,7 +232,7 @@ type HookContext struct {
 	componentDir   func(string) string
 	componentFuncs map[string]ComponentFunc
 
-	//  slaLevel contains the current SLA level.
+	// slaLevel contains the current SLA level.
 	slaLevel string
 
 	// The cloud specification
@@ -234,6 +240,9 @@ type HookContext struct {
 
 	// The cloud API version, if available.
 	cloudAPIVersion string
+
+	// podSpecYaml is the pending pod spec to be committed.
+	podSpecYaml *string
 }
 
 // Component implements hooks.Context.
@@ -307,6 +316,11 @@ func (ctx *HookContext) Id() string {
 
 func (ctx *HookContext) UnitName() string {
 	return ctx.unitName
+}
+
+// ModelType of the context we are running in.
+func (ctx *HookContext) ModelType() model.ModelType {
+	return ctx.modelType
 }
 
 // UnitStatus will return the status for the current Unit.
@@ -522,17 +536,12 @@ func (ctx *HookContext) SetPodSpec(specYaml string) error {
 		logger.Errorf("%v is not the leader but is setting application pod spec", entityName)
 		return ErrIsNotLeader
 	}
-	entityName = ctx.unit.ApplicationName()
-	err = ctx.state.SetPodSpec(entityName, specYaml)
+	_, err = k8sprovider.ParsePodSpec(specYaml)
 	if err != nil {
-		if err2 := ctx.SetApplicationStatus(jujuc.StatusInfo{
-			Status: status.Blocked.String(),
-			Info:   fmt.Sprintf("setting pod spec: %v", err),
-		}); err2 != nil {
-			logger.Errorf("updating agent status: %v", err2)
-		}
+		return errors.Trace(err)
 	}
-	return errors.Trace(err)
+	ctx.podSpecYaml = &specYaml
+	return nil
 }
 
 // CloudSpec return the cloud specification for the running unit's model
@@ -649,7 +658,8 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 		"CHARM_DIR="+paths.GetCharmDir(), // legacy, embarrassing
 		"JUJU_CHARM_DIR="+paths.GetCharmDir(),
 		"JUJU_CONTEXT_ID="+context.id,
-		"JUJU_AGENT_SOCKET="+paths.GetJujucSocket(),
+		"JUJU_AGENT_SOCKET_ADDRESS="+paths.GetJujucSocket().Address,
+		"JUJU_AGENT_SOCKET_NETWORK="+paths.GetJujucSocket().Network,
 		"JUJU_UNIT_NAME="+context.unitName,
 		"JUJU_MODEL_UUID="+context.uuid,
 		"JUJU_MODEL_NAME="+context.modelName,
@@ -690,6 +700,7 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 			"JUJU_ACTION_TAG="+context.actionData.Tag.String(),
 		)
 	}
+
 	return append(vars, OSDependentEnvVars(paths)...), nil
 }
 
@@ -805,6 +816,13 @@ func (ctx *HookContext) Flush(process string, ctxErr error) (err error) {
 		}
 	}
 
+	if ctx.podSpecYaml != nil && writeChanges {
+		err := ctx.commitPodSpec()
+		if ctxErr == nil {
+			ctxErr = err
+		}
+	}
+
 	// TODO (tasdomas) 2014 09 03: context finalization needs to modified to apply all
 	//                             changes in one api call to minimize the risk
 	//                             of partial failures.
@@ -814,6 +832,34 @@ func (ctx *HookContext) Flush(process string, ctxErr error) (err error) {
 	}
 
 	return ctxErr
+}
+
+// commitPodSpec dispatches pending SetPodSpec call.
+func (ctx *HookContext) commitPodSpec() error {
+	if ctx.podSpecYaml == nil {
+		return nil
+	}
+	specYaml := *ctx.podSpecYaml
+	entityName := ctx.unitName
+	isLeader, err := ctx.IsLeader()
+	if err != nil {
+		return errors.Annotatef(err, "cannot determine leadership")
+	}
+	if !isLeader {
+		logger.Errorf("%v is not the leader but is setting application pod spec", entityName)
+		return ErrIsNotLeader
+	}
+	entityName = ctx.unit.ApplicationName()
+	err = ctx.state.SetPodSpec(entityName, specYaml)
+	if err != nil {
+		if err2 := ctx.SetApplicationStatus(jujuc.StatusInfo{
+			Status: status.Blocked.String(),
+			Info:   fmt.Sprintf("setting pod spec: %v", err),
+		}); err2 != nil {
+			logger.Errorf("updating agent status: %v", err2)
+		}
+	}
+	return nil
 }
 
 // finalizeAction passes back the final status of an Action hook to state.

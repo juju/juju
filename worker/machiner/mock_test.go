@@ -5,12 +5,12 @@ package machiner_test
 
 import (
 	gitjujutesting "github.com/juju/testing"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/machiner"
 )
 

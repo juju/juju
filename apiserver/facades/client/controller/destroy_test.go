@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -55,7 +55,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-	testController, err := controller.NewControllerAPIv7(
+	testController, err := controller.NewControllerAPIv8(
 		facadetest.Context{
 			State_:     s.State,
 			StatePool_: s.StatePool,

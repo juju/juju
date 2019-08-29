@@ -19,6 +19,7 @@ import (
 	cmdcrossmodel "github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
@@ -73,6 +74,10 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	// The first set of headers don't use outputHeaders because it adds the blank line.
 	w := startSection(tw, true, header...)
 	w.Println(values...)
+
+	if len(fs.Branches) > 0 {
+		printBranches(tw, fs.Branches)
+	}
 
 	if len(fs.RemoteApplications) > 0 {
 		printRemoteApplications(tw, fs.RemoteApplications)
@@ -197,6 +202,9 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		if u.Leader {
 			name += "*"
 		}
+		if u.Branch != "" {
+			name += " " + u.Branch
+		}
 		w.Print(indent("", level*2, name))
 		w.PrintStatus(u.WorkloadStatusInfo.Current)
 		w.PrintStatus(u.JujuStatusInfo.Current)
@@ -256,12 +264,20 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 	endSection(tw)
 }
 
+func printBranches(tw *ansiterm.TabWriter, branches map[string]branchStatus) {
+	w := startSection(tw, false, "Branch", "Ref", "Created")
+	for _, branchName := range naturalsort.Sort(stringKeysFromMap(branches)) {
+		b := branches[branchName]
+		w.Println(branchName, b.Ref, b.Created)
+	}
+}
+
 func printRemoteApplications(tw *ansiterm.TabWriter, remoteApplications map[string]remoteApplicationStatus) {
 	w := startSection(tw, false, "SAAS", "Status", "Store", "URL")
 	for _, appName := range naturalsort.Sort(stringKeysFromMap(remoteApplications)) {
 		app := remoteApplications[appName]
 		var store, urlPath string
-		url, err := charm.ParseOfferURL(app.OfferURL)
+		url, err := crossmodel.ParseOfferURL(app.OfferURL)
 		if err == nil {
 			store = url.Source
 			url.Source = ""

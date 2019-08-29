@@ -77,7 +77,7 @@ func (s *imageSuite) TestFindImageLocalServerUnknownSeries(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	iSvr := s.NewMockServer(ctrl)
-	iSvr.EXPECT().GetImageAlias("juju/pldlinux/"+s.Arch()).Return(nil, lxdtesting.ETag, nil)
+	iSvr.EXPECT().GetImageAlias("juju/pldlinux/"+s.Arch()).Return(nil, lxdtesting.ETag, errors.New("not found"))
 
 	jujuSvr, err := lxd.NewServer(iSvr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -101,8 +101,8 @@ func (s *imageSuite) TestFindImageRemoteServers(c *gc.C) {
 	image := lxdapi.Image{Filename: "this-is-our-image"}
 	alias := lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-remote-target"}}
 	gomock.InOrder(
-		iSvr.EXPECT().GetImageAlias("juju/xenial/"+s.Arch()).Return(nil, lxdtesting.ETag, nil),
-		rSvr1.EXPECT().GetImageAlias("xenial/"+s.Arch()).Return(nil, lxdtesting.ETag, nil),
+		iSvr.EXPECT().GetImageAlias("juju/xenial/"+s.Arch()).Return(nil, lxdtesting.ETag, errors.New("not found")),
+		rSvr1.EXPECT().GetImageAlias("xenial/"+s.Arch()).Return(nil, lxdtesting.ETag, errors.New("not found")),
 		rSvr2.EXPECT().GetImageAlias("xenial/"+s.Arch()).Return(&alias, lxdtesting.ETag, nil),
 		rSvr2.EXPECT().GetImage("foo-remote-target").Return(&image, lxdtesting.ETag, nil),
 	)
@@ -170,7 +170,7 @@ func (s *imageSuite) TestFindImageRemoteServersNotFound(c *gc.C) {
 
 	alias := lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-remote-target"}}
 	gomock.InOrder(
-		iSvr.EXPECT().GetImageAlias("juju/bionic/"+s.Arch()).Return(nil, lxdtesting.ETag, nil),
+		iSvr.EXPECT().GetImageAlias("juju/bionic/"+s.Arch()).Return(nil, lxdtesting.ETag, errors.New("not found")),
 		rSvr.EXPECT().GetImageAlias("bionic/"+s.Arch()).Return(&alias, lxdtesting.ETag, nil),
 		rSvr.EXPECT().GetImage("foo-remote-target").Return(
 			nil, lxdtesting.ETag, errors.New("failed to retrieve image")),

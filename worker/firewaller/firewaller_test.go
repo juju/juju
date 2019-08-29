@@ -17,7 +17,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api"
@@ -29,6 +29,7 @@ import (
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -883,7 +884,7 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 
 	// Add a public address to the consuming unit so the firewaller can use it.
 	wpm := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Addresses: []network.Address{network.NewAddress("10.0.0.4")},
+		Addresses: []corenetwork.Address{corenetwork.NewAddress("10.0.0.4")},
 	})
 	u, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1105,7 +1106,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 
 	// Add a public address to the consuming unit so the firewaller can use it.
 	wpm := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Addresses: []network.Address{network.NewAddress("10.0.0.4")},
+		Addresses: []corenetwork.Address{corenetwork.NewAddress("10.0.0.4")},
 	})
 	u, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)

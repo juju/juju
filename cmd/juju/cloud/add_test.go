@@ -22,6 +22,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -32,7 +33,8 @@ import (
 type addSuite struct {
 	jujutesting.IsolationSuite
 
-	store *jujuclient.MemStore
+	store     *jujuclient.MemStore
+	addCloudF func(cloud jujucloud.Cloud, force bool) error
 }
 
 var _ = gc.Suite(&addSuite{})
@@ -43,6 +45,7 @@ func (s *addSuite) SetUpTest(c *gc.C) {
 	store.Controllers["mycontroller"] = jujuclient.ControllerDetails{}
 	store.CurrentControllerName = "mycontroller"
 	s.store = store
+	s.addCloudF = func(cloud jujucloud.Cloud, force bool) error { return nil }
 }
 
 func (s *addSuite) runCommand(c *gc.C, cloudMetadataStore cloud.CloudMetadataStore, args ...string) (*cmd.Context, error) {
@@ -341,6 +344,7 @@ func (s *addSuite) TestAddNewInvalidAuthType(c *gc.C) {
 
 type fakeAddCloudAPI struct {
 	jujutesting.Stub
+	addCloudF func(cloud jujucloud.Cloud, force bool) error
 }
 
 func (api *fakeAddCloudAPI) Close() error {
@@ -348,9 +352,9 @@ func (api *fakeAddCloudAPI) Close() error {
 	return nil
 }
 
-func (api *fakeAddCloudAPI) AddCloud(cloud jujucloud.Cloud) error {
-	api.AddCall("AddCloud", cloud)
-	return nil
+func (api *fakeAddCloudAPI) AddCloud(cloud jujucloud.Cloud, force bool) error {
+	api.AddCall("AddCloud", cloud, force)
+	return api.addCloudF(cloud, force)
 }
 
 func (api *fakeAddCloudAPI) AddCredential(tag string, credential jujucloud.Credential) error {
@@ -387,30 +391,68 @@ func (s *addSuite) setupControllerCloudScenario(c *gc.C) (
 		AuthCredentials: map[string]jujucloud.Credential{"default": cred},
 	}
 
-	api := &fakeAddCloudAPI{}
+	api := &fakeAddCloudAPI{
+		Stub:      jujutesting.Stub{},
+		addCloudF: s.addCloudF,
+	}
 	command := cloud.NewAddCloudCommandForTest(fake, store, func() (cloud.AddCloudAPI, error) {
 		return api, nil
 	})
 	return cloudfile.Name(), command, store, api, cred, callCounter
 }
 
-func (s *addSuite) TestAddToController(c *gc.C) {
+func (s *addSuite) asssertAddToController(c *gc.C, force bool) {
 	cloudFileName, command, _, api, cred, _ := s.setupControllerCloudScenario(c)
-	ctx, err := cmdtesting.RunCommand(
-		c, command, "garage-maas", cloudFileName)
+	args := []string{"garage-maas", cloudFileName}
+	if force {
+		args = append(args, "--force")
+	}
+	ctx, err := cmdtesting.RunCommand(c, command, args...)
 	c.Assert(err, jc.ErrorIsNil)
 	api.CheckCallNames(c, "AddCloud", "AddCredential", "Close")
-	api.CheckCall(c, 0, "AddCloud", jujucloud.Cloud{
-		Name:        "garage-maas",
-		Type:        "maas",
-		Description: "Metal As A Service",
-		AuthTypes:   jujucloud.AuthTypes{"oauth1"},
-		Endpoint:    "http://garagemaas",
-	})
+	api.CheckCall(c, 0, "AddCloud",
+		jujucloud.Cloud{
+			Name:        "garage-maas",
+			Type:        "maas",
+			Description: "Metal As A Service",
+			AuthTypes:   jujucloud.AuthTypes{"oauth1"},
+			Endpoint:    "http://garagemaas",
+		},
+		force)
 	api.CheckCall(c, 1, "AddCredential", "cloudcred-garage-maas_fred_default", cred)
 	out := cmdtesting.Stderr(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	c.Assert(out, gc.Matches, `Cloud "garage-maas" added to controller "mycontroller".Credentials for cloud "garage-maas" added to controller "mycontroller".`)
+}
+
+func (s *addSuite) TestAddToController(c *gc.C) {
+	s.asssertAddToController(c, false)
+}
+
+func (s *addSuite) TestAddToControllerIncompatibleCloud(c *gc.C) {
+	s.addCloudF = func(cloud jujucloud.Cloud, force bool) error {
+		return params.Error{Code: params.CodeIncompatibleClouds}
+	}
+	cloudFileName, command, _, api, _, _ := s.setupControllerCloudScenario(c)
+	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", cloudFileName)
+	c.Assert(err, jc.ErrorIsNil)
+	api.CheckCallNames(c, "AddCloud", "Close")
+	api.CheckCall(c, 0, "AddCloud",
+		jujucloud.Cloud{
+			Name:        "garage-maas",
+			Type:        "maas",
+			Description: "Metal As A Service",
+			AuthTypes:   jujucloud.AuthTypes{"oauth1"},
+			Endpoint:    "http://garagemaas",
+		},
+		false)
+	out := cmdtesting.Stderr(ctx)
+	out = strings.Replace(out, "\n", "", -1)
+	c.Assert(out, gc.Matches, `Adding a cloud of type "maas" might not function correctly on this controller.If you really want to do this, use --force.`)
+}
+
+func (s *addSuite) TestForceAddToController(c *gc.C) {
+	s.asssertAddToController(c, true)
 }
 
 func (s *addSuite) TestAddLocal(c *gc.C) {
@@ -515,9 +557,10 @@ func (*addSuite) TestInteractiveMaas(c *gc.C) {
 	err := cmdtesting.InitCommand(command, []string{"--local"})
 	c.Assert(err, jc.ErrorIsNil)
 
+	out := &bytes.Buffer{}
 	ctx := &cmd.Context{
 		Stdout: ioutil.Discard,
-		Stderr: ioutil.Discard,
+		Stderr: out,
 		Stdin: strings.NewReader("" +
 			/* Select cloud type: */ "maas\n" +
 			/* Enter a name for the cloud: */ "m1\n" +
@@ -529,10 +572,17 @@ func (*addSuite) TestInteractiveMaas(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(numCallsToWrite(), gc.Equals, 1)
+	c.Assert(out.String(), gc.Equals, "Cloud \"m1\" successfully added\n\n"+
+		"You will need to add credentials for this cloud (`juju add-credential m1`)\n"+
+		"before creating a controller (`juju bootstrap m1`).\n")
 }
 
 func (*addSuite) TestInteractiveManual(c *gc.C) {
-	manCloud := manualCloud
+	manCloud := jujucloud.Cloud{
+		Name:     "manual",
+		Type:     "manual",
+		Endpoint: "192.168.1.6",
+	}
 	manCloud.Name = "man"
 	fake := newFakeCloudMetadataStore()
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]jujucloud.Cloud{}, false, nil)
@@ -545,9 +595,11 @@ func (*addSuite) TestInteractiveManual(c *gc.C) {
 	err := cmdtesting.InitCommand(command, []string{"--local"})
 	c.Assert(err, jc.ErrorIsNil)
 
+	out := &bytes.Buffer{}
+	errOut := &bytes.Buffer{}
 	ctx := &cmd.Context{
-		Stdout: ioutil.Discard,
-		Stderr: ioutil.Discard,
+		Stdout: out,
+		Stderr: errOut,
 		Stdin: strings.NewReader("" +
 			/* Select cloud type: */ "manual\n" +
 			/* Enter a name for the cloud: */ "man\n" +
@@ -559,6 +611,19 @@ func (*addSuite) TestInteractiveManual(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	c.Check(numCallsToWrite(), gc.Equals, 1)
+	c.Assert(out.String(), gc.Equals, `
+Cloud Types
+  lxd
+  maas
+  manual
+  openstack
+  vsphere
+
+Select cloud type: 
+Enter a name for your manual cloud: 
+Enter the ssh connection string for controller, username@<hostname or IP> or <hostname or IP>: 
+`[1:])
+	c.Assert(errOut.String(), gc.Equals, "Cloud \"man\" successfully added\n")
 }
 
 func (*addSuite) TestInteractiveManualInvalidName(c *gc.C) {

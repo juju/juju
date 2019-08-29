@@ -38,12 +38,13 @@ import (
 	"gopkg.in/goose.v2/testservices/neutronservice"
 	"gopkg.in/goose.v2/testservices/novaservice"
 	"gopkg.in/goose.v2/testservices/openstackservice"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -64,7 +65,6 @@ import (
 	"github.com/juju/juju/juju/testing"
 	supportedversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/storage"
@@ -1210,7 +1210,7 @@ func (s *localServerSuite) TestSubnetsFindAll(c *gc.C) {
 			ProviderId:        network.Id(os.Id),
 			VLANTag:           0,
 			AvailabilityZones: net.AvailabilityZones,
-			SpaceProviderId:   "",
+			ProviderSpaceId:   "",
 		}
 	}
 
@@ -1247,7 +1247,7 @@ func (s *localServerSuite) TestSubnetsFindAllWithExternal(c *gc.C) {
 			ProviderId:        network.Id(os.Id),
 			VLANTag:           0,
 			AvailabilityZones: net.AvailabilityZones,
-			SpaceProviderId:   "",
+			ProviderSpaceId:   "",
 		}
 	}
 
@@ -1772,6 +1772,7 @@ func (s *localServerSuite) TestMatchingGroup(c *gc.C) {
 	}
 
 	err := bootstrapEnv(c, s.env)
+	c.Assert(err, jc.ErrorIsNil)
 	group1, err := openstack.EnsureGroup(s.env, s.callCtx,
 		openstack.MachineGroupName(s.env, s.ControllerUUID, "1"), rule)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2972,6 +2973,7 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 	envtesting.UploadFakeTools(c, toolsStorage, "released", "released")
 	s.PatchValue(&tools.DefaultBaseURL, storageDir)
 	imageStorage, err := filestorage.NewFileStorageWriter(imagesDir)
+	c.Assert(err, jc.ErrorIsNil)
 	openstack.UseTestImageData(imageStorage, s.cred)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, storageDir)
 

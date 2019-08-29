@@ -8,7 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/provider/dummy"
@@ -195,6 +195,7 @@ func (s *unitStorageSuite) assertStorageCreated(c *gc.C) {
 
 func (s *unitStorageSuite) createHookSupport(c *gc.C) {
 	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)

@@ -13,14 +13,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/crossmodel"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -335,7 +334,7 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the default model was created.
-	_, err = st.Space(corenetwork.DefaultSpaceName)
+	_, err = st.Space(network.DefaultSpaceName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -562,6 +561,7 @@ func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	listBindings, err := model.AllEndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(listBindings, gc.HasLen, 1)
 
 	c.Assert(listBindings[0], jc.DeepEquals, state.ApplicationEndpointBindings{
@@ -587,9 +587,6 @@ func (s *ModelSuite) createTestModelConfig(c *gc.C) (*config.Config, string) {
 func createTestModelConfig(c *gc.C, controllerUUID string) (*config.Config, string) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	if controllerUUID == "" {
-		controllerUUID = uuid.String()
-	}
 	return testing.CustomModelConfig(c, testing.Attrs{
 		"name": "testing",
 		"uuid": uuid.String(),

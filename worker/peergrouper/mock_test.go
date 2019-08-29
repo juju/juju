@@ -20,9 +20,9 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -40,12 +40,14 @@ type fakeState struct {
 	session          *fakeMongoSession
 	checkMu          sync.Mutex
 	check            func(st *fakeState) error
+	spaces           map[string]*fakeSpace
 }
 
 var (
 	_ State          = (*fakeState)(nil)
 	_ ControllerNode = (*fakeController)(nil)
 	_ MongoSession   = (*fakeMongoSession)(nil)
+	_ Space          = (*fakeSpace)(nil)
 )
 
 type errorPatterns struct {
@@ -244,15 +246,15 @@ func (st *fakeState) removeController(id string) {
 
 func (st *fakeState) setControllers(ids ...string) {
 	st.controllerInfo.Set(&state.ControllerInfo{
-		MachineIds: ids,
+		ControllerIds: ids,
 	})
 }
 
-func (st *fakeState) ControllerInfo() (*state.ControllerInfo, error) {
-	if err := st.errors.errorFor("State.ControllerInfo"); err != nil {
+func (st *fakeState) ControllerIds() ([]string, error) {
+	if err := st.errors.errorFor("State.ControllerIds"); err != nil {
 		return nil, err
 	}
-	return deepCopy(st.controllerInfo.Get()).(*state.ControllerInfo), nil
+	return deepCopy(st.controllerInfo.Get()).(*state.ControllerInfo).ControllerIds, nil
 }
 
 func (st *fakeState) WatchControllerInfo() state.StringsWatcher {
@@ -287,7 +289,7 @@ func (st *fakeState) RemoveControllerReference(c ControllerNode) error {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 	controllerInfo := st.controllerInfo.Get().(*state.ControllerInfo)
-	controllerIds := controllerInfo.MachineIds
+	controllerIds := controllerInfo.ControllerIds
 	var newControllerIds []string
 	controllerId := c.Id()
 	for _, id := range controllerIds {
@@ -304,9 +306,33 @@ func (st *fakeState) setHASpace(spaceName string) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 
+	// Ensure the configured space always exists in state.
+	if spaceName != network.DefaultSpaceName {
+		if st.spaces == nil {
+			st.spaces = make(map[string]*fakeSpace)
+		}
+		st.spaces[spaceName] = &fakeSpace{network.SpaceInfo{Name: network.SpaceName(spaceName)}}
+	}
+
 	cfg := st.controllerConfig.Get().(controller.Config)
 	cfg[controller.JujuHASpace] = spaceName
 	st.controllerConfig.Set(cfg)
+}
+
+func (st *fakeState) Space(name string) (Space, error) {
+	// Return a representation of the default space whenever requested.
+	if name == network.DefaultSpaceName {
+		return &fakeSpace{network.SpaceInfo{}}, nil
+	}
+
+	st.mu.Lock()
+	defer st.mu.Unlock()
+
+	space, ok := st.spaces[name]
+	if !ok {
+		return nil, errors.NotFoundf("space %q", name)
+	}
+	return space, nil
 }
 
 type fakeController struct {
@@ -435,6 +461,14 @@ func (m *fakeController) advanceLifecycle(life state.Life, wantsVote bool) {
 		doc.life = life
 		doc.wantsVote = wantsVote
 	})
+}
+
+type fakeSpace struct {
+	network.SpaceInfo
+}
+
+func (s *fakeSpace) NetworkSpace() network.SpaceInfo {
+	return s.SpaceInfo
 }
 
 type fakeMongoSession struct {

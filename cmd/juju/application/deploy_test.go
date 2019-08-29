@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/loggo"
@@ -42,7 +41,7 @@ import (
 	csclientparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/charmstore.v5"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakerytest"
@@ -259,7 +258,7 @@ func (s *DeploySuite) TestInvalidFileFormat(c *gc.C) {
 	err := ioutil.WriteFile(path, []byte(":"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.runDeploy(c, path)
-	c.Assert(err, gc.ErrorMatches, `invalid charm or bundle provided at ".*bundle.yaml"`)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot unmarshal bundle contents:.* yaml:.*`)
 }
 
 func (s *DeploySuite) TestPathWithNoCharmOrBundle(c *gc.C) {
@@ -711,7 +710,6 @@ func (s *DeploySuite) TestDeployBundleWithOffers(c *gc.C) {
 		},
 	}
 
-	s.SetFeatureFlags(feature.CMRAwareBundles)
 	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "apache2-with-offers")
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), bundlePath)
 	c.Assert(err, jc.ErrorIsNil)
@@ -776,7 +774,7 @@ func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 		crossmodel.ConsumeApplicationArgs{
 			Offer: params.ApplicationOfferDetails{
 				OfferName: "mysql",
-				OfferURL:  "kontroll:admin/default.mysql",
+				OfferURL:  "test:admin/default.mysql",
 			},
 			ApplicationAlias: "mysql",
 			Macaroon:         mac,
@@ -805,49 +803,9 @@ func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 		},
 	}
 
-	s.SetFeatureFlags(feature.CMRAwareBundles)
 	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "wordpress-with-saas")
 	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), bundlePath)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *DeploySuite) TestDeployBundleWithSAASAndNoLocalController(c *gc.C) {
-	cfgAttrs := map[string]interface{}{
-		"name": "name",
-		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		"type": "foo",
-	}
-	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
-	withAllWatcher(fakeAPI)
-
-	inURL := charm.MustParseURL("wordpress")
-	withCharmRepoResolvable(fakeAPI, inURL)
-
-	withCharmDeployable(
-		fakeAPI, inURL, "bionic",
-		&charm.Meta{Name: "wordpress", Series: []string{"bionic"}},
-		nil, false, false, 0, nil, nil,
-	)
-
-	fakeAPI.Call("AddUnits", application.AddUnitsParams{
-		ApplicationName: "wordpress",
-		NumUnits:        1,
-	}).Returns([]string{"wordpress/0"}, error(nil))
-
-	deploy := &DeployCommand{
-		NewAPIRoot: func() (DeployAPI, error) {
-			return fakeAPI, nil
-		},
-		NewConsumeDetailsAPI: func(url *charm.OfferURL) (ConsumeDetails, error) {
-			return fakeAPI, nil
-		},
-	}
-
-	s.SetFeatureFlags(feature.CMRAwareBundles)
-	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "wordpress-with-saas-no-local-ctrl")
-	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), bundlePath)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), jc.Contains, `Controller "doesnotexist" not found locally`)
 }
 
 type fakeProvider struct {
@@ -2612,13 +2570,13 @@ func (f *fakeDeployAPI) ModelGet() (map[string]interface{}, error) {
 	return results[0].(map[string]interface{}), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) ResolveWithChannel(url *charm.URL) (
+func (f *fakeDeployAPI) ResolveWithPreferredChannel(url *charm.URL, preferredChannel csclientparams.Channel) (
 	*charm.URL,
 	csclientparams.Channel,
 	[]string,
 	error,
 ) {
-	results := f.MethodCall(f, "ResolveWithChannel", url)
+	results := f.MethodCall(f, "ResolveWithPreferredChannel", url, preferredChannel)
 
 	return results[0].(*charm.URL),
 		results[1].(csclientparams.Channel),
@@ -2847,7 +2805,7 @@ func withCharmRepoResolvable(
 	fakeAPI *fakeDeployAPI,
 	url *charm.URL,
 ) {
-	fakeAPI.Call("ResolveWithChannel", url).Returns(
+	fakeAPI.Call("ResolveWithPreferredChannel", url, csclientparams.NoChannel).Returns(
 		url,
 		csclientparams.Channel(""),
 		[]string{"bionic"}, // Supported series

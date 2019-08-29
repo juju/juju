@@ -196,6 +196,7 @@ func (s *SwitchSimpleSuite) TestSwitchControllerSameNameAsModel(c *gc.C) {
 	_, err := s.run(c, "new:mymodel")
 	c.Assert(err, jc.ErrorIsNil)
 	context, err := s.run(c, "old")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "new:admin/mymodel -> old (controller)\n")
 }
 
@@ -212,6 +213,7 @@ func (s *SwitchSimpleSuite) TestSwitchControllerSameNameAsModelExplicitModel(c *
 	_, err := s.run(c, "new:mymodel")
 	c.Assert(err, jc.ErrorIsNil)
 	context, err := s.run(c, ":old")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "new:admin/mymodel -> new:admin/old\n")
 }
 

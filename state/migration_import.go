@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/juju/description"
@@ -14,17 +15,16 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -170,6 +170,14 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	if err := restore.modelUsers(); err != nil {
 		return nil, nil, errors.Annotate(err, "modelUsers")
 	}
+	// Spaces are needed to migrate Subnets
+	if err := restore.spaces(); err != nil {
+		return nil, nil, errors.Annotate(err, "spaces")
+	}
+	// Subnets are needed to migrate machine portsDocs
+	if err := restore.subnets(); err != nil {
+		return nil, nil, errors.Annotate(err, "subnets")
+	}
 	if err := restore.machines(); err != nil {
 		return nil, nil, errors.Annotate(err, "machines")
 	}
@@ -179,14 +187,8 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	if err := restore.relations(); err != nil {
 		return nil, nil, errors.Annotate(err, "relations")
 	}
-	if err := restore.spaces(); err != nil {
-		return nil, nil, errors.Annotate(err, "spaces")
-	}
 	if err := restore.linklayerdevices(); err != nil {
 		return nil, nil, errors.Annotate(err, "linklayerdevices")
-	}
-	if err := restore.subnets(); err != nil {
-		return nil, nil, errors.Annotate(err, "subnets")
 	}
 	if err := restore.ipaddresses(); err != nil {
 		return nil, nil, errors.Annotate(err, "ipaddresses")
@@ -422,7 +424,11 @@ func (i *importer) machine(m description.Machine) error {
 	ops := append(prereqOps, machineOp)
 
 	// 5. add any ops that we may need to add the opened ports information.
-	ops = append(ops, i.machinePortsOps(m)...)
+	portOps, err := i.machinePortsOps(m)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ops = append(ops, portOps...)
 
 	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
@@ -478,12 +484,21 @@ func (i *importer) importMachineBlockDevices(machine *Machine, m description.Mac
 	return nil
 }
 
-func (i *importer) machinePortsOps(m description.Machine) []txn.Op {
+func (i *importer) machinePortsOps(m description.Machine) ([]txn.Op, error) {
 	var result []txn.Op
 	machineID := m.Id()
 
 	for _, ports := range m.OpenedPorts() {
 		subnetID := ports.SubnetID()
+		if network.IsValidCidr(subnetID) {
+			// If we're migrating from a controller which has cidrs for
+			// subnetIDs, there can be only 1 of that cidr in the model.
+			subnet, err := i.st.Subnet(subnetID)
+			if err != nil {
+				return []txn.Op{}, errors.Trace(err)
+			}
+			subnetID = subnet.ID()
+		}
 		doc := &portsDoc{
 			MachineID: machineID,
 			SubnetID:  subnetID,
@@ -504,7 +519,7 @@ func (i *importer) machinePortsOps(m description.Machine) []txn.Op {
 		})
 	}
 
-	return result
+	return result, nil
 }
 
 func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudInstance) txn.Op {
@@ -574,7 +589,6 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 		Life:                     Alive,
 		Tools:                    i.makeTools(m.Tools()),
 		Jobs:                     jobs,
-		HasVote:                  false, // State servers can't be migrated yet.
 		PasswordHash:             m.PasswordHash(),
 		Clean:                    !i.machineHasUnits(machineTag),
 		Volumes:                  i.machineVolumes(machineTag),
@@ -1177,6 +1191,10 @@ func (i *importer) relation(rel description.Relation) error {
 	// unit of the application, and an op that adds the relation settings
 	// for each unit.
 	for _, endpoint := range rel.Endpoints() {
+		appKey := relationApplicationSettingsKey(dbRelation.Id(), endpoint.ApplicationName())
+		appSettings := endpoint.ApplicationSettings()
+		ops = append(ops, createSettingsOp(settingsC, appKey, appSettings))
+
 		units := i.applicationUnits[endpoint.ApplicationName()]
 		for unitName, settings := range endpoint.AllSettings() {
 			unit, ok := units[unitName]
@@ -1239,12 +1257,20 @@ func (i *importer) spaces() error {
 	for _, s := range i.model.Spaces() {
 		// The default space should not have been exported, but be defensive.
 		// Any subnets added to the space will be imported subsequently.
-		if s.Name() == corenetwork.DefaultSpaceName {
+		if s.Name() == network.DefaultSpaceName {
 			continue
 		}
 
-		_, err := i.st.AddSpace(s.Name(), network.Id(s.ProviderID()), nil, s.Public())
-		if err != nil {
+		if s.Id() == "" {
+			if _, err := i.st.AddSpace(s.Name(), network.Id(s.ProviderID()), nil, s.Public()); err != nil {
+				i.logger.Errorf("error importing space %s: %s", s.Name(), err)
+				return errors.Annotate(err, s.Name())
+			}
+			continue
+		}
+
+		ops := i.st.addSpaceTxnOps(s.Id(), s.Name(), network.Id(s.ProviderID()), s.Public())
+		if err := i.st.db().RunTransaction(ops); err != nil {
 			i.logger.Errorf("error importing space %s: %s", s.Name(), err)
 			return errors.Annotate(err, s.Name())
 		}
@@ -1336,22 +1362,38 @@ func (i *importer) addLinkLayerDevice(device description.LinkLayerDevice) error 
 func (i *importer) subnets() error {
 	i.logger.Debugf("importing subnets")
 	for _, subnet := range i.model.Subnets() {
-		info := SubnetInfo{
+		info := network.SubnetInfo{
 			CIDR:              subnet.CIDR(),
 			ProviderId:        network.Id(subnet.ProviderId()),
 			ProviderNetworkId: network.Id(subnet.ProviderNetworkId()),
 			VLANTag:           subnet.VLANTag(),
-			SpaceName:         subnet.SpaceName(),
-			FanLocalUnderlay:  subnet.FanLocalUnderlay(),
-			FanOverlay:        subnet.FanOverlay(),
+			AvailabilityZones: subnet.AvailabilityZones(),
+			IsPublic:          subnet.IsPublic(),
 		}
-		// TODO(babbageclunk): at the moment state.Subnet only stores
-		// one AZ.
-		zones := subnet.AvailabilityZones()
-		if len(zones) > 0 {
-			info.AvailabilityZone = zones[0]
+		info.SetFan(subnet.FanLocalUnderlay(), subnet.FanOverlay())
+
+		// TODO (hml) 2019-07-25
+		// update migration for SpaceID once SubnetInfo Updated.
+		spID := subnet.SpaceID()
+		if spID != "" {
+			sp, err := i.st.SpaceByID(spID)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			info.SpaceName = sp.Name()
+		} else {
+			info.SpaceName = subnet.SpaceName()
 		}
-		err := i.addSubnet(info)
+
+		snID := subnet.ID()
+		if snID == "" {
+			seq, err := sequence(i.st, "subnet")
+			if err != nil {
+				return errors.Trace(err)
+			}
+			snID = strconv.Itoa(seq)
+		}
+		err := i.addSubnet(snID, info)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1360,15 +1402,15 @@ func (i *importer) subnets() error {
 	return nil
 }
 
-func (i *importer) addSubnet(args SubnetInfo) error {
+func (i *importer) addSubnet(id string, args network.SubnetInfo) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		subnet, err := i.st.newSubnetFromArgs(args)
+		subnetDoc, ops, err := i.st.addSubnetOps(id, args)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops := i.st.addSubnetOps(args)
+		subnet := &Subnet{st: i.st, doc: subnetDoc}
 		if attempt != 0 {
-			if _, err = i.st.Subnet(args.CIDR); err == nil {
+			if _, err = i.st.SubnetByID(id); err == nil {
 				return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
 			}
 			if err := subnet.Refresh(); err != nil {

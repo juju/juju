@@ -8,12 +8,13 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
@@ -176,12 +177,12 @@ func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Add 1 subnet into space1, and 2 into space2.
 	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
-	testing.AddSubnetsWithTemplate(c, s.State, 3, state.SubnetInfo{
-		CIDR:             "10.10.{{.}}.0/24",
-		ProviderId:       "subnet-{{.}}",
-		AvailabilityZone: "zone{{.}}",
-		SpaceName:        "{{if (eq . 0)}}space1{{else}}space2{{end}}",
-		VLANTag:          42,
+	testing.AddSubnetsWithTemplate(c, s.State, 3, network.SubnetInfo{
+		CIDR:              "10.10.{{.}}.0/24",
+		ProviderId:        "subnet-{{.}}",
+		AvailabilityZones: []string{"zone{{.}}"},
+		SpaceName:         "{{if (eq . 0)}}space1{{else}}space2{{end}}",
+		VLANTag:           42,
 	})
 }
 
@@ -495,6 +496,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 
 	// Only machine 0 and containers therein can be accessed.
 	results, err := aProvisioner.ProvisioningInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
 	controllerCfg := coretesting.FakeControllerConfig()
 	// Dummy provider uses a random port, which is added to cfg used to create environment.
 	apiPort := dummy.APIPort(s.Environ.Provider())

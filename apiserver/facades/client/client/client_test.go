@@ -16,7 +16,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/common"
@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -37,7 +38,6 @@ import (
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	supportedversion "github.com/juju/juju/juju/version"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -62,15 +62,17 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 		"authorized-keys": coretesting.FakeAuthKeys,
 	}
 	s.baseSuite.SetUpTest(c)
+	//s.State.StartSync()
 	s.client = s.clientForState(c, s.State)
 }
 
 func (s *serverSuite) authClientForState(c *gc.C, st *state.State, auth facade.Authorizer) *client.Client {
 	context := &facadetest.Context{
-		State_:     st,
-		StatePool_: s.StatePool,
-		Auth_:      auth,
-		Resources_: common.NewResources(),
+		Controller_: s.Controller,
+		State_:      st,
+		StatePool_:  s.StatePool,
+		Auth_:       auth,
+		Resources_:  common.NewResources(),
 	}
 	apiserverClient, err := client.NewFacade(context)
 	c.Assert(err, jc.ErrorIsNil)
@@ -92,6 +94,16 @@ func (s *serverSuite) clientForState(c *gc.C, st *state.State) *client.Client {
 		Tag:        s.AdminUserTag(c),
 		Controller: true,
 	})
+}
+
+func (s *serverSuite) TestNewFacadeWaitsForCachedModel(c *gc.C) {
+	setGenerationsControllerConfig(c, s.State)
+	state := s.Factory.MakeModel(c, nil)
+	defer state.Close()
+	// When run in a stress situation, we should hit the race where
+	// the model exists in the database but the cache hasn't been updated
+	// before we ask for the client.
+	_ = s.clientForState(c, state)
 }
 
 func (s *serverSuite) TestModelInfo(c *gc.C) {
@@ -524,11 +536,13 @@ type clientSuite struct {
 }
 
 func (s *clientSuite) SetUpTest(c *gc.C) {
-	if s.ControllerConfigAttrs == nil {
-		s.ControllerConfigAttrs = make(map[string]interface{})
-	}
-	s.ControllerConfigAttrs[controller.JujuManagementSpace] = "mgmt01"
 	s.baseSuite.SetUpTest(c)
+
+	_, err := s.State.AddSpace("mgmt01", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.UpdateControllerConfig(map[string]interface{}{controller.JujuManagementSpace: "mgmt01"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 var _ = gc.Suite(&clientSuite{})
@@ -1014,6 +1028,7 @@ func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "cloudlocal")
 	err = m1.SetProviderAddresses(cloudLocalAddress, publicAddress)
+	c.Assert(err, jc.ErrorIsNil)
 	addr, err = s.APIState.Client().PublicAddress("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "public")
@@ -1023,6 +1038,7 @@ func (s *clientSuite) TestClientPublicAddressUnit(c *gc.C) {
 	s.setUpScenario(c)
 
 	m1, err := s.State.Machine("1")
+	c.Assert(err, jc.ErrorIsNil)
 	publicAddress := network.NewScopedAddress("public", network.ScopePublic)
 	err = m1.SetProviderAddresses(publicAddress)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1056,6 +1072,7 @@ func (s *clientSuite) TestClientPrivateAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "public")
 	err = m1.SetProviderAddresses(cloudLocalAddress, publicAddress)
+	c.Assert(err, jc.ErrorIsNil)
 	addr, err = s.APIState.Client().PrivateAddress("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "cloudlocal")
@@ -1065,6 +1082,7 @@ func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 	s.setUpScenario(c)
 
 	m1, err := s.State.Machine("1")
+	c.Assert(err, jc.ErrorIsNil)
 	privateAddress := network.NewScopedAddress("private", network.ScopeCloudLocal)
 	err = m1.SetProviderAddresses(privateAddress)
 	c.Assert(err, jc.ErrorIsNil)

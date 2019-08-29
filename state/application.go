@@ -21,7 +21,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -30,9 +30,9 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
 )
@@ -294,8 +294,9 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 		rels, err2 := op.app.st.AllRelations()
 		if err2 != nil {
 			err = errors.Trace(err2)
+		} else {
+			err = errors.Errorf("application is used by %d offer%s", len(rels), plural(len(rels)))
 		}
-		err = errors.Errorf("application is used by %d offer%s", len(rels), plural(len(rels)))
 	} else {
 		err = errors.NewNotSupported(err, "change to the application detected")
 	}
@@ -315,11 +316,8 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 // constructed up until the error will be discarded and the error will be returned.
 func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	rels, err := op.app.Relations()
-	if err != nil {
-		if !op.Force {
-			return nil, err
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, err
 	}
 	if len(rels) != op.app.doc.RelationCount {
 		// This is just an early bail out. The relations obtained may still
@@ -358,11 +356,8 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 		return nil, op.LastError()
 	}
 	resOps, err := removeResourcesOps(op.app.st, op.app.doc.Name)
-	if err != nil {
-		if !op.Force {
-			return nil, errors.Trace(err)
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
 	}
 	ops = append(ops, resOps...)
 
@@ -404,6 +399,15 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 			})
 		}
 	}
+
+	branchOps, err := op.unassignBranchOps()
+	if err != nil {
+		if !op.Force {
+			return nil, errors.Trace(err)
+		}
+		op.AddError(err)
+	}
+	ops = append(ops, branchOps...)
 
 	// If the application has no units, and all its known relations will be
 	// removed, the application can also be removed.
@@ -474,6 +478,29 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	return ops, nil
 }
 
+func (op *DestroyApplicationOperation) unassignBranchOps() ([]txn.Op, error) {
+	m, err := op.app.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	appName := op.app.doc.Name
+	branches, err := m.applicationBranches(appName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(branches) == 0 {
+		return nil, nil
+	}
+	ops := []txn.Op{}
+	for _, b := range branches {
+		// assumption: branches from applicationBranches will
+		// ALWAYS have the appName in assigned-units, but not
+		// always in config.
+		ops = append(ops, b.unassignAppOps(appName)...)
+	}
+	return ops, nil
+}
+
 func removeResourcesOps(st *State, applicationID string) ([]txn.Op, error) {
 	persist, err := st.ResourcesPersistence()
 	if errors.IsNotSupported(err) {
@@ -508,11 +535,8 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 
 	// Remove application offers.
 	removeOfferOps, err := removeApplicationOffersOps(a.st, a.doc.Name)
-	if err != nil {
-		if !op.Force {
-			return nil, errors.Trace(err)
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
 	}
 	ops = append(ops, removeOfferOps...)
 
@@ -532,10 +556,9 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 			// the application is already removed, reload yourself and try again
 			return nil, errRefresh
 		}
-		if !op.Force {
+		if op.FatalError(err) {
 			return nil, errors.Trace(err)
 		}
-		op.AddError(err)
 	}
 	ops = append(ops, charmOps...)
 
@@ -2009,25 +2032,16 @@ func (a *Application) AddUnit(args AddUnitParams) (unit *Unit, err error) {
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
 func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation, destroyStorage bool) ([]txn.Op, error) {
 	hostOps, err := u.destroyHostOps(a, op)
-	if err != nil {
-		if !op.Force {
-			return nil, errors.Trace(err)
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
 	}
 	portsOps, err := removePortsForUnitOps(a.st, u)
-	if err != nil {
-		if !op.Force {
-			return nil, errors.Trace(err)
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
 	}
 	resOps, err := removeUnitResourcesOps(a.st, u.doc.Name)
-	if err != nil {
-		if !op.Force {
-			return nil, errors.Trace(err)
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
 	}
 
 	observedFieldsMatch := bson.D{
@@ -2054,30 +2068,29 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	ops = append(ops, hostOps...)
 
 	m, err := a.st.Model()
-	if err != nil {
-		if !op.Force {
-			return nil, errors.Trace(err)
-		}
-		op.AddError(err)
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
 	} else {
 		if m.Type() == ModelTypeCAAS {
 			ops = append(ops, u.removeCloudContainerOps()...)
 		}
-	}
-
-	sb, err := NewStorageBackend(a.st)
-	if err != nil {
-		if !op.Force {
-			return nil, errors.Trace(err)
-		}
-		op.AddError(err)
-	} else {
-		storageInstanceOps, err := removeStorageInstancesOps(sb, u.Tag(), op.Force)
+		branchOps, err := unassignUnitFromBranchOp(u.doc.Name, a.doc.Name, m)
 		if err != nil {
 			if !op.Force {
 				return nil, errors.Trace(err)
 			}
 			op.AddError(err)
+		}
+		ops = append(ops, branchOps...)
+	}
+
+	sb, err := NewStorageBackend(a.st)
+	if op.FatalError(err) {
+		return nil, errors.Trace(err)
+	} else {
+		storageInstanceOps, err := removeStorageInstancesOps(sb, u.Tag(), op.Force)
+		if op.FatalError(err) {
+			return nil, errors.Trace(err)
 		}
 		ops = append(ops, storageInstanceOps...)
 	}
@@ -2092,11 +2105,8 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 		decOps, err := appCharmDecRefOps(a.st, a.doc.Name, u.doc.CharmURL, maybeDoFinal, op)
 		if errors.IsNotFound(err) {
 			return nil, errRefresh
-		} else if err != nil {
-			if !op.Force {
-				return nil, errors.Trace(err)
-			}
-			op.AddError(err)
+		} else if op.FatalError(err) {
+			return nil, errors.Trace(err)
 		}
 		ops = append(ops, decOps...)
 	}
@@ -2134,6 +2144,18 @@ func removeUnitResourcesOps(st *State, unitID string) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 	return ops, nil
+}
+
+func unassignUnitFromBranchOp(unitName, appName string, m *Model) ([]txn.Op, error) {
+	branch, err := m.unitBranch(unitName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if branch == nil {
+		// Nothing to see here, move along.
+		return nil, nil
+	}
+	return branch.unassignUnitOps(unitName, appName), nil
 }
 
 // AllUnits returns all units of the application.
@@ -2365,11 +2387,24 @@ func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 	// There's no compelling reason to have these methods on Application -- and
 	// thus require an extra db read to access them -- but it stops the State
 	// type getting even more cluttered.
+	key := leadershipSettingsKey(a.doc.Name)
+	converted := make(map[string]interface{}, len(updates))
+	for k, v := range updates {
+		converted[k] = v
+	}
+	err := updateLeaderSettings(a.st.db(), token, key, converted)
+	if errors.IsNotFound(err) {
+		return errors.NotFoundf("application %q", a.doc.Name)
+	} else if err != nil {
+		return errors.Annotatef(err, "application %q", a.doc.Name)
+	}
+	return nil
+}
 
+func updateLeaderSettings(db Database, token leadership.Token, key string, updates map[string]interface{}) error {
 	// We can calculate the actual update ahead of time; it's not dependent
 	// upon the current state of the document. (*Writing* it should depend
 	// on document state, but that's handled below.)
-	key := leadershipSettingsKey(a.doc.Name)
 	sets := bson.M{}
 	unsets := bson.M{}
 	for unescapedKey, value := range updates {
@@ -2400,11 +2435,9 @@ func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 		// Read the current document state so we can abort if there's
 		// no actual change; and the version number so we can assert
 		// on it and prevent these settings from landing late.
-		doc, err := readSettingsDoc(a.st.db(), settingsC, key)
-		if errors.IsNotFound(err) {
-			return nil, errors.NotFoundf("application %q", a.doc.Name)
-		} else if err != nil {
-			return nil, errors.Annotatef(err, "application %q", a.doc.Name)
+		doc, err := readSettingsDoc(db, settingsC, key)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 		if isNullChange(doc.Settings) {
 			return nil, jujutxn.ErrNoOperations
@@ -2416,7 +2449,7 @@ func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 			Update: update,
 		}}, nil
 	}
-	return a.st.db().Run(buildTxnWithLeadership(buildTxn, token))
+	return db.Run(buildTxnWithLeadership(buildTxn, token))
 }
 
 var ErrSubordinateConstraints = stderrors.New("constraints do not apply to subordinate applications")
@@ -2616,11 +2649,11 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 		// Application status for a caas model needs to consider status
 		// info coming from the operator pod as well; It may need to
 		// override what is set here.
-		operatorStatus, err := getStatus(a.st.db(), applicationGlobalOperatorKey(a.Name()), "operator")
 		expectWorkload, err := expectWorkload(a.st, a.Name())
 		if err != nil {
 			return errors.Trace(err)
 		}
+		operatorStatus, err := getStatus(a.st.db(), applicationGlobalOperatorKey(a.Name()), "operator")
 		if err == nil {
 			newHistory, err = caasHistoryRewriteDoc(statusInfo, operatorStatus, expectWorkload, caasApplicationDisplayStatus, a.st.clock())
 			if err != nil {
@@ -3031,6 +3064,9 @@ func (op *AddUnitOperation) Done(err error) error {
 				updated:          timeOrNow(unitStatus.Since, u.st.clock()),
 				historyOverwrite: newHistory,
 			})
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 

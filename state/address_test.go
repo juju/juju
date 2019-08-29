@@ -9,7 +9,7 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing/factory"
@@ -68,7 +68,7 @@ func (s *ControllerAddressesSuite) TestControllerModel(c *gc.C) {
 
 func (s *ControllerAddressesSuite) TestOtherModel(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	defer func() { _ = st.Close() }()
 	addresses, err := st.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, jc.SameContents, []string{"10.0.1.2:1234"})
@@ -238,6 +238,9 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDiffe
 }
 
 func (s *ControllerAddressesSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
+	_, err := s.State.AddSpace("mgmt01", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.SetJujuManagementSpace(c, "mgmt01")
 
 	addrs, err := s.State.APIHostPortsForClients()
@@ -364,6 +367,9 @@ func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForClients(c *gc.C) {
 }
 
 func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
+	_, err := s.State.AddSpace("mgmt01", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.SetJujuManagementSpace(c, "mgmt01")
 
 	w := s.State.WatchAPIHostPortsForAgents()
@@ -383,7 +389,7 @@ func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
 		Port: 2,
 	}
 
-	err := s.State.SetAPIHostPorts([][]network.HostPort{{
+	err = s.State.SetAPIHostPorts([][]network.HostPort{{
 		mgmtHP,
 	}})
 	c.Assert(err, jc.ErrorIsNil)

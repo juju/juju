@@ -80,7 +80,6 @@ func (s *ConstraintsSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 		"virt-type",
 		"arch",
 		"instance-type",
-		"root-disk",
 		"spaces",
 		"container",
 	}

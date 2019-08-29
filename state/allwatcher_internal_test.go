@@ -14,7 +14,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -22,8 +22,8 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testing"
@@ -77,13 +77,15 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
 	// Ensure there's one and only one controller.
-	controllerInfo, err := st.ControllerInfo()
+	controllerIds, err := st.ControllerIds()
 	c.Assert(err, jc.ErrorIsNil)
-	needController := len(controllerInfo.MachineIds) == 0
+	needController := len(controllerIds) == 0
 	if needController {
 		_, err = st.EnableHA(1, constraints.Value{}, "quantal", []string{m.Id()})
 		c.Assert(err, jc.ErrorIsNil)
-		err = m.SetHasVote(true)
+		node, err := st.ControllerNode(m.Id())
+		c.Assert(err, jc.ErrorIsNil)
+		err = node.SetHasVote(true)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	// TODO(dfc) instance.Id should take a TAG!
@@ -1792,6 +1794,7 @@ func (s *allModelWatcherStateSuite) TestMissingModelSettings(c *gc.C) {
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}
 	err = s.state.db().RunTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Trigger an update and check the model is removed from the store.
 	err = b.Changed(all, watcher.Change{
@@ -1835,6 +1838,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	// Add a branch.
 	c.Assert(st1.AddBranch("new-branch", "test-user"), jc.ErrorIsNil)
 	br, err := st1.Branch("new-branch")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(br, gc.NotNil)
 
 	now := st0.clock().Now()

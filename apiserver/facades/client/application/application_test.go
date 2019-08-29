@@ -19,7 +19,7 @@ import (
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 	"gopkg.in/mgo.v2"
 
@@ -700,6 +700,7 @@ func (s *applicationSuite) TestApplicationDeploymentNoTrust(c *gc.C) {
 
 	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, cons)
 	appConfig, err := app.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
 	trust := appConfig.GetBool(application.TrustConfigOptionName, true)
 	c.Assert(trust, jc.IsFalse)
 }
@@ -1331,6 +1332,7 @@ func (s *applicationSuite) TestSpecializeStoreOnDeployApplicationSetCharmAndAddC
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
 	})
+	c.Assert(err, gc.NotNil)
 	c.Assert(repo.testMode, jc.IsTrue)
 
 	// Check that the store's test mode is enabled when calling AddCharm.
@@ -3087,6 +3089,7 @@ func (s *applicationSuite) assertAddRelation(c *gc.C, endpoints, viaCIDRs []stri
 	wpApp, err := s.State.Application("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rels, err := wpApp.Relations()
+	c.Assert(err, jc.ErrorIsNil)
 	// There are 2 relations - the logging-wordpress one set up in the
 	// scenario and the one created in this test.
 	c.Assert(len(rels), gc.Equals, 2)

@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
@@ -50,6 +50,7 @@ func (s *unitSuite) TestUnitEntity(c *gc.C) {
 	c.Assert(m, gc.IsNil)
 
 	apiSt, err = apiagent.NewState(s.st)
+	c.Assert(err, jc.ErrorIsNil)
 	m, err = apiSt.Entity(s.unit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, s.unit.Tag().String())
@@ -62,6 +63,7 @@ func (s *unitSuite) TestUnitEntity(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiSt, err = apiagent.NewState(s.st)
+	c.Assert(err, jc.ErrorIsNil)
 	m, err = apiSt.Entity(s.unit.Tag())
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("unit %q not found", s.unit.Name()))
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)

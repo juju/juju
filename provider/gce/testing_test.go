@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -113,7 +114,7 @@ type BaseSuiteUnpatched struct {
 	EnvConfig      *environConfig
 	Env            *environ
 
-	Addresses       []network.Address
+	Addresses       []corenetwork.Address
 	BaseInstance    *google.Instance
 	BaseDisk        *google.Disk
 	Instance        *environInstance
@@ -184,10 +185,10 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		metadataKeyWindowsUserdata: string(userData),
 		metadataKeyWindowsSysprep:  fmt.Sprintf(winSetHostnameScript, "juju.*"),
 	}
-	s.Addresses = []network.Address{{
+	s.Addresses = []corenetwork.Address{{
 		Value: "10.0.0.1",
-		Type:  network.IPv4Address,
-		Scope: network.ScopeCloudLocal,
+		Type:  corenetwork.IPv4Address,
+		Scope: corenetwork.ScopeCloudLocal,
 	}}
 	s.Instance = s.NewInstance(c, "spam")
 	s.BaseInstance = s.Instance.base

@@ -20,7 +20,7 @@ import (
 	"github.com/juju/proxy"
 	"github.com/juju/utils/shell"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
@@ -316,7 +316,7 @@ type stateInitializationParamsInternal struct {
 	ControllerInheritedConfig               map[string]interface{}            `yaml:"controller-config-defaults,omitempty"`
 	RegionInheritedConfig                   cloud.RegionConfig                `yaml:"region-inherited-config,omitempty"`
 	HostedModelConfig                       map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
-	BootstrapMachineInstanceId              instance.Id                       `yaml:"bootstrap-machine-instance-id"`
+	BootstrapMachineInstanceId              instance.Id                       `yaml:"bootstrap-machine-instance-id,omitempty"`
 	BootstrapMachineConstraints             constraints.Value                 `yaml:"bootstrap-machine-constraints"`
 	BootstrapMachineHardwareCharacteristics *instance.HardwareCharacteristics `yaml:"bootstrap-machine-hardware,omitempty"`
 	ModelConstraints                        constraints.Value                 `yaml:"model-constraints"`

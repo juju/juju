@@ -5,6 +5,7 @@ package cache_test
 import (
 	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -78,6 +79,72 @@ func (s *ControllerSuite) TestRemoveModel(c *gc.C) {
 	c.Check(controller.ModelUUIDs(), gc.HasLen, 0)
 	c.Check(controller.Report(), gc.HasLen, 0)
 	s.AssertResident(c, mod.CacheId(), false)
+}
+
+func (s *ControllerSuite) TestWaitForModelExists(c *gc.C) {
+	controller, events := s.new(c)
+	clock := testclock.NewClock(time.Now())
+	done := make(chan struct{})
+	// Process the change event before waiting on the model. This
+	// way we know the model exists in the cache before we ask.
+	s.processChange(c, modelChange, events)
+
+	go func() {
+		defer close(done)
+		model, err := controller.WaitForModel(modelChange.ModelUUID, clock)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(model.UUID(), gc.Equals, modelChange.ModelUUID)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Errorf("WaitForModel did not return after %s", testing.LongWait)
+	}
+}
+
+func (s *ControllerSuite) TestWaitForModelArrives(c *gc.C) {
+	//loggo.GetLogger("juju.core.cache").SetLogLevel(loggo.TRACE)
+	controller, events := s.new(c)
+	clock := testclock.NewClock(time.Now())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		model, err := controller.WaitForModel(modelChange.ModelUUID, clock)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(model.UUID(), gc.Equals, modelChange.ModelUUID)
+	}()
+
+	// Don't process the change until we know the model is selecting
+	// on the clock.
+	c.Assert(clock.WaitAdvance(time.Second, testing.LongWait, 1), jc.ErrorIsNil)
+	s.processChange(c, modelChange, events)
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Errorf("WaitForModel did not return after %s", testing.LongWait)
+	}
+}
+
+func (s *ControllerSuite) TestWaitForModelTimeout(c *gc.C) {
+	controller, events := s.new(c)
+	clock := testclock.NewClock(time.Now())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		model, err := controller.WaitForModel(modelChange.ModelUUID, clock)
+		c.Check(err, jc.Satisfies, errors.IsTimeout)
+		c.Check(model, gc.IsNil)
+	}()
+
+	c.Assert(clock.WaitAdvance(10*time.Second, testing.LongWait, 1), jc.ErrorIsNil)
+
+	s.processChange(c, modelChange, events)
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Errorf("WaitForModel did not return after %s", testing.LongWait)
+	}
 }
 
 func (s *ControllerSuite) TestAddApplication(c *gc.C) {

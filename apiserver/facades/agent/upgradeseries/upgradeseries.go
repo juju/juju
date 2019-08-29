@@ -5,7 +5,7 @@ package upgradeseries
 
 import (
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"

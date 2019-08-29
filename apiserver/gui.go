@@ -23,7 +23,7 @@ import (
 	"github.com/gorilla/handlers"
 	"github.com/juju/errors"
 	"github.com/juju/version"
-	names "gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/common/apihttp"
@@ -590,6 +590,9 @@ func (h *guiArchiveHandler) handlePost(w http.ResponseWriter, req *http.Request)
 
 	// Read and validate the archive data.
 	data, hash, err := readAndHash(req.Body)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	size := int64(len(data))
 	if size != req.ContentLength {
 		return errors.BadRequestf("archive does not match provided content length")

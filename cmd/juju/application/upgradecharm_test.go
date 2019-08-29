@@ -24,7 +24,7 @@ import (
 	"gopkg.in/juju/charmrepo.v3"
 	csclientparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/charmstore.v5"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/macaroon.v2-unstable"
 
@@ -37,9 +37,9 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -87,10 +87,11 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.resolveCharm = func(
-		resolveWithChannel func(*charm.URL) (*charm.URL, csclientparams.Channel, []string, error),
+		resolveWithChannel func(*charm.URL, csclientparams.Channel) (*charm.URL, csclientparams.Channel, []string, error),
 		url *charm.URL,
+		preferredChannel csclientparams.Channel,
 	) (*charm.URL, csclientparams.Channel, []string, error) {
-		s.AddCall("ResolveCharm", resolveWithChannel, url)
+		s.AddCall("ResolveCharm", resolveWithChannel, url, preferredChannel)
 		if err := s.NextErr(); err != nil {
 			return nil, csclientparams.NoChannel, nil, err
 		}
@@ -656,18 +657,19 @@ var upgradeCharmAuthorizationTests = []struct {
 	uploadURL:    "cs:~bob/trusty/wordpress5-10",
 	switchURL:    "cs:~bob/trusty/wordpress5",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id&include=supported-series&include=published": access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?channel=stable&include=id&include=supported-series&include=published": access denied for user "client-username"`,
 }, {
 	about:        "non-public charm, fully resolved, access denied",
 	uploadURL:    "cs:~bob/trusty/wordpress6-47",
 	switchURL:    "cs:~bob/trusty/wordpress6-47",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?include=id&include=supported-series&include=published": access denied for user "client-username"`,
+	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress6-47": cannot get "/~bob/trusty/wordpress6-47/meta/any\?channel=stable&include=id&include=supported-series&include=published": access denied for user "client-username"`,
 }}
 
 func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmAuthorization(c *gc.C) {
 	testcharms.UploadCharmWithSeries(c, s.client, "cs:~other/trusty/wordpress-0", "wordpress", "bionic")
 	err := runDeploy(c, "cs:~other/trusty/wordpress-0")
+	c.Assert(err, jc.ErrorIsNil)
 
 	riak, err := s.State.Application("wordpress")
 	c.Assert(err, jc.ErrorIsNil)

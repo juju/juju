@@ -8,7 +8,7 @@ import (
 	"github.com/juju/juju/core/settings"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 )
 
 const (
@@ -190,6 +190,12 @@ func (m *stubCharmConfigModel) Application(name string) (Application, error) {
 	return Application{}, errors.NotFoundf("application %q", name)
 }
 
-func (m *stubCharmConfigModel) Branches() map[string]Branch {
-	return m.branches
+func (m *stubCharmConfigModel) Branches() []Branch {
+	branches := make([]Branch, len(m.branches))
+	i := 0
+	for _, b := range m.branches {
+		branches[i] = b.copy()
+		i += 1
+	}
+	return branches
 }
