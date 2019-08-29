@@ -65,6 +65,18 @@ func (c *ListCommand) FullSchema() bool {
 	return c.fullSchema
 }
 
+type ShowCommand struct {
+	*showCommand
+}
+
+func (c *ShowCommand) ApplicationTag() names.ApplicationTag {
+	return c.applicationTag
+}
+
+func (c *ShowCommand) ActionName() string {
+	return c.actionName
+}
+
 func NewShowOutputCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ShowOutputCommand) {
 	c := &showOutputCommand{}
 	c.SetClientStore(store)
@@ -87,6 +99,12 @@ func NewListCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ListComm
 	c := &listCommand{}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &ListCommand{c}
+}
+
+func NewShowCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ShowCommand) {
+	c := &showCommand{}
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &ShowCommand{c}
 }
 
 func NewRunCommandForTest(store jujuclient.ClientStore) (cmd.Command, *RunCommand) {
