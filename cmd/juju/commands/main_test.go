@@ -627,12 +627,12 @@ var commandNames = []string{
 
 // devFeatures are feature flags that impact registration of commands.
 var devFeatures = []string{
-	// Currently no feature flags.
+	feature.JujuV3,
 }
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
-// Currently no commands behind feature flags.
+	"call",
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
@@ -646,6 +646,7 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	cmdSet := set.NewStrings(commandNames...)
 	if !featureflag.Enabled(feature.JujuV3) {
 		cmdSet.Add("run-action")
+		cmdSet.Add("run")
 	}
 
 	// 1. Default Commands. Disable all features.
@@ -664,7 +665,7 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	unknown = registered.Difference(cmdSet)
 	c.Assert(unknown, jc.DeepEquals, set.NewStrings())
 	missing = cmdSet.Difference(registered)
-	c.Assert(missing, jc.DeepEquals, set.NewStrings())
+	c.Assert(missing, jc.DeepEquals, set.NewStrings("run", "run-action"))
 }
 
 func getHelpCommandNames(c *gc.C) set.Strings {
