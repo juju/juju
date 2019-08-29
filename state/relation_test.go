@@ -947,6 +947,7 @@ func (s *RelationSuite) TestWatchApplicationSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	relation, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w, err := relation.WatchApplicationSettings(mysql)
 	c.Assert(err, jc.ErrorIsNil)
@@ -980,6 +981,7 @@ func (s *RelationSuite) TestWatchApplicationSettingsOtherEnd(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	relation, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
 	w, err := relation.WatchApplicationSettings(mysql)
 	c.Assert(err, jc.ErrorIsNil)
