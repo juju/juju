@@ -1369,20 +1369,16 @@ func (i *importer) subnets() error {
 			VLANTag:           subnet.VLANTag(),
 			AvailabilityZones: subnet.AvailabilityZones(),
 			IsPublic:          subnet.IsPublic(),
+			SpaceID:           subnet.SpaceID(),
 		}
 		info.SetFan(subnet.FanLocalUnderlay(), subnet.FanOverlay())
 
-		// TODO (hml) 2019-07-25
-		// update migration for SpaceID once SubnetInfo Updated.
-		spID := subnet.SpaceID()
-		if spID != "" {
-			sp, err := i.st.SpaceByID(spID)
+		if info.SpaceID == "" && info.SpaceName != "" {
+			space, err := i.st.Space(subnet.SpaceName())
 			if err != nil {
 				return errors.Trace(err)
 			}
-			info.SpaceName = sp.Name()
-		} else {
-			info.SpaceName = subnet.SpaceName()
+			info.SpaceID = space.Id()
 		}
 
 		snID := subnet.ID()

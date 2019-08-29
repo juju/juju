@@ -612,5 +612,5 @@ func (s *SpacesSuite) TestFanSubnetInheritsSpace(c *gc.C) {
 		}
 	}
 	c.Assert(foundSubnet, gc.NotNil)
-	c.Assert(foundSubnet.SpaceName(), gc.Equals, "space1")
+	c.Assert(foundSubnet.SpaceID(), gc.Equals, space.Id())
 }

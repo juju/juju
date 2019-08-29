@@ -34,6 +34,7 @@ type BackingSubnet interface {
 	AvailabilityZones() []string
 	Status() string
 	SpaceName() string
+	SpaceID() string
 	Life() life.Value
 }
 
@@ -71,6 +72,7 @@ type BackingSubnetInfo struct {
 	// SpaceName holds the juju network space this subnet is
 	// associated with. Can be empty if not supported.
 	SpaceName string
+	SpaceID   string
 
 	// Status holds the status of the subnet. Normally this will be
 	// calculated from the reference count and Life of a subnet.
@@ -137,11 +139,10 @@ func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
 	zones := subnet.AvailabilityZones()
 	status := subnet.Status()
 
-	// TODO(babbageclunk): make the empty string a valid space
-	// name, rather than treating blank as "doesn't have a space".
-	// lp:1672888
 	var spaceTag string
-	if subnet.SpaceName() != "" {
+	if subnet.SpaceName() != corenetwork.DefaultSpaceName {
+		// The BackingSubnet will be returning for client commands,
+		// thus the space name is appropriate here.
 		spaceTag = names.NewSpaceTag(subnet.SpaceName()).String()
 	}
 

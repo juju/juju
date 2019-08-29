@@ -86,7 +86,7 @@ func AddSubnetsWithTemplate(c *gc.C, st *state.State, numSubnets uint, infoTempl
 
 		info.ProviderId = network.Id(permute(string(info.ProviderId)))
 		info.CIDR = permute(info.CIDR)
-		info.SpaceName = permute(info.SpaceName)
+		info.SpaceID = permute(info.SpaceID)
 
 		zones := make([]string, len(info.AvailabilityZones))
 		for i, az := range info.AvailabilityZones {

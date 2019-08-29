@@ -362,42 +362,42 @@ func resetSubnet(c *gc.C, st *state.State, subnetInfo corenetwork.SubnetInfo) {
 
 func (s *ipAddressesStateSuite) TestAllSpacesOneSpace(c *gc.C) {
 	s.addTwoDevicesWithTwoAddressesEach(c)
-	_, err := s.State.AddSpace("default", "default", nil, true)
+	space, err := s.State.AddSpace("default", "default", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	resetSubnet(c, s.State, corenetwork.SubnetInfo{
-		CIDR:      "10.20.0.0/16",
-		SpaceName: "default",
+		CIDR:    "10.20.0.0/16",
+		SpaceID: space.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	resetSubnet(c, s.State, corenetwork.SubnetInfo{
-		CIDR:      "fc00::/64",
-		SpaceName: "default",
+		CIDR:    "fc00::/64",
+		SpaceID: space.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	spaces, err := s.machine.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{"default"})
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{space.Name()})
 }
 
 func (s *ipAddressesStateSuite) TestAllSpacesMultiSpace(c *gc.C) {
 	s.addTwoDevicesWithTwoAddressesEach(c)
-	_, err := s.State.AddSpace("default", "default", nil, true)
+	space1, err := s.State.AddSpace("default", "default", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	resetSubnet(c, s.State, corenetwork.SubnetInfo{
-		CIDR:      "10.20.0.0/16",
-		SpaceName: "default",
+		CIDR:    "10.20.0.0/16",
+		SpaceID: space1.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("dmz-ipv6", "not-default", nil, true)
+	space2, err := s.State.AddSpace("dmz-ipv6", "not-default", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	resetSubnet(c, s.State, corenetwork.SubnetInfo{
-		CIDR:      "fc00::/64",
-		SpaceName: "dmz-ipv6",
+		CIDR:    "fc00::/64",
+		SpaceID: space2.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	spaces, err := s.machine.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{"default", "dmz-ipv6"})
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{space1.Name(), space2.Name()})
 }
 
 func (s *ipAddressesStateSuite) TestAllSpacesIgnoresEmptySpaceNames(c *gc.C) {

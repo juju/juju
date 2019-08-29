@@ -1020,9 +1020,9 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 	defer workertest.CleanKill(c, p)
 
 	// Add the spaces used in constraints.
-	_, err := s.State.AddSpace("space1", "", nil, false)
+	space1, err := s.State.AddSpace("space1", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("space2", "", nil, false)
+	space2, err := s.State.AddSpace("space2", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add 1 subnet into space1, and 2 into space2.
@@ -1031,7 +1031,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 		CIDR:              "10.10.{{.}}.0/24",
 		ProviderId:        "subnet-{{.}}",
 		AvailabilityZones: []string{"zone{{.}}"},
-		SpaceName:         "{{if (eq . 0)}}space1{{else}}space2{{end}}",
+		SpaceID:           fmt.Sprintf("{{if (lt . 2)}}%s{{else}}%s{{end}}", space1.Id(), space2.Id()),
 		VLANTag:           42,
 	})
 

@@ -529,9 +529,9 @@ func (s *provisionerSuite) TestDistributionGroupByMachineIdNotFound(c *gc.C) {
 
 func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	// Add a couple of spaces.
-	_, err := s.State.AddSpace("space1", "", nil, true)
+	space1, err := s.State.AddSpace("space1", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("space2", "", nil, false)
+	space2, err := s.State.AddSpace("space2", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add 2 subnets into each space.
 	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
@@ -539,7 +539,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 		CIDR:              "10.{{.}}.0.0/16",
 		ProviderId:        "subnet-{{.}}",
 		AvailabilityZones: []string{"zone{{.}}"},
-		SpaceName:         "{{if (lt . 2)}}space1{{else}}space2{{end}}",
+		SpaceID:           fmt.Sprintf("{{if (lt . 2)}}%s{{else}}%s{{end}}", space1.Id(), space2.Id()),
 	})
 
 	cons := constraints.MustParse("cores=12 mem=8G spaces=^space1,space2")
@@ -826,11 +826,11 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 	// Create a machine, put it in "default" space with a single NIC. Create
 	// a container that is also in the "default" space, and request the
 	// HostChangesForContainer to see that it wants to bridge that NIC
-	_, err := s.State.AddSpace("default", corenetwork.Id("default"), nil, true)
+	space, err := s.State.AddSpace("default", corenetwork.Id("default"), nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSubnet(corenetwork.SubnetInfo{
-		CIDR:      "10.0.0.0/24",
-		SpaceName: "default",
+		CIDR:    "10.0.0.0/24",
+		SpaceID: space.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetLinkLayerDevices(
@@ -854,10 +854,10 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineInsideMachine(containerTemplate, s.machine.Id(), instance.LXD)
+	machine, err := s.State.AddMachineInsideMachine(containerTemplate, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
-	changes, reconfigureDelay, err := s.provisioner.HostChangesForContainer(container.MachineTag())
+	changes, reconfigureDelay, err := s.provisioner.HostChangesForContainer(machine.MachineTag())
 	c.Assert(err, gc.ErrorMatches, "dummy provider network config not supported.*")
 	c.Skip("can't test without network support")
 	c.Assert(err, jc.ErrorIsNil)
