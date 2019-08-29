@@ -9,11 +9,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
-	"github.com/juju/packaging/manager"
-	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/packaging"
+	"github.com/juju/juju/packaging/dependency"
 )
 
 type containerInitialiser struct{}
@@ -43,47 +43,18 @@ func (ci *containerInitialiser) Initialise() error {
 	return nil
 }
 
-// getPackageManager is a helper function which returns the
-// package manager implementation for the current system.
-func getPackageManager() (manager.PackageManager, error) {
+func ensureDependencies() error {
 	hostSeries, err := series.HostSeries()
 	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return manager.NewPackageManager(hostSeries)
-}
-
-func ensureDependencies() error {
-	pacman, err := getPackageManager()
-	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
-	for _, pack := range getRequiredPackages(runtime.GOARCH) {
-		if err := pacman.Install(pack); err != nil {
-			return err
-		}
+	dep := dependency.KVM(runtime.GOARCH)
+	if err = packaging.InstallDependency(dep, hostSeries); err != nil {
+		return errors.Trace(err)
 	}
 
 	return nil
-}
-
-func getRequiredPackages(a string) []string {
-	var requiredPackages = []string{
-		// `qemu-kvm` must be installed before `libvirt-bin` on trusty. It appears
-		// that upstart doesn't reload libvirtd if installed after, and we see
-		// errors related to `qemu-kvm` not being installed.
-		"qemu-kvm",
-		"qemu-utils",
-		"genisoimage",
-		"libvirt-bin",
-	}
-	if a == arch.ARM64 {
-		// ARM64 doesn't support legacy BIOS so it requires Extensible Firmware
-		// Interface.
-		requiredPackages = append([]string{"qemu-efi"}, requiredPackages...)
-	}
-	return requiredPackages
 }
 
 // ensurePool creates the libvirt storage pool and ensures its is active.

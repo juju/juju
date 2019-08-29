@@ -94,7 +94,7 @@
   name = "github.com/juju/os"
 
 [[constraint]]
-  revision = "ba21344fff207f4fa06b0a08bac386b179a2e6a1"
+  revision = "6caf1fe053515833fa8d541cb8ee9b3b50ef3592"
   name = "github.com/juju/packaging"
 
 [[constraint]]
