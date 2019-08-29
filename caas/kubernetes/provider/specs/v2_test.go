@@ -30,21 +30,6 @@ func (s *v2SpecsSuite) TestParse(c *gc.C) {
 
 	specStrBase := versionHeader + `
 omitServiceFrontend: true
-activeDeadlineSeconds: 10
-restartPolicy: OnFailure
-terminationGracePeriodSeconds: 20
-securityContext:
-  runAsNonRoot: true
-  supplementalGroups: [1,2]
-hostname: host
-subdomain: sub
-priorityClassName: top
-priority: 30
-dnsPolicy: ClusterFirstWithHostNet
-dnsConfig: 
-  nameservers: [ns1, ns2]
-readinessGates:
-  - conditionType: PodScheduled
 containers:
   - name: gitlab
     image: gitlab/latest
@@ -101,9 +86,9 @@ containers:
   - name: just-image-details
     imageDetails:
         imagePath: testing/no-secrets-needed@sha256:deed-beef
-initContainers:
   - name: gitlab-init
     image: gitlab-init/latest
+    init: true
     imagePullPolicy: Always
     command:
       - sh
@@ -126,6 +111,31 @@ initContainers:
 service:
   annotations:
     foo: bar
+pod:
+  restartPolicy: OnFailure
+  activeDeadlineSeconds: 10
+  terminationGracePeriodSeconds: 20
+  securityContext:
+    runAsNonRoot: true
+    supplementalGroups: [1,2]
+  priority: 30
+  readinessGates:
+    - conditionType: PodScheduled
+  dnsPolicy: ClusterFirstWithHostNet
+serviceAccount:
+  name: build-robot
+  automountServiceAccountToken: true
+  capabilities:
+    roleBinding:
+      name: read-pods
+      type: ClusterRoleBinding
+    role:
+      name: pod-reader
+      type: ClusterRole
+      rules:
+      - apiGroups: [""]
+        resources: ["pods"]
+        verbs: ["get", "watch", "list"]
 kubernetesResources:
   customResourceDefinitions:
     tfjobs.kubeflow.org:
@@ -157,20 +167,6 @@ kubernetesResources:
                       type: integer
                       minimum: 1
                       maximum: 1
-  serviceAccount:
-    name: build-robot
-    automountServiceAccountToken: true
-    capabilities:
-      roleBinding:
-        name: read-pods
-        type: ClusterRoleBinding
-      role:
-        name: pod-reader
-        type: ClusterRole
-        rules:
-        - apiGroups: [""]
-          resources: ["pods"]
-          verbs: ["get", "watch", "list"]
 `[1:]
 
 	expectedFileContent := `
@@ -179,173 +175,155 @@ foo: bar
 `[1:]
 
 	getExpectedPodSpecBase := func() *specs.PodSpec {
-		pSpecs := &specs.PodSpec{}
-		// always parse to latest version.
-		pSpecs.Version = specs.CurrentVersion
-		pSpecs.OmitServiceFrontend = true
-		pSpecs.ProviderPod = &k8sspecs.K8sPodSpecLegacy{
-			ActiveDeadlineSeconds:         int64Ptr(10),
-			RestartPolicy:                 core.RestartPolicyOnFailure,
-			TerminationGracePeriodSeconds: int64Ptr(20),
-			AutomountServiceAccountToken:  boolPtr(true),
-			SecurityContext: &core.PodSecurityContext{
-				RunAsNonRoot:       boolPtr(true),
-				SupplementalGroups: []int64{1, 2},
-			},
-			Hostname:          "host",
-			Subdomain:         "sub",
-			PriorityClassName: "top",
-			Priority:          int32Ptr(30),
-			DNSConfig: &core.PodDNSConfig{
-				Nameservers: []string{"ns1", "ns2"},
-			},
-			DNSPolicy: "ClusterFirstWithHostNet",
-			ReadinessGates: []core.PodReadinessGate{
-				{ConditionType: core.PodScheduled},
-			},
-			Service: &specs.ServiceSpec{
-				Annotations: map[string]string{"foo": "bar"},
-			},
-		}
-		pSpecs.Containers = []specs.ContainerSpec{{
-			Name:  "gitlab",
-			Image: "gitlab/latest",
-			Command: []string{"sh", "-c", `
-set -ex
-echo "do some stuff here for gitlab container"
-`[1:]},
-			Args:       []string{"doIt", "--debug"},
-			WorkingDir: "/path/to/here",
-			Ports: []specs.ContainerPort{
-				{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
-				{ContainerPort: 443, Name: "mary"},
-			},
-			Config: map[string]interface{}{
-				"attr":       "foo=bar; name['fred']='blogs';",
-				"foo":        "bar",
-				"restricted": "'yes'",
-				"switch":     true,
-			},
-			Files: []specs.FileSet{
-				{
-					Name:      "configuration",
-					MountPath: "/var/lib/foo",
-					Files: map[string]string{
-						"file1": expectedFileContent,
+		pSpecs := &specs.PodSpec{
+			ServiceAccount: &specs.ServiceAccountSpec{
+				Name:                         "build-robot",
+				AutomountServiceAccountToken: boolPtr(true),
+				Capabilities: &specs.Capabilities{
+					RoleBinding: &specs.RoleBindingSpec{
+						Name: "read-pods",
+						Type: specs.ClusterRoleBinding,
 					},
-				},
-			},
-			ProviderContainer: &k8sspecs.K8sContainerSpec{
-				ImagePullPolicy: "Always",
-				SecurityContext: &core.SecurityContext{
-					RunAsNonRoot: boolPtr(true),
-					Privileged:   boolPtr(true),
-				},
-				LivenessProbe: &core.Probe{
-					InitialDelaySeconds: 10,
-					Handler: core.Handler{
-						HTTPGet: &core.HTTPGetAction{
-							Path: "/ping",
-							Port: intstr.IntOrString{IntVal: 8080},
-						},
-					},
-				},
-				ReadinessProbe: &core.Probe{
-					InitialDelaySeconds: 10,
-					Handler: core.Handler{
-						HTTPGet: &core.HTTPGetAction{
-							Path: "/pingReady",
-							Port: intstr.IntOrString{StrVal: "www", Type: 1},
-						},
-					},
-				},
-			},
-		}, {
-			Name:  "gitlab-helper",
-			Image: "gitlab-helper/latest",
-			Ports: []specs.ContainerPort{
-				{ContainerPort: 8080, Protocol: "TCP"},
-			},
-		}, {
-			Name: "secret-image-user",
-			ImageDetails: specs.ImageDetails{
-				ImagePath: "staging.registry.org/testing/testing-image@sha256:deed-beef",
-				Username:  "docker-registry",
-				Password:  "hunter2",
-			},
-		}, {
-			Name: "just-image-details",
-			ImageDetails: specs.ImageDetails{
-				ImagePath: "testing/no-secrets-needed@sha256:deed-beef",
-			},
-		}}
-		pSpecs.InitContainers = []specs.ContainerSpec{{
-			Name:  "gitlab-init",
-			Image: "gitlab-init/latest",
-			Command: []string{"sh", "-c", `
-set -ex
-echo "do some stuff here for gitlab-init container"
-`[1:]},
-			Args:       []string{"doIt", "--debug"},
-			WorkingDir: "/path/to/here",
-			Ports: []specs.ContainerPort{
-				{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
-				{ContainerPort: 443, Name: "mary"},
-			},
-			Config: map[string]interface{}{
-				"foo":        "bar",
-				"restricted": "'yes'",
-				"switch":     true,
-			},
-			ProviderContainer: &k8sspecs.K8sContainerSpec{
-				ImagePullPolicy: "Always",
-			},
-		}}
-
-		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
-			ActiveDeadlineSeconds:         int64Ptr(10),
-			RestartPolicy:                 core.RestartPolicyOnFailure,
-			TerminationGracePeriodSeconds: int64Ptr(20),
-			SecurityContext: &core.PodSecurityContext{
-				RunAsNonRoot:       boolPtr(true),
-				SupplementalGroups: []int64{1, 2},
-			},
-			Hostname:          "host",
-			Subdomain:         "sub",
-			PriorityClassName: "top",
-			Priority:          int32Ptr(30),
-			DNSConfig: &core.PodDNSConfig{
-				Nameservers: []string{"ns1", "ns2"},
-			},
-			DNSPolicy: "ClusterFirstWithHostNet",
-			ReadinessGates: []core.PodReadinessGate{
-				{ConditionType: core.PodScheduled},
-			},
-			Service: &specs.ServiceSpec{
-				Annotations: map[string]string{"foo": "bar"},
-			},
-			KubernetesResources: &k8sspecs.KubernetesResources{
-				ServiceAccount: &k8sspecs.ServiceAccountSpec{
-					Name:                         "build-robot",
-					AutomountServiceAccountToken: boolPtr(true),
-					Capabilities: &k8sspecs.Capabilities{
-						RoleBinding: &k8sspecs.RoleBindingSpec{
-							Name: "read-pods",
-							Type: k8sspecs.ClusterRoleBinding,
-						},
-						Role: &k8sspecs.RoleSpec{
-							Name: "pod-reader",
-							Type: k8sspecs.ClusterRole,
-							Rules: []rbacv1.PolicyRule{
-								{
-									APIGroups: []string{""},
-									Resources: []string{"pods"},
-									Verbs:     []string{"get", "watch", "list"},
-								},
+					Role: &specs.RoleSpec{
+						Name: "pod-reader",
+						Type: specs.ClusterRole,
+						Rules: []rbacv1.PolicyRule{
+							{
+								APIGroups: []string{""},
+								Resources: []string{"pods"},
+								Verbs:     []string{"get", "watch", "list"},
 							},
 						},
 					},
 				},
+			},
+		}
+		pSpecs.Service = &specs.ServiceSpec{
+			Annotations: map[string]string{"foo": "bar"},
+		}
+		// always parse to latest version.
+		pSpecs.Version = specs.CurrentVersion
+		pSpecs.OmitServiceFrontend = true
+		pSpecs.Containers = []specs.ContainerSpec{
+			{
+				Name:  "gitlab",
+				Image: "gitlab/latest",
+				Command: []string{"sh", "-c", `
+set -ex
+echo "do some stuff here for gitlab container"
+`[1:]},
+				Args:       []string{"doIt", "--debug"},
+				WorkingDir: "/path/to/here",
+				Ports: []specs.ContainerPort{
+					{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
+					{ContainerPort: 443, Name: "mary"},
+				},
+				Config: map[string]interface{}{
+					"attr":       "foo=bar; name['fred']='blogs';",
+					"foo":        "bar",
+					"restricted": "'yes'",
+					"switch":     true,
+				},
+				Files: []specs.FileSet{
+					{
+						Name:      "configuration",
+						MountPath: "/var/lib/foo",
+						Files: map[string]string{
+							"file1": expectedFileContent,
+						},
+					},
+				},
+				ProviderContainer: &k8sspecs.K8sContainerSpec{
+					ImagePullPolicy: "Always",
+					SecurityContext: &core.SecurityContext{
+						RunAsNonRoot: boolPtr(true),
+						Privileged:   boolPtr(true),
+					},
+					LivenessProbe: &core.Probe{
+						InitialDelaySeconds: 10,
+						Handler: core.Handler{
+							HTTPGet: &core.HTTPGetAction{
+								Path: "/ping",
+								Port: intstr.IntOrString{IntVal: 8080},
+							},
+						},
+					},
+					ReadinessProbe: &core.Probe{
+						InitialDelaySeconds: 10,
+						Handler: core.Handler{
+							HTTPGet: &core.HTTPGetAction{
+								Path: "/pingReady",
+								Port: intstr.IntOrString{StrVal: "www", Type: 1},
+							},
+						},
+					},
+				},
+			}, {
+				Name:  "gitlab-helper",
+				Image: "gitlab-helper/latest",
+				Ports: []specs.ContainerPort{
+					{ContainerPort: 8080, Protocol: "TCP"},
+				},
+			}, {
+				Name: "secret-image-user",
+				ImageDetails: specs.ImageDetails{
+					ImagePath: "staging.registry.org/testing/testing-image@sha256:deed-beef",
+					Username:  "docker-registry",
+					Password:  "hunter2",
+				},
+			}, {
+				Name: "just-image-details",
+				ImageDetails: specs.ImageDetails{
+					ImagePath: "testing/no-secrets-needed@sha256:deed-beef",
+				},
+			},
+			{
+				Name:  "gitlab-init",
+				Image: "gitlab-init/latest",
+				Init:  true,
+				Command: []string{"sh", "-c", `
+set -ex
+echo "do some stuff here for gitlab-init container"
+`[1:]},
+				Args:       []string{"doIt", "--debug"},
+				WorkingDir: "/path/to/here",
+				Ports: []specs.ContainerPort{
+					{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
+					{ContainerPort: 443, Name: "mary"},
+				},
+				Config: map[string]interface{}{
+					"foo":        "bar",
+					"restricted": "'yes'",
+					"switch":     true,
+				},
+				ProviderContainer: &k8sspecs.K8sContainerSpec{
+					ImagePullPolicy: "Always",
+				},
+			},
+		}
+
+		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
+			Pod: &k8sspecs.PodSpec{
+				ActiveDeadlineSeconds:         int64Ptr(10),
+				RestartPolicy:                 core.RestartPolicyOnFailure,
+				TerminationGracePeriodSeconds: int64Ptr(20),
+				SecurityContext: &core.PodSecurityContext{
+					RunAsNonRoot:       boolPtr(true),
+					SupplementalGroups: []int64{1, 2},
+				},
+				Priority: int32Ptr(30),
+				ReadinessGates: []core.PodReadinessGate{
+					{ConditionType: core.PodScheduled},
+				},
+				DNSPolicy: "ClusterFirstWithHostNet",
+				// Hostname:          "host",
+				// Subdomain:         "sub",
+				// PriorityClassName: "top",
+				// DNSConfig: &core.PodDNSConfig{
+				// 	Nameservers: []string{"ns1", "ns2"},
+				// },
+			},
+			KubernetesResources: &k8sspecs.KubernetesResources{
 				CustomResourceDefinitions: map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
 					"tfjobs.kubeflow.org": {
 						Group:   "kubeflow.org",
@@ -477,74 +455,70 @@ var serviceAccountValidationTestCases = []serviceAccountTestCase{
 	{
 		Title: "wrong role binding type",
 		Spec: versionHeader + `
-kubernetesResources:
-  serviceAccount:
-    name: build-robot
-    automountServiceAccountToken: true
-    capabilities:
-      roleBinding:
-        name: read-pods
-        type: ClusterRoleBinding11
-      role:
-        name: pod-reader
-        type: ClusterRole
-        rules:
-        - apiGroups: [""]
-          resources: ["pods"]
-          verbs: ["get", "watch", "list"]
+serviceAccount:
+  name: build-robot
+  automountServiceAccountToken: true
+  capabilities:
+    roleBinding:
+      name: read-pods
+      type: ClusterRoleBinding11
+    role:
+      name: pod-reader
+      type: ClusterRole
+      rules:
+      - apiGroups: [""]
+        resources: ["pods"]
+        verbs: ["get", "watch", "list"]
 `[1:],
 		Err: "\"ClusterRoleBinding11\" not supported",
 	},
 	{
 		Title: "wrong role type",
 		Spec: versionHeader + `
-kubernetesResources:
-  serviceAccount:
-    name: build-robot
-    automountServiceAccountToken: true
-    capabilities:
-      roleBinding:
-        name: read-pods
-        type: ClusterRoleBinding
-      role:
-        name: pod-reader
-        type: ClusterRole11
-        rules:
-        - apiGroups: [""]
-          resources: ["pods"]
-          verbs: ["get", "watch", "list"]
+serviceAccount:
+  name: build-robot
+  automountServiceAccountToken: true
+  capabilities:
+    roleBinding:
+      name: read-pods
+      type: ClusterRoleBinding
+    role:
+      name: pod-reader
+      type: ClusterRole11
+      rules:
+      - apiGroups: [""]
+        resources: ["pods"]
+        verbs: ["get", "watch", "list"]
 `[1:],
 		Err: "\"ClusterRole11\" not supported",
 	},
 	{
 		Title: "missing role",
 		Spec: versionHeader + `
-kubernetesResources:
-  serviceAccount:
-    name: build-robot
-    automountServiceAccountToken: true
-    capabilities:
-      roleBinding:
-        name: read-pods
-        type: ClusterRoleBinding
+serviceAccount:
+  name: build-robot
+  automountServiceAccountToken: true
+  capabilities:
+    roleBinding:
+      name: read-pods
+      type: ClusterRoleBinding
 `[1:],
 		Err: `role is required for capabilities`,
 	},
 	{
 		Title: "missing role binding",
 		Spec: versionHeader + `
-kubernetesResources:
-  serviceAccount:
-    name: build-robot
-    automountServiceAccountToken: true
-    capabilities:
-      role:
-        name: pod-reader
-        type: ClusterRole11
-        rules:
-        - apiGroups: [""]
-          resources: ["pods"]
-          verbs: ["get", "watch", "list"]
+serviceAccount:
+  name: build-robot
+  automountServiceAccountToken: true
+  capabilities:
+    role:
+      name: pod-reader
+      type: ClusterRole11
+      rules:
+      - apiGroups: [""]
+        resources: ["pods"]
+        verbs: ["get", "watch", "list"]
 `[1:],
 		Err: `roleBinding is required for capabilities`,
 	},

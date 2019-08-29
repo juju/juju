@@ -161,156 +161,141 @@ foo: bar
 `[1:]
 
 	getExpectedPodSpecBase := func() *specs.PodSpec {
-		pSpecs := &specs.PodSpec{}
+		pSpecs := &specs.PodSpec{
+			ServiceAccount: &specs.ServiceAccountSpec{
+				Name:                         "serviceAccountFoo",
+				AutomountServiceAccountToken: boolPtr(true),
+			},
+		}
 		// always parse to latest version.
 		pSpecs.Version = specs.CurrentVersion
 		pSpecs.OmitServiceFrontend = true
-		pSpecs.ProviderPod = &k8sspecs.K8sPodSpecLegacy{
-			ActiveDeadlineSeconds:         int64Ptr(10),
-			RestartPolicy:                 core.RestartPolicyOnFailure,
-			TerminationGracePeriodSeconds: int64Ptr(20),
-			AutomountServiceAccountToken:  boolPtr(true),
-			SecurityContext: &core.PodSecurityContext{
-				RunAsNonRoot:       boolPtr(true),
-				SupplementalGroups: []int64{1, 2},
-			},
-			Hostname:          "host",
-			Subdomain:         "sub",
-			PriorityClassName: "top",
-			Priority:          int32Ptr(30),
-			DNSConfig: &core.PodDNSConfig{
-				Nameservers: []string{"ns1", "ns2"},
-			},
-			DNSPolicy: "ClusterFirstWithHostNet",
-			ReadinessGates: []core.PodReadinessGate{
-				{ConditionType: core.PodScheduled},
-			},
-			Service: &specs.ServiceSpec{
-				Annotations: map[string]string{"foo": "bar"},
-			},
-		}
-		pSpecs.Containers = []specs.ContainerSpec{{
-			Name:  "gitlab",
-			Image: "gitlab/latest",
-			Command: []string{"sh", "-c", `
+
+		pSpecs.Containers = []specs.ContainerSpec{
+			{
+				Name:  "gitlab",
+				Image: "gitlab/latest",
+				Command: []string{"sh", "-c", `
 set -ex
 echo "do some stuff here for gitlab container"
 `[1:]},
-			Args:       []string{"doIt", "--debug"},
-			WorkingDir: "/path/to/here",
-			Ports: []specs.ContainerPort{
-				{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
-				{ContainerPort: 443, Name: "mary"},
-			},
-			Config: map[string]interface{}{
-				"attr":       "foo=bar; name['fred']='blogs';",
-				"foo":        "bar",
-				"restricted": "'yes'",
-				"switch":     true,
-			},
-			Files: []specs.FileSet{
-				{
-					Name:      "configuration",
-					MountPath: "/var/lib/foo",
-					Files: map[string]string{
-						"file1": expectedFileContent,
-					},
+				Args:       []string{"doIt", "--debug"},
+				WorkingDir: "/path/to/here",
+				Ports: []specs.ContainerPort{
+					{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
+					{ContainerPort: 443, Name: "mary"},
 				},
-			},
-			ProviderContainer: &k8sspecs.K8sContainerSpec{
-				ImagePullPolicy: "Always",
-				SecurityContext: &core.SecurityContext{
-					RunAsNonRoot: boolPtr(true),
-					Privileged:   boolPtr(true),
+				Config: map[string]interface{}{
+					"attr":       "foo=bar; name['fred']='blogs';",
+					"foo":        "bar",
+					"restricted": "'yes'",
+					"switch":     true,
 				},
-				LivenessProbe: &core.Probe{
-					InitialDelaySeconds: 10,
-					Handler: core.Handler{
-						HTTPGet: &core.HTTPGetAction{
-							Path: "/ping",
-							Port: intstr.IntOrString{IntVal: 8080},
+				Files: []specs.FileSet{
+					{
+						Name:      "configuration",
+						MountPath: "/var/lib/foo",
+						Files: map[string]string{
+							"file1": expectedFileContent,
 						},
 					},
 				},
-				ReadinessProbe: &core.Probe{
-					InitialDelaySeconds: 10,
-					Handler: core.Handler{
-						HTTPGet: &core.HTTPGetAction{
-							Path: "/pingReady",
-							Port: intstr.IntOrString{StrVal: "www", Type: 1},
+				ProviderContainer: &k8sspecs.K8sContainerSpec{
+					ImagePullPolicy: "Always",
+					SecurityContext: &core.SecurityContext{
+						RunAsNonRoot: boolPtr(true),
+						Privileged:   boolPtr(true),
+					},
+					LivenessProbe: &core.Probe{
+						InitialDelaySeconds: 10,
+						Handler: core.Handler{
+							HTTPGet: &core.HTTPGetAction{
+								Path: "/ping",
+								Port: intstr.IntOrString{IntVal: 8080},
+							},
+						},
+					},
+					ReadinessProbe: &core.Probe{
+						InitialDelaySeconds: 10,
+						Handler: core.Handler{
+							HTTPGet: &core.HTTPGetAction{
+								Path: "/pingReady",
+								Port: intstr.IntOrString{StrVal: "www", Type: 1},
+							},
 						},
 					},
 				},
+			}, {
+				Name:  "gitlab-helper",
+				Image: "gitlab-helper/latest",
+				Ports: []specs.ContainerPort{
+					{ContainerPort: 8080, Protocol: "TCP"},
+				},
+			}, {
+				Name: "secret-image-user",
+				ImageDetails: specs.ImageDetails{
+					ImagePath: "staging.registry.org/testing/testing-image@sha256:deed-beef",
+					Username:  "docker-registry",
+					Password:  "hunter2",
+				},
+			}, {
+				Name: "just-image-details",
+				ImageDetails: specs.ImageDetails{
+					ImagePath: "testing/no-secrets-needed@sha256:deed-beef",
+				},
 			},
-		}, {
-			Name:  "gitlab-helper",
-			Image: "gitlab-helper/latest",
-			Ports: []specs.ContainerPort{
-				{ContainerPort: 8080, Protocol: "TCP"},
-			},
-		}, {
-			Name: "secret-image-user",
-			ImageDetails: specs.ImageDetails{
-				ImagePath: "staging.registry.org/testing/testing-image@sha256:deed-beef",
-				Username:  "docker-registry",
-				Password:  "hunter2",
-			},
-		}, {
-			Name: "just-image-details",
-			ImageDetails: specs.ImageDetails{
-				ImagePath: "testing/no-secrets-needed@sha256:deed-beef",
-			},
-		}}
-		pSpecs.InitContainers = []specs.ContainerSpec{{
-			Name:  "gitlab-init",
-			Image: "gitlab-init/latest",
-			Command: []string{"sh", "-c", `
+			{
+				Name:  "gitlab-init",
+				Image: "gitlab-init/latest",
+				Init:  true,
+				Command: []string{"sh", "-c", `
 set -ex
 echo "do some stuff here for gitlab-init container"
 `[1:]},
-			Args:       []string{"doIt", "--debug"},
-			WorkingDir: "/path/to/here",
-			Ports: []specs.ContainerPort{
-				{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
-				{ContainerPort: 443, Name: "mary"},
-			},
-			Config: map[string]interface{}{
-				"foo":        "bar",
-				"restricted": "'yes'",
-				"switch":     true,
-			},
-			ProviderContainer: &k8sspecs.K8sContainerSpec{
-				ImagePullPolicy: "Always",
-			},
-		}}
-
-		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
-			ActiveDeadlineSeconds:         int64Ptr(10),
-			RestartPolicy:                 core.RestartPolicyOnFailure,
-			TerminationGracePeriodSeconds: int64Ptr(20),
-			SecurityContext: &core.PodSecurityContext{
-				RunAsNonRoot:       boolPtr(true),
-				SupplementalGroups: []int64{1, 2},
-			},
-			Hostname:          "host",
-			Subdomain:         "sub",
-			PriorityClassName: "top",
-			Priority:          int32Ptr(30),
-			DNSConfig: &core.PodDNSConfig{
-				Nameservers: []string{"ns1", "ns2"},
-			},
-			DNSPolicy: "ClusterFirstWithHostNet",
-			ReadinessGates: []core.PodReadinessGate{
-				{ConditionType: core.PodScheduled},
-			},
-			Service: &specs.ServiceSpec{
-				Annotations: map[string]string{"foo": "bar"},
-			},
-			KubernetesResources: &k8sspecs.KubernetesResources{
-				ServiceAccount: &k8sspecs.ServiceAccountSpec{
-					Name:                         "serviceAccountFoo",
-					AutomountServiceAccountToken: boolPtr(true),
+				Args:       []string{"doIt", "--debug"},
+				WorkingDir: "/path/to/here",
+				Ports: []specs.ContainerPort{
+					{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
+					{ContainerPort: 443, Name: "mary"},
 				},
+				Config: map[string]interface{}{
+					"foo":        "bar",
+					"restricted": "'yes'",
+					"switch":     true,
+				},
+				ProviderContainer: &k8sspecs.K8sContainerSpec{
+					ImagePullPolicy: "Always",
+				},
+			},
+		}
+
+		pSpecs.Service = &specs.ServiceSpec{
+			Annotations: map[string]string{"foo": "bar"},
+		}
+		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
+			Pod: &k8sspecs.PodSpec{
+				RestartPolicy:                 core.RestartPolicyOnFailure,
+				ActiveDeadlineSeconds:         int64Ptr(10),
+				TerminationGracePeriodSeconds: int64Ptr(20),
+				SecurityContext: &core.PodSecurityContext{
+					RunAsNonRoot:       boolPtr(true),
+					SupplementalGroups: []int64{1, 2},
+				},
+				Priority: int32Ptr(30),
+				ReadinessGates: []core.PodReadinessGate{
+					{ConditionType: core.PodScheduled},
+				},
+				DNSPolicy: "ClusterFirstWithHostNet",
+				// Hostname:          "host",
+				// Subdomain:         "sub",
+				// PriorityClassName: "top",
+				// DNSConfig: &core.PodDNSConfig{
+				// 	Nameservers: []string{"ns1", "ns2"},
+				// },
+			},
+
+			KubernetesResources: &k8sspecs.KubernetesResources{
+
 				CustomResourceDefinitions: map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
 					"tfjobs.kubeflow.org": {
 						Group:   "kubeflow.org",

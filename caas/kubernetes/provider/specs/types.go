@@ -75,9 +75,9 @@ func (*K8sContainerSpec) Validate() error {
 	return nil
 }
 
-// podSpec is a subset of v1.PodSpec which defines
+// PodSpec is a subset of v1.PodSpec which defines
 // attributes we expose for charms to set.
-type podSpec struct {
+type PodSpec struct {
 	RestartPolicy                 core.RestartPolicy       `json:"restartPolicy,omitempty"`
 	ActiveDeadlineSeconds         *int64                   `json:"activeDeadlineSeconds,omitempty"`
 	TerminationGracePeriodSeconds *int64                   `json:"terminationGracePeriodSeconds,omitempty"`

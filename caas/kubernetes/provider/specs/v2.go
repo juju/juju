@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"gopkg.in/yaml.v2"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
@@ -46,7 +45,7 @@ func (p podSpecV2) ToLatest() *specs.PodSpec {
 // attributes we expose for charms to set.
 type K8sPodSpecV2 struct {
 	// core pod spec.
-	Pod *podSpec `json:"pod,omitempty"`
+	Pod *PodSpec `json:"pod,omitempty"`
 
 	// k8s resources.
 	KubernetesResources *KubernetesResources `json:"kubernetesResources,omitempty"`
@@ -76,16 +75,20 @@ func (krs *KubernetesResources) Validate() error {
 func parsePodSpecV2(in string) (_ *specs.PodSpec, err error) {
 	// Do the common fields.
 	var spec podSpecV2
-	if err = yaml.Unmarshal([]byte(in), &spec.caaSSpec); err != nil {
+
+	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
+	if err = decoder.Decode(&spec.caaSSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Criticalf(
-		"spec.caaSSpec.ServiceAccount -----> %#v",
-		spec.caaSSpec.ServiceAccount,
-	)
+	if spec.caaSSpec.ServiceAccount != nil {
+		logger.Criticalf(
+			"spec.caaSSpec.ServiceAccount -----> %#v",
+			spec.caaSSpec.ServiceAccount.Capabilities.Role,
+		)
+	}
 
 	// Do the k8s pod attributes.
-	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
+	decoder = k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
 	if err = decoder.Decode(&spec.k8sSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
