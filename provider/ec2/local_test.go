@@ -374,7 +374,7 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 			BootstrapSeries:          "xenial",
 			AdminSecret:              testing.AdminSecret,
 			CAPrivateKey:             coretesting.CAKey,
-			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+			SupportedBootstrapSeries: set.NewStrings("xenial").Union(coretesting.FakeSupportedJujuSeries),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
