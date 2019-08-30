@@ -71,7 +71,7 @@ func (krs *KubernetesResources) Validate() error {
 	return nil
 }
 
-func parsePodSpecV2(in string) (_ *specs.PodSpec, err error) {
+func parsePodSpecV2(in string) (_ PodSpecConverter, err error) {
 	// Do the common fields.
 	var spec podSpecV2
 
@@ -99,9 +99,5 @@ func parsePodSpecV2(in string) (_ *specs.PodSpec, err error) {
 		}
 		spec.caaSSpec.Containers[i] = c.ToContainerSpec()
 	}
-
-	if err = spec.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return spec.ToLatest(), nil
+	return &spec, nil
 }

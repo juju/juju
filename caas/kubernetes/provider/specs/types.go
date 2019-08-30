@@ -137,6 +137,14 @@ func parseContainers(in string, containerSpec k8sContainersInterface) error {
 // configure a CAAS pod. We allow for generic container
 // set up plus k8s select specific features.
 func ParsePodSpec(in string) (*specs.PodSpec, error) {
+	return parsePodSpec(in, getParser)
+}
+
+//go:generate mockgen -package mocks -destination ./mocks/parsers_mock.go github.com/juju/juju/caas/kubernetes/provider/specs PodSpecConverter
+func parsePodSpec(
+	in string,
+	getParser func(specVersion specs.Version) (parserType, error),
+) (*specs.PodSpec, error) {
 	version, err := specs.GetVersion(in)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -145,10 +153,23 @@ func ParsePodSpec(in string) (*specs.PodSpec, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return parser(in)
+	spec, err := parser(in)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err = spec.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return spec.ToLatest(), nil
 }
 
-type parserType func(string) (*specs.PodSpec, error)
+type parserType func(string) (PodSpecConverter, error)
+
+// PodSpecConverter defines methods to validate and convert a specific version of podspec to latest version.
+type PodSpecConverter interface {
+	Validate() error
+	ToLatest() *specs.PodSpec
+}
 
 func getParser(specVersion specs.Version) (parserType, error) {
 	switch specVersion {
@@ -157,6 +178,6 @@ func getParser(specVersion specs.Version) (parserType, error) {
 	case specs.VersionLegacy:
 		return parsePodSpecLegacy, nil
 	default:
-		return nil, errors.NotSupportedf("podspec version %q", specVersion)
+		return nil, errors.NewNotSupported(nil, fmt.Sprintf("latest supported version %d, but got podspec version %d", specs.CurrentVersion, specVersion))
 	}
 }

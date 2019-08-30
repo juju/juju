@@ -89,12 +89,6 @@ func (s *K8sSuite) TestMakeSvcSpecNoConfigConfig(c *gc.C) {
 				{ConditionType: core.PodInitialized},
 			},
 			DNSPolicy: core.DNSClusterFirst,
-			// Hostname:                      "host",
-			// Subdomain:                     "sub",
-			// PriorityClassName:             "top",
-			// DNSConfig: &core.PodDNSConfig{
-			// 	Nameservers: []string{"ns1", "n2"},
-			// },
 		},
 	}
 	podSpec.Containers = []specs.ContainerSpec{
@@ -141,12 +135,6 @@ func (s *K8sSuite) TestMakeSvcSpecNoConfigConfig(c *gc.C) {
 		DNSPolicy:                    core.DNSClusterFirst,
 		ServiceAccountName:           "serviceAccount",
 		AutomountServiceAccountToken: boolPtr(true),
-		// Hostname:                      "host",
-		// Subdomain:                     "sub",
-		// PriorityClassName:             "top",
-		// DNSConfig: &core.PodDNSConfig{
-		// 	Nameservers: []string{"ns1", "n2"},
-		// },
 		Containers: []core.Container{
 			{
 				Name:            "test",

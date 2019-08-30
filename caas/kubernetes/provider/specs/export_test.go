@@ -4,6 +4,13 @@
 package specs
 
 var (
-	ParsePodSpecV2     = parsePodSpecV2
-	ParsePodSpecLegacy = parsePodSpecLegacy
+	ParsePodSpecV2      = parsePodSpecV2
+	ParsePodSpecLegacy  = parsePodSpecLegacy
+	ParsePodSpecForTest = parsePodSpec
+)
+
+type (
+	K8sContainers = k8sContainers
+	K8sContainer  = k8sContainer
+	ParserType    = parserType
 )

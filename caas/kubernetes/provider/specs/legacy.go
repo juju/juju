@@ -128,7 +128,7 @@ func (cs *k8sContainersLegacy) Validate() error {
 	return nil
 }
 
-func parsePodSpecLegacy(in string) (_ *specs.PodSpec, err error) {
+func parsePodSpecLegacy(in string) (_ PodSpecConverter, err error) {
 	// Do the common fields.
 	var spec podSpecLegacy
 
@@ -162,8 +162,6 @@ func parsePodSpecLegacy(in string) (_ *specs.PodSpec, err error) {
 		}
 		spec.caaSSpec.InitContainers[i] = c.ToContainerSpec()
 	}
-	if err = spec.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return spec.ToLatest(), nil
+
+	return &spec, nil
 }
