@@ -78,9 +78,11 @@ func (p podSpecLegacy) ToLatest() *specs.PodSpec {
 		pSpec.Containers = append(pSpec.Containers, c)
 	}
 
-	pSpec.ServiceAccount = &specs.ServiceAccountSpec{
-		Name:                         p.k8sSpec.ServiceAccountName,
-		AutomountServiceAccountToken: p.k8sSpec.AutomountServiceAccountToken,
+	if p.k8sSpec.ServiceAccountName != "" {
+		pSpec.ServiceAccount = &specs.ServiceAccountSpec{
+			Name:                         p.k8sSpec.ServiceAccountName,
+			AutomountServiceAccountToken: p.k8sSpec.AutomountServiceAccountToken,
+		}
 	}
 
 	pSpec.ProviderPod = &K8sPodSpec{

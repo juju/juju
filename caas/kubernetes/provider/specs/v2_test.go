@@ -225,7 +225,7 @@ foo: bar
 			Annotations: map[string]string{"foo": "bar"},
 		}
 		pSpecs.ConfigMaps = map[string]map[string]string{
-			"mydata": map[string]string{
+			"mydata": {
 				"foo":   "bar",
 				"hello": "world",
 			},
