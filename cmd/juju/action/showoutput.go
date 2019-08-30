@@ -55,12 +55,14 @@ func (c *showOutputCommand) Info() *cmd.Info {
 		Name:    "show-action-output",
 		Args:    "<action ID>",
 		Purpose: "Show results of an action by ID.",
+		Aliases: []string{"show-operation"},
 		Doc:     showOutputDoc,
 	})
 	if featureflag.Enabled(feature.JujuV3) {
 		info.Name = "show-operation"
 		info.Args = "<operation ID>"
 		info.Purpose = "Show results of an operation by ID."
+		info.Aliases = nil
 	}
 	return info
 }

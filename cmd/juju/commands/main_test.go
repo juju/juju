@@ -585,6 +585,7 @@ var commandNames = []string{
 	"show-machine",
 	"show-model",
 	"show-offer",
+	"show-operation",
 	"show-status",
 	"show-status-log",
 	"show-storage",
@@ -631,7 +632,7 @@ var devFeatures = []string{
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
-	"show-operation",
+// Currently no commands behind feature flags.
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
