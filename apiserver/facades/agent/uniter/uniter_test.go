@@ -3329,8 +3329,9 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 		SpaceName: "internal",
 	}}
 	for _, info := range subnetInfos {
-		_, err := s.State.AddSpace(info.SpaceName, "", nil, false)
+		space, err := s.State.AddSpace(info.SpaceName, "", nil, false)
 		c.Assert(err, jc.ErrorIsNil)
+		info.SpaceID = space.Id()
 		_, err = s.State.AddSubnet(info)
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -3578,9 +3579,10 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		SpaceName: "layertwo",
 	}}
 	for _, info := range subnetInfos {
-		_, err := s.State.AddSpace(info.SpaceName, "", nil, false)
+		space, err := s.State.AddSpace(info.SpaceName, "", nil, false)
 		c.Assert(err, jc.ErrorIsNil)
 		if info.CIDR != "" {
+			info.SpaceID = space.Id()
 			_, err = s.State.AddSubnet(info)
 			c.Assert(err, jc.ErrorIsNil)
 		}

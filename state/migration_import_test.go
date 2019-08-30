@@ -1234,7 +1234,7 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 		ProviderId:        network.Id("foo"),
 		ProviderNetworkId: network.Id("elm"),
 		VLANTag:           64,
-		SpaceName:         "bam",
+		SpaceID:           sp.Id(),
 		AvailabilityZones: []string{"bar"},
 		IsPublic:          true,
 	})
@@ -1244,7 +1244,7 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 		ProviderId:        network.Id("bar"),
 		ProviderNetworkId: network.Id("oak"),
 		VLANTag:           64,
-		SpaceName:         "bam",
+		SpaceID:           sp.Id(),
 		AvailabilityZones: []string{"bar"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1316,9 +1316,9 @@ func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	_, err := s.State.AddSpace("testme", "", nil, true)
+	space, err := s.State.AddSpace("testme", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSubnet(network.SubnetInfo{CIDR: "0.1.2.0/24", SpaceName: "testme"})
+	_, err = s.State.AddSubnet(network.SubnetInfo{CIDR: "0.1.2.0/24", SpaceID: space.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name: "foo",

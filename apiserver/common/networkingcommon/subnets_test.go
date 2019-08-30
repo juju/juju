@@ -487,21 +487,21 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		CIDR:              "2001:db8::/32",
 		VLANTag:           0,
 		AvailabilityZones: []string{"zone1"},
-		SpaceName:         "dmz",
+		SpaceID:           "2",
 	}, {
 		ProviderId:        "vlan-42",
 		ProviderNetworkId: "",
 		CIDR:              "10.30.1.0/24",
 		VLANTag:           42,
 		AvailabilityZones: []string{"zone3"},
-		SpaceName:         "private",
+		SpaceID:           "3",
 	}, {
 		ProviderId:        "sn-zadf00d",
 		ProviderNetworkId: "godspeed",
 		CIDR:              "10.10.0.0/24",
 		VLANTag:           0,
 		AvailabilityZones: []string{"zone1"},
-		SpaceName:         "private",
+		SpaceID:           "3",
 	}}
 	c.Check(expectedErrors, gc.HasLen, len(args.Subnets))
 

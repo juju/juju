@@ -42,7 +42,7 @@ func (s *cmdSpaceSuite) MakeSubnetInfos(c *gc.C, space string, cidrTemplate stri
 			// ProviderId it needs to be unique in state.
 			ProviderId:        network.Id(fmt.Sprintf("sub-%d", rand.Int())),
 			CIDR:              fmt.Sprintf(cidrTemplate, i),
-			SpaceName:         space,
+			SpaceID:           space,
 			AvailabilityZones: []string{"zone1"},
 		}
 	}
@@ -194,12 +194,12 @@ func (s *cmdSpaceSuite) TestSpaceListOneResultNoSubnets(c *gc.C) {
 }
 
 func (s *cmdSpaceSuite) TestSpaceListMoreResults(c *gc.C) {
-	infos1 := s.MakeSubnetInfos(c, "space1", "10.10.%d.0/24", 3)
-	s.AddSpace(c, "space1", nil, true)
+	space1 := s.AddSpace(c, "space1", nil, true)
+	infos1 := s.MakeSubnetInfos(c, space1.Id(), "10.10.%d.0/24", 3)
 	s.AddSubnets(c, infos1)
 
-	infos2 := s.MakeSubnetInfos(c, "space2", "10.20.%d.0/24", 1)
-	s.AddSpace(c, "space2", nil, false)
+	space2 := s.AddSpace(c, "space2", nil, false)
+	infos2 := s.MakeSubnetInfos(c, space2.Id(), "10.20.%d.0/24", 1)
 	s.AddSubnets(c, infos2)
 
 	stdout, stderr, err := s.Run(c, "list-spaces", "--format", "yaml")

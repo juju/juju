@@ -105,11 +105,11 @@ func (s *bridgePolicyStateSuite) assertAllLinkLayerDevicesOnMachineMatchCount(
 }
 
 func (s *bridgePolicyStateSuite) createSpaceAndSubnet(c *gc.C, spaceName, CIDR string) {
-	_, err := s.State.AddSpace(spaceName, corenetwork.Id(spaceName), nil, true)
+	space, err := s.State.AddSpace(spaceName, corenetwork.Id(spaceName), nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSubnet(corenetwork.SubnetInfo{
-		CIDR:      CIDR,
-		SpaceName: spaceName,
+		CIDR:    CIDR,
+		SpaceID: space.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -258,7 +258,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesCorrectlyP
 	}
 	// Put each of those bridges into a different subnet that is part
 	// of the same space.
-	_, err := s.State.AddSpace("default", "default", nil, true)
+	space, err := s.State.AddSpace("default", "default", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	devAddresses := make([]state.LinkLayerDeviceAddress, len(devicesArgs))
@@ -266,8 +266,8 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesCorrectlyP
 		subnet := i*10 + 1
 		subnetCIDR := fmt.Sprintf("10.%d.0.0/24", subnet)
 		_, err = s.State.AddSubnet(corenetwork.SubnetInfo{
-			CIDR:      subnetCIDR,
-			SpaceName: "default",
+			CIDR:    subnetCIDR,
+			SpaceID: space.Id(),
 		})
 		c.Assert(err, jc.ErrorIsNil)
 		devAddresses[i] = state.LinkLayerDeviceAddress{
