@@ -1670,7 +1670,7 @@ func podAnnotations(annotations k8sannotations.Annotation) k8sannotations.Annota
 func (k *kubernetesClient) configureDeployment(
 	appName, deploymentName string,
 	annotations k8sannotations.Annotation,
-	unitSpec *workloadSpec,
+	workloadSpec *workloadSpec,
 	containers []specs.ContainerSpec,
 	replicas *int32,
 ) error {
@@ -1680,7 +1680,7 @@ func (k *kubernetesClient) configureDeployment(
 	cfgName := func(fileSetName string) string {
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
-	podSpec := unitSpec.Pod
+	podSpec := workloadSpec.Pod
 	if err := k.configurePodFiles(&podSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
@@ -1729,7 +1729,7 @@ func (k *kubernetesClient) deleteDeployment(name string) error {
 }
 
 func (k *kubernetesClient) configureStatefulSet(
-	appName, deploymentName, randPrefix string, annotations k8sannotations.Annotation, unitSpec *workloadSpec,
+	appName, deploymentName, randPrefix string, annotations k8sannotations.Annotation, workloadSpec *workloadSpec,
 	containers []specs.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
 ) error {
 	logger.Debugf("creating/updating stateful set for %s", appName)
@@ -1761,7 +1761,7 @@ func (k *kubernetesClient) configureStatefulSet(
 			ServiceName:         headlessServiceName(deploymentName),
 		},
 	}
-	podSpec := unitSpec.Pod
+	podSpec := workloadSpec.Pod
 	if err := k.configurePodFiles(&podSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
@@ -2672,14 +2672,14 @@ func processContainers(deploymentName string, podSpec *specs.PodSpec, spec *core
 	// Fill out the easy bits using a template.
 	var buf bytes.Buffer
 	if err := defaultPodTemplate.Execute(&buf, cs); err != nil {
-		logger.Errorf("unable to execute template for containers: %+v, err: %+v", cs, err)
+		logger.Debugf("unable to execute template for containers: %+v, err: %+v", cs, err)
 		return errors.Trace(err)
 	}
 
-	unitSpecString := buf.String()
-	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(unitSpecString), len(unitSpecString))
+	workloadSpecString := buf.String()
+	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(workloadSpecString), len(workloadSpecString))
 	if err := decoder.Decode(&spec); err != nil {
-		logger.Errorf("unable to parse pod spec, unit spec: \n%v", unitSpecString)
+		logger.Debugf("unable to parse pod spec, unit spec: \n%v", workloadSpecString)
 		return errors.Trace(err)
 	}
 

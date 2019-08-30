@@ -67,7 +67,7 @@ func boolPtr(b bool) *bool {
 	return &b
 }
 
-func (s *K8sSuite) TestMakeSvcSpecNoConfigConfig(c *gc.C) {
+func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 	podSpec := specs.PodSpec{
 		ServiceAccount: &specs.ServiceAccountSpec{
 			Name:                         "serviceAccount",
@@ -168,7 +168,7 @@ func (s *K8sSuite) TestMakeSvcSpecNoConfigConfig(c *gc.C) {
 	})
 }
 
-func (s *K8sSuite) TestMakeSvcSpecWithInitContainers(c *gc.C) {
+func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *gc.C) {
 	podSpec := specs.PodSpec{}
 	podSpec.Containers = []specs.ContainerSpec{
 		{
@@ -405,7 +405,7 @@ func (s *K8sBrokerSuite) secretArg(c *gc.C, annotations map[string]string) *core
 	return secret
 }
 
-func (s *K8sSuite) TestMakeSvcSpecConfigPairs(c *gc.C) {
+func (s *K8sSuite) TestPrepareWorkloadSpecConfigPairs(c *gc.C) {
 	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", getBasicPodspec())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.PodSpec(spec), jc.DeepEquals, core.PodSpec{
@@ -1117,9 +1117,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 
 	numUnits := int32(2)
 	basicPodSpec := getBasicPodspec()
-	unitSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(unitSpec)
+	podSpec := provider.PodSpec(workloadSpec)
 
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
@@ -1207,9 +1207,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 	defer ctrl.Finish()
 
 	basicPodSpec := getBasicPodspec()
-	unitSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(unitSpec)
+	podSpec := provider.PodSpec(workloadSpec)
 
 	numUnits := int32(2)
 	statefulSetArg := &appsv1.StatefulSet{
@@ -1284,9 +1284,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 	defer ctrl.Finish()
 
 	basicPodSpec := getBasicPodspec()
-	unitSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(unitSpec)
+	podSpec := provider.PodSpec(workloadSpec)
 
 	numUnits := int32(2)
 	statefulSetArg := &appsv1.StatefulSet{
@@ -1408,9 +1408,9 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds map[str
 			CustomResourceDefinitions: crds,
 		},
 	}
-	unitSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(unitSpec)
+	podSpec := provider.PodSpec(workloadSpec)
 
 	numUnits := int32(2)
 	statefulSetArg := &appsv1.StatefulSet{
@@ -1734,7 +1734,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 	}
 
 	numUnits := int32(2)
-	unitSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", podSpec)
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	deploymentArg := &appsv1.Deployment{
@@ -1761,7 +1761,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 						"fred": "mary",
 					},
 				},
-				Spec: provider.PodSpec(unitSpec),
+				Spec: provider.PodSpec(workloadSpec),
 			},
 		},
 	}
@@ -1892,7 +1892,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 	}
 
 	numUnits := int32(2)
-	unitSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", podSpec)
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	deploymentArg := &appsv1.Deployment{
@@ -1919,7 +1919,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 						"fred": "mary",
 					},
 				},
-				Spec: provider.PodSpec(unitSpec),
+				Spec: provider.PodSpec(workloadSpec),
 			},
 		},
 	}
@@ -2052,7 +2052,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountReferenceExistingClu
 	}
 
 	numUnits := int32(2)
-	unitSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", podSpec)
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	deploymentArg := &appsv1.Deployment{
@@ -2079,7 +2079,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountReferenceExistingClu
 						"fred": "mary",
 					},
 				},
-				Spec: provider.PodSpec(unitSpec),
+				Spec: provider.PodSpec(workloadSpec),
 			},
 		},
 	}
@@ -2189,9 +2189,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	defer ctrl.Finish()
 
 	basicPodSpec := getBasicPodspec()
-	unitSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(unitSpec)
+	podSpec := provider.PodSpec(workloadSpec)
 	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
@@ -2274,9 +2274,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 
 	numUnits := int32(2)
 	basicPodSpec := getBasicPodspec()
-	unitSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(unitSpec)
+	podSpec := provider.PodSpec(workloadSpec)
 	podSpec.NodeSelector = map[string]string{"accelerator": "nvidia-tesla-p100"}
 	for i := range podSpec.Containers {
 		podSpec.Containers[i].Resources = core.ResourceRequirements{
@@ -2355,9 +2355,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 	defer ctrl.Finish()
 
 	basicPodSpec := getBasicPodspec()
-	unitSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(unitSpec)
+	podSpec := provider.PodSpec(workloadSpec)
 	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
@@ -2437,9 +2437,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 	defer ctrl.Finish()
 
 	basicPodSpec := getBasicPodspec()
-	unitSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(unitSpec)
+	podSpec := provider.PodSpec(workloadSpec)
 	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
@@ -2510,9 +2510,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 	defer ctrl.Finish()
 
 	basicPodSpec := getBasicPodspec()
-	unitSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(unitSpec)
+	podSpec := provider.PodSpec(workloadSpec)
 	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
@@ -2596,9 +2596,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 	defer ctrl.Finish()
 
 	basicPodSpec := getBasicPodspec()
-	unitSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(unitSpec)
+	podSpec := provider.PodSpec(workloadSpec)
 	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",

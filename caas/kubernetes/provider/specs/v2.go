@@ -32,7 +32,8 @@ func (p podSpecV2) Validate() error {
 func (p podSpecV2) ToLatest() *specs.PodSpec {
 	pSpec := &specs.PodSpec{}
 	pSpec.Version = specs.CurrentVersion
-	pSpec.OmitServiceFrontend = p.caaSSpec.OmitServiceFrontend
+	// TOD(caas): OmitServiceFrontend is deprecated in v2 and will be removed in v3.
+	pSpec.OmitServiceFrontend = false
 	pSpec.Containers = p.caaSSpec.Containers
 	pSpec.Service = p.caaSSpec.Service
 	pSpec.ConfigMaps = p.caaSSpec.ConfigMaps

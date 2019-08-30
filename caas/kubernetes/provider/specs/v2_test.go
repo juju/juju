@@ -29,7 +29,6 @@ version: 2
 func (s *v2SpecsSuite) TestParse(c *gc.C) {
 
 	specStrBase := versionHeader + `
-omitServiceFrontend: true
 containers:
   - name: gitlab
     image: gitlab/latest
@@ -232,7 +231,6 @@ foo: bar
 		}
 		// always parse to latest version.
 		pSpecs.Version = specs.CurrentVersion
-		pSpecs.OmitServiceFrontend = true
 		pSpecs.Containers = []specs.ContainerSpec{
 			{
 				Name:  "gitlab",
