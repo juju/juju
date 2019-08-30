@@ -163,34 +163,10 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 
 func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	stor := newStorage(s, c)
-	checkInstanceId := "i-success"
-	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
-
-	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
-		instances.Instance,
-		*instance.HardwareCharacteristics,
-		[]network.InterfaceInfo,
-		error,
-	) {
-		return &mockInstance{id: checkInstanceId}, &checkHardware, nil, nil
-	}
-	var mocksConfig = minimalConfig(c)
-	var numGetConfigCalled int
-	getConfig := func() *config.Config {
-		numGetConfigCalled++
-		return mocksConfig
-	}
-	setConfig := func(c *config.Config) error {
-		mocksConfig = c
-		return nil
-	}
 
 	env := &mockEnviron{
-		storage:       stor,
-		startInstance: startInstance,
-		config:        getConfig,
-		setConfig:     setConfig,
+		startInstance: fakeStartInstance,
+		config:        fakeMinimalConfig(c),
 	}
 	ctx := envtesting.BootstrapContext(c)
 	bootstrapSeries := series.DefaultSupportedLTS()
@@ -209,34 +185,10 @@ func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
 
 func (s *BootstrapSuite) TestBootstrapInvalidSeries(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	stor := newStorage(s, c)
-	checkInstanceId := "i-success"
-	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
-
-	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
-		instances.Instance,
-		*instance.HardwareCharacteristics,
-		[]network.InterfaceInfo,
-		error,
-	) {
-		return &mockInstance{id: checkInstanceId}, &checkHardware, nil, nil
-	}
-	var mocksConfig = minimalConfig(c)
-	var numGetConfigCalled int
-	getConfig := func() *config.Config {
-		numGetConfigCalled++
-		return mocksConfig
-	}
-	setConfig := func(c *config.Config) error {
-		mocksConfig = c
-		return nil
-	}
 
 	env := &mockEnviron{
-		storage:       stor,
-		startInstance: startInstance,
-		config:        getConfig,
-		setConfig:     setConfig,
+		startInstance: fakeStartInstance,
+		config:        fakeMinimalConfig(c),
 	}
 	ctx := envtesting.BootstrapContext(c)
 	bootstrapSeries := "spock"
@@ -253,34 +205,10 @@ func (s *BootstrapSuite) TestBootstrapInvalidSeries(c *gc.C) {
 
 func (s *BootstrapSuite) TestBootstrapFallbackSeries(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	stor := newStorage(s, c)
-	checkInstanceId := "i-success"
-	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
-
-	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
-		instances.Instance,
-		*instance.HardwareCharacteristics,
-		[]network.InterfaceInfo,
-		error,
-	) {
-		return &mockInstance{id: checkInstanceId}, &checkHardware, nil, nil
-	}
-	var mocksConfig = minimalConfig(c)
-	var numGetConfigCalled int
-	getConfig := func() *config.Config {
-		numGetConfigCalled++
-		return mocksConfig
-	}
-	setConfig := func(c *config.Config) error {
-		mocksConfig = c
-		return nil
-	}
 
 	env := &mockEnviron{
-		storage:       stor,
-		startInstance: startInstance,
-		config:        getConfig,
-		setConfig:     setConfig,
+		startInstance: fakeStartInstance,
+		config:        fakeMinimalConfig(c),
 	}
 	ctx := envtesting.BootstrapContext(c)
 	bootstrapSeries := ""
@@ -298,34 +226,10 @@ func (s *BootstrapSuite) TestBootstrapFallbackSeries(c *gc.C) {
 
 func (s *BootstrapSuite) TestBootstrapSeriesWithForce(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	stor := newStorage(s, c)
-	checkInstanceId := "i-success"
-	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
-
-	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
-		instances.Instance,
-		*instance.HardwareCharacteristics,
-		[]network.InterfaceInfo,
-		error,
-	) {
-		return &mockInstance{id: checkInstanceId}, &checkHardware, nil, nil
-	}
-	var mocksConfig = minimalConfig(c)
-	var numGetConfigCalled int
-	getConfig := func() *config.Config {
-		numGetConfigCalled++
-		return mocksConfig
-	}
-	setConfig := func(c *config.Config) error {
-		mocksConfig = c
-		return nil
-	}
 
 	env := &mockEnviron{
-		storage:       stor,
-		startInstance: startInstance,
-		config:        getConfig,
-		setConfig:     setConfig,
+		startInstance: fakeStartInstance,
+		config:        fakeMinimalConfig(c),
 	}
 	ctx := envtesting.BootstrapContext(c)
 	bootstrapSeries := "xenial"
@@ -348,35 +252,15 @@ func (s *BootstrapSuite) TestBootstrapSeriesWithForceAndInvalidFallback(c *gc.C)
 	s.PatchValue(&config.GetDefaultSupportedLTS, func() string {
 		return ""
 	})
-	stor := newStorage(s, c)
-	checkInstanceId := "i-success"
-	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
-
-	startInstance := func(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
-		instances.Instance,
-		*instance.HardwareCharacteristics,
-		[]network.InterfaceInfo,
-		error,
-	) {
-		return &mockInstance{id: checkInstanceId}, &checkHardware, nil, nil
-	}
 	// We want an invalid fallback to trigger the not valid bootstrap series.
 	var mocksConfig = minimalConfigWithSeries(c, "")
-	var numGetConfigCalled int
 	getConfig := func() *config.Config {
-		numGetConfigCalled++
 		return mocksConfig
-	}
-	setConfig := func(c *config.Config) error {
-		mocksConfig = c
-		return nil
 	}
 
 	env := &mockEnviron{
-		storage:       stor,
-		startInstance: startInstance,
+		startInstance: fakeStartInstance,
 		config:        getConfig,
-		setConfig:     setConfig,
 	}
 	ctx := envtesting.BootstrapContext(c)
 	bootstrapSeries := ""
@@ -957,5 +841,23 @@ func fakeAvailableTools() tools.List {
 				Series: series.DefaultSupportedLTS(),
 			},
 		},
+	}
+}
+
+func fakeStartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (
+	instances.Instance,
+	*instance.HardwareCharacteristics,
+	[]network.InterfaceInfo,
+	error,
+) {
+	checkInstanceId := "i-success"
+	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
+	return &mockInstance{id: checkInstanceId}, &checkHardware, nil, nil
+}
+
+func fakeMinimalConfig(c *gc.C) func() *config.Config {
+	var mocksConfig = minimalConfig(c)
+	return func() *config.Config {
+		return mocksConfig
 	}
 }
