@@ -2754,6 +2754,9 @@ func populateContainerDetails(deploymentName string, pod *core.PodSpec, podConta
 		if c.ImageDetails.Password != "" {
 			pod.ImagePullSecrets = append(pod.ImagePullSecrets, core.LocalObjectReference{Name: appSecretName(deploymentName, c.Name)})
 		}
+		if c.ImagePullPolicy != "" {
+			podContainers[i].ImagePullPolicy = core.PullPolicy(c.ImagePullPolicy)
+		}
 
 		if c.ProviderContainer == nil {
 			podContainers[i].SecurityContext = defaultSecurityContext()
@@ -2763,7 +2766,6 @@ func populateContainerDetails(deploymentName string, pod *core.PodSpec, podConta
 		if !ok {
 			return errors.Errorf("unexpected kubernetes container spec type %T", c.ProviderContainer)
 		}
-		podContainers[i].ImagePullPolicy = spec.ImagePullPolicy
 		if spec.LivenessProbe != nil {
 			podContainers[i].LivenessProbe = spec.LivenessProbe
 		}

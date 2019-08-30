@@ -49,16 +49,17 @@ type k8sContainerInterface interface {
 func (c *k8sContainer) ToContainerSpec() specs.ContainerSpec {
 	quoteBoolStrings(c.Config)
 	result := specs.ContainerSpec{
-		ImageDetails: c.ImageDetails,
-		Name:         c.Name,
-		Init:         c.Init,
-		Image:        c.Image,
-		Ports:        c.Ports,
-		Command:      c.Command,
-		Args:         c.Args,
-		WorkingDir:   c.WorkingDir,
-		Config:       c.Config,
-		Files:        c.Files,
+		ImageDetails:    c.ImageDetails,
+		Name:            c.Name,
+		Init:            c.Init,
+		Image:           c.Image,
+		Ports:           c.Ports,
+		Command:         c.Command,
+		Args:            c.Args,
+		WorkingDir:      c.WorkingDir,
+		Config:          c.Config,
+		Files:           c.Files,
+		ImagePullPolicy: c.ImagePullPolicy,
 	}
 	if c.Kubernetes != nil {
 		result.ProviderContainer = c.Kubernetes
@@ -72,7 +73,6 @@ type K8sContainerSpec struct {
 	LivenessProbe   *core.Probe           `json:"livenessProbe,omitempty"`
 	ReadinessProbe  *core.Probe           `json:"readinessProbe,omitempty"`
 	SecurityContext *core.SecurityContext `json:"securityContext,omitempty"`
-	ImagePullPolicy core.PullPolicy       `json:"imagePullPolicy,omitempty"`
 }
 
 // Validate validates K8sContainerSpec.

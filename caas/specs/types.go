@@ -49,6 +49,8 @@ type ImageDetails struct {
 	Password  string `yaml:"password,omitempty" json:"password,omitempty"`
 }
 
+type PullPolicy string
+
 // ContainerSpec defines the data values used to configure
 // a container on the CAAS substrate.
 type ContainerSpec struct {
@@ -65,6 +67,8 @@ type ContainerSpec struct {
 
 	Config map[string]interface{} `yaml:"config,omitempty"`
 	Files  []FileSet              `yaml:"files,omitempty"`
+
+	ImagePullPolicy PullPolicy `json:"imagePullPolicy,omitempty"`
 
 	// ProviderContainer defines config which is specific to a substrate, eg k8s
 	ProviderContainer `yaml:"-"`

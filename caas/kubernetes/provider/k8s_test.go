@@ -93,11 +93,11 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 	}
 	podSpec.Containers = []specs.ContainerSpec{
 		{
-			Name:  "test",
-			Ports: []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
-			Image: "juju/image",
+			Name:            "test",
+			Ports:           []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
+			Image:           "juju/image",
+			ImagePullPolicy: specs.PullPolicy("Always"),
 			ProviderContainer: &k8sspecs.K8sContainerSpec{
-				ImagePullPolicy: core.PullAlways,
 				ReadinessProbe: &core.Probe{
 					InitialDelaySeconds: 10,
 					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
@@ -172,11 +172,11 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *gc.C) {
 	podSpec := specs.PodSpec{}
 	podSpec.Containers = []specs.ContainerSpec{
 		{
-			Name:  "test",
-			Ports: []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
-			Image: "juju/image",
+			Name:            "test",
+			Ports:           []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
+			Image:           "juju/image",
+			ImagePullPolicy: specs.PullPolicy("Always"),
 			ProviderContainer: &k8sspecs.K8sContainerSpec{
-				ImagePullPolicy: core.PullAlways,
 				ReadinessProbe: &core.Probe{
 					InitialDelaySeconds: 10,
 					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
@@ -196,15 +196,13 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *gc.C) {
 			Image: "juju/image2",
 		},
 		{
-			Name:       "test-init",
-			Init:       true,
-			Ports:      []specs.ContainerPort{{ContainerPort: 90, Protocol: "TCP"}},
-			Image:      "juju/image-init",
-			WorkingDir: "/path/to/here",
-			Command:    []string{"sh", "ls"},
-			ProviderContainer: &k8sspecs.K8sContainerSpec{
-				ImagePullPolicy: core.PullAlways,
-			},
+			Name:            "test-init",
+			Init:            true,
+			Ports:           []specs.ContainerPort{{ContainerPort: 90, Protocol: "TCP"}},
+			Image:           "juju/image-init",
+			ImagePullPolicy: specs.PullPolicy("Always"),
+			WorkingDir:      "/path/to/here",
+			Command:         []string{"sh", "ls"},
 		},
 	}
 

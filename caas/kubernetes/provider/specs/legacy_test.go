@@ -33,13 +33,8 @@ serviceAccountName: serviceAccountFoo
 securityContext:
   runAsNonRoot: true
   supplementalGroups: [1,2]
-hostname: host
-subdomain: sub
-priorityClassName: top
 priority: 30
 dnsPolicy: ClusterFirstWithHostNet
-dnsConfig: 
-  nameservers: [ns1, ns2]
 readinessGates:
   - conditionType: PodScheduled
 containers:
@@ -173,8 +168,9 @@ foo: bar
 
 		pSpecs.Containers = []specs.ContainerSpec{
 			{
-				Name:  "gitlab",
-				Image: "gitlab/latest",
+				Name:            "gitlab",
+				Image:           "gitlab/latest",
+				ImagePullPolicy: "Always",
 				Command: []string{"sh", "-c", `
 set -ex
 echo "do some stuff here for gitlab container"
@@ -201,7 +197,6 @@ echo "do some stuff here for gitlab container"
 					},
 				},
 				ProviderContainer: &k8sspecs.K8sContainerSpec{
-					ImagePullPolicy: "Always",
 					SecurityContext: &core.SecurityContext{
 						RunAsNonRoot: boolPtr(true),
 						Privileged:   boolPtr(true),
@@ -245,9 +240,10 @@ echo "do some stuff here for gitlab container"
 				},
 			},
 			{
-				Name:  "gitlab-init",
-				Image: "gitlab-init/latest",
-				Init:  true,
+				Name:            "gitlab-init",
+				Image:           "gitlab-init/latest",
+				ImagePullPolicy: "Always",
+				Init:            true,
 				Command: []string{"sh", "-c", `
 set -ex
 echo "do some stuff here for gitlab-init container"
@@ -262,9 +258,6 @@ echo "do some stuff here for gitlab-init container"
 					"foo":        "bar",
 					"restricted": "'yes'",
 					"switch":     true,
-				},
-				ProviderContainer: &k8sspecs.K8sContainerSpec{
-					ImagePullPolicy: "Always",
 				},
 			},
 		}

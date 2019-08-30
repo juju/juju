@@ -32,6 +32,7 @@ func (s *v2SpecsSuite) TestParse(c *gc.C) {
 containers:
   - name: gitlab
     image: gitlab/latest
+    imagePullPolicy: Always
     command:
       - sh
       - -c
@@ -47,7 +48,6 @@ containers:
       - containerPort: 443
         name: mary
     kubernetes:
-      imagePullPolicy: Always
       securityContext:
         runAsNonRoot: true
         privileged: true
@@ -88,9 +88,8 @@ containers:
         imagePath: testing/no-secrets-needed@sha256:deed-beef
   - name: gitlab-init
     image: gitlab-init/latest
+    imagePullPolicy: Always
     init: true
-    kubernetes:
-      imagePullPolicy: Always
     command:
       - sh
       - -c
@@ -233,8 +232,9 @@ foo: bar
 		pSpecs.Version = specs.CurrentVersion
 		pSpecs.Containers = []specs.ContainerSpec{
 			{
-				Name:  "gitlab",
-				Image: "gitlab/latest",
+				Name:            "gitlab",
+				Image:           "gitlab/latest",
+				ImagePullPolicy: "Always",
 				Command: []string{"sh", "-c", `
 set -ex
 echo "do some stuff here for gitlab container"
@@ -261,7 +261,6 @@ echo "do some stuff here for gitlab container"
 					},
 				},
 				ProviderContainer: &k8sspecs.K8sContainerSpec{
-					ImagePullPolicy: "Always",
 					SecurityContext: &core.SecurityContext{
 						RunAsNonRoot: boolPtr(true),
 						Privileged:   boolPtr(true),
@@ -305,9 +304,10 @@ echo "do some stuff here for gitlab container"
 				},
 			},
 			{
-				Name:  "gitlab-init",
-				Image: "gitlab-init/latest",
-				Init:  true,
+				Name:            "gitlab-init",
+				Image:           "gitlab-init/latest",
+				ImagePullPolicy: "Always",
+				Init:            true,
 				Command: []string{"sh", "-c", `
 set -ex
 echo "do some stuff here for gitlab-init container"
@@ -322,9 +322,6 @@ echo "do some stuff here for gitlab-init container"
 					"foo":        "bar",
 					"restricted": "'yes'",
 					"switch":     true,
-				},
-				ProviderContainer: &k8sspecs.K8sContainerSpec{
-					ImagePullPolicy: "Always",
 				},
 			},
 		}

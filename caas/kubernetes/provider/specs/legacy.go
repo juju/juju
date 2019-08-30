@@ -34,16 +34,17 @@ func (c *k8sContainerLegacy) Validate() error {
 func (c *k8sContainerLegacy) ToContainerSpec() specs.ContainerSpec {
 	quoteBoolStrings(c.Config)
 	result := specs.ContainerSpec{
-		ImageDetails: c.ImageDetails,
-		Name:         c.Name,
-		Init:         c.Init,
-		Image:        c.Image,
-		Ports:        c.Ports,
-		Command:      c.Command,
-		Args:         c.Args,
-		WorkingDir:   c.WorkingDir,
-		Config:       c.Config,
-		Files:        c.Files,
+		ImageDetails:    c.ImageDetails,
+		Name:            c.Name,
+		Init:            c.Init,
+		Image:           c.Image,
+		Ports:           c.Ports,
+		Command:         c.Command,
+		Args:            c.Args,
+		WorkingDir:      c.WorkingDir,
+		Config:          c.Config,
+		Files:           c.Files,
+		ImagePullPolicy: c.ImagePullPolicy,
 	}
 	if c.K8sContainerSpec != nil {
 		result.ProviderContainer = c.K8sContainerSpec
