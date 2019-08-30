@@ -317,6 +317,11 @@ func bootstrapIAAS(
 		config.PreferredSeries(cfg),
 	)
 	if !args.Force && err != nil {
+		// If the series isn't valid at all, then don't prompt users to use
+		// the --force flag.
+		if _, err := series.UbuntuSeriesVersion(requestedBootstrapSeries); err != nil {
+			return errors.NotValidf("series %q", requestedBootstrapSeries)
+		}
 		return errors.Annotatef(err, "use --force to override")
 	}
 	bootstrapSeries := &requestedBootstrapSeries

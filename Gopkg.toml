@@ -90,7 +90,7 @@
   name = "github.com/juju/naturalsort"
 
 [[constraint]]
-  revision = "6115736bcd3130ffe464ca312398674a2f626855"
+  revision = "31722624f15a324ca554ef01285a92e6e89ac7df"
   name = "github.com/juju/os"
 
 [[constraint]]

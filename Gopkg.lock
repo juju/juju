@@ -641,14 +641,14 @@
   revision = "5b81707e882b8293e6cf77854b4cd49f29776e11"
 
 [[projects]]
-  digest = "1:69a0787188ccc46817a375fbcff3d8ece9e0f07526c388311341e6fc5bfdc760"
+  digest = "1:35d597b18d97dbc59d70e250bbcab9d7dd0bd6ed0e82343620eb0a70f44a9f61"
   name = "github.com/juju/os"
   packages = [
     ".",
     "series",
   ]
   pruneopts = ""
-  revision = "6115736bcd3130ffe464ca312398674a2f626855"
+  revision = "31722624f15a324ca554ef01285a92e6e89ac7df"
 
 [[projects]]
   digest = "1:8fd6c21ba9a864b949672e63800d1bd71a3d8ac8e085cc22143b97f1261ad634"

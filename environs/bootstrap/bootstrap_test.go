@@ -246,6 +246,26 @@ func (s *bootstrapSuite) TestBootstrapForcedBootstrapSeries(c *gc.C) {
 	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{"xenial"})
 }
 
+func (s *bootstrapSuite) TestBootstrapWithInvalidBootstrapSeries(c *gc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	cfg, err := env.Config().Apply(map[string]interface{}{
+		"default-series": "spock",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	env.cfg = cfg
+
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+		s.callContext, bootstrap.BootstrapParams{
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              "admin-secret",
+			CAPrivateKey:             coretesting.CAKey,
+			BootstrapSeries:          "spock",
+			SupportedBootstrapSeries: supportedJujuSeries,
+		})
+	c.Assert(err, gc.ErrorMatches, `series "spock" not valid`)
+}
+
 func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)

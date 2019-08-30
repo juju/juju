@@ -89,6 +89,11 @@ func BootstrapInstance(
 		config.PreferredSeries(env.Config()),
 	)
 	if !args.Force && err != nil {
+		// If the series isn't valid at all, then don't prompt users to use
+		// the --force flag.
+		if _, err := series.UbuntuSeriesVersion(selectedSeries); err != nil {
+			return nil, "", nil, errors.NotValidf("series %q", selectedSeries)
+		}
 		return nil, "", nil, errors.Annotatef(err, "use --force to override")
 	}
 	// The series we're attemptting to bootstrap is empty, show a friendly

@@ -200,7 +200,7 @@ func (s *BootstrapSuite) TestBootstrapInvalidSeries(c *gc.C) {
 		AvailableTools:           availableTools,
 		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 	})
-	c.Assert(err, gc.ErrorMatches, "use --force to override: spock not supported")
+	c.Assert(err, gc.ErrorMatches, `series "spock" not valid`)
 }
 
 func (s *BootstrapSuite) TestBootstrapFallbackSeries(c *gc.C) {
