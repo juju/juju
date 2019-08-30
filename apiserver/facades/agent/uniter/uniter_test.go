@@ -2494,6 +2494,47 @@ func (s *uniterSuite) TestReadRemoteSettingsWithNonStringValuesFails(c *gc.C) {
 	})
 }
 
+func (s *uniterSuite) TestReadRemoteApplicationSettingsForPeerRelation(c *gc.C) {
+	riak := s.AddTestingApplication(c, "riak", s.AddTestingCharm(c, "riak"))
+	ep, err := riak.Endpoint("ring")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.EndpointsRelation(ep)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = rel.UpdateApplicationSettings(riak, &fakeToken{}, map[string]interface{}{
+		"black midi": "ducter",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	riakUnit := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: riak,
+		Machine:     s.machine0,
+	})
+
+	relUnit, err := rel.Unit(riakUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	auth := apiservertesting.FakeAuthorizer{Tag: riakUnit.Tag()}
+	uniter := s.newUniterAPI(c, s.State, auth)
+
+	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{{
+		Relation:   rel.Tag().String(),
+		LocalUnit:  "unit-riak-0",
+		RemoteUnit: "application-riak",
+	}}}
+	result, err := uniter.ReadRemoteSettings(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.SettingsResults{
+		Results: []params.SettingsResult{
+			{Settings: params.Settings{
+				"black midi": "ducter",
+			}},
+		},
+	})
+}
+
 func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
