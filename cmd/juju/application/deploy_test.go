@@ -72,7 +72,7 @@ import (
 // defaultSupportedJujuSeries is used to return canned information about what
 // juju supports in terms of the release cycle
 // see juju/os and documentation https://www.ubuntu.com/about/release-cycle
-var defaultSupportedJujuSeries = []string{"bionic", "xenial", "trusty", kubernetesSeriesName}
+var defaultSupportedJujuSeries = []string{"bionic", "xenial", "trusty", testing.KubernetesSeriesName}
 
 type DeploySuiteBase struct {
 	testing.RepoSuite

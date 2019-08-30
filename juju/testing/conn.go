@@ -69,14 +69,18 @@ import (
 
 const (
 	ControllerName = "kontroll"
+)
 
-	kubernetesSeriesName = "kubernetes"
+var (
+	// KubernetesSeriesName is the kubernetes series name that is validated at
+	// runtime, otherwise it panics.
+	KubernetesSeriesName = strings.ToLower(series.MustOSFromSeries("kubernetes").String())
 )
 
 // defaultSupportedJujuSeries is used to return canned information about what
 // juju supports in terms of the release cycle
 // see juju/os and documentation https://www.ubuntu.com/about/release-cycle
-var defaultSupportedJujuSeries = set.NewStrings("bionic", "xenial", "trusty", kubernetesSeriesName)
+var defaultSupportedJujuSeries = set.NewStrings("bionic", "xenial", "trusty", KubernetesSeriesName)
 
 // JujuConnSuite provides a freshly bootstrapped juju.Conn
 // for each test. It also includes testing.BaseSuite.
