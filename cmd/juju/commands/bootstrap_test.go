@@ -1491,7 +1491,7 @@ func (s *BootstrapSuite) TestBootstrapWithBootstrapSeries(c *gc.C) {
 	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Creating Juju controller \"ctrl\" on no-cloud-regions(.|\n)*")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.ERROR, "failed to bootstrap model: use --force to override: spock not supported"},
+		{loggo.ERROR, "failed to bootstrap model: series \"spock\" not valid"},
 		{loggo.DEBUG, "(error details.*)"},
 	})
 }
@@ -1504,7 +1504,7 @@ func (s *BootstrapSuite) TestBootstrapWithNoBootstrapSeriesUsesFallbackButStillF
 	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Creating Juju controller \"ctrl\" on no-cloud-regions(.|\n)*")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.ERROR, "failed to bootstrap model: use --force to override: spock not supported"},
+		{loggo.ERROR, "failed to bootstrap model: series \"spock\" not valid"},
 		{loggo.DEBUG, "(error details.*)"},
 	})
 }
@@ -1519,7 +1519,7 @@ func (s *BootstrapSuite) TestBootstrapWithBootstrapSeriesDoesNotUseFallbackButSt
 	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Creating Juju controller \"ctrl\" on no-cloud-regions(.|\n)*")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.ERROR, "failed to bootstrap model: use --force to override: spock not supported"},
+		{loggo.ERROR, "failed to bootstrap model: series \"spock\" not valid"},
 		{loggo.DEBUG, "(error details.*)"},
 	})
 }
