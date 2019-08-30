@@ -87,7 +87,7 @@ func (c *removeCloudCommand) Init(args []string) (err error) {
 		return errors.New("Usage: juju remove-cloud <cloud name>")
 	}
 	c.Cloud = args[0]
-	c.controllerName, err = c.ControllerNameFromArg()
+	c.ControllerName, err = c.ControllerNameFromArg()
 	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
 		return errors.Trace(err)
 	}
@@ -95,8 +95,8 @@ func (c *removeCloudCommand) Init(args []string) (err error) {
 }
 
 func (c *removeCloudCommand) Run(ctxt *cmd.Context) error {
-	if c.controllerName == "" {
-		if c.controllerName == "" && !c.Local {
+	if c.ControllerName == "" {
+		if c.ControllerName == "" && !c.Local {
 			return errors.Errorf(
 				"There are no controllers running.\nTo remove cloud %q from the local cache, use the --local option.", c.Cloud)
 		}
@@ -123,7 +123,7 @@ func (c *removeCloudCommand) removeLocalCloud(ctxt *cmd.Context) error {
 }
 
 func (c *removeCloudCommand) removeControllerCloud(ctxt *cmd.Context) error {
-	api, err := c.removeCloudAPIFunc(c.controllerName)
+	api, err := c.removeCloudAPIFunc(c.ControllerName)
 	if err != nil {
 		return err
 	}
@@ -132,6 +132,6 @@ func (c *removeCloudCommand) removeControllerCloud(ctxt *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	ctxt.Infof("Cloud %q on controller %q removed", c.Cloud, c.controllerName)
+	ctxt.Infof("Cloud %q on controller %q removed", c.Cloud, c.ControllerName)
 	return nil
 }

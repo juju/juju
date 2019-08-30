@@ -112,14 +112,14 @@ func (c *updateCloudCommand) Init(args []string) error {
 	}
 
 	var err error
-	c.controllerName, err = c.ControllerNameFromArg()
+	c.ControllerName, err = c.ControllerNameFromArg()
 	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
 		return errors.Trace(err)
 	}
 
 	// Condense arguments into an action,
 	c.commandAction = c.updateLocalCacheFromFile
-	if c.controllerName != "" {
+	if c.ControllerName != "" {
 		if c.CloudFile != "" && c.Cloud != "" {
 			c.commandAction = c.updateControllerFromFile
 		} else if c.Cloud != "" {
@@ -156,24 +156,28 @@ func (c *updateCloudCommand) updateLocalCacheFromFile(ctxt *cmd.Context) error {
 		ctxt.Infof(
 			"There are no controllers running.\nUpdating cloud in local cache so you can use it to bootstrap a controller.\n")
 	}
-	r := cloudFileReader{
+	r := &cloudFileReader{
 		cloudMetadataStore: c.cloudMetadataStore,
+		cloudName:          c.Cloud,
 	}
-	newCloud, err := r.readCloudFromFile(c.Cloud, c.CloudFile, ctxt, true)
+	newCloud, err := r.readCloudFromFile(c.CloudFile, ctxt)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	c.Cloud = r.cloudName
 	return addLocalCloud(c.cloudMetadataStore, *newCloud)
 }
 
 func (c *updateCloudCommand) updateControllerFromFile(ctxt *cmd.Context) error {
-	r := cloudFileReader{
+	r := &cloudFileReader{
 		cloudMetadataStore: c.cloudMetadataStore,
+		cloudName:          c.Cloud,
 	}
-	newCloud, err := r.readCloudFromFile(c.Cloud, c.CloudFile, ctxt, true)
+	newCloud, err := r.readCloudFromFile(c.CloudFile, ctxt)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	c.Cloud = r.cloudName
 	return c.updateController(ctxt, newCloud)
 }
 
@@ -186,7 +190,7 @@ func (c *updateCloudCommand) updateControllerCacheFromLocalCache(ctxt *cmd.Conte
 }
 
 func (c updateCloudCommand) updateController(ctxt *cmd.Context, cloud *jujucloud.Cloud) error {
-	api, err := c.updateCloudAPIFunc(c.controllerName)
+	api, err := c.updateCloudAPIFunc(c.ControllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -195,6 +199,6 @@ func (c updateCloudCommand) updateController(ctxt *cmd.Context, cloud *jujucloud
 	if err != nil {
 		return errors.Trace(err)
 	}
-	ctxt.Infof("Cloud %q updated on controller %q.", c.Cloud, c.controllerName)
+	ctxt.Infof("Cloud %q updated on controller %q.", c.Cloud, c.ControllerName)
 	return nil
 }

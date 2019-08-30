@@ -4,6 +4,7 @@
 package modelcmd
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/api/usermanager"
+	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 )
@@ -392,15 +394,18 @@ type OptionalControllerCommand struct {
 
 	EnabledFlag    string
 	Local          bool
-	controllerName string
+	ControllerName string
+
+	SkipCurrentControllerPrompt bool
 }
 
 // SetFlags initializes the flags supported by the command.
 func (c *OptionalControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
 	f.BoolVar(&c.Local, "local", false, "Local operation only; controller not affected")
-	f.StringVar(&c.controllerName, "c", "", "Controller to operate in")
-	f.StringVar(&c.controllerName, "controller", "", "")
+	f.StringVar(&c.ControllerName, "c", "", "Controller to operate in")
+	f.StringVar(&c.ControllerName, "controller", "", "")
+	f.BoolVar(&c.SkipCurrentControllerPrompt, "skipPrompt", false, "Skip prompting for confirmation to use current controller, always use it when detected")
 }
 
 // ControllerNameFromArg returns either a controller name or empty string.
@@ -408,11 +413,11 @@ func (c *OptionalControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 // Use the --local arg to return an empty string, meaning no controller is selected.
 func (c *OptionalControllerCommand) ControllerNameFromArg() (string, error) {
 	requireExplicitController := !featureflag.Enabled(c.EnabledFlag)
-	if c.Local || (requireExplicitController && c.controllerName == "") {
+	if c.Local || (requireExplicitController && c.ControllerName == "") {
 		c.Local = true
 		return "", nil
 	}
-	controllerName := c.controllerName
+	controllerName := c.ControllerName
 	if controllerName == "" {
 		all, err := c.Store.AllControllers()
 		if err != nil {
@@ -430,4 +435,36 @@ func (c *OptionalControllerCommand) ControllerNameFromArg() (string, error) {
 		return "", errors.Trace(ErrNoCurrentController)
 	}
 	return controllerName, nil
+}
+
+func (c *OptionalControllerCommand) MaybePromptCurrentController(ctxt *cmd.Context, action string) (string, error) {
+	all, err := c.Store.AllControllers()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(all) == 0 {
+		// No controllers, so nothing to do.
+		return "", nil
+	}
+	controllerName, err := DetermineCurrentController(c.Store)
+	if err != nil && !errors.IsNotFound(err) {
+		return "", errors.Trace(err)
+	}
+	if controllerName == "" {
+		return "", nil
+	}
+	if c.SkipCurrentControllerPrompt {
+		return controllerName, nil
+	}
+	// Since current controller is detected, user needs to confirm it.
+	errout := interact.NewErrWriter(ctxt.Stdout)
+	pollster := interact.New(ctxt.Stdin, ctxt.Stdout, errout)
+	use, err := pollster.YN(fmt.Sprintf("Do you want to %v current controller %q", action, controllerName), true)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if use {
+		return controllerName, nil
+	}
+	return "", nil
 }

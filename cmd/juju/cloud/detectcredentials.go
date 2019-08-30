@@ -133,11 +133,11 @@ func (c *detectCredentialsCommand) Init(args []string) (err error) {
 		c.cloudType = strings.ToLower(args[0])
 		return cmd.CheckEmpty(args[1:])
 	}
-	c.controllerName, err = c.ControllerNameFromArg()
+	c.ControllerName, err = c.ControllerNameFromArg()
 	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
 		return errors.Trace(err)
 	}
-	if c.controllerName == "" {
+	if c.ControllerName == "" {
 		// No controller was specified explicitly and we did not detect a current controller,
 		// this operation should be local only.
 		c.Local = true
@@ -156,7 +156,7 @@ type discoveredCredential struct {
 
 func (c *detectCredentialsCommand) credentialsAPI() (CredentialAPI, error) {
 	var err error
-	root, err := c.NewAPIRoot(c.Store, c.controllerName, "")
+	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -462,7 +462,7 @@ func (c *detectCredentialsCommand) addRemoteCredentials(ctxt *cmd.Context, cloud
 		fmt.Fprintf(ctxt.Stdout, "No credentials loaded remotely.\n")
 		return nil
 	}
-	accountDetails, err := c.Store.AccountDetails(c.controllerName)
+	accountDetails, err := c.Store.AccountDetails(c.ControllerName)
 	if err != nil {
 		return err
 	}
@@ -490,7 +490,7 @@ func (c *detectCredentialsCommand) addRemoteCredentials(ctxt *cmd.Context, cloud
 			result, err := client.UpdateCloudsCredentials(verified)
 			if err != nil {
 				logger.Errorf("%v", err)
-				ctxt.Warningf("Could not add credentials remotely, on controller %q", c.controllerName)
+				ctxt.Warningf("Could not add credentials remotely, on controller %q", c.ControllerName)
 			}
 			results = append(results, result...)
 		}

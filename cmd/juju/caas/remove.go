@@ -92,7 +92,7 @@ func (c *RemoveCAASCommand) Init(args []string) (err error) {
 		return errors.Errorf("missing k8s name.")
 	}
 	c.cloudName = args[0]
-	c.controllerName, err = c.ControllerNameFromArg()
+	c.ControllerName, err = c.ControllerNameFromArg()
 	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
 		return errors.Trace(err)
 	}
@@ -101,7 +101,7 @@ func (c *RemoveCAASCommand) Init(args []string) (err error) {
 
 // Run is defined on the Command interface.
 func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
-	if c.controllerName == "" && !c.Local {
+	if c.ControllerName == "" && !c.Local {
 		return errors.Errorf(
 			"There are no controllers running.\nTo remove cloud %q from the local cache, use the --local option.", c.cloudName)
 	}
@@ -112,7 +112,7 @@ func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
 	if err := c.store.UpdateCredential(c.cloudName, cloud.CloudCredential{}); err != nil {
 		return errors.Annotatef(err, "cannot remove credential from local cache")
 	}
-	if c.controllerName == "" {
+	if c.ControllerName == "" {
 		return nil
 	}
 
