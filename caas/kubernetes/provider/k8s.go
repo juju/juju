@@ -1054,18 +1054,19 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 }
 
 // ensureCustomResourceDefinitions creates or updates a custom resource definition resource.
-func (k *kubernetesClient) ensureCustomResourceDefinitions(crds map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec) error {
+func (k *kubernetesClient) ensureCustomResourceDefinitions(crds map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec) (cleanUps []func(), _ error) {
 	for name, crd := range crds {
-		crd, err := k.ensureCustomResourceDefinitionTemplate(name, crd)
+		crd, err := k.ensureCustomResourceDefinition(name, crd)
 		if err != nil {
-			return errors.Annotate(err, fmt.Sprintf("ensure custom resource definition %q", name))
+			return cleanUps, errors.Annotate(err, fmt.Sprintf("ensure custom resource definition %q", name))
 		}
 		logger.Debugf("ensured custom resource definition %q", crd.ObjectMeta.Name)
+		cleanUps = append(cleanUps, func() { k.deleteCustomResourceDefinition(name) })
 	}
-	return nil
+	return cleanUps, nil
 }
 
-func (k *kubernetesClient) ensureCustomResourceDefinitionTemplate(name string, spec apiextensionsv1beta1.CustomResourceDefinitionSpec) (
+func (k *kubernetesClient) ensureCustomResourceDefinition(name string, spec apiextensionsv1beta1.CustomResourceDefinitionSpec) (
 	crd *apiextensionsv1beta1.CustomResourceDefinition, err error) {
 	crdIn := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
@@ -1088,6 +1089,16 @@ func (k *kubernetesClient) ensureCustomResourceDefinitionTemplate(name string, s
 		crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Update(crdIn)
 	}
 	return
+}
+
+func (k *kubernetesClient) deleteCustomResourceDefinition(name string) error {
+	err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().Delete(name, &v1.DeleteOptions{
+		PropagationPolicy: &defaultPropagationPolicy,
+	})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
 }
 
 func resourceTagsToAnnotations(in map[string]string) k8sannotations.Annotation {
@@ -1241,11 +1252,11 @@ func (k *kubernetesClient) EnsureService(
 	// ensure custom resource definitions first.
 	crds := workloadSpec.CustomResourceDefinitions
 	if len(crds) > 0 {
-		if err = k.ensureCustomResourceDefinitions(crds); err != nil {
-			return errors.Trace(err)
+		crdCleanUps, err := k.ensureCustomResourceDefinitions(crds)
+		cleanups = append(cleanups, crdCleanUps...)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating custom resource definitions")
 		}
-		// TODO: add cleanups for crds !!!!!!!!!!!!!!!!!!
-		// cleanups = append(cleanups, crdsCleanups...)
 		logger.Debugf("created/updated custom resource definition for %q.", appName)
 	}
 
