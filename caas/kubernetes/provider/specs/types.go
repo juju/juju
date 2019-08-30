@@ -92,6 +92,17 @@ type PodSpec struct {
 	DNSPolicy                     core.DNSPolicy           `json:"dnsPolicy,omitempty"`
 }
 
+// IsEmpty checks if PodSpec is empty or not.
+func (ps PodSpec) IsEmpty() bool {
+	return ps.RestartPolicy == "" &&
+		ps.ActiveDeadlineSeconds == nil &&
+		ps.TerminationGracePeriodSeconds == nil &&
+		ps.SecurityContext == nil &&
+		ps.Priority == nil &&
+		len(ps.ReadinessGates) == 0 &&
+		ps.DNSPolicy == ""
+}
+
 var boolValues = set.NewStrings(
 	strings.Split("y|Y|yes|Yes|YES|n|N|no|No|NO|true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF", "|")...,
 )
