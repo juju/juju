@@ -44,7 +44,6 @@ func (p podSpecV2) ToLatest() *specs.PodSpec {
 // K8sPodSpecV2 is a subset of v1.PodSpec which defines
 // attributes we expose for charms to set.
 type K8sPodSpecV2 struct {
-	// core pod spec.
 	Pod *PodSpec `json:"pod,omitempty"`
 
 	// k8s resources.
@@ -80,23 +79,11 @@ func parsePodSpecV2(in string) (_ *specs.PodSpec, err error) {
 	if err = decoder.Decode(&spec.caaSSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if spec.caaSSpec.ServiceAccount != nil {
-		logger.Criticalf(
-			"spec.caaSSpec.ServiceAccount -----> %#v",
-			spec.caaSSpec.ServiceAccount.Capabilities.Role,
-		)
-	}
 
 	// Do the k8s pod attributes.
 	decoder = k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
 	if err = decoder.Decode(&spec.k8sSpec); err != nil {
 		return nil, errors.Trace(err)
-	}
-	if spec.k8sSpec.KubernetesResources != nil {
-		logger.Criticalf(
-			"spec.k8sSpec.KubernetesResources.CustomResourceDefinitions -----> %#v",
-			spec.k8sSpec.KubernetesResources.CustomResourceDefinitions["tfjobs.kubeflow.org"].Validation,
-		)
 	}
 
 	// Do the k8s containers.

@@ -10,7 +10,7 @@ import (
 // PodSpecV2 defines the data values used to configure
 // a pod on the CAAS substrate for version 2.
 type PodSpecV2 struct {
-	podSpec        `yaml:",inline"`
+	podSpecBase    `yaml:",inline"`
 	ServiceAccount *ServiceAccountSpec `json:"serviceAccount,omitempty" yaml:"serviceAccount,omitempty"`
 }
 
@@ -19,7 +19,7 @@ const Version2 Version = 2
 
 // Validate returns an error if the spec is not valid.
 func (spec *PodSpecV2) Validate() error {
-	if err := spec.podSpec.Validate(Version2); err != nil {
+	if err := spec.podSpecBase.Validate(Version2); err != nil {
 		return errors.Trace(err)
 	}
 	if spec.ServiceAccount != nil {

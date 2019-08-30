@@ -1,4 +1,4 @@
-// Copyright 2018 Canonical Ltd.
+// Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package specs_test
@@ -345,12 +345,6 @@ echo "do some stuff here for gitlab-init container"
 					{ConditionType: core.PodScheduled},
 				},
 				DNSPolicy: "ClusterFirstWithHostNet",
-				// Hostname:          "host",
-				// Subdomain:         "sub",
-				// PriorityClassName: "top",
-				// DNSConfig: &core.PodDNSConfig{
-				// 	Nameservers: []string{"ns1", "ns2"},
-				// },
 			},
 			KubernetesResources: &k8sspecs.KubernetesResources{
 				Secrets: []k8sspecs.Secret{

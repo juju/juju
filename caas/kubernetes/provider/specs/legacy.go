@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	core "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
@@ -76,7 +75,6 @@ func (p podSpecLegacy) ToLatest() *specs.PodSpec {
 	pSpec.ConfigMaps = p.caaSSpec.ConfigMaps
 	pSpec.Containers = p.caaSSpec.Containers
 	for _, c := range p.caaSSpec.InitContainers {
-		logger.Criticalf("podSpecLegacy init container -> %+v", c)
 		pSpec.Containers = append(pSpec.Containers, c)
 	}
 
@@ -97,12 +95,6 @@ func (p podSpecLegacy) ToLatest() *specs.PodSpec {
 			Priority:                      p.k8sSpec.Priority,
 			ReadinessGates:                p.k8sSpec.ReadinessGates,
 			DNSPolicy:                     p.k8sSpec.DNSPolicy,
-
-			// TODO: should we just ignore below deprecated pod config ?????????
-			// Hostname: p.k8sSpec.Hostname,
-			// Subdomain: p.k8sSpec.Subdomain,
-			// PriorityClassName: p.k8sSpec.PriorityClassName,
-			// DNSConfig: p.k8sSpec.DNSConfig,
 		},
 	}
 	return pSpec
@@ -111,18 +103,9 @@ func (p podSpecLegacy) ToLatest() *specs.PodSpec {
 // K8sPodSpecLegacy is a subset of v1.PodSpec which defines
 // attributes we expose for charms to set.
 type K8sPodSpecLegacy struct {
-	// TODO(caas): remove ServiceAccountName and AutomountServiceAccountToken in the future
-	// because we have service account spec in caas.PodSpec now.
-	// Keep it for now because it will be a breaking change to remove it.
+	PodSpec                      `yaml:",inline"`
 	ServiceAccountName           string `json:"serviceAccountName,omitempty"`
 	AutomountServiceAccountToken *bool  `json:"automountServiceAccountToken,omitempty"`
-
-	PodSpec `yaml:",inline"`
-	// TODO: should we just ignore below deprecated pod config ?????????
-	Hostname          string             `json:"hostname,omitempty"`
-	Subdomain         string             `json:"subdomain,omitempty"`
-	PriorityClassName string             `json:"priorityClassName,omitempty"`
-	DNSConfig         *core.PodDNSConfig `json:"dnsConfig,omitempty"`
 
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `yaml:"customResourceDefinitions,omitempty"`
 }
@@ -158,12 +141,6 @@ func parsePodSpecLegacy(in string) (_ *specs.PodSpec, err error) {
 	decoder = k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
 	if err = decoder.Decode(&spec.k8sSpec); err != nil {
 		return nil, errors.Trace(err)
-	}
-	if spec.k8sSpec.CustomResourceDefinitions != nil {
-		logger.Criticalf(
-			"spec.k8sSpec.CustomResourceDefinitions -----> %#v",
-			spec.k8sSpec.CustomResourceDefinitions["tfjobs.kubeflow.org"].Validation,
-		)
 	}
 
 	// Do the k8s containers.

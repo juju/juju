@@ -10,7 +10,7 @@ import (
 // PodSpecLegacy defines the legacy version of data values used to configure
 // a pod on the CAAS substrate.
 type PodSpecLegacy struct {
-	podSpec `yaml:",inline"`
+	podSpecBase `yaml:",inline"`
 
 	// legacy version has containers/initContainers two blocks.
 	InitContainers []ContainerSpec `json:"initContainers" yaml:"initContainers"`
@@ -30,5 +30,5 @@ func (spec *PodSpecLegacy) Validate() error {
 		// ensure init set to true for init containers.
 		spec.InitContainers[i] = c
 	}
-	return spec.podSpec.Validate(VersionLegacy)
+	return spec.podSpecBase.Validate(VersionLegacy)
 }

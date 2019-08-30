@@ -2585,7 +2585,6 @@ func operatorConfigMap(appName, operatorName string, config *caas.OperatorConfig
 	}
 }
 
-// TODO: move this to ./specs??????????
 type workloadSpec struct {
 	Pod     core.PodSpec `json:"pod"`
 	Service *specs.ServiceSpec
@@ -2657,10 +2656,7 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec)
 			spec.Pod.RestartPolicy = pSpec.Pod.RestartPolicy
 			spec.Pod.ReadinessGates = pSpec.Pod.ReadinessGates
 		}
-		// spec.Pod.Hostname = pSpec.Hostname
-		// spec.Pod.Subdomain = pSpec.Subdomain
-		// spec.Pod.DNSConfig = pSpec.DNSConfig
-		// spec.Pod.PriorityClassName = pSpec.PriorityClassName
+
 		if pSpec.KubernetesResources != nil {
 			spec.CustomResourceDefinitions = pSpec.KubernetesResources.CustomResourceDefinitions
 		}

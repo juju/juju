@@ -286,12 +286,6 @@ echo "do some stuff here for gitlab-init container"
 					{ConditionType: core.PodScheduled},
 				},
 				DNSPolicy: "ClusterFirstWithHostNet",
-				// Hostname:          "host",
-				// Subdomain:         "sub",
-				// PriorityClassName: "top",
-				// DNSConfig: &core.PodDNSConfig{
-				// 	Nameservers: []string{"ns1", "ns2"},
-				// },
 			},
 
 			KubernetesResources: &k8sspecs.KubernetesResources{

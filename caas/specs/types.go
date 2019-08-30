@@ -24,6 +24,17 @@ type FileSet struct {
 	Files     map[string]string `yaml:"files" json:"files"`
 }
 
+// Validate validates FileSet.
+func (fs *FileSet) Validate() error {
+	if fs.Name == "" {
+		return errors.New("file set name is missing")
+	}
+	if fs.MountPath == "" {
+		return errors.Errorf("mount path is missing for file set %q", fs.Name)
+	}
+	return nil
+}
+
 // ContainerPort defines a port on a container.
 type ContainerPort struct {
 	Name          string `yaml:"name,omitempty" json:"name,omitempty"`
@@ -36,11 +47,6 @@ type ImageDetails struct {
 	ImagePath string `yaml:"imagePath" json:"imagePath"`
 	Username  string `yaml:"username,omitempty" json:"username,omitempty"`
 	Password  string `yaml:"password,omitempty" json:"password,omitempty"`
-}
-
-// ProviderContainer defines a provider specific container.
-type ProviderContainer interface {
-	Validate() error
 }
 
 // ContainerSpec defines the data values used to configure
@@ -64,6 +70,11 @@ type ContainerSpec struct {
 	ProviderContainer `yaml:"-"`
 }
 
+// ProviderContainer defines a provider specific container.
+type ProviderContainer interface {
+	Validate() error
+}
+
 // Validate is defined on ProviderContainer.
 func (spec *ContainerSpec) Validate() error {
 	if spec.Name == "" {
@@ -73,11 +84,8 @@ func (spec *ContainerSpec) Validate() error {
 		return errors.New("spec image details is missing")
 	}
 	for _, fs := range spec.Files {
-		if fs.Name == "" {
-			return errors.New("file set name is missing")
-		}
-		if fs.MountPath == "" {
-			return errors.Errorf("mount path is missing for file set %q", fs.Name)
+		if err := fs.Validate(); err != nil {
+			return errors.Trace(err)
 		}
 	}
 	if spec.ProviderContainer != nil {
@@ -100,9 +108,9 @@ type PodSpecVersion struct {
 	Version Version `json:"version,omitempty"`
 }
 
-// podSpec defines the data values used to configure
+// podSpecBase defines the data values used to configure
 // a pod on the CAAS substrate.
-type podSpec struct {
+type podSpecBase struct {
 	PodSpecVersion `yaml:",inline"`
 
 	// TODO(caas): remove OmitServiceFrontend later once we deprecate legacy version.
@@ -124,9 +132,9 @@ type ProviderPod interface {
 }
 
 // Validate returns an error if the spec is not valid.
-func (spec *podSpec) Validate(ver Version) error {
+func (spec *podSpecBase) Validate(ver Version) error {
 	if spec.Version != ver {
-		return errors.NewNotValid(nil, fmt.Sprintf("expected version %q, but found %q", ver, spec.Version))
+		return errors.NewNotValid(nil, fmt.Sprintf("expected version %d, but found %d", ver, spec.Version))
 	}
 
 	for _, c := range spec.Containers {

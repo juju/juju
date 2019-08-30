@@ -151,7 +151,6 @@ func ParsePodSpec(in string) (*specs.PodSpec, error) {
 type parserType func(string) (*specs.PodSpec, error)
 
 func getParser(specVersion specs.Version) (parserType, error) {
-	logger.Criticalf("getParser ---> %v", specVersion)
 	switch specVersion {
 	case specs.Version2:
 		return parsePodSpecV2, nil
