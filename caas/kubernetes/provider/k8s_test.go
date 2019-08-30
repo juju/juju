@@ -76,19 +76,21 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 	}
 
 	podSpec.ProviderPod = &k8sspecs.K8sPodSpec{
-		Pod: &k8sspecs.PodSpec{
-			RestartPolicy:                 core.RestartPolicyOnFailure,
-			ActiveDeadlineSeconds:         int64Ptr(10),
-			TerminationGracePeriodSeconds: int64Ptr(20),
-			SecurityContext: &core.PodSecurityContext{
-				RunAsNonRoot:       boolPtr(true),
-				SupplementalGroups: []int64{1, 2},
+		KubernetesResources: &k8sspecs.KubernetesResources{
+			Pod: &k8sspecs.PodSpec{
+				RestartPolicy:                 core.RestartPolicyOnFailure,
+				ActiveDeadlineSeconds:         int64Ptr(10),
+				TerminationGracePeriodSeconds: int64Ptr(20),
+				SecurityContext: &core.PodSecurityContext{
+					RunAsNonRoot:       boolPtr(true),
+					SupplementalGroups: []int64{1, 2},
+				},
+				Priority: int32Ptr(30),
+				ReadinessGates: []core.PodReadinessGate{
+					{ConditionType: core.PodInitialized},
+				},
+				DNSPolicy: core.DNSClusterFirst,
 			},
-			Priority: int32Ptr(30),
-			ReadinessGates: []core.PodReadinessGate{
-				{ConditionType: core.PodInitialized},
-			},
-			DNSPolicy: core.DNSClusterFirst,
 		},
 	}
 	podSpec.Containers = []specs.ContainerSpec{

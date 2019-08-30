@@ -45,8 +45,6 @@ func (p podSpecV2) ToLatest() *specs.PodSpec {
 // K8sPodSpecV2 is a subset of v1.PodSpec which defines
 // attributes we expose for charms to set.
 type K8sPodSpecV2 struct {
-	Pod *PodSpec `json:"pod,omitempty"`
-
 	// k8s resources.
 	KubernetesResources *KubernetesResources `json:"kubernetesResources,omitempty"`
 }
@@ -63,6 +61,8 @@ func (p *K8sPodSpecV2) Validate() error {
 
 // KubernetesResources is the k8s related resources.
 type KubernetesResources struct {
+	Pod *PodSpec `json:"pod,omitempty"`
+
 	Secrets                   []Secret                                                     `json:"secrets" yaml:"secrets"`
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `json:"customResourceDefinitions,omitempty" yaml:"customResourceDefinitions,omitempty"`
 }

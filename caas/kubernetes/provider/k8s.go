@@ -2707,18 +2707,19 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec)
 		if !ok {
 			return nil, errors.Errorf("unexpected kubernetes pod spec type %T", podSpec.ProviderPod)
 		}
-		if pSpec.Pod != nil {
-			spec.Pod.ActiveDeadlineSeconds = pSpec.Pod.ActiveDeadlineSeconds
-			spec.Pod.TerminationGracePeriodSeconds = pSpec.Pod.TerminationGracePeriodSeconds
-			spec.Pod.DNSPolicy = pSpec.Pod.DNSPolicy
-			spec.Pod.Priority = pSpec.Pod.Priority
-			spec.Pod.SecurityContext = pSpec.Pod.SecurityContext
-			spec.Pod.RestartPolicy = pSpec.Pod.RestartPolicy
-			spec.Pod.ReadinessGates = pSpec.Pod.ReadinessGates
-		}
 
-		if pSpec.KubernetesResources != nil {
-			spec.CustomResourceDefinitions = pSpec.KubernetesResources.CustomResourceDefinitions
+		k8sResources := pSpec.KubernetesResources
+		if k8sResources != nil {
+			spec.CustomResourceDefinitions = k8sResources.CustomResourceDefinitions
+			if k8sResources.Pod != nil {
+				spec.Pod.ActiveDeadlineSeconds = k8sResources.Pod.ActiveDeadlineSeconds
+				spec.Pod.TerminationGracePeriodSeconds = k8sResources.Pod.TerminationGracePeriodSeconds
+				spec.Pod.DNSPolicy = k8sResources.Pod.DNSPolicy
+				spec.Pod.Priority = k8sResources.Pod.Priority
+				spec.Pod.SecurityContext = k8sResources.Pod.SecurityContext
+				spec.Pod.RestartPolicy = k8sResources.Pod.RestartPolicy
+				spec.Pod.ReadinessGates = k8sResources.Pod.ReadinessGates
+			}
 		}
 
 		sa := spec.ServiceAccount

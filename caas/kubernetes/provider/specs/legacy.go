@@ -89,15 +89,15 @@ func (p podSpecLegacy) ToLatest() *specs.PodSpec {
 	pSpec.ProviderPod = &K8sPodSpec{
 		KubernetesResources: &KubernetesResources{
 			CustomResourceDefinitions: p.k8sSpec.CustomResourceDefinitions,
-		},
-		Pod: &PodSpec{
-			RestartPolicy:                 p.k8sSpec.RestartPolicy,
-			ActiveDeadlineSeconds:         p.k8sSpec.ActiveDeadlineSeconds,
-			TerminationGracePeriodSeconds: p.k8sSpec.TerminationGracePeriodSeconds,
-			SecurityContext:               p.k8sSpec.SecurityContext,
-			Priority:                      p.k8sSpec.Priority,
-			ReadinessGates:                p.k8sSpec.ReadinessGates,
-			DNSPolicy:                     p.k8sSpec.DNSPolicy,
+			Pod: &PodSpec{
+				RestartPolicy:                 p.k8sSpec.RestartPolicy,
+				ActiveDeadlineSeconds:         p.k8sSpec.ActiveDeadlineSeconds,
+				TerminationGracePeriodSeconds: p.k8sSpec.TerminationGracePeriodSeconds,
+				SecurityContext:               p.k8sSpec.SecurityContext,
+				Priority:                      p.k8sSpec.Priority,
+				ReadinessGates:                p.k8sSpec.ReadinessGates,
+				DNSPolicy:                     p.k8sSpec.DNSPolicy,
+			},
 		},
 	}
 	return pSpec

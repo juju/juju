@@ -115,17 +115,6 @@ configMaps:
 service:
   annotations:
     foo: bar
-pod:
-  restartPolicy: OnFailure
-  activeDeadlineSeconds: 10
-  terminationGracePeriodSeconds: 20
-  securityContext:
-    runAsNonRoot: true
-    supplementalGroups: [1,2]
-  priority: 30
-  readinessGates:
-    - conditionType: PodScheduled
-  dnsPolicy: ClusterFirstWithHostNet
 serviceAccount:
   name: build-robot
   automountServiceAccountToken: true
@@ -141,6 +130,17 @@ serviceAccount:
         resources: ["pods"]
         verbs: ["get", "watch", "list"]
 kubernetesResources:
+  pod:
+    restartPolicy: OnFailure
+    activeDeadlineSeconds: 10
+    terminationGracePeriodSeconds: 20
+    securityContext:
+      runAsNonRoot: true
+      supplementalGroups: [1,2]
+    priority: 30
+    readinessGates:
+      - conditionType: PodScheduled
+    dnsPolicy: ClusterFirstWithHostNet
   secrets:
     - name: build-robot-secret
       annotations:
@@ -327,21 +327,21 @@ echo "do some stuff here for gitlab-init container"
 		}
 
 		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
-			Pod: &k8sspecs.PodSpec{
-				ActiveDeadlineSeconds:         int64Ptr(10),
-				RestartPolicy:                 core.RestartPolicyOnFailure,
-				TerminationGracePeriodSeconds: int64Ptr(20),
-				SecurityContext: &core.PodSecurityContext{
-					RunAsNonRoot:       boolPtr(true),
-					SupplementalGroups: []int64{1, 2},
-				},
-				Priority: int32Ptr(30),
-				ReadinessGates: []core.PodReadinessGate{
-					{ConditionType: core.PodScheduled},
-				},
-				DNSPolicy: "ClusterFirstWithHostNet",
-			},
 			KubernetesResources: &k8sspecs.KubernetesResources{
+				Pod: &k8sspecs.PodSpec{
+					ActiveDeadlineSeconds:         int64Ptr(10),
+					RestartPolicy:                 core.RestartPolicyOnFailure,
+					TerminationGracePeriodSeconds: int64Ptr(20),
+					SecurityContext: &core.PodSecurityContext{
+						RunAsNonRoot:       boolPtr(true),
+						SupplementalGroups: []int64{1, 2},
+					},
+					Priority: int32Ptr(30),
+					ReadinessGates: []core.PodReadinessGate{
+						{ConditionType: core.PodScheduled},
+					},
+					DNSPolicy: "ClusterFirstWithHostNet",
+				},
 				Secrets: []k8sspecs.Secret{
 					{
 						Name: "build-robot-secret",

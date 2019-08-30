@@ -266,23 +266,21 @@ echo "do some stuff here for gitlab-init container"
 			Annotations: map[string]string{"foo": "bar"},
 		}
 		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
-			Pod: &k8sspecs.PodSpec{
-				RestartPolicy:                 core.RestartPolicyOnFailure,
-				ActiveDeadlineSeconds:         int64Ptr(10),
-				TerminationGracePeriodSeconds: int64Ptr(20),
-				SecurityContext: &core.PodSecurityContext{
-					RunAsNonRoot:       boolPtr(true),
-					SupplementalGroups: []int64{1, 2},
-				},
-				Priority: int32Ptr(30),
-				ReadinessGates: []core.PodReadinessGate{
-					{ConditionType: core.PodScheduled},
-				},
-				DNSPolicy: "ClusterFirstWithHostNet",
-			},
-
 			KubernetesResources: &k8sspecs.KubernetesResources{
-
+				Pod: &k8sspecs.PodSpec{
+					RestartPolicy:                 core.RestartPolicyOnFailure,
+					ActiveDeadlineSeconds:         int64Ptr(10),
+					TerminationGracePeriodSeconds: int64Ptr(20),
+					SecurityContext: &core.PodSecurityContext{
+						RunAsNonRoot:       boolPtr(true),
+						SupplementalGroups: []int64{1, 2},
+					},
+					Priority: int32Ptr(30),
+					ReadinessGates: []core.PodReadinessGate{
+						{ConditionType: core.PodScheduled},
+					},
+					DNSPolicy: "ClusterFirstWithHostNet",
+				},
 				CustomResourceDefinitions: map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
 					"tfjobs.kubeflow.org": {
 						Group:   "kubeflow.org",
