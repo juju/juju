@@ -69,9 +69,10 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, cfg.AgentStream(), cfg.AgentStream())
 	err = bootstrap.Bootstrap(ctx, env, context.NewCloudCallContext(), bootstrap.BootstrapParams{
-		ControllerConfig: controllerCfg,
-		AdminSecret:      "admin-secret",
-		CAPrivateKey:     testing.CAKey,
+		ControllerConfig:         controllerCfg,
+		AdminSecret:              "admin-secret",
+		CAPrivateKey:             testing.CAKey,
+		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

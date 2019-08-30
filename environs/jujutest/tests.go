@@ -204,11 +204,12 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 			Regions:   regions,
 			Endpoint:  t.CloudEndpoint,
 		},
-		CloudRegion:         t.CloudRegion,
-		CloudCredential:     &credential,
-		CloudCredentialName: "credential",
-		AdminSecret:         AdminSecret,
-		CAPrivateKey:        coretesting.CAKey,
+		CloudRegion:              t.CloudRegion,
+		CloudCredential:          &credential,
+		CloudCredentialName:      "credential",
+		AdminSecret:              AdminSecret,
+		CAPrivateKey:             coretesting.CAKey,
+		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 	}
 
 	e := t.Prepare(c)

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/os/series"
 	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/caas"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/juju/version"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -157,7 +157,7 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 		logger.Infof("no model found, creating image metadata using user supplied data")
 	}
 	if c.Series == "" {
-		c.Series = version.SupportedLTS()
+		c.Series = series.DefaultSupportedLTS()
 	}
 	if c.ImageId == "" {
 		return errors.Errorf("image id must be specified")

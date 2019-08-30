@@ -114,7 +114,7 @@ var supportedJujuSeries = func() []string {
 	// after reading the `/usr/share/distro-info/ubuntu.csv` on the Ubuntu distro
 	// the non-LTS should disapear if they're not in the release window for that
 	// series.
-	supportedJujuSeries := set.NewStrings(series.SupportedJujuSeries()...)
+	supportedJujuSeries := set.NewStrings(series.SupportedJujuWorkloadSeries()...)
 	esmSupportedJujuSeries := set.NewStrings(series.ESMSupportedJujuSeries()...)
 	return supportedJujuSeries.Union(esmSupportedJujuSeries).Values()
 }
@@ -1702,16 +1702,6 @@ func (c *DeployCommand) validateCharmSeriesWithName(series, name string) error {
 func charmValidationError(charmSeries, name string, err error) error {
 	if err != nil {
 		if errors.IsNotSupported(err) {
-			// output the warning information to help track down the error.
-			// see: lp:1833763
-			if warningInfo := series.SeriesWarningInfo(charmSeries); len(warningInfo) > 0 {
-				logger.Warningf(
-					"Parsing issues occurred when extracting the distro-info.\n\n"+
-						"  - %s\n"+
-						"\nYou may want to try updating your distro-info using `apt-get update distro-info`\n",
-					strings.Join(warningInfo, "\n  - "),
-				)
-			}
 			return errors.Errorf("%v is not available on the following %v", name, err)
 		}
 		return errors.Trace(err)
