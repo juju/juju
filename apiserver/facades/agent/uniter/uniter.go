@@ -2000,28 +2000,31 @@ func (u *UniterAPI) getRelationAppSettings(canAccess common.AuthFunc, relTag str
 
 func (u *UniterAPI) getRemoteRelationAppSettings(rel *state.Relation, appTag names.ApplicationTag) (map[string]interface{}, error) {
 	// Check that the application is actually remote.
-	var localAppTag names.ApplicationTag
+	var localAppName string
 	switch tag := u.auth.GetAuthTag().(type) {
 	case names.UnitTag:
 		unit, err := u.st.Unit(tag.Id())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		app, err := unit.Application()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		localAppTag = app.ApplicationTag()
+		localAppName = unit.ApplicationName()
 	case names.ApplicationTag:
-		localAppTag = tag
+		localAppName = tag.Id()
 	}
-	if localAppTag == appTag {
+	relatedEPs, err := rel.RelatedEndpoints(localAppName)
+	if err != nil {
 		return nil, common.ErrPerm
 	}
 
-	// Check that the application is actually related.
-	_, err := rel.Endpoint(appTag.Id())
-	if err != nil {
+	var isRelatedToLocalApp bool
+	for _, ep := range relatedEPs {
+		if appTag.Id() == ep.ApplicationName {
+			isRelatedToLocalApp = true
+			break
+		}
+	}
+
+	if !isRelatedToLocalApp {
 		return nil, common.ErrPerm
 	}
 
