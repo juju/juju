@@ -14,7 +14,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -77,9 +77,9 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
 	// Ensure there's one and only one controller.
-	controllerInfo, err := st.ControllerInfo()
+	controllerIds, err := st.ControllerIds()
 	c.Assert(err, jc.ErrorIsNil)
-	needController := len(controllerInfo.MachineIds) == 0
+	needController := len(controllerIds) == 0
 	if needController {
 		_, err = st.EnableHA(1, constraints.Value{}, "quantal", []string{m.Id()})
 		c.Assert(err, jc.ErrorIsNil)

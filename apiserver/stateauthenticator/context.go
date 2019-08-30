@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
@@ -160,14 +160,15 @@ func (a authenticator) authenticatorForTag(tag names.Tag) (authentication.Entity
 		}
 		return auth, nil
 	}
-	switch tag.Kind() {
-	case names.UnitTagKind, names.MachineTagKind, names.ApplicationTagKind:
-		return &a.ctxt.agentAuth, nil
-	case names.UserTagKind:
-		return a.localUserAuth(), nil
-	default:
-		return nil, errors.Annotatef(common.ErrBadRequest, "unexpected login entity tag")
+	for _, agentKind := range AgentTags {
+		if tag.Kind() == agentKind {
+			return &a.ctxt.agentAuth, nil
+		}
 	}
+	if tag.Kind() == names.UserTagKind {
+		return a.localUserAuth(), nil
+	}
+	return nil, errors.Annotatef(common.ErrBadRequest, "unexpected login entity tag")
 }
 
 // localUserAuth returns an authenticator that can authenticate logins for

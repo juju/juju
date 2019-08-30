@@ -5,12 +5,11 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	uniter "github.com/juju/juju/apiserver/facades/agent/uniter"
 	state "github.com/juju/juju/state"
-	names_v2 "gopkg.in/juju/names.v2"
+	names_v3 "gopkg.in/juju/names.v3"
+	reflect "reflect"
 )
 
 // MockLXDProfileBackend is a mock of LXDProfileBackend interface
@@ -85,18 +84,6 @@ func (m *MockLXDProfileMachine) EXPECT() *MockLXDProfileMachineMockRecorder {
 	return m.recorder
 }
 
-// RemoveUpgradeCharmProfileData mocks base method
-func (m *MockLXDProfileMachine) RemoveUpgradeCharmProfileData(arg0 string) error {
-	ret := m.ctrl.Call(m, "RemoveUpgradeCharmProfileData", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveUpgradeCharmProfileData indicates an expected call of RemoveUpgradeCharmProfileData
-func (mr *MockLXDProfileMachineMockRecorder) RemoveUpgradeCharmProfileData(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUpgradeCharmProfileData", reflect.TypeOf((*MockLXDProfileMachine)(nil).RemoveUpgradeCharmProfileData), arg0)
-}
-
 // WatchLXDProfileUpgradeNotifications mocks base method
 func (m *MockLXDProfileMachine) WatchLXDProfileUpgradeNotifications(arg0 string) (state.StringsWatcher, error) {
 	ret := m.ctrl.Call(m, "WatchLXDProfileUpgradeNotifications", arg0)
@@ -159,9 +146,9 @@ func (mr *MockLXDProfileUnitMockRecorder) Name() *gomock.Call {
 }
 
 // Tag mocks base method
-func (m *MockLXDProfileUnit) Tag() names_v2.Tag {
+func (m *MockLXDProfileUnit) Tag() names_v3.Tag {
 	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(names_v2.Tag)
+	ret0, _ := ret[0].(names_v3.Tag)
 	return ret0
 }
 

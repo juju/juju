@@ -274,7 +274,7 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		Zones:    []string{"any", "ignored"},
 	}, {
 		// both tag and id set; same as above
-		SubnetTag:        "any",
+		CIDR:             "any",
 		SubnetProviderId: "any",
 	}, {
 		// lookup by id needed, no cached subnets; ModelConfig(): error
@@ -305,19 +305,16 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		SpaceTag:         "unit-foo-0",
 	}, {
 		// invalid tag (no kind): error (no calls)
-		SubnetTag: "invalid",
-	}, {
-		// invalid subnet tag (another kind): same as above
-		SubnetTag: "application-bar",
+		CIDR: "invalid",
 	}, {
 		// cached lookup by missing CIDR: not found error
-		SubnetTag: "subnet-1.2.3.0/24",
+		CIDR: "1.2.3.0/24",
 	}, {
 		// cached lookup by duplicate CIDR: multiple choices error
-		SubnetTag: "subnet-10.10.0.0/24",
+		CIDR: "10.10.0.0/24",
 	}, {
 		// cached lookup by CIDR with empty provider id: ok; space tag is required error
-		SubnetTag: "subnet-10.20.0.0/16",
+		CIDR: "10.20.0.0/16",
 	}, {
 		// cached lookup by id with invalid CIDR: cannot be added error
 		SubnetProviderId: "sn-invalid",
@@ -329,16 +326,16 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		SubnetProviderId: "sn-awesome",
 	}, {
 		// cached lookup by CIDR: ok; valid tag; caching spaces: AllSpaces(): error
-		SubnetTag: "subnet-10.30.1.0/24",
-		SpaceTag:  "space-unverified",
+		CIDR:     "10.30.1.0/24",
+		SpaceTag: "space-unverified",
 	}, {
 		// exactly as above, except AllSpaces(): ok; cached lookup: space not found
-		SubnetTag: "subnet-2001:db8::/32",
-		SpaceTag:  "space-missing",
+		CIDR:     "2001:db8::/32",
+		SpaceTag: "space-missing",
 	}, {
 		// both cached lookups (CIDR, space): ok; no provider or given zones: error
-		SubnetTag: "subnet-10.42.0.0/16",
-		SpaceTag:  "space-dmz",
+		CIDR:     "10.42.0.0/16",
+		SpaceTag: "space-dmz",
 	}, {
 		// like above; with provider zones, extra given: error
 		SubnetProviderId: "vlan-42",
@@ -352,29 +349,29 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		},
 	}, {
 		// like above; no provider, only given zones; caching: AllZones(): error
-		SubnetTag: "subnet-10.42.0.0/16",
-		SpaceTag:  "space-dmz",
-		Zones:     []string{"any", "ignored"},
+		CIDR:     "10.42.0.0/16",
+		SpaceTag: "space-dmz",
+		Zones:    []string{"any", "ignored"},
 	}, {
 		// as above, but unknown zones given: cached: AllZones(): ok; unknown zones error
-		SubnetTag: "subnet-10.42.0.0/16",
-		SpaceTag:  "space-dmz",
-		Zones:     []string{"missing", "gone"},
+		CIDR:     "10.42.0.0/16",
+		SpaceTag: "space-dmz",
+		Zones:    []string{"missing", "gone"},
 	}, {
 		// as above, but unknown and unavailable zones given: same error (no calls)
-		SubnetTag: "subnet-10.42.0.0/16",
-		SpaceTag:  "space-dmz",
-		Zones:     []string{"zone4", "missing", "zone2"},
+		CIDR:     "10.42.0.0/16",
+		SpaceTag: "space-dmz",
+		Zones:    []string{"zone4", "missing", "zone2"},
 	}, {
 		// as above, but unavailable zones given: Zones contains unavailable error
-		SubnetTag: "subnet-10.42.0.0/16",
-		SpaceTag:  "space-dmz",
-		Zones:     []string{"zone2", "zone4"},
+		CIDR:     "10.42.0.0/16",
+		SpaceTag: "space-dmz",
+		Zones:    []string{"zone2", "zone4"},
 	}, {
 		// as above, but available and unavailable zones given: same error as above
-		SubnetTag: "subnet-10.42.0.0/16",
-		SpaceTag:  "space-dmz",
-		Zones:     []string{"zone4", "zone3"},
+		CIDR:     "10.42.0.0/16",
+		SpaceTag: "space-dmz",
+		Zones:    []string{"zone4", "zone3"},
 	}, {
 		// everything succeeds, using caches as needed, until: AddSubnet(): error
 		SubnetProviderId: "sn-ipv6",
@@ -383,9 +380,9 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		// restriction of provider zones [zone1, zone3]
 	}, {
 		// cached lookups by CIDR, space: ok; duplicated provider id: unavailable zone2
-		SubnetTag: "subnet-10.99.88.0/24",
-		SpaceTag:  "space-dmz",
-		Zones:     []string{"zone2"},
+		CIDR:     "10.99.88.0/24",
+		SpaceTag: "space-dmz",
+		Zones:    []string{"zone2"},
 		// due to the duplicate ProviderId provider zones from subnet
 		// with the last ProviderId=sn-deadbeef are used
 		// (10.10.0.0/24); [zone2], not the 10.99.88.0/24 provider
@@ -398,8 +395,8 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		// restriction of provider zones [zone1, zone3]
 	}, {
 		// success (CIDR lookup; with provider (no given) zones): AddSubnet(): ok
-		SubnetTag: "subnet-10.30.1.0/24",
-		SpaceTag:  "space-private",
+		CIDR:     "10.30.1.0/24",
+		SpaceTag: "space-private",
 		// Zones not given, so provider zones are used instead: [zone3]
 	}, {
 		// success (id lookup; given zones match provider zones) AddSubnet(): ok
@@ -445,9 +442,9 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		message   string
 		satisfier func(error) bool
 	}{
-		{"either SubnetTag or SubnetProviderId is required", nil},
-		{"either SubnetTag or SubnetProviderId is required", nil},
-		{"SubnetTag and SubnetProviderId cannot be both set", nil},
+		{"either CIDR or SubnetProviderId is required", nil},
+		{"either CIDR or SubnetProviderId is required", nil},
+		{"CIDR and SubnetProviderId cannot be both set", nil},
 		{"opening environment: config not found", params.IsCodeNotFound},
 		{"opening environment: provider not found", params.IsCodeNotFound},
 		{"cannot get provider subnets: subnets not found", params.IsCodeNotFound},
@@ -456,8 +453,7 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		{`given SpaceTag is invalid: "invalid" is not a valid tag`, nil},
 		{`given SpaceTag is invalid: "unit-foo" is not a valid unit tag`, nil},
 		{`given SpaceTag is invalid: "unit-foo-0" is not a valid space tag`, nil},
-		{`given SubnetTag is invalid: "invalid" is not a valid tag`, nil},
-		{`given SubnetTag is invalid: "application-bar" is not a valid subnet tag`, nil},
+		{`"invalid" is not a valid CIDR`, nil},
 		{`subnet with CIDR "1.2.3.0/24" not found`, params.IsCodeNotFound},
 		{
 			`multiple subnets with CIDR "10.10.0.0/24": ` +
@@ -685,9 +681,9 @@ func (s *SubnetsSuite) CheckAddSubnetsFails(
 	// Pass 2 arguments covering all cases we need.
 	args := params.AddSubnetsParams{
 		Subnets: []params.AddSubnetParams{{
-			SubnetTag: "subnet-10.42.0.0/16",
-			SpaceTag:  "space-dmz",
-			Zones:     []string{"zone1"},
+			CIDR:     "10.42.0.0/16",
+			SpaceTag: "space-dmz",
+			Zones:    []string{"zone1"},
 		}, {
 			SubnetProviderId: "vlan-42",
 			SpaceTag:         "space-private",

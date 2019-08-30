@@ -20,7 +20,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
@@ -136,6 +136,17 @@ func (s *RunTestSuite) runCommand() *RunCommand {
 	return &RunCommand{
 		MachineLock: s.machinelock,
 	}
+}
+
+func (s *RunTestSuite) TestInferredUnit(c *gc.C) {
+	dataDir := c.MkDir()
+	runCommand := &RunCommand{dataDir: dataDir}
+	err := os.MkdirAll(filepath.Join(dataDir, "agents", "unit-foo-66"), 0700)
+	c.Assert(err, jc.ErrorIsNil)
+	err = cmdtesting.InitCommand(runCommand, []string{"status-get"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(runCommand.unit.String(), gc.Equals, "unit-foo-66")
+	c.Assert(runCommand.commands, gc.Equals, "status-get")
 }
 
 func (s *RunTestSuite) TestInsideContext(c *gc.C) {
@@ -318,12 +329,9 @@ func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
 		socket.Network = "unix"
 		socket.Address = fmt.Sprintf("%s/run.socket", agentDir)
 	}
-	listener, err := uniter.NewRunListener(uniter.RunListenerConfig{
-		Socket:        &socket,
-		CommandRunner: &mockRunner{c},
-	})
+	listener, err := uniter.NewRunListener(socket)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(listener, gc.NotNil)
+	listener.RegisterRunner("foo/1", &mockRunner{c})
 	s.AddCleanup(func(*gc.C) {
 		c.Assert(listener.Close(), jc.ErrorIsNil)
 	})

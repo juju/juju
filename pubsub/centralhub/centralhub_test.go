@@ -9,7 +9,7 @@ import (
 	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/testing"
@@ -28,14 +28,14 @@ func (*CentralHubSuite) waitForSubscribers(c *gc.C, done <-chan struct{}) {
 }
 
 func (s *CentralHubSuite) TestSetsOrigin(c *gc.C) {
-	hub := centralhub.New(names.NewMachineTag("42"))
+	hub := centralhub.New(names.NewControllerAgentTag("42"))
 	topic := "testing"
 	var called bool
 	unsub, err := hub.SubscribeMatch(pubsub.MatchAll, func(t string, data map[string]interface{}) {
 		c.Check(t, gc.Equals, topic)
 		expected := map[string]interface{}{
 			"key":    "value",
-			"origin": "machine-42",
+			"origin": "controller-42",
 		}
 		c.Check(data, jc.DeepEquals, expected)
 		called = true

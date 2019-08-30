@@ -6,6 +6,7 @@ package featuretests
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/juju/cmd"
@@ -19,6 +20,7 @@ import (
 	jujudagent "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -149,8 +151,19 @@ var (
 	}
 )
 
+func sockPath(c *gc.C) sockets.Socket {
+	sockPath := filepath.Join(c.MkDir(), "test.listener")
+	if runtime.GOOS == "windows" {
+		return sockets.Socket{Address: `\\.\pipe` + sockPath[2:], Network: "unix"}
+	}
+	return sockets.Socket{Address: sockPath, Network: "unix"}
+}
+
 func (s *CAASOperatorSuite) newCaasOperatorAgent(c *gc.C, ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter) (*jujudagent.CaasOperatorAgent, error) {
-	a, err := jujudagent.NewCaasOperatorAgent(ctx, s.newBufferedLogWriter(), newExecClient)
+	a, err := jujudagent.NewCaasOperatorAgent(ctx, s.newBufferedLogWriter(), newExecClient, func() (*sockets.Socket, error) {
+		socket := sockPath(c)
+		return &socket, nil
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return a, nil
 }

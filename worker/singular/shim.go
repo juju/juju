@@ -5,7 +5,7 @@ package singular
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
@@ -15,7 +15,7 @@ import (
 // NewFacade creates a Facade from an APICaller and an entity for which
 // administrative control will be claimed. It's a suitable default value
 // for ManifoldConfig.NewFacade.
-func NewFacade(apiCaller base.APICaller, claimant names.MachineTag, entity names.Tag) (Facade, error) {
+func NewFacade(apiCaller base.APICaller, claimant names.Tag, entity names.Tag) (Facade, error) {
 	facade, err := singular.NewAPI(apiCaller, claimant, entity)
 	if err != nil {
 		return nil, errors.Trace(err)

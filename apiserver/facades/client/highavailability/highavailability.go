@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -102,7 +102,7 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 		return params.ControllersChanges{}, errors.Trace(err)
 	}
 
-	cInfo, err := st.ControllerInfo()
+	controllerIds, err := st.ControllerIds()
 	if err != nil {
 		return params.ControllersChanges{}, err
 	}
@@ -110,7 +110,7 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 	// If there were no supplied constraints, use the original bootstrap
 	// constraints.
 	if constraints.IsEmpty(&spec.Constraints) || spec.Series == "" {
-		referenceMachine, err := getReferenceController(st, cInfo.MachineIds)
+		referenceMachine, err := getReferenceController(st, controllerIds)
 		if err != nil {
 			return params.ControllersChanges{}, errors.Trace(err)
 		}
@@ -132,7 +132,7 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 	if err != nil {
 		return params.ControllersChanges{}, errors.Annotate(err, "retrieving controller config")
 	}
-	if err = validateCurrentControllers(st, cfg, cInfo.MachineIds); err != nil {
+	if err = validateCurrentControllers(st, cfg, controllerIds); err != nil {
 		return params.ControllersChanges{}, errors.Trace(err)
 	}
 	spec.Constraints.Spaces = cfg.AsSpaceConstraints(spec.Constraints.Spaces)
@@ -150,23 +150,23 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 }
 
 // getReferenceController looks up the ideal controller to use as a reference for Constraints and Series
-func getReferenceController(st *state.State, machineIds []string) (*state.Machine, error) {
+func getReferenceController(st *state.State, controllerIds []string) (*state.Machine, error) {
 	// Sort the controller IDs from low to high and take the first.
 	// This will typically give the initial bootstrap machine.
-	var controllerIds []int
-	for _, id := range machineIds {
+	var controllerNumbers []int
+	for _, id := range controllerIds {
 		idNum, err := strconv.Atoi(id)
 		if err != nil {
 			logger.Warningf("ignoring non numeric controller id %v", id)
 			continue
 		}
-		controllerIds = append(controllerIds, idNum)
+		controllerNumbers = append(controllerNumbers, idNum)
 	}
-	if len(controllerIds) == 0 {
+	if len(controllerNumbers) == 0 {
 		return nil, errors.Errorf("internal error; failed to find any controllers")
 	}
-	sort.Ints(controllerIds)
-	controllerId := controllerIds[0]
+	sort.Ints(controllerNumbers)
+	controllerId := controllerNumbers[0]
 
 	// Load the controller machine and get its constraints.
 	cm, err := st.Machine(strconv.Itoa(controllerId))

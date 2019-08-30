@@ -5,7 +5,7 @@ package caasfirewaller_test
 
 import (
 	"github.com/juju/testing"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/core/application"

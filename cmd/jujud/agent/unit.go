@@ -13,7 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/voyeur"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -204,6 +204,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		UpgradeStepsLock:     a.upgradeComplete,
 		UpgradeCheckLock:     a.initialUpgradeCheckComplete,
 		MachineLock:          machineLock,
+		Clock:                clock.WallClock,
 	})
 
 	engine, err := dependency.NewEngine(dependencyEngineConfig())

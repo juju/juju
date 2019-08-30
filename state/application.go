@@ -21,7 +21,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -2387,11 +2387,24 @@ func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 	// There's no compelling reason to have these methods on Application -- and
 	// thus require an extra db read to access them -- but it stops the State
 	// type getting even more cluttered.
+	key := leadershipSettingsKey(a.doc.Name)
+	converted := make(map[string]interface{}, len(updates))
+	for k, v := range updates {
+		converted[k] = v
+	}
+	err := updateLeaderSettings(a.st.db(), token, key, converted)
+	if errors.IsNotFound(err) {
+		return errors.NotFoundf("application %q", a.doc.Name)
+	} else if err != nil {
+		return errors.Annotatef(err, "application %q", a.doc.Name)
+	}
+	return nil
+}
 
+func updateLeaderSettings(db Database, token leadership.Token, key string, updates map[string]interface{}) error {
 	// We can calculate the actual update ahead of time; it's not dependent
 	// upon the current state of the document. (*Writing* it should depend
 	// on document state, but that's handled below.)
-	key := leadershipSettingsKey(a.doc.Name)
 	sets := bson.M{}
 	unsets := bson.M{}
 	for unescapedKey, value := range updates {
@@ -2422,11 +2435,9 @@ func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 		// Read the current document state so we can abort if there's
 		// no actual change; and the version number so we can assert
 		// on it and prevent these settings from landing late.
-		doc, err := readSettingsDoc(a.st.db(), settingsC, key)
-		if errors.IsNotFound(err) {
-			return nil, errors.NotFoundf("application %q", a.doc.Name)
-		} else if err != nil {
-			return nil, errors.Annotatef(err, "application %q", a.doc.Name)
+		doc, err := readSettingsDoc(db, settingsC, key)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 		if isNullChange(doc.Settings) {
 			return nil, jujutxn.ErrNoOperations
@@ -2438,7 +2449,7 @@ func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 			Update: update,
 		}}, nil
 	}
-	return a.st.db().Run(buildTxnWithLeadership(buildTxn, token))
+	return db.Run(buildTxnWithLeadership(buildTxn, token))
 }
 
 var ErrSubordinateConstraints = stderrors.New("constraints do not apply to subordinate applications")

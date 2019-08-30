@@ -5,7 +5,7 @@ package instancemutater
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
@@ -17,7 +17,7 @@ import (
 
 //go:generate mockgen -package mocks -destination mocks/instancebroker_mock.go github.com/juju/juju/worker/instancemutater InstanceMutaterAPI
 //go:generate mockgen -package mocks -destination mocks/logger_mock.go github.com/juju/juju/worker/instancemutater Logger
-//go:generate mockgen -package mocks -destination mocks/namestag_mock.go gopkg.in/juju/names.v2 Tag
+//go:generate mockgen -package mocks -destination mocks/namestag_mock.go gopkg.in/juju/names.v3 Tag
 //go:generate mockgen -package mocks -destination mocks/machinemutater_mock.go github.com/juju/juju/api/instancemutater MutaterMachine
 
 type InstanceMutaterAPI interface {
@@ -153,11 +153,9 @@ func newWorker(config Config) (*mutaterWorker, error) {
 	err = catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: w.loop,
+		Init: []worker.Worker{watcher},
 	})
 	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := w.catacomb.Add(watcher); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return w, nil

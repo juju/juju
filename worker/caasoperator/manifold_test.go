@@ -13,7 +13,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 	dt "gopkg.in/juju/worker.v1/dependency/testing"
@@ -155,12 +155,14 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config.LeadershipTrackerFunc, gc.NotNil)
 	c.Assert(config.UniterFacadeFunc, gc.NotNil)
 	c.Assert(config.StartUniterFunc, gc.NotNil)
+	c.Assert(config.RunListenerSocketFunc, gc.NotNil)
 	c.Assert(config.UniterParams.UpdateStatusSignal, gc.NotNil)
 	c.Assert(config.UniterParams.NewOperationExecutor, gc.NotNil)
 	c.Assert(config.UniterParams.NewRemoteRunnerExecutor, gc.NotNil)
 	config.LeadershipTrackerFunc = nil
 	config.StartUniterFunc = nil
 	config.UniterFacadeFunc = nil
+	config.RunListenerSocketFunc = nil
 	config.UniterParams.UpdateStatusSignal = nil
 	config.UniterParams.NewOperationExecutor = nil
 	config.UniterParams.NewRemoteRunnerExecutor = nil

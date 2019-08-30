@@ -17,7 +17,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/loggo/loggocolor"
 	"github.com/mattn/go-isatty"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/common"
 	jujucmd "github.com/juju/juju/cmd"

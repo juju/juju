@@ -7,7 +7,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -62,7 +62,7 @@ func (s *ManifoldSuite) TestNonMachineAgent(c *gc.C) {
 		identityfilewriter.Manifold(config),
 		&fakeAgent{tag: names.NewUnitTag("foo/0")},
 		mockAPICaller(""))
-	c.Assert(err, gc.ErrorMatches, "this manifold may only be used inside a machine agent")
+	c.Assert(err, gc.ErrorMatches, "this manifold may only be used inside a machine or controller agent")
 	c.Assert(s.newCalled, jc.IsFalse)
 }
 

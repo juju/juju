@@ -6,7 +6,7 @@ package testing
 import (
 	"strings"
 
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/permission"
 )
@@ -30,8 +30,10 @@ func (fa FakeAuthorizer) AuthController() bool {
 
 // AuthMachineAgent returns whether the current client is a machine agent.
 func (fa FakeAuthorizer) AuthMachineAgent() bool {
+	// TODO(controlleragent) - add AuthControllerAgent function
 	_, isMachine := fa.GetAuthTag().(names.MachineTag)
-	return isMachine
+	_, isController := fa.GetAuthTag().(names.ControllerAgentTag)
+	return isMachine || isController
 }
 
 // AuthApplicationAgent returns whether the current client is an application operator.

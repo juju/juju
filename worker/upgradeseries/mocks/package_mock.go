@@ -5,13 +5,12 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	model "github.com/juju/juju/core/model"
 	watcher "github.com/juju/juju/core/watcher"
 	upgradeseries "github.com/juju/juju/worker/upgradeseries"
-	names_v2 "gopkg.in/juju/names.v2"
+	names_v3 "gopkg.in/juju/names.v3"
+	reflect "reflect"
 )
 
 // MockFacade is a mock of Facade interface
@@ -113,9 +112,9 @@ func (mr *MockFacadeMockRecorder) TargetSeries() *gomock.Call {
 }
 
 // UnitsCompleted mocks base method
-func (m *MockFacade) UnitsCompleted() ([]names_v2.UnitTag, error) {
+func (m *MockFacade) UnitsCompleted() ([]names_v3.UnitTag, error) {
 	ret := m.ctrl.Call(m, "UnitsCompleted")
-	ret0, _ := ret[0].([]names_v2.UnitTag)
+	ret0, _ := ret[0].([]names_v3.UnitTag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -126,9 +125,9 @@ func (mr *MockFacadeMockRecorder) UnitsCompleted() *gomock.Call {
 }
 
 // UnitsPrepared mocks base method
-func (m *MockFacade) UnitsPrepared() ([]names_v2.UnitTag, error) {
+func (m *MockFacade) UnitsPrepared() ([]names_v3.UnitTag, error) {
 	ret := m.ctrl.Call(m, "UnitsPrepared")
-	ret0, _ := ret[0].([]names_v2.UnitTag)
+	ret0, _ := ret[0].([]names_v3.UnitTag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

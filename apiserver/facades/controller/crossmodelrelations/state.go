@@ -4,7 +4,7 @@
 package crossmodelrelations
 
 import (
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	common "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/core/crossmodel"

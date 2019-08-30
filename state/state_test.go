@@ -24,7 +24,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	mgotxn "gopkg.in/mgo.v2/txn"
@@ -1411,10 +1411,9 @@ func (s *StateSuite) TestAddMachineCanOnlyAddControllerForMachine0(c *gc.C) {
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
 
 	// Check that the controller information is correct.
-	info, err := s.State.ControllerInfo()
+	controllerIds, err := s.State.ControllerIds()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.ModelTag, gc.Equals, s.modelTag)
-	c.Assert(info.MachineIds, gc.DeepEquals, []string{"0"})
+	c.Assert(controllerIds, gc.DeepEquals, []string{"0"})
 
 	const errCannotAdd = "cannot add a new machine: controller jobs specified but not allowed"
 	m, err = s.State.AddOneMachine(template)
@@ -3291,6 +3290,8 @@ var findEntityTests = []findEntityTest{{
 }, {
 	tag: names.NewMachineTag("0"),
 }, {
+	tag: names.NewControllerAgentTag("0"),
+}, {
 	tag: names.NewApplicationTag("ser-vice2"),
 }, {
 	tag: names.NewRelationTag("wordpress:db ser-vice2:server"),
@@ -3311,18 +3312,21 @@ var findEntityTests = []findEntityTest{{
 }}
 
 var entityTypes = map[string]interface{}{
-	names.UserTagKind:        (*state.User)(nil),
-	names.ModelTagKind:       (*state.Model)(nil),
-	names.ApplicationTagKind: (*state.Application)(nil),
-	names.UnitTagKind:        (*state.Unit)(nil),
-	names.MachineTagKind:     (*state.Machine)(nil),
-	names.RelationTagKind:    (*state.Relation)(nil),
-	names.ActionTagKind:      (state.Action)(nil),
+	names.UserTagKind:            (*state.User)(nil),
+	names.ModelTagKind:           (*state.Model)(nil),
+	names.ApplicationTagKind:     (*state.Application)(nil),
+	names.UnitTagKind:            (*state.Unit)(nil),
+	names.MachineTagKind:         (*state.Machine)(nil),
+	names.ControllerAgentTagKind: (*state.ControllerNodeInstance)(nil),
+	names.RelationTagKind:        (*state.Relation)(nil),
+	names.ActionTagKind:          (state.Action)(nil),
 }
 
 func (s *StateSuite) TestFindEntity(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "eric"})
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddControllerNode()
 	c.Assert(err, jc.ErrorIsNil)
 	app := s.AddTestingApplication(c, "ser-vice2", s.AddTestingCharm(c, "mysql"))
 	unit, err := app.AddUnit(state.AddUnitParams{})
@@ -4086,7 +4090,7 @@ func (s *StateSuite) TestControllerInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids.CloudName, gc.Equals, "dummy")
 	c.Assert(ids.ModelTag, gc.Equals, s.modelTag)
-	c.Assert(ids.MachineIds, gc.HasLen, 0)
+	c.Assert(ids.ControllerIds, gc.HasLen, 0)
 
 	// TODO(rog) more testing here when we can actually add
 	// controllers.
@@ -4803,4 +4807,37 @@ func (s *StateSuite) TestControllerTimestamp(c *gc.C) {
 	c.Assert(got, gc.NotNil)
 
 	c.Assert(*got, jc.DeepEquals, now)
+}
+
+func (s *StateSuite) TestAddRelationCreatesApplicationSettings(c *gc.C) {
+	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	settings := state.NewStateSettings(s.State)
+
+	mysqlKey := fmt.Sprintf("r#%d#mysql", rel.Id())
+	_, err = settings.ReadSettings(mysqlKey)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wpKey := fmt.Sprintf("r#%d#wordpress", rel.Id())
+	_, err = settings.ReadSettings(wpKey)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StateSuite) TestPeerRelationCreatesApplicationSettings(c *gc.C) {
+	app := state.AddTestingApplication(c, s.State, "riak", state.AddTestingCharm(c, s.State, "riak"))
+	ep, err := app.Endpoint("ring")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.EndpointsRelation(ep)
+	c.Assert(err, jc.ErrorIsNil)
+
+	settings := state.NewStateSettings(s.State)
+
+	key := fmt.Sprintf("r#%d#riak", rel.Id())
+	_, err = settings.ReadSettings(key)
+	c.Assert(err, jc.ErrorIsNil)
 }

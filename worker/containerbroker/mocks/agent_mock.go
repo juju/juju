@@ -13,7 +13,7 @@ import (
 	multiwatcher "github.com/juju/juju/state/multiwatcher"
 	shell "github.com/juju/utils/shell"
 	version "github.com/juju/version"
-	names_v2 "gopkg.in/juju/names.v2"
+	names_v3 "gopkg.in/juju/names.v3"
 	reflect "reflect"
 )
 
@@ -126,9 +126,9 @@ func (mr *MockConfigMockRecorder) CACert() *gomock.Call {
 }
 
 // Controller mocks base method
-func (m *MockConfig) Controller() names_v2.ControllerTag {
+func (m *MockConfig) Controller() names_v3.ControllerTag {
 	ret := m.ctrl.Call(m, "Controller")
-	ret0, _ := ret[0].(names_v2.ControllerTag)
+	ret0, _ := ret[0].(names_v3.ControllerTag)
 	return ret0
 }
 
@@ -210,9 +210,9 @@ func (mr *MockConfigMockRecorder) MetricsSpoolDir() *gomock.Call {
 }
 
 // Model mocks base method
-func (m *MockConfig) Model() names_v2.ModelTag {
+func (m *MockConfig) Model() names_v3.ModelTag {
 	ret := m.ctrl.Call(m, "Model")
-	ret0, _ := ret[0].(names_v2.ModelTag)
+	ret0, _ := ret[0].(names_v3.ModelTag)
 	return ret0
 }
 
@@ -308,9 +308,9 @@ func (mr *MockConfigMockRecorder) SystemIdentityPath() *gomock.Call {
 }
 
 // Tag mocks base method
-func (m *MockConfig) Tag() names_v2.Tag {
+func (m *MockConfig) Tag() names_v3.Tag {
 	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(names_v2.Tag)
+	ret0, _ := ret[0].(names_v3.Tag)
 	return ret0
 }
 

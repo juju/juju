@@ -9,7 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"

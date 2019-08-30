@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/juju/sockets"
@@ -116,12 +117,28 @@ func (s *PathsSuite) TestOther(c *gc.C) {
 	})
 }
 
-func (s *PathsSuite) TestTCPRemote(c *gc.C) {
+func (s *PathsSuite) TestTCPRemoteEnvVar(c *gc.C) {
 	defer os.Setenv(provider.OperatorPodIPEnvName, os.Getenv(provider.OperatorPodIPEnvName))
 	os.Setenv(provider.OperatorPodIPEnvName, "1.1.1.1")
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Unknown })
 
 	dataDir := c.MkDir()
+	s.assertTCPRemote(c, dataDir)
+}
+
+func (s *PathsSuite) TestTCPRemoteYamlFile(c *gc.C) {
+	dataDir := c.MkDir()
+
+	unitTag := names.NewUnitTag("some-application/323")
+	ipAddrFile := filepath.Join(dataDir, "agents", unitTag.String(), "operator.yaml")
+	err := os.MkdirAll(filepath.Dir(ipAddrFile), 0700)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(ipAddrFile, []byte("operator-address: 1.1.1.1"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertTCPRemote(c, dataDir)
+}
+
+func (s *PathsSuite) assertTCPRemote(c *gc.C, dataDir string) {
 	unitTag := names.NewUnitTag("some-application/323")
 	paths := uniter.NewPaths(dataDir, unitTag, true)
 
@@ -130,7 +147,7 @@ func (s *PathsSuite) TestTCPRemote(c *gc.C) {
 	c.Assert(paths, jc.DeepEquals, uniter.Paths{
 		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{
-			JujuRunSocket:     sockets.Socket{Network: "unix", Address: relAgent("run.socket")},
+			JujuRunSocket:     sockets.Socket{Network: "tcp", Address: "1.1.1.1:30666"},
 			JujucServerSocket: sockets.Socket{Network: "tcp", Address: "1.1.1.1:30323"},
 		},
 		State: uniter.StatePaths{

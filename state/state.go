@@ -27,7 +27,7 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -257,7 +257,7 @@ func (st *State) RemoveDyingModel() error {
 	}
 	err = st.removeAllModelDocs(bson.D{{"life", Dead}})
 	if errors.Cause(err) == txn.ErrAborted {
-		return errors.New("can't remove model: model not dead")
+		return errors.Wrap(err, errors.New("can't remove model: model not dead"))
 	}
 	return errors.Trace(err)
 }
@@ -279,7 +279,7 @@ func (st *State) RemoveImportingModelDocs() error {
 func (st *State) RemoveExportingModelDocs() error {
 	err := st.removeAllModelDocs(bson.D{{"migration-mode", MigrationModeExporting}})
 	if errors.Cause(err) == txn.ErrAborted {
-		return errors.New("can't remove model: model not being exported for migration")
+		return errors.Wrap(err, errors.New("can't remove model: model not being exported for migration"))
 	}
 	return errors.Trace(err)
 }
@@ -297,6 +297,10 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
+		if len(ops) == 0 {
+			// Nothing to delete.
+			continue
+		}
 		// Make sure we gate everything on the model assertion.
 		ops = append([]txn.Op{{
 			C:      modelsC,
@@ -305,7 +309,7 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		}}, ops...)
 		err = st.db().RunTransaction(ops)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "removing from collection %q", name)
 		}
 	}
 
@@ -970,6 +974,8 @@ func (st *State) getMachineDoc(id string) (*machineDoc, error) {
 func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 	id := tag.Id()
 	switch tag := tag.(type) {
+	case names.ControllerAgentTag:
+		return st.ControllerNode(id)
 	case names.MachineTag:
 		return st.Machine(id)
 	case names.UnitTag:
@@ -1103,12 +1109,20 @@ func (st *State) addPeerRelationsOps(applicationname string, peers map[string]ch
 			ModelUUID: st.ModelUUID(),
 			Updated:   now.UnixNano(),
 		}
-		ops = append(ops, txn.Op{
-			C:      relationsC,
-			Id:     relDoc.DocID,
-			Assert: txn.DocMissing,
-			Insert: relDoc,
-		}, createStatusOp(st, relationGlobalScope(relId), relationStatusDoc))
+		ops = append(ops,
+			txn.Op{
+				C:      relationsC,
+				Id:     relDoc.DocID,
+				Assert: txn.DocMissing,
+				Insert: relDoc,
+			},
+			createStatusOp(st, relationGlobalScope(relId), relationStatusDoc),
+			createSettingsOp(
+				settingsC,
+				relationApplicationSettingsKey(relId, eps[0].ApplicationName),
+				map[string]interface{}{},
+			),
+		)
 	}
 	return ops, nil
 }
@@ -2163,6 +2177,12 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			Assert: txn.DocMissing,
 			Insert: doc,
 		}, createStatusOp(st, relationGlobalScope(id), relationStatusDoc))
+
+		for _, ep := range eps {
+			key := relationApplicationSettingsKey(id, ep.ApplicationName)
+			settingsOp := createSettingsOp(settingsC, key, map[string]interface{}{})
+			ops = append(ops, settingsOp)
+		}
 		return ops, nil
 	}
 	if err = st.db().Run(buildTxn); err == nil {

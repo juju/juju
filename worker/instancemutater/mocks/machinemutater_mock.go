@@ -11,7 +11,7 @@ import (
 	instance "github.com/juju/juju/core/instance"
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
-	names_v2 "gopkg.in/juju/names.v2"
+	names_v3 "gopkg.in/juju/names.v3"
 	reflect "reflect"
 )
 
@@ -126,9 +126,9 @@ func (mr *MockMutaterMachineMockRecorder) SetModificationStatus(arg0, arg1, arg2
 }
 
 // Tag mocks base method
-func (m *MockMutaterMachine) Tag() names_v2.MachineTag {
+func (m *MockMutaterMachine) Tag() names_v3.MachineTag {
 	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(names_v2.MachineTag)
+	ret0, _ := ret[0].(names_v3.MachineTag)
 	return ret0
 }
 

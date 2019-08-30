@@ -48,5 +48,12 @@ func stateStepsFor27() []Step {
 				return context.State().ReplacePortsDocSubnetIDCIDR()
 			},
 		},
+		&upgradeStep{
+			description: "ensure application settings exist for all relations",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().EnsureRelationApplicationSettings()
+			},
+		},
 	}
 }

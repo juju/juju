@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/api"
@@ -113,6 +113,12 @@ var _ = gc.Suite(&machineSuite{})
 func (s *machineSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.st, s.machine = s.OpenAPIAsNewMachine(c)
+}
+
+func (s *machineSuite) TestIsControllerShortCircuits(c *gc.C) {
+	result, err := apiagent.IsController(nil, names.NewControllerAgentTag("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.IsTrue)
 }
 
 func (s *machineSuite) TestMachineEntity(c *gc.C) {

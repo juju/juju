@@ -428,14 +428,14 @@ func (e *Environ) Provider() environs.EnvironProvider {
 // bundled with iptables-persistent on Ubuntu and firewalld on CentOS, which maintains
 // a number of iptables firewall rules. We need to at least allow the juju API port for state
 // machines. SSH port is allowed by default on linux images.
-func (e *Environ) getCloudInitConfig(series string, apiPort int) (cloudinit.CloudConfig, error) {
+func (e *Environ) getCloudInitConfig(series string, apiPort int, statePort int) (cloudinit.CloudConfig, error) {
 	// TODO (gsamfira): remove this function when the above mention bug is fixed
 	cloudcfg, err := cloudinit.New(series)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create cloudinit template")
 	}
 
-	if apiPort == 0 {
+	if apiPort == 0 || statePort == 0 {
 		return cloudcfg, nil
 	}
 
@@ -446,9 +446,11 @@ func (e *Environ) getCloudInitConfig(series string, apiPort int) (cloudinit.Clou
 	switch operatingSystem {
 	case os.Ubuntu:
 		cloudcfg.AddRunCmd(fmt.Sprintf("/sbin/iptables -I INPUT -p tcp --dport %d -j ACCEPT", apiPort))
+		cloudcfg.AddRunCmd(fmt.Sprintf("/sbin/iptables -I INPUT -p tcp --dport %d -j ACCEPT", statePort))
 		cloudcfg.AddScripts("/etc/init.d/netfilter-persistent save")
 	case os.CentOS:
 		cloudcfg.AddRunCmd(fmt.Sprintf("firewall-cmd --zone=public --add-port=%d/tcp --permanent", apiPort))
+		cloudcfg.AddRunCmd(fmt.Sprintf("firewall-cmd --zone=public --add-port=%d/tcp --permanent", statePort))
 		cloudcfg.AddRunCmd("firewall-cmd --reload")
 	}
 	return cloudcfg, nil
@@ -550,6 +552,7 @@ func (e *Environ) StartInstance(ctx envcontext.ProviderCallContext, args environ
 	tags := args.InstanceConfig.Tags
 
 	var apiPort int
+	var statePort int
 	var desiredStatus ociCore.InstanceLifecycleStateEnum
 	// If we are bootstrapping a new controller, we want to wait for the
 	// machine to reach running state before attempting to SSH into it,
@@ -559,12 +562,13 @@ func (e *Environ) StartInstance(ctx envcontext.ProviderCallContext, args environ
 	// status is not necessary
 	if args.InstanceConfig.Controller != nil {
 		apiPort = args.InstanceConfig.Controller.Config.APIPort()
+		statePort = args.InstanceConfig.Controller.Config.StatePort()
 		desiredStatus = ociCore.InstanceLifecycleStateRunning
 	} else {
 		desiredStatus = ociCore.InstanceLifecycleStateProvisioning
 	}
 
-	cloudcfg, err := e.getCloudInitConfig(series, apiPort)
+	cloudcfg, err := e.getCloudInitConfig(series, apiPort, statePort)
 	if err != nil {
 		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Annotate(err, "cannot create cloudinit template")

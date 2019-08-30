@@ -6,12 +6,16 @@ package uniter
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
+	"github.com/juju/errors"
 	jujuos "github.com/juju/os"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
+	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/juju/sockets"
@@ -116,22 +120,55 @@ func NewPaths(dataDir string, unitTag names.UnitTag, isRemote bool) Paths {
 	return NewWorkerPaths(dataDir, unitTag, "", isRemote)
 }
 
+// TODO(caas) - move me to generic helper for reading operator config yaml
+func socketIP(baseDir string) (string, error) {
+	// IP address to use for the socket can either be an env var
+	// (when we are the caas operator and are creating the socket to listen),
+	// or inside a YAML file (when we are juju-run and need to see where
+	// to connect to).
+	podIP := os.Getenv(provider.OperatorPodIPEnvName)
+	if podIP != "" {
+		return podIP, nil
+	}
+	ipAddrFile := filepath.Join(baseDir, provider.OperatorInfoFile)
+	ipAddrData, err := ioutil.ReadFile(ipAddrFile)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	var socketIP string
+	var data map[string]interface{}
+	if err := yaml.Unmarshal(ipAddrData, &data); err == nil {
+		socketIP, _ = data["operator-address"].(string)
+	}
+	return socketIP, nil
+}
+
 // NewWorkerPaths returns the set of filesystem paths that the supplied unit worker should
 // use, given the supplied root juju data directory path and worker identifier.
 // Distinct worker identifiers ensure that runtime paths of different worker do not interfere.
 func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string, isRemote bool) Paths {
+	baseDir := agent.Dir(dataDir, unitTag)
 	join := filepath.Join
-	baseDir := join(dataDir, "agents", unitTag.String())
 	stateDir := join(baseDir, "state")
 
 	newSocket := func(name string, abstract bool) sockets.Socket {
-		podIP := os.Getenv(provider.OperatorPodIPEnvName)
-		if isRemote && podIP != "" {
+		if isRemote {
+			socketIP, err := socketIP(baseDir)
+			if err != nil {
+				logger.Warningf("unable to get IP address for jujuc socket: %v", err)
+				return sockets.Socket{}
+			}
+			logger.Debugf("using operator address: %v", socketIP)
 			switch name {
 			case "agent":
 				return sockets.Socket{
 					Network: "tcp",
-					Address: fmt.Sprintf("%s:%d", podIP, jujucServerSocketPort+unitTag.Number()),
+					Address: fmt.Sprintf("%s:%d", socketIP, jujucServerSocketPort+unitTag.Number()),
+				}
+			case "run":
+				return sockets.Socket{
+					Network: "tcp",
+					Address: fmt.Sprintf("%s:%d", socketIP, provider.JujuRunServerSocketPort),
 				}
 			default:
 				logger.Warningf("caas model socket name %q, fallback to unix protocol", name)

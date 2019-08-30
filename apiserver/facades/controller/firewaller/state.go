@@ -4,7 +4,7 @@
 package firewaller
 
 import (
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/apiserver/common/firewall"

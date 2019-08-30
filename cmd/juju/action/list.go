@@ -12,12 +12,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/naturalsort"
-	"gopkg.in/juju/names.v2"
+	"github.com/juju/utils/featureflag"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/feature"
 )
 
 func NewListCommand() cmd.Command {
@@ -36,7 +38,14 @@ const listDoc = `
 List the actions available to run on the target application, with a short
 description.  To show the full schema for the actions, use --schema.
 
-For more information, see also the 'run-action' command, which executes actions.
+Examples:
+    juju list-actions postgresql
+    juju list-actions postgresql --format yaml
+    juju list-actions postgresql --schema
+
+See also:
+    run-action
+    show-action
 `
 
 // Set up the output.
@@ -63,13 +72,17 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *listCommand) Info() *cmd.Info {
-	return jujucmd.Info(&cmd.Info{
+	info := jujucmd.Info(&cmd.Info{
 		Name:    "actions",
 		Args:    "<application name>",
 		Purpose: "List actions defined for an application.",
 		Doc:     listDoc,
 		Aliases: []string{"list-actions"},
 	})
+	if featureflag.Enabled(feature.JujuV3) {
+		info.Doc = strings.Replace(info.Doc, "run-action", "run", -1)
+	}
+	return info
 }
 
 // Init validates the application name and any other options.
@@ -81,11 +94,11 @@ func (c *listCommand) Init(args []string) error {
 	case 0:
 		return errors.New("no application name specified")
 	case 1:
-		svcName := args[0]
-		if !names.IsValidApplication(svcName) {
-			return errors.Errorf("invalid application name %q", svcName)
+		appName := args[0]
+		if !names.IsValidApplication(appName) {
+			return errors.Errorf("invalid application name %q", appName)
 		}
-		c.applicationTag = names.NewApplicationTag(svcName)
+		c.applicationTag = names.NewApplicationTag(appName)
 		return nil
 	default:
 		return cmd.CheckEmpty(args[1:])

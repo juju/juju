@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/voyeur"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -121,7 +120,7 @@ type ManifoldsConfig struct {
 // by both IAAS and CAAS models.
 func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 	agentConfig := config.Agent.CurrentConfig()
-	machineTag := agentConfig.Tag().(names.MachineTag)
+	agentTag := agentConfig.Tag()
 	modelTag := agentConfig.Model()
 	result := dependency.Manifolds{
 		// The first group are foundational; the agent and clock
@@ -166,7 +165,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:         config.Clock,
 			APICallerName: apiCallerName,
 			Duration:      config.RunFlagDuration,
-			Claimant:      machineTag,
+			Claimant:      agentTag,
 			Entity:        modelTag,
 
 			NewFacade: singular.NewFacade,

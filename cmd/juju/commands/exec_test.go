@@ -17,7 +17,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -29,19 +29,19 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type RunSuite struct {
+type ExecSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&RunSuite{})
+var _ = gc.Suite(&ExecSuite{})
 
-func (s *RunSuite) SetUpTest(c *gc.C) {
+func (s *ExecSuite) SetUpTest(c *gc.C) {
 	s.SetInitialFeatureFlags(feature.DeveloperMode)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 }
 
-func newTestRunCommand(clock clock.Clock, modelType model.ModelType) cmd.Command {
-	return newRunCommand(minimalStore(modelType), clock.After)
+func newTestExecCommand(clock clock.Clock, modelType model.ModelType) cmd.Command {
+	return newExecCommand(minimalStore(modelType), clock.After)
 }
 
 func minimalStore(modelType model.ModelType) *jujuclient.MemStore {
@@ -61,7 +61,7 @@ func minimalStore(modelType model.ModelType) *jujuclient.MemStore {
 	return store
 }
 
-func (*RunSuite) TestTargetArgParsing(c *gc.C) {
+func (*ExecSuite) TestTargetArgParsing(c *gc.C) {
 	for i, test := range []struct {
 		message      string
 		args         []string
@@ -108,7 +108,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		message: "bad machine names",
 		args:    []string{"--machine=foo,machine-2", "sudo reboot"},
 		errMatch: "" +
-			"The following run targets are not valid:\n" +
+			"The following exec targets are not valid:\n" +
 			"  \"foo\" is not a valid machine id\n" +
 			"  \"machine-2\" is not a valid machine id",
 		modeType: model.IAAS,
@@ -133,7 +133,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		message: "bad application names",
 		args:    []string{"--application", "foo,2,foo/0", "sudo reboot"},
 		errMatch: "" +
-			"The following run targets are not valid:\n" +
+			"The following exec targets are not valid:\n" +
 			"  \"2\" is not a valid application name\n" +
 			"  \"foo/0\" is not a valid application name",
 		modeType: model.IAAS,
@@ -170,7 +170,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		message: "bad unit names",
 		args:    []string{"--unit", "foo,2,foo/0,foo/$leader", "sudo reboot"},
 		errMatch: "" +
-			"The following run targets are not valid:\n" +
+			"The following exec targets are not valid:\n" +
 			"  \"foo\" is not a valid unit name\n" +
 			"  \"2\" is not a valid unit name\n" +
 			"  \"foo/\\$leader\" is not a valid unit name",
@@ -191,7 +191,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		modeType: model.CAAS,
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
-		cmd := &runCommand{}
+		cmd := &execCommand{}
 		cmd.SetClientStore(minimalStore(test.modeType))
 		runCmd := modelcmd.Wrap(cmd)
 		cmdtesting.TestInit(c, runCmd, test.args, test.errMatch)
@@ -205,7 +205,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 	}
 }
 
-func (*RunSuite) TestTimeoutArgParsing(c *gc.C) {
+func (*ExecSuite) TestTimeoutArgParsing(c *gc.C) {
 	for i, test := range []struct {
 		message  string
 		args     []string
@@ -234,7 +234,7 @@ func (*RunSuite) TestTimeoutArgParsing(c *gc.C) {
 		modeType: model.IAAS,
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
-		cmd := &runCommand{}
+		cmd := &execCommand{}
 		cmd.SetClientStore(minimalStore(test.modeType))
 		runCmd := modelcmd.Wrap(cmd)
 		cmdtesting.TestInit(c, runCmd, test.args, test.errMatch)
@@ -244,7 +244,7 @@ func (*RunSuite) TestTimeoutArgParsing(c *gc.C) {
 	}
 }
 
-func (s *RunSuite) TestConvertRunResults(c *gc.C) {
+func (s *ExecSuite) TestConvertRunResults(c *gc.C) {
 	for i, test := range []struct {
 		message  string
 		results  params.ActionResult
@@ -313,7 +313,7 @@ func (s *RunSuite) TestConvertRunResults(c *gc.C) {
 	}
 }
 
-func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
+func (s *ExecSuite) TestExecForMachineAndUnit(c *gc.C) {
 	mock := s.setupMockAPI()
 	machineResponse := mockResponse{
 		stdout:     "megatron\n",
@@ -326,8 +326,8 @@ func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 	mock.setResponse("0", machineResponse)
 	mock.setResponse("unit/0", unitResponse)
 
-	machineResult := mock.runResponses["0"]
-	unitResult := mock.runResponses["unit/0"]
+	machineResult := mock.execResponses["0"]
+	unitResult := mock.execResponses["unit/0"]
 	mock.actionResponses = map[string]params.ActionResult{
 		mock.receiverIdMap["0"]:      machineResult,
 		mock.receiverIdMap["unit/0"]: unitResult,
@@ -344,7 +344,7 @@ func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 	err := cmd.FormatJson(buff, unformatted)
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}, model.IAAS),
+	context, err := cmdtesting.RunCommand(c, newTestExecCommand(&mockClock{}, model.IAAS),
 		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -352,17 +352,17 @@ func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 	c.Check(cmdtesting.Stdout(context), gc.Equals, buff.String())
 }
 
-func (s *RunSuite) TestBlockRunForMachineAndUnit(c *gc.C) {
+func (s *ExecSuite) TestBlockExecForMachineAndUnit(c *gc.C) {
 	mock := s.setupMockAPI()
 	// Block operation
 	mock.block = true
-	_, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}, model.IAAS),
+	_, err := cmdtesting.RunCommand(c, newTestExecCommand(&mockClock{}, model.IAAS),
 		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
 	)
 	testing.AssertOperationWasBlocked(c, err, ".*To enable changes.*")
 }
 
-func (s *RunSuite) TestAllMachines(c *gc.C) {
+func (s *ExecSuite) TestAllMachines(c *gc.C) {
 	mock := s.setupMockAPI()
 	mock.setMachinesAlive("0", "1", "2")
 	response0 := mockResponse{
@@ -381,8 +381,8 @@ func (s *RunSuite) TestAllMachines(c *gc.C) {
 	mock.setResponse("1", response1)
 	mock.setResponse("2", response2)
 
-	machine0Result := mock.runResponses["0"]
-	machine1Result := mock.runResponses["1"]
+	machine0Result := mock.execResponses["0"]
+	machine1Result := mock.execResponses["1"]
 	mock.actionResponses = map[string]params.ActionResult{
 		mock.receiverIdMap["0"]: machine0Result,
 		mock.receiverIdMap["1"]: machine1Result,
@@ -404,14 +404,14 @@ func (s *RunSuite) TestAllMachines(c *gc.C) {
 	err := cmd.FormatJson(buff, unformatted)
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}, model.IAAS), "--format=json", "--all", "hostname")
+	context, err := cmdtesting.RunCommand(c, newTestExecCommand(&mockClock{}, model.IAAS), "--format=json", "--all", "hostname")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(cmdtesting.Stdout(context), gc.Equals, buff.String())
 	c.Check(cmdtesting.Stderr(context), gc.Equals, "")
 }
 
-func (s *RunSuite) TestTimeout(c *gc.C) {
+func (s *ExecSuite) TestTimeout(c *gc.C) {
 	mock := s.setupMockAPI()
 	mock.setMachinesAlive("0", "1", "2")
 	response0 := mockResponse{
@@ -430,9 +430,9 @@ func (s *RunSuite) TestTimeout(c *gc.C) {
 	mock.setResponse("1", response1)
 	mock.setResponse("2", response2)
 
-	machine0Result := mock.runResponses["0"]
-	machine1Result := mock.runResponses["1"]
-	machine2Result := mock.runResponses["1"]
+	machine0Result := mock.execResponses["0"]
+	machine1Result := mock.execResponses["1"]
+	machine2Result := mock.execResponses["1"]
 	mock.actionResponses = map[string]params.ActionResult{
 		mock.receiverIdMap["0"]: machine0Result,
 		mock.receiverIdMap["1"]: machine1Result,
@@ -449,7 +449,7 @@ func (s *RunSuite) TestTimeout(c *gc.C) {
 
 	var clock mockClock
 	context, err := cmdtesting.RunCommand(
-		c, newTestRunCommand(&clock, model.IAAS),
+		c, newTestExecCommand(&clock, model.IAAS),
 		"--format=json", "--all", "hostname", "--timeout", "99s",
 	)
 	c.Assert(err, gc.ErrorMatches, "timed out waiting for results from: machine 1, machine 2")
@@ -463,7 +463,7 @@ func (s *RunSuite) TestTimeout(c *gc.C) {
 	})
 }
 
-func (s *RunSuite) TestUnitLeaderSyntaxWithUnsupportedAPIVersion(c *gc.C) {
+func (s *ExecSuite) TestUnitLeaderSyntaxWithUnsupportedAPIVersion(c *gc.C) {
 	var (
 		clock mockClock
 		mock  = s.setupMockAPI()
@@ -471,7 +471,7 @@ func (s *RunSuite) TestUnitLeaderSyntaxWithUnsupportedAPIVersion(c *gc.C) {
 
 	mock.bestAPIVersion = 2
 	_, err := cmdtesting.RunCommand(
-		c, newTestRunCommand(&clock, model.IAAS),
+		c, newTestExecCommand(&clock, model.IAAS),
 		"--unit", "foo/leader", "hostname",
 	)
 
@@ -481,7 +481,7 @@ func (s *RunSuite) TestUnitLeaderSyntaxWithUnsupportedAPIVersion(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, expErr)
 }
 
-func (s *RunSuite) TestCAASCantRunWithUnsupportedAPIVersion(c *gc.C) {
+func (s *ExecSuite) TestCAASCantExecWithUnsupportedAPIVersion(c *gc.C) {
 	var (
 		clock mockClock
 		mock  = s.setupMockAPI()
@@ -489,21 +489,21 @@ func (s *RunSuite) TestCAASCantRunWithUnsupportedAPIVersion(c *gc.C) {
 
 	mock.bestAPIVersion = 3
 	_, err := cmdtesting.RunCommand(
-		c, newTestRunCommand(&clock, model.CAAS),
+		c, newTestExecCommand(&clock, model.CAAS),
 		"--unit", "unit/0", "echo hello",
 	)
 
-	expErr := "k8s controller does not support juju run\n" +
+	expErr := "k8s controller does not support juju exec\n" +
 		"consider upgrading your controller"
 	c.Assert(err, gc.ErrorMatches, expErr)
 }
 
-func (s *RunSuite) TestCAASCantTargetMachine(c *gc.C) {
+func (s *ExecSuite) TestCAASCantTargetMachine(c *gc.C) {
 	s.setupMockAPI()
 	var clock mockClock
 
 	_, err := cmdtesting.RunCommand(
-		c, newTestRunCommand(&clock, model.CAAS),
+		c, newTestExecCommand(&clock, model.CAAS),
 		"--machine", "0", "echo hello",
 	)
 
@@ -511,12 +511,12 @@ func (s *RunSuite) TestCAASCantTargetMachine(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, expErr)
 }
 
-func (s *RunSuite) TestIAASCantTargetOperator(c *gc.C) {
+func (s *ExecSuite) TestIAASCantTargetOperator(c *gc.C) {
 	s.setupMockAPI()
 	var clock mockClock
 
 	_, err := cmdtesting.RunCommand(
-		c, newTestRunCommand(&clock, model.IAAS),
+		c, newTestExecCommand(&clock, model.IAAS),
 		"--unit", "unit/0", "--operator", "echo hello",
 	)
 
@@ -524,7 +524,7 @@ func (s *RunSuite) TestIAASCantTargetOperator(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, expErr)
 }
 
-func (s *RunSuite) TestCAASRunOnOperator(c *gc.C) {
+func (s *ExecSuite) TestCAASExecOnOperator(c *gc.C) {
 	mock := s.setupMockAPI()
 	unitResponse := mockResponse{
 		stdout:  "bumblebee",
@@ -532,7 +532,7 @@ func (s *RunSuite) TestCAASRunOnOperator(c *gc.C) {
 	}
 	mock.setResponse("unit/0", unitResponse)
 
-	unitResult := mock.runResponses["unit/0"]
+	unitResult := mock.execResponses["unit/0"]
 	mock.actionResponses = map[string]params.ActionResult{
 		mock.receiverIdMap["unit/0"]: unitResult,
 	}
@@ -546,12 +546,12 @@ func (s *RunSuite) TestCAASRunOnOperator(c *gc.C) {
 	err := cmd.FormatJson(buff, unformatted)
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}, model.CAAS),
+	context, err := cmdtesting.RunCommand(c, newTestExecCommand(&mockClock{}, model.CAAS),
 		"--format=json", "--unit=unit/0", "--operator", "hostname",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(mock.runParams, jc.DeepEquals, &params.RunParams{
+	c.Assert(mock.execParams, jc.DeepEquals, &params.RunParams{
 		Commands:        "hostname",
 		Timeout:         300 * time.Second,
 		Units:           []string{"unit/0"},
@@ -561,7 +561,7 @@ func (s *RunSuite) TestCAASRunOnOperator(c *gc.C) {
 	c.Check(cmdtesting.Stdout(context), gc.Equals, buff.String())
 }
 
-func (s *RunSuite) TestCAASRunOnWorkload(c *gc.C) {
+func (s *ExecSuite) TestCAASExecOnWorkload(c *gc.C) {
 	mock := s.setupMockAPI()
 	unitResponse := mockResponse{
 		stdout:  "bumblebee",
@@ -569,7 +569,7 @@ func (s *RunSuite) TestCAASRunOnWorkload(c *gc.C) {
 	}
 	mock.setResponse("unit/0", unitResponse)
 
-	unitResult := mock.runResponses["unit/0"]
+	unitResult := mock.execResponses["unit/0"]
 	mock.actionResponses = map[string]params.ActionResult{
 		mock.receiverIdMap["unit/0"]: unitResult,
 	}
@@ -583,12 +583,12 @@ func (s *RunSuite) TestCAASRunOnWorkload(c *gc.C) {
 	err := cmd.FormatJson(buff, unformatted)
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}, model.CAAS),
+	context, err := cmdtesting.RunCommand(c, newTestExecCommand(&mockClock{}, model.CAAS),
 		"--format=json", "--unit=unit/0", "hostname",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(mock.runParams, jc.DeepEquals, &params.RunParams{
+	c.Assert(mock.execParams, jc.DeepEquals, &params.RunParams{
 		Commands:        "hostname",
 		Timeout:         300 * time.Second,
 		Units:           []string{"unit/0"},
@@ -630,15 +630,15 @@ func (c *mockClock) After(d time.Duration) <-chan time.Time {
 	return ch
 }
 
-func (s *RunSuite) TestBlockAllMachines(c *gc.C) {
+func (s *ExecSuite) TestBlockAllMachines(c *gc.C) {
 	mock := s.setupMockAPI()
 	// Block operation
 	mock.block = true
-	_, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}, model.IAAS), "--format=json", "--all", "hostname")
+	_, err := cmdtesting.RunCommand(c, newTestExecCommand(&mockClock{}, model.IAAS), "--format=json", "--all", "hostname")
 	testing.AssertOperationWasBlocked(c, err, ".*To enable changes.*")
 }
 
-func (s *RunSuite) TestSingleResponse(c *gc.C) {
+func (s *ExecSuite) TestSingleResponse(c *gc.C) {
 	mock := s.setupMockAPI()
 	mock.setMachinesAlive("0")
 	mockResponse := mockResponse{
@@ -649,7 +649,7 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 	}
 	mock.setResponse("0", mockResponse)
 
-	machineResult := mock.runResponses["0"]
+	machineResult := mock.execResponses["0"]
 	mock.actionResponses = map[string]params.ActionResult{
 		mock.receiverIdMap["0"]: machineResult,
 	}
@@ -693,7 +693,7 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 			args = append(args, "--format", test.format)
 		}
 		args = append(args, "--all", "ignored")
-		context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}, model.IAAS), args...)
+		context, err := cmdtesting.RunCommand(c, newTestExecCommand(&mockClock{}, model.IAAS), args...)
 		if test.errorMatch != "" {
 			c.Check(err, gc.ErrorMatches, test.errorMatch)
 		} else {
@@ -704,31 +704,31 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 	}
 }
 
-func (s *RunSuite) setupMockAPI() *mockRunAPI {
-	mock := &mockRunAPI{
+func (s *ExecSuite) setupMockAPI() *mockExecAPI {
+	mock := &mockExecAPI{
 		bestAPIVersion: 4,
 	}
-	s.PatchValue(&getRunAPIClient, func(_ *runCommand) (RunClient, error) {
+	s.PatchValue(&getExecAPIClient, func(_ *execCommand) (ExecClient, error) {
 		return mock, nil
 	})
 	return mock
 }
 
-type mockRunAPI struct {
+type mockExecAPI struct {
 	action.APIClient
 	stdout string
 	stderr string
 	code   int
 	// machines, applications, units
 	machines        map[string]bool
-	runResponses    map[string]params.ActionResult
+	execResponses   map[string]params.ActionResult
 	actionResponses map[string]params.ActionResult
 	receiverIdMap   map[string]string
 	block           bool
 	//
 	bestAPIVersion int
 	// recevied values
-	runParams *params.RunParams
+	execParams *params.RunParams
 }
 
 type mockResponse struct {
@@ -742,9 +742,9 @@ type mockResponse struct {
 	status     string
 }
 
-var _ RunClient = (*mockRunAPI)(nil)
+var _ ExecClient = (*mockExecAPI)(nil)
 
-func (m *mockRunAPI) setMachinesAlive(ids ...string) {
+func (m *mockExecAPI) setMachinesAlive(ids ...string) {
 	if m.machines == nil {
 		m.machines = make(map[string]bool)
 	}
@@ -789,23 +789,23 @@ func makeActionResult(mock mockResponse, actionTag string) params.ActionResult {
 	}
 }
 
-func (m *mockRunAPI) setResponse(id string, mock mockResponse) {
-	if m.runResponses == nil {
-		m.runResponses = make(map[string]params.ActionResult)
+func (m *mockExecAPI) setResponse(id string, mock mockResponse) {
+	if m.execResponses == nil {
+		m.execResponses = make(map[string]params.ActionResult)
 	}
 	if m.receiverIdMap == nil {
 		m.receiverIdMap = make(map[string]string)
 	}
 	actionTag := names.NewActionTag(utils.MustNewUUID().String())
 	m.receiverIdMap[id] = actionTag.Id()
-	m.runResponses[id] = makeActionResult(mock, actionTag.String())
+	m.execResponses[id] = makeActionResult(mock, actionTag.String())
 }
 
-func (*mockRunAPI) Close() error {
+func (*mockExecAPI) Close() error {
 	return nil
 }
 
-func (m *mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([]params.ActionResult, error) {
+func (m *mockExecAPI) RunOnAllMachines(commands string, timeout time.Duration) ([]params.ActionResult, error) {
 	var result []params.ActionResult
 
 	if m.block {
@@ -818,7 +818,7 @@ func (m *mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([
 	sort.Strings(sortedMachineIds)
 
 	for _, machineId := range sortedMachineIds {
-		response, found := m.runResponses[machineId]
+		response, found := m.execResponses[machineId]
 		if !found {
 			// Consider this a timeout
 			response = params.ActionResult{
@@ -834,24 +834,24 @@ func (m *mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([
 	return result, nil
 }
 
-func (m *mockRunAPI) Run(runParams params.RunParams) ([]params.ActionResult, error) {
+func (m *mockExecAPI) Run(runParams params.RunParams) ([]params.ActionResult, error) {
 	var result []params.ActionResult
 
-	m.runParams = &runParams
+	m.execParams = &runParams
 
 	if m.block {
 		return result, common.OperationBlockedError("the operation has been blocked")
 	}
 	// Just add in ids that match in order.
 	for _, id := range runParams.Machines {
-		response, found := m.runResponses[id]
+		response, found := m.execResponses[id]
 		if found {
 			result = append(result, response)
 		}
 	}
 	// mock ignores applications
 	for _, id := range runParams.Units {
-		response, found := m.runResponses[id]
+		response, found := m.execResponses[id]
 		if found {
 			result = append(result, response)
 		}
@@ -860,7 +860,7 @@ func (m *mockRunAPI) Run(runParams params.RunParams) ([]params.ActionResult, err
 	return result, nil
 }
 
-func (m *mockRunAPI) Actions(actionTags params.Entities) (params.ActionResults, error) {
+func (m *mockExecAPI) Actions(actionTags params.Entities) (params.ActionResults, error) {
 	results := params.ActionResults{Results: make([]params.ActionResult, len(actionTags.Entities))}
 
 	for i, entity := range actionTags.Entities {
@@ -879,7 +879,7 @@ func (m *mockRunAPI) Actions(actionTags params.Entities) (params.ActionResults, 
 	return results, nil
 }
 
-func (m *mockRunAPI) BestAPIVersion() int {
+func (m *mockExecAPI) BestAPIVersion() int {
 	return m.bestAPIVersion
 }
 

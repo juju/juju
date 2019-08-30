@@ -16,7 +16,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -140,7 +139,7 @@ func (s *UpgradeSuite) TestNoUpgradeNecessary(c *gc.C) {
 	s.captureLogs(c)
 	s.oldVersion.Number = jujuversion.Current // nothing to do
 
-	workerErr, config, _, doneLock := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
+	workerErr, config, _, doneLock := s.runUpgradeWorker(c, false)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 0)
@@ -154,7 +153,7 @@ func (s *UpgradeSuite) TestNoUpgradeNecessaryIgnoresBuildNumbers(c *gc.C) {
 	s.oldVersion.Number = jujuversion.Current
 	s.oldVersion.Build = 1 // Ensure there's a build number mismatch.
 
-	workerErr, config, _, doneLock := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
+	workerErr, config, _, doneLock := s.runUpgradeWorker(c, false)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 0)
@@ -173,7 +172,7 @@ func (s *UpgradeSuite) TestUpgradeStepsFailure(c *gc.C) {
 	attemptsP := s.countUpgradeAttempts(errors.New("boom"))
 	s.captureLogs(c)
 
-	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
+	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, false)
 
 	// The worker shouldn't return an error so that the worker and
 	// agent keep running.
@@ -206,7 +205,7 @@ func (s *UpgradeSuite) TestUpgradeStepsRetries(c *gc.C) {
 	s.PatchValue(&PerformUpgrade, fakePerformUpgrade)
 	s.captureLogs(c)
 
-	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
+	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, false)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(attempts, gc.Equals, 2)
@@ -232,7 +231,7 @@ func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *gc.C) {
 	})
 	s.captureLogs(c)
 
-	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, multiwatcher.JobManageModel)
+	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, true)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(config.Version, gc.Equals, jujuversion.Current) // Upgrade almost finished
@@ -256,7 +255,7 @@ func (s *UpgradeSuite) TestAPIConnectionFailure(c *gc.C) {
 	s.connectionDead = true // Make the connection to state appear to be dead
 	s.captureLogs(c)
 
-	workerErr, config, _, doneLock := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
+	workerErr, config, _, doneLock := s.runUpgradeWorker(c, false)
 
 	c.Check(workerErr, gc.ErrorMatches, "API connection lost during upgrade: boom")
 	c.Check(*attemptsP, gc.Equals, 1)
@@ -279,7 +278,7 @@ func (s *UpgradeSuite) TestAbortWhenOtherControllerDoesntStartUpgrade(c *gc.C) {
 	s.captureLogs(c)
 	attemptsP := s.countUpgradeAttempts(nil)
 
-	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, multiwatcher.JobManageModel)
+	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, true)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 0)
@@ -343,7 +342,7 @@ func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*stat
 	attemptsP := s.countUpgradeAttempts(nil)
 	s.captureLogs(c)
 
-	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, multiwatcher.JobManageModel)
+	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, true)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 1)
@@ -359,25 +358,20 @@ func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*stat
 }
 
 func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
-	check := func(jobs []multiwatcher.MachineJob, isMaster bool, expectedTargets ...upgrades.Target) {
-		c.Assert(jobsToTargets(jobs, isMaster), jc.SameContents, expectedTargets)
+	check := func(isController, isMaster bool, expectedTargets ...upgrades.Target) {
+		c.Assert(upgradeTargets(isController, isMaster), jc.SameContents, expectedTargets)
 	}
 
-	check([]multiwatcher.MachineJob{multiwatcher.JobHostUnits}, false, upgrades.HostMachine)
-	check([]multiwatcher.MachineJob{multiwatcher.JobManageModel}, false, upgrades.Controller)
-	check([]multiwatcher.MachineJob{multiwatcher.JobManageModel}, true,
-		upgrades.Controller, upgrades.DatabaseMaster)
-	check([]multiwatcher.MachineJob{multiwatcher.JobManageModel, multiwatcher.JobHostUnits}, false,
-		upgrades.Controller, upgrades.HostMachine)
-	check([]multiwatcher.MachineJob{multiwatcher.JobManageModel, multiwatcher.JobHostUnits}, true,
-		upgrades.Controller, upgrades.DatabaseMaster, upgrades.HostMachine)
+	check(false, false, upgrades.HostMachine)
+	check(true, false, upgrades.Controller, upgrades.HostMachine)
+	check(true, true, upgrades.Controller, upgrades.DatabaseMaster, upgrades.HostMachine)
 }
 
 func (s *UpgradeSuite) TestPreUpgradeFail(c *gc.C) {
 	s.preUpgradeError = true
 	s.captureLogs(c)
 
-	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
+	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, false)
 
 	c.Check(workerErr, jc.ErrorIsNil)
 	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't finish
@@ -401,7 +395,7 @@ func (s *UpgradeSuite) TestPreUpgradeFail(c *gc.C) {
 
 // Run just the upgradesteps worker with a fake machine agent and
 // fake agent config.
-func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob) (
+func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, isController bool) (
 	error, *fakeConfigSetter, []StatusCall, gate.Lock,
 ) {
 	s.setInstantRetryStrategy(c)
@@ -413,7 +407,7 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob
 		doneLock,
 		agent,
 		nil,
-		jobs,
+		isController,
 		s.openStateForUpgrade,
 		s.preUpgradeSteps,
 		machineStatus,

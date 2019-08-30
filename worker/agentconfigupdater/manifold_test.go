@@ -8,7 +8,7 @@ import (
 	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 	dt "gopkg.in/juju/worker.v1/dependency/testing"
@@ -82,7 +82,7 @@ func (s *AgentConfigUpdaterSuite) TestNotMachine(c *gc.C) {
 	})
 	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "agent's tag is not a machine tag")
+	c.Check(err, gc.ErrorMatches, "agent's tag is not a machine or controller agent tag")
 }
 
 func (s *AgentConfigUpdaterSuite) TestEntityLookupFailure(c *gc.C) {

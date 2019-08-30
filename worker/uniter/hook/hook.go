@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 )
 
 // TODO(fwereade): move these definitions to juju/charm/hooks.

@@ -100,12 +100,12 @@ func (s *ApplicationLeaderSuite) TestTxnRevnoChange(c *gc.C) {
 
 func (s *ApplicationLeaderSuite) TestTokenError(c *gc.C) {
 	err := s.application.UpdateLeaderSettings(&failToken{}, map[string]string{"blah": "blah"})
-	c.Check(err, gc.ErrorMatches, "prerequisites failed: something bad happened")
+	c.Check(err, gc.ErrorMatches, `application "mysql": prerequisites failed: something bad happened`)
 }
 
 func (s *ApplicationLeaderSuite) TestTokenAssertFailure(c *gc.C) {
 	err := s.application.UpdateLeaderSettings(&raceToken{}, map[string]string{"blah": "blah"})
-	c.Check(err, gc.ErrorMatches, "prerequisites failed: too late")
+	c.Check(err, gc.ErrorMatches, `application "mysql": prerequisites failed: too late`)
 }
 
 func (s *ApplicationLeaderSuite) TestReadWriteDying(c *gc.C) {
@@ -220,12 +220,15 @@ func (s *ApplicationLeaderSuite) destroyApplication(c *gc.C) {
 }
 
 // fakeToken implements leadership.Token.
-type fakeToken struct{}
+type fakeToken struct {
+	err error
+}
 
-// Check is part of the leadership.Token interface. It always claims success,
-// and never checks or writes the userdata.
-func (*fakeToken) Check(int, interface{}) error {
-	return nil
+// Check is part of the leadership.Token interface. It returns its
+// contained error (which defaults to nil), and never checks or writes
+// the userdata.
+func (t *fakeToken) Check(int, interface{}) error {
+	return t.err
 }
 
 // failToken implements leadership.Token.

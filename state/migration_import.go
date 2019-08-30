@@ -15,7 +15,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -1191,6 +1191,10 @@ func (i *importer) relation(rel description.Relation) error {
 	// unit of the application, and an op that adds the relation settings
 	// for each unit.
 	for _, endpoint := range rel.Endpoints() {
+		appKey := relationApplicationSettingsKey(dbRelation.Id(), endpoint.ApplicationName())
+		appSettings := endpoint.ApplicationSettings()
+		ops = append(ops, createSettingsOp(settingsC, appKey, appSettings))
+
 		units := i.applicationUnits[endpoint.ApplicationName()]
 		for unitName, settings := range endpoint.AllSettings() {
 			unit, ok := units[unitName]

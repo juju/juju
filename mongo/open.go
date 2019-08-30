@@ -15,7 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/cert"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 )
 

@@ -6,6 +6,7 @@ package caasoperator
 import (
 	"time"
 
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/loggo"
 
 	"github.com/juju/clock"
@@ -96,6 +97,9 @@ type ManifoldsConfig struct {
 
 	// NewExecClient provides k8s execframework functionality for juju run commands or actions.
 	NewExecClient func(modelName string) (exec.Executor, error)
+
+	// RunListenerSocket returns a function to create a run listener socket.
+	RunListenerSocket func() (*sockets.Socket, error)
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various
@@ -193,6 +197,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:         agentName,
 			APICallerName:     apiCallerName,
 			FortressName:      migrationFortressName,
+			Clock:             config.Clock,
 			APIOpen:           api.Open,
 			ValidateMigration: config.ValidateMigration,
 			NewFacade:         migrationminion.NewFacade,
@@ -255,7 +260,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewCharmDownloader: func(caller base.APICaller) caasoperator.Downloader {
 				return api.NewCharmDownloader(caller)
 			},
-			NewExecClient: config.NewExecClient,
+			NewExecClient:     config.NewExecClient,
+			RunListenerSocket: config.RunListenerSocket,
 		})),
 	}
 }

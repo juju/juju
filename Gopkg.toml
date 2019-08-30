@@ -62,7 +62,7 @@
   name = "github.com/juju/bundlechanges"
 
 [[constraint]]
-  revision = "04755bd60156009bd35788e17c06115c5532c233"
+  revision = "7eee51ddb1f5033244c6501ec83b399af9d23861"
   name = "github.com/juju/description"
 
 [[constraint]]
@@ -74,7 +74,7 @@
   name = "github.com/juju/gojsonschema"
 
 [[constraint]]
-  revision = "7f9373c5e79e1b4f27e46dfe1166a9ec0c147b81"
+  revision = "0ab1eb636aba97733a62e850ffea2c8729bf9718"
   name = "github.com/juju/gomaasapi"
 
 [[constraint]]
@@ -94,7 +94,7 @@
   name = "github.com/juju/os"
 
 [[constraint]]
-  revision = "ba21344fff207f4fa06b0a08bac386b179a2e6a1"
+  revision = "6caf1fe053515833fa8d541cb8ee9b3b50ef3592"
   name = "github.com/juju/packaging"
 
 [[constraint]]
@@ -147,7 +147,7 @@
 
 [[constraint]]
   name = "gopkg.in/juju/charm.v6"
-  revision = "77bc1b09aca2e72adbb0a608f2ba4ede37e9f704"
+  revision = "cf3ec8f263e4b35e70f76f8b660284ac26517958"
 
 [[constraint]]
   revision = "2adcece4e962a51e0793b8562560cf9da874026f"
@@ -158,8 +158,8 @@
   name = "gopkg.in/juju/environschema.v1"
 
 [[constraint]]
-  revision = "35a970b00c44984ca675453f9e0144aed5219369"
-  name = "gopkg.in/juju/names.v2"
+  revision = "5ed389481ee8344db732cf8a65a8bbfeb42dc79d"
+  name = "gopkg.in/juju/names.v3"
 
 [[constraint]]
   revision = "c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6"

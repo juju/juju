@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/worker/apicaller"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 )
 
 // RetryStrategySuite exercises the cases where we need to connect

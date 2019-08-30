@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	coreleadership "github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter"
@@ -43,7 +44,8 @@ type ManifoldConfig struct {
 	NewClient          func(base.APICaller) Client
 	NewCharmDownloader func(base.APICaller) Downloader
 
-	NewExecClient func(modelName string) (exec.Executor, error)
+	NewExecClient     func(modelName string) (exec.Executor, error)
+	RunListenerSocket func() (*sockets.Socket, error)
 }
 
 func (config ManifoldConfig) Validate() error {
@@ -146,21 +148,26 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return leadership.NewTracker(unitTag, claimer, clock, config.LeadershipGuarantee)
 			}
 
+			runListenerSocketFunc := config.RunListenerSocket
+			if runListenerSocketFunc == nil {
+				runListenerSocketFunc = runListenerSocket
+			}
 			wCfg := Config{
-				ModelUUID:          agentConfig.Model().Id(),
-				ModelName:          model.Name,
-				Application:        applicationTag.Id(),
-				CharmGetter:        client,
-				Clock:              clock,
-				PodSpecSetter:      client,
-				DataDir:            agentConfig.DataDir(),
-				Downloader:         downloader,
-				StatusSetter:       client,
-				UnitGetter:         client,
-				UnitRemover:        client,
-				ApplicationWatcher: client,
-				VersionSetter:      client,
-				StartUniterFunc:    uniter.StartUniter,
+				ModelUUID:             agentConfig.Model().Id(),
+				ModelName:             model.Name,
+				Application:           applicationTag.Id(),
+				CharmGetter:           client,
+				Clock:                 clock,
+				PodSpecSetter:         client,
+				DataDir:               agentConfig.DataDir(),
+				Downloader:            downloader,
+				StatusSetter:          client,
+				UnitGetter:            client,
+				UnitRemover:           client,
+				ApplicationWatcher:    client,
+				VersionSetter:         client,
+				StartUniterFunc:       uniter.StartUniter,
+				RunListenerSocketFunc: runListenerSocketFunc,
 
 				LeadershipTrackerFunc: leadershipTrackerFunc,
 				UniterFacadeFunc:      newUniterFunc,

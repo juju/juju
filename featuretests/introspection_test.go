@@ -12,15 +12,20 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
+	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/introspect"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
 )
 
@@ -61,9 +66,44 @@ func (s *introspectionSuite) startMachineAgent(c *gc.C) (*agentcmd.MachineAgent,
 
 	err := m.SetMongoPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PrimeStateAgent(c, m.Tag(), password)
+
+	vers := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: series.MustHostSeries(),
+	}
+	return s.startAgent(c, m.Tag(), password, vers, false)
+}
+
+// startMachineAgent starts a controller agent and returns the path
+// of its unix socket.
+func (s *introspectionSuite) startControllerAgent(c *gc.C) (*agentcmd.MachineAgent, string) {
+	// Create a controller node and an agent for it.
+	node, err := s.State.AddControllerNode()
+	c.Assert(err, jc.ErrorIsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	err = node.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = node.SetMongoPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+
+	vers := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: "kuebernetes",
+	}
+	return s.startAgent(c, node.Tag(), password, vers, true)
+}
+
+func (s *introspectionSuite) startAgent(
+	c *gc.C, tag names.Tag, password string, vers version.Binary, isCaas bool,
+) (*agentcmd.MachineAgent, string) {
+	s.PrimeStateAgentVersion(c, tag, password, vers)
 	agentConf := agentcmd.NewAgentConf(s.DataDir())
-	agentConf.ReadConfig(m.Tag().String())
+	err := agentConf.ReadConfig(tag.String())
+	c.Assert(err, jc.ErrorIsNil)
 
 	rootDir := c.MkDir()
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
@@ -73,7 +113,7 @@ func (s *introspectionSuite) startMachineAgent(c *gc.C) (*agentcmd.MachineAgent,
 		noPreUpgradeSteps,
 		rootDir,
 	)
-	a, err := machineAgentFactory(m.Id(), false)
+	a, err := machineAgentFactory(tag, isCaas)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Start the agent.
@@ -96,17 +136,28 @@ func (s *introspectionSuite) startMachineAgent(c *gc.C) (*agentcmd.MachineAgent,
 	return a, rootDir
 }
 
-func (s *introspectionSuite) TestPrometheusMetrics(c *gc.C) {
+func (s *introspectionSuite) TestPrometheusMetricsControllerAgent(c *gc.C) {
+	a, socketPath := s.startControllerAgent(c)
+	defer a.Stop()
+	s.assertPrometheusMetrics(c, socketPath)
+}
+
+func (s *introspectionSuite) TestPrometheusMetricsMachineAgent(c *gc.C) {
 	a, socketPath := s.startMachineAgent(c)
 	defer a.Stop()
+	s.assertPrometheusMetrics(c, socketPath,
+		`juju_cache_machines{agent_status="started",instance_status="",life="alive"} 1`,
+	)
+}
 
+func (s *introspectionSuite) assertPrometheusMetrics(c *gc.C, socketPath string, extra ...string) {
 	expected := []string{
 		"juju_logsender_capacity 1000",
 		"juju_api_requests_total",
 		"juju_api_requests_total",
 		"juju_mgo_txn_ops_total",
-		`juju_cache_machines{agent_status="started",instance_status="",life="alive"} 1`,
 	}
+	expected = append(expected, extra...)
 
 	check := func(last bool) bool {
 		cmd := introspect.IntrospectCommand{

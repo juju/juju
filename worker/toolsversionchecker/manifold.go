@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/api/agenttools"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
@@ -30,15 +29,16 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
-	st, err := apiagent.NewState(apiCaller)
+	tag := a.CurrentConfig().Tag()
+	if tag.Kind() != names.MachineTagKind {
+		return nil, errors.New("this manifold may only be used inside a machine agent")
+	}
+
+	isController, err := apiagent.IsController(apiCaller, tag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	isMM, err := isModelManager(a, st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !isMM {
+	if !isController {
 		return nil, dependency.ErrMissing
 	}
 
@@ -47,27 +47,4 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 		CheckInterval: time.Hour * 6,
 	}
 	return New(agenttools.NewFacade(apiCaller), &checkerParams), nil
-}
-
-func isModelManager(a agent.Agent, st *apiagent.State) (bool, error) {
-	cfg := a.CurrentConfig()
-
-	// Grab the tag and ensure that it's for a machine.
-	tag, ok := cfg.Tag().(names.MachineTag)
-	if !ok {
-		return false, errors.New("this manifold may only be used inside a machine agent")
-	}
-
-	entity, err := st.Entity(tag)
-	if err != nil {
-		return false, err
-	}
-
-	for _, job := range entity.Jobs() {
-		if job == multiwatcher.JobManageModel {
-			return true, nil
-		}
-	}
-
-	return false, nil
 }

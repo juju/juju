@@ -27,7 +27,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -122,9 +122,11 @@ type JujuConnSuite struct {
 	Factory             *factory.Factory
 	ProviderCallContext context.ProviderCallContext
 
-	txnSyncNotify     chan struct{}
-	modelWatcherIdle  chan string
-	modelWatcherMutex *sync.Mutex
+	idleFuncMutex       *sync.Mutex
+	txnSyncNotify       chan struct{}
+	modelWatcherIdle    chan string
+	controllerIdle      chan struct{}
+	controllerIdleCount int
 }
 
 const AdminSecret = "dummy-secret"
@@ -147,11 +149,16 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
+	// This needs to be a pointer as there are other Mixin structures
+	// that copy the lock otherwise. Yet another reason to move away from
+	// the glorious JujuConnSuite.
+	s.idleFuncMutex = &sync.Mutex{}
 	s.txnSyncNotify = make(chan struct{})
 	s.modelWatcherIdle = nil
-	s.modelWatcherMutex = &sync.Mutex{}
+	s.controllerIdle = nil
 	s.PatchValue(&statewatcher.TxnPollNotifyFunc, s.txnNotifyFunc)
 	s.PatchValue(&statewatcher.HubWatcherIdleFunc, s.hubWatcherIdleFunc)
+	s.PatchValue(&cache.IdleFunc, s.controllerIdleFunc)
 	s.setUpConn(c)
 	s.Factory = factory.NewFactory(s.State, s.StatePool)
 }
@@ -180,9 +187,9 @@ func (s *JujuConnSuite) txnNotifyFunc() {
 }
 
 func (s *JujuConnSuite) hubWatcherIdleFunc(modelUUID string) {
-	s.modelWatcherMutex.Lock()
+	s.idleFuncMutex.Lock()
 	idleChan := s.modelWatcherIdle
-	s.modelWatcherMutex.Unlock()
+	s.idleFuncMutex.Unlock()
 	if idleChan == nil {
 		return
 	}
@@ -193,6 +200,32 @@ func (s *JujuConnSuite) hubWatcherIdleFunc(modelUUID string) {
 	// within a short wait, we don't send the message.
 	select {
 	case idleChan <- modelUUID:
+	case <-time.After(testing.ShortWait):
+	}
+}
+
+func (s *JujuConnSuite) controllerIdleFunc() {
+	s.idleFuncMutex.Lock()
+	idleChan := s.controllerIdle
+	s.idleFuncMutex.Unlock()
+	if idleChan == nil {
+		return
+	}
+	// Here we have a similar condition to the txn watcher idle.
+	// Between test start and when we listen, there may be an idle event.
+	// So when we have an idleChan set, we wait for the second idle before
+	// we signal that we're idle.
+	if s.controllerIdleCount == 0 {
+		s.controllerIdleCount++
+		return
+	}
+	// There is a very small race condition between when the
+	// idle channel is cleared and when the function exits.
+	// Under normal circumstances, there is a goroutine in a tight loop
+	// reading off the idle channel. If the channel isn't read
+	// within a short wait, we don't send the message.
+	select {
+	case idleChan <- struct{}{}:
 	case <-time.After(testing.ShortWait):
 	}
 }
@@ -219,37 +252,56 @@ func (s *JujuConnSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
 	logger := loggo.GetLogger("test")
 	logger.Infof("waiting for model %s to be idle", modelUUID)
 	s.WaitForNextSync(c)
-	s.modelWatcherMutex.Lock()
-	idleChan := make(chan string)
-	s.modelWatcherIdle = idleChan
-	s.modelWatcherMutex.Unlock()
+	watcherIdleChan := make(chan string)
+	controllerIdleChan := make(chan struct{})
+	// Now, in theory we shouldn't start waiting for the controller to be idle until
+	// we have noticed that the model watcher is idle. In practice, if the model watcher
+	// isn't idle, the controller won't yet be idle. Once the watcher is idle, it is also
+	// very likely that the controller will become idle very soon after. We do it this way
+	// so we don't add 50ms to every call of this function. In practice that time without
+	// events should be shared across both the things we are waiting on, so that idle time
+	// happens in parallel.
+	s.idleFuncMutex.Lock()
+	s.modelWatcherIdle = watcherIdleChan
+	s.controllerIdleCount = 0
+	s.controllerIdle = controllerIdleChan
+	s.idleFuncMutex.Unlock()
 
 	defer func() {
-		s.modelWatcherMutex.Lock()
+		s.idleFuncMutex.Lock()
 		s.modelWatcherIdle = nil
-		s.modelWatcherMutex.Unlock()
+		s.controllerIdle = nil
+		s.idleFuncMutex.Unlock()
 		// Clear out any pending events.
 		for {
 			select {
-			case <-idleChan:
+			case <-watcherIdleChan:
+			case <-controllerIdleChan:
 			default:
+				logger.Infof("WaitForModelWatchersIdle(%q) done", modelUUID)
 				return
 			}
 		}
 	}()
 
 	timeout := time.After(gitjujutesting.LongWait)
+watcher:
 	for {
 		select {
-		case uuid := <-idleChan:
+		case uuid := <-watcherIdleChan:
+			logger.Infof("model %s is idle", uuid)
 			if uuid == modelUUID {
-				return
-			} else {
-				logger.Infof("model %s is idle", uuid)
+				break watcher
 			}
 		case <-timeout:
-			c.Fatal("no sync event sent, is the watcher dead?")
+			c.Fatal("no idle event sent, is the watcher dead?")
 		}
+	}
+	select {
+	case <-controllerIdleChan:
+		// done
+	case <-time.After(gitjujutesting.LongWait):
+		c.Fatal("no controller idle event sent, is the controller dead?")
 	}
 }
 

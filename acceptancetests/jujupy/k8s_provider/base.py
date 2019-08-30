@@ -202,10 +202,13 @@ class Base(object):
     def kubectl(self, *args):
         return self.sh(*(self._kubectl_bin + args))
 
-    def patch_configmap(self, namespace, cm_name, key, value):
-        cm = json.loads(
+    def get_configmap(self, namespace, cm_name):
+        return json.loads(
             self.kubectl('get', '-n', namespace, 'cm', cm_name, '-o', 'json')
         )
+
+    def patch_configmap(self, namespace, cm_name, key, value):
+        cm = self.get_configmap(namespace, cm_name)
         data = cm.get('data', {})
         data[key] = value if isinstance(value, str) else str(value)
         cm['data'] = data

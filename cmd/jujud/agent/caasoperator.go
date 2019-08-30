@@ -18,7 +18,7 @@ import (
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
@@ -65,7 +66,8 @@ type CaasOperatorAgent struct {
 
 	prometheusRegistry *prometheus.Registry
 
-	newExecClient func(modelName string) (exec.Executor, error)
+	newExecClient     func(modelName string) (exec.Executor, error)
+	runListenerSocket func() (*sockets.Socket, error)
 }
 
 // NewCaasOperatorAgent creates a new CAASOperatorAgent instance properly initialized.
@@ -73,6 +75,7 @@ func NewCaasOperatorAgent(
 	ctx *cmd.Context,
 	bufferedLogger *logsender.BufferedLogWriter,
 	newExecClient func(modelName string) (exec.Executor, error),
+	runListenerSocket func() (*sockets.Socket, error),
 ) (*CaasOperatorAgent, error) {
 	prometheusRegistry, err := newPrometheusRegistry()
 	if err != nil {
@@ -87,6 +90,7 @@ func NewCaasOperatorAgent(
 		prometheusRegistry: prometheusRegistry,
 		preUpgradeSteps:    upgrades.PreUpgradeSteps,
 		newExecClient:      newExecClient,
+		runListenerSocket:  runListenerSocket,
 	}, nil
 }
 
@@ -231,6 +235,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		MachineLock:          op.machineLock,
 		PreviousAgentVersion: agentConfig.UpgradedToVersion(),
 		NewExecClient:        op.newExecClient,
+		RunListenerSocket:    op.runListenerSocket,
 	})
 
 	engine, err := dependency.NewEngine(dependencyEngineConfig())

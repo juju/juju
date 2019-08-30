@@ -10,7 +10,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	cloudapi "github.com/juju/juju/api/cloud"
@@ -22,9 +22,16 @@ import (
 
 type cloudSuite struct {
 	gitjujutesting.IsolationSuite
+
+	called bool
 }
 
 var _ = gc.Suite(&cloudSuite{})
+
+func (s *cloudSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	s.called = false
+}
 
 func (s *cloudSuite) TestCloud(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(
@@ -48,6 +55,7 @@ func (s *cloudSuite) TestCloud(c *gc.C) {
 					Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
 				},
 			})
+			s.called = true
 			return nil
 		},
 	)
@@ -61,6 +69,7 @@ func (s *cloudSuite) TestCloud(c *gc.C) {
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 		Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 	})
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestClouds(c *gc.C) {
@@ -86,6 +95,7 @@ func (s *cloudSuite) TestClouds(c *gc.C) {
 					Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
 				},
 			}
+			s.called = true
 			return nil
 		},
 	)
@@ -105,6 +115,7 @@ func (s *cloudSuite) TestClouds(c *gc.C) {
 			Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 		},
 	})
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUserCredentials(c *gc.C) {
@@ -130,6 +141,7 @@ func (s *cloudSuite) TestUserCredentials(c *gc.C) {
 					},
 				}},
 			}
+			s.called = true
 			return nil
 		},
 	)
@@ -141,10 +153,10 @@ func (s *cloudSuite) TestUserCredentials(c *gc.C) {
 		names.NewCloudCredentialTag("foo/bob/one"),
 		names.NewCloudCredentialTag("foo/bob/two"),
 	})
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCredentialV2(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -170,7 +182,7 @@ func (s *cloudSuite) TestUpdateCredentialV2(c *gc.C) {
 				*result.(*params.ErrorResults) = params.ErrorResults{
 					Results: []params.ErrorResult{{}},
 				}
-				called = true
+				s.called = true
 				return nil
 			},
 		),
@@ -180,11 +192,10 @@ func (s *cloudSuite) TestUpdateCredentialV2(c *gc.C) {
 	result, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.IsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCredential(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -210,7 +221,7 @@ func (s *cloudSuite) TestUpdateCredential(c *gc.C) {
 				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
 					Results: []params.UpdateCredentialResult{{}},
 				}
-				called = true
+				s.called = true
 				return nil
 			},
 		),
@@ -220,11 +231,10 @@ func (s *cloudSuite) TestUpdateCredential(c *gc.C) {
 	result, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.IsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCredentialErrorV2(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -236,7 +246,7 @@ func (s *cloudSuite) TestUpdateCredentialErrorV2(c *gc.C) {
 				*result.(*params.ErrorResults) = params.ErrorResults{
 					Results: []params.ErrorResult{{common.ServerError(errors.New("validation failure"))}},
 				}
-				called = true
+				s.called = true
 				return nil
 			},
 		),
@@ -246,11 +256,10 @@ func (s *cloudSuite) TestUpdateCredentialErrorV2(c *gc.C) {
 	errs, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
 	c.Assert(err, gc.ErrorMatches, "validation failure")
 	c.Assert(errs, gc.IsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCredentialError(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -266,7 +275,7 @@ func (s *cloudSuite) TestUpdateCredentialError(c *gc.C) {
 						},
 					},
 				}
-				called = true
+				s.called = true
 				return nil
 			},
 		),
@@ -276,11 +285,10 @@ func (s *cloudSuite) TestUpdateCredentialError(c *gc.C) {
 	errs, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
 	c.Assert(err, gc.ErrorMatches, "validation failure")
 	c.Assert(errs, gc.IsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCredentialCallErrorV2(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -289,7 +297,7 @@ func (s *cloudSuite) TestUpdateCredentialCallErrorV2(c *gc.C) {
 				a, result interface{},
 			) error {
 				c.Check(request, gc.Equals, "UpdateCredentials")
-				called = true
+				s.called = true
 				return errors.New("scary but true")
 			},
 		),
@@ -299,11 +307,10 @@ func (s *cloudSuite) TestUpdateCredentialCallErrorV2(c *gc.C) {
 	result, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
 	c.Assert(err, gc.ErrorMatches, "scary but true")
 	c.Assert(result, gc.IsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCredentialCallError(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -312,7 +319,7 @@ func (s *cloudSuite) TestUpdateCredentialCallError(c *gc.C) {
 				a, result interface{},
 			) error {
 				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
-				called = true
+				s.called = true
 				return errors.New("scary but true")
 			},
 		),
@@ -322,11 +329,10 @@ func (s *cloudSuite) TestUpdateCredentialCallError(c *gc.C) {
 	result, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
 	c.Assert(err, gc.ErrorMatches, "scary but true")
 	c.Assert(result, gc.IsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCredentialManyResultsV2(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -341,7 +347,7 @@ func (s *cloudSuite) TestUpdateCredentialManyResultsV2(c *gc.C) {
 						{},
 					},
 				}
-				called = true
+				s.called = true
 				return nil
 			},
 		),
@@ -351,11 +357,10 @@ func (s *cloudSuite) TestUpdateCredentialManyResultsV2(c *gc.C) {
 	result, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
 	c.Assert(err, gc.ErrorMatches, `expected 1 result got 2 when updating credentials`)
 	c.Assert(result, gc.IsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCredentialManyResults(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -369,7 +374,7 @@ func (s *cloudSuite) TestUpdateCredentialManyResults(c *gc.C) {
 						{},
 						{},
 					}}
-				called = true
+				s.called = true
 				return nil
 			},
 		),
@@ -379,11 +384,10 @@ func (s *cloudSuite) TestUpdateCredentialManyResults(c *gc.C) {
 	result, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
 	c.Assert(err, gc.ErrorMatches, `expected 1 result got 2 when updating credentials`)
 	c.Assert(result, gc.IsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCredentialModelErrors(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -408,7 +412,7 @@ func (s *cloudSuite) TestUpdateCredentialModelErrors(c *gc.C) {
 							},
 						},
 					}}
-				called = true
+				s.called = true
 				return nil
 			},
 		),
@@ -427,7 +431,7 @@ func (s *cloudSuite) TestUpdateCredentialModelErrors(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 var (
@@ -439,7 +443,6 @@ var (
 )
 
 func (s *cloudSuite) TestRevokeCredential(c *gc.C) {
-	var called bool
 	apiCallerF := basetesting.APICallerFunc(
 		func(objType string,
 			version int,
@@ -458,7 +461,7 @@ func (s *cloudSuite) TestRevokeCredential(c *gc.C) {
 			*result.(*params.ErrorResults) = params.ErrorResults{
 				Results: []params.ErrorResult{{}},
 			}
-			called = true
+			s.called = true
 			return nil
 		},
 	)
@@ -471,11 +474,10 @@ func (s *cloudSuite) TestRevokeCredential(c *gc.C) {
 	tag := names.NewCloudCredentialTag("foo/bob/bar")
 	err := client.RevokeCredential(tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestRevokeCredentialV2(c *gc.C) {
-	var called bool
 	apiCallerF := basetesting.APICallerFunc(
 		func(objType string,
 			version int,
@@ -492,7 +494,7 @@ func (s *cloudSuite) TestRevokeCredentialV2(c *gc.C) {
 			*result.(*params.ErrorResults) = params.ErrorResults{
 				Results: []params.ErrorResult{{}},
 			}
-			called = true
+			s.called = true
 			return nil
 		},
 	)
@@ -505,7 +507,7 @@ func (s *cloudSuite) TestRevokeCredentialV2(c *gc.C) {
 	tag := names.NewCloudCredentialTag("foo/bob/bar")
 	err := client.RevokeCredential(tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestCredentials(c *gc.C) {
@@ -539,6 +541,7 @@ func (s *cloudSuite) TestCredentials(c *gc.C) {
 					},
 				},
 			}
+			s.called = true
 			return nil
 		},
 	)
@@ -562,64 +565,74 @@ func (s *cloudSuite) TestCredentials(c *gc.C) {
 			},
 		},
 	})
+	c.Assert(s.called, jc.IsTrue)
+}
+
+func (s *cloudSuite) createVersionedAddCloudCall(c *gc.C, v int, expectedArg params.AddCloudArgs) basetesting.BestVersionCaller {
+	return basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Check(objType, gc.Equals, "Cloud")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, "AddCloud")
+				c.Check(a, jc.DeepEquals, expectedArg)
+				s.called = true
+				return nil
+			},
+		),
+		BestVersion: v,
+	}
+}
+
+var testCloud = cloud.Cloud{
+	Name:      "foo",
+	Type:      "dummy",
+	AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+	Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 }
 
 func (s *cloudSuite) TestAddCloudNotInV1API(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				c.Check(objType, gc.Equals, "Cloud")
-				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "AddCloud")
-				return nil
-			},
-		),
-		BestVersion: 1,
-	}
+	apiCaller := s.createVersionedAddCloudCall(c, 1, params.AddCloudArgs{})
 	client := cloudapi.NewClient(apiCaller)
-	err := client.AddCloud(cloud.Cloud{
-		Name:      "foo",
-		Type:      "dummy",
-		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
-		Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
-	})
-
+	err := client.AddCloud(testCloud, false)
 	c.Assert(err, gc.ErrorMatches, "AddCloud\\(\\).* not implemented")
+	c.Assert(s.called, jc.IsFalse)
 }
 
 func (s *cloudSuite) TestAddCloudV2API(c *gc.C) {
-	var called bool
-	apiCaller := basetesting.BestVersionCaller{
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string,
-				version int,
-				id, request string,
-				a, result interface{},
-			) error {
-				called = true
-				c.Check(objType, gc.Equals, "Cloud")
-				c.Check(id, gc.Equals, "")
-				c.Check(request, gc.Equals, "AddCloud")
-				return nil
-			},
-		),
-		BestVersion: 2,
-	}
-
-	client := cloudapi.NewClient(apiCaller)
-	err := client.AddCloud(cloud.Cloud{
-		Name:      "foo",
-		Type:      "dummy",
-		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
-		Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
+	apiCaller := s.createVersionedAddCloudCall(c, 2, params.AddCloudArgs{
+		Name:  "foo",
+		Cloud: common.CloudToParams(testCloud),
 	})
-
+	client := cloudapi.NewClient(apiCaller)
+	err := client.AddCloud(testCloud, false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
+}
+
+func (s *cloudSuite) TestAddCloudForceNotInVPriorTo6(c *gc.C) {
+	apiCaller := s.createVersionedAddCloudCall(c, 5, params.AddCloudArgs{})
+	client := cloudapi.NewClient(apiCaller)
+	err := client.AddCloud(testCloud, true)
+	c.Assert(err, gc.ErrorMatches, "AddCloud\\(\\).* not implemented")
+	c.Assert(s.called, jc.IsFalse)
+}
+
+func (s *cloudSuite) TestAddCloudForceFromV6(c *gc.C) {
+	force := true
+	apiCaller := s.createVersionedAddCloudCall(c, 6, params.AddCloudArgs{
+		Name:  "foo",
+		Cloud: common.CloudToParams(testCloud),
+		Force: &force,
+	})
+	client := cloudapi.NewClient(apiCaller)
+	err := client.AddCloud(testCloud, force)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
@@ -631,7 +644,6 @@ func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
 		Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 	}
 
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -639,7 +651,7 @@ func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
-				called = true
+				s.called = true
 				c.Check(objType, gc.Equals, "Cloud")
 				c.Check(id, gc.Equals, "")
 				c.Check(request, gc.Equals, "UpdateCloud")
@@ -661,7 +673,7 @@ func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
 	err := client.UpdateCloud(updatedCloud)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestAddCredentialNotInV1API(c *gc.C) {
@@ -672,6 +684,7 @@ func (s *cloudSuite) TestAddCredentialNotInV1API(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
+				s.called = true
 				return nil
 			},
 		),
@@ -681,11 +694,11 @@ func (s *cloudSuite) TestAddCredentialNotInV1API(c *gc.C) {
 	err := client.AddCredential("cloudcred-acloud-user-credname",
 		cloud.NewCredential(cloud.UserPassAuthType, map[string]string{}))
 
+	c.Assert(s.called, jc.IsFalse)
 	c.Assert(err, gc.ErrorMatches, "AddCredential\\(\\).* not implemented")
 }
 
 func (s *cloudSuite) TestAddCredentialV2API(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -693,7 +706,7 @@ func (s *cloudSuite) TestAddCredentialV2API(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
-				called = true
+				s.called = true
 				c.Check(objType, gc.Equals, "Cloud")
 				c.Check(id, gc.Equals, "")
 				c.Check(request, gc.Equals, "AddCredentials")
@@ -714,7 +727,7 @@ func (s *cloudSuite) TestAddCredentialV2API(c *gc.C) {
 			map[string]string{}))
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestCredentialContentsArgumentCheck(c *gc.C) {
@@ -771,6 +784,7 @@ func (s *cloudSuite) TestCredentialContentsAll(c *gc.C) {
 				*result.(*params.CredentialContentResults) = params.CredentialContentResults{
 					Results: expectedResults,
 				}
+				s.called = true
 				return nil
 			},
 		),
@@ -781,6 +795,7 @@ func (s *cloudSuite) TestCredentialContentsAll(c *gc.C) {
 	results, err := client.CredentialContents("", "", true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expectedResults)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestCredentialContentsOne(c *gc.C) {
@@ -806,6 +821,7 @@ func (s *cloudSuite) TestCredentialContentsOne(c *gc.C) {
 						{},
 					},
 				}
+				s.called = true
 				return nil
 			},
 		),
@@ -816,6 +832,7 @@ func (s *cloudSuite) TestCredentialContentsOne(c *gc.C) {
 	results, err := client.CredentialContents("cloud-name", "credential-name", true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestCredentialContentsGotMoreThanBargainedFor(c *gc.C) {
@@ -832,6 +849,7 @@ func (s *cloudSuite) TestCredentialContentsGotMoreThanBargainedFor(c *gc.C) {
 						{},
 					},
 				}
+				s.called = true
 				return nil
 			},
 		),
@@ -842,6 +860,7 @@ func (s *cloudSuite) TestCredentialContentsGotMoreThanBargainedFor(c *gc.C) {
 	results, err := client.CredentialContents("cloud-name", "credential-name", true)
 	c.Assert(results, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "expected 1 result for credential \"cloud-name\" on cloud \"credential-name\", got 2")
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestCredentialContentsServerError(c *gc.C) {
@@ -852,6 +871,7 @@ func (s *cloudSuite) TestCredentialContentsServerError(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
+				s.called = true
 				return errors.New("boom")
 			}),
 		BestVersion: 2,
@@ -861,6 +881,7 @@ func (s *cloudSuite) TestCredentialContentsServerError(c *gc.C) {
 	results, err := client.CredentialContents("", "", true)
 	c.Assert(results, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestCredentialContentsNotInV2API(c *gc.C) {
@@ -871,6 +892,7 @@ func (s *cloudSuite) TestCredentialContentsNotInV2API(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
+				s.called = true
 				return nil
 			},
 		),
@@ -879,10 +901,10 @@ func (s *cloudSuite) TestCredentialContentsNotInV2API(c *gc.C) {
 	client := cloudapi.NewClient(apiCaller)
 	_, err := client.CredentialContents("", "", true)
 	c.Assert(err, gc.ErrorMatches, "CredentialContents\\(\\).* not implemented")
+	c.Assert(s.called, jc.IsFalse)
 }
 
 func (s *cloudSuite) TestRemoveCloud(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -890,7 +912,7 @@ func (s *cloudSuite) TestRemoveCloud(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
-				called = true
+				s.called = true
 				c.Check(objType, gc.Equals, "Cloud")
 				c.Check(id, gc.Equals, "")
 				c.Check(request, gc.Equals, "RemoveClouds")
@@ -911,7 +933,7 @@ func (s *cloudSuite) TestRemoveCloud(c *gc.C) {
 	client := cloudapi.NewClient(apiCaller)
 	err := client.RemoveCloud("foo")
 	c.Assert(err, gc.ErrorMatches, "FAIL")
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestRemoveCloudNotInV1API(c *gc.C) {
@@ -925,6 +947,7 @@ func (s *cloudSuite) TestRemoveCloudNotInV1API(c *gc.C) {
 				c.Check(objType, gc.Equals, "Cloud")
 				c.Check(id, gc.Equals, "")
 				c.Check(request, gc.Equals, "RemoveCloud")
+				s.called = true
 				return nil
 			},
 		),
@@ -933,11 +956,11 @@ func (s *cloudSuite) TestRemoveCloudNotInV1API(c *gc.C) {
 	client := cloudapi.NewClient(apiCaller)
 	err := client.RemoveCloud("foo")
 
+	c.Assert(s.called, jc.IsFalse)
 	c.Assert(err, gc.ErrorMatches, "RemoveCloud\\(\\).* not implemented")
 }
 
 func (s *cloudSuite) TestGrantCloud(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -945,7 +968,7 @@ func (s *cloudSuite) TestGrantCloud(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
-				called = true
+				s.called = true
 				c.Check(objType, gc.Equals, "Cloud")
 				c.Check(id, gc.Equals, "")
 				c.Check(request, gc.Equals, "ModifyCloudAccess")
@@ -968,7 +991,7 @@ func (s *cloudSuite) TestGrantCloud(c *gc.C) {
 	client := cloudapi.NewClient(apiCaller)
 	err := client.GrantCloud("fred", "admin", "fluffy")
 	c.Assert(err, gc.ErrorMatches, "FAIL")
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestGrantCloudAccessNotInV2API(c *gc.C) {
@@ -991,7 +1014,6 @@ func (s *cloudSuite) TestGrantCloudAccessNotInV2API(c *gc.C) {
 }
 
 func (s *cloudSuite) TestRevokeCloud(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -999,7 +1021,7 @@ func (s *cloudSuite) TestRevokeCloud(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
-				called = true
+				s.called = true
 				c.Check(objType, gc.Equals, "Cloud")
 				c.Check(id, gc.Equals, "")
 				c.Check(request, gc.Equals, "ModifyCloudAccess")
@@ -1022,7 +1044,7 @@ func (s *cloudSuite) TestRevokeCloud(c *gc.C) {
 	client := cloudapi.NewClient(apiCaller)
 	err := client.RevokeCloud("fred", "admin", "fluffy")
 	c.Assert(err, gc.ErrorMatches, "FAIL")
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestRevokeCloudAccessNotInV2API(c *gc.C) {
@@ -1053,7 +1075,6 @@ func createCredentials(n int) map[string]cloud.Credential {
 }
 
 func (s *cloudSuite) TestUpdateCloudsCredentials(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -1079,7 +1100,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentials(c *gc.C) {
 				*result.(*params.UpdateCredentialResults) = params.UpdateCredentialResults{
 					Results: []params.UpdateCredentialResult{{}},
 				}
-				called = true
+				s.called = true
 				return nil
 			},
 		),
@@ -1089,11 +1110,10 @@ func (s *cloudSuite) TestUpdateCloudsCredentials(c *gc.C) {
 	result, err := client.UpdateCloudsCredentials(createCredentials(1))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []params.UpdateCredentialResult{{}})
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCloudsCredentialsErrorV2(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -1105,7 +1125,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsErrorV2(c *gc.C) {
 				*result.(*params.ErrorResults) = params.ErrorResults{
 					Results: []params.ErrorResult{{common.ServerError(errors.New("validation failure"))}},
 				}
-				called = true
+				s.called = true
 				return nil
 			},
 		),
@@ -1117,11 +1137,10 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsErrorV2(c *gc.C) {
 	c.Assert(errs, gc.DeepEquals, []params.UpdateCredentialResult{
 		{CredentialTag: "cloudcred-foo_bob_bar0", Error: &params.Error{Message: "validation failure", Code: ""}},
 	})
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCloudsCredentialsError(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -1137,7 +1156,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsError(c *gc.C) {
 						},
 					},
 				}
-				called = true
+				s.called = true
 				return nil
 			},
 		),
@@ -1149,11 +1168,10 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsError(c *gc.C) {
 	c.Assert(errs, gc.DeepEquals, []params.UpdateCredentialResult{
 		{CredentialTag: "cloudcred-foo_bob_bar0", Error: common.ServerError(errors.New("validation failure"))},
 	})
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCloudsCredentialsCallErrorV2(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -1162,7 +1180,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsCallErrorV2(c *gc.C) {
 				a, result interface{},
 			) error {
 				c.Check(request, gc.Equals, "UpdateCredentials")
-				called = true
+				s.called = true
 				return errors.New("scary but true")
 			},
 		),
@@ -1172,11 +1190,10 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsCallErrorV2(c *gc.C) {
 	result, err := client.UpdateCloudsCredentials(createCredentials(1))
 	c.Assert(err, gc.ErrorMatches, "scary but true")
 	c.Assert(result, gc.IsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCloudsCredentialsCallError(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -1185,7 +1202,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsCallError(c *gc.C) {
 				a, result interface{},
 			) error {
 				c.Check(request, gc.Equals, "UpdateCredentialsCheckModels")
-				called = true
+				s.called = true
 				return errors.New("scary but true")
 			},
 		),
@@ -1195,11 +1212,10 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsCallError(c *gc.C) {
 	result, err := client.UpdateCloudsCredentials(createCredentials(1))
 	c.Assert(err, gc.ErrorMatches, "scary but true")
 	c.Assert(result, gc.IsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCloudsCredentialsManyResultsV2(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -1214,7 +1230,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyResultsV2(c *gc.C) {
 						{},
 					},
 				}
-				called = true
+				s.called = true
 				return nil
 			},
 		),
@@ -1224,11 +1240,10 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyResultsV2(c *gc.C) {
 	result, err := client.UpdateCloudsCredentials(createCredentials(1))
 	c.Assert(err, gc.ErrorMatches, `expected 1 result got 2 when updating credentials`)
 	c.Assert(result, gc.IsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResultsV2(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -1243,7 +1258,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResultsV2(c *gc.C) {
 						{},
 					},
 				}
-				called = true
+				s.called = true
 				return nil
 			},
 		),
@@ -1258,11 +1273,10 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResultsV2(c *gc.C) {
 		_, ok := in[one.CredentialTag]
 		c.Assert(ok, jc.IsTrue)
 	}
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCloudsCredentialsManyResults(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -1276,7 +1290,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyResults(c *gc.C) {
 						{},
 						{},
 					}}
-				called = true
+				s.called = true
 				return nil
 			},
 		),
@@ -1286,11 +1300,10 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyResults(c *gc.C) {
 	result, err := client.UpdateCloudsCredentials(createCredentials(1))
 	c.Assert(err, gc.ErrorMatches, `expected 1 result got 2 when updating credentials`)
 	c.Assert(result, gc.IsNil)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResults(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -1304,7 +1317,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResults(c *gc.C) {
 						{},
 						{},
 					}}
-				called = true
+				s.called = true
 				return nil
 			},
 		),
@@ -1315,11 +1328,10 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResults(c *gc.C) {
 	result, err := client.UpdateCloudsCredentials(createCredentials(count))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, count)
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }
 
 func (s *cloudSuite) TestUpdateCloudsCredentialsModelErrors(c *gc.C) {
-	var called bool
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -1344,7 +1356,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsModelErrors(c *gc.C) {
 							},
 						},
 					}}
-				called = true
+				s.called = true
 				return nil
 			},
 		),
@@ -1366,5 +1378,5 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsModelErrors(c *gc.C) {
 			},
 		},
 	})
-	c.Assert(called, jc.IsTrue)
+	c.Assert(s.called, jc.IsTrue)
 }

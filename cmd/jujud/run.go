@@ -5,7 +5,9 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -14,19 +16,23 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	jujuos "github.com/juju/os"
+	"github.com/juju/os/series"
 	"github.com/juju/utils/exec"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	jujucmd "github.com/juju/juju/cmd"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/uniter"
 )
 
 type RunCommand struct {
 	cmd.CommandBase
+	dataDir         string
 	MachineLock     machinelock.Lock
 	unit            names.UnitTag
 	commands        string
@@ -48,6 +54,9 @@ or the unit id:
 If --no-context is specified, the <unit-name> positional
 argument is not needed.
 
+If the there's one and only one unit on this host, <unit-name>
+is automatically inferred and the positional argument is not needed.
+
 The commands are executed with '/bin/bash -s', and the output returned.
 `
 
@@ -55,7 +64,7 @@ The commands are executed with '/bin/bash -s', and the output returned.
 func (c *RunCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "juju-run",
-		Args:    "<unit-name> <commands>",
+		Args:    "[<unit-name>] <commands>",
 		Purpose: "run commands in a unit's hook context",
 		Doc:     runCommandDoc,
 	})
@@ -78,18 +87,27 @@ func (c *RunCommand) Init(args []string) error {
 		if len(args) < 1 {
 			return fmt.Errorf("missing unit-name")
 		}
-		var unitName string
-		unitName, args = args[0], args[1:]
+		var unitName = args[0]
 		// If the command line param is a unit id (like application/2) we need to
 		// change it to the unit tag as that is the format of the agent directory
 		// on disk (unit-application-2).
 		if names.IsValidUnit(unitName) {
 			c.unit = names.NewUnitTag(unitName)
+			args = args[1:]
 		} else {
 			var err error
 			c.unit, err = names.ParseUnitTag(unitName)
-			if err != nil {
-				return errors.Trace(err)
+			if err == nil {
+				args = args[1:]
+			} else {
+				// If arg[0] is neither a unit name not unit tag, perhaps
+				// we are running where there's only one unit, in which case
+				// we can safely use that.
+				var err2 error
+				c.unit, err2 = c.maybeGetUnitTag()
+				if err2 != nil {
+					return errors.Trace(err)
+				}
 			}
 		}
 	}
@@ -98,6 +116,33 @@ func (c *RunCommand) Init(args []string) error {
 	}
 	c.commands, args = args[0], args[1:]
 	return cmd.CheckEmpty(args)
+}
+
+// maybeGetUnitTag looks at the contents of the agents directory
+// and if there's one (and only one) valid unit tag there, returns it.
+func (c *RunCommand) maybeGetUnitTag() (names.UnitTag, error) {
+	dataDir := c.dataDir
+	if dataDir == "" {
+		// We don't care about errors here. This is a fallback and
+		// if there's an issue, we'll exit back to the use anyway.
+		hostSeries, _ := series.HostSeries()
+		dataDir, _ = paths.DataDir(hostSeries)
+	}
+	agentDir := filepath.Join(dataDir, "agents")
+	files, _ := ioutil.ReadDir(agentDir)
+	var unitTags []names.UnitTag
+	for _, f := range files {
+		if f.IsDir() {
+			unitTag, err := names.ParseUnitTag(f.Name())
+			if err == nil {
+				unitTags = append(unitTags, unitTag)
+			}
+		}
+	}
+	if len(unitTags) == 1 {
+		return unitTags[0], nil
+	}
+	return names.UnitTag{}, errors.New("no unit")
 }
 
 func (c *RunCommand) Run(ctx *cmd.Context) error {
@@ -117,10 +162,14 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 	return cmd.NewRcPassthroughError(result.Code)
 }
 
-func (c *RunCommand) getSocket() sockets.Socket {
-	// TODO(caas): enable juju-run for caas once we can know model type here.
-	paths := uniter.NewPaths(cmdutil.DataDir, c.unit, false)
-	return paths.Runtime.JujuRunSocket
+func (c *RunCommand) getSocket(baseDir string) sockets.Socket {
+	// juju-run on k8s uses an operator yaml file
+	ipAddrFile := filepath.Join(baseDir, provider.OperatorInfoFile)
+	_, err := os.Stat(ipAddrFile)
+	isRemote := err == nil
+
+	runtimePaths := uniter.NewPaths(cmdutil.DataDir, c.unit, isRemote)
+	return runtimePaths.Runtime.JujuRunSocket
 }
 
 func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
@@ -142,7 +191,7 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	if len(c.remoteUnitName) > 0 && relationId == -1 {
 		return nil, errors.Errorf("remote unit: %s, provided without a relation", c.remoteUnitName)
 	}
-	client, err := sockets.Dial(c.getSocket())
+	client, err := sockets.Dial(c.getSocket(unitDir))
 	if err != nil {
 		return nil, errors.Annotate(err, "dialing juju run socket")
 	}
@@ -152,6 +201,7 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	args := uniter.RunCommandsArgs{
 		Commands:        c.commands,
 		RelationId:      relationId,
+		UnitName:        c.unit.Id(),
 		RemoteUnitName:  c.remoteUnitName,
 		ForceRemoteUnit: c.forceRemoteUnit,
 	}

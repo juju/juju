@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/featureflag"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -171,7 +171,7 @@ func AllFacades() *facade.Registry {
 	reg("Cloud", 3, cloud.NewFacadeV3) // changes signature of UpdateCredentials, adds ModifyCloudAccess
 	reg("Cloud", 4, cloud.NewFacadeV4) // adds UpdateCloud
 	reg("Cloud", 5, cloud.NewFacadeV5) // Removes DefaultCloud, handles config in AddCloud
-	reg("Cloud", 6, cloud.NewFacadeV6) // Adds validity to CredentialContent
+	reg("Cloud", 6, cloud.NewFacadeV6) // Adds validity to CredentialContent, force for AddCloud
 
 	// CAAS related facades.
 	// Move these to the correct place above once the feature flag disappears.
@@ -290,7 +290,8 @@ func AllFacades() *facade.Registry {
 
 	reg("Spaces", 2, spaces.NewAPIv2)
 	reg("Spaces", 3, spaces.NewAPIv3)
-	reg("Spaces", 4, spaces.NewAPI)
+	reg("Spaces", 4, spaces.NewAPIv4)
+	reg("Spaces", 5, spaces.NewAPI)
 
 	reg("StatusHistory", 2, statushistory.NewAPI)
 
@@ -301,7 +302,8 @@ func AllFacades() *facade.Registry {
 
 	reg("StorageProvisioner", 3, storageprovisioner.NewFacadeV3)
 	reg("StorageProvisioner", 4, storageprovisioner.NewFacadeV4)
-	reg("Subnets", 2, subnets.NewAPI)
+	reg("Subnets", 2, subnets.NewAPIv2)
+	reg("Subnets", 3, subnets.NewAPI)
 	reg("Undertaker", 1, undertaker.NewUndertakerAPI)
 	reg("UnitAssigner", 1, unitassigner.New)
 

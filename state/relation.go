@@ -12,11 +12,12 @@ import (
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/permission"
 )
@@ -779,4 +780,55 @@ func (change relationSettingsCleanupChange) Prepare(db Database) ([]txn.Op, erro
 	}
 	return ops, nil
 
+}
+
+func relationApplicationSettingsKey(id int, application string) string {
+	return fmt.Sprintf("%s#%s", relationGlobalScope(id), application)
+}
+
+// ApplicationSettings returns the application-level settings for the
+// specified application in this relation.
+func (r *Relation) ApplicationSettings(app *Application) (map[string]interface{}, error) {
+	ep, err := r.Endpoint(app.Name())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	applicationKey := relationApplicationSettingsKey(r.Id(), ep.ApplicationName)
+	s, err := readSettings(r.st.db(), settingsC, applicationKey)
+	if err != nil {
+		return nil, errors.Annotatef(err, "relation %q application %q", r.String(), app.Name())
+	}
+	return s.Map(), nil
+}
+
+// UpdateApplicationSettings updates the given application's settings
+// in this relation. It requires a current leadership token.
+func (r *Relation) UpdateApplicationSettings(app *Application, token leadership.Token, updates map[string]interface{}) error {
+	// We can calculate the actual update ahead of time; it's not dependent
+	// upon the current state of the document. (*Writing* it should depend
+	// on document state, but that's handled below.)
+	ep, err := r.Endpoint(app.Name())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	key := relationApplicationSettingsKey(r.Id(), ep.ApplicationName)
+	err = updateLeaderSettings(r.st.db(), token, key, updates)
+	if errors.IsNotFound(err) {
+		return errors.NotFoundf("relation %q application %q", r, app.Name())
+	} else if err != nil {
+		return errors.Annotatef(err, "relation %q application %q", r, app.Name())
+	}
+	return nil
+}
+
+// WatchApplicationSettings returns a notify watcher that will signal
+// whenever the specified application's relation settings are changed.
+func (r *Relation) WatchApplicationSettings(app *Application) (NotifyWatcher, error) {
+	ep, err := r.Endpoint(app.Name())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	key := relationApplicationSettingsKey(r.Id(), ep.ApplicationName)
+	watcher := newEntityWatcher(r.st, settingsC, r.st.docID(key))
+	return watcher, nil
 }

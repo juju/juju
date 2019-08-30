@@ -71,8 +71,15 @@ var someCharmActions = map[string]params.ActionSpec{
 	"snapshot": {
 		Description: "Take a snapshot of the database.",
 		Params: map[string]interface{}{
-			"foo": map[string]interface{}{
-				"bar": "baz",
+			"properties": map[string]interface{}{
+				"name": map[string]interface{}{
+					"type":        "string",
+					"description": "snapshot name",
+				},
+				"full": map[string]interface{}{
+					"type":        "boolean",
+					"description": "take a full backup",
+				},
 			},
 			"baz": "bar",
 		},
@@ -80,16 +87,20 @@ var someCharmActions = map[string]params.ActionSpec{
 	"kill": {
 		Description: "Kill the database.",
 		Params: map[string]interface{}{
-			"bar": map[string]interface{}{
-				"baz": "foo",
+			"properties": map[string]interface{}{
+				"baz": map[string]interface{}{
+					"type": "string",
+				},
 			},
 			"foo": "baz",
 		},
 	},
 	"no-description": {
 		Params: map[string]interface{}{
-			"bar": map[string]interface{}{
-				"baz": "foo",
+			"properties": map[string]interface{}{
+				"baz": map[string]interface{}{
+					"type": "string",
+				},
 			},
 			"foo": "baz",
 		},

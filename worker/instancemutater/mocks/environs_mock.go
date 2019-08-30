@@ -5,20 +5,18 @@
 package mocks
 
 import (
-	"reflect"
-
-	"github.com/golang/mock/gomock"
-	"github.com/juju/version"
+	gomock "github.com/golang/mock/gomock"
+	constraints "github.com/juju/juju/core/constraints"
+	instance "github.com/juju/juju/core/instance"
+	lxdprofile "github.com/juju/juju/core/lxdprofile"
+	environs "github.com/juju/juju/environs"
+	config "github.com/juju/juju/environs/config"
+	context "github.com/juju/juju/environs/context"
+	instances "github.com/juju/juju/environs/instances"
+	storage "github.com/juju/juju/storage"
+	version "github.com/juju/version"
 	charm_v6 "gopkg.in/juju/charm.v6"
-
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/storage"
+	reflect "reflect"
 )
 
 // MockEnviron is a mock of Environ interface

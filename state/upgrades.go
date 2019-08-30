@@ -14,7 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -2266,10 +2266,15 @@ func AddControllerNodeDocs(pool *StatePool) error {
 			Insert: doc,
 		})
 	}
-	if len(ops) > 0 {
-		return errors.Trace(st.runRawTransaction(ops))
-	}
-	return nil
+
+	ops = append(ops, txn.Op{
+		C:  controllersC,
+		Id: modelGlobalKey,
+		Update: bson.D{
+			{"$rename", bson.D{{"machineids", "controller-ids"}}},
+		},
+	})
+	return errors.Trace(st.runRawTransaction(ops))
 }
 
 // AddSpaceIdToSpaceDocs ensures that every space document includes a
@@ -2536,5 +2541,51 @@ func ReplacePortsDocSubnetIDCIDR(pool *StatePool) (err error) {
 			return errors.Trace(st.db().RunTransaction(ops))
 		}
 		return nil
+	}))
+}
+
+// EnsureRelationApplicationSettings creates an application settings
+// doc for each endpoint in each relation if one doesn't already
+// exist.
+func EnsureRelationApplicationSettings(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		settingsCol, closer := st.db().GetCollection(settingsC)
+		defer closer()
+
+		allSettings := set.NewStrings()
+		settingsIter := settingsCol.Find(nil).Iter()
+		defer settingsIter.Close()
+
+		var doc struct {
+			ID string `bson:"_id"`
+		}
+		for settingsIter.Next(&doc) {
+			allSettings.Add(doc.ID)
+		}
+		if err := settingsIter.Close(); err != nil {
+			return errors.Trace(err)
+		}
+
+		relations, err := st.AllRelations()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, rel := range relations {
+			for _, ep := range rel.Endpoints() {
+				key := relationApplicationSettingsKey(rel.Id(), ep.ApplicationName)
+				id := st.docID(key)
+				if allSettings.Contains(id) {
+					continue
+				}
+				ops = append(ops, createSettingsOp(settingsC, key, map[string]interface{}{}))
+			}
+		}
+
+		if len(ops) == 0 {
+			return nil
+		}
+		return errors.Trace(st.db().RunTransaction(ops))
 	}))
 }

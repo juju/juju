@@ -18,7 +18,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -106,8 +106,8 @@ func (api *fakeAddCloudAPI) Close() error {
 	return nil
 }
 
-func (api *fakeAddCloudAPI) AddCloud(kloud cloud.Cloud) error {
-	api.MethodCall(api, "AddCloud", kloud)
+func (api *fakeAddCloudAPI) AddCloud(kloud cloud.Cloud, force bool) error {
+	api.MethodCall(api, "AddCloud", kloud, force)
 	if kloud.HostCloudRegion == "" && api.isCloudRegionRequired {
 		return params.Error{Code: params.CodeCloudRegionRequired}
 	}
@@ -602,7 +602,7 @@ func (s *addCAASSuite) assertAddCloudResult(
 	if localOnly {
 		s.fakeCloudAPI.CheckNoCalls(c)
 	} else {
-		s.fakeCloudAPI.CheckCall(c, 0, "AddCloud", expectedCloudToAdd)
+		s.fakeCloudAPI.CheckCall(c, 0, "AddCloud", expectedCloudToAdd, false)
 	}
 	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{

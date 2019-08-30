@@ -20,7 +20,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/constraints"
@@ -860,6 +860,18 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	err = ru.EnterScope(mysqlSettings)
 	c.Assert(err, jc.ErrorIsNil)
 
+	wordpressAppSettings := map[string]interface{}{
+		"war": "worlds",
+	}
+	err = rel.UpdateApplicationSettings(wordpress, &fakeToken{}, wordpressAppSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mysqlAppSettings := map[string]interface{}{
+		"million": "one",
+	}
+	err = rel.UpdateApplicationSettings(mysql, &fakeToken{}, mysqlAppSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -877,21 +889,22 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 		exEndpoint description.Endpoint,
 		unitName string,
 		ep state.Endpoint,
-		settings map[string]interface{},
+		settings, appSettings map[string]interface{},
 	) {
 		c.Logf("%#v", exEndpoint)
 		c.Check(exEndpoint.ApplicationName(), gc.Equals, ep.ApplicationName)
 		c.Check(exEndpoint.Name(), gc.Equals, ep.Name)
 		c.Check(exEndpoint.UnitCount(), gc.Equals, 1)
 		c.Check(exEndpoint.Settings(unitName), jc.DeepEquals, settings)
+		c.Check(exEndpoint.ApplicationSettings(), jc.DeepEquals, appSettings)
 		c.Check(exEndpoint.Role(), gc.Equals, string(ep.Role))
 		c.Check(exEndpoint.Interface(), gc.Equals, ep.Interface)
 		c.Check(exEndpoint.Optional(), gc.Equals, ep.Optional)
 		c.Check(exEndpoint.Limit(), gc.Equals, ep.Limit)
 		c.Check(exEndpoint.Scope(), gc.Equals, string(ep.Scope))
 	}
-	checkEndpoint(exEps[0], mysql_0.Name(), msEp, mysqlSettings)
-	checkEndpoint(exEps[1], wordpress_0.Name(), wpEp, wordpressSettings)
+	checkEndpoint(exEps[0], mysql_0.Name(), msEp, mysqlSettings, mysqlAppSettings)
+	checkEndpoint(exEps[1], wordpress_0.Name(), wpEp, wordpressSettings, wordpressAppSettings)
 
 	// Make sure there is a status.
 	status := exRel.Status()

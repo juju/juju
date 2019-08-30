@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -148,6 +148,18 @@ var agentConfigTests = []struct {
 		APIAddresses:      []string{"localhost:1234"},
 	},
 }, {
+	about: "good api addresses for controller agent",
+	params: agent.AgentConfigParams{
+		Paths:             agent.Paths{DataDir: "/data/dir"},
+		Tag:               names.NewControllerAgentTag("0"),
+		UpgradedToVersion: jujuversion.Current,
+		Password:          "sekrit",
+		CACert:            "ca cert",
+		Controller:        testing.ControllerTag,
+		Model:             testing.ModelTag,
+		APIAddresses:      []string{"localhost:1234"},
+	},
+}, {
 	about: "everything...",
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
@@ -219,7 +231,7 @@ var agentConfigTests = []struct {
 		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 	},
-	checkErr: "entity tag must be MachineTag, UnitTag or ApplicationTag, got names.UserTag",
+	checkErr: "entity tag must be MachineTag, UnitTag, ApplicationTag or ControllerAgentTag, got names.UserTag",
 }, {
 	about: "agentConfig accepts a Unit tag",
 	params: agent.AgentConfigParams{

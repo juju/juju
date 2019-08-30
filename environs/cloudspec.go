@@ -5,7 +5,7 @@ package environs
 
 import (
 	"github.com/juju/errors"
-	names "gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	jujucloud "github.com/juju/juju/cloud"
 )

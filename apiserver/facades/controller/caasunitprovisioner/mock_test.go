@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	"github.com/juju/juju/caas/kubernetes/provider"

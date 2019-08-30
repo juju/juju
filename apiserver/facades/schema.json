@@ -10948,6 +10948,9 @@
                         "cloud": {
                             "$ref": "#/definitions/Cloud"
                         },
+                        "force": {
+                            "type": "boolean"
+                        },
                         "name": {
                             "type": "string"
                         }
@@ -29842,7 +29845,7 @@
     },
     {
         "Name": "Spaces",
-        "Version": 4,
+        "Version": 5,
         "Schema": {
             "type": "object",
             "properties": {
@@ -29873,6 +29876,12 @@
                 "CreateSpaceParams": {
                     "type": "object",
                     "properties": {
+                        "cidrs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
                         "provider-id": {
                             "type": "string"
                         },
@@ -29881,17 +29890,11 @@
                         },
                         "space-tag": {
                             "type": "string"
-                        },
-                        "subnet-tags": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "subnet-tags",
+                        "cidrs",
                         "space-tag",
                         "public"
                     ]
@@ -32884,7 +32887,7 @@
     },
     {
         "Name": "Subnets",
-        "Version": 2,
+        "Version": 3,
         "Schema": {
             "type": "object",
             "properties": {
@@ -32931,6 +32934,9 @@
                 "AddSubnetParams": {
                     "type": "object",
                     "properties": {
+                        "cidr": {
+                            "type": "string"
+                        },
                         "provider-network-id": {
                             "type": "string"
                         },
@@ -32938,9 +32944,6 @@
                             "type": "string"
                         },
                         "subnet-provider-id": {
-                            "type": "string"
-                        },
-                        "subnet-tag": {
                             "type": "string"
                         },
                         "vlan-tag": {

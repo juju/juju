@@ -6,7 +6,6 @@ package agentconfigupdater
 import (
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -53,11 +52,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
-			// Grab the tag and ensure that it's for a machine.
-			currentConfig := agent.CurrentConfig()
-			tag, ok := currentConfig.Tag().(names.MachineTag)
-			if !ok {
-				return nil, errors.New("agent's tag is not a machine tag")
+			// Grab the tag and ensure that it's for a controller.
+			tag := agent.CurrentConfig().Tag()
+			if !apiagent.IsAllowedControllerTag(tag.Kind()) {
+				return nil, errors.New("agent's tag is not a machine or controller agent tag")
 			}
 
 			// Get API connection.
@@ -65,14 +63,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
-			apiState, err := apiagent.NewState(apiCaller)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
 			// If the machine needs State, grab the state serving info
 			// over the API and write it to the agent configuration.
-			if controller, err := isController(apiState, tag); err != nil {
+			if controller, err := apiagent.IsController(apiCaller, tag); err != nil {
 				return nil, errors.Annotate(err, "checking controller status")
 			} else if !controller {
 				// Not a controller, nothing to do.
@@ -85,6 +78,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// but should be, the agent config will not have any state serving info
 			// but the database will think that we should be. In those situations
 			// we need to update the local config and restart.
+			apiState, err := apiagent.NewState(apiCaller)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			controllerConfig, err := apiState.ControllerConfig()
 			if err != nil {
 				return nil, errors.Annotate(err, "getting controller config")
@@ -94,7 +91,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// restart the agent to apply the memory profile to the mongo
 			// service.
 			logger := config.Logger
-			agentsMongoMemoryProfile := currentConfig.MongoMemoryProfile()
+			agentsMongoMemoryProfile := agent.CurrentConfig().MongoMemoryProfile()
 			configMongoMemoryProfile := mongo.MemoryProfile(controllerConfig.MongoMemoryProfile())
 			mongoProfileChanged := agentsMongoMemoryProfile != configMongoMemoryProfile
 
@@ -147,17 +144,4 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			})
 		},
 	}
-}
-
-func isController(apiState *apiagent.State, tag names.MachineTag) (bool, error) {
-	machine, err := apiState.Entity(tag)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	for _, job := range machine.Jobs() {
-		if job.NeedsState() {
-			return true, nil
-		}
-	}
-	return false, nil
 }

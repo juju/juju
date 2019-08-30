@@ -8,7 +8,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	httprequest "github.com/juju/httprequest"
 	base "github.com/juju/juju/api/base"
-	names_v2 "gopkg.in/juju/names.v2"
+	names_v3 "gopkg.in/juju/names.v3"
 	httpbakery "gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	http "net/http"
 	url "net/url"
@@ -114,9 +114,9 @@ func (mr *MockAPICallerMockRecorder) HTTPClient() *gomock.Call {
 }
 
 // ModelTag mocks base method
-func (m *MockAPICaller) ModelTag() (names_v2.ModelTag, bool) {
+func (m *MockAPICaller) ModelTag() (names_v3.ModelTag, bool) {
 	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(names_v2.ModelTag)
+	ret0, _ := ret[0].(names_v3.ModelTag)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }

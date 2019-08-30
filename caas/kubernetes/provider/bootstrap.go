@@ -13,12 +13,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	intstr "k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
@@ -163,9 +163,8 @@ func newcontrollerStack(
 		return nil, errors.Trace(err)
 	}
 
-	// TODO(bootstrap): we'll need a different tag type other than machine tag.
 	var agentConfig agent.ConfigSetterWriter
-	agentConfig, err = pcfg.AgentConfig(names.NewMachineTag(pcfg.MachineId))
+	agentConfig, err = pcfg.AgentConfig(names.NewControllerAgentTag(pcfg.ControllerId))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -934,7 +933,7 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 					MountPath: filepath.Join(
 						c.pcfg.DataDir,
 						"agents",
-						"machine-"+c.pcfg.MachineId,
+						"controller-"+c.pcfg.ControllerId,
 						c.fileNameAgentConfMount,
 					),
 					SubPath: c.fileNameAgentConfMount,
@@ -972,12 +971,12 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 
 	agentConfigRelativePath := filepath.Join(
 		"agents",
-		fmt.Sprintf("machine-%s", c.pcfg.MachineId),
+		fmt.Sprintf("controller-%s", c.pcfg.ControllerId),
 		c.fileNameAgentConf,
 	)
 	var jujudCmd string
-	if c.pcfg.MachineId == "0" {
-		// only do bootstrap-state on the bootstrap machine - machine-0.
+	if c.pcfg.ControllerId == agent.BootstrapControllerId {
+		// only do bootstrap-state on the bootstrap controller - controller-0.
 		jujudCmd += "\n" + fmt.Sprintf(
 			"test -e $JUJU_DATA_DIR/%s || $JUJU_TOOLS_DIR/jujud bootstrap-state $JUJU_DATA_DIR/%s --data-dir $JUJU_DATA_DIR %s --timeout %s",
 			agentConfigRelativePath,
@@ -987,8 +986,8 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 		)
 	}
 	jujudCmd += "\n" + fmt.Sprintf(
-		"$JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --machine-id %s %s",
-		c.pcfg.MachineId,
+		"$JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id %s --log-to-stderr %s",
+		c.pcfg.ControllerId,
 		loggingOption,
 	)
 	statefulset.Spec.Template.Spec.Containers = generateContainerSpecs(jujudCmd)

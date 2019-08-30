@@ -16,7 +16,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"golang.org/x/crypto/ssh/terminal"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	cloudapi "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/caas"
@@ -43,7 +43,7 @@ type CloudMetadataStore interface {
 
 // AddCloudAPI - Implemented by cloudapi.Client.
 type AddCloudAPI interface {
-	AddCloud(jujucloud.Cloud) error
+	AddCloud(jujucloud.Cloud, bool) error
 	AddCredential(tag string, credential jujucloud.Credential) error
 	Close() error
 }
@@ -694,7 +694,8 @@ func addCloudToLocal(cloudMetadataStore CloudMetadataStore, newCloud jujucloud.C
 }
 
 func addCloudToController(apiClient AddCloudAPI, newCloud jujucloud.Cloud) error {
-	err := apiClient.AddCloud(newCloud)
+	// No need to force this addition as k8s is special.
+	err := apiClient.AddCloud(newCloud, false)
 	if err != nil {
 		return errors.Trace(err)
 	}

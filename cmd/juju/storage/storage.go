@@ -8,7 +8,7 @@ package storage
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"

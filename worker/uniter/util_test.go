@@ -27,7 +27,7 @@ import (
 	utilexec "github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -1458,6 +1458,7 @@ func (cmds relationRunCommands) step(c *gc.C, ctx *context) {
 		Commands:       commands,
 		RelationId:     0,
 		RemoteUnitName: "",
+		UnitName:       "u/0",
 	}
 	result, err := ctx.uniter.RunCommands(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1474,6 +1475,7 @@ func (cmds runCommands) step(c *gc.C, ctx *context) {
 		Commands:       commands,
 		RelationId:     -1,
 		RemoteUnitName: "",
+		UnitName:       "u/0",
 	}
 	result, err := ctx.uniter.RunCommands(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1490,6 +1492,7 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		Commands:       commands,
 		RelationId:     -1,
 		RemoteUnitName: "",
+		UnitName:       "u/0",
 	}
 
 	var socketPath string

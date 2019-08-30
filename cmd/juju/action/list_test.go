@@ -13,7 +13,7 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
@@ -22,7 +22,7 @@ import (
 
 type ListSuite struct {
 	BaseActionSuite
-	svc            *state.Application
+	app            *state.Application
 	wrappedCommand cmd.Command
 	command        *action.ListCommand
 }
@@ -38,7 +38,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 	tests := []struct {
 		should               string
 		args                 []string
-		expectedSvc          names.ApplicationTag
+		expectedApp          names.ApplicationTag
 		expectedOutputSchema bool
 		expectedErr          string
 	}{{
@@ -56,7 +56,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 	}, {
 		should:      "init properly with valid application name",
 		args:        []string{validApplicationId},
-		expectedSvc: names.NewApplicationTag(validApplicationId),
+		expectedApp: names.NewApplicationTag(validApplicationId),
 	}, {
 		should:      "schema with tabular output",
 		args:        []string{"--format=tabular", "--schema", validApplicationId},
@@ -65,12 +65,12 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		should:               "init properly with valid application name and --schema",
 		args:                 []string{"--format=yaml", "--schema", validApplicationId},
 		expectedOutputSchema: true,
-		expectedSvc:          names.NewApplicationTag(validApplicationId),
+		expectedApp:          names.NewApplicationTag(validApplicationId),
 	}, {
 		should:               "default to yaml output when --schema option is specified",
 		args:                 []string{"--schema", validApplicationId},
 		expectedOutputSchema: true,
-		expectedSvc:          names.NewApplicationTag(validApplicationId),
+		expectedApp:          names.NewApplicationTag(validApplicationId),
 	}}
 
 	for i, t := range tests {
@@ -82,7 +82,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 			err := cmdtesting.InitCommand(s.wrappedCommand, args)
 			if t.expectedErr == "" {
 				c.Check(err, jc.ErrorIsNil)
-				c.Check(s.command.ApplicationTag(), gc.Equals, t.expectedSvc)
+				c.Check(s.command.ApplicationTag(), gc.Equals, t.expectedApp)
 				c.Check(s.command.FullSchema(), gc.Equals, t.expectedOutputSchema)
 			} else {
 				c.Check(err, gc.ErrorMatches, t.expectedErr)

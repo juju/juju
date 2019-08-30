@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	charmresource "gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"

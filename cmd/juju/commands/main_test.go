@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	_ "github.com/juju/juju/provider/dummy"
@@ -478,6 +479,7 @@ var commandNames = []string{
 	"enable-destroy-controller",
 	"enable-ha",
 	"enable-user",
+	"exec",
 	"export-bundle",
 	"expose",
 	"find-offers",
@@ -560,7 +562,6 @@ var commandNames = []string{
 	"revoke",
 	"revoke-cloud",
 	"run",
-	"run-action",
 	"scale-application",
 	"scp",
 	"set-credential",
@@ -573,6 +574,7 @@ var commandNames = []string{
 	"set-plan",
 	"set-series",
 	"set-wallet",
+	"show-action",
 	"show-action-output",
 	"show-action-status",
 	"show-application",
@@ -625,12 +627,12 @@ var commandNames = []string{
 
 // devFeatures are feature flags that impact registration of commands.
 var devFeatures = []string{
-	// Currently no feature flags.
+	feature.JujuV3,
 }
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
-// Currently no commands behind feature flags.
+	"call",
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
@@ -642,6 +644,10 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	// remove features behind dev_flag for the first test
 	// since they are not enabled.
 	cmdSet := set.NewStrings(commandNames...)
+	if !featureflag.Enabled(feature.JujuV3) {
+		cmdSet.Add("run-action")
+		cmdSet.Add("run")
+	}
 
 	// 1. Default Commands. Disable all features.
 	setFeatureFlags("")
@@ -659,7 +665,7 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	unknown = registered.Difference(cmdSet)
 	c.Assert(unknown, jc.DeepEquals, set.NewStrings())
 	missing = cmdSet.Difference(registered)
-	c.Assert(missing, jc.DeepEquals, set.NewStrings())
+	c.Assert(missing, jc.DeepEquals, set.NewStrings("run", "run-action"))
 }
 
 func getHelpCommandNames(c *gc.C) set.Strings {
@@ -740,6 +746,9 @@ func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 	expected := make([]string, len(commandNames))
 	copy(expected, commandNames)
 	expected = append(expected, extraNames...)
+	if !featureflag.Enabled(feature.JujuV3) {
+		expected = append(expected, "run-action")
+	}
 	sort.Strings(expected)
 	c.Check(registry.names, jc.DeepEquals, expected)
 }

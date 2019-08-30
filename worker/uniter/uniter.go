@@ -15,7 +15,7 @@ import (
 	"github.com/juju/utils/exec"
 	corecharm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/hooks"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
@@ -133,6 +133,7 @@ type UniterParams struct {
 	HookRetryStrategy       params.RetryStrategy
 	NewOperationExecutor    NewOperationExecutorFunc
 	NewRemoteRunnerExecutor NewRunnerExecutorFunc
+	RunListener             *RunListener
 	TranslateResolverErr    func(error) error
 	Clock                   clock.Clock
 	ApplicationChannel      watcher.NotifyChannel
@@ -193,6 +194,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 		clock:                   uniterParams.Clock,
 		downloader:              uniterParams.Downloader,
 		applicationChannel:      uniterParams.ApplicationChannel,
+		runListener:             uniterParams.RunListener,
 	}
 	startFunc := func() (worker.Worker, error) {
 		if err := catacomb.Invoke(catacomb.Plan{
@@ -430,6 +432,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	if errors.Cause(err) == ErrCAASUnitDead {
 		err = nil
 	}
+	u.runListener.UnregisterRunner(u.unit.Name())
 	logger.Infof("unit %q shutting down: %s", u.unit, err)
 	return err
 }
@@ -618,6 +621,18 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	u.operationExecutor = operationExecutor
 
+	if u.runListener == nil {
+		socket := u.paths.Runtime.JujuRunSocket
+		logger.Debugf("starting juju-run listener on %v", socket)
+		u.runListener, err = NewRunListener(socket)
+		if err != nil {
+			return errors.Annotate(err, "creating juju run listener")
+		}
+		rlw := NewRunListenerWrapper(u.runListener)
+		if err := u.catacomb.Add(rlw); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	commandRunner, err := NewChannelCommandRunner(ChannelCommandRunnerConfig{
 		Abort:          u.catacomb.Dying(),
 		Commands:       u.commands,
@@ -626,19 +641,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return errors.Annotate(err, "creating command runner")
 	}
-	socket := u.paths.Runtime.JujuRunSocket
-	logger.Debugf("starting juju-run listener on %v", socket)
-	u.runListener, err = NewRunListener(RunListenerConfig{
-		Socket:        &socket,
-		CommandRunner: commandRunner,
-	})
-	if err != nil {
-		return errors.Annotate(err, "creating juju run listener")
-	}
-	rlw := newRunListenerWrapper(u.runListener)
-	if err := u.catacomb.Add(rlw); err != nil {
-		return errors.Trace(err)
-	}
+	u.runListener.RegisterRunner(u.unit.Name(), commandRunner)
 	return nil
 }
 

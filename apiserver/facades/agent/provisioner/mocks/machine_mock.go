@@ -5,15 +5,14 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	containerizer "github.com/juju/juju/network/containerizer"
 	state "github.com/juju/juju/state"
-	names_v2 "gopkg.in/juju/names.v2"
+	names_v3 "gopkg.in/juju/names.v3"
+	reflect "reflect"
 )
 
 // MockMachine is a mock of Machine interface
@@ -142,9 +141,9 @@ func (mr *MockMachineMockRecorder) LinkLayerDevicesForSpaces(arg0 interface{}) *
 }
 
 // MachineTag mocks base method
-func (m *MockMachine) MachineTag() names_v2.MachineTag {
+func (m *MockMachine) MachineTag() names_v3.MachineTag {
 	ret := m.ctrl.Call(m, "MachineTag")
-	ret0, _ := ret[0].(names_v2.MachineTag)
+	ret0, _ := ret[0].(names_v3.MachineTag)
 	return ret0
 }
 

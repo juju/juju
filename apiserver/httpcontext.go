@@ -9,11 +9,12 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/state"
 )
 
@@ -130,7 +131,7 @@ func (ctxt *httpContext) stateAndEntityForRequestAuthenticatedUser(r *http.Reque
 func (ctxt *httpContext) stateForRequestAuthenticatedAgent(r *http.Request) (
 	*state.PooledState, state.Entity, error,
 ) {
-	return ctxt.stateForRequestAuthenticatedTag(r, names.MachineTagKind, names.UnitTagKind, names.ApplicationTagKind)
+	return ctxt.stateForRequestAuthenticatedTag(r, stateauthenticator.AgentTags...)
 }
 
 // stateForRequestAuthenticatedTag checks that the request is

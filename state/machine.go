@@ -14,7 +14,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	"github.com/kr/pretty"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -397,7 +397,7 @@ func (m *Machine) StopMongoUntilVersion() (mongo.Version, error) {
 
 // IsManager returns true if the machine has JobManageModel.
 func (m *Machine) IsManager() bool {
-	return hasJob(m.doc.Jobs, JobManageModel)
+	return isController(&m.doc)
 }
 
 // IsManual returns true if the machine was manually provisioned.
@@ -548,11 +548,11 @@ func (m *Machine) ForceDestroy(maxWait time.Duration) error {
 
 func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
 	if m.IsManager() {
-		controllerInfo, err := m.st.ControllerInfo()
+		controllerIds, err := m.st.ControllerIds()
 		if err != nil {
 			return nil, errors.Annotatef(err, "reading controller info")
 		}
-		if len(controllerInfo.MachineIds) <= 1 {
+		if len(controllerIds) <= 1 {
 			return nil, errors.Errorf("controller %s is the only controller", m.Id())
 		}
 		// We set the machine to Dying if it isn't already dead.
@@ -570,7 +570,7 @@ func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
 		controllerOp := txn.Op{
 			C:      controllersC,
 			Id:     modelGlobalKey,
-			Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
+			Assert: bson.D{{"controller-ids", controllerIds}},
 		}
 		// Note that ForceDestroy does *not* cleanup the replicaset, so it might cause problems.
 		// However, we're letting the user handle times when the machine agent isn't running, etc.
@@ -792,22 +792,22 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 		// destroy a machine with units as it will be a lie.
 		if life == Dying {
 			canDie := true
-			if hasJob(m.doc.Jobs, JobManageModel) || hasVote {
+			if isController(&m.doc) || hasVote {
 				// If we're responsible for managing the model, make sure we ask to drop our vote
 				ops[0].Update = bson.D{
 					{"$set", bson.D{{"life", life}}},
 				}
-				controllerInfo, err := m.st.ControllerInfo()
+				controllerIds, err := m.st.ControllerIds()
 				if err != nil {
 					return nil, errors.Annotatef(err, "reading controller info")
 				}
-				if len(controllerInfo.MachineIds) <= 1 {
+				if len(controllerIds) <= 1 {
 					return nil, errors.Errorf("controller %s is the only controller", m.Id())
 				}
 				controllerOp := txn.Op{
 					C:      controllersC,
 					Id:     modelGlobalKey,
-					Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
+					Assert: bson.D{{"controller-ids", controllerIds}},
 				}
 				ops = append(ops, controllerOp)
 				ops = append(ops, setControllerWantsVoteOp(m.st, m.doc.Id, false))
@@ -868,7 +868,7 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 		asserts = append(asserts, noUnits)
 
 		if life == Dead {
-			if hasJob(m.doc.Jobs, JobManageModel) {
+			if isController(&m.doc) {
 				return nil, errors.Errorf("machine %s is still responsible for being a controller", m.Id())
 			}
 			// A machine may not become Dead until it has no more

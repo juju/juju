@@ -5,6 +5,7 @@ package cloud_test
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 
 	"github.com/juju/errors"
@@ -12,13 +13,14 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	cloudfacade "github.com/juju/juju/apiserver/facades/client/cloud"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
@@ -67,6 +69,7 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 	tagTwo, err := credentialTwo.CloudCredentialTag()
 	c.Assert(err, jc.ErrorIsNil)
 
+	controllerInfo := &state.ControllerInfo{CloudName: "dummy"}
 	s.backend = &mockBackend{
 		cloud: aCloud,
 		creds: map[string]state.Credential{
@@ -75,10 +78,12 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 		},
 		controllerCfg:     coretesting.FakeControllerConfig(),
 		credentialModelsF: func(tag names.CloudCredentialTag) (map[string]string, error) { return nil, nil },
+		controllerInfoF:   func() (*state.ControllerInfo, error) { return controllerInfo, nil },
 	}
 	s.ctlrBackend = &mockBackend{
 		cloud:             aCloud,
 		credentialModelsF: func(tag names.CloudCredentialTag) (map[string]string, error) { return nil, nil },
+		controllerInfoF:   func() (*state.ControllerInfo, error) { return controllerInfo, nil },
 	}
 
 	newModel := func(uuid string) *mockPooledModel {
@@ -223,27 +228,125 @@ func (s *cloudSuite) TestCloudInfoNonAdmin(c *gc.C) {
 }
 
 func (s *cloudSuite) TestAddCloud(c *gc.C) {
+	s.backend.cloud.Type = "maas"
 	s.backend.controllerCfg = controller.Config{
 		"features": []interface{}{"multi-cloud"},
 	}
 	paramsCloud := params.AddCloudArgs{
 		Name: "newcloudname",
 		Cloud: params.Cloud{
-			Type:      "fake",
+			Type:      "maas",
 			AuthTypes: []string{"empty", "userpass"},
 			Endpoint:  "fake-endpoint",
 			Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
 		}}
 	err := s.api.AddCloud(paramsCloud)
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ControllerConfig", "AddCloud")
-	s.backend.CheckCall(c, 1, "AddCloud", cloud.Cloud{
+	s.backend.CheckCallNames(c, "ControllerConfig", "ControllerInfo", "Cloud", "AddCloud")
+	s.backend.CheckCall(c, 3, "AddCloud", cloud.Cloud{
+		Name:      "newcloudname",
+		Type:      "maas",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+		Endpoint:  "fake-endpoint",
+		Regions:   []cloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
+	}, "admin")
+}
+
+func createAddCloudParam(cloudType string) params.AddCloudArgs {
+	if cloudType == "" {
+		cloudType = "fake"
+	}
+	return params.AddCloudArgs{
+		Name: "newcloudname",
+		Cloud: params.Cloud{
+			Type:      cloudType,
+			AuthTypes: []string{"empty", "userpass"},
+			Endpoint:  "fake-endpoint",
+			Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
+		},
+	}
+}
+
+func (s *cloudSuite) TestAddCloudNotWhitelisted(c *gc.C) {
+	s.backend.controllerCfg = controller.Config{
+		"features": []interface{}{"multi-cloud"},
+	}
+	err := s.api.AddCloud(createAddCloudParam(""))
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`
+controller cloud type "dummy" is not whitelisted, current whitelist: 
+ - controller cloud type "lxd" supports [lxd maas openstack]
+ - controller cloud type "maas" supports [maas openstack]
+ - controller cloud type "openstack" supports [openstack]`[1:]))
+	s.backend.CheckCallNames(c, "ControllerConfig", "ControllerInfo", "Cloud")
+}
+
+func (s *cloudSuite) TestAddCloudNotWhitelistedButForceAdded(c *gc.C) {
+	s.backend.controllerCfg = controller.Config{
+		"features": []interface{}{"multi-cloud"},
+	}
+	force := true
+	addCloudArg := createAddCloudParam("")
+	addCloudArg.Force = &force
+	err := s.api.AddCloud(addCloudArg)
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "ControllerConfig", "ControllerInfo", "Cloud", "AddCloud")
+	s.backend.CheckCall(c, 3, "AddCloud", cloud.Cloud{
 		Name:      "newcloudname",
 		Type:      "fake",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 		Endpoint:  "fake-endpoint",
 		Regions:   []cloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
 	}, "admin")
+}
+
+func (s *cloudSuite) TestAddCloudControllerInfoErr(c *gc.C) {
+	s.backend.controllerCfg = controller.Config{
+		"features": []interface{}{"multi-cloud"},
+	}
+	s.backend.controllerInfoF = func() (*state.ControllerInfo, error) {
+		return nil, errors.New("kaboom")
+	}
+	err := s.api.AddCloud(createAddCloudParam(""))
+	c.Assert(err, gc.ErrorMatches, "kaboom")
+	s.backend.CheckCallNames(c, "ControllerConfig", "ControllerInfo")
+}
+
+func (s *cloudSuite) TestAddCloudControllerCloudErr(c *gc.C) {
+	s.backend.controllerCfg = controller.Config{
+		"features": []interface{}{"multi-cloud"},
+	}
+	s.backend.SetErrors(
+		// Since ControllerConfig and ControllerInfo do not use Stub errors, the first error will be used by Cloud call.
+		errors.New("kaboom"), // Cloud
+	)
+	err := s.api.AddCloud(createAddCloudParam(""))
+	c.Assert(err, gc.ErrorMatches, "kaboom")
+	s.backend.CheckCallNames(c, "ControllerConfig", "ControllerInfo", "Cloud")
+}
+
+func (s *cloudSuite) TestAddCloudK8sForceIrrelevant(c *gc.C) {
+	s.backend.controllerCfg = controller.Config{
+		"features": []interface{}{"multi-cloud"},
+	}
+	addCloudArg := createAddCloudParam(string(provider.K8s_ProviderType))
+	add := func() {
+		err := s.api.AddCloud(addCloudArg)
+		c.Assert(err, jc.ErrorIsNil)
+		s.backend.CheckCallNames(c, "ControllerConfig", "AddCloud")
+		s.backend.CheckCall(c, 1, "AddCloud", cloud.Cloud{
+			Name:      "newcloudname",
+			Type:      string(provider.K8s_ProviderType),
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+			Endpoint:  "fake-endpoint",
+			Regions:   []cloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
+		}, "admin")
+	}
+	add()
+
+	force := true
+	s.backend.ResetCalls()
+	addCloudArg.Force = &force
+	add()
 }
 
 func (s *cloudSuite) TestAddCloudNoFeatureFlag(c *gc.C) {
@@ -991,7 +1094,7 @@ func (s *cloudSuite) TestRevokeCredentialsHasModel(c *gc.C) {
 		callsMade: []string{"ControllerTag", "CredentialModels"},
 		results: params.ErrorResults{
 			Results: []params.ErrorResult{
-				{common.ServerError(errors.New("cannot delete credential cloudcred-meep_julia_three: it is still used by 1 model"))},
+				{common.ServerError(errors.New("cannot revoke credential cloudcred-meep_julia_three: it is still used by 1 model"))},
 			},
 		},
 		expectedLog: []string{" WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three cannot be deleted as it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d"},
@@ -1013,7 +1116,7 @@ func (s *cloudSuite) TestRevokeCredentialsHasModels(c *gc.C) {
 		callsMade: []string{"ControllerTag", "CredentialModels"},
 		results: params.ErrorResults{
 			Results: []params.ErrorResult{
-				{common.ServerError(errors.New("cannot delete credential cloudcred-meep_julia_three: it is still used by 2 models"))},
+				{common.ServerError(errors.New("cannot revoke credential cloudcred-meep_julia_three: it is still used by 2 models"))},
 			},
 		},
 		expectedLog: []string{` WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three cannot be deleted as it is used by models:
@@ -1061,7 +1164,7 @@ func (s *cloudSuite) TestRevokeCredentialsForceMany(c *gc.C) {
 		results: params.ErrorResults{
 			Results: []params.ErrorResult{
 				{},
-				{common.ServerError(errors.New("cannot delete credential cloudcred-meep_bruce_three: it is still used by 1 model"))},
+				{common.ServerError(errors.New("cannot revoke credential cloudcred-meep_bruce_three: it is still used by 1 model"))},
 			},
 		},
 		expectedLog: []string{
@@ -1223,11 +1326,17 @@ type mockBackend struct {
 
 	credentialModelsF func(tag names.CloudCredentialTag) (map[string]string, error)
 	credsModels       []state.CredentialOwnerModelAccess
+	controllerInfoF   func() (*state.ControllerInfo, error)
 }
 
 func (st *mockBackend) ControllerTag() names.ControllerTag {
 	st.MethodCall(st, "ControllerTag")
 	return names.NewControllerTag("deadbeef-1bad-500d-9000-4b1d0d06f00d")
+}
+
+func (st *mockBackend) ControllerInfo() (*state.ControllerInfo, error) {
+	st.MethodCall(st, "ControllerInfo")
+	return st.controllerInfoF()
 }
 
 func (st *mockBackend) ControllerConfig() (controller.Config, error) {

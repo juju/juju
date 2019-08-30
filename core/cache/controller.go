@@ -27,6 +27,16 @@ const (
 	modelAppearingTimeout = 5 * time.Second
 )
 
+var (
+	// IdleFunc allows tests to be able to get callbacks when the controller
+	// hasn't been given any changes for a specified time.
+	IdleFunc func()
+
+	// IdleTime relates to how long the controller needs to wait with no changes
+	// to be considered idle.
+	IdleTime = 50 * time.Millisecond
+)
+
 // Clock defines the clockish methods used by the controller.
 type Clock interface {
 	After(time.Duration) <-chan time.Time
@@ -58,10 +68,11 @@ type Controller struct {
 	// from a type-agnostic viewpoint.
 	manager *residentManager
 
-	changes <-chan interface{}
-	notify  func(interface{})
-	hub     *pubsub.SimpleHub
-	models  map[string]*Model
+	changes  <-chan interface{}
+	notify   func(interface{})
+	idleFunc func()
+	hub      *pubsub.SimpleHub
+	models   map[string]*Model
 
 	tomb    tomb.Tomb
 	mu      sync.Mutex
@@ -83,12 +94,13 @@ func newController(config ControllerConfig, manager *residentManager) (*Controll
 	}
 
 	c := &Controller{
-		manager: manager,
-		changes: config.Changes,
-		notify:  config.Notify,
-		hub:     newPubSubHub(),
-		models:  make(map[string]*Model),
-		metrics: createControllerGauges(),
+		manager:  manager,
+		changes:  config.Changes,
+		notify:   config.Notify,
+		idleFunc: IdleFunc,
+		hub:      newPubSubHub(),
+		models:   make(map[string]*Model),
+		metrics:  createControllerGauges(),
 	}
 
 	manager.dying = c.tomb.Dying()
@@ -97,10 +109,19 @@ func newController(config ControllerConfig, manager *residentManager) (*Controll
 }
 
 func (c *Controller) loop() error {
+	var idle <-chan time.Time
+	if c.idleFunc != nil {
+		logger.Tracef("controller %p set idle timeout to %s", c, IdleTime)
+		idle = time.After(IdleTime)
+	}
 	for {
 		select {
 		case <-c.tomb.Dying():
 			return nil
+		case <-idle:
+			logger.Tracef("controller %p is idle", c)
+			c.idleFunc()
+			idle = time.After(IdleTime)
 		case change := <-c.changes:
 			var err error
 
@@ -136,6 +157,10 @@ func (c *Controller) loop() error {
 
 			if err != nil {
 				logger.Errorf("processing cache change: %s", err.Error())
+			}
+
+			if c.idleFunc != nil {
+				idle = time.After(IdleTime)
 			}
 		}
 	}

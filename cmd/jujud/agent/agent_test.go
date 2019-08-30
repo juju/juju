@@ -7,7 +7,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
-	"github.com/juju/os/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -17,7 +16,6 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/core/network"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/worker/proxyupdater"
 )
 
@@ -26,22 +24,13 @@ type acCreator func() (cmd.Command, AgentConf)
 // CheckAgentCommand is a utility function for verifying that common agent
 // options are handled by a Command; it returns an instance of that
 // command pre-parsed, with any mandatory flags added.
-func CheckAgentCommand(c *gc.C, create acCreator, args []string) cmd.Command {
-	com, conf := create()
-	err := cmdtesting.InitCommand(com, args)
-	c.Assert(err, jc.ErrorIsNil)
-	dataDir, err := paths.DataDir(series.MustHostSeries())
-	c.Assert(err, jc.ErrorIsNil)
+func CheckAgentCommand(c *gc.C, dataDir string, create acCreator, args []string) cmd.Command {
+	_, conf := create()
 	c.Assert(conf.DataDir(), gc.Equals, dataDir)
 	badArgs := append(args, "--data-dir", "")
-	com, _ = create()
-	err = cmdtesting.InitCommand(com, badArgs)
+	com, _ := create()
+	err := cmdtesting.InitCommand(com, badArgs)
 	c.Assert(err, gc.ErrorMatches, "--data-dir option must be set")
-
-	args = append(args, "--data-dir", "jd")
-	com, conf = create()
-	c.Assert(cmdtesting.InitCommand(com, args), gc.IsNil)
-	c.Assert(conf.DataDir(), gc.Equals, "jd")
 	return com
 }
 
