@@ -20,7 +20,6 @@ type ContainerBroker interface {
 type ServiceBroker interface {
 	Provider() caas.ContainerEnvironProvider
 	EnsureService(appName string, statusCallback caas.StatusCallbackFunc, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes) error
-	// EnsureCustomResourceDefinition(appName string, podSpec *caas.PodSpec) error
 	GetService(appName string, includeClusterIP bool) (*caas.Service, error)
 	DeleteService(appName string) error
 	UnexposeService(appName string) error

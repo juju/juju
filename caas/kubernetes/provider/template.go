@@ -4,12 +4,12 @@
 package provider
 
 import (
-  "fmt"
-  "strings"
-  "text/template"
+	"fmt"
+	"strings"
+	"text/template"
 
-  "github.com/juju/errors"
-  "gopkg.in/yaml.v2"
+	"github.com/juju/errors"
+	"gopkg.in/yaml.v2"
 )
 
 var containerTemplate = `
@@ -59,23 +59,23 @@ initContainers:
 var defaultPodTemplate = template.Must(template.New("").Funcs(templateAddons).Parse(defaultPodTemplateStr))
 
 func toYaml(val interface{}) (string, error) {
-  data, err := yaml.Marshal(val)
-  if err != nil {
-    return "", errors.Annotatef(err, "marshalling to yaml for %v", val)
-  }
-  return string(data), nil
+	data, err := yaml.Marshal(val)
+	if err != nil {
+		return "", errors.Annotatef(err, "marshalling to yaml for %v", val)
+	}
+	return string(data), nil
 }
 
 func indent(n int, str string) string {
-  out := ""
-  prefix := strings.Repeat(" ", n)
-  for _, line := range strings.Split(str, "\n") {
-    out += prefix + line + "\n"
-  }
-  return out
+	out := ""
+	prefix := strings.Repeat(" ", n)
+	for _, line := range strings.Split(str, "\n") {
+		out += prefix + line + "\n"
+	}
+	return out
 }
 
 var templateAddons = template.FuncMap{
-  "toYaml": toYaml,
-  "indent": indent,
+	"toYaml": toYaml,
+	"indent": indent,
 }
