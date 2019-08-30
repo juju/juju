@@ -114,7 +114,7 @@ type podSpecBase struct {
 	PodSpecVersion `yaml:",inline"`
 
 	// TODO(caas): remove OmitServiceFrontend later once we deprecate legacy version.
-	// Keep it for now because we have to combine it with the ServerType (from metadata.yaml). ??????????
+	// Keep it for now because we have to combine it with the ServerType (from metadata.yaml).
 	OmitServiceFrontend bool `json:"omitServiceFrontend" yaml:"omitServiceFrontend"`
 
 	Service    *ServiceSpec                 `json:"service,omitempty" yaml:"service,omitempty"`

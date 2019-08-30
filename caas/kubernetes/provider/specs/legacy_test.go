@@ -346,6 +346,7 @@ echo "do some stuff here for gitlab-init container"
 	c.Assert(spec, jc.DeepEquals, getExpectedPodSpecBase())
 }
 
+// TODO(caas): move these pointer related value change funcs to /testing package.
 func float64Ptr(f float64) *float64 {
 	return &f
 }
