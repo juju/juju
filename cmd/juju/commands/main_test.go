@@ -447,6 +447,7 @@ var commandNames = []string{
 	"bootstrap",
 	"budget",
 	"cached-images",
+	"call",
 	"cancel-action",
 	"change-user-password",
 	"charm",
@@ -575,8 +576,6 @@ var commandNames = []string{
 	"set-series",
 	"set-wallet",
 	"show-action",
-	"show-action-output",
-	"show-action-status",
 	"show-application",
 	"show-backup",
 	"show-cloud",
@@ -586,6 +585,7 @@ var commandNames = []string{
 	"show-machine",
 	"show-model",
 	"show-offer",
+	"show-operation",
 	"show-status",
 	"show-status-log",
 	"show-storage",
@@ -632,7 +632,7 @@ var devFeatures = []string{
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
-	"call",
+// Currently no commands behind feature flags.
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
@@ -647,6 +647,8 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	if !featureflag.Enabled(feature.JujuV3) {
 		cmdSet.Add("run-action")
 		cmdSet.Add("run")
+		cmdSet.Add("show-action-status")
+		cmdSet.Add("show-action-output")
 	}
 
 	// 1. Default Commands. Disable all features.
@@ -665,7 +667,8 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	unknown = registered.Difference(cmdSet)
 	c.Assert(unknown, jc.DeepEquals, set.NewStrings())
 	missing = cmdSet.Difference(registered)
-	c.Assert(missing, jc.DeepEquals, set.NewStrings("run", "run-action"))
+	c.Assert(missing, jc.DeepEquals, set.NewStrings(
+		"run", "run-action", "show-action-status", "show-action-output"))
 }
 
 func getHelpCommandNames(c *gc.C) set.Strings {
@@ -747,7 +750,7 @@ func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 	copy(expected, commandNames)
 	expected = append(expected, extraNames...)
 	if !featureflag.Enabled(feature.JujuV3) {
-		expected = append(expected, "run-action")
+		expected = append(expected, "run-action", "show-action-status", "show-action-output")
 	}
 	sort.Strings(expected)
 	c.Check(registry.names, jc.DeepEquals, expected)

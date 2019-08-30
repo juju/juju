@@ -382,15 +382,14 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	}
 
 	// Manage and control actions
-	r.Register(action.NewStatusCommand())
 	r.Register(action.NewShowOutputCommand())
 	r.Register(action.NewListCommand())
 	r.Register(action.NewShowCommand())
 	r.Register(action.NewCancelCommand())
-	if featureflag.Enabled(feature.JujuV3) {
-		r.Register(action.NewCallCommand())
-	} else {
+	r.Register(action.NewCallCommand())
+	if !featureflag.Enabled(feature.JujuV3) {
 		r.Register(action.NewRunActionCommand())
+		r.Register(action.NewStatusCommand())
 	}
 
 	// Manage controller availability

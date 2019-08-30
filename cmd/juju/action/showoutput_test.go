@@ -44,7 +44,7 @@ func (s *ShowOutputSuite) TestInit(c *gc.C) {
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
-			c.Logf("test %d: it should %s: juju show-action-output %s", i,
+			c.Logf("test %d: it should %s: juju show-operation %s", i,
 				t.should, strings.Join(t.args, " "))
 			cmd, _ := action.NewShowOutputCommandForTest(s.store)
 			args := append([]string{modelFlag, "admin"}, t.args...)
