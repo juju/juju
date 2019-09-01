@@ -9,6 +9,7 @@ import (
 	"net"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -53,8 +54,10 @@ var (
 
 type workerSuite struct {
 	coretesting.BaseSuite
-	clock *testclock.Clock
-	hub   Hub
+	clock  *testclock.Clock
+	hub    Hub
+	notify chan struct{}
+	mu     sync.Mutex
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -958,7 +961,7 @@ func (s *workerSuite) initialize3Voters(c *gc.C) (*fakeState, worker.Worker, *vo
 	mustNext(c, memberWatcher, "nonvoting members")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", testIPv4))
 	st.session.setStatus(mkStatuses("0p 1s 2s", testIPv4))
-	c.Assert(s.clock.WaitAdvance(pollInterval, time.Second, 1), jc.ErrorIsNil)
+	s.ensureUpdateChannelProcessed(c, pollInterval, time.Second, 1)
 	mustNext(c, memberWatcher, "status ok")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v", testIPv4))
 	err = st.controller("11").SetHasVote(true)
@@ -1159,5 +1162,43 @@ func (s *workerSuite) newWorker(
 		APIPort:            apiPort,
 		Hub:                s.hub,
 		SupportsHA:         supportsHA,
+		UpdateNotify:       s.updateNotify,
 	})
+}
+
+func (s *workerSuite) updateNotify() {
+	logger.Infof("updateNotify signalled")
+	s.mu.Lock()
+	notify := s.notify
+	s.mu.Unlock()
+	if notify == nil {
+		return
+	}
+	// Send down the notify channel if it is set.
+	select {
+	case notify <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		// no-op
+		logger.Infof("... no one watching")
+	}
+}
+
+func (s *workerSuite) ensureUpdateChannelProcessed(c *gc.C, d, w time.Duration, n int) {
+	logger.Infof("ensureUpdateChannelProcessed, delay %s", d)
+	s.mu.Lock()
+	s.notify = make(chan struct{})
+	s.mu.Unlock()
+
+	c.Assert(s.clock.WaitAdvance(d, w, n), gc.IsNil)
+
+	select {
+	case <-s.notify:
+		// All good.
+	case <-time.After(coretesting.LongWait):
+		c.Errorf("update channel not signalled in worker")
+	}
+
+	s.mu.Lock()
+	s.notify = nil
+	s.mu.Unlock()
 }
