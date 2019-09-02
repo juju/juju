@@ -15,11 +15,11 @@ import (
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 
 	apicaasunitprovisioner "github.com/juju/juju/api/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
@@ -70,23 +70,32 @@ containers:
       attr: foo=bar; fred=blogs
       foo: bar
 `[1:]
+)
 
-	parsedSpec = caas.PodSpec{
-		Containers: []caas.ContainerSpec{{
+func getParsedSpec() *specs.PodSpec {
+	parsedSpec := &specs.PodSpec{}
+	parsedSpec.Version = specs.CurrentVersion
+	parsedSpec.Containers = []specs.ContainerSpec{
+		{
 			Name:  "gitlab",
 			Image: "gitlab/latest",
-			Ports: []caas.ContainerPort{
+			Ports: []specs.ContainerPort{
 				{ContainerPort: 80, Protocol: "TCP"},
 				{ContainerPort: 443},
 			},
 			Config: map[string]interface{}{
 				"attr": "foo=bar; fred=blogs",
 				"foo":  "bar",
-			}},
-		}}
+			},
+		},
+	}
+	return parsedSpec
+}
 
-	expectedServiceParams = &caas.ServiceParams{
-		PodSpec:      &parsedSpec,
+func getExpectedServiceParams() *caas.ServiceParams {
+	parsedSpec := getParsedSpec()
+	return &caas.ServiceParams{
+		PodSpec:      parsedSpec,
 		ResourceTags: map[string]string{"foo": "bar"},
 		Constraints:  constraints.MustParse("mem=4G"),
 		Deployment: caas.DeploymentParams{
@@ -98,7 +107,7 @@ containers:
 			Size:        100,
 		}},
 	}
-)
+}
 
 func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
@@ -143,7 +152,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.containerBroker = mockContainerBroker{
 		unitsWatcher:    watchertest.NewMockNotifyWatcher(s.caasUnitsChanges),
 		operatorWatcher: watchertest.NewMockNotifyWatcher(s.caasOperatorChanges),
-		podSpec:         &parsedSpec,
 	}
 	s.lifeGetter = mockLifeGetter{}
 	s.lifeGetter.setLife(life.Alive)
@@ -278,7 +286,7 @@ func (s *WorkerSuite) TestScaleChangedInJuju(c *gc.C) {
 	s.lifeGetter.CheckCall(c, 0, "Life", "gitlab")
 	s.serviceBroker.CheckCallNames(c, "WatchService", "EnsureService", "GetService")
 	s.serviceBroker.CheckCall(c, 1, "EnsureService",
-		"gitlab", expectedServiceParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", getExpectedServiceParams(), 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 	s.serviceBroker.CheckCall(c, 2, "GetService", "gitlab")
 
 	s.serviceBroker.ResetCalls()
@@ -296,11 +304,10 @@ func (s *WorkerSuite) TestScaleChangedInJuju(c *gc.C) {
 		c.Fatal("timed out waiting for service to be ensured")
 	}
 
-	newExpectedParams := *expectedServiceParams
-	newExpectedParams.PodSpec = &parsedSpec
+	newExpectedParams := getExpectedServiceParams()
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &newExpectedParams, 2, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", newExpectedParams, 2, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 
 	s.serviceBroker.ResetCalls()
 	// Delete a unit.
@@ -319,7 +326,7 @@ func (s *WorkerSuite) TestScaleChangedInJuju(c *gc.C) {
 
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &newExpectedParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", newExpectedParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
 func intPtr(i int) *int {
@@ -427,13 +434,13 @@ containers:
   - name: gitlab
     image: gitlab/latest
 `[1:]
-
-		anotherParsedSpec = caas.PodSpec{
-			Containers: []caas.ContainerSpec{{
-				Name:  "gitlab",
-				Image: "gitlab/latest",
-			}}}
 	)
+	anotherParsedSpec := &specs.PodSpec{}
+	anotherParsedSpec.Version = specs.CurrentVersion
+	anotherParsedSpec.Containers = []specs.ContainerSpec{{
+		Name:  "gitlab",
+		Image: "gitlab/latest",
+	}}
 
 	s.podSpecGetter.setProvisioningInfo(apicaasunitprovisioner.ProvisioningInfo{
 		PodSpec: anotherSpec,
@@ -449,110 +456,12 @@ containers:
 	}
 
 	expectedParams := &caas.ServiceParams{
-		PodSpec:      &anotherParsedSpec,
+		PodSpec:      anotherParsedSpec,
 		ResourceTags: map[string]string{"foo": "bar"},
 	}
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
 		"gitlab", expectedParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
-}
-
-func (s *WorkerSuite) TestNewPodSpecChangeCrd(c *gc.C) {
-	w := s.setupNewUnitScenario(c)
-	defer workertest.CleanKill(c, w)
-
-	s.serviceBroker.ResetCalls()
-
-	// Same spec, nothing happens.
-	s.sendContainerSpecChange(c)
-	s.podSpecGetter.assertSpecRetrieved(c)
-	select {
-	case <-s.serviceEnsured:
-		c.Fatal("service/unit ensured unexpectedly")
-	case <-time.After(coretesting.ShortWait):
-	}
-
-	float64Ptr := func(f float64) *float64 { return &f }
-
-	var (
-		anotherSpec = `
-customResourceDefinitions:
-  tfjobs.kubeflow.org:
-    group: kubeflow.org
-    version: v1alpha2
-    scope: Namespaced
-    names:
-      plural: "tfjobs"
-      singular: "tfjob"
-      kind: TFJob
-    validation:
-      openAPIV3Schema:
-        properties:
-          tfReplicaSpecs:
-            properties:
-              Worker:
-                properties:
-                  replicas:
-                    type: integer
-                    minimum: 1
-containers:
-  - name: gitlab
-    image: gitlab/latest
-`[1:]
-
-		anotherParsedSpec = caas.PodSpec{
-			CustomResourceDefinitions: map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
-				"tfjobs.kubeflow.org": {
-					Group:   "kubeflow.org",
-					Version: "v1alpha2",
-					Scope:   "Namespaced",
-					Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-						Kind:     "TFJob",
-						Plural:   "tfjobs",
-						Singular: "tfjob",
-					},
-					Validation: &apiextensionsv1beta1.CustomResourceValidation{
-						OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"tfReplicaSpecs": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"Worker": {
-											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-												"replicas": {
-													Type:    "integer",
-													Minimum: float64Ptr(1),
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			Containers: []caas.ContainerSpec{{
-				Name:  "gitlab",
-				Image: "gitlab/latest",
-			}},
-		}
-	)
-
-	s.podSpecGetter.setProvisioningInfo(apicaasunitprovisioner.ProvisioningInfo{
-		PodSpec: anotherSpec,
-		Tags:    map[string]string{"foo": "bar"},
-	})
-	s.sendContainerSpecChange(c)
-	s.podSpecGetter.assertSpecRetrieved(c)
-
-	select {
-	case <-s.serviceEnsured:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for service to be ensured")
-	}
-
-	s.serviceBroker.CheckCallNames(c, "EnsureCustomResourceDefinition", "EnsureService")
-	s.serviceBroker.CheckCall(c, 0, "EnsureCustomResourceDefinition", "gitlab", &anotherParsedSpec)
 }
 
 func (s *WorkerSuite) TestScaleZero(c *gc.C) {

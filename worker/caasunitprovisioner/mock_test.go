@@ -56,11 +56,6 @@ func (m *mockServiceBroker) EnsureService(appName string, statusCallback caas.St
 	return m.NextErr()
 }
 
-func (m *mockServiceBroker) EnsureCustomResourceDefinition(appName string, podSpec *caas.PodSpec) error {
-	m.MethodCall(m, "EnsureCustomResourceDefinition", appName, podSpec)
-	return m.NextErr()
-}
-
 func (m *mockServiceBroker) GetService(appName string, includeClusterIP bool) (*caas.Service, error) {
 	m.MethodCall(m, "GetService", appName)
 	scale := 4
@@ -93,7 +88,6 @@ type mockContainerBroker struct {
 	operatorWatcher        *watchertest.MockNotifyWatcher
 	reportedUnitStatus     status.Status
 	reportedOperatorStatus status.Status
-	podSpec                *caas.PodSpec
 }
 
 func (m *mockContainerBroker) Provider() caas.ContainerEnvironProvider {

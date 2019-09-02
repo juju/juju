@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/testing"
 )
 
@@ -44,7 +44,7 @@ func (s *DockerConfigSuite) TestExtractRegistryURL(c *gc.C) {
 }
 
 func (s *DockerConfigSuite) TestCreateDockerConfigJSON(c *gc.C) {
-	imageDetails := caas.ImageDetails{
+	imageDetails := specs.ImageDetails{
 		ImagePath: "registry.staging.jujucharms.com/tester/caas-mysql/mysql-image:5.7",
 		Username:  "docker-registry",
 		Password:  "hunter2",
@@ -53,11 +53,11 @@ func (s *DockerConfigSuite) TestCreateDockerConfigJSON(c *gc.C) {
 	config, err := provider.CreateDockerConfigJSON(&imageDetails)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var result provider.DockerConfigJson
+	var result provider.DockerConfigJSON
 	err = json.Unmarshal(config, &result)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(result, jc.DeepEquals, provider.DockerConfigJson{
+	c.Assert(result, jc.DeepEquals, provider.DockerConfigJSON{
 		Auths: map[string]provider.DockerConfigEntry{
 			"registry.staging.jujucharms.com": {
 				Username: "docker-registry",

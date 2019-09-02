@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	corenetwork "github.com/juju/juju/core/network"
@@ -2515,7 +2516,7 @@ func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResult
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		if _, err := k8sprovider.ParsePodSpec(arg.Value); err != nil {
+		if _, err := k8sspecs.ParsePodSpec(arg.Value); err != nil {
 			results.Results[i].Error = common.ServerError(errors.Annotate(err, "invalid pod spec"))
 			continue
 		}

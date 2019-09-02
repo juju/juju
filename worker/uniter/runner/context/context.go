@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -536,7 +536,7 @@ func (ctx *HookContext) SetPodSpec(specYaml string) error {
 		logger.Errorf("%v is not the leader but is setting application pod spec", entityName)
 		return ErrIsNotLeader
 	}
-	_, err = k8sprovider.ParsePodSpec(specYaml)
+	_, err = k8sspecs.ParsePodSpec(specYaml)
 	if err != nil {
 		return errors.Trace(err)
 	}
