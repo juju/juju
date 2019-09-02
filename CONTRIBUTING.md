@@ -91,6 +91,9 @@ See the [Dependency management](#dependency-management) section for details.
 
     make install
 
+Getting started
+===============
+
 Git
 ---
 
