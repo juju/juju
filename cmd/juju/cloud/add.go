@@ -336,14 +336,14 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 		} else {
 			ctxt.Infof("Cloud %q successfully %v to your local client.", newCloud.Name, operation)
 			if len(newCloud.AuthTypes) != 0 {
-				ctxt.Infof("You will need to add credentials for this cloud (`juju add-credential %s`)", newCloud.Name)
-				ctxt.Infof("before you can use it in creating either a controller (`juju bootstrap %s`) or", newCloud.Name)
-				ctxt.Infof("a model (`juju add-model <your model name> %s`).", newCloud.Name)
+				ctxt.Infof("You will need to add a credential for this cloud (`juju add-credential %s`)", newCloud.Name)
+				ctxt.Infof("before you can use it to bootstrap a controller (`juju bootstrap %s`) or", newCloud.Name)
+				ctxt.Infof("to create a model (`juju add-model <your model name> %s`).", newCloud.Name)
 			}
 		}
 	}
 	if !c.Replace && c.existsLocally {
-		returnErr = errors.AlreadyExistsf("use `update-cloud %s --local` to override known definition: %q", newCloud.Name, newCloud.Name)
+		returnErr = errors.AlreadyExistsf("use `update-cloud %s --local` to override known definition: local cloud %q", newCloud.Name, newCloud.Name)
 	}
 	if c.Local {
 		return returnErr
@@ -359,7 +359,7 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 		}
 	}
 	if c.ControllerName == "" {
-		ctxt.Infof("There are no controllers specified - not adding cloud %q remotely.", newCloud.Name)
+		ctxt.Infof("There are no controllers specified - not adding cloud %q to any controller.", newCloud.Name)
 		return returnErr
 	}
 
@@ -374,7 +374,7 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		if params.ErrCode(err) == params.CodeAlreadyExists {
 			ctxt.Infof("Cloud %q already exists on the controller %q.", c.Cloud, c.ControllerName)
-			ctxt.Infof("To upload credentials to the controller for cloud %q, use \n"+
+			ctxt.Infof("To upload a credential to the controller for cloud %q, use \n"+
 				"* 'add-model' with --credential option or\n"+
 				"* 'add-credential -c %v'.", newCloud.Name, newCloud.Name)
 			return returnErr
@@ -392,12 +392,12 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	err = c.addCredentialToController(ctxt, *newCloud, api)
 	if err != nil {
 		logger.Warningf("%v", err)
-		ctxt.Infof("To upload credentials to the controller for cloud %q, use \n"+
+		ctxt.Infof("To upload a credential to the controller for cloud %q, use \n"+
 			"* 'add-model' with --credential option or\n"+
 			"* 'add-credential -c %v'.", newCloud.Name, newCloud.Name)
 		return returnErr
 	}
-	ctxt.Infof("Credentials for cloud %q added to controller %q.", c.Cloud, c.ControllerName)
+	ctxt.Infof("Credential for cloud %q added to controller %q.", c.Cloud, c.ControllerName)
 	return returnErr
 }
 

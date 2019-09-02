@@ -212,7 +212,7 @@ func (s *addSuite) TestAddExisting(c *gc.C) {
 	fake.Call("PersonalCloudMetadata").Returns(mockCloud, nil)
 
 	_, err = s.runCommand(c, fake, "homestack", cloudFile.Name())
-	c.Assert(err, gc.ErrorMatches, "use `update-cloud homestack --local` to override known definition: \"homestack\" already exists")
+	c.Assert(err, gc.ErrorMatches, "use `update-cloud homestack --local` to override known definition: local cloud \"homestack\" already exists")
 }
 
 func (s *addSuite) TestAddExistingReplace(c *gc.C) {
@@ -251,7 +251,7 @@ func (s *addSuite) TestAddExistingPublic(c *gc.C) {
 	fake.Call("PersonalCloudMetadata").Returns(map[string]jujucloud.Cloud{}, nil)
 
 	_, err = s.runCommand(c, fake, "aws", cloudFile.Name())
-	c.Assert(err, gc.ErrorMatches, "use `update-cloud aws --local` to override known definition: \"aws\" already exists")
+	c.Assert(err, gc.ErrorMatches, "use `update-cloud aws --local` to override known definition: local cloud \"aws\" already exists")
 }
 
 func (s *addSuite) TestAddExistingBuiltin(c *gc.C) {
@@ -269,7 +269,7 @@ func (s *addSuite) TestAddExistingBuiltin(c *gc.C) {
 	fake.Call("PersonalCloudMetadata").Returns(map[string]jujucloud.Cloud{}, nil)
 
 	_, err = s.runCommand(c, fake, "localhost", cloudFile.Name())
-	c.Assert(err, gc.ErrorMatches, "use `update-cloud localhost --local` to override known definition: \"localhost\" already exists")
+	c.Assert(err, gc.ErrorMatches, "use `update-cloud localhost --local` to override known definition: local cloud \"localhost\" already exists")
 }
 
 func (s *addSuite) TestAddExistingPublicReplace(c *gc.C) {
@@ -342,11 +342,11 @@ func (s *addSuite) TestAddLocalDefault(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(numCallsToWrite(), gc.Equals, 1)
 	c.Assert(cmdtesting.Stderr(ctx), gc.DeepEquals, "Cloud \"garage-maas\" successfully added to your local client.\n"+
-		"You will need to add credentials for this cloud (`juju add-credential garage-maas`)\n"+
-		"before you can use it in creating either a controller (`juju bootstrap garage-maas`) or\n"+
-		"a model (`juju add-model <your model name> garage-maas`).\n"+
+		"You will need to add a credential for this cloud (`juju add-credential garage-maas`)\n"+
+		"before you can use it to bootstrap a controller (`juju bootstrap garage-maas`) or\n"+
+		"to create a model (`juju add-model <your model name> garage-maas`).\n"+
 		"\n"+
-		"There are no controllers specified - not adding cloud \"garage-maas\" remotely.\n")
+		"There are no controllers specified - not adding cloud \"garage-maas\" to any controller.\n")
 }
 
 func (s *addSuite) TestAddNewInvalidAuthType(c *gc.C) {
@@ -470,11 +470,11 @@ func (s *addSuite) asssertAddToController(c *gc.C, force bool) {
 		force)
 	api.CheckCall(c, 1, "AddCredential", "cloudcred-garage-maas_fred_default", cred)
 	c.Assert(cmdtesting.Stderr(ctx), gc.DeepEquals, "Cloud \"garage-maas\" successfully added to your local client.\n"+
-		"You will need to add credentials for this cloud (`juju add-credential garage-maas`)\n"+
-		"before you can use it in creating either a controller (`juju bootstrap garage-maas`) or\n"+
-		"a model (`juju add-model <your model name> garage-maas`).\n\n"+
+		"You will need to add a credential for this cloud (`juju add-credential garage-maas`)\n"+
+		"before you can use it to bootstrap a controller (`juju bootstrap garage-maas`) or\n"+
+		"to create a model (`juju add-model <your model name> garage-maas`).\n\n"+
 		"Cloud \"garage-maas\" added to controller \"mycontroller\".\n"+
-		"Credentials for cloud \"garage-maas\" added to controller \"mycontroller\".\n")
+		"Credential for cloud \"garage-maas\" added to controller \"mycontroller\".\n")
 
 }
 
@@ -527,9 +527,9 @@ func (s *addSuite) TestAddLocalNoCloudName(c *gc.C) {
 	api.CheckNoCalls(c)
 	c.Check(numCalls(), gc.Equals, 1)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cloud \"garage-maas\" successfully added to your local client.\n"+
-		"You will need to add credentials for this cloud (`juju add-credential garage-maas`)\n"+
-		"before you can use it in creating either a controller (`juju bootstrap garage-maas`) or\n"+
-		"a model (`juju add-model <your model name> garage-maas`).\n")
+		"You will need to add a credential for this cloud (`juju add-credential garage-maas`)\n"+
+		"before you can use it to bootstrap a controller (`juju bootstrap garage-maas`) or\n"+
+		"to create a model (`juju add-model <your model name> garage-maas`).\n")
 }
 
 func (s *addSuite) TestAddLocalNoCloudNameButManyCloudsInFile(c *gc.C) {
@@ -550,9 +550,9 @@ func (s *addSuite) TestAddToControllerBadController(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", cloudFileName, "-c", "badcontroller", "--skipPrompt")
 	c.Assert(err, gc.ErrorMatches, "controller badcontroller not found")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cloud \"garage-maas\" successfully added to your local client.\n"+
-		"You will need to add credentials for this cloud (`juju add-credential garage-maas`)\n"+
-		"before you can use it in creating either a controller (`juju bootstrap garage-maas`) or\n"+
-		"a model (`juju add-model <your model name> garage-maas`).\n\n")
+		"You will need to add a credential for this cloud (`juju add-credential garage-maas`)\n"+
+		"before you can use it to bootstrap a controller (`juju bootstrap garage-maas`) or\n"+
+		"to create a model (`juju add-model <your model name> garage-maas`).\n\n")
 }
 
 func (s *addSuite) TestAddToControllerMissingCredential(c *gc.C) {
@@ -563,7 +563,7 @@ func (s *addSuite) TestAddToControllerMissingCredential(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `
 Cloud "garage-maas" added to controller "mycontroller".
-To upload credentials to the controller for cloud "garage-maas", use 
+To upload a credential to the controller for cloud "garage-maas", use 
 * 'add-model' with --credential option or
 * 'add-credential -c garage-maas'.
 `[1:])
@@ -577,12 +577,12 @@ func (s *addSuite) TestAddToControllerAmbiguousCredential(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", cloudFileName, "-c", "mycontroller", "--skipPrompt")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cloud \"garage-maas\" successfully added to your local client.\n"+
-		"You will need to add credentials for this cloud (`juju add-credential garage-maas`)\n"+
-		"before you can use it in creating either a controller (`juju bootstrap garage-maas`) or\n"+
-		"a model (`juju add-model <your model name> garage-maas`).\n"+
+		"You will need to add a credential for this cloud (`juju add-credential garage-maas`)\n"+
+		"before you can use it to bootstrap a controller (`juju bootstrap garage-maas`) or\n"+
+		"to create a model (`juju add-model <your model name> garage-maas`).\n"+
 		"\n"+
 		"Cloud \"garage-maas\" added to controller \"mycontroller\".\n"+
-		"To upload credentials to the controller for cloud \"garage-maas\", use \n"+
+		"To upload a credential to the controller for cloud \"garage-maas\", use \n"+
 		"* 'add-model' with --credential option or\n"+
 		"* 'add-credential -c garage-maas'.\n")
 	c.Assert(c.GetTestLog(), jc.Contains, `more than one credential is available`)
@@ -650,9 +650,9 @@ func (*addSuite) TestInteractiveMaas(c *gc.C) {
 
 	c.Check(numCallsToWrite(), gc.Equals, 1)
 	c.Assert(out.String(), gc.Equals, "Cloud \"m1\" successfully added to your local client.\n"+
-		"You will need to add credentials for this cloud (`juju add-credential m1`)\n"+
-		"before you can use it in creating either a controller (`juju bootstrap m1`) or\n"+
-		"a model (`juju add-model <your model name> m1`).\n")
+		"You will need to add a credential for this cloud (`juju add-credential m1`)\n"+
+		"before you can use it to bootstrap a controller (`juju bootstrap m1`) or\n"+
+		"to create a model (`juju add-model <your model name> m1`).\n")
 }
 
 func (*addSuite) TestInteractiveManual(c *gc.C) {
@@ -1236,9 +1236,9 @@ func testInteractiveOpenstack(c *gc.C, myOpenstack jujucloud.Cloud, expectedYAML
 	c.Check(err, jc.ErrorIsNil)
 	var output = addStdErrMsg +
 		"Cloud \"os1\" successfully added to your local client.\n" +
-		"You will need to add credentials for this cloud (`juju add-credential os1`)\n" +
-		"before you can use it in creating either a controller (`juju bootstrap os1`) or\n" +
-		"a model (`juju add-model <your model name> os1`).\n"
+		"You will need to add a credential for this cloud (`juju add-credential os1`)\n" +
+		"before you can use it to bootstrap a controller (`juju bootstrap os1`) or\n" +
+		"to create a model (`juju add-model <your model name> os1`).\n"
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, output)
 	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, stdOutMsg)
 
