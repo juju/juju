@@ -185,7 +185,7 @@ class GKE(Base):
                 name='default-pool',
                 initial_node_count=1,
                 config=dict(
-                    machine_type='n1-standard-1',
+                    machine_type='n1-standard-2',
                 ),
                 autoscaling=dict(
                     enabled=True,
