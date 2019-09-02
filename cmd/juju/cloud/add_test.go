@@ -451,7 +451,7 @@ func (s *addSuite) setupControllerCloudScenarioWithFile(c *gc.C, cloudsFile stri
 
 func (s *addSuite) asssertAddToController(c *gc.C, force bool) {
 	cloudFileName, command, _, api, cred, _ := s.setupControllerCloudScenario(c)
-	args := []string{"garage-maas", cloudFileName, "--skipPrompt"}
+	args := []string{"garage-maas", cloudFileName, "--no-prompt"}
 	if force {
 		args = append(args, "--force")
 	}
@@ -487,7 +487,7 @@ func (s *addSuite) TestAddToControllerIncompatibleCloud(c *gc.C) {
 		return params.Error{Code: params.CodeIncompatibleClouds}
 	}
 	cloudFileName, command, _, api, _, _ := s.setupControllerCloudScenario(c)
-	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", cloudFileName, "--skipPrompt")
+	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", cloudFileName, "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	api.CheckCallNames(c, "AddCloud", "Close")
 	api.CheckCall(c, 0, "AddCloud",
@@ -547,7 +547,7 @@ func (s *addSuite) TestAddToControllerBadController(c *gc.C) {
 	}, nil)
 	store.Credentials = nil
 
-	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", cloudFileName, "-c", "badcontroller", "--skipPrompt")
+	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", cloudFileName, "-c", "badcontroller", "--no-prompt")
 	c.Assert(err, gc.ErrorMatches, "controller badcontroller not found")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cloud \"garage-maas\" successfully added to your local client.\n"+
 		"You will need to add a credential for this cloud (`juju add-credential garage-maas`)\n"+
@@ -559,7 +559,7 @@ func (s *addSuite) TestAddToControllerMissingCredential(c *gc.C) {
 	cloudFileName, command, store, _, _, _ := s.setupControllerCloudScenario(c)
 	store.Credentials = nil
 
-	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", cloudFileName, "-c", "mycontroller", "--skipPrompt")
+	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", cloudFileName, "-c", "mycontroller", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `
 Cloud "garage-maas" added to controller "mycontroller".
@@ -574,7 +574,7 @@ func (s *addSuite) TestAddToControllerAmbiguousCredential(c *gc.C) {
 	cloudFileName, command, store, _, cred, _ := s.setupControllerCloudScenario(c)
 	store.Credentials["garage-maas"].AuthCredentials["another"] = cred
 
-	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", cloudFileName, "-c", "mycontroller", "--skipPrompt")
+	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", cloudFileName, "-c", "mycontroller", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cloud \"garage-maas\" successfully added to your local client.\n"+
 		"You will need to add a credential for this cloud (`juju add-credential garage-maas`)\n"+

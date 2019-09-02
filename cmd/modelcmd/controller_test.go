@@ -274,7 +274,7 @@ func (s *OptionalControllerCommandSuite) TestDetectCurrentControllerSkipPrompt(c
 		"fred": {},
 	}
 	store.CurrentControllerName = "fred"
-	s.assertDetectCurrentController(c, store, "fred", "--skipPrompt")
+	s.assertDetectCurrentController(c, store, "fred", "--no-prompt")
 }
 
 func (s *OptionalControllerCommandSuite) assertDetectCurrentControllerPrompt(c *gc.C, userAnswer, expectedControllerName string) {
@@ -289,7 +289,7 @@ func (s *OptionalControllerCommandSuite) assertDetectCurrentControllerPrompt(c *
 	controllerName, err := command.MaybePromptCurrentController(ctx, "test on")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerName, gc.Equals, expectedControllerName)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "Do you want to test on current controller \"fred\".? (Y/n): \n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "Do you want to test on current controller \"fred\"? (Y/n): \n")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }
 

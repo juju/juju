@@ -405,7 +405,7 @@ func (c *OptionalControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Local, "local", false, "Local operation only; controller not affected")
 	f.StringVar(&c.ControllerName, "c", "", "Controller to operate in")
 	f.StringVar(&c.ControllerName, "controller", "", "")
-	f.BoolVar(&c.SkipCurrentControllerPrompt, "skipPrompt", false, "Skip prompting for confirmation to use current controller, always use it when detected")
+	f.BoolVar(&c.SkipCurrentControllerPrompt, "no-prompt", false, "Skip prompting for confirmation to use current controller, always use it when detected")
 }
 
 // ControllerNameFromArg returns either a controller name or empty string.
