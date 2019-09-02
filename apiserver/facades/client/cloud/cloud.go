@@ -1003,7 +1003,7 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 	if !cfg.Features().Contains(feature.MultiCloud) {
 		if cloudArgs.Cloud.Type != string(provider.K8s_ProviderType) {
 			return errors.Errorf(
-				"controller side feature flag %q needs to be enabled to add a %q cloud", feature.MultiCloud, cloudArgs.Cloud.Type)
+				"feature flag %q needs to be enabled to add a %q cloud", feature.MultiCloud, cloudArgs.Cloud.Type)
 		}
 	}
 
