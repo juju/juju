@@ -11,6 +11,7 @@ import (
 	modelgeneration "github.com/juju/juju/apiserver/facades/client/modelgeneration"
 	cache "github.com/juju/juju/core/cache"
 	settings "github.com/juju/juju/core/settings"
+	state "github.com/juju/juju/state"
 	charm_v6 "gopkg.in/juju/charm.v6"
 	names_v3 "gopkg.in/juju/names.v3"
 )
@@ -51,6 +52,18 @@ func (m *MockState) Application(arg0 string) (modelgeneration.Application, error
 func (mr *MockStateMockRecorder) Application(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockState)(nil).Application), arg0)
+}
+
+// ApplyOperation mocks base method
+func (m *MockState) ApplyOperation(arg0 state.ModelOperation) error {
+	ret := m.ctrl.Call(m, "ApplyOperation", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ApplyOperation indicates an expected call of ApplyOperation
+func (mr *MockStateMockRecorder) ApplyOperation(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyOperation", reflect.TypeOf((*MockState)(nil).ApplyOperation), arg0)
 }
 
 // ControllerTag mocks base method

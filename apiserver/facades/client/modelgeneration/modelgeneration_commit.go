@@ -12,6 +12,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
+//go:generate mockgen -package mocks -destination mocks/commit_mock.go github.com/juju/juju/apiserver/facades/client/modelgeneration CommitBranchModelOp,CommitBranchState,Settings
+
 // CommitBranchModelOp describes a model operation for committing a branch.
 type CommitBranchModelOp interface {
 	state.ModelOperation
