@@ -437,6 +437,10 @@ func (c *OptionalControllerCommand) ControllerNameFromArg() (string, error) {
 	return controllerName, nil
 }
 
+// MaybePromptCurrentController checks if there is a current controller on a client.
+// If there is and the user did not want to be prompted, the current controller will be returned.
+// Otherwise, the user will be prompted if the current controller should be used and
+// based on the answer the current controller may or may not be returned.
 func (c *OptionalControllerCommand) MaybePromptCurrentController(ctxt *cmd.Context, action string) (string, error) {
 	all, err := c.Store.AllControllers()
 	if err != nil {
