@@ -305,12 +305,10 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 		newCloud, err = c.readCloudFromFile(ctxt)
 	} else {
 		if c.Cloud != "" {
-			// It's possible that the user wants to add an existing local client to a current controller,
+			// It's possible that the user wants to add an existing local cloud to a current controller,
 			// i.e. 'juju add-cloud aws'. So let's see if we can find the cloud.
 			newCloud, err = common.CloudByName(c.Cloud)
-			if err == nil {
-				c.existsLocally = newCloud.Name != ""
-			}
+			c.existsLocally = err == nil
 		}
 		if !c.existsLocally {
 			newCloud, err = c.runInteractive(ctxt)
@@ -393,11 +391,11 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	// Add a credential for the newly added cloud.
 	err = c.addCredentialToController(ctxt, *newCloud, api)
 	if err != nil {
-		logger.Errorf("%v", err)
+		logger.Warningf("%v", err)
 		ctxt.Infof("To upload credentials to the controller for cloud %q, use \n"+
 			"* 'add-model' with --credential option or\n"+
 			"* 'add-credential -c %v'.", newCloud.Name, newCloud.Name)
-		return cmd.ErrSilent
+		return returnErr
 	}
 	ctxt.Infof("Credentials for cloud %q added to controller %q.", c.Cloud, c.ControllerName)
 	return returnErr

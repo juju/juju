@@ -560,7 +560,7 @@ func (s *addSuite) TestAddToControllerMissingCredential(c *gc.C) {
 	store.Credentials = nil
 
 	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", cloudFileName, "-c", "mycontroller", "--skipPrompt")
-	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `
 Cloud "garage-maas" added to controller "mycontroller".
 To upload credentials to the controller for cloud "garage-maas", use 
@@ -575,7 +575,7 @@ func (s *addSuite) TestAddToControllerAmbiguousCredential(c *gc.C) {
 	store.Credentials["garage-maas"].AuthCredentials["another"] = cred
 
 	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", cloudFileName, "-c", "mycontroller", "--skipPrompt")
-	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cloud \"garage-maas\" successfully added to your local client.\n"+
 		"You will need to add credentials for this cloud (`juju add-credential garage-maas`)\n"+
 		"before you can use it in creating either a controller (`juju bootstrap garage-maas`) or\n"+
