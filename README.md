@@ -1,41 +1,59 @@
 [![Juju logo](doc/juju-logo.png?raw=true)](https://jujucharms.com/)
 
+Simple, secure and stable devops tooling. 
+Juju keeps complexity low and productivity high. 
+Built to manage today’s complex application architectures wherever they are run.
+ 
+Built for
+- SRE and operations teams
+- Developers
+- Data engineers
+
+Excels at
+- Making your deployment understandable 
+- Simplifying post-install operations, such as upgrades, updates and configuration management
+- Managing hybrid-cloud services, whether on Kubernetes, VMs, bare metal or any combination
+
 ## Why Juju?
 
-* Reduce complexity  
-* Enable repeatability  
-* Codify operations knowledge  
-* Simplify day two 
-* Maintain portability
+Juju increases your productivity and decreases your costs.
 
-If your infrastructure can’t be understood by everyone in your organisation, there’s an issue.
-Juju focuses on the applications that your deployment defines and how they are related.
-
-Requiring everyone to know every hostname, every machine, every subnet and every storage volume is brittle.
-This means change is complicated, on-boarding is difficult and tends to create knowledge silos.
-Juju makes those details available, but places the deployment model at the front.
-
-With Juju, your team maintains a practical high-level view that makes your backend more adaptable to changes over time. 
-Extending your product should be as simple as deploying its first prototype.
+- **Increase confidence**  
+ If you have ever put off upgrading something in production because something might break, then consider Juju.
+ Juju allows applications to automatically negotiate their configuration, creating optimal settings dynamically.
 
 
-## What is Juju?
-
-Juju is a devops tool that reduces operational complexity through application modelling.
-Once a model is described, Juju identifies the necessary steps to make that model a reality.
-
-Juju has three core concepts: models, applications and relations.
-Consider a whiteboard drawing of your service.
-The whiteboard's border is the model, its circles are applications and the lines between the circles are relations.
-
-Juju uses an active agent deployed alongside your applications.
-That agent orchestrates infrastructure, and manages applications through the product life cycle.
+- **Reduce complexity**  
+ Microservices have made applications simpler, but operations more complex.
+ Regain your understanding of the whole stack.
 
 
-## Next steps
+- **Strengthen operations knowledge**  
+ Everyone has their in-house expert.
+ Encapsulating their know-how in charms distributes that knowledge throughout the business.
 
-Read the documentation https://jaas.ai/docs
 
-Ask a question https://discourse.jujucharms.com/
+- **Simplify day two and beyond**  
+ Upgrades, provisioning new capacity, applying configuration changes can be subtle and difficult.
+ Juju takes responsibility for them, as well as deployment.
 
-Install Juju https://jaas.ai/docs/installing
+
+ - **Maintain portability and repeatability**  
+ Retain control over your deployment and eliminate the need for vendor-specific offerings.
+ Your devops tooling should be cloud-agnostic and Kubernetes-aware.
+
+
+## Get started
+
+[Install Juju][] and [get started][] with your first project.
+
+Read the [project’s documentation](https://jaas.ai/docs).
+
+Explore questions and conversations on our [Discourse forum](https://jaas.ai/docs).
+
+Developers are welcome to read through our [contributing guidelines](CONTRIBUTING.md) to learn how to make code changes.
+
+Find out more, get help or ask questions on our [Freenode IRC channel](https://discourse.jujucharms.com/).
+
+  [Install Juju]: https://jaas.ai/docs/install
+  [get started]: https://jaas.ai/docs/getting-started

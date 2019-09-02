@@ -1,11 +1,15 @@
+Thanks for your interest in Juju! Contributions like yours make good projects
+great.
+
 Contents
 ========
 
-1. [Getting started](#getting-started)
-2. [Dependency management](#dependency-management)
-3. [Code formatting](#code-formatting)
-4. [Workflow](#workflow)
-5. [Community](#community)
+1. [Building Juju](#building-juju)
+2. [Getting started](#getting-started)
+3. [Dependency management](#dependency-management)
+4. [Code formatting](#code-formatting)
+5. [Workflow](#workflow)
+6. [Community](#community)
 
 Quick links
 ===========
@@ -21,27 +25,71 @@ Community:
 * https://discourse.jujucharms.com/
 * [#juju on freenode](http://webchat.freenode.net/?channels=juju)
 
-Getting started
-===============
+Building Juju
+=============
 
-Thanks for your interest in Juju! Contributions like yours make good projects
-great. Before contributing please read the following sections describing the
-tools and conventions of this project. This file is a companion to
-[README](README.md) and it is assumed that file has been read and followed
-prior.
+## Installing Go
 
-Specifically, the following commands should already have been run:
+`juju` is written in Go (http://golang.org), a modern, compiled, statically typed,
+concurrent language.
 
-```bash
-go get -d -v github.com/juju/juju/...
-cd $GOPATH/src/github.com/juju/juju
-make install-dependencies
-```
+### via snap
+
+    snap install go --channel=1.12/stable --classic
+    
+### via apt
+
+    sudo add-apt-repository ppa:gophers/archive
+    sudo apt update
+    sudo apt install go-lang-1.12
+
+### Other options
+
+See https://golang.org/doc/install#install
+
+## Set up environment variables
+
+Your `GOPATH`  is where the `go` tool and your IDE find Go source code (`$GOPATH/src`), executables (`$GOPATH/bin`) and packages (`$GOPATH/pkg`). Adding `GOPATH` to your `PATH` enables you to run Go programs that you install.
+
+    export GOPATH=${HOME}/go
+    export PATH="$GOPATH/bin/:$PATH"
+    
+You should also make sure that the `$GOPATH` directory exists: 
+
+    mkdir -p $GOPATH
+
+## Build Juju and its dependencies
+
+### Download Juju source
+
+    go get -d -v github.com/juju/juju/...
 
 The `-d` option means the source (for Juju and its dependencies) is only
-downloaded and not built. This is required since the dependencies may be out
-of sync and fail to build properly. See the
-[Dependency management](#dependency-management) section for more information.
+downloaded, but not built. We need to install the dependencies ourselves with `dep`.
+
+### Change to the Juju source code directory  
+
+    cd $GOPATH/src/github.com/juju/juju
+
+### Install runtime dependencies
+
+    make install-dependencies
+
+### Install build dependencies
+
+    go get github.com/golang/dep
+    make dep
+
+`dep` is the tool that the Juju team uses to manage its dependencies.
+See the [Dependency management](#dependency-management) section for details.
+
+### Compile
+
+    make build
+
+### Install
+
+    make install
 
 Git
 ---
