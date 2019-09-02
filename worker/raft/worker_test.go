@@ -292,6 +292,8 @@ func (s *WorkerSuite) TestNoLeaderTimeout(c *gc.C) {
 	f2 := raft0.AddVoter("2", transport2.LocalAddr(), 0, 0)
 	c.Assert(f1.Error(), jc.ErrorIsNil)
 	c.Assert(f2.Error(), jc.ErrorIsNil)
+	// Now that we are leader, check that we are listed as such
+	initialLeader := raft0.Leader()
 
 	rafttest.CheckConfiguration(c, raft0, []coreraft.Server{{
 		ID:       "123",
@@ -307,18 +309,24 @@ func (s *WorkerSuite) TestNoLeaderTimeout(c *gc.C) {
 		Suffrage: coreraft.Voter,
 	}})
 
+	c.Logf("demoting self")
 	f3 := raft0.DemoteVoter("123", 0, 0)
 	c.Assert(f3.Error(), jc.ErrorIsNil)
-
 	// Wait until raft0 isn't the leader anymore.
 	leader := true
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		leader = raft0.Leader() == coreraft.ServerAddress("localhost")
+		curLeader := raft0.Leader()
+		c.Logf("found leader: %q", curLeader)
+		leader = (curLeader == initialLeader)
 		if !leader {
 			break
 		}
 	}
 	c.Assert(leader, jc.IsFalse)
+
+	// We do this fast enough that both secondaries cannot have synchronized yet
+	// so they aren't actually eligible to become leaders. They should still
+	// shutdown cleanly.
 
 	f4 := raft1.Shutdown()
 	f5 := raft2.Shutdown()
@@ -329,7 +337,9 @@ func (s *WorkerSuite) TestNoLeaderTimeout(c *gc.C) {
 	// waits when we advance:
 	// * the loop timeout wait from starting the worker
 	// * the no leader timeout check in loop.
-	c.Assert(s.clock.WaitAdvance(10*time.Second, coretesting.LongWait, 2), jc.ErrorIsNil)
+	// The NoLeaderTimeout waits for 10s, so we increment the clock just slightly
+	// longer than that.
+	c.Assert(s.clock.WaitAdvance(10001*time.Millisecond, coretesting.LongWait, 2), jc.ErrorIsNil)
 	c.Assert(workertest.CheckKilled(c, s.worker), gc.Equals, raft.ErrNoLeaderTimeout)
 }
 
