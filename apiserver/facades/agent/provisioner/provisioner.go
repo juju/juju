@@ -438,6 +438,9 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.JujuProxy = config.JujuProxySettings()
 	result.AptProxy = config.AptProxySettings()
 	result.AptMirror = config.AptMirror()
+	result.SnapProxy = config.SnapProxySettings()
+	result.SnapStoreAssertions = config.SnapStoreAssertions()
+	result.SnapStoreProxyID = config.SnapStoreProxy()
 	result.CloudInitUserData = config.CloudInitUserData()
 	result.ContainerInheritProperties = config.ContainerInheritProperies()
 	return result, nil
