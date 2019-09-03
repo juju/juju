@@ -111,6 +111,8 @@ type JujuConnSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
 
+	InitialLoggingConfig string
+
 	DefaultToolsStorageDir string
 	DefaultToolsStorage    storage.Storage
 
@@ -160,6 +162,9 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
+	if s.InitialLoggingConfig != "" {
+		loggo.ConfigureLoggers(s.InitialLoggingConfig)
+	}
 
 	// This needs to be a pointer as there are other Mixin structures
 	// that copy the lock otherwise. Yet another reason to move away from
