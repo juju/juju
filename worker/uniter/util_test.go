@@ -1618,7 +1618,6 @@ func (mock *mockLeaderTracker) setLeader(c *gc.C, isLeader bool) {
 		)
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
-		leaseClock.Advance(61 * time.Second)
 		time.Sleep(coretesting.ShortWait)
 	}
 	mock.isLeader = isLeader
