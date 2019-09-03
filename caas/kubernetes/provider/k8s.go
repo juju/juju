@@ -465,99 +465,6 @@ func (k *kubernetesClient) APIVersion() (string, error) {
 	return version, nil
 }
 
-// ensureOCIImageSecret ensures a secret exists for use with retrieving images from private registries
-func (k *kubernetesClient) ensureOCIImageSecret(
-	imageSecretName,
-	appName string,
-	imageDetails *specs.ImageDetails,
-	annotations k8sannotations.Annotation,
-) error {
-	if imageDetails.Password == "" {
-		return errors.New("attempting to create a secret with no password")
-	}
-	secretData, err := createDockerConfigJSON(imageDetails)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	newSecret := &core.Secret{
-		ObjectMeta: v1.ObjectMeta{
-			Name:        imageSecretName,
-			Namespace:   k.namespace,
-			Labels:      map[string]string{labelApplication: appName},
-			Annotations: annotations.ToMap()},
-		Type: core.SecretTypeDockerConfigJson,
-		Data: map[string][]byte{
-			core.DockerConfigJsonKey: secretData,
-		},
-	}
-	logger.Debugf("ensuring docker secret %q", imageSecretName)
-	return errors.Trace(k.ensureSecret(newSecret))
-}
-
-func (k *kubernetesClient) ensureSecret(sec *core.Secret) error {
-	secrets := k.client().CoreV1().Secrets(k.namespace)
-	_, err := secrets.Update(sec)
-	if k8serrors.IsNotFound(err) {
-		_, err = secrets.Create(sec)
-	}
-	return errors.Trace(err)
-}
-
-// updateSecret updates a secret resource.
-func (k *kubernetesClient) updateSecret(sec *core.Secret) error {
-	_, err := k.client().CoreV1().Secrets(k.namespace).Update(sec)
-	if k8serrors.IsNotFound(err) {
-		return errors.NotFoundf("secret %q", sec.GetName())
-	}
-	return errors.Trace(err)
-}
-
-// getSecret return a secret resource.
-func (k *kubernetesClient) getSecret(secretName string) (*core.Secret, error) {
-	secret, err := k.client().CoreV1().Secrets(k.namespace).Get(secretName, v1.GetOptions{IncludeUninitialized: true})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil, errors.NotFoundf("secret %q", secretName)
-		}
-		return nil, errors.Trace(err)
-	}
-	return secret, nil
-}
-
-// createSecret creates a secret resource.
-func (k *kubernetesClient) createSecret(secret *core.Secret) error {
-	_, err := k.client().CoreV1().Secrets(k.namespace).Create(secret)
-	return errors.Trace(err)
-}
-
-// deleteSecret deletes a secret resource.
-func (k *kubernetesClient) deleteSecret(secretName string) error {
-	secrets := k.client().CoreV1().Secrets(k.namespace)
-	err := secrets.Delete(secretName, &v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) deleteSecrets(appName string) error {
-	secretList, err := k.client().CoreV1().Secrets(k.namespace).List(v1.ListOptions{
-		LabelSelector: applicationSelector(appName),
-	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, s := range secretList.Items {
-		if err := k.deleteSecret(s.Name); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
 // OperatorExists indicates if the operator for the specified
 // application exists, and whether the operator is terminating.
 func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, error) {
@@ -625,7 +532,9 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 			return errors.Annotatef(err, "config map for %q should already exist", appName)
 		}
 	} else {
-		if err := k.ensureConfigMap(operatorConfigMap(appName, operatorName, config)); err != nil {
+		cmCleanUp, err := k.ensureConfigMap(operatorConfigMap(appName, operatorName, config))
+		cleanups = append(cleanups, cmCleanUp)
+		if err != nil {
 			return errors.Annotate(err, "creating or updating ConfigMap")
 		}
 	}
@@ -918,7 +827,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 		// Delete secrets.
 		for _, c := range p.Spec.Containers {
 			secretName := appSecretName(deploymentName, c.Name)
-			if err := k.deleteSecret(secretName); err != nil {
+			if err := k.deleteSecretByName(secretName); err != nil {
 				return errors.Annotatef(err, "deleting %s secret for container %s", appName, c.Name)
 			}
 		}
@@ -1297,6 +1206,24 @@ func (k *kubernetesClient) EnsureService(
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
 
+	// ensure configmap.
+	if len(workloadSpec.ConfigMaps) > 0 {
+		cmsCleanUps, err := k.ensureConfigMaps(appName, workloadSpec.ConfigMaps)
+		cleanups = append(cleanups, cmsCleanUps...)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating configmaps")
+		}
+	}
+
+	// ensure secrets.
+	if len(workloadSpec.Secrets) > 0 {
+		secretsCleanUps, err := k.ensureSecrets(appName, workloadSpec.Secrets)
+		cleanups = append(cleanups, secretsCleanUps...)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating secrets")
+		}
+	}
+
 	// ensure custom resource definitions first.
 	crds := workloadSpec.CustomResourceDefinitions
 	if len(crds) > 0 {
@@ -1335,7 +1262,7 @@ func (k *kubernetesClient) EnsureService(
 		if err := k.ensureOCIImageSecret(imageSecretName, appName, &c.ImageDetails, annotations.Copy()); err != nil {
 			return errors.Annotatef(err, "creating secrets for container: %s", c.Name)
 		}
-		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName) })
+		cleanups = append(cleanups, func() { k.deleteSecretByName(imageSecretName) })
 	}
 
 	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
@@ -1642,7 +1569,7 @@ func (k *kubernetesClient) configurePodFiles(podSpec *core.PodSpec, containers [
 		for _, fileSet := range container.Files {
 			cfgName := cfgMapName(fileSet.Name)
 			vol := core.Volume{Name: cfgName}
-			if err := k.ensureConfigMap(filesetConfigMap(cfgName, &fileSet)); err != nil {
+			if _, err := k.ensureConfigMap(filesetConfigMap(cfgName, &fileSet)); err != nil {
 				return errors.Annotatef(err, "creating or updating ConfigMap for file set %v", cfgName)
 			}
 			vol.ConfigMap = &core.ConfigMapVolumeSource{
@@ -2515,45 +2442,6 @@ func filesetConfigMap(configMapName string, files *specs.FileSet) *core.ConfigMa
 	return result
 }
 
-// ensureConfigMap ensures a ConfigMap resource.
-func (k *kubernetesClient) ensureConfigMap(configMap *core.ConfigMap) error {
-	configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
-	_, err := configMaps.Update(configMap)
-	if k8serrors.IsNotFound(err) {
-		_, err = configMaps.Create(configMap)
-	}
-	return errors.Trace(err)
-}
-
-// deleteConfigMap deletes a ConfigMap resource.
-func (k *kubernetesClient) deleteConfigMap(configMapName string) error {
-	err := k.client().CoreV1().ConfigMaps(k.namespace).Delete(configMapName, &v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
-}
-
-// createConfigMap creates a ConfigMap resource.
-func (k *kubernetesClient) createConfigMap(configMap *core.ConfigMap) error {
-	_, err := k.client().CoreV1().ConfigMaps(k.namespace).Create(configMap)
-	return errors.Trace(err)
-}
-
-// getConfigMap returns a ConfigMap resource.
-func (k *kubernetesClient) getConfigMap(cmName string) (*core.ConfigMap, error) {
-	cm, err := k.client().CoreV1().ConfigMaps(k.namespace).Get(cmName, v1.GetOptions{IncludeUninitialized: true})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil, errors.NotFoundf("configmap %q", cmName)
-		}
-		return nil, errors.Trace(err)
-	}
-	return cm, nil
-}
-
 // operatorPod returns a *core.Pod for the operator pod
 // of the specified application.
 func operatorPod(podName, appName, operatorServiceIP, agentPath, operatorImagePath, version string, annotations k8sannotations.Annotation) (*core.Pod, error) {
@@ -2645,10 +2533,13 @@ func operatorConfigMap(appName, operatorName string, config *caas.OperatorConfig
 	}
 }
 
+// workloadSpec represents the k8s resources need to be created for the workload.
 type workloadSpec struct {
 	Pod     core.PodSpec `json:"pod"`
 	Service *specs.ServiceSpec
 
+	Secrets                   []k8sspecs.Secret
+	ConfigMaps                map[string]specs.ConfigMap
 	ServiceAccount            *specs.ServiceAccountSpec
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
 }
@@ -2701,6 +2592,7 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec)
 	}
 
 	spec.Service = podSpec.Service
+	spec.ConfigMaps = podSpec.ConfigMaps
 	spec.ServiceAccount = podSpec.ServiceAccount
 	if podSpec.ProviderPod != nil {
 		pSpec, ok := podSpec.ProviderPod.(*k8sspecs.K8sPodSpec)
@@ -2710,6 +2602,7 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec)
 
 		k8sResources := pSpec.KubernetesResources
 		if k8sResources != nil {
+			spec.Secrets = k8sResources.Secrets
 			spec.CustomResourceDefinitions = k8sResources.CustomResourceDefinitions
 			if k8sResources.Pod != nil {
 				spec.Pod.ActiveDeadlineSeconds = k8sResources.Pod.ActiveDeadlineSeconds

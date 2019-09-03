@@ -239,7 +239,7 @@ func (c *controllerStack) getControllerSecret() (secret *core.Secret, err error)
 		return secret, nil
 	}
 	if errors.IsNotFound(err) {
-		err = c.broker.createSecret(&core.Secret{
+		_, err = c.broker.createSecret(&core.Secret{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      c.resourceNameSecret,
 				Labels:    c.stackLabels,
@@ -266,7 +266,7 @@ func (c *controllerStack) getControllerConfigMap() (cm *core.ConfigMap, err erro
 		return cm, nil
 	}
 	if errors.IsNotFound(err) {
-		err = c.broker.createConfigMap(&core.ConfigMap{
+		_, err = c.broker.createConfigMap(&core.ConfigMap{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      c.resourceNameConfigMap,
 				Labels:    c.stackLabels,
@@ -440,7 +440,7 @@ func (c *controllerStack) createControllerSecretSharedSecret() error {
 	logger.Debugf("ensuring shared secret: \n%+v", secret)
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q shared-secret", secret.Name)
-		c.broker.deleteSecret(secret.Name)
+		c.broker.deleteSecret(secret.GetName(), secret.GetUID())
 	})
 	return c.broker.updateSecret(secret)
 }
@@ -461,7 +461,7 @@ func (c *controllerStack) createControllerSecretServerPem() error {
 	logger.Debugf("ensuring server.pem secret: \n%+v", secret)
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q server.pem", secret.Name)
-		c.broker.deleteSecret(secret.Name)
+		c.broker.deleteSecret(secret.GetName(), secret.GetUID())
 	})
 	return c.broker.updateSecret(secret)
 }
@@ -484,11 +484,13 @@ func (c *controllerStack) ensureControllerConfigmapBootstrapParams() error {
 	cm.Data[c.fileNameBootstrapParams] = string(bootstrapParamsFileContent)
 
 	logger.Debugf("creating bootstrap-params configmap: \n%+v", cm)
+
+	cleanUp, err := c.broker.ensureConfigMap(cm)
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q bootstrap-params", cm.Name)
-		c.broker.deleteConfigMap(cm.Name)
+		cleanUp()
 	})
-	return c.broker.ensureConfigMap(cm)
+	return errors.Trace(err)
 }
 
 func (c *controllerStack) ensureControllerConfigmapAgentConf() error {
@@ -505,11 +507,12 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf() error {
 	cm.Data[c.fileNameAgentConf] = string(agentConfigFileContent)
 
 	logger.Debugf("ensuring agent.conf configmap: \n%+v", cm)
+	cleanUp, err := c.broker.ensureConfigMap(cm)
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q template-agent.conf", cm.Name)
-		c.broker.deleteConfigMap(cm.Name)
+		cleanUp()
 	})
-	return c.broker.ensureConfigMap(cm)
+	return errors.Trace(err)
 }
 
 func (c *controllerStack) createControllerStatefulset() error {
