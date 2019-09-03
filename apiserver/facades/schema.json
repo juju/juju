@@ -25760,6 +25760,12 @@
                         "snap-proxy": {
                             "$ref": "#/definitions/Settings"
                         },
+                        "snap-store-assertions": {
+                            "type": "string"
+                        },
+                        "snap-store-proxy-id": {
+                            "type": "string"
+                        },
                         "ssl-hostname-verification": {
                             "type": "boolean"
                         }
@@ -25773,6 +25779,8 @@
                         "juju-proxy",
                         "apt-proxy",
                         "snap-proxy",
+                        "snap-store-assertions",
+                        "snap-store-proxy-id",
                         "apt-mirror",
                         "UpdateBehavior"
                     ]

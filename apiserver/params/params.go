@@ -586,6 +586,8 @@ type ContainerConfig struct {
 	JujuProxy                  proxy.Settings         `json:"juju-proxy"`
 	AptProxy                   proxy.Settings         `json:"apt-proxy"`
 	SnapProxy                  proxy.Settings         `json:"snap-proxy"`
+	SnapStoreAssertions        string                 `json:"snap-store-assertions"`
+	SnapStoreProxyID           string                 `json:"snap-store-proxy-id"`
 	AptMirror                  string                 `json:"apt-mirror"`
 	CloudInitUserData          map[string]interface{} `json:"cloudinit-userdata,omitempty"`
 	ContainerInheritProperties string                 `json:"container-inherit-properties,omitempty"`
