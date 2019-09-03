@@ -28,7 +28,7 @@ var logger = loggo.GetLogger("juju.apiserver.common.networkingcommon")
 // fast lookups while adding subnets.
 type addSubnetsCache struct {
 	api            NetworkBacking
-	allSpaces      set.Strings          // all defined backing spaces
+	allSpaces      map[string]string    // all defined backing space names to ids
 	allZones       set.Strings          // all known provider zones
 	availableZones set.Strings          // all the available zones
 	allSubnets     []network.SubnetInfo // all (valid) provider subnets
@@ -53,14 +53,15 @@ func NewAddSubnetsCache(api NetworkBacking) *addSubnetsCache {
 }
 
 // validateSpace parses the given spaceTag and verifies it exists by looking it
-// up in the cache (or populates the cache if empty).
-func (cache *addSubnetsCache) validateSpace(spaceTag string) (*names.SpaceTag, error) {
+// up in the cache (or populates the cache if empty).  Returns the spaceID
+// associated with the space name given.
+func (cache *addSubnetsCache) validateSpace(spaceTag string) (string, error) {
 	if spaceTag == "" {
-		return nil, errors.Errorf("SpaceTag is required")
+		return "", errors.Errorf("SpaceTag is required")
 	}
 	tag, err := names.ParseSpaceTag(spaceTag)
 	if err != nil {
-		return nil, errors.Annotate(err, "given SpaceTag is invalid")
+		return "", errors.Annotate(err, "given SpaceTag is invalid")
 	}
 
 	// Otherwise we need the cache to validate.
@@ -70,26 +71,27 @@ func (cache *addSubnetsCache) validateSpace(spaceTag string) (*names.SpaceTag, e
 
 		allSpaces, err := cache.api.AllSpaces()
 		if err != nil {
-			return nil, errors.Annotate(err, "cannot validate given SpaceTag")
+			return "", errors.Annotate(err, "cannot validate given SpaceTag")
 		}
-		cache.allSpaces = set.NewStrings()
+		cache.allSpaces = make(map[string]string, len(allSpaces))
 		for _, space := range allSpaces {
-			if cache.allSpaces.Contains(space.Name()) {
+			if _, ok := cache.allSpaces[space.Name()]; ok {
 				logger.Warningf("ignoring duplicated space %q", space.Name())
 				continue
 			}
-			cache.allSpaces.Add(space.Name())
+			cache.allSpaces[space.Name()] = space.Id()
 		}
 	}
-	if cache.allSpaces.IsEmpty() {
-		return nil, errors.Errorf("no spaces defined")
+	if len(cache.allSpaces) == 0 {
+		return "", errors.Errorf("no spaces defined")
 	}
-	logger.Tracef("using cached spaces: %v", cache.allSpaces.SortedValues())
+	logger.Tracef("using cached spaces: %v", cache.allSpaces)
 
-	if !cache.allSpaces.Contains(tag.Id()) {
-		return nil, errors.NotFoundf("space %q", tag.Id()) // " not found"
+	spaceID, ok := cache.allSpaces[tag.Id()]
+	if !ok {
+		return "", errors.NotFoundf("space %q", tag.Id()) // " not found"
 	}
-	return &tag, nil
+	return spaceID, nil
 }
 
 // cacheZones populates the allZones and availableZones cache, if it's
@@ -343,7 +345,7 @@ func addOneSubnet(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	spaceTag, err := cache.validateSpace(args.SpaceTag)
+	spaceID, err := cache.validateSpace(args.SpaceTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -359,7 +361,7 @@ func addOneSubnet(
 		CIDR:              subnetInfo.CIDR,
 		VLANTag:           subnetInfo.VLANTag,
 		AvailabilityZones: zones,
-		SpaceName:         spaceTag.Id(),
+		SpaceID:           spaceID,
 	}
 	if _, err := api.AddSubnet(backingInfo); err != nil {
 		return errors.Trace(err)

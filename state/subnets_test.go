@@ -22,13 +22,13 @@ type SubnetSuite struct {
 var _ = gc.Suite(&SubnetSuite{})
 
 func (s *SubnetSuite) TestAddSubnetSucceedsWithFullyPopulatedInfo(c *gc.C) {
-	_, err := s.State.AddSpace("foo", "4", nil, true)
+	space, err := s.State.AddSpace("foo", "4", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	fanOverlaySubnetInfo := network.SubnetInfo{
 		ProviderId: "foo2",
 		CIDR:       "10.0.0.0/8",
-		SpaceName:  "foo",
+		SpaceID:    space.Id(),
 	}
 	subnet, err := s.State.AddSubnet(fanOverlaySubnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
@@ -38,7 +38,7 @@ func (s *SubnetSuite) TestAddSubnetSucceedsWithFullyPopulatedInfo(c *gc.C) {
 		CIDR:              "192.168.1.0/24",
 		VLANTag:           79,
 		AvailabilityZones: []string{"Timbuktu"},
-		SpaceName:         "foo",
+		SpaceID:           space.Id(),
 		ProviderNetworkId: "wildbirds",
 		IsPublic:          true,
 	}
@@ -61,7 +61,11 @@ func (s *SubnetSuite) assertSubnetMatchesInfo(c *gc.C, subnet *state.Subnet, inf
 	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, info.AvailabilityZones)
 	c.Assert(subnet.String(), gc.Equals, info.CIDR)
 	c.Assert(subnet.GoString(), gc.Equals, info.CIDR)
-	c.Assert(subnet.SpaceName(), gc.Equals, info.SpaceName)
+	expectedSubnetID := info.SpaceID
+	if expectedSubnetID == "" {
+		expectedSubnetID = "0"
+	}
+	c.Check(subnet.SpaceID(), gc.Equals, expectedSubnetID)
 	c.Assert(subnet.ProviderNetworkId(), gc.Equals, info.ProviderNetworkId)
 	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, info.FanLocalUnderlay())
 	c.Assert(subnet.FanOverlay(), gc.Equals, info.FanOverlay())
@@ -282,16 +286,16 @@ func (s *SubnetSuite) TestRefreshFailsWithNotFoundWhenRemoved(c *gc.C) {
 }
 
 func (s *SubnetSuite) TestAllSubnets(c *gc.C) {
-	_, err := s.State.AddSpace("bar", "4", nil, true)
+	space1, err := s.State.AddSpace("bar", "4", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("notreally", "5", nil, true)
+	space2, err := s.State.AddSpace("notreally", "5", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	subnetInfos := []network.SubnetInfo{
 		{CIDR: "192.168.1.0/24"},
-		{CIDR: "8.8.8.0/24", SpaceName: "bar"},
+		{CIDR: "8.8.8.0/24", SpaceID: space1.Id()},
 		{CIDR: "10.0.2.0/24", ProviderId: "foo"},
 		{CIDR: "2001:db8::/64", AvailabilityZones: []string{"zone1"}},
-		{CIDR: "253.0.0.0/8", SpaceName: "notreally"},
+		{CIDR: "253.0.0.0/8", SpaceID: space2.Id()},
 	}
 	subnetInfos[4].SetFan("8.8.8.0/24", "")
 
@@ -308,10 +312,14 @@ func (s *SubnetSuite) TestAllSubnets(c *gc.C) {
 		c.Check(subnet.CIDR(), gc.Equals, subnetInfos[i].CIDR)
 		c.Check(subnet.ProviderId(), gc.Equals, subnetInfos[i].ProviderId)
 		if subnet.FanLocalUnderlay() == "" {
-			c.Check(subnet.SpaceName(), gc.Equals, subnetInfos[i].SpaceName)
+			expectedSubnetID := subnetInfos[i].SpaceID
+			if expectedSubnetID == "" {
+				expectedSubnetID = "0"
+			}
+			c.Check(subnet.SpaceID(), gc.Equals, expectedSubnetID)
 		} else {
 			// Special case
-			c.Check(subnet.SpaceName(), gc.Equals, "bar")
+			c.Check(subnet.SpaceID(), gc.Equals, space1.Id())
 		}
 		c.Check(subnet.AvailabilityZones(), gc.DeepEquals, subnetInfos[i].AvailabilityZones)
 	}

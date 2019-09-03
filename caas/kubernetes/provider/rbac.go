@@ -11,7 +11,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 
-	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/specs"
 )
 
 func (k *kubernetesClient) getRBACLabels(appName string) map[string]string {
@@ -22,7 +22,7 @@ func (k *kubernetesClient) getRBACLabels(appName string) map[string]string {
 }
 
 func (k *kubernetesClient) ensureServiceAccountForApp(
-	appName string, caasSpec *caas.ServiceAccountSpec,
+	appName string, caasSpec *specs.ServiceAccountSpec,
 ) (cleanups []func(), err error) {
 	labels := k.getRBACLabels(appName)
 	saSpec := &core.ServiceAccount{
@@ -43,7 +43,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 	roleSpec := caasSpec.Capabilities.Role
 	var roleRef rbacv1.RoleRef
 	switch roleSpec.Type {
-	case caas.Role:
+	case specs.Role:
 		var r *rbacv1.Role
 		var rCleanups []func()
 		if len(roleSpec.Rules) == 0 {
@@ -71,7 +71,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 			Name: r.GetName(),
 			Kind: string(roleSpec.Type),
 		}
-	case caas.ClusterRole:
+	case specs.ClusterRole:
 		var cr *rbacv1.ClusterRole
 		var cRCleanups []func()
 		if len(roleSpec.Rules) == 0 {
@@ -116,7 +116,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		Namespace: sa.GetNamespace(),
 	}
 	switch rbSpec.Type {
-	case caas.RoleBinding:
+	case specs.RoleBinding:
 		_, rBCleanups, err := k.ensureRoleBinding(&rbacv1.RoleBinding{
 			ObjectMeta: roleBindingMeta,
 			RoleRef:    roleRef,
@@ -126,7 +126,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		if err != nil {
 			return cleanups, errors.Trace(err)
 		}
-	case caas.ClusterRoleBinding:
+	case specs.ClusterRoleBinding:
 		_, cRBCleanups, err := k.ensureClusterRoleBinding(&rbacv1.ClusterRoleBinding{
 			ObjectMeta: roleBindingMeta,
 			RoleRef:    roleRef,

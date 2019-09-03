@@ -47,7 +47,6 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
-	supportedversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -240,7 +239,7 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	t.BaseSuite.PatchValue(&series.MustHostSeries, func() string { return supportedversion.SupportedLTS() })
+	t.BaseSuite.PatchValue(&series.MustHostSeries, func() string { return series.DefaultSupportedLTS() })
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
@@ -343,10 +342,11 @@ func (t *localServerSuite) prepareWithParamsAndBootstrapWithVPCID(c *gc.C, param
 
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		t.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      testing.AdminSecret,
-			CAPrivateKey:     coretesting.CAKey,
-			Placement:        "zone=test-available",
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              testing.AdminSecret,
+			CAPrivateKey:             coretesting.CAKey,
+			Placement:                "zone=test-available",
+			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -371,9 +371,10 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			// TODO(redir): BBB: When we no longer support upstart based systems this can change to series.LatestLts()
-			BootstrapSeries: "xenial",
-			AdminSecret:     testing.AdminSecret,
-			CAPrivateKey:    coretesting.CAKey,
+			BootstrapSeries:          "xenial",
+			AdminSecret:              testing.AdminSecret,
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: set.NewStrings("xenial").Union(coretesting.FakeSupportedJujuSeries),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -448,10 +449,11 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		t.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			BootstrapSeries:  "trusty",
-			AdminSecret:      testing.AdminSecret,
-			CAPrivateKey:     coretesting.CAKey,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			BootstrapSeries:          "trusty",
+			AdminSecret:              testing.AdminSecret,
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -523,9 +525,10 @@ func (t *localServerSuite) TestTerminateInstancesIgnoresNotFound(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		t.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      testing.AdminSecret,
-			CAPrivateKey:     coretesting.CAKey,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              testing.AdminSecret,
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -559,9 +562,10 @@ func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		t.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      testing.AdminSecret,
-			CAPrivateKey:     coretesting.CAKey,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              testing.AdminSecret,
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -724,9 +728,10 @@ func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		t.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      testing.AdminSecret,
-			CAPrivateKey:     coretesting.CAKey,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              testing.AdminSecret,
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
@@ -1178,10 +1183,11 @@ func (t *localServerSuite) prepareAndBootstrapWithConfig(c *gc.C, config coretes
 	env := t.PrepareWithParams(c, args)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		t.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      testing.AdminSecret,
-			CAPrivateKey:     coretesting.CAKey,
-			Placement:        "zone=test-available",
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              testing.AdminSecret,
+			CAPrivateKey:             coretesting.CAKey,
+			Placement:                "zone=test-available",
+			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	return env
@@ -1443,7 +1449,7 @@ func (t *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.small root-disk=1G")
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:      supportedversion.SupportedLTS(),
+		Series:      series.DefaultSupportedLTS(),
 		Constraints: cons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1453,7 +1459,7 @@ func (t *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.invalid")
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:      supportedversion.SupportedLTS(),
+		Series:      series.DefaultSupportedLTS(),
 		Constraints: cons,
 	})
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "m1.invalid" specified`)
@@ -1463,7 +1469,7 @@ func (t *localServerSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=cc1.4xlarge arch=i386")
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:      supportedversion.SupportedLTS(),
+		Series:      series.DefaultSupportedLTS(),
 		Constraints: cons,
 	})
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "cc1.4xlarge" and arch "i386" specified`)
@@ -1473,7 +1479,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-available"
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:    supportedversion.SupportedLTS(),
+		Series:    series.DefaultSupportedLTS(),
 		Placement: placement,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1483,7 +1489,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unavailable"
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:    supportedversion.SupportedLTS(),
+		Series:    series.DefaultSupportedLTS(),
 		Placement: placement,
 	})
 	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is "unavailable"`)
@@ -1493,7 +1499,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unknown"
 	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:    supportedversion.SupportedLTS(),
+		Series:    series.DefaultSupportedLTS(),
 		Placement: placement,
 	})
 	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
@@ -1517,7 +1523,7 @@ func (t *localServerSuite) testPrecheckInstanceVolumeAvailZone(c *gc.C, placemen
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:    supportedversion.SupportedLTS(),
+		Series:    series.DefaultSupportedLTS(),
 		Placement: placement,
 		VolumeAttachments: []storage.VolumeAttachmentParams{{
 			AttachmentParams: storage.AttachmentParams{
@@ -1540,7 +1546,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneVolumeConflict(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
-		Series:    supportedversion.SupportedLTS(),
+		Series:    series.DefaultSupportedLTS(),
 		Placement: "zone=test-available",
 		VolumeAttachments: []storage.VolumeAttachmentParams{{
 			AttachmentParams: storage.AttachmentParams{
@@ -1561,7 +1567,7 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	env := t.Prepare(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("test")
 	c.Assert(err, jc.ErrorIsNil)
-	params.Series = supportedversion.SupportedLTS()
+	params.Series = series.DefaultSupportedLTS()
 	params.Endpoint = region.EC2Endpoint
 	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1590,9 +1596,10 @@ func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.Networ
 	env := t.prepareEnviron(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
 		t.callCtx, bootstrap.BootstrapParams{
-			ControllerConfig: coretesting.FakeControllerConfig(),
-			AdminSecret:      testing.AdminSecret,
-			CAPrivateKey:     coretesting.CAKey,
+			ControllerConfig:         coretesting.FakeControllerConfig(),
+			AdminSecret:              testing.AdminSecret,
+			CAPrivateKey:             coretesting.CAKey,
+			SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 

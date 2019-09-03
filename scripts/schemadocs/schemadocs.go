@@ -138,7 +138,6 @@ type Ref struct {
 // DefinitionSchema represents a definition in json schema form
 type DefinitionSchema struct {
 	Ref
-	Type                 string                      `json:"type"`
 	Format               string                      `json:"format"`
 	Properties           map[string]DefinitionSchema `json:"properties"`
 	AdditionalProperties bool                        `json:"additionalProperties"`

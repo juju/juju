@@ -118,6 +118,7 @@ func (s *LeadershipSuite) TestCheck(c *gc.C) {
 	var ops2 []txn.Op
 	err = token.Check(1, &ops2)
 	c.Check(err, gc.ErrorMatches, `"application/0" is not leader of "application"`)
+	c.Check(err, jc.Satisfies, leadership.IsNotLeaderError)
 	c.Check(ops2, gc.IsNil)
 }
 

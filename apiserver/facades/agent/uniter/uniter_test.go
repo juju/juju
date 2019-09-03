@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
@@ -2170,6 +2171,16 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
 
+	err = s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	token := s.State.LeadershipChecker().LeadershipCheck("wordpress", "wordpress/0")
+
+	err = rel.UpdateApplicationSettings(s.wordpress, token, map[string]interface{}{
+		"wanda": "firebaugh",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: "relation-42", Unit: "unit-foo-0"},
 		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0"},
@@ -2197,9 +2208,85 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
+			{Settings: params.Settings{
+				"wanda": "firebaugh",
+			}},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestReadSettingsForApplicationWhenNotLeader(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	settings := map[string]interface{}{
+		"some": "settings",
+	}
+	err = relUnit.EnterScope(settings)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, relUnit, true)
+
+	// This is a unit that doesn't exist.
+	err = s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/1", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	token := s.State.LeadershipChecker().LeadershipCheck("wordpress", "wordpress/1")
+
+	err = rel.UpdateApplicationSettings(s.wordpress, token, map[string]interface{}{
+		"wanda": "firebaugh",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: rel.Tag().String(), Unit: "application-wordpress"},
+	}}
+	result, err := s.uniter.ReadSettings(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.SettingsResults{
+		Results: []params.SettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestReadSettingsForApplicationInPeerRelation(c *gc.C) {
+	riak := s.AddTestingApplication(c, "riak", s.AddTestingCharm(c, "riak"))
+	ep, err := riak.Endpoint("ring")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.EndpointsRelation(ep)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = rel.UpdateApplicationSettings(riak, &fakeToken{}, map[string]interface{}{
+		"deerhoof": "little hollywood",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	riakUnit := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: riak,
+		Machine:     s.machine0,
+	})
+
+	relUnit, err := rel.Unit(riakUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	auth := apiservertesting.FakeAuthorizer{Tag: riakUnit.Tag()}
+	uniter := s.newUniterAPI(c, s.State, auth)
+
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{{
+		Relation: rel.Tag().String(),
+		Unit:     "application-riak",
+	}}}
+	result, err := uniter.ReadSettings(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.SettingsResults{
+		Results: []params.SettingsResult{
+			{Settings: params.Settings{
+				"deerhoof": "little hollywood",
+			}},
 		},
 	})
 }
@@ -2246,6 +2333,7 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 		{Relation: "relation-42", LocalUnit: "unit-foo-0", RemoteUnit: "foo"},
 		{Relation: rel.Tag().String(), LocalUnit: "unit-wordpress-0", RemoteUnit: "unit-wordpress-0"},
 		{Relation: rel.Tag().String(), LocalUnit: "unit-wordpress-0", RemoteUnit: "unit-mysql-0"},
+		{Relation: rel.Tag().String(), LocalUnit: "unit-wordpress-0", RemoteUnit: "application-mysql"},
 		{Relation: "relation-42", LocalUnit: "unit-wordpress-0", RemoteUnit: ""},
 		{Relation: "relation-foo", LocalUnit: "", RemoteUnit: ""},
 		{Relation: "application-wordpress", LocalUnit: "unit-foo-0", RemoteUnit: "user-foo"},
@@ -2257,14 +2345,20 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	}}
 	result, err := s.uniter.ReadRemoteSettings(args)
 
-	// We don't set the remote unit settings on purpose to test the error.
+	// We don't set the remote unit settings on purpose
+	// to test the error.
 	expectErr := `cannot read settings for unit "mysql/0" in relation "wordpress:db mysql:server": unit "mysql/0": settings`
+
+	// The application settings are always initialised to empty when
+	// the relation is created.
 	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("%s", pretty.Sprint(result))
 	c.Assert(result, jc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.NotFoundError(expectErr)},
+			{Settings: params.Settings{}},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -2318,6 +2412,52 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, expect)
 }
 
+func (s *uniterSuite) TestReadRemoteSettingsForApplication(c *gc.C) {
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
+	rel := s.addRelation(c, "wordpress", "mysql")
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	settings := map[string]interface{}{
+		"some": "settings",
+	}
+	err = relUnit.EnterScope(settings)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, relUnit, true)
+
+	// Set some application settings for mysql and check that we can
+	// see them.
+	err = rel.UpdateApplicationSettings(s.mysql, &fakeToken{}, map[string]interface{}{
+		"problem thinker": "fireproof",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{{
+		Relation:   rel.Tag().String(),
+		LocalUnit:  "unit-wordpress-0",
+		RemoteUnit: "application-mysql",
+	}, {
+		Relation:   rel.Tag().String(),
+		LocalUnit:  "unit-wordpress-0",
+		RemoteUnit: "application-wordpress",
+	}, {
+		Relation:   rel.Tag().String(),
+		LocalUnit:  "unit-wordpress-0",
+		RemoteUnit: "application-logging",
+	}}}
+	expect := params.SettingsResults{
+		Results: []params.SettingsResult{
+			{Settings: params.Settings{
+				"problem thinker": "fireproof",
+			}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	}
+	result, err := s.uniter.ReadRemoteSettings(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, expect)
+}
+
 func (s *uniterSuite) TestReadRemoteSettingsWithNonStringValuesFails(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.mysqlUnit)
@@ -2341,6 +2481,47 @@ func (s *uniterSuite) TestReadRemoteSettingsWithNonStringValuesFails(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
 			{Error: &params.Error{Message: expectErr}},
+		},
+	})
+}
+
+func (s *uniterSuite) TestReadRemoteApplicationSettingsForPeerRelation(c *gc.C) {
+	riak := s.AddTestingApplication(c, "riak", s.AddTestingCharm(c, "riak"))
+	ep, err := riak.Endpoint("ring")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.EndpointsRelation(ep)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = rel.UpdateApplicationSettings(riak, &fakeToken{}, map[string]interface{}{
+		"black midi": "ducter",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	riakUnit := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: riak,
+		Machine:     s.machine0,
+	})
+
+	relUnit, err := rel.Unit(riakUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	auth := apiservertesting.FakeAuthorizer{Tag: riakUnit.Tag()}
+	uniter := s.newUniterAPI(c, s.State, auth)
+
+	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{{
+		Relation:   rel.Tag().String(),
+		LocalUnit:  "unit-riak-0",
+		RemoteUnit: "application-riak",
+	}}}
+	result, err := uniter.ReadRemoteSettings(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.SettingsResults{
+		Results: []params.SettingsResult{
+			{Settings: params.Settings{
+				"black midi": "ducter",
+			}},
 		},
 	})
 }
@@ -2373,6 +2554,7 @@ func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "application-wordpress", Settings: nil},
 		{Relation: rel.Tag().String(), Unit: "application-mysql", Settings: nil},
 		{Relation: rel.Tag().String(), Unit: "user-foo", Settings: nil},
+		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0", ApplicationSettings: newSettings},
 	}}
 	result, err := s.uniter.UpdateSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2380,6 +2562,7 @@ func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 		Results: []params.ErrorResult{
 			{apiservertesting.ErrUnauthorized},
 			{nil},
+			{apiservertesting.ErrUnauthorized},
 			{apiservertesting.ErrUnauthorized},
 			{apiservertesting.ErrUnauthorized},
 			{apiservertesting.ErrUnauthorized},
@@ -2398,6 +2581,219 @@ func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
 		"some": "different",
 	})
+}
+
+func (s *uniterSuite) TestUpdateSettingsWithAppSettings(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	settings := map[string]interface{}{
+		"some":  "settings",
+		"other": "stuff",
+	}
+	err = relUnit.EnterScope(settings)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, relUnit, true)
+
+	newSettings := params.Settings{
+		"some":  "different",
+		"other": "",
+	}
+
+	err = s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	token := s.State.LeadershipChecker().LeadershipCheck("wordpress", "wordpress/0")
+
+	appSettings := map[string]interface{}{
+		"black midi": "ducter",
+		"battles":    "the yabba",
+	}
+	err = rel.UpdateApplicationSettings(s.wordpress, token, appSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newAppSettings := params.Settings{
+		"black midi": "of schlagenheim",
+		"battles":    "",
+	}
+
+	args := params.RelationUnitsSettings{RelationUnits: []params.RelationUnitSettings{{
+		Relation:            rel.Tag().String(),
+		Unit:                "unit-wordpress-0",
+		Settings:            newSettings,
+		ApplicationSettings: newAppSettings,
+	}}}
+	result, err := s.uniter.UpdateSettings(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{nil}},
+	})
+
+	readSettings, err := rel.ApplicationSettings(s.wordpress)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
+		"black midi": "of schlagenheim",
+	})
+}
+
+func (s *uniterSuite) TestUpdateSettingsWithAppSettingsOnly(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, relUnit, true)
+
+	err = s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	token := s.State.LeadershipChecker().LeadershipCheck("wordpress", "wordpress/0")
+
+	appSettings := map[string]interface{}{
+		"black midi": "ducter",
+		"battles":    "the yabba",
+	}
+	err = rel.UpdateApplicationSettings(s.wordpress, token, appSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newAppSettings := params.Settings{
+		"black midi": "of schlagenheim",
+		"battles":    "",
+	}
+
+	args := params.RelationUnitsSettings{RelationUnits: []params.RelationUnitSettings{{
+		Relation:            rel.Tag().String(),
+		Unit:                "unit-wordpress-0",
+		ApplicationSettings: newAppSettings,
+	}}}
+	result, err := s.uniter.UpdateSettings(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{nil}},
+	})
+
+	readSettings, err := rel.ApplicationSettings(s.wordpress)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
+		"black midi": "of schlagenheim",
+	})
+}
+
+func (s *uniterSuite) TestWatchRelationApplicationSettings(c *gc.C) {
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
+	rel := s.addRelation(c, "wordpress", "mysql")
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, relUnit, true)
+
+	args := params.RelationApplications{RelationApplications: []params.RelationApplication{{
+		Relation:    rel.Tag().String(),
+		Application: "application-logging",
+	}, {
+		Relation:    rel.Tag().String(),
+		Application: "unit-wordpress-0",
+	}, {
+		Relation:    rel.Tag().String(),
+		Application: "application-mysql",
+	}, {
+		Relation:    rel.Tag().String(),
+		Application: "application-wordpress",
+	}}}
+
+	result, err := s.uniter.WatchRelationApplicationSettings(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{NotifyWatcherId: "1"},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc.AssertNoChange()
+
+	// Set some application settings for mysql and check that we get a
+	// notification for it.
+	err = rel.UpdateApplicationSettings(s.mysql, &fakeToken{}, map[string]interface{}{
+		"problem thinker": "fireproof",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertOneChange()
+
+	// Check we don't get notified about a change to wordpress
+	// settings.
+	err = rel.UpdateApplicationSettings(s.wordpress, &fakeToken{}, map[string]interface{}{
+		"tent": "house",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+}
+
+func (s *uniterSuite) TestWatchRelationApplicationSettingsUnrelatedUnit(c *gc.C) {
+	logging := s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
+	rel := s.addRelation(c, "logging", "mysql")
+
+	args := params.RelationApplications{
+		RelationApplications: []params.RelationApplication{{
+			Relation:    rel.Tag().String(),
+			Application: logging.Tag().String(),
+		}},
+	}
+	results, err := s.uniter.WatchRelationApplicationSettings(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestWatchRelationApplicationSettingsPeerRelation(c *gc.C) {
+	riak := s.AddTestingApplication(c, "riak", s.AddTestingCharm(c, "riak"))
+	rels, err := riak.Relations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rels, gc.HasLen, 1)
+	rel := rels[0]
+
+	riakUnit := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: riak,
+		Machine:     s.machine0,
+	})
+
+	relUnit, err := rel.Unit(riakUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	auth := apiservertesting.FakeAuthorizer{Tag: riakUnit.Tag()}
+	uniter := s.newUniterAPI(c, s.State, auth)
+
+	args := params.RelationApplications{
+		RelationApplications: []params.RelationApplication{{
+			Relation:    rel.Tag().String(),
+			Application: riak.Tag().String(),
+		}},
+	}
+	results, err := uniter.WatchRelationApplicationSettings(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{NotifyWatcherId: "1"},
+		},
+	})
+
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	statetesting.AssertStop(c, resource)
 }
 
 func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
@@ -3329,8 +3725,9 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 		SpaceName: "internal",
 	}}
 	for _, info := range subnetInfos {
-		_, err := s.State.AddSpace(info.SpaceName, "", nil, false)
+		space, err := s.State.AddSpace(info.SpaceName, "", nil, false)
 		c.Assert(err, jc.ErrorIsNil)
+		info.SpaceID = space.Id()
 		_, err = s.State.AddSubnet(info)
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -3578,9 +3975,10 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		SpaceName: "layertwo",
 	}}
 	for _, info := range subnetInfos {
-		_, err := s.State.AddSpace(info.SpaceName, "", nil, false)
+		space, err := s.State.AddSpace(info.SpaceName, "", nil, false)
 		c.Assert(err, jc.ErrorIsNil)
 		if info.CIDR != "" {
+			info.SpaceID = space.Id()
 			_, err = s.State.AddSubnet(info)
 			c.Assert(err, jc.ErrorIsNil)
 		}
@@ -4422,4 +4820,12 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 	})
 
 	c.Assert(err, gc.ErrorMatches, "kaboom")
+}
+
+type fakeToken struct {
+	err error
+}
+
+func (t *fakeToken) Check(int, interface{}) error {
+	return t.err
 }

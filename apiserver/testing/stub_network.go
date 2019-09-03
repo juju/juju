@@ -166,6 +166,7 @@ func (f *FakeSpace) Subnets() (bs []networkingcommon.BackingSubnet, err error) {
 
 		backing := networkingcommon.BackingSubnetInfo{
 			CIDR:              subnetId,
+			SpaceID:           f.SpaceId,
 			SpaceName:         f.SpaceName,
 			ProviderId:        providerId,
 			VLANTag:           vlantag,
@@ -335,6 +336,10 @@ func (f *FakeSubnet) SpaceName() string {
 	return f.Info.SpaceName
 }
 
+func (f *FakeSubnet) SpaceID() string {
+	return f.Info.SpaceID
+}
+
 func (f *FakeSubnet) Life() life.Value {
 	return life.Value(f.Info.Life)
 }
@@ -430,6 +435,7 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 			ProviderNetworkId: ProviderInstance.Subnets[0].ProviderNetworkId,
 			AvailabilityZones: ProviderInstance.Subnets[0].AvailabilityZones,
 			SpaceName:         "private",
+			SpaceID:           "3",
 		}
 		info1 := networkingcommon.BackingSubnetInfo{
 			CIDR:              ProviderInstance.Subnets[1].CIDR,
@@ -437,6 +443,7 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 			ProviderNetworkId: ProviderInstance.Subnets[1].ProviderNetworkId,
 			AvailabilityZones: ProviderInstance.Subnets[1].AvailabilityZones,
 			SpaceName:         "dmz",
+			SpaceID:           "2",
 		}
 
 		sb.Subnets = []networkingcommon.BackingSubnet{

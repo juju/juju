@@ -4,6 +4,8 @@
 package action
 
 import (
+	"fmt"
+	"io"
 	"regexp"
 	"strings"
 	"time"
@@ -19,7 +21,6 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
 )
 
 // leaderSnippet is a regular expression for unit ID-like syntax that is used
@@ -45,15 +46,25 @@ type callCommand struct {
 	actionName    string
 	paramsYAML    cmd.FileVar
 	parseStrings  bool
-	wait          waitFlag
+	background    bool
+	maxWait       time.Duration
 	out           cmd.Output
 	args          [][]string
 }
 
 const callDoc = `
-Queue an Action for execution on a given unit, with a given set of params.
+Run an Action for execution on a given unit, with a given set of params.
 The Action ID is returned for use with 'juju show-action-output <ID>' or
 'juju show-action-status <ID>'.
+
+To queue an action to be run in the background without waiting for it to finish,
+use the --background option.
+
+To set the maximum time to wait for an action to complete, use the --max-wait option.
+
+By default, the output of a single action will just be that action's stdout.
+For multiple actions, each action stdout is printed with the action id.
+To see more detailed information about run timings etc, use --format yaml.
 
 Valid unit identifiers are: 
   a standard unit ID, such as mysql/0 or;
@@ -76,10 +87,12 @@ explicit arguments will override the parameter file.
 
 Examples:
 
-    juju call mysql/3 backup --wait
+    juju call mysql/3 backup --background
+    juju call mysql/3 backup --max-wait=2m
+    juju call mysql/3 backup --format yaml
     juju call mysql/3 backup
     juju call mysql/leader backup
-    juju show-action-output <ID>
+    juju show-operation <ID>
     juju call mysql/3 backup --params parameters.yml
     juju call mysql/3 backup out=out.tar.bz2 file.kind=xz file.quality=high
     juju call mysql/3 backup --params p.yml file.kind=xz file.quality=high
@@ -90,17 +103,23 @@ Examples:
 // SetFlags offers an option for YAML output.
 func (c *callCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ActionCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
+	c.out.AddFlags(f, "plain", map[string]cmd.Formatter{
+		"yaml":  cmd.FormatYaml,
+		"json":  cmd.FormatJson,
+		"plain": c.printPlainOutput,
+	})
+
 	f.Var(&c.paramsYAML, "params", "Path to yaml-formatted params file")
 	f.BoolVar(&c.parseStrings, "string-args", false, "Use raw string values of CLI args")
-	f.Var(&c.wait, "wait", "Wait for results, with optional timeout")
+	f.BoolVar(&c.background, "background", false, "Run the action in the background")
+	f.DurationVar(&c.maxWait, "max-wait", 0, "Maximum wait time for an action to complete")
 }
 
 func (c *callCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "call",
 		Args:    "<unit> [<unit> ...] <action name> [key.key.key...=value]",
-		Purpose: "Queue an action for execution.",
+		Purpose: "Run an action on a specified unit.",
 		Doc:     callDoc,
 	})
 }
@@ -122,6 +141,13 @@ func (c *callCommand) Init(args []string) (err error) {
 	}
 	if c.actionName == "" {
 		return errors.New("no action specified")
+	}
+
+	if c.background && c.maxWait > 0 {
+		return errors.New("cannot specify both --max-wait and --background")
+	}
+	if !c.background && c.maxWait == 0 {
+		c.maxWait = 60 * time.Second
 	}
 
 	// Parse CLI key-value args if they exist.
@@ -227,6 +253,8 @@ func (c *callCommand) Run(ctx *cmd.Context) error {
 		return errors.New("illegal number of results returned")
 	}
 
+	var actionTag names.ActionTag
+	info := make(map[string]interface{}, len(results.Results))
 	for _, result := range results.Results {
 		if result.Error != nil {
 			return result.Error
@@ -234,49 +262,41 @@ func (c *callCommand) Run(ctx *cmd.Context) error {
 		if result.Action == nil {
 			return errors.Errorf("action failed to enqueue on %q", result.Action.Receiver)
 		}
-		tag, err := names.ParseActionTag(result.Action.Tag)
-		if err != nil {
+		if actionTag, err = names.ParseActionTag(result.Action.Tag); err != nil {
 			return err
 		}
 
-		// Legacy Juju 1.25 output format for a single unit, no wait.
-		if !c.wait.forever && c.wait.d.Nanoseconds() <= 0 && len(results.Results) == 1 {
-			results := map[string]string{"Action queued with id": tag.Id()}
-			return c.out.Write(ctx, results)
+		if !c.background {
+			ctx.Infof("Running Operation %s", actionTag.Id())
+			continue
+		}
+		unitTag, err := names.ParseUnitTag(result.Action.Receiver)
+		if err != nil {
+			return err
+		}
+		info[unitTag.Id()] = map[string]string{
+			"id": actionTag.Id(),
 		}
 	}
-
-	info := make(map[string]interface{}, len(results.Results))
-
-	// Immediate return. This is the default, although rarely
-	// what cli users want. We should consider changing this
-	// default with Juju 3.0.
-	if !c.wait.forever && c.wait.d.Nanoseconds() <= 0 {
-		for _, result := range results.Results {
-			info[result.Action.Receiver] = result.Action.Tag
-			actionTag, err := names.ParseActionTag(result.Action.Tag)
-			if err != nil {
-				return err
-			}
-			unitTag, err := names.ParseUnitTag(result.Action.Receiver)
-			if err != nil {
-				return err
-			}
-			info[result.Action.Receiver] = map[string]string{
-				"id":   actionTag.Id(),
-				"unit": unitTag.Id(),
-			}
+	if c.background {
+		if len(results.Results) == 1 {
+			ctx.Infof("Scheduled Operation %s", actionTag.Id())
+			ctx.Infof("Check status with 'juju show-operation %s'", actionTag.Id())
+		} else {
+			ctx.Infof("Scheduled Operations:")
+			cmd.FormatYaml(ctx.Stderr, info)
+			ctx.Infof("Check status with 'juju show-operation <id>'")
 		}
-		return c.out.Write(ctx, info)
+		return nil
 	}
 
 	var wait *time.Timer
-	if c.wait.d.Nanoseconds() <= 0 {
+	if c.maxWait < 0 {
 		// Indefinite wait. Discard the tick.
 		wait = time.NewTimer(0 * time.Second)
 		_ = <-wait.C
 	} else {
-		wait = time.NewTimer(c.wait.d)
+		wait = time.NewTimer(c.maxWait)
 	}
 
 	for _, result := range results.Results {
@@ -293,11 +313,65 @@ func (c *callCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 		d := FormatActionResult(result)
-		d["id"] = tag.Id()       // Action ID is required in case we timed out.
-		d["unit"] = unitTag.Id() // Formatted unit is nice to have.
-		info[result.Action.Receiver] = d
+		d["id"] = tag.Id() // Action ID is required in case we timed out.
+		info[unitTag.Id()] = d
 	}
+
 	return c.out.Write(ctx, info)
+}
+
+func (c *callCommand) printPlainOutput(writer io.Writer, value interface{}) error {
+	info, ok := value.(map[string]interface{})
+	if !ok {
+		return errors.Errorf("expected value of type %T, got %T", info, value)
+	}
+
+	// actionOutput contains the action-set data of each action result.
+	// If there's only one action result, just that data is printed.
+	var actionOutput = make(map[string]string)
+
+	// actionInfo contains the id and stdout of each action result.
+	// It will be printed if there's more than one action result.
+	var actionInfo = make(map[string]map[string]interface{})
+
+	/*
+		Parse action YAML data that looks like this:
+
+		mysql/0:
+		  id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+		  results:
+		    <action data here>
+		  status: completed
+	*/
+	var resultMetadata map[string]interface{}
+	for k := range info {
+		resultMetadata, ok = info[k].(map[string]interface{})
+		if !ok {
+			return errors.New("unexpected value")
+		}
+		resultData, ok := resultMetadata["results"].(map[string]interface{})
+		if ok {
+			data, err := yaml.Marshal(resultData)
+			if err == nil {
+				actionOutput[k] = string(data)
+			} else {
+				actionOutput[k] = fmt.Sprintf("%v", resultData)
+			}
+		} else {
+			actionOutput[k] = fmt.Sprintf("Operation %v complete\n", resultMetadata["id"])
+		}
+		actionInfo[k] = map[string]interface{}{
+			"id":     resultMetadata["id"],
+			"output": actionOutput[k],
+		}
+	}
+	if len(actionOutput) != 1 {
+		return cmd.FormatYaml(writer, actionInfo)
+	}
+	for _, msg := range actionOutput {
+		fmt.Fprintln(writer, msg)
+	}
+	return nil
 }
 
 func (c *callCommand) ensureAPI() (err error) {

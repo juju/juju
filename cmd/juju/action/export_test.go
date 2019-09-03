@@ -4,6 +4,8 @@
 package action
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
 	"gopkg.in/juju/names.v3"
 
@@ -47,6 +49,10 @@ func (c *CallCommand) ParseStrings() bool {
 
 func (c *CallCommand) ParamsYAML() cmd.FileVar {
 	return c.paramsYAML
+}
+
+func (c *CallCommand) MaxWait() time.Duration {
+	return c.maxWait
 }
 
 func (c *CallCommand) Args() [][]string {

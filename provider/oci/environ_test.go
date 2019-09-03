@@ -929,9 +929,10 @@ func (e *environSuite) TestBootstrap(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	_, err := e.env.Bootstrap(ctx, nil,
 		environs.BootstrapParams{
-			ControllerConfig: testing.FakeControllerConfig(),
-			AvailableTools:   makeToolsList("trusty"),
-			BootstrapSeries:  "trusty",
+			ControllerConfig:         testing.FakeControllerConfig(),
+			AvailableTools:           makeToolsList("trusty"),
+			BootstrapSeries:          "trusty",
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		})
 	c.Assert(err, gc.IsNil)
 }
@@ -957,9 +958,10 @@ func (e *environSuite) TestBootstrapNoMatchingTools(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	_, err := e.env.Bootstrap(ctx, nil,
 		environs.BootstrapParams{
-			ControllerConfig: testing.FakeControllerConfig(),
-			AvailableTools:   makeToolsList("trusty"),
-			BootstrapSeries:  "precise",
+			ControllerConfig:         testing.FakeControllerConfig(),
+			AvailableTools:           makeToolsList("trusty"),
+			BootstrapSeries:          "precise",
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		})
 	c.Assert(err, gc.ErrorMatches, "no matching agent binaries available")
 

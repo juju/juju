@@ -144,6 +144,10 @@ type Config struct {
 	// and is used to publish the details of the
 	// API servers.
 	Hub Hub
+
+	// UpdateNotify is called when the update channel is signalled.
+	// Used solely for test synchronization.
+	UpdateNotify func()
 }
 
 // Validate validates the worker configuration.
@@ -268,6 +272,9 @@ func (w *pgWorker) loop() error {
 			// Scheduled update.
 			logger.Tracef("<-updateChan")
 			updateChan = nil
+			if w.config.UpdateNotify != nil {
+				w.config.UpdateNotify()
+			}
 		}
 
 		servers := w.apiServerHostPorts()
@@ -303,7 +310,11 @@ func (w *pgWorker) loop() error {
 			// Update the replica set members occasionally to keep them up to
 			// date with the current replica-set member statuses.
 			logger.Tracef("succeeded, waking up after: %v", pollInterval)
-			if updateChan == nil {
+			// If we had previously failed to update the replicaset,
+			// the updateChan isn't set to the pollInterval. So if we had just
+			// processed an update, or have just succeeded after a failure reset
+			// the updateChan to the pollInterval.
+			if updateChan == nil || retryInterval != initialRetryInterval {
 				updateChan = w.config.Clock.After(pollInterval)
 			}
 			retryInterval = initialRetryInterval

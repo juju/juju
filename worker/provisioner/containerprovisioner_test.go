@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/container/kvm/mock"
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
 	"github.com/juju/juju/core/instance"
-	supportedversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/provisioner"
@@ -125,7 +125,7 @@ func (s *kvmProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 	defer workertest.CleanKill(c, p)
 
 	// Check that an instance is not provisioned when the machine is created.
-	_, err := s.State.AddMachine(supportedversion.SupportedLTS(), state.JobHostUnits)
+	_, err := s.State.AddMachine(series.DefaultSupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectNoEvents(c)
@@ -142,7 +142,7 @@ func (s *kvmProvisionerSuite) TestDoesNotHaveRetryWatcher(c *gc.C) {
 
 func (s *kvmProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 	template := state.MachineTemplate{
-		Series: supportedversion.SupportedLTS(),
+		Series: series.DefaultSupportedLTS(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, "0", instance.KVM)

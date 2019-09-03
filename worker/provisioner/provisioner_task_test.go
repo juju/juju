@@ -13,6 +13,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -34,7 +35,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/common/mocks"
@@ -619,7 +619,7 @@ func (m *testMachine) SetInstanceInfo(
 func (m *testMachine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
 	return &params.ProvisioningInfo{
 		ControllerConfig: coretesting.FakeControllerConfig(),
-		Series:           jujuversion.SupportedLTS(),
+		Series:           series.DefaultSupportedLTS(),
 		Constraints:      constraints.MustParse(m.constraints),
 	}, nil
 }

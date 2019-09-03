@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
-	supportedversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -451,7 +450,7 @@ func (s *UpgradeBaseSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest, upgr
 
 		for _, uploaded := range test.expectUploaded {
 			// Substitute latest LTS for placeholder in expected series for uploaded tools
-			uploaded = strings.Replace(uploaded, "%LTS%", supportedversion.SupportedLTS(), 1)
+			uploaded = strings.Replace(uploaded, "%LTS%", series.DefaultSupportedLTS(), 1)
 			vers := version.MustParseBinary(uploaded)
 			s.checkToolsUploaded(c, vers, agentVersion)
 		}

@@ -35,6 +35,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	"github.com/juju/pubsub"
 	"github.com/juju/retry"
 	"github.com/juju/schema"
@@ -70,7 +71,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
@@ -121,7 +121,7 @@ func SampleConfig() testing.Attrs {
 		"firewall-mode":             config.FwInstance,
 		"ssl-hostname-verification": true,
 		"development":               false,
-		"default-series":            jujuversion.SupportedLTS(),
+		"default-series":            series.DefaultSupportedLTS(),
 
 		"secret":     "pork",
 		"controller": true,

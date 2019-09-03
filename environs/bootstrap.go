@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
@@ -44,6 +45,10 @@ type BootstrapParams struct {
 	// initial bootstrap machine.
 	BootstrapSeries string
 
+	// SupportedBootstrapSeries is a supported set of series to use for
+	// validating against the bootstrap series.
+	SupportedBootstrapSeries set.Strings
+
 	// Placement, if non-empty, holds an environment-specific placement
 	// directive used to choose the initial instance.
 	Placement string
@@ -61,6 +66,9 @@ type BootstrapParams struct {
 	// that rely on it for selecting images. This will be empty for
 	// providers that do not implements simplestreams.HasRegion.
 	ImageMetadata []*imagemetadata.ImageMetadata
+
+	// Force is used to allow a bootstrap to be run on unsupported series.
+	Force bool
 }
 
 // CloudBootstrapFinalizer is a function returned from Environ.Bootstrap.

@@ -39,7 +39,7 @@ type leadershipToken struct {
 func (t leadershipToken) Check(attempt int, out interface{}) error {
 	err := t.token.Check(attempt, out)
 	if errors.Cause(err) == lease.ErrNotHeld {
-		return errors.Errorf("%q is not leader of %q", t.unitName, t.applicationName)
+		return leadership.NewNotLeaderError(t.unitName, t.applicationName)
 	}
 	return errors.Trace(err)
 }

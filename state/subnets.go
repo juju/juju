@@ -149,13 +149,12 @@ func (s *Subnet) AvailabilityZones() []string {
 	return s.doc.AvailabilityZones
 }
 
-// TODO (hml) 2019-07-24
-// SpaceName() should be removed in favor of SpaceID() or return an
-// error.
-//
 // SpaceName returns the space the subnet is associated with. If the subnet is
 // not associated with a space it will be the empty string.
 func (s *Subnet) SpaceName() string {
+	if s.spaceID == "" {
+		return network.DefaultSpaceName
+	}
 	sp, err := s.st.SpaceByID(s.spaceID)
 	if err != nil {
 		logger.Errorf("error finding space %q: %s", s.spaceID, err)
@@ -355,8 +354,6 @@ func (st *State) AddSubnet(args network.SubnetInfo) (subnet *Subnet, err error) 
 }
 
 func (st *State) addSubnetOps(id string, args network.SubnetInfo) (subnetDoc, []txn.Op, error) {
-	// TODO (hml) 2019-07-24
-	// Temporary until SubnetInfo.SpaceName is changed to SubnetInfo.SpaceID
 	unique, err := st.uniqueSubnet(args.CIDR, string(args.ProviderId))
 	if err != nil {
 		return subnetDoc{}, nil, errors.Trace(err)
@@ -364,9 +361,10 @@ func (st *State) addSubnetOps(id string, args network.SubnetInfo) (subnetDoc, []
 	if !unique {
 		return subnetDoc{}, nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
 	}
-	sp, err := st.Space(args.SpaceName)
-	if err != nil {
-		return subnetDoc{}, nil, errors.Trace(err)
+	if args.SpaceID == "" && args.SpaceName == network.DefaultSpaceName {
+		// Ensure the subnet is added to the default space
+		// if none is defined for the subnet.
+		args.SpaceID = network.DefaultSpaceId
 	}
 	subDoc := subnetDoc{
 		DocID:             st.docID(id),
@@ -378,7 +376,7 @@ func (st *State) addSubnetOps(id string, args network.SubnetInfo) (subnetDoc, []
 		ProviderId:        string(args.ProviderId),
 		ProviderNetworkId: string(args.ProviderNetworkId),
 		AvailabilityZones: args.AvailabilityZones,
-		SpaceID:           sp.Id(),
+		SpaceID:           args.SpaceID,
 		FanLocalUnderlay:  args.FanLocalUnderlay(),
 		FanOverlay:        args.FanOverlay(),
 		IsPublic:          args.IsPublic,

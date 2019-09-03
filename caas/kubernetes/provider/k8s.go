@@ -42,6 +42,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
+	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/application"
@@ -467,7 +469,7 @@ func (k *kubernetesClient) APIVersion() (string, error) {
 func (k *kubernetesClient) ensureOCIImageSecret(
 	imageSecretName,
 	appName string,
-	imageDetails *caas.ImageDetails,
+	imageDetails *specs.ImageDetails,
 	annotations k8sannotations.Annotation,
 ) error {
 	if imageDetails.Password == "" {
@@ -1098,19 +1100,20 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	return nil
 }
 
-// EnsureCustomResourceDefinition creates or updates a custom resource definition resource.
-func (k *kubernetesClient) EnsureCustomResourceDefinition(appName string, podSpec *caas.PodSpec) error {
-	for name, crd := range podSpec.CustomResourceDefinitions {
-		crd, err := k.ensureCustomResourceDefinitionTemplate(name, crd)
+// ensureCustomResourceDefinitions creates or updates a custom resource definition resource.
+func (k *kubernetesClient) ensureCustomResourceDefinitions(crds map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec) (cleanUps []func(), _ error) {
+	for name, crd := range crds {
+		crd, err := k.ensureCustomResourceDefinition(name, crd)
 		if err != nil {
-			return errors.Annotate(err, fmt.Sprintf("ensure custom resource definition %q", name))
+			return cleanUps, errors.Annotate(err, fmt.Sprintf("ensure custom resource definition %q", name))
 		}
 		logger.Debugf("ensured custom resource definition %q", crd.ObjectMeta.Name)
+		cleanUps = append(cleanUps, func() { k.deleteCustomResourceDefinition(name) })
 	}
-	return nil
+	return cleanUps, nil
 }
 
-func (k *kubernetesClient) ensureCustomResourceDefinitionTemplate(name string, spec apiextensionsv1beta1.CustomResourceDefinitionSpec) (
+func (k *kubernetesClient) ensureCustomResourceDefinition(name string, spec apiextensionsv1beta1.CustomResourceDefinitionSpec) (
 	crd *apiextensionsv1beta1.CustomResourceDefinition, err error) {
 	crdIn := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
@@ -1133,6 +1136,16 @@ func (k *kubernetesClient) ensureCustomResourceDefinitionTemplate(name string, s
 		crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Update(crdIn)
 	}
 	return
+}
+
+func (k *kubernetesClient) deleteCustomResourceDefinition(name string) error {
+	err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().Delete(name, &v1.DeleteOptions{
+		PropagationPolicy: &defaultPropagationPolicy,
+	})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
 }
 
 func resourceTagsToAnnotations(in map[string]string) k8sannotations.Annotation {
@@ -1279,16 +1292,36 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}()
 
-	unitSpec, err := makeUnitSpec(appName, deploymentName, params.PodSpec)
+	workloadSpec, err := prepareWorkloadSpec(appName, deploymentName, params.PodSpec)
 	if err != nil {
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
+
+	// ensure custom resource definitions first.
+	crds := workloadSpec.CustomResourceDefinitions
+	if len(crds) > 0 {
+		crdCleanUps, err := k.ensureCustomResourceDefinitions(crds)
+		cleanups = append(cleanups, crdCleanUps...)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating custom resource definitions")
+		}
+		logger.Debugf("created/updated custom resource definition for %q.", appName)
+	}
+
+	if workloadSpec.ServiceAccount != nil {
+		saCleanups, err := k.ensureServiceAccountForApp(appName, workloadSpec.ServiceAccount)
+		cleanups = append(cleanups, saCleanups...)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating service account")
+		}
+	}
+
 	if len(params.Devices) > 0 {
-		if err = k.configureDevices(unitSpec, params.Devices); err != nil {
+		if err = k.configureDevices(workloadSpec, params.Devices); err != nil {
 			return errors.Annotatef(err, "configuring devices for %s", appName)
 		}
 	}
-	if err := processConstraints(&unitSpec.Pod, appName, params.Constraints); err != nil {
+	if err := processConstraints(&workloadSpec.Pod, appName, params.Constraints); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1303,13 +1336,6 @@ func (k *kubernetesClient) EnsureService(
 			return errors.Annotatef(err, "creating secrets for container: %s", c.Name)
 		}
 		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName) })
-	}
-	if params.PodSpec.ServiceAccount != nil {
-		saCleanups, err := k.ensureServiceAccountForApp(appName, params.PodSpec.ServiceAccount)
-		cleanups = append(cleanups, saCleanups...)
-		if err != nil {
-			return errors.Annotate(err, "creating or updating service account")
-		}
 	}
 
 	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
@@ -1350,7 +1376,7 @@ func (k *kubernetesClient) EnsureService(
 	hasService := !params.PodSpec.OmitServiceFrontend
 	if hasService {
 		var ports []core.ContainerPort
-		for _, c := range unitSpec.Pod.Containers {
+		for _, c := range workloadSpec.Pod.Containers {
 			for _, p := range c.Ports {
 				if p.ContainerPort == 0 {
 					continue
@@ -1364,8 +1390,8 @@ func (k *kubernetesClient) EnsureService(
 
 		serviceAnnotations := annotations.Copy()
 		// Merge any service annotations from the charm.
-		if unitSpec.Service != nil {
-			serviceAnnotations.Merge(k8sannotations.New(unitSpec.Service.Annotations))
+		if workloadSpec.Service != nil {
+			serviceAnnotations.Merge(k8sannotations.New(workloadSpec.Service.Annotations))
 		}
 		// Merge any service annotations from the CLI.
 		deployAnnotations, err := config.GetStringMap(serviceAnnotationsKey, nil)
@@ -1386,12 +1412,12 @@ func (k *kubernetesClient) EnsureService(
 			return errors.Annotate(err, "creating or updating headless service")
 		}
 		cleanups = append(cleanups, func() { k.deleteService(headlessServiceName(deploymentName)) })
-		if err := k.configureStatefulSet(appName, deploymentName, randPrefix, annotations.Copy(), unitSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
+		if err := k.configureStatefulSet(appName, deploymentName, randPrefix, annotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
 			return errors.Annotate(err, "creating or updating StatefulSet")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
 	} else {
-		if err := k.configureDeployment(appName, deploymentName, annotations.Copy(), unitSpec, params.PodSpec.Containers, &numPods); err != nil {
+		if err := k.configureDeployment(appName, deploymentName, annotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods); err != nil {
 			return errors.Annotate(err, "creating or updating DeploymentController")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
@@ -1576,7 +1602,7 @@ func (k *kubernetesClient) configureStorage(
 	return nil
 }
 
-func (k *kubernetesClient) configureDevices(unitSpec *unitSpec, devices []devices.KubernetesDeviceParams) error {
+func (k *kubernetesClient) configureDevices(unitSpec *workloadSpec, devices []devices.KubernetesDeviceParams) error {
 	for i := range unitSpec.Pod.Containers {
 		resources := unitSpec.Pod.Containers[i].Resources
 		for _, dev := range devices {
@@ -1611,7 +1637,7 @@ func configureConstraint(pod *core.PodSpec, constraint, value string) error {
 
 type configMapNameFunc func(fileSetName string) string
 
-func (k *kubernetesClient) configurePodFiles(podSpec *core.PodSpec, containers []caas.ContainerSpec, cfgMapName configMapNameFunc) error {
+func (k *kubernetesClient) configurePodFiles(podSpec *core.PodSpec, containers []specs.ContainerSpec, cfgMapName configMapNameFunc) error {
 	for i, container := range containers {
 		for _, fileSet := range container.Files {
 			cfgName := cfgMapName(fileSet.Name)
@@ -1644,8 +1670,8 @@ func podAnnotations(annotations k8sannotations.Annotation) k8sannotations.Annota
 func (k *kubernetesClient) configureDeployment(
 	appName, deploymentName string,
 	annotations k8sannotations.Annotation,
-	unitSpec *unitSpec,
-	containers []caas.ContainerSpec,
+	workloadSpec *workloadSpec,
+	containers []specs.ContainerSpec,
 	replicas *int32,
 ) error {
 	logger.Debugf("creating/updating deployment for %s", appName)
@@ -1654,7 +1680,7 @@ func (k *kubernetesClient) configureDeployment(
 	cfgName := func(fileSetName string) string {
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
-	podSpec := unitSpec.Pod
+	podSpec := workloadSpec.Pod
 	if err := k.configurePodFiles(&podSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
@@ -1703,8 +1729,8 @@ func (k *kubernetesClient) deleteDeployment(name string) error {
 }
 
 func (k *kubernetesClient) configureStatefulSet(
-	appName, deploymentName, randPrefix string, annotations k8sannotations.Annotation, unitSpec *unitSpec,
-	containers []caas.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
+	appName, deploymentName, randPrefix string, annotations k8sannotations.Annotation, workloadSpec *workloadSpec,
+	containers []specs.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
 ) error {
 	logger.Debugf("creating/updating stateful set for %s", appName)
 
@@ -1735,7 +1761,7 @@ func (k *kubernetesClient) configureStatefulSet(
 			ServiceName:         headlessServiceName(deploymentName),
 		},
 	}
-	podSpec := unitSpec.Pod
+	podSpec := workloadSpec.Pod
 	if err := k.configurePodFiles(&podSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
@@ -2476,7 +2502,7 @@ func (k *kubernetesClient) jujuVolumeStatus(pvPhase core.PersistentVolumePhase) 
 
 // filesetConfigMap returns a *core.ConfigMap for a pod
 // of the specified unit, with the specified files.
-func filesetConfigMap(configMapName string, files *caas.FileSet) *core.ConfigMap {
+func filesetConfigMap(configMapName string, files *specs.FileSet) *core.ConfigMap {
 	result := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
 			Name: configMapName,
@@ -2619,59 +2645,90 @@ func operatorConfigMap(appName, operatorName string, config *caas.OperatorConfig
 	}
 }
 
-type unitSpec struct {
+type workloadSpec struct {
 	Pod     core.PodSpec `json:"pod"`
-	Service *K8sServiceSpec
+	Service *specs.ServiceSpec
+
+	ServiceAccount            *specs.ServiceAccountSpec
+	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
 }
 
-func makeUnitSpec(appName, deploymentName string, podSpec *caas.PodSpec) (*unitSpec, error) {
+func processContainers(deploymentName string, podSpec *specs.PodSpec, spec *core.PodSpec) error {
+
+	type containers struct {
+		Containers     []specs.ContainerSpec
+		InitContainers []specs.ContainerSpec
+	}
+
+	var cs containers
+	for _, c := range podSpec.Containers {
+		if c.Init {
+			cs.InitContainers = append(cs.InitContainers, c)
+		} else {
+			cs.Containers = append(cs.Containers, c)
+		}
+	}
+
 	// Fill out the easy bits using a template.
 	var buf bytes.Buffer
-	if err := defaultPodTemplate.Execute(&buf, podSpec); err != nil {
-		return nil, errors.Trace(err)
+	if err := defaultPodTemplate.Execute(&buf, cs); err != nil {
+		logger.Debugf("unable to execute template for containers: %+v, err: %+v", cs, err)
+		return errors.Trace(err)
 	}
-	unitSpecString := buf.String()
 
-	var unitSpec unitSpec
-	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(unitSpecString), len(unitSpecString))
-	if err := decoder.Decode(&unitSpec); err != nil {
-		logger.Errorf("unable to parse %q pod spec: \n%+v\nunit spec: \n%v", appName, *podSpec, unitSpecString)
-		return nil, errors.Trace(err)
+	workloadSpecString := buf.String()
+	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(workloadSpecString), len(workloadSpecString))
+	if err := decoder.Decode(&spec); err != nil {
+		logger.Debugf("unable to parse pod spec, unit spec: \n%v", workloadSpecString)
+		return errors.Trace(err)
 	}
 
 	// Now fill in the hard bits progamatically.
-	if err := populateContainerDetails(deploymentName, &unitSpec.Pod, unitSpec.Pod.Containers, podSpec.Containers); err != nil {
-		return nil, errors.Trace(err)
+	if err := populateContainerDetails(deploymentName, spec, spec.Containers, cs.Containers); err != nil {
+		return errors.Trace(err)
 	}
-	if err := populateContainerDetails(deploymentName, &unitSpec.Pod, unitSpec.Pod.InitContainers, podSpec.InitContainers); err != nil {
-		return nil, errors.Trace(err)
+	if err := populateContainerDetails(deploymentName, spec, spec.InitContainers, cs.InitContainers); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec) (*workloadSpec, error) {
+	var spec workloadSpec
+	if err := processContainers(deploymentName, podSpec, &spec.Pod); err != nil {
+		logger.Errorf("unable to parse %q pod spec: \n%+v", appName, *podSpec)
+		return nil, errors.Annotatef(err, "processing container specs for app %q", appName)
 	}
 
+	spec.Service = podSpec.Service
+	spec.ServiceAccount = podSpec.ServiceAccount
 	if podSpec.ProviderPod != nil {
-		spec, ok := podSpec.ProviderPod.(*K8sPodSpec)
+		pSpec, ok := podSpec.ProviderPod.(*k8sspecs.K8sPodSpec)
 		if !ok {
 			return nil, errors.Errorf("unexpected kubernetes pod spec type %T", podSpec.ProviderPod)
 		}
-		unitSpec.Pod.ActiveDeadlineSeconds = spec.ActiveDeadlineSeconds
-		unitSpec.Pod.ServiceAccountName = spec.ServiceAccountName
-		unitSpec.Pod.AutomountServiceAccountToken = spec.AutomountServiceAccountToken
-		unitSpec.Pod.TerminationGracePeriodSeconds = spec.TerminationGracePeriodSeconds
-		unitSpec.Pod.Hostname = spec.Hostname
-		unitSpec.Pod.Subdomain = spec.Subdomain
-		unitSpec.Pod.DNSConfig = spec.DNSConfig
-		unitSpec.Pod.DNSPolicy = spec.DNSPolicy
-		unitSpec.Pod.Priority = spec.Priority
-		unitSpec.Pod.PriorityClassName = spec.PriorityClassName
-		unitSpec.Pod.SecurityContext = spec.SecurityContext
-		unitSpec.Pod.RestartPolicy = spec.RestartPolicy
-		unitSpec.Pod.ReadinessGates = spec.ReadinessGates
-		unitSpec.Service = spec.Service
+
+		k8sResources := pSpec.KubernetesResources
+		if k8sResources != nil {
+			spec.CustomResourceDefinitions = k8sResources.CustomResourceDefinitions
+			if k8sResources.Pod != nil {
+				spec.Pod.ActiveDeadlineSeconds = k8sResources.Pod.ActiveDeadlineSeconds
+				spec.Pod.TerminationGracePeriodSeconds = k8sResources.Pod.TerminationGracePeriodSeconds
+				spec.Pod.DNSPolicy = k8sResources.Pod.DNSPolicy
+				spec.Pod.Priority = k8sResources.Pod.Priority
+				spec.Pod.SecurityContext = k8sResources.Pod.SecurityContext
+				spec.Pod.RestartPolicy = k8sResources.Pod.RestartPolicy
+				spec.Pod.ReadinessGates = k8sResources.Pod.ReadinessGates
+			}
+		}
+
+		sa := spec.ServiceAccount
+		if sa != nil {
+			spec.Pod.ServiceAccountName = sa.Name
+			spec.Pod.AutomountServiceAccountToken = sa.AutomountServiceAccountToken
+		}
 	}
-	if podSpec.ServiceAccount != nil {
-		unitSpec.Pod.ServiceAccountName = podSpec.ServiceAccount.Name
-		unitSpec.Pod.AutomountServiceAccountToken = podSpec.ServiceAccount.AutomountServiceAccountToken
-	}
-	return &unitSpec, nil
+	return &spec, nil
 }
 
 func boolPtr(b bool) *bool {
@@ -2687,7 +2744,7 @@ func defaultSecurityContext() *core.SecurityContext {
 	}
 }
 
-func populateContainerDetails(deploymentName string, pod *core.PodSpec, podContainers []core.Container, containers []caas.ContainerSpec) error {
+func populateContainerDetails(deploymentName string, pod *core.PodSpec, podContainers []core.Container, containers []specs.ContainerSpec) error {
 	for i, c := range containers {
 		if c.Image != "" {
 			logger.Warningf("Image parameter deprecated, use ImageDetails")
@@ -2698,16 +2755,18 @@ func populateContainerDetails(deploymentName string, pod *core.PodSpec, podConta
 		if c.ImageDetails.Password != "" {
 			pod.ImagePullSecrets = append(pod.ImagePullSecrets, core.LocalObjectReference{Name: appSecretName(deploymentName, c.Name)})
 		}
+		if c.ImagePullPolicy != "" {
+			podContainers[i].ImagePullPolicy = core.PullPolicy(c.ImagePullPolicy)
+		}
 
 		if c.ProviderContainer == nil {
 			podContainers[i].SecurityContext = defaultSecurityContext()
 			continue
 		}
-		spec, ok := c.ProviderContainer.(*K8sContainerSpec)
+		spec, ok := c.ProviderContainer.(*k8sspecs.K8sContainerSpec)
 		if !ok {
 			return errors.Errorf("unexpected kubernetes container spec type %T", c.ProviderContainer)
 		}
-		podContainers[i].ImagePullPolicy = spec.ImagePullPolicy
 		if spec.LivenessProbe != nil {
 			podContainers[i].LivenessProbe = spec.LivenessProbe
 		}

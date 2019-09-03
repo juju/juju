@@ -62,7 +62,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/juju/version"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/state"
@@ -73,7 +72,7 @@ import (
 // defaultSupportedJujuSeries is used to return canned information about what
 // juju supports in terms of the release cycle
 // see juju/os and documentation https://www.ubuntu.com/about/release-cycle
-var defaultSupportedJujuSeries = []string{"bionic", "xenial", "trusty", kubernetesSeriesName}
+var defaultSupportedJujuSeries = []string{"bionic", "xenial", "trusty", testing.KubernetesSeriesName}
 
 type DeploySuiteBase struct {
 	testing.RepoSuite
@@ -312,7 +311,7 @@ func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeriesUseDefaultSeries(c 
 	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(s.CharmsPath, "dummy")
 	err := s.runDeploy(c, path)
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", version.SupportedLTS()))
+	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", series.DefaultSupportedLTS()))
 	s.AssertApplication(c, "dummy", curl, 1, 0)
 }
 
@@ -1015,7 +1014,7 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 
 func (s *DeploySuite) TestDeployStorageFailContainer(c *gc.C) {
 	ch := testcharms.RepoWithSeries("bionic").ClonedDirPath(s.CharmsPath, "dummy")
-	machine, err := s.State.AddMachine(version.SupportedLTS(), state.JobHostUnits)
+	machine, err := s.State.AddMachine(series.DefaultSupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	container := "lxd:" + machine.Id()
 	err = s.runDeploy(c, ch, "--to", container, "--storage", "data=machinescoped,1G")
@@ -1025,7 +1024,7 @@ func (s *DeploySuite) TestDeployStorageFailContainer(c *gc.C) {
 func (s *DeploySuite) TestPlacement(c *gc.C) {
 	ch := testcharms.RepoWithSeries("bionic").ClonedDirPath(s.CharmsPath, "dummy")
 	// Add a machine that will be ignored due to placement directive.
-	machine, err := s.State.AddMachine(version.SupportedLTS(), state.JobHostUnits)
+	machine, err := s.State.AddMachine(series.DefaultSupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.runDeploy(c, ch, "-n", "1", "--to", "valid", "--series", "bionic")
@@ -1089,9 +1088,9 @@ func (s *DeploySuite) assertForceMachine(c *gc.C, machineId string) {
 
 func (s *DeploySuite) TestForceMachine(c *gc.C) {
 	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(s.CharmsPath, "dummy")
-	machine, err := s.State.AddMachine(version.SupportedLTS(), state.JobHostUnits)
+	machine, err := s.State.AddMachine(series.DefaultSupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.runDeploy(c, "--to", machine.Id(), ch, "portlandia", "--series", version.SupportedLTS())
+	err = s.runDeploy(c, "--to", machine.Id(), ch, "portlandia", "--series", series.DefaultSupportedLTS())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, machine.Id())
 }
@@ -1105,12 +1104,12 @@ func (s *DeploySuite) TestInvalidSeriesForModel(c *gc.C) {
 func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(s.CharmsPath, "dummy")
 	template := state.MachineTemplate{
-		Series: version.SupportedLTS(),
+		Series: series.DefaultSupportedLTS(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.runDeploy(c, "--to", container.Id(), ch, "portlandia", "--series", version.SupportedLTS())
+	err = s.runDeploy(c, "--to", container.Id(), ch, "portlandia", "--series", series.DefaultSupportedLTS())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, container.Id())
 	machines, err := s.State.AllMachines()
@@ -1120,9 +1119,9 @@ func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 
 func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(s.CharmsPath, "dummy")
-	machine, err := s.State.AddMachine(version.SupportedLTS(), state.JobHostUnits)
+	machine, err := s.State.AddMachine(series.DefaultSupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.runDeploy(c, "--to", "lxd:"+machine.Id(), ch, "portlandia", "--series", version.SupportedLTS())
+	err = s.runDeploy(c, "--to", "lxd:"+machine.Id(), ch, "portlandia", "--series", series.DefaultSupportedLTS())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, machine.Id()+"/lxd/0")
 
@@ -1148,7 +1147,7 @@ func (s *DeploySuite) TestForceMachineNotFound(c *gc.C) {
 }
 
 func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
-	machine, err := s.State.AddMachine(version.SupportedLTS(), state.JobHostUnits)
+	machine, err := s.State.AddMachine(series.DefaultSupportedLTS(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	ch := testcharms.RepoWithSeries("bionic").CharmArchivePath(s.CharmsPath, "logging")
 	err = s.runDeploy(c, "--to", machine.Id(), ch, "--series", "bionic")
@@ -1212,7 +1211,7 @@ func (s *DeploySuite) TestDeployLocalWithSeriesAndForce(c *gc.C) {
 }
 
 func (s *DeploySuite) setupNonESMSeries(c *gc.C) (string, string) {
-	supported := set.NewStrings(series.SupportedJujuSeries()...)
+	supported := set.NewStrings(series.SupportedJujuWorkloadSeries()...)
 	// Allowing kubernetes as an option, can lead to an unrelated failure:
 	// 		series "kubernetes" in a non container model not valid
 	supported.Remove("kubernetes")

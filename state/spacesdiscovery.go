@@ -10,8 +10,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
-
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
@@ -61,7 +59,7 @@ func (st *State) ReloadSpaces(environ environs.BootstrapEnviron) error {
 
 // SaveSubnetsFromProvider loads subnets into state.
 // Currently it does not delete removed subnets.
-func (st *State) SaveSubnetsFromProvider(subnets []corenetwork.SubnetInfo, spaceName string) error {
+func (st *State) SaveSubnetsFromProvider(subnets []corenetwork.SubnetInfo, spaceID string) error {
 	modelSubnetIds, err := st.getModelSubnets()
 	if err != nil {
 		return errors.Trace(err)
@@ -76,7 +74,7 @@ func (st *State) SaveSubnetsFromProvider(subnets []corenetwork.SubnetInfo, space
 			continue
 		}
 
-		subnet.SpaceName = spaceName
+		subnet.SpaceID = spaceID
 		if modelSubnetIds.Contains(string(subnet.ProviderId)) {
 			err = st.SubnetUpdate(subnet)
 		} else {
@@ -126,7 +124,7 @@ func (st *State) SaveSubnetsFromProvider(subnets []corenetwork.SubnetInfo, space
 			}
 			if overlaySegment != nil {
 				subnet.ProviderId = corenetwork.Id(id)
-				subnet.SpaceName = spaceName
+				subnet.SpaceID = spaceID
 				subnet.SetFan(subnet.CIDR, fan.Overlay.String())
 				subnet.CIDR = overlaySegment.String()
 
@@ -157,36 +155,29 @@ func (st *State) SaveSpacesFromProvider(providerSpaces []corenetwork.SpaceInfo) 
 
 	// TODO(mfoord): we need to delete spaces and subnets that no longer
 	// exist, so long as they're not in use.
-	for _, space := range providerSpaces {
+	for _, spaceInfo := range providerSpaces {
 		// Check if the space is already in state,
 		// in which case we know its name.
-		stateSpace, ok := modelSpaceMap[space.ProviderId]
-		var spaceTag names.SpaceTag
+		stateSpace, ok := modelSpaceMap[spaceInfo.ProviderId]
+		var spaceId string
 		if ok {
-			spaceName := stateSpace.Name()
-			if !names.IsValidSpace(spaceName) {
-				// Can only happen if an invalid name is stored in state.
-				logger.Errorf("space %q has an invalid name, ignoring", spaceName)
-				continue
-
-			}
-			spaceTag = names.NewSpaceTag(spaceName)
-
+			spaceId = stateSpace.Id()
 		} else {
 			// The space is new, we need to create a valid name for it in state.
 			// Convert the name into a valid name that is not already in use.
-			spaceName := network.ConvertSpaceName(string(space.Name), spaceNames)
-			spaceNames.Add(spaceName)
-			spaceTag = names.NewSpaceTag(spaceName)
+			spaceName := network.ConvertSpaceName(string(spaceInfo.Name), spaceNames)
 
-			logger.Debugf("Adding space %s from provider %s", spaceTag.String(), string(space.ProviderId))
-			_, err = st.AddSpace(spaceTag.Id(), space.ProviderId, []string{}, false)
+			logger.Debugf("Adding space %s from provider %s", spaceName, string(spaceInfo.ProviderId))
+			space, err := st.AddSpace(spaceName, spaceInfo.ProviderId, []string{}, false)
 			if err != nil {
 				return errors.Trace(err)
 			}
+
+			spaceNames.Add(spaceName)
+			spaceId = space.Id()
 		}
 
-		err = st.SaveSubnetsFromProvider(space.Subnets, spaceTag.Id())
+		err = st.SaveSubnetsFromProvider(spaceInfo.Subnets, spaceId)
 		if err != nil {
 			return errors.Trace(err)
 		}

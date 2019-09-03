@@ -32,6 +32,8 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -49,36 +51,55 @@ type K8sSuite struct {
 
 var _ = gc.Suite(&K8sSuite{})
 
-func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
-	podSpec := caas.PodSpec{
-		ProviderPod: &provider.K8sPodSpec{
-			ActiveDeadlineSeconds:         int64Ptr(10),
-			ServiceAccountName:            "serviceAccount",
-			Hostname:                      "host",
-			Subdomain:                     "sub",
-			DNSPolicy:                     core.DNSClusterFirst,
-			TerminationGracePeriodSeconds: int64Ptr(20),
-			RestartPolicy:                 core.RestartPolicyOnFailure,
-			AutomountServiceAccountToken:  boolPtr(true),
-			Priority:                      int32Ptr(30),
-			PriorityClassName:             "top",
-			DNSConfig: &core.PodDNSConfig{
-				Nameservers: []string{"ns1", "n2"},
-			},
-			SecurityContext: &core.PodSecurityContext{
-				RunAsNonRoot:       boolPtr(true),
-				SupplementalGroups: []int64{1, 2},
-			},
-			ReadinessGates: []core.PodReadinessGate{
-				{ConditionType: core.PodInitialized},
+func float64Ptr(f float64) *float64 {
+	return &f
+}
+
+func int32Ptr(i int32) *int32 {
+	return &i
+}
+
+func int64Ptr(i int64) *int64 {
+	return &i
+}
+
+func boolPtr(b bool) *bool {
+	return &b
+}
+
+func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
+	podSpec := specs.PodSpec{
+		ServiceAccount: &specs.ServiceAccountSpec{
+			Name:                         "serviceAccount",
+			AutomountServiceAccountToken: boolPtr(true),
+		},
+	}
+
+	podSpec.ProviderPod = &k8sspecs.K8sPodSpec{
+		KubernetesResources: &k8sspecs.KubernetesResources{
+			Pod: &k8sspecs.PodSpec{
+				RestartPolicy:                 core.RestartPolicyOnFailure,
+				ActiveDeadlineSeconds:         int64Ptr(10),
+				TerminationGracePeriodSeconds: int64Ptr(20),
+				SecurityContext: &core.PodSecurityContext{
+					RunAsNonRoot:       boolPtr(true),
+					SupplementalGroups: []int64{1, 2},
+				},
+				Priority: int32Ptr(30),
+				ReadinessGates: []core.PodReadinessGate{
+					{ConditionType: core.PodInitialized},
+				},
+				DNSPolicy: core.DNSClusterFirst,
 			},
 		},
-		Containers: []caas.ContainerSpec{{
-			Name:  "test",
-			Ports: []caas.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
-			Image: "juju/image",
-			ProviderContainer: &provider.K8sContainerSpec{
-				ImagePullPolicy: core.PullAlways,
+	}
+	podSpec.Containers = []specs.ContainerSpec{
+		{
+			Name:            "test",
+			Ports:           []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
+			Image:           "juju/image",
+			ImagePullPolicy: specs.PullPolicy("Always"),
+			ProviderContainer: &k8sspecs.K8sContainerSpec{
 				ReadinessProbe: &core.Probe{
 					InitialDelaySeconds: 10,
 					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
@@ -94,33 +115,28 @@ func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
 			},
 		}, {
 			Name:  "test2",
-			Ports: []caas.ContainerPort{{ContainerPort: 8080, Protocol: "TCP"}},
+			Ports: []specs.ContainerPort{{ContainerPort: 8080, Protocol: "TCP"}},
 			Image: "juju/image2",
-		}},
+		},
 	}
-	spec, err := provider.MakeUnitSpec("app-name", "app-name", &podSpec)
+
+	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.PodSpec(spec), jc.DeepEquals, core.PodSpec{
-		ActiveDeadlineSeconds:         int64Ptr(10),
-		ServiceAccountName:            "serviceAccount",
-		Hostname:                      "host",
-		Subdomain:                     "sub",
-		DNSPolicy:                     core.DNSClusterFirst,
-		TerminationGracePeriodSeconds: int64Ptr(20),
 		RestartPolicy:                 core.RestartPolicyOnFailure,
-		AutomountServiceAccountToken:  boolPtr(true),
-		Priority:                      int32Ptr(30),
-		PriorityClassName:             "top",
-		DNSConfig: &core.PodDNSConfig{
-			Nameservers: []string{"ns1", "n2"},
-		},
+		ActiveDeadlineSeconds:         int64Ptr(10),
+		TerminationGracePeriodSeconds: int64Ptr(20),
 		SecurityContext: &core.PodSecurityContext{
 			RunAsNonRoot:       boolPtr(true),
 			SupplementalGroups: []int64{1, 2},
 		},
+		Priority: int32Ptr(30),
 		ReadinessGates: []core.PodReadinessGate{
 			{ConditionType: core.PodInitialized},
 		},
+		DNSPolicy:                    core.DNSClusterFirst,
+		ServiceAccountName:           "serviceAccount",
+		AutomountServiceAccountToken: boolPtr(true),
 		Containers: []core.Container{
 			{
 				Name:            "test",
@@ -154,14 +170,15 @@ func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
 	})
 }
 
-func (s *K8sSuite) TestMakeUnitSpecWithInitContainers(c *gc.C) {
-	podSpec := caas.PodSpec{
-		Containers: []caas.ContainerSpec{{
-			Name:  "test",
-			Ports: []caas.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
-			Image: "juju/image",
-			ProviderContainer: &provider.K8sContainerSpec{
-				ImagePullPolicy: core.PullAlways,
+func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *gc.C) {
+	podSpec := specs.PodSpec{}
+	podSpec.Containers = []specs.ContainerSpec{
+		{
+			Name:            "test",
+			Ports:           []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
+			Image:           "juju/image",
+			ImagePullPolicy: specs.PullPolicy("Always"),
+			ProviderContainer: &k8sspecs.K8sContainerSpec{
 				ReadinessProbe: &core.Probe{
 					InitialDelaySeconds: 10,
 					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
@@ -177,21 +194,21 @@ func (s *K8sSuite) TestMakeUnitSpecWithInitContainers(c *gc.C) {
 			},
 		}, {
 			Name:  "test2",
-			Ports: []caas.ContainerPort{{ContainerPort: 8080, Protocol: "TCP"}},
+			Ports: []specs.ContainerPort{{ContainerPort: 8080, Protocol: "TCP"}},
 			Image: "juju/image2",
-		}},
-		InitContainers: []caas.ContainerSpec{{
-			Name:       "test-init",
-			Ports:      []caas.ContainerPort{{ContainerPort: 90, Protocol: "TCP"}},
-			Image:      "juju/image-init",
-			WorkingDir: "/path/to/here",
-			Command:    []string{"sh", "ls"},
-			ProviderContainer: &provider.K8sContainerSpec{
-				ImagePullPolicy: core.PullAlways,
-			},
-		}},
+		},
+		{
+			Name:            "test-init",
+			Init:            true,
+			Ports:           []specs.ContainerPort{{ContainerPort: 90, Protocol: "TCP"}},
+			Image:           "juju/image-init",
+			ImagePullPolicy: specs.PullPolicy("Always"),
+			WorkingDir:      "/path/to/here",
+			Command:         []string{"sh", "ls"},
+		},
 	}
-	spec, err := provider.MakeUnitSpec("app-name", "app-name", &podSpec)
+
+	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.PodSpec(spec), jc.DeepEquals, core.PodSpec{
 		Containers: []core.Container{
@@ -243,27 +260,27 @@ func (s *K8sSuite) TestMakeUnitSpecWithInitContainers(c *gc.C) {
 	})
 }
 
-func getBasicPodspec() *caas.PodSpec {
-	return &caas.PodSpec{
-		Containers: []caas.ContainerSpec{{
-			Name:         "test",
-			Ports:        []caas.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
-			ImageDetails: caas.ImageDetails{ImagePath: "juju/image", Username: "fred", Password: "secret"},
-			Command:      []string{"sh", "-c"},
-			Args:         []string{"doIt", "--debug"},
-			WorkingDir:   "/path/to/here",
-			Config: map[string]interface{}{
-				"foo":        "bar",
-				"restricted": "'yes'",
-				"bar":        true,
-				"switch":     "on",
-			},
-		}, {
-			Name:  "test2",
-			Ports: []caas.ContainerPort{{ContainerPort: 8080, Protocol: "TCP", Name: "fred"}},
-			Image: "juju/image2",
-		}},
-	}
+func getBasicPodspec() *specs.PodSpec {
+	pSpecs := &specs.PodSpec{}
+	pSpecs.Containers = []specs.ContainerSpec{{
+		Name:         "test",
+		Ports:        []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
+		ImageDetails: specs.ImageDetails{ImagePath: "juju/image", Username: "fred", Password: "secret"},
+		Command:      []string{"sh", "-c"},
+		Args:         []string{"doIt", "--debug"},
+		WorkingDir:   "/path/to/here",
+		Config: map[string]interface{}{
+			"foo":        "bar",
+			"restricted": "'yes'",
+			"bar":        true,
+			"switch":     "on",
+		},
+	}, {
+		Name:  "test2",
+		Ports: []specs.ContainerPort{{ContainerPort: 8080, Protocol: "TCP", Name: "fred"}},
+		Image: "juju/image2",
+	}}
+	return pSpecs
 }
 
 var operatorPodspec = core.PodSpec{
@@ -388,8 +405,8 @@ func (s *K8sBrokerSuite) secretArg(c *gc.C, annotations map[string]string) *core
 	return secret
 }
 
-func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
-	spec, err := provider.MakeUnitSpec("app-name", "app-name", getBasicPodspec())
+func (s *K8sSuite) TestPrepareWorkloadSpecConfigPairs(c *gc.C) {
+	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", getBasicPodspec())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.PodSpec(spec), jc.DeepEquals, core.PodSpec{
 		ImagePullSecrets: []core.LocalObjectReference{{Name: "app-name-test-secret"}},
@@ -496,8 +513,9 @@ func (s *K8sBrokerSuite) TestBootstrapNoOperatorStorage(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	callCtx := &context.CloudCallContext{}
 	bootstrapParams := environs.BootstrapParams{
-		ControllerConfig:     testing.FakeControllerConfig(),
-		BootstrapConstraints: constraints.MustParse("mem=3.5G"),
+		ControllerConfig:         testing.FakeControllerConfig(),
+		BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
+		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 	}
 
 	_, err := s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
@@ -516,8 +534,9 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	callCtx := &context.CloudCallContext{}
 	bootstrapParams := environs.BootstrapParams{
-		ControllerConfig:     testing.FakeControllerConfig(),
-		BootstrapConstraints: constraints.MustParse("mem=3.5G"),
+		ControllerConfig:         testing.FakeControllerConfig(),
+		BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
+		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 	}
 
 	sc := &k8sstorage.StorageClass{
@@ -1099,9 +1118,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	defer ctrl.Finish()
 
 	numUnits := int32(2)
-	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", getBasicPodspec())
+	basicPodSpec := getBasicPodspec()
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(unitSpec)
+	podSpec := provider.PodSpec(workloadSpec)
 
 	deploymentArg := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
@@ -1172,7 +1192,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:      getBasicPodspec(),
+		PodSpec:      basicPodSpec,
 		ResourceTags: map[string]string{"fred": "mary"},
 	}
 	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
@@ -1188,9 +1208,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", getBasicPodspec())
+	basicPodSpec := getBasicPodspec()
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(unitSpec)
+	podSpec := provider.PodSpec(workloadSpec)
 
 	numUnits := int32(2)
 	statefulSetArg := &appsv1.StatefulSet{
@@ -1248,7 +1269,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec: getBasicPodspec(),
+		PodSpec: basicPodSpec,
 		Deployment: caas.DeploymentParams{
 			DeploymentType: caas.DeploymentStateful,
 		},
@@ -1264,9 +1285,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", getBasicPodspec())
+	basicPodSpec := getBasicPodspec()
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(unitSpec)
+	podSpec := provider.PodSpec(workloadSpec)
 
 	numUnits := int32(2)
 	statefulSetArg := &appsv1.StatefulSet{
@@ -1324,7 +1346,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec: getBasicPodspec(),
+		PodSpec: basicPodSpec,
 		Deployment: caas.DeploymentParams{
 			ServiceType: caas.ServiceExternal,
 		},
@@ -1354,7 +1376,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceServiceWithoutPortsNotValid(c *gc.C) {
 	)
 	caasPodSpec := getBasicPodspec()
 	for k, v := range caasPodSpec.Containers {
-		v.Ports = []caas.ContainerPort{}
+		v.Ports = []specs.ContainerPort{}
 		caasPodSpec.Containers[k] = v
 	}
 	c.Assert(caasPodSpec.OmitServiceFrontend, jc.IsFalse)
@@ -1380,12 +1402,99 @@ func (s *K8sBrokerSuite) TestEnsureServiceServiceWithoutPortsNotValid(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `ports are required for kubernetes service`)
 }
 
+func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec, assertCalls ...*gomock.Call) {
+
+	basicPodSpec := getBasicPodspec()
+	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
+		KubernetesResources: &k8sspecs.KubernetesResources{
+			CustomResourceDefinitions: crds,
+		},
+	}
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec := provider.PodSpec(workloadSpec)
+
+	numUnits := int32(2)
+	statefulSetArg := &appsv1.StatefulSet{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "app-name",
+			Annotations: map[string]string{
+				"juju-app-uuid": "appuuid",
+			},
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Replicas: &numUnits,
+			Selector: &v1.LabelSelector{
+				MatchLabels: map[string]string{"juju-app": "app-name"},
+			},
+			Template: core.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					Labels: map[string]string{"juju-app": "app-name"},
+					Annotations: map[string]string{
+						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
+						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+					},
+				},
+				Spec: podSpec,
+			},
+			PodManagementPolicy: apps.ParallelPodManagement,
+			ServiceName:         "app-name-endpoints",
+		},
+	}
+
+	serviceArg := *basicServiceArg
+	serviceArg.Spec.Type = core.ServiceTypeClusterIP
+
+	assertCalls = append(
+		[]*gomock.Call{
+			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+				Return(nil, s.k8sNotFoundError()),
+		},
+		assertCalls...,
+	)
+
+	assertCalls = append(assertCalls, []*gomock.Call{
+		s.mockSecrets.EXPECT().Update(s.secretArg(c, nil)).Times(1).
+			Return(nil, nil),
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(&serviceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(&serviceArg).Times(1).
+			Return(nil, nil),
+		s.mockServices.EXPECT().Get("app-name-endpoints", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(basicHeadlessServiceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(basicHeadlessServiceArg).Times(1).
+			Return(nil, nil),
+		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
+			Return(nil, nil),
+	}...)
+	gomock.InOrder(assertCalls...)
+
+	params := &caas.ServiceParams{
+		PodSpec: basicPodSpec,
+		Deployment: caas.DeploymentParams{
+			DeploymentType: caas.DeploymentStateful,
+		},
+	}
+	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
+		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+		"kubernetes-service-externalname":    "ext-name",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionCreate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	podSpec := getBasicPodspec()
-	podSpec.CustomResourceDefinitions = map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
+	crds := map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
 		"tfjobs.kubeflow.org": {
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 				Kind:     "TFJob",
@@ -1483,19 +1592,17 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionCreate(c *gc.C) {
 		},
 	}
 
-	gomock.InOrder(
+	s.assertCustomerResourceDefinitions(
+		c, crds,
 		s.mockCustomResourceDefinition.EXPECT().Create(crd).Times(1).Return(crd, nil),
 	)
-	err := s.broker.EnsureCustomResourceDefinition("test", podSpec)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionUpdate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	podSpec := getBasicPodspec()
-	podSpec.CustomResourceDefinitions = map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
+	crds := map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
 		"tfjobs.kubeflow.org": {
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 				Kind:     "TFJob",
@@ -1592,13 +1699,13 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionUpdate(c *gc.C) {
 			},
 		},
 	}
-	gomock.InOrder(
+
+	s.assertCustomerResourceDefinitions(
+		c, crds,
 		s.mockCustomResourceDefinition.EXPECT().Create(crd).Times(1).Return(crd, s.k8sAlreadyExistsError()),
 		s.mockCustomResourceDefinition.EXPECT().Get("tfjobs.kubeflow.org", v1.GetOptions{}).Times(1).Return(crd, nil),
 		s.mockCustomResourceDefinition.EXPECT().Update(crd).Times(1).Return(crd, nil),
 	)
-	err := s.broker.EnsureCustomResourceDefinition("test", podSpec)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate(c *gc.C) {
@@ -1606,17 +1713,17 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 	defer ctrl.Finish()
 
 	podSpec := getBasicPodspec()
-	podSpec.ServiceAccount = &caas.ServiceAccountSpec{
+	podSpec.ServiceAccount = &specs.ServiceAccountSpec{
 		Name:                         "build-robot",
 		AutomountServiceAccountToken: boolPtr(true),
-		Capabilities: &caas.Capabilities{
-			RoleBinding: &caas.RoleBindingSpec{
+		Capabilities: &specs.Capabilities{
+			RoleBinding: &specs.RoleBindingSpec{
 				Name: "read-pods",
-				Type: caas.ClusterRoleBinding,
+				Type: specs.ClusterRoleBinding,
 			},
-			Role: &caas.RoleSpec{
+			Role: &specs.RoleSpec{
 				Name: "pod-reader",
-				Type: caas.ClusterRole,
+				Type: specs.ClusterRole,
 				Rules: []rbacv1.PolicyRule{
 					{
 						APIGroups: []string{""},
@@ -1629,7 +1736,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 	}
 
 	numUnits := int32(2)
-	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", podSpec)
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	deploymentArg := &appsv1.Deployment{
@@ -1656,7 +1763,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 						"fred": "mary",
 					},
 				},
-				Spec: provider.PodSpec(unitSpec),
+				Spec: provider.PodSpec(workloadSpec),
 			},
 		},
 	}
@@ -1725,13 +1832,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockSecrets.EXPECT().Update(secretArg).Times(1).Return(nil, s.k8sNotFoundError()),
-		s.mockSecrets.EXPECT().Create(secretArg).Times(1).Return(nil, nil),
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Times(1).Return(svcAccount, nil),
 		s.mockClusterRoles.EXPECT().Create(cr).Times(1).Return(cr, nil),
 		s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).Times(1).
 			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{}}, nil),
 		s.mockClusterRoleBindings.EXPECT().Create(crb).Times(1).Return(crb, nil),
+		s.mockSecrets.EXPECT().Update(secretArg).Times(1).Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Create(secretArg).Times(1).Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
@@ -1764,17 +1871,17 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 	defer ctrl.Finish()
 
 	podSpec := getBasicPodspec()
-	podSpec.ServiceAccount = &caas.ServiceAccountSpec{
+	podSpec.ServiceAccount = &specs.ServiceAccountSpec{
 		Name:                         "build-robot",
 		AutomountServiceAccountToken: boolPtr(true),
-		Capabilities: &caas.Capabilities{
-			RoleBinding: &caas.RoleBindingSpec{
+		Capabilities: &specs.Capabilities{
+			RoleBinding: &specs.RoleBindingSpec{
 				Name: "read-pods",
-				Type: caas.ClusterRoleBinding,
+				Type: specs.ClusterRoleBinding,
 			},
-			Role: &caas.RoleSpec{
+			Role: &specs.RoleSpec{
 				Name: "pod-reader",
-				Type: caas.ClusterRole,
+				Type: specs.ClusterRole,
 				Rules: []rbacv1.PolicyRule{
 					{
 						APIGroups: []string{""},
@@ -1787,7 +1894,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 	}
 
 	numUnits := int32(2)
-	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", podSpec)
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	deploymentArg := &appsv1.Deployment{
@@ -1814,7 +1921,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 						"fred": "mary",
 					},
 				},
-				Spec: provider.PodSpec(unitSpec),
+				Spec: provider.PodSpec(workloadSpec),
 			},
 		},
 	}
@@ -1884,8 +1991,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockSecrets.EXPECT().Update(secretArg).Times(1).Return(nil, s.k8sNotFoundError()),
-		s.mockSecrets.EXPECT().Create(secretArg).Times(1).Return(nil, nil),
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Times(1).Return(nil, s.k8sAlreadyExistsError()),
 		s.mockServiceAccounts.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).Times(1).
 			Return(&core.ServiceAccountList{Items: []core.ServiceAccount{*svcAccount}}, nil),
@@ -1898,6 +2003,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{*crb}}, nil),
 		s.mockClusterRoleBindings.EXPECT().Delete("read-pods", s.deleteOptions(v1.DeletePropagationForeground, &crbUID)).Times(1).Return(nil),
 		s.mockClusterRoleBindings.EXPECT().Create(crb).Times(1).Return(crb, nil),
+		s.mockSecrets.EXPECT().Update(secretArg).Times(1).Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Create(secretArg).Times(1).Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
@@ -1930,24 +2037,24 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountReferenceExistingClu
 	defer ctrl.Finish()
 
 	podSpec := getBasicPodspec()
-	podSpec.ServiceAccount = &caas.ServiceAccountSpec{
+	podSpec.ServiceAccount = &specs.ServiceAccountSpec{
 		Name:                         "build-robot",
 		AutomountServiceAccountToken: boolPtr(true),
-		Capabilities: &caas.Capabilities{
-			RoleBinding: &caas.RoleBindingSpec{
+		Capabilities: &specs.Capabilities{
+			RoleBinding: &specs.RoleBindingSpec{
 				Name: "read-pods",
-				Type: caas.ClusterRoleBinding,
+				Type: specs.ClusterRoleBinding,
 			},
-			Role: &caas.RoleSpec{
+			Role: &specs.RoleSpec{
 				Name: "pod-reader",
-				Type: caas.ClusterRole,
+				Type: specs.ClusterRole,
 				// No Rules specified, Get an existing Role to use.
 			},
 		},
 	}
 
 	numUnits := int32(2)
-	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", podSpec)
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	deploymentArg := &appsv1.Deployment{
@@ -1974,7 +2081,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountReferenceExistingClu
 						"fred": "mary",
 					},
 				},
-				Spec: provider.PodSpec(unitSpec),
+				Spec: provider.PodSpec(workloadSpec),
 			},
 		},
 	}
@@ -2044,14 +2151,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountReferenceExistingClu
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockSecrets.EXPECT().Update(secretArg).Times(1).Return(nil, s.k8sNotFoundError()),
-		s.mockSecrets.EXPECT().Create(secretArg).Times(1).Return(nil, nil),
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Times(1).Return(svcAccount, nil),
 		s.mockClusterRoles.EXPECT().Get("pod-reader", v1.GetOptions{IncludeUninitialized: true}).Times(1).Return(cr, nil),
 		s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).Times(1).
 			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{*crb}}, nil),
 		s.mockClusterRoleBindings.EXPECT().Delete("read-pods", s.deleteOptions(v1.DeletePropagationForeground, &crbUID)).Times(1).Return(nil),
 		s.mockClusterRoleBindings.EXPECT().Create(crb).Times(1).Return(crb, nil),
+		s.mockSecrets.EXPECT().Update(secretArg).Times(1).Return(nil, s.k8sNotFoundError()),
+		s.mockSecrets.EXPECT().Create(secretArg).Times(1).Return(nil, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
@@ -2083,9 +2190,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", getBasicPodspec())
+	basicPodSpec := getBasicPodspec()
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(unitSpec)
+	podSpec := provider.PodSpec(workloadSpec)
 	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
@@ -2134,7 +2242,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec: getBasicPodspec(),
+		PodSpec: basicPodSpec,
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
 			Size:        100,
@@ -2167,9 +2275,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 	defer ctrl.Finish()
 
 	numUnits := int32(2)
-	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", getBasicPodspec())
+	basicPodSpec := getBasicPodspec()
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(unitSpec)
+	podSpec := provider.PodSpec(workloadSpec)
 	podSpec.NodeSelector = map[string]string{"accelerator": "nvidia-tesla-p100"}
 	for i := range podSpec.Containers {
 		podSpec.Containers[i].Resources = core.ResourceRequirements{
@@ -2226,7 +2335,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec: getBasicPodspec(),
+		PodSpec: basicPodSpec,
 		Devices: []devices.KubernetesDeviceParams{
 			{
 				Type:       "nvidia.com/gpu",
@@ -2247,9 +2356,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", getBasicPodspec())
+	basicPodSpec := getBasicPodspec()
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(unitSpec)
+	podSpec := provider.PodSpec(workloadSpec)
 	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
@@ -2297,7 +2407,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec: getBasicPodspec(),
+		PodSpec: basicPodSpec,
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
 			Size:        100,
@@ -2328,9 +2438,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", getBasicPodspec())
+	basicPodSpec := getBasicPodspec()
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(unitSpec)
+	podSpec := provider.PodSpec(workloadSpec)
 	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
@@ -2375,7 +2486,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec: getBasicPodspec(),
+		PodSpec: basicPodSpec,
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
 			Size:        100,
@@ -2400,9 +2511,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", getBasicPodspec())
+	basicPodSpec := getBasicPodspec()
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(unitSpec)
+	podSpec := provider.PodSpec(workloadSpec)
 	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
@@ -2460,7 +2572,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec: getBasicPodspec(),
+		PodSpec: basicPodSpec,
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
 			Size:        100,
@@ -2485,9 +2597,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	unitSpec, err := provider.MakeUnitSpec("app-name", "app-name", getBasicPodspec())
+	basicPodSpec := getBasicPodspec()
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(unitSpec)
+	podSpec := provider.PodSpec(workloadSpec)
 	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
 		Name:      "database-appuuid",
 		MountPath: "path/to/here",
@@ -2537,7 +2650,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec: getBasicPodspec(),
+		PodSpec: basicPodSpec,
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
 			Size:        100,

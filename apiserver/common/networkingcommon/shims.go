@@ -91,7 +91,7 @@ func (s *stateShim) AddSubnet(info BackingSubnetInfo) (BackingSubnet, error) {
 		ProviderId:        info.ProviderId,
 		ProviderNetworkId: info.ProviderNetworkId,
 		AvailabilityZones: info.AvailabilityZones,
-		SpaceName:         info.SpaceName,
+		SpaceID:           info.SpaceID,
 	})
 	return nil, err // Drop the first result, as it's unused.
 }

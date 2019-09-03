@@ -13,9 +13,11 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/naturalsort"
+	"github.com/juju/os/series"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
@@ -98,6 +100,14 @@ address.
     bootstrap-retry-delay: 5 # default: 5 seconds
     # How often to refresh controller addresses from the API server.
     bootstrap-addresses-delay: 10 # default: 10 seconds
+
+It is possible to override the series Juju attempts to bootstrap on to, by
+supplying a series argument to '--bootstrap-series'.
+
+An error is emitted if the determined series is not supported. Using the
+'--force' option to override this check:
+
+	juju bootstrap --bootstrap-series=eoan --force
 
 Private clouds may need to specify their own custom image metadata and
 tools/agent. Use '--metadata-source' whose value is a local directory.
@@ -188,6 +198,9 @@ type bootstrapCommand struct {
 	noGUI               bool
 	noSwitch            bool
 	interactive         bool
+
+	// Force is used to allow a bootstrap to be run on unsupported series.
+	Force bool
 }
 
 func (c *bootstrapCommand) Info() *cmd.Info {
@@ -226,6 +239,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.showRegionsForCloud, "regions", "", "Print the available regions for the specified cloud")
 	f.BoolVar(&c.noGUI, "no-gui", false, "Do not install the Juju GUI in the controller when bootstrapping")
 	f.BoolVar(&c.noSwitch, "no-switch", false, "Do not switch to the newly created controller")
+	f.BoolVar(&c.Force, "force", false, "Allow the bypassing of checks such as supported series")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -266,6 +280,8 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	if c.AgentVersionParam != "" && c.BuildAgent {
 		return errors.New("--agent-version and --build-agent can't be used together")
 	}
+	// charm.IsValidSeries doesn't actually check against a list of bootstrap
+	// series, but instead, just validates if it conforms to a regexp.
 	if c.BootstrapSeries != "" && !charm.IsValidSeries(c.BootstrapSeries) {
 		return errors.NotValidf("series %q", c.BootstrapSeries)
 	}
@@ -363,6 +379,20 @@ func (b bootstrapFuncs) CloudFinalizer(provider environs.EnvironProvider) (envir
 
 var getBootstrapFuncs = func() BootstrapInterface {
 	return &bootstrapFuncs{}
+}
+
+var supportedJujuSeries = func() set.Strings {
+	// We support all of the juju series AND all the ESM supported series.
+	// Juju is congruant with the Ubuntu release cycle for it's own series (not
+	// including centos and windows), so that should be reflected here.
+	//
+	// For non-LTS releases; they'll appear in juju/os as default available, but
+	// after reading the `/usr/share/distro-info/ubuntu.csv` on the Ubuntu distro
+	// the non-LTS should disapear if they're not in the release window for that
+	// series.
+	supportedJujuSeries := set.NewStrings(series.SupportedJujuControllerSeries()...)
+	esmSupportedJujuSeries := set.NewStrings(series.ESMSupportedJujuSeries()...)
+	return supportedJujuSeries.Union(esmSupportedJujuSeries)
 }
 
 var (
@@ -628,6 +658,7 @@ to create a new model to deploy k8s workloads.
 	bootstrapParams := bootstrap.BootstrapParams{
 		ControllerName:            c.controllerName,
 		BootstrapSeries:           c.BootstrapSeries,
+		SupportedBootstrapSeries:  supportedJujuSeries(),
 		BootstrapImage:            c.BootstrapImage,
 		Placement:                 c.Placement,
 		BuildAgent:                c.BuildAgent,
@@ -647,6 +678,7 @@ to create a new model to deploy k8s workloads.
 			RetryDelay:     config.bootstrap.BootstrapRetryDelay,
 			AddressesDelay: config.bootstrap.BootstrapAddressesDelay,
 		},
+		Force: c.Force,
 	}
 
 	environ, err := bootstrapPrepareController(

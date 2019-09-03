@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/juju/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
-	supportedversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/provider/ec2"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -84,7 +83,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.LiveTests.SetUpSuite(c)
 	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	t.BaseSuite.PatchValue(&series.MustHostSeries, func() string { return supportedversion.SupportedLTS() })
+	t.BaseSuite.PatchValue(&series.MustHostSeries, func() string { return series.DefaultSupportedLTS() })
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {

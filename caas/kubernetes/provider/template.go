@@ -13,46 +13,47 @@ import (
 )
 
 var containerTemplate = `
-  - name: {{.Name}}
-    {{if .Ports}}
-    ports:
-    {{- range .Ports }}
-      - containerPort: {{.ContainerPort}}
-        {{if .Name}}name: {{.Name}}{{end}}
-        {{if .Protocol}}protocol: {{.Protocol}}{{end}}
-    {{- end}}
-    {{end}}
-    {{if .Command}}
-    command: 
-{{ toYaml .Command | indent 6 }}
-    {{end}}
-    {{if .Args}}
-    args: 
-{{ toYaml .Args | indent 6 }}
-    {{end}}
-    {{if .WorkingDir}}
-    workingDir: {{.WorkingDir}}
-    {{end}}
-    {{if .Config}}
-    env:
-    {{- range $k, $v := .Config }}
-      - name: {{$k}}
-        value: {{$v}}
-    {{- end}}
-    {{end}}`[1:]
-
-var defaultPodTemplateStr = fmt.Sprintf(`
-pod:
-  containers:
-  {{- range .Containers }}
-%s
-  {{- end}}
-  {{if .InitContainers}}
-  initContainers:
-  {{- range .InitContainers }}
-%s
+- name: {{.Name}}
+  {{if .Ports}}
+  ports:
+  {{- range .Ports }}
+    - containerPort: {{.ContainerPort}}
+      {{if .Name}}name: {{.Name}}{{end}}
+      {{if .Protocol}}protocol: {{.Protocol}}{{end}}
   {{- end}}
   {{end}}
+  {{if .Command}}
+  command: 
+{{ toYaml .Command | indent 4 }}
+  {{end}}
+  {{if .Args}}
+  args: 
+{{ toYaml .Args | indent 4 }}
+  {{end}}
+  {{if .WorkingDir}}
+  workingDir: {{.WorkingDir}}
+  {{end}}
+  {{if .Config}}
+  env:
+  {{- range $k, $v := .Config }}
+    - name: {{$k}}
+      value: {{$v}}
+  {{- end}}
+  {{end}}`[1:]
+
+var defaultPodTemplateStr = fmt.Sprintf(`
+{{if .Containers}}
+containers:
+{{- range .Containers }}
+%s
+{{- end}}
+{{end}}
+{{if .InitContainers}}
+initContainers:
+{{- range .InitContainers }}
+%s
+{{- end}}
+{{end}}
 `[1:], containerTemplate, containerTemplate)
 
 var defaultPodTemplate = template.Must(template.New("").Funcs(templateAddons).Parse(defaultPodTemplateStr))

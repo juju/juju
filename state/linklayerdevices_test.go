@@ -632,11 +632,11 @@ func (s *linkLayerDevicesStateSuite) TestMachineRemoveAllLinkLayerDevicesNoError
 }
 
 func (s *linkLayerDevicesStateSuite) createSpaceAndSubnet(c *gc.C, spaceName, CIDR string) {
-	_, err := s.State.AddSpace(spaceName, corenetwork.Id(spaceName), nil, true)
+	space, err := s.State.AddSpace(spaceName, corenetwork.Id(spaceName), nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSubnet(corenetwork.SubnetInfo{
-		CIDR:      CIDR,
-		SpaceName: spaceName,
+		CIDR:    CIDR,
+		SpaceID: space.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

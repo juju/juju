@@ -5,7 +5,9 @@ package action_test
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/juju/cmd/cmdtesting"
@@ -14,7 +16,6 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -37,14 +38,14 @@ broken-map:
 	invalidUTFYaml = "out: ok" + string([]byte{0xFF, 0xFF})
 )
 
-type RunSuite struct {
+type CallSuite struct {
 	BaseActionSuite
 	dir string
 }
 
-var _ = gc.Suite(&RunSuite{})
+var _ = gc.Suite(&CallSuite{})
 
-func (s *RunSuite) SetUpTest(c *gc.C) {
+func (s *CallSuite) SetUpTest(c *gc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 	s.dir = c.MkDir()
 	c.Assert(utf8.ValidString(validParamsYaml), jc.IsTrue)
@@ -55,10 +56,11 @@ func (s *RunSuite) SetUpTest(c *gc.C) {
 	setupValueFile(c, s.dir, "invalidUTF.yml", invalidUTFYaml)
 }
 
-func (s *RunSuite) TestInit(c *gc.C) {
+func (s *CallSuite) TestInit(c *gc.C) {
 	tests := []struct {
 		should               string
 		args                 []string
+		expectMaxWait        time.Duration
 		expectUnits          []string
 		expectAction         string
 		expectParamsYamlPath string
@@ -70,6 +72,10 @@ func (s *RunSuite) TestInit(c *gc.C) {
 		should:      "fail with missing args",
 		args:        []string{},
 		expectError: "no unit specified",
+	}, {
+		should:      "fail with both --background and --max-wait",
+		args:        []string{"--background", "--max-wait=60s", validUnitId, "action"},
+		expectError: "cannot specify both --max-wait and --background",
 	}, {
 		should:      "fail with no action specified",
 		args:        []string{validUnitId},
@@ -92,7 +98,7 @@ func (s *RunSuite) TestInit(c *gc.C) {
 		expectUnits:  []string{validUnitId, validUnitId2},
 		expectAction: "valid-action-name",
 		expectKVArgs: [][]string{},
-	}, {}, {
+	}, {
 		should:      "fail with invalid action name",
 		args:        []string{validUnitId, "BadName"},
 		expectError: "invalid unit or action name \"BadName\"",
@@ -112,6 +118,12 @@ func (s *RunSuite) TestInit(c *gc.C) {
 		should:      "fail with wrong formatting of k-v args",
 		args:        []string{validUnitId, "valid-action-name", "no-go?od=3"},
 		expectError: "key \"no-go\\?od\" must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens",
+	}, {
+		should:        "use max-wait if specified",
+		args:          []string{validUnitId, "action", "--max-wait", "20s"},
+		expectUnits:   []string{validUnitId},
+		expectAction:  "action",
+		expectMaxWait: 20 * time.Second,
 	}, {
 		should:       "work with action name ending in numeric values",
 		args:         []string{validUnitId, "action-01"},
@@ -212,6 +224,11 @@ func (s *RunSuite) TestInit(c *gc.C) {
 				c.Check(command.ParamsYAML().Path, gc.Equals, t.expectParamsYamlPath)
 				c.Check(command.Args(), jc.DeepEquals, t.expectKVArgs)
 				c.Check(command.ParseStrings(), gc.Equals, t.expectParseStrings)
+				if t.expectMaxWait != 0 {
+					c.Check(command.MaxWait(), gc.Equals, t.expectMaxWait)
+				} else {
+					c.Check(command.MaxWait(), gc.Equals, 60*time.Second)
+				}
 			} else {
 				c.Check(err, gc.ErrorMatches, t.expectError)
 			}
@@ -219,14 +236,16 @@ func (s *RunSuite) TestInit(c *gc.C) {
 	}
 }
 
-func (s *RunSuite) TestRun(c *gc.C) {
+func (s *CallSuite) TestRun(c *gc.C) {
 	tests := []struct {
 		should                 string
 		clientSetup            func(client *fakeAPIClient)
 		withArgs               []string
 		withAPIErr             error
 		withActionResults      []params.ActionResult
-		expectedActionEnqueued params.Action
+		withTags               params.FindTagsResults
+		expectedActionEnqueued []params.Action
+		expectedOutput         string
 		expectedErr            string
 	}{{
 		should:   "fail with multiple results",
@@ -283,27 +302,191 @@ func (s *RunSuite) TestRun(c *gc.C) {
 		expectedErr: "yaml: found unexpected end of stream",
 	}, {
 		should:   "enqueue a basic action with no params",
-		withArgs: []string{validUnitId, "some-action"},
+		withArgs: []string{validUnitId, "some-action", "--background"},
 		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString},
+			Action: &params.Action{
+				Tag:      validActionTagString,
+				Receiver: names.NewUnitTag(validUnitId).String(),
+			},
 		}},
-		expectedActionEnqueued: params.Action{
+		expectedActionEnqueued: []params.Action{{
 			Name:       "some-action",
 			Parameters: map[string]interface{}{},
 			Receiver:   names.NewUnitTag(validUnitId).String(),
-		},
+		}},
+	}, {
+		should:   "run a basic action with no params with output set to action-set data",
+		withArgs: []string{validUnitId, "some-action"},
+		withTags: tagsForIdPrefix(validActionId, validActionTagString),
+		withActionResults: []params.ActionResult{{
+			Action: &params.Action{
+				Tag:      validActionTagString,
+				Receiver: names.NewUnitTag(validUnitId).String(),
+				Name:     "some-action",
+			},
+			Status: "completed",
+			Output: map[string]interface{}{
+				"outcome": "success",
+				"result-map": map[string]interface{}{
+					"message": "hello",
+				},
+			},
+			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
+			Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
+		}},
+		expectedActionEnqueued: []params.Action{{
+			Name:       "some-action",
+			Parameters: map[string]interface{}{},
+			Receiver:   names.NewUnitTag(validUnitId).String(),
+		}},
+		expectedOutput: `
+outcome: success
+result-map:
+  message: hello`[1:],
+	}, {
+		should:   "run action on multiple units with stdout for each action",
+		withArgs: []string{validUnitId, validUnitId2, "some-action", "--format", "yaml"},
+		withTags: params.FindTagsResults{Matches: map[string][]params.Entity{
+			validActionId:  {{Tag: validActionTagString}},
+			validActionId2: {{Tag: validActionTagString2}},
+		}},
+		withActionResults: []params.ActionResult{{
+			Action: &params.Action{
+				Tag:      validActionTagString,
+				Receiver: names.NewUnitTag(validUnitId).String(),
+				Name:     "some-action",
+			},
+			Status: "completed",
+			Output: map[string]interface{}{
+				"outcome": "success",
+				"result-map": map[string]interface{}{
+					"message": "hello",
+				},
+			},
+			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
+			Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
+		}, {
+			Action: &params.Action{
+				Tag:      validActionTagString2,
+				Receiver: names.NewUnitTag(validUnitId2).String(),
+				Name:     "some-action",
+			},
+			Status: "completed",
+			Output: map[string]interface{}{
+				"outcome": "success",
+				"result-map": map[string]interface{}{
+					"message": "hello2",
+				},
+			},
+			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
+			Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
+		}},
+		expectedActionEnqueued: []params.Action{{
+			Name:       "some-action",
+			Parameters: map[string]interface{}{},
+			Receiver:   names.NewUnitTag(validUnitId).String(),
+		}, {
+			Name:       "some-action",
+			Parameters: map[string]interface{}{},
+			Receiver:   names.NewUnitTag(validUnitId2).String(),
+		}},
+		expectedOutput: `
+mysql/0:
+  id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+  results:
+    outcome: success
+    result-map:
+      message: hello
+  status: completed
+  timing:
+    completed: 2015-02-14 08:17:00 +0000 UTC
+    enqueued: 2015-02-14 08:13:00 +0000 UTC
+    started: 2015-02-14 08:15:00 +0000 UTC
+mysql/1:
+  id: f47ac10b-58cc-4372-a567-0e02b2c3d478
+  results:
+    outcome: success
+    result-map:
+      message: hello2
+  status: completed
+  timing:
+    completed: 2015-02-14 08:17:00 +0000 UTC
+    enqueued: 2015-02-14 08:13:00 +0000 UTC
+    started: 2015-02-14 08:15:00 +0000 UTC`[1:],
+	}, {
+		should:   "run action on multiple units with plain output selected",
+		withArgs: []string{validUnitId, validUnitId2, "some-action", "--format", "plain"},
+		withTags: params.FindTagsResults{Matches: map[string][]params.Entity{
+			validActionId:  {{Tag: validActionTagString}},
+			validActionId2: {{Tag: validActionTagString2}},
+		}},
+		withActionResults: []params.ActionResult{{
+			Action: &params.Action{
+				Tag:      validActionTagString,
+				Receiver: names.NewUnitTag(validUnitId).String(),
+				Name:     "some-action",
+			},
+			Status: "completed",
+			Output: map[string]interface{}{
+				"outcome": "success",
+				"result-map": map[string]interface{}{
+					"message": "hello",
+				},
+			},
+		}, {
+			Action: &params.Action{
+				Tag:      validActionTagString2,
+				Receiver: names.NewUnitTag(validUnitId2).String(),
+				Name:     "some-action",
+			},
+			Status: "completed",
+			Output: map[string]interface{}{
+				"outcome": "success",
+				"result-map": map[string]interface{}{
+					"message": "hello2",
+				},
+			},
+		}},
+		expectedActionEnqueued: []params.Action{{
+			Name:       "some-action",
+			Parameters: map[string]interface{}{},
+			Receiver:   names.NewUnitTag(validUnitId).String(),
+		}, {
+			Name:       "some-action",
+			Parameters: map[string]interface{}{},
+			Receiver:   names.NewUnitTag(validUnitId2).String(),
+		}},
+		expectedOutput: `
+mysql/0:
+  id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+  output: |
+    outcome: success
+    result-map:
+      message: hello
+mysql/1:
+  id: f47ac10b-58cc-4372-a567-0e02b2c3d478
+  output: |
+    outcome: success
+    result-map:
+      message: hello2`[1:],
 	}, {
 		should: "enqueue an action with some explicit params",
-		withArgs: []string{validUnitId, "some-action",
+		withArgs: []string{validUnitId, "some-action", "--background",
 			"out.name=bar",
 			"out.kind=tmpfs",
 			"out.num=3",
 			"out.boolval=y",
 		},
 		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString},
+			Action: &params.Action{
+				Tag:      validActionTagString,
+				Receiver: names.NewUnitTag(validUnitId).String(),
+			},
 		}},
-		expectedActionEnqueued: params.Action{
+		expectedActionEnqueued: []params.Action{{
 			Name:     "some-action",
 			Receiver: names.NewUnitTag(validUnitId).String(),
 			Parameters: map[string]interface{}{
@@ -314,19 +497,22 @@ func (s *RunSuite) TestRun(c *gc.C) {
 					"boolval": true,
 				},
 			},
-		},
+		}},
 	}, {
 		should: "enqueue an action with some raw string params",
-		withArgs: []string{validUnitId, "some-action", "--string-args",
+		withArgs: []string{validUnitId, "some-action", "--background", "--string-args",
 			"out.name=bar",
 			"out.kind=tmpfs",
 			"out.num=3",
 			"out.boolval=y",
 		},
 		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString},
+			Action: &params.Action{
+				Tag:      validActionTagString,
+				Receiver: names.NewUnitTag(validUnitId).String(),
+			},
 		}},
-		expectedActionEnqueued: params.Action{
+		expectedActionEnqueued: []params.Action{{
 			Name:     "some-action",
 			Receiver: names.NewUnitTag(validUnitId).String(),
 			Parameters: map[string]interface{}{
@@ -337,18 +523,21 @@ func (s *RunSuite) TestRun(c *gc.C) {
 					"boolval": "y",
 				},
 			},
-		},
+		}},
 	}, {
 		should: "enqueue an action with file params plus CLI args",
-		withArgs: []string{validUnitId, "some-action",
+		withArgs: []string{validUnitId, "some-action", "--background",
 			"--params", s.dir + "/" + "validParams.yml",
 			"compression.kind=gz",
 			"compression.fast=true",
 		},
 		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString},
+			Action: &params.Action{
+				Tag:      validActionTagString,
+				Receiver: names.NewUnitTag(validUnitId).String(),
+			},
 		}},
-		expectedActionEnqueued: params.Action{
+		expectedActionEnqueued: []params.Action{{
 			Name:     "some-action",
 			Receiver: names.NewUnitTag(validUnitId).String(),
 			Parameters: map[string]interface{}{
@@ -359,10 +548,10 @@ func (s *RunSuite) TestRun(c *gc.C) {
 					"fast":    true,
 				},
 			},
-		},
+		}},
 	}, {
 		should: "enqueue an action with file params and explicit params",
-		withArgs: []string{validUnitId, "some-action",
+		withArgs: []string{validUnitId, "some-action", "--background",
 			"out.name=bar",
 			"out.kind=tmpfs",
 			"compression.quality.speed=high",
@@ -370,9 +559,12 @@ func (s *RunSuite) TestRun(c *gc.C) {
 			"--params", s.dir + "/" + "validParams.yml",
 		},
 		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString},
+			Action: &params.Action{
+				Tag:      validActionTagString,
+				Receiver: names.NewUnitTag(validUnitId).String(),
+			},
 		}},
-		expectedActionEnqueued: params.Action{
+		expectedActionEnqueued: []params.Action{{
 			Name:     "some-action",
 			Receiver: names.NewUnitTag(validUnitId).String(),
 			Parameters: map[string]interface{}{
@@ -388,29 +580,36 @@ func (s *RunSuite) TestRun(c *gc.C) {
 					},
 				},
 			},
-		},
+		}},
 	}, {
 		should:   "fail with not implemented Leaders method",
-		withArgs: []string{"mysql/leader", "some-action"},
+		withArgs: []string{"mysql/leader", "some-action", "--background"},
 		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString}},
-		},
+			Action: &params.Action{
+				Tag:      validActionTagString,
+				Receiver: names.NewUnitTag(validUnitId).String(),
+			},
+		}},
 		expectedErr: "unable to determine leader for application \"mysql\"" +
 			"\nleader determination is unsupported by this API" +
 			"\neither upgrade your controller, or explicitly specify a unit",
 	}, {
 		should:      "enqueue a basic action on the leader",
 		clientSetup: func(api *fakeAPIClient) { api.apiVersion = 3 },
-		withArgs:    []string{"mysql/leader", "some-action"},
+		withArgs:    []string{"mysql/leader", "some-action", "--background"},
 		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString},
+			Action: &params.Action{
+				Tag:      validActionTagString,
+				Receiver: names.NewUnitTag(validUnitId).String(),
+			},
 		}},
-		expectedActionEnqueued: params.Action{
+		expectedActionEnqueued: []params.Action{{
 			Name:       "some-action",
 			Parameters: map[string]interface{}{},
 			Receiver:   "mysql/leader",
 		},
-	}}
+		}},
+	}
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
@@ -418,8 +617,9 @@ func (s *RunSuite) TestRun(c *gc.C) {
 				c.Logf("test %d: should %s:\n$ juju actions do %s\n", i, t.should, strings.Join(t.withArgs, " "))
 
 				fakeClient := &fakeAPIClient{
-					actionResults: t.withActionResults,
-					apiVersion:    2,
+					actionResults:    t.withActionResults,
+					actionTagMatches: t.withTags,
+					apiVersion:       2,
 				}
 				if t.clientSetup != nil {
 					t.clientSetup(fakeClient)
@@ -439,25 +639,34 @@ func (s *RunSuite) TestRun(c *gc.C) {
 					c.Assert(err, gc.IsNil)
 					// Before comparing, double-check to avoid
 					// panics in malformed tests.
-					c.Assert(len(t.withActionResults), gc.Equals, 1)
-					// Make sure the test's expected Action was
+					c.Assert(len(t.withActionResults), gc.Not(gc.Equals), 0)
+					// Make sure the test's expected Actions were
 					// non-nil and correct.
-					c.Assert(t.withActionResults[0].Action, gc.NotNil)
-					expectedTag, err := names.ParseActionTag(t.withActionResults[0].Action.Tag)
-					c.Assert(err, gc.IsNil)
-
-					// Make sure the CLI responded with the expected tag
-					outputResult := ctx.Stdout.(*bytes.Buffer).Bytes()
-					resultMap := make(map[string]string)
-					err = yaml.Unmarshal(outputResult, &resultMap)
-					c.Assert(err, gc.IsNil)
-					c.Check(resultMap["Action queued with id"], jc.DeepEquals, expectedTag.Id())
-
+					for i := range t.withActionResults {
+						c.Assert(t.withActionResults[i].Action, gc.NotNil)
+					}
 					// Make sure the Action sent to the API to be
 					// enqueued was indeed the expected map
 					enqueued := fakeClient.EnqueuedActions()
-					c.Assert(enqueued.Actions, gc.HasLen, 1)
-					c.Check(enqueued.Actions[0], jc.DeepEquals, t.expectedActionEnqueued)
+					c.Assert(enqueued.Actions, jc.DeepEquals, t.expectedActionEnqueued)
+
+					if t.expectedOutput == "" {
+						outputResult := ctx.Stderr.(*bytes.Buffer).Bytes()
+						outString := strings.Trim(string(outputResult), "\n")
+
+						expectedTag, err := names.ParseActionTag(t.withActionResults[0].Action.Tag)
+						c.Assert(err, gc.IsNil)
+
+						// Make sure the CLI responded with the expected tag
+						c.Assert(outString, gc.Equals, fmt.Sprintf(`
+Scheduled Operation %s
+Check status with 'juju show-operation %s'`[1:],
+							expectedTag.Id(), expectedTag.Id()))
+					} else {
+						outputResult := ctx.Stdout.(*bytes.Buffer).Bytes()
+						outString := strings.Trim(string(outputResult), "\n")
+						c.Assert(outString, gc.Equals, t.expectedOutput)
+					}
 				}
 			}()
 		}

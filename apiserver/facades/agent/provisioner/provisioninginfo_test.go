@@ -171,9 +171,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositi
 
 func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) {
 	// Add a couple of spaces.
-	_, err := s.State.AddSpace("space1", "first space id", nil, true)
+	space1, err := s.State.AddSpace("space1", "first space id", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("space2", "", nil, false) // no provider ID
+	space2, err := s.State.AddSpace("space2", "", nil, false) // no provider ID
 	c.Assert(err, jc.ErrorIsNil)
 	// Add 1 subnet into space1, and 2 into space2.
 	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
@@ -181,7 +181,7 @@ func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) {
 		CIDR:              "10.10.{{.}}.0/24",
 		ProviderId:        "subnet-{{.}}",
 		AvailabilityZones: []string{"zone{{.}}"},
-		SpaceName:         "{{if (eq . 0)}}space1{{else}}space2{{end}}",
+		SpaceID:           fmt.Sprintf("{{if (eq . 0)}}%s{{else}}%s{{end}}", space1.Id(), space2.Id()),
 		VLANTag:           42,
 	})
 }

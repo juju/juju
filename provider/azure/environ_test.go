@@ -1218,10 +1218,11 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
-			ControllerConfig:     testing.FakeControllerConfig(),
-			AvailableTools:       makeToolsList("quantal"),
-			BootstrapSeries:      "quantal",
-			BootstrapConstraints: constraints.MustParse("mem=3.5G"),
+			ControllerConfig:         testing.FakeControllerConfig(),
+			AvailableTools:           makeToolsList("quantal"),
+			BootstrapSeries:          "quantal",
+			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1252,10 +1253,11 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
 	_, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
-			ControllerConfig:     testing.FakeControllerConfig(),
-			AvailableTools:       makeToolsList("quantal"),
-			BootstrapSeries:      "quantal",
-			BootstrapConstraints: constraints.MustParse("mem=3.5G"),
+			ControllerConfig:         testing.FakeControllerConfig(),
+			AvailableTools:           makeToolsList("quantal"),
+			BootstrapSeries:          "quantal",
+			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
 	c.Assert(err, gc.NotNil)
@@ -1288,6 +1290,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 				c.Assert(build, jc.IsFalse)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
 	// If we aren't on amd64, this should correctly fail. See also:
@@ -1329,10 +1332,11 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 	config["autocert-dns-name"] = "example.com"
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
-			ControllerConfig:     config,
-			AvailableTools:       makeToolsList("quantal"),
-			BootstrapSeries:      "quantal",
-			BootstrapConstraints: constraints.MustParse("mem=3.5G"),
+			ControllerConfig:         config,
+			AvailableTools:           makeToolsList("quantal"),
+			BootstrapSeries:          "quantal",
+			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

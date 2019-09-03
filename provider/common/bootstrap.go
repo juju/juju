@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -82,10 +83,24 @@ func BootstrapInstance(
 	// no way to make sure that only one succeeds.
 
 	// First thing, ensure we have tools otherwise there's no point.
-	if args.BootstrapSeries != "" {
-		selectedSeries = args.BootstrapSeries
-	} else {
-		selectedSeries = config.PreferredSeries(env.Config())
+	selectedSeries, err = coreseries.ValidateSeries(
+		args.SupportedBootstrapSeries,
+		args.BootstrapSeries,
+		config.PreferredSeries(env.Config()),
+	)
+	if !args.Force && err != nil {
+		// If the series isn't valid at all, then don't prompt users to use
+		// the --force flag.
+		if _, err := series.UbuntuSeriesVersion(selectedSeries); err != nil {
+			return nil, "", nil, errors.NotValidf("series %q", selectedSeries)
+		}
+		return nil, "", nil, errors.Annotatef(err, "use --force to override")
+	}
+	// The series we're attemptting to bootstrap is empty, show a friendly
+	// error message, rather than the more cryptic error messages that follow
+	// onwards.
+	if selectedSeries == "" {
+		return nil, "", nil, errors.NotValidf("bootstrap instance series")
 	}
 	availableTools, err := args.AvailableTools.Match(coretools.Filter{
 		Series: selectedSeries,
