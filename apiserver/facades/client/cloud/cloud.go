@@ -825,7 +825,6 @@ func modelsPretty(in map[string]string) string {
 // If the credentials are used by any of the models, the credential deletion will be aborted.
 // If credential-in-use needs to be revoked nonetheless, this method allows the use of force.
 func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialArgs) (params.ErrorResults, error) {
-	// TODO (anastasiamac 2018-11-13) the behavior here needs to be changed to performed promised models checks and authorise use of force.
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Credentials)),
 	}
@@ -875,9 +874,15 @@ func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialAr
 				continue
 			}
 		}
-
-		if err := api.backend.RemoveCloudCredential(tag); err != nil {
+		err = api.backend.RemoveCloudCredential(tag)
+		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
+		} else {
+			// If credential was successfully removed, we also want to clear all references to it from the models.
+			// lp#1841885
+			if err := api.backend.RemoveModelsCredential(tag); err != nil {
+				results.Results[i].Error = common.ServerError(err)
+			}
 		}
 	}
 	return results, nil
@@ -915,11 +920,11 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 			if err != nil {
 				return nil, err
 			}
-			provider, err := environs.Provider(aCloud.Type)
+			aProvider, err := environs.Provider(aCloud.Type)
 			if err != nil {
 				return nil, err
 			}
-			schema := provider.CredentialSchemas()
+			schema := aProvider.CredentialSchemas()
 			schemaCache[cloudName] = schema
 			return schema, nil
 		}
@@ -995,8 +1000,8 @@ func (api *CloudAPI) UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.Error
 	} else if !isAdmin {
 		return results, common.ServerError(common.ErrPerm)
 	}
-	for i, cloud := range cloudArgs.Clouds {
-		err := api.backend.UpdateCloud(common.CloudFromParams(cloud.Name, cloud.Cloud))
+	for i, aCloud := range cloudArgs.Clouds {
+		err := api.backend.UpdateCloud(common.CloudFromParams(aCloud.Name, aCloud.Cloud))
 		results.Results[i].Error = common.ServerError(err)
 	}
 	return results, nil
@@ -1060,11 +1065,11 @@ func (api *CloudAPI) CredentialContents(args params.CloudCredentialArgs) (params
 		if err != nil {
 			return nil, err
 		}
-		provider, err := environs.Provider(aCloud.Type)
+		aProvider, err := environs.Provider(aCloud.Type)
 		if err != nil {
 			return nil, err
 		}
-		schema := provider.CredentialSchemas()
+		schema := aProvider.CredentialSchemas()
 		schemaCache[cloudName] = schema
 		return schema, nil
 	}

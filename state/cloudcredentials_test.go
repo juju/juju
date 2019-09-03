@@ -226,6 +226,26 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialsTouchesCredentialModel
 	assertModelStatus(c, s.StatePool, testModelUUID, status.Available)
 }
 
+func (s *CloudCredentialsSuite) TestRemoveModelsCredential(c *gc.C) {
+	cloudName, credentialOwner, credentialTag := assertCredentialCreated(c, s.ConnSuite)
+	modelUUID := assertModelCreated(c, s.ConnSuite, cloudName, credentialTag, credentialOwner.Tag(), "model-for-cloud")
+
+	err := s.State.RemoveModelsCredential(credentialTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	aModel, helper, err := s.StatePool.GetModel(modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	defer helper.Release()
+	_, isSet := aModel.CloudCredential()
+	c.Assert(isSet, jc.IsFalse)
+}
+
+func (s *CloudCredentialsSuite) TestRemoveModelsCredentialNotUsed(c *gc.C) {
+	_, _, credentialTag := assertCredentialCreated(c, s.ConnSuite)
+	err := s.State.RemoveModelsCredential(credentialTag)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *CloudCredentialsSuite) assertCredentialInvalidated(c *gc.C, tag names.CloudCredentialTag) {
 	err := s.State.AddCloud(cloud.Cloud{
 		Name:      "stratus",
