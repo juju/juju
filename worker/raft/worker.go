@@ -74,6 +74,7 @@ var (
 type Logger interface {
 	Warningf(message string, args ...interface{})
 	Errorf(message string, args ...interface{})
+	Tracef(message string, args ...interface{})
 	Logf(level loggo.Level, message string, args ...interface{})
 }
 
@@ -342,7 +343,6 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 	// trip.
 	noLeaderCheck := w.config.Clock.After(noLeaderFrequency)
 	lastContact := w.config.Clock.Now()
-
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -356,15 +356,20 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 		case now := <-noLeaderCheck:
 			noLeaderCheck = w.config.Clock.After(noLeaderFrequency)
 			if r.State() == raft.Leader {
+				w.config.Logger.Tracef("raft leadership check passed with me as the leader")
 				lastContact = now
 				continue
 			}
 			var zeroTime time.Time
 			if latest := r.LastContact(); latest != zeroTime {
+				w.config.Logger.Tracef("last contact with leader at %s (%s)", latest, now.Sub(latest))
 				lastContact = latest
 			}
 			if now.After(lastContact.Add(w.config.NoLeaderTimeout)) {
-				w.config.Logger.Errorf("last leader contact earlier than %s", humanize.Time(lastContact))
+				w.config.Logger.Tracef("lastContact: %s timeout: %s diff: %s",
+					lastContact, w.config.NoLeaderTimeout, now.Sub(lastContact))
+				w.config.Logger.Errorf("last leader contact %s which is greater than timeout %s",
+					humanize.Time(lastContact), w.config.NoLeaderTimeout)
 				return ErrNoLeaderTimeout
 			}
 		case w.raftCh <- r:
