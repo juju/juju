@@ -85,10 +85,14 @@ class MicroK8s(Base):
         logger.debug(out)
 
     def __ensure_microk8s_installed(self):
-        # unfortunately, we needs sudo!
+        # unfortunately, we need sudo!
         if shutil.which('microk8s.kubectl') is None:
+            # install microk8s.
             self.sh('sudo', 'snap', 'install', 'microk8s', '--classic', '--stable')
             logger.debug("microk8s installed successfully")
+        else:
+            # reset mcicrok8s.
+            self.sh('sudo', 'microk8s.reset')
         logger.debug(
             "microk8s status \n%s",
             self.sh('microk8s.status', '--wait-ready', '--timeout', self.timeout, '--yaml'),
@@ -111,3 +115,7 @@ class MicroK8s(Base):
         data['Corefile'] = data['Corefile'].replace('8.8.8.8 8.8.4.4', get_nameserver())
         coredns_cm['data'] = data
         self.kubectl_apply(json.dumps(coredns_cm))
+        
+        # restart coredns pod by killing it.
+        kubedns_pod_selector = 'k8s-app=kube-dns'
+        self.kubectl('delete', 'pod', '-n', 'kube-system', '--selector=%s' % kubedns_pod_selector)
