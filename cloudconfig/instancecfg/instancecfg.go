@@ -148,6 +148,21 @@ type InstanceConfig struct {
 	// override the default APT sources.
 	AptMirror string
 
+	// SnapProxySettings define the http, https and ftp proxy settings to
+	// use for snap, which may or may not be the same as the normal
+	// ProxySettings.
+	SnapProxySettings proxy.Settings
+
+	// SnapStoreAssertions contains a list of assertions that must be
+	// passed to snapd together with a store proxy ID parameter before it
+	// can connect to a snap store proxy.
+	SnapStoreAssertions string
+
+	// SnapStoreProxyID references a store entry in the snap store
+	// assertion list that must be passed to snapd before it can connect to
+	// a snap store proxy.
+	SnapStoreProxyID string
+
 	// The type of Simple Stream to download and deploy on this instance.
 	ImageStream string
 
