@@ -9,6 +9,7 @@ package cloudinit
 
 import (
 	"github.com/juju/errors"
+	jujupackaging "github.com/juju/juju/packaging"
 	"github.com/juju/os"
 	"github.com/juju/os/series"
 	"github.com/juju/packaging"
@@ -356,8 +357,9 @@ type AdvancedPackagingConfig interface {
 		addUpgradeScripts bool,
 	)
 
-	// getPackagingConfigurer returns the PackagingConfigurer of the CloudConfig.
-	getPackagingConfigurer() config.PackagingConfigurer
+	// getPackagingConfigurer returns the PackagingConfigurer of the CloudConfig
+	// for the specified package manager.
+	getPackagingConfigurer(jujupackaging.PackageManagerName) config.PackagingConfigurer
 
 	// addRequiredPackages is a helper to add packages that juju requires in
 	// order to operate.
@@ -435,22 +437,31 @@ func New(ser string) (CloudConfig, error) {
 		renderer, _ := shell.NewRenderer("bash")
 		return &ubuntuCloudConfig{
 			&cloudConfig{
-				series:    ser,
-				paccmder:  commands.NewAptPackageCommander(),
-				pacconfer: config.NewAptPackagingConfigurer(ser),
-				renderer:  renderer,
-				attrs:     make(map[string]interface{}),
+				series: ser,
+				paccmder: map[jujupackaging.PackageManagerName]commands.PackageCommander{
+					jujupackaging.AptPackageManager:  commands.NewAptPackageCommander(),
+					jujupackaging.SnapPackageManager: commands.NewSnapPackageCommander(),
+				},
+				pacconfer: map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
+					jujupackaging.AptPackageManager: config.NewAptPackagingConfigurer(ser),
+				},
+				renderer: renderer,
+				attrs:    make(map[string]interface{}),
 			},
 		}, nil
 	case os.CentOS:
 		renderer, _ := shell.NewRenderer("bash")
 		return &centOSCloudConfig{
 			cloudConfig: &cloudConfig{
-				series:    ser,
-				paccmder:  commands.NewYumPackageCommander(),
-				pacconfer: config.NewYumPackagingConfigurer(ser),
-				renderer:  renderer,
-				attrs:     make(map[string]interface{}),
+				series: ser,
+				paccmder: map[jujupackaging.PackageManagerName]commands.PackageCommander{
+					jujupackaging.YumPackageManager: commands.NewYumPackageCommander(),
+				},
+				pacconfer: map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
+					jujupackaging.YumPackageManager: config.NewYumPackagingConfigurer(ser),
+				},
+				renderer: renderer,
+				attrs:    make(map[string]interface{}),
 			},
 			helper: centOSHelper{},
 		}, nil
@@ -458,11 +469,15 @@ func New(ser string) (CloudConfig, error) {
 		renderer, _ := shell.NewRenderer("bash")
 		return &centOSCloudConfig{
 			cloudConfig: &cloudConfig{
-				series:    ser,
-				paccmder:  commands.NewZypperPackageCommander(),
-				pacconfer: config.NewZypperPackagingConfigurer(ser),
-				renderer:  renderer,
-				attrs:     make(map[string]interface{}),
+				series: ser,
+				paccmder: map[jujupackaging.PackageManagerName]commands.PackageCommander{
+					jujupackaging.ZypperPackageManager: commands.NewZypperPackageCommander(),
+				},
+				pacconfer: map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
+					jujupackaging.ZypperPackageManager: config.NewZypperPackagingConfigurer(ser),
+				},
+				renderer: renderer,
+				attrs:    make(map[string]interface{}),
 			},
 			helper: openSUSEHelper{
 				paccmder: commands.NewZypperPackageCommander(),
