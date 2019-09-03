@@ -313,4 +313,22 @@ func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyCo
 			utils.ShQuote(pkgCmder.ProxyConfigContents(aptProxy)),
 			filename))
 	}
+
+	// Write out the snap http/https proxy settings
+	if snapProxy := proxyCfg.SnapProxy(); (snapProxy != proxy.Settings{}) {
+		pkgCmder := cfg.paccmder[jujupackaging.SnapPackageManager]
+		for _, cmd := range pkgCmder.SetProxyCmds(snapProxy) {
+			cfg.AddBootCmd(cmd)
+		}
+	}
+
+	// Configure snap store proxy
+	if proxyCfg.SnapStoreAssertions() != "" && proxyCfg.SnapStoreProxyID() != "" {
+		cfg.AddBootCmd(fmt.Sprintf(
+			`printf '%%s\n' %s > %s`,
+			utils.ShQuote(proxyCfg.SnapStoreAssertions()),
+			"/etc/snap.assertions"))
+		cfg.AddBootCmd("snap ack /etc/snap.assertions")
+		cfg.AddBootCmd("snap set core proxy.store=" + proxyCfg.SnapStoreProxyID())
+	}
 }
