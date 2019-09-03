@@ -337,9 +337,7 @@ func (s *WorkerSuite) TestNoLeaderTimeout(c *gc.C) {
 	// waits when we advance:
 	// * the loop timeout wait from starting the worker
 	// * the no leader timeout check in loop.
-	// The NoLeaderTimeout waits for 10s, so we increment the clock just slightly
-	// longer than that.
-	c.Assert(s.clock.WaitAdvance(10001*time.Millisecond, coretesting.LongWait, 2), jc.ErrorIsNil)
+	c.Assert(s.clock.WaitAdvance(10*time.Second, coretesting.LongWait, 2), jc.ErrorIsNil)
 	c.Assert(workertest.CheckKilled(c, s.worker), gc.Equals, raft.ErrNoLeaderTimeout)
 }
 
