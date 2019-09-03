@@ -117,15 +117,13 @@ func (cfg *ubuntuCloudConfig) RenderScript() (string, error) {
 
 // AddPackageCommands is defined on the AdvancedPackagingConfig interface.
 func (cfg *ubuntuCloudConfig) AddPackageCommands(
-	packageProxySettings proxy.Settings,
-	packageMirror string,
+	proxyCfg PackageManagerProxyConfig,
 	addUpdateScripts bool,
 	addUpgradeScripts bool,
 ) {
 	addPackageCommandsCommon(
 		cfg,
-		packageProxySettings,
-		packageMirror,
+		proxyCfg,
 		addUpdateScripts,
 		addUpgradeScripts,
 		cfg.series,
@@ -300,13 +298,13 @@ func (cfg *ubuntuCloudConfig) addRequiredPackages() {
 }
 
 // Updates proxy settings used when rendering the conf as a script
-func (cfg *ubuntuCloudConfig) updateProxySettings(proxySettings proxy.Settings) {
+func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyConfig) {
 	// Write out the apt proxy settings
-	if (proxySettings != proxy.Settings{}) {
+	if aptProxy := proxyCfg.AptProxy(); (aptProxy != proxy.Settings{}) {
 		filename := config.AptProxyConfigFile
 		cfg.AddBootCmd(fmt.Sprintf(
 			`printf '%%s\n' %s > %s`,
-			utils.ShQuote(cfg.paccmder.ProxyConfigContents(proxySettings)),
+			utils.ShQuote(cfg.paccmder.ProxyConfigContents(aptProxy)),
 			filename))
 	}
 }

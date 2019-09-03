@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/os"
 	"github.com/juju/os/series"
+	"github.com/juju/proxy"
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
 
@@ -201,3 +202,27 @@ func (c *baseConfigure) toolsSymlinkCommand(toolsDir string) string {
 func shquote(p string) string {
 	return utils.ShQuote(p)
 }
+
+// packageManagerProxySettings implements cloudinit.PackageManagerConfig.
+type packageManagerProxySettings struct {
+	aptProxy            proxy.Settings
+	aptMirror           string
+	snapProxy           proxy.Settings
+	snapStoreAssertions string
+	snapStoreProxyID    string
+}
+
+// AptProxy implements cloudinit.PackageManagerConfig.
+func (p packageManagerProxySettings) AptProxy() proxy.Settings { return p.aptProxy }
+
+// AptMirror implements cloudinit.PackageManagerConfig.
+func (p packageManagerProxySettings) AptMirror() string { return p.aptMirror }
+
+// SnapProxy implements cloudinit.PackageManagerConfig.
+func (p packageManagerProxySettings) SnapProxy() proxy.Settings { return p.snapProxy }
+
+// SnapStoreAssertions implements cloudinit.PackageManagerConfig.
+func (p packageManagerProxySettings) SnapStoreAssertions() string { return p.snapStoreAssertions }
+
+// SnapStoreProxyID implements cloudinit.PackageManagerConfig.
+func (p packageManagerProxySettings) SnapStoreProxyID() string { return p.snapStoreProxyID }
