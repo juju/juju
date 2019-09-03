@@ -1278,11 +1278,11 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestSubnetsWithFan(c *gc.C) {
-	_, err := s.State.AddSubnet(network.SubnetInfo{
+	subnet, err := s.State.AddSubnet(network.SubnetInfo{
 		CIDR: "100.2.0.0/16",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	sp, err := s.State.AddSpace("bam", "", []string{"100.2.0.0/16"}, true)
+	sp, err := s.State.AddSpace("bam", "", []string{subnet.ID()}, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sn := network.SubnetInfo{
@@ -1299,7 +1299,7 @@ func (s *MigrationImportSuite) TestSubnetsWithFan(c *gc.C) {
 
 	_, newSt := s.importModel(c, s.State)
 
-	subnet, err := newSt.Subnet(original.CIDR())
+	subnet, err = newSt.Subnet(original.CIDR())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")

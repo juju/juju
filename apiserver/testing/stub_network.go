@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -145,7 +146,7 @@ func (f *FakeSpace) Subnets() (bs []networkingcommon.BackingSubnet, err error) {
 		return outputSubnets, err
 	}
 
-	for _, subnetId := range f.SubnetIds {
+	for i, subnetId := range f.SubnetIds {
 		providerId := network.Id("provider-" + subnetId)
 
 		// Pick the third element of the IP address and use this to
@@ -173,7 +174,7 @@ func (f *FakeSpace) Subnets() (bs []networkingcommon.BackingSubnet, err error) {
 			AvailabilityZones: zones,
 			Status:            status,
 		}
-		outputSubnets = append(outputSubnets, &FakeSubnet{Info: backing})
+		outputSubnets = append(outputSubnets, &FakeSubnet{Info: backing, id: strconv.Itoa(i)})
 	}
 
 	return outputSubnets, nil
@@ -299,6 +300,7 @@ func (f *FakeZone) GoString() string {
 // FakeSubnet implements networkingcommon.BackingSubnet for testing.
 type FakeSubnet struct {
 	Info networkingcommon.BackingSubnetInfo
+	id   string
 }
 
 var _ networkingcommon.BackingSubnet = (*FakeSubnet)(nil)
@@ -314,6 +316,10 @@ func (f *FakeSubnet) Status() string {
 
 func (f *FakeSubnet) CIDR() string {
 	return f.Info.CIDR
+}
+
+func (f *FakeSubnet) ID() string {
+	return f.id
 }
 
 func (f *FakeSubnet) AvailabilityZones() []string {
@@ -445,10 +451,9 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 			SpaceName:         "dmz",
 			SpaceID:           "2",
 		}
-
 		sb.Subnets = []networkingcommon.BackingSubnet{
-			&FakeSubnet{info0},
-			&FakeSubnet{info1},
+			&FakeSubnet{Info: info0, id: info0.SpaceID},
+			&FakeSubnet{Info: info1, id: info1.SpaceID},
 		}
 	}
 }
@@ -522,6 +527,19 @@ func (sb *StubBacking) AllSubnets() ([]networkingcommon.BackingSubnet, error) {
 		output = append(output, subnet)
 	}
 	return output, nil
+}
+
+func (sb *StubBacking) Subnet(cidr string) (networkingcommon.BackingSubnet, error) {
+	sb.MethodCall(sb, "Subnet", cidr)
+	if err := sb.NextErr(); err != nil {
+		return nil, err
+	}
+	for _, subnet := range sb.Subnets {
+		if subnet.CIDR() == cidr {
+			return subnet, nil
+		}
+	}
+	return nil, errors.NewNotFound(nil, fmt.Sprintf("subnet %q", cidr))
 }
 
 func (sb *StubBacking) AddSubnet(subnetInfo networkingcommon.BackingSubnetInfo) (networkingcommon.BackingSubnet, error) {

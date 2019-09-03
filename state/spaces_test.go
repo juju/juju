@@ -21,18 +21,21 @@ type SpacesSuite struct {
 
 var _ = gc.Suite(&SpacesSuite{})
 
-func (s *SpacesSuite) addSubnets(c *gc.C, CIDRs []string) {
-	s.addSubnetsForState(c, CIDRs, s.State)
+func (s *SpacesSuite) addSubnets(c *gc.C, CIDRs []string) []string {
+	return s.addSubnetsForState(c, CIDRs, s.State)
 }
 
-func (s *SpacesSuite) addSubnetsForState(c *gc.C, CIDRs []string, st *state.State) {
+func (s *SpacesSuite) addSubnetsForState(c *gc.C, CIDRs []string, st *state.State) []string {
 	if len(CIDRs) == 0 {
-		return
+		return nil
 	}
-	for _, info := range s.makeSubnetInfosForCIDRs(c, CIDRs) {
-		_, err := st.AddSubnet(info)
+	subnetIDs := make([]string, len(CIDRs))
+	for i, info := range s.makeSubnetInfosForCIDRs(c, CIDRs) {
+		subnet, err := st.AddSubnet(info)
 		c.Assert(err, jc.ErrorIsNil)
+		subnetIDs[i] = subnet.ID()
 	}
+	return subnetIDs
 }
 
 func (s *SpacesSuite) makeSubnetInfosForCIDRs(c *gc.C, CIDRs []string) []network.SubnetInfo {
@@ -63,8 +66,8 @@ func (s *SpacesSuite) addSpaceWithSubnets(c *gc.C, args addSpaceArgs) (*state.Sp
 	if args.ForState == nil {
 		args.ForState = s.State
 	}
-	s.addSubnetsForState(c, args.SubnetCIDRs, args.ForState)
-	return args.ForState.AddSpace(args.Name, args.ProviderId, args.SubnetCIDRs, args.IsPublic)
+	subnetIDs := s.addSubnetsForState(c, args.SubnetCIDRs, args.ForState)
+	return args.ForState.AddSpace(args.Name, args.ProviderId, subnetIDs, args.IsPublic)
 }
 
 func (s *SpacesSuite) assertSpaceNotFound(c *gc.C, name string) {
@@ -472,13 +475,13 @@ func (s *SpacesSuite) TestAllSpaces(c *gc.C) {
 
 	subnets := []string{"1.1.1.0/24", "2.1.1.0/24", "3.1.1.0/24"}
 	isPublic := false
-	s.addSubnets(c, subnets)
+	subnetIDs := s.addSubnets(c, subnets)
 
-	first, err := s.State.AddSpace("first", "", []string{"1.1.1.0/24"}, isPublic)
+	first, err := s.State.AddSpace("first", "", []string{subnetIDs[0]}, isPublic)
 	c.Assert(err, jc.ErrorIsNil)
-	second, err := s.State.AddSpace("second", "", []string{"2.1.1.0/24"}, isPublic)
+	second, err := s.State.AddSpace("second", "", []string{subnetIDs[1]}, isPublic)
 	c.Assert(err, jc.ErrorIsNil)
-	third, err := s.State.AddSpace("third", "", []string{"3.1.1.0/24"}, isPublic)
+	third, err := s.State.AddSpace("third", "", []string{subnetIDs[2]}, isPublic)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actual, err := s.State.AllSpaces()

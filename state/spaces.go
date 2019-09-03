@@ -99,12 +99,9 @@ func (s *Space) NetworkSpace() network.SpaceInfo {
 	}
 }
 
-// TODO (hml) 2019-08-06
-// slice of subnets, should be subnet ids not cidrs.
-//
 // AddSpace creates and returns a new space.
 func (st *State) AddSpace(
-	name string, providerId network.Id, subnets []string, isPublic bool) (newSpace *Space, err error,
+	name string, providerId network.Id, subnetIDs []string, isPublic bool) (newSpace *Space, err error,
 ) {
 	defer errors.DeferredAnnotatef(&err, "adding space %q", name)
 	if !names.IsValidSpace(name) {
@@ -120,8 +117,8 @@ func (st *State) AddSpace(
 			return nil, errors.AlreadyExistsf("space %q", name)
 		}
 
-		for _, subnetId := range subnets {
-			subnet, err := st.Subnet(subnetId)
+		for _, subnetId := range subnetIDs {
+			subnet, err := st.SubnetByID(subnetId)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -143,7 +140,7 @@ func (st *State) AddSpace(
 			}
 		}
 
-		ops, err := st.addSpaceWithSubnetsTxnOps(name, providerId, subnets, isPublic)
+		ops, err := st.addSpaceWithSubnetsTxnOps(name, providerId, subnetIDs, isPublic)
 		return ops, errors.Trace(err)
 	}
 
@@ -159,7 +156,7 @@ func (st *State) AddSpace(
 }
 
 func (st *State) addSpaceWithSubnetsTxnOps(
-	name string, providerId network.Id, subnets []string, isPublic bool,
+	name string, providerId network.Id, subnetIDs []string, isPublic bool,
 ) ([]txn.Op, error) {
 	// Space with ID zero is the default space; start at 1.
 	seq, err := sequenceWithMin(st, "space", 1)
@@ -170,17 +167,13 @@ func (st *State) addSpaceWithSubnetsTxnOps(
 
 	ops := st.addSpaceTxnOps(id, name, providerId, isPublic)
 
-	for _, cidr := range subnets {
-		sn, err := st.Subnet(cidr)
-		if err != nil {
-			return nil, err
-		}
+	for _, subnetID := range subnetIDs {
 		// TODO:(mfoord) once we have refcounting for subnets we should
 		// also assert that the refcount is zero as moving the space of a
 		// subnet in use is not permitted.
 		ops = append(ops, txn.Op{
 			C:      subnetsC,
-			Id:     sn.ID(),
+			Id:     subnetID,
 			Assert: bson.D{bson.DocElem{Name: "fan-local-underlay", Value: bson.D{{"$exists", false}}}},
 			Update: bson.D{{"$set", bson.D{{"space-id", id}}}},
 		})

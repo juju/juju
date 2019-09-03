@@ -910,14 +910,25 @@ func (s *RelationUnitSuite) addDevicesWithAddresses(c *gc.C, machine *state.Mach
 }
 
 func (s *RelationUnitSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
-	s.State.AddSubnet(network.SubnetInfo{CIDR: "1.2.0.0/16"})
-	s.State.AddSpace("space-1", "pid-1", []string{"1.2.0.0/16"}, false)
-	s.State.AddSubnet(network.SubnetInfo{CIDR: "2.2.0.0/16"})
-	s.State.AddSpace("space-2", "pid-2", []string{"2.2.0.0/16"}, false)
-	s.State.AddSubnet(network.SubnetInfo{CIDR: "3.2.0.0/16"})
-	s.State.AddSpace("space-3", "pid-3", []string{"2.2.0.0/16"}, false)
-	s.State.AddSubnet(network.SubnetInfo{CIDR: "4.3.0.0/16"})
-	s.State.AddSpace("public-4", "pid-4", []string{"4.3.0.0/16"}, true)
+	subnet1, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "1.2.0.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("space-1", "pid-1", []string{subnet1.ID()}, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subnet2, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "2.2.0.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("space-2", "pid-2", []string{subnet2.ID()}, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subnet3, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "3.2.0.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("space-3", "pid-3", []string{subnet3.ID()}, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subnet4, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "4.3.0.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("public-4", "pid-4", []string{subnet4.ID()}, true)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// We want to have all bindings set so that no actual binding is
 	// really set to the default.
@@ -928,7 +939,7 @@ func (s *RelationUnitSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	}
 
 	prr := newProReqRelationWithBindings(c, &s.ConnSuite, charm.ScopeGlobal, bindings, nil)
-	err := prr.pu0.AssignToNewMachine()
+	err = prr.pu0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.pu0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -950,8 +961,8 @@ func (s *RelationUnitSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, "space-3")
-	c.Assert(ingress, gc.DeepEquals, []string{"2.2.3.4"})
-	c.Assert(egress, gc.DeepEquals, []string{"2.2.3.4/32"})
+	c.Assert(ingress, gc.DeepEquals, []string{"3.2.3.4"})
+	c.Assert(egress, gc.DeepEquals, []string{"3.2.3.4/32"})
 }
 
 func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
