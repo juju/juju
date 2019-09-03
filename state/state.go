@@ -2519,30 +2519,6 @@ func tagForGlobalKey(key string) (string, bool) {
 	return p + key[2:], true
 }
 
-// SetClockForTesting is an exported function to allow other packages
-// to set the internal clock for the State instance. It is named such
-// that it should be obvious if it is ever called from a non-test package.
-// TODO (thumper): This is a terrible method and we should remove it.
-func (st *State) SetClockForTesting(clock clock.Clock) error {
-	// Need to restart the lease workers so they get the new clock.
-	// Stop them first so they don't try to use it when we're setting it.
-	hub := st.workers.hub
-	st.workers.Kill()
-	err := st.workers.Wait()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	st.stateClock = clock
-	if db, ok := st.database.(*database); ok {
-		db.clock = clock
-	}
-	err = st.start(st.controllerTag, hub)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 // GlobalClockUpdater returns a new globalclock.Updater using the
 // State's *mgo.Session.
 func (st *State) GlobalClockUpdater() (coreglobalclock.Updater, error) {

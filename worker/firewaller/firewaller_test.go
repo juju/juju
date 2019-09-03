@@ -1157,6 +1157,7 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ingress []string, expect
 		Endpoints: []charm.Relation{{Name: "db", Interface: "mysql", Role: "requirer", Scope: "global"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	// Create the firewaller facade on the offering model.
 	fw := s.newFirewaller(c)

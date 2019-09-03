@@ -12,9 +12,7 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
-	"time"
 
-	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -44,8 +42,6 @@ type UniterSuite struct {
 }
 
 var _ = gc.Suite(&UniterSuite{})
-
-var leaseClock *testclock.Clock
 
 // This guarantees that we get proper platform
 // specific error directly from their source
@@ -78,15 +74,9 @@ func (s *UniterSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *UniterSuite) SetUpTest(c *gc.C) {
-	zone, err := time.LoadLocation("")
-	c.Assert(err, jc.ErrorIsNil)
-	now := time.Date(2030, 11, 11, 11, 11, 11, 11, zone)
-	leaseClock = testclock.NewClock(now)
 	s.updateStatusHookTicker = newManualTicker()
 	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
-	err = s.State.SetClockForTesting(leaseClock)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UniterSuite) TearDownTest(c *gc.C) {
