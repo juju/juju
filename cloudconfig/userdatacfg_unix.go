@@ -258,8 +258,13 @@ func (w *unixConfigure) ConfigureJuju() error {
 	}
 
 	w.conf.AddPackageCommands(
-		w.icfg.AptProxySettings,
-		w.icfg.AptMirror,
+		packageManagerProxySettings{
+			aptProxy:            w.icfg.AptProxySettings,
+			aptMirror:           w.icfg.AptMirror,
+			snapProxy:           w.icfg.SnapProxySettings,
+			snapStoreAssertions: w.icfg.SnapStoreAssertions,
+			snapStoreProxyID:    w.icfg.SnapStoreProxyID,
+		},
 		w.icfg.EnableOSRefreshUpdate,
 		w.icfg.EnableOSUpgrade,
 	)

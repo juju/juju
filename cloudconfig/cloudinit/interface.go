@@ -336,13 +336,22 @@ type RenderConfig interface {
 	getCommandsForAddingPackages() ([]string, error)
 }
 
+// PackageManagerProxyConfig provides access to the proxy settings for various
+// package managers.
+type PackageManagerProxyConfig interface {
+	AptProxy() proxy.Settings
+	AptMirror() string
+	SnapProxy() proxy.Settings
+	SnapStoreAssertions() string
+	SnapStoreProxyID() string
+}
+
 // Makes two more advanced package commands available
 type AdvancedPackagingConfig interface {
 	// Adds the necessary commands for installing the required packages for
 	// each OS is they are necessary.
 	AddPackageCommands(
-		aptProxySettings proxy.Settings,
-		aptMirror string,
+		proxyCfg PackageManagerProxyConfig,
 		addUpdateScripts bool,
 		addUpgradeScripts bool,
 	)
@@ -356,7 +365,7 @@ type AdvancedPackagingConfig interface {
 
 	//TODO(bogdanteleaga): this might be the same as the exported proxy setting up above, need
 	//to investigate how they're used
-	updateProxySettings(proxy.Settings)
+	updateProxySettings(PackageManagerProxyConfig)
 
 	// RequiresCloudArchiveCloudTools determines whether the cloudconfig
 	// requires the configuration of the cloud archive depending on its series.

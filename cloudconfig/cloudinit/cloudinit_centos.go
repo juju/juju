@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/packaging"
 	"github.com/juju/packaging/config"
-	"github.com/juju/proxy"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/network"
@@ -216,15 +215,13 @@ func (cfg *centOSCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 
 // AddPackageCommands is defined on the AdvancedPackagingConfig interface.
 func (cfg *centOSCloudConfig) AddPackageCommands(
-	packageProxySettings proxy.Settings,
-	packageMirror string,
+	proxyCfg PackageManagerProxyConfig,
 	addUpdateScripts bool,
 	addUpgradeScripts bool,
 ) {
 	addPackageCommandsCommon(
 		cfg,
-		packageProxySettings,
-		packageMirror,
+		proxyCfg,
 		addUpdateScripts,
 		addUpgradeScripts,
 		cfg.series,
@@ -254,7 +251,7 @@ func (cfg *centOSCloudConfig) addRequiredPackages() {
 //have apt_proxy and when we render it as bash we use the equivalent of this.
 //However on centOS even when rendering the YAML we use a helper function
 //addPackageProxyCmds. Research if calling the same is fine.
-func (cfg *centOSCloudConfig) updateProxySettings(proxySettings proxy.Settings) {
+func (cfg *centOSCloudConfig) updateProxySettings(PackageManagerProxyConfig) {
 }
 
 // AddNetworkConfig is defined on the NetworkingConfig interface.
