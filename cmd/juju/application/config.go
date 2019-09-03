@@ -35,8 +35,8 @@ const (
 displayed if no key is specified.
 
 By default, any configuration changes will be applied to the currently active
-generation. A specific generation can be targeted by using the --generation
-option with a value of "current" or "next".
+branch. A specific branch can be specified using the --branch option. 
+Immediate changes can be made to the model by specifying --branch=master.
 
 Output includes the name of the charm used to deploy the application and a
 listing of the application-specific configuration settings.
@@ -55,7 +55,7 @@ Examples:
     juju config apache2 --file path/to/config.yaml
     juju config mysql dataset-size=80% backup_dir=/vol1/mysql/backups
     juju config apache2 --model mymodel --file /home/ubuntu/mysql.yaml
-    juju config redis --generation next databases=32
+    juju config redis --branch test-branch databases=32
 
 See also:
     deploy
@@ -189,7 +189,7 @@ func (c *configCommand) validateGeneration() error {
 	// we set a default in lieu of empty values. This is an expediency
 	// during development. When we remove the flag, there will be tests
 	// (particularly feature tests) that will need to accommodate a value
-	// for generation in the local store.
+	// for branch in the local store.
 	if !featureflag.Enabled(feature.Generations) && c.branchName == "" {
 		c.branchName = model.GenerationMaster
 	}
