@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -238,6 +239,36 @@ func (s *CloudCredentialsSuite) TestRemoveModelsCredential(c *gc.C) {
 	defer helper.Release()
 	_, isSet := aModel.CloudCredential()
 	c.Assert(isSet, jc.IsFalse)
+}
+
+func (s *CloudCredentialsSuite) TestRemoveModelsCredentialConcurrentModelDelete(c *gc.C) {
+	logger := loggo.GetLogger("juju.state")
+	logger.SetLogLevel(loggo.TRACE)
+	cloudName, credentialOwner, credentialTag := assertCredentialCreated(c, s.ConnSuite)
+	modelUUID := assertModelCreated(c, s.ConnSuite, cloudName, credentialTag, credentialOwner.Tag(), "model-for-cloud")
+
+	deleteModel := func() {
+		aModel, helper, err := s.StatePool.GetModel(modelUUID)
+		c.Assert(err, jc.ErrorIsNil)
+		defer helper.Release()
+		err = aModel.SetDead()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(aModel.Refresh(), jc.ErrorIsNil)
+		c.Assert(aModel.Life(), gc.Equals, state.Dead)
+	}
+	defer state.SetBeforeHooks(c, s.State, deleteModel).Check()
+
+	err := s.State.RemoveModelsCredential(credentialTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	aModel, helper, err := s.StatePool.GetModel(modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	defer helper.Release()
+	_, isSet := aModel.CloudCredential()
+	// Since the model was marked 'dead' in the middle of 1st transaction attempt,
+	// and 2nd attempt would not have picked it up, the model credential would not actually be cleared.
+	c.Assert(isSet, jc.IsTrue)
+	c.Assert(c.GetTestLog(), jc.Contains, "creating operations to remove models credential, attempt 1")
 }
 
 func (s *CloudCredentialsSuite) TestRemoveModelsCredentialNotUsed(c *gc.C) {
