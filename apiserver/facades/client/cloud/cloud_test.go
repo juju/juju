@@ -878,7 +878,7 @@ func (s *cloudSuite) TestRevokeCredentials(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "RemoveCloudCredential")
+	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "RemoveCloudCredential", "RemoveModelsCredential")
 	c.Assert(results.Results, gc.HasLen, 3)
 	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
 		Message: `"machine-0" is not a valid cloudcred tag`,
@@ -901,7 +901,7 @@ func (s *cloudSuite) TestRevokeCredentialsAdminAccess(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "RemoveCloudCredential")
+	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "RemoveCloudCredential", "RemoveModelsCredential")
 	c.Assert(results.Results, gc.HasLen, 1)
 	// admin can revoke others' credentials
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -953,7 +953,7 @@ func (s *cloudSuite) TestRevokeCredentialsForceCantGetModels(c *gc.C) {
 		args: []params.RevokeCredentialArg{
 			{Tag: "cloudcred-meep_julia_three", Force: true},
 		},
-		callsMade: []string{"ControllerTag", "CredentialModels", "RemoveCloudCredential"},
+		callsMade: []string{"ControllerTag", "CredentialModels", "RemoveCloudCredential", "RemoveModelsCredential"},
 		results: params.ErrorResults{
 			Results: []params.ErrorResult{
 				{}, // no error: credential deleted
@@ -1021,7 +1021,7 @@ func (s *cloudSuite) TestRevokeCredentialsForceHasModel(c *gc.C) {
 		args: []params.RevokeCredentialArg{
 			{Tag: "cloudcred-meep_julia_three", Force: true},
 		},
-		callsMade: []string{"ControllerTag", "CredentialModels", "RemoveCloudCredential"},
+		callsMade: []string{"ControllerTag", "CredentialModels", "RemoveCloudCredential", "RemoveModelsCredential"},
 		results: params.ErrorResults{
 			Results: []params.ErrorResult{
 				{},
@@ -1043,7 +1043,7 @@ func (s *cloudSuite) TestRevokeCredentialsForceMany(c *gc.C) {
 			{Tag: "cloudcred-meep_julia_three", Force: true},
 			{Tag: "cloudcred-meep_bruce_three"},
 		},
-		callsMade: []string{"ControllerTag", "CredentialModels", "RemoveCloudCredential", "CredentialModels"},
+		callsMade: []string{"ControllerTag", "CredentialModels", "RemoveCloudCredential", "RemoveModelsCredential", "CredentialModels"},
 		results: params.ErrorResults{
 			Results: []params.ErrorResult{
 				{},
@@ -1053,6 +1053,33 @@ func (s *cloudSuite) TestRevokeCredentialsForceMany(c *gc.C) {
 		expectedLog: []string{
 			` WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three will be deleted but it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d`,
 			` WARNING juju.apiserver.cloud credential cloudcred-meep_bruce_three cannot be deleted as it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d`,
+		},
+	}
+	s.assertRevokeCredentials(c, t)
+}
+
+func (s *cloudSuite) TestRevokeCredentialsClearModelCredentialsError(c *gc.C) {
+	s.backend.SetErrors(
+		nil,                  // RemoveCloudCredential
+		errors.New("kaboom"), // RemoveModelsCredential
+	)
+	t := revokeCredentialData{
+		f: func(tag names.CloudCredentialTag) (map[string]string, error) {
+			return map[string]string{
+				coretesting.ModelTag.Id(): "modelName",
+			}, nil
+		},
+		args: []params.RevokeCredentialArg{
+			{Tag: "cloudcred-meep_julia_three", Force: true},
+		},
+		callsMade: []string{"ControllerTag", "CredentialModels", "RemoveCloudCredential", "RemoveModelsCredential"},
+		results: params.ErrorResults{
+			Results: []params.ErrorResult{
+				{common.ServerError(errors.New("kaboom"))},
+			},
+		},
+		expectedLog: []string{
+			` WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three will be deleted but it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d`,
 		},
 	}
 	s.assertRevokeCredentials(c, t)
@@ -1303,6 +1330,11 @@ func (st *mockBackend) RemoveCloudAccess(cloud string, user names.UserTag) error
 	st.MethodCall(st, "RemoveCloudAccess", cloud, user)
 	st.cloudAccess = permission.NoAccess
 	return nil
+}
+
+func (st *mockBackend) RemoveModelsCredential(tag names.CloudCredentialTag) error {
+	st.MethodCall(st, "RemoveModelsCredential", tag)
+	return st.NextErr()
 }
 
 type mockUser struct {
