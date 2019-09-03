@@ -832,6 +832,49 @@ func NewBootstrapInstanceConfig(
 	return icfg, nil
 }
 
+// ProxyConfiguration encapsulates all proxy-related settings that can be used
+// to populate an InstanceConfig.
+type ProxyConfiguration struct {
+	// Legacy proxy settings.
+	Legacy proxy.Settings
+
+	// Juju-specific proxy settings.
+	Juju proxy.Settings
+
+	// Apt-specific proxy settings.
+	Apt proxy.Settings
+
+	// Snap-specific proxy settings.
+	Snap proxy.Settings
+
+	// Apt mirror.
+	AptMirror string
+
+	// SnapStoreAssertions contains a list of assertions that must be
+	// passed to snapd together with a store proxy ID parameter before it
+	// can connect to a snap store proxy.
+	SnapStoreAssertions string
+
+	// SnapStoreProxyID references a store entry in the snap store
+	// assertion list that must be passed to snapd before it can connect to
+	// a snap store proxy.
+	SnapStoreProxyID string
+}
+
+// proxyConfigurationFromEnv populates a ProxyConfiguration object from an
+// environment Config value.
+func proxyConfigurationFromEnv(cfg *config.Config) ProxyConfiguration {
+	return ProxyConfiguration{
+		Legacy:              cfg.LegacyProxySettings(),
+		Juju:                cfg.JujuProxySettings(),
+		Apt:                 cfg.AptProxySettings(),
+		AptMirror:           cfg.AptMirror(),
+		Snap:                cfg.SnapProxySettings(),
+		SnapStoreAssertions: cfg.SnapStoreAssertions(),
+		SnapStoreProxyID:    cfg.SnapStoreProxy(),
+	}
+}
+
 // PopulateInstanceConfig is called both from the FinishInstanceConfig below,
 // which does have access to the environment config, and from the container
 // provisioners, which don't have access to the environment config. Everything
@@ -841,8 +884,7 @@ func NewBootstrapInstanceConfig(
 func PopulateInstanceConfig(icfg *InstanceConfig,
 	providerType, authorizedKeys string,
 	sslHostnameVerification bool,
-	legacyProxySettings, jujuProxySettings, aptProxySettings proxy.Settings,
-	aptMirror string,
+	proxyCfg ProxyConfiguration,
 	enableOSRefreshUpdates bool,
 	enableOSUpgrade bool,
 	cloudInitUserData map[string]interface{},
@@ -855,12 +897,15 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	icfg.AgentEnvironment[agent.ProviderType] = providerType
 	icfg.AgentEnvironment[agent.ContainerType] = string(icfg.MachineContainerType)
 	icfg.DisableSSLHostnameVerification = !sslHostnameVerification
-	icfg.LegacyProxySettings = legacyProxySettings
+	icfg.LegacyProxySettings = proxyCfg.Legacy
 	icfg.LegacyProxySettings.AutoNoProxy = strings.Join(icfg.APIHosts(), ",")
-	icfg.JujuProxySettings = jujuProxySettings
+	icfg.JujuProxySettings = proxyCfg.Juju
 	// No AutoNoProxy needed as juju no proxy values are CIDR aware.
-	icfg.AptProxySettings = aptProxySettings
-	icfg.AptMirror = aptMirror
+	icfg.AptProxySettings = proxyCfg.Apt
+	icfg.AptMirror = proxyCfg.AptMirror
+	icfg.SnapProxySettings = proxyCfg.Snap
+	icfg.SnapStoreAssertions = proxyCfg.SnapStoreAssertions
+	icfg.SnapStoreProxyID = proxyCfg.SnapStoreProxyID
 	icfg.EnableOSRefreshUpdate = enableOSRefreshUpdates
 	icfg.EnableOSUpgrade = enableOSUpgrade
 	icfg.CloudInitUserData = cloudInitUserData
@@ -885,10 +930,7 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 		cfg.Type(),
 		cfg.AuthorizedKeys(),
 		cfg.SSLHostnameVerification(),
-		cfg.LegacyProxySettings(),
-		cfg.JujuProxySettings(),
-		cfg.AptProxySettings(),
-		cfg.AptMirror(),
+		proxyConfigurationFromEnv(cfg),
 		cfg.EnableOSRefreshUpdate(),
 		cfg.EnableOSUpgrade(),
 		cfg.CloudInitUserData(),
