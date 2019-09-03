@@ -8,7 +8,6 @@ import (
 	stdtesting "testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	lxdclient "github.com/lxc/lxd/client"
@@ -99,10 +98,7 @@ func prepInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 		"lxd",
 		"",
 		false,
-		proxy.Settings{},
-		proxy.Settings{},
-		proxy.Settings{},
-		"",
+		instancecfg.ProxyConfiguration{},
 		false,
 		false,
 		nil,

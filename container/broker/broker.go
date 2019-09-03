@@ -15,6 +15,7 @@ import (
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
@@ -244,4 +245,18 @@ func combinedCloudInitData(
 	}
 
 	return cloudInitData, nil
+}
+
+// proxyConfigurationFromContainerCfg populates a ProxyConfiguration object
+// from an ContenerConfig API response.
+func proxyConfigurationFromContainerCfg(cfg params.ContainerConfig) instancecfg.ProxyConfiguration {
+	return instancecfg.ProxyConfiguration{
+		Legacy:              cfg.LegacyProxy,
+		Juju:                cfg.JujuProxy,
+		Apt:                 cfg.AptProxy,
+		AptMirror:           cfg.AptMirror,
+		Snap:                cfg.SnapProxy,
+		SnapStoreAssertions: cfg.SnapStoreAssertions,
+		SnapStoreProxyID:    cfg.SnapStoreProxyID,
+	}
 }
