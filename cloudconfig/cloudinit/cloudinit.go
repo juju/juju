@@ -7,6 +7,7 @@ package cloudinit
 import (
 	"strings"
 
+	jujupackaging "github.com/juju/juju/packaging"
 	"github.com/juju/packaging/commands"
 	"github.com/juju/packaging/config"
 	"github.com/juju/utils/shell"
@@ -18,11 +19,13 @@ type cloudConfig struct {
 	// series is the series for which this cloudConfig is made for.
 	series string
 
-	// paccmder is the PackageCommander for this cloudConfig.
-	paccmder commands.PackageCommander
+	// paccmder is a map containing PackageCommander instances for all
+	// package managers supported by a particular target.
+	paccmder map[jujupackaging.PackageManagerName]commands.PackageCommander
 
-	// pacconfer is the PackagingConfigurer for this cloudConfig.
-	pacconfer config.PackagingConfigurer
+	// pacconfer is a map containing PackagingConfigurer instances for all
+	// package managers supported by a particular target.
+	pacconfer map[jujupackaging.PackageManagerName]config.PackagingConfigurer
 
 	// renderer is the shell Renderer for this cloudConfig.
 	renderer shell.Renderer
@@ -79,8 +82,11 @@ type cloudConfig struct {
 }
 
 // getPackagingConfigurer is defined on the AdvancedPackagingConfig interface.
-func (cfg *cloudConfig) getPackagingConfigurer() config.PackagingConfigurer {
-	return cfg.pacconfer
+func (cfg *cloudConfig) getPackagingConfigurer(mgrName jujupackaging.PackageManagerName) config.PackagingConfigurer {
+	if cfg.pacconfer == nil {
+		return nil
+	}
+	return cfg.pacconfer[mgrName]
 }
 
 // GetSeries is defined on the CloudConfig interface.

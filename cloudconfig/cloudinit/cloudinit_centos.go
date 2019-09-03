@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	jujupackaging "github.com/juju/juju/packaging"
 	"github.com/juju/packaging"
 	"github.com/juju/packaging/config"
 	"gopkg.in/yaml.v2"
@@ -182,11 +183,12 @@ func (cfg *centOSCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 		cmds = append(cmds, addPackageMirrorCmd(cfg, newMirror))
 	}
 
+	pkgCmder := cfg.paccmder[jujupackaging.YumPackageManager]
 	for _, src := range cfg.PackageSources() {
 		// TODO(bogdanteleaga. aznashwan): Keys are usually offered by repositories, and you need to
 		// accept them. Check how this can be done non interactively.
 		cmds = append(cmds, LogProgressCmd("Adding yum repository: %s", src.URL))
-		cmds = append(cmds, cfg.paccmder.AddRepositoryCmd(src.URL))
+		cmds = append(cmds, pkgCmder.AddRepositoryCmd(src.URL))
 	}
 
 	// TODO(bogdanteleaga. aznashwan): Research what else needs to be done here
@@ -196,11 +198,11 @@ func (cfg *centOSCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 
 	if cfg.SystemUpdate() {
 		cmds = append(cmds, LogProgressCmd("Running yum update"))
-		cmds = append(cmds, "package_manager_loop "+cfg.paccmder.UpdateCmd())
+		cmds = append(cmds, "package_manager_loop "+pkgCmder.UpdateCmd())
 	}
 	if cfg.SystemUpgrade() {
 		cmds = append(cmds, LogProgressCmd("Running yum upgrade"))
-		cmds = append(cmds, "package_manager_loop "+cfg.paccmder.UpgradeCmd())
+		cmds = append(cmds, "package_manager_loop "+pkgCmder.UpgradeCmd())
 	}
 
 	pkgs := cfg.Packages()
@@ -208,7 +210,7 @@ func (cfg *centOSCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 		cmds = append([]string{LogProgressCmd(fmt.Sprintf("Installing %s", strings.Join(pkgs, ", ")))}, cmds...)
 	}
 	for _, pkg := range pkgs {
-		cmds = append(cmds, "package_manager_loop "+cfg.paccmder.InstallCmd(pkg))
+		cmds = append(cmds, "package_manager_loop "+pkgCmder.InstallCmd(pkg))
 	}
 	return cmds, nil
 }
@@ -238,9 +240,10 @@ func (cfg *centOSCloudConfig) addRequiredPackages() {
 	// In the event of the addition of such a repository, its addition should
 	// happen in the utils/packaging/config package whilst leaving the below
 	// code untouched.
+	pkgConfer := cfg.getPackagingConfigurer(jujupackaging.YumPackageManager)
 	for _, pack := range packages {
-		if config.SeriesRequiresCloudArchiveTools(cfg.series) && cfg.pacconfer.IsCloudArchivePackage(pack) {
-			cfg.AddPackage(strings.Join(cfg.pacconfer.ApplyCloudArchiveTarget(pack), " "))
+		if config.SeriesRequiresCloudArchiveTools(cfg.series) && pkgConfer.IsCloudArchivePackage(pack) {
+			cfg.AddPackage(strings.Join(pkgConfer.ApplyCloudArchiveTarget(pack), " "))
 		} else {
 			cfg.AddPackage(pack)
 		}
