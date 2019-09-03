@@ -175,11 +175,11 @@ func (c *addCredentialCommand) Init(args []string) (err error) {
 		return errors.New("Usage: juju add-credential <cloud-name> [-f <credentials.yaml>]")
 	}
 	c.CloudName = args[0]
-	c.controllerName, err = c.ControllerNameFromArg()
+	c.ControllerName, err = c.ControllerNameFromArg()
 	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
 		return errors.Trace(err)
 	}
-	if c.controllerName == "" {
+	if c.ControllerName == "" {
 		// No controller was specified explicitly and we did not detect a current controller,
 		// this operation should be local only.
 		c.Local = true
@@ -586,7 +586,7 @@ func (c *addCredentialCommand) promptFieldValue(p *interact.Pollster, attr jujuc
 }
 
 func (c *addCredentialCommand) credentialsAPI() (CredentialAPI, error) {
-	root, err := c.NewAPIRoot(c.Store, c.controllerName, "")
+	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -621,11 +621,11 @@ func (c *addCredentialCommand) addRemoteCredentials(ctxt *cmd.Context, all map[s
 		fmt.Fprintf(ctxt.Stdout, "No remote cloud %v found on the controller %v: credentials are not added remotely.\n"+
 			"Use 'juju clouds -c %v' to see what clouds are available remotely.\n"+
 			"User 'juju add-cloud %v -c %v' to add your cloud to the controller.\n",
-			c.CloudName, c.controllerName, c.controllerName, c.CloudName, c.controllerName)
+			c.CloudName, c.ControllerName, c.ControllerName, c.CloudName, c.ControllerName)
 		return nil
 	}
 
-	accountDetails, err := c.Store.AccountDetails(c.controllerName)
+	accountDetails, err := c.Store.AccountDetails(c.ControllerName)
 	if err != nil {
 		return err
 	}
@@ -641,7 +641,7 @@ func (c *addCredentialCommand) addRemoteCredentials(ctxt *cmd.Context, all map[s
 	results, err := client.UpdateCloudsCredentials(verified)
 	if err != nil {
 		logger.Errorf("%v", err)
-		ctxt.Warningf("Could not add credentials remotely, on controller %q", c.controllerName)
+		ctxt.Warningf("Could not add credentials remotely, on controller %q", c.ControllerName)
 	}
 	return processUpdateCredentialResult(ctxt, accountDetails, "added", results)
 }
