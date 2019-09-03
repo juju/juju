@@ -477,6 +477,43 @@ func (st *State) CredentialModels(tag names.CloudCredentialTag) (map[string]stri
 	return results, nil
 }
 
+// RemoveModelsCredential clears out given credential reference from all models that have it.
+func (st *State) RemoveModelsCredential(tag names.CloudCredentialTag) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		logger.Tracef("creating operations to remove models credential, attempt %d", attempt)
+		coll, cleanup := st.db().GetCollection(modelsC)
+		defer cleanup()
+
+		sel := bson.D{
+			{"cloud-credential", tag.Id()},
+			{"life", bson.D{{"$ne", Dead}}},
+		}
+		iter := coll.Find(sel).Iter()
+		defer iter.Close()
+
+		var ops []txn.Op
+		var doc bson.M
+		for iter.Next(&doc) {
+			id, ok := doc["_id"]
+			if !ok {
+				return nil, errors.New("no id found in model doc")
+			}
+
+			ops = append(ops, txn.Op{
+				C:      modelsC,
+				Id:     id,
+				Assert: notDeadDoc,
+				Update: bson.D{{"$set", bson.D{{"cloud-credential", ""}}}},
+			})
+		}
+		if err := iter.Close(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return ops, nil
+	}
+	return st.db().Run(buildTxn)
+}
+
 // CredentialOwnerModelAccess stores cloud credential model information for the credential owner
 // or an error retrieving it.
 type CredentialOwnerModelAccess struct {

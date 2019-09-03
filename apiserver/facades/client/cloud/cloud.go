@@ -902,9 +902,15 @@ func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialAr
 				continue
 			}
 		}
-
-		if err := api.backend.RemoveCloudCredential(tag); err != nil {
+		err = api.backend.RemoveCloudCredential(tag)
+		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
+		} else {
+			// If credential was successfully removed, we also want to clear all references to it from the models.
+			// lp#1841885
+			if err := api.backend.RemoveModelsCredential(tag); err != nil {
+				results.Results[i].Error = common.ServerError(err)
+			}
 		}
 	}
 	return results, nil
