@@ -697,11 +697,6 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 	// Set up a CAAS model to replace the IAAS one.
 	st := s.Factory.MakeCAASModel(c, nil)
 	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
-	// Close the state pool before the state object itself.
-	s.StatePool.Close()
-	s.StatePool = nil
-	err := s.State.Close()
-	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
 	s.Factory = factory.NewFactory(s.State, nil)
 	m, err := st.Model()
