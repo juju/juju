@@ -1458,14 +1458,28 @@ func (u *UniterAPI) ReadSettings(args params.RelationUnits) (params.SettingsResu
 			var node *state.Settings
 			node, err = relUnit.Settings()
 			settings = node.Map()
+
 		case names.ApplicationTag:
+			var relation *state.Relation
+			relation, err = u.getRelation(arg.Relation)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			isPeerRelation := len(relation.Endpoints()) == 1
 			token := u.leadershipChecker.LeadershipCheck(tag.Id(), u.auth.GetAuthTag().Id())
 			canAccess := func(tag names.Tag) bool {
-				// Only allow the leader unit to read the application
-				// settings.
-				return canAccessApp(tag) && token.Check(0, nil) == nil
+				if !canAccessApp(tag) {
+					return false
+				}
+				if isPeerRelation {
+					return true
+				}
+				// For provider-requirer relations only allow the
+				// leader unit to read the application settings.
+				return token.Check(0, nil) == nil
 			}
 			settings, err = u.getRelationAppSettings(canAccess, arg.Relation, tag)
+
 		default:
 			return nil, common.ErrPerm
 		}
@@ -1912,16 +1926,24 @@ func (u *UniterAPI) getOneRelationById(relId int) (params.RelationResult, error)
 	return result, nil
 }
 
-func (u *UniterAPI) getRelationAndUnit(canAccess common.AuthFunc, relTag string, unitTag names.UnitTag) (*state.Relation, *state.Unit, error) {
+func (u *UniterAPI) getRelation(relTag string) (*state.Relation, error) {
 	tag, err := names.ParseRelationTag(relTag)
 	if err != nil {
-		return nil, nil, common.ErrPerm
+		return nil, common.ErrPerm
 	}
 	rel, err := u.st.KeyRelation(tag.Id())
 	if errors.IsNotFound(err) {
-		return nil, nil, common.ErrPerm
+		return nil, common.ErrPerm
 	} else if err != nil {
-		return nil, nil, err
+		return nil, err
+	}
+	return rel, nil
+}
+
+func (u *UniterAPI) getRelationAndUnit(canAccess common.AuthFunc, relTag string, unitTag names.UnitTag) (*state.Relation, *state.Unit, error) {
+	rel, err := u.getRelation(relTag)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
 	if !canAccess(unitTag) {
 		return nil, nil, common.ErrPerm
