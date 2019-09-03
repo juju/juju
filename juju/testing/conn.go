@@ -123,7 +123,6 @@ type JujuConnSuite struct {
 	apiStates           []api.Connection // additional api.Connections to close on teardown
 	ControllerStore     jujuclient.ClientStore
 	BackingState        *state.State          // The State being used by the API server.
-	BackingStatePool    *state.StatePool      // The StatePool being used by the API server.
 	Hub                 *pubsub.StructuredHub // The central hub being used by the API server.
 	Controller          *cache.Controller     // The cache.Controller used by the API server.
 	LeaseManager        lease.Manager         // The lease manager being used by the API server.
@@ -595,13 +594,11 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	getStater := environ.(GetStater)
 	s.BackingState = getStater.GetStateInAPIServer()
-	s.BackingStatePool = getStater.GetStatePoolInAPIServer()
+	s.StatePool = getStater.GetStatePoolInAPIServer()
 	s.Hub = getStater.GetHubInAPIServer()
 	s.LeaseManager = getStater.GetLeaseManagerInAPIServer()
 	s.Controller = getStater.GetController()
 
-	s.StatePool, err = newState(s.ControllerConfig.ControllerUUID(), environ, s.MongoInfo(c))
-	c.Assert(err, jc.ErrorIsNil)
 	s.State = s.StatePool.SystemState()
 
 	s.Model, err = s.State.Model()
@@ -854,13 +851,6 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 				gc.Commentf("closing api state failed\n%s\n", errors.ErrorStack(err)),
 			)
 		}
-	}
-	// Close the state pool before we close the underlying state.
-	if s.StatePool != nil {
-		err := s.StatePool.Close()
-		c.Check(err, jc.ErrorIsNil)
-		s.StatePool = nil
-		s.State = nil
 	}
 
 	dummy.Reset(c)
