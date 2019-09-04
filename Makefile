@@ -92,7 +92,7 @@ run-tests:
 	$(eval TMP := $(shell mktemp -d juju-test-XXXX --tmpdir))
 	@echo 'go test --tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$PROJECT_PACKAGES -check.v'
 	@TMPDIR=$(TMP) go test --tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT_PACKAGES) -check.v
-	rm -r $(TMP)
+	@rm -r $(TMP)
 
 install: dep rebuild-schema go-install
 
