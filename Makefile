@@ -16,11 +16,18 @@ else
 	TEST_TIMEOUT := 1800s
 endif
 
+# Limit concurrency on s390x.
+ifeq ($(shell uname -p | sed -E 's/.*(s390x).*/golang/'), golang)
+	TEST_ARGS := -p 4
+else
+	TEST_ARGS := 
+endif
+
 # Enable verbose testing for reporting.
 ifeq ($(VERBOSE_CHECK), 1)
-	CHECK_ARGS = -v
+	CHECK_ARGS = -v $(TEST_ARGS)
 else
-	CHECK_ARGS =
+	CHECK_ARGS = $(TEST_ARGS)
 endif
 
 GIT_COMMIT = $(shell git -C $(PROJECT_DIR) rev-parse HEAD)
