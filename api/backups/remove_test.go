@@ -12,7 +12,7 @@ import (
 )
 
 type removeSuite struct {
-	backupsSuite
+	baseSuite
 }
 
 var _ = gc.Suite(&removeSuite{})

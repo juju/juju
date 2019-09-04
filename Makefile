@@ -16,11 +16,18 @@ else
 	TEST_TIMEOUT := 1800s
 endif
 
+# Limit concurrency on s390x.
+ifeq ($(shell uname -p | sed -E 's/.*(s390x).*/golang/'), golang)
+	TEST_ARGS := -p 4
+else
+	TEST_ARGS := 
+endif
+
 # Enable verbose testing for reporting.
 ifeq ($(VERBOSE_CHECK), 1)
-	CHECK_ARGS = -v
+	CHECK_ARGS = -v $(TEST_ARGS)
 else
-	CHECK_ARGS =
+	CHECK_ARGS = $(TEST_ARGS)
 endif
 
 GIT_COMMIT = $(shell git -C $(PROJECT_DIR) rev-parse HEAD)
@@ -77,11 +84,16 @@ pre-check:
 	@echo running pre-test checks
 	@INCLUDE_GOLINTERS=1 $(PROJECT_DIR)/scripts/verify.bash
 
-check: dep pre-check test
+check: dep pre-check run-tests
 
-test: dep
+test: dep run-tests
+
+# Can't make the length of the TMP dir too long or it hits socket name length issues.
+run-tests:
+	$(eval TMP := $(shell mktemp -d jj-XXX --tmpdir))
 	@echo 'go test --tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$PROJECT_PACKAGES -check.v'
-	@go test --tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT_PACKAGES) -check.v
+	@TMPDIR=$(TMP) go test --tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT_PACKAGES) -check.v
+	@rm -r $(TMP)
 
 install: dep rebuild-schema go-install
 
@@ -205,7 +217,7 @@ local-operator-update: check-k8s-model operator-image
 	$(foreach wm,$(kubeworkers), juju ssh -m ${JUJU_K8S_MODEL} $(wm) -- "zcat /tmp/jujud-operator-image.tar.gz | docker load" ; )
 
 .PHONY: build check install release-install release-build go-build go-install
-.PHONY: clean format simplify
+.PHONY: clean format simplify test run-tests
 .PHONY: install-dependencies
 .PHONY: rebuild-dependencies
 .PHONY: dep check-deps
