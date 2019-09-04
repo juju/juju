@@ -701,6 +701,7 @@ type ProxyConfigResult struct {
 	SnapProxySettings        ProxyConfig `json:"snap-proxy-settings,omitempty"`
 	SnapStoreProxyId         string      `json:"snap-store-id,omitempty"`
 	SnapStoreProxyAssertions string      `json:"snap-store-assertions,omitempty"`
+	SnapStoreProxyURL        string      `json:"snap-store-proxy-url,omitempty"`
 	Error                    *Error      `json:"error,omitempty"`
 }
 

@@ -82,6 +82,7 @@ type ProxyConfiguration struct {
 
 	SnapStoreProxyId         string
 	SnapStoreProxyAssertions string
+	SnapStoreProxyURL        string
 }
 
 // ProxyConfig returns the proxy settings for the current model.
@@ -118,6 +119,7 @@ func (api *API) ProxyConfig() (ProxyConfiguration, error) {
 
 		SnapStoreProxyId:         result.SnapStoreProxyId,
 		SnapStoreProxyAssertions: result.SnapStoreProxyAssertions,
+		SnapStoreProxyURL:        result.SnapStoreProxyURL,
 	}, nil
 }
 
