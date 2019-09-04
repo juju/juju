@@ -80,7 +80,8 @@ pre-check:
 check: dep pre-check test
 
 test: dep
-	go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT_PACKAGES) -check.v
+	@echo 'go test --tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$PROJECT_PACKAGES -check.v'
+	@go test --tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT_PACKAGES) -check.v
 
 install: dep rebuild-schema go-install
 
