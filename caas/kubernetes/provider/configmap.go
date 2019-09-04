@@ -116,3 +116,16 @@ func (k *kubernetesClient) listConfigMaps(labels map[string]string) ([]core.Conf
 	}
 	return cmList.Items, nil
 }
+
+func (k *kubernetesClient) deleteConfigMaps(appName string) error {
+	err := k.client().CoreV1().ConfigMaps(k.namespace).DeleteCollection(&v1.DeleteOptions{
+		PropagationPolicy: &defaultPropagationPolicy,
+	}, v1.ListOptions{
+		LabelSelector:        labelsToSelector(k.getConfigMapLabels(appName)),
+		IncludeUninitialized: true,
+	})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
+}

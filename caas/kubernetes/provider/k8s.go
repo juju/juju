@@ -1003,6 +1003,9 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteSecrets(appName); err != nil {
 		return errors.Trace(err)
 	}
+	if err := k.deleteConfigMaps(appName); err != nil {
+		return errors.Trace(err)
+	}
 	if err := k.deleteServiceAccountsRolesBindings(appName); err != nil {
 		return errors.Trace(err)
 	}

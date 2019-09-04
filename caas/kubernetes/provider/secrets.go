@@ -173,16 +173,14 @@ func (k *kubernetesClient) listSecrets(labels map[string]string) ([]core.Secret,
 }
 
 func (k *kubernetesClient) deleteSecrets(appName string) error {
-	secretList, err := k.client().CoreV1().Secrets(k.namespace).List(v1.ListOptions{
-		LabelSelector: applicationSelector(appName),
+	err := k.client().CoreV1().Secrets(k.namespace).DeleteCollection(&v1.DeleteOptions{
+		PropagationPolicy: &defaultPropagationPolicy,
+	}, v1.ListOptions{
+		LabelSelector:        labelsToSelector(k.getConfigMapLabels(appName)),
+		IncludeUninitialized: true,
 	})
-	if err != nil {
-		return errors.Trace(err)
+	if k8serrors.IsNotFound(err) {
+		return nil
 	}
-	for _, s := range secretList.Items {
-		if err := k.deleteSecret(s.Name, s.GetUID()); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
+	return errors.Trace(err)
 }
