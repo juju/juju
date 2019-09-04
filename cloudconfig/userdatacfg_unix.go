@@ -264,6 +264,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 			snapProxy:           w.icfg.SnapProxySettings,
 			snapStoreAssertions: w.icfg.SnapStoreAssertions,
 			snapStoreProxyID:    w.icfg.SnapStoreProxyID,
+			snapStoreProxyURL:   w.icfg.SnapStoreProxyURL,
 		},
 		w.icfg.EnableOSRefreshUpdate,
 		w.icfg.EnableOSUpgrade,

@@ -441,6 +441,7 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.SnapProxy = config.SnapProxySettings()
 	result.SnapStoreAssertions = config.SnapStoreAssertions()
 	result.SnapStoreProxyID = config.SnapStoreProxy()
+	result.SnapStoreProxyURL = config.SnapStoreProxyURL()
 	result.CloudInitUserData = config.CloudInitUserData()
 	result.ContainerInheritProperties = config.ContainerInheritProperies()
 	return result, nil

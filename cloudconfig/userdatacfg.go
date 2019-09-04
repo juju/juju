@@ -210,6 +210,7 @@ type packageManagerProxySettings struct {
 	snapProxy           proxy.Settings
 	snapStoreAssertions string
 	snapStoreProxyID    string
+	snapStoreProxyURL   string
 }
 
 // AptProxy implements cloudinit.PackageManagerConfig.
@@ -226,3 +227,6 @@ func (p packageManagerProxySettings) SnapStoreAssertions() string { return p.sna
 
 // SnapStoreProxyID implements cloudinit.PackageManagerConfig.
 func (p packageManagerProxySettings) SnapStoreProxyID() string { return p.snapStoreProxyID }
+
+// SnapStoreProxyURL implements cloudinit.PackageManagerConfig.
+func (p packageManagerProxySettings) SnapStoreProxyURL() string { return p.snapStoreProxyURL }

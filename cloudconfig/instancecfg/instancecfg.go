@@ -163,6 +163,11 @@ type InstanceConfig struct {
 	// a snap store proxy.
 	SnapStoreProxyID string
 
+	// SnapStoreProxyURL specifies the address of the snap store proxy. If
+	// specified instead of the assertions/storeID settings above, juju can
+	// directly contact the proxy to retrieve the assertions and store ID.
+	SnapStoreProxyURL string
+
 	// The type of Simple Stream to download and deploy on this instance.
 	ImageStream string
 
@@ -859,6 +864,11 @@ type ProxyConfiguration struct {
 	// assertion list that must be passed to snapd before it can connect to
 	// a snap store proxy.
 	SnapStoreProxyID string
+
+	// SnapStoreProxyURL specifies the address of the snap store proxy. If
+	// specified instead of the assertions/storeID settings above, juju can
+	// directly contact the proxy to retrieve the assertions and store ID.
+	SnapStoreProxyURL string
 }
 
 // proxyConfigurationFromEnv populates a ProxyConfiguration object from an
@@ -872,6 +882,7 @@ func proxyConfigurationFromEnv(cfg *config.Config) ProxyConfiguration {
 		Snap:                cfg.SnapProxySettings(),
 		SnapStoreAssertions: cfg.SnapStoreAssertions(),
 		SnapStoreProxyID:    cfg.SnapStoreProxy(),
+		SnapStoreProxyURL:   cfg.SnapStoreProxyURL(),
 	}
 }
 
@@ -906,6 +917,7 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	icfg.SnapProxySettings = proxyCfg.Snap
 	icfg.SnapStoreAssertions = proxyCfg.SnapStoreAssertions
 	icfg.SnapStoreProxyID = proxyCfg.SnapStoreProxyID
+	icfg.SnapStoreProxyURL = proxyCfg.SnapStoreProxyURL
 	icfg.EnableOSRefreshUpdate = enableOSRefreshUpdates
 	icfg.EnableOSUpgrade = enableOSUpgrade
 	icfg.CloudInitUserData = cloudInitUserData
