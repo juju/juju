@@ -10,5 +10,8 @@ import (
 )
 
 func TestPackage(t *testing.T) {
+	if !runStateTests {
+		t.Skip("skipping state tests since the skip_state_tests build tag was set")
+	}
 	coretesting.MgoTestPackage(t)
 }

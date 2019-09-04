@@ -320,7 +320,7 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 
 	// All clouds must have at least one default region - lp#1819409.
 	if len(newCloud.Regions) == 0 {
-		newCloud.Regions = []jujucloud.Region{{Name: "default"}}
+		newCloud.Regions = []jujucloud.Region{{Name: jujucloud.DefaultCloudRegion}}
 	}
 
 	var returnErr error
