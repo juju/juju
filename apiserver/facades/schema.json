@@ -4816,7 +4816,7 @@
     },
     {
         "Name": "Bundle",
-        "Version": 3,
+        "Version": 4,
         "Schema": {
             "type": "object",
             "properties": {
@@ -4836,6 +4836,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/BundleChangesResults"
+                        }
+                    }
+                },
+                "GetChangesMapArgs": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/BundleChangesParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/BundleChangesMapArgsResults"
                         }
                     }
                 }
@@ -4871,6 +4882,57 @@
                         "args",
                         "requires"
                     ]
+                },
+                "BundleChangesMapArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "method": {
+                            "type": "string"
+                        },
+                        "requires": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "id",
+                        "method",
+                        "args",
+                        "requires"
+                    ]
+                },
+                "BundleChangesMapArgsResults": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/BundleChangesMapArgs"
+                            }
+                        },
+                        "errors": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
                 },
                 "BundleChangesParams": {
                     "type": "object",
