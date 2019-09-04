@@ -4017,11 +4017,12 @@ func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
 }
 
 func (s *CAASApplicationSuite) TestWatchCloudService(c *gc.C) {
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	cloudSvc, err := s.State.SaveCloudService(state.SaveCloudServiceArgs{
 		Id: s.app.Name(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+
 	w := cloudSvc.Watch()
 	defer testing.AssertStop(c, w)
 
