@@ -47,6 +47,7 @@ Currently available charm hook tools are:
 
     action-fail              set action fail status with message
     action-get               get action parameters
+    action-log               record a progress message for the current action
     action-set               set action results
     add-metric               add metrics
     application-version-set  specify which version of the application is deployed
@@ -87,6 +88,7 @@ Aliases: help-tool, hook-tools
 var expectedCommands = []string{
 	"action-fail",
 	"action-get",
+	"action-log",
 	"action-set",
 	"add-metric",
 	"application-version-set",

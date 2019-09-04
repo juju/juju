@@ -85,6 +85,9 @@ type actionHookContext interface {
 
 	// SetActionFailed sets a failure state for the Action.
 	SetActionFailed() error
+
+	// LogActionMessage records a progress message for the Action.
+	LogActionMessage(string) error
 }
 
 // ContextUnit is the part of a hook context related to the unit.

@@ -288,6 +288,8 @@ func (s *InterfaceSuite) TestNonActionCallsToActionMethodsFail(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "not running an action")
 	err = ctx.SetActionMessage("foo")
 	c.Check(err, gc.ErrorMatches, "not running an action")
+	err = ctx.LogActionMessage("foo")
+	c.Check(err, gc.ErrorMatches, "not running an action")
 	err = ctx.UpdateActionResults([]string{"1", "2", "3"}, "value")
 	c.Check(err, gc.ErrorMatches, "not running an action")
 }
@@ -360,6 +362,13 @@ func (s *InterfaceSuite) TestSetActionMessage(c *gc.C) {
 	actionData, err := hctx.ActionData()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(actionData.ResultsMessage, gc.Equals, "because reasons")
+}
+
+// TestLogActionMessage ensures LogActionMessage works properly.
+func (s *InterfaceSuite) TestLogActionMessage(c *gc.C) {
+	hctx := context.GetStubActionContext(nil)
+	err := hctx.LogActionMessage("hello world")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *InterfaceSuite) TestRequestRebootAfterHook(c *gc.C) {

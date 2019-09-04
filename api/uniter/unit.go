@@ -635,6 +635,12 @@ func (u *Unit) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error) 
 	return u.st.WatchUpgradeSeriesNotifications()
 }
 
+// LogActionMessage logs a progress message for the specified action.
+func (u *Unit) LogActionMessage(tag names.ActionTag, message string) error {
+	// TODO(wallyworld) - add the facade code
+	return nil
+}
+
 // UpgradeSeriesStatus returns the upgrade series status of a unit from remote state
 func (u *Unit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 	res, err := u.st.UpgradeSeriesUnitStatus()
