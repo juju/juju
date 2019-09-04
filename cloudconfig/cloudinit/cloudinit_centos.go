@@ -220,8 +220,8 @@ func (cfg *centOSCloudConfig) AddPackageCommands(
 	proxyCfg PackageManagerProxyConfig,
 	addUpdateScripts bool,
 	addUpgradeScripts bool,
-) {
-	addPackageCommandsCommon(
+) error {
+	return addPackageCommandsCommon(
 		cfg,
 		proxyCfg,
 		addUpdateScripts,
@@ -254,7 +254,8 @@ func (cfg *centOSCloudConfig) addRequiredPackages() {
 //have apt_proxy and when we render it as bash we use the equivalent of this.
 //However on centOS even when rendering the YAML we use a helper function
 //addPackageProxyCmds. Research if calling the same is fine.
-func (cfg *centOSCloudConfig) updateProxySettings(PackageManagerProxyConfig) {
+func (cfg *centOSCloudConfig) updateProxySettings(PackageManagerProxyConfig) error {
+	return nil
 }
 
 // AddNetworkConfig is defined on the NetworkingConfig interface.

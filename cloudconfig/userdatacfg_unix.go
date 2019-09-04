@@ -257,7 +257,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 		}
 	}
 
-	w.conf.AddPackageCommands(
+	if err := w.conf.AddPackageCommands(
 		packageManagerProxySettings{
 			aptProxy:            w.icfg.AptProxySettings,
 			aptMirror:           w.icfg.AptMirror,
@@ -267,7 +267,9 @@ func (w *unixConfigure) ConfigureJuju() error {
 		},
 		w.icfg.EnableOSRefreshUpdate,
 		w.icfg.EnableOSUpgrade,
-	)
+	); err != nil {
+		return errors.Trace(err)
+	}
 
 	// Write out the normal proxy settings so that the settings are
 	// sourced by bash, and ssh through that.
