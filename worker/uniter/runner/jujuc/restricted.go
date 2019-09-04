@@ -153,6 +153,9 @@ func (*RestrictedContext) UpdateActionResults(keys []string, value string) error
 	return ErrRestrictedContext
 }
 
+// LogActionMessage implements hooks.Context.
+func (*RestrictedContext) LogActionMessage(string) error { return ErrRestrictedContext }
+
 // SetActionMessage implements hooks.Context.
 func (*RestrictedContext) SetActionMessage(string) error { return ErrRestrictedContext }
 

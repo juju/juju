@@ -570,6 +570,14 @@ func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
 	return ctx.actionData.Params, nil
 }
 
+// LogActionMessage logs a progress message for the Action.
+func (ctx *HookContext) LogActionMessage(message string) error {
+	if ctx.actionData == nil {
+		return errors.New("not running an action")
+	}
+	return ctx.unit.LogActionMessage(ctx.actionData.Tag, message)
+}
+
 // SetActionMessage sets a message for the Action, usually an error message.
 func (ctx *HookContext) SetActionMessage(message string) error {
 	if ctx.actionData == nil {
