@@ -77,15 +77,14 @@ func NewRunner(context Context, paths context.Paths, remoteExecutor ExecFunc) Ru
 
 // ExecParams holds all the necessary parameters for ExecFunc.
 type ExecParams struct {
-	Commands        []string
-	Env             []string
-	WorkingDir      string
-	Clock           clock.Clock
-	ProcessSetter   func(context.HookProcess)
-	Cancel          <-chan struct{}
-	Stdout          io.ReadWriter
-	Stderr          io.ReadWriter
-	ProcessResponse bool
+	Commands      []string
+	Env           []string
+	WorkingDir    string
+	Clock         clock.Clock
+	ProcessSetter func(context.HookProcess)
+	Cancel        <-chan struct{}
+	Stdout        io.ReadWriter
+	Stderr        io.ReadWriter
 }
 
 // execOnMachine executes commands on current machine.
@@ -172,15 +171,14 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 	}
 	var stdout, stderr bytes.Buffer
 	return executor(ExecParams{
-		Commands:        []string{commands},
-		Env:             env,
-		WorkingDir:      runner.paths.GetCharmDir(),
-		Clock:           clock,
-		ProcessSetter:   runner.context.SetProcess,
-		Cancel:          cancel,
-		Stdout:          &stdout,
-		Stderr:          &stderr,
-		ProcessResponse: true,
+		Commands:      []string{commands},
+		Env:           env,
+		WorkingDir:    runner.paths.GetCharmDir(),
+		Clock:         clock,
+		ProcessSetter: runner.context.SetProcess,
+		Cancel:        cancel,
+		Stdout:        &stdout,
+		Stderr:        &stderr,
 	})
 }
 
@@ -238,8 +236,10 @@ func (runner *runner) updateActionResults(results *utilexec.ExecResponse) error 
 	}
 
 	stdout, encoding := encodeBytes(results.Stdout)
-	if err := runner.context.UpdateActionResults([]string{"Stdout"}, stdout); err != nil {
-		return errors.Trace(err)
+	if stdout != "" {
+		if err := runner.context.UpdateActionResults([]string{"Stdout"}, stdout); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	if encoding != "utf8" {
 		if err := runner.context.UpdateActionResults([]string{"StdoutEncoding"}, encoding); err != nil {
@@ -248,8 +248,10 @@ func (runner *runner) updateActionResults(results *utilexec.ExecResponse) error 
 	}
 
 	stderr, encoding := encodeBytes(results.Stderr)
-	if err := runner.context.UpdateActionResults([]string{"Stderr"}, stderr); err != nil {
-		return errors.Trace(err)
+	if stderr != "" {
+		if err := runner.context.UpdateActionResults([]string{"Stderr"}, stderr); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	if encoding != "utf8" {
 		if err := runner.context.UpdateActionResults([]string{"StderrEncoding"}, encoding); err != nil {
@@ -313,6 +315,40 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 	return runner.runCharmHookOnLocal(hookName, env, charmLocation)
 }
 
+// loggerAdaptor implements MessageReceiver and
+// sends messages to a logger.
+type loggerAdaptor struct {
+	loggo.Logger
+}
+
+func (l *loggerAdaptor) Messagef(isPrefix bool, message string, args ...interface{}) {
+	l.Debugf(message, args...)
+}
+
+// bufferAdaptor implements MessageReceiver and
+// is used with the out writer from os.Pipe().
+// It allows the hook logger to grab console output
+// as well as passing the output to an action result.
+type bufferAdaptor struct {
+	io.ReadWriter
+	outCopy bytes.Buffer
+}
+
+func (b *bufferAdaptor) Read(p []byte) (n int, err error) {
+	return b.outCopy.Read(p)
+}
+
+func (b *bufferAdaptor) Messagef(isPrefix bool, message string, args ...interface{}) {
+	formattedMessage := message
+	if len(args) > 0 {
+		formattedMessage = fmt.Sprintf(message, args...)
+	}
+	if !isPrefix {
+		formattedMessage += "\n"
+	}
+	b.outCopy.WriteString(formattedMessage)
+}
+
 func (runner *runner) runCharmHookOnRemote(hookName string, env []string, charmLocation string) error {
 	charmDir := runner.paths.GetCharmDir()
 	hook := filepath.Join(charmDir, filepath.Join(charmLocation, hookName))
@@ -320,28 +356,63 @@ func (runner *runner) runCharmHookOnRemote(hookName string, env []string, charmL
 	var cancel chan struct{}
 	outReader, outWriter, err := os.Pipe()
 	if err != nil {
-		return errors.Errorf("cannot make logging pipe: %v", err)
+		return errors.Errorf("cannot make stdout logging pipe: %v", err)
 	}
 	defer outWriter.Close()
 
-	hookLogger := charmrunner.NewHookLogger(runner.getLogger(hookName), outReader)
-	defer hookLogger.Stop()
-	go hookLogger.Run()
+	actionOut := &bufferAdaptor{ReadWriter: outWriter}
+	hookOutLogger := charmrunner.NewHookLogger(outReader,
+		&loggerAdaptor{runner.getLogger(hookName)},
+		actionOut,
+	)
+	defer hookOutLogger.Stop()
+	go hookOutLogger.Run()
+
+	// When running an action, We capture stdout and stderr
+	// separately to pass back.
+	var actionErr = actionOut
+	_, err = runner.context.ActionData()
+	runningAction := err == nil
+	if runningAction {
+		errReader, errWriter, err := os.Pipe()
+		if err != nil {
+			return errors.Errorf("cannot make stderr logging pipe: %v", err)
+		}
+		defer errWriter.Close()
+
+		actionErr = &bufferAdaptor{ReadWriter: errWriter}
+		hookErrLogger := charmrunner.NewHookLogger(errReader,
+			&loggerAdaptor{runner.getLogger(hookName)},
+			actionErr,
+		)
+		defer hookErrLogger.Stop()
+		go hookErrLogger.Run()
+	}
 
 	executor, err := runner.getRemoteExecutor(runOnRemote)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = executor(
+	resp, err := executor(
 		ExecParams{
 			Commands:   []string{hook},
 			Env:        env,
 			WorkingDir: charmDir,
-			Stdout:     outWriter,
-			Stderr:     outWriter,
+			Stdout:     actionOut,
+			Stderr:     actionErr,
 			Cancel:     cancel,
 		},
 	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// If we are running an action, record stdout and stderr.
+	if runningAction {
+		if err := runner.updateActionResults(resp); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return errors.Trace(err)
 }
 
@@ -359,19 +430,65 @@ func (runner *runner) runCharmHookOnLocal(hookName string, env []string, charmLo
 	if err != nil {
 		return errors.Errorf("cannot make logging pipe: %v", err)
 	}
+	defer outWriter.Close()
+
 	ps.Stdout = outWriter
 	ps.Stderr = outWriter
-	hookLogger := charmrunner.NewHookLogger(runner.getLogger(hookName), outReader)
-	go hookLogger.Run()
+	actionOut := &bufferAdaptor{ReadWriter: outWriter}
+	hookOutLogger := charmrunner.NewHookLogger(outReader,
+		&loggerAdaptor{runner.getLogger(hookName)},
+		actionOut,
+	)
+	go hookOutLogger.Run()
+	defer hookOutLogger.Stop()
+
+	// When running an action, We capture stdout and stderr
+	// separately to pass back.
+	var actionErr io.Reader
+	_, err = runner.context.ActionData()
+	runningAction := err == nil
+	if runningAction {
+		errReader, errWriter, err := os.Pipe()
+		if err != nil {
+			return errors.Errorf("cannot make stderr logging pipe: %v", err)
+		}
+		defer errWriter.Close()
+
+		ps.Stderr = errWriter
+		errBuf := &bufferAdaptor{ReadWriter: errWriter}
+		actionErr = errBuf
+		hookErrLogger := charmrunner.NewHookLogger(errReader,
+			&loggerAdaptor{runner.getLogger(hookName)},
+			errBuf,
+		)
+		defer hookErrLogger.Stop()
+		go hookErrLogger.Run()
+	}
+
 	err = ps.Start()
-	outWriter.Close()
 	if err == nil {
 		// Record the *os.Process of the hook
 		runner.context.SetProcess(hookProcess{ps.Process})
 		// Block until execution finishes
 		err = ps.Wait()
 	}
-	hookLogger.Stop()
+
+	// If we are running an action, record stdout and stderr.
+	if runningAction {
+		readBytes := func(r io.Reader) []byte {
+			var o bytes.Buffer
+			o.ReadFrom(r)
+			return o.Bytes()
+		}
+		resp := &utilexec.ExecResponse{
+			Code:   ps.ProcessState.ExitCode(),
+			Stdout: readBytes(actionOut),
+			Stderr: readBytes(actionErr),
+		}
+		if err := runner.updateActionResults(resp); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return errors.Trace(err)
 }
 

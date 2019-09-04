@@ -4,16 +4,13 @@
 package state_test
 
 import (
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 
@@ -485,11 +482,6 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 }
 
 func (s *ActionSuite) TestFindActionTagsByPrefix(c *gc.C) {
-	prefix := "feedbeef"
-	uuidMock := uuidMockHelper{}
-	uuidMock.SetPrefixMask(prefix)
-	s.PatchValue(&state.NewUUID, uuidMock.NewUUID)
-
 	actions := []struct {
 		Name       string
 		Parameters map[string]interface{}
@@ -505,12 +497,13 @@ func (s *ActionSuite) TestFindActionTagsByPrefix(c *gc.C) {
 		c.Assert(err, gc.Equals, nil)
 	}
 
-	tags := s.model.FindActionTagsByPrefix(prefix)
+	tags := s.model.FindActionTagsByPrefix(s.application.Name())
 
 	c.Assert(len(tags), gc.Equals, len(actions))
 	for i, tag := range tags {
-		c.Logf("check %q against %d:%q", prefix, i, tag)
-		c.Check(tag.Id()[:len(prefix)], gc.Equals, prefix)
+		appName := s.application.Name()
+		c.Logf("check %q against %d:%q", appName, i, tag)
+		c.Check(tag.Id()[:len(appName)], gc.Equals, appName)
 	}
 }
 
@@ -913,59 +906,6 @@ func (r mockAR) CompletedActions() ([]state.Action, error)       { return nil, n
 func (r mockAR) PendingActions() ([]state.Action, error)         { return nil, nil }
 func (r mockAR) RunningActions() ([]state.Action, error)         { return nil, nil }
 func (r mockAR) Tag() names.Tag                                  { return names.NewUnitTag(r.id) }
-
-// TestMock verifies the mock UUID generator works as expected.
-func (s *ActionSuite) TestMock(c *gc.C) {
-	prefix := "abbadead"
-	uuidMock := uuidMockHelper{}
-	uuidMock.SetPrefixMask(prefix)
-	s.PatchValue(&state.NewUUID, uuidMock.NewUUID)
-	for i := 0; i < 10; i++ {
-		uuid, err := state.NewUUID()
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(uuid.String()[:len(prefix)], gc.Equals, prefix)
-	}
-}
-
-type uuidGenFn func() (utils.UUID, error)
-type uuidMockHelper struct {
-	original   uuidGenFn
-	prefixMask []byte
-}
-
-func (h *uuidMockHelper) SetPrefixMask(prefix string) error {
-	prefix = strings.Replace(prefix, "-", "", 4)
-	mask, err := hex.DecodeString(prefix)
-	if err != nil {
-		return err
-	}
-	if len(mask) > 16 {
-		return errors.Errorf("prefix mask longer than uuid %q", prefix)
-	}
-	h.prefixMask = mask
-	return nil
-}
-
-func (h *uuidMockHelper) NewUUID() (utils.UUID, error) {
-	uuidGenFn := h.original
-	if uuidGenFn == nil {
-		uuidGenFn = utils.NewUUID
-	}
-	uuid, err := uuidGenFn()
-	if err != nil {
-		return uuid, errors.Trace(err)
-	}
-	return h.mask(uuid), nil
-}
-
-func (h *uuidMockHelper) mask(uuid utils.UUID) utils.UUID {
-	if len(h.prefixMask) > 0 {
-		for i, b := range h.prefixMask {
-			uuid[i] = b
-		}
-	}
-	return uuid
-}
 
 type ActionPruningSuite struct {
 	statetesting.StateWithWallClockSuite

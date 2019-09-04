@@ -4,6 +4,7 @@
 package state
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -263,14 +264,34 @@ func newAction(st *State, adoc actionDoc) Action {
 // newActionDoc builds the actionDoc with the given name and parameters.
 func newActionDoc(mb modelBackend, receiverTag names.Tag, actionName string, parameters map[string]interface{}) (actionDoc, actionNotificationDoc, error) {
 	prefix := ensureActionMarker(receiverTag.Id())
-	actionId, err := NewUUID()
-	if err != nil {
-		return actionDoc{}, actionNotificationDoc{}, err
+	// For actions run on units, we want to use a user friendly action id.
+	// Theoretically, an action receiver could also be a machine, but for
+	// now we'll continue to use a UUID for that case, since I don't think
+	// we support machine actions anymore.
+	var actionId string
+	if receiverTag.Kind() == names.UnitTagKind {
+		appName, err := names.UnitApplication(receiverTag.Id())
+		if err != nil {
+			return actionDoc{}, actionNotificationDoc{}, err
+		}
+		id, err := sequence(mb, "action-"+appName)
+		if err != nil {
+			return actionDoc{}, actionNotificationDoc{}, err
+		}
+		// Start numbering from 1 not 0.
+		id++
+		actionId = fmt.Sprintf("%v-%v", appName, id)
+	} else {
+		actionUUID, err := NewUUID()
+		if err != nil {
+			return actionDoc{}, actionNotificationDoc{}, err
+		}
+		actionId = actionUUID.String()
 	}
 	actionLogger.Debugf("newActionDoc name: '%s', receiver: '%s', actionId: '%s'", actionName, receiverTag, actionId)
 	modelUUID := mb.modelUUID()
 	return actionDoc{
-			DocId:      mb.docID(actionId.String()),
+			DocId:      mb.docID(actionId),
 			ModelUUID:  modelUUID,
 			Receiver:   receiverTag.Id(),
 			Name:       actionName,
@@ -278,10 +299,10 @@ func newActionDoc(mb modelBackend, receiverTag names.Tag, actionName string, par
 			Enqueued:   mb.nowToTheSecond(),
 			Status:     ActionPending,
 		}, actionNotificationDoc{
-			DocId:     mb.docID(prefix + actionId.String()),
+			DocId:     mb.docID(prefix + actionId),
 			ModelUUID: modelUUID,
 			Receiver:  receiverTag.Id(),
-			ActionID:  actionId.String(),
+			ActionID:  actionId,
 		}, nil
 }
 

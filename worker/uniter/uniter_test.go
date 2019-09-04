@@ -1195,7 +1195,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			addAction{"action-log", nil},
 			waitActionResults{[]actionResult{{
 				name:    "action-log",
-				results: map[string]interface{}{},
+				results: map[string]interface{}{"Code": "0"},
 				status:  params.ActionCompleted,
 			}}},
 			waitUnitAgent{status: status.Idle},
@@ -1227,7 +1227,8 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			waitActionResults{[]actionResult{{
 				name: "action-log-fail",
 				results: map[string]interface{}{
-					"foo": "still works",
+					"Code": "0",
+					"foo":  "still works",
 				},
 				message: "I'm afraid I can't let you do that, Dave.",
 				status:  params.ActionFailed,
@@ -1260,7 +1261,9 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			waitActionResults{[]actionResult{{
 				name: "action-log-fail-error",
 				results: map[string]interface{}{
-					"foo": "still works",
+					"Code":   "0",
+					"Stderr": `ERROR unrecognized args: ["many" "arguments"]` + "\n",
+					"foo":    "still works",
 				},
 				message: "A real message",
 				status:  params.ActionFailed,
@@ -1297,6 +1300,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			waitActionResults{[]actionResult{{
 				name: "snapshot",
 				results: map[string]interface{}{
+					"Code": "0",
 					"outfile": map[string]interface{}{
 						"name": "snapshot-01.tar",
 						"size": map[string]interface{}{
@@ -1404,15 +1408,15 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			verifyCharm{},
 			waitActionResults{[]actionResult{{
 				name:    "action-log",
-				results: map[string]interface{}{},
+				results: map[string]interface{}{"Code": "0"},
 				status:  params.ActionCompleted,
 			}, {
 				name:    "action-log",
-				results: map[string]interface{}{},
+				results: map[string]interface{}{"Code": "0"},
 				status:  params.ActionCompleted,
 			}, {
 				name:    "action-log",
-				results: map[string]interface{}{},
+				results: map[string]interface{}{"Code": "0"},
 				status:  params.ActionCompleted,
 			}}},
 			waitUnitAgent{status: status.Idle},
@@ -1469,7 +1473,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			waitActionResults{[]actionResult{{
 				name:    "action-log",
-				results: map[string]interface{}{},
+				results: map[string]interface{}{"Code": "0"},
 				status:  params.ActionCompleted,
 			}}},
 			waitUnitAgent{
@@ -1600,6 +1604,8 @@ func (s *UniterSuite) TestRebootDisabledInActions(c *gc.C) {
 			waitActionResults{[]actionResult{{
 				name: "action-reboot",
 				results: map[string]interface{}{
+					"Code":           "0",
+					"Stderr":         "ERROR juju-reboot is not supported when running an action.\nERROR juju-reboot is not supported when running an action.\n",
 					"reboot-delayed": "good",
 					"reboot-now":     "good",
 				},
