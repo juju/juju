@@ -230,13 +230,10 @@ func getNewRunnerExecutor(
 				o.ReadFrom(r)
 				return o.Bytes()
 			}
-			if params.ProcessResponse {
-				return &utilexec.ExecResponse{
-					Stdout: readBytes(params.Stdout),
-					Stderr: readBytes(params.Stderr),
-				}, nil
-			}
-			return &utilexec.ExecResponse{}, nil
+			return &utilexec.ExecResponse{
+				Stdout: readBytes(params.Stdout),
+				Stderr: readBytes(params.Stderr),
+			}, nil
 		}
 	}
 }

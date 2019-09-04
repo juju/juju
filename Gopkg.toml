@@ -158,7 +158,7 @@
   name = "gopkg.in/juju/environschema.v1"
 
 [[constraint]]
-  revision = "5ed389481ee8344db732cf8a65a8bbfeb42dc79d"
+  revision = "49183320c914a3413d7c36bfe81906ff2a1f62c0"
   name = "gopkg.in/juju/names.v3"
 
 [[constraint]]

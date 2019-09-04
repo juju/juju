@@ -345,6 +345,92 @@ outcome: success
 result-map:
   message: hello`[1:],
 	}, {
+		should:   "run a basic action with no params with plain output including stdout, stderr",
+		withArgs: []string{validUnitId, "some-action"},
+		withTags: tagsForIdPrefix(validActionId, validActionTagString),
+		withActionResults: []params.ActionResult{{
+			Action: &params.Action{
+				Tag:      validActionTagString,
+				Receiver: names.NewUnitTag(validUnitId).String(),
+				Name:     "some-action",
+			},
+			Status: "completed",
+			Output: map[string]interface{}{
+				"Code":           "0",
+				"Stdout":         "hello",
+				"Stderr":         "world",
+				"StdoutEncoding": "utf-8",
+				"StderrEncoding": "utf-8",
+				"outcome":        "success",
+				"result-map": map[string]interface{}{
+					"message": "hello",
+				},
+			},
+			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
+			Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
+		}},
+		expectedActionEnqueued: []params.Action{{
+			Name:       "some-action",
+			Parameters: map[string]interface{}{},
+			Receiver:   names.NewUnitTag(validUnitId).String(),
+		}},
+		expectedOutput: `
+outcome: success
+result-map:
+  message: hello
+
+hello
+world`[1:],
+	}, {
+		should:   "run a basic action with no params with yaml output including stdout, stderr",
+		withArgs: []string{validUnitId, "some-action", "--format", "yaml"},
+		withTags: tagsForIdPrefix(validActionId, validActionTagString),
+		withActionResults: []params.ActionResult{{
+			Action: &params.Action{
+				Tag:      validActionTagString,
+				Receiver: names.NewUnitTag(validUnitId).String(),
+				Name:     "some-action",
+			},
+			Status: "completed",
+			Output: map[string]interface{}{
+				"Code":           "0",
+				"Stdout":         "hello",
+				"Stderr":         "world",
+				"StdoutEncoding": "utf-8",
+				"StderrEncoding": "utf-8",
+				"outcome":        "success",
+				"result-map": map[string]interface{}{
+					"message": "hello",
+				},
+			},
+			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
+			Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
+		}},
+		expectedActionEnqueued: []params.Action{{
+			Name:       "some-action",
+			Parameters: map[string]interface{}{},
+			Receiver:   names.NewUnitTag(validUnitId).String(),
+		}},
+		expectedOutput: `
+mysql/0:
+  id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+  results:
+    Code: "0"
+    Stderr: world
+    StderrEncoding: utf-8
+    Stdout: hello
+    StdoutEncoding: utf-8
+    outcome: success
+    result-map:
+      message: hello
+  status: completed
+  timing:
+    completed: 2015-02-14 08:17:00 +0000 UTC
+    enqueued: 2015-02-14 08:13:00 +0000 UTC
+    started: 2015-02-14 08:15:00 +0000 UTC`[1:],
+	}, {
 		should:   "run action on multiple units with stdout for each action",
 		withArgs: []string{validUnitId, validUnitId2, "some-action", "--format", "yaml"},
 		withTags: params.FindTagsResults{Matches: map[string][]params.Entity{
