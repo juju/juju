@@ -389,6 +389,17 @@ func (h *bundleHandler) getChanges() error {
 	if h.bundleURL != nil {
 		bundleURL = h.bundleURL.String()
 	}
+	// TODO(stickupkid): The following should use the new
+	// Bundle.getChangesMapArgs, with the fallback to Bundle.getChanges and
+	// with controllers without a Bundle facade should use the bundlechanges
+	// library.
+	// The real sticking point is that all the code below uses the bundlechanges
+	// library directly and that's just not cricket. Instead there should be
+	// some normalisation for all entry points, either that be a API or a
+	// library. Then walk over that normalised AST of changes to execute the
+	// changes required. That unfortunately is some re-factoring and would take
+	// some time to do that, hence why we're still using the library directly
+	// unlike other clients.
 	changes, err := bundlechanges.FromData(
 		bundlechanges.ChangesConfig{
 			Bundle:    h.data,
