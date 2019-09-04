@@ -25766,6 +25766,9 @@
                         "snap-store-proxy-id": {
                             "type": "string"
                         },
+                        "snap-store-proxy-url": {
+                            "type": "string"
+                        },
                         "ssl-hostname-verification": {
                             "type": "boolean"
                         }
@@ -25781,6 +25784,7 @@
                         "snap-proxy",
                         "snap-store-assertions",
                         "snap-store-proxy-id",
+                        "snap-store-proxy-url",
                         "apt-mirror",
                         "UpdateBehavior"
                     ]
@@ -27490,6 +27494,9 @@
                             "type": "string"
                         },
                         "snap-store-id": {
+                            "type": "string"
+                        },
+                        "snap-store-proxy-url": {
                             "type": "string"
                         }
                     },

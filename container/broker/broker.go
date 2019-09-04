@@ -258,5 +258,6 @@ func proxyConfigurationFromContainerCfg(cfg params.ContainerConfig) instancecfg.
 		Snap:                cfg.SnapProxy,
 		SnapStoreAssertions: cfg.SnapStoreAssertions,
 		SnapStoreProxyID:    cfg.SnapStoreProxyID,
+		SnapStoreProxyURL:   cfg.SnapStoreProxyURL,
 	}
 }

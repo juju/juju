@@ -345,6 +345,7 @@ type PackageManagerProxyConfig interface {
 	SnapProxy() proxy.Settings
 	SnapStoreAssertions() string
 	SnapStoreProxyID() string
+	SnapStoreProxyURL() string
 }
 
 // Makes two more advanced package commands available
