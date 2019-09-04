@@ -88,8 +88,9 @@ check: dep pre-check run-tests
 
 test: dep run-tests
 
+# Can't make the length of the TMP dir too long or it hits socket name length issues.
 run-tests:
-	$(eval TMP := $(shell mktemp -d juju-test-XXXX --tmpdir))
+	$(eval TMP := $(shell mktemp -d jj-XXX --tmpdir))
 	@echo 'go test --tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$PROJECT_PACKAGES -check.v'
 	@TMPDIR=$(TMP) go test --tags "$(BUILD_TAGS)" $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT_PACKAGES) -check.v
 	@rm -r $(TMP)
