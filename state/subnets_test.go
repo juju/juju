@@ -329,7 +329,7 @@ func (s *SubnetSuite) TestUpdateMAASUndefinedSpace(c *gc.C) {
 	subnetInfo := network.SubnetInfo{CIDR: "8.8.8.0/24"}
 	subnet, err := s.State.AddSubnet(subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace(names.NewSpaceTag("undefined").Id(), network.Id("-1"), []string{"8.8.8.0/24"}, false)
+	_, err = s.State.AddSpace(names.NewSpaceTag("undefined").Id(), network.Id("-1"), []string{subnet.ID()}, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	subnetInfo.SpaceName = "testme"
@@ -369,7 +369,7 @@ func (s *SubnetSuite) TestUpdateNonEmpty(c *gc.C) {
 	expectedSubnetInfo := network.SubnetInfo{CIDR: "8.8.8.0/24", VLANTag: 42, AvailabilityZones: []string{"changeme-az", "testme-az"}}
 	subnet, err := s.State.AddSubnet(expectedSubnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedSpace, err := s.State.AddSpace("changeme", network.Id("2"), []string{"8.8.8.0/24"}, false)
+	expectedSpace, err := s.State.AddSpace("changeme", network.Id("2"), []string{subnet.ID()}, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newSubnetInfo := network.SubnetInfo{

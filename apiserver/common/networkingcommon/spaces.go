@@ -59,14 +59,20 @@ func CreateOneSpace(backing NetworkBacking, args params.CreateSpaceParams) error
 		return errors.Trace(err)
 	}
 
-	for _, cidr := range args.CIDRs {
+	subnetIDs := make([]string, len(args.CIDRs))
+	for i, cidr := range args.CIDRs {
 		if !network.IsValidCidr(cidr) {
 			return errors.New(fmt.Sprintf("%q is not a valid CIDR", cidr))
 		}
+		subnet, err := backing.Subnet(cidr)
+		if err != nil {
+			return err
+		}
+		subnetIDs[i] = subnet.ID()
 	}
 
 	// Add the validated space.
-	err = backing.AddSpace(spaceTag.Id(), network.Id(args.ProviderId), args.CIDRs, args.Public)
+	err = backing.AddSpace(spaceTag.Id(), network.Id(args.ProviderId), subnetIDs, args.Public)
 	if err != nil {
 		return errors.Trace(err)
 	}
