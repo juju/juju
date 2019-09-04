@@ -77,10 +77,14 @@ pre-check:
 	@echo running pre-test checks
 	@INCLUDE_GOLINTERS=1 $(PROJECT_DIR)/scripts/verify.bash
 
-check: dep pre-check test
+check: dep pre-check run-tests
 
-test: dep
-	go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT_PACKAGES) -check.v
+test: dep run-tests
+
+run-tests:
+	$(eval TMP := $(shell mktemp -d juju-test-XXXXXXXX --tmpdir))
+	TMPDIR=$(TMP) go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT_PACKAGES) -check.v
+	rm -r $(TMP)
 
 install: dep rebuild-schema go-install
 
@@ -204,7 +208,7 @@ local-operator-update: check-k8s-model operator-image
 	$(foreach wm,$(kubeworkers), juju ssh -m ${JUJU_K8S_MODEL} $(wm) -- "zcat /tmp/jujud-operator-image.tar.gz | docker load" ; )
 
 .PHONY: build check install release-install release-build go-build go-install
-.PHONY: clean format simplify
+.PHONY: clean format simplify test run-tests
 .PHONY: install-dependencies
 .PHONY: rebuild-dependencies
 .PHONY: dep check-deps
