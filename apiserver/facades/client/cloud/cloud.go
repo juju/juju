@@ -1023,7 +1023,7 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 	aCloud := common.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud)
 	// All clouds must have at least one 'default' region, lp#1819409.
 	if len(aCloud.Regions) == 0 {
-		aCloud.Regions = []cloud.Region{{Name: "default"}}
+		aCloud.Regions = []cloud.Region{{Name: cloud.DefaultCloudRegion}}
 	}
 
 	err = api.backend.AddCloud(aCloud, api.apiUser.Name())
