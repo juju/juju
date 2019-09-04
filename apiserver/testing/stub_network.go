@@ -113,6 +113,21 @@ func (s StubNetwork) SetUpSuite(c *gc.C) {
 		ProviderId:        "vlan-42",
 		VLANTag:           42,
 		AvailabilityZones: []string{"zone3"},
+	}, {
+		CIDR:              "10.0.2.0/24",
+		ProviderId:        "sn-zadf00d-2",
+		ProviderNetworkId: "godspeed-2",
+		AvailabilityZones: []string{"zone1"},
+	}, {
+		CIDR:              "10.0.3.0/24",
+		ProviderId:        "sn-zadf00d-3",
+		ProviderNetworkId: "godspeed-3",
+		AvailabilityZones: []string{"zone1"},
+	}, {
+		CIDR:              "10.0.4.0/24",
+		ProviderId:        "sn-zadf00d-4",
+		ProviderNetworkId: "godspeed-4",
+		AvailabilityZones: []string{"zone1"},
 	}}
 
 	environs.RegisterProvider(StubProviderType, ProviderInstance)
@@ -455,6 +470,20 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 			&FakeSubnet{Info: info0, id: info0.SpaceID},
 			&FakeSubnet{Info: info1, id: info1.SpaceID},
 		}
+	}
+}
+
+func (sb *StubBacking) AdditionalSubnets() {
+	for i, info := range ProviderInstance.Subnets[10:] {
+		sb.Subnets = append(sb.Subnets, &FakeSubnet{
+			Info: networkingcommon.BackingSubnetInfo{
+				CIDR:              info.CIDR,
+				ProviderId:        info.ProviderId,
+				ProviderNetworkId: info.ProviderNetworkId,
+				AvailabilityZones: info.AvailabilityZones},
+			id: strconv.Itoa(i + 30),
+		},
+		)
 	}
 }
 
