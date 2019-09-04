@@ -16,7 +16,6 @@ import (
 func (k *kubernetesClient) getConfigMapLabels(appName string) map[string]string {
 	return map[string]string{
 		labelApplication: appName,
-		labelModel:       k.namespace,
 	}
 }
 
@@ -88,7 +87,7 @@ func (k *kubernetesClient) getConfigMap(cmName string) (*core.ConfigMap, error) 
 func (k *kubernetesClient) createConfigMap(cm *core.ConfigMap) (*core.ConfigMap, error) {
 	out, err := k.client().CoreV1().ConfigMaps(k.namespace).Create(cm)
 	if k8serrors.IsAlreadyExists(err) {
-		return nil, errors.AlreadyExistsf("configmap %q", out.GetName())
+		return nil, errors.AlreadyExistsf("configmap %q", cm.GetName())
 	}
 	return out, errors.Trace(err)
 }

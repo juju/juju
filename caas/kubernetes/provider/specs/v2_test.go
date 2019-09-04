@@ -222,7 +222,7 @@ foo: bar
 		pSpecs.Service = &specs.ServiceSpec{
 			Annotations: map[string]string{"foo": "bar"},
 		}
-		pSpecs.ConfigMaps = map[string]map[string]string{
+		pSpecs.ConfigMaps = map[string]specs.ConfigMap{
 			"mydata": {
 				"foo":   "bar",
 				"hello": "world",

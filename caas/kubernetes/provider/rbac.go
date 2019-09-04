@@ -444,12 +444,15 @@ func (k *kubernetesClient) ensureRoleBinding(rb *rbacv1.RoleBinding) (out *rbacv
 		logger.Debugf("role binding %q deleted", v.GetName())
 	}
 	out, err = k.createRoleBinding(rb)
+	if err != nil {
+		return nil, cleanups, errors.Trace(err)
+	}
 	if isFirstDeploy {
 		// only do cleanup for the first time, don't do this for existing deployments.
 		cleanups = append(cleanups, func() { k.deleteRoleBinding(out.GetName(), out.GetUID()) })
 	}
 	logger.Debugf("role binding %q created", rb.GetName())
-	return out, cleanups, errors.Trace(err)
+	return out, cleanups, nil
 }
 
 func (k *kubernetesClient) getRoleBinding(name string) (*rbacv1.RoleBinding, error) {
@@ -529,11 +532,14 @@ func (k *kubernetesClient) ensureClusterRoleBinding(crb *rbacv1.ClusterRoleBindi
 		logger.Debugf("cluster role binding %q deleted", v.GetName())
 	}
 	out, err = k.createClusterRoleBinding(crb)
+	if err != nil {
+		return nil, cleanups, errors.Trace(err)
+	}
 	if isFirstDeploy {
 		cleanups = append(cleanups, func() { k.deleteClusterRoleBinding(out.GetName(), out.GetUID()) })
 	}
 	logger.Debugf("cluster role binding %q created", crb.GetName())
-	return out, cleanups, errors.Trace(err)
+	return out, cleanups, nil
 }
 
 func (k *kubernetesClient) getClusterRoleBinding(name string) (*rbacv1.ClusterRoleBinding, error) {

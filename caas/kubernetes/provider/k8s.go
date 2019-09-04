@@ -532,7 +532,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 			return errors.Annotatef(err, "config map for %q should already exist", appName)
 		}
 	} else {
-		cmCleanUp, err := k.ensureConfigMap(operatorConfigMap(appName, operatorName, config))
+		cmCleanUp, err := k.ensureConfigMap(operatorConfigMap(appName, operatorName, k.getConfigMapLabels(appName), config))
 		cleanups = append(cleanups, cmCleanUp)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating ConfigMap")
@@ -2524,11 +2524,13 @@ func operatorPod(podName, appName, operatorServiceIP, agentPath, operatorImagePa
 
 // operatorConfigMap returns a *core.ConfigMap for the operator pod
 // of the specified application, with the specified configuration.
-func operatorConfigMap(appName, operatorName string, config *caas.OperatorConfig) *core.ConfigMap {
+func operatorConfigMap(appName, operatorName string, labels map[string]string, config *caas.OperatorConfig) *core.ConfigMap {
 	configMapName := operatorConfigMapName(operatorName)
 	return &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
 			Name: configMapName,
+			// TODO: properly labling operator resources could ensure all resources get deleted when application is removed.
+			Labels: labels,
 		},
 		Data: map[string]string{
 			appName + "-agent.conf": string(config.AgentConf),

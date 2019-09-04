@@ -18,7 +18,6 @@ import (
 func (k *kubernetesClient) getSecretLabels(appName string) map[string]string {
 	return map[string]string{
 		labelApplication: appName,
-		labelModel:       k.namespace,
 	}
 }
 
@@ -70,7 +69,7 @@ func (k *kubernetesClient) ensureOCIImageSecret(
 		ObjectMeta: v1.ObjectMeta{
 			Name:        imageSecretName,
 			Namespace:   k.namespace,
-			Labels:      map[string]string{labelApplication: appName},
+			Labels:      k.getSecretLabels(appName),
 			Annotations: annotations.ToMap()},
 		Type: core.SecretTypeDockerConfigJson,
 		Data: map[string][]byte{
@@ -130,7 +129,7 @@ func (k *kubernetesClient) getSecret(secretName string) (*core.Secret, error) {
 func (k *kubernetesClient) createSecret(secret *core.Secret) (*core.Secret, error) {
 	out, err := k.client().CoreV1().Secrets(k.namespace).Create(secret)
 	if k8serrors.IsAlreadyExists(err) {
-		return nil, errors.AlreadyExistsf("secret %q", out.GetName())
+		return nil, errors.AlreadyExistsf("secret %q", secret.GetName())
 	}
 	return out, errors.Trace(err)
 }

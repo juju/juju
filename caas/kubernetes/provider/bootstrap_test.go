@@ -704,19 +704,29 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 		s.mockSecrets.EXPECT().Update(secretWithServerPEMAdded).AnyTimes().
 			Return(secretWithServerPEMAdded, nil),
 
-		// ensure bootstrap-params configmap.
+		// initialize the empty configmap.
 		s.mockConfigMaps.EXPECT().Get("juju-controller-test-configmap", v1.GetOptions{IncludeUninitialized: true}).AnyTimes().
 			Return(nil, s.k8sNotFoundError()),
 		s.mockConfigMaps.EXPECT().Create(emptyConfigMap).AnyTimes().
 			Return(emptyConfigMap, nil),
+
+		// ensure bootstrap-params configmap.
 		s.mockConfigMaps.EXPECT().Get("juju-controller-test-configmap", v1.GetOptions{IncludeUninitialized: true}).AnyTimes().
 			Return(emptyConfigMap, nil),
+		s.mockConfigMaps.EXPECT().Create(configMapWithBootstrapParamsAdded).AnyTimes().
+			Return(nil, s.k8sAlreadyExistsError()),
+		s.mockConfigMaps.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==juju-controller-test", IncludeUninitialized: true}).Times(1).
+			Return(&core.ConfigMapList{Items: []core.ConfigMap{*emptyConfigMap}}, nil),
 		s.mockConfigMaps.EXPECT().Update(configMapWithBootstrapParamsAdded).AnyTimes().
 			Return(configMapWithBootstrapParamsAdded, nil),
 
 		// ensure agent.conf configmap.
 		s.mockConfigMaps.EXPECT().Get("juju-controller-test-configmap", v1.GetOptions{IncludeUninitialized: true}).AnyTimes().
 			Return(configMapWithBootstrapParamsAdded, nil),
+		s.mockConfigMaps.EXPECT().Create(configMapWithAgentConfAdded).AnyTimes().
+			Return(nil, s.k8sAlreadyExistsError()),
+		s.mockConfigMaps.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==juju-controller-test", IncludeUninitialized: true}).Times(1).
+			Return(&core.ConfigMapList{Items: []core.ConfigMap{*configMapWithBootstrapParamsAdded}}, nil),
 		s.mockConfigMaps.EXPECT().Update(configMapWithAgentConfAdded).AnyTimes().
 			Return(configMapWithAgentConfAdded, nil),
 
