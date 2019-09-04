@@ -76,7 +76,10 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.provisioner, gc.NotNil)
 
 	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.provisioner, s.BackingState, s.Model)
-	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState)
+	waitForModelWatchersIdle := func(c *gc.C) {
+		s.JujuConnSuite.WaitForModelWatchersIdle(c, s.BackingState.ModelUUID())
+	}
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState, waitForModelWatchersIdle)
 }
 
 func (s *provisionerSuite) assertGetOneMachine(c *gc.C, tag names.MachineTag) provisioner.MachineProvisioner {
