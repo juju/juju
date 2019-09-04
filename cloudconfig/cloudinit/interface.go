@@ -355,7 +355,7 @@ type AdvancedPackagingConfig interface {
 		proxyCfg PackageManagerProxyConfig,
 		addUpdateScripts bool,
 		addUpgradeScripts bool,
-	)
+	) error
 
 	// getPackagingConfigurer returns the PackagingConfigurer of the CloudConfig
 	// for the specified package manager.
@@ -367,7 +367,7 @@ type AdvancedPackagingConfig interface {
 
 	//TODO(bogdanteleaga): this might be the same as the exported proxy setting up above, need
 	//to investigate how they're used
-	updateProxySettings(PackageManagerProxyConfig)
+	updateProxySettings(PackageManagerProxyConfig) error
 
 	// RequiresCloudArchiveCloudTools determines whether the cloudconfig
 	// requires the configuration of the cloud archive depending on its series.

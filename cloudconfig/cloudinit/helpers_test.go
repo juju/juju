@@ -36,8 +36,9 @@ func (f *fakeCfg) SetSystemUpgrade(b bool) {
 func (f *fakeCfg) addRequiredPackages() {
 	f.calledAddReq = true
 }
-func (f *fakeCfg) updateProxySettings(s PackageManagerProxyConfig) {
+func (f *fakeCfg) updateProxySettings(s PackageManagerProxyConfig) error {
 	f.packageProxySettings = s.AptProxy()
+	return nil
 }
 
 func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
@@ -56,7 +57,8 @@ func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
 
 	upd, upg := true, true
 
-	addPackageCommandsCommon(f, proxyCfg, upd, upg, "trusty")
+	err := addPackageCommandsCommon(f, proxyCfg, upd, upg, "trusty")
+	c.Assert(err, gc.IsNil)
 	c.Assert(f.packageProxySettings, gc.Equals, pps)
 	c.Assert(f.packageMirror, gc.Equals, proxyCfg.aptMirror)
 	c.Assert(f.addUpdateScripts, gc.Equals, upd)
@@ -65,7 +67,8 @@ func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
 
 	f = &fakeCfg{}
 	upd, upg = false, false
-	addPackageCommandsCommon(f, proxyCfg, upd, upg, "trusty")
+	err = addPackageCommandsCommon(f, proxyCfg, upd, upg, "trusty")
+	c.Assert(err, gc.IsNil)
 	c.Assert(f.packageProxySettings, gc.Equals, pps)
 	c.Assert(f.packageMirror, gc.Equals, proxyCfg.aptMirror)
 	c.Assert(f.addUpdateScripts, gc.Equals, upd)
@@ -74,7 +77,8 @@ func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
 
 	f = &fakeCfg{}
 	upd, upg = false, false
-	addPackageCommandsCommon(f, proxyCfg, upd, upg, "precise")
+	err = addPackageCommandsCommon(f, proxyCfg, upd, upg, "precise")
+	c.Assert(err, gc.IsNil)
 	c.Assert(f.packageProxySettings, gc.Equals, pps)
 	c.Assert(f.packageMirror, gc.Equals, proxyCfg.aptMirror)
 	// for precise we need to override addUpdateScripts to always be true
@@ -90,6 +94,7 @@ type packageManagerProxySettings struct {
 	snapProxy           proxy.Settings
 	snapStoreAssertions string
 	snapStoreProxyID    string
+	snapStoreProxyURL   string
 }
 
 func (p packageManagerProxySettings) AptProxy() proxy.Settings    { return p.aptProxy }
@@ -97,3 +102,4 @@ func (p packageManagerProxySettings) AptMirror() string           { return p.apt
 func (p packageManagerProxySettings) SnapProxy() proxy.Settings   { return p.snapProxy }
 func (p packageManagerProxySettings) SnapStoreAssertions() string { return p.snapStoreAssertions }
 func (p packageManagerProxySettings) SnapStoreProxyID() string    { return p.snapStoreProxyID }
+func (p packageManagerProxySettings) SnapStoreProxyURL() string   { return p.snapStoreProxyURL }

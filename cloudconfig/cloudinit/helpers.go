@@ -18,7 +18,7 @@ func addPackageCommandsCommon(
 	addUpdateScripts bool,
 	addUpgradeScripts bool,
 	series string,
-) {
+) error {
 	// Set the package mirror.
 	cfg.SetPackageMirror(proxyCfg.AptMirror())
 
@@ -38,7 +38,7 @@ func addPackageCommandsCommon(
 	cfg.addRequiredPackages()
 
 	// TODO(bogdanteleaga): Deal with proxy settings on CentOS
-	cfg.updateProxySettings(proxyCfg)
+	return cfg.updateProxySettings(proxyCfg)
 }
 
 // renderScriptCommon is a helper function which generates a bash script that

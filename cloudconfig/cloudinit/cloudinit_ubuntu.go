@@ -122,8 +122,8 @@ func (cfg *ubuntuCloudConfig) AddPackageCommands(
 	proxyCfg PackageManagerProxyConfig,
 	addUpdateScripts bool,
 	addUpgradeScripts bool,
-) {
-	addPackageCommandsCommon(
+) error {
+	return addPackageCommandsCommon(
 		cfg,
 		proxyCfg,
 		addUpdateScripts,
@@ -303,7 +303,7 @@ func (cfg *ubuntuCloudConfig) addRequiredPackages() {
 }
 
 // Updates proxy settings used when rendering the conf as a script
-func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyConfig) {
+func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyConfig) error {
 	// Write out the apt proxy settings
 	if aptProxy := proxyCfg.AptProxy(); (aptProxy != proxy.Settings{}) {
 		pkgCmder := cfg.paccmder[jujupackaging.AptPackageManager]
@@ -331,4 +331,7 @@ func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyCo
 		cfg.AddBootCmd("snap ack /etc/snap.assertions")
 		cfg.AddBootCmd("snap set core proxy.store=" + proxyCfg.SnapStoreProxyID())
 	}
+
+	return nil
+}
 }
