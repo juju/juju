@@ -5,6 +5,8 @@ package proxyupdater_test
 
 import (
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path"
 	"path/filepath"
@@ -69,7 +71,7 @@ func (api fakeAPI) ProxyConfig() (proxyupdaterapi.ProxyConfiguration, error) {
 	return api.proxies, api.Err
 }
 
-func (api fakeAPI) WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatcher, error) {
+func (api *fakeAPI) WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatcher, error) {
 	if api.Watcher == nil {
 		w := newNotAWatcher()
 		api.Watcher = &w
@@ -487,11 +489,122 @@ func (s *ProxyUpdaterSuite) TestSnapStoreProxy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, updater)
 
+	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"please trust us", "snap", "ack", "/dev/stdin"})
+
 	// The http and https proxy values are set to be empty as it is the first pass through.
 	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "core",
 		"proxy.http=",
 		"proxy.https=",
 		"proxy.store=42",
 	})
-	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"please trust us", "snap", "ack", "/dev/stdin"})
+}
+
+func (s *ProxyUpdaterSuite) TestSnapStoreProxyURL(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("snap settings not handled on windows")
+	}
+
+	logger := s.config.Logger
+	calls := make(chan []string)
+	s.config.RunFunc = func(in string, cmd string, args ...string) (string, error) {
+		logger.Debugf("RunFunc(%q, %q, %#v)", in, cmd, args)
+		calls <- append([]string{in, cmd}, args...)
+		return "", nil
+	}
+
+	var (
+		srv *httptest.Server
+
+		proxyRes = `
+type: store
+authority-id: canonical
+store: WhatDoesTheBigRedButtonDo
+operator-id: 0123456789067OdMqoW9YLp3e0EgakQf
+timestamp: 2019-08-27T12:20:45.166790Z
+url: $url
+sign-key-sha3-384: BWDEoaqyr25nF5SNCvEv2v7QnM9QsfCc0PBMYD_i2NGSQ32EF2d4D0hqUel3m8ul
+
+DATA...
+DATA...
+`
+	)
+
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(proxyRes))
+	}))
+	proxyRes = strings.Replace(proxyRes, "$url", srv.URL, -1)
+	defer srv.Close()
+
+	s.api.proxies = proxyupdaterapi.ProxyConfiguration{
+		SnapStoreProxyURL: srv.URL,
+	}
+
+	updater, err := proxyupdater.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, updater)
+
+	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{proxyRes, "snap", "ack", "/dev/stdin"})
+
+	// The http and https proxy values are set to be empty as it is the first pass through.
+	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "core",
+		"proxy.http=",
+		"proxy.https=",
+		"proxy.store=WhatDoesTheBigRedButtonDo",
+	})
+}
+
+func (s *ProxyUpdaterSuite) TestSnapStoreProxyURLOverridesManualAssertion(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("snap settings not handled on windows")
+	}
+
+	logger := s.config.Logger
+	calls := make(chan []string)
+	s.config.RunFunc = func(in string, cmd string, args ...string) (string, error) {
+		logger.Debugf("RunFunc(%q, %q, %#v)", in, cmd, args)
+		calls <- append([]string{in, cmd}, args...)
+		return "", nil
+	}
+
+	var (
+		srv *httptest.Server
+
+		proxyRes = `
+type: store
+authority-id: canonical
+store: WhatDoesTheBigRedButtonDo
+operator-id: 0123456789067OdMqoW9YLp3e0EgakQf
+timestamp: 2019-08-27T12:20:45.166790Z
+url: $url
+sign-key-sha3-384: BWDEoaqyr25nF5SNCvEv2v7QnM9QsfCc0PBMYD_i2NGSQ32EF2d4D0hqUel3m8ul
+
+DATA...
+DATA...
+`
+	)
+
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(proxyRes))
+	}))
+	proxyRes = strings.Replace(proxyRes, "$url", srv.URL, -1)
+	defer srv.Close()
+
+	s.api.proxies = proxyupdaterapi.ProxyConfiguration{
+		SnapStoreProxyId:         "42",
+		SnapStoreProxyAssertions: "please trust us",
+		SnapStoreProxyURL:        srv.URL,
+	}
+
+	updater, err := proxyupdater.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, updater)
+
+	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{proxyRes, "snap", "ack", "/dev/stdin"})
+
+	// The http and https proxy values are set to be empty as it is the first pass through.
+	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "core",
+		"proxy.http=",
+		"proxy.https=",
+		"proxy.store=WhatDoesTheBigRedButtonDo",
+	})
 }
