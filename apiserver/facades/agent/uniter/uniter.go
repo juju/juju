@@ -1133,6 +1133,36 @@ func (u *UniterAPI) FinishActions(args params.ActionExecutionResults) (params.Er
 	return common.FinishActions(args, actionFn), nil
 }
 
+// LogActionsMessages records the log messages against the specified actions.
+func (u *UniterAPI) LogActionsMessages(args params.ActionMessageParams) (params.ErrorResults, error) {
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	m, err := u.st.Model()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	actionFn := common.AuthAndActionFromTagFn(canAccess, m.ActionByTag)
+
+	oneActionMessage := func(actionTag string, message string) error {
+		action, err := actionFn(actionTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return action.Log(message)
+	}
+
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Messages)),
+	}
+	for i, actionMessage := range args.Messages {
+		result.Results[i].Error = common.ServerError(
+			oneActionMessage(actionMessage.Tag, actionMessage.Value))
+	}
+	return result, nil
+}
+
 // RelationById returns information about all given relations,
 // specified by their ids, including their key and the local
 // endpoint.

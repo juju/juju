@@ -148,6 +148,22 @@ func (s *unitSuite) TestUnitStatus(c *gc.C) {
 	})
 }
 
+func (s *unitSuite) TestLogActionMessage(c *gc.C) {
+	anAction, err := s.wordpressUnit.AddAction("fakeaction", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = anAction.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.apiUnit.LogActionMessage(anAction.ActionTag(), "hello")
+	c.Assert(err, jc.ErrorIsNil)
+
+	anAction, err = s.Model.Action(anAction.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	messages := anAction.Messages()
+	c.Assert(messages, gc.HasLen, 1)
+	c.Assert(messages[0].Message, gc.Equals, "hello")
+	c.Assert(messages[0].Timestamp, gc.NotNil)
+}
+
 func (s *unitSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Alive)
 

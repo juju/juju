@@ -80,7 +80,7 @@ func (c *listCommand) Info() *cmd.Info {
 		Aliases: []string{"list-actions"},
 	})
 	if featureflag.Enabled(feature.JujuV3) {
-		info.Doc = strings.Replace(info.Doc, "run-action", "run", -1)
+		info.Doc = strings.Replace(info.Doc, "run-action", "call", -1)
 	}
 	return info
 }

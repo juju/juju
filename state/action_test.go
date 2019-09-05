@@ -270,6 +270,64 @@ act:
 	}
 }
 
+func (s *ActionSuite) TestActionMessages(c *gc.C) {
+	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	anAction, err := s.unit.AddAction("snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(anAction.Messages(), gc.HasLen, 0)
+
+	// Cannot log messages until action is running.
+	err = anAction.Log("hello")
+	c.Assert(err, gc.ErrorMatches, `cannot log message to operation "dummy-1" with status pending`)
+
+	anAction, err = anAction.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	messages := []string{"one", "two", "three"}
+	for i, msg := range messages {
+		err = anAction.Log(msg)
+		c.Assert(err, jc.ErrorIsNil)
+
+		a, err := s.Model.Action(anAction.Id())
+		c.Assert(err, jc.ErrorIsNil)
+		obtained := a.Messages()
+		c.Assert(obtained, gc.HasLen, i+1)
+		for j, am := range obtained {
+			c.Assert(am.Timestamp, gc.Equals, clock.Now())
+			c.Assert(am.Message, gc.Equals, messages[j])
+		}
+	}
+
+	// Cannot log messages after action finishes.
+	_, err = anAction.Finish(state.ActionResults{Status: state.ActionCompleted})
+	c.Assert(err, jc.ErrorIsNil)
+	err = anAction.Log("hello")
+	c.Assert(err, gc.ErrorMatches, `cannot log message to operation "dummy-1" with status completed`)
+}
+
+func (s *ActionSuite) TestActionLogMessageRace(c *gc.C) {
+	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	anAction, err := s.unit.AddAction("snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(anAction.Messages(), gc.HasLen, 0)
+
+	anAction, err = anAction.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		_, err = anAction.Finish(state.ActionResults{Status: state.ActionCompleted})
+		c.Assert(err, jc.ErrorIsNil)
+	})()
+
+	err = anAction.Log("hello")
+	c.Assert(err, gc.ErrorMatches, `cannot log message to operation "dummy-1" with status completed`)
+}
+
 // makeUnits prepares units with given Action schemas
 func makeUnits(c *gc.C, s *ActionSuite, units map[string]*state.Unit, schemas map[string]string) {
 	// A few dummy charms that haven't been used yet

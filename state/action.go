@@ -105,6 +105,15 @@ type actionDoc struct {
 
 	// Results are the structured results from the action.
 	Results map[string]interface{} `bson:"results"`
+
+	// Logs holds the progress messages logged by the action.
+	Logs []ActionMessage `bson:"messages"`
+}
+
+// ActionMessage represents a progress message logged by an action.
+type ActionMessage struct {
+	Message   string    `bson:"message"`
+	Timestamp time.Time `bson:"timestamp"`
 }
 
 // action represents an instruction to do some "action" and is expected
@@ -251,6 +260,43 @@ func (a *action) removeAndLog(finalStatus ActionStatus, results map[string]inter
 		return nil, err
 	}
 	return m.Action(a.Id())
+}
+
+// Messages returns the action's progress messages.
+func (a *action) Messages() []ActionMessage {
+	return append([]ActionMessage(nil), a.doc.Logs...)
+}
+
+// Log adds message to the action's progress message array.
+func (a *action) Log(message string) error {
+	m, err := a.st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			anAction, err := m.Action(a.Id())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			a = anAction.(*action)
+		}
+		if s := a.Status(); s != ActionRunning {
+			return nil, errors.Errorf("cannot log message to operation %q with status %v", a.Id(), s)
+		}
+		ops := []txn.Op{
+			{
+				C:      actionsC,
+				Id:     a.doc.DocId,
+				Assert: bson.D{{"status", ActionRunning}},
+				Update: bson.D{{"$push", bson.D{
+					{"messages", ActionMessage{Message: message, Timestamp: a.st.nowToTheSecond()}},
+				}}},
+			}}
+		return ops, nil
+	}
+	err = a.st.db().Run(buildTxn)
+	return errors.Trace(err)
 }
 
 // newAction builds an Action for the given State and actionDoc.
