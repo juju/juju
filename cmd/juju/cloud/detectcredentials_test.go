@@ -405,7 +405,7 @@ Saved credential to cloud test-cloud locally
 1. credential (existing, will overwrite)
 Select a credential to save by number, or type Q to quit: 
 
-Controller credential "blah" for user "admin@local" on cloud "test-cloud" loaded.
+Controller credential "blah" for user "admin@local" for cloud "test-cloud" on controller "controller" loaded.
 For more information, see ‘juju show-credential test-cloud blah’.
 `[1:])
 	c.Assert(called, jc.IsTrue)
