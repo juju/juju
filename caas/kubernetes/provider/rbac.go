@@ -24,10 +24,12 @@ func (k *kubernetesClient) getRBACLabels(appName string) map[string]string {
 func (k *kubernetesClient) ensureServiceAccountForApp(
 	appName string, caasSpec *specs.ServiceAccountSpec,
 ) (cleanups []func(), err error) {
+
 	labels := k.getRBACLabels(appName)
+
 	saSpec := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      caasSpec.Name,
+			Name:      caasSpec.GetName(),
 			Namespace: k.namespace,
 			Labels:    labels,
 		},
@@ -40,110 +42,81 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		return cleanups, errors.Trace(err)
 	}
 
-	roleSpec := caasSpec.Capabilities.Role
-	var roleRef rbacv1.RoleRef
-	switch roleSpec.Type {
-	case specs.Role:
-		var r *rbacv1.Role
-		var rCleanups []func()
-		if len(roleSpec.Rules) == 0 {
-			// no rules was specified, reference to an existing Role.
-			r, err = k.getRole(roleSpec.Name)
-			if err != nil {
-				return cleanups, errors.Trace(err)
-			}
-		} else {
-			// create or update Role.
-			r, rCleanups, err = k.ensureRole(&rbacv1.Role{
-				ObjectMeta: v1.ObjectMeta{
-					Name:      roleSpec.Name,
-					Namespace: k.namespace,
-					Labels:    labels,
-				},
-				Rules: roleSpec.Rules,
-			})
-			cleanups = append(cleanups, rCleanups...)
-			if err != nil {
-				return cleanups, errors.Trace(err)
-			}
+	// ensure roles.
+	if caasSpec.Rules != nil {
+		// create or update Role.
+		r, rCleanups, err := k.ensureRole(&rbacv1.Role{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      appName,
+				Namespace: k.namespace,
+				Labels:    labels,
+			},
+			Rules: []rbacv1.PolicyRule{*caasSpec.Rules},
+		})
+		cleanups = append(cleanups, rCleanups...)
+		if err != nil {
+			return cleanups, errors.Trace(err)
 		}
-		roleRef = rbacv1.RoleRef{
-			Name: r.GetName(),
-			Kind: string(roleSpec.Type),
-		}
-	case specs.ClusterRole:
-		var cr *rbacv1.ClusterRole
-		var cRCleanups []func()
-		if len(roleSpec.Rules) == 0 {
-			// no rules was specified, reference to an existing ClusterRole.
-			cr, err = k.getClusterRole(roleSpec.Name)
-			if err != nil {
-				return cleanups, errors.Trace(err)
-			}
-		} else {
-			// create or update ClusterRole.
-			cr, cRCleanups, err = k.ensureClusterRole(&rbacv1.ClusterRole{
-				ObjectMeta: v1.ObjectMeta{
-					Name:      roleSpec.Name,
-					Namespace: k.namespace,
-					Labels:    labels,
-				},
-				Rules: roleSpec.Rules,
-			})
-			cleanups = append(cleanups, cRCleanups...)
-			if err != nil {
-				return cleanups, errors.Trace(err)
-			}
-		}
-		roleRef = rbacv1.RoleRef{
-			Name: cr.GetName(),
-			Kind: string(roleSpec.Type),
-		}
-	default:
-		// this should never happen.
-		return cleanups, errors.New("unsupported Role type")
-	}
 
-	rbSpec := caasSpec.Capabilities.RoleBinding
-	roleBindingMeta := v1.ObjectMeta{
-		Name:      rbSpec.Name,
-		Namespace: sa.GetNamespace(),
-		Labels:    labels,
-	}
-	roleBindingSASubject := rbacv1.Subject{
-		Kind:      rbacv1.ServiceAccountKind,
-		Name:      sa.GetName(),
-		Namespace: sa.GetNamespace(),
-	}
-	switch rbSpec.Type {
-	case specs.RoleBinding:
+		// ensure rolebindings for roles.
 		_, rBCleanups, err := k.ensureRoleBinding(&rbacv1.RoleBinding{
-			ObjectMeta: roleBindingMeta,
-			RoleRef:    roleRef,
-			Subjects:   []rbacv1.Subject{roleBindingSASubject},
+			ObjectMeta: v1.ObjectMeta{
+				Name:      appName,
+				Namespace: k.namespace,
+				Labels:    labels,
+			},
+			RoleRef: rbacv1.RoleRef{
+				Name: r.GetName(),
+				Kind: "Role",
+			},
+			Subjects: []rbacv1.Subject{
+				rbacv1.Subject{
+					Kind:      rbacv1.ServiceAccountKind,
+					Name:      sa.GetName(),
+					Namespace: sa.GetNamespace(),
+				},
+			},
 		})
 		cleanups = append(cleanups, rBCleanups...)
 		if err != nil {
 			return cleanups, errors.Trace(err)
 		}
-	case specs.ClusterRoleBinding:
-		_, cRBCleanups, err := k.ensureClusterRoleBinding(&rbacv1.ClusterRoleBinding{
-			ObjectMeta: roleBindingMeta,
-			RoleRef:    roleRef,
-			Subjects:   []rbacv1.Subject{roleBindingSASubject},
+	}
+
+	for _, clusterRoleName := range caasSpec.ClusterRoleNames {
+		// check if ClusterRoles exist.
+		cR, err := k.getClusterRole(clusterRoleName)
+		if err != nil {
+			return cleanups, errors.Trace(err)
+		}
+		_, cRBCleanups, err := k.ensureRoleBinding(&rbacv1.RoleBinding{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      appName,
+				Namespace: k.namespace,
+				Labels:    labels,
+			},
+			RoleRef: rbacv1.RoleRef{
+				Name: cR.GetName(),
+				// TODO: Should we need to allow create `ClusterRoleBinding` for referencing existing ClusterRoles????????????
+				Kind: "ClusterRole",
+			},
+			Subjects: []rbacv1.Subject{
+				rbacv1.Subject{
+					Kind:      rbacv1.ServiceAccountKind,
+					Name:      sa.GetName(),
+					Namespace: sa.GetNamespace(),
+				},
+			},
 		})
 		cleanups = append(cleanups, cRBCleanups...)
 		if err != nil {
 			return cleanups, errors.Trace(err)
 		}
-	default:
-		// this should never happen.
-		return cleanups, errors.New("unsupported Role binding type")
 	}
 	return cleanups, nil
 }
 
-func (k *kubernetesClient) deleteServiceAccountsRolesBindings(appName string) error {
+func (k *kubernetesClient) deleteAllServiceAccountResources(appName string) error {
 	if err := k.deleteRoleBindings(appName); err != nil {
 		return errors.Trace(err)
 	}

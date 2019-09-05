@@ -1006,7 +1006,7 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteConfigMaps(appName); err != nil {
 		return errors.Trace(err)
 	}
-	if err := k.deleteServiceAccountsRolesBindings(appName); err != nil {
+	if err := k.deleteAllServiceAccountResources(appName); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -2598,7 +2598,11 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec)
 
 	spec.Service = podSpec.Service
 	spec.ConfigMaps = podSpec.ConfigMaps
-	spec.ServiceAccount = podSpec.ServiceAccount
+	if podSpec.ServiceAccount != nil {
+		spec.ServiceAccount = podSpec.ServiceAccount
+		// use application name for the service account if RBAC was requested.
+		spec.ServiceAccount.SetName(appName)
+	}
 	if podSpec.ProviderPod != nil {
 		pSpec, ok := podSpec.ProviderPod.(*k8sspecs.K8sPodSpec)
 		if !ok {
@@ -2619,11 +2623,9 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec)
 				spec.Pod.ReadinessGates = k8sResources.Pod.ReadinessGates
 			}
 		}
-
-		sa := spec.ServiceAccount
-		if sa != nil {
-			spec.Pod.ServiceAccountName = sa.Name
-			spec.Pod.AutomountServiceAccountToken = sa.AutomountServiceAccountToken
+		if spec.ServiceAccount != nil {
+			spec.Pod.ServiceAccountName = spec.ServiceAccount.GetName()
+			spec.Pod.AutomountServiceAccountToken = spec.ServiceAccount.AutomountServiceAccountToken
 		}
 	}
 	return &spec, nil

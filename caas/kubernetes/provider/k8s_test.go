@@ -70,7 +70,7 @@ func boolPtr(b bool) *bool {
 func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 	podSpec := specs.PodSpec{
 		ServiceAccount: &specs.ServiceAccountSpec{
-			Name:                         "serviceAccount",
+			ClusterRoleNames:             []string{"clusterRole1"},
 			AutomountServiceAccountToken: boolPtr(true),
 		},
 	}
@@ -135,7 +135,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 			{ConditionType: core.PodInitialized},
 		},
 		DNSPolicy:                    core.DNSClusterFirst,
-		ServiceAccountName:           "serviceAccount",
+		ServiceAccountName:           "app-name",
 		AutomountServiceAccountToken: boolPtr(true),
 		Containers: []core.Container{
 			{
@@ -1724,30 +1724,17 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionUpdate(c *gc.C) {
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	podSpec := getBasicPodspec()
 	podSpec.ServiceAccount = &specs.ServiceAccountSpec{
-		Name:                         "build-robot",
 		AutomountServiceAccountToken: boolPtr(true),
-		Capabilities: &specs.Capabilities{
-			RoleBinding: &specs.RoleBindingSpec{
-				Name: "read-pods",
-				Type: specs.ClusterRoleBinding,
-			},
-			Role: &specs.RoleSpec{
-				Name: "pod-reader",
-				Type: specs.ClusterRole,
-				Rules: []rbacv1.PolicyRule{
-					{
-						APIGroups: []string{""},
-						Resources: []string{"pods"},
-						Verbs:     []string{"get", "watch", "list"},
-					},
-				},
-			},
+		Rules: &rbacv1.PolicyRule{
+			APIGroups: []string{""},
+			Resources: []string{"pods"},
+			Verbs:     []string{"get", "watch", "list"},
 		},
 	}
 
@@ -1805,15 +1792,15 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 
 	svcAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "build-robot",
+			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
-	cr := &rbacv1.ClusterRole{
+	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "pod-reader",
+			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
@@ -1825,20 +1812,20 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 			},
 		},
 	}
-	crb := &rbacv1.ClusterRoleBinding{
+	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "read-pods",
+			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
 		RoleRef: rbacv1.RoleRef{
-			Name: "pod-reader",
-			Kind: "ClusterRole",
+			Name: "app-name",
+			Kind: "Role",
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      rbacv1.ServiceAccountKind,
-				Name:      "build-robot",
+				Name:      "app-name",
 				Namespace: "test",
 			},
 		},
@@ -1849,10 +1836,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Times(1).Return(svcAccount, nil),
-		s.mockClusterRoles.EXPECT().Create(cr).Times(1).Return(cr, nil),
-		s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).Times(1).
-			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{}}, nil),
-		s.mockClusterRoleBindings.EXPECT().Create(crb).Times(1).Return(crb, nil),
+		s.mockRoles.EXPECT().Create(role).Times(1).Return(role, nil),
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).Times(1).
+			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
+		s.mockRoleBindings.EXPECT().Create(rb).Times(1).Return(rb, nil),
 		s.mockSecrets.EXPECT().Create(secretArg).Times(1).Return(secretArg, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
@@ -1881,30 +1868,17 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	podSpec := getBasicPodspec()
 	podSpec.ServiceAccount = &specs.ServiceAccountSpec{
-		Name:                         "build-robot",
 		AutomountServiceAccountToken: boolPtr(true),
-		Capabilities: &specs.Capabilities{
-			RoleBinding: &specs.RoleBindingSpec{
-				Name: "read-pods",
-				Type: specs.ClusterRoleBinding,
-			},
-			Role: &specs.RoleSpec{
-				Name: "pod-reader",
-				Type: specs.ClusterRole,
-				Rules: []rbacv1.PolicyRule{
-					{
-						APIGroups: []string{""},
-						Resources: []string{"pods"},
-						Verbs:     []string{"get", "watch", "list"},
-					},
-				},
-			},
+		Rules: &rbacv1.PolicyRule{
+			APIGroups: []string{""},
+			Resources: []string{"pods"},
+			Verbs:     []string{"get", "watch", "list"},
 		},
 	}
 
@@ -1962,15 +1936,15 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 
 	svcAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "build-robot",
+			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
-	cr := &rbacv1.ClusterRole{
+	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "pod-reader",
+			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
@@ -1982,25 +1956,25 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 			},
 		},
 	}
-	crb := &rbacv1.ClusterRoleBinding{
+	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "read-pods",
+			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
 		RoleRef: rbacv1.RoleRef{
-			Name: "pod-reader",
-			Kind: "ClusterRole",
+			Name: "app-name",
+			Kind: "Role",
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      rbacv1.ServiceAccountKind,
-				Name:      "build-robot",
+				Name:      "app-name",
 				Namespace: "test",
 			},
 		},
 	}
-	crbUID := crb.GetUID()
+	rbUID := rb.GetUID()
 
 	secretArg := s.getOCIImageSecret(c, map[string]string{"fred": "mary"})
 	gomock.InOrder(
@@ -2010,14 +1984,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 		s.mockServiceAccounts.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).Times(1).
 			Return(&core.ServiceAccountList{Items: []core.ServiceAccount{*svcAccount}}, nil),
 		s.mockServiceAccounts.EXPECT().Update(svcAccount).Times(1).Return(svcAccount, nil),
-		s.mockClusterRoles.EXPECT().Create(cr).Times(1).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockClusterRoles.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).Times(1).
-			Return(&rbacv1.ClusterRoleList{Items: []rbacv1.ClusterRole{*cr}}, nil),
-		s.mockClusterRoles.EXPECT().Update(cr).Times(1).Return(cr, nil),
-		s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).Times(1).
-			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{*crb}}, nil),
-		s.mockClusterRoleBindings.EXPECT().Delete("read-pods", s.deleteOptions(v1.DeletePropagationForeground, &crbUID)).Times(1).Return(nil),
-		s.mockClusterRoleBindings.EXPECT().Create(crb).Times(1).Return(crb, nil),
+		s.mockRoles.EXPECT().Create(role).Times(1).Return(nil, s.k8sAlreadyExistsError()),
+		s.mockRoles.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).Times(1).
+			Return(&rbacv1.RoleList{Items: []rbacv1.Role{*role}}, nil),
+		s.mockRoles.EXPECT().Update(role).Times(1).Return(role, nil),
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).Times(1).
+			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb}}, nil),
+		s.mockRoleBindings.EXPECT().Delete("app-name", s.deleteOptions(v1.DeletePropagationForeground, &rbUID)).Times(1).Return(nil),
+		s.mockRoleBindings.EXPECT().Create(rb).Times(1).Return(rb, nil),
 		s.mockSecrets.EXPECT().Create(secretArg).Times(1).Return(secretArg, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
@@ -2052,19 +2026,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountReferenceExistingClu
 
 	podSpec := getBasicPodspec()
 	podSpec.ServiceAccount = &specs.ServiceAccountSpec{
-		Name:                         "build-robot",
 		AutomountServiceAccountToken: boolPtr(true),
-		Capabilities: &specs.Capabilities{
-			RoleBinding: &specs.RoleBindingSpec{
-				Name: "read-pods",
-				Type: specs.ClusterRoleBinding,
-			},
-			Role: &specs.RoleSpec{
-				Name: "pod-reader",
-				Type: specs.ClusterRole,
-				// No Rules specified, Get an existing Role to use.
-			},
-		},
+		ClusterRoleNames:             []string{"existingClusterRole1"},
 	}
 
 	numUnits := int32(2)
@@ -2121,17 +2084,15 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountReferenceExistingClu
 
 	svcAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "build-robot",
+			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
-	cr := &rbacv1.ClusterRole{
+	existingClusterRole := &rbacv1.ClusterRole{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "pod-reader",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Name: "existingClusterRole1",
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -2141,36 +2102,36 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountReferenceExistingClu
 			},
 		},
 	}
-	crb := &rbacv1.ClusterRoleBinding{
+	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "read-pods",
+			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
 		RoleRef: rbacv1.RoleRef{
-			Name: "pod-reader",
+			Name: "existingClusterRole1",
 			Kind: "ClusterRole",
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      rbacv1.ServiceAccountKind,
-				Name:      "build-robot",
+				Name:      "app-name",
 				Namespace: "test",
 			},
 		},
 	}
-	crbUID := crb.GetUID()
+	rbUID := rb.GetUID()
 
 	secretArg := s.getOCIImageSecret(c, map[string]string{"fred": "mary"})
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Times(1).Return(svcAccount, nil),
-		s.mockClusterRoles.EXPECT().Get("pod-reader", v1.GetOptions{IncludeUninitialized: true}).Times(1).Return(cr, nil),
-		s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).Times(1).
-			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{*crb}}, nil),
-		s.mockClusterRoleBindings.EXPECT().Delete("read-pods", s.deleteOptions(v1.DeletePropagationForeground, &crbUID)).Times(1).Return(nil),
-		s.mockClusterRoleBindings.EXPECT().Create(crb).Times(1).Return(crb, nil),
+		s.mockClusterRoles.EXPECT().Get("existingClusterRole1", v1.GetOptions{IncludeUninitialized: true}).Times(1).Return(existingClusterRole, nil),
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).Times(1).
+			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb}}, nil),
+		s.mockRoleBindings.EXPECT().Delete("app-name", s.deleteOptions(v1.DeletePropagationForeground, &rbUID)).Times(1).Return(nil),
+		s.mockRoleBindings.EXPECT().Create(rb).Times(1).Return(rb, nil),
 		s.mockSecrets.EXPECT().Create(secretArg).Times(1).Return(secretArg, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),

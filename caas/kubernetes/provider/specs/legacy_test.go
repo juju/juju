@@ -156,12 +156,7 @@ foo: bar
 `[1:]
 
 	getExpectedPodSpecBase := func() *specs.PodSpec {
-		pSpecs := &specs.PodSpec{
-			ServiceAccount: &specs.ServiceAccountSpec{
-				Name:                         "serviceAccountFoo",
-				AutomountServiceAccountToken: boolPtr(true),
-			},
-		}
+		pSpecs := &specs.PodSpec{}
 		// always parse to latest version.
 		pSpecs.Version = specs.CurrentVersion
 		pSpecs.OmitServiceFrontend = true

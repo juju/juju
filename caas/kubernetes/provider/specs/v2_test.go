@@ -116,19 +116,12 @@ service:
   annotations:
     foo: bar
 serviceAccount:
-  name: build-robot
   automountServiceAccountToken: true
-  capabilities:
-    roleBinding:
-      name: read-pods
-      type: ClusterRoleBinding
-    role:
-      name: pod-reader
-      type: ClusterRole
-      rules:
-      - apiGroups: [""]
-        resources: ["pods"]
-        verbs: ["get", "watch", "list"]
+  clusterRoleNames: [someClusterRole1, someClusterRole2]
+  rules:
+    apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "watch", "list"]
 kubernetesResources:
   pod:
     restartPolicy: OnFailure
@@ -198,24 +191,14 @@ foo: bar
 	getExpectedPodSpecBase := func() *specs.PodSpec {
 		pSpecs := &specs.PodSpec{
 			ServiceAccount: &specs.ServiceAccountSpec{
-				Name:                         "build-robot",
+				ClusterRoleNames: []string{
+					"someClusterRole1", "someClusterRole2",
+				},
 				AutomountServiceAccountToken: boolPtr(true),
-				Capabilities: &specs.Capabilities{
-					RoleBinding: &specs.RoleBindingSpec{
-						Name: "read-pods",
-						Type: specs.ClusterRoleBinding,
-					},
-					Role: &specs.RoleSpec{
-						Name: "pod-reader",
-						Type: specs.ClusterRole,
-						Rules: []rbacv1.PolicyRule{
-							{
-								APIGroups: []string{""},
-								Resources: []string{"pods"},
-								Verbs:     []string{"get", "watch", "list"},
-							},
-						},
-					},
+				Rules: &rbacv1.PolicyRule{
+					APIGroups: []string{""},
+					Resources: []string{"pods"},
+					Verbs:     []string{"get", "watch", "list"},
 				},
 			},
 		}
@@ -568,19 +551,18 @@ serviceAccount:
 	},
 }
 
-func (s *v2SpecsSuite) TestValidateServiceAccountFailed(c *gc.C) {
-	containerSpec := versionHeader + `
+func (s *v2SpecsSuite) TestValidateServiceAccountShouldBeOmittedForEmptyValue(c *gc.C) {
+	specStr := versionHeader + `
 containers:
   - name: gitlab-helper
     image: gitlab-helper/latest
     ports:
     - containerPort: 8080
       protocol: TCP
+serviceAccount:
+  automountServiceAccountToken: true
 `[1:]
 
-	for i, tc := range serviceAccountValidationTestCases {
-		c.Logf("%v: %s", i, tc.Title)
-		_, err := k8sspecs.ParsePodSpec(containerSpec + tc.Spec)
-		c.Check(err, gc.ErrorMatches, tc.Err)
-	}
+	_, err := k8sspecs.ParsePodSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, `rules or clusterRoleNames are required not valid`)
 }
