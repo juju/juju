@@ -256,6 +256,7 @@ func getBasicPodspec() *caas.PodSpec {
 				"restricted": "'yes'",
 				"bar":        true,
 				"switch":     "on",
+				"brackets":   `'["hello", "world"]'`,
 			},
 		}, {
 			Name:  "test2",
@@ -379,6 +380,7 @@ func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
 				WorkingDir: "/path/to/here",
 				Env: []core.EnvVar{
 					{Name: "bar", Value: "true"},
+					{Name: "brackets", Value: `["hello", "world"]`},
 					{Name: "foo", Value: "bar"},
 					{Name: "restricted", Value: "yes"},
 					{Name: "switch", Value: "true"},
