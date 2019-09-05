@@ -5,6 +5,7 @@ package instancemutater
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -55,6 +56,7 @@ type MutaterContext interface {
 type mutater struct {
 	context     MutaterContext
 	logger      Logger
+	wg          *sync.WaitGroup
 	machines    map[names.MachineTag]chan struct{}
 	machineDead chan instancemutater.MutaterMachine
 }
@@ -95,7 +97,8 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 				id:         id,
 			}
 
-			go runMachine(machine, c, m.machineDead)
+			m.wg.Add(1)
+			go runMachine(machine, c, m.machineDead, m.context.dying(), func() { m.wg.Done() })
 		} else {
 			// We've received this tag before, therefore
 			// the machine has been removed from the model
@@ -106,13 +109,16 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 	return nil
 }
 
-func runMachine(machine MutaterMachine, removed <-chan struct{}, died chan<- instancemutater.MutaterMachine) {
+func runMachine(machine MutaterMachine, removed <-chan struct{}, died chan<- instancemutater.MutaterMachine, dying <-chan struct{}, done func()) {
+	defer done()
 	defer func() {
 		// We can't just send on the dead channel because the
 		// central loop might be trying to write to us on the
 		// removed channel.
 		for {
 			select {
+			case <-dying:
+				return
 			case died <- machine.machineApi:
 				return
 			case <-removed:

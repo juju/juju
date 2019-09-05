@@ -317,10 +317,6 @@ func (s *workerEnvironSuite) TestCharmProfilingInfoError(c *gc.C) {
 	s.expectFacadeMachineTag(0)
 	s.notifyMachineAppLXDProfile(0, 1)
 	s.expectCharmProfileInfoError(0)
-
-	// This is required so that the waitgroups don't collapse before the
-	// context KillWithError is called with the right method. Otherwise
-	// context.Kill(nil) is called first. This prevents the logical race.
 	s.expectContextKillError()
 
 	err := s.errorKill(c, s.workerForScenarioWithContext(c))
@@ -369,9 +365,11 @@ func (s *workerSuite) workerForScenario(c *gc.C) worker.Worker {
 }
 
 func (s *workerSuite) workerForScenarioWithContext(c *gc.C) worker.Worker {
+	logger := loggo.GetLogger("workertest")
+	logger.SetLogLevel(loggo.TRACE)
 	config := instancemutater.Config{
 		Facade:                 s.facade,
-		Logger:                 s.logger,
+		Logger:                 logger,
 		Broker:                 s.broker,
 		AgentConfig:            s.agentConfig,
 		Tag:                    s.machineTag,
@@ -649,7 +647,7 @@ func (s *workerSuite) waitDone(c *gc.C) {
 	ch := make(chan struct{})
 	go func() {
 		s.doneWG.Wait()
-		ch <- struct{}{}
+		close(ch)
 	}()
 
 	select {
