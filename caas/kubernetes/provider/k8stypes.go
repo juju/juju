@@ -84,6 +84,8 @@ func (*K8sPodSpec) Validate() error {
 var boolValues = set.NewStrings(
 	strings.Split("y|Y|yes|Yes|YES|n|N|no|No|NO|true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF", "|")...)
 
+var specialValues = ":{}[],&*#?|-<>=!%@`"
+
 // ParsePodSpec parses a YAML file which defines how to
 // configure a CAAS pod. We allow for generic container
 // set up plus k8s select specific features.
@@ -114,8 +116,8 @@ func ParsePodSpec(in string) (*caas.PodSpec, error) {
 	if len(containers.Containers) == 0 {
 		return nil, errors.New("require at least one container spec")
 	}
-	quoteBoolStrings(containers.Containers)
-	quoteBoolStrings(containers.InitContainers)
+	quoteStrings(containers.Containers)
+	quoteStrings(containers.InitContainers)
 
 	// Compose the result.
 	spec.Containers = make([]caas.ContainerSpec, len(containers.Containers))
@@ -137,15 +139,17 @@ func ParsePodSpec(in string) (*caas.PodSpec, error) {
 	return &spec, spec.Validate()
 }
 
-func quoteBoolStrings(containers []k8sContainer) {
-	// Any string config values that could be interpreted as bools need to be quoted.
+func quoteStrings(containers []k8sContainer) {
+	// Any string config values that could be interpreted as bools
+	// or which contain special YAML chars need to be quoted.
 	for _, container := range containers {
 		for k, v := range container.Config {
 			strValue, ok := v.(string)
 			if !ok {
 				continue
 			}
-			if boolValues.Contains(strValue) {
+			if boolValues.Contains(strValue) || strings.IndexAny(strValue, specialValues) >= 0 {
+				strValue = strings.Replace(strValue, "'", "''", -1)
 				container.Config[k] = fmt.Sprintf("'%s'", strValue)
 			}
 		}
