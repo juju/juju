@@ -276,22 +276,8 @@ func (s *workerEnvironSuite) TestNoMachineFound(c *gc.C) {
 	s.notifyMachines([][]string{{"0"}})
 	s.expectFacadeReturnsNoMachine()
 
-	w, err := s.workerErrorForScenario(c)
-
-	// Since we don't use cleanKill() nor errorKill()
-	// here, but do waitDone() before checking errors.
-	s.waitDone(c)
-
-	// This test had intermittent failures, one of the
-	// two following would occur.  The 2nd is what we're
-	// looking for.  Please improve this test if you're
-	// able.
-	if err != nil {
-		c.Assert(err, gc.ErrorMatches, "catacomb .* is dying")
-	} else {
-		err = workertest.CheckKill(c, w)
-		c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	}
+	err := s.errorKill(c, s.workerForScenario(c))
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *workerEnvironSuite) TestCharmProfilingInfoNotProvisioned(c *gc.C) {
@@ -302,8 +288,7 @@ func (s *workerEnvironSuite) TestCharmProfilingInfoNotProvisioned(c *gc.C) {
 	s.notifyMachineAppLXDProfile(0, 1)
 	s.expectCharmProfileInfoNotProvisioned(0)
 
-	err := s.errorKill(c, s.workerForScenario(c))
-	c.Assert(err, gc.IsNil)
+	s.cleanKill(c, s.workerForScenario(c))
 }
 
 func (s *workerEnvironSuite) TestCharmProfilingInfoError(c *gc.C) {
@@ -378,23 +363,6 @@ func (s *workerSuite) workerForScenarioWithContext(c *gc.C) worker.Worker {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return w
-}
-
-// workerErrorForScenario creates worker config based on the suite's mocks.
-// Any supplied behaviour functions are executed, then a new worker is
-// started and returned with any error in creation.
-func (s *workerSuite) workerErrorForScenario(c *gc.C) (worker.Worker, error) {
-	config := instancemutater.Config{
-		Facade:      s.facade,
-		Logger:      s.logger,
-		Broker:      s.broker,
-		AgentConfig: s.agentConfig,
-		Tag:         s.machineTag,
-	}
-
-	return s.newWorkerFunc(config, func(ctx instancemutater.MutaterContext) instancemutater.MutaterContext {
-		return ctx
-	})
 }
 
 func (s *workerSuite) expectFacadeMachineTag(machine int) {
