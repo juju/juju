@@ -932,8 +932,8 @@ Using auth-type "jsonfile".
 Enter path to the credential file: 
 Credential "blah" added locally for cloud "somecloud".
 
-No remote cloud somecloud found on the controller controller: credentials are not added remotely.
-Use 'juju clouds -c controller' to see what clouds are available remotely.
+No cloud "somecloud" found on the controller "controller": credentials are not uploaded.
+Use 'juju clouds -c controller' to see what clouds are available on the controller.
 User 'juju add-cloud somecloud -c controller' to add your cloud to the controller.
 `[1:]
 	s.assertAddedCredentialForCloud(c, "somecloud", stdout, "", false)

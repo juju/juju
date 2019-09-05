@@ -25,8 +25,7 @@ import (
 )
 
 var usageAddCredentialSummary = `
-Adds a credential for a cloud, stored locally on this client, or
-uploads a credential for a cloud remotely, stored on the controller.`[1:]
+Adds a credential for a cloud to a local client and uploads it to a controller.`[1:]
 
 var usageAddCredentialDetails = `
 The juju add-credential command operates in two modes.
@@ -93,7 +92,7 @@ cloud. The commands ` + "`juju default-region`" + ` and ` + "`juju default-crede
 provide that functionality.
 
 By default, after validating the contents, Juju will add a credential locally,
-to the current client device, and will upload it remotely, to a controller. 
+to the current client device, and will upload it to a controller. 
 
 If a current controller is detected, Juju will prompt the user to confirm
 whether this new credential also needs to be uploaded. 
@@ -203,7 +202,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 			if !errors.IsNotFound(err) {
 				logger.Errorf("%v", err)
 			}
-			ctxt.Infof("Cloud %q is not remotely found on the controller, looking for a locally stored cloud.", c.CloudName)
+			ctxt.Infof("Cloud %q is not found on the controller, looking for a locally stored cloud.", c.CloudName)
 		}
 	}
 	if c.cloud == nil {
@@ -300,7 +299,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 
 		added[name] = cred
 		if _, ok := existingCredentials.AuthCredentials[name]; ok {
-			ctxt.Warningf("credential %q for cloud %q already exists locally, use 'juju update-credential %v %v' to update it", name, c.CloudName, c.CloudName, name)
+			ctxt.Warningf("credential %q for cloud %q already exists locally, use 'juju update-credential %v %v -f %v' to update this local client copy", name, c.CloudName, c.CloudName, name, c.CredentialsFile)
 			continue
 		}
 
@@ -629,12 +628,12 @@ func (c *addCredentialCommand) maybeRemoteCloud(ctxt *cmd.Context) error {
 
 func (c *addCredentialCommand) addRemoteCredentials(ctxt *cmd.Context, all map[string]jujucloud.Credential, localError error) error {
 	if len(all) == 0 {
-		fmt.Fprintf(ctxt.Stdout, "No remote credentials for cloud %q added.\n", c.CloudName)
+		fmt.Fprintf(ctxt.Stdout, "No credentials for cloud %q uploaded to controller %q.\n", c.CloudName, c.ControllerName)
 		return localError
 	}
 	if !c.remoteCloudFound {
-		fmt.Fprintf(ctxt.Stdout, "No remote cloud %v found on the controller %v: credentials are not added remotely.\n"+
-			"Use 'juju clouds -c %v' to see what clouds are available remotely.\n"+
+		fmt.Fprintf(ctxt.Stdout, "No cloud %q found on the controller %q: credentials are not uploaded.\n"+
+			"Use 'juju clouds -c %v' to see what clouds are available on the controller.\n"+
 			"User 'juju add-cloud %v -c %v' to add your cloud to the controller.\n",
 			c.CloudName, c.ControllerName, c.ControllerName, c.CloudName, c.ControllerName)
 		return localError
@@ -656,7 +655,7 @@ func (c *addCredentialCommand) addRemoteCredentials(ctxt *cmd.Context, all map[s
 	results, err := client.UpdateCloudsCredentials(verified)
 	if err != nil {
 		logger.Errorf("%v", err)
-		ctxt.Warningf("Could not add credentials remotely, on controller %q", c.ControllerName)
+		ctxt.Warningf("Could not upload credentials to controller %q", c.ControllerName)
 	}
 	return processUpdateCredentialResult(ctxt, accountDetails, "added", results, c.ControllerName, localError)
 }
