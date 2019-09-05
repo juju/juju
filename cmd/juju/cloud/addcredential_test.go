@@ -835,7 +835,7 @@ Credential "blah" added locally for cloud "somecloud".
 
 `[1:]
 	stderr := `
-Using  remote cloud "somecloud" from the controller to verify credentials.
+Using cloud "somecloud" from the controller to verify credentials.
 Controller credential "blah" for user "admin@local" for cloud "somecloud" on controller "controller" added.
 For more information, see ‘juju show-credential somecloud blah’.
 `[1:]
@@ -874,9 +874,9 @@ credentials:
 	stdin := strings.NewReader(fmt.Sprintf("%vblah\n%s\n", expectedStdin, sourceFile))
 
 	ctx, err := s.run(c, stdin, append(args, cloudName)...)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedStdout)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expectedStderr)
-	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.store.Credentials[cloudName].AuthCredentials["blah"].Attributes()["file"], gc.Not(jc.Contains), expectedContents)
 	c.Assert(s.store.Credentials[cloudName].AuthCredentials["blah"].Attributes()["file"], gc.Equals, sourceFile)
@@ -904,7 +904,7 @@ Credential "blah" added locally for cloud "remote".
 
 `[1:]
 	stderr := `
-Using  remote cloud "remote" from the controller to verify credentials.
+Using cloud "remote" from the controller to verify credentials.
 Controller credential "blah" for user "admin@local" for cloud "remote" on controller "controller" added.
 For more information, see ‘juju show-credential remote blah’.
 `[1:]
@@ -961,7 +961,7 @@ Credential "blah" added locally for cloud "remote".
 
 `[1:]
 	stderr := `
-Using  remote cloud "remote" from the controller to verify credentials.
+Using cloud "remote" from the controller to verify credentials.
 Controller credential "blah" for user "admin@local" for cloud "remote" on controller "controller" added.
 For more information, see ‘juju show-credential remote blah’.
 `[1:]

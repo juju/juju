@@ -620,7 +620,7 @@ func (c *addCredentialCommand) maybeRemoteCloud(ctxt *cmd.Context) error {
 		return err
 	}
 	if remoteCloud, ok := remoteUserClouds[names.NewCloudTag(c.CloudName)]; ok {
-		ctxt.Infof("Using  remote cloud %q from the controller to verify credentials.", c.CloudName)
+		ctxt.Infof("Using cloud %q from the controller to verify credentials.", c.CloudName)
 		c.cloud = &remoteCloud
 		c.remoteCloudFound = true
 	}
