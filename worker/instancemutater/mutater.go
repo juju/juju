@@ -69,7 +69,7 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 		default:
 		}
 		m.logger.Tracef("received tag %q", tag.String())
-		if c := m.machines[tag]; c == nil {
+		if ch := m.machines[tag]; ch == nil {
 			// First time we receive the tag, setup watchers.
 			api, err := m.context.getMachine(tag)
 			if err != nil {
@@ -87,8 +87,8 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 				continue
 			}
 
-			c = make(chan struct{})
-			m.machines[tag] = c
+			ch = make(chan struct{})
+			m.machines[tag] = ch
 
 			machine := MutaterMachine{
 				context:    m.context.newMachineContext(),
@@ -98,26 +98,26 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 			}
 
 			m.wg.Add(1)
-			go runMachine(machine, c, m.machineDead, m.context.dying(), func() { m.wg.Done() })
+			go runMachine(machine, ch, m.machineDead, func() { m.wg.Done() })
 		} else {
 			// We've received this tag before, therefore
 			// the machine has been removed from the model
 			// cache and no longer needed
-			c <- struct{}{}
+			ch <- struct{}{}
 		}
 	}
 	return nil
 }
 
-func runMachine(machine MutaterMachine, removed <-chan struct{}, died chan<- instancemutater.MutaterMachine, dying <-chan struct{}, done func()) {
-	defer done()
+func runMachine(machine MutaterMachine, removed <-chan struct{}, died chan<- instancemutater.MutaterMachine, cleanup func()) {
+	defer cleanup()
 	defer func() {
 		// We can't just send on the dead channel because the
 		// central loop might be trying to write to us on the
 		// removed channel.
 		for {
 			select {
-			case <-dying:
+			case <-machine.context.dying():
 				return
 			case died <- machine.machineApi:
 				return
