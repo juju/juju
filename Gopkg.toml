@@ -58,7 +58,7 @@
   name = "github.com/hashicorp/raft-boltdb"
 
 [[constraint]]
-  revision = "2ab5b6004f111b9f4792a67b14e2f03c37e0af1d"
+  revision = "3ef4201dfd2495d7a56be07a4d095fa624167067"
   name = "github.com/juju/bundlechanges"
 
 [[constraint]]

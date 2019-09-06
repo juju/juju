@@ -49,6 +49,13 @@ type APIv3 struct {
 	*BundleAPI
 }
 
+// APIv4 provides the Bundle API facade for version 4. It is otherwise
+// identical to V3 with the exception that the V4 now has GetChangesAsMap, which
+// returns the same data as GetChanges, but with better args data.
+type APIv4 struct {
+	*BundleAPI
+}
+
 // BundleAPI implements the Bundle interface and is the concrete implementation
 // of the API end point.
 type BundleAPI struct {
@@ -86,6 +93,16 @@ func NewFacadeV3(ctx facade.Context) (*APIv3, error) {
 		return nil, errors.Trace(err)
 	}
 	return &APIv3{api}, nil
+}
+
+// NewFacadeV4 provides the signature required for facade registration
+// for version 4.
+func NewFacadeV4(ctx facade.Context) (*APIv4, error) {
+	api, err := newFacade(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv4{api}, nil
 }
 
 // NewFacade provides the required signature for facade registration.
@@ -177,26 +194,23 @@ type validators struct {
 	verifyDevices     func(string) error
 }
 
-func getChanges(
-	args params.BundleChangesParams,
+func getBundleChanges(args params.BundleChangesParams,
 	vs validators,
-	postProcess func([]bundlechanges.Change, *params.BundleChangesResults) error,
-) (params.BundleChangesResults, error) {
-	var results params.BundleChangesResults
+) ([]bundlechanges.Change, []error, error) {
 	data, err := charm.ReadBundleData(strings.NewReader(args.BundleDataYAML))
 	if err != nil {
-		return results, errors.Annotate(err, "cannot read bundle YAML")
+		return nil, nil, errors.Annotate(err, "cannot read bundle YAML")
 	}
 	if err := data.Verify(vs.verifyConstraints, vs.verifyStorage, vs.verifyDevices); err != nil {
 		if verificationError, ok := err.(*charm.VerificationError); ok {
-			results.Errors = make([]string, len(verificationError.Errors))
+			validationErrors := make([]error, len(verificationError.Errors))
 			for i, e := range verificationError.Errors {
-				results.Errors[i] = e.Error()
+				validationErrors[i] = e
 			}
-			return results, nil
+			return nil, validationErrors, nil
 		}
 		// This should never happen as Verify only returns verification errors.
-		return results, errors.Annotate(err, "cannot verify bundle")
+		return nil, nil, errors.Annotate(err, "cannot verify bundle")
 	}
 	changes, err := bundlechanges.FromData(
 		bundlechanges.ChangesConfig{
@@ -205,15 +219,38 @@ func getChanges(
 			Logger:    loggo.GetLogger("juju.apiserver.bundlechanges"),
 		})
 	if err != nil {
-		return results, err
+		return nil, nil, errors.Trace(err)
+	}
+	return changes, nil, nil
+}
+
+func getChanges(
+	args params.BundleChangesParams,
+	vs validators,
+	postProcess func([]bundlechanges.Change, *params.BundleChangesResults) error,
+) (params.BundleChangesResults, error) {
+	var results params.BundleChangesResults
+	changes, validationErrors, err := getBundleChanges(args, vs)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	if len(validationErrors) > 0 {
+		results.Errors = make([]string, len(validationErrors))
+		for k, v := range validationErrors {
+			results.Errors[k] = v.Error()
+		}
+		return results, nil
 	}
 	err = postProcess(changes, &results)
-	return results, err
+	return results, errors.Trace(err)
 }
 
 // GetChanges returns the list of changes required to deploy the given bundle
 // data. The changes are sorted by requirements, so that they can be applied in
 // order.
+// GetChanges has been superseded in favour of GetChangesMapArgs. It's
+// preferable to use that new method to add new functionality and move clients
+// away from this one.
 func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
 	vs := validators{
 		verifyConstraints: func(s string) error {
@@ -248,6 +285,69 @@ func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleCh
 		}
 		return nil
 	})
+}
+
+// GetChangesMapArgs is not in V3 API or less.
+// Mask the new method from V3 API or less.
+func (u *APIv3) GetChangesMapArgs() (_, _ struct{}) { return }
+
+// GetChangesMapArgs returns the list of changes required to deploy the given
+// bundle data. The changes are sorted by requirements, so that they can be
+// applied in order.
+// V4 GetChangesMapArgs is not supported on anything less than v4
+func (b *BundleAPI) GetChangesMapArgs(args params.BundleChangesParams) (params.BundleChangesMapArgsResults, error) {
+	vs := validators{
+		verifyConstraints: func(s string) error {
+			_, err := constraints.Parse(s)
+			return err
+		},
+		verifyStorage: func(s string) error {
+			_, err := storage.ParseConstraints(s)
+			return err
+		},
+		verifyDevices: func(s string) error {
+			_, err := devices.ParseConstraints(s)
+			return err
+		},
+	}
+	return getChangesMapArgs(args, vs, func(changes []bundlechanges.Change, results *params.BundleChangesMapArgsResults) error {
+		results.Changes = make([]*params.BundleChangesMapArgs, len(changes))
+		for i, c := range changes {
+			args, err := c.Args()
+			if err != nil {
+				results.Errors[i] = err.Error()
+				continue
+			}
+			results.Changes[i] = &params.BundleChangesMapArgs{
+				Id:       c.Id(),
+				Method:   c.Method(),
+				Args:     args,
+				Requires: c.Requires(),
+			}
+		}
+		return nil
+	})
+}
+
+func getChangesMapArgs(
+	args params.BundleChangesParams,
+	vs validators,
+	postProcess func([]bundlechanges.Change, *params.BundleChangesMapArgsResults) error,
+) (params.BundleChangesMapArgsResults, error) {
+	var results params.BundleChangesMapArgsResults
+	changes, validationErrors, err := getBundleChanges(args, vs)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	if len(validationErrors) > 0 {
+		results.Errors = make([]string, len(validationErrors))
+		for k, v := range validationErrors {
+			results.Errors[k] = v.Error()
+		}
+		return results, nil
+	}
+	err = postProcess(changes, &results)
+	return results, err
 }
 
 // ExportBundle exports the current model configuration as bundle.
