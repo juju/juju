@@ -362,10 +362,7 @@ func (c *updateCredentialCommand) updateRemoteCredentials(ctx *cmd.Context, upda
 		ctx.Warningf("Could not update credentials remotely, on controller %q", controllerName)
 		erred = cmd.ErrSilent
 	}
-	if err := processUpdateCredentialResult(ctx, accountDetails, "updated", results); err != nil {
-		return err
-	}
-	return erred
+	return processUpdateCredentialResult(ctx, accountDetails, "updated", results, controllerName, erred)
 }
 
 func verifyCredentialsForUpload(ctx *cmd.Context, accountDetails *jujuclient.AccountDetails, aCloud *jujucloud.Cloud, region string, all map[string]jujucloud.Credential) (map[string]jujucloud.Credential, error) {
@@ -390,32 +387,31 @@ func verifyCredentialsForUpload(ctx *cmd.Context, accountDetails *jujuclient.Acc
 	return verified, erred
 }
 
-func processUpdateCredentialResult(ctx *cmd.Context, accountDetails *jujuclient.AccountDetails, op string, results []params.UpdateCredentialResult) error {
-	var erred error
+func processUpdateCredentialResult(ctx *cmd.Context, accountDetails *jujuclient.AccountDetails, op string, results []params.UpdateCredentialResult, controllerName string, localError error) error {
 	for _, result := range results {
 		tag, err := names.ParseCloudCredentialTag(result.CredentialTag)
 		if err != nil {
 			logger.Errorf("%v", err)
 			ctx.Warningf("Could not parse credential tag %q", result.CredentialTag)
-			erred = cmd.ErrSilent
+			localError = cmd.ErrSilent
 		}
 		// We always want to display models information if there is any.
 		common.OutputUpdateCredentialModelResult(ctx, result.Models, true)
 		if result.Error != nil {
-			ctx.Warningf("Controller credential %q for user %q on cloud %q not %v: %v.", tag.Name(), accountDetails.User, tag.Cloud().Id(), op, result.Error)
+			ctx.Warningf("Controller credential %q for user %q for cloud %q on controller %q not %v: %v.", tag.Name(), accountDetails.User, tag.Cloud().Id(), controllerName, op, result.Error)
 			if len(result.Models) != 0 {
 				ctx.Infof("Failed models may require a different credential.")
 				ctx.Infof("Use ‘juju set-credential’ to change credential for these models before repeating this update.")
 			}
 			// We do not want to return err here as we have already displayed it on the console.
-			erred = cmd.ErrSilent
+			localError = cmd.ErrSilent
 			continue
 		}
 		ctx.Infof(`
-Controller credential %q for user %q on cloud %q %v.
+Controller credential %q for user %q for cloud %q on controller %q %v.
 For more information, see ‘juju show-credential %v %v’.`[1:],
-			tag.Name(), accountDetails.User, tag.Cloud().Id(), op,
-			tag.Cloud().Id(), tag.Name())
+			tag.Name(), accountDetails.User, tag.Cloud().Id(), controllerName,
+			op, tag.Cloud().Id(), tag.Name())
 	}
-	return erred
+	return localError
 }

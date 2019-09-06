@@ -71,10 +71,15 @@ positional argument:
 When <cloud definition file> is provided with <cloud name>,
 Juju stores that definition in the current controller (after
 validating the contents), or the specified controller if
---controller is used. To make use of this multi-cloud feature,
-the controller needs to have the "multi-cloud" feature flag turned on.
+--controller is used. 
 
-If --local is used, Juju stores that definition its internal cache directly.
+If a current controller is detected, Juju will prompt the user to confirm
+whether this new cloud also needs to be uploaded. 
+Use --no-prompt option when this prompt is undesirable, but the upload to 
+the current controller is wanted.
+Use --controller option to upload a cloud to a different controller. 
+
+Use --local option to add cloud to the current device only.
 
 DEPRECATED If <cloud name> already exists in Juju's cache, then the `[1:] + "`--replace`" + ` 
 option is required. Use 'update-credential' instead.
@@ -108,8 +113,9 @@ When a a running controller is updated, the credential for the cloud
 is also uploaded. As with the cloud, the credential needs
 to have been added to the local Juju cache; add-credential is used to
 do that. If there's only one credential for the cloud it will be
-uploaded to the controller. If the cloud has multiple local credentials
-you can specify which to upload with the --credential option.
+uploaded to the controller automatically by add-clloud command. 
+However, if the cloud has multiple local credentials you can specify 
+which to upload with the --credential option.
 
 When adding clouds to a controller, some clouds are whitelisted and can be easily added:
 %v
@@ -166,7 +172,6 @@ type AddCloudCommand struct {
 	cloudMetadataStore CloudMetadataStore
 
 	// These attributes are used when adding a cloud to a controller.
-	controllerName  string
 	credentialName  string
 	addCloudAPIFunc func() (AddCloudAPI, error)
 
@@ -221,6 +226,7 @@ func (c *AddCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Replace, "replace", false, "DEPRECATED: Overwrite any existing cloud information for <cloud name>")
 	f.BoolVar(&c.Force, "force", false, "Force add cloud to the controller")
 	f.StringVar(&c.CloudFile, "f", "", "The path to a cloud definition file")
+	f.StringVar(&c.CloudFile, "file", "", "The path to a cloud definition file")
 	f.StringVar(&c.credentialName, "credential", "", "Credential to use for new cloud")
 }
 

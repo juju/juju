@@ -498,7 +498,9 @@ func (c *detectCredentialsCommand) addRemoteCredentials(ctxt *cmd.Context, cloud
 	if moreCloudInfoNeeded {
 		ctxt.Infof("Use 'juju clouds' to view all available clouds and 'juju add-cloud' to add missing ones.")
 	}
-	return processUpdateCredentialResult(ctxt, accountDetails, "loaded", results)
+	// TODO (anastasiamac 2019-09-04) Local error passed in will eventually be an error from the
+	// local detection on this client.
+	return processUpdateCredentialResult(ctxt, accountDetails, "loaded", results, c.ControllerName, nil)
 }
 
 func (c *detectCredentialsCommand) printCredentialOptions(ctxt *cmd.Context, discovered []discoveredCredential) {
