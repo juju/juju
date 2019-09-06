@@ -163,6 +163,10 @@ func (u *Unit) setDetails(details UnitChange) {
 	if machineChange || u.details.Subordinate {
 		u.model.hub.Publish(modelUnitAdd, u.copy())
 	}
+	// Publish change event for those that may be waiting.
+	u.model.hub.Publish(changeTopic(details.Name), map[string]interface{}{
+		"charmURL": details.CharmURL,
+	})
 }
 
 // copy returns a copy of the unit, ensuring appropriate deep copying.

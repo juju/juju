@@ -305,6 +305,78 @@ func (s *ModelSuite) TestRemoveBranchPublishesName(c *gc.C) {
 	}
 }
 
+func (s *ModelSuite) TestWaitForChangeStringSuccess(c *gc.C) {
+	m := s.NewModel(modelChange)
+	done := m.WaitForChange("source", "a-field", "some-string-value", nil)
+
+	s.Hub.Publish("change.source", map[string]interface{}{"a-field": "some-string-value"})
+
+	select {
+	case <-done:
+		// All good.
+	case <-time.After(testing.LongWait):
+		c.Errorf("change not noticed")
+	}
+}
+
+func (s *ModelSuite) TestWaitForChangeIntegerSuccess(c *gc.C) {
+	m := s.NewModel(modelChange)
+	done := m.WaitForChange("source", "a-field", 42, nil)
+
+	s.Hub.Publish("change.source", map[string]interface{}{"a-field": 42})
+
+	select {
+	case <-done:
+		// All good.
+	case <-time.After(testing.LongWait):
+		c.Errorf("change not noticed")
+	}
+}
+
+func (s *ModelSuite) TestWaitForChangeCancelClosesChannel(c *gc.C) {
+	m := s.NewModel(modelChange)
+	cancel := make(chan struct{})
+	done := m.WaitForChange("source", "a-field", "nothing", cancel)
+
+	select {
+	case <-done:
+		c.Errorf("change signalled")
+	default:
+		// All good.
+	}
+
+	close(cancel)
+
+	select {
+	case <-done:
+		// All good.
+	case <-time.After(testing.LongWait):
+		c.Errorf("done channel not closed")
+	}
+}
+
+func (s *ModelSuite) TestWaitForChangeChecksValue(c *gc.C) {
+	m := s.NewModel(modelChange)
+	done := m.WaitForChange("source", "a-field", "correct", nil)
+
+	s.Hub.Publish("change.source", map[string]interface{}{"a-field": "wrong"})
+
+	select {
+	case <-done:
+		c.Errorf("change signalled in error")
+	case <-time.After(testing.ShortWait):
+		// All good.
+	}
+	s.Hub.Publish("change.source", map[string]interface{}{"a-field": "correct"})
+
+	select {
+	case <-done:
+		// All good.
+	case <-time.After(testing.LongWait):
+		c.Errorf("change not noticed")
+	}
+}
+
 func (s *ControllerSuite) TestWatchMachineStops(c *gc.C) {
 	controller, _ := s.newWithMachine(c)
 	m, err := controller.Model(modelChange.ModelUUID)

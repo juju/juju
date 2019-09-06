@@ -4,6 +4,9 @@
 package cache_test
 
 import (
+	"time"
+
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -124,4 +127,41 @@ var unitChange = cache.UnitChange{
 	Subordinate:    false,
 	WorkloadStatus: status.StatusInfo{Status: status.Active},
 	AgentStatus:    status.StatusInfo{Status: status.Active},
+}
+
+func (s *UnitSuite) TestWaitForChangeUnitCharmURL(c *gc.C) {
+	m := s.NewModel(modelChange)
+	// We could just pass nil through as the cancel channel as this is the success
+	// case, but it just feels cleaner to use a real channel.
+	cancel := make(chan struct{})
+	defer close(cancel)
+	done := m.WaitForChange(unitChange.Name, "charmURL", unitChange.CharmURL, cancel)
+
+	m.UpdateUnit(unitChange, s.Manager)
+
+	select {
+	case <-done:
+		// All good.
+	case <-time.After(testing.LongWait):
+		c.Errorf("change not noticed")
+	}
+}
+
+func (s *UnitSuite) TestWaitForChangeUnitCharmURLDifferent(c *gc.C) {
+	// If the charm is updated with a different charmURL than expected, the done
+	// channel is not signalled.
+	m := s.NewModel(modelChange)
+
+	cancel := make(chan struct{})
+	defer close(cancel)
+	done := m.WaitForChange(unitChange.Name, "charmURL", "not-going-to-happen", cancel)
+
+	m.UpdateUnit(unitChange, s.Manager)
+
+	select {
+	case <-done:
+		c.Errorf("unexpected change signalled")
+	case <-time.After(testing.ShortWait):
+		// All good.
+	}
 }
