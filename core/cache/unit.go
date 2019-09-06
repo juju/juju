@@ -14,6 +14,10 @@ import (
 	"github.com/juju/juju/core/settings"
 )
 
+// UnitCharmURLField is a field that can be waited on for a Unit using the Model
+// WaitForChange method.
+const UnitCharmURLField = "charmURL"
+
 // Unit represents a unit in a cached model.
 type Unit struct {
 	// Resident identifies the unit as a type-agnostic cached entity
@@ -165,7 +169,7 @@ func (u *Unit) setDetails(details UnitChange) {
 	}
 	// Publish change event for those that may be waiting.
 	u.model.hub.Publish(changeTopic(details.Name), map[string]interface{}{
-		"charmURL": details.CharmURL,
+		UnitCharmURLField: details.CharmURL,
 	})
 }
 

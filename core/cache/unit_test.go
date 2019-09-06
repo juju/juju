@@ -135,7 +135,7 @@ func (s *UnitSuite) TestWaitForChangeUnitCharmURL(c *gc.C) {
 	// case, but it just feels cleaner to use a real channel.
 	cancel := make(chan struct{})
 	defer close(cancel)
-	done := m.WaitForChange(unitChange.Name, "charmURL", unitChange.CharmURL, cancel)
+	done := m.WaitForChange(unitChange.Name, cache.UnitCharmURLField, unitChange.CharmURL, cancel)
 
 	m.UpdateUnit(unitChange, s.Manager)
 
@@ -154,7 +154,7 @@ func (s *UnitSuite) TestWaitForChangeUnitCharmURLDifferent(c *gc.C) {
 
 	cancel := make(chan struct{})
 	defer close(cancel)
-	done := m.WaitForChange(unitChange.Name, "charmURL", "not-going-to-happen", cancel)
+	done := m.WaitForChange(unitChange.Name, cache.UnitCharmURLField, "not-going-to-happen", cancel)
 
 	m.UpdateUnit(unitChange, s.Manager)
 
