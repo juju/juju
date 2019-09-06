@@ -128,8 +128,8 @@ func (s *HookContextSuite) GetContext(
 	return s.getHookContext(c, uuid.String(), relId, remoteName)
 }
 
-func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Application) *state.Unit {
-	unit, err := svc.AddUnit(state.AddUnitParams{})
+func (s *HookContextSuite) addUnit(c *gc.C, app *state.Application) *state.Unit {
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	if s.machine != nil {
 		err = unit.AssignToMachine(s.machine)
@@ -152,8 +152,8 @@ func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Application) *state.Unit 
 	return unit
 }
 
-func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Application) *state.Unit {
-	unit := s.addUnit(c, svc)
+func (s *HookContextSuite) AddUnit(c *gc.C, app *state.Application) *state.Unit {
+	unit := s.addUnit(c, app)
 	name := strings.Replace(unit.Name(), "/", "-", 1)
 	privateAddr := network.NewScopedAddress(name+".testing.invalid", network.ScopeCloudLocal)
 	err := s.machine.SetProviderAddresses(privateAddr)

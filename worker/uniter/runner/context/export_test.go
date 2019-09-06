@@ -117,11 +117,10 @@ func PatchCachedStatus(ctx jujuc.Context, status, info string, data map[string]i
 	}
 }
 
-func GetStubActionContext(in map[string]interface{}) *HookContext {
-	return &HookContext{
-		actionData: &ActionData{
-			ResultsMap: in,
-		},
+func WithActionContext(ctx *HookContext, in map[string]interface{}) {
+	ctx.actionData = &ActionData{
+		Tag:        names.NewActionTag("u-1"),
+		ResultsMap: in,
 	}
 }
 

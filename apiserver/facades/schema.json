@@ -33929,6 +33929,17 @@
                         }
                     }
                 },
+                "LogActionsMessages": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ActionMessageParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
                 "Merge": {
                     "type": "object",
                     "properties": {
@@ -34538,6 +34549,21 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "ActionMessageParams": {
+                    "type": "object",
+                    "properties": {
+                        "messages": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/EntityString"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "messages"
+                    ]
                 },
                 "ActionResult": {
                     "type": "object",

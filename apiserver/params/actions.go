@@ -143,3 +143,9 @@ type ActionPruneArgs struct {
 	MaxHistoryTime time.Duration `json:"max-history-time"`
 	MaxHistoryMB   int           `json:"max-history-mb"`
 }
+
+// ActionMessageParams holds the arguments for
+// logging progress messages for some actions.
+type ActionMessageParams struct {
+	Messages []EntityString `json:"messages"`
+}

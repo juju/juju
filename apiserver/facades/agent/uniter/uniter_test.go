@@ -1107,6 +1107,38 @@ func (s *uniterSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *uniterSuite) TestLogActionMessage(c *gc.C) {
+	anAction, err := s.wordpressUnit.AddAction("fakeaction", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(anAction.Messages(), gc.HasLen, 0)
+	_, err = anAction.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+
+	wrongAction, err := s.mysqlUnit.AddAction("fakeaction", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.ActionMessageParams{Messages: []params.EntityString{
+		{Tag: anAction.Tag().String(), Value: "hello"},
+		{Tag: wrongAction.Tag().String(), Value: "world"},
+		{Tag: "foo-42", Value: "mars"},
+	}}
+	result, err := s.uniter.LogActionsMessages(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{Message: `"foo-42" is not a valid tag`}},
+		},
+	})
+	anAction, err = s.Model.Action(anAction.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	messages := anAction.Messages()
+	c.Assert(messages, gc.HasLen, 1)
+	c.Assert(messages[0].Message, gc.Equals, "hello")
+	c.Assert(messages[0].Timestamp, gc.NotNil)
+}
+
 func (s *uniterSuite) TestWatchActionNotifications(c *gc.C) {
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
