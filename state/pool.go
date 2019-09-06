@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
@@ -183,6 +184,11 @@ func OpenStatePool(args OpenParams) (*StatePool, error) {
 			})
 	})
 	return pool, nil
+}
+
+// Clock returns the clock used by the system state.
+func (p *StatePool) Clock() clock.Clock {
+	return p.systemState.clock()
 }
 
 // Get returns a PooledState for a given model, creating a new State instance
