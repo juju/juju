@@ -204,6 +204,15 @@ func (k *kubernetesClient) client() kubernetes.Interface {
 	return client
 }
 
+type resourcePurifier interface {
+	SetResourceVersion(string)
+}
+
+// purifyResourceForCreate purifies read only fields before creating the resources.
+func (k *kubernetesClient) purifyResourceForCreate(resource resourcePurifier) {
+	resource.SetResourceVersion("")
+}
+
 func (k *kubernetesClient) extendedCient() apiextensionsclientset.Interface {
 	k.lock.Lock()
 	defer k.lock.Unlock()

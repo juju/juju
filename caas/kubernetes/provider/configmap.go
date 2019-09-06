@@ -40,7 +40,8 @@ func (k *kubernetesClient) ensureConfigMaps(appName string, cms map[string]specs
 }
 
 // ensureConfigMap ensures a ConfigMap resource.
-func (k *kubernetesClient) ensureConfigMap(cm *core.ConfigMap) (cleanUp func(), _ error) {
+func (k *kubernetesClient) ensureConfigMap(cm *core.ConfigMap) (func(), error) {
+	cleanUp := func() {}
 	out, err := k.createConfigMap(cm)
 	if err == nil {
 		logger.Debugf("configmap %q created", out.GetName())
@@ -85,6 +86,7 @@ func (k *kubernetesClient) getConfigMap(cmName string) (*core.ConfigMap, error) 
 
 // createConfigMap creates a ConfigMap resource.
 func (k *kubernetesClient) createConfigMap(cm *core.ConfigMap) (*core.ConfigMap, error) {
+	k.purifyResourceForCreate(cm)
 	out, err := k.client().CoreV1().ConfigMaps(k.namespace).Create(cm)
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("configmap %q", cm.GetName())

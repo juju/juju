@@ -136,6 +136,7 @@ func (k *kubernetesClient) deleteAllServiceAccountResources(appName string) erro
 }
 
 func (k *kubernetesClient) createServiceAccount(sa *core.ServiceAccount) (*core.ServiceAccount, error) {
+	k.purifyResourceForCreate(sa)
 	out, err := k.client().CoreV1().ServiceAccounts(k.namespace).Create(sa)
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("service account %q", sa.GetName())
@@ -219,6 +220,7 @@ func (k *kubernetesClient) listServiceAccount(labels map[string]string) ([]core.
 }
 
 func (k *kubernetesClient) createRole(role *rbacv1.Role) (*rbacv1.Role, error) {
+	k.purifyResourceForCreate(role)
 	out, err := k.client().RbacV1().Roles(k.namespace).Create(role)
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("role %q", role.GetName())
@@ -302,6 +304,7 @@ func (k *kubernetesClient) listRoles(labels map[string]string) ([]rbacv1.Role, e
 }
 
 func (k *kubernetesClient) createClusterRole(cRole *rbacv1.ClusterRole) (*rbacv1.ClusterRole, error) {
+	k.purifyResourceForCreate(cRole)
 	out, err := k.client().RbacV1().ClusterRoles().Create(cRole)
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("cluster role %q", cRole.GetName())
@@ -385,6 +388,7 @@ func (k *kubernetesClient) listClusterRoles(labels map[string]string) ([]rbacv1.
 }
 
 func (k *kubernetesClient) createRoleBinding(rb *rbacv1.RoleBinding) (*rbacv1.RoleBinding, error) {
+	k.purifyResourceForCreate(rb)
 	out, err := k.client().RbacV1().RoleBindings(k.namespace).Create(rb)
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("role binding %q", rb.GetName())
@@ -473,6 +477,7 @@ func (k *kubernetesClient) listRoleBindings(labels map[string]string) ([]rbacv1.
 }
 
 func (k *kubernetesClient) createClusterRoleBinding(crb *rbacv1.ClusterRoleBinding) (*rbacv1.ClusterRoleBinding, error) {
+	k.purifyResourceForCreate(crb)
 	out, err := k.client().RbacV1().ClusterRoleBindings().Create(crb)
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("cluster role binding %q", crb.GetName())
