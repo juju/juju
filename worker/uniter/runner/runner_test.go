@@ -385,6 +385,24 @@ func (s *RunMockContextSuite) TestRunActionSuccessful(c *gc.C) {
 	c.Assert(ctx.actionResults["Stderr"], gc.Equals, nil)
 }
 
+func (s *RunMockContextSuite) TestRunActionError(c *gc.C) {
+	ctx := &MockContext{
+		actionData: &context.ActionData{},
+		actionParams: map[string]interface{}{
+			"command": "echo 1\nexit 3",
+			"timeout": 0,
+		},
+		actionResults: map[string]interface{}{},
+	}
+	err := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-run")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
+	c.Assert(ctx.flushFailure, gc.IsNil)
+	c.Assert(ctx.actionResults["Code"], gc.Equals, "3")
+	c.Assert(strings.TrimRight(ctx.actionResults["Stdout"].(string), "\r\n"), gc.Equals, "1")
+	c.Assert(ctx.actionResults["Stderr"], gc.Equals, nil)
+}
+
 func (s *RunMockContextSuite) TestRunActionCancelled(c *gc.C) {
 	timeout := 1 * time.Nanosecond
 	ctx := &MockContext{
@@ -399,7 +417,7 @@ func (s *RunMockContextSuite) TestRunActionCancelled(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
 	c.Assert(ctx.flushFailure, gc.Equals, exec.ErrCancelled)
-	c.Assert(ctx.actionResults["Code"], gc.Equals, nil)
+	c.Assert(ctx.actionResults["Code"], gc.Equals, "0")
 	c.Assert(ctx.actionResults["Stdout"], gc.Equals, nil)
 	c.Assert(ctx.actionResults["Stderr"], gc.Equals, nil)
 }
