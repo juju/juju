@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	utilexec "github.com/juju/utils/exec"
 	"gopkg.in/yaml.v2"
+	k8sexec "k8s.io/client-go/util/exec"
 
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
@@ -211,7 +212,7 @@ func getNewRunnerExecutor(
 			}
 
 			// juju run - return stdout and stderr to ExecResponse.
-			if err := execClient.Exec(
+			exitErr := execClient.Exec(
 				exec.ExecParams{
 					PodName:    podNameOrID,
 					Commands:   params.Commands,
@@ -221,19 +222,28 @@ func getNewRunnerExecutor(
 					Stderr:     params.Stderr,
 				},
 				params.Cancel,
-			); err != nil {
-				return nil, errors.Trace(err)
-			}
+			)
+			exitErr = errors.Cause(exitErr)
 
 			readBytes := func(r io.Reader) []byte {
 				var o bytes.Buffer
 				o.ReadFrom(r)
 				return o.Bytes()
 			}
+			exitCode := func(exitErr error) int {
+				if exitErr != nil {
+					if exitErr, ok := exitErr.(k8sexec.CodeExitError); ok {
+						return exitErr.ExitStatus()
+					}
+					return -1
+				}
+				return 0
+			}
 			return &utilexec.ExecResponse{
+				Code:   exitCode(exitErr),
 				Stdout: readBytes(params.Stdout),
 				Stderr: readBytes(params.Stderr),
-			}, nil
+			}, exitErr
 		}
 	}
 }

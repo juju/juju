@@ -11,11 +11,14 @@ import (
 	"strings"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	utilexec "github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
+	k8sexec "k8s.io/client-go/util/exec"
 
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/testing"
@@ -52,6 +55,14 @@ func (s *actionSuite) symlinkJujudCommand(out *bytes.Buffer, baseDir string, fil
 }
 
 func (s *actionSuite) TestRunnerExecFunc(c *gc.C) {
+	s.assertRunnerExecFunc(c, "")
+}
+
+func (s *actionSuite) TestRunnerExecFuncWithError(c *gc.C) {
+	s.assertRunnerExecFunc(c, "boom")
+}
+
+func (s *actionSuite) assertRunnerExecFunc(c *gc.C, errMsg string) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
@@ -160,6 +171,12 @@ func (s *actionSuite) TestRunnerExecFunc(c *gc.C) {
 			cancel).Times(1).Return(nil)
 	}
 
+	expectedCode := 0
+	var exitErr error
+	if errMsg != "" {
+		exitErr = errors.Trace(k8sexec.CodeExitError{Code: 3, Err: errors.New(errMsg)})
+		expectedCode = 3
+	}
 	calls = append(calls,
 		s.executor.EXPECT().Exec(
 			exec.ExecParams{
@@ -169,10 +186,15 @@ func (s *actionSuite) TestRunnerExecFunc(c *gc.C) {
 				Stdout:   out,
 				Stderr:   out,
 			}, cancel,
-		).Times(1).Return(nil))
+		).Times(1).DoAndReturn(func(...interface{}) error {
+			out.WriteString("some message")
+			return exitErr
+		}),
+	)
+
 	gomock.InOrder(calls...)
 
-	_, err = runnerExecFunc(
+	result, err := runnerExecFunc(
 		runner.ExecParams{
 			Commands: []string{"storage-list"},
 			Env:      []string{"AAAA=1111"},
@@ -181,5 +203,13 @@ func (s *actionSuite) TestRunnerExecFunc(c *gc.C) {
 			Cancel:   cancel,
 		},
 	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, &utilexec.ExecResponse{
+		Code:   expectedCode,
+		Stdout: []byte("some message"),
+	})
+	if exitErr == nil {
+		c.Assert(err, jc.ErrorIsNil)
+	} else {
+		c.Assert(err, gc.ErrorMatches, "boom")
+	}
 }

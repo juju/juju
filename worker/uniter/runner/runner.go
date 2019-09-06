@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 	"unicode/utf8"
 
@@ -208,15 +209,12 @@ func (runner *runner) runJujuRunAction() (err error) {
 		}
 	}
 	results, err := runner.runCommandsWithTimeout(command, time.Duration(timeout), clock.WallClock, rMode)
-	if err != nil {
-		return runner.context.Flush("juju-run", err)
+	if results != nil {
+		if err := runner.updateActionResults(results); err != nil {
+			return runner.context.Flush("juju-run", err)
+		}
 	}
-
-	if err := runner.updateActionResults(results); err != nil {
-		return runner.context.Flush("juju-run", err)
-	}
-
-	return runner.context.Flush("juju-run", nil)
+	return runner.context.Flush("juju-run", err)
 }
 
 func encodeBytes(input []byte) (value string, encoding string) {
@@ -403,12 +401,9 @@ func (runner *runner) runCharmHookOnRemote(hookName string, env []string, charmL
 			Cancel:     cancel,
 		},
 	)
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	// If we are running an action, record stdout and stderr.
-	if runningAction {
+	if runningAction && resp != nil {
 		if err := runner.updateActionResults(resp); err != nil {
 			return errors.Trace(err)
 		}
@@ -466,11 +461,12 @@ func (runner *runner) runCharmHookOnLocal(hookName string, env []string, charmLo
 	}
 
 	err = ps.Start()
+	var exitErr error
 	if err == nil {
 		// Record the *os.Process of the hook
 		runner.context.SetProcess(hookProcess{ps.Process})
 		// Block until execution finishes
-		err = ps.Wait()
+		exitErr = ps.Wait()
 	}
 
 	// If we are running an action, record stdout and stderr.
@@ -480,8 +476,21 @@ func (runner *runner) runCharmHookOnLocal(hookName string, env []string, charmLo
 			o.ReadFrom(r)
 			return o.Bytes()
 		}
+		exitCode := func(exitErr error) int {
+			if exitErr != nil {
+				if exitErr, ok := exitErr.(*exec.ExitError); ok {
+					if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
+						return status.ExitStatus()
+					}
+				}
+				return -1
+			}
+			return 0
+		}
 		resp := &utilexec.ExecResponse{
-			Code:   ps.ProcessState.ExitCode(),
+			// TODO(wallyworld) - use ExitCode() when we support Go 1.12
+			// Code:   ps.ProcessState.ExitCode(),
+			Code:   exitCode(exitErr),
 			Stdout: readBytes(actionOut),
 			Stderr: readBytes(actionErr),
 		}
@@ -489,7 +498,7 @@ func (runner *runner) runCharmHookOnLocal(hookName string, env []string, charmLo
 			return errors.Trace(err)
 		}
 	}
-	return errors.Trace(err)
+	return errors.Trace(exitErr)
 }
 
 func (runner *runner) startJujucServer() (*jujuc.Server, error) {
