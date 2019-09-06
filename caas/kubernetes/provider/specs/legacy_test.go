@@ -69,10 +69,12 @@ containers:
         path: /pingReady
         port: www
     config:
-      attr: foo=bar; name['fred']='blogs';
+      attr: foo=bar; name["fred"]="blogs";
       foo: bar
+      brackets: '["hello", "world"]'
       restricted: 'yes'
       switch: on
+      special: p@ssword's
     files:
       - name: configuration
         mountPath: /var/lib/foo
@@ -112,9 +114,11 @@ initContainers:
     - containerPort: 443
       name: mary
     config:
+      brackets: '["hello", "world"]'
       foo: bar
       restricted: 'yes'
       switch: on
+      special: p@ssword's
 service:
   annotations:
     foo: bar
@@ -182,10 +186,12 @@ echo "do some stuff here for gitlab container"
 					{ContainerPort: 443, Name: "mary"},
 				},
 				Config: map[string]interface{}{
-					"attr":       "foo=bar; name['fred']='blogs';",
+					"attr":       `'foo=bar; name["fred"]="blogs";'`,
 					"foo":        "bar",
 					"restricted": "'yes'",
 					"switch":     true,
+					"brackets":   `'["hello", "world"]'`,
+					"special":    "'p@ssword''s'",
 				},
 				Files: []specs.FileSet{
 					{
@@ -258,6 +264,8 @@ echo "do some stuff here for gitlab-init container"
 					"foo":        "bar",
 					"restricted": "'yes'",
 					"switch":     true,
+					"brackets":   `'["hello", "world"]'`,
+					"special":    "'p@ssword''s'",
 				},
 			},
 		}
