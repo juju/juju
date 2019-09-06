@@ -118,14 +118,22 @@ func (s *uniterSuiteBase) setupState(c *gc.C) {
 	})
 }
 
-func (s *uniterSuiteBase) newUniterAPI(c *gc.C, st *state.State, auth facade.Authorizer) *uniter.UniterAPI {
-	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
-		Controller_:        s.Controller,
-		State_:             st,
+func (s *uniterSuiteBase) facadeContext() facadetest.Context {
+	return facadetest.Context{
+		State_:             s.State,
+		StatePool_:         s.StatePool,
 		Resources_:         s.resources,
-		Auth_:              auth,
+		Auth_:              s.authorizer,
 		LeadershipChecker_: s.State.LeadershipChecker(),
-	})
+		Controller_:        s.Controller,
+	}
+}
+
+func (s *uniterSuiteBase) newUniterAPI(c *gc.C, st *state.State, auth facade.Authorizer) *uniter.UniterAPI {
+	context := s.facadeContext()
+	context.State_ = st
+	context.Auth_ = auth
+	uniterAPI, err := uniter.NewUniterAPI(context)
 	c.Assert(err, jc.ErrorIsNil)
 	return uniterAPI
 }
@@ -198,11 +206,9 @@ var _ = gc.Suite(&uniterSuite{})
 func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("9")
-	_, err := uniter.NewUniterAPI(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      anAuthorizer,
-	})
+	context := s.facadeContext()
+	context.Auth_ = anAuthorizer
+	_, err := uniter.NewUniterAPI(context)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -886,6 +892,13 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 			{apiservertesting.ErrUnauthorized},
 		},
 	})
+	// The controller cache will have the charm url set by the time
+	// the SetCharmURL method returns.
+	model, err := s.Controller.Model(s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	unit, err := model.Unit("wordpress/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.CharmURL(), gc.Equals, s.wpCharm.String())
 
 	// Verify the charm URL was set.
 	err = s.wordpressUnit.Refresh()
@@ -3017,13 +3030,7 @@ func (s *uniterSuite) TestV4WatchApplicationRelations(c *gc.C) {
 		{Tag: "application-wordpress"},
 		{Tag: "application-foo"},
 	}}
-	apiV4, err := uniter.NewUniterAPIV4(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-		Controller_:        s.Controller,
-	})
+	apiV4, err := uniter.NewUniterAPIV4(s.facadeContext())
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := apiV4.WatchApplicationRelations(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3053,13 +3060,7 @@ func (s *uniterSuite) TestV5Relation(c *gc.C) {
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0"},
 	}}
-	apiV5, err := uniter.NewUniterAPIV5(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-		Controller_:        s.Controller,
-	})
+	apiV5, err := uniter.NewUniterAPIV5(s.facadeContext())
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := apiV5.Relation(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3084,13 +3085,7 @@ func (s *uniterSuite) TestV5RelationById(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.RelationIds{RelationIds: []int{rel.Id()}}
-	apiV5, err := uniter.NewUniterAPIV5(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-		Controller_:        s.Controller,
-	})
+	apiV5, err := uniter.NewUniterAPIV5(s.facadeContext())
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := apiV5.RelationById(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3445,13 +3440,7 @@ func (s *uniterNetworkConfigSuite) setupUniterAPIForUnit(c *gc.C, givenUnit *sta
 	}
 
 	var err error
-	s.uniterv4, err = uniter.NewUniterAPIV4(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-		Controller_:        s.Controller,
-	})
+	s.uniterv4, err = uniter.NewUniterAPIV4(s.facadeContext())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -4097,13 +4086,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoV6Results(c *gc.C) {
 		},
 	}
 
-	apiV6, err := uniter.NewUniterAPIV6(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-		Controller_:        s.Controller,
-	})
+	apiV6, err := uniter.NewUniterAPIV6(s.facadeContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := apiV6.NetworkInfo(args)
@@ -4283,13 +4266,7 @@ var _ = gc.Suite(&uniterV8Suite{})
 func (s *uniterV8Suite) SetUpTest(c *gc.C) {
 	s.uniterSuiteBase.SetUpTest(c)
 
-	uniterV8, err := uniter.NewUniterAPIV8(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-		Controller_:        s.Controller,
-	})
+	uniterV8, err := uniter.NewUniterAPIV8(s.facadeContext())
 	c.Assert(err, jc.ErrorIsNil)
 	s.uniterV8 = uniterV8
 }
@@ -4372,13 +4349,9 @@ func (s *uniterV8Suite) TestWatchCAASUnitAddresses(c *gc.C) {
 		{Tag: "application-gitlab"},
 	}}
 
-	uniterAPI, err := uniter.NewUniterAPIV8(facadetest.Context{
-		State_:             cm.State(),
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-		Controller_:        s.Controller,
-	})
+	context := s.facadeContext()
+	context.State_ = cm.State()
+	uniterAPI, err := uniter.NewUniterAPIV8(context)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := uniterAPI.WatchUnitAddresses(args)
@@ -4418,6 +4391,7 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 
 	_, err := uniter.NewUniterAPI(facadetest.Context{
 		State_:             s.State,
+		StatePool_:         s.StatePool,
 		Resources_:         resources,
 		Auth_:              apiservertesting.FakeAuthorizer{Tag: names.NewUnitTag("nomatter/0")},
 		LeadershipChecker_: s.State.LeadershipChecker(),

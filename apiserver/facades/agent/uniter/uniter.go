@@ -7,7 +7,9 @@ package uniter
 import (
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -55,6 +57,7 @@ type UniterAPI struct {
 	meterstatus.MeterStatus
 	m                   *state.Model
 	st                  *state.State
+	clock               clock.Clock
 	auth                facade.Authorizer
 	resources           facade.Resources
 	leadershipChecker   leadership.Checker
@@ -139,6 +142,7 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		return nil, common.ErrPerm
 	}
 	st := context.State()
+	clock := context.StatePool().Clock()
 	resources := context.Resources()
 	leadershipChecker, err := context.LeadershipChecker()
 	if err != nil {
@@ -197,8 +201,9 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		// own status *and* its application's? This is not a pleasing arrangement.
 		StatusAPI: NewStatusAPI(st, accessUnitOrApplication, leadershipChecker),
 
-		st:                st,
 		m:                 m,
+		st:                st,
+		clock:             clock,
 		cacheModel:        cacheModel,
 		auth:              authorizer,
 		resources:         resources,
@@ -806,11 +811,40 @@ func (u *UniterAPI) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorResul
 				if err == nil {
 					err = unit.SetCharmURL(curl)
 				}
+				if err == nil {
+					// Wait for the change to propagate to the cache controller.
+					err = u.waitForControllerCharmURL(unit.Name(), curl.String())
+				}
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+func (u *UniterAPI) waitForControllerCharmURL(unit, curl string) error {
+	// One minute is excessively long, but the cache may need to refresh.
+	// In any normal operation, this should be sub-second, although if no changes
+	// were happening recently, it could be theoretically up to five seconds.
+	timeout := u.clock.After(time.Minute)
+	cancel := make(chan struct{})
+	done := u.cacheModel.WaitForChange(unit, cache.UnitCharmURLField, curl, cancel)
+	// Before we wait on done, check now to see if that unit already has the field set.
+	if unit, err := u.cacheModel.Unit(unit); err == nil {
+		// We are good already.
+		if unit.CharmURL() == curl {
+			close(cancel)
+			return nil
+		}
+	}
+
+	select {
+	case <-done:
+		return nil
+	case <-timeout:
+		close(cancel)
+		return errors.Timeoutf("unit change %s.%s to %q", unit, cache.UnitCharmURLField, curl)
+	}
 }
 
 // WorkloadVersion returns the workload version for all given units or applications.
