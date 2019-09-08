@@ -16,10 +16,6 @@ import (
 	"github.com/juju/juju/core/settings"
 )
 
-// UnitCharmURLField is a field that can be waited on for a Unit using the Model
-// WaitForChange method.
-const UnitCharmURLField = "charmURL"
-
 // Unit represents a unit in a cached model.
 type Unit struct {
 	// Resident identifies the unit as a type-agnostic cached entity

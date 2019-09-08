@@ -58,6 +58,7 @@ type UniterAPI struct {
 	m                   *state.Model
 	st                  *state.State
 	clock               clock.Clock
+	cancel              <-chan struct{}
 	auth                facade.Authorizer
 	resources           facade.Resources
 	leadershipChecker   leadership.Checker
@@ -204,6 +205,7 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		m:                 m,
 		st:                st,
 		clock:             clock,
+		cancel:            context.Cancel(),
 		cacheModel:        cacheModel,
 		auth:              authorizer,
 		resources:         resources,
@@ -828,22 +830,20 @@ func (u *UniterAPI) waitForControllerCharmURL(unit, curl string) error {
 	// were happening recently, it could be theoretically up to five seconds.
 	timeout := u.clock.After(time.Minute)
 	cancel := make(chan struct{})
-	done := u.cacheModel.WaitForChange(unit, cache.UnitCharmURLField, curl, cancel)
-	// Before we wait on done, check now to see if that unit already has the field set.
-	if unit, err := u.cacheModel.Unit(unit); err == nil {
-		// We are good already.
-		if unit.CharmURL() == curl {
-			close(cancel)
-			return nil
-		}
-	}
+	done := u.cacheModel.WaitForUnit(unit, func(u *cache.Unit) bool {
+		return u.CharmURL() == curl
+	}, cancel)
 
 	select {
 	case <-done:
 		return nil
+	case <-u.cancel:
+		// The API server is stopping, so don't wait any longer.
+		close(cancel)
+		return errors.Timeoutf("apiserver stopping, unit change %s.CharmURL to %q", unit, curl)
 	case <-timeout:
 		close(cancel)
-		return errors.Timeoutf("unit change %s.%s to %q", unit, cache.UnitCharmURLField, curl)
+		return errors.Timeoutf("unit change %s.CharmURL to %q", unit, curl)
 	}
 }
 

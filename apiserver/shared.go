@@ -43,6 +43,7 @@ type sharedServerContext struct {
 	presence     presence.Recorder
 	leaseManager lease.Manager
 	logger       loggo.Logger
+	cancel       <-chan struct{}
 
 	configMutex      sync.RWMutex
 	controllerConfig jujucontroller.Config

@@ -428,17 +428,22 @@ type facadeContext struct {
 	key objectKey
 }
 
-// Auth is part of of the facade.Context interface.
+// Cancel is part of the facade.Context interface.
+func (ctx *facadeContext) Cancel() <-chan struct{} {
+	return ctx.r.shared.cancel
+}
+
+// Auth is part of the facade.Context interface.
 func (ctx *facadeContext) Auth() facade.Authorizer {
 	return ctx.r.authorizer
 }
 
-// Dispose is part of of the facade.Context interface.
+// Dispose is part of the facade.Context interface.
 func (ctx *facadeContext) Dispose() {
 	ctx.r.dispose(ctx.key)
 }
 
-// Resources is part of of the facade.Context interface.
+// Resources is part of the facade.Context interface.
 func (ctx *facadeContext) Resources() facade.Resources {
 	return ctx.r.resources
 }
@@ -472,17 +477,17 @@ func (ctx *facadeContext) CachedModel(uuid string) (*cache.Model, error) {
 	return ctx.r.cachedModel(uuid)
 }
 
-// State is part of of the facade.Context interface.
+// State is part of the facade.Context interface.
 func (ctx *facadeContext) State() *state.State {
 	return ctx.r.state
 }
 
-// StatePool is part of of the facade.Context interface.
+// StatePool is part of the facade.Context interface.
 func (ctx *facadeContext) StatePool() *state.StatePool {
 	return ctx.r.shared.statePool
 }
 
-// ID is part of of the facade.Context interface.
+// ID is part of the facade.Context interface.
 func (ctx *facadeContext) ID() string {
 	return ctx.key.objId
 }

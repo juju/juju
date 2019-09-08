@@ -23,6 +23,7 @@ type Context struct {
 	StatePool_  *state.StatePool
 	Controller_ *cache.Controller
 	ID_         string
+	Cancel_     <-chan struct{}
 
 	LeadershipClaimer_ leadership.Claimer
 	LeadershipChecker_ leadership.Checker
@@ -32,6 +33,11 @@ type Context struct {
 	// Identity is not part of the facade.Context interface, but is instead
 	// used to make sure that the context objects are the same.
 	Identity string
+}
+
+// Cancel is part of the facade.Context interface.
+func (context Context) Cancel() <-chan struct{} {
+	return context.Cancel_
 }
 
 // Auth is part of the facade.Context interface.
