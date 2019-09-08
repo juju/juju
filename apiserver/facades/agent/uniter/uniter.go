@@ -1058,8 +1058,8 @@ func (u *UniterAPI) ConfigSettings(args params.Entities) (params.ConfigSettingsR
 		}
 		err = common.ErrPerm
 		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.getUnit(tag)
+			var unit cache.Unit
+			unit, err = u.getCacheUnit(tag)
 			if err == nil {
 				var settings charm.Settings
 				settings, err = unit.ConfigSettings()
@@ -1695,6 +1695,11 @@ func (u *UniterAPIV8) WatchUnitAddresses(args params.Entities) (params.NotifyWat
 
 func (u *UniterAPI) getUnit(tag names.UnitTag) (*state.Unit, error) {
 	return u.st.Unit(tag.Id())
+}
+
+func (u *UniterAPI) getCacheUnit(tag names.UnitTag) (cache.Unit, error) {
+	unit, err := u.cacheModel.Unit(tag.Id())
+	return unit, errors.Trace(err)
 }
 
 func (u *UniterAPI) getApplication(tag names.ApplicationTag) (*state.Application, error) {
@@ -2788,13 +2793,13 @@ func (u *UniterAPI) WatchConfigSettingsHash(args params.Entities) (params.String
 			continue
 		}
 
-		unit, err := u.getUnit(tag)
+		unit, err := u.getCacheUnit(tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 
-		w, err := unit.WatchConfigSettingsHash()
+		w, err := unit.WatchConfigSettings()
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
