@@ -6,6 +6,8 @@ package cache
 import (
 	"fmt"
 
+	"github.com/juju/juju/core/life"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
@@ -52,6 +54,11 @@ func (u *Unit) Application() string {
 // MachineId returns the ID of the machine hosting this unit.
 func (u *Unit) MachineId() string {
 	return u.details.MachineId
+}
+
+// Life returns the current life of the unit.
+func (u *Unit) Life() life.Value {
+	return u.details.Life
 }
 
 // Subordinate returns a bool indicating whether this unit is a subordinate.
@@ -164,13 +171,12 @@ func (u *Unit) setDetails(details UnitChange) {
 
 	machineChange := u.details.MachineId != details.MachineId
 	u.details = details
+	toPublish := u.copy()
 	if machineChange || u.details.Subordinate {
-		u.model.hub.Publish(modelUnitAdd, u.copy())
+		u.model.hub.Publish(modelUnitAdd, toPublish)
 	}
 	// Publish change event for those that may be waiting.
-	u.model.hub.Publish(changeTopic(details.Name), map[string]interface{}{
-		UnitCharmURLField: details.CharmURL,
-	})
+	u.model.hub.Publish(unitChangeTopic(details.Name), &toPublish)
 }
 
 // copy returns a copy of the unit, ensuring appropriate deep copying.

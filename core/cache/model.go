@@ -5,7 +5,6 @@ package cache
 
 import (
 	"fmt"
-	"reflect"
 	"regexp"
 	"sync"
 
@@ -432,59 +431,65 @@ func (m *Model) doLocked() func() {
 	return m.mu.Unlock
 }
 
-func changeTopic(source string) string {
-	return "change." + source
+func unitChangeTopic(source string) string {
+	return "unit-change." + source
 }
 
-// WaitForChange is the first attempt at providing a generic way to wait for the
-// cache to be updated. The method subscribes to the hub with the topic
-// "change.<source>". The expected payload is a map[string]interface{}. The
-// method effectively runs another goroutine that will close the result channel
-// when the field is updated to the expected value, or the cancel channel is
+// WaitForUnit is the second attempt at providing a genericish way to wait for
+// the cache to be updated. The method subscribes to the hub with the topic
+// "unit-change.<source>". The expected payload is a *Unit. The method
+// effectively runs another goroutine that will close the result channel when
+// the field is updated to the expected value, or the cancel channel is
 // signalled. This method is not responsible for checking the current value, it
 // only deals with changes.
-func (m *Model) WaitForChange(source, field string, value interface{}, cancel <-chan struct{}) <-chan struct{} {
+func (m *Model) WaitForUnit(name string, predicate func(*Unit) bool, cancel <-chan struct{}) <-chan struct{} {
 	result := make(chan struct{})
 
-	wait := &waitChange{
-		field: field,
-		value: value,
-		done:  result,
+	wait := &waitUnitChange{
+		predicate: predicate,
+		done:      result,
 	}
 	// Lock the change so we don't get an event before we record the unsubscriber.
 	wait.mu.Lock()
 	// The closure that is created below captures the unsub function pointer by reference
 	// allowing the function closure to unsubscribe from the hub.
-	wait.unsub = m.hub.Subscribe(changeTopic(source), wait.onChange)
+	wait.unsub = m.hub.Subscribe(unitChangeTopic(name), wait.onChange)
 	wait.mu.Unlock()
 	go wait.loop(cancel)
+
+	// Do the check now, just in case we are already good.
+	if unit, err := m.Unit(name); err == nil {
+		if predicate(&unit) {
+			wait.mu.Lock()
+			wait.close()
+			wait.mu.Unlock()
+		}
+	}
 
 	return result
 }
 
-type waitChange struct {
-	mu    sync.Mutex
-	unsub func()
-	field string
-	value interface{}
-	done  chan struct{}
+type waitUnitChange struct {
+	mu        sync.Mutex
+	unsub     func()
+	predicate func(*Unit) bool
+	done      chan struct{}
 }
 
-func (w *waitChange) onChange(_ string, payload interface{}) {
+func (w *waitUnitChange) onChange(_ string, payload interface{}) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	changes, ok := payload.(map[string]interface{})
+	unit, ok := payload.(*Unit)
 	if !ok {
 		logger.Criticalf("programming error, payload type incorrect %T", payload)
 		return
 	}
-	change := changes[w.field]
-	if reflect.DeepEqual(w.value, change) {
+	if w.predicate(unit) {
 		w.close()
 	}
 }
 
-func (w *waitChange) loop(cancel <-chan struct{}) {
+func (w *waitUnitChange) loop(cancel <-chan struct{}) {
 	select {
 	case <-cancel:
 		w.mu.Lock()
@@ -498,7 +503,7 @@ func (w *waitChange) loop(cancel <-chan struct{}) {
 // close unsubscribes and closes the done channel.
 // Due to the race potentials, both are checked prior to action.
 // The mutex is acquired outside this method.
-func (w *waitChange) close() {
+func (w *waitUnitChange) close() {
 	if w.unsub != nil {
 		w.unsub()
 		w.unsub = nil

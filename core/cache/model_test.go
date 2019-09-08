@@ -305,11 +305,13 @@ func (s *ModelSuite) TestRemoveBranchPublishesName(c *gc.C) {
 	}
 }
 
-func (s *ModelSuite) TestWaitForChangeStringSuccess(c *gc.C) {
+func (s *ModelSuite) TestWaitForUnitNewChange(c *gc.C) {
 	m := s.NewModel(modelChange)
-	done := m.WaitForChange("source", "a-field", "some-string-value", nil)
+	done := m.WaitForUnit("application-name/0", func(u *cache.Unit) bool {
+		return u.Life() == life.Alive
+	}, nil)
 
-	s.Hub.Publish("change.source", map[string]interface{}{"a-field": "some-string-value"})
+	m.UpdateUnit(unitChange, s.Manager)
 
 	select {
 	case <-done:
@@ -319,11 +321,13 @@ func (s *ModelSuite) TestWaitForChangeStringSuccess(c *gc.C) {
 	}
 }
 
-func (s *ModelSuite) TestWaitForChangeIntegerSuccess(c *gc.C) {
+func (s *ModelSuite) TestWaitForUnitExistingValue(c *gc.C) {
 	m := s.NewModel(modelChange)
-	done := m.WaitForChange("source", "a-field", 42, nil)
+	m.UpdateUnit(unitChange, s.Manager)
 
-	s.Hub.Publish("change.source", map[string]interface{}{"a-field": 42})
+	done := m.WaitForUnit("application-name/0", func(u *cache.Unit) bool {
+		return u.Life() == life.Alive
+	}, nil)
 
 	select {
 	case <-done:
@@ -333,10 +337,10 @@ func (s *ModelSuite) TestWaitForChangeIntegerSuccess(c *gc.C) {
 	}
 }
 
-func (s *ModelSuite) TestWaitForChangeCancelClosesChannel(c *gc.C) {
+func (s *ModelSuite) TestWaitForUnitCancelClosesChannel(c *gc.C) {
 	m := s.NewModel(modelChange)
 	cancel := make(chan struct{})
-	done := m.WaitForChange("source", "a-field", "nothing", cancel)
+	done := m.WaitForUnit("anything", func(*cache.Unit) bool { return false }, cancel)
 
 	select {
 	case <-done:
@@ -352,28 +356,6 @@ func (s *ModelSuite) TestWaitForChangeCancelClosesChannel(c *gc.C) {
 		// All good.
 	case <-time.After(testing.LongWait):
 		c.Errorf("done channel not closed")
-	}
-}
-
-func (s *ModelSuite) TestWaitForChangeChecksValue(c *gc.C) {
-	m := s.NewModel(modelChange)
-	done := m.WaitForChange("source", "a-field", "correct", nil)
-
-	s.Hub.Publish("change.source", map[string]interface{}{"a-field": "wrong"})
-
-	select {
-	case <-done:
-		c.Errorf("change signalled in error")
-	case <-time.After(testing.ShortWait):
-		// All good.
-	}
-	s.Hub.Publish("change.source", map[string]interface{}{"a-field": "correct"})
-
-	select {
-	case <-done:
-		// All good.
-	case <-time.After(testing.LongWait):
-		c.Errorf("change not noticed")
 	}
 }
 
