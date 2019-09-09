@@ -70,7 +70,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 				Kind: "Role",
 			},
 			Subjects: []rbacv1.Subject{
-				rbacv1.Subject{
+				{
 					Kind:      rbacv1.ServiceAccountKind,
 					Name:      sa.GetName(),
 					Namespace: sa.GetNamespace(),
@@ -101,7 +101,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 				Kind: "ClusterRole",
 			},
 			Subjects: []rbacv1.Subject{
-				rbacv1.Subject{
+				{
 					Kind:      rbacv1.ServiceAccountKind,
 					Name:      sa.GetName(),
 					Namespace: sa.GetNamespace(),
