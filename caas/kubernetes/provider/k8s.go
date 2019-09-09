@@ -531,17 +531,16 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		return errors.Trace(err)
 	}
 
+	cmName := operatorConfigMapName(operatorName)
 	// TODO(caas) use secrets for storing agent password?
 	if config.AgentConf == nil {
 		// We expect that the config map already exists,
 		// so make sure it does.
-		configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
-		_, err := configMaps.Get(operatorConfigMapName(operatorName), v1.GetOptions{IncludeUninitialized: true})
-		if err != nil {
+		if _, err := k.getConfigMap(cmName); err != nil {
 			return errors.Annotatef(err, "config map for %q should already exist", appName)
 		}
 	} else {
-		cmCleanUp, err := k.ensureConfigMap(operatorConfigMap(appName, operatorName, k.getConfigMapLabels(appName), config))
+		cmCleanUp, err := k.ensureConfigMap(operatorConfigMap(appName, cmName, k.getConfigMapLabels(appName), config))
 		cleanups = append(cleanups, cmCleanUp)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating ConfigMap")
@@ -1716,19 +1715,23 @@ func (k *kubernetesClient) configureStatefulSet(
 }
 
 func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPodSpec core.PodSpec) error {
-	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
-	_, err := statefulsets.Update(spec)
+	api := k.client().AppsV1().StatefulSets(k.namespace)
+	_, err := api.Update(spec)
 	if k8serrors.IsNotFound(err) {
-		_, err = statefulsets.Create(spec)
+		_, err = api.Create(spec)
 	}
-	if !k8serrors.IsInvalid(err) {
+
+	if err != nil {
+		if k8serrors.IsInvalid(err) {
+			return errors.NewNotValid(err, "ensuring statefulset")
+		}
 		return errors.Trace(err)
 	}
 
 	// The statefulset already exists so all we are allowed to update is replicas,
 	// template, update strategy. Juju may hand out info with a slightly different
 	// requested volume size due to trying to adapt the unit model to the k8s world.
-	existing, err := statefulsets.Get(spec.Name, v1.GetOptions{IncludeUninitialized: true})
+	existing, err := api.Get(spec.GetName(), v1.GetOptions{IncludeUninitialized: true})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1736,8 +1739,9 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 	existing.Spec.Replicas = spec.Spec.Replicas
 	existing.Spec.Template.Spec.Containers = existingPodSpec.Containers
 	existing.Spec.Template.Spec.ServiceAccountName = existingPodSpec.ServiceAccountName
+	existing.Spec.Template.Spec.AutomountServiceAccountToken = existingPodSpec.AutomountServiceAccountToken
 	// NB: we can't update the Spec.ServiceName as it is immutable.
-	_, err = statefulsets.Update(existing)
+	_, err = api.Update(existing)
 	return errors.Trace(err)
 }
 
@@ -2533,11 +2537,10 @@ func operatorPod(podName, appName, operatorServiceIP, agentPath, operatorImagePa
 
 // operatorConfigMap returns a *core.ConfigMap for the operator pod
 // of the specified application, with the specified configuration.
-func operatorConfigMap(appName, operatorName string, labels map[string]string, config *caas.OperatorConfig) *core.ConfigMap {
-	configMapName := operatorConfigMapName(operatorName)
+func operatorConfigMap(appName, cmName string, labels map[string]string, config *caas.OperatorConfig) *core.ConfigMap {
 	return &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name: configMapName,
+			Name: cmName,
 			// TODO: properly labling operator resources could ensure all resources get deleted when application is removed.
 			Labels: labels,
 		},

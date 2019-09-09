@@ -415,10 +415,12 @@ func (k *kubernetesClient) ensureRoleBinding(rb *rbacv1.RoleBinding) (out *rbacv
 	}
 
 	for _, v := range rbs {
-		if err := k.deleteRoleBinding(v.GetName(), v.GetUID()); err != nil {
-			return nil, cleanups, errors.Trace(err)
+		if v.GetName() == rb.GetName() {
+			if err := k.deleteRoleBinding(v.GetName(), v.GetUID()); err != nil {
+				return nil, cleanups, errors.Trace(err)
+			}
+			logger.Debugf("role binding %q deleted", v.GetName())
 		}
-		logger.Debugf("role binding %q deleted", v.GetName())
 	}
 	out, err = k.createRoleBinding(rb)
 	if err != nil {

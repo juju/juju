@@ -536,7 +536,6 @@ func (ctx *HookContext) SetPodSpec(specYaml string) error {
 		logger.Errorf("%v is not the leader but is setting application pod spec", entityName)
 		return ErrIsNotLeader
 	}
-	logger.Criticalf("HookContext.SetPodSpec specYaml -> %q", specYaml)
 	_, err = k8sspecs.ParsePodSpec(specYaml)
 	if err != nil {
 		return errors.Trace(err)
