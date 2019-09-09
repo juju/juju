@@ -24,10 +24,10 @@ setting values are not inspected and are stored as strings. Setting
 an empty string causes the setting to be removed. Duplicate settings
 are not allowed.
 
-If the unit is the leader, it can chose to use "--context=application"
-to set application settings. These settings will be visible to
-remove applications as though they were set by each individual
-unit.
+If the unit is the leader, it can set the application settings using
+"--app". These are visible to related applications via 'relation-get --app'
+or by supplying the application name to 'relation-get' in place of
+a unit name.
 
 The --file option should be used when one or more key-value pairs are
 too long to fit within the command length limit of the shell or

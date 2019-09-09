@@ -573,6 +573,7 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 			// settings from the new charm's settings doc.
 			needConfig = true
 		}
+                info.Status = oldInfo.Status
 	}
 	if needConfig {
 		doc, err := readSettingsDoc(st.db(), settingsC, applicationCharmConfigKey(app.Name, app.CharmURL))
