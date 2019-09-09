@@ -34,6 +34,7 @@ type charmsSuiteContext struct{ cs *charmsSuite }
 
 func (ctx *charmsSuiteContext) Abort() <-chan struct{}                        { return nil }
 func (ctx *charmsSuiteContext) Auth() facade.Authorizer                       { return ctx.cs.auth }
+func (ctx *charmsSuiteContext) Cancel() <-chan struct{}                       { return nil }
 func (ctx *charmsSuiteContext) Dispose()                                      {}
 func (ctx *charmsSuiteContext) Resources() facade.Resources                   { return common.NewResources() }
 func (ctx *charmsSuiteContext) State() *state.State                           { return ctx.cs.State }
