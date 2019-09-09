@@ -63,8 +63,17 @@ func (l *HookLogger) Run() {
 	}
 }
 
+// Stopper instances can be stopped.
+type Stopper interface {
+	Stop()
+}
+
 // Stop stops the hook logger.
 func (l *HookLogger) Stop() {
+	// Ensure Stop() is idempotent.
+	if l == nil || l.stopped {
+		return
+	}
 	// We can see the process exit before the logger has processed
 	// all its output, so allow a moment for the data buffered
 	// in the pipe to be processed. We don't wait indefinitely though,
