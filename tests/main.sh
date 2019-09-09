@@ -46,7 +46,7 @@ show_help() {
     echo "    $(green 'cmd -x')        Output file from streaming the output"
     echo ""
     echo "Tests:"
-    echo "¯¯¯¯¯¯¯¯¯"
+    echo "¯¯¯¯¯¯"
     echo "Available tests:"
     echo ""
 

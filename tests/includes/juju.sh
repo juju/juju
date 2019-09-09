@@ -163,6 +163,7 @@ cleanup_jujus() {
         while read -r juju_name; do
             destroy_controller "${juju_name}"
         done < "${TEST_DIR}/jujus"
+        rm -f "${TEST_DIR}/jujus"
     fi
 }
 
