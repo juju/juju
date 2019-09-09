@@ -122,7 +122,7 @@ func (s *cmdSpaceSuite) TestSpaceCreateWithInvalidSubnets(c *gc.C) {
 }
 
 func (s *cmdSpaceSuite) TestSpaceCreateWithUnknownSubnet(c *gc.C) {
-	expectedError := `cannot add space "foo": adding space "foo": subnet "10.10.0.0/16" not found`
+	expectedError := `cannot add space "foo": subnet "10.10.0.0/16" not found`
 	s.RunAdd(c, expectedError, "foo", "10.10.0.0/16")
 }
 

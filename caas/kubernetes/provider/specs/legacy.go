@@ -32,7 +32,7 @@ func (c *k8sContainerLegacy) Validate() error {
 }
 
 func (c *k8sContainerLegacy) ToContainerSpec() specs.ContainerSpec {
-	quoteBoolStrings(c.Config)
+	quoteStrings(c.Config)
 	result := specs.ContainerSpec{
 		ImageDetails:    c.ImageDetails,
 		Name:            c.Name,

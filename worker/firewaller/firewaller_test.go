@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -49,7 +48,6 @@ import (
 // into each of the other per-mode suites.
 type firewallerBaseSuite struct {
 	jujutesting.JujuConnSuite
-	testing.OsEnvSuite
 	op                 <-chan dummy.Operation
 	charm              *state.Charm
 	controllerMachine  *state.Machine
@@ -65,26 +63,10 @@ type firewallerBaseSuite struct {
 	credentialsFacade *credentialvalidator.Facade
 }
 
-func (s *firewallerBaseSuite) SetUpSuite(c *gc.C) {
-	s.OsEnvSuite.SetUpSuite(c)
-	s.JujuConnSuite.SetUpSuite(c)
-}
-
-func (s *firewallerBaseSuite) TearDownSuite(c *gc.C) {
-	s.JujuConnSuite.TearDownSuite(c)
-	s.OsEnvSuite.TearDownSuite(c)
-}
-
 func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
-	s.OsEnvSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
 
 	s.callCtx = context.NewCloudCallContext()
-}
-
-func (s *firewallerBaseSuite) TearDownTest(c *gc.C) {
-	s.JujuConnSuite.TearDownTest(c)
-	s.OsEnvSuite.TearDownTest(c)
 }
 
 var _ worker.Worker = (*firewaller.Firewaller)(nil)
@@ -203,10 +185,6 @@ var _ = gc.Suite(&InstanceModeSuite{})
 
 func (s *InstanceModeSuite) SetUpTest(c *gc.C) {
 	s.firewallerBaseSuite.setUpTest(c, config.FwInstance)
-}
-
-func (s *InstanceModeSuite) TearDownTest(c *gc.C) {
-	s.firewallerBaseSuite.JujuConnSuite.TearDownTest(c)
 }
 
 // mockClock will panic if anything but After is called
@@ -1157,6 +1135,7 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ingress []string, expect
 		Endpoints: []charm.Relation{{Name: "db", Interface: "mysql", Role: "requirer", Scope: "global"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	// Create the firewaller facade on the offering model.
 	fw := s.newFirewaller(c)

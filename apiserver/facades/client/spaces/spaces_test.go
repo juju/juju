@@ -148,39 +148,66 @@ func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 		apiservertesting.ZonedNetworkingEnvironCall("SupportsSpaces", s.callContext),
 	}
 
-	// AddSpace from the api always uses an empty ProviderId.
-	addSpaceCalls := append(
-		baseCalls, apiservertesting.BackingCall("AddSpace", p.Name, network.Id(""), p.Subnets, p.Public),
-	)
-
-	if p.Error == "" || p.MakesCall {
-		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, addSpaceCalls...)
-	} else {
+	// If we have an expected error, no calls to Subnet() nor
+	// AddSpace() should be made.  Check the methods called and
+	// return.  The exception is TestAddSpacesAPIError cause an
+	// error after Subnet() is called.
+	if p.Error != "" && !subnetCallMade() {
 		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, baseCalls...)
+		return
 	}
+
+	allCalls := baseCalls
+	subnetIDs := []string{}
+	for _, cidr := range p.Subnets {
+		allCalls = append(allCalls, apiservertesting.BackingCall("Subnet", cidr))
+		for _, fakeSN := range apiservertesting.BackingInstance.Subnets {
+			if fakeSN.CIDR() == cidr {
+				subnetIDs = append(subnetIDs, fakeSN.ID())
+			}
+		}
+	}
+
+	// Only add the call to AddSpace() if there are no errors
+	// which have continued to this point.
+	if p.Error == "" {
+		allCalls = append(allCalls, apiservertesting.BackingCall("AddSpace", p.Name, network.Id(""), subnetIDs, p.Public))
+	}
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, allCalls...)
+}
+
+func subnetCallMade() bool {
+	for _, call := range apiservertesting.SharedStub.Calls() {
+		if call.FuncName == "Subnet" {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *SpacesSuite) TestAddSpacesOneSubnet(c *gc.C) {
 	p := checkAddSpacesParams{
 		Name:    "foo",
-		Subnets: []string{"10.0.0.0/24"},
+		Subnets: []string{"10.10.0.0/24"},
 	}
 	s.checkAddSpaces(c, p)
 }
 
 func (s *SpacesSuite) TestAddSpacesTwoSubnets(c *gc.C) {
+	apiservertesting.BackingInstance.AdditionalSubnets()
 	p := checkAddSpacesParams{
 		Name:    "foo",
-		Subnets: []string{"10.0.0.0/24", "10.0.1.0/24"},
+		Subnets: []string{"10.10.0.0/24", "10.0.2.0/24"},
 	}
 	s.checkAddSpaces(c, p)
 }
 
 func (s *SpacesSuite) TestAddSpacesManySubnets(c *gc.C) {
+	apiservertesting.BackingInstance.AdditionalSubnets()
 	p := checkAddSpacesParams{
 		Name: "foo",
-		Subnets: []string{"10.0.0.0/24", "10.0.1.0/24", "10.0.2.0/24",
-			"10.0.3.0/24", "10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"},
+		Subnets: []string{"10.10.0.0/24", "10.0.2.0/24",
+			"10.0.3.0/24", "10.0.4.0/24"},
 	}
 	s.checkAddSpaces(c, p)
 }
@@ -195,52 +222,9 @@ func (s *SpacesSuite) TestAddSpacesAPIError(c *gc.C) {
 	)
 	p := checkAddSpacesParams{
 		Name:      "foo",
-		Subnets:   []string{"10.0.0.0/24"},
+		Subnets:   []string{"10.10.0.0/24"},
 		MakesCall: true,
 		Error:     "space-foo already exists",
-	}
-	s.checkAddSpaces(c, p)
-}
-
-func (s *SpacesSuite) TestCreateInvalidSpace(c *gc.C) {
-	p := checkAddSpacesParams{
-		Name:    "-",
-		Subnets: []string{"10.0.0.0/24"},
-		Error:   `"space--" is not a valid space tag`,
-	}
-	s.checkAddSpaces(c, p)
-}
-
-func (s *SpacesSuite) TestCreateInvalidCIDR(c *gc.C) {
-	p := checkAddSpacesParams{
-		Name:    "foo",
-		Subnets: []string{"bar"},
-		Error:   `"bar" is not a valid CIDR`,
-	}
-	s.checkAddSpaces(c, p)
-}
-
-func (s *SpacesSuite) TestPublic(c *gc.C) {
-	p := checkAddSpacesParams{
-		Name:    "foo",
-		Subnets: []string{"10.0.0.0/24"},
-		Public:  true,
-	}
-	s.checkAddSpaces(c, p)
-}
-
-func (s *SpacesSuite) TestEmptySpaceName(c *gc.C) {
-	p := checkAddSpacesParams{
-		Subnets: []string{"10.0.0.0/24"},
-		Error:   `"" is not a valid tag`,
-	}
-	s.checkAddSpaces(c, p)
-}
-
-func (s *SpacesSuite) TestNoSubnets(c *gc.C) {
-	p := checkAddSpacesParams{
-		Name:    "foo",
-		Subnets: nil,
 	}
 	s.checkAddSpaces(c, p)
 }
@@ -339,41 +323,6 @@ func (s *SpacesSuite) TestListSpacesSubnetsSingleSubnetError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *SpacesSuite) TestCreateSpacesModelConfigError(c *gc.C) {
-	apiservertesting.SharedStub.SetErrors(
-		errors.New("boom"), // Backing.ModelConfig()
-	)
-
-	spaces := params.CreateSpacesParams{}
-	_, err := s.facade.CreateSpaces(spaces)
-	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
-}
-
-func (s *SpacesSuite) TestCreateSpacesProviderOpenError(c *gc.C) {
-	apiservertesting.SharedStub.SetErrors(
-		nil,                // Backing.ModelConfig()
-		nil,                // Backing.CloudSpec()
-		errors.New("boom"), // Provider.Open()
-	)
-
-	spaces := params.CreateSpacesParams{}
-	_, err := s.facade.CreateSpaces(spaces)
-	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
-}
-
-func (s *SpacesSuite) TestCreateSpacesNotSupportedError(c *gc.C) {
-	apiservertesting.SharedStub.SetErrors(
-		nil,                            // Backing.ModelConfig()
-		nil,                            // Backing.CloudSpec()
-		nil,                            // Provider.Open()
-		errors.NotSupportedf("spaces"), // ZonedNetworkingEnviron.SupportsSpaces()
-	)
-
-	spaces := params.CreateSpacesParams{}
-	_, err := s.facade.CreateSpaces(spaces)
-	c.Assert(err, gc.ErrorMatches, "spaces not supported")
-}
-
 func (s *SpacesSuite) TestListSpacesNotSupportedError(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(
 		nil,                            // Backing.ModelConfig()
@@ -417,7 +366,7 @@ func (s *SpacesSuite) TestCreateSpacesAPIv4(c *gc.C) {
 		Spaces: []params.CreateSpaceParamsV4{
 			{
 				SpaceTag:   "space-foo",
-				SubnetTags: []string{"subnet-10.0.0.0/24"},
+				SubnetTags: []string{"subnet-10.10.0.0/24"},
 			},
 		},
 	})

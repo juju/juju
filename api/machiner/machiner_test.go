@@ -50,7 +50,10 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	// Create the machiner API facade.
 	s.machiner = machiner.NewState(s.st)
 	c.Assert(s.machiner, gc.NotNil)
-	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.machiner, s.BackingState)
+	waitForModelWatchersIdle := func(c *gc.C) {
+		s.JujuConnSuite.WaitForModelWatchersIdle(c, s.BackingState.ModelUUID())
+	}
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.machiner, s.BackingState, waitForModelWatchersIdle)
 }
 
 func (s *machinerSuite) TestMachineAndMachineTag(c *gc.C) {

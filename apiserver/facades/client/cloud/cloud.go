@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/context"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -902,9 +901,15 @@ func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialAr
 				continue
 			}
 		}
-
-		if err := api.backend.RemoveCloudCredential(tag); err != nil {
+		err = api.backend.RemoveCloudCredential(tag)
+		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
+		} else {
+			// If credential was successfully removed, we also want to clear all references to it from the models.
+			// lp#1841885
+			if err := api.backend.RemoveModelsCredential(tag); err != nil {
+				results.Results[i].Error = common.ServerError(err)
+			}
 		}
 	}
 	return results, nil
@@ -996,16 +1001,6 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 	} else if !isAdmin {
 		return common.ServerError(common.ErrPerm)
 	}
-	cfg, err := api.backend.ControllerConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !cfg.Features().Contains(feature.MultiCloud) {
-		if cloudArgs.Cloud.Type != string(provider.K8s_ProviderType) {
-			return errors.Errorf(
-				"feature flag %q needs to be enabled to add a %q cloud", feature.MultiCloud, cloudArgs.Cloud.Type)
-		}
-	}
 
 	if cloudArgs.Cloud.Type != string(provider.K8s_ProviderType) {
 		// All non-k8s cloud need to go through whitelist.
@@ -1024,7 +1019,14 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 			logger.Infof("force adding cloud %q of type %q to controller bootstrapped on cloud type %q", cloudArgs.Name, cloudArgs.Cloud.Type, controllerCloud.Type)
 		}
 	}
-	err = api.backend.AddCloud(common.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud), api.apiUser.Name())
+
+	aCloud := common.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud)
+	// All clouds must have at least one 'default' region, lp#1819409.
+	if len(aCloud.Regions) == 0 {
+		aCloud.Regions = []cloud.Region{{Name: cloud.DefaultCloudRegion}}
+	}
+
+	err = api.backend.AddCloud(aCloud, api.apiUser.Name())
 	return errors.Trace(err)
 }
 

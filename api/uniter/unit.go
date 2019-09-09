@@ -635,6 +635,24 @@ func (u *Unit) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error) 
 	return u.st.WatchUpgradeSeriesNotifications()
 }
 
+// LogActionMessage logs a progress message for the specified action.
+func (u *Unit) LogActionMessage(tag names.ActionTag, message string) error {
+	// Just a safety check since controller is always ahead of unit agents.
+	if u.st.facade.BestAPIVersion() < 12 {
+		return errors.NotImplementedf("LogActionMessage() (need V12+)")
+	}
+
+	var result params.ErrorResults
+	args := params.ActionMessageParams{
+		Messages: []params.EntityString{{Tag: tag.String(), Value: message}},
+	}
+	err := u.st.facade.FacadeCall("LogActionsMessages", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
 // UpgradeSeriesStatus returns the upgrade series status of a unit from remote state
 func (u *Unit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
 	res, err := u.st.UpgradeSeriesUnitStatus()

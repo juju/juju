@@ -933,3 +933,28 @@ func (s ModelBackendShim) isController() bool {
 func (s ModelBackendShim) txnLogWatcher() watcher.BaseWatcher {
 	return s.Watcher
 }
+
+// SetClockForTesting is an exported function to allow tests
+// to set the internal clock for the State instance. It is named such
+// that it should be obvious if it is ever called from a non-test package.
+// TODO (thumper): This is a terrible method and we should remove it.
+// NOTE: this should almost never be needed.
+func (st *State) SetClockForTesting(clock clock.Clock) error {
+	// Need to restart the lease workers so they get the new clock.
+	// Stop them first so they don't try to use it when we're setting it.
+	hub := st.workers.hub
+	st.workers.Kill()
+	err := st.workers.Wait()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	st.stateClock = clock
+	if db, ok := st.database.(*database); ok {
+		db.clock = clock
+	}
+	err = st.start(st.controllerTag, hub)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}

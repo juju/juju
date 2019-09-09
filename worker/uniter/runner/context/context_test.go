@@ -288,6 +288,8 @@ func (s *InterfaceSuite) TestNonActionCallsToActionMethodsFail(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "not running an action")
 	err = ctx.SetActionMessage("foo")
 	c.Check(err, gc.ErrorMatches, "not running an action")
+	err = ctx.LogActionMessage("foo")
+	c.Check(err, gc.ErrorMatches, "not running an action")
 	err = ctx.UpdateActionResults([]string{"1", "2", "3"}, "value")
 	c.Check(err, gc.ErrorMatches, "not running an action")
 }
@@ -333,7 +335,8 @@ func (s *InterfaceSuite) TestUpdateActionResults(c *gc.C) {
 
 	for i, t := range tests {
 		c.Logf("UpdateActionResults test %d: %#v: %#v", i, t.keys, t.value)
-		hctx := context.GetStubActionContext(t.initial)
+		hctx := s.getHookContext(c, s.State.ModelUUID(), -1, "")
+		context.WithActionContext(hctx, t.initial)
 		err := hctx.UpdateActionResults(t.keys, t.value)
 		c.Assert(err, jc.ErrorIsNil)
 		actionData, err := hctx.ActionData()
@@ -344,7 +347,8 @@ func (s *InterfaceSuite) TestUpdateActionResults(c *gc.C) {
 
 // TestSetActionFailed ensures SetActionFailed works properly.
 func (s *InterfaceSuite) TestSetActionFailed(c *gc.C) {
-	hctx := context.GetStubActionContext(nil)
+	hctx := s.getHookContext(c, s.State.ModelUUID(), -1, "")
+	context.WithActionContext(hctx, nil)
 	err := hctx.SetActionFailed()
 	c.Assert(err, jc.ErrorIsNil)
 	actionData, err := hctx.ActionData()
@@ -354,12 +358,31 @@ func (s *InterfaceSuite) TestSetActionFailed(c *gc.C) {
 
 // TestSetActionMessage ensures SetActionMessage works properly.
 func (s *InterfaceSuite) TestSetActionMessage(c *gc.C) {
-	hctx := context.GetStubActionContext(nil)
+	hctx := s.getHookContext(c, s.State.ModelUUID(), -1, "")
+	context.WithActionContext(hctx, nil)
 	err := hctx.SetActionMessage("because reasons")
 	c.Assert(err, jc.ErrorIsNil)
 	actionData, err := hctx.ActionData()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(actionData.ResultsMessage, gc.Equals, "because reasons")
+}
+
+// TestLogActionMessage ensures LogActionMessage works properly.
+func (s *InterfaceSuite) TestLogActionMessage(c *gc.C) {
+	action, err := s.unit.AddAction("fakeaction", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = action.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+
+	hctx := s.getHookContext(c, s.State.ModelUUID(), -1, "")
+	context.WithActionContext(hctx, nil)
+	err = hctx.LogActionMessage("hello world")
+	c.Assert(err, jc.ErrorIsNil)
+	a, err := s.Model.Action(action.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	messages := a.Messages()
+	c.Assert(messages, gc.HasLen, 1)
+	c.Assert(messages[0].Message, gc.Equals, "hello world")
 }
 
 func (s *InterfaceSuite) TestRequestRebootAfterHook(c *gc.C) {

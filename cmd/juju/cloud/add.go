@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -72,10 +71,15 @@ positional argument:
 When <cloud definition file> is provided with <cloud name>,
 Juju stores that definition in the current controller (after
 validating the contents), or the specified controller if
---controller is used. To make use of this multi-cloud feature,
-the controller needs to have the "multi-cloud" feature flag turned on.
+--controller is used. 
 
-If --local is used, Juju stores that definition its internal cache directly.
+If a current controller is detected, Juju will prompt the user to confirm
+whether this new cloud also needs to be uploaded. 
+Use --no-prompt option when this prompt is undesirable, but the upload to 
+the current controller is wanted.
+Use --controller option to upload a cloud to a different controller. 
+
+Use --local option to add cloud to the current device only.
 
 DEPRECATED If <cloud name> already exists in Juju's cache, then the `[1:] + "`--replace`" + ` 
 option is required. Use 'update-credential' instead.
@@ -109,8 +113,9 @@ When a a running controller is updated, the credential for the cloud
 is also uploaded. As with the cloud, the credential needs
 to have been added to the local Juju cache; add-credential is used to
 do that. If there's only one credential for the cloud it will be
-uploaded to the controller. If the cloud has multiple local credentials
-you can specify which to upload with the --credential option.
+uploaded to the controller automatically by add-clloud command. 
+However, if the cloud has multiple local credentials you can specify 
+which to upload with the --credential option.
 
 When adding clouds to a controller, some clouds are whitelisted and can be easily added:
 %v
@@ -167,12 +172,14 @@ type AddCloudCommand struct {
 	cloudMetadataStore CloudMetadataStore
 
 	// These attributes are used when adding a cloud to a controller.
-	controllerName  string
 	credentialName  string
 	addCloudAPIFunc func() (AddCloudAPI, error)
 
 	// Force holds whether user wants to force addition of the cloud.
 	Force bool
+
+	// existsLocally whether this cloud already exists locally.
+	existsLocally bool
 }
 
 // NewAddCloudCommand returns a command to add cloud information.
@@ -181,8 +188,7 @@ func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 	store := jujuclient.NewFileClientStore()
 	c := &AddCloudCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
-			Store:       store,
-			EnabledFlag: feature.MultiCloud,
+			Store: store,
 		},
 		cloudMetadataStore: cloudMetadataStore,
 		CloudCallCtx:       cloudCallCtx,
@@ -197,7 +203,7 @@ func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 }
 
 func (c *AddCloudCommand) cloudAPI() (AddCloudAPI, error) {
-	root, err := c.NewAPIRoot(c.Store, c.controllerName, "")
+	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -220,6 +226,7 @@ func (c *AddCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Replace, "replace", false, "DEPRECATED: Overwrite any existing cloud information for <cloud name>")
 	f.BoolVar(&c.Force, "force", false, "Force add cloud to the controller")
 	f.StringVar(&c.CloudFile, "f", "", "The path to a cloud definition file")
+	f.StringVar(&c.CloudFile, "file", "", "The path to a cloud definition file")
 	f.StringVar(&c.credentialName, "credential", "", "Credential to use for new cloud")
 }
 
@@ -239,10 +246,6 @@ func (c *AddCloudCommand) Init(args []string) (err error) {
 	}
 	if len(args) > 2 {
 		return cmd.CheckEmpty(args[2:])
-	}
-	c.controllerName, err = c.ControllerNameFromArg()
-	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
-		return errors.Trace(err)
 	}
 	return nil
 }
@@ -269,12 +272,12 @@ func (c *AddCloudCommand) findLocalCredential(ctx *cmd.Context, cloud jujucloud.
 }
 
 func (c *AddCloudCommand) addCredentialToController(ctx *cmd.Context, cloud jujucloud.Cloud, apiClient AddCloudAPI) error {
-	_, err := c.Store.ControllerByName(c.controllerName)
+	_, err := c.Store.ControllerByName(c.ControllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	currentAccountDetails, err := c.Store.AccountDetails(c.controllerName)
+	currentAccountDetails, err := c.Store.AccountDetails(c.ControllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -302,29 +305,68 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	if c.Replace {
 		ctxt.Warningf("'add-cloud --replace' is deprecated. Use 'update-cloud' instead.")
 	}
-	if c.CloudFile == "" && c.controllerName == "" {
-		return c.runInteractive(ctxt)
-	}
-
 	var newCloud *jujucloud.Cloud
 	var err error
 	if c.CloudFile != "" {
 		newCloud, err = c.readCloudFromFile(ctxt)
 	} else {
-		// No cloud file specified so we try and use a named
-		// cloud that already has been added to the local cache.
-		newCloud, err = cloudFromLocal(c.Store, c.Cloud)
+		if c.Cloud != "" {
+			// It's possible that the user wants to add an existing local cloud to a current controller,
+			// i.e. 'juju add-cloud aws'. So let's see if we can find the cloud.
+			newCloud, err = common.CloudByName(c.Cloud)
+			c.existsLocally = err == nil
+		}
+		if !c.existsLocally {
+			newCloud, err = c.runInteractive(ctxt)
+		}
 	}
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if c.controllerName == "" {
-		if !c.Local {
-			ctxt.Infof(
-				"There are no controllers running.\nAdding cloud to local cache so you can use it to bootstrap a controller.\n")
+	// All clouds must have at least one default region - lp#1819409.
+	if len(newCloud.Regions) == 0 {
+		newCloud.Regions = []jujucloud.Region{{Name: jujucloud.DefaultCloudRegion}}
+	}
+
+	var returnErr error
+	if c.Replace || !c.existsLocally {
+		operation := "added"
+		if c.Replace {
+			operation = "updated"
 		}
-		return addLocalCloud(c.cloudMetadataStore, *newCloud)
+		err = addLocalCloud(c.cloudMetadataStore, *newCloud)
+		if err != nil {
+			ctxt.Infof("Cloud %q was not %v locally: %v", newCloud.Name, operation, err)
+			returnErr = cmd.ErrSilent
+		} else {
+			ctxt.Infof("Cloud %q successfully %v to your local client.", newCloud.Name, operation)
+			if len(newCloud.AuthTypes) != 0 {
+				ctxt.Infof("You will need to add a credential for this cloud (`juju add-credential %s`)", newCloud.Name)
+				ctxt.Infof("before you can use it to bootstrap a controller (`juju bootstrap %s`) or", newCloud.Name)
+				ctxt.Infof("to create a model (`juju add-model <your model name> %s`).", newCloud.Name)
+			}
+		}
+	}
+	if !c.Replace && c.existsLocally {
+		returnErr = errors.AlreadyExistsf("use `update-cloud %s --local` to override known definition: local cloud %q", newCloud.Name, newCloud.Name)
+	}
+	if c.Local {
+		return returnErr
+	}
+	ctxt.Infof("")
+
+	// At this stage, the user may have specified the controller via a --controller option.
+	// If not, let's see if there is a current controller that can be detected.
+	if c.ControllerName == "" {
+		c.ControllerName, err = c.MaybePromptCurrentController(ctxt, fmt.Sprintf("add cloud %q to", newCloud.Name))
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if c.ControllerName == "" {
+		ctxt.Infof("There are no controllers specified - not adding cloud %q to any controller.", newCloud.Name)
+		return returnErr
 	}
 
 	// A controller has been specified so upload the cloud details
@@ -337,32 +379,32 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	err = api.AddCloud(*newCloud, c.Force)
 	if err != nil {
 		if params.ErrCode(err) == params.CodeAlreadyExists {
-			ctxt.Infof("Cloud %q already exists on the controller %q.", c.Cloud, c.controllerName)
-			ctxt.Infof("To upload credentials to the controller for cloud %q, use \n"+
+			ctxt.Infof("Cloud %q already exists on the controller %q.", c.Cloud, c.ControllerName)
+			ctxt.Infof("To upload a credential to the controller for cloud %q, use \n"+
 				"* 'add-model' with --credential option or\n"+
 				"* 'add-credential -c %v'.", newCloud.Name, newCloud.Name)
-			return nil
+			return returnErr
 		}
 		if params.ErrCode(err) == params.CodeIncompatibleClouds {
 			logger.Infof("%v", err)
 			ctxt.Infof("Adding a cloud of type %q might not function correctly on this controller.\n"+
 				"If you really want to do this, use --force.", newCloud.Type)
-			return nil
+			return returnErr
 		}
 		return err
 	}
-	ctxt.Infof("Cloud %q added to controller %q.", c.Cloud, c.controllerName)
+	ctxt.Infof("Cloud %q added to controller %q.", c.Cloud, c.ControllerName)
 	// Add a credential for the newly added cloud.
 	err = c.addCredentialToController(ctxt, *newCloud, api)
 	if err != nil {
-		logger.Errorf("%v", err)
-		ctxt.Infof("To upload credentials to the controller for cloud %q, use \n"+
+		logger.Warningf("%v", err)
+		ctxt.Infof("To upload a credential to the controller for cloud %q, use \n"+
 			"* 'add-model' with --credential option or\n"+
 			"* 'add-credential -c %v'.", newCloud.Name, newCloud.Name)
-		return cmd.ErrSilent
+		return returnErr
 	}
-	ctxt.Infof("Credentials for cloud %q added to controller %q.", c.Cloud, c.controllerName)
-	return nil
+	ctxt.Infof("Credential for cloud %q added to controller %q.", c.Cloud, c.ControllerName)
+	return returnErr
 }
 
 func cloudFromLocal(store jujuclient.CredentialGetter, cloudName string) (*jujucloud.Cloud, error) {
@@ -400,29 +442,36 @@ func cloudFromLocal(store jujuclient.CredentialGetter, cloudName string) (*jujuc
 }
 
 func (c *AddCloudCommand) readCloudFromFile(ctxt *cmd.Context) (*jujucloud.Cloud, error) {
-	r := cloudFileReader{
+	r := &cloudFileReader{
 		cloudMetadataStore: c.cloudMetadataStore,
+		cloudName:          c.Cloud,
 	}
-	return r.readCloudFromFile(c.Cloud, c.CloudFile, ctxt, c.Replace)
+	newCloud, err := r.readCloudFromFile(c.CloudFile, ctxt)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	c.Cloud = r.cloudName
+	c.existsLocally = r.alreadyExists
+	return newCloud, nil
 }
 
-func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
+func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) (*jujucloud.Cloud, error) {
 	errout := interact.NewErrWriter(ctxt.Stdout)
 	pollster := interact.New(ctxt.Stdin, ctxt.Stdout, errout)
 
 	cloudType, err := queryCloudType(pollster)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	name, err := queryName(c.cloudMetadataStore, c.Cloud, cloudType, pollster)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	provider, err := environs.Provider(cloudType)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	// At this stage, since we do not have a reference to any model, nor can we get it,
@@ -459,18 +508,18 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
 
 	v, err := pollster.QuerySchema(provider.CloudSchema())
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	b, err := yaml.Marshal(v)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	filename, alt, err := addCertificate(b)
 	switch {
 	case errors.IsNotFound(err):
 	case err != nil:
-		return errors.Annotate(err, "CA Certificate")
+		return nil, errors.Annotate(err, "CA Certificate")
 	default:
 		ctxt.Infof("Successfully read CA Certificate from %s", filename)
 		b = alt
@@ -478,20 +527,11 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
 
 	newCloud, err := c.cloudMetadataStore.ParseOneCloud(b)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	newCloud.Name = name
 	newCloud.Type = cloudType
-	if err := addLocalCloud(c.cloudMetadataStore, newCloud); err != nil {
-		return errors.Trace(err)
-	}
-	ctxt.Infof("Cloud %q successfully added", name)
-	if len(newCloud.AuthTypes) != 0 {
-		ctxt.Infof("")
-		ctxt.Infof("You will need to add credentials for this cloud (`juju add-credential %s`)", name)
-		ctxt.Infof("before creating a controller (`juju bootstrap %s`).", name)
-	}
-	return nil
+	return &newCloud, nil
 }
 
 // addCertificate reads the cloud certificate file if available and adds the contents
@@ -666,19 +706,39 @@ func addLocalCloud(cloudMetadataStore PersonalCloudMetadataStore, newCloud jujuc
 
 type cloudFileReader struct {
 	cloudMetadataStore CloudMetadataStore
+	cloudName          string
+	alreadyExists      bool
 }
 
-func (p cloudFileReader) readCloudFromFile(cloud, cloudFile string, ctxt *cmd.Context, ignoreExisting bool) (*jujucloud.Cloud, error) {
+func (p *cloudFileReader) readCloudFromFile(cloudFile string, ctxt *cmd.Context) (*jujucloud.Cloud, error) {
 	specifiedClouds, err := p.cloudMetadataStore.ParseCloudMetadataFile(cloudFile)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if specifiedClouds == nil {
+	if len(specifiedClouds) == 0 {
 		return nil, errors.New("no personal clouds are defined")
 	}
-	newCloud, ok := specifiedClouds[cloud]
-	if !ok {
-		return nil, errors.Errorf("cloud %q not found in file %q", cloud, cloudFile)
+
+	var newCloud jujucloud.Cloud
+	if p.cloudName == "" {
+		if len(specifiedClouds) == 1 {
+			for k, v := range specifiedClouds {
+				newCloud = v
+				// User did not specify cloud name aka as a command argument,
+				// use what is in th file.
+				p.cloudName = k
+			}
+		} else {
+			if p.cloudName == "" {
+				return nil, errors.Errorf("there is more than one cloud defined in file %q, specify a cloud name to select one", cloudFile)
+			}
+		}
+	} else {
+		var ok bool
+		newCloud, ok = specifiedClouds[p.cloudName]
+		if !ok {
+			return nil, errors.Errorf("cloud %q not found in file %q", p.cloudName, cloudFile)
+		}
 	}
 
 	// first validate cloud input
@@ -701,14 +761,16 @@ func (p cloudFileReader) readCloudFromFile(cloud, cloudFile string, ctxt *cmd.Co
 			return nil, errors.NotSupportedf("auth type %q", authType)
 		}
 	}
-	if !ignoreExisting {
-		if err := p.verifyName(cloud); err != nil {
+	if err := p.verifyName(p.cloudName); err != nil {
+		if !errors.IsAlreadyExists(err) {
 			return nil, errors.Trace(err)
 		}
+		p.alreadyExists = true
 	}
 	return &newCloud, nil
 }
-func (p cloudFileReader) verifyName(name string) error {
+
+func (p *cloudFileReader) verifyName(name string) error {
 	public, _, err := p.cloudMetadataStore.PublicCloudMetadata()
 	if err != nil {
 		return err
@@ -718,14 +780,14 @@ func (p cloudFileReader) verifyName(name string) error {
 		return err
 	}
 	if _, ok := personal[name]; ok {
-		return errors.Errorf("%q already exists; use `update-cloud` to replace this existing cloud", name)
+		return errors.AlreadyExistsf("use `update-cloud %s --local` to replace this cloud locally: %q", name, name)
 	}
 	msg, err := nameExists(name, public)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if msg != "" {
-		return errors.Errorf(msg + "; use `update-cloud` to override this definition")
+		return errors.AlreadyExistsf(msg + "; use `update-cloud --local` to override this definition locally")
 	}
 	return nil
 }

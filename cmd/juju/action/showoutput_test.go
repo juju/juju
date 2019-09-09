@@ -66,6 +66,7 @@ func (s *ShowOutputSuite) TestRun(c *gc.C) {
 		withTags          params.FindTagsResults
 		withAPIResponse   []params.ActionResult
 		withAPIError      string
+		withFormat        string
 		expectedErr       string
 		expectedOutput    string
 	}{{
@@ -245,6 +246,32 @@ timing:
   enqueued: 2015-02-14 08:13:00 +0000 UTC
 `[1:],
 	}, {
+		should:            "plain format action output",
+		withClientQueryID: validActionId,
+		withAPITimeout:    10 * time.Second,
+		withFormat:        "plain",
+		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
+		withAPIResponse: []params.ActionResult{{
+			Status:  "complete",
+			Message: "oh dear",
+			Output: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": "baz",
+				},
+				"Stdout": "hello",
+			},
+			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
+			Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
+		}},
+		expectedOutput: `
+foo:
+  bar: baz
+
+hello
+
+`[1:],
+	}, {
 		should:            "set an appropriate timer and wait, get a result",
 		withClientQueryID: validActionId,
 		withAPITimeout:    10 * time.Second,
@@ -286,6 +313,7 @@ timing:
 					t.withAPIError),
 				t.expectedErr,
 				t.expectedOutput,
+				t.withFormat,
 				t.withClientWait,
 				t.withClientQueryID,
 				modelFlag,
@@ -294,12 +322,15 @@ timing:
 	}
 }
 
-func testRunHelper(c *gc.C, s *ShowOutputSuite, client *fakeAPIClient, expectedErr, expectedOutput, wait, query, modelFlag string) {
+func testRunHelper(c *gc.C, s *ShowOutputSuite, client *fakeAPIClient, expectedErr, expectedOutput, format, wait, query, modelFlag string) {
 	unpatch := s.BaseActionSuite.patchAPIClient(client)
 	defer unpatch()
 	args := append([]string{modelFlag, "admin"}, query)
 	if wait != "" {
 		args = append(args, "--wait", wait)
+	}
+	if format != "" {
+		args = append(args, "--format", format)
 	}
 	cmd, _ := action.NewShowOutputCommandForTest(s.store)
 	ctx, err := cmdtesting.RunCommand(c, cmd, args...)

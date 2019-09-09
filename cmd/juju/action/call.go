@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/charm.v6"
@@ -106,7 +107,7 @@ func (c *callCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "plain", map[string]cmd.Formatter{
 		"yaml":  cmd.FormatYaml,
 		"json":  cmd.FormatJson,
-		"plain": c.printPlainOutput,
+		"plain": printPlainOutput,
 	})
 
 	f.Var(&c.paramsYAML, "params", "Path to yaml-formatted params file")
@@ -320,7 +321,11 @@ func (c *callCommand) Run(ctx *cmd.Context) error {
 	return c.out.Write(ctx, info)
 }
 
-func (c *callCommand) printPlainOutput(writer io.Writer, value interface{}) error {
+// filteredOutputKeys are those we don't want to display as part of the
+// results map for plain output.
+var filteredOutputKeys = set.NewStrings("Code", "Stdout", "Stderr", "StdoutEncoding", "StderrEncoding")
+
+func printPlainOutput(writer io.Writer, value interface{}) error {
 	info, ok := value.(map[string]interface{})
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", info, value)
@@ -344,18 +349,31 @@ func (c *callCommand) printPlainOutput(writer io.Writer, value interface{}) erro
 		  status: completed
 	*/
 	var resultMetadata map[string]interface{}
+	var stdout, stderr string
 	for k := range info {
 		resultMetadata, ok = info[k].(map[string]interface{})
 		if !ok {
-			return errors.New("unexpected value")
+			return errors.Errorf("expected value of type %T, got %T", resultMetadata, info[k])
 		}
 		resultData, ok := resultMetadata["results"].(map[string]interface{})
 		if ok {
-			data, err := yaml.Marshal(resultData)
+			resultDataCopy := make(map[string]interface{})
+			for k, v := range resultData {
+				if k == "Stdout" && v != "" {
+					stdout = fmt.Sprint(v)
+				}
+				if k == "Stderr" && v != "" {
+					stderr = fmt.Sprint(v)
+				}
+				if !filteredOutputKeys.Contains(k) {
+					resultDataCopy[k] = v
+				}
+			}
+			data, err := yaml.Marshal(resultDataCopy)
 			if err == nil {
 				actionOutput[k] = string(data)
 			} else {
-				actionOutput[k] = fmt.Sprintf("%v", resultData)
+				actionOutput[k] = fmt.Sprintf("%v", resultDataCopy)
 			}
 		} else {
 			actionOutput[k] = fmt.Sprintf("Operation %v complete\n", resultMetadata["id"])
@@ -370,6 +388,12 @@ func (c *callCommand) printPlainOutput(writer io.Writer, value interface{}) erro
 	}
 	for _, msg := range actionOutput {
 		fmt.Fprintln(writer, msg)
+	}
+	if stdout != "" {
+		fmt.Fprintln(writer, strings.Trim(stdout, "\n"))
+	}
+	if stderr != "" {
+		fmt.Fprintln(writer, strings.Trim(stderr, "\n"))
 	}
 	return nil
 }

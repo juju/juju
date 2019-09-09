@@ -1877,7 +1877,7 @@ class ModelClient:
 
         output = self.get_juju_output("run-action", *args)
         action_id_pattern = re.compile(
-            'Action queued with id: ([a-f0-9\-]{36})')
+            'Action queued with id: ((?:[a-f0-9\-]{36})|(?:(?:[a-z][a-z0-9]*(?:-[a-z0-9]*[a-z][a-z0-9]*)*)-(?:0|[1-9][0-9]*)))')
         match = action_id_pattern.search(output)
         if match is None:
             raise Exception("Action id not found in output: %s" %

@@ -455,11 +455,11 @@
   revision = "b99631de12cf04a906c1d4e4ec54fb86eae5863d"
 
 [[projects]]
-  digest = "1:3bf45368929d01a44755247cee64f93057c8a0f012ade9a227e4a60a6d2b85ff"
+  digest = "1:ebbd30a06de5bc3933e34d426cfaa69a0cefa10f575d520e6597acbf37e4d132"
   name = "github.com/juju/bundlechanges"
   packages = ["."]
   pruneopts = ""
-  revision = "2ab5b6004f111b9f4792a67b14e2f03c37e0af1d"
+  revision = "3ef4201dfd2495d7a56be07a4d095fa624167067"
 
 [[projects]]
   digest = "1:f720ea29e073a9a7109a5080f32753292dc8616a22a905876d425cc64c21bd8d"
@@ -1570,11 +1570,11 @@
   revision = "e057c73bd1beb18e9634151a2410c422bd2057f2"
 
 [[projects]]
-  digest = "1:9248d4a0789201f02379a65091cb884e3d92390c69382fce95c44ce3a5c1ed2c"
+  digest = "1:995f0b842e8435ce563c0059d1fb5032ced36c704a45a331a27f42b54a279592"
   name = "gopkg.in/juju/names.v3"
   packages = ["."]
   pruneopts = ""
-  revision = "5ed389481ee8344db732cf8a65a8bbfeb42dc79d"
+  revision = "49183320c914a3413d7c36bfe81906ff2a1f62c0"
 
 [[projects]]
   digest = "1:5081ff05b4471731df7fa7457083397c2663791cd5809858a899306cdfe29b63"
@@ -2169,6 +2169,7 @@
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/clientcmd/api",
     "k8s.io/client-go/tools/remotecommand",
+    "k8s.io/client-go/util/exec",
     "k8s.io/client-go/util/flowcontrol",
   ]
   solver-name = "gps-cdcl"

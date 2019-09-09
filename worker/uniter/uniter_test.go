@@ -12,9 +12,7 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
-	"time"
 
-	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -44,8 +42,6 @@ type UniterSuite struct {
 }
 
 var _ = gc.Suite(&UniterSuite{})
-
-var leaseClock *testclock.Clock
 
 // This guarantees that we get proper platform
 // specific error directly from their source
@@ -78,15 +74,9 @@ func (s *UniterSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *UniterSuite) SetUpTest(c *gc.C) {
-	zone, err := time.LoadLocation("")
-	c.Assert(err, jc.ErrorIsNil)
-	now := time.Date(2030, 11, 11, 11, 11, 11, 11, zone)
-	leaseClock = testclock.NewClock(now)
 	s.updateStatusHookTicker = newManualTicker()
 	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
-	err = s.State.SetClockForTesting(leaseClock)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UniterSuite) TearDownTest(c *gc.C) {
@@ -1195,7 +1185,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			addAction{"action-log", nil},
 			waitActionResults{[]actionResult{{
 				name:    "action-log",
-				results: map[string]interface{}{},
+				results: map[string]interface{}{"Code": "0"},
 				status:  params.ActionCompleted,
 			}}},
 			waitUnitAgent{status: status.Idle},
@@ -1227,7 +1217,8 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			waitActionResults{[]actionResult{{
 				name: "action-log-fail",
 				results: map[string]interface{}{
-					"foo": "still works",
+					"Code": "0",
+					"foo":  "still works",
 				},
 				message: "I'm afraid I can't let you do that, Dave.",
 				status:  params.ActionFailed,
@@ -1260,7 +1251,9 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			waitActionResults{[]actionResult{{
 				name: "action-log-fail-error",
 				results: map[string]interface{}{
-					"foo": "still works",
+					"Code":   "0",
+					"Stderr": `ERROR unrecognized args: ["many" "arguments"]` + "\n",
+					"foo":    "still works",
 				},
 				message: "A real message",
 				status:  params.ActionFailed,
@@ -1297,6 +1290,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			waitActionResults{[]actionResult{{
 				name: "snapshot",
 				results: map[string]interface{}{
+					"Code": "0",
 					"outfile": map[string]interface{}{
 						"name": "snapshot-01.tar",
 						"size": map[string]interface{}{
@@ -1404,15 +1398,15 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			verifyCharm{},
 			waitActionResults{[]actionResult{{
 				name:    "action-log",
-				results: map[string]interface{}{},
+				results: map[string]interface{}{"Code": "0"},
 				status:  params.ActionCompleted,
 			}, {
 				name:    "action-log",
-				results: map[string]interface{}{},
+				results: map[string]interface{}{"Code": "0"},
 				status:  params.ActionCompleted,
 			}, {
 				name:    "action-log",
-				results: map[string]interface{}{},
+				results: map[string]interface{}{"Code": "0"},
 				status:  params.ActionCompleted,
 			}}},
 			waitUnitAgent{status: status.Idle},
@@ -1469,7 +1463,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			waitActionResults{[]actionResult{{
 				name:    "action-log",
-				results: map[string]interface{}{},
+				results: map[string]interface{}{"Code": "0"},
 				status:  params.ActionCompleted,
 			}}},
 			waitUnitAgent{
@@ -1600,6 +1594,8 @@ func (s *UniterSuite) TestRebootDisabledInActions(c *gc.C) {
 			waitActionResults{[]actionResult{{
 				name: "action-reboot",
 				results: map[string]interface{}{
+					"Code":           "0",
+					"Stderr":         "ERROR juju-reboot is not supported when running an action.\nERROR juju-reboot is not supported when running an action.\n",
 					"reboot-delayed": "good",
 					"reboot-now":     "good",
 				},

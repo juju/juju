@@ -108,6 +108,14 @@ func (s *stateShim) AllSubnets() ([]BackingSubnet, error) {
 	return subnets, nil
 }
 
+func (s *stateShim) Subnet(cidr string) (BackingSubnet, error) {
+	result, err := s.st.Subnet(cidr)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &subnetShim{Subnet: result}, nil
+}
+
 func (s *stateShim) AvailabilityZones() ([]providercommon.AvailabilityZone, error) {
 	// TODO(dimitern): Fix this to get them from state when available!
 	return nil, nil

@@ -4,16 +4,13 @@
 package state_test
 
 import (
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 
@@ -273,6 +270,64 @@ act:
 	}
 }
 
+func (s *ActionSuite) TestActionMessages(c *gc.C) {
+	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	anAction, err := s.unit.AddAction("snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(anAction.Messages(), gc.HasLen, 0)
+
+	// Cannot log messages until action is running.
+	err = anAction.Log("hello")
+	c.Assert(err, gc.ErrorMatches, `cannot log message to operation "dummy-1" with status pending`)
+
+	anAction, err = anAction.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	messages := []string{"one", "two", "three"}
+	for i, msg := range messages {
+		err = anAction.Log(msg)
+		c.Assert(err, jc.ErrorIsNil)
+
+		a, err := s.Model.Action(anAction.Id())
+		c.Assert(err, jc.ErrorIsNil)
+		obtained := a.Messages()
+		c.Assert(obtained, gc.HasLen, i+1)
+		for j, am := range obtained {
+			c.Assert(am.Timestamp, gc.Equals, clock.Now())
+			c.Assert(am.Message, gc.Equals, messages[j])
+		}
+	}
+
+	// Cannot log messages after action finishes.
+	_, err = anAction.Finish(state.ActionResults{Status: state.ActionCompleted})
+	c.Assert(err, jc.ErrorIsNil)
+	err = anAction.Log("hello")
+	c.Assert(err, gc.ErrorMatches, `cannot log message to operation "dummy-1" with status completed`)
+}
+
+func (s *ActionSuite) TestActionLogMessageRace(c *gc.C) {
+	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	anAction, err := s.unit.AddAction("snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(anAction.Messages(), gc.HasLen, 0)
+
+	anAction, err = anAction.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		_, err = anAction.Finish(state.ActionResults{Status: state.ActionCompleted})
+		c.Assert(err, jc.ErrorIsNil)
+	})()
+
+	err = anAction.Log("hello")
+	c.Assert(err, gc.ErrorMatches, `cannot log message to operation "dummy-1" with status completed`)
+}
+
 // makeUnits prepares units with given Action schemas
 func makeUnits(c *gc.C, s *ActionSuite, units map[string]*state.Unit, schemas map[string]string) {
 	// A few dummy charms that haven't been used yet
@@ -485,11 +540,6 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 }
 
 func (s *ActionSuite) TestFindActionTagsByPrefix(c *gc.C) {
-	prefix := "feedbeef"
-	uuidMock := uuidMockHelper{}
-	uuidMock.SetPrefixMask(prefix)
-	s.PatchValue(&state.NewUUID, uuidMock.NewUUID)
-
 	actions := []struct {
 		Name       string
 		Parameters map[string]interface{}
@@ -505,12 +555,13 @@ func (s *ActionSuite) TestFindActionTagsByPrefix(c *gc.C) {
 		c.Assert(err, gc.Equals, nil)
 	}
 
-	tags := s.model.FindActionTagsByPrefix(prefix)
+	tags := s.model.FindActionTagsByPrefix(s.application.Name())
 
 	c.Assert(len(tags), gc.Equals, len(actions))
 	for i, tag := range tags {
-		c.Logf("check %q against %d:%q", prefix, i, tag)
-		c.Check(tag.Id()[:len(prefix)], gc.Equals, prefix)
+		appName := s.application.Name()
+		c.Logf("check %q against %d:%q", appName, i, tag)
+		c.Check(tag.Id()[:len(appName)], gc.Equals, appName)
 	}
 }
 
@@ -913,59 +964,6 @@ func (r mockAR) CompletedActions() ([]state.Action, error)       { return nil, n
 func (r mockAR) PendingActions() ([]state.Action, error)         { return nil, nil }
 func (r mockAR) RunningActions() ([]state.Action, error)         { return nil, nil }
 func (r mockAR) Tag() names.Tag                                  { return names.NewUnitTag(r.id) }
-
-// TestMock verifies the mock UUID generator works as expected.
-func (s *ActionSuite) TestMock(c *gc.C) {
-	prefix := "abbadead"
-	uuidMock := uuidMockHelper{}
-	uuidMock.SetPrefixMask(prefix)
-	s.PatchValue(&state.NewUUID, uuidMock.NewUUID)
-	for i := 0; i < 10; i++ {
-		uuid, err := state.NewUUID()
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(uuid.String()[:len(prefix)], gc.Equals, prefix)
-	}
-}
-
-type uuidGenFn func() (utils.UUID, error)
-type uuidMockHelper struct {
-	original   uuidGenFn
-	prefixMask []byte
-}
-
-func (h *uuidMockHelper) SetPrefixMask(prefix string) error {
-	prefix = strings.Replace(prefix, "-", "", 4)
-	mask, err := hex.DecodeString(prefix)
-	if err != nil {
-		return err
-	}
-	if len(mask) > 16 {
-		return errors.Errorf("prefix mask longer than uuid %q", prefix)
-	}
-	h.prefixMask = mask
-	return nil
-}
-
-func (h *uuidMockHelper) NewUUID() (utils.UUID, error) {
-	uuidGenFn := h.original
-	if uuidGenFn == nil {
-		uuidGenFn = utils.NewUUID
-	}
-	uuid, err := uuidGenFn()
-	if err != nil {
-		return uuid, errors.Trace(err)
-	}
-	return h.mask(uuid), nil
-}
-
-func (h *uuidMockHelper) mask(uuid utils.UUID) utils.UUID {
-	if len(h.prefixMask) > 0 {
-		for i, b := range h.prefixMask {
-			uuid[i] = b
-		}
-	}
-	return uuid
-}
 
 type ActionPruningSuite struct {
 	statetesting.StateWithWallClockSuite

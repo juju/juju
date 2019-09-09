@@ -265,7 +265,7 @@ func (c *AddCAASCommand) Init(args []string) (err error) {
 		}
 	}
 
-	c.controllerName, err = c.ControllerNameFromArg()
+	c.ControllerName, err = c.ControllerNameFromArg()
 	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
 		return errors.Trace(err)
 	}
@@ -495,7 +495,7 @@ func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential j
 		return nil, errors.Trace(err)
 	}
 	if !c.Local {
-		ctrlUUID, err := c.ControllerUUID(c.store, c.controllerName)
+		ctrlUUID, err := c.ControllerUUID(c.store, c.ControllerName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -715,12 +715,12 @@ func (c *AddCAASCommand) addCredentialToLocal(cloudName string, newCredential ju
 }
 
 func (c *AddCAASCommand) addCredentialToController(apiClient AddCloudAPI, newCredential jujucloud.Credential, credentialName string) error {
-	_, err := c.store.ControllerByName(c.controllerName)
+	_, err := c.store.ControllerByName(c.ControllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	currentAccountDetails, err := c.store.AccountDetails(c.controllerName)
+	currentAccountDetails, err := c.store.AccountDetails(c.ControllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}

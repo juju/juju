@@ -6,6 +6,8 @@ package instancemutater_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
@@ -20,7 +22,7 @@ import (
 )
 
 type mutaterSuite struct {
-	loggerSuite
+	testing.IsolationSuite
 
 	tag    names.MachineTag
 	instId string
@@ -46,7 +48,6 @@ func (s *mutaterSuite) TestProcessMachineProfileChanges(c *gc.C) {
 	startingProfiles := []string{"default", "juju-testme"}
 	finishingProfiles := append(startingProfiles, "juju-testme-lxd-profile-1")
 
-	s.ignoreLogging(c)
 	s.expectRefreshLifeAliveStatusIdle()
 	s.expectLXDProfileNames(startingProfiles, nil)
 	s.expectAssignLXDProfiles(finishingProfiles, nil)
@@ -63,7 +64,6 @@ func (s *mutaterSuite) TestProcessMachineProfileChangesMachineDead(c *gc.C) {
 
 	startingProfiles := []string{"default", "juju-testme"}
 
-	s.ignoreLogging(c)
 	s.expectRefreshLifeDead()
 
 	info := s.info(startingProfiles, 1, false)
@@ -77,7 +77,6 @@ func (s *mutaterSuite) TestProcessMachineProfileChangesError(c *gc.C) {
 	startingProfiles := []string{"default", "juju-testme"}
 	finishingProfiles := append(startingProfiles, "juju-testme-lxd-profile-1")
 
-	s.ignoreLogging(c)
 	s.expectRefreshLifeAliveStatusIdle()
 	s.expectLXDProfileNames(startingProfiles, nil)
 	s.expectAssignLXDProfiles(finishingProfiles, errors.New("fail me"))
@@ -210,7 +209,7 @@ func (s *mutaterSuite) TestVerifyCurrentProfilesError(c *gc.C) {
 func (s *mutaterSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.logger = mocks.NewMockLogger(ctrl)
+	logger := loggo.GetLogger("mutaterSuite")
 
 	s.machine = mocks.NewMockMutaterMachine(ctrl)
 	s.machine.EXPECT().Tag().Return(s.tag).AnyTimes()
@@ -218,7 +217,7 @@ func (s *mutaterSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	s.broker = mocks.NewMockLXDProfiler(ctrl)
 	s.facade = mocks.NewMockInstanceMutaterAPI(ctrl)
 
-	s.mutaterMachine = instancemutater.NewMachineContext(s.logger, s.broker, s.machine, s.getRequiredLXDProfiles, s.tag.Id())
+	s.mutaterMachine = instancemutater.NewMachineContext(logger, s.broker, s.machine, s.getRequiredLXDProfiles, s.tag.Id())
 	return ctrl
 }
 

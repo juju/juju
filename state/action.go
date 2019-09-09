@@ -4,6 +4,7 @@
 package state
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -104,6 +105,15 @@ type actionDoc struct {
 
 	// Results are the structured results from the action.
 	Results map[string]interface{} `bson:"results"`
+
+	// Logs holds the progress messages logged by the action.
+	Logs []ActionMessage `bson:"messages"`
+}
+
+// ActionMessage represents a progress message logged by an action.
+type ActionMessage struct {
+	Message   string    `bson:"message"`
+	Timestamp time.Time `bson:"timestamp"`
 }
 
 // action represents an instruction to do some "action" and is expected
@@ -252,6 +262,43 @@ func (a *action) removeAndLog(finalStatus ActionStatus, results map[string]inter
 	return m.Action(a.Id())
 }
 
+// Messages returns the action's progress messages.
+func (a *action) Messages() []ActionMessage {
+	return append([]ActionMessage(nil), a.doc.Logs...)
+}
+
+// Log adds message to the action's progress message array.
+func (a *action) Log(message string) error {
+	m, err := a.st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			anAction, err := m.Action(a.Id())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			a = anAction.(*action)
+		}
+		if s := a.Status(); s != ActionRunning {
+			return nil, errors.Errorf("cannot log message to operation %q with status %v", a.Id(), s)
+		}
+		ops := []txn.Op{
+			{
+				C:      actionsC,
+				Id:     a.doc.DocId,
+				Assert: bson.D{{"status", ActionRunning}},
+				Update: bson.D{{"$push", bson.D{
+					{"messages", ActionMessage{Message: message, Timestamp: a.st.nowToTheSecond()}},
+				}}},
+			}}
+		return ops, nil
+	}
+	err = a.st.db().Run(buildTxn)
+	return errors.Trace(err)
+}
+
 // newAction builds an Action for the given State and actionDoc.
 func newAction(st *State, adoc actionDoc) Action {
 	return &action{
@@ -263,14 +310,34 @@ func newAction(st *State, adoc actionDoc) Action {
 // newActionDoc builds the actionDoc with the given name and parameters.
 func newActionDoc(mb modelBackend, receiverTag names.Tag, actionName string, parameters map[string]interface{}) (actionDoc, actionNotificationDoc, error) {
 	prefix := ensureActionMarker(receiverTag.Id())
-	actionId, err := NewUUID()
-	if err != nil {
-		return actionDoc{}, actionNotificationDoc{}, err
+	// For actions run on units, we want to use a user friendly action id.
+	// Theoretically, an action receiver could also be a machine, but for
+	// now we'll continue to use a UUID for that case, since I don't think
+	// we support machine actions anymore.
+	var actionId string
+	if receiverTag.Kind() == names.UnitTagKind {
+		appName, err := names.UnitApplication(receiverTag.Id())
+		if err != nil {
+			return actionDoc{}, actionNotificationDoc{}, err
+		}
+		id, err := sequence(mb, "action-"+appName)
+		if err != nil {
+			return actionDoc{}, actionNotificationDoc{}, err
+		}
+		// Start numbering from 1 not 0.
+		id++
+		actionId = fmt.Sprintf("%v-%v", appName, id)
+	} else {
+		actionUUID, err := NewUUID()
+		if err != nil {
+			return actionDoc{}, actionNotificationDoc{}, err
+		}
+		actionId = actionUUID.String()
 	}
 	actionLogger.Debugf("newActionDoc name: '%s', receiver: '%s', actionId: '%s'", actionName, receiverTag, actionId)
 	modelUUID := mb.modelUUID()
 	return actionDoc{
-			DocId:      mb.docID(actionId.String()),
+			DocId:      mb.docID(actionId),
 			ModelUUID:  modelUUID,
 			Receiver:   receiverTag.Id(),
 			Name:       actionName,
@@ -278,10 +345,10 @@ func newActionDoc(mb modelBackend, receiverTag names.Tag, actionName string, par
 			Enqueued:   mb.nowToTheSecond(),
 			Status:     ActionPending,
 		}, actionNotificationDoc{
-			DocId:     mb.docID(prefix + actionId.String()),
+			DocId:     mb.docID(prefix + actionId),
 			ModelUUID: modelUUID,
 			Receiver:  receiverTag.Id(),
-			ActionID:  actionId.String(),
+			ActionID:  actionId,
 		}, nil
 }
 

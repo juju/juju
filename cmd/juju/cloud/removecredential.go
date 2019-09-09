@@ -93,7 +93,7 @@ func (c *removeCredentialCommand) Info() *cmd.Info {
 }
 
 func (c *removeCredentialCommand) credentialsAPI() (RemoveCredentialAPI, error) {
-	root, err := c.NewAPIRoot(c.Store, c.controllerName, "")
+	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -106,11 +106,11 @@ func (c *removeCredentialCommand) Init(args []string) (err error) {
 	}
 	c.cloud = args[0]
 	c.credential = args[1]
-	c.controllerName, err = c.ControllerNameFromArg()
+	c.ControllerName, err = c.ControllerNameFromArg()
 	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
 		return errors.Trace(err)
 	}
-	if c.controllerName == "" {
+	if c.ControllerName == "" {
 		// No controller was specified explicitly and we did not detect a current controller,
 		// this operation should be local only.
 		c.Local = true
@@ -189,10 +189,10 @@ func (c *removeCredentialCommand) maybeRemoteCloud(ctxt *cmd.Context, client Rem
 
 func (c *removeCredentialCommand) removeFromController(ctxt *cmd.Context, client RemoveCredentialAPI) error {
 	if !c.remoteCloudFound {
-		ctxt.Infof("No stored credentials exist remotely since cloud %q is not found on the controller %q.", c.cloud, c.controllerName)
+		ctxt.Infof("No stored credentials exist remotely since cloud %q is not found on the controller %q.", c.cloud, c.ControllerName)
 		return cmd.ErrSilent
 	}
-	accountDetails, err := c.Store.AccountDetails(c.controllerName)
+	accountDetails, err := c.Store.AccountDetails(c.ControllerName)
 	if err != nil {
 		return err
 	}
@@ -204,7 +204,7 @@ func (c *removeCredentialCommand) removeFromController(ctxt *cmd.Context, client
 	if err := client.RevokeCredential(names.NewCloudCredentialTag(id)); err != nil {
 		return errors.Annotate(err, "could not remove remote credential")
 	}
-	ctxt.Infof("Credential %q removed from the controller %q.", c.credential, c.controllerName)
+	ctxt.Infof("Credential %q removed from the controller %q.", c.credential, c.ControllerName)
 	return nil
 }
 

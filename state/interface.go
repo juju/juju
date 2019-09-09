@@ -221,6 +221,12 @@ type Action interface {
 	// Finish removes action from the pending queue and captures the output
 	// and end state of the action.
 	Finish(results ActionResults) (Action, error)
+
+	// Log adds message to the action's progress message array.
+	Log(message string) error
+
+	// Messages returns the action's progress messages.
+	Messages() []ActionMessage
 }
 
 // ApplicationEntity represents a local or remote application.

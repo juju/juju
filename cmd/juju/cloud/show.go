@@ -103,7 +103,7 @@ func (c *showCloudCommand) Init(args []string) error {
 		return errors.New("no cloud specified")
 	}
 	var err error
-	c.controllerName, err = c.ControllerNameFromArg()
+	c.ControllerName, err = c.ControllerNameFromArg()
 	if err != nil {
 		return errors.Wrap(err, errors.New(err.Error()+"\nUse --local to query the local cache."))
 	}
@@ -124,7 +124,7 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 		cloud *CloudDetails
 		err   error
 	)
-	if c.controllerName == "" {
+	if c.ControllerName == "" {
 		cloud, err = c.getLocalCloud()
 	} else {
 		cloud, err = c.getControllerCloud()
@@ -151,7 +151,7 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 }
 
 func (c *showCloudCommand) getControllerCloud() (*CloudDetails, error) {
-	api, err := c.showCloudAPIFunc(c.controllerName)
+	api, err := c.showCloudAPIFunc(c.ControllerName)
 	if err != nil {
 		return nil, err
 	}

@@ -54,6 +54,7 @@ var baseCommands = map[string]creator{
 	"action-get" + cmdSuffix:              NewActionGetCommand,
 	"action-set" + cmdSuffix:              NewActionSetCommand,
 	"action-fail" + cmdSuffix:             NewActionFailCommand,
+	"action-log" + cmdSuffix:              NewActionLogCommand,
 	"relation-ids" + cmdSuffix:            NewRelationIdsCommand,
 	"relation-list" + cmdSuffix:           NewRelationListCommand,
 	"relation-set" + cmdSuffix:            NewRelationSetCommand,

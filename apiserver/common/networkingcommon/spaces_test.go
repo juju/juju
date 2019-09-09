@@ -86,13 +86,26 @@ func (s *SpacesSuite) checkCreateSpaces(c *gc.C, p checkCreateSpacesParams) {
 		apiservertesting.ZonedNetworkingEnvironCall("SupportsSpaces", callCtx),
 	}
 
-	addSpaceCalls := append(baseCalls, apiservertesting.BackingCall("AddSpace", p.Name, network.Id(p.ProviderId), p.Subnets, p.Public))
-
-	if p.Error == "" {
-		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, addSpaceCalls...)
-	} else {
+	if p.Error != "" {
 		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, baseCalls...)
+		return
 	}
+
+	addSpaceCalls := baseCalls
+	subnetIDs := []string{}
+	for _, cidr := range p.Subnets {
+		addSpaceCalls = append(addSpaceCalls, apiservertesting.BackingCall("Subnet", cidr))
+		for _, fakeSN := range apiservertesting.BackingInstance.Subnets {
+			if fakeSN.CIDR() == cidr {
+				subnetIDs = append(subnetIDs, fakeSN.ID())
+			}
+		}
+	}
+
+	addSpaceCalls = append(addSpaceCalls, apiservertesting.BackingCall("AddSpace", p.Name, network.Id(p.ProviderId), subnetIDs, p.Public))
+
+	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, addSpaceCalls...)
+
 }
 
 func (s *SpacesSuite) TestCreateInvalidSpace(c *gc.C) {
@@ -116,7 +129,7 @@ func (s *SpacesSuite) TestCreateInvalidCIDR(c *gc.C) {
 func (s *SpacesSuite) TestPublic(c *gc.C) {
 	p := checkCreateSpacesParams{
 		Name:    "foo",
-		Subnets: []string{"10.0.0.0/24"},
+		Subnets: []string{"10.10.0.0/24"},
 		Public:  true,
 	}
 	s.checkCreateSpaces(c, p)
@@ -125,7 +138,7 @@ func (s *SpacesSuite) TestPublic(c *gc.C) {
 func (s *SpacesSuite) TestProviderId(c *gc.C) {
 	p := checkCreateSpacesParams{
 		Name:       "foo",
-		Subnets:    []string{"10.0.0.0/24"},
+		Subnets:    []string{"10.10.0.0/24"},
 		ProviderId: "foobar",
 	}
 	s.checkCreateSpaces(c, p)

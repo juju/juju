@@ -14,22 +14,28 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.common.runner")
 
+// MessageReceiver instances are fed messages written to stdout/stderr
+// when running hooks/actions.
+type MessageReceiver interface {
+	Messagef(isPrefix bool, message string, args ...interface{})
+}
+
 // NewHookLogger creates a new hook logger.
-func NewHookLogger(logger loggo.Logger, outReader io.ReadCloser) *HookLogger {
+func NewHookLogger(outReader io.ReadCloser, receivers ...MessageReceiver) *HookLogger {
 	return &HookLogger{
-		r:      outReader,
-		done:   make(chan struct{}),
-		logger: logger,
+		r:         outReader,
+		done:      make(chan struct{}),
+		receivers: receivers,
 	}
 }
 
-// HookLogger streams the output from a hook to a logger.
+// HookLogger streams the output from a hook to message receivers.
 type HookLogger struct {
-	r       io.ReadCloser
-	done    chan struct{}
-	mu      sync.Mutex
-	stopped bool
-	logger  loggo.Logger
+	r         io.ReadCloser
+	done      chan struct{}
+	mu        sync.Mutex
+	stopped   bool
+	receivers []MessageReceiver
 }
 
 // Run starts the hook logger.
@@ -38,7 +44,7 @@ func (l *HookLogger) Run() {
 	defer l.r.Close()
 	br := bufio.NewReaderSize(l.r, 4096)
 	for {
-		line, _, err := br.ReadLine()
+		line, isPrefix, err := br.ReadLine()
 		if err != nil {
 			if err != io.EOF {
 				logger.Errorf("cannot read hook output: %v", err)
@@ -50,13 +56,24 @@ func (l *HookLogger) Run() {
 			l.mu.Unlock()
 			return
 		}
-		l.logger.Debugf("%s", line)
+		for _, r := range l.receivers {
+			r.Messagef(isPrefix, "%s", line)
+		}
 		l.mu.Unlock()
 	}
 }
 
+// Stopper instances can be stopped.
+type Stopper interface {
+	Stop()
+}
+
 // Stop stops the hook logger.
 func (l *HookLogger) Stop() {
+	// Ensure Stop() is idempotent.
+	if l == nil || l.stopped {
+		return
+	}
 	// We can see the process exit before the logger has processed
 	// all its output, so allow a moment for the data buffered
 	// in the pipe to be processed. We don't wait indefinitely though,

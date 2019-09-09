@@ -113,13 +113,15 @@ NOTE: Juju 2 uses "juju run" which is deprecated in favour of "juju exec".
 
 func (c *execCommand) Info() *cmd.Info {
 	info := jujucmd.Info(&cmd.Info{
-		Name:    "exec",
+		Name:    "run",
 		Args:    "<commands>",
 		Purpose: "Run the commands on the remote targets specified.",
+		Aliases: []string{"exec"},
 		Doc:     execDoc,
 	})
-	if !featureflag.Enabled(feature.JujuV3) {
-		info.Aliases = []string{"run"}
+	if featureflag.Enabled(feature.JujuV3) {
+		info.Name = "exec"
+		info.Aliases = nil
 	}
 	return info
 }

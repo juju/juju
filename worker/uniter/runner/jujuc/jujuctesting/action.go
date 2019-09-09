@@ -44,6 +44,19 @@ func (c *ContextActionHook) UpdateActionResults(keys []string, value string) err
 	return nil
 }
 
+// LogActionMessage implements jujuc.ActionHookContext.
+func (c *ContextActionHook) LogActionMessage(message string) error {
+	c.stub.AddCall("LogActionMessage", message)
+	if err := c.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if c.info.ActionParams == nil {
+		return errors.Errorf("not running an action")
+	}
+	return nil
+}
+
 // SetActionMessage implements jujuc.ActionHookContext.
 func (c *ContextActionHook) SetActionMessage(message string) error {
 	c.stub.AddCall("SetActionMessage", message)

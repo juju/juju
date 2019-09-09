@@ -4,6 +4,8 @@
 package instancemutater
 
 import (
+	"sync"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
@@ -174,9 +176,12 @@ type mutaterWorker struct {
 }
 
 func (w *mutaterWorker) loop() error {
+	var wg sync.WaitGroup
+	defer wg.Wait()
 	m := &mutater{
 		context:     w.getRequiredContextFunc(w),
 		logger:      w.logger,
+		wg:          &wg,
 		machines:    make(map[names.MachineTag]chan struct{}),
 		machineDead: make(chan instancemutater.MutaterMachine),
 	}

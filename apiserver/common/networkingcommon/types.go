@@ -28,6 +28,7 @@ import (
 // and just use *state.Subnet.
 type BackingSubnet interface {
 	CIDR() string
+	ID() string
 	VLANTag() int
 	ProviderId() corenetwork.Id
 	ProviderNetworkId() corenetwork.Id
@@ -123,6 +124,8 @@ type NetworkBacking interface {
 
 	// AllSubnets returns all backing subnets.
 	AllSubnets() ([]BackingSubnet, error)
+
+	Subnet(cidr string) (BackingSubnet, error)
 
 	// ModelTag returns the tag of the model this state is associated to.
 	ModelTag() names.ModelTag
