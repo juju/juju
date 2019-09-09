@@ -269,7 +269,7 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 
 	w, err := s.apiUnit.Watch()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewNotifyWatcherC(c, w, nil)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -290,7 +290,7 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 func (s *unitSuite) TestWatchRelations(c *gc.C) {
 	w, err := s.apiUnit.WatchRelations()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w, nil)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -337,7 +337,7 @@ func (s *unitSuite) TestSubordinateWatchRelations(c *gc.C) {
 	w, err := apiUnit.WatchRelations()
 	c.Assert(err, jc.ErrorIsNil)
 
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w, nil)
 	defer wc.AssertStops()
 
 	wc.AssertChange(loggingRel.Tag().Id())
@@ -532,6 +532,8 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 	err = s.apiUnit.SetCharmURL(s.wordpressCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
 	settings, err := s.apiUnit.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
@@ -543,6 +545,8 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 		"blog-title": "superhero paparazzi",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	settings, err = s.apiUnit.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -563,18 +567,19 @@ func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 
 	w, err := s.apiUnit.WatchConfigSettingsHash()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	// We don't need any preassert because the underlying watcher is using a wall clock.
+	wc := watchertest.NewStringsWatcherC(c, w, nil)
 	defer wc.AssertStops()
 
-	// Initial event - this is the sha-256 hash of an empty bson.D.
-	wc.AssertChange("e8d7e8dfff0eed1e77b15638581672f7b25ecc1163cc5fd5a52d29d51d096c00")
-
+	// See core/cache/hash.go for the hash implementation.
+	// This is a hash of the charm URL PLUS an empty map[string]interface{}.
+	wc.AssertChange("0affda4fb1eaa8df870459625aa93c85e9fd6fc5374ac69f509575d139032262")
 	err = s.wordpressApplication.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
 		"blog-title": "sauceror central",
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("7ed6151e9c3d5144faf0946d20c283c466b4885dded6a6122ff3fdac7ee2334f")
+	wc.AssertChange("bfeb5aee52e6dea59d9c2a0c35a4d7fffa690c7230b1dd66f16832e4094905ae")
 
 	// Non-change is not reported.
 	err = s.wordpressApplication.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
@@ -589,7 +594,7 @@ func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 	watcher, err := s.apiUnit.WatchTrustConfigSettingsHash()
 	c.Assert(err, jc.ErrorIsNil)
 
-	stringsWatcher := watchertest.NewStringsWatcherC(c, watcher, s.BackingState.StartSync)
+	stringsWatcher := watchertest.NewStringsWatcherC(c, watcher, nil)
 	defer stringsWatcher.AssertStops()
 
 	// Initial event - this is the hash of the settings key
@@ -619,7 +624,7 @@ func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 func (s *unitSuite) TestWatchActionNotifications(c *gc.C) {
 	w, err := s.apiUnit.WatchActionNotifications()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w, nil)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -823,7 +828,7 @@ func (s *unitSuite) TestRelationSuspended(c *gc.C) {
 func (s *unitSuite) TestWatchAddressesHash(c *gc.C) {
 	w, err := s.apiUnit.WatchAddressesHash()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w, nil)
 	defer wc.AssertStops()
 
 	// Initial event.

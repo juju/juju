@@ -152,6 +152,7 @@ func (s *ApplicationConfigSuite) TestConfigNoValueSingleSetting(c *gc.C) {
 }
 
 func (s *ApplicationConfigSuite) assertSameConfigOutput(c *gc.C, expectedValues settingsMap) {
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 	s.assertJujuConfigOutput(c, s.configCommandOutput(c, s.appName), expectedValues)
 	s.assertHookOutput(c, s.getHookOutput(c), expectedValues)
 }

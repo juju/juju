@@ -63,6 +63,7 @@ func (s *uniterGoalStateSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.uniter = s.newUniterAPI(c, s.State, s.authorizer)
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 }
 
 var (
