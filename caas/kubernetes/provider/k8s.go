@@ -208,8 +208,8 @@ type resourcePurifier interface {
 	SetResourceVersion(string)
 }
 
-// purifyResourceForCreate purifies read only fields before creating the resources.
-func (k *kubernetesClient) purifyResourceForCreate(resource resourcePurifier) {
+// purifyResource purifies read only fields before creating/updating the resource.
+func (k *kubernetesClient) purifyResource(resource resourcePurifier) {
 	resource.SetResourceVersion("")
 }
 
@@ -2699,6 +2699,7 @@ func populateContainerDetails(deploymentName string, pod *core.PodSpec, podConta
 func (k *kubernetesClient) legacyAppName(appName string) bool {
 	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
 	legacyName := "juju-operator-" + appName
+	logger.Criticalf("legacyAppName appName -> %q, legacyName -> %q", appName, legacyName)
 	_, err := statefulsets.Get(legacyName, v1.GetOptions{IncludeUninitialized: true})
 	return err == nil
 }

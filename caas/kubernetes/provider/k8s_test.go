@@ -1038,7 +1038,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 			Provider: "kubernetes",
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `config map for "test" should already exist:  "test" not found`)
+	c.Assert(err, gc.ErrorMatches, `config map for "test" should already exist: configmap "test-operator-config" not found`)
 }
 
 func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
@@ -1425,8 +1425,6 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds map[str
 	}
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("workloadSpec.Secrets -> %+v", workloadSpec.Secrets)
-	c.Logf("workloadSpec.ConfigMaps -> %+v", workloadSpec.ConfigMaps)
 	podSpec := provider.PodSpec(workloadSpec)
 
 	numUnits := int32(2)

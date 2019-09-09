@@ -86,7 +86,7 @@ func (k *kubernetesClient) getConfigMap(cmName string) (*core.ConfigMap, error) 
 
 // createConfigMap creates a ConfigMap resource.
 func (k *kubernetesClient) createConfigMap(cm *core.ConfigMap) (*core.ConfigMap, error) {
-	k.purifyResourceForCreate(cm)
+	k.purifyResource(cm)
 	out, err := k.client().CoreV1().ConfigMaps(k.namespace).Create(cm)
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("configmap %q", cm.GetName())
