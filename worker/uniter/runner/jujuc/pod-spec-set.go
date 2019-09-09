@@ -94,10 +94,12 @@ func (c *PodSpecSetCommand) handleSpecFile(ctx *cmd.Context) (string, error) {
 }
 
 func (c *PodSpecSetCommand) handleK8sResources(ctx *cmd.Context) (string, error) {
+	logger.Criticalf("handleK8sResources c.k8sResources -> %+v, c.k8sResources.IsStdin() -> %b", c.k8sResources, c.k8sResources.IsStdin())
 	if c.k8sResources.Path == "" {
 		return "", nil
 	}
 	k8sResourcesData, err := c.k8sResources.Read(ctx)
+	logger.Criticalf("handleK8sResources k8sResourcesData -> \n%q", string(k8sResourcesData))
 	if err != nil {
 		return "", errors.Trace(err)
 	}
