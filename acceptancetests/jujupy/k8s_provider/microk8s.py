@@ -24,7 +24,6 @@ import shutil
 import os
 import json
 import yaml
-import time
 from pprint import pformat
 
 import dns.resolver
@@ -91,7 +90,7 @@ class MicroK8s(Base):
 
     def __enable_addons(self):
         # addons are required to be enabled.
-        addons = ['storage', 'dns', 'dashboard', 'ingress']
+        addons = ['storage', 'dns', 'ingress']
         
         def wait_until_ready(timeout, checker):
             for _ in until_timeout(timeout):
