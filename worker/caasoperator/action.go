@@ -224,6 +224,12 @@ func getNewRunnerExecutor(
 				params.Cancel,
 			)
 			exitErr = errors.Cause(exitErr)
+			if params.StdoutLogger != nil {
+				params.StdoutLogger.Stop()
+			}
+			if params.StderrLogger != nil {
+				params.StderrLogger.Stop()
+			}
 
 			readBytes := func(r io.Reader) []byte {
 				var o bytes.Buffer

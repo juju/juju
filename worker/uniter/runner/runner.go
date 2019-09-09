@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 	"unicode/utf8"
@@ -84,8 +85,12 @@ type ExecParams struct {
 	Clock         clock.Clock
 	ProcessSetter func(context.HookProcess)
 	Cancel        <-chan struct{}
-	Stdout        io.ReadWriter
-	Stderr        io.ReadWriter
+
+	Stdout       io.ReadWriter
+	StdoutLogger charmrunner.Stopper
+
+	Stderr       io.ReadWriter
+	StderrLogger charmrunner.Stopper
 }
 
 // execOnMachine executes commands on current machine.
@@ -329,10 +334,14 @@ func (l *loggerAdaptor) Messagef(isPrefix bool, message string, args ...interfac
 // as well as passing the output to an action result.
 type bufferAdaptor struct {
 	io.ReadWriter
+
+	mu      sync.Mutex
 	outCopy bytes.Buffer
 }
 
 func (b *bufferAdaptor) Read(p []byte) (n int, err error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return b.outCopy.Read(p)
 }
 
@@ -344,6 +353,9 @@ func (b *bufferAdaptor) Messagef(isPrefix bool, message string, args ...interfac
 	if !isPrefix {
 		formattedMessage += "\n"
 	}
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	b.outCopy.WriteString(formattedMessage)
 }
 
@@ -369,6 +381,7 @@ func (runner *runner) runCharmHookOnRemote(hookName string, env []string, charmL
 	// When running an action, We capture stdout and stderr
 	// separately to pass back.
 	var actionErr = actionOut
+	var hookErrLogger *charmrunner.HookLogger
 	_, err = runner.context.ActionData()
 	runningAction := err == nil
 	if runningAction {
@@ -379,7 +392,7 @@ func (runner *runner) runCharmHookOnRemote(hookName string, env []string, charmL
 		defer errWriter.Close()
 
 		actionErr = &bufferAdaptor{ReadWriter: errWriter}
-		hookErrLogger := charmrunner.NewHookLogger(errReader,
+		hookErrLogger = charmrunner.NewHookLogger(errReader,
 			&loggerAdaptor{runner.getLogger(hookName)},
 			actionErr,
 		)
@@ -393,12 +406,14 @@ func (runner *runner) runCharmHookOnRemote(hookName string, env []string, charmL
 	}
 	resp, err := executor(
 		ExecParams{
-			Commands:   []string{hook},
-			Env:        env,
-			WorkingDir: charmDir,
-			Stdout:     actionOut,
-			Stderr:     actionErr,
-			Cancel:     cancel,
+			Commands:     []string{hook},
+			Env:          env,
+			WorkingDir:   charmDir,
+			Cancel:       cancel,
+			Stdout:       actionOut,
+			StdoutLogger: hookOutLogger,
+			Stderr:       actionErr,
+			StderrLogger: hookErrLogger,
 		},
 	)
 
@@ -440,6 +455,7 @@ func (runner *runner) runCharmHookOnLocal(hookName string, env []string, charmLo
 	// When running an action, We capture stdout and stderr
 	// separately to pass back.
 	var actionErr io.Reader
+	var hookErrLogger *charmrunner.HookLogger
 	_, err = runner.context.ActionData()
 	runningAction := err == nil
 	if runningAction {
@@ -452,7 +468,7 @@ func (runner *runner) runCharmHookOnLocal(hookName string, env []string, charmLo
 		ps.Stderr = errWriter
 		errBuf := &bufferAdaptor{ReadWriter: errWriter}
 		actionErr = errBuf
-		hookErrLogger := charmrunner.NewHookLogger(errReader,
+		hookErrLogger = charmrunner.NewHookLogger(errReader,
 			&loggerAdaptor{runner.getLogger(hookName)},
 			errBuf,
 		)
@@ -468,6 +484,10 @@ func (runner *runner) runCharmHookOnLocal(hookName string, env []string, charmLo
 		// Block until execution finishes
 		exitErr = ps.Wait()
 	}
+	// Ensure hook loggers are stopped before reading stdout/stderr
+	// so all the output is captured.
+	hookOutLogger.Stop()
+	hookErrLogger.Stop()
 
 	// If we are running an action, record stdout and stderr.
 	if runningAction {
