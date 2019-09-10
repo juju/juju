@@ -1735,10 +1735,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 	podSpec := getBasicPodspec()
 	podSpec.ServiceAccount = &specs.ServiceAccountSpec{
 		AutomountServiceAccountToken: boolPtr(true),
-		Rules: &rbacv1.PolicyRule{
-			APIGroups: []string{""},
-			Resources: []string{"pods"},
-			Verbs:     []string{"get", "watch", "list"},
+		Rules: []specs.PolicyRule{
+			{
+				APIGroups: []string{""},
+				Resources: []string{"pods"},
+				Verbs:     []string{"get", "watch", "list"},
+			},
 		},
 	}
 
@@ -1879,10 +1881,12 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 	podSpec := getBasicPodspec()
 	podSpec.ServiceAccount = &specs.ServiceAccountSpec{
 		AutomountServiceAccountToken: boolPtr(true),
-		Rules: &rbacv1.PolicyRule{
-			APIGroups: []string{""},
-			Resources: []string{"pods"},
-			Verbs:     []string{"get", "watch", "list"},
+		Rules: []specs.PolicyRule{
+			{
+				APIGroups: []string{""},
+				Resources: []string{"pods"},
+				Verbs:     []string{"get", "watch", "list"},
+			},
 		},
 	}
 

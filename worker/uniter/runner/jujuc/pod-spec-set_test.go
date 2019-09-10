@@ -88,7 +88,7 @@ func (s *ContainerspecSetSuite) TestHelp(c *gc.C) {
 		"--file  (= -)\n" +
 		"    file containing pod spec\n" +
 		"--k8s-resources  (= )\n" +
-		"    file containing k8s pod spec\n" +
+		"    file containing k8s specific resources not yet modelled by Juju\n" +
 		"\n" +
 		"Details:\n" +
 		"Sets configuration data to use for a pod.\n" +

@@ -7,7 +7,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -123,7 +122,7 @@ serviceAccount:
   automountServiceAccountToken: true
   clusterRoleNames: [someClusterRole1, someClusterRole2]
   rules:
-    apiGroups: [""]
+  - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "watch", "list"]
 kubernetesResources:
@@ -198,10 +197,12 @@ foo: bar
 					"someClusterRole1", "someClusterRole2",
 				},
 				AutomountServiceAccountToken: boolPtr(true),
-				Rules: &rbacv1.PolicyRule{
-					APIGroups: []string{""},
-					Resources: []string{"pods"},
-					Verbs:     []string{"get", "watch", "list"},
+				Rules: []specs.PolicyRule{
+					{
+						APIGroups: []string{""},
+						Resources: []string{"pods"},
+						Verbs:     []string{"get", "watch", "list"},
+					},
 				},
 			},
 		}
@@ -480,83 +481,6 @@ containers:
 	c.Assert(err, gc.ErrorMatches, `mount path is missing for file set "configuration"`)
 }
 
-type serviceAccountTestCase struct {
-	Title, Spec, Err string
-}
-
-var serviceAccountValidationTestCases = []serviceAccountTestCase{
-	{
-		Title: "wrong role binding type",
-		Spec: versionHeader + `
-serviceAccount:
-  name: build-robot
-  automountServiceAccountToken: true
-  capabilities:
-    roleBinding:
-      name: read-pods
-      type: ClusterRoleBinding11
-    role:
-      name: pod-reader
-      type: ClusterRole
-      rules:
-      - apiGroups: [""]
-        resources: ["pods"]
-        verbs: ["get", "watch", "list"]
-`[1:],
-		Err: "\"ClusterRoleBinding11\" not supported",
-	},
-	{
-		Title: "wrong role type",
-		Spec: versionHeader + `
-serviceAccount:
-  name: build-robot
-  automountServiceAccountToken: true
-  capabilities:
-    roleBinding:
-      name: read-pods
-      type: ClusterRoleBinding
-    role:
-      name: pod-reader
-      type: ClusterRole11
-      rules:
-      - apiGroups: [""]
-        resources: ["pods"]
-        verbs: ["get", "watch", "list"]
-`[1:],
-		Err: "\"ClusterRole11\" not supported",
-	},
-	{
-		Title: "missing role",
-		Spec: versionHeader + `
-serviceAccount:
-  name: build-robot
-  automountServiceAccountToken: true
-  capabilities:
-    roleBinding:
-      name: read-pods
-      type: ClusterRoleBinding
-`[1:],
-		Err: `role is required for capabilities`,
-	},
-	{
-		Title: "missing role binding",
-		Spec: versionHeader + `
-serviceAccount:
-  name: build-robot
-  automountServiceAccountToken: true
-  capabilities:
-    role:
-      name: pod-reader
-      type: ClusterRole11
-      rules:
-      - apiGroups: [""]
-        resources: ["pods"]
-        verbs: ["get", "watch", "list"]
-`[1:],
-		Err: `roleBinding is required for capabilities`,
-	},
-}
-
 func (s *v2SpecsSuite) TestValidateServiceAccountShouldBeOmittedForEmptyValue(c *gc.C) {
 	specStr := versionHeader + `
 containers:
@@ -570,5 +494,5 @@ serviceAccount:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `rules or clusterRoleNames are required not valid`)
+	c.Assert(err, gc.ErrorMatches, `rules or clusterRoleNames are required`)
 }

@@ -21,6 +21,17 @@ func (k *kubernetesClient) getRBACLabels(appName string) map[string]string {
 	}
 }
 
+func toK8sRules(rules []specs.PolicyRule) (out []rbacv1.PolicyRule) {
+	for _, r := range rules {
+		out = append(out, rbacv1.PolicyRule{
+			Verbs:     r.Verbs,
+			APIGroups: r.APIGroups,
+			Resources: r.Resources,
+		})
+	}
+	return out
+}
+
 func (k *kubernetesClient) ensureServiceAccountForApp(
 	appName string, caasSpec *specs.ServiceAccountSpec,
 ) (cleanups []func(), err error) {
@@ -43,7 +54,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 	}
 
 	// ensure roles.
-	if caasSpec.Rules != nil {
+	if len(caasSpec.Rules) > 0 {
 		// create or update Role.
 		r, rCleanups, err := k.ensureRole(&rbacv1.Role{
 			ObjectMeta: v1.ObjectMeta{
@@ -51,7 +62,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 				Namespace: k.namespace,
 				Labels:    labels,
 			},
-			Rules: []rbacv1.PolicyRule{*caasSpec.Rules},
+			Rules: toK8sRules(caasSpec.Rules),
 		})
 		cleanups = append(cleanups, rCleanups...)
 		if err != nil {
@@ -136,7 +147,7 @@ func (k *kubernetesClient) deleteAllServiceAccountResources(appName string) erro
 }
 
 func (k *kubernetesClient) createServiceAccount(sa *core.ServiceAccount) (*core.ServiceAccount, error) {
-	k.purifyResource(sa)
+	purifyResource(sa)
 	out, err := k.client().CoreV1().ServiceAccounts(k.namespace).Create(sa)
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("service account %q", sa.GetName())
@@ -220,7 +231,7 @@ func (k *kubernetesClient) listServiceAccount(labels map[string]string) ([]core.
 }
 
 func (k *kubernetesClient) createRole(role *rbacv1.Role) (*rbacv1.Role, error) {
-	k.purifyResource(role)
+	purifyResource(role)
 	out, err := k.client().RbacV1().Roles(k.namespace).Create(role)
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("role %q", role.GetName())
@@ -304,7 +315,7 @@ func (k *kubernetesClient) listRoles(labels map[string]string) ([]rbacv1.Role, e
 }
 
 func (k *kubernetesClient) createClusterRole(cRole *rbacv1.ClusterRole) (*rbacv1.ClusterRole, error) {
-	k.purifyResource(cRole)
+	purifyResource(cRole)
 	out, err := k.client().RbacV1().ClusterRoles().Create(cRole)
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("cluster role %q", cRole.GetName())
@@ -388,7 +399,7 @@ func (k *kubernetesClient) listClusterRoles(labels map[string]string) ([]rbacv1.
 }
 
 func (k *kubernetesClient) createRoleBinding(rb *rbacv1.RoleBinding) (*rbacv1.RoleBinding, error) {
-	k.purifyResource(rb)
+	purifyResource(rb)
 	out, err := k.client().RbacV1().RoleBindings(k.namespace).Create(rb)
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("role binding %q", rb.GetName())
@@ -420,6 +431,7 @@ func (k *kubernetesClient) ensureRoleBinding(rb *rbacv1.RoleBinding) (out *rbacv
 				return nil, cleanups, errors.Trace(err)
 			}
 			logger.Debugf("role binding %q deleted", v.GetName())
+			break
 		}
 	}
 	out, err = k.createRoleBinding(rb)
@@ -479,7 +491,7 @@ func (k *kubernetesClient) listRoleBindings(labels map[string]string) ([]rbacv1.
 }
 
 func (k *kubernetesClient) createClusterRoleBinding(crb *rbacv1.ClusterRoleBinding) (*rbacv1.ClusterRoleBinding, error) {
-	k.purifyResource(crb)
+	purifyResource(crb)
 	out, err := k.client().RbacV1().ClusterRoleBindings().Create(crb)
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("cluster role binding %q", crb.GetName())

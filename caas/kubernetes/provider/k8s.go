@@ -209,7 +209,7 @@ type resourcePurifier interface {
 }
 
 // purifyResource purifies read only fields before creating/updating the resource.
-func (k *kubernetesClient) purifyResource(resource resourcePurifier) {
+func purifyResource(resource resourcePurifier) {
 	resource.SetResourceVersion("")
 }
 
@@ -2493,11 +2493,10 @@ func operatorPod(podName, appName, operatorServiceIP, agentPath, operatorImagePa
 
 // operatorConfigMap returns a *core.ConfigMap for the operator pod
 // of the specified application, with the specified configuration.
-func operatorConfigMap(appName, cmName string, labels map[string]string, config *caas.OperatorConfig) *core.ConfigMap {
+func operatorConfigMap(appName, name string, labels map[string]string, config *caas.OperatorConfig) *core.ConfigMap {
 	return &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name: cmName,
-			// TODO: properly labling operator resources could ensure all resources get deleted when application is removed.
+			Name:   name,
 			Labels: labels,
 		},
 		Data: map[string]string{

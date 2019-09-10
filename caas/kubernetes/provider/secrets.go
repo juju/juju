@@ -129,7 +129,7 @@ func (k *kubernetesClient) getSecret(secretName string) (*core.Secret, error) {
 
 // createSecret creates a secret resource.
 func (k *kubernetesClient) createSecret(secret *core.Secret) (*core.Secret, error) {
-	k.purifyResource(secret)
+	purifyResource(secret)
 	out, err := k.client().CoreV1().Secrets(k.namespace).Create(secret)
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("secret %q", secret.GetName())

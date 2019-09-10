@@ -29,7 +29,6 @@ func (k *kubernetesClient) ensureConfigMaps(appName string, cms map[string]specs
 				Labels:    k.getConfigMapLabels(appName),
 			},
 			Data: v,
-			// BinaryData: // TODO: do we need support binanry data????????????
 		}
 		cmCleanup, err := k.ensureConfigMap(spec)
 		cleanUps = append(cleanUps, cmCleanup)
@@ -55,7 +54,7 @@ func (k *kubernetesClient) ensureConfigMap(cm *core.ConfigMap) (func(), error) {
 	_, err = k.listConfigMaps(cm.GetLabels())
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// cm.Name is already used for an existing secret.
+			// configmap name is already used for an existing secret.
 			return cleanUp, errors.AlreadyExistsf("configmap %q", cm.GetName())
 		}
 		return cleanUp, errors.Trace(err)
@@ -87,7 +86,7 @@ func (k *kubernetesClient) getConfigMap(name string) (*core.ConfigMap, error) {
 
 // createConfigMap creates a ConfigMap resource.
 func (k *kubernetesClient) createConfigMap(cm *core.ConfigMap) (*core.ConfigMap, error) {
-	k.purifyResource(cm)
+	purifyResource(cm)
 	out, err := k.client().CoreV1().ConfigMaps(k.namespace).Create(cm)
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("configmap %q", cm.GetName())

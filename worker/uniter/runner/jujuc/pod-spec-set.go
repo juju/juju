@@ -44,7 +44,7 @@ func (c *PodSpecSetCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.specFile.SetStdin()
 	c.specFile.Path = "-"
 	f.Var(&c.specFile, "file", "file containing pod spec")
-	f.Var(&c.k8sResources, "k8s-resources", "file containing k8s pod spec")
+	f.Var(&c.k8sResources, "k8s-resources", "file containing k8s specific resources not yet modelled by Juju")
 }
 
 func (c *PodSpecSetCommand) Init(args []string) error {
