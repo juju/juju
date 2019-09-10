@@ -1210,7 +1210,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 
 				_, err = app.AddUnit(AddUnitParams{})
 				c.Assert(err, jc.ErrorIsNil)
-				return 3
+				return 2
 			},
 		}, {
 			about: "relations",
@@ -1224,7 +1224,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 				_, err = st.AddRelation(eps...)
 				c.Assert(err, jc.ErrorIsNil)
-				return 3
+				return 1
 			},
 		}, {
 			about: "annotations",
