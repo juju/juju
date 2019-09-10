@@ -86,7 +86,7 @@ func (k *kubernetesClient) ensureSecret(sec *core.Secret) (func(), error) {
 	out, err := k.createSecret(sec)
 	if err == nil {
 		logger.Debugf("secret %q created", out.GetName())
-		cleanUp = func() { k.deleteSecret(out.GetName(), out.GetUID()) }
+		cleanUp = func() { k.deleteSecret(out.GetName(), &out.UID) }
 		return cleanUp, nil
 	}
 	if !errors.IsAlreadyExists(err) {
@@ -137,21 +137,14 @@ func (k *kubernetesClient) createSecret(secret *core.Secret) (*core.Secret, erro
 }
 
 // deleteSecret deletes a secret resource.
-func (k *kubernetesClient) deleteSecret(secretName string, uid types.UID) error {
-	secrets := k.client().CoreV1().Secrets(k.namespace)
-	err := secrets.Delete(secretName, newPreconditionDeleteOptions(uid))
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
-}
-
-// deleteSecret deletes a secret resource(try to use the deleteSecret if possible).
-func (k *kubernetesClient) deleteSecretByName(secretName string) error {
-	secrets := k.client().CoreV1().Secrets(k.namespace)
-	err := secrets.Delete(secretName, &v1.DeleteOptions{
+func (k *kubernetesClient) deleteSecret(secretName string, uid *types.UID) error {
+	opts := &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
-	})
+	}
+	if uid != nil {
+		opts = newPreconditionDeleteOptions(*uid)
+	}
+	err := k.client().CoreV1().Secrets(k.namespace).Delete(secretName, opts)
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}

@@ -440,7 +440,7 @@ func (c *controllerStack) createControllerSecretSharedSecret() error {
 	logger.Debugf("ensuring shared secret: \n%+v", secret)
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q shared-secret", secret.Name)
-		c.broker.deleteSecret(secret.GetName(), secret.GetUID())
+		c.broker.deleteSecret(secret.GetName(), &secret.UID)
 	})
 	return c.broker.updateSecret(secret)
 }
@@ -461,7 +461,7 @@ func (c *controllerStack) createControllerSecretServerPem() error {
 	logger.Debugf("ensuring server.pem secret: \n%+v", secret)
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q server.pem", secret.Name)
-		c.broker.deleteSecret(secret.GetName(), secret.GetUID())
+		c.broker.deleteSecret(secret.GetName(), &secret.UID)
 	})
 	return c.broker.updateSecret(secret)
 }

@@ -835,7 +835,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 		// Delete secrets.
 		for _, c := range p.Spec.Containers {
 			secretName := appSecretName(deploymentName, c.Name)
-			if err := k.deleteSecretByName(secretName); err != nil {
+			if err := k.deleteSecret(secretName, nil); err != nil {
 				return errors.Annotatef(err, "deleting %s secret for container %s", appName, c.Name)
 			}
 		}
@@ -1273,7 +1273,7 @@ func (k *kubernetesClient) EnsureService(
 		if err := k.ensureOCIImageSecret(imageSecretName, appName, &c.ImageDetails, annotations.Copy()); err != nil {
 			return errors.Annotatef(err, "creating secrets for container: %s", c.Name)
 		}
-		cleanups = append(cleanups, func() { k.deleteSecretByName(imageSecretName) })
+		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName, nil) })
 	}
 
 	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
