@@ -1672,14 +1672,11 @@ func (k *kubernetesClient) configureStatefulSet(
 
 func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPodSpec core.PodSpec) error {
 	api := k.client().AppsV1().StatefulSets(k.namespace)
-	_, err := api.Update(spec)
-	if k8serrors.IsNotFound(err) {
-		_, err = api.Create(spec)
-	}
 
+	_, err := api.Update(spec)
 	if err != nil {
-		if k8serrors.IsInvalid(err) {
-			return errors.NewNotValid(err, "ensuring statefulset")
+		if k8serrors.IsNotFound(err) {
+			_, err = api.Create(spec)
 		}
 		return errors.Trace(err)
 	}

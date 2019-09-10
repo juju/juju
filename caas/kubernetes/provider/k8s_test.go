@@ -918,7 +918,7 @@ func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *ap
 	}
 }
 
-func (s *K8sBrokerSuite) TestEnsureOperator(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -951,7 +951,60 @@ func (s *K8sBrokerSuite) TestEnsureOperator(c *gc.C) {
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
+			Return(statefulSetArg, nil),
+	)
+
+	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
+		OperatorImagePath: "/path/to/image",
+		Version:           version.MustParse("2.99.0"),
+		AgentConf:         []byte("agent-conf-data"),
+		ResourceTags:      map[string]string{"fred": "mary"},
+		CharmStorage: caas.CharmStorageParams{
+			Size:         uint64(10),
+			Provider:     "kubernetes",
+			Attributes:   map[string]interface{}{"storage-class": "operator-storage"},
+			ResourceTags: map[string]string{"foo": "bar"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	configMapArg := &core.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "test-operator-config",
+			Labels: map[string]string{"juju-app": "test", "juju-model": "test"},
+		},
+		Data: map[string]string{
+			"test-agent.conf": "agent-conf-data",
+		},
+	}
+	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage")
+
+	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Get("test-operator", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(operatorServiceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(operatorServiceArg).Times(1).
 			Return(nil, nil),
+		s.mockServices.EXPECT().Get("test-operator", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(&core.Service{Spec: core.ServiceSpec{ClusterIP: "10.1.2.3"}}, nil),
+		s.mockConfigMaps.EXPECT().Create(configMapArg).Times(1).
+			Return(configMapArg, nil),
+		s.mockStorageClass.EXPECT().Get("test-operator-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "test-operator-storage"}}, nil),
+		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
+			Return(statefulSetArg, nil),
+		s.mockStatefulSets.EXPECT().Get("test-operator", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(statefulSetArg, nil),
+		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
+			Return(statefulSetArg, nil),
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
@@ -992,7 +1045,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
-			Return(nil, nil),
+			Return(statefulSetArg, nil),
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
@@ -1280,7 +1333,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
-			Return(nil, nil),
+			Return(statefulSetArg, nil),
 	)
 
 	params := &caas.ServiceParams{
@@ -1358,7 +1411,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
-			Return(nil, nil),
+			Return(statefulSetArg, nil),
 	)
 
 	params := &caas.ServiceParams{
@@ -2385,7 +2438,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
-			Return(nil, nil),
+			Return(statefulSetArg, nil),
 	)
 
 	params := &caas.ServiceParams{
@@ -2464,7 +2517,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
-			Return(nil, nil),
+			Return(statefulSetArg, nil),
 	)
 
 	params := &caas.ServiceParams{
