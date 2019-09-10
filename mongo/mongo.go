@@ -20,16 +20,15 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
-	"github.com/juju/packaging/config"
-	"github.com/juju/packaging/manager"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/packaging"
+	"github.com/juju/juju/packaging/dependency"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/snap"
@@ -49,9 +48,6 @@ var (
 	// MongodSystemPath is actually just the system path
 	MongodSystemPath = "/usr/bin/mongod"
 
-	// This is NUMACTL package name for apt-get
-	numaCtlPkg = "numactl"
-
 	// mininmumSystemMongoVersion is the minimum version we would allow to be used from /usr/bin/mongod.
 	minimumSystemMongoVersion = Version{Major: 3, Minor: 4}
 )
@@ -60,20 +56,12 @@ var (
 type StorageEngine string
 
 const (
-	// JujuMongoPackage is the mongo package Juju uses when
-	// installing mongo.
-	JujuMongoPackage = "juju-mongodb3.2"
-
 	// JujuDbSnap is the snap of MongoDB that Juju uses.
 	JujuDbSnap = "juju-db"
 
 	// JujuDbSnapMongodPath is the path that the juju-db snap
 	// makes mongod available at
 	JujuDbSnapMongodPath = "/snap/bin/juju-db.mongod"
-
-	// JujuMongoToolsPackage is the mongo package Juju uses when
-	// installing mongo tools to get mongodump etc.
-	JujuMongoToolsPackage = "juju-mongo-tools3.2"
 
 	// MMAPV1 is the default storage engine in mongo db up to 3.x
 	MMAPV1 StorageEngine = "mmapv1"
@@ -685,15 +673,6 @@ func logVersion(mongoPath string) {
 	logger.Debugf("using mongod: %s --version: %q", mongoPath, output)
 }
 
-func installPackage(pkg string, pacconfer config.PackagingConfigurer, pacman manager.PackageManager) error {
-	// apply release targeting if needed.
-	if pacconfer.IsCloudArchivePackage(pkg) {
-		pkg = strings.Join(pacconfer.ApplyCloudArchiveTarget(pkg), " ")
-	}
-
-	return pacman.Install(pkg)
-}
-
 func getSnapChannel() string {
 	return fmt.Sprintf("%s/%s", SnapTrack, SnapRisk)
 }
@@ -725,93 +704,11 @@ func installMongod(operatingsystem string, numaCtl bool, dataDir string) error {
 		return service.Install()
 	}
 
-	// fetch the packaging configuration manager for the current operating system.
-	pacconfer, err := config.NewPackagingConfigurer(operatingsystem)
-	if err != nil {
+	if err := packaging.InstallDependency(dependency.Mongo(numaCtl), operatingsystem); err != nil {
 		return err
 	}
 
-	// fetch the package manager implementation for the current operating system.
-	pacman, err := manager.NewPackageManager(operatingsystem)
-	if err != nil {
-		return err
-	}
-
-	// CentOS requires "epel-release" for the epel repo mongodb-server is in.
-	if operatingsystem == "centos7" {
-		// install epel-release
-		if err := pacman.Install("epel-release"); err != nil {
-			return err
-		}
-	}
-	mongoPkgs, fallbackPkgs := packagesForSeries(operatingsystem)
-
-	if numaCtl {
-		logger.Infof("installing %v and %s", mongoPkgs, numaCtlPkg)
-		if err = installPackage(numaCtlPkg, pacconfer, pacman); err != nil {
-			return errors.Trace(err)
-		}
-	} else {
-		logger.Infof("installing %v", mongoPkgs)
-	}
-
-	for i := range mongoPkgs {
-		if err = installPackage(mongoPkgs[i], pacconfer, pacman); err != nil {
-			break
-		}
-	}
-	if err != nil && len(fallbackPkgs) == 0 {
-		return errors.Trace(err)
-	}
-	if err != nil {
-		logger.Errorf("installing mongo failed: %v", err)
-		logger.Infof("will try fallback packages %v", fallbackPkgs)
-		for i := range fallbackPkgs {
-			if err = installPackage(fallbackPkgs[i], pacconfer, pacman); err != nil {
-				return errors.Trace(err)
-			}
-		}
-	}
-
-	// Work around SELinux on centos7
-	if operatingsystem == "centos7" {
-		cmd := []string{"chcon", "-R", "-v", "-t", "mongod_var_lib_t", "/var/lib/juju/"}
-		logger.Infof("running %s %v", cmd[0], cmd[1:])
-		_, err = utils.RunCommand(cmd[0], cmd[1:]...)
-		if err != nil {
-			logger.Errorf("chcon failed to change file security context error %s", err)
-			return err
-		}
-
-		cmd = []string{"semanage", "port", "-a", "-t", "mongod_port_t", "-p", "tcp", strconv.Itoa(controller.DefaultStatePort)}
-		logger.Infof("running %s %v", cmd[0], cmd[1:])
-		_, err = utils.RunCommand(cmd[0], cmd[1:]...)
-		if err != nil {
-			if !strings.Contains(err.Error(), "exit status 1") {
-				logger.Errorf("semanage failed to provide access on port %d error %s", controller.DefaultStatePort, err)
-				return err
-			}
-		}
-	}
 	return nil
-}
-
-// packagesForSeries returns the name of the mongo package for the series
-// of the machine that it is going to be running on plus a fallback for
-// options where the package is going to be ready eventually but might not
-// yet be.
-func packagesForSeries(series string) ([]string, []string) {
-	switch series {
-	case "precise", "centos7":
-		return []string{"mongodb-server"}, []string{}
-	case "trusty":
-		return []string{"juju-mongodb"}, []string{}
-	case "xenial", "artful":
-		return []string{JujuMongoPackage, JujuMongoToolsPackage}, []string{}
-	default:
-		// Bionic and newer
-		return []string{"mongodb-server-core", "mongodb-clients"}, []string{}
-	}
 }
 
 // DbDir returns the dir where mongo storage is.

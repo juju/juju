@@ -1449,6 +1449,9 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 		"apt-https-proxy":              "https://proxy.example.com:9000",
 		"allow-lxd-loop-mounts":        true,
 		"apt-mirror":                   "http://example.mirror.com",
+		"snap-https-proxy":             "https://snap-proxy.example.com:9000",
+		"snap-store-assertions":        "BLOB",
+		"snap-store-proxy":             "b4dc0ffee",
 		"cloudinit-userdata":           validCloudInitUserData,
 		"container-inherit-properties": "ca-certs,apt-primary",
 	}
@@ -1465,6 +1468,10 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 		NoProxy: "127.0.0.1,localhost,::1",
 	}
 
+	expectedSnapProxy := proxy.Settings{
+		Https: "https://snap-proxy.example.com:9000",
+	}
+
 	results, err := s.provisioner.ContainerConfig()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(results.UpdateBehavior, gc.Not(gc.IsNil))
@@ -1475,6 +1482,9 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.JujuProxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptProxy, gc.DeepEquals, expectedAPTProxy)
 	c.Check(results.AptMirror, gc.DeepEquals, "http://example.mirror.com")
+	c.Check(results.SnapProxy, gc.DeepEquals, expectedSnapProxy)
+	c.Check(results.SnapStoreAssertions, gc.Equals, "BLOB")
+	c.Check(results.SnapStoreProxyID, gc.Equals, "b4dc0ffee")
 	c.Check(results.CloudInitUserData, gc.DeepEquals, map[string]interface{}{
 		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
 		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},

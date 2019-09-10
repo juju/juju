@@ -36,8 +36,9 @@ func (f *fakeCfg) SetSystemUpgrade(b bool) {
 func (f *fakeCfg) addRequiredPackages() {
 	f.calledAddReq = true
 }
-func (f *fakeCfg) updateProxySettings(s proxy.Settings) {
-	f.packageProxySettings = s
+func (f *fakeCfg) updateProxySettings(s PackageManagerProxyConfig) error {
+	f.packageProxySettings = s.AptProxy()
+	return nil
 }
 
 func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
@@ -49,32 +50,56 @@ func (HelperSuite) TestAddPkgCmdsCommon(c *gc.C) {
 		Ftp:     "ftp",
 		NoProxy: "noproxy",
 	}
-	mirror := "mirror"
+	proxyCfg := packageManagerProxySettings{
+		aptProxy:  pps,
+		aptMirror: "mirror",
+	}
+
 	upd, upg := true, true
 
-	addPackageCommandsCommon(f, pps, mirror, upd, upg, "trusty")
+	err := addPackageCommandsCommon(f, proxyCfg, upd, upg, "trusty")
+	c.Assert(err, gc.IsNil)
 	c.Assert(f.packageProxySettings, gc.Equals, pps)
-	c.Assert(f.packageMirror, gc.Equals, mirror)
+	c.Assert(f.packageMirror, gc.Equals, proxyCfg.aptMirror)
 	c.Assert(f.addUpdateScripts, gc.Equals, upd)
 	c.Assert(f.addUpgradeScripts, gc.Equals, upg)
 	c.Assert(f.calledAddReq, gc.Equals, true)
 
 	f = &fakeCfg{}
 	upd, upg = false, false
-	addPackageCommandsCommon(f, pps, mirror, upd, upg, "trusty")
+	err = addPackageCommandsCommon(f, proxyCfg, upd, upg, "trusty")
+	c.Assert(err, gc.IsNil)
 	c.Assert(f.packageProxySettings, gc.Equals, pps)
-	c.Assert(f.packageMirror, gc.Equals, mirror)
+	c.Assert(f.packageMirror, gc.Equals, proxyCfg.aptMirror)
 	c.Assert(f.addUpdateScripts, gc.Equals, upd)
 	c.Assert(f.addUpgradeScripts, gc.Equals, upg)
 	c.Assert(f.calledAddReq, gc.Equals, true)
 
 	f = &fakeCfg{}
 	upd, upg = false, false
-	addPackageCommandsCommon(f, pps, mirror, upd, upg, "precise")
+	err = addPackageCommandsCommon(f, proxyCfg, upd, upg, "precise")
+	c.Assert(err, gc.IsNil)
 	c.Assert(f.packageProxySettings, gc.Equals, pps)
-	c.Assert(f.packageMirror, gc.Equals, mirror)
+	c.Assert(f.packageMirror, gc.Equals, proxyCfg.aptMirror)
 	// for precise we need to override addUpdateScripts to always be true
 	c.Assert(f.addUpdateScripts, gc.Equals, true)
 	c.Assert(f.addUpgradeScripts, gc.Equals, upg)
 	c.Assert(f.calledAddReq, gc.Equals, true)
 }
+
+// packageManagerProxySettings implements cloudinit.PackageManagerConfig.
+type packageManagerProxySettings struct {
+	aptProxy            proxy.Settings
+	aptMirror           string
+	snapProxy           proxy.Settings
+	snapStoreAssertions string
+	snapStoreProxyID    string
+	snapStoreProxyURL   string
+}
+
+func (p packageManagerProxySettings) AptProxy() proxy.Settings    { return p.aptProxy }
+func (p packageManagerProxySettings) AptMirror() string           { return p.aptMirror }
+func (p packageManagerProxySettings) SnapProxy() proxy.Settings   { return p.snapProxy }
+func (p packageManagerProxySettings) SnapStoreAssertions() string { return p.snapStoreAssertions }
+func (p packageManagerProxySettings) SnapStoreProxyID() string    { return p.snapStoreProxyID }
+func (p packageManagerProxySettings) SnapStoreProxyURL() string   { return p.snapStoreProxyURL }

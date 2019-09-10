@@ -200,6 +200,7 @@ func (api *APIBase) proxyConfig() params.ProxyConfigResult {
 	result.SnapProxySettings = toParams(config.SnapProxySettings())
 	result.SnapStoreProxyId = config.SnapStoreProxy()
 	result.SnapStoreProxyAssertions = config.SnapStoreAssertions()
+	result.SnapStoreProxyURL = config.SnapStoreProxyURL()
 
 	return result
 }
