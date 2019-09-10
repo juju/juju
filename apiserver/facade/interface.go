@@ -25,6 +25,11 @@ type Factory func(Context) (Facade, error)
 // Context exposes useful capabilities to a Facade.
 type Context interface {
 
+	// Cancel channel represents an indication from the API server that
+	// all interruptable calls should stop. The channel is only ever
+	// closed, and never sents values.
+	Cancel() <-chan struct{}
+
 	// Auth represents information about the connected client. You
 	// should always be checking individual requests against Auth:
 	// both state changes *and* data retrieval should be blocked
