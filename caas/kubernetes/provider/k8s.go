@@ -532,7 +532,6 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	}
 
 	cmName := operatorConfigMapName(operatorName)
-	logger.Criticalf("operatorConfigMapName -> %q", cmName)
 	// TODO(caas) use secrets for storing agent password?
 	if config.AgentConf == nil {
 		// We expect that the config map already exists,
@@ -2650,7 +2649,6 @@ func populateContainerDetails(deploymentName string, pod *core.PodSpec, podConta
 func (k *kubernetesClient) legacyAppName(appName string) bool {
 	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
 	legacyName := "juju-operator-" + appName
-	logger.Criticalf("legacyAppName appName -> %q, legacyName -> %q", appName, legacyName)
 	_, err := statefulsets.Get(legacyName, v1.GetOptions{IncludeUninitialized: true})
 	return err == nil
 }
