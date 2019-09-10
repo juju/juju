@@ -4,6 +4,7 @@
 package state
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -31,6 +32,7 @@ var (
 const (
 	// SCHEMACHANGE: the names are expressive, the values not so much.
 	cleanupRelationSettings              cleanupKind = "settings"
+	cleanupForceDestroyedRelation        cleanupKind = "forceDestroyRelation"
 	cleanupUnitsForDyingApplication      cleanupKind = "units"
 	cleanupCharm                         cleanupKind = "charm"
 	cleanupDyingUnit                     cleanupKind = "dyingUnit"
@@ -154,6 +156,8 @@ func (st *State) Cleanup() (err error) {
 		switch doc.Kind {
 		case cleanupRelationSettings:
 			err = st.cleanupRelationSettings(doc.Prefix)
+		case cleanupForceDestroyedRelation:
+			err = st.cleanupForceDestroyedRelation(doc.Prefix)
 		case cleanupCharm:
 			err = st.cleanupCharm(doc.Prefix)
 		case cleanupApplication:
@@ -234,6 +238,66 @@ func (st *State) cleanupRelationSettings(prefix string) error {
 	if err := Apply(st.database, change); err != nil {
 		return errors.Trace(err)
 	}
+	return nil
+}
+
+func (st *State) cleanupForceDestroyedRelation(prefix string) (err error) {
+	relation, err := st.KeyRelation(prefix)
+	if err != nil {
+		return errors.Annotatef(err, "getting relation %q", prefix)
+	}
+	scopes, closer := st.db().GetCollection(relationScopesC)
+	defer closer()
+
+	sel := bson.M{"_id": bson.M{
+		"$regex": fmt.Sprintf("^%s#", st.docID(relation.globalScope())),
+	}}
+	iter := scopes.Find(sel).Iter()
+	defer closeIter(iter, &err, "reading relation scopes")
+
+	var doc struct {
+		Key string `bson:"key"`
+	}
+	for iter.Next(&doc) {
+		scope, role, unitName, err := unpackScopeKey(doc.Key)
+		var matchingEp Endpoint
+		for _, ep := range relation.Endpoints() {
+			if string(ep.Role) == role {
+				matchingEp = ep
+			}
+		}
+		if matchingEp.Role == "" {
+			return errors.NotFoundf("endpoint matching %q", doc.Key)
+		}
+
+		// This is nasty but I can't see any other way to do it - we
+		// can't rely on the unit existing to determine the values of
+		// isPrincipal and isLocalUnit, and we're only using the RU to
+		// call LeaveScope on it.
+		ru := RelationUnit{
+			st:       st,
+			relation: relation,
+			unitName: unitName,
+			endpoint: matchingEp,
+			scope:    scope,
+		}
+		// Run the leave scope txn immediately rather than building
+		// one big transaction because each one decrements the
+		// relation's unitcount, and we need the last one to remove
+		// the relation (which wouldn't work if the ops were combined
+		// into one txn).
+
+		// We know this should be forced, and we've already waited the
+		// required time.
+		errs, err := ru.LeaveScopeWithForce(true, 0)
+		if len(errs) > 0 {
+			logger.Warningf("operational errors leaving scope for unit %q in relation %q: %v", unitName, relation, errs)
+		}
+		if err != nil {
+			return errors.Annotatef(err, "leaving scope for unit %q in relation %q", unitName, relation)
+		}
+	}
+
 	return nil
 }
 

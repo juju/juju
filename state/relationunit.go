@@ -743,3 +743,19 @@ func unitNameFromScopeKey(key string) string {
 	parts := strings.Split(key, "#")
 	return parts[len(parts)-1]
 }
+
+// unpackScopeKey returns the scope, role and unitname from the
+// relation scope key.
+func unpackScopeKey(key string) (string, string, string, error) {
+	if _, localID, ok := splitDocID(key); ok {
+		key = localID
+	}
+	parts := strings.Split(key, "#")
+	if len(parts) < 4 {
+		return "", "", "", errors.Errorf("%q has too few parts to be a relation scope key", key)
+	}
+	unitName := parts[len(parts)-1]
+	role := parts[len(parts)-2]
+	scope := strings.Join(parts[:len(parts)-2], "#")
+	return scope, role, unitName, nil
+}
