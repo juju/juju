@@ -2629,7 +2629,6 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec)
 				spec.Pod.ActiveDeadlineSeconds = k8sResources.Pod.ActiveDeadlineSeconds
 				spec.Pod.TerminationGracePeriodSeconds = k8sResources.Pod.TerminationGracePeriodSeconds
 				spec.Pod.DNSPolicy = k8sResources.Pod.DNSPolicy
-				spec.Pod.Priority = k8sResources.Pod.Priority
 				spec.Pod.SecurityContext = k8sResources.Pod.SecurityContext
 				spec.Pod.RestartPolicy = k8sResources.Pod.RestartPolicy
 				spec.Pod.ReadinessGates = k8sResources.Pod.ReadinessGates

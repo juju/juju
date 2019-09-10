@@ -85,7 +85,6 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 					RunAsNonRoot:       boolPtr(true),
 					SupplementalGroups: []int64{1, 2},
 				},
-				Priority: int32Ptr(30),
 				ReadinessGates: []core.PodReadinessGate{
 					{ConditionType: core.PodInitialized},
 				},
@@ -130,7 +129,6 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 			RunAsNonRoot:       boolPtr(true),
 			SupplementalGroups: []int64{1, 2},
 		},
-		Priority: int32Ptr(30),
 		ReadinessGates: []core.PodReadinessGate{
 			{ConditionType: core.PodInitialized},
 		},

@@ -134,7 +134,6 @@ kubernetesResources:
     securityContext:
       runAsNonRoot: true
       supplementalGroups: [1,2]
-    priority: 30
     readinessGates:
       - conditionType: PodScheduled
     dnsPolicy: ClusterFirstWithHostNet
@@ -327,7 +326,6 @@ echo "do some stuff here for gitlab-init container"
 						RunAsNonRoot:       boolPtr(true),
 						SupplementalGroups: []int64{1, 2},
 					},
-					Priority: int32Ptr(30),
 					ReadinessGates: []core.PodReadinessGate{
 						{ConditionType: core.PodScheduled},
 					},

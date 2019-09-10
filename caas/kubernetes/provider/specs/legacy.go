@@ -89,7 +89,6 @@ func (p podSpecLegacy) ToLatest() *specs.PodSpec {
 		ActiveDeadlineSeconds:         p.k8sSpec.ActiveDeadlineSeconds,
 		TerminationGracePeriodSeconds: p.k8sSpec.TerminationGracePeriodSeconds,
 		SecurityContext:               p.k8sSpec.SecurityContext,
-		Priority:                      p.k8sSpec.Priority,
 		ReadinessGates:                p.k8sSpec.ReadinessGates,
 		DNSPolicy:                     p.k8sSpec.DNSPolicy,
 	}
