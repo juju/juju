@@ -532,8 +532,6 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 	err = s.apiUnit.SetCharmURL(s.wordpressCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-
 	settings, err := s.apiUnit.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
