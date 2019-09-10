@@ -47,6 +47,7 @@ func (s *environUpgradeSuite) SetUpTest(c *gc.C) {
 		RandomWindowsAdminPassword: func() string { return "sorandom" },
 	})
 	s.env = openEnviron(c, s.provider, &s.sender)
+	s.invalidCredential = false
 	s.callCtx = &context.CloudCallContext{
 		InvalidateCredentialFunc: func(string) error {
 			s.invalidCredential = true
