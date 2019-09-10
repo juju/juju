@@ -49,6 +49,7 @@ type ImageDetails struct {
 	Password  string `yaml:"password,omitempty" json:"password,omitempty"`
 }
 
+// PullPolicy describes a policy for if/when to pull a container image.
 type PullPolicy string
 
 // ContainerSpec defines the data values used to configure
@@ -112,6 +113,9 @@ type PodSpecVersion struct {
 	Version Version `json:"version,omitempty"`
 }
 
+// ConfigMap describes the format of configmap resource.
+type ConfigMap map[string]string
+
 // podSpecBase defines the data values used to configure
 // a pod on the CAAS substrate.
 type podSpecBase struct {
@@ -121,8 +125,8 @@ type podSpecBase struct {
 	// Keep it for now because we have to combine it with the ServerType (from metadata.yaml).
 	OmitServiceFrontend bool `json:"omitServiceFrontend" yaml:"omitServiceFrontend"`
 
-	Service    *ServiceSpec                 `json:"service,omitempty" yaml:"service,omitempty"`
-	ConfigMaps map[string]map[string]string `json:"configmaps,omitempty" yaml:"configmaps,omitempty"`
+	Service    *ServiceSpec         `json:"service,omitempty" yaml:"service,omitempty"`
+	ConfigMaps map[string]ConfigMap `json:"configmaps,omitempty" yaml:"configmaps,omitempty"`
 
 	Containers []ContainerSpec `json:"containers" yaml:"containers"`
 

@@ -80,10 +80,8 @@ func (p podSpecLegacy) ToLatest() *specs.PodSpec {
 	}
 
 	if p.k8sSpec.ServiceAccountName != "" {
-		pSpec.ServiceAccount = &specs.ServiceAccountSpec{
-			Name:                         p.k8sSpec.ServiceAccountName,
-			AutomountServiceAccountToken: p.k8sSpec.AutomountServiceAccountToken,
-		}
+		// we ignore service account stuff in legacy version.
+		logger.Warningf("service account support is dropped in legacy version, please use v2.")
 	}
 
 	iPodSpec := &PodSpec{
@@ -91,7 +89,6 @@ func (p podSpecLegacy) ToLatest() *specs.PodSpec {
 		ActiveDeadlineSeconds:         p.k8sSpec.ActiveDeadlineSeconds,
 		TerminationGracePeriodSeconds: p.k8sSpec.TerminationGracePeriodSeconds,
 		SecurityContext:               p.k8sSpec.SecurityContext,
-		Priority:                      p.k8sSpec.Priority,
 		ReadinessGates:                p.k8sSpec.ReadinessGates,
 		DNSPolicy:                     p.k8sSpec.DNSPolicy,
 	}

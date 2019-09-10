@@ -87,7 +87,6 @@ type PodSpec struct {
 	ActiveDeadlineSeconds         *int64                   `json:"activeDeadlineSeconds,omitempty"`
 	TerminationGracePeriodSeconds *int64                   `json:"terminationGracePeriodSeconds,omitempty"`
 	SecurityContext               *core.PodSecurityContext `json:"securityContext,omitempty"`
-	Priority                      *int32                   `json:"priority,omitempty"`
 	ReadinessGates                []core.PodReadinessGate  `json:"readinessGates,omitempty"`
 	DNSPolicy                     core.DNSPolicy           `json:"dnsPolicy,omitempty"`
 }
@@ -98,7 +97,6 @@ func (ps PodSpec) IsEmpty() bool {
 		ps.ActiveDeadlineSeconds == nil &&
 		ps.TerminationGracePeriodSeconds == nil &&
 		ps.SecurityContext == nil &&
-		ps.Priority == nil &&
 		len(ps.ReadinessGates) == 0 &&
 		ps.DNSPolicy == ""
 }
