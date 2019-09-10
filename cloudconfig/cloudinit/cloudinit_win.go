@@ -6,7 +6,6 @@ package cloudinit
 
 import (
 	"github.com/juju/packaging"
-	"github.com/juju/proxy"
 
 	"github.com/juju/juju/network"
 )
@@ -102,12 +101,11 @@ func (cfg *windowsCloudConfig) renderWindows() ([]byte, error) {
 
 // AddPackageCommands is defined on the AdvancedPackagingConfig interface.
 func (cfg *windowsCloudConfig) AddPackageCommands(
-	aptProxySettings proxy.Settings,
-	aptMirror string,
+	proxyCfg PackageManagerProxyConfig,
 	addUpdateScripts bool,
 	addUpgradeScripts bool,
-) {
-	return
+) error {
+	return nil
 }
 
 // AddCloudArchiveCloudTools is defined on the AdvancedPackagingConfig
@@ -120,7 +118,8 @@ func (cfg *windowsCloudConfig) addRequiredPackages() {
 }
 
 // updateProxySettings is defined on the AdvancedPackagingConfig interface.
-func (cfg *windowsCloudConfig) updateProxySettings(proxy.Settings) {
+func (cfg *windowsCloudConfig) updateProxySettings(PackageManagerProxyConfig) error {
+	return nil
 }
 
 // AddNetworkConfig is defined on the NetworkingConfig interface.

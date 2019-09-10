@@ -8,21 +8,19 @@ import (
 	"strings"
 
 	"github.com/juju/packaging/config"
-	"github.com/juju/proxy"
 )
 
 // addPackageCommandsCommon is a helper function which applies the given
 // packaging-related options to the given CloudConfig.
 func addPackageCommandsCommon(
 	cfg CloudConfig,
-	packageProxySettings proxy.Settings,
-	packageMirror string,
+	proxyCfg PackageManagerProxyConfig,
 	addUpdateScripts bool,
 	addUpgradeScripts bool,
 	series string,
-) {
+) error {
 	// Set the package mirror.
-	cfg.SetPackageMirror(packageMirror)
+	cfg.SetPackageMirror(proxyCfg.AptMirror())
 
 	// For LTS series which need support for the cloud-tools archive,
 	// we need to enable package-list update regardless of the environ
@@ -40,7 +38,7 @@ func addPackageCommandsCommon(
 	cfg.addRequiredPackages()
 
 	// TODO(bogdanteleaga): Deal with proxy settings on CentOS
-	cfg.updateProxySettings(packageProxySettings)
+	return cfg.updateProxySettings(proxyCfg)
 }
 
 // renderScriptCommon is a helper function which generates a bash script that

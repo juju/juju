@@ -19,6 +19,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/proxyupdater"
+	"github.com/juju/juju/core/snap"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -66,6 +67,7 @@ type proxyWorker struct {
 	snapProxy           proxy.Settings
 	snapStoreProxy      string
 	snapStoreAssertions string
+	snapStoreProxyURL   string
 
 	// The whole point of the first value is to make sure that the the files
 	// are written out the first time through, even if they are the same as
@@ -204,7 +206,7 @@ func getPackageCommander() (commands.PackageCommander, error) {
 	return commands.NewPackageCommander(hostSeries)
 }
 
-func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, storeAssertions string) {
+func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, storeAssertions, storeProxyURL string) {
 	if os.HostOS() == os.Windows {
 		w.config.Logger.Tracef("no snap proxies on windows")
 		return
@@ -213,7 +215,6 @@ func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, store
 		w.config.Logger.Tracef("snap proxies not updated by unit agents")
 		return
 	}
-	w.config.Logger.Tracef("setting snap proxy values: %#v, %q, %q", proxy, storeID, storeAssertions)
 
 	var snapSettings []string
 	maybeAddSettings := func(setting, value, saved string) {
@@ -223,7 +224,51 @@ func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, store
 	}
 	maybeAddSettings("proxy.http", proxy.Http, w.snapProxy.Http)
 	maybeAddSettings("proxy.https", proxy.Https, w.snapProxy.Https)
+
+	// Proxy URL changed; either a new proxy has been provided or the proxy
+	// has been removed. Proxy URL changes have a higher precedence than
+	// manually specifying the assertions and store ID.
+	if storeProxyURL != w.snapStoreProxyURL {
+		if storeProxyURL != "" {
+			var err error
+			if storeAssertions, storeID, err = snap.LookupAssertions(storeProxyURL); err != nil {
+				w.config.Logger.Errorf("unable to lookup snap store assertions: %v", err)
+				return
+			} else {
+				w.config.Logger.Infof("auto-detected snap store assertions from proxy")
+				w.config.Logger.Infof("auto-detected snap store ID as %q", storeID)
+			}
+		} else if storeAssertions != "" && storeID != "" {
+			// The proxy URL has been removed. However, if the user
+			// has manually provided assertion/store ID config
+			// options we should restore them. To do this, we reset
+			// the last seen values so we can force-apply the
+			// previously specified manual values. Otherwise, the
+			// provided storeAssertions/storeID values are empty
+			// and we simply fall through to allow the code to
+			// reset the proxy.store setting to an empty value.
+			w.snapStoreAssertions, w.snapStoreProxy = "", ""
+		}
+		w.snapStoreProxyURL = storeProxyURL
+	} else if storeProxyURL != "" {
+		// Re-use the storeID and assertions obtained by querying the
+		// proxy during the last update.
+		storeAssertions, storeID = w.snapStoreAssertions, w.snapStoreProxy
+	}
+
 	maybeAddSettings("proxy.store", storeID, w.snapStoreProxy)
+
+	// If an assertion file was provided we need to "snap ack" it before
+	// configuring snap to use the store ID.
+	if storeAssertions != w.snapStoreAssertions && storeAssertions != "" {
+		output, err := w.config.RunFunc(storeAssertions, "snap", "ack", "/dev/stdin")
+		if err != nil {
+			w.config.Logger.Warningf("unable to acknowledge assertions: %v, output: %q", err, output)
+			return
+		}
+		w.snapStoreAssertions = storeAssertions
+	}
+
 	if len(snapSettings) > 0 {
 		args := append([]string{"set", "core"}, snapSettings...)
 		output, err := w.config.RunFunc(noStdIn, "snap", args...)
@@ -234,16 +279,6 @@ func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, store
 			w.snapProxy = proxy
 			w.snapStoreProxy = storeID
 		}
-	}
-
-	if (storeAssertions != w.snapStoreAssertions || w.first) && storeAssertions != "" {
-		output, err := w.config.RunFunc(storeAssertions, "snap", "ack", "/dev/stdin")
-		if err != nil {
-			w.config.Logger.Warningf("unable to acknowledge assertions: %v, output: %q", err, output)
-		} else {
-			w.config.Logger.Debugf("snap store assertions acked, output: %q", output)
-		}
-		w.snapStoreAssertions = storeAssertions
 	}
 }
 
@@ -274,7 +309,7 @@ func (w *proxyWorker) onChange() error {
 	}
 
 	w.handleProxyValues(config.LegacyProxy, config.JujuProxy)
-	w.handleSnapProxyValues(config.SnapProxy, config.SnapStoreProxyId, config.SnapStoreProxyAssertions)
+	w.handleSnapProxyValues(config.SnapProxy, config.SnapStoreProxyId, config.SnapStoreProxyAssertions, config.SnapStoreProxyURL)
 	return w.handleAptProxyValues(config.APTProxy)
 }
 

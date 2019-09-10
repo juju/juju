@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/snap"
+	jujupackaging "github.com/juju/juju/packaging"
 	"github.com/juju/packaging"
 	"github.com/juju/packaging/config"
 	"github.com/juju/proxy"
@@ -86,8 +88,9 @@ func (cfg *ubuntuCloudConfig) RenderYAML() ([]byte, error) {
 	// apt_preferences is not a valid field so we use a fake field in attrs
 	// and then render it differently
 	prefs := cfg.PackagePreferences()
+	pkgConfer := cfg.getPackagingConfigurer(jujupackaging.AptPackageManager)
 	for _, pref := range prefs {
-		prefFile, err := cfg.pacconfer.RenderPreferences(pref)
+		prefFile, err := pkgConfer.RenderPreferences(pref)
 		if err != nil {
 			return nil, err
 		}
@@ -117,15 +120,13 @@ func (cfg *ubuntuCloudConfig) RenderScript() (string, error) {
 
 // AddPackageCommands is defined on the AdvancedPackagingConfig interface.
 func (cfg *ubuntuCloudConfig) AddPackageCommands(
-	packageProxySettings proxy.Settings,
-	packageMirror string,
+	proxyCfg PackageManagerProxyConfig,
 	addUpdateScripts bool,
 	addUpgradeScripts bool,
-) {
-	addPackageCommandsCommon(
+) error {
+	return addPackageCommandsCommon(
 		cfg,
-		packageProxySettings,
-		packageMirror,
+		proxyCfg,
 		addUpdateScripts,
 		addUpgradeScripts,
 		cfg.series,
@@ -158,10 +159,11 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 		cmds = append(cmds, renameAptListFilesCommands("$new_mirror", "$old_mirror")...)
 	}
 
+	pkgCmder := cfg.paccmder[jujupackaging.AptPackageManager]
 	if len(cfg.PackageSources()) > 0 {
 		// Ensure add-apt-repository is available.
 		cmds = append(cmds, LogProgressCmd("Installing add-apt-repository"))
-		cmds = append(cmds, cfg.paccmder.InstallCmd("software-properties-common"))
+		cmds = append(cmds, pkgCmder.InstallCmd("software-properties-common"))
 	}
 	for _, src := range cfg.PackageSources() {
 		// PPA keys are obtained by add-apt-repository, from launchpad.
@@ -173,11 +175,12 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 			}
 		}
 		cmds = append(cmds, LogProgressCmd("Adding apt repository: %s", src.URL))
-		cmds = append(cmds, cfg.paccmder.AddRepositoryCmd(src.URL))
+		cmds = append(cmds, pkgCmder.AddRepositoryCmd(src.URL))
 	}
 
+	pkgConfer := cfg.getPackagingConfigurer(jujupackaging.AptPackageManager)
 	for _, prefs := range cfg.PackagePreferences() {
-		prefFile, err := cfg.pacconfer.RenderPreferences(prefs)
+		prefFile, err := pkgConfer.RenderPreferences(prefs)
 		if err != nil {
 			return nil, err
 		}
@@ -189,11 +192,11 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 
 	if cfg.SystemUpdate() {
 		cmds = append(cmds, LogProgressCmd("Running apt-get update"))
-		cmds = append(cmds, looper+cfg.paccmder.UpdateCmd())
+		cmds = append(cmds, looper+pkgCmder.UpdateCmd())
 	}
 	if cfg.SystemUpgrade() {
 		cmds = append(cmds, LogProgressCmd("Running apt-get upgrade"))
-		cmds = append(cmds, looper+cfg.paccmder.UpgradeCmd())
+		cmds = append(cmds, looper+pkgCmder.UpgradeCmd())
 	}
 
 	var pkgCmds []string
@@ -224,7 +227,7 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 			pkgsWithTargetRelease = []string{}
 		}
 
-		cmd := looper + cfg.paccmder.InstallCmd(installArgs...)
+		cmd := looper + pkgCmder.InstallCmd(installArgs...)
 		pkgCmds = append(pkgCmds, cmd)
 	}
 
@@ -281,15 +284,16 @@ func (cfg *ubuntuCloudConfig) addRequiredPackages() {
 	// this will generate install commands which older
 	// versions of cloud-init (e.g. 0.6.3 in precise) will
 	// interpret incorrectly (see bug http://pad.lv/1424777).
+	pkgConfer := cfg.getPackagingConfigurer(jujupackaging.AptPackageManager)
 	for _, pack := range packages {
-		if config.SeriesRequiresCloudArchiveTools(cfg.series) && cfg.pacconfer.IsCloudArchivePackage(pack) {
+		if config.SeriesRequiresCloudArchiveTools(cfg.series) && pkgConfer.IsCloudArchivePackage(pack) {
 			// On precise, we need to pass a --target-release entry in
 			// pieces (as "packages") for it to work:
 			// --target-release, precise-updates/cloud-tools,
 			// package-name. All these 3 entries are needed so
 			// cloud-init 0.6.3 can generate the correct apt-get
 			// install command line for "package-name".
-			args := cfg.pacconfer.ApplyCloudArchiveTarget(pack)
+			args := pkgConfer.ApplyCloudArchiveTarget(pack)
 			for _, arg := range args {
 				cfg.AddPackage(arg)
 			}
@@ -300,13 +304,46 @@ func (cfg *ubuntuCloudConfig) addRequiredPackages() {
 }
 
 // Updates proxy settings used when rendering the conf as a script
-func (cfg *ubuntuCloudConfig) updateProxySettings(proxySettings proxy.Settings) {
+func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyConfig) error {
 	// Write out the apt proxy settings
-	if (proxySettings != proxy.Settings{}) {
+	if aptProxy := proxyCfg.AptProxy(); (aptProxy != proxy.Settings{}) {
+		pkgCmder := cfg.paccmder[jujupackaging.AptPackageManager]
 		filename := config.AptProxyConfigFile
 		cfg.AddBootCmd(fmt.Sprintf(
 			`printf '%%s\n' %s > %s`,
-			utils.ShQuote(cfg.paccmder.ProxyConfigContents(proxySettings)),
+			utils.ShQuote(pkgCmder.ProxyConfigContents(aptProxy)),
 			filename))
 	}
+
+	// Write out the snap http/https proxy settings
+	if snapProxy := proxyCfg.SnapProxy(); (snapProxy != proxy.Settings{}) {
+		pkgCmder := cfg.paccmder[jujupackaging.SnapPackageManager]
+		for _, cmd := range pkgCmder.SetProxyCmds(snapProxy) {
+			cfg.AddBootCmd(cmd)
+		}
+	}
+
+	// Configure snap store proxy
+	if proxyURL := proxyCfg.SnapStoreProxyURL(); proxyURL != "" {
+		assertions, storeID, err := snap.LookupAssertions(proxyURL)
+		if err != nil {
+			return err
+		}
+		logger.Infof("auto-detected snap store assertions from proxy")
+		logger.Infof("auto-detected snap store ID as %q", storeID)
+		cfg.genSnapStoreProxyCmds(assertions, storeID)
+	} else if proxyCfg.SnapStoreAssertions() != "" && proxyCfg.SnapStoreProxyID() != "" {
+		cfg.genSnapStoreProxyCmds(proxyCfg.SnapStoreAssertions(), proxyCfg.SnapStoreProxyID())
+	}
+
+	return nil
+}
+
+func (cfg *ubuntuCloudConfig) genSnapStoreProxyCmds(assertions, storeID string) {
+	cfg.AddBootCmd(fmt.Sprintf(
+		`printf '%%s\n' %s > %s`,
+		utils.ShQuote(assertions),
+		"/etc/snap.assertions"))
+	cfg.AddBootCmd("snap ack /etc/snap.assertions")
+	cfg.AddBootCmd("snap set core proxy.store=" + storeID)
 }
