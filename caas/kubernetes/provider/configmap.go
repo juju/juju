@@ -16,6 +16,7 @@ import (
 func (k *kubernetesClient) getConfigMapLabels(appName string) map[string]string {
 	return map[string]string{
 		labelApplication: appName,
+		labelModel:       k.namespace,
 	}
 }
 
@@ -73,11 +74,11 @@ func (k *kubernetesClient) updateConfigMap(cm *core.ConfigMap) error {
 }
 
 // getConfigMap returns a ConfigMap resource.
-func (k *kubernetesClient) getConfigMap(cmName string) (*core.ConfigMap, error) {
-	cm, err := k.client().CoreV1().ConfigMaps(k.namespace).Get(cmName, v1.GetOptions{IncludeUninitialized: true})
+func (k *kubernetesClient) getConfigMap(name string) (*core.ConfigMap, error) {
+	cm, err := k.client().CoreV1().ConfigMaps(k.namespace).Get(name, v1.GetOptions{IncludeUninitialized: true})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return nil, errors.NotFoundf("configmap %q", cmName)
+			return nil, errors.NotFoundf("configmap %q", name)
 		}
 		return nil, errors.Trace(err)
 	}

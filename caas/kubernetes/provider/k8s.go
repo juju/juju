@@ -532,6 +532,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	}
 
 	cmName := operatorConfigMapName(operatorName)
+	logger.Criticalf("operatorConfigMapName -> %q", cmName)
 	// TODO(caas) use secrets for storing agent password?
 	if config.AgentConf == nil {
 		// We expect that the config map already exists,
@@ -1017,55 +1018,10 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteAllServiceAccountResources(appName); err != nil {
 		return errors.Trace(err)
 	}
+	if err := k.deleteCustomResourceDefinitions(appName); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
-}
-
-// ensureCustomResourceDefinitions creates or updates a custom resource definition resource.
-func (k *kubernetesClient) ensureCustomResourceDefinitions(crds map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec) (cleanUps []func(), _ error) {
-	for name, crd := range crds {
-		crd, err := k.ensureCustomResourceDefinition(name, crd)
-		if err != nil {
-			return cleanUps, errors.Annotate(err, fmt.Sprintf("ensure custom resource definition %q", name))
-		}
-		logger.Debugf("ensured custom resource definition %q", crd.ObjectMeta.Name)
-		cleanUps = append(cleanUps, func() { k.deleteCustomResourceDefinition(name) })
-	}
-	return cleanUps, nil
-}
-
-func (k *kubernetesClient) ensureCustomResourceDefinition(name string, spec apiextensionsv1beta1.CustomResourceDefinitionSpec) (
-	crd *apiextensionsv1beta1.CustomResourceDefinition, err error) {
-	crdIn := &apiextensionsv1beta1.CustomResourceDefinition{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      name,
-			Namespace: k.namespace,
-		},
-		Spec: spec,
-	}
-	apiextensionsV1beta1 := k.extendedCient().ApiextensionsV1beta1()
-	logger.Debugf("creating crd %#v", crdIn)
-	crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Create(crdIn)
-	if k8serrors.IsAlreadyExists(err) {
-		crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Get(name, v1.GetOptions{})
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		resourceVersion := crd.ObjectMeta.GetResourceVersion()
-		crdIn.ObjectMeta.SetResourceVersion(resourceVersion)
-		logger.Debugf("existing crd with resource version %q found, so update it %#v", resourceVersion, crdIn)
-		crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Update(crdIn)
-	}
-	return
-}
-
-func (k *kubernetesClient) deleteCustomResourceDefinition(name string) error {
-	err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().Delete(name, &v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
 }
 
 func resourceTagsToAnnotations(in map[string]string) k8sannotations.Annotation {
@@ -1238,7 +1194,7 @@ func (k *kubernetesClient) EnsureService(
 	// ensure custom resource definitions first.
 	crds := workloadSpec.CustomResourceDefinitions
 	if len(crds) > 0 {
-		crdCleanUps, err := k.ensureCustomResourceDefinitions(crds)
+		crdCleanUps, err := k.ensureCustomResourceDefinitions(appName, crds)
 		cleanups = append(cleanups, crdCleanUps...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating custom resource definitions")

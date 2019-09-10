@@ -395,7 +395,7 @@ func (s *K8sBrokerSuite) getOCIImageSecret(c *gc.C, annotations map[string]strin
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "app-name-test-secret",
 			Namespace:   "test",
-			Labels:      map[string]string{"juju-app": "app-name"},
+			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: annotations,
 		},
 		Type: "kubernetes.io/dockerconfigjson",
@@ -925,7 +925,7 @@ func (s *K8sBrokerSuite) TestEnsureOperator(c *gc.C) {
 	configMapArg := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "test-operator-config",
-			Labels: map[string]string{"juju-app": "test"},
+			Labels: map[string]string{"juju-app": "test", "juju-model": "test"},
 		},
 		Data: map[string]string{
 			"test-agent.conf": "agent-conf-data",
@@ -1062,13 +1062,13 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 		// delete secrets.
 		s.mockSecrets.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, nil),
-			v1.ListOptions{LabelSelector: "juju-app==test", IncludeUninitialized: true},
+			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
 		).Times(1).Return(nil),
 
 		// delete configmaps.
 		s.mockConfigMaps.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, nil),
-			v1.ListOptions{LabelSelector: "juju-app==test", IncludeUninitialized: true},
+			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
 		).Times(1).Return(nil),
 
 		// delete RBAC resources.
@@ -1089,6 +1089,10 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
 		).Times(1).Return(nil),
 		s.mockServiceAccounts.EXPECT().DeleteCollection(
+			s.deleteOptions(v1.DeletePropagationForeground, nil),
+			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
+		).Times(1).Return(nil),
+		s.mockCustomResourceDefinition.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, nil),
 			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
 		).Times(1).Return(nil),
@@ -1559,6 +1563,7 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionCreate(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "tfjobs.kubeflow.org",
 			Namespace: "test",
+			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
@@ -1667,6 +1672,7 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionUpdate(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "tfjobs.kubeflow.org",
 			Namespace: "test",
+			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",

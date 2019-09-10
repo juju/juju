@@ -18,6 +18,7 @@ import (
 func (k *kubernetesClient) getSecretLabels(appName string) map[string]string {
 	return map[string]string{
 		labelApplication: appName,
+		labelModel:       k.namespace,
 	}
 }
 
@@ -170,7 +171,7 @@ func (k *kubernetesClient) deleteSecrets(appName string) error {
 	err := k.client().CoreV1().Secrets(k.namespace).DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector:        labelsToSelector(k.getConfigMapLabels(appName)),
+		LabelSelector:        labelsToSelector(k.getSecretLabels(appName)),
 		IncludeUninitialized: true,
 	})
 	if k8serrors.IsNotFound(err) {
