@@ -245,7 +245,7 @@ Select the cloud it belongs to, or type Q to quit [test-cloud]:
 1. credential (new)
 Select a credential to save by number, or type Q to quit: 
 `[1:],
-		expectedWarn: `chosen credentials not compatible with "another-provider" cloud`,
+		expectedWarn: `chosen credential not compatible with "another-provider" cloud`,
 	})
 }
 

@@ -412,7 +412,7 @@ func (c *detectCredentialsCommand) interactiveCredentialsUpdate(ctxt *cmd.Contex
 			continue
 		}
 		if cloud.Type != cred.cloudType {
-			ctxt.Warningf("%v", errors.Errorf("chosen credentials not compatible with %q cloud", cloud.Type))
+			ctxt.Warningf("%v", errors.Errorf("chosen credential not compatible with %q cloud", cloud.Type))
 			continue
 		}
 
