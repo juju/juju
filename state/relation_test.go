@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -787,4 +789,143 @@ func (s *RelationSuite) TestResumeRelationNoConsumeAccessRace(c *gc.C) {
 	err = rel.SetSuspended(false, "")
 	c.Assert(err, gc.ErrorMatches,
 		`cannot resume relation "wordpress:db mysql:server" where user "fred" does not have consume permission`)
+}
+
+func (s *RelationSuite) TestDestroyForceSchedulesCleanupForStuckUnits(c *gc.C) {
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// If a unit agent is gone or down for some reason, a unit might
+	// not leave the relation scope when the relation goes to
+	// dying. If the destroy is forced, we shouldn't wait indefinitely
+	// for that unit to leave scope.
+	addRelationUnit := func(c *gc.C, app *state.Application) *state.RelationUnit {
+		unit, err := app.AddUnit(state.AddUnitParams{})
+		c.Assert(err, jc.ErrorIsNil)
+		machine := s.Factory.MakeMachine(c, &factory.MachineParams{})
+		err = unit.AssignToMachine(machine)
+		c.Assert(err, jc.ErrorIsNil)
+		relUnit, err := rel.Unit(unit)
+		c.Assert(err, jc.ErrorIsNil)
+		err = relUnit.EnterScope(nil)
+		c.Assert(err, jc.ErrorIsNil)
+		return relUnit
+	}
+
+	relUnits := []*state.RelationUnit{
+		addRelationUnit(c, wordpress),
+		addRelationUnit(c, wordpress),
+		addRelationUnit(c, mysql),
+	}
+	// Destroy one of the units to be sure the cleanup isn't
+	// retrieving it.
+	unit, err := s.State.Unit("mysql/0")
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	s.assertRelationCleanedUp(c, rel, relUnits)
+}
+
+func (s *RelationSuite) TestDestroyForceStuckSubordinateUnits(c *gc.C) {
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+	prr.allEnterScope(c)
+
+	rel := prr.rel
+	relUnits := []*state.RelationUnit{
+		prr.pru0, prr.pru1, prr.rru0, prr.rru1,
+	}
+	s.assertRelationCleanedUp(c, rel, relUnits)
+}
+
+func (s *RelationSuite) TestDestroyForceStuckRemoteUnits(c *gc.C) {
+	mysqlEps := []charm.Relation{
+		{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "mysql",
+		SourceModel: s.Model.ModelTag(),
+		Token:       "t0",
+		Endpoints:   mysqlEps,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	unit, err := wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{})
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+	localRelUnit, err := rel.Unit(unit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = localRelUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	remoteRelUnit, err := rel.RemoteUnit("mysql/0")
+	c.Assert(err, jc.ErrorIsNil)
+	err = remoteRelUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertRelationCleanedUp(c, rel,
+		[]*state.RelationUnit{localRelUnit, remoteRelUnit})
+}
+
+func (s *RelationSuite) assertRelationCleanedUp(c *gc.C, rel *state.Relation, relUnits []*state.RelationUnit) {
+	opErrs, err := rel.DestroyWithForce(true, time.Minute)
+	c.Assert(opErrs, gc.HasLen, 0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = rel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rel.Life(), gc.Equals, state.Dying)
+
+	// Schedules a cleanup to remove the unit scope if needed.
+	s.assertNeedsCleanup(c)
+
+	// But running cleanup immediately doesn't do it.
+	err = s.State.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertNeedsCleanup(c)
+	for i, ru := range relUnits {
+		c.Logf("%d", i)
+		assertJoined(c, ru)
+	}
+	err = rel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rel.Life(), gc.Equals, state.Dying)
+
+	s.Clock.Advance(time.Minute)
+
+	err = s.State.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+
+	for i, ru := range relUnits {
+		c.Logf("%d", i)
+		assertNotInScope(c, ru)
+	}
+
+	err = rel.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *RelationSuite) assertNeedsCleanup(c *gc.C) {
+	dirty, err := s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsTrue)
 }
