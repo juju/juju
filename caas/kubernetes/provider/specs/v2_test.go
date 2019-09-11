@@ -138,17 +138,13 @@ kubernetesResources:
     dnsPolicy: ClusterFirstWithHostNet
   secrets:
     - name: build-robot-secret
-      annotations:
-          kubernetes.io/service-account.name: build-robot
-      type: kubernetes.io/service-account-token
+      type: Opaque
       stringData:
           config.yaml: |-
               apiUrl: "https://my.api.com/api/v1"
               username: fred
               password: shhhh
     - name: another-build-robot-secret
-      annotations:
-          kubernetes.io/service-account.name: build-robot
       type: Opaque
       data:
           username: YWRtaW4=
@@ -335,10 +331,7 @@ echo "do some stuff here for gitlab-init container"
 				Secrets: []k8sspecs.Secret{
 					{
 						Name: "build-robot-secret",
-						Annotations: map[string]string{
-							"kubernetes.io/service-account.name": "build-robot",
-						},
-						Type: core.SecretTypeServiceAccountToken,
+						Type: core.SecretTypeOpaque,
 						StringData: map[string]string{
 							"config.yaml": `
 apiUrl: "https://my.api.com/api/v1"
@@ -348,9 +341,6 @@ password: shhhh`[1:],
 					},
 					{
 						Name: "another-build-robot-secret",
-						Annotations: map[string]string{
-							"kubernetes.io/service-account.name": "build-robot",
-						},
 						Type: core.SecretTypeOpaque,
 						Data: map[string]string{
 							"username": "YWRtaW4=",
