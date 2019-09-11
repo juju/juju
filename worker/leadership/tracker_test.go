@@ -112,6 +112,17 @@ func (s *TrackerSuite) TestOnLeaderFailure(c *gc.C) {
 	// Check the ticket fails.
 	assertClaimLeader(c, tracker, false)
 
+	// wait for calls to stabilize before killing the worker and inspecting the calls.
+	timeout := time.After(testing.LongWait)
+	next := time.After(0)
+	for len(s.claimer.Stub.Calls()) < 2 {
+		select {
+		case <-next:
+			next = time.After(testing.ShortWait)
+		case <-timeout:
+			c.Fatalf("timed out waiting %s for 2 calls", testing.LongWait)
+		}
+	}
 	// Stop the tracker before trying to look at its mocks.
 	workertest.CleanKill(c, tracker)
 
