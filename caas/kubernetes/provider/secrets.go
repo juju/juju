@@ -4,6 +4,8 @@
 package provider
 
 import (
+	"encoding/base64"
+
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -22,14 +24,17 @@ func (k *kubernetesClient) getSecretLabels(appName string) map[string]string {
 	}
 }
 
-func (k *kubernetesClient) ensureSecrets(appName string, secrets []k8sspecs.Secret) (cleanUps []func(), _ error) {
-	processData := func(in map[string]string) map[string][]byte {
-		out := make(map[string][]byte)
-		for k, v := range in {
-			out[k] = []byte(v)
+func processSecretData(in map[string]string) (_ map[string][]byte, err error) {
+	out := make(map[string][]byte)
+	for k, v := range in {
+		if out[k], err = base64.StdEncoding.DecodeString(v); err != nil {
+			return nil, errors.Trace(err)
 		}
-		return out
 	}
+	return out, nil
+}
+
+func (k *kubernetesClient) ensureSecrets(appName string, secrets []k8sspecs.Secret) (cleanUps []func(), err error) {
 	for _, v := range secrets {
 		spec := &core.Secret{
 			ObjectMeta: v1.ObjectMeta{
@@ -39,8 +44,12 @@ func (k *kubernetesClient) ensureSecrets(appName string, secrets []k8sspecs.Secr
 				Annotations: v.Annotations,
 			},
 			Type:       v.Type,
-			Data:       processData(v.Data),
 			StringData: v.StringData,
+		}
+		if len(v.Data) > 0 {
+			if spec.Data, err = processSecretData(v.Data); err != nil {
+				return cleanUps, errors.Trace(err)
+			}
 		}
 		secretCleanup, err := k.ensureSecret(spec)
 		cleanUps = append(cleanUps, secretCleanup)

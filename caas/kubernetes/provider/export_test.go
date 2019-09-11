@@ -35,6 +35,7 @@ var (
 	NewK8sBroker             = newK8sBroker
 	ToYaml                   = toYaml
 	Indent                   = indent
+	ProcessSecretData        = processSecretData
 )
 
 type (
