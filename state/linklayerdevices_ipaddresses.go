@@ -26,6 +26,10 @@ type ipAddressDoc struct {
 	// ModelUUID. Empty when not supported by the provider.
 	ProviderID string `bson:"providerid,omitempty"`
 
+	// ProviderSubnetID is a provider-specific ID subnet ID this IP address.
+	// Empty when not supported by the provider.
+	ProviderSubnetID string `bson:"provider-subnet-id,omitempty"`
+
 	// DeviceName is the name of the link-layer device this IP address is
 	// assigned to.
 	DeviceName string `bson:"device-name"`
@@ -114,6 +118,11 @@ func (addr *Address) DocID() string {
 // ProviderID returns the provider-specific IP address ID, if set.
 func (addr *Address) ProviderID() network.Id {
 	return network.Id(addr.doc.ProviderID)
+}
+
+// ProviderSubnetID returns the provider-specific subnet ID, if set.
+func (addr *Address) ProviderSubnetID() network.Id {
+	return network.Id(addr.doc.ProviderSubnetID)
 }
 
 // MachineID returns the ID of the machine this IP address belongs to.
@@ -271,6 +280,9 @@ func updateIPAddressDocOp(existingDoc, newDoc *ipAddressDoc) (txn.Op, bool) {
 	if existingDoc.ProviderID == "" && newDoc.ProviderID != "" {
 		// Only allow changing the ProviderID if it was empty.
 		changes["providerid"] = newDoc.ProviderID
+	}
+	if existingDoc.ProviderSubnetID != newDoc.ProviderSubnetID {
+		changes["provider-subnet-id"] = newDoc.ProviderSubnetID
 	}
 	if existingDoc.ConfigMethod != newDoc.ConfigMethod {
 		changes["config-method"] = newDoc.ConfigMethod
