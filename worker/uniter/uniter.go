@@ -307,10 +307,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	}
 
 	onIdle := func() error {
-		logger.Criticalf("looking for wrench 'error-on-idle' for: %q", u.unit.Tag().Id())
-		if wrench.IsActive(u.unit.Tag().Id(), "error-on-idle") {
-			return errors.Errorf("wrench thrown for %s", u.unit.Tag().Id())
-		}
 		opState := u.operationExecutor.State()
 		if opState.Kind != operation.Continue {
 			// We should only set idle status if we're in
@@ -319,9 +315,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			// error state.
 			return nil
 		}
-		logger.Criticalf("looking for wrench 'error-on-idle' for: %q", u.unit.Tag().Id())
-		if wrench.IsActive(u.unit.Tag().Id(), "error-on-idle") {
-			return errors.Errorf("wrench thrown for %s", u.unit.Tag().Id())
+		if wrench.IsActive(u.unit.Tag().String(), "error-on-idle") {
+			return errors.Errorf("wrench thrown for %s", u.unit.Name())
 		}
 		return setAgentStatus(u, status.Idle, "", nil)
 	}
