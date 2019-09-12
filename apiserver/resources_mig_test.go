@@ -136,7 +136,6 @@ func (s *resourcesUploadSuite) makeUploadArgs(c *gc.C) url.Values {
 func (s *resourcesUploadSuite) makeDockerUploadArgs(c *gc.C) url.Values {
 	result := s.makeResourceUploadArgs(c, "oci-image")
 	result.Del("path")
-	result.Del("fingerprint")
 	return result
 }
 
