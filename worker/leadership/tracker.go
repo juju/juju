@@ -72,6 +72,7 @@ func NewTracker(tag names.UnitTag, claimer leadership.Claimer, clock clock.Clock
 			}
 		}()
 		err := t.loop()
+		logger.Debugf("shutting down leadership tracker with err: %v", err)
 		// TODO: jam 2015-04-02 is this the most elegant way to make
 		// sure we shutdown cleanly? Essentially the lowest level sees
 		// that we are dying, and propagates an ErrDying up to us so
