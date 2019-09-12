@@ -1205,6 +1205,73 @@ func (s *CleanupSuite) TestForceDestroyUnitRemovesStorageAttachments(c *gc.C) {
 	s.assertCleanupCount(c, 3)
 }
 
+func (s *CleanupSuite) TestForceDestroyApplicationRemovesUnitsThatAreAlreadyDying(c *gc.C) {
+	// If you remove an application when it has a unit in error, and
+	// then you try to force-remove it, it should get cleaned up
+	// correctly.
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	unit, err := mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	preventUnitDestroyRemove(c, unit)
+	s.assertDoesNotNeedCleanup(c)
+
+	err = mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysql.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The application is dying and there's a cleanup to make the unit
+	// dying but it hasn't run yet.
+	s.assertNeedsCleanup(c)
+	assertLife(c, mysql, state.Dying)
+	assertLife(c, unit, state.Alive)
+
+	// cleanupUnitsForDyingApplication
+	s.assertCleanupRuns(c)
+	assertLife(c, unit, state.Dying)
+	// dyingUnit
+	s.assertCleanupRuns(c)
+	assertLife(c, unit, state.Dying)
+
+	// Simulate the unit being in error by never coming back and
+	// reporting the unit dead. The user eventually gets tired of
+	// waiting and force-removes the application.
+	op := mysql.DestroyOperation()
+	op.Force = true
+	err = s.State.ApplyOperation(op)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.Errors, gc.HasLen, 0)
+
+	// cleanupUnitsForDyingApplication
+	s.assertNeedsCleanup(c)
+	s.assertCleanupRuns(c)
+	assertLifeIs(c, unit, state.Dying)
+
+	// Even though the unit was already dying, because we're forcing
+	// we rerun the destroy operation so that fallback-scheduling can
+	// happen.
+
+	// dyingUnit
+	s.assertNeedsCleanup(c)
+	s.assertCleanupRuns(c)
+	assertLifeIs(c, unit, state.Dying)
+
+	// forceDestroyedUnit
+	s.assertNeedsCleanup(c)
+	s.assertCleanupRuns(c)
+	assertLifeIs(c, unit, state.Dead)
+
+	// forceRemoveUnit
+	s.assertNeedsCleanup(c)
+	s.assertCleanupRuns(c)
+	assertUnitRemoved(c, unit)
+
+	// application
+	s.assertNeedsCleanup(c)
+	s.assertCleanupRuns(c)
+	assertRemoved(c, mysql)
+}
+
 func (s *CleanupSuite) assertCleanupRuns(c *gc.C) {
 	err := s.State.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1261,8 +1328,8 @@ func assertLifeIs(c *gc.C, thing lifeChecker, expected state.Life) {
 	c.Assert(thing.Life(), gc.Equals, expected)
 }
 
-func assertUnitRemoved(c *gc.C, unit *state.Unit) {
-	err := unit.Refresh()
+func assertUnitRemoved(c *gc.C, thing lifeChecker) {
+	err := thing.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
