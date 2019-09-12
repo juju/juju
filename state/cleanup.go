@@ -609,7 +609,13 @@ func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanup
 	defer closer()
 
 	unit := Unit{st: st}
-	sel := bson.D{{"application", applicationname}, {"life", Alive}}
+	sel := bson.D{{"application", applicationname}}
+	// If we're forcing then include dying and dead units, since we
+	// still want the opportunity to schedule fallback cleanups if the
+	// unit or machine agents aren't doing their jobs.
+	if !force {
+		sel = append(sel, bson.DocElem{"life", Alive})
+	}
 	iter := units.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading unit document")
 	for iter.Next(&unit.doc) {
