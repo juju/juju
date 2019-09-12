@@ -7,9 +7,11 @@ import (
 	// Import shas that are used for docker image validation.
 	_ "crypto/sha256"
 	_ "crypto/sha512"
+	"encoding/json"
 
 	"github.com/docker/distribution/reference"
 	"github.com/juju/errors"
+	"gopkg.in/yaml.v2"
 )
 
 // DockerImageDetails holds the details for a Docker resource type.
@@ -37,4 +39,17 @@ func ValidateDockerRegistryPath(path string) error {
 func CheckDockerDetails(name string, details DockerImageDetails) error {
 	// TODO (veebers): Validate the URL actually works.
 	return ValidateDockerRegistryPath(details.RegistryPath)
+}
+
+// UnmarshalDockerResource unmarshals the docker resource file from data.
+func UnmarshalDockerResource(data []byte) (DockerImageDetails, error) {
+	var resourceBody DockerImageDetails
+	// Older clients sent the resources as a json string.
+	err := json.Unmarshal(data, &resourceBody)
+	if err != nil {
+		if err := yaml.Unmarshal(data, &resourceBody); err != nil {
+			return DockerImageDetails{}, errors.Annotate(err, "docker resource is neither valid json or yaml")
+		}
+	}
+	return resourceBody, nil
 }

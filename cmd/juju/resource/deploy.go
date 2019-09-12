@@ -295,7 +295,7 @@ func OpenResource(resValue string, resType charmresource.Type, osOpen osOpenFunc
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		data, err := json.Marshal(dockerDetails)
+		data, err := yaml.Marshal(dockerDetails)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

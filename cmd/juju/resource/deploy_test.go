@@ -364,7 +364,11 @@ func (s DeploySuite) TestDeployDockerResourceRegistryPathString(c *gc.C) {
 		Origin: charmresource.OriginUpload,
 	}
 
-	expectedUploadData := "{\"ImageName\":\"mariadb:10.3.8\",\"Username\":\"\"}"
+	expectedUploadData := `
+registrypath: mariadb:10.3.8
+username: ""
+password: ""
+`[1:]
 	s.stub.CheckCallNames(c, "Open", "Open", "UploadPendingResource")
 	s.stub.CheckCall(c, 2, "UploadPendingResource", "mysql", expectedUpload, "mariadb:10.3.8", expectedUploadData)
 }
@@ -417,7 +421,11 @@ func (s DeploySuite) TestDeployDockerResourceJSONFile(c *gc.C) {
 		Origin: charmresource.OriginUpload,
 	}
 
-	expectedUploadData := "{\"ImageName\":\"registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image\",\"Username\":\"docker-registry\",\"Password\":\"hunter2\"}"
+	expectedUploadData := `
+registrypath: registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image
+username: docker-registry
+password: hunter2
+`[1:]
 	s.stub.CheckCallNames(c, "Open", "Open", "UploadPendingResource")
 	s.stub.CheckCall(c, 2, "UploadPendingResource", "mysql", expectedUpload, jsonFile, expectedUploadData)
 }
@@ -468,7 +476,11 @@ password: hunter2
 		Origin: charmresource.OriginUpload,
 	}
 
-	expectedUploadData := "{\"ImageName\":\"registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image\",\"Username\":\"docker-registry\",\"Password\":\"hunter2\"}"
+	expectedUploadData := `
+registrypath: registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image
+username: docker-registry
+password: hunter2
+`[1:]
 	s.stub.CheckCallNames(c, "Open", "Open", "UploadPendingResource")
 	s.stub.CheckCall(c, 2, "UploadPendingResource", "mysql", expectedUpload, jsonFile, expectedUploadData)
 }

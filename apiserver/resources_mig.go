@@ -163,7 +163,11 @@ func queryToResource(query url.Values) (charmresource.Resource, error) {
 			return empty, errors.BadRequestf("invalid fingerprint")
 		}
 	case charmresource.TypeContainerImage:
-		res.Fingerprint = charmresource.Fingerprint{}
+		res.Fingerprint, err = charmresource.ParseFingerprint(query.Get("fingerprint"))
+		if err != nil {
+			// Old resources do not have fingerprints.
+			res.Fingerprint = charmresource.Fingerprint{}
+		}
 	}
 	return res, nil
 }
