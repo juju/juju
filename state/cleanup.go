@@ -243,6 +243,9 @@ func (st *State) cleanupRelationSettings(prefix string) error {
 
 func (st *State) cleanupForceDestroyedRelation(prefix string) (err error) {
 	relation, err := st.KeyRelation(prefix)
+	if errors.IsNotFound(err) {
+		return nil
+	}
 	if err != nil {
 		return errors.Annotatef(err, "getting relation %q", prefix)
 	}

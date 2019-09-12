@@ -886,6 +886,56 @@ func (s *RelationSuite) TestDestroyForceStuckRemoteUnits(c *gc.C) {
 		[]*state.RelationUnit{localRelUnit, remoteRelUnit})
 }
 
+func (s *RelationSuite) TestDestroyForceIsFineIfUnitsAlreadyLeft(c *gc.C) {
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+	prr.allEnterScope(c)
+	rel := prr.rel
+	relUnits := []*state.RelationUnit{
+		prr.pru0, prr.pru1, prr.rru0, prr.rru1,
+	}
+	opErrs, err := rel.DestroyWithForce(true, time.Minute)
+	c.Assert(opErrs, gc.HasLen, 0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = rel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rel.Life(), gc.Equals, state.Dying)
+
+	// Schedules a cleanup to remove the unit scope if needed.
+	s.assertNeedsCleanup(c)
+
+	// But running cleanup immediately doesn't do it.
+	err = s.State.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertNeedsCleanup(c)
+	for i, ru := range relUnits {
+		c.Logf("%d", i)
+		assertJoined(c, ru)
+	}
+	err = rel.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rel.Life(), gc.Equals, state.Dying)
+
+	// In the meantime the units correctly leave scope.
+	s.Clock.Advance(30 * time.Second)
+
+	for i, ru := range relUnits {
+		c.Logf("%d", i)
+		err := ru.LeaveScope()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	err = rel.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	s.Clock.Advance(30 * time.Second)
+
+	err = s.State.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// If the cleanup had failed because the relation had gone, it
+	// would be left in the collection.
+	s.assertNoCleanups(c)
+}
+
 func (s *RelationSuite) assertRelationCleanedUp(c *gc.C, rel *state.Relation, relUnits []*state.RelationUnit) {
 	opErrs, err := rel.DestroyWithForce(true, time.Minute)
 	c.Assert(opErrs, gc.HasLen, 0)
@@ -928,4 +978,10 @@ func (s *RelationSuite) assertNeedsCleanup(c *gc.C) {
 	dirty, err := s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dirty, jc.IsTrue)
+}
+
+func (s *RelationSuite) assertNoCleanups(c *gc.C) {
+	dirty, err := s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsFalse)
 }
