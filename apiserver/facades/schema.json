@@ -20544,6 +20544,9 @@
                         "provider-id": {
                             "type": "string"
                         },
+                        "provider-network-id": {
+                            "type": "string"
+                        },
                         "provider-space-id": {
                             "type": "string"
                         },
@@ -20570,6 +20573,7 @@
                         "cidr",
                         "mtu",
                         "provider-id",
+                        "provider-network-id",
                         "provider-subnet-id",
                         "provider-space-id",
                         "provider-address-id",
@@ -26548,6 +26552,9 @@
                         "provider-id": {
                             "type": "string"
                         },
+                        "provider-network-id": {
+                            "type": "string"
+                        },
                         "provider-space-id": {
                             "type": "string"
                         },
@@ -26574,6 +26581,7 @@
                         "cidr",
                         "mtu",
                         "provider-id",
+                        "provider-network-id",
                         "provider-subnet-id",
                         "provider-space-id",
                         "provider-address-id",

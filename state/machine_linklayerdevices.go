@@ -571,6 +571,14 @@ type LinkLayerDeviceAddress struct {
 	// supported. Cannot be changed once set to non-empty.
 	ProviderID corenetwork.Id
 
+	// ProviderNetworkID is the provider-specific network ID of the address.
+	// It can be left empty if not supported or known.
+	ProviderNetworkID corenetwork.Id
+
+	// ProviderSubnetID is the provider-specific subnet ID to which the
+	// device is attached.
+	ProviderSubnetID corenetwork.Id
+
 	// CIDRAddress is the IP address assigned to the device, in CIDR format
 	// (e.g. 10.20.30.5/24 or fc00:1234::/64).
 	CIDRAddress string
@@ -743,6 +751,7 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 	globalKey := ipAddressGlobalKey(m.doc.Id, args.DeviceName, addressValue)
 	ipAddressDocID := m.st.docID(globalKey)
 	providerID := string(args.ProviderID)
+	subnetID := string(args.ProviderSubnetID)
 
 	modelUUID := m.st.ModelUUID()
 
@@ -750,6 +759,7 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 		DocID:            ipAddressDocID,
 		ModelUUID:        modelUUID,
 		ProviderID:       providerID,
+		ProviderSubnetID: subnetID,
 		DeviceName:       args.DeviceName,
 		MachineID:        m.doc.Id,
 		SubnetCIDR:       subnetCIDR,
