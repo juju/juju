@@ -12,6 +12,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -68,7 +69,7 @@ func (s *actionSuite) assertRunnerExecFunc(c *gc.C, errMsg string) {
 
 	baseDir := c.MkDir()
 	operatorPaths := caasoperator.NewPaths(baseDir, names.NewApplicationTag("gitlab-k8s"))
-	unitPaths := uniter.NewPaths(baseDir, names.NewUnitTag("gitlab-k8s/0"), true)
+	unitPaths := uniter.NewPaths(baseDir, names.NewUnitTag("gitlab-k8s/0"), &uniter.SocketConfig{})
 	for _, p := range []string{
 		operatorPaths.GetCharmDir(),
 		unitPaths.GetCharmDir(),
@@ -82,7 +83,7 @@ func (s *actionSuite) assertRunnerExecFunc(c *gc.C, errMsg string) {
 	err := utils.AtomicWriteFile(filepath.Join(operatorPaths.GetToolsDir(), "jujud"), []byte(""), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	runnerExecFunc := caasoperator.GetNewRunnerExecutor(s.executor, operatorPaths)(s.unitAPI, unitPaths)
+	runnerExecFunc := caasoperator.GetNewRunnerExecutor(s.executor, operatorPaths, caas.OperatorInfo{})(s.unitAPI, unitPaths)
 	cancel := make(<-chan struct{}, 1)
 	stdout := bytes.NewBufferString("")
 
@@ -94,13 +95,12 @@ func (s *actionSuite) assertRunnerExecFunc(c *gc.C, errMsg string) {
 		s.executor.EXPECT().Exec(
 			exec.ExecParams{
 				PodName:  "gitlab-xxxx",
-				Commands: []string{"test", "-f", baseDir + "/agents/unit-gitlab-k8s-0/operator.yaml", "||", "echo notfound"},
+				Commands: []string{"test", "-f", baseDir + "/agents/unit-gitlab-k8s-0/operator-client.yaml"},
 				Stdout:   stdout,
 				Stderr:   stdout,
 			}, cancel,
 		).Times(1).DoAndReturn(func(...interface{}) error {
-			stdout.WriteString("notfound")
-			return nil
+			return exitError{code: 1, err: "file not found"}
 		}),
 
 		s.executor.EXPECT().Exec(
@@ -142,27 +142,8 @@ func (s *actionSuite) assertRunnerExecFunc(c *gc.C, errMsg string) {
 				},
 			}, cancel,
 		).Times(1).Return(nil),
-
-		s.executor.EXPECT().Exec(
-			exec.ExecParams{
-				PodName:  "gitlab-xxxx",
-				Commands: []string{"test", "-d", baseDir + "/agents/unit-gitlab-k8s-0", "||", "mkdir", "-p", baseDir + "/agents/unit-gitlab-k8s-0"},
-				Stdout:   stdout,
-				Stderr:   stdout,
-			}, cancel,
-		).Times(1).Return(nil),
-		s.executor.EXPECT().Copy(
-			exec.CopyParam{
-				Src: exec.FileResource{
-					Path: filepath.Join(os.TempDir(), "operator.yaml"),
-				},
-				Dest: exec.FileResource{
-					Path:    baseDir + "/agents/unit-gitlab-k8s-0/operator.yaml",
-					PodName: "gitlab-xxxx",
-				},
-			}, cancel,
-		).Times(1).Return(nil),
 	}
+
 	calls = append(calls,
 		s.executor.EXPECT().Exec(s.symlinkJujudCommand(stdout, baseDir, "/usr/bin/juju-run"),
 			cancel).Times(1).Return(nil))
@@ -179,6 +160,36 @@ func (s *actionSuite) assertRunnerExecFunc(c *gc.C, errMsg string) {
 	}
 	stderr := bytes.NewBufferString("")
 	calls = append(calls,
+		s.executor.EXPECT().Exec(
+			exec.ExecParams{
+				PodName:  "gitlab-xxxx",
+				Commands: []string{"test", "-d", baseDir + "/agents/unit-gitlab-k8s-0", "||", "mkdir", "-p", baseDir + "/agents/unit-gitlab-k8s-0"},
+				Stdout:   stdout,
+				Stderr:   stdout,
+			}, cancel,
+		).Times(1).Return(nil),
+		s.executor.EXPECT().Copy(
+			exec.CopyParam{
+				Src: exec.FileResource{
+					Path: filepath.Join(os.TempDir(), "ca.crt"),
+				},
+				Dest: exec.FileResource{
+					Path:    baseDir + "/agents/unit-gitlab-k8s-0/ca.crt",
+					PodName: "gitlab-xxxx",
+				},
+			}, cancel,
+		).Times(1).Return(nil),
+		s.executor.EXPECT().Copy(
+			exec.CopyParam{
+				Src: exec.FileResource{
+					Path: baseDir + "/agents/unit-gitlab-k8s-0/operator-client-cache.yaml",
+				},
+				Dest: exec.FileResource{
+					Path:    baseDir + "/agents/unit-gitlab-k8s-0/operator-client.yaml",
+					PodName: "gitlab-xxxx",
+				},
+			}, cancel,
+		).Times(1).Return(nil),
 		s.executor.EXPECT().Exec(
 			exec.ExecParams{
 				PodName:  "gitlab-xxxx",
@@ -220,4 +231,23 @@ func (s *actionSuite) assertRunnerExecFunc(c *gc.C, errMsg string) {
 	} else {
 		c.Assert(err, gc.ErrorMatches, "boom")
 	}
+}
+
+type exitError struct {
+	code int
+	err  string
+}
+
+var _ exec.ExitError = exitError{}
+
+func (e exitError) String() string {
+	return e.err
+}
+
+func (e exitError) Error() string {
+	return e.err
+}
+
+func (e exitError) ExitStatus() int {
+	return e.code
 }

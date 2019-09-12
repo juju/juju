@@ -22,6 +22,7 @@ import (
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	apiuniter "github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
@@ -127,7 +128,10 @@ type Config struct {
 	StartUniterFunc func(runner *worker.Runner, params *uniter.UniterParams) error
 
 	// RunListenerSocketFunc returns a socket used for the juju run listener.
-	RunListenerSocketFunc func() (*sockets.Socket, error)
+	RunListenerSocketFunc func(*uniter.SocketConfig) (*sockets.Socket, error)
+
+	// OperatorInfo contains serving information such as Certs and PrivateKeys.
+	OperatorInfo caas.OperatorInfo
 }
 
 func (config Config) Validate() error {
@@ -294,22 +298,18 @@ func toBinaryVersion(vers version.Number) version.Binary {
 	return outVers
 }
 
-func runListenerSocket() (*sockets.Socket, error) {
-	podIP := os.Getenv(provider.OperatorPodIPEnvName)
-	if podIP == "" {
-		return nil, errors.New("missing pod IP")
-	}
+func runListenerSocket(sc *uniter.SocketConfig) (*sockets.Socket, error) {
 	socket := sockets.Socket{
-		Network: "tcp",
-		Address: fmt.Sprintf("%s:%d", podIP, provider.JujuRunServerSocketPort),
+		Network:   "tcp",
+		Address:   fmt.Sprintf(":%d", provider.JujuRunServerSocketPort),
+		TLSConfig: sc.TLSConfig,
 	}
 	return &socket, nil
 }
 
 func (op *caasOperator) init() (*LocalState, error) {
-
-	// Set up a single juju run listener to be used by all units.
-	socket, err := op.config.RunListenerSocketFunc()
+	// Set up a single remote juju run listener to be used by all units.
+	socket, err := op.config.RunListenerSocketFunc(op.config.UniterParams.SocketConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating juju run socket")
 	}

@@ -16,6 +16,7 @@ import (
 // required by the CAAS operator provisioner facade.
 type CAASOperatorProvisionerState interface {
 	ControllerConfig() (controller.Config, error)
+	StateServingInfo() (state.StateServingInfo, error)
 	WatchApplications() state.StringsWatcher
 	FindEntity(tag names.Tag) (state.Entity, error)
 	Addresses() ([]string, error)

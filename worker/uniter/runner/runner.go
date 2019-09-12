@@ -22,6 +22,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujuos "github.com/juju/os"
+	"github.com/juju/utils"
 	utilexec "github.com/juju/utils/exec"
 
 	"github.com/juju/juju/core/actions"
@@ -61,7 +62,7 @@ type Runner interface {
 type Context interface {
 	jujuc.Context
 	Id() string
-	HookVars(paths context.Paths) ([]string, error)
+	HookVars(paths context.Paths, remote bool) ([]string, error)
 	ActionData() (*context.ActionData, error)
 	SetProcess(process context.HookProcess)
 	HasExecutionSetUnitStatus() bool
@@ -126,8 +127,8 @@ func (runner *runner) Context() Context {
 	return runner.context
 }
 
-func (runner *runner) getRemoteExecutor(rModel runMode) (ExecFunc, error) {
-	switch rModel {
+func (runner *runner) getRemoteExecutor(rMode runMode) (ExecFunc, error) {
+	switch rMode {
 	case runOnLocal:
 		return execOnMachine, nil
 	case runOnRemote:
@@ -135,7 +136,7 @@ func (runner *runner) getRemoteExecutor(rModel runMode) (ExecFunc, error) {
 			return runner.remoteExecutor, nil
 		}
 	}
-	return nil, errors.NotSupportedf("run command model %q", rModel)
+	return nil, errors.NotSupportedf("run command mode %q", rMode)
 }
 
 // RunCommands exists to satisfy the Runner interface.
@@ -150,16 +151,27 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 
 // runCommandsWithTimeout is a helper to abstract common code between run commands and
 // juju-run as an action
-func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Duration, clock clock.Clock, model runMode) (*utilexec.ExecResponse, error) {
-	srv, err := runner.startJujucServer()
+func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Duration, clock clock.Clock, rMode runMode) (*utilexec.ExecResponse, error) {
+	var err error
+	token := ""
+	if rMode == runOnRemote {
+		token, err = utils.RandomPassword()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	srv, err := runner.startJujucServer(token, rMode)
 	if err != nil {
 		return nil, err
 	}
 	defer srv.Close()
 
-	env, err := runner.context.HookVars(runner.paths)
+	env, err := runner.context.HookVars(runner.paths, rMode == runOnRemote)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	if rMode == runOnRemote {
+		env = append(env, "JUJU_AGENT_TOKEN="+token)
 	}
 
 	var cancel chan struct{}
@@ -171,7 +183,7 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 		}()
 	}
 
-	executor, err := runner.getRemoteExecutor(model)
+	executor, err := runner.getRemoteExecutor(rMode)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -286,13 +298,20 @@ func (runner *runner) RunHook(hookName string) error {
 }
 
 func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, rMode runMode) (err error) {
-	srv, err := runner.startJujucServer()
+	token := ""
+	if rMode == runOnRemote {
+		token, err = utils.RandomPassword()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	srv, err := runner.startJujucServer(token, rMode)
 	if err != nil {
 		return err
 	}
 	defer srv.Close()
 
-	env, err := runner.context.HookVars(runner.paths)
+	env, err := runner.context.HookVars(runner.paths, rMode == runOnRemote)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -301,6 +320,9 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 		// We don't do this on the other code path, which uses exec.RunCommands,
 		// because that already has handling for windows environment requirements.
 		env = mergeWindowsEnvironment(env, os.Environ())
+	}
+	if rMode == runOnRemote {
+		env = append(env, "JUJU_AGENT_TOKEN="+token)
 	}
 
 	defer func() {
@@ -521,7 +543,7 @@ func (runner *runner) runCharmHookOnLocal(hookName string, env []string, charmLo
 	return errors.Trace(exitErr)
 }
 
-func (runner *runner) startJujucServer() (*jujuc.Server, error) {
+func (runner *runner) startJujucServer(token string, rMode runMode) (*jujuc.Server, error) {
 	// Prepare server.
 	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
 		if ctxId != runner.context.Id() {
@@ -529,7 +551,10 @@ func (runner *runner) startJujucServer() (*jujuc.Server, error) {
 		}
 		return jujuc.NewCommand(runner.context, cmdName)
 	}
-	srv, err := jujuc.NewServer(getCmd, runner.paths.GetJujucSocket())
+
+	socket := runner.paths.GetJujucServerSocket(rMode == runOnRemote)
+	logger.Debugf("starting jujuc server %s %v", token, socket)
+	srv, err := jujuc.NewServer(getCmd, socket, token)
 	if err != nil {
 		return nil, errors.Annotate(err, "starting jujuc server")
 	}

@@ -7,6 +7,7 @@ package context
 
 import (
 	"fmt"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
@@ -33,19 +35,27 @@ import (
 
 // Paths exposes the paths needed by Context.
 type Paths interface {
-
 	// GetToolsDir returns the filesystem path to the dirctory containing
 	// the hook tool symlinks.
 	GetToolsDir() string
 
 	// GetCharmDir returns the filesystem path to the directory in which
 	// the charm is installed.
+	GetBaseDir() string
+
+	// GetCharmDir returns the filesystem path to the directory in which
+	// the charm is installed.
 	GetCharmDir() string
 
-	// GetJujucSocket returns the path to the socket used by the hook tools
+	// GetJujucServerSocket returns the path to the socket used by the hook tools
 	// to communicate back to the executing uniter process. It might be a
 	// filesystem path, or it might be abstract.
-	GetJujucSocket() sockets.Socket
+	GetJujucServerSocket(remote bool) sockets.Socket
+
+	// GetJujucClientSocket returns the path to the socket used by the hook tools
+	// to communicate back to the executing uniter process. It might be a
+	// filesystem path, or it might be abstract.
+	GetJujucClientSocket(remote bool) sockets.Socket
 
 	// GetMetricsSpoolDir returns the path to a metrics spool dir, used
 	// to store metrics recorded during a single hook run.
@@ -658,7 +668,7 @@ func (c *HookContext) ActionData() (*ActionData, error) {
 // HookVars returns an os.Environ-style list of strings necessary to run a hook
 // such that it can know what environment it's operating in, and can call back
 // into context.
-func (context *HookContext) HookVars(paths Paths) ([]string, error) {
+func (context *HookContext) HookVars(paths Paths, remote bool) ([]string, error) {
 	vars := context.legacyProxySettings.AsEnvironmentValues()
 	// TODO(thumper): as work on proxies progress, there will be additional
 	// proxy settings to be added.
@@ -666,8 +676,8 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 		"CHARM_DIR="+paths.GetCharmDir(), // legacy, embarrassing
 		"JUJU_CHARM_DIR="+paths.GetCharmDir(),
 		"JUJU_CONTEXT_ID="+context.id,
-		"JUJU_AGENT_SOCKET_ADDRESS="+paths.GetJujucSocket().Address,
-		"JUJU_AGENT_SOCKET_NETWORK="+paths.GetJujucSocket().Network,
+		"JUJU_AGENT_SOCKET_ADDRESS="+paths.GetJujucClientSocket(remote).Address,
+		"JUJU_AGENT_SOCKET_NETWORK="+paths.GetJujucClientSocket(remote).Network,
 		"JUJU_UNIT_NAME="+context.unitName,
 		"JUJU_MODEL_UUID="+context.uuid,
 		"JUJU_MODEL_NAME="+context.modelName,
@@ -685,6 +695,11 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 		"JUJU_CHARM_FTP_PROXY="+context.jujuProxySettings.Ftp,
 		"JUJU_CHARM_NO_PROXY="+context.jujuProxySettings.NoProxy,
 	)
+	if remote {
+		vars = append(vars,
+			"JUJU_AGENT_CA_CERT="+path.Join(paths.GetBaseDir(), caas.CACertFile),
+		)
+	}
 	if context.meterStatus != nil {
 		vars = append(vars,
 			"JUJU_METER_STATUS="+context.meterStatus.code,

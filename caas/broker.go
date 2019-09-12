@@ -300,6 +300,7 @@ type Operator struct {
 	Id     string
 	Dying  bool
 	Status status.StatusInfo
+	Config *OperatorConfig
 }
 
 // CharmStorageParams defines parameters used to create storage
@@ -334,6 +335,9 @@ type OperatorConfig struct {
 
 	// AgentConf is the contents of the agent.conf file.
 	AgentConf []byte
+
+	// OperatorInfo is the contents of the operator.yaml file.
+	OperatorInfo []byte
 
 	// ResourceTags is a set of tags to set on the operator pod.
 	ResourceTags map[string]string

@@ -5,15 +5,12 @@
 package uniter
 
 import (
+	"crypto/tls"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 
-	"github.com/juju/errors"
 	jujuos "github.com/juju/os"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
@@ -45,14 +42,30 @@ func (paths Paths) GetToolsDir() string {
 	return paths.ToolsDir
 }
 
+// GetBaseDir exists to satisfy the context.Paths interface.
+func (paths Paths) GetBaseDir() string {
+	return paths.State.BaseDir
+}
+
 // GetCharmDir exists to satisfy the context.Paths interface.
 func (paths Paths) GetCharmDir() string {
 	return paths.State.CharmDir
 }
 
-// GetJujucSocket exists to satisfy the context.Paths interface.
-func (paths Paths) GetJujucSocket() sockets.Socket {
-	return paths.Runtime.JujucServerSocket
+// GetJujucClientSocket exists to satisfy the context.Paths interface.
+func (paths Paths) GetJujucClientSocket(remote bool) sockets.Socket {
+	if remote {
+		return paths.Runtime.RemoteJujucServerSocket.Client
+	}
+	return paths.Runtime.LocalJujucServerSocket.Client
+}
+
+// GetJujucServerSocket exists to satisfy the context.Paths interface.
+func (paths Paths) GetJujucServerSocket(remote bool) sockets.Socket {
+	if remote {
+		return paths.Runtime.RemoteJujucServerSocket.Server
+	}
+	return paths.Runtime.LocalJujucServerSocket.Server
 }
 
 // GetMetricsSpoolDir exists to satisfy the runner.Paths interface.
@@ -68,22 +81,33 @@ func (paths Paths) ComponentDir(name string) string {
 
 const jujucServerSocketPort = 30000
 
+// SocketPair is a server+client pair of socket descriptors.
+type SocketPair struct {
+	Server sockets.Socket
+	Client sockets.Socket
+}
+
 // RuntimePaths represents the set of paths that are relevant at runtime.
 type RuntimePaths struct {
-
 	// JujuRunSocket listens for juju-run invocations, and is always
 	// active.
-	JujuRunSocket sockets.Socket
+	LocalJujuRunSocket SocketPair
+
+	// RemoteJujuRunSocket listens for remote juju-run invocations.
+	RemoteJujuRunSocket SocketPair
 
 	// JujucServerSocket listens for jujuc invocations, and is only
 	// active when supporting a jujuc execution context.
-	JujucServerSocket sockets.Socket
+	LocalJujucServerSocket SocketPair
+
+	// RemoteJujucServerSocket listens for remote jujuc invocations, and is only
+	// active when supporting a jujuc execution context.
+	RemoteJujucServerSocket SocketPair
 }
 
 // StatePaths represents the set of paths that hold persistent local state for
 // the uniter.
 type StatePaths struct {
-
 	// BaseDir is the unit agent's base directory.
 	BaseDir string
 
@@ -114,92 +138,71 @@ type StatePaths struct {
 	MetricsSpoolDir string
 }
 
-// NewPaths returns the set of filesystem paths that the supplied unit should
-// use, given the supplied root juju data directory path.
-func NewPaths(dataDir string, unitTag names.UnitTag, isRemote bool) Paths {
-	return NewWorkerPaths(dataDir, unitTag, "", isRemote)
+// SocketConfig specifies information for remote sockets.
+type SocketConfig struct {
+	ServiceAddress  string
+	OperatorAddress string
+	TLSConfig       *tls.Config
 }
 
-// TODO(caas) - move me to generic helper for reading operator config yaml
-func socketIP(baseDir string) (string, error) {
-	// IP address to use for the socket can either be an env var
-	// (when we are the caas operator and are creating the socket to listen),
-	// or inside a YAML file (when we are juju-run and need to see where
-	// to connect to).
-	podIP := os.Getenv(provider.OperatorPodIPEnvName)
-	if podIP != "" {
-		return podIP, nil
-	}
-	ipAddrFile := filepath.Join(baseDir, provider.OperatorInfoFile)
-	ipAddrData, err := ioutil.ReadFile(ipAddrFile)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	var socketIP string
-	var data map[string]interface{}
-	if err := yaml.Unmarshal(ipAddrData, &data); err == nil {
-		socketIP, _ = data["operator-address"].(string)
-	}
-	return socketIP, nil
+// NewPaths returns the set of filesystem paths that the supplied unit should
+// use, given the supplied root juju data directory path.
+// If socketConfig is specified, all sockets will be TLS over TCP.
+func NewPaths(dataDir string, unitTag names.UnitTag, socketConfig *SocketConfig) Paths {
+	return NewWorkerPaths(dataDir, unitTag, "", socketConfig)
 }
 
 // NewWorkerPaths returns the set of filesystem paths that the supplied unit worker should
 // use, given the supplied root juju data directory path and worker identifier.
 // Distinct worker identifiers ensure that runtime paths of different worker do not interfere.
-func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string, isRemote bool) Paths {
+// If socketConfig is specified, all sockets will be TLS over TCP.
+func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string, socketConfig *SocketConfig) Paths {
 	baseDir := agent.Dir(dataDir, unitTag)
 	join := filepath.Join
 	stateDir := join(baseDir, "state")
 
-	newSocket := func(name string, abstract bool) sockets.Socket {
-		if isRemote {
-			socketIP, err := socketIP(baseDir)
-			if err != nil {
-				logger.Warningf("unable to get IP address for jujuc socket: %v", err)
-				return sockets.Socket{}
-			}
-			logger.Debugf("using operator address: %v", socketIP)
+	var newSocket func(name string) SocketPair
+	if socketConfig != nil {
+		newSocket = func(name string) SocketPair {
+			var port int
+			var address string
 			switch name {
 			case "agent":
-				return sockets.Socket{
-					Network: "tcp",
-					Address: fmt.Sprintf("%s:%d", socketIP, jujucServerSocketPort+unitTag.Number()),
-				}
+				port = jujucServerSocketPort + unitTag.Number()
+				address = socketConfig.OperatorAddress
 			case "run":
-				return sockets.Socket{
-					Network: "tcp",
-					Address: fmt.Sprintf("%s:%d", socketIP, provider.JujuRunServerSocketPort),
-				}
+				port = provider.JujuRunServerSocketPort
+				address = socketConfig.ServiceAddress
 			default:
-				logger.Warningf("caas model socket name %q, fallback to unix protocol", name)
+				return SocketPair{}
+			}
+			return SocketPair{
+				Client: sockets.Socket{
+					Network:   "tcp",
+					Address:   fmt.Sprintf("%s:%d", address, port),
+					TLSConfig: socketConfig.TLSConfig,
+				},
+				Server: sockets.Socket{
+					Network:   "tcp",
+					Address:   fmt.Sprintf(":%d", port),
+					TLSConfig: socketConfig.TLSConfig,
+				},
 			}
 		}
-		socket := sockets.Socket{Network: "unix"}
-		if jujuos.HostOS() == jujuos.Windows {
-			base := fmt.Sprintf("%s", unitTag)
-			if worker != "" {
-				base = fmt.Sprintf("%s-%s", unitTag, worker)
-			}
-			socket.Address = fmt.Sprintf(`\\.\pipe\%s-%s`, base, name)
-			return socket
+	} else {
+		newSocket = func(name string) SocketPair {
+			return SocketPair{}
 		}
-		path := join(baseDir, name+".socket")
-		if worker != "" {
-			path = join(baseDir, fmt.Sprintf("%s-%s.socket", worker, name))
-		}
-		if abstract {
-			path = "@" + path
-		}
-		socket.Address = path
-		return socket
 	}
 
 	toolsDir := tools.ToolsDir(dataDir, unitTag.String())
 	return Paths{
 		ToolsDir: filepath.FromSlash(toolsDir),
 		Runtime: RuntimePaths{
-			JujuRunSocket:     newSocket("run", false),
-			JujucServerSocket: newSocket("agent", true),
+			RemoteJujuRunSocket:     newSocket("run"),
+			RemoteJujucServerSocket: newSocket("agent"),
+			LocalJujuRunSocket:      newUnixSocket(baseDir, unitTag, worker, "run", false),
+			LocalJujucServerSocket:  newUnixSocket(baseDir, unitTag, worker, "agent", true),
 		},
 		State: StatePaths{
 			BaseDir:         baseDir,
@@ -212,4 +215,25 @@ func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string, isRemo
 			MetricsSpoolDir: join(stateDir, "spool", "metrics"),
 		},
 	}
+}
+
+func newUnixSocket(baseDir string, unitTag names.UnitTag, worker string, name string, abstract bool) SocketPair {
+	socket := sockets.Socket{Network: "unix"}
+	if jujuos.HostOS() == jujuos.Windows {
+		base := fmt.Sprintf("%s", unitTag)
+		if worker != "" {
+			base = fmt.Sprintf("%s-%s", unitTag, worker)
+		}
+		socket.Address = fmt.Sprintf(`\\.\pipe\%s-%s`, base, name)
+		return SocketPair{socket, socket}
+	}
+	path := filepath.Join(baseDir, name+".socket")
+	if worker != "" {
+		path = filepath.Join(baseDir, fmt.Sprintf("%s-%s.socket", worker, name))
+	}
+	if abstract {
+		path = "@" + path
+	}
+	socket.Address = path
+	return SocketPair{socket, socket}
 }

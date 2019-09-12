@@ -165,7 +165,7 @@ func (ctx *MockContext) UnitName() string {
 	return "some-unit/999"
 }
 
-func (ctx *MockContext) HookVars(paths context.Paths) ([]string, error) {
+func (ctx *MockContext) HookVars(paths context.Paths, _ bool) ([]string, error) {
 	return []string{"VAR=value"}, nil
 }
 

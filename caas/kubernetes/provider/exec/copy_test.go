@@ -140,6 +140,9 @@ func (s *execSuite) TestCopyToPod(c *gc.C) {
 				{Name: "gitlab-container"},
 			},
 		},
+		Status: core.PodStatus{
+			Phase: core.PodRunning,
+		},
 	}
 	pod.SetName("gitlab-k8s-0")
 

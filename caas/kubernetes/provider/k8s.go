@@ -75,15 +75,16 @@ const (
 
 	annotationPrefix = "juju.io"
 
+	operatorContainerName = "juju-operator"
+
 	// OperatorPodIPEnvName is the environment name for operator pod IP.
 	OperatorPodIPEnvName = "JUJU_OPERATOR_POD_IP"
 
 	// OperatorPodIPEnvName is the environment name for operator service IP.
 	OperatorServiceIPEnvName = "JUJU_OPERATOR_SERVICE_IP"
 
-	// OperatorInfoFile is the file containing info about the operator,
-	// copied to the workload pod so the hook tools and juju-run can function.
-	OperatorInfoFile = "operator.yaml"
+	// OperatorNamespaceEnvName is the environment name for k8s namespace the operator is in.
+	OperatorNamespaceEnvName = "JUJU_OPERATOR_NAMESPACE"
 
 	// JujuRunServerSocketPort is the port used by juju run callbacks.
 	JujuRunServerSocketPort = 30666
@@ -478,9 +479,9 @@ func (k *kubernetesClient) APIVersion() (string, error) {
 // application exists, and whether the operator is terminating.
 func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, error) {
 	var result caas.OperatorState
-
-	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
-	operator, err := statefulsets.Get(k.operatorName(appName), v1.GetOptions{IncludeUninitialized: true})
+	operatorName := k.operatorName(appName)
+	statefulSets := k.client().AppsV1().StatefulSets(k.namespace)
+	operator, err := statefulSets.Get(operatorName, v1.GetOptions{IncludeUninitialized: true})
 	if k8serrors.IsNotFound(err) {
 		return result, nil
 	}
@@ -533,7 +534,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 
 	cmName := operatorConfigMapName(operatorName)
 	// TODO(caas) use secrets for storing agent password?
-	if config.AgentConf == nil {
+	if config.AgentConf == nil && config.OperatorInfo == nil {
 		// We expect that the config map already exists,
 		// so make sure it does.
 		if _, err := k.getConfigMap(cmName); err != nil {
@@ -2247,6 +2248,16 @@ func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.Volum
 
 // Operator returns an Operator with current status and life details.
 func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
+	operatorName := k.operatorName(appName)
+	statefulSets := k.client().AppsV1().StatefulSets(k.namespace)
+	operator, err := statefulSets.Get(operatorName, v1.GetOptions{IncludeUninitialized: true})
+	if k8serrors.IsNotFound(err) {
+		return nil, errors.NotFoundf("operator %s", appName)
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	pods := k.client().CoreV1().Pods(k.namespace)
 	podsList, err := pods.List(v1.ListOptions{
 		LabelSelector: operatorSelector(appName),
@@ -2265,6 +2276,34 @@ func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	cfg := caas.OperatorConfig{}
+	if ver, ok := operator.Annotations[labelVersion]; ok {
+		cfg.Version, err = version.Parse(ver)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	for _, container := range operator.Spec.Template.Spec.Containers {
+		if container.Name == operatorContainerName {
+			cfg.OperatorImagePath = container.Image
+			break
+		}
+	}
+	configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
+	configMap, err := configMaps.Get(operatorConfigMapName(operatorName), v1.GetOptions{IncludeUninitialized: true})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	if configMap != nil {
+		if agentConf, ok := configMap.Data[operatorConfigMapAgentConfKey(appName)]; ok {
+			cfg.AgentConf = []byte(agentConf)
+		}
+		if operatorInfo, ok := configMap.Data[caas.OperatorInfoFile]; ok {
+			cfg.OperatorInfo = []byte(operatorInfo)
+		}
+	}
+
 	return &caas.Operator{
 		Id:    string(opPod.UID),
 		Dying: terminated,
@@ -2273,6 +2312,7 @@ func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 			Message: statusMessage,
 			Since:   &since,
 		},
+		Config: &cfg,
 	}, nil
 }
 
@@ -2435,7 +2475,7 @@ func operatorPod(podName, appName, operatorServiceIP, agentPath, operatorImagePa
 		},
 		Spec: core.PodSpec{
 			Containers: []core.Container{{
-				Name:            "juju-operator",
+				Name:            operatorContainerName,
 				ImagePullPolicy: core.PullIfNotPresent,
 				Image:           operatorImagePath,
 				WorkingDir:      jujuDataDir,
@@ -2462,11 +2502,23 @@ func operatorPod(podName, appName, operatorServiceIP, agentPath, operatorImagePa
 							},
 						},
 					},
+					{
+						Name: OperatorNamespaceEnvName,
+						ValueFrom: &core.EnvVarSource{
+							FieldRef: &core.ObjectFieldSelector{
+								FieldPath: "metadata.namespace",
+							},
+						},
+					},
 				},
 				VolumeMounts: []core.VolumeMount{{
 					Name:      configVolName,
 					MountPath: filepath.Join(agent.Dir(agentPath, appTag), TemplateFileNameAgentConf),
 					SubPath:   TemplateFileNameAgentConf,
+				}, {
+					Name:      configVolName,
+					MountPath: filepath.Join(agent.Dir(agentPath, appTag), caas.OperatorInfoFile),
+					SubPath:   caas.OperatorInfoFile,
 				}},
 			}},
 			Volumes: []core.Volume{{
@@ -2477,14 +2529,21 @@ func operatorPod(podName, appName, operatorServiceIP, agentPath, operatorImagePa
 							Name: configMapName,
 						},
 						Items: []core.KeyToPath{{
-							Key:  appName + "-agent.conf",
+							Key:  operatorConfigMapAgentConfKey(appName),
 							Path: TemplateFileNameAgentConf,
+						}, {
+							Key:  caas.OperatorInfoFile,
+							Path: caas.OperatorInfoFile,
 						}},
 					},
 				},
 			}},
 		},
 	}, nil
+}
+
+func operatorConfigMapAgentConfKey(appName string) string {
+	return appName + "-agent.conf"
 }
 
 // operatorConfigMap returns a *core.ConfigMap for the operator pod
@@ -2496,7 +2555,8 @@ func operatorConfigMap(appName, name string, labels map[string]string, config *c
 			Labels: labels,
 		},
 		Data: map[string]string{
-			appName + "-agent.conf": string(config.AgentConf),
+			operatorConfigMapAgentConfKey(appName): string(config.AgentConf),
+			caas.OperatorInfoFile:                  string(config.OperatorInfo),
 		},
 	}
 }

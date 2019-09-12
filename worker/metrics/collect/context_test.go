@@ -52,7 +52,11 @@ type dummyPaths struct{}
 
 func (*dummyPaths) GetToolsDir() string { return "/dummy/tools" }
 func (*dummyPaths) GetCharmDir() string { return "/dummy/charm" }
-func (*dummyPaths) GetJujucSocket() sockets.Socket {
+func (*dummyPaths) GetBaseDir() string  { return "/dummy/" }
+func (*dummyPaths) GetJujucServerSocket(remote bool) sockets.Socket {
+	return sockets.Socket{Network: "unix", Address: "/dummy/jujuc.sock"}
+}
+func (*dummyPaths) GetJujucClientSocket(remote bool) sockets.Socket {
 	return sockets.Socket{Network: "unix", Address: "/dummy/jujuc.sock"}
 }
 func (*dummyPaths) GetMetricsSpoolDir() string      { return "/dummy/spool" }
@@ -61,7 +65,7 @@ func (*dummyPaths) ComponentDir(name string) string { return "/dummy/" + name }
 func (s *ContextSuite) TestHookContextEnv(c *gc.C) {
 	ctx := collect.NewHookContext("u/0", s.recorder)
 	paths := &dummyPaths{}
-	vars, err := ctx.HookVars(paths)
+	vars, err := ctx.HookVars(paths, false)
 	c.Assert(err, jc.ErrorIsNil)
 	varMap, err := keyvalues.Parse(vars, true)
 	c.Assert(err, jc.ErrorIsNil)

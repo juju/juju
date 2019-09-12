@@ -4,6 +4,8 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -19,9 +21,10 @@ import (
 	"github.com/juju/os/series"
 	"github.com/juju/utils/exec"
 	"gopkg.in/juju/names.v3"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/caas"
 	jujucmd "github.com/juju/juju/cmd"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
@@ -162,14 +165,37 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 	return cmd.NewRcPassthroughError(result.Code)
 }
 
-func (c *RunCommand) getSocket(baseDir string) sockets.Socket {
-	// juju-run on k8s uses an operator yaml file
-	ipAddrFile := filepath.Join(baseDir, provider.OperatorInfoFile)
-	_, err := os.Stat(ipAddrFile)
-	isRemote := err == nil
+func (c *RunCommand) getSocket(op *caas.OperatorClientInfo) (sockets.Socket, error) {
+	if op == nil {
+		paths := uniter.NewPaths(cmdutil.DataDir, c.unit, nil)
+		return paths.Runtime.LocalJujuRunSocket.Client, nil
+	}
 
-	runtimePaths := uniter.NewPaths(cmdutil.DataDir, c.unit, isRemote)
-	return runtimePaths.Runtime.JujuRunSocket
+	baseDir := agent.Dir(cmdutil.DataDir, c.unit)
+	caCertFile := filepath.Join(baseDir, caas.CACertFile)
+	caCert, err := ioutil.ReadFile(caCertFile)
+	if err != nil {
+		return sockets.Socket{}, errors.Annotatef(err, "reading %s", caCertFile)
+	}
+	rootCAs := x509.NewCertPool()
+	if ok := rootCAs.AppendCertsFromPEM(caCert); ok == false {
+		return sockets.Socket{}, errors.Errorf("invalid ca certificate")
+	}
+
+	application, err := names.UnitApplication(c.unit.Id())
+	if err != nil {
+		return sockets.Socket{}, errors.Trace(err)
+	}
+
+	socketConfig := &uniter.SocketConfig{
+		ServiceAddress: op.ServiceAddress,
+		TLSConfig: &tls.Config{
+			RootCAs:    rootCAs,
+			ServerName: application,
+		},
+	}
+	paths := uniter.NewPaths(cmdutil.DataDir, c.unit, socketConfig)
+	return paths.Runtime.RemoteJujuRunSocket.Client, nil
 }
 
 func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
@@ -191,7 +217,28 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	if len(c.remoteUnitName) > 0 && relationId == -1 {
 		return nil, errors.Errorf("remote unit: %s, provided without a relation", c.remoteUnitName)
 	}
-	client, err := sockets.Dial(c.getSocket(unitDir))
+
+	// juju-run on k8s uses an operator yaml file
+	infoFilePath := filepath.Join(unitDir, caas.OperatorClientInfoFile)
+	infoFileBytes, err := ioutil.ReadFile(infoFilePath)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, errors.Annotatef(err, "reading %s", infoFilePath)
+	}
+	var operatorClientInfo *caas.OperatorClientInfo
+	if infoFileBytes != nil {
+		op := caas.OperatorClientInfo{}
+		err = yaml.Unmarshal(infoFileBytes, &op)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		operatorClientInfo = &op
+	}
+
+	socket, err := c.getSocket(operatorClientInfo)
+	if err != nil {
+		return nil, errors.Annotate(err, "configuring juju run socket")
+	}
+	client, err := sockets.Dial(socket)
 	if err != nil {
 		return nil, errors.Annotate(err, "dialing juju run socket")
 	}
@@ -204,6 +251,9 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 		UnitName:        c.unit.Id(),
 		RemoteUnitName:  c.remoteUnitName,
 		ForceRemoteUnit: c.forceRemoteUnit,
+	}
+	if operatorClientInfo != nil {
+		args.Token = operatorClientInfo.Token
 	}
 	err = client.Call(uniter.JujuRunEndpoint, args, &result)
 	return &result, errors.Trace(err)

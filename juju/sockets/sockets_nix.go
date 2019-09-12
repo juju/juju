@@ -7,6 +7,8 @@
 package sockets
 
 import (
+	"crypto/tls"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/rpc"
@@ -18,10 +20,31 @@ import (
 )
 
 func Dial(soc Socket) (*rpc.Client, error) {
-	return rpc.Dial(soc.Network, soc.Address)
+	var conn io.ReadWriteCloser
+	var err error
+	if soc.TLSConfig != nil {
+		conn, err = tls.Dial(soc.Network, soc.Address, soc.TLSConfig)
+	} else {
+		conn, err = net.Dial(soc.Network, soc.Address)
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return rpc.NewClient(conn), nil
 }
 
-func Listen(soc Socket) (listener net.Listener, err error) {
+func Listen(soc Socket) (net.Listener, error) {
+	listener, err := innerListen(soc)
+	if err != nil {
+		return nil, err
+	}
+	if soc.TLSConfig != nil {
+		return tls.NewListener(listener, soc.TLSConfig), nil
+	}
+	return listener, nil
+}
+
+func innerListen(soc Socket) (listener net.Listener, err error) {
 	if soc.Network == "tcp" {
 		return net.Listen(soc.Network, soc.Address)
 	}

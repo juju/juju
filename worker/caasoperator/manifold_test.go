@@ -4,6 +4,7 @@
 package caasoperator_test
 
 import (
+	"os"
 	"sync"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/machinelock"
 	coretesting "github.com/juju/juju/testing"
@@ -48,6 +50,9 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	os.Setenv("JUJU_OPERATOR_SERVICE_IP", "127.0.0.1")
+	os.Setenv("JUJU_OPERATOR_POD_IP", "127.0.0.2")
+
 	s.dataDir = c.MkDir()
 	s.agent = fakeAgent{
 		config: fakeAgentConfig{
@@ -59,6 +64,13 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
+}
+
+func (s *ManifoldSuite) TearDownTest(c *gc.C) {
+	os.Setenv("JUJU_OPERATOR_SERVICE_IP", "")
+	os.Setenv("JUJU_OPERATOR_POD_IP", "")
+
+	s.IsolationSuite.TearDownTest(c)
 }
 
 func (s *ManifoldSuite) setupManifold(c *gc.C) *gomock.Controller {
@@ -76,6 +88,13 @@ func (s *ManifoldSuite) setupManifold(c *gc.C) *gomock.Controller {
 		LeadershipGuarantee:   30 * time.Second,
 		NewExecClient: func(modelName string) (exec.Executor, error) {
 			return mocks.NewMockExecutor(ctrl), nil
+		},
+		LoadOperatorInfo: func(paths caasoperator.Paths) (*caas.OperatorInfo, error) {
+			return &caas.OperatorInfo{
+				CACert:     coretesting.CACert,
+				Cert:       coretesting.ServerCert,
+				PrivateKey: coretesting.ServerKey,
+			}, nil
 		},
 	})
 	return ctrl
@@ -167,6 +186,9 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.UniterParams.NewOperationExecutor = nil
 	config.UniterParams.NewRemoteRunnerExecutor = nil
 
+	c.Assert(config.UniterParams.SocketConfig.TLSConfig, gc.NotNil)
+	config.UniterParams.SocketConfig.TLSConfig = nil
+
 	c.Assert(config, jc.DeepEquals, caasoperator.Config{
 		ModelUUID:          coretesting.ModelTag.Id(),
 		ModelName:          "gitlab-model",
@@ -186,6 +208,15 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 			MachineLock:   &fakemachinelock{},
 			CharmDirGuard: &mockCharmDirGuard{},
 			Clock:         s.clock,
+			SocketConfig: &uniter.SocketConfig{
+				ServiceAddress:  "127.0.0.1",
+				OperatorAddress: "127.0.0.2",
+			},
+		},
+		OperatorInfo: caas.OperatorInfo{
+			CACert:     coretesting.CACert,
+			Cert:       coretesting.ServerCert,
+			PrivateKey: coretesting.ServerKey,
 		},
 	})
 }

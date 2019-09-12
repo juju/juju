@@ -247,7 +247,7 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 			Params:     test.payload,
 			ResultsMap: map[string]interface{}{},
 		})
-		vars, err := ctx.HookVars(s.paths)
+		vars, err := ctx.HookVars(s.paths, false)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(len(vars) > 0, jc.IsTrue, gc.Commentf("expected HookVars but found none"))
 		combined := strings.Join(vars, "|")

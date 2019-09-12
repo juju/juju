@@ -4,10 +4,16 @@
 package caasoperator
 
 import (
+	"crypto/tls"
+	"encoding/pem"
+	"io/ioutil"
+	"os"
+	"path"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -17,6 +23,8 @@ import (
 	apileadership "github.com/juju/juju/api/leadership"
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	coreleadership "github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machinelock"
@@ -44,8 +52,10 @@ type ManifoldConfig struct {
 	NewClient          func(base.APICaller) Client
 	NewCharmDownloader func(base.APICaller) Downloader
 
-	NewExecClient     func(modelName string) (exec.Executor, error)
-	RunListenerSocket func() (*sockets.Socket, error)
+	NewExecClient     func(namespace string) (exec.Executor, error)
+	RunListenerSocket func(*uniter.SocketConfig) (*sockets.Socket, error)
+
+	LoadOperatorInfo func(paths Paths) (*caas.OperatorInfo, error)
 }
 
 func (config ManifoldConfig) Validate() error {
@@ -168,21 +178,30 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				VersionSetter:         client,
 				StartUniterFunc:       uniter.StartUniter,
 				RunListenerSocketFunc: runListenerSocketFunc,
-
 				LeadershipTrackerFunc: leadershipTrackerFunc,
 				UniterFacadeFunc:      newUniterFunc,
 			}
 
-			execClient, err := config.NewExecClient(model.Name)
+			execClient, err := config.NewExecClient(os.Getenv(provider.OperatorNamespaceEnvName))
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 
+			loadOperatorInfoFunc := config.LoadOperatorInfo
+			if loadOperatorInfoFunc == nil {
+				loadOperatorInfoFunc = loadOperatorInfo
+			}
+			operatorInfo, err := loadOperatorInfoFunc(wCfg.getPaths())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			wCfg.OperatorInfo = *operatorInfo
 			wCfg.UniterParams = &uniter.UniterParams{
 				NewOperationExecutor: operation.NewExecutor,
 				NewRemoteRunnerExecutor: getNewRunnerExecutor(
 					execClient,
 					wCfg.getPaths(),
+					*operatorInfo,
 				),
 				DataDir:              agentConfig.DataDir(),
 				Clock:                clock,
@@ -192,6 +211,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				HookRetryStrategy:    hookRetryStrategy,
 				TranslateResolverErr: config.TranslateResolverErr,
 			}
+			wCfg.UniterParams.SocketConfig, err = socketConfig(operatorInfo)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 
 			w, err := config.NewWorker(wCfg)
 			if err != nil {
@@ -200,4 +223,42 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			return w, nil
 		},
 	}
+}
+
+func socketConfig(info *caas.OperatorInfo) (*uniter.SocketConfig, error) {
+	tlsCert, err := tls.X509KeyPair([]byte(info.Cert), []byte(info.PrivateKey))
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot parse operator TLS certificate")
+	}
+
+	block, _ := pem.Decode([]byte(info.CACert))
+	tlsCert.Certificate = append(tlsCert.Certificate, block.Bytes)
+	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig.Certificates = []tls.Certificate{tlsCert}
+
+	serviceAddress := os.Getenv(provider.OperatorServiceIPEnvName)
+	if serviceAddress == "" {
+		return nil, errors.Errorf("env %s missing", provider.OperatorServiceIPEnvName)
+	}
+
+	operatorAddress := os.Getenv(provider.OperatorPodIPEnvName)
+	if operatorAddress == "" {
+		return nil, errors.Errorf("env %s missing", provider.OperatorPodIPEnvName)
+	}
+
+	sc := &uniter.SocketConfig{
+		ServiceAddress:  serviceAddress,
+		OperatorAddress: operatorAddress,
+		TLSConfig:       tlsConfig,
+	}
+	return sc, nil
+}
+
+func loadOperatorInfo(paths Paths) (*caas.OperatorInfo, error) {
+	filepath := path.Join(paths.State.BaseDir, caas.OperatorInfoFile)
+	data, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return nil, errors.Annotatef(err, "reading operator info file %s", filepath)
+	}
+	return caas.UnmarshalOperatorInfo(data)
 }
