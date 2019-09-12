@@ -62,8 +62,9 @@
   name = "github.com/juju/bundlechanges"
 
 [[constraint]]
-  revision = "7eee51ddb1f5033244c6501ec83b399af9d23861"
+  branch = "cmr-consuming-types"
   name = "github.com/juju/description"
+  source = "github.com/SimonRichardson/description"
 
 [[constraint]]
   revision = "2ce1bb71843d6d179b3f1c1c9cb4a72cd067fc65"

@@ -492,11 +492,13 @@
   revision = "9be91dc79b7c185fa8b08e7ceceee40562055c83"
 
 [[projects]]
-  digest = "1:bc737e9e9877ee974618962e3ef6ce3af8eeb91d2d6a856ec68726bf461d281f"
+  branch = "cmr-consuming-types"
+  digest = "1:c5fdd2f0be212f6bc66b838be5609a6ffd1653391e52d50303628e78dd6cc65f"
   name = "github.com/juju/description"
   packages = ["."]
   pruneopts = ""
-  revision = "7eee51ddb1f5033244c6501ec83b399af9d23861"
+  revision = "c91e2234d41a6a44ddde6a1a1c9178b67be79320"
+  source = "github.com/SimonRichardson/description"
 
 [[projects]]
   digest = "1:594030c0f0ed3842773b68708d4f9716d809556b9c631460051f99b15057512d"
