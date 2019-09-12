@@ -62,7 +62,7 @@ func IsActive(category, feature string) bool {
 
 	wrenchFile, err := os.Open(fileName)
 	if err != nil {
-		logger.Errorf("unable to read wrench data for %s/%s (ignored): %v",
+		logger.Errorf("unable to read wrench data for %s:%s (ignored): %v",
 			category, feature, err)
 		return false
 	}
@@ -71,7 +71,7 @@ func IsActive(category, feature string) bool {
 	for lines.Scan() {
 		line := strings.TrimSpace(lines.Text())
 		if line == feature {
-			logger.Tracef("wrench for %s/%s is active", category, feature)
+			logger.Tracef("wrench for %s:%s is active", category, feature)
 			return true
 		}
 	}
@@ -123,19 +123,19 @@ func checkWrenchDir(dirName string) bool {
 func checkWrenchFile(category, feature, fileName string) bool {
 	fileinfo, err := stat(fileName)
 	if err != nil {
-		logger.Tracef("no wrench data for %s/%s (ignored): %v",
+		logger.Tracef("no wrench data for %s:%s (ignored): %v",
 			category, feature, err)
 		return false
 	}
 	if !isOwnedByJujuUser(fileinfo) {
-		logger.Errorf("wrench file for %s/%s has incorrect ownership "+
+		logger.Errorf("wrench file for %s:%s has incorrect ownership "+
 			"- ignoring %s", category, feature, fileName)
 		return false
 	}
 	// Windows is not fully POSIX compliant
 	if runtime.GOOS != "windows" {
 		if fileinfo.Mode()&0022 != 0 {
-			logger.Errorf("wrench file for %s/%s should only be writable by "+
+			logger.Errorf("wrench file for %s:%s should only be writable by "+
 				"owner - ignoring %s", category, feature, fileName)
 			return false
 		}
