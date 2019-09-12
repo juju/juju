@@ -8,7 +8,6 @@ package internal
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
 	"io/ioutil"
 
@@ -52,8 +51,7 @@ func OpenResource(name string, client OpenedResourceClient) (*OpenedResource, er
 		if err := reader.Close(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		var yamlBody resources.DockerImageDetails
-		err = json.Unmarshal(data, &yamlBody)
+		yamlBody, err := resources.UnmarshalDockerResource(data)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -73,10 +71,17 @@ func OpenResource(name string, client OpenedResourceClient) (*OpenedResource, er
 
 // Content returns the "content" for the opened resource.
 func (or OpenedResource) Content() Content {
+	fp := or.Fingerprint
+	// Old clients sent in the resource as json encode which means the
+	// fingerprint won't match after we store the resource as yaml.
+	// TODO(juju3) - remove this override
+	if or.Type == charmresource.TypeContainerImage {
+		fp = charmresource.Fingerprint{}
+	}
 	return Content{
 		Data:        or.ReadCloser,
 		Size:        or.Size,
-		Fingerprint: or.Fingerprint,
+		Fingerprint: fp,
 	}
 }
 
