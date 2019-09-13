@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	apimachineryversion "k8s.io/apimachinery/pkg/version"
+	// k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -78,7 +79,7 @@ const (
 	// OperatorPodIPEnvName is the environment name for operator pod IP.
 	OperatorPodIPEnvName = "JUJU_OPERATOR_POD_IP"
 
-	// OperatorPodIPEnvName is the environment name for operator service IP.
+	// OperatorServiceIPEnvName is the environment name for operator service IP.
 	OperatorServiceIPEnvName = "JUJU_OPERATOR_SERVICE_IP"
 
 	// OperatorInfoFile is the file containing info about the operator,
@@ -190,6 +191,25 @@ func newK8sBroker(
 // GetAnnotations returns current namespace's annotations.
 func (k *kubernetesClient) GetAnnotations() k8sannotations.Annotation {
 	return k.annotations
+}
+
+// Version returns cluster version information.
+func (k *kubernetesClient) Version() (ver *version.Number, err error) {
+	k8sver, err := k.client().Discovery().ServerVersion()
+	logger.Criticalf("k8sver Version %#v, %+v", k8sver, err)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ver = &version.Number{}
+	if ver.Major, err = strconv.Atoi(k8sver.Major); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if ver.Minor, err = strconv.Atoi(k8sver.Minor); err != nil {
+		return nil, errors.Trace(err)
+	}
+	logger.Criticalf("Version %#v, %+v", ver, err)
+	return ver, nil
 }
 
 // addAnnotations set an annotation to current namespace's annotations.
@@ -1268,7 +1288,7 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}
 
-	hasService := !params.PodSpec.OmitServiceFrontend && params.Deployment.ServiceType != caas.ServiceOmit
+	hasService := !params.PodSpec.OmitServiceFrontend && !params.Deployment.ServiceType.IsOmit()
 	if hasService {
 		var ports []core.ContainerPort
 		for _, c := range workloadSpec.Pod.Containers {

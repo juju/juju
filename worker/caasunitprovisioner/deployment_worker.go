@@ -161,7 +161,7 @@ func (w *deploymentWorker) loop() error {
 			Deployment: caas.DeploymentParams{
 				DeploymentType: caas.DeploymentType(info.DeploymentInfo.DeploymentType),
 				ServiceType:    caas.ServiceType(info.DeploymentInfo.ServiceType),
-				Demonset:       info.DeploymentInfo.Demonset,
+				Daemonset:      info.DeploymentInfo.Daemonset,
 			},
 		}
 		err = w.broker.EnsureService(w.application, w.provisioningStatusSetter.SetOperatorStatus, serviceParams, desiredScale, appConfig)

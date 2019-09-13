@@ -192,7 +192,6 @@ func convertCharmMeta(meta *charm.Meta) *params.CharmMeta {
 		Resources:      convertCharmResourceMetaMap(meta.Resources),
 		Terms:          meta.Terms,
 		MinJujuVersion: meta.MinJujuVersion.String(),
-		MinK8sVersion:  meta.MinK8sVersion.String(),
 	}
 }
 

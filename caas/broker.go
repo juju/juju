@@ -81,9 +81,13 @@ const (
 // ServiceType defines a service type.
 type ServiceType string
 
+// IsOmit indicates if a service is required.
+func (st ServiceType) IsOmit() bool {
+	return st == ServiceOmit
+}
+
 const (
-	ServiceCluster      ServiceType = "cluster" // Todo(caas): deprecate this later.
-	ServiceClusterIP    ServiceType = "clusterip"
+	ServiceCluster      ServiceType = "cluster"
 	ServiceLoadBalancer ServiceType = "loadbalancer"
 	ServiceExternal     ServiceType = "external"
 	ServiceOmit         ServiceType = "omit"
@@ -93,8 +97,8 @@ const (
 type DeploymentParams struct {
 	DeploymentType DeploymentType
 	ServiceType    ServiceType
-	// TODO(caas): implement demonset support.
-	Demonset bool
+	// TODO(caas): implement daemonset support.
+	Daemonset bool
 }
 
 // ServiceParams defines parameters used to create a service.
@@ -194,6 +198,9 @@ type Broker interface {
 
 	// Upgrader provides the API to perform upgrades.
 	Upgrader
+
+	// ClusterVersionGetter provides methods to get cluster version information.
+	ClusterVersionGetter
 }
 
 // Upgrader provides the API to perform upgrades.
@@ -206,6 +213,12 @@ type Upgrader interface {
 type StorageValidator interface {
 	// ValidateStorageClass returns an error if the storage config is not valid.
 	ValidateStorageClass(config map[string]interface{}) error
+}
+
+// ClusterVersionGetter provides methods to get cluster version information.
+type ClusterVersionGetter interface {
+	// Version returns cluster version information.
+	Version() (*version.Number, error)
 }
 
 // ServiceGetterSetter provides the API to get/set service.

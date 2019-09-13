@@ -147,7 +147,7 @@ func (c *Client) WatchPodSpec(application string) (watcher.NotifyWatcher, error)
 type DeploymentInfo struct {
 	DeploymentType string
 	ServiceType    string
-	Demonset       bool
+	Daemonset      bool
 }
 
 // ProvisioningInfo holds unit provisioning info.
@@ -189,7 +189,7 @@ func (c *Client) ProvisioningInfo(appName string) (*ProvisioningInfo, error) {
 		info.DeploymentInfo = DeploymentInfo{
 			DeploymentType: result.DeploymentInfo.DeploymentType,
 			ServiceType:    result.DeploymentInfo.ServiceType,
-			Demonset:       result.DeploymentInfo.Demonset,
+			Daemonset:      result.DeploymentInfo.Daemonset,
 		}
 	}
 

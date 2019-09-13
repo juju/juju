@@ -309,7 +309,7 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 		info.DeploymentInfo = &params.KubernetesDeploymentInfo{
 			DeploymentType: string(deployInfo.DeploymentType),
 			ServiceType:    string(deployInfo.ServiceType),
-			Demonset:       deployInfo.Demonset,
+			Daemonset:      deployInfo.Daemonset,
 		}
 	}
 	return info, nil

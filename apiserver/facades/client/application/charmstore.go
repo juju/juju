@@ -131,7 +131,7 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 		return errors.Trace(err)
 	}
 
-	if err := checkMinVersion(downloadedCharm); err != nil {
+	if err := checkMinVersion(downloadedCharm, nil); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -248,10 +248,24 @@ func openCSClient(csAPIURL string, args params.AddCharmWithAuthorization) (*cscl
 	return csClient, nil
 }
 
-func checkMinVersion(ch charm.Charm) error {
+func checkMinVersion(ch charm.Charm, caasVersion *version.Number) (err error) {
+	// check Juju min version.
 	minver := ch.Meta().MinJujuVersion
 	if minver != version.Zero && minver.Compare(jujuversion.Current) > 0 {
 		return minVersionError(minver, jujuversion.Current)
+	}
+	if caasVersion == nil {
+		return nil
+	}
+	// check caas min version.
+	minver, err = version.Parse(ch.Meta().Deployment.MinVersion)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Criticalf("MinVersion %#v, caasVersion %#v", minver, caasVersion)
+	if minver != version.Zero && minver.Compare(*caasVersion) > 0 {
+		// TODO: return a new error!!
+		return minVersionError(minver, *caasVersion)
 	}
 	return nil
 }

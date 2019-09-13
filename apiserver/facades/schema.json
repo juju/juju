@@ -7259,6 +7259,9 @@
                 "KubernetesDeploymentInfo": {
                     "type": "object",
                     "properties": {
+                        "daemonset": {
+                            "type": "boolean"
+                        },
                         "deployment-type": {
                             "type": "string"
                         },
@@ -7269,7 +7272,8 @@
                     "additionalProperties": false,
                     "required": [
                         "deployment-type",
-                        "service-type"
+                        "service-type",
+                        "daemonset"
                     ]
                 },
                 "KubernetesDeviceParams": {

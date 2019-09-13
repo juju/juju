@@ -436,18 +436,6 @@ func (c *Client) validateCharmVersions(ch charm.Charm) error {
 			return minVersionError(minver, agentver)
 		}
 	}
-
-	minver = ch.Meta().MinK8sVersion
-	if minver != version.Zero {
-		cloudVersion, err := c.cloudVersion()
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		if minver.Compare(cloudVersion) > 0 {
-			return minVersionError(minver, cloudVersion)
-		}
-	}
 	return nil
 }
 
@@ -619,16 +607,6 @@ func (c *Client) APIHostPorts() ([][]network.HostPort, error) {
 func (c *Client) AgentVersion() (version.Number, error) {
 	var result params.AgentVersionResult
 	if err := c.facade.FacadeCall("AgentVersion", nil, &result); err != nil {
-		return version.Number{}, err
-	}
-	return result.Version, nil
-}
-
-// ???????????????? K8sVersion or generic cloud version???????????
-// cloudVersion reports the version number of the provider cloud version.
-func (c *Client) cloudVersion() (version.Number, error) {
-	var result params.AgentVersionResult
-	if err := c.facade.FacadeCall("CloudVersion", nil, &result); err != nil {
 		return version.Number{}, err
 	}
 	return result.Version, nil
