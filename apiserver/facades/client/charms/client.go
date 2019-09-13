@@ -175,7 +175,7 @@ func convertCharmMeta(meta *charm.Meta) *params.CharmMeta {
 	if meta == nil {
 		return nil
 	}
-	result := &params.CharmMeta{
+	return &params.CharmMeta{
 		Name:           meta.Name,
 		Summary:        meta.Summary,
 		Description:    meta.Description,
@@ -192,9 +192,8 @@ func convertCharmMeta(meta *charm.Meta) *params.CharmMeta {
 		Resources:      convertCharmResourceMetaMap(meta.Resources),
 		Terms:          meta.Terms,
 		MinJujuVersion: meta.MinJujuVersion.String(),
+		MinK8sVersion:  meta.MinK8sVersion.String(),
 	}
-
-	return result
 }
 
 func convertCharmRelationMap(relations map[string]charm.Relation) map[string]params.CharmRelation {

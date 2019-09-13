@@ -95,7 +95,11 @@ func convertCharmMeta(meta *params.CharmMeta) (*charm.Meta, error) {
 	if meta == nil {
 		return nil, nil
 	}
-	minVersion, err := version.Parse(meta.MinJujuVersion)
+	minJujuVersion, err := version.Parse(meta.MinJujuVersion)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	minK8sVersion, err := version.Parse(meta.MinK8sVersion)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -119,7 +123,8 @@ func convertCharmMeta(meta *params.CharmMeta) (*charm.Meta, error) {
 		PayloadClasses: convertCharmPayloadClassMap(meta.PayloadClasses),
 		Resources:      resources,
 		Terms:          meta.Terms,
-		MinJujuVersion: minVersion,
+		MinJujuVersion: minJujuVersion,
+		MinK8sVersion:  minK8sVersion,
 	}
 	return result, nil
 }

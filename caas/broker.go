@@ -82,15 +82,19 @@ const (
 type ServiceType string
 
 const (
-	ServiceCluster      ServiceType = "cluster"
+	ServiceCluster      ServiceType = "cluster" // Todo(caas): deprecate this later.
+	ServiceClusterIP    ServiceType = "clusterip"
 	ServiceLoadBalancer ServiceType = "loadbalancer"
 	ServiceExternal     ServiceType = "external"
+	ServiceOmit         ServiceType = "omit"
 )
 
 // DeploymentParams defines parameters for specifying how a service is deployed.
 type DeploymentParams struct {
 	DeploymentType DeploymentType
 	ServiceType    ServiceType
+	// TODO(caas): implement demonset support.
+	Demonset bool
 }
 
 // ServiceParams defines parameters used to create a service.

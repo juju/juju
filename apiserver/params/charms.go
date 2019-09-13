@@ -121,6 +121,7 @@ type CharmMeta struct {
 	Resources      map[string]CharmResourceMeta `json:"resources,omitempty"`
 	Terms          []string                     `json:"terms,omitempty"`
 	MinJujuVersion string                       `json:"min-juju-version,omitempty"`
+	MinK8sVersion  string                       `json:"min-k8s-version,omitempty"`
 }
 
 // CharmInfo holds all the charm data that the client needs.

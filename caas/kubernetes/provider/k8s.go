@@ -1144,6 +1144,8 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}()
 
+	logger.Criticalf("EnsureService params.Deployment -> %+v", params.Deployment)
+
 	logger.Debugf("creating/updating application %s", appName)
 	deploymentName := k.deploymentName(appName)
 
@@ -1266,7 +1268,7 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}
 
-	hasService := !params.PodSpec.OmitServiceFrontend
+	hasService := !params.PodSpec.OmitServiceFrontend && params.Deployment.ServiceType != caas.ServiceOmit
 	if hasService {
 		var ports []core.ContainerPort
 		for _, c := range workloadSpec.Pod.Containers {
@@ -1781,6 +1783,9 @@ func (k *kubernetesClient) configureService(
 			serviceType = core.ServiceTypeLoadBalancer
 		case caas.ServiceExternal:
 			serviceType = core.ServiceTypeExternalName
+		case caas.ServiceOmit:
+			logger.Debugf("no service to be created because service type is %q", params.Deployment.ServiceType)
+			return nil
 		default:
 			return errors.NotSupportedf("service type %q", params.Deployment.ServiceType)
 		}

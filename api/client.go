@@ -312,7 +312,7 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*ch
 		return nil, errors.Errorf("expected charm URL with local: schema, got %q", curl.String())
 	}
 
-	if err := c.validateCharmVersion(ch); err != nil {
+	if err := c.validateCharmVersions(ch); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := lxdprofile.ValidateLXDProfile(lxdCharmProfiler{Charm: ch}); err != nil {
@@ -418,13 +418,13 @@ type minJujuVersionErr struct {
 }
 
 func minVersionError(minver, jujuver version.Number) error {
-	err := errors.NewErr("charm's min version (%s) is higher than this juju model's version (%s)",
+	err := errors.NewErr("charm's min version (%s) is higher than remove version (%s)",
 		minver, jujuver)
 	err.SetLocation(1)
 	return minJujuVersionErr{&err}
 }
 
-func (c *Client) validateCharmVersion(ch charm.Charm) error {
+func (c *Client) validateCharmVersions(ch charm.Charm) error {
 	minver := ch.Meta().MinJujuVersion
 	if minver != version.Zero {
 		agentver, err := c.AgentVersion()
@@ -434,6 +434,18 @@ func (c *Client) validateCharmVersion(ch charm.Charm) error {
 
 		if minver.Compare(agentver) > 0 {
 			return minVersionError(minver, agentver)
+		}
+	}
+
+	minver = ch.Meta().MinK8sVersion
+	if minver != version.Zero {
+		cloudVersion, err := c.cloudVersion()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		if minver.Compare(cloudVersion) > 0 {
+			return minVersionError(minver, cloudVersion)
 		}
 	}
 	return nil
@@ -607,6 +619,16 @@ func (c *Client) APIHostPorts() ([][]network.HostPort, error) {
 func (c *Client) AgentVersion() (version.Number, error) {
 	var result params.AgentVersionResult
 	if err := c.facade.FacadeCall("AgentVersion", nil, &result); err != nil {
+		return version.Number{}, err
+	}
+	return result.Version, nil
+}
+
+// ???????????????? K8sVersion or generic cloud version???????????
+// cloudVersion reports the version number of the provider cloud version.
+func (c *Client) cloudVersion() (version.Number, error) {
+	var result params.AgentVersionResult
+	if err := c.facade.FacadeCall("CloudVersion", nil, &result); err != nil {
 		return version.Number{}, err
 	}
 	return result.Version, nil
