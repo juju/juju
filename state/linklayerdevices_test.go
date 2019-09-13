@@ -632,11 +632,16 @@ func (s *linkLayerDevicesStateSuite) TestMachineRemoveAllLinkLayerDevicesNoError
 }
 
 func (s *linkLayerDevicesStateSuite) createSpaceAndSubnet(c *gc.C, spaceName, CIDR string) {
+	s.createSpaceAndSubnetWithProviderID(c, spaceName, CIDR, "")
+}
+
+func (s *linkLayerDevicesStateSuite) createSpaceAndSubnetWithProviderID(c *gc.C, spaceName, CIDR, providerSubnetID string) {
 	space, err := s.State.AddSpace(spaceName, corenetwork.Id(spaceName), nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSubnet(corenetwork.SubnetInfo{
-		CIDR:    CIDR,
-		SpaceID: space.Id(),
+		CIDR:       CIDR,
+		SpaceID:    space.Id(),
+		ProviderId: corenetwork.Id(providerSubnetID),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1410,6 +1415,65 @@ func (s *linkLayerDevicesStateSuite) TestMachineSetParentLinkLayerDevicesBeforeT
 func (s *linkLayerDevicesStateSuite) TestMachineSetParentLinkLayerDevicesBeforeTheirChildrenIdempotent(c *gc.C) {
 	s.testMachineSetParentLinkLayerDevicesBeforeTheirChildren(c)
 	s.testMachineSetParentLinkLayerDevicesBeforeTheirChildren(c)
+}
+
+func (s *linkLayerDevicesStateSuite) TestSetDeviceAddresssesWithSubnetID(c *gc.C) {
+	s.createSpaceAndSubnetWithProviderID(c, "public", "10.0.0.0/24", "prov-0000")
+	s.createSpaceAndSubnetWithProviderID(c, "private", "10.20.0.0/24", "prov-ffff")
+	s.createSpaceAndSubnetWithProviderID(c, "dmz", "10.30.0.0/24", "prov-abcd")
+	s.createNICWithIP(c, s.machine, "eth0", "10.0.0.11/24")
+	s.createNICWithIP(c, s.machine, "eth1", "10.20.0.42/24")
+	// Create eth2 NIC but don't assign an IP yet. This allows us to
+	// exercise the both the insert and update code-paths when calling
+	// SetDevicesAddresses.
+	err := s.machine.SetLinkLayerDevices(
+		state.LinkLayerDeviceArgs{
+			Name:       "eth2",
+			Type:       state.EthernetDevice,
+			ParentName: "",
+			IsUp:       true,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.machine.SetDevicesAddresses(
+		state.LinkLayerDeviceAddress{
+			DeviceName:        "eth1",
+			ConfigMethod:      state.StaticAddress,
+			ProviderNetworkID: corenetwork.Id("vpc-abcd"),
+			ProviderSubnetID:  corenetwork.Id("prov-ffff"),
+			CIDRAddress:       "10.20.0.42/24",
+		},
+		state.LinkLayerDeviceAddress{
+			DeviceName:        "eth2",
+			ConfigMethod:      state.StaticAddress,
+			ProviderNetworkID: corenetwork.Id("vpc-abcd"),
+			ProviderSubnetID:  corenetwork.Id("prov-abcd"),
+			CIDRAddress:       "10.30.0.99/24",
+		},
+	)
+
+	res := s.machine.GetNetworkInfoForSpaces(set.NewStrings("private", "dmz"))
+	c.Check(res, gc.HasLen, 2)
+
+	allAddr, err := s.machine.AllAddresses()
+	c.Assert(err, gc.IsNil)
+
+	expSubnetID := map[string]corenetwork.Id{
+		"eth1": "prov-ffff",
+		"eth2": "prov-abcd",
+	}
+nextDev:
+	for devName, expID := range expSubnetID {
+		for _, addr := range allAddr {
+			if addr.DeviceName() != devName {
+				continue
+			}
+
+			c.Assert(addr.ProviderSubnetID(), gc.Equals, expID, gc.Commentf("subnetID for device %q", devName))
+			continue nextDev
+		}
+		c.Fatalf("unable to locate device %q while enumerating machine addresses", devName)
+	}
 }
 
 var nestedDevicesArgs = []state.LinkLayerDeviceArgs{{

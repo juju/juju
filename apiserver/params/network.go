@@ -88,6 +88,10 @@ type NetworkConfig struct {
 	// ProviderId is a provider-specific network interface id.
 	ProviderId string `json:"provider-id"`
 
+	// ProviderNetworkId is a provider-specific id for the network this
+	// interface is part of.
+	ProviderNetworkId string `json:"provider-network-id"`
+
 	// ProviderSubnetId is a provider-specific subnet id, to which the
 	// interface is attached to.
 	ProviderSubnetId string `json:"provider-subnet-id"`
