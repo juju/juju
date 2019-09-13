@@ -161,12 +161,6 @@ func (h *ResourcesHandler) readResource(backend ResourcesBackend, req *http.Requ
 		if path.Ext(uReq.Filename) != ext {
 			return nil, errors.Errorf("incorrect extension on resource upload %q, expected %q", uReq.Filename, ext)
 		}
-	case charmresource.TypeContainerImage:
-		// At this stage the docker 'filename' could be a reference to
-		// what the user has on their local filesystem that got parsed and
-		// is in the process of being uploaded so it makes no sense to validate uReq.Filename
-		// The uploaded finger print from the CLI will not match what comes in from the API request, do not store it.
-		uReq.Fingerprint = charmresource.Fingerprint{}
 	}
 
 	chRes, err := updateResource(res.Resource, uReq.Fingerprint, uReq.Size)

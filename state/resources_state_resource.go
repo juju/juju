@@ -5,7 +5,6 @@ package state
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"path"
@@ -284,17 +283,19 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 	case charmresource.TypeFile:
 		err = st.storage.PutAndCheckHash(storagePath, r, res.Size, hash)
 	case charmresource.TypeContainerImage:
-		var dockerDetails resources.DockerImageDetails
 		respBuf := new(bytes.Buffer)
 		_, err = respBuf.ReadFrom(r)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		err = json.Unmarshal(respBuf.Bytes(), &dockerDetails)
+		dockerDetails, err := resources.UnmarshalDockerResource(respBuf.Bytes())
 		if err != nil {
 			return errors.Trace(err)
 		}
 		err = st.dockerMetadataStorage.Save(res.ID, dockerDetails)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	if err != nil {
