@@ -135,3 +135,34 @@ func filesystemFromParams(in params.KubernetesFilesystemParams) storage.Kubernet
 		ResourceTags: in.Tags,
 	}
 }
+
+// OperatorCertificate provides all the information an operator needs to
+// create a TLS listener.
+type OperatorCertificate struct {
+	CACert     string
+	Cert       string
+	PrivateKey string
+}
+
+// IssueOperatorCertificate issues an x509 certificate for use by the specified application operator.
+func (c *Client) IssueOperatorCertificate(applicationName string) (OperatorCertificate, error) {
+	args := params.Entities{[]params.Entity{
+		{Tag: applicationName},
+	}}
+	var result params.IssueOperatorCertificateResults
+	if err := c.facade.FacadeCall("IssueOperatorCertificate", args, &result); err != nil {
+		return OperatorCertificate{}, errors.Trace(err)
+	}
+	if len(result.Results) != 1 {
+		return OperatorCertificate{}, errors.Errorf("expected one result, got %d", len(result.Results))
+	}
+	certInfo := result.Results[0]
+	if err := certInfo.Error; err != nil {
+		return OperatorCertificate{}, errors.Trace(err)
+	}
+	return OperatorCertificate{
+		CACert:     certInfo.CACert,
+		Cert:       certInfo.Cert,
+		PrivateKey: certInfo.PrivateKey,
+	}, nil
+}

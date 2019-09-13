@@ -70,6 +70,13 @@ func (st *mockState) Model() (caasoperatorprovisioner.Model, error) {
 	return st.model, nil
 }
 
+func (st *mockState) StateServingInfo() (state.StateServingInfo, error) {
+	st.MethodCall(st, "StateServingInfo")
+	return state.StateServingInfo{
+		CAPrivateKey: coretesting.CAKey,
+	}, nil
+}
+
 type mockStorageRegistry struct {
 	storage.ProviderRegistry
 }

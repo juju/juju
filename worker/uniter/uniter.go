@@ -95,9 +95,10 @@ type Uniter struct {
 	// TODO(axw) move the runListener and run-command code outside of the
 	// uniter, and introduce a separate worker. Each worker would feed
 	// operations to a single, synchronized runner to execute.
-	runListener    *RunListener
-	commands       runcommands.Commands
-	commandChannel chan string
+	runListener      *RunListener
+	localRunListener *RunListener
+	commands         runcommands.Commands
+	commandChannel   chan string
 
 	// The execution observer is only used in tests at this stage. Should this
 	// need to be extended, perhaps a list of observers would be needed.
@@ -137,6 +138,7 @@ type UniterParams struct {
 	TranslateResolverErr    func(error) error
 	Clock                   clock.Clock
 	ApplicationChannel      watcher.NotifyChannel
+	SocketConfig            *SocketConfig
 	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
 	// the observer is only a stop gap to be used in tests. A better approach would be to have the uniter tests start hooks
 	// that write to files, and have the tests watch the output to know that hooks have finished.
@@ -180,7 +182,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 	}
 	u := &Uniter{
 		st:                      uniterParams.UniterFacade,
-		paths:                   NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.ModelType == model.CAAS),
+		paths:                   NewPaths(uniterParams.DataDir, uniterParams.UnitTag, uniterParams.SocketConfig),
 		modelType:               uniterParams.ModelType,
 		hookLock:                uniterParams.MachineLock,
 		leadershipTracker:       uniterParams.LeadershipTracker,
@@ -432,7 +434,10 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	if errors.Cause(err) == ErrCAASUnitDead {
 		err = nil
 	}
-	u.runListener.UnregisterRunner(u.unit.Name())
+	if u.runListener != nil {
+		u.runListener.UnregisterRunner(u.unit.Name())
+	}
+	u.localRunListener.UnregisterRunner(u.unit.Name())
 	logger.Infof("unit %q shutting down: %s", u.unit, err)
 	return err
 }
@@ -621,18 +626,17 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	u.operationExecutor = operationExecutor
 
-	if u.runListener == nil {
-		socket := u.paths.Runtime.JujuRunSocket
-		logger.Debugf("starting juju-run listener on %v", socket)
-		u.runListener, err = NewRunListener(socket)
-		if err != nil {
-			return errors.Annotate(err, "creating juju run listener")
-		}
-		rlw := NewRunListenerWrapper(u.runListener)
-		if err := u.catacomb.Add(rlw); err != nil {
-			return errors.Trace(err)
-		}
+	socket := u.paths.Runtime.LocalJujuRunSocket.Server
+	logger.Debugf("starting local juju-run listener on %v", socket)
+	u.localRunListener, err = NewRunListener(socket)
+	if err != nil {
+		return errors.Annotate(err, "creating juju run listener")
 	}
+	rlw := NewRunListenerWrapper(u.localRunListener)
+	if err := u.catacomb.Add(rlw); err != nil {
+		return errors.Trace(err)
+	}
+
 	commandRunner, err := NewChannelCommandRunner(ChannelCommandRunnerConfig{
 		Abort:          u.catacomb.Dying(),
 		Commands:       u.commands,
@@ -641,7 +645,10 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return errors.Annotate(err, "creating command runner")
 	}
-	u.runListener.RegisterRunner(u.unit.Name(), commandRunner)
+	u.localRunListener.RegisterRunner(u.unit.Name(), commandRunner)
+	if u.runListener != nil {
+		u.runListener.RegisterRunner(u.unit.Name(), commandRunner)
+	}
 	return nil
 }
 
@@ -667,7 +674,7 @@ func (u *Uniter) getApplicationCharmURL() (*corecharm.URL, error) {
 func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
 	// TODO(axw) drop this when we move the run-listener to an independent
 	// worker. This exists purely for the tests.
-	return u.runListener.RunCommands(args)
+	return u.localRunListener.RunCommands(args)
 }
 
 // acquireExecutionLock acquires the machine-level execution lock, and

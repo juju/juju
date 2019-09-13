@@ -153,7 +153,7 @@ func newCollect(config ManifoldConfig, context dependency.Context) (*collect, er
 	if !ok {
 		return nil, errors.Errorf("expected a unit tag, got %v", tag)
 	}
-	paths := uniter.NewWorkerPaths(agentConfig.DataDir(), unitTag, "metrics-collect", false)
+	paths := uniter.NewWorkerPaths(agentConfig.DataDir(), unitTag, "metrics-collect", nil)
 	runner := &hookRunner{
 		unitTag: unitTag.String(),
 		paths:   paths,
@@ -222,7 +222,7 @@ func (w *collect) Do(stop <-chan struct{}) (err error) {
 	if !ok {
 		return errors.Errorf("expected a unit tag, got %v", tag)
 	}
-	paths := uniter.NewWorkerPaths(config.DataDir(), unitTag, "metrics-collect", false)
+	paths := uniter.NewWorkerPaths(config.DataDir(), unitTag, "metrics-collect", nil)
 
 	recorder, err := newRecorder(unitTag, paths, w.metricFactory)
 	if errors.Cause(err) == errMetricsNotDefined {

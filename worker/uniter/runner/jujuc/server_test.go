@@ -103,7 +103,7 @@ func (s *ServerSuite) osDependentSockPath(c *gc.C) sockets.Socket {
 func (s *ServerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.socket = s.osDependentSockPath(c)
-	srv, err := jujuc.NewServer(factory, s.socket)
+	srv, err := jujuc.NewServer(factory, s.socket, "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(srv, gc.NotNil)
 	s.server = srv

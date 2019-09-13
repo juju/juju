@@ -313,11 +313,23 @@ $JUJU_TOOLS_DIR/jujud caasoperator --application-name=test --debug
 					},
 				},
 			},
+			{
+				Name: "JUJU_OPERATOR_NAMESPACE",
+				ValueFrom: &core.EnvVarSource{
+					FieldRef: &core.ObjectFieldSelector{
+						FieldPath: "metadata.namespace",
+					},
+				},
+			},
 		},
 		VolumeMounts: []core.VolumeMount{{
 			Name:      "test-operator-config",
 			MountPath: "path/to/agent/agents/application-test/template-agent.conf",
 			SubPath:   "template-agent.conf",
+		}, {
+			Name:      "test-operator-config",
+			MountPath: "path/to/agent/agents/application-test/operator.yaml",
+			SubPath:   "operator.yaml",
 		}, {
 			Name:      "charm",
 			MountPath: "path/to/agent/agents",
@@ -333,6 +345,9 @@ $JUJU_TOOLS_DIR/jujud caasoperator --application-name=test --debug
 				Items: []core.KeyToPath{{
 					Key:  "test-agent.conf",
 					Path: "template-agent.conf",
+				}, {
+					Key:  "operator.yaml",
+					Path: "operator.yaml",
 				}},
 			},
 		},
@@ -462,8 +477,9 @@ func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 	})
 	c.Assert(pod.Spec.Containers, gc.HasLen, 1)
 	c.Assert(pod.Spec.Containers[0].Image, gc.Equals, "jujusolutions/jujud-operator")
-	c.Assert(pod.Spec.Containers[0].VolumeMounts, gc.HasLen, 1)
+	c.Assert(pod.Spec.Containers[0].VolumeMounts, gc.HasLen, 2)
 	c.Assert(pod.Spec.Containers[0].VolumeMounts[0].MountPath, gc.Equals, "/var/lib/juju/agents/application-gitlab/template-agent.conf")
+	c.Assert(pod.Spec.Containers[0].VolumeMounts[1].MountPath, gc.Equals, "/var/lib/juju/agents/application-gitlab/operator.yaml")
 
 	podEnv := make(map[string]string)
 	for _, env := range pod.Spec.Containers[0].Env {
@@ -929,6 +945,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 		},
 		Data: map[string]string{
 			"test-agent.conf": "agent-conf-data",
+			"operator.yaml":   "operator-info-data",
 		},
 	}
 	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage")
@@ -958,6 +975,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 		OperatorImagePath: "/path/to/image",
 		Version:           version.MustParse("2.99.0"),
 		AgentConf:         []byte("agent-conf-data"),
+		OperatorInfo:      []byte("operator-info-data"),
 		ResourceTags:      map[string]string{"fred": "mary"},
 		CharmStorage: caas.CharmStorageParams{
 			Size:         uint64(10),
@@ -980,6 +998,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 		},
 		Data: map[string]string{
 			"test-agent.conf": "agent-conf-data",
+			"operator.yaml":   "operator-info-data",
 		},
 	}
 	statefulSetArg := operatorStatefulSetArg(1, "test-operator-storage")
@@ -1011,6 +1030,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 		OperatorImagePath: "/path/to/image",
 		Version:           version.MustParse("2.99.0"),
 		AgentConf:         []byte("agent-conf-data"),
+		OperatorInfo:      []byte("operator-info-data"),
 		ResourceTags:      map[string]string{"fred": "mary"},
 		CharmStorage: caas.CharmStorageParams{
 			Size:         uint64(10),
@@ -3083,9 +3103,38 @@ func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
 			Message: "test message.",
 		},
 	}
+	ss := apps.StatefulSet{
+		ObjectMeta: v1.ObjectMeta{
+			Annotations: map[string]string{
+				"juju-version": "2.99.0",
+			},
+		},
+		Spec: apps.StatefulSetSpec{
+			Template: core.PodTemplateSpec{
+				Spec: core.PodSpec{
+					Containers: []core.Container{{
+						Name:  "juju-operator",
+						Image: "test-image",
+					}},
+				},
+			},
+		},
+	}
+	cm := core.ConfigMap{
+		Data: map[string]string{
+			"test-agent.conf": "agent-conf-data",
+			"operator.yaml":   "operator-info-data",
+		},
+	}
 	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Get("test-operator", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(&ss, nil),
 		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator==test"}).Times(1).
 			Return(&core.PodList{Items: []core.Pod{opPod}}, nil),
+		s.mockConfigMaps.EXPECT().Get("test-operator-config", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(&cm, nil),
 	)
 
 	operator, err := s.broker.Operator("test")
@@ -3093,13 +3142,38 @@ func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
 
 	c.Assert(operator.Status.Status, gc.Equals, status.Allocating)
 	c.Assert(operator.Status.Message, gc.Equals, "test message.")
+	c.Assert(operator.Config.Version, gc.Equals, version.MustParse("2.99.0"))
+	c.Assert(operator.Config.OperatorImagePath, gc.Equals, "test-image")
+	c.Assert(operator.Config.AgentConf, gc.DeepEquals, []byte("agent-conf-data"))
+	c.Assert(operator.Config.OperatorInfo, gc.DeepEquals, []byte("operator-info-data"))
 }
 
 func (s *K8sBrokerSuite) TestOperatorNoPodFound(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
+	ss := apps.StatefulSet{
+		ObjectMeta: v1.ObjectMeta{
+			Annotations: map[string]string{
+				"juju-version": "2.99.0",
+			},
+		},
+		Spec: apps.StatefulSetSpec{
+			Template: core.PodTemplateSpec{
+				Spec: core.PodSpec{
+					Containers: []core.Container{{
+						Name:  "juju-operator",
+						Image: "test-image",
+					}},
+				},
+			},
+		},
+	}
 	gomock.InOrder(
+		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Get("test-operator", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(&ss, nil),
 		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator==test"}).Times(1).
 			Return(&core.PodList{Items: []core.Pod{}}, nil),
 	)

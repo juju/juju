@@ -4,6 +4,8 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -20,6 +22,7 @@ import (
 	"github.com/juju/loggo"
 	proxyutils "github.com/juju/proxy"
 	"github.com/juju/utils/exec"
+	"gopkg.in/juju/names.v3"
 
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
@@ -28,10 +31,11 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/core/machinelock"
-	"github.com/juju/juju/juju/names"
+	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
 
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
+
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/upgrades"
@@ -92,12 +96,57 @@ func getwd() (string, error) {
 	return abs, nil
 }
 
+func getSocket() (sockets.Socket, error) {
+	var err error
+	socket := sockets.Socket{}
+	socket.Address, err = getenv("JUJU_AGENT_SOCKET_ADDRESS")
+	if err != nil {
+		return sockets.Socket{}, err
+	}
+	socket.Network, err = getenv("JUJU_AGENT_SOCKET_NETWORK")
+	if err != nil {
+		return sockets.Socket{}, err
+	}
+
+	// If we are not connecting over tcp, no need for TLS.
+	if socket.Network != "tcp" {
+		return socket, nil
+	}
+
+	caCertFile, err := getenv("JUJU_AGENT_CA_CERT")
+	if err != nil {
+		return sockets.Socket{}, err
+	}
+	caCert, err := ioutil.ReadFile(caCertFile)
+	if err != nil {
+		return sockets.Socket{}, errors.Annotatef(err, "reading %s", caCertFile)
+	}
+	rootCAs := x509.NewCertPool()
+	if ok := rootCAs.AppendCertsFromPEM(caCert); ok == false {
+		return sockets.Socket{}, errors.Errorf("invalid ca certificate")
+	}
+
+	unitName, err := getenv("JUJU_UNIT_NAME")
+	if err != nil {
+		return sockets.Socket{}, err
+	}
+	application, err := names.UnitApplication(unitName)
+	if err != nil {
+		return sockets.Socket{}, errors.Trace(err)
+	}
+	socket.TLSConfig = &tls.Config{
+		RootCAs:    rootCAs,
+		ServerName: application,
+	}
+	return socket, nil
+}
+
 // hookToolMain uses JUJU_CONTEXT_ID and JUJU_AGENT_SOCKET_ADDRESS to ask a running unit agent
 // to execute a Command on our behalf. Individual commands should be exposed
 // by symlinking the command name to this executable.
 func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int, err error) {
 	code = 1
-	contextId, err := getenv("JUJU_CONTEXT_ID")
+	contextID, err := getenv("JUJU_CONTEXT_ID")
 	if err != nil {
 		return
 	}
@@ -106,17 +155,13 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 		return
 	}
 	req := jujuc.Request{
-		ContextId:   contextId,
+		ContextId:   contextID,
 		Dir:         dir,
 		CommandName: commandName,
 		Args:        args[1:],
+		Token:       os.Getenv("JUJU_AGENT_TOKEN"),
 	}
-	socket := sockets.Socket{}
-	socket.Address, err = getenv("JUJU_AGENT_SOCKET_ADDRESS")
-	if err != nil {
-		return
-	}
-	socket.Network, err = getenv("JUJU_AGENT_SOCKET_NETWORK")
+	socket, err := getSocket()
 	if err != nil {
 		return
 	}
@@ -234,9 +279,9 @@ func Main(args []string) int {
 	var code int
 	commandName := filepath.Base(args[0])
 	switch commandName {
-	case names.Jujud:
+	case jujunames.Jujud:
 		code, err = jujuDMain(args, ctx)
-	case names.JujuRun:
+	case jujunames.JujuRun:
 		lock, err := machinelock.New(machinelock.Config{
 			AgentName:   "juju-run",
 			Clock:       clock.WallClock,
@@ -249,9 +294,9 @@ func Main(args []string) int {
 			run := &RunCommand{MachineLock: lock}
 			code = cmd.Main(run, ctx, args[1:])
 		}
-	case names.JujuDumpLogs:
+	case jujunames.JujuDumpLogs:
 		code = cmd.Main(dumplogs.NewCommand(), ctx, args[1:])
-	case names.JujuIntrospect:
+	case jujunames.JujuIntrospect:
 		code = cmd.Main(&introspect.IntrospectCommand{}, ctx, args[1:])
 	default:
 		code, err = hookToolMain(commandName, ctx, args)

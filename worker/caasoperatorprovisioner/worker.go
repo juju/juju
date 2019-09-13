@@ -17,6 +17,7 @@ import (
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/caasoperatorprovisioner"
 	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -34,6 +35,7 @@ type CAASProvisionerFacade interface {
 	WatchApplications() (watcher.StringsWatcher, error)
 	SetPasswords([]apicaasprovisioner.ApplicationPassword) (params.ErrorResults, error)
 	Life(string) (life.Value, error)
+	IssueOperatorCertificate(string) (apicaasprovisioner.OperatorCertificate, error)
 }
 
 // Config defines the operation of a Worker.
@@ -176,6 +178,12 @@ func (p *provisioner) ensureOperators(apps []string) error {
 			}
 			opState.Exists = false
 		}
+
+		op, err := p.broker.Operator(app)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+
 		// If the operator does not exist already, we need to create an initial
 		// password for it.
 		var password string
@@ -186,7 +194,11 @@ func (p *provisioner) ensureOperators(apps []string) error {
 			appPasswords = append(appPasswords, apicaasprovisioner.ApplicationPassword{Name: app, Password: password})
 		}
 
-		config, err := p.makeOperatorConfig(app, password)
+		var prevCfg caas.OperatorConfig
+		if op != nil && op.Config != nil {
+			prevCfg = *op.Config
+		}
+		config, err := p.updateOperatorConfig(app, password, prevCfg)
 		if err != nil {
 			return errors.Annotatef(err, "failed to generate operator config for %q", app)
 		}
@@ -228,8 +240,7 @@ func (p *provisioner) ensureOperator(app string, config *caas.OperatorConfig) er
 	return nil
 }
 
-func (p *provisioner) makeOperatorConfig(appName, password string) (*caas.OperatorConfig, error) {
-	appTag := names.NewApplicationTag(appName)
+func (p *provisioner) updateOperatorConfig(appName, password string, prevCfg caas.OperatorConfig) (*caas.OperatorConfig, error) {
 	info, err := p.provisionerFacade.OperatorProvisioningInfo()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -252,11 +263,28 @@ func (p *provisioner) makeOperatorConfig(appName, password string) (*caas.Operat
 		ResourceTags:      info.Tags,
 		CharmStorage:      charmStorageParams(info.CharmStorage),
 	}
-	// If no password required, we leave the agent conf empty.
-	if password == "" {
-		return cfg, nil
+
+	cfg.AgentConf, err = p.updateAgentConf(appName, password, info, prevCfg.AgentConf)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
+	cfg.OperatorInfo, err = p.updateOperatorInfo(appName, prevCfg.OperatorInfo)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return cfg, nil
+}
+
+func (p *provisioner) updateAgentConf(appName, password string,
+	info caasoperatorprovisioner.OperatorProvisioningInfo,
+	prevAgentConfData []byte) ([]byte, error) {
+	if prevAgentConfData != nil && password == "" {
+		return prevAgentConfData, nil
+	}
+
+	appTag := names.NewApplicationTag(appName)
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths: agent.Paths{
@@ -270,8 +298,8 @@ func (p *provisioner) makeOperatorConfig(appName, password string) (*caas.Operat
 			CACert:       p.agentConfig.CACert(),
 			Password:     password,
 
-			// UpgradedToVersion is mandatory but not used by caas operator agents as they
-			// are not upgraded insitu.
+			// UpgradedToVersion is mandatory but not used by
+			// caas operator agents as they are not upgraded insitu.
 			UpgradedToVersion: info.Version,
 		},
 	)
@@ -279,12 +307,32 @@ func (p *provisioner) makeOperatorConfig(appName, password string) (*caas.Operat
 		return nil, errors.Trace(err)
 	}
 
-	confBytes, err := conf.Render()
-	if err != nil {
-		return nil, errors.Trace(err)
+	return conf.Render()
+}
+
+func (p *provisioner) updateOperatorInfo(appName string, prevOperatorInfoData []byte) ([]byte, error) {
+	var operatorInfo caas.OperatorInfo
+	if prevOperatorInfoData != nil {
+		prevOperatorInfo, err := caas.UnmarshalOperatorInfo(prevOperatorInfoData)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		operatorInfo = *prevOperatorInfo
 	}
-	cfg.AgentConf = confBytes
-	return cfg, nil
+
+	if operatorInfo.Cert == "" ||
+		operatorInfo.PrivateKey == "" ||
+		operatorInfo.CACert == "" {
+		cert, err := p.provisionerFacade.IssueOperatorCertificate(appName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		operatorInfo.Cert = cert.Cert
+		operatorInfo.PrivateKey = cert.PrivateKey
+		operatorInfo.CACert = cert.CACert
+	}
+
+	return operatorInfo.Marshal()
 }
 
 func charmStorageParams(in storage.KubernetesFilesystemParams) caas.CharmStorageParams {

@@ -314,6 +314,20 @@ type OperatorProvisioningInfo struct {
 	CharmStorage KubernetesFilesystemParams `json:"charm-storage"`
 }
 
+// IssueOperatorCertificateResult contains an x509 certificate
+// for a CAAS Operator.
+type IssueOperatorCertificateResult struct {
+	CACert     string `json:"ca-cert"`
+	Cert       string `json:"cert"`
+	PrivateKey string `json:"private-key"`
+	Error      *Error `json:"error,omitempty"`
+}
+
+// IssueOperatorCertificateResults holds IssueOperatorCertificate results.
+type IssueOperatorCertificateResults struct {
+	Results []IssueOperatorCertificateResult `json:"results"`
+}
+
 // PublicAddress holds parameters for the PublicAddress call.
 type PublicAddress struct {
 	Target string `json:"target"`

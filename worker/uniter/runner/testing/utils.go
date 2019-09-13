@@ -27,6 +27,7 @@ type fops interface {
 type RealPaths struct {
 	tools         string
 	charm         string
+	base          string
 	socket        sockets.Socket
 	metricsspool  string
 	componentDirs map[string]string
@@ -45,6 +46,7 @@ func NewRealPaths(c *gc.C) RealPaths {
 	return RealPaths{
 		tools:         c.MkDir(),
 		charm:         c.MkDir(),
+		base:          c.MkDir(),
 		socket:        osDependentSockPath(c),
 		metricsspool:  c.MkDir(),
 		componentDirs: make(map[string]string),
@@ -64,7 +66,15 @@ func (p RealPaths) GetCharmDir() string {
 	return p.charm
 }
 
-func (p RealPaths) GetJujucSocket() sockets.Socket {
+func (p RealPaths) GetBaseDir() string {
+	return p.base
+}
+
+func (p RealPaths) GetJujucClientSocket(remote bool) sockets.Socket {
+	return p.socket
+}
+
+func (p RealPaths) GetJujucServerSocket(remote bool) sockets.Socket {
 	return p.socket
 }
 

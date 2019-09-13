@@ -108,7 +108,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).Times(1).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, "cannot exec into a container in a completed pod; current phase is Succeeded")
+	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, "cannot exec into a container within a Succeeded pod")
 
 	// failed - failed pod
 	params = exec.ExecParams{
@@ -127,7 +127,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).Times(1).
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
-	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, "cannot exec into a container in a completed pod; current phase is Failed")
+	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, "cannot exec into a container within a Failed pod")
 
 	// failed - containerName not found
 	params = exec.ExecParams{
@@ -135,7 +135,11 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		PodName:       "gitlab-k8s-uid",
 		ContainerName: "non-existing-container-name",
 	}
-	pod = core.Pod{}
+	pod = core.Pod{
+		Status: core.PodStatus{
+			Phase: core.PodRunning,
+		},
+	}
 	pod.SetUID("gitlab-k8s-uid")
 	pod.SetName("gitlab-k8s-0")
 	gomock.InOrder(
@@ -157,6 +161,9 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 			Containers: []core.Container{
 				{Name: "gitlab-container"},
 			},
+		},
+		Status: core.PodStatus{
+			Phase: core.PodRunning,
 		},
 	}
 	pod.SetUID("gitlab-k8s-uid")
@@ -180,6 +187,9 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 			Containers: []core.Container{
 				{Name: "gitlab-container"},
 			},
+		},
+		Status: core.PodStatus{
+			Phase: core.PodRunning,
 		},
 	}
 	pod.SetUID("gitlab-k8s-uid")
@@ -212,6 +222,9 @@ func (s *execSuite) TestExec(c *gc.C) {
 			Containers: []core.Container{
 				{Name: "gitlab-container"},
 			},
+		},
+		Status: core.PodStatus{
+			Phase: core.PodRunning,
 		},
 	}
 	pod.SetUID("gitlab-k8s-uid")

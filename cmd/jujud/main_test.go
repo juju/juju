@@ -202,7 +202,7 @@ func (s *HookToolMainSuite) SetUpSuite(c *gc.C) {
 		return &RemoteCommand{}, nil
 	}
 	s.sockPath = osDependentSockPath(c)
-	srv, err := jujuc.NewServer(factory, s.sockPath)
+	srv, err := jujuc.NewServer(factory, s.sockPath, "")
 	c.Assert(err, jc.ErrorIsNil)
 	s.server = srv
 	go func() {

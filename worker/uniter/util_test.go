@@ -665,7 +665,7 @@ func (s verifyDownloadsCleared) step(c *gc.C, ctx *context) {
 }
 
 func downloadDir(ctx *context) string {
-	paths := uniter.NewPaths(ctx.dataDir, ctx.unit.UnitTag(), false)
+	paths := uniter.NewPaths(ctx.dataDir, ctx.unit.UnitTag(), nil)
 	return filepath.Join(paths.State.BundlesDir, "downloads")
 }
 

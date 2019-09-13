@@ -4,6 +4,7 @@
 package featuretests
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -16,6 +17,7 @@ import (
 	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujudagent "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
@@ -25,6 +27,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/uniter"
 )
 
 const (
@@ -50,6 +53,16 @@ func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
 	st := s.Factory.MakeCAASModel(c, nil)
 	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
 	s.State = st
+
+	os.Setenv("JUJU_OPERATOR_SERVICE_IP", "127.0.0.1")
+	os.Setenv("JUJU_OPERATOR_POD_IP", "127.0.0.1")
+}
+
+func (s *CAASOperatorSuite) TearDownTest(c *gc.C) {
+	os.Setenv("JUJU_OPERATOR_SERVICE_IP", "")
+	os.Setenv("JUJU_OPERATOR_POD_IP", "")
+
+	s.AgentSuite.TearDownTest(c)
 }
 
 // primeAgent creates an application, and sets up the application agent's directory.
@@ -59,7 +72,22 @@ func (s *CAASOperatorSuite) primeAgent(c *gc.C) (*state.Application, agent.Confi
 	err := app.SetPassword(initialApplicationPassword)
 	c.Assert(err, jc.ErrorIsNil)
 	conf, tools := s.PrimeAgent(c, app.Tag(), initialApplicationPassword)
+	s.primeOperator(c, app)
 	return app, conf, tools
+}
+
+func (s *CAASOperatorSuite) primeOperator(c *gc.C, app *state.Application) {
+	baseDir := agent.Dir(s.DataDir(), app.Tag())
+	file := filepath.Join(baseDir, caas.OperatorInfoFile)
+	info := caas.OperatorInfo{
+		CACert:     coretesting.CACert,
+		Cert:       coretesting.ServerCert,
+		PrivateKey: coretesting.ServerKey,
+	}
+	data, err := info.Marshal()
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(file, data, 0644)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *CAASOperatorSuite) newAgent(c *gc.C, app *state.Application) *jujudagent.CaasOperatorAgent {
@@ -155,7 +183,7 @@ func sockPath(c *gc.C) sockets.Socket {
 }
 
 func (s *CAASOperatorSuite) newCaasOperatorAgent(c *gc.C, ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter) (*jujudagent.CaasOperatorAgent, error) {
-	a, err := jujudagent.NewCaasOperatorAgent(ctx, s.newBufferedLogWriter(), newExecClient, func() (*sockets.Socket, error) {
+	a, err := jujudagent.NewCaasOperatorAgent(ctx, s.newBufferedLogWriter(), newExecClient, func(*uniter.SocketConfig) (*sockets.Socket, error) {
 		socket := sockPath(c)
 		return &socket, nil
 	})

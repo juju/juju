@@ -6,6 +6,7 @@ package caasoperatorprovisioner_test
 import (
 	"sync"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/storage"
 	"github.com/juju/testing"
 	"github.com/juju/version"
@@ -70,6 +71,20 @@ func (m *mockProvisionerFacade) OperatorProvisioningInfo() (apicaasprovisioner.O
 	}, nil
 }
 
+func (m *mockProvisionerFacade) IssueOperatorCertificate(string) (apicaasprovisioner.OperatorCertificate, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stub.MethodCall(m, "IssueOperatorCertificate")
+	if err := m.stub.NextErr(); err != nil {
+		return apicaasprovisioner.OperatorCertificate{}, err
+	}
+	return apicaasprovisioner.OperatorCertificate{
+		CACert:     coretesting.CACert,
+		Cert:       coretesting.ServerCert,
+		PrivateKey: coretesting.ServerKey,
+	}, nil
+}
+
 func (m *mockProvisionerFacade) Life(entityName string) (life.Value, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -123,6 +138,7 @@ type mockBroker struct {
 	mu             sync.Mutex
 	terminating    bool
 	operatorExists bool
+	config         *caas.OperatorConfig
 }
 
 func (m *mockBroker) setTerminating(terminating bool) {
@@ -154,6 +170,23 @@ func (m *mockBroker) OperatorExists(appName string) (caas.OperatorState, error) 
 func (m *mockBroker) DeleteOperator(appName string) error {
 	m.MethodCall(m, "DeleteOperator", appName)
 	return m.NextErr()
+}
+
+func (m *mockBroker) Operator(appName string) (*caas.Operator, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.MethodCall(m, "Operator", appName)
+	err := m.NextErr()
+	if err != nil {
+		return nil, err
+	}
+	if m.operatorExists == false {
+		return nil, errors.NotFoundf("operator %s", appName)
+	}
+	return &caas.Operator{
+		Dying:  m.terminating,
+		Config: m.config,
+	}, nil
 }
 
 type mockWatcher struct {

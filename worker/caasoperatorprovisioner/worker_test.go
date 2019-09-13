@@ -4,9 +4,11 @@
 package caasoperatorprovisioner_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -87,14 +89,14 @@ func (s *CAASProvisionerSuite) TestWorkerStarts(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, terminating bool) {
+func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, terminating, updateCerts bool) {
 	s.caasClient.setTerminating(terminating)
 	s.provisionerFacade.life = "alive"
 	s.provisionerFacade.applicationsWatcher.changes <- []string{"myapp"}
 
-	expectedCalls := 2
+	expectedCalls := 3
 	if terminating {
-		expectedCalls = 4
+		expectedCalls = 5
 	}
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		nrCalls := len(s.caasClient.Calls())
@@ -107,9 +109,9 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, terminatin
 			s.clock.Advance(4 * time.Second)
 		}
 	}
-	callNames := []string{"OperatorExists", "EnsureOperator"}
+	callNames := []string{"OperatorExists", "Operator", "EnsureOperator"}
 	if terminating {
-		callNames = []string{"OperatorExists", "OperatorExists", "OperatorExists", "EnsureOperator"}
+		callNames = []string{"OperatorExists", "OperatorExists", "OperatorExists", "Operator", "EnsureOperator"}
 	}
 	s.caasClient.CheckCallNames(c, callNames...)
 	c.Assert(s.caasClient.Calls(), gc.HasLen, expectedCalls)
@@ -118,9 +120,9 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, terminatin
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0], gc.Equals, "myapp")
 
-	ensureIndex := 1
+	ensureIndex := 2
 	if terminating {
-		ensureIndex = 3
+		ensureIndex = 4
 	}
 	args = s.caasClient.Calls()[ensureIndex].Args
 	c.Assert(args, gc.HasLen, 3)
@@ -138,19 +140,21 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, terminatin
 		Attributes:   map[string]interface{}{"key": "value"},
 	})
 
-	if !exists || terminating {
-		agentFile := filepath.Join(c.MkDir(), "agent.config")
-		err := ioutil.WriteFile(agentFile, config.AgentConf, 0644)
-		c.Assert(err, jc.ErrorIsNil)
-		cfg, err := agent.ReadConfig(agentFile)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cfg.CACert(), gc.Equals, coretesting.CACert)
-		addr, err := cfg.APIAddresses()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(addr, jc.DeepEquals, []string{"10.0.0.1:17070", "192.18.1.1:17070"})
-	} else {
-		c.Assert(config.AgentConf, gc.IsNil)
-	}
+	agentFile := filepath.Join(c.MkDir(), "agent.config")
+	err := ioutil.WriteFile(agentFile, config.AgentConf, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	cfg, err := agent.ReadConfig(agentFile)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.CACert(), gc.Equals, coretesting.CACert)
+	addr, err := cfg.APIAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr, jc.DeepEquals, []string{"10.0.0.1:17070", "192.18.1.1:17070"})
+
+	operatorInfo, err := caas.UnmarshalOperatorInfo(config.OperatorInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operatorInfo.CACert, gc.Equals, coretesting.CACert)
+	c.Assert(operatorInfo.Cert, gc.Equals, coretesting.ServerCert)
+	c.Assert(operatorInfo.PrivateKey, gc.Equals, coretesting.ServerKey)
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		if len(s.provisionerFacade.stub.Calls()) > 0 {
@@ -159,14 +163,18 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C, exists, terminatin
 	}
 
 	if exists && !terminating {
-		s.provisionerFacade.stub.CheckCallNames(c, "Life", "OperatorProvisioningInfo")
+		callNames := []string{"Life", "OperatorProvisioningInfo"}
+		if updateCerts {
+			callNames = append(callNames, "IssueOperatorCertificate")
+		}
+		s.provisionerFacade.stub.CheckCallNames(c, callNames...)
 		c.Assert(s.provisionerFacade.stub.Calls()[0].Args[0], gc.Equals, "myapp")
 		return
 	}
 
-	s.provisionerFacade.stub.CheckCallNames(c, "Life", "OperatorProvisioningInfo", "SetPasswords")
+	s.provisionerFacade.stub.CheckCallNames(c, "Life", "OperatorProvisioningInfo", "IssueOperatorCertificate", "SetPasswords")
 	c.Assert(s.provisionerFacade.stub.Calls()[0].Args[0], gc.Equals, "myapp")
-	passwords := s.provisionerFacade.stub.Calls()[2].Args[0].([]apicaasprovisioner.ApplicationPassword)
+	passwords := s.provisionerFacade.stub.Calls()[3].Args[0].([]apicaasprovisioner.ApplicationPassword)
 
 	c.Assert(passwords, gc.HasLen, 1)
 	c.Assert(passwords[0].Name, gc.Equals, "myapp")
@@ -177,15 +185,71 @@ func (s *CAASProvisionerSuite) TestNewApplicationCreatesNewOperator(c *gc.C) {
 	w := s.assertWorker(c)
 	defer workertest.CleanKill(c, w)
 
-	s.assertOperatorCreated(c, false, false)
+	s.assertOperatorCreated(c, false, false, false)
 }
 
 func (s *CAASProvisionerSuite) TestNewApplicationUpdatesOperator(c *gc.C) {
 	s.caasClient.operatorExists = true
+	s.caasClient.config = &caas.OperatorConfig{
+		OperatorImagePath: "juju-operator-image",
+		Version:           version.MustParse("2.99.0"),
+		AgentConf: []byte(fmt.Sprintf(`
+# format 2.0
+tag: application-myapp
+upgradedToVersion: 2.99.0
+controller: controller-deadbeef-1bad-500d-9000-4b1d0d06f00d
+model: model-deadbeef-0bad-400d-8000-4b1d0d06f00d
+oldpassword: wow
+cacert: %s
+apiaddresses:
+- 10.0.0.1:17070
+- 192.18.1.1:17070
+oldpassword: dxKwhgZPrNzXVTrZSxY1VLHA
+values: {}
+mongoversion: "0.0"
+`[1:], strconv.Quote(coretesting.CACert))),
+		OperatorInfo: []byte(
+			fmt.Sprintf(
+				"private-key: %s\ncert: %s\nca-cert: %s\n",
+				strconv.Quote(coretesting.ServerKey),
+				strconv.Quote(coretesting.ServerCert),
+				strconv.Quote(coretesting.CACert),
+			),
+		),
+	}
+
 	w := s.assertWorker(c)
 	defer workertest.CleanKill(c, w)
 
-	s.assertOperatorCreated(c, true, false)
+	s.assertOperatorCreated(c, true, false, false)
+}
+
+func (s *CAASProvisionerSuite) TestNewApplicationUpdatesOperatorAndIssueCerts(c *gc.C) {
+	s.caasClient.operatorExists = true
+	s.caasClient.config = &caas.OperatorConfig{
+		OperatorImagePath: "juju-operator-image",
+		Version:           version.MustParse("2.99.0"),
+		AgentConf: []byte(fmt.Sprintf(`
+# format 2.0
+tag: application-myapp
+upgradedToVersion: 2.99.0
+controller: controller-deadbeef-1bad-500d-9000-4b1d0d06f00d
+model: model-deadbeef-0bad-400d-8000-4b1d0d06f00d
+oldpassword: wow
+cacert: %s
+apiaddresses:
+- 10.0.0.1:17070
+- 192.18.1.1:17070
+oldpassword: dxKwhgZPrNzXVTrZSxY1VLHA
+values: {}
+mongoversion: "0.0"
+`[1:], strconv.Quote(coretesting.CACert))),
+	}
+
+	w := s.assertWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.assertOperatorCreated(c, true, false, true)
 }
 
 func (s *CAASProvisionerSuite) TestNewApplicationWaitsOperatorTerminated(c *gc.C) {
@@ -193,14 +257,14 @@ func (s *CAASProvisionerSuite) TestNewApplicationWaitsOperatorTerminated(c *gc.C
 	w := s.assertWorker(c)
 	defer workertest.CleanKill(c, w)
 
-	s.assertOperatorCreated(c, true, true)
+	s.assertOperatorCreated(c, true, true, false)
 }
 
 func (s *CAASProvisionerSuite) TestApplicationDeletedRemovesOperator(c *gc.C) {
 	w := s.assertWorker(c)
 	defer workertest.CleanKill(c, w)
 
-	s.assertOperatorCreated(c, false, false)
+	s.assertOperatorCreated(c, false, false, false)
 	s.caasClient.ResetCalls()
 	s.provisionerFacade.stub.SetErrors(errors.NotFoundf("myapp"))
 	s.provisionerFacade.life = "dead"

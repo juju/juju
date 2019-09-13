@@ -4,6 +4,13 @@
 package caasoperatorprovisioner_test
 
 import (
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
+	"crypto/x509"
+	"encoding/pem"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -200,4 +207,37 @@ func (s *CAASProvisionerSuite) TestAddresses(c *gc.C) {
 	_, err := s.api.APIAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c, "APIHostPortsForAgents")
+}
+
+func (s *CAASProvisionerSuite) TestIssueOperatorCertificate(c *gc.C) {
+	res, err := s.api.IssueOperatorCertificate(params.Entities{
+		Entities: []params.Entity{{Tag: "appname"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.st.CheckCallNames(c, "StateServingInfo")
+	c.Assert(res.Results, gc.HasLen, 1)
+	certInfo := res.Results[0]
+	c.Assert(certInfo.Error, gc.IsNil)
+	certBlock, rem := pem.Decode([]byte(certInfo.Cert))
+	c.Assert(rem, gc.HasLen, 0)
+	keyBlock, rem := pem.Decode([]byte(certInfo.PrivateKey))
+	c.Assert(rem, gc.HasLen, 0)
+	cert, err := x509.ParseCertificate(certBlock.Bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	roots := x509.NewCertPool()
+	ok := roots.AppendCertsFromPEM([]byte(certInfo.CACert))
+	c.Assert(ok, jc.IsTrue)
+	_, err = cert.Verify(x509.VerifyOptions{
+		DNSName: "appname",
+		Roots:   roots,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	key, err := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	toSign := []byte("hello juju")
+	hash := sha256.Sum256(toSign)
+	sig, err := rsa.SignPKCS1v15(rand.Reader, key, crypto.SHA256, hash[:])
+	c.Assert(err, jc.ErrorIsNil)
+	err = cert.CheckSignature(x509.SHA256WithRSA, toSign, sig)
+	c.Assert(err, jc.ErrorIsNil)
 }
