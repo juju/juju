@@ -31,11 +31,5 @@ func (f *opFactory) NewCommitBranchModelOp(branchName, userName string) (CommitB
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	return &commitBranchModelOp{
-		st:       f.st,
-		br:       br,
-		user:     userName,
-		settings: state.NewStateSettings(f.st),
-	}, nil
+	return NewCommitBranchModelOp(commitBranchStateShim{f.st}, br, userName, state.NewStateSettings(f.st)), nil
 }

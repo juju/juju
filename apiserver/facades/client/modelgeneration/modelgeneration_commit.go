@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate mockgen -package mocks -destination mocks/commit_mock.go github.com/juju/juju/apiserver/facades/client/modelgeneration CommitBranchModelOp,CommitBranchState,Settings,OpFactory
+//go:generate mockgen -package mocks -destination mocks/commit_mock.go github.com/juju/juju/apiserver/facades/client/modelgeneration CommitBranchModelOp,CommitBranchState,Settings,OpFactory,CommitBranchGen,CommitBranchApp
 
 // CommitBranchModelOp describes a model operation for committing a branch.
 type CommitBranchModelOp interface {
@@ -23,14 +23,37 @@ type CommitBranchModelOp interface {
 	GetModelGen() int
 }
 
+// CommitBranchGen describes a generation that can be committed.
+type CommitBranchGen interface {
+	Refresh() error
+	ValidateForCompletion() error
+	CompleteOps(assigned map[string][]string, now *time.Time, userName string) ([]txn.Op, int, error)
+	AssignedUnits() map[string][]string
+	Config() map[string]settings.ItemChanges
+}
+
+// CommitBranchApp describes an application with changes
+// under a branch that is to be committed.
+type CommitBranchApp interface {
+	UnitNames() ([]string, error)
+	CharmConfigKey() string
+}
+
 // CommitBranchState describes state operations required
 // to execute the CommitBranch operation.
 // * This allows us to indirect state at the operation level instead of the
 // * whole API level as currently done in interface.go
 type CommitBranchState interface {
-	Branch(name string) (*state.Generation, error)
-	Application(string) (*state.Application, error)
+	Application(string) (CommitBranchApp, error)
 	ControllerTimestamp() (*time.Time, error)
+}
+
+type commitBranchStateShim struct {
+	*state.State
+}
+
+func (st commitBranchStateShim) Application(name string) (CommitBranchApp, error) {
+	return st.Application(name)
 }
 
 // Settings describes methods for interacting with settings to apply
@@ -41,11 +64,22 @@ type Settings interface {
 
 type commitBranchModelOp struct {
 	st       CommitBranchState
-	br       *state.Generation
+	br       CommitBranchGen
 	user     string
-	apps     map[string]*state.Application
+	apps     map[string]CommitBranchApp
 	settings Settings
 	newGenId int
+}
+
+func NewCommitBranchModelOp(
+	st CommitBranchState, br CommitBranchGen, userName string, settings Settings,
+) CommitBranchModelOp {
+	return &commitBranchModelOp{
+		st:       st,
+		br:       br,
+		user:     userName,
+		settings: settings,
+	}
 }
 
 // Build (state.ModelOperation) creates and returns a slice of transaction
@@ -104,7 +138,7 @@ func (o *commitBranchModelOp) GetModelGen() int {
 // Retrieved applications are cached for later use.
 func (o *commitBranchModelOp) assignedWithAllUnits() (map[string][]string, error) {
 	assigned := o.br.AssignedUnits()
-	o.apps = make(map[string]*state.Application, len(assigned))
+	o.apps = make(map[string]CommitBranchApp, len(assigned))
 
 	for appName := range assigned {
 		app, err := o.st.Application(appName)

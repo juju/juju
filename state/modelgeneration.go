@@ -371,41 +371,6 @@ func (g *Generation) UpdateCharmConfig(appName string, master *Settings, validCh
 	return errors.Trace(g.st.db().Run(buildTxn))
 }
 
-// Commit marks the generation as completed and assigns it the next value from
-// the generation sequence. The new generation ID is returned.
-func (g *Generation) CompleteOps(assigned map[string][]string, now *time.Time, userName string) ([]txn.Op, int, error) {
-	var newGenId int
-
-	// Get the new sequence as late as we can.
-	// If assigned is empty, indicating no changes under this branch,
-	// then the generation ID in not incremented.
-	// This effectively means the generation is aborted, not committed.
-	if len(assigned) > 0 {
-		id, err := sequenceWithMin(g.st, "generation", 1)
-		if err != nil {
-			return nil, 0, errors.Trace(err)
-		}
-		newGenId = id
-	}
-
-	// As a proxy for checking that the generation has not changed,
-	// Assert that the txn rev-no has not changed since we materialised
-	// this generation object.
-	return []txn.Op{{
-		C:      generationsC,
-		Id:     g.doc.DocId,
-		Assert: bson.D{{"txn-revno", g.doc.TxnRevno}},
-		Update: bson.D{
-			{"$set", bson.D{
-				{"assigned-units", assigned},
-				{"completed", now.Unix()},
-				{"completed-by", userName},
-				{"generation-id", newGenId},
-			}},
-		},
-	}}, newGenId, nil
-}
-
 // Abort marks the generation as completed however no value is assigned from
 // the generation sequence.
 func (g *Generation) Abort(userName string) error {
@@ -829,4 +794,41 @@ func (change branchesCleanupChange) Prepare(db Database) ([]txn.Op, error) {
 		}
 	}
 	return ops, nil
+}
+
+// CompleteOps returns the database transaction operations required to complete
+// (commit/abort) a branch.
+// If the input assigned map is not empty, the action will be a commit and a
+// non-zero value for the new model generation will be returned.
+func (g *Generation) CompleteOps(assigned map[string][]string, now *time.Time, userName string) ([]txn.Op, int, error) {
+	var newGenId int
+
+	// Get the new sequence as late as we can.
+	// If assigned is empty, indicating no changes under this branch,
+	// then the generation ID in not incremented.
+	// This effectively means the generation is aborted, not committed.
+	if len(assigned) > 0 {
+		id, err := sequenceWithMin(g.st, "generation", 1)
+		if err != nil {
+			return nil, 0, errors.Trace(err)
+		}
+		newGenId = id
+	}
+
+	// As a proxy for checking that the generation has not changed,
+	// Assert that the txn rev-no has not changed since we materialised
+	// this generation object.
+	return []txn.Op{{
+		C:      generationsC,
+		Id:     g.doc.DocId,
+		Assert: bson.D{{"txn-revno", g.doc.TxnRevno}},
+		Update: bson.D{
+			{"$set", bson.D{
+				{"assigned-units", assigned},
+				{"completed", now.Unix()},
+				{"completed-by", userName},
+				{"generation-id", newGenId},
+			}},
+		},
+	}}, newGenId, nil
 }
