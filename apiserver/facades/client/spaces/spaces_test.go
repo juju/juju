@@ -110,27 +110,31 @@ func (s *SpacesSuite) TestNewAPIWithBacking(c *gc.C) {
 }
 
 type checkAddSpacesParams struct {
-	Name      string
-	Subnets   []string
-	Error     string
-	MakesCall bool
-	Public    bool
+	Name       string
+	Subnets    []string
+	Error      string
+	MakesCall  bool
+	Public     bool
+	ProviderId string
 }
 
 func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
-	args := params.CreateSpaceParams{}
+	arg := params.CreateSpaceParams{
+		Public:     p.Public,
+		ProviderId: p.ProviderId,
+	}
 	if p.Name != "" {
-		args.SpaceTag = "space-" + p.Name
+		arg.SpaceTag = "space-" + p.Name
 	}
-
 	if len(p.Subnets) > 0 {
-		args.CIDRs = p.Subnets
+		arg.CIDRs = p.Subnets
 	}
-	args.Public = p.Public
 
-	spaces := params.CreateSpacesParams{}
-	spaces.Spaces = append(spaces.Spaces, args)
-	results, err := s.facade.CreateSpaces(spaces)
+	args := params.CreateSpacesParams{
+		Spaces: []params.CreateSpaceParams{arg},
+	}
+
+	results, err := s.facade.CreateSpaces(args)
 
 	c.Assert(len(results.Results), gc.Equals, 1)
 	c.Assert(err, gc.IsNil)
@@ -171,7 +175,7 @@ func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 	// Only add the call to AddSpace() if there are no errors
 	// which have continued to this point.
 	if p.Error == "" {
-		allCalls = append(allCalls, apiservertesting.BackingCall("AddSpace", p.Name, network.Id(""), subnetIDs, p.Public))
+		allCalls = append(allCalls, apiservertesting.BackingCall("AddSpace", p.Name, network.Id(p.ProviderId), subnetIDs, p.Public))
 	}
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, allCalls...)
 }
@@ -212,6 +216,58 @@ func (s *SpacesSuite) TestAddSpacesManySubnets(c *gc.C) {
 	s.checkAddSpaces(c, p)
 }
 
+func (s *SpacesSuite) TestAddSpacesCreateInvalidSpace(c *gc.C) {
+	p := checkAddSpacesParams{
+		Name:    "-",
+		Subnets: []string{"10.0.0.0/24"},
+		Error:   `"space--" is not a valid space tag`,
+	}
+	s.checkAddSpaces(c, p)
+}
+
+func (s *SpacesSuite) TestAddSpacesCreateInvalidCIDR(c *gc.C) {
+	p := checkAddSpacesParams{
+		Name:    "foo",
+		Subnets: []string{"bar"},
+		Error:   `"bar" is not a valid CIDR`,
+	}
+	s.checkAddSpaces(c, p)
+}
+
+func (s *SpacesSuite) TestAddSpacesPublic(c *gc.C) {
+	p := checkAddSpacesParams{
+		Name:    "foo",
+		Subnets: []string{"10.10.0.0/24"},
+		Public:  true,
+	}
+	s.checkAddSpaces(c, p)
+}
+
+func (s *SpacesSuite) TestAddSpacesProviderId(c *gc.C) {
+	p := checkAddSpacesParams{
+		Name:       "foo",
+		Subnets:    []string{"10.10.0.0/24"},
+		ProviderId: "foobar",
+	}
+	s.checkAddSpaces(c, p)
+}
+
+func (s *SpacesSuite) TestAddSpacesEmptySpaceName(c *gc.C) {
+	p := checkAddSpacesParams{
+		Subnets: []string{"10.0.0.0/24"},
+		Error:   `"" is not a valid tag`,
+	}
+	s.checkAddSpaces(c, p)
+}
+
+func (s *SpacesSuite) TestAddSpacesNoSubnets(c *gc.C) {
+	p := checkAddSpacesParams{
+		Name:    "foo",
+		Subnets: nil,
+	}
+	s.checkAddSpaces(c, p)
+}
+
 func (s *SpacesSuite) TestAddSpacesAPIError(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(
 		nil,                                // Backing.ModelConfig()
@@ -227,6 +283,41 @@ func (s *SpacesSuite) TestAddSpacesAPIError(c *gc.C) {
 		Error:     "space-foo already exists",
 	}
 	s.checkAddSpaces(c, p)
+}
+
+func (s *SpacesSuite) TestCreateSpacesModelConfigError(c *gc.C) {
+	apiservertesting.SharedStub.SetErrors(
+		errors.New("boom"), // Backing.ModelConfig()
+	)
+
+	args := params.CreateSpacesParams{}
+	_, err := s.facade.CreateSpaces(args)
+	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
+}
+
+func (s *SpacesSuite) TestCreateSpacesProviderOpenError(c *gc.C) {
+	apiservertesting.SharedStub.SetErrors(
+		nil,                // Backing.ModelConfig()
+		nil,                // Backing.CloudSpec()
+		errors.New("boom"), // Provider.Open()
+	)
+
+	args := params.CreateSpacesParams{}
+	_, err := s.facade.CreateSpaces(args)
+	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
+}
+
+func (s *SpacesSuite) TestCreateSpacesNotSupportedError(c *gc.C) {
+	apiservertesting.SharedStub.SetErrors(
+		nil,                            // Backing.ModelConfig()
+		nil,                            // Backing.CloudSpec()
+		nil,                            // Provider.Open()
+		errors.NotSupportedf("spaces"), // ZonedNetworkingEnviron.SupportsSpaces()
+	)
+
+	args := params.CreateSpacesParams{}
+	_, err := s.facade.CreateSpaces(args)
+	c.Assert(err, gc.ErrorMatches, "spaces not supported")
 }
 
 func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
@@ -285,7 +376,7 @@ func (s *SpacesSuite) TestListSpacesSubnetsError(c *gc.C) {
 		nil,                                 // Backing.ModelConfig()
 		nil,                                 // Backing.CloudSpec()
 		nil,                                 // Provider.Open()
-		nil,                                 // ZonedNetworkingEnviron.SupportsSpaces()
+		nil,                                 // ZonedNetworkingEnviron.supportsSpaces()
 		nil,                                 // Backing.AllSpaces()
 		errors.New("space0 subnets failed"), // Space.Subnets()
 		errors.New("space1 subnets failed"), // Space.Subnets()
@@ -306,7 +397,7 @@ func (s *SpacesSuite) TestListSpacesSubnetsSingleSubnetError(c *gc.C) {
 		nil,  // Backing.ModelConfig()
 		nil,  // Backing.CloudSpec()
 		nil,  // Provider.Open()
-		nil,  // ZonedNetworkingEnviron.SupportsSpaces()
+		nil,  // ZonedNetworkingEnviron.supportsSpaces()
 		nil,  // Backing.AllSpaces()
 		nil,  // Space.Subnets() (1st no error)
 		boom, // Space.Subnets() (2nd with error)
@@ -328,7 +419,7 @@ func (s *SpacesSuite) TestListSpacesNotSupportedError(c *gc.C) {
 		nil,                            // Backing.ModelConfig()
 		nil,                            // Backing.CloudSpec()
 		nil,                            // Provider.Open
-		errors.NotSupportedf("spaces"), // ZonedNetworkingEnviron.SupportsSpaces()
+		errors.NotSupportedf("spaces"), // ZonedNetworkingEnviron.supportsSpaces()
 	)
 
 	_, err := s.facade.ListSpaces()
@@ -340,7 +431,7 @@ func (s *SpacesSuite) TestReloadSpacesNotSupportedError(c *gc.C) {
 		nil,                            // Backing.ModelConfig()
 		nil,                            // Backing.CloudSpec()
 		nil,                            // Provider.Open()
-		errors.NotSupportedf("spaces"), // ZonedNetworkingEnviron.SupportsSpaces()
+		errors.NotSupportedf("spaces"), // ZonedNetworkingEnviron.supportsSpaces()
 	)
 	err := s.facade.ReloadSpaces()
 	c.Assert(err, gc.ErrorMatches, "spaces not supported")
@@ -418,6 +509,62 @@ func (s *SpacesSuite) TestReloadSpacesUserDenied(c *gc.C) {
 	err = facade.ReloadSpaces()
 	c.Check(err, gc.ErrorMatches, "permission denied")
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)
+}
+
+func (s *SpacesSuite) TestSuppportsSpacesModelConfigError(c *gc.C) {
+	apiservertesting.SharedStub.SetErrors(
+		errors.New("boom"), // Backing.ModelConfig()
+	)
+
+	err := spaces.SupportsSpaces(apiservertesting.BackingInstance, context.NewCloudCallContext())
+	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
+}
+
+func (s *SpacesSuite) TestSuppportsSpacesEnvironNewError(c *gc.C) {
+	apiservertesting.SharedStub.SetErrors(
+		nil,                // Backing.ModelConfig()
+		nil,                // Backing.CloudSpec()
+		errors.New("boom"), // environs.New()
+	)
+
+	err := spaces.SupportsSpaces(apiservertesting.BackingInstance, context.NewCloudCallContext())
+	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
+}
+
+func (s *SpacesSuite) TestSuppportsSpacesWithoutNetworking(c *gc.C) {
+	apiservertesting.BackingInstance.SetUp(
+		c,
+		apiservertesting.StubEnvironName,
+		apiservertesting.WithoutZones,
+		apiservertesting.WithoutSpaces,
+		apiservertesting.WithoutSubnets)
+
+	err := spaces.SupportsSpaces(apiservertesting.BackingInstance, context.NewCloudCallContext())
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
+func (s *SpacesSuite) TestSuppportsSpacesWithoutSpaces(c *gc.C) {
+	apiservertesting.BackingInstance.SetUp(
+		c,
+		apiservertesting.StubNetworkingEnvironName,
+		apiservertesting.WithoutZones,
+		apiservertesting.WithoutSpaces,
+		apiservertesting.WithoutSubnets)
+
+	apiservertesting.SharedStub.SetErrors(
+		nil,                // Backing.ModelConfig()
+		nil,                // Backing.CloudSpec()
+		nil,                // environs.New()
+		errors.New("boom"), // Backing.supportsSpaces()
+	)
+
+	err := spaces.SupportsSpaces(apiservertesting.BackingInstance, context.NewCloudCallContext())
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
+func (s *SpacesSuite) TestSuppportsSpaces(c *gc.C) {
+	err := spaces.SupportsSpaces(apiservertesting.BackingInstance, context.NewCloudCallContext())
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type mockBlockChecker struct {

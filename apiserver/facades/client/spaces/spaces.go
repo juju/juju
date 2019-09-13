@@ -8,11 +8,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/permission"
@@ -20,11 +22,30 @@ import (
 )
 
 // BlockChecker defines the block-checking functionality required by
-// the application facade. This is implemented by
-// apiserver/common.BlockChecker.
+// the spaces facade. This is implemented by apiserver/common.BlockChecker.
 type BlockChecker interface {
 	ChangeAllowed() error
 	RemoveAllowed() error
+}
+
+// Backend contains the state methods used in this package.
+type Backing interface {
+	environs.EnvironConfigGetter
+
+	// ModelTag returns the tag of this model.
+	ModelTag() names.ModelTag
+
+	// Subnet return a subnet based on the given cidr.
+	Subnet(cidr string) (networkingcommon.BackingSubnet, error)
+
+	// AddSpace creates a space.
+	AddSpace(Name string, ProviderId network.Id, Subnets []string, Public bool) error
+
+	// AllSpaces returns all known Juju network spaces.
+	AllSpaces() ([]networkingcommon.BackingSpace, error)
+
+	// ReloadSpaces loads spaces from backing environ.
+	ReloadSpaces(environ environs.BootstrapEnviron) error
 }
 
 // APIv2 provides the spaces API facade for versions < 3.
@@ -44,7 +65,7 @@ type APIv4 struct {
 
 // API provides the spaces API facade for version 5.
 type API struct {
-	backing    networkingcommon.NetworkBacking
+	backing    Backing
 	resources  facade.Resources
 	authorizer facade.Authorizer
 	context    context.ProviderCallContext
@@ -82,7 +103,7 @@ func NewAPIv4(st *state.State, res facade.Resources, auth facade.Authorizer) (*A
 // NewAPI creates a new Space API server-side facade with a
 // state.State backing.
 func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (*API, error) {
-	stateShim, err := networkingcommon.NewStateShim(st)
+	stateShim, err := NewStateShim(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -92,7 +113,7 @@ func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (*API
 // newAPIWithBacking creates a new server-side Spaces API facade with
 // the given Backing.
 func newAPIWithBacking(
-	backing networkingcommon.NetworkBacking,
+	backing Backing,
 	check BlockChecker,
 	ctx context.ProviderCallContext,
 	resources facade.Resources,
@@ -124,8 +145,21 @@ func (api *API) CreateSpaces(args params.CreateSpacesParams) (results params.Err
 	if err := api.check.ChangeAllowed(); err != nil {
 		return results, errors.Trace(err)
 	}
+	if err = api.checkSupportsSpaces(); err != nil {
+		return results, common.ServerError(errors.Trace(err))
+	}
 
-	return networkingcommon.CreateSpaces(api.backing, api.context, args)
+	results.Results = make([]params.ErrorResult, len(args.Spaces))
+
+	for i, space := range args.Spaces {
+		err := api.createOneSpace(space)
+		if err == nil {
+			continue
+		}
+		results.Results[i].Error = common.ServerError(errors.Trace(err))
+	}
+
+	return results, nil
 }
 
 // CreateSpaces creates a new Juju network space, associating the
@@ -141,7 +175,7 @@ func (api *APIv4) CreateSpaces(args params.CreateSpacesParamsV4) (params.ErrorRe
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	if err := networkingcommon.SupportsSpaces(api.backing, api.context); err != nil {
+	if err := api.checkSupportsSpaces(); err != nil {
 		return params.ErrorResults{}, common.ServerError(errors.Trace(err))
 	}
 
@@ -161,7 +195,7 @@ func (api *APIv4) CreateSpaces(args params.CreateSpacesParamsV4) (params.ErrorRe
 			Public:     space.Public,
 			ProviderId: space.ProviderId,
 		}
-		err = networkingcommon.CreateOneSpace(api.backing, csParams)
+		err = api.createOneSpace(csParams)
 		if err == nil {
 			continue
 		}
@@ -169,6 +203,35 @@ func (api *APIv4) CreateSpaces(args params.CreateSpacesParamsV4) (params.ErrorRe
 	}
 
 	return results, nil
+}
+
+// createOneSpace creates one new Juju network space, associating the
+// specified subnets with it (optional; can be empty).
+func (api *API) createOneSpace(args params.CreateSpaceParams) error {
+	// Validate the args, assemble information for api.backing.AddSpaces
+	spaceTag, err := names.ParseSpaceTag(args.SpaceTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	subnetIDs := make([]string, len(args.CIDRs))
+	for i, cidr := range args.CIDRs {
+		if !network.IsValidCidr(cidr) {
+			return errors.New(fmt.Sprintf("%q is not a valid CIDR", cidr))
+		}
+		subnet, err := api.backing.Subnet(cidr)
+		if err != nil {
+			return err
+		}
+		subnetIDs[i] = subnet.ID()
+	}
+
+	// Add the validated space.
+	err = api.backing.AddSpace(spaceTag.Id(), network.Id(args.ProviderId), subnetIDs, args.Public)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func convertOldSubnetTagToCIDR(subnetTags []string) ([]string, error) {
@@ -195,7 +258,7 @@ func (api *API) ListSpaces() (results params.ListSpacesResults, err error) {
 		return results, common.ServerError(common.ErrPerm)
 	}
 
-	err = networkingcommon.SupportsSpaces(api.backing, api.context)
+	err = api.checkSupportsSpaces()
 	if err != nil {
 		return results, common.ServerError(errors.Trace(err))
 	}
@@ -248,4 +311,17 @@ func (api *API) ReloadSpaces() error {
 		return errors.Trace(err)
 	}
 	return errors.Trace(api.backing.ReloadSpaces(env))
+}
+
+// checkSupportsSpaces checks if the environment implements NetworkingEnviron
+// and also if it supports spaces.
+func (api *API) checkSupportsSpaces() error {
+	env, err := environs.GetEnviron(api.backing, environs.New)
+	if err != nil {
+		return errors.Annotate(err, "getting environ")
+	}
+	if !environs.SupportsSpaces(api.context, env) {
+		return errors.NotSupportedf("spaces")
+	}
+	return nil
 }

@@ -7,17 +7,50 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/permission"
+	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.subnets")
+
+// Backend contains the state methods used in this package.
+type Backing interface {
+	environs.EnvironConfigGetter
+
+	// AvailabilityZones returns all cached availability zones (i.e.
+	// not from the provider, but in state).
+	AvailabilityZones() ([]providercommon.AvailabilityZone, error)
+
+	// SetAvailabilityZones replaces the cached list of availability
+	// zones with the given zones.
+	SetAvailabilityZones([]providercommon.AvailabilityZone) error
+
+	// AddSubnet creates a backing subnet for an existing subnet.
+	AddSubnet(networkingcommon.BackingSubnetInfo) (networkingcommon.BackingSubnet, error)
+
+	// AllSubnets returns all backing subnets.
+	AllSubnets() ([]networkingcommon.BackingSubnet, error)
+
+	Subnet(cidr string) (networkingcommon.BackingSubnet, error)
+
+	// AllSpaces returns all known Juju network spaces.
+	AllSpaces() ([]networkingcommon.BackingSpace, error)
+
+	// ModelTag returns the tag of the model this state is associated to.
+	ModelTag() names.ModelTag
+}
 
 // APIv2 provides the subnets API facade for versions < 3.
 type APIv2 struct {
@@ -26,7 +59,7 @@ type APIv2 struct {
 
 // API provides the subnets API facade for version 3.
 type API struct {
-	backing    networkingcommon.NetworkBacking
+	backing    Backing
 	resources  facade.Resources
 	authorizer facade.Authorizer
 	context    context.ProviderCallContext
@@ -44,7 +77,7 @@ func NewAPIv2(st *state.State, res facade.Resources, auth facade.Authorizer) (*A
 // NewAPI creates a new Subnets API server-side facade with a
 // state.State backing.
 func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (*API, error) {
-	stateshim, err := networkingcommon.NewStateShim(st)
+	stateshim, err := NewStateShim(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -75,7 +108,7 @@ func (api *API) checkCanWrite() error {
 
 // newAPIWithBacking creates a new server-side Subnets API facade with
 // a common.NetworkBacking
-func newAPIWithBacking(backing networkingcommon.NetworkBacking, ctx context.ProviderCallContext, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
+func newAPIWithBacking(backing Backing, ctx context.ProviderCallContext, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
 	// Only clients can access the Subnets facade.
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -95,7 +128,7 @@ func (api *API) AllZones() (params.ZoneResults, error) {
 	if err := api.checkCanRead(); err != nil {
 		return params.ZoneResults{}, err
 	}
-	return networkingcommon.AllZones(api.context, api.backing)
+	return allZones(api.context, api.backing)
 }
 
 // AllSpaces returns the tags of all network spaces known to Juju.
@@ -126,7 +159,7 @@ func (api *API) AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, e
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
 	}
-	return networkingcommon.AddSubnets(api.context, api.backing, args)
+	return api.addSubnets(args)
 }
 
 // AddSubnets adds existing subnets to Juju.  Args are converted to
@@ -142,7 +175,26 @@ func (api *APIv2) AddSubnets(args params.AddSubnetsParamsV2) (params.ErrorResult
 		}
 		results.Results[errIndex].Error = common.ServerError(err)
 	}
-	return networkingcommon.AddSubnets(api.context, api.backing, newArgs)
+	return api.addSubnets(newArgs)
+}
+
+func (api *API) addSubnets(args params.AddSubnetsParams) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Subnets)),
+	}
+
+	if len(args.Subnets) == 0 {
+		return results, nil
+	}
+
+	cache := NewAddSubnetsCache(api.backing)
+	for i, arg := range args.Subnets {
+		err := addOneSubnet(api.context, api.backing, arg, cache)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return results, nil
 }
 
 // ListSubnets returns the matching subnets after applying
@@ -152,11 +204,45 @@ func (api *API) ListSubnets(args params.SubnetsFilters) (results params.ListSubn
 		return params.ListSubnetsResults{}, err
 	}
 
-	return networkingcommon.ListSubnets(api.backing, args)
+	subs, err := api.backing.AllSubnets()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
+	var spaceFilter string
+	if args.SpaceTag != "" {
+		tag, err := names.ParseSpaceTag(args.SpaceTag)
+		if err != nil {
+			return results, errors.Trace(err)
+		}
+		spaceFilter = tag.Id()
+	}
+	zoneFilter := args.Zone
+
+	for _, subnet := range subs {
+		if spaceFilter != "" && subnet.SpaceName() != spaceFilter {
+			logger.Tracef(
+				"filtering subnet %q from space %q not matching filter %q",
+				subnet.CIDR(), subnet.SpaceName(), spaceFilter,
+			)
+			continue
+		}
+		zoneSet := set.NewStrings(subnet.AvailabilityZones()...)
+		if zoneFilter != "" && !zoneSet.IsEmpty() && !zoneSet.Contains(zoneFilter) {
+			logger.Tracef(
+				"filtering subnet %q with zones %v not matching filter %q",
+				subnet.CIDR(), subnet.AvailabilityZones(), zoneFilter,
+			)
+			continue
+		}
+
+		results.Results = append(results.Results, networkingcommon.BackingSubnetToParamsSubnet(subnet))
+	}
+	return results, nil
 }
 
 func convertToAddSubnetsParams(old params.AddSubnetsParamsV2) (params.AddSubnetsParams, int, error) {
-	new := params.AddSubnetsParams{
+	subnetsParams := params.AddSubnetsParams{
 		Subnets: make([]params.AddSubnetParams, len(old.Subnets)),
 	}
 	for i, oldSubnet := range old.Subnets {
@@ -164,7 +250,7 @@ func convertToAddSubnetsParams(old params.AddSubnetsParamsV2) (params.AddSubnets
 		if len(split) != 2 || split[0] != "subnet" {
 			return params.AddSubnetsParams{}, i, errors.New(fmt.Sprintf("%q is not valid SubnetTag", oldSubnet.SubnetTag))
 		}
-		new.Subnets[i] = params.AddSubnetParams{
+		subnetsParams.Subnets[i] = params.AddSubnetParams{
 			CIDR:              split[1],
 			SubnetProviderId:  oldSubnet.SubnetProviderId,
 			ProviderNetworkId: oldSubnet.ProviderNetworkId,
@@ -173,5 +259,5 @@ func convertToAddSubnetsParams(old params.AddSubnetsParamsV2) (params.AddSubnets
 			Zones:             oldSubnet.Zones,
 		}
 	}
-	return new, -1, nil
+	return subnetsParams, -1, nil
 }

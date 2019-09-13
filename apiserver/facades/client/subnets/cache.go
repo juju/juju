@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package networkingcommon
+package subnets
 
 import (
 	"fmt"
@@ -10,10 +10,9 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v3"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -22,12 +21,10 @@ import (
 	providercommon "github.com/juju/juju/provider/common"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.common.networkingcommon")
-
 // addSubnetsCache holds cached lists of spaces, zones, and subnets, used for
 // fast lookups while adding subnets.
 type addSubnetsCache struct {
-	api            NetworkBacking
+	api            Backing
 	allSpaces      map[string]string    // all defined backing space names to ids
 	allZones       set.Strings          // all known provider zones
 	availableZones set.Strings          // all the available zones
@@ -39,7 +36,7 @@ type addSubnetsCache struct {
 	subnetsByProviderId map[string]*network.SubnetInfo
 }
 
-func NewAddSubnetsCache(api NetworkBacking) *addSubnetsCache {
+func NewAddSubnetsCache(api Backing) *addSubnetsCache {
 	// Empty cache initially.
 	return &addSubnetsCache{
 		api:                 api,
@@ -55,7 +52,7 @@ func NewAddSubnetsCache(api NetworkBacking) *addSubnetsCache {
 // validateSpace parses the given spaceTag and verifies it exists by looking it
 // up in the cache (or populates the cache if empty).  Returns the spaceID
 // associated with the space name given.
-func (cache *addSubnetsCache) validateSpace(spaceTag string) (string, error) {
+func (cache *addSubnetsCache) validateSpace(api Backing, spaceTag string) (string, error) {
 	if spaceTag == "" {
 		return "", errors.Errorf("SpaceTag is required")
 	}
@@ -69,7 +66,7 @@ func (cache *addSubnetsCache) validateSpace(spaceTag string) (string, error) {
 		// Not yet cached.
 		logger.Tracef("caching known spaces")
 
-		allSpaces, err := cache.api.AllSpaces()
+		allSpaces, err := api.AllSpaces()
 		if err != nil {
 			return "", errors.Annotate(err, "cannot validate given SpaceTag")
 		}
@@ -103,7 +100,7 @@ func (cache *addSubnetsCache) cacheZones(ctx context.ProviderCallContext) error 
 		return nil
 	}
 
-	allZones, err := AllZones(ctx, cache.api)
+	allZones, err := allZones(ctx, cache.api)
 	if err != nil {
 		return errors.Annotate(err, "given Zones cannot be validated")
 	}
@@ -339,13 +336,13 @@ func (cache *addSubnetsCache) validateSubnet(ctx context.ProviderCallContext, ci
 // addOneSubnet validates the given arguments, using cache for lookups
 // (initialized on first use), then adds it to the backing store, if successful.
 func addOneSubnet(
-	ctx context.ProviderCallContext, api NetworkBacking, args params.AddSubnetParams, cache *addSubnetsCache,
+	ctx context.ProviderCallContext, api Backing, args params.AddSubnetParams, cache *addSubnetsCache,
 ) error {
 	subnetInfo, err := cache.validateSubnet(ctx, args.CIDR, args.SubnetProviderId)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	spaceID, err := cache.validateSpace(args.SpaceTag)
+	spaceID, err := cache.validateSpace(api, args.SpaceTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -355,7 +352,7 @@ func addOneSubnet(
 	}
 
 	// Try adding the subnet.
-	backingInfo := BackingSubnetInfo{
+	backingInfo := networkingcommon.BackingSubnetInfo{
 		ProviderId:        subnetInfo.ProviderId,
 		ProviderNetworkId: subnetInfo.ProviderNetworkId,
 		CIDR:              subnetInfo.CIDR,
@@ -367,66 +364,6 @@ func addOneSubnet(
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-// AddSubnets adds.
-func AddSubnets(ctx context.ProviderCallContext, api NetworkBacking, args params.AddSubnetsParams) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Subnets)),
-	}
-
-	if len(args.Subnets) == 0 {
-		return results, nil
-	}
-
-	cache := NewAddSubnetsCache(api)
-	for i, arg := range args.Subnets {
-		err := addOneSubnet(ctx, api, arg, cache)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-		}
-	}
-	return results, nil
-}
-
-// ListSubnets lists all the available subnets or only those matching
-// all given optional filters.
-func ListSubnets(api NetworkBacking, args params.SubnetsFilters) (results params.ListSubnetsResults, err error) {
-	subnets, err := api.AllSubnets()
-	if err != nil {
-		return results, errors.Trace(err)
-	}
-
-	var spaceFilter string
-	if args.SpaceTag != "" {
-		tag, err := names.ParseSpaceTag(args.SpaceTag)
-		if err != nil {
-			return results, errors.Trace(err)
-		}
-		spaceFilter = tag.Id()
-	}
-	zoneFilter := args.Zone
-
-	for _, subnet := range subnets {
-		if spaceFilter != "" && subnet.SpaceName() != spaceFilter {
-			logger.Tracef(
-				"filtering subnet %q from space %q not matching filter %q",
-				subnet.CIDR(), subnet.SpaceName(), spaceFilter,
-			)
-			continue
-		}
-		zoneSet := set.NewStrings(subnet.AvailabilityZones()...)
-		if zoneFilter != "" && !zoneSet.IsEmpty() && !zoneSet.Contains(zoneFilter) {
-			logger.Tracef(
-				"filtering subnet %q with zones %v not matching filter %q",
-				subnet.CIDR(), subnet.AvailabilityZones(), zoneFilter,
-			)
-			continue
-		}
-
-		results.Results = append(results.Results, BackingSubnetToParamsSubnet(subnet))
-	}
-	return results, nil
 }
 
 // networkingEnviron returns a environs.NetworkingEnviron instance from the
@@ -444,8 +381,7 @@ func networkingEnviron(getter environs.EnvironConfigGetter) (environs.Networking
 	return nil, errors.NotSupportedf("model networking features") // " not supported"
 }
 
-// AllZones is defined on the API interface.
-func AllZones(ctx context.ProviderCallContext, api NetworkBacking) (params.ZoneResults, error) {
+func allZones(ctx context.ProviderCallContext, api Backing) (params.ZoneResults, error) {
 	var results params.ZoneResults
 
 	zonesAsString := func(zones []providercommon.AvailabilityZone) string {
@@ -487,7 +423,7 @@ func AllZones(ctx context.ProviderCallContext, api NetworkBacking) (params.ZoneR
 // updateZones attempts to retrieve all availability zones from the environment
 // provider (if supported) and then updates the persisted list of zones in
 // state, returning them as well on success.
-func updateZones(ctx context.ProviderCallContext, api NetworkBacking) ([]providercommon.AvailabilityZone, error) {
+func updateZones(ctx context.ProviderCallContext, api Backing) ([]providercommon.AvailabilityZone, error) {
 	zoned, err := zonedEnviron(api)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -506,7 +442,7 @@ func updateZones(ctx context.ProviderCallContext, api NetworkBacking) ([]provide
 // zonedEnviron returns a providercommon.ZonedEnviron instance from the current
 // model config. If the model does not support zones, an error satisfying
 // errors.IsNotSupported() will be returned.
-func zonedEnviron(api NetworkBacking) (providercommon.ZonedEnviron, error) {
+func zonedEnviron(api Backing) (providercommon.ZonedEnviron, error) {
 	env, err := environs.GetEnviron(api, environs.New)
 	if err != nil {
 		return nil, errors.Annotate(err, "opening environment")
