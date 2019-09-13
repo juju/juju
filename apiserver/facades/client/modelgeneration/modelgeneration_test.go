@@ -30,6 +30,9 @@ type modelGenerationSuite struct {
 	mockModel      *mocks.MockModel
 	mockGen        *mocks.MockGeneration
 	mockModelCache *mocks.MockModelCache
+
+	mockOpFactory *mocks.MockOpFactory
+	mockCommitOp  *mocks.MockCommitBranchModelOp
 }
 
 var _ = gc.Suite(&modelGenerationSuite{})
@@ -128,8 +131,10 @@ func (s *modelGenerationSuite) TestTrackBranchWithTooManyNumUnits(c *gc.C) {
 
 func (s *modelGenerationSuite) TestCommitBranchSuccess(c *gc.C) {
 	defer s.setupModelGenerationAPI(c).Finish()
-	s.expectCommit()
-	s.expectBranch()
+
+	s.mockOpFactory.EXPECT().NewCommitBranchModelOp(s.newBranchName, s.apiUser).Return(s.mockCommitOp, nil)
+	s.mockState.EXPECT().ApplyOperation(s.mockCommitOp).Return(nil)
+	s.mockCommitOp.EXPECT().GetModelGen().Return(3)
 
 	result, err := s.api.CommitBranch(s.newBranchArg())
 	c.Assert(err, jc.ErrorIsNil)
@@ -243,13 +248,16 @@ func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C) *gomock.Controll
 	mockAuthorizer := facademocks.NewMockAuthorizer(ctrl)
 	aExp := mockAuthorizer.EXPECT()
 	aExp.HasPermission(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
-	aExp.GetAuthTag().Return(names.NewUserTag("test-user"))
+	aExp.GetAuthTag().Return(names.NewUserTag(s.apiUser))
 	aExp.AuthClient().Return(true)
 
 	s.mockModelCache = mocks.NewMockModelCache(ctrl)
+	s.mockOpFactory = mocks.NewMockOpFactory(ctrl)
+	s.mockCommitOp = mocks.NewMockCommitBranchModelOp(ctrl)
 
 	var err error
-	s.api, err = modelgeneration.NewModelGenerationAPI(s.mockState, mockAuthorizer, s.mockModel, s.mockModelCache)
+	s.api, err = modelgeneration.NewModelGenerationAPI(
+		s.mockState, mockAuthorizer, s.mockModel, s.mockModelCache, s.mockOpFactory)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -289,10 +297,6 @@ func (s *modelGenerationSuite) expectAssignUnit(unitName string) {
 
 func (s *modelGenerationSuite) expectAbort() {
 	s.mockGen.EXPECT().Abort(s.apiUser).Return(nil)
-}
-
-func (s *modelGenerationSuite) expectCommit() {
-	s.mockGen.EXPECT().Commit(s.apiUser).Return(3, nil)
 }
 
 func (s *modelGenerationSuite) expectAssignedUnits(units []string) {
