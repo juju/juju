@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
@@ -58,10 +59,22 @@ type RelationNetworker interface {
 	Networks(relationKey string) (RelationNetworks, error)
 }
 
-const (
-	ingress = "ingress"
-	egress  = "egress"
+// RelationNetworkDirection represents a type that describes the direction of
+// the network, either ingress or egress.
+type RelationNetworkDirection string
 
+func (r RelationNetworkDirection) String() string {
+	return string(r)
+}
+
+const (
+	// IngressDirection for a ingress relation network direction
+	IngressDirection RelationNetworkDirection = "ingress"
+	// EgressDirection for a egress relation network direction
+	EgressDirection RelationNetworkDirection = "egress"
+)
+
+const (
 	// relationNetworkDefault is a default, non-override network.
 	relationNetworkDefault = relationNetworkType("default")
 
@@ -71,6 +84,24 @@ const (
 
 type relationNetworkType string
 
+// Parse the relationNetworkType from the DocID, as we don't store it anywhere
+// in the document directly. We require this when reconstructing the
+// RelationNetwork document ID on importing the document, as the label is
+// required when further down the line.
+func parseRelationNetworkTypeDocID(key string) (relationNetworkType, error) {
+	index := strings.LastIndex(key, ":")
+	if index < 0 || index+1 > len(key) {
+		return "", errors.Errorf("unexpected key %s", key)
+	}
+	switch key[index+1:] {
+	case string(relationNetworkDefault):
+		return relationNetworkDefault, nil
+	case string(relationNetworkAdmin):
+		return relationNetworkAdmin, nil
+	}
+	return "", errors.NotFoundf("relation network type %s", key)
+}
+
 type relationNetworksState struct {
 	st        *State
 	direction string
@@ -79,13 +110,13 @@ type relationNetworksState struct {
 // NewRelationIngressNetworks creates a RelationNetworks instance for ingress
 // CIDRS backed by a state.
 func NewRelationIngressNetworks(st *State) *relationNetworksState {
-	return &relationNetworksState{st: st, direction: ingress}
+	return &relationNetworksState{st: st, direction: IngressDirection.String()}
 }
 
 // RelationEgressNetworks creates a RelationNetworks instance for egress
 // CIDRS backed by a state.
 func NewRelationEgressNetworks(st *State) *relationNetworksState {
-	return &relationNetworksState{st: st, direction: egress}
+	return &relationNetworksState{st: st, direction: EgressDirection.String()}
 }
 
 func relationNetworkDocID(relationKey, direction string, label relationNetworkType) string {
@@ -187,19 +218,19 @@ func (rin *relationNetworksState) Networks(relationKey string) (RelationNetworks
 func removeRelationNetworksOps(st *State, relationKey string) []txn.Op {
 	ops := []txn.Op{{
 		C:      relationNetworksC,
-		Id:     st.docID(relationNetworkDocID(relationKey, ingress, relationNetworkAdmin)),
+		Id:     st.docID(relationNetworkDocID(relationKey, IngressDirection.String(), relationNetworkAdmin)),
 		Remove: true,
 	}, {
 		C:      relationNetworksC,
-		Id:     st.docID(relationNetworkDocID(relationKey, ingress, relationNetworkDefault)),
+		Id:     st.docID(relationNetworkDocID(relationKey, IngressDirection.String(), relationNetworkDefault)),
 		Remove: true,
 	}, {
 		C:      relationNetworksC,
-		Id:     st.docID(relationNetworkDocID(relationKey, egress, relationNetworkAdmin)),
+		Id:     st.docID(relationNetworkDocID(relationKey, EgressDirection.String(), relationNetworkAdmin)),
 		Remove: true,
 	}, {
 		C:      relationNetworksC,
-		Id:     st.docID(relationNetworkDocID(relationKey, egress, relationNetworkDefault)),
+		Id:     st.docID(relationNetworkDocID(relationKey, EgressDirection.String(), relationNetworkDefault)),
 		Remove: true,
 	}}
 	return ops

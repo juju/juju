@@ -2113,6 +2113,14 @@ func (s *MigrationImportSuite) TestImportingRelationApplicationSettings(c *gc.C)
 	err = rel.UpdateApplicationSettings(mysql, &fakeToken{}, mysqlSettings)
 	c.Assert(err, jc.ErrorIsNil)
 
+	ingress := state.NewRelationIngressNetworks(s.State)
+	_, err = ingress.Save(rel.Tag().Id(), true, []string{"1.2.3.4/24"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	egress := state.NewRelationEgressNetworks(s.State)
+	_, err = egress.Save(rel.Tag().Id(), true, []string{"5.4.3.2/24"})
+	c.Assert(err, jc.ErrorIsNil)
+
 	_, newSt := s.importModel(c, s.State)
 
 	newWordpress, err := newSt.Application("wordpress")
@@ -2134,6 +2142,16 @@ func (s *MigrationImportSuite) TestImportingRelationApplicationSettings(c *gc.C)
 	newMysqlSettings, err := newRel.ApplicationSettings(newMysql)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newMysqlSettings, gc.DeepEquals, mysqlSettings)
+
+	newIngress := state.NewRelationIngressNetworks(newSt)
+	ingressRelationNetworks, err := newIngress.Networks(newRel.Tag().Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ingressRelationNetworks.CIDRS(), jc.DeepEquals, []string{"1.2.3.4/24"})
+
+	newEgress := state.NewRelationEgressNetworks(newSt)
+	egressRelationNetworks, err := newEgress.Networks(newRel.Tag().Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(egressRelationNetworks.CIDRS(), jc.DeepEquals, []string{"5.4.3.2/24"})
 }
 
 // newModel replaces the uuid and name of the config attributes so we

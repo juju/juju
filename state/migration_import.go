@@ -1219,6 +1219,27 @@ func (i *importer) relation(rel description.Relation) error {
 		}
 	}
 
+	// Support both ingress and egress relations
+	for _, relationNetwork := range rel.RelationNetworks() {
+		relationID := relationNetwork.ID()
+		label, err := parseRelationNetworkTypeDocID(relationID)
+		if err != nil {
+			return errors.Annotatef(err, "invalid relation key %s", relationID)
+		}
+		doc := relationNetworksDoc{
+			Id:          relationNetworkDocID(dbRelation.Tag().Id(), relationNetwork.Type(), label),
+			RelationKey: relationNetwork.RelationKey(),
+			CIDRS:       relationNetwork.CIDRS(),
+		}
+
+		ops = append(ops, txn.Op{
+			C:      relationNetworksC,
+			Id:     doc.Id,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		})
+	}
+
 	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}

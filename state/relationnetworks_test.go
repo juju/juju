@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 )
 
 type relationNetworksSuite struct {
@@ -144,4 +145,62 @@ func (s *relationEgressNetworksSuite) TestCrossContanination(c *gc.C) {
 	ingress := state.NewRelationIngressNetworks(s.State)
 	_, err = ingress.Networks(s.relation.Tag().Id())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+// ParseRelationNetworkTypeDocID
+type relationNetworksTypeSuite struct {
+	testing.BaseSuite
+}
+
+var _ = gc.Suite(&relationNetworksTypeSuite{})
+
+func (*relationNetworksTypeSuite) TestParseKey(c *gc.C) {
+	testcases := []struct {
+		key      string
+		expected string
+		err      string
+	}{
+		{
+			key:      "something:something:default",
+			expected: "default",
+		},
+		{
+			key:      "something:something:override",
+			expected: "override",
+		},
+		{
+			key:      "1:override",
+			expected: "override",
+		},
+		{
+			key:      ":override",
+			expected: "override",
+		},
+		{
+			key:      "a:b:c:default",
+			expected: "default",
+		},
+		{
+			key: "a:b:c:missing",
+			err: "relation network type a:b:c:missing not found",
+		},
+		{
+			key: "",
+			err: "unexpected key ",
+		},
+		{
+			key: ":::",
+			err: "relation network type ::: not found",
+		},
+	}
+	for i, testcase := range testcases {
+		c.Logf("%d %v", i, testcase.key)
+		result, err := state.ParseRelationNetworkTypeDocID(testcase.key)
+		if testcase.err != "" {
+			c.Check(err, gc.ErrorMatches, testcase.err)
+			continue
+		}
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(string(result), gc.Equals, testcase.expected)
+	}
 }

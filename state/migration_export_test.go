@@ -872,6 +872,14 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	err = rel.UpdateApplicationSettings(mysql, &fakeToken{}, mysqlAppSettings)
 	c.Assert(err, jc.ErrorIsNil)
 
+	ingress := state.NewRelationIngressNetworks(s.State)
+	_, err = ingress.Save(rel.Tag().Id(), false, []string{"1.2.3.4/24"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	egress := state.NewRelationEgressNetworks(s.State)
+	_, err = egress.Save(rel.Tag().Id(), false, []string{"5.4.3.2/16"})
+	c.Assert(err, jc.ErrorIsNil)
+
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -905,6 +913,22 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	}
 	checkEndpoint(exEps[0], mysql_0.Name(), msEp, mysqlSettings, mysqlAppSettings)
 	checkEndpoint(exEps[1], wordpress_0.Name(), wpEp, wordpressSettings, wordpressAppSettings)
+
+	exRelNetwrk := exRel.RelationNetworks()
+	c.Assert(exRelNetwrk, gc.HasLen, 2)
+
+	checkRelationNetwork := func(
+		exRelationNetwork description.RelationNetwork,
+		cidrs []string,
+		dirType string,
+	) {
+		c.Logf("%#v", exRelationNetwork)
+		c.Check(exRelationNetwork.RelationKey(), gc.Equals, rel.Tag().Id())
+		c.Check(exRelationNetwork.CIDRS(), jc.DeepEquals, cidrs)
+		c.Check(exRelationNetwork.Type(), gc.Equals, dirType)
+	}
+	checkRelationNetwork(exRelNetwrk[0], []string{"1.2.3.4/24"}, state.IngressDirection.String())
+	checkRelationNetwork(exRelNetwrk[1], []string{"5.4.3.2/16"}, state.EgressDirection.String())
 
 	// Make sure there is a status.
 	status := exRel.Status()

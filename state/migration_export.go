@@ -1117,6 +1117,37 @@ func (e *exporter) relations() error {
 				exEndPoint.SetUnitSettings(unit.Name(), settingsDoc.Settings)
 			}
 		}
+
+		// Ensure that we get both ingress and egress relation network
+		// information for the relation.
+		key := relation.Tag().Id()
+		ingress := NewRelationIngressNetworks(e.st)
+		ingressNetworks, err := ingress.Networks(key)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Annotatef(err, "relation ingress networks")
+		}
+		if ingressNetworks != nil {
+			exRelation.AddRelationNetwork(description.RelationNetworkArgs{
+				ID:          ingressNetworks.Id(),
+				RelationKey: ingressNetworks.RelationKey(),
+				CIDRS:       ingressNetworks.CIDRS(),
+				Type:        IngressDirection.String(),
+			})
+		}
+
+		egress := NewRelationEgressNetworks(e.st)
+		egressNetworks, err := egress.Networks(key)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Annotatef(err, "relation egress networks")
+		}
+		if egressNetworks != nil {
+			exRelation.AddRelationNetwork(description.RelationNetworkArgs{
+				ID:          egressNetworks.Id(),
+				RelationKey: egressNetworks.RelationKey(),
+				CIDRS:       egressNetworks.CIDRS(),
+				Type:        EgressDirection.String(),
+			})
+		}
 	}
 	return nil
 }
