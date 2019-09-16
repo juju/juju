@@ -29,7 +29,7 @@ type listCredentialsSuite struct {
 	store              *jujuclient.MemStore
 	personalCloudsFunc func() (map[string]jujucloud.Cloud, error)
 	cloudByNameFunc    func(string) (*jujucloud.Cloud, error)
-	apiF               func(controllerName string) (cloud.ListCredentialsAPI, error)
+	apiF               func() (cloud.ListCredentialsAPI, error)
 	testAPI            *mockAPI
 }
 
@@ -58,63 +58,62 @@ func (s *listCredentialsSuite) SetUpSuite(c *gc.C) {
 
 func (s *listCredentialsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.store = &jujuclient.MemStore{
-		Credentials: map[string]jujucloud.CloudCredential{
-			"aws": {
-				DefaultRegion:     "ap-southeast-2",
-				DefaultCredential: "down",
-				AuthCredentials: map[string]jujucloud.Credential{
-					"bob": jujucloud.NewCredential(
-						jujucloud.AccessKeyAuthType,
-						map[string]string{
-							"access-key": "key",
-							"secret-key": "secret",
-						},
-					),
-					"down": jujucloud.NewCredential(
-						jujucloud.UserPassAuthType,
-						map[string]string{
-							"username": "user",
-							"password": "password",
-						},
-					),
-				},
+	s.store = jujuclient.NewMemStore()
+	s.store.Credentials = map[string]jujucloud.CloudCredential{
+		"aws": {
+			DefaultRegion:     "ap-southeast-2",
+			DefaultCredential: "down",
+			AuthCredentials: map[string]jujucloud.Credential{
+				"bob": jujucloud.NewCredential(
+					jujucloud.AccessKeyAuthType,
+					map[string]string{
+						"access-key": "key",
+						"secret-key": "secret",
+					},
+				),
+				"down": jujucloud.NewCredential(
+					jujucloud.UserPassAuthType,
+					map[string]string{
+						"username": "user",
+						"password": "password",
+					},
+				),
 			},
-			"google": {
-				AuthCredentials: map[string]jujucloud.Credential{
-					"default": jujucloud.NewCredential(
-						jujucloud.OAuth2AuthType,
-						map[string]string{
-							"client-id":    "id",
-							"client-email": "email",
-							"private-key":  "key",
-						},
-					),
-				},
+		},
+		"google": {
+			AuthCredentials: map[string]jujucloud.Credential{
+				"default": jujucloud.NewCredential(
+					jujucloud.OAuth2AuthType,
+					map[string]string{
+						"client-id":    "id",
+						"client-email": "email",
+						"private-key":  "key",
+					},
+				),
 			},
-			"azure": {
-				AuthCredentials: map[string]jujucloud.Credential{
-					"azhja": jujucloud.NewCredential(
-						jujucloud.UserPassAuthType,
-						map[string]string{
-							"application-id":       "app-id",
-							"application-password": "app-secret",
-							"subscription-id":      "subscription-id",
-							"tenant-id":            "tenant-id",
-						},
-					),
-				},
+		},
+		"azure": {
+			AuthCredentials: map[string]jujucloud.Credential{
+				"azhja": jujucloud.NewCredential(
+					jujucloud.UserPassAuthType,
+					map[string]string{
+						"application-id":       "app-id",
+						"application-password": "app-secret",
+						"subscription-id":      "subscription-id",
+						"tenant-id":            "tenant-id",
+					},
+				),
 			},
-			"mycloud": {
-				AuthCredentials: map[string]jujucloud.Credential{
-					"me": jujucloud.NewCredential(
-						jujucloud.AccessKeyAuthType,
-						map[string]string{
-							"access-key": "key",
-							"secret-key": "secret",
-						},
-					),
-				},
+		},
+		"mycloud": {
+			AuthCredentials: map[string]jujucloud.Credential{
+				"me": jujucloud.NewCredential(
+					jujucloud.AccessKeyAuthType,
+					map[string]string{
+						"access-key": "key",
+						"secret-key": "secret",
+					},
+				),
 			},
 		},
 	}
@@ -123,7 +122,7 @@ func (s *listCredentialsSuite) SetUpTest(c *gc.C) {
 			return nil, nil
 		},
 	}
-	s.apiF = func(controllerName string) (cloud.ListCredentialsAPI, error) {
+	s.apiF = func() (cloud.ListCredentialsAPI, error) {
 		return s.testAPI, nil
 	}
 }
@@ -249,13 +248,15 @@ local-credentials:
 }
 
 func (s *listCredentialsSuite) TestListAllCredentials(c *gc.C) {
+	s.store.Controllers["mycontroller"] = jujuclient.ControllerDetails{}
+	s.store.CurrentControllerName = "mycontroller"
 	s.testAPI.credentialContentsF = func(cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error) {
 		return []params.CredentialContentResult{
 			{Result: &params.ControllerCredentialInfo{Content: params.CredentialContent{Cloud: "remote-cloud", Name: "remote-name"}}},
 			{Error: common.ServerError(errors.New("kabbom"))},
 		}, nil
 	}
-	out := s.listCredentials(c)
+	out := s.listCredentials(c, "--no-prompt")
 	c.Assert(out, gc.Equals, `
 Cloud         Credentials
 remote-cloud  remote-name  

@@ -48,18 +48,24 @@ func NewAddCloudCommandForTest(
 	}
 }
 
-func NewListCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func(string) (ListCloudsAPI, error)) *listCloudsCommand {
+func NewListCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func() (ListCloudsAPI, error)) *listCloudsCommand {
 	return &listCloudsCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
 		listCloudsAPIFunc:         cloudAPI,
 	}
 }
 
-func NewShowCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func(string) (showCloudAPI, error)) *showCloudCommand {
+func NewShowCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func() (showCloudAPI, error)) *showCloudCommand {
 	return &showCloudCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
-		store:                     store,
 		showCloudAPIFunc:          cloudAPI,
+	}
+}
+
+func NewListRegionsCommandForTest(store jujuclient.ClientStore, cloudAPI func() (CloudRegionsAPI, error)) *listRegionsCommand {
+	return &listRegionsCommand{
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
+		cloudAPIFunc:              cloudAPI,
 	}
 }
 
@@ -96,7 +102,7 @@ func NewListCredentialsCommandForTest(
 	testStore jujuclient.ClientStore,
 	personalCloudsFunc func() (map[string]jujucloud.Cloud, error),
 	cloudByNameFunc func(string) (*jujucloud.Cloud, error),
-	apiF func(controllerName string) (ListCredentialsAPI, error),
+	apiF func() (ListCredentialsAPI, error),
 ) *listCredentialsCommand {
 	return &listCredentialsCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
@@ -177,7 +183,7 @@ func NewUpdateCredentialCommandForTest(testStore jujuclient.ClientStore, api Cre
 
 func NewShowCredentialCommandForTest(testStore jujuclient.ClientStore, api CredentialContentAPI) cmd.Command {
 	command := &showCredentialCommand{
-		store: testStore,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: testStore},
 		newAPIFunc: func() (CredentialContentAPI, error) {
 			return api, nil
 		},

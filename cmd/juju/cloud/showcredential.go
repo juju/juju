@@ -4,6 +4,8 @@
 package cloud
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -18,8 +20,7 @@ import (
 )
 
 type showCredentialCommand struct {
-	modelcmd.CommandBase
-	store jujuclient.ClientStore
+	modelcmd.OptionalControllerCommand
 
 	out cmd.Output
 
@@ -29,14 +30,16 @@ type showCredentialCommand struct {
 	CredentialName string
 
 	ShowSecrets bool
-	Local       bool
 }
 
 // NewShowCredentialCommand returns a command to show information about
 // credentials stored on the controller.
 func NewShowCredentialCommand() cmd.Command {
+	store := jujuclient.NewFileClientStore()
 	cmd := &showCredentialCommand{
-		store: jujuclient.NewFileClientStore(),
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
+			Store: store,
+		},
 	}
 	cmd.newAPIFunc = func() (CredentialContentAPI, error) {
 		return cmd.NewCredentialAPI()
@@ -45,13 +48,12 @@ func NewShowCredentialCommand() cmd.Command {
 }
 
 func (c *showCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CommandBase.SetFlags(f)
+	c.OptionalControllerCommand.SetFlags(f)
 	// We only support yaml for display purposes.
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 	})
 	f.BoolVar(&c.ShowSecrets, "show-secrets", false, "Display credential secret attributes")
-	f.BoolVar(&c.Local, "local", false, "Local operation only; controller credentials not shown")
 }
 
 func (c *showCredentialCommand) Init(args []string) error {
@@ -90,7 +92,7 @@ func (c *showCredentialCommand) Run(ctxt *cmd.Context) error {
 		return c.out.Write(ctxt, all)
 	}
 
-	remoteContents, err := c.remoteCredentials()
+	remoteContents, err := c.remoteCredentials(ctxt)
 	if err != nil {
 		ctxt.Infof("remote credential content lookup failed: %v", err)
 	}
@@ -102,7 +104,20 @@ func (c *showCredentialCommand) Run(ctxt *cmd.Context) error {
 	return c.out.Write(ctxt, all)
 }
 
-func (c *showCredentialCommand) remoteCredentials() ([]params.CredentialContentResult, error) {
+func (c *showCredentialCommand) remoteCredentials(ctxt *cmd.Context) ([]params.CredentialContentResult, error) {
+	if c.ControllerName == "" {
+		// The user may have specified the controller via a --controller option.
+		// If not, let's see if there is a current controller that can be detected.
+		var err error
+		c.ControllerName, err = c.MaybePromptCurrentController(ctxt, fmt.Sprintf("show credential %q for cloud %q from", c.CredentialName, c.CloudName))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	if c.ControllerName == "" {
+		return nil, errors.Errorf("Not showing credential %q for cloud %q from a controller: no controller specified.", c.CredentialName, c.CloudName)
+	}
+
 	client, err := c.newAPIFunc()
 	if err != nil {
 		return nil, err
@@ -121,7 +136,7 @@ func (c *showCredentialCommand) remoteCredentials() ([]params.CredentialContentR
 }
 
 func (c *showCredentialCommand) localCredentials(ctxt *cmd.Context) ([]params.CredentialContentResult, error) {
-	locals, err := credentialsFromLocalCache(c.store, c.CloudName, c.CredentialName)
+	locals, err := credentialsFromLocalCache(c.Store, c.CloudName, c.CredentialName)
 	if err != nil {
 		return nil, err
 	}
@@ -165,14 +180,7 @@ type CredentialContentAPI interface {
 }
 
 func (c *showCredentialCommand) NewCredentialAPI() (CredentialContentAPI, error) {
-	currentController, err := modelcmd.DetermineCurrentController(c.store)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, errors.New("there is no active controller")
-		}
-		return nil, errors.Trace(err)
-	}
-	api, err := c.NewAPIRoot(c.store, currentController, "")
+	api, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Annotate(err, "opening API connection")
 	}

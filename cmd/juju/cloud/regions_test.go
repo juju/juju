@@ -4,26 +4,58 @@
 package cloud_test
 
 import (
-	"encoding/json"
+	"io/ioutil"
 
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/testing"
 )
 
 type regionsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
+
+	api   *fakeShowCloudAPI
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&regionsSuite{})
 
+func (s *regionsSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.api = &fakeShowCloudAPI{}
+	store := jujuclient.NewMemStore()
+	store.Controllers["mycontroller"] = jujuclient.ControllerDetails{}
+	store.CurrentControllerName = "mycontroller"
+	s.store = store
+
+	data := `
+clouds:
+  kloud:
+    type: ec2
+    auth-types: [access-key]
+    endpoint: http://custom
+    regions:
+      london:
+         endpoint: "http://london/1.0"
+      paris:
+         endpoint: "http://paris/1.0"
+`[1:]
+	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *regionsSuite) TestListRegionsInvalidCloud(c *gc.C) {
-	_, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "invalid")
-	c.Assert(err, gc.ErrorMatches, "cloud invalid not found")
+	_, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "invalid", "--local")
+	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
+	c.Assert(c.GetTestLog(), jc.Contains, "cloud invalid not found")
 }
 
 func (s *regionsSuite) TestListRegionsInvalidArgs(c *gc.C) {
@@ -31,156 +63,77 @@ func (s *regionsSuite) TestListRegionsInvalidArgs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["another"\]`)
 }
 
+func (s *regionsSuite) TestListRegionsLocalOnly(c *gc.C) {
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "kloud", "--local")
+	c.Assert(err, jc.ErrorIsNil)
+	out := cmdtesting.Stdout(ctx)
+	c.Assert(out, jc.DeepEquals, "london\nparis\n\n")
+}
+
 func (s *regionsSuite) TestListRegions(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "aws")
+	s.api.cloud = jujucloud.Cloud{
+		Name:        "beehive",
+		Type:        "kubernetes",
+		Description: "Bumble Bees",
+		AuthTypes:   []jujucloud.AuthType{"userpass"},
+		Endpoint:    "http://cluster",
+		Regions: []jujucloud.Region{
+			{
+				Name:     "hive",
+				Endpoint: "http://cluster/default",
+			},
+			{
+				Name:     "mind",
+				Endpoint: "http://cluster/default",
+			},
+		},
+	}
+	aCommand := cloud.NewListRegionsCommandForTest(
+		s.store,
+		func() (cloud.CloudRegionsAPI, error) {
+			return s.api, nil
+		})
+	ctx, err := cmdtesting.RunCommand(c, aCommand, "kloud", "--no-prompt", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, jc.DeepEquals, `
-us-east-1
-us-east-2
-us-west-1
-us-west-2
-ca-central-1
-eu-west-1
-eu-west-2
-eu-west-3
-eu-central-1
-eu-north-1
-ap-east-1
-ap-south-1
-ap-southeast-1
-ap-southeast-2
-ap-northeast-1
-ap-northeast-2
-ap-northeast-3
-me-south-1
-sa-east-1
-
+local-cloud-regions:
+  london:
+    endpoint: http://london/1.0
+  paris:
+    endpoint: http://paris/1.0
+controller-cloud-regions:
+  hive:
+    endpoint: http://cluster/default
+  mind:
+    endpoint: http://cluster/default
 `[1:])
 }
 
 func (s *regionsSuite) TestListRegionsBuiltInCloud(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "localhost")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "localhost", "--local")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, jc.DeepEquals, "localhost\n\n")
 }
 
 func (s *regionsSuite) TestListRegionsYaml(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "aws", "--format", "yaml")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "kloud", "--format", "yaml", "--local")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, jc.DeepEquals, `
-us-east-1:
-  endpoint: https://ec2.us-east-1.amazonaws.com
-us-east-2:
-  endpoint: https://ec2.us-east-2.amazonaws.com
-us-west-1:
-  endpoint: https://ec2.us-west-1.amazonaws.com
-us-west-2:
-  endpoint: https://ec2.us-west-2.amazonaws.com
-ca-central-1:
-  endpoint: https://ec2.ca-central-1.amazonaws.com
-eu-west-1:
-  endpoint: https://ec2.eu-west-1.amazonaws.com
-eu-west-2:
-  endpoint: https://ec2.eu-west-2.amazonaws.com
-eu-west-3:
-  endpoint: https://ec2.eu-west-3.amazonaws.com
-eu-central-1:
-  endpoint: https://ec2.eu-central-1.amazonaws.com
-eu-north-1:
-  endpoint: https://ec2.eu-north-1.amazonaws.com
-ap-east-1:
-  endpoint: https://ec2.ap-east-1.amazonaws.com
-ap-south-1:
-  endpoint: https://ec2.ap-south-1.amazonaws.com
-ap-southeast-1:
-  endpoint: https://ec2.ap-southeast-1.amazonaws.com
-ap-southeast-2:
-  endpoint: https://ec2.ap-southeast-2.amazonaws.com
-ap-northeast-1:
-  endpoint: https://ec2.ap-northeast-1.amazonaws.com
-ap-northeast-2:
-  endpoint: https://ec2.ap-northeast-2.amazonaws.com
-ap-northeast-3:
-  endpoint: https://ec2.ap-northeast-3.amazonaws.com
-me-south-1:
-  endpoint: https://ec2.me-south-1.amazonaws.com
-sa-east-1:
-  endpoint: https://ec2.sa-east-1.amazonaws.com
+local-cloud-regions:
+  london:
+    endpoint: http://london/1.0
+  paris:
+    endpoint: http://paris/1.0
 `[1:])
 }
 
-func (s *regionsSuite) TestListGCERegions(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "google")
-	c.Assert(err, jc.ErrorIsNil)
-	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, jc.DeepEquals, `
-us-east1
-us-east4
-us-central1
-us-west1
-us-west2
-asia-east1
-asia-east2
-asia-northeast1
-asia-south1
-asia-southeast1
-australia-southeast1
-europe-north1
-europe-west1
-europe-west2
-europe-west3
-europe-west4
-northamerica-northeast1
-southamerica-east1
-
-`[1:])
-}
-
-func (s *regionsSuite) TestListGCERegionsYaml(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "google", "--format", "yaml")
-	c.Assert(err, jc.ErrorIsNil)
-	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, jc.DeepEquals, `
-us-east1:
-  endpoint: https://www.googleapis.com
-us-east4:
-  endpoint: https://www.googleapis.com
-us-central1:
-  endpoint: https://www.googleapis.com
-us-west1:
-  endpoint: https://www.googleapis.com
-us-west2:
-  endpoint: https://www.googleapis.com
-asia-east1:
-  endpoint: https://www.googleapis.com
-asia-east2:
-  endpoint: https://www.googleapis.com
-asia-northeast1:
-  endpoint: https://www.googleapis.com
-asia-south1:
-  endpoint: https://www.googleapis.com
-asia-southeast1:
-  endpoint: https://www.googleapis.com
-australia-southeast1:
-  endpoint: https://www.googleapis.com
-europe-north1:
-  endpoint: https://www.googleapis.com
-europe-west1:
-  endpoint: https://www.googleapis.com
-europe-west2:
-  endpoint: https://www.googleapis.com
-europe-west3:
-  endpoint: https://www.googleapis.com
-europe-west4:
-  endpoint: https://www.googleapis.com
-northamerica-northeast1:
-  endpoint: https://www.googleapis.com
-southamerica-east1:
-  endpoint: https://www.googleapis.com
-`[1:])
+func (s *regionsSuite) TestListNoRegionsOnController(c *gc.C) {
+	_, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "google")
+	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
+	c.Assert(c.GetTestLog(), jc.Contains, `Not listing regions for cloud "google" from a controller: no controller specified.`)
 }
 
 type regionDetails struct {
@@ -190,42 +143,7 @@ type regionDetails struct {
 }
 
 func (s *regionsSuite) TestListRegionsJson(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "azure", "--format", "json")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "kloud", "--format", "json", "--local")
 	c.Assert(err, jc.ErrorIsNil)
-	out := cmdtesting.Stdout(ctx)
-	var data map[string]regionDetails
-	err = json.Unmarshal([]byte(out), &data)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, jc.DeepEquals, map[string]regionDetails{
-		"centralus":          {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"eastus":             {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"eastus2":            {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"northcentralus":     {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"southcentralus":     {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"westcentralus":      {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"westus":             {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"westus2":            {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"northeurope":        {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"westeurope":         {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"eastasia":           {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"southeastasia":      {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"japaneast":          {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"japanwest":          {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"brazilsouth":        {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"australiaeast":      {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"australiasoutheast": {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"centralindia":       {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"southindia":         {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"westindia":          {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"canadacentral":      {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"canadaeast":         {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"uksouth":            {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"ukwest":             {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"koreacentral":       {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"koreasouth":         {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"francecentral":      {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"francesouth":        {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"southafricanorth":   {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-		"southafricawest":    {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
-	})
+	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "{\"local-cloud-regions\":{\"london\":{\"endpoint\":\"http://london/1.0\"},\"paris\":{\"endpoint\":\"http://paris/1.0\"}}}\n")
 }

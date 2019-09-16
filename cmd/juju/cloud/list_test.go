@@ -59,7 +59,7 @@ func (s *listSuite) TestListPublicLocalDefault(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stderr(ctx)
 	out = strings.Replace(out, "\n", "", -1)
-	c.Assert(out, gc.Matches, `There are no controllers running.You can bootstrap a new controller using one of these clouds:.*`)
+	c.Assert(out, gc.Matches, `No controllers were specified.You can bootstrap a new controller using one of these clouds:.*`)
 
 	// Check that we are producing the expected fields
 	out = cmdtesting.Stdout(ctx)
@@ -73,11 +73,9 @@ func (s *listSuite) TestListPublicLocalDefault(c *gc.C) {
 }
 
 func (s *listSuite) TestListController(c *gc.C) {
-	var controllerAPICalled string
 	cmd := cloud.NewListCloudCommandForTest(
 		s.store,
-		func(controllerName string) (cloud.ListCloudsAPI, error) {
-			controllerAPICalled = controllerName
+		func() (cloud.ListCloudsAPI, error) {
 			return s.api, nil
 		})
 	s.api.controllerClouds = make(map[names.CloudTag]jujucloud.Cloud)
@@ -94,23 +92,28 @@ func (s *listSuite) TestListController(c *gc.C) {
 		},
 	}
 
-	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "yaml")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "yaml", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "Clouds", "Close")
-	c.Assert(controllerAPICalled, gc.Equals, "mycontroller")
-	out := cmdtesting.Stdout(ctx)
-	out = strings.Replace(out, "\n", "", -1)
+	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
 
-	// Just check couple of snippets of the output to make sure it looks ok.
-	c.Assert(out, gc.Matches, `^beehive:.*type:\ openstack.*`)
+	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, `
+beehive:
+  defined: public
+  type: openstack
+  description: From controller "mycontroller"
+  auth-types: [userpass, access-key]
+  endpoint: http://myopenstack
+  regions:
+    regionone:
+      endpoint: http://boston/1.0
+`[1:])
 }
 
 func (s *listSuite) TestListKubernetes(c *gc.C) {
-	var controllerAPICalled string
 	cmd := cloud.NewListCloudCommandForTest(
 		s.store,
-		func(controllerName string) (cloud.ListCloudsAPI, error) {
-			controllerAPICalled = controllerName
+		func() (cloud.ListCloudsAPI, error) {
 			return s.api, nil
 		})
 	s.api.controllerClouds = make(map[names.CloudTag]jujucloud.Cloud)
@@ -130,12 +133,18 @@ func (s *listSuite) TestListKubernetes(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "Clouds", "Close")
-	c.Assert(controllerAPICalled, gc.Equals, "mycontroller")
-	out := cmdtesting.Stdout(ctx)
-	out = strings.Replace(out, "\n", "", -1)
-
-	// Just check couple of snippets of the output to make sure it looks ok.
-	c.Assert(out, gc.Matches, `^beehive:.*type:\ k8s.*`)
+	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
+	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, `
+beehive:
+  defined: public
+  type: k8s
+  description: From controller "mycontroller"
+  auth-types: [userpass]
+  endpoint: http://cluster
+  regions:
+    default:
+      endpoint: http://cluster/default
+`[1:])
 }
 
 func (s *listSuite) assertListTabular(c *gc.C, expectedOutput string) {
@@ -164,43 +173,35 @@ func (s *listSuite) assertListTabular(c *gc.C, expectedOutput string) {
 			},
 		},
 	}
-	var controllerAPICalled string
 	cmd := cloud.NewListCloudCommandForTest(
 		s.store,
-		func(controllerName string) (cloud.ListCloudsAPI, error) {
-			controllerAPICalled = controllerName
+		func() (cloud.ListCloudsAPI, error) {
 			return s.api, nil
 		})
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller", "--format", "tabular")
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "Clouds", "Close")
-	c.Assert(controllerAPICalled, gc.Equals, "mycontroller")
+	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
 
-	out := cmdtesting.Stderr(ctx)
-	out = strings.Replace(out, "\n", "", -1)
-	c.Assert(out, gc.Matches, `Clouds on controller "mycontroller":.*`)
-
-	out = cmdtesting.Stdout(ctx)
-	c.Assert(out, jc.DeepEquals, expectedOutput)
+	out := cmdtesting.Stdout(ctx)
+	c.Assert(out, jc.Contains, expectedOutput)
 }
 
 func (s *listSuite) TestListTabular(c *gc.C) {
 	s.assertListTabular(c, `
-Cloud    Regions  Default  Type       Description
-antnest        1  default  openstack  
-beehive        1  default  k8s        
-
+Cloud           Regions  Default          Type        Description
+antnest               1  default          openstack   From controller "mycontroller"
+beehive               1  default          k8s         From controller "mycontroller"
 `[1:])
 }
 
 func (s *listSuite) TestListTabularWithClientDefaultRegion(c *gc.C) {
 	s.store.Credentials["antnest"] = jujucloud.CloudCredential{DefaultRegion: "anotherregion"}
 	s.assertListTabular(c, `
-Cloud    Regions  Default        Type       Description
-antnest        1  anotherregion  openstack  
-beehive        1  default        k8s        
-
+Cloud           Regions  Default          Type        Description
+antnest               1  anotherregion    openstack   From controller "mycontroller"
+beehive               1  default          k8s         From controller "mycontroller"
 `[1:])
 }
 
@@ -220,7 +221,7 @@ clouds:
 
 	cmd := cloud.NewListCloudCommandForTest(
 		s.store,
-		func(controllerName string) (cloud.ListCloudsAPI, error) {
+		func() (cloud.ListCloudsAPI, error) {
 			c.Fail()
 			return s.api, nil
 		})

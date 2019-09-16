@@ -4,6 +4,7 @@
 package cloud
 
 import (
+	"fmt"
 	"io"
 	"sort"
 
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -30,25 +30,26 @@ type listCloudsCommand struct {
 	modelcmd.OptionalControllerCommand
 	out cmd.Output
 
-	// Used when querying a controller for its cloud details
-	controllerName    string
-	listCloudsAPIFunc func(controllerName string) (ListCloudsAPI, error)
+	listCloudsAPIFunc func() (ListCloudsAPI, error)
 }
 
 // listCloudsDoc is multi-line since we need to use ` to denote
 // commands for ease in markdown.
 var listCloudsDoc = "" +
-	"Display the fundamental properties for each cloud known to the current Juju client:\n" +
-	"name, number of regions, default region, type, and description\n" +
+	"Display the fundamental properties for each cloud:\n" +
+	"name, number of regions, default region, type, and description.\n" +
 	"\n" +
-	"The default behaviour is to show clouds available on the current controller.\n" +
-	"Another controller can specified using the --controller option. When no controllers\n" +
-	"are available, --local is implied.\n" +
+	"The default behaviour is to show clouds available locally on this client: \n" +
+	"the public clouds known to Juju out of the box,\n" +
+	"along with any which have been added with `add-cloud --local`. " +
+	"These clouds can be used to create a controller.\n" +
+	"To display clouds that are only known locally, use --local. \n" +
 	"\n" +
-	"If --local is specified, the public clouds known to Juju out of the box are displayed,\n" +
-	"along with any which have been added with `add-cloud --local`. These clouds can be\n" +
-	"used to create a controller.\n" +
-	"\n" +
+	"If a current controller is detected, the user is prompted to confirm" +
+	"if the clouds from that controller should be listed as well. " +
+	"If the current controller clouds are always desirable but the prompt is not," +
+	"use --no-prompt option.\n" +
+	"Another controller can specified using the --controller option. \n" +
 	"Clouds may be listed that are co-hosted with the Juju client.  When the LXD hypervisor\n" +
 	"is detected, the 'localhost' cloud is made available.  When a microk8s installation is\n" +
 	"detected, the 'microk8s' cloud is displayed.\n" +
@@ -59,7 +60,7 @@ var listCloudsDoc = "" +
 	"Cloud metadata sometimes changes, e.g. providers add regions. Use the `update-clouds`\n" +
 	"command to update the current Juju client.\n" +
 	"\n" +
-	"Use the `add-cloud` command to add a private cloud to the list of clouds known to the\n" +
+	"Use the `add-cloud --local` command to add a private cloud to the list of clouds known to the\n" +
 	"current Juju client.\n" +
 	"\n" +
 	"Use the `regions` command to list a cloud's regions.\n" +
@@ -79,6 +80,7 @@ Examples:
     juju clouds
     juju clouds --format yaml
     juju clouds --controller mycontroller
+    juju clouds --no-prompt
     juju clouds --local
 
 See also:
@@ -102,8 +104,7 @@ func NewListCloudsCommand() cmd.Command {
 	store := jujuclient.NewFileClientStore()
 	c := &listCloudsCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
-			Store:       store,
-			EnabledFlag: feature.MultiCloud,
+			Store: store,
 		},
 	}
 	c.listCloudsAPIFunc = c.cloudAPI
@@ -111,8 +112,8 @@ func NewListCloudsCommand() cmd.Command {
 	return modelcmd.WrapBase(c)
 }
 
-func (c *listCloudsCommand) cloudAPI(controllerName string) (ListCloudsAPI, error) {
-	root, err := c.NewAPIRoot(c.Store, controllerName, "")
+func (c *listCloudsCommand) cloudAPI() (ListCloudsAPI, error) {
+	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -138,45 +139,53 @@ func (c *listCloudsCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
-// Init populates the command with the args from the command line.
-func (c *listCloudsCommand) Init(args []string) (err error) {
-	c.ControllerName, err = c.ControllerNameFromArg()
-	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
-		return errors.Trace(err)
+func (c *listCloudsCommand) getCloudList(ctxt *cmd.Context) (*cloudList, error) {
+	var returnErr error
+	warn := func(anErr error) {
+		ctxt.Warningf("%v", anErr)
+		returnErr = cmd.ErrSilent
 	}
-	return nil
-}
+	details, err := listCloudDetails(c.Store)
+	if err != nil {
+		warn(err)
+	}
 
-func (c *listCloudsCommand) getCloudList() (*cloudList, error) {
-	if c.ControllerName == "" {
-		details, err := listCloudDetails(c.Store)
-
-		if err != nil {
-			return nil, err
+	if !c.Local && c.ControllerName != "" {
+		remotes := func() error {
+			api, err := c.listCloudsAPIFunc()
+			if err != nil {
+				return err
+			}
+			defer api.Close()
+			controllerClouds, err := api.Clouds()
+			if err != nil {
+				return err
+			}
+			for _, cloud := range controllerClouds {
+				cloudDetails := makeCloudDetails(c.Store, cloud)
+				cloudDetails.CloudDescription = fmt.Sprintf("From controller %q", c.ControllerName)
+				details.remote[cloud.Name] = cloudDetails
+			}
+			return nil
 		}
-		return details, nil
+		if err := remotes(); err != nil {
+			warn(err)
+		}
 	}
-
-	api, err := c.listCloudsAPIFunc(c.ControllerName)
-	if err != nil {
-		return nil, err
-	}
-	defer api.Close()
-	controllerClouds, err := api.Clouds()
-	if err != nil {
-		return nil, err
-	}
-	details := newCloudList()
-	for _, cloud := range controllerClouds {
-		cloudDetails := makeCloudDetails(c.Store, cloud)
-		// TODO: Better categorization than public.
-		details.public[cloud.Name] = cloudDetails
-	}
-	return details, nil
+	return details, returnErr
 }
 
 func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
-	details, err := c.getCloudList()
+	if !c.Local && c.ControllerName == "" {
+		// The user may have specified the controller via a --controller option.
+		// If not, let's see if there is a current controller that can be detected.
+		var err error
+		c.ControllerName, err = c.MaybePromptCurrentController(ctxt, "list clouds from")
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	details, err := c.getCloudList(ctxt)
 	if err != nil {
 		return err
 	}
@@ -189,28 +198,20 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 		}
 		result = clouds
 	default:
-		if c.ControllerName == "" && !c.Local {
-			ctxt.Infof(
-				"There are no controllers running.\nYou can bootstrap a new controller using one of these clouds:\n")
-		}
-		if c.ControllerName != "" {
-			ctxt.Infof(
-				"Clouds on controller %q:\n\n", c.ControllerName)
+		if c.ControllerName == "" {
+			ctxt.Infof("No controllers were specified.\nYou can bootstrap a new controller using one of these clouds:\n")
 		}
 		result = details
 	}
 
-	err = c.out.Write(ctxt, result)
-	if err != nil {
-		return err
-	}
-	return nil
+	return c.out.Write(ctxt, result)
 }
 
 type cloudList struct {
 	public   map[string]*CloudDetails
 	builtin  map[string]*CloudDetails
 	personal map[string]*CloudDetails
+	remote   map[string]*CloudDetails
 }
 
 func newCloudList() *cloudList {
@@ -218,11 +219,12 @@ func newCloudList() *cloudList {
 		make(map[string]*CloudDetails),
 		make(map[string]*CloudDetails),
 		make(map[string]*CloudDetails),
+		make(map[string]*CloudDetails),
 	}
 }
 
 func (c *cloudList) all() map[string]*CloudDetails {
-	if len(c.personal) == 0 && len(c.builtin) == 0 && len(c.public) == 0 {
+	if len(c.personal) == 0 && len(c.builtin) == 0 && len(c.public) == 0 && len(c.remote) == 0 {
 		return nil
 	}
 
@@ -236,6 +238,7 @@ func (c *cloudList) all() map[string]*CloudDetails {
 	addAll(c.public)
 	addAll(c.builtin)
 	addAll(c.personal)
+	addAll(c.remote)
 	return result
 }
 
@@ -318,10 +321,14 @@ func formatCloudsTabular(writer io.Writer, value interface{}) error {
 			w.Println(len(info.Regions), defaultRegion, displayCloudType(info.CloudType), description)
 		}
 	}
+	personalColor := ansiterm.Foreground(ansiterm.BrightBlue)
+	if len(clouds.remote) > 0 {
+		printClouds(clouds.remote, ansiterm.Foreground(ansiterm.BrightBlue))
+		personalColor = nil
+	}
 	printClouds(clouds.public, nil)
 	printClouds(clouds.builtin, nil)
-	printClouds(clouds.personal, ansiterm.Foreground(ansiterm.BrightBlue))
-
+	printClouds(clouds.personal, personalColor)
 	tw.Flush()
 	return nil
 }

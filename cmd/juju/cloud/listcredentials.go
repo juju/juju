@@ -68,14 +68,23 @@ for more information.
 Credentials denoted with an asterisk '*' are currently set as the user default
 for the given cloud.
 
-When a controller is known, either there is a 'current' controller or it was 
-specified via -c option, credentials for the current user from that controller 
-are listed as well.
+If the current controller can be detected, a user will be prompted to 
+confirm if credentials known to the controller need to be 
+listed as well. If the prompt is not needed and the credentials from 
+current controller are always to be listed, use --no-prompt option.
+
+Use --controller option to list credentials from a different controller.
+
+Use --local option to only list credentials known locally on this client.
+
+Credentials known locally on this client are always listed.
 
 Examples:
     juju credentials
     juju credentials aws
     juju credentials --format yaml --show-secrets
+    juju credentials --no-prompt
+    juju credentials --controller mycontroller
 
 See also: 
     add-credential
@@ -95,7 +104,7 @@ type listCredentialsCommand struct {
 	personalCloudsFunc func() (map[string]jujucloud.Cloud, error)
 	cloudByNameFunc    func(string) (*jujucloud.Cloud, error)
 
-	listCredentialsAPIFunc func(controllerName string) (ListCredentialsAPI, error)
+	listCredentialsAPIFunc func() (ListCredentialsAPI, error)
 }
 
 // CloudCredential contains attributes used to define credentials for a cloud.
@@ -150,8 +159,8 @@ func NewListCredentialsCommand() cmd.Command {
 	return modelcmd.WrapBase(c)
 }
 
-func (c *listCredentialsCommand) cloudAPI(controllerName string) (ListCredentialsAPI, error) {
-	root, err := c.NewAPIRoot(c.Store, controllerName, "")
+func (c *listCredentialsCommand) cloudAPI() (ListCredentialsAPI, error) {
+	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -231,13 +240,12 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 	}
 	local, err := c.localCredentials(ctxt)
 	if err != nil {
-		return err
+		ctxt.Warningf("%v", err)
 	}
 	credentials := credentialsMap{Local: local, LocalOnly: c.Local}
 	if c.Local {
 		return c.out.Write(ctxt, credentials)
 	}
-
 	credentials.Remote, err = c.remoteCredentials(ctxt)
 	if err != nil {
 		ctxt.Warningf("%v", err)
@@ -246,11 +254,23 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 }
 
 func (c *listCredentialsCommand) remoteCredentials(ctxt *cmd.Context) (map[string]CloudCredential, error) {
-	controllerName, err := c.ControllerNameFromArg()
-	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
-		return nil, errors.Trace(err)
+	if c.ControllerName == "" {
+		// The user may have specified the controller via a --controller option.
+		// If not, let's see if there is a current controller that can be detected.
+		var err error
+		cloudMsg := ""
+		if c.cloudName != "" {
+			cloudMsg = fmt.Sprintf("for cloud %q ", c.cloudName)
+		}
+		c.ControllerName, err = c.MaybePromptCurrentController(ctxt, fmt.Sprintf("list credentials %vfrom", cloudMsg))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
-	client, err := c.listCredentialsAPIFunc(controllerName)
+	if c.ControllerName == "" {
+		return nil, errors.New("Not listing credentials from a controller: no controller specified.")
+	}
+	client, err := c.listCredentialsAPIFunc()
 	if err != nil {
 		return nil, err
 	}
@@ -359,8 +379,10 @@ func formatCredentialsTabular(writer io.Writer, value interface{}) error {
 	if len(credentials.Local) == 0 {
 		fmt.Fprintln(writer, "No locally stored credentials to display.")
 	}
-	if !credentials.LocalOnly && len(credentials.Remote) == 0 {
-		fmt.Fprintln(writer, "No remotely stored credentials to display.")
+	if len(credentials.Remote) == 0 {
+		if !credentials.LocalOnly {
+			fmt.Fprintln(writer, "No remotely stored credentials to display.")
+		}
 	}
 	if len(credentials.Remote) == 0 && len(credentials.Local) == 0 {
 		return nil
@@ -400,8 +422,8 @@ func formatCredentialsTabular(writer io.Writer, value interface{}) error {
 			w.Println()
 		}
 	}
-	printGroup(credentials.Remote, nil)
-	printGroup(credentials.Local, ansiterm.Foreground(ansiterm.BrightBlue))
+	printGroup(credentials.Remote, ansiterm.Foreground(ansiterm.BrightBlue))
+	printGroup(credentials.Local, nil)
 
 	tw.Flush()
 	return nil

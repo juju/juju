@@ -73,7 +73,7 @@ func (s *ShowCredentialSuite) TestShowCredentialBadArgs(c *gc.C) {
 func (s *ShowCredentialSuite) TestShowCredentialAPIVersion(c *gc.C) {
 	s.api.v = 1
 	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
-	ctx, err := cmdtesting.RunCommand(c, cmd)
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 remote credential content lookup failed: remote credential content lookup in Juju v1 not supported
@@ -86,7 +86,7 @@ No local or remote credentials to display.
 func (s *ShowCredentialSuite) TestShowCredentialAPICallError(c *gc.C) {
 	s.api.SetErrors(errors.New("boom"), nil)
 	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
-	ctx, err := cmdtesting.RunCommand(c, cmd)
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 remote credential content lookup failed: boom
@@ -99,7 +99,7 @@ No local or remote credentials to display.
 func (s *ShowCredentialSuite) TestShowCredentialNone(c *gc.C) {
 	s.api.contents = []params.CredentialContentResult{}
 	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
-	ctx, err := cmdtesting.RunCommand(c, cmd)
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No local or remote credentials to display.\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
@@ -129,7 +129,7 @@ func (s *ShowCredentialSuite) TestShowCredentialOne(c *gc.C) {
 		},
 	}
 	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
-	ctx, err := cmdtesting.RunCommand(c, cmd, "--show-secrets")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--show-secrets", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, ``)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
@@ -206,7 +206,7 @@ func (s *ShowCredentialSuite) TestShowCredentialMany(c *gc.C) {
 		},
 	}
 	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
-	ctx, err := cmdtesting.RunCommand(c, cmd)
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "boom\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `

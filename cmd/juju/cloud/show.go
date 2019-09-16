@@ -17,7 +17,6 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -29,10 +28,9 @@ type showCloudCommand struct {
 
 	includeConfig bool
 
-	// Used when querying a controller for its cloud details
-	controllerName   string
-	store            jujuclient.ClientStore
-	showCloudAPIFunc func(controllerName string) (showCloudAPI, error)
+	showCloudAPIFunc func() (showCloudAPI, error)
+
+	configDisplayed bool
 }
 
 var showCloudDoc = `
@@ -43,10 +41,16 @@ options.
 If ‘--include-config’ is used, additional configuration (key, type, and
 description) specific to the cloud are displayed if available.
 
-If the multi-cloud feature flag is enabled, Juju shows a cloud on a controller,
-otherwise Juju shows the cloud from internal cache.
-The current controller is used unless the --controller option is specified.
-If --local is specified, Juju shows the cloud from internal cache.
+If the current controller can be detected, a user will be prompted to 
+confirm if a cloud known to the controller need to be shown as well. 
+If the prompt is not needed and the cloud from current controller is
+always to be shown, use --no-prompt option.
+
+Use --controller option to show a cloud from a different controller.
+
+Use --local option to only show a cloud known locally on this client.
+
+A cloud known locally on this client, if found, is always shown.
 
 Examples:
 
@@ -54,9 +58,11 @@ Examples:
     juju show-cloud azure-china --output ~/azure_cloud_details.txt
     juju show-cloud myopenstack --controller mycontroller
     juju show-cloud myopenstack --local
+    juju show-cloud myopenstack --no-prompt
 
 See also:
     clouds
+    add-cloud
     update-clouds
 `
 
@@ -70,16 +76,15 @@ func NewShowCloudCommand() cmd.Command {
 	store := jujuclient.NewFileClientStore()
 	c := &showCloudCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
-			Store:       store,
-			EnabledFlag: feature.MultiCloud,
+			Store: store,
 		},
 	}
 	c.showCloudAPIFunc = c.cloudAPI
 	return modelcmd.WrapBase(c)
 }
 
-func (c *showCloudCommand) cloudAPI(controllerName string) (showCloudAPI, error) {
-	root, err := c.NewAPIRoot(c.store, controllerName, "")
+func (c *showCloudCommand) cloudAPI() (showCloudAPI, error) {
+	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -102,11 +107,6 @@ func (c *showCloudCommand) Init(args []string) error {
 	default:
 		return errors.New("no cloud specified")
 	}
-	var err error
-	c.ControllerName, err = c.ControllerNameFromArg()
-	if err != nil {
-		return errors.Wrap(err, errors.New(err.Error()+"\nUse --local to query the local cache."))
-	}
 	return cmd.CheckEmpty(args[1:])
 }
 
@@ -114,44 +114,105 @@ func (c *showCloudCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "show-cloud",
 		Args:    "<cloud name>",
-		Purpose: "Shows detailed information on a cloud.",
+		Purpose: "Shows detailed information for a cloud.",
 		Doc:     showCloudDoc,
 	})
 }
 
 func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
-	var (
-		cloud *CloudDetails
-		err   error
-	)
-	if c.ControllerName == "" {
-		cloud, err = c.getLocalCloud()
-	} else {
-		cloud, err = c.getControllerCloud()
-	}
-	if err != nil {
-		return err
+	localCloud, localErr := c.getLocalCloud()
+	if c.Local && localErr != nil {
+		return localErr
 	}
 
-	displayCloud := cloud
-	displayCloud.CloudType = displayCloudType(displayCloud.CloudType)
-	if err := c.out.Write(ctxt, displayCloud); err != nil {
+	var (
+		remoteCloud *CloudDetails
+		remoteErr   error
+	)
+	if !c.Local {
+		if c.ControllerName == "" {
+			// The user may have specified the controller via a --controller option.
+			// If not, let's see if there is a current controller that can be detected.
+			c.ControllerName, remoteErr = c.MaybePromptCurrentController(ctxt, fmt.Sprintf("show cloud %q from", c.CloudName))
+		}
+		if c.ControllerName == "" && remoteErr == nil {
+			remoteErr = errors.New("Not showing a cloud from a controller: no controller specified.")
+		}
+		if remoteErr == nil {
+			remoteCloud, remoteErr = c.getControllerCloud()
+		}
+	}
+
+	var displayErr error
+	showLocalConfig := c.includeConfig
+	if !c.Local {
+		// It's possible that a local cloud named A is different to
+		// a remote cloud named A. If their types are different and we
+		// need to display config, we'd need to list each cloud type config.
+		// If the clouds' types are the same, we only need to list
+		// config once after the remote cloud information.
+		showLocalConfig = showLocalConfig && localCloud.CloudType != remoteCloud.CloudType
+	}
+	localDisplayed := ""
+	err := c.displayCloud(ctxt, localCloud,
+		fmt.Sprintf("Locally known cloud %q:\n", c.CloudName),
+		showLocalConfig, localErr)
+	if err != nil {
+		ctxt.Warningf("%v", err)
+		displayErr = cmd.ErrSilent
+	} else {
+		localDisplayed = "\n"
+	}
+	if !c.Local {
+		if err := c.displayCloud(ctxt, remoteCloud, fmt.Sprintf("%vCloud %q from controller %q:\n", localDisplayed, c.CloudName, c.ControllerName), c.includeConfig, remoteErr); err != nil {
+			ctxt.Warningf("%v", err)
+			displayErr = cmd.ErrSilent
+		}
+	}
+
+	// It's possible that a config was desired but was not display because the
+	// remote cloud erred out.
+	if c.includeConfig && !c.configDisplayed && localErr == nil {
+		if err := c.displayConfig(ctxt, localCloud.CloudType); err != nil {
+			ctxt.Warningf("%v", err)
+			displayErr = cmd.ErrSilent
+		}
+	}
+
+	return displayErr
+}
+
+func (c *showCloudCommand) displayCloud(ctxt *cmd.Context, aCloud *CloudDetails, msg string, includeConfig bool, cloudErr error) error {
+	if cloudErr != nil {
+		return cloudErr
+	}
+	fmt.Fprintln(ctxt.Stdout, msg)
+	aCloud.CloudType = displayCloudType(aCloud.CloudType)
+	if err := c.out.Write(ctxt, aCloud); err != nil {
 		return err
 	}
-	if c.includeConfig {
-		config := getCloudConfigDetails(cloud.CloudType)
-		if len(config) > 0 {
-			fmt.Fprintln(
-				ctxt.Stdout,
-				fmt.Sprintf("\nThe available config options specific to %s clouds are:", displayCloud.CloudType))
-			return c.out.Write(ctxt, config)
+	if includeConfig {
+		return c.displayConfig(ctxt, aCloud.CloudType)
+	}
+	return nil
+}
+
+func (c *showCloudCommand) displayConfig(ctxt *cmd.Context, cloudType string) error {
+	config := getCloudConfigDetails(cloudType)
+	if len(config) > 0 {
+		fmt.Fprintln(
+			ctxt.Stdout,
+			fmt.Sprintf("\nThe available config options specific to %s clouds are:", cloudType))
+		if err := c.out.Write(ctxt, config); err != nil {
+			return err
 		}
+		c.configDisplayed = true
 	}
 	return nil
 }
 
 func (c *showCloudCommand) getControllerCloud() (*CloudDetails, error) {
-	api, err := c.showCloudAPIFunc(c.ControllerName)
+	api, err := c.showCloudAPIFunc()
 	if err != nil {
 		return nil, err
 	}
