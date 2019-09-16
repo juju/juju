@@ -26,8 +26,8 @@ from utility import (
 )
 
 __metaclass__ = type
-export_one = "bundleone.yaml"
-export_two = "bundletwo.yaml"
+export_one = "./bundleone.yaml"
+export_two = "./bundletwo.yaml"
 
 log = logging.getLogger("assess_bundle_export")
 
