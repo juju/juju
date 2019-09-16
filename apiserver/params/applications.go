@@ -201,6 +201,7 @@ type ApplicationGetResults struct {
 	Constraints       constraints.Value      `json:"constraints"`
 	Series            string                 `json:"series"`
 	Channel           string                 `json:"channel"`
+	EndpointBindings  map[string]string      `json:"endpoint-bindings,omitempty"`
 }
 
 // ApplicationConfigSetArgs holds the parameters for

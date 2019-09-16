@@ -28,6 +28,7 @@ func (api *APIv5) Get(args params.ApplicationGet) (params.ApplicationGetResults,
 		return params.ApplicationGetResults{}, err
 	}
 	results.ApplicationConfig = nil
+	results.EndpointBindings = nil
 	return results, nil
 }
 
@@ -40,6 +41,7 @@ func (api *APIv4) Get(args params.ApplicationGet) (params.ApplicationGetResults,
 		return params.ApplicationGetResults{}, err
 	}
 	results.ApplicationConfig = nil
+	results.EndpointBindings = nil
 	return results, nil
 }
 
@@ -89,6 +91,10 @@ func (api *APIBase) getConfig(
 			return params.ApplicationGetResults{}, err
 		}
 	}
+	endpoints, err := app.EndpointBindings()
+	if err != nil {
+		return params.ApplicationGetResults{}, err
+	}
 	return params.ApplicationGetResults{
 		Application:       args.ApplicationName,
 		Charm:             ch.Meta().Name,
@@ -97,6 +103,7 @@ func (api *APIBase) getConfig(
 		Constraints:       cons,
 		Series:            app.Series(),
 		Channel:           string(app.Channel()),
+		EndpointBindings:  endpoints,
 	}, nil
 }
 

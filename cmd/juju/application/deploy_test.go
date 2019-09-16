@@ -2124,66 +2124,6 @@ func (s *DeployCharmStoreSuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) 
 	c.Check(err, gc.ErrorMatches, "IsMetered")
 }
 
-type ParseBindSuite struct {
-}
-
-var _ = gc.Suite(&ParseBindSuite{})
-
-func (s *ParseBindSuite) TestParseSuccessWithEmptyArgs(c *gc.C) {
-	s.checkParseOKForArgs(c, "", nil)
-}
-
-func (s *ParseBindSuite) TestParseSuccessWithEndpointsOnly(c *gc.C) {
-	s.checkParseOKForArgs(c, "foo=a bar=b", map[string]string{"foo": "a", "bar": "b"})
-}
-
-func (s *ParseBindSuite) TestParseSuccessWithApplicationDefaultSpaceOnly(c *gc.C) {
-	s.checkParseOKForArgs(c, "application-default", map[string]string{"": "application-default"})
-}
-
-func (s *ParseBindSuite) TestBindingsOrderForDefaultSpaceAndEndpointsDoesNotMatter(c *gc.C) {
-	expectedBindings := map[string]string{
-		"ep1": "sp1",
-		"ep2": "sp2",
-		"":    "sp3",
-	}
-	s.checkParseOKForArgs(c, "ep1=sp1 ep2=sp2 sp3", expectedBindings)
-	s.checkParseOKForArgs(c, "ep1=sp1 sp3 ep2=sp2", expectedBindings)
-	s.checkParseOKForArgs(c, "ep2=sp2 ep1=sp1 sp3", expectedBindings)
-	s.checkParseOKForArgs(c, "ep2=sp2 sp3 ep1=sp1", expectedBindings)
-	s.checkParseOKForArgs(c, "sp3 ep1=sp1 ep2=sp2", expectedBindings)
-	s.checkParseOKForArgs(c, "sp3 ep2=sp2 ep1=sp1", expectedBindings)
-}
-
-func (s *ParseBindSuite) TestParseFailsWithSpaceNameButNoEndpoint(c *gc.C) {
-	s.checkParseFailsForArgs(c, "=bad", "Found = without endpoint name. Use a lone space name to set the default.")
-}
-
-func (s *ParseBindSuite) TestParseFailsWithTooManyEqualsSignsInArgs(c *gc.C) {
-	s.checkParseFailsForArgs(c, "foo=bar=baz", "Found multiple = in binding. Did you forget to space-separate the binding list?")
-}
-
-func (s *ParseBindSuite) TestParseFailsWithBadSpaceName(c *gc.C) {
-	s.checkParseFailsForArgs(c, "rel1=spa#ce1", "Space name invalid.")
-}
-
-func (s *ParseBindSuite) runParseBindWithArgs(args string) (error, map[string]string) {
-	deploy := &DeployCommand{BindToSpaces: args}
-	return deploy.parseBind(), deploy.Bindings
-}
-
-func (s *ParseBindSuite) checkParseOKForArgs(c *gc.C, args string, expectedBindings map[string]string) {
-	err, parsedBindings := s.runParseBindWithArgs(args)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(parsedBindings, jc.DeepEquals, expectedBindings)
-}
-
-func (s *ParseBindSuite) checkParseFailsForArgs(c *gc.C, args string, expectedErrorSuffix string) {
-	err, parsedBindings := s.runParseBindWithArgs(args)
-	c.Check(err.Error(), gc.Equals, parseBindErrorPrefix+expectedErrorSuffix)
-	c.Check(parsedBindings, gc.IsNil)
-}
-
 type ParseMachineMapSuite struct{}
 
 var _ = gc.Suite(&ParseMachineMapSuite{})

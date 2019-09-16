@@ -1431,7 +1431,7 @@
     },
     {
         "Name": "Application",
-        "Version": 10,
+        "Version": 11,
         "Schema": {
             "type": "object",
             "properties": {
@@ -2138,6 +2138,14 @@
                         },
                         "constraints": {
                             "$ref": "#/definitions/Value"
+                        },
+                        "endpoint-bindings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
                         },
                         "series": {
                             "type": "string"
