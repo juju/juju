@@ -36,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	apimachineryversion "k8s.io/apimachinery/pkg/version"
-	// k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -196,7 +195,6 @@ func (k *kubernetesClient) GetAnnotations() k8sannotations.Annotation {
 // Version returns cluster version information.
 func (k *kubernetesClient) Version() (ver *version.Number, err error) {
 	k8sver, err := k.client().Discovery().ServerVersion()
-	logger.Criticalf("k8sver Version %#v, %+v", k8sver, err)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -208,7 +206,6 @@ func (k *kubernetesClient) Version() (ver *version.Number, err error) {
 	if ver.Minor, err = strconv.Atoi(k8sver.Minor); err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Criticalf("Version %#v, %+v", ver, err)
 	return ver, nil
 }
 
@@ -1163,8 +1160,6 @@ func (k *kubernetesClient) EnsureService(
 			_ = statusCallback(appName, status.Error, err.Error(), nil)
 		}
 	}()
-
-	logger.Criticalf("EnsureService params.Deployment -> %+v", params.Deployment)
 
 	logger.Debugf("creating/updating application %s", appName)
 	deploymentName := k.deploymentName(appName)

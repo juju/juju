@@ -262,7 +262,6 @@ func checkMinVersion(ch charm.Charm, caasVersion *version.Number) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Criticalf("MinVersion %#v, caasVersion %#v", minver, caasVersion)
 	if minver != version.Zero && minver.Compare(*caasVersion) > 0 {
 		// TODO: return a new error!!
 		return minVersionError(minver, *caasVersion)
