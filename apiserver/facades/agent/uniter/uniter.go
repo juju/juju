@@ -2412,45 +2412,16 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 	bindingsToIngressAddresses := make(map[string][]string)
 
 	if args.RelationId != nil {
-		// We're in a relation context.
-		rel, err := u.st.Relation(*args.RelationId)
-		if err != nil {
-			return params.NetworkInfoResults{}, err
-		}
-		endpoint, err := rel.Endpoint(unit.ApplicationName())
+		binding, boundSpace, ingress, egress, err := u.getRelationNetworkInfo(*args.RelationId, unit, egressSubnets)
 		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
 
-		pollPublic := unit.ShouldBeAssigned()
-		// For k8s services which may have a public
-		// address, we want to poll in case it's not ready yet.
-		if !pollPublic {
-			app, err := unit.Application()
-			if err != nil {
-				return params.NetworkInfoResults{}, err
-			}
-			cfg, err := app.ApplicationConfig()
-			if err != nil {
-				return params.NetworkInfoResults{}, err
-			}
-			svcType := cfg.GetString(k8sprovider.ServiceTypeConfigKey, "")
-			switch k8score.ServiceType(svcType) {
-			case k8score.ServiceTypeLoadBalancer, k8score.ServiceTypeExternalName:
-				pollPublic = true
-			}
-		}
-
-		boundSpace, ingress, egress, err :=
-			state.NetworksForRelation(endpoint.Name, unit, rel, egressSubnets, pollPublic)
-		if err != nil {
-			return params.NetworkInfoResults{}, err
-		}
 		spaces.Add(boundSpace)
 		if len(egress) > 0 {
-			bindingsToEgressSubnets[endpoint.Name] = egress
+			bindingsToEgressSubnets[binding] = egress
 		}
-		bindingsToIngressAddresses[endpoint.Name] = ingress
+		bindingsToIngressAddresses[binding] = ingress
 	}
 
 	var (
@@ -2534,16 +2505,55 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 	return result, nil
 }
 
+// getModelEgressSubnets returns model configuration for egress subnets.
 func (u *UniterAPI) getModelEgressSubnets() ([]string, error) {
 	model, err := u.st.Model()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	cfg, err := model.ModelConfig()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return cfg.EgressSubnets(), nil
+}
+
+// getRelationNetworkInfo returns the endpoint name, network space
+// and ingress/egress addresses for the input unit and relation ID.
+func (u *UniterAPI) getRelationNetworkInfo(
+	relationId int, unit *state.Unit, defaultEgress []string,
+) (string, string, []string, []string, error) {
+	rel, err := u.st.Relation(relationId)
+	if err != nil {
+		return "", "", nil, nil, errors.Trace(err)
+	}
+	endpoint, err := rel.Endpoint(unit.ApplicationName())
+	if err != nil {
+		return "", "", nil, nil, errors.Trace(err)
+	}
+
+	pollPublic := unit.ShouldBeAssigned()
+	// For k8s services which may have a public
+	// address, we want to poll in case it's not ready yet.
+	if !pollPublic {
+		app, err := unit.Application()
+		if err != nil {
+			return "", "", nil, nil, errors.Trace(err)
+
+		}
+		cfg, err := app.ApplicationConfig()
+		if err != nil {
+			return "", "", nil, nil, errors.Trace(err)
+		}
+		svcType := cfg.GetString(k8sprovider.ServiceTypeConfigKey, "")
+		switch k8score.ServiceType(svcType) {
+		case k8score.ServiceTypeLoadBalancer, k8score.ServiceTypeExternalName:
+			pollPublic = true
+		}
+	}
+
+	boundSpace, ingress, egress, err := state.NetworksForRelation(endpoint.Name, unit, rel, defaultEgress, pollPublic)
+	return endpoint.Name, boundSpace, ingress, egress, errors.Trace(err)
 }
 
 // WatchUnitRelations returns a StringsWatcher, for each given
