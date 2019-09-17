@@ -30,6 +30,7 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/provider/common"
 )
 
 //go:generate go run ../../../../generate/filetoconst/filetoconst.go UbuntuOVF ubuntu.ovf ovf_ubuntu.go 2017 vsphereclient
@@ -412,7 +413,12 @@ func (c *Client) createImportSpec(
 func (c *Client) selectDatastore(
 	ctx context.Context,
 	args CreateVirtualMachineParams,
-) (*mo.Datastore, error) {
+) (_ *mo.Datastore, err error) {
+	defer func() {
+		if err != nil {
+			err = common.ZoneIndependentError(err)
+		}
+	}()
 	c.logger.Debugf("Selecting datastore")
 	// Select a datastore. If the user specified one, use that. When no datastore
 	// is provided and there is only datastore accessible, use that. Otherwise return

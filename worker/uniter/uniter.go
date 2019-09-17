@@ -199,15 +199,18 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 		runListener:             uniterParams.RunListener,
 	}
 	startFunc := func() (worker.Worker, error) {
-		if err := catacomb.Invoke(catacomb.Plan{
+		plan := catacomb.Plan{
 			Site: &u.catacomb,
 			Work: func() error {
 				return u.loop(uniterParams.UnitTag)
 			},
-			Init: []worker.Worker{
-				u.leadershipTracker,
-			},
-		}); err != nil {
+		}
+		if u.modelType == model.CAAS {
+			// For CAAS models, make sure the leadership tracker is killed when the Uniter
+			// dies.
+			plan.Init = append(plan.Init, u.leadershipTracker)
+		}
+		if err := catacomb.Invoke(plan); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return u, nil
