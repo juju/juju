@@ -422,8 +422,8 @@ func formatCredentialsTabular(writer io.Writer, value interface{}) error {
 			w.Println()
 		}
 	}
-	printGroup(credentials.Remote, ansiterm.Foreground(ansiterm.BrightBlue))
-	printGroup(credentials.Local, nil)
+	printGroup(credentials.Remote, ansiterm.Foreground(ansiterm.BrightGreen))
+	printGroup(credentials.Local, ansiterm.Foreground(ansiterm.BrightBlue))
 
 	tw.Flush()
 	return nil

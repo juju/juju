@@ -321,14 +321,12 @@ func formatCloudsTabular(writer io.Writer, value interface{}) error {
 			w.Println(len(info.Regions), defaultRegion, displayCloudType(info.CloudType), description)
 		}
 	}
-	personalColor := ansiterm.Foreground(ansiterm.BrightBlue)
 	if len(clouds.remote) > 0 {
-		printClouds(clouds.remote, ansiterm.Foreground(ansiterm.BrightBlue))
-		personalColor = nil
+		printClouds(clouds.remote, ansiterm.Foreground(ansiterm.BrightGreen))
 	}
 	printClouds(clouds.public, nil)
 	printClouds(clouds.builtin, nil)
-	printClouds(clouds.personal, personalColor)
+	printClouds(clouds.personal, ansiterm.Foreground(ansiterm.BrightBlue))
 	tw.Flush()
 	return nil
 }
