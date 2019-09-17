@@ -254,17 +254,21 @@ func checkMinVersion(ch charm.Charm, caasVersion *version.Number) (err error) {
 	if minver != version.Zero && minver.Compare(jujuversion.Current) > 0 {
 		return minVersionError(minver, jujuversion.Current)
 	}
-	if caasVersion == nil {
+
+	// check caas min version.
+	charmDeployment := ch.Meta().Deployment
+	if caasVersion == nil || charmDeployment == nil || charmDeployment.MinVersion == "" {
 		return nil
 	}
-	// check caas min version.
-	minver, err = version.Parse(ch.Meta().Deployment.MinVersion)
+	minver, err = version.Parse(charmDeployment.MinVersion)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if minver != version.Zero && minver.Compare(*caasVersion) > 0 {
-		// TODO: return a new error!!
-		return minVersionError(minver, *caasVersion)
+		return errors.NewNotValid(nil, fmt.Sprintf(
+			"charm's deployment min version(%q) is higher than remote cloud version (%q)",
+			minver, caasVersion,
+		))
 	}
 	return nil
 }

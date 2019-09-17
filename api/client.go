@@ -312,7 +312,7 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool) (*ch
 		return nil, errors.Errorf("expected charm URL with local: schema, got %q", curl.String())
 	}
 
-	if err := c.validateCharmVersions(ch); err != nil {
+	if err := c.validateCharmVersion(ch); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := lxdprofile.ValidateLXDProfile(lxdCharmProfiler{Charm: ch}); err != nil {
@@ -418,13 +418,13 @@ type minJujuVersionErr struct {
 }
 
 func minVersionError(minver, jujuver version.Number) error {
-	err := errors.NewErr("charm's min version (%s) is higher than remove version (%s)",
+	err := errors.NewErr("charm's min version (%s) is higher than this juju model's version (%s)",
 		minver, jujuver)
 	err.SetLocation(1)
 	return minJujuVersionErr{&err}
 }
 
-func (c *Client) validateCharmVersions(ch charm.Charm) error {
+func (c *Client) validateCharmVersion(ch charm.Charm) error {
 	minver := ch.Meta().MinJujuVersion
 	if minver != version.Zero {
 		agentver, err := c.AgentVersion()

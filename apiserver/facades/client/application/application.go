@@ -108,7 +108,7 @@ type APIBase struct {
 
 	storagePoolManager    poolmanager.PoolManager
 	registry              storage.ProviderRegistry
-	caasBroker            caas.Broker
+	caasBroker            caasBrokerInterface
 	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error)
 }
 
@@ -178,6 +178,11 @@ func NewFacadeV10(ctx facade.Context) (*APIv10, error) {
 	return &APIv10{api}, nil
 }
 
+type caasBrokerInterface interface {
+	ValidateStorageClass(config map[string]interface{}) error
+	Version() (*version.Number, error)
+}
+
 func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 	facadeModel, err := ctx.State().Model()
 	if err != nil {
@@ -233,7 +238,7 @@ func NewAPIBase(
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
 	resources facade.Resources,
-	caasBroker caas.Broker,
+	caasBroker caasBrokerInterface,
 ) (*APIBase, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -489,7 +494,7 @@ func deployApplication(
 	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error),
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
-	caasBroker caas.Broker,
+	caasBroker caasBrokerInterface,
 ) error {
 	curl, err := charm.ParseURL(args.CharmURL)
 	if err != nil {

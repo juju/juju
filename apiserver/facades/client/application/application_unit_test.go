@@ -4,6 +4,7 @@
 package application_test
 
 import (
+	"regexp"
 	"strings"
 	"time"
 
@@ -50,12 +51,12 @@ type ApplicationSuite struct {
 	storagePoolManager *mockStoragePoolManager
 	registry           *mockStorageRegistry
 
-	storageValidator *mockStorageValidator
-	env              environs.Environ
-	blockChecker     mockBlockChecker
-	authorizer       apiservertesting.FakeAuthorizer
-	api              *application.APIv10
-	deployParams     map[string]application.DeployApplicationParams
+	caasBroker   *mockCaasBroker
+	env          environs.Environ
+	blockChecker mockBlockChecker
+	authorizer   apiservertesting.FakeAuthorizer
+	api          *application.APIv10
+	deployParams map[string]application.DeployApplicationParams
 }
 
 var _ = gc.Suite(&ApplicationSuite{})
@@ -64,7 +65,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	s.storagePoolManager = &mockStoragePoolManager{storageType: k8s.K8s_ProviderType}
 	s.registry = &mockStorageRegistry{}
-	s.storageValidator = &mockStorageValidator{}
+	s.caasBroker = &mockCaasBroker{}
 	api, err := application.NewAPIBase(
 		&s.backend,
 		&s.backend,
@@ -81,7 +82,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		s.storagePoolManager,
 		s.registry,
 		common.NewResources(),
-		s.storageValidator,
+		s.caasBroker,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = &application.APIv10{api}
@@ -701,6 +702,42 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 	c.Assert(results.Results[2].Error, gc.ErrorMatches, `"volume-baz-0" is not a valid volume tag`)
 }
 
+func (s *ApplicationSuite) TestDeployMinDeploymentVersionTooHigh(c *gc.C) {
+	s.model.modelType = state.ModelTypeCAAS
+	s.backend.charm = &mockCharm{
+		meta: &charm.Meta{
+			Deployment: &charm.Deployment{
+				DeploymentType: "stateless",
+				ServiceType:    "cluster",
+				Daemonset:      false,
+				MinVersion:     "1.99.0",
+			},
+		},
+		config: &charm.Config{
+			Options: map[string]charm.Option{
+				"stringOption": {Type: "string"},
+				"intOption":    {Type: "int", Default: int(123)},
+			},
+		},
+	}
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			NumUnits:        1,
+			Config:          map[string]string{"kubernetes-service-annotations": "a=b c="},
+			ConfigYAML:      "foo:\n  stringOption: fred\n  kubernetes-service-type: NodeIP",
+		}},
+	}
+	results, err := s.api.Deploy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(
+		results.Results[0].Error, gc.ErrorMatches,
+		regexp.QuoteMeta(`charm's deployment min version("1.99.0") is higher than remote cloud version ("1.15.0")`),
+	)
+}
+
 func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 	s.model.modelType = state.ModelTypeCAAS
 	s.backend.charm = &mockCharm{
@@ -804,7 +841,7 @@ func (s *ApplicationSuite) TestDeployCAASModelWrongOperatorStorageType(c *gc.C) 
 }
 
 func (s *ApplicationSuite) TestDeployCAASModelInvalidStorage(c *gc.C) {
-	s.storageValidator.SetErrors(errors.NotFoundf("storage class"))
+	s.caasBroker.SetErrors(errors.NotFoundf("storage class"))
 	s.model.modelType = state.ModelTypeCAAS
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{

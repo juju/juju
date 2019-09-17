@@ -1494,7 +1494,7 @@
   revision = "51fa6e26128d74e445c72d3a91af555151cc3654"
 
 [[projects]]
-  digest = "0:"
+  digest = "1:4b9a0f77ca508a9f4c69819e2c396acd0d50af1c259d8ec9cc0bffdf14b74bed"
   name = "gopkg.in/juju/charm.v6"
   packages = [
     ".",
