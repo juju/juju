@@ -345,15 +345,18 @@ func (w *pgWorker) watchForControllerChanges() (<-chan struct{}, error) {
 	}
 
 	out := make(chan struct{})
+	var notifyCh chan struct{}
 	go func() {
 		for {
 			select {
 			case <-w.catacomb.Dying():
 				return
 			case <-controllerInfoWatcher.Changes():
-				out <- struct{}{}
+				notifyCh = out
 			case <-controllerStatusWatcher.Changes():
-				out <- struct{}{}
+				notifyCh = out
+			case notifyCh <- struct{}{}:
+				notifyCh = nil
 			}
 		}
 	}()
