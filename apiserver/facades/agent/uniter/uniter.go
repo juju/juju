@@ -2386,6 +2386,11 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		return params.NetworkInfoResults{}, err
 	}
 
+	egressSubnets, err := u.getModelEgressSubnets()
+	if err != nil {
+		return params.NetworkInfoResults{}, err
+	}
+
 	result := params.NetworkInfoResults{
 		Results: make(map[string]params.NetworkInfoResult),
 	}
@@ -2393,16 +2398,7 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 	spaces := set.NewStrings()
 	bindingsToSpace := make(map[string]string)
 	bindingsToEgressSubnets := make(map[string][]string)
-	bindingsToIngressAddresses := make(map[string][]string)
 
-	model, err := u.st.Model()
-	if err != nil {
-		return params.NetworkInfoResults{}, err
-	}
-	modelCfg, err := model.ModelConfig()
-	if err != nil {
-		return params.NetworkInfoResults{}, err
-	}
 	for _, binding := range args.Bindings {
 		if boundSpace, err := unit.GetSpaceForBinding(binding); err != nil {
 			result.Results[binding] = params.NetworkInfoResult{Error: common.ServerError(err)}
@@ -2410,8 +2406,10 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 			spaces.Add(boundSpace)
 			bindingsToSpace[binding] = boundSpace
 		}
-		bindingsToEgressSubnets[binding] = modelCfg.EgressSubnets()
+		bindingsToEgressSubnets[binding] = egressSubnets
 	}
+
+	bindingsToIngressAddresses := make(map[string][]string)
 
 	if args.RelationId != nil {
 		// We're in a relation context.
@@ -2443,7 +2441,8 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 			}
 		}
 
-		boundSpace, ingress, egress, err := state.NetworksForRelation(endpoint.Name, unit, rel, modelCfg.EgressSubnets(), pollPublic)
+		boundSpace, ingress, egress, err :=
+			state.NetworksForRelation(endpoint.Name, unit, rel, egressSubnets, pollPublic)
 		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
@@ -2533,6 +2532,18 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 	}
 
 	return result, nil
+}
+
+func (u *UniterAPI) getModelEgressSubnets() ([]string, error) {
+	model, err := u.st.Model()
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := model.ModelConfig()
+	if err != nil {
+		return nil, err
+	}
+	return cfg.EgressSubnets(), nil
 }
 
 // WatchUnitRelations returns a StringsWatcher, for each given
