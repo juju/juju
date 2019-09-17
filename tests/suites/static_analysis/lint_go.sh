@@ -12,7 +12,8 @@ run_func_vet() {
 run_dep_check() {
   OUT=$(dep check 2>&1 || true)
   if [ -n "${OUT}" ]; then
-    printf "\\nFound some issues"
+    echo ""
+    echo "$(red 'Found some issues:')"
     echo "\\n${OUT}" >&2
     exit 1
   fi
@@ -21,7 +22,8 @@ run_dep_check() {
 run_go_vet() {
   OUT=$(go vet -composites=false ./... 2>&1 || true)
   if [ -n "${OUT}" ]; then
-    printf "\\nFound some issues"
+    echo ""
+    echo "$(red 'Found some issues:')"
     echo "\\n${OUT}" >&2
     exit 1
   fi
@@ -30,7 +32,8 @@ run_go_vet() {
 run_go_lint() {
   OUT=$(golint -set_exit_status ./ 2>&1 || true)
   if [ -n "${OUT}" ]; then
-    printf "\\nFound some issues"
+    echo ""
+    echo "$(red 'Found some issues:')"
     echo "\\n${OUT}" >&2
     exit 1
   fi
@@ -39,7 +42,8 @@ run_go_lint() {
 run_deadcode() {
   OUT=$(deadcode ./ 2>&1 || true)
   if [ -n "${OUT}" ]; then
-    printf "\\nFound some issues"
+    echo ""
+    echo "$(red 'Found some issues:')"
     echo "\\n${OUT}" >&2
     exit 1
   fi
@@ -49,7 +53,8 @@ run_misspell() {
   FILES=${2}
   OUT=$(misspell -source=go 2>/dev/null "${FILES}" || true)
   if [ -n "${OUT}" ]; then
-    printf "\\nFound some issues"
+    echo ""
+    echo "$(red 'Found some issues:')"
     echo "${OUT}"
     exit 1
   fi
@@ -58,7 +63,8 @@ run_misspell() {
 run_ineffassign() {
   OUT=$(ineffassign ./ | grep -v "_test.go" | sed -E "s/^(.+src\\/github\\.com\\/juju\\/juju\\/)(.+)/\2/")
   if [ -n "${OUT}" ]; then
-    printf "\\nFound some issues"
+    echo ""
+    echo "$(red 'Found some issues:')"
     echo "${OUT}"
     exit 1
   fi
@@ -69,7 +75,8 @@ run_go_fmt() {
   OUT=$(echo "${FILES}" | xargs gofmt -l -s)
   if [ -n "${OUT}" ]; then
     OUT=$(echo "${OUT}" | sed "s/^/  /")
-    printf "\\nFound some issues"
+    echo ""
+    echo "$(red 'Found some issues:')"
     for ITEM in ${OUT}; do
       echo "gofmt -s -w ${ITEM}"
     done

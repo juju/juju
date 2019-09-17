@@ -36,7 +36,7 @@ show_help() {
     echo ""
     echo "Usage:"
     echo "¯¯¯¯¯¯"
-    echo "cmd [-h] [-vV] [-s test] [-a file] [x file]"
+    echo "cmd [-h] [-vV] [-s test] [-a file] [-x file] [-r reuse] [-p provider type <lxd|aws>]"
     echo ""
     echo "    $(green 'cmd -h')        Display this help message"
     echo "    $(green 'cmd -v')        Verbose and debug messages"
@@ -44,6 +44,8 @@ show_help() {
     echo "    $(green 'cmd -s')        Skip tests using a comma seperated list"
     echo "    $(green 'cmd -a')        Create an atifact file"
     echo "    $(green 'cmd -x')        Output file from streaming the output"
+    echo "    $(green 'cmd -r')        Reuse bootstrapped controller"
+    echo "    $(green 'cmd -p')        Bootstrap provider to use when bootstrapping <lxd|aws>"
     echo ""
     echo "Tests:"
     echo "¯¯¯¯¯¯"
@@ -101,6 +103,14 @@ while getopts "h?:vVsax" opt; do
         ;;
     x)
         OUTPUT_FILE="${2}"
+        shift 2
+        ;;
+    r)
+        export BOOTSTRAP_REUSE="true"
+        shift
+        ;;
+    p)
+        export BOOTSTRAP_PROVIDER="${2}"
         shift 2
         ;;
     *)

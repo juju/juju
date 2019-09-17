@@ -1,13 +1,14 @@
 run_deploy() {
     echo
 
-    file="${TEST_DIR}/smoke-test-deploy.txt"
+    file="${2}"
 
     ensure "smoke-test-deploy" "${file}"
 
     CHK=$(cat "${file}" | grep -i "ERROR" || true)
     if [ -n "${CHK}" ]; then
-        printf "\\nFound some issues"
+        echo ""
+        echo "$(red 'Found some issues:')"
         cat "${file}" | xargs echo -I % "\\n%"
         exit 1
     fi
@@ -24,7 +25,9 @@ test_deploy() {
     (
         set_verbosity
 
+        file="${1}"
+
         # Check that deploy runs on LXD
-        run "run_deploy"
+        run "run_deploy" "${file}"
     )
 }

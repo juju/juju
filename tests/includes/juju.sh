@@ -44,6 +44,7 @@ bootstrap() {
         unset BOOTSTRAP_REUSE
     fi
 
+    START_TIME=$(date +%s)
     if [ -n "${BOOTSTRAP_REUSE}" ]; then
         echo "====> Reusing bootstrapped juju"
 
@@ -60,8 +61,9 @@ bootstrap() {
         echo "====> Bootstrapping juju"
         juju_bootstrap "${provider}" "${name}" "${model}" "${output}"
     fi
+    END_TIME=$(date +%s)
 
-    echo "====> Bootstrapped juju"
+    echo "====> Bootstrapped juju ($((END_TIME-START_TIME))s)"
 
     export BOOTSTRAPPED_JUJU_CTRL_NAME="${name}"
 }

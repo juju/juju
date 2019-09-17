@@ -3,7 +3,8 @@ run_schema() {
     TMP=$(mktemp /tmp/schema-XXXXX)
     OUT=$(make SCHEMA_PATH="${TMP}" rebuild-schema 2>&1)
     if [ "${OUT}" != "Generating facade schema..." ]; then
-        printf "\\Found some issues:"
+        echo ""
+        echo "$(red 'Found some issues:')"
         echo "${OUT}"
         exit 1
     fi

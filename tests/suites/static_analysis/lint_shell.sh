@@ -1,7 +1,8 @@
 run_shellcheck() {
   OUT=$(shellcheck --shell sh tests/*.sh tests/includes/*.sh tests/suites/**/*.sh 2>&1 || true)
   if [ -n "${OUT}" ]; then
-    printf "\\nFound some typos"
+    echo ""
+    echo "$(red 'Found some issues:')"
     echo "${OUT}"
     exit 1
   fi
@@ -10,7 +11,10 @@ run_shellcheck() {
 run_whitespace() {
   OUT=$(grep -Pr '\t' tests/ | grep '\.sh:' || true)
   if [ -n "${OUT}" ]; then
-    echo "\\nERROR: mixed tabs and spaces in script: ${OUT}"
+    echo ""
+    echo "$(red 'Found some issues:')"
+    echo "mixed tabs and spaces in script"
+    echo "${OUT}"
     exit 1
   fi
 }
@@ -18,7 +22,10 @@ run_whitespace() {
 run_trailing_whitespace() {
   OUT=$(grep -r " $" tests/ | grep '\.sh:' || true)
   if [ -n "${OUT}" ]; then
-    echo "\\nERROR: trailing whitespace in script: ${OUT}"
+    echo ""
+    echo "$(red 'Found some issues:')"
+    echo "trailing whitespace in script"
+    echo "${OUT}"
     exit 1
   fi
 }

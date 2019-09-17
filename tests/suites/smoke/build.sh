@@ -1,7 +1,8 @@
 run_build() {
-    OUT=$(make go-build)
+    OUT=$(make go-build 2>&1 || true)
     if [ -n "${OUT}" ]; then
-        printf "\\nFound some issues"
+        echo ""
+        echo "$(red 'Found some issues:')"
         echo "\\n${OUT}"
         exit 1
     fi
