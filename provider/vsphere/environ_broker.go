@@ -232,6 +232,7 @@ func (env *sessionEnviron) newRawInstance(
 		UpdateProgressInterval: updateProgressInterval,
 		Clock:                  clock.WallClock,
 		EnableDiskUUID:         env.ecfg.enableDiskUUID(),
+		IsBootstrap:            args.InstanceConfig.Bootstrap != nil,
 	}
 
 	// Attempt to create a VM in each of the AZs in turn.
@@ -244,7 +245,7 @@ func (env *sessionEnviron) newRawInstance(
 	createVMArgs.ComputeResource = &availZone.r
 	createVMArgs.ResourcePool = availZone.pool.Reference()
 
-	vm, err := env.client.CreateVirtualMachine(env.ctx, createVMArgs)
+	vm, err := env.client.CreateVirtualMachine(env.ctx, vsphereclient.AcquireMutex, createVMArgs)
 	if vsphereclient.IsExtendDiskError(err) {
 		// Ensure we don't try to make the same extension across
 		// different resource groups.

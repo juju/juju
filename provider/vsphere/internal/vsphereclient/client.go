@@ -63,7 +63,7 @@ type Client struct {
 }
 
 // Dial dials a new vSphere client connection using the given URL,
-// scoped to the specified dataceter. The resulting Client's Close
+// scoped to the specified datacenter. The resulting Client's Close
 // method must be called in order to release resources allocated by
 // Dial.
 func Dial(
