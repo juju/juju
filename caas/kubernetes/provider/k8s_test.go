@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 
@@ -1445,6 +1446,21 @@ password: shhhh`[1:],
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestVersion(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockDiscovery.EXPECT().ServerVersion().Times(1).Return(&k8sversion.Info{
+			Major: "1", Minor: "15",
+		}, nil),
+	)
+
+	ver, err := s.broker.Version()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ver, gc.DeepEquals, &version.Number{Major: 1, Minor: 15})
 }
 
 func (s *K8sBrokerSuite) TestEnsureServiceWithConfigMapAndSecretsUpdate(c *gc.C) {

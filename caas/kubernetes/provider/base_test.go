@@ -70,6 +70,8 @@ type BaseSuite struct {
 	mockRoleBindings        *mocks.MockRoleBindingInterface
 	mockClusterRoleBindings *mocks.MockClusterRoleBindingInterface
 
+	mockDiscovery *mocks.MockDiscoveryInterface
+
 	watchers []*provider.KubernetesWatcher
 }
 
@@ -223,6 +225,9 @@ func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller, namespa
 	mockRbacV1.EXPECT().RoleBindings(namespace).AnyTimes().Return(s.mockRoleBindings)
 	s.mockClusterRoleBindings = mocks.NewMockClusterRoleBindingInterface(ctrl)
 	mockRbacV1.EXPECT().ClusterRoleBindings().AnyTimes().Return(s.mockClusterRoleBindings)
+
+	s.mockDiscovery = mocks.NewMockDiscoveryInterface(ctrl)
+	s.k8sClient.EXPECT().Discovery().AnyTimes().Return(s.mockDiscovery)
 
 	return func(cfg *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error) {
 		c.Assert(cfg.Username, gc.Equals, "fred")
