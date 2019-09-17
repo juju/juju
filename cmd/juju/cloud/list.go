@@ -145,7 +145,7 @@ func (c *listCloudsCommand) getCloudList(ctxt *cmd.Context) (*cloudList, error) 
 		ctxt.Warningf("%v", anErr)
 		returnErr = cmd.ErrSilent
 	}
-	details, err := listCloudDetails(c.Store)
+	details, err := listLocalCloudDetails(c.Store)
 	if err != nil {
 		warn(err)
 	}
@@ -242,7 +242,7 @@ func (c *cloudList) all() map[string]*CloudDetails {
 	return result
 }
 
-func listCloudDetails(store jujuclient.CredentialGetter) (*cloudList, error) {
+func listLocalCloudDetails(store jujuclient.CredentialGetter) (*cloudList, error) {
 	clouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
 	if err != nil {
 		return nil, errors.Trace(err)

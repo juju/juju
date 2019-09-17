@@ -332,7 +332,7 @@ func getCloudConfigDetails(cloudType string) map[string]interface{} {
 
 // GetAllCloudDetails returns a list of all cloud details.
 func GetAllCloudDetails(store jujuclient.CredentialGetter) (map[string]*CloudDetails, error) {
-	result, err := listCloudDetails(store)
+	result, err := listLocalCloudDetails(store)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
