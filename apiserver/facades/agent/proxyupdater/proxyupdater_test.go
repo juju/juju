@@ -24,7 +24,6 @@ import (
 
 type ProxyUpdaterSuite struct {
 	coretesting.BaseSuite
-	apiservertesting.StubNetwork
 
 	state      *stubBackend
 	resources  *common.Resources
@@ -37,7 +36,6 @@ var _ = gc.Suite(&ProxyUpdaterSuite{})
 
 func (s *ProxyUpdaterSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
-	s.StubNetwork.SetUpSuite(c)
 }
 
 func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
