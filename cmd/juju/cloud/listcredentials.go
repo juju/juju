@@ -209,7 +209,7 @@ func (c *listCredentialsCommand) cloudNames() ([]string, error) {
 	}
 	personalClouds, err := c.personalClouds()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	publicClouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
 	if err != nil {
@@ -277,7 +277,7 @@ func (c *listCredentialsCommand) remoteCredentials(ctxt *cmd.Context) (map[strin
 	defer client.Close()
 	remotes, err := client.CredentialContents("", "", c.showSecrets)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	byCloud := map[string]CloudCredential{}
@@ -352,17 +352,17 @@ func (c *listCredentialsCommand) localCredentials(ctxt *cmd.Context) (map[string
 func removeSecrets(cloudName string, cloudCred *jujucloud.CloudCredential, cloudFinder func(string) (*jujucloud.Cloud, error)) error {
 	cloud, err := common.CloudOrProvider(cloudName, cloudFinder)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	provider, err := environs.Provider(cloud.Type)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	schemas := provider.CredentialSchemas()
 	for name, cred := range cloudCred.AuthCredentials {
 		sanitisedCred, err := jujucloud.RemoveSecrets(cred, schemas)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		cloudCred.AuthCredentials[name] = *sanitisedCred
 	}

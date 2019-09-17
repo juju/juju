@@ -160,7 +160,7 @@ func (c *listRegionsCommand) findRemoteRegions(ctxt *cmd.Context) error {
 
 	api, err := c.cloudAPIFunc()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer api.Close()
 	aCloud, err := api.Cloud(names.NewCloudTag(c.cloudName))

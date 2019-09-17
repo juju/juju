@@ -189,7 +189,7 @@ func (c *showCloudCommand) displayCloud(ctxt *cmd.Context, aCloud *CloudDetails,
 	fmt.Fprintln(ctxt.Stdout, msg)
 	aCloud.CloudType = displayCloudType(aCloud.CloudType)
 	if err := c.out.Write(ctxt, aCloud); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if includeConfig {
 		return c.displayConfig(ctxt, aCloud.CloudType)
@@ -204,7 +204,7 @@ func (c *showCloudCommand) displayConfig(ctxt *cmd.Context, cloudType string) er
 			ctxt.Stdout,
 			fmt.Sprintf("\nThe available config options specific to %s clouds are:", cloudType))
 		if err := c.out.Write(ctxt, config); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		c.configDisplayed = true
 	}
@@ -214,12 +214,12 @@ func (c *showCloudCommand) displayConfig(ctxt *cmd.Context, cloudType string) er
 func (c *showCloudCommand) getControllerCloud() (*CloudDetails, error) {
 	api, err := c.showCloudAPIFunc()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	defer api.Close()
 	controllerCloud, err := api.Cloud(names.NewCloudTag(c.CloudName))
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	cloud := makeCloudDetails(c.Store, controllerCloud)
 	return cloud, nil
@@ -228,7 +228,7 @@ func (c *showCloudCommand) getControllerCloud() (*CloudDetails, error) {
 func (c *showCloudCommand) getLocalCloud() (*CloudDetails, error) {
 	details, err := GetAllCloudDetails(c.Store)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	cloud, ok := details[c.CloudName]
 	if !ok {

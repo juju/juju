@@ -36,15 +36,15 @@ type showCredentialCommand struct {
 // credentials stored on the controller.
 func NewShowCredentialCommand() cmd.Command {
 	store := jujuclient.NewFileClientStore()
-	cmd := &showCredentialCommand{
+	command := &showCredentialCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
 			Store: store,
 		},
 	}
-	cmd.newAPIFunc = func() (CredentialContentAPI, error) {
-		return cmd.NewCredentialAPI()
+	command.newAPIFunc = func() (CredentialContentAPI, error) {
+		return command.NewCredentialAPI()
 	}
-	return modelcmd.WrapBase(cmd)
+	return modelcmd.WrapBase(command)
 }
 
 func (c *showCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -120,7 +120,7 @@ func (c *showCredentialCommand) remoteCredentials(ctxt *cmd.Context) ([]params.C
 
 	client, err := c.newAPIFunc()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	defer client.Close()
@@ -130,7 +130,7 @@ func (c *showCredentialCommand) remoteCredentials(ctxt *cmd.Context) ([]params.C
 	}
 	remoteContents, err := client.CredentialContents(c.CloudName, c.CredentialName, c.ShowSecrets)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return remoteContents, nil
 }
@@ -138,7 +138,7 @@ func (c *showCredentialCommand) remoteCredentials(ctxt *cmd.Context) ([]params.C
 func (c *showCredentialCommand) localCredentials(ctxt *cmd.Context) ([]params.CredentialContentResult, error) {
 	locals, err := credentialsFromLocalCache(c.Store, c.CloudName, c.CredentialName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	if c.CloudName != "" {

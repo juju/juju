@@ -154,12 +154,12 @@ func (c *listCloudsCommand) getCloudList(ctxt *cmd.Context) (*cloudList, error) 
 		remotes := func() error {
 			api, err := c.listCloudsAPIFunc()
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			defer api.Close()
 			controllerClouds, err := api.Clouds()
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			for _, cloud := range controllerClouds {
 				cloudDetails := makeCloudDetails(c.Store, cloud)
@@ -187,7 +187,7 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 	}
 	details, err := c.getCloudList(ctxt)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	var result interface{}
 	switch c.out.Name() {
@@ -245,7 +245,7 @@ func (c *cloudList) all() map[string]*CloudDetails {
 func listCloudDetails(store jujuclient.CredentialGetter) (*cloudList, error) {
 	clouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	details := newCloudList()
 	for name, cloud := range clouds {
@@ -266,7 +266,7 @@ func listCloudDetails(store jujuclient.CredentialGetter) (*cloudList, error) {
 
 	personalClouds, err := jujucloud.PersonalCloudMetadata()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	for name, cloud := range personalClouds {
 		cloudDetails := makeCloudDetails(store, cloud)
