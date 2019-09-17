@@ -553,7 +553,7 @@ func (s *clientSuite) TestAcquiresMutexWhenNotBootstrapping(c *gc.C) {
 
 	stub.CheckCallNames(c, "acquire", "release")
 	stub.CheckCall(c, 0, "acquire", mutex.Spec{
-		Name:  "juju-vsphere-xenial",
+		Name:  "vsphere-xenial",
 		Clock: args.Clock,
 		Delay: time.Second,
 	})

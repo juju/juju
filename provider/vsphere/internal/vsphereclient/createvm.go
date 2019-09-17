@@ -196,7 +196,7 @@ func (c *Client) ensureTemplateVM(
 		// process is updating VMDKs at the same time. We lock around
 		// access to the series directory.
 		release, err := acquireMutex(mutex.Spec{
-			Name:  "juju-vsphere-" + args.Series,
+			Name:  "vsphere-" + args.Series,
 			Clock: args.Clock,
 			Delay: time.Second,
 		})
