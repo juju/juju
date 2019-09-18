@@ -111,6 +111,10 @@ type CreateVirtualMachineParams struct {
 	// EnableDiskUUID controls whether the VMware disk should expose a
 	// consistent UUID to the guest OS.
 	EnableDiskUUID bool
+
+	// IsBootstrap indicates whether the requested instance will be a
+	// newly bootstrapped controller.
+	IsBootstrap bool
 }
 
 // vmTemplateName returns the well-known name to
@@ -123,6 +127,17 @@ func vmTemplateName(args CreateVirtualMachineParams) string {
 // where the template VM is housed.
 func vmTemplatePath(args CreateVirtualMachineParams) string {
 	return path.Join(args.VMDKDirectory, args.Series)
+}
+
+// acquireMutex claims a mutex to prevent multiple workers from
+// creating a template at once. It wraps mutex.Acquire and is stored
+// on the client so we can replace it to test mutex handling.
+func acquireMutex(spec mutex.Spec) (func(), error) {
+	releaser, err := mutex.Acquire(spec)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return func() { releaser.Release() }, nil
 }
 
 // ensureTemplateVM returns a vSphere template VM
@@ -170,22 +185,22 @@ func (c *Client) ensureTemplateVM(
 	c.logger.Debugf("creating template VM in folder %s", vmFolder)
 	c.logger.Tracef("import spec: %s", pretty.Sprint(importSpec))
 
-	// Each controller maintains its own image cache. All compute
-	// provisioners (i.e. each model's) run on the same controller
-	// machine, so taking a machine lock ensures that only one
-	// process is updating VMDKs at the same time. We lock around
-	// access to the series directory.
-	mutexReleaser, err := mutex.Acquire(mutex.Spec{
-		Name:  "juju-vsphere-" + args.Series,
-		Clock: args.Clock,
-		Delay: time.Second,
-	})
-	if err != nil {
-		return nil, errors.Annotate(err, "acquiring lock")
+	if !args.IsBootstrap {
+		// Each controller maintains its own image cache. All compute
+		// provisioners (i.e. each model's) run on the same controller
+		// machine, so taking a machine lock ensures that only one
+		// process is updating VMDKs at the same time. We lock around
+		// access to the series directory.
+		release, err := c.acquireMutex(mutex.Spec{
+			Name:  "vsphere-" + args.Series,
+			Clock: args.Clock,
+			Delay: time.Second,
+		})
+		if err != nil {
+			return nil, errors.Annotate(err, "acquiring lock")
+		}
+		defer release()
 	}
-	defer func() {
-		mutexReleaser.Release()
-	}()
 
 	resourcePool := object.NewResourcePool(c.client.Client, args.ResourcePool)
 	lease, err := resourcePool.ImportVApp(ctx, importSpec, vmFolder, nil)
