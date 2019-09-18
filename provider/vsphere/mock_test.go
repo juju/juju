@@ -62,10 +62,10 @@ func (c *mockClient) ResourcePools(ctx context.Context, path string) ([]*object.
 	return c.resourcePools[path], c.NextErr()
 }
 
-func (c *mockClient) CreateVirtualMachine(ctx context.Context, acquirer vsphereclient.MutexAcquirer, args vsphereclient.CreateVirtualMachineParams) (*mo.VirtualMachine, error) {
+func (c *mockClient) CreateVirtualMachine(ctx context.Context, args vsphereclient.CreateVirtualMachineParams) (*mo.VirtualMachine, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.MethodCall(c, "CreateVirtualMachine", ctx, acquirer, args)
+	c.MethodCall(c, "CreateVirtualMachine", ctx, args)
 	return c.createdVirtualMachine, c.NextErr()
 }
 

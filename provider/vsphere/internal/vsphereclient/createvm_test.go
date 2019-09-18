@@ -60,7 +60,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 	}
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
-	_, err := client.CreateVirtualMachine(context.Background(), fakeAcquire, args)
+	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusUpdates, jc.DeepEquals, []string{
 		fmt.Sprintf(`creating template VM "juju-template-%s"`, args.OVASHA256),
@@ -154,7 +154,7 @@ func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *gc.C) {
 	args := baseCreateVirtualMachineParams(c)
 	args.EnableDiskUUID = false
 	client := s.newFakeClient(&s.roundTripper, "dc0")
-	_, err := client.CreateVirtualMachine(context.Background(), fakeAcquire, args)
+	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.roundTripper.CheckCall(c, 31, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
@@ -187,7 +187,7 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreSpecified(c *gc.C) {
 	}}
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
-	_, err := client.CreateVirtualMachine(context.Background(), fakeAcquire, args)
+	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	//findStubCall(c, s.roundTripper.Calls(), "?")
@@ -207,7 +207,7 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreNotFound(c *gc.C) {
 	args.Constraints.RootDiskSource = &datastore
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
-	_, err := client.CreateVirtualMachine(context.Background(), fakeAcquire, args)
+	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, `creating template VM: could not find datastore "datastore3", datastore\(s\) accessible: "datastore2"`)
 }
 
@@ -219,7 +219,7 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreNoneAccessible(c *gc.C) {
 	}}
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
-	_, err := client.CreateVirtualMachine(context.Background(), fakeAcquire, args)
+	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "creating template VM: no accessible datastores available")
 }
 
@@ -242,7 +242,7 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreNotFoundWithMultipleAvail
 	)
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
-	_, err := client.CreateVirtualMachine(context.Background(), fakeAcquire, args)
+	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, `creating template VM: could not find datastore "datastore3", datastore\(s\) accessible: "datastore1", "datastore2"`)
 }
 
@@ -265,7 +265,7 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreNotFoundWithNoAvailable(c
 	)
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
-	_, err := client.CreateVirtualMachine(context.Background(), fakeAcquire, args)
+	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, `creating template VM: no accessible datastores available`)
 }
 
@@ -277,7 +277,7 @@ func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefa
 	}
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
-	_, err := client.CreateVirtualMachine(context.Background(), fakeAcquire, args)
+	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var networkDevice1, networkDevice2 types.VirtualVmxnet3
@@ -345,7 +345,7 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *gc.
 	}
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
-	_, err := client.CreateVirtualMachine(context.Background(), fakeAcquire, args)
+	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var networkDevice types.VirtualVmxnet3
@@ -398,7 +398,7 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkNotFound(c *gc.C) {
 	}
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
-	_, err := client.CreateVirtualMachine(context.Background(), fakeAcquire, args)
+	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, `cloning template VM: building clone VM config: network "fourtytwo" not found`)
 }
 
@@ -409,7 +409,7 @@ func (s *clientSuite) TestCreateVirtualMachineInvalidMAC(c *gc.C) {
 	}
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
-	_, err := client.CreateVirtualMachine(context.Background(), fakeAcquire, args)
+	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, `cloning template VM: building clone VM config: adding network device 0 - network VM Network: Invalid MAC address: "00:11:22:33:44:55"`)
 }
 
@@ -421,7 +421,7 @@ func (s *clientSuite) TestCreateVirtualMachineRootDiskSize(c *gc.C) {
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	errCh := make(chan error)
 	go func() {
-		_, err := client.CreateVirtualMachine(context.Background(), fakeAcquire, args)
+		_, err := client.CreateVirtualMachine(context.Background(), args)
 		select {
 		case errCh <- err:
 		case <-time.After(coretesting.ShortWait):
@@ -487,7 +487,7 @@ func (s *clientSuite) TestCreateVirtualMachineTimesOut(c *gc.C) {
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	errCh := make(chan error)
 	go func() {
-		_, err := client.CreateVirtualMachine(context.Background(), fakeAcquire, args)
+		_, err := client.CreateVirtualMachine(context.Background(), args)
 		select {
 		case errCh <- err:
 		case <-time.After(coretesting.ShortWait):
@@ -548,7 +548,8 @@ func (s *clientSuite) TestAcquiresMutexWhenNotBootstrapping(c *gc.C) {
 	}
 	args := baseCreateVirtualMachineParams(c)
 	client := s.newFakeClient(&s.roundTripper, "dc0")
-	_, err := client.CreateVirtualMachine(context.Background(), acquire, args)
+	client.acquireMutex = acquire
+	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	stub.CheckCallNames(c, "acquire", "release")
@@ -568,7 +569,8 @@ func (s *clientSuite) TestNoAcquireOnBootstrap(c *gc.C) {
 	args := baseCreateVirtualMachineParams(c)
 	args.IsBootstrap = true
 	client := s.newFakeClient(&s.roundTripper, "dc0")
-	_, err := client.CreateVirtualMachine(context.Background(), acquire, args)
+	client.acquireMutex = acquire
+	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	stub.CheckCallNames(c)
 }
@@ -655,8 +657,4 @@ func assertNoCall(c *gc.C, calls []testing.StubCall, name string) {
 			c.Fatalf("found call %q", name)
 		}
 	}
-}
-
-func fakeAcquire(spec mutex.Spec) (func(), error) {
-	return func() {}, nil
 }

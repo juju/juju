@@ -23,7 +23,7 @@ type Client interface {
 	Close(context.Context) error
 	ComputeResources(context.Context) ([]*mo.ComputeResource, error)
 	ResourcePools(context.Context, string) ([]*object.ResourcePool, error)
-	CreateVirtualMachine(context.Context, vsphereclient.MutexAcquirer, vsphereclient.CreateVirtualMachineParams) (*mo.VirtualMachine, error)
+	CreateVirtualMachine(context.Context, vsphereclient.CreateVirtualMachineParams) (*mo.VirtualMachine, error)
 	Datastores(context.Context) ([]*mo.Datastore, error)
 	DeleteDatastoreFile(context.Context, string) error
 	DestroyVMFolder(context.Context, string) error

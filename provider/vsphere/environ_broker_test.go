@@ -118,12 +118,11 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 
 	s.client.CheckCallNames(c, "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
 	call := s.client.Calls()[3]
-	c.Assert(call.Args, gc.HasLen, 3)
+	c.Assert(call.Args, gc.HasLen, 2)
 	c.Assert(call.Args[0], gc.Implements, new(context.Context))
-	c.Assert(call.Args[1], gc.NotNil)
-	c.Assert(call.Args[2], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
+	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
 
-	createVMArgs := call.Args[2].(vsphereclient.CreateVirtualMachineParams)
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs.UserData, gc.Not(gc.Equals), "")
 	c.Assert(createVMArgs.ReadOVA, gc.NotNil)
 	readOVA := createVMArgs.ReadOVA
@@ -178,7 +177,7 @@ func (s *environBrokerSuite) TestStartInstanceNetwork(c *gc.C) {
 	c.Assert(result, gc.NotNil)
 
 	call := s.client.Calls()[3]
-	createVMArgs := call.Args[2].(vsphereclient.CreateVirtualMachineParams)
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs.NetworkDevices, gc.HasLen, 2)
 	c.Assert(createVMArgs.NetworkDevices[0].Network, gc.Equals, "foo")
 	c.Assert(createVMArgs.NetworkDevices[1].Network, gc.Equals, "bar")
@@ -197,7 +196,7 @@ func (s *environBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
 	_, err = env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	call := s.client.Calls()[3]
-	createVMArgs := call.Args[2].(vsphereclient.CreateVirtualMachineParams)
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	// The model name in the folder name should be truncated
 	// so that the final part of the model name is 80 characters.
 	c.Assert(path.Base(createVMArgs.Folder), gc.HasLen, 80)
@@ -221,7 +220,7 @@ func (s *environBrokerSuite) TestStartInstanceDiskUUIDDisabled(c *gc.C) {
 	c.Assert(result, gc.NotNil)
 
 	call := s.client.Calls()[3]
-	createVMArgs := call.Args[2].(vsphereclient.CreateVirtualMachineParams)
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs.EnableDiskUUID, gc.Equals, false)
 }
 
@@ -338,11 +337,11 @@ func (s *environBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 
 	s.client.CheckCallNames(c, "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
 	call := s.client.Calls()[3]
-	c.Assert(call.Args, gc.HasLen, 3)
+	c.Assert(call.Args, gc.HasLen, 2)
 	c.Assert(call.Args[0], gc.Implements, new(context.Context))
-	c.Assert(call.Args[2], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
+	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
 
-	createVMArgs := call.Args[2].(vsphereclient.CreateVirtualMachineParams)
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs.ComputeResource, jc.DeepEquals, s.client.computeResources[1])
 }
 
@@ -354,7 +353,7 @@ func (s *environBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c *gc.C)
 
 	s.client.CheckCallNames(c, "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
 	createVMCall1 := s.client.Calls()[3]
-	createVMArgs1 := createVMCall1.Args[2].(vsphereclient.CreateVirtualMachineParams)
+	createVMArgs1 := createVMCall1.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs1.ComputeResource, jc.DeepEquals, s.client.computeResources[0])
 }
 
@@ -371,7 +370,7 @@ func (s *environBrokerSuite) TestStartInstanceDatastoreDefault(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	call := s.client.Calls()[3]
-	createVMArgs := call.Args[2].(vsphereclient.CreateVirtualMachineParams)
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(*createVMArgs.Constraints.RootDiskSource, gc.Equals, "datastore0")
 }
 
@@ -393,7 +392,7 @@ func (s *environBrokerSuite) TestStartInstanceRootDiskSource(c *gc.C) {
 	c.Assert(*result.Hardware.RootDiskSource, gc.Equals, "zebras")
 
 	call := s.client.Calls()[3]
-	createVMArgs := call.Args[2].(vsphereclient.CreateVirtualMachineParams)
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(*createVMArgs.Constraints.RootDiskSource, gc.Equals, "zebras")
 }
 
@@ -479,11 +478,11 @@ func (s *environBrokerSuite) TestStartInstanceNoDatastoreSetting(c *gc.C) {
 
 	s.client.CheckCallNames(c, "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
 	call := s.client.Calls()[3]
-	c.Assert(call.Args, gc.HasLen, 3)
+	c.Assert(call.Args, gc.HasLen, 2)
 	c.Assert(call.Args[0], gc.Implements, new(context.Context))
-	c.Assert(call.Args[2], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
+	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
 
-	createVMArgs := call.Args[2].(vsphereclient.CreateVirtualMachineParams)
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 
 	var expected *string
 	c.Assert(createVMArgs.Constraints.RootDiskSource, gc.Equals, expected)
@@ -527,11 +526,10 @@ func (s *environBrokerSuite) TestNotBootstrapping(c *gc.C) {
 
 	s.client.CheckCallNames(c, "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
 	call := s.client.Calls()[3]
-	c.Assert(call.Args, gc.HasLen, 3)
+	c.Assert(call.Args, gc.HasLen, 2)
 	c.Assert(call.Args[0], gc.Implements, new(context.Context))
-	c.Assert(call.Args[1], gc.NotNil)
-	c.Assert(call.Args[2], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
+	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
 
-	createVMArgs := call.Args[2].(vsphereclient.CreateVirtualMachineParams)
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs.IsBootstrap, gc.Equals, false)
 }
