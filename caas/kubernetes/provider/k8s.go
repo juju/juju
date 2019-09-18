@@ -6,7 +6,6 @@ package provider
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -35,7 +34,6 @@ import (
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
-	apimachineryversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -477,19 +475,11 @@ func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) (err e
 
 // APIVersion returns the version info for the cluster.
 func (k *kubernetesClient) APIVersion() (string, error) {
-	body, err := k.client().CoreV1().RESTClient().Get().AbsPath("/version").Do().Raw()
+	ver, err := k.Version()
 	if err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
-	var info apimachineryversion.Info
-	err = json.Unmarshal(body, &info)
-	if err != nil {
-		return "", errors.Annotatef(err, "got '%s' querying API version", string(body))
-	}
-	version := info.GitVersion
-	// git version is "vX.Y.Z", strip the "v"
-	version = strings.Trim(version, "v")
-	return version, nil
+	return ver.String(), nil
 }
 
 // OperatorExists indicates if the operator for the specified
