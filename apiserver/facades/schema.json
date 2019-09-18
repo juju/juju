@@ -7272,8 +7272,7 @@
                     "additionalProperties": false,
                     "required": [
                         "deployment-type",
-                        "service-type",
-                        "daemonset"
+                        "service-type"
                     ]
                 },
                 "KubernetesDeviceParams": {

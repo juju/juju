@@ -1916,6 +1916,7 @@
     "github.com/dustin/go-humanize",
     "github.com/golang/mock/gomock",
     "github.com/google/go-querystring/query",
+    "github.com/googleapis/gnostic/OpenAPIv2",
     "github.com/gorilla/handlers",
     "github.com/gorilla/schema",
     "github.com/gorilla/websocket",
