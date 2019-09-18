@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
+	"github.com/juju/mutex"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi"
@@ -530,9 +531,10 @@ func (s *clientSuite) newFakeClient(roundTripper soap.RoundTripper, dc string) *
 			Client:         vimClient,
 			SessionManager: session.NewManager(vimClient),
 		},
-		datacenter: dc,
-		logger:     loggo.GetLogger("vsphereclient"),
-		clock:      s.clock,
+		datacenter:   dc,
+		logger:       loggo.GetLogger("vsphereclient"),
+		clock:        s.clock,
+		acquireMutex: fakeAcquire,
 	}
 }
 
@@ -845,4 +847,8 @@ func (s *clientSuite) TestResourcePools(c *gc.C) {
 	c.Check(result[1].InventoryPath, gc.Equals, "/z0/Resources/parent")
 	c.Check(result[2].InventoryPath, gc.Equals, "/z0/Resources/parent/child")
 	c.Check(result[3].InventoryPath, gc.Equals, "/z0/Resources/other")
+}
+
+func fakeAcquire(spec mutex.Spec) (func(), error) {
+	return func() {}, nil
 }

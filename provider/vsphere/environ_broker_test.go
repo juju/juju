@@ -20,7 +20,9 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v3"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -144,6 +146,7 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 		},
 		UpdateProgressInterval: 5 * time.Second,
 		EnableDiskUUID:         true,
+		IsBootstrap:            true,
 	})
 
 	ovaLocation, ovaReadCloser, err := readOVA()
@@ -493,4 +496,40 @@ func (s *environBrokerSuite) TestStartInstanceNoDatastoreSetting(c *gc.C) {
 		RootDisk:       &rootDisk,
 		RootDiskSource: nil,
 	})
+}
+
+func (s *environBrokerSuite) TestNotBootstrapping(c *gc.C) {
+	startInstArgs := s.createStartInstanceArgs(c)
+	nonBootstrapInstance, err := instancecfg.NewInstanceConfig(
+		names.NewControllerTag(coretesting.FakeControllerConfig().ControllerUUID()),
+		"0",
+		"nonce",
+		"",
+		"xenial",
+		&api.Info{
+			Tag:      names.NewMachineTag("0"),
+			ModelTag: coretesting.ModelTag,
+			CACert:   "supersecret",
+			Addrs:    []string{"hey:123"},
+			Password: "mypassword1!",
+		},
+	)
+
+	c.Assert(err, jc.ErrorIsNil)
+	startInstArgs.InstanceConfig = nonBootstrapInstance
+
+	result, err := s.env.StartInstance(s.callCtx, startInstArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.NotNil)
+	c.Assert(result.Instance, gc.NotNil)
+	c.Assert(result.Instance.Id(), gc.Equals, instance.Id("new-vm"))
+
+	s.client.CheckCallNames(c, "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
+	call := s.client.Calls()[3]
+	c.Assert(call.Args, gc.HasLen, 2)
+	c.Assert(call.Args[0], gc.Implements, new(context.Context))
+	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
+
+	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
+	c.Assert(createVMArgs.IsBootstrap, gc.Equals, false)
 }
