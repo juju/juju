@@ -487,9 +487,9 @@ func (s *K8sBrokerSuite) TestAPIVersion(c *gc.C) {
 		}, nil),
 	)
 
-	ver, err := s.broker.Version()
+	ver, err := s.broker.APIVersion()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ver, gc.DeepEquals, &version.Number{Major: 1, Minor: 16})
+	c.Assert(ver, gc.DeepEquals, "1.16.0")
 }
 
 func (s *K8sBrokerSuite) TestConfig(c *gc.C) {

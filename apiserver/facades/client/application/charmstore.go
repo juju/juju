@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
@@ -259,6 +260,10 @@ func checkMinVersion(ch charm.Charm, caasVersion *version.Number) (err error) {
 	charmDeployment := ch.Meta().Deployment
 	if caasVersion == nil || charmDeployment == nil || charmDeployment.MinVersion == "" {
 		return nil
+	}
+	if len(strings.Split(charmDeployment.MinVersion, ".")) == 2 {
+		// append build number if it's not specified.
+		charmDeployment.MinVersion += ".0"
 	}
 	minver, err = version.Parse(charmDeployment.MinVersion)
 	if err != nil {
