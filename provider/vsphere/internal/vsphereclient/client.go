@@ -13,6 +13,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/mutex"
 	"github.com/vmware/govmomi"
 	"github.com/vmware/govmomi/find"
 	"github.com/vmware/govmomi/list"
@@ -56,10 +57,11 @@ func IsExtendDiskError(err error) bool {
 // Client encapsulates a vSphere client, exposing the subset of
 // functionality that we require in the Juju provider.
 type Client struct {
-	client     *govmomi.Client
-	datacenter string
-	logger     loggo.Logger
-	clock      clock.Clock
+	client       *govmomi.Client
+	datacenter   string
+	logger       loggo.Logger
+	clock        clock.Clock
+	acquireMutex func(mutex.Spec) (func(), error)
 }
 
 // Dial dials a new vSphere client connection using the given URL,
@@ -77,10 +79,11 @@ func Dial(
 		return nil, errors.Trace(err)
 	}
 	return &Client{
-		client:     client,
-		datacenter: datacenter,
-		logger:     logger,
-		clock:      clock.WallClock,
+		client:       client,
+		datacenter:   datacenter,
+		logger:       logger,
+		clock:        clock.WallClock,
+		acquireMutex: acquireMutex,
 	}, nil
 }
 

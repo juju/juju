@@ -245,7 +245,7 @@ func (env *sessionEnviron) newRawInstance(
 	createVMArgs.ComputeResource = &availZone.r
 	createVMArgs.ResourcePool = availZone.pool.Reference()
 
-	vm, err := env.client.CreateVirtualMachine(env.ctx, vsphereclient.AcquireMutex, createVMArgs)
+	vm, err := env.client.CreateVirtualMachine(env.ctx, createVMArgs)
 	if vsphereclient.IsExtendDiskError(err) {
 		// Ensure we don't try to make the same extension across
 		// different resource groups.

@@ -117,10 +117,6 @@ type CreateVirtualMachineParams struct {
 	IsBootstrap bool
 }
 
-// MutexAcquirer wraps mutex.Acquire so we can test the mutex
-// handling.
-type MutexAcquirer func(mutex.Spec) (func(), error)
-
 // vmTemplateName returns the well-known name to
 // the template VM for this controller and its models
 func vmTemplateName(args CreateVirtualMachineParams) string {
@@ -133,9 +129,10 @@ func vmTemplatePath(args CreateVirtualMachineParams) string {
 	return path.Join(args.VMDKDirectory, args.Series)
 }
 
-// AcquireMutex claims a mutex to prevent multiple workers from
-// creating a template at once.
-func AcquireMutex(spec mutex.Spec) (func(), error) {
+// acquireMutex claims a mutex to prevent multiple workers from
+// creating a template at once. It wraps mutex.Acquire and is stored
+// on the client so we can replace it to test mutex handling.
+func acquireMutex(spec mutex.Spec) (func(), error) {
 	releaser, err := mutex.Acquire(spec)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -147,7 +144,6 @@ func AcquireMutex(spec mutex.Spec) (func(), error) {
 // that instances can be created from.
 func (c *Client) ensureTemplateVM(
 	ctx context.Context,
-	acquireMutex MutexAcquirer,
 	args CreateVirtualMachineParams,
 ) (vm *object.VirtualMachine, err error) {
 	finder, datacenter, err := c.finder(ctx)
@@ -195,7 +191,7 @@ func (c *Client) ensureTemplateVM(
 		// machine, so taking a machine lock ensures that only one
 		// process is updating VMDKs at the same time. We lock around
 		// access to the series directory.
-		release, err := acquireMutex(mutex.Spec{
+		release, err := c.acquireMutex(mutex.Spec{
 			Name:  "vsphere-" + args.Series,
 			Clock: args.Clock,
 			Delay: time.Second,
@@ -293,7 +289,6 @@ func (c *Client) ensureTemplateVM(
 // will be powered on.
 func (c *Client) CreateVirtualMachine(
 	ctx context.Context,
-	acquireMutex MutexAcquirer,
 	args CreateVirtualMachineParams,
 ) (_ *mo.VirtualMachine, err error) {
 	finder, datacenter, err := c.finder(ctx)
@@ -312,7 +307,7 @@ func (c *Client) CreateVirtualMachine(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	templateVM, err := c.ensureTemplateVM(ctx, acquireMutex, args)
+	templateVM, err := c.ensureTemplateVM(ctx, args)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating template VM")
 	}
