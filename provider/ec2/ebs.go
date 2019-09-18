@@ -317,7 +317,6 @@ func parseVolumeOptions(size uint64, attrs map[string]interface{}) (_ ec2.Create
 
 // CreateVolumes is specified on the storage.VolumeSource interface.
 func (v *ebsVolumeSource) CreateVolumes(ctx context.ProviderCallContext, params []storage.VolumeParams) (_ []storage.CreateVolumesResult, err error) {
-
 	// First, validate the params before we use them.
 	results := make([]storage.CreateVolumesResult, len(params))
 	instanceIds := set.NewStrings()

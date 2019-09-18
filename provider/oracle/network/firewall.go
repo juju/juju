@@ -707,7 +707,6 @@ func (f Firewall) convertFromSecRules(rules ...response.SecRule) (map[string][]n
 
 // secRuleToIngressRule convert all security rules into a map of ingress rules
 func (f Firewall) secRuleToIngresRule(rules ...response.SecRule) (map[string]network.IngressRule, error) {
-
 	applications, err := f.getAllApplicationsAsMap()
 	if err != nil {
 		return nil, errors.Trace(err)

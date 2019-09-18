@@ -1318,7 +1318,6 @@ func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerU
 // destroyControllerManagedEnvirons destroys all environments managed by this
 // environment's controller.
 func (e *environ) destroyControllerManagedEnvirons(ctx context.ProviderCallContext, controllerUUID string) error {
-
 	// Terminate all instances managed by the controller.
 	instIds, err := e.allControllerManagedInstances(ctx, controllerUUID)
 	if err != nil {

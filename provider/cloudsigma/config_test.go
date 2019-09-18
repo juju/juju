@@ -64,7 +64,6 @@ func (s *configSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&configSuite{})
 
 func (s *configSuite) TestNewModelConfig(c *gc.C) {
-
 	type checker struct {
 		checker gc.Checker
 		value   interface{}
