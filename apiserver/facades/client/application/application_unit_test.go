@@ -707,10 +707,7 @@ func (s *ApplicationSuite) TestDeployMinDeploymentVersionTooHigh(c *gc.C) {
 	s.backend.charm = &mockCharm{
 		meta: &charm.Meta{
 			Deployment: &charm.Deployment{
-				DeploymentType: "stateless",
-				ServiceType:    "cluster",
-				Daemonset:      false,
-				MinVersion:     "1.99.0",
+				MinVersion: "1.99.0",
 			},
 		},
 		config: &charm.Config{
@@ -726,7 +723,6 @@ func (s *ApplicationSuite) TestDeployMinDeploymentVersionTooHigh(c *gc.C) {
 			CharmURL:        "local:foo-0",
 			NumUnits:        1,
 			Config:          map[string]string{"kubernetes-service-annotations": "a=b c="},
-			ConfigYAML:      "foo:\n  stringOption: fred\n  kubernetes-service-type: NodeIP",
 		}},
 	}
 	results, err := s.api.Deploy(args)
@@ -734,7 +730,7 @@ func (s *ApplicationSuite) TestDeployMinDeploymentVersionTooHigh(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(
 		results.Results[0].Error, gc.ErrorMatches,
-		regexp.QuoteMeta(`charm's deployment min version("1.99.0") is higher than remote cloud version ("1.15.0")`),
+		regexp.QuoteMeta(`charm requires a minimum k8s version of 1.99.0 but the cluster only runs version 1.15.0`),
 	)
 }
 

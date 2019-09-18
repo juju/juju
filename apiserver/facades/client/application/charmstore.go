@@ -132,7 +132,7 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 		return errors.Trace(err)
 	}
 
-	if err := checkMinVersion(downloadedCharm, nil); err != nil {
+	if err := checkJujuMinVersion(downloadedCharm); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -249,13 +249,15 @@ func openCSClient(csAPIURL string, args params.AddCharmWithAuthorization) (*cscl
 	return csClient, nil
 }
 
-func checkMinVersion(ch charm.Charm, caasVersion *version.Number) (err error) {
-	// check Juju min version.
+func checkJujuMinVersion(ch charm.Charm) (err error) {
 	minver := ch.Meta().MinJujuVersion
 	if minver != version.Zero && minver.Compare(jujuversion.Current) > 0 {
 		return minVersionError(minver, jujuversion.Current)
 	}
+	return nil
+}
 
+func checkCaaSMinVersion(ch charm.Charm, caasVersion *version.Number) (err error) {
 	// check caas min version.
 	charmDeployment := ch.Meta().Deployment
 	if caasVersion == nil || charmDeployment == nil || charmDeployment.MinVersion == "" {
@@ -265,13 +267,13 @@ func checkMinVersion(ch charm.Charm, caasVersion *version.Number) (err error) {
 		// append build number if it's not specified.
 		charmDeployment.MinVersion += ".0"
 	}
-	minver, err = version.Parse(charmDeployment.MinVersion)
+	minver, err := version.Parse(charmDeployment.MinVersion)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if minver != version.Zero && minver.Compare(*caasVersion) > 0 {
 		return errors.NewNotValid(nil, fmt.Sprintf(
-			"charm's deployment min version(%q) is higher than remote cloud version (%q)",
+			"charm requires a minimum k8s version of %v but the cluster only runs version %v",
 			minver, caasVersion,
 		))
 	}

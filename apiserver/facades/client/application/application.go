@@ -576,7 +576,10 @@ func deployApplication(
 		return errors.Trace(err)
 	}
 
-	if err := checkMinVersion(ch, caasVersion); err != nil {
+	if err := checkJujuMinVersion(ch); err != nil {
+		return errors.Trace(err)
+	}
+	if err := checkCaaSMinVersion(ch, caasVersion); err != nil {
 		return errors.Trace(err)
 	}
 
