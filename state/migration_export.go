@@ -1846,6 +1846,16 @@ func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
 	for _, space := range app.Spaces() {
 		e.addRemoteSpace(descApp, space)
 	}
+
+	remoteEntities := e.st.RemoteEntities()
+	token, err := remoteEntities.GetToken(app.Tag())
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	descApp.AddRemoteEntity(description.RemoteEntityArgs{
+		Token: token,
+	})
+
 	return nil
 }
 

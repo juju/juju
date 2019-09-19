@@ -1968,60 +1968,67 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 		SourceModel: s.Model.ModelTag(),
 		Token:       "charisma",
 		OfferUUID:   "offer-uuid",
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Name:      "db",
-			Role:      charm.RoleProvider,
-			Scope:     charm.ScopeGlobal,
-		}, {
-			Interface: "mysql-root",
-			Name:      "db-admin",
-			Limit:     5,
-			Role:      charm.RoleProvider,
-			Scope:     charm.ScopeGlobal,
-		}, {
-			Interface: "logging",
-			Name:      "logging",
-			Role:      charm.RoleProvider,
-			Scope:     charm.ScopeGlobal,
-		}},
-		Spaces: []*environs.ProviderSpaceInfo{{
-			CloudType: "ec2",
-			ProviderAttributes: map[string]interface{}{
-				"thing1":  23,
-				"thing2":  "halberd",
-				"network": "network-1",
+		Endpoints: []charm.Relation{
+			{
+				Interface: "mysql",
+				Name:      "db",
+				Role:      charm.RoleProvider,
+				Scope:     charm.ScopeGlobal,
 			},
-			SpaceInfo: network.SpaceInfo{
-				Name:       "public",
-				ProviderId: "juju-space-public",
-				Subnets: []network.SubnetInfo{{
-					ProviderId:        "juju-subnet-12",
-					CIDR:              "1.2.3.0/24",
-					AvailabilityZones: []string{"az1", "az2"},
-					ProviderSpaceId:   "juju-space-public",
-					ProviderNetworkId: "network-1",
-				}},
+			{
+				Interface: "mysql-root",
+				Name:      "db-admin",
+				Limit:     5,
+				Role:      charm.RoleProvider,
+				Scope:     charm.ScopeGlobal,
 			},
-		}, {
-			CloudType: "ec2",
-			ProviderAttributes: map[string]interface{}{
-				"thing1":  24,
-				"thing2":  "bardiche",
-				"network": "network-1",
+			{
+				Interface: "logging",
+				Name:      "logging",
+				Role:      charm.RoleProvider,
+				Scope:     charm.ScopeGlobal,
 			},
-			SpaceInfo: network.SpaceInfo{
-				Name:       "private",
-				ProviderId: "juju-space-private",
-				Subnets: []network.SubnetInfo{{
-					ProviderId:        "juju-subnet-24",
-					CIDR:              "1.2.4.0/24",
-					AvailabilityZones: []string{"az1", "az2"},
-					ProviderSpaceId:   "juju-space-private",
-					ProviderNetworkId: "network-1",
-				}},
+		},
+		Spaces: []*environs.ProviderSpaceInfo{
+			{
+				CloudType: "ec2",
+				ProviderAttributes: map[string]interface{}{
+					"thing1":  23,
+					"thing2":  "halberd",
+					"network": "network-1",
+				},
+				SpaceInfo: network.SpaceInfo{
+					Name:       "public",
+					ProviderId: "juju-space-public",
+					Subnets: []network.SubnetInfo{{
+						ProviderId:        "juju-subnet-12",
+						CIDR:              "1.2.3.0/24",
+						AvailabilityZones: []string{"az1", "az2"},
+						ProviderSpaceId:   "juju-space-public",
+						ProviderNetworkId: "network-1",
+					}},
+				},
 			},
-		}},
+			{
+				CloudType: "ec2",
+				ProviderAttributes: map[string]interface{}{
+					"thing1":  24,
+					"thing2":  "bardiche",
+					"network": "network-1",
+				},
+				SpaceInfo: network.SpaceInfo{
+					Name:       "private",
+					ProviderId: "juju-space-private",
+					Subnets: []network.SubnetInfo{{
+						ProviderId:        "juju-subnet-24",
+						CIDR:              "1.2.4.0/24",
+						AvailabilityZones: []string{"az1", "az2"},
+						ProviderSpaceId:   "juju-space-private",
+						ProviderNetworkId: "network-1",
+					}},
+				},
+			},
+		},
 		Bindings: map[string]string{
 			"db":       "private",
 			"db-admin": "private",
@@ -2035,6 +2042,9 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	eps, err := s.State.InferEndpoints("gravy-rainbow", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	remoteEntities := s.State.RemoteEntities()
+	err = remoteEntities.ImportRemoteEntity(dbApp.Tag(), "charisma")
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
@@ -2077,6 +2087,10 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	c.Assert(model.Relations(), gc.HasLen, 1)
 	rel := model.Relations()[0]
 	c.Assert(rel.Key(), gc.Equals, "wordpress:db gravy-rainbow:db")
+
+	c.Assert(app.RemoteEntities(), gc.HasLen, 1)
+	remoteEntity := app.RemoteEntities()[0]
+	c.Assert(remoteEntity.Token(), gc.Equals, "charisma")
 }
 
 func checkSpaceMatches(c *gc.C, actual description.RemoteSpace, original state.RemoteSpace) {
