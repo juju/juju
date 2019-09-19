@@ -257,7 +257,7 @@ func checkJujuMinVersion(ch charm.Charm) (err error) {
 	return nil
 }
 
-func checkCaaSMinVersion(ch charm.Charm, caasVersion *version.Number) (err error) {
+func checkCAASMinVersion(ch charm.Charm, caasVersion *version.Number) (err error) {
 	// check caas min version.
 	charmDeployment := ch.Meta().Deployment
 	if caasVersion == nil || charmDeployment == nil || charmDeployment.MinVersion == "" {

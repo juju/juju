@@ -76,6 +76,7 @@ type DeploymentType string
 const (
 	DeploymentStateless DeploymentType = "stateless"
 	DeploymentStateful  DeploymentType = "stateful"
+	DeploymentDaemon    DeploymentType = "daemon"
 )
 
 // ServiceType defines a service type.
@@ -97,8 +98,6 @@ const (
 type DeploymentParams struct {
 	DeploymentType DeploymentType
 	ServiceType    ServiceType
-	// TODO(caas): implement daemonset support.
-	Daemonset bool
 }
 
 // ServiceParams defines parameters used to create a service.

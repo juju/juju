@@ -13,7 +13,6 @@ import (
 type KubernetesDeploymentInfo struct {
 	DeploymentType string `json:"deployment-type"`
 	ServiceType    string `json:"service-type"`
-	Daemonset      bool   `json:"daemonset,omitempty"`
 }
 
 // KubernetesProvisioningInfo holds unit provisioning info.
