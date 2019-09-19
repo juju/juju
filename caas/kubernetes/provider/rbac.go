@@ -4,6 +4,8 @@
 package provider
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -30,6 +32,14 @@ func toK8sRules(rules []specs.PolicyRule) (out []rbacv1.PolicyRule) {
 		})
 	}
 	return out
+}
+
+type nameGetter interface {
+	GetName() string
+}
+
+func getBindingName(sa nameGetter, cR nameGetter) string {
+	return fmt.Sprintf("%s-%s", sa.GetName(), cR.GetName())
 }
 
 func (k *kubernetesClient) ensureServiceAccountForApp(
@@ -102,13 +112,12 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		}
 		_, cRBCleanups, err := k.ensureRoleBinding(&rbacv1.RoleBinding{
 			ObjectMeta: v1.ObjectMeta{
-				Name:      appName,
+				Name:      getBindingName(sa, cR),
 				Namespace: k.namespace,
 				Labels:    labels,
 			},
 			RoleRef: rbacv1.RoleRef{
 				Name: cR.GetName(),
-				// TODO: Should we need to allow create `ClusterRoleBinding` for referencing existing ClusterRoles????????????
 				Kind: "ClusterRole",
 			},
 			Subjects: []rbacv1.Subject{

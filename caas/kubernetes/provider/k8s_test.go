@@ -2489,7 +2489,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountReferenceExistingClu
 	podSpec := getBasicPodspec()
 	podSpec.ServiceAccount = &specs.ServiceAccountSpec{
 		AutomountServiceAccountToken: boolPtr(true),
-		ClusterRoleNames:             []string{"existingClusterRole1"},
+		ClusterRoleNames: []string{
+			"existingClusterRole1",
+			"existingClusterRole2",
+		},
 	}
 
 	numUnits := int32(2)
@@ -2552,7 +2555,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountReferenceExistingClu
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
-	existingClusterRole := &rbacv1.ClusterRole{
+	existingClusterRole1 := &rbacv1.ClusterRole{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "existingClusterRole1",
 		},
@@ -2564,9 +2567,21 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountReferenceExistingClu
 			},
 		},
 	}
-	rb := &rbacv1.RoleBinding{
+	existingClusterRole2 := &rbacv1.ClusterRole{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "app-name",
+			Name: "existingClusterRole2",
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{""},
+				Resources: []string{"pods"},
+				Verbs:     []string{"get", "watch", "list"},
+			},
+		},
+	}
+	rb1 := &rbacv1.RoleBinding{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "app-name-existingClusterRole1",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
@@ -2582,18 +2597,42 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountReferenceExistingClu
 			},
 		},
 	}
-	rbUID := rb.GetUID()
+	rbUID1 := rb1.GetUID()
+	rb2 := &rbacv1.RoleBinding{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "app-name-existingClusterRole2",
+			Namespace: "test",
+			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+		},
+		RoleRef: rbacv1.RoleRef{
+			Name: "existingClusterRole2",
+			Kind: "ClusterRole",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      "app-name",
+				Namespace: "test",
+			},
+		},
+	}
+	rbUID2 := rb2.GetUID()
 
 	secretArg := s.getOCIImageSecret(c, map[string]string{"fred": "mary"})
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Times(1).Return(svcAccount, nil),
-		s.mockClusterRoles.EXPECT().Get("existingClusterRole1", v1.GetOptions{IncludeUninitialized: true}).Times(1).Return(existingClusterRole, nil),
+		s.mockClusterRoles.EXPECT().Get("existingClusterRole1", v1.GetOptions{IncludeUninitialized: true}).Times(1).Return(existingClusterRole1, nil),
 		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).Times(1).
-			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb}}, nil),
-		s.mockRoleBindings.EXPECT().Delete("app-name", s.deleteOptions(v1.DeletePropagationForeground, &rbUID)).Times(1).Return(nil),
-		s.mockRoleBindings.EXPECT().Create(rb).Times(1).Return(rb, nil),
+			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb1}}, nil),
+		s.mockRoleBindings.EXPECT().Delete("app-name-existingClusterRole1", s.deleteOptions(v1.DeletePropagationForeground, &rbUID1)).Times(1).Return(nil),
+		s.mockRoleBindings.EXPECT().Create(rb1).Times(1).Return(rb1, nil),
+		s.mockClusterRoles.EXPECT().Get("existingClusterRole2", v1.GetOptions{IncludeUninitialized: true}).Times(1).Return(existingClusterRole2, nil),
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).Times(1).
+			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb2}}, nil),
+		s.mockRoleBindings.EXPECT().Delete("app-name-existingClusterRole2", s.deleteOptions(v1.DeletePropagationForeground, &rbUID2)).Times(1).Return(nil),
+		s.mockRoleBindings.EXPECT().Create(rb2).Times(1).Return(rb1, nil),
 		s.mockSecrets.EXPECT().Create(secretArg).Times(1).Return(secretArg, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
