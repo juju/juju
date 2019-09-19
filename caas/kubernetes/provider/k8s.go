@@ -1630,6 +1630,23 @@ func (k *kubernetesClient) deleteDeployment(name string) error {
 	return errors.Trace(err)
 }
 
+func getPodManagementPolicy(svc *specs.ServiceSpec) (out apps.PodManagementPolicyType) {
+	// default to "Parallel".
+	out = apps.ParallelPodManagement
+	if svc == nil {
+		return out
+	}
+
+	switch svc.ScalePolicy {
+	case specs.SerialScale:
+		return apps.OrderedReadyPodManagement
+	case specs.ParallelScale:
+		return apps.ParallelPodManagement
+		// no need to consider other cases because we have done validation in podspec parsing stage.
+	}
+	return out
+}
+
 func (k *kubernetesClient) configureStatefulSet(
 	appName, deploymentName, randPrefix string, annotations k8sannotations.Annotation, workloadSpec *workloadSpec,
 	containers []specs.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
@@ -1659,7 +1676,7 @@ func (k *kubernetesClient) configureStatefulSet(
 					Annotations: podAnnotations(annotations.Copy()).ToMap(),
 				},
 			},
-			PodManagementPolicy: apps.ParallelPodManagement,
+			PodManagementPolicy: getPodManagementPolicy(workloadSpec.Service),
 			ServiceName:         headlessServiceName(deploymentName),
 		},
 	}
