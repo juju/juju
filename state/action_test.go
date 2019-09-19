@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -295,7 +296,7 @@ func (s *ActionSuite) TestActionMessages(c *gc.C) {
 		obtained := a.Messages()
 		c.Assert(obtained, gc.HasLen, i+1)
 		for j, am := range obtained {
-			c.Assert(am.Timestamp, gc.Equals, clock.Now())
+			c.Assert(am.Timestamp, gc.Equals, clock.Now().UTC())
 			c.Assert(am.Message, gc.Equals, messages[j])
 		}
 	}
@@ -912,6 +913,100 @@ func expectActionIds(actions ...state.Action) []string {
 		ids[i] = action.Id()
 	}
 	return ids
+}
+
+func (s *ActionSuite) TestWatchActionLogs(c *gc.C) {
+	unit1, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// queue some actions before starting the watcher
+	fa1, err := unit1.AddAction("snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	fa1, err = fa1.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	err = fa1.Log("first")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure no cross contamination - add another action.
+	fa2, err := unit1.AddAction("snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	fa2, err = fa2.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	err = fa2.Log("another")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
+	startNow := time.Now().UTC()
+	makeTimestamp := func(offset time.Duration) time.Time {
+		return time.Unix(0, startNow.UnixNano()).Add(offset).UTC()
+	}
+
+	checkExpected := func(wc statetesting.StringsWatcherC, expected []state.ActionMessage) {
+		var ch []string
+		s.State.StartSync()
+		select {
+		case ch = <-wc.Watcher.Changes():
+		case <-time.After(testing.LongWait):
+			c.Fatalf("watcher did not send change")
+		}
+		var msg []state.ActionMessage
+		for i, chStr := range ch {
+			var gotMessage state.ActionMessage
+			err := json.Unmarshal([]byte(chStr), &gotMessage)
+			c.Assert(err, jc.ErrorIsNil)
+			// We can't control the actual time so check for
+			// not nil and then assigned to a known value.
+			c.Assert(gotMessage.Timestamp, gc.NotNil)
+			gotMessage.Timestamp = makeTimestamp(time.Duration(i) * time.Second)
+			msg = append(msg, gotMessage)
+		}
+		c.Assert(msg, jc.DeepEquals, expected)
+		wc.AssertNoChange()
+	}
+
+	w := s.State.WatchActionLogs(fa1.Id())
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	// make sure the previously pending actions are sent on the watcher
+	expected := []state.ActionMessage{{
+		Timestamp: startNow,
+		Message:   "first",
+	}}
+	checkExpected(wc, expected)
+
+	// Add 2 more messages; we should only see those on this watcher.
+	err = fa1.Log("another")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = fa1.Log("yet another")
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected = []state.ActionMessage{{
+		Timestamp: startNow,
+		Message:   "another",
+	}, {
+		Timestamp: makeTimestamp(1 * time.Second),
+		Message:   "yet another",
+	}}
+	checkExpected(wc, expected)
+
+	// But on a new watcher we see all 3 events.
+	w2 := s.State.WatchActionLogs(fa1.Id())
+	defer statetesting.AssertStop(c, w)
+	wc2 := statetesting.NewStringsWatcherC(c, s.State, w2)
+	// make sure the previously pending actions are sent on the watcher
+	expected = []state.ActionMessage{{
+		Timestamp: startNow,
+		Message:   "first",
+	}, {
+		Timestamp: makeTimestamp(1 * time.Second),
+		Message:   "another",
+	}, {
+		Timestamp: makeTimestamp(2 * time.Second),
+		Message:   "yet another",
+	}}
+	checkExpected(wc2, expected)
 }
 
 // mapify is a convenience method, also to make reading the tests

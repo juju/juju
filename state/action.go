@@ -264,7 +264,15 @@ func (a *action) removeAndLog(finalStatus ActionStatus, results map[string]inter
 
 // Messages returns the action's progress messages.
 func (a *action) Messages() []ActionMessage {
-	return append([]ActionMessage(nil), a.doc.Logs...)
+	// Timestamps are not decoded as UTC, so we need to convert :-(
+	result := make([]ActionMessage, len(a.doc.Logs))
+	for i, m := range a.doc.Logs {
+		result[i] = ActionMessage{
+			Message:   m.Message,
+			Timestamp: m.Timestamp.UTC(),
+		}
+	}
+	return result
 }
 
 // Log adds message to the action's progress message array.
@@ -290,7 +298,7 @@ func (a *action) Log(message string) error {
 				Id:     a.doc.DocId,
 				Assert: bson.D{{"status", ActionRunning}},
 				Update: bson.D{{"$push", bson.D{
-					{"messages", ActionMessage{Message: message, Timestamp: a.st.nowToTheSecond()}},
+					{"messages", ActionMessage{Message: message, Timestamp: a.st.nowToTheSecond().UTC()}},
 				}}},
 			}}
 		return ops, nil
