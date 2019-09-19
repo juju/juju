@@ -44,6 +44,7 @@ type BlockDeviceInfo struct {
 	FilesystemType string   `bson:"fstype,omitempty"`
 	InUse          bool     `bson:"inuse"`
 	MountPoint     string   `bson:"mountpoint,omitempty"`
+	SerialId       string   `bson:"serialid,omitempty"`
 }
 
 // WatchBlockDevices returns a new NotifyWatcher watching for
