@@ -102,7 +102,8 @@ func (spec *ContainerSpec) Validate() error {
 // ServiceSpec contains attributes to be set on v1.Service when
 // the application is deployed.
 type ServiceSpec struct {
-	Annotations map[string]string `json:"annotations,omitempty"`
+	PodManagementPolicy string            `json:"podManagementPolicy,omitempty"`
+	Annotations         map[string]string `json:"annotations,omitempty"`
 }
 
 // Version describes pod spec version type.

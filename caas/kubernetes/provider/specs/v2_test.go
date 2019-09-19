@@ -116,6 +116,7 @@ configMaps:
     foo: bar
     hello: world
 service:
+  podManagementPolicy: OrderedReady
   annotations:
     foo: bar
 serviceAccount:
@@ -203,7 +204,8 @@ foo: bar
 			},
 		}
 		pSpecs.Service = &specs.ServiceSpec{
-			Annotations: map[string]string{"foo": "bar"},
+			PodManagementPolicy: "OrderedReady",
+			Annotations:         map[string]string{"foo": "bar"},
 		}
 		pSpecs.ConfigMaps = map[string]specs.ConfigMap{
 			"mydata": {

@@ -1660,6 +1660,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 	defer ctrl.Finish()
 
 	basicPodSpec := getBasicPodspec()
+	basicPodSpec.Service = &specs.ServiceSpec{
+		PodManagementPolicy: "OrderedReady",
+	}
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.PodSpec(workloadSpec)
@@ -1687,7 +1690,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 				},
 				Spec: podSpec,
 			},
-			PodManagementPolicy: apps.ParallelPodManagement,
+			PodManagementPolicy: apps.PodManagementPolicyType("OrderedReady"),
 			ServiceName:         "app-name-endpoints",
 		},
 	}

@@ -1632,7 +1632,10 @@ func (k *kubernetesClient) configureStatefulSet(
 	cfgName := func(fileSetName string) string {
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
-
+	podManagementPolicy := apps.ParallelPodManagement
+	if workloadSpec.Service != nil && workloadSpec.Service.PodManagementPolicy != "" {
+		podManagementPolicy = workloadSpec.Service.PodManagementPolicy
+	}
 	statefulset := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name: deploymentName,
@@ -1651,7 +1654,7 @@ func (k *kubernetesClient) configureStatefulSet(
 					Annotations: podAnnotations(annotations.Copy()).ToMap(),
 				},
 			},
-			PodManagementPolicy: apps.ParallelPodManagement,
+			PodManagementPolicy: apps.PodManagementPolicyType(podManagementPolicy),
 			ServiceName:         headlessServiceName(deploymentName),
 		},
 	}
