@@ -109,9 +109,7 @@ type AddCAASCommand struct {
 	modelcmd.OptionalControllerCommand
 
 	// These attributes are used when adding a cluster to a controller.
-	controllerName  string
 	credentialName  string
-	store           jujuclient.ClientStore
 	addCloudAPIFunc func() (AddCloudAPI, error)
 
 	// caasName is the name of the caas to add.
@@ -169,13 +167,12 @@ func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 			EnabledFlag: feature.MultiCloud,
 		},
 		cloudMetadataStore: cloudMetadataStore,
-		store:              store,
 		newClientConfigReader: func(caasType string) (clientconfig.ClientConfigFunc, error) {
 			return clientconfig.NewClientConfigReader(caasType)
 		},
 	}
 	command.addCloudAPIFunc = func() (AddCloudAPI, error) {
-		root, err := command.NewAPIRoot(command.store, command.controllerName, "")
+		root, err := command.NewAPIRoot(command.Store, command.ControllerName, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -495,7 +492,7 @@ func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential j
 		return nil, errors.Trace(err)
 	}
 	if !c.Local {
-		ctrlUUID, err := c.ControllerUUID(c.store, c.ControllerName)
+		ctrlUUID, err := c.ControllerUUID(c.Store, c.ControllerName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -707,7 +704,7 @@ func (c *AddCAASCommand) addCredentialToLocal(cloudName string, newCredential ju
 		AuthCredentials: make(map[string]jujucloud.Credential),
 	}
 	newCredentials.AuthCredentials[credentialName] = newCredential
-	err := c.store.UpdateCredential(cloudName, *newCredentials)
+	err := c.Store.UpdateCredential(cloudName, *newCredentials)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -715,12 +712,12 @@ func (c *AddCAASCommand) addCredentialToLocal(cloudName string, newCredential ju
 }
 
 func (c *AddCAASCommand) addCredentialToController(apiClient AddCloudAPI, newCredential jujucloud.Credential, credentialName string) error {
-	_, err := c.store.ControllerByName(c.ControllerName)
+	_, err := c.Store.ControllerByName(c.ControllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	currentAccountDetails, err := c.store.AccountDetails(c.ControllerName)
+	currentAccountDetails, err := c.Store.AccountDetails(c.ControllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
