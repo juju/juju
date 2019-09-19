@@ -1661,7 +1661,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.Service = &specs.ServiceSpec{
-		PodManagementPolicy: "OrderedReady",
+		ScalePolicy: "serial",
 	}
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec)
 	c.Assert(err, jc.ErrorIsNil)

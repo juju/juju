@@ -99,11 +99,50 @@ func (spec *ContainerSpec) Validate() error {
 	return nil
 }
 
+// ScalePolicyType defines the policy for creating or terminating pods under a service.
+type ScalePolicyType string
+
+// Validate returns an error if the spec is not valid.
+func (spt ScalePolicyType) Validate() error {
+	if spt == "" {
+		return nil
+	}
+	for _, v := range supportedPolicies {
+		if spt == v {
+			return nil
+		}
+	}
+	return errors.NotSupportedf("%v", spt)
+}
+
+const (
+	// ParallelScale will create and delete pods as soon as the
+	// replica count is changed, and will not wait for pods to be ready or complete
+	// termination.
+	ParallelScale ScalePolicyType = "parallel"
+
+	// SerialScale will create pods in strictly increasing order on
+	// scale up and strictly decreasing order on scale down, progressing only when
+	// the previous pod is ready or terminated. At most one pod will be changed
+	// at any time.
+	SerialScale = "serial"
+)
+
+var supportedPolicies = []ScalePolicyType{
+	ParallelScale,
+	SerialScale,
+}
+
 // ServiceSpec contains attributes to be set on v1.Service when
 // the application is deployed.
 type ServiceSpec struct {
-	PodManagementPolicy string            `json:"podManagementPolicy,omitempty"`
-	Annotations         map[string]string `json:"annotations,omitempty"`
+	ScalePolicy ScalePolicyType   `json:"scalePolicy,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
+// Validate returns an error if the spec is not valid.
+func (ss ServiceSpec) Validate() error {
+	return errors.Trace(ss.ScalePolicy.Validate())
 }
 
 // Version describes pod spec version type.
@@ -117,8 +156,7 @@ type PodSpecVersion struct {
 // ConfigMap describes the format of configmap resource.
 type ConfigMap map[string]string
 
-// podSpecBase defines the data values used to configure
-// a pod on the CAAS substrate.
+// podSpecBase defines the data values used to configure a pod on the CAAS substrate.
 type podSpecBase struct {
 	PodSpecVersion `yaml:",inline"`
 
@@ -144,6 +182,12 @@ type ProviderPod interface {
 func (spec *podSpecBase) Validate(ver Version) error {
 	if spec.Version != ver {
 		return errors.NewNotValid(nil, fmt.Sprintf("expected version %d, but found %d", ver, spec.Version))
+	}
+
+	if spec.Service != nil {
+		if err := spec.Service.Validate(); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	for _, c := range spec.Containers {
