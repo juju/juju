@@ -1494,7 +1494,7 @@
   revision = "51fa6e26128d74e445c72d3a91af555151cc3654"
 
 [[projects]]
-  digest = "1:00d5f5c99780508ccdc0567c634dc4b4c5b28785647357a947ceb6cfca56e3f3"
+  digest = "1:34cce2e1c107ca1b36326be923c786200a4382977ce56a0b9494f6eb41b7fb95"
   name = "gopkg.in/juju/charm.v6"
   packages = [
     ".",
@@ -1502,7 +1502,7 @@
     "resource",
   ]
   pruneopts = ""
-  revision = "cf3ec8f263e4b35e70f76f8b660284ac26517958"
+  revision = "adaf8c5c203723a78e5d6e54492505c574bdf28c"
 
 [[projects]]
   digest = "1:dc05394e66d3dfe6ecc7b966cc0ac4ab40c3d10b0249499af92f4c4ae3ad6e85"
@@ -1916,6 +1916,7 @@
     "github.com/dustin/go-humanize",
     "github.com/golang/mock/gomock",
     "github.com/google/go-querystring/query",
+    "github.com/googleapis/gnostic/OpenAPIv2",
     "github.com/gorilla/handlers",
     "github.com/gorilla/schema",
     "github.com/gorilla/websocket",

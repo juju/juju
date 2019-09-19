@@ -108,7 +108,7 @@ type APIBase struct {
 
 	storagePoolManager    poolmanager.PoolManager
 	registry              storage.ProviderRegistry
-	storageValidator      caas.StorageValidator
+	caasBroker            caasBrokerInterface
 	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error)
 }
 
@@ -178,6 +178,11 @@ func NewFacadeV10(ctx facade.Context) (*APIv10, error) {
 	return &APIv10{api}, nil
 }
 
+type caasBrokerInterface interface {
+	ValidateStorageClass(config map[string]interface{}) error
+	Version() (*version.Number, error)
+}
+
 func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 	facadeModel, err := ctx.State().Model()
 	if err != nil {
@@ -193,14 +198,14 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 	var (
 		storagePoolManager poolmanager.PoolManager
 		registry           storage.ProviderRegistry
-		storageValidator   caas.Broker
+		caasBroker         caas.Broker
 	)
 	if facadeModel.Type() == state.ModelTypeCAAS {
-		storageValidator, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(ctx.State())
+		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(ctx.State())
 		if err != nil {
 			return nil, errors.Annotate(err, "getting caas client")
 		}
-		registry = stateenvirons.NewStorageProviderRegistry(storageValidator)
+		registry = stateenvirons.NewStorageProviderRegistry(caasBroker)
 		storagePoolManager = poolmanager.New(state.NewStateSettings(ctx.State()), registry)
 	}
 
@@ -217,7 +222,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		storagePoolManager,
 		registry,
 		resources,
-		storageValidator,
+		caasBroker,
 	)
 }
 
@@ -233,7 +238,7 @@ func NewAPIBase(
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
 	resources facade.Resources,
-	storageValidator caas.StorageValidator,
+	caasBroker caasBrokerInterface,
 ) (*APIBase, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -250,7 +255,7 @@ func NewAPIBase(
 		storagePoolManager:    storagePoolManager,
 		registry:              registry,
 		resources:             resources,
-		storageValidator:      storageValidator,
+		caasBroker:            caasBroker,
 	}, nil
 }
 
@@ -366,7 +371,16 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 	}
 
 	for i, arg := range args.Applications {
-		err := deployApplication(api.backend, api.model, api.stateCharm, arg, api.deployApplicationFunc, api.storagePoolManager, api.registry, api.storageValidator)
+		err := deployApplication(
+			api.backend,
+			api.model,
+			api.stateCharm,
+			arg,
+			api.deployApplicationFunc,
+			api.storagePoolManager,
+			api.registry,
+			api.caasBroker,
+		)
 		result.Results[i].Error = common.ServerError(err)
 
 		if err != nil && len(arg.Resources) != 0 {
@@ -480,7 +494,7 @@ func deployApplication(
 	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error),
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
-	storageValidator caas.StorageValidator,
+	caasBroker caasBrokerInterface,
 ) error {
 	curl, err := charm.ParseURL(args.CharmURL)
 	if err != nil {
@@ -491,6 +505,7 @@ func deployApplication(
 	}
 
 	modelType := model.Type()
+	var caasVersion *version.Number
 	if modelType != state.ModelTypeIAAS {
 		if len(args.AttachStorage) > 0 {
 			return errors.Errorf(
@@ -528,7 +543,7 @@ func deployApplication(
 			return errors.Errorf(
 				"the %q storage pool requires a provider type of %q, not %q", poolName, k8s.K8s_ProviderType, sp.Provider)
 		}
-		if err := storageValidator.ValidateStorageClass(sp.Attributes); err != nil {
+		if err := caasBroker.ValidateStorageClass(sp.Attributes); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -541,6 +556,11 @@ func deployApplication(
 			if err != nil {
 				return errors.Annotatef(err, "getting workload storage params for %q", args.ApplicationName)
 			}
+		}
+
+		caasVersion, err = caasBroker.Version()
+		if err != nil {
+			return errors.Trace(err)
 		}
 	}
 
@@ -556,7 +576,10 @@ func deployApplication(
 		return errors.Trace(err)
 	}
 
-	if err := checkMinVersion(ch); err != nil {
+	if err := checkJujuMinVersion(ch); err != nil {
+		return errors.Trace(err)
+	}
+	if err := checkCAASMinVersion(ch, caasVersion); err != nil {
 		return errors.Trace(err)
 	}
 

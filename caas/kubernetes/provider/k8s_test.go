@@ -4,7 +4,6 @@
 package provider_test
 
 import (
-	"net/url"
 	"strings"
 	"time"
 
@@ -27,8 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -498,12 +497,15 @@ func (s *K8sBrokerSuite) TestAPIVersion(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	r := rest.NewRequest(nil, "get", &url.URL{Path: "/path/"}, "", rest.ContentConfig{}, rest.Serializers{}, nil, nil, 0)
-	s.mockRestClient.EXPECT().Get().Times(1).Return(r)
+	gomock.InOrder(
+		s.mockDiscovery.EXPECT().ServerVersion().Times(1).Return(&k8sversion.Info{
+			Major: "1", Minor: "16",
+		}, nil),
+	)
 
-	// The fake request results in an error that shows the expected path was accessed.
-	_, err := s.broker.APIVersion()
-	c.Assert(err, gc.ErrorMatches, `get /path/version: unsupported protocol scheme ""`)
+	ver, err := s.broker.APIVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ver, gc.DeepEquals, "1.16.0")
 }
 
 func (s *K8sBrokerSuite) TestConfig(c *gc.C) {
@@ -1465,6 +1467,21 @@ password: shhhh`[1:],
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestVersion(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockDiscovery.EXPECT().ServerVersion().Times(1).Return(&k8sversion.Info{
+			Major: "1", Minor: "15",
+		}, nil),
+	)
+
+	ver, err := s.broker.Version()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ver, gc.DeepEquals, &version.Number{Major: 1, Minor: 15})
 }
 
 func (s *K8sBrokerSuite) TestEnsureServiceWithConfigMapAndSecretsUpdate(c *gc.C) {

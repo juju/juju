@@ -34,6 +34,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"
@@ -844,6 +845,11 @@ func (*fakeBroker) ConstraintsValidator(ctx context.ProviderCallContext) (constr
 
 func (*fakeBroker) PrecheckInstance(context.ProviderCallContext, environs.PrecheckInstanceParams) error {
 	return nil
+}
+
+func (*fakeBroker) Version() (*version.Number, error) {
+	ver := version.MustParse("1.15.1")
+	return &ver, nil
 }
 
 func (*fakeBroker) ValidateStorageClass(_ map[string]interface{}) error {

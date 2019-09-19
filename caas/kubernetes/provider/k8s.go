@@ -6,7 +6,6 @@ package provider
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -35,7 +34,6 @@ import (
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
-	apimachineryversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -80,7 +78,7 @@ const (
 	// OperatorPodIPEnvName is the environment name for operator pod IP.
 	OperatorPodIPEnvName = "JUJU_OPERATOR_POD_IP"
 
-	// OperatorPodIPEnvName is the environment name for operator service IP.
+	// OperatorServiceIPEnvName is the environment name for operator service IP.
 	OperatorServiceIPEnvName = "JUJU_OPERATOR_SERVICE_IP"
 
 	// OperatorNamespaceEnvName is the environment name for k8s namespace the operator is in.
@@ -134,6 +132,7 @@ type kubernetesClient struct {
 //go:generate mockgen -package mocks -destination mocks/rbacv1_mock.go k8s.io/client-go/kubernetes/typed/rbac/v1 RbacV1Interface,ClusterRoleBindingInterface,ClusterRoleInterface,RoleInterface,RoleBindingInterface
 //go:generate mockgen -package mocks -destination mocks/apiextensions_mock.go k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1 ApiextensionsV1beta1Interface,CustomResourceDefinitionInterface
 //go:generate mockgen -package mocks -destination mocks/apiextensionsclientset_mock.go -mock_names=Interface=MockApiExtensionsClientInterface k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset  Interface
+//go:generate mockgen -package mocks -destination mocks/discovery_mock.go k8s.io/client-go/discovery DiscoveryInterface
 
 // NewK8sClientFunc defines a function which returns a k8s client based on the supplied config.
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error)
@@ -191,6 +190,23 @@ func newK8sBroker(
 // GetAnnotations returns current namespace's annotations.
 func (k *kubernetesClient) GetAnnotations() k8sannotations.Annotation {
 	return k.annotations
+}
+
+// Version returns cluster version information.
+func (k *kubernetesClient) Version() (ver *version.Number, err error) {
+	k8sver, err := k.client().Discovery().ServerVersion()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ver = &version.Number{}
+	if ver.Major, err = strconv.Atoi(k8sver.Major); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if ver.Minor, err = strconv.Atoi(k8sver.Minor); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return ver, nil
 }
 
 // addAnnotations set an annotation to current namespace's annotations.
@@ -460,19 +476,11 @@ func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) (err e
 
 // APIVersion returns the version info for the cluster.
 func (k *kubernetesClient) APIVersion() (string, error) {
-	body, err := k.client().CoreV1().RESTClient().Get().AbsPath("/version").Do().Raw()
+	ver, err := k.Version()
 	if err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
-	var info apimachineryversion.Info
-	err = json.Unmarshal(body, &info)
-	if err != nil {
-		return "", errors.Annotatef(err, "got '%s' querying API version", string(body))
-	}
-	version := info.GitVersion
-	// git version is "vX.Y.Z", strip the "v"
-	version = strings.Trim(version, "v")
-	return version, nil
+	return ver.String(), nil
 }
 
 // OperatorExists indicates if the operator for the specified
@@ -1267,7 +1275,7 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}
 
-	hasService := !params.PodSpec.OmitServiceFrontend
+	hasService := !params.PodSpec.OmitServiceFrontend && !params.Deployment.ServiceType.IsOmit()
 	if hasService {
 		var ports []core.ContainerPort
 		for _, c := range workloadSpec.Pod.Containers {
@@ -1782,6 +1790,9 @@ func (k *kubernetesClient) configureService(
 			serviceType = core.ServiceTypeLoadBalancer
 		case caas.ServiceExternal:
 			serviceType = core.ServiceTypeExternalName
+		case caas.ServiceOmit:
+			logger.Debugf("no service to be created because service type is %q", params.Deployment.ServiceType)
+			return nil
 		default:
 			return errors.NotSupportedf("service type %q", params.Deployment.ServiceType)
 		}

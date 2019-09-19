@@ -923,14 +923,21 @@ func (m *mockStorageRegistry) StorageProvider(p storage.ProviderType) (storage.P
 	return nil, errors.NotFoundf("provider type %q", p)
 }
 
-type mockStorageValidator struct {
+type mockCaasBroker struct {
 	jtesting.Stub
 	caas.StorageValidator
+	caas.ClusterVersionGetter
 }
 
-func (m *mockStorageValidator) ValidateStorageClass(config map[string]interface{}) error {
+func (m *mockCaasBroker) ValidateStorageClass(config map[string]interface{}) error {
 	m.MethodCall(m, "ValidateStorageClass", config)
 	return m.NextErr()
+}
+
+func (m *mockCaasBroker) Version() (*version.Number, error) {
+	m.MethodCall(m, "Version")
+	ver := version.MustParse("1.15.0")
+	return &ver, nil
 }
 
 type mockGeneration struct {
