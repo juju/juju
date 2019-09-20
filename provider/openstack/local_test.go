@@ -2743,18 +2743,13 @@ func (t *localServerSuite) ensureAMDImages(c *gc.C) environs.Environ {
 // this causes the client to switch to nova networking.
 type noNeutronSuite struct {
 	coretesting.BaseSuite
-	cred                 *identity.Credentials
-	srv                  localServer
-	env                  environs.Environ
-	toolsMetadataStorage envstorage.Storage
-	imageMetadataStorage envstorage.Storage
-	storageAdapter       *mockAdapter
+	cred *identity.Credentials
+	srv  localServer
+	env  environs.Environ
 }
 
 func (s *noNeutronSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
-	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
-	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
 	c.Logf("Running local tests")
 }
 
@@ -2779,7 +2774,14 @@ func (s *noNeutronSuite) SetUpTest(c *gc.C) {
 		return nil
 	})
 	s.AddCleanup(func(c *gc.C) { cleanup() })
+}
 
+func (s *noNeutronSuite) TearDownTest(c *gc.C) {
+	s.srv.stop()
+	s.BaseSuite.TearDownTest(c)
+}
+
+func (s *noNeutronSuite) TestSupport(c *gc.C) {
 	cl := client.NewClient(s.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2796,97 +2798,14 @@ func (s *noNeutronSuite) SetUpTest(c *gc.C) {
 	})
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
-	env, err := bootstrap.PrepareController(
+	_, err = bootstrap.PrepareController(
 		false,
 		envtesting.BootstrapContext(c),
 		jujuclient.NewMemStore(),
 		prepareParams(attrs, s.cred),
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	s.env = env.(environs.Environ)
-	s.toolsMetadataStorage = openstack.MetadataStorage(s.env)
-	// Put some fake metadata in place so that tests that are simply
-	// starting instances without any need to check if those instances
-	// are running can find the metadata.
-	envtesting.UploadFakeTools(c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream())
-	s.imageMetadataStorage = openstack.ImageMetadataStorage(s.env)
-	openstack.UseTestImageData(s.imageMetadataStorage, s.cred)
-	s.storageAdapter = makeMockAdapter()
-	overrideCinderProvider(c, &s.CleanupSuite, s.storageAdapter)
-}
-
-func (s *noNeutronSuite) TearDownTest(c *gc.C) {
-	if s.imageMetadataStorage != nil {
-		openstack.RemoveTestImageData(s.imageMetadataStorage)
-	}
-	if s.toolsMetadataStorage != nil {
-		envtesting.RemoveFakeToolsMetadata(c, s.toolsMetadataStorage)
-	}
-	s.srv.stop()
-	s.BaseSuite.TearDownTest(c)
-}
-
-func (s *noNeutronSuite) TestUpdateGroupControllerNoNeutron(c *gc.C) {
-	// Ensure that when Juju updates the security groups when we don't
-	// have Neutron networking, that we don't get confused by security
-	// groups that are not part of this model.
-	client := openstack.GetNovaClient(s.env)
-	// Non-Juju groups and groups for other models.
-	names := []string{
-		"unrelated",
-		"juju-aaaaaaaa-bbbb-cccc-dddd-9876543210ab-12345678-eeee-eeee-eeee-aabbccddeeff",
-		"juju-aaaaaaaa-bbbb-cccc-dddd-9876543210ab-12345678-eeee-eeee-eeee-aabbccddeeff-0",
-	}
-	for _, name := range names {
-		createNovaSecurityGroup(c, client, name)
-	}
-
-	// Bootstrapping will create the groups for this model.
-	err := bootstrapEnv(c, s.env)
-	c.Assert(err, jc.ErrorIsNil)
-
-	groupNamesBefore := set.NewStrings(getNovaSecurityGroupNames(c, client)...)
-	c.Assert(groupNamesBefore, gc.DeepEquals, set.NewStrings(
-		"default",
-		"unrelated",
-		"juju-aaaaaaaa-bbbb-cccc-dddd-9876543210ab-12345678-eeee-eeee-eeee-aabbccddeeff",
-		"juju-aaaaaaaa-bbbb-cccc-dddd-9876543210ab-12345678-eeee-eeee-eeee-aabbccddeeff-0",
-		// These are the groups for our model.
-		"juju-deadbeef-1bad-500d-9000-4b1d0d06f00d-deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		"juju-deadbeef-1bad-500d-9000-4b1d0d06f00d-deadbeef-0bad-400d-8000-4b1d0d06f00d-0",
-	))
-
-	firewaller := openstack.GetFirewaller(s.env)
-	err = firewaller.UpdateGroupController(context.NewCloudCallContext(), "aabbccdd-eeee-ffff-0000-0123456789ab")
-	c.Assert(err, jc.ErrorIsNil)
-
-	groupNamesAfter := set.NewStrings(getNovaSecurityGroupNames(c, client)...)
-	c.Assert(groupNamesAfter, gc.DeepEquals, set.NewStrings(
-		// These ones are left alone.
-		"default",
-		"unrelated",
-		"juju-aaaaaaaa-bbbb-cccc-dddd-9876543210ab-12345678-eeee-eeee-eeee-aabbccddeeff",
-		"juju-aaaaaaaa-bbbb-cccc-dddd-9876543210ab-12345678-eeee-eeee-eeee-aabbccddeeff-0",
-		// Only these last two are updated.
-		"juju-aabbccdd-eeee-ffff-0000-0123456789ab-deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		"juju-aabbccdd-eeee-ffff-0000-0123456789ab-deadbeef-0bad-400d-8000-4b1d0d06f00d-0",
-	))
-}
-
-func createNovaSecurityGroup(c *gc.C, client *nova.Client, name string) {
-	c.Logf("creating group %q", name)
-	_, err := client.CreateSecurityGroup(name, "")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func getNovaSecurityGroupNames(c *gc.C, client *nova.Client) []string {
-	groups, err := client.ListSecurityGroups()
-	c.Assert(err, jc.ErrorIsNil)
-	var names []string
-	for _, group := range groups {
-		names = append(names, group.Name)
-	}
-	return names
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `OpenStack Neutron service`)
 }
 
 func prepareParams(attrs map[string]interface{}, cred *identity.Credentials) bootstrap.PrepareParams {

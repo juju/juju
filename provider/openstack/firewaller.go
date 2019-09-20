@@ -120,7 +120,7 @@ func (f *switchingFirewaller) initFirewaller(ctx context.ProviderCallContext) er
 	if f.env.supportsNeutron() {
 		f.fw = &neutronFirewaller{firewallerBase{environ: f.env}}
 	} else {
-		f.fw = &legacyNovaFirewaller{firewallerBase{environ: f.env}}
+		return errors.NewNotSupported(nil, "nova networking")
 	}
 	return nil
 }

@@ -703,17 +703,15 @@ func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerN
 		return err
 	}
 	if !e.supportsNeutron() {
-		logger.Warningf(`Using deprecated OpenStack APIs.
+		logger.Warningf(`Using unsupported OpenStack APIs.
 
   Neutron networking is not supported by this OpenStack cloud.
-  Falling back to deprecated Nova networking.
 
-  Support for deprecated Nova networking APIs will be removed
-  in a future Juju release. Please upgrade to OpenStack Icehouse
-  or newer to maintain compatibility.
+  Please use OpenStack Queens or newer to maintain compatibility.
 
 `,
 		)
+		return errors.NewNotFound(nil, "OpenStack Neutron service")
 	}
 	return nil
 }

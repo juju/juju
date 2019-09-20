@@ -176,3 +176,8 @@ func GetFirewaller(e environs.Environ) Firewaller {
 	env := e.(*Environ)
 	return env.firewaller
 }
+
+func GetNetworking(e environs.Environ) Networking {
+	env := e.(*Environ)
+	return env.networking
+}

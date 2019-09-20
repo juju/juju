@@ -55,9 +55,12 @@ type NetworkingDecorator interface {
 	DecorateNetworking(Networking) (Networking, error)
 }
 
-// switchingNetworking is an implementation of Networking that delegates
-// to either Neutron networking (preferred), or legacy Nova networking if
-// there is no support for Neutron.
+// switchingNetworking is an implementation of Networking that currently
+// delegates to Neutron networking.  Before juju 2.8, legacy Nova networking
+// was supported as well.  It was the fallback when Neutron was not available
+// in the OpenStack cloud bootstrapped. Nova networking was deprecated in
+// the Newton release of OpenStack and will be removed with the Ussuri
+// release, May 2020.
 type switchingNetworking struct {
 	env *Environ
 
@@ -83,7 +86,7 @@ func (n *switchingNetworking) initNetworking() error {
 	if n.env.supportsNeutron() {
 		n.networking = &NeutronNetworking{base}
 	} else {
-		n.networking = &LegacyNovaNetworking{base}
+		return errors.NewNotFound(nil, "Openstack Neutron service")
 	}
 	return nil
 }
