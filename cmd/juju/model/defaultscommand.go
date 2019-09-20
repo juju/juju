@@ -47,14 +47,13 @@ Examples:
     juju model-defaults aws http-proxy
     juju model-defaults aws/us-east-1 http-proxy
     juju model-defaults us-east-1 http-proxy
-    juju model-defaults -m mymodel type
     juju model-defaults ftp-proxy=10.0.0.1:8000
     juju model-defaults aws ftp-proxy=10.0.0.1:8000
     juju model-defaults aws/us-east-1 ftp-proxy=10.0.0.1:8000
     juju model-defaults us-east-1 ftp-proxy=10.0.0.1:8000
     juju model-defaults us-east-1 ftp-proxy=10.0.0.1:8000 path/to/file.yaml
     juju model-defaults us-east-1 path/to/file.yaml    
-    juju model-defaults -m othercontroller:mymodel default-series=yakkety test-mode=false
+    juju model-defaults -c othercontroller default-series=yakkety test-mode=false
     juju model-defaults --reset default-series test-mode
     juju model-defaults aws --reset http-proxy
     juju model-defaults aws/us-east-1 --reset http-proxy
