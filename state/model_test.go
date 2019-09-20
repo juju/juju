@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
@@ -1563,6 +1564,89 @@ func (s *ModelSuite) TestSetEnvironVersionCannotDecrease(c *gc.C) {
 	err = m.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.EnvironVersion(), gc.Equals, 2)
+}
+
+func (s *ModelSuite) TestDestroyForceWorksWhenRemoteRelationScopesAreStuck(c *gc.C) {
+	mysqlEps := []charm.Relation{
+		{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	ms := s.Factory.MakeModel(c, nil)
+	defer ms.Close()
+	remoteApp, err := ms.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "mysql",
+		SourceModel: s.Model.ModelTag(),
+		Token:       "t0",
+		Endpoints:   mysqlEps,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wordpress := state.AddTestingApplication(c, ms, "wordpress", state.AddTestingCharm(c, ms, "wordpress"))
+	eps, err := ms.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := ms.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	unit, err := wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	f := factory.NewFactory(ms, s.StatePool)
+	machine := f.MakeMachine(c, nil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+	localRelUnit, err := rel.Unit(unit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = localRelUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	remoteRelUnit, err := rel.RemoteUnit("mysql/0")
+	c.Assert(err, jc.ErrorIsNil)
+	err = remoteRelUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Refetch the remoteapp to ensure that its relationcount is
+	// current. Otherwise it just silently fails? (See errRefresh
+	// handling in DestroyRemoteApplicationOperation.Build)
+	err = remoteApp.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	err = remoteApp.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	assertLife(c, remoteApp, state.Dying)
+
+	err = wordpress.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = localRelUnit.LeaveScope()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Cleanups
+	assertCleanupCount(c, ms, 1)
+
+	// wordpress is kept around because the relation can't be removed.
+	assertLife(c, wordpress, state.Dying)
+
+	// Force-destroying the model cleans them up.
+	model, err := ms.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	force := true
+	err = model.Destroy(state.DestroyModelParams{
+		Force: &force,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertCleanupCount(c, ms, 4)
+	assertRemoved(c, wordpress)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), gc.Equals, state.Dying)
+	c.Assert(ms.ProcessDyingModel(), jc.ErrorIsNil)
+	c.Assert(ms.RemoveDyingModel(), jc.ErrorIsNil)
 }
 
 type ModelCloudValidationSuite struct {
