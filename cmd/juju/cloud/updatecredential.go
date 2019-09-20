@@ -114,6 +114,7 @@ func (c *updateCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
 	f.StringVar(&c.CredentialsFile, "f", "", "The YAML file containing credential details to update")
 	f.StringVar(&c.CredentialsFile, "file", "", "The YAML file containing credential details to update")
+	// TODO (juju3) remove me
 	f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client instead): Local operation only; controller not affected")
 	f.BoolVar(&c.Local, "client", false, "Client operation only; controller not affected")
 	f.StringVar(&c.Region, "region", "", "Cloud region that credential is valid for")
