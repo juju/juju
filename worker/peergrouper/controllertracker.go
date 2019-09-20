@@ -29,7 +29,7 @@ type controllerTracker struct {
 	// protected by the mutex.
 	id        string
 	wantsVote bool
-	addresses []network.Address
+	addresses network.SpaceAddresses
 }
 
 func newControllerTracker(node ControllerNode, host ControllerHost, notifyCh chan struct{}) (*controllerTracker, error) {
@@ -77,10 +77,10 @@ func (c *controllerTracker) WantsVote() bool {
 }
 
 // Addresses returns the controller addresses from state.
-func (c *controllerTracker) Addresses() []network.Address {
+func (c *controllerTracker) Addresses() network.SpaceAddresses {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	out := make([]network.Address, len(c.addresses))
+	out := make(network.SpaceAddresses, len(c.addresses))
 	copy(out, c.addresses)
 	return out
 }
@@ -95,12 +95,12 @@ func (c *controllerTracker) SelectMongoAddressFromSpace(port int, space network.
 	}
 
 	c.mu.Lock()
-	hostPorts := network.AddressesWithPort(c.addresses, port)
+	hostPorts := network.SpaceAddressesWithPort(c.addresses, port)
 	c.mu.Unlock()
 
-	addrs, ok := network.SelectHostPortsBySpaces(hostPorts, space)
+	addrs, ok := hostPorts.InSpaces(space)
 	if ok {
-		addr := addrs[0].NetAddr()
+		addr := network.DialAddress(addrs[0])
 		logger.Debugf("controller node %q selected address %q by space %q from %v", c.id, addr, space.Name, hostPorts)
 		return addr, nil
 	}
@@ -113,10 +113,10 @@ func (c *controllerTracker) SelectMongoAddressFromSpace(port int, space network.
 
 // GetPotentialMongoHostPorts simply returns all the available addresses
 // with the Mongo port appended.
-func (c *controllerTracker) GetPotentialMongoHostPorts(port int) []network.HostPort {
+func (c *controllerTracker) GetPotentialMongoHostPorts(port int) network.SpaceHostPorts {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return network.AddressesWithPort(c.addresses, port)
+	return network.SpaceAddressesWithPort(c.addresses, port)
 }
 
 func (c *controllerTracker) String() string {

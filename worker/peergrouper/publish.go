@@ -19,17 +19,17 @@ type CachingAPIHostPortsSetter struct {
 	APIHostPortsSetter
 
 	mu   sync.Mutex
-	last [][]network.HostPort
+	last []network.SpaceHostPorts
 }
 
-func (s *CachingAPIHostPortsSetter) SetAPIHostPorts(apiServers [][]network.HostPort) error {
+func (s *CachingAPIHostPortsSetter) SetAPIHostPorts(apiServers []network.SpaceHostPorts) error {
 	if len(apiServers) == 0 {
 		return errors.Errorf("no API servers specified")
 	}
 
-	sorted := make([][]network.HostPort, len(apiServers))
+	sorted := make([]network.SpaceHostPorts, len(apiServers))
 	for i, hostPorts := range apiServers {
-		sorted[i] = append([]network.HostPort{}, hostPorts...)
+		sorted[i] = append(network.SpaceHostPorts{}, hostPorts...)
 		network.SortHostPorts(sorted[i])
 	}
 
@@ -45,22 +45,4 @@ func (s *CachingAPIHostPortsSetter) SetAPIHostPorts(apiServers [][]network.HostP
 	}
 	s.last = sorted
 	return nil
-}
-
-func apiServersEqual(a, b [][]network.HostPort) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i, hostPortsA := range a {
-		hostPortsB := b[i]
-		if len(hostPortsA) != len(hostPortsB) {
-			return false
-		}
-		for j := range hostPortsA {
-			if hostPortsA[j] != hostPortsB[j] {
-				return false
-			}
-		}
-	}
-	return true
 }

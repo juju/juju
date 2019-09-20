@@ -16,8 +16,8 @@ type StateMachine interface {
 
 	Id() string
 	InstanceId() (instance.Id, error)
-	ProviderAddresses() []network.Address
-	SetProviderAddresses(...network.Address) error
+	ProviderAddresses() network.SpaceAddresses
+	SetProviderAddresses(...network.SpaceAddress) error
 	InstanceStatus() (status.StatusInfo, error)
 	SetInstanceStatus(status.StatusInfo) error
 	SetStatus(status.StatusInfo) error
@@ -32,6 +32,7 @@ type StateInterface interface {
 	state.ModelAccessor
 	state.ModelMachinesWatcher
 	state.EntityFinder
+	network.SpaceLookup
 
 	Machine(id string) (StateMachine, error)
 }

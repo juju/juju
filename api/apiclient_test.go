@@ -687,9 +687,15 @@ func (s *apiclientSuite) TestOpenWithRedirect(c *gc.C) {
 	}, api.DialOpts{})
 	c.Assert(err, gc.ErrorMatches, `redirection to alternative server required`)
 
-	hps, _ := network.ParseHostPorts(redirectToHosts...)
+	hps := make(network.MachineHostPorts, len(redirectToHosts))
+	for i, addr := range redirectToHosts {
+		hp, err := network.ParseMachineHostPort(addr)
+		c.Assert(err, jc.ErrorIsNil)
+		hps[i] = *hp
+	}
+
 	c.Assert(errors.Cause(err), jc.DeepEquals, &api.RedirectError{
-		Servers:        [][]network.HostPort{hps},
+		Servers:        []network.MachineHostPorts{hps},
 		CACert:         redirectToCACert,
 		FollowRedirect: true,
 	})
@@ -1340,12 +1346,13 @@ func (a *redirectAPIAdmin) RedirectInfo() (params.RedirectInfoResult, error) {
 	if !a.r.redirected {
 		return params.RedirectInfoResult{}, errors.New("not redirected")
 	}
-	hps, err := network.ParseHostPorts(a.r.redirectToHosts...)
+
+	hps, err := network.ParseProviderHostPorts(a.r.redirectToHosts...)
 	if err != nil {
 		panic(err)
 	}
 	return params.RedirectInfoResult{
-		Servers: [][]params.HostPort{params.FromNetworkHostPorts(hps)},
+		Servers: [][]params.HostPort{params.FromProviderHostPorts(hps)},
 		CACert:  a.r.redirectToCACert,
 	}, nil
 }

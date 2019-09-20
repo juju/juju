@@ -38,7 +38,7 @@ type modelMigratedError string
 
 func newModelMigratedError(store jujuclient.ClientStore, modelName string, redirErr *api.RedirectError) error {
 	// Check if this is a known controller
-	allEndpoints := network.HostPortsToStrings(network.CollapseHostPorts(redirErr.Servers))
+	allEndpoints := network.CollapseToHostPorts(redirErr.Servers).Strings()
 	_, existingName, err := store.ControllerByAPIEndpoints(allEndpoints...)
 	if err != nil && !errors.IsNotFound(err) {
 		return err

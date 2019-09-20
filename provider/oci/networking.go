@@ -1073,7 +1073,7 @@ func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, instId i
 		if !ok || subnet.CidrBlock == nil {
 			continue
 		}
-		addr := corenetwork.NewScopedAddress(*iface.Vnic.PrivateIp, corenetwork.ScopeCloudLocal)
+		addr := corenetwork.NewScopedProviderAddress(*iface.Vnic.PrivateIp, corenetwork.ScopeCloudLocal)
 		nic := network.InterfaceInfo{
 			InterfaceName:    fmt.Sprintf("unsupported%d", iface.Idx),
 			DeviceIndex:      iface.Idx,
@@ -1128,6 +1128,6 @@ func (e *Environ) ReleaseContainerAddresses(ctx envcontext.ProviderCallContext, 
 	return errors.NotSupportedf("ReleaseContainerAddresses")
 }
 
-func (e *Environ) SSHAddresses(ctx envcontext.ProviderCallContext, addresses []corenetwork.Address) ([]corenetwork.Address, error) {
+func (e *Environ) SSHAddresses(ctx envcontext.ProviderCallContext, addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddresses, error) {
 	return addresses, nil
 }

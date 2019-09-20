@@ -32,7 +32,7 @@ var _ = gc.Suite(&aggregateSuite{})
 type testInstance struct {
 	instances.Instance
 	id        instance.Id
-	addresses []network.Address
+	addresses network.ProviderAddresses
 	status    string
 	err       error
 }
@@ -43,7 +43,7 @@ func (t *testInstance) Id() instance.Id {
 	return t.id
 }
 
-func (t *testInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
+func (t *testInstance) Addresses(ctx context.ProviderCallContext) (network.ProviderAddresses, error) {
 	if t.err != nil {
 		return nil, t.err
 	}
@@ -82,7 +82,7 @@ func (tig *testInstanceGetter) newTestInstance(id instance.Id, status string, ad
 	thisInstance := &testInstance{
 		id:        id,
 		status:    status,
-		addresses: network.NewAddresses(addresses...),
+		addresses: network.NewProviderAddresses(addresses...),
 	}
 	tig.results[thisInstance.Id()] = thisInstance
 	return thisInstance

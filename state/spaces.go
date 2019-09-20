@@ -92,6 +92,7 @@ func (s *Space) Subnets() ([]*Subnet, error) {
 
 func (s *Space) NetworkSpace() network.SpaceInfo {
 	return network.SpaceInfo{
+		ID:         s.Id(),
 		Name:       network.SpaceName(s.Name()),
 		ProviderId: s.ProviderId(),
 		// TODO (manadart 2019-08-13): Populate these after subnet refactor.
@@ -224,9 +225,9 @@ func (st *State) Space(name string) (*Space, error) {
 	return &Space{st, doc}, nil
 }
 
-// SpaceByID returns a space from state that matches the provided ID. An error
-// is returned if the space doesn't exist or if there was a problem accessing
-// its information.
+// SpaceByID returns a space from state that matches the input ID.
+// An error is returned if the space doesn't exist or if there was
+// a problem accessing its information.
 func (st *State) SpaceByID(id string) (*Space, error) {
 	spaces, closer := st.db().GetCollection(spacesC)
 	defer closer()
@@ -240,6 +241,34 @@ func (st *State) SpaceByID(id string) (*Space, error) {
 		return nil, errors.Annotatef(err, "cannot get space id %q", id)
 	}
 	return &Space{st, doc}, nil
+}
+
+// SpaceIDsByName (core/network.SpaceLookup)
+// returns a map of space names to space IDs.
+func (st *State) SpaceIDsByName() (map[string]string, error) {
+	spaces, err := st.AllSpaces()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	lookup := make(map[string]string, len(spaces))
+	for _, space := range spaces {
+		lookup[space.Name()] = space.Id()
+	}
+	return lookup, nil
+}
+
+// SpaceNamesByID (core/network.SpaceLookup)
+// returns a map of space IDs to SpaceInfos.
+func (st *State) SpaceInfosByID() (map[string]network.SpaceInfo, error) {
+	spaces, err := st.AllSpaces()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	lookup := make(map[string]network.SpaceInfo, len(spaces))
+	for _, space := range spaces {
+		lookup[space.Id()] = space.NetworkSpace()
+	}
+	return lookup, nil
 }
 
 // AllSpaces returns all spaces for the model.

@@ -16,11 +16,13 @@ import (
 // CAASOperatorState provides the subset of global state
 // required by the CAAS operator facade.
 type CAASOperatorState interface {
+	network.SpaceLookup
+
 	Application(string) (Application, error)
 	Model() (Model, error)
 	ModelUUID() string
 	FindEntity(names.Tag) (state.Entity, error)
-	APIHostPortsForAgents() ([][]network.HostPort, error)
+	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
 	Addresses() ([]string, error)
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
 }

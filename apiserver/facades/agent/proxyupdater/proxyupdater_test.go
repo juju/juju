@@ -286,15 +286,15 @@ func (sb *stubBackend) ModelConfig() (*config.Config, error) {
 	return coretesting.CustomModelConfig(sb.c, sb.configAttrs), nil
 }
 
-func (sb *stubBackend) APIHostPortsForAgents() ([][]network.HostPort, error) {
+func (sb *stubBackend) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
 	sb.MethodCall(sb, "APIHostPortsForAgents")
 	if err := sb.NextErr(); err != nil {
 		return nil, err
 	}
-	hps := [][]network.HostPort{
-		network.NewHostPorts(1234, "0.1.2.3"),
-		network.NewHostPorts(1234, "0.1.2.4"),
-		network.NewHostPorts(1234, "0.1.2.5"),
+	hps := []network.SpaceHostPorts{
+		network.NewSpaceHostPorts(1234, "0.1.2.3"),
+		network.NewSpaceHostPorts(1234, "0.1.2.4"),
+		network.NewSpaceHostPorts(1234, "0.1.2.5"),
 	}
 	return hps, nil
 }

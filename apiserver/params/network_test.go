@@ -267,31 +267,107 @@ func (s *NetworkSuite) TestPortRangeConvenience(c *gc.C) {
 	c.Assert(networkPortRange, jc.DeepEquals, networkPortRangeBack)
 }
 
-func (s *NetworkSuite) TestAddressConvenience(c *gc.C) {
-	networkAddress := network.Address{
-		Value: "foo",
-		Type:  network.IPv4Address,
-		Scope: network.ScopePublic,
+func (s *NetworkSuite) TestProviderAddressConversion(c *gc.C) {
+	pAddrs := network.ProviderAddresses{
+		network.NewScopedProviderAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedProviderAddress("2.3.4.5", network.ScopePublic),
 	}
-	paramsAddress := params.FromNetworkAddress(networkAddress)
-	c.Assert(networkAddress, jc.DeepEquals, paramsAddress.NetworkAddress())
+	pAddrs[0].SpaceName = "test-space"
+	pAddrs[0].ProviderSpaceID = "666"
 
-	networkAddress.SpaceName = "test-space"
-	networkAddress.SpaceProviderId = "666"
-	paramsAddress = params.FromNetworkAddress(networkAddress)
-	c.Assert(networkAddress, jc.DeepEquals, paramsAddress.NetworkAddress())
+	addrs := params.FromProviderAddresses(pAddrs...)
+	c.Assert(params.ToProviderAddresses(addrs...), jc.DeepEquals, pAddrs)
 }
 
-func (s *NetworkSuite) TestHostPortConvenience(c *gc.C) {
-	networkAddress := network.Address{
-		Value: "foo",
-		Type:  network.IPv4Address,
-		Scope: network.ScopePublic,
+func (s *NetworkSuite) TestMachineAddressConversion(c *gc.C) {
+	mAddrs := []network.MachineAddress{
+		network.NewScopedMachineAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedMachineAddress("2.3.4.5", network.ScopePublic),
 	}
-	networkHostPort := network.HostPort{
-		Address: networkAddress,
-		Port:    4711,
+
+	exp := []params.Address{
+		{Value: "1.2.3.4", Scope: string(network.ScopeCloudLocal), Type: string(network.IPv4Address)},
+		{Value: "2.3.4.5", Scope: string(network.ScopePublic), Type: string(network.IPv4Address)},
 	}
-	paramsHostPort := params.FromNetworkHostPort(networkHostPort)
-	c.Assert(networkHostPort, jc.DeepEquals, paramsHostPort.NetworkHostPort())
+	c.Assert(params.FromMachineAddresses(mAddrs...), jc.DeepEquals, exp)
+}
+
+func (s *NetworkSuite) TestProviderHostPortConversion(c *gc.C) {
+	pHPs := []network.ProviderHostPorts{
+		{
+			{
+				ProviderAddress: network.NewScopedProviderAddress("1.2.3.4", network.ScopeCloudLocal),
+				NetPort:         1234,
+			},
+			{
+				ProviderAddress: network.NewScopedProviderAddress("2.3.4.5", network.ScopePublic),
+				NetPort:         2345,
+			},
+		},
+		{
+			{
+				ProviderAddress: network.NewScopedProviderAddress("3.4.5.6", network.ScopeCloudLocal),
+				NetPort:         3456,
+			},
+		},
+	}
+	pHPs[0][0].SpaceName = "test-space"
+	pHPs[0][0].ProviderSpaceID = "666"
+
+	hps := params.FromProviderHostsPorts(pHPs)
+	c.Assert(params.ToProviderHostsPorts(hps), jc.DeepEquals, pHPs)
+}
+
+func (s *NetworkSuite) TestMachineHostPortConversion(c *gc.C) {
+	hps := [][]params.HostPort{
+		{
+			{
+				Address: params.Address{
+					Value: "1.2.3.4",
+					Scope: string(network.ScopeCloudLocal),
+					Type:  string(network.IPv4Address),
+				},
+				Port: 1234,
+			},
+			{
+				Address: params.Address{
+					Value: "2.3.4.5",
+					Scope: string(network.ScopePublic),
+					Type:  string(network.IPv4Address),
+				},
+				Port: 2345,
+			},
+		},
+		{
+			{
+				Address: params.Address{
+					Value: "3.4.5.6",
+					Scope: string(network.ScopeCloudLocal),
+					Type:  string(network.IPv4Address),
+				},
+				Port: 3456,
+			},
+		},
+	}
+
+	exp := []network.MachineHostPorts{
+		{
+			{
+				MachineAddress: network.NewScopedMachineAddress("1.2.3.4", network.ScopeCloudLocal),
+				NetPort:        1234,
+			},
+			{
+				MachineAddress: network.NewScopedMachineAddress("2.3.4.5", network.ScopePublic),
+				NetPort:        2345,
+			},
+		},
+		{
+			{
+				MachineAddress: network.NewScopedMachineAddress("3.4.5.6", network.ScopeCloudLocal),
+				NetPort:        3456,
+			},
+		},
+	}
+
+	c.Assert(params.ToMachineHostsPorts(hps), jc.DeepEquals, exp)
 }

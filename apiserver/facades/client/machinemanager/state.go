@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -18,6 +19,7 @@ import (
 
 type Backend interface {
 	state.CloudAccessor
+	network.SpaceLookup
 
 	Machine(string) (Machine, error)
 	Model() (Model, error)

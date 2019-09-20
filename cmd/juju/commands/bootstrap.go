@@ -812,7 +812,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	controllerDataRefresher := func() error {
 		// this function allows polling address info later during retring.
 		// for example, the Load Balancer needs time to be provisioned.
-		var addrs []network.Address
+		var addrs []network.ProviderAddress
 		if env, ok := environ.(environs.InstanceBroker); ok {
 			// IAAS.
 			addrs, err = common.BootstrapEndpointAddresses(env, cloudCallCtx)
@@ -835,13 +835,23 @@ See `[1:] + "`juju kill-controller`" + `.`)
 			return errors.NewNotValid(nil, "unexpected error happened, IAAS mode should have environs.Environ implemented.")
 		}
 
+		// Use the retrieved bootstrap machine/service addresses to create
+		// host/port endpoints for local storage.
+		hps := make([]network.MachineHostPort, len(addrs))
+		for i, addr := range addrs {
+			hps[i] = network.MachineHostPort{
+				MachineAddress: addr.MachineAddress,
+				NetPort:        network.NetPort(config.controller.APIPort()),
+			}
+		}
+
 		return errors.Annotate(
 			juju.UpdateControllerDetailsFromLogin(
 				c.ClientStore(),
 				c.controllerName,
 				juju.UpdateControllerParams{
 					AgentVersion:           agentVersion.String(),
-					CurrentHostPorts:       [][]network.HostPort{network.AddressesWithPort(addrs, config.controller.APIPort())},
+					CurrentHostPorts:       []network.MachineHostPorts{hps},
 					PublicDNSName:          newStringIfNonEmpty(config.controller.AutocertDNSName()),
 					MachineCount:           newInt(1),
 					ControllerMachineCount: newInt(1),

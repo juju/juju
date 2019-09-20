@@ -30,9 +30,9 @@ func (s *InterfaceInfoSuite) SetUpTest(c *gc.C) {
 		{VLANTag: 0, DeviceIndex: 1, InterfaceName: "eth1"},
 		{VLANTag: 42, DeviceIndex: 2, InterfaceName: "br2"},
 		{ConfigType: network.ConfigDHCP, NoAutoStart: true},
-		{Address: corenetwork.NewAddress("0.1.2.3")},
-		{DNSServers: corenetwork.NewAddresses("1.1.1.1", "2.2.2.2")},
-		{GatewayAddress: corenetwork.NewAddress("4.3.2.1")},
+		{Address: corenetwork.NewProviderAddress("0.1.2.3")},
+		{DNSServers: corenetwork.NewProviderAddresses("1.1.1.1", "2.2.2.2")},
+		{GatewayAddress: corenetwork.NewProviderAddress("4.3.2.1")},
 		{AvailabilityZones: []string{"foo", "bar"}},
 		{Routes: []network.Route{{
 			DestinationCIDR: "0.1.2.3/24",
@@ -63,9 +63,9 @@ func (s *InterfaceInfoSuite) TestIsVLAN(c *gc.C) {
 func (s *InterfaceInfoSuite) TestAdditionalFields(c *gc.C) {
 	c.Check(s.info[3].ConfigType, gc.Equals, network.ConfigDHCP)
 	c.Check(s.info[3].NoAutoStart, jc.IsTrue)
-	c.Check(s.info[4].Address, jc.DeepEquals, corenetwork.NewAddress("0.1.2.3"))
-	c.Check(s.info[5].DNSServers, jc.DeepEquals, corenetwork.NewAddresses("1.1.1.1", "2.2.2.2"))
-	c.Check(s.info[6].GatewayAddress, jc.DeepEquals, corenetwork.NewAddress("4.3.2.1"))
+	c.Check(s.info[4].Address, jc.DeepEquals, corenetwork.NewProviderAddress("0.1.2.3"))
+	c.Check(s.info[5].DNSServers, jc.DeepEquals, corenetwork.NewProviderAddresses("1.1.1.1", "2.2.2.2"))
+	c.Check(s.info[6].GatewayAddress, jc.DeepEquals, corenetwork.NewProviderAddress("4.3.2.1"))
 	c.Check(s.info[7].AvailabilityZones, jc.DeepEquals, []string{"foo", "bar"})
 	c.Check(s.info[8].Routes, jc.DeepEquals, []network.Route{{
 		DestinationCIDR: "0.1.2.3/24",
@@ -245,7 +245,7 @@ LXC_BRIDGE="ignored"`[1:])
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfig)
 
-	inputAddresses := corenetwork.NewAddresses(
+	inputAddresses := corenetwork.NewProviderAddresses(
 		"127.0.0.1",
 		"2001:db8::1",
 		"10.0.0.1",
@@ -260,7 +260,7 @@ LXC_BRIDGE="ignored"`[1:])
 		"192.168.123.42",
 		"localhost", // unfiltered because it isn't an IP address
 	)
-	filteredAddresses := corenetwork.NewAddresses(
+	filteredAddresses := corenetwork.NewProviderAddresses(
 		"127.0.0.1",
 		"2001:db8::1",
 		"10.0.0.1",

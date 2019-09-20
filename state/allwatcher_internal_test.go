@@ -95,18 +95,26 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 	c.Assert(err, jc.ErrorIsNil)
 	cp, err := m.CharmProfiles()
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetProviderAddresses(network.NewAddress("example.com"))
+
+	// Add a space and an address on the space.
+	space, err := st.AddSpace("test-space", "provider-space", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
+	addr := network.NewSpaceAddress("example.com")
+	addr.SpaceID = space.Id()
+	err = m.SetProviderAddresses(addr)
+	c.Assert(err, jc.ErrorIsNil)
+
 	var addresses []multiwatcher.Address
 	for _, addr := range m.Addresses() {
 		addresses = append(addresses, multiwatcher.Address{
 			Value:           addr.Value,
 			Type:            string(addr.Type),
 			Scope:           string(addr.Scope),
-			SpaceName:       string(addr.SpaceName),
-			SpaceProviderId: string(addr.SpaceProviderId),
+			SpaceName:       space.Name(),
+			SpaceProviderId: string(space.ProviderId()),
 		})
 	}
+
 	jobs := []multiwatcher.MachineJob{JobHostUnits.ToParams()}
 	if needController {
 		jobs = append(jobs, JobManageModel.ToParams())
@@ -769,8 +777,8 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
-	publicAddress := network.NewScopedAddress("1.2.3.4", network.ScopePublic)
-	privateAddress := network.NewScopedAddress("4.3.2.1", network.ScopeCloudLocal)
+	publicAddress := network.NewScopedSpaceAddress("1.2.3.4", network.ScopePublic)
+	privateAddress := network.NewScopedSpaceAddress("4.3.2.1", network.ScopeCloudLocal)
 	err = m.SetProviderAddresses(publicAddress, privateAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.OpenPorts("tcp", 12345, 12345)
@@ -3318,8 +3326,8 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPort("tcp", 12345)
 			c.Assert(err, jc.ErrorIsNil)
-			publicAddress := network.NewScopedAddress("public", network.ScopePublic)
-			privateAddress := network.NewScopedAddress("private", network.ScopeCloudLocal)
+			publicAddress := network.NewScopedSpaceAddress("public", network.ScopePublic)
+			privateAddress := network.NewScopedSpaceAddress("private", network.ScopeCloudLocal)
 			err = m.SetProviderAddresses(publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
@@ -3706,8 +3714,8 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 		}
 		if flag&openPorts != 0 {
 			// Add a network to the machine and open a port.
-			publicAddress := network.NewScopedAddress("1.2.3.4", network.ScopePublic)
-			privateAddress := network.NewScopedAddress("4.3.2.1", network.ScopeCloudLocal)
+			publicAddress := network.NewScopedSpaceAddress("1.2.3.4", network.ScopePublic)
+			privateAddress := network.NewScopedSpaceAddress("4.3.2.1", network.ScopeCloudLocal)
 			err = m.SetProviderAddresses(publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPort("tcp", 12345)

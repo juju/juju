@@ -5,9 +5,8 @@
 package lxd
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockLXCConfigReader is a mock of LXCConfigReader interface

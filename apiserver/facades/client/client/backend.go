@@ -25,6 +25,8 @@ import (
 // Backend contains the state.State methods used in this package,
 // allowing stubs to be created for testing.
 type Backend interface {
+	network.SpaceLookup
+
 	AbortCurrentUpgrade() error
 	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
 	AddMachineInsideMachine(state.MachineTemplate, string, instance.ContainerType) (*state.Machine, error)
@@ -41,7 +43,7 @@ type Backend interface {
 	AllRelations() ([]*state.Relation, error)
 	AllSubnets() ([]*state.Subnet, error)
 	Annotations(state.GlobalEntity) (map[string]string, error)
-	APIHostPortsForClients() ([][]network.HostPort, error)
+	APIHostPortsForClients() ([]network.SpaceHostPorts, error)
 	Application(string) (*state.Application, error)
 	Charm(*charm.URL) (*state.Charm, error)
 	ControllerConfig() (controller.Config, error)
@@ -88,8 +90,8 @@ type Unit interface {
 	Life() state.Life
 	Destroy() (err error)
 	IsPrincipal() bool
-	PublicAddress() (network.Address, error)
-	PrivateAddress() (network.Address, error)
+	PublicAddress() (network.SpaceAddress, error)
+	PrivateAddress() (network.SpaceAddress, error)
 	Resolve(retryHooks bool) error
 	AgentHistory() status.StatusHistoryGetter
 }

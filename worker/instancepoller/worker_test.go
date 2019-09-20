@@ -43,8 +43,8 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.api = s.apiSt.InstancePoller()
 }
 
-func (*workerSuite) addressesForIndex(i int) []network.Address {
-	return network.NewAddresses(fmt.Sprintf("127.0.0.%d", i))
+func (*workerSuite) addressesForIndex(i int) network.ProviderAddresses {
+	return network.NewProviderAddresses(fmt.Sprintf("127.0.0.%d", i))
 }
 
 func (s *workerSuite) TestWorker(c *gc.C) {

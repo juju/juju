@@ -15,107 +15,131 @@ type AddressEqualitySuite struct{}
 var _ = gc.Suite(&AddressEqualitySuite{})
 
 func (*AddressEqualitySuite) TestHostPortsEqual(c *gc.C) {
-	first := [][]network.HostPort{
+	first := []network.SpaceHostPorts{
 		{
 			{
-				Address: network.Address{
-					Value: "10.144.9.113",
-					Type:  "ipv4",
-					Scope: "local-cloud",
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "10.144.9.113",
+						Type:  "ipv4",
+						Scope: "local-cloud",
+					},
 				},
-				Port: 17070,
+				NetPort: 17070,
 			}, {
-				Address: network.Address{
-					Value: "127.0.0.1",
-					Type:  "ipv4",
-					Scope: "local-machine",
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "127.0.0.1",
+						Type:  "ipv4",
+						Scope: "local-machine",
+					},
 				},
-				Port: 17070,
+				NetPort: 17070,
 			},
 		}, {
 			{
-				Address: network.Address{
-					Value: "10.144.9.62",
-					Type:  "ipv4",
-					Scope: "local-cloud",
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "10.144.9.62",
+						Type:  "ipv4",
+						Scope: "local-cloud",
+					},
 				},
-				Port: 17070,
+				NetPort: 17070,
 			}, {
-				Address: network.Address{
-					Value: "127.0.0.1",
-					Type:  "ipv4",
-					Scope: "local-machine",
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "127.0.0.1",
+						Type:  "ipv4",
+						Scope: "local-machine",
+					},
 				},
-				Port: 17070,
+				NetPort: 17070,
 			},
 		}, {
 			{
-				Address: network.Address{
-					Value: "10.144.9.56",
-					Type:  "ipv4",
-					Scope: "local-cloud",
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "10.144.9.56",
+						Type:  "ipv4",
+						Scope: "local-cloud",
+					},
 				},
-				Port: 17070,
+				NetPort: 17070,
 			}, {
-				Address: network.Address{
-					Value: "127.0.0.1",
-					Type:  "ipv4",
-					Scope: "local-machine",
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "127.0.0.1",
+						Type:  "ipv4",
+						Scope: "local-machine",
+					},
 				},
-				Port: 17070,
+				NetPort: 17070,
 			},
 		},
 	}
 	// second is the same as first with the first set of machines at the
 	// end rather than the start.
-	second := [][]network.HostPort{
+	second := []network.SpaceHostPorts{
 		{
 			{
-				Address: network.Address{
-					Value: "10.144.9.62",
-					Type:  "ipv4",
-					Scope: "local-cloud",
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "10.144.9.62",
+						Type:  "ipv4",
+						Scope: "local-cloud",
+					},
 				},
-				Port: 17070,
+				NetPort: 17070,
 			}, {
-				Address: network.Address{
-					Value: "127.0.0.1",
-					Type:  "ipv4",
-					Scope: "local-machine",
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "127.0.0.1",
+						Type:  "ipv4",
+						Scope: "local-machine",
+					},
 				},
-				Port: 17070,
+				NetPort: 17070,
 			},
 		}, {
 			{
-				Address: network.Address{
-					Value: "10.144.9.56",
-					Type:  "ipv4",
-					Scope: "local-cloud",
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "10.144.9.56",
+						Type:  "ipv4",
+						Scope: "local-cloud",
+					},
 				},
-				Port: 17070,
+				NetPort: 17070,
 			}, {
-				Address: network.Address{
-					Value: "127.0.0.1",
-					Type:  "ipv4",
-					Scope: "local-machine",
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "127.0.0.1",
+						Type:  "ipv4",
+						Scope: "local-machine",
+					},
 				},
-				Port: 17070,
+				NetPort: 17070,
 			},
 		}, {
 			{
-				Address: network.Address{
-					Value: "10.144.9.113",
-					Type:  "ipv4",
-					Scope: "local-cloud",
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "10.144.9.113",
+						Type:  "ipv4",
+						Scope: "local-cloud",
+					},
 				},
-				Port: 17070,
+				NetPort: 17070,
 			}, {
-				Address: network.Address{
-					Value: "127.0.0.1",
-					Type:  "ipv4",
-					Scope: "local-machine",
+				SpaceAddress: network.SpaceAddress{
+					MachineAddress: network.MachineAddress{
+						Value: "127.0.0.1",
+						Type:  "ipv4",
+						Scope: "local-machine",
+					},
 				},
-				Port: 17070,
+				NetPort: 17070,
 			},
 		},
 	}
@@ -123,20 +147,23 @@ func (*AddressEqualitySuite) TestHostPortsEqual(c *gc.C) {
 }
 
 func (s *AddressEqualitySuite) TestAddressConversion(c *gc.C) {
-	machineAddress := network.Address{
-		Value: "foo",
-		Type:  network.IPv4Address,
-		Scope: network.ScopePublic,
+	machineAddress := network.SpaceAddress{
+		MachineAddress: network.MachineAddress{
+			Value: "foo",
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
+		},
 	}
 	stateAddress := fromNetworkAddress(machineAddress, "machine")
 	c.Assert(machineAddress, jc.DeepEquals, stateAddress.networkAddress())
 
-	providerAddress := network.Address{
-		Value:           "bar",
-		Type:            network.IPv4Address,
-		Scope:           network.ScopePublic,
-		SpaceName:       "test-space",
-		SpaceProviderId: "666",
+	providerAddress := network.SpaceAddress{
+		MachineAddress: network.MachineAddress{
+			Value: "bar",
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
+		},
+		SpaceID: "666",
 	}
 	stateAddress = fromNetworkAddress(providerAddress, "provider")
 	c.Assert(providerAddress, jc.DeepEquals, stateAddress.networkAddress())

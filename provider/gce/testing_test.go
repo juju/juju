@@ -114,7 +114,7 @@ type BaseSuiteUnpatched struct {
 	EnvConfig      *environConfig
 	Env            *environ
 
-	Addresses       []corenetwork.Address
+	Addresses       corenetwork.ProviderAddresses
 	BaseInstance    *google.Instance
 	BaseDisk        *google.Disk
 	Instance        *environInstance
@@ -164,7 +164,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, "trusty", "")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = instanceConfig.SetTools(coretools.List(tools))
+	err = instanceConfig.SetTools(tools)
 	c.Assert(err, jc.ErrorIsNil)
 	instanceConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
 
@@ -185,11 +185,9 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		metadataKeyWindowsUserdata: string(userData),
 		metadataKeyWindowsSysprep:  fmt.Sprintf(winSetHostnameScript, "juju.*"),
 	}
-	s.Addresses = []corenetwork.Address{{
-		Value: "10.0.0.1",
-		Type:  corenetwork.IPv4Address,
-		Scope: corenetwork.ScopeCloudLocal,
-	}}
+	s.Addresses = []corenetwork.ProviderAddress{
+		corenetwork.NewScopedProviderAddress("10.0.0.1", corenetwork.ScopeCloudLocal),
+	}
 	s.Instance = s.NewInstance(c, "spam")
 	s.BaseInstance = s.Instance.base
 	s.InstName, err = s.Env.namespace.Hostname("42")

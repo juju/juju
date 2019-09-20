@@ -533,12 +533,15 @@ func (s *serverSuite) TestBlockChangesAbortCurrentUpgrade(c *gc.C) {
 
 type clientSuite struct {
 	baseSuite
+
+	mgmtSpace *state.Space
 }
 
 func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
 
-	_, err := s.State.AddSpace("mgmt01", "", nil, false)
+	var err error
+	s.mgmtSpace, err = s.State.AddSpace("mgmt01", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.UpdateControllerConfig(map[string]interface{}{controller.JujuManagementSpace: "mgmt01"}, nil)
@@ -1020,8 +1023,8 @@ func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
 	// address is returned.
 	m1, err := s.State.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
-	cloudLocalAddress := network.NewScopedAddress("cloudlocal", network.ScopeCloudLocal)
-	publicAddress := network.NewScopedAddress("public", network.ScopePublic)
+	cloudLocalAddress := network.NewScopedSpaceAddress("cloudlocal", network.ScopeCloudLocal)
+	publicAddress := network.NewScopedSpaceAddress("public", network.ScopePublic)
 	err = m1.SetProviderAddresses(cloudLocalAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	addr, err := s.APIState.Client().PublicAddress("1")
@@ -1039,7 +1042,7 @@ func (s *clientSuite) TestClientPublicAddressUnit(c *gc.C) {
 
 	m1, err := s.State.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
-	publicAddress := network.NewScopedAddress("public", network.ScopePublic)
+	publicAddress := network.NewScopedSpaceAddress("public", network.ScopePublic)
 	err = m1.SetProviderAddresses(publicAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	addr, err := s.APIState.Client().PublicAddress("wordpress/0")
@@ -1064,8 +1067,8 @@ func (s *clientSuite) TestClientPrivateAddress(c *gc.C) {
 	// address if no cloud-local one is available.
 	m1, err := s.State.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
-	cloudLocalAddress := network.NewScopedAddress("cloudlocal", network.ScopeCloudLocal)
-	publicAddress := network.NewScopedAddress("public", network.ScopePublic)
+	cloudLocalAddress := network.NewScopedSpaceAddress("cloudlocal", network.ScopeCloudLocal)
+	publicAddress := network.NewScopedSpaceAddress("public", network.ScopePublic)
 	err = m1.SetProviderAddresses(publicAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	addr, err := s.APIState.Client().PrivateAddress("1")
@@ -1083,7 +1086,7 @@ func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 
 	m1, err := s.State.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
-	privateAddress := network.NewScopedAddress("private", network.ScopeCloudLocal)
+	privateAddress := network.NewScopedSpaceAddress("private", network.ScopeCloudLocal)
 	err = m1.SetProviderAddresses(privateAddress)
 	c.Assert(err, jc.ErrorIsNil)
 	addr, err := s.APIState.Client().PrivateAddress("wordpress/0")
@@ -1299,7 +1302,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 
 func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
-	addrs := network.NewAddresses("1.2.3.4")
+	addrs := network.NewProviderAddresses("1.2.3.4")
 	hc := instance.MustParseHardware("mem=4G")
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
@@ -1307,7 +1310,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 			InstanceId:              instance.Id(fmt.Sprintf("1234-%d", i)),
 			Nonce:                   "foo",
 			HardwareCharacteristics: hc,
-			Addrs:                   params.FromNetworkAddresses(addrs...),
+			Addrs:                   params.FromProviderAddresses(addrs...),
 		}
 	}
 	// This will cause the last add-machine to fail.
@@ -1323,13 +1326,13 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 			c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
 			s.checkMachine(c, machineResult.Machine, series.DefaultSupportedLTS(), apiParams[i].Constraints.String())
 			instanceId := fmt.Sprintf("1234-%d", i)
-			s.checkInstance(c, machineResult.Machine, instanceId, "foo", hc, addrs)
+			s.checkInstance(c, machineResult.Machine, instanceId, "foo", hc, network.NewSpaceAddresses("1.2.3.4"))
 		}
 	}
 }
 
 func (s *clientSuite) checkInstance(c *gc.C, id, instanceId, nonce string,
-	hc instance.HardwareCharacteristics, addr []network.Address) {
+	hc instance.HardwareCharacteristics, addr network.SpaceAddresses) {
 
 	machine, err := s.BackingState.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1621,24 +1624,18 @@ func (s *clientSuite) TestBlockChangesRetryProvisioning(c *gc.C) {
 }
 
 func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
-	server1Addresses := []network.Address{{
-		Value: "server-1",
-		Type:  network.HostName,
-		Scope: network.ScopePublic,
-	}, {
-		Value:     "10.0.0.1",
-		Type:      network.IPv4Address,
-		Scope:     network.ScopeCloudLocal,
-		SpaceName: "mgmt01",
-	}}
-	server2Addresses := []network.Address{{
-		Value: "::1",
-		Type:  network.IPv6Address,
-		Scope: network.ScopeMachineLocal,
-	}}
-	stateAPIHostPorts := [][]network.HostPort{
-		network.AddressesWithPort(server1Addresses, 123),
-		network.AddressesWithPort(server2Addresses, 456),
+	server1Addresses := []network.SpaceAddress{
+		network.NewScopedSpaceAddress("server-1", network.ScopePublic),
+		network.NewScopedSpaceAddress("10.0.0.1", network.ScopeCloudLocal),
+	}
+	server1Addresses[1].SpaceID = s.mgmtSpace.Id()
+
+	server2Addresses := []network.SpaceAddress{
+		network.NewScopedSpaceAddress("::1", network.ScopeMachineLocal),
+	}
+	stateAPIHostPorts := []network.SpaceHostPorts{
+		network.SpaceAddressesWithPort(server1Addresses, 123),
+		network.SpaceAddressesWithPort(server2Addresses, 456),
 	}
 
 	err := s.State.SetAPIHostPorts(stateAPIHostPorts)
@@ -1651,7 +1648,18 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 
 	apiHostPorts, err := s.APIState.Client().APIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiHostPorts, gc.DeepEquals, stateAPIHostPorts)
+
+	// We need to compare SpaceHostPorts with MachineHostPorts.
+	// They should be congruent.
+	c.Assert(len(apiHostPorts), gc.Equals, len(stateAPIHostPorts))
+	for i, apiHPs := range apiHostPorts {
+		c.Assert(len(apiHPs), gc.Equals, len(stateAPIHostPorts[i]))
+		for j, apiHP := range apiHPs {
+			c.Assert(apiHP.MachineAddress, gc.DeepEquals, stateAPIHostPorts[i][j].MachineAddress)
+			c.Assert(apiHP.NetPort, gc.Equals, stateAPIHostPorts[i][j].NetPort)
+		}
+	}
+
 }
 
 func (s *clientSuite) TestClientAgentVersion(c *gc.C) {

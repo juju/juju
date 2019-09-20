@@ -158,7 +158,7 @@ var numericLabelLimit uint = 0xffff
 // negativeSpaces coming from constraints to the format MAAS expects for the
 // "interfaces" and "not_networks" arguments to acquire node. Returns an error
 // satisfying errors.IsNotValid() if the bindings contains duplicates, empty
-// Name/SpaceProviderId, or if negative spaces clash with specified bindings.
+// Name/ProviderSpaceID, or if negative spaces clash with specified bindings.
 // Duplicates between specified bindings and positiveSpaces are silently
 // skipped.
 func addInterfaces(

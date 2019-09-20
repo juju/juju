@@ -819,23 +819,12 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, m := range machines {
-		err := m.SetProviderAddresses(network.Address{
-			Type:  network.IPv4Address,
-			Scope: network.ScopeCloudLocal,
-			Value: fmt.Sprintf("10.0.0.%d", i),
-		}, network.Address{
-			Type:  network.IPv6Address,
-			Scope: network.ScopeCloudLocal,
-			Value: "::1",
-		}, network.Address{
-			Type:  network.IPv4Address,
-			Scope: network.ScopeMachineLocal,
-			Value: "127.0.0.1",
-		}, network.Address{
-			Type:  network.IPv4Address,
-			Scope: network.ScopePublic,
-			Value: "5.4.3.2",
-		})
+		err := m.SetProviderAddresses(
+			network.NewScopedSpaceAddress(fmt.Sprintf("10.0.0.%d", i), network.ScopeCloudLocal),
+			network.NewScopedSpaceAddress("::1", network.ScopeCloudLocal),
+			network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),
+			network.NewScopedSpaceAddress("5.4.3.2", network.ScopePublic),
+		)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	cfg, err := s.State.ControllerConfig()
@@ -1513,20 +1502,20 @@ func (s *StateSuite) TestSaveCloudService(c *gc.C) {
 		state.SaveCloudServiceArgs{
 			Id:         "cloud-svc-ID",
 			ProviderId: "provider-id",
-			Addresses:  network.NewAddresses("1.1.1.1"),
+			Addresses:  network.NewSpaceAddresses("1.1.1.1"),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(svc.Refresh(), jc.ErrorIsNil)
 	c.Assert(svc.Id(), gc.Equals, "a#cloud-svc-ID")
 	c.Assert(svc.ProviderId(), gc.Equals, "provider-id")
-	c.Assert(svc.Addresses(), gc.DeepEquals, network.NewAddresses("1.1.1.1"))
+	c.Assert(svc.Addresses(), gc.DeepEquals, network.NewSpaceAddresses("1.1.1.1"))
 
 	getResult, err := s.State.CloudService("cloud-svc-ID")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(getResult.Id(), gc.Equals, "a#cloud-svc-ID")
 	c.Assert(getResult.ProviderId(), gc.Equals, "provider-id")
-	c.Assert(getResult.Addresses(), gc.DeepEquals, network.NewAddresses("1.1.1.1"))
+	c.Assert(getResult.Addresses(), gc.DeepEquals, network.NewSpaceAddresses("1.1.1.1"))
 }
 
 func (s *StateSuite) TestSaveCloudServiceChangeAddressesAllGood(c *gc.C) {
@@ -1535,7 +1524,7 @@ func (s *StateSuite) TestSaveCloudServiceChangeAddressesAllGood(c *gc.C) {
 			state.SaveCloudServiceArgs{
 				Id:         "cloud-svc-ID",
 				ProviderId: "provider-id",
-				Addresses:  network.NewAddresses("1.1.1.1"),
+				Addresses:  network.NewSpaceAddresses("1.1.1.1"),
 			},
 		)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1544,14 +1533,14 @@ func (s *StateSuite) TestSaveCloudServiceChangeAddressesAllGood(c *gc.C) {
 		state.SaveCloudServiceArgs{
 			Id:         "cloud-svc-ID",
 			ProviderId: "provider-id",
-			Addresses:  network.NewAddresses("2.2.2.2"),
+			Addresses:  network.NewSpaceAddresses("2.2.2.2"),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(svc.Refresh(), jc.ErrorIsNil)
 	c.Assert(svc.Id(), gc.Equals, "a#cloud-svc-ID")
 	c.Assert(svc.ProviderId(), gc.Equals, "provider-id")
-	c.Assert(svc.Addresses(), gc.DeepEquals, network.NewAddresses("2.2.2.2"))
+	c.Assert(svc.Addresses(), gc.DeepEquals, network.NewSpaceAddresses("2.2.2.2"))
 }
 
 func (s *StateSuite) TestSaveCloudServiceChangeProviderIdFailed(c *gc.C) {
@@ -1560,7 +1549,7 @@ func (s *StateSuite) TestSaveCloudServiceChangeProviderIdFailed(c *gc.C) {
 			state.SaveCloudServiceArgs{
 				Id:         "cloud-svc-ID",
 				ProviderId: "provider-id-existing",
-				Addresses:  network.NewAddresses("1.1.1.1"),
+				Addresses:  network.NewSpaceAddresses("1.1.1.1"),
 			},
 		)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1569,7 +1558,7 @@ func (s *StateSuite) TestSaveCloudServiceChangeProviderIdFailed(c *gc.C) {
 		state.SaveCloudServiceArgs{
 			Id:         "cloud-svc-ID",
 			ProviderId: "provider-id-new", // ProviderId is immutable, changing this will get assert error.
-			Addresses:  network.NewAddresses("1.1.1.1"),
+			Addresses:  network.NewSpaceAddresses("1.1.1.1"),
 		},
 	)
 	c.Assert(err, gc.ErrorMatches,
@@ -4139,27 +4128,15 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 
-	newHostPorts := [][]network.HostPort{{{
-		Address: network.Address{
-			Value: "0.2.4.6",
-			Type:  network.IPv4Address,
-			Scope: network.ScopeCloudLocal,
-		},
-		Port: 1,
+	newHostPorts := []network.SpaceHostPorts{{{
+		SpaceAddress: network.NewScopedSpaceAddress("0.2.4.6", network.ScopeCloudLocal),
+		NetPort:      1,
 	}, {
-		Address: network.Address{
-			Value: "0.4.8.16",
-			Type:  network.IPv4Address,
-			Scope: network.ScopePublic,
-		},
-		Port: 2,
+		SpaceAddress: network.NewScopedSpaceAddress("0.4.8.16", network.ScopePublic),
+		NetPort:      2,
 	}}, {{
-		Address: network.Address{
-			Value: "0.6.1.2",
-			Type:  network.IPv4Address,
-			Scope: network.ScopeCloudLocal,
-		},
-		Port: 5,
+		SpaceAddress: network.NewScopedSpaceAddress("0.6.1.2", network.ScopeCloudLocal),
+		NetPort:      5,
 	}}}
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4172,13 +4149,9 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
-	newHostPorts = [][]network.HostPort{{{
-		Address: network.Address{
-			Value: "0.2.4.6",
-			Type:  network.IPv6Address,
-			Scope: network.ScopeCloudLocal,
-		},
-		Port: 13,
+	newHostPorts = []network.SpaceHostPorts{{{
+		SpaceAddress: network.NewScopedSpaceAddress("0.2.4.6", network.ScopeCloudLocal),
+		NetPort:      13,
 	}}}
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4193,20 +4166,12 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(c *gc.C) {
-	hostPorts := [][]network.HostPort{{{
-		Address: network.Address{
-			Value: "0.4.8.16",
-			Type:  network.IPv4Address,
-			Scope: network.ScopePublic,
-		},
-		Port: 2,
+	hostPorts := []network.SpaceHostPorts{{{
+		SpaceAddress: network.NewScopedSpaceAddress("0.4.8.16", network.ScopePublic),
+		NetPort:      2,
 	}}, {{
-		Address: network.Address{
-			Value: "0.2.4.6",
-			Type:  network.IPv4Address,
-			Scope: network.ScopeCloudLocal,
-		},
-		Port: 1,
+		SpaceAddress: network.NewScopedSpaceAddress("0.2.4.6", network.ScopeCloudLocal),
+		NetPort:      1,
 	}}}
 
 	// API host ports are concurrently changed to the same
@@ -4241,21 +4206,13 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDifferent(c *gc.C) {
-	hostPorts0 := []network.HostPort{{
-		Address: network.Address{
-			Value: "0.4.8.16",
-			Type:  network.IPv4Address,
-			Scope: network.ScopePublic,
-		},
-		Port: 2,
+	hostPorts0 := network.SpaceHostPorts{{
+		SpaceAddress: network.NewScopedSpaceAddress("0.4.8.16", network.ScopePublic),
+		NetPort:      2,
 	}}
-	hostPorts1 := []network.HostPort{{
-		Address: network.Address{
-			Value: "0.2.4.6",
-			Type:  network.IPv4Address,
-			Scope: network.ScopeCloudLocal,
-		},
-		Port: 1,
+	hostPorts1 := network.SpaceHostPorts{{
+		SpaceAddress: network.NewScopedSpaceAddress("0.2.4.6", network.ScopeCloudLocal),
+		NetPort:      1,
 	}}
 
 	// API host ports are concurrently changed to different
@@ -4266,7 +4223,7 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDifferent(c *gc.C) 
 	var prevRevno int64
 	var prevAgentsRevno int64
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.State.SetAPIHostPorts([][]network.HostPort{hostPorts0})
+		err := s.State.SetAPIHostPorts([]network.SpaceHostPorts{hostPorts0})
 		c.Assert(err, jc.ErrorIsNil)
 		revno, err := state.TxnRevno(s.State, ctrC, "apiHostPorts")
 		c.Assert(err, jc.ErrorIsNil)
@@ -4276,7 +4233,7 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDifferent(c *gc.C) 
 		prevAgentsRevno = revno
 	}).Check()
 
-	err := s.State.SetAPIHostPorts([][]network.HostPort{hostPorts1})
+	err := s.State.SetAPIHostPorts([]network.SpaceHostPorts{hostPorts1})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(prevRevno, gc.Not(gc.Equals), 0)
 
@@ -4290,15 +4247,15 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDifferent(c *gc.C) 
 
 	hostPorts, err := s.State.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hostPorts, gc.DeepEquals, [][]network.HostPort{hostPorts1})
+	c.Assert(hostPorts, gc.DeepEquals, []network.SpaceHostPorts{hostPorts1})
 
 	hostPorts, err = s.State.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hostPorts, gc.DeepEquals, [][]network.HostPort{hostPorts1})
+	c.Assert(hostPorts, gc.DeepEquals, []network.SpaceHostPorts{hostPorts1})
 }
 
 func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
-	_, err := s.State.AddSpace("mgmt01", "", nil, false)
+	sp, err := s.State.AddSpace("mgmt01", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.SetJujuManagementSpace(c, "mgmt01")
@@ -4307,32 +4264,26 @@ func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 
-	hostPort1 := network.HostPort{
-		Address: network.Address{
-			Value: "0.2.4.6",
-			Type:  network.IPv4Address,
-			Scope: network.ScopeCloudLocal,
-		},
-		Port: 1,
+	hostPort1 := network.SpaceHostPort{
+		SpaceAddress: network.NewScopedSpaceAddress("0.2.4.6", network.ScopeCloudLocal),
+		NetPort:      1,
 	}
-	hostPort2 := network.HostPort{
-		Address: network.Address{
-			Value:     "0.4.8.16",
-			Type:      network.IPv4Address,
-			Scope:     network.ScopePublic,
-			SpaceName: "mgmt01",
+	hostPort2 := network.SpaceHostPort{
+		SpaceAddress: network.SpaceAddress{
+			MachineAddress: network.MachineAddress{
+				Value: "0.4.8.16",
+				Type:  network.IPv4Address,
+				Scope: network.ScopePublic,
+			},
+			SpaceID: sp.Id(),
 		},
-		Port: 2,
+		NetPort: 2,
 	}
-	hostPort3 := network.HostPort{
-		Address: network.Address{
-			Value: "0.6.1.2",
-			Type:  network.IPv4Address,
-			Scope: network.ScopeCloudLocal,
-		},
-		Port: 5,
+	hostPort3 := network.SpaceHostPort{
+		SpaceAddress: network.NewScopedSpaceAddress("0.6.1.2", network.ScopeCloudLocal),
+		NetPort:      5,
 	}
-	newHostPorts := [][]network.HostPort{{hostPort1, hostPort2}, {hostPort3}}
+	newHostPorts := []network.SpaceHostPorts{{hostPort1, hostPort2}, {hostPort3}}
 
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4345,7 +4296,7 @@ func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// First slice filtered down to the address in the management space.
 	// Second filtered to zero elements, so retains the supplied slice.
-	c.Assert(gotHostPorts, jc.DeepEquals, [][]network.HostPort{{hostPort2}, {hostPort3}})
+	c.Assert(gotHostPorts, jc.DeepEquals, []network.SpaceHostPorts{{hostPort2}, {hostPort3}})
 }
 
 func (s *StateSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.C) {
@@ -4353,13 +4304,9 @@ func (s *StateSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 
-	newHostPorts := [][]network.HostPort{{{
-		Address: network.Address{
-			Value: "0.2.4.6",
-			Type:  network.IPv4Address,
-			Scope: network.ScopeCloudLocal,
-		},
-		Port: 1,
+	newHostPorts := []network.SpaceHostPorts{{{
+		SpaceAddress: network.NewScopedSpaceAddress("0.2.4.6", network.ScopeCloudLocal),
+		NetPort:      1,
 	}}}
 
 	// Delete the addresses for agents document before setting.
@@ -4382,13 +4329,9 @@ func (s *StateSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 
-	newHostPorts := [][]network.HostPort{{{
-		Address: network.Address{
-			Value: "0.2.4.6",
-			Type:  network.IPv4Address,
-			Scope: network.ScopeCloudLocal,
-		},
-		Port: 1,
+	newHostPorts := []network.SpaceHostPorts{{{
+		SpaceAddress: network.NewScopedSpaceAddress("0.2.4.6", network.ScopeCloudLocal),
+		NetPort:      1,
 	}}}
 
 	err = s.State.SetAPIHostPorts(newHostPorts)
@@ -4414,9 +4357,7 @@ func (s *StateSuite) TestWatchAPIHostPortsForClients(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
-	err := s.State.SetAPIHostPorts([][]network.HostPort{
-		network.NewHostPorts(99, "0.1.2.3"),
-	})
+	err := s.State.SetAPIHostPorts([]network.SpaceHostPorts{network.NewSpaceHostPorts(99, "0.1.2.3")})
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertOneChange()
@@ -4427,7 +4368,7 @@ func (s *StateSuite) TestWatchAPIHostPortsForClients(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
-	_, err := s.State.AddSpace("mgmt01", "", nil, false)
+	sp, err := s.State.AddSpace("mgmt01", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.SetJujuManagementSpace(c, "mgmt01")
@@ -4439,33 +4380,29 @@ func (s *StateSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
-	mgmtHP := network.HostPort{
-		Address: network.Address{
-			Value:     "0.4.8.16",
-			Type:      network.IPv4Address,
-			Scope:     network.ScopeCloudLocal,
-			SpaceName: "mgmt01",
+	mgmtHP := network.SpaceHostPort{
+		SpaceAddress: network.SpaceAddress{
+			MachineAddress: network.MachineAddress{
+				Value: "0.4.8.16",
+				Type:  network.IPv4Address,
+				Scope: network.ScopeCloudLocal,
+			},
+			SpaceID: sp.Id(),
 		},
-		Port: 2,
+		NetPort: 2,
 	}
 
-	err = s.State.SetAPIHostPorts([][]network.HostPort{{
-		mgmtHP,
-	}})
+	err = s.State.SetAPIHostPorts([]network.SpaceHostPorts{{mgmtHP}})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// This should cause no change to APIHostPortsForAgents.
 	// We expect only one watcher notification.
-	err = s.State.SetAPIHostPorts([][]network.HostPort{{
+	err = s.State.SetAPIHostPorts([]network.SpaceHostPorts{{
 		mgmtHP,
-		network.HostPort{
-			Address: network.Address{
-				Value: "0.1.2.3",
-				Type:  network.IPv4Address,
-				Scope: network.ScopeCloudLocal,
-			},
-			Port: 99,
+		network.SpaceHostPort{
+			SpaceAddress: network.NewScopedSpaceAddress("0.1.2.3", network.ScopeCloudLocal),
+			NetPort:      99,
 		},
 	}})
 	c.Assert(err, jc.ErrorIsNil)

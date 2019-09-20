@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"reflect"
 	"sort"
 	"strconv"
 	"sync"
@@ -54,10 +55,10 @@ var (
 
 type workerSuite struct {
 	coretesting.BaseSuite
-	clock  *testclock.Clock
-	hub    Hub
-	notify chan struct{}
-	mu     sync.Mutex
+	clock *testclock.Clock
+	hub   Hub
+	idle  chan struct{}
+	mu    sync.Mutex
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -67,6 +68,7 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Now())
 	s.hub = nopHub{}
 	logger.SetLogLevel(loggo.TRACE)
+	s.PatchValue(&IdleFunc, s.idleNotify)
 }
 
 type testSuite interface {
@@ -95,7 +97,7 @@ func InitState(c *gc.C, st *fakeState, numNodes int, ipVersion TestIPVersion) {
 	for i := 10; i < 10+numNodes; i++ {
 		id := fmt.Sprint(i)
 		m := st.addController(id, true)
-		m.setAddresses(network.NewAddress(fmt.Sprintf(ipVersion.formatHost, i)))
+		m.setAddresses(network.NewSpaceAddress(fmt.Sprintf(ipVersion.formatHost, i)))
 		ids = append(ids, id)
 		c.Assert(m.Addresses(), gc.HasLen, 1)
 	}
@@ -110,10 +112,10 @@ func InitState(c *gc.C, st *fakeState, numNodes int, ipVersion TestIPVersion) {
 
 // ExpectedAPIHostPorts returns the expected addresses
 // of the nodes as created by InitState.
-func ExpectedAPIHostPorts(n int, ipVersion TestIPVersion) [][]network.HostPort {
-	servers := make([][]network.HostPort, n)
+func ExpectedAPIHostPorts(n int, ipVersion TestIPVersion) []network.SpaceHostPorts {
+	servers := make([]network.SpaceHostPorts, n)
 	for i := range servers {
-		servers[i] = network.NewHostPorts(
+		servers[i] = network.NewSpaceHostPorts(
 			apiPort,
 			fmt.Sprintf(ipVersion.formatHost, i+10),
 		)
@@ -185,7 +187,7 @@ func (s *workerSuite) doTestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 
 	c.Logf("\nadding another controller")
 	m13 := st.addController("13", false)
-	m13.setAddresses(network.NewAddress(fmt.Sprintf(ipVersion.formatHost, 13)))
+	m13.setAddresses(network.NewSpaceAddress(fmt.Sprintf(ipVersion.formatHost, 13)))
 	st.setControllers("10", "11", "12", "13")
 
 	mustNext(c, memberWatcher, "waiting for new member to be added")
@@ -340,7 +342,7 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 
 		// Change an address and wait for it to be changed in the
 		// members.
-		st.controller("11").setAddresses(network.NewAddress(ipVersion.extraHost))
+		st.controller("11").setAddresses(network.NewSpaceAddress(ipVersion.extraHost))
 
 		mustNext(c, memberWatcher, "waiting for new address")
 		expectMembers := mkMembers("0v 1 2", ipVersion)
@@ -425,7 +427,7 @@ func (s *workerSuite) TestFatalErrors(c *gc.C) {
 			defer workertest.DirtyKill(c, w)
 
 			for j := 0; j < testCase.advanceCount; j++ {
-				s.clock.WaitAdvance(pollInterval, coretesting.ShortWait, 1)
+				_ = s.clock.WaitAdvance(pollInterval, coretesting.ShortWait, 1)
 			}
 			done := make(chan error)
 			go func() {
@@ -459,7 +461,7 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 		// Just watch three error retries
 		retryInterval := initialRetryInterval
 		for i := 0; i < 3; i++ {
-			s.clock.WaitAdvance(retryInterval, coretesting.ShortWait, 1)
+			_ = s.clock.WaitAdvance(retryInterval, coretesting.ShortWait, 1)
 			retryInterval = scaleRetry(retryInterval)
 			select {
 			case err := <-called:
@@ -471,17 +473,19 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 	})
 }
 
-type SetAPIHostPortsFunc func(apiServers [][]network.HostPort) error
+type SetAPIHostPortsFunc func(apiServers []network.SpaceHostPorts) error
 
-func (f SetAPIHostPortsFunc) SetAPIHostPorts(apiServers [][]network.HostPort) error {
+func (f SetAPIHostPortsFunc) SetAPIHostPorts(apiServers []network.SpaceHostPorts) error {
 	return f(apiServers)
 }
 
 func (s *workerSuite) TestControllersArePublished(c *gc.C) {
 	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
-		publishCh := make(chan [][]network.HostPort)
-		publish := func(apiServers [][]network.HostPort) error {
-			publishCh <- apiServers
+		publishCh := make(chan []network.SpaceHostPorts)
+		publish := func(apiServers []network.SpaceHostPorts) error {
+			// Publish a copy, so we don't get a race when sorting
+			// for comparisons later.
+			publishCh <- append([]network.SpaceHostPorts{}, apiServers...)
 			return nil
 		}
 
@@ -497,24 +501,36 @@ func (s *workerSuite) TestControllersArePublished(c *gc.C) {
 			c.Fatalf("timed out waiting for publish")
 		}
 
-		// If a config change wakes up the loop *after* the controller topology
-		// is published, then we will get another call to setAPIHostPorts.
-		select {
-		case <-publishCh:
-		case <-time.After(coretesting.ShortWait):
-		}
-
-		// Change one of the server API addresses and check that it is
-		// published.
-		newMachine10Addresses := network.NewAddresses(ipVersion.extraHost)
+		// Change one of the server API addresses.
+		newMachine10Addresses := network.NewSpaceAddresses(ipVersion.extraHost)
 		st.controller("10").setAddresses(newMachine10Addresses...)
-		select {
-		case servers := <-publishCh:
-			expected := ExpectedAPIHostPorts(3, ipVersion)
-			expected[0] = network.AddressesWithPort(newMachine10Addresses, apiPort)
-			AssertAPIHostPorts(c, servers, expected)
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out waiting for publish")
+
+		// Set up our sorted expectation for the new server addresses.
+		expected := ExpectedAPIHostPorts(3, ipVersion)
+		expected[0] = network.SpaceAddressesWithPort(newMachine10Addresses, apiPort)
+		sort.Sort(hostPortSliceByHostPort(expected))
+
+		// If a config change wakes up the loop *after* the controller topology
+		// is published, then we will get another call to setAPIHostPorts with
+		// the original values.
+		// This can take an indeterminate amount of time, so we just loop until
+		// we see the expected addresses, or hit the timeout.
+		timeout := time.After(coretesting.LongWait)
+		for {
+			select {
+			case servers := <-publishCh:
+				sort.Sort(hostPortSliceByHostPort(servers))
+				if reflect.DeepEqual(servers, expected) {
+					// This doubles as an assertion that no incorrect values
+					// are published later, as the worker will not die cleanly
+					// if such a publish via the channel is pending.
+					workertest.CleanKill(c, w)
+					return
+				}
+			case <-timeout:
+				workertest.DirtyKill(c, w)
+				c.Fatalf("timed out waiting for correct addresses to be published")
+			}
 		}
 	})
 }
@@ -603,7 +619,7 @@ func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *gc.C) {
 		m := st.addController(id, true)
 		err := m.SetHasVote(true)
 		c.Assert(err, jc.ErrorIsNil)
-		m.setAddresses(network.NewAddress(fmt.Sprintf(testIPv4.formatHost, i)))
+		m.setAddresses(network.NewSpaceAddress(fmt.Sprintf(testIPv4.formatHost, i)))
 		ids = append(ids, id)
 		c.Assert(m.Addresses(), gc.HasLen, 1)
 	}
@@ -659,7 +675,7 @@ func haSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, members string) *f
 	st := NewFakeState()
 	InitState(c, st, 3, ipVersion)
 
-	addrs := network.NewAddresses(
+	addrs := network.NewSpaceAddresses(
 		fmt.Sprintf(ipVersion.formatHost, 1),
 		fmt.Sprintf(ipVersion.formatHost, 2),
 		fmt.Sprintf(ipVersion.formatHost, 3),
@@ -683,10 +699,10 @@ func haSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, members string) *f
 		// Space "one" address on controller 20 ends with "20"
 		// Space "two" address ends with "21"
 		// ...
-		addrs := make([]network.Address, 3)
+		addrs := make(network.SpaceAddresses, 3)
 		for i, name := range spaces {
-			addr := network.NewAddressOnSpace(name, fmt.Sprintf(ipVersion.formatHost, i*10+id))
-			addr.Scope = network.ScopeCloudLocal
+			addr := network.NewScopedSpaceAddress(fmt.Sprintf(ipVersion.formatHost, i*10+id), network.ScopeCloudLocal)
+			addr.SpaceID = name
 			addrs[i] = addr
 		}
 		controller.setAddresses(addrs...)
@@ -898,9 +914,9 @@ func (s *workerSuite) TestWorkerRetriesOnSetAPIHostPortsErrorIPv6(c *gc.C) {
 func (s *workerSuite) doTestWorkerRetriesOnSetAPIHostPortsError(c *gc.C, ipVersion TestIPVersion) {
 	logger.SetLogLevel(loggo.TRACE)
 
-	publishCh := make(chan [][]network.HostPort, 10)
+	publishCh := make(chan []network.SpaceHostPorts, 10)
 	failedOnce := false
-	publish := func(apiServers [][]network.HostPort) error {
+	publish := func(apiServers []network.SpaceHostPorts) error {
 		if !failedOnce {
 			failedOnce = true
 			return fmt.Errorf("publish error")
@@ -915,7 +931,7 @@ func (s *workerSuite) doTestWorkerRetriesOnSetAPIHostPortsError(c *gc.C, ipVersi
 	defer workertest.CleanKill(c, w)
 
 	retryInterval := initialRetryInterval
-	s.clock.WaitAdvance(retryInterval, coretesting.ShortWait, 1)
+	_ = s.clock.WaitAdvance(retryInterval, coretesting.ShortWait, 1)
 	select {
 	case servers := <-publishCh:
 		AssertAPIHostPorts(c, servers, ExpectedAPIHostPorts(3, ipVersion))
@@ -952,7 +968,7 @@ func (s *workerSuite) initialize3Voters(c *gc.C) (*fakeState, worker.Worker, *vo
 	for i := 11; i < 13; i++ {
 		id := fmt.Sprint(i)
 		m := st.addController(id, true)
-		m.setAddresses(network.NewAddress(fmt.Sprintf(testIPv4.formatHost, i)))
+		m.setAddresses(network.NewSpaceAddress(fmt.Sprintf(testIPv4.formatHost, i)))
 		c.Check(m.Addresses(), gc.HasLen, 1)
 	}
 	// Now that we've added 2 more, flag them as started and mark them as participating
@@ -961,7 +977,8 @@ func (s *workerSuite) initialize3Voters(c *gc.C) (*fakeState, worker.Worker, *vo
 	mustNext(c, memberWatcher, "nonvoting members")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", testIPv4))
 	st.session.setStatus(mkStatuses("0p 1s 2s", testIPv4))
-	s.ensureUpdateChannelProcessed(c, pollInterval, time.Second, 1)
+	s.waitUntilIdle(c)
+	s.clock.Advance(pollInterval)
 	mustNext(c, memberWatcher, "status ok")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v", testIPv4))
 	err = st.controller("11").SetHasVote(true)
@@ -1016,7 +1033,8 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 		c.Check(testStatus.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.PrimaryState))
 	}
 	// Now we have to wait for time to advance for us to reevaluate the system
-	c.Assert(s.clock.WaitAdvance(2*pollInterval, coretesting.LongWait, 2), jc.ErrorIsNil)
+	s.waitUntilIdle(c)
+	s.clock.Advance(2 * pollInterval)
 	mustNext(c, memberWatcher, "reevaluting member post-step-down")
 	// we should now have switch the vote over to whoever became the primary
 	if primaryMemberIndex == 1 {
@@ -1040,7 +1058,8 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 	// StepDownPrimary and then can remove its vote.
 	// now we timeout so that the system will notice we really do still want to step down the primary, and ask
 	// for it to revote.
-	c.Assert(s.clock.WaitAdvance(2*pollInterval, coretesting.ShortWait, 1), jc.ErrorIsNil)
+	s.waitUntilIdle(c)
+	s.clock.Advance(2 * pollInterval)
 	testStatus = mustNextStatus(c, statusWatcher, "stepping down new primary")
 	if primaryMemberIndex == 1 {
 		// 11 was the primary, now 12 is
@@ -1051,7 +1070,8 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 		c.Check(testStatus.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
 	}
 	// and then we again notice that the primary has been rescheduled and changed the member votes again
-	c.Assert(s.clock.WaitAdvance(pollInterval, coretesting.ShortWait, 1), jc.ErrorIsNil)
+	s.waitUntilIdle(c)
+	s.clock.Advance(pollInterval)
 	mustNext(c, memberWatcher, "reevaluting member post-step-down")
 	if primaryMemberIndex == 1 {
 		// primary was 11, now it is 12 as the only voter
@@ -1119,7 +1139,7 @@ func mustNextStatus(c *gc.C, w *voyeur.Watcher, context string) *replicaset.Stat
 
 type nopAPIHostPortsSetter struct{}
 
-func (nopAPIHostPortsSetter) SetAPIHostPorts(apiServers [][]network.HostPort) error {
+func (nopAPIHostPortsSetter) SetAPIHostPorts(apiServers []network.SpaceHostPorts) error {
 	return nil
 }
 
@@ -1162,43 +1182,40 @@ func (s *workerSuite) newWorker(
 		APIPort:            apiPort,
 		Hub:                s.hub,
 		SupportsHA:         supportsHA,
-		UpdateNotify:       s.updateNotify,
 	})
 }
 
-func (s *workerSuite) updateNotify() {
-	logger.Infof("updateNotify signalled")
+func (s *workerSuite) idleNotify() {
+	logger.Infof("idleNotify signalled")
 	s.mu.Lock()
-	notify := s.notify
+	idle := s.idle
 	s.mu.Unlock()
-	if notify == nil {
+	if idle == nil {
 		return
 	}
-	// Send down the notify channel if it is set.
+	// Send down the idle channel if it is set.
 	select {
-	case notify <- struct{}{}:
+	case idle <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
 		// no-op
 		logger.Infof("... no one watching")
 	}
 }
 
-func (s *workerSuite) ensureUpdateChannelProcessed(c *gc.C, d, w time.Duration, n int) {
-	logger.Infof("ensureUpdateChannelProcessed, delay %s", d)
+func (s *workerSuite) waitUntilIdle(c *gc.C) {
+	logger.Infof("wait for idle")
 	s.mu.Lock()
-	s.notify = make(chan struct{})
+	s.idle = make(chan struct{})
 	s.mu.Unlock()
 
-	c.Assert(s.clock.WaitAdvance(d, w, n), gc.IsNil)
-
 	select {
-	case <-s.notify:
+	case <-s.idle:
 		// All good.
 	case <-time.After(coretesting.LongWait):
-		c.Errorf("update channel not signalled in worker")
+		c.Fatalf("idle channel not signalled in worker")
 	}
 
 	s.mu.Lock()
-	s.notify = nil
+	s.idle = nil
 	s.mu.Unlock()
 }

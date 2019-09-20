@@ -43,7 +43,7 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	m, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetProviderAddresses(network.NewAddress("10.0.0.1"))
+	err = m.SetProviderAddresses(network.NewSpaceAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.st, s.machine = s.OpenAPIAsNewMachine(c)
@@ -139,14 +139,14 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	addr := s.machine.Addresses()
 	c.Assert(addr, gc.HasLen, 0)
 
-	setAddresses := network.NewAddresses(
-		"8.8.8.8",
-		"127.0.0.1",
-		"10.0.0.1",
-	)
+	setAddresses := []network.MachineAddress{
+		network.NewMachineAddress("8.8.8.8"),
+		network.NewMachineAddress("127.0.0.1"),
+		network.NewMachineAddress("10.0.0.1"),
+	}
 	// Before setting, the addresses are sorted to put public on top,
 	// cloud-local next, machine-local last.
-	expectAddresses := network.NewAddresses(
+	expectAddresses := network.NewSpaceAddresses(
 		"8.8.8.8",
 		"10.0.0.1",
 		"127.0.0.1",
@@ -163,11 +163,11 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	setAddresses := network.NewAddresses(
-		"8.8.8.8",
-		"127.0.0.1",
-		"10.0.0.1",
-	)
+	setAddresses := []network.MachineAddress{
+		network.NewMachineAddress("8.8.8.8"),
+		network.NewMachineAddress("127.0.0.1"),
+		network.NewMachineAddress("10.0.0.1"),
+	}
 	err = machine.SetMachineAddresses(setAddresses)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Refresh()

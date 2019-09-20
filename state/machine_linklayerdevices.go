@@ -918,13 +918,13 @@ func (m *Machine) AllSpaces() (set.Strings, error) {
 
 // AllNetworkAddresses returns the result of AllAddresses(), but transformed to
 // []network.Address.
-func (m *Machine) AllNetworkAddresses() ([]corenetwork.Address, error) {
+func (m *Machine) AllNetworkAddresses() (corenetwork.SpaceAddresses, error) {
 	stateAddresses, err := m.AllAddresses()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	networkAddresses := make([]corenetwork.Address, len(stateAddresses))
+	networkAddresses := make(corenetwork.SpaceAddresses, len(stateAddresses))
 	for i := range stateAddresses {
 		networkAddresses[i] = stateAddresses[i].NetworkAddress()
 	}
@@ -1138,7 +1138,7 @@ func addAddressToResult(networkInfos []network.NetworkInfo, address *Address) ([
 func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string]MachineNetworkInfoResult {
 	results := make(map[string]MachineNetworkInfoResult)
 
-	var privateAddress corenetwork.Address
+	var privateAddress corenetwork.SpaceAddress
 
 	if spaces.Contains(corenetwork.DefaultSpaceName) {
 		var err error

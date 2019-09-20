@@ -44,7 +44,7 @@ type InitializeStateParams struct {
 	instancecfg.StateInitializationParams
 
 	// BootstrapMachineAddresses holds the bootstrap machine's addresses.
-	BootstrapMachineAddresses []corenetwork.Address
+	BootstrapMachineAddresses corenetwork.ProviderAddresses
 
 	// BootstrapMachineJobs holds the jobs that the bootstrap machine
 	// agent will run.
@@ -162,6 +162,7 @@ func InitializeState(
 
 	// Filter out any LXC or LXD bridge addresses from the machine addresses.
 	args.BootstrapMachineAddresses = network.FilterBridgeAddresses(args.BootstrapMachineAddresses)
+
 	st := ctrl.SystemState()
 
 	// Fetch spaces from substrate.
@@ -175,6 +176,9 @@ func InitializeState(
 			return nil, errors.Trace(err)
 		}
 	}
+
+	// Convert the provider addresses that we got from the bootstrap instance
+	// to space ID decorated addresses.
 
 	if err = initAPIHostPorts(st, args.BootstrapMachineAddresses, servingInfo.APIPort); err != nil {
 		return nil, err
@@ -207,7 +211,7 @@ func InitializeState(
 			return nil, errors.Annotate(err, "cannot initialize cloud service")
 		}
 	} else {
-		if controllerNode, err = initBootstrapMachine(c, st, args); err != nil {
+		if controllerNode, err = initBootstrapMachine(st, args); err != nil {
 			return nil, errors.Annotate(err, "cannot initialize bootstrap machine")
 		}
 	}
@@ -402,11 +406,7 @@ func initMongo(info mongo.Info, dialOpts mongo.DialOpts, password string) (*mgo.
 }
 
 // initBootstrapMachine initializes the initial bootstrap machine in state.
-func initBootstrapMachine(
-	c agent.ConfigSetter,
-	st *state.State,
-	args InitializeStateParams,
-) (bootstrapController, error) {
+func initBootstrapMachine(st *state.State, args InitializeStateParams) (bootstrapController, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -425,12 +425,19 @@ func initBootstrapMachine(
 	if args.BootstrapMachineHardwareCharacteristics != nil {
 		hardware = *args.BootstrapMachineHardwareCharacteristics
 	}
+
 	hostSeries, err := series.HostSeries()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	spaceAddrs, err := args.BootstrapMachineAddresses.ToSpaceAddresses(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	m, err := st.AddOneMachine(state.MachineTemplate{
-		Addresses:               args.BootstrapMachineAddresses,
+		Addresses:               spaceAddrs,
 		Series:                  hostSeries,
 		Nonce:                   agent.BootstrapNonce,
 		Constraints:             args.BootstrapMachineConstraints,
@@ -485,25 +492,35 @@ func initControllerCloudService(
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	if len(svc.Addresses) == 0 {
 		// this should never happen because we have already checked in k8s controller bootstrap stacker.
 		return errors.NotProvisionedf("k8s controller service %q address", svc.Id)
 	}
+	addrs, err := svc.Addresses.ToSpaceAddresses(st)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	svcId := controllerUUID
 	logger.Infof("creating cloud service for k8s controller %q", svcId)
 	cloudSvc, err := st.SaveCloudService(state.SaveCloudServiceArgs{
 		Id:         svcId,
 		ProviderId: svc.Id,
-		Addresses:  svc.Addresses,
+		Addresses:  addrs,
 	})
 	logger.Debugf("created cloud service %v for controller", cloudSvc)
 	return errors.Trace(err)
 }
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
-func initAPIHostPorts(st *state.State, addrs []corenetwork.Address, apiPort int) error {
-	hostPorts := corenetwork.AddressesWithPort(addrs, apiPort)
-	return st.SetAPIHostPorts([][]corenetwork.HostPort{hostPorts})
+func initAPIHostPorts(st *state.State, pAddrs corenetwork.ProviderAddresses, apiPort int) error {
+	addrs, err := pAddrs.ToSpaceAddresses(st)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	hostPorts := corenetwork.SpaceAddressesWithPort(addrs, apiPort)
+	return st.SetAPIHostPorts([]corenetwork.SpaceHostPorts{hostPorts})
 }
 
 // machineJobFromParams returns the job corresponding to params.MachineJob.

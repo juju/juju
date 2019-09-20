@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
@@ -950,14 +949,6 @@ type MongoVersion struct {
 	Minor         int    `json:"minor"`
 	Patch         string `json:"patch"`
 	StorageEngine string `json:"engine"`
-}
-
-// HAMember holds information that identifies one member
-// of HA.
-type HAMember struct {
-	Tag           string          `json:"tag"`
-	PublicAddress network.Address `json:"public-address"`
-	Series        string          `json:"series"`
 }
 
 // MeterStatusParam holds meter status information to be set for the specified tag.

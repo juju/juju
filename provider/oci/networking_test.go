@@ -241,7 +241,7 @@ func (n *networkingSuite) TestNetworkInterfaces(c *gc.C) {
 	info, err := n.env.NetworkInterfaces(nil, instance.Id(n.testInstanceID))
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.HasLen, 1)
-	c.Assert(info[0].Address, gc.Equals, corenetwork.NewScopedAddress("1.1.1.1", corenetwork.ScopeCloudLocal))
+	c.Assert(info[0].Address, gc.Equals, corenetwork.NewScopedProviderAddress("1.1.1.1", corenetwork.ScopeCloudLocal))
 	c.Assert(info[0].InterfaceName, gc.Equals, "unsupported0")
 	c.Assert(info[0].DeviceIndex, gc.Equals, 0)
 	c.Assert(info[0].ProviderId, gc.Equals, corenetwork.Id(vnicID))
@@ -265,9 +265,7 @@ func (n *networkingSuite) TestSubnets(c *gc.C) {
 	c.Assert(info, gc.HasLen, 1)
 	c.Assert(info[0].CIDR, gc.Equals, "1.0.0.0/8")
 
-	lookFor = []corenetwork.Id{
-		corenetwork.Id("IDontExist"),
-	}
+	lookFor = []corenetwork.Id{"IDontExist"}
 	_, err = n.env.Subnets(nil, instance.UnknownId, lookFor)
 	c.Check(err, gc.ErrorMatches, "failed to find the following subnet ids:.*IDontExist.*")
 }

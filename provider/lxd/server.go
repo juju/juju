@@ -44,7 +44,7 @@ type Server interface {
 	CreateClientCertificate(certificate *lxd.Certificate) error
 	LocalBridgeName() string
 	AliveContainers(prefix string) ([]lxd.Container, error)
-	ContainerAddresses(name string) ([]network.Address, error)
+	ContainerAddresses(name string) ([]network.ProviderAddress, error)
 	RemoveContainer(name string) error
 	RemoveContainers(names []string) error
 	FilterContainers(prefix string, statuses ...string) ([]lxd.Container, error)

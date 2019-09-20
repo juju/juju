@@ -93,8 +93,8 @@ type state struct {
 	serverVersion version.Number
 
 	// hostPorts is the API server addresses returned from Login,
-	// which the client may cache and use for failover.
-	hostPorts [][]network.HostPort
+	// which the client may cache and use for fail-over.
+	hostPorts []network.MachineHostPorts
 
 	// publicDNSName is the public host name returned from Login
 	// which the client can use to make a connection verified
@@ -160,7 +160,7 @@ type state struct {
 type RedirectError struct {
 	// Servers holds the sets of addresses of the redirected
 	// servers.
-	Servers [][]network.HostPort
+	Servers []network.MachineHostPorts
 
 	// CACert holds the certificate of the remote server.
 	CACert string
@@ -1257,12 +1257,12 @@ func (s *state) ControllerTag() names.ControllerTag {
 // Juju CLI, all addresses must be attempted, as the CLI may
 // be invoked both within and outside the model (think
 // private clouds).
-func (s *state) APIHostPorts() [][]network.HostPort {
+func (s *state) APIHostPorts() []network.MachineHostPorts {
 	// NOTE: We're making a copy of s.hostPorts before returning it,
 	// for safety.
-	hostPorts := make([][]network.HostPort, len(s.hostPorts))
-	for i, server := range s.hostPorts {
-		hostPorts[i] = append([]network.HostPort{}, server...)
+	hostPorts := make([]network.MachineHostPorts, len(s.hostPorts))
+	for i, servers := range s.hostPorts {
+		hostPorts[i] = append(network.MachineHostPorts{}, servers...)
 	}
 	return hostPorts
 }

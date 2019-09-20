@@ -81,10 +81,8 @@ func (m *mockMachine) WatchAddresses() state.NotifyWatcher {
 	return newMockNotifyWatcher(m.changes)
 }
 
-func (m *mockMachine) Addresses() (addresses []network.Address) {
-	return []network.Address{{
-		Value: "0.1.2.3",
-	}}
+func (m *mockMachine) Addresses() (addresses network.SpaceAddresses) {
+	return network.NewSpaceAddresses("0.1.2.3")
 }
 
 func (s *CertUpdaterSuite) StateServingInfo() (params.StateServingInfo, bool) {
@@ -101,13 +99,11 @@ func (g *mockConfigGetter) ControllerConfig() (jujucontroller.Config, error) {
 
 type mockAPIHostGetter struct{}
 
-func (g *mockAPIHostGetter) APIHostPortsForClients() ([][]network.HostPort, error) {
-	return [][]network.HostPort{
-		{
-			{Address: network.Address{Value: "192.168.1.1", Scope: network.ScopeCloudLocal}, Port: 17070},
-			{Address: network.Address{Value: "10.1.1.1", Scope: network.ScopeMachineLocal}, Port: 17070},
-		},
-	}, nil
+func (g *mockAPIHostGetter) APIHostPortsForClients() ([]network.SpaceHostPorts, error) {
+	return []network.SpaceHostPorts{{
+		{SpaceAddress: network.NewScopedSpaceAddress("192.168.1.1", network.ScopeCloudLocal), NetPort: 17070},
+		{SpaceAddress: network.NewScopedSpaceAddress("10.1.1.1", network.ScopeMachineLocal), NetPort: 17070},
+	}}, nil
 }
 
 func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {

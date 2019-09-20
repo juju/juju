@@ -247,10 +247,12 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			machines: append(mkMachines("11v 12v", ipVersion), &controllerTracker{
 				id:        "13",
 				wantsVote: true,
-				addresses: []network.Address{{
-					Value: ipVersion.extraHost,
-					Type:  ipVersion.addressType,
-					Scope: network.ScopeCloudLocal,
+				addresses: []network.SpaceAddress{{
+					MachineAddress: network.MachineAddress{
+						Value: ipVersion.extraHost,
+						Type:  ipVersion.addressType,
+						Scope: network.ScopeCloudLocal,
+					},
 				}},
 			}),
 			statuses:     mkStatuses("1s 2p 3s", ipVersion),
@@ -472,10 +474,12 @@ func mkMachines(description string, ipVersion TestIPVersion) []*controllerTracke
 	for i, d := range descrs {
 		ms[i] = &controllerTracker{
 			id: fmt.Sprint(d.id),
-			addresses: []network.Address{{
-				Value: fmt.Sprintf(ipVersion.formatHost, d.id),
-				Type:  ipVersion.addressType,
-				Scope: network.ScopeCloudLocal,
+			addresses: []network.SpaceAddress{{
+				MachineAddress: network.MachineAddress{
+					Value: fmt.Sprintf(ipVersion.formatHost, d.id),
+					Type:  ipVersion.addressType,
+					Scope: network.ScopeCloudLocal,
+				},
 			}},
 			wantsVote: strings.Contains(d.flags, "v"),
 		}
@@ -635,15 +639,15 @@ func (l membersById) Len() int           { return len(l) }
 func (l membersById) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
 func (l membersById) Less(i, j int) bool { return l[i].Id < l[j].Id }
 
-// AssertAPIHostPorts asserts of two sets of network.HostPort slices are the same.
-func AssertAPIHostPorts(c *gc.C, got, want [][]network.HostPort) {
+// AssertAPIHostPorts asserts of two sets of network.SpaceHostPort slices are the same.
+func AssertAPIHostPorts(c *gc.C, got, want []network.SpaceHostPorts) {
 	c.Assert(got, gc.HasLen, len(want))
 	sort.Sort(hostPortSliceByHostPort(got))
 	sort.Sort(hostPortSliceByHostPort(want))
 	c.Assert(got, gc.DeepEquals, want)
 }
 
-type hostPortSliceByHostPort [][]network.HostPort
+type hostPortSliceByHostPort []network.SpaceHostPorts
 
 func (h hostPortSliceByHostPort) Len() int      { return len(h) }
 func (h hostPortSliceByHostPort) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
@@ -657,8 +661,8 @@ func (h hostPortSliceByHostPort) Less(i, j int) bool {
 		if av.Value != bv.Value {
 			return av.Value < bv.Value
 		}
-		if av.Port != bv.Port {
-			return av.Port < bv.Port
+		if av.Port() != bv.Port() {
+			return av.Port() < bv.Port()
 		}
 	}
 	return false

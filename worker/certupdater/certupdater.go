@@ -32,14 +32,14 @@ type CertificateUpdater struct {
 	setter          StateServingInfoSetter
 	configGetter    ControllerConfigGetter
 	hostPortsGetter APIHostPortsGetter
-	addresses       []network.Address
+	addresses       network.SpaceAddresses
 }
 
 // AddressWatcher is an interface that is provided to NewCertificateUpdater
 // which can be used to watch for machine address changes.
 type AddressWatcher interface {
 	WatchAddresses() state.NotifyWatcher
-	Addresses() (addresses []network.Address)
+	Addresses() (addresses network.SpaceAddresses)
 }
 
 // ControllerConfigGetter is an interface that is provided to NewCertificateUpdater
@@ -61,7 +61,7 @@ type StateServingInfoSetter func(info params.StateServingInfo) error
 // APIHostPortsGetter is an interface that is provided to NewCertificateUpdater.
 // It returns all known API addresses.
 type APIHostPortsGetter interface {
-	APIHostPortsForClients() ([][]network.HostPort, error)
+	APIHostPortsForClients() ([]network.SpaceHostPorts, error)
 }
 
 // Config holds the configuration for the certificate updater worker.
@@ -93,13 +93,13 @@ func (c *CertificateUpdater) SetUp() (state.NotifyWatcher, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving initial server addresses")
 	}
-	var initialSANAddresses []network.Address
+	var initialSANAddresses network.SpaceAddresses
 	for _, server := range apiHostPorts {
 		for _, nhp := range server {
 			if nhp.Scope != network.ScopeCloudLocal {
 				continue
 			}
-			initialSANAddresses = append(initialSANAddresses, nhp.Address)
+			initialSANAddresses = append(initialSANAddresses, nhp.SpaceAddress)
 		}
 	}
 	if err := c.updateCertificate(initialSANAddresses); err != nil {
@@ -120,7 +120,7 @@ func (c *CertificateUpdater) Handle(done <-chan struct{}) error {
 	return c.updateCertificate(addresses)
 }
 
-func (c *CertificateUpdater) updateCertificate(addresses []network.Address) error {
+func (c *CertificateUpdater) updateCertificate(addresses network.SpaceAddresses) error {
 	logger.Debugf("new machine addresses: %#v", addresses)
 	c.addresses = addresses
 

@@ -444,7 +444,7 @@ func (inst *openstackInstance) getAddresses(ctx context.ProviderCallContext) (ma
 
 // Addresses implements network.Addresses() returning generic address
 // details for the instances, and calling the openstack api if needed.
-func (inst *openstackInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
+func (inst *openstackInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	addresses, err := inst.getAddresses(ctx)
 	if err != nil {
 		return nil, err
@@ -458,10 +458,10 @@ func (inst *openstackInstance) Addresses(ctx context.ProviderCallContext) ([]cor
 }
 
 // convertNovaAddresses returns nova addresses in generic format
-func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress) []corenetwork.Address {
-	var machineAddresses []corenetwork.Address
+func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress) corenetwork.ProviderAddresses {
+	var machineAddresses []corenetwork.ProviderAddress
 	if publicIP != "" {
-		publicAddr := corenetwork.NewScopedAddress(publicIP, corenetwork.ScopePublic)
+		publicAddr := corenetwork.NewScopedProviderAddress(publicIP, corenetwork.ScopePublic)
 		machineAddresses = append(machineAddresses, publicAddr)
 	}
 	// TODO(gz) Network ordering may be significant but is not preserved by
@@ -478,13 +478,13 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 				continue
 			}
 			// Assume IPv4 unless specified otherwise
-			addrtype := corenetwork.IPv4Address
+			addrType := corenetwork.IPv4Address
 			if address.Version == 6 {
-				addrtype = corenetwork.IPv6Address
+				addrType = corenetwork.IPv6Address
 			}
-			machineAddr := corenetwork.NewScopedAddress(address.Address, networkScope)
-			if machineAddr.Type != addrtype {
-				logger.Warningf("derived address type %v, nova reports %v", machineAddr.Type, addrtype)
+			machineAddr := corenetwork.NewScopedProviderAddress(address.Address, networkScope)
+			if machineAddr.Type != addrType {
+				logger.Warningf("derived address type %v, nova reports %v", machineAddr.Type, addrType)
 			}
 			machineAddresses = append(machineAddresses, machineAddr)
 		}
@@ -2111,6 +2111,6 @@ func (*Environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space
 }
 
 // SSHAddresses is specified on environs.SSHAddresses.
-func (*Environ) SSHAddresses(ctx context.ProviderCallContext, addresses []corenetwork.Address) ([]corenetwork.Address, error) {
+func (*Environ) SSHAddresses(ctx context.ProviderCallContext, addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddresses, error) {
 	return addresses, nil
 }

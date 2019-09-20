@@ -251,9 +251,9 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       network.ConfigDHCP,
-		Address:          corenetwork.NewAddress("0.10.0.2"),
-		DNSServers:       corenetwork.NewAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress:   corenetwork.NewAddress("0.10.0.1"),
+		Address:          corenetwork.NewProviderAddress("0.10.0.2"),
+		DNSServers:       corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress:   corenetwork.NewProviderAddress("0.10.0.1"),
 	}, {
 		ProviderId:       "dummy-eth1",
 		ProviderSubnetId: "dummy-public",
@@ -266,9 +266,9 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:         false,
 		NoAutoStart:      true,
 		ConfigType:       network.ConfigDHCP,
-		Address:          corenetwork.NewAddress("0.20.0.2"),
-		DNSServers:       corenetwork.NewAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress:   corenetwork.NewAddress("0.20.0.1"),
+		Address:          corenetwork.NewProviderAddress("0.20.0.2"),
+		DNSServers:       corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress:   corenetwork.NewProviderAddress("0.20.0.1"),
 	}, {
 		ProviderId:       "dummy-eth2",
 		ProviderSubnetId: "dummy-disabled",
@@ -281,9 +281,9 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:         true,
 		NoAutoStart:      false,
 		ConfigType:       network.ConfigDHCP,
-		Address:          corenetwork.NewAddress("0.30.0.2"),
-		DNSServers:       corenetwork.NewAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress:   corenetwork.NewAddress("0.30.0.1"),
+		Address:          corenetwork.NewProviderAddress("0.30.0.2"),
+		DNSServers:       corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress:   corenetwork.NewProviderAddress("0.30.0.1"),
 	}}
 	info, err := e.NetworkInterfaces(s.callCtx, "i-42")
 	c.Assert(err, jc.ErrorIsNil)

@@ -105,8 +105,8 @@ func newIPAddress(st *State, doc ipAddressDoc) *Address {
 }
 
 // NetworkAddress returns the address transformed to a network.Address.
-func (addr *Address) NetworkAddress() network.Address {
-	return network.NewAddress(addr.Value())
+func (addr *Address) NetworkAddress() network.SpaceAddress {
+	return network.NewSpaceAddress(addr.Value())
 }
 
 // DocID returns the globally unique ID of the IP address, including the model

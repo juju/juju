@@ -93,7 +93,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		ControllerConfigGetter: st,
 		APIHostPortsGetter:     st,
 	})
-	return common.NewCleanupWorker(w, func() { stTracker.Done() }), nil
+	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
 }
 
 // NewMachineAddressWatcher is the function that non-test code should

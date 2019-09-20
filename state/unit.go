@@ -367,7 +367,7 @@ func (op *UpdateUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		containerInfo.ProviderId = newProviderId
 	}
 	if op.props.Address != nil {
-		networkAddr := corenetwork.NewScopedAddress(*op.props.Address, corenetwork.ScopeMachineLocal)
+		networkAddr := corenetwork.NewScopedSpaceAddress(*op.props.Address, corenetwork.ScopeMachineLocal)
 		addr := fromNetworkAddress(networkAddr, OriginProvider)
 		containerInfo.Address = &addr
 	}
@@ -1147,32 +1147,32 @@ func (u *Unit) noAssignedMachineOp() txn.Op {
 }
 
 // PublicAddress returns the public address of the unit.
-func (u *Unit) PublicAddress() (corenetwork.Address, error) {
+func (u *Unit) PublicAddress() (corenetwork.SpaceAddress, error) {
 	if !u.ShouldBeAssigned() {
 		return u.scopedAddress("public")
 	}
 	m, err := u.machine()
 	if err != nil {
 		unitLogger.Tracef("%v", err)
-		return corenetwork.Address{}, errors.Trace(err)
+		return corenetwork.SpaceAddress{}, errors.Trace(err)
 	}
 	return m.PublicAddress()
 }
 
 // PrivateAddress returns the private address of the unit.
-func (u *Unit) PrivateAddress() (corenetwork.Address, error) {
+func (u *Unit) PrivateAddress() (corenetwork.SpaceAddress, error) {
 	if !u.ShouldBeAssigned() {
 		return u.scopedAddress("private")
 	}
 	m, err := u.machine()
 	if err != nil {
 		unitLogger.Tracef("%v", err)
-		return corenetwork.Address{}, errors.Trace(err)
+		return corenetwork.SpaceAddress{}, errors.Trace(err)
 	}
 	return m.PrivateAddress()
 }
 
-func (u *Unit) scopedAddress(scope string) (corenetwork.Address, error) {
+func (u *Unit) scopedAddress(scope string) (corenetwork.SpaceAddress, error) {
 	addr, err := u.serviceAddress(scope)
 	if err == nil {
 		return addr, nil
@@ -1180,14 +1180,14 @@ func (u *Unit) scopedAddress(scope string) (corenetwork.Address, error) {
 	if network.IsNoAddressError(err) {
 		return u.containerAddress()
 	}
-	return corenetwork.Address{}, errors.Trace(err)
+	return corenetwork.SpaceAddress{}, errors.Trace(err)
 }
 
 // AllAddresses returns the public and private addresses
 // plus the container address of the unit (if known).
 // Only relevant for CAAS models - will return an empty
 // slice for IAAS models.
-func (u *Unit) AllAddresses() ([]corenetwork.Address, error) {
+func (u *Unit) AllAddresses() (corenetwork.SpaceAddresses, error) {
 	if u.ShouldBeAssigned() {
 		return nil, nil
 	}
@@ -1214,57 +1214,57 @@ func (u *Unit) AllAddresses() ([]corenetwork.Address, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return []corenetwork.Address{addr}, nil
+	return corenetwork.SpaceAddresses{addr}, nil
 }
 
 // containerAddress returns the address of the pod's container.
-func (u *Unit) containerAddress() (corenetwork.Address, error) {
+func (u *Unit) containerAddress() (corenetwork.SpaceAddress, error) {
 	containerInfo, err := u.cloudContainer()
 	if errors.IsNotFound(err) {
-		return corenetwork.Address{}, network.NoAddressError("container")
+		return corenetwork.SpaceAddress{}, network.NoAddressError("container")
 	}
 	if err != nil {
-		return corenetwork.Address{}, errors.Trace(err)
+		return corenetwork.SpaceAddress{}, errors.Trace(err)
 	}
 	addr := containerInfo.Address
 	if addr == nil {
-		return corenetwork.Address{}, network.NoAddressError("container")
+		return corenetwork.SpaceAddress{}, network.NoAddressError("container")
 	}
 	return addr.networkAddress(), nil
 }
 
 // serviceAddress returns the address of the service
 // managing the pods in which the unit workload is running.
-func (u *Unit) serviceAddress(scope string) (corenetwork.Address, error) {
+func (u *Unit) serviceAddress(scope string) (corenetwork.SpaceAddress, error) {
 	addresses, err := u.AllAddresses()
 	if err != nil {
-		return corenetwork.Address{}, errors.Trace(err)
+		return corenetwork.SpaceAddress{}, errors.Trace(err)
 	}
 	if len(addresses) == 0 {
-		return corenetwork.Address{}, network.NoAddressError(scope)
+		return corenetwork.SpaceAddress{}, network.NoAddressError(scope)
 	}
-	getStrictPublicAddr := func(addresses []corenetwork.Address) (corenetwork.Address, bool) {
-		addr, ok := corenetwork.SelectPublicAddress(addresses)
+	getStrictPublicAddr := func(addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddress, bool) {
+		addr, ok := addresses.OneMatchingScope(corenetwork.ScopeMatchPublic)
 		return addr, ok && addr.Scope == corenetwork.ScopePublic
 	}
 
-	getInternalAddr := func(addresses []corenetwork.Address) (corenetwork.Address, bool) {
-		return corenetwork.SelectInternalAddress(addresses, false)
+	getInternalAddr := func(addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddress, bool) {
+		return addresses.OneMatchingScope(corenetwork.ScopeMatchCloudLocal)
 	}
 
-	var addrMatch func([]corenetwork.Address) (corenetwork.Address, bool)
+	var addrMatch func(corenetwork.SpaceAddresses) (corenetwork.SpaceAddress, bool)
 	switch scope {
 	case "public":
 		addrMatch = getStrictPublicAddr
 	case "private":
 		addrMatch = getInternalAddr
 	default:
-		return corenetwork.Address{}, errors.NotValidf("address scope %q", scope)
+		return corenetwork.SpaceAddress{}, errors.NotValidf("address scope %q", scope)
 	}
 
 	addr, found := addrMatch(addresses)
 	if !found {
-		return corenetwork.Address{}, network.NoAddressError(scope)
+		return corenetwork.SpaceAddress{}, network.NoAddressError(scope)
 	}
 	return addr, nil
 }

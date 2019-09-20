@@ -590,27 +590,27 @@ func (*suite) TestSetAPIHostPorts(c *gc.C) {
 	//
 	// If a server has only machine-local addresses, or none
 	// at all, then it will be excluded.
-	server1 := network.NewAddresses("0.1.0.1", "0.1.0.2", "host.com")
+	server1 := network.NewSpaceAddresses("0.1.0.1", "0.1.0.2", "host.com")
 	server1[0].Scope = network.ScopeCloudLocal
 	server1[1].Scope = network.ScopeCloudLocal
 	server1[2].Scope = network.ScopePublic
 
-	server2 := network.NewAddresses("0.2.0.1", "0.2.0.2")
+	server2 := network.NewSpaceAddresses("0.2.0.1", "0.2.0.2")
 	server2[0].Scope = network.ScopePublic
 	server2[1].Scope = network.ScopePublic
 
-	server3 := network.NewAddresses("127.0.0.1")
+	server3 := network.NewSpaceAddresses("127.0.0.1")
 	server3[0].Scope = network.ScopeMachineLocal
 
-	server4 := network.NewAddresses("0.4.0.1", "elsewhere.net")
+	server4 := network.NewSpaceAddresses("0.4.0.1", "elsewhere.net")
 	server4[0].Scope = network.ScopeUnknown
 	server4[1].Scope = network.ScopeUnknown
 
-	conf.SetAPIHostPorts([][]network.HostPort{
-		network.AddressesWithPort(server1, 1111),
-		network.AddressesWithPort(server2, 2222),
-		network.AddressesWithPort(server3, 3333),
-		network.AddressesWithPort(server4, 4444),
+	conf.SetAPIHostPorts([]network.HostPorts{
+		network.SpaceAddressesWithPort(server1, 1111).HostPorts(),
+		network.SpaceAddressesWithPort(server2, 2222).HostPorts(),
+		network.SpaceAddressesWithPort(server3, 3333).HostPorts(),
+		network.SpaceAddressesWithPort(server4, 4444).HostPorts(),
 	})
 	addrs, err = conf.APIAddresses()
 	c.Assert(err, jc.ErrorIsNil)

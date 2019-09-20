@@ -603,8 +603,8 @@ func NetworksForRelation(
 		return "", nil, nil, errors.Trace(err)
 	}
 
-	fetchAddr := func(fetcher func() (corenetwork.Address, error)) (corenetwork.Address, error) {
-		var address corenetwork.Address
+	fetchAddr := func(fetcher func() (corenetwork.SpaceAddress, error)) (corenetwork.SpaceAddress, error) {
+		var address corenetwork.SpaceAddress
 		retryArg := PreferredAddressRetryArgs()
 		retryArg.Func = func() error {
 			var err error

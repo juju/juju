@@ -57,8 +57,8 @@ func (s *AgentSuite) SetUpSuite(c *gc.C) {
 func (s *AgentSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	// Set API host ports so FindTools/Tools API calls succeed.
-	hostPorts := [][]network.HostPort{
-		network.NewHostPorts(1234, "0.1.2.3"),
+	hostPorts := []network.SpaceHostPorts{
+		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)

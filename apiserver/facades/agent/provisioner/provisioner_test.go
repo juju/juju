@@ -1729,8 +1729,8 @@ func (s *withControllerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *withControllerSuite) TestAPIAddresses(c *gc.C) {
-	hostPorts := [][]network.HostPort{
-		network.NewHostPorts(1234, "0.1.2.3"),
+	hostPorts := []network.SpaceHostPorts{
+		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)

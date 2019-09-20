@@ -57,11 +57,11 @@ func (m *Machine) SetStatus(status status.Status, info string, data map[string]i
 }
 
 // SetMachineAddresses sets the machine determined addresses of the machine.
-func (m *Machine) SetMachineAddresses(addresses []network.Address) error {
+func (m *Machine) SetMachineAddresses(addresses []network.MachineAddress) error {
 	var result params.ErrorResults
 	args := params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{
-			{Tag: m.Tag().String(), Addresses: params.FromNetworkAddresses(addresses...)},
+			{Tag: m.Tag().String(), Addresses: params.FromMachineAddresses(addresses...)},
 		},
 	}
 	err := m.st.facade.FacadeCall("SetMachineAddresses", args, &result)

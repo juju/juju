@@ -50,7 +50,7 @@ func (m *mockMachine) EnsureDead() error {
 	return m.NextErr()
 }
 
-func (m *mockMachine) SetMachineAddresses(addresses []network.Address) error {
+func (m *mockMachine) SetMachineAddresses(addresses []network.MachineAddress) error {
 	m.MethodCall(m, "SetMachineAddresses", addresses)
 	return m.NextErr()
 }

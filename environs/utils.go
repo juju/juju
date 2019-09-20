@@ -4,6 +4,8 @@
 package environs
 
 import (
+	"net"
+	"strconv"
 	"time"
 
 	"github.com/juju/errors"
@@ -26,8 +28,8 @@ var AddressesRefreshAttempt = utils.AttemptStrategy{
 
 // getAddresses queries and returns the Addresses for the given instances,
 // ignoring nil instances or ones without addresses.
-func getAddresses(ctx context.ProviderCallContext, instances []instances.Instance) []network.Address {
-	var allAddrs []network.Address
+func getAddresses(ctx context.ProviderCallContext, instances []instances.Instance) []network.ProviderAddress {
+	var allAddrs []network.ProviderAddress
 	for _, inst := range instances {
 		if inst == nil {
 			continue
@@ -51,8 +53,8 @@ func waitAnyInstanceAddresses(
 	env Environ,
 	ctx context.ProviderCallContext,
 	instanceIds []instance.Id,
-) ([]network.Address, error) {
-	var addrs []network.Address
+) ([]network.ProviderAddress, error) {
+	var addrs []network.ProviderAddress
 	for a := AddressesRefreshAttempt.Start(); len(addrs) == 0 && a.Next(); {
 		instances, err := env.Instances(ctx, instanceIds)
 		if err != nil && err != ErrPartialInstances {
@@ -69,7 +71,9 @@ func waitAnyInstanceAddresses(
 
 // APIInfo returns an api.Info for the environment. The result is populated
 // with addresses and CA certificate, but no tag or password.
-func APIInfo(ctx context.ProviderCallContext, controllerUUID, modelUUID, caCert string, apiPort int, env Environ) (*api.Info, error) {
+func APIInfo(
+	ctx context.ProviderCallContext, controllerUUID, modelUUID, caCert string, apiPort int, env Environ,
+) (*api.Info, error) {
 	instanceIds, err := env.ControllerInstances(ctx, controllerUUID)
 	if err != nil {
 		return nil, err
@@ -79,11 +83,13 @@ func APIInfo(ctx context.ProviderCallContext, controllerUUID, modelUUID, caCert 
 	if err != nil {
 		return nil, err
 	}
-	apiAddrs := network.HostPortsToStrings(
-		network.AddressesWithPort(addrs, apiPort),
-	)
-	modelTag := names.NewModelTag(modelUUID)
-	apiInfo := &api.Info{Addrs: apiAddrs, CACert: caCert, ModelTag: modelTag}
+
+	apiAddrs := make([]string, len(addrs))
+	for i, addr := range addrs {
+		apiAddrs[i] = net.JoinHostPort(addr.Host(), strconv.Itoa(apiPort))
+	}
+
+	apiInfo := &api.Info{Addrs: apiAddrs, CACert: caCert, ModelTag: names.NewModelTag(modelUUID)}
 	return apiInfo, nil
 }
 

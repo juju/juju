@@ -91,7 +91,7 @@ func IsUpgradeInProgressError(err error) bool {
 // the user) has been migrated to a different controller.
 type RedirectError struct {
 	// Servers holds the sets of addresses of the redirected servers.
-	Servers [][]network.HostPort `json:"servers"`
+	Servers []network.ProviderHostPorts `json:"servers"`
 
 	// CACert holds the certificate of the remote server.
 	CACert string `json:"ca-cert"`
@@ -288,7 +288,7 @@ func ServerError(err error) *params.Error {
 		redirErr := errors.Cause(err).(*RedirectError)
 		code = params.CodeRedirect
 		info = params.RedirectErrorInfo{
-			Servers:         params.FromNetworkHostsPorts(redirErr.Servers),
+			Servers:         params.FromProviderHostsPorts(redirErr.Servers),
 			CACert:          redirErr.CACert,
 			ControllerAlias: redirErr.ControllerAlias,
 		}.AsMap()

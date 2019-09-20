@@ -124,7 +124,7 @@ func (env *mockZonedEnviron) DeriveAvailabilityZones(ctx context.ProviderCallCon
 
 type mockInstance struct {
 	id                 string
-	addresses          []corenetwork.Address
+	addresses          []corenetwork.ProviderAddress
 	addressesErr       error
 	dnsName            string
 	dnsNameErr         error
@@ -140,7 +140,7 @@ func (inst *mockInstance) Status(context.ProviderCallContext) instance.Status {
 	return inst.status
 }
 
-func (inst *mockInstance) Addresses(context.ProviderCallContext) ([]corenetwork.Address, error) {
+func (inst *mockInstance) Addresses(context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	return inst.addresses, inst.addressesErr
 }
 

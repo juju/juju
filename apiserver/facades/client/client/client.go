@@ -461,6 +461,12 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 	if err != nil {
 		return nil, err
 	}
+
+	addrs, err := params.ToProviderAddresses(p.Addrs...).ToSpaceAddresses(c.api.stateAccessor)
+	if err != nil {
+		return nil, err
+	}
+
 	template := state.MachineTemplate{
 		Series:                  p.Series,
 		Constraints:             p.Constraints,
@@ -468,7 +474,7 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		Jobs:                    jobs,
 		Nonce:                   p.Nonce,
 		HardwareCharacteristics: p.HardwareCharacteristics,
-		Addresses:               params.NetworkAddresses(p.Addrs...),
+		Addresses:               addrs,
 		Placement:               placementDirective,
 	}
 	if p.ContainerType == "" {
@@ -769,11 +775,19 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 		return result, err
 	}
 
-	var servers [][]network.HostPort
-	if servers, err = c.api.stateAccessor.APIHostPortsForClients(); err != nil {
-		return params.APIHostPortsResult{}, err
+	servers, err := c.api.stateAccessor.APIHostPortsForClients()
+	if err != nil {
+		return result, err
 	}
-	result.Servers = params.FromNetworkHostsPorts(servers)
+
+	pServers := make([]network.ProviderHostPorts, len(servers))
+	for i, hps := range servers {
+		if pServers[i], err = hps.ToProviderHostPorts(c.api.stateAccessor); err != nil {
+			return result, err
+		}
+	}
+
+	result.Servers = params.FromProviderHostsPorts(pServers)
 	return result, nil
 }
 

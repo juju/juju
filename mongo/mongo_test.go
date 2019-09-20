@@ -511,19 +511,11 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 }
 
 func (s *MongoSuite) TestSelectPeerAddress(c *gc.C) {
-	addresses := []network.Address{{
-		Value: "127.0.0.1",
-		Type:  network.IPv4Address,
-		Scope: network.ScopeMachineLocal,
-	}, {
-		Value: "10.0.0.1",
-		Type:  network.IPv4Address,
-		Scope: network.ScopeCloudLocal,
-	}, {
-		Value: "8.8.8.8",
-		Type:  network.IPv4Address,
-		Scope: network.ScopePublic,
-	}}
+	addresses := network.ProviderAddresses{
+		network.NewScopedProviderAddress("126.0.0.1", network.ScopeMachineLocal),
+		network.NewScopedProviderAddress("10.0.0.1", network.ScopeCloudLocal),
+		network.NewScopedProviderAddress("8.8.8.8", network.ScopePublic),
+	}
 
 	address := mongo.SelectPeerAddress(addresses)
 	c.Assert(address, gc.Equals, "10.0.0.1")

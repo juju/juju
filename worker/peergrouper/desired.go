@@ -507,7 +507,7 @@ func (p *peerGroupChanges) updateAddressesFromInternal() error {
 	for _, id := range ids {
 		m := p.info.controllers[id]
 		hostPorts := m.GetPotentialMongoHostPorts(p.info.mongoPort)
-		addrs := network.SelectInternalHostPorts(hostPorts, false)
+		addrs := hostPorts.AllMatchingScope(network.ScopeMatchCloudLocal)
 
 		// This should not happen because SelectInternalHostPorts will choose a
 		// public address when there are no cloud-local addresses.

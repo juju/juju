@@ -46,7 +46,7 @@ var _ = gc.Suite(&deployerSuite{})
 func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageModel, state.JobHostUnits)
-	err := s.machine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
+	err := s.machine.SetProviderAddresses(network.NewSpaceAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create the needed applications and relate them.

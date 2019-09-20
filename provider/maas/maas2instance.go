@@ -65,7 +65,7 @@ func (mi *maas2Instance) Id() instance.Id {
 	return instance.Id(mi.machine.SystemID())
 }
 
-func (mi *maas2Instance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
+func (mi *maas2Instance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	subnetsMap, err := mi.environ.subnetToSpaceIds(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -77,7 +77,7 @@ func (mi *maas2Instance) Addresses(ctx context.ProviderCallContext) ([]corenetwo
 		return nil, errors.Trace(err)
 	}
 
-	var addresses []corenetwork.Address
+	var addresses []corenetwork.ProviderAddress
 	for _, iface := range interfaces {
 		if iface.Address.Value != "" {
 			addresses = append(addresses, iface.Address)

@@ -123,7 +123,7 @@ func (s *ipAddressesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C) {
 	c.Check(result.DNSServers(), jc.DeepEquals, []string{"ns1.example.com", "ns2.example.org"})
 	c.Check(result.DNSSearchDomains(), jc.DeepEquals, []string{"example.com", "example.org"})
 	c.Check(result.GatewayAddress(), gc.Equals, "10.20.30.1")
-	c.Check(result.NetworkAddress(), jc.DeepEquals, network.NewAddress(result.Value()))
+	c.Check(result.NetworkAddress(), jc.DeepEquals, network.NewSpaceAddress(result.Value()))
 }
 
 func (s *ipAddressesInternalSuite) TestIsValidAddressConfigMethodWithValidValues(c *gc.C) {

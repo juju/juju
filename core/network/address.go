@@ -5,7 +5,6 @@ package network
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"math/rand"
 	"net"
@@ -45,11 +44,11 @@ var (
 )
 
 func mustParseCIDR(s string) *net.IPNet {
-	_, net, err := net.ParseCIDR(s)
+	_, ipNet, err := net.ParseCIDR(s)
 	if err != nil {
 		panic(err)
 	}
-	return net
+	return ipNet
 }
 
 // AddressType represents the possible ways of specifying a machine location by
@@ -62,11 +61,10 @@ const (
 	IPv6Address AddressType = "ipv6"
 )
 
-// Scope denotes the context a location may apply to. If a name or
-// address can be reached from the wider internet, it is considered
-// public. A private network address is either specific to the cloud
-// or cloud subnet a machine belongs to, or to the machine itself for
-// containers.
+// Scope denotes the context a location may apply to. If a name or address can
+// be reached from the wider internet, it is considered public.
+// A private network address is either specific to the cloud or cloud subnet a
+// machine belongs to, or to the machine itself for containers.
 type Scope string
 
 const (
@@ -78,70 +76,141 @@ const (
 	ScopeLinkLocal    Scope = "link-local"
 )
 
-// Address represents the location of a machine, including metadata
-// about what kind of location the address describes.
-type Address struct {
-	Value     string
-	Type      AddressType
-	Scope     Scope
-	SpaceName SpaceName
-	// TODO (manadart 2019-07-12): Rename to ProviderSpaceId for consistency.
-	SpaceProviderId Id
+// ScopeMatch is a numeric designation of how well the requirement
+// for satisfying a scope is met.
+type ScopeMatch int
+
+const (
+	invalidScope ScopeMatch = iota
+	exactScopeIPv4
+	exactScope
+	firstFallbackScopeIPv4
+	firstFallbackScope
+	secondFallbackScopeIPv4
+	secondFallbackScope
+)
+
+// Address describes methods for returning details
+// about an IP address or host name.
+type Address interface {
+	// Host returns the value for the host-name/IP address.
+	Host() string
+
+	// AddressType returns the type of the address.
+	AddressType() AddressType
+
+	// AddressScope returns the scope of the address.
+	AddressScope() Scope
 }
 
-// String returns a string representation of the address, in the form:
-// `<scope>:<address-value>@<space-name>(id:<space-provider-id)`; for example:
-//
-//	public:c2-54-226-162-124.compute-1.amazonaws.com@public-api(id:42)
-//
-// If the scope is ScopeUnknown, the initial "<scope>:" prefix will be omitted.
-// If the SpaceName is blank, the "@<space-name>" suffix will be omitted.
-// Finally, if the SpaceProviderId is empty the suffix
-// "(id:<space-provider-id>)" part will be omitted as well.
-func (a Address) String() string {
-	var buf bytes.Buffer
-	if a.Scope != ScopeUnknown {
-		buf.WriteString(string(a.Scope))
-		buf.WriteByte(':')
-	}
-	buf.WriteString(a.Value)
+// ScopeMatchFunc is an alias for a function that accepts an Address,
+// and returns what kind of scope match is determined by the body.
+type ScopeMatchFunc = func(addr Address) ScopeMatch
 
-	var spaceFound bool
-	if a.SpaceName != "" {
-		spaceFound = true
-		buf.WriteByte('@')
-		buf.WriteString(string(a.SpaceName))
-	}
-	if a.SpaceProviderId != Id("") {
-		if !spaceFound {
-			buf.WriteByte('@')
+// ExactScopeMatch checks if an address exactly
+// matches any of the specified scopes.
+func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
+	for _, scope := range addrScopes {
+		if addr.AddressScope() == scope {
+			return true
 		}
-		buf.WriteString(fmt.Sprintf("(id:%v)", string(a.SpaceProviderId)))
 	}
-	return buf.String()
+	return false
+}
+
+// MachineAddress represents an address without associated space or provider
+// information. Addresses of this form will be supplied by an agent running
+// directly on a machine or container, or returned for requests where space
+// information is irrelevant to usage.
+type MachineAddress struct {
+	Value string
+	Type  AddressType
+	Scope Scope
+}
+
+// Host returns the value for the host-name/IP address.
+func (a MachineAddress) Host() string {
+	return a.Value
+}
+
+// AddressType returns the type of the address.
+func (a MachineAddress) AddressType() AddressType {
+	return a.Type
+}
+
+// AddressScope returns the scope of the address.
+func (a MachineAddress) AddressScope() Scope {
+	return a.Scope
 }
 
 // GoString implements fmt.GoStringer.
-func (a Address) GoString() string {
+func (a MachineAddress) GoString() string {
 	return a.String()
 }
 
-// NewAddress creates a new Address, deriving its type from the value
-// and using ScopeUnknown as scope. It's a shortcut to calling
-// NewScopedAddress(value, ScopeUnknown).
-func NewAddress(value string) Address {
-	return NewScopedAddress(value, ScopeUnknown)
+// String returns the address value, prefixed with the scope if known.
+func (a MachineAddress) String() string {
+	var prefix string
+	if a.Scope != ScopeUnknown {
+		prefix = string(a.Scope) + ":"
+	}
+	return prefix + a.Value
 }
 
-// NewScopedAddress creates a new Address, deriving its type from the
-// value.
-//
-// If the specified scope is ScopeUnknown, then NewScopedAddress will
-// attempt derive the scope based on reserved IP address ranges.
-// Because passing ScopeUnknown is fairly common, NewAddress() above
-// does exactly that.
-func NewScopedAddress(value string, scope Scope) Address {
-	addr := Address{
+// sortOrder calculates the "weight" of the address when sorting:
+// - public IPs first;
+// - hostnames after that, but "localhost" will be last if present;
+// - cloud-local next;
+// - fan-local next;
+// - machine-local next;
+// - link-local next;
+// - non-hostnames with unknown scope last.
+func (a MachineAddress) sortOrder() int {
+	order := 0xFF
+
+	switch a.Scope {
+	case ScopePublic:
+		order = 0x00
+	case ScopeCloudLocal:
+		order = 0x20
+	case ScopeFanLocal:
+		order = 0x40
+	case ScopeMachineLocal:
+		order = 0x80
+	case ScopeLinkLocal:
+		order = 0xA0
+	}
+
+	switch a.Type {
+	case HostName:
+		order = 0x10
+		if a.Value == "localhost" {
+			order++
+		}
+	case IPv6Address:
+		// Prefer IPv4 over IPv6 addresses.
+		order++
+	case IPv4Address:
+	}
+
+	return order
+}
+
+// NewMachineAddress creates a new MachineAddress, deriving its type from the
+// value and using ScopeUnknown as scope. It is a shortcut to calling
+// NewScopedMachineAddress(value, ScopeUnknown).
+func NewMachineAddress(value string) MachineAddress {
+	return NewScopedMachineAddress(value, ScopeUnknown)
+}
+
+// NewScopedMachineAddress creates a new MachineAddress, deriving its type from
+// the value.
+// If the specified scope is ScopeUnknown, then NewScopedSpaceAddress will attempt
+// to derive the scope based on reserved IP address ranges.
+// Because passing ScopeUnknown is fairly common,
+// NewMachineAddress() above does exactly that.
+func NewScopedMachineAddress(value string, scope Scope) MachineAddress {
+	addr := MachineAddress{
 		Value: value,
 		Type:  DeriveAddressType(value),
 		Scope: scope,
@@ -152,77 +221,10 @@ func NewScopedAddress(value string, scope Scope) Address {
 	return addr
 }
 
-// NewAddressOnSpace creates a new Address, deriving its type and scope from the
-// value and associating it with the given spaceName.
-func NewAddressOnSpace(spaceName string, value string) Address {
-	addr := NewAddress(value)
-	addr.SpaceName = SpaceName(spaceName)
-	return addr
-}
-
-// NewAddresses is a convenience function to create addresses from a variable
-// number of string arguments.
-func NewAddresses(inAddresses ...string) (outAddresses []Address) {
-	outAddresses = make([]Address, len(inAddresses))
-	for i, address := range inAddresses {
-		outAddresses[i] = NewAddress(address)
-	}
-	return outAddresses
-}
-
-// NewAddressesOnSpace is a convenience function to create addresses on the same
-// space, from a a variable number of string arguments.
-func NewAddressesOnSpace(spaceName string, inAddresses ...string) (outAddresses []Address) {
-	outAddresses = make([]Address, len(inAddresses))
-	for i, address := range inAddresses {
-		outAddresses[i] = NewAddressOnSpace(spaceName, address)
-	}
-	return outAddresses
-}
-
-// DeriveAddressType attempts to detect the type of address given.
-func DeriveAddressType(value string) AddressType {
-	ip := net.ParseIP(value)
-	switch {
-	case ip == nil:
-		// TODO(gz): Check value is a valid hostname
-		return HostName
-	case ip.To4() != nil:
-		return IPv4Address
-	case ip.To16() != nil:
-		return IPv6Address
-	default:
-		panic("Unknown form of IP address")
-	}
-}
-
-func isIPv4PrivateNetworkAddress(addrType AddressType, ip net.IP) bool {
-	if addrType != IPv4Address {
-		return false
-	}
-	return classAPrivate.Contains(ip) ||
-		classBPrivate.Contains(ip) ||
-		classCPrivate.Contains(ip)
-}
-
-func isIPv4ReservedEAddress(addrType AddressType, ip net.IP) bool {
-	if addrType != IPv4Address {
-		return false
-	}
-	return classEReserved.Contains(ip)
-}
-
-func isIPv6UniqueLocalAddress(addrType AddressType, ip net.IP) bool {
-	if addrType != IPv6Address {
-		return false
-	}
-	return ipv6UniqueLocal.Contains(ip)
-}
-
-// deriveScope attempts to derive the network scope from an address's
+// deriveScope attempts to derive the network scope from an address'
 // type and value, returning the original network scope if no
 // deduction can be made.
-func deriveScope(addr Address) Scope {
+func deriveScope(addr MachineAddress) Scope {
 	if addr.Type == HostName {
 		return addr.Scope
 	}
@@ -252,31 +254,264 @@ func deriveScope(addr Address) Scope {
 	return addr.Scope
 }
 
-// ExactScopeMatch checks if an address exactly matches any of the specified
-// scopes.
-func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
-	for _, scope := range addrScopes {
-		if addr.Scope == scope {
-			return true
-		}
+func isIPv4PrivateNetworkAddress(addrType AddressType, ip net.IP) bool {
+	if addrType != IPv4Address {
+		return false
 	}
-	return false
+	return classAPrivate.Contains(ip) ||
+		classBPrivate.Contains(ip) ||
+		classCPrivate.Contains(ip)
 }
 
-// SelectAddressesBySpaceNames filters the input slice of
-// Addresses down to those in the input spaces.
-func SelectAddressesBySpaces(addresses []Address, spaces ...SpaceInfo) ([]Address, bool) {
+func isIPv4ReservedEAddress(addrType AddressType, ip net.IP) bool {
+	if addrType != IPv4Address {
+		return false
+	}
+	return classEReserved.Contains(ip)
+}
+
+func isIPv6UniqueLocalAddress(addrType AddressType, ip net.IP) bool {
+	if addrType != IPv6Address {
+		return false
+	}
+	return ipv6UniqueLocal.Contains(ip)
+}
+
+// ProviderAddress represents an address supplied by provider logic.
+// It can include the provider's knowledge of the space in which the
+// address resides.
+type ProviderAddress struct {
+	MachineAddress
+	SpaceName       SpaceName
+	ProviderSpaceID Id
+}
+
+// GoString implements fmt.GoStringer.
+func (a ProviderAddress) GoString() string {
+	return a.String()
+}
+
+// String returns a string representation of the address, in the form:
+// `<scope>:<address-value>@<space-name>(id:<space-provider-id)`; for example:
+//
+//	public:c2-54-226-162-124.compute-1.amazonaws.com@public-api(id:42)
+//
+// If the SpaceName is blank, the "@<space-name>" suffix will be omitted.
+// Finally, if the ProviderSpaceID is empty the suffix
+// "(id:<space-provider-id>)" part will be omitted as well.
+func (a ProviderAddress) String() string {
+	var buf bytes.Buffer
+	buf.WriteString(a.MachineAddress.String())
+
+	var spaceFound bool
+	if a.SpaceName != "" {
+		spaceFound = true
+		buf.WriteByte('@')
+		buf.WriteString(string(a.SpaceName))
+	}
+	if a.ProviderSpaceID != Id("") {
+		if !spaceFound {
+			buf.WriteByte('@')
+		}
+		buf.WriteString(fmt.Sprintf("(id:%v)", string(a.ProviderSpaceID)))
+	}
+
+	return buf.String()
+}
+
+// NewProviderAddress creates a new ProviderAddress, deriving its type from the
+// value and using ScopeUnknown as scope. It is a shortcut to calling
+// NewScopedProvider(value, ScopeUnknown).
+func NewProviderAddress(value string) ProviderAddress {
+	return ProviderAddress{MachineAddress: NewMachineAddress(value)}
+}
+
+// NewScopedProviderAddress creates a new ProviderAddress by embedding the
+// result of NewScopedMachineAddress.
+// No space information is populated.
+func NewScopedProviderAddress(value string, scope Scope) ProviderAddress {
+	return ProviderAddress{MachineAddress: NewScopedMachineAddress(value, scope)}
+}
+
+// NewProviderAddressInSpace creates a new ProviderAddress,
+// deriving its type and scope from the value,
+// and associating it with the given space name.
+func NewProviderAddressInSpace(spaceName string, value string) ProviderAddress {
+	return ProviderAddress{
+		MachineAddress: NewMachineAddress(value),
+		SpaceName:      SpaceName(spaceName),
+	}
+}
+
+// ProviderAddresses is a slice of ProviderAddress
+// supporting conversion to SpaceAddresses.
+type ProviderAddresses []ProviderAddress
+
+// NewProviderAddresses is a convenience function to create addresses
+// from a variable number of string arguments.
+func NewProviderAddresses(inAddresses ...string) (outAddresses ProviderAddresses) {
+	outAddresses = make(ProviderAddresses, len(inAddresses))
+	for i, address := range inAddresses {
+		outAddresses[i] = NewProviderAddress(address)
+	}
+	return outAddresses
+}
+
+// NewProviderAddressesInSpace is a convenience function to create addresses
+// in the same space, from a a variable number of string arguments.
+func NewProviderAddressesInSpace(spaceName string, inAddresses ...string) (outAddresses ProviderAddresses) {
+	outAddresses = make(ProviderAddresses, len(inAddresses))
+	for i, address := range inAddresses {
+		outAddresses[i] = NewProviderAddressInSpace(spaceName, address)
+	}
+	return outAddresses
+}
+
+// ToSpaceAddresses transforms the ProviderAddresses to SpaceAddresses by using
+// the input lookup for conversion of space name to space ID.
+func (pas ProviderAddresses) ToSpaceAddresses(lookup SpaceLookup) (SpaceAddresses, error) {
+	if pas == nil {
+		return nil, nil
+	}
+
+	var idFor map[string]string
+	if len(pas) > 0 {
+		var err error
+		if idFor, err = lookup.SpaceIDsByName(); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	sas := make(SpaceAddresses, len(pas))
+	for i, pa := range pas {
+		sas[i] = SpaceAddress{MachineAddress: pa.MachineAddress}
+		if pa.SpaceName != "" {
+			id, ok := idFor[string(pa.SpaceName)]
+			if !ok {
+				return nil, errors.NotFoundf("space with name %q", pa.SpaceName)
+			}
+			sas[i].SpaceID = id
+		}
+	}
+	return sas, nil
+}
+
+// OneMatchingScope returns the address that best satisfies the input scope
+// matching function. The boolean return indicates if a match was found.
+func (pas ProviderAddresses) OneMatchingScope(getMatcher ScopeMatchFunc) (ProviderAddress, bool) {
+	indexes := indexesForScope(len(pas), func(i int) Address { return pas[i] }, getMatcher)
+	if len(indexes) == 0 {
+		return ProviderAddress{}, false
+	}
+	addr := pas[indexes[0]]
+	logger.Debugf("selected %q as address, using scope %q", addr.Value, addr.Scope)
+	return addr, true
+}
+
+// SpaceAddress represents the location of a machine, including metadata
+// about what kind of location the address describes.
+// This is a server-side type that may include a space reference.
+// It is used in logic for filtering addresses by space.
+type SpaceAddress struct {
+	MachineAddress
+	SpaceID string
+}
+
+// GoString implements fmt.GoStringer.
+func (a SpaceAddress) GoString() string {
+	return a.String()
+}
+
+// String returns a string representation of the address, in the form:
+// `<scope>:<address-value>@space:<space-id>`; for example:
+//
+//	public:c2-54-226-162-124.compute-1.amazonaws.com@space:1
+//
+// If the Space ID is empty, the @space:<space-id> suffix will be omitted.
+func (a SpaceAddress) String() string {
+	var buf bytes.Buffer
+	buf.WriteString(a.MachineAddress.String())
+
+	if a.SpaceID != "" {
+		buf.WriteString("@space:")
+		buf.WriteString(a.SpaceID)
+	}
+
+	return buf.String()
+}
+
+// NewSpaceAddress creates a new SpaceAddress, deriving its
+// type from the input value and using ScopeUnknown as scope.
+func NewSpaceAddress(value string) SpaceAddress {
+	return NewScopedSpaceAddress(value, ScopeUnknown)
+}
+
+// NewScopedSpaceAddress creates a new SpaceAddress,
+// deriving its type from the input value.
+// If the specified scope is ScopeUnknown, then NewScopedSpaceAddress will
+// attempt to derive the scope based on reserved IP address ranges.
+// Because passing ScopeUnknown is fairly common, NewSpaceAddress() above
+// does exactly that.
+func NewScopedSpaceAddress(value string, scope Scope) SpaceAddress {
+	return SpaceAddress{MachineAddress: NewScopedMachineAddress(value, scope)}
+}
+
+// SpaceAddresses is a slice of SpaceAddress
+// supporting conversion to ProviderAddresses.
+type SpaceAddresses []SpaceAddress
+
+// NewSpaceAddresses is a convenience function to create addresses
+// from a variable number of string arguments.
+func NewSpaceAddresses(inAddresses ...string) (outAddresses SpaceAddresses) {
+	outAddresses = make(SpaceAddresses, len(inAddresses))
+	for i, address := range inAddresses {
+		outAddresses[i] = NewSpaceAddress(address)
+	}
+	return outAddresses
+}
+
+// ToProviderAddresses transforms the SpaceAddresses to ProviderAddresses by using
+// the input lookup for conversion of space ID to space info.
+func (sas SpaceAddresses) ToProviderAddresses(lookup SpaceLookup) (ProviderAddresses, error) {
+	if sas == nil {
+		return nil, nil
+	}
+
+	var infoFor map[string]SpaceInfo
+	if len(sas) > 0 {
+		var err error
+		if infoFor, err = lookup.SpaceInfosByID(); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	pas := make(ProviderAddresses, len(sas))
+	for i, sa := range sas {
+		pas[i] = ProviderAddress{MachineAddress: sa.MachineAddress}
+		if sa.SpaceID != "" {
+			info, ok := infoFor[sa.SpaceID]
+			if !ok {
+				return nil, errors.NotFoundf("space with ID %q", sa.SpaceID)
+			}
+			pas[i].SpaceName = info.Name
+			pas[i].ProviderSpaceID = info.ProviderId
+		}
+	}
+	return pas, nil
+}
+
+// InSpaces returns the SpaceAddresses that are in the input spaces.
+func (sas SpaceAddresses) InSpaces(spaces ...SpaceInfo) (SpaceAddresses, bool) {
 	if len(spaces) == 0 {
 		logger.Errorf("addresses not filtered - no spaces given.")
-		return addresses, false
+		return sas, false
 	}
 
 	spaceInfos := SpaceInfos(spaces)
-
-	var selectedAddresses []Address
-	for _, addr := range addresses {
-		if spaceInfos.HasSpaceWithName(addr.SpaceName) {
-			logger.Debugf("selected %q as an address in space %q", addr.Value, addr.SpaceName)
+	var selectedAddresses SpaceAddresses
+	for _, addr := range sas {
+		if space := spaceInfos.Space(addr.SpaceID); space != nil {
+			logger.Debugf("selected %q as an address in space %q", addr.Value, space.Name)
 			selectedAddresses = append(selectedAddresses, addr)
 		}
 	}
@@ -286,141 +521,66 @@ func SelectAddressesBySpaces(addresses []Address, spaces ...SpaceInfo) ([]Addres
 	}
 
 	logger.Errorf("no addresses found in spaces %s", spaceInfos)
-	return addresses, false
+	return sas, false
 }
 
-// SelectHostPortsBySpaceNames filters the input slice of HostPorts down to
-// those in the input space names.
-func SelectHostPortsBySpaces(hps []HostPort, spaces ...SpaceInfo) ([]HostPort, bool) {
-	if len(spaces) == 0 {
-		logger.Errorf("host ports not filtered - no spaces given.")
-		return hps, false
+// OneMatchingScope returns the address that best satisfies the input scope
+// matching function. The boolean return indicates if a match was found.
+func (sas SpaceAddresses) OneMatchingScope(getMatcher ScopeMatchFunc) (SpaceAddress, bool) {
+	addrs := sas.AllMatchingScope(getMatcher)
+	if len(addrs) == 0 {
+		return SpaceAddress{}, false
 	}
-
-	spaceInfos := SpaceInfos(spaces)
-
-	var selectedHostPorts []HostPort
-	for _, hp := range hps {
-		if spaceInfos.HasSpaceWithName(hp.SpaceName) {
-			logger.Debugf("selected %q as a hostPort in space %q", hp.Value, hp.SpaceName)
-			selectedHostPorts = append(selectedHostPorts, hp)
-		}
-	}
-
-	if len(selectedHostPorts) > 0 {
-		return selectedHostPorts, true
-	}
-
-	logger.Errorf("no hostPorts found in spaces %s", spaceInfos)
-	return hps, false
+	return addrs[0], true
 }
 
-// SelectControllerAddress returns the most suitable address to use as a Juju
-// Controller (API/state server) endpoint given the list of addresses.
-// The second return value is false when no address can be returned.
-// When machineLocal is true both ScopeCloudLocal and ScopeMachineLocal
-// addresses are considered during the selection, otherwise just ScopeCloudLocal are.
-func SelectControllerAddress(addresses []Address, machineLocal bool) (Address, bool) {
-	internalAddress, ok := SelectInternalAddress(addresses, machineLocal)
-	logger.Debugf(
-		"selected %q as controller address, using scope %q",
-		internalAddress.Value, internalAddress.Scope,
-	)
-	return internalAddress, ok
-}
-
-// SelectPublicAddress picks one address from a slice that would be
-// appropriate to display as a publicly accessible endpoint. If there
-// are no suitable addresses, then ok is false (and an empty address is
-// returned). If a suitable address is then ok is true.
-func SelectPublicAddress(addresses []Address) (Address, bool) {
-	index := bestAddressIndex(len(addresses), func(i int) Address {
-		return addresses[i]
-	}, publicMatch)
-	if index < 0 {
-		return Address{}, false
-	}
-	return addresses[index], true
-}
-
-// SelectInternalAddress picks one address from a slice that can be
-// used as an endpoint for juju internal communication. If there are
-// no suitable addresses, then ok is false (and an empty address is
-// returned). If a suitable address was found then ok is true.
-func SelectInternalAddress(addresses []Address, machineLocal bool) (Address, bool) {
-	index := bestAddressIndex(len(addresses), func(i int) Address {
-		return addresses[i]
-	}, internalAddressMatcher(machineLocal))
-	if index < 0 {
-		return Address{}, false
-	}
-	return addresses[index], true
-}
-
-// SelectInternalAddresses picks the best addresses from a slice that can be
-// used as an endpoint for juju internal communication.
-// I nil slice is returned if there are no suitable addresses identified.
-func SelectInternalAddresses(addresses []Address, machineLocal bool) []Address {
-	indexes := bestAddressIndexes(len(addresses), func(i int) Address {
-		return addresses[i]
-	}, internalAddressMatcher(machineLocal))
+// AllMatchingScope returns the addresses that best satisfy the input scope
+// matching function.
+func (sas SpaceAddresses) AllMatchingScope(getMatcher ScopeMatchFunc) SpaceAddresses {
+	indexes := indexesForScope(len(sas), func(i int) Address { return sas[i] }, getMatcher)
 	if len(indexes) == 0 {
 		return nil
 	}
-
-	out := make([]Address, 0, len(indexes))
-	for _, index := range indexes {
-		out = append(out, addresses[index])
+	out := make(SpaceAddresses, len(indexes))
+	for i, index := range indexes {
+		out[i] = sas[index]
 	}
 	return out
 }
 
-// SelectInternalHostPorts picks the best matching HostPorts from a
-// slice that can be used as an endpoint for juju internal
-// communication and returns them in NetAddr form. If there are no
-// suitable addresses, an empty slice is returned.
-func SelectInternalHostPorts(hps []HostPort, machineLocal bool) []string {
-	indexes := bestAddressIndexes(len(hps), func(i int) Address {
-		return hps[i].Address
-	}, internalAddressMatcher(machineLocal))
-
-	out := make([]string, 0, len(indexes))
-	for _, index := range indexes {
-		out = append(out, hps[index].NetAddr())
+// DeriveAddressType attempts to detect the type of address given.
+func DeriveAddressType(value string) AddressType {
+	ip := net.ParseIP(value)
+	switch {
+	case ip == nil:
+		// TODO(gz): Check value is a valid hostname
+		return HostName
+	case ip.To4() != nil:
+		return IPv4Address
+	case ip.To16() != nil:
+		return IPv6Address
+	default:
+		panic("Unknown form of IP address")
 	}
-	return out
 }
 
-// PrioritizeInternalHostPorts orders the provided addresses by best
-// match for use as an endpoint for juju internal communication and
-// returns them in NetAddr form. If there are no suitable addresses
-// then an empty slice is returned.
-func PrioritizeInternalHostPorts(hps []HostPort, machineLocal bool) []string {
-	indexes := prioritizedAddressIndexes(len(hps), func(i int) Address {
-		return hps[i].Address
-	}, internalAddressMatcher(machineLocal))
-
-	out := make([]string, 0, len(indexes))
-	for _, index := range indexes {
-		out = append(out, hps[index].NetAddr())
-	}
-	return out
-}
-
-func publicMatch(addr Address) scopeMatch {
-	switch addr.Scope {
+// ScopeMatchPublic is an address scope matching function for determining the
+// extent to which the input address' scope satisfies a requirement for public
+// accessibility.
+func ScopeMatchPublic(addr Address) ScopeMatch {
+	switch addr.AddressScope() {
 	case ScopePublic:
-		if addr.Type == IPv4Address {
+		if addr.AddressType() == IPv4Address {
 			return exactScopeIPv4
 		}
 		return exactScope
 	case ScopeCloudLocal:
-		if addr.Type == IPv4Address {
+		if addr.AddressType() == IPv4Address {
 			return firstFallbackScopeIPv4
 		}
 		return firstFallbackScope
 	case ScopeFanLocal, ScopeUnknown:
-		if addr.Type == IPv4Address {
+		if addr.AddressType() == IPv4Address {
 			return secondFallbackScopeIPv4
 		}
 		return secondFallbackScope
@@ -428,27 +588,34 @@ func publicMatch(addr Address) scopeMatch {
 	return invalidScope
 }
 
-func internalAddressMatcher(machineLocal bool) scopeMatchFunc {
-	if machineLocal {
-		return cloudOrMachineLocalMatch
+func ScopeMatchMachineOrCloudLocal(addr Address) ScopeMatch {
+	if addr.AddressScope() == ScopeMachineLocal {
+		if addr.AddressType() == IPv4Address {
+			return exactScopeIPv4
+		}
+		return exactScope
 	}
-	return cloudLocalMatch
+	return ScopeMatchCloudLocal(addr)
 }
 
-func cloudLocalMatch(addr Address) scopeMatch {
-	switch addr.Scope {
+// ScopeMatchCloudLocal is an address scope matching function for determining
+// the extent to which the input address' scope satisfies a requirement for
+// accessibility from within the local cloud.
+// Machine-only addresses do not satisfy this matcher.
+func ScopeMatchCloudLocal(addr Address) ScopeMatch {
+	switch addr.AddressScope() {
 	case ScopeCloudLocal:
-		if addr.Type == IPv4Address {
+		if addr.AddressType() == IPv4Address {
 			return exactScopeIPv4
 		}
 		return exactScope
 	case ScopeFanLocal:
-		if addr.Type == IPv4Address {
+		if addr.AddressType() == IPv4Address {
 			return firstFallbackScopeIPv4
 		}
 		return firstFallbackScope
 	case ScopePublic, ScopeUnknown:
-		if addr.Type == IPv4Address {
+		if addr.AddressType() == IPv4Address {
 			return secondFallbackScopeIPv4
 		}
 		return secondFallbackScope
@@ -456,69 +623,30 @@ func cloudLocalMatch(addr Address) scopeMatch {
 	return invalidScope
 }
 
-func cloudOrMachineLocalMatch(addr Address) scopeMatch {
-	if addr.Scope == ScopeMachineLocal {
-		if addr.Type == IPv4Address {
-			return exactScopeIPv4
-		}
-		return exactScope
-	}
-	return cloudLocalMatch(addr)
-}
-
-type scopeMatch int
-
-const (
-	invalidScope scopeMatch = iota
-	exactScopeIPv4
-	exactScope
-	firstFallbackScopeIPv4
-	firstFallbackScope
-	secondFallbackScopeIPv4
-	secondFallbackScope
-)
-
-type scopeMatchFunc func(addr Address) scopeMatch
-
 type addressByIndexFunc func(index int) Address
 
-// bestAddressIndex returns the index of the addresses with the best matching
-// scope (according to the matchFunc). -1 is returned if there were no suitable
-// addresses.
-func bestAddressIndex(numAddr int, getAddrFunc addressByIndexFunc, matchFunc scopeMatchFunc) int {
-	indexes := bestAddressIndexes(numAddr, getAddrFunc, matchFunc)
-	if len(indexes) > 0 {
-		return indexes[0]
-	}
-	return -1
-}
-
-// bestAddressIndexes returns the indexes of the addresses with the best
-// matching scope and type (according to the matchFunc). An empty slice is
-// returned if there were no suitable addresses.
-func bestAddressIndexes(numAddr int, getAddrFunc addressByIndexFunc, matchFunc scopeMatchFunc) []int {
-	// Categorise addresses by scope and type matching quality.
+// indexesForScope returns the indexes of the addresses with the best
+// matching scope and type (according to the matchFunc).
+// An empty slice is returned if there were no suitable addresses.
+func indexesForScope(numAddr int, getAddrFunc addressByIndexFunc, matchFunc ScopeMatchFunc) []int {
 	matches := filterAndCollateAddressIndexes(numAddr, getAddrFunc, matchFunc)
 
-	// Retrieve the indexes of the addresses with the best scope and type match.
-	allowedMatchTypes := []scopeMatch{exactScopeIPv4, exactScope, firstFallbackScopeIPv4, firstFallbackScope, secondFallbackScopeIPv4, secondFallbackScope}
-	for _, matchType := range allowedMatchTypes {
+	for _, matchType := range scopeMatchHierarchy() {
 		indexes, ok := matches[matchType]
 		if ok && len(indexes) > 0 {
 			return indexes
 		}
 	}
-	return []int{}
+	return nil
 }
 
-func prioritizedAddressIndexes(numAddr int, getAddrFunc addressByIndexFunc, matchFunc scopeMatchFunc) []int {
-	// Categorise addresses by scope and type matching quality.
+// indexesByScopeMatch filters address indexes by matching scope,
+// then returns them in descending order of best match.
+func indexesByScopeMatch(numAddr int, getAddrFunc addressByIndexFunc, matchFunc ScopeMatchFunc) []int {
 	matches := filterAndCollateAddressIndexes(numAddr, getAddrFunc, matchFunc)
 
-	// Retrieve the indexes of the addresses with the best scope and type match.
-	allowedMatchTypes := []scopeMatch{exactScopeIPv4, exactScope, firstFallbackScopeIPv4, firstFallbackScope, secondFallbackScopeIPv4, secondFallbackScope}
 	var prioritized []int
-	for _, matchType := range allowedMatchTypes {
+	for _, matchType := range scopeMatchHierarchy() {
 		indexes, ok := matches[matchType]
 		if ok && len(indexes) > 0 {
 			prioritized = append(prioritized, indexes...)
@@ -527,56 +655,31 @@ func prioritizedAddressIndexes(numAddr int, getAddrFunc addressByIndexFunc, matc
 	return prioritized
 }
 
-func filterAndCollateAddressIndexes(numAddr int, getAddrFunc addressByIndexFunc, matchFunc scopeMatchFunc) map[scopeMatch][]int {
-	// Categorise addresses by scope and type matching quality.
-	matches := make(map[scopeMatch][]int)
+// filterAndCollateAddressIndexes filters address indexes using the input scope
+// matching function, then returns the results grouped by scope match quality.
+// Invalid results are omitted.
+func filterAndCollateAddressIndexes(
+	numAddr int, getAddrFunc addressByIndexFunc, matchFunc ScopeMatchFunc,
+) map[ScopeMatch][]int {
+	matches := make(map[ScopeMatch][]int)
 	for i := 0; i < numAddr; i++ {
 		matchType := matchFunc(getAddrFunc(i))
-		switch matchType {
-		case exactScopeIPv4, exactScope, firstFallbackScopeIPv4, firstFallbackScope, secondFallbackScopeIPv4, secondFallbackScope:
+		if matchType != invalidScope {
 			matches[matchType] = append(matches[matchType], i)
 		}
 	}
 	return matches
 }
 
-// sortOrder calculates the "weight" of the address when sorting:
-// - public IPs first;
-// - hostnames after that, but "localhost" will be last if present;
-// - cloud-local next;
-// - fan-local next;
-// - machine-local next;
-// - link-local next;
-// - non-hostnames with unknown scope last.
-func (a Address) sortOrder() int {
-	order := 0xFF
-	switch a.Scope {
-	case ScopePublic:
-		order = 0x00
-	case ScopeCloudLocal:
-		order = 0x20
-	case ScopeFanLocal:
-		order = 0x40
-	case ScopeMachineLocal:
-		order = 0x80
-	case ScopeLinkLocal:
-		order = 0xA0
+func scopeMatchHierarchy() []ScopeMatch {
+	return []ScopeMatch{
+		exactScopeIPv4, exactScope,
+		firstFallbackScopeIPv4, firstFallbackScope,
+		secondFallbackScopeIPv4, secondFallbackScope,
 	}
-	switch a.Type {
-	case HostName:
-		order = 0x10
-		if a.Value == "localhost" {
-			order++
-		}
-	case IPv6Address:
-		// Prefer IPv4 over IPv6 addresses.
-		order++
-	case IPv4Address:
-	}
-	return order
 }
 
-type addressesPreferringIPv4Slice []Address
+type addressesPreferringIPv4Slice []SpaceAddress
 
 func (a addressesPreferringIPv4Slice) Len() int      { return len(a) }
 func (a addressesPreferringIPv4Slice) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
@@ -593,31 +696,15 @@ func (a addressesPreferringIPv4Slice) Less(i, j int) bool {
 
 // SortAddresses sorts the given Address slice according to the sortOrder of
 // each address. See Address.sortOrder() for more info.
-func SortAddresses(addrs []Address) {
+func SortAddresses(addrs []SpaceAddress) {
 	sort.Sort(addressesPreferringIPv4Slice(addrs))
-}
-
-// DecimalToIPv4 converts a decimal to the dotted quad IP address format.
-func DecimalToIPv4(addr uint32) net.IP {
-	bytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(bytes, addr)
-	return net.IP(bytes)
-}
-
-// IPv4ToDecimal converts a dotted quad IP address to its decimal equivalent.
-func IPv4ToDecimal(ipv4Addr net.IP) (uint32, error) {
-	ip := ipv4Addr.To4()
-	if ip == nil {
-		return 0, errors.Errorf("%q is not a valid IPv4 address", ipv4Addr.String())
-	}
-	return binary.BigEndian.Uint32([]byte(ip)), nil
 }
 
 // MergedAddresses provides a single list of addresses without duplicates
 // suitable for returning as an address list for a machine.
 // TODO (cherylj) Add explicit unit tests - tracked with bug #1544158
-func MergedAddresses(machineAddresses, providerAddresses []Address) []Address {
-	merged := make([]Address, 0, len(providerAddresses)+len(machineAddresses))
+func MergedAddresses(machineAddresses, providerAddresses []SpaceAddress) []SpaceAddress {
+	merged := make([]SpaceAddress, 0, len(providerAddresses)+len(machineAddresses))
 	providerValues := set.NewStrings()
 	for _, address := range providerAddresses {
 		// Older versions of Juju may have stored an empty address so ignore it here.

@@ -382,12 +382,14 @@ func (e *fakeInstance) Refresh(callCtx context.ProviderCallContext) error {
 	return nil
 }
 
-func (e *fakeInstance) Addresses(callCtx context.ProviderCallContext) ([]corenetwork.Address, error) {
+func (e *fakeInstance) Addresses(callCtx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	e.Push("Addresses", callCtx)
-	return []corenetwork.Address{{
-		Value: "1.1.1.1",
-		Type:  corenetwork.IPv4Address,
-		Scope: corenetwork.ScopePublic,
+	return []corenetwork.ProviderAddress{{
+		MachineAddress: corenetwork.MachineAddress{
+			Value: "1.1.1.1",
+			Type:  corenetwork.IPv4Address,
+			Scope: corenetwork.ScopePublic,
+		},
 	}}, nil
 }
 

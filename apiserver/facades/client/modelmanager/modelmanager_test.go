@@ -1675,8 +1675,16 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 
 	var info params.RedirectErrorInfo
 	c.Assert(pErr.UnmarshalInfo(&info), jc.ErrorIsNil)
-	nhp := params.FromNetworkHostPorts(network.NewHostPorts(5555, "1.2.3.4"))
-	c.Assert(info.Servers, jc.DeepEquals, [][]params.HostPort{nhp})
+
+	nhp := params.HostPort{
+		Address: params.Address{
+			Value: "1.2.3.4",
+			Type:  string(network.IPv4Address),
+			Scope: string(network.ScopePublic),
+		},
+		Port: 5555,
+	}
+	c.Assert(info.Servers, jc.DeepEquals, [][]params.HostPort{{nhp}})
 	c.Assert(info.CACert, gc.Equals, coretesting.CACert)
 	c.Assert(info.ControllerAlias, gc.Equals, "target")
 }

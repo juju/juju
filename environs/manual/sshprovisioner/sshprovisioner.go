@@ -248,7 +248,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		HardwareCharacteristics: hc,
 		InstanceId:              instanceId,
 		Nonce:                   nonce,
-		Addrs:                   params.FromNetworkAddresses(addr),
+		Addrs:                   params.FromProviderAddresses(addr),
 		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 	}
 	return machineParams, nil

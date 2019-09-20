@@ -91,7 +91,7 @@ func (mi *maas1Instance) Status(ctx context.ProviderCallContext) instance.Status
 	return convertInstanceStatus(statusMsg, substatus, mi.Id())
 }
 
-func (mi *maas1Instance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
+func (mi *maas1Instance) Addresses(ctx context.ProviderCallContext) (network.ProviderAddresses, error) {
 	interfaceAddresses, err := mi.interfaceAddresses(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting node interfaces")
@@ -111,7 +111,7 @@ var refreshMAASObject = func(maasObject *gomaasapi.MAASObject) (gomaasapi.MAASOb
 // extracts all addresses from the node's interfaces. Returns an error
 // satisfying errors.IsNotSupported() if MAAS API does not report interfaces
 // information.
-func (mi *maas1Instance) interfaceAddresses(ctx context.ProviderCallContext) ([]network.Address, error) {
+func (mi *maas1Instance) interfaceAddresses(ctx context.ProviderCallContext) ([]network.ProviderAddress, error) {
 	// Fetch a fresh copy of the instance JSON first.
 	obj, err := refreshMAASObject(mi.maasObject)
 	if err != nil {
@@ -129,7 +129,7 @@ func (mi *maas1Instance) interfaceAddresses(ctx context.ProviderCallContext) ([]
 		return nil, errors.Trace(err)
 	}
 
-	var addresses []network.Address
+	var addresses []network.ProviderAddress
 	for _, iface := range interfaces {
 		if iface.Address.Value != "" {
 			logger.Debugf("found address %q on interface %q", iface.Address, iface.InterfaceName)

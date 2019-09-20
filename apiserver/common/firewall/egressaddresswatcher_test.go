@@ -52,7 +52,7 @@ func (s *addressWatcherSuite) setupRelation(c *gc.C, addr string) *mockRelation 
 	rel.ew.changes <- []string{}
 	s.st.relations["remote-db2:db django:db"] = rel
 	unit := newMockUnit("django/0")
-	unit.publicAddress = network.Address{Value: addr}
+	unit.publicAddress = network.NewSpaceAddress(addr)
 	unit.machineId = "0"
 	s.st.units["django/0"] = unit
 	app := newMockApplication("django")
@@ -117,7 +117,7 @@ func (s *addressWatcherSuite) TestTwoUnitsEntersScope(c *gc.C) {
 	rel.ruw.changes <- params.RelationUnitsChange{}
 
 	unit := newMockUnit("django/1")
-	unit.publicAddress = network.Address{Value: "54.4.5.6"}
+	unit.publicAddress = network.NewSpaceAddress("54.4.5.6")
 	unit.machineId = "1"
 	s.st.units["django/1"] = unit
 	s.st.machines["1"] = newMockMachine("1")
@@ -157,7 +157,7 @@ func (s *addressWatcherSuite) TestAnotherUnitsEntersScope(c *gc.C) {
 	wc.AssertNoChange()
 
 	unit := newMockUnit("django/1")
-	unit.publicAddress = network.Address{Value: "54.4.5.6"}
+	unit.publicAddress = network.NewSpaceAddress("54.4.5.6")
 	unit.machineId = "1"
 	s.st.units["django/1"] = unit
 	s.st.machines["1"] = newMockMachine("1")
@@ -250,7 +250,7 @@ func (s *addressWatcherSuite) TestUnitLeavesScope(c *gc.C) {
 	rel.ruw.changes <- params.RelationUnitsChange{}
 
 	unit := newMockUnit("django/1")
-	unit.publicAddress = network.Address{Value: "54.4.5.6"}
+	unit.publicAddress = network.NewSpaceAddress("54.4.5.6")
 	unit.machineId = "1"
 	s.st.units["django/1"] = unit
 	s.st.machines["1"] = newMockMachine("1")
@@ -285,7 +285,7 @@ func (s *addressWatcherSuite) TestTwoUnitsSameAddressOneLeaves(c *gc.C) {
 	rel.ruw.changes <- params.RelationUnitsChange{}
 
 	unit := newMockUnit("django/1")
-	unit.publicAddress = network.Address{Value: "54.1.2.3"}
+	unit.publicAddress = network.NewSpaceAddress("54.1.2.3")
 	unit.machineId = "0"
 	s.st.units["django/1"] = unit
 
@@ -404,7 +404,7 @@ func (s *addressWatcherSuite) TestHandlesMachineAddressChangesWithNoEffect(c *gc
 func (s *addressWatcherSuite) TestHandlesUnitGoneWhenMachineAddressChanges(c *gc.C) {
 	rel := s.setupRelation(c, "2.3.4.5")
 	unit := newMockUnit("django/1")
-	unit.publicAddress = network.Address{Value: "2.3.4.5"}
+	unit.publicAddress = network.NewSpaceAddress("2.3.4.5")
 	unit.machineId = "0"
 	s.st.units["django/1"] = unit
 	rel.ruw.changes <- params.RelationUnitsChange{

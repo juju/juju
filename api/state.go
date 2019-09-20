@@ -69,7 +69,7 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 			err := rpcErr.UnmarshalInfo(&redirInfo)
 			if err == nil && redirInfo.CACert != "" && len(redirInfo.Servers) != 0 {
 				return &RedirectError{
-					Servers:         params.NetworkHostsPorts(redirInfo.Servers),
+					Servers:         params.ToMachineHostsPorts(redirInfo.Servers),
 					CACert:          redirInfo.CACert,
 					ControllerAlias: redirInfo.ControllerAlias,
 					FollowRedirect:  false, // user-action required
@@ -86,7 +86,7 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 			return errors.Annotatef(err, "cannot get redirect addresses")
 		}
 		return &RedirectError{
-			Servers:        params.NetworkHostsPorts(resp.Servers),
+			Servers:        params.ToMachineHostsPorts(resp.Servers),
 			CACert:         resp.CACert,
 			FollowRedirect: true, // JAAS-type redirect
 		}
@@ -138,7 +138,7 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 		controllerAccess = result.UserInfo.ControllerAccess
 		modelAccess = result.UserInfo.ModelAccess
 	}
-	servers := params.NetworkHostsPorts(result.Servers)
+	servers := params.ToMachineHostsPorts(result.Servers)
 	if err = st.setLoginResult(loginResultParams{
 		tag:              tag,
 		modelTag:         result.ModelTag,
@@ -164,7 +164,7 @@ type loginResultParams struct {
 	controllerTag    string
 	modelAccess      string
 	controllerAccess string
-	servers          [][]network.HostPort
+	servers          []network.MachineHostPorts
 	facades          []params.FacadeVersions
 	publicDNSName    string
 }
@@ -233,7 +233,7 @@ func (st *state) CookieURL() *url.URL {
 
 // slideAddressToFront moves the address at the location (serverIndex, addrIndex) to be
 // the first address of the first server.
-func slideAddressToFront(servers [][]network.HostPort, serverIndex, addrIndex int) {
+func slideAddressToFront(servers []network.MachineHostPorts, serverIndex, addrIndex int) {
 	server := servers[serverIndex]
 	hostPort := server[addrIndex]
 	// Move the matching address to be the first in this server
@@ -250,10 +250,10 @@ func slideAddressToFront(servers [][]network.HostPort, serverIndex, addrIndex in
 // addAddress appends a new server derived from the given
 // address to servers if the address is not already found
 // there.
-func addAddress(servers [][]network.HostPort, addr string) ([][]network.HostPort, error) {
+func addAddress(servers []network.MachineHostPorts, addr string) ([]network.MachineHostPorts, error) {
 	for i, server := range servers {
 		for j, hostPort := range server {
-			if hostPort.NetAddr() == addr {
+			if network.DialAddress(hostPort) == addr {
 				slideAddressToFront(servers, i, j)
 				return servers, nil
 			}
@@ -267,8 +267,8 @@ func addAddress(servers [][]network.HostPort, addr string) ([][]network.HostPort
 	if err != nil {
 		return nil, err
 	}
-	result := make([][]network.HostPort, 0, len(servers)+1)
-	result = append(result, network.NewHostPorts(port, host))
+	result := make([]network.MachineHostPorts, 0, len(servers)+1)
+	result = append(result, network.NewMachineHostPorts(port, host))
 	result = append(result, servers...)
 	return result, nil
 }
