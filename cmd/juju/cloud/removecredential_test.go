@@ -62,7 +62,7 @@ func (s *removeCredentialSuite) TestMissingLocalCredential(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
-	c.Assert(output, gc.Equals, `Found  local cloud "aws" on this client.No local credential called "foo" exists for cloud "aws"`)
+	c.Assert(output, gc.Equals, `Found  local cloud "aws" on this client.No credential called "foo" exists for cloud "aws" on this client`)
 }
 
 func (s *removeCredentialSuite) TestBadLocalCloudName(c *gc.C) {
@@ -93,7 +93,7 @@ func (s *removeCredentialSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
-	c.Assert(output, gc.Equals, `Found  local cloud "aws" on this client.Local credential "my-credential" for cloud "aws" has been deleted.`)
+	c.Assert(output, gc.Equals, `Found  local cloud "aws" on this client.Credential "my-credential" for cloud "aws" has been deleted from this client.`)
 	_, stillThere := store.Credentials["aws"].AuthCredentials["my-credential"]
 	c.Assert(stillThere, jc.IsFalse)
 	c.Assert(store.Credentials["aws"].AuthCredentials, gc.HasLen, 1)
@@ -131,7 +131,7 @@ func (s *removeCredentialSuite) TestGettingApiClientErrorButLocal(c *gc.C) {
 	store := s.setupStore(c)
 	s.clientF = func() (cloud.RemoveCredentialAPI, error) { return s.fakeClient, errors.New("kaboom") }
 	command := cloud.NewRemoveCredentialCommandForTest(store, s.cloudByNameFunc, s.clientF)
-	_, err := cmdtesting.RunCommand(c, command, "aws", "foo", "--local")
+	_, err := cmdtesting.RunCommand(c, command, "aws", "foo", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	s.fakeClient.CheckNoCalls(c)
 }
@@ -157,7 +157,7 @@ func (s *removeCredentialSuite) TestBadRemoteCloudName(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, command, "other", "foo")
 	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
-Cloud "other" is not found remotely on the controller, looking for a locally stored cloud.
+Cloud "other" is not found on the controller, looking for it locally on this client.
 Cloud "other" is not found locally on this client.
 To view all available clouds, use 'juju clouds'.
 To add new cloud, use 'juju add-cloud'.
@@ -177,7 +177,7 @@ func (s *removeCredentialSuite) TestRemoveRemoteCredential(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 Found  remote cloud "somecloud" from the controller.
 Cloud "somecloud" is not found locally on this client.
-No locally stored credentials exist since cloud "somecloud" is not found locally.
+No credentials exist on this client since cloud "somecloud" is not found locally.
 Credential "foo" removed from the controller "controller".
 `[1:])
 }

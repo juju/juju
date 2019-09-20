@@ -51,7 +51,8 @@ func (c *showCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 		"yaml": cmd.FormatYaml,
 	})
 	f.BoolVar(&c.ShowSecrets, "show-secrets", false, "Display credential secret attributes")
-	f.BoolVar(&c.Local, "local", false, "Local operation only; controller credentials not shown")
+	f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client instead): Local operation only; controller credentials not shown")
+	f.BoolVar(&c.Local, "client", false, "Client operation only; controller credentials not shown")
 }
 
 func (c *showCredentialCommand) Init(args []string) error {
@@ -74,7 +75,7 @@ func (c *showCredentialCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "show-credential",
 		Args:    "[<cloud name> <credential name>]",
-		Purpose: "Shows credential information stored either locally or on a controller.",
+		Purpose: "Shows credential information stored either on this client or on a controller.",
 		Doc:     showCredentialDoc,
 		Aliases: []string{"show-credentials"},
 	})
@@ -96,7 +97,7 @@ func (c *showCredentialCommand) Run(ctxt *cmd.Context) error {
 	}
 	all.Controller = c.parseContents(ctxt, remoteContents)
 	if len(all.Local) == 0 && len(all.Controller) == 0 {
-		ctxt.Infof("No local or remote credentials to display.")
+		ctxt.Infof("No credentials from this client or from a controller to display.")
 		return nil
 	}
 	return c.out.Write(ctxt, all)
@@ -244,19 +245,20 @@ func (c *showCredentialCommand) parseContents(ctxt *cmd.Context, in []params.Cre
 
 var showCredentialDoc = `
 This command displays information about cloud credential(s) stored 
-either locally or on a controller for this user.
+either on this client or on a controller for this user.
 
 To see the contents of a specific credential, supply its cloud and name.
 To see all credentials stored for you, supply no arguments.
 
 To see secrets, content attributes marked as hidden, use --show-secrets option.
 
-To see only locally stored credentials, use "--local" option.
+To see only credentials from this client, use "--client" option.
 
 Examples:
 
     juju show-credential google my-admin-credential
     juju show-credentials 
+    juju show-credentials --client
     juju show-credentials --show-secrets
 
 See also: 

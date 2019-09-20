@@ -38,15 +38,15 @@ func (s *removeSuite) SetUpTest(c *gc.C) {
 
 func (s *removeSuite) TestRemoveBadArgs(c *gc.C) {
 	cmd := cloud.NewRemoveCloudCommand()
-	_, err := cmdtesting.RunCommand(c, cmd, "--local")
+	_, err := cmdtesting.RunCommand(c, cmd, "--client")
 	c.Assert(err, gc.ErrorMatches, "Usage: juju remove-cloud <cloud name>")
-	_, err = cmdtesting.RunCommand(c, cmd, "cloud", "extra", "--local")
+	_, err = cmdtesting.RunCommand(c, cmd, "cloud", "extra", "--client")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
 func (s *removeSuite) TestRemoveNotFound(c *gc.C) {
 	cmd := cloud.NewRemoveCloudCommandForTest(s.store, nil)
-	ctx, err := cmdtesting.RunCommand(c, cmd, "fnord", "--local")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "fnord", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No personal cloud called \"fnord\" exists\n")
 }
@@ -84,7 +84,7 @@ func (s *removeSuite) TestRemoveCloudLocal(c *gc.C) {
 		})
 	s.createTestCloudData(c)
 	assertPersonalClouds(c, "homestack", "homestack2")
-	ctx, err := cmdtesting.RunCommand(c, cmd, "homestack", "--local")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "homestack", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Removed details of personal cloud \"homestack\"\n")
 	assertPersonalClouds(c, "homestack2")
@@ -104,7 +104,7 @@ func (s *removeSuite) TestRemoveCloudNoControllers(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	msg := err.Error()
 	msg = strings.Replace(msg, "\n", "", -1)
-	c.Assert(msg, gc.Matches, `There are no controllers running.To remove cloud "homestack" from the local cache, use the --local option.*`)
+	c.Assert(msg, gc.Matches, `There are no controllers running.To remove cloud "homestack" from this client, use the --client option.*`)
 }
 
 func (s *removeSuite) TestRemoveCloudController(c *gc.C) {
@@ -124,7 +124,7 @@ func (s *removeSuite) TestRemoveCloudController(c *gc.C) {
 
 func (s *removeSuite) TestCannotRemovePublicCloud(c *gc.C) {
 	s.createTestCloudData(c)
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewRemoveCloudCommand(), "prodstack", "--local")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewRemoveCloudCommand(), "prodstack", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No personal cloud called \"prodstack\" exists\n")
 }

@@ -38,17 +38,17 @@ type updateCloudCommand struct {
 }
 
 var updateCloudDoc = `
-Update cloud information either locally or on the controller.
+Update cloud information either on this client or on the controller.
 
-Updating the local cache requires a <cloud name> and a yaml file containing the
+Updating this client requires a <cloud name> and a yaml file containing the
 cloud details.
 
 To update a cloud on the controller you can provide just the <cloud name> which
-will use the cloud defined in the local cache or you can provide a cloud
+will use the cloud defined on this client or you can provide a cloud
 definition yaml file from which to retrieve the cloud details; the current
 controller is used unless the --controller option is specified.
 
-When <cloud definition file> is provided with <cloud name> and --local is
+When <cloud definition file> is provided with <cloud name> and --client is
 specified, Juju stores that definition in its internal cache directly after
 validating the contents.
 
@@ -57,7 +57,7 @@ Examples:
     juju update-cloud mymaas -f path/to/maas.yaml
     juju update-cloud mymaas -f path/to/maas.yaml --controller mycontroller
     juju update-cloud mymaas --controller mycontroller
-    juju update-cloud mymaas --local -f path/to/maas.yaml
+    juju update-cloud mymaas --client -f path/to/maas.yaml
 
 See also:
     add-cloud
@@ -154,7 +154,7 @@ func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
 func (c *updateCloudCommand) updateLocalCacheFromFile(ctxt *cmd.Context) error {
 	if !c.Local {
 		ctxt.Infof(
-			"There are no controllers running.\nUpdating cloud in local cache so you can use it to bootstrap a controller.\n")
+			"There are no controllers running.\nUpdating cloud on this client so you can use it to bootstrap a controller.\n")
 	}
 	r := &cloudFileReader{
 		cloudMetadataStore: c.cloudMetadataStore,

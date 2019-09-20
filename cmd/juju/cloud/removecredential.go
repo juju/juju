@@ -57,11 +57,11 @@ material, can be listed with `[1:] + "`juju credentials`" + `.
 By default, after validating the contents, credentials are removed
 from both the current controller and the current client device. 
 Use --controller option to remove credentials from a different controller. 
-Use --local option to remove credentials from the current device only.
+Use --client option to remove credentials from the current client only.
 
 Examples:
     juju remove-credential rackspace credential_name
-    juju remove-credential rackspace credential_name --local
+    juju remove-credential rackspace credential_name --client
     juju remove-credential rackspace credential_name -c another_controller
 
 See also: 
@@ -153,7 +153,7 @@ func (c *removeCredentialCommand) checkCloud(ctxt *cmd.Context, client RemoveCre
 			if !errors.IsNotFound(err) {
 				logger.Errorf("%v", err)
 			}
-			ctxt.Infof("Cloud %q is not found remotely on the controller, looking for a locally stored cloud.", c.cloud)
+			ctxt.Infof("Cloud %q is not found on the controller, looking for it locally on this client.", c.cloud)
 		}
 	}
 	if err := c.maybeLocalCloud(ctxt); err != nil {
@@ -210,7 +210,7 @@ func (c *removeCredentialCommand) removeFromController(ctxt *cmd.Context, client
 
 func (c *removeCredentialCommand) removeFromLocal(ctxt *cmd.Context) error {
 	if !c.localCloudFound {
-		ctxt.Infof("No locally stored credentials exist since cloud %q is not found locally.", c.cloud)
+		ctxt.Infof("No credentials exist on this client since cloud %q is not found locally.", c.cloud)
 		return nil
 	}
 	cred, err := c.Store.CredentialForCloud(c.cloud)
@@ -221,13 +221,13 @@ func (c *removeCredentialCommand) removeFromLocal(ctxt *cmd.Context) error {
 		return err
 	}
 	if _, ok := cred.AuthCredentials[c.credential]; !ok {
-		ctxt.Infof("No local credential called %q exists for cloud %q", c.credential, c.cloud)
+		ctxt.Infof("No credential called %q exists for cloud %q on this client", c.credential, c.cloud)
 		return nil
 	}
 	delete(cred.AuthCredentials, c.credential)
 	if err := c.Store.UpdateCredential(c.cloud, *cred); err != nil {
-		return errors.Annotate(err, "could not remove local credential")
+		return errors.Annotate(err, "could not remove credential from this client")
 	}
-	ctxt.Infof("Local credential %q for cloud %q has been deleted.", c.credential, c.cloud)
+	ctxt.Infof("Credential %q for cloud %q has been deleted from this client.", c.credential, c.cloud)
 	return nil
 }

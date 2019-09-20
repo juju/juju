@@ -75,11 +75,11 @@ overwritten. This option is DEPRECATED, use 'juju update-credential' instead.
 
 Examples:
     juju add-credential google
-    juju add-credential google --local
+    juju add-credential google --client
     juju add-credential google -c mycontroller
     juju add-credential aws -f ~/credentials.yaml -c mycontroller
     juju add-credential aws -f ~/credentials.yaml
-    juju add-credential aws -f ~/credentials.yaml --local
+    juju add-credential aws -f ~/credentials.yaml --client
     juju add-credential aws -f ~/credentials.yaml --no-prompt
 
 Notes:
@@ -100,7 +100,7 @@ Use --no-prompt option when this prompt is undesirable, but the upload to
 the current controller is wanted.
 Use --controller option to upload a credential to a different controller. 
 
-Use --local option to add credentials to the current device only.
+Use --client option to add credentials to the current client only.
 
 Further help:
 Please visit https://discourse.jujucharms.com/t/1508 for cloud-specific

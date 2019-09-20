@@ -43,17 +43,15 @@ options.
 If ‘--include-config’ is used, additional configuration (key, type, and
 description) specific to the cloud are displayed if available.
 
-If the multi-cloud feature flag is enabled, Juju shows a cloud on a controller,
-otherwise Juju shows the cloud from internal cache.
 The current controller is used unless the --controller option is specified.
-If --local is specified, Juju shows the cloud from internal cache.
+If --client is specified, Juju shows the cloud from this client.
 
 Examples:
 
     juju show-cloud google
     juju show-cloud azure-china --output ~/azure_cloud_details.txt
     juju show-cloud myopenstack --controller mycontroller
-    juju show-cloud myopenstack --local
+    juju show-cloud myopenstack --client
 
 See also:
     clouds
@@ -105,7 +103,7 @@ func (c *showCloudCommand) Init(args []string) error {
 	var err error
 	c.ControllerName, err = c.ControllerNameFromArg()
 	if err != nil {
-		return errors.Wrap(err, errors.New(err.Error()+"\nUse --local to query the local cache."))
+		return errors.Wrap(err, errors.New(err.Error()+"\nUse --client to query this client."))
 	}
 	return cmd.CheckEmpty(args[1:])
 }

@@ -17,7 +17,7 @@ import (
 )
 
 var usageSetDefaultCredentialSummary = `
-Sets local default credentials for a cloud.`[1:]
+Sets local default credentials for a cloud on this client.`[1:]
 
 var usageSetDefaultCredentialDetails = `
 The default credentials are specified with a "credential name". 

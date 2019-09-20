@@ -46,7 +46,6 @@ func NewRemoveCAASCommandForTest(
 	command := &RemoveCAASCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
 		cloudMetadataStore:        cloudMetadataStore,
-		store:                     store,
 		apiFunc:                   removeCloudAPIFunc,
 	}
 	return command

@@ -131,7 +131,7 @@ func (s *listCredentialsSuite) SetUpTest(c *gc.C) {
 func (s *listCredentialsSuite) TestListCredentialsTabular(c *gc.C) {
 	out := s.listCredentials(c)
 	c.Assert(out, gc.Equals, `
-No remotely stored credentials to display.
+No credentials from a controller to display.
 Cloud    Credentials
 aws      down*, bob  
 azure    azhja       
@@ -160,7 +160,7 @@ func (s *listCredentialsSuite) TestListCredentialsTabularInvalidCredential(c *gc
 
 	ctx := s.listCredentialsWithStore(c, store)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-No remotely stored credentials to display.
+No credentials from a controller to display.
 Cloud   Credentials
 aws     down*, bob  
 azure   azhja       
@@ -180,7 +180,7 @@ func (s *listCredentialsSuite) TestListCredentialsTabularShowsNoSecrets(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "secrets are not shown in tabular format\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-No remotely stored credentials to display.
+No credentials from a controller to display.
 Cloud    Credentials
 aws      down*, bob  
 azure    azhja       
@@ -197,7 +197,7 @@ func (s *listCredentialsSuite) TestListCredentialsTabularMissingCloud(c *gc.C) {
 The following clouds have been removed and are omitted from the results to avoid leaking secrets.
 Run with --show-secrets to display these clouds' credentials: missingcloud
 
-No remotely stored credentials to display.
+No credentials from a controller to display.
 Cloud    Credentials
 aws      down*, bob  
 azure    azhja       
@@ -210,7 +210,7 @@ mycloud  me
 func (s *listCredentialsSuite) TestListCredentialsTabularFiltered(c *gc.C) {
 	out := s.listCredentials(c, "aws")
 	c.Assert(out, gc.Equals, `
-No remotely stored credentials to display.
+No credentials from a controller to display.
 Cloud  Credentials
 aws    down*, bob  
 
@@ -218,7 +218,7 @@ aws    down*, bob
 }
 
 func (s *listCredentialsSuite) TestListCredentialsTabularFilteredLocalOnly(c *gc.C) {
-	out := s.listCredentials(c, "aws", "--local")
+	out := s.listCredentials(c, "aws", "--client")
 	c.Assert(out, gc.Equals, `
 Cloud  Credentials
 aws    down*, bob  
@@ -507,7 +507,7 @@ func (s *listCredentialsSuite) TestListCredentialsEmpty(c *gc.C) {
 		},
 	}
 	out := strings.Replace(s.listCredentials(c), "\n", "", -1)
-	c.Assert(out, gc.Equals, "No remotely stored credentials to display.Cloud  Credentialsaws    bob  ")
+	c.Assert(out, gc.Equals, "No credentials from a controller to display.Cloud  Credentialsaws    bob  ")
 
 	out = strings.Replace(s.listCredentials(c, "--format", "yaml"), "\n", "", -1)
 	c.Assert(out, gc.Equals, "local-credentials:  aws:    bob:      auth-type: oauth2")
@@ -522,7 +522,7 @@ func (s *listCredentialsSuite) TestListCredentialsNone(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	out := strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1)
-	c.Assert(out, gc.Equals, "No locally stored credentials to display.No remotely stored credentials to display.")
+	c.Assert(out, gc.Equals, "No credentials from this client to display.No credentials from a controller to display.")
 
 	ctx, err = cmdtesting.RunCommand(c, listCmd, "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)

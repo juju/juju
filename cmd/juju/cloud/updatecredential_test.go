@@ -263,16 +263,16 @@ func (s *updateCredentialSuite) TestCloudCredentialFromLocalCacheWithCloudAndCre
 }
 
 func (s *updateCredentialSuite) TestUpdateLocalWithCloudWhenNoneExists(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "somecloud", "its-credential", "--local")
-	c.Assert(err, gc.ErrorMatches, "could not get credentials from local client cache: loading credentials: credentials for cloud somecloud not found")
+	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "somecloud", "its-credential", "--client")
+	c.Assert(err, gc.ErrorMatches, "could not get credentials from local client: loading credentials: credentials for cloud somecloud not found")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 
 func (s *updateCredentialSuite) TestUpdateLocalWithCloudWhenCredentialDoesNotExists(c *gc.C) {
 	s.storeWithCredentials(c)
-	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "somecloud", "fluffy-credential", "--local")
-	c.Assert(err, gc.ErrorMatches, `could not get credentials from local client cache: credential "fluffy-credential" for cloud "somecloud" in local client cache not found`)
+	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "somecloud", "fluffy-credential", "--client")
+	c.Assert(err, gc.ErrorMatches, `could not get credentials from local client: credential "fluffy-credential" for cloud "somecloud" in local client not found`)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
@@ -289,7 +289,7 @@ credentials:
 	s.storeWithCredentials(c)
 	before := s.store.Credentials["somecloud"].AuthCredentials["its-credential"].Attributes()["access-key"]
 	c.Assert(before, gc.DeepEquals, "key")
-	ctxt, err := cmdtesting.RunCommand(c, s.testCommand, "somecloud", "its-credential", "--local", "-f", testFile)
+	ctxt, err := cmdtesting.RunCommand(c, s.testCommand, "somecloud", "its-credential", "--client", "-f", testFile)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctxt), gc.Equals, "Local client was updated successfully with provided credential information.\n")
 	c.Assert(cmdtesting.Stdout(ctxt), gc.Equals, "")
@@ -383,7 +383,7 @@ credentials:
       auth-type: jsonfile
       file: %v
 `, tmpFile.Name()))
-	_, err = cmdtesting.RunCommand(c, s.testCommand, "google", "gce", "--local", "-f", testFile)
+	_, err = cmdtesting.RunCommand(c, s.testCommand, "google", "gce", "--client", "-f", testFile)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.store.Credentials["google"].AuthCredentials["gce"].Attributes()["file"], gc.Not(jc.Contains), string(contents))
 	c.Assert(s.store.Credentials["google"].AuthCredentials["gce"].Attributes()["file"], gc.Equals, tmpFile.Name())

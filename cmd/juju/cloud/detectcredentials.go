@@ -60,7 +60,7 @@ this Juju client. If a current controller is detected on the client, the user
 is prompted to confirm if the credentials should be uploaded to it. 
 To skip the prompt and to upload to a detected current controller, use --no-prompt.
 To upload credentials to a different controller, use --controller option. 
-To add credentials to the current client only, use --local option.
+To add credentials to the current client only, use --client option.
 
 Below are the cloud types for which credentials may be autoloaded,
 including the locations searched.
@@ -91,7 +91,7 @@ LXD
 
 Example:
     juju autoload-credentials
-    juju autoload-credentials --local
+    juju autoload-credentials --client
     juju autoload-credentials --controller mycontroller
     juju autoload-credentials --no-prompt
     juju autoload-credentials aws

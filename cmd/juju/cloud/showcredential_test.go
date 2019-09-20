@@ -77,7 +77,7 @@ func (s *ShowCredentialSuite) TestShowCredentialAPIVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 remote credential content lookup failed: remote credential content lookup in Juju v1 not supported
-No local or remote credentials to display.
+No credentials from this client or from a controller to display.
 `[1:])
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
 	s.api.CheckCallNames(c, "BestAPIVersion", "Close")
@@ -90,7 +90,7 @@ func (s *ShowCredentialSuite) TestShowCredentialAPICallError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 remote credential content lookup failed: boom
-No local or remote credentials to display.
+No credentials from this client or from a controller to display.
 `[1:])
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
 	s.api.CheckCallNames(c, "BestAPIVersion", "CredentialContents", "Close")
@@ -101,7 +101,7 @@ func (s *ShowCredentialSuite) TestShowCredentialNone(c *gc.C) {
 	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
 	ctx, err := cmdtesting.RunCommand(c, cmd)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No local or remote credentials to display.\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No credentials from this client or from a controller to display.\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
 	s.api.CheckCallNames(c, "BestAPIVersion", "CredentialContents", "Close")
 }
