@@ -7,6 +7,7 @@ package diskmanager_test
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 
@@ -80,7 +81,7 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesWWN(c *gc.C) {
 	// a WWN value.
 	s.testListBlockDevicesExtended(c, `
 ID_WWN=foo
-`, storage.BlockDevice{WWN: "foo"})
+`, "sda", storage.BlockDevice{WWN: "foo"})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesExtendedWWN(c *gc.C) {
@@ -89,7 +90,7 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesExtendedWWN(c *gc.C) {
 	s.testListBlockDevicesExtended(c, `
 ID_WWN_WITH_EXTENSION=foobar
 ID_WWN=foo
-`, storage.BlockDevice{WWN: "foobar"})
+`, "sda", storage.BlockDevice{WWN: "foobar"})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesBusAddress(c *gc.C) {
@@ -98,7 +99,7 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesBusAddress(c *gc.C) {
 	s.testListBlockDevicesExtended(c, `
 DEVPATH=/a/b/c/d/1:2:3:4/block/sda
 ID_BUS=scsi
-`, storage.BlockDevice{BusAddress: "scsi@1:2.3.4"})
+`, "sda", storage.BlockDevice{BusAddress: "scsi@1:2.3.4"})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesHardwareId(c *gc.C) {
@@ -107,7 +108,15 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesHardwareId(c *gc.C) {
 	s.testListBlockDevicesExtended(c, `
 ID_BUS=ata
 ID_SERIAL=0980978987987
-`, storage.BlockDevice{HardwareId: "ata-0980978987987"})
+`, "sda", storage.BlockDevice{HardwareId: "ata-0980978987987", SerialId: "0980978987987"})
+}
+
+func (s *ListBlockDevicesSuite) TestListBlockDevicesSerialId(c *gc.C) {
+	// If ID_SERIAL is found, then we should get
+	// a SerialId value.
+	s.testListBlockDevicesExtended(c, `
+ID_SERIAL=0980978987987
+`, "sda", storage.BlockDevice{SerialId: "0980978987987"})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesDeviceLinks(c *gc.C) {
@@ -115,7 +124,7 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesDeviceLinks(c *gc.C) {
 	// DeviceLinks verbatim.
 	s.testListBlockDevicesExtended(c, `
 DEVLINKS=/dev/disk/by-id/abc /dev/disk/by-id/def
-`, storage.BlockDevice{
+`, "sda", storage.BlockDevice{
 		DeviceLinks: []string{"/dev/disk/by-id/abc", "/dev/disk/by-id/def"},
 	})
 }
@@ -125,7 +134,7 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesAll(c *gc.C) {
 DEVPATH=/a/b/c/d/1:2:3:4/block/sda
 ID_BUS=scsi
 ID_SERIAL=0980978987987
-`, storage.BlockDevice{BusAddress: "scsi@1:2.3.4", HardwareId: "scsi-0980978987987"})
+`, "sda", storage.BlockDevice{BusAddress: "scsi@1:2.3.4", HardwareId: "scsi-0980978987987", SerialId: "0980978987987"})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesUnexpectedDevpathFormat(c *gc.C) {
@@ -135,31 +144,41 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesUnexpectedDevpathFormat(c *g
 DEVPATH=/a/b/c/d/x:y:z:zy/block/sda
 ID_BUS=ata
 ID_SERIAL=0980978987987
-`, storage.BlockDevice{HardwareId: "ata-0980978987987"})
+`, "sda", storage.BlockDevice{HardwareId: "ata-0980978987987", SerialId: "0980978987987"})
+}
+
+func (s *ListBlockDevicesSuite) TestListBlockDevicesParition(c *gc.C) {
+	// Test DEVPATH format for partition.
+	s.testListBlockDevicesExtended(c, `
+DEVPATH=/a/b/c/d/1:2:3:4/block/sda/sda1
+ID_BUS=scsi
+ID_SERIAL=0980978987987
+`, "sda1", storage.BlockDevice{BusAddress: "scsi@1:2.3.4", HardwareId: "scsi-0980978987987", SerialId: "0980978987987"})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesUnexpectedPropertyFormat(c *gc.C) {
 	// If udevadm outputs in an unexpected format, we won't error;
 	// we only error if some catastrophic error occurs while reading
 	// from the udevadm command's stdout.
-	s.testListBlockDevicesExtended(c, "nonsense", storage.BlockDevice{})
+	s.testListBlockDevicesExtended(c, "nonsense", "sda", storage.BlockDevice{})
 }
 
 func (s *ListBlockDevicesSuite) testListBlockDevicesExtended(
 	c *gc.C,
 	udevadmInfo string,
+	deviceName string,
 	expect storage.BlockDevice,
 ) {
-	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
+	testing.PatchExecutable(c, s, "lsblk", fmt.Sprintf(`#!/bin/bash --norc
 cat <<EOF
-KNAME="sda" SIZE="240057409536" LABEL="" UUID="" TYPE="disk"
-EOF`)
+KNAME="%s" SIZE="240057409536" LABEL="" UUID="" TYPE="disk"
+EOF`, deviceName))
 	testing.PatchExecutable(c, s, "udevadm", `#!/bin/bash --norc
 cat <<EOF
 `+strings.TrimSpace(udevadmInfo)+`
 EOF`)
 
-	expect.DeviceName = "sda"
+	expect.DeviceName = deviceName
 	expect.Size = 228936
 
 	devices, err := diskmanager.ListBlockDevices()

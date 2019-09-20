@@ -234,6 +234,9 @@ func addHardwareInfo(dev *storage.BlockDevice) error {
 		// and together they make up the symlink in /dev/disk/by-id.
 		dev.HardwareId = idBus + "-" + idSerial
 	}
+	if idSerial != "" {
+		dev.SerialId = idSerial
+	}
 
 	// For devices on the SCSI bus, we include the address. This is to
 	// support storage providers where the SCSI address may be specified,
@@ -241,7 +244,7 @@ func addHardwareInfo(dev *storage.BlockDevice) error {
 	if idBus == "scsi" && devpath != "" {
 		// DEVPATH will be "<uninteresting stuff>/<SCSI address>/block/<device>".
 		re := regexp.MustCompile(fmt.Sprintf(
-			`^.*/(\d+):(\d+):(\d+):(\d+)/block/%s$`,
+			`^.*/(\d+):(\d+):(\d+):(\d+)/block/(?:\w+/|)%s$`,
 			regexp.QuoteMeta(dev.DeviceName),
 		))
 		submatch := re.FindStringSubmatch(devpath)

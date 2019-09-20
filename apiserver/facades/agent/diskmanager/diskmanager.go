@@ -90,17 +90,18 @@ func stateBlockDeviceInfo(devices []storage.BlockDevice) []state.BlockDeviceInfo
 	result := make([]state.BlockDeviceInfo, len(devices))
 	for i, dev := range devices {
 		result[i] = state.BlockDeviceInfo{
-			dev.DeviceName,
-			dev.DeviceLinks,
-			dev.Label,
-			dev.UUID,
-			dev.HardwareId,
-			dev.WWN,
-			dev.BusAddress,
-			dev.Size,
-			dev.FilesystemType,
-			dev.InUse,
-			dev.MountPoint,
+			DeviceName:     dev.DeviceName,
+			DeviceLinks:    dev.DeviceLinks,
+			Label:          dev.Label,
+			UUID:           dev.UUID,
+			HardwareId:     dev.HardwareId,
+			WWN:            dev.WWN,
+			BusAddress:     dev.BusAddress,
+			Size:           dev.Size,
+			FilesystemType: dev.FilesystemType,
+			InUse:          dev.InUse,
+			MountPoint:     dev.MountPoint,
+			SerialId:       dev.SerialId,
 		}
 	}
 	return result
