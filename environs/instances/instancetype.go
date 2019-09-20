@@ -6,6 +6,7 @@ package instances
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/juju/juju/core/constraints"
 )
@@ -209,4 +210,30 @@ func (s byMemory) Less(i, j int) bool {
 	// Memory is equal, so use cost as a tie breaker.
 	// Result is in descending order of cost so instance with lowest cost is used.
 	return inst0.Cost > inst1.Cost
+}
+
+//by Type is used to sort a slice by name by best effort. As we have different separators for different providers
+//we do it by best effort using "-" and "."
+//A possible sort could be:
+//a1.2xlarge, a1.large, lexical sort would put a1.2xlarge before a1.large -- aws
+
+type ByName []InstanceType
+
+func (bt ByName) Len() int      { return len(bt) }
+func (bt ByName) Swap(i, j int) { bt[i], bt[j] = bt[j], bt[i] }
+func (bt ByName) Less(i, j int) bool {
+	inst0, inst1 := &bt[i], &bt[j]
+	baseInst0 := strings.FieldsFunc(inst0.Name, splitDelimiters)
+	baseInst1 := strings.FieldsFunc(inst1.Name, splitDelimiters)
+	if baseInst0[0] != baseInst1[0] {
+		return baseInst0[0] < baseInst1[0]
+	}
+	// Name is equal, so use cost as a tie breaker.
+	// Result is in ascending order of cost so instance with lowest cost is first.
+	return inst0.Cost > inst1.Cost
+
+}
+
+func splitDelimiters(r rune) bool {
+	return r == ',' || r == '-' || r == '.'
 }

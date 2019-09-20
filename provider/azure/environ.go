@@ -371,11 +371,12 @@ func (env *azureEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (
 	if err != nil {
 		return nil, err
 	}
-	instTypeNames := make([]string, 0, len(instanceTypes))
-	for instTypeName := range instanceTypes {
-		instTypeNames = append(instTypeNames, instTypeName)
+	instTypes := convertInstanceTypeMapToSlice(instanceTypes)
+	sort.Sort(instances.ByName(instTypes))
+	instTypeNames := make([]string, len(instTypes))
+	for i, itype := range instTypes {
+		instTypeNames[i] = itype.Name
 	}
-	sort.Strings(instTypeNames)
 
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported([]string{
@@ -400,6 +401,14 @@ func (env *azureEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (
 		},
 	)
 	return validator, nil
+}
+
+func convertInstanceTypeMapToSlice(instanceTypes map[string]instances.InstanceType) []instances.InstanceType {
+	instTypes := make([]instances.InstanceType, 0, len(instanceTypes))
+	for _, instanceType := range instanceTypes {
+		instTypes = append(instTypes, instanceType)
+	}
+	return instTypes
 }
 
 // PrecheckInstance is defined on the environs.InstancePrechecker interface.
