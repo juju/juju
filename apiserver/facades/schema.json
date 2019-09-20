@@ -14784,6 +14784,9 @@
                         "MountPoint": {
                             "type": "string"
                         },
+                        "SerialId": {
+                            "type": "string"
+                        },
                         "Size": {
                             "type": "integer"
                         },
@@ -14806,7 +14809,8 @@
                         "Size",
                         "FilesystemType",
                         "InUse",
-                        "MountPoint"
+                        "MountPoint",
+                        "SerialId"
                     ]
                 },
                 "Error": {
@@ -31827,6 +31831,9 @@
                         "MountPoint": {
                             "type": "string"
                         },
+                        "SerialId": {
+                            "type": "string"
+                        },
                         "Size": {
                             "type": "integer"
                         },
@@ -31849,7 +31856,8 @@
                         "Size",
                         "FilesystemType",
                         "InUse",
-                        "MountPoint"
+                        "MountPoint",
+                        "SerialId"
                     ]
                 },
                 "BlockDeviceResult": {

@@ -4,6 +4,8 @@
 package storagecommon
 
 import (
+	"strings"
+
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/state"
@@ -16,17 +18,18 @@ var logger = loggo.GetLogger("juju.apiserver.storagecommon")
 // storage.BlockDevice.
 func BlockDeviceFromState(in state.BlockDeviceInfo) storage.BlockDevice {
 	return storage.BlockDevice{
-		in.DeviceName,
-		in.DeviceLinks,
-		in.Label,
-		in.UUID,
-		in.HardwareId,
-		in.WWN,
-		in.BusAddress,
-		in.Size,
-		in.FilesystemType,
-		in.InUse,
-		in.MountPoint,
+		DeviceName:     in.DeviceName,
+		DeviceLinks:    in.DeviceLinks,
+		Label:          in.Label,
+		UUID:           in.UUID,
+		HardwareId:     in.HardwareId,
+		WWN:            in.WWN,
+		BusAddress:     in.BusAddress,
+		Size:           in.Size,
+		FilesystemType: in.FilesystemType,
+		InUse:          in.InUse,
+		MountPoint:     in.MountPoint,
+		SerialId:       in.SerialId,
 	}
 }
 
@@ -74,6 +77,14 @@ func MatchingBlockDevice(
 				return &dev, true
 			}
 			logger.Tracef("no match for block device hardware id: %v", dev.HardwareId)
+			continue
+		}
+		if volumeInfo.VolumeId != "" && dev.SerialId != "" {
+			if strings.HasPrefix(volumeInfo.VolumeId, dev.SerialId) {
+				logger.Tracef("serial id %v match on volume id %v", dev.SerialId, volumeInfo.VolumeId)
+				return &dev, true
+			}
+			logger.Tracef("no match for block device serial id: %v", dev.SerialId)
 			continue
 		}
 		if attachmentInfo.BusAddress != "" {
