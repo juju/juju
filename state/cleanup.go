@@ -529,9 +529,14 @@ func (st *State) removeApplicationsForDyingModel(args DestroyModelParams) (err e
 	//  it doesn't cause applications that are Dying to finish progressing to Dead.
 	application := Application{st: st}
 	sel := bson.D{{"life", Alive}}
+	force := args.Force != nil && *args.Force
+	if force {
+		// If we're forcing, propagate down to even dying
+		// applications, just in case they weren't originally forced.
+		sel = nil
+	}
 	iter := applications.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading application document")
-	force := args.Force != nil && *args.Force
 	for iter.Next(&application.doc) {
 		op := application.DestroyOperation()
 		op.RemoveOffers = true

@@ -629,6 +629,7 @@ func (s *MigrationSuite) TestBlockDeviceFields(c *gc.C) {
 		"FilesystemType",
 		"InUse",
 		"MountPoint",
+		"SerialId",
 	)
 	s.AssertExportedFields(c, BlockDeviceInfo{}, migrated)
 }
