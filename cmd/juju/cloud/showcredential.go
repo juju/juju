@@ -52,8 +52,8 @@ func (c *showCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 	f.BoolVar(&c.ShowSecrets, "show-secrets", false, "Display credential secret attributes")
 	// TODO (juju3) remove me
-	f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client instead): Local operation only; controller credentials not shown")
-	f.BoolVar(&c.Local, "client", false, "Client operation only; controller credentials not shown")
+	f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client instead): Local operation only; controller credential not shown")
+	f.BoolVar(&c.Local, "client", false, "Client operation only; controller credential not shown")
 }
 
 func (c *showCredentialCommand) Init(args []string) error {
