@@ -361,7 +361,7 @@ func formatCredentialsTabular(writer io.Writer, value interface{}) error {
 		fmt.Fprintln(writer, "No credentials from this client to display.")
 	}
 	if !credentials.LocalOnly && len(credentials.Remote) == 0 {
-		fmt.Fprintln(writer, "No credentials from a controller to display.")
+		fmt.Fprintln(writer, "No credentials from any controller to display.")
 	}
 	if len(credentials.Remote) == 0 && len(credentials.Local) == 0 {
 		return nil
