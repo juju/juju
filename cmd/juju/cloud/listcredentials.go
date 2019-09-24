@@ -29,7 +29,8 @@ var usageListCredentialsSummary = `
 Lists Juju credentials for a cloud.`[1:]
 
 var usageListCredentialsDetails = `
-This command list locally or remotely stored Juju credentials.
+This command list credentials from this client and credentials
+from a controller.
 
 Locally stored credentials are client specific and 
 are used with `[1:] + "`juju bootstrap`" + `  
@@ -61,8 +62,8 @@ created. This model will use the controller default credential. To see all your
 credentials on the controller use "juju show-credentials" command.
 
 When adding a new model, Juju will reuse the controller default credential.
-To add a model that uses a different credential, specify a locally
-stored credential using --credential option. See ` + "`juju help add-model`" + ` 
+To add a model that uses a different credential, specify a  credential
+from this client using --credential option. See ` + "`juju help add-model`" + ` 
 for more information.
 
 Credentials denoted with an asterisk '*' are currently set as the user default
@@ -357,10 +358,10 @@ func formatCredentialsTabular(writer io.Writer, value interface{}) error {
 	}
 
 	if len(credentials.Local) == 0 {
-		fmt.Fprintln(writer, "No locally stored credentials to display.")
+		fmt.Fprintln(writer, "No credentials from this client to display.")
 	}
 	if !credentials.LocalOnly && len(credentials.Remote) == 0 {
-		fmt.Fprintln(writer, "No remotely stored credentials to display.")
+		fmt.Fprintln(writer, "No credentials from any controller to display.")
 	}
 	if len(credentials.Remote) == 0 && len(credentials.Local) == 0 {
 		return nil

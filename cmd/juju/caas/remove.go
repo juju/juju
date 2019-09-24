@@ -23,12 +23,12 @@ Removes the specified k8s cloud from this client.
 If --controller is used, also removes the cloud 
 from the specified controller (if it is not in use).
 
-If you just want to update the local cache and not
-a running controller, use the --local option.
+If you just want to update your current client and not
+a running controller, use the --client option.
 
 Examples:
     juju remove-k8s myk8scloud
-    juju remove-k8s myk8scloud --local
+    juju remove-k8s myk8scloud --client
     juju remove-k8s --controller mycontroller myk8scloud
     
 See also:
@@ -48,8 +48,6 @@ type RemoveCAASCommand struct {
 	// cloudName is the name of the caas cloud to remove.
 	cloudName string
 
-	controllerName     string
-	store              jujuclient.ClientStore
 	cloudMetadataStore CloudMetadataStore
 	apiFunc            func() (RemoveCloudAPI, error)
 }
@@ -64,10 +62,9 @@ func NewRemoveCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 		},
 
 		cloudMetadataStore: cloudMetadataStore,
-		store:              store,
 	}
 	cmd.apiFunc = func() (RemoveCloudAPI, error) {
-		root, err := cmd.NewAPIRoot(cmd.store, cmd.controllerName, "")
+		root, err := cmd.NewAPIRoot(cmd.Store, cmd.ControllerName, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -103,14 +100,14 @@ func (c *RemoveCAASCommand) Init(args []string) (err error) {
 func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
 	if c.ControllerName == "" && !c.Local {
 		return errors.Errorf(
-			"There are no controllers running.\nTo remove cloud %q from the local cache, use the --local option.", c.cloudName)
+			"There are no controllers running.\nTo remove cloud %q from the current client, use the --client option.", c.cloudName)
 	}
 	if err := removeCloudFromLocal(c.cloudMetadataStore, c.cloudName); err != nil {
-		return errors.Annotatef(err, "cannot remove cloud from local cache")
+		return errors.Annotatef(err, "cannot remove cloud from current client")
 	}
 
-	if err := c.store.UpdateCredential(c.cloudName, cloud.CloudCredential{}); err != nil {
-		return errors.Annotatef(err, "cannot remove credential from local cache")
+	if err := c.Store.UpdateCredential(c.cloudName, cloud.CloudCredential{}); err != nil {
+		return errors.Annotatef(err, "cannot remove credential from current client")
 	}
 	if c.ControllerName == "" {
 		return nil

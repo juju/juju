@@ -79,7 +79,7 @@ Use --no-prompt option when this prompt is undesirable, but the upload to
 the current controller is wanted.
 Use --controller option to upload a cloud to a different controller. 
 
-Use --local option to add cloud to the current device only.
+Use --client option to add cloud to the current client only.
 
 DEPRECATED If <cloud name> already exists in Juju's cache, then the `[1:] + "`--replace`" + ` 
 option is required. Use 'update-credential' instead.
@@ -111,11 +111,11 @@ clouds:                           # mandatory
 
 When a a running controller is updated, the credential for the cloud
 is also uploaded. As with the cloud, the credential needs
-to have been added to the local Juju cache; add-credential is used to
+to have been added to the current client; add-credential is used to
 do that. If there's only one credential for the cloud it will be
 uploaded to the controller automatically by add-clloud command. 
-However, if the cloud has multiple local credentials you can specify 
-which to upload with the --credential option.
+However, if the cloud has multiple credentials on this client
+you can specify which to upload with the --credential option.
 
 When adding clouds to a controller, some clouds are whitelisted and can be easily added:
 %v
@@ -133,7 +133,7 @@ If the "multi-cloud" feature flag is turned on in the controller:
 
     juju add-cloud --controller mycontroller mycloud
     juju add-cloud --controller mycontroller mycloud --credential mycred
-    juju add-cloud --local mycloud ~/mycloud.yaml
+    juju add-cloud --client mycloud ~/mycloud.yaml
 
 See also: 
     clouds
@@ -349,7 +349,7 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 		}
 	}
 	if !c.Replace && c.existsLocally {
-		returnErr = errors.AlreadyExistsf("use `update-cloud %s --local` to override known definition: local cloud %q", newCloud.Name, newCloud.Name)
+		returnErr = errors.AlreadyExistsf("use `update-cloud %s --client` to override known definition: local cloud %q", newCloud.Name, newCloud.Name)
 	}
 	if c.Local {
 		return returnErr
@@ -780,14 +780,14 @@ func (p *cloudFileReader) verifyName(name string) error {
 		return err
 	}
 	if _, ok := personal[name]; ok {
-		return errors.AlreadyExistsf("use `update-cloud %s --local` to replace this cloud locally: %q", name, name)
+		return errors.AlreadyExistsf("use `update-cloud %s --client` to replace this cloud locally: %q", name, name)
 	}
 	msg, err := nameExists(name, public)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if msg != "" {
-		return errors.AlreadyExistsf(msg + "; use `update-cloud --local` to override this definition locally")
+		return errors.AlreadyExistsf(msg + "; use `update-cloud --client` to override this definition locally")
 	}
 	return nil
 }

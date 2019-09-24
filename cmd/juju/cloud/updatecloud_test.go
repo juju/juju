@@ -86,7 +86,7 @@ func (s *updateCloudSuite) TestUpdateLocalCacheFromFile(c *gc.C) {
 	cmd, fileName := s.setupCloudFileScenario(c, func(controllerName string) (cloud.UpdateCloudAPI, error) {
 		return nil, errors.New("")
 	})
-	_, err := cmdtesting.RunCommand(c, cmd, "garage-maas", "-f", fileName, "--local")
+	_, err := cmdtesting.RunCommand(c, cmd, "garage-maas", "-f", fileName, "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.Calls(), gc.HasLen, 0)
 }
@@ -101,7 +101,7 @@ func (s *updateCloudSuite) TestUpdateFromFileDefaultLocal(c *gc.C) {
 	c.Assert(s.api.Calls(), gc.HasLen, 0)
 	out := cmdtesting.Stderr(ctx)
 	out = strings.Replace(out, "\n", "", -1)
-	c.Assert(out, gc.Matches, `There are no controllers running.Updating cloud in local cache so you can use it to bootstrap a controller.*`)
+	c.Assert(out, gc.Matches, `There are no controllers running.Updating cloud on this client so you can use it to bootstrap a controller.*`)
 }
 
 func (s *updateCloudSuite) TestUpdateLocalCacheBadFile(c *gc.C) {

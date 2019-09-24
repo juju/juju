@@ -812,7 +812,7 @@ func (s *addCAASSuite) TestLocalOnly(c *gc.C) {
 	cloudRegion := "gce/us-east1"
 
 	command := s.makeCommand(c, true, false, true)
-	ctx, err := s.runCommand(c, nil, command, "myk8s", "--cluster-name", "mrcloud2", "--local")
+	ctx, err := s.runCommand(c, nil, command, "myk8s", "--cluster-name", "mrcloud2", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `k8s substrate "mrcloud2" added as cloud "myk8s".You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`
 	c.Assert(strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1), gc.Equals, expected)

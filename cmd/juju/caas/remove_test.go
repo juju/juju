@@ -122,7 +122,7 @@ func (s *removeCAASSuite) TestRemove(c *gc.C) {
 
 func (s *removeCAASSuite) TestRemoveLocalOnly(c *gc.C) {
 	cmd := s.makeCommand()
-	_, err := s.runCommand(c, cmd, "myk8s", "--local")
+	_, err := s.runCommand(c, cmd, "myk8s", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.fakeCloudAPI.CheckNoCalls(c)
@@ -143,7 +143,7 @@ func (s *removeCAASSuite) TestRemoveNoController(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	msg := err.Error()
 	msg = strings.Replace(msg, "\n", "", -1)
-	c.Assert(msg, gc.Matches, `There are no controllers running.To remove cloud "homestack" from the local cache, use the --local option.*`)
+	c.Assert(msg, gc.Matches, `There are no controllers running.To remove cloud "homestack" from the current client, use the --client option.*`)
 
 	s.fakeCloudAPI.CheckNoCalls(c)
 	s.cloudMetadataStore.CheckNoCalls(c)

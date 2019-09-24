@@ -39,7 +39,7 @@ func (s *listSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *listSuite) TestListPublic(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--local")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
@@ -225,7 +225,7 @@ clouds:
 			return s.api, nil
 		})
 
-	ctx, err := cmdtesting.RunCommand(c, cmd, "--local")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
@@ -246,7 +246,7 @@ clouds:
 	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--format", "yaml", "--local")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--format", "yaml", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
@@ -257,7 +257,7 @@ clouds:
 }
 
 func (s *listSuite) TestListYAML(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--format", "yaml", "--local")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--format", "yaml", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
@@ -266,7 +266,7 @@ func (s *listSuite) TestListYAML(c *gc.C) {
 }
 
 func (s *listSuite) TestListJSON(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--format", "json", "--local")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--format", "json", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
@@ -275,7 +275,7 @@ func (s *listSuite) TestListJSON(c *gc.C) {
 }
 
 func (s *listSuite) TestListPreservesRegionOrder(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--format", "yaml", "--local")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--format", "yaml", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	lines := strings.Split(cmdtesting.Stdout(ctx), "\n")
 	withClouds := "clouds:\n  " + strings.Join(lines, "\n  ")

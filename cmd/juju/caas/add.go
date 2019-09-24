@@ -60,8 +60,8 @@ Creates a user-defined cloud based on a k8s cluster.
 The new k8s cloud can then be used to bootstrap into, or it
 can be added to an existing controller; the current controller
 is used unless the --controller option is specified. If you just
-want to update the local cache and not a running controller, use
-the --local option.
+want to update your current client and not a running controller, use
+the --client option.
 
 Specify a non default kubeconfig file location using $KUBECONFIG
 environment variable or pipe in file content from stdin.
@@ -81,7 +81,7 @@ necessary parameters directly.
 
 Examples:
     juju add-k8s myk8scloud
-    juju add-k8s myk8scloud --local
+    juju add-k8s myk8scloud --client
     juju add-k8s myk8scloud --controller mycontroller
     juju add-k8s --context-name mycontext myk8scloud
     juju add-k8s myk8scloud --region <cloudNameOrCloudType>/<someregion>
