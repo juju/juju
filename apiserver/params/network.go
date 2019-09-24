@@ -282,59 +282,84 @@ type EntitiesPortRanges struct {
 }
 
 // Address represents the location of a machine, including metadata
-// about what kind of location the address describes. It's used in
-// the API requests/responses. See also network.Address, from/to
-// which this is transformed.
+// about what kind of location the address describes.
+// See also the address types in core/network which this type can be
+// transformed to/from.
 type Address struct {
 	Value           string `json:"value"`
 	Type            string `json:"type"`
 	Scope           string `json:"scope"`
 	SpaceName       string `json:"space-name,omitempty"`
-	SpaceProviderId string `json:"space-id,omitempty"`
+	ProviderSpaceID string `json:"space-id,omitempty"`
 }
 
-// FromNetworkAddress is a convenience helper to create a parameter
-// out of the network type, here for Address.
-func FromNetworkAddress(naddr network.Address) Address {
-	return Address{
-		Value:           naddr.Value,
-		Type:            string(naddr.Type),
-		Scope:           string(naddr.Scope),
-		SpaceName:       string(naddr.SpaceName),
-		SpaceProviderId: string(naddr.SpaceProviderId),
+// MachineAddress transforms the Address to a MachineAddress,
+// effectively ignoring the space fields.
+func (addr Address) MachineAddress() network.MachineAddress {
+	return network.MachineAddress{
+		Value: addr.Value,
+		Type:  network.AddressType(addr.Type),
+		Scope: network.Scope(addr.Scope),
 	}
 }
 
-// NetworkAddress is a convenience helper to return the parameter
-// as network type, here for Address.
-func (addr Address) NetworkAddress() network.Address {
-	return network.Address{
-		Value:           addr.Value,
-		Type:            network.AddressType(addr.Type),
-		Scope:           network.Scope(addr.Scope),
+// ProviderAddress transforms the Address to a ProviderAddress.
+func (addr Address) ProviderAddress() network.ProviderAddress {
+	return network.ProviderAddress{
+		MachineAddress:  addr.MachineAddress(),
 		SpaceName:       network.SpaceName(addr.SpaceName),
-		SpaceProviderId: network.Id(addr.SpaceProviderId),
+		ProviderSpaceID: network.Id(addr.ProviderSpaceID),
 	}
 }
 
-// FromNetworkAddresses is a convenience helper to create a parameter
-// out of the network type, here for a slice of Address.
-func FromNetworkAddresses(naddrs ...network.Address) []Address {
-	addrs := make([]Address, len(naddrs))
-	for i, naddr := range naddrs {
-		addrs[i] = FromNetworkAddress(naddr)
+// ToProviderAddresses transforms multiple Addresses into a
+// ProviderAddresses collection.
+func ToProviderAddresses(addrs ...Address) network.ProviderAddresses {
+	pAddrs := make([]network.ProviderAddress, len(addrs))
+	for i, addr := range addrs {
+		pAddrs[i] = addr.ProviderAddress()
+	}
+	return pAddrs
+}
+
+// FromProviderAddresses transforms multiple ProviderAddresses
+// into a slice of Address.
+func FromProviderAddresses(pAddrs ...network.ProviderAddress) []Address {
+	addrs := make([]Address, len(pAddrs))
+	for i, pAddr := range pAddrs {
+		addrs[i] = FromProviderAddress(pAddr)
 	}
 	return addrs
 }
 
-// NetworkAddresses is a convenience helper to return the parameter
-// as network type, here for a slice of Address.
-func NetworkAddresses(addrs ...Address) []network.Address {
-	naddrs := make([]network.Address, len(addrs))
-	for i, addr := range addrs {
-		naddrs[i] = addr.NetworkAddress()
+// FromProviderAddress returns an Address for the input ProviderAddress.
+func FromProviderAddress(addr network.ProviderAddress) Address {
+	return Address{
+		Value:           addr.Value,
+		Type:            string(addr.Type),
+		Scope:           string(addr.Scope),
+		SpaceName:       string(addr.SpaceName),
+		ProviderSpaceID: string(addr.ProviderSpaceID),
 	}
-	return naddrs
+}
+
+// FromMachineAddresses transforms multiple MachineAddresses
+// into a slice of Address.
+func FromMachineAddresses(mAddrs ...network.MachineAddress) []Address {
+	addrs := make([]Address, len(mAddrs))
+	for i, mAddr := range mAddrs {
+		addrs[i] = FromMachineAddress(mAddr)
+	}
+	return addrs
+}
+
+// FromMachineAddress returns an Address for the input MachineAddress.
+func FromMachineAddress(addr network.MachineAddress) Address {
+	return Address{
+		Value: addr.Value,
+		Type:  string(addr.Type),
+		Scope: string(addr.Scope),
+	}
 }
 
 // HostPort associates an address with a port. It's used in
@@ -345,56 +370,80 @@ type HostPort struct {
 	Port int `json:"port"`
 }
 
-// FromNetworkHostPort is a convenience helper to create a parameter
-// out of the network type, here for HostPort.
-func FromNetworkHostPort(nhp network.HostPort) HostPort {
-	return HostPort{FromNetworkAddress(nhp.Address), nhp.Port}
+// MachineHostPort transforms the HostPort to a MachineHostPort.
+func (hp HostPort) MachineHostPort() network.MachineHostPort {
+	return network.MachineHostPort{MachineAddress: hp.Address.MachineAddress(), NetPort: network.NetPort(hp.Port)}
 }
 
-// NetworkHostPort is a convenience helper to return the parameter
-// as network type, here for HostPort.
-func (hp HostPort) NetworkHostPort() network.HostPort {
-	return network.HostPort{hp.Address.NetworkAddress(), hp.Port}
-}
-
-// FromNetworkHostPorts is a helper to create a parameter
-// out of the network type, here for a slice of HostPort.
-func FromNetworkHostPorts(nhps []network.HostPort) []HostPort {
-	hps := make([]HostPort, len(nhps))
-	for i, nhp := range nhps {
-		hps[i] = FromNetworkHostPort(nhp)
+// ToMachineHostsPorts transforms slices of HostPort grouped by server into
+// a slice of MachineHostPorts collections.
+func ToMachineHostsPorts(hpm [][]HostPort) []network.MachineHostPorts {
+	mHpm := make([]network.MachineHostPorts, len(hpm))
+	for i, hps := range hpm {
+		mHpm[i] = ToMachineHostPorts(hps)
 	}
-	return hps
+	return mHpm
 }
 
-// NetworkHostPorts is a convenience helper to return the parameter
-// as network type, here for a slice of HostPort.
-func NetworkHostPorts(hps []HostPort) []network.HostPort {
-	nhps := make([]network.HostPort, len(hps))
+// ToMachineHostPorts transforms multiple Addresses into a
+// MachineHostPort collection.
+func ToMachineHostPorts(hps []HostPort) network.MachineHostPorts {
+	mHps := make(network.MachineHostPorts, len(hps))
 	for i, hp := range hps {
-		nhps[i] = hp.NetworkHostPort()
+		mHps[i] = hp.MachineHostPort()
 	}
-	return nhps
+	return mHps
+}
+
+// ProviderHostPort transforms the HostPort to a ProviderHostPort.
+func (hp HostPort) ProviderHostPort() network.ProviderHostPort {
+	return network.ProviderHostPort{ProviderAddress: hp.Address.ProviderAddress(), NetPort: network.NetPort(hp.Port)}
+}
+
+// ToProviderHostsPorts transforms slices of HostPort grouped by server into
+// a slice of ProviderHostPort collections.
+func ToProviderHostsPorts(hpm [][]HostPort) []network.ProviderHostPorts {
+	pHpm := make([]network.ProviderHostPorts, len(hpm))
+	for i, hps := range hpm {
+		pHpm[i] = ToProviderHostPorts(hps)
+	}
+	return pHpm
+}
+
+// ToProviderHostPorts transforms multiple Addresses into a
+// ProviderHostPorts collection.
+func ToProviderHostPorts(hps []HostPort) network.ProviderHostPorts {
+	pHps := make(network.ProviderHostPorts, len(hps))
+	for i, hp := range hps {
+		pHps[i] = hp.ProviderHostPort()
+	}
+	return pHps
 }
 
 // FromNetworkHostsPorts is a helper to create a parameter
 // out of the network type, here for a nested slice of HostPort.
-func FromNetworkHostsPorts(nhpm [][]network.HostPort) [][]HostPort {
+func FromProviderHostsPorts(nhpm []network.ProviderHostPorts) [][]HostPort {
 	hpm := make([][]HostPort, len(nhpm))
 	for i, nhps := range nhpm {
-		hpm[i] = FromNetworkHostPorts(nhps)
+		hpm[i] = FromProviderHostPorts(nhps)
 	}
 	return hpm
 }
 
-// NetworkHostsPorts is a convenience helper to return the parameter
-// as network type, here for a nested slice of HostPort.
-func NetworkHostsPorts(hpm [][]HostPort) [][]network.HostPort {
-	nhpm := make([][]network.HostPort, len(hpm))
-	for i, hps := range hpm {
-		nhpm[i] = NetworkHostPorts(hps)
+// FromNetworkHostPorts is a helper to create a parameter
+// out of the network type, here for a slice of HostPort.
+func FromProviderHostPorts(nhps network.ProviderHostPorts) []HostPort {
+	hps := make([]HostPort, len(nhps))
+	for i, nhp := range nhps {
+		hps[i] = FromProviderHostPort(nhp)
 	}
-	return nhpm
+	return hps
+}
+
+// FromProviderHostPort is a convenience helper to create a parameter
+// out of the network type, here for ProviderHostPort.
+func FromProviderHostPort(nhp network.ProviderHostPort) HostPort {
+	return HostPort{FromProviderAddress(nhp.ProviderAddress), nhp.Port()}
 }
 
 // TODO (wpk) Uniter.NetworkConfig API is obsolete, use NetworkInfo instead
@@ -547,10 +596,10 @@ type APIHostPortsResult struct {
 	Servers [][]HostPort `json:"servers"`
 }
 
-// NetworkHostsPorts is a convenience helper to return the contained
-// result servers as network type.
-func (r APIHostPortsResult) NetworkHostsPorts() [][]network.HostPort {
-	return NetworkHostsPorts(r.Servers)
+// MachineHostPorts transforms the APIHostPortsResult into a slice of
+// MachineHostPorts.
+func (r APIHostPortsResult) MachineHostsPorts() []network.MachineHostPorts {
+	return ToMachineHostsPorts(r.Servers)
 }
 
 // ZoneResult holds the result of an API call that returns an
@@ -641,7 +690,7 @@ type CreateSubnetParams struct {
 	IsPublic  bool     `json:"is-public"`
 }
 
-// CreateSpacesParams olds the arguments of the AddSpaces API call.
+// CreateSpacesParams holds the arguments of the AddSpaces API call.
 type CreateSpacesParamsV4 struct {
 	Spaces []CreateSpaceParamsV4 `json:"spaces"`
 }

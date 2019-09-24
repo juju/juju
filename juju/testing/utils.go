@@ -24,12 +24,10 @@ import (
 func AddControllerMachine(c *gc.C, st *state.State) *state.Machine {
 	machine, err := st.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
+	err = machine.SetProviderAddresses(network.NewSpaceAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	hostPorts := [][]network.HostPort{
-		network.NewHostPorts(1234, "0.1.2.3"),
-	}
+	hostPorts := []network.SpaceHostPorts{network.NewSpaceHostPorts(1234, "0.1.2.3")}
 	err = st.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 

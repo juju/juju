@@ -70,11 +70,11 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
 	}
 
 	unit := newMockUnit("django/0")
-	unit.publicAddress = network.NewScopedAddress("1.2.3.4", network.ScopePublic)
+	unit.publicAddress = network.NewScopedSpaceAddress("1.2.3.4", network.ScopePublic)
 	unit.machineId = "0"
 	s.st.units["django/0"] = unit
 	unit1 := newMockUnit("django/1")
-	unit1.publicAddress = network.NewScopedAddress("4.3.2.1", network.ScopePublic)
+	unit1.publicAddress = network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic)
 	unit1.machineId = "1"
 	s.st.units["django/1"] = unit1
 	s.st.machines["0"] = newMockMachine("0")

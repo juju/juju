@@ -780,10 +780,16 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorageNoBackingVo
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsService(c *gc.C) {
+	addr := network.NewSpaceAddress("10.0.0.1")
 	results, err := s.facade.UpdateApplicationsService(params.UpdateApplicationServiceArgs{
 		Args: []params.UpdateApplicationServiceArg{
-			{ApplicationTag: "application-gitlab", ProviderId: "id", Addresses: []params.Address{{Value: "10.0.0.1"}}},
-			{ApplicationTag: "unit-gitlab-0"},
+			{
+				ApplicationTag: "application-gitlab",
+				ProviderId:     "id",
+				Addresses:      params.FromMachineAddresses(addr.MachineAddress),
+			}, {
+				ApplicationTag: "unit-gitlab-0",
+			},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -793,7 +799,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsService(c *gc.C) {
 		Message: `"unit-gitlab-0" is not a valid application tag`,
 	})
 	c.Assert(s.st.application.providerId, gc.Equals, "id")
-	c.Assert(s.st.application.addresses, jc.DeepEquals, []network.Address{{Value: "10.0.0.1"}})
+	c.Assert(s.st.application.addresses, jc.DeepEquals, []network.SpaceAddress{addr})
 }
 
 func (s *CAASProvisionerSuite) TestSetOperatorStatus(c *gc.C) {

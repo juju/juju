@@ -164,7 +164,7 @@ func (s *ContextSuite) AddUnit(c *gc.C, svc *state.Application) *state.Unit {
 	c.Assert(err, jc.ErrorIsNil)
 
 	name := strings.Replace(unit.Name(), "/", "-", 1)
-	privateAddr := network.NewScopedAddress(name+".testing.invalid", network.ScopeCloudLocal)
+	privateAddr := network.NewScopedSpaceAddress(name+".testing.invalid", network.ScopeCloudLocal)
 	err = s.machine.SetProviderAddresses(privateAddr)
 	c.Assert(err, jc.ErrorIsNil)
 	return unit

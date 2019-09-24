@@ -154,8 +154,8 @@ func instancePublicIPAddresses(
 }
 
 // Addresses is specified in the Instance interface.
-func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
-	addresses := make([]corenetwork.Address, 0, len(inst.networkInterfaces)+len(inst.publicIPAddresses))
+func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+	addresses := make([]corenetwork.ProviderAddress, 0, len(inst.networkInterfaces)+len(inst.publicIPAddresses))
 	for _, nic := range inst.networkInterfaces {
 		if nic.IPConfigurations == nil {
 			continue
@@ -165,7 +165,7 @@ func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) ([]corenet
 			if privateIpAddress == nil {
 				continue
 			}
-			addresses = append(addresses, corenetwork.NewScopedAddress(
+			addresses = append(addresses, corenetwork.NewScopedProviderAddress(
 				to.String(privateIpAddress),
 				corenetwork.ScopeCloudLocal,
 			))
@@ -175,7 +175,7 @@ func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) ([]corenet
 		if pip.IPAddress == nil {
 			continue
 		}
-		addresses = append(addresses, corenetwork.NewScopedAddress(
+		addresses = append(addresses, corenetwork.NewScopedProviderAddress(
 			to.String(pip.IPAddress),
 			corenetwork.ScopePublic,
 		))
@@ -186,7 +186,7 @@ func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) ([]corenet
 // primaryNetworkAddress returns the instance's primary jujunetwork.Address for
 // the internal virtual network. This address is used to identify the machine in
 // network security rules.
-func (inst *azureInstance) primaryNetworkAddress() (corenetwork.Address, error) {
+func (inst *azureInstance) primaryNetworkAddress() (corenetwork.SpaceAddress, error) {
 	for _, nic := range inst.networkInterfaces {
 		if nic.IPConfigurations == nil {
 			continue
@@ -202,13 +202,13 @@ func (inst *azureInstance) primaryNetworkAddress() (corenetwork.Address, error) 
 			if privateIpAddress == nil {
 				continue
 			}
-			return corenetwork.NewScopedAddress(
+			return corenetwork.NewScopedSpaceAddress(
 				to.String(privateIpAddress),
 				corenetwork.ScopeCloudLocal,
 			), nil
 		}
 	}
-	return corenetwork.Address{}, errors.NotFoundf("internal network address")
+	return corenetwork.SpaceAddress{}, errors.NotFoundf("internal network address")
 }
 
 // OpenPorts is specified in the Instance interface.

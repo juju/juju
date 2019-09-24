@@ -389,12 +389,12 @@ func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
 	) error {
 		addr, err := inst.Addresses(s.callCtx)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(addr, jc.SameContents, []network.Address{
-			{Value: "10.0.0.1", Type: "ipv4", Scope: "public"},
-			{Value: "127.0.0.1", Type: "ipv4", Scope: "local-machine"},
-			{Value: "::face::000f", Type: "hostname", Scope: ""},
-			{Value: "127.10.0.1", Type: "ipv4", Scope: "public"},
-			{Value: "::dead:beef:f00d", Type: "ipv6", Scope: "public"},
+		c.Assert(addr, jc.SameContents, network.ProviderAddresses{
+			network.NewScopedProviderAddress("10.0.0.1", network.ScopePublic),
+			network.NewScopedProviderAddress("127.0.0.1", network.ScopeMachineLocal),
+			network.NewScopedProviderAddress("::face::000f", network.ScopeUnknown),
+			network.NewScopedProviderAddress("127.10.0.1", network.ScopePublic),
+			network.NewScopedProviderAddress("::dead:beef:f00d", network.ScopePublic),
 		})
 		bootstrapFinished = true
 		return nil
@@ -422,11 +422,11 @@ func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
 	) error {
 		addr, err := inst.Addresses(s.callCtx)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(addr, jc.SameContents, []network.Address{
-			{Value: "127.0.0.1", Type: "ipv4", Scope: "local-machine"},
-			{Value: "::face::000f", Type: "hostname", Scope: ""},
-			{Value: "127.10.0.1", Type: "ipv4", Scope: "public"},
-			{Value: "::dead:beef:f00d", Type: "ipv6", Scope: "public"},
+		c.Assert(addr, jc.SameContents, network.ProviderAddresses{
+			network.NewScopedProviderAddress("127.0.0.1", network.ScopeMachineLocal),
+			network.NewScopedProviderAddress("::face::000f", network.ScopeUnknown),
+			network.NewScopedProviderAddress("127.10.0.1", network.ScopePublic),
+			network.NewScopedProviderAddress("::dead:beef:f00d", network.ScopePublic),
 		})
 		bootstrapFinished = true
 		return nil

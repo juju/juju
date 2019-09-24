@@ -68,7 +68,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
-	err = s.machine.SetProviderAddresses(corenetwork.NewAddress("0.1.2.3"))
+	err = s.machine.SetProviderAddresses(corenetwork.NewSpaceAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create the provisioner API facade.
@@ -668,7 +668,7 @@ func (s *provisionerSuite) TestWatchModelMachines(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
-	err := s.machine.SetProviderAddresses(corenetwork.NewAddress("0.1.2.3"))
+	err := s.machine.SetProviderAddresses(corenetwork.NewSpaceAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	stateAddresses, err := s.State.Addresses()
@@ -968,10 +968,10 @@ func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c
 		Disabled:            false,
 		NoAutoStart:         false,
 		ConfigType:          "static",
-		Address:             corenetwork.NewAddress("192.168.0.6"),
-		DNSServers:          corenetwork.NewAddresses("8.8.8.8"),
+		Address:             corenetwork.NewProviderAddress("192.168.0.6"),
+		DNSServers:          corenetwork.NewProviderAddresses("8.8.8.8"),
 		DNSSearchDomains:    []string{"mydomain"},
-		GatewayAddress:      corenetwork.NewAddress("192.168.0.1"),
+		GatewayAddress:      corenetwork.NewProviderAddress("192.168.0.1"),
 		Routes: []network.Route{{
 			DestinationCIDR: "10.0.0.0/16",
 			GatewayIP:       "192.168.0.1",

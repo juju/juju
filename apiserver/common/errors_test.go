@@ -201,7 +201,7 @@ var errorTransformTests = []struct {
 	helperFunc: func(err error) bool {
 		err1, ok := err.(*params.Error)
 		exp := asMap(params.RedirectErrorInfo{
-			Servers: params.FromNetworkHostsPorts(sampleRedirectError.Servers),
+			Servers: params.FromProviderHostsPorts(sampleRedirectError.Servers),
 			CACert:  sampleRedirectError.CACert,
 		})
 		if !ok || err1.Info == nil || !reflect.DeepEqual(err1.Info, exp) {
@@ -224,9 +224,9 @@ var sampleMacaroon = func() *macaroon.Macaroon {
 }()
 
 var sampleRedirectError = func() *common.RedirectError {
-	hps, _ := network.ParseHostPorts("1.1.1.1:12345", "2.2.2.2:7337")
+	hps, _ := network.ParseProviderHostPorts("1.1.1.1:12345", "2.2.2.2:7337")
 	return &common.RedirectError{
-		Servers: [][]network.HostPort{hps},
+		Servers: []network.ProviderHostPorts{hps},
 		CACert:  testing.ServerCert,
 	}
 }()

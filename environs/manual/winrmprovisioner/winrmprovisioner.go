@@ -321,7 +321,7 @@ func gatherMachineParams(hostname string, cli manual.WinrmClientAPI) (*params.Ad
 		return nil, manual.ErrProvisioned
 	}
 
-	hc, series, err := DetectSeriesAndHardwareCharacteristics(hostname, cli)
+	hc, ser, err := DetectSeriesAndHardwareCharacteristics(hostname, cli)
 	if err != nil {
 		err = fmt.Errorf("error detecting windows characteristics: %v", err)
 		return nil, err
@@ -335,11 +335,11 @@ func gatherMachineParams(hostname string, cli manual.WinrmClientAPI) (*params.Ad
 	instanceId := instance.Id(manual.ManualInstancePrefix + hostname)
 	nonce := fmt.Sprintf("%s:%s", instanceId, uuid)
 	machineParams := &params.AddMachineParams{
-		Series:                  series,
+		Series:                  ser,
 		HardwareCharacteristics: hc,
 		InstanceId:              instanceId,
 		Nonce:                   nonce,
-		Addrs:                   params.FromNetworkAddresses(addr),
+		Addrs:                   params.FromProviderAddresses(addr),
 		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 	}
 	return machineParams, nil

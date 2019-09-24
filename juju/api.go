@@ -80,7 +80,7 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 		// apiConfigConnect is still using it concurrently.
 		apiInfo = &api.Info{
 			ModelTag: apiInfo.ModelTag,
-			Addrs:    network.HostPortsToStrings(usableHostPorts(redirErr.Servers)),
+			Addrs:    usableHostPorts(redirErr.Servers).Strings(),
 			CACert:   redirErr.CACert,
 		}
 		st, err = args.OpenAPI(apiInfo, args.DialOpts)
@@ -96,6 +96,7 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 			st.Close()
 		}
 	}()
+
 	// Update API addresses if they've changed. Error is non-fatal.
 	// Note that in the redirection case, we won't update the addresses
 	// of the controller we first connected to. This shouldn't be
@@ -195,13 +196,11 @@ func connectionInfo(args NewAPIConnectionParams) (*api.Info, *jujuclient.Control
 	return apiInfo, controller, nil
 }
 
-// usableHostPorts returns hps with unusable and non-unique
-// host-ports filtered out.
-func usableHostPorts(hps [][]network.HostPort) []network.HostPort {
-	collapsed := network.CollapseHostPorts(hps)
-	usable := network.FilterUnusableHostPorts(collapsed)
-	unique := network.UniqueHostPorts(usable)
-	return unique
+// usableHostPorts returns the input MachineHostPort slice as DialAddresses
+// with unusable and non-unique values filtered out.
+func usableHostPorts(hps []network.MachineHostPorts) network.HostPorts {
+	collapsed := network.CollapseToHostPorts(hps)
+	return collapsed.FilterUnusable().Unique()
 }
 
 // addrsChanged reports whether the two slices
@@ -225,7 +224,7 @@ type UpdateControllerParams struct {
 	AgentVersion string
 
 	// CurrentHostPorts are the available api addresses.
-	CurrentHostPorts [][]network.HostPort
+	CurrentHostPorts []network.MachineHostPorts
 
 	// AddrConnectedTo (when set) is an API address that has been recently
 	// connected to.
@@ -267,7 +266,7 @@ func updateControllerDetailsFromLogin(
 	controllerName string, details *jujuclient.ControllerDetails,
 	params UpdateControllerParams,
 ) error {
-	hostPorts := network.HostPortsToStrings(usableHostPorts(params.CurrentHostPorts))
+	hostPorts := usableHostPorts(params.CurrentHostPorts).Strings()
 	// Move the connected-to host (if present) to the front of the address list.
 	host, _, err := net.SplitHostPort(params.AddrConnectedTo)
 	if err == nil {

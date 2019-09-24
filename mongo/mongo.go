@@ -250,7 +250,7 @@ var (
 // WithAddresses represents an entity that has a set of
 // addresses. e.g. a state Machine object
 type WithAddresses interface {
-	Addresses() []network.Address
+	Addresses() network.SpaceAddresses
 }
 
 // IsMaster returns a boolean that represents whether the given
@@ -284,16 +284,12 @@ func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 }
 
 // SelectPeerAddress returns the address to use as the mongo replica set peer
-// address by selecting it from the given addresses. If no addresses are
-// available an empty string is returned.
-func SelectPeerAddress(addrs []network.Address) string {
-	// ScopeMachineLocal addresses are never suitable for mongo peers,
-	// as each controller runs on a separate machine.
-	const allowMachineLocal = false
-
+// address by selecting it from the given addresses.
+// If no addresses are available an empty string is returned.
+func SelectPeerAddress(addrs network.ProviderAddresses) string {
 	// The second bool result is ignored intentionally (we return an empty
 	// string if no suitable address is available.)
-	addr, _ := network.SelectControllerAddress(addrs, allowMachineLocal)
+	addr, _ := addrs.OneMatchingScope(network.ScopeMatchCloudLocal)
 	return addr.Value
 }
 

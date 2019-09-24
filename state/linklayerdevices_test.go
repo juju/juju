@@ -769,10 +769,10 @@ func (s *linkLayerDevicesStateSuite) TestGetNetworkInfoForSpaces(c *gc.C) {
 	s.createNICAndBridgeWithIP(c, s.machine, "eth0", "br-eth0", "10.0.0.20/24")
 	s.createNICWithIP(c, s.machine, "eth1", "10.10.0.20/24")
 	s.createNICWithIP(c, s.machine, "eth2", "10.20.0.20/24")
-	s.machine.SetMachineAddresses(corenetwork.NewScopedAddress("10.0.0.20", corenetwork.ScopePublic),
-		corenetwork.NewScopedAddress("10.10.0.20", corenetwork.ScopePublic),
-		corenetwork.NewScopedAddress("10.10.0.30", corenetwork.ScopePublic),
-		corenetwork.NewScopedAddress("10.20.0.20", corenetwork.ScopeCloudLocal))
+	s.machine.SetMachineAddresses(corenetwork.NewScopedSpaceAddress("10.0.0.20", corenetwork.ScopePublic),
+		corenetwork.NewScopedSpaceAddress("10.10.0.20", corenetwork.ScopePublic),
+		corenetwork.NewScopedSpaceAddress("10.10.0.30", corenetwork.ScopePublic),
+		corenetwork.NewScopedSpaceAddress("10.20.0.20", corenetwork.ScopeCloudLocal))
 
 	res := s.machine.GetNetworkInfoForSpaces(set.NewStrings("default", "dmz", "doesnotexists", ""))
 	c.Check(res, gc.HasLen, 4)

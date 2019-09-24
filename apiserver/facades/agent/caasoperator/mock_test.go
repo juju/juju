@@ -57,7 +57,7 @@ func newMockState() *mockState {
 	return st
 }
 
-func (st *mockState) APIHostPortsForAgents() ([][]network.HostPort, error) {
+func (st *mockState) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
 	st.MethodCall(st, "APIHostPortsForAgents")
 	return nil, nil
 }

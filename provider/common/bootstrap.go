@@ -515,7 +515,7 @@ type InstanceRefresher interface {
 	// Addresses returns the addresses for the instance.
 	// To ensure that the results are up to date, call
 	// Refresh first.
-	Addresses(ctx context.ProviderCallContext) ([]network.Address, error)
+	Addresses(ctx context.ProviderCallContext) (network.ProviderAddresses, error)
 
 	// Status returns the provider-specific status for the
 	// instance.
@@ -538,7 +538,7 @@ func (i *RefreshableInstance) Refresh(ctx context.ProviderCallContext) error {
 }
 
 type hostChecker struct {
-	addr           network.Address
+	addr           network.ProviderAddress
 	client         ssh.Client
 	hostSSHOptions HostSSHOptionsFunc
 	wg             *sync.WaitGroup
@@ -610,7 +610,7 @@ type parallelHostChecker struct {
 	// being tested. The goroutine testing the address will continue
 	// to attempt connecting to the address until it succeeds, the Try
 	// is killed, or the corresponding channel in this map is closed.
-	active map[network.Address]chan struct{}
+	active map[network.ProviderAddress]chan struct{}
 
 	// checkDelay is how long each hostChecker waits between attempts.
 	checkDelay time.Duration
@@ -620,7 +620,7 @@ type parallelHostChecker struct {
 	checkHostScript string
 }
 
-func (p *parallelHostChecker) UpdateAddresses(addrs []network.Address) {
+func (p *parallelHostChecker) UpdateAddresses(addrs []network.ProviderAddress) {
 	for _, addr := range addrs {
 		if _, ok := p.active[addr]; ok {
 			continue
@@ -697,7 +697,7 @@ func WaitSSH(
 		Try:             parallel.NewTry(0, nil),
 		client:          client,
 		stderr:          stdErr,
-		active:          make(map[network.Address]chan struct{}),
+		active:          make(map[network.ProviderAddress]chan struct{}),
 		checkDelay:      opts.RetryDelay,
 		checkHostScript: checkHostScript,
 		hostSSHOptions:  hostSSHOptions,

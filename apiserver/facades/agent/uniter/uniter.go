@@ -430,7 +430,7 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringResults, e
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				var address corenetwork.Address
+				var address corenetwork.SpaceAddress
 				address, err = unit.PublicAddress()
 				if err == nil {
 					result.Results[i].Result = address.Value
@@ -464,7 +464,7 @@ func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringResults, 
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				var address corenetwork.Address
+				var address corenetwork.SpaceAddress
 				address, err = unit.PrivateAddress()
 				if err == nil {
 					result.Results[i].Result = address.Value

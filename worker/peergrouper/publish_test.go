@@ -19,10 +19,10 @@ var _ = gc.Suite(&publishSuite{})
 
 type mockAPIHostPortsSetter struct {
 	calls        int
-	apiHostPorts [][]network.HostPort
+	apiHostPorts []network.SpaceHostPorts
 }
 
-func (s *mockAPIHostPortsSetter) SetAPIHostPorts(apiHostPorts [][]network.HostPort) error {
+func (s *mockAPIHostPortsSetter) SetAPIHostPorts(apiHostPorts []network.SpaceHostPorts) error {
 	s.calls++
 	s.apiHostPorts = apiHostPorts
 	return nil
@@ -32,11 +32,11 @@ func (s *publishSuite) TestPublisherSetsAPIHostPortsOnce(c *gc.C) {
 	var mock mockAPIHostPortsSetter
 	statePublish := &CachingAPIHostPortsSetter{APIHostPortsSetter: &mock}
 
-	hostPorts1 := network.NewHostPorts(1234, "testing1.invalid", "127.0.0.1")
-	hostPorts2 := network.NewHostPorts(1234, "testing2.invalid", "127.0.0.2")
+	hostPorts1 := network.NewSpaceHostPorts(1234, "testing1.invalid", "127.0.0.1")
+	hostPorts2 := network.NewSpaceHostPorts(1234, "testing2.invalid", "127.0.0.2")
 
 	// statePublish.SetAPIHostPorts should not update state a second time.
-	apiServers := [][]network.HostPort{hostPorts1}
+	apiServers := []network.SpaceHostPorts{hostPorts1}
 	for i := 0; i < 2; i++ {
 		err := statePublish.SetAPIHostPorts(apiServers)
 		c.Assert(err, jc.ErrorIsNil)
@@ -55,18 +55,18 @@ func (s *publishSuite) TestPublisherSetsAPIHostPortsOnce(c *gc.C) {
 }
 
 func (s *publishSuite) TestPublisherSortsHostPorts(c *gc.C) {
-	ipV4First := network.NewHostPorts(1234, "testing1.invalid", "127.0.0.1", "::1")
-	ipV6First := network.NewHostPorts(1234, "testing1.invalid", "::1", "127.0.0.1")
+	ipV4First := network.NewSpaceHostPorts(1234, "testing1.invalid", "127.0.0.1", "::1")
+	ipV6First := network.NewSpaceHostPorts(1234, "testing1.invalid", "::1", "127.0.0.1")
 
-	check := func(publish, expect []network.HostPort) {
+	check := func(publish, expect []network.SpaceHostPort) {
 		var mock mockAPIHostPortsSetter
 		statePublish := &CachingAPIHostPortsSetter{APIHostPortsSetter: &mock}
 		for i := 0; i < 2; i++ {
-			err := statePublish.SetAPIHostPorts([][]network.HostPort{publish})
+			err := statePublish.SetAPIHostPorts([]network.SpaceHostPorts{publish})
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		c.Assert(mock.calls, gc.Equals, 1)
-		c.Assert(mock.apiHostPorts, gc.DeepEquals, [][]network.HostPort{expect})
+		c.Assert(mock.apiHostPorts, gc.DeepEquals, []network.SpaceHostPorts{expect})
 	}
 
 	check(ipV6First, ipV4First)

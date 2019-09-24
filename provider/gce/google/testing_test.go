@@ -23,7 +23,7 @@ type BaseSuite struct {
 	AttachedDisk     compute.AttachedDisk
 	NetworkSpec      NetworkSpec
 	NetworkInterface compute.NetworkInterface
-	Addresses        []network.Address
+	Addresses        network.ProviderAddresses
 	RawMetadata      compute.Metadata
 	Metadata         map[string]string
 	RawInstance      compute.Instance
@@ -92,11 +92,9 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 			Type: NetworkAccessOneToOneNAT,
 		}},
 	}
-	s.Addresses = []network.Address{{
-		Value: "10.0.0.1",
-		Type:  network.IPv4Address,
-		Scope: network.ScopeCloudLocal,
-	}}
+	s.Addresses = []network.ProviderAddress{
+		network.NewScopedProviderAddress("10.0.0.1", network.ScopeCloudLocal),
+	}
 	s.RawMetadata = compute.Metadata{
 		Items: []*compute.MetadataItems{{
 			Key:   "eggs",

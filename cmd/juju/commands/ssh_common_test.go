@@ -150,15 +150,15 @@ type fakeHostChecker struct {
 
 var _ jujussh.ReachableChecker = (*fakeHostChecker)(nil)
 
-func (f *fakeHostChecker) FindHost(hostPorts []network.HostPort, publicKeys []string) (network.HostPort, error) {
+func (f *fakeHostChecker) FindHost(hostPorts network.HostPorts, publicKeys []string) (network.HostPort, error) {
 	// TODO(jam): The real reachable checker won't give deterministic ordering
 	// for hostPorts, maybe we should do a random return value?
 	for _, hostPort := range hostPorts {
-		if f.acceptedAddresses.Contains(hostPort.Address.Value) {
+		if f.acceptedAddresses.Contains(hostPort.Host()) {
 			return hostPort, nil
 		}
 	}
-	return network.HostPort{}, errors.Errorf("cannot connect to any address: %v", hostPorts)
+	return network.SpaceHostPort{}, errors.Errorf("cannot connect to any address: %v", hostPorts)
 }
 
 func validAddresses(acceptedAddresses ...string) *fakeHostChecker {
@@ -231,11 +231,11 @@ func (s *SSHCommonSuite) getMachineForUnit(c *gc.C, u *state.Unit) *state.Machin
 }
 
 func (s *SSHCommonSuite) setAddresses(c *gc.C, m *state.Machine) {
-	addrPub := network.NewScopedAddress(
+	addrPub := network.NewScopedSpaceAddress(
 		fmt.Sprintf("%s.public", m.Id()),
 		network.ScopePublic,
 	)
-	addrPriv := network.NewScopedAddress(
+	addrPriv := network.NewScopedSpaceAddress(
 		fmt.Sprintf("%s.private", m.Id()),
 		network.ScopeCloudLocal,
 	)
@@ -268,8 +268,8 @@ func (s *SSHCommonSuite) setLinkLayerDevicesAddresses(c *gc.C, m *state.Machine)
 }
 
 func (s *SSHCommonSuite) setAddresses6(c *gc.C, m *state.Machine) {
-	addrPub := network.NewScopedAddress("2001:db8::1", network.ScopePublic)
-	addrPriv := network.NewScopedAddress("fc00:bbb::1", network.ScopeCloudLocal)
+	addrPub := network.NewScopedSpaceAddress("2001:db8::1", network.ScopePublic)
+	addrPriv := network.NewScopedSpaceAddress("fc00:bbb::1", network.ScopeCloudLocal)
 	err := m.SetProviderAddresses(addrPub, addrPriv)
 	c.Assert(err, jc.ErrorIsNil)
 }

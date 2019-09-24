@@ -92,7 +92,7 @@ type MachineParams struct {
 	InstanceId      instance.Id
 	DisplayName     string
 	Characteristics *instance.HardwareCharacteristics
-	Addresses       []network.Address
+	Addresses       network.SpaceAddresses
 	Volumes         []state.HostVolumeParams
 	Filesystems     []state.HostFilesystemParams
 }

@@ -311,7 +311,7 @@ func (st *fakeState) setHASpace(spaceName string) {
 		if st.spaces == nil {
 			st.spaces = make(map[string]*fakeSpace)
 		}
-		st.spaces[spaceName] = &fakeSpace{network.SpaceInfo{Name: network.SpaceName(spaceName)}}
+		st.spaces[spaceName] = &fakeSpace{network.SpaceInfo{ID: spaceName, Name: network.SpaceName(spaceName)}}
 	}
 
 	cfg := st.controllerConfig.Get().(controller.Config)
@@ -347,7 +347,7 @@ type controllerDoc struct {
 	wantsVote  bool
 	hasVote    bool
 	instanceId instance.Id
-	addresses  []network.Address
+	addresses  []network.SpaceAddress
 	statusInfo status.StatusInfo
 	life       state.Life
 }
@@ -402,7 +402,7 @@ func (m *fakeController) HasVote() bool {
 	return m.doc().hasVote
 }
 
-func (m *fakeController) Addresses() []network.Address {
+func (m *fakeController) Addresses() network.SpaceAddresses {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.doc().addresses
@@ -432,7 +432,7 @@ func (m *fakeController) mutate(f func(*controllerDoc)) {
 	m.mu.Unlock()
 }
 
-func (m *fakeController) setAddresses(addrs ...network.Address) {
+func (m *fakeController) setAddresses(addrs ...network.SpaceAddress) {
 	m.mutate(func(doc *controllerDoc) {
 		doc.addresses = addrs
 	})

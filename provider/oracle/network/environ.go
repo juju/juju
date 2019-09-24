@@ -200,7 +200,7 @@ func (e Environ) NetworkInterfaces(ctx context.ProviderCallContext, instId insta
 		if err != nil {
 			return nil, err
 		}
-		addr := corenetwork.NewScopedAddress(ip, corenetwork.ScopeCloudLocal)
+		addr := corenetwork.NewScopedProviderAddress(ip, corenetwork.ScopeCloudLocal)
 		nic := network.InterfaceInfo{
 			InterfaceName: name,
 			DeviceIndex:   deviceIndex,
@@ -367,7 +367,7 @@ func (Environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space2
 }
 
 // SSHAddresses is defined on the environs.SSHAddresses interface.
-func (*Environ) SSHAddresses(ctx context.ProviderCallContext, addresses []corenetwork.Address) ([]corenetwork.Address, error) {
+func (*Environ) SSHAddresses(ctx context.ProviderCallContext, addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddresses, error) {
 	return addresses, nil
 }
 

@@ -67,19 +67,27 @@ func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
 	c.Check(hostportslist, gc.HasLen, 1)
 	serverhostports := hostportslist[0]
 	c.Check(serverhostports, gc.HasLen, 1)
-	// the other addresses, but always see this one as well.
+
 	info := s.APIInfo(c)
+
 	// We intentionally set this to invalid values
-	badServer := network.NewHostPorts(1234, "0.1.2.3")
-	badServer[0].Scope = network.ScopeMachineLocal
-	s.State.SetAPIHostPorts([][]network.HostPort{badServer})
+	badServers := network.NewSpaceHostPorts(1234, "0.1.2.3")
+	badServers[0].Scope = network.ScopeMachineLocal
+	err := s.State.SetAPIHostPorts([]network.SpaceHostPorts{badServers})
+	c.Assert(err, jc.ErrorIsNil)
+
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	defer apistate.Close()
+	defer func() { _ = apistate.Close() }()
+
+	hp, err := network.ParseMachineHostPort(badServers[0].String())
+	c.Assert(err, jc.ErrorIsNil)
+	hp.Scope = badServers[0].Scope
+
 	hostports := apistate.APIHostPorts()
-	c.Check(hostports, gc.DeepEquals, [][]network.HostPort{
+	c.Check(hostports, gc.DeepEquals, []network.MachineHostPorts{
 		serverhostports,
-		badServer,
+		{*hp},
 	})
 }
 
@@ -180,8 +188,8 @@ func (s *stateSuite) TestLoginToMigratedModel(c *gc.C) {
 	redirErr, ok := errors.Cause(err).(*api.RedirectError)
 	c.Assert(ok, gc.Equals, true)
 
-	nhp := network.NewHostPorts(5555, "1.2.3.4")
-	c.Assert(redirErr.Servers, jc.DeepEquals, [][]network.HostPort{nhp})
+	nhp := network.NewMachineHostPorts(5555, "1.2.3.4")
+	c.Assert(redirErr.Servers, jc.DeepEquals, []network.MachineHostPorts{nhp})
 	c.Assert(redirErr.CACert, gc.Equals, coretesting.CACert)
 	c.Assert(redirErr.FollowRedirect, gc.Equals, false)
 }
@@ -228,78 +236,83 @@ func (s *stateSuite) TestBestFacadeVersion(c *gc.C) {
 }
 
 func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
-	hostportslist := s.APIState.APIHostPorts()
-	c.Check(hostportslist, gc.HasLen, 1)
-	serverhostports := hostportslist[0]
-	c.Check(serverhostports, gc.HasLen, 1)
-	goodAddress := serverhostports[0]
-	// the other addresses, but always see this one as well.
+	hostPortsList := s.APIState.APIHostPorts()
+	c.Check(hostPortsList, gc.HasLen, 1)
+	serverHostPorts := hostPortsList[0]
+	c.Check(serverHostPorts, gc.HasLen, 1)
+	goodAddress := serverHostPorts[0]
+
 	info := s.APIInfo(c)
+
 	// We intentionally set this to invalid values
-	badValue := network.HostPort{
-		Address: network.Address{
-			Value: "0.1.2.3",
-			Type:  network.IPv4Address,
-			Scope: network.ScopeMachineLocal,
+	badValue := network.MachineHostPort{
+		MachineAddress: network.NewScopedMachineAddress("0.1.2.3", network.ScopeMachineLocal),
+		NetPort:        1234,
+	}
+	badServer := []network.MachineHostPort{badValue}
+
+	extraAddress := network.MachineHostPort{
+		MachineAddress: network.NewScopedMachineAddress("0.1.2.4", network.ScopeMachineLocal),
+		NetPort:        5678,
+	}
+	extraAddress2 := network.MachineHostPort{
+		MachineAddress: network.NewScopedMachineAddress("0.1.2.1", network.ScopeMachineLocal),
+		NetPort:        9012,
+	}
+
+	current := []network.SpaceHostPorts{
+		{
+			network.SpaceHostPort{
+				SpaceAddress: network.SpaceAddress{MachineAddress: badValue.MachineAddress},
+				NetPort:      badValue.NetPort,
+			},
 		},
-		Port: 1234,
-	}
-	badServer := []network.HostPort{badValue}
-	extraAddress := network.HostPort{
-		Address: network.Address{
-			Value: "0.1.2.4",
-			Type:  network.IPv4Address,
-			Scope: network.ScopeMachineLocal,
+		{
+			network.SpaceHostPort{
+				SpaceAddress: network.SpaceAddress{MachineAddress: extraAddress.MachineAddress},
+				NetPort:      extraAddress.NetPort,
+			},
+			network.SpaceHostPort{
+				SpaceAddress: network.SpaceAddress{MachineAddress: goodAddress.MachineAddress},
+				NetPort:      goodAddress.NetPort,
+			},
+			network.SpaceHostPort{
+				SpaceAddress: network.SpaceAddress{MachineAddress: extraAddress2.MachineAddress},
+				NetPort:      extraAddress2.NetPort,
+			},
 		},
-		Port: 5678,
 	}
-	extraAddress2 := network.HostPort{
-		Address: network.Address{
-			Value: "0.1.2.1",
-			Type:  network.IPv4Address,
-			Scope: network.ScopeMachineLocal,
-		},
-		Port: 9012,
-	}
-	serverExtra := []network.HostPort{
-		extraAddress, goodAddress, extraAddress2,
-	}
-	current := [][]network.HostPort{badServer, serverExtra}
-	s.State.SetAPIHostPorts(current)
-	apistate, err := api.Open(info, api.DialOpts{})
+	err := s.State.SetAPIHostPorts(current)
 	c.Assert(err, jc.ErrorIsNil)
-	defer apistate.Close()
-	hostports := apistate.APIHostPorts()
+
+	apiState, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() { _ = apiState.Close() }()
+
+	hostPorts := apiState.APIHostPorts()
 	// We should have rotate the server we connected to as the first item,
 	// and the address of that server as the first address
-	sortedServer := []network.HostPort{
+	sortedServer := []network.MachineHostPort{
 		goodAddress, extraAddress, extraAddress2,
 	}
-	expected := [][]network.HostPort{sortedServer, badServer}
-	c.Check(hostports, gc.DeepEquals, expected)
+	expected := []network.MachineHostPorts{sortedServer, badServer}
+	c.Check(hostPorts, gc.DeepEquals, expected)
 }
 
-var exampleHostPorts = []network.HostPort{{
-	Address: network.NewAddress("0.1.2.3"),
-	Port:    1234,
-}, {
-	Address: network.NewAddress("0.1.2.4"),
-	Port:    5678,
-}, {
-	Address: network.NewAddress("0.1.2.1"),
-	Port:    9012,
-}, {
-	Address: network.NewAddress("0.1.9.1"),
-	Port:    8888,
-}}
+var exampleHostPorts = []network.MachineHostPort{
+	{MachineAddress: network.NewMachineAddress("0.1.2.3"), NetPort: 1234},
+	{MachineAddress: network.NewMachineAddress("0.1.2.4"), NetPort: 5678},
+	{MachineAddress: network.NewMachineAddress("0.1.2.1"), NetPort: 9012},
+	{MachineAddress: network.NewMachineAddress("0.1.9.1"), NetPort: 8888},
+}
 
 func (s *slideSuite) TestSlideToFrontNoOp(c *gc.C) {
-	servers := [][]network.HostPort{
+	servers := []network.MachineHostPorts{
 		{exampleHostPorts[0]},
 		{exampleHostPorts[1]},
 	}
 	// order should not have changed
-	expected := [][]network.HostPort{
+	expected := []network.MachineHostPorts{
 		{exampleHostPorts[0]},
 		{exampleHostPorts[1]},
 	}
@@ -308,12 +321,12 @@ func (s *slideSuite) TestSlideToFrontNoOp(c *gc.C) {
 }
 
 func (s *slideSuite) TestSlideToFrontAddress(c *gc.C) {
-	servers := [][]network.HostPort{
+	servers := []network.MachineHostPorts{
 		{exampleHostPorts[0], exampleHostPorts[1], exampleHostPorts[2]},
 		{exampleHostPorts[3]},
 	}
 	// server order should not change, but ports should be switched
-	expected := [][]network.HostPort{
+	expected := []network.MachineHostPorts{
 		{exampleHostPorts[1], exampleHostPorts[0], exampleHostPorts[2]},
 		{exampleHostPorts[3]},
 	}
@@ -322,13 +335,13 @@ func (s *slideSuite) TestSlideToFrontAddress(c *gc.C) {
 }
 
 func (s *slideSuite) TestSlideToFrontServer(c *gc.C) {
-	servers := [][]network.HostPort{
+	servers := []network.MachineHostPorts{
 		{exampleHostPorts[0], exampleHostPorts[1]},
 		{exampleHostPorts[2]},
 		{exampleHostPorts[3]},
 	}
 	// server 1 should be slid to the front
-	expected := [][]network.HostPort{
+	expected := []network.MachineHostPorts{
 		{exampleHostPorts[2]},
 		{exampleHostPorts[0], exampleHostPorts[1]},
 		{exampleHostPorts[3]},
@@ -338,13 +351,13 @@ func (s *slideSuite) TestSlideToFrontServer(c *gc.C) {
 }
 
 func (s *slideSuite) TestSlideToFrontBoth(c *gc.C) {
-	servers := [][]network.HostPort{
+	servers := []network.MachineHostPorts{
 		{exampleHostPorts[0]},
 		{exampleHostPorts[1], exampleHostPorts[2]},
 		{exampleHostPorts[3]},
 	}
 	// server 1 should be slid to the front
-	expected := [][]network.HostPort{
+	expected := []network.MachineHostPorts{
 		{exampleHostPorts[2], exampleHostPorts[1]},
 		{exampleHostPorts[0]},
 		{exampleHostPorts[3]},

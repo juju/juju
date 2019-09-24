@@ -410,8 +410,7 @@ func (s *InstancePollerSuite) TestStatusFailure(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestProviderAddressesSuccess(c *gc.C) {
-	addrs := network.NewAddresses("0.1.2.3", "127.0.0.1", "8.8.8.8")
-	expectedAddresses := params.FromNetworkAddresses(addrs...)
+	addrs := network.NewSpaceAddresses("0.1.2.3", "127.0.0.1", "8.8.8.8")
 	s.st.SetMachineInfo(c, machineInfo{id: "1", providerAddresses: addrs})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", providerAddresses: nil})
 
@@ -419,7 +418,7 @@ func (s *InstancePollerSuite) TestProviderAddressesSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.MachineAddressesResults{
 		Results: []params.MachineAddressesResult{
-			{Addresses: expectedAddresses},
+			{Addresses: toParamAddresses(addrs)},
 			{Addresses: nil},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ServerError(`"application-unknown" is not a valid machine tag`)},
@@ -432,9 +431,10 @@ func (s *InstancePollerSuite) TestProviderAddressesSuccess(c *gc.C) {
 
 	s.st.CheckFindEntityCall(c, 0, "1")
 	s.st.CheckCall(c, 1, "ProviderAddresses")
-	s.st.CheckFindEntityCall(c, 2, "2")
-	s.st.CheckCall(c, 3, "ProviderAddresses")
-	s.st.CheckFindEntityCall(c, 4, "42")
+	s.st.CheckCall(c, 2, "SpaceInfosByName")
+	s.st.CheckFindEntityCall(c, 3, "2")
+	s.st.CheckCall(c, 4, "ProviderAddresses")
+	s.st.CheckFindEntityCall(c, 5, "42")
 }
 
 func (s *InstancePollerSuite) TestProviderAddressesFailure(c *gc.C) {
@@ -464,15 +464,15 @@ func (s *InstancePollerSuite) TestProviderAddressesFailure(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestSetProviderAddressesSuccess(c *gc.C) {
-	oldAddrs := network.NewAddresses("0.1.2.3", "127.0.0.1", "8.8.8.8")
-	newAddrs := network.NewAddresses("1.2.3.4", "8.4.4.8", "2001:db8::")
+	oldAddrs := network.NewSpaceAddresses("0.1.2.3", "127.0.0.1", "8.8.8.8")
+	newAddrs := network.NewSpaceAddresses("1.2.3.4", "8.4.4.8", "2001:db8::")
 	s.st.SetMachineInfo(c, machineInfo{id: "1", providerAddresses: oldAddrs})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", providerAddresses: nil})
 
 	result, err := s.api.SetProviderAddresses(params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{
 			{Tag: "machine-1", Addresses: nil},
-			{Tag: "machine-2", Addresses: params.FromNetworkAddresses(newAddrs...)},
+			{Tag: "machine-2", Addresses: toParamAddresses(newAddrs)},
 			{Tag: "machine-42"},
 			{Tag: "application-unknown"},
 			{Tag: "invalid-tag"},
@@ -485,10 +485,11 @@ func (s *InstancePollerSuite) TestSetProviderAddressesSuccess(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, s.mixedErrorResults)
 
 	s.st.CheckFindEntityCall(c, 0, "1")
-	s.st.CheckSetProviderAddressesCall(c, 1, []network.Address{})
+	s.st.CheckSetProviderAddressesCall(c, 1, []network.SpaceAddress{})
 	s.st.CheckFindEntityCall(c, 2, "2")
-	s.st.CheckSetProviderAddressesCall(c, 3, newAddrs)
-	s.st.CheckFindEntityCall(c, 4, "42")
+	s.st.CheckCall(c, 3, "SpaceIDsByName")
+	s.st.CheckSetProviderAddressesCall(c, 4, newAddrs)
+	s.st.CheckFindEntityCall(c, 5, "42")
 
 	// Ensure machines were updated.
 	machine, err := s.st.Machine("1")
@@ -507,30 +508,43 @@ func (s *InstancePollerSuite) TestSetProviderAddressesFailure(c *gc.C) {
 		errors.New("FAIL"),                   // m2.SetProviderAddresses()
 		errors.NotProvisionedf("machine 42"), // FindEntity("3") (ensure wrapping is preserved)
 	)
-	oldAddrs := network.NewAddresses("0.1.2.3", "127.0.0.1", "8.8.8.8")
-	newAddrs := network.NewAddresses("1.2.3.4", "8.4.4.8", "2001:db8::")
+	oldAddrs := network.NewSpaceAddresses("0.1.2.3", "127.0.0.1", "8.8.8.8")
+	newAddrs := network.NewSpaceAddresses("1.2.3.4", "8.4.4.8", "2001:db8::")
 	s.st.SetMachineInfo(c, machineInfo{id: "1", providerAddresses: oldAddrs})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", providerAddresses: nil})
 
 	result, err := s.api.SetProviderAddresses(params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{
 			{Tag: "machine-1"},
-			{Tag: "machine-2", Addresses: params.FromNetworkAddresses(newAddrs...)},
+			{Tag: "machine-2", Addresses: toParamAddresses(newAddrs)},
 			{Tag: "machine-3"},
 		}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, s.machineErrorResults)
+	c.Check(result, jc.DeepEquals, s.machineErrorResults)
 
 	s.st.CheckFindEntityCall(c, 0, "1")
 	s.st.CheckFindEntityCall(c, 1, "2")
-	s.st.CheckSetProviderAddressesCall(c, 2, newAddrs)
-	s.st.CheckFindEntityCall(c, 3, "3")
+	s.st.CheckCall(c, 2, "SpaceIDsByName")
+	s.st.CheckSetProviderAddressesCall(c, 3, newAddrs)
+	s.st.CheckFindEntityCall(c, 4, "3")
 
 	// Ensure machine 2 wasn't updated.
 	machine, err := s.st.Machine("2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.ProviderAddresses(), gc.HasLen, 0)
+}
+
+func toParamAddresses(addrs network.SpaceAddresses) []params.Address {
+	paramAddrs := make([]params.Address, len(addrs))
+	for i, addr := range addrs {
+		paramAddrs[i] = params.Address{
+			Value: addr.Value,
+			Type:  string(addr.Type),
+			Scope: string(addr.Scope),
+		}
+	}
+	return paramAddrs
 }
 
 func (s *InstancePollerSuite) TestInstanceStatusSuccess(c *gc.C) {

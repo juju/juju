@@ -36,7 +36,7 @@ func (info *ControllerInfo) Validate() error {
 		return errors.NotValidf("empty controller api addresses")
 	}
 	for _, addr := range info.Addrs {
-		_, err := network.ParseHostPort(addr)
+		_, err := network.ParseMachineHostPort(addr)
 		if err != nil {
 			return errors.NotValidf("controller api address %q", addr)
 		}

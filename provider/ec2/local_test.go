@@ -1356,17 +1356,16 @@ func (t *localServerSuite) TestAddresses(c *gc.C) {
 	inst, _ := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
 	addrs, err := inst.Addresses(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
+
 	// Expected values use Address type but really contain a regexp for
 	// the value rather than a valid ip or hostname.
-	expected := []corenetwork.Address{{
-		Value: "8.0.0.*",
-		Type:  corenetwork.IPv4Address,
-		Scope: corenetwork.ScopePublic,
-	}, {
-		Value: "127.0.0.*",
-		Type:  corenetwork.IPv4Address,
-		Scope: corenetwork.ScopeCloudLocal,
-	}}
+	expected := corenetwork.ProviderAddresses{
+		corenetwork.NewScopedProviderAddress("8.0.0.*", corenetwork.ScopePublic),
+		corenetwork.NewScopedProviderAddress("127.0.0.*", corenetwork.ScopeCloudLocal),
+	}
+	expected[0].Type = corenetwork.IPv4Address
+	expected[1].Type = corenetwork.IPv4Address
+
 	c.Assert(addrs, gc.HasLen, len(expected))
 	for i, addr := range addrs {
 		c.Check(addr.Value, gc.Matches, expected[i].Value)
@@ -1646,7 +1645,7 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
 		InterfaceType:     network.EthernetInterface,
-		Address:           corenetwork.NewScopedAddress(addr, corenetwork.ScopeCloudLocal),
+		Address:           corenetwork.NewScopedProviderAddress(addr, corenetwork.ScopeCloudLocal),
 		AvailabilityZones: zones,
 	}}
 	c.Assert(interfaces, jc.DeepEquals, expectedInterfaces)

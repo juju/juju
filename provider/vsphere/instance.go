@@ -50,14 +50,14 @@ func (inst *environInstance) Status(ctx context.ProviderCallContext) instance.St
 }
 
 // Addresses implements instances.Instance.
-func (inst *environInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
+func (inst *environInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	if inst.base.Guest == nil {
 		return nil, nil
 	}
-	res := make([]corenetwork.Address, 0, len(inst.base.Guest.Net))
+	res := make([]corenetwork.ProviderAddress, 0, len(inst.base.Guest.Net))
 	for _, net := range inst.base.Guest.Net {
 		for _, ip := range net.IpAddress {
-			res = append(res, corenetwork.NewAddress(ip))
+			res = append(res, corenetwork.NewProviderAddress(ip))
 		}
 	}
 	return res, nil
@@ -112,7 +112,9 @@ func (inst *environInstance) changeIngressRules(ctx context.ProviderCallContext,
 	return nil
 }
 
-func (inst *environInstance) getInstanceConfigurator(ctx context.ProviderCallContext) ([]corenetwork.Address, common.InstanceConfigurator, error) {
+func (inst *environInstance) getInstanceConfigurator(
+	ctx context.ProviderCallContext,
+) ([]corenetwork.ProviderAddress, common.InstanceConfigurator, error) {
 	addresses, err := inst.Addresses(ctx)
 	if err != nil {
 		return nil, nil, errors.Trace(err)

@@ -66,7 +66,7 @@ func UnderlyingConn(c Connection) jsoncodec.JSONConn {
 type TestingStateParams struct {
 	Address        string
 	ModelTag       string
-	APIHostPorts   [][]network.HostPort
+	APIHostPorts   []network.MachineHostPorts
 	FacadeVersions map[string][]int
 	ServerScheme   string
 	ServerRoot     string

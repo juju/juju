@@ -855,9 +855,9 @@ func (m *mockAPIConnection) PublicDNSName() string {
 	return ""
 }
 
-func (m *mockAPIConnection) APIHostPorts() [][]network.HostPort {
-	p, _ := network.ParseHostPorts(m.Addr())
-	return [][]network.HostPort{p}
+func (m *mockAPIConnection) APIHostPorts() []network.MachineHostPorts {
+	hp, _ := network.ParseMachineHostPort(m.Addr())
+	return []network.MachineHostPorts{{*hp}}
 }
 
 func (m *mockAPIConnection) BestFacadeVersion(name string) int {

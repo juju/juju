@@ -410,7 +410,7 @@ func (c *SSHCommon) reachableAddressGetter(entity string) (string, error) {
 		logger.Debugf("Only one SSH address provided (%s), using it without probing", addresses[0])
 		return addresses[0], nil
 	}
-	publicKeys := []string{}
+	var publicKeys []string
 	if !c.noHostKeyChecks {
 		publicKeys, err = c.apiClient.PublicKeys(entity)
 		if err != nil {
@@ -418,14 +418,13 @@ func (c *SSHCommon) reachableAddressGetter(entity string) (string, error) {
 		}
 	}
 
-	hostPorts := corenetwork.NewHostPorts(SSHPort, addresses...)
-	usableHPs := corenetwork.FilterUnusableHostPorts(hostPorts)
-	bestHP, err := c.hostChecker.FindHost(usableHPs, publicKeys)
+	usable := corenetwork.NewMachineHostPorts(SSHPort, addresses...).HostPorts().FilterUnusable()
+	best, err := c.hostChecker.FindHost(usable, publicKeys)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	return bestHP.Address.Value, nil
+	return best.Host(), nil
 }
 
 // AllowInterspersedFlags for ssh/scp is set to false so that

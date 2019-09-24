@@ -39,7 +39,7 @@ type MachineTemplate struct {
 	//
 	// TODO(dimitern): This should be removed once all addresses
 	// come from link-layer device addresses.
-	Addresses []network.Address
+	Addresses network.SpaceAddresses
 
 	// InstanceId holds the instance id to associate with the machine.
 	// If this is empty, the provisioner will try to provision the machine.
@@ -493,8 +493,8 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 	// no address is available, in which case the empty address is returned
 	// and setting the preferred address to an empty one is the correct
 	// thing to do when none is available.
-	privateAddr, _ := network.SelectInternalAddress(template.Addresses, false)
-	publicAddr, _ := network.SelectPublicAddress(template.Addresses)
+	privateAddr, _ := template.Addresses.OneMatchingScope(network.ScopeMatchCloudLocal)
+	publicAddr, _ := template.Addresses.OneMatchingScope(network.ScopeMatchPublic)
 	logger.Infof(
 		"new machine %q has preferred addresses: private %q, public %q",
 		id, privateAddr, publicAddr,

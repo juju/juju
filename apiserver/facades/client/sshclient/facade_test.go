@@ -210,8 +210,8 @@ func (backend *mockBackend) GetMachineForEntity(tagString string) (sshclient.SSH
 			tag:            names.NewMachineTag("0"),
 			publicAddress:  "1.1.1.1",
 			privateAddress: "2.2.2.2",
-			addresses:      network.NewAddresses("9.9.9.9"),
-			allNetworkAddresses: network.NewAddresses("0.1.2.3", "1.1.1.1", "2.2.2.2",
+			addresses:      network.NewSpaceAddresses("9.9.9.9"),
+			allNetworkAddresses: network.NewSpaceAddresses("0.1.2.3", "1.1.1.1", "2.2.2.2",
 				"100.100.100.100", // This one will be filtered by provider
 			),
 		}, nil
@@ -220,10 +220,10 @@ func (backend *mockBackend) GetMachineForEntity(tagString string) (sshclient.SSH
 			tag:            names.NewMachineTag("1"),
 			publicAddress:  "3.3.3.3",
 			privateAddress: "4.4.4.4",
-			addresses: network.NewAddresses("10.10.10.10",
+			addresses: network.NewSpaceAddresses("10.10.10.10",
 				"100.100.100.100", // This one will be filtered by provider
 			),
-			allNetworkAddresses: network.NewAddresses("0.3.2.1", "3.3.3.3", "4.4.4.4"),
+			allNetworkAddresses: network.NewSpaceAddresses("0.3.2.1", "3.3.3.3", "4.4.4.4"),
 		}, nil
 	}
 	return nil, errors.NotFoundf("entity")
@@ -250,30 +250,26 @@ type mockMachine struct {
 	publicAddress  string
 	privateAddress string
 
-	addresses           []network.Address
-	allNetworkAddresses []network.Address
+	addresses           network.SpaceAddresses
+	allNetworkAddresses network.SpaceAddresses
 }
 
 func (m *mockMachine) MachineTag() names.MachineTag {
 	return m.tag
 }
 
-func (m *mockMachine) PublicAddress() (network.Address, error) {
-	return network.Address{
-		Value: m.publicAddress,
-	}, nil
+func (m *mockMachine) PublicAddress() (network.SpaceAddress, error) {
+	return network.NewSpaceAddress(m.publicAddress), nil
 }
 
-func (m *mockMachine) PrivateAddress() (network.Address, error) {
-	return network.Address{
-		Value: m.privateAddress,
-	}, nil
+func (m *mockMachine) PrivateAddress() (network.SpaceAddress, error) {
+	return network.NewSpaceAddress(m.privateAddress), nil
 }
 
-func (m *mockMachine) AllNetworkAddresses() ([]network.Address, error) {
+func (m *mockMachine) AllNetworkAddresses() (network.SpaceAddresses, error) {
 	return m.allNetworkAddresses, nil
 }
 
-func (m *mockMachine) Addresses() []network.Address {
+func (m *mockMachine) Addresses() network.SpaceAddresses {
 	return m.addresses
 }

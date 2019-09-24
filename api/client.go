@@ -594,13 +594,13 @@ func (c *Client) httpPost(content io.ReadSeeker, endpoint, contentType string, r
 	return nil
 }
 
-// APIHostPorts returns a slice of network.HostPort for each API server.
-func (c *Client) APIHostPorts() ([][]network.HostPort, error) {
+// APIHostPorts returns a slice of network.MachineHostPort for each API server.
+func (c *Client) APIHostPorts() ([]network.MachineHostPorts, error) {
 	var result params.APIHostPortsResult
 	if err := c.facade.FacadeCall("APIHostPorts", nil, &result); err != nil {
 		return nil, err
 	}
-	return result.NetworkHostsPorts(), nil
+	return result.MachineHostsPorts(), nil
 }
 
 // AgentVersion reports the version number of the api server.

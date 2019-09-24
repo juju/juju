@@ -302,7 +302,7 @@ func (s *ipAddressesStateSuite) TestMachineAllAddressesSuccess(c *gc.C) {
 
 func (s *ipAddressesStateSuite) TestMachineAllNetworkAddresses(c *gc.C) {
 	addedAddresses := s.addTwoDevicesWithTwoAddressesEach(c)
-	expected := make([]corenetwork.Address, len(addedAddresses))
+	expected := make(corenetwork.SpaceAddresses, len(addedAddresses))
 	for i := range addedAddresses {
 		expected[i] = addedAddresses[i].NetworkAddress()
 	}

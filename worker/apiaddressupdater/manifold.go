@@ -46,7 +46,7 @@ var newWorker = func(a agent.Agent, apiCaller base.APICaller) (worker.Worker, er
 		return nil, errors.Errorf("expected a unit or machine tag; got %q", tag)
 	}
 
-	setter := agent.APIHostPortsSetter{a}
+	setter := agent.APIHostPortsSetter{Agent: a}
 	w, err := NewAPIAddressUpdater(facade, setter)
 	if err != nil {
 		return nil, errors.Trace(err)

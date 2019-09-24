@@ -518,8 +518,8 @@ func (s *UpgradeBaseSuite) Reset(c *gc.C) {
 	s.PatchValue(&sync.BuildAgentTarball, toolstesting.GetMockBuildTools(c))
 
 	// Set API host ports so FindTools works.
-	hostPorts := [][]network.HostPort{
-		network.NewHostPorts(1234, "0.1.2.3"),
+	hostPorts := []network.SpaceHostPorts{
+		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
 	err = s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)

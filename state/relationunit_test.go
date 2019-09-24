@@ -871,8 +871,8 @@ func (s *RelationUnitSuite) TestNetworksForRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetProviderAddresses(
-		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
+		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -946,11 +946,11 @@ func (s *RelationUnitSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	machine, err := s.State.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	addresses := []network.Address{
-		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedAddress("2.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedAddress("3.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
+	addresses := []network.SpaceAddress{
+		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("2.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("3.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
 	}
 	err = machine.SetProviderAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -975,8 +975,8 @@ func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetProviderAddresses(
-		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
+		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -998,7 +998,7 @@ func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c 
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetProviderAddresses(
-		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1056,7 +1056,7 @@ func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationDelayedPublicAd
 
 		// Now set up the public address.
 		funcErr = machine.SetProviderAddresses(
-			network.NewScopedAddress("4.3.2.1", network.ScopePublic),
+			network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
 		)
 		if funcErr != nil {
 			return
@@ -1098,8 +1098,8 @@ func (s *RelationUnitSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	c.Assert(egress, gc.HasLen, 0)
 
 	// Add a application address.
-	err = mysql.UpdateCloudService("", []network.Address{
-		{Value: "1.2.3.4", Scope: network.ScopeCloudLocal},
+	err = mysql.UpdateCloudService("", network.SpaceAddresses{
+		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = prr.pu0.Refresh()
@@ -1397,7 +1397,7 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		machine, err := s.State.Machine(mId)
 		c.Assert(err, jc.ErrorIsNil)
-		privateAddr := network.NewScopedAddress(
+		privateAddr := network.NewScopedSpaceAddress(
 			fmt.Sprintf("riak%d.example.com", i),
 			network.ScopeCloudLocal,
 		)

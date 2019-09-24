@@ -4,6 +4,8 @@
 package common
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
@@ -14,9 +16,11 @@ import (
 // AddressAndCertGetter can be used to find out controller addresses
 // and the CA public certificate.
 type AddressAndCertGetter interface {
+	network.SpaceLookup
+
 	Addresses() ([]string, error)
 	ModelUUID() string
-	APIHostPortsForAgents() ([][]network.HostPort, error)
+	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
 }
 
@@ -40,12 +44,23 @@ func NewAPIAddresser(getter AddressAndCertGetter, resources facade.Resources) *A
 
 // APIHostPorts returns the API server addresses.
 func (a *APIAddresser) APIHostPorts() (params.APIHostPortsResult, error) {
-	servers, err := a.getter.APIHostPortsForAgents()
+	sSvrs, err := a.getter.APIHostPortsForAgents()
 	if err != nil {
 		return params.APIHostPortsResult{}, err
 	}
+
+	// Convert the SpaceHostPorts to ProviderHostPorts by using state
+	// to look up space IDs.
+	pSvrs := make([]network.ProviderHostPorts, len(sSvrs))
+	for i, sHPs := range sSvrs {
+		var err error
+		if pSvrs[i], err = sHPs.ToProviderHostPorts(a.getter); err != nil {
+			return params.APIHostPortsResult{}, errors.Trace(err)
+		}
+	}
+
 	return params.APIHostPortsResult{
-		Servers: params.FromNetworkHostsPorts(servers),
+		Servers: params.FromProviderHostsPorts(pSvrs),
 	}, nil
 }
 
@@ -78,7 +93,7 @@ func apiAddresses(getter APIHostPortsForAgentsGetter) ([]string, error) {
 	}
 	var addrs = make([]string, 0, len(apiHostPorts))
 	for _, hostPorts := range apiHostPorts {
-		ordered := network.PrioritizeInternalHostPorts(hostPorts, false)
+		ordered := hostPorts.HostPorts().PrioritizedForScope(network.ScopeMatchCloudLocal)
 		for _, addr := range ordered {
 			if addr != "" {
 				addrs = append(addrs, addr)

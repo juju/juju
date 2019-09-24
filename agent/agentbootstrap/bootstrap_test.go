@@ -122,7 +122,7 @@ LXC_BRIDGE="ignored"`[1:])
 	expectBootstrapConstraints := constraints.MustParse("mem=1024M")
 	expectModelConstraints := constraints.MustParse("mem=512M")
 	expectHW := instance.MustParseHardware("mem=2048M")
-	initialAddrs := corenetwork.NewAddresses(
+	initialAddrs := corenetwork.NewProviderAddresses(
 		"zeroonetwothree",
 		"0.1.2.3",
 		"10.0.3.1", // lxc bridge address filtered.
@@ -132,7 +132,7 @@ LXC_BRIDGE="ignored"`[1:])
 		"10.0.4.4", // lxd bridge address filtered.
 		"10.0.4.5", // not an lxd bridge address
 	)
-	filteredAddrs := corenetwork.NewAddresses(
+	filteredAddrs := corenetwork.NewSpaceAddresses(
 		"zeroonetwothree",
 		"0.1.2.3",
 		"10.0.3.3",
@@ -293,8 +293,8 @@ LXC_BRIDGE="ignored"`[1:])
 	// Check that the API host ports are initialised correctly.
 	apiHostPorts, err := st.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiHostPorts, jc.DeepEquals, [][]corenetwork.HostPort{
-		corenetwork.AddressesWithPort(filteredAddrs, 1234),
+	c.Assert(apiHostPorts, jc.DeepEquals, []corenetwork.SpaceHostPorts{
+		corenetwork.SpaceAddressesWithPort(filteredAddrs, 1234),
 	})
 
 	// Check that the state serving info is initialised correctly.

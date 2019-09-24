@@ -86,11 +86,7 @@ func (s *InstanceSuite) TestInstanceAddresses(c *gc.C) {
 
 	addrs, err := instances[0].Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addrs, jc.DeepEquals, []corenetwork.Address{
-		corenetwork.NewAddress("10.1.1.1"),
-		corenetwork.NewAddress("10.1.1.2"),
-		corenetwork.NewAddress("10.1.1.3"),
-	})
+	c.Assert(addrs, jc.DeepEquals, corenetwork.NewProviderAddresses("10.1.1.1", "10.1.1.2", "10.1.1.3"))
 
 	addrs, err = instances[1].Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)

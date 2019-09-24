@@ -258,13 +258,23 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 	}
 	addresses := network.MergedAddresses(networkAddresses(m.MachineAddresses), networkAddresses(m.Addresses))
 	for _, addr := range addresses {
-		info.Addresses = append(info.Addresses, multiwatcher.Address{
-			Value:           addr.Value,
-			Type:            string(addr.Type),
-			Scope:           string(addr.Scope),
-			SpaceName:       string(addr.SpaceName),
-			SpaceProviderId: string(addr.SpaceProviderId),
-		})
+		mAddr := multiwatcher.Address{
+			Value: addr.Value,
+			Type:  string(addr.Type),
+			Scope: string(addr.Scope),
+		}
+
+		spaceID := addr.SpaceID
+		if spaceID != network.DefaultSpaceId && spaceID != "" {
+			space, err := st.SpaceByID(spaceID)
+			if err != nil {
+				return errors.Annotatef(err, "retrieving space for ID %q", spaceID)
+			}
+			mAddr.SpaceName = space.Name()
+			mAddr.SpaceProviderId = string(space.ProviderId())
+		}
+
+		info.Addresses = append(info.Addresses, mAddr)
 	}
 	// fetch the associated machine.
 	entity, err := st.FindEntity(names.NewMachineTag(m.Id))

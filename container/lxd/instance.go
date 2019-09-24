@@ -34,7 +34,7 @@ func (*lxdInstance) Refresh() error {
 	return nil
 }
 
-func (lxd *lxdInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
+func (lxd *lxdInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	return nil, errors.NotImplementedf("lxdInstance.Addresses")
 }
 

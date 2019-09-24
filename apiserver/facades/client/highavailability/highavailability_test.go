@@ -69,10 +69,10 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		Series:      "quantal",
 		Jobs:        []state.MachineJob{state.JobManageModel},
 		Constraints: controllerCons,
-		Addresses: []network.Address{
-			network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
-			network.NewScopedAddress("cloud-local0.internal", network.ScopeCloudLocal),
-			network.NewScopedAddress("fc00::0", network.ScopePublic),
+		Addresses: []network.SpaceAddress{
+			network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),
+			network.NewScopedSpaceAddress("cloud-local0.internal", network.ScopeCloudLocal),
+			network.NewScopedSpaceAddress("fc00::0", network.ScopePublic),
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -103,9 +103,9 @@ func (s *clientSuite) setMachineAddresses(c *gc.C, machineId string) {
 	m, err := s.State.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetMachineAddresses(
-		network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
-		network.NewScopedAddress(fmt.Sprintf("cloud-local%s.internal", machineId), network.ScopeCloudLocal),
-		network.NewScopedAddress(fmt.Sprintf("fc0%s::1", machineId), network.ScopePublic),
+		network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),
+		network.NewScopedSpaceAddress(fmt.Sprintf("cloud-local%s.internal", machineId), network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress(fmt.Sprintf("fc0%s::1", machineId), network.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -194,8 +194,8 @@ func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
 	c.Assert(machines[0].Series(), gc.Equals, "quantal")
 
 	err = machines[0].SetMachineAddresses(
-		network.NewScopedAddress("cloud-local2.internal", network.ScopeCloudLocal),
-		network.NewScopedAddress("cloud-local22.internal", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("cloud-local2.internal", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("cloud-local22.internal", network.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -212,7 +212,7 @@ func (s *clientSuite) TestEnableHAErrorForNoCloudLocal(c *gc.C) {
 
 	// remove the extra provider addresses, so we have no valid CloudLocal addresses
 	c.Assert(m0.SetProviderAddresses(
-		network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
+		network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),
 	), jc.ErrorIsNil)
 
 	_, err = s.enableHA(c, 3, emptyCons, defaultSeries, nil)
@@ -252,8 +252,8 @@ func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *gc.C) {
 	m, err := s.State.Machine("2")
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetMachineAddresses(
-		network.NewScopedAddress("cloud-local2.internal", network.ScopeCloudLocal),
-		network.NewScopedAddress("cloud-local22.internal", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("cloud-local2.internal", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("cloud-local22.internal", network.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -414,19 +414,29 @@ func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
+	sp, err := s.State.AddSpace("ha-space", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
 	controllerSettings, _ := s.State.ReadSettings("controllers", "controllerSettings")
 	controllerSettings.Set(controller.JujuHASpace, "ha-space")
-	controllerSettings.Write()
+	_, err = controllerSettings.Write()
+	c.Assert(err, jc.ErrorIsNil)
 
 	m1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	s.setAgentPresence(c, "1")
-	m1.SetProviderAddresses(network.NewAddressOnSpace("ha-space", "192.168.6.6"))
+	a1 := network.NewSpaceAddress("192.168.6.6")
+	a1.SpaceID = sp.Id()
+	err = m1.SetProviderAddresses(a1)
+	c.Assert(err, jc.ErrorIsNil)
 
 	m2, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	s.setAgentPresence(c, "2")
-	m2.SetProviderAddresses(network.NewAddressOnSpace("ha-space", "192.168.6.7"))
+	a2 := network.NewSpaceAddress("192.168.6.7")
+	a2.SpaceID = sp.Id()
+	err = m2.SetProviderAddresses(a1)
+	c.Assert(err, jc.ErrorIsNil)
 
 	placement := []string{"1", "2"}
 	_, err = s.enableHA(c, 3, emptyCons, defaultSeries, placement)
@@ -434,11 +444,15 @@ func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAPlacementToErrorForInaccessibleSpace(c *gc.C) {
+	_, err := s.State.AddSpace("ha-space", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
 	controllerSettings, _ := s.State.ReadSettings("controllers", "controllerSettings")
 	controllerSettings.Set(controller.JujuHASpace, "ha-space")
-	controllerSettings.Write()
+	_, err = controllerSettings.Write()
+	c.Assert(err, jc.ErrorIsNil)
 
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	s.setAgentPresence(c, "1")
 

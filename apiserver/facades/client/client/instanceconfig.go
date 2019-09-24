@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/authentication"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -84,7 +85,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	apiAddrs := make(set.Strings)
 	for _, hostPorts := range apiHostPorts {
 		for _, hp := range hostPorts {
-			apiAddrs.Add(hp.NetAddr())
+			apiAddrs.Add(network.DialAddress(hp))
 		}
 	}
 	apiInfo := &api.Info{

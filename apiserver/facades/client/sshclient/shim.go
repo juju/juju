@@ -27,10 +27,10 @@ type Backend interface {
 // the SSHClient facade.
 type SSHMachine interface {
 	MachineTag() names.MachineTag
-	PublicAddress() (network.Address, error)
-	PrivateAddress() (network.Address, error)
-	Addresses() []network.Address
-	AllNetworkAddresses() ([]network.Address, error)
+	PublicAddress() (network.SpaceAddress, error)
+	PrivateAddress() (network.SpaceAddress, error)
+	Addresses() network.SpaceAddresses
+	AllNetworkAddresses() (network.SpaceAddresses, error)
 }
 
 type backend struct {

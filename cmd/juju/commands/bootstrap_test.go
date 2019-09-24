@@ -911,8 +911,8 @@ type mockBootstrapInstance struct {
 	instances.Instance
 }
 
-func (*mockBootstrapInstance) Addresses() ([]network.Address, error) {
-	return []network.Address{{Value: "localhost"}}, nil
+func (*mockBootstrapInstance) Addresses() ([]network.SpaceAddress, error) {
+	return []network.SpaceAddress{{MachineAddress: network.MachineAddress{Value: "localhost"}}}, nil
 }
 
 // In the case where we cannot examine the client store, we want the

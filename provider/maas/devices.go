@@ -230,14 +230,15 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 			}
 
 			nicInfo.CIDR = link.Subnet.CIDR
-			nicInfo.Address = corenetwork.NewAddressOnSpace(link.Subnet.Space, link.IPAddress)
+			nicInfo.Address = corenetwork.NewProviderAddressInSpace(link.Subnet.Space, link.IPAddress)
 			nicInfo.ProviderSubnetId = corenetwork.Id(strconv.Itoa(link.Subnet.ID))
 			nicInfo.ProviderAddressId = corenetwork.Id(strconv.Itoa(link.ID))
 			if link.Subnet.GatewayIP != "" {
-				nicInfo.GatewayAddress = corenetwork.NewAddressOnSpace(link.Subnet.Space, link.Subnet.GatewayIP)
+				nicInfo.GatewayAddress = corenetwork.NewProviderAddressInSpace(link.Subnet.Space, link.Subnet.GatewayIP)
 			}
 			if len(link.Subnet.DNSServers) > 0 {
-				nicInfo.DNSServers = corenetwork.NewAddressesOnSpace(link.Subnet.Space, link.Subnet.DNSServers...)
+				nicInfo.DNSServers = corenetwork.NewProviderAddressesInSpace(
+					link.Subnet.Space, link.Subnet.DNSServers...)
 			}
 
 			interfaceInfo = append(interfaceInfo, nicInfo)
@@ -247,7 +248,11 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 	return interfaceInfo, nil
 }
 
-func (env *maasEnviron) deviceInterfaceInfo2(device gomaasapi.Device, nameToParentName map[string]string, subnetToStaticRoutes map[string][]gomaasapi.StaticRoute) ([]network.InterfaceInfo, error) {
+func (env *maasEnviron) deviceInterfaceInfo2(
+	device gomaasapi.Device,
+	nameToParentName map[string]string,
+	subnetToStaticRoutes map[string][]gomaasapi.StaticRoute,
+) ([]network.InterfaceInfo, error) {
 	deviceID := device.SystemID()
 	interfaces := device.InterfaceSet()
 
@@ -305,14 +310,14 @@ func (env *maasEnviron) deviceInterfaceInfo2(device gomaasapi.Device, nameToPare
 			}
 
 			nicInfo.CIDR = subnet.CIDR()
-			nicInfo.Address = corenetwork.NewAddressOnSpace(subnet.Space(), link.IPAddress())
+			nicInfo.Address = corenetwork.NewProviderAddressInSpace(subnet.Space(), link.IPAddress())
 			nicInfo.ProviderSubnetId = corenetwork.Id(strconv.Itoa(subnet.ID()))
 			nicInfo.ProviderAddressId = corenetwork.Id(strconv.Itoa(link.ID()))
 			if subnet.Gateway() != "" {
-				nicInfo.GatewayAddress = corenetwork.NewAddressOnSpace(subnet.Space(), subnet.Gateway())
+				nicInfo.GatewayAddress = corenetwork.NewProviderAddressInSpace(subnet.Space(), subnet.Gateway())
 			}
 			if len(subnet.DNSServers()) > 0 {
-				nicInfo.DNSServers = corenetwork.NewAddressesOnSpace(subnet.Space(), subnet.DNSServers()...)
+				nicInfo.DNSServers = corenetwork.NewProviderAddressesInSpace(subnet.Space(), subnet.DNSServers()...)
 			}
 
 			interfaceInfo = append(interfaceInfo, nicInfo)

@@ -138,11 +138,17 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 	if !ok {
 		return nil, errors.Errorf("cannot determine state serving info")
 	}
-	APIHostPorts := network.NewHostPorts(ssi.APIPort, args.PrivateAddress, args.PublicAddress)
-	agentConfig.SetAPIHostPorts([][]network.HostPort{APIHostPorts})
+
+	// TODO (manadart 2019-08-23): This needs fixing.
+	// APIHostPorts are created without space IDs, which could mean a loss of
+	// information and broken functionality between backup and restore.
+
+	APIHostPorts := network.NewSpaceHostPorts(ssi.APIPort, args.PrivateAddress, args.PublicAddress)
+	agentConfig.SetAPIHostPorts([]network.HostPorts{APIHostPorts.HostPorts()})
 	if err := agentConfig.Write(); err != nil {
 		return nil, errors.Annotate(err, "cannot write new agent configuration")
 	}
+
 	logger.Infof("wrote new agent config for restore")
 
 	if backupMachine.Id() != "0" {
@@ -266,7 +272,7 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 	// causes it to attempt to reconnect to the api server. Unfortunately it
 	// now has the wrong address and can never get the  correct one.
 	// So, we set it explicitly here.
-	if err := st.SetAPIHostPorts([][]network.HostPort{APIHostPorts}); err != nil {
+	if err := st.SetAPIHostPorts([]network.SpaceHostPorts{APIHostPorts}); err != nil {
 		return nil, errors.Annotate(err, "cannot update api server host ports")
 	}
 

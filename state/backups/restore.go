@@ -123,13 +123,17 @@ func updateMongoEntries(newInstId instance.Id, newMachineId, oldMachineId string
 
 // updateMachineAddresses will update the machine doc to the current addresses
 func updateMachineAddresses(machine *state.Machine, privateAddress, publicAddress string) error {
-	privateAddressAddress := corenetwork.Address{
-		Value: privateAddress,
-		Type:  corenetwork.DeriveAddressType(privateAddress),
+	privateAddressAddress := corenetwork.SpaceAddress{
+		MachineAddress: corenetwork.MachineAddress{
+			Value: privateAddress,
+			Type:  corenetwork.DeriveAddressType(privateAddress),
+		},
 	}
-	publicAddressAddress := corenetwork.Address{
-		Value: publicAddress,
-		Type:  corenetwork.DeriveAddressType(publicAddress),
+	publicAddressAddress := corenetwork.SpaceAddress{
+		MachineAddress: corenetwork.MachineAddress{
+			Value: publicAddress,
+			Type:  corenetwork.DeriveAddressType(publicAddress),
+		},
 	}
 	if err := machine.SetProviderAddresses(publicAddressAddress, privateAddressAddress); err != nil {
 		return errors.Trace(err)

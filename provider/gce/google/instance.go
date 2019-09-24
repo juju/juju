@@ -107,7 +107,7 @@ type InstanceSummary struct {
 	// Metadata is the instance metadata.
 	Metadata map[string]string
 	// Addresses are the IP Addresses associated with the instance.
-	Addresses []network.Address
+	Addresses network.ProviderAddresses
 	// NetworkInterfaces are the network connections associated with
 	// the instance.
 	NetworkInterfaces []*compute.NetworkInterface
@@ -177,7 +177,7 @@ func (gi Instance) Status() string {
 
 // Addresses identifies information about the network addresses
 // associated with the instance and returns it.
-func (gi Instance) Addresses() []network.Address {
+func (gi Instance) Addresses() network.ProviderAddresses {
 	// TODO*ericsnow) return a copy?
 	return gi.InstanceSummary.Addresses
 }

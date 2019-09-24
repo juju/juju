@@ -29,13 +29,13 @@ func NewAPIAddresserTests(facade APIAddresserFacade, st *state.State, waitForMod
 
 type APIAddresserFacade interface {
 	APIAddresses() ([]string, error)
-	APIHostPorts() ([][]network.HostPort, error)
+	APIHostPorts() ([]network.ProviderHostPorts, error)
 	WatchAPIHostPorts() (watcher.NotifyWatcher, error)
 }
 
 func (s *APIAddresserTests) TestAPIAddresses(c *gc.C) {
-	hostPorts := [][]network.HostPort{
-		network.NewHostPorts(1234, "0.1.2.3"),
+	hostPorts := []network.SpaceHostPorts{
+		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
 
 	err := s.state.SetAPIHostPorts(hostPorts)
@@ -47,17 +47,22 @@ func (s *APIAddresserTests) TestAPIAddresses(c *gc.C) {
 }
 
 func (s *APIAddresserTests) TestAPIHostPorts(c *gc.C) {
-	ipv6Addr := network.NewScopedAddress(
-		"2001:DB8::1", network.ScopeCloudLocal,
-	)
-	expectServerAddrs := [][]network.HostPort{
-		network.NewHostPorts(999, "0.1.2.24"),
-		network.NewHostPorts(1234, "example.com"),
-		network.AddressesWithPort([]network.Address{ipv6Addr}, 999),
-	}
+	ipv6Addr := network.NewScopedSpaceAddress("2001:DB8::1", network.ScopeCloudLocal)
 
-	err := s.state.SetAPIHostPorts(expectServerAddrs)
+	setServerAddrs := []network.SpaceHostPorts{
+		network.NewSpaceHostPorts(999, "0.1.2.24"),
+		network.NewSpaceHostPorts(1234, "example.com"),
+		network.SpaceAddressesWithPort([]network.SpaceAddress{ipv6Addr}, 999),
+	}
+	err := s.state.SetAPIHostPorts(setServerAddrs)
 	c.Assert(err, jc.ErrorIsNil)
+
+	expectServerAddrs := []network.ProviderHostPorts{
+		{network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("0.1.2.24"), NetPort: 999}},
+		{network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("example.com"), NetPort: 1234}},
+		{network.ProviderHostPort{ProviderAddress: network.NewProviderAddress(ipv6Addr.Value), NetPort: 999}},
+	}
+	expectServerAddrs[2][0].Scope = network.ScopeCloudLocal
 
 	serverAddrs, err := s.facade.APIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
@@ -67,8 +72,8 @@ func (s *APIAddresserTests) TestAPIHostPorts(c *gc.C) {
 func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {
 	hostports, err := s.state.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
-	expectServerAddrs := [][]network.HostPort{
-		network.NewHostPorts(5678, "0.1.2.3"),
+	expectServerAddrs := []network.SpaceHostPorts{
+		network.NewSpaceHostPorts(5678, "0.1.2.3"),
 	}
 	// Make sure we are changing the value
 	c.Assert(hostports, gc.Not(gc.DeepEquals), expectServerAddrs)

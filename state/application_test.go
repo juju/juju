@@ -3781,7 +3781,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	c.Assert(ok, jc.IsTrue)
 	c.Check(u.Name(), gc.Equals, existingUnit.Name())
 	c.Check(info.Address(), gc.NotNil)
-	c.Check(*info.Address(), gc.DeepEquals, network.NewScopedAddress("192.168.1.2", network.ScopeMachineLocal))
+	c.Check(*info.Address(), gc.DeepEquals, network.NewScopedSpaceAddress("192.168.1.2", network.ScopeMachineLocal))
 	c.Check(info.Ports(), jc.DeepEquals, []string{"443"})
 	statusInfo, err := u.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3837,15 +3837,13 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(u.Name(), gc.Equals, "gitlab/3")
 	c.Check(info.Address(), gc.NotNil)
-	c.Check(*info.Address(), gc.DeepEquals, network.NewScopedAddress("192.168.1.1", network.ScopeMachineLocal))
+	c.Check(*info.Address(), gc.DeepEquals, network.NewScopedSpaceAddress("192.168.1.1", network.ScopeMachineLocal))
 	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})
+
 	addr, err := u.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr, jc.DeepEquals, network.Address{
-		Value: "192.168.1.1",
-		Type:  network.IPv4Address,
-		Scope: network.ScopeMachineLocal,
-	})
+	c.Assert(addr, jc.DeepEquals, network.NewScopedSpaceAddress("192.168.1.1", network.ScopeMachineLocal))
+
 	statusInfo, err = u.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Waiting)
@@ -3898,33 +3896,39 @@ func (s *CAASApplicationSuite) TestAddUnitWithProviderId(c *gc.C) {
 }
 
 func (s *CAASApplicationSuite) TestServiceInfo(c *gc.C) {
+	addrs := network.NewSpaceAddresses("10.0.0.1")
+
 	for i := 0; i < 2; i++ {
-		err := s.app.UpdateCloudService("id", []network.Address{{Value: "10.0.0.1"}})
+		err := s.app.UpdateCloudService("id", addrs)
 		c.Assert(err, jc.ErrorIsNil)
 		app, err := s.caasSt.Application(s.app.Name())
 		c.Assert(err, jc.ErrorIsNil)
 		info, err := app.ServiceInfo()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(info.ProviderId(), gc.Equals, "id")
-		c.Assert(info.Addresses(), jc.DeepEquals, []network.Address{{Value: "10.0.0.1"}})
+		c.Assert(info.Addresses(), jc.DeepEquals, addrs)
 	}
 }
 
 func (s *CAASApplicationSuite) TestServiceInfoEmptyProviderId(c *gc.C) {
+	addrs := network.NewSpaceAddresses("10.0.0.1")
+
 	for i := 0; i < 2; i++ {
-		err := s.app.UpdateCloudService("", []network.Address{{Value: "10.0.0.1"}})
+		err := s.app.UpdateCloudService("", addrs)
 		c.Assert(err, jc.ErrorIsNil)
 		app, err := s.caasSt.Application(s.app.Name())
 		c.Assert(err, jc.ErrorIsNil)
 		info, err := app.ServiceInfo()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(info.ProviderId(), gc.Equals, "")
-		c.Assert(info.Addresses(), jc.DeepEquals, []network.Address{{Value: "10.0.0.1"}})
+		c.Assert(info.Addresses(), jc.DeepEquals, addrs)
 	}
 }
 
 func (s *CAASApplicationSuite) TestRemoveUnitDeletesServiceInfo(c *gc.C) {
-	err := s.app.UpdateCloudService("id", []network.Address{{Value: "10.0.0.1"}})
+	addrs := network.NewSpaceAddresses("10.0.0.1")
+
+	err := s.app.UpdateCloudService("id", addrs)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)

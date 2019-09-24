@@ -530,7 +530,7 @@ func (s *uniterSuite) TestPublicAddress(c *gc.C) {
 
 	// Now set it an try again.
 	err = s.machine0.SetProviderAddresses(
-		network.NewScopedAddress("1.2.3.4", network.ScopePublic),
+		network.NewScopedSpaceAddress("1.2.3.4", network.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	address, err := s.wordpressUnit.PublicAddress()
@@ -570,7 +570,7 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 
 	// Now set it and try again.
 	err = s.machine0.SetProviderAddresses(
-		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	address, err := s.wordpressUnit.PrivateAddress()
@@ -592,7 +592,7 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 // all the spaces set up.
 func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 	err := s.machine0.SetProviderAddresses(
-		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1908,7 +1908,7 @@ func (s *uniterSuite) TestProviderType(c *gc.C) {
 func (s *uniterSuite) TestEnterScope(c *gc.C) {
 	// Set wordpressUnit's private address first.
 	err := s.machine0.SetProviderAddresses(
-		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2528,8 +2528,8 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 }
 
 func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
-	hostPorts := [][]network.HostPort{
-		network.NewHostPorts(1234, "0.1.2.3"),
+	hostPorts := []network.SpaceHostPorts{
+		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2907,8 +2907,8 @@ func (s *uniterSuite) setupRemoteRelationScenario(c *gc.C) (names.Tag, *state.Re
 
 	// Set mysql's addresses first.
 	err := s.machine1.SetProviderAddresses(
-		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
+		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2953,7 +2953,7 @@ func (s *uniterSuite) TestPrivateAddressWithRemoteRelationNoPublic(c *gc.C) {
 	thisUniter := s.makeMysqlUniter(c)
 	// Set mysql's addresses - no public address.
 	err := s.machine1.SetProviderAddresses(
-		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -3423,9 +3423,9 @@ func (s *uniterNetworkConfigSuite) addProvisionedMachineWithDevicesAndAddresses(
 	machineAddrs, err := machine.AllAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 
-	netAddrs := make([]network.Address, len(machineAddrs))
+	netAddrs := make([]network.SpaceAddress, len(machineAddrs))
 	for i, addr := range machineAddrs {
-		netAddrs[i] = network.NewAddress(addr.Value())
+		netAddrs[i] = network.NewSpaceAddress(addr.Value())
 	}
 	err = machine.SetProviderAddresses(netAddrs...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3675,9 +3675,9 @@ func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c 
 	machineAddrs, err := machine.AllAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 
-	netAddrs := make([]network.Address, len(machineAddrs))
+	netAddrs := make([]network.SpaceAddress, len(machineAddrs))
 	for i, addr := range machineAddrs {
-		netAddrs[i] = network.NewAddress(addr.Value())
+		netAddrs[i] = network.NewSpaceAddress(addr.Value())
 	}
 	err = machine.SetProviderAddresses(netAddrs...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4156,9 +4156,9 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 	err = gitlab.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = gitlab.UpdateCloudService("", []network.Address{
-		{Value: "192.168.1.2", Scope: network.ScopeCloudLocal},
-		{Value: "54.32.1.2", Scope: network.ScopePublic},
+	err = gitlab.UpdateCloudService("", []network.SpaceAddress{
+		network.NewScopedSpaceAddress("192.168.1.2", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("54.32.1.2", network.ScopePublic),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -4202,9 +4202,9 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 	err := wp.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = wp.UpdateCloudService("", []network.Address{
-		{Value: "192.168.1.2", Scope: network.ScopeCloudLocal},
-		{Value: "54.32.1.2", Scope: network.ScopePublic},
+	err = wp.UpdateCloudService("", []network.SpaceAddress{
+		network.NewScopedSpaceAddress("192.168.1.2", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("54.32.1.2", network.ScopePublic),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -368,8 +368,8 @@ func (o *oracleInstance) publicAddressesAssociations() ([]response.IpAssociation
 }
 
 // Addresses is defined on the instances.Instance interface.
-func (o *oracleInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
-	addresses := []corenetwork.Address{}
+func (o *oracleInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+	var addresses []corenetwork.ProviderAddress
 
 	ips, err := o.publicAddressesAssociations()
 	if err != nil {
@@ -379,7 +379,7 @@ func (o *oracleInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwo
 	if len(o.machine.Attributes.Network) > 0 {
 		for name, val := range o.machine.Attributes.Network {
 			if _, ip, err := oraclenetwork.GetMacAndIP(val.Address); err == nil {
-				address := corenetwork.NewScopedAddress(ip, corenetwork.ScopeCloudLocal)
+				address := corenetwork.NewScopedProviderAddress(ip, corenetwork.ScopeCloudLocal)
 				addresses = append(addresses, address)
 			} else {
 				logger.Errorf("failed to get IP address for NIC %q: %q", name, err)
@@ -388,7 +388,7 @@ func (o *oracleInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwo
 	}
 
 	for _, val := range ips {
-		address := corenetwork.NewScopedAddress(val.Ip, corenetwork.ScopePublic)
+		address := corenetwork.NewScopedProviderAddress(val.Ip, corenetwork.ScopePublic)
 		addresses = append(addresses, address)
 	}
 

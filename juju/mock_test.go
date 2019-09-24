@@ -4,8 +4,6 @@
 package juju_test
 
 import (
-	"net"
-
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v3"
 
@@ -22,7 +20,7 @@ type mockAPIState struct {
 
 	addr          string
 	ipAddr        string
-	apiHostPorts  [][]network.HostPort
+	apiHostPorts  []network.MachineHostPorts
 	modelTag      string
 	controllerTag string
 	publicDNSName string
@@ -45,16 +43,12 @@ func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 	hasModelTag := flags&mockedModelTag == mockedModelTag
 	addr := ""
 
-	apiHostPorts := [][]network.HostPort{}
+	apiHostPorts := []network.MachineHostPorts{}
 	if hasHostPort {
-		var apiAddrs []network.Address
-		ipv4Address := network.NewAddress("0.1.2.3")
-		ipv6Address := network.NewAddress("2001:db8::1")
-		addr = net.JoinHostPort(ipv4Address.Value, "1234")
-		apiAddrs = append(apiAddrs, ipv4Address, ipv6Address)
-		apiHostPorts = [][]network.HostPort{
-			network.AddressesWithPort(apiAddrs, 1234),
-		}
+		apiHostPorts = []network.MachineHostPorts{{
+			network.MachineHostPort{MachineAddress: network.NewMachineAddress("0.1.2.3"), NetPort: network.NetPort(1234)},
+			network.MachineHostPort{MachineAddress: network.NewMachineAddress("2001:db8::1"), NetPort: network.NetPort(1234)},
+		}}
 	}
 	modelTag := ""
 	if hasModelTag {
@@ -91,7 +85,7 @@ func (s *mockAPIState) PublicDNSName() string {
 	return s.publicDNSName
 }
 
-func (s *mockAPIState) APIHostPorts() [][]network.HostPort {
+func (s *mockAPIState) APIHostPorts() []network.MachineHostPorts {
 	return s.apiHostPorts
 }
 

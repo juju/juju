@@ -21,7 +21,7 @@ func (s *stateShim) ModelConfig() (*config.Config, error) {
 	return s.m.ModelConfig()
 }
 
-func (s *stateShim) APIHostPortsForAgents() ([][]network.HostPort, error) {
+func (s *stateShim) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
 	return s.st.APIHostPortsForAgents()
 }
 

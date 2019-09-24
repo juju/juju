@@ -114,7 +114,7 @@ func setMachineAddresses(tag names.MachineTag, m Machine) error {
 	if err != nil {
 		return err
 	}
-	var hostAddresses []corenetwork.Address
+	var hostAddresses corenetwork.ProviderAddresses
 	for _, addr := range addrs {
 		var ip net.IP
 		switch addr := addr.(type) {
@@ -125,7 +125,7 @@ func setMachineAddresses(tag names.MachineTag, m Machine) error {
 		default:
 			continue
 		}
-		address := corenetwork.NewAddress(ip.String())
+		address := corenetwork.NewProviderAddress(ip.String())
 		// Filter out link-local addresses as we cannot reliably use them.
 		if address.Scope == corenetwork.ScopeLinkLocal {
 			continue
@@ -138,7 +138,18 @@ func setMachineAddresses(tag names.MachineTag, m Machine) error {
 	// Filter out any LXC or LXD bridge addresses.
 	hostAddresses = network.FilterBridgeAddresses(hostAddresses)
 	logger.Infof("setting addresses for %q to %v", tag, hostAddresses)
-	return m.SetMachineAddresses(hostAddresses)
+
+	// TODO (manadart 2019-08-27): This needs refactoring.
+	// FilterBridgeAddresses takes a slice of ProviderAddress,
+	// so we create an initial slice of that type and extract the machine
+	// addresses after filtering.
+	// We should work in an appropriate indirection to achieve this logic.
+	machineAddresses := make([]corenetwork.MachineAddress, len(hostAddresses))
+	for i, addr := range hostAddresses {
+		machineAddresses[i] = addr.MachineAddress
+	}
+
+	return m.SetMachineAddresses(machineAddresses)
 }
 
 func (mr *Machiner) Handle(_ <-chan struct{}) error {

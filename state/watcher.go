@@ -3904,7 +3904,7 @@ func hashMachineAddresses(m *Machine) (string, error) {
 		hash.Write([]byte(address.Value))
 		hash.Write([]byte(address.Type))
 		hash.Write([]byte(address.Scope))
-		hash.Write([]byte(address.SpaceName))
+		hash.Write([]byte(address.SpaceID))
 	}
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
@@ -3949,7 +3949,7 @@ func hashServiceAddresses(a *Application, firstCall bool) (string, error) {
 	hash.Write([]byte(address.Value))
 	hash.Write([]byte(address.Type))
 	hash.Write([]byte(address.Scope))
-	hash.Write([]byte(address.SpaceName))
+	hash.Write([]byte(address.SpaceID))
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 

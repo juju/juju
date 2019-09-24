@@ -213,7 +213,7 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
-		Address:           corenetwork.NewScopedAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
+		Address:           corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
 	}})
 }
 
@@ -277,7 +277,7 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
-		Address:           corenetwork.NewScopedAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
+		Address:           corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
 	}, {
 		DeviceIndex:       1,
 		CIDR:              "10.0.20.0/24",
@@ -290,7 +290,7 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
-		Address:           corenetwork.NewScopedAddress("10.0.20.3", corenetwork.ScopeCloudLocal),
+		Address:           corenetwork.NewScopedProviderAddress("10.0.20.3", corenetwork.ScopeCloudLocal),
 	}})
 }
 
@@ -327,7 +327,7 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
-		Address:           corenetwork.NewScopedAddress("10.240.0.2", corenetwork.ScopeCloudLocal),
+		Address:           corenetwork.NewScopedProviderAddress("10.240.0.2", corenetwork.ScopeCloudLocal),
 	}})
 }
 
@@ -365,7 +365,7 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
-		Address:           corenetwork.NewScopedAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
+		Address:           corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
 	}, {
 		DeviceIndex:       1,
 		CIDR:              "10.0.10.0/24",
@@ -378,6 +378,6 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
-		Address:           corenetwork.NewScopedAddress("10.0.10.4", corenetwork.ScopeCloudLocal),
+		Address:           corenetwork.NewScopedProviderAddress("10.0.10.4", corenetwork.ScopeCloudLocal),
 	}})
 }

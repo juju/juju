@@ -55,13 +55,13 @@ func (a *APIAddresser) ModelUUID() (string, error) {
 }
 
 // APIHostPorts returns the host/port addresses of the API servers.
-func (a *APIAddresser) APIHostPorts() ([][]network.HostPort, error) {
+func (a *APIAddresser) APIHostPorts() ([]network.ProviderHostPorts, error) {
 	var result params.APIHostPortsResult
 	err := a.facade.FacadeCall("APIHostPorts", nil, &result)
 	if err != nil {
 		return nil, err
 	}
-	return result.NetworkHostsPorts(), nil
+	return params.ToProviderHostsPorts(result.Servers), nil
 }
 
 // WatchAPIHostPorts watches the host/port addresses of the API servers.

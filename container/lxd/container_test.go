@@ -241,12 +241,8 @@ func (s *containerSuite) TestContainerAddresses(c *gc.C) {
 	addrs, err := jujuSvr.ContainerAddresses("c1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := []corenetwork.Address{
-		{
-			Value: "10.0.8.173",
-			Type:  corenetwork.IPv4Address,
-			Scope: corenetwork.ScopeCloudLocal,
-		},
+	expected := []corenetwork.ProviderAddress{
+		corenetwork.NewScopedProviderAddress("10.0.8.173", corenetwork.ScopeCloudLocal),
 	}
 	c.Check(addrs, gc.DeepEquals, expected)
 }

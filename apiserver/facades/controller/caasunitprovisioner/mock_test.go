@@ -84,6 +84,16 @@ func (st *mockState) ResolveConstraints(cons constraints.Value) (constraints.Val
 	return cons, nil
 }
 
+func (st *mockState) SpaceIDsByName() (map[string]string, error) {
+	st.MethodCall(st, "SpaceIDsByName")
+	return map[string]string{}, nil
+}
+
+func (st *mockState) SpaceInfosByID() (map[string]network.SpaceInfo, error) {
+	st.MethodCall(st, "SpaceInfosByID")
+	return map[string]network.SpaceInfo{}, nil
+}
+
 type mockModel struct {
 	testing.Stub
 	podSpecWatcher *statetesting.MockNotifyWatcher
@@ -128,7 +138,7 @@ type mockApplication struct {
 	units      []caasunitprovisioner.Unit
 	ops        *state.UpdateUnitsOperation
 	providerId string
-	addresses  []network.Address
+	addresses  []network.SpaceAddress
 	charm      *mockCharm
 }
 
@@ -221,7 +231,7 @@ func (m *mockApplication) Constraints() (constraints.Value, error) {
 	return constraints.MustParse("mem=64G"), nil
 }
 
-func (m *mockApplication) UpdateCloudService(providerId string, addreses []network.Address) error {
+func (m *mockApplication) UpdateCloudService(providerId string, addreses []network.SpaceAddress) error {
 	m.providerId = providerId
 	m.addresses = addreses
 	return nil

@@ -1139,7 +1139,7 @@ type SaveCloudServiceArgs struct {
 	// then is wrapped with applicationGlobalKey.
 	Id         string
 	ProviderId string
-	Addresses  []network.Address
+	Addresses  network.SpaceAddresses
 
 	Generation            int64
 	DesiredScaleProtected bool

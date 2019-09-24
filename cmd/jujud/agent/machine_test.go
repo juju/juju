@@ -275,7 +275,9 @@ func (s *MachineLegacyLeasesSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	m, instId := s.waitProvisioned(c, unit)
 	insts, err := s.Environ.Instances(context.NewCloudCallContext(), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
-	addrs := network.NewAddresses("1.2.3.4")
+
+	addr := "1.2.3.4"
+	addrs := network.NewProviderAddresses(addr)
 	dummy.SetInstanceAddresses(insts[0], addrs)
 	dummy.SetInstanceStatus(insts[0], "running")
 
@@ -289,7 +291,7 @@ func (s *MachineLegacyLeasesSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 		instStatus, err := m.InstanceStatus()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Logf("found status is %q %q", instStatus.Status, instStatus.Message)
-		if reflect.DeepEqual(m.Addresses(), addrs) && instStatus.Message == "running" {
+		if reflect.DeepEqual(m.Addresses(), network.NewSpaceAddresses(addr)) && instStatus.Message == "running" {
 			c.Logf("machine %q address updated: %+v", m.Id(), addrs)
 			break
 		}
@@ -788,8 +790,8 @@ func (s *MachineLegacyLeasesSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	// Update the API addresses.
-	updatedServers := [][]network.HostPort{
-		network.NewHostPorts(1234, "localhost"),
+	updatedServers := []network.SpaceHostPorts{
+		network.NewSpaceHostPorts(1234, "localhost"),
 	}
 	err := s.BackingState.SetAPIHostPorts(updatedServers)
 	c.Assert(err, jc.ErrorIsNil)

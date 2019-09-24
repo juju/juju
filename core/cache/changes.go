@@ -187,7 +187,7 @@ type MachineChange struct {
 	SupportedContainersKnown bool
 	HardwareCharacteristics  *instance.HardwareCharacteristics
 	CharmProfiles            []string
-	Addresses                []network.Address
+	Addresses                []network.ProviderAddress
 	HasVote                  bool
 	WantsVote                bool
 }
@@ -222,9 +222,9 @@ func (m MachineChange) copy() MachineChange {
 	}
 	m.CharmProfiles = cCharmProfiles
 
-	var cAddresses []network.Address
+	var cAddresses []network.ProviderAddress
 	if m.Addresses != nil {
-		cAddresses = make([]network.Address, len(m.Addresses))
+		cAddresses = make([]network.ProviderAddress, len(m.Addresses))
 		for i, v := range m.Addresses {
 			cAddresses[i] = v
 		}

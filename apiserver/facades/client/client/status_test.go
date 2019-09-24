@@ -705,16 +705,14 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 
 	hp, err := st.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
-	var addrs []network.Address
+	var addrs []network.SpaceAddress
 	for _, server := range hp {
 		for _, nhp := range server {
-			addrs = append(addrs, nhp.Address)
+			addrs = append(addrs, nhp.SpaceAddress)
 		}
 	}
 
-	apiAddrs := network.HostPortsToStrings(
-		network.AddressesWithPort(addrs, s.ControllerConfig.APIPort()),
-	)
+	apiAddrs := network.SpaceAddressesWithPort(addrs, s.ControllerConfig.APIPort()).HostPorts().Strings()
 	modelTag := names.NewModelTag(st.ModelUUID())
 	apiInfo := &api.Info{Addrs: apiAddrs, CACert: coretesting.CACert, ModelTag: modelTag}
 	apiInfo.Tag = s.AdminUserTag(c)

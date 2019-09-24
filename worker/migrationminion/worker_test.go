@@ -441,13 +441,13 @@ type stubAgentConfig struct {
 	caCert string
 }
 
-func (mc *stubAgentConfig) SetAPIHostPorts(servers [][]network.HostPort) {
+func (mc *stubAgentConfig) SetAPIHostPorts(servers []network.HostPorts) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
 	mc.addrs = nil
 	for _, hps := range servers {
 		for _, hp := range hps {
-			mc.addrs = append(mc.addrs, hp.NetAddr())
+			mc.addrs = append(mc.addrs, network.DialAddress(hp))
 		}
 	}
 }

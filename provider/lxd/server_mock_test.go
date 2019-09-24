@@ -51,9 +51,9 @@ func (mr *MockServerMockRecorder) AliveContainers(arg0 interface{}) *gomock.Call
 }
 
 // ContainerAddresses mocks base method
-func (m *MockServer) ContainerAddresses(arg0 string) ([]network.Address, error) {
+func (m *MockServer) ContainerAddresses(arg0 string) ([]network.ProviderAddress, error) {
 	ret := m.ctrl.Call(m, "ContainerAddresses", arg0)
-	ret0, _ := ret[0].([]network.Address)
+	ret0, _ := ret[0].([]network.ProviderAddress)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

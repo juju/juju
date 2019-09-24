@@ -6,7 +6,6 @@
 package machine
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v3"
 
@@ -82,18 +81,23 @@ func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (p
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		err = common.ErrPerm
-		if canModify(tag) {
-			var m *state.Machine
-			m, err = api.getMachine(tag)
-			if err == nil {
-				addresses := params.NetworkAddresses(arg.Addresses...)
-				err = m.SetMachineAddresses(addresses...)
-			} else if errors.IsNotFound(err) {
-				err = common.ErrPerm
-			}
+		if !canModify(tag) {
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
 		}
-		results.Results[i].Error = common.ServerError(err)
+		m, err := api.getMachine(tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		addresses, err := params.ToProviderAddresses(arg.Addresses...).ToSpaceAddresses(api.st)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if err := m.SetMachineAddresses(addresses...); err != nil {
+			results.Results[i].Error = common.ServerError(err)
+		}
 	}
 	return results, nil
 }

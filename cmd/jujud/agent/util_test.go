@@ -244,7 +244,7 @@ func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
 }
 
 func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine) {
-	addrs := network.NewAddresses("0.1.2.3")
+	addrs := network.NewSpaceAddresses("0.1.2.3")
 	err := machine.SetProviderAddresses(addrs...)
 	c.Assert(err, jc.ErrorIsNil)
 	// Set the addresses in the environ instance as well so that if the instance poller
@@ -253,7 +253,7 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 	c.Assert(err, jc.ErrorIsNil)
 	insts, err := s.Environ.Instances(context.NewCloudCallContext(), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
-	dummy.SetInstanceAddresses(insts[0], addrs)
+	dummy.SetInstanceAddresses(insts[0], network.NewProviderAddresses("0.1.2.3"))
 }
 
 // WithAliveAgent starts the agent, wait till it becomes alive and then invokes

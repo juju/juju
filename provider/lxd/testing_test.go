@@ -104,7 +104,7 @@ type BaseSuiteUnpatched struct {
 	Provider  *environProvider
 	Env       *environ
 
-	Addresses     []corenetwork.Address
+	Addresses     corenetwork.ProviderAddresses
 	Instance      *environInstance
 	Container     *lxd.Container
 	InstName      string
@@ -216,11 +216,10 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		"limits.cpu":                                             "1",
 		"limits.memory":                                          strconv.Itoa(3750 * 1024 * 1024),
 	}
-	s.Addresses = []corenetwork.Address{{
-		Value: "10.0.0.1",
-		Type:  corenetwork.IPv4Address,
-		Scope: corenetwork.ScopeCloudLocal,
-	}}
+	s.Addresses = corenetwork.ProviderAddresses{
+		corenetwork.NewScopedProviderAddress("10.0.0.1", corenetwork.ScopeCloudLocal),
+	}
+
 	// NOTE: the instance ids used throughout this package are not at all
 	// representative of what they would normally be. They would normally
 	// determined by the instance namespace and the machine id.
@@ -648,17 +647,15 @@ func (conn *StubClient) AliveContainers(prefix string) ([]lxd.Container, error) 
 	return conn.Containers, nil
 }
 
-func (conn *StubClient) ContainerAddresses(name string) ([]corenetwork.Address, error) {
+func (conn *StubClient) ContainerAddresses(name string) ([]corenetwork.ProviderAddress, error) {
 	conn.AddCall("ContainerAddresses", name)
 	if err := conn.NextErr(); err != nil {
 		return nil, err
 	}
 
-	return []corenetwork.Address{{
-		Value: "10.0.0.1",
-		Type:  corenetwork.IPv4Address,
-		Scope: corenetwork.ScopeCloudLocal,
-	}}, nil
+	return corenetwork.ProviderAddresses{
+		corenetwork.NewScopedProviderAddress("10.0.0.1", corenetwork.ScopeCloudLocal),
+	}, nil
 }
 
 func (conn *StubClient) RemoveContainer(name string) error {

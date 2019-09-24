@@ -862,7 +862,7 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 
 	// Add a public address to the consuming unit so the firewaller can use it.
 	wpm := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Addresses: []corenetwork.Address{corenetwork.NewAddress("10.0.0.4")},
+		Addresses: corenetwork.SpaceAddresses{corenetwork.NewSpaceAddress("10.0.0.4")},
 	})
 	u, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1084,7 +1084,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 
 	// Add a public address to the consuming unit so the firewaller can use it.
 	wpm := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Addresses: []corenetwork.Address{corenetwork.NewAddress("10.0.0.4")},
+		Addresses: corenetwork.SpaceAddresses{corenetwork.NewSpaceAddress("10.0.0.4")},
 	})
 	u, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)

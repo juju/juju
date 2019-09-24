@@ -403,7 +403,7 @@ func (s *unitSuite) TestPublicAddress(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no public address set`)
 
 	err = s.wordpressMachine.SetProviderAddresses(
-		corenetwork.NewScopedAddress("1.2.3.4", corenetwork.ScopePublic),
+		corenetwork.NewScopedSpaceAddress("1.2.3.4", corenetwork.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -417,7 +417,7 @@ func (s *unitSuite) TestPrivateAddress(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no private address set`)
 
 	err = s.wordpressMachine.SetProviderAddresses(
-		corenetwork.NewScopedAddress("1.2.3.4", corenetwork.ScopeCloudLocal),
+		corenetwork.NewScopedSpaceAddress("1.2.3.4", corenetwork.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -849,17 +849,17 @@ func (s *unitSuite) TestWatchAddressesHash(c *gc.C) {
 	wc.AssertChange("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 
 	// Update config get an event.
-	err = s.wordpressMachine.SetProviderAddresses(corenetwork.NewAddress("0.1.2.4"))
+	err = s.wordpressMachine.SetProviderAddresses(corenetwork.NewSpaceAddress("0.1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("e8686213014563c18d8b3838ac3ac247dc2c7ceb0000cb01c19aa401ffc76e80")
 
 	// Non-change is not reported.
-	err = s.wordpressMachine.SetProviderAddresses(corenetwork.NewAddress("0.1.2.4"))
+	err = s.wordpressMachine.SetProviderAddresses(corenetwork.NewSpaceAddress("0.1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Change is reported for machine addresses.
-	err = s.wordpressMachine.SetMachineAddresses(corenetwork.NewAddress("0.1.2.5"))
+	err = s.wordpressMachine.SetMachineAddresses(corenetwork.NewSpaceAddress("0.1.2.5"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("ad269642567ef00c2c9c6ff84e9c04ecf3aa3342c1b4d98d76142471781c4495")
 

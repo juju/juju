@@ -86,7 +86,7 @@ type APIBase struct {
 // mocked for testing.
 type Backend interface {
 	ModelConfig() (*config.Config, error)
-	APIHostPortsForAgents() ([][]network.HostPort, error)
+	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
 	WatchForModelConfigChanges() state.NotifyWatcher
 }

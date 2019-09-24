@@ -197,7 +197,7 @@ func validateCurrentControllers(st *state.State, cfg controller.Config, machineI
 			// machines without any address are essentially not started yet
 			continue
 		}
-		internal := network.SelectInternalAddresses(addresses, false)
+		internal := addresses.AllMatchingScope(network.ScopeMatchCloudLocal)
 		if len(internal) != 1 {
 			badIds = append(badIds, id)
 		}
@@ -216,8 +216,8 @@ func validateCurrentControllers(st *state.State, cfg controller.Config, machineI
 // and machine placement directives.
 // If there are, checks are made to ensure that the machines specified have at
 // least one address in all of the spaces.
-func validatePlacementForSpaces(st *state.State, spaces *[]string, placement []string) error {
-	if spaces == nil || len(*spaces) == 0 || len(placement) == 0 {
+func validatePlacementForSpaces(st *state.State, spaceNames *[]string, placement []string) error {
+	if spaceNames == nil || len(*spaceNames) == 0 || len(placement) == 0 {
 		return nil
 	}
 
@@ -248,17 +248,26 @@ func validatePlacementForSpaces(st *state.State, spaces *[]string, placement []s
 			return errors.Annotate(err, "retrieving machine")
 		}
 
-		for _, space := range *spaces {
-			spaceName := network.SpaceName(space)
+		spaceLookup, err := st.SpaceIDsByName()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		for _, name := range *spaceNames {
+			spaceID, ok := spaceLookup[name]
+			if !ok {
+				return errors.NotFoundf("space with name %q", name)
+			}
+
 			inSpace := false
 			for _, addr := range m.Addresses() {
-				if addr.SpaceName == spaceName {
+				if addr.SpaceID == spaceID {
 					inSpace = true
 					break
 				}
 			}
 			if !inSpace {
-				return fmt.Errorf("machine %q has no addresses in space %q", p.Directive, space)
+				return fmt.Errorf("machine %q has no addresses in space %q", p.Directive, name)
 			}
 		}
 	}

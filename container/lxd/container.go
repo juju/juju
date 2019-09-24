@@ -184,7 +184,7 @@ func (s *Server) FilterContainers(prefix string, statuses ...string) ([]Containe
 
 // ContainerAddresses gets usable network addresses for the container
 // identified by the input name.
-func (s *Server) ContainerAddresses(name string) ([]corenetwork.Address, error) {
+func (s *Server) ContainerAddresses(name string) ([]corenetwork.ProviderAddress, error) {
 	state, _, err := s.GetContainerState(name)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -192,16 +192,16 @@ func (s *Server) ContainerAddresses(name string) ([]corenetwork.Address, error) 
 
 	networks := state.Network
 	if networks == nil {
-		return []corenetwork.Address{}, nil
+		return []corenetwork.ProviderAddress{}, nil
 	}
 
-	var results []corenetwork.Address
+	var results []corenetwork.ProviderAddress
 	for netName, net := range networks {
 		if netName == network.DefaultLXCBridge || netName == network.DefaultLXDBridge {
 			continue
 		}
 		for _, addr := range net.Addresses {
-			netAddr := corenetwork.NewAddress(addr.Address)
+			netAddr := corenetwork.NewProviderAddress(addr.Address)
 			if netAddr.Scope == corenetwork.ScopeLinkLocal || netAddr.Scope == corenetwork.ScopeMachineLocal {
 				logger.Tracef("ignoring address %q for container %q", addr, name)
 				continue

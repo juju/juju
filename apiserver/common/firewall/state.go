@@ -78,7 +78,7 @@ type applicationShim struct {
 
 type Unit interface {
 	Name() string
-	PublicAddress() (network.Address, error)
+	PublicAddress() (network.SpaceAddress, error)
 	AssignedMachineId() (string, error)
 }
 

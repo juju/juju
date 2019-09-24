@@ -51,7 +51,7 @@ func (m *mockState) CheckFindEntityCall(c *gc.C, index int, machineId string) {
 
 // CheckSetProviderAddressesCall is a helper wrapper around
 // testing.Stub.CheckCall for SetProviderAddresses.
-func (m *mockState) CheckSetProviderAddressesCall(c *gc.C, index int, addrs []network.Address) {
+func (m *mockState) CheckSetProviderAddressesCall(c *gc.C, index int, addrs []network.SpaceAddress) {
 	args := make([]interface{}, len(addrs))
 	for i, addr := range addrs {
 		args[i] = addr
@@ -200,6 +200,20 @@ func (m *mockState) Machine(id string) (instancepoller.StateMachine, error) {
 	return machine, nil
 }
 
+// SpaceIDsByName implements network.SpaceLookup.
+// This method never throws an error.
+func (m *mockState) SpaceIDsByName() (map[string]string, error) {
+	m.MethodCall(m, "SpaceIDsByName")
+	return map[string]string{}, nil
+}
+
+// SpaceInfosByID implements network.SpaceLookup.
+// This method never throws an error.
+func (m *mockState) SpaceInfosByID() (map[string]network.SpaceInfo, error) {
+	m.MethodCall(m, "SpaceInfosByName")
+	return map[string]network.SpaceInfo{}, nil
+}
+
 // StartSync implements statetesting.SyncStarter, so mockState can be
 // used with watcher helpers/checkers.
 func (m *mockState) StartSync() {}
@@ -209,7 +223,7 @@ type machineInfo struct {
 	instanceId        instance.Id
 	status            status.StatusInfo
 	instanceStatus    status.StatusInfo
-	providerAddresses []network.Address
+	providerAddresses []network.SpaceAddress
 	life              state.Life
 	isManual          bool
 }
@@ -238,7 +252,7 @@ func (m *mockMachine) InstanceId() (instance.Id, error) {
 }
 
 // ProviderAddresses implements StateMachine.
-func (m *mockMachine) ProviderAddresses() []network.Address {
+func (m *mockMachine) ProviderAddresses() network.SpaceAddresses {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -248,7 +262,7 @@ func (m *mockMachine) ProviderAddresses() []network.Address {
 }
 
 // SetProviderAddresses implements StateMachine.
-func (m *mockMachine) SetProviderAddresses(addrs ...network.Address) error {
+func (m *mockMachine) SetProviderAddresses(addrs ...network.SpaceAddress) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

@@ -55,18 +55,22 @@ func (inst *ec2Instance) Status(ctx context.ProviderCallContext) instance.Status
 
 // Addresses implements network.Addresses() returning generic address
 // details for the instance, and requerying the ec2 api if required.
-func (inst *ec2Instance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
-	var addresses []corenetwork.Address
-	possibleAddresses := []corenetwork.Address{
+func (inst *ec2Instance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+	var addresses []corenetwork.ProviderAddress
+	possibleAddresses := []corenetwork.ProviderAddress{
 		{
-			Value: inst.IPAddress,
-			Type:  corenetwork.IPv4Address,
-			Scope: corenetwork.ScopePublic,
+			MachineAddress: corenetwork.MachineAddress{
+				Value: inst.IPAddress,
+				Type:  corenetwork.IPv4Address,
+				Scope: corenetwork.ScopePublic,
+			},
 		},
 		{
-			Value: inst.PrivateIPAddress,
-			Type:  corenetwork.IPv4Address,
-			Scope: corenetwork.ScopeCloudLocal,
+			MachineAddress: corenetwork.MachineAddress{
+				Value: inst.PrivateIPAddress,
+				Type:  corenetwork.IPv4Address,
+				Scope: corenetwork.ScopeCloudLocal,
+			},
 		},
 	}
 	for _, address := range possibleAddresses {

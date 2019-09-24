@@ -658,8 +658,8 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = caasModel.SetPodSpec(application.ApplicationTag(), "pod spec")
 	c.Assert(err, jc.ErrorIsNil)
-	addr := network.NewScopedAddress("192.168.1.1", network.ScopeCloudLocal)
-	err = application.UpdateCloudService("provider-id", []network.Address{addr})
+	addr := network.NewScopedSpaceAddress("192.168.1.1", network.ScopeCloudLocal)
+	err = application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})
 	c.Assert(err, jc.ErrorIsNil)
 
 	allApplications, err := caasSt.AllApplications()
@@ -687,7 +687,7 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	cloudService, err := newApp.ServiceInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudService.ProviderId(), gc.Equals, "provider-id")
-	c.Assert(cloudService.Addresses(), jc.DeepEquals, []network.Address{addr})
+	c.Assert(cloudService.Addresses(), jc.DeepEquals, network.SpaceAddresses{addr})
 	c.Assert(newApp.GetScale(), gc.Equals, 3)
 	c.Assert(newApp.GetPlacement(), gc.Equals, "")
 }
@@ -731,8 +731,8 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = caasModel.SetPodSpec(application.ApplicationTag(), "pod spec")
 	c.Assert(err, jc.ErrorIsNil)
-	addr := network.NewScopedAddress("192.168.1.1", network.ScopeCloudLocal)
-	err = application.UpdateCloudService("provider-id", []network.Address{addr})
+	addr := network.NewScopedSpaceAddress("192.168.1.1", network.ScopeCloudLocal)
+	err = application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})
 	c.Assert(err, jc.ErrorIsNil)
 
 	allApplications, err := caasSt.AllApplications()
@@ -944,7 +944,7 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(containerInfo.ProviderId(), gc.Equals, "provider-id")
 		c.Assert(containerInfo.Ports(), jc.DeepEquals, []string{"80"})
-		addr := network.NewScopedAddress("192.168.1.2", network.ScopeMachineLocal)
+		addr := network.NewScopedSpaceAddress("192.168.1.2", network.ScopeMachineLocal)
 		c.Assert(containerInfo.Address(), jc.DeepEquals, &addr)
 	}
 

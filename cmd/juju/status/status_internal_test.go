@@ -573,9 +573,9 @@ var statusTests = []testCase{
 		},
 
 		startAliveMachine{"0", ""},
-		setAddresses{"0", []network.Address{
-			network.NewScopedAddress("10.0.0.1", network.ScopePublic),
-			network.NewAddress("10.0.0.2"),
+		setAddresses{"0", []network.SpaceAddress{
+			network.NewScopedSpaceAddress("10.0.0.1", network.ScopePublic),
+			network.NewSpaceAddress("10.0.0.2"),
 		}},
 		expect{
 			what: "simulate the PA starting an instance in response to the state change",
@@ -721,9 +721,9 @@ var statusTests = []testCase{
 	test( // 1
 		"instance with different hardware characteristics",
 		addMachine{machineId: "0", cons: machineCons, job: state.JobManageModel},
-		setAddresses{"0", []network.Address{
-			network.NewScopedAddress("10.0.0.1", network.ScopePublic),
-			network.NewAddress("10.0.0.2"),
+		setAddresses{"0", []network.SpaceAddress{
+			network.NewScopedSpaceAddress("10.0.0.1", network.ScopePublic),
+			network.NewSpaceAddress("10.0.0.2"),
 		}},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
@@ -883,7 +883,7 @@ var statusTests = []testCase{
 		"add two applications and expose one, then add 2 more machines and some units",
 		// step 0
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 		addCharm{"dummy"},
@@ -929,11 +929,11 @@ var statusTests = []testCase{
 
 		// step 10
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("10.0.2.1")},
+		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
 		startAliveMachine{"2", ""},
 		setMachineStatus{"2", status.Started, ""},
 		expect{
@@ -1040,10 +1040,10 @@ var statusTests = []testCase{
 		addMachine{machineId: "3", job: state.JobHostUnits},
 		startMachine{"3"},
 		// Simulate some status with info, while the agent is down.
-		setAddresses{"3", network.NewAddresses("10.0.3.1")},
+		setAddresses{"3", network.NewSpaceAddresses("10.0.3.1")},
 		setMachineStatus{"3", status.Stopped, "Really?"},
 		addMachine{machineId: "4", job: state.JobHostUnits},
-		setAddresses{"4", network.NewAddresses("10.0.4.1")},
+		setAddresses{"4", network.NewSpaceAddresses("10.0.4.1")},
 		startAliveMachine{"4", ""},
 		setMachineStatus{"4", status.Error, "Beware the red toys"},
 		ensureDyingUnit{"dummy-application/0"},
@@ -1408,12 +1408,12 @@ var statusTests = []testCase{
 	test( // 5
 		"a unit with a hook relation error",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 
@@ -1516,12 +1516,12 @@ var statusTests = []testCase{
 	test( // 6
 		"a unit with a hook relation error when the agent is down",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 
@@ -1748,7 +1748,7 @@ var statusTests = []testCase{
 	test( // 9
 		"complex scenario with multiple related applications",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 		addCharm{"wordpress"},
@@ -1758,7 +1758,7 @@ var statusTests = []testCase{
 		addApplication{name: "project", charm: "wordpress"},
 		setApplicationExposed{"project", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"project", "1"},
@@ -1768,7 +1768,7 @@ var statusTests = []testCase{
 		addApplication{name: "mysql", charm: "mysql"},
 		setApplicationExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("10.0.2.1")},
+		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
 		startAliveMachine{"2", ""},
 		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"mysql", "2"},
@@ -1778,7 +1778,7 @@ var statusTests = []testCase{
 		addApplication{name: "varnish", charm: "varnish"},
 		setApplicationExposed{"varnish", true},
 		addMachine{machineId: "3", job: state.JobHostUnits},
-		setAddresses{"3", network.NewAddresses("10.0.3.1")},
+		setAddresses{"3", network.NewSpaceAddresses("10.0.3.1")},
 		startAliveMachine{"3", ""},
 		setMachineStatus{"3", status.Started, ""},
 		setMachineInstanceStatus{"3", status.Started, "I am number three"},
@@ -1787,7 +1787,7 @@ var statusTests = []testCase{
 		addApplication{name: "private", charm: "wordpress"},
 		setApplicationExposed{"private", true},
 		addMachine{machineId: "4", job: state.JobHostUnits},
-		setAddresses{"4", network.NewAddresses("10.0.4.1")},
+		setAddresses{"4", network.NewSpaceAddresses("10.0.4.1")},
 		startAliveMachine{"4", ""},
 		setMachineStatus{"4", status.Started, ""},
 		addAliveUnit{"private", "4"},
@@ -1954,7 +1954,7 @@ var statusTests = []testCase{
 	test( // 10
 		"simple peer scenario with leader",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 		addCharm{"riak"},
@@ -1963,21 +1963,21 @@ var statusTests = []testCase{
 		addApplication{name: "riak", charm: "riak"},
 		setApplicationExposed{"riak", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"riak", "1"},
 		setAgentStatus{"riak/0", status.Idle, "", nil},
 		setUnitStatus{"riak/0", status.Active, "", nil},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("10.0.2.1")},
+		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
 		startAliveMachine{"2", ""},
 		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"riak", "2"},
 		setAgentStatus{"riak/1", status.Idle, "", nil},
 		setUnitStatus{"riak/1", status.Active, "", nil},
 		addMachine{machineId: "3", job: state.JobHostUnits},
-		setAddresses{"3", network.NewAddresses("10.0.3.1")},
+		setAddresses{"3", network.NewSpaceAddresses("10.0.3.1")},
 		startAliveMachine{"3", ""},
 		setMachineStatus{"3", status.Started, ""},
 		setMachineInstanceStatus{"3", status.Started, "I am number three"},
@@ -2069,7 +2069,7 @@ var statusTests = []testCase{
 	test( // 11
 		"one application with one subordinate application and leader",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 		addCharm{"wordpress"},
@@ -2079,7 +2079,7 @@ var statusTests = []testCase{
 		addApplication{name: "wordpress", charm: "wordpress"},
 		setApplicationExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"wordpress", "1"},
@@ -2089,7 +2089,7 @@ var statusTests = []testCase{
 		addApplication{name: "mysql", charm: "mysql"},
 		setApplicationExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("10.0.2.1")},
+		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
 		startAliveMachine{"2", ""},
 		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"mysql", "2"},
@@ -2447,7 +2447,7 @@ var statusTests = []testCase{
 		"machines with containers",
 		// step 0
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 		addCharm{"mysql"},
@@ -2456,7 +2456,7 @@ var statusTests = []testCase{
 
 		// step 7
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"mysql", "1"},
@@ -2465,7 +2465,7 @@ var statusTests = []testCase{
 
 		// step 14: A container on machine 1.
 		addContainer{"1", "1/lxd/0", state.JobHostUnits},
-		setAddresses{"1/lxd/0", network.NewAddresses("10.0.2.1")},
+		setAddresses{"1/lxd/0", network.NewSpaceAddresses("10.0.2.1")},
 		startAliveMachine{"1/lxd/0", ""},
 		setMachineStatus{"1/lxd/0", status.Started, ""},
 		addAliveUnit{"mysql", "1/lxd/0"},
@@ -2475,7 +2475,7 @@ var statusTests = []testCase{
 
 		// step 22: A nested container.
 		addContainer{"1/lxd/0", "1/lxd/0/lxd/0", state.JobHostUnits},
-		setAddresses{"1/lxd/0/lxd/0", network.NewAddresses("10.0.3.1")},
+		setAddresses{"1/lxd/0/lxd/0", network.NewSpaceAddresses("10.0.3.1")},
 		startAliveMachine{"1/lxd/0/lxd/0", ""},
 		setMachineStatus{"1/lxd/0/lxd/0", status.Started, ""},
 
@@ -2633,11 +2633,11 @@ var statusTests = []testCase{
 	test( // 13
 		"application with out of date charm",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 		addCharm{"mysql"},
@@ -2695,11 +2695,11 @@ var statusTests = []testCase{
 	test( // 14
 		"unit with out of date charm",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 		addCharm{"mysql"},
@@ -2759,11 +2759,11 @@ var statusTests = []testCase{
 	test( // 15
 		"application and unit with out of date charms",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 		addCharm{"mysql"},
@@ -2825,11 +2825,11 @@ var statusTests = []testCase{
 	test( // 16
 		"application with local charm not shown as out of date",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 		addCharm{"mysql"},
@@ -2890,28 +2890,28 @@ var statusTests = []testCase{
 	test( // 17
 		"deploy two applications; set meter statuses on one",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("10.0.2.1")},
+		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
 		startAliveMachine{"2", ""},
 		setMachineStatus{"2", status.Started, ""},
 
 		addMachine{machineId: "3", job: state.JobHostUnits},
-		setAddresses{"3", network.NewAddresses("10.0.3.1")},
+		setAddresses{"3", network.NewSpaceAddresses("10.0.3.1")},
 		startAliveMachine{"3", ""},
 		setMachineStatus{"3", status.Started, ""},
 		setMachineInstanceStatus{"3", status.Started, "I am number three"},
 
 		addMachine{machineId: "4", job: state.JobHostUnits},
-		setAddresses{"4", network.NewAddresses("10.0.4.1")},
+		setAddresses{"4", network.NewSpaceAddresses("10.0.4.1")},
 		startAliveMachine{"4", ""},
 		setMachineStatus{"4", status.Started, ""},
 
@@ -3073,7 +3073,7 @@ var statusTests = []testCase{
 	test( // 19
 		"consistent workload version",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 
@@ -3081,7 +3081,7 @@ var statusTests = []testCase{
 		addApplication{name: "mysql", charm: "mysql"},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"mysql", "1"},
@@ -3135,7 +3135,7 @@ var statusTests = []testCase{
 	test( // 20
 		"mixed workload version",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 
@@ -3143,14 +3143,14 @@ var statusTests = []testCase{
 		addApplication{name: "mysql", charm: "mysql"},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"mysql", "1"},
 		setUnitWorkloadVersion{"mysql/0", "the best!"},
 
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("10.0.2.1")},
+		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
 		startAliveMachine{"2", ""},
 		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"mysql", "2"},
@@ -3218,13 +3218,13 @@ var statusTests = []testCase{
 	test( // 21
 		"instance with localhost addresses",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", []network.Address{
-			network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal),
-			network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
+		setAddresses{"0", []network.SpaceAddress{
+			network.NewScopedSpaceAddress("10.0.0.1", network.ScopeCloudLocal),
+			network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),
 			// TODO(macgreagoir) setAddresses step method needs to
 			// set netmask correctly before we can test IPv6
 			// loopback.
-			// network.NewScopedAddress("::1", network.ScopeMachineLocal),
+			// network.NewScopedSpaceAddress("::1", network.ScopeMachineLocal),
 		}},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
@@ -3246,12 +3246,12 @@ var statusTests = []testCase{
 	test( // 22
 		"instance with IPv6 addresses",
 		addMachine{machineId: "0", cons: machineCons, job: state.JobManageModel},
-		setAddresses{"0", []network.Address{
-			network.NewScopedAddress("2001:db8::1", network.ScopeCloudLocal),
+		setAddresses{"0", []network.SpaceAddress{
+			network.NewScopedSpaceAddress("2001:db8::1", network.ScopeCloudLocal),
 			// TODO(macgreagoir) setAddresses step method needs to
 			// set netmask correctly before we can test IPv6
 			// loopback.
-			// network.NewScopedAddress("::1", network.ScopeMachineLocal),
+			// network.NewScopedSpaceAddress("::1", network.ScopeMachineLocal),
 		}},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
@@ -3300,11 +3300,11 @@ var statusTests = []testCase{
 	test( // 23
 		"a remote application",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 
@@ -3452,11 +3452,11 @@ var statusTests = []testCase{
 	test( //26
 		"deploy application with endpoint bound to space",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 
@@ -3587,11 +3587,11 @@ var statusTests = []testCase{
 	test( // 27
 		"application with lxd profiles",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 		setCharmProfiles{"1", []string{"juju-controller-lxd-profile-1"}},
@@ -3930,7 +3930,7 @@ func (sp addSpace) step(c *gc.C, ctx *context) {
 
 type setAddresses struct {
 	machineId string
-	addresses []network.Address
+	addresses []network.SpaceAddress
 }
 
 func (sa setAddresses) step(c *gc.C, ctx *context) {
@@ -4775,7 +4775,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 	defer s.resetContext(c, ctx)
 	steps := []stepper{
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("localhost")},
+		setAddresses{"0", network.NewSpaceAddresses("localhost")},
 		startAliveMachine{"0", "snowflake"},
 		setMachineStatus{"0", status.Started, ""},
 		addCharm{"wordpress"},
@@ -4786,7 +4786,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addApplication{name: "wordpress", charm: "wordpress"},
 		setApplicationExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("localhost")},
+		setAddresses{"1", network.NewSpaceAddresses("localhost")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"wordpress", "1"},
@@ -4795,7 +4795,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addApplication{name: "mysql", charm: "mysql"},
 		setApplicationExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("10.0.2.1")},
+		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
 		startAliveMachine{"2", ""},
 		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"mysql", "2"},
@@ -4844,7 +4844,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 	defer s.resetContext(c, ctx)
 	steps := []stepper{
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", "snowflake"},
 		setMachineStatus{"0", status.Started, ""},
 		addCharm{"wordpress"},
@@ -4854,7 +4854,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		addApplication{name: "wordpress", charm: "wordpress"},
 		setApplicationExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"wordpress", "1"},
@@ -4864,7 +4864,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		addApplication{name: "mysql", charm: "mysql"},
 		setApplicationExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("10.0.2.1")},
+		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
 		startAliveMachine{"2", ""},
 		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"mysql", "2"},
@@ -4922,7 +4922,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 	steps := []stepper{
 		setToolsUpgradeAvailable{},
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startMachineWithHardware{"0", instance.MustParseHardware("availability-zone=us-east-1a")},
 		setMachineStatus{"0", status.Started, ""},
 		addCharm{"wordpress"},
@@ -4933,7 +4933,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addApplication{name: "wordpress", charm: "wordpress"},
 		setApplicationExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		startAliveMachine{"1", "snowflake"},
 		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"wordpress", "1"},
@@ -4943,7 +4943,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addApplication{name: "mysql", charm: "mysql"},
 		setApplicationExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("10.0.2.1")},
+		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
 		startAliveMachine{"2", ""},
 		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"mysql", "2"},
@@ -4977,7 +4977,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		setUnitAsLeader{"logging/1"},
 		setUnitAsLeader{"wordpress/0"},
 		addMachine{machineId: "3", job: state.JobHostUnits},
-		setAddresses{"3", network.NewAddresses("10.0.3.1")},
+		setAddresses{"3", network.NewSpaceAddresses("10.0.3.1")},
 		startAliveMachine{"3", ""},
 		setMachineStatus{"3", status.Started, ""},
 		setMachineInstanceStatus{"3", status.Started, "I am number three"},
@@ -4989,7 +4989,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 
 		// test modification status
 		addMachine{machineId: "4", job: state.JobHostUnits},
-		setAddresses{"4", network.NewAddresses("10.0.3.1")},
+		setAddresses{"4", network.NewSpaceAddresses("10.0.3.1")},
 		startAliveMachine{"4", ""},
 		setMachineStatus{"4", status.Started, ""},
 		setMachineInstanceStatus{"4", status.Started, "I am number four"},
@@ -5258,7 +5258,7 @@ func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
 	defer s.resetContext(c, ctx)
 	steps := []stepper{
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 	}
@@ -5337,7 +5337,7 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		startAliveMachine{"0", ""},
 		setMachineStatus{"0", status.Started, ""},
 		// And the machine's address is "10.0.0.1"
-		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		// And a container is started
 		// And the container's ID is "0/lxd/0"
 		addContainer{"0", "0/lxd/0", state.JobHostUnits},
@@ -5358,7 +5358,7 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		startAliveMachine{"1", ""},
 		setMachineStatus{"1", status.Started, ""},
 		// And the machine's address is "10.0.1.1"
-		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 		// And a unit of "wordpress" is deployed to machine "1"
 		addAliveUnit{"wordpress", "1"},
 		// And the unit is started
@@ -5372,7 +5372,7 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		startAliveMachine{"2", ""},
 		setMachineStatus{"2", status.Started, ""},
 		// And the machine's address is "10.0.2.1"
-		setAddresses{"2", network.NewAddresses("10.0.2.1")},
+		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
 		// And a unit of "mysql" is deployed to machine "2"
 		addAliveUnit{"mysql", "2"},
 		// And the unit is started
@@ -5606,9 +5606,9 @@ func (s *StatusSuite) TestFilterOnSubnet(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	// Given the address for machine "1" is "localhost"
-	setAddresses{"1", network.NewAddresses("localhost", "127.0.0.1")}.step(c, ctx)
+	setAddresses{"1", network.NewSpaceAddresses("localhost", "127.0.0.1")}.step(c, ctx)
 	// And the address for machine "2" is "10.0.2.1"
-	setAddresses{"2", network.NewAddresses("10.0.2.1")}.step(c, ctx)
+	setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")}.step(c, ctx)
 	// When I run juju status --format oneline 127.0.0.1
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "127.0.0.1")
 	c.Assert(stderr, gc.IsNil)
@@ -5627,9 +5627,9 @@ func (s *StatusSuite) TestFilterOnPorts(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	// Given the address for machine "1" is "localhost"
-	setAddresses{"1", network.NewAddresses("localhost")}.step(c, ctx)
+	setAddresses{"1", network.NewSpaceAddresses("localhost")}.step(c, ctx)
 	// And the address for machine "2" is "10.0.2.1"
-	setAddresses{"2", network.NewAddresses("10.0.2.1")}.step(c, ctx)
+	setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")}.step(c, ctx)
 	openUnitPort{"wordpress/0", "tcp", 80}.step(c, ctx)
 	// When I run juju status --format oneline 80/tcp
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "80/tcp")
@@ -5766,7 +5766,7 @@ func (*StatusSuite) TestStatusCommandInit(c *gc.C) {
 var statusTimeTest = test(
 	"status generates timestamps as UTC in ISO format",
 	addMachine{machineId: "0", job: state.JobManageModel},
-	setAddresses{"0", network.NewAddresses("10.0.0.1")},
+	setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 	startAliveMachine{"0", ""},
 	setMachineStatus{"0", status.Started, ""},
 	addCharm{"dummy"},
@@ -5774,7 +5774,7 @@ var statusTimeTest = test(
 
 	addMachine{machineId: "1", job: state.JobHostUnits},
 	startAliveMachine{"1", ""},
-	setAddresses{"1", network.NewAddresses("10.0.1.1")},
+	setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
 	setMachineStatus{"1", status.Started, ""},
 
 	addAliveUnit{"dummy-application", "1"},

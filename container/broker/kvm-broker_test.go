@@ -226,9 +226,9 @@ func (s *kvmBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 		InterfaceName:       "dummy0",
 		ParentInterfaceName: "virbr0",
 		MACAddress:          "aa:bb:cc:dd:ee:ff",
-		Address:             corenetwork.NewAddress("0.1.2.3"),
-		GatewayAddress:      corenetwork.NewAddress("0.1.2.1"),
-		DNSServers:          corenetwork.NewAddresses("ns1.dummy", "ns2.dummy"),
+		Address:             corenetwork.NewProviderAddress("0.1.2.3"),
+		GatewayAddress:      corenetwork.NewProviderAddress("0.1.2.1"),
+		DNSServers:          corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
 		DNSSearchDomains:    []string{"dummy", "invalid"},
 	})
 }
