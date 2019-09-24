@@ -23,16 +23,22 @@ import_subdir_files includes
 
 # If adding a test suite, then ensure to add it here to be picked up!
 TEST_NAMES="test_static_analysis \
+            test_controller \
             test_smoke \
             test_cmr_bundles"
 
 show_help() {
+    version=$(juju version)
     echo ""
     echo "$(red 'Juju test suite')"
     echo "¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯"
     echo "Juju tests suite expects you to have a Juju available on your \$PATH,"
     echo "so that if a tests needs to bootstrap it can just use that one"
     echo "directly."
+    echo ""
+    echo "Juju Version:"
+    echo "¯¯¯¯¯¯¯¯¯¯¯¯¯"
+    echo "Using juju version: $(green "${version}")"
     echo ""
     echo "Usage:"
     echo "¯¯¯¯¯¯"
@@ -80,7 +86,7 @@ show_help() {
     exit 0
 }
 
-while getopts "h?:vVsax" opt; do
+while getopts "h?:vVsaxrp" opt; do
     case "${opt}" in
     h|\?)
         show_help
