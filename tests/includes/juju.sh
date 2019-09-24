@@ -11,6 +11,11 @@ ensure() {
     bootstrap "${model}" "${output}"
 }
 
+juju_version() {
+    version=$(juju version | cut -f1 -d '-')
+    echo "${version}"
+}
+
 bootstrap() {
     local provider name output model bootstrapped_name
 
@@ -44,9 +49,11 @@ bootstrap() {
         unset BOOTSTRAP_REUSE
     fi
 
+    version=$(juju_version)
+
     START_TIME=$(date +%s)
     if [ -n "${BOOTSTRAP_REUSE}" ]; then
-        echo "====> Reusing bootstrapped juju"
+        echo "====> Reusing bootstrapped juju ($(green "${version}"))"
 
         OUT=$(juju models --format=json 2>/dev/null | jq '.models[] | .["short-name"]' | grep "${model}" || true)
         if [ -n "${OUT}" ]; then
@@ -58,7 +65,7 @@ bootstrap() {
         add_model "${model}" "${provider}"
         name="${bootstrapped_name}"
     else
-        echo "====> Bootstrapping juju"
+        echo "====> Bootstrapping juju ($(green "${version}"))"
         juju_bootstrap "${provider}" "${name}" "${model}" "${output}"
     fi
     END_TIME=$(date +%s)
@@ -147,7 +154,7 @@ destroy_controller() {
 
     output="${TEST_DIR}/${name}-destroy-controller.txt"
 
-    echo "====> Destroying juju ${name}"
+    echo "====> Destroying juju ($(green "${name}"))"
     echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models -y % 2>&1 | add_date >"${output}"
     CHK=$(cat "${output}" | grep -i "ERROR" || true)
     if [ -n "${CHK}" ]; then
@@ -155,7 +162,8 @@ destroy_controller() {
         cat "${output}" | xargs echo -I % "\\n%"
         exit 1
     fi
-    echo "====> Destroyed juju ${name}"
+    sed -i "/^${name}$/d" "${TEST_DIR}/jujus"
+    echo "====> Destroyed juju ($(green "${name}"))"
 }
 
 cleanup_jujus() {

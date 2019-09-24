@@ -14,3 +14,39 @@ check_dependencies() {
         exit 1
     fi
 }
+
+check_not_contains() {
+    local input value chk
+
+    input=${1}
+    shift
+
+    value=${1}
+    shift
+
+    chk=$(echo "${input}" | grep "${value}" || true)
+    if [ -n "${chk}" ]; then
+        printf "Unexpected \"${value}\" found\n\n%s\n" "${input}"
+        exit 1
+    else
+        echo "Success: \"${value}\" not found"
+    fi
+}
+
+check_contains() {
+    local input value chk
+
+    input=${1}
+    shift
+
+    value=${1}
+    shift
+
+    chk=$(echo "${input}" | grep "${value}" || true)
+    if [ -z "${chk}" ]; then
+        printf "Expected \"${value}\" not found\n\n%s\n" "${input}"
+        exit 1
+    else
+        echo "Success: \"${value}\" found"
+    fi
+}
