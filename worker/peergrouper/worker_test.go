@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"reflect"
 	"sort"
 	"strconv"
 	"sync"
@@ -483,9 +482,7 @@ func (s *workerSuite) TestControllersArePublished(c *gc.C) {
 	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		publishCh := make(chan []network.SpaceHostPorts)
 		publish := func(apiServers []network.SpaceHostPorts) error {
-			// Publish a copy, so we don't get a race when sorting
-			// for comparisons later.
-			publishCh <- append([]network.SpaceHostPorts{}, apiServers...)
+			publishCh <- apiServers
 			return nil
 		}
 
@@ -501,36 +498,24 @@ func (s *workerSuite) TestControllersArePublished(c *gc.C) {
 			c.Fatalf("timed out waiting for publish")
 		}
 
-		// Change one of the server API addresses.
+		// If a config change wakes up the loop *after* the controller topology
+		// is published, then we will get another call to setAPIHostPorts.
+		select {
+		case <-publishCh:
+		case <-time.After(coretesting.ShortWait):
+		}
+
+		// Change one of the server API addresses and check that it is
+		// published.
 		newMachine10Addresses := network.NewSpaceAddresses(ipVersion.extraHost)
 		st.controller("10").setAddresses(newMachine10Addresses...)
-
-		// Set up our sorted expectation for the new server addresses.
-		expected := ExpectedAPIHostPorts(3, ipVersion)
-		expected[0] = network.SpaceAddressesWithPort(newMachine10Addresses, apiPort)
-		sort.Sort(hostPortSliceByHostPort(expected))
-
-		// If a config change wakes up the loop *after* the controller topology
-		// is published, then we will get another call to setAPIHostPorts with
-		// the original values.
-		// This can take an indeterminate amount of time, so we just loop until
-		// we see the expected addresses, or hit the timeout.
-		timeout := time.After(coretesting.LongWait)
-		for {
-			select {
-			case servers := <-publishCh:
-				sort.Sort(hostPortSliceByHostPort(servers))
-				if reflect.DeepEqual(servers, expected) {
-					// This doubles as an assertion that no incorrect values
-					// are published later, as the worker will not die cleanly
-					// if such a publish via the channel is pending.
-					workertest.CleanKill(c, w)
-					return
-				}
-			case <-timeout:
-				workertest.DirtyKill(c, w)
-				c.Fatalf("timed out waiting for correct addresses to be published")
-			}
+		select {
+		case servers := <-publishCh:
+			expected := ExpectedAPIHostPorts(3, ipVersion)
+			expected[0] = network.SpaceAddressesWithPort(newMachine10Addresses, apiPort)
+			AssertAPIHostPorts(c, servers, expected)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for publish")
 		}
 	})
 }
