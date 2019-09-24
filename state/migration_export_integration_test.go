@@ -848,6 +848,30 @@ func (s *MigrationIntegrationExportSuite) TestRemoteEntities(c *gc.C) {
 	c.Assert(entity.Macaroon(), gc.Equals, "")
 }
 
+func (s *MigrationIntegrationExportSuite) TestRelationNetworks(c *gc.C) {
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = state.NewRelationIngressNetworks(s.State).Save("wordpress:db mysql:server", false, []string{"192.168.1.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	relationNetwork := model.RelationNetworks()
+	c.Assert(relationNetwork, gc.HasLen, 1)
+
+	rin := relationNetwork[0]
+	c.Assert(rin.RelationKey(), gc.Equals, "wordpress:db mysql:server")
+	c.Assert(rin.CIDRS(), jc.DeepEquals, []string{"192.168.1.0/16"})
+}
+
 func (s *MigrationIntegrationExportSuite) TestRelations(c *gc.C) {
 	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
 	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
@@ -929,22 +953,6 @@ func (s *MigrationIntegrationExportSuite) TestRelations(c *gc.C) {
 	}
 	checkEndpoint(exEps[0], mysql_0.Name(), msEp, mysqlSettings, mysqlAppSettings)
 	checkEndpoint(exEps[1], wordpress_0.Name(), wpEp, wordpressSettings, wordpressAppSettings)
-
-	exRelNetwrk := exRel.RelationNetworks()
-	c.Assert(exRelNetwrk, gc.HasLen, 2)
-
-	checkRelationNetwork := func(
-		exRelationNetwork description.RelationNetwork,
-		cidrs []string,
-		dirType string,
-	) {
-		c.Logf("%#v", exRelationNetwork)
-		c.Check(exRelationNetwork.RelationKey(), gc.Equals, rel.Tag().Id())
-		c.Check(exRelationNetwork.CIDRS(), jc.DeepEquals, cidrs)
-		c.Check(exRelationNetwork.Type(), gc.Equals, dirType)
-	}
-	checkRelationNetwork(exRelNetwrk[0], []string{"1.2.3.4/24"}, state.IngressDirection.String())
-	checkRelationNetwork(exRelNetwrk[1], []string{"5.4.3.2/16"}, state.EgressDirection.String())
 
 	// Make sure there is a status.
 	status := exRel.Status()

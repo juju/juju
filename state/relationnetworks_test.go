@@ -147,6 +147,37 @@ func (s *relationEgressNetworksSuite) TestCrossContanination(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+type relationRootNetworksSuite struct {
+	relationNetworksSuite
+}
+
+var _ = gc.Suite(&relationRootNetworksSuite{})
+
+func (s *relationRootNetworksSuite) SetUpTest(c *gc.C) {
+	s.ConnSuite.SetUpTest(c)
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	s.relation, err = s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.direction = "ingress"
+	s.relationNetworks = state.NewRelationIngressNetworks(s.State)
+}
+
+func (s *relationRootNetworksSuite) TestAllRelationNetworks(c *gc.C) {
+	s.relationNetworks.Save("wordpress:db mysql:server", false, []string{"192.168.1.0/16"})
+
+	relationNetworks := state.NewRelationNetworks(s.State)
+	relations, err := relationNetworks.AllRelationNetworks()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relations, gc.HasLen, 1)
+	s.assertSavedIngressInfo(c, "wordpress:db mysql:server", "192.168.1.0/16")
+}
+
 // ParseRelationNetworkTypeDocID
 type relationNetworksTypeSuite struct {
 	testing.BaseSuite

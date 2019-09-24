@@ -153,6 +153,9 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	if err := export.remoteEntities(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.relationNetworks(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := export.spaces(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1114,64 +1117,72 @@ func (e *exporter) relations() error {
 				exEndPoint.SetUnitSettings(unit.Name(), settingsDoc.Settings)
 			}
 		}
-
-		// Ensure that we get both ingress and egress relation network
-		// information for the relation.
-		key := relation.Tag().Id()
-		ingress := NewRelationIngressNetworks(e.st)
-		ingressNetworks, err := ingress.Networks(key)
-		if err != nil && !errors.IsNotFound(err) {
-			return errors.Annotatef(err, "relation ingress networks")
-		}
-		if ingressNetworks != nil {
-			exRelation.AddRelationNetwork(description.RelationNetworkArgs{
-				ID:          ingressNetworks.Id(),
-				RelationKey: ingressNetworks.RelationKey(),
-				CIDRS:       ingressNetworks.CIDRS(),
-				Type:        IngressDirection.String(),
-			})
-		}
-
-		egress := NewRelationEgressNetworks(e.st)
-		egressNetworks, err := egress.Networks(key)
-		if err != nil && !errors.IsNotFound(err) {
-			return errors.Annotatef(err, "relation egress networks")
-		}
-		if egressNetworks != nil {
-			exRelation.AddRelationNetwork(description.RelationNetworkArgs{
-				ID:          egressNetworks.Id(),
-				RelationKey: egressNetworks.RelationKey(),
-				CIDRS:       egressNetworks.CIDRS(),
-				Type:        EgressDirection.String(),
-			})
-		}
 	}
 	return nil
 }
 
 func (e *exporter) remoteEntities() error {
-	remoteEntities, err := e.st.AllRemoteEntities()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	e.logger.Debugf("read %d remote entities", len(remoteEntities))
+	e.logger.Debugf("reading remote entities")
+	return exportRemoteEntities(e.st, e.model)
+}
 
-	return exportRemoteEntities(remoteEntities, e.model)
+//go:generate mockgen -package state -destination migration_export_mock_test.go github.com/juju/juju/state RemoteEntitiesSource,RemoteEntitiesModel,RelationNetworksSource,RelationNetworksModel
+//go:generate mockgen -package state -destination migration_mock_test.go github.com/juju/juju/state RelationNetworks
+
+// RemoteEntitiesSource defines an inplace usage for reading all the remote
+// entities.
+type RemoteEntitiesSource interface {
+	AllRemoteEntities() ([]RemoteEntity, error)
 }
 
 // RemoteEntitiesModel defines an inplace usage for adding a remote entity
 // to a model.
-//go:generate mockgen -package state -destination migration_export_mock_test.go github.com/juju/juju/state RemoteEntitiesModel
 type RemoteEntitiesModel interface {
 	AddRemoteEntity(description.RemoteEntityArgs) description.RemoteEntity
 }
 
-func exportRemoteEntities(entities []RemoteEntity, model RemoteEntitiesModel) error {
+func exportRemoteEntities(state RemoteEntitiesSource, model RemoteEntitiesModel) error {
+	entities, err := state.AllRemoteEntities()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	for _, entity := range entities {
 		model.AddRemoteEntity(description.RemoteEntityArgs{
 			ID:       entity.ID(),
 			Token:    entity.Token(),
 			Macaroon: entity.Macaroon(),
+		})
+	}
+	return nil
+}
+
+func (e *exporter) relationNetworks() error {
+	e.logger.Debugf("reading relation networks")
+	return exportRelationNetworks(NewRelationNetworks(e.st), e.model)
+}
+
+// RelationNetworksSource defines an inplace usage for reading all the relation
+// networks.
+type RelationNetworksSource interface {
+	AllRelationNetworks() ([]RelationNetworks, error)
+}
+
+// RelationNetworksModel defines an inplace usage for adding a relation networks
+// to a model.
+type RelationNetworksModel interface {
+	AddRelationNetwork(description.RelationNetworkArgs) description.RelationNetwork
+}
+
+func exportRelationNetworks(state RelationNetworksSource, model RelationNetworksModel) error {
+	entities, err := state.AllRelationNetworks()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, entity := range entities {
+		model.AddRelationNetwork(description.RelationNetworkArgs{
+			ID:          entity.Id(),
+			RelationKey: entity.RelationKey(),
+			CIDRS:       entity.CIDRS(),
 		})
 	}
 	return nil

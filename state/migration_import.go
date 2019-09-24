@@ -187,6 +187,12 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	if err := restore.relations(); err != nil {
 		return nil, nil, errors.Annotate(err, "relations")
 	}
+	if err := restore.remoteEntities(); err != nil {
+		return nil, nil, errors.Annotate(err, "remoteentitites")
+	}
+	if err := restore.relationNetworks(); err != nil {
+		return nil, nil, errors.Annotate(err, "relationnetworks")
+	}
 	if err := restore.linklayerdevices(); err != nil {
 		return nil, nil, errors.Annotate(err, "linklayerdevices")
 	}
@@ -1219,27 +1225,6 @@ func (i *importer) relation(rel description.Relation) error {
 		}
 	}
 
-	// Support both ingress and egress relations
-	for _, relationNetwork := range rel.RelationNetworks() {
-		relationID := relationNetwork.ID()
-		label, err := parseRelationNetworkTypeDocID(relationID)
-		if err != nil {
-			return errors.Annotatef(err, "invalid relation key %s", relationID)
-		}
-		doc := relationNetworksDoc{
-			Id:          relationNetworkDocID(dbRelation.Tag().Id(), relationNetwork.Type(), label),
-			RelationKey: relationNetwork.RelationKey(),
-			CIDRS:       relationNetwork.CIDRS(),
-		}
-
-		ops = append(ops, txn.Op{
-			C:      relationNetworksC,
-			Id:     doc.Id,
-			Assert: txn.DocMissing,
-			Insert: doc,
-		})
-	}
-
 	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
@@ -1270,6 +1255,100 @@ func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
 		doc.UnitCount += ep.UnitCount()
 	}
 	return doc
+}
+
+func (i *importer) remoteEntities() error {
+	i.logger.Debugf("importing remote entities")
+	if err := importRemoteEntities(i.model, stateModelNamspaceShim{st: i.st}, i.st.db()); err != nil {
+		return errors.Trace(err)
+	}
+	i.logger.Debugf("importing remote entities succeeded")
+	return nil
+}
+
+//go:generate mockgen -package state -destination migration_import_mock_test.go github.com/juju/juju/state TransactionRunner,DocModelNamespace,ModelRemoteEntities,ModelRelationNetworks
+//go:generate mockgen -package state -destination migration_description_mock_test.go github.com/juju/description RemoteEntity,RelationNetwork
+
+// TransactionRunner is an inplace useage for running transactions to a
+// persistence store.
+type TransactionRunner interface {
+	RunTransaction([]txn.Op) error
+}
+
+// DocModelNamespace takes a document model ID and ensures it has a model id
+// associated with the model.
+type DocModelNamespace interface {
+	DocID(string) string
+}
+
+type stateModelNamspaceShim struct {
+	st *State
+}
+
+func (s stateModelNamspaceShim) DocID(localID string) string {
+	return s.st.docID(localID)
+}
+
+// ModelRemoteEntities defines an inplace usage for reading remote entities.
+type ModelRemoteEntities interface {
+	RemoteEntities() []description.RemoteEntity
+}
+
+func importRemoteEntities(model ModelRemoteEntities, docModelNS DocModelNamespace, runner TransactionRunner) error {
+	remoteEntities := model.RemoteEntities()
+	ops := make([]txn.Op, len(remoteEntities))
+	for i, entity := range remoteEntities {
+		docID := docModelNS.DocID(entity.ID())
+		ops[i] = txn.Op{
+			C:      remoteEntitiesC,
+			Id:     docID,
+			Assert: txn.DocMissing,
+			Insert: &remoteEntityDoc{
+				DocID: docID,
+				Token: entity.Token(),
+			},
+		}
+	}
+	if err := runner.RunTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (i *importer) relationNetworks() error {
+	i.logger.Debugf("importing relation networks")
+	if err := importRelationNetworks(i.model, stateModelNamspaceShim{st: i.st}, i.st.db()); err != nil {
+		return errors.Trace(err)
+	}
+	i.logger.Debugf("importing relation networks succeeded")
+	return nil
+}
+
+// ModelRelationNetworks defines an inplace usage for reading relation networks.
+type ModelRelationNetworks interface {
+	RelationNetworks() []description.RelationNetwork
+}
+
+func importRelationNetworks(model ModelRelationNetworks, docModelNS DocModelNamespace, runner TransactionRunner) error {
+	relationNetworks := model.RelationNetworks()
+	ops := make([]txn.Op, len(relationNetworks))
+	for i, entity := range relationNetworks {
+		docID := docModelNS.DocID(entity.ID())
+		ops[i] = txn.Op{
+			C:      relationNetworksC,
+			Id:     docID,
+			Assert: txn.DocMissing,
+			Insert: relationNetworksDoc{
+				Id:          docID,
+				RelationKey: entity.RelationKey(),
+				CIDRS:       entity.CIDRS(),
+			},
+		}
+	}
+	if err := runner.RunTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // spaces imports spaces without subnets, which are added later.
