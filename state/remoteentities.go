@@ -16,6 +16,29 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
+// RemoteEntity definies a remote entity that has a unique opaque token that
+// identifies the entity within the model.
+type RemoteEntity struct {
+	docID    string
+	token    string
+	macaroon string
+}
+
+// ID returns the RemoteEntity ID.
+func (e *RemoteEntity) ID() string {
+	return e.docID
+}
+
+// Token returns the RemoteEntity Token.
+func (e *RemoteEntity) Token() string {
+	return e.token
+}
+
+// Macaroon returns the RemoteEntity Macaroon associated with the Token.
+func (e *RemoteEntity) Macaroon() string {
+	return e.macaroon
+}
+
 // remoteEntityDoc represents the internal state of a remote entity in
 // MongoDB. Remote entities may be exported local entities, or imported
 // remote entities.
@@ -36,6 +59,30 @@ type RemoteEntities struct {
 // access to the remote entities collection.
 func (st *State) RemoteEntities() *RemoteEntities {
 	return &RemoteEntities{st}
+}
+
+// AllRemoteEntities returns all the remote entities for the model.
+func (st *State) AllRemoteEntities() ([]RemoteEntity, error) {
+	remoteEntitiesCollection, closer := st.db().GetCollection(remoteEntitiesC)
+	defer closer()
+
+	var docs []remoteEntityDoc
+	if err := remoteEntitiesCollection.Find(nil).All(&docs); err != nil {
+		return nil, errors.Annotatef(err, "cannot get all remote entities")
+	}
+	entities := make([]RemoteEntity, len(docs))
+	for i, doc := range docs {
+		id, err := st.strictLocalID(doc.DocID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		entities[i] = RemoteEntity{
+			docID:    id,
+			token:    doc.Token,
+			macaroon: doc.Macaroon,
+		}
+	}
+	return entities, nil
 }
 
 // ExportLocalEntity adds an entity to the remote entities collection,
