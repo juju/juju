@@ -117,7 +117,7 @@ func (p *BridgePolicy) findSpacesAndDevicesForContainer(
 
 func possibleBridgeTarget(dev LinkLayerDevice) (bool, error) {
 	// LoopbackDevices can never be bridged
-	if dev.Type() == state.LoopbackDevice || dev.Type() == state.BridgeDevice {
+	if dev.Type() == corenetwork.LoopbackDevice || dev.Type() == corenetwork.BridgeDevice {
 		return false, nil
 	}
 	// Devices that have no parent entry are direct host devices that can be
@@ -127,7 +127,7 @@ func possibleBridgeTarget(dev LinkLayerDevice) (bool, error) {
 	}
 	// TODO(jam): 2016-12-22 This feels dirty, but it falls out of how we are
 	// currently modeling VLAN objects.  see bug https://pad.lv/1652049
-	if dev.Type() != state.VLAN_8021QDevice {
+	if dev.Type() != corenetwork.VLAN_8021QDevice {
 		// Only state.VLAN_8021QDevice have parents that still allow us to
 		// bridge them.
 		// When anything else has a parent set, it shouldn't be used.
@@ -139,7 +139,7 @@ func possibleBridgeTarget(dev LinkLayerDevice) (bool, error) {
 		// database inconsistency error.
 		return false, err
 	}
-	if parentDevice.Type() == state.EthernetDevice || parentDevice.Type() == state.BondDevice {
+	if parentDevice.Type() == corenetwork.EthernetDevice || parentDevice.Type() == corenetwork.BondDevice {
 		// A plain VLAN device with a direct parent
 		// of its underlying ethernet device.
 		return true, nil
@@ -223,7 +223,7 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 	fanSpacesFound := set.NewStrings()
 	for spaceName, devices := range devicesPerSpace {
 		for _, device := range devices {
-			if device.Type() == state.BridgeDevice {
+			if device.Type() == corenetwork.BridgeDevice {
 				if p.ContainerNetworkingMethod != "local" && skippedDeviceNames.Contains(device.Name()) {
 					continue
 				}
@@ -273,7 +273,7 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 				// don't know what the exact spaces are going to be.
 				for _, deviceName := range hostDeviceNames {
 					hostDeviceNamesToBridge = append(hostDeviceNamesToBridge, deviceName)
-					if hostDeviceByName[deviceName].Type() == state.BondDevice {
+					if hostDeviceByName[deviceName].Type() == corenetwork.BondDevice {
 						if reconfigureDelay < p.NetBondReconfigureDelay {
 							reconfigureDelay = p.NetBondReconfigureDelay
 						}
@@ -285,7 +285,7 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 				// pick the host device
 				hostDeviceNames = network.NaturallySortDeviceNames(hostDeviceNames...)
 				hostDeviceNamesToBridge = append(hostDeviceNamesToBridge, hostDeviceNames[0])
-				if hostDeviceByName[hostDeviceNames[0]].Type() == state.BondDevice {
+				if hostDeviceByName[hostDeviceNames[0]].Type() == corenetwork.BondDevice {
 					if reconfigureDelay < p.NetBondReconfigureDelay {
 						reconfigureDelay = p.NetBondReconfigureDelay
 					}
@@ -349,7 +349,7 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(m Machine, containerMac
 			isFan := strings.HasPrefix(hostDevice.Name(), "fan-")
 			wantThisDevice := isFan == (p.ContainerNetworkingMethod == "fan")
 			deviceType, name := hostDevice.Type(), hostDevice.Name()
-			if wantThisDevice && deviceType == state.BridgeDevice && !skippedDeviceNames.Contains(name) {
+			if wantThisDevice && deviceType == corenetwork.BridgeDevice && !skippedDeviceNames.Contains(name) {
 				devicesByName[name] = hostDevice
 				bridgeDeviceNames = append(bridgeDeviceNames, name)
 				spacesFound.Add(spaceName)
@@ -363,7 +363,7 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(m Machine, containerMac
 		localBridgeName := localBridgeForType[containerMachine.ContainerType()]
 		for _, hostDevice := range devicesPerSpace[""] {
 			name := hostDevice.Name()
-			if hostDevice.Type() == state.BridgeDevice && name == localBridgeName {
+			if hostDevice.Type() == corenetwork.BridgeDevice && name == localBridgeName {
 				missingSpace.Remove("")
 				devicesByName[name] = hostDevice
 				bridgeDeviceNames = append(bridgeDeviceNames, name)
