@@ -2055,11 +2055,3 @@ func (s *provisionerMockSuite) setup(c *gc.C) *gomock.Controller {
 
 	return ctrl
 }
-
-type provisionerProfileMockSuite struct {
-	coretesting.BaseSuite
-
-	backend *mocks.MockProfileBackend
-	charm   *mocks.MockProfileCharm
-	machine *mocks.MockProfileMachine
-}
