@@ -125,7 +125,7 @@ func (s *bridgePolicyStateSuite) createNICWithIP(c *gc.C, machine containerizer.
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       deviceName,
-			Type:       state.EthernetDevice,
+			Type:       corenetwork.EthernetDevice,
 			ParentName: "",
 			IsUp:       true,
 		},
@@ -147,7 +147,7 @@ func (s *bridgePolicyStateSuite) createBridgeWithIP(
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       bridgeName,
-			Type:       state.BridgeDevice,
+			Type:       corenetwork.BridgeDevice,
 			ParentName: "",
 			IsUp:       true,
 		},
@@ -172,7 +172,7 @@ func (s *bridgePolicyStateSuite) createNICAndBridgeWithIP(
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       deviceName,
-			Type:       state.EthernetDevice,
+			Type:       corenetwork.EthernetDevice,
 			ParentName: bridgeName,
 			IsUp:       true,
 		},
@@ -190,7 +190,7 @@ func (s *bridgePolicyStateSuite) createLoopbackNIC(c *gc.C, machine containerize
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       "lo",
-			Type:       state.LoopbackDevice,
+			Type:       corenetwork.LoopbackDevice,
 			ParentName: "",
 			IsUp:       true,
 		},
@@ -229,31 +229,31 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesCorrectlyP
 	devicesArgs := []state.LinkLayerDeviceArgs{
 		{
 			Name: "br-eth10",
-			Type: state.BridgeDevice,
+			Type: corenetwork.BridgeDevice,
 		},
 		{
 			Name: "br-eth1",
-			Type: state.BridgeDevice,
+			Type: corenetwork.BridgeDevice,
 		},
 		{
 			Name: "br-eth10-100",
-			Type: state.BridgeDevice,
+			Type: corenetwork.BridgeDevice,
 		},
 		{
 			Name: "br-eth2",
-			Type: state.BridgeDevice,
+			Type: corenetwork.BridgeDevice,
 		},
 		{
 			Name: "br-eth0",
-			Type: state.BridgeDevice,
+			Type: corenetwork.BridgeDevice,
 		},
 		{
 			Name: "br-eth4",
-			Type: state.BridgeDevice,
+			Type: corenetwork.BridgeDevice,
 		},
 		{
 			Name: "br-eth3",
-			Type: state.BridgeDevice,
+			Type: corenetwork.BridgeDevice,
 		},
 	}
 	// Put each of those bridges into a different subnet that is part
@@ -307,7 +307,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesCorrectlyP
 
 	for i, containerDevice := range containerDevices {
 		c.Check(containerDevice.Name(), gc.Matches, "eth"+strconv.Itoa(i))
-		c.Check(containerDevice.Type(), gc.Equals, state.EthernetDevice)
+		c.Check(containerDevice.Type(), gc.Equals, corenetwork.EthernetDevice)
 		c.Check(containerDevice.MTU(), gc.Equals, uint(0)) // inherited from the parent device.
 		c.Check(containerDevice.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
 		c.Check(containerDevice.IsUp(), jc.IsTrue)
@@ -337,7 +337,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesConstraint
 
 	containerDevice := containerDevices[0]
 	c.Check(containerDevice.Name(), gc.Matches, "eth0")
-	c.Check(containerDevice.Type(), gc.Equals, state.EthernetDevice)
+	c.Check(containerDevice.Type(), gc.Equals, corenetwork.EthernetDevice)
 	c.Check(containerDevice.MTU(), gc.Equals, uint(0)) // inherited from the parent device.
 	c.Check(containerDevice.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
 	c.Check(containerDevice.IsUp(), jc.IsTrue)
@@ -369,7 +369,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesUnitBindin
 
 	containerDevice := containerDevices[0]
 	c.Check(containerDevice.Name(), gc.Matches, "eth0")
-	c.Check(containerDevice.Type(), gc.Equals, state.EthernetDevice)
+	c.Check(containerDevice.Type(), gc.Equals, corenetwork.EthernetDevice)
 	c.Check(containerDevice.MTU(), gc.Equals, uint(0)) // inherited from the parent device.
 	c.Check(containerDevice.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
 	c.Check(containerDevice.IsUp(), jc.IsTrue)
@@ -412,7 +412,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesHostOneSpa
 
 	containerDevice := containerDevices[0]
 	c.Check(containerDevice.Name(), gc.Matches, "eth0")
-	c.Check(containerDevice.Type(), gc.Equals, state.EthernetDevice)
+	c.Check(containerDevice.Type(), gc.Equals, corenetwork.EthernetDevice)
 	c.Check(containerDevice.MTU(), gc.Equals, uint(0)) // inherited from the parent device.
 	c.Check(containerDevice.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
 	c.Check(containerDevice.IsUp(), jc.IsTrue)
@@ -531,7 +531,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesTwoDevices
 
 	containerDevice := containerDevices[0]
 	c.Check(containerDevice.Name(), gc.Matches, "eth0")
-	c.Check(containerDevice.Type(), gc.Equals, state.EthernetDevice)
+	c.Check(containerDevice.Type(), gc.Equals, corenetwork.EthernetDevice)
 	c.Check(containerDevice.MTU(), gc.Equals, uint(0)) // inherited from the parent device.
 	c.Check(containerDevice.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
 	c.Check(containerDevice.IsUp(), jc.IsTrue)
@@ -785,7 +785,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerContainerNetw
 	err := s.machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       "lxdbr0",
-			Type:       state.BridgeDevice,
+			Type:       corenetwork.BridgeDevice,
 			ParentName: "",
 			IsUp:       true,
 		},
@@ -963,7 +963,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerBondedNICs(c 
 	err := s.machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       "zbond0",
-			Type:       state.BondDevice,
+			Type:       corenetwork.BondDevice,
 			ParentName: "",
 			IsUp:       true,
 		},
@@ -972,13 +972,13 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerBondedNICs(c 
 	err = s.machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       "eth0",
-			Type:       state.EthernetDevice,
+			Type:       corenetwork.EthernetDevice,
 			ParentName: "zbond0",
 			IsUp:       true,
 		},
 		state.LinkLayerDeviceArgs{
 			Name:       "eth1",
-			Type:       state.EthernetDevice,
+			Type:       corenetwork.EthernetDevice,
 			ParentName: "zbond0",
 			IsUp:       true,
 		},
@@ -1032,7 +1032,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLAN(c *gc.C)
 	err := s.machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       "eth0.100",
-			Type:       state.VLAN_8021QDevice,
+			Type:       corenetwork.VLAN8021QDevice,
 			ParentName: "eth0",
 			IsUp:       true,
 		},
@@ -1075,7 +1075,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLANOnBond(c 
 	err := s.machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       "bond0",
-			Type:       state.BondDevice,
+			Type:       corenetwork.BondDevice,
 			ParentName: "",
 			IsUp:       true,
 		},
@@ -1084,17 +1084,17 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLANOnBond(c 
 	err = s.machine.SetLinkLayerDevices(
 		[]state.LinkLayerDeviceArgs{{
 			Name:       "eth0",
-			Type:       state.EthernetDevice,
+			Type:       corenetwork.EthernetDevice,
 			ParentName: "bond0",
 			IsUp:       true,
 		}, {
 			Name:       "eth1",
-			Type:       state.EthernetDevice,
+			Type:       corenetwork.EthernetDevice,
 			ParentName: "bond0",
 			IsUp:       true,
 		}, {
 			Name:       "bond0.100",
-			Type:       state.VLAN_8021QDevice,
+			Type:       corenetwork.VLAN8021QDevice,
 			ParentName: "bond0",
 			IsUp:       true,
 		}}...,

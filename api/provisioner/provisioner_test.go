@@ -839,7 +839,7 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 	err = s.machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       "ens3",
-			Type:       state.EthernetDevice,
+			Type:       corenetwork.EthernetDevice,
 			ParentName: "",
 			IsUp:       true,
 		},

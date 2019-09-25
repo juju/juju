@@ -3436,17 +3436,17 @@ func (s *uniterNetworkConfigSuite) addProvisionedMachineWithDevicesAndAddresses(
 func (s *uniterNetworkConfigSuite) makeMachineDevicesAndAddressesArgs(addrSuffix int) ([]state.LinkLayerDeviceArgs, []state.LinkLayerDeviceAddress) {
 	return []state.LinkLayerDeviceArgs{{
 			Name: "eth0",
-			Type: state.EthernetDevice,
+			Type: network.EthernetDevice,
 		}, {
 			Name:       "eth0.100",
-			Type:       state.VLAN_8021QDevice,
+			Type:       network.VLAN8021QDevice,
 			ParentName: "eth0",
 		}, {
 			Name: "eth1",
-			Type: state.EthernetDevice,
+			Type: network.EthernetDevice,
 		}, {
 			Name:       "eth1.100",
-			Type:       state.VLAN_8021QDevice,
+			Type:       network.VLAN8021QDevice,
 			ParentName: "eth1",
 		}},
 		[]state.LinkLayerDeviceAddress{{
@@ -3688,33 +3688,33 @@ func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c 
 func (s *uniterNetworkInfoSuite) makeMachineDevicesAndAddressesArgs(addrSuffix int) ([]state.LinkLayerDeviceArgs, []state.LinkLayerDeviceAddress) {
 	return []state.LinkLayerDeviceArgs{{
 			Name:       "eth0",
-			Type:       state.EthernetDevice,
+			Type:       network.EthernetDevice,
 			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:50", addrSuffix),
 		}, {
 			Name:       "eth0.100",
-			Type:       state.VLAN_8021QDevice,
+			Type:       network.VLAN8021QDevice,
 			ParentName: "eth0",
 			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:50", addrSuffix),
 		}, {
 			Name:       "eth1",
-			Type:       state.EthernetDevice,
+			Type:       network.EthernetDevice,
 			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:51", addrSuffix),
 		}, {
 			Name:       "eth1.100",
-			Type:       state.VLAN_8021QDevice,
+			Type:       network.VLAN8021QDevice,
 			ParentName: "eth1",
 			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:51", addrSuffix),
 		}, {
 			Name:       "eth2",
-			Type:       state.EthernetDevice,
+			Type:       network.EthernetDevice,
 			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:52", addrSuffix),
 		}, {
 			Name:       "eth3",
-			Type:       state.EthernetDevice,
+			Type:       network.EthernetDevice,
 			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:53", addrSuffix),
 		}, {
 			Name:       "eth4",
-			Type:       state.EthernetDevice,
+			Type:       network.EthernetDevice,
 			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:54", addrSuffix),
 		}},
 		[]state.LinkLayerDeviceAddress{{

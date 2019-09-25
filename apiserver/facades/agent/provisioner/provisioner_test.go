@@ -1937,14 +1937,14 @@ func (s *provisionerMockSuite) expectLinkLayerDevices() {
 	mac := network.GenerateVirtualMACAddress()
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name:       devName,
-		Type:       state.EthernetDevice,
+		Type:       network.EthernetDevice,
 		MACAddress: mac,
 		MTU:        mtu,
 	}
 
 	dExp := s.device.EXPECT()
 	dExp.Name().Return(devName).AnyTimes()
-	dExp.Type().Return(state.BridgeDevice).AnyTimes()
+	dExp.Type().Return(network.BridgeDevice).AnyTimes()
 	dExp.MTU().Return(mtu).AnyTimes()
 	dExp.EthernetDeviceForBridge(devName).Return(deviceArgs, nil).MinTimes(1)
 	dExp.ParentDevice().Return(s.parentDevice, nil)

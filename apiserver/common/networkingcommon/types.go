@@ -233,7 +233,7 @@ func NetworkConfigsToStateArgs(networkConfig []params.NetworkConfig) (
 				Name:        netConfig.InterfaceName,
 				MTU:         mtu,
 				ProviderID:  corenetwork.Id(netConfig.ProviderId),
-				Type:        state.LinkLayerDeviceType(netConfig.InterfaceType),
+				Type:        corenetwork.LinkLayerDeviceType(netConfig.InterfaceType),
 				MACAddress:  netConfig.MACAddress,
 				IsAutoStart: !netConfig.NoAutoStart,
 				IsUp:        !netConfig.Disabled,

@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -17,7 +18,7 @@ import (
 // It facilitates testing the provisioner's use of this package.
 type LinkLayerDevice interface {
 	Name() string
-	Type() state.LinkLayerDeviceType
+	Type() network.LinkLayerDeviceType
 	MACAddress() string
 	ParentName() string
 	ParentDevice() (LinkLayerDevice, error)

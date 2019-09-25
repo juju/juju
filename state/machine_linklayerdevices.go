@@ -144,7 +144,7 @@ type LinkLayerDeviceArgs struct {
 	ProviderID corenetwork.Id
 
 	// Type is the type of the underlying link-layer device.
-	Type LinkLayerDeviceType
+	Type corenetwork.LinkLayerDeviceType
 
 	// MACAddress is the media access control address for the device.
 	MACAddress string
@@ -293,7 +293,7 @@ func (m *Machine) validateSetLinkLayerDeviceArgs(args *LinkLayerDeviceArgs) erro
 	if args.Name == "" {
 		return errors.NotValidf("empty Name")
 	}
-	if !IsValidLinkLayerDeviceName(args.Name) {
+	if !corenetwork.IsValidLinkLayerDeviceName(args.Name) {
 		logger.Warningf(
 			"link-layer device %q on machine %q has invalid name (using anyway)",
 			args.Name, m.Id(),
@@ -306,7 +306,7 @@ func (m *Machine) validateSetLinkLayerDeviceArgs(args *LinkLayerDeviceArgs) erro
 		}
 	}
 
-	if !IsValidLinkLayerDeviceType(string(args.Type)) {
+	if !corenetwork.IsValidLinkLayerDeviceType(string(args.Type)) {
 		return errors.NotValidf("Type %q", args.Type)
 	}
 
@@ -372,10 +372,10 @@ func (m *Machine) verifyHostMachineParentDeviceExistsAndIsABridgeDevice(hostMach
 		return errors.Trace(err)
 	}
 
-	if parentDevice.Type() != BridgeDevice {
+	if parentDevice.Type() != corenetwork.BridgeDevice {
 		errorMessage := fmt.Sprintf(
 			"parent device %q on host machine %q must be of type %q, not type %q",
-			parentDeviceName, hostMachineID, BridgeDevice, parentDevice.Type(),
+			parentDeviceName, hostMachineID, corenetwork.BridgeDevice, parentDevice.Type(),
 		)
 		return errors.NewNotValid(nil, errorMessage)
 	}
@@ -383,7 +383,7 @@ func (m *Machine) verifyHostMachineParentDeviceExistsAndIsABridgeDevice(hostMach
 }
 
 func (m *Machine) validateParentDeviceNameWhenNotAGlobalKey(args *LinkLayerDeviceArgs) error {
-	if !IsValidLinkLayerDeviceName(args.ParentName) {
+	if !corenetwork.IsValidLinkLayerDeviceName(args.ParentName) {
 		logger.Warningf(
 			"parent link-layer device %q on machine %q has invalid name (using anyway)",
 			args.ParentName, m.Id(),
@@ -695,7 +695,7 @@ func (m *Machine) validateSetDevicesAddressesArgs(args *LinkLayerDeviceAddress) 
 	if args.DeviceName == "" {
 		return errors.NotValidf("empty DeviceName")
 	}
-	if !IsValidLinkLayerDeviceName(args.DeviceName) {
+	if !corenetwork.IsValidLinkLayerDeviceName(args.DeviceName) {
 		logger.Warningf(
 			"address %q on machine %q has invalid device name %q (using anyway)",
 			args.CIDRAddress, m.Id(), args.DeviceName,
@@ -1004,7 +1004,7 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*Link
 				addr, m.Id(), addr.DeviceName())
 		}
 		processedDeviceNames.Add(device.Name())
-		if device.Type() == LoopbackDevice {
+		if device.Type() == corenetwork.LoopbackDevice {
 			// We skip loopback devices here
 			continue
 		}
@@ -1019,7 +1019,7 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*Link
 		// Loopback devices aren't considered part of the empty space
 		// Also, devices that are attached to another device also aren't
 		// considered to be in the unknown space.
-		if device.Type() == LoopbackDevice || device.ParentName() != "" {
+		if device.Type() == corenetwork.LoopbackDevice || device.ParentName() != "" {
 			continue
 		}
 		includeDevice("", device)

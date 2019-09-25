@@ -889,7 +889,7 @@ func (s *RelationUnitSuite) addDevicesWithAddresses(c *gc.C, machine *state.Mach
 		name := fmt.Sprintf("e%x", rand.Int31())
 		deviceArgs := state.LinkLayerDeviceArgs{
 			Name: name,
-			Type: state.EthernetDevice,
+			Type: network.EthernetDevice,
 		}
 		err := machine.SetLinkLayerDevices(deviceArgs)
 		c.Assert(err, jc.ErrorIsNil)
