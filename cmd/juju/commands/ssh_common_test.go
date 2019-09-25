@@ -246,10 +246,10 @@ func (s *SSHCommonSuite) setAddresses(c *gc.C, m *state.Machine) {
 func (s *SSHCommonSuite) setLinkLayerDevicesAddresses(c *gc.C, m *state.Machine) {
 	devicesArgs := []state.LinkLayerDeviceArgs{{
 		Name: "lo",
-		Type: state.LoopbackDevice,
+		Type: network.LoopbackDevice,
 	}, {
 		Name: "eth0",
-		Type: state.EthernetDevice,
+		Type: network.EthernetDevice,
 	}}
 	err := m.SetLinkLayerDevices(devicesArgs...)
 	c.Assert(err, jc.ErrorIsNil)

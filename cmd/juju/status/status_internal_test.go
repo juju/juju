@@ -3944,13 +3944,13 @@ func (sa setAddresses) step(c *gc.C, ctx *context) {
 		devName := fmt.Sprintf("eth%d", i)
 		macAddr := "aa:bb:cc:dd:ee:ff"
 		configMethod := state.StaticAddress
-		devType := state.EthernetDevice
+		devType := network.EthernetDevice
 		if address.Scope == network.ScopeMachineLocal ||
 			address.Value == "localhost" {
 			devName = "lo"
 			macAddr = "00:00:00:00:00:00"
 			configMethod = state.LoopbackAddress
-			devType = state.LoopbackDevice
+			devType = network.LoopbackDevice
 		}
 		lldevs[i] = state.LinkLayerDeviceArgs{
 			Name:       devName,
