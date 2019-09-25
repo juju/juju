@@ -1126,7 +1126,7 @@ func (e *exporter) remoteEntities() error {
 	return exportRemoteEntities(e.st, e.model)
 }
 
-//go:generate mockgen -package state -destination migration_export_mock_test.go github.com/juju/juju/state RemoteEntitiesSource,RemoteEntitiesModel,RelationNetworksSource,RelationNetworksModel
+//go:generate mockgen -package state -destination migration_export_mock_test.go github.com/juju/juju/state StatusSource,RemoteEntitiesSource,RemoteEntitiesModel,RelationNetworksSource,RelationNetworksModel,RemoteApplicationSource,RemoteApplicationModel
 //go:generate mockgen -package state -destination migration_mock_test.go github.com/juju/juju/state RelationNetworks
 
 // RemoteEntitiesSource defines an inplace usage for reading all the remote
@@ -1835,13 +1835,44 @@ func (e *exporter) checkUnexportedValues() error {
 }
 
 func (e *exporter) remoteApplications() error {
-	remoteApps, err := e.st.AllRemoteApplications()
+	e.logger.Debugf("read remote applications")
+	return exportRemoteApplications(e.st, statusSourceShim{exporter: e}, e.model)
+}
+
+// RemoteApplicationSource defines an inplace usage for reading all the remote
+// application.
+type RemoteApplicationSource interface {
+	AllRemoteApplications() ([]*RemoteApplication, error)
+}
+
+// StatusSource defines an inplace usage for reading in the status for a given
+// entity.
+type StatusSource interface {
+	StatusArgs(string) (description.StatusArgs, error)
+}
+
+// RemoteApplicationModel defines an inplace usage for adding a remote entity
+// to a model.
+type RemoteApplicationModel interface {
+	AddRemoteApplication(description.RemoteApplicationArgs) description.RemoteApplication
+}
+
+type statusSourceShim struct {
+	exporter *exporter
+}
+
+func (s statusSourceShim) StatusArgs(key string) (description.StatusArgs, error) {
+	return s.exporter.statusArgs(key)
+}
+
+func exportRemoteApplications(state RemoteApplicationSource, statusSource StatusSource, model RemoteApplicationModel) error {
+	remoteApps, err := state.AllRemoteApplications()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	e.logger.Debugf("read %d remote applications", len(remoteApps))
+
 	for _, remoteApp := range remoteApps {
-		err := e.addRemoteApplication(remoteApp)
+		err := addRemoteApplication(model, statusSource, remoteApp)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1849,7 +1880,7 @@ func (e *exporter) remoteApplications() error {
 	return nil
 }
 
-func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
+func addRemoteApplication(model RemoteApplicationModel, statusSource StatusSource, app *RemoteApplication) error {
 	url, _ := app.URL()
 	args := description.RemoteApplicationArgs{
 		Tag:             app.Tag().(names.ApplicationTag),
@@ -1859,8 +1890,8 @@ func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
 		IsConsumerProxy: app.IsConsumerProxy(),
 		Bindings:        app.Bindings(),
 	}
-	descApp := e.model.AddRemoteApplication(args)
-	status, err := e.statusArgs(app.globalKey())
+	descApp := model.AddRemoteApplication(args)
+	status, err := statusSource.StatusArgs(app.globalKey())
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
@@ -1880,12 +1911,12 @@ func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
 		})
 	}
 	for _, space := range app.Spaces() {
-		e.addRemoteSpace(descApp, space)
+		addRemoteSpace(descApp, space)
 	}
 	return nil
 }
 
-func (e *exporter) addRemoteSpace(descApp description.RemoteApplication, space RemoteSpace) {
+func addRemoteSpace(descApp description.RemoteApplication, space RemoteSpace) {
 	descSpace := descApp.AddSpace(description.RemoteSpaceArgs{
 		CloudType:          space.CloudType,
 		Name:               space.Name,

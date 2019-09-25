@@ -15,6 +15,119 @@ type MigrationExportSuite struct{}
 
 var _ = gc.Suite(&MigrationExportSuite{})
 
+func (s *MigrationExportSuite) TestExportRemoteApplication(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	entities := []*RemoteApplication{
+		{
+			doc: remoteApplicationDoc{
+				Name:            "app-uuid-1",
+				OfferUUID:       "offer-uuid",
+				URL:             "me/model.foo",
+				SourceModelUUID: "model-uuid-2",
+				IsConsumerProxy: false,
+				Bindings: map[string]string{
+					"binding-key": "binding-value",
+				},
+				Endpoints: []remoteEndpointDoc{{
+					Name: "app-uuid-1-endpoint-1",
+				}},
+				Spaces: []remoteSpaceDoc{{
+					Name: "app-uuid-1-spaces-1",
+					Subnets: []remoteSubnetDoc{{
+						CIDR: "10.0.0.1/24",
+					}},
+				}},
+			},
+		},
+	}
+
+	source := NewMockRemoteApplicationSource(ctrl)
+	source.EXPECT().AllRemoteApplications().Return(entities, nil)
+
+	statusSource := NewMockStatusSource(ctrl)
+	statusSource.EXPECT().StatusArgs("c#app-uuid-1").Return(description.StatusArgs{
+		Value: "status-value",
+	}, nil)
+
+	remoteSpace := NewMockRemoteSpace(ctrl)
+	remoteSpace.EXPECT().AddSubnet(description.SubnetArgs{
+		CIDR: "10.0.0.1/24",
+	})
+
+	remoteApplication := NewMockRemoteApplication(ctrl)
+	remoteApplication.EXPECT().SetStatus(description.StatusArgs{
+		Value: "status-value",
+	})
+	remoteApplication.EXPECT().AddEndpoint(description.RemoteEndpointArgs{
+		Name: "app-uuid-1-endpoint-1",
+	})
+	remoteApplication.EXPECT().AddSpace(description.RemoteSpaceArgs{
+		Name: "app-uuid-1-spaces-1",
+	}).Return(remoteSpace)
+
+	model := NewMockRemoteApplicationModel(ctrl)
+	model.EXPECT().AddRemoteApplication(description.RemoteApplicationArgs{
+		Tag:             names.NewApplicationTag("app-uuid-1"),
+		OfferUUID:       "offer-uuid",
+		URL:             "me/model.foo",
+		SourceModel:     names.NewModelTag("model-uuid-2"),
+		IsConsumerProxy: false,
+		Bindings: map[string]string{
+			"binding-key": "binding-value",
+		},
+	}).Return(remoteApplication)
+
+	err := exportRemoteApplications(source, statusSource, model)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MigrationExportSuite) TestExportRemoteApplicationWithStatusArgsFailure(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	entities := []*RemoteApplication{
+		{
+			doc: remoteApplicationDoc{
+				Name:            "app-uuid-1",
+				OfferUUID:       "offer-uuid",
+				URL:             "me/model.foo",
+				SourceModelUUID: "model-uuid-2",
+				IsConsumerProxy: false,
+				Bindings: map[string]string{
+					"binding-key": "binding-value",
+				},
+			},
+		},
+	}
+
+	source := NewMockRemoteApplicationSource(ctrl)
+	source.EXPECT().AllRemoteApplications().Return(entities, nil)
+
+	statusSource := NewMockStatusSource(ctrl)
+	statusSource.EXPECT().StatusArgs("c#app-uuid-1").Return(description.StatusArgs{
+		Value: "status-value",
+	}, errors.New("fail"))
+
+	remoteApplication := NewMockRemoteApplication(ctrl)
+
+	model := NewMockRemoteApplicationModel(ctrl)
+	model.EXPECT().AddRemoteApplication(description.RemoteApplicationArgs{
+		Tag:             names.NewApplicationTag("app-uuid-1"),
+		OfferUUID:       "offer-uuid",
+		URL:             "me/model.foo",
+		SourceModel:     names.NewModelTag("model-uuid-2"),
+		IsConsumerProxy: false,
+		Bindings: map[string]string{
+			"binding-key": "binding-value",
+		},
+	}).Return(remoteApplication)
+
+	err := exportRemoteApplications(source, statusSource, model)
+	c.Assert(err, gc.ErrorMatches, "fail")
+}
+
 func (s *MigrationExportSuite) TestExportRemoteEntities(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
