@@ -35,7 +35,7 @@ test_mongo_memory_profile() {
     (
         set_verbosity
 
-        cd ../
+        cd .. || exit
 
         run "run_mongo_memory_profile"
     )

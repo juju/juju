@@ -29,7 +29,7 @@ test_deploy() {
     (
         set_verbosity
 
-        cd ../
+        cd .. || exit
 
         run "run_deploy"
     )

@@ -39,7 +39,7 @@ test_static_analysis_shell() {
   (
     set_verbosity
 
-    cd ../
+    cd .. || exit
 
     # Shell static analysis
     if which shellcheck >/dev/null 2>&1; then

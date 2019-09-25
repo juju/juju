@@ -4,6 +4,9 @@ test_controller() {
         return
     fi
 
+    echo "==> Checking for dependencies"
+    check_dependencies juju
+
     file="${TEST_DIR}/test-controller.txt"
 
     bootstrap "test-controller" "${file}"

@@ -4,6 +4,9 @@ test_cmr_bundles() {
         return
     fi
 
+    echo "==> Checking for dependencies"
+    check_dependencies juju
+
     file="${TEST_DIR}/test-cmr-bundles.txt"
 
     bootstrap "test-cmr-bundles" "${file}"

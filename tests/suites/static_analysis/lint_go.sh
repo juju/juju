@@ -1,5 +1,5 @@
 run_func_vet() {
-  OUT=$(grep -Rrn --include \*.go --exclude-dir=vendor "^$" -B1 . | \
+  OUT=$(grep -Rrn --include=\*.go --exclude-dir=vendor "^$" -B1 . | \
       grep "func " | grep -v "}$" | \
       sed -E "s/^(.+\\.go)-([0-9]+)-(.+)$/\1:\2 \3/" \
       || true)
@@ -93,7 +93,7 @@ test_static_analysis_go() {
   (
     set_verbosity
 
-    cd ../
+    cd .. || exit
 
     FILES=$(find ./* -name '*.go' -not -name '.#*' -not -name '*_mock.go' | grep -v vendor/ | grep -v acceptancetests/)
 
