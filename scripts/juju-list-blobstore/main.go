@@ -357,12 +357,14 @@ func checkMissing(st *state.State, session *mgo.Session, foundHashes map[string]
 	var res resourceDoc
 	missingResources := make(map[string]resourceDoc)
 	missingIds := make([]string, 0)
+	var totalBytes uint64
 	for allResources.Next(&res) {
 		if _, found := foundHashes[res.Id]; found {
 			continue
 		}
 		missingResources[res.SHA384Hash] = res
 		missingIds = append(missingIds, res.Id)
+		totalBytes += uint64(res.Length)
 	}
 	checkErr("missingResources", allResources.Close())
 	if len(missingResources) == 0 {
@@ -380,10 +382,19 @@ func checkMissing(st *state.State, session *mgo.Session, foundHashes map[string]
 	}
 	fmt.Fprint(os.Stderr, "Unknown Resources\n")
 	for _, key := range missingIds {
-		fmt.Fprintf(os.Stderr, "%v:\n", key)
+		res := missingResources[key]
+		size := fmt.Sprintf("%d", res.Length)
+		if *human {
+			size = humanize.Bytes(uint64(res.Length))
+		}
+		fmt.Fprintf(os.Stderr, "%v: %s\n", key, size)
 		for _, doc := range resourceRefs[key] {
 			fmt.Fprintf(os.Stdout, "  %v\n", doc.Path)
 		}
 	}
-	fmt.Fprint(os.Stdout, "\n")
+	size := fmt.Sprintf("%d", totalBytes)
+	if *human {
+		size = humanize.Bytes(uint64(totalBytes))
+	}
+	fmt.Fprintf(os.Stdout, "total: %s\n\n", size)
 }
