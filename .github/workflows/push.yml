@@ -1,4 +1,4 @@
-name: CI
+name: Push
 
 on:
   push:
@@ -20,13 +20,12 @@ jobs:
     steps:
     - uses: actions/checkout@v1
 
-    - name: Install Go 1.12
-      uses: cedrickring/golang-action/go1.12@1.3.0
-
-    - name: Install deps
-      run: |
-        make dep
+    - name: Install Go 1.12 and dependencies
+      uses: actions/setup-go@v1
+      with:
+        go-version: '1.12.9'
 
     - name: Run static analysis
-      run: |
-        make static-analysis
+      uses: cedrickring/golang-action/go1.12@1.3.0
+      with:
+        args: make static-analysis
