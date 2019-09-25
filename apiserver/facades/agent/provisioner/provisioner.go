@@ -940,11 +940,15 @@ type perContainerHandler interface {
 	// machine that is hosting the container.
 	// Any errors that are returned from ProcessOneContainer will be turned
 	// into ServerError and handed to SetError
-	ProcessOneContainer(env environs.Environ, callContext context.ProviderCallContext, idx int, host, guest Machine) error
+	ProcessOneContainer(
+		env environs.Environ, callContext context.ProviderCallContext, idx int, host, guest Machine,
+	) error
+
 	// SetError will be called whenever there is a problem with the a given
 	// request. Generally this just does result.Results[i].Error = error
 	// but the Result type is opaque so we can't do it ourselves.
 	SetError(resultIndex int, err error)
+
 	// ConfigType indicates the type of config the handler is getting for
 	// for error messaging.
 	ConfigType() string
