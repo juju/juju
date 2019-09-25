@@ -1335,7 +1335,7 @@ func (i *importer) addLinkLayerDevice(device description.LinkLayerDevice) error 
 		ProviderID:  providerID,
 		Name:        device.Name(),
 		MTU:         device.MTU(),
-		Type:        LinkLayerDeviceType(device.Type()),
+		Type:        network.LinkLayerDeviceType(device.Type()),
 		MACAddress:  device.MACAddress(),
 		IsAutoStart: device.IsAutoStart(),
 		IsUp:        device.IsUp(),

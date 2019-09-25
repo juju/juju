@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// linkLayerDevicesStateSuite contains white-box tests for link-layer network
+// linkLayerDevicesStateSuite contains black-box tests for link-layer network
 // devices, which include access to mongo.
 type linkLayerDevicesStateSuite struct {
 	ConnSuite
@@ -133,7 +133,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesParentNameAsGlobalKe
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesInvalidMACAddress(c *gc.C) {
 	args := state.LinkLayerDeviceArgs{
 		Name:       "eth0",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		MACAddress: "bad mac",
 	}
 	s.assertSetLinkLayerDevicesReturnsNotValidError(c, args, `MACAddress "bad mac" not valid`)
@@ -145,7 +145,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWhenMachineNotAliveO
 
 	args := state.LinkLayerDeviceArgs{
 		Name: "eth0",
-		Type: state.EthernetDevice,
+		Type: corenetwork.EthernetDevice,
 	}
 	s.assertSetLinkLayerDevicesFailsForArgs(c, args, `machine "0" not alive`)
 
@@ -158,7 +158,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWhenMachineNotAliveO
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithMissingParentSameMachine(c *gc.C) {
 	args := state.LinkLayerDeviceArgs{
 		Name:       "eth0",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		ParentName: "br-eth0",
 	}
 	s.assertSetLinkLayerDevicesReturnsNotValidError(c, args, `ParentName not valid: device "br-eth0" on machine "0" not found`)
@@ -169,7 +169,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesNoParentSuccess(c *g
 		Name:        "eth0.42",
 		MTU:         9000,
 		ProviderID:  "eni-42",
-		Type:        state.VLAN_8021QDevice,
+		Type:        corenetwork.VLAN_8021QDevice,
 		MACAddress:  "aa:bb:cc:dd:ee:f0",
 		IsAutoStart: true,
 		IsUp:        true,
@@ -221,7 +221,7 @@ func (s *linkLayerDevicesStateSuite) checkSetDeviceMatchesMachineIDAndModelUUID(
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesNoProviderIDSuccess(c *gc.C) {
 	args := state.LinkLayerDeviceArgs{
 		Name: "eno0",
-		Type: state.EthernetDevice,
+		Type: corenetwork.EthernetDevice,
 	}
 	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
 }
@@ -229,7 +229,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesNoProviderIDSuccess(
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithDuplicateProviderIDFailsInSameModel(c *gc.C) {
 	args1 := state.LinkLayerDeviceArgs{
 		Name:       "eth0.42",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		ProviderID: "42",
 	}
 	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args1)
@@ -243,7 +243,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithDuplicateProvide
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithDuplicateNameAndProviderIDSucceedsInDifferentModels(c *gc.C) {
 	args := state.LinkLayerDeviceArgs{
 		Name:       "eth0.42",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		ProviderID: "42",
 	}
 	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
@@ -254,7 +254,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithDuplicateNameAnd
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesUpdatesProviderIDWhenNotSetOriginally(c *gc.C) {
 	args := state.LinkLayerDeviceArgs{
 		Name: "foo",
-		Type: state.EthernetDevice,
+		Type: corenetwork.EthernetDevice,
 	}
 	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
 
@@ -265,7 +265,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesUpdatesProviderIDWhe
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesFailsForProviderIDChange(c *gc.C) {
 	args := state.LinkLayerDeviceArgs{
 		Name:       "foo",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		ProviderID: "42",
 	}
 	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
@@ -277,7 +277,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesFailsForProviderIDCh
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesUpdateWithDuplicateProviderIDFails(c *gc.C) {
 	args := state.LinkLayerDeviceArgs{
 		Name:       "foo",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		ProviderID: "42",
 	}
 	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
@@ -293,7 +293,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesUpdateWithDuplicateP
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesDoesNotClearProviderIDOnceSet(c *gc.C) {
 	args := state.LinkLayerDeviceArgs{
 		Name:       "foo",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		ProviderID: "42",
 	}
 	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
@@ -309,11 +309,11 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesDoesNotClearProvider
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesMultipleArgsWithSameNameFails(c *gc.C) {
 	foo1 := state.LinkLayerDeviceArgs{
 		Name: "foo",
-		Type: state.BridgeDevice,
+		Type: corenetwork.BridgeDevice,
 	}
 	foo2 := state.LinkLayerDeviceArgs{
 		Name: "foo",
-		Type: state.EthernetDevice,
+		Type: corenetwork.EthernetDevice,
 	}
 	err := s.machine.SetLinkLayerDevices(foo1, foo2)
 	c.Assert(err, gc.ErrorMatches, `.*invalid device "foo": Name specified more than once`)
@@ -323,11 +323,11 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesMultipleArgsWithSame
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesRefusesToAddParentAndChildrenInTheSameCall(c *gc.C) {
 	allArgs := []state.LinkLayerDeviceArgs{{
 		Name:       "child1",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		ParentName: "parent1",
 	}, {
 		Name: "parent1",
-		Type: state.BridgeDevice,
+		Type: corenetwork.BridgeDevice,
 	}}
 
 	err := s.machine.SetLinkLayerDevices(allArgs...)
@@ -368,7 +368,7 @@ func (s *linkLayerDevicesStateSuite) addNamedParentDeviceWithChildrenAndCheckAll
 	for i, childName := range childrenNames {
 		childrenArgs[i] = state.LinkLayerDeviceArgs{
 			Name:       childName,
-			Type:       state.EthernetDevice,
+			Type:       corenetwork.EthernetDevice,
 			ParentName: parentName,
 		}
 	}
@@ -389,7 +389,7 @@ func (s *linkLayerDevicesStateSuite) addSimpleDevice(c *gc.C) *state.LinkLayerDe
 func (s *linkLayerDevicesStateSuite) addNamedDevice(c *gc.C, name string) *state.LinkLayerDevice {
 	args := state.LinkLayerDeviceArgs{
 		Name: name,
-		Type: state.EthernetDevice,
+		Type: corenetwork.EthernetDevice,
 	}
 	err := s.machine.SetLinkLayerDevices(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -451,11 +451,11 @@ func (s *linkLayerDevicesStateSuite) TestMachineAllLinkLayerDevices(c *gc.C) {
 
 	secondLevelChildrenArgs := []state.LinkLayerDeviceArgs{{
 		Name:       "eth0",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		ParentName: secondLevelParent.Name(),
 	}, {
 		Name:       "eth1",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		ParentName: secondLevelParent.Name(),
 	}}
 	s.setMultipleDevicesSucceedsAndCheckAllAdded(c, secondLevelChildrenArgs)
@@ -480,12 +480,12 @@ func (s *linkLayerDevicesStateSuite) TestMachineAllProviderInterfaceInfos(c *gc.
 		Name:       "sara-lynn",
 		MACAddress: "ab:cd:ef:01:23:45",
 		ProviderID: "thing1",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 	}, state.LinkLayerDeviceArgs{
 		Name:       "bojack",
 		MACAddress: "ab:cd:ef:01:23:46",
 		ProviderID: "thing2",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -577,7 +577,7 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDeviceRemoveSuccess(c *gc.C) {
 func (s *linkLayerDevicesStateSuite) TestLinkLayerDeviceRemoveRemovesProviderID(c *gc.C) {
 	args := state.LinkLayerDeviceArgs{
 		Name:       "foo",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		ProviderID: "bar",
 	}
 	err := s.machine.SetLinkLayerDevices(args)
@@ -594,7 +594,7 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDeviceRemoveRemovesProviderID(
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesNoop(c *gc.C) {
 	args := state.LinkLayerDeviceArgs{
 		Name: "foo",
-		Type: state.EthernetDevice,
+		Type: corenetwork.EthernetDevice,
 	}
 	err := s.machine.SetLinkLayerDevices(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -663,7 +663,7 @@ func (s *linkLayerDevicesStateSuite) createNICWithIP(c *gc.C, machine *state.Mac
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       deviceName,
-			Type:       state.EthernetDevice,
+			Type:       corenetwork.EthernetDevice,
 			ParentName: "",
 			IsUp:       true,
 		},
@@ -683,7 +683,7 @@ func (s *linkLayerDevicesStateSuite) createLoopbackNIC(c *gc.C, machine *state.M
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       "lo",
-			Type:       state.LoopbackDevice,
+			Type:       corenetwork.LoopbackDevice,
 			ParentName: "",
 			IsUp:       true,
 		},
@@ -703,7 +703,7 @@ func (s *linkLayerDevicesStateSuite) createBridgeWithIP(c *gc.C, machine *state.
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       bridgeName,
-			Type:       state.BridgeDevice,
+			Type:       corenetwork.BridgeDevice,
 			ParentName: "",
 			IsUp:       true,
 		},
@@ -738,7 +738,7 @@ func (s *linkLayerDevicesStateSuite) createNICAndBridgeWithIP(c *gc.C, machine *
 	err := machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       deviceName,
-			Type:       state.EthernetDevice,
+			Type:       corenetwork.EthernetDevice,
 			ParentName: bridgeName,
 			IsUp:       true,
 		},
@@ -760,7 +760,7 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpaces(c *gc.C) {
 	// is in the space
 	c.Check(devices, gc.HasLen, 1)
 	c.Check(devices[0].Name(), gc.Equals, "br-eth0")
-	c.Check(devices[0].Type(), gc.Equals, state.BridgeDevice)
+	c.Check(devices[0].Type(), gc.Equals, corenetwork.BridgeDevice)
 }
 
 func (s *linkLayerDevicesStateSuite) TestGetNetworkInfoForSpaces(c *gc.C) {
@@ -828,7 +828,7 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesNoBridge(c *gc
 	c.Check(ok, jc.IsTrue)
 	c.Check(devices, gc.HasLen, 1)
 	c.Check(devices[0].Name(), gc.Equals, "eth0")
-	c.Check(devices[0].Type(), gc.Equals, state.EthernetDevice)
+	c.Check(devices[0].Type(), gc.Equals, corenetwork.EthernetDevice)
 }
 
 func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesMultipleSpaces(c *gc.C) {
@@ -877,72 +877,72 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesSortOrder(c *g
 	// back in NaturallySorted order
 	devices := []state.LinkLayerDeviceArgs{{
 		Name:       "eth1",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		MACAddress: "11:23:45:67:89:ab:cd:ef",
 		ParentName: "br-eth1",
 		IsUp:       true,
 	}, {
 		Name:       "br-eth1",
-		Type:       state.BridgeDevice,
+		Type:       corenetwork.BridgeDevice,
 		MACAddress: "11:23:45:67:89:ab:cd:ef",
 		IsUp:       true,
 	}, {
 		Name:       "eth1.1",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		MACAddress: "22:23:45:67:89:ab:cd:ef",
 		ParentName: "br-eth1.1",
 		IsUp:       true,
 	}, {
 		Name:       "br-eth1.1",
-		Type:       state.BridgeDevice,
+		Type:       corenetwork.BridgeDevice,
 		MACAddress: "22:23:45:67:89:ab:cd:ef",
 		IsUp:       true,
 	}, {
 		Name:       "eth1:1",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		MACAddress: "32:23:45:67:89:ab:cd:ef",
 		ParentName: "br-eth1:1",
 		IsUp:       true,
 	}, {
 		Name:       "br-eth1:1",
-		Type:       state.BridgeDevice,
+		Type:       corenetwork.BridgeDevice,
 		MACAddress: "32:23:45:67:89:ab:cd:ef",
 		IsUp:       true,
 	}, {
 		Name:       "eth10",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		MACAddress: "42:23:45:67:89:ab:cd:ef",
 		ParentName: "br-eth10",
 		IsUp:       true,
 	}, {
 		Name:       "br-eth10",
-		Type:       state.BridgeDevice,
+		Type:       corenetwork.BridgeDevice,
 		MACAddress: "42:23:45:67:89:ab:cd:ef",
 		IsUp:       true,
 	}, {
 		Name:       "eth10.2",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		MACAddress: "52:23:45:67:89:ab:cd:ef",
 		ParentName: "br-eth10.2",
 		IsUp:       true,
 	}, {
 		Name:       "br-eth10.2",
-		Type:       state.BridgeDevice,
+		Type:       corenetwork.BridgeDevice,
 		MACAddress: "52:23:45:67:89:ab:cd:ef",
 		IsUp:       true,
 	}, {
 		Name:       "eth2",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		MACAddress: "61:23:45:67:89:ab:cd:ef",
 		IsUp:       true,
 	}, {
 		Name:       "eth20",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		MACAddress: "61:23:45:67:89:ab:cd:ef",
 		IsUp:       true,
 	}, {
 		Name:       "eth3",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		MACAddress: "61:23:45:67:89:ab:cd:ef",
 		IsUp:       true,
 	}}
@@ -990,9 +990,9 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesInUnknownSpace
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(devices, gc.HasLen, 2)
 	c.Check(devices[0].Name(), gc.Equals, "ens4")
-	c.Check(devices[0].Type(), gc.Equals, state.EthernetDevice)
+	c.Check(devices[0].Type(), gc.Equals, corenetwork.EthernetDevice)
 	c.Check(devices[1].Name(), gc.Equals, "ens5")
-	c.Check(devices[1].Type(), gc.Equals, state.EthernetDevice)
+	c.Check(devices[1].Type(), gc.Equals, corenetwork.EthernetDevice)
 }
 
 func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesWithUnknown(c *gc.C) {
@@ -1012,12 +1012,12 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesWithUnknown(c 
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(devices, gc.HasLen, 1)
 	c.Check(devices[0].Name(), gc.Equals, "ens5")
-	c.Check(devices[0].Type(), gc.Equals, state.EthernetDevice)
+	c.Check(devices[0].Type(), gc.Equals, corenetwork.EthernetDevice)
 	devices, ok = res["default"]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(devices, gc.HasLen, 1)
 	c.Check(devices[0].Name(), gc.Equals, "br-ens4")
-	c.Check(devices[0].Type(), gc.Equals, state.BridgeDevice)
+	c.Check(devices[0].Type(), gc.Equals, corenetwork.BridgeDevice)
 }
 
 func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesWithNoAddress(c *gc.C) {
@@ -1026,7 +1026,7 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesWithNoAddress(
 	err := s.machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       "lxdbr0",
-			Type:       state.BridgeDevice,
+			Type:       corenetwork.BridgeDevice,
 			ParentName: "",
 			IsUp:       true,
 		},
@@ -1086,14 +1086,14 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesUpdatesExistingDocs(
 	// except for ProviderID and ParentName (tested separately).
 	updateArgs := []state.LinkLayerDeviceArgs{{
 		Name:        parent.Name(),
-		Type:        state.BondDevice,
+		Type:        corenetwork.BondDevice,
 		MTU:         1234,
 		MACAddress:  "aa:bb:cc:dd:ee:f0",
 		IsAutoStart: true,
 		IsUp:        true,
 	}, {
 		Name:        children[0].Name(),
-		Type:        state.VLAN_8021QDevice,
+		Type:        corenetwork.VLAN_8021QDevice,
 		MTU:         4321,
 		MACAddress:  "aa:bb:cc:dd:ee:f1",
 		IsAutoStart: true,
@@ -1121,7 +1121,7 @@ func (s *linkLayerDevicesStateSuite) prepareSetLinkLayerDevicesWithStateChurn(c 
 	parent := s.addNamedDevice(c, "parent")
 	childArgs := state.LinkLayerDeviceArgs{
 		Name:       "child",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		ParentName: parent.Name(),
 	}
 
@@ -1167,16 +1167,16 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesRefusesToAddContaine
 	// Add one device of every type to the host machine, except a BridgeDevice.
 	hostDevicesArgs := []state.LinkLayerDeviceArgs{{
 		Name: "loopback",
-		Type: state.LoopbackDevice,
+		Type: corenetwork.LoopbackDevice,
 	}, {
 		Name: "ethernet",
-		Type: state.EthernetDevice,
+		Type: corenetwork.EthernetDevice,
 	}, {
 		Name: "vlan",
-		Type: state.VLAN_8021QDevice,
+		Type: corenetwork.VLAN_8021QDevice,
 	}, {
 		Name: "bond",
-		Type: state.BondDevice,
+		Type: corenetwork.BondDevice,
 	}}
 	hostDevices := s.setMultipleDevicesSucceedsAndCheckAllAdded(c, hostDevicesArgs)
 	hostMachineParentDeviceGlobalKeyPrefix := "m#0#d#"
@@ -1189,7 +1189,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesRefusesToAddContaine
 		parentDeviceGlobalKey := hostMachineParentDeviceGlobalKeyPrefix + hostDevice.Name()
 		containerDeviceArgs := state.LinkLayerDeviceArgs{
 			Name:       "eth0",
-			Type:       state.EthernetDevice,
+			Type:       corenetwork.EthernetDevice,
 			ParentName: parentDeviceGlobalKey,
 		}
 		err := s.containerMachine.SetLinkLayerDevices(containerDeviceArgs)
@@ -1239,13 +1239,13 @@ func (s *linkLayerDevicesStateSuite) addParentBridgeDeviceWithContainerDevicesAs
 ) (parentDevice *state.LinkLayerDevice, childrenDevices []*state.LinkLayerDevice) {
 	parentArgs := state.LinkLayerDeviceArgs{
 		Name: parentName,
-		Type: state.BridgeDevice,
+		Type: corenetwork.BridgeDevice,
 	}
 	parentDevice = s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, parentArgs)
 	parentDeviceGlobalKey := "m#" + s.machine.Id() + "#d#" + parentName
 
 	childrenArgsTemplate := state.LinkLayerDeviceArgs{
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		ParentName: parentDeviceGlobalKey,
 	}
 	childrenArgs := make([]state.LinkLayerDeviceArgs, numChildren)
@@ -1371,7 +1371,7 @@ func (s *linkLayerDevicesStateSuite) assertSetLinkLayerDevicesToContainerFailsWi
 
 	newChildArgs := state.LinkLayerDeviceArgs{
 		Name:       "eth1",
-		Type:       state.EthernetDevice,
+		Type:       corenetwork.EthernetDevice,
 		ParentName: children[0].ParentName(),
 	}
 	err := s.containerMachine.SetLinkLayerDevices(newChildArgs)
@@ -1429,7 +1429,7 @@ func (s *linkLayerDevicesStateSuite) TestSetDeviceAddresssesWithSubnetID(c *gc.C
 	err := s.machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       "eth2",
-			Type:       state.EthernetDevice,
+			Type:       corenetwork.EthernetDevice,
 			ParentName: "",
 			IsUp:       true,
 		},
@@ -1478,41 +1478,41 @@ nextDev:
 
 var nestedDevicesArgs = []state.LinkLayerDeviceArgs{{
 	Name: "lo",
-	Type: state.LoopbackDevice,
+	Type: corenetwork.LoopbackDevice,
 }, {
 	Name: "br-bond0",
-	Type: state.BridgeDevice,
+	Type: corenetwork.BridgeDevice,
 }, {
 	Name:       "br-bond0.12",
-	Type:       state.BridgeDevice,
+	Type:       corenetwork.BridgeDevice,
 	ParentName: "br-bond0",
 }, {
 	Name:       "br-bond0.34",
-	Type:       state.BridgeDevice,
+	Type:       corenetwork.BridgeDevice,
 	ParentName: "br-bond0",
 }, {
 	Name:       "bond0",
-	Type:       state.BondDevice,
+	Type:       corenetwork.BondDevice,
 	ParentName: "br-bond0",
 	ProviderID: "100",
 }, {
 	Name:       "bond0.12",
-	Type:       state.VLAN_8021QDevice,
+	Type:       corenetwork.VLAN_8021QDevice,
 	ParentName: "bond0",
 	ProviderID: "101",
 }, {
 	Name:       "bond0.34",
-	Type:       state.VLAN_8021QDevice,
+	Type:       corenetwork.VLAN_8021QDevice,
 	ParentName: "bond0",
 	ProviderID: "102",
 }, {
 	Name:       "eth0",
-	Type:       state.EthernetDevice,
+	Type:       corenetwork.EthernetDevice,
 	ParentName: "bond0",
 	ProviderID: "103",
 }, {
 	Name:       "eth1",
-	Type:       state.EthernetDevice,
+	Type:       corenetwork.EthernetDevice,
 	ParentName: "bond0",
 	ProviderID: "104",
 }}
@@ -1524,7 +1524,7 @@ func (s *linkLayerDevicesStateSuite) testMachineSetParentLinkLayerDevicesBeforeT
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allDevices, gc.HasLen, len(nestedDevicesArgs))
 	for _, device := range allDevices {
-		if device.Type() != state.LoopbackDevice && device.Type() != state.BridgeDevice {
+		if device.Type() != corenetwork.LoopbackDevice && device.Type() != corenetwork.BridgeDevice {
 			c.Check(device.ProviderID(), gc.Not(gc.Equals), corenetwork.Id(""))
 		}
 	}

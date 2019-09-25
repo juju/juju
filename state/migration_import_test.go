@@ -1158,7 +1158,7 @@ func (s *MigrationImportSuite) TestLinkLayerDevice(c *gc.C) {
 	})
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name: "foo",
-		Type: state.EthernetDevice,
+		Type: network.EthernetDevice,
 	}
 	err := machine.SetLinkLayerDevices(deviceArgs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1169,7 +1169,7 @@ func (s *MigrationImportSuite) TestLinkLayerDevice(c *gc.C) {
 	c.Assert(devices, gc.HasLen, 1)
 	device := devices[0]
 	c.Assert(device.Name(), gc.Equals, "foo")
-	c.Assert(device.Type(), gc.Equals, state.EthernetDevice)
+	c.Assert(device.Type(), gc.Equals, network.EthernetDevice)
 }
 
 func (s *MigrationImportSuite) TestLinkLayerDeviceMigratesReferences(c *gc.C) {
@@ -1181,11 +1181,11 @@ func (s *MigrationImportSuite) TestLinkLayerDeviceMigratesReferences(c *gc.C) {
 	})
 	deviceArgs := []state.LinkLayerDeviceArgs{{
 		Name: "foo",
-		Type: state.BridgeDevice,
+		Type: network.BridgeDevice,
 	}, {
 		Name:       "bar",
 		ParentName: "foo",
-		Type:       state.EthernetDevice,
+		Type:       network.EthernetDevice,
 	}}
 	for _, args := range deviceArgs {
 		err := machine.SetLinkLayerDevices(args)
@@ -1194,7 +1194,7 @@ func (s *MigrationImportSuite) TestLinkLayerDeviceMigratesReferences(c *gc.C) {
 	machine2DeviceArgs := state.LinkLayerDeviceArgs{
 		Name:       "baz",
 		ParentName: fmt.Sprintf("m#%v#d#foo", machine.Id()),
-		Type:       state.EthernetDevice,
+		Type:       network.EthernetDevice,
 	}
 	err := machine2.SetLinkLayerDevices(machine2DeviceArgs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1322,7 +1322,7 @@ func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name: "foo",
-		Type: state.EthernetDevice,
+		Type: network.EthernetDevice,
 	}
 	err = machine.SetLinkLayerDevices(deviceArgs)
 	c.Assert(err, jc.ErrorIsNil)

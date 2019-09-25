@@ -4,8 +4,6 @@
 package state
 
 import (
-	"strings"
-
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -15,7 +13,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-// linkLayerDevicesInternalSuite contains black-box tests for link-layer network
+// linkLayerDevicesInternalSuite contains white-box tests for link-layer network
 // devices' internals, which do not actually access mongo. The rest of the logic
 // is tested in linkLayerDevicesStateSuite.
 type linkLayerDevicesInternalSuite struct {
@@ -131,7 +129,7 @@ func (s *linkLayerDevicesInternalSuite) TestStringIncludesTypeNameAndMachineID(c
 	doc := linkLayerDeviceDoc{
 		MachineID: "42",
 		Name:      "foo",
-		Type:      BondDevice,
+		Type:      network.BondDevice,
 	}
 	result := s.newLinkLayerDeviceWithDummyState(doc)
 	expectedString := `bond device "foo" on machine "42"`
@@ -144,7 +142,7 @@ func (s *linkLayerDevicesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C
 		Name:        "bond0",
 		MachineID:   "99",
 		MTU:         uint(9000),
-		Type:        BondDevice,
+		Type:        network.BondDevice,
 		MACAddress:  "aa:bb:cc:dd:ee:f0",
 		IsAutoStart: true,
 		IsUp:        true,
@@ -155,160 +153,9 @@ func (s *linkLayerDevicesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C
 	c.Check(result.Name(), gc.Equals, "bond0")
 	c.Check(result.MachineID(), gc.Equals, "99")
 	c.Check(result.MTU(), gc.Equals, uint(9000))
-	c.Check(result.Type(), gc.Equals, BondDevice)
+	c.Check(result.Type(), gc.Equals, network.BondDevice)
 	c.Check(result.MACAddress(), gc.Equals, "aa:bb:cc:dd:ee:f0")
 	c.Check(result.IsAutoStart(), jc.IsTrue)
 	c.Check(result.IsUp(), jc.IsTrue)
 	c.Check(result.ParentName(), gc.Equals, "br-bond0")
-}
-
-func (s *linkLayerDevicesInternalSuite) TestIsValidLinkLayerDeviceTypeWithValidValue(c *gc.C) {
-	validTypes := []LinkLayerDeviceType{
-		LoopbackDevice,
-		EthernetDevice,
-		VLAN_8021QDevice,
-		BondDevice,
-		BridgeDevice,
-	}
-
-	for _, value := range validTypes {
-		result := IsValidLinkLayerDeviceType(string(value))
-		c.Check(result, jc.IsTrue)
-	}
-}
-
-func (s *linkLayerDevicesInternalSuite) TestIsValidLinkLayerDeviceTypeWithInvalidValue(c *gc.C) {
-	result := IsValidLinkLayerDeviceType("")
-	c.Check(result, jc.IsFalse)
-
-	result = IsValidLinkLayerDeviceType("anything")
-	c.Check(result, jc.IsFalse)
-
-	result = IsValidLinkLayerDeviceType(" ")
-	c.Check(result, jc.IsFalse)
-
-	result = IsValidLinkLayerDeviceType("unknown")
-	c.Check(result, jc.IsFalse)
-}
-
-func (s *linkLayerDevicesInternalSuite) TestIsValidLinkLayerDeviceNameWithUnpatchedGOOS(c *gc.C) {
-	result := IsValidLinkLayerDeviceName("valid")
-	c.Check(result, jc.IsTrue)
-}
-
-func (s *linkLayerDevicesInternalSuite) TestIsValidLinkLayerDeviceNameWithValidNamesWhenGOOSIsinux(c *gc.C) {
-	s.PatchValue(&runtimeGOOS, "linux") // isolate the test from the host machine OS.
-
-	for i, name := range validUnixDeviceNames {
-		c.Logf("test #%d: %q -> valid", i, name)
-		result := IsValidLinkLayerDeviceName(name)
-		c.Check(result, jc.IsTrue)
-	}
-}
-
-var validUnixDeviceNames = []string{
-	"eth0", "eno1", "br-eth0.123", "tun:1", "bond0.42",
-}
-
-func (s *linkLayerDevicesInternalSuite) TestIsValidLinkLayerDeviceNameWithInvalidNamesWhenGOOIsLinux(c *gc.C) {
-	s.PatchValue(&runtimeGOOS, "linux") // isolate the test from the host machine OS.
-
-	result := IsValidLinkLayerDeviceName("")
-	c.Check(result, jc.IsFalse)
-
-	const tooLongLength = 16
-	result = IsValidLinkLayerDeviceName(strings.Repeat("x", tooLongLength))
-	c.Check(result, jc.IsFalse)
-
-	result = IsValidLinkLayerDeviceName("with-hash#")
-	c.Check(result, jc.IsFalse)
-
-	result = IsValidLinkLayerDeviceName("has spaces")
-	c.Check(result, jc.IsFalse)
-
-	result = IsValidLinkLayerDeviceName("has\tabs")
-	c.Check(result, jc.IsFalse)
-
-	result = IsValidLinkLayerDeviceName("has\newline")
-	c.Check(result, jc.IsFalse)
-
-	result = IsValidLinkLayerDeviceName("has\r")
-	c.Check(result, jc.IsFalse)
-
-	result = IsValidLinkLayerDeviceName("has\vtab")
-	c.Check(result, jc.IsFalse)
-
-	result = IsValidLinkLayerDeviceName(".")
-	c.Check(result, jc.IsFalse)
-
-	result = IsValidLinkLayerDeviceName("..")
-	c.Check(result, jc.IsFalse)
-}
-
-func (s *linkLayerDevicesInternalSuite) TestIsValidLinkLayerDeviceNameWithValidNamesWhenGOOSNonLinux(c *gc.C) {
-	s.PatchValue(&runtimeGOOS, "non-linux") // isolate the test from the host machine OS.
-	validDeviceNames := append(validUnixDeviceNames,
-		// Windows network device as friendly name and as underlying UUID.
-		"Local Area Connection", "{4a62b748-43d0-4136-92e4-22ce7ee31938}",
-	)
-
-	for i, name := range validDeviceNames {
-		c.Logf("test #%d: %q -> valid", i, name)
-		result := IsValidLinkLayerDeviceName(name)
-		c.Check(result, jc.IsTrue)
-	}
-}
-
-func (s *linkLayerDevicesInternalSuite) TestIsValidLinkLayerDeviceNameWhenGOOSNonLinux(c *gc.C) {
-	s.PatchValue(&runtimeGOOS, "non-linux") // isolate the test from the host machine OS.
-
-	result := IsValidLinkLayerDeviceName("")
-	c.Check(result, jc.IsFalse)
-
-	const wayTooLongLength = 1024
-	result = IsValidLinkLayerDeviceName(strings.Repeat("x", wayTooLongLength))
-	c.Check(result, jc.IsFalse)
-
-	result = IsValidLinkLayerDeviceName("hash# not allowed")
-	c.Check(result, jc.IsFalse)
-}
-
-func (s *linkLayerDevicesInternalSuite) TestStringLengthBetweenWhenTooShort(c *gc.C) {
-	result := stringLengthBetween("", 1, 2)
-	c.Check(result, jc.IsFalse)
-
-	result = stringLengthBetween("", 1, 1)
-	c.Check(result, jc.IsFalse)
-
-	result = stringLengthBetween("1", 2, 3)
-	c.Check(result, jc.IsFalse)
-
-	result = stringLengthBetween("12", 3, 3)
-	c.Check(result, jc.IsFalse)
-}
-
-func (s *linkLayerDevicesInternalSuite) TestStringLengthBetweenWhenTooLong(c *gc.C) {
-	result := stringLengthBetween("1", 0, 0)
-	c.Check(result, jc.IsFalse)
-
-	result = stringLengthBetween("12", 1, 1)
-	c.Check(result, jc.IsFalse)
-
-	result = stringLengthBetween("123", 1, 2)
-	c.Check(result, jc.IsFalse)
-
-	result = stringLengthBetween("123", 0, 1)
-	c.Check(result, jc.IsFalse)
-}
-
-func (s *linkLayerDevicesInternalSuite) TestStringLengthBetweenWhenWithinLimit(c *gc.C) {
-	const (
-		minLength = 1
-		maxLength = 255
-	)
-	for i := minLength; i <= maxLength; i++ {
-		input := strings.Repeat("x", i)
-		result := stringLengthBetween(input, minLength, maxLength)
-		c.Check(result, jc.IsTrue)
-	}
 }
