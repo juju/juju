@@ -1216,7 +1216,7 @@ func (m *Machine) SetModificationStatus(sInfo status.StatusInfo) (err error) {
 	})
 }
 
-// AvailabilityZone returns the provier-specific instance availability
+// AvailabilityZone returns the provider-specific instance availability
 // zone in which the machine was provisioned.
 func (m *Machine) AvailabilityZone() (string, error) {
 	instData, err := getInstanceData(m.st, m.Id())
@@ -1276,79 +1276,6 @@ func (m *Machine) Units() (units []*Unit, err error) {
 	return units, nil
 }
 
-// XXX(jam): 2016-12-09 These are just copied from
-// provider/maas/constraints.go, but they should be tied to machine
-// constraints, *not* tied to provider/maas constraints.
-// convertSpacesFromConstraints extracts spaces from constraints and converts
-// them to two lists of positive and negative spaces.
-func convertSpacesFromConstraints(spaces *[]string) ([]string, []string) {
-	if spaces == nil || len(*spaces) == 0 {
-		return nil, nil
-	}
-	positive, negative := parseDelimitedValues(*spaces)
-	return positive, negative
-}
-
-// parseDelimitedValues parses a slice of raw values coming from constraints
-// (Tags or Spaces). The result is split into two slices - positives and
-// negatives (prefixed with "^"). Empty values are ignored.
-func parseDelimitedValues(rawValues []string) (positives, negatives []string) {
-	for _, value := range rawValues {
-		if value == "" || value == "^" {
-			// Neither of these cases should happen in practise, as constraints
-			// are validated before setting them and empty names for spaces or
-			// tags are not allowed.
-			continue
-		}
-		if strings.HasPrefix(value, "^") {
-			negatives = append(negatives, strings.TrimPrefix(value, "^"))
-		} else {
-			positives = append(positives, value)
-		}
-	}
-	return positives, negatives
-}
-
-// DesiredSpaces returns the name of all spaces that this machine needs
-// access to.  This is the combined value of all of the direct constraints
-// for the machine, as well as the spaces listed for all bindings of units
-// being deployed to that machine.
-func (m *Machine) DesiredSpaces() (set.Strings, error) {
-	spaces := set.NewStrings()
-	units, err := m.Units()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	constraints, err := m.Constraints()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// We ignore negative spaces as it doesn't change what spaces we do want.
-	positiveSpaces, _ := convertSpacesFromConstraints(constraints.Spaces)
-	for _, space := range positiveSpaces {
-		spaces.Add(space)
-	}
-	bindings := set.NewStrings()
-	for _, unit := range units {
-		app, err := unit.Application()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		endpointBindings, err := app.EndpointBindings()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for _, space := range endpointBindings {
-			if space != "" {
-				bindings.Add(space)
-			}
-		}
-	}
-	logger.Tracef("machine %q found constraints %s and bindings %s",
-		m.Id(), network.QuoteSpaceSet(spaces), network.QuoteSpaceSet(bindings))
-	return spaces.Union(bindings), nil
-}
-
 // SetProvisioned stores the machine's provider-specific details in the
 // database. These details are used to infer that the machine has
 // been provisioned.
@@ -1406,7 +1333,7 @@ func (m *Machine) SetProvisioned(
 		{
 			C:      machinesC,
 			Id:     m.doc.DocID,
-			Assert: append(isAliveDoc, bson.DocElem{"nonce", ""}),
+			Assert: append(isAliveDoc, bson.DocElem{Name: "nonce", Value: ""}),
 			Update: bson.D{{"$set", bson.D{{"nonce", nonce}}}},
 		}, {
 			C:      instanceDataC,
