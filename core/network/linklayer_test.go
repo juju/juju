@@ -21,7 +21,7 @@ func (s *linkLayerSuite) TestIsValidLinkLayerDeviceTypeValid(c *gc.C) {
 	validTypes := []LinkLayerDeviceType{
 		LoopbackDevice,
 		EthernetDevice,
-		VLAN_8021QDevice,
+		VLAN8021QDevice,
 		BondDevice,
 		BridgeDevice,
 	}

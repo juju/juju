@@ -169,7 +169,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesNoParentSuccess(c *g
 		Name:        "eth0.42",
 		MTU:         9000,
 		ProviderID:  "eni-42",
-		Type:        corenetwork.VLAN_8021QDevice,
+		Type:        corenetwork.VLAN8021QDevice,
 		MACAddress:  "aa:bb:cc:dd:ee:f0",
 		IsAutoStart: true,
 		IsUp:        true,
@@ -1093,7 +1093,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesUpdatesExistingDocs(
 		IsUp:        true,
 	}, {
 		Name:        children[0].Name(),
-		Type:        corenetwork.VLAN_8021QDevice,
+		Type:        corenetwork.VLAN8021QDevice,
 		MTU:         4321,
 		MACAddress:  "aa:bb:cc:dd:ee:f1",
 		IsAutoStart: true,
@@ -1173,7 +1173,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesRefusesToAddContaine
 		Type: corenetwork.EthernetDevice,
 	}, {
 		Name: "vlan",
-		Type: corenetwork.VLAN_8021QDevice,
+		Type: corenetwork.VLAN8021QDevice,
 	}, {
 		Name: "bond",
 		Type: corenetwork.BondDevice,
@@ -1497,12 +1497,12 @@ var nestedDevicesArgs = []state.LinkLayerDeviceArgs{{
 	ProviderID: "100",
 }, {
 	Name:       "bond0.12",
-	Type:       corenetwork.VLAN_8021QDevice,
+	Type:       corenetwork.VLAN8021QDevice,
 	ParentName: "bond0",
 	ProviderID: "101",
 }, {
 	Name:       "bond0.34",
-	Type:       corenetwork.VLAN_8021QDevice,
+	Type:       corenetwork.VLAN8021QDevice,
 	ParentName: "bond0",
 	ProviderID: "102",
 }, {

@@ -1032,7 +1032,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLAN(c *gc.C)
 	err := s.machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       "eth0.100",
-			Type:       corenetwork.VLAN_8021QDevice,
+			Type:       corenetwork.VLAN8021QDevice,
 			ParentName: "eth0",
 			IsUp:       true,
 		},
@@ -1094,7 +1094,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLANOnBond(c 
 			IsUp:       true,
 		}, {
 			Name:       "bond0.100",
-			Type:       corenetwork.VLAN_8021QDevice,
+			Type:       corenetwork.VLAN8021QDevice,
 			ParentName: "bond0",
 			IsUp:       true,
 		}}...,

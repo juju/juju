@@ -127,8 +127,8 @@ func possibleBridgeTarget(dev LinkLayerDevice) (bool, error) {
 	}
 	// TODO(jam): 2016-12-22 This feels dirty, but it falls out of how we are
 	// currently modeling VLAN objects.  see bug https://pad.lv/1652049
-	if dev.Type() != corenetwork.VLAN_8021QDevice {
-		// Only state.VLAN_8021QDevice have parents that still allow us to
+	if dev.Type() != corenetwork.VLAN8021QDevice {
+		// Only VLAN8021QDevice have parents that still allow us to
 		// bridge them.
 		// When anything else has a parent set, it shouldn't be used.
 		return false, nil

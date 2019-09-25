@@ -18,8 +18,8 @@ const (
 	// EthernetDevice is used for Ethernet (IEEE 802.3) devices.
 	EthernetDevice LinkLayerDeviceType = "ethernet"
 
-	// VLAN_8021QDevice is used for IEEE 802.1Q VLAN devices.
-	VLAN_8021QDevice LinkLayerDeviceType = "802.1q"
+	// VLAN8021QDevice is used for IEEE 802.1Q VLAN devices.
+	VLAN8021QDevice LinkLayerDeviceType = "802.1q"
 
 	// BondDevice is used for bonding devices.
 	BondDevice LinkLayerDeviceType = "bond"
@@ -32,9 +32,7 @@ const (
 // link-layer network device type.
 func IsValidLinkLayerDeviceType(value string) bool {
 	switch LinkLayerDeviceType(value) {
-	case LoopbackDevice, EthernetDevice,
-		VLAN_8021QDevice,
-		BondDevice, BridgeDevice:
+	case LoopbackDevice, EthernetDevice, VLAN8021QDevice, BondDevice, BridgeDevice:
 		return true
 	}
 	return false
