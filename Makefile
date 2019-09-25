@@ -218,7 +218,7 @@ local-operator-update: check-k8s-model operator-image
 
 STATIC_ANALYSIS_JOB ?= 
 
-static-analysis:
+static-analysis: install
 	cd tests && ./main.sh static_analysis ${STATIC_ANALYSIS_JOB}
 
 .PHONY: build check install release-install release-build go-build go-install
