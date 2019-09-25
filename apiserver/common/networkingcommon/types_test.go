@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -684,20 +685,20 @@ var expectedFinalNetworkConfigs = []params.NetworkConfig{{
 var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceArgs{{
 	Name:        "lo",
 	MTU:         65536,
-	Type:        state.LoopbackDevice,
+	Type:        corenetwork.LoopbackDevice,
 	IsAutoStart: true,
 	IsUp:        true,
 }, {
 	Name:        "br-eth0",
 	MTU:         1500,
-	Type:        state.BridgeDevice,
+	Type:        corenetwork.BridgeDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f0",
 	IsAutoStart: true,
 	IsUp:        true,
 }, {
 	Name:        "br-eth0.100",
 	MTU:         1500,
-	Type:        state.BridgeDevice,
+	Type:        corenetwork.BridgeDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f0",
 	IsAutoStart: true,
 	IsUp:        true,
@@ -705,7 +706,7 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 }, {
 	Name:        "br-eth0.250",
 	MTU:         1500,
-	Type:        state.BridgeDevice,
+	Type:        corenetwork.BridgeDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f0",
 	IsAutoStart: true,
 	IsUp:        true,
@@ -713,7 +714,7 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 }, {
 	Name:        "br-eth0.50",
 	MTU:         1500,
-	Type:        state.BridgeDevice,
+	Type:        corenetwork.BridgeDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f0",
 	IsAutoStart: true,
 	IsUp:        true,
@@ -722,7 +723,7 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 	Name:        "eth0",
 	MTU:         1500,
 	ProviderID:  "3",
-	Type:        state.EthernetDevice,
+	Type:        corenetwork.EthernetDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f0",
 	IsAutoStart: true,
 	IsUp:        true,
@@ -731,7 +732,7 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 	Name:        "eth0.100",
 	MTU:         1500,
 	ProviderID:  "516",
-	Type:        state.VLAN_8021QDevice,
+	Type:        corenetwork.VLAN_8021QDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f0",
 	IsAutoStart: true,
 	IsUp:        true,
@@ -740,7 +741,7 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 	Name:        "eth0.250",
 	MTU:         1500,
 	ProviderID:  "517",
-	Type:        state.VLAN_8021QDevice,
+	Type:        corenetwork.VLAN_8021QDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f0",
 	IsAutoStart: true,
 	IsUp:        true,
@@ -749,7 +750,7 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 	Name:        "eth0.50",
 	MTU:         1500,
 	ProviderID:  "515",
-	Type:        state.VLAN_8021QDevice,
+	Type:        corenetwork.VLAN_8021QDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f0",
 	IsAutoStart: true,
 	IsUp:        true,
@@ -757,14 +758,14 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 }, {
 	Name:        "br-eth1",
 	MTU:         1500,
-	Type:        state.BridgeDevice,
+	Type:        corenetwork.BridgeDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f1",
 	IsAutoStart: true,
 	IsUp:        true,
 }, {
 	Name:        "br-eth1.11",
 	MTU:         1500,
-	Type:        state.BridgeDevice,
+	Type:        corenetwork.BridgeDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f1",
 	IsAutoStart: true,
 	IsUp:        true,
@@ -772,7 +773,7 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 }, {
 	Name:        "br-eth1.12",
 	MTU:         1500,
-	Type:        state.BridgeDevice,
+	Type:        corenetwork.BridgeDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f1",
 	IsAutoStart: true,
 	IsUp:        true,
@@ -780,7 +781,7 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 }, {
 	Name:        "br-eth1.13",
 	MTU:         1500,
-	Type:        state.BridgeDevice,
+	Type:        corenetwork.BridgeDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f1",
 	IsAutoStart: true,
 	IsUp:        true,
@@ -789,7 +790,7 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 	Name:        "eth1",
 	MTU:         1500,
 	ProviderID:  "245",
-	Type:        state.EthernetDevice,
+	Type:        corenetwork.EthernetDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f1",
 	IsAutoStart: true,
 	IsUp:        true,
@@ -798,7 +799,7 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 	Name:        "eth1.11",
 	MTU:         1500,
 	ProviderID:  "518",
-	Type:        state.VLAN_8021QDevice,
+	Type:        corenetwork.VLAN_8021QDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f1",
 	IsAutoStart: true,
 	IsUp:        true,
@@ -807,7 +808,7 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 	Name:        "eth1.12",
 	MTU:         1500,
 	ProviderID:  "519",
-	Type:        state.VLAN_8021QDevice,
+	Type:        corenetwork.VLAN_8021QDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f1",
 	IsAutoStart: true,
 	IsUp:        true,
@@ -816,7 +817,7 @@ var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceA
 	Name:        "eth1.13",
 	MTU:         1500,
 	ProviderID:  "520",
-	Type:        state.VLAN_8021QDevice,
+	Type:        corenetwork.VLAN_8021QDevice,
 	MACAddress:  "aa:bb:cc:dd:ee:f1",
 	IsAutoStart: true,
 	IsUp:        true,
