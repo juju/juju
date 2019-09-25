@@ -1028,10 +1028,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 		return errors.Trace(err)
 	}
 
-	bridgePolicy := containerizer.BridgePolicy{
-		NetBondReconfigureDelay:   env.Config().NetBondReconfigureDelay(),
-		ContainerNetworkingMethod: env.Config().ContainerNetworkingMethod(),
-	}
+	bridgePolicy := containerizer.NewBridgePolicy(env)
 
 	// TODO(jam): 2017-01-31 PopulateContainerLinkLayerDevices should really
 	// just be returning the ones we'd like to exist, and then we turn those

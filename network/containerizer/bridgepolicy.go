@@ -15,9 +15,11 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 
-	// Used for some constants and things like LinkLayerDevice[Args]
+	// TODO (manadart 2019-09-25): This package should evolve
+	// so as not to import this package.
 	"github.com/juju/juju/state"
 )
 
@@ -37,6 +39,17 @@ type BridgePolicy struct {
 	//  - provider
 	//  - local
 	ContainerNetworkingMethod string
+}
+
+// NewBridgePolicy returns a new BridgePolicy for the input environ config
+// getter.
+func NewBridgePolicy(cfgGetter environs.ConfigGetter) *BridgePolicy {
+	cfg := cfgGetter.Config()
+
+	return &BridgePolicy{
+		NetBondReconfigureDelay:   cfg.NetBondReconfigureDelay(),
+		ContainerNetworkingMethod: cfg.ContainerNetworkingMethod(),
+	}
 }
 
 // inferContainerSpaces tries to find a valid space for the container to be
