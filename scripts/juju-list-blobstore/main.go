@@ -66,7 +66,7 @@ func main() {
 	for _, modelUUID := range modelUUIDs {
 		inspectModel(statePool, session, modelUUID, foundHashes)
 	}
-	checkMissing(system, session, foundHashes)
+	checkUnreferencedResources(session, foundHashes)
 }
 
 func checkErr(label string, err error) {
@@ -275,7 +275,7 @@ func inspectAgentBinaries(st *state.State, session *mgo.Session, foundHashes map
 	if *human {
 		size = humanize.Bytes(totalBytes)
 	}
-	fmt.Fprintf(os.Stdout, "total: %s\n\n", size)
+	fmt.Fprintf(os.Stdout, "total: %s\n", size)
 }
 
 func lookupResource(managedResources, resources *mgo.Collection, bucketPath, description string) resourceDoc {
@@ -299,40 +299,177 @@ func lookupResource(managedResources, resources *mgo.Collection, bucketPath, des
 	return res
 }
 
+type mapStringStringSlice map[string][]string
+
+func (m mapStringStringSlice) Add(key, value string) bool {
+	cur, found := m[key]
+	m[key] = append(cur, value)
+	return found
+}
+
+func (m mapStringStringSlice) SortValues() {
+	for key, values := range m {
+		sort.Strings(values)
+		m[key] = values
+	}
+}
+
+func (m mapStringStringSlice) SortedKeys() []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// KeysBySortedValues returns keys sorted by the order of the values.
+// So if you have {a: [1], b: [0]} this will return [b, a]
+// This assume you've already called m.SortValues() to put all the
+// values in sorted order.
+func (m mapStringStringSlice) KeysBySortedValues() []string {
+	firstValues := make([]string, 0, len(m))
+	valToKey := make(map[string]string)
+	for key, values := range m {
+		if len(values) == 0 {
+			// shouldn't ever happen
+			continue
+		}
+		v := values[0]
+		firstValues = append(firstValues, v)
+		valToKey[v] = key
+	}
+	sort.Strings(firstValues)
+	// We can reuse firstValues because it is just []string
+	for i, v := range firstValues {
+		k := valToKey[v]
+		firstValues[i] = k
+	}
+	return firstValues
+}
+
+func lengthToSize(length uint64) string {
+	if *human {
+		return humanize.Bytes(length)
+	}
+	return fmt.Sprintf("%d", length)
+}
+
+// TODO: Refactor this into a small type
 func inspectModel(pool *state.StatePool, session *mgo.Session, modelUUID string, foundHashes map[string]struct{}) {
 	model, helper, err := pool.GetModel(modelUUID)
 	defer helper.Release()
 	shortUID := shortModelUUID(modelUUID)
 	checkErr(fmt.Sprintf("reading model %s", shortUID), err)
+	apps, err := model.State().AllApplications()
+	checkErr("AllApplications", err)
+	// What Charm URLs are referenced by Applications
+	appReferencedCharms := make(mapStringStringSlice)
+	// What Charm URLs are referenced by Units that aren't referenced by Apps
+	unitReferencedCharms := make(mapStringStringSlice)
+	for _, app := range apps {
+		charmURL, _ := app.CharmURL()
+		appCharmURLStr := charmURL.String()
+		appReferencedCharms.Add(appCharmURLStr, app.Name())
+		units, err := app.AllUnits()
+		checkErr("AllUnits", err)
+		for _, unit := range units {
+			unitCharmURL, found := unit.CharmURL()
+			if !found {
+				continue
+			}
+			unitString := unitCharmURL.String()
+			if unitString != appCharmURLStr {
+				unitReferencedCharms.Add(unitString, unit.Name())
+			}
+		}
+	}
+	appReferencedCharms.SortValues()
+	unitReferencedCharms.SortValues()
+
 	charms, err := model.State().AllCharms()
 	checkErr("AllCharms", err)
 	logger.Debugf("[%s] checking model", shortUID)
 	modelName := model.Name()
-	fmt.Fprintf(os.Stdout, "Model: %q\n", modelName)
 	jujuDB := session.DB("juju")
 	managedResources := jujuDB.C(managedResourceC)
 	resources := jujuDB.C(resourceCatalogC)
-	var totalBytes uint64
-	seen := make(map[string]int64)
+	modelReferencedCharms := make(map[string]bool)
+	resourceToCharmURLs := make(mapStringStringSlice)
+	sizes := make(map[string]uint64)
 	for _, charm := range charms {
+		charmURL := charm.URL().String()
+		modelReferencedCharms[charmURL] = true
 		bucketPath := path.Join("buckets", modelUUID, charm.StoragePath())
 		res := lookupResource(managedResources, resources, bucketPath, charm.String())
 		if res.Id == "" {
 			continue
 		}
 		foundHashes[res.SHA384Hash] = struct{}{}
-		_, found := seen[res.Id]
-		seen[res.Id] = res.Length
-		if !found {
-			totalBytes += uint64(res.Length)
-			size := fmt.Sprint(res.Length)
-			if *human {
-				size = humanize.Bytes(uint64(res.Length))
+		resourceToCharmURLs.Add(res.Id, charmURL)
+		sizes[res.SHA384Hash] = uint64(res.Length)
+	}
+	resourceToCharmURLs.SortValues()
+	// Note, there is a small is a small issue where things can't be easily tracked.
+	// namely, if 2 models have the same charm, then which one do we assign the
+	// storage to? You have to remove it from both to save any space, but you
+	// don't want to double count the storage either.
+	fmt.Fprintf(os.Stdout, "\nModel: %q\n", modelName)
+	var totalBytes uint64
+	var referencedBytes uint64
+	var unreferencedBytes uint64
+	notReferenced := make([]string, 0)
+	for _, resourceId := range resourceToCharmURLs.KeysBySortedValues() {
+		length := sizes[resourceId]
+		totalBytes += length
+		var referenced bool
+		for _, charmURL := range resourceToCharmURLs[resourceId] {
+			if _, found := appReferencedCharms[charmURL]; found {
+				referenced = true
+				break
 			}
-			fmt.Fprintf(os.Stdout, "%v: %s %d %s...\n",
-				charm.String(), size, res.RefCount, res.Id[:8])
+		}
+		if referenced {
+			referencedBytes += length
+			charmURL := resourceToCharmURLs[resourceId][0]
+			fmt.Fprintf(os.Stdout, "  %v: %s %s...\n",
+				charmURL, lengthToSize(length), resourceId[:8])
+			if *verbose {
+				for _, curl := range resourceToCharmURLs[resourceId] {
+					if curl != charmURL {
+						fmt.Fprintf(os.Stdout, "    %v:\n", curl)
+					}
+					for _, app := range appReferencedCharms[curl] {
+						fmt.Fprintf(os.Stdout, "    - %v\n", app)
+					}
+				}
+			}
+		} else {
+			notReferenced = append(notReferenced, resourceId)
+			unreferencedBytes += uint64(length)
 		}
 	}
+	if len(notReferenced) > 0 {
+		fmt.Fprintf(os.Stdout, "  Not Referenced By Apps\n")
+		for _, resourceId := range notReferenced {
+			length := sizes[resourceId]
+			charmURL := resourceToCharmURLs[resourceId][0]
+			fmt.Fprintf(os.Stdout, "  %v: %s %s...\n",
+				charmURL, lengthToSize(length), resourceId[:8])
+			for _, curl := range resourceToCharmURLs[resourceId] {
+				if curl != charmURL {
+					fmt.Fprintf(os.Stdout, "    %v:\n", curl)
+				}
+				for _, unit := range unitReferencedCharms[curl] {
+					fmt.Fprintf(os.Stdout, "    - %v\n", unit)
+				}
+			}
+		}
+
+		fmt.Fprintf(os.Stdout, "  referenced charm bytes: %s\n", lengthToSize(referencedBytes))
+		fmt.Fprintf(os.Stdout, "  unreferenced charm bytes: %s\n", lengthToSize(unreferencedBytes))
+	}
+	fmt.Fprintf(os.Stdout, "  total charm bytes: %s\n", lengthToSize(totalBytes))
 	charmResources, err := model.State().Resources()
 	checkErr("resources", err)
 	applications, err := model.State().AllApplications()
@@ -347,14 +484,65 @@ func inspectModel(pool *state.StatePool, session *mgo.Session, modelUUID string,
 			}
 		}
 	}
-	size := fmt.Sprintf("%d", totalBytes)
-	if *human {
-		size = humanize.Bytes(totalBytes)
+	unknownResourceIdToManaged, sizes := lookForExtraBuckets(managedResources, resources, modelUUID, foundHashes)
+	if unknownResourceIdToManaged != nil {
+		var unrefResourceBytes uint64
+		fmt.Fprintf(os.Stdout, "  Unreferenced Managed Resources\n")
+		unknownResourceIdToManaged.SortValues()
+		for _, resourceId := range unknownResourceIdToManaged.KeysBySortedValues() {
+			length := sizes[resourceId]
+			unrefResourceBytes += length
+			fmt.Fprintf(os.Stdout, "    %v: %s\n", resourceId, lengthToSize(length))
+			for _, path := range unknownResourceIdToManaged[resourceId] {
+				fmt.Fprintf(os.Stdout, "      %v\n", path)
+			}
+		}
+		fmt.Fprintf(os.Stdout, "  total unreferenced bytes: %s\n", lengthToSize(unrefResourceBytes))
+		totalBytes += unrefResourceBytes
 	}
-	fmt.Fprintf(os.Stdout, "total: %s\n\n", size)
+	fmt.Fprintf(os.Stdout, "  total model bytes: %s\n", lengthToSize(totalBytes))
 }
 
-func checkMissing(st *state.State, session *mgo.Session, foundHashes map[string]struct{}) {
+func lookForExtraBuckets(managedResources, resources *mgo.Collection, modelUUID string, foundHashes map[string]struct{}) (mapStringStringSlice, map[string]uint64) {
+	bucketPrefix := fmt.Sprintf("^buckets/%s/.*", modelUUID)
+	// Note: it looks like mongo will properly deal with a ^buckets/* on _id search by doing an index lookup
+	// on the prefix. Which is good, though it means we read all the resources for this model again.
+	managedBuckets := managedResources.Find(bson.M{"_id": bson.M{"$regex": bucketPrefix}}).Iter()
+	var managedDoc managedResourceDoc
+	resourceIds := make([]string, 0)
+	resourceIdToManaged := make(mapStringStringSlice)
+	for managedBuckets.Next(&managedDoc) {
+		_, found := foundHashes[managedDoc.ResourceId]
+		if found {
+			continue
+		}
+		found = resourceIdToManaged.Add(managedDoc.ResourceId, managedDoc.Id)
+		if !found {
+			resourceIds = append(resourceIds, managedDoc.ResourceId)
+		}
+	}
+	checkErr("bucket search", managedBuckets.Close())
+	if len(resourceIds) == 0 {
+		return nil, nil
+	}
+	var res resourceDoc
+	sizes := make(map[string]uint64, len(resourceIds))
+	resourceDocs := resources.Find(bson.M{"_id": bson.M{"$in": resourceIds}}).Iter()
+	for resourceDocs.Next(&res) {
+		sizes[res.SHA384Hash] = uint64(res.Length)
+		foundHashes[res.SHA384Hash] = struct{}{}
+	}
+	checkErr("bucket search", resourceDocs.Close())
+	return resourceIdToManaged, sizes
+}
+
+// func lookForBucketsMissingModels(session *mgo.Session, modelUUIDs []string, foundHashes map[string]struct{}) {
+// 	jujuDB := session.DB("juju")
+// 	managedResources := jujuDB.C(managedResourceC)
+// 	resources := jujuDB.C(resourceCatalogC)
+// }
+//
+func checkUnreferencedResources(session *mgo.Session, foundHashes map[string]struct{}) {
 	jujuDB := session.DB("juju")
 	managedResources := jujuDB.C(managedResourceC)
 	resources := jujuDB.C(resourceCatalogC)
