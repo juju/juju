@@ -294,7 +294,7 @@ func (hps SpaceHostPorts) InSpaces(spaces ...SpaceInfo) (SpaceHostPorts, bool) {
 	spaceInfos := SpaceInfos(spaces)
 	var selectedHostPorts SpaceHostPorts
 	for _, hp := range hps {
-		if space := spaceInfos.Space(hp.SpaceID); space != nil {
+		if space := spaceInfos.GetByID(hp.SpaceID); space != nil {
 			logger.Debugf("selected %q as a hostPort in space %q", hp.Value, space.Name)
 			selectedHostPorts = append(selectedHostPorts, hp)
 		}
