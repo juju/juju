@@ -230,7 +230,7 @@ func (bt ByName) Less(i, j int) bool {
 	}
 	// Name is equal, so use cost as a tie breaker.
 	// Result is in ascending order of cost so instance with lowest cost is first.
-	return inst0.Cost > inst1.Cost
+	return inst0.Cost < inst1.Cost
 
 }
 
