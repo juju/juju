@@ -5,6 +5,12 @@ package provisioner
 
 import "github.com/juju/juju/apiserver/params"
 
+// TODO (manadart 2019-09-26): This file should be deleted via these steps:
+// - Rename provisioner_test.go to provisioner_integration_test.go
+// - Relocate the provisionerMockSuite tests to provisioner_test *inside*
+//   the provisioner package.
+// - Instantiate these contexts directly instead of requiring these methods.
+
 func NewPrepareOrGetContext(result params.MachineNetworkConfigResults, maintain bool) *prepareOrGetContext {
 	return &prepareOrGetContext{result: result, maintain: maintain}
 }
