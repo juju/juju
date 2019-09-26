@@ -137,19 +137,20 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 }
 
 func (k *kubernetesClient) deleteAllServiceAccountResources(appName string) error {
-	if err := k.deleteRoleBindings(appName); err != nil {
+	labels := k.getRBACLabels(appName)
+	if err := k.deleteRoleBindings(labels); err != nil {
 		return errors.Trace(err)
 	}
-	if err := k.deleteClusterRoleBindings(appName); err != nil {
+	if err := k.deleteClusterRoleBindings(labels); err != nil {
 		return errors.Trace(err)
 	}
-	if err := k.deleteRoles(appName); err != nil {
+	if err := k.deleteRoles(labels); err != nil {
 		return errors.Trace(err)
 	}
-	if err := k.deleteClusterRoles(appName); err != nil {
+	if err := k.deleteClusterRoles(labels); err != nil {
 		return errors.Trace(err)
 	}
-	if err := k.deleteServiceAccounts(appName); err != nil {
+	if err := k.deleteServiceAccounts(labels); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -211,11 +212,11 @@ func (k *kubernetesClient) deleteServiceAccount(name string, uid types.UID) erro
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteServiceAccounts(appName string) error {
+func (k *kubernetesClient) deleteServiceAccounts(labels map[string]string) error {
 	err := k.client().CoreV1().ServiceAccounts(k.namespace).DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector:        labelsToSelector(k.getRBACLabels(appName)),
+		LabelSelector:        labelsToSelector(labels),
 		IncludeUninitialized: true,
 	})
 	if k8serrors.IsNotFound(err) {
@@ -295,11 +296,11 @@ func (k *kubernetesClient) deleteRole(name string, uid types.UID) error {
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteRoles(appName string) error {
+func (k *kubernetesClient) deleteRoles(labels map[string]string) error {
 	err := k.client().RbacV1().Roles(k.namespace).DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector:        labelsToSelector(k.getRBACLabels(appName)),
+		LabelSelector:        labelsToSelector(labels),
 		IncludeUninitialized: true,
 	})
 	if k8serrors.IsNotFound(err) {
@@ -379,11 +380,11 @@ func (k *kubernetesClient) deleteClusterRole(name string, uid types.UID) error {
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteClusterRoles(appName string) error {
+func (k *kubernetesClient) deleteClusterRoles(labels map[string]string) error {
 	err := k.client().RbacV1().ClusterRoles().DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector:        labelsToSelector(k.getRBACLabels(appName)),
+		LabelSelector:        labelsToSelector(labels),
 		IncludeUninitialized: true,
 	})
 	if k8serrors.IsNotFound(err) {
@@ -471,11 +472,11 @@ func (k *kubernetesClient) deleteRoleBinding(name string, uid types.UID) error {
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteRoleBindings(appName string) error {
+func (k *kubernetesClient) deleteRoleBindings(labels map[string]string) error {
 	err := k.client().RbacV1().RoleBindings(k.namespace).DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector:        labelsToSelector(k.getRBACLabels(appName)),
+		LabelSelector:        labelsToSelector(labels),
 		IncludeUninitialized: true,
 	})
 	if k8serrors.IsNotFound(err) {
@@ -559,11 +560,11 @@ func (k *kubernetesClient) deleteClusterRoleBinding(name string, uid types.UID) 
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteClusterRoleBindings(appName string) error {
+func (k *kubernetesClient) deleteClusterRoleBindings(labels map[string]string) error {
 	err := k.client().RbacV1().ClusterRoleBindings().DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector:        labelsToSelector(k.getRBACLabels(appName)),
+		LabelSelector:        labelsToSelector(labels),
 		IncludeUninitialized: true,
 	})
 	if k8serrors.IsNotFound(err) {

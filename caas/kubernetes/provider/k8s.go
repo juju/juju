@@ -8,7 +8,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -21,7 +20,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v3"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -38,7 +36,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/specs"
@@ -274,15 +271,6 @@ func (k *kubernetesClient) SetCloudSpec(spec environs.CloudSpec) error {
 	return nil
 }
 
-func (k *kubernetesClient) validateOperatorStorage() (string, error) {
-	storageClass, _ := k.Config().AllAttrs()[OperatorStorageKey].(string)
-	if storageClass == "" {
-		return "", errors.NewNotValid(nil, "config without operator-storage value not valid.\nRun juju add-k8s to reimport your k8s cluster.")
-	}
-	_, err := k.getStorageClass(storageClass)
-	return storageClass, errors.Trace(err)
-}
-
 // PrepareForBootstrap prepares for bootstraping a controller.
 func (k *kubernetesClient) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	alreadyExistErr := errors.NewAlreadyExists(nil,
@@ -483,167 +471,6 @@ func (k *kubernetesClient) APIVersion() (string, error) {
 	return ver.String(), nil
 }
 
-// OperatorExists indicates if the operator for the specified
-// application exists, and whether the operator is terminating.
-func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, error) {
-	var result caas.OperatorState
-	operatorName := k.operatorName(appName)
-	statefulSets := k.client().AppsV1().StatefulSets(k.namespace)
-	operator, err := statefulSets.Get(operatorName, v1.GetOptions{IncludeUninitialized: true})
-	if k8serrors.IsNotFound(err) {
-		return result, nil
-	}
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	result.Exists = true
-	result.Terminating = operator.DeletionTimestamp != nil
-	return result, nil
-}
-
-// EnsureOperator creates or updates an operator pod with the given application
-// name, agent path, and operator config.
-func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) (err error) {
-	logger.Debugf("creating/updating %s operator", appName)
-
-	operatorName := k.operatorName(appName)
-
-	var cleanups []func()
-	defer func() {
-		if err == nil {
-			return
-		}
-		for _, f := range cleanups {
-			f()
-		}
-	}()
-
-	service := &core.Service{
-		ObjectMeta: v1.ObjectMeta{
-			Name:   operatorName,
-			Labels: map[string]string{labelOperator: appName},
-		},
-		Spec: core.ServiceSpec{
-			Selector: map[string]string{labelOperator: appName},
-			Type:     core.ServiceTypeClusterIP,
-			Ports: []core.ServicePort{
-				{Protocol: core.ProtocolTCP, Port: JujuRunServerSocketPort, TargetPort: intstr.FromInt(JujuRunServerSocketPort)}},
-		},
-	}
-	if err := k.ensureK8sService(service); err != nil {
-		return errors.Annotatef(err, "creating or updating service for %v operator", appName)
-	}
-	cleanups = append(cleanups, func() { k.deleteService(operatorName) })
-	services := k.client().CoreV1().Services(k.namespace)
-	svc, err := services.Get(operatorName, v1.GetOptions{IncludeUninitialized: false})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	cmName := operatorConfigMapName(operatorName)
-	// TODO(caas) use secrets for storing agent password?
-	if config.AgentConf == nil && config.OperatorInfo == nil {
-		// We expect that the config map already exists,
-		// so make sure it does.
-		if _, err := k.getConfigMap(cmName); err != nil {
-			return errors.Annotatef(err, "config map for %q should already exist", appName)
-		}
-	} else {
-		cmCleanUp, err := k.ensureConfigMap(operatorConfigMap(appName, cmName, k.getConfigMapLabels(appName), config))
-		cleanups = append(cleanups, cmCleanUp)
-		if err != nil {
-			return errors.Annotate(err, "creating or updating ConfigMap")
-		}
-	}
-
-	annotations := resourceTagsToAnnotations(config.ResourceTags).
-		Add(labelVersion, config.Version.String())
-
-	// Set up the parameters for creating charm storage.
-	operatorVolumeClaim := "charm"
-	if isLegacyName(operatorName) {
-		operatorVolumeClaim = fmt.Sprintf("%v-operator-volume", appName)
-	}
-
-	fsSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", config.CharmStorage.Size))
-	if err != nil {
-		return errors.Annotatef(err, "invalid volume size %v", config.CharmStorage.Size)
-	}
-	params := volumeParams{
-		storageConfig:       &storageConfig{},
-		pvcName:             operatorVolumeClaim,
-		requestedVolumeSize: fsSize,
-	}
-	if config.CharmStorage.Provider != K8s_ProviderType {
-		return errors.Errorf("expected charm storage provider %q, got %q", K8s_ProviderType, config.CharmStorage.Provider)
-	}
-	params.storageConfig, err = newStorageConfig(config.CharmStorage.Attributes)
-	if err != nil {
-		return errors.Annotatef(err, "invalid storage configuration for %v operator", appName)
-	}
-	// We want operator storage to be deleted when the operator goes away.
-	params.storageConfig.reclaimPolicy = core.PersistentVolumeReclaimDelete
-	logger.Debugf("operator storage config %#v", *params.storageConfig)
-
-	// Attempt to get a persistent volume to store charm state etc.
-	pvcSpec, err := k.maybeGetVolumeClaimSpec(params)
-	if err != nil {
-		return errors.Annotate(err, "finding operator volume claim")
-	}
-
-	pvc := &core.PersistentVolumeClaim{
-		ObjectMeta: v1.ObjectMeta{
-			Name:        params.pvcName,
-			Annotations: resourceTagsToAnnotations(config.CharmStorage.ResourceTags).ToMap()},
-		Spec: *pvcSpec,
-	}
-	pod, err := operatorPod(
-		operatorName,
-		appName,
-		svc.Spec.ClusterIP,
-		agentPath,
-		config.OperatorImagePath,
-		config.Version.String(),
-		annotations.Copy(),
-	)
-	if err != nil {
-		return errors.Annotate(err, "generating operator podspec")
-	}
-	// Take a copy for use with statefulset.
-	podWithoutStorage := pod
-
-	numPods := int32(1)
-	logger.Debugf("using persistent volume claim for operator %s: %+v", appName, pvc)
-	statefulset := &apps.StatefulSet{
-		ObjectMeta: v1.ObjectMeta{
-			Name:        operatorName,
-			Labels:      operatorLabels(appName),
-			Annotations: annotations.ToMap()},
-		Spec: apps.StatefulSetSpec{
-			Replicas: &numPods,
-			Selector: &v1.LabelSelector{
-				MatchLabels: operatorLabels(appName),
-			},
-			Template: core.PodTemplateSpec{
-				ObjectMeta: v1.ObjectMeta{
-					Labels:      operatorLabels(appName),
-					Annotations: pod.Annotations,
-				},
-			},
-			PodManagementPolicy:  apps.ParallelPodManagement,
-			VolumeClaimTemplates: []core.PersistentVolumeClaim{*pvc},
-		},
-	}
-	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, core.VolumeMount{
-		Name:      pvc.Name,
-		MountPath: agent.BaseDir(agentPath),
-	})
-
-	statefulset.Spec.Template.Spec = pod.Spec
-	err = k.ensureStatefulSet(statefulset, podWithoutStorage.Spec)
-	return errors.Annotatef(err, "creating or updating %v operator StatefulSet", appName)
-}
-
 // ValidateStorageClass returns an error if the storage config is not valid.
 func (k *kubernetesClient) ValidateStorageClass(config map[string]interface{}) error {
 	cfg, err := newStorageConfig(config)
@@ -789,83 +616,6 @@ func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner)
 		Provisioner: sc.Provisioner,
 		Parameters:  sc.Parameters,
 	}, nil
-}
-
-// DeleteOperator deletes the specified operator.
-func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
-	logger.Debugf("deleting %s operator", appName)
-
-	operatorName := k.operatorName(appName)
-	legacy := isLegacyName(operatorName)
-
-	// First delete the config map(s).
-	configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
-	configMapName := operatorConfigMapName(operatorName)
-	err = configMaps.Delete(configMapName, &v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	})
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return nil
-	}
-
-	// Delete artefacts created by k8s itself.
-	configMapName = appName + "-configurations-config"
-	if legacy {
-		configMapName = "juju-" + configMapName
-	}
-	err = configMaps.Delete(configMapName, &v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	})
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-
-	// Finally the operator itself.
-	if err := k.deleteService(operatorName); err != nil {
-		return errors.Trace(err)
-	}
-	if err := k.deleteStatefulSet(operatorName); err != nil {
-		return errors.Trace(err)
-	}
-	pods := k.client().CoreV1().Pods(k.namespace)
-	podsList, err := pods.List(v1.ListOptions{
-		LabelSelector: operatorSelector(appName),
-	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	deploymentName := appName
-	if legacy {
-		deploymentName = "juju-" + appName
-	}
-	pvs := k.client().CoreV1().PersistentVolumes()
-	for _, p := range podsList.Items {
-		// Delete secrets.
-		for _, c := range p.Spec.Containers {
-			secretName := appSecretName(deploymentName, c.Name)
-			if err := k.deleteSecret(secretName, nil); err != nil {
-				return errors.Annotatef(err, "deleting %s secret for container %s", appName, c.Name)
-			}
-		}
-		// Delete operator storage volumes.
-		volumeNames, err := k.deleteVolumeClaims(appName, &p)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		// Just in case the volume reclaim policy is retain, we force deletion
-		// for operators as the volume is an inseparable part of the operator.
-		for _, volName := range volumeNames {
-			err = pvs.Delete(volName, &v1.DeleteOptions{
-				PropagationPolicy: &defaultPropagationPolicy,
-			})
-			if err != nil && !k8serrors.IsNotFound(err) {
-				return errors.Annotatef(err, "deleting operator persistent volume %v for %v",
-					volName, appName)
-			}
-		}
-	}
-	return errors.Trace(k.deleteDeployment(operatorName))
 }
 
 func getLoadBalancerAddress(svc *core.Service) string {
@@ -1971,10 +1721,6 @@ func operatorSelector(appName string) string {
 	return fmt.Sprintf("%v==%v", labelOperator, appName)
 }
 
-func operatorLabels(appName string) map[string]string {
-	return map[string]string{labelOperator: appName}
-}
-
 func applicationSelector(appName string) string {
 	return fmt.Sprintf("%v==%v", labelApplication, appName)
 }
@@ -2028,20 +1774,6 @@ func (k *kubernetesClient) WatchService(appName string) (watcher.NotifyWatcher, 
 	}
 
 	return watcher.NewMultiNotifyWatcher(w1, w2), nil
-}
-
-// WatchOperator returns a watcher which notifies when there
-// are changes to the operator of the specified application.
-func (k *kubernetesClient) WatchOperator(appName string) (watcher.NotifyWatcher, error) {
-	pods := k.client().CoreV1().Pods(k.namespace)
-	w, err := pods.Watch(v1.ListOptions{
-		LabelSelector: operatorSelector(appName),
-		Watch:         true,
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return k.newWatcher(w, appName, k.clock)
 }
 
 // legacyJujuPVNameRegexp matches how Juju labels persistent volumes.
@@ -2270,76 +2002,6 @@ func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.Volum
 	}, nil
 }
 
-// Operator returns an Operator with current status and life details.
-func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
-	operatorName := k.operatorName(appName)
-	statefulSets := k.client().AppsV1().StatefulSets(k.namespace)
-	operator, err := statefulSets.Get(operatorName, v1.GetOptions{IncludeUninitialized: true})
-	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("operator %s", appName)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	pods := k.client().CoreV1().Pods(k.namespace)
-	podsList, err := pods.List(v1.ListOptions{
-		LabelSelector: operatorSelector(appName),
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(podsList.Items) == 0 {
-		return nil, errors.NotFoundf("operator pod for application %q", appName)
-	}
-
-	opPod := podsList.Items[0]
-	terminated := opPod.DeletionTimestamp != nil
-	now := time.Now()
-	statusMessage, opStatus, since, err := k.getPODStatus(opPod, now)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	cfg := caas.OperatorConfig{}
-	if ver, ok := operator.Annotations[labelVersion]; ok {
-		cfg.Version, err = version.Parse(ver)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	for _, container := range operator.Spec.Template.Spec.Containers {
-		if container.Name == operatorContainerName {
-			cfg.OperatorImagePath = container.Image
-			break
-		}
-	}
-	configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
-	configMap, err := configMaps.Get(operatorConfigMapName(operatorName), v1.GetOptions{IncludeUninitialized: true})
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return nil, errors.Trace(err)
-	}
-	if configMap != nil {
-		if agentConf, ok := configMap.Data[operatorConfigMapAgentConfKey(appName)]; ok {
-			cfg.AgentConf = []byte(agentConf)
-		}
-		if operatorInfo, ok := configMap.Data[caas.OperatorInfoFile]; ok {
-			cfg.OperatorInfo = []byte(operatorInfo)
-		}
-	}
-
-	return &caas.Operator{
-		Id:    string(opPod.UID),
-		Dying: terminated,
-		Status: status.StatusInfo{
-			Status:  opStatus,
-			Message: statusMessage,
-			Since:   &since,
-		},
-		Config: &cfg,
-	}, nil
-}
-
 func (k *kubernetesClient) getPODStatus(pod core.Pod, now time.Time) (string, status.Status, time.Time, error) {
 	terminated := pod.DeletionTimestamp != nil
 	jujuStatus := k.jujuStatus(pod.Status.Phase, terminated)
@@ -2472,117 +2134,6 @@ func filesetConfigMap(configMapName string, files *specs.FileSet) *core.ConfigMa
 		result.Data[name] = data
 	}
 	return result
-}
-
-// operatorPod returns a *core.Pod for the operator pod
-// of the specified application.
-func operatorPod(podName, appName, operatorServiceIP, agentPath, operatorImagePath, version string, annotations k8sannotations.Annotation) (*core.Pod, error) {
-	configMapName := operatorConfigMapName(podName)
-	configVolName := configMapName
-
-	if isLegacyName(podName) {
-		configVolName += "-volume"
-	}
-
-	appTag := names.NewApplicationTag(appName)
-	jujudCmd := fmt.Sprintf("$JUJU_TOOLS_DIR/jujud caasoperator --application-name=%s --debug", appName)
-	jujuDataDir, err := paths.DataDir("kubernetes")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &core.Pod{
-		ObjectMeta: v1.ObjectMeta{
-			Name: podName,
-			Annotations: podAnnotations(annotations.Copy()).
-				Add(labelVersion, version).ToMap(),
-			Labels: operatorLabels(appName),
-		},
-		Spec: core.PodSpec{
-			Containers: []core.Container{{
-				Name:            operatorContainerName,
-				ImagePullPolicy: core.PullIfNotPresent,
-				Image:           operatorImagePath,
-				WorkingDir:      jujuDataDir,
-				Command: []string{
-					"/bin/sh",
-				},
-				Args: []string{
-					"-c",
-					fmt.Sprintf(
-						caas.JujudStartUpSh,
-						jujuDataDir,
-						"tools",
-						jujudCmd,
-					),
-				},
-				Env: []core.EnvVar{
-					{Name: "JUJU_APPLICATION", Value: appName},
-					{Name: OperatorServiceIPEnvName, Value: operatorServiceIP},
-					{
-						Name: OperatorPodIPEnvName,
-						ValueFrom: &core.EnvVarSource{
-							FieldRef: &core.ObjectFieldSelector{
-								FieldPath: "status.podIP",
-							},
-						},
-					},
-					{
-						Name: OperatorNamespaceEnvName,
-						ValueFrom: &core.EnvVarSource{
-							FieldRef: &core.ObjectFieldSelector{
-								FieldPath: "metadata.namespace",
-							},
-						},
-					},
-				},
-				VolumeMounts: []core.VolumeMount{{
-					Name:      configVolName,
-					MountPath: filepath.Join(agent.Dir(agentPath, appTag), TemplateFileNameAgentConf),
-					SubPath:   TemplateFileNameAgentConf,
-				}, {
-					Name:      configVolName,
-					MountPath: filepath.Join(agent.Dir(agentPath, appTag), caas.OperatorInfoFile),
-					SubPath:   caas.OperatorInfoFile,
-				}},
-			}},
-			Volumes: []core.Volume{{
-				Name: configVolName,
-				VolumeSource: core.VolumeSource{
-					ConfigMap: &core.ConfigMapVolumeSource{
-						LocalObjectReference: core.LocalObjectReference{
-							Name: configMapName,
-						},
-						Items: []core.KeyToPath{{
-							Key:  operatorConfigMapAgentConfKey(appName),
-							Path: TemplateFileNameAgentConf,
-						}, {
-							Key:  caas.OperatorInfoFile,
-							Path: caas.OperatorInfoFile,
-						}},
-					},
-				},
-			}},
-		},
-	}, nil
-}
-
-func operatorConfigMapAgentConfKey(appName string) string {
-	return appName + "-agent.conf"
-}
-
-// operatorConfigMap returns a *core.ConfigMap for the operator pod
-// of the specified application, with the specified configuration.
-func operatorConfigMap(appName, name string, labels map[string]string, config *caas.OperatorConfig) *core.ConfigMap {
-	return &core.ConfigMap{
-		ObjectMeta: v1.ObjectMeta{
-			Name:   name,
-			Labels: labels,
-		},
-		Data: map[string]string{
-			operatorConfigMapAgentConfKey(appName): string(config.AgentConf),
-			caas.OperatorInfoFile:                  string(config.OperatorInfo),
-		},
-	}
 }
 
 // workloadSpec represents the k8s resources need to be created for the workload.
