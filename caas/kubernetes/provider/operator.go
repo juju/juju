@@ -74,13 +74,15 @@ func (k *kubernetesClient) ensureOperatorRBACResources(operatorName string, labe
 				APIGroups: []string{""},
 				Resources: []string{"pods"},
 				Verbs: []string{
-					// "create",
-					// "delete",
-					// "patch",
-					// "update",
-
 					"get",
 					"list",
+				},
+			},
+			{
+				APIGroups: []string{""},
+				Resources: []string{"pods/exec"},
+				Verbs: []string{
+					"create",
 				},
 			},
 		},
