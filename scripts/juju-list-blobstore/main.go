@@ -385,14 +385,14 @@ func checkMissing(st *state.State, session *mgo.Session, foundHashes map[string]
 		// }
 		resourceRefs[manageDoc.ResourceId] = append(resourceRefs[manageDoc.ResourceId], manageDoc)
 	}
-	fmt.Fprint(os.Stderr, "Unknown Resources\n")
+	fmt.Fprint(os.Stdout, "Unknown Resources\n")
 	for _, key := range missingIds {
 		res := missingResources[key]
 		size := fmt.Sprintf("%d", res.Length)
 		if *human {
 			size = humanize.Bytes(uint64(res.Length))
 		}
-		fmt.Fprintf(os.Stderr, "%v: %s\n", key, size)
+		fmt.Fprintf(os.Stdout, "%v: %s\n", key, size)
 		for _, doc := range resourceRefs[key] {
 			fmt.Fprintf(os.Stdout, "  %v\n", doc.Path)
 		}
