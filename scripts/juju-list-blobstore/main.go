@@ -454,14 +454,14 @@ func inspectModel(pool *state.StatePool, session *mgo.Session, modelUUID string,
 		for _, resourceId := range notReferenced {
 			length := sizes[resourceId]
 			charmURL := resourceToCharmURLs[resourceId][0]
-			fmt.Fprintf(os.Stdout, "  %v: %s %s...\n",
+			fmt.Fprintf(os.Stdout, "   %v: %s %s...\n",
 				charmURL, lengthToSize(length), resourceId[:8])
 			for _, curl := range resourceToCharmURLs[resourceId] {
 				if curl != charmURL {
-					fmt.Fprintf(os.Stdout, "    %v:\n", curl)
+					fmt.Fprintf(os.Stdout, "     %v:\n", curl)
 				}
 				for _, unit := range unitReferencedCharms[curl] {
-					fmt.Fprintf(os.Stdout, "    - %v\n", unit)
+					fmt.Fprintf(os.Stdout, "     - %v\n", unit)
 				}
 			}
 		}
@@ -492,7 +492,7 @@ func inspectModel(pool *state.StatePool, session *mgo.Session, modelUUID string,
 		for _, resourceId := range unknownResourceIdToManaged.KeysBySortedValues() {
 			length := sizes[resourceId]
 			unrefResourceBytes += length
-			fmt.Fprintf(os.Stdout, "    %v: %s\n", resourceId, lengthToSize(length))
+			fmt.Fprintf(os.Stdout, "    %v...: %s\n", resourceId[:8], lengthToSize(length))
 			for _, path := range unknownResourceIdToManaged[resourceId] {
 				fmt.Fprintf(os.Stdout, "      %v\n", path)
 			}
