@@ -64,6 +64,19 @@ func (mr *MockMachineMockRecorder) AllSpaces() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaces", reflect.TypeOf((*MockMachine)(nil).AllSpaces))
 }
 
+// Constraints mocks base method
+func (m *MockMachine) Constraints() (constraints.Value, error) {
+	ret := m.ctrl.Call(m, "Constraints")
+	ret0, _ := ret[0].(constraints.Value)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Constraints indicates an expected call of Constraints
+func (mr *MockMachineMockRecorder) Constraints() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Constraints", reflect.TypeOf((*MockMachine)(nil).Constraints))
+}
+
 // ContainerType mocks base method
 func (m *MockMachine) ContainerType() instance.ContainerType {
 	ret := m.ctrl.Call(m, "ContainerType")
@@ -74,19 +87,6 @@ func (m *MockMachine) ContainerType() instance.ContainerType {
 // ContainerType indicates an expected call of ContainerType
 func (mr *MockMachineMockRecorder) ContainerType() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerType", reflect.TypeOf((*MockMachine)(nil).ContainerType))
-}
-
-// DesiredSpaces mocks base method
-func (m *MockMachine) DesiredSpaces() (set.Strings, error) {
-	ret := m.ctrl.Call(m, "DesiredSpaces")
-	ret0, _ := ret[0].(set.Strings)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// DesiredSpaces indicates an expected call of DesiredSpaces
-func (mr *MockMachineMockRecorder) DesiredSpaces() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DesiredSpaces", reflect.TypeOf((*MockMachine)(nil).DesiredSpaces))
 }
 
 // Id mocks base method

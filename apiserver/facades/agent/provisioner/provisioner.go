@@ -422,28 +422,28 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 // needed for container cloud-init.
 func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result := params.ContainerConfig{}
-	config, err := p.m.ModelConfig()
+	cfg, err := p.m.ModelConfig()
 	if err != nil {
 		return result, err
 	}
 
 	result.UpdateBehavior = &params.UpdateBehavior{
-		config.EnableOSRefreshUpdate(),
-		config.EnableOSUpgrade(),
+		EnableOSRefreshUpdate: cfg.EnableOSRefreshUpdate(),
+		EnableOSUpgrade:       cfg.EnableOSUpgrade(),
 	}
-	result.ProviderType = config.Type()
-	result.AuthorizedKeys = config.AuthorizedKeys()
-	result.SSLHostnameVerification = config.SSLHostnameVerification()
-	result.LegacyProxy = config.LegacyProxySettings()
-	result.JujuProxy = config.JujuProxySettings()
-	result.AptProxy = config.AptProxySettings()
-	result.AptMirror = config.AptMirror()
-	result.SnapProxy = config.SnapProxySettings()
-	result.SnapStoreAssertions = config.SnapStoreAssertions()
-	result.SnapStoreProxyID = config.SnapStoreProxy()
-	result.SnapStoreProxyURL = config.SnapStoreProxyURL()
-	result.CloudInitUserData = config.CloudInitUserData()
-	result.ContainerInheritProperties = config.ContainerInheritProperties()
+	result.ProviderType = cfg.Type()
+	result.AuthorizedKeys = cfg.AuthorizedKeys()
+	result.SSLHostnameVerification = cfg.SSLHostnameVerification()
+	result.LegacyProxy = cfg.LegacyProxySettings()
+	result.JujuProxy = cfg.JujuProxySettings()
+	result.AptProxy = cfg.AptProxySettings()
+	result.AptMirror = cfg.AptMirror()
+	result.SnapProxy = cfg.SnapProxySettings()
+	result.SnapStoreAssertions = cfg.SnapStoreAssertions()
+	result.SnapStoreProxyID = cfg.SnapStoreProxy()
+	result.SnapStoreProxyURL = cfg.SnapStoreProxyURL()
+	result.CloudInitUserData = cfg.CloudInitUserData()
+	result.ContainerInheritProperties = cfg.ContainerInheritProperties()
 	return result, nil
 }
 
@@ -923,10 +923,10 @@ func (p *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
 //go:generate mockgen -package mocks -destination mocks/containerizer_mock.go github.com/juju/juju/network/containerizer LinkLayerDevice,Unit,Application,Charm
 type Machine interface {
 	containerizer.Container
+
 	InstanceId() (instance.Id, error)
 	IsManual() (bool, error)
 	MachineTag() names.MachineTag
-	Units() ([]containerizer.Unit, error)
 }
 
 // perContainerHandler is the interface we need to trigger processing on
@@ -1032,13 +1032,11 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 		return errors.Trace(err)
 	}
 
-	bridgePolicy := containerizer.NewBridgePolicy(env)
-
 	// TODO(jam): 2017-01-31 PopulateContainerLinkLayerDevices should really
 	// just be returning the ones we'd like to exist, and then we turn those
 	// into things we'd like to tell the Host machine to create, and then *it*
 	// reports back what actually exists when its done.
-	if err := bridgePolicy.PopulateContainerLinkLayerDevices(host, guest); err != nil {
+	if err := containerizer.NewBridgePolicy(env).PopulateContainerLinkLayerDevices(host, guest); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1197,11 +1195,7 @@ type hostChangesContext struct {
 func (ctx *hostChangesContext) ProcessOneContainer(
 	env environs.Environ, callContext context.ProviderCallContext, idx int, host, guest Machine,
 ) error {
-	bridgePolicy := containerizer.BridgePolicy{
-		NetBondReconfigureDelay:   env.Config().NetBondReconfigureDelay(),
-		ContainerNetworkingMethod: env.Config().ContainerNetworkingMethod(),
-	}
-	bridges, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(host, guest)
+	bridges, reconfigureDelay, err := containerizer.NewBridgePolicy(env).FindMissingBridgesForContainer(host, guest)
 	if err != nil {
 		return err
 	}
@@ -1271,7 +1265,7 @@ func (ctx *containerProfileContext) ProcessOneContainer(
 			return errors.Trace(err)
 		}
 		profile := ch.LXDProfile()
-		if profile == nil || (profile != nil && profile.Empty()) {
+		if profile == nil || profile.Empty() {
 			logger.Tracef("no profile to return for %q", unit.Name())
 			continue
 		}
