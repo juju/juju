@@ -12,6 +12,7 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
@@ -53,20 +54,66 @@ func main() {
 	}
 	checkErr("logging config", loggo.ConfigureLoggers(*loggingConfig))
 
-	statePool, session, err := getState()
-	checkErr("getting state connection", err)
-	defer statePool.Close()
-	defer session.Close()
-	system := statePool.SystemState()
-	foundHashes := make(map[string]struct{})
-	inspectAgentBinaries(system, session, foundHashes)
-	modelUUIDs, err := system.AllModelUUIDs()
+	checker := NewBlobStoreChecker()
+	defer checker.Close()
+	checker.readAgentBinaries()
+	modelUUIDs, err := checker.system.AllModelUUIDs()
 	checkErr("listing model UUIDs", err)
 	logger.Debugf("Found models: %s", modelUUIDs)
 	for _, modelUUID := range modelUUIDs {
-		inspectModel(statePool, session, modelUUID, foundHashes)
+		mchecker := inspectModel(checker.pool, checker.session, modelUUID, checker.foundHashes, checker.foundBlobPaths)
+		checker.modelCheckers = append(checker.modelCheckers, mchecker)
 	}
-	checkUnreferencedResources(session, foundHashes)
+	checker.reportAgentBinaries()
+	checker.checkUnreferencedResources()
+	checker.checkUnreferencedFiles()
+}
+
+// BlobStoreChecker tracks references to the blobstore from multiple locations
+type BlobStoreChecker struct {
+	pool    *state.StatePool
+	session *mgo.Session
+	system  *state.State
+
+	foundHashes    set.Strings
+	foundBlobPaths set.Strings
+
+	managedResources *mgo.Collection
+	resources        *mgo.Collection
+
+	// agentKeys is a sorted way to lookup information in agentReferencedBinaries
+	// or agentBinarySizes
+	agentKeys binariesInfo
+	// agentReferencedBinaries tracks the resource ids and the agent
+	// version-series-arch that map to them
+	agentReferencedBinaries map[string][]version.Binary
+	agentBinarySizes        map[string]uint64
+
+	modelCheckers []*ModelChecker
+}
+
+func NewBlobStoreChecker() *BlobStoreChecker {
+	statePool, session, err := getState()
+	checkErr("getting state connection", err)
+	jujuDB := session.DB("juju")
+	managedResources := jujuDB.C(managedResourceC)
+	resources := jujuDB.C(resourceCatalogC)
+	return &BlobStoreChecker{
+		pool:    statePool,
+		session: session,
+		system:  statePool.SystemState(),
+
+		managedResources: managedResources,
+		resources:        resources,
+
+		foundHashes:    set.NewStrings(),
+		foundBlobPaths: set.NewStrings(),
+	}
+}
+
+func (b *BlobStoreChecker) Close() {
+	b.session.Close()
+	b.pool.Close()
 }
 
 func checkErr(label string, err error) {
@@ -200,24 +247,19 @@ func (bi binariesInfo) Less(i, j int) bool {
 	}
 }
 
-func inspectAgentBinaries(st *state.State, session *mgo.Session, foundHashes map[string]struct{}) {
-	toolsStorage, err := st.ToolsStorage()
+func (b *BlobStoreChecker) readAgentBinaries() {
+	toolsStorage, err := b.system.ToolsStorage()
 	checkErr("tools storage", err)
 	defer toolsStorage.Close()
-	var totalBytes uint64
 
-	fmt.Fprintf(os.Stdout, "Agent Binaries\n")
-	modelUUID := st.ModelUUID()
-	jujuDB := session.DB("juju")
-	managedResources := jujuDB.C(managedResourceC)
-	resources := jujuDB.C(resourceCatalogC)
+	modelUUID := b.system.ModelUUID()
 	// managedStore := blobstore.NewManagedStorage(jujuDB, blobstore.NewGridFS("blobstore", "blobstore", session))
 	toolsMetadata, err := toolsStorage.AllMetadata()
 	checkErr("tools metadata", err)
 	logger.Debugf("found %d tools", len(toolsMetadata))
 	// map from SHA384 to the list of agent versions that match it
 	seen := make(map[string][]version.Binary, 0)
-	sizes := make(map[string]int64)
+	sizes := make(map[string]uint64)
 	for _, metadata := range toolsMetadata {
 		// internally we store a metadata.Path for each object, we really need that here.. :(
 		binary, err := version.ParseBinary(metadata.Version)
@@ -229,17 +271,14 @@ func inspectAgentBinaries(st *state.State, session *mgo.Session, foundHashes map
 		// These queries aren't exposed via the ToolsStorage interface nor via the ManagedStorage interface
 		toolPath := path.Join("tools", fmt.Sprintf("%s-%s", metadata.Version, metadata.SHA256))
 		bucketPath := path.Join("buckets", modelUUID, toolPath)
-		res := lookupResource(managedResources, resources, bucketPath, metadata.Version)
+		res := lookupResource(b.managedResources, b.resources, bucketPath, metadata.Version)
 		if res.Id == "" {
 			continue
 		}
-		soFar, found := seen[res.SHA384Hash]
-		seen[res.SHA384Hash] = append(soFar, binary)
-		sizes[res.SHA384Hash] = res.Length
-		foundHashes[res.SHA384Hash] = struct{}{}
-		if !found {
-			totalBytes += uint64(res.Length)
-		}
+		seen[res.SHA384Hash] = append(seen[res.SHA384Hash], binary)
+		sizes[res.SHA384Hash] = uint64(res.Length)
+		b.foundHashes.Add(res.SHA384Hash)
+		b.foundBlobPaths.Add(res.Path)
 	}
 	firstKeys := make(binariesInfo, 0, len(seen))
 	for key := range seen {
@@ -256,26 +295,106 @@ func inspectAgentBinaries(st *state.State, session *mgo.Session, foundHashes map
 		})
 	}
 	sort.Sort(firstKeys)
-	for _, info := range firstKeys {
-		length := sizes[info.Hash]
-		size := fmt.Sprint(length)
-		if *human {
-			size = humanize.Bytes(uint64(length))
+	b.agentKeys = firstKeys
+	b.agentBinarySizes = sizes
+	b.agentReferencedBinaries = seen
+}
+
+type agentReferences struct {
+	version string
+	models  map[string]modelAgents
+}
+type modelAgents struct {
+	modelName string
+	agents    []string
+}
+type hashToModelAgents map[string][]agentReferences
+
+func (b *BlobStoreChecker) findReferencedAgentVersions() hashToModelAgents {
+	versionToModelAgents := make(map[string]agentReferences, 0)
+	for _, mchecker := range b.modelCheckers {
+		for agentVersion, agents := range mchecker.agentVersions {
+			modelName := mchecker.model.Name()
+			info, found := versionToModelAgents[agentVersion]
+			if !found {
+				info.version = agentVersion
+				info.models = make(map[string]modelAgents, 0)
+			}
+			info.models[modelName] = modelAgents{
+				modelName: modelName,
+				agents:    agents[:],
+			}
+			versionToModelAgents[agentVersion] = info
 		}
-		fmt.Fprintf(os.Stdout, "%v: %s %d %s...\n",
-			info.Version.Number, size, len(seen[info.Hash]), info.Hash[:8])
-		if *verbose {
-			binaries := seen[info.Hash]
-			for _, binary := range binaries {
-				fmt.Fprintf(os.Stdout, "  %s\n", binary)
+	}
+	hashToModelAgents := make(hashToModelAgents)
+	for hash, binaries := range b.agentReferencedBinaries {
+		for _, binary := range binaries {
+			s := binary.String()
+			info, found := versionToModelAgents[s]
+			if found {
+				hashToModelAgents[hash] = append(hashToModelAgents[hash], info)
 			}
 		}
 	}
-	size := fmt.Sprintf("%d", totalBytes)
-	if *human {
-		size = humanize.Bytes(totalBytes)
+	return hashToModelAgents
+}
+
+func (b *BlobStoreChecker) reportAgentBinaries() {
+	referencedAgentHashes := b.findReferencedAgentVersions()
+	fmt.Fprintf(os.Stdout, "\nAgent Binaries\n")
+	var totalAgentBytes uint64
+	var referencedAgentBytes uint64
+	var unreferencedAgentBytes uint64
+	unreferencedHashes := make(binariesInfo, 0)
+	for _, info := range b.agentKeys {
+		agentReferences, referenced := referencedAgentHashes[info.Hash]
+		length, found := b.agentBinarySizes[info.Hash]
+		if !found {
+			panic(fmt.Sprintf("couldn't find agentBinarySizes for: %#v", info))
+		}
+		totalAgentBytes += length
+		if !referenced {
+			unreferencedAgentBytes += length
+			unreferencedHashes = append(unreferencedHashes, info)
+			continue
+		}
+		referencedAgentBytes += length
+		fmt.Fprintf(os.Stdout, "  %v: %s %s...\n",
+			info.Version.Number, lengthToSize(length), info.Hash[:8])
+		if *verbose {
+			for _, agentRef := range agentReferences {
+				fmt.Fprintf(os.Stdout, "    %v:\n", agentRef.version)
+				for _, model := range agentRef.models {
+					fmt.Fprintf(os.Stdout, "      %v:\n", model.modelName)
+					for _, agent := range model.agents {
+						fmt.Fprintf(os.Stdout, "        %v\n", agent)
+					}
+				}
+			}
+		}
 	}
-	fmt.Fprintf(os.Stdout, "total: %s\n", size)
+	fmt.Fprintf(os.Stdout, "  referenced agent bytes: %s\n", lengthToSize(referencedAgentBytes))
+
+	if len(unreferencedHashes) > 0 {
+		fmt.Fprintf(os.Stdout, "\nUnreferenced Agent Binaries\n")
+		for _, info := range unreferencedHashes {
+			length := b.agentBinarySizes[info.Hash]
+			binaries := b.agentReferencedBinaries[info.Hash]
+			// TODO: Use the Model information to determine what agent versions are referenced.
+			fmt.Fprintf(os.Stdout, "  %v: %s %d %s...\n",
+				info.Version, lengthToSize(length), len(binaries), info.Hash[:8])
+			if *verbose {
+				for _, binary := range binaries {
+					fmt.Fprintf(os.Stdout, "    %v\n", binary.String())
+				}
+			}
+		}
+		fmt.Fprintf(os.Stdout, "  unreferenced agent bytes: %s\n", lengthToSize(unreferencedAgentBytes))
+	} else {
+		fmt.Fprintf(os.Stdout, "\nNo Unreferenced Agent Binaries\n")
+	}
+	fmt.Fprintf(os.Stdout, "total agent bytes: %s\n", lengthToSize(totalAgentBytes))
 }
 
 func lookupResource(managedResources, resources *mgo.Collection, bucketPath, description string) resourceDoc {
@@ -356,10 +475,13 @@ func lengthToSize(length uint64) string {
 }
 
 type ModelChecker struct {
-	foundHashes map[string]struct{}
-	session     *mgo.Session
-	model       *state.Model
-	system      *state.State
+	// foundHashes is the set of resourceIds that we have seen
+	foundHashes set.Strings
+	// foundBlobPaths is the set of blobstore.Path uuids that we have seen
+	foundBlobPaths set.Strings
+	session        *mgo.Session
+	model          *state.Model
+	system         *state.State
 
 	managedResources *mgo.Collection
 	resources        *mgo.Collection
@@ -369,21 +491,52 @@ type ModelChecker struct {
 	// What Charm URLs are referenced by Units that aren't referenced by Apps
 	unitReferencedCharms mapStringStringSlice
 
+	// agentVersions is the version.Binary.String() mapping to the agents using it
+	agentVersions mapStringStringSlice
+
 	// For each resource ID, what CharmURLs point to it
 	resourceIdToCharmURLs mapStringStringSlice
 	// For each resource ID, what size does it have
 	resourceSizes map[string]uint64
+
+	// totalBytes that seem related to this model (whether directly referenced or indirectly)
+	totalBytes uint64
+	// referencedBytes are bytes that are 'in use'
+	referencedBytes uint64
+	// unreferencedBytes seem to belong to the Model, but aren't referenced by live objects
+	// (eg charm bytes that aren't used by any applications)
+	unreferencedBytes uint64
+
+	// referencedCharmBytes are bytes that are 'in use' by applications referencing charms
+	referencedCharmBytes uint64
+	// unreferencedCharmBytes are charm archives that are recorded in the model, but
+	// not referenced by other applications
+	unreferencedCharmBytes uint64
+
+	// referencedResourceBytes are bytes that are 'in use' by applications using that
+	// specific version of the resource.
+	referencedResourceBytes uint64
+	// unreferencedResourceBytes are charm resources that are recorded in the model, but
+	// not referenced by other applications
+	unreferencedResourceBytes uint64
+
+	// unreferencedMiscBytes are bytes that are in the model's buckets, but don't
+	// appear to be referenced from anywhere
+	unreferencedMiscBytes uint64
 }
 
-func NewModelChecker(model *state.Model, session *mgo.Session, foundHashes map[string]struct{}) *ModelChecker {
+func NewModelChecker(model *state.Model, session *mgo.Session, foundHashes, foundBlobPaths set.Strings) *ModelChecker {
 	jujuDB := session.DB("juju")
 	checker := &ModelChecker{
-		foundHashes: foundHashes,
-		session:     session,
-		model:       model,
+		foundHashes:    foundHashes,
+		foundBlobPaths: foundBlobPaths,
+		session:        session,
+		model:          model,
 
 		managedResources: jujuDB.C(managedResourceC),
 		resources:        jujuDB.C(resourceCatalogC),
+
+		agentVersions: make(mapStringStringSlice),
 
 		appReferencedCharms:   make(mapStringStringSlice),
 		unitReferencedCharms:  make(mapStringStringSlice),
@@ -395,6 +548,11 @@ func NewModelChecker(model *state.Model, session *mgo.Session, foundHashes map[s
 
 // readApplicationsAndUnits figures out what CharmURLs are referenced by apps and units
 func (checker *ModelChecker) readApplicationsAndUnits() {
+	version, err := checker.model.AgentVersion()
+	checkErr("model AgentVersion", err)
+	// Models track the desired version.Number, but Units track version.Binary
+	// because they run a specific Series+Arch
+	checker.agentVersions.Add(version.String(), checker.model.Tag().String())
 	apps, err := checker.model.State().AllApplications()
 	checkErr("AllApplications", err)
 	for _, app := range apps {
@@ -412,10 +570,14 @@ func (checker *ModelChecker) readApplicationsAndUnits() {
 			if unitString != appCharmURLStr {
 				checker.unitReferencedCharms.Add(unitString, unit.Name())
 			}
+			tools, err := unit.AgentTools()
+			checkErr("unit AgentTools", err)
+			checker.agentVersions.Add(tools.Version.String(), unit.Name())
 		}
 	}
 	checker.appReferencedCharms.SortValues()
 	checker.unitReferencedCharms.SortValues()
+	checker.agentVersions.SortValues()
 }
 
 // readModelCharms loads model.AllCharms to determine what charms the model
@@ -428,36 +590,37 @@ func (checker *ModelChecker) readModelCharms() {
 	for _, charm := range charms {
 		charmURL := charm.URL().String()
 		bucketPath := path.Join("buckets", modelUUID, charm.StoragePath())
-		res := lookupResource(checker.managedResources, checker.resources, bucketPath, charm.String())
+		res := checker.lookupResource(bucketPath, charm.String())
 		if res.Id == "" {
 			continue
 		}
-		checker.foundHashes[res.SHA384Hash] = struct{}{}
+		checker.foundHashes.Add(res.SHA384Hash)
+		checker.foundBlobPaths.Add(res.Path)
 		checker.resourceIdToCharmURLs.Add(res.Id, charmURL)
 		checker.resourceSizes[res.SHA384Hash] = uint64(res.Length)
 	}
 	checker.resourceIdToCharmURLs.SortValues()
 }
 
-func inspectModel(pool *state.StatePool, session *mgo.Session, modelUUID string, foundHashes map[string]struct{}) {
-	model, helper, err := pool.GetModel(modelUUID)
-	defer helper.Release()
-	checkErr("lookup model", err)
-	checker := NewModelChecker(model, session, foundHashes)
-	checker.readApplicationsAndUnits()
-	checker.readModelCharms()
+func (checker *ModelChecker) lookupResource(bucketPath, description string) resourceDoc {
+	return lookupResource(checker.managedResources, checker.resources, bucketPath, description)
+}
+
+func (checker *ModelChecker) reportStart() {
+	fmt.Fprintf(os.Stdout, "\nModel: %q\n", checker.model.Name())
+}
+
+// TODO: this should probably build up a reporting Struct that we then
+// write out as YAML, rather than reporting straight to stdout.
+func (checker *ModelChecker) reportCharms() {
 	// Note, there is a small is a small issue where things can't be easily tracked.
-	// namely, if 2 models have the same charm, then which one do we assign the
+	// namely, if 2 models have the same charm/resource, then which one do we assign the
 	// storage to? You have to remove it from both to save any space, but you
 	// don't want to double count the storage either.
-	fmt.Fprintf(os.Stdout, "\nModel: %q\n", model.Name())
-	var totalBytes uint64
-	var referencedBytes uint64
-	var unreferencedBytes uint64
 	notReferenced := make([]string, 0)
 	for _, resourceId := range checker.resourceIdToCharmURLs.KeysBySortedValues() {
 		length := checker.resourceSizes[resourceId]
-		totalBytes += length
+		checker.totalBytes += length
 		var referenced bool
 		for _, charmURL := range checker.resourceIdToCharmURLs[resourceId] {
 			if _, found := checker.appReferencedCharms[charmURL]; found {
@@ -466,7 +629,8 @@ func inspectModel(pool *state.StatePool, session *mgo.Session, modelUUID string,
 			}
 		}
 		if referenced {
-			referencedBytes += length
+			checker.referencedBytes += length
+			checker.referencedCharmBytes += length
 			charmURL := checker.resourceIdToCharmURLs[resourceId][0]
 			fmt.Fprintf(os.Stdout, "  %v: %s %s...\n",
 				charmURL, lengthToSize(length), resourceId[:8])
@@ -482,7 +646,8 @@ func inspectModel(pool *state.StatePool, session *mgo.Session, modelUUID string,
 			}
 		} else {
 			notReferenced = append(notReferenced, resourceId)
-			unreferencedBytes += uint64(length)
+			checker.unreferencedBytes += length
+			checker.unreferencedCharmBytes += length
 		}
 	}
 	if len(notReferenced) > 0 {
@@ -502,107 +667,178 @@ func inspectModel(pool *state.StatePool, session *mgo.Session, modelUUID string,
 			}
 		}
 
-		fmt.Fprintf(os.Stdout, "  referenced charm bytes: %s\n", lengthToSize(referencedBytes))
-		fmt.Fprintf(os.Stdout, "  unreferenced charm bytes: %s\n", lengthToSize(unreferencedBytes))
+		fmt.Fprintf(os.Stdout, "  referenced charm bytes: %s\n", lengthToSize(checker.referencedCharmBytes))
+		fmt.Fprintf(os.Stdout, "  unreferenced charm bytes: %s\n", lengthToSize(checker.unreferencedCharmBytes))
 	}
-	fmt.Fprintf(os.Stdout, "  total charm bytes: %s\n", lengthToSize(totalBytes))
-	charmResources, err := model.State().Resources()
+	fmt.Fprintf(os.Stdout, "  total charm bytes: %s\n", lengthToSize(checker.referencedCharmBytes+checker.unreferencedCharmBytes))
+}
+
+func (checker *ModelChecker) reportResources() {
+	charmResources, err := checker.model.State().Resources()
 	checkErr("resources", err)
-	applications, err := model.State().AllApplications()
+	applications, err := checker.model.State().AllApplications()
 	checkErr("applications", err)
 	for _, app := range applications {
 		resources, err := charmResources.ListResources(app.Name())
 		if err != nil {
-			logger.Warningf("%v: error listing resources for app %q", model.Name(), app.Name())
+			logger.Warningf("%v: error listing resources for app %q", checker.model.Name(), app.Name())
 		}
 		for _, res := range resources.Resources {
 			if res.Type == resource.TypeFile {
 			}
 		}
 	}
-	unknownResourceIdToManaged, sizes := lookForExtraBuckets(checker.managedResources, checker.resources, modelUUID, foundHashes)
-	if unknownResourceIdToManaged != nil {
-		var unrefResourceBytes uint64
-		fmt.Fprintf(os.Stdout, "  Unreferenced Managed Resources\n")
-		unknownResourceIdToManaged.SortValues()
-		for _, resourceId := range unknownResourceIdToManaged.KeysBySortedValues() {
-			length := sizes[resourceId]
-			unrefResourceBytes += length
-			fmt.Fprintf(os.Stdout, "    %v...: %s\n", resourceId[:8], lengthToSize(length))
-			for _, path := range unknownResourceIdToManaged[resourceId] {
-				fmt.Fprintf(os.Stdout, "      %v\n", path)
-			}
-		}
-		fmt.Fprintf(os.Stdout, "  total unreferenced bytes: %s\n", lengthToSize(unrefResourceBytes))
-		totalBytes += unrefResourceBytes
-	}
-	fmt.Fprintf(os.Stdout, "  total model bytes: %s\n", lengthToSize(totalBytes))
 }
 
-func lookForExtraBuckets(managedResources, resources *mgo.Collection, modelUUID string, foundHashes map[string]struct{}) (mapStringStringSlice, map[string]uint64) {
-	bucketPrefix := fmt.Sprintf("^buckets/%s/.*", modelUUID)
+func (checker *ModelChecker) reportUnreferencedBuckets() {
+	bucketPrefix := fmt.Sprintf("^buckets/%s/.*", checker.model.UUID())
 	// Note: it looks like mongo will properly deal with a ^buckets/* on _id search by doing an index lookup
 	// on the prefix. Which is good, though it means we read all the resources for this model again.
-	managedBuckets := managedResources.Find(bson.M{"_id": bson.M{"$regex": bucketPrefix}}).Iter()
+	managedBuckets := checker.managedResources.Find(bson.M{"_id": bson.M{"$regex": bucketPrefix}}).Iter()
 	var managedDoc managedResourceDoc
 	resourceIds := make([]string, 0)
 	resourceIdToManaged := make(mapStringStringSlice)
 	for managedBuckets.Next(&managedDoc) {
-		_, found := foundHashes[managedDoc.ResourceId]
-		if found {
+		if checker.foundHashes.Contains(managedDoc.ResourceId) {
 			continue
 		}
-		found = resourceIdToManaged.Add(managedDoc.ResourceId, managedDoc.Id)
+		found := resourceIdToManaged.Add(managedDoc.ResourceId, managedDoc.Id)
 		if !found {
 			resourceIds = append(resourceIds, managedDoc.ResourceId)
 		}
 	}
 	checkErr("bucket search", managedBuckets.Close())
 	if len(resourceIds) == 0 {
-		return nil, nil
+		return
 	}
 	var res resourceDoc
 	sizes := make(map[string]uint64, len(resourceIds))
-	resourceDocs := resources.Find(bson.M{"_id": bson.M{"$in": resourceIds}}).Iter()
+	resourceDocs := checker.resources.Find(bson.M{"_id": bson.M{"$in": resourceIds}}).Iter()
 	for resourceDocs.Next(&res) {
 		sizes[res.SHA384Hash] = uint64(res.Length)
-		foundHashes[res.SHA384Hash] = struct{}{}
+		checker.foundHashes.Add(res.SHA384Hash)
+		checker.foundBlobPaths.Add(res.Path)
 	}
 	checkErr("bucket search", resourceDocs.Close())
-	return resourceIdToManaged, sizes
+	if len(resourceIdToManaged) > 0 {
+		fmt.Fprintf(os.Stdout, "  Unreferenced Managed Resources\n")
+		resourceIdToManaged.SortValues()
+		for _, resourceId := range resourceIdToManaged.KeysBySortedValues() {
+			length := sizes[resourceId]
+			checker.unreferencedMiscBytes += length
+			fmt.Fprintf(os.Stdout, "    %v...: %s\n", resourceId[:8], lengthToSize(length))
+			for _, path := range resourceIdToManaged[resourceId] {
+				fmt.Fprintf(os.Stdout, "      %v\n", path)
+			}
+		}
+		fmt.Fprintf(os.Stdout, "  total unreferenced misc bytes: %s\n", lengthToSize(checker.unreferencedMiscBytes))
+		checker.totalBytes += checker.unreferencedMiscBytes
+		checker.unreferencedBytes += checker.unreferencedMiscBytes
+	}
 }
 
+func (checker *ModelChecker) reportEnd() {
+	fmt.Fprintf(os.Stdout, "\n  total unreferenced model bytes: %s\n", lengthToSize(checker.unreferencedBytes))
+	fmt.Fprintf(os.Stdout, "  total model bytes: %s\n", lengthToSize(checker.totalBytes))
+}
+
+func inspectModel(pool *state.StatePool, session *mgo.Session, modelUUID string, foundHashes, foundBlobPaths set.Strings) *ModelChecker {
+	model, helper, err := pool.GetModel(modelUUID)
+	defer helper.Release()
+	checkErr("lookup model", err)
+	checker := NewModelChecker(model, session, foundHashes, foundBlobPaths)
+	checker.readApplicationsAndUnits()
+	checker.readModelCharms()
+	checker.reportStart()
+	checker.reportCharms()
+	checker.reportResources()
+	checker.reportUnreferencedBuckets()
+	checker.reportEnd()
+	return checker
+}
+
+// TODO: read all buckets looking for ones that reference modelUUIDs that we don't know about.
 // func lookForBucketsMissingModels(session *mgo.Session, modelUUIDs []string, foundHashes map[string]struct{}) {
 // 	jujuDB := session.DB("juju")
 // 	managedResources := jujuDB.C(managedResourceC)
 // 	resources := jujuDB.C(resourceCatalogC)
 // }
 //
-func checkUnreferencedResources(session *mgo.Session, foundHashes map[string]struct{}) {
-	jujuDB := session.DB("juju")
-	managedResources := jujuDB.C(managedResourceC)
-	resources := jujuDB.C(resourceCatalogC)
-	allResources := resources.Find(nil).Iter()
+
+type blobstoreChunk struct {
+	ID      bson.ObjectId `bson:"_id"`
+	FilesID bson.ObjectId `bson:"files_id"`
+	N       int           `bson:"n"`
+	// we intentionally omit Data
+}
+
+var blobstoreChunkFieldSelector = bson.M{"_id": 1, "files_id": 1, "n": 1}
+
+type blobstoreFile struct {
+	ID       bson.ObjectId `bson:"_id"`
+	Filename string        `bson:"filename"`
+	Length   int64         `bson:"length"`
+}
+
+var blobstoreFileFieldSelector = bson.M{"_id": 1, "filename": 1, "length": 1}
+
+// TODO: read all blobstore files looking for paths that we haven't seen yet
+func (b *BlobStoreChecker) checkUnreferencedFiles() {
+	blobstoreDB := b.session.DB("blobstore")
+	blobFiles := blobstoreDB.C("blobstore.files")
+	fileIter := blobFiles.Find(nil).Select(blobstoreFileFieldSelector).Iter()
+	var doc blobstoreFile
+	wroteHeader := false
+	var unreferencedBytes uint64
+	for fileIter.Next(&doc) {
+		if b.foundBlobPaths.Contains(doc.Filename) {
+			continue
+		}
+		b.foundBlobPaths.Add(doc.Filename)
+		if !wroteHeader {
+			wroteHeader = true
+			fmt.Fprint(os.Stdout, "\nUnknown Blobstore Files\n")
+		}
+		length := uint64(doc.Length)
+		fmt.Fprintf(os.Stdout, "  %v: %s\n", doc.Filename, lengthToSize(length))
+		unreferencedBytes += length
+	}
+	if wroteHeader {
+		fmt.Fprint(os.Stdout, "\n  total unreferenced blobstore file bytes: %s\n", lengthToSize(unreferencedBytes))
+	} else {
+		fmt.Fprint(os.Stdout, "\nNo Unknown Blobstore Files\n")
+	}
+
+	checkErr("iterating blob files", fileIter.Close())
+}
+
+// TODO: read all blobstore chunks looking for chunks that don't reference a file
+
+func (b *BlobStoreChecker) checkUnreferencedResources() {
+	allResources := b.resources.Find(nil).Iter()
 	var res resourceDoc
 	missingResources := make(map[string]resourceDoc)
 	missingIds := make([]string, 0)
 	var totalBytes uint64
 	for allResources.Next(&res) {
-		if _, found := foundHashes[res.Id]; found {
+		if b.foundHashes.Contains(res.Id) {
 			continue
 		}
+		b.foundHashes.Add(res.Id)
+		b.foundBlobPaths.Add(res.Path)
 		missingResources[res.SHA384Hash] = res
 		missingIds = append(missingIds, res.Id)
 		totalBytes += uint64(res.Length)
 	}
 	checkErr("missingResources", allResources.Close())
 	if len(missingResources) == 0 {
+		fmt.Fprint(os.Stdout, "\nNo Unknown Resources\n")
 		return
 	}
 	resourceRefs := make(map[string][]managedResourceDoc, len(missingResources))
 	// Note, there isn't an index on resourceid, otherwise we'd just do a reverse lookup
 	var manageDoc managedResourceDoc
-	managedRefs := managedResources.Find(bson.M{"resourceid": bson.M{"$in": missingIds}}).Iter()
+	managedRefs := b.managedResources.Find(bson.M{"resourceid": bson.M{"$in": missingIds}}).Iter()
 	for managedRefs.Next(&manageDoc) {
 		// if _, missing := missingResources[manageDoc.ResourceId]; !missing {
 		// 	continue
