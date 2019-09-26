@@ -247,11 +247,11 @@ func NewProvisionerAPIV9(st *state.State, resources facade.Resources, authorizer
 	return &ProvisionerAPIV9{provisionerAPI}, nil
 }
 
-func (p *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {
+func (api *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {
 	if !canAccess(tag) {
 		return nil, common.ErrPerm
 	}
-	entity, err := p.st.FindEntity(tag)
+	entity, err := api.st.FindEntity(tag)
 	if err != nil {
 		return nil, err
 	}
@@ -260,9 +260,9 @@ func (p *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.Machine
 	return entity.(*state.Machine), nil
 }
 
-func (p *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) (params.StringsWatchResult, error) {
+func (api *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) (params.StringsWatchResult, error) {
 	nothing := params.StringsWatchResult{}
-	canAccess, err := p.getAuthFunc()
+	canAccess, err := api.getAuthFunc()
 	if err != nil {
 		return nothing, common.ErrPerm
 	}
@@ -273,7 +273,7 @@ func (p *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) (p
 	if !canAccess(tag) {
 		return nothing, common.ErrPerm
 	}
-	machine, err := p.st.Machine(tag.Id())
+	machine, err := api.st.Machine(tag.Id())
 	if err != nil {
 		return nothing, err
 	}
@@ -286,7 +286,7 @@ func (p *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) (p
 	// Consume the initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
 		return params.StringsWatchResult{
-			StringsWatcherId: p.resources.Register(watch),
+			StringsWatcherId: api.resources.Register(watch),
 			Changes:          changes,
 		}, nil
 	}
@@ -295,12 +295,12 @@ func (p *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) (p
 
 // WatchContainers starts a StringsWatcher to watch containers deployed to
 // any machine passed in args.
-func (p *ProvisionerAPI) WatchContainers(args params.WatchContainers) (params.StringsWatchResults, error) {
+func (api *ProvisionerAPI) WatchContainers(args params.WatchContainers) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Params)),
 	}
 	for i, arg := range args.Params {
-		watcherResult, err := p.watchOneMachineContainers(arg)
+		watcherResult, err := api.watchOneMachineContainers(arg)
 		result.Results[i] = watcherResult
 		result.Results[i].Error = common.ServerError(err)
 	}
@@ -309,8 +309,8 @@ func (p *ProvisionerAPI) WatchContainers(args params.WatchContainers) (params.St
 
 // WatchAllContainers starts a StringsWatcher to watch all containers deployed to
 // any machine passed in args.
-func (p *ProvisionerAPI) WatchAllContainers(args params.WatchContainers) (params.StringsWatchResults, error) {
-	return p.WatchContainers(args)
+func (api *ProvisionerAPI) WatchAllContainers(args params.WatchContainers) (params.StringsWatchResults, error) {
+	return api.WatchContainers(args)
 }
 
 // WatchContainersCharmProfiles starts a StringsWatcher to  notifies when
@@ -327,12 +327,12 @@ func (p *ProvisionerAPIV8) WatchContainersCharmProfiles(args params.WatchContain
 }
 
 // SetSupportedContainers updates the list of containers supported by the machines passed in args.
-func (p *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersParams) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Params)),
 	}
 
-	canAccess, err := p.getAuthFunc()
+	canAccess, err := api.getAuthFunc()
 	if err != nil {
 		return result, err
 	}
@@ -343,7 +343,7 @@ func (p *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersPar
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		machine, err := p.getMachine(canAccess, tag)
+		machine, err := api.getMachine(canAccess, tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -365,12 +365,12 @@ func (p *ProvisionerAPIV8) SupportedContainers(_, _ struct{}) (params.MachineCon
 }
 
 // SupportedContainers returns the list of containers supported by the machines passed in args.
-func (p *ProvisionerAPI) SupportedContainers(args params.Entities) (params.MachineContainerResults, error) {
+func (api *ProvisionerAPI) SupportedContainers(args params.Entities) (params.MachineContainerResults, error) {
 	result := params.MachineContainerResults{
 		Results: make([]params.MachineContainerResult, len(args.Entities)),
 	}
 
-	canAccess, err := p.getAuthFunc()
+	canAccess, err := api.getAuthFunc()
 	if err != nil {
 		return result, err
 	}
@@ -381,7 +381,7 @@ func (p *ProvisionerAPI) SupportedContainers(args params.Entities) (params.Machi
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		machine, err := p.getMachine(canAccess, tag)
+		machine, err := api.getMachine(canAccess, tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -395,17 +395,17 @@ func (p *ProvisionerAPI) SupportedContainers(args params.Entities) (params.Machi
 
 // ContainerManagerConfig returns information from the model config that is
 // needed for configuring the container manager.
-func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
+func (api *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
 	var result params.ContainerManagerConfig
 	cfg := make(map[string]string)
-	cfg[container.ConfigModelUUID] = p.st.ModelUUID()
+	cfg[container.ConfigModelUUID] = api.st.ModelUUID()
 
 	switch args.Type {
 	case instance.LXD:
 		// TODO(jam): DefaultMTU needs to be handled here
 	}
 
-	mConfig, err := p.m.ModelConfig()
+	mConfig, err := api.m.ModelConfig()
 	if err != nil {
 		return result, err
 	}
@@ -420,9 +420,9 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 
 // ContainerConfig returns information from the model config that is
 // needed for container cloud-init.
-func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
+func (api *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result := params.ContainerConfig{}
-	cfg, err := p.m.ModelConfig()
+	cfg, err := api.m.ModelConfig()
 	if err != nil {
 		return result, err
 	}
@@ -471,14 +471,14 @@ func (p *ProvisionerAPIV5) ContainerConfig() (params.ContainerConfigV5, error) {
 
 // MachinesWithTransientErrors returns status data for machines with provisioning
 // errors which are transient.
-func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, error) {
+func (api *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, error) {
 	var results params.StatusResults
-	canAccessFunc, err := p.getAuthFunc()
+	canAccessFunc, err := api.getAuthFunc()
 	if err != nil {
 		return results, err
 	}
 	// TODO (wallyworld) - add state.State API for more efficient machines query
-	machines, err := p.st.AllMachines()
+	machines, err := api.st.AllMachines()
 	if err != nil {
 		return results, err
 	}
@@ -514,11 +514,11 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 }
 
 // Series returns the deployed series for each given machine entity.
-func (p *ProvisionerAPI) Series(args params.Entities) (params.StringResults, error) {
+func (api *ProvisionerAPI) Series(args params.Entities) (params.StringResults, error) {
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
-	canAccess, err := p.getAuthFunc()
+	canAccess, err := api.getAuthFunc()
 	if err != nil {
 		return result, err
 	}
@@ -528,7 +528,7 @@ func (p *ProvisionerAPI) Series(args params.Entities) (params.StringResults, err
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		machine, err := p.getMachine(canAccess, tag)
+		machine, err := api.getMachine(canAccess, tag)
 		if err == nil {
 			result.Results[i].Result = machine.Series()
 		}
@@ -538,11 +538,11 @@ func (p *ProvisionerAPI) Series(args params.Entities) (params.StringResults, err
 }
 
 // AvailabilityZone returns a provider-specific availability zone for each given machine entity
-func (p *ProvisionerAPI) AvailabilityZone(args params.Entities) (params.StringResults, error) {
+func (api *ProvisionerAPI) AvailabilityZone(args params.Entities) (params.StringResults, error) {
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
-	canAccess, err := p.getAuthFunc()
+	canAccess, err := api.getAuthFunc()
 	if err != nil {
 		return result, err
 	}
@@ -552,7 +552,7 @@ func (p *ProvisionerAPI) AvailabilityZone(args params.Entities) (params.StringRe
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		machine, err := p.getMachine(canAccess, tag)
+		machine, err := api.getMachine(canAccess, tag)
 		if err == nil {
 			hc, err := machine.HardwareCharacteristics()
 			if err == nil {
@@ -570,12 +570,12 @@ func (p *ProvisionerAPI) AvailabilityZone(args params.Entities) (params.StringRe
 }
 
 // KeepInstance returns the keep-instance value for each given machine entity.
-func (p *ProvisionerAPI) KeepInstance(args params.Entities) (params.BoolResults, error) {
+func (api *ProvisionerAPI) KeepInstance(args params.Entities) (params.BoolResults, error) {
 	result := params.BoolResults{
 
 		Results: make([]params.BoolResult, len(args.Entities)),
 	}
-	canAccess, err := p.getAuthFunc()
+	canAccess, err := api.getAuthFunc()
 	if err != nil {
 		return result, err
 	}
@@ -585,7 +585,7 @@ func (p *ProvisionerAPI) KeepInstance(args params.Entities) (params.BoolResults,
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		machine, err := p.getMachine(canAccess, tag)
+		machine, err := api.getMachine(canAccess, tag)
 		if err == nil {
 			keep, err := machine.KeepInstance()
 			result.Results[i].Result = keep
@@ -600,11 +600,11 @@ func (p *ProvisionerAPI) KeepInstance(args params.Entities) (params.BoolResults,
 // a slice of instance.Ids that belong to the same distribution
 // group as that machine. This information may be used to
 // distribute instances for high availability.
-func (p *ProvisionerAPI) DistributionGroup(args params.Entities) (params.DistributionGroupResults, error) {
+func (api *ProvisionerAPI) DistributionGroup(args params.Entities) (params.DistributionGroupResults, error) {
 	result := params.DistributionGroupResults{
 		Results: make([]params.DistributionGroupResult, len(args.Entities)),
 	}
-	canAccess, err := p.getAuthFunc()
+	canAccess, err := api.getAuthFunc()
 	if err != nil {
 		return result, err
 	}
@@ -614,16 +614,16 @@ func (p *ProvisionerAPI) DistributionGroup(args params.Entities) (params.Distrib
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		machine, err := p.getMachine(canAccess, tag)
+		machine, err := api.getMachine(canAccess, tag)
 		if err == nil {
 			// If the machine is a controller, return
 			// controller instances. Otherwise, return
 			// instances with services in common with the machine
 			// being provisioned.
 			if machine.IsManager() {
-				result.Results[i].Result, err = controllerInstances(p.st)
+				result.Results[i].Result, err = controllerInstances(api.st)
 			} else {
-				result.Results[i].Result, err = commonServiceInstances(p.st, machine)
+				result.Results[i].Result, err = commonServiceInstances(api.st, machine)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
@@ -688,11 +688,11 @@ func (p *ProvisionerAPIV4) DistributionGroupByMachineId(_, _ struct{}) {}
 // a slice of machine.Ids that belong to the same distribution
 // group as that machine. This information may be used to
 // distribute instances for high availability.
-func (p *ProvisionerAPI) DistributionGroupByMachineId(args params.Entities) (params.StringsResults, error) {
+func (api *ProvisionerAPI) DistributionGroupByMachineId(args params.Entities) (params.StringsResults, error) {
 	result := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.Entities)),
 	}
-	canAccess, err := p.getAuthFunc()
+	canAccess, err := api.getAuthFunc()
 	if err != nil {
 		return params.StringsResults{}, err
 	}
@@ -702,16 +702,16 @@ func (p *ProvisionerAPI) DistributionGroupByMachineId(args params.Entities) (par
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		machine, err := p.getMachine(canAccess, tag)
+		machine, err := api.getMachine(canAccess, tag)
 		if err == nil {
 			// If the machine is a controller, return
 			// controller instances. Otherwise, return
 			// instances with services in common with the machine
 			// being provisioned.
 			if machine.IsManager() {
-				result.Results[i].Result, err = controllerMachineIds(p.st, machine)
+				result.Results[i].Result, err = controllerMachineIds(api.st, machine)
 			} else {
-				result.Results[i].Result, err = commonApplicationMachineId(p.st, machine)
+				result.Results[i].Result, err = commonApplicationMachineId(api.st, machine)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
@@ -734,7 +734,7 @@ func controllerMachineIds(st *state.State, m *state.Machine) ([]string, error) {
 // applications in common with the specified machine.
 func commonApplicationMachineId(st *state.State, m *state.Machine) ([]string, error) {
 	applications := m.Principals()
-	var union set.Strings
+	union := set.NewStrings()
 	for _, app := range applications {
 		machines, err := state.ApplicationMachines(st, app)
 		if err != nil {
@@ -747,11 +747,11 @@ func commonApplicationMachineId(st *state.State, m *state.Machine) ([]string, er
 }
 
 // Constraints returns the constraints for each given machine entity.
-func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsResults, error) {
+func (api *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsResults, error) {
 	result := params.ConstraintsResults{
 		Results: make([]params.ConstraintsResult, len(args.Entities)),
 	}
-	canAccess, err := p.getAuthFunc()
+	canAccess, err := api.getAuthFunc()
 	if err != nil {
 		return result, err
 	}
@@ -761,7 +761,7 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		machine, err := p.getMachine(canAccess, tag)
+		machine, err := api.getMachine(canAccess, tag)
 		if err == nil {
 			var cons constraints.Value
 			cons, err = machine.Constraints()
@@ -777,11 +777,11 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 // SetInstanceInfo sets the provider specific machine id, nonce,
 // metadata and network info for each given machine. Once set, the
 // instance id cannot be changed.
-func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Machines)),
 	}
-	canAccess, err := p.getAuthFunc()
+	canAccess, err := api.getAuthFunc()
 	if err != nil {
 		return result, err
 	}
@@ -790,7 +790,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 		if err != nil {
 			return common.ErrPerm
 		}
-		machine, err := p.getMachine(canAccess, tag)
+		machine, err := api.getMachine(canAccess, tag)
 		if err != nil {
 			return err
 		}
@@ -824,15 +824,15 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 
 // WatchMachineErrorRetry returns a NotifyWatcher that notifies when
 // the provisioner should retry provisioning machines with transient errors.
-func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, error) {
+func (api *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	if !p.authorizer.AuthController() {
+	if !api.authorizer.AuthController() {
 		return result, common.ErrPerm
 	}
 	watch := newWatchMachineErrorRetry()
 	// Consume any initial event and forward it to the result.
 	if _, ok := <-watch.Changes(); ok {
-		result.NotifyWatcherId = p.resources.Register(watch)
+		result.NotifyWatcherId = api.resources.Register(watch)
 	} else {
 		return result, watcher.EnsureErr(watch)
 	}
@@ -854,12 +854,12 @@ func (p *ProvisionerAPIV8) WatchModelMachinesCharmProfiles() (params.StringsWatc
 // ReleaseContainerAddresses finds addresses allocated to a container and marks
 // them as Dead, to be released and removed. It accepts container tags as
 // arguments.
-func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
 
-	canAccess, err := p.getAuthFunc()
+	canAccess, err := api.getAuthFunc()
 	if err != nil {
 		logger.Errorf("failed to get an authorisation function: %v", err)
 		return result, errors.Trace(err)
@@ -876,7 +876,7 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 		// The auth function (canAccess) checks that the machine is a
 		// top level machine (we filter those out next) or that the
 		// machine has the host as a parent.
-		guest, err := p.getMachine(canAccess, tag)
+		guest, err := api.getMachine(canAccess, tag)
 		if err != nil {
 			logger.Warningf("failed to get machine %q: %v", tag, err)
 			result.Results[i].Error = common.ServerError(err)
@@ -902,24 +902,24 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 
 // PrepareContainerInterfaceInfo allocates an address and returns information to
 // configure networking for a container. It accepts container tags as arguments.
-func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (
+func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (
 	params.MachineNetworkConfigResults,
 	error,
 ) {
-	return p.prepareOrGetContainerInterfaceInfo(args, false)
+	return api.prepareOrGetContainerInterfaceInfo(args, false)
 }
 
 // GetContainerInterfaceInfo returns information to configure networking for a
 // container. It accepts container tags as arguments.
-func (p *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
+func (api *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
 	params.MachineNetworkConfigResults,
 	error,
 ) {
-	return p.prepareOrGetContainerInterfaceInfo(args, true)
+	return api.prepareOrGetContainerInterfaceInfo(args, true)
 }
 
 // Machine is an indirection for use in container provisioning.
-//go:generate mockgen -package mocks -destination mocks/machine_mock.go github.com/juju/juju/apiserver/facades/agent/provisioner Machine
+//go:generate mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/facades/agent/provisioner Machine,BridgePolicy
 //go:generate mockgen -package mocks -destination mocks/containerizer_mock.go github.com/juju/juju/network/containerizer LinkLayerDevice,Unit,Application,Charm
 type Machine interface {
 	containerizer.Container
@@ -927,6 +927,19 @@ type Machine interface {
 	InstanceId() (instance.Id, error)
 	IsManual() (bool, error)
 	MachineTag() names.MachineTag
+}
+
+// BridgePolicy is an indirection for containerizer.BridgePolicy.
+type BridgePolicy interface {
+	// FindMissingBridgesForContainer looks at the spaces that the container should
+	// have access to, and returns any host devices need to be bridged for use as
+	// the container network.
+	FindMissingBridgesForContainer(containerizer.Machine, containerizer.Container) ([]network.DeviceToBridge, int, error)
+
+	// PopulateContainerLinkLayerDevices sets the link-layer devices of the input
+	// guest, setting each device to be a child of the corresponding bridge on the
+	// host machine.
+	PopulateContainerLinkLayerDevices(containerizer.Machine, containerizer.Container) error
 }
 
 // perContainerHandler is the interface we need to trigger processing on
@@ -941,7 +954,8 @@ type perContainerHandler interface {
 	// Any errors that are returned from ProcessOneContainer will be turned
 	// into ServerError and handed to SetError
 	ProcessOneContainer(
-		env environs.Environ, callContext context.ProviderCallContext, idx int, host, guest Machine,
+		env environs.Environ, callContext context.ProviderCallContext,
+		policy BridgePolicy, idx int, host, guest Machine,
 	) error
 
 	// SetError will be called whenever there is a problem with the a given
@@ -954,17 +968,22 @@ type perContainerHandler interface {
 	ConfigType() string
 }
 
-func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perContainerHandler) error {
-	env, hostMachine, canAccess, err := p.prepareContainerAccessEnvironment()
+func (api *ProvisionerAPI) processEachContainer(args params.Entities, handler perContainerHandler) error {
+	env, hostMachine, canAccess, err := api.prepareContainerAccessEnvironment()
 	if err != nil {
 		// Overall error
 		return errors.Trace(err)
 	}
 	_, err = hostMachine.InstanceId()
 	if errors.IsNotProvisioned(err) {
-		err = errors.NotProvisionedf("cannot prepare container %s config: host machine %q", handler.ConfigType(), hostMachine)
-		return err
+		return errors.NotProvisionedf("cannot prepare container %s config: host machine %q",
+			handler.ConfigType(), hostMachine)
 	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	policy, err := containerizer.NewBridgePolicy(env, api.st)
+	if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -977,7 +996,7 @@ func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perC
 		// The auth function (canAccess) checks that the machine is a
 		// top level machine (we filter those out next) or that the
 		// machine has the host as a parent.
-		guest, err := p.getMachine(canAccess, machineTag)
+		guest, err := api.getMachine(canAccess, machineTag)
 		if err != nil {
 			handler.SetError(i, err)
 			continue
@@ -988,9 +1007,9 @@ func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perC
 		}
 
 		if err := handler.ProcessOneContainer(
-			env, p.providerCallContext, i,
-			&containerizer.MachineShim{Machine: hostMachine},
-			&containerizer.MachineShim{Machine: guest},
+			env, api.providerCallContext, policy, i,
+			containerizer.NewMachine(hostMachine),
+			containerizer.NewMachine(guest),
 		); err != nil {
 			handler.SetError(i, err)
 			continue
@@ -1016,7 +1035,7 @@ func (ctx *prepareOrGetContext) ConfigType() string {
 
 // Implements perContainerHandler.ProcessOneContainer
 func (ctx *prepareOrGetContext) ProcessOneContainer(
-	env environs.Environ, callContext context.ProviderCallContext, idx int, host, guest Machine,
+	env environs.Environ, callContext context.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine,
 ) error {
 	instanceId, err := guest.InstanceId()
 	if ctx.maintain {
@@ -1036,7 +1055,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 	// just be returning the ones we'd like to exist, and then we turn those
 	// into things we'd like to tell the Host machine to create, and then *it*
 	// reports back what actually exists when its done.
-	if err := containerizer.NewBridgePolicy(env).PopulateContainerLinkLayerDevices(host, guest); err != nil {
+	if err := policy.PopulateContainerLinkLayerDevices(host, guest); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1057,63 +1076,12 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 	}
 
 	preparedInfo := make([]network.InterfaceInfo, len(containerDevices))
-	for j, device := range containerDevices {
-		parentDevice, err := device.ParentDevice()
-		if err != nil || parentDevice == nil {
-			return errors.Errorf(
-				"cannot get parent %q of container device %q: %v",
-				device.ParentName(), device.Name(), err,
-			)
-		}
-		parentAddrs, err := parentDevice.Addresses()
+	for i, device := range containerDevices {
+		info, err := ctx.infoForDevice(device, askProviderForAddress)
 		if err != nil {
 			return errors.Trace(err)
 		}
-
-		info := network.InterfaceInfo{
-			InterfaceName:       device.Name(),
-			MACAddress:          device.MACAddress(),
-			ConfigType:          network.ConfigManual,
-			InterfaceType:       network.InterfaceType(device.Type()),
-			NoAutoStart:         !device.IsAutoStart(),
-			Disabled:            !device.IsUp(),
-			MTU:                 int(device.MTU()),
-			ParentInterfaceName: parentDevice.Name(),
-		}
-
-		if len(parentAddrs) > 0 {
-			logger.Debugf("host machine device %q has addresses %v", parentDevice.Name(), parentAddrs)
-			firstAddress := parentAddrs[0]
-			if askProviderForAddress {
-				parentDeviceSubnet, err := firstAddress.Subnet()
-				if err != nil {
-					return errors.Annotatef(err,
-						"cannot get subnet %q used by address %q of host machine device %q",
-						firstAddress.SubnetCIDR(), firstAddress.Value(), parentDevice.Name(),
-					)
-				}
-				info.ConfigType = network.ConfigStatic
-				info.CIDR = parentDeviceSubnet.CIDR()
-				info.ProviderSubnetId = parentDeviceSubnet.ProviderId()
-				info.VLANTag = parentDeviceSubnet.VLANTag()
-				info.IsDefaultGateway = firstAddress.IsDefaultGateway()
-			} else {
-				info.ConfigType = network.ConfigDHCP
-				info.CIDR = firstAddress.SubnetCIDR()
-				info.ProviderSubnetId = ""
-				info.VLANTag = 0
-			}
-		} else {
-			logger.Infof("host machine device %q has no addresses %v", parentDevice.Name(), parentAddrs)
-			// TODO(jam): 2017-02-15, have a concrete test for this case, as it
-			// seems to be the common case in the wild.
-			info.ConfigType = network.ConfigDHCP
-			info.ProviderSubnetId = ""
-			info.VLANTag = 0
-		}
-
-		logger.Tracef("prepared info for container interface %q: %+v", info.InterfaceName, info)
-		preparedInfo[j] = info
+		preparedInfo[i] = info
 	}
 
 	hostInstanceId, err := host.InstanceId()
@@ -1142,7 +1110,68 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 	return nil
 }
 
-func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities, maintain bool) (params.MachineNetworkConfigResults, error) {
+// infoForDevice returns interface information for a link-layer device.
+func (ctx *prepareOrGetContext) infoForDevice(
+	device containerizer.LinkLayerDevice, askProviderForAddress bool) (network.InterfaceInfo, error) {
+	parentDevice, err := device.ParentDevice()
+	if err != nil || parentDevice == nil {
+		return network.InterfaceInfo{}, errors.Errorf("cannot get parent %q of container device %q: %v",
+			device.ParentName(), device.Name(), err)
+	}
+	parentAddrs, err := parentDevice.Addresses()
+	if err != nil {
+		return network.InterfaceInfo{}, errors.Trace(err)
+	}
+
+	info := network.InterfaceInfo{
+		InterfaceName:       device.Name(),
+		MACAddress:          device.MACAddress(),
+		ConfigType:          network.ConfigManual,
+		InterfaceType:       network.InterfaceType(device.Type()),
+		NoAutoStart:         !device.IsAutoStart(),
+		Disabled:            !device.IsUp(),
+		MTU:                 int(device.MTU()),
+		ParentInterfaceName: parentDevice.Name(),
+	}
+
+	if len(parentAddrs) > 0 {
+		logger.Debugf("host machine device %q has addresses %v", parentDevice.Name(), parentAddrs)
+		firstAddress := parentAddrs[0]
+		if askProviderForAddress {
+			parentDeviceSubnet, err := firstAddress.Subnet()
+			if err != nil {
+				return info, errors.Annotatef(err,
+					"cannot get subnet %q used by address %q of host machine device %q",
+					firstAddress.SubnetCIDR(), firstAddress.Value(), parentDevice.Name(),
+				)
+			}
+			info.ConfigType = network.ConfigStatic
+			info.CIDR = parentDeviceSubnet.CIDR()
+			info.ProviderSubnetId = parentDeviceSubnet.ProviderId()
+			info.VLANTag = parentDeviceSubnet.VLANTag()
+			info.IsDefaultGateway = firstAddress.IsDefaultGateway()
+		} else {
+			info.ConfigType = network.ConfigDHCP
+			info.CIDR = firstAddress.SubnetCIDR()
+			info.ProviderSubnetId = ""
+			info.VLANTag = 0
+		}
+	} else {
+		logger.Infof("host machine device %q has no addresses %v", parentDevice.Name(), parentAddrs)
+		// TODO(jam): 2017-02-15, have a concrete test for this case, as it
+		// seems to be the common case in the wild.
+		info.ConfigType = network.ConfigDHCP
+		info.ProviderSubnetId = ""
+		info.VLANTag = 0
+	}
+
+	logger.Tracef("prepared info for container interface %q: %+v", info.InterfaceName, info)
+	return info, nil
+}
+
+func (api *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
+	args params.Entities, maintain bool,
+) (params.MachineNetworkConfigResults, error) {
 	ctx := &prepareOrGetContext{
 		result: params.MachineNetworkConfigResults{
 			Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
@@ -1150,7 +1179,7 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 		maintain: maintain,
 	}
 
-	if err := p.processEachContainer(args, ctx); err != nil {
+	if err := api.processEachContainer(args, ctx); err != nil {
 		return ctx.result, errors.Trace(err)
 	}
 	return ctx.result, nil
@@ -1158,8 +1187,8 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 
 // prepareContainerAccessEnvironment retrieves the environment, host machine, and access
 // for working with containers.
-func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.Environ, *state.Machine, common.AuthFunc, error) {
-	env, err := environs.GetEnviron(p.configGetter, environs.New)
+func (api *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.Environ, *state.Machine, common.AuthFunc, error) {
+	env, err := environs.GetEnviron(api.configGetter, environs.New)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}
@@ -1168,11 +1197,11 @@ func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.Environ, 
 		return nil, nil, nil, errors.NotSupportedf("dummy provider network config")
 	}
 
-	canAccess, err := p.getAuthFunc()
+	canAccess, err := api.getAuthFunc()
 	if err != nil {
 		return nil, nil, nil, errors.Annotate(err, "cannot authenticate request")
 	}
-	hostAuthTag := p.authorizer.GetAuthTag()
+	hostAuthTag := api.authorizer.GetAuthTag()
 	if hostAuthTag == nil {
 		return nil, nil, nil, errors.Errorf("authenticated entity tag is nil")
 	}
@@ -1180,7 +1209,7 @@ func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.Environ, 
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}
-	host, err := p.getMachine(canAccess, hostTag)
+	host, err := api.getMachine(canAccess, hostTag)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}
@@ -1193,9 +1222,9 @@ type hostChangesContext struct {
 
 // Implements perContainerHandler.ProcessOneContainer
 func (ctx *hostChangesContext) ProcessOneContainer(
-	env environs.Environ, callContext context.ProviderCallContext, idx int, host, guest Machine,
+	env environs.Environ, callContext context.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine,
 ) error {
-	bridges, reconfigureDelay, err := containerizer.NewBridgePolicy(env).FindMissingBridgesForContainer(host, guest)
+	bridges, reconfigureDelay, err := policy.FindMissingBridgesForContainer(host, guest)
 	if err != nil {
 		return err
 	}
@@ -1226,13 +1255,13 @@ func (ctx *hostChangesContext) ConfigType() string {
 // HostChangesForContainers returns the set of changes that need to be done
 // to the host machine to prepare it for the containers to be created.
 // Pass in a list of the containers that you want the changes for.
-func (p *ProvisionerAPI) HostChangesForContainers(args params.Entities) (params.HostNetworkChangeResults, error) {
+func (api *ProvisionerAPI) HostChangesForContainers(args params.Entities) (params.HostNetworkChangeResults, error) {
 	ctx := &hostChangesContext{
 		result: params.HostNetworkChangeResults{
 			Results: make([]params.HostNetworkChange, len(args.Entities)),
 		},
 	}
-	if err := p.processEachContainer(args, ctx); err != nil {
+	if err := api.processEachContainer(args, ctx); err != nil {
 		return ctx.result, errors.Trace(err)
 	}
 	return ctx.result, nil
@@ -1245,7 +1274,7 @@ type containerProfileContext struct {
 
 // Implements perContainerHandler.ProcessOneContainer
 func (ctx *containerProfileContext) ProcessOneContainer(
-	_ environs.Environ, _ context.ProviderCallContext, idx int, _, guest Machine,
+	_ environs.Environ, _ context.ProviderCallContext, _ BridgePolicy, idx int, _, guest Machine,
 ) error {
 	units, err := guest.Units()
 	if err != nil {
@@ -1297,14 +1326,14 @@ func (ctx *containerProfileContext) ConfigType() string {
 // container based on the charms deployed to the container. It accepts container
 // tags as arguments. Unlike machineLXDProfileNames which has the environ
 // write the lxd profiles and returns the names of profiles already written.
-func (p *ProvisionerAPI) GetContainerProfileInfo(args params.Entities) (params.ContainerProfileResults, error) {
+func (api *ProvisionerAPI) GetContainerProfileInfo(args params.Entities) (params.ContainerProfileResults, error) {
 	ctx := &containerProfileContext{
 		result: params.ContainerProfileResults{
 			Results: make([]params.ContainerProfileResult, len(args.Entities)),
 		},
-		modelName: p.m.Name(),
+		modelName: api.m.Name(),
 	}
-	if err := p.processEachContainer(args, ctx); err != nil {
+	if err := api.processEachContainer(args, ctx); err != nil {
 		return ctx.result, errors.Trace(err)
 	}
 	return ctx.result, nil
@@ -1312,11 +1341,11 @@ func (p *ProvisionerAPI) GetContainerProfileInfo(args params.Entities) (params.C
 
 // InstanceStatus returns the instance status for each given entity.
 // Only machine tags are accepted.
-func (p *ProvisionerAPI) InstanceStatus(args params.Entities) (params.StatusResults, error) {
+func (api *ProvisionerAPI) InstanceStatus(args params.Entities) (params.StatusResults, error) {
 	result := params.StatusResults{
 		Results: make([]params.StatusResult, len(args.Entities)),
 	}
-	canAccess, err := p.getAuthFunc()
+	canAccess, err := api.getAuthFunc()
 	if err != nil {
 		logger.Errorf("failed to get an authorisation function: %v", err)
 		return result, errors.Trace(err)
@@ -1328,33 +1357,32 @@ func (p *ProvisionerAPI) InstanceStatus(args params.Entities) (params.StatusResu
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		machine, err := p.getMachine(canAccess, mTag)
+		machine, err := api.getMachine(canAccess, mTag)
 		if err == nil {
 			var statusInfo status.StatusInfo
-			if statusInfo, err = machine.InstanceStatus(); err != nil {
-				result.Results[i].Status = statusInfo.Status.String()
-				result.Results[i].Info = statusInfo.Message
-				result.Results[i].Data = statusInfo.Data
-				result.Results[i].Since = statusInfo.Since
-			}
+			statusInfo, err = machine.InstanceStatus()
+			result.Results[i].Status = statusInfo.Status.String()
+			result.Results[i].Info = statusInfo.Message
+			result.Results[i].Data = statusInfo.Data
+			result.Results[i].Since = statusInfo.Since
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
 
-func (p *ProvisionerAPI) setOneInstanceStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
+func (api *ProvisionerAPI) setOneInstanceStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
 	mTag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {
 		logger.Warningf("SetInstanceStatus called with %q which is not a valid machine tag: %v", arg.Tag, err)
 		return common.ErrPerm
 	}
-	machine, err := p.getMachine(canAccess, mTag)
+	machine, err := api.getMachine(canAccess, mTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	// We can use the controller timestamp to get now.
-	since, err := p.st.ControllerTimestamp()
+	since, err := api.st.ControllerTimestamp()
 	if err != nil {
 		return err
 	}
@@ -1384,17 +1412,17 @@ func (p *ProvisionerAPI) setOneInstanceStatus(canAccess common.AuthFunc, arg par
 
 // SetInstanceStatus updates the instance status for each given
 // entity. Only machine tags are accepted.
-func (p *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	canAccess, err := p.getAuthFunc()
+	canAccess, err := api.getAuthFunc()
 	if err != nil {
 		logger.Errorf("failed to get an authorisation function: %v", err)
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Entities {
-		err = p.setOneInstanceStatus(canAccess, arg)
+		err = api.setOneInstanceStatus(canAccess, arg)
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
@@ -1410,36 +1438,36 @@ func (p *ProvisionerAPIV7) SetModificationStatus(_, _ struct{}) {}
 // the instance to be placed into a error state. This modification status
 // serves the purpose of highlighting that to the operator.
 // Only machine tags are accepted.
-func (p *ProvisionerAPI) SetModificationStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) SetModificationStatus(args params.SetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	canAccess, err := p.getAuthFunc()
+	canAccess, err := api.getAuthFunc()
 	if err != nil {
 		logger.Errorf("failed to get an authorisation function: %v", err)
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Entities {
-		err = p.setOneModificationStatus(canAccess, arg)
+		err = api.setOneModificationStatus(canAccess, arg)
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
 
-func (p *ProvisionerAPI) setOneModificationStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
+func (api *ProvisionerAPI) setOneModificationStatus(canAccess common.AuthFunc, arg params.EntityStatusArgs) error {
 	logger.Tracef("SetModificationStatus called with: %#v", arg)
 	mTag, err := names.ParseMachineTag(arg.Tag)
 	if err != nil {
 		return common.ErrPerm
 	}
-	machine, err := p.getMachine(canAccess, mTag)
+	machine, err := api.getMachine(canAccess, mTag)
 	if err != nil {
 		logger.Debugf("SetModificationStatus unable to get machine %q", mTag)
 		return err
 	}
 
 	// We can use the controller timestamp to get now.
-	since, err := p.st.ControllerTimestamp()
+	since, err := api.st.ControllerTimestamp()
 	if err != nil {
 		return err
 	}
@@ -1459,38 +1487,38 @@ func (p *ProvisionerAPI) setOneModificationStatus(canAccess common.AuthFunc, arg
 // MarkMachinesForRemoval indicates that the specified machines are
 // ready to have any provider-level resources cleaned up and then be
 // removed.
-func (p *ProvisionerAPI) MarkMachinesForRemoval(machines params.Entities) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) MarkMachinesForRemoval(machines params.Entities) (params.ErrorResults, error) {
 	results := make([]params.ErrorResult, len(machines.Entities))
-	canAccess, err := p.getAuthFunc()
+	canAccess, err := api.getAuthFunc()
 	if err != nil {
 		logger.Errorf("failed to get an authorisation function: %v", err)
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	for i, machine := range machines.Entities {
-		results[i].Error = common.ServerError(p.markOneMachineForRemoval(machine.Tag, canAccess))
+		results[i].Error = common.ServerError(api.markOneMachineForRemoval(machine.Tag, canAccess))
 	}
 	return params.ErrorResults{Results: results}, nil
 }
 
-func (p *ProvisionerAPI) markOneMachineForRemoval(machineTag string, canAccess common.AuthFunc) error {
+func (api *ProvisionerAPI) markOneMachineForRemoval(machineTag string, canAccess common.AuthFunc) error {
 	mTag, err := names.ParseMachineTag(machineTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	machine, err := p.getMachine(canAccess, mTag)
+	machine, err := api.getMachine(canAccess, mTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return machine.MarkForRemoval()
 }
 
-func (p *ProvisionerAPI) SetHostMachineNetworkConfig(args params.SetMachineNetworkConfig) error {
-	return p.SetObservedNetworkConfig(args)
+func (api *ProvisionerAPI) SetHostMachineNetworkConfig(args params.SetMachineNetworkConfig) error {
+	return api.SetObservedNetworkConfig(args)
 }
 
 // CACert returns the certificate used to validate the state connection.
-func (a *ProvisionerAPI) CACert() (params.BytesResult, error) {
-	cfg, err := a.st.ControllerConfig()
+func (api *ProvisionerAPI) CACert() (params.BytesResult, error) {
+	cfg, err := api.st.ControllerConfig()
 	if err != nil {
 		return params.BytesResult{}, errors.Trace(err)
 	}
@@ -1511,25 +1539,25 @@ func (p *ProvisionerAPIV8) CharmProfileChangeInfo(args params.ProfileArgs) (para
 }
 
 // SetCharmProfiles records the given slice of charm profile names.
-func (p *ProvisionerAPI) SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) SetCharmProfiles(args params.SetProfileArgs) (params.ErrorResults, error) {
 	results := make([]params.ErrorResult, len(args.Args))
-	canAccess, err := p.getAuthFunc()
+	canAccess, err := api.getAuthFunc()
 	if err != nil {
 		logger.Errorf("failed to get an authorisation function: %v", err)
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	for i, a := range args.Args {
-		results[i].Error = common.ServerError(p.setOneMachineCharmProfiles(a.Entity.Tag, a.Profiles, canAccess))
+		results[i].Error = common.ServerError(api.setOneMachineCharmProfiles(a.Entity.Tag, a.Profiles, canAccess))
 	}
 	return params.ErrorResults{Results: results}, nil
 }
 
-func (p *ProvisionerAPI) setOneMachineCharmProfiles(machineTag string, profiles []string, canAccess common.AuthFunc) error {
+func (api *ProvisionerAPI) setOneMachineCharmProfiles(machineTag string, profiles []string, canAccess common.AuthFunc) error {
 	mTag, err := names.ParseMachineTag(machineTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	machine, err := p.getMachine(canAccess, mTag)
+	machine, err := api.getMachine(canAccess, mTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
