@@ -120,12 +120,15 @@ func (m *MachineShim) Raw() *state.Machine {
 	return m.Machine
 }
 
+//go:generate mockgen -package containerizer -destination bridgepolicy_mock_test.go github.com/juju/juju/network/containerizer Container,Unit,Application
+
 // Machine is an indirection for state.Machine,
 // describing a container.
 type Container interface {
 	Machine
 	ContainerType() instance.ContainerType
-	DesiredSpaces() (set.Strings, error)
+	Units() ([]Unit, error)
+	Constraints() (constraints.Value, error)
 }
 
 var _ Container = (*MachineShim)(nil)
@@ -178,6 +181,7 @@ var _ Application = (*applicationShim)(nil)
 type Application interface {
 	Charm() (Charm, bool, error)
 	Name() string
+	EndpointBindings() (map[string]string, error)
 }
 
 func (a *applicationShim) Charm() (Charm, bool, error) {
