@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
@@ -1903,11 +1902,12 @@ func (s *provisionerMockSuite) expectManuallyProvisionedHostsUseDHCPForContainer
 	s.expectNetworkingEnviron()
 	s.expectLinkLayerDevices()
 
-	emptySpace := ""
-
 	cExp := s.container.EXPECT()
 	cExp.InstanceId().Return(instance.UnknownId, errors.NotProvisionedf("idk-lol"))
-	cExp.DesiredSpaces().Return(set.NewStrings(emptySpace), nil)
+
+	cExp.Constraints().Return(constraints.MustParse("spaces=test-space"), nil)
+	cExp.Units().Return(nil, nil)
+
 	cExp.Id().Return("lxd/0").AnyTimes()
 	cExp.SetLinkLayerDevices(gomock.Any()).Return(nil)
 	cExp.AllLinkLayerDevices().Return([]containerizer.LinkLayerDevice{s.device}, nil)
@@ -1915,11 +1915,11 @@ func (s *provisionerMockSuite) expectManuallyProvisionedHostsUseDHCPForContainer
 	hExp := s.host.EXPECT()
 	hExp.Id().Return("0").AnyTimes()
 	hExp.LinkLayerDevicesForSpaces(gomock.Any()).Return(
-		map[string][]containerizer.LinkLayerDevice{emptySpace: {s.device}}, nil)
+		map[string][]containerizer.LinkLayerDevice{"test-space": {s.device}}, nil)
+
 	// Crucial behavioural trait. Set false to test failure.
 	hExp.IsManual().Return(true, nil)
 	hExp.InstanceId().Return(instance.Id("manual:10.0.0.66"), nil)
-
 }
 
 // expectNetworkingEnviron stubs an environ that supports container networking.
