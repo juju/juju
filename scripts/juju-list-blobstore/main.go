@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/dustin/go-humanize"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -20,7 +21,6 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/dustin/go-humanize"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
@@ -40,7 +40,6 @@ var human = gnuflag.Bool("h", false, "print human readable values")
 var verbose = gnuflag.Bool("v", false, "print more detailed information about found references")
 
 func main() {
-	loggo.GetLogger("").SetLogLevel(loggo.TRACE)
 	gnuflag.Usage = func() {
 		fmt.Printf("Usage: %s\n", os.Args[0])
 		os.Exit(1)
