@@ -355,22 +355,52 @@ func lengthToSize(length uint64) string {
 	return fmt.Sprintf("%d", length)
 }
 
-// TODO: Refactor this into a small type
-func inspectModel(pool *state.StatePool, session *mgo.Session, modelUUID string, foundHashes map[string]struct{}) {
-	model, helper, err := pool.GetModel(modelUUID)
-	defer helper.Release()
-	shortUID := shortModelUUID(modelUUID)
-	checkErr(fmt.Sprintf("reading model %s", shortUID), err)
-	apps, err := model.State().AllApplications()
-	checkErr("AllApplications", err)
+type ModelChecker struct {
+	foundHashes map[string]struct{}
+	session     *mgo.Session
+	model       *state.Model
+	system      *state.State
+
+	managedResources *mgo.Collection
+	resources        *mgo.Collection
+
 	// What Charm URLs are referenced by Applications
-	appReferencedCharms := make(mapStringStringSlice)
+	appReferencedCharms mapStringStringSlice
 	// What Charm URLs are referenced by Units that aren't referenced by Apps
-	unitReferencedCharms := make(mapStringStringSlice)
+	unitReferencedCharms mapStringStringSlice
+
+	// For each resource ID, what CharmURLs point to it
+	resourceIdToCharmURLs mapStringStringSlice
+	// For each resource ID, what size does it have
+	resourceSizes map[string]uint64
+}
+
+func NewModelChecker(model *state.Model, session *mgo.Session, foundHashes map[string]struct{}) *ModelChecker {
+	jujuDB := session.DB("juju")
+	checker := &ModelChecker{
+		foundHashes: foundHashes,
+		session:     session,
+		model:       model,
+
+		managedResources: jujuDB.C(managedResourceC),
+		resources:        jujuDB.C(resourceCatalogC),
+
+		appReferencedCharms:   make(mapStringStringSlice),
+		unitReferencedCharms:  make(mapStringStringSlice),
+		resourceIdToCharmURLs: make(mapStringStringSlice),
+		resourceSizes:         make(map[string]uint64),
+	}
+	return checker
+}
+
+// readApplicationsAndUnits figures out what CharmURLs are referenced by apps and units
+func (checker *ModelChecker) readApplicationsAndUnits() {
+	apps, err := checker.model.State().AllApplications()
+	checkErr("AllApplications", err)
 	for _, app := range apps {
 		charmURL, _ := app.CharmURL()
 		appCharmURLStr := charmURL.String()
-		appReferencedCharms.Add(appCharmURLStr, app.Name())
+		checker.appReferencedCharms.Add(appCharmURLStr, app.Name())
 		units, err := app.AllUnits()
 		checkErr("AllUnits", err)
 		for _, unit := range units {
@@ -380,66 +410,72 @@ func inspectModel(pool *state.StatePool, session *mgo.Session, modelUUID string,
 			}
 			unitString := unitCharmURL.String()
 			if unitString != appCharmURLStr {
-				unitReferencedCharms.Add(unitString, unit.Name())
+				checker.unitReferencedCharms.Add(unitString, unit.Name())
 			}
 		}
 	}
-	appReferencedCharms.SortValues()
-	unitReferencedCharms.SortValues()
+	checker.appReferencedCharms.SortValues()
+	checker.unitReferencedCharms.SortValues()
+}
 
-	charms, err := model.State().AllCharms()
+// readModelCharms loads model.AllCharms to determine what charms the model
+// itself is tracking.
+// This ends up populating resourceIdToCharmURLs
+func (checker *ModelChecker) readModelCharms() {
+	modelUUID := checker.model.UUID()
+	charms, err := checker.model.State().AllCharms()
 	checkErr("AllCharms", err)
-	logger.Debugf("[%s] checking model", shortUID)
-	modelName := model.Name()
-	jujuDB := session.DB("juju")
-	managedResources := jujuDB.C(managedResourceC)
-	resources := jujuDB.C(resourceCatalogC)
-	modelReferencedCharms := make(map[string]bool)
-	resourceToCharmURLs := make(mapStringStringSlice)
-	sizes := make(map[string]uint64)
 	for _, charm := range charms {
 		charmURL := charm.URL().String()
-		modelReferencedCharms[charmURL] = true
 		bucketPath := path.Join("buckets", modelUUID, charm.StoragePath())
-		res := lookupResource(managedResources, resources, bucketPath, charm.String())
+		res := lookupResource(checker.managedResources, checker.resources, bucketPath, charm.String())
 		if res.Id == "" {
 			continue
 		}
-		foundHashes[res.SHA384Hash] = struct{}{}
-		resourceToCharmURLs.Add(res.Id, charmURL)
-		sizes[res.SHA384Hash] = uint64(res.Length)
+		checker.foundHashes[res.SHA384Hash] = struct{}{}
+		checker.resourceIdToCharmURLs.Add(res.Id, charmURL)
+		checker.resourceSizes[res.SHA384Hash] = uint64(res.Length)
 	}
-	resourceToCharmURLs.SortValues()
+	checker.resourceIdToCharmURLs.SortValues()
+}
+
+func inspectModel(pool *state.StatePool, session *mgo.Session, modelUUID string, foundHashes map[string]struct{}) {
+	model, helper, err := pool.GetModel(modelUUID)
+	defer helper.Release()
+	checkErr("lookup model", err)
+	checker := NewModelChecker(model, session, foundHashes)
+	checker.readApplicationsAndUnits()
+	checker.readModelCharms()
 	// Note, there is a small is a small issue where things can't be easily tracked.
 	// namely, if 2 models have the same charm, then which one do we assign the
 	// storage to? You have to remove it from both to save any space, but you
 	// don't want to double count the storage either.
-	fmt.Fprintf(os.Stdout, "\nModel: %q\n", modelName)
+	fmt.Fprintf(os.Stdout, "\nModel: %q\n", model.Name())
 	var totalBytes uint64
 	var referencedBytes uint64
 	var unreferencedBytes uint64
 	notReferenced := make([]string, 0)
-	for _, resourceId := range resourceToCharmURLs.KeysBySortedValues() {
-		length := sizes[resourceId]
+	for _, resourceId := range checker.resourceIdToCharmURLs.KeysBySortedValues() {
+		length := checker.resourceSizes[resourceId]
 		totalBytes += length
 		var referenced bool
-		for _, charmURL := range resourceToCharmURLs[resourceId] {
-			if _, found := appReferencedCharms[charmURL]; found {
+		for _, charmURL := range checker.resourceIdToCharmURLs[resourceId] {
+			if _, found := checker.appReferencedCharms[charmURL]; found {
 				referenced = true
 				break
 			}
 		}
 		if referenced {
 			referencedBytes += length
-			charmURL := resourceToCharmURLs[resourceId][0]
+			charmURL := checker.resourceIdToCharmURLs[resourceId][0]
 			fmt.Fprintf(os.Stdout, "  %v: %s %s...\n",
 				charmURL, lengthToSize(length), resourceId[:8])
 			if *verbose {
-				for _, curl := range resourceToCharmURLs[resourceId] {
+				for _, curl := range checker.resourceIdToCharmURLs[resourceId] {
 					if curl != charmURL {
 						fmt.Fprintf(os.Stdout, "    %v:\n", curl)
 					}
-					for _, app := range appReferencedCharms[curl] {
+					for _, app := range checker.appReferencedCharms[curl] {
 						fmt.Fprintf(os.Stdout, "    - %v\n", app)
 					}
 				}
@@ -452,15 +488,15 @@ func inspectModel(pool *state.StatePool, session *mgo.Session, modelUUID string,
 	if len(notReferenced) > 0 {
 		fmt.Fprintf(os.Stdout, "  Not Referenced By Apps\n")
 		for _, resourceId := range notReferenced {
-			length := sizes[resourceId]
-			charmURL := resourceToCharmURLs[resourceId][0]
+			length := checker.resourceSizes[resourceId]
+			charmURL := checker.resourceIdToCharmURLs[resourceId][0]
 			fmt.Fprintf(os.Stdout, "   %v: %s %s...\n",
 				charmURL, lengthToSize(length), resourceId[:8])
-			for _, curl := range resourceToCharmURLs[resourceId] {
+			for _, curl := range checker.resourceIdToCharmURLs[resourceId] {
 				if curl != charmURL {
 					fmt.Fprintf(os.Stdout, "     %v:\n", curl)
 				}
-				for _, unit := range unitReferencedCharms[curl] {
+				for _, unit := range checker.unitReferencedCharms[curl] {
 					fmt.Fprintf(os.Stdout, "     - %v\n", unit)
 				}
 			}
@@ -477,14 +513,14 @@ func inspectModel(pool *state.StatePool, session *mgo.Session, modelUUID string,
 	for _, app := range applications {
 		resources, err := charmResources.ListResources(app.Name())
 		if err != nil {
-			logger.Warningf("%v: error listing resources for app %q", modelName, app.Name())
+			logger.Warningf("%v: error listing resources for app %q", model.Name(), app.Name())
 		}
 		for _, res := range resources.Resources {
 			if res.Type == resource.TypeFile {
 			}
 		}
 	}
-	unknownResourceIdToManaged, sizes := lookForExtraBuckets(managedResources, resources, modelUUID, foundHashes)
+	unknownResourceIdToManaged, sizes := lookForExtraBuckets(checker.managedResources, checker.resources, modelUUID, foundHashes)
 	if unknownResourceIdToManaged != nil {
 		var unrefResourceBytes uint64
 		fmt.Fprintf(os.Stdout, "  Unreferenced Managed Resources\n")
