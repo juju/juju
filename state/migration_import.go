@@ -13,6 +13,7 @@ import (
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -50,7 +52,9 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 		return nil, nil, errors.AlreadyExistsf("model %s", modelUUID)
 	}
 
-	if len(model.RemoteApplications()) != 0 {
+	// Ensure that we only enable CMR migrations if the feature flag is enabled
+	// otherwise just error out as usual.
+	if !featureflag.Enabled(feature.CMRMigrations) && len(model.RemoteApplications()) != 0 {
 		// Cross-model relations are currently limited to models on
 		// the same controller, while migration is for getting the
 		// model to a new controller.
@@ -183,6 +187,9 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	}
 	if err := restore.applications(); err != nil {
 		return nil, nil, errors.Annotate(err, "applications")
+	}
+	if err := restore.remoteApplications(); err != nil {
+		return nil, nil, errors.Annotate(err, "remoteapplications")
 	}
 	if err := restore.relations(); err != nil {
 		return nil, nil, errors.Annotate(err, "relations")
@@ -1148,6 +1155,164 @@ func (i *importer) unitStorageAttachmentCount(unit names.UnitTag) int {
 		}
 	}
 	return count
+}
+
+func (i *importer) remoteApplications() error {
+	i.logger.Debugf("importing remote applications")
+	if err := importRemoteApplications(i.model,
+		stateDocumentFactoryShim{importer: i},
+		stateModelNamspaceShim{st: i.st},
+		i.st.db(),
+	); err != nil {
+		return errors.Trace(err)
+	}
+	i.logger.Debugf("importing remote applications succeeded")
+	return nil
+}
+
+// ModelRemoteApplication defines an inplace usage for reading remote
+// applications.
+type ModelRemoteApplication interface {
+	RemoteApplications() []description.RemoteApplication
+}
+
+// StateDocumentFactory creates documents that are useful with in the state
+// package. In essence this just allows us to model our dependencies correctly
+// without having to construct dependencies everywhere.
+// Note: we need public methods here because gomock doesn't mock private methods
+type StateDocumentFactory interface {
+	NewRemoteApplication(*remoteApplicationDoc) *RemoteApplication
+	MakeRemoteApplicationDoc(description.RemoteApplication) *remoteApplicationDoc
+	MakeStatusDoc(description.Status) statusDoc
+	MakeStatusOp(string, statusDoc) txn.Op
+}
+
+type stateDocumentFactoryShim struct {
+	importer *importer
+}
+
+func (s stateDocumentFactoryShim) NewRemoteApplication(doc *remoteApplicationDoc) *RemoteApplication {
+	return newRemoteApplication(s.importer.st, doc)
+}
+
+func (s stateDocumentFactoryShim) MakeRemoteApplicationDoc(app description.RemoteApplication) *remoteApplicationDoc {
+	return s.importer.makeRemoteApplicationDoc(app)
+}
+
+func (s stateDocumentFactoryShim) MakeStatusDoc(status description.Status) statusDoc {
+	return s.importer.makeStatusDoc(status)
+}
+
+func (s stateDocumentFactoryShim) MakeStatusOp(globalKey string, doc statusDoc) txn.Op {
+	return createStatusOp(s.importer.st, globalKey, doc)
+}
+
+func importRemoteApplications(model ModelRemoteApplication,
+	docFactory StateDocumentFactory,
+	docModelNS DocModelNamespace,
+	runner TransactionRunner,
+) error {
+	remoteApplications := model.RemoteApplications()
+	ops := make([]txn.Op, 0)
+	for _, app := range remoteApplications {
+		appDoc := docFactory.MakeRemoteApplicationDoc(app)
+		status := app.Status()
+		if status == nil {
+			return errors.NotValidf("missing status")
+		}
+		app := docFactory.NewRemoteApplication(appDoc)
+		appStatusDoc := docFactory.MakeStatusDoc(status)
+
+		remoteAppOps, err := addRemoteApplicationOps(docFactory, docModelNS, app, addRemoteApplicationOpsArgs{
+			remoteApplicationDoc: appDoc,
+			statusDoc:            appStatusDoc,
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ops = append(ops, remoteAppOps...)
+	}
+	if err := runner.RunTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+type addRemoteApplicationOpsArgs struct {
+	remoteApplicationDoc *remoteApplicationDoc
+	statusDoc            statusDoc
+}
+
+func addRemoteApplicationOps(docFactory StateDocumentFactory,
+	docModelNS DocModelNamespace,
+	app *RemoteApplication,
+	args addRemoteApplicationOpsArgs,
+) ([]txn.Op, error) {
+	globalKey := app.globalKey()
+	docID := docModelNS.DocID(app.Name())
+
+	ops := []txn.Op{
+		{
+			C:      applicationsC,
+			Id:     app.Name(),
+			Assert: txn.DocMissing,
+		},
+		{
+			C:      remoteApplicationsC,
+			Id:     docID,
+			Assert: txn.DocMissing,
+			Insert: args.remoteApplicationDoc,
+		},
+		docFactory.MakeStatusOp(globalKey, args.statusDoc),
+	}
+	return ops, nil
+}
+
+func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) *remoteApplicationDoc {
+	doc := &remoteApplicationDoc{
+		Name:            app.Name(),
+		OfferUUID:       app.OfferUUID(),
+		URL:             app.URL(),
+		SourceModelUUID: app.SourceModelTag().Id(),
+		IsConsumerProxy: app.IsConsumerProxy(),
+		Bindings:        app.Bindings(),
+	}
+	descEndpoints := app.Endpoints()
+	eps := make([]remoteEndpointDoc, len(descEndpoints))
+	for i, ep := range descEndpoints {
+		eps[i] = remoteEndpointDoc{
+			Name:      ep.Name(),
+			Role:      charm.RelationRole(ep.Role()),
+			Interface: ep.Interface(),
+			// TODO: Role, Scope
+		}
+	}
+	doc.Endpoints = eps
+	descSpaces := app.Spaces()
+	spaces := make([]remoteSpaceDoc, len(descSpaces))
+	for i, space := range descSpaces {
+		spaces[i] = remoteSpaceDoc{
+			CloudType:          space.CloudType(),
+			Name:               space.Name(),
+			ProviderId:         space.ProviderId(),
+			ProviderAttributes: space.ProviderAttributes(),
+		}
+		descSubnets := space.Subnets()
+		subnets := make([]remoteSubnetDoc, len(descSubnets))
+		for i, subnet := range descSubnets {
+			subnets[i] = remoteSubnetDoc{
+				CIDR:              subnet.CIDR(),
+				ProviderId:        subnet.ProviderId(),
+				VLANTag:           subnet.VLANTag(),
+				AvailabilityZones: subnet.AvailabilityZones(),
+				ProviderSpaceId:   subnet.ProviderSpaceId(),
+				ProviderNetworkId: subnet.ProviderNetworkId(),
+			}
+		}
+		spaces[i].Subnets = subnets
+	}
+	doc.Spaces = spaces
+	return doc
 }
 
 func (i *importer) relations() error {
