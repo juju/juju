@@ -76,9 +76,10 @@ func (s *bridgePolicyStateSuite) SetUpTest(c *gc.C) {
 	var err error
 	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	s.machine = &containerizer.MachineShim{Machine: m}
+	s.machine = containerizer.NewMachine(m)
 
-	s.bridgePolicy = containerizer.NewBridgePolicy(cfg(c, 13, "provider"))
+	s.bridgePolicy, err = containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *bridgePolicyStateSuite) addContainerMachine(c *gc.C) {
@@ -89,7 +90,7 @@ func (s *bridgePolicyStateSuite) addContainerMachine(c *gc.C) {
 	}
 	container, err := s.State.AddMachineInsideMachine(containerTemplate, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
-	s.containerMachine = &containerizer.MachineShim{Machine: container}
+	s.containerMachine = containerizer.NewMachine(container)
 }
 
 func (s *bridgePolicyStateSuite) assertNoDevicesOnMachine(c *gc.C, machine containerizer.Container) {
@@ -603,8 +604,10 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesNoLocal(c 
 	s.addContainerMachine(c)
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 
-	bridgePolicy := containerizer.NewBridgePolicy(cfg(c, 13, "provider"))
-	err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
+	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
 	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for space(s) "" for container "0/lxd/0"`)
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 }
@@ -618,8 +621,10 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesUseLocal(c
 	s.addContainerMachine(c)
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 
-	bridgePolicy := containerizer.NewBridgePolicy(cfg(c, 13, "local"))
-	err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
+	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "local"), s.State)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
 	c.Assert(err, jc.ErrorIsNil)
 
 	containerDevices, err := s.containerMachine.AllLinkLayerDevices()
@@ -722,7 +727,10 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerContainerNetw
 	s.createNICWithIP(c, s.machine, "ens3", "172.12.0.10/24")
 	s.createAllDefaultDevices(c, s.machine)
 	s.addContainerMachine(c)
-	bridgePolicy := containerizer.NewBridgePolicy(cfg(c, 13, "local"))
+
+	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "local"), s.State)
+	c.Assert(err, jc.ErrorIsNil)
+
 	// No defined spaces for the container, no *known* spaces for the host
 	// machine. Triggers the fallback code to have us bridge all devices.
 	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
@@ -740,7 +748,10 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerContainerNetw
 	s.createNICWithIP(c, s.machine, "eth0", "10.0.0.20/24")
 	s.createAllDefaultDevices(c, s.machine)
 	s.addContainerMachine(c)
-	bridgePolicy := containerizer.NewBridgePolicy(cfg(c, 13, "local"))
+
+	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "local"), s.State)
+	c.Assert(err, jc.ErrorIsNil)
+
 	// No defined spaces for the container, host has spaces but we have
 	// ContainerNetworkingMethodLocal set so we should fall back to lxdbr0
 	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
@@ -774,7 +785,10 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerContainerNetw
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.addContainerMachine(c)
-	bridgePolicy := containerizer.NewBridgePolicy(cfg(c, 13, "local"))
+
+	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "local"), s.State)
+	c.Assert(err, jc.ErrorIsNil)
+
 	// No defined spaces for the container, no *known* spaces for the host
 	// machine. Triggers the fallback code to have us bridge all devices.
 	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
@@ -1121,7 +1135,9 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNetworkingMet
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	bridgePolicy := containerizer.NewBridgePolicy(cfg(c, 13, "fan"))
+	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "fan"), s.State)
+	c.Assert(err, jc.ErrorIsNil)
+
 	_, _, err = bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
 	c.Assert(err, gc.ErrorMatches, `host machine "0" has no available FAN devices in space\(s\) "default"`)
 }

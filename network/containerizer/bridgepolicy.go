@@ -26,6 +26,9 @@ var logger = loggo.GetLogger("juju.network.containerizer")
 // for guests inside of a host machine, along with the creation of network
 // devices on those bridges for the containers to use.
 type BridgePolicy struct {
+	// spaces is a cache of the model's spaces.
+	spaces Spaces
+
 	// netBondReconfigureDelay is how much of a delay to inject if we see that
 	// one of the devices being bridged is a BondDevice. This exists because of
 	// https://bugs.launchpad.net/juju/+bug/1657579
@@ -41,13 +44,19 @@ type BridgePolicy struct {
 
 // NewBridgePolicy returns a new BridgePolicy for the input environ config
 // getter and state indirection.
-func NewBridgePolicy(cfgGetter environs.ConfigGetter) *BridgePolicy {
+func NewBridgePolicy(cfgGetter environs.ConfigGetter, st SpaceBacking) (*BridgePolicy, error) {
 	cfg := cfgGetter.Config()
 
+	spaces, err := NewSpaces(st)
+	if err != nil {
+		return nil, errors.Annotate(err, "creating spaces cache")
+	}
+
 	return &BridgePolicy{
+		spaces:                    spaces,
 		netBondReconfigureDelay:   cfg.NetBondReconfigureDelay(),
 		containerNetworkingMethod: cfg.ContainerNetworkingMethod(),
-	}
+	}, nil
 }
 
 // FindMissingBridgesForContainer looks at the spaces that the container wants
