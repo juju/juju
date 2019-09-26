@@ -1331,11 +1331,12 @@ func (p *ProvisionerAPI) InstanceStatus(args params.Entities) (params.StatusResu
 		machine, err := p.getMachine(canAccess, mTag)
 		if err == nil {
 			var statusInfo status.StatusInfo
-			statusInfo, err = machine.InstanceStatus()
-			result.Results[i].Status = statusInfo.Status.String()
-			result.Results[i].Info = statusInfo.Message
-			result.Results[i].Data = statusInfo.Data
-			result.Results[i].Since = statusInfo.Since
+			if statusInfo, err = machine.InstanceStatus(); err != nil {
+				result.Results[i].Status = statusInfo.Status.String()
+				result.Results[i].Info = statusInfo.Message
+				result.Results[i].Data = statusInfo.Data
+				result.Results[i].Since = statusInfo.Since
+			}
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
