@@ -230,6 +230,9 @@ func inspectAgentBinaries(st *state.State, session *mgo.Session, foundHashes map
 		toolPath := path.Join("tools", fmt.Sprintf("%s-%s", metadata.Version, metadata.SHA256))
 		bucketPath := path.Join("buckets", modelUUID, toolPath)
 		res := lookupResource(managedResources, resources, bucketPath, metadata.Version)
+		if res.Id == "" {
+			continue
+		}
 		soFar, found := seen[res.SHA384Hash]
 		seen[res.SHA384Hash] = append(soFar, binary)
 		sizes[res.SHA384Hash] = res.Length
@@ -314,6 +317,9 @@ func inspectModel(pool *state.StatePool, session *mgo.Session, modelUUID string,
 	for _, charm := range charms {
 		bucketPath := path.Join("buckets", modelUUID, charm.StoragePath())
 		res := lookupResource(managedResources, resources, bucketPath, charm.String())
+		if res.Id == "" {
+			continue
+		}
 		foundHashes[res.SHA384Hash] = struct{}{}
 		_, found := seen[res.Id]
 		seen[res.Id] = res.Length
