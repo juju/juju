@@ -1170,9 +1170,9 @@ func (i *importer) remoteApplications() error {
 	return nil
 }
 
-// ModelRemoteApplication defines an inplace usage for reading remote
+// ModelRemoteApplications defines an inplace usage for reading remote
 // applications.
-type ModelRemoteApplication interface {
+type ModelRemoteApplications interface {
 	RemoteApplications() []description.RemoteApplication
 }
 
@@ -1187,6 +1187,11 @@ type StateDocumentFactory interface {
 	MakeStatusOp(string, statusDoc) txn.Op
 }
 
+// stateDocumentFactoryShim is required to allow the new vertical boundary
+// around importing a remoteApplication, from being accessed by the existing
+// state package code.
+// That way we can keep the importing code clean from the proliferation of state
+// code in the juju code base.
 type stateDocumentFactoryShim struct {
 	importer *importer
 }
@@ -1207,7 +1212,7 @@ func (s stateDocumentFactoryShim) MakeStatusOp(globalKey string, doc statusDoc) 
 	return createStatusOp(s.importer.st, globalKey, doc)
 }
 
-func importRemoteApplications(model ModelRemoteApplication,
+func importRemoteApplications(model ModelRemoteApplications,
 	docFactory StateDocumentFactory,
 	docModelNS DocModelNamespace,
 	runner TransactionRunner,
@@ -1431,8 +1436,8 @@ func (i *importer) remoteEntities() error {
 	return nil
 }
 
-//go:generate mockgen -package state -destination migration_import_mock_test.go github.com/juju/juju/state TransactionRunner,DocModelNamespace,ModelRemoteEntities,ModelRelationNetworks
-//go:generate mockgen -package state -destination migration_description_mock_test.go github.com/juju/description RemoteEntity,RelationNetwork,RemoteApplication,RemoteSpace
+//go:generate mockgen -package state -destination migration_import_mock_test.go github.com/juju/juju/state TransactionRunner,StateDocumentFactory,DocModelNamespace,ModelRemoteEntities,ModelRelationNetworks,ModelRemoteApplications
+//go:generate mockgen -package state -destination migration_description_mock_test.go github.com/juju/description RemoteEntity,RelationNetwork,RemoteApplication,RemoteSpace,Status
 
 // TransactionRunner is an inplace useage for running transactions to a
 // persistence store.

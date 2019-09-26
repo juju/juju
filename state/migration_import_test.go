@@ -15,6 +15,101 @@ type MigrationImportSuite struct{}
 
 var _ = gc.Suite(&MigrationImportSuite{})
 
+func (s *MigrationImportSuite) TestImportRemoteApplications(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	status := s.status(ctrl)
+
+	entity0 := s.remoteApplication(ctrl, status)
+	entities := []description.RemoteApplication{
+		entity0,
+	}
+
+	appDoc := &remoteApplicationDoc{
+		Name:      "remote-application",
+		URL:       "me/model.rainbow",
+		OfferUUID: "offer-uuid",
+		Endpoints: []remoteEndpointDoc{
+			{Name: "db", Interface: "mysql"},
+			{Name: "db-admin", Interface: "mysql-root"},
+		},
+		Spaces: []remoteSpaceDoc{
+			{CloudType: "ec2"},
+		},
+	}
+	statusDoc := statusDoc{}
+	statusOp := txn.Op{}
+
+	model := NewMockModelRemoteApplications(ctrl)
+	model.EXPECT().RemoteApplications().Return(entities)
+
+	docFactory := NewMockStateDocumentFactory(ctrl)
+	docFactory.EXPECT().MakeRemoteApplicationDoc(entity0).Return(appDoc)
+	docFactory.EXPECT().NewRemoteApplication(appDoc).Return(&RemoteApplication{
+		doc: *appDoc,
+	})
+	docFactory.EXPECT().MakeStatusDoc(status).Return(statusDoc)
+	docFactory.EXPECT().MakeStatusOp("c#remote-application", statusDoc).Return(statusOp)
+
+	docNamespace := NewMockDocModelNamespace(ctrl)
+	docNamespace.EXPECT().DocID("remote-application").Return("c#remote-application")
+
+	runner := NewMockTransactionRunner(ctrl)
+	runner.EXPECT().RunTransaction([]txn.Op{
+		{
+			C:      applicationsC,
+			Id:     "remote-application",
+			Assert: txn.DocMissing,
+		},
+		{
+			C:      remoteApplicationsC,
+			Id:     "c#remote-application",
+			Assert: txn.DocMissing,
+			Insert: appDoc,
+		},
+		statusOp,
+	}).Return(nil)
+
+	err := importRemoteApplications(model, docFactory, docNamespace, runner)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MigrationImportSuite) TestImportRemoteApplicationsWithMissingStatusField(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	entity0 := s.remoteApplication(ctrl, nil)
+
+	entities := []description.RemoteApplication{
+		entity0,
+	}
+
+	model := NewMockModelRemoteApplications(ctrl)
+	model.EXPECT().RemoteApplications().Return(entities)
+
+	docFactory := NewMockStateDocumentFactory(ctrl)
+	docFactory.EXPECT().MakeRemoteApplicationDoc(entity0).Return(&remoteApplicationDoc{})
+
+	docNamespace := NewMockDocModelNamespace(ctrl)
+
+	runner := NewMockTransactionRunner(ctrl)
+
+	err := importRemoteApplications(model, docFactory, docNamespace, runner)
+	c.Assert(err, gc.ErrorMatches, "missing status not valid")
+}
+
+func (s *MigrationImportSuite) remoteApplication(ctrl *gomock.Controller, status description.Status) description.RemoteApplication {
+	entity := NewMockRemoteApplication(ctrl)
+	entity.EXPECT().Status().Return(status)
+	return entity
+}
+
+func (s *MigrationImportSuite) status(ctrl *gomock.Controller) description.Status {
+	entity := NewMockStatus(ctrl)
+	return entity
+}
+
 func (s *MigrationImportSuite) TestImportRemoteEntities(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
