@@ -212,10 +212,10 @@ func (s byMemory) Less(i, j int) bool {
 	return inst0.Cost > inst1.Cost
 }
 
-//by Type is used to sort a slice by name by best effort. As we have different separators for different providers
-//we do it by best effort using "-" and "."
-//A possible sort could be:
-//a1.2xlarge, a1.large, lexical sort would put a1.2xlarge before a1.large -- aws
+// ByName is used to sort a slice by name by best effort. As we have different separators for different providers
+// A possible sort could be:
+// We sort by using a lexical sort for the type, which is before the delimiter,
+// and if they are the same, we sort by using the cost
 
 type ByName []InstanceType
 
