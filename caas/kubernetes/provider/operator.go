@@ -46,6 +46,17 @@ func (k *kubernetesClient) deleteOperatorRBACResources(appName string) error {
 }
 
 func (k *kubernetesClient) ensureOperatorRBACResources(operatorName string, labels map[string]string) (sa *core.ServiceAccount, cleanUps []func(), err error) {
+	defer func() {
+		// ensure cleanup in reversed order.
+		i := 0
+		j := len(cleanUps) - 1
+		for i < j {
+			cleanUps[i], cleanUps[j] = cleanUps[j], cleanUps[i]
+			i++
+			j--
+		}
+	}()
+
 	mountToken := true
 	// ensure service account.
 	saSpec := &core.ServiceAccount{
@@ -56,7 +67,6 @@ func (k *kubernetesClient) ensureOperatorRBACResources(operatorName string, labe
 		},
 		AutomountServiceAccountToken: &mountToken,
 	}
-	// ensure service account.
 	sa, saCleanups, err := k.ensureServiceAccount(saSpec)
 	cleanUps = append(cleanUps, saCleanups...)
 	if err != nil {
@@ -228,7 +238,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		config.OperatorImagePath,
 		config.Version.String(),
 		annotations.Copy(),
-		sa,
+		sa.GetName(),
 	)
 	if err != nil {
 		return errors.Annotate(err, "generating operator podspec")
@@ -471,7 +481,7 @@ func operatorPod(
 	operatorImagePath,
 	version string,
 	annotations k8sannotations.Annotation,
-	sa *core.ServiceAccount,
+	serviceAccountName string,
 ) (*core.Pod, error) {
 	configMapName := operatorConfigMapName(podName)
 	configVolName := configMapName
@@ -495,7 +505,7 @@ func operatorPod(
 			Labels: operatorLabels(appName),
 		},
 		Spec: core.PodSpec{
-			ServiceAccountName:           sa.GetName(),
+			ServiceAccountName:           serviceAccountName,
 			AutomountServiceAccountToken: &mountToken,
 			Containers: []core.Container{{
 				Name:            operatorContainerName,
