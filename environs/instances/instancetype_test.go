@@ -409,3 +409,74 @@ func (s *instanceTypeSuite) TestSortByCost(c *gc.C) {
 		c.Check(names, gc.DeepEquals, t.expectedItypes)
 	}
 }
+
+var byNameTests = []struct {
+	about          string
+	itypesToUse    []InstanceType
+	expectedItypes []string
+}{
+	{
+		about: "when different Name, pick lowest Name after delimiter",
+		itypesToUse: []InstanceType{
+			{Id: "2", Name: "a1.xLarge", CpuCores: 2, Mem: 4096, Cost: 240},
+			{Id: "1", Name: "c2.12xLarge", CpuCores: 1, Mem: 2048, Cost: 241},
+		},
+		expectedItypes: []string{
+			"a1.xLarge", "c2.12xLarge",
+		},
+	}, {
+		about: "when differentsame Name before delimiter, pick lowest cost",
+		itypesToUse: []InstanceType{
+			{Id: "2", Name: "a1.xLarge", CpuCores: 2, Mem: 4096, Cost: 240},
+			{Id: "3", Name: "a1.6xLarge", CpuCores: 2, Mem: 4096, Cost: 440},
+			{Id: "1", Name: "a1.12xLarge", CpuCores: 1, Mem: 2048, Cost: 800},
+		},
+		expectedItypes: []string{
+			"a1.xLarge", "a1.6xLarge", "a1.12xLarge",
+		},
+	},
+	{
+		about: "when name mixture, same and different, before delimiter, pick lowest cost",
+		itypesToUse: []InstanceType{
+			{Id: "2", Name: "a1.xLarge", CpuCores: 2, Mem: 4096, Cost: 240},
+			{Id: "3", Name: "a1.6xLarge", CpuCores: 2, Mem: 4096, Cost: 440},
+			{Id: "4", Name: "b1.4xLarge", CpuCores: 2, Mem: 4096, Cost: 500},
+			{Id: "5", Name: "b1.2xLarge", CpuCores: 2, Mem: 4096, Cost: 400},
+			{Id: "1", Name: "a1.12xLarge", CpuCores: 1, Mem: 2048, Cost: 800},
+		},
+		expectedItypes: []string{
+			"a1.xLarge", "a1.6xLarge", "a1.12xLarge", "b1.2xLarge", "b1.4xLarge",
+		},
+	},
+	{
+		about: "when different no delimiter, base to lexical sort",
+		itypesToUse: []InstanceType{
+			{Id: "2", Name: "a1xLarge", CpuCores: 2, Mem: 4096, Cost: 300},
+			{Id: "1", Name: "c212xLarge", CpuCores: 1, Mem: 2048, Cost: 241},
+		},
+		expectedItypes: []string{
+			"a1xLarge", "c212xLarge",
+		},
+	}, {
+		about: "when different not defined delimiter, base to lexical sort",
+		itypesToUse: []InstanceType{
+			{Id: "2", Name: "a1+12xlarge", CpuCores: 2, Mem: 4096, Cost: 890},
+			{Id: "1", Name: "c2+12xLarge", CpuCores: 1, Mem: 2048, Cost: 800},
+		},
+		expectedItypes: []string{
+			"a1+12xlarge", "c2+12xLarge",
+		},
+	},
+}
+
+func (s *instanceTypeSuite) TestSortByName(c *gc.C) {
+	for i, t := range byNameTests {
+		c.Logf("test %d: %s", i, t.about)
+		sort.Sort(ByName(t.itypesToUse))
+		names := make([]string, len(t.itypesToUse))
+		for i, itype := range t.itypesToUse {
+			names[i] = itype.Name
+		}
+		c.Check(names, gc.DeepEquals, t.expectedItypes)
+	}
+}

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -562,6 +563,7 @@ func (e *Environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 	for i, flavor := range flavors {
 		instTypeNames[i] = flavor.Name
 	}
+	sort.Strings(instTypeNames)
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
 	validator.RegisterVocabulary(constraints.VirtType, []string{"kvm", "lxd"})
 	validator.RegisterVocabulary(constraints.RootDiskSource, []string{rootDiskSourceVolume})

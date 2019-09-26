@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -177,13 +178,16 @@ func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 		[]string{constraints.Mem, constraints.Cores, constraints.CpuPower})
 	validator.RegisterUnsupported(unsupportedConstraints)
 	instanceTypes, err := e.supportedInstanceTypes(ctx)
+
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	sort.Sort(instances.ByName(instanceTypes))
 	instTypeNames := make([]string, len(instanceTypes))
 	for i, itype := range instanceTypes {
 		instTypeNames[i] = itype.Name
 	}
+
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
 	return validator, nil
 }
