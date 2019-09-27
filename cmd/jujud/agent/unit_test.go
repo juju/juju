@@ -223,7 +223,7 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	// Set the machine agent version to trigger an upgrade.
 	err = machine.SetAgentVersion(newVers)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runWithTimeout(agent)
+	err = runWithTimeout(c, agent)
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
 		AgentName: unit.Tag().String(),
 		OldTools:  currentTools.Version,
@@ -243,7 +243,7 @@ func (s *UnitSuite) TestUpgradeFailsWithoutTools(c *gc.C) {
 	newVers.Patch++
 	err := machine.SetAgentVersion(newVers)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runWithTimeout(agent)
+	err = runWithTimeout(c, agent)
 	c.Assert(err, gc.ErrorMatches, "timed out waiting for agent to finish.*")
 }
 
@@ -252,14 +252,14 @@ func (s *UnitSuite) TestWithDeadUnit(c *gc.C) {
 	err := unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	a := s.newAgent(c, unit)
-	err = runWithTimeout(a)
+	err = runWithTimeout(c, a)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// try again when the unit has been removed.
 	err = unit.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	a = s.newAgent(c, unit)
-	err = runWithTimeout(a)
+	err = runWithTimeout(c, a)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

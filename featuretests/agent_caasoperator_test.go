@@ -95,7 +95,8 @@ func waitForApplicationActive(c *gc.C, dataDir, appTag string) {
 func (s *CAASOperatorSuite) TestRunStop(c *gc.C) {
 	app, config, _ := s.primeAgent(c)
 	a := s.newAgent(c, app)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	ctx := cmdtesting.Context(c)
+	go func() { c.Check(a.Run(ctx), gc.IsNil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 	waitForApplicationActive(c, config.DataDir(), app.Tag().String())
 }
@@ -103,7 +104,8 @@ func (s *CAASOperatorSuite) TestRunStop(c *gc.C) {
 func (s *CAASOperatorSuite) TestOpenStateFails(c *gc.C) {
 	app, config, _ := s.primeAgent(c)
 	a := s.newAgent(c, app)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	ctx := cmdtesting.Context(c)
+	go func() { c.Check(a.Run(ctx), gc.IsNil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 	waitForApplicationActive(c, config.DataDir(), app.Tag().String())
 
@@ -174,7 +176,7 @@ func (s *CAASOperatorSuite) TestWorkers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.InitAgent(c, a, "--application-name", app.Name())
 
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	go func() { c.Check(a.Run(ctx), gc.IsNil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, a.Tag().String(),
