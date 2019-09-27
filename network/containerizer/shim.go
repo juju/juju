@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate mockgen -package containerizer -destination bridgepolicy_mock_test.go github.com/juju/juju/network/containerizer Container,Unit,Application
+//go:generate mockgen -package containerizer -destination bridgepolicy_mock_test.go github.com/juju/juju/network/containerizer Container,Unit,Application,Spaces
 
 // SpaceBacking describes the retrieval of all spaces from the DB.
 type SpaceBacking interface {
@@ -58,10 +58,10 @@ func (s *spaceCache) GetByID(id string) (network.SpaceInfo, error) {
 }
 
 // GetByName implements Spaces.
-func (s *spaceCache) GetByName(id string) (network.SpaceInfo, error) {
-	sp := s.spaces.GetByID(id)
+func (s *spaceCache) GetByName(name string) (network.SpaceInfo, error) {
+	sp := s.spaces.GetByName(name)
 	if sp == nil {
-		return network.SpaceInfo{}, errors.NotFoundf("space with ID %q", id)
+		return network.SpaceInfo{}, errors.NotFoundf("space with name %q", name)
 	}
 	return *sp, nil
 }
@@ -108,7 +108,7 @@ var _ LinkLayerDevice = (*linkLayerDevice)(nil)
 type Machine interface {
 	Id() string
 	AllSpaces() (set.Strings, error)
-	LinkLayerDevicesForSpaces([]string) (map[string][]LinkLayerDevice, error)
+	LinkLayerDevicesForSpaces(infos network.SpaceInfos) (map[string][]LinkLayerDevice, error)
 	SetLinkLayerDevices(devicesArgs ...state.LinkLayerDeviceArgs) (err error)
 	AllLinkLayerDevices() ([]LinkLayerDevice, error)
 
@@ -138,7 +138,7 @@ func NewMachine(m *state.Machine) *MachineShim {
 // LinkLayerDevicesForSpaces implements Machine by unwrapping the inner
 // state.Machine call and wrapping the raw state.LinkLayerDevice references
 // with the local LinkLayerDevice implementation.
-func (m *MachineShim) LinkLayerDevicesForSpaces(spaces []string) (map[string][]LinkLayerDevice, error) {
+func (m *MachineShim) LinkLayerDevicesForSpaces(spaces network.SpaceInfos) (map[string][]LinkLayerDevice, error) {
 	spaceDevs, err := m.Machine.LinkLayerDevicesForSpaces(spaces)
 	if err != nil {
 		return nil, errors.Trace(err)

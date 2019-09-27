@@ -958,7 +958,7 @@ func deviceMapToSortedList(deviceMap map[string]*LinkLayerDevice) []*LinkLayerDe
 // Note that devices like 'lxdbr0' that are bridges that might might not be
 // externally accessible may be returned if "" is listed as one of the desired
 // spaces.
-func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*LinkLayerDevice, error) {
+func (m *Machine) LinkLayerDevicesForSpaces(spaces corenetwork.SpaceInfos) (map[string][]*LinkLayerDevice, error) {
 	addresses, err := m.AllAddresses()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -971,7 +971,12 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*Link
 	for _, dev := range devices {
 		deviceByName[dev.Name()] = dev
 	}
-	requestedSpaces := set.NewStrings(spaces...)
+
+	// TODO (manadart 2019-09-27): Once subnet space designation is by ID,
+	// subnet space determination here will need to change.
+	// The return should also index by space ID instead of name.
+	// It is worth breaking this method into smaller pieces at that time.
+	requestedSpaces := set.NewStrings(spaces.Names()...)
 	spaceToDevices := make(map[string]map[string]*LinkLayerDevice, 0)
 	processedDeviceNames := set.NewStrings()
 	includeDevice := func(spaceName string, device *LinkLayerDevice) {
