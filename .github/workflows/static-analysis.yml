@@ -1,9 +1,9 @@
-name: Go
-on: [push]
+name: "Static Analysis"
+on: [push, pull_request]
 jobs:
 
   lint:
-    name: Static Analysis
+    name: Lint
     runs-on: ubuntu-latest
     steps:
 
@@ -85,3 +85,4 @@ jobs:
       run: |
         STATIC_ANALYSIS_JOB=test_schema make static-analysis
       shell: bash
+
