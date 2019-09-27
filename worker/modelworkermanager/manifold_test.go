@@ -5,14 +5,17 @@ package modelworkermanager_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 	dt "gopkg.in/juju/worker.v1/dependency/testing"
 	"gopkg.in/juju/worker.v1/workertest"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	jworker "github.com/juju/juju/worker"
@@ -39,14 +42,18 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.context = s.newContext(nil)
 	s.manifold = modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
+		AgentName:      "agent",
 		StateName:      "state",
 		NewWorker:      s.newWorker,
 		NewModelWorker: s.newModelWorker,
+		Logger:         loggo.GetLogger("test"),
 	})
 }
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
-	resources := map[string]interface{}{"state": &s.stateTracker}
+	resources := map[string]interface{}{
+		"agent": &fakeAgent{},
+		"state": &s.stateTracker}
 	for k, v := range overlay {
 		resources[k] = v
 	}
@@ -61,15 +68,15 @@ func (s *ManifoldSuite) newWorker(config modelworkermanager.Config) (worker.Work
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
-func (s *ManifoldSuite) newModelWorker(modelUUID string, modelType state.ModelType) (worker.Worker, error) {
-	s.stub.MethodCall(s, "NewModelWorker", modelUUID, modelType)
+func (s *ManifoldSuite) newModelWorker(config modelworkermanager.NewModelConfig) (worker.Worker, error) {
+	s.stub.MethodCall(s, "NewModelWorker", config)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
-var expectedInputs = []string{"state"}
+var expectedInputs = []string{"agent", "state"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -96,17 +103,23 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config := args[0].(modelworkermanager.Config)
 
 	c.Assert(config.NewModelWorker, gc.NotNil)
-	mw, err := config.NewModelWorker("foo", state.ModelTypeIAAS)
+	modelConfig := modelworkermanager.NewModelConfig{
+		ModelUUID: "foo",
+		ModelType: state.ModelTypeIAAS,
+	}
+	mw, err := config.NewModelWorker(modelConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, mw)
 	s.stub.CheckCallNames(c, "NewWorker", "NewModelWorker")
-	s.stub.CheckCall(c, 1, "NewModelWorker", "foo", state.ModelTypeIAAS)
+	s.stub.CheckCall(c, 1, "NewModelWorker", modelConfig)
 	config.NewModelWorker = nil
 
 	c.Assert(config, jc.DeepEquals, modelworkermanager.Config{
 		ModelWatcher: s.State,
 		Controller:   modelworkermanager.StatePoolController{s.StatePool},
 		ErrorDelay:   jworker.RestartDelay,
+		Logger:       loggo.GetLogger("test"),
+		MachineID:    "1",
 	})
 }
 
@@ -145,4 +158,17 @@ func (s *stubStateTracker) Done() error {
 func (s *stubStateTracker) Report() map[string]interface{} {
 	s.MethodCall(s, "Report")
 	return nil
+}
+
+type fakeAgent struct {
+	agent.Agent
+	agent.Config
+}
+
+func (f *fakeAgent) CurrentConfig() agent.Config {
+	return f
+}
+
+func (f *fakeAgent) Tag() names.Tag {
+	return names.NewMachineTag("1")
 }
