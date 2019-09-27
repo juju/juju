@@ -2062,42 +2062,42 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	s.assertRemoteApplicationSpaces(c, remoteApp, remoteApplication)
 }
 
-func (s *MigrationImportSuite) assertRemoteApplicationEndpoints(c *gc.C, expected, recieved *state.RemoteApplication) {
-	recievedEndpoints, err := recieved.Endpoints()
+func (s *MigrationImportSuite) assertRemoteApplicationEndpoints(c *gc.C, expected, received *state.RemoteApplication) {
+	receivedEndpoints, err := received.Endpoints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(recievedEndpoints, gc.HasLen, 3)
+	c.Assert(receivedEndpoints, gc.HasLen, 3)
 
 	expectedEndpoints, err := expected.Endpoints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(expectedEndpoints, gc.HasLen, 3)
 
 	for k, expectedEndpoint := range expectedEndpoints {
-		recievedEndpoint := recievedEndpoints[k]
-		c.Assert(recievedEndpoint.Interface, gc.Equals, expectedEndpoint.Interface)
-		c.Assert(recievedEndpoint.Name, gc.Equals, expectedEndpoint.Name)
+		receivedEndpoint := receivedEndpoints[k]
+		c.Assert(receivedEndpoint.Interface, gc.Equals, expectedEndpoint.Interface)
+		c.Assert(receivedEndpoint.Name, gc.Equals, expectedEndpoint.Name)
 	}
 }
 
-func (s *MigrationImportSuite) assertRemoteApplicationSpaces(c *gc.C, expected, recieved *state.RemoteApplication) {
-	recievedSpaces := recieved.Spaces()
-	c.Assert(recievedSpaces, gc.HasLen, 1)
+func (s *MigrationImportSuite) assertRemoteApplicationSpaces(c *gc.C, expected, received *state.RemoteApplication) {
+	receivedSpaces := received.Spaces()
+	c.Assert(receivedSpaces, gc.HasLen, 1)
 
 	expectedSpaces := expected.Spaces()
 	c.Assert(expectedSpaces, gc.HasLen, 1)
 	for k, expectedSpace := range expectedSpaces {
-		recievedSpace := recievedSpaces[k]
-		c.Assert(recievedSpace.Name, gc.Equals, expectedSpace.Name)
-		c.Assert(recievedSpace.ProviderId, gc.Equals, expectedSpace.ProviderId)
+		receivedSpace := receivedSpaces[k]
+		c.Assert(receivedSpace.Name, gc.Equals, expectedSpace.Name)
+		c.Assert(receivedSpace.ProviderId, gc.Equals, expectedSpace.ProviderId)
 
-		c.Assert(recievedSpace.Subnets, gc.HasLen, 1)
-		recievedSubnet := recievedSpace.Subnets[0]
+		c.Assert(receivedSpace.Subnets, gc.HasLen, 1)
+		receivedSubnet := receivedSpace.Subnets[0]
 
 		c.Assert(expectedSpace.Subnets, gc.HasLen, 1)
 		expectedSubnet := expectedSpace.Subnets[0]
 
-		c.Assert(recievedSubnet.CIDR, gc.Equals, expectedSubnet.CIDR)
-		c.Assert(recievedSubnet.ProviderId, gc.Equals, expectedSubnet.ProviderId)
-		c.Assert(recievedSubnet.AvailabilityZones, gc.DeepEquals, expectedSubnet.AvailabilityZones)
+		c.Assert(receivedSubnet.CIDR, gc.Equals, expectedSubnet.CIDR)
+		c.Assert(receivedSubnet.ProviderId, gc.Equals, expectedSubnet.ProviderId)
+		c.Assert(receivedSubnet.AvailabilityZones, gc.DeepEquals, expectedSubnet.AvailabilityZones)
 	}
 }
 

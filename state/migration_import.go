@@ -1439,7 +1439,7 @@ func (i *importer) remoteEntities() error {
 //go:generate mockgen -package state -destination migration_import_mock_test.go github.com/juju/juju/state TransactionRunner,StateDocumentFactory,DocModelNamespace,ModelRemoteEntities,ModelRelationNetworks,ModelRemoteApplications
 //go:generate mockgen -package state -destination migration_description_mock_test.go github.com/juju/description RemoteEntity,RelationNetwork,RemoteApplication,RemoteSpace,Status
 
-// TransactionRunner is an inplace useage for running transactions to a
+// TransactionRunner is an inplace usage for running transactions to a
 // persistence store.
 type TransactionRunner interface {
 	RunTransaction([]txn.Op) error
