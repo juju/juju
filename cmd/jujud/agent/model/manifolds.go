@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/worker/lifeflag"
 	"github.com/juju/juju/worker/logforwarder"
 	"github.com/juju/juju/worker/logforwarder/sinks"
+	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/machineundertaker"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/migrationflag"
@@ -80,6 +81,11 @@ type ManifoldsConfig struct {
 	// Clock supplies timing services to any manifolds that need them.
 	// Only a few workers have been converted to use them fo far.
 	Clock clock.Clock
+
+	// LoggingContext holds the model writers so that the loggers
+	// for the workers running on behalf of other models get their logs
+	// written into the model's logging collection rather than the controller's.
+	LoggingContext *loggo.Context
 
 	// InstPollerAggregationDelay is the delay before sending a batch of
 	// requests in the instancepoller.Worker's aggregate loop.
@@ -139,6 +145,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewConnection: apicaller.OnlyConnect,
 			Filter:        apiConnectFilter,
 		}),
+
+		// The logging config updater listents for logging config updates
+		// for the model and configures the logging context appropriately.
+		loggingConfigUpdaterName: ifNotMigrating(logger.Manifold(logger.ManifoldConfig{
+			AgentName:      agentName,
+			APICallerName:  apiCallerName,
+			LoggingContext: config.LoggingContext,
+			Logger:         config.LoggingContext.GetLogger("juju.worker.logger"),
+		})),
 
 		// All other manifolds should depend on at least one of these
 		// three, which handle all the tasks that are safe and sane
@@ -326,7 +341,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:      apiCallerName,
 			CloudDestroyerName: environTrackerName,
 
-			Logger:                       loggo.GetLogger("juju.worker.undertaker"),
+			Logger:                       config.LoggingContext.GetLogger("juju.worker.undertaker"),
 			NewFacade:                    undertaker.NewFacade,
 			NewWorker:                    undertaker.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
@@ -337,7 +352,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
-			Logger:        loggo.GetLogger("juju.worker.provisioner"),
+			Logger:        config.LoggingContext.GetLogger("juju.worker.provisioner"),
 
 			NewProvisionerFunc:           provisioner.NewEnvironProvisioner,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
@@ -399,7 +414,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
-			Logger:        loggo.GetLogger("juju.worker.instancemutater"),
+			Logger:        config.LoggingContext.GetLogger("juju.worker.instancemutater"),
 			NewClient:     instancemutater.NewClient,
 			NewWorker:     instancemutater.NewEnvironWorker,
 		})),
@@ -420,10 +435,9 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	manifolds := dependency.Manifolds{
 		// The undertaker is currently the only ifNotAlive worker.
 		undertakerName: ifNotUpgrading(ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
-			APICallerName:      apiCallerName,
-			CloudDestroyerName: caasBrokerTrackerName,
-
-			Logger:                       loggo.GetLogger("juju.worker.undertaker"),
+			APICallerName:                apiCallerName,
+			CloudDestroyerName:           caasBrokerTrackerName,
+			Logger:                       config.LoggingContext.GetLogger("juju.worker.undertaker"),
 			NewFacade:                    undertaker.NewFacade,
 			NewWorker:                    undertaker.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
@@ -598,6 +612,7 @@ const (
 	machineUndertakerName    = "machine-undertaker"
 	remoteRelationsName      = "remote-relations"
 	logForwarderName         = "log-forwarder"
+	loggingConfigUpdaterName = "logging-config-updater"
 	instanceMutaterName      = "instance-mutater"
 
 	caasFirewallerName          = "caas-firewaller"

@@ -105,7 +105,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 
 	c.Assert(config, jc.DeepEquals, modelworkermanager.Config{
 		ModelWatcher: s.State,
-		ModelGetter:  modelworkermanager.StatePoolModelGetter{s.StatePool},
+		Controller:   modelworkermanager.StatePoolController{s.StatePool},
 		ErrorDelay:   jworker.RestartDelay,
 	})
 }
