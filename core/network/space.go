@@ -47,11 +47,16 @@ type SpaceInfos []SpaceInfo
 
 // String returns the comma-delimited names of the spaces in the collection.
 func (s SpaceInfos) String() string {
-	namesString := make([]string, len(s))
+	return strings.Join(s.Names(), ", ")
+}
+
+// Names returns a string slice with each of the space names in the collection.
+func (s SpaceInfos) Names() []string {
+	names := make([]string, len(s))
 	for i, v := range s {
-		namesString[i] = string(v.Name)
+		names[i] = string(v.Name)
 	}
-	return strings.Join(namesString, ", ")
+	return names
 }
 
 // GetByID returns a reference to the space with the input ID
