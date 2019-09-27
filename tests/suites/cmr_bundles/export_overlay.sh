@@ -46,7 +46,7 @@ test_export_overlay() {
     (
         set_verbosity
 
-        cd ../
+        cd .. || exit
 
         run "run_export_overlay"
     )

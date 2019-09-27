@@ -4,6 +4,9 @@ test_smoke() {
         return
     fi
 
+    echo "==> Checking for dependencies"
+    check_dependencies juju
+
     file="${TEST_DIR}/test-smoke.txt"
 
     bootstrap "test-smoke" "${file}"

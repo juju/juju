@@ -216,6 +216,11 @@ local-operator-update: check-k8s-model operator-image
 	$(foreach wm,$(kubeworkers), juju scp -m ${JUJU_K8S_MODEL} /tmp/jujud-operator-image.tar.gz $(wm):/tmp/jujud-operator-image.tar.gz ; )
 	$(foreach wm,$(kubeworkers), juju ssh -m ${JUJU_K8S_MODEL} $(wm) -- "zcat /tmp/jujud-operator-image.tar.gz | docker load" ; )
 
+STATIC_ANALYSIS_JOB ?= 
+
+static-analysis:
+	@cd tests && ./main.sh static_analysis ${STATIC_ANALYSIS_JOB}
+
 .PHONY: build check install release-install release-build go-build go-install
 .PHONY: clean format simplify test run-tests
 .PHONY: install-dependencies

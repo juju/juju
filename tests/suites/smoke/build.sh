@@ -17,7 +17,7 @@ test_build() {
     (
         set_verbosity
 
-        cd ../
+        cd .. || exit
 
         # Check that build runs
         run "run_build"

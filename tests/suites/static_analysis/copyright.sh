@@ -19,7 +19,7 @@ test_copyright() {
     (
         set_verbosity
 
-        cd ../
+        cd .. || exit
 
         # Check for copyright notices
         run "run_copyright"
