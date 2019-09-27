@@ -230,7 +230,6 @@ func (s *InterfaceSuite) TestConfigCaching(c *gc.C) {
 }
 
 func (s *InterfaceSuite) TestGoalState(c *gc.C) {
-
 	timestamp := time.Date(2200, time.November, 5, 0, 0, 0, 0, time.UTC)
 	mockUnitSince := func(inUnits application.UnitsGoalState) application.UnitsGoalState {
 		outUnits := application.UnitsGoalState{}
