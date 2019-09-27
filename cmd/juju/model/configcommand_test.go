@@ -106,7 +106,7 @@ func (s *ConfigCommandSuite) TestSingleValueOutputFile(c *gc.C) {
 
 func (s *ConfigCommandSuite) TestGetUnknownValue(c *gc.C) {
 	context, err := s.run(c, "unknown")
-	c.Assert(err, gc.ErrorMatches, `value: "unknown" seems to be neither a file nor a key of the currently targeted model: {<nil> \"\"}`)
+	c.Assert(err, gc.ErrorMatches, `"unknown" seems to be neither a file nor a key of the currently targeted model: {<nil> \"\"}`)
 
 	output := cmdtesting.Stdout(context)
 	c.Assert(output, gc.Equals, "")
@@ -114,7 +114,39 @@ func (s *ConfigCommandSuite) TestGetUnknownValue(c *gc.C) {
 
 func (s *ConfigCommandSuite) TestGetProperErrorMessageOnPaths(c *gc.C) {
 	context, err := s.run(c, "bundles/k8s-model-config.yaml")
-	c.Assert(err, gc.ErrorMatches, `value: "bundles/k8s-model-config.yaml" seems to be a file but not found`)
+	c.Assert(err, gc.ErrorMatches, `"bundles/k8s-model-config.yaml" seems to be a file but not found`)
+
+	output := cmdtesting.Stdout(context)
+	c.Assert(output, gc.Equals, "")
+}
+
+func (s *ConfigCommandSuite) TestGetFileLike(c *gc.C) {
+	context, err := s.run(c, "bundles/k8s-model-config.json")
+	c.Assert(err, gc.ErrorMatches, `"bundles/k8s-model-config.json" seems to be a file but not found`)
+
+	output := cmdtesting.Stdout(context)
+	c.Assert(output, gc.Equals, "")
+}
+
+func (s *ConfigCommandSuite) TestNotFileLike(c *gc.C) {
+	context, err := s.run(c, "bundles/k8s-model-config--json")
+	c.Assert(err, gc.ErrorMatches, `"bundles/k8s-model-config--json" seems to be neither a file nor a key of the currently targeted model: {<nil> \"\"}`)
+
+	output := cmdtesting.Stdout(context)
+	c.Assert(output, gc.Equals, "")
+}
+
+func (s *ConfigCommandSuite) TestNotFileLikeEndsWithDot(c *gc.C) {
+	context, err := s.run(c, "bundles/k8s-model-config.")
+	c.Assert(err, gc.ErrorMatches, `"bundles/k8s-model-config." seems to be neither a file nor a key of the currently targeted model: {<nil> \"\"}`)
+
+	output := cmdtesting.Stdout(context)
+	c.Assert(output, gc.Equals, "")
+}
+
+func (s *ConfigCommandSuite) TestNotFileLikeEndsTooLong(c *gc.C) {
+	context, err := s.run(c, "bundles/k8s-model-config.fksdkfsd")
+	c.Assert(err, gc.ErrorMatches, `"bundles/k8s-model-config.fksdkfsd" seems to be neither a file nor a key of the currently targeted model: {<nil> \"\"}`)
 
 	output := cmdtesting.Stdout(context)
 	c.Assert(output, gc.Equals, "")

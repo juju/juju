@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -304,7 +305,7 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 		_, _ = ctx.Stdout.Write(certBytes)
 		return nil
 	}
-	attrs, err := c.getSkimmedModel(client)
+	attrs, err := c.getFilteredModel(client)
 	if err != nil {
 		return err
 	}
@@ -315,15 +316,15 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 		return c.out.Write(ctx, attrs)
 	} else if len(c.keys) > 0 && !finished {
 		if isFileLike(c.keys[0]) {
-			return errors.Errorf("value: %q seems to be a file but not found", c.keys[0])
+			return errors.Errorf("%q seems to be a file but not found", c.keys[0])
 		} else {
-			return errors.Errorf("value: %q seems to be neither a file nor a key of the currently targeted model: %q", c.keys[0], attrs["name"])
+			return errors.Errorf("%q seems to be neither a file nor a key of the currently targeted model: %q", c.keys[0], attrs["name"])
 		}
 	}
 	return nil
 }
 
-func (c *configCommand) getSkimmedModel(client configCommandAPI) (config.ConfigValues, error) {
+func (c *configCommand) getFilteredModel(client configCommandAPI) (config.ConfigValues, error) {
 	attrs, err := client.ModelGetWithMetadata()
 	if err != nil {
 		return nil, err
@@ -338,10 +339,15 @@ func (c *configCommand) getSkimmedModel(client configCommandAPI) (config.ConfigV
 }
 
 func isFileLike(fileLike string) bool {
-	if strings.HasSuffix(fileLike, ".yaml") || strings.HasSuffix(fileLike, ".json") {
-		return true
+	r, _ := regexp.Compile("\\.[a-zA-Z]{0,4}$")
+	match := r.FindString(fileLike)
+	if strings.HasSuffix(match, ".") {
+		return false
 	}
-	return false
+	if match == "" || match == " " {
+		return false
+	}
+	return true
 }
 
 func (c *configCommand) handleIsKeyOfModel(attrs config.ConfigValues, ctx *cmd.Context) (config.ConfigValues, error, bool) {
