@@ -106,7 +106,15 @@ func (s *ConfigCommandSuite) TestSingleValueOutputFile(c *gc.C) {
 
 func (s *ConfigCommandSuite) TestGetUnknownValue(c *gc.C) {
 	context, err := s.run(c, "unknown")
-	c.Assert(err, gc.ErrorMatches, `key "unknown" not found in {<nil> ""} model.`)
+	c.Assert(err, gc.ErrorMatches, `value: "unknown" seems to be neither a file nor a key of the currently targeted model: {<nil> \"\"}`)
+
+	output := cmdtesting.Stdout(context)
+	c.Assert(output, gc.Equals, "")
+}
+
+func (s *ConfigCommandSuite) TestGetProperErrorMessageOnPaths(c *gc.C) {
+	context, err := s.run(c, "bundles/k8s-model-config.yaml")
+	c.Assert(err, gc.ErrorMatches, `value: "bundles/k8s-model-config.yaml" seems to be a file but not found`)
 
 	output := cmdtesting.Stdout(context)
 	c.Assert(output, gc.Equals, "")
