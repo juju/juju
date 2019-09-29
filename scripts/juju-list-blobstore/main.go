@@ -804,7 +804,7 @@ func (b *BlobStoreChecker) checkUnreferencedFiles() {
 		unreferencedBytes += length
 	}
 	if wroteHeader {
-		fmt.Fprint(os.Stdout, "\n  total unreferenced blobstore file bytes: %s\n", lengthToSize(unreferencedBytes))
+		fmt.Fprintf(os.Stdout, "\n  total unreferenced blobstore file bytes: %s\n", lengthToSize(unreferencedBytes))
 	} else {
 		fmt.Fprint(os.Stdout, "\nNo Unknown Blobstore Files\n")
 	}
