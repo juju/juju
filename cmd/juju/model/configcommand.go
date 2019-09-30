@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -301,22 +302,55 @@ func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) err
 // get writes the value of a single key or the full output for the model to the cmd.Context.
 func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) error {
 	if len(c.keys) == 1 && certBytes != nil {
-		ctx.Stdout.Write(certBytes)
+		_, _ = ctx.Stdout.Write(certBytes)
 		return nil
 	}
-	attrs, err := client.ModelGetWithMetadata()
+	attrs, err := c.getFilteredModel(client)
 	if err != nil {
 		return err
 	}
+	attrs, err, finished := c.handleIsKeyOfModel(attrs, ctx)
+	if err != nil {
+		return err
+	} else if attrs != nil && finished {
+		return c.out.Write(ctx, attrs)
+	} else if len(c.keys) > 0 && !finished {
+		if isFileLike(c.keys[0]) {
+			return errors.Errorf("%q seems to be a file but not found", c.keys[0])
+		} else {
+			return errors.Errorf("%q seems to be neither a file nor a key of the currently targeted model: %q", c.keys[0], attrs["name"])
+		}
+	}
+	return nil
+}
 
+func (c *configCommand) getFilteredModel(client configCommandAPI) (config.ConfigValues, error) {
+	attrs, err := client.ModelGetWithMetadata()
+	if err != nil {
+		return nil, err
+	}
 	for attrName := range attrs {
-		// We don't want model attributes included, these are available
-		// via show-model.
+		// We don't want model attributes included, these are available via show-model.
 		if c.isModelAttribute(attrName) {
 			delete(attrs, attrName)
 		}
 	}
+	return attrs, nil
+}
 
+func isFileLike(fileLike string) bool {
+	r, _ := regexp.Compile("\\.[a-zA-Z]{0,4}$")
+	match := r.FindString(fileLike)
+	if strings.HasSuffix(match, ".") {
+		return false
+	}
+	if match == "" || match == " " {
+		return false
+	}
+	return true
+}
+
+func (c *configCommand) handleIsKeyOfModel(attrs config.ConfigValues, ctx *cmd.Context) (config.ConfigValues, error, bool) {
 	if len(c.keys) == 1 {
 		key := c.keys[0]
 		if value, found := attrs[key]; found {
@@ -324,20 +358,12 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 				// The user has not specified that they want
 				// YAML or JSON formatting, so we print out
 				// the value unadorned.
-				return c.out.WriteFormatter(
-					ctx,
-					cmd.FormatSmart,
-					value.Value,
-				)
-			}
-			attrs = config.ConfigValues{
-				key: config.ConfigValue{
-					Source: value.Source,
-					Value:  value.Value,
-				},
+				return nil, c.out.WriteFormatter(ctx, cmd.FormatSmart, value.Value), true
+			} else {
+				return config.ConfigValues{key: config.ConfigValue{Source: value.Source, Value: value.Value}}, nil, true
 			}
 		} else {
-			return errors.Errorf("key %q not found in %q model.", key, attrs["name"])
+			return attrs, nil, false
 		}
 	} else {
 		// In tabular format, don't print "cloudinit-userdata" it can be very long,
@@ -347,10 +373,10 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 				value.Value = "<value set, see juju model-config cloudinit-userdata>"
 				attrs["cloudinit-userdata"] = value
 			}
+			return attrs, nil, true
 		}
 	}
-
-	return c.out.Write(ctx, attrs)
+	return attrs, nil, true
 }
 
 // verifyKnownKeys is a helper to validate the keys we are operating with
