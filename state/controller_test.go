@@ -44,6 +44,8 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.MaxLogsSize,
 		controller.MaxPruneTxnBatchSize,
 		controller.MaxPruneTxnPasses,
+		controller.ModelLogfileMaxBackups,
+		controller.ModelLogfileMaxSize,
 		controller.PruneTxnQueryCount,
 		controller.PruneTxnSleepTime,
 		controller.CAASOperatorImagePath,
