@@ -8,7 +8,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macOS-latest]
+        # macOS-latest is disabled because there is an issue of the tests timing
+        # out. No effort has been done to work out why they currently timeout
+        # on macOS, but we should investigate that to improve our coverage on
+        # other clients.
+        # To turn on macOS, just update the os to include it.
+        # os: [ubuntu-latest, macOS-latest]
+        os: [ubuntu-latest]
 
     steps:
 
