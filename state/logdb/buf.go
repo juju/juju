@@ -17,16 +17,13 @@ import (
 type Logger interface {
 	// Log writes the given log records to the logger's storage.
 	Log([]state.LogRecord) error
-	Close()
 }
 
 // BufferedLogger wraps a Logger, providing a buffer that
 // accumulates log messages, flushing them to the underlying logger
 // when enough messages have been accumulated.
 type BufferedLogger struct {
-	// Use struct embedding to get the Close method.
-	Logger
-
+	l             Logger
 	clock         clock.Clock
 	flushInterval time.Duration
 
@@ -44,7 +41,7 @@ func NewBufferedLogger(
 	clock clock.Clock,
 ) *BufferedLogger {
 	return &BufferedLogger{
-		Logger:        l,
+		l:             l,
 		buf:           make([]state.LogRecord, 0, bufferSize),
 		clock:         clock,
 		flushInterval: flushInterval,
@@ -103,7 +100,7 @@ func (b *BufferedLogger) flush() error {
 		b.flushTimer = nil
 	}
 	if len(b.buf) > 0 {
-		if err := b.Logger.Log(b.buf); err != nil {
+		if err := b.l.Log(b.buf); err != nil {
 			return errors.Trace(err)
 		}
 		b.buf = b.buf[:0]
