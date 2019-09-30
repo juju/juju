@@ -42,7 +42,13 @@ var verbose = gnuflag.Bool("v", false, "print more detailed information about fo
 
 func main() {
 	gnuflag.Usage = func() {
-		fmt.Printf("Usage: %s\n", os.Args[0])
+		fmt.Printf(`Usage: %s
+Print out information about Juju's Managed Resources, Stored Resources, and Blobstore files.
+This looks for Charms/Resources/Agent Binaries that are (not) referenced by Model
+entities and their associated Blobstore files. It then tries to find Blobstore files
+that are not referenced by any known resources.
+`, os.Args[0])
+		gnuflag.PrintDefaults()
 		os.Exit(1)
 	}
 
@@ -67,6 +73,8 @@ func main() {
 	checker.reportAgentBinaries()
 	checker.checkUnreferencedResources()
 	checker.checkUnreferencedFiles()
+	// UnreferencedChunks is an expensive check
+	checker.checkUnreferencedChunks()
 }
 
 // BlobStoreChecker tracks references to the blobstore from multiple locations
@@ -77,6 +85,7 @@ type BlobStoreChecker struct {
 
 	foundHashes    set.Strings
 	foundBlobPaths set.Strings
+	foundBlobIds   set.Strings
 
 	managedResources *mgo.Collection
 	resources        *mgo.Collection
@@ -108,6 +117,7 @@ func NewBlobStoreChecker() *BlobStoreChecker {
 
 		foundHashes:    set.NewStrings(),
 		foundBlobPaths: set.NewStrings(),
+		foundBlobIds:   set.NewStrings(),
 	}
 }
 
@@ -757,63 +767,11 @@ func inspectModel(pool *state.StatePool, session *mgo.Session, modelUUID string,
 	return checker
 }
 
-// TODO: read all buckets looking for ones that reference modelUUIDs that we don't know about.
-// func lookForBucketsMissingModels(session *mgo.Session, modelUUIDs []string, foundHashes map[string]struct{}) {
-// 	jujuDB := session.DB("juju")
-// 	managedResources := jujuDB.C(managedResourceC)
-// 	resources := jujuDB.C(resourceCatalogC)
-// }
-//
-
-type blobstoreChunk struct {
-	ID      bson.ObjectId `bson:"_id"`
-	FilesID bson.ObjectId `bson:"files_id"`
-	N       int           `bson:"n"`
-	// we intentionally omit Data
-}
-
-var blobstoreChunkFieldSelector = bson.M{"_id": 1, "files_id": 1, "n": 1}
-
-type blobstoreFile struct {
-	ID       bson.ObjectId `bson:"_id"`
-	Filename string        `bson:"filename"`
-	Length   int64         `bson:"length"`
-}
-
-var blobstoreFileFieldSelector = bson.M{"_id": 1, "filename": 1, "length": 1}
-
-// TODO: read all blobstore files looking for paths that we haven't seen yet
-func (b *BlobStoreChecker) checkUnreferencedFiles() {
-	blobstoreDB := b.session.DB("blobstore")
-	blobFiles := blobstoreDB.C("blobstore.files")
-	fileIter := blobFiles.Find(nil).Select(blobstoreFileFieldSelector).Iter()
-	var doc blobstoreFile
-	wroteHeader := false
-	var unreferencedBytes uint64
-	for fileIter.Next(&doc) {
-		if b.foundBlobPaths.Contains(doc.Filename) {
-			continue
-		}
-		b.foundBlobPaths.Add(doc.Filename)
-		if !wroteHeader {
-			wroteHeader = true
-			fmt.Fprint(os.Stdout, "\nUnknown Blobstore Files\n")
-		}
-		length := uint64(doc.Length)
-		fmt.Fprintf(os.Stdout, "  %v: %s\n", doc.Filename, lengthToSize(length))
-		unreferencedBytes += length
-	}
-	if wroteHeader {
-		fmt.Fprintf(os.Stdout, "\n  total unreferenced blobstore file bytes: %s\n", lengthToSize(unreferencedBytes))
-	} else {
-		fmt.Fprint(os.Stdout, "\nNo Unknown Blobstore Files\n")
-	}
-
-	checkErr("iterating blob files", fileIter.Close())
-}
-
-// TODO: read all blobstore chunks looking for chunks that don't reference a file
-
+// checkUnreferencedResources looks at all entries in 'storedResources' and
+// records any entries that we haven't already handled.
+// Because this is called after all the reference checked items, it should
+// find any entries that are left behind after a model is torn down, or
+// any other 'waste'.
 func (b *BlobStoreChecker) checkUnreferencedResources() {
 	allResources := b.resources.Find(nil).Iter()
 	var res resourceDoc
@@ -862,4 +820,120 @@ func (b *BlobStoreChecker) checkUnreferencedResources() {
 		size = humanize.Bytes(uint64(totalBytes))
 	}
 	fmt.Fprintf(os.Stdout, "total: %s\n\n", size)
+}
+
+type blobstoreChunk struct {
+	ID      bson.ObjectId `bson:"_id"`
+	FilesID bson.ObjectId `bson:"files_id"`
+	N       int           `bson:"n"`
+	// we intentionally omit Data
+}
+
+var blobstoreChunkFieldSelector = bson.M{"_id": 1, "files_id": 1, "n": 1}
+
+type blobstoreChunkData struct {
+	ID      bson.ObjectId `bson:"_id"`
+	FilesID bson.ObjectId `bson:"files_id"`
+	N       int           `bson:"n"`
+	Data    []byte        `bson:"data"`
+}
+
+type blobstoreFile struct {
+	ID       bson.ObjectId `bson:"_id"`
+	Filename string        `bson:"filename"`
+	Length   int64         `bson:"length"`
+}
+
+var blobstoreFileFieldSelector = bson.M{"_id": 1, "filename": 1, "length": 1}
+
+// checkUnreferencedFiles reads all blobstore files looking for paths that we haven't seen yet
+// This should be called after checkUnreferencedResources, so that we have already
+// flagged every Blobstore.files object that has been referenced.
+// TODO: ideally we would have some way of giving a hint as to what the content is.
+//  We could consider looking at the first chunk for text content, or checking
+//  if the content is a .zip file, etc.
+func (b *BlobStoreChecker) checkUnreferencedFiles() {
+	blobstoreDB := b.session.DB("blobstore")
+	blobFiles := blobstoreDB.C("blobstore.files")
+	fileIter := blobFiles.Find(nil).Select(blobstoreFileFieldSelector).Iter()
+	var doc blobstoreFile
+	wroteHeader := false
+	var unreferencedBytes uint64
+	for fileIter.Next(&doc) {
+		b.foundBlobIds.Add(string(doc.ID))
+		if b.foundBlobPaths.Contains(doc.Filename) {
+			continue
+		}
+		b.foundBlobPaths.Add(doc.Filename)
+		if !wroteHeader {
+			wroteHeader = true
+			fmt.Fprint(os.Stdout, "\nUnknown Blobstore Files\n")
+		}
+		length := uint64(doc.Length)
+		fmt.Fprintf(os.Stdout, "  %v: %s\n", doc.Filename, lengthToSize(length))
+		unreferencedBytes += length
+	}
+	if wroteHeader {
+		fmt.Fprintf(os.Stdout, "\n  total unreferenced blobstore file bytes: %s\n", lengthToSize(unreferencedBytes))
+	} else {
+		fmt.Fprint(os.Stdout, "\nNo Unknown Blobstore Files\n")
+	}
+
+	checkErr("iterating blob files", fileIter.Close())
+}
+
+// checkUnreferencedChunks reads all blobstore chunks looking for chunks that don't reference a file
+// it should be called after checkUnreferencedFiles so that we've already read all
+// know files.
+func (b *BlobStoreChecker) checkUnreferencedChunks() {
+	blobstoreDB := b.session.DB("blobstore")
+	blobChunks := blobstoreDB.C("blobstore.chunks")
+	var chunkDoc blobstoreChunk
+	missingFileIDs := set.NewStrings()
+	chunkIter := blobChunks.Find(nil).Select(blobstoreChunkFieldSelector).Iter()
+	for chunkIter.Next(&chunkDoc) {
+		if b.foundBlobIds.Contains(string(chunkDoc.FilesID)) {
+			continue
+		}
+		// Because the chunks.data is BinData, there is no way to query for its length without reading it.
+		// (strLen only works on strings, and $size only works on arrays).
+		// https://jira.mongodb.org/browse/SERVER-30967
+		// So instead of loading it here, we'll track its file_id, and then read the full data in the next pass.
+		missingFileIDs.Add(string(chunkDoc.FilesID))
+		// We will read all of them later anyway
+		b.foundBlobIds.Add(string(chunkDoc.FilesID))
+	}
+	checkErr("iterating blob chunks", chunkIter.Close())
+	if len(missingFileIDs) == 0 {
+		fmt.Fprint(os.Stdout, "\nNo Unknown Blobstore Chunks\n")
+		return
+	}
+	fmt.Fprint(os.Stdout, "\nUnknown Blobstore Chunks\n")
+	var unreferencedChunkCount uint64
+	var unreferencedBytes uint64
+	for _, missingFileID := range missingFileIDs.SortedValues() {
+		chunkDataIter := blobChunks.Find(bson.M{"files_id": missingFileID}).Iter()
+		var chunkDataDoc blobstoreChunkData
+		var chunkCount uint64
+		var filesIDBytes uint64
+		var chunkValues []string
+		for chunkDataIter.Next(&chunkDataDoc) {
+			chunkLen := uint64(len(chunkDataDoc.Data))
+			filesIDBytes += chunkLen
+			chunkCount++
+			if *verbose {
+				chunkValues = append(chunkValues, fmt.Sprintf("%s: %s",
+					bson.ObjectId(chunkDataDoc.ID).Hex(), lengthToSize(chunkLen)))
+			}
+		}
+		unreferencedChunkCount += chunkCount
+		unreferencedBytes += filesIDBytes
+
+		fmt.Fprintf(os.Stdout, "  %v: %d chunks %s\n",
+			bson.ObjectId(missingFileID).Hex(), chunkCount, lengthToSize(unreferencedBytes))
+		for _, chunkValue := range chunkValues {
+			fmt.Fprintf(os.Stdout, "    %s\n", chunkValue)
+		}
+	}
+	fmt.Fprintf(os.Stdout, "  total unreferenced chunks %d, bytes: %s\n", unreferencedChunkCount, lengthToSize(unreferencedBytes))
 }
