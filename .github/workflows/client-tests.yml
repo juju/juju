@@ -62,9 +62,13 @@ jobs:
         Invoke-WebRequest -Uri $url -OutFile $output
 
         msiexec /i "$PSScriptRoot\mongodb-win32-x86_64-2008plus-ssl-3.6.14-signed.msi" ACCEPTEULA=YES /qr+
-
-        set CGO_ENABLED=0
       shell: powershell
+
+    - name: "Disable CGO"
+      if: (matrix.os == 'windows-latest')
+      run: |
+        echo "##[set-env name=CGO_ENABLED;]0"
+      shell: bash
 
     - name: Install Vendor Dependencies
       run: |
