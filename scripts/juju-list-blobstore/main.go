@@ -125,8 +125,8 @@ func NewBlobStoreChecker() *BlobStoreChecker {
 }
 
 func (b *BlobStoreChecker) Close() {
-	b.session.Close()
 	b.pool.Close()
+	b.session.Close()
 }
 
 func checkErr(label string, err error) {
@@ -191,13 +191,6 @@ func getCurrentMachineTag(datadir string) (names.MachineTag, error) {
 func getConfig(tag names.MachineTag) (agent.ConfigSetterWriter, error) {
 	diskPath := agent.ConfigPath(dataDir, tag)
 	return agent.ReadConfig(diskPath)
-}
-
-func shortModelUUID(modelUUID string) string {
-	if len(modelUUID) > 6 {
-		return modelUUID[:6]
-	}
-	return modelUUID
 }
 
 // managedResourceDoc is the persistent representation of a ManagedResource.
