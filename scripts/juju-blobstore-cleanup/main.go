@@ -42,6 +42,7 @@ var loggingConfig = gnuflag.String("logging-config", defaultLoggingConfig, "spec
 var human = gnuflag.Bool("h", false, "print human readable values")
 var verbose = gnuflag.Bool("v", false, "print more detailed information about found references")
 var dryRun = gnuflag.Bool("dry-run", true, "use --dry-run=false to actually cleanup references")
+var noChunks = gnuflag.Bool("no-chunks", false, "disable looking for chunks that have no corresponding file")
 
 func main() {
 	gnuflag.Usage = func() {
@@ -308,6 +309,9 @@ func (b *BlobstoreCleaner) findResourcelessFiles() {
 }
 
 func (b *BlobstoreCleaner) findFilelessChunks() {
+	if *noChunks {
+		return
+	}
 	// must be called after findResourcelessFiles as that populates foundBlobstoreIds
 	var chunkDoc blobstoreChunk
 	filesIter := b.blobstoreChunks.Find(nil).Select(blobstoreChunkNoDataFieldSelector).Iter()
