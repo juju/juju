@@ -18,7 +18,6 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/logdb"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/modelworkermanager"
 )
@@ -314,10 +313,10 @@ func (mock *mockController) Model(uuid string) (modelworkermanager.Model, func()
 }
 
 type fakeLogger struct {
-	logdb.Logger
+	modelworkermanager.DBLogger
 }
 
-func (mock *mockController) DBLogger(uuid string) (logdb.Logger, error) {
+func (mock *mockController) DBLogger(uuid string) (modelworkermanager.DBLogger, error) {
 	mock.MethodCall(mock, "DBLogger", uuid)
 	return &fakeLogger{}, nil
 }

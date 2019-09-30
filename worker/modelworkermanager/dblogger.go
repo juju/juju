@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/state"
@@ -20,7 +21,7 @@ import (
 func newModelLogger(
 	name string,
 	modelUUID string,
-	base logdb.Logger,
+	base DBLogger,
 	clock clock.Clock,
 	logger Logger,
 ) *dbLogger {
@@ -29,7 +30,8 @@ func newModelLogger(
 	buffered := logdb.NewBufferedLogger(base, 1024, time.Second, clock)
 
 	return &dbLogger{
-		Logger:    buffered,
+		dbLogger:  base,
+		buffer:    buffered,
 		name:      name,
 		modelUUID: modelUUID,
 		logger:    logger,
@@ -37,6 +39,9 @@ func newModelLogger(
 }
 
 type dbLogger struct {
+	dbLogger DBLogger
+	buffer   *logdb.BufferedLogger
+
 	// Use struct embedding to get the Close method.
 	logdb.Logger
 	// "controller-0" for machine-0 in the controller model.
@@ -46,7 +51,7 @@ type dbLogger struct {
 }
 
 func (l *dbLogger) Write(entry loggo.Entry) {
-	err := l.Logger.Log([]state.LogRecord{{
+	err := l.buffer.Log([]state.LogRecord{{
 		Time:     entry.Timestamp,
 		Entity:   l.name,
 		Module:   entry.Module,
@@ -58,4 +63,10 @@ func (l *dbLogger) Write(entry loggo.Entry) {
 	if err != nil {
 		l.logger.Warningf("logging to DB failed for model %q, %v", l.modelUUID, err)
 	}
+}
+
+func (l *dbLogger) Close() error {
+	err := errors.Trace(l.buffer.Flush())
+	l.dbLogger.Close()
+	return err
 }

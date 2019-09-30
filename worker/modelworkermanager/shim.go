@@ -7,7 +7,6 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/logdb"
 )
 
 // StatePoolController implements Controller in terms of a *state.StatePool.
@@ -25,7 +24,7 @@ func (g StatePoolController) Model(modelUUID string) (Model, func(), error) {
 }
 
 // DBLogger returns a database logger for the specified model.
-func (g StatePoolController) DBLogger(modelUUID string) (logdb.Logger, error) {
+func (g StatePoolController) DBLogger(modelUUID string) (DBLogger, error) {
 	ps, err := g.StatePool.Get(modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)

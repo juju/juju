@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/logdb"
 )
 
 // ModelWatcher provides an interface for watching the additiona and
@@ -31,7 +30,7 @@ type ModelWatcher interface {
 type Controller interface {
 	Config() (controller.Config, error)
 	Model(modelUUID string) (Model, func(), error)
-	DBLogger(modelUUID string) (logdb.Logger, error)
+	DBLogger(modelUUID string) (DBLogger, error)
 }
 
 // Model represents a model.
@@ -40,10 +39,17 @@ type Model interface {
 	Type() state.ModelType
 }
 
+// DBLogger writes into the log collections.
+type DBLogger interface {
+	// Log writes the given log records to the logger's storage.
+	Log([]state.LogRecord) error
+	Close()
+}
+
 // ModelLogger is a database backed loggo Writer.
 type ModelLogger interface {
 	loggo.Writer
-	Close()
+	Close() error
 }
 
 // NewModelConfig holds the information required by the NewModelWorkerFunc
