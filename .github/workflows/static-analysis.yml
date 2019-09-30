@@ -1,9 +1,9 @@
-name: Go
-on: [push]
+name: "Static Analysis"
+on: [push, pull_request]
 jobs:
 
   lint:
-    name: Static Analysis
+    name: Lint
     runs-on: ubuntu-latest
     steps:
 
@@ -21,17 +21,17 @@ jobs:
         echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
       shell: bash
 
-    - name: Check out code
+    - name: Checkout
       uses: actions/checkout@v1
       with:
         path: src/github.com/juju/juju
 
-    - name: Install vendor dependencies
+    - name: Install Vendor dependencies
       run: |
         make dep
       shell: bash
 
-    - name: Install dependencies
+    - name: Install Dependencies
       run: |
         go get -u github.com/client9/misspell/cmd/misspell
         go get -u github.com/tsenart/deadcode
@@ -71,12 +71,12 @@ jobs:
         echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
       shell: bash
 
-    - name: Check out code
+    - name: Checkout
       uses: actions/checkout@v1
       with:
         path: src/github.com/juju/juju
 
-    - name: Install vendor dependencies
+    - name: Install Vendor Dependencies
       run: |
         make dep
       shell: bash
@@ -85,3 +85,4 @@ jobs:
       run: |
         STATIC_ANALYSIS_JOB=test_schema make static-analysis
       shell: bash
+
