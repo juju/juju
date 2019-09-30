@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
+	"time"
 
 	"github.com/dustin/go-humanize"
 	"github.com/juju/clock"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -34,11 +34,13 @@ const (
 	dataDir              = "/var/lib/juju"
 	managedResourceC     = "managedStoredResources"
 	resourceCatalogC     = "storedResources"
+	resourcesC           = "resources"
 )
 
 var loggingConfig = gnuflag.String("logging-config", defaultLoggingConfig, "specify log levels for modules")
 var human = gnuflag.Bool("h", false, "print human readable values")
 var verbose = gnuflag.Bool("v", false, "print more detailed information about found references")
+var chunkTimeout = gnuflag.Int("chunk-timeout", 30, "set the timeout in minutes for reading the database for chunks (set to 0 to skip chunk reading)")
 
 func main() {
 	gnuflag.Usage = func() {
@@ -70,6 +72,7 @@ that are not referenced by any known resources.
 		mchecker := inspectModel(checker.pool, checker.session, modelUUID, checker.foundHashes, checker.foundBlobPaths)
 		checker.modelCheckers = append(checker.modelCheckers, mchecker)
 	}
+	checker.reportModelSummary()
 	checker.reportAgentBinaries()
 	checker.checkUnreferencedResources()
 	checker.checkUnreferencedFiles()
@@ -200,17 +203,17 @@ func shortModelUUID(modelUUID string) string {
 // managedResourceDoc is the persistent representation of a ManagedResource.
 // copied from gopkg.in/juju/blobstore.v2/managedstorage.go
 type managedResourceDoc struct {
-	Id         string `bson:"_id"`
+	ID         string `bson:"_id"`
 	BucketUUID string `bson:"bucketuuid"`
 	User       string `bson:"user"`
 	Path       string `bson:"path"`
 	ResourceId string `bson:"resourceid"`
 }
 
-// resourceDoc is the persistent representation of a Resource.
+// storedResourceDoc is the persistent representation of a Resource.
 // copied from gopkg.in/juju/blobstore.v2/resourcecatalog.go
-type resourceDoc struct {
-	Id string `bson:"_id"`
+type storedResourceDoc struct {
+	ID string `bson:"_id"`
 	// Path is the storage path of the resource, which will be
 	// the empty string until the upload has been completed.
 	Path       string `bson:"path"`
@@ -282,7 +285,7 @@ func (b *BlobStoreChecker) readAgentBinaries() {
 		toolPath := path.Join("tools", fmt.Sprintf("%s-%s", metadata.Version, metadata.SHA256))
 		bucketPath := path.Join("buckets", modelUUID, toolPath)
 		res := lookupResource(b.managedResources, b.resources, bucketPath, metadata.Version)
-		if res.Id == "" {
+		if res.ID == "" {
 			continue
 		}
 		seen[res.SHA384Hash] = append(seen[res.SHA384Hash], binary)
@@ -350,6 +353,33 @@ func (b *BlobStoreChecker) findReferencedAgentVersions() hashToModelAgents {
 	return hashToModelAgents
 }
 
+func (b *BlobStoreChecker) reportModelSummary() {
+	var unrefBytes uint64
+	var totalBytes uint64
+	var refCharmBytes uint64
+	var unitrefCharmBytes uint64
+	var unrefCharmBytes uint64
+	var refResourceBytes uint64
+	var unrefMiscBytes uint64
+	for _, m := range b.modelCheckers {
+		unrefBytes += m.unreferencedBytes
+		totalBytes += m.totalBytes
+		refCharmBytes += m.appReferencedCharmBytes
+		unitrefCharmBytes += m.unitReferencedCharmBytes
+		unrefCharmBytes += m.unreferencedCharmBytes
+		refResourceBytes += m.referencedResourceBytes
+		unrefMiscBytes += m.unreferencedMiscBytes
+	}
+	fmt.Fprintf(os.Stdout, "\nModel Summary\n")
+	fmt.Fprintf(os.Stdout, "  app referenced charm bytes: %s\n", lengthToSize(refCharmBytes))
+	fmt.Fprintf(os.Stdout, "  unit referenced charm bytes: %s\n", lengthToSize(unitrefCharmBytes))
+	fmt.Fprintf(os.Stdout, "  unreferenced charm bytes: %s\n", lengthToSize(unrefCharmBytes))
+	fmt.Fprintf(os.Stdout, "  referenced resource bytes: %s\n", lengthToSize(refResourceBytes))
+	fmt.Fprintf(os.Stdout, "  unreferenced misc bytes: %s\n", lengthToSize(unrefMiscBytes))
+	fmt.Fprintf(os.Stdout, "  total unreferenced bytes: %s\n", lengthToSize(unrefBytes))
+	fmt.Fprintf(os.Stdout, "  total model bytes: %s\n", lengthToSize(totalBytes))
+}
+
 func (b *BlobStoreChecker) reportAgentBinaries() {
 	referencedAgentHashes := b.findReferencedAgentVersions()
 	fmt.Fprintf(os.Stdout, "\nAgent Binaries\n")
@@ -370,15 +400,15 @@ func (b *BlobStoreChecker) reportAgentBinaries() {
 			continue
 		}
 		referencedAgentBytes += length
-		fmt.Fprintf(os.Stdout, "  %v: %s %s...\n",
+		fmt.Fprintf(os.Stdout, "  - %v: %s %s...\n",
 			info.Version.Number, lengthToSize(length), info.Hash[:8])
 		if *verbose {
 			for _, agentRef := range agentReferences {
-				fmt.Fprintf(os.Stdout, "    %v:\n", agentRef.version)
+				fmt.Fprintf(os.Stdout, "      %v:\n", agentRef.version)
 				for _, model := range agentRef.models {
-					fmt.Fprintf(os.Stdout, "      %v:\n", model.modelName)
+					fmt.Fprintf(os.Stdout, "        %v:\n", model.modelName)
 					for _, agent := range model.agents {
-						fmt.Fprintf(os.Stdout, "        %v\n", agent)
+						fmt.Fprintf(os.Stdout, "          %v\n", agent)
 					}
 				}
 			}
@@ -407,9 +437,9 @@ func (b *BlobStoreChecker) reportAgentBinaries() {
 	fmt.Fprintf(os.Stdout, "total agent bytes: %s\n", lengthToSize(totalAgentBytes))
 }
 
-func lookupResource(managedResources, resources *mgo.Collection, bucketPath, description string) resourceDoc {
+func lookupResource(managedResources, resources *mgo.Collection, bucketPath, description string) storedResourceDoc {
 	var manageDoc managedResourceDoc
-	var res resourceDoc
+	var res storedResourceDoc
 	err := managedResources.Find(bson.M{"path": bucketPath}).One(&manageDoc)
 	if err == mgo.ErrNotFound {
 		logger.Warningf("could not find managed resource doc for %q", description)
@@ -422,8 +452,8 @@ func lookupResource(managedResources, resources *mgo.Collection, bucketPath, des
 		return res
 	}
 	checkErr("resource doc", err)
-	if res.Id != res.SHA384Hash {
-		logger.Warningf("resource with id != sha384: %q != %q", res.Id, res.SHA384Hash)
+	if res.ID != res.SHA384Hash {
+		logger.Warningf("resource with id != sha384: %q != %q", res.ID, res.SHA384Hash)
 	}
 	return res
 }
@@ -501,6 +531,13 @@ type ModelChecker struct {
 	// What Charm URLs are referenced by Units that aren't referenced by Apps
 	unitReferencedCharms mapStringStringSlice
 
+	// Map from storagePath to Applications using that storage
+	appCharmResources mapStringStringSlice
+	// Map from resourceId back to the storage path(s) for that resource
+	resourceIdToCharmResourcePath mapStringStringSlice
+	// Map from resourceId back to the apps that reference the charm resource
+	resourceIdToCharmResourceApp mapStringStringSlice
+
 	// agentVersions is the version.Binary.String() mapping to the agents using it
 	agentVersions mapStringStringSlice
 
@@ -517,8 +554,10 @@ type ModelChecker struct {
 	// (eg charm bytes that aren't used by any applications)
 	unreferencedBytes uint64
 
-	// referencedCharmBytes are bytes that are 'in use' by applications referencing charms
-	referencedCharmBytes uint64
+	// appReferencedCharmBytes are bytes that are 'in use' by applications referencing charms
+	appReferencedCharmBytes uint64
+	// unitReferencedCharmBytes are bytes that are 'in use' because a unit refers to them, but not the app
+	unitReferencedCharmBytes uint64
 	// unreferencedCharmBytes are charm archives that are recorded in the model, but
 	// not referenced by other applications
 	unreferencedCharmBytes uint64
@@ -526,9 +565,6 @@ type ModelChecker struct {
 	// referencedResourceBytes are bytes that are 'in use' by applications using that
 	// specific version of the resource.
 	referencedResourceBytes uint64
-	// unreferencedResourceBytes are charm resources that are recorded in the model, but
-	// not referenced by other applications
-	unreferencedResourceBytes uint64
 
 	// unreferencedMiscBytes are bytes that are in the model's buckets, but don't
 	// appear to be referenced from anywhere
@@ -548,16 +584,31 @@ func NewModelChecker(model *state.Model, session *mgo.Session, foundHashes, foun
 
 		agentVersions: make(mapStringStringSlice),
 
-		appReferencedCharms:   make(mapStringStringSlice),
-		unitReferencedCharms:  make(mapStringStringSlice),
-		resourceIdToCharmURLs: make(mapStringStringSlice),
-		resourceSizes:         make(map[string]uint64),
+		appReferencedCharms:           make(mapStringStringSlice),
+		unitReferencedCharms:          make(mapStringStringSlice),
+		appCharmResources:             make(mapStringStringSlice),
+		resourceIdToCharmResourcePath: make(mapStringStringSlice),
+		resourceIdToCharmResourceApp:  make(mapStringStringSlice),
+		resourceIdToCharmURLs:         make(mapStringStringSlice),
+		resourceSizes:                 make(map[string]uint64),
 	}
 	return checker
 }
 
+type resourceDoc struct {
+	ID          string `bson:"_id"`
+	StoragePath string `bson:"storage-path"`
+}
+
+func resourceDocID(modelUUID, resourceID string) string {
+	return fmt.Sprintf("%s:resource#%s", modelUUID, resourceID)
+}
+
 // readApplicationsAndUnits figures out what CharmURLs are referenced by apps and units
 func (checker *ModelChecker) readApplicationsAndUnits() {
+	resourcesCollection := checker.session.DB("juju").C(resourcesC)
+	charmResources, err := checker.model.State().Resources()
+	checkErr("resources", err)
 	version, err := checker.model.AgentVersion()
 	checkErr("model AgentVersion", err)
 	// Models track the desired version.Number, but Units track version.Binary
@@ -584,9 +635,36 @@ func (checker *ModelChecker) readApplicationsAndUnits() {
 			checkErr("unit AgentTools", err)
 			checker.agentVersions.Add(tools.Version.String(), unit.Name())
 		}
+		resources, err := charmResources.ListResources(app.Name())
+		checkErr("charm.ListResources", err)
+		// Note: Resource.Fingerprint *should* be the SHA384 sum of the resource content.
+		// It appears to be correct in the database, but for whatever reason once
+		// we've called ListResources and we look at Fingerprint.Hex() it does *not*
+		// match the underlying storedResources.ID.
+		// Further, we store the 'storagePath' in the database, but this is not exposed
+		// outside of the package, so we go to the DB directly.
+		if len(resources.Resources) > 0 {
+			var resDoc resourceDoc
+			for _, resource := range resources.Resources {
+				docID := resourceDocID(checker.model.UUID(), resource.ID)
+				err := resourcesCollection.FindId(docID).One(&resDoc)
+				if err == mgo.ErrNotFound {
+					logger.Warningf("could not find charm resource: %q", resource.ID)
+					continue
+				} else if err != nil {
+					logger.Warningf("error reading charm resource: %q", resource.ID)
+					continue
+				}
+				if resDoc.StoragePath == "" {
+					continue
+				}
+				checker.appCharmResources.Add(resDoc.StoragePath, app.Name())
+			}
+		}
 	}
 	checker.appReferencedCharms.SortValues()
 	checker.unitReferencedCharms.SortValues()
+	checker.appCharmResources.SortValues()
 	checker.agentVersions.SortValues()
 }
 
@@ -601,18 +679,38 @@ func (checker *ModelChecker) readModelCharms() {
 		charmURL := charm.URL().String()
 		bucketPath := path.Join("buckets", modelUUID, charm.StoragePath())
 		res := checker.lookupResource(bucketPath, charm.String())
-		if res.Id == "" {
+		if res.ID == "" {
 			continue
 		}
 		checker.foundHashes.Add(res.SHA384Hash)
 		checker.foundBlobPaths.Add(res.Path)
-		checker.resourceIdToCharmURLs.Add(res.Id, charmURL)
+		checker.resourceIdToCharmURLs.Add(res.ID, charmURL)
 		checker.resourceSizes[res.SHA384Hash] = uint64(res.Length)
 	}
 	checker.resourceIdToCharmURLs.SortValues()
 }
 
-func (checker *ModelChecker) lookupResource(bucketPath, description string) resourceDoc {
+func (checker *ModelChecker) readCharmResources() {
+	modelUUID := checker.model.UUID()
+	for storagePath, apps := range checker.appCharmResources {
+		bucketPath := path.Join("buckets", modelUUID, storagePath)
+		res := checker.lookupResource(bucketPath, storagePath)
+		if res.ID == "" {
+			continue
+		}
+		checker.foundHashes.Add(res.SHA384Hash)
+		checker.foundBlobPaths.Add(res.Path)
+		checker.resourceSizes[res.SHA384Hash] = uint64(res.Length)
+		checker.resourceIdToCharmResourcePath.Add(res.ID, storagePath)
+		for _, app := range apps {
+			checker.resourceIdToCharmResourceApp.Add(res.ID, app)
+		}
+	}
+	checker.resourceIdToCharmResourcePath.SortValues()
+	checker.resourceIdToCharmResourceApp.SortValues()
+}
+
+func (checker *ModelChecker) lookupResource(bucketPath, description string) storedResourceDoc {
 	return lookupResource(checker.managedResources, checker.resources, bucketPath, description)
 }
 
@@ -627,24 +725,31 @@ func (checker *ModelChecker) reportCharms() {
 	// namely, if 2 models have the same charm/resource, then which one do we assign the
 	// storage to? You have to remove it from both to save any space, but you
 	// don't want to double count the storage either.
+	unitReferenced := make([]string, 0)
 	notReferenced := make([]string, 0)
+	fmt.Fprintf(os.Stdout, "  Referenced By Apps\n")
 	for _, resourceId := range checker.resourceIdToCharmURLs.KeysBySortedValues() {
 		length := checker.resourceSizes[resourceId]
 		checker.totalBytes += length
 		var referenced bool
+		var unitreferenced bool
 		for _, charmURL := range checker.resourceIdToCharmURLs[resourceId] {
 			if _, found := checker.appReferencedCharms[charmURL]; found {
 				referenced = true
 				break
 			}
+			if _, found := checker.unitReferencedCharms[charmURL]; found {
+				unitreferenced = true
+			}
 		}
 		if referenced {
 			checker.referencedBytes += length
-			checker.referencedCharmBytes += length
+			checker.appReferencedCharmBytes += length
 			charmURL := checker.resourceIdToCharmURLs[resourceId][0]
-			fmt.Fprintf(os.Stdout, "  %v: %s %s...\n",
+			fmt.Fprintf(os.Stdout, "  - %v: %s %s...\n",
 				charmURL, lengthToSize(length), resourceId[:8])
 			if *verbose {
+				// Other names that refer to the same charm bytes, and application names
 				for _, curl := range checker.resourceIdToCharmURLs[resourceId] {
 					if curl != charmURL {
 						fmt.Fprintf(os.Stdout, "    %v:\n", curl)
@@ -654,18 +759,23 @@ func (checker *ModelChecker) reportCharms() {
 					}
 				}
 			}
+		} else if unitreferenced {
+			checker.referencedBytes += length
+			checker.unitReferencedCharmBytes += length
+			unitReferenced = append(unitReferenced, resourceId)
 		} else {
 			notReferenced = append(notReferenced, resourceId)
 			checker.unreferencedBytes += length
 			checker.unreferencedCharmBytes += length
 		}
 	}
-	if len(notReferenced) > 0 {
-		fmt.Fprintf(os.Stdout, "  Not Referenced By Apps\n")
-		for _, resourceId := range notReferenced {
+	fmt.Fprintf(os.Stdout, "  app referenced charm bytes: %s\n", lengthToSize(checker.appReferencedCharmBytes))
+	if len(unitReferenced) > 0 {
+		fmt.Fprintf(os.Stdout, "  Referenced By Units\n")
+		for _, resourceId := range unitReferenced {
 			length := checker.resourceSizes[resourceId]
 			charmURL := checker.resourceIdToCharmURLs[resourceId][0]
-			fmt.Fprintf(os.Stdout, "   %v: %s %s...\n",
+			fmt.Fprintf(os.Stdout, "  - %v: %s %s...\n",
 				charmURL, lengthToSize(length), resourceId[:8])
 			for _, curl := range checker.resourceIdToCharmURLs[resourceId] {
 				if curl != charmURL {
@@ -676,28 +786,54 @@ func (checker *ModelChecker) reportCharms() {
 				}
 			}
 		}
+		fmt.Fprintf(os.Stdout, "  unit referenced charm bytes: %s\n", lengthToSize(checker.unitReferencedCharmBytes))
+	}
+	if len(notReferenced) > 0 {
+		fmt.Fprintf(os.Stdout, "  Not Referenced By Apps\n")
+		for _, resourceId := range notReferenced {
+			length := checker.resourceSizes[resourceId]
+			charmURL := checker.resourceIdToCharmURLs[resourceId][0]
+			fmt.Fprintf(os.Stdout, "  - %v: %s %s...\n",
+				charmURL, lengthToSize(length), resourceId[:8])
+			for _, curl := range checker.resourceIdToCharmURLs[resourceId] {
+				if curl != charmURL {
+					fmt.Fprintf(os.Stdout, "     %v:\n", curl)
+				}
+			}
+		}
 
-		fmt.Fprintf(os.Stdout, "  referenced charm bytes: %s\n", lengthToSize(checker.referencedCharmBytes))
 		fmt.Fprintf(os.Stdout, "  unreferenced charm bytes: %s\n", lengthToSize(checker.unreferencedCharmBytes))
 	}
-	fmt.Fprintf(os.Stdout, "  total charm bytes: %s\n", lengthToSize(checker.referencedCharmBytes+checker.unreferencedCharmBytes))
+	fmt.Fprintf(os.Stdout, "  total charm bytes: %s\n",
+		lengthToSize(checker.appReferencedCharmBytes+checker.unitReferencedCharmBytes+checker.unreferencedCharmBytes))
 }
 
 func (checker *ModelChecker) reportResources() {
-	charmResources, err := checker.model.State().Resources()
-	checkErr("resources", err)
-	applications, err := checker.model.State().AllApplications()
-	checkErr("applications", err)
-	for _, app := range applications {
-		resources, err := charmResources.ListResources(app.Name())
-		if err != nil {
-			logger.Warningf("%v: error listing resources for app %q", checker.model.Name(), app.Name())
-		}
-		for _, res := range resources.Resources {
-			if res.Type == resource.TypeFile {
+	if len(checker.resourceIdToCharmResourcePath) == 0 {
+		fmt.Fprintf(os.Stdout, "  No Referenced Resources\n")
+		return
+	}
+	fmt.Fprintf(os.Stdout, "  Referenced Resources\n")
+	for _, resourceId := range checker.resourceIdToCharmResourcePath.KeysBySortedValues() {
+		length := checker.resourceSizes[resourceId]
+		checker.totalBytes += length
+		checker.referencedResourceBytes += length
+		resourcePath := checker.resourceIdToCharmResourcePath[resourceId][0]
+		fmt.Fprintf(os.Stdout, "  - %v: %s %s...\n",
+			resourcePath, lengthToSize(length), resourceId[:8])
+		if *verbose {
+			for _, path := range checker.resourceIdToCharmResourcePath[resourceId] {
+				// Alternate names for this resource
+				if path != resourcePath {
+					fmt.Fprintf(os.Stdout, "    %v:\n", path)
+				}
+			}
+			for _, app := range checker.resourceIdToCharmResourceApp[resourceId] {
+				fmt.Fprintf(os.Stdout, "    %v:\n", app)
 			}
 		}
 	}
+	fmt.Fprintf(os.Stdout, "  total resource bytes: %s\n", lengthToSize(checker.referencedResourceBytes))
 }
 
 func (checker *ModelChecker) reportUnreferencedBuckets() {
@@ -712,7 +848,7 @@ func (checker *ModelChecker) reportUnreferencedBuckets() {
 		if checker.foundHashes.Contains(managedDoc.ResourceId) {
 			continue
 		}
-		found := resourceIdToManaged.Add(managedDoc.ResourceId, managedDoc.Id)
+		found := resourceIdToManaged.Add(managedDoc.ResourceId, managedDoc.ID)
 		if !found {
 			resourceIds = append(resourceIds, managedDoc.ResourceId)
 		}
@@ -721,7 +857,7 @@ func (checker *ModelChecker) reportUnreferencedBuckets() {
 	if len(resourceIds) == 0 {
 		return
 	}
-	var res resourceDoc
+	var res storedResourceDoc
 	sizes := make(map[string]uint64, len(resourceIds))
 	resourceDocs := checker.resources.Find(bson.M{"_id": bson.M{"$in": resourceIds}}).Iter()
 	for resourceDocs.Next(&res) {
@@ -730,21 +866,23 @@ func (checker *ModelChecker) reportUnreferencedBuckets() {
 		checker.foundBlobPaths.Add(res.Path)
 	}
 	checkErr("bucket search", resourceDocs.Close())
-	if len(resourceIdToManaged) > 0 {
-		fmt.Fprintf(os.Stdout, "  Unreferenced Managed Resources\n")
-		resourceIdToManaged.SortValues()
-		for _, resourceId := range resourceIdToManaged.KeysBySortedValues() {
-			length := sizes[resourceId]
-			checker.unreferencedMiscBytes += length
-			fmt.Fprintf(os.Stdout, "    %v...: %s\n", resourceId[:8], lengthToSize(length))
-			for _, path := range resourceIdToManaged[resourceId] {
-				fmt.Fprintf(os.Stdout, "      %v\n", path)
-			}
-		}
-		fmt.Fprintf(os.Stdout, "  total unreferenced misc bytes: %s\n", lengthToSize(checker.unreferencedMiscBytes))
-		checker.totalBytes += checker.unreferencedMiscBytes
-		checker.unreferencedBytes += checker.unreferencedMiscBytes
+	if len(resourceIdToManaged) == 0 {
+		fmt.Fprintf(os.Stdout, "  No Unreferenced Managed Resources\n")
+		return
 	}
+	fmt.Fprintf(os.Stdout, "  Unreferenced Managed Resources\n")
+	resourceIdToManaged.SortValues()
+	for _, resourceId := range resourceIdToManaged.KeysBySortedValues() {
+		length := sizes[resourceId]
+		checker.unreferencedMiscBytes += length
+		fmt.Fprintf(os.Stdout, "    %v...: %s\n", resourceId[:8], lengthToSize(length))
+		for _, path := range resourceIdToManaged[resourceId] {
+			fmt.Fprintf(os.Stdout, "      %v\n", path)
+		}
+	}
+	fmt.Fprintf(os.Stdout, "  total unreferenced misc bytes: %s\n", lengthToSize(checker.unreferencedMiscBytes))
+	checker.totalBytes += checker.unreferencedMiscBytes
+	checker.unreferencedBytes += checker.unreferencedMiscBytes
 }
 
 func (checker *ModelChecker) reportEnd() {
@@ -759,6 +897,7 @@ func inspectModel(pool *state.StatePool, session *mgo.Session, modelUUID string,
 	checker := NewModelChecker(model, session, foundHashes, foundBlobPaths)
 	checker.readApplicationsAndUnits()
 	checker.readModelCharms()
+	checker.readCharmResources()
 	checker.reportStart()
 	checker.reportCharms()
 	checker.reportResources()
@@ -774,18 +913,18 @@ func inspectModel(pool *state.StatePool, session *mgo.Session, modelUUID string,
 // any other 'waste'.
 func (b *BlobStoreChecker) checkUnreferencedResources() {
 	allResources := b.resources.Find(nil).Iter()
-	var res resourceDoc
-	missingResources := make(map[string]resourceDoc)
+	var res storedResourceDoc
+	missingResources := make(map[string]storedResourceDoc)
 	missingIds := make([]string, 0)
 	var totalBytes uint64
 	for allResources.Next(&res) {
-		if b.foundHashes.Contains(res.Id) {
+		if b.foundHashes.Contains(res.ID) {
 			continue
 		}
-		b.foundHashes.Add(res.Id)
+		b.foundHashes.Add(res.ID)
 		b.foundBlobPaths.Add(res.Path)
 		missingResources[res.SHA384Hash] = res
-		missingIds = append(missingIds, res.Id)
+		missingIds = append(missingIds, res.ID)
 		totalBytes += uint64(res.Length)
 	}
 	checkErr("missingResources", allResources.Close())
@@ -859,7 +998,9 @@ func (b *BlobStoreChecker) checkUnreferencedFiles() {
 	var doc blobstoreFile
 	wroteHeader := false
 	var unreferencedBytes uint64
+	var fileCount uint64
 	for fileIter.Next(&doc) {
+		fileCount++
 		b.foundBlobIds.Add(string(doc.ID))
 		if b.foundBlobPaths.Contains(doc.Filename) {
 			continue
@@ -878,6 +1019,7 @@ func (b *BlobStoreChecker) checkUnreferencedFiles() {
 	} else {
 		fmt.Fprint(os.Stdout, "\nNo Unknown Blobstore Files\n")
 	}
+	fmt.Fprintf(os.Stdout, "  read %d blobstore files\n", fileCount)
 
 	checkErr("iterating blob files", fileIter.Close())
 }
@@ -886,12 +1028,21 @@ func (b *BlobStoreChecker) checkUnreferencedFiles() {
 // it should be called after checkUnreferencedFiles so that we've already read all
 // know files.
 func (b *BlobStoreChecker) checkUnreferencedChunks() {
-	blobstoreDB := b.session.DB("blobstore")
+	if *chunkTimeout == 0 {
+		return
+	}
+	session := b.session.Copy()
+	defer session.Close()
+	// Bump the default socket timeout since this usually must be paged from disk.
+	session.SetSocketTimeout(time.Duration((*chunkTimeout)) * time.Minute)
+	blobstoreDB := session.DB("blobstore")
 	blobChunks := blobstoreDB.C("blobstore.chunks")
 	var chunkDoc blobstoreChunk
 	missingFileIDs := set.NewStrings()
+	var chunkCount uint64
 	chunkIter := blobChunks.Find(nil).Select(blobstoreChunkFieldSelector).Iter()
 	for chunkIter.Next(&chunkDoc) {
+		chunkCount++
 		if b.foundBlobIds.Contains(string(chunkDoc.FilesID)) {
 			continue
 		}
@@ -906,6 +1057,7 @@ func (b *BlobStoreChecker) checkUnreferencedChunks() {
 	checkErr("iterating blob chunks", chunkIter.Close())
 	if len(missingFileIDs) == 0 {
 		fmt.Fprint(os.Stdout, "\nNo Unknown Blobstore Chunks\n")
+		fmt.Fprintf(os.Stdout, "  read %d blobstore chunks\n", chunkCount)
 		return
 	}
 	fmt.Fprint(os.Stdout, "\nUnknown Blobstore Chunks\n")
@@ -926,6 +1078,7 @@ func (b *BlobStoreChecker) checkUnreferencedChunks() {
 					bson.ObjectId(chunkDataDoc.ID).Hex(), lengthToSize(chunkLen)))
 			}
 		}
+		checkErr("iterating chunk data", chunkDataIter.Close())
 		unreferencedChunkCount += chunkCount
 		unreferencedBytes += filesIDBytes
 
@@ -936,4 +1089,5 @@ func (b *BlobStoreChecker) checkUnreferencedChunks() {
 		}
 	}
 	fmt.Fprintf(os.Stdout, "  total unreferenced chunks %d, bytes: %s\n", unreferencedChunkCount, lengthToSize(unreferencedBytes))
+	fmt.Fprint(os.Stdout, "  read %d blobstore chunks\n", chunkCount)
 }
