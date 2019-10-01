@@ -25,7 +25,8 @@ import_subdir_files includes
 TEST_NAMES="test_static_analysis \
             test_controller \
             test_smoke \
-            test_cmr_bundles"
+            test_cmr_bundles \
+            test_local_charm"
 
 show_help() {
     version=$(juju version)
