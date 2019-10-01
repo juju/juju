@@ -40,6 +40,7 @@ var (
 		"firewaller",
 		"instance-mutater",
 		"instance-poller",
+		"logging-config-updater",  // tertiary dependency: will be inactive because migration workers will be inactive
 		"machine-undertaker",      // tertiary dependency: will be inactive because migration workers will be inactive
 		"metric-worker",           // tertiary dependency: will be inactive because migration workers will be inactive
 		"migration-fortress",      // secondary dependency: will be inactive because depends on model-upgrader
@@ -63,6 +64,7 @@ var (
 		"instance-mutater",
 		"instance-poller",
 		"log-forwarder",
+		"logging-config-updater",
 		"machine-undertaker",
 		"metric-worker",
 		"migration-fortress",

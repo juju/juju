@@ -239,7 +239,7 @@ type ManifoldsConfig struct {
 
 	// NewModelWorker returns a new worker for managing the model with
 	// the specified UUID and type.
-	NewModelWorker func(modelUUID string, modelType state.ModelType) (worker.Worker, error)
+	NewModelWorker modelworkermanager.NewModelWorkerFunc
 
 	// MachineLock is a central source for acquiring the machine lock.
 	// This is used by a number of workers to ensure serialisation of actions
@@ -667,9 +667,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
+			AgentName:      agentName,
 			StateName:      stateName,
+			Clock:          config.Clock,
 			NewWorker:      modelworkermanager.New,
 			NewModelWorker: config.NewModelWorker,
+			Logger:         loggo.GetLogger("juju.workers.modelworkermanager"),
 		})),
 
 		peergrouperName: ifFullyUpgraded(peergrouper.Manifold(peergrouper.ManifoldConfig{
