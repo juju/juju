@@ -68,9 +68,10 @@ func RunPlugin(callback cmd.MissingCallback) cmd.MissingCallback {
 		}
 		err := plugin.Run(ctx)
 		_, execError := err.(*exec.Error)
-		// exec.Error results are for when the executable isn't found, in
-		// those cases, drop through.
-		if !execError {
+		_, pathError := err.(*os.PathError)
+		// exec.Error and pathError results are for when the executable isn't found, in
+		// those cases, let's test whether we have a similar command available.
+		if !execError && !pathError {
 			return err
 		}
 
