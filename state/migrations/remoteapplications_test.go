@@ -33,7 +33,7 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplication(c *gc.C) {
 			})
 			// Return the endpoint mocks
 			expect.Endpoints().Return([]MigrationRemoteEndpoint{
-				MigrationRemoteEndpoint{
+				{
 					Name:      "app-uuid-1-endpoint-1",
 					Role:      charm.RelationRole("role"),
 					Interface: "db",
@@ -41,7 +41,7 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplication(c *gc.C) {
 			}, nil)
 			// Return the spaces mocks
 			expect.Spaces().Return([]MigrationRemoteSpace{
-				MigrationRemoteSpace{
+				{
 					Name:       "app-uuid-1-spaces-1",
 					CloudType:  "aws",
 					ProviderId: "provider-id-1",

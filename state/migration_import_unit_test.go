@@ -41,19 +41,15 @@ func (s *MigrationImportSuite) TestImportRemoteApplications(c *gc.C) {
 	statusDoc := statusDoc{}
 	statusOp := txn.Op{}
 
-	model := NewMockModelRemoteApplications(ctrl)
+	model := NewMockRemoteApplicationsDescription(ctrl)
 	model.EXPECT().RemoteApplications().Return(entities)
-
-	docFactory := NewMockStateDocumentFactory(ctrl)
-	docFactory.EXPECT().MakeRemoteApplicationDoc(entity0).Return(appDoc)
-	docFactory.EXPECT().NewRemoteApplication(appDoc).Return(&RemoteApplication{
+	model.EXPECT().MakeRemoteApplicationDoc(entity0).Return(appDoc)
+	model.EXPECT().NewRemoteApplication(appDoc).Return(&RemoteApplication{
 		doc: *appDoc,
 	})
-	docFactory.EXPECT().MakeStatusDoc(status).Return(statusDoc)
-	docFactory.EXPECT().MakeStatusOp("c#remote-application", statusDoc).Return(statusOp)
-
-	docNamespace := NewMockDocModelNamespace(ctrl)
-	docNamespace.EXPECT().DocID("remote-application").Return("c#remote-application")
+	model.EXPECT().MakeStatusDoc(status).Return(statusDoc)
+	model.EXPECT().MakeStatusOp("c#remote-application", statusDoc).Return(statusOp)
+	model.EXPECT().DocID("remote-application").Return("c#remote-application")
 
 	runner := NewMockTransactionRunner(ctrl)
 	runner.EXPECT().RunTransaction([]txn.Op{
@@ -71,7 +67,8 @@ func (s *MigrationImportSuite) TestImportRemoteApplications(c *gc.C) {
 		statusOp,
 	}).Return(nil)
 
-	err := importRemoteApplications(model, docFactory, docNamespace, runner)
+	m := ImportRemoteApplications{}
+	err := m.Execute(model, runner)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -85,17 +82,14 @@ func (s *MigrationImportSuite) TestImportRemoteApplicationsWithMissingStatusFiel
 		entity0,
 	}
 
-	model := NewMockModelRemoteApplications(ctrl)
+	model := NewMockRemoteApplicationsDescription(ctrl)
 	model.EXPECT().RemoteApplications().Return(entities)
-
-	docFactory := NewMockStateDocumentFactory(ctrl)
-	docFactory.EXPECT().MakeRemoteApplicationDoc(entity0).Return(&remoteApplicationDoc{})
-
-	docNamespace := NewMockDocModelNamespace(ctrl)
+	model.EXPECT().MakeRemoteApplicationDoc(entity0).Return(&remoteApplicationDoc{})
 
 	runner := NewMockTransactionRunner(ctrl)
 
-	err := importRemoteApplications(model, docFactory, docNamespace, runner)
+	m := ImportRemoteApplications{}
+	err := m.Execute(model, runner)
 	c.Assert(err, gc.ErrorMatches, "missing status not valid")
 }
 
@@ -122,11 +116,11 @@ func (s *MigrationImportSuite) TestImportRemoteEntities(c *gc.C) {
 		entity1,
 	}
 
-	model := NewMockModelRemoteEntities(ctrl)
+	model := NewMockRemoteEntitiesDescription(ctrl)
 	model.EXPECT().RemoteEntities().Return(entities)
-	docNamespace := NewMockDocModelNamespace(ctrl)
-	docNamespace.EXPECT().DocID("ctrl-uuid-2").Return("ctrl-uuid-2")
-	docNamespace.EXPECT().DocID("ctrl-uuid-3").Return("ctrl-uuid-3")
+	model.EXPECT().DocID("ctrl-uuid-2").Return("ctrl-uuid-2")
+	model.EXPECT().DocID("ctrl-uuid-3").Return("ctrl-uuid-3")
+
 	runner := NewMockTransactionRunner(ctrl)
 	runner.EXPECT().RunTransaction([]txn.Op{
 		{
@@ -149,7 +143,8 @@ func (s *MigrationImportSuite) TestImportRemoteEntities(c *gc.C) {
 		},
 	}).Return(nil)
 
-	err := importRemoteEntities(model, docNamespace, runner)
+	m := ImportRemoteEntities{}
+	err := m.Execute(model, runner)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -159,13 +154,14 @@ func (s *MigrationImportSuite) TestImportRemoteEntitiesWithNoEntities(c *gc.C) {
 
 	entities := []description.RemoteEntity{}
 
-	model := NewMockModelRemoteEntities(ctrl)
+	model := NewMockRemoteEntitiesDescription(ctrl)
 	model.EXPECT().RemoteEntities().Return(entities)
-	docNamespace := NewMockDocModelNamespace(ctrl)
+
 	runner := NewMockTransactionRunner(ctrl)
 	runner.EXPECT().RunTransaction([]txn.Op{})
 
-	err := importRemoteEntities(model, docNamespace, runner)
+	m := ImportRemoteEntities{}
+	err := m.Execute(model, runner)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -179,10 +175,10 @@ func (s *MigrationImportSuite) TestImportRemoteEntitiesWithTransactionRunnerRetu
 		entity0,
 	}
 
-	model := NewMockModelRemoteEntities(ctrl)
+	model := NewMockRemoteEntitiesDescription(ctrl)
 	model.EXPECT().RemoteEntities().Return(entities)
-	docNamespace := NewMockDocModelNamespace(ctrl)
-	docNamespace.EXPECT().DocID("ctrl-uuid-2").Return("uuid-2")
+	model.EXPECT().DocID("ctrl-uuid-2").Return("uuid-2")
+
 	runner := NewMockTransactionRunner(ctrl)
 	runner.EXPECT().RunTransaction([]txn.Op{
 		{
@@ -196,7 +192,8 @@ func (s *MigrationImportSuite) TestImportRemoteEntitiesWithTransactionRunnerRetu
 		},
 	}).Return(errors.New("fail"))
 
-	err := importRemoteEntities(model, docNamespace, runner)
+	m := ImportRemoteEntities{}
+	err := m.Execute(model, runner)
 	c.Assert(err, gc.ErrorMatches, "fail")
 }
 
@@ -219,11 +216,11 @@ func (s *MigrationImportSuite) TestImportRelationNetworks(c *gc.C) {
 		entity1,
 	}
 
-	model := NewMockModelRelationNetworks(ctrl)
+	model := NewMockRelationNetworksDescription(ctrl)
 	model.EXPECT().RelationNetworks().Return(entities)
-	docNamespace := NewMockDocModelNamespace(ctrl)
-	docNamespace.EXPECT().DocID("ctrl-uuid-2").Return("ctrl-uuid-2")
-	docNamespace.EXPECT().DocID("ctrl-uuid-3").Return("ctrl-uuid-3")
+	model.EXPECT().DocID("ctrl-uuid-2").Return("ctrl-uuid-2")
+	model.EXPECT().DocID("ctrl-uuid-3").Return("ctrl-uuid-3")
+
 	runner := NewMockTransactionRunner(ctrl)
 	runner.EXPECT().RunTransaction([]txn.Op{
 		{
@@ -248,7 +245,8 @@ func (s *MigrationImportSuite) TestImportRelationNetworks(c *gc.C) {
 		},
 	}).Return(nil)
 
-	err := importRelationNetworks(model, docNamespace, runner)
+	m := ImportRelationNetworks{}
+	err := m.Execute(model, runner)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -258,13 +256,14 @@ func (s *MigrationImportSuite) TestImportRelationNetworksWithNoEntities(c *gc.C)
 
 	entities := []description.RelationNetwork{}
 
-	model := NewMockModelRelationNetworks(ctrl)
+	model := NewMockRelationNetworksDescription(ctrl)
 	model.EXPECT().RelationNetworks().Return(entities)
-	docNamespace := NewMockDocModelNamespace(ctrl)
+
 	runner := NewMockTransactionRunner(ctrl)
 	runner.EXPECT().RunTransaction([]txn.Op{}).Return(nil)
 
-	err := importRelationNetworks(model, docNamespace, runner)
+	m := ImportRelationNetworks{}
+	err := m.Execute(model, runner)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -278,10 +277,10 @@ func (s *MigrationImportSuite) TestImportRelationNetworksWithTransactionRunnerRe
 		entity0,
 	}
 
-	model := NewMockModelRelationNetworks(ctrl)
+	model := NewMockRelationNetworksDescription(ctrl)
 	model.EXPECT().RelationNetworks().Return(entities)
-	docNamespace := NewMockDocModelNamespace(ctrl)
-	docNamespace.EXPECT().DocID("ctrl-uuid-2").Return("ctrl-uuid-2")
+	model.EXPECT().DocID("ctrl-uuid-2").Return("ctrl-uuid-2")
+
 	runner := NewMockTransactionRunner(ctrl)
 	runner.EXPECT().RunTransaction([]txn.Op{
 		{
@@ -296,7 +295,8 @@ func (s *MigrationImportSuite) TestImportRelationNetworksWithTransactionRunnerRe
 		},
 	}).Return(errors.New("fail"))
 
-	err := importRelationNetworks(model, docNamespace, runner)
+	m := ImportRelationNetworks{}
+	err := m.Execute(model, runner)
 	c.Assert(err, gc.ErrorMatches, "fail")
 }
 
