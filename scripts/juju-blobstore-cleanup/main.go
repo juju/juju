@@ -273,9 +273,10 @@ func (b *BlobstoreCleaner) findModellessManagedResources() {
 		// take just the bucket local path and build the longer path.
 		// make sure it conforms to our expectation, and then strip off the
 		// prefix in preparation for deleting.
-		bucketPrefix := fmt.Sprintf("buckets/%s/.*", managedDoc.BucketUUID)
+		bucketPrefix := fmt.Sprintf("buckets/%s/", managedDoc.BucketUUID)
 		if !strings.HasPrefix(managedDoc.Path, bucketPrefix) {
 			logger.Warningf("bucket has unexpected prefix, skipping: %q", managedDoc.Path)
+			continue
 		}
 		b.modellessResources = append(b.modellessResources, ManagedResource{
 			BucketUUID: managedDoc.BucketUUID,
