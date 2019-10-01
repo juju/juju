@@ -394,8 +394,15 @@ func (b *BlobstoreCleaner) cleanupUnmanagedResources() {
 			}
 			return removeStoredResourceOps(unmanagedResource.ID), nil
 		})
-		checkErr(err, fmt.Sprintf("removing unmanaged resource: %q", unmanagedResource.ID))
-		gridfs.Remove(unmanagedResource.GridFSPath)
+		if err != nil {
+			logger.Warningf("error removing resource: %q %v", unmanagedResource.ID, err)
+			continue
+		}
+
+		if err := gridfs.Remove(unmanagedResource.GridFSPath); err != nil {
+			logger.Warningf("error removing blobstore path: %q %v", unmanagedResource.GridFSPath, err)
+			continue
+		}
 	}
 	fmt.Fprintf(os.Stderr, "\n")
 }
@@ -481,7 +488,10 @@ func (b *BlobstoreCleaner) cleanupChunks() {
 		if err == mgo.ErrNotFound {
 			continue
 		}
-		checkErr(err, fmt.Sprintf("removing blobstore chunk: %q", objID.Hex()))
+		if err != nil {
+			logger.Warningf("error cleaning up blobstore chunk: %q %v", objID.Hex(), err)
+			continue
+		}
 	}
 	fmt.Fprintf(os.Stderr, "\n")
 }
