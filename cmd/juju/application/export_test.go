@@ -136,6 +136,7 @@ func NewUpgradeCharmCommandForTest(
 	newModelConfigGetter func(base.APICallCloser) ModelConfigGetter,
 	newResourceLister func(base.APICallCloser) (ResourceLister, error),
 	charmStoreURLGetter func(base.APICallCloser) (string, error),
+	newSpacesClient func(base.APICallCloser) SpacesAPI,
 ) cmd.Command {
 	cmd := &upgradeCharmCommand{
 		DeployResources:       deployResources,
@@ -146,6 +147,7 @@ func NewUpgradeCharmCommandForTest(
 		NewModelConfigGetter:  newModelConfigGetter,
 		NewResourceLister:     newResourceLister,
 		CharmStoreURLGetter:   charmStoreURLGetter,
+		NewSpacesClient:       newSpacesClient,
 	}
 	cmd.SetClientStore(store)
 	cmd.SetAPIOpen(apiOpen)

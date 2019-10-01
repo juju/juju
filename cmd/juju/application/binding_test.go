@@ -5,9 +5,9 @@ package application
 
 import (
 	"github.com/juju/collections/set"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/testing"
 
+	"github.com/juju/juju/core/network"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
@@ -96,8 +96,7 @@ func (s *ParseBindSuite) TestMergeBindingsNewBindingsInheritDefaultSpace(c *gc.C
 		"ep3": "sp1",
 	}
 
-	mergedBindings, err := mergeBindings(newCharmEndpoints, oldEndpointsMap, userBindings, network.DefaultSpaceName)
-	c.Assert(err, gc.IsNil)
+	mergedBindings, _ := mergeBindings(newCharmEndpoints, oldEndpointsMap, userBindings, network.DefaultSpaceName)
 	c.Assert(mergedBindings, gc.DeepEquals, expMergedBindings)
 }
 

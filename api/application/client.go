@@ -315,6 +315,10 @@ type SetCharmConfig struct {
 	// update during the upgrade. This field is only understood by Application
 	// facade version 2 and greater.
 	StorageConstraints map[string]storage.Constraints `json:"storage-constraints,omitempty"`
+
+	// EndpointBindings is a map of operator-defined endpoint names to
+	// space names to be merged with any existing endpoint bindings.
+	EndpointBindings map[string]string
 }
 
 // SetCharm sets the charm for a given application.
@@ -349,6 +353,7 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 		ForceUnits:         cfg.ForceUnits,
 		ResourceIDs:        cfg.ResourceIDs,
 		StorageConstraints: storageConstraints,
+		EndpointBindings:   cfg.EndpointBindings,
 		Generation:         branchName,
 	}
 	return c.facade.FacadeCall("SetCharm", args, nil)

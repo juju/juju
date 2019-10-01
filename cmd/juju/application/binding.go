@@ -4,6 +4,7 @@
 package application
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -65,7 +66,8 @@ func parseBindExpr(expr string, knownSpaces []string) (map[string]string, error)
 // mergeBindings is invoked when upgrading a charm to merge the existing set of
 // endpoint to space assignments for a deployed application and the user-defined
 // bindings passed to the upgrade-charm command.
-func mergeBindings(newCharmEndpoints set.Strings, oldEndpointsMap, userBindings map[string]string, oldDefaultSpace string) (map[string]string, error) {
+func mergeBindings(newCharmEndpoints set.Strings, oldEndpointsMap, userBindings map[string]string, oldDefaultSpace string) (map[string]string, []string) {
+	var changelog []string
 	if oldEndpointsMap == nil {
 		oldEndpointsMap = make(map[string]string)
 	}
@@ -86,10 +88,10 @@ func mergeBindings(newCharmEndpoints set.Strings, oldEndpointsMap, userBindings 
 			// If not explicitly defined, it inherits the default space for the application
 			if !newBindingDefined {
 				mergedBindings[epName] = oldDefaultSpace
-				logger.Infof("Adding endpoint %q to default space %q", epName, oldDefaultSpace)
+				changelog = append(changelog, fmt.Sprintf("Adding endpoint %q to default space %q", epName, oldDefaultSpace))
 			} else {
 				mergedBindings[epName] = newSpaceAssignment
-				logger.Infof("Adding endpoint %q to space %q", epName, newSpaceAssignment)
+				changelog = append(changelog, fmt.Sprintf("Adding endpoint %q to space %q", epName, newSpaceAssignment))
 			}
 			continue
 		}
@@ -98,7 +100,7 @@ func mergeBindings(newCharmEndpoints set.Strings, oldEndpointsMap, userBindings 
 		// specified a different space for it.
 		if newBindingDefined && oldSpaceAssignment != newSpaceAssignment {
 			mergedBindings[epName] = newSpaceAssignment
-			logger.Infof("Updating endpoint %q from %q to %q", epName, oldSpaceAssignment, newSpaceAssignment)
+			changelog = append(changelog, fmt.Sprintf("Updating endpoint %q from %q to %q", epName, oldSpaceAssignment, newSpaceAssignment))
 			continue
 		}
 
@@ -106,7 +108,7 @@ func mergeBindings(newCharmEndpoints set.Strings, oldEndpointsMap, userBindings 
 		// space and override it to the new default space.
 		if !newBindingDefined && changeDefaultSpace && oldSpaceAssignment == oldDefaultSpace {
 			mergedBindings[epName] = newDefaultSpace
-			logger.Infof("Updating endpoint %q from %q to %q", epName, oldSpaceAssignment, newDefaultSpace)
+			changelog = append(changelog, fmt.Sprintf("Updating endpoint %q from %q to %q", epName, oldSpaceAssignment, newDefaultSpace))
 			continue
 		}
 
@@ -121,11 +123,11 @@ func mergeBindings(newCharmEndpoints set.Strings, oldEndpointsMap, userBindings 
 			pluralSuffix = "s"
 		}
 
-		logger.Infof("Leaving endpoint%s in %q: %s", pluralSuffix, spName, strings.Join(epList, ", "))
+		changelog = append(changelog, fmt.Sprintf("Leaving endpoint%s in %q: %s", pluralSuffix, spName, strings.Join(epList, ", ")))
 	}
 
 	if changeDefaultSpace {
 		mergedBindings[""] = newDefaultSpace
 	}
-	return mergedBindings, nil
+	return mergedBindings, changelog
 }

@@ -8,8 +8,10 @@ import (
 	"os"
 
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
@@ -25,12 +27,14 @@ import (
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
@@ -58,6 +62,9 @@ func NewUpgradeCharmCommand() cmd.Command {
 				return nil, err
 			}
 			return resclient, nil
+		},
+		NewSpacesClient: func(conn base.APICallCloser) SpacesAPI {
+			return spaces.NewAPI(conn)
 		},
 		CharmStoreURLGetter: getCharmStoreAPIURL,
 	}
@@ -110,6 +117,7 @@ type upgradeCharmCommand struct {
 	NewCharmUpgradeClient func(base.APICallCloser) CharmAPIClient
 	NewModelConfigGetter  func(base.APICallCloser) ModelConfigGetter
 	NewResourceLister     func(base.APICallCloser) (ResourceLister, error)
+	NewSpacesClient       func(base.APICallCloser) SpacesAPI
 	CharmStoreURLGetter   func(base.APICallCloser) (string, error)
 
 	ApplicationName string
@@ -121,6 +129,9 @@ type upgradeCharmCommand struct {
 	SwitchURL   string
 	CharmPath   string
 	Revision    int // defaults to -1 (latest)
+
+	BindToSpaces string
+	Bindings     map[string]string
 
 	// Resources is a map of resource name to filename to be uploaded on upgrade.
 	Resources map[string]string
@@ -239,6 +250,7 @@ func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.Var(storageFlag{&c.Storage, nil}, "storage", "Charm storage constraints")
 	f.Var(&c.Config, "config", "Path to yaml-formatted application config")
+	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
 }
 
 func (c *upgradeCharmCommand) Init(args []string) error {
@@ -281,12 +293,8 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		if c.Config.Path == "" {
 			action = "updating storage constraints"
 		}
-		if apiRoot.BestFacadeVersion("Application") < 2 {
-			suffix := "this server"
-			if version, ok := apiRoot.ServerVersion(); ok {
-				suffix = fmt.Sprintf("server version %s", version)
-			}
-			return errors.New(action + " at upgrade-charm time is not supported by " + suffix)
+		if err := c.checkApplicationFacadeSupport(apiRoot, action, 2); err != nil {
+			return err
 		}
 	}
 
@@ -298,6 +306,16 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	oldURL, err := charmUpgradeClient.GetCharmURL(generation, c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	if c.BindToSpaces != "" {
+		if err := c.checkApplicationFacadeSupport(apiRoot, "specifying bindings", 11); err != nil {
+			return err
+		}
+
+		if err := c.parseBindFlag(apiRoot); err != nil {
+			return err
+		}
 	}
 
 	newRef := c.SwitchURL
@@ -374,6 +392,23 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	if apiRoot.BestFacadeVersion("Application") >= 11 {
+		// Fetch information about the charm we want to upgrade to and
+		// print out the updated endpoint binding plan.
+		charmInfo, err := c.NewCharmClient(apiRoot).CharmInfo(chID.URL.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		curBindings := applicationInfo.EndpointBindings
+		appDefaultSpace := detectDefaultSpace(modelConfig, curBindings)
+		mergedBindings, changelog := mergeBindings(allEndpoints(charmInfo), curBindings, c.Bindings, appDefaultSpace)
+		c.Bindings = mergedBindings
+		for _, change := range changelog {
+			ctx.Infof(change)
+		}
+	}
+
 	// Finally, upgrade the application.
 	var configYAML []byte
 	if c.Config.Path != "" {
@@ -391,8 +426,53 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		ForceUnits:         c.ForceUnits,
 		ResourceIDs:        ids,
 		StorageConstraints: c.Storage,
+		EndpointBindings:   c.Bindings,
 	}
 	return block.ProcessBlockedError(charmUpgradeClient.SetCharm(generation, cfg), block.BlockChange)
+}
+
+func (c *upgradeCharmCommand) parseBindFlag(apiRoot base.APICallCloser) error {
+	if c.BindToSpaces == "" {
+		return nil
+	}
+
+	// Fetch known spaces from server
+	knownSpaceList, err := c.NewSpacesClient(apiRoot).ListSpaces()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	knownSpaces := make([]string, 0, len(knownSpaceList))
+	for _, sp := range knownSpaceList {
+		knownSpaces = append(knownSpaces, sp.Name)
+	}
+
+	// Parse expression
+	bindings, err := parseBindExpr(c.BindToSpaces, knownSpaces)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	c.Bindings = bindings
+	return nil
+}
+
+type versionQuerier interface {
+	BestFacadeVersion(string) int
+	ServerVersion() (version.Number, bool)
+}
+
+func (c *upgradeCharmCommand) checkApplicationFacadeSupport(verQuerier versionQuerier, action string, minVersion int) error {
+	if verQuerier.BestFacadeVersion("Application") >= minVersion {
+		return nil
+	}
+
+	suffix := "this server"
+	if version, ok := verQuerier.ServerVersion(); ok {
+		suffix = fmt.Sprintf("server version %s", version)
+	}
+
+	return errors.New(action + " at upgrade-charm time is not supported by " + suffix)
 }
 
 // upgradeResources pushes metadata up to the server for each resource defined
@@ -623,4 +703,36 @@ func (c *upgradeCharmCommand) addCharm(params addCharmParams) (charmstore.CharmI
 	}
 	id.URL = curl
 	return id, csMac, nil
+}
+
+func allEndpoints(ci *charms.CharmInfo) set.Strings {
+	epSet := set.NewStrings()
+	for n := range ci.Meta.ExtraBindings {
+		epSet.Add(n)
+	}
+	for n := range ci.Meta.Provides {
+		epSet.Add(n)
+	}
+	for n := range ci.Meta.Peers {
+		epSet.Add(n)
+	}
+	for n := range ci.Meta.Requires {
+		epSet.Add(n)
+	}
+
+	return epSet
+}
+
+func detectDefaultSpace(modelConfig *config.Config, curBindings map[string]string) string {
+	if curBindings != nil {
+		if defaultSpace, defined := curBindings[""]; defined {
+			return defaultSpace
+		}
+	}
+
+	// TODO(achilleasa): When we introduce a model config parameter for
+	// specifying the default space we should check whether it is set and
+	// use its value as the default before falling-back to the global
+	// default below.
+	return network.DefaultSpaceName
 }
