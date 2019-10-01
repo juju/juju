@@ -1082,5 +1082,5 @@ func (b *BlobStoreChecker) checkUnreferencedChunks() {
 		}
 	}
 	fmt.Fprintf(os.Stdout, "  total unreferenced chunks %d, bytes: %s\n", unreferencedChunkCount, lengthToSize(unreferencedBytes))
-	fmt.Fprint(os.Stdout, "  read %d blobstore chunks\n", chunkCount)
+	fmt.Fprintf(os.Stdout, "  read %d blobstore chunks\n", chunkCount)
 }

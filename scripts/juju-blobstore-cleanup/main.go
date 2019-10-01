@@ -5,8 +5,10 @@ package main
 
 import (
 	"fmt"
+	"gopkg.in/juju/blobstore.v2"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -15,9 +17,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/mongo"
@@ -57,16 +61,21 @@ func main() {
 	if len(args) < 0 {
 		gnuflag.Usage()
 	}
-	checkErr("logging config", loggo.ConfigureLoggers(*loggingConfig))
+	checkErr(loggo.ConfigureLoggers(*loggingConfig), "logging config")
 
 	cleaner := NewBlobstoreCleaner()
 	cleaner.findModellessManagedResources()
+	cleaner.cleanupManagedResources()
 	cleaner.findUnmanagedResources()
+	cleaner.cleanupUnmanagedResources()
 	cleaner.findResourcelessFiles()
+	cleaner.cleanupFiles()
 	cleaner.findFilelessChunks()
+	cleaner.cleanupChunks()
+	fmt.Printf("total bytes: %s\n", lengthToSize(cleaner.totalBytes()))
 }
 
-func checkErr(label string, err error) {
+func checkErr(err error, label string) {
 	if err != nil {
 		logger.Errorf("%s: %s", label, err)
 		os.Exit(1)
@@ -141,7 +150,7 @@ func NewBlobstoreCleaner() *BlobstoreCleaner {
 	statePool, session, err := getState()
 	// Some of the chunks queries take a long time
 	session.SetSocketTimeout(10 * time.Minute)
-	checkErr("getting state connection", err)
+	checkErr(err, "getting state connection")
 	jujuDB := session.DB("juju")
 	managedResources := jujuDB.C(managedResourceC)
 	storedResources := jujuDB.C(resourceCatalogC)
@@ -164,6 +173,15 @@ func NewBlobstoreCleaner() *BlobstoreCleaner {
 	}
 }
 
+type ManagedResource struct {
+	BucketUUID string
+	Path       string
+}
+type UnmanagedResource struct {
+	ID         string
+	GridFSPath string
+}
+
 type BlobstoreCleaner struct {
 	pool    *state.StatePool
 	session *mgo.Session
@@ -178,15 +196,24 @@ type BlobstoreCleaner struct {
 	foundBlobstorePaths set.Strings
 	foundBlobstoreIDs   set.Strings
 
-	modellessResources []string
-	unmanagedResources []string
-	unreferencedFiles  []string
-	unreferencedChunks []string
+	modellessResources      []ManagedResource
+	modellessResourceBytes  uint64
+	unmanagedResources      []UnmanagedResource
+	unmanagedResourceBytes  uint64
+	unreferencedFiles       []string
+	unreferencedFilesBytes  uint64
+	unreferencedChunks      []string
+	unreferencedChunksBytes uint64
 }
 
 func (b *BlobstoreCleaner) Close() {
 	b.pool.Close()
 	b.session.Close()
+}
+
+func (b *BlobstoreCleaner) totalBytes() uint64 {
+	return b.modellessResourceBytes + b.unmanagedResourceBytes +
+		b.unreferencedFilesBytes + b.unreferencedChunksBytes
 }
 
 // managedResourceDoc is the persistent representation of a ManagedResource.
@@ -230,11 +257,10 @@ var blobstoreFileFieldSelector = bson.M{"_id": 1, "filename": 1, "length": 1}
 
 func (b *BlobstoreCleaner) findModellessManagedResources() {
 	modelUUIDs, err := b.system.AllModelUUIDs()
-	checkErr("AllModelUUIDS", err)
+	checkErr(err, "AllModelUUIDS")
 	allModels := set.NewStrings(modelUUIDs...)
 
 	var managedDoc managedResourceDoc
-	var managedBytes uint64
 	managedIter := b.managedResources.Find(nil).Iter()
 	for managedIter.Next(&managedDoc) {
 		alreadyFound := b.foundResourceIDs.Contains(managedDoc.ResourceId)
@@ -242,7 +268,19 @@ func (b *BlobstoreCleaner) findModellessManagedResources() {
 		if allModels.Contains(managedDoc.BucketUUID) {
 			continue
 		}
-		b.modellessResources = append(b.modellessResources, managedDoc.ID)
+		// in the Database the Path value is the full path with the bucket
+		// prefix (same as the documents ._id). However, in-memory APIs
+		// take just the bucket local path and build the longer path.
+		// make sure it conforms to our expectation, and then strip off the
+		// prefix in preparation for deleting.
+		bucketPrefix := fmt.Sprintf("buckets/%s/.*", managedDoc.BucketUUID)
+		if !strings.HasPrefix(managedDoc.Path, bucketPrefix) {
+			logger.Warningf("bucket has unexpected prefix, skipping: %q", managedDoc.Path)
+		}
+		b.modellessResources = append(b.modellessResources, ManagedResource{
+			BucketUUID: managedDoc.BucketUUID,
+			Path:       managedDoc.Path[len(bucketPrefix):],
+		})
 
 		if alreadyFound {
 			if *verbose {
@@ -255,42 +293,115 @@ func (b *BlobstoreCleaner) findModellessManagedResources() {
 				logger.Warningf("Managed Resource %q points to missing storedResource: %q", managedDoc.ResourceId)
 				continue
 			} else {
-				checkErr("reading stored resource", err)
+				checkErr(err, "reading stored resource")
 			}
-			managedBytes += uint64(resourceDoc.Length)
+			b.modellessResourceBytes += uint64(resourceDoc.Length)
 			if *verbose {
-				fmt.Printf("%s: %d\n", managedDoc.Path, lengthToSize(uint64(resourceDoc.Length)))
+				fmt.Printf("%s: %s\n", managedDoc.Path, lengthToSize(uint64(resourceDoc.Length)))
 			}
 		}
 	}
-	checkErr("listing managed stored resources", managedIter.Close())
-	fmt.Printf("Found %d managed resource documents without models totaling %s bytes\n", len(b.modellessResources), lengthToSize(managedBytes))
+	checkErr(managedIter.Close(), "listing managed stored resources")
+	fmt.Printf("Found %d managed resource documents without models totaling %s\n\n",
+		len(b.modellessResources), lengthToSize(b.modellessResourceBytes))
+}
+
+func (b *BlobstoreCleaner) cleanupManagedResources() {
+	if *dryRun {
+		fmt.Printf("Not removing %d managed resources\n\n", len(b.modellessResources))
+		return
+	}
+	fmt.Printf("Removing %d managed resources\n", len(b.modellessResources))
+	gridfs := blobstore.NewGridFS("blobstore", "blobstore", b.session)
+	manager := blobstore.NewManagedStorage(b.session.DB("juju"), gridfs)
+	for _, mres := range b.modellessResources {
+		logger.Debugf("removing managed resource: buckets/%s/%s", mres.BucketUUID, mres.Path)
+		fmt.Fprintf(os.Stderr, ".")
+		// Note, this removes the managed resource document, and if that decrements the refcount to
+		// 0, it might remove the underlying resource.
+		err := manager.RemoveForBucket(mres.BucketUUID, mres.Path)
+		if err != nil {
+			logger.Warningf("error trying to delete %q %q: %v", mres.BucketUUID, mres.Path, err)
+			continue
+		}
+	}
+	fmt.Fprintf(os.Stderr, "\n")
 }
 
 func (b *BlobstoreCleaner) findUnmanagedResources() {
 	// must be called after findModellessManagedResources because that populates foundResourceIDs
 	var resourceDoc storedResourceDoc
 	storedResourceIter := b.storedResources.Find(nil).Iter()
-	var unmanagedBytes uint64
 	for storedResourceIter.Next(&resourceDoc) {
 		b.foundBlobstorePaths.Add(resourceDoc.Path)
 		if b.foundResourceIDs.Contains(resourceDoc.ID) {
 			continue
 		}
-		b.unmanagedResources = append(b.unmanagedResources, resourceDoc.ID)
-		unmanagedBytes += uint64(resourceDoc.Length)
+		b.unmanagedResources = append(b.unmanagedResources, UnmanagedResource{
+			ID:         resourceDoc.ID,
+			GridFSPath: resourceDoc.Path,
+		})
+		b.unmanagedResourceBytes += uint64(resourceDoc.Length)
 		if *verbose {
-			fmt.Printf("%s: %d\n", resourceDoc.ID, lengthToSize(uint64(resourceDoc.Length)))
+			fmt.Printf("%s: %s refcount: %d\n",
+				resourceDoc.ID, lengthToSize(uint64(resourceDoc.Length)), resourceDoc.RefCount)
 		}
 	}
-	checkErr("listing stored resources", storedResourceIter.Close())
-	fmt.Printf("Found %d unreferenced resource documents totaling %s bytes\n", len(b.unmanagedResources), lengthToSize(unmanagedBytes))
+	checkErr(storedResourceIter.Close(), "listing stored resources")
+	fmt.Printf("Found %d unreferenced resource documents totaling %s\n\n",
+		len(b.unmanagedResources), lengthToSize(b.unmanagedResourceBytes))
+}
+
+func txnRunner(db *mgo.Database) jujutxn.Runner {
+	return jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
+}
+
+func removeStoredResourceOps(docID string) []txn.Op {
+	return []txn.Op{{
+		C:      resourceCatalogC,
+		Id:     docID,
+		Assert: bson.D{{"refcount", 1}},
+		Remove: true,
+	}}
+}
+
+func (b *BlobstoreCleaner) cleanupUnmanagedResources() {
+	if *dryRun {
+		fmt.Printf("Not removing %d dangling resources\n\n", len(b.unmanagedResources))
+		return
+	}
+	fmt.Printf("Removing %d dangling resources\n", len(b.unmanagedResources))
+	// TODO: This duplicates the code in gopkg.in/blobstore.v2/resourcecatalog.go
+	// However, that code doesn't expose newResourceCatalog or resourceCatalog.
+	// And by their nature, we can't use blobstore.ManagedStorage because the
+	// reference to these objects doesn't exist.
+	runner := txnRunner(b.session.DB("juju"))
+	gridfs := blobstore.NewGridFS("blobstore", "blobstore", b.session)
+	for _, unmanagedResource := range b.unmanagedResources {
+		logger.Debugf("removing unmanaged resource: %q", unmanagedResource.ID)
+		fmt.Fprintf(os.Stderr, ".")
+		// We're explicitly not caring about refcount. Do we care if refcount > 1 ?
+		err := runner.Run(func(attempt int) ([]txn.Op, error) {
+			if attempt > 0 {
+				var resourceDoc storedResourceDoc
+				// trying to delete something that doesn't exist anymore
+				err := b.storedResources.FindId(unmanagedResource.ID).One(&resourceDoc)
+				if err == mgo.ErrNotFound {
+					return nil, jujutxn.ErrNoOperations
+				}
+				checkErr(err, fmt.Sprintf("finding storedResources doc: %q", unmanagedResource.ID))
+			}
+			return removeStoredResourceOps(unmanagedResource.ID), nil
+		})
+		checkErr(err, fmt.Sprintf("removing unmanaged resource: %q", unmanagedResource.ID))
+		gridfs.Remove(unmanagedResource.GridFSPath)
+	}
+	fmt.Fprintf(os.Stderr, "\n")
 }
 
 func (b *BlobstoreCleaner) findResourcelessFiles() {
 	// must be called after findUnmanagedResources because that populates foundBlobstorePaths
 	var fileDoc blobstoreFile
-	var unreferencedFileBytes uint64
 	filesIter := b.blobstoreFiles.Find(nil).Select(blobstoreFileFieldSelector).Iter()
 	for filesIter.Next(&fileDoc) {
 		b.foundBlobstoreIDs.Add(string(fileDoc.ID))
@@ -299,13 +410,29 @@ func (b *BlobstoreCleaner) findResourcelessFiles() {
 		}
 		b.foundBlobstorePaths.Add(fileDoc.Filename)
 		b.unreferencedFiles = append(b.unreferencedFiles, fileDoc.Filename)
-		unreferencedFileBytes += uint64(fileDoc.Length)
+		b.unreferencedFilesBytes += uint64(fileDoc.Length)
 		if *verbose {
-			fmt.Printf("%s: %d\n", fileDoc.Filename, lengthToSize(uint64(fileDoc.Length)))
+			fmt.Printf("%s: %s\n", fileDoc.Filename, lengthToSize(uint64(fileDoc.Length)))
 		}
 	}
-	checkErr("listing blobstore files", filesIter.Close())
-	fmt.Printf("Found %d unreferenced blobstore files totaling %s bytes\n", len(b.unreferencedFiles), lengthToSize(unreferencedFileBytes))
+	checkErr(filesIter.Close(), "listing blobstore files")
+	fmt.Printf("Found %d unreferenced blobstore files totaling %s\n\n",
+		len(b.unreferencedFiles), lengthToSize(b.unreferencedFilesBytes))
+}
+
+func (b *BlobstoreCleaner) cleanupFiles() {
+	if *dryRun {
+		fmt.Printf("Not removing %d dangling files\n\n", len(b.unreferencedFiles))
+		return
+	}
+	fmt.Printf("Removing %d dangling files\n", len(b.unreferencedFiles))
+	gridfs := blobstore.NewGridFS("blobstore", "blobstore", b.session)
+	for _, path := range b.unreferencedFiles {
+		logger.Debugf("removing blobstore file: %q", path)
+		fmt.Fprintf(os.Stderr, ".")
+		gridfs.Remove(path)
+	}
+	fmt.Fprintf(os.Stderr, "\n")
 }
 
 func (b *BlobstoreCleaner) findFilelessChunks() {
@@ -320,10 +447,40 @@ func (b *BlobstoreCleaner) findFilelessChunks() {
 			continue
 		}
 		b.unreferencedChunks = append(b.unreferencedChunks, string(chunkDoc.ID))
+		var dataDoc blobstoreChunk
+		err := b.blobstoreChunks.FindId(chunkDoc.ID).One(&dataDoc)
+		if err != nil {
+			if err == mgo.ErrNotFound {
+				logger.Warningf("chunk doc %s went missing")
+				continue
+			}
+		}
+		b.unreferencedChunksBytes += uint64(len(dataDoc.Data))
 		if *verbose {
-			fmt.Printf("%s: ?\n", chunkDoc.ID)
+			fmt.Printf("%s: %s\n", chunkDoc.ID.Hex(), lengthToSize(uint64(len(dataDoc.Data))))
 		}
 	}
-	checkErr("listing blobstore chunks", filesIter.Close())
-	fmt.Printf("Found %d unreferenced blobstore chunks totaling ? bytes\n", len(b.unreferencedChunks))
+	checkErr(filesIter.Close(), "listing blobstore chunks")
+	fmt.Printf("Found %d unreferenced blobstore chunks totaling %s\n\n",
+		len(b.unreferencedChunks), lengthToSize(b.unreferencedChunksBytes))
+}
+
+func (b *BlobstoreCleaner) cleanupChunks() {
+	if *dryRun {
+		fmt.Printf("Not removing %d dangling files\n\n", len(b.unreferencedFiles))
+		return
+	}
+	fmt.Printf("Removing %d dangling files\n", len(b.unreferencedFiles))
+	chunks := b.session.DB("blobstore").C(blobstoreChunksC)
+	for _, chunkID := range b.unreferencedChunks {
+		objID := bson.ObjectId(chunkID)
+		logger.Debugf("removing blobstore file: %q", objID.Hex())
+		fmt.Fprintf(os.Stderr, ".")
+		err := chunks.RemoveId(objID)
+		if err == mgo.ErrNotFound {
+			continue
+		}
+		checkErr(err, fmt.Sprintf("removing blobstore chunk: %q", objID.Hex()))
+	}
+	fmt.Fprintf(os.Stderr, "\n")
 }
