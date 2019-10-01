@@ -21,6 +21,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	"github.com/juju/loggo"
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -1076,6 +1077,7 @@ func (s *MachineLegacyLeasesSuite) TestWorkersForHostedModelWithInvalidCredentia
 	// The dummy provider blows up in the face of multi-model
 	// scenarios so patch in a minimal environs.Environ that's good
 	// enough to allow the model workers to run.
+	loggo.GetLogger("juju.worker.dependency").SetLogLevel(loggo.TRACE)
 	s.PatchValue(&newEnvirons, func(environs.OpenParams) (environs.Environ, error) {
 		return &minModelWorkersEnviron{}, nil
 	})
@@ -1120,6 +1122,7 @@ func (s *MachineLegacyLeasesSuite) TestWorkersForHostedModelWithDeletedCredentia
 	// The dummy provider blows up in the face of multi-model
 	// scenarios so patch in a minimal environs.Environ that's good
 	// enough to allow the model workers to run.
+	loggo.GetLogger("juju.worker.dependency").SetLogLevel(loggo.TRACE)
 	s.PatchValue(&newEnvirons, func(environs.OpenParams) (environs.Environ, error) {
 		return &minModelWorkersEnviron{}, nil
 	})
@@ -1134,6 +1137,7 @@ func (s *MachineLegacyLeasesSuite) TestWorkersForHostedModelWithDeletedCredentia
 			"max-status-history-size": "4M",
 			"max-action-results-age":  "2h",
 			"max-action-results-size": "4M",
+			"logging-config":          "juju=debug;juju.worker.dependency=trace",
 		},
 		CloudCredential: credentialTag,
 	})

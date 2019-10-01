@@ -1019,6 +1019,7 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, er
 	if err != nil {
 		return nil, err
 	}
+	logger.Infof("juju database opened")
 
 	reportOpenedState(pool.SystemState())
 

@@ -460,7 +460,7 @@ func (e *minModelWorkersEnviron) AllRunningInstances(context.ProviderCallContext
 }
 
 func (e *minModelWorkersEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
-	return nil, nil
+	return nil, environs.ErrNoInstances
 }
 
 func (env *minModelWorkersEnviron) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {
