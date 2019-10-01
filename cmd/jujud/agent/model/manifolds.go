@@ -146,7 +146,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Filter:        apiConnectFilter,
 		}),
 
-		// The logging config updater listents for logging config updates
+		// The logging config updater listens for logging config updates
 		// for the model and configures the logging context appropriately.
 		loggingConfigUpdaterName: ifNotMigrating(logger.Manifold(logger.ManifoldConfig{
 			AgentName:      agentName,
