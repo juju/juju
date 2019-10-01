@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/state/migrations"
 	"github.com/juju/juju/storage/poolmanager"
 )
 
@@ -200,6 +201,34 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	}
 
 	return export.model, nil
+}
+
+// ExportStateMigration defines a migration for exporting various entities into
+// a destiniation description model from the source state.
+// It accumulates a series of migrations to Run at a later time.
+// Running the state migration visits all the migrations and exits upon seeing
+// the first error from the migration.
+type ExportStateMigration struct {
+	src        *State
+	dst        description.Model
+	exporter   *exporter
+	migrations []func() error
+}
+
+// Add adds a migration to execute at a later time
+// Return error from the addition will cause the Run to terminate early.
+func (m *ExportStateMigration) Add(f func() error) {
+	m.migrations = append(m.migrations, f)
+}
+
+// Run executes all the migrations required to be run.
+func (m *ExportStateMigration) Run() error {
+	for _, f := range m.migrations {
+		if err := f(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 type exporter struct {
@@ -1123,69 +1152,70 @@ func (e *exporter) relations() error {
 
 func (e *exporter) remoteEntities() error {
 	e.logger.Debugf("reading remote entities")
-	return exportRemoteEntities(e.st, e.model)
+	migration := &ExportStateMigration{
+		src: e.st,
+		dst: e.model,
+	}
+	migration.Add(func() error {
+		m := migrations.ExportRemoteEntities{}
+		return m.Execute(remoteEntitiesShim{
+			st: migration.src,
+		}, migration.dst)
+	})
+	return migration.Run()
 }
 
-//go:generate mockgen -package state -destination migration_export_mock_test.go github.com/juju/juju/state StatusSource,RemoteEntitiesSource,RemoteEntitiesModel,RelationNetworksSource,RelationNetworksModel,RemoteApplicationSource,RemoteApplicationModel
-//go:generate mockgen -package state -destination migration_mock_test.go github.com/juju/juju/state RelationNetworks
-
-// RemoteEntitiesSource defines an inplace usage for reading all the remote
-// entities.
-type RemoteEntitiesSource interface {
-	AllRemoteEntities() ([]RemoteEntity, error)
+// remoteEntitiesShim is to handle the fact that go doesn't handle covariance
+// and the tight abstraction around the new migration export work ensures that
+// we handle our dependencies up front.
+type remoteEntitiesShim struct {
+	st *State
 }
 
-// RemoteEntitiesModel defines an inplace usage for adding a remote entity
-// to a model.
-type RemoteEntitiesModel interface {
-	AddRemoteEntity(description.RemoteEntityArgs) description.RemoteEntity
-}
-
-func exportRemoteEntities(state RemoteEntitiesSource, model RemoteEntitiesModel) error {
-	entities, err := state.AllRemoteEntities()
+func (s remoteEntitiesShim) AllRemoteEntities() ([]migrations.MigrationRemoteEntity, error) {
+	entities, err := s.st.AllRemoteEntities()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	for _, entity := range entities {
-		model.AddRemoteEntity(description.RemoteEntityArgs{
-			ID:       entity.ID(),
-			Token:    entity.Token(),
-			Macaroon: entity.Macaroon(),
-		})
+	result := make([]migrations.MigrationRemoteEntity, len(entities))
+	for k, v := range entities {
+		result[k] = v
 	}
-	return nil
+	return result, nil
 }
 
 func (e *exporter) relationNetworks() error {
 	e.logger.Debugf("reading relation networks")
-	return exportRelationNetworks(NewRelationNetworks(e.st), e.model)
+	migration := &ExportStateMigration{
+		src: e.st,
+		dst: e.model,
+	}
+	migration.Add(func() error {
+		m := migrations.ExportRelationNetworks{}
+		return m.Execute(relationNetworksShim{
+			st: migration.src,
+		}, migration.dst)
+	})
+	return migration.Run()
 }
 
-// RelationNetworksSource defines an inplace usage for reading all the relation
-// networks.
-type RelationNetworksSource interface {
-	AllRelationNetworks() ([]RelationNetworks, error)
+// relationNetworksShim is to handle the fact that go doesn't handle covariance
+// and the tight abstraction around the new migration export work ensures that
+// we handle our dependencies up front.
+type relationNetworksShim struct {
+	st *State
 }
 
-// RelationNetworksModel defines an inplace usage for adding a relation networks
-// to a model.
-type RelationNetworksModel interface {
-	AddRelationNetwork(description.RelationNetworkArgs) description.RelationNetwork
-}
-
-func exportRelationNetworks(state RelationNetworksSource, model RelationNetworksModel) error {
-	entities, err := state.AllRelationNetworks()
+func (s relationNetworksShim) AllRelationNetworks() ([]migrations.MigrationRelationNetworks, error) {
+	entities, err := NewRelationNetworks(s.st).AllRelationNetworks()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	for _, entity := range entities {
-		model.AddRelationNetwork(description.RelationNetworkArgs{
-			ID:          entity.Id(),
-			RelationKey: entity.RelationKey(),
-			CIDRS:       entity.CIDRS(),
-		})
+	result := make([]migrations.MigrationRelationNetworks, len(entities))
+	for k, v := range entities {
+		result[k] = v
 	}
-	return nil
+	return result, nil
 }
 
 func (e *exporter) spaces() error {
@@ -1836,103 +1866,95 @@ func (e *exporter) checkUnexportedValues() error {
 
 func (e *exporter) remoteApplications() error {
 	e.logger.Debugf("read remote applications")
-	return exportRemoteApplications(e.st, statusSourceShim{exporter: e}, e.model)
+	migration := &ExportStateMigration{
+		src:      e.st,
+		dst:      e.model,
+		exporter: e,
+	}
+	migration.Add(func() error {
+		m := migrations.ExportRemoteApplications{}
+		return m.Execute(remoteApplicationsShim{
+			st:       migration.src,
+			exporter: e,
+		}, migration.dst)
+	})
+	return migration.Run()
 }
 
-// RemoteApplicationSource defines an inplace usage for reading all the remote
-// application.
-type RemoteApplicationSource interface {
-	AllRemoteApplications() ([]*RemoteApplication, error)
-}
-
-// StatusSource defines an inplace usage for reading in the status for a given
-// entity.
-type StatusSource interface {
-	StatusArgs(string) (description.StatusArgs, error)
-}
-
-// RemoteApplicationModel defines an inplace usage for adding a remote entity
-// to a model.
-type RemoteApplicationModel interface {
-	AddRemoteApplication(description.RemoteApplicationArgs) description.RemoteApplication
-}
-
-type statusSourceShim struct {
+// remoteApplicationsShim is to handle the fact that go doesn't handle covariance
+// and the tight abstraction around the new migration export work ensures that
+// we handle our dependencies up front.
+type remoteApplicationsShim struct {
+	st       *State
 	exporter *exporter
 }
 
-func (s statusSourceShim) StatusArgs(key string) (description.StatusArgs, error) {
+func (s remoteApplicationsShim) AllRemoteApplications() ([]migrations.MigrationRemoteApplication, error) {
+	entities, err := s.st.AllRemoteApplications()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]migrations.MigrationRemoteApplication, len(entities))
+	for k, v := range entities {
+		result[k] = remoteApplicationShim{
+			RemoteApplication: v,
+		}
+	}
+	return result, nil
+}
+
+func (s remoteApplicationsShim) StatusArgs(key string) (description.StatusArgs, error) {
 	return s.exporter.statusArgs(key)
 }
 
-func exportRemoteApplications(state RemoteApplicationSource, statusSource StatusSource, model RemoteApplicationModel) error {
-	remoteApps, err := state.AllRemoteApplications()
-	if err != nil {
-		return errors.Trace(err)
-	}
+type remoteApplicationShim struct {
+	*RemoteApplication
+}
 
-	for _, remoteApp := range remoteApps {
-		err := addRemoteApplication(model, statusSource, remoteApp)
-		if err != nil {
-			return errors.Trace(err)
+func (s remoteApplicationShim) Endpoints() ([]migrations.MigrationRemoteEndpoint, error) {
+	endpoints, err := s.RemoteApplication.Endpoints()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]migrations.MigrationRemoteEndpoint, len(endpoints))
+	for k, v := range endpoints {
+		result[k] = migrations.MigrationRemoteEndpoint{
+			Name:      v.Name,
+			Role:      v.Role,
+			Interface: v.Interface,
 		}
 	}
-	return nil
+	return result, nil
 }
 
-func addRemoteApplication(model RemoteApplicationModel, statusSource StatusSource, app *RemoteApplication) error {
-	url, _ := app.URL()
-	args := description.RemoteApplicationArgs{
-		Tag:             app.Tag().(names.ApplicationTag),
-		OfferUUID:       app.OfferUUID(),
-		URL:             url,
-		SourceModel:     app.SourceModel(),
-		IsConsumerProxy: app.IsConsumerProxy(),
-		Bindings:        app.Bindings(),
+func (s remoteApplicationShim) Spaces() []migrations.MigrationRemoteSpace {
+	spaces := s.RemoteApplication.Spaces()
+	result := make([]migrations.MigrationRemoteSpace, len(spaces))
+	for k, v := range spaces {
+		subnets := make([]migrations.MigrationRemoteSubnet, len(v.Subnets))
+		for k, v := range v.Subnets {
+			subnets[k] = migrations.MigrationRemoteSubnet{
+				CIDR:              v.CIDR,
+				ProviderId:        v.ProviderId,
+				VLANTag:           v.VLANTag,
+				AvailabilityZones: v.AvailabilityZones,
+				ProviderSpaceId:   v.ProviderSpaceId,
+				ProviderNetworkId: v.ProviderNetworkId,
+			}
+		}
+		result[k] = migrations.MigrationRemoteSpace{
+			CloudType:          v.CloudType,
+			Name:               v.Name,
+			ProviderId:         v.ProviderId,
+			ProviderAttributes: v.ProviderAttributes,
+			Subnets:            subnets,
+		}
 	}
-	descApp := model.AddRemoteApplication(args)
-	status, err := statusSource.StatusArgs(app.globalKey())
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-	// Not all remote applications have status.
-	if err == nil {
-		descApp.SetStatus(status)
-	}
-	endpoints, err := app.Endpoints()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, ep := range endpoints {
-		descApp.AddEndpoint(description.RemoteEndpointArgs{
-			Name:      ep.Name,
-			Role:      string(ep.Role),
-			Interface: ep.Interface,
-		})
-	}
-	for _, space := range app.Spaces() {
-		addRemoteSpace(descApp, space)
-	}
-	return nil
+	return result
 }
 
-func addRemoteSpace(descApp description.RemoteApplication, space RemoteSpace) {
-	descSpace := descApp.AddSpace(description.RemoteSpaceArgs{
-		CloudType:          space.CloudType,
-		Name:               space.Name,
-		ProviderId:         space.ProviderId,
-		ProviderAttributes: space.ProviderAttributes,
-	})
-	for _, subnet := range space.Subnets {
-		descSpace.AddSubnet(description.SubnetArgs{
-			CIDR:              subnet.CIDR,
-			ProviderId:        subnet.ProviderId,
-			VLANTag:           subnet.VLANTag,
-			AvailabilityZones: subnet.AvailabilityZones,
-			ProviderSpaceId:   subnet.ProviderSpaceId,
-			ProviderNetworkId: subnet.ProviderNetworkId,
-		})
-	}
+func (s remoteApplicationShim) GlobalKey() string {
+	return s.RemoteApplication.globalKey()
 }
 
 func (e *exporter) storage() error {

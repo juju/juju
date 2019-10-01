@@ -25,17 +25,17 @@ type RemoteEntity struct {
 }
 
 // ID returns the RemoteEntity ID.
-func (e *RemoteEntity) ID() string {
+func (e RemoteEntity) ID() string {
 	return e.docID
 }
 
 // Token returns the RemoteEntity Token.
-func (e *RemoteEntity) Token() string {
+func (e RemoteEntity) Token() string {
 	return e.token
 }
 
 // Macaroon returns the RemoteEntity Macaroon associated with the Token.
-func (e *RemoteEntity) Macaroon() string {
+func (e RemoteEntity) Macaroon() string {
 	return e.macaroon
 }
 
