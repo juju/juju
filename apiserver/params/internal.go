@@ -309,11 +309,12 @@ type RelationUnitPairs struct {
 }
 
 // RelationUnitSettings holds a relation tag, a unit tag and local
-// unit settings.
+// unit and app-level settings.
 type RelationUnitSettings struct {
-	Relation string   `json:"relation"`
-	Unit     string   `json:"unit"`
-	Settings Settings `json:"settings"`
+	Relation            string   `json:"relation"`
+	Unit                string   `json:"unit"`
+	Settings            Settings `json:"settings"`
+	ApplicationSettings Settings `json:"application-settings"`
 }
 
 // RelationUnitsSettings holds the arguments for making a EnterScope
@@ -630,6 +631,18 @@ type RelationUnitStatusResult struct {
 // uniter RelationStatus API call.
 type RelationUnitStatusResults struct {
 	Results []RelationUnitStatusResult `json:"results"`
+}
+
+// RelationApplications holds a set of pairs of relation & application
+// tags.
+type RelationApplications struct {
+	RelationApplications []RelationApplication `json:"relation-applications"`
+}
+
+// RelationApplication holds one (relation, application) pair.
+type RelationApplication struct {
+	Relation    string `json:"relation"`
+	Application string `json:"application"`
 }
 
 // MachineStorageIdsWatchResult holds a MachineStorageIdsWatcher id,

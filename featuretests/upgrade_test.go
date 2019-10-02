@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
 	pacman "github.com/juju/packaging/manager"
@@ -131,7 +132,8 @@ func (s *upgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	s.PatchValue(&upgradesteps.PerformUpgrade, fakePerformUpgrade)
 
 	a := s.newAgent(c, machine)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	ctx := cmdtesting.Context(c)
+	go func() { c.Check(a.Run(ctx), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	c.Assert(waitForUpgradeToStart(upgradeCh), jc.IsTrue)
@@ -203,8 +205,9 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 	agent := s.newAgent(c, machineA)
 	defer agent.Stop()
 	agentDone := make(chan error)
+	ctx := cmdtesting.Context(c)
 	go func() {
-		agentDone <- agent.Run(nil)
+		agentDone <- agent.Run(ctx)
 	}()
 
 	select {

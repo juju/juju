@@ -117,7 +117,8 @@ func (s *introspectionSuite) startAgent(
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Start the agent.
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	ctx := cmdtesting.Context(c)
+	go func() { c.Check(a.Run(ctx), jc.ErrorIsNil) }()
 
 	// Wait for the agent to start serving on the introspection socket.
 	var conn net.Conn

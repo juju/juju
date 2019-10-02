@@ -18,7 +18,7 @@ import (
 const loggerName = "juju.worker.logsender"
 
 // New starts a logsender worker which reads log message structs from
-// a channel and sends them to the JES via the logsink API.
+// a channel and sends them to the controller via the logsink API.
 func New(logs LogRecordCh, logSenderAPI *logsender.API) worker.Worker {
 	loop := func(stop <-chan struct{}) error {
 		// It has been observed that sometimes the logsender.API gets wedged

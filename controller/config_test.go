@@ -296,6 +296,20 @@ var validateTests = []struct {
 		controller.MaxDebugLogDuration: time.Duration(0),
 	},
 	expectError: `max-debug-log-duration cannot be zero`,
+}, {
+	about: "model-logfile-max-backups not valid",
+	config: controller.Config{
+		controller.CACertKey:              testing.CACert,
+		controller.ModelLogfileMaxBackups: -1,
+	},
+	expectError: `negative model-logfile-max-backups not valid`,
+}, {
+	about: "model-logfile-max-size not valid",
+	config: controller.Config{
+		controller.CACertKey:           testing.CACert,
+		controller.ModelLogfileMaxSize: "0",
+	},
+	expectError: `model-logfile-max-size less than 1 MB not valid`,
 }}
 
 func (s *ConfigSuite) TestValidate(c *gc.C) {
@@ -618,7 +632,7 @@ func (s *ConfigSuite) TestMaxDebugLogDurationSchemaCoerce(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, "max-debug-log-duration: conversion to duration: time: missing unit in duration 12")
 }
 
-func (s *ConfigSuite) TestMaxDebugLogDurationDefault(c *gc.C) {
+func (s *ConfigSuite) TestDefaults(c *gc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -626,4 +640,31 @@ func (s *ConfigSuite) TestMaxDebugLogDurationDefault(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.MaxDebugLogDuration(), gc.Equals, controller.DefaultMaxDebugLogDuration)
+	c.Assert(cfg.ModelLogfileMaxBackups(), gc.Equals, controller.DefaultModelLogfileMaxBackups)
+	c.Assert(cfg.ModelLogfileMaxSizeMB(), gc.Equals, controller.DefaultModelLogfileMaxSize)
+}
+
+func (s *ConfigSuite) TestModelLogfile(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			"model-logfile-max-size":    "25M",
+			"model-logfile-max-backups": "15",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.ModelLogfileMaxBackups(), gc.Equals, 15)
+	c.Assert(cfg.ModelLogfileMaxSizeMB(), gc.Equals, 25)
+}
+
+func (s *ConfigSuite) TestModelLogfileBackupErr(c *gc.C) {
+	_, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			"model-logfile-max-backups": "two",
+		},
+	)
+	c.Assert(err.Error(), gc.Equals, `model-logfile-max-backups: expected number, got string("two")`)
 }
