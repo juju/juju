@@ -1502,8 +1502,7 @@
     "resource",
   ]
   pruneopts = ""
-  revision = "a595818559134f9e9981a08a32cd9de76cb478f0"
-  source = "github.com/nammn/charm"
+  revision = "b62f496a731efebe602805523347d4f936a6afb7"
 
 [[projects]]
   digest = "1:dc05394e66d3dfe6ecc7b966cc0ac4ab40c3d10b0249499af92f4c4ae3ad6e85"
