@@ -395,22 +395,24 @@ func networkAddresses(addrs []address) []network.Address {
 // stuff at some point. We want to use juju-specific network names
 // that point to existing documents in the networks collection.
 type hostPort struct {
-	Value       string `bson:"value"`
-	AddressType string `bson:"addresstype"`
-	Scope       string `bson:"networkscope,omitempty"`
-	Port        int    `bson:"port"`
-	SpaceName   string `bson:"spacename,omitempty"`
+	Value           string `bson:"value"`
+	AddressType     string `bson:"addresstype"`
+	Scope           string `bson:"networkscope,omitempty"`
+	Port            int    `bson:"port"`
+	SpaceName       string `bson:"spacename,omitempty"`
+	SpaceProviderId string `bson:"spaceprovider,omitempty"`
 }
 
 // fromNetworkHostPort is a convenience helper to create a state type
 // out of the network type, here for HostPort.
 func fromNetworkHostPort(netHostPort network.HostPort) hostPort {
 	return hostPort{
-		Value:       netHostPort.Value,
-		AddressType: string(netHostPort.Type),
-		Scope:       string(netHostPort.Scope),
-		Port:        netHostPort.Port,
-		SpaceName:   string(netHostPort.SpaceName),
+		Value:           netHostPort.Value,
+		AddressType:     string(netHostPort.Type),
+		Scope:           string(netHostPort.Scope),
+		Port:            netHostPort.Port,
+		SpaceName:       string(netHostPort.SpaceName),
+		SpaceProviderId: string(netHostPort.SpaceProviderId),
 	}
 }
 
@@ -419,10 +421,11 @@ func fromNetworkHostPort(netHostPort network.HostPort) hostPort {
 func (hp *hostPort) networkHostPort() network.HostPort {
 	return network.HostPort{
 		Address: network.Address{
-			Value:     hp.Value,
-			Type:      network.AddressType(hp.AddressType),
-			Scope:     network.Scope(hp.Scope),
-			SpaceName: network.SpaceName(hp.SpaceName),
+			Value:           hp.Value,
+			Type:            network.AddressType(hp.AddressType),
+			Scope:           network.Scope(hp.Scope),
+			SpaceName:       network.SpaceName(hp.SpaceName),
+			SpaceProviderId: network.Id(hp.SpaceProviderId),
 		},
 		Port: hp.Port,
 	}
