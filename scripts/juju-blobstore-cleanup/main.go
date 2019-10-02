@@ -291,7 +291,7 @@ func (b *BlobstoreCleaner) findModellessManagedResources() {
 			var resourceDoc storedResourceDoc
 			err := b.storedResources.FindId(managedDoc.ResourceId).One(&resourceDoc)
 			if err == mgo.ErrNotFound {
-				logger.Warningf("Managed Resource %q points to missing storedResource: %q", managedDoc.ResourceId)
+				logger.Warningf("Managed Resource %q points to missing storedResource: %v", managedDoc.ResourceId, err)
 				continue
 			} else {
 				checkErr(err, "reading stored resource")
@@ -459,7 +459,7 @@ func (b *BlobstoreCleaner) findFilelessChunks() {
 		err := b.blobstoreChunks.FindId(chunkDoc.ID).One(&dataDoc)
 		if err != nil {
 			if err == mgo.ErrNotFound {
-				logger.Warningf("chunk doc %s went missing")
+				logger.Warningf("chunk doc %s went missing", chunkDoc.ID)
 				continue
 			}
 		}
