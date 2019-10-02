@@ -16,6 +16,10 @@ import (
 	"github.com/juju/juju/worker/pruner"
 )
 
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead pass one through as config to the worker.
+var logger interface{}
+
 // Worker prunes status history records at regular intervals.
 type Worker struct {
 	pruner.PrunerWorker

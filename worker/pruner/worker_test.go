@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
@@ -40,6 +41,7 @@ func (s *PrunerSuite) setupPruner(c *gc.C) (*fakeFacade, *testclock.Clock) {
 		Facade:        facade,
 		PruneInterval: coretesting.ShortWait,
 		Clock:         testClock,
+		Logger:        loggo.GetLogger("test"),
 	}
 
 	// an example pruner
@@ -54,7 +56,7 @@ func (s *PrunerSuite) setupPruner(c *gc.C) (*fakeFacade, *testclock.Clock) {
 	select {
 	case <-facade.gotConfig:
 	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for model configr")
+		c.Fatal("timed out waiting for model config")
 	}
 
 	return facade, testClock

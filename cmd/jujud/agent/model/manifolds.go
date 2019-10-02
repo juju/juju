@@ -267,17 +267,19 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 		statusHistoryPrunerName: ifNotMigrating(pruner.Manifold(pruner.ManifoldConfig{
 			APICallerName: apiCallerName,
-			ClockName:     clockName,
+			Clock:         config.Clock,
 			NewWorker:     statushistorypruner.New,
 			NewFacade:     statushistorypruner.NewFacade,
 			PruneInterval: config.StatusHistoryPrunerInterval,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.pruner.statushistory"),
 		})),
 		actionPrunerName: ifNotMigrating(pruner.Manifold(pruner.ManifoldConfig{
 			APICallerName: apiCallerName,
-			ClockName:     clockName,
+			Clock:         config.Clock,
 			NewWorker:     actionpruner.New,
 			NewFacade:     actionpruner.NewFacade,
 			PruneInterval: config.ActionPrunerInterval,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.pruner.action"),
 		})),
 		logForwarderName: ifNotDead(logforwarder.Manifold(logforwarder.ManifoldConfig{
 			APICallerName: apiCallerName,

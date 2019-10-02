@@ -18,16 +18,17 @@ import (
 // statushistorypruner worker depends.
 type ManifoldConfig struct {
 	APICallerName string
-	ClockName     string
+	Clock         clock.Clock
 	PruneInterval time.Duration
 	NewWorker     func(Config) (worker.Worker, error)
 	NewFacade     func(base.APICaller) Facade
+	Logger        Logger
 }
 
 // Manifold returns a Manifold that encapsulates the statushistorypruner worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{config.APICallerName, config.ClockName},
+		Inputs: []string{config.APICallerName},
 		Start:  config.start,
 	}
 }
@@ -41,16 +42,13 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 		return nil, errors.Trace(err)
 	}
-	var clock clock.Clock
-	if err := context.Get(config.ClockName, &clock); err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	facade := config.NewFacade(apiCaller)
 	prunerConfig := Config{
 		Facade:        facade,
 		PruneInterval: config.PruneInterval,
-		Clock:         clock,
+		Clock:         config.Clock,
+		Logger:        config.Logger,
 	}
 	w, err := config.NewWorker(prunerConfig)
 	if err != nil {
@@ -64,14 +62,17 @@ func (config ManifoldConfig) Validate() error {
 	if config.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
 	}
-	if config.ClockName == "" {
-		return errors.NotValidf("empty ClockName")
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
 	if config.NewFacade == nil {
 		return errors.NotValidf("nil NewFacade")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	return nil
 }

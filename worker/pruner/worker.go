@@ -8,14 +8,15 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
 )
 
-var logger = loggo.GetLogger("juju.worker.pruner")
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead pass one through as config to the worker.
+var logger interface{}
 
 // Facade represents an API that implements status history pruning.
 type Facade interface {
@@ -24,7 +25,7 @@ type Facade interface {
 	ModelConfig() (*config.Config, error)
 }
 
-// Worker prunes status history records at regular intervals.
+// PrunerWorker prunes status history or action records at regular intervals.
 type PrunerWorker struct {
 	catacomb catacomb.Catacomb
 	config   Config
@@ -40,17 +41,17 @@ func (w *PrunerWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-// returns the prune worker's catacomb
+// Catacomb returns the prune worker's catacomb.
 func (w *PrunerWorker) Catacomb() *catacomb.Catacomb {
 	return &w.catacomb
 }
 
-// return the prune worker's config
+// Config return the prune worker's config.
 func (w *PrunerWorker) Config() *Config {
 	return &w.config
 }
 
-// body of generic pruner loop
+// Work is the main body of generic pruner loop.
 func (w *PrunerWorker) Work(getPrunerConfig func(*config.Config) (time.Duration, uint)) error {
 	modelConfigWatcher, err := w.config.Facade.WatchForModelConfigChanges()
 	if err != nil {
@@ -88,7 +89,7 @@ func (w *PrunerWorker) Work(getPrunerConfig func(*config.Config) (time.Duration,
 			newMaxAge, newMaxCollectionMB := getPrunerConfig(modelConfig)
 
 			if newMaxAge != maxAge || newMaxCollectionMB != maxCollectionMB {
-				logger.Infof("status history config: max age: %v, max collection size %dM for %s (%s)",
+				w.config.Logger.Infof("status history config: max age: %v, max collection size %dM for %s (%s)",
 					newMaxAge, newMaxCollectionMB, modelConfig.Name(), modelConfig.UUID())
 				maxAge = newMaxAge
 				maxCollectionMB = newMaxCollectionMB
