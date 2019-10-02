@@ -25,6 +25,28 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 )
 
+// The following exporter type is being refactored. This is to better model the
+// dependencies for creating the exported yaml and to correctly provide us to
+// unit tests at the right level of work. Rather than create integration tests
+// at the "unit" level.
+//
+// All exporting migrations have been currently moved to `state/migrations`.
+// Each provide their own type that allows them to execute a migration step
+// before return if successful or not via an error. The step resembles the
+// visitor pattern for good reason, as it allows us to safely model what is
+// required at a type level and type safety level. Everything is typed all the
+// way down. We can then create mocks for each one independently from other
+// migration steps (see examples).
+//
+// As this is in its infancy, there are intermediary steps. Each export type
+// creates its own StateExportMigration. In the future, there will be only
+// one and each migration step will add itself to that and Run for completion.
+//
+// Whilst we're creating these steps, it is expected to create the unit tests
+// and suppliment all of these tests with existing tests, to ensure that no
+// gaps are missing. In the future the integration tests should be replaced with
+// the new shell tests to ensure a full end to end test is performed.
+
 const maxStatusHistoryEntries = 20
 
 // ExportConfig allows certain aspects of the model to be skipped
