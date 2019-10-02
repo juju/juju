@@ -2736,6 +2736,7 @@ func (s *uniterSuite) TestWatchRelationApplicationSettings(c *gc.C) {
 	err = relUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	args := params.RelationApplications{RelationApplications: []params.RelationApplication{{
 		Relation:    rel.Tag().String(),
@@ -2822,6 +2823,7 @@ func (s *uniterSuite) TestWatchRelationApplicationSettingsPeerRelation(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	err = relUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	auth := apiservertesting.FakeAuthorizer{Tag: riakUnit.Tag()}
 	uniter := s.newUniterAPI(c, s.State, auth)
