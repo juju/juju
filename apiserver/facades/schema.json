@@ -34515,6 +34515,17 @@
                         }
                     }
                 },
+                "WatchRelationApplicationSettings": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/RelationApplications"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResults"
+                        }
+                    }
+                },
                 "WatchRelationUnits": {
                     "type": "object",
                     "properties": {
@@ -35883,6 +35894,37 @@
                         "protocol"
                     ]
                 },
+                "RelationApplication": {
+                    "type": "object",
+                    "properties": {
+                        "application": {
+                            "type": "string"
+                        },
+                        "relation": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "relation",
+                        "application"
+                    ]
+                },
+                "RelationApplications": {
+                    "type": "object",
+                    "properties": {
+                        "relation-applications": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/RelationApplication"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "relation-applications"
+                    ]
+                },
                 "RelationIds": {
                     "type": "object",
                     "properties": {
@@ -36039,6 +36081,14 @@
                 "RelationUnitSettings": {
                     "type": "object",
                     "properties": {
+                        "application-settings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
                         "relation": {
                             "type": "string"
                         },
@@ -36058,7 +36108,8 @@
                     "required": [
                         "relation",
                         "unit",
-                        "settings"
+                        "settings",
+                        "application-settings"
                     ]
                 },
                 "RelationUnitStatus": {

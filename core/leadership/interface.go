@@ -11,6 +11,7 @@ reference to non-core code.
 package leadership
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -28,6 +29,32 @@ var ErrClaimDenied = errors.New("leadership claim denied")
 // ErrBlockCancelled is returned from BlockUntilLeadershipReleased
 // if the client cancels the request by closing the cancel channel.
 var ErrBlockCancelled = errors.New("waiting for leadership cancelled by client")
+
+// NewNotLeaderError returns an error indicating that this unit is not
+// the leader of that application.
+func NewNotLeaderError(unit, application string) error {
+	return &notLeaderError{unit: unit, application: application}
+}
+
+type notLeaderError struct {
+	unit        string
+	application string
+}
+
+// Error is part of error.
+func (e notLeaderError) Error() string {
+	return fmt.Sprintf("%q is not leader of %q", e.unit, e.application)
+}
+
+// IsNotLeaderError returns whether this error represents a token
+// check that failed because the unit in question wasn't the leader.
+func IsNotLeaderError(err error) bool {
+	if err == nil {
+		return false
+	}
+	_, ok := errors.Cause(err).(*notLeaderError)
+	return ok
+}
 
 // Claimer exposes leadership acquisition capabilities.
 type Claimer interface {
