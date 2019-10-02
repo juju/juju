@@ -1,5 +1,5 @@
-test_local_charm() {
-  if [ "$(skip 'test_local_charms')" ]; then
+test_cli() {
+  if [ "$(skip 'test_cli')" ]; then
     echo "==> TEST SKIPPED: local charms tests"
     return
   fi
@@ -9,7 +9,8 @@ test_local_charm() {
 
   file="${TEST_DIR}/test_local_charms.txt"
   bootstrap "test_local_charms" "${file}"
-  test_cwd_no_git
-  test_cwd_wrong_git
+
+  test_local_charms
+
   destroy_controller "test_local_charms"
 }
