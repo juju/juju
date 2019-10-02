@@ -9,6 +9,7 @@ test_local_charm() {
 
   file="${TEST_DIR}/test_local_charms.txt"
   bootstrap "test_local_charms" "${file}"
-  test_cwd_no_git "$file"
+  test_cwd_no_git
+  test_cwd_wrong_git
   destroy_controller "test_local_charms"
 }
