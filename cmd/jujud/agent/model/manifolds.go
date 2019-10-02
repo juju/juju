@@ -263,7 +263,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 		stateCleanerName: ifNotMigrating(cleaner.Manifold(cleaner.ManifoldConfig{
 			APICallerName: apiCallerName,
-			ClockName:     clockName,
+			Clock:         config.Clock,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.cleaner"),
 		})),
 		statusHistoryPrunerName: ifNotMigrating(pruner.Manifold(pruner.ManifoldConfig{
 			APICallerName: apiCallerName,

@@ -343,7 +343,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"state-cleaner": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -574,7 +573,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"state-cleaner": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
