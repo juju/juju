@@ -684,11 +684,11 @@
   revision = "c1f7536b9cc692693a90ba07381488591441b5cf"
 
 [[projects]]
-  digest = "1:fbafcd485d270fc069d738bdcbfa3e03676936f837d4b2708f7ba80fa90e1c5a"
+  digest = "1:aa78770a924e79be86524d521ccaf3183ca3ba6113b3a464146598589a4d59ff"
   name = "github.com/juju/ratelimit"
   packages = ["."]
   pruneopts = ""
-  revision = "5b9ff866471762aa2ab2dced63c9fb6f53921342"
+  revision = "f60b32039441cd828005f82f3a54aafd00bc9882"
 
 [[projects]]
   digest = "1:592b7bbe9d2e0e76c45217ccc69938c5b61a607a5c7a1dd4de88be6c98f44ee5"
