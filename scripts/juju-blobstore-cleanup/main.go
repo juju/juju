@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"gopkg.in/juju/blobstore.v2"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
+	"gopkg.in/juju/blobstore.v2"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"

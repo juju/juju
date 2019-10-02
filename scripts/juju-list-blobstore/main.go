@@ -949,7 +949,7 @@ func (b *BlobStoreChecker) checkUnreferencedResources() {
 	}
 	size := fmt.Sprintf("%d", totalBytes)
 	if *human {
-		size = humanize.Bytes(uint64(totalBytes))
+		size = humanize.Bytes(totalBytes)
 	}
 	fmt.Fprintf(os.Stdout, "total: %s\n\n", size)
 }
@@ -1068,7 +1068,7 @@ func (b *BlobStoreChecker) checkUnreferencedChunks() {
 			chunkCount++
 			if *verbose {
 				chunkValues = append(chunkValues, fmt.Sprintf("%s: %s",
-					bson.ObjectId(chunkDataDoc.ID).Hex(), lengthToSize(chunkLen)))
+					chunkDataDoc.ID.Hex(), lengthToSize(chunkLen)))
 			}
 		}
 		checkErr("iterating chunk data", chunkDataIter.Close())
