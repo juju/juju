@@ -7,7 +7,6 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -16,11 +15,20 @@ import (
 	"github.com/juju/juju/agent"
 )
 
-var logger = loggo.GetLogger("juju.worker.apiconfigwatcher")
+// Logger represents the methods used by the worker to log information.
+type Logger interface {
+	Debugf(string, ...interface{})
+	Errorf(string, ...interface{})
+}
+
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead use the one passed as manifold config.
+var logger interface{}
 
 type ManifoldConfig struct {
 	AgentName          string
 	AgentConfigChanged *voyeur.Value
+	Logger             Logger
 }
 
 // Manifold returns a dependency.Manifold which wraps an agent's
@@ -46,7 +54,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			w := &apiconfigwatcher{
 				agent:              a,
 				agentConfigChanged: config.AgentConfigChanged,
-				addrs:              getAPIAddresses(a),
+				logger:             config.Logger,
 			}
 			w.tomb.Go(w.loop)
 			return w, nil
@@ -59,9 +67,11 @@ type apiconfigwatcher struct {
 	agent              agent.Agent
 	agentConfigChanged *voyeur.Value
 	addrs              []string
+	logger             Logger
 }
 
 func (w *apiconfigwatcher) loop() error {
+	w.addrs = w.getAPIAddresses()
 	watch := w.agentConfigChanged.Watch()
 	defer watch.Close()
 
@@ -89,8 +99,8 @@ func (w *apiconfigwatcher) loop() error {
 		// Always unconditionally check for a change in API addresses
 		// first, in case there was a change between the start func
 		// and the call to Watch.
-		if !stringSliceEq(w.addrs, getAPIAddresses(w.agent)) {
-			logger.Debugf("API addresses changed in agent config")
+		if !stringSliceEq(w.addrs, w.getAPIAddresses()) {
+			w.logger.Debugf("API addresses changed in agent config")
 			return dependency.ErrBounce
 		}
 
@@ -115,11 +125,11 @@ func (w *apiconfigwatcher) Wait() error {
 	return w.tomb.Wait()
 }
 
-func getAPIAddresses(a agent.Agent) []string {
-	config := a.CurrentConfig()
+func (w *apiconfigwatcher) getAPIAddresses() []string {
+	config := w.agent.CurrentConfig()
 	addrs, err := config.APIAddresses()
 	if err != nil {
-		logger.Errorf("retrieving API addresses: %s", err)
+		w.logger.Errorf("retrieving API addresses: %s", err)
 		addrs = nil
 	}
 	sort.Strings(addrs)
