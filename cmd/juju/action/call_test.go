@@ -745,8 +745,8 @@ mysql/1:
 
 						// Make sure the CLI responded with the expected tag
 						c.Assert(outString, gc.Equals, fmt.Sprintf(`
-Scheduled Operation %s
-Check status with 'juju show-operation %s'`[1:],
+Scheduled Task %s
+Check status with 'juju show-task %s'`[1:],
 							expectedTag.Id(), expectedTag.Id()))
 					} else {
 						outputResult := ctx.Stdout.(*bytes.Buffer).Bytes()

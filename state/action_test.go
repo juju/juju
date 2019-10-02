@@ -282,7 +282,7 @@ func (s *ActionSuite) TestActionMessages(c *gc.C) {
 
 	// Cannot log messages until action is running.
 	err = anAction.Log("hello")
-	c.Assert(err, gc.ErrorMatches, `cannot log message to operation "dummy-1" with status pending`)
+	c.Assert(err, gc.ErrorMatches, `cannot log message to task "1" with status pending`)
 
 	anAction, err = anAction.Begin()
 	c.Assert(err, jc.ErrorIsNil)
@@ -305,7 +305,7 @@ func (s *ActionSuite) TestActionMessages(c *gc.C) {
 	_, err = anAction.Finish(state.ActionResults{Status: state.ActionCompleted})
 	c.Assert(err, jc.ErrorIsNil)
 	err = anAction.Log("hello")
-	c.Assert(err, gc.ErrorMatches, `cannot log message to operation "dummy-1" with status completed`)
+	c.Assert(err, gc.ErrorMatches, `cannot log message to task "1" with status completed`)
 }
 
 func (s *ActionSuite) TestActionLogMessageRace(c *gc.C) {
@@ -326,7 +326,7 @@ func (s *ActionSuite) TestActionLogMessageRace(c *gc.C) {
 	})()
 
 	err = anAction.Log("hello")
-	c.Assert(err, gc.ErrorMatches, `cannot log message to operation "dummy-1" with status completed`)
+	c.Assert(err, gc.ErrorMatches, `cannot log message to task "1" with status completed`)
 }
 
 // makeUnits prepares units with given Action schemas
@@ -540,7 +540,7 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	c.Assert(len(actions), gc.Equals, 0)
 }
 
-func (s *ActionSuite) TestFindActionTagsByPrefix(c *gc.C) {
+func (s *ActionSuite) TestFindActionTagsById(c *gc.C) {
 	actions := []struct {
 		Name       string
 		Parameters map[string]interface{}
@@ -556,14 +556,10 @@ func (s *ActionSuite) TestFindActionTagsByPrefix(c *gc.C) {
 		c.Assert(err, gc.Equals, nil)
 	}
 
-	tags := s.model.FindActionTagsByPrefix(s.application.Name())
+	tags := s.model.FindActionTagsById("1")
 
-	c.Assert(len(tags), gc.Equals, len(actions))
-	for i, tag := range tags {
-		appName := s.application.Name()
-		c.Logf("check %q against %d:%q", appName, i, tag)
-		c.Check(tag.Id()[:len(appName)], gc.Equals, appName)
-	}
+	c.Assert(len(tags), gc.Equals, 1)
+	c.Check(tags[0].Id(), gc.Equals, "1")
 }
 
 func (s *ActionSuite) TestFindActionsByName(c *gc.C) {

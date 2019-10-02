@@ -160,6 +160,7 @@ func (a *ActionAPI) Actions(arg params.Entities) (params.ActionResults, error) {
 
 // FindActionTagsByPrefix takes a list of string prefixes and finds
 // corresponding ActionTags that match that prefix.
+// TODO(juju3) - rename API method since we only need prefix matching for UUIDs
 func (a *ActionAPI) FindActionTagsByPrefix(arg params.FindTags) (params.FindTagsResults, error) {
 	if err := a.checkCanRead(); err != nil {
 		return params.FindTagsResults{}, errors.Trace(err)
@@ -171,7 +172,7 @@ func (a *ActionAPI) FindActionTagsByPrefix(arg params.FindTags) (params.FindTags
 		if err != nil {
 			return params.FindTagsResults{}, errors.Trace(err)
 		}
-		found := m.FindActionTagsByPrefix(prefix)
+		found := m.FindActionTagsById(prefix)
 		matches := make([]params.Entity, len(found))
 		for i, tag := range found {
 			matches[i] = params.Entity{Tag: tag.String()}

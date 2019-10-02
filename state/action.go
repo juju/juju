@@ -4,7 +4,7 @@
 package state
 
 import (
-	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/juju/errors"
@@ -290,7 +290,7 @@ func (a *action) Log(message string) error {
 			a = anAction.(*action)
 		}
 		if s := a.Status(); s != ActionRunning {
-			return nil, errors.Errorf("cannot log message to operation %q with status %v", a.Id(), s)
+			return nil, errors.Errorf("cannot log message to task %q with status %v", a.Id(), s)
 		}
 		ops := []txn.Op{
 			{
@@ -324,17 +324,12 @@ func newActionDoc(mb modelBackend, receiverTag names.Tag, actionName string, par
 	// we support machine actions anymore.
 	var actionId string
 	if receiverTag.Kind() == names.UnitTagKind {
-		appName, err := names.UnitApplication(receiverTag.Id())
-		if err != nil {
-			return actionDoc{}, actionNotificationDoc{}, err
-		}
-		id, err := sequence(mb, "action-"+appName)
+		id, err := sequence(mb, "task")
 		if err != nil {
 			return actionDoc{}, actionNotificationDoc{}, err
 		}
 		// Start numbering from 1 not 0.
-		id++
-		actionId = fmt.Sprintf("%v-%v", appName, id)
+		actionId = strconv.Itoa(id + 1)
 	} else {
 		actionUUID, err := NewUUID()
 		if err != nil {
@@ -404,10 +399,12 @@ func (m *Model) ActionByTag(tag names.ActionTag) (Action, error) {
 	return m.Action(tag.Id())
 }
 
-// FindActionTagsByPrefix finds Actions with ids that share the supplied prefix, and
-// returns a list of corresponding ActionTags.
-func (m *Model) FindActionTagsByPrefix(prefix string) []names.ActionTag {
-	actionLogger.Tracef("FindActionTagsByPrefix() %q", prefix)
+// FindActionTagsById finds Actions with ids that either
+// share the supplied prefix (for deprecated UUIDs), or match
+// the supplied id (for newer id integers).
+// It returns a list of corresponding ActionTags.
+func (m *Model) FindActionTagsById(idValue string) []names.ActionTag {
+	actionLogger.Tracef("FindActionTagsById() %q", idValue)
 	var results []names.ActionTag
 	var doc struct {
 		Id string `bson:"_id"`
@@ -416,16 +413,21 @@ func (m *Model) FindActionTagsByPrefix(prefix string) []names.ActionTag {
 	actions, closer := m.st.db().GetCollection(actionsC)
 	defer closer()
 
-	iter := actions.Find(bson.D{{"_id", bson.D{{"$regex", "^" + m.st.docID(prefix)}}}}).Iter()
+	matchValue := m.st.docID(idValue)
+	filter := bson.D{{"$or", []bson.D{
+		{{"_id", bson.D{{"$regex", "^" + matchValue}}}},
+		{{"_id", matchValue}},
+	}}}
+	iter := actions.Find(filter).Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		actionLogger.Tracef("FindActionTagsByPrefix() iter doc %+v", doc)
+		actionLogger.Tracef("FindActionTagsById() iter doc %+v", doc)
 		localID := m.st.localID(doc.Id)
 		if names.IsValidAction(localID) {
 			results = append(results, names.NewActionTag(localID))
 		}
 	}
-	actionLogger.Tracef("FindActionTagsByPrefix() %q found %+v", prefix, results)
+	actionLogger.Tracef("FindActionTagsById() %q found %+v", idValue, results)
 	return results
 }
 

@@ -146,7 +146,7 @@ func (s *actionSuite) TestFindActionTagsByPrefix(c *gc.C) {
 
 	actionTag, err := names.ParseActionTag(r.Results[0].Action.Tag)
 	c.Assert(err, gc.Equals, nil)
-	prefix := actionTag.Id()[:7]
+	prefix := actionTag.Id()
 	tags, err := s.action.FindActionTagsByPrefix(params.FindTags{Prefixes: []string{prefix}})
 	c.Assert(err, gc.Equals, nil)
 
