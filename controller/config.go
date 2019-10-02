@@ -140,6 +140,13 @@ const (
 	// before it is pruned, eg "4M"
 	MaxLogsSize = "max-logs-size"
 
+	// ModelLogfileMaxSize is the maximum size of the log file written out by the
+	// controller on behalf of workers running for a model.
+	ModelLogfileMaxSize = "model-logfile-max-size"
+
+	// ModelLogfileMaxBackups is the number of old model log files to keep (compressed).
+	ModelLogfileMaxBackups = "model-logfile-max-backups"
+
 	// ModelLogsSize is the size of the capped collections used to hold the
 	// logs for the models, eg "20M". Size is per model.
 	ModelLogsSize = "model-logs-size"
@@ -228,6 +235,13 @@ const (
 	// DefaultMaxPruneTxnPasses is the default number of batches we will process (deprecated)
 	DefaultMaxPruneTxnPasses = 100
 
+	// DefaultModelLogfileMaxSize is the maximum file size in MB of the log file written out by the
+	// controller on behalf of workers running for a model.
+	DefaultModelLogfileMaxSize = 10
+
+	// DefaultModelLogfileMaxBackups is the number of old model log files to keep (compressed).
+	DefaultModelLogfileMaxBackups = 2
+
 	// DefaultModelLogsSizeMB is the size in MB of the capped logs collection
 	// for each model.
 	DefaultModelLogsSizeMB = 20
@@ -291,6 +305,8 @@ var (
 		MaxTxnLogSize,
 		MaxPruneTxnBatchSize,
 		MaxPruneTxnPasses,
+		ModelLogfileMaxBackups,
+		ModelLogfileMaxSize,
 		ModelLogsSize,
 		PruneTxnQueryCount,
 		PruneTxnSleepTime,
@@ -324,6 +340,8 @@ var (
 		// TODO(thumper): remove MaxLogsAge and MaxLogsSize in 2.7 branch.
 		MaxLogsSize,
 		MaxLogsAge,
+		ModelLogfileMaxBackups,
+		ModelLogfileMaxSize,
 		ModelLogsSize,
 		MongoMemoryProfile,
 		PruneTxnQueryCount,
@@ -600,6 +618,19 @@ func (c Config) AllowModelAccess() bool {
 	return value
 }
 
+// ModelLogfileMaxBackups is the number of old model log files to keep (compressed).
+func (c Config) ModelLogfileMaxBackups() int {
+	return c.intOrDefault(ModelLogfileMaxBackups, DefaultModelLogfileMaxBackups)
+}
+
+// ModelLogfileMaxSizeMB is the maximum size of the log file written out by the
+// controller on behalf of workers running for a model.
+func (c Config) ModelLogfileMaxSizeMB() int {
+	// Value has already been validated.
+	val, _ := utils.ParseSize(c.mustString(ModelLogfileMaxSize))
+	return int(val)
+}
+
 // ModelLogsSizeMB is the size of the capped collection used to store the model
 // logs. Total size on disk will be ModelLogsSizeMB * number of models.
 func (c Config) ModelLogsSizeMB() int {
@@ -753,6 +784,21 @@ func Validate(c Config) error {
 		}
 		if mb < 1 {
 			return errors.NotValidf("model logs size less than 1 MB")
+		}
+	}
+
+	if v, ok := c[ModelLogfileMaxBackups].(int); ok {
+		if v < 0 {
+			return errors.NotValidf("negative %s", ModelLogfileMaxBackups)
+		}
+	}
+	if v, ok := c[ModelLogfileMaxSize].(string); ok {
+		mb, err := utils.ParseSize(v)
+		if err != nil {
+			return errors.Annotatef(err, "invalid %s in configuration", ModelLogfileMaxSize)
+		}
+		if mb < 1 {
+			return errors.NotValidf("%s less than 1 MB", ModelLogfileMaxSize)
 		}
 	}
 
@@ -919,6 +965,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxTxnLogSize:           schema.String(),
 	MaxPruneTxnBatchSize:    schema.ForceInt(),
 	MaxPruneTxnPasses:       schema.ForceInt(),
+	ModelLogfileMaxBackups:  schema.ForceInt(),
+	ModelLogfileMaxSize:     schema.String(),
 	ModelLogsSize:           schema.String(),
 	PruneTxnQueryCount:      schema.ForceInt(),
 	PruneTxnSleepTime:       schema.String(),
@@ -952,6 +1000,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxTxnLogSize:           fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
 	MaxPruneTxnBatchSize:    DefaultMaxPruneTxnBatchSize,
 	MaxPruneTxnPasses:       DefaultMaxPruneTxnPasses,
+	ModelLogfileMaxBackups:  DefaultModelLogfileMaxBackups,
+	ModelLogfileMaxSize:     fmt.Sprintf("%vM", DefaultModelLogfileMaxSize),
 	ModelLogsSize:           fmt.Sprintf("%vM", DefaultModelLogsSizeMB),
 	PruneTxnQueryCount:      DefaultPruneTxnQueryCount,
 	PruneTxnSleepTime:       DefaultPruneTxnSleepTime,
@@ -1063,6 +1113,14 @@ they don't have any access rights to the controller itself`,
 	MaxPruneTxnPasses: {
 		Type:        environschema.Tint,
 		Description: `(deprecated) The maximum number of batches processed when pruning`,
+	},
+	ModelLogfileMaxBackups: {
+		Type:        environschema.Tint,
+		Description: "The number of old model log files to keep (compressed)",
+	},
+	ModelLogfileMaxSize: {
+		Type:        environschema.Tstring,
+		Description: `The maximum size of the log file written out by the controller on behalf of workers running for a model`,
 	},
 	ModelLogsSize: {
 		Type:        environschema.Tstring,

@@ -6,6 +6,7 @@ package featuretests
 import (
 	"time"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/juju/controller"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
@@ -98,7 +99,8 @@ func (s *dblogSuite) assertAgentLogsGoToDB(c *gc.C, tag names.Tag, isCaas bool) 
 	c.Assert(s.getLogCount(c, tag), gc.Equals, 0)
 
 	// Start the agent.
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	ctx := cmdtesting.Context(c)
+	go func() { c.Check(a.Run(ctx), jc.ErrorIsNil) }()
 	defer a.Stop()
 
 	foundLogs := s.waitForLogs(c, tag)
@@ -119,7 +121,8 @@ func (s *dblogSuite) TestUnitAgentLogsGoToDB(c *gc.C) {
 	c.Assert(s.getLogCount(c, u.Tag()), gc.Equals, 0)
 
 	// Start the agent.
-	go func() { c.Assert(a.Run(nil), jc.ErrorIsNil) }()
+	ctx := cmdtesting.Context(c)
+	go func() { c.Assert(a.Run(ctx), jc.ErrorIsNil) }()
 	defer a.Stop()
 
 	foundLogs := s.waitForLogs(c, u.Tag())

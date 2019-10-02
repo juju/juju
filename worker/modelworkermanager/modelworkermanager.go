@@ -6,15 +6,16 @@ package modelworkermanager
 import (
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
+
+	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 )
-
-var logger = loggo.GetLogger("juju.workers.modelworkermanager")
 
 // ModelWatcher provides an interface for watching the additiona and
 // removal of models.
@@ -22,11 +23,14 @@ type ModelWatcher interface {
 	WatchModels() state.StringsWatcher
 }
 
-// ModelGetter provides an interface for getting models by UUID.
+// Controller provides an interface for getting models by UUID,
+// and other details needed to pass into the function to start workers for a model.
 // Once a model is no longer required, the returned function must
 // be called to dispose of the model.
-type ModelGetter interface {
+type Controller interface {
+	Config() (controller.Config, error)
 	Model(modelUUID string) (Model, func(), error)
+	DBLogger(modelUUID string) (DBLogger, error)
 }
 
 // Model represents a model.
@@ -35,16 +39,41 @@ type Model interface {
 	Type() state.ModelType
 }
 
+// DBLogger writes into the log collections.
+type DBLogger interface {
+	// Log writes the given log records to the logger's storage.
+	Log([]state.LogRecord) error
+	Close()
+}
+
+// ModelLogger is a database backed loggo Writer.
+type ModelLogger interface {
+	loggo.Writer
+	Close() error
+}
+
+// NewModelConfig holds the information required by the NewModelWorkerFunc
+// to start the workers for the specified model
+type NewModelConfig struct {
+	ModelUUID        string
+	ModelType        state.ModelType
+	ModelLogger      ModelLogger
+	ControllerConfig controller.Config
+}
+
 // NewModelWorkerFunc should return a worker responsible for running
 // all a model's required workers; and for returning nil when there's
 // no more model to manage.
-type NewModelWorkerFunc func(modelUUID string, modelType state.ModelType) (worker.Worker, error)
+type NewModelWorkerFunc func(config NewModelConfig) (worker.Worker, error)
 
 // Config holds the dependencies and configuration necessary to run
 // a model worker manager.
 type Config struct {
+	Clock          clock.Clock
+	Logger         Logger
+	MachineID      string
 	ModelWatcher   ModelWatcher
-	ModelGetter    ModelGetter
+	Controller     Controller
 	NewModelWorker NewModelWorkerFunc
 	ErrorDelay     time.Duration
 }
@@ -52,11 +81,20 @@ type Config struct {
 // Validate returns an error if config cannot be expected to drive
 // a functional model worker manager.
 func (config Config) Validate() error {
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
+	if config.MachineID == "" {
+		return errors.NotValidf("empty MachineID")
+	}
 	if config.ModelWatcher == nil {
 		return errors.NotValidf("nil ModelWatcher")
 	}
-	if config.ModelGetter == nil {
-		return errors.NotValidf("nil ModelGetter")
+	if config.Controller == nil {
+		return errors.NotValidf("nil Controller")
 	}
 	if config.NewModelWorker == nil {
 		return errors.NotValidf("nil NewModelWorker")
@@ -67,6 +105,7 @@ func (config Config) Validate() error {
 	return nil
 }
 
+// New starts a new model worker manager.
 func New(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -102,6 +141,10 @@ func (m *modelWorkerManager) Wait() error {
 }
 
 func (m *modelWorkerManager) loop() error {
+	controllerConfig, err := m.config.Controller.Config()
+	if err != nil {
+		return errors.Annotate(err, "unable to get controller config")
+	}
 	m.runner = worker.NewRunner(worker.RunnerParams{
 		IsFatal:       neverFatal,
 		MoreImportant: neverImportant,
@@ -116,9 +159,16 @@ func (m *modelWorkerManager) loop() error {
 	}
 
 	modelChanged := func(modelUUID string) error {
-		model, release, err := m.config.ModelGetter.Model(modelUUID)
+		model, release, err := m.config.Controller.Model(modelUUID)
 		if errors.IsNotFound(err) {
 			// Model was removed, ignore it.
+			// The reason we ignore it here is that one of the embedded
+			// workers is also responding to the model life changes and
+			// when it returns a NotFound error, which is determined as a
+			// fatal error for the model worker engine. This causes it to be
+			// removed from the runner above. However since the runner itself
+			// has neverFatal as an error handler, the runner itself doesn't
+			// propagate the error.
 			return nil
 		} else if err != nil {
 			return errors.Trace(err)
@@ -132,7 +182,12 @@ func (m *modelWorkerManager) loop() error {
 			// https://bugs.launchpad.net/juju/+bug/1646310
 			return nil
 		}
-		return errors.Trace(m.ensure(modelUUID, model.Type()))
+		cfg := NewModelConfig{
+			ModelUUID:        modelUUID,
+			ModelType:        model.Type(),
+			ControllerConfig: controllerConfig,
+		}
+		return errors.Trace(m.ensure(cfg))
 	}
 
 	for {
@@ -152,19 +207,32 @@ func (m *modelWorkerManager) loop() error {
 	}
 }
 
-func (m *modelWorkerManager) ensure(modelUUID string, modelType state.ModelType) error {
-	starter := m.starter(modelUUID, modelType)
-	if err := m.runner.StartWorker(modelUUID, starter); err != nil {
+func (m *modelWorkerManager) ensure(cfg NewModelConfig) error {
+	starter := m.starter(cfg)
+	if err := m.runner.StartWorker(cfg.ModelUUID, starter); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (m *modelWorkerManager) starter(modelUUID string, modelType state.ModelType) func() (worker.Worker, error) {
+func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
-		logger.Debugf("starting workers for model %q", modelUUID)
-		worker, err := m.config.NewModelWorker(modelUUID, modelType)
+		modelUUID := cfg.ModelUUID
+		m.config.Logger.Debugf("starting workers for model %q", modelUUID)
+		dbLogger, err := m.config.Controller.DBLogger(modelUUID)
 		if err != nil {
+			return nil, errors.Annotatef(err, "unable to create db logger for %q", modelUUID)
+		}
+		cfg.ModelLogger = newModelLogger(
+			"controller-"+m.config.MachineID,
+			modelUUID,
+			dbLogger,
+			m.config.Clock,
+			m.config.Logger,
+		)
+		worker, err := m.config.NewModelWorker(cfg)
+		if err != nil {
+			cfg.ModelLogger.Close()
 			return nil, errors.Annotatef(err, "cannot manage model %q", modelUUID)
 		}
 		return worker, nil
