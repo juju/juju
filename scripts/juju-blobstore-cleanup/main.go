@@ -475,7 +475,7 @@ func (b *BlobstoreCleaner) findFilelessChunks() {
 
 func (b *BlobstoreCleaner) cleanupChunks() {
 	if *dryRun {
-		fmt.Printf("Not removing %d dangling files\n\n", len(b.unreferencedFiles))
+		fmt.Printf("Not removing %d dangling chunks\n\n", len(b.unreferencedChunks))
 		return
 	}
 	fmt.Printf("Removing %d dangling files\n", len(b.unreferencedFiles))
