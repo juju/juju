@@ -272,7 +272,6 @@ func (cfg *ubuntuCloudConfig) addRequiredPackages() {
 		// Don't install bridge-utils in cloud-init;
 		// leave it to the networker worker.
 		"bridge-utils",
-		"cloud-utils",
 		"tmux",
 		// TODO(wpk) 2017-07-23 maybe we should do it in fanconfigurer?
 		"ubuntu-fan",
