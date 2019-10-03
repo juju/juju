@@ -2589,3 +2589,10 @@ func EnsureRelationApplicationSettings(pool *StatePool) error {
 		return errors.Trace(st.db().RunTransaction(ops))
 	}))
 }
+
+// ConvertAddressSpaceIDs interrogates stored addresses.
+// Where such addresses include a space name or provider ID,
+// The space is retrieved and these fields are removed in favour of space's ID.
+func ConvertAddressSpaceIDs(pool *StatePool) error {
+	return nil
+}

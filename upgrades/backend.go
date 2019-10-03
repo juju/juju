@@ -72,6 +72,7 @@ type StateBackend interface {
 	AddSubnetIdToSubnetDocs() error
 	ReplacePortsDocSubnetIDCIDR() error
 	EnsureRelationApplicationSettings() error
+	ConvertAddressSpaceIDs() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -288,4 +289,8 @@ func (s stateBackend) ReplacePortsDocSubnetIDCIDR() error {
 
 func (s stateBackend) EnsureRelationApplicationSettings() error {
 	return state.EnsureRelationApplicationSettings(s.pool)
+}
+
+func (s stateBackend) ConvertAddressSpaceIDs() error {
+	return state.ConvertAddressSpaceIDs(s.pool)
 }

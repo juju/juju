@@ -55,5 +55,12 @@ func stateStepsFor27() []Step {
 				return context.State().EnsureRelationApplicationSettings()
 			},
 		},
+		&upgradeStep{
+			description: "ensure stored addresses refer to space by ID, and remove old space name/provider ID",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().ConvertAddressSpaceIDs()
+			},
+		},
 	}
 }
