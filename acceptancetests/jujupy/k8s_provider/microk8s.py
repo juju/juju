@@ -23,9 +23,12 @@ import logging
 import shutil
 import os
 import json
+import yaml
+from pprint import pformat
 
 import dns.resolver
 
+from jujupy.utility import until_timeout
 from .base import (
     Base,
     K8sProviderType,
@@ -77,21 +80,47 @@ class MicroK8s(Base):
         # microk8s uses the node's 'InternalIP`.
         return [addr['address'] for addr in node['status']['addresses'] if addr['type'] == 'InternalIP'][0]
 
-    def __enable_addons(self):
-        out = self.sh(
-            'microk8s.enable',
-            'storage', 'dns', 'dashboard', 'ingress',  # addons are required to enable.
+    def _microk8s_status(self, wait_ready=False):
+        args = ['microk8s.status', '--yaml']
+        if wait_ready:
+            args += ['--wait-ready', '--timeout', self.timeout]
+        return yaml.load(
+            self.sh(*args), Loader=yaml.Loader,
         )
-        logger.debug(out)
+
+    def __enable_addons(self):
+        # addons are required to be enabled.
+        addons = ['storage', 'dns', 'ingress']
+
+        def wait_until_ready(timeout, checker):
+            for _ in until_timeout(timeout):
+                if checker():
+                    break
+
+        def check_addons():
+            addons_status = self._microk8s_status()['addons']
+            is_ok = all([addons_status.get(addon) == 'enabled' for addon in addons])
+            if is_ok:
+                logger.info('required addons are all ready now -> \n%s', pformat(addons_status))
+            return is_ok
+
+        out = self.sh('microk8s.enable', *addons)
+        logger.info(out)
+        # wait for a bit to let all addons are fully provisoned.
+        wait_until_ready(self.timeout, check_addons)
 
     def __ensure_microk8s_installed(self):
-        # unfortunately, we needs sudo!
+        # unfortunately, we need sudo!
         if shutil.which('microk8s.kubectl') is None:
+            # install microk8s.
             self.sh('sudo', 'snap', 'install', 'microk8s', '--classic', '--stable')
-            logger.debug("microk8s installed successfully")
-        logger.debug(
+            logger.info("microk8s installed successfully")
+        else:
+            # reset mcicrok8s.
+            self.sh('sudo', 'microk8s.reset')
+        logger.info(
             "microk8s status \n%s",
-            self.sh('microk8s.status', '--wait-ready', '--timeout', self.timeout, '--yaml'),
+            self._microk8s_status(True),
         )
 
     def __tmp_fix_patch_coredns(self):
@@ -111,3 +140,7 @@ class MicroK8s(Base):
         data['Corefile'] = data['Corefile'].replace('8.8.8.8 8.8.4.4', get_nameserver())
         coredns_cm['data'] = data
         self.kubectl_apply(json.dumps(coredns_cm))
+        
+        # restart coredns pod by killing it.
+        kubedns_pod_selector = 'k8s-app=kube-dns'
+        self.kubectl('delete', 'pod', '-n', 'kube-system', '--selector=%s' % kubedns_pod_selector)

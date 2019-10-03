@@ -30,6 +30,37 @@ func NewClient(st base.APICallCloser) *Client {
 		facade:       backend}
 }
 
+// GetChanges returns back the changes for a given bundle that need to be
+// applied.
+// GetChanges is superseded by GetChangesMapArgs, use that where possible, by
+// detecting the BestAPIVersion to use.
+func (c *Client) GetChanges(bundleURL, bundleDataYAML string) (params.BundleChangesResults, error) {
+	var result params.BundleChangesResults
+	if err := c.facade.FacadeCall("GetChanges", params.BundleChangesParams{
+		BundleURL:      bundleURL,
+		BundleDataYAML: bundleDataYAML,
+	}, &result); err != nil {
+		return result, errors.Trace(err)
+	}
+	return result, nil
+}
+
+// GetChangesMapArgs returns back the changes for a given bundle that need to be
+// applied, with the args of a method as a map.
+func (c *Client) GetChangesMapArgs(bundleURL, bundleDataYAML string) (params.BundleChangesMapArgsResults, error) {
+	var result params.BundleChangesMapArgsResults
+	if bestVer := c.BestAPIVersion(); bestVer < 4 {
+		return result, errors.Errorf("this controller version does not support bundle get changes as map args feature.")
+	}
+	if err := c.facade.FacadeCall("GetChangesMapArgs", params.BundleChangesParams{
+		BundleURL:      bundleURL,
+		BundleDataYAML: bundleDataYAML,
+	}, &result); err != nil {
+		return result, errors.Trace(err)
+	}
+	return result, nil
+}
+
 // ExportBundle exports the current model configuration.
 func (c *Client) ExportBundle() (string, error) {
 	var result params.StringResult

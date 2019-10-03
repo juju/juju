@@ -56,9 +56,9 @@ func assertEnableHA(c *gc.C, s *jujutesting.JujuConnSuite) {
 	defer assertKill(c, pingerA)
 
 	err = m.SetMachineAddresses(
-		network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
-		network.NewScopedAddress("cloud-local0.internal", network.ScopeCloudLocal),
-		network.NewScopedAddress("fc00::1", network.ScopePublic),
+		network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal),
+		network.NewScopedSpaceAddress("cloud-local0.internal", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("fc00::1", network.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

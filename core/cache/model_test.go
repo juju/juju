@@ -305,129 +305,58 @@ func (s *ModelSuite) TestRemoveBranchPublishesName(c *gc.C) {
 	}
 }
 
-func (s *ControllerSuite) TestWatchMachineStops(c *gc.C) {
-	controller, _ := s.newWithMachine(c)
-	m, err := controller.Model(modelChange.ModelUUID)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *ModelSuite) TestWaitForUnitNewChange(c *gc.C) {
+	m := s.NewModel(modelChange)
+	done := m.WaitForUnit("application-name/0", func(u *cache.Unit) bool {
+		return u.Life() == life.Alive
+	}, nil)
 
-	w, err := m.WatchMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	wc := cache.NewStringsWatcherC(c, w)
-	// Sends initial event.
-	wc.AssertOneChange([]string{machineChange.Id})
+	m.UpdateUnit(unitChange, s.Manager)
 
-	// The worker is the first and only resource (1).
-	resourceId := uint64(1)
-	s.AssertWorkerResource(c, m.Resident, resourceId, true)
-	wc.AssertStops()
-	s.AssertWorkerResource(c, m.Resident, resourceId, false)
-}
-
-func (s *ControllerSuite) TestWatchMachineAddMachine(c *gc.C) {
-	w, events := s.setupWithWatchMachine(c)
-	defer workertest.CleanKill(c, w)
-	wc := cache.NewStringsWatcherC(c, w)
-	// Sends initial event.
-	wc.AssertOneChange([]string{machineChange.Id})
-
-	change := cache.MachineChange{
-		ModelUUID: modelChange.ModelUUID,
-		Id:        "2",
+	select {
+	case <-done:
+		// All good.
+	case <-time.After(testing.LongWait):
+		c.Errorf("change not noticed")
 	}
-	s.processChange(c, change, events)
-	wc.AssertOneChange([]string{change.Id})
 }
 
-func (s *ControllerSuite) TestWatchMachineAddContainerNoChange(c *gc.C) {
-	w, events := s.setupWithWatchMachine(c)
-	defer workertest.CleanKill(c, w)
-	wc := cache.NewStringsWatcherC(c, w)
-	// Sends initial event.
-	wc.AssertOneChange([]string{machineChange.Id})
+func (s *ModelSuite) TestWaitForUnitExistingValue(c *gc.C) {
+	m := s.NewModel(modelChange)
+	m.UpdateUnit(unitChange, s.Manager)
 
-	change := cache.MachineChange{
-		ModelUUID: modelChange.ModelUUID,
-		Id:        "2/lxd/0",
+	done := m.WaitForUnit("application-name/0", func(u *cache.Unit) bool {
+		return u.Life() == life.Alive
+	}, nil)
+
+	select {
+	case <-done:
+		// All good.
+	case <-time.After(testing.LongWait):
+		c.Errorf("change not noticed")
 	}
-	s.processChange(c, change, events)
-	change2 := change
-	change2.Id = "3"
-	s.processChange(c, change2, events)
-	wc.AssertOneChange([]string{change2.Id})
 }
 
-func (s *ControllerSuite) TestWatchMachineRemoveMachine(c *gc.C) {
-	w, events := s.setupWithWatchMachine(c)
-	defer workertest.CleanKill(c, w)
-	wc := cache.NewStringsWatcherC(c, w)
-	// Sends initial event.
-	wc.AssertOneChange([]string{machineChange.Id})
+func (s *ModelSuite) TestWaitForUnitCancelClosesChannel(c *gc.C) {
+	m := s.NewModel(modelChange)
+	cancel := make(chan struct{})
+	done := m.WaitForUnit("anything", func(*cache.Unit) bool { return false }, cancel)
 
-	change := cache.RemoveMachine{
-		ModelUUID: modelChange.ModelUUID,
-		Id:        machineChange.Id,
+	select {
+	case <-done:
+		c.Errorf("change signalled")
+	default:
+		// All good.
 	}
-	s.processChange(c, change, events)
-	wc.AssertOneChange([]string{change.Id})
-}
 
-func (s *ControllerSuite) TestWatchMachineChangeMachine(c *gc.C) {
-	w, events := s.setupWithWatchMachine(c)
-	defer workertest.CleanKill(c, w)
-	wc := cache.NewStringsWatcherC(c, w)
-	// Sends initial event.
-	wc.AssertOneChange([]string{machineChange.Id})
+	close(cancel)
 
-	change := cache.MachineChange{
-		ModelUUID: modelChange.ModelUUID,
-		Id:        "0",
+	select {
+	case <-done:
+		// All good.
+	case <-time.After(testing.LongWait):
+		c.Errorf("done channel not closed")
 	}
-	s.processChange(c, change, events)
-	wc.AssertNoChange()
-}
-
-func (s *ControllerSuite) TestWatchMachineGatherMachines(c *gc.C) {
-	w, events := s.setupWithWatchMachine(c)
-	defer workertest.CleanKill(c, w)
-	wc := cache.NewStringsWatcherC(c, w)
-	// Sends initial event.
-	wc.AssertOneChange([]string{machineChange.Id})
-
-	change := cache.MachineChange{
-		ModelUUID: modelChange.ModelUUID,
-		Id:        "2",
-	}
-	s.processChange(c, change, events)
-	change2 := change
-	change2.Id = "3"
-	s.processChange(c, change2, events)
-	wc.AssertMaybeCombinedChanges([]string{change.Id, change2.Id})
-}
-
-func (s *ControllerSuite) newWithMachine(c *gc.C) (*cache.Controller, <-chan interface{}) {
-	events := s.captureEvents(c)
-	controller, err := s.NewController()
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, controller) })
-	s.processChange(c, modelChange, events)
-	s.processChange(c, machineChange, events)
-	return controller, events
-}
-
-func (s *ControllerSuite) setupWithWatchMachine(c *gc.C) (*cache.PredicateStringsWatcher, <-chan interface{}) {
-	controller, events := s.newWithMachine(c)
-	m, err := controller.Model(modelChange.ModelUUID)
-	c.Assert(err, jc.ErrorIsNil)
-
-	containerChange := cache.MachineChange{
-		ModelUUID: modelChange.ModelUUID,
-		Id:        "2/lxd/0",
-	}
-	s.processChange(c, containerChange, events)
-
-	w, err := m.WatchMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	return w, events
 }
 
 var modelChange = cache.ModelChange{

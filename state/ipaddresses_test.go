@@ -98,7 +98,7 @@ func (s *ipAddressesStateSuite) addNamedDevice(c *gc.C, name string) *state.Link
 func (s *ipAddressesStateSuite) addNamedDeviceForMachine(c *gc.C, name string, machine *state.Machine) *state.LinkLayerDevice {
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name: name,
-		Type: state.EthernetDevice,
+		Type: corenetwork.EthernetDevice,
 	}
 	err := machine.SetLinkLayerDevices(deviceArgs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -302,7 +302,7 @@ func (s *ipAddressesStateSuite) TestMachineAllAddressesSuccess(c *gc.C) {
 
 func (s *ipAddressesStateSuite) TestMachineAllNetworkAddresses(c *gc.C) {
 	addedAddresses := s.addTwoDevicesWithTwoAddressesEach(c)
-	expected := make([]corenetwork.Address, len(addedAddresses))
+	expected := make(corenetwork.SpaceAddresses, len(addedAddresses))
 	for i := range addedAddresses {
 		expected[i] = addedAddresses[i].NetworkAddress()
 	}

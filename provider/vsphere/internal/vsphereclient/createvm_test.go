@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
+	"github.com/juju/mutex"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/vim25/mo"
@@ -538,6 +540,41 @@ func (s *clientSuite) TestVerifyMAC(c *gc.C) {
 	}
 }
 
+func (s *clientSuite) TestAcquiresMutexWhenNotBootstrapping(c *gc.C) {
+	var stub testing.Stub
+	acquire := func(spec mutex.Spec) (func(), error) {
+		stub.AddCall("acquire", spec)
+		return func() { stub.AddCall("release") }, nil
+	}
+	args := baseCreateVirtualMachineParams(c)
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	client.acquireMutex = acquire
+	_, err := client.CreateVirtualMachine(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	stub.CheckCallNames(c, "acquire", "release")
+	stub.CheckCall(c, 0, "acquire", mutex.Spec{
+		Name:  "vsphere-xenial",
+		Clock: args.Clock,
+		Delay: time.Second,
+	})
+}
+
+func (s *clientSuite) TestNoAcquireOnBootstrap(c *gc.C) {
+	var stub testing.Stub
+	acquire := func(spec mutex.Spec) (func(), error) {
+		stub.AddCall("acquire")
+		return nil, errors.Errorf("boom")
+	}
+	args := baseCreateVirtualMachineParams(c)
+	args.IsBootstrap = true
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	client.acquireMutex = acquire
+	_, err := client.CreateVirtualMachine(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	stub.CheckCallNames(c)
+}
+
 func baseCreateVirtualMachineParams(c *gc.C) CreateVirtualMachineParams {
 	readOVA := func() (string, io.ReadCloser, error) {
 		r := bytes.NewReader(ovatest.FakeOVAContents())
@@ -588,6 +625,7 @@ func baseCreateVirtualMachineParams(c *gc.C) CreateVirtualMachineParams {
 		UpdateProgressInterval: time.Second,
 		Clock:                  testclock.NewClock(time.Time{}),
 		EnableDiskUUID:         true,
+		IsBootstrap:            false,
 	}
 }
 

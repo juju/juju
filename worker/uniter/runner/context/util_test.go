@@ -73,8 +73,6 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.meteredCharm = s.AddTestingCharm(c, "metered")
 	meteredApplication := s.AddTestingApplication(c, "m", s.meteredCharm)
 	meteredUnit := s.addUnit(c, meteredApplication)
-	err = meteredUnit.SetCharmURL(s.meteredCharm.URL())
-	c.Assert(err, jc.ErrorIsNil)
 
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -95,11 +93,19 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.meteredAPIUnit, err = meteredUniter.Unit(meteredUnit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Note: The unit must always have a charm URL set, because this
-	// happens as part of the installation process (that happens
-	// before the initial install hook).
-	err = s.unit.SetCharmURL(sch.URL())
+	// The unit must always have a charm URL set.
+	// In theatre, this happens as part of the installation process,
+	// which happens before the initial install hook.
+	// We simulate that having happened by explicitly setting it here.
+	//
+	// The API is used instead of direct state access, because the API call
+	// handles synchronisation with the cache where the data must reside for
+	// config watching and retrieval to work.
+	err = s.apiUnit.SetCharmURL(sch.URL())
 	c.Assert(err, jc.ErrorIsNil)
+	err = s.meteredAPIUnit.SetCharmURL(s.meteredCharm.URL())
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.relch = s.AddTestingCharm(c, "mysql")
 	s.relunits = map[int]*state.RelationUnit{}
 	s.apiRelunits = map[int]*uniter.RelationUnit{}
@@ -108,7 +114,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 
 	storageData0 := names.NewStorageTag("data/0")
 	s.storage = &runnertesting.StorageContextAccessor{
-		map[names.StorageTag]*runnertesting.ContextStorage{
+		CStorage: map[names.StorageTag]*runnertesting.ContextStorage{
 			storageData0: {
 				storageData0,
 				storage.StorageKindBlock,
@@ -120,16 +126,14 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Time{})
 }
 
-func (s *HookContextSuite) GetContext(
-	c *gc.C, relId int, remoteName string,
-) jujuc.Context {
+func (s *HookContextSuite) GetContext(c *gc.C, relId int, remoteName string) jujuc.Context {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	return s.getHookContext(c, uuid.String(), relId, remoteName)
 }
 
-func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Application) *state.Unit {
-	unit, err := svc.AddUnit(state.AddUnitParams{})
+func (s *HookContextSuite) addUnit(c *gc.C, app *state.Application) *state.Unit {
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	if s.machine != nil {
 		err = unit.AssignToMachine(s.machine)
@@ -152,10 +156,10 @@ func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Application) *state.Unit 
 	return unit
 }
 
-func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Application) *state.Unit {
-	unit := s.addUnit(c, svc)
+func (s *HookContextSuite) AddUnit(c *gc.C, app *state.Application) *state.Unit {
+	unit := s.addUnit(c, app)
 	name := strings.Replace(unit.Name(), "/", "-", 1)
-	privateAddr := network.NewScopedAddress(name+".testing.invalid", network.ScopeCloudLocal)
+	privateAddr := network.NewScopedSpaceAddress(name+".testing.invalid", network.ScopeCloudLocal)
 	err := s.machine.SetProviderAddresses(privateAddr)
 	c.Assert(err, jc.ErrorIsNil)
 	return unit
@@ -364,7 +368,21 @@ func (MockEnvPaths) GetCharmDir() string {
 	return "path-to-charm"
 }
 
-func (MockEnvPaths) GetJujucSocket() sockets.Socket {
+func (MockEnvPaths) GetBaseDir() string {
+	return "path-to-base"
+}
+
+func (MockEnvPaths) GetJujucClientSocket(remote bool) sockets.Socket {
+	if remote {
+		return sockets.Socket{Network: "tcp", Address: "127.0.0.1:32000"}
+	}
+	return sockets.Socket{Network: "unix", Address: "path-to-jujuc.socket"}
+}
+
+func (MockEnvPaths) GetJujucServerSocket(remote bool) sockets.Socket {
+	if remote {
+		return sockets.Socket{Network: "tcp", Address: "127.0.0.1:32000"}
+	}
 	return sockets.Socket{Network: "unix", Address: "path-to-jujuc.socket"}
 }
 

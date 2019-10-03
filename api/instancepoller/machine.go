@@ -151,9 +151,9 @@ func (m *Machine) SetInstanceStatus(status status.Status, message string, data m
 	return result.OneError()
 }
 
-// ProviderAddresses returns all addresses of the machine known to the
-// cloud provider.
-func (m *Machine) ProviderAddresses() ([]network.Address, error) {
+// ProviderAddresses returns all addresses of the machine
+// known to the cloud provider.
+func (m *Machine) ProviderAddresses() (network.ProviderAddresses, error) {
 	var results params.MachineAddressesResults
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: m.tag.String()},
@@ -170,17 +170,17 @@ func (m *Machine) ProviderAddresses() ([]network.Address, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return params.NetworkAddresses(result.Addresses...), nil
+	return params.ToProviderAddresses(result.Addresses...), nil
 }
 
-// SetProviderAddresses sets the cached provider addresses for the
-// machine.
-func (m *Machine) SetProviderAddresses(addrs ...network.Address) error {
+// SetProviderAddresses sets the cached provider
+// addresses for the machine.
+func (m *Machine) SetProviderAddresses(addrs ...network.ProviderAddress) error {
 	var result params.ErrorResults
 	args := params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{{
 			Tag:       m.tag.String(),
-			Addresses: params.FromNetworkAddresses(addrs...),
+			Addresses: params.FromProviderAddresses(addrs...),
 		}}}
 	err := m.facade.FacadeCall("SetProviderAddresses", args, &result)
 	if err != nil {

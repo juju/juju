@@ -318,8 +318,8 @@ func (s *toolsSuite) TestToolsURLGetterAPIHostPortsError(c *gc.C) {
 
 func (s *toolsSuite) TestToolsURLGetter(c *gc.C) {
 	g := common.NewToolsURLGetter("my-uuid", mockAPIHostPortsGetter{
-		hostPorts: [][]network.HostPort{
-			network.NewHostPorts(1234, "0.1.2.3"),
+		hostPorts: []network.SpaceHostPorts{
+			network.NewSpaceHostPorts(1234, "0.1.2.3"),
 		},
 	})
 	urls, err := g.ToolsURLs(current)
@@ -336,11 +336,11 @@ func (s sprintfURLGetter) ToolsURLs(v version.Binary) ([]string, error) {
 }
 
 type mockAPIHostPortsGetter struct {
-	hostPorts [][]network.HostPort
+	hostPorts []network.SpaceHostPorts
 	err       error
 }
 
-func (g mockAPIHostPortsGetter) APIHostPortsForAgents() ([][]network.HostPort, error) {
+func (g mockAPIHostPortsGetter) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
 	return g.hostPorts, g.err
 }
 

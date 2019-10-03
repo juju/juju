@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
@@ -314,6 +313,20 @@ type OperatorProvisioningInfo struct {
 	CharmStorage KubernetesFilesystemParams `json:"charm-storage"`
 }
 
+// IssueOperatorCertificateResult contains an x509 certificate
+// for a CAAS Operator.
+type IssueOperatorCertificateResult struct {
+	CACert     string `json:"ca-cert"`
+	Cert       string `json:"cert"`
+	PrivateKey string `json:"private-key"`
+	Error      *Error `json:"error,omitempty"`
+}
+
+// IssueOperatorCertificateResults holds IssueOperatorCertificate results.
+type IssueOperatorCertificateResults struct {
+	Results []IssueOperatorCertificateResult `json:"results"`
+}
+
 // PublicAddress holds parameters for the PublicAddress call.
 type PublicAddress struct {
 	Target string `json:"target"`
@@ -586,6 +599,9 @@ type ContainerConfig struct {
 	JujuProxy                  proxy.Settings         `json:"juju-proxy"`
 	AptProxy                   proxy.Settings         `json:"apt-proxy"`
 	SnapProxy                  proxy.Settings         `json:"snap-proxy"`
+	SnapStoreAssertions        string                 `json:"snap-store-assertions"`
+	SnapStoreProxyID           string                 `json:"snap-store-proxy-id"`
+	SnapStoreProxyURL          string                 `json:"snap-store-proxy-url"`
 	AptMirror                  string                 `json:"apt-mirror"`
 	CloudInitUserData          map[string]interface{} `json:"cloudinit-userdata,omitempty"`
 	ContainerInheritProperties string                 `json:"container-inherit-properties,omitempty"`
@@ -903,19 +919,36 @@ type BundleChange struct {
 	Requires []string `json:"requires"`
 }
 
+// BundleChangesMapArgsResults holds results of the Bundle.GetChanges call.
+type BundleChangesMapArgsResults struct {
+	// Changes holds the list of changes required to deploy the bundle.
+	// It is omitted if the provided bundle YAML has verification errors.
+	Changes []*BundleChangesMapArgs `json:"changes,omitempty"`
+	// Errors holds possible bundle verification errors.
+	Errors []string `json:"errors,omitempty"`
+}
+
+// BundleChangesMapArgs holds a single change required to deploy a bundle.
+// BundleChangesMapArgs has Args represented as a map of arguments rather
+// than a series.
+type BundleChangesMapArgs struct {
+	// Id is the unique identifier for this change.
+	Id string `json:"id"`
+	// Method is the action to be performed to apply this change.
+	Method string `json:"method"`
+	// Args holds a list of arguments to pass to the method.
+	Args map[string]interface{} `json:"args"`
+	// Requires holds a list of dependencies for this change. Each dependency
+	// is represented by the corresponding change id, and must be applied
+	// before this change is applied.
+	Requires []string `json:"requires"`
+}
+
 type MongoVersion struct {
 	Major         int    `json:"major"`
 	Minor         int    `json:"minor"`
 	Patch         string `json:"patch"`
 	StorageEngine string `json:"engine"`
-}
-
-// HAMember holds information that identifies one member
-// of HA.
-type HAMember struct {
-	Tag           string          `json:"tag"`
-	PublicAddress network.Address `json:"public-address"`
-	Series        string          `json:"series"`
 }
 
 // MeterStatusParam holds meter status information to be set for the specified tag.

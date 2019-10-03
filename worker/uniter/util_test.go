@@ -69,15 +69,10 @@ func assertAssignUnit(c *gc.C, st *state.State, u *state.Unit) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("i-exist", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProviderAddresses(network.Address{
-		Type:  network.IPv4Address,
-		Scope: network.ScopeCloudLocal,
-		Value: "private.address.example.com",
-	}, network.Address{
-		Type:  network.IPv4Address,
-		Scope: network.ScopePublic,
-		Value: "public.address.example.com",
-	})
+	err = machine.SetProviderAddresses(
+		network.NewScopedSpaceAddress("private.address.example.com", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("public.address.example.com", network.ScopePublic),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -665,7 +660,7 @@ func (s verifyDownloadsCleared) step(c *gc.C, ctx *context) {
 }
 
 func downloadDir(ctx *context) string {
-	paths := uniter.NewPaths(ctx.dataDir, ctx.unit.UnitTag(), false)
+	paths := uniter.NewPaths(ctx.dataDir, ctx.unit.UnitTag(), nil)
 	return filepath.Join(paths.State.BundlesDir, "downloads")
 }
 
@@ -1618,7 +1613,6 @@ func (mock *mockLeaderTracker) setLeader(c *gc.C, isLeader bool) {
 		)
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
-		leaseClock.Advance(61 * time.Second)
 		time.Sleep(coretesting.ShortWait)
 	}
 	mock.isLeader = isLeader

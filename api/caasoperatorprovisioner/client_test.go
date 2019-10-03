@@ -194,3 +194,41 @@ func (s *provisionerSuite) OperatorProvisioningInfo(c *gc.C) {
 		},
 	})
 }
+
+func (s *provisionerSuite) TestIssueOperatorCertificate(c *gc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASOperatorProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "IssueOperatorCertificate")
+		c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "appymcappface"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.IssueOperatorCertificateResults{})
+		*(result.(*params.IssueOperatorCertificateResults)) = params.IssueOperatorCertificateResults{
+			Results: []params.IssueOperatorCertificateResult{{
+				CACert:     "ca cert",
+				Cert:       "cert",
+				PrivateKey: "private key",
+			}},
+		}
+		return nil
+	})
+	info, err := client.IssueOperatorCertificate("appymcappface")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, caasoperatorprovisioner.OperatorCertificate{
+		CACert:     "ca cert",
+		Cert:       "cert",
+		PrivateKey: "private key",
+	})
+}
+
+func (s *provisionerSuite) TestIssueOperatorCertificateArity(c *gc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASOperatorProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "IssueOperatorCertificate")
+		c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "appymcappface"}}})
+		c.Assert(result, gc.FitsTypeOf, &params.IssueOperatorCertificateResults{})
+		return nil
+	})
+	_, err := client.IssueOperatorCertificate("appymcappface")
+	c.Assert(err, gc.ErrorMatches, "expected one result, got 0")
+}

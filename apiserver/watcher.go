@@ -485,7 +485,7 @@ var getMigrationBackend = func(st *state.State) migrationBackend {
 // migration watchers.
 type migrationBackend interface {
 	LatestMigration() (state.ModelMigration, error)
-	APIHostPortsForClients() ([][]network.HostPort, error)
+	APIHostPortsForClients() ([]network.SpaceHostPorts, error)
 	ControllerConfig() (controller.Config, error)
 }
 

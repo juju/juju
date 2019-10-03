@@ -21,6 +21,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	"github.com/juju/loggo"
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -261,7 +262,7 @@ func (s *MachineLegacyLeasesSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	a := s.newAgent(c, m)
 	defer a.Stop()
 	go func() {
-		c.Check(a.Run(nil), jc.ErrorIsNil)
+		c.Check(a.Run(cmdtesting.Context(c)), jc.ErrorIsNil)
 	}()
 
 	// Add one unit to an application;
@@ -275,7 +276,9 @@ func (s *MachineLegacyLeasesSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	m, instId := s.waitProvisioned(c, unit)
 	insts, err := s.Environ.Instances(context.NewCloudCallContext(), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
-	addrs := network.NewAddresses("1.2.3.4")
+
+	addr := "1.2.3.4"
+	addrs := network.NewProviderAddresses(addr)
 	dummy.SetInstanceAddresses(insts[0], addrs)
 	dummy.SetInstanceStatus(insts[0], "running")
 
@@ -289,7 +292,7 @@ func (s *MachineLegacyLeasesSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 		instStatus, err := m.InstanceStatus()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Logf("found status is %q %q", instStatus.Status, instStatus.Message)
-		if reflect.DeepEqual(m.Addresses(), addrs) && instStatus.Message == "running" {
+		if reflect.DeepEqual(m.Addresses(), network.NewSpaceAddresses(addr)) && instStatus.Message == "running" {
 			c.Logf("machine %q address updated: %+v", m.Id(), addrs)
 			break
 		}
@@ -352,7 +355,7 @@ func (s *MachineLegacyLeasesSuite) testUpgradeRequest(c *gc.C, agent runner, tag
 		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), newVers)[0]
 	err := s.State.SetModelAgentVersion(newVers.Number, true)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runWithTimeout(agent)
+	err = runWithTimeout(c, agent)
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
 		AgentName: tag,
 		OldTools:  currentTools.Version,
@@ -372,7 +375,7 @@ func (s *MachineLegacyLeasesSuite) TestNoUpgradeRequired(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobManageModel, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	done := make(chan error)
-	go func() { done <- a.Run(nil) }()
+	go func() { done <- a.Run(cmdtesting.Context(c)) }()
 	select {
 	case <-a.initialUpgradeCheckComplete.Unlocked():
 	case <-time.After(coretesting.LongWait):
@@ -446,7 +449,7 @@ func (s *MachineLegacyLeasesSuite) waitForOpenState(c *gc.C, a *MachineAgent) (*
 
 	done := make(chan error)
 	go func() {
-		done <- a.Run(nil)
+		done <- a.Run(cmdtesting.Context(c))
 	}()
 
 	select {
@@ -571,8 +574,13 @@ func (s *MachineLegacyLeasesSuite) assertAgentSetsToolsVersion(c *gc.C, job stat
 	vers.Minor++
 	m, _, _ := s.primeAgentVersion(c, vers, job)
 	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+	ctx := cmdtesting.Context(c)
+	go func() { c.Check(a.Run(ctx), jc.ErrorIsNil) }()
+	defer func() {
+		logger.Infof("stopping machine agent")
+		c.Check(a.Stop(), jc.ErrorIsNil)
+		logger.Infof("stopped machine agent")
+	}()
 
 	timeout := time.After(coretesting.LongWait)
 	for done := false; !done; {
@@ -766,7 +774,7 @@ func (s *MachineLegacyLeasesSuite) TestMachineAgentUninstall(c *gc.C) {
 
 	// Wait for the agent to become alive, then run EnsureDead and wait
 	// for the agent to exit
-	err := s.WithAliveAgent(m, a, m.EnsureDead)
+	err := s.WithAliveAgent(c, m, a, m.EnsureDead)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// juju-* symlinks should have been removed on termination.
@@ -788,8 +796,8 @@ func (s *MachineLegacyLeasesSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	// Update the API addresses.
-	updatedServers := [][]network.HostPort{
-		network.NewHostPorts(1234, "localhost"),
+	updatedServers := []network.SpaceHostPorts{
+		network.NewSpaceHostPorts(1234, "localhost"),
 	}
 	err := s.BackingState.SetAPIHostPorts(updatedServers)
 	c.Assert(err, jc.ErrorIsNil)
@@ -904,7 +912,7 @@ func (s *MachineLegacyLeasesSuite) testCertificateDNSUpdated(c *gc.C, a *Machine
 	})
 
 	// Start the agent.
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	go func() { c.Check(a.Run(cmdtesting.Context(c)), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	// Wait for State to be opened. Once this occurs we know that the
@@ -1019,7 +1027,7 @@ func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
 
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	go func() { c.Check(a.Run(cmdtesting.Context(c)), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	// Wait for it to stabilise, running as normal.
@@ -1071,6 +1079,7 @@ func (s *MachineLegacyLeasesSuite) TestWorkersForHostedModelWithInvalidCredentia
 	// The dummy provider blows up in the face of multi-model
 	// scenarios so patch in a minimal environs.Environ that's good
 	// enough to allow the model workers to run.
+	loggo.GetLogger("juju.worker.dependency").SetLogLevel(loggo.TRACE)
 	s.PatchValue(&newEnvirons, func(environs.OpenParams) (environs.Environ, error) {
 		return &minModelWorkersEnviron{}, nil
 	})
@@ -1115,6 +1124,7 @@ func (s *MachineLegacyLeasesSuite) TestWorkersForHostedModelWithDeletedCredentia
 	// The dummy provider blows up in the face of multi-model
 	// scenarios so patch in a minimal environs.Environ that's good
 	// enough to allow the model workers to run.
+	loggo.GetLogger("juju.worker.dependency").SetLogLevel(loggo.TRACE)
 	s.PatchValue(&newEnvirons, func(environs.OpenParams) (environs.Environ, error) {
 		return &minModelWorkersEnviron{}, nil
 	})
@@ -1129,6 +1139,7 @@ func (s *MachineLegacyLeasesSuite) TestWorkersForHostedModelWithDeletedCredentia
 			"max-status-history-size": "4M",
 			"max-action-results-age":  "2h",
 			"max-action-results-size": "4M",
+			"logging-config":          "juju=debug;juju.worker.dependency=trace",
 		},
 		CloudCredential: credentialTag,
 	})

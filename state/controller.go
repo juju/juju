@@ -14,7 +14,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	jujucontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/core/network"
 )
 
 const (
@@ -174,7 +173,7 @@ func (st *State) checkSpaceIsAvailableToAllControllers(spaceName string) error {
 		if err != nil {
 			return errors.Annotate(err, "cannot get machine")
 		}
-		if _, ok := network.SelectAddressesBySpaces(m.Addresses(), space.NetworkSpace()); !ok {
+		if _, ok := m.Addresses().InSpaces(space.NetworkSpace()); !ok {
 			missing = append(missing, id)
 		}
 	}

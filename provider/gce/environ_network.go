@@ -187,7 +187,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId inst
 			ProviderNetworkId: details.network,
 			AvailabilityZones: copyStrings(zones),
 			InterfaceName:     iface.Name,
-			Address:           corenetwork.NewScopedAddress(iface.NetworkIP, corenetwork.ScopeCloudLocal),
+			Address:           corenetwork.NewScopedProviderAddress(iface.NetworkIP, corenetwork.ScopeCloudLocal),
 			InterfaceType:     network.EthernetInterface,
 			Disabled:          false,
 			NoAutoStart:       false,
@@ -305,10 +305,10 @@ func (*environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space
 // SSHAddresses implements environs.SSHAddresses.
 // For GCE we want to make sure we're returning only one public address, so that probing won't
 // cause SSHGuard to lock us out
-func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses []corenetwork.Address) ([]corenetwork.Address, error) {
-	bestAddress, ok := corenetwork.SelectPublicAddress(addresses)
+func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddresses, error) {
+	bestAddress, ok := addresses.OneMatchingScope(corenetwork.ScopeMatchPublic)
 	if ok {
-		return []corenetwork.Address{bestAddress}, nil
+		return corenetwork.SpaceAddresses{bestAddress}, nil
 	} else {
 		// fallback
 		return addresses, nil

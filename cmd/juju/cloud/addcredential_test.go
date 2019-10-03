@@ -254,7 +254,7 @@ Enter password:
 Credential "fred" added locally for cloud "somecloud".
 
 `[1:])
-	c.Assert(cmdtesting.Stderr(ctxt), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctxt), gc.Equals, "There are no controllers specified - not adding a credential to any controller.\n")
 }
 
 func (s *addCredentialSuite) TestAddInteractiveInvalidRegionEntered(c *gc.C) {
@@ -278,7 +278,7 @@ Enter password:
 Credential "fred" added locally for cloud "somecloud".
 
 `[1:])
-	c.Assert(cmdtesting.Stderr(ctxt), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctxt), gc.Equals, "There are no controllers specified - not adding a credential to any controller.\n")
 }
 
 func (s *addCredentialSuite) TestAddInteractiveRegionSpecified(c *gc.C) {
@@ -297,7 +297,7 @@ Enter password:
 Credential "fred" added locally for cloud "somecloud".
 
 `[1:])
-	c.Assert(cmdtesting.Stderr(ctxt), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctxt), gc.Equals, "There are no controllers specified - not adding a credential to any controller.\n")
 }
 
 func (s *addCredentialSuite) assertCredentialAdded(c *gc.C, input string, args []string, specifiedRegion, expectedRegion string) *cmd.Context {
@@ -835,8 +835,8 @@ Credential "blah" added locally for cloud "somecloud".
 
 `[1:]
 	stderr := `
-Using  remote cloud "somecloud" from the controller to verify credentials.
-Controller credential "blah" for user "admin@local" on cloud "somecloud" added.
+Using cloud "somecloud" from the controller to verify credentials.
+Controller credential "blah" for user "admin@local" for cloud "somecloud" on controller "controller" added.
 For more information, see ‘juju show-credential somecloud blah’.
 `[1:]
 
@@ -844,6 +844,10 @@ For more information, see ‘juju show-credential somecloud blah’.
 }
 
 func (s *addCredentialSuite) assertAddedCredentialForCloud(c *gc.C, cloudName, expectedStdout, expectedStderr string, uploaded bool) {
+	s.assertAddedCredentialForCloudWithArgs(c, cloudName, expectedStdout, "", expectedStderr, uploaded, "--no-prompt")
+}
+
+func (s *addCredentialSuite) assertAddedCredentialForCloudWithArgs(c *gc.C, cloudName, expectedStdout, expectedStdin, expectedStderr string, uploaded bool, args ...string) {
 	s.setupStore(c)
 	expectedContents := fmt.Sprintf(`
 credentials:
@@ -867,9 +871,9 @@ credentials:
 		return []params.UpdateCredentialResult{{CredentialTag: expectedTag}}, nil
 	}
 
-	stdin := strings.NewReader(fmt.Sprintf("blah\n%s\n", sourceFile))
+	stdin := strings.NewReader(fmt.Sprintf("%vblah\n%s\n", expectedStdin, sourceFile))
 
-	ctx, err := s.run(c, stdin, cloudName)
+	ctx, err := s.run(c, stdin, append(args, cloudName)...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedStdout)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expectedStderr)
@@ -900,8 +904,8 @@ Credential "blah" added locally for cloud "remote".
 
 `[1:]
 	stderr := `
-Using  remote cloud "remote" from the controller to verify credentials.
-Controller credential "blah" for user "admin@local" on cloud "remote" added.
+Using cloud "remote" from the controller to verify credentials.
+Controller credential "blah" for user "admin@local" for cloud "remote" on controller "controller" added.
 For more information, see ‘juju show-credential remote blah’.
 `[1:]
 	s.assertAddedCredentialForCloud(c, "remote", stdout, stderr, true)
@@ -928,9 +932,38 @@ Using auth-type "jsonfile".
 Enter path to the credential file: 
 Credential "blah" added locally for cloud "somecloud".
 
-No remote cloud somecloud found on the controller controller: credentials are not added remotely.
-Use 'juju clouds -c controller' to see what clouds are available remotely.
+No cloud "somecloud" found on the controller "controller": credentials are not uploaded.
+Use 'juju clouds -c controller' to see what clouds are available on the controller.
 User 'juju add-cloud somecloud -c controller' to add your cloud to the controller.
 `[1:]
 	s.assertAddedCredentialForCloud(c, "somecloud", stdout, "", false)
+}
+
+func (s *addCredentialSuite) TestAddRemoteCloudPromptForController(c *gc.C) {
+	s.api.clouds = func() (map[names.CloudTag]jujucloud.Cloud, error) {
+		return map[names.CloudTag]jujucloud.Cloud{
+			names.NewCloudTag("remote"): {
+				Name:      "remote",
+				Type:      "gce",
+				AuthTypes: []jujucloud.AuthType{jujucloud.JSONFileAuthType},
+			},
+		}, nil
+	}
+	stdout := `
+Do you want to add a credential to current controller "controller"? (Y/n): 
+Enter credential name: 
+Using auth-type "jsonfile".
+
+Enter path to the .json file containing a service account key for your project
+(detailed instructions available at https://discourse.jujucharms.com/t/1508).
+Path: 
+Credential "blah" added locally for cloud "remote".
+
+`[1:]
+	stderr := `
+Using cloud "remote" from the controller to verify credentials.
+Controller credential "blah" for user "admin@local" for cloud "remote" on controller "controller" added.
+For more information, see ‘juju show-credential remote blah’.
+`[1:]
+	s.assertAddedCredentialForCloudWithArgs(c, "remote", stdout, "\n", stderr, true)
 }

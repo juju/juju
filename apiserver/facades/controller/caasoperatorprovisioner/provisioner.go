@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
@@ -39,7 +40,6 @@ type API struct {
 
 // NewStateCAASOperatorProvisionerAPI provides the signature required for facade registration.
 func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*API, error) {
-
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 
@@ -145,6 +145,45 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 		CharmStorage: charmStorageParams,
 		Tags:         resourceTags,
 	}, nil
+}
+
+// IssueOperatorCertificate issues an x509 certificate for use by the specified application operator.
+func (a *API) IssueOperatorCertificate(args params.Entities) (params.IssueOperatorCertificateResults, error) {
+	cfg, err := a.state.ControllerConfig()
+	if err != nil {
+		return params.IssueOperatorCertificateResults{}, errors.Trace(err)
+	}
+	caCert, _ := cfg.CACert()
+
+	si, err := a.state.StateServingInfo()
+	if err != nil {
+		return params.IssueOperatorCertificateResults{}, errors.Trace(err)
+	}
+
+	res := params.IssueOperatorCertificateResults{
+		Results: make([]params.IssueOperatorCertificateResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		applicationName := entity.Tag
+
+		hostnames := []string{
+			applicationName,
+		}
+		cert, privateKey, err := cert.NewDefaultServer(caCert, si.CAPrivateKey, hostnames)
+		if err != nil {
+			res.Results[i] = params.IssueOperatorCertificateResult{
+				Error: common.ServerError(err),
+			}
+			continue
+		}
+		res.Results[i] = params.IssueOperatorCertificateResult{
+			CACert:     caCert,
+			Cert:       cert,
+			PrivateKey: privateKey,
+		}
+	}
+
+	return res, nil
 }
 
 // CharmStorageParams returns filesystem parameters needed

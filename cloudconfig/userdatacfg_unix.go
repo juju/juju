@@ -257,12 +257,20 @@ func (w *unixConfigure) ConfigureJuju() error {
 		}
 	}
 
-	w.conf.AddPackageCommands(
-		w.icfg.AptProxySettings,
-		w.icfg.AptMirror,
+	if err := w.conf.AddPackageCommands(
+		packageManagerProxySettings{
+			aptProxy:            w.icfg.AptProxySettings,
+			aptMirror:           w.icfg.AptMirror,
+			snapProxy:           w.icfg.SnapProxySettings,
+			snapStoreAssertions: w.icfg.SnapStoreAssertions,
+			snapStoreProxyID:    w.icfg.SnapStoreProxyID,
+			snapStoreProxyURL:   w.icfg.SnapStoreProxyURL,
+		},
 		w.icfg.EnableOSRefreshUpdate,
 		w.icfg.EnableOSUpgrade,
-	)
+	); err != nil {
+		return errors.Trace(err)
+	}
 
 	// Write out the normal proxy settings so that the settings are
 	// sourced by bash, and ssh through that.

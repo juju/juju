@@ -68,7 +68,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
-	err = s.machine.SetProviderAddresses(corenetwork.NewAddress("0.1.2.3"))
+	err = s.machine.SetProviderAddresses(corenetwork.NewSpaceAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create the provisioner API facade.
@@ -76,7 +76,10 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.provisioner, gc.NotNil)
 
 	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.provisioner, s.BackingState, s.Model)
-	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState)
+	waitForModelWatchersIdle := func(c *gc.C) {
+		s.JujuConnSuite.WaitForModelWatchersIdle(c, s.BackingState.ModelUUID())
+	}
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState, waitForModelWatchersIdle)
 }
 
 func (s *provisionerSuite) assertGetOneMachine(c *gc.C, tag names.MachineTag) provisioner.MachineProvisioner {
@@ -665,7 +668,7 @@ func (s *provisionerSuite) TestWatchModelMachines(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
-	err := s.machine.SetProviderAddresses(corenetwork.NewAddress("0.1.2.3"))
+	err := s.machine.SetProviderAddresses(corenetwork.NewSpaceAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	stateAddresses, err := s.State.Addresses()
@@ -836,7 +839,7 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 	err = s.machine.SetLinkLayerDevices(
 		state.LinkLayerDeviceArgs{
 			Name:       "ens3",
-			Type:       state.EthernetDevice,
+			Type:       corenetwork.EthernetDevice,
 			ParentName: "",
 			IsUp:       true,
 		},
@@ -965,10 +968,10 @@ func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c
 		Disabled:            false,
 		NoAutoStart:         false,
 		ConfigType:          "static",
-		Address:             corenetwork.NewAddress("192.168.0.6"),
-		DNSServers:          corenetwork.NewAddresses("8.8.8.8"),
+		Address:             corenetwork.NewProviderAddress("192.168.0.6"),
+		DNSServers:          corenetwork.NewProviderAddresses("8.8.8.8"),
 		DNSSearchDomains:    []string{"mydomain"},
-		GatewayAddress:      corenetwork.NewAddress("192.168.0.1"),
+		GatewayAddress:      corenetwork.NewProviderAddress("192.168.0.1"),
 		Routes: []network.Route{{
 			DestinationCIDR: "10.0.0.0/16",
 			GatewayIP:       "192.168.0.1",

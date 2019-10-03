@@ -148,6 +148,22 @@ func (s *unitSuite) TestUnitStatus(c *gc.C) {
 	})
 }
 
+func (s *unitSuite) TestLogActionMessage(c *gc.C) {
+	anAction, err := s.wordpressUnit.AddAction("fakeaction", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = anAction.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.apiUnit.LogActionMessage(anAction.ActionTag(), "hello")
+	c.Assert(err, jc.ErrorIsNil)
+
+	anAction, err = s.Model.Action(anAction.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	messages := anAction.Messages()
+	c.Assert(messages, gc.HasLen, 1)
+	c.Assert(messages[0].Message, gc.Equals, "hello")
+	c.Assert(messages[0].Timestamp, gc.NotNil)
+}
+
 func (s *unitSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Alive)
 
@@ -269,7 +285,7 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 
 	w, err := s.apiUnit.Watch()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewNotifyWatcherC(c, w, nil)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -290,7 +306,7 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 func (s *unitSuite) TestWatchRelations(c *gc.C) {
 	w, err := s.apiUnit.WatchRelations()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w, nil)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -337,7 +353,7 @@ func (s *unitSuite) TestSubordinateWatchRelations(c *gc.C) {
 	w, err := apiUnit.WatchRelations()
 	c.Assert(err, jc.ErrorIsNil)
 
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w, nil)
 	defer wc.AssertStops()
 
 	wc.AssertChange(loggingRel.Tag().Id())
@@ -387,7 +403,7 @@ func (s *unitSuite) TestPublicAddress(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no public address set`)
 
 	err = s.wordpressMachine.SetProviderAddresses(
-		corenetwork.NewScopedAddress("1.2.3.4", corenetwork.ScopePublic),
+		corenetwork.NewScopedSpaceAddress("1.2.3.4", corenetwork.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -401,7 +417,7 @@ func (s *unitSuite) TestPrivateAddress(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no private address set`)
 
 	err = s.wordpressMachine.SetProviderAddresses(
-		corenetwork.NewScopedAddress("1.2.3.4", corenetwork.ScopeCloudLocal),
+		corenetwork.NewScopedSpaceAddress("1.2.3.4", corenetwork.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -544,6 +560,8 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
 	settings, err = s.apiUnit.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
@@ -563,18 +581,19 @@ func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 
 	w, err := s.apiUnit.WatchConfigSettingsHash()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	// We don't need any preassert because the underlying watcher is using a wall clock.
+	wc := watchertest.NewStringsWatcherC(c, w, nil)
 	defer wc.AssertStops()
 
-	// Initial event - this is the sha-256 hash of an empty bson.D.
-	wc.AssertChange("e8d7e8dfff0eed1e77b15638581672f7b25ecc1163cc5fd5a52d29d51d096c00")
-
+	// See core/cache/hash.go for the hash implementation.
+	// This is a hash of the charm URL PLUS an empty map[string]interface{}.
+	wc.AssertChange("0affda4fb1eaa8df870459625aa93c85e9fd6fc5374ac69f509575d139032262")
 	err = s.wordpressApplication.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
 		"blog-title": "sauceror central",
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("7ed6151e9c3d5144faf0946d20c283c466b4885dded6a6122ff3fdac7ee2334f")
+	wc.AssertChange("bfeb5aee52e6dea59d9c2a0c35a4d7fffa690c7230b1dd66f16832e4094905ae")
 
 	// Non-change is not reported.
 	err = s.wordpressApplication.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
@@ -589,7 +608,7 @@ func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 	watcher, err := s.apiUnit.WatchTrustConfigSettingsHash()
 	c.Assert(err, jc.ErrorIsNil)
 
-	stringsWatcher := watchertest.NewStringsWatcherC(c, watcher, s.BackingState.StartSync)
+	stringsWatcher := watchertest.NewStringsWatcherC(c, watcher, nil)
 	defer stringsWatcher.AssertStops()
 
 	// Initial event - this is the hash of the settings key
@@ -619,7 +638,7 @@ func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 func (s *unitSuite) TestWatchActionNotifications(c *gc.C) {
 	w, err := s.apiUnit.WatchActionNotifications()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w, nil)
 	defer wc.AssertStops()
 
 	// Initial event.
@@ -823,24 +842,24 @@ func (s *unitSuite) TestRelationSuspended(c *gc.C) {
 func (s *unitSuite) TestWatchAddressesHash(c *gc.C) {
 	w, err := s.apiUnit.WatchAddressesHash()
 	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	wc := watchertest.NewStringsWatcherC(c, w, nil)
 	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertChange("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 
 	// Update config get an event.
-	err = s.wordpressMachine.SetProviderAddresses(corenetwork.NewAddress("0.1.2.4"))
+	err = s.wordpressMachine.SetProviderAddresses(corenetwork.NewSpaceAddress("0.1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("e8686213014563c18d8b3838ac3ac247dc2c7ceb0000cb01c19aa401ffc76e80")
 
 	// Non-change is not reported.
-	err = s.wordpressMachine.SetProviderAddresses(corenetwork.NewAddress("0.1.2.4"))
+	err = s.wordpressMachine.SetProviderAddresses(corenetwork.NewSpaceAddress("0.1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Change is reported for machine addresses.
-	err = s.wordpressMachine.SetMachineAddresses(corenetwork.NewAddress("0.1.2.5"))
+	err = s.wordpressMachine.SetMachineAddresses(corenetwork.NewSpaceAddress("0.1.2.5"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("ad269642567ef00c2c9c6ff84e9c04ecf3aa3342c1b4d98d76142471781c4495")
 

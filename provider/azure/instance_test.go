@@ -244,7 +244,7 @@ func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {
 	}
 	addresses, err := s.getInstance(c).Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, jc.DeepEquals, corenetwork.NewAddresses(
+	c.Assert(addresses, jc.DeepEquals, corenetwork.NewProviderAddresses(
 		"10.0.0.4", "10.0.0.5", "1.2.3.4", "1.2.3.5",
 	))
 }
@@ -265,13 +265,13 @@ func (s *instanceSuite) TestMultipleInstanceAddresses(c *gc.C) {
 
 	inst0Addresses, err := instances[0].Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(inst0Addresses, jc.DeepEquals, corenetwork.NewAddresses(
+	c.Assert(inst0Addresses, jc.DeepEquals, corenetwork.NewProviderAddresses(
 		"10.0.0.4", "1.2.3.4",
 	))
 
 	inst1Addresses, err := instances[1].Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(inst1Addresses, jc.DeepEquals, corenetwork.NewAddresses(
+	c.Assert(inst1Addresses, jc.DeepEquals, corenetwork.NewProviderAddresses(
 		"10.0.0.5", "1.2.3.5",
 	))
 }

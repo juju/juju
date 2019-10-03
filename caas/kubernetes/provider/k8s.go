@@ -6,10 +6,8 @@ package provider
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
 	"io"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -22,7 +20,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v3"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -35,12 +32,10 @@ import (
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
-	apimachineryversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/specs"
@@ -75,15 +70,16 @@ const (
 
 	annotationPrefix = "juju.io"
 
+	operatorContainerName = "juju-operator"
+
 	// OperatorPodIPEnvName is the environment name for operator pod IP.
 	OperatorPodIPEnvName = "JUJU_OPERATOR_POD_IP"
 
-	// OperatorPodIPEnvName is the environment name for operator service IP.
+	// OperatorServiceIPEnvName is the environment name for operator service IP.
 	OperatorServiceIPEnvName = "JUJU_OPERATOR_SERVICE_IP"
 
-	// OperatorInfoFile is the file containing info about the operator,
-	// copied to the workload pod so the hook tools and juju-run can function.
-	OperatorInfoFile = "operator.yaml"
+	// OperatorNamespaceEnvName is the environment name for k8s namespace the operator is in.
+	OperatorNamespaceEnvName = "JUJU_OPERATOR_NAMESPACE"
 
 	// JujuRunServerSocketPort is the port used by juju run callbacks.
 	JujuRunServerSocketPort = 30666
@@ -133,6 +129,7 @@ type kubernetesClient struct {
 //go:generate mockgen -package mocks -destination mocks/rbacv1_mock.go k8s.io/client-go/kubernetes/typed/rbac/v1 RbacV1Interface,ClusterRoleBindingInterface,ClusterRoleInterface,RoleInterface,RoleBindingInterface
 //go:generate mockgen -package mocks -destination mocks/apiextensions_mock.go k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1 ApiextensionsV1beta1Interface,CustomResourceDefinitionInterface
 //go:generate mockgen -package mocks -destination mocks/apiextensionsclientset_mock.go -mock_names=Interface=MockApiExtensionsClientInterface k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset  Interface
+//go:generate mockgen -package mocks -destination mocks/discovery_mock.go k8s.io/client-go/discovery DiscoveryInterface
 
 // NewK8sClientFunc defines a function which returns a k8s client based on the supplied config.
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error)
@@ -192,6 +189,23 @@ func (k *kubernetesClient) GetAnnotations() k8sannotations.Annotation {
 	return k.annotations
 }
 
+// Version returns cluster version information.
+func (k *kubernetesClient) Version() (ver *version.Number, err error) {
+	k8sver, err := k.client().Discovery().ServerVersion()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ver = &version.Number{}
+	if ver.Major, err = strconv.Atoi(k8sver.Major); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if ver.Minor, err = strconv.Atoi(k8sver.Minor); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return ver, nil
+}
+
 // addAnnotations set an annotation to current namespace's annotations.
 func (k *kubernetesClient) addAnnotations(key, value string) k8sannotations.Annotation {
 	return k.annotations.Add(key, value)
@@ -202,6 +216,15 @@ func (k *kubernetesClient) client() kubernetes.Interface {
 	defer k.lock.Unlock()
 	client := k.clientUnlocked
 	return client
+}
+
+type resourcePurifier interface {
+	SetResourceVersion(string)
+}
+
+// purifyResource purifies read only fields before creating/updating the resource.
+func purifyResource(resource resourcePurifier) {
+	resource.SetResourceVersion("")
 }
 
 func (k *kubernetesClient) extendedCient() apiextensionsclientset.Interface {
@@ -246,15 +269,6 @@ func (k *kubernetesClient) SetCloudSpec(spec environs.CloudSpec) error {
 		return errors.Annotate(err, "cannot set cloud spec")
 	}
 	return nil
-}
-
-func (k *kubernetesClient) validateOperatorStorage() (string, error) {
-	storageClass, _ := k.Config().AllAttrs()[OperatorStorageKey].(string)
-	if storageClass == "" {
-		return "", errors.NewNotValid(nil, "config without operator-storage value not valid.\nRun juju add-k8s to reimport your k8s cluster.")
-	}
-	_, err := k.getStorageClass(storageClass)
-	return storageClass, errors.Trace(err)
 }
 
 // PrepareForBootstrap prepares for bootstraping a controller.
@@ -450,272 +464,11 @@ func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) (err e
 
 // APIVersion returns the version info for the cluster.
 func (k *kubernetesClient) APIVersion() (string, error) {
-	body, err := k.client().CoreV1().RESTClient().Get().AbsPath("/version").Do().Raw()
+	ver, err := k.Version()
 	if err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
-	var info apimachineryversion.Info
-	err = json.Unmarshal(body, &info)
-	if err != nil {
-		return "", errors.Annotatef(err, "got '%s' querying API version", string(body))
-	}
-	version := info.GitVersion
-	// git version is "vX.Y.Z", strip the "v"
-	version = strings.Trim(version, "v")
-	return version, nil
-}
-
-// ensureOCIImageSecret ensures a secret exists for use with retrieving images from private registries
-func (k *kubernetesClient) ensureOCIImageSecret(
-	imageSecretName,
-	appName string,
-	imageDetails *specs.ImageDetails,
-	annotations k8sannotations.Annotation,
-) error {
-	if imageDetails.Password == "" {
-		return errors.New("attempting to create a secret with no password")
-	}
-	secretData, err := createDockerConfigJSON(imageDetails)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	newSecret := &core.Secret{
-		ObjectMeta: v1.ObjectMeta{
-			Name:        imageSecretName,
-			Namespace:   k.namespace,
-			Labels:      map[string]string{labelApplication: appName},
-			Annotations: annotations.ToMap()},
-		Type: core.SecretTypeDockerConfigJson,
-		Data: map[string][]byte{
-			core.DockerConfigJsonKey: secretData,
-		},
-	}
-	logger.Debugf("ensuring docker secret %q", imageSecretName)
-	return errors.Trace(k.ensureSecret(newSecret))
-}
-
-func (k *kubernetesClient) ensureSecret(sec *core.Secret) error {
-	secrets := k.client().CoreV1().Secrets(k.namespace)
-	_, err := secrets.Update(sec)
-	if k8serrors.IsNotFound(err) {
-		_, err = secrets.Create(sec)
-	}
-	return errors.Trace(err)
-}
-
-// updateSecret updates a secret resource.
-func (k *kubernetesClient) updateSecret(sec *core.Secret) error {
-	_, err := k.client().CoreV1().Secrets(k.namespace).Update(sec)
-	if k8serrors.IsNotFound(err) {
-		return errors.NotFoundf("secret %q", sec.GetName())
-	}
-	return errors.Trace(err)
-}
-
-// getSecret return a secret resource.
-func (k *kubernetesClient) getSecret(secretName string) (*core.Secret, error) {
-	secret, err := k.client().CoreV1().Secrets(k.namespace).Get(secretName, v1.GetOptions{IncludeUninitialized: true})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil, errors.NotFoundf("secret %q", secretName)
-		}
-		return nil, errors.Trace(err)
-	}
-	return secret, nil
-}
-
-// createSecret creates a secret resource.
-func (k *kubernetesClient) createSecret(secret *core.Secret) error {
-	_, err := k.client().CoreV1().Secrets(k.namespace).Create(secret)
-	return errors.Trace(err)
-}
-
-// deleteSecret deletes a secret resource.
-func (k *kubernetesClient) deleteSecret(secretName string) error {
-	secrets := k.client().CoreV1().Secrets(k.namespace)
-	err := secrets.Delete(secretName, &v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) deleteSecrets(appName string) error {
-	secretList, err := k.client().CoreV1().Secrets(k.namespace).List(v1.ListOptions{
-		LabelSelector: applicationSelector(appName),
-	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, s := range secretList.Items {
-		if err := k.deleteSecret(s.Name); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
-// OperatorExists indicates if the operator for the specified
-// application exists, and whether the operator is terminating.
-func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, error) {
-	var result caas.OperatorState
-
-	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
-	operator, err := statefulsets.Get(k.operatorName(appName), v1.GetOptions{IncludeUninitialized: true})
-	if k8serrors.IsNotFound(err) {
-		return result, nil
-	}
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	result.Exists = true
-	result.Terminating = operator.DeletionTimestamp != nil
-	return result, nil
-}
-
-// EnsureOperator creates or updates an operator pod with the given application
-// name, agent path, and operator config.
-func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) (err error) {
-	logger.Debugf("creating/updating %s operator", appName)
-
-	operatorName := k.operatorName(appName)
-
-	var cleanups []func()
-	defer func() {
-		if err == nil {
-			return
-		}
-		for _, f := range cleanups {
-			f()
-		}
-	}()
-
-	service := &core.Service{
-		ObjectMeta: v1.ObjectMeta{
-			Name:   operatorName,
-			Labels: map[string]string{labelOperator: appName},
-		},
-		Spec: core.ServiceSpec{
-			Selector: map[string]string{labelOperator: appName},
-			Type:     core.ServiceTypeClusterIP,
-			Ports: []core.ServicePort{
-				{Protocol: core.ProtocolTCP, Port: JujuRunServerSocketPort, TargetPort: intstr.FromInt(JujuRunServerSocketPort)}},
-		},
-	}
-	if err := k.ensureK8sService(service); err != nil {
-		return errors.Annotatef(err, "creating or updating service for %v operator", appName)
-	}
-	cleanups = append(cleanups, func() { k.deleteService(operatorName) })
-	services := k.client().CoreV1().Services(k.namespace)
-	svc, err := services.Get(operatorName, v1.GetOptions{IncludeUninitialized: false})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// TODO(caas) use secrets for storing agent password?
-	if config.AgentConf == nil {
-		// We expect that the config map already exists,
-		// so make sure it does.
-		configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
-		_, err := configMaps.Get(operatorConfigMapName(operatorName), v1.GetOptions{IncludeUninitialized: true})
-		if err != nil {
-			return errors.Annotatef(err, "config map for %q should already exist", appName)
-		}
-	} else {
-		if err := k.ensureConfigMap(operatorConfigMap(appName, operatorName, config)); err != nil {
-			return errors.Annotate(err, "creating or updating ConfigMap")
-		}
-	}
-
-	annotations := resourceTagsToAnnotations(config.ResourceTags).
-		Add(labelVersion, config.Version.String())
-
-	// Set up the parameters for creating charm storage.
-	operatorVolumeClaim := "charm"
-	if isLegacyName(operatorName) {
-		operatorVolumeClaim = fmt.Sprintf("%v-operator-volume", appName)
-	}
-
-	fsSize, err := resource.ParseQuantity(fmt.Sprintf("%dMi", config.CharmStorage.Size))
-	if err != nil {
-		return errors.Annotatef(err, "invalid volume size %v", config.CharmStorage.Size)
-	}
-	params := volumeParams{
-		storageConfig:       &storageConfig{},
-		pvcName:             operatorVolumeClaim,
-		requestedVolumeSize: fsSize,
-	}
-	if config.CharmStorage.Provider != K8s_ProviderType {
-		return errors.Errorf("expected charm storage provider %q, got %q", K8s_ProviderType, config.CharmStorage.Provider)
-	}
-	params.storageConfig, err = newStorageConfig(config.CharmStorage.Attributes)
-	if err != nil {
-		return errors.Annotatef(err, "invalid storage configuration for %v operator", appName)
-	}
-	// We want operator storage to be deleted when the operator goes away.
-	params.storageConfig.reclaimPolicy = core.PersistentVolumeReclaimDelete
-	logger.Debugf("operator storage config %#v", *params.storageConfig)
-
-	// Attempt to get a persistent volume to store charm state etc.
-	pvcSpec, err := k.maybeGetVolumeClaimSpec(params)
-	if err != nil {
-		return errors.Annotate(err, "finding operator volume claim")
-	}
-
-	pvc := &core.PersistentVolumeClaim{
-		ObjectMeta: v1.ObjectMeta{
-			Name:        params.pvcName,
-			Annotations: resourceTagsToAnnotations(config.CharmStorage.ResourceTags).ToMap()},
-		Spec: *pvcSpec,
-	}
-	pod, err := operatorPod(
-		operatorName,
-		appName,
-		svc.Spec.ClusterIP,
-		agentPath,
-		config.OperatorImagePath,
-		config.Version.String(),
-		annotations.Copy(),
-	)
-	if err != nil {
-		return errors.Annotate(err, "generating operator podspec")
-	}
-	// Take a copy for use with statefulset.
-	podWithoutStorage := pod
-
-	numPods := int32(1)
-	logger.Debugf("using persistent volume claim for operator %s: %+v", appName, pvc)
-	statefulset := &apps.StatefulSet{
-		ObjectMeta: v1.ObjectMeta{
-			Name:        operatorName,
-			Labels:      operatorLabels(appName),
-			Annotations: annotations.ToMap()},
-		Spec: apps.StatefulSetSpec{
-			Replicas: &numPods,
-			Selector: &v1.LabelSelector{
-				MatchLabels: operatorLabels(appName),
-			},
-			Template: core.PodTemplateSpec{
-				ObjectMeta: v1.ObjectMeta{
-					Labels:      operatorLabels(appName),
-					Annotations: pod.Annotations,
-				},
-			},
-			PodManagementPolicy:  apps.ParallelPodManagement,
-			VolumeClaimTemplates: []core.PersistentVolumeClaim{*pvc},
-		},
-	}
-	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, core.VolumeMount{
-		Name:      pvc.Name,
-		MountPath: agent.BaseDir(agentPath),
-	})
-
-	statefulset.Spec.Template.Spec = pod.Spec
-	err = k.ensureStatefulSet(statefulset, podWithoutStorage.Spec)
-	return errors.Annotatef(err, "creating or updating %v operator StatefulSet", appName)
+	return ver.String(), nil
 }
 
 // ValidateStorageClass returns an error if the storage config is not valid.
@@ -865,83 +618,6 @@ func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner)
 	}, nil
 }
 
-// DeleteOperator deletes the specified operator.
-func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
-	logger.Debugf("deleting %s operator", appName)
-
-	operatorName := k.operatorName(appName)
-	legacy := isLegacyName(operatorName)
-
-	// First delete the config map(s).
-	configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
-	configMapName := operatorConfigMapName(operatorName)
-	err = configMaps.Delete(configMapName, &v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	})
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return nil
-	}
-
-	// Delete artefacts created by k8s itself.
-	configMapName = appName + "-configurations-config"
-	if legacy {
-		configMapName = "juju-" + configMapName
-	}
-	err = configMaps.Delete(configMapName, &v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	})
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-
-	// Finally the operator itself.
-	if err := k.deleteService(operatorName); err != nil {
-		return errors.Trace(err)
-	}
-	if err := k.deleteStatefulSet(operatorName); err != nil {
-		return errors.Trace(err)
-	}
-	pods := k.client().CoreV1().Pods(k.namespace)
-	podsList, err := pods.List(v1.ListOptions{
-		LabelSelector: operatorSelector(appName),
-	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	deploymentName := appName
-	if legacy {
-		deploymentName = "juju-" + appName
-	}
-	pvs := k.client().CoreV1().PersistentVolumes()
-	for _, p := range podsList.Items {
-		// Delete secrets.
-		for _, c := range p.Spec.Containers {
-			secretName := appSecretName(deploymentName, c.Name)
-			if err := k.deleteSecret(secretName); err != nil {
-				return errors.Annotatef(err, "deleting %s secret for container %s", appName, c.Name)
-			}
-		}
-		// Delete operator storage volumes.
-		volumeNames, err := k.deleteVolumeClaims(appName, &p)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		// Just in case the volume reclaim policy is retain, we force deletion
-		// for operators as the volume is an inseparable part of the operator.
-		for _, volName := range volumeNames {
-			err = pvs.Delete(volName, &v1.DeleteOptions{
-				PropagationPolicy: &defaultPropagationPolicy,
-			})
-			if err != nil && !k8serrors.IsNotFound(err) {
-				return errors.Annotatef(err, "deleting operator persistent volume %v for %v",
-					volName, appName)
-			}
-		}
-	}
-	return errors.Trace(k.deleteDeployment(operatorName))
-}
-
 func getLoadBalancerAddress(svc *core.Service) string {
 	// different cloud providers have a different way to report back the Load Balancer address.
 	// This covers the cases we know about so far.
@@ -966,8 +642,8 @@ func getLoadBalancerAddress(svc *core.Service) string {
 	return lpAdd
 }
 
-func getSvcAddresses(svc *core.Service, includeClusterIP bool) []network.Address {
-	var netAddrs []network.Address
+func getSvcAddresses(svc *core.Service, includeClusterIP bool) []network.ProviderAddress {
+	var netAddrs []network.ProviderAddress
 
 	addressExist := func(addr string) bool {
 		for _, v := range netAddrs {
@@ -980,11 +656,7 @@ func getSvcAddresses(svc *core.Service, includeClusterIP bool) []network.Address
 	appendUniqueAddrs := func(scope network.Scope, addrs ...string) {
 		for _, v := range addrs {
 			if v != "" && !addressExist(v) {
-				netAddrs = append(netAddrs, network.Address{
-					Value: v,
-					Type:  network.DeriveAddressType(v),
-					Scope: scope,
-				})
+				netAddrs = append(netAddrs, network.NewScopedProviderAddress(v, scope))
 			}
 		}
 	}
@@ -1094,58 +766,16 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteSecrets(appName); err != nil {
 		return errors.Trace(err)
 	}
-	if err := k.deleteServiceAccountsRolesBindings(appName); err != nil {
+	if err := k.deleteConfigMaps(appName); err != nil {
+		return errors.Trace(err)
+	}
+	if err := k.deleteAllServiceAccountResources(appName); err != nil {
+		return errors.Trace(err)
+	}
+	if err := k.deleteCustomResourceDefinitions(appName); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-// ensureCustomResourceDefinitions creates or updates a custom resource definition resource.
-func (k *kubernetesClient) ensureCustomResourceDefinitions(crds map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec) (cleanUps []func(), _ error) {
-	for name, crd := range crds {
-		crd, err := k.ensureCustomResourceDefinition(name, crd)
-		if err != nil {
-			return cleanUps, errors.Annotate(err, fmt.Sprintf("ensure custom resource definition %q", name))
-		}
-		logger.Debugf("ensured custom resource definition %q", crd.ObjectMeta.Name)
-		cleanUps = append(cleanUps, func() { k.deleteCustomResourceDefinition(name) })
-	}
-	return cleanUps, nil
-}
-
-func (k *kubernetesClient) ensureCustomResourceDefinition(name string, spec apiextensionsv1beta1.CustomResourceDefinitionSpec) (
-	crd *apiextensionsv1beta1.CustomResourceDefinition, err error) {
-	crdIn := &apiextensionsv1beta1.CustomResourceDefinition{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      name,
-			Namespace: k.namespace,
-		},
-		Spec: spec,
-	}
-	apiextensionsV1beta1 := k.extendedCient().ApiextensionsV1beta1()
-	logger.Debugf("creating crd %#v", crdIn)
-	crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Create(crdIn)
-	if k8serrors.IsAlreadyExists(err) {
-		crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Get(name, v1.GetOptions{})
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		resourceVersion := crd.ObjectMeta.GetResourceVersion()
-		crdIn.ObjectMeta.SetResourceVersion(resourceVersion)
-		logger.Debugf("existing crd with resource version %q found, so update it %#v", resourceVersion, crdIn)
-		crd, err = apiextensionsV1beta1.CustomResourceDefinitions().Update(crdIn)
-	}
-	return
-}
-
-func (k *kubernetesClient) deleteCustomResourceDefinition(name string) error {
-	err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().Delete(name, &v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
 }
 
 func resourceTagsToAnnotations(in map[string]string) k8sannotations.Annotation {
@@ -1297,10 +927,28 @@ func (k *kubernetesClient) EnsureService(
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
 
+	// ensure configmap.
+	if len(workloadSpec.ConfigMaps) > 0 {
+		cmsCleanUps, err := k.ensureConfigMaps(appName, workloadSpec.ConfigMaps)
+		cleanups = append(cleanups, cmsCleanUps...)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating configmaps")
+		}
+	}
+
+	// ensure secrets.
+	if len(workloadSpec.Secrets) > 0 {
+		secretsCleanUps, err := k.ensureSecrets(appName, workloadSpec.Secrets)
+		cleanups = append(cleanups, secretsCleanUps...)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating secrets")
+		}
+	}
+
 	// ensure custom resource definitions first.
 	crds := workloadSpec.CustomResourceDefinitions
 	if len(crds) > 0 {
-		crdCleanUps, err := k.ensureCustomResourceDefinitions(crds)
+		crdCleanUps, err := k.ensureCustomResourceDefinitions(appName, crds)
 		cleanups = append(cleanups, crdCleanUps...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating custom resource definitions")
@@ -1335,7 +983,7 @@ func (k *kubernetesClient) EnsureService(
 		if err := k.ensureOCIImageSecret(imageSecretName, appName, &c.ImageDetails, annotations.Copy()); err != nil {
 			return errors.Annotatef(err, "creating secrets for container: %s", c.Name)
 		}
-		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName) })
+		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName, nil) })
 	}
 
 	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
@@ -1373,7 +1021,7 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}
 
-	hasService := !params.PodSpec.OmitServiceFrontend
+	hasService := !params.PodSpec.OmitServiceFrontend && !params.Deployment.ServiceType.IsOmit()
 	if hasService {
 		var ports []core.ContainerPort
 		for _, c := range workloadSpec.Pod.Containers {
@@ -1642,7 +1290,7 @@ func (k *kubernetesClient) configurePodFiles(podSpec *core.PodSpec, containers [
 		for _, fileSet := range container.Files {
 			cfgName := cfgMapName(fileSet.Name)
 			vol := core.Volume{Name: cfgName}
-			if err := k.ensureConfigMap(filesetConfigMap(cfgName, &fileSet)); err != nil {
+			if _, err := k.ensureConfigMap(filesetConfigMap(cfgName, &fileSet)); err != nil {
 				return errors.Annotatef(err, "creating or updating ConfigMap for file set %v", cfgName)
 			}
 			vol.ConfigMap = &core.ConfigMapVolumeSource{
@@ -1728,6 +1376,23 @@ func (k *kubernetesClient) deleteDeployment(name string) error {
 	return errors.Trace(err)
 }
 
+func getPodManagementPolicy(svc *specs.ServiceSpec) (out apps.PodManagementPolicyType) {
+	// default to "Parallel".
+	out = apps.ParallelPodManagement
+	if svc == nil {
+		return out
+	}
+
+	switch svc.ScalePolicy {
+	case specs.SerialScale:
+		return apps.OrderedReadyPodManagement
+	case specs.ParallelScale:
+		return apps.ParallelPodManagement
+		// no need to consider other cases because we have done validation in podspec parsing stage.
+	}
+	return out
+}
+
 func (k *kubernetesClient) configureStatefulSet(
 	appName, deploymentName, randPrefix string, annotations k8sannotations.Annotation, workloadSpec *workloadSpec,
 	containers []specs.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
@@ -1757,7 +1422,7 @@ func (k *kubernetesClient) configureStatefulSet(
 					Annotations: podAnnotations(annotations.Copy()).ToMap(),
 				},
 			},
-			PodManagementPolicy: apps.ParallelPodManagement,
+			PodManagementPolicy: getPodManagementPolicy(workloadSpec.Service),
 			ServiceName:         headlessServiceName(deploymentName),
 		},
 	}
@@ -1777,19 +1442,20 @@ func (k *kubernetesClient) configureStatefulSet(
 }
 
 func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPodSpec core.PodSpec) error {
-	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
-	_, err := statefulsets.Update(spec)
-	if k8serrors.IsNotFound(err) {
-		_, err = statefulsets.Create(spec)
-	}
-	if !k8serrors.IsInvalid(err) {
+	api := k.client().AppsV1().StatefulSets(k.namespace)
+
+	_, err := api.Update(spec)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			_, err = api.Create(spec)
+		}
 		return errors.Trace(err)
 	}
 
 	// The statefulset already exists so all we are allowed to update is replicas,
 	// template, update strategy. Juju may hand out info with a slightly different
 	// requested volume size due to trying to adapt the unit model to the k8s world.
-	existing, err := statefulsets.Get(spec.Name, v1.GetOptions{IncludeUninitialized: true})
+	existing, err := api.Get(spec.GetName(), v1.GetOptions{IncludeUninitialized: true})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1797,8 +1463,9 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 	existing.Spec.Replicas = spec.Spec.Replicas
 	existing.Spec.Template.Spec.Containers = existingPodSpec.Containers
 	existing.Spec.Template.Spec.ServiceAccountName = existingPodSpec.ServiceAccountName
+	existing.Spec.Template.Spec.AutomountServiceAccountToken = existingPodSpec.AutomountServiceAccountToken
 	// NB: we can't update the Spec.ServiceName as it is immutable.
-	_, err = statefulsets.Update(existing)
+	_, err = api.Update(existing)
 	return errors.Trace(err)
 }
 
@@ -1886,6 +1553,9 @@ func (k *kubernetesClient) configureService(
 			serviceType = core.ServiceTypeLoadBalancer
 		case caas.ServiceExternal:
 			serviceType = core.ServiceTypeExternalName
+		case caas.ServiceOmit:
+			logger.Debugf("no service to be created because service type is %q", params.Deployment.ServiceType)
+			return nil
 		default:
 			return errors.NotSupportedf("service type %q", params.Deployment.ServiceType)
 		}
@@ -2051,10 +1721,6 @@ func operatorSelector(appName string) string {
 	return fmt.Sprintf("%v==%v", labelOperator, appName)
 }
 
-func operatorLabels(appName string) map[string]string {
-	return map[string]string{labelOperator: appName}
-}
-
 func applicationSelector(appName string) string {
 	return fmt.Sprintf("%v==%v", labelApplication, appName)
 }
@@ -2108,20 +1774,6 @@ func (k *kubernetesClient) WatchService(appName string) (watcher.NotifyWatcher, 
 	}
 
 	return watcher.NewMultiNotifyWatcher(w1, w2), nil
-}
-
-// WatchOperator returns a watcher which notifies when there
-// are changes to the operator of the specified application.
-func (k *kubernetesClient) WatchOperator(appName string) (watcher.NotifyWatcher, error) {
-	pods := k.client().CoreV1().Pods(k.namespace)
-	w, err := pods.Watch(v1.ListOptions{
-		LabelSelector: operatorSelector(appName),
-		Watch:         true,
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return k.newWatcher(w, appName, k.clock)
 }
 
 // legacyJujuPVNameRegexp matches how Juju labels persistent volumes.
@@ -2350,37 +2002,6 @@ func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.Volum
 	}, nil
 }
 
-// Operator returns an Operator with current status and life details.
-func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
-	pods := k.client().CoreV1().Pods(k.namespace)
-	podsList, err := pods.List(v1.ListOptions{
-		LabelSelector: operatorSelector(appName),
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(podsList.Items) == 0 {
-		return nil, errors.NotFoundf("operator pod for application %q", appName)
-	}
-
-	opPod := podsList.Items[0]
-	terminated := opPod.DeletionTimestamp != nil
-	now := time.Now()
-	statusMessage, opStatus, since, err := k.getPODStatus(opPod, now)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &caas.Operator{
-		Id:    string(opPod.UID),
-		Dying: terminated,
-		Status: status.StatusInfo{
-			Status:  opStatus,
-			Message: statusMessage,
-			Since:   &since,
-		},
-	}, nil
-}
-
 func (k *kubernetesClient) getPODStatus(pod core.Pod, now time.Time) (string, status.Status, time.Time, error) {
 	terminated := pod.DeletionTimestamp != nil
 	jujuStatus := k.jujuStatus(pod.Status.Phase, terminated)
@@ -2515,140 +2136,13 @@ func filesetConfigMap(configMapName string, files *specs.FileSet) *core.ConfigMa
 	return result
 }
 
-// ensureConfigMap ensures a ConfigMap resource.
-func (k *kubernetesClient) ensureConfigMap(configMap *core.ConfigMap) error {
-	configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
-	_, err := configMaps.Update(configMap)
-	if k8serrors.IsNotFound(err) {
-		_, err = configMaps.Create(configMap)
-	}
-	return errors.Trace(err)
-}
-
-// deleteConfigMap deletes a ConfigMap resource.
-func (k *kubernetesClient) deleteConfigMap(configMapName string) error {
-	err := k.client().CoreV1().ConfigMaps(k.namespace).Delete(configMapName, &v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
-}
-
-// createConfigMap creates a ConfigMap resource.
-func (k *kubernetesClient) createConfigMap(configMap *core.ConfigMap) error {
-	_, err := k.client().CoreV1().ConfigMaps(k.namespace).Create(configMap)
-	return errors.Trace(err)
-}
-
-// getConfigMap returns a ConfigMap resource.
-func (k *kubernetesClient) getConfigMap(cmName string) (*core.ConfigMap, error) {
-	cm, err := k.client().CoreV1().ConfigMaps(k.namespace).Get(cmName, v1.GetOptions{IncludeUninitialized: true})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil, errors.NotFoundf("configmap %q", cmName)
-		}
-		return nil, errors.Trace(err)
-	}
-	return cm, nil
-}
-
-// operatorPod returns a *core.Pod for the operator pod
-// of the specified application.
-func operatorPod(podName, appName, operatorServiceIP, agentPath, operatorImagePath, version string, annotations k8sannotations.Annotation) (*core.Pod, error) {
-	configMapName := operatorConfigMapName(podName)
-	configVolName := configMapName
-
-	if isLegacyName(podName) {
-		configVolName += "-volume"
-	}
-
-	appTag := names.NewApplicationTag(appName)
-	jujudCmd := fmt.Sprintf("$JUJU_TOOLS_DIR/jujud caasoperator --application-name=%s --debug", appName)
-	jujuDataDir, err := paths.DataDir("kubernetes")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &core.Pod{
-		ObjectMeta: v1.ObjectMeta{
-			Name: podName,
-			Annotations: podAnnotations(annotations.Copy()).
-				Add(labelVersion, version).ToMap(),
-			Labels: operatorLabels(appName),
-		},
-		Spec: core.PodSpec{
-			Containers: []core.Container{{
-				Name:            "juju-operator",
-				ImagePullPolicy: core.PullIfNotPresent,
-				Image:           operatorImagePath,
-				WorkingDir:      jujuDataDir,
-				Command: []string{
-					"/bin/sh",
-				},
-				Args: []string{
-					"-c",
-					fmt.Sprintf(
-						caas.JujudStartUpSh,
-						jujuDataDir,
-						"tools",
-						jujudCmd,
-					),
-				},
-				Env: []core.EnvVar{
-					{Name: "JUJU_APPLICATION", Value: appName},
-					{Name: OperatorServiceIPEnvName, Value: operatorServiceIP},
-					{
-						Name: OperatorPodIPEnvName,
-						ValueFrom: &core.EnvVarSource{
-							FieldRef: &core.ObjectFieldSelector{
-								FieldPath: "status.podIP",
-							},
-						},
-					},
-				},
-				VolumeMounts: []core.VolumeMount{{
-					Name:      configVolName,
-					MountPath: filepath.Join(agent.Dir(agentPath, appTag), TemplateFileNameAgentConf),
-					SubPath:   TemplateFileNameAgentConf,
-				}},
-			}},
-			Volumes: []core.Volume{{
-				Name: configVolName,
-				VolumeSource: core.VolumeSource{
-					ConfigMap: &core.ConfigMapVolumeSource{
-						LocalObjectReference: core.LocalObjectReference{
-							Name: configMapName,
-						},
-						Items: []core.KeyToPath{{
-							Key:  appName + "-agent.conf",
-							Path: TemplateFileNameAgentConf,
-						}},
-					},
-				},
-			}},
-		},
-	}, nil
-}
-
-// operatorConfigMap returns a *core.ConfigMap for the operator pod
-// of the specified application, with the specified configuration.
-func operatorConfigMap(appName, operatorName string, config *caas.OperatorConfig) *core.ConfigMap {
-	configMapName := operatorConfigMapName(operatorName)
-	return &core.ConfigMap{
-		ObjectMeta: v1.ObjectMeta{
-			Name: configMapName,
-		},
-		Data: map[string]string{
-			appName + "-agent.conf": string(config.AgentConf),
-		},
-	}
-}
-
+// workloadSpec represents the k8s resources need to be created for the workload.
 type workloadSpec struct {
 	Pod     core.PodSpec `json:"pod"`
 	Service *specs.ServiceSpec
 
+	Secrets                   []k8sspecs.Secret
+	ConfigMaps                map[string]specs.ConfigMap
 	ServiceAccount            *specs.ServiceAccountSpec
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
 }
@@ -2701,7 +2195,12 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec)
 	}
 
 	spec.Service = podSpec.Service
-	spec.ServiceAccount = podSpec.ServiceAccount
+	spec.ConfigMaps = podSpec.ConfigMaps
+	if podSpec.ServiceAccount != nil {
+		spec.ServiceAccount = podSpec.ServiceAccount
+		// use application name for the service account if RBAC was requested.
+		spec.ServiceAccount.SetName(appName)
+	}
 	if podSpec.ProviderPod != nil {
 		pSpec, ok := podSpec.ProviderPod.(*k8sspecs.K8sPodSpec)
 		if !ok {
@@ -2710,22 +2209,20 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec)
 
 		k8sResources := pSpec.KubernetesResources
 		if k8sResources != nil {
+			spec.Secrets = k8sResources.Secrets
 			spec.CustomResourceDefinitions = k8sResources.CustomResourceDefinitions
 			if k8sResources.Pod != nil {
 				spec.Pod.ActiveDeadlineSeconds = k8sResources.Pod.ActiveDeadlineSeconds
 				spec.Pod.TerminationGracePeriodSeconds = k8sResources.Pod.TerminationGracePeriodSeconds
 				spec.Pod.DNSPolicy = k8sResources.Pod.DNSPolicy
-				spec.Pod.Priority = k8sResources.Pod.Priority
 				spec.Pod.SecurityContext = k8sResources.Pod.SecurityContext
 				spec.Pod.RestartPolicy = k8sResources.Pod.RestartPolicy
 				spec.Pod.ReadinessGates = k8sResources.Pod.ReadinessGates
 			}
 		}
-
-		sa := spec.ServiceAccount
-		if sa != nil {
-			spec.Pod.ServiceAccountName = sa.Name
-			spec.Pod.AutomountServiceAccountToken = sa.AutomountServiceAccountToken
+		if spec.ServiceAccount != nil {
+			spec.Pod.ServiceAccountName = spec.ServiceAccount.GetName()
+			spec.Pod.AutomountServiceAccountToken = spec.ServiceAccount.AutomountServiceAccountToken
 		}
 	}
 	return &spec, nil

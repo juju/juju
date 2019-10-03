@@ -36,7 +36,7 @@ func Verify(srvCertPEM, caCertPEM string, when time.Time) error {
 }
 
 // NewLeafKeyBits is the number of bits used for the cert.NewLeaf call.
-var NewLeafKeyBits = 2048
+var NewLeafKeyBits = 3072
 
 // NewDefaultServer generates a certificate/key pair suitable for use by a server, with an
 // expiry time of 10 years.
@@ -108,5 +108,5 @@ var NewCA = newCA
 func newCA(commonName, UUID string, expiry time.Time) (certPEM, keyPEM string, err error) {
 	return cert.NewCA(
 		fmt.Sprintf("juju-generated CA for model %q", commonName),
-		UUID, expiry, 0)
+		UUID, expiry, NewLeafKeyBits)
 }

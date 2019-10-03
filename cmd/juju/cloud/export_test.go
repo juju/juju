@@ -111,16 +111,14 @@ func NewListCredentialsCommandForTest(
 func NewDetectCredentialsCommandForTest(
 	testStore jujuclient.ClientStore,
 	registeredProvidersFunc func() []string,
-	allCloudsFunc func() (map[string]jujucloud.Cloud, error),
+	allCloudsFunc func(*cmd.Context) (map[string]jujucloud.Cloud, error),
 	cloudsByNameFunc func(string) (*jujucloud.Cloud, error),
-	cloudType string,
 	f func() (CredentialAPI, error),
 ) *detectCredentialsCommand {
 	command := &detectCredentialsCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: testStore},
 		registeredProvidersFunc:   registeredProvidersFunc,
 		cloudByNameFunc:           jujucloud.CloudByName,
-		cloudType:                 cloudType,
 		credentialAPIFunc:         f,
 	}
 	if allCloudsFunc != nil {

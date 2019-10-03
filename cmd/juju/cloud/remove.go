@@ -23,11 +23,11 @@ Remove a named, user-defined cloud from Juju's internal cache.
 
 If the multi-cloud feature flag is enabled, the cloud is removed from a controller.
 The current controller is used unless the --controller option is specified.
-If --local is specified, Juju removes the cloud from internal cache.
+If --client is specified, Juju removes the cloud from this client.
 
 Examples:
     juju remove-cloud mycloud
-    juju remove-cloud mycloud --local
+    juju remove-cloud mycloud --client
     juju remove-cloud mycloud --controller mycontroller
 
 See also:
@@ -87,7 +87,7 @@ func (c *removeCloudCommand) Init(args []string) (err error) {
 		return errors.New("Usage: juju remove-cloud <cloud name>")
 	}
 	c.Cloud = args[0]
-	c.controllerName, err = c.ControllerNameFromArg()
+	c.ControllerName, err = c.ControllerNameFromArg()
 	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
 		return errors.Trace(err)
 	}
@@ -95,10 +95,10 @@ func (c *removeCloudCommand) Init(args []string) (err error) {
 }
 
 func (c *removeCloudCommand) Run(ctxt *cmd.Context) error {
-	if c.controllerName == "" {
-		if c.controllerName == "" && !c.Local {
+	if c.ControllerName == "" {
+		if c.ControllerName == "" && !c.Local {
 			return errors.Errorf(
-				"There are no controllers running.\nTo remove cloud %q from the local cache, use the --local option.", c.Cloud)
+				"There are no controllers running.\nTo remove cloud %q from this client, use the --client option.", c.Cloud)
 		}
 		return c.removeLocalCloud(ctxt)
 	}
@@ -123,7 +123,7 @@ func (c *removeCloudCommand) removeLocalCloud(ctxt *cmd.Context) error {
 }
 
 func (c *removeCloudCommand) removeControllerCloud(ctxt *cmd.Context) error {
-	api, err := c.removeCloudAPIFunc(c.controllerName)
+	api, err := c.removeCloudAPIFunc(c.ControllerName)
 	if err != nil {
 		return err
 	}
@@ -132,6 +132,6 @@ func (c *removeCloudCommand) removeControllerCloud(ctxt *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	ctxt.Infof("Cloud %q on controller %q removed", c.Cloud, c.controllerName)
+	ctxt.Infof("Cloud %q on controller %q removed", c.Cloud, c.ControllerName)
 	return nil
 }

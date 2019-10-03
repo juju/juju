@@ -7,7 +7,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -62,10 +61,12 @@ containers:
           path: /pingReady
           port: www
     config:
-      attr: foo=bar; name['fred']='blogs';
+      attr: foo=bar; name["fred"]="blogs";
       foo: bar
+      brackets: '["hello", "world"]'
       restricted: 'yes'
       switch: on
+      special: p@ssword's
     files:
       - name: configuration
         mountPath: /var/lib/foo
@@ -105,30 +106,26 @@ containers:
     - containerPort: 443
       name: mary
     config:
+      brackets: '["hello", "world"]'
       foo: bar
       restricted: 'yes'
       switch: on
+      special: p@ssword's
 configMaps:
   mydata:
     foo: bar
     hello: world
 service:
+  scalePolicy: serial
   annotations:
     foo: bar
 serviceAccount:
-  name: build-robot
   automountServiceAccountToken: true
-  capabilities:
-    roleBinding:
-      name: read-pods
-      type: ClusterRoleBinding
-    role:
-      name: pod-reader
-      type: ClusterRole
-      rules:
-      - apiGroups: [""]
-        resources: ["pods"]
-        verbs: ["get", "watch", "list"]
+  clusterRoleNames: [someClusterRole1, someClusterRole2]
+  rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "watch", "list"]
 kubernetesResources:
   pod:
     restartPolicy: OnFailure
@@ -137,23 +134,18 @@ kubernetesResources:
     securityContext:
       runAsNonRoot: true
       supplementalGroups: [1,2]
-    priority: 30
     readinessGates:
       - conditionType: PodScheduled
     dnsPolicy: ClusterFirstWithHostNet
   secrets:
     - name: build-robot-secret
-      annotations:
-          kubernetes.io/service-account.name: build-robot
-      type: kubernetes.io/service-account-token
+      type: Opaque
       stringData:
           config.yaml: |-
               apiUrl: "https://my.api.com/api/v1"
               username: fred
               password: shhhh
     - name: another-build-robot-secret
-      annotations:
-          kubernetes.io/service-account.name: build-robot
       type: Opaque
       data:
           username: YWRtaW4=
@@ -198,31 +190,24 @@ foo: bar
 	getExpectedPodSpecBase := func() *specs.PodSpec {
 		pSpecs := &specs.PodSpec{
 			ServiceAccount: &specs.ServiceAccountSpec{
-				Name:                         "build-robot",
+				ClusterRoleNames: []string{
+					"someClusterRole1", "someClusterRole2",
+				},
 				AutomountServiceAccountToken: boolPtr(true),
-				Capabilities: &specs.Capabilities{
-					RoleBinding: &specs.RoleBindingSpec{
-						Name: "read-pods",
-						Type: specs.ClusterRoleBinding,
-					},
-					Role: &specs.RoleSpec{
-						Name: "pod-reader",
-						Type: specs.ClusterRole,
-						Rules: []rbacv1.PolicyRule{
-							{
-								APIGroups: []string{""},
-								Resources: []string{"pods"},
-								Verbs:     []string{"get", "watch", "list"},
-							},
-						},
+				Rules: []specs.PolicyRule{
+					{
+						APIGroups: []string{""},
+						Resources: []string{"pods"},
+						Verbs:     []string{"get", "watch", "list"},
 					},
 				},
 			},
 		}
 		pSpecs.Service = &specs.ServiceSpec{
+			ScalePolicy: "serial",
 			Annotations: map[string]string{"foo": "bar"},
 		}
-		pSpecs.ConfigMaps = map[string]map[string]string{
+		pSpecs.ConfigMaps = map[string]specs.ConfigMap{
 			"mydata": {
 				"foo":   "bar",
 				"hello": "world",
@@ -246,10 +231,12 @@ echo "do some stuff here for gitlab container"
 					{ContainerPort: 443, Name: "mary"},
 				},
 				Config: map[string]interface{}{
-					"attr":       "foo=bar; name['fred']='blogs';",
+					"attr":       `'foo=bar; name["fred"]="blogs";'`,
 					"foo":        "bar",
 					"restricted": "'yes'",
 					"switch":     true,
+					"brackets":   `'["hello", "world"]'`,
+					"special":    "'p@ssword''s'",
 				},
 				Files: []specs.FileSet{
 					{
@@ -322,6 +309,8 @@ echo "do some stuff here for gitlab-init container"
 					"foo":        "bar",
 					"restricted": "'yes'",
 					"switch":     true,
+					"brackets":   `'["hello", "world"]'`,
+					"special":    "'p@ssword''s'",
 				},
 			},
 		}
@@ -336,7 +325,6 @@ echo "do some stuff here for gitlab-init container"
 						RunAsNonRoot:       boolPtr(true),
 						SupplementalGroups: []int64{1, 2},
 					},
-					Priority: int32Ptr(30),
 					ReadinessGates: []core.PodReadinessGate{
 						{ConditionType: core.PodScheduled},
 					},
@@ -345,10 +333,7 @@ echo "do some stuff here for gitlab-init container"
 				Secrets: []k8sspecs.Secret{
 					{
 						Name: "build-robot-secret",
-						Annotations: map[string]string{
-							"kubernetes.io/service-account.name": "build-robot",
-						},
-						Type: core.SecretTypeServiceAccountToken,
+						Type: core.SecretTypeOpaque,
 						StringData: map[string]string{
 							"config.yaml": `
 apiUrl: "https://my.api.com/api/v1"
@@ -358,9 +343,6 @@ password: shhhh`[1:],
 					},
 					{
 						Name: "another-build-robot-secret",
-						Annotations: map[string]string{
-							"kubernetes.io/service-account.name": "build-robot",
-						},
 						Type: core.SecretTypeOpaque,
 						Data: map[string]string{
 							"username": "YWRtaW4=",
@@ -491,96 +473,18 @@ containers:
 	c.Assert(err, gc.ErrorMatches, `mount path is missing for file set "configuration"`)
 }
 
-type serviceAccountTestCase struct {
-	Title, Spec, Err string
-}
-
-var serviceAccountValidationTestCases = []serviceAccountTestCase{
-	{
-		Title: "wrong role binding type",
-		Spec: versionHeader + `
-serviceAccount:
-  name: build-robot
-  automountServiceAccountToken: true
-  capabilities:
-    roleBinding:
-      name: read-pods
-      type: ClusterRoleBinding11
-    role:
-      name: pod-reader
-      type: ClusterRole
-      rules:
-      - apiGroups: [""]
-        resources: ["pods"]
-        verbs: ["get", "watch", "list"]
-`[1:],
-		Err: "\"ClusterRoleBinding11\" not supported",
-	},
-	{
-		Title: "wrong role type",
-		Spec: versionHeader + `
-serviceAccount:
-  name: build-robot
-  automountServiceAccountToken: true
-  capabilities:
-    roleBinding:
-      name: read-pods
-      type: ClusterRoleBinding
-    role:
-      name: pod-reader
-      type: ClusterRole11
-      rules:
-      - apiGroups: [""]
-        resources: ["pods"]
-        verbs: ["get", "watch", "list"]
-`[1:],
-		Err: "\"ClusterRole11\" not supported",
-	},
-	{
-		Title: "missing role",
-		Spec: versionHeader + `
-serviceAccount:
-  name: build-robot
-  automountServiceAccountToken: true
-  capabilities:
-    roleBinding:
-      name: read-pods
-      type: ClusterRoleBinding
-`[1:],
-		Err: `role is required for capabilities`,
-	},
-	{
-		Title: "missing role binding",
-		Spec: versionHeader + `
-serviceAccount:
-  name: build-robot
-  automountServiceAccountToken: true
-  capabilities:
-    role:
-      name: pod-reader
-      type: ClusterRole11
-      rules:
-      - apiGroups: [""]
-        resources: ["pods"]
-        verbs: ["get", "watch", "list"]
-`[1:],
-		Err: `roleBinding is required for capabilities`,
-	},
-}
-
-func (s *v2SpecsSuite) TestValidateServiceAccountFailed(c *gc.C) {
-	containerSpec := versionHeader + `
+func (s *v2SpecsSuite) TestValidateServiceAccountShouldBeOmittedForEmptyValue(c *gc.C) {
+	specStr := versionHeader + `
 containers:
   - name: gitlab-helper
     image: gitlab-helper/latest
     ports:
     - containerPort: 8080
       protocol: TCP
+serviceAccount:
+  automountServiceAccountToken: true
 `[1:]
 
-	for i, tc := range serviceAccountValidationTestCases {
-		c.Logf("%v: %s", i, tc.Title)
-		_, err := k8sspecs.ParsePodSpec(containerSpec + tc.Spec)
-		c.Check(err, gc.ErrorMatches, tc.Err)
-	}
+	_, err := k8sspecs.ParsePodSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, `rules or clusterRoleNames are required`)
 }

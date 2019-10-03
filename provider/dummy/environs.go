@@ -809,7 +809,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 	logger.Infof("creating bootstrap instance")
 	i := &dummyInstance{
 		id:           BootstrapInstanceId,
-		addresses:    corenetwork.NewAddresses("localhost"),
+		addresses:    corenetwork.NewProviderAddresses("localhost"),
 		machineId:    agent.BootstrapControllerId,
 		series:       series,
 		firewallMode: e.Config().FirewallMode(),
@@ -1135,7 +1135,6 @@ func (*environ) MaintainInstance(ctx context.ProviderCallContext, args environs.
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-
 	defer delay()
 	machineId := args.InstanceConfig.MachineId
 	logger.Infof("dummy startinstance, machine %s", machineId)
@@ -1173,7 +1172,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
 	// Add the addresses we want to see in the machine doc. This means both
 	// IPv4 and IPv6 loopback, as well as the DNS name.
-	addrs := corenetwork.NewAddresses(idString+".dns", "127.0.0.1", "::1")
+	addrs := corenetwork.NewProviderAddresses(idString+".dns", "127.0.0.1", "::1")
 	logger.Debugf("StartInstance addresses: %v", addrs)
 	i := &dummyInstance{
 		id:           instance.Id(idString),
@@ -1440,11 +1439,11 @@ func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId in
 			Disabled:         i == 2,
 			NoAutoStart:      i%2 != 0,
 			ConfigType:       network.ConfigDHCP,
-			Address: corenetwork.NewAddress(
+			Address: corenetwork.NewProviderAddress(
 				fmt.Sprintf("0.%d.0.%d", (i+1)*10, estate.maxAddr+2),
 			),
-			DNSServers: corenetwork.NewAddresses("ns1.dummy", "ns2.dummy"),
-			GatewayAddress: corenetwork.NewAddress(
+			DNSServers: corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
+			GatewayAddress: corenetwork.NewProviderAddress(
 				fmt.Sprintf("0.%d.0.1", (i+1)*10),
 			),
 		}
@@ -1717,7 +1716,7 @@ type dummyInstance struct {
 	controller   bool
 
 	mu        sync.Mutex
-	addresses []corenetwork.Address
+	addresses []corenetwork.ProviderAddress
 	broken    []string
 }
 
@@ -1746,7 +1745,7 @@ func (inst *dummyInstance) Status(ctx context.ProviderCallContext) instance.Stat
 
 // SetInstanceAddresses sets the addresses associated with the given
 // dummy instance.
-func SetInstanceAddresses(inst instances.Instance, addrs []corenetwork.Address) {
+func SetInstanceAddresses(inst instances.Instance, addrs []corenetwork.ProviderAddress) {
 	inst0 := inst.(*dummyInstance)
 	inst0.mu.Lock()
 	inst0.addresses = append(inst0.addresses[:0], addrs...)
@@ -1781,13 +1780,13 @@ func (inst *dummyInstance) checkBroken(method string) error {
 	return nil
 }
 
-func (inst *dummyInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
+func (inst *dummyInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
 	if err := inst.checkBroken("Addresses"); err != nil {
 		return nil, err
 	}
-	return append([]corenetwork.Address{}, inst.addresses...), nil
+	return append([]corenetwork.ProviderAddress{}, inst.addresses...), nil
 }
 
 func (inst *dummyInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
@@ -1936,8 +1935,8 @@ func (env *environ) AssignLXDProfiles(instId string, profilesNames []string, pro
 
 // SSHAddresses implements environs.SSHAddresses.
 // For testing we cut "100.100.100.100" out of this list.
-func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses []corenetwork.Address) ([]corenetwork.Address, error) {
-	var rv []corenetwork.Address
+func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddresses, error) {
+	var rv corenetwork.SpaceAddresses
 	for _, addr := range addresses {
 		if addr.Value != "100.100.100.100" {
 			rv = append(rv, addr)

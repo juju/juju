@@ -4,8 +4,7 @@
 package uniter_test
 
 import (
-	"io/ioutil"
-	"os"
+	"crypto/tls"
 	"path/filepath"
 
 	jujuos "github.com/juju/os"
@@ -14,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 
-	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/uniter"
 )
@@ -37,15 +35,17 @@ func (s *PathsSuite) TestWindows(c *gc.C) {
 
 	dataDir := c.MkDir()
 	unitTag := names.NewUnitTag("some-application/323")
-	paths := uniter.NewPaths(dataDir, unitTag, false)
+	paths := uniter.NewPaths(dataDir, unitTag, nil)
 
 	relData := relPathFunc(dataDir)
 	relAgent := relPathFunc(relData("agents", "unit-some-application-323"))
+	localRunSocket := sockets.Socket{Network: "unix", Address: `\\.\pipe\unit-some-application-323-run`}
+	localJujucSocket := sockets.Socket{Network: "unix", Address: `\\.\pipe\unit-some-application-323-agent`}
 	c.Assert(paths, jc.DeepEquals, uniter.Paths{
 		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{
-			JujuRunSocket:     sockets.Socket{Network: "unix", Address: `\\.\pipe\unit-some-application-323-run`},
-			JujucServerSocket: sockets.Socket{Network: "unix", Address: `\\.\pipe\unit-some-application-323-agent`},
+			LocalJujuRunSocket:     uniter.SocketPair{localRunSocket, localRunSocket},
+			LocalJujucServerSocket: uniter.SocketPair{localJujucSocket, localJujucSocket},
 		},
 		State: uniter.StatePaths{
 			BaseDir:         relAgent(),
@@ -66,15 +66,18 @@ func (s *PathsSuite) TestWorkerPathsWindows(c *gc.C) {
 	dataDir := c.MkDir()
 	unitTag := names.NewUnitTag("some-application/323")
 	worker := "some-worker"
-	paths := uniter.NewWorkerPaths(dataDir, unitTag, worker, false)
+	paths := uniter.NewWorkerPaths(dataDir, unitTag, worker, nil)
 
 	relData := relPathFunc(dataDir)
 	relAgent := relPathFunc(relData("agents", "unit-some-application-323"))
+
+	localRunSocket := sockets.Socket{Network: "unix", Address: `\\.\pipe\unit-some-application-323-some-worker-run`}
+	localJujucSocket := sockets.Socket{Network: "unix", Address: `\\.\pipe\unit-some-application-323-some-worker-agent`}
 	c.Assert(paths, jc.DeepEquals, uniter.Paths{
 		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{
-			JujuRunSocket:     sockets.Socket{Network: "unix", Address: `\\.\pipe\unit-some-application-323-some-worker-run`},
-			JujucServerSocket: sockets.Socket{Network: "unix", Address: `\\.\pipe\unit-some-application-323-some-worker-agent`},
+			LocalJujuRunSocket:     uniter.SocketPair{localRunSocket, localRunSocket},
+			LocalJujucServerSocket: uniter.SocketPair{localJujucSocket, localJujucSocket},
 		},
 		State: uniter.StatePaths{
 			BaseDir:         relAgent(),
@@ -94,15 +97,19 @@ func (s *PathsSuite) TestOther(c *gc.C) {
 
 	dataDir := c.MkDir()
 	unitTag := names.NewUnitTag("some-application/323")
-	paths := uniter.NewPaths(dataDir, unitTag, false)
+
+	paths := uniter.NewPaths(dataDir, unitTag, nil)
 
 	relData := relPathFunc(dataDir)
 	relAgent := relPathFunc(relData("agents", "unit-some-application-323"))
+
+	localRunSocket := sockets.Socket{Network: "unix", Address: relAgent("run.socket")}
+	localJujucSocket := sockets.Socket{Network: "unix", Address: "@" + relAgent("agent.socket")}
 	c.Assert(paths, jc.DeepEquals, uniter.Paths{
 		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{
-			JujuRunSocket:     sockets.Socket{Network: "unix", Address: relAgent("run.socket")},
-			JujucServerSocket: sockets.Socket{Network: "unix", Address: "@" + relAgent("agent.socket")},
+			LocalJujuRunSocket:     uniter.SocketPair{localRunSocket, localRunSocket},
+			LocalJujucServerSocket: uniter.SocketPair{localJujucSocket, localJujucSocket},
 		},
 		State: uniter.StatePaths{
 			BaseDir:         relAgent(),
@@ -117,38 +124,35 @@ func (s *PathsSuite) TestOther(c *gc.C) {
 	})
 }
 
-func (s *PathsSuite) TestTCPRemoteEnvVar(c *gc.C) {
-	defer os.Setenv(provider.OperatorPodIPEnvName, os.Getenv(provider.OperatorPodIPEnvName))
-	os.Setenv(provider.OperatorPodIPEnvName, "1.1.1.1")
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Unknown })
+func (s *PathsSuite) TestTCPRemote(c *gc.C) {
+	unitTag := names.NewUnitTag("some-application/323")
+
+	socketConfig := uniter.SocketConfig{
+		ServiceAddress:  "127.0.0.1",
+		OperatorAddress: "127.0.0.2",
+		TLSConfig: &tls.Config{
+			ServerName: "test",
+		},
+	}
 
 	dataDir := c.MkDir()
-	s.assertTCPRemote(c, dataDir)
-}
-
-func (s *PathsSuite) TestTCPRemoteYamlFile(c *gc.C) {
-	dataDir := c.MkDir()
-
-	unitTag := names.NewUnitTag("some-application/323")
-	ipAddrFile := filepath.Join(dataDir, "agents", unitTag.String(), "operator.yaml")
-	err := os.MkdirAll(filepath.Dir(ipAddrFile), 0700)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(ipAddrFile, []byte("operator-address: 1.1.1.1"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertTCPRemote(c, dataDir)
-}
-
-func (s *PathsSuite) assertTCPRemote(c *gc.C, dataDir string) {
-	unitTag := names.NewUnitTag("some-application/323")
-	paths := uniter.NewPaths(dataDir, unitTag, true)
+	paths := uniter.NewPaths(dataDir, unitTag, &socketConfig)
 
 	relData := relPathFunc(dataDir)
 	relAgent := relPathFunc(relData("agents", "unit-some-application-323"))
+	localRunSocket := sockets.Socket{Network: "unix", Address: relAgent("run.socket")}
+	localJujucSocket := sockets.Socket{Network: "unix", Address: "@" + relAgent("agent.socket")}
+	remoteRunServerSocket := sockets.Socket{Network: "tcp", Address: ":30666", TLSConfig: socketConfig.TLSConfig}
+	remoteRunClientSocket := sockets.Socket{Network: "tcp", Address: "127.0.0.1:30666", TLSConfig: socketConfig.TLSConfig}
+	remoteJujucServerSocket := sockets.Socket{Network: "tcp", Address: ":30323", TLSConfig: socketConfig.TLSConfig}
+	remoteJujucClientSocket := sockets.Socket{Network: "tcp", Address: "127.0.0.2:30323", TLSConfig: socketConfig.TLSConfig}
 	c.Assert(paths, jc.DeepEquals, uniter.Paths{
 		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{
-			JujuRunSocket:     sockets.Socket{Network: "tcp", Address: "1.1.1.1:30666"},
-			JujucServerSocket: sockets.Socket{Network: "tcp", Address: "1.1.1.1:30323"},
+			LocalJujuRunSocket:      uniter.SocketPair{localRunSocket, localRunSocket},
+			LocalJujucServerSocket:  uniter.SocketPair{localJujucSocket, localJujucSocket},
+			RemoteJujuRunSocket:     uniter.SocketPair{remoteRunServerSocket, remoteRunClientSocket},
+			RemoteJujucServerSocket: uniter.SocketPair{remoteJujucServerSocket, remoteJujucClientSocket},
 		},
 		State: uniter.StatePaths{
 			BaseDir:         relAgent(),
@@ -169,15 +173,17 @@ func (s *PathsSuite) TestWorkerPaths(c *gc.C) {
 	dataDir := c.MkDir()
 	unitTag := names.NewUnitTag("some-application/323")
 	worker := "worker-id"
-	paths := uniter.NewWorkerPaths(dataDir, unitTag, worker, false)
+	paths := uniter.NewWorkerPaths(dataDir, unitTag, worker, nil)
 
 	relData := relPathFunc(dataDir)
 	relAgent := relPathFunc(relData("agents", "unit-some-application-323"))
+	localRunSocket := sockets.Socket{Network: "unix", Address: relAgent(worker + "-run.socket")}
+	localJujucSocket := sockets.Socket{Network: "unix", Address: "@" + relAgent(worker+"-agent.socket")}
 	c.Assert(paths, jc.DeepEquals, uniter.Paths{
 		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{
-			JujuRunSocket:     sockets.Socket{Network: "unix", Address: relAgent(worker + "-run.socket")},
-			JujucServerSocket: sockets.Socket{Network: "unix", Address: "@" + relAgent(worker+"-agent.socket")},
+			LocalJujuRunSocket:     uniter.SocketPair{localRunSocket, localRunSocket},
+			LocalJujucServerSocket: uniter.SocketPair{localJujucSocket, localJujucSocket},
 		},
 		State: uniter.StatePaths{
 			BaseDir:         relAgent(),
@@ -196,7 +202,7 @@ func (s *PathsSuite) TestContextInterface(c *gc.C) {
 	paths := uniter.Paths{
 		ToolsDir: "/path/to/tools",
 		Runtime: uniter.RuntimePaths{
-			JujucServerSocket: sockets.Socket{Network: "unix", Address: "/path/to/socket"},
+			LocalJujucServerSocket: uniter.SocketPair{Server: sockets.Socket{Network: "unix", Address: "/path/to/socket"}},
 		},
 		State: uniter.StatePaths{
 			CharmDir:        "/path/to/charm",
@@ -205,6 +211,6 @@ func (s *PathsSuite) TestContextInterface(c *gc.C) {
 	}
 	c.Assert(paths.GetToolsDir(), gc.Equals, "/path/to/tools")
 	c.Assert(paths.GetCharmDir(), gc.Equals, "/path/to/charm")
-	c.Assert(paths.GetJujucSocket(), gc.DeepEquals, sockets.Socket{Address: "/path/to/socket", Network: "unix"})
+	c.Assert(paths.GetJujucServerSocket(false), gc.DeepEquals, sockets.Socket{Address: "/path/to/socket", Network: "unix"})
 	c.Assert(paths.GetMetricsSpoolDir(), gc.Equals, "/path/to/spool/metrics")
 }

@@ -70,7 +70,7 @@ type APIHostPortsSetter struct {
 }
 
 // SetAPIHostPorts is the APIAddressSetter interface.
-func (s APIHostPortsSetter) SetAPIHostPorts(servers [][]network.HostPort) error {
+func (s APIHostPortsSetter) SetAPIHostPorts(servers []network.HostPorts) error {
 	return s.ChangeConfig(func(c ConfigSetter) error {
 		c.SetAPIHostPorts(servers)
 		return nil
@@ -295,7 +295,7 @@ type configSetterOnly interface {
 	SetUpgradedToVersion(newVersion version.Number)
 
 	// SetAPIHostPorts sets the API host/port addresses to connect to.
-	SetAPIHostPorts(servers [][]network.HostPort)
+	SetAPIHostPorts(servers []network.HostPorts)
 
 	// SetCACert sets the CA cert used for validating API connections.
 	SetCACert(string)
@@ -568,13 +568,13 @@ func (c *configInternal) SetUpgradedToVersion(newVersion version.Number) {
 	c.upgradedToVersion = newVersion
 }
 
-func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
+func (c *configInternal) SetAPIHostPorts(servers []network.HostPorts) {
 	if c.apiDetails == nil {
 		return
 	}
 	var addrs []string
 	for _, serverHostPorts := range servers {
-		hps := network.PrioritizeInternalHostPorts(serverHostPorts, false)
+		hps := serverHostPorts.PrioritizedForScope(network.ScopeMatchCloudLocal)
 		addrs = append(addrs, hps...)
 	}
 	c.apiDetails.addresses = addrs

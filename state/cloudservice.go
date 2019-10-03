@@ -19,7 +19,7 @@ type CloudServicer interface {
 	ProviderId() string
 
 	// Addresses returns the service addresses.
-	Addresses() []network.Address
+	Addresses() network.SpaceAddresses
 
 	// Generation returns the service config generation.
 	Generation() int64
@@ -71,7 +71,7 @@ func (c *CloudService) ProviderId() string {
 }
 
 // Addresses implements CloudServicer.
-func (c *CloudService) Addresses() []network.Address {
+func (c *CloudService) Addresses() network.SpaceAddresses {
 	return networkAddresses(c.doc.Addresses)
 }
 

@@ -63,4 +63,7 @@ type BlockDevice struct {
 
 	// MountPoint is the path at which the block devices is mounted.
 	MountPoint string `yaml:"mountpoint,omitempty"`
+
+	// SerialId is the block devices serial id used for matching.
+	SerialId string `yaml:"serialid,omitempty"`
 }

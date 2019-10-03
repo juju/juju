@@ -43,29 +43,29 @@ var fakeUUID = "df136476-12e9-11e4-8a70-b2227cce2b54"
 
 var _ = gc.Suite(&NewAPIClientSuite{})
 
-func (cs *NewAPIClientSuite) SetUpSuite(c *gc.C) {
-	cs.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
-	cs.MgoSuite.SetUpSuite(c)
-	cs.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+func (s *NewAPIClientSuite) SetUpSuite(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
+	s.MgoSuite.SetUpSuite(c)
+	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
-func (cs *NewAPIClientSuite) TearDownSuite(c *gc.C) {
-	cs.MgoSuite.TearDownSuite(c)
-	cs.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
+func (s *NewAPIClientSuite) TearDownSuite(c *gc.C) {
+	s.MgoSuite.TearDownSuite(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 }
 
-func (cs *NewAPIClientSuite) SetUpTest(c *gc.C) {
-	cs.ToolsFixture.SetUpTest(c)
-	cs.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	cs.MgoSuite.SetUpTest(c)
-	cs.PatchValue(&dummy.LogDir, c.MkDir())
+func (s *NewAPIClientSuite) SetUpTest(c *gc.C) {
+	s.ToolsFixture.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.MgoSuite.SetUpTest(c)
+	s.PatchValue(&dummy.LogDir, c.MkDir())
 }
 
-func (cs *NewAPIClientSuite) TearDownTest(c *gc.C) {
+func (s *NewAPIClientSuite) TearDownTest(c *gc.C) {
 	dummy.Reset(c)
-	cs.ToolsFixture.TearDownTest(c)
-	cs.MgoSuite.TearDownTest(c)
-	cs.FakeJujuXDGDataHomeSuite.TearDownTest(c)
+	s.ToolsFixture.TearDownTest(c)
+	s.MgoSuite.TearDownTest(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
@@ -177,7 +177,11 @@ func (s *NewAPIClientSuite) TestWithRedirect(c *gc.C) {
 	controllerBefore, err := store.ControllerByName("ctl")
 	c.Assert(err, jc.ErrorIsNil)
 
-	redirHPs := []string{"0.0.9.9:1234", "0.0.9.10:1235"}
+	redirHPs := []network.MachineHostPorts{{
+		network.MachineHostPort{MachineAddress: network.NewMachineAddress("0.0.9.9"), NetPort: network.NetPort(1234)},
+		network.MachineHostPort{MachineAddress: network.NewMachineAddress("0.0.9.10"), NetPort: network.NetPort(1235)},
+	}}
+
 	openCount := 0
 	redirOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		c.Check(apiInfo.ModelTag.Id(), gc.Equals, fakeUUID)
@@ -187,15 +191,16 @@ func (s *NewAPIClientSuite) TestWithRedirect(c *gc.C) {
 			c.Check(apiInfo.Addrs, jc.DeepEquals, []string{"0.1.2.3:5678"})
 			c.Check(apiInfo.CACert, gc.Equals, "certificate")
 			return nil, errors.Trace(&api.RedirectError{
-				Servers:        [][]network.HostPort{mustParseHostPorts(redirHPs)},
+				Servers:        redirHPs,
 				CACert:         "alternative CA cert",
 				FollowRedirect: true,
 			})
 		case 2:
-			c.Check(apiInfo.Addrs, jc.DeepEquals, []string{"0.0.9.9:1234", "0.0.9.10:1235"})
+			c.Check(apiInfo.Addrs, jc.DeepEquals, network.CollapseToHostPorts(redirHPs).Strings())
 			c.Check(apiInfo.CACert, gc.Equals, "alternative CA cert")
 			st := mockedAPIState(noFlags)
-			st.apiHostPorts = [][]network.HostPort{mustParseHostPorts(redirHPs)}
+			st.apiHostPorts = redirHPs
+
 			st.modelTag = fakeUUID
 			return st, nil
 		}
@@ -257,10 +262,10 @@ func (s *NewAPIClientSuite) TestDialedAddressIsCached(c *gc.C) {
 		DialOpts: api.DialOpts{
 			DialWebsocket: func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
 				apiConn := testRootAPI{
-					serverAddrs: [][]params.HostPort{makeHostPorts([]string{
-						"example3:3333",
-						"example4:4444",
-					})},
+					serverAddrs: params.FromProviderHostsPorts([]network.ProviderHostPorts{{
+						network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("example3"), NetPort: 3333},
+						network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("example4"), NetPort: 4444},
+					}}),
 				}
 				dialed <- ipAddr
 				<-start
@@ -319,10 +324,10 @@ func (s *NewAPIClientSuite) TestWithExistingDNSCache(c *gc.C) {
 		DialOpts: api.DialOpts{
 			DialWebsocket: func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
 				apiConn := testRootAPI{
-					serverAddrs: [][]params.HostPort{makeHostPorts([]string{
-						"example3:3333",
-						"example5:5555",
-					})},
+					serverAddrs: params.FromProviderHostsPorts([]network.ProviderHostPorts{{
+						network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("example3"), NetPort: 3333},
+						network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("example5"), NetPort: 5555},
+					}}),
 				}
 				c.Logf("Dial: %q requested", ipAddr)
 				if ipAddr != "0.1.1.2:1111" {
@@ -379,26 +384,26 @@ func (s *NewAPIClientSuite) TestEndpointFiltering(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
+	serverAddrs := params.FromProviderHostsPorts([]network.ProviderHostPorts{{
+		network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("0.1.2.3"), NetPort: 1234},
+		network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("2001:db8::1"), NetPort: 1234},
+		network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("10.0.0.1"), NetPort: 1234},
+		network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("127.0.0.1"), NetPort: 1234},
+		network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("169.254.1.1"), NetPort: 1234},
+		//Duplicate
+		network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("0.1.2.3"), NetPort: 1234},
+		//Duplicate host, same IP.
+		network.ProviderHostPort{ProviderAddress: network.NewProviderAddress("0.1.2.3"), NetPort: 1235},
+	}})
+
 	conn, err := juju.NewAPIConnection(juju.NewAPIConnectionParams{
 		Store:          store,
 		ControllerName: "foo",
 		DialOpts: api.DialOpts{
 			DialWebsocket: func(ctx context.Context, urlStr string, tlsConfig *tls.Config, ipAddr string) (jsoncodec.JSONConn, error) {
 				apiConn := testRootAPI{
-					serverAddrs: [][]params.HostPort{
-						networkHostPortsToParams(network.NewHostPorts(1234,
-							"0.1.2.3",     // public
-							"2001:db8::1", // public ipv6
-							"10.0.0.1",    // cloud-local
-							"127.0.0.1",   // machine-local
-							"169.254.1.1", // link-local
-						)), networkHostPortsToParams([]network.HostPort{
-							// duplicate
-							network.NewHostPorts(1234, "0.1.2.3")[0],
-							// duplicate host, same IP.
-							network.NewHostPorts(1235, "0.1.2.3")[0],
-						}),
-					},
+					serverAddrs: serverAddrs,
 				}
 				return jsoncodec.NetJSONConn(apitesting.FakeAPIServer(apiConn)), nil
 			},
@@ -477,22 +482,6 @@ func (a testAdminAPI) Login(req params.LoginRequest) params.LoginResult {
 	}
 }
 
-func makeHostPorts(hps []string) []params.HostPort {
-	hps1, err := network.ParseHostPorts(hps...)
-	if err != nil {
-		panic(err)
-	}
-	return networkHostPortsToParams(hps1)
-}
-
-func networkHostPortsToParams(hps []network.HostPort) []params.HostPort {
-	hps1 := make([]params.HostPort, len(hps))
-	for i, hp := range hps {
-		hps1[i] = params.FromNetworkHostPort(hp)
-	}
-	return hps1
-}
-
 func checkCommonAPIInfoAttrs(c *gc.C, apiInfo *api.Info, opts api.DialOpts) {
 	opts.DNSCache = nil
 	c.Check(apiInfo.Tag, gc.Equals, names.NewUserTag("admin"))
@@ -534,7 +523,7 @@ func newAPIConnectionFromNames(
 	store jujuclient.ClientStore,
 	apiOpen api.OpenFunc,
 ) (api.Connection, error) {
-	params := juju.NewAPIConnectionParams{
+	args := juju.NewAPIConnectionParams{
 		Store:          store,
 		ControllerName: controller,
 		DialOpts:       api.DefaultDialOpts(),
@@ -543,22 +532,14 @@ func newAPIConnectionFromNames(
 	accountDetails, err := store.AccountDetails(controller)
 	if !errors.IsNotFound(err) {
 		c.Assert(err, jc.ErrorIsNil)
-		params.AccountDetails = accountDetails
+		args.AccountDetails = accountDetails
 	}
 	if model != "" {
 		modelDetails, err := store.ModelByName(controller, model)
 		c.Assert(err, jc.ErrorIsNil)
-		params.ModelUUID = modelDetails.ModelUUID
+		args.ModelUUID = modelDetails.ModelUUID
 	}
-	return juju.NewAPIConnection(params)
-}
-
-func mustParseHostPorts(ss []string) []network.HostPort {
-	hps, err := network.ParseHostPorts(ss...)
-	if err != nil {
-		panic(err)
-	}
-	return hps
+	return juju.NewAPIConnection(args)
 }
 
 type ipAddrResolverFunc func(ctx context.Context, host string) ([]net.IPAddr, error)

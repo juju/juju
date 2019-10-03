@@ -1,0 +1,11 @@
+series: bionic
+saas:
+  mysql:
+    url: {{BOOTSTRAPPED_JUJU_CTRL_NAME}}:admin/cmr-bundles-test-deploy.mysql
+applications:
+  wordpress:
+    charm: wordpress
+    num_units: 1
+relations:
+- - wordpress:db
+  - mysql:db

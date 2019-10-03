@@ -158,12 +158,12 @@ func (s *EnvSuite) TestEnvWindows(c *gc.C) {
 
 	ctx, contextVars := s.getContext(false)
 	paths, pathsVars := s.getPaths()
-	actualVars, err := ctx.HookVars(paths)
+	actualVars, err := ctx.HookVars(paths, false)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars)
 
 	relationVars := s.setRelation(ctx)
-	actualVars, err = ctx.HookVars(paths)
+	actualVars, err = ctx.HookVars(paths, false)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars, relationVars)
 }
@@ -181,12 +181,12 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 
 	ctx, contextVars := s.getContext(false)
 	paths, pathsVars := s.getPaths()
-	actualVars, err := ctx.HookVars(paths)
+	actualVars, err := ctx.HookVars(paths, false)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
 
 	relationVars := s.setRelation(ctx)
-	actualVars, err = ctx.HookVars(paths)
+	actualVars, err = ctx.HookVars(paths, false)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars)
 }

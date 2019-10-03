@@ -1216,7 +1216,7 @@ func (m *Machine) SetModificationStatus(sInfo status.StatusInfo) (err error) {
 	})
 }
 
-// AvailabilityZone returns the provier-specific instance availability
+// AvailabilityZone returns the provider-specific instance availability
 // zone in which the machine was provisioned.
 func (m *Machine) AvailabilityZone() (string, error) {
 	instData, err := getInstanceData(m.st, m.Id())
@@ -1276,79 +1276,6 @@ func (m *Machine) Units() (units []*Unit, err error) {
 	return units, nil
 }
 
-// XXX(jam): 2016-12-09 These are just copied from
-// provider/maas/constraints.go, but they should be tied to machine
-// constraints, *not* tied to provider/maas constraints.
-// convertSpacesFromConstraints extracts spaces from constraints and converts
-// them to two lists of positive and negative spaces.
-func convertSpacesFromConstraints(spaces *[]string) ([]string, []string) {
-	if spaces == nil || len(*spaces) == 0 {
-		return nil, nil
-	}
-	positive, negative := parseDelimitedValues(*spaces)
-	return positive, negative
-}
-
-// parseDelimitedValues parses a slice of raw values coming from constraints
-// (Tags or Spaces). The result is split into two slices - positives and
-// negatives (prefixed with "^"). Empty values are ignored.
-func parseDelimitedValues(rawValues []string) (positives, negatives []string) {
-	for _, value := range rawValues {
-		if value == "" || value == "^" {
-			// Neither of these cases should happen in practise, as constraints
-			// are validated before setting them and empty names for spaces or
-			// tags are not allowed.
-			continue
-		}
-		if strings.HasPrefix(value, "^") {
-			negatives = append(negatives, strings.TrimPrefix(value, "^"))
-		} else {
-			positives = append(positives, value)
-		}
-	}
-	return positives, negatives
-}
-
-// DesiredSpaces returns the name of all spaces that this machine needs
-// access to.  This is the combined value of all of the direct constraints
-// for the machine, as well as the spaces listed for all bindings of units
-// being deployed to that machine.
-func (m *Machine) DesiredSpaces() (set.Strings, error) {
-	spaces := set.NewStrings()
-	units, err := m.Units()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	constraints, err := m.Constraints()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// We ignore negative spaces as it doesn't change what spaces we do want.
-	positiveSpaces, _ := convertSpacesFromConstraints(constraints.Spaces)
-	for _, space := range positiveSpaces {
-		spaces.Add(space)
-	}
-	bindings := set.NewStrings()
-	for _, unit := range units {
-		app, err := unit.Application()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		endpointBindings, err := app.EndpointBindings()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for _, space := range endpointBindings {
-			if space != "" {
-				bindings.Add(space)
-			}
-		}
-	}
-	logger.Tracef("machine %q found constraints %s and bindings %s",
-		m.Id(), network.QuoteSpaceSet(spaces), network.QuoteSpaceSet(bindings))
-	return spaces.Union(bindings), nil
-}
-
 // SetProvisioned stores the machine's provider-specific details in the
 // database. These details are used to infer that the machine has
 // been provisioned.
@@ -1406,7 +1333,7 @@ func (m *Machine) SetProvisioned(
 		{
 			C:      machinesC,
 			Id:     m.doc.DocID,
-			Assert: append(isAliveDoc, bson.DocElem{"nonce", ""}),
+			Assert: append(isAliveDoc, bson.DocElem{Name: "nonce", Value: ""}),
 			Update: bson.D{{"$set", bson.D{{"nonce", nonce}}}},
 		}, {
 			C:      instanceDataC,
@@ -1497,7 +1424,7 @@ func (m *Machine) SetInstanceInfo(
 // that the machine reported with the same address value.
 // Provider-reported addresses always come before machine-reported
 // addresses. Duplicates are removed.
-func (m *Machine) Addresses() (addresses []corenetwork.Address) {
+func (m *Machine) Addresses() (addresses corenetwork.SpaceAddresses) {
 	return corenetwork.MergedAddresses(networkAddresses(m.doc.MachineAddresses), networkAddresses(m.doc.Addresses))
 }
 
@@ -1512,7 +1439,7 @@ func containsAddress(addresses []address, address address) bool {
 
 // PublicAddress returns a public address for the machine. If no address is
 // available it returns an error that satisfies network.IsNoAddressError().
-func (m *Machine) PublicAddress() (corenetwork.Address, error) {
+func (m *Machine) PublicAddress() (corenetwork.SpaceAddress, error) {
 	publicAddress := m.doc.PreferredPublicAddress.networkAddress()
 	var err error
 	if publicAddress.Value == "" {
@@ -1529,7 +1456,7 @@ func maybeGetNewAddress(
 	addr address,
 	providerAddresses,
 	machineAddresses []address,
-	getAddr func([]address) corenetwork.Address,
+	getAddr func([]address) corenetwork.SpaceAddress,
 	checkScope func(address) bool,
 ) (address, bool) {
 	// For picking the best address, try provider addresses first.
@@ -1570,7 +1497,7 @@ func maybeGetNewAddress(
 
 // PrivateAddress returns a private address for the machine. If no address is
 // available it returns an error that satisfies network.IsNoAddressError().
-func (m *Machine) PrivateAddress() (corenetwork.Address, error) {
+func (m *Machine) PrivateAddress() (corenetwork.SpaceAddress, error) {
 	privateAddress := m.doc.PreferredPrivateAddress.networkAddress()
 	var err error
 	if privateAddress.Value == "" {
@@ -1603,8 +1530,8 @@ func (m *Machine) setPreferredAddressOps(addr address, isPublic bool) []txn.Op {
 	if current.Origin != "" {
 		currentD = append(currentD, bson.D{{fieldName + ".origin", current.Origin}})
 	}
-	if current.SpaceName != "" {
-		currentD = append(currentD, bson.D{{fieldName + ".spacename", current.SpaceName}})
+	if current.SpaceID != "" {
+		currentD = append(currentD, bson.D{{fieldName + ".spaceid", current.SpaceID}})
 	}
 
 	assert := bson.D{{"$or", []bson.D{
@@ -1632,8 +1559,8 @@ func (m *Machine) setPublicAddressOps(providerAddresses []address, machineAddres
 		return corenetwork.ExactScopeMatch(addr.networkAddress(), corenetwork.ScopePublic)
 	}
 	// Without an exact match, prefer a fallback match.
-	getAddr := func(addresses []address) corenetwork.Address {
-		addr, _ := corenetwork.SelectPublicAddress(networkAddresses(addresses))
+	getAddr := func(addresses []address) corenetwork.SpaceAddress {
+		addr, _ := networkAddresses(addresses).OneMatchingScope(corenetwork.ScopeMatchPublic)
 		return addr
 	}
 
@@ -1655,8 +1582,8 @@ func (m *Machine) setPrivateAddressOps(providerAddresses []address, machineAddre
 			addr.networkAddress(), corenetwork.ScopeMachineLocal, corenetwork.ScopeCloudLocal, corenetwork.ScopeFanLocal)
 	}
 	// Without an exact match, prefer a fallback match.
-	getAddr := func(addresses []address) corenetwork.Address {
-		addr, _ := corenetwork.SelectInternalAddress(networkAddresses(addresses), false)
+	getAddr := func(addresses []address) corenetwork.SpaceAddress {
+		addr, _ := networkAddresses(addresses).OneMatchingScope(corenetwork.ScopeMatchCloudLocal)
 		return addr
 	}
 
@@ -1671,14 +1598,14 @@ func (m *Machine) setPrivateAddressOps(providerAddresses []address, machineAddre
 
 // SetProviderAddresses records any addresses related to the machine, sourced
 // by asking the provider.
-func (m *Machine) SetProviderAddresses(addresses ...corenetwork.Address) error {
+func (m *Machine) SetProviderAddresses(addresses ...corenetwork.SpaceAddress) error {
 	err := m.setAddresses(nil, &addresses)
 	return errors.Annotatef(err, "cannot set addresses of machine %v", m)
 }
 
 // ProviderAddresses returns any hostnames and ips associated with a machine,
 // as determined by asking the provider.
-func (m *Machine) ProviderAddresses() (addresses []corenetwork.Address) {
+func (m *Machine) ProviderAddresses() (addresses corenetwork.SpaceAddresses) {
 	for _, address := range m.doc.Addresses {
 		addresses = append(addresses, address.networkAddress())
 	}
@@ -1687,7 +1614,7 @@ func (m *Machine) ProviderAddresses() (addresses []corenetwork.Address) {
 
 // MachineAddresses returns any hostnames and ips associated with a machine,
 // determined by asking the machine itself.
-func (m *Machine) MachineAddresses() (addresses []corenetwork.Address) {
+func (m *Machine) MachineAddresses() (addresses corenetwork.SpaceAddresses) {
 	for _, address := range m.doc.MachineAddresses {
 		addresses = append(addresses, address.networkAddress())
 	}
@@ -1696,7 +1623,7 @@ func (m *Machine) MachineAddresses() (addresses []corenetwork.Address) {
 
 // SetMachineAddresses records any addresses related to the machine, sourced
 // by asking the machine.
-func (m *Machine) SetMachineAddresses(addresses ...corenetwork.Address) error {
+func (m *Machine) SetMachineAddresses(addresses ...corenetwork.SpaceAddress) error {
 	err := m.setAddresses(&addresses, nil)
 	return errors.Annotatef(err, "cannot set machine addresses of machine %v", m)
 }
@@ -1705,7 +1632,7 @@ func (m *Machine) SetMachineAddresses(addresses ...corenetwork.Address) error {
 // MachineAddresses, depending on the field argument). Changes are
 // only predicated on the machine not being Dead; concurrent address
 // changes are ignored.
-func (m *Machine) setAddresses(machineAddresses, providerAddresses *[]corenetwork.Address) error {
+func (m *Machine) setAddresses(machineAddresses, providerAddresses *[]corenetwork.SpaceAddress) error {
 	var (
 		machineStateAddresses, providerStateAddresses []address
 		newPrivate, newPublic                         *address
@@ -1753,15 +1680,15 @@ func (m *Machine) setAddresses(machineAddresses, providerAddresses *[]corenetwor
 }
 
 func (m *Machine) setAddressesOps(
-	machineAddresses, providerAddresses *[]corenetwork.Address,
+	machineAddresses, providerAddresses *[]corenetwork.SpaceAddress,
 ) (_ []txn.Op, machineStateAddresses, providerStateAddresses []address, newPrivate, newPublic *address, _ error) {
 
 	if m.doc.Life == Dead {
 		return nil, nil, nil, nil, nil, ErrDead
 	}
 
-	fromNetwork := func(in []corenetwork.Address, origin Origin) []address {
-		sorted := make([]corenetwork.Address, len(in))
+	fromNetwork := func(in corenetwork.SpaceAddresses, origin Origin) []address {
+		sorted := make(corenetwork.SpaceAddresses, len(in))
 		copy(sorted, in)
 		corenetwork.SortAddresses(sorted)
 		return fromNetworkAddresses(sorted, origin)
@@ -1772,11 +1699,11 @@ func (m *Machine) setAddressesOps(
 	providerStateAddresses = m.doc.Addresses
 	if machineAddresses != nil {
 		machineStateAddresses = fromNetwork(*machineAddresses, OriginMachine)
-		set = append(set, bson.DocElem{"machineaddresses", machineStateAddresses})
+		set = append(set, bson.DocElem{Name: "machineaddresses", Value: machineStateAddresses})
 	}
 	if providerAddresses != nil {
 		providerStateAddresses = fromNetwork(*providerAddresses, OriginProvider)
-		set = append(set, bson.DocElem{"addresses", providerStateAddresses})
+		set = append(set, bson.DocElem{Name: "addresses", Value: providerStateAddresses})
 	}
 
 	ops := []txn.Op{{
@@ -2191,8 +2118,8 @@ type UpdateMachineOperation struct {
 
 	AgentVersion      *version.Binary
 	Constraints       *constraints.Value
-	MachineAddresses  *[]corenetwork.Address
-	ProviderAddresses *[]corenetwork.Address
+	MachineAddresses  *[]corenetwork.SpaceAddress
+	ProviderAddresses *[]corenetwork.SpaceAddress
 	PasswordHash      *string
 }
 

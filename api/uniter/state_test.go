@@ -24,7 +24,10 @@ var _ = gc.Suite(&stateSuite{})
 
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.uniterSuite.SetUpTest(c)
-	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.uniter, s.BackingState)
+	waitForModelWatchersIdle := func(c *gc.C) {
+		s.JujuConnSuite.WaitForModelWatchersIdle(c, s.BackingState.ModelUUID())
+	}
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.uniter, s.BackingState, waitForModelWatchersIdle)
 	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.uniter, s.BackingState, s.Model)
 }
 

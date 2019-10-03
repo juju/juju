@@ -43,17 +43,15 @@ options.
 If ‘--include-config’ is used, additional configuration (key, type, and
 description) specific to the cloud are displayed if available.
 
-If the multi-cloud feature flag is enabled, Juju shows a cloud on a controller,
-otherwise Juju shows the cloud from internal cache.
 The current controller is used unless the --controller option is specified.
-If --local is specified, Juju shows the cloud from internal cache.
+If --client is specified, Juju shows the cloud from this client.
 
 Examples:
 
     juju show-cloud google
     juju show-cloud azure-china --output ~/azure_cloud_details.txt
     juju show-cloud myopenstack --controller mycontroller
-    juju show-cloud myopenstack --local
+    juju show-cloud myopenstack --client
 
 See also:
     clouds
@@ -103,9 +101,9 @@ func (c *showCloudCommand) Init(args []string) error {
 		return errors.New("no cloud specified")
 	}
 	var err error
-	c.controllerName, err = c.ControllerNameFromArg()
+	c.ControllerName, err = c.ControllerNameFromArg()
 	if err != nil {
-		return errors.Wrap(err, errors.New(err.Error()+"\nUse --local to query the local cache."))
+		return errors.Wrap(err, errors.New(err.Error()+"\nUse --client to query this client."))
 	}
 	return cmd.CheckEmpty(args[1:])
 }
@@ -124,7 +122,7 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 		cloud *CloudDetails
 		err   error
 	)
-	if c.controllerName == "" {
+	if c.ControllerName == "" {
 		cloud, err = c.getLocalCloud()
 	} else {
 		cloud, err = c.getControllerCloud()
@@ -151,7 +149,7 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 }
 
 func (c *showCloudCommand) getControllerCloud() (*CloudDetails, error) {
-	api, err := c.showCloudAPIFunc(c.controllerName)
+	api, err := c.showCloudAPIFunc(c.ControllerName)
 	if err != nil {
 		return nil, err
 	}

@@ -299,6 +299,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		},
 		metricsCollector: cfg.MetricsCollector,
 	}
+	srv.shared.cancel = srv.tomb.Dying()
 
 	// The auth context for authenticating access to application offers.
 	srv.offerAuthCtxt, err = newOfferAuthcontext(cfg.StatePool)

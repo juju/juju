@@ -56,7 +56,7 @@ func (info *TargetInfo) Validate() error {
 		return errors.NotValidf("empty Addrs")
 	}
 	for _, addr := range info.Addrs {
-		_, err := network.ParseHostPort(addr)
+		_, err := network.ParseMachineHostPort(addr)
 		if err != nil {
 			return errors.NotValidf("%q in Addrs", addr)
 		}

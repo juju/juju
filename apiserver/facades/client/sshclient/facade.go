@@ -65,7 +65,7 @@ func (facade *Facade) PublicAddress(args params.Entities) (params.SSHAddressResu
 		return params.SSHAddressResults{}, errors.Trace(err)
 	}
 
-	getter := func(m SSHMachine) (network.Address, error) { return m.PublicAddress() }
+	getter := func(m SSHMachine) (network.SpaceAddress, error) { return m.PublicAddress() }
 	return facade.getAddressPerEntity(args, getter)
 }
 
@@ -76,7 +76,7 @@ func (facade *Facade) PrivateAddress(args params.Entities) (params.SSHAddressRes
 		return params.SSHAddressResults{}, errors.Trace(err)
 	}
 
-	getter := func(m SSHMachine) (network.Address, error) { return m.PrivateAddress() }
+	getter := func(m SSHMachine) (network.SpaceAddress, error) { return m.PrivateAddress() }
 	return facade.getAddressPerEntity(args, getter)
 }
 
@@ -95,7 +95,7 @@ func (facade *Facade) AllAddresses(args params.Entities) (params.SSHAddressesRes
 	}
 
 	environ, supportsNetworking := environs.SupportsNetworking(env)
-	getter := func(m SSHMachine) ([]network.Address, error) {
+	getter := func(m SSHMachine) ([]network.SpaceAddress, error) {
 		devicesAddresses, err := m.AllNetworkAddresses()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -103,8 +103,8 @@ func (facade *Facade) AllAddresses(args params.Entities) (params.SSHAddressesRes
 		legacyAddresses := m.Addresses()
 		devicesAddresses = append(devicesAddresses, legacyAddresses...)
 		// Make the list unique
-		addressMap := make(map[network.Address]bool)
-		uniqueAddresses := []network.Address{}
+		addressMap := make(map[network.SpaceAddress]bool)
+		uniqueAddresses := []network.SpaceAddress{}
 		for _, address := range devicesAddresses {
 			if !addressMap[address] {
 				addressMap[address] = true
@@ -121,7 +121,7 @@ func (facade *Facade) AllAddresses(args params.Entities) (params.SSHAddressesRes
 	return facade.getAllEntityAddresses(args, getter)
 }
 
-func (facade *Facade) getAllEntityAddresses(args params.Entities, getter func(SSHMachine) ([]network.Address, error)) (
+func (facade *Facade) getAllEntityAddresses(args params.Entities, getter func(SSHMachine) ([]network.SpaceAddress, error)) (
 	params.SSHAddressesResults, error,
 ) {
 	out := params.SSHAddressesResults{
@@ -147,19 +147,19 @@ func (facade *Facade) getAllEntityAddresses(args params.Entities, getter func(SS
 	return out, nil
 }
 
-func (facade *Facade) getAddressPerEntity(args params.Entities, addressGetter func(SSHMachine) (network.Address, error)) (
+func (facade *Facade) getAddressPerEntity(args params.Entities, addressGetter func(SSHMachine) (network.SpaceAddress, error)) (
 	params.SSHAddressResults, error,
 ) {
 	out := params.SSHAddressResults{
 		Results: make([]params.SSHAddressResult, len(args.Entities)),
 	}
 
-	getter := func(m SSHMachine) ([]network.Address, error) {
+	getter := func(m SSHMachine) ([]network.SpaceAddress, error) {
 		address, err := addressGetter(m)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return []network.Address{address}, nil
+		return []network.SpaceAddress{address}, nil
 	}
 
 	fullResults, err := facade.getAllEntityAddresses(args, getter)

@@ -6,6 +6,7 @@ package model_test
 import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1/workertest"
@@ -24,7 +25,8 @@ var _ = gc.Suite(&ManifoldsSuite{})
 func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 	actual := set.NewStrings()
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{
-		Agent: &mockAgent{},
+		Agent:          &mockAgent{},
+		LoggingContext: loggo.DefaultContext(),
 	})
 	for name := range manifolds {
 		actual.Add(name)
@@ -46,6 +48,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 		"instance-poller",
 		"is-responsible-flag",
 		"log-forwarder",
+		"logging-config-updater",
 		"machine-undertaker",
 		"metric-worker",
 		"migration-fortress",
@@ -69,7 +72,8 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 	actual := set.NewStrings()
 	manifolds := model.CAASManifolds(model.ManifoldsConfig{
-		Agent: &mockAgent{},
+		Agent:          &mockAgent{},
+		LoggingContext: loggo.DefaultContext(),
 	})
 	for name := range manifolds {
 		actual.Add(name)
@@ -90,6 +94,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 		"clock",
 		"is-responsible-flag",
 		"log-forwarder",
+		"logging-config-updater",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",
@@ -123,7 +128,8 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 		"valid-credential-flag",
 	)
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{
-		Agent: &mockAgent{},
+		Agent:          &mockAgent{},
+		LoggingContext: loggo.DefaultContext(),
 	})
 	for name, manifold := range manifolds {
 		c.Logf("checking %s", name)
@@ -140,7 +146,8 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 
 func (s *ManifoldsSuite) TestStateCleanerIgnoresLifeFlags(c *gc.C) {
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{
-		Agent: &mockAgent{},
+		Agent:          &mockAgent{},
+		LoggingContext: loggo.DefaultContext(),
 	})
 	manifold, found := manifolds["state-cleaner"]
 	c.Assert(found, jc.IsTrue)
@@ -153,8 +160,9 @@ func (s *ManifoldsSuite) TestStateCleanerIgnoresLifeFlags(c *gc.C) {
 func (s *ManifoldsSuite) TestClockWrapper(c *gc.C) {
 	expectClock := &fakeClock{}
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{
-		Agent: &mockAgent{},
-		Clock: expectClock,
+		Agent:          &mockAgent{},
+		Clock:          expectClock,
+		LoggingContext: loggo.DefaultContext(),
 	})
 	manifold, ok := manifolds["clock"]
 	c.Assert(ok, jc.IsTrue)
@@ -173,7 +181,8 @@ type fakeClock struct{ clock.Clock }
 func (s *ManifoldsSuite) TestIAASManifold(c *gc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		model.IAASManifolds(model.ManifoldsConfig{
-			Agent: &mockAgent{},
+			Agent:          &mockAgent{},
+			LoggingContext: loggo.DefaultContext(),
 		}),
 		expectedIAASModelManifoldsWithDependencies,
 	)
@@ -182,7 +191,8 @@ func (s *ManifoldsSuite) TestIAASManifold(c *gc.C) {
 func (s *ManifoldsSuite) TestCAASManifold(c *gc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		model.CAASManifolds(model.ManifoldsConfig{
-			Agent: &mockAgent{},
+			Agent:          &mockAgent{},
+			LoggingContext: loggo.DefaultContext(),
 		}),
 		expectedCAASModelManifoldsWithDependencies,
 	)
@@ -274,6 +284,17 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"api-caller",
 		"is-responsible-flag",
 		"not-dead-flag"},
+
+	"logging-config-updater": {
+		"agent",
+		"api-caller",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag",
+	},
 
 	"migration-fortress": {
 		"agent",
@@ -463,7 +484,19 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"is-responsible-flag",
-		"not-dead-flag"},
+		"not-dead-flag",
+	},
+
+	"logging-config-updater": {
+		"agent",
+		"api-caller",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag",
+	},
 
 	"machine-undertaker": {
 		"agent",

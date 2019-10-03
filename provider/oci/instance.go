@@ -134,27 +134,31 @@ func (o *ociInstance) getVnics() ([]vnicWithIndex, error) {
 	return nics, nil
 }
 
-func (o *ociInstance) getAddresses() ([]corenetwork.Address, error) {
+func (o *ociInstance) getAddresses() ([]corenetwork.ProviderAddress, error) {
 	vnics, err := o.getVnics()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var addresses []corenetwork.Address
+	var addresses []corenetwork.ProviderAddress
 	for _, val := range vnics {
 		if val.Vnic.PrivateIp != nil {
-			privateAddress := corenetwork.Address{
-				Value: *val.Vnic.PrivateIp,
-				Type:  corenetwork.IPv4Address,
-				Scope: corenetwork.ScopeCloudLocal,
+			privateAddress := corenetwork.ProviderAddress{
+				MachineAddress: corenetwork.MachineAddress{
+					Value: *val.Vnic.PrivateIp,
+					Type:  corenetwork.IPv4Address,
+					Scope: corenetwork.ScopeCloudLocal,
+				},
 			}
 			addresses = append(addresses, privateAddress)
 		}
 		if val.Vnic.PublicIp != nil {
-			publicAddress := corenetwork.Address{
-				Value: *val.Vnic.PublicIp,
-				Type:  corenetwork.IPv4Address,
-				Scope: corenetwork.ScopePublic,
+			publicAddress := corenetwork.ProviderAddress{
+				MachineAddress: corenetwork.MachineAddress{
+					Value: *val.Vnic.PublicIp,
+					Type:  corenetwork.IPv4Address,
+					Scope: corenetwork.ScopePublic,
+				},
 			}
 			addresses = append(addresses, publicAddress)
 		}
@@ -163,7 +167,7 @@ func (o *ociInstance) getAddresses() ([]corenetwork.Address, error) {
 }
 
 // Addresses implements instances.Instance
-func (o *ociInstance) Addresses(ctx envcontext.ProviderCallContext) ([]corenetwork.Address, error) {
+func (o *ociInstance) Addresses(ctx envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	addresses, err := o.getAddresses()
 	ocicommon.HandleCredentialError(err, ctx)
 	return addresses, err

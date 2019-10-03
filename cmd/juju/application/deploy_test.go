@@ -34,6 +34,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"
@@ -846,6 +847,11 @@ func (*fakeBroker) PrecheckInstance(context.ProviderCallContext, environs.Preche
 	return nil
 }
 
+func (*fakeBroker) Version() (*version.Number, error) {
+	ver := version.MustParse("1.15.1")
+	return &ver, nil
+}
+
 func (*fakeBroker) ValidateStorageClass(_ map[string]interface{}) error {
 	return nil
 }
@@ -878,11 +884,6 @@ func (s *CAASDeploySuiteBase) SetUpTest(c *gc.C) {
 		CloudName: "caascloud",
 	})
 	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
-	// Close the state pool before the state object itself.
-	s.StatePool.Close()
-	s.StatePool = nil
-	err = s.State.Close()
-	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
 }
 

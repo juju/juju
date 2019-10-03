@@ -658,8 +658,8 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = caasModel.SetPodSpec(application.ApplicationTag(), "pod spec")
 	c.Assert(err, jc.ErrorIsNil)
-	addr := network.NewScopedAddress("192.168.1.1", network.ScopeCloudLocal)
-	err = application.UpdateCloudService("provider-id", []network.Address{addr})
+	addr := network.NewScopedSpaceAddress("192.168.1.1", network.ScopeCloudLocal)
+	err = application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})
 	c.Assert(err, jc.ErrorIsNil)
 
 	allApplications, err := caasSt.AllApplications()
@@ -687,7 +687,7 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	cloudService, err := newApp.ServiceInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudService.ProviderId(), gc.Equals, "provider-id")
-	c.Assert(cloudService.Addresses(), jc.DeepEquals, []network.Address{addr})
+	c.Assert(cloudService.Addresses(), jc.DeepEquals, network.SpaceAddresses{addr})
 	c.Assert(newApp.GetScale(), gc.Equals, 3)
 	c.Assert(newApp.GetPlacement(), gc.Equals, "")
 }
@@ -731,8 +731,8 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = caasModel.SetPodSpec(application.ApplicationTag(), "pod spec")
 	c.Assert(err, jc.ErrorIsNil)
-	addr := network.NewScopedAddress("192.168.1.1", network.ScopeCloudLocal)
-	err = application.UpdateCloudService("provider-id", []network.Address{addr})
+	addr := network.NewScopedSpaceAddress("192.168.1.1", network.ScopeCloudLocal)
+	err = application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})
 	c.Assert(err, jc.ErrorIsNil)
 
 	allApplications, err := caasSt.AllApplications()
@@ -944,7 +944,7 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(containerInfo.ProviderId(), gc.Equals, "provider-id")
 		c.Assert(containerInfo.Ports(), jc.DeepEquals, []string{"80"})
-		addr := network.NewScopedAddress("192.168.1.2", network.ScopeMachineLocal)
+		addr := network.NewScopedSpaceAddress("192.168.1.2", network.ScopeMachineLocal)
 		c.Assert(containerInfo.Address(), jc.DeepEquals, &addr)
 	}
 
@@ -1158,7 +1158,7 @@ func (s *MigrationImportSuite) TestLinkLayerDevice(c *gc.C) {
 	})
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name: "foo",
-		Type: state.EthernetDevice,
+		Type: network.EthernetDevice,
 	}
 	err := machine.SetLinkLayerDevices(deviceArgs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1169,7 +1169,7 @@ func (s *MigrationImportSuite) TestLinkLayerDevice(c *gc.C) {
 	c.Assert(devices, gc.HasLen, 1)
 	device := devices[0]
 	c.Assert(device.Name(), gc.Equals, "foo")
-	c.Assert(device.Type(), gc.Equals, state.EthernetDevice)
+	c.Assert(device.Type(), gc.Equals, network.EthernetDevice)
 }
 
 func (s *MigrationImportSuite) TestLinkLayerDeviceMigratesReferences(c *gc.C) {
@@ -1181,11 +1181,11 @@ func (s *MigrationImportSuite) TestLinkLayerDeviceMigratesReferences(c *gc.C) {
 	})
 	deviceArgs := []state.LinkLayerDeviceArgs{{
 		Name: "foo",
-		Type: state.BridgeDevice,
+		Type: network.BridgeDevice,
 	}, {
 		Name:       "bar",
 		ParentName: "foo",
-		Type:       state.EthernetDevice,
+		Type:       network.EthernetDevice,
 	}}
 	for _, args := range deviceArgs {
 		err := machine.SetLinkLayerDevices(args)
@@ -1194,7 +1194,7 @@ func (s *MigrationImportSuite) TestLinkLayerDeviceMigratesReferences(c *gc.C) {
 	machine2DeviceArgs := state.LinkLayerDeviceArgs{
 		Name:       "baz",
 		ParentName: fmt.Sprintf("m#%v#d#foo", machine.Id()),
-		Type:       state.EthernetDevice,
+		Type:       network.EthernetDevice,
 	}
 	err := machine2.SetLinkLayerDevices(machine2DeviceArgs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1278,11 +1278,11 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestSubnetsWithFan(c *gc.C) {
-	_, err := s.State.AddSubnet(network.SubnetInfo{
+	subnet, err := s.State.AddSubnet(network.SubnetInfo{
 		CIDR: "100.2.0.0/16",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	sp, err := s.State.AddSpace("bam", "", []string{"100.2.0.0/16"}, true)
+	sp, err := s.State.AddSpace("bam", "", []string{subnet.ID()}, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sn := network.SubnetInfo{
@@ -1299,7 +1299,7 @@ func (s *MigrationImportSuite) TestSubnetsWithFan(c *gc.C) {
 
 	_, newSt := s.importModel(c, s.State)
 
-	subnet, err := newSt.Subnet(original.CIDR())
+	subnet, err = newSt.Subnet(original.CIDR())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
@@ -1322,7 +1322,7 @@ func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name: "foo",
-		Type: state.EthernetDevice,
+		Type: network.EthernetDevice,
 	}
 	err = machine.SetLinkLayerDevices(deviceArgs)
 	c.Assert(err, jc.ErrorIsNil)

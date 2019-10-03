@@ -22,7 +22,7 @@ type FanConfigEntry struct {
 type FanConfig []FanConfigEntry
 
 // ParseFanConfig parses fan configuration from model-config in the format:
-// "underlay1=overlay1 underlay2=overlay2" eg. "172.16.0.0/16=253.0.0.0/8 10.0.0.0/12:254.0.0.0/7"
+// "underlay1=overlay1 underlay2=overlay2" eg. "172.16.0.0/16=253.0.0.0/8 10.0.0.0/12=254.0.0.0/7"
 func ParseFanConfig(line string) (config FanConfig, err error) {
 	if line == "" {
 		return nil, nil

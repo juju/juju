@@ -140,7 +140,7 @@ func maybeEmitRedirectError(err error) error {
 	var redirInfo params.RedirectErrorInfo
 	if err := pErr.UnmarshalInfo(&redirInfo); err == nil && redirInfo.CACert != "" && len(redirInfo.Servers) != 0 {
 		return &api.RedirectError{
-			Servers:         params.NetworkHostsPorts(redirInfo.Servers),
+			Servers:         params.ToMachineHostsPorts(redirInfo.Servers),
 			CACert:          redirInfo.CACert,
 			ControllerAlias: redirInfo.ControllerAlias,
 			FollowRedirect:  false, // user-action required

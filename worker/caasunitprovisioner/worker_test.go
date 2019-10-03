@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/storage"
@@ -84,7 +85,7 @@ func getParsedSpec() *specs.PodSpec {
 				{ContainerPort: 443},
 			},
 			Config: map[string]interface{}{
-				"attr": "foo=bar; fred=blogs",
+				"attr": "'foo=bar; fred=blogs'",
 				"foo":  "bar",
 			},
 		},
@@ -366,7 +367,7 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 			params.UpdateApplicationServiceArg{
 				ApplicationTag: names.NewApplicationTag("gitlab").String(),
 				ProviderId:     "id",
-				Addresses:      []params.Address{{Value: "10.0.0.1"}},
+				Addresses:      params.FromProviderAddresses(network.NewProviderAddresses("10.0.0.1")...),
 				Scale:          intPtr(4),
 			},
 		})

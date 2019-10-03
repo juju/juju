@@ -94,7 +94,11 @@ func (c StringsWatcherC) AssertNoChange() {
 	c.PreAssert()
 	select {
 	case change, ok := <-c.Watcher.Changes():
-		c.Fatalf("watcher sent unexpected change: (%#v, %v)", change, ok)
+		if !ok {
+			c.Fatalf("watcher closed Changes channel")
+		} else {
+			c.Fatalf("watcher sent unexpected change: %#v", change)
+		}
 	case <-time.After(testing.ShortWait):
 	}
 }

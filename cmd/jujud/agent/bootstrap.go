@@ -372,10 +372,9 @@ func getAddressesForMongo(
 	env environs.BootstrapEnviron,
 	callCtx *context.CloudCallContext,
 	args instancecfg.StateInitializationParams,
-) ([]network.Address, error) {
-	addrs := []network.Address{network.NewAddress("localhost")}
+) (network.ProviderAddresses, error) {
 	if isCAAS {
-		return addrs, nil
+		return network.NewProviderAddresses("localhost"), nil
 	}
 
 	instanceLister, ok := env.(environs.InstanceLister)
@@ -387,17 +386,10 @@ func getAddressesForMongo(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting bootstrap instance")
 	}
-	addrs, err = instances[0].Addresses(callCtx)
+	addrs, err := instances[0].Addresses(callCtx)
 	if err != nil {
-		return nil, errors.Annotate(err, "bootstrap instance addresses")
+		return nil, errors.Annotate(err, "getting bootstrap instance addresses")
 	}
-
-	// When machine addresses are reported from state, they have
-	// duplicates removed.  We should do the same here so that
-	// there is not unnecessary churn in the mongo replicaset.
-	// TODO (cherylj) Add explicit unit tests for this - tracked
-	// by bug #1544158.
-	addrs = network.MergedAddresses([]network.Address{}, addrs)
 	return addrs, nil
 }
 
@@ -431,7 +423,7 @@ func ensureKeys(
 	return nil
 }
 
-func (c *BootstrapCommand) startMongo(isCAAS bool, addrs []network.Address, agentConfig agent.Config) error {
+func (c *BootstrapCommand) startMongo(isCAAS bool, addrs network.ProviderAddresses, agentConfig agent.Config) error {
 	logger.Debugf("starting mongo")
 
 	info, ok := agentConfig.MongoInfo()

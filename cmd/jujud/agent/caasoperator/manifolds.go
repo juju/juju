@@ -96,10 +96,10 @@ type ManifoldsConfig struct {
 	PreviousAgentVersion version.Number
 
 	// NewExecClient provides k8s execframework functionality for juju run commands or actions.
-	NewExecClient func(modelName string) (exec.Executor, error)
+	NewExecClient func(namespace string) (exec.Executor, error)
 
 	// RunListenerSocket returns a function to create a run listener socket.
-	RunListenerSocket func() (*sockets.Socket, error)
+	RunListenerSocket func(*uniter.SocketConfig) (*sockets.Socket, error)
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various

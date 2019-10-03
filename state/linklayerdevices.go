@@ -5,7 +5,6 @@ package state
 
 import (
 	"fmt"
-	"runtime"
 	"strings"
 
 	"github.com/juju/errors"
@@ -39,7 +38,7 @@ type linkLayerDeviceDoc struct {
 	MachineID string `bson:"machine-id"`
 
 	// Type is the undelying type of the device.
-	Type LinkLayerDeviceType `bson:"type"`
+	Type network.LinkLayerDeviceType `bson:"type"`
 
 	// MACAddress is the media access control (MAC) address of the device.
 	MACAddress string `bson:"mac-address"`
@@ -55,38 +54,6 @@ type linkLayerDeviceDoc struct {
 	// is inside a container, in which case ParentName can be a global key of a
 	// BridgeDevice on the host machine of the container.
 	ParentName string `bson:"parent-name"`
-}
-
-// LinkLayerDeviceType defines the type of a link-layer network device.
-type LinkLayerDeviceType string
-
-const (
-	// LoopbackDevice is used for loopback devices.
-	LoopbackDevice LinkLayerDeviceType = "loopback"
-
-	// EthernetDevice is used for Ethernet (IEEE 802.3) devices.
-	EthernetDevice LinkLayerDeviceType = "ethernet"
-
-	// VLAN_8021QDevice is used for IEEE 802.1Q VLAN devices.
-	VLAN_8021QDevice LinkLayerDeviceType = "802.1q"
-
-	// BondDevice is used for bonding devices.
-	BondDevice LinkLayerDeviceType = "bond"
-
-	// BridgeDevice is used for OSI layer-2 bridge devices.
-	BridgeDevice LinkLayerDeviceType = "bridge"
-)
-
-// IsValidLinkLayerDeviceType returns whether the given value is a valid
-// link-layer network device type.
-func IsValidLinkLayerDeviceType(value string) bool {
-	switch LinkLayerDeviceType(value) {
-	case LoopbackDevice, EthernetDevice,
-		VLAN_8021QDevice,
-		BondDevice, BridgeDevice:
-		return true
-	}
-	return false
 }
 
 // LinkLayerDevice represents the state of a link-layer network device for a
@@ -105,12 +72,12 @@ func (st *State) AllLinkLayerDevices() (devices []*LinkLayerDevice, err error) {
 	devicesCollection, closer := st.db().GetCollection(linkLayerDevicesC)
 	defer closer()
 
-	sdocs := []linkLayerDeviceDoc{}
-	err = devicesCollection.Find(nil).All(&sdocs)
+	var sDocs []linkLayerDeviceDoc
+	err = devicesCollection.Find(nil).All(&sDocs)
 	if err != nil {
 		return nil, errors.Errorf("cannot get all link layer devices")
 	}
-	for _, d := range sdocs {
+	for _, d := range sDocs {
 		devices = append(devices, newLinkLayerDevice(st, d))
 	}
 	return devices, nil
@@ -148,13 +115,13 @@ func (dev *LinkLayerDevice) Machine() (*Machine, error) {
 }
 
 // Type returns this device's underlying type.
-func (dev *LinkLayerDevice) Type() LinkLayerDeviceType {
+func (dev *LinkLayerDevice) Type() network.LinkLayerDeviceType {
 	return dev.doc.Type
 }
 
 // IsLoopbackDevice returns whether this is a loopback device.
 func (dev *LinkLayerDevice) IsLoopbackDevice() bool {
-	return dev.doc.Type == LoopbackDevice
+	return dev.doc.Type == network.LoopbackDevice
 }
 
 // MACAddress returns the media access control (MAC) address of the device.
@@ -435,48 +402,6 @@ func parseLinkLayerDeviceGlobalKey(globalKey string) (machineID, deviceName stri
 	return machineID, deviceName, true
 }
 
-// IsValidLinkLayerDeviceName returns whether the given name is a valid network
-// link-layer device name, depending on the runtime.GOOS value.
-func IsValidLinkLayerDeviceName(name string) bool {
-	if runtimeGOOS == "linux" {
-		return isValidLinuxDeviceName(name)
-	}
-	hasHash := strings.Contains(name, "#")
-	return !hasHash && stringLengthBetween(name, 1, 255)
-}
-
-// runtimeGOOS is defined to allow patching in tests.
-var runtimeGOOS = runtime.GOOS
-
-// isValidLinuxDeviceName returns whether the given deviceName is valid,
-// using the same criteria as dev_valid_name(9) in the Linux kernel:
-// - no whitespace allowed
-// - length from 1 to 15 ASCII characters
-// - literal "." and ".." as names are not allowed.
-// Additionally, we don't allow "#" in the name.
-func isValidLinuxDeviceName(name string) bool {
-	hasWhitespace := whitespaceReplacer.Replace(name) != name
-	isDot, isDoubleDot := name == ".", name == ".."
-	hasValidLength := stringLengthBetween(name, 1, 15)
-	hasHash := strings.Contains(name, "#")
-
-	return hasValidLength && !(hasHash || hasWhitespace || isDot || isDoubleDot)
-}
-
-// whitespaceReplacer strips whitespace characters from the input string.
-var whitespaceReplacer = strings.NewReplacer(
-	" ", "",
-	"\t", "",
-	"\v", "",
-	"\n", "",
-	"\r", "",
-)
-
-func stringLengthBetween(value string, minLength, maxLength uint) bool {
-	length := uint(len(value))
-	return length >= minLength && length <= maxLength
-}
-
 // Addresses returns all IP addresses assigned to the device.
 func (dev *LinkLayerDevice) Addresses() ([]*Address, error) {
 	var allAddresses []*Address
@@ -506,12 +431,12 @@ func (dev *LinkLayerDevice) RemoveAddresses() error {
 // device with the input name and this device as its parent.
 // If the device is not a bridge, an error is returned.
 func (dev *LinkLayerDevice) EthernetDeviceForBridge(name string) (LinkLayerDeviceArgs, error) {
-	if dev.Type() != BridgeDevice {
+	if dev.Type() != network.BridgeDevice {
 		return LinkLayerDeviceArgs{}, errors.Errorf("device must be a Bridge Device, receiver has type %q", dev.Type())
 	}
 	return LinkLayerDeviceArgs{
 		Name:        name,
-		Type:        EthernetDevice,
+		Type:        network.EthernetDevice,
 		MACAddress:  network.GenerateVirtualMACAddress(),
 		MTU:         dev.MTU(),
 		IsUp:        true,

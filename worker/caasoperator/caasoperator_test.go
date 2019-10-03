@@ -56,7 +56,7 @@ type WorkerSuite struct {
 	uniterParams          *uniter.UniterParams
 	leadershipTrackerFunc func(unitTag names.UnitTag) leadership.TrackerWorker
 	uniterFacadeFunc      func(unitTag names.UnitTag) *apiuniter.State
-	runListenerSocketFunc func() (*sockets.Socket, error)
+	runListenerSocketFunc func(*uniter.SocketConfig) (*sockets.Socket, error)
 }
 
 var _ = gc.Suite(&WorkerSuite{})
@@ -105,7 +105,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.uniterFacadeFunc = func(unitTag names.UnitTag) *apiuniter.State {
 		return &apiuniter.State{}
 	}
-	s.runListenerSocketFunc = func() (*sockets.Socket, error) {
+	s.runListenerSocketFunc = func(*uniter.SocketConfig) (*sockets.Socket, error) {
 		socket := sockPath(c)
 		return &socket, nil
 	}

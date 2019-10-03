@@ -104,12 +104,12 @@ var fakeInterfaceInfo = network.InterfaceInfo{
 	MACAddress:     "aa:bb:cc:dd:ee:ff",
 	CIDR:           "0.1.2.0/24",
 	InterfaceName:  "dummy0",
-	Address:        corenetwork.NewAddress("0.1.2.3"),
-	GatewayAddress: corenetwork.NewAddress("0.1.2.1"),
+	Address:        corenetwork.NewProviderAddress("0.1.2.3"),
+	GatewayAddress: corenetwork.NewProviderAddress("0.1.2.1"),
 	// Explicitly set only DNSServers, but not DNSSearchDomains to test this is
 	// detected and the latter populated by parsing the fake resolv.conf created
 	// by patchResolvConf(). See LP bug http://pad.lv/1575940 for more info.
-	DNSServers:       corenetwork.NewAddresses("ns1.dummy"),
+	DNSServers:       corenetwork.NewProviderAddresses("ns1.dummy"),
 	DNSSearchDomains: nil,
 }
 
@@ -267,7 +267,7 @@ func (m *mockInstance) Status(context.ProviderCallContext) instance.Status {
 }
 
 // Addresses implements instances.Instance.Addresses.
-func (m *mockInstance) Addresses(context.ProviderCallContext) ([]corenetwork.Address, error) {
+func (m *mockInstance) Addresses(context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	return nil, nil
 }
 

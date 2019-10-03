@@ -189,7 +189,7 @@ func maasObjectNetworkInterfaces(
 			} else {
 				// We set it here initially without a space, just so we don't
 				// lose it when we have no linked subnet below.
-				nicInfo.Address = corenetwork.NewAddress(link.IPAddress)
+				nicInfo.Address = corenetwork.NewProviderAddress(link.IPAddress)
 				nicInfo.ProviderAddressId = corenetwork.Id(fmt.Sprintf("%v", link.ID))
 			}
 
@@ -206,23 +206,23 @@ func maasObjectNetworkInterfaces(
 
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
-			nicInfo.Address = corenetwork.NewAddressOnSpace(sub.Space, link.IPAddress)
+			nicInfo.Address = corenetwork.NewProviderAddressInSpace(sub.Space, link.IPAddress)
 			spaceId, ok := subnetsMap[sub.CIDR]
 			if !ok {
 				// The space we found is not recognised.
 				// No provider space info is available.
 				logger.Warningf("interface %q link %d has unrecognised space %q", iface.Name, link.ID, sub.Space)
 			} else {
-				nicInfo.Address.SpaceProviderId = spaceId
+				nicInfo.Address.ProviderSpaceID = spaceId
 				nicInfo.ProviderSpaceId = spaceId
 			}
 
-			gwAddr := corenetwork.NewAddressOnSpace(sub.Space, sub.GatewayIP)
-			nicInfo.DNSServers = corenetwork.NewAddressesOnSpace(sub.Space, sub.DNSServers...)
+			gwAddr := corenetwork.NewProviderAddressInSpace(sub.Space, sub.GatewayIP)
+			nicInfo.DNSServers = corenetwork.NewProviderAddressesInSpace(sub.Space, sub.DNSServers...)
 			if ok {
-				gwAddr.SpaceProviderId = spaceId
+				gwAddr.ProviderSpaceID = spaceId
 				for i := range nicInfo.DNSServers {
-					nicInfo.DNSServers[i].SpaceProviderId = spaceId
+					nicInfo.DNSServers[i].ProviderSpaceID = spaceId
 				}
 			}
 			nicInfo.GatewayAddress = gwAddr
@@ -299,7 +299,9 @@ func maas2NetworkInterfaces(
 			} else {
 				// We set it here initially without a space, just so we don't
 				// lose it when we have no linked subnet below.
-				nicInfo.Address = corenetwork.NewAddress(link.IPAddress())
+				nicInfo.Address = corenetwork.NewProviderAddress(
+
+					link.IPAddress())
 				nicInfo.ProviderAddressId = corenetwork.Id(fmt.Sprintf("%v", link.ID()))
 			}
 
@@ -316,23 +318,23 @@ func maas2NetworkInterfaces(
 
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
-			nicInfo.Address = corenetwork.NewAddressOnSpace(sub.Space(), link.IPAddress())
+			nicInfo.Address = corenetwork.NewProviderAddressInSpace(sub.Space(), link.IPAddress())
 			spaceId, ok := subnetsMap[sub.CIDR()]
 			if !ok {
 				// The space we found is not recognised.
 				// No provider space info is available.
 				logger.Warningf("interface %q link %d has unrecognised space %q", iface.Name(), link.ID(), sub.Space())
 			} else {
-				nicInfo.Address.SpaceProviderId = spaceId
+				nicInfo.Address.ProviderSpaceID = spaceId
 				nicInfo.ProviderSpaceId = spaceId
 			}
 
-			gwAddr := corenetwork.NewAddressOnSpace(sub.Space(), sub.Gateway())
-			nicInfo.DNSServers = corenetwork.NewAddressesOnSpace(sub.Space(), sub.DNSServers()...)
+			gwAddr := corenetwork.NewProviderAddressInSpace(sub.Space(), sub.Gateway())
+			nicInfo.DNSServers = corenetwork.NewProviderAddressesInSpace(sub.Space(), sub.DNSServers()...)
 			if ok {
-				gwAddr.SpaceProviderId = spaceId
+				gwAddr.ProviderSpaceID = spaceId
 				for i := range nicInfo.DNSServers {
-					nicInfo.DNSServers[i].SpaceProviderId = spaceId
+					nicInfo.DNSServers[i].ProviderSpaceID = spaceId
 				}
 			}
 			nicInfo.DNSSearchDomains = dnsSearchDomains

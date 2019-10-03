@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -57,7 +58,8 @@ func (s *MachineWithCharmsSuite) TestManageModelRunsCharmRevisionUpdater(c *gc.C
 
 	a := s.newAgent(c, m)
 	go func() {
-		c.Check(a.Run(nil), jc.ErrorIsNil)
+		ctx := cmdtesting.Context(c)
+		c.Check(a.Run(ctx), jc.ErrorIsNil)
 	}()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
@@ -244,7 +245,7 @@ func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
 }
 
 func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine) {
-	addrs := network.NewAddresses("0.1.2.3")
+	addrs := network.NewSpaceAddresses("0.1.2.3")
 	err := machine.SetProviderAddresses(addrs...)
 	c.Assert(err, jc.ErrorIsNil)
 	// Set the addresses in the environ instance as well so that if the instance poller
@@ -253,7 +254,7 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 	c.Assert(err, jc.ErrorIsNil)
 	insts, err := s.Environ.Instances(context.NewCloudCallContext(), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
-	dummy.SetInstanceAddresses(insts[0], addrs)
+	dummy.SetInstanceAddresses(insts[0], network.NewProviderAddresses("0.1.2.3"))
 }
 
 // WithAliveAgent starts the agent, wait till it becomes alive and then invokes
@@ -261,14 +262,15 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 // the agent either exits or exceeds its run timeout. In both cases, any error
 // returned by the agent's Run method will be captured and returned to the
 // caller.
-func (s *commonMachineSuite) WithAliveAgent(m *state.Machine, a *MachineAgent, cb func() error) error {
+func (s *commonMachineSuite) WithAliveAgent(c *gc.C, m *state.Machine, a *MachineAgent, cb func() error) error {
 	// achilleasa: the agent usually takes a around 30 seconds
 	waitTime := coretesting.LongWait * 3
 
+	ctx := cmdtesting.Context(c)
 	errCh := make(chan error, 1)
 	go func() {
 		select {
-		case errCh <- a.Run(nil):
+		case errCh <- a.Run(ctx):
 		case <-time.After(waitTime):
 			errCh <- fmt.Errorf("time out waiting for agent to complete its run")
 		}
@@ -375,10 +377,10 @@ type runner interface {
 
 // runWithTimeout runs an agent and waits
 // for it to complete within a reasonable time.
-func runWithTimeout(r runner) error {
+func runWithTimeout(c *gc.C, r runner) error {
 	done := make(chan error)
 	go func() {
-		done <- r.Run(nil)
+		done <- r.Run(cmdtesting.Context(c))
 	}()
 	select {
 	case err := <-done:
@@ -458,7 +460,7 @@ func (e *minModelWorkersEnviron) AllRunningInstances(context.ProviderCallContext
 }
 
 func (e *minModelWorkersEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
-	return nil, nil
+	return nil, environs.ErrNoInstances
 }
 
 func (env *minModelWorkersEnviron) MaybeWriteLXDProfile(pName string, put *charm.LXDProfile) error {

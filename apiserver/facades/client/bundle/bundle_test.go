@@ -392,6 +392,275 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
 	}
 }
 
+func (s *bundleSuite) TestGetChangesMapArgsBundleContentError(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: ":",
+	}
+	r, err := s.facade.GetChangesMapArgs(args)
+	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: unmarshal document 0: yaml: did not find expected key`)
+	c.Assert(r, gc.DeepEquals, params.BundleChangesMapArgsResults{})
+}
+
+func (s *bundleSuite) TestGetChangesMapArgsBundleVerificationErrors(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            applications:
+                django:
+                    charm: django
+                    to: [1]
+                haproxy:
+                    charm: 42
+                    num_units: -1
+        `,
+	}
+	r, err := s.facade.GetChangesMapArgs(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r.Changes, gc.IsNil)
+	c.Assert(r.Errors, jc.SameContents, []string{
+		`placement "1" refers to a machine not defined in this bundle`,
+		`too many units specified in unit placement for application "django"`,
+		`invalid charm URL in application "haproxy": cannot parse URL "42": name "42" not valid`,
+		`negative number of units specified on application "haproxy"`,
+	})
+}
+
+func (s *bundleSuite) TestGetChangesMapArgsBundleConstraintsError(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            applications:
+                django:
+                    charm: django
+                    num_units: 1
+                    constraints: bad=wolf
+        `,
+	}
+	r, err := s.facade.GetChangesMapArgs(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r.Changes, gc.IsNil)
+	c.Assert(r.Errors, jc.SameContents, []string{
+		`invalid constraints "bad=wolf" in application "django": unknown constraint "bad"`,
+	})
+}
+
+func (s *bundleSuite) TestGetChangesMapArgsBundleStorageError(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            applications:
+                django:
+                    charm: django
+                    num_units: 1
+                    storage:
+                        bad: 0,100M
+        `,
+	}
+	r, err := s.facade.GetChangesMapArgs(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r.Changes, gc.IsNil)
+	c.Assert(r.Errors, jc.SameContents, []string{
+		`invalid storage "bad" in application "django": cannot parse count: count must be greater than zero, got "0"`,
+	})
+}
+
+func (s *bundleSuite) TestGetChangesMapArgsBundleDevicesError(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            applications:
+                django:
+                    charm: django
+                    num_units: 1
+                    devices:
+                        bad-gpu: -1,nvidia.com/gpu
+        `,
+	}
+	r, err := s.facade.GetChangesMapArgs(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r.Changes, gc.IsNil)
+	c.Assert(r.Errors, jc.SameContents, []string{
+		`invalid device "bad-gpu" in application "django": count must be greater than zero, got "-1"`,
+	})
+}
+
+func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            applications:
+                django:
+                    charm: django
+                    options:
+                        debug: true
+                    storage:
+                        tmpfs: tmpfs,1G
+                    devices:
+                        bitcoinminer: 2,nvidia.com/gpu
+                haproxy:
+                    charm: cs:trusty/haproxy-42
+            relations:
+                - - django:web
+                  - haproxy:web
+        `,
+	}
+	r, err := s.facade.GetChangesMapArgs(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
+		Id:     "addCharm-0",
+		Method: "addCharm",
+		Args: map[string]interface{}{
+			"charm": "django",
+		},
+	}, {
+		Id:     "deploy-1",
+		Method: "deploy",
+		Args: map[string]interface{}{
+			"application": "django",
+			"charm":       "$addCharm-0",
+			"devices": map[string]interface{}{
+				"bitcoinminer": "2,nvidia.com/gpu",
+			},
+			"options": map[string]interface{}{
+				"debug": true,
+			},
+			"storage": map[string]interface{}{
+				"tmpfs": "tmpfs,1G",
+			},
+		},
+		Requires: []string{"addCharm-0"},
+	}, {
+		Id:     "addCharm-2",
+		Method: "addCharm",
+		Args: map[string]interface{}{
+			"charm":  "cs:trusty/haproxy-42",
+			"series": "trusty",
+		},
+	}, {
+		Id:     "deploy-3",
+		Method: "deploy",
+		Args: map[string]interface{}{
+			"application": "haproxy",
+			"charm":       "$addCharm-2",
+			"series":      "trusty",
+		},
+		Requires: []string{"addCharm-2"},
+	}, {
+		Id:     "addRelation-4",
+		Method: "addRelation",
+		Args: map[string]interface{}{
+			"endpoint1": "$deploy-1:web",
+			"endpoint2": "$deploy-3:web",
+		},
+		Requires: []string{"deploy-1", "deploy-3"},
+	}})
+	c.Assert(r.Errors, gc.IsNil)
+}
+
+func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            bundle: kubernetes
+            applications:
+                django:
+                    charm: django
+                    scale: 1
+                    options:
+                        debug: true
+                    storage:
+                        tmpfs: tmpfs,1G
+                    devices:
+                        bitcoinminer: 2,nvidia.com/gpu
+                haproxy:
+                    charm: cs:haproxy-42
+            relations:
+                - - django:web
+                  - haproxy:web
+        `,
+	}
+	r, err := s.facade.GetChangesMapArgs(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
+		Id:     "addCharm-0",
+		Method: "addCharm",
+		Args: map[string]interface{}{
+			"charm":  "django",
+			"series": "kubernetes",
+		},
+	}, {
+		Id:     "deploy-1",
+		Method: "deploy",
+		Args: map[string]interface{}{
+			"application": "django",
+			"charm":       "$addCharm-0",
+			"devices": map[string]interface{}{
+				"bitcoinminer": "2,nvidia.com/gpu",
+			},
+			"num-units": float64(1),
+			"options": map[string]interface{}{
+				"debug": true,
+			},
+			"series": "kubernetes",
+			"storage": map[string]interface{}{
+				"tmpfs": "tmpfs,1G",
+			},
+		},
+		Requires: []string{"addCharm-0"},
+	}, {
+		Id:     "addCharm-2",
+		Method: "addCharm",
+		Args: map[string]interface{}{
+			"charm":  "cs:haproxy-42",
+			"series": "kubernetes",
+		},
+	}, {
+		Id:     "deploy-3",
+		Method: "deploy",
+		Args: map[string]interface{}{
+			"application": "haproxy",
+			"charm":       "$addCharm-2",
+			"series":      "kubernetes",
+		},
+		Requires: []string{"addCharm-2"},
+	}, {
+		Id:     "addRelation-4",
+		Method: "addRelation",
+		Args: map[string]interface{}{
+			"endpoint1": "$deploy-1:web",
+			"endpoint2": "$deploy-3:web",
+		},
+		Requires: []string{"deploy-1", "deploy-3"},
+	}})
+	c.Assert(r.Errors, gc.IsNil)
+}
+
+func (s *bundleSuite) TestGetChangesMapArgsBundleEndpointBindingsSuccess(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            applications:
+                django:
+                    charm: django
+                    num_units: 1
+                    bindings:
+                        url: public
+        `,
+	}
+	r, err := s.facade.GetChangesMapArgs(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, change := range r.Changes {
+		if change.Method == "deploy" {
+			c.Assert(change, jc.DeepEquals, &params.BundleChangesMapArgs{
+				Id:     "deploy-1",
+				Method: "deploy",
+				Args: map[string]interface{}{
+					"application": "django",
+					"charm":       "$addCharm-0",
+					"endpoint-bindings": map[string]interface{}{
+						"url": "public",
+					},
+				},
+				Requires: []string{"addCharm-0"},
+			})
+		}
+	}
+}
+
 func (s *bundleSuite) TestExportBundleFailNoApplication(c *gc.C) {
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config: map[string]interface{}{

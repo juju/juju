@@ -258,13 +258,23 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 	}
 	addresses := network.MergedAddresses(networkAddresses(m.MachineAddresses), networkAddresses(m.Addresses))
 	for _, addr := range addresses {
-		info.Addresses = append(info.Addresses, multiwatcher.Address{
-			Value:           addr.Value,
-			Type:            string(addr.Type),
-			Scope:           string(addr.Scope),
-			SpaceName:       string(addr.SpaceName),
-			SpaceProviderId: string(addr.SpaceProviderId),
-		})
+		mAddr := multiwatcher.Address{
+			Value: addr.Value,
+			Type:  string(addr.Type),
+			Scope: string(addr.Scope),
+		}
+
+		spaceID := addr.SpaceID
+		if spaceID != network.DefaultSpaceId && spaceID != "" {
+			space, err := st.SpaceByID(spaceID)
+			if err != nil {
+				return errors.Annotatef(err, "retrieving space for ID %q", spaceID)
+			}
+			mAddr.SpaceName = space.Name()
+			mAddr.SpaceProviderId = string(space.ProviderId())
+		}
+
+		info.Addresses = append(info.Addresses, mAddr)
 	}
 	// fetch the associated machine.
 	entity, err := st.FindEntity(names.NewMachineTag(m.Id))
@@ -561,19 +571,19 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 		}
 	} else {
 		// The entry already exists, so preserve the current status.
-		oldInfo := oldInfo.(*multiwatcher.ApplicationInfo)
-		info.Constraints = oldInfo.Constraints
-		info.WorkloadVersion = oldInfo.WorkloadVersion
-		if info.CharmURL == oldInfo.CharmURL {
+		appInfo := oldInfo.(*multiwatcher.ApplicationInfo)
+		info.Constraints = appInfo.Constraints
+		info.WorkloadVersion = appInfo.WorkloadVersion
+		if info.CharmURL == appInfo.CharmURL {
 			// The charm URL remains the same - we can continue to
 			// use the same config settings.
-			info.Config = oldInfo.Config
+			info.Config = appInfo.Config
 		} else {
 			// The charm URL has changed - we need to fetch the
 			// settings from the new charm's settings doc.
 			needConfig = true
 		}
-                info.Status = oldInfo.Status
+		info.Status = appInfo.Status
 	}
 	if needConfig {
 		doc, err := readSettingsDoc(st.db(), settingsC, applicationCharmConfigKey(app.Name, app.CharmURL))

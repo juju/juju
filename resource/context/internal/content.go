@@ -35,7 +35,8 @@ func (c Content) Verify(size int64, fp charmresource.Fingerprint) error {
 	if size != c.Size {
 		return errors.Errorf("resource size does not match expected (%d != %d)", size, c.Size)
 	}
-	// Only verify a finger print if it's set (i.e not for docker image details).
+	// Only verify a finger print if it's set - older clients did not send a
+	// fingerprint for docker resources.
 	if c.Fingerprint.IsZero() {
 		return nil
 	}

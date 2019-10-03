@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -17,7 +18,7 @@ import (
 // It facilitates testing the provisioner's use of this package.
 type LinkLayerDevice interface {
 	Name() string
-	Type() state.LinkLayerDeviceType
+	Type() network.LinkLayerDeviceType
 	MACAddress() string
 	ParentName() string
 	ParentDevice() (LinkLayerDevice, error)
@@ -119,12 +120,15 @@ func (m *MachineShim) Raw() *state.Machine {
 	return m.Machine
 }
 
+//go:generate mockgen -package containerizer -destination bridgepolicy_mock_test.go github.com/juju/juju/network/containerizer Container,Unit,Application
+
 // Machine is an indirection for state.Machine,
 // describing a container.
 type Container interface {
 	Machine
 	ContainerType() instance.ContainerType
-	DesiredSpaces() (set.Strings, error)
+	Units() ([]Unit, error)
+	Constraints() (constraints.Value, error)
 }
 
 var _ Container = (*MachineShim)(nil)
@@ -177,6 +181,7 @@ var _ Application = (*applicationShim)(nil)
 type Application interface {
 	Charm() (Charm, bool, error)
 	Name() string
+	EndpointBindings() (map[string]string, error)
 }
 
 func (a *applicationShim) Charm() (Charm, bool, error) {

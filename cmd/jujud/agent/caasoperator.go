@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgradesteps"
 )
 
@@ -66,16 +67,16 @@ type CaasOperatorAgent struct {
 
 	prometheusRegistry *prometheus.Registry
 
-	newExecClient     func(modelName string) (exec.Executor, error)
-	runListenerSocket func() (*sockets.Socket, error)
+	newExecClient     func(namespace string) (exec.Executor, error)
+	runListenerSocket func(*uniter.SocketConfig) (*sockets.Socket, error)
 }
 
 // NewCaasOperatorAgent creates a new CAASOperatorAgent instance properly initialized.
 func NewCaasOperatorAgent(
 	ctx *cmd.Context,
 	bufferedLogger *logsender.BufferedLogWriter,
-	newExecClient func(modelName string) (exec.Executor, error),
-	runListenerSocket func() (*sockets.Socket, error),
+	newExecClient func(namespace string) (exec.Executor, error),
+	runListenerSocket func(*uniter.SocketConfig) (*sockets.Socket, error),
 ) (*CaasOperatorAgent, error) {
 	prometheusRegistry, err := newPrometheusRegistry()
 	if err != nil {

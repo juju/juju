@@ -22,6 +22,8 @@ import (
 // CAASUnitProvisionerState provides the subset of global state
 // required by the CAAS unit provisioner facade.
 type CAASUnitProvisionerState interface {
+	network.SpaceLookup
+
 	ControllerConfig() (controller.Config, error)
 	Application(string) (Application, error)
 	FindEntity(names.Tag) (state.Entity, error)
@@ -76,7 +78,7 @@ type Application interface {
 	AllUnits() (units []Unit, err error)
 	AddOperation(state.UnitUpdateProperties) *state.AddUnitOperation
 	UpdateUnits(*state.UpdateUnitsOperation) error
-	UpdateCloudService(providerId string, addreses []network.Address) error
+	UpdateCloudService(providerId string, addresses []network.SpaceAddress) error
 	StorageConstraints() (map[string]state.StorageConstraints, error)
 	DeviceConstraints() (map[string]state.DeviceConstraints, error)
 	Life() state.Life

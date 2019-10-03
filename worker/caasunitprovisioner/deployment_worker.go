@@ -196,7 +196,7 @@ func updateApplicationService(appTag names.ApplicationTag, svc *caas.Service, up
 		params.UpdateApplicationServiceArg{
 			ApplicationTag: appTag.String(),
 			ProviderId:     svc.Id,
-			Addresses:      params.FromNetworkAddresses(svc.Addresses...),
+			Addresses:      params.FromProviderAddresses(svc.Addresses...),
 			Scale:          svc.Scale,
 			Generation:     svc.Generation,
 		},

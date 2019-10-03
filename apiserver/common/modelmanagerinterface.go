@@ -183,13 +183,13 @@ func (st modelManagerStateShim) GetBackend(modelUUID string) (ModelManagerBacken
 			return nil, nil, errors.Trace(mErr)
 		}
 
-		hps, mErr := network.ParseHostPorts(target.Addrs...)
+		hps, mErr := network.ParseProviderHostPorts(target.Addrs...)
 		if mErr != nil {
 			return nil, nil, errors.Trace(mErr)
 		}
 
 		return nil, nil, &RedirectError{
-			Servers:         [][]network.HostPort{hps},
+			Servers:         []network.ProviderHostPorts{hps},
 			CACert:          target.CACert,
 			ControllerAlias: target.ControllerAlias,
 		}

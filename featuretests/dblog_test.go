@@ -6,6 +6,7 @@ package featuretests
 import (
 	"time"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/juju/controller"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
@@ -44,11 +45,6 @@ func (s *dblogSuite) TestControllerAgentLogsGoToDBCAAS(c *gc.C) {
 	// Set up a CAAS model to replace the IAAS one.
 	st := s.Factory.MakeCAASModel(c, nil)
 	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
-	// Close the state pool before the state object itself.
-	s.StatePool.Close()
-	s.StatePool = nil
-	err := s.State.Close()
-	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
 	s.Factory = factory.NewFactory(st, s.StatePool)
 	node, err := s.State.AddControllerNode()
@@ -103,7 +99,8 @@ func (s *dblogSuite) assertAgentLogsGoToDB(c *gc.C, tag names.Tag, isCaas bool) 
 	c.Assert(s.getLogCount(c, tag), gc.Equals, 0)
 
 	// Start the agent.
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	ctx := cmdtesting.Context(c)
+	go func() { c.Check(a.Run(ctx), jc.ErrorIsNil) }()
 	defer a.Stop()
 
 	foundLogs := s.waitForLogs(c, tag)
@@ -124,7 +121,8 @@ func (s *dblogSuite) TestUnitAgentLogsGoToDB(c *gc.C) {
 	c.Assert(s.getLogCount(c, u.Tag()), gc.Equals, 0)
 
 	// Start the agent.
-	go func() { c.Assert(a.Run(nil), jc.ErrorIsNil) }()
+	ctx := cmdtesting.Context(c)
+	go func() { c.Assert(a.Run(ctx), jc.ErrorIsNil) }()
 	defer a.Stop()
 
 	foundLogs := s.waitForLogs(c, u.Tag())

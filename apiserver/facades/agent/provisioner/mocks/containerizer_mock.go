@@ -5,12 +5,12 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
+	network "github.com/juju/juju/core/network"
 	containerizer "github.com/juju/juju/network/containerizer"
 	state "github.com/juju/juju/state"
 	charm_v6 "gopkg.in/juju/charm.v6"
+	reflect "reflect"
 )
 
 // MockLinkLayerDevice is a mock of LinkLayerDevice interface
@@ -148,9 +148,9 @@ func (mr *MockLinkLayerDeviceMockRecorder) ParentName() *gomock.Call {
 }
 
 // Type mocks base method
-func (m *MockLinkLayerDevice) Type() state.LinkLayerDeviceType {
+func (m *MockLinkLayerDevice) Type() network.LinkLayerDeviceType {
 	ret := m.ctrl.Call(m, "Type")
-	ret0, _ := ret[0].(state.LinkLayerDeviceType)
+	ret0, _ := ret[0].(network.LinkLayerDeviceType)
 	return ret0
 }
 
@@ -242,6 +242,19 @@ func (m *MockApplication) Charm() (containerizer.Charm, bool, error) {
 // Charm indicates an expected call of Charm
 func (mr *MockApplicationMockRecorder) Charm() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Charm", reflect.TypeOf((*MockApplication)(nil).Charm))
+}
+
+// EndpointBindings mocks base method
+func (m *MockApplication) EndpointBindings() (map[string]string, error) {
+	ret := m.ctrl.Call(m, "EndpointBindings")
+	ret0, _ := ret[0].(map[string]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EndpointBindings indicates an expected call of EndpointBindings
+func (mr *MockApplicationMockRecorder) EndpointBindings() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndpointBindings", reflect.TypeOf((*MockApplication)(nil).EndpointBindings))
 }
 
 // Name mocks base method

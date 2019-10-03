@@ -89,11 +89,9 @@ func (s *networkSuite) TestFirewallSpec(c *gc.C) {
 func (s *networkSuite) TestExtractAddresses(c *gc.C) {
 	addresses := google.ExtractAddresses(&s.NetworkInterface)
 
-	c.Check(addresses, jc.DeepEquals, []network.Address{{
-		Value: "10.0.0.1",
-		Type:  network.IPv4Address,
-		Scope: network.ScopeCloudLocal,
-	}})
+	c.Check(addresses, jc.DeepEquals, []network.ProviderAddress{
+		network.NewScopedProviderAddress("10.0.0.1", network.ScopeCloudLocal),
+	})
 }
 
 func (s *networkSuite) TestExtractAddressesExternal(c *gc.C) {
@@ -101,11 +99,9 @@ func (s *networkSuite) TestExtractAddressesExternal(c *gc.C) {
 	s.NetworkInterface.AccessConfigs[0].NatIP = "8.8.8.8"
 	addresses := google.ExtractAddresses(&s.NetworkInterface)
 
-	c.Check(addresses, jc.DeepEquals, []network.Address{{
-		Value: "8.8.8.8",
-		Type:  network.IPv4Address,
-		Scope: network.ScopePublic,
-	}})
+	c.Check(addresses, jc.DeepEquals, []network.ProviderAddress{
+		network.NewScopedProviderAddress("8.8.8.8", network.ScopePublic),
+	})
 }
 
 func (s *networkSuite) TestExtractAddressesEmpty(c *gc.C) {

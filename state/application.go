@@ -1792,7 +1792,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 				containerDoc.ProviderId = *args.providerId
 			}
 			if args.address != nil {
-				networkAddr := network.NewScopedAddress(*args.address, network.ScopeMachineLocal)
+				networkAddr := network.NewScopedSpaceAddress(*args.address, network.ScopeMachineLocal)
 				addr := fromNetworkAddress(networkAddr, OriginProvider)
 				containerDoc.Address = &addr
 			}
@@ -3128,7 +3128,7 @@ func (a *Application) SetAgentPresence() (*presence.Pinger, error) {
 }
 
 // UpdateCloudService updates the cloud service details for the application.
-func (a *Application) UpdateCloudService(providerId string, addresses []network.Address) error {
+func (a *Application) UpdateCloudService(providerId string, addresses []network.SpaceAddress) error {
 	_, err := a.st.SaveCloudService(SaveCloudServiceArgs{
 		Id:         a.Name(),
 		ProviderId: providerId,

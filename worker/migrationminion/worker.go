@@ -112,11 +112,11 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() error {
-	watcher, err := w.config.Facade.Watch()
+	watch, err := w.config.Facade.Watch()
 	if err != nil {
 		return errors.Annotate(err, "setting up watcher")
 	}
-	if err := w.catacomb.Add(watcher); err != nil {
+	if err := w.catacomb.Add(watch); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -124,7 +124,7 @@ func (w *Worker) loop() error {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case status, ok := <-watcher.Changes():
+		case status, ok := <-watch.Changes():
 			if !ok {
 				return errors.New("watcher channel closed")
 			}
@@ -221,7 +221,7 @@ func (w *Worker) validate(status watcher.MigrationStatus) error {
 		// migrationmaster that things didn't work out.
 		return errors.Annotate(err, "failed to open API to target controller")
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// Ask the agent to confirm that things look ok.
 	err = w.config.ValidateMigration(conn)
@@ -229,7 +229,7 @@ func (w *Worker) validate(status watcher.MigrationStatus) error {
 }
 
 func (w *Worker) doSUCCESS(status watcher.MigrationStatus) error {
-	hps, err := apiAddrsToHostPorts(status.TargetAPIAddrs)
+	hps, err := network.ParseProviderHostPorts(status.TargetAPIAddrs...)
 	if err != nil {
 		return errors.Annotate(err, "converting API addresses")
 	}
@@ -242,7 +242,7 @@ func (w *Worker) doSUCCESS(status watcher.MigrationStatus) error {
 	}
 
 	err = w.config.Agent.ChangeConfig(func(conf agent.ConfigSetter) error {
-		conf.SetAPIHostPorts(hps)
+		conf.SetAPIHostPorts([]network.HostPorts{hps.HostPorts()})
 		conf.SetCACert(status.TargetCACert)
 		return nil
 	})
@@ -253,12 +253,4 @@ func (w *Worker) report(status watcher.MigrationStatus, success bool) error {
 	logger.Debugf("reporting back for phase %s: %v", status.Phase, success)
 	err := w.config.Facade.Report(status.MigrationId, status.Phase, success)
 	return errors.Annotate(err, "failed to report phase progress")
-}
-
-func apiAddrsToHostPorts(addrs []string) ([][]network.HostPort, error) {
-	hps, err := network.ParseHostPorts(addrs...)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return [][]network.HostPort{hps}, nil
 }

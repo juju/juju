@@ -43,10 +43,10 @@ var listCloudsDoc = "" +
 	"\n" +
 	"The default behaviour is to show clouds available on the current controller.\n" +
 	"Another controller can specified using the --controller option. When no controllers\n" +
-	"are available, --local is implied.\n" +
+	"are available, --client is implied.\n" +
 	"\n" +
-	"If --local is specified, the public clouds known to Juju out of the box are displayed,\n" +
-	"along with any which have been added with `add-cloud --local`. These clouds can be\n" +
+	"If --client is specified, the public clouds known to Juju out of the box are displayed,\n" +
+	"along with any which have been added with `add-cloud --client`. These clouds can be\n" +
 	"used to create a controller.\n" +
 	"\n" +
 	"Clouds may be listed that are co-hosted with the Juju client.  When the LXD hypervisor\n" +
@@ -79,7 +79,7 @@ Examples:
     juju clouds
     juju clouds --format yaml
     juju clouds --controller mycontroller
-    juju clouds --local
+    juju clouds --client
 
 See also:
     add-cloud
@@ -140,7 +140,7 @@ func (c *listCloudsCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init populates the command with the args from the command line.
 func (c *listCloudsCommand) Init(args []string) (err error) {
-	c.controllerName, err = c.ControllerNameFromArg()
+	c.ControllerName, err = c.ControllerNameFromArg()
 	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
 		return errors.Trace(err)
 	}
@@ -148,7 +148,7 @@ func (c *listCloudsCommand) Init(args []string) (err error) {
 }
 
 func (c *listCloudsCommand) getCloudList() (*cloudList, error) {
-	if c.controllerName == "" {
+	if c.ControllerName == "" {
 		details, err := listCloudDetails(c.Store)
 
 		if err != nil {
@@ -157,7 +157,7 @@ func (c *listCloudsCommand) getCloudList() (*cloudList, error) {
 		return details, nil
 	}
 
-	api, err := c.listCloudsAPIFunc(c.controllerName)
+	api, err := c.listCloudsAPIFunc(c.ControllerName)
 	if err != nil {
 		return nil, err
 	}
@@ -189,13 +189,13 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 		}
 		result = clouds
 	default:
-		if c.controllerName == "" && !c.Local {
+		if c.ControllerName == "" && !c.Local {
 			ctxt.Infof(
 				"There are no controllers running.\nYou can bootstrap a new controller using one of these clouds:\n")
 		}
-		if c.controllerName != "" {
+		if c.ControllerName != "" {
 			ctxt.Infof(
-				"Clouds on controller %q:\n\n", c.controllerName)
+				"Clouds on controller %q:\n\n", c.ControllerName)
 		}
 		result = details
 	}

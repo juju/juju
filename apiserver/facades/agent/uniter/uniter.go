@@ -7,7 +7,9 @@ package uniter
 import (
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -55,6 +57,8 @@ type UniterAPI struct {
 	meterstatus.MeterStatus
 	m                   *state.Model
 	st                  *state.State
+	clock               clock.Clock
+	cancel              <-chan struct{}
 	auth                facade.Authorizer
 	resources           facade.Resources
 	leadershipChecker   leadership.Checker
@@ -139,6 +143,7 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		return nil, common.ErrPerm
 	}
 	st := context.State()
+	clock := context.StatePool().Clock()
 	resources := context.Resources()
 	leadershipChecker, err := context.LeadershipChecker()
 	if err != nil {
@@ -197,8 +202,10 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		// own status *and* its application's? This is not a pleasing arrangement.
 		StatusAPI: NewStatusAPI(st, accessUnitOrApplication, leadershipChecker),
 
-		st:                st,
 		m:                 m,
+		st:                st,
+		clock:             clock,
+		cancel:            context.Cancel(),
 		cacheModel:        cacheModel,
 		auth:              authorizer,
 		resources:         resources,
@@ -423,7 +430,7 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringResults, e
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				var address corenetwork.Address
+				var address corenetwork.SpaceAddress
 				address, err = unit.PublicAddress()
 				if err == nil {
 					result.Results[i].Result = address.Value
@@ -457,7 +464,7 @@ func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringResults, 
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				var address corenetwork.Address
+				var address corenetwork.SpaceAddress
 				address, err = unit.PrivateAddress()
 				if err == nil {
 					result.Results[i].Result = address.Value
@@ -806,11 +813,38 @@ func (u *UniterAPI) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorResul
 				if err == nil {
 					err = unit.SetCharmURL(curl)
 				}
+				if err == nil {
+					// Wait for the change to propagate to the cache controller.
+					err = u.waitForControllerCharmURL(unit.Name(), curl.String())
+				}
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+func (u *UniterAPI) waitForControllerCharmURL(unit, curl string) error {
+	// One minute is excessively long, but the cache may need to refresh.
+	// In any normal operation, this should be sub-second, although if no changes
+	// were happening recently, it could be theoretically up to five seconds.
+	timeout := u.clock.After(time.Minute)
+	cancel := make(chan struct{})
+	done := u.cacheModel.WaitForUnit(unit, func(u *cache.Unit) bool {
+		return u.CharmURL() == curl
+	}, cancel)
+
+	select {
+	case <-done:
+		return nil
+	case <-u.cancel:
+		// The API server is stopping, so don't wait any longer.
+		close(cancel)
+		return errors.Timeoutf("apiserver stopping, unit change %s.CharmURL to %q", unit, curl)
+	case <-timeout:
+		close(cancel)
+		return errors.Timeoutf("unit change %s.CharmURL to %q", unit, curl)
+	}
 }
 
 // WorkloadVersion returns the workload version for all given units or applications.
@@ -1024,8 +1058,8 @@ func (u *UniterAPI) ConfigSettings(args params.Entities) (params.ConfigSettingsR
 		}
 		err = common.ErrPerm
 		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.getUnit(tag)
+			var unit cache.Unit
+			unit, err = u.getCacheUnit(tag)
 			if err == nil {
 				var settings charm.Settings
 				settings, err = unit.ConfigSettings()
@@ -1131,6 +1165,36 @@ func (u *UniterAPI) FinishActions(args params.ActionExecutionResults) (params.Er
 
 	actionFn := common.AuthAndActionFromTagFn(canAccess, m.ActionByTag)
 	return common.FinishActions(args, actionFn), nil
+}
+
+// LogActionsMessages records the log messages against the specified actions.
+func (u *UniterAPI) LogActionsMessages(args params.ActionMessageParams) (params.ErrorResults, error) {
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	m, err := u.st.Model()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	actionFn := common.AuthAndActionFromTagFn(canAccess, m.ActionByTag)
+
+	oneActionMessage := func(actionTag string, message string) error {
+		action, err := actionFn(actionTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return action.Log(message)
+	}
+
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Messages)),
+	}
+	for i, actionMessage := range args.Messages {
+		result.Results[i].Error = common.ServerError(
+			oneActionMessage(actionMessage.Tag, actionMessage.Value))
+	}
+	return result, nil
 }
 
 // RelationById returns information about all given relations,
@@ -1465,7 +1529,8 @@ func (u *UniterAPI) ReadSettings(args params.RelationUnits) (params.SettingsResu
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			isPeerRelation := len(relation.Endpoints()) == 1
+			endpoints := relation.Endpoints()
+			isPeerRelation := len(endpoints) == 1 && endpoints[0].Role == charm.RolePeer
 			token := u.leadershipChecker.LeadershipCheck(tag.Id(), u.auth.GetAuthTag().Id())
 			canAccess := func(tag names.Tag) bool {
 				if !canAccessApp(tag) {
@@ -1878,6 +1943,11 @@ func (u *UniterAPIV8) WatchUnitAddresses(args params.Entities) (params.NotifyWat
 
 func (u *UniterAPI) getUnit(tag names.UnitTag) (*state.Unit, error) {
 	return u.st.Unit(tag.Id())
+}
+
+func (u *UniterAPI) getCacheUnit(tag names.UnitTag) (cache.Unit, error) {
+	unit, err := u.cacheModel.Unit(tag.Id())
+	return unit, errors.Trace(err)
 }
 
 func (u *UniterAPI) getApplication(tag names.ApplicationTag) (*state.Application, error) {
@@ -3039,13 +3109,13 @@ func (u *UniterAPI) WatchConfigSettingsHash(args params.Entities) (params.String
 			continue
 		}
 
-		unit, err := u.getUnit(tag)
+		unit, err := u.getCacheUnit(tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 
-		w, err := unit.WatchConfigSettingsHash()
+		w, err := unit.WatchConfigSettings()
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue

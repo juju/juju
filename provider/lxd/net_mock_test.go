@@ -5,9 +5,8 @@
 package lxd
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockAddr is a mock of Addr interface

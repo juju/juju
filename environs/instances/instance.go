@@ -20,7 +20,7 @@ type Instance interface {
 
 	// Addresses returns a list of hostnames or ip addresses
 	// associated with the instance.
-	Addresses(context.ProviderCallContext) ([]corenetwork.Address, error)
+	Addresses(context.ProviderCallContext) (corenetwork.ProviderAddresses, error)
 }
 
 // InstanceFirewaller provides instance-level firewall functionality

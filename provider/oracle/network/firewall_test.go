@@ -849,7 +849,6 @@ func (f *firewallSuite) TestDeleteMachineSecList(c *gc.C) {
 }
 
 func (f *firewallSuite) TestDeleteMachineSecListWithErrors(c *gc.C) {
-
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 
 	for _, fake := range []*providertest.FakeFirewallAPI{

@@ -80,9 +80,9 @@ func WaitForAgentInitialisation(
 	addressInfo := ""
 	controller, err := c.ClientStore().ControllerByName(controllerName)
 	if err == nil && len(controller.APIEndpoints) > 0 {
-		addr, err := network.ParseHostPort(controller.APIEndpoints[0])
+		addr, err := network.ParseMachineHostPort(controller.APIEndpoints[0])
 		if err == nil {
-			addressInfo = fmt.Sprintf(" at %s", addr.Address.Value)
+			addressInfo = fmt.Sprintf(" at %s", addr.Host())
 		}
 	}
 
@@ -129,7 +129,9 @@ func WaitForAgentInitialisation(
 }
 
 // BootstrapEndpointAddresses returns the addresses of the bootstrapped instance.
-func BootstrapEndpointAddresses(environ environs.InstanceBroker, callContext context.ProviderCallContext) ([]network.Address, error) {
+func BootstrapEndpointAddresses(
+	environ environs.InstanceBroker, callContext context.ProviderCallContext,
+) ([]network.ProviderAddress, error) {
 	instances, err := environ.AllRunningInstances(callContext)
 	if err != nil {
 		return nil, errors.Trace(err)

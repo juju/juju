@@ -11,9 +11,10 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	utilexec "github.com/juju/utils/exec"
-	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/worker/uniter"
@@ -63,10 +64,6 @@ func ensureSymlink(
 	return errors.Trace(err)
 }
 
-type unitOperatorInfo struct {
-	OperatorAddress string `yaml:"operator-address"`
-}
-
 type workloadPathSpec struct {
 	src, dest string
 }
@@ -87,27 +84,30 @@ func prepare(
 	serviceAddress string,
 	operatorPaths Paths,
 	unitPaths uniter.Paths,
+	operatorInfo caas.OperatorInfo,
 	stdout io.ReadWriter,
 	stderr io.Writer,
 	cancel <-chan struct{},
 ) error {
 	// TODO(caas) - quick check to see if files have already been copied across.
 	// upgrade-charm and upgrade-juju will need to ensure files are up-to-date.
-	operatorFile := filepath.Join(unitPaths.State.BaseDir, provider.OperatorInfoFile)
-	if err := client.Exec(
+	operatorFile := filepath.Join(unitPaths.State.BaseDir, caas.OperatorClientInfoFile)
+	err := client.Exec(
 		exec.ExecParams{
 			PodName:  podName,
-			Commands: []string{"test", "-f", operatorFile, "||", "echo notfound"},
+			Commands: []string{"test", "-f", operatorFile},
 			Stdout:   stdout,
 			Stderr:   stderr,
 		},
 		cancel,
-	); err != nil {
+	)
+	if exitErr, ok := errors.Cause(err).(exec.ExitError); ok {
+		if exitErr.ExitStatus() != 1 {
+			return errors.Trace(err)
+		}
+	} else if err != nil {
 		return errors.Trace(err)
-	}
-	var o bytes.Buffer
-	_, err := o.ReadFrom(stdout)
-	if err == nil && len(o.Bytes()) == 0 {
+	} else {
 		return nil
 	}
 
@@ -138,31 +138,6 @@ func prepare(
 		}
 	}
 
-	// Create the operator.yaml file containing the operator service address.
-	if err := ensurePath(client, podName, unitPaths.State.BaseDir, stdout, stderr, cancel); err != nil {
-		return errors.Trace(err)
-	}
-	opInfo := unitOperatorInfo{OperatorAddress: serviceAddress}
-	data, err := yaml.Marshal(opInfo)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	operatorFileSrc := filepath.Join(os.TempDir(), provider.OperatorInfoFile)
-	if err := ioutil.WriteFile(operatorFileSrc, data, 0644); err != nil {
-		return errors.Trace(err)
-	}
-	if err := client.Copy(exec.CopyParam{
-		Src: exec.FileResource{
-			Path: operatorFileSrc,
-		},
-		Dest: exec.FileResource{
-			Path:    operatorFile,
-			PodName: podName,
-		},
-	}, cancel); err != nil {
-		return errors.Trace(err)
-	}
-
 	// set up the symlinks to jujud (hook commands and juju-run etc).
 	jujudPath := filepath.Join(unitPaths.ToolsDir, "jujud")
 	for _, slk := range jujudSymlinks {
@@ -177,6 +152,57 @@ func prepare(
 		}
 	}
 
+	// Ensure unit dir exists for operator-client.yaml and ca.crt file.
+	if err := ensurePath(client, podName, unitPaths.State.BaseDir, stdout, stderr, cancel); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Create the ca.crt file containing the cluster's CA cert.
+	tempCACertFile := filepath.Join(os.TempDir(), caas.CACertFile)
+	if err := ioutil.WriteFile(tempCACertFile, []byte(operatorInfo.CACert), 0644); err != nil {
+		return errors.Trace(err)
+	}
+	if err := client.Copy(exec.CopyParam{
+		Src: exec.FileResource{
+			Path: tempCACertFile,
+		},
+		Dest: exec.FileResource{
+			Path:    filepath.Join(unitPaths.State.BaseDir, caas.CACertFile),
+			PodName: podName,
+		},
+	}, cancel); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Create the operator.yaml file containing the operator service address and token.
+	token, err := utils.RandomPassword()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	clientInfo := caas.OperatorClientInfo{
+		ServiceAddress: serviceAddress,
+		Token:          token,
+	}
+	data, err := clientInfo.Marshal()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	operatorCacheFile := filepath.Join(unitPaths.State.BaseDir, caas.OperatorClientInfoCacheFile)
+	if err := ioutil.WriteFile(operatorCacheFile, data, 0644); err != nil {
+		return errors.Trace(err)
+	}
+	if err := client.Copy(exec.CopyParam{
+		Src: exec.FileResource{
+			Path: operatorCacheFile,
+		},
+		Dest: exec.FileResource{
+			Path:    operatorFile,
+			PodName: podName,
+		},
+	}, cancel); err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }
 
@@ -185,10 +211,10 @@ func prepare(
 func getNewRunnerExecutor(
 	execClient exec.Executor,
 	operatorPaths Paths,
+	operatorInfo caas.OperatorInfo,
 ) uniter.NewRunnerExecutorFunc {
 	return func(providerIDGetter uniter.ProviderIDGetter, unitPaths uniter.Paths) runner.ExecFunc {
 		return func(params runner.ExecParams) (*utilexec.ExecResponse, error) {
-
 			if err := providerIDGetter.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -203,7 +229,7 @@ func getNewRunnerExecutor(
 			logger.Debugf("operator service address: %v", serviceAddress)
 			if err := prepare(
 				execClient, podNameOrID, serviceAddress,
-				operatorPaths, unitPaths,
+				operatorPaths, unitPaths, operatorInfo,
 				params.Stdout, params.Stderr, params.Cancel,
 			); err != nil {
 				logger.Errorf("ensuring dirs and syncing files %v", err)
@@ -211,7 +237,7 @@ func getNewRunnerExecutor(
 			}
 
 			// juju run - return stdout and stderr to ExecResponse.
-			if err := execClient.Exec(
+			exitErr := execClient.Exec(
 				exec.ExecParams{
 					PodName:    podNameOrID,
 					Commands:   params.Commands,
@@ -221,8 +247,13 @@ func getNewRunnerExecutor(
 					Stderr:     params.Stderr,
 				},
 				params.Cancel,
-			); err != nil {
-				return nil, errors.Trace(err)
+			)
+			exitErr = errors.Cause(exitErr)
+			if params.StdoutLogger != nil {
+				params.StdoutLogger.Stop()
+			}
+			if params.StderrLogger != nil {
+				params.StderrLogger.Stop()
 			}
 
 			readBytes := func(r io.Reader) []byte {
@@ -230,13 +261,20 @@ func getNewRunnerExecutor(
 				o.ReadFrom(r)
 				return o.Bytes()
 			}
-			if params.ProcessResponse {
-				return &utilexec.ExecResponse{
-					Stdout: readBytes(params.Stdout),
-					Stderr: readBytes(params.Stderr),
-				}, nil
+			exitCode := func(exitErr error) int {
+				if exitErr != nil {
+					if exitErr, ok := exitErr.(exec.ExitError); ok {
+						return exitErr.ExitStatus()
+					}
+					return -1
+				}
+				return 0
 			}
-			return &utilexec.ExecResponse{}, nil
+			return &utilexec.ExecResponse{
+				Code:   exitCode(exitErr),
+				Stdout: readBytes(params.Stdout),
+				Stderr: readBytes(params.Stderr),
+			}, exitErr
 		}
 	}
 }

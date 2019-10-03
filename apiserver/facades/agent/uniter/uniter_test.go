@@ -119,14 +119,22 @@ func (s *uniterSuiteBase) setupState(c *gc.C) {
 	})
 }
 
-func (s *uniterSuiteBase) newUniterAPI(c *gc.C, st *state.State, auth facade.Authorizer) *uniter.UniterAPI {
-	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
-		Controller_:        s.Controller,
-		State_:             st,
+func (s *uniterSuiteBase) facadeContext() facadetest.Context {
+	return facadetest.Context{
+		State_:             s.State,
+		StatePool_:         s.StatePool,
 		Resources_:         s.resources,
-		Auth_:              auth,
+		Auth_:              s.authorizer,
 		LeadershipChecker_: s.State.LeadershipChecker(),
-	})
+		Controller_:        s.Controller,
+	}
+}
+
+func (s *uniterSuiteBase) newUniterAPI(c *gc.C, st *state.State, auth facade.Authorizer) *uniter.UniterAPI {
+	context := s.facadeContext()
+	context.State_ = st
+	context.Auth_ = auth
+	uniterAPI, err := uniter.NewUniterAPI(context)
 	c.Assert(err, jc.ErrorIsNil)
 	return uniterAPI
 }
@@ -199,11 +207,9 @@ var _ = gc.Suite(&uniterSuite{})
 func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("9")
-	_, err := uniter.NewUniterAPI(facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      anAuthorizer,
-	})
+	context := s.facadeContext()
+	context.Auth_ = anAuthorizer
+	_, err := uniter.NewUniterAPI(context)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -525,7 +531,7 @@ func (s *uniterSuite) TestPublicAddress(c *gc.C) {
 
 	// Now set it an try again.
 	err = s.machine0.SetProviderAddresses(
-		network.NewScopedAddress("1.2.3.4", network.ScopePublic),
+		network.NewScopedSpaceAddress("1.2.3.4", network.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	address, err := s.wordpressUnit.PublicAddress()
@@ -565,7 +571,7 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 
 	// Now set it and try again.
 	err = s.machine0.SetProviderAddresses(
-		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	address, err := s.wordpressUnit.PrivateAddress()
@@ -587,7 +593,7 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 // all the spaces set up.
 func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 	err := s.machine0.SetProviderAddresses(
-		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -887,6 +893,13 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 			{apiservertesting.ErrUnauthorized},
 		},
 	})
+	// The controller cache will have the charm url set by the time
+	// the SetCharmURL method returns.
+	model, err := s.Controller.Model(s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	unit, err := model.Unit("wordpress/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.CharmURL(), gc.Equals, s.wpCharm.String())
 
 	// Verify the charm URL was set.
 	err = s.wordpressUnit.Refresh()
@@ -1039,6 +1052,8 @@ func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
@@ -1051,7 +1066,7 @@ func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{
 				StringsWatcherId: "1",
-				Changes:          []string{"af35e298300150f2c357b4a1c40c1109bde305841c6343113b634b9dada22d00"},
+				Changes:          []string{"754ed70cf17d2df2cc6a2dcb6cbfcb569a8357b97b5708e7a7ca0409505e1d0b"},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
@@ -1106,6 +1121,38 @@ func (s *uniterSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 	// the Watch call)
 	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
+}
+
+func (s *uniterSuite) TestLogActionMessage(c *gc.C) {
+	anAction, err := s.wordpressUnit.AddAction("fakeaction", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(anAction.Messages(), gc.HasLen, 0)
+	_, err = anAction.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+
+	wrongAction, err := s.mysqlUnit.AddAction("fakeaction", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.ActionMessageParams{Messages: []params.EntityString{
+		{Tag: anAction.Tag().String(), Value: "hello"},
+		{Tag: wrongAction.Tag().String(), Value: "world"},
+		{Tag: "foo-42", Value: "mars"},
+	}}
+	result, err := s.uniter.LogActionsMessages(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{Message: `"foo-42" is not a valid tag`}},
+		},
+	})
+	anAction, err = s.Model.Action(anAction.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	messages := anAction.Messages()
+	c.Assert(messages, gc.HasLen, 1)
+	c.Assert(messages[0].Message, gc.Equals, "hello")
+	c.Assert(messages[0].Timestamp, gc.NotNil)
 }
 
 func (s *uniterSuite) TestWatchActionNotifications(c *gc.C) {
@@ -1240,6 +1287,8 @@ func (s *uniterSuite) TestWatchActionNotificationsPermissionDenied(c *gc.C) {
 func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	settings, err := s.wordpressUnit.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1860,7 +1909,7 @@ func (s *uniterSuite) TestProviderType(c *gc.C) {
 func (s *uniterSuite) TestEnterScope(c *gc.C) {
 	// Set wordpressUnit's private address first.
 	err := s.machine0.SetProviderAddresses(
-		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2687,6 +2736,7 @@ func (s *uniterSuite) TestWatchRelationApplicationSettings(c *gc.C) {
 	err = relUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, relUnit, true)
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	args := params.RelationApplications{RelationApplications: []params.RelationApplication{{
 		Relation:    rel.Tag().String(),
@@ -2773,6 +2823,7 @@ func (s *uniterSuite) TestWatchRelationApplicationSettingsPeerRelation(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	err = relUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	auth := apiservertesting.FakeAuthorizer{Tag: riakUnit.Tag()}
 	uniter := s.newUniterAPI(c, s.State, auth)
@@ -2875,8 +2926,8 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 }
 
 func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
-	hostPorts := [][]network.HostPort{
-		network.NewHostPorts(1234, "0.1.2.3"),
+	hostPorts := []network.SpaceHostPorts{
+		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3254,8 +3305,8 @@ func (s *uniterSuite) setupRemoteRelationScenario(c *gc.C) (names.Tag, *state.Re
 
 	// Set mysql's addresses first.
 	err := s.machine1.SetProviderAddresses(
-		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
+		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -3300,7 +3351,7 @@ func (s *uniterSuite) TestPrivateAddressWithRemoteRelationNoPublic(c *gc.C) {
 	thisUniter := s.makeMysqlUniter(c)
 	// Set mysql's addresses - no public address.
 	err := s.machine1.SetProviderAddresses(
-		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -3413,13 +3464,7 @@ func (s *uniterSuite) TestV4WatchApplicationRelations(c *gc.C) {
 		{Tag: "application-wordpress"},
 		{Tag: "application-foo"},
 	}}
-	apiV4, err := uniter.NewUniterAPIV4(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-		Controller_:        s.Controller,
-	})
+	apiV4, err := uniter.NewUniterAPIV4(s.facadeContext())
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := apiV4.WatchApplicationRelations(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3449,13 +3494,7 @@ func (s *uniterSuite) TestV5Relation(c *gc.C) {
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0"},
 	}}
-	apiV5, err := uniter.NewUniterAPIV5(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-		Controller_:        s.Controller,
-	})
+	apiV5, err := uniter.NewUniterAPIV5(s.facadeContext())
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := apiV5.Relation(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3480,13 +3519,7 @@ func (s *uniterSuite) TestV5RelationById(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.RelationIds{RelationIds: []int{rel.Id()}}
-	apiV5, err := uniter.NewUniterAPIV5(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-		Controller_:        s.Controller,
-	})
+	apiV5, err := uniter.NewUniterAPIV5(s.facadeContext())
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := apiV5.RelationById(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3788,9 +3821,9 @@ func (s *uniterNetworkConfigSuite) addProvisionedMachineWithDevicesAndAddresses(
 	machineAddrs, err := machine.AllAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 
-	netAddrs := make([]network.Address, len(machineAddrs))
+	netAddrs := make([]network.SpaceAddress, len(machineAddrs))
 	for i, addr := range machineAddrs {
-		netAddrs[i] = network.NewAddress(addr.Value())
+		netAddrs[i] = network.NewSpaceAddress(addr.Value())
 	}
 	err = machine.SetProviderAddresses(netAddrs...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3801,17 +3834,17 @@ func (s *uniterNetworkConfigSuite) addProvisionedMachineWithDevicesAndAddresses(
 func (s *uniterNetworkConfigSuite) makeMachineDevicesAndAddressesArgs(addrSuffix int) ([]state.LinkLayerDeviceArgs, []state.LinkLayerDeviceAddress) {
 	return []state.LinkLayerDeviceArgs{{
 			Name: "eth0",
-			Type: state.EthernetDevice,
+			Type: network.EthernetDevice,
 		}, {
 			Name:       "eth0.100",
-			Type:       state.VLAN_8021QDevice,
+			Type:       network.VLAN8021QDevice,
 			ParentName: "eth0",
 		}, {
 			Name: "eth1",
-			Type: state.EthernetDevice,
+			Type: network.EthernetDevice,
 		}, {
 			Name:       "eth1.100",
-			Type:       state.VLAN_8021QDevice,
+			Type:       network.VLAN8021QDevice,
 			ParentName: "eth1",
 		}},
 		[]state.LinkLayerDeviceAddress{{
@@ -3841,13 +3874,7 @@ func (s *uniterNetworkConfigSuite) setupUniterAPIForUnit(c *gc.C, givenUnit *sta
 	}
 
 	var err error
-	s.uniterv4, err = uniter.NewUniterAPIV4(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-		Controller_:        s.Controller,
-	})
+	s.uniterv4, err = uniter.NewUniterAPIV4(s.facadeContext())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -4046,9 +4073,9 @@ func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c 
 	machineAddrs, err := machine.AllAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 
-	netAddrs := make([]network.Address, len(machineAddrs))
+	netAddrs := make([]network.SpaceAddress, len(machineAddrs))
 	for i, addr := range machineAddrs {
-		netAddrs[i] = network.NewAddress(addr.Value())
+		netAddrs[i] = network.NewSpaceAddress(addr.Value())
 	}
 	err = machine.SetProviderAddresses(netAddrs...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4059,33 +4086,33 @@ func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c 
 func (s *uniterNetworkInfoSuite) makeMachineDevicesAndAddressesArgs(addrSuffix int) ([]state.LinkLayerDeviceArgs, []state.LinkLayerDeviceAddress) {
 	return []state.LinkLayerDeviceArgs{{
 			Name:       "eth0",
-			Type:       state.EthernetDevice,
+			Type:       network.EthernetDevice,
 			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:50", addrSuffix),
 		}, {
 			Name:       "eth0.100",
-			Type:       state.VLAN_8021QDevice,
+			Type:       network.VLAN8021QDevice,
 			ParentName: "eth0",
 			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:50", addrSuffix),
 		}, {
 			Name:       "eth1",
-			Type:       state.EthernetDevice,
+			Type:       network.EthernetDevice,
 			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:51", addrSuffix),
 		}, {
 			Name:       "eth1.100",
-			Type:       state.VLAN_8021QDevice,
+			Type:       network.VLAN8021QDevice,
 			ParentName: "eth1",
 			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:51", addrSuffix),
 		}, {
 			Name:       "eth2",
-			Type:       state.EthernetDevice,
+			Type:       network.EthernetDevice,
 			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:52", addrSuffix),
 		}, {
 			Name:       "eth3",
-			Type:       state.EthernetDevice,
+			Type:       network.EthernetDevice,
 			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:53", addrSuffix),
 		}, {
 			Name:       "eth4",
-			Type:       state.EthernetDevice,
+			Type:       network.EthernetDevice,
 			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:54", addrSuffix),
 		}},
 		[]state.LinkLayerDeviceAddress{{
@@ -4493,13 +4520,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoV6Results(c *gc.C) {
 		},
 	}
 
-	apiV6, err := uniter.NewUniterAPIV6(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-		Controller_:        s.Controller,
-	})
+	apiV6, err := uniter.NewUniterAPIV6(s.facadeContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := apiV6.NetworkInfo(args)
@@ -4533,9 +4554,9 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 	err = gitlab.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = gitlab.UpdateCloudService("", []network.Address{
-		{Value: "192.168.1.2", Scope: network.ScopeCloudLocal},
-		{Value: "54.32.1.2", Scope: network.ScopePublic},
+	err = gitlab.UpdateCloudService("", []network.SpaceAddress{
+		network.NewScopedSpaceAddress("192.168.1.2", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("54.32.1.2", network.ScopePublic),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -4579,9 +4600,9 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 	err := wp.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = wp.UpdateCloudService("", []network.Address{
-		{Value: "192.168.1.2", Scope: network.ScopeCloudLocal},
-		{Value: "54.32.1.2", Scope: network.ScopePublic},
+	err = wp.UpdateCloudService("", []network.SpaceAddress{
+		network.NewScopedSpaceAddress("192.168.1.2", network.ScopeCloudLocal),
+		network.NewScopedSpaceAddress("54.32.1.2", network.ScopePublic),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -4679,13 +4700,7 @@ var _ = gc.Suite(&uniterV8Suite{})
 func (s *uniterV8Suite) SetUpTest(c *gc.C) {
 	s.uniterSuiteBase.SetUpTest(c)
 
-	uniterV8, err := uniter.NewUniterAPIV8(facadetest.Context{
-		State_:             s.State,
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-		Controller_:        s.Controller,
-	})
+	uniterV8, err := uniter.NewUniterAPIV8(s.facadeContext())
 	c.Assert(err, jc.ErrorIsNil)
 	s.uniterV8 = uniterV8
 }
@@ -4768,13 +4783,9 @@ func (s *uniterV8Suite) TestWatchCAASUnitAddresses(c *gc.C) {
 		{Tag: "application-gitlab"},
 	}}
 
-	uniterAPI, err := uniter.NewUniterAPIV8(facadetest.Context{
-		State_:             cm.State(),
-		Resources_:         s.resources,
-		Auth_:              s.authorizer,
-		LeadershipChecker_: s.State.LeadershipChecker(),
-		Controller_:        s.Controller,
-	})
+	context := s.facadeContext()
+	context.State_ = cm.State()
+	uniterAPI, err := uniter.NewUniterAPIV8(context)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := uniterAPI.WatchUnitAddresses(args)
@@ -4814,6 +4825,7 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 
 	_, err := uniter.NewUniterAPI(facadetest.Context{
 		State_:             s.State,
+		StatePool_:         s.StatePool,
 		Resources_:         resources,
 		Auth_:              apiservertesting.FakeAuthorizer{Tag: names.NewUnitTag("nomatter/0")},
 		LeadershipChecker_: s.State.LeadershipChecker(),

@@ -907,7 +907,7 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine, appStatusInfo 
 		if err != nil {
 			// Usually this indicates that no addresses have been set on the
 			// machine yet.
-			addr = network.Address{}
+			addr = network.SpaceAddress{}
 			logger.Debugf("error fetching public address: %q", err)
 		}
 		status.DNSName = addr.Value
@@ -1309,7 +1309,7 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 		if err != nil {
 			// Usually this indicates that no addresses have been set on the
 			// machine yet.
-			addr = network.Address{}
+			addr = network.SpaceAddress{}
 			logger.Debugf("error fetching public address: %v", err)
 		}
 		result.PublicAddress = addr.Value

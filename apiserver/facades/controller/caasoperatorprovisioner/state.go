@@ -15,13 +15,16 @@ import (
 // CAASOperatorProvisionerState provides the subset of global state
 // required by the CAAS operator provisioner facade.
 type CAASOperatorProvisionerState interface {
+	network.SpaceLookup
+
 	ControllerConfig() (controller.Config, error)
+	StateServingInfo() (state.StateServingInfo, error)
 	WatchApplications() state.StringsWatcher
 	FindEntity(tag names.Tag) (state.Entity, error)
 	Addresses() ([]string, error)
 	ModelUUID() string
 	Model() (Model, error)
-	APIHostPortsForAgents() ([][]network.HostPort, error)
+	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
 }
 

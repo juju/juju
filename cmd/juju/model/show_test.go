@@ -655,11 +655,11 @@ func (s *ShowCommandSuite) assertShowOutput(c *gc.C, format string) {
 }
 
 func (s *ShowCommandSuite) TestHandleRedirectError(c *gc.C) {
-	nhp := network.NewHostPorts(5555, "1.2.3.4")
+	nhp, _ := network.ParseMachineHostPort("1.2.3.4:5555")
 	caFingerprint, _ := cert.Fingerprint(testing.CACert)
 	s.fake.SetErrors(
 		&api.RedirectError{
-			Servers:         [][]network.HostPort{nhp},
+			Servers:         []network.MachineHostPorts{{*nhp}},
 			CACert:          testing.CACert,
 			ControllerAlias: "target",
 		},

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/feature"
 )
 
@@ -46,7 +45,16 @@ displayed.  This is also the behavior when any negative time is given.
 // Set up the output.
 func (c *showOutputCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ActionCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
+	defaultFormatter := "yaml"
+	if featureflag.Enabled(feature.JujuV3) {
+		defaultFormatter = "plain"
+	}
+	c.out.AddFlags(f, defaultFormatter, map[string]cmd.Formatter{
+		"yaml":  cmd.FormatYaml,
+		"json":  cmd.FormatJson,
+		"plain": printPlainOutput,
+	})
+
 	f.StringVar(&c.wait, "wait", "-1s", "Wait for results")
 }
 
@@ -55,14 +63,12 @@ func (c *showOutputCommand) Info() *cmd.Info {
 		Name:    "show-action-output",
 		Args:    "<action ID>",
 		Purpose: "Show results of an action by ID.",
-		Aliases: []string{"show-operation"},
 		Doc:     showOutputDoc,
 	})
 	if featureflag.Enabled(feature.JujuV3) {
 		info.Name = "show-operation"
 		info.Args = "<operation ID>"
 		info.Purpose = "Show results of an operation by ID."
-		info.Aliases = nil
 	}
 	return info
 }
@@ -123,7 +129,13 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	return c.out.Write(ctx, FormatActionResult(result))
+	formatted := FormatActionResult(result)
+	if c.out.Name() != "plain" {
+		return c.out.Write(ctx, formatted)
+	}
+	info := make(map[string]interface{})
+	info[c.requestedId] = formatted
+	return c.out.Write(ctx, info)
 }
 
 // GetActionResult tries to repeatedly fetch an action until it is

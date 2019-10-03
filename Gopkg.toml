@@ -58,7 +58,7 @@
   name = "github.com/hashicorp/raft-boltdb"
 
 [[constraint]]
-  revision = "2ab5b6004f111b9f4792a67b14e2f03c37e0af1d"
+  revision = "3ef4201dfd2495d7a56be07a4d095fa624167067"
   name = "github.com/juju/bundlechanges"
 
 [[constraint]]
@@ -94,7 +94,7 @@
   name = "github.com/juju/os"
 
 [[constraint]]
-  revision = "6caf1fe053515833fa8d541cb8ee9b3b50ef3592"
+  revision = "cfc61ec3a3e90674af33d61655d931b13be2dea3"
   name = "github.com/juju/packaging"
 
 [[constraint]]
@@ -114,7 +114,7 @@
   name = "github.com/juju/romulus"
 
 [[constraint]]
-  revision = "ce30eb24acd2c45a1bc42208835468ca619685a9"
+  revision = "ce9dec17d28bdfde2d8c5113a201495265e3962e"
   name = "github.com/juju/testing"
 
 [[constraint]]
@@ -147,7 +147,7 @@
 
 [[constraint]]
   name = "gopkg.in/juju/charm.v6"
-  revision = "cf3ec8f263e4b35e70f76f8b660284ac26517958"
+  revision = "b62f496a731efebe602805523347d4f936a6afb7"
 
 [[constraint]]
   revision = "2adcece4e962a51e0793b8562560cf9da874026f"
@@ -158,7 +158,7 @@
   name = "gopkg.in/juju/environschema.v1"
 
 [[constraint]]
-  revision = "5ed389481ee8344db732cf8a65a8bbfeb42dc79d"
+  revision = "49183320c914a3413d7c36bfe81906ff2a1f62c0"
   name = "gopkg.in/juju/names.v3"
 
 [[constraint]]
@@ -328,7 +328,7 @@
 
 [[constraint]]
   name = "github.com/juju/ratelimit"
-  revision = "5b9ff866471762aa2ab2dced63c9fb6f53921342"
+  revision = "f60b32039441cd828005f82f3a54aafd00bc9882"
 
 [[constraint]]
   name = "github.com/juju/retry"

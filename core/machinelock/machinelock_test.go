@@ -79,7 +79,6 @@ test:
 }
 
 func (s *lockSuite) TestWaitingOutput(c *gc.C) {
-
 	s.addWaiting(c, "worker1", "being busy")
 	s.clock.Advance(time.Minute)
 	s.addWaiting(c, "worker", "")

@@ -157,8 +157,14 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	addrs, err := insts[0].Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
+
+	pAddrs := make(corenetwork.SpaceAddresses, len(addrs))
+	for i, addr := range addrs {
+		pAddrs[i] = corenetwork.SpaceAddress{MachineAddress: addr.MachineAddress}
+	}
+
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Addresses:  addrs,
+		Addresses:  pAddrs,
 		Series:     "quantal",
 		Nonce:      agent.BootstrapNonce,
 		InstanceId: dummy.BootstrapInstanceId,

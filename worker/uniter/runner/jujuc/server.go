@@ -54,6 +54,7 @@ var baseCommands = map[string]creator{
 	"action-get" + cmdSuffix:              NewActionGetCommand,
 	"action-set" + cmdSuffix:              NewActionSetCommand,
 	"action-fail" + cmdSuffix:             NewActionFailCommand,
+	"action-log" + cmdSuffix:              NewActionLogCommand,
 	"relation-ids" + cmdSuffix:            NewRelationIdsCommand,
 	"relation-list" + cmdSuffix:           NewRelationListCommand,
 	"relation-set" + cmdSuffix:            NewRelationSetCommand,
@@ -130,6 +131,8 @@ type Request struct {
 	// is empty.
 	StdinSet bool
 	Stdin    []byte
+
+	Token string
 }
 
 // CmdGetter looks up a Command implementation connected to a particular Context.
@@ -139,6 +142,7 @@ type CmdGetter func(contextId, cmdName string) (cmd.Command, error)
 type Jujuc struct {
 	mu     sync.Mutex
 	getCmd CmdGetter
+	token  string
 }
 
 // badReqErrorf returns an error indicating a bad Request.
@@ -149,6 +153,9 @@ func badReqErrorf(format string, v ...interface{}) error {
 // Main runs the Command specified by req, and fills in resp. A single command
 // is run at a time.
 func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
+	if req.Token != j.token {
+		return badReqErrorf("token does not match")
+	}
 	if req.CommandName == "" {
 		return badReqErrorf("command not specified")
 	}
@@ -205,9 +212,9 @@ type Server struct {
 // NewServer creates an RPC server bound to socketPath, which can execute
 // remote command invocations against an appropriate Context. It will not
 // actually do so until Run is called.
-func NewServer(getCmd CmdGetter, socket sockets.Socket) (*Server, error) {
+func NewServer(getCmd CmdGetter, socket sockets.Socket, token string) (*Server, error) {
 	server := rpc.NewServer()
-	if err := server.Register(&Jujuc{getCmd: getCmd}); err != nil {
+	if err := server.Register(&Jujuc{getCmd: getCmd, token: token}); err != nil {
 		return nil, err
 	}
 	listener, err := sockets.Listen(socket)

@@ -48,6 +48,8 @@ import (
 
 type baseLoginSuite struct {
 	jujutesting.JujuConnSuite
+
+	mgmtSpace *state.Space
 }
 
 func (s *baseLoginSuite) SetUpTest(c *gc.C) {
@@ -58,7 +60,8 @@ func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 
-	_, err := s.State.AddSpace("mgmt01", "", nil, false)
+	var err error
+	s.mgmtSpace, err = s.State.AddSpace("mgmt01", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.UpdateControllerConfig(map[string]interface{}{corecontroller.JujuManagementSpace: "mgmt01"}, nil)
@@ -86,7 +89,9 @@ func (s *baseLoginSuite) newMachineAndServer(c *gc.C) (*api.Info, *apiserver.Ser
 	return info, srv
 }
 
-func (s *baseLoginSuite) loginHostPorts(c *gc.C, info *api.Info) (connectedAddr string, hostPorts [][]network.HostPort) {
+func (s *baseLoginSuite) loginHostPorts(
+	c *gc.C, info *api.Info,
+) (connectedAddr string, hostPorts []network.MachineHostPorts) {
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -298,34 +303,30 @@ func (s *loginSuite) assertAgentLogin(c *gc.C, info *api.Info) {
 	connectedAddr, hostPorts := s.loginHostPorts(c, info)
 	connectedAddrHost, connectedAddrPortString, err := net.SplitHostPort(connectedAddr)
 	c.Assert(err, jc.ErrorIsNil)
+
 	connectedAddrPort, err := strconv.Atoi(connectedAddrPortString)
 	c.Assert(err, jc.ErrorIsNil)
-	connectedAddrHostPorts := [][]network.HostPort{
-		network.NewHostPorts(connectedAddrPort, connectedAddrHost),
+
+	connectedAddrHostPorts := []network.MachineHostPorts{
+		network.NewMachineHostPorts(connectedAddrPort, connectedAddrHost),
 	}
 	c.Assert(hostPorts, gc.DeepEquals, connectedAddrHostPorts)
 
 	// After storing APIHostPorts in state, Login should return the list
 	// filtered for agents along with the address we connected to.
-	server1Addresses := []network.Address{{
-		Value: "server-1",
-		Type:  network.HostName,
-		Scope: network.ScopePublic,
-	}, {
-		Value:     "10.0.0.1",
-		Type:      network.IPv4Address,
-		Scope:     network.ScopeCloudLocal,
-		SpaceName: "mgmt01",
-	}}
-	server2Addresses := []network.Address{{
-		Value: "::1",
-		Type:  network.IPv6Address,
-		Scope: network.ScopeMachineLocal,
-	}}
+	server1Addresses := network.SpaceAddresses{
+		network.NewScopedSpaceAddress("server-1", network.ScopePublic),
+		network.NewScopedSpaceAddress("10.0.0.1", network.ScopeCloudLocal),
+	}
+	server1Addresses[1].SpaceID = s.mgmtSpace.Id()
 
-	err = s.State.SetAPIHostPorts([][]network.HostPort{
-		network.AddressesWithPort(server1Addresses, 123),
-		network.AddressesWithPort(server2Addresses, 456),
+	server2Addresses := network.SpaceAddresses{
+		network.NewScopedSpaceAddress("::1", network.ScopeMachineLocal),
+	}
+
+	err = s.State.SetAPIHostPorts([]network.SpaceHostPorts{
+		network.SpaceAddressesWithPort(server1Addresses, 123),
+		network.SpaceAddressesWithPort(server2Addresses, 456),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -333,9 +334,9 @@ func (s *loginSuite) assertAgentLogin(c *gc.C, info *api.Info) {
 
 	// The login method is called with a machine tag, so we expect the
 	// first return slice to only have the address in the management space.
-	expectedAPIHostPorts := [][]network.HostPort{
-		network.AddressesWithPort([]network.Address{server1Addresses[1]}, 123),
-		network.AddressesWithPort(server2Addresses, 456),
+	expectedAPIHostPorts := []network.MachineHostPorts{
+		{{MachineAddress: server1Addresses[1].MachineAddress, NetPort: 123}},
+		{{MachineAddress: server2Addresses[0].MachineAddress, NetPort: 456}},
 	}
 	// Prepended as before with the connection address.
 	expectedAPIHostPorts = append(connectedAddrHostPorts, expectedAPIHostPorts...)
@@ -352,32 +353,45 @@ func (s *loginSuite) TestLoginAddressesForClients(c *gc.C) {
 	info.Tag = user.Tag()
 	info.Password = password
 
-	server1Addresses := []network.Address{{
-		Value: "server-1",
-		Type:  network.HostName,
-		Scope: network.ScopePublic,
-	}, {
-		Value:     "10.0.0.1",
-		Type:      network.IPv4Address,
-		Scope:     network.ScopeCloudLocal,
-		SpaceName: "mgmt01",
-	}}
-	server2Addresses := []network.Address{{
-		Value: "::1",
-		Type:  network.IPv6Address,
-		Scope: network.ScopeMachineLocal,
-	}}
-	newAPIHostPorts := [][]network.HostPort{
-		network.AddressesWithPort(server1Addresses, 123),
-		network.AddressesWithPort(server2Addresses, 456),
+	server1Addresses := network.SpaceAddresses{
+		network.NewScopedSpaceAddress("server-1", network.ScopePublic),
+		network.NewScopedSpaceAddress("10.0.0.1", network.ScopeCloudLocal),
+	}
+	server1Addresses[1].SpaceID = s.mgmtSpace.Id()
+
+	server2Addresses := network.SpaceAddresses{
+		network.NewScopedSpaceAddress("::1", network.ScopeMachineLocal),
+	}
+
+	newAPIHostPorts := []network.SpaceHostPorts{
+		network.SpaceAddressesWithPort(server1Addresses, 123),
+		network.SpaceAddressesWithPort(server2Addresses, 456),
 	}
 	err := s.State.SetAPIHostPorts(newAPIHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
+	exp := []network.MachineHostPorts{
+		{
+			{
+				MachineAddress: network.NewScopedMachineAddress("server-1", network.ScopePublic),
+				NetPort:        123,
+			},
+			{
+				MachineAddress: network.NewScopedMachineAddress("10.0.0.1", network.ScopeCloudLocal),
+				NetPort:        123,
+			},
+		}, {
+			{
+				MachineAddress: network.NewScopedMachineAddress("::1", network.ScopeMachineLocal),
+				NetPort:        456,
+			},
+		},
+	}
+
 	_, hostPorts := s.loginHostPorts(c, info)
 	// Ignoring the address used to login, the returned API addresses should not
 	// Have management space filtering applied.
-	c.Assert(hostPorts[1:], gc.DeepEquals, newAPIHostPorts)
+	c.Assert(hostPorts[1:], gc.DeepEquals, exp)
 }
 
 func startNLogins(c *gc.C, n int, info *api.Info) (chan error, *sync.WaitGroup) {
@@ -777,8 +791,8 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	redirErr, ok := errors.Cause(err).(*api.RedirectError)
 	c.Assert(ok, gc.Equals, true)
 
-	nhp := network.NewHostPorts(5555, "1.2.3.4")
-	c.Assert(redirErr.Servers, jc.DeepEquals, [][]network.HostPort{nhp})
+	nhp := network.NewMachineHostPorts(5555, "1.2.3.4")
+	c.Assert(redirErr.Servers, jc.DeepEquals, []network.MachineHostPorts{nhp})
 	c.Assert(redirErr.CACert, gc.Equals, coretesting.CACert)
 	c.Assert(redirErr.FollowRedirect, gc.Equals, false)
 	c.Assert(redirErr.ControllerAlias, gc.Equals, "target")
@@ -1459,17 +1473,13 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerLoginAccess(c *gc.C)
 	c.Check(result.UserInfo.Identity, gc.Equals, remoteUserTag.String())
 	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "login")
 	c.Check(result.UserInfo.ModelAccess, gc.Equals, "")
-	c.Check(result.Servers, gc.DeepEquals,
-		params.FromNetworkHostsPorts(
-			parseHostPortsFromAddress(c, info.Addrs...),
-		),
-	)
+	c.Check(result.Servers, gc.DeepEquals, params.FromProviderHostsPorts(parseHostPortsFromAddress(c, info.Addrs...)))
 }
 
-func parseHostPortsFromAddress(c *gc.C, addresses ...string) [][]network.HostPort {
-	hps := make([][]network.HostPort, len(addresses))
+func parseHostPortsFromAddress(c *gc.C, addresses ...string) []network.ProviderHostPorts {
+	hps := make([]network.ProviderHostPorts, len(addresses))
 	for i, add := range addresses {
-		hp, err := network.ParseHostPorts(add)
+		hp, err := network.ParseProviderHostPorts(add)
 		c.Assert(err, jc.ErrorIsNil)
 		hps[i] = hp
 	}

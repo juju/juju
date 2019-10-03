@@ -4816,7 +4816,7 @@
     },
     {
         "Name": "Bundle",
-        "Version": 3,
+        "Version": 4,
         "Schema": {
             "type": "object",
             "properties": {
@@ -4836,6 +4836,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/BundleChangesResults"
+                        }
+                    }
+                },
+                "GetChangesMapArgs": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/BundleChangesParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/BundleChangesMapArgsResults"
                         }
                     }
                 }
@@ -4871,6 +4882,57 @@
                         "args",
                         "requires"
                     ]
+                },
+                "BundleChangesMapArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "method": {
+                            "type": "string"
+                        },
+                        "requires": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "id",
+                        "method",
+                        "args",
+                        "requires"
+                    ]
+                },
+                "BundleChangesMapArgsResults": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/BundleChangesMapArgs"
+                            }
+                        },
+                        "errors": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
                 },
                 "BundleChangesParams": {
                     "type": "object",
@@ -6237,6 +6299,17 @@
                         }
                     }
                 },
+                "IssueOperatorCertificate": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/IssueOperatorCertificateResults"
+                        }
+                    }
+                },
                 "Life": {
                     "type": "object",
                     "properties": {
@@ -6476,6 +6549,44 @@
                         "scope",
                         "Address",
                         "port"
+                    ]
+                },
+                "IssueOperatorCertificateResult": {
+                    "type": "object",
+                    "properties": {
+                        "ca-cert": {
+                            "type": "string"
+                        },
+                        "cert": {
+                            "type": "string"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "private-key": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "ca-cert",
+                        "cert",
+                        "private-key"
+                    ]
+                },
+                "IssueOperatorCertificateResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/IssueOperatorCertificateResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "KubernetesFilesystemAttachmentParams": {
@@ -14673,6 +14784,9 @@
                         "MountPoint": {
                             "type": "string"
                         },
+                        "SerialId": {
+                            "type": "string"
+                        },
                         "Size": {
                             "type": "integer"
                         },
@@ -14695,7 +14809,8 @@
                         "Size",
                         "FilesystemType",
                         "InUse",
-                        "MountPoint"
+                        "MountPoint",
+                        "SerialId"
                     ]
                 },
                 "Error": {
@@ -20482,6 +20597,9 @@
                         "provider-id": {
                             "type": "string"
                         },
+                        "provider-network-id": {
+                            "type": "string"
+                        },
                         "provider-space-id": {
                             "type": "string"
                         },
@@ -20508,6 +20626,7 @@
                         "cidr",
                         "mtu",
                         "provider-id",
+                        "provider-network-id",
                         "provider-subnet-id",
                         "provider-space-id",
                         "provider-address-id",
@@ -25698,6 +25817,15 @@
                         "snap-proxy": {
                             "$ref": "#/definitions/Settings"
                         },
+                        "snap-store-assertions": {
+                            "type": "string"
+                        },
+                        "snap-store-proxy-id": {
+                            "type": "string"
+                        },
+                        "snap-store-proxy-url": {
+                            "type": "string"
+                        },
                         "ssl-hostname-verification": {
                             "type": "boolean"
                         }
@@ -25711,6 +25839,9 @@
                         "juju-proxy",
                         "apt-proxy",
                         "snap-proxy",
+                        "snap-store-assertions",
+                        "snap-store-proxy-id",
+                        "snap-store-proxy-url",
                         "apt-mirror",
                         "UpdateBehavior"
                     ]
@@ -26474,6 +26605,9 @@
                         "provider-id": {
                             "type": "string"
                         },
+                        "provider-network-id": {
+                            "type": "string"
+                        },
                         "provider-space-id": {
                             "type": "string"
                         },
@@ -26500,6 +26634,7 @@
                         "cidr",
                         "mtu",
                         "provider-id",
+                        "provider-network-id",
                         "provider-subnet-id",
                         "provider-space-id",
                         "provider-address-id",
@@ -27420,6 +27555,9 @@
                             "type": "string"
                         },
                         "snap-store-id": {
+                            "type": "string"
+                        },
+                        "snap-store-proxy-url": {
                             "type": "string"
                         }
                     },
@@ -31693,6 +31831,9 @@
                         "MountPoint": {
                             "type": "string"
                         },
+                        "SerialId": {
+                            "type": "string"
+                        },
                         "Size": {
                             "type": "integer"
                         },
@@ -31715,7 +31856,8 @@
                         "Size",
                         "FilesystemType",
                         "InUse",
-                        "MountPoint"
+                        "MountPoint",
+                        "SerialId"
                     ]
                 },
                 "BlockDeviceResult": {
@@ -33929,6 +34071,17 @@
                         }
                     }
                 },
+                "LogActionsMessages": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ActionMessageParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
                 "Merge": {
                     "type": "object",
                     "properties": {
@@ -34549,6 +34702,21 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "ActionMessageParams": {
+                    "type": "object",
+                    "properties": {
+                        "messages": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/EntityString"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "messages"
+                    ]
                 },
                 "ActionResult": {
                     "type": "object",

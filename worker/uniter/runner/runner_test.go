@@ -165,7 +165,7 @@ func (ctx *MockContext) UnitName() string {
 	return "some-unit/999"
 }
 
-func (ctx *MockContext) HookVars(paths context.Paths) ([]string, error) {
+func (ctx *MockContext) HookVars(paths context.Paths, _ bool) ([]string, error) {
 	return []string{"VAR=value"}, nil
 }
 
@@ -266,27 +266,34 @@ func (s *RunMockContextSuite) TestRunHookFlushFailure(c *gc.C) {
 func (s *RunMockContextSuite) TestRunActionFlushSuccess(c *gc.C) {
 	expectErr := errors.New("pew pew pew")
 	ctx := &MockContext{
-		flushResult: expectErr,
-		actionData:  &context.ActionData{},
+		flushResult:   expectErr,
+		actionData:    &context.ActionData{},
+		actionResults: map[string]interface{}{},
 	}
 	makeCharm(c, hookSpec{
-		dir:  "actions",
-		name: hookName,
-		perm: 0700,
+		dir:    "actions",
+		name:   hookName,
+		perm:   0700,
+		stdout: "hello",
+		stderr: "world",
 	}, s.paths.GetCharmDir())
 	actualErr := runner.NewRunner(ctx, s.paths, nil).RunAction("something-happened")
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
 	c.Assert(ctx.flushFailure, gc.IsNil)
 	s.assertRecordedPid(c, ctx.expectPid)
+	c.Assert(ctx.actionResults, jc.DeepEquals, map[string]interface{}{
+		"Code": "0", "Stderr": "world\n", "Stdout": "hello\n",
+	})
 }
 
 func (s *RunMockContextSuite) TestRunActionFlushCharmActionsCAASSuccess(c *gc.C) {
 	expectErr := errors.New("pew pew pew")
 	ctx := &MockContext{
-		flushResult: expectErr,
-		actionData:  &context.ActionData{},
-		modelType:   model.CAAS,
+		flushResult:   expectErr,
+		actionData:    &context.ActionData{},
+		actionResults: map[string]interface{}{},
+		modelType:     model.CAAS,
 	}
 	makeCharm(c, hookSpec{
 		dir:  "actions",
@@ -299,7 +306,8 @@ func (s *RunMockContextSuite) TestRunActionFlushCharmActionsCAASSuccess(c *gc.C)
 	execFunc := func(params runner.ExecParams) (*exec.ExecResponse, error) {
 		execFuncCalled = true
 		return &exec.ExecResponse{
-			Stdout: bytes.NewBufferString("1").Bytes(),
+			Stdout: bytes.NewBufferString("hello").Bytes(),
+			Stderr: bytes.NewBufferString("world").Bytes(),
 		}, nil
 	}
 	actualErr := runner.NewRunner(ctx, s.paths, execFunc).RunAction("something-happened")
@@ -307,6 +315,9 @@ func (s *RunMockContextSuite) TestRunActionFlushCharmActionsCAASSuccess(c *gc.C)
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
 	c.Assert(ctx.flushFailure, gc.IsNil)
+	c.Assert(ctx.actionResults, jc.DeepEquals, map[string]interface{}{
+		"Code": "0", "Stderr": "world", "Stdout": "hello",
+	})
 }
 
 func (s *RunMockContextSuite) TestRunActionFlushCharmActionsCAASFailed(c *gc.C) {
@@ -329,8 +340,9 @@ func (s *RunMockContextSuite) TestRunActionFlushCharmActionsCAASFailed(c *gc.C) 
 func (s *RunMockContextSuite) TestRunActionFlushFailure(c *gc.C) {
 	expectErr := errors.New("pew pew pew")
 	ctx := &MockContext{
-		flushResult: expectErr,
-		actionData:  &context.ActionData{},
+		flushResult:   expectErr,
+		actionData:    &context.ActionData{},
+		actionResults: map[string]interface{}{},
 	}
 	makeCharm(c, hookSpec{
 		dir:  "actions",
@@ -370,7 +382,25 @@ func (s *RunMockContextSuite) TestRunActionSuccessful(c *gc.C) {
 	c.Assert(ctx.flushFailure, gc.IsNil)
 	c.Assert(ctx.actionResults["Code"], gc.Equals, "0")
 	c.Assert(strings.TrimRight(ctx.actionResults["Stdout"].(string), "\r\n"), gc.Equals, "1")
-	c.Assert(ctx.actionResults["Stderr"], gc.Equals, "")
+	c.Assert(ctx.actionResults["Stderr"], gc.Equals, nil)
+}
+
+func (s *RunMockContextSuite) TestRunActionError(c *gc.C) {
+	ctx := &MockContext{
+		actionData: &context.ActionData{},
+		actionParams: map[string]interface{}{
+			"command": "echo 1\nexit 3",
+			"timeout": 0,
+		},
+		actionResults: map[string]interface{}{},
+	}
+	err := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-run")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
+	c.Assert(ctx.flushFailure, gc.IsNil)
+	c.Assert(ctx.actionResults["Code"], gc.Equals, "3")
+	c.Assert(strings.TrimRight(ctx.actionResults["Stdout"].(string), "\r\n"), gc.Equals, "1")
+	c.Assert(ctx.actionResults["Stderr"], gc.Equals, nil)
 }
 
 func (s *RunMockContextSuite) TestRunActionCancelled(c *gc.C) {
@@ -387,7 +417,7 @@ func (s *RunMockContextSuite) TestRunActionCancelled(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
 	c.Assert(ctx.flushFailure, gc.Equals, exec.ErrCancelled)
-	c.Assert(ctx.actionResults["Code"], gc.Equals, nil)
+	c.Assert(ctx.actionResults["Code"], gc.Equals, "0")
 	c.Assert(ctx.actionResults["Stdout"], gc.Equals, nil)
 	c.Assert(ctx.actionResults["Stderr"], gc.Equals, nil)
 }
@@ -437,7 +467,7 @@ func (s *RunMockContextSuite) TestRunActionCAASSuccess(c *gc.C) {
 	c.Assert(ctx.flushBadge, gc.Equals, "juju-run")
 	c.Assert(ctx.actionResults["Code"], gc.Equals, "0")
 	c.Assert(strings.TrimRight(ctx.actionResults["Stdout"].(string), "\r\n"), gc.Equals, "1")
-	c.Assert(ctx.actionResults["Stderr"], gc.Equals, "")
+	c.Assert(ctx.actionResults["Stderr"], gc.Equals, nil)
 }
 
 func (s *RunMockContextSuite) TestRunActionOnWorkloadIgnoredIAAS(c *gc.C) {
@@ -457,5 +487,5 @@ func (s *RunMockContextSuite) TestRunActionOnWorkloadIgnoredIAAS(c *gc.C) {
 	c.Assert(ctx.flushFailure, gc.IsNil)
 	c.Assert(ctx.actionResults["Code"], gc.Equals, "0")
 	c.Assert(strings.TrimRight(ctx.actionResults["Stdout"].(string), "\r\n"), gc.Equals, "1")
-	c.Assert(ctx.actionResults["Stderr"], gc.Equals, "")
+	c.Assert(ctx.actionResults["Stderr"], gc.Equals, nil)
 }

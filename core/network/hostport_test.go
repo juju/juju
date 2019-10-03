@@ -6,6 +6,7 @@ package network_test
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -23,7 +24,7 @@ func (s *HostPortSuite) TestFilterUnusableHostPorts(c *gc.C) {
 	// The order is preserved, but machine- and link-local addresses
 	// are dropped.
 	expected := append(
-		network.NewHostPorts(1234,
+		network.NewSpaceHostPorts(1234,
 			"localhost",
 			"example.com",
 			"example.org",
@@ -41,42 +42,42 @@ func (s *HostPortSuite) TestFilterUnusableHostPorts(c *gc.C) {
 			"8.8.8.8",
 			"7.8.8.8",
 		),
-		network.NewHostPorts(9999,
+		network.NewSpaceHostPorts(9999,
 			"10.0.0.1",
 			"2001:db8::1", // public
 		)...,
-	)
+	).HostPorts()
 
-	result := network.FilterUnusableHostPorts(s.makeHostPorts())
+	result := s.makeHostPorts().HostPorts().FilterUnusable()
 	c.Assert(result, gc.HasLen, len(expected))
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
-func (*HostPortSuite) TestCollapseHostPorts(c *gc.C) {
-	servers := [][]network.HostPort{
-		network.NewHostPorts(1234,
+func (*HostPortSuite) TestCollapseToHostPorts(c *gc.C) {
+	servers := []network.MachineHostPorts{
+		network.NewMachineHostPorts(1234,
 			"0.1.2.3", "10.0.1.2", "fc00::1", "2001:db8::1", "::1",
 			"127.0.0.1", "localhost", "fe80::123", "example.com",
 		),
-		network.NewHostPorts(4321,
+		network.NewMachineHostPorts(4321,
 			"8.8.8.8", "1.2.3.4", "fc00::2", "127.0.0.1", "foo",
 		),
-		network.NewHostPorts(9999,
+		network.NewMachineHostPorts(9999,
 			"localhost", "127.0.0.1",
 		),
 	}
-	expected := append(servers[0], append(servers[1], servers[2]...)...)
-	result := network.CollapseHostPorts(servers)
+	expected := append(servers[0], append(servers[1], servers[2]...)...).HostPorts()
+	result := network.CollapseToHostPorts(servers)
 	c.Assert(result, gc.HasLen, len(servers[0])+len(servers[1])+len(servers[2]))
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
 func (s *HostPortSuite) TestEnsureFirstHostPort(c *gc.C) {
-	first := network.NewHostPorts(1234, "1.2.3.4")[0]
+	first := network.NewSpaceHostPorts(1234, "1.2.3.4")[0]
 
 	// Without any HostPorts, it still works.
-	hps := network.EnsureFirstHostPort(first, []network.HostPort{})
-	c.Assert(hps, jc.DeepEquals, []network.HostPort{first})
+	hps := network.EnsureFirstHostPort(first, []network.SpaceHostPort{})
+	c.Assert(hps, jc.DeepEquals, network.SpaceHostPorts{first})
 
 	// If already there, no changes happen.
 	hps = s.makeHostPorts()
@@ -86,15 +87,15 @@ func (s *HostPortSuite) TestEnsureFirstHostPort(c *gc.C) {
 	// If not at the top, pop it up and put it on top.
 	firstLast := append(hps, first)
 	result = network.EnsureFirstHostPort(first, firstLast)
-	c.Assert(result, jc.DeepEquals, append([]network.HostPort{first}, hps...))
+	c.Assert(result, jc.DeepEquals, append(network.SpaceHostPorts{first}, hps...))
 }
 
 func (*HostPortSuite) TestNewHostPorts(c *gc.C) {
 	addrs := []string{"0.1.2.3", "fc00::1", "::1", "example.com"}
-	expected := network.AddressesWithPort(
-		network.NewAddresses(addrs...), 42,
+	expected := network.SpaceAddressesWithPort(
+		network.NewSpaceAddresses(addrs...), 42,
 	)
-	result := network.NewHostPorts(42, addrs...)
+	result := network.NewSpaceHostPorts(42, addrs...)
 	c.Assert(result, gc.HasLen, len(addrs))
 	c.Assert(result, jc.DeepEquals, expected)
 }
@@ -130,67 +131,64 @@ func (*HostPortSuite) TestParseHostPortsErrors(c *gc.C) {
 	}} {
 		c.Logf("test %d: input %q", i, test.input)
 		// First test all error cases with a single argument.
-		hps, err := network.ParseHostPorts(test.input)
+		hps, err := network.ParseMachineHostPort(test.input)
 		c.Check(err, gc.ErrorMatches, test.err)
 		c.Check(hps, gc.IsNil)
 	}
 	// Finally, test with mixed valid and invalid args.
-	hps, err := network.ParseHostPorts("1.2.3.4:42", "[fc00::1]:12", "foo")
+	hps, err := network.ParseProviderHostPorts("1.2.3.4:42", "[fc00::1]:12", "foo")
 	c.Assert(err, gc.ErrorMatches, `cannot parse "foo" as address:port: .*missing port in address.*`)
 	c.Assert(hps, gc.IsNil)
 }
 
-func (*HostPortSuite) TestParseHostPortsSuccess(c *gc.C) {
+func (*HostPortSuite) TestParseProviderHostPortsSuccess(c *gc.C) {
 	for i, test := range []struct {
 		args   []string
-		expect []network.HostPort
+		expect network.ProviderHostPorts
 	}{{
 		args:   nil,
-		expect: []network.HostPort{},
+		expect: []network.ProviderHostPort{},
 	}, {
 		args:   []string{"1.2.3.4:42"},
-		expect: network.NewHostPorts(42, "1.2.3.4"),
+		expect: []network.ProviderHostPort{{network.NewProviderAddress("1.2.3.4"), 42}},
 	}, {
 		args:   []string{"[fc00::1]:1234"},
-		expect: network.NewHostPorts(1234, "fc00::1"),
+		expect: []network.ProviderHostPort{{network.NewProviderAddress("fc00::1"), 1234}},
 	}, {
 		args: []string{"[fc00::1]:1234", "127.0.0.1:4321", "example.com:42"},
-		expect: []network.HostPort{
-			{network.NewAddress("fc00::1"), 1234},
-			{network.NewAddress("127.0.0.1"), 4321},
-			{network.NewAddress("example.com"), 42},
+		expect: []network.ProviderHostPort{
+			{network.NewProviderAddress("fc00::1"), 1234},
+			{network.NewProviderAddress("127.0.0.1"), 4321},
+			{network.NewProviderAddress("example.com"), 42},
 		},
 	}} {
 		c.Logf("test %d: args %v", i, test.args)
-		hps, err := network.ParseHostPorts(test.args...)
+		hps, err := network.ParseProviderHostPorts(test.args...)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(hps, jc.DeepEquals, test.expect)
 	}
 }
 
-func (*HostPortSuite) TestAddressesWithPortAndHostsWithoutPort(c *gc.C) {
-	addrs := network.NewAddresses("0.1.2.3", "0.2.4.6")
-	hps := network.AddressesWithPort(addrs, 999)
-	c.Assert(hps, jc.DeepEquals, []network.HostPort{{
-		Address: network.NewAddress("0.1.2.3"),
-		Port:    999,
+func (*HostPortSuite) TestAddressesWithPort(c *gc.C) {
+	addrs := network.NewSpaceAddresses("0.1.2.3", "0.2.4.6")
+	hps := network.SpaceAddressesWithPort(addrs, 999)
+	c.Assert(hps, jc.DeepEquals, network.SpaceHostPorts{{
+		SpaceAddress: network.NewSpaceAddress("0.1.2.3"),
+		NetPort:      999,
 	}, {
-		Address: network.NewAddress("0.2.4.6"),
-		Port:    999,
+		SpaceAddress: network.NewSpaceAddress("0.2.4.6"),
+		NetPort:      999,
 	}})
-	c.Assert(network.HostsWithoutPort(hps), jc.DeepEquals, addrs)
 }
 
-func (s *HostPortSuite) assertHostPorts(c *gc.C, actual []network.HostPort, expected ...string) {
-	parsed, err := network.ParseHostPorts(expected...)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actual, jc.DeepEquals, parsed)
+func (s *HostPortSuite) assertHostPorts(c *gc.C, actual network.HostPorts, expected ...string) {
+	c.Assert(actual.Strings(), jc.DeepEquals, expected)
 }
 
 func (s *HostPortSuite) TestSortHostPorts(c *gc.C) {
 	hps := s.makeHostPorts()
 	network.SortHostPorts(hps)
-	s.assertHostPorts(c, hps,
+	s.assertHostPorts(c, hps.HostPorts(),
 		// Public IPv4 addresses on top.
 		"0.1.2.0:1234",
 		"7.8.8.8:1234",
@@ -233,59 +231,59 @@ func (s *HostPortSuite) TestSortHostPorts(c *gc.C) {
 }
 
 var netAddrTests = []struct {
-	addr   network.Address
+	addr   network.SpaceAddress
 	port   int
 	expect string
 }{{
-	addr:   network.NewAddress("0.1.2.3"),
+	addr:   network.NewSpaceAddress("0.1.2.3"),
 	port:   99,
 	expect: "0.1.2.3:99",
 }, {
-	addr:   network.NewAddress("2001:DB8::1"),
+	addr:   network.NewSpaceAddress("2001:DB8::1"),
 	port:   100,
 	expect: "[2001:DB8::1]:100",
 }, {
-	addr:   network.NewAddress("172.16.0.1"),
+	addr:   network.NewSpaceAddress("172.16.0.1"),
 	port:   52,
 	expect: "172.16.0.1:52",
 }, {
-	addr:   network.NewAddress("fc00::2"),
+	addr:   network.NewSpaceAddress("fc00::2"),
 	port:   1111,
 	expect: "[fc00::2]:1111",
 }, {
-	addr:   network.NewAddress("example.com"),
+	addr:   network.NewSpaceAddress("example.com"),
 	port:   9999,
 	expect: "example.com:9999",
 }, {
-	addr:   network.NewScopedAddress("example.com", network.ScopePublic),
+	addr:   network.NewScopedSpaceAddress("example.com", network.ScopePublic),
 	port:   1234,
 	expect: "example.com:1234",
 }, {
-	addr:   network.NewAddress("169.254.1.2"),
+	addr:   network.NewSpaceAddress("169.254.1.2"),
 	port:   123,
 	expect: "169.254.1.2:123",
 }, {
-	addr:   network.NewAddress("fe80::222"),
+	addr:   network.NewSpaceAddress("fe80::222"),
 	port:   321,
 	expect: "[fe80::222]:321",
 }, {
-	addr:   network.NewAddress("127.0.0.2"),
+	addr:   network.NewSpaceAddress("127.0.0.2"),
 	port:   121,
 	expect: "127.0.0.2:121",
 }, {
-	addr:   network.NewAddress("::1"),
+	addr:   network.NewSpaceAddress("::1"),
 	port:   111,
 	expect: "[::1]:111",
 }}
 
-func (*HostPortSuite) TestNetAddrAndString(c *gc.C) {
+func (*HostPortSuite) TestDialAddressAndString(c *gc.C) {
 	for i, test := range netAddrTests {
 		c.Logf("test %d: %q", i, test.addr)
-		hp := network.HostPort{
-			Address: test.addr,
-			Port:    test.port,
+		hp := network.SpaceHostPort{
+			SpaceAddress: test.addr,
+			NetPort:      network.NetPort(test.port),
 		}
-		c.Check(hp.NetAddr(), gc.Equals, test.expect)
+		c.Check(network.DialAddress(hp), gc.Equals, test.expect)
 		c.Check(hp.String(), gc.Equals, test.expect)
 		c.Check(hp.GoString(), gc.Equals, test.expect)
 	}
@@ -293,7 +291,7 @@ func (*HostPortSuite) TestNetAddrAndString(c *gc.C) {
 
 func (s *HostPortSuite) TestHostPortsToStrings(c *gc.C) {
 	hps := s.makeHostPorts()
-	strHPs := network.HostPortsToStrings(hps)
+	strHPs := hps.HostPorts().Strings()
 	c.Assert(strHPs, gc.HasLen, len(hps))
 	c.Assert(strHPs, jc.DeepEquals, []string{
 		"127.0.0.1:1234",
@@ -328,9 +326,9 @@ func (s *HostPortSuite) TestHostPortsToStrings(c *gc.C) {
 	})
 }
 
-func (*HostPortSuite) makeHostPorts() []network.HostPort {
+func (*HostPortSuite) makeHostPorts() network.SpaceHostPorts {
 	return append(
-		network.NewHostPorts(1234,
+		network.NewSpaceHostPorts(1234,
 			"127.0.0.1",    // machine-local
 			"localhost",    // hostname
 			"example.com",  // hostname
@@ -357,7 +355,7 @@ func (*HostPortSuite) makeHostPorts() []network.HostPort {
 			"8.8.8.8",      // public
 			"7.8.8.8",      // public
 		),
-		network.NewHostPorts(9999,
+		network.NewSpaceHostPorts(9999,
 			"127.0.0.1",   // machine-local
 			"10.0.0.1",    // cloud-local
 			"2001:db8::1", // public
@@ -367,45 +365,177 @@ func (*HostPortSuite) makeHostPorts() []network.HostPort {
 }
 
 func (s *HostPortSuite) TestUniqueHostPortsSimpleInput(c *gc.C) {
-	input := network.NewHostPorts(1234, "127.0.0.1", "::1")
-	expected := input
-
-	results := network.UniqueHostPorts(input)
-	c.Assert(results, jc.DeepEquals, expected)
+	input := network.NewSpaceHostPorts(1234, "127.0.0.1", "::1")
+	expected := input.HostPorts()
+	c.Assert(input.HostPorts().Unique(), jc.DeepEquals, expected)
 }
 
 func (s *HostPortSuite) TestUniqueHostPortsOnlyDuplicates(c *gc.C) {
-	input := s.manyHostPorts(c, 10000, nil) // use IANA reserved port
-	expected := input[0:1]
-
-	results := network.UniqueHostPorts(input)
-	c.Assert(results, jc.DeepEquals, expected)
+	input := s.manyMachineHostPorts(c, 10000, nil) // use IANA reserved port
+	expected := input[0:1].HostPorts()
+	c.Assert(input.HostPorts().Unique(), jc.DeepEquals, expected)
 }
 
 func (s *HostPortSuite) TestUniqueHostPortsHugeUniqueInput(c *gc.C) {
-	input := s.manyHostPorts(c, maxTCPPort, func(port int) string {
+	input := s.manyMachineHostPorts(c, maxTCPPort, func(port int) string {
 		return fmt.Sprintf("127.1.0.1:%d", port)
 	})
-	expected := input
-
-	results := network.UniqueHostPorts(input)
-	c.Assert(results, jc.DeepEquals, expected)
+	expected := input.HostPorts()
+	c.Assert(input.HostPorts().Unique(), jc.DeepEquals, expected)
 }
 
 const maxTCPPort = 65535
 
-func (s *HostPortSuite) manyHostPorts(c *gc.C, count int, addressFunc func(index int) string) []network.HostPort {
+func (s *HostPortSuite) manyMachineHostPorts(
+	c *gc.C, count int, addressFunc func(index int) string) network.MachineHostPorts {
 	if addressFunc == nil {
 		addressFunc = func(_ int) string {
 			return "127.0.0.1:49151" // all use the same IANA reserved port.
 		}
 	}
 
-	results := make([]network.HostPort, count)
+	results := make([]network.MachineHostPort, count)
 	for i := range results {
-		hostPort, err := network.ParseHostPort(addressFunc(i))
+		hostPort, err := network.ParseMachineHostPort(addressFunc(i))
 		c.Assert(err, jc.ErrorIsNil)
 		results[i] = *hostPort
 	}
 	return results
+}
+
+type selectInternalHostPortsTest struct {
+	about     string
+	addresses network.SpaceHostPorts
+	expected  []string
+}
+
+var prioritizeInternalHostPortsTests = []selectInternalHostPortsTest{{
+	"no addresses gives empty string result",
+	[]network.SpaceHostPort{},
+	[]string{},
+}, {
+	"a public IPv4 address is selected",
+	[]network.SpaceHostPort{
+		{network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic), 9999},
+	},
+	[]string{"8.8.8.8:9999"},
+}, {
+	"cloud local IPv4 addresses are selected",
+	[]network.SpaceHostPort{
+		{network.NewScopedSpaceAddress("10.1.0.1", network.ScopeCloudLocal), 8888},
+		{network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic), 123},
+		{network.NewScopedSpaceAddress("10.0.0.1", network.ScopeCloudLocal), 1234},
+	},
+	[]string{"10.1.0.1:8888", "10.0.0.1:1234", "8.8.8.8:123"},
+}, {
+	"a machine local or link-local address is not selected",
+	[]network.SpaceHostPort{
+		{network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal), 111},
+		{network.NewScopedSpaceAddress("::1", network.ScopeMachineLocal), 222},
+		{network.NewScopedSpaceAddress("fe80::1", network.ScopeLinkLocal), 333},
+	},
+	[]string{},
+}, {
+	"cloud local addresses are preferred to a public addresses",
+	[]network.SpaceHostPort{
+		{network.NewScopedSpaceAddress("2001:db8::1", network.ScopePublic), 123},
+		{network.NewScopedSpaceAddress("fc00::1", network.ScopeCloudLocal), 123},
+		{network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic), 123},
+		{network.NewScopedSpaceAddress("10.0.0.1", network.ScopeCloudLocal), 4444},
+	},
+	[]string{"10.0.0.1:4444", "[fc00::1]:123", "8.8.8.8:123", "[2001:db8::1]:123"},
+}}
+
+func (s *HostPortSuite) TestPrioritizeInternalHostPorts(c *gc.C) {
+	for i, t := range prioritizeInternalHostPortsTests {
+		c.Logf("test %d: %s", i, t.about)
+		prioritized := t.addresses.HostPorts().PrioritizedForScope(network.ScopeMatchCloudLocal)
+		c.Check(prioritized, gc.DeepEquals, t.expected)
+	}
+}
+
+var selectInternalHostPortsTests = []selectInternalHostPortsTest{{
+	"no addresses gives empty string result",
+	[]network.SpaceHostPort{},
+	[]string{},
+}, {
+	"a public IPv4 address is selected",
+	[]network.SpaceHostPort{
+		{network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic), 9999},
+	},
+	[]string{"8.8.8.8:9999"},
+}, {
+	"cloud local IPv4 addresses are selected",
+	[]network.SpaceHostPort{
+		{network.NewScopedSpaceAddress("10.1.0.1", network.ScopeCloudLocal), 8888},
+		{network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic), 123},
+		{network.NewScopedSpaceAddress("10.0.0.1", network.ScopeCloudLocal), 1234},
+	},
+	[]string{"10.1.0.1:8888", "10.0.0.1:1234"},
+}, {
+	"a machine local or link-local address is not selected",
+	[]network.SpaceHostPort{
+		{network.NewScopedSpaceAddress("127.0.0.1", network.ScopeMachineLocal), 111},
+		{network.NewScopedSpaceAddress("::1", network.ScopeMachineLocal), 222},
+		{network.NewScopedSpaceAddress("fe80::1", network.ScopeLinkLocal), 333},
+	},
+	[]string{},
+}, {
+	"cloud local IPv4 addresses are preferred to a public addresses",
+	[]network.SpaceHostPort{
+		{network.NewScopedSpaceAddress("2001:db8::1", network.ScopePublic), 123},
+		{network.NewScopedSpaceAddress("fc00::1", network.ScopeCloudLocal), 123},
+		{network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic), 123},
+		{network.NewScopedSpaceAddress("10.0.0.1", network.ScopeCloudLocal), 4444},
+	},
+	[]string{"10.0.0.1:4444"},
+}, {
+	"cloud local IPv6 addresses are preferred to a public addresses",
+	[]network.SpaceHostPort{
+		{network.NewScopedSpaceAddress("2001:db8::1", network.ScopePublic), 123},
+		{network.NewScopedSpaceAddress("fc00::1", network.ScopeCloudLocal), 123},
+		{network.NewScopedSpaceAddress("8.8.8.8", network.ScopePublic), 123},
+	},
+	[]string{"[fc00::1]:123"},
+}}
+
+func (s *HostPortSuite) TestSelectInternalHostPorts(c *gc.C) {
+	for i, t := range selectInternalHostPortsTests {
+		c.Logf("test %d: %s", i, t.about)
+		c.Check(t.addresses.AllMatchingScope(network.ScopeMatchCloudLocal), gc.DeepEquals, t.expected)
+	}
+}
+
+func (s *HostPortSuite) TestSpaceHostPortsToProviderHostPorts(c *gc.C) {
+	// Check success.
+	hps := network.NewSpaceHostPorts(1234, "1.2.3.4", "2.3.4.5", "3.4.5.6")
+	hps[0].SpaceID = "1"
+	hps[1].SpaceID = "2"
+
+	exp := network.ProviderHostPorts{
+		{
+			ProviderAddress: network.NewProviderAddressInSpace("space-one", "1.2.3.4"),
+			NetPort:         1234,
+		},
+		{
+			ProviderAddress: network.NewProviderAddressInSpace("space-two", "2.3.4.5"),
+			NetPort:         1234,
+		},
+		{
+			ProviderAddress: network.NewProviderAddress("3.4.5.6"),
+			NetPort:         1234,
+		},
+	}
+	// Only the first address in the lookup has a provider ID.
+	exp[0].ProviderSpaceID = "p1"
+
+	res, err := hps.ToProviderHostPorts(stubLookup{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, jc.SameContents, exp)
+
+	// Add a host/port in a space that the lookup will not resolve.
+	hps = append(hps, network.NewSpaceHostPorts(3456, "4.5.6.7")...)
+	hps[3].SpaceID = "3"
+	_, err = hps.ToProviderHostPorts(stubLookup{})
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

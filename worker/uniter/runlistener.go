@@ -7,15 +7,22 @@
 package uniter
 
 import (
+	"io/ioutil"
 	"net"
 	"net/rpc"
+	"path/filepath"
 	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/exec"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
+	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/caas"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runcommands"
@@ -37,6 +44,8 @@ type RunCommandsArgs struct {
 	ForceRemoteUnit bool
 	// UnitName is the unit for which the command is being run.
 	UnitName string
+	// Token is the unit token when run under CAAS environments for auth.
+	Token string
 }
 
 // A CommandRunner is something that will actually execute the commands and
@@ -62,6 +71,8 @@ type RunListener struct {
 	closed   chan struct{}
 	closing  chan struct{}
 	wg       sync.WaitGroup
+
+	requiresAuth bool
 }
 
 // NewRunListener returns a new RunListener that is listening on given
@@ -79,6 +90,9 @@ func NewRunListener(socket sockets.Socket) (*RunListener, error) {
 		server:         rpc.NewServer(),
 		closed:         make(chan struct{}),
 		closing:        make(chan struct{}),
+	}
+	if socket.Network == "tcp" || socket.TLSConfig != nil {
+		runListener.requiresAuth = true
 	}
 	if err := runListener.server.Register(&JujuRunServer{runListener}); err != nil {
 		return nil, errors.Trace(err)
@@ -154,6 +168,25 @@ func (r *RunListener) RunCommands(args RunCommandsArgs) (results *exec.ExecRespo
 	if !ok {
 		return nil, errors.Errorf("no runner is registered for unit %v", args.UnitName)
 	}
+
+	if r.requiresAuth {
+		// TODO: Cache unit password
+		baseDir := agent.Dir(cmdutil.DataDir, names.NewUnitTag(args.UnitName))
+		infoFilePath := filepath.Join(baseDir, caas.OperatorClientInfoCacheFile)
+		d, err := ioutil.ReadFile(infoFilePath)
+		if err != nil {
+			return nil, errors.Annotatef(err, "reading %s", infoFilePath)
+		}
+		op := caas.OperatorClientInfo{}
+		err = yaml.Unmarshal(d, &op)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if args.Token != op.Token {
+			return nil, errors.Forbiddenf("unit token mismatch")
+		}
+	}
+
 	return runner.RunCommands(args)
 }
 

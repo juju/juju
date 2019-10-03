@@ -31,14 +31,16 @@ type machineSuite struct {
 	coretesting.BaseSuite
 }
 
-var testAddrs = []network.Address{
-	network.NewAddress("127.0.0.1"),
+var testAddrs = network.ProviderAddresses{
+	network.NewProviderAddress("127.0.0.1"),
 	{
-		Value:           "10.6.6.6",
-		Type:            network.IPv4Address,
-		Scope:           network.ScopeCloudLocal,
+		MachineAddress: network.MachineAddress{
+			Value: "10.6.6.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
 		SpaceName:       "test-space",
-		SpaceProviderId: "1",
+		ProviderSpaceID: "1",
 	},
 }
 
@@ -96,7 +98,7 @@ func (s *machineSuite) TestShortPollIntervalWhenNoAddress(c *gc.C) {
 }
 
 func (s *machineSuite) TestShortPollIntervalWhenNoStatus(c *gc.C) {
-	s.testShortPoll(c, testAddrs, "i1234", "", status.Status(""))
+	s.testShortPoll(c, testAddrs, "i1234", "", "")
 }
 
 func (s *machineSuite) TestShortPollIntervalWhenNotStarted(c *gc.C) {
@@ -104,7 +106,7 @@ func (s *machineSuite) TestShortPollIntervalWhenNotStarted(c *gc.C) {
 }
 
 func (s *machineSuite) testShortPoll(
-	c *gc.C, addrs []network.Address,
+	c *gc.C, addrs network.ProviderAddresses,
 	instId, instStatus string,
 	machineStatus status.Status,
 ) {
@@ -205,7 +207,7 @@ func (s *machineSuite) TestLongPollIntervalWhenHasAllInstanceInfo(c *gc.C) {
 
 func testRunMachine(
 	c *gc.C,
-	addrs []network.Address,
+	addrs network.ProviderAddresses,
 	instId, instStatus string,
 	machineStatus status.Status,
 	clock clock.Clock,
@@ -358,7 +360,7 @@ func killMachineLoop(c *gc.C, m machine, dying chan struct{}, died <-chan machin
 }
 
 func instanceInfoGetter(
-	c *gc.C, expectId instance.Id, addrs []network.Address,
+	c *gc.C, expectId instance.Id, addrs network.ProviderAddresses,
 	instanceStatus string, err error) func(id instance.Id) (instanceInfo, error) {
 
 	return func(id instance.Id) (instanceInfo, error) {
@@ -404,7 +406,7 @@ type testMachine struct {
 	// mu protects the following fields.
 	mu              sync.Mutex
 	life            params.Life
-	addresses       []network.Address
+	addresses       network.ProviderAddresses
 	setAddressCount int
 }
 
@@ -416,7 +418,7 @@ func (m *testMachine) Id() string {
 	return m.tag.Id()
 }
 
-func (m *testMachine) ProviderAddresses() ([]network.Address, error) {
+func (m *testMachine) ProviderAddresses() (network.ProviderAddresses, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -474,7 +476,7 @@ func (m *testMachine) SetInstanceStatus(machineStatus status.Status, info string
 	return nil
 }
 
-func (m *testMachine) SetProviderAddresses(addrs ...network.Address) error {
+func (m *testMachine) SetProviderAddresses(addrs ...network.ProviderAddress) error {
 	if m.setAddressesErr != nil {
 		return m.setAddressesErr
 	}

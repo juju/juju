@@ -300,15 +300,15 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 }
 
 func (s *deployerSuite) TestConnectionInfo(c *gc.C) {
-	err := s.machine0.SetProviderAddresses(network.NewScopedAddress("0.1.2.3", network.ScopePublic),
-		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal))
+	err := s.machine0.SetProviderAddresses(network.NewScopedSpaceAddress("0.1.2.3", network.ScopePublic),
+		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Default host port scope is public, so change the cloud-local one
-	hostPorts := network.NewHostPorts(1234, "0.1.2.3", "1.2.3.4")
+	hostPorts := network.NewSpaceHostPorts(1234, "0.1.2.3", "1.2.3.4")
 	hostPorts[1].Scope = network.ScopeCloudLocal
 
-	err = s.State.SetAPIHostPorts([][]network.HostPort{hostPorts})
+	err = s.State.SetAPIHostPorts([]network.SpaceHostPorts{hostPorts})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := params.DeployerConnectionValues{

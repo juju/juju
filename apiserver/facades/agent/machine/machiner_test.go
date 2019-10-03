@@ -171,12 +171,14 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	c.Assert(s.machine0.Addresses(), gc.HasLen, 0)
 	c.Assert(s.machine1.Addresses(), gc.HasLen, 0)
 
-	addresses := network.NewAddresses("127.0.0.1", "8.8.8.8")
-
+	addresses := []network.MachineAddress{
+		network.NewMachineAddress("127.0.0.1"),
+		network.NewMachineAddress("8.8.8.8"),
+	}
 	args := params.SetMachinesAddresses{MachineAddresses: []params.MachineAddresses{
-		{Tag: "machine-1", Addresses: params.FromNetworkAddresses(addresses...)},
-		{Tag: "machine-0", Addresses: params.FromNetworkAddresses(addresses...)},
-		{Tag: "machine-42", Addresses: params.FromNetworkAddresses(addresses...)},
+		{Tag: "machine-1", Addresses: params.FromMachineAddresses(addresses...)},
+		{Tag: "machine-0", Addresses: params.FromMachineAddresses(addresses...)},
+		{Tag: "machine-42", Addresses: params.FromMachineAddresses(addresses...)},
 	}}
 
 	result, err := s.machiner.SetMachineAddresses(args)
@@ -192,7 +194,7 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	err = s.machine1.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedAddresses := network.NewAddresses("8.8.8.8", "127.0.0.1")
+	expectedAddresses := network.NewSpaceAddresses("8.8.8.8", "127.0.0.1")
 	c.Assert(s.machine1.MachineAddresses(), gc.DeepEquals, expectedAddresses)
 	err = s.machine0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -201,9 +203,12 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 
 func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 	// Set some addresses so we can ensure they are removed.
-	addresses := network.NewAddresses("127.0.0.1", "8.8.8.8")
+	addresses := []network.MachineAddress{
+		network.NewMachineAddress("127.0.0.1"),
+		network.NewMachineAddress("8.8.8.8"),
+	}
 	args := params.SetMachinesAddresses{MachineAddresses: []params.MachineAddresses{
-		{Tag: "machine-1", Addresses: params.FromNetworkAddresses(addresses...)},
+		{Tag: "machine-1", Addresses: params.FromMachineAddresses(addresses...)},
 	}}
 	result, err := s.machiner.SetMachineAddresses(args)
 	c.Assert(err, jc.ErrorIsNil)

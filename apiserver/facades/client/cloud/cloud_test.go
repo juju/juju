@@ -242,8 +242,8 @@ func (s *cloudSuite) TestAddCloud(c *gc.C) {
 		}}
 	err := s.api.AddCloud(paramsCloud)
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ControllerConfig", "ControllerInfo", "Cloud", "AddCloud")
-	s.backend.CheckCall(c, 3, "AddCloud", cloud.Cloud{
+	s.backend.CheckCallNames(c, "ControllerInfo", "Cloud", "AddCloud")
+	s.backend.CheckCall(c, 2, "AddCloud", cloud.Cloud{
 		Name:      "newcloudname",
 		Type:      "maas",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
@@ -277,7 +277,7 @@ controller cloud type "dummy" is not whitelisted, current whitelist:
  - controller cloud type "lxd" supports [lxd maas openstack]
  - controller cloud type "maas" supports [maas openstack]
  - controller cloud type "openstack" supports [openstack]`[1:]))
-	s.backend.CheckCallNames(c, "ControllerConfig", "ControllerInfo", "Cloud")
+	s.backend.CheckCallNames(c, "ControllerInfo", "Cloud")
 }
 
 func (s *cloudSuite) TestAddCloudNotWhitelistedButForceAdded(c *gc.C) {
@@ -289,8 +289,8 @@ func (s *cloudSuite) TestAddCloudNotWhitelistedButForceAdded(c *gc.C) {
 	addCloudArg.Force = &force
 	err := s.api.AddCloud(addCloudArg)
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ControllerConfig", "ControllerInfo", "Cloud", "AddCloud")
-	s.backend.CheckCall(c, 3, "AddCloud", cloud.Cloud{
+	s.backend.CheckCallNames(c, "ControllerInfo", "Cloud", "AddCloud")
+	s.backend.CheckCall(c, 2, "AddCloud", cloud.Cloud{
 		Name:      "newcloudname",
 		Type:      "fake",
 		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
@@ -308,7 +308,7 @@ func (s *cloudSuite) TestAddCloudControllerInfoErr(c *gc.C) {
 	}
 	err := s.api.AddCloud(createAddCloudParam(""))
 	c.Assert(err, gc.ErrorMatches, "kaboom")
-	s.backend.CheckCallNames(c, "ControllerConfig", "ControllerInfo")
+	s.backend.CheckCallNames(c, "ControllerInfo")
 }
 
 func (s *cloudSuite) TestAddCloudControllerCloudErr(c *gc.C) {
@@ -321,7 +321,7 @@ func (s *cloudSuite) TestAddCloudControllerCloudErr(c *gc.C) {
 	)
 	err := s.api.AddCloud(createAddCloudParam(""))
 	c.Assert(err, gc.ErrorMatches, "kaboom")
-	s.backend.CheckCallNames(c, "ControllerConfig", "ControllerInfo", "Cloud")
+	s.backend.CheckCallNames(c, "ControllerInfo", "Cloud")
 }
 
 func (s *cloudSuite) TestAddCloudK8sForceIrrelevant(c *gc.C) {
@@ -332,14 +332,15 @@ func (s *cloudSuite) TestAddCloudK8sForceIrrelevant(c *gc.C) {
 	add := func() {
 		err := s.api.AddCloud(addCloudArg)
 		c.Assert(err, jc.ErrorIsNil)
-		s.backend.CheckCallNames(c, "ControllerConfig", "AddCloud")
-		s.backend.CheckCall(c, 1, "AddCloud", cloud.Cloud{
-			Name:      "newcloudname",
-			Type:      string(provider.K8s_ProviderType),
-			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
-			Endpoint:  "fake-endpoint",
-			Regions:   []cloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
-		}, "admin")
+		s.backend.CheckCalls(c, []gitjujutesting.StubCall{
+			{"AddCloud", []interface{}{cloud.Cloud{
+				Name:      "newcloudname",
+				Type:      string(provider.K8s_ProviderType),
+				AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+				Endpoint:  "fake-endpoint",
+				Regions:   []cloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
+			}, "admin"}},
+		})
 	}
 	add()
 
@@ -349,17 +350,22 @@ func (s *cloudSuite) TestAddCloudK8sForceIrrelevant(c *gc.C) {
 	add()
 }
 
-func (s *cloudSuite) TestAddCloudNoFeatureFlag(c *gc.C) {
+func (s *cloudSuite) TestAddCloudNoRegion(c *gc.C) {
+	s.backend.cloud.Type = "maas"
 	paramsCloud := params.AddCloudArgs{
 		Name: "newcloudname",
 		Cloud: params.Cloud{
-			Type:      "fake",
+			Type:      "maas",
 			AuthTypes: []string{"empty", "userpass"},
 			Endpoint:  "fake-endpoint",
-			Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
 		}}
+	s.backend.addCloudF = func(cloud cloud.Cloud, user string) error {
+		c.Assert(cloud.Regions, gc.HasLen, 1)
+		return nil
+	}
 	err := s.api.AddCloud(paramsCloud)
-	c.Assert(err, gc.ErrorMatches, `feature flag "multi-cloud" needs to be enabled to add a "fake" cloud`)
+	c.Assert(err, jc.ErrorIsNil)
+
 }
 
 func (s *cloudSuite) TestAddCloudNoAdminPerms(c *gc.C) {
@@ -995,7 +1001,7 @@ func (s *cloudSuite) TestRevokeCredentials(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "RemoveCloudCredential")
+	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "RemoveCloudCredential", "RemoveModelsCredential")
 	c.Assert(results.Results, gc.HasLen, 3)
 	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
 		Message: `"machine-0" is not a valid cloudcred tag`,
@@ -1018,7 +1024,7 @@ func (s *cloudSuite) TestRevokeCredentialsAdminAccess(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "RemoveCloudCredential")
+	s.backend.CheckCallNames(c, "ControllerTag", "CredentialModels", "RemoveCloudCredential", "RemoveModelsCredential")
 	c.Assert(results.Results, gc.HasLen, 1)
 	// admin can revoke others' credentials
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -1070,7 +1076,7 @@ func (s *cloudSuite) TestRevokeCredentialsForceCantGetModels(c *gc.C) {
 		args: []params.RevokeCredentialArg{
 			{Tag: "cloudcred-meep_julia_three", Force: true},
 		},
-		callsMade: []string{"ControllerTag", "CredentialModels", "RemoveCloudCredential"},
+		callsMade: []string{"ControllerTag", "CredentialModels", "RemoveCloudCredential", "RemoveModelsCredential"},
 		results: params.ErrorResults{
 			Results: []params.ErrorResult{
 				{}, // no error: credential deleted
@@ -1138,7 +1144,7 @@ func (s *cloudSuite) TestRevokeCredentialsForceHasModel(c *gc.C) {
 		args: []params.RevokeCredentialArg{
 			{Tag: "cloudcred-meep_julia_three", Force: true},
 		},
-		callsMade: []string{"ControllerTag", "CredentialModels", "RemoveCloudCredential"},
+		callsMade: []string{"ControllerTag", "CredentialModels", "RemoveCloudCredential", "RemoveModelsCredential"},
 		results: params.ErrorResults{
 			Results: []params.ErrorResult{
 				{},
@@ -1160,7 +1166,7 @@ func (s *cloudSuite) TestRevokeCredentialsForceMany(c *gc.C) {
 			{Tag: "cloudcred-meep_julia_three", Force: true},
 			{Tag: "cloudcred-meep_bruce_three"},
 		},
-		callsMade: []string{"ControllerTag", "CredentialModels", "RemoveCloudCredential", "CredentialModels"},
+		callsMade: []string{"ControllerTag", "CredentialModels", "RemoveCloudCredential", "RemoveModelsCredential", "CredentialModels"},
 		results: params.ErrorResults{
 			Results: []params.ErrorResult{
 				{},
@@ -1170,6 +1176,33 @@ func (s *cloudSuite) TestRevokeCredentialsForceMany(c *gc.C) {
 		expectedLog: []string{
 			` WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three will be deleted but it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d`,
 			` WARNING juju.apiserver.cloud credential cloudcred-meep_bruce_three cannot be deleted as it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d`,
+		},
+	}
+	s.assertRevokeCredentials(c, t)
+}
+
+func (s *cloudSuite) TestRevokeCredentialsClearModelCredentialsError(c *gc.C) {
+	s.backend.SetErrors(
+		nil,                  // RemoveCloudCredential
+		errors.New("kaboom"), // RemoveModelsCredential
+	)
+	t := revokeCredentialData{
+		f: func(tag names.CloudCredentialTag) (map[string]string, error) {
+			return map[string]string{
+				coretesting.ModelTag.Id(): "modelName",
+			}, nil
+		},
+		args: []params.RevokeCredentialArg{
+			{Tag: "cloudcred-meep_julia_three", Force: true},
+		},
+		callsMade: []string{"ControllerTag", "CredentialModels", "RemoveCloudCredential", "RemoveModelsCredential"},
+		results: params.ErrorResults{
+			Results: []params.ErrorResult{
+				{common.ServerError(errors.New("kaboom"))},
+			},
+		},
+		expectedLog: []string{
+			` WARNING juju.apiserver.cloud credential cloudcred-meep_julia_three will be deleted but it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d`,
 		},
 	}
 	s.assertRevokeCredentials(c, t)
@@ -1327,6 +1360,7 @@ type mockBackend struct {
 	credentialModelsF func(tag names.CloudCredentialTag) (map[string]string, error)
 	credsModels       []state.CredentialOwnerModelAccess
 	controllerInfoF   func() (*state.ControllerInfo, error)
+	addCloudF         func(cloud cloud.Cloud, user string) error
 }
 
 func (st *mockBackend) ControllerTag() names.ControllerTag {
@@ -1379,9 +1413,12 @@ func (st *mockBackend) RemoveCloudCredential(tag names.CloudCredentialTag) error
 	return st.NextErr()
 }
 
-func (st *mockBackend) AddCloud(cloud cloud.Cloud, user string) error {
-	st.MethodCall(st, "AddCloud", cloud, user)
-	return st.NextErr()
+func (st *mockBackend) AddCloud(acloud cloud.Cloud, user string) error {
+	st.MethodCall(st, "AddCloud", acloud, user)
+	if st.addCloudF == nil {
+		return st.NextErr()
+	}
+	return st.addCloudF(acloud, user)
 }
 
 func (st *mockBackend) UpdateCloud(cloud cloud.Cloud) error {
@@ -1466,6 +1503,11 @@ func (st *mockBackend) RemoveCloudAccess(cloud string, user names.UserTag) error
 	st.MethodCall(st, "RemoveCloudAccess", cloud, user)
 	st.cloudAccess = permission.NoAccess
 	return nil
+}
+
+func (st *mockBackend) RemoveModelsCredential(tag names.CloudCredentialTag) error {
+	st.MethodCall(st, "RemoveModelsCredential", tag)
+	return st.NextErr()
 }
 
 type mockUser struct {

@@ -19,6 +19,7 @@ import (
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/client-go/util/exec"
 )
 
 var logger = loggo.GetLogger("juju.kubernetes.provider.exec")
@@ -33,6 +34,15 @@ type client struct {
 	podGetter typedcorev1.PodInterface
 }
 
+// ExitError exposes what we need from k8s exec.ExitError
+type ExitError interface {
+	error
+	String() string
+	ExitStatus() int
+}
+
+var _ ExitError = exec.CodeExitError{}
+
 // Executor provides the API to exec or cp on a pod inside the cluster.
 type Executor interface {
 	Exec(params ExecParams, cancel <-chan struct{}) error
@@ -40,7 +50,7 @@ type Executor interface {
 }
 
 // NewInCluster returns a in-cluster exec client.
-func NewInCluster(modelName string) (Executor, error) {
+func NewInCluster(namespace string) (Executor, error) {
 	// creates the in-cluster config.
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -52,13 +62,13 @@ func NewInCluster(modelName string) (Executor, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return New(modelName, c, config), nil
+	return New(namespace, c, config), nil
 }
 
 // New contructs an executor.
 // no cross model/namespace allowed.
 func New(namespace string, clientset kubernetes.Interface, config *rest.Config) Executor {
-	return new(
+	return newClient(
 		namespace,
 		clientset,
 		config,
@@ -67,7 +77,7 @@ func New(namespace string, clientset kubernetes.Interface, config *rest.Config) 
 	)
 }
 
-func new(
+func newClient(
 	namespace string,
 	clientset kubernetes.Interface,
 	config *rest.Config,
@@ -224,9 +234,9 @@ func getValidatedPodContainer(
 		return "", "", errors.NotFoundf("pod %q", podName)
 	}
 
-	if pod.Status.Phase == core.PodSucceeded || pod.Status.Phase == core.PodFailed {
+	if pod.Status.Phase != core.PodRunning {
 		return "", "", errors.New(fmt.Sprintf(
-			"cannot exec into a container in a completed pod; current phase is %s", pod.Status.Phase,
+			"cannot exec into a container within a %s pod", pod.Status.Phase,
 		))
 	}
 
@@ -247,5 +257,6 @@ func getValidatedPodContainer(
 		containerName = pod.Spec.Containers[0].Name
 		logger.Debugf("choose first container %q to exec", containerName)
 	}
+
 	return podName, containerName, nil
 }

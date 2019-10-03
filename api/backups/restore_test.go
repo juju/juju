@@ -4,11 +4,10 @@
 package backups_test
 
 import (
+	"github.com/golang/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/juju/api/backups"
-
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/apiserver/params"
 )

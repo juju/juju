@@ -629,6 +629,7 @@ func (s *MigrationSuite) TestBlockDeviceFields(c *gc.C) {
 		"FilesystemType",
 		"InUse",
 		"MountPoint",
+		"SerialId",
 	)
 	s.AssertExportedFields(c, BlockDeviceInfo{}, migrated)
 }
@@ -672,6 +673,7 @@ func (s *MigrationSuite) TestIPAddressDocFields(c *gc.C) {
 		"GatewayAddress",
 		"IsDefaultGateway",
 		"ProviderID",
+		"ProviderSubnetID",
 		"DNSServers",
 		"SubnetCIDR",
 		"ConfigMethod",
@@ -722,6 +724,7 @@ func (s *MigrationSuite) TestActionDocFields(c *gc.C) {
 		"Results",
 		"Message",
 		"Status",
+		"Logs",
 	)
 	s.AssertExportedFields(c, actionDoc{}, migrated.Union(ignored))
 }

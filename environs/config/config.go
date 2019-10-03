@@ -151,6 +151,8 @@ const (
 	// SnapStoreAssertionsKey is used to configure the deployed machines to acknowledge the
 	// store proxy assertions.
 	SnapStoreAssertionsKey = "snap-store-assertions"
+	// SnapStoreProxyURL is used to specify the URL to a snap store proxy.
+	SnapStoreProxyURLKey = "snap-store-proxy-url"
 
 	// NetBondReconfigureDelay is the key to pass when bridging
 	// the network for containers.
@@ -487,6 +489,7 @@ var defaultConfigValues = map[string]interface{}{
 	SnapHTTPSProxyKey:      "",
 	SnapStoreProxyKey:      "",
 	SnapStoreAssertionsKey: "",
+	SnapStoreProxyURLKey:   "",
 
 	// Status history settings
 	MaxStatusHistoryAge:  DefaultStatusHistoryAge,
@@ -1039,6 +1042,11 @@ func (c *Config) SnapStoreAssertions() string {
 	return c.asString(SnapStoreAssertionsKey)
 }
 
+// SnapStoreProxyURL returns the snap store proxy URL for the environment.
+func (c *Config) SnapStoreProxyURL() string {
+	return c.asString(SnapStoreProxyURLKey)
+}
+
 // LogFwdSyslog returns the syslog forwarding config.
 func (c *Config) LogFwdSyslog() (*syslog.RawConfig, bool) {
 	partial := false
@@ -1474,6 +1482,7 @@ var alwaysOptional = schema.Defaults{
 	SnapHTTPSProxyKey:             schema.Omit,
 	SnapStoreProxyKey:             schema.Omit,
 	SnapStoreAssertionsKey:        schema.Omit,
+	SnapStoreProxyURLKey:          schema.Omit,
 	"apt-mirror":                  schema.Omit,
 	AgentStreamKey:                schema.Omit,
 	ResourceTagsKey:               schema.Omit,
@@ -1826,6 +1835,11 @@ global or per instance security groups.`,
 	},
 	SnapStoreAssertionsKey: {
 		Description: "The assertions for the defined snap store proxy",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	SnapStoreProxyURLKey: {
+		Description: "The URL for the defined snap store proxy",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

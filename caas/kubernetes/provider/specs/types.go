@@ -47,7 +47,7 @@ type k8sContainerInterface interface {
 }
 
 func (c *k8sContainer) ToContainerSpec() specs.ContainerSpec {
-	quoteBoolStrings(c.Config)
+	quoteStrings(c.Config)
 	result := specs.ContainerSpec{
 		ImageDetails:    c.ImageDetails,
 		Name:            c.Name,
@@ -87,7 +87,6 @@ type PodSpec struct {
 	ActiveDeadlineSeconds         *int64                   `json:"activeDeadlineSeconds,omitempty"`
 	TerminationGracePeriodSeconds *int64                   `json:"terminationGracePeriodSeconds,omitempty"`
 	SecurityContext               *core.PodSecurityContext `json:"securityContext,omitempty"`
-	Priority                      *int32                   `json:"priority,omitempty"`
 	ReadinessGates                []core.PodReadinessGate  `json:"readinessGates,omitempty"`
 	DNSPolicy                     core.DNSPolicy           `json:"dnsPolicy,omitempty"`
 }
@@ -98,23 +97,25 @@ func (ps PodSpec) IsEmpty() bool {
 		ps.ActiveDeadlineSeconds == nil &&
 		ps.TerminationGracePeriodSeconds == nil &&
 		ps.SecurityContext == nil &&
-		ps.Priority == nil &&
 		len(ps.ReadinessGates) == 0 &&
 		ps.DNSPolicy == ""
 }
 
 var boolValues = set.NewStrings(
-	strings.Split("y|Y|yes|Yes|YES|n|N|no|No|NO|true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF", "|")...,
-)
+	strings.Split("y|Y|yes|Yes|YES|n|N|no|No|NO|true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF", "|")...)
 
-func quoteBoolStrings(config map[string]interface{}) {
-	// Any string config values that could be interpreted as bools need to be quoted.
+var specialValues = ":{}[],&*#?|-<>=!%@`"
+
+func quoteStrings(config map[string]interface{}) {
+	// Any string config values that could be interpreted as bools
+	// or which contain special YAML chars need to be quoted.
 	for k, v := range config {
 		strValue, ok := v.(string)
 		if !ok {
 			continue
 		}
-		if boolValues.Contains(strValue) {
+		if boolValues.Contains(strValue) || strings.IndexAny(strValue, specialValues) >= 0 {
+			strValue = strings.Replace(strValue, "'", "''", -1)
 			config[k] = fmt.Sprintf("'%s'", strValue)
 		}
 	}

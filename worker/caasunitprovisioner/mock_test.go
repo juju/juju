@@ -60,8 +60,7 @@ func (m *mockServiceBroker) GetService(appName string, includeClusterIP bool) (*
 	m.MethodCall(m, "GetService", appName)
 	scale := 4
 	return &caas.Service{
-		Id: "id", Scale: &scale, Addresses: []network.Address{{Value: "10.0.0.1"}},
-		Status: m.serviceStatus,
+		Id: "id", Scale: &scale, Addresses: network.NewProviderAddresses("10.0.0.1"), Status: m.serviceStatus,
 	}, m.NextErr()
 }
 

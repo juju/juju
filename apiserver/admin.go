@@ -111,6 +111,12 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	if err != nil {
 		return fail, errors.Trace(err)
 	}
+	pServers := make([]network.ProviderHostPorts, len(hostPorts))
+	for i, hps := range hostPorts {
+		if pServers[i], err = hps.ToProviderHostPorts(a.root.state); err != nil {
+			return fail, errors.Trace(err)
+		}
+	}
 
 	// apiRoot is the API root exposed to the client after login.
 	var apiRoot rpc.Root
@@ -158,7 +164,7 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	)
 	a.root.rpcConn.ServeRoot(apiRoot, recorderFactory, serverError)
 	return params.LoginResult{
-		Servers:       params.FromNetworkHostsPorts(hostPorts),
+		Servers:       params.FromProviderHostsPorts(pServers),
 		ControllerTag: a.root.model.ControllerTag().String(),
 		UserInfo:      authResult.userInfo,
 		ServerVersion: jujuversion.Current.String(),
@@ -359,12 +365,12 @@ func (a *admin) maybeEmitRedirectError(modelUUID string, authTag names.Tag) erro
 		return errors.Trace(err)
 	}
 
-	hps, err := network.ParseHostPorts(target.Addrs...)
+	hps, err := network.ParseProviderHostPorts(target.Addrs...)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return &common.RedirectError{
-		Servers:         [][]network.HostPort{hps},
+		Servers:         []network.ProviderHostPorts{hps},
 		CACert:          target.CACert,
 		ControllerAlias: target.ControllerAlias,
 	}

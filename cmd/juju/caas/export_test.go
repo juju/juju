@@ -27,7 +27,6 @@ func NewAddCAASCommandForTest(
 	command := &AddCAASCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
 		cloudMetadataStore:        cloudMetadataStore,
-		store:                     store,
 		addCloudAPIFunc:           addCloudAPIFunc,
 		brokerGetter:              brokerGetter,
 		k8sCluster:                k8sCluster,
@@ -47,7 +46,6 @@ func NewRemoveCAASCommandForTest(
 	command := &RemoveCAASCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
 		cloudMetadataStore:        cloudMetadataStore,
-		store:                     store,
 		apiFunc:                   removeCloudAPIFunc,
 	}
 	return command

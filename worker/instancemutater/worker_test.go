@@ -61,14 +61,14 @@ func (s *workerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		{
 			description: "Test no api",
 			config: instancemutater.Config{
-				Logger: mocks.NewMockLogger(ctrl),
+				Logger: loggo.GetLogger("test"),
 			},
 			err: "nil Facade not valid",
 		},
 		{
 			description: "Test no environ",
 			config: instancemutater.Config{
-				Logger: mocks.NewMockLogger(ctrl),
+				Logger: loggo.GetLogger("test"),
 				Facade: mocks.NewMockInstanceMutaterAPI(ctrl),
 			},
 			err: "nil Broker not valid",
@@ -76,7 +76,7 @@ func (s *workerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		{
 			description: "Test no agent",
 			config: instancemutater.Config{
-				Logger: mocks.NewMockLogger(ctrl),
+				Logger: loggo.GetLogger("test"),
 				Facade: mocks.NewMockInstanceMutaterAPI(ctrl),
 				Broker: mocks.NewMockLXDProfiler(ctrl),
 			},
@@ -85,7 +85,7 @@ func (s *workerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		{
 			description: "Test no tag",
 			config: instancemutater.Config{
-				Logger:      mocks.NewMockLogger(ctrl),
+				Logger:      loggo.GetLogger("test"),
 				Facade:      mocks.NewMockInstanceMutaterAPI(ctrl),
 				Broker:      mocks.NewMockLXDProfiler(ctrl),
 				AgentConfig: mocks.NewMockConfig(ctrl),
@@ -95,7 +95,7 @@ func (s *workerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		{
 			description: "Test no GetMachineWatcher",
 			config: instancemutater.Config{
-				Logger:      mocks.NewMockLogger(ctrl),
+				Logger:      loggo.GetLogger("test"),
 				Facade:      mocks.NewMockInstanceMutaterAPI(ctrl),
 				Broker:      mocks.NewMockLXDProfiler(ctrl),
 				AgentConfig: mocks.NewMockConfig(ctrl),
@@ -106,7 +106,7 @@ func (s *workerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		{
 			description: "Test no GetRequiredLXDProfiles",
 			config: instancemutater.Config{
-				Logger:            mocks.NewMockLogger(ctrl),
+				Logger:            loggo.GetLogger("test"),
 				Facade:            mocks.NewMockInstanceMutaterAPI(ctrl),
 				Broker:            mocks.NewMockLXDProfiler(ctrl),
 				AgentConfig:       mocks.NewMockConfig(ctrl),
@@ -133,7 +133,7 @@ func (s *workerConfigSuite) TestValidConfigValidate(c *gc.C) {
 
 	config := instancemutater.Config{
 		Facade:                 mocks.NewMockInstanceMutaterAPI(ctrl),
-		Logger:                 mocks.NewMockLogger(ctrl),
+		Logger:                 loggo.GetLogger("test"),
 		Broker:                 mocks.NewMockLXDProfiler(ctrl),
 		AgentConfig:            mocks.NewMockConfig(ctrl),
 		Tag:                    names.MachineTag{},
@@ -148,8 +148,9 @@ func (s *workerConfigSuite) TestValidConfigValidate(c *gc.C) {
 }
 
 type workerSuite struct {
-	loggerSuite
+	testing.IsolationSuite
 
+	logger                 loggo.Logger
 	facade                 *mocks.MockInstanceMutaterAPI
 	broker                 *mocks.MockLXDProfiler
 	agentConfig            *mocks.MockConfig
@@ -172,6 +173,9 @@ var _ = gc.Suite(&workerSuite{})
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	s.logger = loggo.GetLogger("workerSuite")
+	s.logger.SetLogLevel(loggo.TRACE)
+
 	s.newWorkerFunc = instancemutater.NewEnvironTestWorker
 	s.machineTag = names.NewMachineTag("0")
 	s.getRequiredLXDProfiles = func(modelName string) []string {
@@ -191,7 +195,6 @@ var _ = gc.Suite(&workerEnvironSuite{})
 func (s *workerEnvironSuite) TestFullWorkflow(c *gc.C) {
 	defer s.setup(c, 1).Finish()
 
-	s.ignoreLogging(c)
 	s.notifyMachines([][]string{{"0"}})
 	s.expectFacadeMachineTag(0)
 	s.notifyMachineAppLXDProfile(0, 1)
@@ -208,7 +211,6 @@ func (s *workerEnvironSuite) TestFullWorkflow(c *gc.C) {
 func (s *workerEnvironSuite) TestVerifyCurrentProfilesTrue(c *gc.C) {
 	defer s.setup(c, 1).Finish()
 
-	s.ignoreLogging(c)
 	s.notifyMachines([][]string{{"0"}})
 	s.expectFacadeMachineTag(0)
 	s.notifyMachineAppLXDProfile(0, 1)
@@ -223,7 +225,6 @@ func (s *workerEnvironSuite) TestVerifyCurrentProfilesTrue(c *gc.C) {
 func (s *workerEnvironSuite) TestRemoveAllCharmProfiles(c *gc.C) {
 	defer s.setup(c, 1).Finish()
 
-	s.ignoreLogging(c)
 	s.notifyMachines([][]string{{"0"}})
 	s.expectFacadeMachineTag(0)
 	s.notifyMachineAppLXDProfile(0, 1)
@@ -243,7 +244,6 @@ func (s *workerEnvironSuite) TestMachineNotifyTwice(c *gc.C) {
 	// machine notifications are sent.  The 2nd group must
 	// be after machine 0 gets Life() == Alive.
 	var group sync.WaitGroup
-	s.ignoreLogging(c)
 	s.notifyMachinesWaitGroup([][]string{{"0", "1"}, {"0"}}, &group)
 	s.expectFacadeMachineTag(0)
 	s.expectFacadeMachineTag(1)
@@ -262,7 +262,6 @@ func (s *workerEnvironSuite) TestMachineNotifyTwice(c *gc.C) {
 func (s *workerEnvironSuite) TestNoChangeFoundOne(c *gc.C) {
 	defer s.setup(c, 1).Finish()
 
-	s.ignoreLogging(c)
 	s.notifyMachines([][]string{{"0"}})
 	s.expectFacadeMachineTag(0)
 	s.notifyMachineAppLXDProfile(0, 1)
@@ -274,53 +273,31 @@ func (s *workerEnvironSuite) TestNoChangeFoundOne(c *gc.C) {
 func (s *workerEnvironSuite) TestNoMachineFound(c *gc.C) {
 	defer s.setup(c, 1).Finish()
 
-	s.ignoreLogging(c)
 	s.notifyMachines([][]string{{"0"}})
 	s.expectFacadeReturnsNoMachine()
 
-	w, err := s.workerErrorForScenario(c)
-
-	// Since we don't use cleanKill() nor errorKill()
-	// here, but do waitDone() before checking errors.
-	s.waitDone(c)
-
-	// This test had intermittent failures, one of the
-	// two following would occur.  The 2nd is what we're
-	// looking for.  Please improve this test if you're
-	// able.
-	if err != nil {
-		c.Assert(err, gc.ErrorMatches, "catacomb .* is dying")
-	} else {
-		err = workertest.CheckKill(c, w)
-		c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	}
+	err := s.errorKill(c, s.workerForScenario(c))
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *workerEnvironSuite) TestCharmProfilingInfoNotProvisioned(c *gc.C) {
 	defer s.setup(c, 1).Finish()
 
-	s.ignoreLogging(c)
 	s.notifyMachines([][]string{{"0"}})
 	s.expectFacadeMachineTag(0)
 	s.notifyMachineAppLXDProfile(0, 1)
 	s.expectCharmProfileInfoNotProvisioned(0)
 
-	err := s.errorKill(c, s.workerForScenario(c))
-	c.Assert(err, gc.IsNil)
+	s.cleanKill(c, s.workerForScenario(c))
 }
 
 func (s *workerEnvironSuite) TestCharmProfilingInfoError(c *gc.C) {
 	defer s.setup(c, 1).Finish()
 
-	s.ignoreLogging(c)
 	s.notifyMachines([][]string{{"0"}})
 	s.expectFacadeMachineTag(0)
 	s.notifyMachineAppLXDProfile(0, 1)
 	s.expectCharmProfileInfoError(0)
-
-	// This is required so that the waitgroups don't collapse before the
-	// context KillWithError is called with the right method. Otherwise
-	// context.Kill(nil) is called first. This prevents the logical race.
 	s.expectContextKillError()
 
 	err := s.errorKill(c, s.workerForScenarioWithContext(c))
@@ -330,7 +307,6 @@ func (s *workerEnvironSuite) TestCharmProfilingInfoError(c *gc.C) {
 func (s *workerSuite) setup(c *gc.C, machineCount int) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.logger = mocks.NewMockLogger(ctrl)
 	s.facade = mocks.NewMockInstanceMutaterAPI(ctrl)
 	s.broker = mocks.NewMockLXDProfiler(ctrl)
 	s.agentConfig = mocks.NewMockConfig(ctrl)
@@ -387,23 +363,6 @@ func (s *workerSuite) workerForScenarioWithContext(c *gc.C) worker.Worker {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return w
-}
-
-// workerErrorForScenario creates worker config based on the suite's mocks.
-// Any supplied behaviour functions are executed, then a new worker is
-// started and returned with any error in creation.
-func (s *workerSuite) workerErrorForScenario(c *gc.C) (worker.Worker, error) {
-	config := instancemutater.Config{
-		Facade:      s.facade,
-		Logger:      s.logger,
-		Broker:      s.broker,
-		AgentConfig: s.agentConfig,
-		Tag:         s.machineTag,
-	}
-
-	return s.newWorkerFunc(config, func(ctx instancemutater.MutaterContext) instancemutater.MutaterContext {
-		return ctx
-	})
 }
 
 func (s *workerSuite) expectFacadeMachineTag(machine int) {
@@ -649,7 +608,7 @@ func (s *workerSuite) waitDone(c *gc.C) {
 	ch := make(chan struct{})
 	go func() {
 		s.doneWG.Wait()
-		ch <- struct{}{}
+		close(ch)
 	}()
 
 	select {
@@ -657,42 +616,6 @@ func (s *workerSuite) waitDone(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Errorf("timed out waiting for notifications to be consumed")
 	}
-}
-
-type loggerSuite struct {
-	testing.IsolationSuite
-
-	logger *mocks.MockLogger
-}
-
-var _ = gc.Suite(&loggerSuite{})
-
-// ignoreLogging turns the suite's mock Logger into a sink, with no validation.
-// Logs are still emitted via the test Logger.
-func (s *loggerSuite) ignoreLogging(c *gc.C) {
-	warnIt := func(message string, args ...interface{}) { logIt(c, loggo.WARNING, message, args) }
-	debugIt := func(message string, args ...interface{}) { logIt(c, loggo.DEBUG, message, args) }
-	errorIt := func(message string, args ...interface{}) { logIt(c, loggo.ERROR, message, args) }
-	traceIt := func(message string, args ...interface{}) { logIt(c, loggo.TRACE, message, args) }
-
-	e := s.logger.EXPECT()
-	e.Warningf(gomock.Any(), gomock.Any()).AnyTimes().Do(warnIt)
-	e.Debugf(gomock.Any(), gomock.Any()).AnyTimes().Do(debugIt)
-	e.Errorf(gomock.Any(), gomock.Any()).AnyTimes().Do(errorIt)
-	e.Tracef(gomock.Any(), gomock.Any()).AnyTimes().Do(traceIt)
-
-}
-
-func logIt(c *gc.C, level loggo.Level, message string, args interface{}) {
-	var nArgs []interface{}
-	var ok bool
-	if nArgs, ok = args.([]interface{}); ok {
-		nArgs = append([]interface{}{level}, nArgs...)
-	} else {
-		nArgs = append([]interface{}{level}, args)
-	}
-
-	c.Logf("%s "+message, nArgs...)
 }
 
 type workerContainerSuite struct {
@@ -723,7 +646,6 @@ func (s *workerContainerSuite) SetUpTest(c *gc.C) {
 func (s *workerContainerSuite) TestFullWorkflow(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.ignoreLogging(c)
 	s.notifyContainers(0, [][]string{{"0/lxd/0", "0/kvm/0"}})
 	s.expectFacadeMachineTag(0)
 	s.expectFacadeContainerTags()

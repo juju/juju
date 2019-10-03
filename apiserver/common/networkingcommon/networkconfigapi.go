@@ -10,6 +10,7 @@ import (
 	"net"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
@@ -18,6 +19,8 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.common.networkingcommon")
 
 type NetworkConfigAPI struct {
 	st           *state.State

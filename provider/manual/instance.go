@@ -32,12 +32,12 @@ func (manualBootstrapInstance) Refresh(ctx context.ProviderCallContext) error {
 	return nil
 }
 
-func (inst manualBootstrapInstance) Addresses(ctx context.ProviderCallContext) (addresses []corenetwork.Address, err error) {
+func (inst manualBootstrapInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	addr, err := manual.HostAddress(inst.host)
 	if err != nil {
 		return nil, err
 	}
-	return []corenetwork.Address{addr}, nil
+	return []corenetwork.ProviderAddress{addr}, nil
 }
 
 func (manualBootstrapInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {

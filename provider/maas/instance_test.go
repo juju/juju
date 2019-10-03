@@ -168,7 +168,7 @@ func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
 	idFromUint := func(u uint) network.Id {
 		return network.Id(fmt.Sprintf("%d", u))
 	}
-	expected := []network.Address{
+	expected := network.ProviderAddresses{
 		newAddressOnSpaceWithId("bar", idFromUint(barSpace.ID), "8.7.6.5"),
 		newAddressOnSpaceWithId("bar", idFromUint(barSpace.ID), "8.7.6.6"),
 		newAddressOnSpaceWithId("storage", idFromUint(storageSpace.ID), "10.0.1.1"),

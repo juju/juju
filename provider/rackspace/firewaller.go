@@ -117,7 +117,9 @@ func (c *rackspaceFirewaller) changeIngressRules(ctx context.ProviderCallContext
 	return nil
 }
 
-func (c *rackspaceFirewaller) getInstanceConfigurator(ctx context.ProviderCallContext, inst instances.Instance) ([]corenetwork.Address, common.InstanceConfigurator, error) {
+func (c *rackspaceFirewaller) getInstanceConfigurator(
+	ctx context.ProviderCallContext, inst instances.Instance,
+) ([]corenetwork.ProviderAddress, common.InstanceConfigurator, error) {
 	addresses, err := inst.Addresses(ctx)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)

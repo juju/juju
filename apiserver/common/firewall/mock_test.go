@@ -348,7 +348,7 @@ type mockUnit struct {
 	mu            sync.Mutex
 	name          string
 	assigned      bool
-	publicAddress corenetwork.Address
+	publicAddress corenetwork.SpaceAddress
 	machineId     string
 }
 
@@ -364,19 +364,19 @@ func (u *mockUnit) Name() string {
 	return u.name
 }
 
-func (u *mockUnit) PublicAddress() (corenetwork.Address, error) {
+func (u *mockUnit) PublicAddress() (corenetwork.SpaceAddress, error) {
 	u.MethodCall(u, "PublicAddress")
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
 	if err := u.NextErr(); err != nil {
-		return corenetwork.Address{}, err
+		return corenetwork.SpaceAddress{}, err
 	}
 	if !u.assigned {
-		return corenetwork.Address{}, errors.NotAssignedf(u.name)
+		return corenetwork.SpaceAddress{}, errors.NotAssignedf(u.name)
 	}
 	if u.publicAddress.Value == "" {
-		return corenetwork.Address{}, network.NoAddressError("public")
+		return corenetwork.SpaceAddress{}, network.NoAddressError("public")
 	}
 	return u.publicAddress, nil
 }
@@ -396,7 +396,7 @@ func (u *mockUnit) updateAddress(value string) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
-	u.publicAddress = corenetwork.Address{Value: value}
+	u.publicAddress = corenetwork.NewSpaceAddress(value)
 }
 
 type mockMachine struct {

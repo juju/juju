@@ -91,7 +91,7 @@ clouds:
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 Credential valid for:
   controller
-Controller credential "cred" for user "admin" on cloud "dummy" updated.
+Controller credential "cred" for user "admin" for cloud "dummy" on controller "kontroll" updated.
 For more information, see ‘juju show-credential dummy cred’.
 `[1:])
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")

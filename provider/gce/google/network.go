@@ -89,8 +89,8 @@ func firewallSpec(name, target string, sourceCIDRs []string, ports protocolPorts
 	return &firewall
 }
 
-func extractAddresses(interfaces ...*compute.NetworkInterface) []network.Address {
-	var addresses []network.Address
+func extractAddresses(interfaces ...*compute.NetworkInterface) []network.ProviderAddress {
+	var addresses []network.ProviderAddress
 
 	for _, netif := range interfaces {
 		// Add public addresses.
@@ -98,23 +98,26 @@ func extractAddresses(interfaces ...*compute.NetworkInterface) []network.Address
 			if accessConfig.NatIP == "" {
 				continue
 			}
-			address := network.Address{
-				Value: accessConfig.NatIP,
-				Type:  network.IPv4Address,
-				Scope: network.ScopePublic,
+			address := network.ProviderAddress{
+				MachineAddress: network.MachineAddress{
+					Value: accessConfig.NatIP,
+					Type:  network.IPv4Address,
+					Scope: network.ScopePublic,
+				},
 			}
 			addresses = append(addresses, address)
-
 		}
 
 		// Add private address.
 		if netif.NetworkIP == "" {
 			continue
 		}
-		address := network.Address{
-			Value: netif.NetworkIP,
-			Type:  network.IPv4Address,
-			Scope: network.ScopeCloudLocal,
+		address := network.ProviderAddress{
+			MachineAddress: network.MachineAddress{
+				Value: netif.NetworkIP,
+				Type:  network.IPv4Address,
+				Scope: network.ScopeCloudLocal,
+			},
 		}
 		addresses = append(addresses, address)
 	}

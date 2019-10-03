@@ -45,10 +45,10 @@ func (inst *joyentInstance) Status(ctx context.ProviderCallContext) instance.Sta
 	}
 }
 
-func (inst *joyentInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
-	addresses := make([]network.Address, 0, len(inst.machine.IPs))
+func (inst *joyentInstance) Addresses(ctx context.ProviderCallContext) (network.ProviderAddresses, error) {
+	addresses := make([]network.ProviderAddress, 0, len(inst.machine.IPs))
 	for _, ip := range inst.machine.IPs {
-		address := network.NewAddress(ip)
+		address := network.NewProviderAddress(ip)
 		if ip == inst.machine.PrimaryIP {
 			address.Scope = network.ScopePublic
 		} else {

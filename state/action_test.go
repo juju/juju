@@ -4,16 +4,14 @@
 package state_test
 
 import (
-	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 
@@ -273,6 +271,64 @@ act:
 	}
 }
 
+func (s *ActionSuite) TestActionMessages(c *gc.C) {
+	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	anAction, err := s.unit.AddAction("snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(anAction.Messages(), gc.HasLen, 0)
+
+	// Cannot log messages until action is running.
+	err = anAction.Log("hello")
+	c.Assert(err, gc.ErrorMatches, `cannot log message to operation "dummy-1" with status pending`)
+
+	anAction, err = anAction.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	messages := []string{"one", "two", "three"}
+	for i, msg := range messages {
+		err = anAction.Log(msg)
+		c.Assert(err, jc.ErrorIsNil)
+
+		a, err := s.Model.Action(anAction.Id())
+		c.Assert(err, jc.ErrorIsNil)
+		obtained := a.Messages()
+		c.Assert(obtained, gc.HasLen, i+1)
+		for j, am := range obtained {
+			c.Assert(am.Timestamp, gc.Equals, clock.Now().UTC())
+			c.Assert(am.Message, gc.Equals, messages[j])
+		}
+	}
+
+	// Cannot log messages after action finishes.
+	_, err = anAction.Finish(state.ActionResults{Status: state.ActionCompleted})
+	c.Assert(err, jc.ErrorIsNil)
+	err = anAction.Log("hello")
+	c.Assert(err, gc.ErrorMatches, `cannot log message to operation "dummy-1" with status completed`)
+}
+
+func (s *ActionSuite) TestActionLogMessageRace(c *gc.C) {
+	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	anAction, err := s.unit.AddAction("snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(anAction.Messages(), gc.HasLen, 0)
+
+	anAction, err = anAction.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		_, err = anAction.Finish(state.ActionResults{Status: state.ActionCompleted})
+		c.Assert(err, jc.ErrorIsNil)
+	})()
+
+	err = anAction.Log("hello")
+	c.Assert(err, gc.ErrorMatches, `cannot log message to operation "dummy-1" with status completed`)
+}
+
 // makeUnits prepares units with given Action schemas
 func makeUnits(c *gc.C, s *ActionSuite, units map[string]*state.Unit, schemas map[string]string) {
 	// A few dummy charms that haven't been used yet
@@ -485,11 +541,6 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 }
 
 func (s *ActionSuite) TestFindActionTagsByPrefix(c *gc.C) {
-	prefix := "feedbeef"
-	uuidMock := uuidMockHelper{}
-	uuidMock.SetPrefixMask(prefix)
-	s.PatchValue(&state.NewUUID, uuidMock.NewUUID)
-
 	actions := []struct {
 		Name       string
 		Parameters map[string]interface{}
@@ -505,12 +556,13 @@ func (s *ActionSuite) TestFindActionTagsByPrefix(c *gc.C) {
 		c.Assert(err, gc.Equals, nil)
 	}
 
-	tags := s.model.FindActionTagsByPrefix(prefix)
+	tags := s.model.FindActionTagsByPrefix(s.application.Name())
 
 	c.Assert(len(tags), gc.Equals, len(actions))
 	for i, tag := range tags {
-		c.Logf("check %q against %d:%q", prefix, i, tag)
-		c.Check(tag.Id()[:len(prefix)], gc.Equals, prefix)
+		appName := s.application.Name()
+		c.Logf("check %q against %d:%q", appName, i, tag)
+		c.Check(tag.Id()[:len(appName)], gc.Equals, appName)
 	}
 }
 
@@ -863,6 +915,100 @@ func expectActionIds(actions ...state.Action) []string {
 	return ids
 }
 
+func (s *ActionSuite) TestWatchActionLogs(c *gc.C) {
+	unit1, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// queue some actions before starting the watcher
+	fa1, err := unit1.AddAction("snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	fa1, err = fa1.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	err = fa1.Log("first")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure no cross contamination - add another action.
+	fa2, err := unit1.AddAction("snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	fa2, err = fa2.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	err = fa2.Log("another")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
+	startNow := time.Now().UTC()
+	makeTimestamp := func(offset time.Duration) time.Time {
+		return time.Unix(0, startNow.UnixNano()).Add(offset).UTC()
+	}
+
+	checkExpected := func(wc statetesting.StringsWatcherC, expected []state.ActionMessage) {
+		var ch []string
+		s.State.StartSync()
+		select {
+		case ch = <-wc.Watcher.Changes():
+		case <-time.After(testing.LongWait):
+			c.Fatalf("watcher did not send change")
+		}
+		var msg []state.ActionMessage
+		for i, chStr := range ch {
+			var gotMessage state.ActionMessage
+			err := json.Unmarshal([]byte(chStr), &gotMessage)
+			c.Assert(err, jc.ErrorIsNil)
+			// We can't control the actual time so check for
+			// not nil and then assigned to a known value.
+			c.Assert(gotMessage.Timestamp, gc.NotNil)
+			gotMessage.Timestamp = makeTimestamp(time.Duration(i) * time.Second)
+			msg = append(msg, gotMessage)
+		}
+		c.Assert(msg, jc.DeepEquals, expected)
+		wc.AssertNoChange()
+	}
+
+	w := s.State.WatchActionLogs(fa1.Id())
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	// make sure the previously pending actions are sent on the watcher
+	expected := []state.ActionMessage{{
+		Timestamp: startNow,
+		Message:   "first",
+	}}
+	checkExpected(wc, expected)
+
+	// Add 2 more messages; we should only see those on this watcher.
+	err = fa1.Log("another")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = fa1.Log("yet another")
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected = []state.ActionMessage{{
+		Timestamp: startNow,
+		Message:   "another",
+	}, {
+		Timestamp: makeTimestamp(1 * time.Second),
+		Message:   "yet another",
+	}}
+	checkExpected(wc, expected)
+
+	// But on a new watcher we see all 3 events.
+	w2 := s.State.WatchActionLogs(fa1.Id())
+	defer statetesting.AssertStop(c, w)
+	wc2 := statetesting.NewStringsWatcherC(c, s.State, w2)
+	// make sure the previously pending actions are sent on the watcher
+	expected = []state.ActionMessage{{
+		Timestamp: startNow,
+		Message:   "first",
+	}, {
+		Timestamp: makeTimestamp(1 * time.Second),
+		Message:   "another",
+	}, {
+		Timestamp: makeTimestamp(2 * time.Second),
+		Message:   "yet another",
+	}}
+	checkExpected(wc2, expected)
+}
+
 // mapify is a convenience method, also to make reading the tests
 // easier. It combines two comma delimited strings representing
 // additions and removals and turns it into the map[interface{}]bool
@@ -913,59 +1059,6 @@ func (r mockAR) CompletedActions() ([]state.Action, error)       { return nil, n
 func (r mockAR) PendingActions() ([]state.Action, error)         { return nil, nil }
 func (r mockAR) RunningActions() ([]state.Action, error)         { return nil, nil }
 func (r mockAR) Tag() names.Tag                                  { return names.NewUnitTag(r.id) }
-
-// TestMock verifies the mock UUID generator works as expected.
-func (s *ActionSuite) TestMock(c *gc.C) {
-	prefix := "abbadead"
-	uuidMock := uuidMockHelper{}
-	uuidMock.SetPrefixMask(prefix)
-	s.PatchValue(&state.NewUUID, uuidMock.NewUUID)
-	for i := 0; i < 10; i++ {
-		uuid, err := state.NewUUID()
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(uuid.String()[:len(prefix)], gc.Equals, prefix)
-	}
-}
-
-type uuidGenFn func() (utils.UUID, error)
-type uuidMockHelper struct {
-	original   uuidGenFn
-	prefixMask []byte
-}
-
-func (h *uuidMockHelper) SetPrefixMask(prefix string) error {
-	prefix = strings.Replace(prefix, "-", "", 4)
-	mask, err := hex.DecodeString(prefix)
-	if err != nil {
-		return err
-	}
-	if len(mask) > 16 {
-		return errors.Errorf("prefix mask longer than uuid %q", prefix)
-	}
-	h.prefixMask = mask
-	return nil
-}
-
-func (h *uuidMockHelper) NewUUID() (utils.UUID, error) {
-	uuidGenFn := h.original
-	if uuidGenFn == nil {
-		uuidGenFn = utils.NewUUID
-	}
-	uuid, err := uuidGenFn()
-	if err != nil {
-		return uuid, errors.Trace(err)
-	}
-	return h.mask(uuid), nil
-}
-
-func (h *uuidMockHelper) mask(uuid utils.UUID) utils.UUID {
-	if len(h.prefixMask) > 0 {
-		for i, b := range h.prefixMask {
-			uuid[i] = b
-		}
-	}
-	return uuid
-}
 
 type ActionPruningSuite struct {
 	statetesting.StateWithWallClockSuite

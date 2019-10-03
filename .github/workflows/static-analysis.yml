@@ -1,0 +1,88 @@
+name: "Static Analysis"
+on: [push, pull_request]
+jobs:
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Set up Go 1.12
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.12
+      id: go
+
+    - name: Set GOPATH
+      # temporary fix
+      # see https://github.com/actions/setup-go/issues/14
+      run: |
+        echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
+        echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
+      shell: bash
+
+    - name: Checkout
+      uses: actions/checkout@v1
+      with:
+        path: src/github.com/juju/juju
+
+    - name: Install Vendor dependencies
+      run: |
+        make dep
+      shell: bash
+
+    - name: Install Dependencies
+      run: |
+        go get -u github.com/client9/misspell/cmd/misspell
+        go get -u github.com/tsenart/deadcode
+        go get -u golang.org/x/lint/golint
+
+    - name: "Static Analysis: Copyright"
+      run: |
+        STATIC_ANALYSIS_JOB=test_copyright make static-analysis
+      shell: bash
+
+    - name: "Static Analysis: Shell Check"
+      run: |
+        STATIC_ANALYSIS_JOB=test_static_analysis_shell make static-analysis
+      shell: bash
+
+    - name: "Static Analysis: Go Check"
+      run: |
+        STATIC_ANALYSIS_JOB=test_static_analysis_go make static-analysis
+      shell: bash
+
+  schema:
+    name: Schema
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Set up Go 1.12
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.12
+      id: go
+
+    - name: Set GOPATH
+      # temporary fix
+      # see https://github.com/actions/setup-go/issues/14
+      run: |
+        echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
+        echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
+      shell: bash
+
+    - name: Checkout
+      uses: actions/checkout@v1
+      with:
+        path: src/github.com/juju/juju
+
+    - name: Install Vendor Dependencies
+      run: |
+        make dep
+      shell: bash
+
+    - name: Schema Check
+      run: |
+        STATIC_ANALYSIS_JOB=test_schema make static-analysis
+      shell: bash
+

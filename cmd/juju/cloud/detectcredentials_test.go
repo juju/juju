@@ -6,7 +6,6 @@ package cloud_test
 import (
 	"fmt"
 	"io"
-	"regexp"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -119,7 +118,7 @@ func (s *detectCredentialsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *detectCredentialsSuite) run(c *gc.C, stdin io.Reader, clouds map[string]jujucloud.Cloud, args ...string) (*cmd.Context, error) {
-	allCloudsFunc := func() (map[string]jujucloud.Cloud, error) {
+	allCloudsFunc := func(*cmd.Context) (map[string]jujucloud.Cloud, error) {
 		return clouds, nil
 	}
 	cloudByNameFunc := func(cloudName string) (*jujucloud.Cloud, error) {
@@ -132,21 +131,17 @@ func (s *detectCredentialsSuite) run(c *gc.C, stdin io.Reader, clouds map[string
 }
 
 func (s *detectCredentialsSuite) runWithCloudsFunc(c *gc.C, stdin io.Reader,
-	cloudsFunc func() (map[string]jujucloud.Cloud, error),
+	cloudsFunc func(*cmd.Context) (map[string]jujucloud.Cloud, error),
 	cloudByNameFunc func(cloudName string) (*jujucloud.Cloud, error),
 	args ...string) (*cmd.Context, error) {
 	registeredProvidersFunc := func() []string {
 		return []string{"mock-provider"}
 	}
-	cloudType := ""
-	if len(args) > 0 {
-		cloudType = args[0]
-	}
-	command := cloud.NewDetectCredentialsCommandForTest(s.store, registeredProvidersFunc, cloudsFunc, cloudByNameFunc, cloudType, s.credentialAPIFunc)
-	err := cmdtesting.InitCommand(command, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	command := cloud.NewDetectCredentialsCommandForTest(s.store, registeredProvidersFunc, cloudsFunc, cloudByNameFunc, s.credentialAPIFunc)
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = stdin
+	err := cmdtesting.InitCommand(command, args)
+	c.Assert(err, jc.ErrorIsNil)
 	return ctx, command.Run(ctx)
 }
 
@@ -156,7 +151,11 @@ func (s *detectCredentialsSuite) credentialWithLabel(authType jujucloud.AuthType
 	return cred
 }
 
-func (s *detectCredentialsSuite) assertDetectCredential(c *gc.C, cloudName, expectedRegion, errText string) {
+type detectCredentialTestExpectations struct {
+	cloudName, expectedRegion, expectedStderr, expectedWarn string
+}
+
+func (s *detectCredentialsSuite) assertDetectCredential(c *gc.C, t detectCredentialTestExpectations) {
 	s.aCredential = jujucloud.CloudCredential{
 		DefaultRegion: "default region",
 		AuthCredentials: map[string]jujucloud.Credential{
@@ -171,22 +170,24 @@ func (s *detectCredentialsSuite) assertDetectCredential(c *gc.C, cloudName, expe
 		},
 	}
 
-	stdin := strings.NewReader(fmt.Sprintf("1\n%s\nQ\n", cloudName))
+	stdin := strings.NewReader(fmt.Sprintf("1\n%s\nQ\n", t.cloudName))
 	ctx, err := s.run(c, stdin, clouds)
 	c.Assert(err, jc.ErrorIsNil)
-	if errText == "" {
-		if expectedRegion != "" {
-			s.aCredential.DefaultRegion = expectedRegion
+	if t.expectedStderr == "" {
+		if t.expectedRegion != "" {
+			s.aCredential.DefaultRegion = t.expectedRegion
 		}
 		c.Assert(s.store.Credentials["test-cloud"], jc.DeepEquals, s.aCredential)
 	} else {
-		output := strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1)
-		c.Assert(output, gc.Matches, ".*"+regexp.QuoteMeta(errText)+".*")
+		c.Assert(cmdtesting.Stderr(ctx), gc.DeepEquals, t.expectedStderr)
+	}
+	if t.expectedWarn != "" {
+		c.Assert(c.GetTestLog(), jc.Contains, t.expectedWarn)
 	}
 }
 
 func (s *detectCredentialsSuite) TestDetectNewCredential(c *gc.C) {
-	s.assertDetectCredential(c, "test-cloud", "", "")
+	s.assertDetectCredential(c, detectCredentialTestExpectations{cloudName: "test-cloud"})
 }
 
 func (s *detectCredentialsSuite) TestDetectCredentialOverwrites(c *gc.C) {
@@ -197,7 +198,7 @@ func (s *detectCredentialsSuite) TestDetectCredentialOverwrites(c *gc.C) {
 			},
 		},
 	}
-	s.assertDetectCredential(c, "test-cloud", "", "")
+	s.assertDetectCredential(c, detectCredentialTestExpectations{cloudName: "test-cloud"})
 }
 
 func (s *detectCredentialsSuite) TestDetectCredentialKeepsExistingRegion(c *gc.C) {
@@ -209,19 +210,43 @@ func (s *detectCredentialsSuite) TestDetectCredentialKeepsExistingRegion(c *gc.C
 			},
 		},
 	}
-	s.assertDetectCredential(c, "test-cloud", "west", "")
+	s.assertDetectCredential(c, detectCredentialTestExpectations{cloudName: "test-cloud", expectedRegion: "west"})
 }
 
 func (s *detectCredentialsSuite) TestDetectCredentialDefaultCloud(c *gc.C) {
-	s.assertDetectCredential(c, "", "", "")
+	s.assertDetectCredential(c, detectCredentialTestExpectations{})
 }
 
 func (s *detectCredentialsSuite) TestDetectCredentialUnknownCloud(c *gc.C) {
-	s.assertDetectCredential(c, "foo", "", "cloud foo not valid")
+	s.assertDetectCredential(c, detectCredentialTestExpectations{
+		cloudName: "foo",
+		expectedStderr: `
+
+1. credential (new)
+Select a credential to save by number, or type Q to quit: 
+Select the cloud it belongs to, or type Q to quit [test-cloud]: 
+
+1. credential (new)
+Select a credential to save by number, or type Q to quit: 
+`[1:],
+		expectedWarn: "cloud foo not valid",
+	})
 }
 
 func (s *detectCredentialsSuite) TestDetectCredentialInvalidCloud(c *gc.C) {
-	s.assertDetectCredential(c, "another-cloud", "", "chosen credentials not compatible with a another-provider cloud")
+	s.assertDetectCredential(c, detectCredentialTestExpectations{
+		cloudName: "another-cloud",
+		expectedStderr: `
+
+1. credential (new)
+Select a credential to save by number, or type Q to quit: 
+Select the cloud it belongs to, or type Q to quit [test-cloud]: 
+
+1. credential (new)
+Select a credential to save by number, or type Q to quit: 
+`[1:],
+		expectedWarn: `chosen credential not compatible with "another-provider" cloud`,
+	})
 }
 
 func (s *detectCredentialsSuite) TestNewDetectCredentialNoneFound(c *gc.C) {
@@ -297,18 +322,16 @@ func (s *detectCredentialsSuite) TestDetectCredentialCloudMismatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 
-Looking for cloud and credential information locally...
-
 1. credential 2 (new)
 2. credential 1 (new)
 Select a credential to save by number, or type Q to quit: 
 Select the cloud it belongs to, or type Q to quit []: 
-chosen credentials not compatible with a aws cloud
 
 1. credential 2 (new)
 2. credential 1 (new)
 Select a credential to save by number, or type Q to quit: 
 `[1:])
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
 	c.Assert(s.store.Credentials, gc.HasLen, 0)
 }
 
@@ -324,8 +347,6 @@ func (s *detectCredentialsSuite) TestDetectCredentialQuitOnCloud(c *gc.C) {
 	ctx, err := s.run(c, stdin, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
-
-Looking for cloud and credential information locally...
 
 1. credential a (new)
 2. credential b (new)
@@ -389,13 +410,14 @@ func (s *detectCredentialsSuite) TestRemoteLoad(c *gc.C) {
 		return &remoteTestCloud, nil
 	}
 
-	stdin := strings.NewReader(fmt.Sprintf("1\n%s\nQ\n", cloudName))
+	stdin := strings.NewReader(fmt.Sprintf("\n1\n%s\nQ\n", cloudName))
 	ctx, err := s.runWithCloudsFunc(c, stdin, nil, cloudByNameFunc)
 	c.Assert(err, jc.ErrorIsNil)
-
 	c.Assert(cmdtesting.Stderr(ctx), gc.DeepEquals, `
 
-Looking for cloud and credential information locally...
+Looking for cloud and credential information on local client...
+
+Looking for cloud information on controller "controller"...
 
 1. credential (new)
 Select a credential to save by number, or type Q to quit: 
@@ -405,10 +427,11 @@ Saved credential to cloud test-cloud locally
 1. credential (existing, will overwrite)
 Select a credential to save by number, or type Q to quit: 
 
-Controller credential "blah" for user "admin@local" on cloud "test-cloud" loaded.
+Controller credential "blah" for user "admin@local" for cloud "test-cloud" on controller "controller" loaded.
 For more information, see ‘juju show-credential test-cloud blah’.
 `[1:])
 	c.Assert(called, jc.IsTrue)
+	c.Assert(cmdtesting.Stdout(ctx), gc.DeepEquals, "Do you want to add a credential to current controller \"controller\"? (Y/n): \n")
 }
 
 func (s *detectCredentialsSuite) TestRemoteLoadNoRemoteCloud(c *gc.C) {
@@ -428,7 +451,7 @@ func (s *detectCredentialsSuite) TestRemoteLoadNoRemoteCloud(c *gc.C) {
 	}
 
 	clouds := map[string]jujucloud.Cloud{
-		"test-cloud": {
+		cloudName: {
 			Name:             cloudName,
 			Type:             "mock-provider",
 			AuthTypes:        []jujucloud.AuthType{jujucloud.AccessKeyAuthType},
@@ -450,12 +473,10 @@ func (s *detectCredentialsSuite) TestRemoteLoadNoRemoteCloud(c *gc.C) {
 	}
 
 	stdin := strings.NewReader(fmt.Sprintf("1\n%s\nQ\n", cloudName))
-	ctx, err := s.run(c, stdin, clouds)
+	ctx, err := s.run(c, stdin, clouds, "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(cmdtesting.Stderr(ctx), gc.DeepEquals, `
-
-Looking for cloud and credential information locally...
 
 1. credential (new)
 Select a credential to save by number, or type Q to quit: 

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
@@ -1450,6 +1449,9 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 		"apt-https-proxy":              "https://proxy.example.com:9000",
 		"allow-lxd-loop-mounts":        true,
 		"apt-mirror":                   "http://example.mirror.com",
+		"snap-https-proxy":             "https://snap-proxy.example.com:9000",
+		"snap-store-assertions":        "BLOB",
+		"snap-store-proxy":             "b4dc0ffee",
 		"cloudinit-userdata":           validCloudInitUserData,
 		"container-inherit-properties": "ca-certs,apt-primary",
 	}
@@ -1466,6 +1468,10 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 		NoProxy: "127.0.0.1,localhost,::1",
 	}
 
+	expectedSnapProxy := proxy.Settings{
+		Https: "https://snap-proxy.example.com:9000",
+	}
+
 	results, err := s.provisioner.ContainerConfig()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(results.UpdateBehavior, gc.Not(gc.IsNil))
@@ -1476,6 +1482,9 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.JujuProxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptProxy, gc.DeepEquals, expectedAPTProxy)
 	c.Check(results.AptMirror, gc.DeepEquals, "http://example.mirror.com")
+	c.Check(results.SnapProxy, gc.DeepEquals, expectedSnapProxy)
+	c.Check(results.SnapStoreAssertions, gc.Equals, "BLOB")
+	c.Check(results.SnapStoreProxyID, gc.Equals, "b4dc0ffee")
 	c.Check(results.CloudInitUserData, gc.DeepEquals, map[string]interface{}{
 		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
 		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
@@ -1719,8 +1728,8 @@ func (s *withControllerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *withControllerSuite) TestAPIAddresses(c *gc.C) {
-	hostPorts := [][]network.HostPort{
-		network.NewHostPorts(1234, "0.1.2.3"),
+	hostPorts := []network.SpaceHostPorts{
+		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1893,11 +1902,12 @@ func (s *provisionerMockSuite) expectManuallyProvisionedHostsUseDHCPForContainer
 	s.expectNetworkingEnviron()
 	s.expectLinkLayerDevices()
 
-	emptySpace := ""
-
 	cExp := s.container.EXPECT()
 	cExp.InstanceId().Return(instance.UnknownId, errors.NotProvisionedf("idk-lol"))
-	cExp.DesiredSpaces().Return(set.NewStrings(emptySpace), nil)
+
+	cExp.Constraints().Return(constraints.MustParse("spaces=test-space"), nil)
+	cExp.Units().Return(nil, nil)
+
 	cExp.Id().Return("lxd/0").AnyTimes()
 	cExp.SetLinkLayerDevices(gomock.Any()).Return(nil)
 	cExp.AllLinkLayerDevices().Return([]containerizer.LinkLayerDevice{s.device}, nil)
@@ -1905,11 +1915,11 @@ func (s *provisionerMockSuite) expectManuallyProvisionedHostsUseDHCPForContainer
 	hExp := s.host.EXPECT()
 	hExp.Id().Return("0").AnyTimes()
 	hExp.LinkLayerDevicesForSpaces(gomock.Any()).Return(
-		map[string][]containerizer.LinkLayerDevice{emptySpace: {s.device}}, nil)
+		map[string][]containerizer.LinkLayerDevice{"test-space": {s.device}}, nil)
+
 	// Crucial behavioural trait. Set false to test failure.
 	hExp.IsManual().Return(true, nil)
 	hExp.InstanceId().Return(instance.Id("manual:10.0.0.66"), nil)
-
 }
 
 // expectNetworkingEnviron stubs an environ that supports container networking.
@@ -1927,14 +1937,14 @@ func (s *provisionerMockSuite) expectLinkLayerDevices() {
 	mac := network.GenerateVirtualMACAddress()
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name:       devName,
-		Type:       state.EthernetDevice,
+		Type:       network.EthernetDevice,
 		MACAddress: mac,
 		MTU:        mtu,
 	}
 
 	dExp := s.device.EXPECT()
 	dExp.Name().Return(devName).AnyTimes()
-	dExp.Type().Return(state.BridgeDevice).AnyTimes()
+	dExp.Type().Return(network.BridgeDevice).AnyTimes()
 	dExp.MTU().Return(mtu).AnyTimes()
 	dExp.EthernetDeviceForBridge(devName).Return(deviceArgs, nil).MinTimes(1)
 	dExp.ParentDevice().Return(s.parentDevice, nil)
@@ -2044,12 +2054,4 @@ func (s *provisionerMockSuite) setup(c *gc.C) *gomock.Controller {
 	s.parentDevice = mocks.NewMockLinkLayerDevice(ctrl)
 
 	return ctrl
-}
-
-type provisionerProfileMockSuite struct {
-	coretesting.BaseSuite
-
-	backend *mocks.MockProfileBackend
-	charm   *mocks.MockProfileCharm
-	machine *mocks.MockProfileMachine
 }

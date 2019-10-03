@@ -487,13 +487,13 @@ var (
 	TagToCollectionAndId              = (*State).tagToCollectionAndId
 )
 
-func AssertAddressConversion(c *gc.C, netAddr network.Address) {
+func AssertAddressConversion(c *gc.C, netAddr network.SpaceAddress) {
 	addr := fromNetworkAddress(netAddr, OriginUnknown)
 	newNetAddr := addr.networkAddress()
 	c.Assert(netAddr, gc.DeepEquals, newNetAddr)
 
 	size := 5
-	netAddrs := make([]network.Address, size)
+	netAddrs := make(network.SpaceAddresses, size)
 	for i := 0; i < size; i++ {
 		netAddrs[i] = netAddr
 	}
@@ -502,15 +502,15 @@ func AssertAddressConversion(c *gc.C, netAddr network.Address) {
 	c.Assert(netAddrs, gc.DeepEquals, newNetAddrs)
 }
 
-func AssertHostPortConversion(c *gc.C, netHostPort network.HostPort) {
+func AssertHostPortConversion(c *gc.C, netHostPort network.SpaceHostPort) {
 	hostPort := fromNetworkHostPort(netHostPort)
 	newNetHostPort := hostPort.networkHostPort()
 	c.Assert(netHostPort, gc.DeepEquals, newNetHostPort)
 
 	size := 5
-	netHostsPorts := make([][]network.HostPort, size)
+	netHostsPorts := make([]network.SpaceHostPorts, size)
 	for i := 0; i < size; i++ {
-		netHostsPorts[i] = make([]network.HostPort, size)
+		netHostsPorts[i] = make(network.SpaceHostPorts, size)
 		for j := 0; j < size; j++ {
 			netHostsPorts[i][j] = netHostPort
 		}
@@ -932,4 +932,29 @@ func (s ModelBackendShim) isController() bool {
 
 func (s ModelBackendShim) txnLogWatcher() watcher.BaseWatcher {
 	return s.Watcher
+}
+
+// SetClockForTesting is an exported function to allow tests
+// to set the internal clock for the State instance. It is named such
+// that it should be obvious if it is ever called from a non-test package.
+// TODO (thumper): This is a terrible method and we should remove it.
+// NOTE: this should almost never be needed.
+func (st *State) SetClockForTesting(clock clock.Clock) error {
+	// Need to restart the lease workers so they get the new clock.
+	// Stop them first so they don't try to use it when we're setting it.
+	hub := st.workers.hub
+	st.workers.Kill()
+	err := st.workers.Wait()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	st.stateClock = clock
+	if db, ok := st.database.(*database); ok {
+		db.clock = clock
+	}
+	err = st.start(st.controllerTag, hub)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

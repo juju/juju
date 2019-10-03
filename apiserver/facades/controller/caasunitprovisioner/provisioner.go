@@ -36,6 +36,7 @@ var logger = loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner")
 
 type Facade struct {
 	*common.LifeGetter
+
 	resources          facade.Resources
 	state              CAASUnitProvisionerState
 	storage            StorageBackend
@@ -1216,7 +1217,14 @@ func (a *Facade) UpdateApplicationsService(args params.UpdateApplicationServiceA
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		if err := app.UpdateCloudService(appUpdate.ProviderId, params.NetworkAddresses(appUpdate.Addresses...)); err != nil {
+
+		sAddrs, err := params.ToProviderAddresses(appUpdate.Addresses...).ToSpaceAddresses(a.state)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if err := app.UpdateCloudService(appUpdate.ProviderId, sAddrs); err != nil {
 			result.Results[i].Error = common.ServerError(err)
 		}
 		if appUpdate.Scale != nil {

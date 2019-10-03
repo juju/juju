@@ -697,11 +697,6 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 	// Set up a CAAS model to replace the IAAS one.
 	st := s.Factory.MakeCAASModel(c, nil)
 	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
-	// Close the state pool before the state object itself.
-	s.StatePool.Close()
-	s.StatePool = nil
-	err := s.State.Close()
-	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
 	s.Factory = factory.NewFactory(s.State, nil)
 	m, err := st.Model()
@@ -710,16 +705,14 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 
 	hp, err := st.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
-	var addrs []network.Address
+	var addrs []network.SpaceAddress
 	for _, server := range hp {
 		for _, nhp := range server {
-			addrs = append(addrs, nhp.Address)
+			addrs = append(addrs, nhp.SpaceAddress)
 		}
 	}
 
-	apiAddrs := network.HostPortsToStrings(
-		network.AddressesWithPort(addrs, s.ControllerConfig.APIPort()),
-	)
+	apiAddrs := network.SpaceAddressesWithPort(addrs, s.ControllerConfig.APIPort()).HostPorts().Strings()
 	modelTag := names.NewModelTag(st.ModelUUID())
 	apiInfo := &api.Info{Addrs: apiAddrs, CACert: coretesting.CACert, ModelTag: modelTag}
 	apiInfo.Tag = s.AdminUserTag(c)

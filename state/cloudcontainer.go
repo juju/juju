@@ -22,7 +22,7 @@ type CloudContainer interface {
 	ProviderId() string
 
 	// Address returns the container address.
-	Address() *network.Address
+	Address() *network.SpaceAddress
 
 	// Ports returns the open container ports.
 	Ports() []string
@@ -61,7 +61,7 @@ func (c *cloudContainer) ProviderId() string {
 }
 
 // Address implements CloudContainer.
-func (c *cloudContainer) Address() *network.Address {
+func (c *cloudContainer) Address() *network.SpaceAddress {
 	if c.doc.Address == nil {
 		return nil
 	}

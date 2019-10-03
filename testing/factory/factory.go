@@ -92,7 +92,7 @@ type MachineParams struct {
 	InstanceId      instance.Id
 	DisplayName     string
 	Characteristics *instance.HardwareCharacteristics
-	Addresses       []network.Address
+	Addresses       network.SpaceAddresses
 	Volumes         []state.HostVolumeParams
 	Filesystems     []state.HostFilesystemParams
 }
@@ -151,7 +151,7 @@ type ModelParams struct {
 type SpaceParams struct {
 	Name       string
 	ProviderID network.Id
-	Subnets    []string
+	SubnetIDs  []string
 	IsPublic   bool
 }
 
@@ -816,7 +816,7 @@ func (factory *Factory) MakeSpace(c *gc.C, params *SpaceParams) *state.Space {
 	if params.Name == "" {
 		params.Name = uniqueString("space-")
 	}
-	space, err := factory.st.AddSpace(params.Name, params.ProviderID, params.Subnets, params.IsPublic)
+	space, err := factory.st.AddSpace(params.Name, params.ProviderID, params.SubnetIDs, params.IsPublic)
 	c.Assert(err, jc.ErrorIsNil)
 	return space
 }

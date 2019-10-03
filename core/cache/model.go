@@ -430,3 +430,88 @@ func (m *Model) doLocked() func() {
 	m.mu.Lock()
 	return m.mu.Unlock
 }
+
+func unitChangeTopic(source string) string {
+	return "unit-change." + source
+}
+
+// WaitForUnit is the second attempt at providing a genericish way to wait for
+// the cache to be updated. The method subscribes to the hub with the topic
+// "unit-change.<source>". The expected payload is a *Unit. The method
+// effectively runs another goroutine that will close the result channel when
+// the field is updated to the expected value, or the cancel channel is
+// signalled. This method is not responsible for checking the current value, it
+// only deals with changes.
+func (m *Model) WaitForUnit(name string, predicate func(*Unit) bool, cancel <-chan struct{}) <-chan struct{} {
+	result := make(chan struct{})
+
+	wait := &waitUnitChange{
+		predicate: predicate,
+		done:      result,
+	}
+	// Lock the change so we don't get an event before we record the unsubscriber.
+	wait.mu.Lock()
+	// The closure that is created below captures the unsub function pointer by reference
+	// allowing the function closure to unsubscribe from the hub.
+	wait.unsub = m.hub.Subscribe(unitChangeTopic(name), wait.onChange)
+	wait.mu.Unlock()
+	go wait.loop(cancel)
+
+	// Do the check now, just in case we are already good.
+	if unit, err := m.Unit(name); err == nil {
+		if predicate(&unit) {
+			wait.mu.Lock()
+			wait.close()
+			wait.mu.Unlock()
+		}
+	}
+
+	return result
+}
+
+type waitUnitChange struct {
+	mu        sync.Mutex
+	unsub     func()
+	predicate func(*Unit) bool
+	done      chan struct{}
+}
+
+func (w *waitUnitChange) onChange(_ string, payload interface{}) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	unit, ok := payload.(*Unit)
+	if !ok {
+		logger.Criticalf("programming error, payload type incorrect %T", payload)
+		return
+	}
+	if w.predicate(unit) {
+		w.close()
+	}
+}
+
+func (w *waitUnitChange) loop(cancel <-chan struct{}) {
+	select {
+	case <-cancel:
+		w.mu.Lock()
+		w.close()
+		w.mu.Unlock()
+	case <-w.done:
+		// Close already handled, so we're done.
+	}
+}
+
+// close unsubscribes and closes the done channel.
+// Due to the race potentials, both are checked prior to action.
+// The mutex is acquired outside this method.
+func (w *waitUnitChange) close() {
+	if w.unsub != nil {
+		w.unsub()
+		w.unsub = nil
+	}
+	select {
+	case <-w.done:
+		// already closed
+	default:
+		close(w.done)
+	}
+}

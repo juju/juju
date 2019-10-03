@@ -84,6 +84,23 @@ func (s *typesSuite) TestValidateFileSet(c *gc.C) {
 	}
 }
 
+func (s *typesSuite) TestValidateServiceSpec(c *gc.C) {
+	spec := specs.ServiceSpec{
+		ScalePolicy: "foo",
+	}
+	c.Assert(spec.Validate(), gc.ErrorMatches, `foo not supported`)
+
+	spec = specs.ServiceSpec{
+		ScalePolicy: "parallel",
+	}
+	c.Assert(spec.Validate(), jc.ErrorIsNil)
+
+	spec = specs.ServiceSpec{
+		ScalePolicy: "serial",
+	}
+	c.Assert(spec.Validate(), jc.ErrorIsNil)
+}
+
 func (s *typesSuite) TestValidateContainerSpec(c *gc.C) {
 	for i, tc := range []validateTc{
 		{

@@ -37,8 +37,8 @@ type machine interface {
 	Id() string
 	Tag() names.MachineTag
 	InstanceId() (instance.Id, error)
-	ProviderAddresses() ([]network.Address, error)
-	SetProviderAddresses(...network.Address) error
+	ProviderAddresses() (network.ProviderAddresses, error)
+	SetProviderAddresses(...network.ProviderAddress) error
 	InstanceStatus() (params.StatusResult, error)
 	SetInstanceStatus(status.Status, string, map[string]interface{}) error
 	String() string
@@ -49,7 +49,7 @@ type machine interface {
 }
 
 type instanceInfo struct {
-	addresses []network.Address
+	addresses network.ProviderAddresses
 	status    instance.Status
 }
 
@@ -265,11 +265,12 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 		logger.Warningf("cannot get instance info for instance %q: %v", instId, err)
 		return instInfo, nil
 	}
+
 	if instStat, err := m.InstanceStatus(); err != nil {
 		// This should never occur since the machine is provisioned.
 		// But just in case, we reset polled status so we try again next time.
 		logger.Warningf("cannot get current instance status for machine %v: %v", m.Id(), err)
-		instInfo.status = instance.Status{status.Unknown, ""}
+		instInfo.status = instance.Status{Status: status.Unknown}
 	} else {
 		// TODO(perrito666) add status validation.
 		currentInstStatus := instance.Status{
@@ -283,19 +284,19 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 				return instanceInfo{}, err
 			}
 		}
-
 	}
+
 	if m.Life() != params.Dead {
 		providerAddresses, err := m.ProviderAddresses()
 		if err != nil {
-			return instanceInfo{}, err
+			return instanceInfo{}, errors.Trace(err)
 		}
 
 		if !addressesEqual(providerAddresses, instInfo.addresses) {
 			logger.Infof("machine %q has new addresses: %v", m.Id(), instInfo.addresses)
 			if err := m.SetProviderAddresses(instInfo.addresses...); err != nil {
 				logger.Errorf("cannot set addresses on %q: %v", m, err)
-				return instanceInfo{}, err
+				return instanceInfo{}, errors.Trace(err)
 			}
 		}
 	}
@@ -303,26 +304,26 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 }
 
 // addressesEqual compares the addresses of the machine and the instance information.
-func addressesEqual(a0, a1 []network.Address) bool {
-	if len(a0) != len(a1) {
-		logger.Tracef("address lists have different lengths %d != %d for %v != %v",
-			len(a0), len(a1), a0, a1)
+func addressesEqual(addrs0, addrs1 network.ProviderAddresses) bool {
+	if len(addrs0) != len(addrs1) {
+		logger.Tracef("address lists have different lengths %d != %d, for %v != %v",
+			len(addrs0), len(addrs1), addrs0, addrs1)
 		return false
 	}
 
-	ca0 := make([]network.Address, len(a0))
-	copy(ca0, a0)
-	network.SortAddresses(ca0)
-	ca1 := make([]network.Address, len(a1))
-	copy(ca1, a1)
-	network.SortAddresses(ca1)
-
-	for i := range ca0 {
-		if ca0[i] != ca1[i] {
-			logger.Tracef("address entry at offset %d has a different value for %v != %v",
-				i, ca0, ca1)
+	for i, a0 := range addrs0 {
+		found := false
+		for _, a1 := range addrs1 {
+			if a0 == a1 {
+				found = true
+				break
+			}
+		}
+		if !found {
+			logger.Tracef("address at index %d not found in list, for %v != %v", i, addrs0, addrs1)
 			return false
 		}
 	}
+
 	return true
 }

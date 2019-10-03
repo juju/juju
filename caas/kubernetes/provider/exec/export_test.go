@@ -9,7 +9,7 @@ import (
 
 var (
 	ProcessEnv = processEnv
-	NewForTest = new
+	NewForTest = newClient
 )
 
 func (ep *ExecParams) Validate(podGetter typedcorev1.PodInterface) error {

@@ -57,23 +57,25 @@ func (i sigmaInstance) Status(ctx context.ProviderCallContext) instance.Status {
 }
 
 // Addresses returns a list of hostnames or ip addresses
-// associated with the instance. This will supercede DNSName
+// associated with the instance. This will supersede DNSName
 // which can be implemented by selecting a preferred address.
-func (i sigmaInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
+func (i sigmaInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	ip := i.findIPv4()
 
 	if ip != "" {
-		addr := corenetwork.Address{
-			Value: ip,
-			Type:  corenetwork.IPv4Address,
-			Scope: corenetwork.ScopePublic,
+		addr := corenetwork.ProviderAddress{
+			MachineAddress: corenetwork.MachineAddress{
+				Value: ip,
+				Type:  corenetwork.IPv4Address,
+				Scope: corenetwork.ScopePublic,
+			},
 		}
 
 		logger.Tracef("sigmaInstance.Addresses: %v", addr)
 
-		return []corenetwork.Address{addr}, nil
+		return []corenetwork.ProviderAddress{addr}, nil
 	}
-	return []corenetwork.Address{}, nil
+	return []corenetwork.ProviderAddress{}, nil
 }
 
 // OpenPorts opens the given ports on the instance, which

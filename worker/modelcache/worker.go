@@ -356,7 +356,7 @@ func (c *cacheWorker) translateMachine(d multiwatcher.Delta) interface{} {
 		SupportedContainersKnown: value.SupportedContainersKnown,
 		HardwareCharacteristics:  value.HardwareCharacteristics,
 		CharmProfiles:            value.CharmProfiles,
-		Addresses:                networkAddresses(value.Addresses),
+		Addresses:                providerAddresses(value.Addresses),
 		HasVote:                  value.HasVote,
 		WantsVote:                value.WantsVote,
 	}
@@ -507,15 +507,17 @@ func networkPortRanges(delta []multiwatcher.PortRange) []network.PortRange {
 	return ports
 }
 
-func networkAddresses(delta []multiwatcher.Address) []network.Address {
-	addresses := make([]network.Address, len(delta))
+func providerAddresses(delta []multiwatcher.Address) network.ProviderAddresses {
+	addresses := make(network.ProviderAddresses, len(delta))
 	for i, d := range delta {
-		addresses[i] = network.Address{
-			Value:           d.Value,
-			Type:            network.AddressType(d.Type),
-			Scope:           network.Scope(d.Scope),
+		addresses[i] = network.ProviderAddress{
+			MachineAddress: network.MachineAddress{
+				Value: d.Value,
+				Type:  network.AddressType(d.Type),
+				Scope: network.Scope(d.Scope),
+			},
 			SpaceName:       network.SpaceName(d.SpaceName),
-			SpaceProviderId: network.Id(d.SpaceProviderId),
+			ProviderSpaceID: network.Id(d.SpaceProviderId),
 		}
 	}
 	return addresses

@@ -5,6 +5,9 @@
 package testing
 
 import (
+	io "io"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	jsonschema "github.com/juju/jsonschema"
 	cloud "github.com/juju/juju/cloud"
@@ -20,8 +23,6 @@ import (
 	version "github.com/juju/version"
 	environschema_v1 "gopkg.in/juju/environschema.v1"
 	names_v3 "gopkg.in/juju/names.v3"
-	io "io"
-	reflect "reflect"
 )
 
 // MockEnvironProvider is a mock of EnvironProvider interface
@@ -1610,9 +1611,9 @@ func (mr *MockNetworkingEnvironMockRecorder) ReleaseContainerAddresses(arg0, arg
 }
 
 // SSHAddresses mocks base method
-func (m *MockNetworkingEnviron) SSHAddresses(arg0 context.ProviderCallContext, arg1 []network.Address) ([]network.Address, error) {
+func (m *MockNetworkingEnviron) SSHAddresses(arg0 context.ProviderCallContext, arg1 []network.SpaceAddress) ([]network.SpaceAddress, error) {
 	ret := m.ctrl.Call(m, "SSHAddresses", arg0, arg1)
-	ret0, _ := ret[0].([]network.Address)
+	ret0, _ := ret[0].([]network.SpaceAddress)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

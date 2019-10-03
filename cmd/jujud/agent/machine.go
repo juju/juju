@@ -5,6 +5,7 @@ package agent
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -80,6 +81,7 @@ import (
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/logsender/logsendermetrics"
 	"github.com/juju/juju/worker/migrationmaster"
+	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/provisioner"
 	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/upgradesteps"
@@ -359,6 +361,7 @@ func (a *MachineAgent) registerPrometheusCollectors() error {
 type MachineAgent struct {
 	AgentConfigWriter
 
+	ctx              *cmd.Context
 	dead             chan struct{}
 	errReason        error
 	agentTag         names.Tag
@@ -460,8 +463,9 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 }
 
 // Run runs a machine agent.
-func (a *MachineAgent) Run(*cmd.Context) (err error) {
+func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	defer a.Done(err)
+	a.ctx = ctx
 	useMultipleCPUs()
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return errors.Errorf("cannot read agent configuration: %v", err)
@@ -1015,6 +1019,7 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, er
 	if err != nil {
 		return nil, err
 	}
+	logger.Infof("juju database opened")
 
 	reportOpenedState(pool.SystemState())
 
@@ -1023,9 +1028,13 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, er
 
 // startModelWorkers starts the set of workers that run for every model
 // in each controller, both IAAS and CAAS.
-func (a *MachineAgent) startModelWorkers(modelUUID string, modelType state.ModelType) (worker.Worker, error) {
-	controllerUUID := a.CurrentConfig().Controller().Id()
-	modelAgent, err := model.WrapAgent(a, controllerUUID, modelUUID)
+func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) (worker.Worker, error) {
+	currentConfig := a.CurrentConfig()
+	controllerUUID := currentConfig.Controller().Id()
+	// We look at the model in the agent.conf file to see if we are starting workers
+	// for our model.
+	agentModelUUID := currentConfig.Model().Id()
+	modelAgent, err := model.WrapAgent(a, controllerUUID, cfg.ModelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1038,10 +1047,35 @@ func (a *MachineAgent) startModelWorkers(modelUUID string, modelType state.Model
 		return nil, errors.Trace(err)
 	}
 
+	// Send model logging to a different file on disk to the controller logging
+	// for all models except the controller model.
+	loggingContext := loggo.NewContext(loggo.INFO)
+	var writer io.Writer
+	if agentModelUUID == cfg.ModelUUID {
+		writer = a.ctx.Stderr
+	} else {
+		logFilename := filepath.Join(currentConfig.LogDir(), "models", cfg.ModelUUID+".log")
+		writer = &lumberjack.Logger{
+			Filename:   logFilename,
+			MaxSize:    cfg.ControllerConfig.ModelLogfileMaxSizeMB(),
+			MaxBackups: cfg.ControllerConfig.ModelLogfileMaxBackups(),
+			Compress:   true,
+		}
+	}
+	if err := loggingContext.AddWriter(
+		"file", loggo.NewSimpleWriter(writer, loggo.DefaultFormatter)); err != nil {
+		logger.Errorf("unable to configure file logging for model: %v", err)
+	}
+	// Use a standard state logger for the right model.
+	if err := loggingContext.AddWriter("db", cfg.ModelLogger); err != nil {
+		logger.Errorf("unable to configure db logging for model: %v", err)
+	}
+
 	manifoldsCfg := model.ManifoldsConfig{
 		Agent:                       modelAgent,
 		AgentConfigChanged:          a.configChangedVal,
 		Clock:                       clock.WallClock,
+		LoggingContext:              loggingContext,
 		RunFlagDuration:             time.Minute,
 		CharmRevisionUpdateInterval: 24 * time.Hour,
 		InstPollerAggregationDelay:  3 * time.Second,
@@ -1052,7 +1086,7 @@ func (a *MachineAgent) startModelWorkers(modelUUID string, modelType state.Model
 		NewMigrationMaster:          migrationmaster.NewWorker,
 	}
 	var manifolds dependency.Manifolds
-	if modelType == state.ModelTypeIAAS {
+	if cfg.ModelType == state.ModelTypeIAAS {
 		manifolds = iaasModelManifolds(manifoldsCfg)
 	} else {
 		manifolds = caasModelManifolds(manifoldsCfg)
@@ -1063,7 +1097,26 @@ func (a *MachineAgent) startModelWorkers(modelUUID string, modelType state.Model
 		}
 		return nil, errors.Trace(err)
 	}
-	return engine, nil
+	return &modelWorker{
+		Engine:    engine,
+		logger:    cfg.ModelLogger,
+		modelUUID: cfg.ModelUUID,
+	}, nil
+}
+
+type modelWorker struct {
+	*dependency.Engine
+	logger    modelworkermanager.ModelLogger
+	modelUUID string
+}
+
+// Wait is the last thing that is called on the worker as it is being
+// removed.
+func (m *modelWorker) Wait() error {
+	err := m.Engine.Wait()
+	logger.Debugf("closing db logger for %q", m.modelUUID)
+	m.logger.Close()
+	return err
 }
 
 // stateWorkerDialOpts is a mongo.DialOpts suitable

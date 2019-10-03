@@ -17,13 +17,16 @@ import (
 
 type baseSuite struct {
 	jujutesting.JujuConnSuite
-	backupstesting.BaseSuite
+	Meta    *stbackups.Metadata
+	Storage *backupstesting.FakeStorage
+
 	client *backups.Client
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
+	s.Meta = backupstesting.NewMetadata()
+	s.Storage = &backupstesting.FakeStorage{}
 	client, err := backups.NewClient(s.APIState)
 	c.Assert(err, gc.IsNil)
 	s.client = client

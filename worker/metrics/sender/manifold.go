@@ -64,7 +64,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if !ok {
 				return nil, errors.Errorf("expected a unit tag, got %v", tag)
 			}
-			paths := uniter.NewWorkerPaths(agentConfig.DataDir(), unitTag, "metrics-send", false)
+			paths := uniter.NewWorkerPaths(agentConfig.DataDir(), unitTag, "metrics-send", nil)
 
 			client := newMetricAdderClient(apicaller)
 

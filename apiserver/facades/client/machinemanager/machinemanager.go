@@ -232,9 +232,16 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		volumeAttachmentParams := state.VolumeAttachmentParams{}
 		for i := uint64(0); i < cons.Count; i++ {
 			volumes = append(volumes, state.HostVolumeParams{
-				volumeParams, volumeAttachmentParams,
+				Volume: volumeParams, Attachment: volumeAttachmentParams,
 			})
 		}
+	}
+
+	// Convert the params to provider addresses, then convert those to
+	// space addresses by looking up the spaces.
+	sAddrs, err := params.ToProviderAddresses(p.Addrs...).ToSpaceAddresses(mm.st)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	jobs, err := common.StateJobs(p.Jobs)
@@ -249,7 +256,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		Jobs:                    jobs,
 		Nonce:                   p.Nonce,
 		HardwareCharacteristics: p.HardwareCharacteristics,
-		Addresses:               params.NetworkAddresses(p.Addrs...),
+		Addresses:               sAddrs,
 		Placement:               placementDirective,
 	}
 	if p.ContainerType == "" {

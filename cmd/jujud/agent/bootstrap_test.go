@@ -838,7 +838,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 
 	addresses, err := inst.Addresses(callCtx)
 	c.Assert(err, jc.ErrorIsNil)
-	addr, _ := network.SelectPublicAddress(addresses)
+	addr, _ := addresses.OneMatchingScope(network.ScopeMatchPublic)
 	s.bootstrapName = addr.Value
 	s.hostedModelUUID = utils.MustNewUUID().String()
 

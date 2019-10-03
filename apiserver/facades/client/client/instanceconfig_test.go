@@ -30,14 +30,13 @@ type machineConfigSuite struct {
 var _ = gc.Suite(&machineConfigSuite{})
 
 func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
-	addrs := network.NewAddresses("1.2.3.4")
 	hc := instance.MustParseHardware("mem=4G arch=amd64")
 	apiParams := params.AddMachineParams{
 		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		InstanceId:              instance.Id("1234"),
 		Nonce:                   "foo",
 		HardwareCharacteristics: hc,
-		Addrs:                   params.FromNetworkAddresses(addrs...),
+		Addrs:                   params.FromProviderAddresses(network.NewProviderAddress("1.2.3.4")),
 	}
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, jc.ErrorIsNil)
@@ -74,7 +73,6 @@ func (s *machineConfigSuite) TestMachineConfigNoArch(c *gc.C) {
 
 func (s *machineConfigSuite) TestMachineConfigNoTools(c *gc.C) {
 	s.PatchValue(&envtools.DefaultBaseURL, "")
-	addrs := network.NewAddresses("1.2.3.4")
 	hc := instance.MustParseHardware("mem=4G arch=amd64")
 	apiParams := params.AddMachineParams{
 		Series:                  "quantal",
@@ -82,7 +80,7 @@ func (s *machineConfigSuite) TestMachineConfigNoTools(c *gc.C) {
 		InstanceId:              instance.Id("1234"),
 		Nonce:                   "foo",
 		HardwareCharacteristics: hc,
-		Addrs:                   params.FromNetworkAddresses(addrs...),
+		Addrs:                   params.FromProviderAddresses(network.NewProviderAddress("1.2.3.4")),
 	}
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, jc.ErrorIsNil)

@@ -33,11 +33,11 @@ When this happens, a user must update the cloud credential that
 a model was created with to the new and valid details on controller.
 
 This command allows to update an existing, already-stored, named,
-cloud-specific credential on controller or the one stored locally.
+cloud-specific credential on a controller or the one from this client.
 
-If --local is used, Juju updates credential in its internal cache directly but only on this client.
+If --client is used, Juju updates credential only on this client.
 If a user will use a different client, say a different laptop, the update will not affect that 
-client's copy. By extension, when using --local, remote credential copies,
+client's copy. By extension, when using --client, remote credential copies,
 on controllers, will not be affected.
 
 Before credential is updated, the new content is validated. For some providers, 
@@ -47,6 +47,7 @@ use --region.
 Examples:
     juju update-credential aws mysecrets
     juju update-credential -f mine.yaml
+    juju update-credential -f mine.yaml --client
     juju update-credential aws -f mine.yaml
     juju update-credential azure --region brazilsouth -f mine.yaml
 
@@ -113,7 +114,9 @@ func (c *updateCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
 	f.StringVar(&c.CredentialsFile, "f", "", "The YAML file containing credential details to update")
 	f.StringVar(&c.CredentialsFile, "file", "", "The YAML file containing credential details to update")
-	f.BoolVar(&c.Local, "local", false, "Local operation only; controller not affected")
+	// TODO (juju3) remove me
+	f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client instead): Local operation only; controller not affected")
+	f.BoolVar(&c.Local, "client", false, "Client operation only; controller not affected")
 	f.StringVar(&c.Region, "region", "", "Cloud region that credential is valid for")
 }
 
@@ -152,7 +155,7 @@ func (c *updateCredentialCommand) Run(ctx *cmd.Context) error {
 	} else {
 		credentials, err = credentialsFromLocalCache(c.ClientStore(), c.cloud, c.credential)
 		if err != nil {
-			return errors.Annotatef(err, "could not get credentials from local client cache")
+			return errors.Annotatef(err, "could not get credentials from local client")
 		}
 	}
 	if c.Local {
@@ -238,7 +241,7 @@ func credentialsFromLocalCache(store jujuclient.ClientStore, cloudName, credenti
 			}
 		}
 	}
-	return nil, errors.NotFoundf("credential %q for cloud %q in local client cache", credentialName, cloudName)
+	return nil, errors.NotFoundf("credential %q for cloud %q in local client", credentialName, cloudName)
 }
 
 func (c *updateCredentialCommand) updateLocalCredentials(ctx *cmd.Context, update map[string]jujucloud.CloudCredential) error {
@@ -257,13 +260,13 @@ func (c *updateCredentialCommand) updateLocalCredentials(ctx *cmd.Context, updat
 		}
 		storedCredentials, err := c.ClientStore().CredentialForCloud(cloudName)
 		if errors.IsNotFound(err) {
-			ctx.Warningf("Could not find local credentials for cloud %v.", cloudName)
-			ctx.Infof("Use `juju add-credential` to add credentials locally.")
+			ctx.Warningf("Could not find credentials for cloud %v on this client.", cloudName)
+			ctx.Infof("Use `juju add-credential` to add credentials to this client.")
 			erred = true
 			continue
 		} else if err != nil {
 			logger.Errorf("%v", err)
-			ctx.Warningf("Could not get local credentials for cloud %v.", cloudName)
+			ctx.Warningf("Could not get credentials for cloud %v from this client.", cloudName)
 			erred = true
 			continue
 		}
@@ -285,7 +288,7 @@ func (c *updateCredentialCommand) updateLocalCredentials(ctx *cmd.Context, updat
 				newCredential, err := finalizeProvider(ctx, aCloud, c.Region, cloudCredentials.DefaultRegion, credential.AuthType(), credential.Attributes())
 				if err != nil {
 					logger.Errorf("%v", err)
-					logger.Warningf("Could not verify credential %v for cloud %v locally", credentialName, aCloud.Name)
+					logger.Warningf("Could not verify credential %v for cloud %v on this client", credentialName, aCloud.Name)
 					erred = true
 					continue
 				}
@@ -296,7 +299,7 @@ func (c *updateCredentialCommand) updateLocalCredentials(ctx *cmd.Context, updat
 		err = c.ClientStore().UpdateCredential(cloudName, *storedCredentials)
 		if err != nil {
 			logger.Errorf("%v", err)
-			ctx.Warningf("Could not update local client store with credentials for cloud %v", cloudName)
+			ctx.Warningf("Could not update this client with credentials for cloud %v", cloudName)
 			erred = true
 		}
 	}
@@ -362,10 +365,7 @@ func (c *updateCredentialCommand) updateRemoteCredentials(ctx *cmd.Context, upda
 		ctx.Warningf("Could not update credentials remotely, on controller %q", controllerName)
 		erred = cmd.ErrSilent
 	}
-	if err := processUpdateCredentialResult(ctx, accountDetails, "updated", results); err != nil {
-		return err
-	}
-	return erred
+	return processUpdateCredentialResult(ctx, accountDetails, "updated", results, controllerName, erred)
 }
 
 func verifyCredentialsForUpload(ctx *cmd.Context, accountDetails *jujuclient.AccountDetails, aCloud *jujucloud.Cloud, region string, all map[string]jujucloud.Credential) (map[string]jujucloud.Credential, error) {
@@ -381,7 +381,7 @@ func verifyCredentialsForUpload(ctx *cmd.Context, accountDetails *jujuclient.Acc
 		verifiedCredential, err := modelcmd.VerifyCredentials(ctx, aCloud, &aCredential, credentialName, region)
 		if err != nil {
 			logger.Errorf("%v", err)
-			ctx.Warningf("Could not verify credential %v for cloud %v locally", credentialName, aCloud.Name)
+			ctx.Warningf("Could not verify credential %v for cloud %v on this client", credentialName, aCloud.Name)
 			erred = cmd.ErrSilent
 			continue
 		}
@@ -390,32 +390,31 @@ func verifyCredentialsForUpload(ctx *cmd.Context, accountDetails *jujuclient.Acc
 	return verified, erred
 }
 
-func processUpdateCredentialResult(ctx *cmd.Context, accountDetails *jujuclient.AccountDetails, op string, results []params.UpdateCredentialResult) error {
-	var erred error
+func processUpdateCredentialResult(ctx *cmd.Context, accountDetails *jujuclient.AccountDetails, op string, results []params.UpdateCredentialResult, controllerName string, localError error) error {
 	for _, result := range results {
 		tag, err := names.ParseCloudCredentialTag(result.CredentialTag)
 		if err != nil {
 			logger.Errorf("%v", err)
 			ctx.Warningf("Could not parse credential tag %q", result.CredentialTag)
-			erred = cmd.ErrSilent
+			localError = cmd.ErrSilent
 		}
 		// We always want to display models information if there is any.
 		common.OutputUpdateCredentialModelResult(ctx, result.Models, true)
 		if result.Error != nil {
-			ctx.Warningf("Controller credential %q for user %q on cloud %q not %v: %v.", tag.Name(), accountDetails.User, tag.Cloud().Id(), op, result.Error)
+			ctx.Warningf("Controller credential %q for user %q for cloud %q on controller %q not %v: %v.", tag.Name(), accountDetails.User, tag.Cloud().Id(), controllerName, op, result.Error)
 			if len(result.Models) != 0 {
 				ctx.Infof("Failed models may require a different credential.")
 				ctx.Infof("Use ‘juju set-credential’ to change credential for these models before repeating this update.")
 			}
 			// We do not want to return err here as we have already displayed it on the console.
-			erred = cmd.ErrSilent
+			localError = cmd.ErrSilent
 			continue
 		}
 		ctx.Infof(`
-Controller credential %q for user %q on cloud %q %v.
+Controller credential %q for user %q for cloud %q on controller %q %v.
 For more information, see ‘juju show-credential %v %v’.`[1:],
-			tag.Name(), accountDetails.User, tag.Cloud().Id(), op,
-			tag.Cloud().Id(), tag.Name())
+			tag.Name(), accountDetails.User, tag.Cloud().Id(), controllerName,
+			op, tag.Cloud().Id(), tag.Name())
 	}
-	return erred
+	return localError
 }

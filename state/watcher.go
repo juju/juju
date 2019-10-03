@@ -5,6 +5,7 @@ package state
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -2432,6 +2433,111 @@ type actionStatusWatcher struct {
 	statusFilter   bson.D
 }
 
+// WatchActionLogs starts and returns a StringsWatcher that
+// notifies on new log messages for a specified action being added.
+// The strings are json encoded action messages.
+func (st *State) WatchActionLogs(actionId string) StringsWatcher {
+	return newActionLogsWatcher(st, actionId)
+}
+
+// actionLogsWatcher reports new action progress messages.
+type actionLogsWatcher struct {
+	commonWatcher
+	coll func() (mongo.Collection, func())
+	out  chan []string
+
+	actionId string
+}
+
+var _ Watcher = (*actionLogsWatcher)(nil)
+
+func newActionLogsWatcher(st *State, actionId string) StringsWatcher {
+	w := &actionLogsWatcher{
+		commonWatcher: newCommonWatcher(st),
+		coll:          collFactory(st.db(), actionsC),
+		out:           make(chan []string),
+		actionId:      actionId,
+	}
+	w.tomb.Go(func() error {
+		defer close(w.out)
+		return w.loop()
+	})
+	return w
+}
+
+// Changes returns the event channel for w.
+func (w *actionLogsWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+func (w *actionLogsWatcher) messages() ([]string, error) {
+	// Get the initial logs.
+	type messagesDoc struct {
+		Messages []ActionMessage `bson:"messages"`
+	}
+	coll, closer := w.coll()
+	defer closer()
+	var doc messagesDoc
+	err := coll.FindId(w.backend.docID(w.actionId)).Select(bson.D{{"messages", 1}}).One(&doc)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var changes []string
+	for _, m := range doc.Messages {
+		m.Timestamp = m.Timestamp.UTC()
+		mjson, err := json.Marshal(m)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		changes = append(changes, string(mjson))
+	}
+	return changes, nil
+}
+
+func (w *actionLogsWatcher) loop() error {
+	in := make(chan watcher.Change)
+	filter := func(id interface{}) bool {
+		k, err := w.backend.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		return k == w.actionId
+	}
+
+	w.watcher.WatchCollectionWithFilter(actionsC, in, filter)
+	defer w.watcher.UnwatchCollection(actionsC, in)
+
+	changes, err := w.messages()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// Record how many messages already sent so we
+	// only send new ones.
+	var reportedCount int
+	out := w.out
+
+	for {
+		select {
+		case <-w.watcher.Dead():
+			return stateWatcherDeadError(w.watcher.Err())
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-in:
+			messages, err := w.messages()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if len(messages) > reportedCount {
+				out = w.out
+				changes = messages[reportedCount:]
+			}
+		case out <- changes:
+			reportedCount = len(changes)
+			out = nil
+		}
+	}
+}
+
 var _ StringsWatcher = (*actionStatusWatcher)(nil)
 
 // newActionStatusWatcher returns the StringsWatcher that will notify
@@ -3798,7 +3904,7 @@ func hashMachineAddresses(m *Machine) (string, error) {
 		hash.Write([]byte(address.Value))
 		hash.Write([]byte(address.Type))
 		hash.Write([]byte(address.Scope))
-		hash.Write([]byte(address.SpaceName))
+		hash.Write([]byte(address.SpaceID))
 	}
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
@@ -3843,7 +3949,7 @@ func hashServiceAddresses(a *Application, firstCall bool) (string, error) {
 	hash.Write([]byte(address.Value))
 	hash.Write([]byte(address.Type))
 	hash.Write([]byte(address.Scope))
-	hash.Write([]byte(address.SpaceName))
+	hash.Write([]byte(address.SpaceID))
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 

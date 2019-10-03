@@ -100,7 +100,7 @@ var machineErrorTests = []struct {
 	},
 	resultsRef: params.ErrorResults{},
 }, {
-	method: "ProviderAddresses",
+	method: "ToProviderAddresses",
 	wrapper: func(m *instancepoller.Machine) error {
 		_, err := m.ProviderAddresses()
 		return err
@@ -231,10 +231,10 @@ func (s *MachineSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 }
 
 func (s *MachineSuite) TestProviderAddressesSuccess(c *gc.C) {
-	addresses := network.NewAddresses("2001:db8::1", "0.1.2.3")
+	addresses := network.NewProviderAddresses("2001:db8::1", "0.1.2.3")
 	results := params.MachineAddressesResults{
 		Results: []params.MachineAddressesResult{{
-			Addresses: params.FromNetworkAddresses(addresses...),
+			Addresses: params.FromProviderAddresses(addresses...),
 		}}}
 	apiCaller := successAPICaller(c, "ProviderAddresses", entitiesArgs, results)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
@@ -245,11 +245,11 @@ func (s *MachineSuite) TestProviderAddressesSuccess(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetProviderAddressesSuccess(c *gc.C) {
-	addresses := network.NewAddresses("2001:db8::1", "0.1.2.3")
+	addresses := network.NewProviderAddresses("2001:db8::1", "0.1.2.3")
 	expectArgs := params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{{
 			Tag:       "machine-42",
-			Addresses: params.FromNetworkAddresses(addresses...),
+			Addresses: params.FromProviderAddresses(addresses...),
 		}}}
 	results := params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},

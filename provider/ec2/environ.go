@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -177,13 +178,16 @@ func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 		[]string{constraints.Mem, constraints.Cores, constraints.CpuPower})
 	validator.RegisterUnsupported(unsupportedConstraints)
 	instanceTypes, err := e.supportedInstanceTypes(ctx)
+
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	sort.Sort(instances.ByName(instanceTypes))
 	instTypeNames := make([]string, len(instanceTypes))
 	for i, itype := range instanceTypes {
 		instTypeNames[i] = itype.Name
 	}
+
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
 	return validator, nil
 }
@@ -1031,7 +1035,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId inst
 			NoAutoStart:   false,
 			ConfigType:    network.ConfigDHCP,
 			InterfaceType: network.EthernetInterface,
-			Address:       corenetwork.NewScopedAddress(iface.PrivateIPAddress, corenetwork.ScopeCloudLocal),
+			Address:       corenetwork.NewScopedProviderAddress(iface.PrivateIPAddress, corenetwork.ScopeCloudLocal),
 		}
 	}
 	return result, nil
@@ -1318,7 +1322,6 @@ func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerU
 // destroyControllerManagedEnvirons destroys all environments managed by this
 // environment's controller.
 func (e *environ) destroyControllerManagedEnvirons(ctx context.ProviderCallContext, controllerUUID string) error {
-
 	// Terminate all instances managed by the controller.
 	instIds, err := e.allControllerManagedInstances(ctx, controllerUUID)
 	if err != nil {
@@ -2070,7 +2073,7 @@ func (*environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space
 }
 
 // SSHAddresses implements environs.SSHAddresses.
-func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses []corenetwork.Address) ([]corenetwork.Address, error) {
+func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses corenetwork.SpaceAddresses) (corenetwork.SpaceAddresses, error) {
 	return addresses, nil
 }
 

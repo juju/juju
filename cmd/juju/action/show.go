@@ -71,7 +71,7 @@ func (c *showCommand) Info() *cmd.Info {
 		Doc:     showActionDoc,
 	})
 	if featureflag.Enabled(feature.JujuV3) {
-		info.Doc = strings.Replace(info.Doc, "run-action", "run", -1)
+		info.Doc = strings.Replace(info.Doc, "run-action", "call", -1)
 	}
 	return info
 }

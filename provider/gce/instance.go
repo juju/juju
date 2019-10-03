@@ -55,7 +55,7 @@ func (inst *environInstance) Status(ctx context.ProviderCallContext) instance.St
 }
 
 // Addresses implements instances.Instance.
-func (inst *environInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
+func (inst *environInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	return inst.base.Addresses(), nil
 }
 

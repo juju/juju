@@ -85,13 +85,13 @@ type Info struct {
 // Ports returns the unique ports for the api addresses.
 func (info *Info) Ports() []int {
 	ports := set.NewInts()
-	hostPorts, err := network.ParseHostPorts(info.Addrs...)
-	if err != nil {
-		// Addresses have already been validated.
-		panic(err)
-	}
-	for _, hp := range hostPorts {
-		ports.Add(hp.Port)
+	for _, addr := range info.Addrs {
+		hp, err := network.ParseMachineHostPort(addr)
+		if err != nil {
+			// Addresses have already been validated.
+			panic(err)
+		}
+		ports.Add(hp.Port())
 	}
 	return ports.Values()
 }
@@ -101,9 +101,14 @@ func (info *Info) Validate() error {
 	if len(info.Addrs) == 0 {
 		return errors.NotValidf("missing addresses")
 	}
-	if _, err := network.ParseHostPorts(info.Addrs...); err != nil {
-		return errors.NotValidf("host addresses: %v", err)
+
+	for _, addr := range info.Addrs {
+		_, err := network.ParseMachineHostPort(addr)
+		if err != nil {
+			return errors.NotValidf("host addresses: %v", err)
+		}
 	}
+
 	if info.SkipLogin {
 		if info.Tag != nil {
 			return errors.NotValidf("specifying Tag and SkipLogin")
@@ -237,7 +242,7 @@ type Connection interface {
 	// Juju CLI, all addresses must be attempted, as the CLI may
 	// be invoked both within and outside the model (think
 	// private clouds).
-	APIHostPorts() [][]network.HostPort
+	APIHostPorts() []network.MachineHostPorts
 
 	// Broken returns a channel which will be closed if the connection
 	// is detected to be broken, either because the underlying

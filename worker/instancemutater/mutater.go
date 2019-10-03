@@ -5,6 +5,7 @@ package instancemutater
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -55,6 +56,7 @@ type MutaterContext interface {
 type mutater struct {
 	context     MutaterContext
 	logger      Logger
+	wg          *sync.WaitGroup
 	machines    map[names.MachineTag]chan struct{}
 	machineDead chan instancemutater.MutaterMachine
 }
@@ -67,7 +69,7 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 		default:
 		}
 		m.logger.Tracef("received tag %q", tag.String())
-		if c := m.machines[tag]; c == nil {
+		if ch := m.machines[tag]; ch == nil {
 			// First time we receive the tag, setup watchers.
 			api, err := m.context.getMachine(tag)
 			if err != nil {
@@ -85,8 +87,8 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 				continue
 			}
 
-			c = make(chan struct{})
-			m.machines[tag] = c
+			ch = make(chan struct{})
+			m.machines[tag] = ch
 
 			machine := MutaterMachine{
 				context:    m.context.newMachineContext(),
@@ -95,24 +97,28 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 				id:         id,
 			}
 
-			go runMachine(machine, c, m.machineDead)
+			m.wg.Add(1)
+			go runMachine(machine, ch, m.machineDead, func() { m.wg.Done() })
 		} else {
 			// We've received this tag before, therefore
 			// the machine has been removed from the model
 			// cache and no longer needed
-			c <- struct{}{}
+			ch <- struct{}{}
 		}
 	}
 	return nil
 }
 
-func runMachine(machine MutaterMachine, removed <-chan struct{}, died chan<- instancemutater.MutaterMachine) {
+func runMachine(machine MutaterMachine, removed <-chan struct{}, died chan<- instancemutater.MutaterMachine, cleanup func()) {
+	defer cleanup()
 	defer func() {
 		// We can't just send on the dead channel because the
 		// central loop might be trying to write to us on the
 		// removed channel.
 		for {
 			select {
+			case <-machine.context.dying():
+				return
 			case died <- machine.machineApi:
 				return
 			case <-removed:

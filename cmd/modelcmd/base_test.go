@@ -110,10 +110,10 @@ func (s *BaseCommandSuite) TestMigratedModelErrorHandling(c *gc.C) {
 		}
 		callCount++
 
-		nhp := network.NewHostPorts(5555, "1.2.3.4")
+		nhp, _ := network.ParseMachineHostPort("1.2.3.4:5555")
 		redirErr := &api.RedirectError{
 			CACert:          coretesting.CACert,
-			Servers:         [][]network.HostPort{nhp},
+			Servers:         []network.MachineHostPorts{{*nhp}},
 			ControllerAlias: alias,
 		}
 		return nil, errors.Trace(redirErr)

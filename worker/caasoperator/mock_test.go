@@ -189,3 +189,11 @@ func (l *mockCharmDirGuard) Lockdown(abort fortress.Abort) error {
 	l.MethodCall(l, "Lockdown", abort)
 	return l.NextErr()
 }
+
+type mockHookLogger struct {
+	stopped bool
+}
+
+func (m *mockHookLogger) Stop() {
+	m.stopped = true
+}

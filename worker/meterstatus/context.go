@@ -6,10 +6,12 @@ package meterstatus
 import (
 	"fmt"
 	"math/rand"
+	"path"
 	"time"
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -33,14 +35,19 @@ func NewLimitedContext(unitName string) *limitedContext {
 }
 
 // HookVars implements runner.Context.
-func (ctx *limitedContext) HookVars(paths context.Paths) ([]string, error) {
+func (ctx *limitedContext) HookVars(paths context.Paths, remote bool) ([]string, error) {
 	vars := []string{
 		"CHARM_DIR=" + paths.GetCharmDir(), // legacy
 		"JUJU_CHARM_DIR=" + paths.GetCharmDir(),
 		"JUJU_CONTEXT_ID=" + ctx.id,
-		"JUJU_AGENT_SOCKET_ADDRESS=" + paths.GetJujucSocket().Address,
-		"JUJU_AGENT_SOCKET_NETWORK=" + paths.GetJujucSocket().Network,
+		"JUJU_AGENT_SOCKET_ADDRESS=" + paths.GetJujucClientSocket(remote).Address,
+		"JUJU_AGENT_SOCKET_NETWORK=" + paths.GetJujucClientSocket(remote).Network,
 		"JUJU_UNIT_NAME=" + ctx.unitName,
+	}
+	if remote {
+		vars = append(vars,
+			"JUJU_AGENT_CA_CERT="+path.Join(paths.GetBaseDir(), caas.CACertFile),
+		)
 	}
 	for key, val := range ctx.env {
 		vars = append(vars, fmt.Sprintf("%s=%s", key, val))

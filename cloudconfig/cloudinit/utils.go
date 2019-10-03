@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	jujupackaging "github.com/juju/juju/packaging"
 	"github.com/juju/packaging"
 	"github.com/juju/packaging/config"
 	"github.com/juju/utils"
@@ -26,7 +27,7 @@ func addPackageSourceCmds(cfg CloudConfig, src packaging.PackageSource) []string
 	}
 
 	repoPath := filepath.Join(config.YumSourcesDir, src.Name+".repo")
-	sourceFile, _ := cfg.getPackagingConfigurer().RenderSource(src)
+	sourceFile, _ := cfg.getPackagingConfigurer(jujupackaging.YumPackageManager).RenderSource(src)
 	data := []byte(sourceFile)
 	cmds = append(cmds, addFileCmds(repoPath, data, 0644, false)...)
 

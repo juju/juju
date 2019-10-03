@@ -36,6 +36,11 @@ func (paths Paths) GetToolsDir() string {
 	return paths.ToolsDir
 }
 
+// GetBaseDir exists to satisfy the context.Paths interface.
+func (paths Paths) GetBaseDir() string {
+	return paths.State.BaseDir
+}
+
 // GetCharmDir exists to satisfy the context.Paths interface.
 func (paths Paths) GetCharmDir() string {
 	return paths.State.CharmDir

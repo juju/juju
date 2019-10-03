@@ -44,7 +44,7 @@ func (*kvmInstance) Refresh() error {
 	return nil
 }
 
-func (kvm *kvmInstance) Addresses(ctx context.ProviderCallContext) ([]corenetwork.Address, error) {
+func (kvm *kvmInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	logger.Errorf("kvmInstance.Addresses not implemented")
 	return nil, nil
 }

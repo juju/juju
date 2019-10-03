@@ -182,10 +182,14 @@ func (b *fakeMigrationBackend) LatestMigration() (state.ModelMigration, error) {
 	return new(fakeModelMigration), nil
 }
 
-func (b *fakeMigrationBackend) APIHostPortsForClients() ([][]network.HostPort, error) {
-	return [][]network.HostPort{
-		MustParseHostPorts("1.2.3.4:5", "2.3.4.5:6"),
-		MustParseHostPorts("3.4.5.6:7"),
+func (b *fakeMigrationBackend) APIHostPortsForClients() ([]network.SpaceHostPorts, error) {
+	return []network.SpaceHostPorts{
+		{
+			network.SpaceHostPort{SpaceAddress: network.NewSpaceAddress("1.2.3.4"), NetPort: 5},
+			network.SpaceHostPort{SpaceAddress: network.NewSpaceAddress("2.3.4.5"), NetPort: 6},
+		}, {
+			network.SpaceHostPort{SpaceAddress: network.NewSpaceAddress("3.4.5.6"), NetPort: 7},
+		},
 	}, nil
 }
 
@@ -195,14 +199,6 @@ func (b *fakeMigrationBackend) ControllerModel() (*state.Model, error) {
 
 func (b *fakeMigrationBackend) ControllerConfig() (controller.Config, error) {
 	return nil, nil
-}
-
-func MustParseHostPorts(hostports ...string) []network.HostPort {
-	out, err := network.ParseHostPorts(hostports...)
-	if err != nil {
-		panic(err)
-	}
-	return out
 }
 
 type fakeModelMigration struct {

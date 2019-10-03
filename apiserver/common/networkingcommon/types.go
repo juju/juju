@@ -28,6 +28,7 @@ import (
 // and just use *state.Subnet.
 type BackingSubnet interface {
 	CIDR() string
+	ID() string
 	VLANTag() int
 	ProviderId() corenetwork.Id
 	ProviderNetworkId() corenetwork.Id
@@ -124,6 +125,8 @@ type NetworkBacking interface {
 	// AllSubnets returns all backing subnets.
 	AllSubnets() ([]BackingSubnet, error)
 
+	Subnet(cidr string) (BackingSubnet, error)
+
 	// ModelTag returns the tag of the model this state is associated to.
 	ModelTag() names.ModelTag
 
@@ -181,6 +184,7 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos []network.InterfaceInfo) []pa
 			CIDR:                v.CIDR,
 			MTU:                 v.MTU,
 			ProviderId:          string(v.ProviderId),
+			ProviderNetworkId:   string(v.ProviderNetworkId),
 			ProviderSubnetId:    string(v.ProviderSubnetId),
 			ProviderSpaceId:     string(v.ProviderSpaceId),
 			ProviderVLANId:      string(v.ProviderVLANId),
@@ -229,7 +233,7 @@ func NetworkConfigsToStateArgs(networkConfig []params.NetworkConfig) (
 				Name:        netConfig.InterfaceName,
 				MTU:         mtu,
 				ProviderID:  corenetwork.Id(netConfig.ProviderId),
-				Type:        state.LinkLayerDeviceType(netConfig.InterfaceType),
+				Type:        corenetwork.LinkLayerDeviceType(netConfig.InterfaceType),
 				MACAddress:  netConfig.MACAddress,
 				IsAutoStart: !netConfig.NoAutoStart,
 				IsUp:        !netConfig.Disabled,
@@ -271,14 +275,16 @@ func NetworkConfigsToStateArgs(networkConfig []params.NetworkConfig) (
 		}
 
 		addr := state.LinkLayerDeviceAddress{
-			DeviceName:       netConfig.InterfaceName,
-			ProviderID:       corenetwork.Id(netConfig.ProviderAddressId),
-			ConfigMethod:     derivedConfigMethod,
-			CIDRAddress:      cidrAddress,
-			DNSServers:       netConfig.DNSServers,
-			DNSSearchDomains: netConfig.DNSSearchDomains,
-			GatewayAddress:   netConfig.GatewayAddress,
-			IsDefaultGateway: netConfig.IsDefaultGateway,
+			DeviceName:        netConfig.InterfaceName,
+			ProviderID:        corenetwork.Id(netConfig.ProviderAddressId),
+			ProviderNetworkID: corenetwork.Id(netConfig.ProviderNetworkId),
+			ProviderSubnetID:  corenetwork.Id(netConfig.ProviderSubnetId),
+			ConfigMethod:      derivedConfigMethod,
+			CIDRAddress:       cidrAddress,
+			DNSServers:        netConfig.DNSServers,
+			DNSSearchDomains:  netConfig.DNSSearchDomains,
+			GatewayAddress:    netConfig.GatewayAddress,
+			IsDefaultGateway:  netConfig.IsDefaultGateway,
 		}
 		logger.Tracef("state address args for device: %+v", addr)
 		devicesAddrs = append(devicesAddrs, addr)
@@ -396,6 +402,7 @@ func mergeObservedAndProviderInterfaceConfig(observedConfig, providerConfig para
 	finalConfig.ProviderId = providerConfig.ProviderId
 	finalConfig.ProviderVLANId = providerConfig.ProviderVLANId
 	finalConfig.ProviderSubnetId = providerConfig.ProviderSubnetId
+	finalConfig.ProviderNetworkId = providerConfig.ProviderNetworkId
 
 	// The following few fields are only updated if their observed values are
 	// empty.

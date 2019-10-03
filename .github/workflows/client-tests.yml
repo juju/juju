@@ -1,0 +1,65 @@
+name: "Client Tests"
+on: [push, pull_request]
+jobs:
+
+  test-client-ubuntu:
+    name: "Client Tests"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # macOS-latest is disabled because there is an issue of the tests timing
+        # out. No effort has been done to work out why they currently timeout
+        # on macOS, but we should investigate that to improve our coverage on
+        # other clients.
+        # To turn on macOS, just update the os to include it.
+        # os: [ubuntu-latest, macOS-latest]
+        os: [ubuntu-latest]
+
+    steps:
+
+    - name: Set up Go 1.12
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.12
+      id: go
+
+    - name: Set GOPATH
+      # temporary fix
+      # see https://github.com/actions/setup-go/issues/14
+      run: |
+        echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
+        echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
+      shell: bash
+
+    - name: Checkout
+      uses: actions/checkout@v1
+      with:
+        path: src/github.com/juju/juju
+
+    - name: "Install Mongo Dependencies: ubuntu-latest"
+      if: (matrix.os == 'ubuntu-latest')
+      run: |
+        make install-mongo-dependencies
+
+    - name: "Install Mongo Dependencies: macOS-latest"
+      if: (matrix.os == 'macOS-latest')
+      run: |
+        curl -o mongodb-3.6.14.tgz https://fastdl.mongodb.org/osx/mongodb-osx-ssl-x86_64-3.6.14.tgz
+        tar xzvf mongodb-3.6.14.tgz
+        sudo mkdir -p /usr/local/mongodb
+        sudo mv mongodb-osx-x86_64-3.6.14/bin/* /usr/local/mongodb
+        sudo mkdir -p /user/local/bin
+        sudo ln -s /usr/local/mongodb/mongod /usr/local/bin/mongod
+      shell: bash
+
+    - name: Install Vendor Dependencies
+      run: |
+        make dep
+      shell: bash
+
+    - name: Test client
+      run: |
+        # Jenkins can perform the full jujud testing.
+        go test -v ./cmd/juju/... -check.v
+        go test -v ./cmd/plugins/... -check.v

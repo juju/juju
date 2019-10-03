@@ -49,17 +49,19 @@ var ControllerTag = names.NewControllerTag("deadbeef-1bad-500d-9000-4b1d0d06f00d
 // that is expected to be found in state for a fake controller.
 func FakeControllerConfig() controller.Config {
 	return controller.Config{
-		"controller-uuid":         ControllerTag.Id(),
-		"ca-cert":                 CACert,
-		"state-port":              1234,
-		"api-port":                17777,
-		"set-numa-control-policy": false,
-		"model-logs-size":         "1M",
-		"max-txn-log-size":        "10M",
-		"auditing-enabled":        false,
-		"audit-log-capture-args":  true,
-		"audit-log-max-size":      "200M",
-		"audit-log-max-backups":   5,
+		"controller-uuid":           ControllerTag.Id(),
+		"ca-cert":                   CACert,
+		"state-port":                1234,
+		"api-port":                  17777,
+		"set-numa-control-policy":   false,
+		"model-logfile-max-backups": 1,
+		"model-logfile-max-size":    "1M",
+		"model-logs-size":           "1M",
+		"max-txn-log-size":          "10M",
+		"auditing-enabled":          false,
+		"audit-log-capture-args":    true,
+		"audit-log-max-size":        "200M",
+		"audit-log-max-backups":     5,
 	}
 }
 

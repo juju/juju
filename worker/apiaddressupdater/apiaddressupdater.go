@@ -27,20 +27,20 @@ type APIAddressUpdater struct {
 	setter    APIAddressSetter
 
 	mu      sync.Mutex
-	current [][]corenetwork.HostPort
+	current []corenetwork.ProviderHostPorts
 }
 
 // APIAddresser is an interface that is provided to NewAPIAddressUpdater
 // which can be used to watch for API address changes.
 type APIAddresser interface {
-	APIHostPorts() ([][]corenetwork.HostPort, error)
+	APIHostPorts() ([]corenetwork.ProviderHostPorts, error)
 	WatchAPIHostPorts() (watcher.NotifyWatcher, error)
 }
 
 // APIAddressSetter is an interface that is provided to NewAPIAddressUpdater
 // whose SetAPIHostPorts method will be invoked whenever address changes occur.
 type APIAddressSetter interface {
-	SetAPIHostPorts(servers [][]corenetwork.HostPort) error
+	SetAPIHostPorts(servers []corenetwork.HostPorts) error
 }
 
 // NewAPIAddressUpdater returns a worker.Worker that watches for changes to
@@ -67,36 +67,49 @@ func (c *APIAddressUpdater) SetUp() (watcher.NotifyWatcher, error) {
 
 // Handle is part of the watcher.NotifyHandler interface.
 func (c *APIAddressUpdater) Handle(_ <-chan struct{}) error {
-	hpsToSet, err := c.getAddresses()
+	hps, err := c.getAddresses()
 	if err != nil {
 		return err
 	}
-	logger.Debugf("updating API hostPorts to %+v", hpsToSet)
+
+	logger.Debugf("updating API hostPorts to %+v", hps)
 	c.mu.Lock()
-	c.current = hpsToSet
+	c.current = hps
 	c.mu.Unlock()
+
+	// API host/port entries are stored in state as SpaceHostPorts.
+	// When retrieved, the space IDs are reconciled so that they are returned
+	// as ProviderHostPorts.
+	// Here, we indirect them because they are ultimately just stored as dial
+	// address strings. This could be re-evaluated in the future if the space
+	// information becomes worthwhile to agents.
+	hpsToSet := make([]corenetwork.HostPorts, len(hps))
+	for i, hps := range hps {
+		hpsToSet[i] = hps.HostPorts()
+	}
+
 	if err := c.setter.SetAPIHostPorts(hpsToSet); err != nil {
 		return fmt.Errorf("error setting addresses: %v", err)
 	}
 	return nil
 }
 
-func (c *APIAddressUpdater) getAddresses() ([][]corenetwork.HostPort, error) {
+func (c *APIAddressUpdater) getAddresses() ([]corenetwork.ProviderHostPorts, error) {
 	addresses, err := c.addresser.APIHostPorts()
 	if err != nil {
 		return nil, fmt.Errorf("error getting addresses: %v", err)
 	}
 
-	// Filter out any LXC or LXD bridge addresses. See LP bug #1416928. and
-	// bug #1567683
-	hpsToSet := make([][]corenetwork.HostPort, 0, len(addresses))
+	// Filter out any LXC or LXD bridge addresses.
+	// See LP bugs #1416928 and #1567683.
+	hpsToSet := make([]corenetwork.ProviderHostPorts, 0, len(addresses))
 	for _, hostPorts := range addresses {
 		// Strip ports, filter, then add ports again.
-		filtered := network.FilterBridgeAddresses(corenetwork.HostsWithoutPort(hostPorts))
-		hps := make([]corenetwork.HostPort, 0, len(filtered))
+		filtered := network.FilterBridgeAddresses(hostPorts.Addresses())
+		hps := make(corenetwork.ProviderHostPorts, 0, len(filtered))
 		for _, hostPort := range hostPorts {
 			for _, addr := range filtered {
-				if addr.Value == hostPort.Address.Value {
+				if addr.Value == hostPort.Value {
 					hps = append(hps, hostPort)
 				}
 			}
@@ -122,7 +135,7 @@ func (c *APIAddressUpdater) Report() map[string]interface{} {
 	for _, server := range c.current {
 		var addresses []string
 		for _, addr := range server {
-			addresses = append(addresses, addr.String())
+			addresses = append(addresses, corenetwork.DialAddress(addr))
 		}
 		servers = append(servers, addresses)
 	}

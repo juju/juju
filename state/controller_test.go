@@ -44,6 +44,8 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.MaxLogsSize,
 		controller.MaxPruneTxnBatchSize,
 		controller.MaxPruneTxnPasses,
+		controller.ModelLogfileMaxBackups,
+		controller.ModelLogfileMaxSize,
 		controller.PruneTxnQueryCount,
 		controller.PruneTxnSleepTime,
 		controller.CAASOperatorImagePath,
@@ -167,7 +169,7 @@ func (s *ControllerSuite) TestUpdateControllerConfigRejectsSpaceWithoutAddresses
 
 	m, err := s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.SetMachineAddresses(network.NewAddress("192.168.9.9")), jc.ErrorIsNil)
+	c.Assert(m.SetMachineAddresses(network.NewSpaceAddress("192.168.9.9")), jc.ErrorIsNil)
 
 	err = s.State.UpdateControllerConfig(map[string]interface{}{
 		controller.JujuManagementSpace: "mgmt-space",
@@ -177,12 +179,16 @@ func (s *ControllerSuite) TestUpdateControllerConfigRejectsSpaceWithoutAddresses
 }
 
 func (s *ControllerSuite) TestUpdateControllerConfigAcceptsSpaceWithAddresses(c *gc.C) {
-	_, err := s.State.AddSpace("mgmt-space", "", nil, false)
+	sp, err := s.State.AddSpace("mgmt-space", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, err := s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.SetProviderAddresses(network.NewAddressOnSpace("mgmt-space", "192.168.9.9")), jc.ErrorIsNil)
+
+	addr := network.NewSpaceAddress("192.168.9.9")
+	addr.SpaceID = sp.Id()
+
+	c.Assert(m.SetProviderAddresses(addr), jc.ErrorIsNil)
 
 	err = s.State.UpdateControllerConfig(map[string]interface{}{
 		controller.JujuManagementSpace: "mgmt-space",
