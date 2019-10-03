@@ -392,6 +392,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	var bindingsChangelog []string
 	if apiRoot.BestFacadeVersion("Application") >= 11 {
 		// Fetch information about the charm we want to upgrade to and
 		// print out the updated endpoint binding plan.
@@ -402,11 +403,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 
 		curBindings := applicationInfo.EndpointBindings
 		appDefaultSpace := detectDefaultSpace(modelConfig, curBindings)
-		mergedBindings, changelog := mergeBindings(allEndpoints(charmInfo), curBindings, c.Bindings, appDefaultSpace)
-		c.Bindings = mergedBindings
-		for _, change := range changelog {
-			ctx.Infof(change)
-		}
+		c.Bindings, bindingsChangelog = mergeBindings(allEndpoints(charmInfo), curBindings, c.Bindings, appDefaultSpace)
 	}
 
 	// Finally, upgrade the application.
@@ -428,7 +425,17 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		StorageConstraints: c.Storage,
 		EndpointBindings:   c.Bindings,
 	}
-	return block.ProcessBlockedError(charmUpgradeClient.SetCharm(generation, cfg), block.BlockChange)
+
+	if err := block.ProcessBlockedError(charmUpgradeClient.SetCharm(generation, cfg), block.BlockChange); err != nil {
+		return err
+	}
+
+	// Emit binding changelog after a successful call to SetCharm.
+	for _, change := range bindingsChangelog {
+		ctx.Infof(change)
+	}
+
+	return nil
 }
 
 func (c *upgradeCharmCommand) parseBindFlag(apiRoot base.APICallCloser) error {
