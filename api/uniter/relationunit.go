@@ -4,8 +4,6 @@
 package uniter
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
 
@@ -69,9 +67,9 @@ func (ru *RelationUnit) EnterScope() error {
 	}
 	err := ru.st.facade.FacadeCall("EnterScope", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	return result.OneError()
+	return errors.Trace(result.OneError())
 }
 
 // LeaveScope signals that the unit has left its scope in the relation.
@@ -89,9 +87,9 @@ func (ru *RelationUnit) LeaveScope() error {
 	}
 	err := ru.st.facade.FacadeCall("LeaveScope", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	return result.OneError()
+	return errors.Trace(result.OneError())
 }
 
 // Settings returns a Settings which allows access to the unit's settings
@@ -106,14 +104,14 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 	}
 	err := ru.st.facade.FacadeCall("ReadSettings", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, errors.Trace(result.Error)
 	}
 	return newSettings(ru.st, ru.relation.tag.String(), ru.unit.tag.String(), result.Settings), nil
 }
@@ -136,16 +134,16 @@ func (ru *RelationUnit) ApplicationSettings() (*Settings, error) {
 	}
 	err = ru.st.facade.FacadeCall("ReadSettings", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	results.Results = append(results.Results, params.SettingsResult{})
 
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, errors.Trace(result.Error)
 	}
 	return newSettings(ru.st, ru.relation.tag.String(), appTag.String(), result.Settings), nil
 }
@@ -172,14 +170,14 @@ func (ru *RelationUnit) ReadSettings(uname string) (params.Settings, error) {
 	}
 	err := ru.st.facade.FacadeCall("ReadRemoteSettings", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, errors.Trace(result.Error)
 	}
 	return result.Settings, nil
 }
@@ -211,5 +209,9 @@ func (ru *RelationUnit) UpdateRelationSettings(unit, application params.Settings
 // Watch returns a watcher that notifies of changes to counterpart
 // units in the relation.
 func (ru *RelationUnit) Watch() (watcher.RelationUnitsWatcher, error) {
-	return ru.st.WatchRelationUnits(ru.relation.tag, ru.unit.tag)
+	watcher, err := ru.st.WatchRelationUnits(ru.relation.tag, ru.unit.tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return watcher, nil
 }

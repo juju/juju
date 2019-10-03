@@ -393,10 +393,66 @@ func (s *relationUnitSuite) TestUpdateRelationSettingsForApplication(c *gc.C) {
 }
 
 func (s *relationUnitSuite) TestUpdateRelationSettingsForApplicationNotLeader(c *gc.C) {
+	claimer, err := s.LeaseManager.Claimer(lease.ApplicationLeadershipNamespace, s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	// s.wordpressUnit is wordpress/0, claim it in the name of a different unit
+	c.Assert(claimer.Claim(s.wordpressUnit.ApplicationName(), "wordpress/2", time.Minute), jc.ErrorIsNil)
+
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	c.Assert(wpRelUnit.EnterScope(nil), jc.ErrorIsNil)
+	_, err = apiRelUnit.ApplicationSettings()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+
+	err = apiRelUnit.UpdateRelationSettings(nil, params.Settings{"some": "value"})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *relationUnitSuite) TestUpdateRelationSettingsForUnitAndApplication(c *gc.C) {
+	claimer, err := s.LeaseManager.Claimer(lease.ApplicationLeadershipNamespace, s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(claimer.Claim(s.wordpressUnit.ApplicationName(), s.wordpressUnit.Name(), time.Hour), jc.ErrorIsNil)
+
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	c.Assert(wpRelUnit.EnterScope(map[string]interface{}{
+		"foo": "bar",
+	}), jc.ErrorIsNil)
+	s.assertInScope(c, wpRelUnit, true)
+	c.Assert(apiRelUnit.UpdateRelationSettings(params.Settings{
+		"foo": "quux",
+	}, params.Settings{
+		"app": "bar",
+	}), jc.ErrorIsNil)
+	gotSettings, err := apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{"foo": "quux"})
+	gotSettings, err = apiRelUnit.ApplicationSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{"app": "bar"})
 }
 
 func (s *relationUnitSuite) TestUpdateRelationSettingsForUnitAndApplicationNotLeader(c *gc.C) {
+	claimer, err := s.LeaseManager.Claimer(lease.ApplicationLeadershipNamespace, s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	// Lease is held by a different unit
+	c.Assert(claimer.Claim(s.wordpressUnit.ApplicationName(), "wordpress/2", time.Hour), jc.ErrorIsNil)
+
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	c.Assert(wpRelUnit.EnterScope(map[string]interface{}{
+		"foo": "bar",
+	}), jc.ErrorIsNil)
+	s.assertInScope(c, wpRelUnit, true)
+	err = apiRelUnit.UpdateRelationSettings(params.Settings{
+		"foo": "quux",
+	}, params.Settings{
+		"app": "bar",
+	})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	// Since we refused the change to the application settings, the change for the unit is also
+	// rejected.
+
+	gotSettings, err := apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{"foo": "bar"})
+	gotSettings, err = apiRelUnit.ApplicationSettings()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
