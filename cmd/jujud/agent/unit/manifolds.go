@@ -138,6 +138,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		apiConfigWatcherName: apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
 			AgentName:          agentName,
 			AgentConfigChanged: config.AgentConfigChanged,
+			Logger:             loggo.GetLogger("juju.worker.apiconfigwatcher"),
 		}),
 
 		// The api caller is a thin concurrent wrapper around a connection

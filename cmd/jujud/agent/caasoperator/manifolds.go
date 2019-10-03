@@ -122,6 +122,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		apiConfigWatcherName: apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
 			AgentName:          agentName,
 			AgentConfigChanged: config.AgentConfigChanged,
+			Logger:             loggo.GetLogger("juju.worker.apiconfigwatcher"),
 		}),
 
 		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
