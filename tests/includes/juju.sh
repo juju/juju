@@ -152,6 +152,14 @@ destroy_controller() {
         return
     fi
 
+    echo "====> Introspection gathering"
+
+    set +e
+    introspect_controller "${name}" || true
+    set_verbosity
+
+    echo "====> Introspection gathered"
+
     output="${TEST_DIR}/${name}-destroy-controller.txt"
 
     echo "====> Destroying juju ($(green "${name}"))"
@@ -188,4 +196,13 @@ wait_for() {
         juju status --relations
         sleep 5
     done
+}
+
+introspect_controller() {
+    local name
+
+    name=${1}
+
+    juju ssh -m controller 0 bash -lic "juju_engine_report" > "${TEST_DIR}/${name}-juju_engine_report.txt"
+    juju ssh -m controller 0 bash -lic "juju_goroutines" > "${TEST_DIR}/${name}-juju_goroutines.txt"
 }
