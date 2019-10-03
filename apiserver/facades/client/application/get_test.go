@@ -21,6 +21,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -28,7 +29,7 @@ import (
 type getSuite struct {
 	jujutesting.JujuConnSuite
 
-	applicationAPI *application.APIv10
+	applicationAPI *application.APIv11
 	authorizer     apiservertesting.FakeAuthorizer
 }
 
@@ -59,12 +60,12 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.applicationAPI = &application.APIv10{api}
+	s.applicationAPI = &application.APIv11{api}
 }
 
 func (s *getSuite) TestClientApplicationGetSmokeTestV4(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	v4 := &application.APIv4{&application.APIv5{&application.APIv6{&application.APIv7{&application.APIv8{&application.APIv9{s.applicationAPI}}}}}}
+	v4 := &application.APIv4{&application.APIv5{&application.APIv6{&application.APIv7{&application.APIv8{&application.APIv9{&application.APIv10{s.applicationAPI}}}}}}}
 	results, err := v4.Get(params.ApplicationGet{ApplicationName: "wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
@@ -84,7 +85,7 @@ func (s *getSuite) TestClientApplicationGetSmokeTestV4(c *gc.C) {
 
 func (s *getSuite) TestClientApplicationGetSmokeTestV5(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	v5 := &application.APIv5{&application.APIv6{&application.APIv7{&application.APIv8{&application.APIv9{s.applicationAPI}}}}}
+	v5 := &application.APIv5{&application.APIv6{&application.APIv7{&application.APIv8{&application.APIv9{&application.APIv10{s.applicationAPI}}}}}}
 	results, err := v5.Get(params.ApplicationGet{ApplicationName: "wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
@@ -129,6 +130,16 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
 				"value":       false,
 			}},
 		Series: "quantal",
+		EndpointBindings: map[string]string{
+			"admin-api":       network.DefaultSpaceName,
+			"cache":           network.DefaultSpaceName,
+			"db":              network.DefaultSpaceName,
+			"db-client":       network.DefaultSpaceName,
+			"foo-bar":         network.DefaultSpaceName,
+			"logging-dir":     network.DefaultSpaceName,
+			"monitoring-port": network.DefaultSpaceName,
+			"url":             network.DefaultSpaceName,
+		},
 	})
 }
 
@@ -201,7 +212,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	apiV8 := &application.APIv8{&application.APIv9{&application.APIv10{api}}}
+	apiV8 := &application.APIv8{&application.APIv9{&application.APIv10{&application.APIv11{api}}}}
 
 	results, err := apiV8.Get(params.ApplicationGet{ApplicationName: "dashboard4miner"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -219,6 +230,9 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		},
 		ApplicationConfig: expectedAppConfig,
 		Series:            "kubernetes",
+		EndpointBindings: map[string]string{
+			"miner": network.DefaultSpaceName,
+		},
 	})
 }
 
@@ -356,6 +370,11 @@ var getTests = []struct {
 				"source":      "default",
 				"type":        "bool",
 			},
+		},
+		EndpointBindings: map[string]string{
+			"info":              network.DefaultSpaceName,
+			"logging-client":    network.DefaultSpaceName,
+			"logging-directory": network.DefaultSpaceName,
 		},
 	},
 }}

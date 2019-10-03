@@ -55,7 +55,7 @@ type ApplicationSuite struct {
 	env          environs.Environ
 	blockChecker mockBlockChecker
 	authorizer   apiservertesting.FakeAuthorizer
-	api          *application.APIv10
+	api          *application.APIv11
 	deployParams map[string]application.DeployApplicationParams
 }
 
@@ -85,7 +85,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		s.caasBroker,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &application.APIv10{api}
+	s.api = &application.APIv11{api}
 }
 
 func (s *ApplicationSuite) SetUpTest(c *gc.C) {
@@ -1724,7 +1724,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 		},
 	})
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "Series", "Channel", "EndpointBindings", "IsPrincipal", "IsExposed", "IsRemote")
+	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "IsPrincipal", "IsExposed", "IsRemote")
 }
 
 func (s *ApplicationSuite) TestApplicationsInfoDetailsErr(c *gc.C) {
@@ -1775,5 +1775,5 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	c.Assert(result.Results[1].Error, gc.ErrorMatches, `application "wordpress" not found`)
 	c.Assert(result.Results[2].Error, gc.ErrorMatches, `"unit-postgresql-0" is not a valid application tag`)
 	app := s.backend.applications["postgresql"]
-	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "Series", "Channel", "EndpointBindings", "IsPrincipal", "IsExposed", "IsRemote")
+	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "IsPrincipal", "IsExposed", "IsRemote")
 }

@@ -8,8 +8,10 @@ import (
 	"os"
 
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
@@ -25,12 +27,14 @@ import (
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
@@ -58,6 +62,9 @@ func NewUpgradeCharmCommand() cmd.Command {
 				return nil, err
 			}
 			return resclient, nil
+		},
+		NewSpacesClient: func(conn base.APICallCloser) SpacesAPI {
+			return spaces.NewAPI(conn)
 		},
 		CharmStoreURLGetter: getCharmStoreAPIURL,
 	}
@@ -110,6 +117,7 @@ type upgradeCharmCommand struct {
 	NewCharmUpgradeClient func(base.APICallCloser) CharmAPIClient
 	NewModelConfigGetter  func(base.APICallCloser) ModelConfigGetter
 	NewResourceLister     func(base.APICallCloser) (ResourceLister, error)
+	NewSpacesClient       func(base.APICallCloser) SpacesAPI
 	CharmStoreURLGetter   func(base.APICallCloser) (string, error)
 
 	ApplicationName string
@@ -121,6 +129,9 @@ type upgradeCharmCommand struct {
 	SwitchURL   string
 	CharmPath   string
 	Revision    int // defaults to -1 (latest)
+
+	BindToSpaces string
+	Bindings     map[string]string
 
 	// Resources is a map of resource name to filename to be uploaded on upgrade.
 	Resources map[string]string
@@ -239,6 +250,7 @@ func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.Var(storageFlag{&c.Storage, nil}, "storage", "Charm storage constraints")
 	f.Var(&c.Config, "config", "Path to yaml-formatted application config")
+	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
 }
 
 func (c *upgradeCharmCommand) Init(args []string) error {
@@ -281,12 +293,8 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		if c.Config.Path == "" {
 			action = "updating storage constraints"
 		}
-		if apiRoot.BestFacadeVersion("Application") < 2 {
-			suffix := "this server"
-			if version, ok := apiRoot.ServerVersion(); ok {
-				suffix = fmt.Sprintf("server version %s", version)
-			}
-			return errors.New(action + " at upgrade-charm time is not supported by " + suffix)
+		if err := c.checkApplicationFacadeSupport(apiRoot, action, 2); err != nil {
+			return err
 		}
 	}
 
@@ -298,6 +306,16 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	oldURL, err := charmUpgradeClient.GetCharmURL(generation, c.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	if c.BindToSpaces != "" {
+		if err := c.checkApplicationFacadeSupport(apiRoot, "specifying bindings", 11); err != nil {
+			return err
+		}
+
+		if err := c.parseBindFlag(apiRoot); err != nil {
+			return err
+		}
 	}
 
 	newRef := c.SwitchURL
@@ -341,12 +359,16 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if c.Channel == "" {
 		c.Channel = csclientparams.Channel(applicationInfo.Channel)
 	}
-	charmAdder := c.NewCharmAdder(apiRoot, bakeryClient, csURL, c.Channel)
-	charmRepo := c.getCharmStore(bakeryClient, csURL, modelConfig)
 
-	deployedSeries := applicationInfo.Series
-
-	chID, csMac, err := c.addCharm(charmAdder, charmRepo, modelConfig, oldURL, newRef, deployedSeries, c.Force)
+	chID, csMac, err := c.addCharm(addCharmParams{
+		charmAdder:     c.NewCharmAdder(apiRoot, bakeryClient, csURL, c.Channel),
+		charmRepo:      c.getCharmStore(bakeryClient, csURL, modelConfig),
+		modelConfig:    modelConfig,
+		oldURL:         oldURL,
+		newCharmRef:    newRef,
+		deployedSeries: applicationInfo.Series,
+		force:          c.Force,
+	})
 	if err != nil {
 		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 			return errors.Trace(termErr.UserErr())
@@ -370,6 +392,20 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	var bindingsChangelog []string
+	if apiRoot.BestFacadeVersion("Application") >= 11 {
+		// Fetch information about the charm we want to upgrade to and
+		// print out the updated endpoint binding plan.
+		charmInfo, err := c.NewCharmClient(apiRoot).CharmInfo(chID.URL.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		curBindings := applicationInfo.EndpointBindings
+		appDefaultSpace := detectDefaultSpace(modelConfig, curBindings)
+		c.Bindings, bindingsChangelog = mergeBindings(allEndpoints(charmInfo), curBindings, c.Bindings, appDefaultSpace)
+	}
+
 	// Finally, upgrade the application.
 	var configYAML []byte
 	if c.Config.Path != "" {
@@ -387,8 +423,63 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		ForceUnits:         c.ForceUnits,
 		ResourceIDs:        ids,
 		StorageConstraints: c.Storage,
+		EndpointBindings:   c.Bindings,
 	}
-	return block.ProcessBlockedError(charmUpgradeClient.SetCharm(generation, cfg), block.BlockChange)
+
+	if err := block.ProcessBlockedError(charmUpgradeClient.SetCharm(generation, cfg), block.BlockChange); err != nil {
+		return err
+	}
+
+	// Emit binding changelog after a successful call to SetCharm.
+	for _, change := range bindingsChangelog {
+		ctx.Infof(change)
+	}
+
+	return nil
+}
+
+func (c *upgradeCharmCommand) parseBindFlag(apiRoot base.APICallCloser) error {
+	if c.BindToSpaces == "" {
+		return nil
+	}
+
+	// Fetch known spaces from server
+	knownSpaceList, err := c.NewSpacesClient(apiRoot).ListSpaces()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	knownSpaces := make([]string, 0, len(knownSpaceList))
+	for _, sp := range knownSpaceList {
+		knownSpaces = append(knownSpaces, sp.Name)
+	}
+
+	// Parse expression
+	bindings, err := parseBindExpr(c.BindToSpaces, knownSpaces)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	c.Bindings = bindings
+	return nil
+}
+
+type versionQuerier interface {
+	BestFacadeVersion(string) int
+	ServerVersion() (version.Number, bool)
+}
+
+func (c *upgradeCharmCommand) checkApplicationFacadeSupport(verQuerier versionQuerier, action string, minVersion int) error {
+	if verQuerier.BestFacadeVersion("Application") >= minVersion {
+		return nil
+	}
+
+	suffix := "this server"
+	if version, ok := verQuerier.ServerVersion(); ok {
+		suffix = fmt.Sprintf("server version %s", version)
+	}
+
+	return errors.New(action + " at upgrade-charm time is not supported by " + suffix)
 }
 
 // upgradeResources pushes metadata up to the server for each resource defined
@@ -543,33 +634,35 @@ var getCharmStoreAPIURL = func(conAPIRoot base.APICallCloser) (string, error) {
 	return controllerCfg.CharmStoreURL(), nil
 }
 
+type addCharmParams struct {
+	charmAdder     CharmAdder
+	charmRepo      *charmrepo.CharmStore
+	modelConfig    *config.Config
+	oldURL         *charm.URL
+	newCharmRef    string
+	deployedSeries string
+	force          bool
+}
+
 // addCharm interprets the new charmRef and adds the specified charm if
 // the new charm is different to what's already deployed as specified by
 // oldURL.
-func (c *upgradeCharmCommand) addCharm(
-	charmAdder CharmAdder,
-	charmRepo *charmrepo.CharmStore,
-	config *config.Config,
-	oldURL *charm.URL,
-	charmRef string,
-	deployedSeries string,
-	force bool,
-) (charmstore.CharmID, *macaroon.Macaroon, error) {
+func (c *upgradeCharmCommand) addCharm(params addCharmParams) (charmstore.CharmID, *macaroon.Macaroon, error) {
 	var id charmstore.CharmID
 	// Charm may have been supplied via a path reference. If so, build a
 	// local charm URL from the deployed series.
-	ch, newURL, err := charmrepo.NewCharmAtPathForceSeries(charmRef, deployedSeries, c.ForceSeries)
+	ch, newURL, err := charmrepo.NewCharmAtPathForceSeries(params.newCharmRef, params.deployedSeries, c.ForceSeries)
 	if err == nil {
 		newName := ch.Meta().Name
-		if newName != oldURL.Name {
-			return id, nil, errors.Errorf("cannot upgrade %q to %q", oldURL.Name, newName)
+		if newName != params.oldURL.Name {
+			return id, nil, errors.Errorf("cannot upgrade %q to %q", params.oldURL.Name, newName)
 		}
-		addedURL, err := charmAdder.AddLocalCharm(newURL, ch, force)
+		addedURL, err := params.charmAdder.AddLocalCharm(newURL, ch, params.force)
 		id.URL = addedURL
 		return id, nil, err
 	}
 	if _, ok := err.(*charmrepo.NotFoundError); ok {
-		return id, nil, errors.Errorf("no charm found at %q", charmRef)
+		return id, nil, errors.Errorf("no charm found at %q", params.newCharmRef)
 	}
 	// If we get a "not exists" or invalid path error then we attempt to interpret
 	// the supplied charm reference as a URL below, otherwise we return the error.
@@ -577,31 +670,31 @@ func (c *upgradeCharmCommand) addCharm(
 		return id, nil, err
 	}
 
-	refURL, err := charm.ParseURL(charmRef)
+	refURL, err := charm.ParseURL(params.newCharmRef)
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}
 
 	// Charm has been supplied as a URL so we resolve and deploy using the store.
-	newURL, channel, supportedSeries, err := c.ResolveCharm(charmRepo.ResolveWithPreferredChannel, refURL, c.Channel)
+	newURL, channel, supportedSeries, err := c.ResolveCharm(params.charmRepo.ResolveWithPreferredChannel, refURL, c.Channel)
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}
 	id.Channel = channel
-	_, seriesSupportedErr := charm.SeriesForCharm(deployedSeries, supportedSeries)
-	if !c.ForceSeries && deployedSeries != "" && newURL.Series == "" && seriesSupportedErr != nil {
+	_, seriesSupportedErr := charm.SeriesForCharm(params.deployedSeries, supportedSeries)
+	if !c.ForceSeries && params.deployedSeries != "" && newURL.Series == "" && seriesSupportedErr != nil {
 		series := []string{"no series"}
 		if len(supportedSeries) > 0 {
 			series = supportedSeries
 		}
 		return id, nil, errors.Errorf(
 			"cannot upgrade from single series %q charm to a charm supporting %q. Use --force-series to override.",
-			deployedSeries, series,
+			params.deployedSeries, series,
 		)
 	}
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.
-	if *newURL == *oldURL {
+	if *newURL == *params.oldURL {
 		if refURL.Revision != -1 {
 			return id, nil, errors.Errorf("already running specified charm %q", newURL)
 		}
@@ -611,10 +704,42 @@ func (c *upgradeCharmCommand) addCharm(
 		return id, nil, errors.Errorf("already running latest charm %q", newURL)
 	}
 
-	curl, csMac, err := addCharmFromURL(charmAdder, newURL, channel, force)
+	curl, csMac, err := addCharmFromURL(params.charmAdder, newURL, channel, params.force)
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}
 	id.URL = curl
 	return id, csMac, nil
+}
+
+func allEndpoints(ci *charms.CharmInfo) set.Strings {
+	epSet := set.NewStrings()
+	for n := range ci.Meta.ExtraBindings {
+		epSet.Add(n)
+	}
+	for n := range ci.Meta.Provides {
+		epSet.Add(n)
+	}
+	for n := range ci.Meta.Peers {
+		epSet.Add(n)
+	}
+	for n := range ci.Meta.Requires {
+		epSet.Add(n)
+	}
+
+	return epSet
+}
+
+func detectDefaultSpace(modelConfig *config.Config, curBindings map[string]string) string {
+	if curBindings != nil {
+		if defaultSpace, defined := curBindings[""]; defined {
+			return defaultSpace
+		}
+	}
+
+	// TODO(achilleasa): When we introduce a model config parameter for
+	// specifying the default space we should check whether it is set and
+	// use its value as the default before falling-back to the global
+	// default below.
+	return network.DefaultSpaceName
 }

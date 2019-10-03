@@ -859,6 +859,7 @@ func (a *Application) changeCharmOps(
 	forceUnits bool,
 	resourceIDs map[string]string,
 	updatedStorageConstraints map[string]StorageConstraints,
+	operatorEndpointBindings map[string]string,
 ) ([]txn.Op, error) {
 	// Build the new application config from what can be used of the old one.
 	var newSettings charm.Settings
@@ -1010,12 +1011,9 @@ func (a *Application) changeCharmOps(
 	ops = append(ops, relOps...)
 
 	// Update any existing endpoint bindings, using defaults for new endpoints.
-	//
-	// TODO(dimitern): Once upgrade-charm accepts --bind like deploy, pass the
-	// given bindings below, instead of nil.
-	endpointBindingsOp, err := updateEndpointBindingsOp(a.st, a.globalKey(), nil, ch.Meta())
+	endpointBindingsOps, err := updateEndpointBindingsOps(a.st, a, operatorEndpointBindings, ch.Meta())
 	if err == nil {
-		ops = append(ops, endpointBindingsOp)
+		ops = append(ops, endpointBindingsOps...)
 	} else if !errors.IsNotFound(err) && err != jujutxn.ErrNoOperations {
 		// If endpoint bindings do not exist this most likely means the application
 		// itself no longer exists, which will be caught soon enough anyway.
@@ -1228,6 +1226,10 @@ type SetCharmConfig struct {
 	// unaffected; the storage constraints will only be used for
 	// provisioning new storage instances.
 	StorageConstraints map[string]StorageConstraints
+
+	// EndpointBindings is an operator-defined map of endpoint names to
+	// space names that should be merged with any existing bindings.
+	EndpointBindings map[string]string
 }
 
 // SetCharm changes the charm for the application.
@@ -1364,6 +1366,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 				cfg.ForceUnits,
 				cfg.ResourceIDs,
 				cfg.StorageConstraints,
+				cfg.EndpointBindings,
 			)
 			if err != nil {
 				return nil, errors.Trace(err)

@@ -34,6 +34,7 @@ import (
 	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/api/spaces"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	apiparams "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
@@ -105,6 +106,11 @@ type ConsumeDetails interface {
 	Close() error
 }
 
+// SpacesAPI defines the necessary API methods needed for listing spaces.
+type SpacesAPI interface {
+	ListSpaces() ([]apiparams.Space, error)
+}
+
 var supportedJujuSeries = func() []string {
 	// We support all of the juju series AND all the ESM supported series.
 	// Juju is congruant with the Ubuntu release cycle for it's own series (not
@@ -131,6 +137,7 @@ type DeployAPI interface {
 	ApplicationAPI
 	ModelAPI
 	OfferAPI
+	SpacesAPI
 
 	// ApplicationClient
 	Deploy(application.DeployArgs) error
@@ -214,6 +221,10 @@ type offerClient struct {
 	*applicationoffers.Client
 }
 
+type spacesClient struct {
+	*spaces.API
+}
+
 type deployAPIAdapter struct {
 	api.Connection
 	*apiClient
@@ -225,6 +236,7 @@ type deployAPIAdapter struct {
 	*annotationsClient
 	*plansClient
 	*offerClient
+	*spacesClient
 }
 
 func (a *deployAPIAdapter) Client() *api.Client {
@@ -315,6 +327,7 @@ func NewDeployCommand() modelcmd.ModelCommand {
 			charmRepoClient:   &charmRepoClient{charmrepo.NewCharmStoreFromClient(cstoreClient)},
 			plansClient:       &plansClient{planURL: mURL},
 			offerClient:       &offerClient{Client: applicationoffers.NewClient(controllerAPIRoot)},
+			spacesClient:      &spacesClient{API: spaces.NewAPI(apiRoot)},
 		}, nil
 	}
 	deployCmd.NewConsumeDetailsAPI = func(url *charm.OfferURL) (ConsumeDetails, error) {
@@ -764,10 +777,6 @@ func (c *DeployCommand) Init(args []string) error {
 		return cmd.CheckEmpty(args[2:])
 	}
 
-	if err := c.parseBind(); err != nil {
-		return err
-	}
-
 	useExisting, mapping, err := parseMachineMap(c.machineMap)
 	if err != nil {
 		return errors.Annotate(err, "error in --map-machines")
@@ -1140,51 +1149,6 @@ func (c *DeployCommand) deployCharm(
 	return errors.Trace(apiRoot.Deploy(args))
 }
 
-const parseBindErrorPrefix = "--bind must be in the form '[<default-space>] [<endpoint-name>=<space> ...]'. "
-
-// parseBind parses the --bind option. Valid forms are:
-// * relation-name=space-name
-// * extra-binding-name=space-name
-// * space-name (equivalent to binding all endpoints to the same space, i.e. application-default)
-// * The above in a space separated list to specify multiple bindings,
-//   e.g. "rel1=space1 ext1=space2 space3"
-func (c *DeployCommand) parseBind() error {
-	bindings := make(map[string]string)
-	if c.BindToSpaces == "" {
-		return nil
-	}
-
-	for _, s := range strings.Split(c.BindToSpaces, " ") {
-		s = strings.TrimSpace(s)
-		if s == "" {
-			continue
-		}
-
-		v := strings.Split(s, "=")
-		var endpoint, space string
-		switch len(v) {
-		case 1:
-			endpoint = ""
-			space = v[0]
-		case 2:
-			if v[0] == "" {
-				return errors.New(parseBindErrorPrefix + "Found = without endpoint name. Use a lone space name to set the default.")
-			}
-			endpoint = v[0]
-			space = v[1]
-		default:
-			return errors.New(parseBindErrorPrefix + "Found multiple = in binding. Did you forget to space-separate the binding list?")
-		}
-
-		if !names.IsValidSpace(space) {
-			return errors.New(parseBindErrorPrefix + "Space name invalid.")
-		}
-		bindings[endpoint] = space
-	}
-	c.Bindings = bindings
-	return nil
-}
-
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if c.unknownModel {
 		if err := c.validateStorageByModelType(); err != nil {
@@ -1205,6 +1169,10 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiRoot.Close()
 
+	if err := c.parseBindFlag(apiRoot); err != nil {
+		return errors.Trace(err)
+	}
+
 	for _, step := range c.Steps {
 		step.SetPlanURL(apiRoot.PlanURL())
 	}
@@ -1221,6 +1189,32 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 
 	return block.ProcessBlockedError(deploy(ctx, apiRoot), block.BlockChange)
+}
+
+func (c *DeployCommand) parseBindFlag(apiRoot DeployAPI) error {
+	if c.BindToSpaces == "" {
+		return nil
+	}
+
+	// Fetch known spaces from server
+	knownSpaceList, err := apiRoot.ListSpaces()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	knownSpaces := make([]string, 0, len(knownSpaceList))
+	for _, sp := range knownSpaceList {
+		knownSpaces = append(knownSpaces, sp.Name)
+	}
+
+	// Parse expression
+	bindings, err := parseBindExpr(c.BindToSpaces, knownSpaces)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	c.Bindings = bindings
+	return nil
 }
 
 func findDeployerFIFO(maybeDeployers ...func() (deployFn, error)) (deployFn, error) {

@@ -144,6 +144,11 @@ type ApplicationSetCharm struct {
 	// update during the upgrade. This field is only understood by Application
 	// facade version 2 and greater.
 	StorageConstraints map[string]StorageConstraints `json:"storage-constraints,omitempty"`
+
+	// EndpointBindings is a map of operator-defined endpoint names to
+	// space names to be merged with any existing endpoint bindings. This
+	// field is only understood by Application facade version 10 and greater.
+	EndpointBindings map[string]string `json:"endpoint-bindings,omitempty"`
 }
 
 // ApplicationExpose holds the parameters for making the application Expose call.
@@ -201,6 +206,7 @@ type ApplicationGetResults struct {
 	Constraints       constraints.Value      `json:"constraints"`
 	Series            string                 `json:"series"`
 	Channel           string                 `json:"channel"`
+	EndpointBindings  map[string]string      `json:"endpoint-bindings,omitempty"`
 }
 
 // ApplicationConfigSetArgs holds the parameters for

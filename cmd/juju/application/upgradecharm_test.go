@@ -61,6 +61,7 @@ type UpgradeCharmSuite struct {
 	charmAPIClient    mockCharmAPIClient
 	modelConfigGetter mockModelConfigGetter
 	resourceLister    mockResourceLister
+	spacesClient      mockSpacesClient
 	cmd               cmd.Command
 }
 
@@ -119,6 +120,12 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 	s.charmAPIClient = mockCharmAPIClient{charmURL: currentCharmURL}
 	s.modelConfigGetter = mockModelConfigGetter{}
 	s.resourceLister = mockResourceLister{}
+	s.spacesClient = mockSpacesClient{
+		spaceList: []params.Space{
+			{Id: "0", Name: ""}, // default
+			{Id: "1", Name: "sp1"},
+		},
+	}
 
 	store := jujuclient.NewMemStore()
 	store.CurrentControllerName = "foo"
@@ -165,6 +172,10 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 		func(conn base.APICallCloser) (string, error) {
 			s.AddCall("CharmStoreURLGetter", conn)
 			return "testing.api.charmstore", s.NextErr()
+		},
+		func(conn base.APICallCloser) SpacesAPI {
+			s.AddCall("NewSpacesClient", conn)
+			return &s.spacesClient
 		},
 	)
 }
@@ -254,6 +265,39 @@ type UpgradeCharmErrorsStateSuite struct {
 	jujutesting.RepoSuite
 	handler charmstore.HTTPCloseHandler
 	srv     *httptest.Server
+}
+
+func (s *UpgradeCharmSuite) TestUpgradeWithBind(c *gc.C) {
+	s.apiConnection = mockAPIConnection{
+		bestFacadeVersion: 11,
+		serverVersion: &version.Number{
+			Major: 1,
+			Minor: 2,
+			Patch: 3,
+		},
+	}
+
+	s.charmClient.charmInfo.Meta.ExtraBindings = map[string]charm.ExtraBinding{
+		"ep1": {Name: "ep1"},
+		"ep2": {Name: "ep2"},
+	}
+
+	_, err := s.runUpgradeCharm(c, "foo", "--bind", "ep1=sp1")
+	c.Assert(err, jc.ErrorIsNil)
+	s.charmAPIClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
+	s.spacesClient.CheckCallNames(c, "ListSpaces")
+
+	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
+		ApplicationName: "foo",
+		CharmID: jujucharmstore.CharmID{
+			URL:     s.resolvedCharmURL,
+			Channel: csclientparams.StableChannel,
+		},
+		EndpointBindings: map[string]string{
+			"ep1": "sp1",
+			"ep2": network.DefaultSpaceName,
+		},
+	})
 }
 
 func (s *UpgradeCharmErrorsStateSuite) SetUpTest(c *gc.C) {
@@ -933,4 +977,16 @@ func (m *mockModelConfigGetter) ModelGet() (map[string]interface{}, error) {
 type mockResourceLister struct {
 	ResourceLister
 	testing.Stub
+}
+
+type mockSpacesClient struct {
+	SpacesAPI
+	testing.Stub
+
+	spaceList []params.Space
+}
+
+func (m *mockSpacesClient) ListSpaces() ([]params.Space, error) {
+	m.MethodCall(m, "ListSpaces")
+	return m.spaceList, m.NextErr()
 }

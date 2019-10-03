@@ -81,6 +81,13 @@ type APIv9 struct {
 // APIv10 provides the Application API facade for version 10.
 // It adds --force and --max-wait parameters to remove-saas.
 type APIv10 struct {
+	*APIv11
+}
+
+// APIv11 provides the Application API facade for version 11.
+// The Get call also returns the current endpoint bindings while the SetCharm
+// call access a map of operator-defined bindings.
+type APIv11 struct {
 	*APIBase
 }
 
@@ -171,11 +178,19 @@ func NewFacadeV9(ctx facade.Context) (*APIv9, error) {
 }
 
 func NewFacadeV10(ctx facade.Context) (*APIv10, error) {
-	api, err := newFacadeBase(ctx)
+	api, err := NewFacadeV11(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &APIv10{api}, nil
+}
+
+func NewFacadeV11(ctx facade.Context) (*APIv11, error) {
+	api, err := newFacadeBase(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv11{api}, nil
 }
 
 type caasBrokerInterface interface {
@@ -772,6 +787,7 @@ type setCharmParams struct {
 	ConfigSettingsYAML    string
 	ResourceIDs           map[string]string
 	StorageConstraints    map[string]params.StorageConstraints
+	EndpointBindings      map[string]string
 	Force                 forceParams
 }
 
@@ -947,6 +963,7 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 			ConfigSettingsYAML:    args.ConfigSettingsYAML,
 			ResourceIDs:           args.ResourceIDs,
 			StorageConstraints:    args.StorageConstraints,
+			EndpointBindings:      args.EndpointBindings,
 			Force: forceParams{
 				ForceSeries: args.ForceSeries,
 				ForceUnits:  args.ForceUnits,
@@ -1049,6 +1066,7 @@ func (api *APIBase) applicationSetCharm(
 		Force:              force.Force,
 		ResourceIDs:        params.ResourceIDs,
 		StorageConstraints: stateStorageConstraints,
+		EndpointBindings:   params.EndpointBindings,
 	}
 	return params.Application.SetCharm(cfg)
 }

@@ -50,7 +50,7 @@ type applicationSuite struct {
 	apiservertesting.CharmStoreSuite
 	commontesting.BlockHelper
 
-	applicationAPI *application.APIv10
+	applicationAPI *application.APIv11
 	application    *state.Application
 	authorizer     *apiservertesting.FakeAuthorizer
 }
@@ -87,7 +87,7 @@ func (s *applicationSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv10 {
+func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv11 {
 	resources := common.NewResources()
 	c.Assert(resources.RegisterNamed("dataDir", common.StringResource(c.MkDir())), jc.ErrorIsNil)
 	storageAccess, err := application.GetStorageState(s.State)
@@ -111,7 +111,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv10 {
 		nil, // CAAS Broker not used in this suite.
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return &application.APIv10{api}
+	return &application.APIv11{api}
 }
 
 func (s *applicationSuite) TestCharmConfig(c *gc.C) {
@@ -134,7 +134,9 @@ func (s *applicationSuite) TestCharmConfigV8(c *gc.C) {
 	s.setUpConfigTest(c)
 	api := &application.APIv8{
 		APIv9: &application.APIv9{
-			APIv10: s.applicationAPI,
+			APIv10: &application.APIv10{
+				APIv11: s.applicationAPI,
+			},
 		},
 	}
 	results, err := api.CharmConfig(params.Entities{
