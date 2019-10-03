@@ -203,6 +203,6 @@ introspect_controller() {
 
     name=${1}
 
-    juju ssh -m controller 0 "source /etc/profile.d/juju-introspection.sh && juju_engine_report" > "${TEST_DIR}/${name}-juju_engine_report.txt"
-    juju ssh -m controller 0 "source /etc/profile.d/juju-introspection.sh && juju_goroutines" > "${TEST_DIR}/${name}-juju_goroutines.txt"
+    juju ssh -m controller 0 bash -lic "juju_engine_report" > "${TEST_DIR}/${name}-juju_engine_report.txt"
+    juju ssh -m controller 0 bash -lic "juju_goroutines" > "${TEST_DIR}/${name}-juju_goroutines.txt"
 }
