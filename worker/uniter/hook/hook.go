@@ -31,6 +31,9 @@ type Info struct {
 	// set when Kind indicates a relation hook other than relation-broken.
 	RemoteUnit string `yaml:"remote-unit,omitempty"`
 
+	// TODO(jam): 2019-10-03 implement RemoteApplication
+	// RemoteApplication string `yaml:"remote-application,omitempty"`
+
 	// ChangeVersion identifies the most recent unit settings change
 	// associated with RemoteUnit. It is only set when RemoteUnit is set.
 	ChangeVersion int64 `yaml:"change-version,omitempty"`
@@ -43,6 +46,7 @@ type Info struct {
 func (hi Info) Validate() error {
 	switch hi.Kind {
 	case hooks.RelationJoined, hooks.RelationChanged, hooks.RelationDeparted:
+		// TODO: RemoteApplication
 		if hi.RemoteUnit == "" {
 			return fmt.Errorf("%q hook requires a remote unit", hi.Kind)
 		}

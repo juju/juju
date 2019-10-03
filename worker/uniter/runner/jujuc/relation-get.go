@@ -21,11 +21,12 @@ type RelationGetCommand struct {
 
 	RelationId      int
 	relationIdProxy gnuflag.Value
-	relationContext gnuflag.Value
+	application     bool
 
-	Key      string
-	UnitName string
-	out      cmd.Output
+	Key             string
+	UnitName        string
+	ApplicationName string
+	out             cmd.Output
 }
 
 func NewRelationGetCommand(ctx Context) (cmd.Command, error) {
@@ -35,7 +36,6 @@ func NewRelationGetCommand(ctx Context) (cmd.Command, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cmd.relationContext = NewEnumValue("", []string{"both", "unit", "application"})
 
 	return cmd, nil
 }
@@ -48,12 +48,11 @@ relation-get prints the value of a unit's relation setting, specified by key.
 If no key is given, or if the key is "-", all keys and values will be printed.
 
 A unit can see its own settings by calling "relation-get - MYUNIT", this will include
-any changes that have been made with "relation-set". The default context when reading
-your own setting is "unit", and "both" is not supported. Only the leader unit can
-call "relation-get --context=application - MYUNIT".
+any changes that have been made with "relation-set".
 
-When reading remote relation data, the default context is "both" and the per-unit
-data will be overlayed on the application data.
+When reading remote relation data, a charm can call relation-get --app - to get
+the data for the application data bag that is set by the remote applications
+leader.
 `
 	// There's nothing we can really do about the error here.
 	if name, err := c.ctx.RemoteUnitName(); err == nil {
@@ -73,11 +72,11 @@ data will be overlayed on the application data.
 // SetFlags is part of the cmd.Command interface.
 func (c *RelationGetCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	f.Var(c.relationIdProxy, "r", "specify a relation by id")
+	f.Var(c.relationIdProxy, "r", "Specify a relation by id")
 	f.Var(c.relationIdProxy, "relation", "")
 
-	f.Var(c.relationContext, "context",
-		`Specify whether you want only "unit", "application", or "both" settings from relation data`)
+	f.BoolVar(&c.application, "app", false,
+		`Get the relation data for the overall application, not just a unit`)
 }
 
 // Init is part of the cmd.Command interface.
@@ -98,6 +97,8 @@ func (c *RelationGetCommand) Init(args []string) error {
 	} else if cause := errors.Cause(err); !errors.IsNotFound(cause) {
 		return errors.Trace(err)
 	}
+	// TODO(jam): 2019-10-03 implemen RemoteApplicationName
+	// name, err := c.ctx.RemoteApplicationName()
 	if len(args) > 0 {
 		c.UnitName = args[0]
 		args = args[1:]
@@ -114,13 +115,10 @@ func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	var settings params.Settings
-	relationContext := c.relationContext.String()
 	if c.UnitName == c.ctx.UnitName() {
 		var node Settings
 		var err error
-		if relationContext == "both" {
-			return errors.Errorf("merged relation data not supported for your own unit")
-		} else if relationContext == "application" {
+		if c.application {
 			node, err = r.ApplicationSettings()
 		} else {
 			node, err = r.Settings()
@@ -131,23 +129,11 @@ func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 		settings = node.Map()
 	} else {
 		var err error
-		if relationContext == "application" {
+		// TODO(jam): 2019-10-03 Handle if UnitName is not set, but ApplicationName is
+		if c.application {
 			settings, err = r.ReadApplicationSettings(c.UnitName)
-		} else if relationContext == "unit" {
-			settings, err = r.ReadSettings(c.UnitName)
 		} else {
-			settings, err = r.ReadApplicationSettings(c.UnitName)
-			if err != nil {
-				return err
-			}
-			unitSettings, err := r.ReadSettings(c.UnitName)
-			if err != nil {
-				return err
-			}
-			// Overlay Unit settings on top of Application settings
-			for k, v := range unitSettings {
-				settings[k] = v
-			}
+			settings, err = r.ReadSettings(c.UnitName)
 		}
 		if err != nil {
 			return err
