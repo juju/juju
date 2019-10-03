@@ -114,7 +114,7 @@
   name = "github.com/juju/romulus"
 
 [[constraint]]
-  revision = "ce30eb24acd2c45a1bc42208835468ca619685a9"
+  revision = "ce9dec17d28bdfde2d8c5113a201495265e3962e"
   name = "github.com/juju/testing"
 
 [[constraint]]
@@ -147,7 +147,7 @@
 
 [[constraint]]
   name = "gopkg.in/juju/charm.v6"
-  revision = "adaf8c5c203723a78e5d6e54492505c574bdf28c"
+  revision = "b62f496a731efebe602805523347d4f936a6afb7"
 
 [[constraint]]
   revision = "2adcece4e962a51e0793b8562560cf9da874026f"
@@ -328,7 +328,7 @@
 
 [[constraint]]
   name = "github.com/juju/ratelimit"
-  revision = "5b9ff866471762aa2ab2dced63c9fb6f53921342"
+  revision = "f60b32039441cd828005f82f3a54aafd00bc9882"
 
 [[constraint]]
   name = "github.com/juju/retry"
