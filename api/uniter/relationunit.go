@@ -134,18 +134,13 @@ func (ru *RelationUnit) ApplicationSettings() (*Settings, error) {
 			Unit:     appTag.String(),
 		}},
 	}
-	// TODO(jam): 2019-07-25 This isn't actually supported by the API yet, so we
-	//  just always return an empty settings result.
-
-	// err = ru.st.facade.FacadeCall("ReadSettings", args, &results)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// if len(results.Results) != 1 {
-	// 	return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	// }
-	// TODO: Remove this
-	_ = args
+	err = ru.st.facade.FacadeCall("ReadSettings", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
 	results.Results = append(results.Results, params.SettingsResult{})
 
 	result := results.Results[0]
@@ -193,41 +188,16 @@ func (ru *RelationUnit) ReadSettings(uname string) (params.Settings, error) {
 // It is only valid to update application settings if this unit is the leader, otherwise
 // it is a NotLeader error. Note that either unit or application is allowed to be nil.
 func (ru *RelationUnit) UpdateRelationSettings(unit, application params.Settings) error {
-	// TODO(jam) 2019-07-25: When the new API is written that gives us both updates in one
-	//  request, use it. For now, approximate it with 2 update calls.
 	var result params.ErrorResults
-	appName, err := names.UnitApplication(ru.unit.Name())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	appTag := names.NewApplicationTag(appName)
 	args := params.RelationUnitsSettings{
 		RelationUnits: []params.RelationUnitSettings{{
-			Relation: ru.relation.tag.String(),
-			Unit:     appTag.String(),
-			Settings: unit,
+			Relation:            ru.relation.tag.String(),
+			Unit:                ru.unit.tag.String(),
+			Settings:            unit,
+			ApplicationSettings: application,
 		}},
 	}
-	// TODO(jam): 2019-07-24 Implement support for UpdateSettings and Application settings.
-	//  This might just be UpdateSettings taking an application tag, or we might
-	//  want a different API.
-	/// We know this isn't suppported by the API yet anyway.
-	/// err = ru.st.facade.FacadeCall("UpdateSettings", args, &result)
-	/// if err != nil {
-	/// 	return errors.Trace(err)
-	/// }
-	/// err = result.OneError()
-	/// if err != nil {
-	/// 	return errors.Trace(err)
-	/// }
-	args = params.RelationUnitsSettings{
-		RelationUnits: []params.RelationUnitSettings{{
-			Relation: ru.relation.tag.String(),
-			Unit:     ru.unit.tag.String(),
-			Settings: unit,
-		}},
-	}
-	err = ru.st.facade.FacadeCall("UpdateSettings", args, &result)
+	err := ru.st.facade.FacadeCall("UpdateSettings", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}

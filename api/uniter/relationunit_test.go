@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/state"
 )
@@ -200,13 +203,26 @@ func (s *relationUnitSuite) TestApplicationSettings(c *gc.C) {
 	err := wpRelUnit.EnterScope(settings)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, wpRelUnit, true)
-	// TODO(jam) 2019-07-25:
-	//  we need a way to set application settings in the database before we can
-	//  test this properly.
-	wpRelUnit.Settings()
+	// XXX: s.State.LeadershipClaimer() is not the same leadership that s.LeadershipManager is using. WTF?
+	claimer, err := s.LeaseManager.Claimer(lease.ApplicationLeadershipNamespace, s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	unit := s.wordpressUnit
+	c.Assert(claimer.Claim(unit.ApplicationName(), unit.Name(), time.Minute), jc.ErrorIsNil)
+
+	checker, err := s.LeaseManager.Checker("application-leadership", s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	token := checker.Token("wordpress", "wordpress/0")
+	err = s.stateRelation.UpdateApplicationSettings(s.wordpressApplication, token, map[string]interface{}{
+		"foo": "bar",
+		"baz": "1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	gotSettings, err := apiRelUnit.ApplicationSettings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{})
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"foo": "bar",
+		"baz": "1",
+	})
 
 }
 
@@ -349,6 +365,31 @@ func (s *relationUnitSuite) TestUpdateRelationSettingsForUnitWithDelete(c *gc.C)
 }
 
 func (s *relationUnitSuite) TestUpdateRelationSettingsForApplication(c *gc.C) {
+	// s.LeaseManager.Claimer() != s.State.LeadershipClaimer().... *sigh*
+	// We use s.LeaseManager because that is what is behind API calls, but that means we hard code the "namespace"
+	claimer, err := s.LeaseManager.Claimer(lease.ApplicationLeadershipNamespace, s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(claimer.Claim(s.wordpressUnit.ApplicationName(), s.wordpressUnit.Name(), time.Hour), jc.ErrorIsNil)
+
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	c.Assert(wpRelUnit.EnterScope(nil), jc.ErrorIsNil)
+	s.assertInScope(c, wpRelUnit, true)
+	gotSettings, err := apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{})
+	gotSettings, err = apiRelUnit.ApplicationSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{})
+
+	c.Assert(apiRelUnit.UpdateRelationSettings(nil, params.Settings{"some": "value"}), jc.ErrorIsNil)
+	gotSettings, err = apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{})
+	gotSettings, err = apiRelUnit.ApplicationSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"some": "value",
+	})
 }
 
 func (s *relationUnitSuite) TestUpdateRelationSettingsForApplicationNotLeader(c *gc.C) {
