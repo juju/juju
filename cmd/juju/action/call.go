@@ -93,7 +93,7 @@ Examples:
     juju call mysql/3 backup --format yaml
     juju call mysql/3 backup
     juju call mysql/leader backup
-    juju show-operation <ID>
+    juju show-task <ID>
     juju call mysql/3 backup --params parameters.yml
     juju call mysql/3 backup out=out.tar.bz2 file.kind=xz file.quality=high
     juju call mysql/3 backup --params p.yml file.kind=xz file.quality=high
@@ -268,7 +268,7 @@ func (c *callCommand) Run(ctx *cmd.Context) error {
 		}
 
 		if !c.background {
-			ctx.Infof("Running Operation %s", actionTag.Id())
+			ctx.Infof("Running Task %s", actionTag.Id())
 			continue
 		}
 		unitTag, err := names.ParseUnitTag(result.Action.Receiver)
@@ -281,12 +281,12 @@ func (c *callCommand) Run(ctx *cmd.Context) error {
 	}
 	if c.background {
 		if len(results.Results) == 1 {
-			ctx.Infof("Scheduled Operation %s", actionTag.Id())
-			ctx.Infof("Check status with 'juju show-operation %s'", actionTag.Id())
+			ctx.Infof("Scheduled Task %s", actionTag.Id())
+			ctx.Infof("Check status with 'juju show-task %s'", actionTag.Id())
 		} else {
-			ctx.Infof("Scheduled Operations:")
+			ctx.Infof("Scheduled Tasks:")
 			cmd.FormatYaml(ctx.Stderr, info)
-			ctx.Infof("Check status with 'juju show-operation <id>'")
+			ctx.Infof("Check status with 'juju show-task <id>'")
 		}
 		return nil
 	}
@@ -376,7 +376,7 @@ func printPlainOutput(writer io.Writer, value interface{}) error {
 				actionOutput[k] = fmt.Sprintf("%v", resultDataCopy)
 			}
 		} else {
-			actionOutput[k] = fmt.Sprintf("Operation %v complete\n", resultMetadata["id"])
+			actionOutput[k] = fmt.Sprintf("Task %v complete\n", resultMetadata["id"])
 		}
 		actionInfo[k] = map[string]interface{}{
 			"id":     resultMetadata["id"],

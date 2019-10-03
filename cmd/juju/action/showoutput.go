@@ -66,9 +66,9 @@ func (c *showOutputCommand) Info() *cmd.Info {
 		Doc:     showOutputDoc,
 	})
 	if featureflag.Enabled(feature.JujuV3) {
-		info.Name = "show-operation"
-		info.Args = "<operation ID>"
-		info.Purpose = "Show results of an operation by ID."
+		info.Name = "show-task"
+		info.Args = "<task ID>"
+		info.Purpose = "Show results of a task by ID."
 	}
 	return info
 }
@@ -78,7 +78,7 @@ func (c *showOutputCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
 		if featureflag.Enabled(feature.JujuV3) {
-			return errors.New("no operation ID specified")
+			return errors.New("no task ID specified")
 		}
 		return errors.New("no action ID specified")
 	case 1:
