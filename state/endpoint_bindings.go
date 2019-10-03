@@ -167,30 +167,71 @@ func createEndpointBindingsOp(st *State, key string, givenMap map[string]string,
 	}, nil
 }
 
-// updateEndpointBindingsOp returns an op that merges the existing bindings with
-// givenMap, using newMeta to validate the merged bindings, and asserting the
-// existing ones haven't changed in the since we fetched them.
-func updateEndpointBindingsOp(st *State, key string, givenMap map[string]string, newMeta *charm.Meta) (txn.Op, error) {
+// updateEndpointBindingsOps returns an op list that merges the existing
+// bindings with givenMap, using newMeta to validate the merged bindings, and
+// asserting that the following items have not changed since we last fetched
+// them:
+// - names of spaces assigned to endpoints.
+// - application unit count.
+// - endpoint bindings that we are currently trying to update.
+func updateEndpointBindingsOps(st *State, a *Application, givenMap map[string]string, newMeta *charm.Meta) ([]txn.Op, error) {
+	var ops []txn.Op
+
 	// Fetch existing bindings.
-	existingMap, txnRevno, err := readEndpointBindings(st, key)
+	existingMap, txnRevno, err := readEndpointBindings(st, a.globalKey())
 	if err != nil && !errors.IsNotFound(err) {
-		return txn.Op{}, errors.Trace(err)
+		return ops, errors.Trace(err)
 	}
 
 	// Merge existing with given as needed.
 	updatedMap, isModified, err := mergeBindings(givenMap, existingMap, newMeta)
 	if err != nil {
-		return txn.Op{}, errors.Trace(err)
+		return ops, errors.Trace(err)
 	}
 
 	// Validate the bindings before updating.
 	if err := validateEndpointBindingsForCharm(st, updatedMap, newMeta); err != nil {
-		return txn.Op{}, errors.Trace(err)
+		return ops, errors.Trace(err)
 	}
 
 	if !isModified {
-		return txn.Op{}, jujutxn.ErrNoOperations
+		return ops, jujutxn.ErrNoOperations
 	}
+
+	// Make sure that all machines which run units of this application
+	// contain addresses in the spaces we are trying to bind to.
+	if err := validateEndpointBindingsForMachines(a, existingMap, updatedMap); err != nil {
+		return ops, errors.Trace(err)
+	}
+
+	// Ensure that the space names needed for the bindings do not change.
+	// TODO(achilleasa) this block will be removed once we switch from
+	// space names to spaceIDs for endpoint bindings.
+	assignedSpaces := set.NewStrings()
+	for _, spName := range updatedMap {
+		assignedSpaces.Add(spName)
+	}
+	for spName := range assignedSpaces {
+		sp, err := st.Space(spName)
+		if err != nil {
+			return ops, errors.Trace(err)
+		}
+		ops = append(ops, txn.Op{
+			C:      spacesC,
+			Id:     sp.doc.DocId,
+			Assert: bson.D{{"name", spName}},
+		})
+	}
+
+	// To avoid a potential race where units may suddenly appear on a new
+	// machine that does not have addresses for all the required spaces
+	// while we are applying the txn, we define an assertion on the unit
+	// count for the current application.
+	ops = append(ops, txn.Op{
+		C:      applicationsC,
+		Id:     a.doc.DocID,
+		Assert: bson.D{{"unitcount", a.UnitCount()}},
+	})
 
 	// Prepare the update operations.
 	escaped := make(bson.M, len(updatedMap))
@@ -200,14 +241,84 @@ func updateEndpointBindingsOp(st *State, key string, givenMap map[string]string,
 
 	updateOp := txn.Op{
 		C:      endpointBindingsC,
-		Id:     key,
+		Id:     a.globalKey(),
 		Update: bson.M{"$set": bson.M{"bindings": escaped}},
 	}
 	if existingMap != nil {
 		// Only assert existing haven't changed when they actually exist.
 		updateOp.Assert = bson.D{{"txn-revno", txnRevno}}
 	}
-	return updateOp, nil
+
+	return append(ops, updateOp), nil
+}
+
+// validateEndpointBindingsForMachines checks whether the required space
+// assignments are actually feasible given the network configuration settings
+// of the machines where application units are already running.
+func validateEndpointBindingsForMachines(a *Application, oldBindings, newBindings map[string]string) error {
+	// Get a list of deployed machines and create a map where we track the
+	// count of deployed machines for each space.
+	machineCountInSpace := make(map[string]int)
+	deployedMachines, err := a.DeployedMachines()
+	if err != nil {
+		return err
+	}
+
+	for _, m := range deployedMachines {
+		machineSpaces, err := m.AllSpaces()
+		if err != nil {
+			return errors.Annotatef(err, "unable to get space assignments for machine %q", m.Id())
+		}
+		for spName := range machineSpaces {
+			machineCountInSpace[spName]++
+		}
+	}
+
+	// TODO(achilleasa): support for overriding spaces will
+	// be added via a separate PR.
+	if newDefaultSpace, defined := newBindings[""]; defined {
+		if newDefaultSpace != oldBindings[""] {
+			return errors.NotSupportedf("changing the default application space while upgrading charms")
+		}
+	}
+
+	for epName, spName := range newBindings {
+		if epName == "" {
+			continue
+		}
+
+		// For new endpoints, make sure that all currently deployed
+		// machines have an address in the requested space
+		if _, isOldEndpoint := oldBindings[epName]; !isOldEndpoint {
+			// TODO(achilleasa): this check is a temporary workaround
+			// to allow upgrading charms that define new endpoints
+			// which we automatically bind to the default space if
+			// the operator does not explicitly try to bind them
+			// to a space.
+			//
+			// If we deploy a charm with a "spaces=xxx" constraint,
+			// it will not have a provider address in the default
+			// space so the machine-count check below would
+			// otherwise fail.
+			if spName == network.DefaultSpaceName {
+				continue
+			}
+
+			if machineCountInSpace[spName] == len(deployedMachines) {
+				continue
+			}
+
+			return errors.Errorf("binding endpoint %q to space %q is not feasible: one or more deployed machines lack an address in this space", epName, spName)
+		}
+
+		// TODO(achilleasa): support for overriding existing bindings
+		// will be added via a separate PR.
+		if spName != oldBindings[epName] {
+			return errors.NotSupportedf("changing existing endpoint bindings while upgrading charms")
+		}
+	}
+
+	return nil
 }
 
 // removeEndpointBindingsOp returns an op removing the bindings for the given

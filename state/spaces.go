@@ -258,6 +258,20 @@ func (st *State) SpaceIDsByName() (map[string]string, error) {
 }
 
 // SpaceNamesByID (core/network.SpaceLookup)
+// returns a map of space IDs to space names.
+func (st *State) SpaceNamesByID() (map[string]string, error) {
+	spaces, err := st.AllSpaces()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	lookup := make(map[string]string, len(spaces))
+	for _, space := range spaces {
+		lookup[space.Id()] = space.Name()
+	}
+	return lookup, nil
+}
+
+// SpaceNamesByID (core/network.SpaceLookup)
 // returns a map of space IDs to SpaceInfos.
 func (st *State) SpaceInfosByID() (map[string]network.SpaceInfo, error) {
 	spaces, err := st.AllSpaces()

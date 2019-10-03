@@ -2368,6 +2368,14 @@
                         "config-settings-yaml": {
                             "type": "string"
                         },
+                        "endpoint-bindings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
                         "force": {
                             "type": "boolean"
                         },

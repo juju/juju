@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
@@ -263,6 +264,89 @@ deployment:
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "gitlab" to charm "local:kubernetes/kubernetes-gitlab-2": cannot change a charm's deployment type`)
 }
 
+func (s *ApplicationSuite) TestSetCharmWithNewBindings(c *gc.C) {
+	s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
+	sch := s.AddMetaCharm(c, "mysql", metaBaseWithNewEndpoint, 2)
+
+	// Assign new charm endpoint to "isolated" space
+	cfg := state.SetCharmConfig{
+		Charm:      sch,
+		ForceUnits: true,
+		EndpointBindings: map[string]string{
+			"events": "isolated",
+		},
+	}
+	err := s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expBindings := map[string]string{
+		"server":  network.DefaultSpaceName,
+		"client":  network.DefaultSpaceName,
+		"cluster": network.DefaultSpaceName,
+		"events":  "isolated",
+	}
+
+	updatedBindings, err := s.mysql.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(updatedBindings, gc.DeepEquals, expBindings)
+}
+
+func (s *ApplicationSuite) TestSetCharmWithNewBindingsAssigneToDefaultSpace(c *gc.C) {
+	s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
+	sch := s.AddMetaCharm(c, "mysql", metaBaseWithNewEndpoint, 2)
+
+	// New charm endpoint should be auto-assigned to default space if not
+	// explicitly bound by the operator.
+	cfg := state.SetCharmConfig{
+		Charm:      sch,
+		ForceUnits: true,
+	}
+	err := s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expBindings := map[string]string{
+		"server":  network.DefaultSpaceName,
+		"client":  network.DefaultSpaceName,
+		"cluster": network.DefaultSpaceName,
+		"events":  network.DefaultSpaceName,
+	}
+
+	updatedBindings, err := s.mysql.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(updatedBindings, gc.DeepEquals, expBindings)
+}
+
+func (s *ApplicationSuite) assignUnitOnMachineWithSpaceToApplication(c *gc.C, a *state.Application, spaceName string) {
+	sn1, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.254.0/24"})
+	c.Assert(err, gc.IsNil)
+
+	_, err = s.State.AddSpace("isolated", "", []string{sn1.ID()}, false)
+	c.Assert(err, gc.IsNil)
+
+	m1, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:      "quantal",
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: constraints.MustParse("spaces=isolated"),
+	})
+	c.Assert(err, gc.IsNil)
+	err = m1.SetLinkLayerDevices(state.LinkLayerDeviceArgs{
+		Name: "enp5s0",
+		Type: corenetwork.EthernetDevice,
+	})
+	c.Assert(err, gc.IsNil)
+	err = m1.SetDevicesAddresses(state.LinkLayerDeviceAddress{
+		DeviceName:   "enp5s0",
+		CIDRAddress:  "10.0.254.42/24",
+		ConfigMethod: state.StaticAddress,
+	})
+	c.Assert(err, gc.IsNil)
+
+	u1, err := a.AddUnit(state.AddUnitParams{})
+	c.Assert(err, gc.IsNil)
+	err = u1.AssignToMachine(m1)
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *ApplicationSuite) combinedSettings(ch *state.Charm, inSettings charm.Settings) charm.Settings {
 	result := ch.Config().DefaultSettings()
 	for name, value := range inSettings {
@@ -451,6 +535,19 @@ requires:
   client: mysql
 peers:
   cluster: mysql
+`
+var metaBaseWithNewEndpoint = `
+name: mysql
+summary: "Fake MySQL Database engine"
+description: "Complete with nonsense relations"
+provides:
+  server: mysql
+requires:
+  client: mysql
+peers:
+  cluster: mysql
+extra-bindings:
+  events:
 `
 var metaDifferentProvider = `
 name: mysql

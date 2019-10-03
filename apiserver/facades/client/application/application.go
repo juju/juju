@@ -85,7 +85,8 @@ type APIv10 struct {
 }
 
 // APIv11 provides the Application API facade for version 11.
-// The Get call also returns the endpoint bindings
+// The Get call also returns the current endpoint bindings while the SetCharm
+// call access a map of operator-defined bindings.
 type APIv11 struct {
 	*APIBase
 }
@@ -786,6 +787,7 @@ type setCharmParams struct {
 	ConfigSettingsYAML    string
 	ResourceIDs           map[string]string
 	StorageConstraints    map[string]params.StorageConstraints
+	EndpointBindings      map[string]string
 	Force                 forceParams
 }
 
@@ -961,6 +963,7 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 			ConfigSettingsYAML:    args.ConfigSettingsYAML,
 			ResourceIDs:           args.ResourceIDs,
 			StorageConstraints:    args.StorageConstraints,
+			EndpointBindings:      args.EndpointBindings,
 			Force: forceParams{
 				ForceSeries: args.ForceSeries,
 				ForceUnits:  args.ForceUnits,
@@ -1063,6 +1066,7 @@ func (api *APIBase) applicationSetCharm(
 		Force:              force.Force,
 		ResourceIDs:        params.ResourceIDs,
 		StorageConstraints: stateStorageConstraints,
+		EndpointBindings:   params.EndpointBindings,
 	}
 	return params.Application.SetCharm(cfg)
 }
