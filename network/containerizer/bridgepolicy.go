@@ -107,17 +107,16 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 
 	if p.containerNetworkingMethod == "fan" {
 		if fanNotFound.IsEmpty() {
-			// Nothing to do, just return success
-			return nil, 0, nil
-		} else {
-			return nil, 0, errors.Errorf("host machine %q has no available FAN devices in space(s) %s",
-				host.Id(), network.QuoteSpaceSet(fanNotFound))
-		}
-	} else {
-		if notFound.IsEmpty() {
-			// Nothing to do, just return success
+			// Nothing to do; just return success.
 			return nil, 0, nil
 		}
+		return nil, 0, errors.Errorf("host machine %q has no available FAN devices in space(s) %s",
+			host.Id(), network.QuoteSpaceSet(fanNotFound))
+	}
+
+	if notFound.IsEmpty() {
+		// Nothing to do; just return success.
+		return nil, 0, nil
 	}
 
 	hostDeviceNamesToBridge := make([]string, 0)
@@ -138,7 +137,7 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 			spacesFound.Add(spaceName)
 		}
 		if len(hostDeviceNames) > 0 {
-			if spaceName == "" {
+			if spaceName == corenetwork.DefaultSpaceName {
 				// When we are bridging unknown space devices, we bridge all
 				// of them. Both because this is a fallback, and because we
 				// don't know what the exact spaces are going to be.
@@ -247,7 +246,7 @@ func (p *BridgePolicy) determineContainerSpaces(
 			return nil, errors.Trace(err)
 		}
 		for _, space := range endpointBindings {
-			if space != "" {
+			if space != corenetwork.DefaultSpaceName {
 				bindings.Add(space)
 			}
 		}
@@ -290,7 +289,7 @@ func (p *BridgePolicy) determineContainerSpaces(
 // If neither of those conditions is true, then we return an error.
 func (p *BridgePolicy) inferContainerSpaces(host Machine, containerId, defaultSpaceName string) (set.Strings, error) {
 	if p.containerNetworkingMethod == "local" {
-		return set.NewStrings(""), nil
+		return set.NewStrings(corenetwork.DefaultSpaceName), nil
 	}
 	hostSpaces, err := host.AllSpaces()
 	if err != nil {
@@ -301,14 +300,14 @@ func (p *BridgePolicy) inferContainerSpaces(host Machine, containerId, defaultSp
 	if len(hostSpaces) == 1 {
 		return hostSpaces, nil
 	}
-	if defaultSpaceName != "" && hostSpaces.Contains(defaultSpaceName) {
+	if defaultSpaceName != corenetwork.DefaultSpaceName && hostSpaces.Contains(defaultSpaceName) {
 		return set.NewStrings(defaultSpaceName), nil
 	}
 	if len(hostSpaces) == 0 {
 		logger.Debugf("container has no desired spaces, " +
 			"and host has no known spaces, triggering fallback " +
 			"to bridge all devices")
-		return set.NewStrings(""), nil
+		return set.NewStrings(corenetwork.DefaultSpaceName), nil
 	}
 	return nil, errors.Errorf("no obvious space for container %q, host machine has spaces: %s",
 		containerId, network.QuoteSpaceSet(hostSpaces))
@@ -407,27 +406,29 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(host Machine, guest Con
 	}
 
 	guestSpaceSet := set.NewStrings(guestSpaces.Names()...)
-	missingSpace := guestSpaceSet.Difference(spacesFound)
+	missingSpaces := guestSpaceSet.Difference(spacesFound)
 
 	// Check if we are missing "" and can fill it in with a local bridge
-	if len(missingSpace) == 1 && missingSpace.Contains("") && p.containerNetworkingMethod == "local" {
+	if len(missingSpaces) == 1 &&
+		missingSpaces.Contains(corenetwork.DefaultSpaceName) &&
+		p.containerNetworkingMethod == "local" {
 		localBridgeName := localBridgeForType[guest.ContainerType()]
-		for _, hostDevice := range devicesPerSpace[""] {
+		for _, hostDevice := range devicesPerSpace[corenetwork.DefaultSpaceName] {
 			name := hostDevice.Name()
 			if hostDevice.Type() == corenetwork.BridgeDevice && name == localBridgeName {
-				missingSpace.Remove("")
+				missingSpaces.Remove(corenetwork.DefaultSpaceName)
 				devicesByName[name] = hostDevice
 				bridgeDeviceNames = append(bridgeDeviceNames, name)
-				spacesFound.Add("")
+				spacesFound.Add(corenetwork.DefaultSpaceName)
 			}
 		}
 	}
-	if len(missingSpace) > 0 {
+	if len(missingSpaces) > 0 {
 		logger.Warningf("container %q wants spaces %s could not find host %q bridges for %s, found bridges %s",
 			guest.Id(), network.QuoteSpaceSet(guestSpaceSet),
-			host.Id(), network.QuoteSpaceSet(missingSpace), bridgeDeviceNames)
+			host.Id(), network.QuoteSpaceSet(missingSpaces), bridgeDeviceNames)
 		return errors.Errorf("unable to find host bridge for space(s) %s for container %q",
-			network.QuoteSpaceSet(missingSpace), guest.Id())
+			network.QuoteSpaceSet(missingSpaces), guest.Id())
 	}
 
 	sortedBridgeDeviceNames := network.NaturallySortDeviceNames(bridgeDeviceNames...)
