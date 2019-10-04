@@ -990,12 +990,13 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces corenetwork.SpaceInfos) (map[
 	// First pass, iterate the addresses, lookup the associated spaces, and
 	// gather the devices.
 	for _, addr := range addresses {
+		spaceName := corenetwork.DefaultSpaceName
+
 		subnet, err := addr.Subnet()
-		spaceName := ""
 		if err != nil {
 			if errors.IsNotFound(err) {
 				// unknown subnets are considered part of the "unknown" space
-				spaceName = ""
+				spaceName = corenetwork.DefaultSpaceName
 			} else {
 				// We don't understand the error, so error out for now
 				return nil, errors.Trace(err)
@@ -1003,17 +1004,18 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces corenetwork.SpaceInfos) (map[
 		} else {
 			spaceName = subnet.SpaceName()
 		}
+
 		device, ok := deviceByName[addr.DeviceName()]
 		if !ok {
 			return nil, errors.Errorf("address %v for machine %q refers to a missing device %q",
 				addr, m.Id(), addr.DeviceName())
 		}
 		processedDeviceNames.Add(device.Name())
-		if device.Type() == corenetwork.LoopbackDevice {
-			// We skip loopback devices here
-			continue
+
+		// We do not core about loopback devices.
+		if device.Type() != corenetwork.LoopbackDevice {
+			includeDevice(spaceName, device)
 		}
-		includeDevice(spaceName, device)
 	}
 	// Now grab any devices we may have missed. For now, any device without an
 	// address must be in the "unknown" space.
@@ -1021,13 +1023,13 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces corenetwork.SpaceInfos) (map[
 		if processedDeviceNames.Contains(devName) {
 			continue
 		}
-		// Loopback devices aren't considered part of the empty space
+		// Loopback devices are not considered part of the empty space.
 		// Also, devices that are attached to another device also aren't
 		// considered to be in the unknown space.
 		if device.Type() == corenetwork.LoopbackDevice || device.ParentName() != "" {
 			continue
 		}
-		includeDevice("", device)
+		includeDevice(corenetwork.DefaultSpaceName, device)
 	}
 	result := make(map[string][]*LinkLayerDevice, len(spaceToDevices))
 	for spaceName, deviceMap := range spaceToDevices {
