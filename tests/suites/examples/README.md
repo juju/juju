@@ -2,6 +2,12 @@
 
 The following is a very quick overview of what each file does and why.
 
+```console
+ - task.sh           -> suite registration, bootstraps
+ - example.sh        -> test runner and tests
+ - other.sh          -> test runner and other tests
+```
+
 ## task.sh
 
 `task.sh` file is the entry point to the suite. You can bootstrap a juju
