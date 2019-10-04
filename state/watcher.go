@@ -3537,13 +3537,13 @@ var _ Watcher = (*relationNetworksWatcher)(nil)
 // WatchRelationIngressNetworks starts and returns a StringsWatcher notifying
 // of ingress changes to the relationNetworks collection for the relation.
 func (r *Relation) WatchRelationIngressNetworks() StringsWatcher {
-	return newrelationNetworksWatcher(r.st, r.Tag().Id(), ingress)
+	return newrelationNetworksWatcher(r.st, r.Tag().Id(), IngressDirection.String())
 }
 
 // WatchRelationEgressNetworks starts and returns a StringsWatcher notifying
 // of egress changes to the relationNetworks collection for the relation.
 func (r *Relation) WatchRelationEgressNetworks() StringsWatcher {
-	return newrelationNetworksWatcher(r.st, r.Tag().Id(), egress)
+	return newrelationNetworksWatcher(r.st, r.Tag().Id(), EgressDirection.String())
 }
 
 func newrelationNetworksWatcher(st modelBackend, relationKey, direction string) StringsWatcher {
