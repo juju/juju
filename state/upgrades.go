@@ -2594,5 +2594,110 @@ func EnsureRelationApplicationSettings(pool *StatePool) error {
 // Where such addresses include a space name or provider ID,
 // The space is retrieved and these fields are removed in favour of space's ID.
 func ConvertAddressSpaceIDs(pool *StatePool) error {
-	return nil
+	// oldAddress is the type used to represent addresses prior to version 2.7.
+	// Note that we can reuse this type for the new form because:
+	// - `omitempty` on SpaceName means we can set it as "" to remove.
+	// - The bson field `spaceid` is the same for the old SpaceProviderId
+	//   and the new SpaceID.
+	type oldAddress struct {
+		Value       string `bson:"value"`
+		AddressType string `bson:"addresstype"`
+		Scope       string `bson:"networkscope,omitempty"`
+		Origin      string `bson:"origin,omitempty"`
+		SpaceName   string `bson:"spacename,omitempty"`
+		SpaceID     string `bson:"spaceid,omitempty"`
+	}
+
+	// convert accepts an address and a name-to-ID space lookup and returns a
+	// new address representation based on whether space name/ID are populated.
+	// An error is returned if the address has a non-empty space name that we
+	// cannot map to an ID.
+	convert := func(old oldAddress, lookup map[string]string) (oldAddress, error) {
+		// Ignore zero-type addresses.
+		if old.Value == "" {
+			return old, nil
+		}
+
+		if old.SpaceName == "" {
+			// If both fields are empty, populate with the default space ID.
+			if old.SpaceID == "" {
+				old.SpaceID = network.DefaultSpaceId
+			} else {
+				// If we have a space (provider) ID and no name, which should
+				// not be possible in old addresses, then this address *looks*
+				// like one that has already been converted.
+				// Play it safe, leave it alone and log a warning.
+				logger.Warningf("not converting address %q with empty space name and ID %q", old.Value, old.SpaceID)
+			}
+		} else {
+			newID, ok := lookup[old.SpaceName]
+			if !ok {
+				return old, errors.NotFoundf("space with name: %q", old.SpaceName)
+			}
+			old.SpaceID = newID
+			old.SpaceName = ""
+		}
+		return old, nil
+	}
+
+	// machine is a subset of machine document fields that we care about
+	// for updating the address fields.
+	type machine struct {
+		DocID                   string `bson:"_id"`
+		Id                      string `bson:"machineid"`
+		Addresses               []oldAddress
+		MachineAddresses        []oldAddress
+		PreferredPublicAddress  oldAddress `bson:",omitempty"`
+		PreferredPrivateAddress oldAddress `bson:",omitempty"`
+	}
+
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		lookup, err := st.SpaceIDsByName()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		col, closer := st.db().GetCollection(machinesC)
+		defer closer()
+
+		var machines []machine
+		if err := col.Find(nil).All(&machines); err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, machine := range machines {
+			allAddrs := [][]oldAddress{machine.Addresses, machine.MachineAddresses}
+			for i, addrs := range allAddrs {
+				for j, addr := range addrs {
+					if allAddrs[i][j], err = convert(addr, lookup); err != nil {
+						return errors.Trace(err)
+					}
+				}
+			}
+
+			if machine.PreferredPublicAddress, err = convert(machine.PreferredPublicAddress, lookup); err != nil {
+				return errors.Trace(err)
+			}
+			if machine.PreferredPrivateAddress, err = convert(machine.PreferredPrivateAddress, lookup); err != nil {
+				return errors.Trace(err)
+			}
+
+			ops = append(ops, txn.Op{
+				C:  machinesC,
+				Id: machine.DocID,
+				Update: bson.D{
+					{"$set", bson.D{{"addresses", machine.Addresses}}},
+					{"$set", bson.D{{"machineaddresses", machine.MachineAddresses}}},
+					{"$set", bson.D{{"preferredpublicaddress", machine.PreferredPublicAddress}}},
+					{"$set", bson.D{{"preferredprivateaddress", machine.PreferredPrivateAddress}}},
+				},
+			})
+		}
+
+		if len(ops) == 0 {
+			return nil
+		}
+		return errors.Trace(st.db().RunTransaction(ops))
+	}))
 }
