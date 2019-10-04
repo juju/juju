@@ -157,6 +157,26 @@ Did you mean:
 	c.Assert(output, gc.Matches, expectedHelp)
 }
 
+func (suite *PluginSuite) TestHelpPluginNameAsPathIsNotAPlugin(c *gc.C) {
+	output := badrun(c, 0, "help", "/foo")
+	expectedHelp := `ERROR juju: "/foo" is not a juju command. See "juju --help".
+
+Did you mean:
+	exec
+`
+	c.Assert(output, gc.Matches, expectedHelp)
+}
+
+func (suite *PluginSuite) TestHelpPluginNameWithSpecialPrefixWhichIsNotAPathAndPlugin(c *gc.C) {
+	output := badrun(c, 0, "help", ".foo")
+	expectedHelp := `ERROR juju: ".foo" is not a juju command. See "juju --help".
+
+Did you mean:
+	exec
+`
+	c.Assert(output, gc.Matches, expectedHelp)
+}
+
 func (suite *PluginSuite) TestHelpAsArg(c *gc.C) {
 	suite.makeFullPlugin(PluginParams{Name: "foo"})
 	output := badrun(c, 0, "foo", "--help")
