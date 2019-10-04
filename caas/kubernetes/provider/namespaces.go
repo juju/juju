@@ -4,6 +4,8 @@
 package provider
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -76,7 +78,7 @@ func (k *kubernetesClient) getNamespaceByName(name string) (*core.Namespace, err
 // SetNamespace sets current namespace to the specified name.
 // Note: this does not ensure related namespace resources.
 func (k *kubernetesClient) SetNamespace(name string) {
-	k.namespace = name
+	k.namespace = strings.ToLower(name)
 }
 
 // listNamespacesByAnnotations filters namespaces by annotations.
