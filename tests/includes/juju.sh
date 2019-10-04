@@ -1,3 +1,11 @@
+# juju_version will return only the version and not the architecture/substrait
+# of the juju version.
+# This will use any juju on $PATH
+juju_version() {
+    version=$(juju version | cut -f1 -d '-')
+    echo "${version}"
+}
+
 # ensure will check if there is a bootstrapped controller that it can take
 # advantage of, failing that it will bootstrap a new controller for you.
 #
@@ -17,17 +25,16 @@ ensure() {
     bootstrap "${model}" "${output}"
 }
 
-# juju_version will return only the version and not the architecture/substrait
-# of the juju version.
-# This will use any juju on $PATH
-juju_version() {
-    version=$(juju version | cut -f1 -d '-')
-    echo "${version}"
-}
-
 # bootstrap will attempt to bootstrap a controller on the correct provider.
 # It will check if there is an existing controller with the same name and bail,
 # if there is.
+#
+# The name of the controller is randomised, but the model name is used to
+# override the default model name for that controller. That way we have a
+# unqiue namespaced models instead of the "default" model name.
+# This helps with providing encapsulated tests without having to bootstrap a
+# controller for every test in a suite.
+#
 # The stdout of the file can be piped to an optional output file.
 #
 # ```
