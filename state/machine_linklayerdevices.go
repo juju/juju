@@ -958,6 +958,10 @@ func deviceMapToSortedList(deviceMap map[string]*LinkLayerDevice) []*LinkLayerDe
 // Note that devices like 'lxdbr0' that are bridges that might might not be
 // externally accessible may be returned if "" is listed as one of the desired
 // spaces.
+//
+// TODO (manadart 2019-10-04): This method is only used in BridgePolicy logic
+// and has nothing that requires it to be in the state package.
+// It should be relocated to network/containerizer.
 func (m *Machine) LinkLayerDevicesForSpaces(spaces corenetwork.SpaceInfos) (map[string][]*LinkLayerDevice, error) {
 	addresses, err := m.AllAddresses()
 	if err != nil {
@@ -990,7 +994,7 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces corenetwork.SpaceInfos) (map[
 	// First pass, iterate the addresses, lookup the associated spaces, and
 	// gather the devices.
 	for _, addr := range addresses {
-		spaceName := corenetwork.DefaultSpaceName
+		var spaceName string
 
 		subnet, err := addr.Subnet()
 		if err != nil {
