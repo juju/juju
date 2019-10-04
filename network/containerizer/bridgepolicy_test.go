@@ -5,6 +5,7 @@ package containerizer
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -18,10 +19,11 @@ type bridgePolicySuite struct {
 	netBondReconfigureDelay   int
 	containerNetworkingMethod string
 
-	host  *MockContainer
-	guest *MockContainer
-	unit  *MockUnit
-	app   *MockApplication
+	spaces *MockSpaces
+	host   *MockContainer
+	guest  *MockContainer
+	unit   *MockUnit
+	app    *MockApplication
 }
 
 var _ = gc.Suite(&bridgePolicySuite{})
@@ -42,7 +44,7 @@ func (s *bridgePolicySuite) TestDetermineContainerSpacesConstraints(c *gc.C) {
 
 	spaces, err := s.policy().determineContainerSpaces(s.host, s.guest, "")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{"bar", "foo"})
+	c.Check(spaces.Names(), jc.SameContents, []string{"bar", "foo"})
 }
 
 func (s *bridgePolicySuite) TestDetermineContainerSpacesEndpoints(c *gc.C) {
@@ -57,7 +59,7 @@ func (s *bridgePolicySuite) TestDetermineContainerSpacesEndpoints(c *gc.C) {
 
 	spaces, err := s.policy().determineContainerSpaces(s.host, s.guest, "")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{"fizz"})
+	c.Check(spaces.Names(), jc.SameContents, []string{"fizz"})
 }
 
 func (s *bridgePolicySuite) TestDetermineContainerSpacesConstraintsAndEndpoints(c *gc.C) {
@@ -72,25 +74,32 @@ func (s *bridgePolicySuite) TestDetermineContainerSpacesConstraintsAndEndpoints(
 
 	spaces, err := s.policy().determineContainerSpaces(s.host, s.guest, "")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{"bar", "fizz", "foo"})
+	c.Check(spaces.Names(), jc.SameContents, []string{"bar", "fizz", "foo"})
 }
 
 func (s *bridgePolicySuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.spaces = NewMockSpaces(ctrl)
 	s.host = NewMockContainer(ctrl)
-
 	s.guest = NewMockContainer(ctrl)
-	s.guest.EXPECT().Id().Return("guest-id").AnyTimes()
-
 	s.unit = NewMockUnit(ctrl)
 	s.app = NewMockApplication(ctrl)
+
+	s.guest.EXPECT().Id().Return("guest-id").AnyTimes()
+
+	// TODO (manadart 2019-09-27): When everything is space IDs,
+	// do this in a less lazy fashion.
+	for _, space := range []string{"foo", "bar", "fizz"} {
+		s.spaces.EXPECT().GetByName(space).Return(network.SpaceInfo{Name: network.SpaceName(space)}, nil).AnyTimes()
+	}
 
 	return ctrl
 }
 
 func (s *bridgePolicySuite) policy() *BridgePolicy {
 	return &BridgePolicy{
+		spaces:                    s.spaces,
 		netBondReconfigureDelay:   s.netBondReconfigureDelay,
 		containerNetworkingMethod: s.containerNetworkingMethod,
 	}

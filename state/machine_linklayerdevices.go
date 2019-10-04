@@ -958,7 +958,11 @@ func deviceMapToSortedList(deviceMap map[string]*LinkLayerDevice) []*LinkLayerDe
 // Note that devices like 'lxdbr0' that are bridges that might might not be
 // externally accessible may be returned if "" is listed as one of the desired
 // spaces.
-func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*LinkLayerDevice, error) {
+//
+// TODO (manadart 2019-10-04): This method is only used in BridgePolicy logic
+// and has nothing that requires it to be in the state package.
+// It should be relocated to network/containerizer.
+func (m *Machine) LinkLayerDevicesForSpaces(spaces corenetwork.SpaceInfos) (map[string][]*LinkLayerDevice, error) {
 	addresses, err := m.AllAddresses()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -971,7 +975,12 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*Link
 	for _, dev := range devices {
 		deviceByName[dev.Name()] = dev
 	}
-	requestedSpaces := set.NewStrings(spaces...)
+
+	// TODO (manadart 2019-09-27): Once subnet space designation is by ID,
+	// subnet space determination here will need to change.
+	// The return should also index by space ID instead of name.
+	// It is worth breaking this method into smaller pieces at that time.
+	requestedSpaces := set.NewStrings(spaces.Names()...)
 	spaceToDevices := make(map[string]map[string]*LinkLayerDevice, 0)
 	processedDeviceNames := set.NewStrings()
 	includeDevice := func(spaceName string, device *LinkLayerDevice) {
@@ -985,12 +994,13 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*Link
 	// First pass, iterate the addresses, lookup the associated spaces, and
 	// gather the devices.
 	for _, addr := range addresses {
+		var spaceName string
+
 		subnet, err := addr.Subnet()
-		spaceName := ""
 		if err != nil {
 			if errors.IsNotFound(err) {
 				// unknown subnets are considered part of the "unknown" space
-				spaceName = ""
+				spaceName = corenetwork.DefaultSpaceName
 			} else {
 				// We don't understand the error, so error out for now
 				return nil, errors.Trace(err)
@@ -998,17 +1008,18 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*Link
 		} else {
 			spaceName = subnet.SpaceName()
 		}
+
 		device, ok := deviceByName[addr.DeviceName()]
 		if !ok {
 			return nil, errors.Errorf("address %v for machine %q refers to a missing device %q",
 				addr, m.Id(), addr.DeviceName())
 		}
 		processedDeviceNames.Add(device.Name())
-		if device.Type() == corenetwork.LoopbackDevice {
-			// We skip loopback devices here
-			continue
+
+		// We do not core about loopback devices.
+		if device.Type() != corenetwork.LoopbackDevice {
+			includeDevice(spaceName, device)
 		}
-		includeDevice(spaceName, device)
 	}
 	// Now grab any devices we may have missed. For now, any device without an
 	// address must be in the "unknown" space.
@@ -1016,13 +1027,13 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*Link
 		if processedDeviceNames.Contains(devName) {
 			continue
 		}
-		// Loopback devices aren't considered part of the empty space
+		// Loopback devices are not considered part of the empty space.
 		// Also, devices that are attached to another device also aren't
 		// considered to be in the unknown space.
 		if device.Type() == corenetwork.LoopbackDevice || device.ParentName() != "" {
 			continue
 		}
-		includeDevice("", device)
+		includeDevice(corenetwork.DefaultSpaceName, device)
 	}
 	result := make(map[string][]*LinkLayerDevice, len(spaceToDevices))
 	for spaceName, deviceMap := range spaceToDevices {

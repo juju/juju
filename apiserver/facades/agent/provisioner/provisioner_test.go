@@ -1192,7 +1192,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineIdMachineAgentAut
 	})
 }
 
-func (s *provisionerSuite) TestConstraints(c *gc.C) {
+func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 	// Add a machine with some constraints.
 	cons := constraints.MustParse("cores=123", "mem=8G")
 	template := state.MachineTemplate{
@@ -1421,28 +1421,90 @@ func (s *withoutControllerSuite) TestContainerManagerConfigDefaults(c *gc.C) {
 	})
 }
 
-type withImageMetadataSuite struct {
-	provisionerSuite
+func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+	s.PatchValue(&provisioner.ErrorRetryWaitDelay, 2*coretesting.ShortWait)
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	_, err := s.provisioner.WatchMachineErrorRetry()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Verify the resources were registered and stop them when done.
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned"
+	// in the Watch call)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc.AssertNoChange()
+
+	// We should now get a time triggered change.
+	wc.AssertOneChange()
+
+	// Make sure WatchMachineErrorRetry fails with a machine agent login.
+	anAuthorizer := s.authorizer
+	anAuthorizer.Tag = names.NewMachineTag("1")
+	anAuthorizer.Controller = false
+	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := aProvisioner.WatchMachineErrorRetry()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{})
 }
 
-var _ = gc.Suite(&withImageMetadataSuite{})
-
-func (s *withImageMetadataSuite) SetUpTest(c *gc.C) {
-	s.ConfigAttrs = map[string]interface{}{
-		config.ContainerImageStreamKey:      "daily",
-		config.ContainerImageMetadataURLKey: "https://images.linuxcontainers.org/",
+func (s *withoutControllerSuite) TestFindTools(c *gc.C) {
+	args := params.FindToolsParams{
+		MajorVersion: -1,
+		MinorVersion: -1,
 	}
-	s.setUpTest(c, false)
+	result, err := s.provisioner.FindTools(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.List, gc.Not(gc.HasLen), 0)
+	for _, tools := range result.List {
+		url := fmt.Sprintf("https://%s/model/%s/tools/%s",
+			s.APIState.Addr(), coretesting.ModelTag.Id(), tools.Version)
+		c.Assert(tools.URL, gc.Equals, url)
+	}
 }
 
-func (s *withImageMetadataSuite) TestContainerManagerConfigImageMetadata(c *gc.C) {
-	cfg := s.getManagerConfig(c, instance.LXD)
-	c.Assert(cfg, jc.DeepEquals, map[string]string{
-		container.ConfigModelUUID:           coretesting.ModelTag.Id(),
-		config.ContainerImageStreamKey:      "daily",
-		config.ContainerImageMetadataURLKey: "https://images.linuxcontainers.org/",
+func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
+	err := s.machines[0].EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machines[2].EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	res, err := s.provisioner.MarkMachinesForRemoval(params.Entities{
+		Entities: []params.Entity{
+			{Tag: "machine-2"},         // ok
+			{Tag: "machine-100"},       // not found
+			{Tag: "machine-0"},         // ok
+			{Tag: "machine-1"},         // not dead
+			{Tag: "machine-0-lxd-5"},   // unauthorised
+			{Tag: "application-thing"}, // only machines allowed
+		},
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	results := res.Results
+	c.Assert(results, gc.HasLen, 6)
+	c.Check(results[0].Error, gc.IsNil)
+	c.Check(*results[1].Error, jc.DeepEquals,
+		*common.ServerError(errors.NotFoundf("machine 100")))
+	c.Check(*results[1].Error, jc.Satisfies, params.IsCodeNotFound)
+	c.Check(results[2].Error, gc.IsNil)
+	c.Check(*results[3].Error, jc.DeepEquals,
+		*common.ServerError(errors.New("cannot remove machine 1: machine is not dead")))
+	c.Check(*results[4].Error, jc.DeepEquals, *apiservertesting.ErrUnauthorized)
+	c.Check(*results[5].Error, jc.DeepEquals,
+		*common.ServerError(errors.New(`"application-thing" is not a valid machine tag`)))
+
+	removals, err := s.State.AllMachineRemovals()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(removals, jc.SameContents, []string{"0", "2"})
 }
+
 func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	attrs := map[string]interface{}{
 		"juju-http-proxy":              "http://proxy.example.com:9000",
@@ -1760,88 +1822,27 @@ func (s *withControllerSuite) TestCACert(c *gc.C) {
 	})
 }
 
-func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
-	s.PatchValue(&provisioner.ErrorRetryWaitDelay, 2*coretesting.ShortWait)
-	c.Assert(s.resources.Count(), gc.Equals, 0)
-
-	_, err := s.provisioner.WatchMachineErrorRetry()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
-
-	// Check that the Watch has consumed the initial event ("returned"
-	// in the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
-	wc.AssertNoChange()
-
-	// We should now get a time triggered change.
-	wc.AssertOneChange()
-
-	// Make sure WatchMachineErrorRetry fails with a machine agent login.
-	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = names.NewMachineTag("1")
-	anAuthorizer.Controller = false
-	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := aProvisioner.WatchMachineErrorRetry()
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{})
+type withImageMetadataSuite struct {
+	provisionerSuite
 }
 
-func (s *withoutControllerSuite) TestFindTools(c *gc.C) {
-	args := params.FindToolsParams{
-		MajorVersion: -1,
-		MinorVersion: -1,
+var _ = gc.Suite(&withImageMetadataSuite{})
+
+func (s *withImageMetadataSuite) SetUpTest(c *gc.C) {
+	s.ConfigAttrs = map[string]interface{}{
+		config.ContainerImageStreamKey:      "daily",
+		config.ContainerImageMetadataURLKey: "https://images.linuxcontainers.org/",
 	}
-	result, err := s.provisioner.FindTools(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.List, gc.Not(gc.HasLen), 0)
-	for _, tools := range result.List {
-		url := fmt.Sprintf("https://%s/model/%s/tools/%s",
-			s.APIState.Addr(), coretesting.ModelTag.Id(), tools.Version)
-		c.Assert(tools.URL, gc.Equals, url)
-	}
+	s.setUpTest(c, false)
 }
 
-func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
-	err := s.machines[0].EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machines[2].EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-
-	res, err := s.provisioner.MarkMachinesForRemoval(params.Entities{
-		Entities: []params.Entity{
-			{Tag: "machine-2"},         // ok
-			{Tag: "machine-100"},       // not found
-			{Tag: "machine-0"},         // ok
-			{Tag: "machine-1"},         // not dead
-			{Tag: "machine-0-lxd-5"},   // unauthorised
-			{Tag: "application-thing"}, // only machines allowed
-		},
+func (s *withImageMetadataSuite) TestContainerManagerConfigImageMetadata(c *gc.C) {
+	cfg := s.getManagerConfig(c, instance.LXD)
+	c.Assert(cfg, jc.DeepEquals, map[string]string{
+		container.ConfigModelUUID:           coretesting.ModelTag.Id(),
+		config.ContainerImageStreamKey:      "daily",
+		config.ContainerImageMetadataURLKey: "https://images.linuxcontainers.org/",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	results := res.Results
-	c.Assert(results, gc.HasLen, 6)
-	c.Check(results[0].Error, gc.IsNil)
-	c.Check(*results[1].Error, jc.DeepEquals,
-		*common.ServerError(errors.NotFoundf("machine 100")))
-	c.Check(*results[1].Error, jc.Satisfies, params.IsCodeNotFound)
-	c.Check(results[2].Error, gc.IsNil)
-	c.Check(*results[3].Error, jc.DeepEquals,
-		*common.ServerError(errors.New("cannot remove machine 1: machine is not dead")))
-	c.Check(*results[4].Error, jc.DeepEquals, *apiservertesting.ErrUnauthorized)
-	c.Check(*results[5].Error, jc.DeepEquals,
-		*common.ServerError(errors.New(`"application-thing" is not a valid machine tag`)))
-
-	removals, err := s.State.AllMachineRemovals()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(removals, jc.SameContents, []string{"0", "2"})
 }
 
 // TODO(jam): 2017-02-15 We seem to be lacking most of direct unit tests around ProcessOneContainer
@@ -1863,6 +1864,7 @@ type provisionerMockSuite struct {
 	coretesting.BaseSuite
 
 	environ      *environtesting.MockNetworkingEnviron
+	policy       *mocks.MockBridgePolicy
 	host         *mocks.MockMachine
 	container    *mocks.MockMachine
 	device       *mocks.MockLinkLayerDevice
@@ -1887,8 +1889,8 @@ func (s *provisionerMockSuite) TestManuallyProvisionedHostsUseDHCPForContainers(
 	}
 	ctx := provisioner.NewPrepareOrGetContext(res, false)
 
-	// ProviderCallContext is not required by this logical path; we pass nil.
-	err := ctx.ProcessOneContainer(s.environ, nil, 0, s.host, s.container)
+	// ProviderCallContext is not required by this logical path and can be nil
+	err := ctx.ProcessOneContainer(s.environ, nil, s.policy, 0, s.host, s.container)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results[0].Config, gc.HasLen, 1)
 
@@ -1905,18 +1907,12 @@ func (s *provisionerMockSuite) expectManuallyProvisionedHostsUseDHCPForContainer
 	cExp := s.container.EXPECT()
 	cExp.InstanceId().Return(instance.UnknownId, errors.NotProvisionedf("idk-lol"))
 
-	cExp.Constraints().Return(constraints.MustParse("spaces=test-space"), nil)
-	cExp.Units().Return(nil, nil)
+	s.policy.EXPECT().PopulateContainerLinkLayerDevices(s.host, s.container).Return(nil)
 
 	cExp.Id().Return("lxd/0").AnyTimes()
-	cExp.SetLinkLayerDevices(gomock.Any()).Return(nil)
 	cExp.AllLinkLayerDevices().Return([]containerizer.LinkLayerDevice{s.device}, nil)
 
 	hExp := s.host.EXPECT()
-	hExp.Id().Return("0").AnyTimes()
-	hExp.LinkLayerDevicesForSpaces(gomock.Any()).Return(
-		map[string][]containerizer.LinkLayerDevice{"test-space": {s.device}}, nil)
-
 	// Crucial behavioural trait. Set false to test failure.
 	hExp.IsManual().Return(true, nil)
 	hExp.InstanceId().Return(instance.Id("manual:10.0.0.66"), nil)
@@ -1935,18 +1931,11 @@ func (s *provisionerMockSuite) expectLinkLayerDevices() {
 	devName := "eth0"
 	mtu := uint(1500)
 	mac := network.GenerateVirtualMACAddress()
-	deviceArgs := state.LinkLayerDeviceArgs{
-		Name:       devName,
-		Type:       network.EthernetDevice,
-		MACAddress: mac,
-		MTU:        mtu,
-	}
 
 	dExp := s.device.EXPECT()
 	dExp.Name().Return(devName).AnyTimes()
 	dExp.Type().Return(network.BridgeDevice).AnyTimes()
 	dExp.MTU().Return(mtu).AnyTimes()
-	dExp.EthernetDeviceForBridge(devName).Return(deviceArgs, nil).MinTimes(1)
 	dExp.ParentDevice().Return(s.parentDevice, nil)
 	dExp.MACAddress().Return(mac)
 	dExp.IsAutoStart().Return(true)
@@ -1972,8 +1961,9 @@ func (s *provisionerMockSuite) TestContainerAlreadyProvisionedError(c *gc.C) {
 	}
 	ctx := provisioner.NewPrepareOrGetContext(res, true)
 
-	// ProviderCallContext is not required by this logical path; we pass nil.
-	err := ctx.ProcessOneContainer(s.environ, nil, 0, s.host, s.container)
+	// ProviderCallContext and BridgePolicy are not
+	// required by this logical path and can be nil.
+	err := ctx.ProcessOneContainer(s.environ, nil, nil, 0, s.host, s.container)
 	c.Assert(err, gc.ErrorMatches, `container "0/lxd/0" already provisioned as "juju-8ebd6c-0"`)
 }
 
@@ -1997,8 +1987,9 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfo(c *gc.C) {
 	}
 	ctx := provisioner.NewContainerProfileContext(res, "testme")
 
-	// ProviderCallContext is not required by this logical path; we pass nil.
-	err := ctx.ProcessOneContainer(s.environ, nil, 0, s.host, s.container)
+	// ProviderCallContext and BridgePolicy are not
+	// required by this logical path and can be nil.
+	err := ctx.ProcessOneContainer(s.environ, nil, nil, 0, s.host, s.container)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 1)
 	c.Assert(res.Results[0].Error, gc.IsNil)
@@ -2026,8 +2017,9 @@ func (s *provisionerMockSuite) TestGetContainerProfileInfoNoProfile(c *gc.C) {
 	}
 	ctx := provisioner.NewContainerProfileContext(res, "testme")
 
-	// ProviderCallContext is not required by this logical path; we pass nil.
-	err := ctx.ProcessOneContainer(s.environ, nil, 0, s.host, s.container)
+	// ProviderCallContext and BridgePolicy are not
+	// required by this logical path and can be nil.
+	err := ctx.ProcessOneContainer(s.environ, nil, nil, 0, s.host, s.container)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 1)
 	c.Assert(res.Results[0].Error, gc.IsNil)
@@ -2048,6 +2040,7 @@ func (s *provisionerMockSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.environ = environtesting.NewMockNetworkingEnviron(ctrl)
+	s.policy = mocks.NewMockBridgePolicy(ctrl)
 	s.host = mocks.NewMockMachine(ctrl)
 	s.container = mocks.NewMockMachine(ctrl)
 	s.device = mocks.NewMockLinkLayerDevice(ctrl)
