@@ -254,6 +254,11 @@ introspect_controller() {
 
     name=${1}
 
-    juju ssh -m controller 0 bash -lic "juju_engine_report" > "${TEST_DIR}/${name}-juju_engine_report.txt"
-    juju ssh -m controller 0 bash -lic "juju_goroutines" > "${TEST_DIR}/${name}-juju_goroutines.txt"
+    idents=$(juju machines -m "${name}:controller" --format=json | jq ".machines | keys | .[]")
+    if [ -z "${idents}" ]; then
+        return
+    fi
+
+    echo "${idents}" | xargs -I % juju ssh -m "${name}:controller" % bash -lc "juju_engine_report" > "${TEST_DIR}/${name}-juju_engine_reports.txt"
+    echo "${idents}" | xargs -I % juju ssh -m "${name}:controller" % bash -lc "juju_goroutines" > "${TEST_DIR}/${name}-juju_goroutines.txt"
 }
