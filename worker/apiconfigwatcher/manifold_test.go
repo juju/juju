@@ -6,6 +6,7 @@ package apiconfigwatcher_test
 import (
 	"sync"
 
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/voyeur"
@@ -41,6 +42,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.manifold = apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
 		AgentName:          "agent",
 		AgentConfigChanged: s.agentConfigChanged,
+		Logger:             loggo.GetLogger("test"),
 	})
 }
 

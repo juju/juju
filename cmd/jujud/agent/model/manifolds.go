@@ -138,6 +138,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		apiConfigWatcherName: apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
 			AgentName:          agentName,
 			AgentConfigChanged: config.AgentConfigChanged,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.apiconfigwatcher"),
 		}),
 		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
 			AgentName:     agentName,
@@ -263,21 +264,24 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 		stateCleanerName: ifNotMigrating(cleaner.Manifold(cleaner.ManifoldConfig{
 			APICallerName: apiCallerName,
-			ClockName:     clockName,
+			Clock:         config.Clock,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.cleaner"),
 		})),
 		statusHistoryPrunerName: ifNotMigrating(pruner.Manifold(pruner.ManifoldConfig{
 			APICallerName: apiCallerName,
-			ClockName:     clockName,
+			Clock:         config.Clock,
 			NewWorker:     statushistorypruner.New,
 			NewFacade:     statushistorypruner.NewFacade,
 			PruneInterval: config.StatusHistoryPrunerInterval,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.pruner.statushistory"),
 		})),
 		actionPrunerName: ifNotMigrating(pruner.Manifold(pruner.ManifoldConfig{
 			APICallerName: apiCallerName,
-			ClockName:     clockName,
+			Clock:         config.Clock,
 			NewWorker:     actionpruner.New,
 			NewFacade:     actionpruner.NewFacade,
 			PruneInterval: config.ActionPrunerInterval,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.pruner.action"),
 		})),
 		logForwarderName: ifNotDead(logforwarder.Manifold(logforwarder.ManifoldConfig{
 			APICallerName: apiCallerName,

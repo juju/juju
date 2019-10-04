@@ -202,7 +202,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"action-pruner": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -344,7 +343,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"state-cleaner": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -355,7 +353,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"status-history-pruner": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -381,7 +378,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"action-pruner": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -577,7 +573,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"state-cleaner": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -588,7 +583,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"status-history-pruner": {
 		"agent",
 		"api-caller",
-		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",

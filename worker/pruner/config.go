@@ -10,11 +10,17 @@ import (
 	"github.com/juju/errors"
 )
 
+// Logger defines the methods used by the pruner worker for logging.
+type Logger interface {
+	Infof(string, ...interface{})
+}
+
 // Config holds all necessary attributes to start a pruner worker.
 type Config struct {
 	Facade        Facade
 	PruneInterval time.Duration
 	Clock         clock.Clock
+	Logger        Logger
 }
 
 // Validate will err unless basic requirements for a valid
@@ -25,6 +31,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Clock == nil {
 		return errors.New("missing Clock")
+	}
+	if c.Logger == nil {
+		return errors.New("missing Logger")
 	}
 	return nil
 }

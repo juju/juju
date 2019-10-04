@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
@@ -22,6 +23,7 @@ type CleanerSuite struct {
 	coretesting.BaseSuite
 	mockState *cleanerMock
 	mockClock *testclock.Clock
+	logger    loggo.Logger
 }
 
 var _ = gc.Suite(&CleanerSuite{})
@@ -33,6 +35,7 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	}
 	s.mockState.watcher = s.newMockNotifyWatcher(nil)
 	s.mockClock = testclock.NewClock(time.Time{})
+	s.logger = loggo.GetLogger("test")
 }
 
 func (s *CleanerSuite) AssertReceived(c *gc.C, expect string) {
@@ -53,7 +56,7 @@ func (s *CleanerSuite) AssertEmpty(c *gc.C) {
 }
 
 func (s *CleanerSuite) TestCleaner(c *gc.C) {
-	cln, err := cleaner.NewCleaner(s.mockState, s.mockClock)
+	cln, err := cleaner.NewCleaner(s.mockState, s.mockClock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Stop(cln), jc.ErrorIsNil) }()
 
@@ -67,7 +70,7 @@ func (s *CleanerSuite) TestCleaner(c *gc.C) {
 }
 
 func (s *CleanerSuite) TestCleanerPeriodic(c *gc.C) {
-	cln, err := cleaner.NewCleaner(s.mockState, s.mockClock)
+	cln, err := cleaner.NewCleaner(s.mockState, s.mockClock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Stop(cln), jc.ErrorIsNil) }()
 
@@ -89,7 +92,7 @@ func (s *CleanerSuite) TestCleanerPeriodic(c *gc.C) {
 
 func (s *CleanerSuite) TestWatchCleanupsError(c *gc.C) {
 	s.mockState.err = []error{errors.New("hello")}
-	_, err := cleaner.NewCleaner(s.mockState, s.mockClock)
+	_, err := cleaner.NewCleaner(s.mockState, s.mockClock, s.logger)
 	c.Assert(err, gc.ErrorMatches, "hello")
 
 	s.AssertReceived(c, "WatchCleanups")
@@ -98,7 +101,7 @@ func (s *CleanerSuite) TestWatchCleanupsError(c *gc.C) {
 
 func (s *CleanerSuite) TestCleanupError(c *gc.C) {
 	s.mockState.err = []error{nil, errors.New("hello")}
-	cln, err := cleaner.NewCleaner(s.mockState, s.mockClock)
+	cln, err := cleaner.NewCleaner(s.mockState, s.mockClock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.AssertReceived(c, "WatchCleanups")
@@ -106,7 +109,7 @@ func (s *CleanerSuite) TestCleanupError(c *gc.C) {
 	err = worker.Stop(cln)
 	c.Assert(err, jc.ErrorIsNil)
 	log := c.GetTestLog()
-	c.Assert(log, jc.Contains, "ERROR juju.worker.cleaner cannot cleanup state: hello")
+	c.Assert(log, jc.Contains, "ERROR test cannot cleanup state: hello")
 }
 
 func (s *CleanerSuite) newMockNotifyWatcher(err error) *mockNotifyWatcher {

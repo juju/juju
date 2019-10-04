@@ -4,7 +4,9 @@
 package pruner_test
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -35,9 +37,10 @@ func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
 func (s *ManifoldConfigSuite) validConfig() pruner.ManifoldConfig {
 	return pruner.ManifoldConfig{
 		APICallerName: "api-caller",
-		ClockName:     "clock",
+		Clock:         clock.WallClock,
 		NewWorker:     func(pruner.Config) (worker.Worker, error) { return nil, nil },
 		NewFacade:     func(caller base.APICaller) pruner.Facade { return nil },
+		Logger:        loggo.GetLogger("test"),
 	}
 }
 
@@ -50,9 +53,9 @@ func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *gc.C) {
 	s.checkNotValid(c, "empty APICallerName not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingClockName(c *gc.C) {
-	s.config.ClockName = ""
-	s.checkNotValid(c, "empty ClockName not valid")
+func (s *ManifoldConfigSuite) TestMissingClock(c *gc.C) {
+	s.config.Clock = nil
+	s.checkNotValid(c, "nil Clock not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingNewWorker(c *gc.C) {
@@ -63,6 +66,11 @@ func (s *ManifoldConfigSuite) TestMissingNewWorker(c *gc.C) {
 func (s *ManifoldConfigSuite) TestMissingNewFacade(c *gc.C) {
 	s.config.NewFacade = nil
 	s.checkNotValid(c, "nil NewFacade not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingLogger(c *gc.C) {
+	s.config.Logger = nil
+	s.checkNotValid(c, "nil Logger not valid")
 }
 
 func (s *ManifoldConfigSuite) checkNotValid(c *gc.C, expect string) {

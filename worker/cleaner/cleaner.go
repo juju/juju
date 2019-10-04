@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
@@ -22,7 +21,9 @@ import (
 // be triggered unless a new cleanup is added.
 const period = 30 * time.Second
 
-var logger = loggo.GetLogger("juju.worker.cleaner")
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead pass one through as config to the worker.
+var logger interface{}
 
 type StateCleaner interface {
 	Cleanup() error
@@ -35,12 +36,13 @@ type Cleaner struct {
 	st       StateCleaner
 	watcher  watcher.NotifyWatcher
 	clock    clock.Clock
+	logger   Logger
 }
 
 // NewCleaner returns a worker.Worker that runs state.Cleanup()
 // periodically, and whenever the CleanupWatcher signals documents
 // marked for deletion.
-func NewCleaner(st StateCleaner, clock clock.Clock) (worker.Worker, error) {
+func NewCleaner(st StateCleaner, clock clock.Clock, logger Logger) (worker.Worker, error) {
 	watcher, err := st.WatchCleanups()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -49,6 +51,7 @@ func NewCleaner(st StateCleaner, clock clock.Clock) (worker.Worker, error) {
 		st:      st,
 		watcher: watcher,
 		clock:   clock,
+		logger:  logger,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &c.catacomb,
@@ -80,7 +83,7 @@ func (c *Cleaner) loop() error {
 			// enables us to retry cleanups that fail due
 			// to a transient failure, even when there
 			// are no new cleanups added.
-			logger.Errorf("cannot cleanup state: %v", err)
+			c.logger.Errorf("cannot cleanup state: %v", err)
 		}
 		timer.Reset(period)
 	}
