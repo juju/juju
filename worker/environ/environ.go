@@ -7,14 +7,15 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 )
 
-var logger = loggo.GetLogger("juju.worker.environ")
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead use the one passed as manifold config.
+var logger interface{}
 
 // ConfigObserver exposes a model configuration and a watch constructor
 // that allows clients to be informed of changes to the configuration.
@@ -31,6 +32,7 @@ type ConfigObserver interface {
 type Config struct {
 	Observer       ConfigObserver
 	NewEnvironFunc environs.NewEnvironFunc
+	Logger         Logger
 }
 
 // Validate returns an error if the config cannot be used to start a Tracker.
@@ -40,6 +42,9 @@ func (config Config) Validate() error {
 	}
 	if config.NewEnvironFunc == nil {
 		return errors.NotValidf("nil NewEnvironFunc")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	return nil
 }
@@ -90,6 +95,7 @@ func (t *Tracker) Environ() environs.Environ {
 }
 
 func (t *Tracker) loop() error {
+	logger := t.config.Logger
 	environWatcher, err := t.config.Observer.WatchForModelConfigChanges()
 	if err != nil {
 		return errors.Annotate(err, "cannot watch environ config")

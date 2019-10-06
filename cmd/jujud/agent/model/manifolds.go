@@ -315,6 +315,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		environTrackerName: ifCredentialValid(ifResponsible(environ.Manifold(environ.ManifoldConfig{
 			APICallerName:  apiCallerName,
 			NewEnvironFunc: config.NewEnvironFunc,
+			Logger:         config.LoggingContext.GetLogger("juju.worker.environ"),
 		}))),
 
 		// Everything else should be wrapped in ifResponsible,

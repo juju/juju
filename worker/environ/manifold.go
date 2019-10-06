@@ -14,10 +14,17 @@ import (
 	"github.com/juju/juju/storage"
 )
 
+// Logger defines the methods used by the pruner worker for logging.
+type Logger interface {
+	Debugf(string, ...interface{})
+	Warningf(string, ...interface{})
+}
+
 // ManifoldConfig describes the resources used by a Tracker.
 type ManifoldConfig struct {
 	APICallerName  string
 	NewEnvironFunc environs.NewEnvironFunc
+	Logger         Logger
 }
 
 // Manifold returns a Manifold that encapsulates a *Tracker and exposes it as
@@ -40,6 +47,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			w, err := NewTracker(Config{
 				Observer:       apiSt,
 				NewEnvironFunc: config.NewEnvironFunc,
+				Logger:         config.Logger,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
