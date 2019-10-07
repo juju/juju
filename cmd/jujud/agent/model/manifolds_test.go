@@ -244,7 +244,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"caas-broker-tracker",
-		"clock",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -594,7 +593,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"storage-provisioner": {
 		"agent",
 		"api-caller",
-		"clock",
 		"environ-tracker",
 		"is-responsible-flag",
 		"migration-fortress",
