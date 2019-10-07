@@ -62,5 +62,12 @@ func stateStepsFor27() []Step {
 				return context.State().ConvertAddressSpaceIDs()
 			},
 		},
+		&upgradeStep{
+			description: "adds default value for default_space",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().AddDefaultSpaceSetting()
+			},
+		},
 	}
 }

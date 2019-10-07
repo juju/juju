@@ -73,6 +73,7 @@ type StateBackend interface {
 	ReplacePortsDocSubnetIDCIDR() error
 	EnsureRelationApplicationSettings() error
 	ConvertAddressSpaceIDs() error
+	AddDefaultSpaceSetting() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -137,6 +138,10 @@ func (s stateBackend) AddControllerLogCollectionsSizeSettings() error {
 
 func (s stateBackend) AddStatusHistoryPruneSettings() error {
 	return state.AddStatusHistoryPruneSettings(s.pool)
+}
+
+func (s stateBackend) AddDefaultSpaceSetting() error {
+	return state.AddDefaultSpaceSetting(s.pool)
 }
 
 func (s stateBackend) AddActionPruneSettings() error {

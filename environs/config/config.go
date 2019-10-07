@@ -241,6 +241,9 @@ const (
 	// list will be comma separated.
 	ContainerInheritPropertiesKey = "container-inherit-properties"
 
+	// Networking spaces
+	DefaultSpace = "default-space"
+
 	//
 	// Deprecated Settings Attributes
 	//
@@ -420,7 +423,7 @@ var defaultConfigValues = map[string]interface{}{
 	IgnoreMachineAddresses:       false,
 	"ssl-hostname-verification":  true,
 	"proxy-ssh":                  false,
-
+	DefaultSpace:                 "_default",
 	// Why is net-bond-reconfigure-delay set to 17 seconds?
 	//
 	// The value represents the amount of time in seconds to sleep
@@ -823,6 +826,11 @@ func (c *Config) Name() string {
 // UUID returns the uuid for the model.
 func (c *Config) UUID() string {
 	return c.mustString(UUIDKey)
+}
+
+// DefaultSpace returns the default-space for the model.
+func (c *Config) DefaultSpace() string {
+	return c.asString(DefaultSpace)
 }
 
 // DefaultSeries returns the configured default Ubuntu series for the environment,
@@ -1515,6 +1523,7 @@ var alwaysOptional = schema.Defaults{
 	CloudInitUserDataKey:          schema.Omit,
 	ContainerInheritPropertiesKey: schema.Omit,
 	BackupDirKey:                  schema.Omit,
+	DefaultSpace:                  schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -2020,6 +2029,11 @@ data of the store. (default false)`,
 	},
 	BackupDirKey: {
 		Description: "Directory used to store the backup working directory",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	DefaultSpace: {
+		Description: "The default network space used for application endpoints in this model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

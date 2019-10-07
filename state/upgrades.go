@@ -804,6 +804,20 @@ func AddStatusHistoryPruneSettings(pool *StatePool) error {
 	return nil
 }
 
+// AddDefaultSpaceSetting adds the default space setting
+func AddDefaultSpaceSetting(pool *StatePool) error {
+	st := pool.SystemState()
+	err := applyToAllModelSettings(st, func(doc *settingsDoc) (bool, error) {
+		defaultSettingDefaultSpace := config.ConfigDefaults()[config.DefaultSpace]
+		settingsChanged := maybeUpdateSettings(doc.Settings, config.DefaultSpace, defaultSettingDefaultSpace)
+		return settingsChanged, nil
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // AddActionPruneSettings adds the model settings
 // to control log pruning if they are missing.
 func AddActionPruneSettings(pool *StatePool) error {
