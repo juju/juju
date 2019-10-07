@@ -236,14 +236,12 @@ func (m *backingMachine) machineAndAgentStatus(entity Entity, info *multiwatcher
 }
 
 func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string) error {
-	wantsVote := false
-	hasVote := false
 	node, err := st.ControllerNode(m.Id)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	wantsVote = err == nil && node.WantsVote()
-	hasVote = err == nil && node.HasVote()
+	wantsVote := err == nil && node.WantsVote()
+	hasVote := err == nil && node.HasVote()
 	info := &multiwatcher.MachineInfo{
 		ModelUUID:                st.ModelUUID(),
 		Id:                       m.Id,

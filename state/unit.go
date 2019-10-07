@@ -743,13 +743,12 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 		}
 		return nil, err
 	}
-	hasVote := false
 	node, err := u.st.ControllerNode(u.doc.MachineId)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
 	haveControllerNode := err == nil
-	hasVote = haveControllerNode && node.HasVote()
+	hasVote := haveControllerNode && node.HasVote()
 
 	containerCheck := true // whether container conditions allow destroying the host machine
 	containers, err := m.Containers()
