@@ -287,8 +287,16 @@ func (s *WorkerSuite) TestHeldListener(c *gc.C) {
 
 	// Eventually quick requests get blocked by the held listener.
 	var quickBlocked bool
+	// A very small sleep will allow the kill to be more likely to be processed
+	// by the running loop.
+	time.Sleep(10 * time.Millisecond)
 attempts:
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
+	// We actually try the quick request more than once, on the off chance
+	// that the worker hasn't finished processing the kill signal. Since we have
+	// no other way to check, we just try a quick request, and decide that if
+	// it doesn't respond quickly, the main loop is waithing for the clients to
+	// be done.
+	for i := 0; i < 5; i++ {
 		go request()
 		select {
 		case <-quickErr:
