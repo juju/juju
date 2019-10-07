@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -53,6 +54,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		Life:             s.lifeGetter,
 		Status:           &mockStatusSetter{},
 		Clock:            &mockClock{},
+		Logger:           loggo.GetLogger("test"),
 		Registry:         storage.StaticProviderRegistry{},
 		CloudCallContext: context.NewCloudCallContext(),
 	}

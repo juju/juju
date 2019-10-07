@@ -7,12 +7,13 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -47,6 +48,7 @@ func (s *MachineManifoldSuite) SetUpTest(c *gc.C) {
 		AgentName:                    config.AgentName,
 		APICallerName:                config.APICallerName,
 		Clock:                        testclock.NewClock(defaultClockStart),
+		Logger:                       loggo.GetLogger("test"),
 		NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 	}
 }
@@ -66,7 +68,19 @@ func (s *MachineManifoldSuite) TestMissingClock(c *gc.C) {
 		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		&fakeAPIConn{})
-	c.Assert(err, gc.Equals, dependency.ErrMissing)
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "missing Clock not valid")
+	c.Assert(s.newCalled, jc.IsFalse)
+}
+
+func (s *MachineManifoldSuite) TestMissingLogger(c *gc.C) {
+	s.config.Logger = nil
+	_, err := enginetest.RunAgentAPIManifold(
+		storageprovisioner.MachineManifold(s.config),
+		&fakeAgent{tag: names.NewMachineTag("42")},
+		&fakeAPIConn{})
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err.Error(), gc.Equals, "missing Logger not valid")
 	c.Assert(s.newCalled, jc.IsFalse)
 }
 

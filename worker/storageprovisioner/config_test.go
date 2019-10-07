@@ -102,6 +102,11 @@ func (s *ConfigSuite) TestNilClock(c *gc.C) {
 	s.checkNotValid(c, "nil Clock not valid")
 }
 
+func (s *ConfigSuite) TestNilLogger(c *gc.C) {
+	s.config.Logger = nil
+	s.checkNotValid(c, "nil Logger not valid")
+}
+
 func (s *ConfigSuite) checkNotValid(c *gc.C, match string) {
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -152,6 +157,9 @@ func almostValidConfig() storageprovisioner.Config {
 		}{},
 		Clock: struct {
 			clock.Clock
+		}{},
+		Logger: struct {
+			storageprovisioner.Logger
 		}{},
 	}
 }

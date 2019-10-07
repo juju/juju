@@ -123,11 +123,11 @@ func (p *provisioner) loop() error {
 			for i, appId := range apps {
 				appLifeResult := appsLife[i]
 				if appLifeResult.Error != nil && params.IsCodeNotFound(appLifeResult.Error) {
-					logger.Debugf("app %v not found", appId)
+					p.config.Logger.Debugf("app %v not found", appId)
 					_, ok := p.getApplicationWorker(appId)
 					if ok {
 						if err := worker.Stop(w); err != nil {
-							logger.Errorf("stopping application storage worker for %v: %v", appId, err)
+							p.config.Logger.Errorf("stopping application storage worker for %v: %v", appId, err)
 						}
 						p.deleteApplicationWorker(appId)
 					}

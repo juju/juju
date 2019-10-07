@@ -12,6 +12,14 @@ import (
 	"github.com/juju/juju/storage"
 )
 
+// Logger represents the methods used by the worker to log details.
+type Logger interface {
+	Tracef(string, ...interface{})
+	Debugf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Errorf(string, ...interface{})
+}
+
 // Config holds configuration and dependencies for a storageprovisioner worker.
 type Config struct {
 	Model            names.ModelTag
@@ -25,6 +33,7 @@ type Config struct {
 	Machines         MachineAccessor
 	Status           StatusSetter
 	Clock            clock.Clock
+	Logger           Logger
 	CloudCallContext environscontext.ProviderCallContext
 }
 
@@ -71,6 +80,9 @@ func (config Config) Validate() error {
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	if config.CloudCallContext == nil {
 		return errors.NotValidf("nil CloudCallContext")

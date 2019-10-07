@@ -19,25 +19,22 @@ import (
 // ModelManifoldConfig defines a storage provisioner's configuration and dependencies.
 type ModelManifoldConfig struct {
 	APICallerName       string
-	ClockName           string
 	StorageRegistryName string
 
+	Clock                        clock.Clock
 	Model                        names.ModelTag
 	StorageDir                   string
 	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 	NewWorker                    func(config Config) (worker.Worker, error)
+	Logger                       Logger
 }
 
 // ModelManifold returns a dependency.Manifold that runs a storage provisioner.
 func ModelManifold(config ModelManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{config.APICallerName, config.ClockName, config.StorageRegistryName},
+		Inputs: []string{config.APICallerName, config.StorageRegistryName},
 		Start: func(context dependency.Context) (worker.Worker, error) {
 
-			var clock clock.Clock
-			if err := context.Get(config.ClockName, &clock); err != nil {
-				return nil, errors.Trace(err)
-			}
 			var apiCaller base.APICaller
 			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
@@ -67,7 +64,8 @@ func ModelManifold(config ModelManifoldConfig) dependency.Manifold {
 				Registry:         registry,
 				Machines:         api,
 				Status:           api,
-				Clock:            clock,
+				Clock:            config.Clock,
+				Logger:           config.Logger,
 				CloudCallContext: common.NewCloudCallContext(credentialAPI, nil),
 			})
 			if err != nil {

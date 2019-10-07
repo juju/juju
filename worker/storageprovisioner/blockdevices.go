@@ -68,7 +68,7 @@ func machineBlockDevicesChanged(ctx *context) error {
 // previously observed block devices.
 func processPendingVolumeBlockDevices(ctx *context) error {
 	if len(ctx.pendingVolumeBlockDevices) == 0 {
-		logger.Tracef("no pending volume block devices")
+		ctx.config.Logger.Tracef("no pending volume block devices")
 		return nil
 	}
 	volumeTags := make([]names.VolumeTag, len(ctx.pendingVolumeBlockDevices))
@@ -87,7 +87,7 @@ func refreshVolumeBlockDevices(ctx *context, volumeTags []names.VolumeTag) error
 	if !ok {
 		// This function should only be called by machine-scoped
 		// storage provisioners.
-		logger.Warningf("refresh block devices, expected machine tag, got %v", ctx.config.Scope)
+		ctx.config.Logger.Warningf("refresh block devices, expected machine tag, got %v", ctx.config.Scope)
 		return nil
 	}
 	ids := make([]params.MachineStorageId, len(volumeTags))

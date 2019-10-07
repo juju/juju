@@ -28,7 +28,6 @@ package storageprovisioner
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
@@ -40,7 +39,9 @@ import (
 	"github.com/juju/juju/worker/storageprovisioner/internal/schedule"
 )
 
-var logger = loggo.GetLogger("juju.worker.storageprovisioner")
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead use the one passed as manifold config.
+var logger interface{}
 
 var newManagedFilesystemSource = provider.NewManagedFilesystemSource
 
