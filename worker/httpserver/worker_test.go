@@ -285,27 +285,29 @@ func (s *WorkerSuite) TestHeldListener(c *gc.C) {
 	// Stop the server.
 	s.worker.Kill()
 
-	// Eventually quick requests get blocked by the held listener.
-	var quickBlocked bool
 	// A very small sleep will allow the kill to be more likely to be processed
 	// by the running loop.
 	time.Sleep(10 * time.Millisecond)
-attempts:
+
 	// We actually try the quick request more than once, on the off chance
 	// that the worker hasn't finished processing the kill signal. Since we have
 	// no other way to check, we just try a quick request, and decide that if
 	// it doesn't respond quickly, the main loop is waithing for the clients to
 	// be done.
-	for i := 0; i < 5; i++ {
+	quickBlocked := false
+	timeout := time.After(coretesting.LongWait)
+	for !quickBlocked {
+		c.Log("try to hit the quick endpoint")
 		go request()
 		select {
 		case <-quickErr:
+			c.Log("  got a response")
 		case <-time.After(coretesting.ShortWait):
 			quickBlocked = true
-			break attempts
+		case <-timeout:
+			c.Fatalf("worker not blocking")
 		}
 	}
-	c.Assert(quickBlocked, gc.Equals, true)
 
 	// The server doesn't die yet - it's kept alive by the slow
 	// request.
@@ -323,7 +325,7 @@ attempts:
 		// load, and it isn't easy to synchronise. This is why we don't actually
 		// check the error.
 		// It doesn't really matter what the error is.
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for 2nd quick request")
 	}
 	workertest.CheckKilled(c, s.worker)
