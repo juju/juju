@@ -278,7 +278,7 @@ func (s *WorkerSuite) TestHeldListener(c *gc.C) {
 	select {
 	case err := <-quickErr:
 		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for quick request")
 	}
 
@@ -308,9 +308,13 @@ attempts:
 	s.mux.ClientDone()
 
 	select {
-	case err := <-quickErr:
+	case <-quickErr:
+		// There is a race in the queueing of the request. It is possible that
+		// the timer will fire a short wait before an unheld request gets to the
+		// phase where it would return nil. However this is only under significant
+		// load, and it isn't easy to synchronise. This is why we don't actually
+		// check the error.
 		// It doesn't really matter what the error is.
-		c.Assert(err, gc.NotNil)
 	case <-time.After(coretesting.ShortWait):
 		c.Fatalf("timed out waiting for 2nd quick request")
 	}
