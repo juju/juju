@@ -2837,9 +2837,9 @@ class TestModelClient(ClientTest):
                              '1.23-series-arch', None)
         with patch.object(ModelClient, 'get_juju_output') as mock:
             mock.return_value = \
-                "Action queued with id: 5a92ec93-d4be-4399-82dc-7431dbfd08f9"
+                "Action queued with id: 666"
             id = client.action_do("foo/0", "myaction", "param=5")
-            self.assertEqual(id, "5a92ec93-d4be-4399-82dc-7431dbfd08f9")
+            self.assertEqual(id, "666")
         mock.assert_called_once_with(
             'run-action', 'foo/0', 'myaction', "param=5"
         )
@@ -2886,7 +2886,7 @@ class TestModelClient(ClientTest):
             # setting side_effect to an iterable will return the next value
             # from the list each time the function is called.
             mock.side_effect = [
-                "Action queued with id: 5a92ec93-d4be-4399-82dc-7431dbfd08f9",
+                "Action queued with id: 666",
                 ret]
             out = client.action_do_fetch("foo/0", "myaction", "param=5")
             self.assertEqual(out, ret)
