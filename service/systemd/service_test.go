@@ -776,3 +776,40 @@ func (s *initSystemSuite) TestStartCommands(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(commands, jc.DeepEquals, []string{"/bin/systemctl start jujud-machine-0.service"})
 }
+
+func (s *initSystemSuite) TestInstallLimits(c *gc.C) {
+	name := "juju-job"
+	conf := common.Conf{
+		Desc:      "juju agent for juju-job",
+		ExecStart: "/usr/bin/jujud juju-job",
+		Limit: map[string]string{
+			"fsize":   "unlimited",
+			"cpu":     "unlimited",
+			"as":      "12345",
+			"memlock": "unlimited",
+			"nofile":  "64000",
+		},
+	}
+	data, err := systemd.Serialize(name, conf, renderer)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(data), gc.Equals, `
+[Unit]
+Description=juju agent for juju-job
+After=syslog.target
+After=network.target
+After=systemd-user-sessions.service
+
+[Service]
+LimitAS=12345
+LimitCPU=infinity
+LimitFSIZE=infinity
+LimitMEMLOCK=infinity
+LimitNOFILE=64000
+ExecStart=/usr/bin/jujud juju-job
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+
+`[1:])
+}
