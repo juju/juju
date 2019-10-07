@@ -26,33 +26,17 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) TestManifold(c *gc.C) {
 	manifold := storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 		APICallerName:       "grenouille",
-		ClockName:           "bustopher",
 		StorageRegistryName: "environ",
 	})
-	c.Check(manifold.Inputs, jc.DeepEquals, []string{"grenouille", "bustopher", "environ"})
+	c.Check(manifold.Inputs, jc.DeepEquals, []string{"grenouille", "environ"})
 	c.Check(manifold.Output, gc.IsNil)
 	c.Check(manifold.Start, gc.NotNil)
 	// ...Start is *not* well-tested, in common with many manifold configs.
 }
 
-func (s *ManifoldSuite) TestMissingClock(c *gc.C) {
-	manifold := storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
-		APICallerName:       "api-caller",
-		ClockName:           "clock",
-		StorageRegistryName: "environ",
-	})
-	_, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
-		"api-caller": struct{ base.APICaller }{},
-		"clock":      dependency.ErrMissing,
-		"environ":    struct{ environs.Environ }{},
-	}))
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
-}
-
 func (s *ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 	manifold := storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 		APICallerName:       "api-caller",
-		ClockName:           "clock",
 		StorageRegistryName: "environ",
 	})
 	_, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
@@ -66,7 +50,6 @@ func (s *ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 func (s *ManifoldSuite) TestMissingEnviron(c *gc.C) {
 	manifold := storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 		APICallerName:       "api-caller",
-		ClockName:           "clock",
 		StorageRegistryName: "environ",
 	})
 	_, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{

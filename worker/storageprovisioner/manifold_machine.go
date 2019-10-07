@@ -25,14 +25,17 @@ type MachineManifoldConfig struct {
 	AgentName                    string
 	APICallerName                string
 	Clock                        clock.Clock
+	Logger                       Logger
 	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 }
 
 func (config MachineManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	if config.Clock == nil {
-		return nil, dependency.ErrMissing
+		return nil, errors.NotValidf("missing Clock")
 	}
-
+	if config.Logger == nil {
+		return nil, errors.NotValidf("missing Logger")
+	}
 	cfg := a.CurrentConfig()
 	api, err := storageprovisioner.NewState(apiCaller)
 	if err != nil {
@@ -60,6 +63,7 @@ func (config MachineManifoldConfig) newWorker(a agent.Agent, apiCaller base.APIC
 		Machines:         api,
 		Status:           api,
 		Clock:            config.Clock,
+		Logger:           config.Logger,
 		CloudCallContext: common.NewCloudCallContext(credentialAPI, nil),
 	})
 	if err != nil {

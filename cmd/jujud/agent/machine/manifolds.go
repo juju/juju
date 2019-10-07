@@ -933,6 +933,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:                    agentName,
 			APICallerName:                apiCallerName,
 			Clock:                        config.Clock,
+			Logger:                       loggo.GetLogger("juju.worker.storageprovisioner"),
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),
 		brokerTrackerName: ifNotMigrating(lxdbroker.Manifold(lxdbroker.ManifoldConfig{
