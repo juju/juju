@@ -4,6 +4,8 @@
 package clientconfig
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -17,7 +19,7 @@ import (
 
 const (
 	adminNameSpace             = "kube-system"
-	clusterRoleName            = "cluster-admin"
+	jujuClusterRoleName        = "juju-cluster-role"
 	jujuServiceAccountName     = "juju-service-account"
 	jujuClusterRoleBindingName = "juju-cluster-role-binding"
 )
@@ -35,47 +37,83 @@ func newK8sClientSet(config *clientcmdapi.Config, contextName string) (*kubernet
 	return kubernetes.NewForConfig(clientCfg)
 }
 
-func ensureJujuAdminServiceAccount(
+type resourceNames struct {
+	clusterRoleName        string
+	serviceAccountName     string
+	clusterRoleBindingName string
+}
+
+func getResourceNames(cloudName string) resourceNames {
+	nameGenerator := func(resourceName string) string {
+		return fmt.Sprintf("%s-%s", resourceName, cloudName)
+	}
+
+	return resourceNames{
+		clusterRoleName:        nameGenerator(jujuClusterRoleName),
+		serviceAccountName:     nameGenerator(jujuServiceAccountName),
+		clusterRoleBindingName: nameGenerator(jujuClusterRoleBindingName),
+	}
+}
+
+func ensureJujuAdminRBACResources(
 	clientset kubernetes.Interface,
 	config *clientcmdapi.Config,
-	contextName string,
-) (*clientcmdapi.Config, error) {
+	cloudName string,
+) (*core.Secret, error) {
+
+	names := getResourceNames(cloudName)
 
 	// ensure admin cluster role.
-	clusterRole, err := ensureClusterRole(clientset, clusterRoleName, adminNameSpace)
+	clusterRole, err := ensureClusterRole(clientset, names.clusterRoleName, adminNameSpace)
 	if err != nil {
 		return nil, errors.Annotatef(
-			err, "ensuring cluster role %q in namespace %q", clusterRoleName, adminNameSpace)
+			err, "ensuring cluster role %q in namespace %q", names.clusterRoleName, adminNameSpace)
 	}
 
 	// create juju admin service account.
-	sa, err := ensureServiceAccount(clientset, jujuServiceAccountName, adminNameSpace)
+	sa, err := ensureServiceAccount(clientset, names.serviceAccountName, adminNameSpace)
 	if err != nil {
 		return nil, errors.Annotatef(
-			err, "ensuring service account %q in namespace %q", jujuServiceAccountName, adminNameSpace)
+			err, "ensuring service account %q in namespace %q", names.serviceAccountName, adminNameSpace)
 	}
 
 	// ensure role binding for juju admin service account with admin cluster role.
-	_, err = ensureClusterRoleBinding(clientset, jujuClusterRoleBindingName, sa, clusterRole)
+	_, err = ensureClusterRoleBinding(clientset, names.clusterRoleBindingName, sa, clusterRole)
 	if err != nil {
-		return nil, errors.Annotatef(err, "ensuring cluster role binding %q", jujuClusterRoleBindingName)
+		return nil, errors.Annotatef(err, "ensuring cluster role binding %q", names.clusterRoleBindingName)
 	}
 
 	// refresh service account to get the secret/token after cluster role binding created.
-	sa, err = getServiceAccount(clientset, jujuServiceAccountName, adminNameSpace)
+	sa, err = getServiceAccount(clientset, names.serviceAccountName, adminNameSpace)
 	if err != nil {
 		return nil, errors.Annotatef(
-			err, "refetching service account %q after cluster role binding created", jujuServiceAccountName)
+			err, "refetching service account %q after cluster role binding created", names.serviceAccountName)
 	}
 
 	// get bearer token of juju admin service account.
-	secret, err := getServiceAccountSecret(clientset, sa)
-	if err != nil {
-		return nil, errors.Annotatef(err, "fetching bearer token for service account %q", sa.Name)
-	}
+	return getServiceAccountSecret(clientset, sa)
+}
 
-	replaceAuthProviderWithServiceAccountAuthData(contextName, config, secret)
-	return config, nil
+// DeleteJujuAdminRBACResources deletes all Juju admin RBAC resources.
+func DeleteJujuAdminRBACResources(clientset kubernetes.Interface, cloudName string) error {
+	propagationPolicy := metav1.DeletePropagationForeground
+	defaultDeleteOps := &metav1.DeleteOptions{PropagationPolicy: &propagationPolicy}
+
+	names := getResourceNames(cloudName)
+
+	// delete cluster role binding.
+	if err := clientset.RbacV1().ClusterRoleBindings().Delete(names.clusterRoleBindingName, defaultDeleteOps); err != nil {
+		return errors.Annotatef(err, "deleting cluster role binding %q", names.clusterRoleBindingName)
+	}
+	// delete cluster role.
+	if err := clientset.RbacV1().ClusterRoles().Delete(names.clusterRoleName, defaultDeleteOps); err != nil {
+		return errors.Annotatef(err, "deleting cluster role %q", names.clusterRoleName)
+	}
+	// delete service account.
+	if err := clientset.CoreV1().ServiceAccounts(adminNameSpace).Delete(names.serviceAccountName, defaultDeleteOps); err != nil {
+		return errors.Annotatef(err, "deleting service account %q", names.serviceAccountName)
+	}
+	return nil
 }
 
 func ensureClusterRole(clientset kubernetes.Interface, name, namespace string) (*rbacv1.ClusterRole, error) {
@@ -137,6 +175,7 @@ func ensureClusterRoleBinding(
 	sa *core.ServiceAccount,
 	cr *rbacv1.ClusterRole,
 ) (*rbacv1.ClusterRoleBinding, error) {
+	// TODO: get or create!!!!!!!!!!!!!!!!
 	rb, err := clientset.RbacV1().ClusterRoleBindings().Create(&rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,

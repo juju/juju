@@ -20,19 +20,25 @@ import (
 var logger = loggo.GetLogger("juju.caas.kubernetes.clientconfig")
 
 // K8sCredentialResolver defines the function for resolving non supported k8s credential.
-type K8sCredentialResolver func(config *clientcmdapi.Config, contextName string) (*clientcmdapi.Config, error)
+type K8sCredentialResolver func(config *clientcmdapi.Config, cloudName, contextName string) (*clientcmdapi.Config, error)
 
 // EnsureK8sCredential ensures juju admin service account created with admin cluster role binding setup.
-func EnsureK8sCredential(config *clientcmdapi.Config, contextName string) (*clientcmdapi.Config, error) {
+func EnsureK8sCredential(config *clientcmdapi.Config, cloudName, contextName string) (*clientcmdapi.Config, error) {
 	clientset, err := newK8sClientSet(config, contextName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return ensureJujuAdminServiceAccount(clientset, config, contextName)
+
+	secret, err := ensureJujuAdminRBACResources(clientset, config, cloudName)
+	if err != nil {
+		return nil, errors.Annotatef(err, "ensuring Juju admin service account")
+	}
+	replaceAuthProviderWithServiceAccountAuthData(contextName, config, secret)
+	return config, nil
 }
 
 // NewK8sClientConfig returns a new Kubernetes client, reading the config from the specified reader.
-func NewK8sClientConfig(reader io.Reader, contextName, clusterName string, credentialResolver K8sCredentialResolver) (*ClientConfig, error) {
+func NewK8sClientConfig(reader io.Reader, cloudName, contextName, clusterName string, credentialResolver K8sCredentialResolver) (*ClientConfig, error) {
 	if reader == nil {
 		var err error
 		reader, err = readKubeConfigFile()
@@ -80,17 +86,14 @@ func NewK8sClientConfig(reader io.Reader, contextName, clusterName string, crede
 		return nil, errors.Annotate(err, "failed to read clouds from kubernetes config")
 	}
 
-	credentials, err := credentialsFromConfig(config, context.CredentialName)
-	if errors.IsNotSupported(err) && credentialResolver != nil {
-		// try to generate supported credential using provided credential.
-		config, err = credentialResolver(config, contextName)
-		if err != nil {
-			return nil, errors.Annotatef(
-				err, "ensuring k8s credential because auth info %q is not valid", context.CredentialName)
-		}
-		logger.Debugf("try again to get credentials from kubeconfig using the generated auth info")
-		credentials, err = credentialsFromConfig(config, context.CredentialName)
+	// generate RBAC credential using provided credential.
+	config, err = credentialResolver(config, cloudName, contextName)
+	if err != nil {
+		return nil, errors.Annotatef(
+			err, "generating k8s credential using provided auth info %q", context.CredentialName)
 	}
+	logger.Debugf("getting credentials from the generated kubeconfig")
+	credentials, err := credentialsFromConfig(config, context.CredentialName)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read credentials from kubernetes config")
 	}
