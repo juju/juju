@@ -323,17 +323,9 @@ var relationSetInitTests = []relationSetInitTest{
 		content:  "{foo: bar}",
 		settings: map[string]string{"foo": "bar"},
 	}, {
-		summary:  "pass --context=application",
-		args:     []string{"--context=application", "baz=qux"},
+		summary:  "pass --app",
+		args:     []string{"--app", "baz=qux"},
 		settings: map[string]string{"baz": "qux"},
-	}, {
-		summary:  "pass --context=unit",
-		args:     []string{"--context=unit", "baz=qux"},
-		settings: map[string]string{"baz": "qux"},
-	}, {
-		summary: "pass --context=both",
-		args:    []string{"--context=both", "baz=qux"},
-		err:     `invalid value "both" for option --context: valid values: unit, application`,
 	},
 }
 

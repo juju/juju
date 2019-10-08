@@ -45,7 +45,7 @@ type RelationSetCommand struct {
 	Settings        map[string]string
 	settingsFile    cmd.FileVar
 	formatFlag      string // deprecated
-	context         *enumValue
+	application     bool
 }
 
 func NewRelationSetCommand(ctx Context) (cmd.Command, error) {
@@ -56,8 +56,7 @@ func NewRelationSetCommand(ctx Context) (cmd.Command, error) {
 		return nil, errors.Trace(err)
 	}
 	c.relationIdProxy = rV
-
-	c.context = NewEnumValue("unit", []string{"unit", "application"})
+	c.application = false
 
 	return c, nil
 }
@@ -78,7 +77,7 @@ func (c *RelationSetCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.settingsFile.SetStdin()
 	f.Var(&c.settingsFile, "file", "file containing key-value pairs")
 
-	f.Var(c.context, "context", `pick whether you are setting "application" settings or "unit" settings`)
+	f.BoolVar(&c.application, "app", false, `pick whether you are setting "application" settings or "unit" settings`)
 
 	f.StringVar(&c.formatFlag, "format", "", "deprecated format flag")
 }
@@ -148,7 +147,7 @@ func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 	var settings Settings
-	if c.context.String() == "application" {
+	if c.application {
 		settings, err = r.ApplicationSettings()
 	} else {
 		settings, err = r.Settings()
