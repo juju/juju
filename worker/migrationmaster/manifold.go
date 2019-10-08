@@ -16,6 +16,10 @@ import (
 	"github.com/juju/juju/worker/fortress"
 )
 
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead pass one passed as manifold config.
+var logger interface{}
+
 // ManifoldConfig defines the names of the manifolds on which a
 // Worker manifold will depend.
 type ManifoldConfig struct {
