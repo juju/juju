@@ -496,8 +496,7 @@
   name = "github.com/juju/description"
   packages = ["."]
   pruneopts = ""
-  revision = "be85422a108107ae554950534717443e97dc70d0"
-  source = "github.com/SimonRichardson/description"
+  revision = "303c0a2ac03fb315309324f8a1f7164b27c8193f"
 
 [[projects]]
   digest = "1:594030c0f0ed3842773b68708d4f9716d809556b9c631460051f99b15057512d"
