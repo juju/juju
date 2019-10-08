@@ -214,23 +214,20 @@ func (p *BridgePolicy) findSpacesAndDevicesForContainer(
 func (p *BridgePolicy) determineContainerSpaces(
 	host Machine, guest Container, defaultSpaceName string,
 ) (corenetwork.SpaceInfos, error) {
-	spaces := set.NewStrings()
-
 	// Gather any *positive* space constraints for the guest.
 	cons, err := guest.Constraints()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if cons.Spaces != nil {
-		for _, space := range *cons.Spaces {
-			if !strings.HasPrefix(space, "^") {
-				spaces.Add(space)
-			}
-		}
-	}
+	spaces := set.NewStrings(cons.IncludeSpaces()...)
 
 	// Gather any space bindings for application endpoints
-	// that apply to units the the container will host.
+	// that apply to units that the container will host.
+	// TODO (manadart 2019-10-08): This is not necessary now that we convert
+	// endpoint bindings into machine space constraints when placing units.
+	// However it remains in case we fix that logic properly to do machine
+	// creation and assignment in a single transaction.
+	// See `state.AssignUnitWithPlacement`.
 	units, err := guest.Units()
 	if err != nil {
 		return nil, errors.Trace(err)
