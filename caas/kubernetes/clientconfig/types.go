@@ -47,7 +47,7 @@ type CloudConfig struct {
 // Cluster_A, User_B: No new Cloud, new Credential for the cloud.
 
 // ClientConfigFunc is a function that returns a ClientConfig. Functions of this type should be available for each supported CAAS framework, e.g. Kubernetes.
-type ClientConfigFunc func(io.Reader, string, string, K8sCredentialResolver) (*ClientConfig, error)
+type ClientConfigFunc func(_ io.Reader, cloudName, contextName, clusterName string, _ K8sCredentialResolver) (*ClientConfig, error)
 
 // NewClientConfigReader returns a function of type ClientConfigFunc to read the client config for a given cloud type.
 func NewClientConfigReader(cloudType string) (ClientConfigFunc, error) {

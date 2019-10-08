@@ -27,7 +27,7 @@ func (s *k8sRawClientSuite) SetUpSuite(c *gc.C) {
 	s.namespace = "kube-system"
 }
 
-func (s *k8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
+func (s *k8sRawClientSuite) TestEnsureJujuAdminRBACResources(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
@@ -118,7 +118,7 @@ func (s *k8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
 		s.mockSecrets.EXPECT().Get(saWithSecret.Secrets[0].Name, metav1.GetOptions{}).Times(1).
 			Return(secret, nil),
 	)
-	cfgOut, err := clientconfig.EnsureJujuAdminServiceAccount(s.k8sClient, cfg, contextName)
+	cfgOut, err := clientconfig.EnsureJujuAdminRBACResources(s.k8sClient, cfg, contextName)
 	c.Assert(err, jc.ErrorIsNil)
 	authName := cfg.Contexts[contextName].AuthInfo
 	updatedAuthInfo := cfgOut.AuthInfos[authName]
@@ -217,7 +217,7 @@ func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccountIdempotent(c *gc.C)
 		s.mockSecrets.EXPECT().Get(saWithSecret.Secrets[0].Name, metav1.GetOptions{}).Times(1).
 			Return(secret, nil),
 	)
-	cfgOut, err := clientconfig.EnsureJujuAdminServiceAccount(s.k8sClient, cfg, contextName)
+	cfgOut, err := clientconfig.EnsureJujuAdminRBACResources(s.k8sClient, cfg, contextName)
 	c.Assert(err, jc.ErrorIsNil)
 	authName := cfg.Contexts[contextName].AuthInfo
 	updatedAuthInfo := cfgOut.AuthInfos[authName]

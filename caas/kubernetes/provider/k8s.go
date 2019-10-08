@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/cloudconfig/podcfg"
@@ -443,15 +444,19 @@ func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) (err e
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Annotate(err, "deleting model storage classes")
 	}
+
+	// delete Juju admin RBAC resources.
+	defer clientconfig.DeleteJujuAdminRBACResources(k.client())
+
 	for {
 		select {
 		case <-callbacks.Dying():
 			return nil
 		case <-watcher.Changes():
-			// ensure namespace has been deleted - notfound error expected.
+			// ensure namespace deleted - notfound error expected.
 			_, err := k.GetNamespace(k.namespace)
 			if errors.IsNotFound(err) {
-				// namespace ha been deleted.
+				// namespace has already been deleted.
 				return nil
 			}
 			if err != nil {

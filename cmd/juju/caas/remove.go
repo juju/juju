@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 
 	cloudapi "github.com/juju/juju/api/cloud"
+	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -35,8 +36,8 @@ See also:
     add-k8s
 `
 
-// RemoveCloudAPI is implemented by cloudapi.Client.
-type RemoveCloudAPI interface {
+// RemoveCloudCredentialAPI is implemented by cloudapi.Client.
+type RemoveCloudCredentialAPI interface {
 	RemoveCloud(string) error
 	Close() error
 }
@@ -49,7 +50,7 @@ type RemoveCAASCommand struct {
 	cloudName string
 
 	cloudMetadataStore CloudMetadataStore
-	apiFunc            func() (RemoveCloudAPI, error)
+	apiFunc            func() (RemoveCloudCredentialAPI, error)
 }
 
 // NewRemoveCAASCommand returns a command to add caas information.
@@ -63,7 +64,7 @@ func NewRemoveCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 
 		cloudMetadataStore: cloudMetadataStore,
 	}
-	cmd.apiFunc = func() (RemoveCloudAPI, error) {
+	cmd.apiFunc = func() (RemoveCloudCredentialAPI, error) {
 		root, err := cmd.NewAPIRoot(cmd.Store, cmd.ControllerName, "")
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -122,6 +123,8 @@ func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
 	if err := cloudAPI.RemoveCloud(c.cloudName); err != nil {
 		return errors.Annotatef(err, "cannot remove k8s cloud from controller")
 	}
+	// delete RBAC resources.
+	_ = clientconfig.DeleteJujuAdminRBACResources(c.cloudName)
 	return nil
 }
 

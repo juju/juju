@@ -711,6 +711,15 @@ func (c *AddCAASCommand) addCredentialToLocal(cloudName string, newCredential ju
 	return nil
 }
 
+func getCloudCredentialTag(cloudName, accountName, credentialName string) (*names.CloudCredentialTag, error) {
+	id := fmt.Sprintf("%s/%s/%s", cloudName, accountName, credentialName)
+	if !names.IsValidCloudCredential(id) {
+		return nil, errors.NotValidf("cloud credential ID %q", id)
+	}
+	tag := names.NewCloudCredentialTag(id)
+	return &tag, nil
+}
+
 func (c *AddCAASCommand) addCredentialToController(apiClient AddCloudAPI, newCredential jujucloud.Credential, credentialName string) error {
 	_, err := c.Store.ControllerByName(c.ControllerName)
 	if err != nil {
@@ -721,12 +730,10 @@ func (c *AddCAASCommand) addCredentialToController(apiClient AddCloudAPI, newCre
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	id := fmt.Sprintf("%s/%s/%s", c.caasName, currentAccountDetails.User, credentialName)
-	if !names.IsValidCloudCredential(id) {
-		return errors.NotValidf("cloud credential ID %q", id)
+	cloudCredTag, err := getCloudCredentialTag(c.caasName, currentAccountDetails.User, credentialName)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	cloudCredTag := names.NewCloudCredentialTag(id)
 
 	if err := apiClient.AddCredential(cloudCredTag.String(), newCredential); err != nil {
 		return errors.Trace(err)

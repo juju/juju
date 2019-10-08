@@ -65,7 +65,9 @@ func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudPar
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
-	caasConfig, err := clientConfigFunc(reader, cloudParams.ContextName, cloudParams.ClusterName, clientconfig.EnsureK8sCredential)
+	caasConfig, err := clientConfigFunc(
+		reader, cloudParams.CaasName, cloudParams.ContextName, cloudParams.ClusterName, clientconfig.EnsureK8sCredential,
+	)
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
