@@ -2399,7 +2399,7 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 	bindingsToSpace := make(map[string]string)
 	bindingsToEgressSubnets := make(map[string][]string)
 
-	for _, binding := range args.Bindings {
+	for _, binding := range args.Endpoints {
 		if boundSpace, err := unit.GetSpaceForBinding(binding); err != nil {
 			result.Results[binding] = params.NetworkInfoResult{Error: common.ServerError(err)}
 		} else {

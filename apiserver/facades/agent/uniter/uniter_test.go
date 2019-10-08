@@ -601,8 +601,8 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.NetworkInfoParams{
-		Unit:     s.wordpressUnit.Tag().String(),
-		Bindings: []string{"db"},
+		Unit:      s.wordpressUnit.Tag().String(),
+		Endpoints: []string{"db"},
 	}
 
 	privateAddress, err := s.machine0.PrivateAddress()
@@ -4176,25 +4176,25 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoPermissions(c *gc.C) {
 	}{
 		{
 			"Wrong unit name",
-			params.NetworkInfoParams{Unit: "unit-foo-0", Bindings: []string{"foo"}},
+			params.NetworkInfoParams{Unit: "unit-foo-0", Endpoints: []string{"foo"}},
 			params.NetworkInfoResults{},
 			"permission denied",
 		},
 		{
 			"Invalid tag",
-			params.NetworkInfoParams{Unit: "invalid", Bindings: []string{"db-client"}},
+			params.NetworkInfoParams{Unit: "invalid", Endpoints: []string{"db-client"}},
 			params.NetworkInfoResults{},
 			`"invalid" is not a valid tag`,
 		},
 		{
 			"No access to unit",
-			params.NetworkInfoParams{Unit: "unit-mysql-0", Bindings: []string{"juju-info"}},
+			params.NetworkInfoParams{Unit: "unit-mysql-0", Endpoints: []string{"juju-info"}},
 			params.NetworkInfoResults{},
 			"permission denied",
 		},
 		{
 			"Unknown binding name",
-			params.NetworkInfoParams{Unit: s.wordpressUnit.Tag().String(), Bindings: []string{"unknown"}},
+			params.NetworkInfoParams{Unit: s.wordpressUnit.Tag().String(), Endpoints: []string{"unknown"}},
 			params.NetworkInfoResults{
 				Results: map[string]params.NetworkInfoResult{
 					"unknown": {
@@ -4224,8 +4224,8 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 	s.addRelationAndAssertInScope(c)
 
 	args := params.NetworkInfoParams{
-		Unit:     s.wordpressUnit.Tag().String(),
-		Bindings: []string{"db", "admin-api", "db-client"},
+		Unit:      s.wordpressUnit.Tag().String(),
+		Endpoints: []string{"db", "admin-api", "db-client"},
 	}
 	// For the relation "wordpress:db mysql:server" we expect to see only
 	// ifaces in the "internal" space, where the "db" endpoint itself
@@ -4306,8 +4306,8 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoL2Binding(c *gc.C) {
 	s.addRelationAndAssertInScope(c)
 
 	args := params.NetworkInfoParams{
-		Unit:     s.wordpressUnit.Tag().String(),
-		Bindings: []string{"foo-bar"},
+		Unit:      s.wordpressUnit.Tag().String(),
+		Endpoints: []string{"foo-bar"},
 	}
 
 	expectedInfo := params.NetworkInfoResult{
@@ -4341,8 +4341,8 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc
 	s.assertInScope(c, mysqlRelUnit, true)
 
 	args := params.NetworkInfoParams{
-		Unit:     s.mysqlUnit.Tag().String(),
-		Bindings: []string{"server"},
+		Unit:      s.mysqlUnit.Tag().String(),
+		Endpoints: []string{"server"},
 	}
 
 	expectedInfo := params.NetworkInfoResult{
@@ -4396,7 +4396,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressNonDefaultBin
 	relId := rel.Id()
 	args := params.NetworkInfoParams{
 		Unit:       s.mysqlUnit.Tag().String(),
-		Bindings:   []string{"server"},
+		Endpoints:  []string{"server"},
 		RelationId: &relId,
 	}
 
@@ -4462,7 +4462,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressDefaultBindin
 	relId := rel.Id()
 	args := params.NetworkInfoParams{
 		Unit:       s.mysqlUnit.Tag().String(),
-		Bindings:   []string{"server"},
+		Endpoints:  []string{"server"},
 		RelationId: &relId,
 	}
 
@@ -4498,8 +4498,8 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoV6Results(c *gc.C) {
 	s.addRelationAndAssertInScope(c)
 
 	args := params.NetworkInfoParams{
-		Unit:     s.wordpressUnit.Tag().String(),
-		Bindings: []string{"db"},
+		Unit:      s.wordpressUnit.Tag().String(),
+		Endpoints: []string{"db"},
 	}
 
 	expectedResult := params.NetworkInfoResultsV6{
@@ -4563,7 +4563,7 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 	relId := rel.Id()
 	args := params.NetworkInfoParams{
 		Unit:       gitlabUnit.Tag().String(),
-		Bindings:   []string{"db"},
+		Endpoints:  []string{"db"},
 		RelationId: &relId,
 	}
 
@@ -4610,8 +4610,8 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 	c.Assert(wpUnit.Refresh(), jc.ErrorIsNil)
 
 	args := params.NetworkInfoParams{
-		Unit:     wpUnit.Tag().String(),
-		Bindings: []string{"db"},
+		Unit:      wpUnit.Tag().String(),
+		Endpoints: []string{"db"},
 	}
 
 	expectedResult := params.NetworkInfoResult{
