@@ -46,13 +46,13 @@ var (
 )
 
 // OnlyConnect logs into the API using the supplied agent's credentials.
-func OnlyConnect(a agent.Agent, apiOpen api.OpenFunc) (api.Connection, error) {
+func OnlyConnect(a agent.Agent, apiOpen api.OpenFunc, logger Logger) (api.Connection, error) {
 	agentConfig := a.CurrentConfig()
 	info, ok := agentConfig.APIInfo()
 	if !ok {
 		return nil, errors.New("API info not available")
 	}
-	conn, _, err := connectFallback(apiOpen, info, agentConfig.OldPassword())
+	conn, _, err := connectFallback(apiOpen, info, agentConfig.OldPassword(), logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -79,7 +79,7 @@ func OnlyConnect(a agent.Agent, apiOpen api.OpenFunc) (api.Connection, error) {
 // until it's managed to log in, and any suicide-cutoff point we pick here
 // will be objectively bad in some circumstances.)
 func connectFallback(
-	apiOpen api.OpenFunc, info *api.Info, fallbackPassword string,
+	apiOpen api.OpenFunc, info *api.Info, fallbackPassword string, logger Logger,
 ) (
 	conn api.Connection, didFallback bool, err error,
 ) {
@@ -183,7 +183,7 @@ func shortModelUUID(model names.ModelTag) string {
 // This is clearly a mess but at least now it's a documented and localized
 // mess; it should be used only when making the primary API connection for
 // a machine or unit agent running in its own process.
-func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err error) {
+func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc, logger Logger) (_ api.Connection, err error) {
 	agentConfig := a.CurrentConfig()
 	info, ok := agentConfig.APIInfo()
 	if !ok {
@@ -206,7 +206,7 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 	}()
 
 	// Start connection...
-	conn, usedOldPassword, err := connectFallback(apiOpen, info, oldPassword)
+	conn, usedOldPassword, err := connectFallback(apiOpen, info, oldPassword, logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
