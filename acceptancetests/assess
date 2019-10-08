@@ -98,7 +98,7 @@ def tilda():
 def load_credentials():
     path = os.path.join(tilda(), ".local", "share", "juju", "credentials.yaml")
     with open(path) as f:
-        creds = list(yaml.load_all(f))
+        creds = list(yaml.safe_load_all(f))
     return creds[0]["credentials"]
 
 
@@ -116,7 +116,7 @@ def supported_substrates():
 def find_valid_regions(provider):
     if provider == "lxd":
         return []
-    return subprocess.check_output(["juju", "regions", provider]).split()
+    return subprocess.check_output(["juju", "regions", provider], universal_newlines=True).splitlines()
 
 
 def parse_args():
@@ -277,12 +277,12 @@ def main():
         shell=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
+        universal_newlines=True,
     )
     sleep(0.1)
     with proc.stdout:
-        for line in iter(proc.stdout.readline, b''):
+        for line in iter(proc.stdout.readline, ''):
             print(line, end='')
-    proc.wait()
+    return proc.wait()
 
-
-main()
+sys.exit(main())
