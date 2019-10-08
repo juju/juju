@@ -16,6 +16,10 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 )
 
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead pass one passed as manifold config.
+var logger interface{}
+
 // ManifoldConfig holds the information necessary to run a FlagWorker in
 // a dependency.Engine.
 type ManifoldConfig struct {

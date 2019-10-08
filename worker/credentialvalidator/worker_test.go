@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -50,6 +51,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 
 	s.config = credentialvalidator.Config{
 		Facade: s.facade,
+		Logger: loggo.GetLogger("test"),
 	}
 }
 

@@ -168,6 +168,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 			NewFacade: lifeflag.NewFacade,
 			NewWorker: lifeflag.NewWorker,
+			// No Logger defined in lifeflag package.
 		}),
 		notAliveFlagName: lifeflag.Manifold(lifeflag.ManifoldConfig{
 			APICallerName: apiCallerName,
@@ -177,6 +178,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 			NewFacade: lifeflag.NewFacade,
 			NewWorker: lifeflag.NewWorker,
+			// No Logger defined in lifeflag package.
 		}),
 		isResponsibleFlagName: singular.Manifold(singular.ManifoldConfig{
 			Clock:         config.Clock,
@@ -187,6 +189,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 			NewFacade: singular.NewFacade,
 			NewWorker: singular.NewWorker,
+			// No Logger defined in singular package.
 		}),
 		// This flag runs on all models, and
 		// indicates if model's cloud credential is valid.
@@ -194,6 +197,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			NewFacade:     credentialvalidator.NewFacade,
 			NewWorker:     credentialvalidator.NewWorker,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.credentialvalidator"),
 		}),
 
 		// The migration workers collaborate to run migrations;
