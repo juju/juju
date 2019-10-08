@@ -3163,7 +3163,7 @@ func (u *Unit) GetSpaceForBinding(bindingName string) (string, error) {
 	boundSpace, known := bindings[bindingName]
 	if !known {
 		// If default binding is not explicitly defined we'll use default space
-		if bindingName == corenetwork.DefaultSpaceName {
+		if bindingName == "" {
 			return corenetwork.DefaultSpaceName, nil
 		}
 		return "", errors.NewNotValid(nil, fmt.Sprintf("binding name %q not defined by the unit's charm", bindingName))

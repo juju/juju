@@ -585,7 +585,7 @@ var PreferredAddressRetryArgs = func() retry.CallArgs {
 // relation endpoint is bound to a space.
 func NetworksForRelation(
 	binding string, unit *Unit, rel *Relation, defaultEgress []string, pollPublic bool,
-) (boundSpace string, ingress []string, egress []string, _ error) {
+) (boundSpace string, ingress corenetwork.SpaceAddresses, egress []string, _ error) {
 	st := unit.st
 
 	relEgress := NewRelationEgressNetworks(st)
@@ -621,12 +621,10 @@ func NetworksForRelation(
 		// TODO(ycliuhw): lp-1830252 retry here once this is fixed.
 		address, err := unit.PrivateAddress()
 		if err != nil {
-			logger.Warningf(
-				"no private address for unit %q in relation %q",
-				unit.Name(), rel)
+			logger.Warningf("no private address for unit %q in relation %q", unit.Name(), rel)
 		}
 		if address.Value != "" {
-			ingress = append(ingress, address.Value)
+			ingress = append(ingress, address)
 		}
 		return nil
 	}
@@ -635,11 +633,11 @@ func NetworksForRelation(
 	// is bound to the default space, we need to look up the ingress
 	// address info which is aware of cross model relations.
 	if boundSpace == corenetwork.DefaultSpaceName || err != nil {
-		_, crossmodel, err := rel.RemoteApplication()
+		_, crossModel, err := rel.RemoteApplication()
 		if err != nil {
 			return "", nil, nil, errors.Trace(err)
 		}
-		if crossmodel && (unit.ShouldBeAssigned() || pollPublic) {
+		if crossModel && (unit.ShouldBeAssigned() || pollPublic) {
 			address, err := fetchAddr(unit.PublicAddress)
 			if err != nil {
 				logger.Warningf(
@@ -647,7 +645,7 @@ func NetworksForRelation(
 					unit.Name(), rel,
 				)
 			} else if address.Value != "" {
-				ingress = append(ingress, address.Value)
+				ingress = append(ingress, address)
 			}
 			if len(ingress) == 0 {
 				if err := fallbackIngressToPrivateAddr(); err != nil {
@@ -656,6 +654,7 @@ func NetworksForRelation(
 			}
 		}
 	}
+
 	if len(ingress) == 0 {
 		if unit.ShouldBeAssigned() {
 			// We don't yet have an ingress address, so pick one from the space to
@@ -671,29 +670,35 @@ func NetworksForRelation(
 			networkInfos := machine.GetNetworkInfoForSpaces(set.NewStrings(boundSpace))
 			// The binding address information based on link layer devices.
 			for _, nwInfo := range networkInfos[boundSpace].NetworkInfos {
+				// We need to construct sortable addresses from link-layer
+				// devices, which unlike machine addresses do not have this
+				// information. We can at least ensure that fan addresses will
+				// be sorted after other addresses.
+				scope := corenetwork.ScopeCloudLocal
+				if strings.HasPrefix(nwInfo.InterfaceName, "fan-") {
+					scope = corenetwork.ScopeFanLocal
+				}
+
 				for _, addr := range nwInfo.Addresses {
-					ingress = append(ingress, addr.Address)
+					ingress = append(ingress, corenetwork.NewScopedSpaceAddress(addr.Address, scope))
 				}
 			}
 		} else {
 			// Be be consistent with IAAS behaviour above, we'll return all addresses.
-			addr, err := unit.AllAddresses()
+			addrs, err := unit.AllAddresses()
 			if err != nil {
-				logger.Warningf(
-					"no service address for unit %q in relation %q",
-					unit.Name(), rel)
+				logger.Warningf("no service address for unit %q in relation %q", unit.Name(), rel)
 			} else {
-				corenetwork.SortAddresses(addr)
-				for _, a := range addr {
-					ingress = append(ingress, a.Value)
-				}
+				ingress = append(ingress, addrs...)
 			}
 		}
 	}
 
+	corenetwork.SortAddresses(ingress)
+
 	// If no egress subnets defined, We default to the ingress address.
 	if len(egress) == 0 && len(ingress) > 0 {
-		egress, err = network.FormatAsCIDR([]string{ingress[0]})
+		egress, err = network.FormatAsCIDR([]string{ingress[0].Value})
 		if err != nil {
 			return "", nil, nil, errors.Trace(err)
 		}

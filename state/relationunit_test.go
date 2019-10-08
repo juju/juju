@@ -880,7 +880,8 @@ func (s *RelationUnitSuite) TestNetworksForRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, "")
-	c.Assert(ingress, gc.DeepEquals, []string{"1.2.3.4"})
+	c.Assert(ingress, gc.DeepEquals,
+		network.SpaceAddresses{network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal)})
 	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
 }
 
@@ -961,7 +962,8 @@ func (s *RelationUnitSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, "space-3")
-	c.Assert(ingress, gc.DeepEquals, []string{"3.2.3.4"})
+	c.Assert(ingress, gc.DeepEquals,
+		network.SpaceAddresses{network.NewScopedSpaceAddress("3.2.3.4", network.ScopeCloudLocal)})
 	c.Assert(egress, gc.DeepEquals, []string{"3.2.3.4/32"})
 }
 
@@ -984,7 +986,8 @@ func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, "")
-	c.Assert(ingress, gc.DeepEquals, []string{"4.3.2.1"})
+	c.Assert(ingress, gc.DeepEquals,
+		network.SpaceAddresses{network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic)})
 	c.Assert(egress, gc.DeepEquals, []string{"4.3.2.1/32"})
 }
 
@@ -1006,7 +1009,8 @@ func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c 
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, "")
-	c.Assert(ingress, gc.DeepEquals, []string{"1.2.3.4"})
+	c.Assert(ingress, gc.DeepEquals,
+		network.SpaceAddresses{network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal)})
 	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
 }
 
@@ -1075,7 +1079,8 @@ func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationDelayedPublicAd
 	c.Assert(funcErr, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, "")
-	c.Assert(ingress, gc.DeepEquals, []string{"4.3.2.1"})
+	c.Assert(ingress, gc.DeepEquals,
+		network.SpaceAddresses{network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic)})
 	c.Assert(egress, gc.DeepEquals, []string{"4.3.2.1/32"})
 }
 
@@ -1108,7 +1113,8 @@ func (s *RelationUnitSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, "")
-	c.Assert(ingress, gc.DeepEquals, []string{"1.2.3.4"})
+	c.Assert(ingress, gc.DeepEquals,
+		network.SpaceAddresses{network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal)})
 	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
 }
 
