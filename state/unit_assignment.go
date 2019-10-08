@@ -4,7 +4,7 @@
 package state
 
 // assignUnitDoc is a document that temporarily stores unit assignment
-// information created during srevice creation until the unitassigner worker can
+// information created during service creation until the unitassigner worker can
 // come along and use it.
 type assignUnitDoc struct {
 	// DocId is the unique id of the document, which is also the unit id of the
