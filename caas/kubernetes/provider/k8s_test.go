@@ -502,36 +502,6 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrap(c *gc.C) {
 	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-ctrl-1")
 }
 
-func (s *K8sBrokerSuite) TestPrepareForBootstrapCaps(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	// Ensure the broker is configured with operator storage.
-	s.setupOperatorStorageConfig(c)
-
-	sc := &k8sstorage.StorageClass{
-		ObjectMeta: v1.ObjectMeta{
-			Name: "some-storage",
-		},
-	}
-
-	gomock.InOrder(
-		s.mockNamespaces.EXPECT().Get("controller-ctrl-region-1", v1.GetOptions{IncludeUninitialized: true}).Times(1).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockNamespaces.EXPECT().List(v1.ListOptions{IncludeUninitialized: true}).Times(1).
-			Return(&core.NamespaceList{Items: []core.Namespace{}}, nil),
-		s.mockStorageClass.EXPECT().Get("controller-ctrl-region-1-some-storage", v1.GetOptions{}).Times(1).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockStorageClass.EXPECT().Get("some-storage", v1.GetOptions{}).Times(1).
-			Return(sc, nil),
-	)
-	ctx := envtesting.BootstrapContext(c)
-	c.Assert(
-		s.broker.PrepareForBootstrap(ctx, "ctrl-REGION-1"), jc.ErrorIsNil,
-	)
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-ctrl-region-1")
-}
-
 func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistNamespaceError(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
@@ -571,22 +541,6 @@ func (s *K8sBrokerSuite) TestGetNamespace(c *gc.C) {
 	defer ctrl.Finish()
 
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}}
-	s.ensureJujuNamespaceAnnotations(false, ns)
-	gomock.InOrder(
-		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
-			Return(ns, nil),
-	)
-
-	out, err := s.broker.GetNamespace("test")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, jc.DeepEquals, ns)
-}
-
-func (s *K8sBrokerSuite) TestGetNamespaceCaps(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "TEST"}}
 	s.ensureJujuNamespaceAnnotations(false, ns)
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
