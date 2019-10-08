@@ -498,6 +498,73 @@ func splitApplicationAndCharmConfigFromYAML(modelType state.ModelType, inYaml, a
 	return appConfigAttrs, string(charmConfig), nil
 }
 
+func caasPrecheck(
+	ch Charm,
+	model Model,
+	args params.ApplicationDeploy,
+	storagePoolManager poolmanager.PoolManager,
+	registry storage.ProviderRegistry,
+	caasBroker caasBrokerInterface,
+) error {
+	if len(args.AttachStorage) > 0 {
+		return errors.Errorf(
+			"AttachStorage may not be specified for CAAS models",
+		)
+	}
+	if len(args.Placement) > 1 {
+		return errors.Errorf(
+			"only 1 placement directive is supported for CAAS models, got %d",
+			len(args.Placement),
+		)
+	}
+
+	cfg, err := model.ModelConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	storageClassName, _ := cfg.AllAttrs()[k8s.OperatorStorageKey].(string)
+	if storageClassName == "" {
+		return errors.New(
+			"deploying a Kubernetes application requires a suitable storage class.\n" +
+				"None have been configured. Set the operator-storage model config to " +
+				"specify which storage class should be used to allocate operator storage.\n" +
+				"See https://discourse.jujucharms.com/t/getting-started/152.",
+		)
+	}
+	sp, err := caasoperatorprovisioner.CharmStorageParams("", storageClassName, cfg, "", storagePoolManager, registry)
+	if err != nil {
+		return errors.Annotatef(err, "getting operator storage params for %q", args.ApplicationName)
+	}
+	if sp.Provider != string(k8s.K8s_ProviderType) {
+		poolName := cfg.AllAttrs()[k8s.OperatorStorageKey]
+		return errors.Errorf(
+			"the %q storage pool requires a provider type of %q, not %q", poolName, k8s.K8s_ProviderType, sp.Provider)
+	}
+	if err := caasBroker.ValidateStorageClass(sp.Attributes); err != nil {
+		return errors.Trace(err)
+	}
+
+	workloadStorageClass, _ := cfg.AllAttrs()[k8s.WorkloadStorageKey].(string)
+	for storageName, cons := range args.Storage {
+		if cons.Pool == "" && workloadStorageClass == "" {
+			return errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageName)
+		}
+		_, err := caasoperatorprovisioner.CharmStorageParams("", workloadStorageClass, cfg, cons.Pool, storagePoolManager, registry)
+		if err != nil {
+			return errors.Annotatef(err, "getting workload storage params for %q", args.ApplicationName)
+		}
+	}
+
+	caasVersion, err := caasBroker.Version()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := checkCAASMinVersion(ch, caasVersion); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // deployApplication fetches the charm from the charm store and deploys it.
 // The logic has been factored out into a common function which is called by
 // both the legacy API on the client facade, as well as the new application facade.
@@ -519,66 +586,6 @@ func deployApplication(
 		return errors.Errorf("charm url must include revision")
 	}
 
-	modelType := model.Type()
-	var caasVersion *version.Number
-	if modelType != state.ModelTypeIAAS {
-		if len(args.AttachStorage) > 0 {
-			return errors.Errorf(
-				"AttachStorage may not be specified for %s models",
-				modelType,
-			)
-		}
-		if len(args.Placement) > 1 {
-			return errors.Errorf(
-				"only 1 placement directive is supported for %s models, got %d",
-				modelType,
-				len(args.Placement),
-			)
-		}
-
-		cfg, err := model.ModelConfig()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		storageClassName, _ := cfg.AllAttrs()[k8s.OperatorStorageKey].(string)
-		if storageClassName == "" {
-			return errors.New(
-				"deploying a Kubernetes application requires a suitable storage class.\n" +
-					"None have been configured. Set the operator-storage model config to " +
-					"specify which storage class should be used to allocate operator storage.\n" +
-					"See https://discourse.jujucharms.com/t/getting-started/152.",
-			)
-		}
-		sp, err := caasoperatorprovisioner.CharmStorageParams("", storageClassName, cfg, "", storagePoolManager, registry)
-		if err != nil {
-			return errors.Annotatef(err, "getting operator storage params for %q", args.ApplicationName)
-		}
-		if sp.Provider != string(k8s.K8s_ProviderType) {
-			poolName := cfg.AllAttrs()[k8s.OperatorStorageKey]
-			return errors.Errorf(
-				"the %q storage pool requires a provider type of %q, not %q", poolName, k8s.K8s_ProviderType, sp.Provider)
-		}
-		if err := caasBroker.ValidateStorageClass(sp.Attributes); err != nil {
-			return errors.Trace(err)
-		}
-
-		workloadStorageClass, _ := cfg.AllAttrs()[k8s.WorkloadStorageKey].(string)
-		for storageName, cons := range args.Storage {
-			if cons.Pool == "" && workloadStorageClass == "" {
-				return errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageName)
-			}
-			_, err := caasoperatorprovisioner.CharmStorageParams("", workloadStorageClass, cfg, cons.Pool, storagePoolManager, registry)
-			if err != nil {
-				return errors.Annotatef(err, "getting workload storage params for %q", args.ApplicationName)
-			}
-		}
-
-		caasVersion, err = caasBroker.Version()
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-
 	// This check is done early so that errors deeper in the call-stack do not
 	// leave an application deployment in an unrecoverable error state.
 	if err := checkMachinePlacement(backend, args); err != nil {
@@ -594,8 +601,12 @@ func deployApplication(
 	if err := checkJujuMinVersion(ch); err != nil {
 		return errors.Trace(err)
 	}
-	if err := checkCAASMinVersion(ch, caasVersion); err != nil {
-		return errors.Trace(err)
+
+	modelType := model.Type()
+	if modelType != state.ModelTypeIAAS {
+		if err := caasPrecheck(ch, model, args, storagePoolManager, registry, caasBroker); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	// Split out the app config from the charm config for any config
