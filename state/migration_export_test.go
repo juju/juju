@@ -832,6 +832,46 @@ func (s *MigrationExportSuite) TestEndpointBindings(c *gc.C) {
 	c.Assert(bindings["db"], gc.Equals, "one")
 }
 
+func (s *MigrationExportSuite) TestRemoteEntities(c *gc.C) {
+	err := s.State.RemoteEntities().ImportRemoteEntity(names.NewControllerTag("uuid-223412"), "aaa-bbb-ccc")
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	remoteEntities := model.RemoteEntities()
+	c.Assert(remoteEntities, gc.HasLen, 1)
+
+	entity := remoteEntities[0]
+	c.Assert(entity.ID(), gc.Equals, names.NewControllerTag("uuid-223412").String())
+	c.Assert(entity.Token(), gc.Equals, "aaa-bbb-ccc")
+	c.Assert(entity.Macaroon(), gc.Equals, "")
+}
+
+func (s *MigrationExportSuite) TestRelationNetworks(c *gc.C) {
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = state.NewRelationIngressNetworks(s.State).Save("wordpress:db mysql:server", false, []string{"192.168.1.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	relationNetwork := model.RelationNetworks()
+	c.Assert(relationNetwork, gc.HasLen, 1)
+
+	rin := relationNetwork[0]
+	c.Assert(rin.RelationKey(), gc.Equals, "wordpress:db mysql:server")
+	c.Assert(rin.CIDRS(), jc.DeepEquals, []string{"192.168.1.0/16"})
+}
+
 func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
 	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))

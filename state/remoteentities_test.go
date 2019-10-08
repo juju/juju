@@ -27,6 +27,19 @@ func (s *RemoteEntitiesSuite) assertExportLocalEntity(c *gc.C, entity names.Tag)
 	return token
 }
 
+func (s *RemoteEntitiesSuite) TestAllRemoteEntities(c *gc.C) {
+	entity := names.NewApplicationTag("mysql")
+	token := s.assertExportLocalEntity(c, entity)
+
+	expected, err := s.State.AllRemoteEntities()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(expected, gc.HasLen, 1)
+
+	remoteEntity := expected[0]
+	c.Assert(entity.String(), gc.Equals, remoteEntity.ID())
+	c.Assert(token, gc.Equals, remoteEntity.Token())
+}
+
 func (s *RemoteEntitiesSuite) TestExportLocalEntity(c *gc.C) {
 	entity := names.NewApplicationTag("mysql")
 	token := s.assertExportLocalEntity(c, entity)
