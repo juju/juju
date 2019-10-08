@@ -349,8 +349,8 @@ script
 {{if .Logfile}}
   # Ensure log files are properly protected
   touch {{.Logfile}}
-  chown syslog:syslog {{.Logfile}}
-  chmod 0600 {{.Logfile}}
+  chown syslog:adm {{.Logfile}}
+  chmod 0640 {{.Logfile}}
 {{end}}
   exec {{.ExecStart}}{{if .Logfile}} >> {{.Logfile}} 2>&1{{end}}
 end script

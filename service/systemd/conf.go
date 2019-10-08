@@ -50,7 +50,7 @@ func syslogUserGroup() (string, string) {
 	case os.OpenSUSE:
 		return "root", "root"
 	default:
-		return "syslog", "syslog"
+		return "syslog", "adm"
 	}
 }
 
@@ -69,7 +69,7 @@ func normalize(name string, conf common.Conf, scriptPath string, renderer confRe
 		// is syslog.
 		user, group := syslogUserGroup()
 		cmds = append(cmds, renderer.Chown(filename, user, group)...)
-		cmds = append(cmds, renderer.Chmod(filename, 0600)...)
+		cmds = append(cmds, renderer.Chmod(filename, 0640)...)
 		cmds = append(cmds, renderer.RedirectOutput(filename)...)
 		cmds = append(cmds, renderer.RedirectFD("out", "err")...)
 		cmds = append(cmds,

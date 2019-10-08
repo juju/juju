@@ -3,6 +3,10 @@
 
 package upgrades
 
+import (
+	"github.com/juju/juju/service"
+)
+
 // stateStepsFor27 returns upgrade steps for Juju 2.7.0.
 func stateStepsFor27() []Step {
 	return []Step{
@@ -54,6 +58,23 @@ func stateStepsFor27() []Step {
 			run: func(context Context) error {
 				return context.State().EnsureRelationApplicationSettings()
 			},
+		}, &upgradeStep{
+			description: "add fields to controller config for model logfiles",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().AddModelLogfileControllerConfig()
+			},
+		},
+	}
+}
+
+// stepsFor24 returns upgrade steps for Juju 2.4.
+func stepsFor27() []Step {
+	return []Step{
+		&upgradeStep{
+			description: "change owner of unit and machine logs to adm",
+			targets:     []Target{AllMachines},
+			run:         resetLogPermissions,
 		},
 		&upgradeStep{
 			description: "ensure stored addresses refer to space by ID, and remove old space name/provider ID",
@@ -63,4 +84,16 @@ func stateStepsFor27() []Step {
 			},
 		},
 	}
+}
+
+// This adds upgrade steps, we just rewrite the default values which are set before.
+// With this we can make sure that things are changed in one default place
+func resetLogPermissions(context Context) error {
+	sysdManager := service.NewServiceManagerWithDefaults()
+	err := sysdManager.WriteServiceFiles()
+	if err != nil {
+		logger.Errorf("unsuccessful writing the service files in /lib/systemd/system path")
+		return err
+	}
+	return nil
 }
