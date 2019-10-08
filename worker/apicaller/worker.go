@@ -5,14 +5,15 @@ package apicaller
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
 )
 
-var logger = loggo.GetLogger("juju.worker.apicaller")
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead use the one passed as manifold config.
+var logger interface{}
 
 // newAPIConnWorker returns a worker that exists for as long as the associated
 // connection, and provides access to a base.APICaller via its manifold's Output

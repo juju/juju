@@ -82,7 +82,7 @@ func removeEntities(ctx *context, tags []names.Tag) error {
 	if len(tags) == 0 {
 		return nil
 	}
-	logger.Debugf("removing entities: %v", tags)
+	ctx.config.Logger.Debugf("removing entities: %v", tags)
 	errorResults, err := ctx.config.Life.Remove(tags)
 	if err != nil {
 		return errors.Annotate(err, "removing storage entities")
@@ -121,7 +121,7 @@ func removeAttachments(ctx *context, ids []params.MachineStorageId) error {
 func setStatus(ctx *context, statuses []params.EntityStatusArgs) {
 	if len(statuses) > 0 {
 		if err := ctx.config.Status.SetStatus(statuses); err != nil {
-			logger.Errorf("failed to set status: %v", err)
+			ctx.config.Logger.Errorf("failed to set status: %v", err)
 		}
 	}
 }

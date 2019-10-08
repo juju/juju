@@ -145,6 +145,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APIOpen:       api.Open,
 			NewConnection: apicaller.OnlyConnect,
 			Filter:        apiConnectFilter,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.apicaller"),
 		}),
 
 		// The logging config updater listens for logging config updates
@@ -315,6 +316,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		environTrackerName: ifCredentialValid(ifResponsible(environ.Manifold(environ.ManifoldConfig{
 			APICallerName:  apiCallerName,
 			NewEnvironFunc: config.NewEnvironFunc,
+			Logger:         config.LoggingContext.GetLogger("juju.worker.environ"),
 		}))),
 
 		// Everything else should be wrapped in ifResponsible,
@@ -363,7 +365,8 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}))),
 		storageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 			APICallerName:                apiCallerName,
-			ClockName:                    clockName,
+			Clock:                        config.Clock,
+			Logger:                       config.LoggingContext.GetLogger("juju.worker.storageprovisioner"),
 			StorageRegistryName:          environTrackerName,
 			Model:                        modelTag,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
@@ -491,7 +494,8 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 		caasStorageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 			APICallerName:                apiCallerName,
-			ClockName:                    clockName,
+			Clock:                        config.Clock,
+			Logger:                       config.LoggingContext.GetLogger("juju.worker.storageprovisioner"),
 			StorageRegistryName:          caasBrokerTrackerName,
 			Model:                        modelTag,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,

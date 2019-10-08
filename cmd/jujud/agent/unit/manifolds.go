@@ -152,6 +152,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APIOpen:              api.Open,
 			NewConnection:        apicaller.ScaryConnect,
 			Filter:               connectFilter,
+			Logger:               loggo.GetLogger("juju.worker.apicaller"),
 		}),
 
 		// The log sender is a leaf worker that sends log messages to some

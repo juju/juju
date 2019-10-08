@@ -64,3 +64,9 @@ const MultiCloud = "multi-cloud"
 
 // JujuV3 indicates that new CLI commands and behaviour for v3 should be enabled.
 const JujuV3 = "juju-v3"
+
+// CMRMigrations indicates that cross model relations (CMR) can migrate
+// information from one controller to another controller.
+// This feature is disabled during import and export of information, turning
+// this on will allow that to happen.
+const CMRMigrations = "cmr-migrations"

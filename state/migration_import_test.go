@@ -25,7 +25,10 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -962,6 +965,51 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 	c.Assert(newCons.String(), gc.Equals, cons.String())
 }
 
+func (s *MigrationImportSuite) TestRemoteEntities(c *gc.C) {
+	srcRemoteEntities := s.State.RemoteEntities()
+	err := srcRemoteEntities.ImportRemoteEntity(names.NewControllerTag("uuid-3"), "xxx-aaa-bbb")
+	c.Assert(err, jc.ErrorIsNil)
+	err = srcRemoteEntities.ImportRemoteEntity(names.NewControllerTag("uuid-4"), "ccc-ddd-zzz")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c, s.State)
+
+	newRemoteEntities := newSt.RemoteEntities()
+	token, err := newRemoteEntities.GetToken(names.NewControllerTag("uuid-3"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(token, gc.Equals, "xxx-aaa-bbb")
+
+	token, err = newRemoteEntities.GetToken(names.NewControllerTag("uuid-4"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(token, gc.Equals, "ccc-ddd-zzz")
+}
+
+func (s *MigrationImportSuite) TestRelationNetworks(c *gc.C) {
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	srcRelationNetworks := state.NewRelationIngressNetworks(s.State)
+	_, err = srcRelationNetworks.Save("wordpress:db mysql:server", false, []string{"192.168.1.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c, s.State)
+
+	newRelationNetworks := state.NewRelationNetworks(newSt)
+	networks, err := newRelationNetworks.AllRelationNetworks()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(networks, gc.HasLen, 1)
+
+	entity0 := networks[0]
+	c.Assert(entity0.RelationKey(), gc.Equals, "wordpress:db mysql:server")
+	c.Assert(entity0.CIDRS(), gc.DeepEquals, []string{"192.168.1.0/16"})
+}
+
 func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
 	state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
@@ -1891,7 +1939,9 @@ func (s *MigrationImportSuite) TestPayloads(c *gc.C) {
 	c.Check(testPayload.Machine, gc.Equals, machineID)
 }
 
-func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
+// TODO (stickupkid): Remove this once we remove the CMRMigrations feature
+// flag.
+func (s *MigrationImportSuite) TestRemoteApplicationsWithoutFeatureFlag(c *gc.C) {
 	// For now we want to prevent importing models that have remote
 	// applications - cross-model relations don't support relations
 	// with the models in different controllers.
@@ -1939,6 +1989,116 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 		defer newSt.Close()
 	}
 	c.Assert(err, gc.ErrorMatches, "can't import models with remote applications")
+}
+
+func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
+	s.SetFeatureFlags(feature.CMRMigrations)
+
+	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "gravy-rainbow",
+		URL:         "me/model.rainbow",
+		SourceModel: s.Model.ModelTag(),
+		Token:       "charisma",
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "mysql-root",
+			Name:      "db-admin",
+			Limit:     5,
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "logging",
+			Name:      "logging",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+		Spaces: []*environs.ProviderSpaceInfo{{
+			SpaceInfo: corenetwork.SpaceInfo{
+				Name:       "unicorns",
+				ProviderId: corenetwork.Id("space-provider-id"),
+				Subnets: []corenetwork.SubnetInfo{{
+					CIDR:              "10.0.1.0/24",
+					ProviderId:        corenetwork.Id("subnet-provider-id"),
+					AvailabilityZones: []string{"eu-west-1"},
+				}},
+			},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = remoteApp.SetStatus(status.StatusInfo{Status: status.Active})
+	c.Assert(err, jc.ErrorIsNil)
+
+	out, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid := utils.MustNewUUID().String()
+	in := newModel(out, uuid, "new")
+
+	_, newSt, err := s.Controller.Import(in)
+	if err == nil {
+		defer newSt.Close()
+	}
+	c.Assert(err, jc.ErrorIsNil)
+	remoteApplications, err := newSt.AllRemoteApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(remoteApplications, gc.HasLen, 1)
+
+	remoteApplication := remoteApplications[0]
+	c.Assert(remoteApplication.Name(), gc.Equals, "gravy-rainbow")
+
+	url, _ := remoteApplication.URL()
+	c.Assert(url, gc.Equals, "me/model.rainbow")
+	c.Assert(remoteApplication.SourceModel(), gc.Equals, s.Model.ModelTag())
+
+	token, err := remoteApplication.Token()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(token, gc.Equals, "charisma")
+
+	s.assertRemoteApplicationEndpoints(c, remoteApp, remoteApplication)
+	s.assertRemoteApplicationSpaces(c, remoteApp, remoteApplication)
+}
+
+func (s *MigrationImportSuite) assertRemoteApplicationEndpoints(c *gc.C, expected, received *state.RemoteApplication) {
+	receivedEndpoints, err := received.Endpoints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(receivedEndpoints, gc.HasLen, 3)
+
+	expectedEndpoints, err := expected.Endpoints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(expectedEndpoints, gc.HasLen, 3)
+
+	for k, expectedEndpoint := range expectedEndpoints {
+		receivedEndpoint := receivedEndpoints[k]
+		c.Assert(receivedEndpoint.Interface, gc.Equals, expectedEndpoint.Interface)
+		c.Assert(receivedEndpoint.Name, gc.Equals, expectedEndpoint.Name)
+	}
+}
+
+func (s *MigrationImportSuite) assertRemoteApplicationSpaces(c *gc.C, expected, received *state.RemoteApplication) {
+	receivedSpaces := received.Spaces()
+	c.Assert(receivedSpaces, gc.HasLen, 1)
+
+	expectedSpaces := expected.Spaces()
+	c.Assert(expectedSpaces, gc.HasLen, 1)
+	for k, expectedSpace := range expectedSpaces {
+		receivedSpace := receivedSpaces[k]
+		c.Assert(receivedSpace.Name, gc.Equals, expectedSpace.Name)
+		c.Assert(receivedSpace.ProviderId, gc.Equals, expectedSpace.ProviderId)
+
+		c.Assert(receivedSpace.Subnets, gc.HasLen, 1)
+		receivedSubnet := receivedSpace.Subnets[0]
+
+		c.Assert(expectedSpace.Subnets, gc.HasLen, 1)
+		expectedSubnet := expectedSpace.Subnets[0]
+
+		c.Assert(receivedSubnet.CIDR, gc.Equals, expectedSubnet.CIDR)
+		c.Assert(receivedSubnet.ProviderId, gc.Equals, expectedSubnet.ProviderId)
+		c.Assert(receivedSubnet.AvailabilityZones, gc.DeepEquals, expectedSubnet.AvailabilityZones)
+	}
 }
 
 func (s *MigrationImportSuite) TestApplicationsWithNilConfigValues(c *gc.C) {

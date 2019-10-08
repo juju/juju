@@ -34,7 +34,7 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 	var filesystems []storage.Filesystem
 	var statuses []params.EntityStatusArgs
 	for sourceName, filesystemParams := range paramsBySource {
-		logger.Debugf("creating filesystems: %v", filesystemParams)
+		ctx.config.Logger.Debugf("creating filesystems: %v", filesystemParams)
 		filesystemSource := filesystemSources[sourceName]
 		validFilesystemParams, validationErrors := validateFilesystemParams(
 			filesystemSource, filesystemParams,
@@ -48,7 +48,7 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 				Status: status.Error.String(),
 				Info:   err.Error(),
 			})
-			logger.Debugf(
+			ctx.config.Logger.Debugf(
 				"failed to validate parameters for %s: %v",
 				names.ReadableString(filesystemParams[i].Tag), err,
 			)
@@ -77,7 +77,7 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 				// status to "error" for permanent errors.
 				entityStatus.Status = status.Pending.String()
 				entityStatus.Info = result.Error.Error()
-				logger.Debugf(
+				ctx.config.Logger.Debugf(
 					"failed to create %s: %v",
 					names.ReadableString(filesystemParams[i].Tag),
 					result.Error,
@@ -102,7 +102,7 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 	}
 	for i, result := range errorResults {
 		if result.Error != nil {
-			logger.Errorf(
+			ctx.config.Logger.Errorf(
 				"publishing filesystem %s to state: %v",
 				filesystems[i].Tag.Id(),
 				result.Error,
@@ -139,7 +139,7 @@ func attachFilesystems(ctx *context, ops map[params.MachineStorageId]*attachFile
 	var filesystemAttachments []storage.FilesystemAttachment
 	var statuses []params.EntityStatusArgs
 	for sourceName, filesystemAttachmentParams := range paramsBySource {
-		logger.Debugf("attaching filesystems: %+v", filesystemAttachmentParams)
+		ctx.config.Logger.Debugf("attaching filesystems: %+v", filesystemAttachmentParams)
 		filesystemSource := filesystemSources[sourceName]
 		results, err := filesystemSource.AttachFilesystems(ctx.config.CloudCallContext, filesystemAttachmentParams)
 		if err != nil {
@@ -166,7 +166,7 @@ func attachFilesystems(ctx *context, ops map[params.MachineStorageId]*attachFile
 				// set the status to "error" for permanent errors.
 				entityStatus.Status = status.Attaching.String()
 				entityStatus.Info = result.Error.Error()
-				logger.Debugf(
+				ctx.config.Logger.Debugf(
 					"failed to attach %s to %s: %v",
 					names.ReadableString(p.Filesystem),
 					names.ReadableString(p.Machine),
@@ -241,7 +241,7 @@ func removeFilesystems(ctx *context, ops map[names.FilesystemTag]*removeFilesyst
 		return nil
 	}
 	for sourceName, filesystemParams := range paramsBySource {
-		logger.Debugf("removing filesystems from %q: %v", sourceName, filesystemParams)
+		ctx.config.Logger.Debugf("removing filesystems from %q: %v", sourceName, filesystemParams)
 		filesystemSource := filesystemSources[sourceName]
 		removeTags := make([]names.FilesystemTag, len(filesystemParams))
 		removeParams := make([]params.RemoveFilesystemParams, len(filesystemParams))
@@ -306,7 +306,7 @@ func detachFilesystems(ctx *context, ops map[params.MachineStorageId]*detachFile
 	var statuses []params.EntityStatusArgs
 	var remove []params.MachineStorageId
 	for sourceName, filesystemAttachmentParams := range paramsBySource {
-		logger.Debugf("detaching filesystems: %+v", filesystemAttachmentParams)
+		ctx.config.Logger.Debugf("detaching filesystems: %+v", filesystemAttachmentParams)
 		filesystemSource, ok := filesystemSources[sourceName]
 		if !ok && ctx.isApplicationKind() {
 			continue
@@ -334,7 +334,7 @@ func detachFilesystems(ctx *context, ops map[params.MachineStorageId]*detachFile
 				reschedule = append(reschedule, ops[id])
 				entityStatus.Status = status.Detaching.String()
 				entityStatus.Info = err.Error()
-				logger.Debugf(
+				ctx.config.Logger.Debugf(
 					"failed to detach %s from %s: %v",
 					names.ReadableString(p.Filesystem),
 					names.ReadableString(p.Machine),

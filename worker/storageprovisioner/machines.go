@@ -21,7 +21,7 @@ func watchMachine(ctx *context, tag names.MachineTag) {
 	if ok {
 		return
 	}
-	w, err := newMachineWatcher(ctx.config.Machines, tag, ctx.machineChanges)
+	w, err := newMachineWatcher(ctx.config.Machines, tag, ctx.machineChanges, ctx.config.Logger)
 	if err != nil {
 		ctx.kill(errors.Trace(err))
 	} else if err := ctx.addWorker(w); err != nil {
@@ -94,17 +94,20 @@ type machineWatcher struct {
 	tag        names.MachineTag
 	instanceId instance.Id
 	out        chan<- names.MachineTag
+	logger     Logger
 }
 
 func newMachineWatcher(
 	accessor MachineAccessor,
 	tag names.MachineTag,
 	out chan<- names.MachineTag,
+	logger Logger,
 ) (*machineWatcher, error) {
 	w := &machineWatcher{
 		accessor: accessor,
 		tag:      tag,
 		out:      out,
+		logger:   logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -124,8 +127,8 @@ func (mw *machineWatcher) loop() error {
 	if err := mw.catacomb.Add(w); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("watching machine %s", mw.tag.Id())
-	defer logger.Debugf("finished watching machine %s", mw.tag.Id())
+	mw.logger.Debugf("watching machine %s", mw.tag.Id())
+	defer mw.logger.Debugf("finished watching machine %s", mw.tag.Id())
 	var out chan<- names.MachineTag
 	for {
 		select {

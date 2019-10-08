@@ -24,11 +24,12 @@ import (
 type linkLayerDevicesStateSuite struct {
 	ConnSuite
 
-	machine          *state.Machine
-	containerMachine *state.Machine
-
+	machine           *state.Machine
+	containerMachine  *state.Machine
 	otherState        *state.State
 	otherStateMachine *state.Machine
+
+	spaces map[string]corenetwork.SpaceInfo
 
 	bridgePolicy *containerizer.BridgePolicy
 }
@@ -45,6 +46,11 @@ func (s *linkLayerDevicesStateSuite) SetUpTest(c *gc.C) {
 	s.otherState = s.NewStateForModelNamed(c, "other-model")
 	s.otherStateMachine, err = s.otherState.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.spaces = map[string]corenetwork.SpaceInfo{
+		corenetwork.DefaultSpaceName: {ID: "0", Name: corenetwork.DefaultSpaceName},
+	}
+
 	s.bridgePolicy = &containerizer.BridgePolicy{}
 }
 
@@ -147,12 +153,12 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWhenMachineNotAliveO
 		Name: "eth0",
 		Type: corenetwork.EthernetDevice,
 	}
-	s.assertSetLinkLayerDevicesFailsForArgs(c, args, `machine "0" not alive`)
+	_ = s.assertSetLinkLayerDevicesFailsForArgs(c, args, `machine "0" not alive`)
 
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertSetLinkLayerDevicesFailsForArgs(c, args, `machine "0" not alive`)
+	_ = s.assertSetLinkLayerDevicesFailsForArgs(c, args, `machine "0" not alive`)
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithMissingParentSameMachine(c *gc.C) {
@@ -271,7 +277,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesFailsForProviderIDCh
 	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
 
 	args.ProviderID = "43"
-	s.assertSetLinkLayerDevicesFailsForArgs(c, args, `cannot change ProviderID of link layer device "foo"`)
+	_ = s.assertSetLinkLayerDevicesFailsForArgs(c, args, `cannot change ProviderID of link layer device "foo"`)
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesUpdateWithDuplicateProviderIDFails(c *gc.C) {
@@ -638,6 +644,8 @@ func (s *linkLayerDevicesStateSuite) createSpaceAndSubnet(c *gc.C, spaceName, CI
 func (s *linkLayerDevicesStateSuite) createSpaceAndSubnetWithProviderID(c *gc.C, spaceName, CIDR, providerSubnetID string) {
 	space, err := s.State.AddSpace(spaceName, corenetwork.Id(spaceName), nil, true)
 	c.Assert(err, jc.ErrorIsNil)
+	s.spaces[spaceName] = space.NetworkSpace()
+
 	_, err = s.State.AddSubnet(corenetwork.SubnetInfo{
 		CIDR:       CIDR,
 		SpaceID:    space.Id(),
@@ -750,7 +758,7 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpaces(c *gc.C) {
 	s.setupTwoSpaces(c)
 	// Is put into the 'default' space
 	s.createNICAndBridgeWithIP(c, s.machine, "eth0", "br-eth0", "10.0.0.20/24")
-	res, err := s.machine.LinkLayerDevicesForSpaces([]string{"default"})
+	res, err := s.machine.LinkLayerDevicesForSpaces(corenetwork.SpaceInfos{s.spaces["default"]})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 1)
 	devices, ok := res["default"]
@@ -769,10 +777,12 @@ func (s *linkLayerDevicesStateSuite) TestGetNetworkInfoForSpaces(c *gc.C) {
 	s.createNICAndBridgeWithIP(c, s.machine, "eth0", "br-eth0", "10.0.0.20/24")
 	s.createNICWithIP(c, s.machine, "eth1", "10.10.0.20/24")
 	s.createNICWithIP(c, s.machine, "eth2", "10.20.0.20/24")
-	s.machine.SetMachineAddresses(corenetwork.NewScopedSpaceAddress("10.0.0.20", corenetwork.ScopePublic),
+
+	err := s.machine.SetMachineAddresses(corenetwork.NewScopedSpaceAddress("10.0.0.20", corenetwork.ScopePublic),
 		corenetwork.NewScopedSpaceAddress("10.10.0.20", corenetwork.ScopePublic),
 		corenetwork.NewScopedSpaceAddress("10.10.0.30", corenetwork.ScopePublic),
 		corenetwork.NewScopedSpaceAddress("10.20.0.20", corenetwork.ScopeCloudLocal))
+	c.Assert(err, jc.ErrorIsNil)
 
 	res := s.machine.GetNetworkInfoForSpaces(set.NewStrings("default", "dmz", "doesnotexists", ""))
 	c.Check(res, gc.HasLen, 4)
@@ -814,14 +824,14 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesNoSuchSpace(c 
 	s.setupTwoSpaces(c)
 	// Is put into the 'default' space
 	s.createNICAndBridgeWithIP(c, s.machine, "eth0", "br-eth0", "10.0.0.20/24")
-	res, err := s.machine.LinkLayerDevicesForSpaces([]string{"dmz"})
+	res, err := s.machine.LinkLayerDevicesForSpaces(corenetwork.SpaceInfos{s.spaces["dmz"]})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 0)
 }
 
 func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesNoBridge(c *gc.C) {
 	s.setupMachineWithOneNIC(c)
-	res, err := s.machine.LinkLayerDevicesForSpaces([]string{"default"})
+	res, err := s.machine.LinkLayerDevicesForSpaces(corenetwork.SpaceInfos{s.spaces["default"]})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 1)
 	devices, ok := res["default"]
@@ -837,7 +847,7 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesMultipleSpaces
 	s.createNICAndBridgeWithIP(c, s.machine, "eth0", "br-eth0", "10.0.0.20/24")
 	// Now add a NIC in the dmz space, but without a bridge
 	s.createNICWithIP(c, s.machine, "eth1", "10.10.0.20/24")
-	res, err := s.machine.LinkLayerDevicesForSpaces([]string{"default", "dmz"})
+	res, err := s.machine.LinkLayerDevicesForSpaces(corenetwork.SpaceInfos{s.spaces["default"], s.spaces["dmz"]})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 2)
 	defaultDevices, ok := res["default"]
@@ -860,7 +870,7 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesWithExtraAddre
 	// don't know what they are.
 	s.createNICWithIP(c, s.machine, "lo", "127.0.0.1/24")
 	s.createNICWithIP(c, s.machine, "ens5", "172.99.0.24/24")
-	res, err := s.machine.LinkLayerDevicesForSpaces([]string{"default"})
+	res, err := s.machine.LinkLayerDevicesForSpaces(corenetwork.SpaceInfos{s.spaces["default"]})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 1)
 	defaultDevices, ok := res["default"]
@@ -963,7 +973,7 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesSortOrder(c *g
 	}
 	err = s.machine.SetDevicesAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)
-	res, err := s.machine.LinkLayerDevicesForSpaces([]string{"default"})
+	res, err := s.machine.LinkLayerDevicesForSpaces(corenetwork.SpaceInfos{s.spaces["default"]})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 1)
 	defaultDevices, ok := res["default"]
@@ -983,7 +993,7 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesInUnknownSpace
 	s.setupTwoSpaces(c)
 	s.createNICWithIP(c, s.machine, "ens4", "172.99.0.24/24")
 	s.createNICWithIP(c, s.machine, "ens5", "192.168.10.12/24")
-	res, err := s.machine.LinkLayerDevicesForSpaces([]string{""})
+	res, err := s.machine.LinkLayerDevicesForSpaces(corenetwork.SpaceInfos{s.spaces[corenetwork.DefaultSpaceName]})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
 	devices, ok := res[""]
@@ -1005,14 +1015,18 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesWithUnknown(c 
 	s.createNICWithIP(c, s.machine, "ens5", "192.168.10.12/24")
 	// loopback device
 	s.createLoopbackNIC(c, s.machine)
-	res, err := s.machine.LinkLayerDevicesForSpaces([]string{"", "default"})
+
+	res, err := s.machine.LinkLayerDevicesForSpaces(
+		corenetwork.SpaceInfos{s.spaces[corenetwork.DefaultSpaceName], s.spaces["default"]})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 2)
+
 	devices, ok := res[""]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(devices, gc.HasLen, 1)
 	c.Check(devices[0].Name(), gc.Equals, "ens5")
 	c.Check(devices[0].Type(), gc.Equals, corenetwork.EthernetDevice)
+
 	devices, ok = res["default"]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(devices, gc.HasLen, 1)
@@ -1034,7 +1048,7 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesWithNoAddress(
 	c.Assert(err, jc.ErrorIsNil)
 	// unknown space
 	s.createNICWithIP(c, s.machine, "ens5", "192.168.10.12/24")
-	res, err := s.machine.LinkLayerDevicesForSpaces([]string{""})
+	res, err := s.machine.LinkLayerDevicesForSpaces(corenetwork.SpaceInfos{s.spaces[corenetwork.DefaultSpaceName]})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
 	devices, ok := res[""]
@@ -1056,7 +1070,7 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesUnknownIgnores
 	s.createNICWithIP(c, s.machine, "ens3", "10.99.0.10/24")
 	s.createNICAndBridgeWithIP(c, s.machine, "ens4", "br-ens4", "10.100.0.21/24")
 	s.createAllDefaultDevices(c, s.machine)
-	res, err := s.machine.LinkLayerDevicesForSpaces([]string{""})
+	res, err := s.machine.LinkLayerDevicesForSpaces(corenetwork.SpaceInfos{s.spaces[corenetwork.DefaultSpaceName]})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
 	devices, ok := res[""]
@@ -1435,22 +1449,24 @@ func (s *linkLayerDevicesStateSuite) TestSetDeviceAddresssesWithSubnetID(c *gc.C
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.machine.SetDevicesAddresses(
+
+	err = s.machine.SetDevicesAddresses(
 		state.LinkLayerDeviceAddress{
 			DeviceName:        "eth1",
 			ConfigMethod:      state.StaticAddress,
-			ProviderNetworkID: corenetwork.Id("vpc-abcd"),
-			ProviderSubnetID:  corenetwork.Id("prov-ffff"),
+			ProviderNetworkID: "vpc-abcd",
+			ProviderSubnetID:  "prov-ffff",
 			CIDRAddress:       "10.20.0.42/24",
 		},
 		state.LinkLayerDeviceAddress{
 			DeviceName:        "eth2",
 			ConfigMethod:      state.StaticAddress,
-			ProviderNetworkID: corenetwork.Id("vpc-abcd"),
-			ProviderSubnetID:  corenetwork.Id("prov-abcd"),
+			ProviderNetworkID: "vpc-abcd",
+			ProviderSubnetID:  "prov-abcd",
 			CIDRAddress:       "10.30.0.99/24",
 		},
 	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	res := s.machine.GetNetworkInfoForSpaces(set.NewStrings("private", "dmz"))
 	c.Check(res, gc.HasLen, 2)

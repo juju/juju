@@ -25,7 +25,7 @@ func volumesChanged(ctx *context, changes []string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("volumes alive: %v, dying: %v, dead: %v", alive, dying, dead)
+	ctx.config.Logger.Debugf("volumes alive: %v, dying: %v, dead: %v", alive, dying, dead)
 	if err := processDyingVolumes(ctx, dying); err != nil {
 		return errors.Annotate(err, "processing dying volumes")
 	}
@@ -61,7 +61,7 @@ func sortVolumeAttachmentPlans(ctx *context, ids []params.MachineStorageId) (
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}
-	logger.Debugf("Found plans: %v", plans)
+	ctx.config.Logger.Debugf("Found plans: %v", plans)
 	for _, plan := range plans {
 		switch plan.Result.Life {
 		case params.Alive:
@@ -76,13 +76,13 @@ func sortVolumeAttachmentPlans(ctx *context, ids []params.MachineStorageId) (
 }
 
 func volumeAttachmentPlansChanged(ctx *context, watcherIds []watcher.MachineStorageId) error {
-	logger.Debugf("Got machine storage ids: %v", watcherIds)
+	ctx.config.Logger.Debugf("Got machine storage ids: %v", watcherIds)
 	ids := copyMachineStorageIds(watcherIds)
 	alive, dying, dead, err := sortVolumeAttachmentPlans(ctx, ids)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("volume attachment plans alive: %v, dying: %v, dead: %v", alive, dying, dead)
+	ctx.config.Logger.Debugf("volume attachment plans alive: %v, dying: %v, dead: %v", alive, dying, dead)
 
 	if err := processAliveVolumePlans(ctx, alive); err != nil {
 		return err
@@ -178,11 +178,11 @@ func volumeAttachmentsChanged(ctx *context, watcherIds []watcher.MachineStorageI
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("volume attachments alive: %v, dying: %v, dead: %v", alive, dying, dead)
+	ctx.config.Logger.Debugf("volume attachments alive: %v, dying: %v, dead: %v", alive, dying, dead)
 	if len(dead) != 0 {
 		// We should not see dead volume attachments;
 		// attachments go directly from Dying to removed.
-		logger.Warningf("unexpected dead volume attachments: %v", dead)
+		ctx.config.Logger.Warningf("unexpected dead volume attachments: %v", dead)
 	}
 	if len(alive)+len(dying) == 0 {
 		return nil
@@ -244,7 +244,7 @@ func updatePendingVolume(ctx *context, params storage.VolumeParams) {
 		// NOTE(axw) this would only happen if the model is
 		// in an incoherent state; we should never have an
 		// alive, unprovisioned, and unattached volume.
-		logger.Warningf(
+		ctx.config.Logger.Warningf(
 			"%s is in an incoherent state, ignoring",
 			names.ReadableString(params.Tag),
 		)
@@ -304,7 +304,7 @@ func processDeadVolumes(ctx *context, tags []names.VolumeTag, volumeResults []pa
 	for i, result := range volumeResults {
 		tag := tags[i]
 		if result.Error == nil {
-			logger.Debugf("volume %s is provisioned, queuing for deprovisioning", tag.Id())
+			ctx.config.Logger.Debugf("volume %s is provisioned, queuing for deprovisioning", tag.Id())
 			volume, err := volumeFromParams(result.Result)
 			if err != nil {
 				return errors.Annotate(err, "getting volume info")
@@ -314,7 +314,7 @@ func processDeadVolumes(ctx *context, tags []names.VolumeTag, volumeResults []pa
 			continue
 		}
 		if params.IsCodeNotProvisioned(result.Error) {
-			logger.Debugf("volume %s is not provisioned, queuing for removal", tag.Id())
+			ctx.config.Logger.Debugf("volume %s is not provisioned, queuing for removal", tag.Id())
 			remove = append(remove, tag)
 			continue
 		}
@@ -391,7 +391,7 @@ func processAliveVolumes(ctx *context, tags []names.Tag, volumeResults []params.
 		volumeTag := tags[i].(names.VolumeTag)
 		if result.Error == nil {
 			// Volume is already provisioned: skip.
-			logger.Debugf("volume %q is already provisioned, nothing to do", tags[i].Id())
+			ctx.config.Logger.Debugf("volume %q is already provisioned, nothing to do", tags[i].Id())
 			volume, err := volumeFromParams(result.Result)
 			if err != nil {
 				return errors.Annotate(err, "getting volume info")
@@ -418,7 +418,7 @@ func processAliveVolumes(ctx *context, tags []names.Tag, volumeResults []params.
 	}
 	for _, params := range volumeParams {
 		if params.Attachment != nil && params.Attachment.Machine.Kind() != names.MachineTagKind {
-			logger.Debugf("not queuing volume for non-machine %v", params.Attachment.Machine)
+			ctx.config.Logger.Debugf("not queuing volume for non-machine %v", params.Attachment.Machine)
 			continue
 		}
 		updatePendingVolume(ctx, params)
@@ -447,7 +447,7 @@ func processAliveVolumeAttachments(
 				pending = append(pending, ids[i])
 				action = "will reattach"
 			}
-			logger.Debugf(
+			ctx.config.Logger.Debugf(
 				"%s is already attached to %s, %s",
 				ids[i].AttachmentTag, ids[i].MachineTag, action,
 			)
@@ -472,7 +472,7 @@ func processAliveVolumeAttachments(
 	}
 	for i, params := range params {
 		if params.Machine.Kind() != names.MachineTagKind {
-			logger.Debugf("not queuing volume attachment for non-machine %v", params.Machine)
+			ctx.config.Logger.Debugf("not queuing volume attachment for non-machine %v", params.Machine)
 			continue
 		}
 		if volume, ok := ctx.volumes[params.Volume]; ok {

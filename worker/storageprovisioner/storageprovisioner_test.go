@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
@@ -67,6 +68,7 @@ func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
 		Machines:         newMockMachineAccessor(c),
 		Status:           &mockStatusSetter{},
 		Clock:            &mockClock{},
+		Logger:           loggo.GetLogger("test"),
 		CloudCallContext: context.NewCloudCallContext(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2069,6 +2071,7 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 		Machines:         args.machines,
 		Status:           args.statusSetter,
 		Clock:            args.clock,
+		Logger:           loggo.GetLogger("test"),
 		CloudCallContext: context.NewCloudCallContext(),
 	})
 	c.Assert(err, jc.ErrorIsNil)

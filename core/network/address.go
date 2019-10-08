@@ -510,7 +510,7 @@ func (sas SpaceAddresses) InSpaces(spaces ...SpaceInfo) (SpaceAddresses, bool) {
 	spaceInfos := SpaceInfos(spaces)
 	var selectedAddresses SpaceAddresses
 	for _, addr := range sas {
-		if space := spaceInfos.Space(addr.SpaceID); space != nil {
+		if space := spaceInfos.GetByID(addr.SpaceID); space != nil {
 			logger.Debugf("selected %q as an address in space %q", addr.Value, space.Name)
 			selectedAddresses = append(selectedAddresses, addr)
 		}

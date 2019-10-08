@@ -29,15 +29,15 @@ import (
 )
 
 // ProvisioningInfo returns the provisioning information for each given machine entity.
-func (p *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.ProvisioningInfoResults, error) {
+func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.ProvisioningInfoResults, error) {
 	result := params.ProvisioningInfoResults{
 		Results: make([]params.ProvisioningInfoResult, len(args.Entities)),
 	}
-	canAccess, err := p.getAuthFunc()
+	canAccess, err := api.getAuthFunc()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	env, err := environs.GetEnviron(p.configGetter, environs.New)
+	env, err := environs.GetEnviron(api.configGetter, environs.New)
 	if err != nil {
 		return result, errors.Annotate(err, "could not get environ")
 	}
@@ -47,22 +47,22 @@ func (p *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provisio
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		machine, err := p.getMachine(canAccess, tag)
+		machine, err := api.getMachine(canAccess, tag)
 		if err == nil {
-			result.Results[i].Result, err = p.getProvisioningInfo(machine, env)
+			result.Results[i].Result, err = api.getProvisioningInfo(machine, env)
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
 
-func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.Environ) (*params.ProvisioningInfo, error) {
+func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.Environ) (*params.ProvisioningInfo, error) {
 	cons, err := m.Constraints()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	volumes, volumeAttachments, err := p.machineVolumeParams(m, env)
+	volumes, volumeAttachments, err := api.machineVolumeParams(m, env)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -72,32 +72,32 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.Envi
 		jobs = append(jobs, job.ToParams())
 	}
 
-	tags, err := p.machineTags(m, jobs)
+	tags, err := api.machineTags(m, jobs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	subnetsToZones, err := p.machineSubnetsAndZones(m)
+	subnetsToZones, err := api.machineSubnetsAndZones(m)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot match subnets to zones")
 	}
 
-	pNames, err := p.machineLXDProfileNames(m, env)
+	pNames, err := api.machineLXDProfileNames(m, env)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot write lxd profiles")
 	}
 
-	endpointBindings, err := p.machineEndpointBindings(m)
+	endpointBindings, err := api.machineEndpointBindings(m)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot determine machine endpoint bindings")
 	}
 
-	imageMetadata, err := p.availableImageMetadata(m, env)
+	imageMetadata, err := api.availableImageMetadata(m, env)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get available image metadata")
 	}
 
-	controllerCfg, err := p.st.ControllerConfig()
+	controllerCfg, err := api.st.ControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get controller configuration")
 	}
@@ -122,11 +122,11 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.Envi
 // machineVolumeParams retrieves VolumeParams for the volumes that should be
 // provisioned with, and attached to, the machine. The client should ignore
 // parameters that it does not know how to handle.
-func (p *ProvisionerAPI) machineVolumeParams(
+func (api *ProvisionerAPI) machineVolumeParams(
 	m *state.Machine,
 	env environs.Environ,
 ) ([]params.VolumeParams, []params.VolumeAttachmentParams, error) {
-	sb, err := state.NewStorageBackend(p.st)
+	sb, err := state.NewStorageBackend(api.st)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -137,11 +137,11 @@ func (p *ProvisionerAPI) machineVolumeParams(
 	if len(volumeAttachments) == 0 {
 		return nil, nil, nil
 	}
-	modelConfig, err := p.m.ModelConfig()
+	modelConfig, err := api.m.ModelConfig()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	controllerCfg, err := p.st.ControllerConfig()
+	controllerCfg, err := api.st.ControllerConfig()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -161,7 +161,7 @@ func (p *ProvisionerAPI) machineVolumeParams(
 		}
 		volumeParams, err := storagecommon.VolumeParams(
 			volume, storageInstance, modelConfig.UUID(), controllerCfg.ControllerUUID(),
-			modelConfig, p.storagePoolManager, p.storageProviderRegistry,
+			modelConfig, api.storagePoolManager, api.storageProviderRegistry,
 		)
 		if err != nil {
 			return nil, nil, errors.Annotatef(err, "getting volume %q parameters", volumeTag.Id())
@@ -211,7 +211,7 @@ func (p *ProvisionerAPI) machineVolumeParams(
 }
 
 // machineTags returns machine-specific tags to set on the instance.
-func (p *ProvisionerAPI) machineTags(m *state.Machine, jobs []multiwatcher.MachineJob) (map[string]string, error) {
+func (api *ProvisionerAPI) machineTags(m *state.Machine, jobs []multiwatcher.MachineJob) (map[string]string, error) {
 	// Names of all units deployed to the machine.
 	//
 	// TODO(axw) 2015-06-02 #1461358
@@ -230,11 +230,11 @@ func (p *ProvisionerAPI) machineTags(m *state.Machine, jobs []multiwatcher.Machi
 	}
 	sort.Strings(unitNames)
 
-	cfg, err := p.m.ModelConfig()
+	cfg, err := api.m.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	controllerCfg, err := p.st.ControllerConfig()
+	controllerCfg, err := api.st.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -251,7 +251,7 @@ func (p *ProvisionerAPI) machineTags(m *state.Machine, jobs []multiwatcher.Machi
 // to list of availability zone names for that subnet. The result can
 // be empty if there are no spaces constraints specified for the
 // machine, or there's an error fetching them.
-func (p *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]string, error) {
+func (api *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]string, error) {
 	mcons, err := m.Constraints()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get machine constraints")
@@ -273,7 +273,7 @@ func (p *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]
 			spaceName, m.Id(), includeSpaces[1:],
 		)
 	}
-	space, err := p.st.Space(spaceName)
+	space, err := api.st.Space(spaceName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -309,7 +309,7 @@ func (p *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]
 // the given machine and returns the names of profiles. Unlike
 // containerLXDProfilesInfo which returns the info necessary to write lxd profiles
 // via the lxd broker.
-func (p *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs.Environ) ([]string, error) {
+func (api *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs.Environ) ([]string, error) {
 	profileEnv, ok := env.(environs.LXDProfiler)
 	if !ok {
 		logger.Tracef("LXDProfiler not implemented by environ")
@@ -333,26 +333,26 @@ func (p *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs.E
 		if profile == nil || (profile != nil && profile.Empty()) {
 			continue
 		}
-		pName := lxdprofile.Name(p.m.Name(), app.Name(), ch.Revision())
+		pName := lxdprofile.Name(api.m.Name(), app.Name(), ch.Revision())
 		// Lock here, we get a new env for every call to ProvisioningInfo().
-		p.mu.Lock()
+		api.mu.Lock()
 		if err := profileEnv.MaybeWriteLXDProfile(pName, profile); err != nil {
-			p.mu.Unlock()
+			api.mu.Unlock()
 			return nil, errors.Trace(err)
 		}
-		p.mu.Unlock()
+		api.mu.Unlock()
 		names = append(names, pName)
 	}
 	return names, nil
 }
 
-func (p *ProvisionerAPI) machineEndpointBindings(m *state.Machine) (map[string]string, error) {
+func (api *ProvisionerAPI) machineEndpointBindings(m *state.Machine) (map[string]string, error) {
 	units, err := m.Units()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	spacesNamesToProviderIds, err := p.allSpaceNamesToProviderIds()
+	spacesNamesToProviderIds, err := api.allSpaceNamesToProviderIds()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -404,8 +404,8 @@ func (p *ProvisionerAPI) machineEndpointBindings(m *state.Machine) (map[string]s
 	return combinedBindings, nil
 }
 
-func (p *ProvisionerAPI) allSpaceNamesToProviderIds() (map[string]string, error) {
-	allSpaces, err := p.st.AllSpaces()
+func (api *ProvisionerAPI) allSpaceNamesToProviderIds() (map[string]string, error) {
+	allSpaces, err := api.st.AllSpaces()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting all spaces")
 	}
@@ -429,14 +429,14 @@ func (p *ProvisionerAPI) allSpaceNamesToProviderIds() (map[string]string, error)
 
 // availableImageMetadata returns all image metadata available to this machine
 // or an error fetching them.
-func (p *ProvisionerAPI) availableImageMetadata(m *state.Machine, env environs.Environ) ([]params.CloudImageMetadata, error) {
-	imageConstraint, err := p.constructImageConstraint(m, env)
+func (api *ProvisionerAPI) availableImageMetadata(m *state.Machine, env environs.Environ) ([]params.CloudImageMetadata, error) {
+	imageConstraint, err := api.constructImageConstraint(m, env)
 	if err != nil {
 		return nil, errors.Annotate(err, "could not construct image constraint")
 	}
 
 	// Look for image metadata in state.
-	data, err := p.findImageMetadata(imageConstraint, env)
+	data, err := api.findImageMetadata(imageConstraint, env)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -446,7 +446,7 @@ func (p *ProvisionerAPI) availableImageMetadata(m *state.Machine, env environs.E
 }
 
 // constructImageConstraint returns model-specific criteria used to look for image metadata.
-func (p *ProvisionerAPI) constructImageConstraint(m *state.Machine, env environs.Environ) (*imagemetadata.ImageConstraint, error) {
+func (api *ProvisionerAPI) constructImageConstraint(m *state.Machine, env environs.Environ) (*imagemetadata.ImageConstraint, error) {
 	lookup := simplestreams.LookupParams{
 		Series: []string{m.Series()},
 		Stream: env.Config().ImageStream(),
@@ -479,9 +479,9 @@ func (p *ProvisionerAPI) constructImageConstraint(m *state.Machine, env environs
 // findImageMetadata returns all image metadata or an error fetching them.
 // It looks for image metadata in state.
 // If none are found, we fall back on original image search in simple streams.
-func (p *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.ImageConstraint, env environs.Environ) ([]params.CloudImageMetadata, error) {
+func (api *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.ImageConstraint, env environs.Environ) ([]params.CloudImageMetadata, error) {
 	// Look for image metadata in state.
-	stateMetadata, err := p.imageMetadataFromState(imageConstraint)
+	stateMetadata, err := api.imageMetadataFromState(imageConstraint)
 	if err != nil && !errors.IsNotFound(err) {
 		// look into simple stream if for some reason can't get from controller,
 		// so do not exit on error.
@@ -497,7 +497,7 @@ func (p *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.ImageC
 	// Currently, an image metadata worker picks up this metadata periodically (daily),
 	// and stores it in state. So potentially, this collection could be different
 	// to what is in state.
-	dsMetadata, err := p.imageMetadataFromDataSources(env, imageConstraint)
+	dsMetadata, err := api.imageMetadataFromDataSources(env, imageConstraint)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
@@ -510,14 +510,14 @@ func (p *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.ImageC
 
 // imageMetadataFromState returns image metadata stored in state
 // that matches given criteria.
-func (p *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
+func (api *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
 	filter := cloudimagemetadata.MetadataFilter{
 		Series: constraint.Series,
 		Arches: constraint.Arches,
 		Region: constraint.Region,
 		Stream: constraint.Stream,
 	}
-	stored, err := p.st.CloudImageMetadataStorage.FindMetadata(filter)
+	stored, err := api.st.CloudImageMetadataStorage.FindMetadata(filter)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -548,7 +548,7 @@ func (p *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.ImageC
 }
 
 // imageMetadataFromDataSources finds image metadata that match specified criteria in existing data sources.
-func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
+func (api *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
 	sources, err := environs.ImageMetadataSources(env)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -601,7 +601,7 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 		}
 	}
 	if len(metadataState) > 0 {
-		if err := p.st.CloudImageMetadataStorage.SaveMetadata(metadataState); err != nil {
+		if err := api.st.CloudImageMetadataStorage.SaveMetadata(metadataState); err != nil {
 			// No need to react here, just take note
 			logger.Warningf("failed to save published image metadata: %v", err)
 		}
@@ -609,7 +609,7 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 
 	// Since we've fallen through to data sources search and have saved all needed images into controller,
 	// let's try to get them from controller to avoid duplication of conversion logic here.
-	all, err := p.imageMetadataFromState(constraint)
+	all, err := api.imageMetadataFromState(constraint)
 	if err != nil {
 		return nil, errors.Annotate(err, "could not read metadata from controller after saving it there from data sources")
 	}

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1/workertest"
@@ -22,8 +23,20 @@ type TrackerSuite struct {
 
 var _ = gc.Suite(&TrackerSuite{})
 
+func (s *TrackerSuite) validConfig(observer environ.ConfigObserver) environ.Config {
+	if observer == nil {
+		observer = &runContext{}
+	}
+	return environ.Config{
+		Observer:       observer,
+		NewEnvironFunc: newMockEnviron,
+		Logger:         loggo.GetLogger("test"),
+	}
+}
+
 func (s *TrackerSuite) TestValidateObserver(c *gc.C) {
-	config := environ.Config{}
+	config := s.validConfig(nil)
+	config.Observer = nil
 	s.testValidate(c, config, func(err error) {
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
 		c.Check(err, gc.ErrorMatches, "nil Observer not valid")
@@ -31,12 +44,20 @@ func (s *TrackerSuite) TestValidateObserver(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestValidateNewEnvironFunc(c *gc.C) {
-	config := environ.Config{
-		Observer: &runContext{},
-	}
+	config := s.validConfig(nil)
+	config.NewEnvironFunc = nil
 	s.testValidate(c, config, func(err error) {
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
 		c.Check(err, gc.ErrorMatches, "nil NewEnvironFunc not valid")
+	})
+}
+
+func (s *TrackerSuite) TestValidateLogger(c *gc.C) {
+	config := s.validConfig(nil)
+	config.Logger = nil
+	s.testValidate(c, config, func(err error) {
+		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, gc.ErrorMatches, "nil Logger not valid")
 	})
 }
 
@@ -56,10 +77,7 @@ func (s *TrackerSuite) TestModelConfigFails(c *gc.C) {
 		},
 	}
 	fix.Run(c, func(context *runContext) {
-		tracker, err := environ.NewTracker(environ.Config{
-			Observer:       context,
-			NewEnvironFunc: newMockEnviron,
-		})
+		tracker, err := environ.NewTracker(s.validConfig(context))
 		c.Check(err, gc.ErrorMatches, "cannot create environ: no you")
 		c.Check(tracker, gc.IsNil)
 		context.CheckCallNames(c, "ModelConfig")
@@ -69,12 +87,11 @@ func (s *TrackerSuite) TestModelConfigFails(c *gc.C) {
 func (s *TrackerSuite) TestModelConfigInvalid(c *gc.C) {
 	fix := &fixture{}
 	fix.Run(c, func(context *runContext) {
-		tracker, err := environ.NewTracker(environ.Config{
-			Observer: context,
-			NewEnvironFunc: func(environs.OpenParams) (environs.Environ, error) {
-				return nil, errors.NotValidf("config")
-			},
-		})
+		config := s.validConfig(context)
+		config.NewEnvironFunc = func(environs.OpenParams) (environs.Environ, error) {
+			return nil, errors.NotValidf("config")
+		}
+		tracker, err := environ.NewTracker(config)
 		c.Check(err, gc.ErrorMatches, `cannot create environ: config not valid`)
 		c.Check(tracker, gc.IsNil)
 		context.CheckCallNames(c, "ModelConfig", "CloudSpec")
@@ -88,10 +105,7 @@ func (s *TrackerSuite) TestModelConfigValid(c *gc.C) {
 		},
 	}
 	fix.Run(c, func(context *runContext) {
-		tracker, err := environ.NewTracker(environ.Config{
-			Observer:       context,
-			NewEnvironFunc: newMockEnviron,
-		})
+		tracker, err := environ.NewTracker(s.validConfig(context))
 		c.Assert(err, jc.ErrorIsNil)
 		defer workertest.CleanKill(c, tracker)
 
@@ -109,13 +123,12 @@ func (s *TrackerSuite) TestCloudSpec(c *gc.C) {
 	}
 	fix := &fixture{initialSpec: cloudSpec}
 	fix.Run(c, func(context *runContext) {
-		tracker, err := environ.NewTracker(environ.Config{
-			Observer: context,
-			NewEnvironFunc: func(args environs.OpenParams) (environs.Environ, error) {
-				c.Assert(args.Cloud, jc.DeepEquals, cloudSpec)
-				return nil, errors.NotValidf("cloud spec")
-			},
-		})
+		config := s.validConfig(context)
+		config.NewEnvironFunc = func(args environs.OpenParams) (environs.Environ, error) {
+			c.Assert(args.Cloud, jc.DeepEquals, cloudSpec)
+			return nil, errors.NotValidf("cloud spec")
+		}
+		tracker, err := environ.NewTracker(config)
 		c.Check(err, gc.ErrorMatches, `cannot create environ: cloud spec not valid`)
 		c.Check(tracker, gc.IsNil)
 		context.CheckCallNames(c, "ModelConfig", "CloudSpec")
@@ -129,10 +142,7 @@ func (s *TrackerSuite) TestWatchFails(c *gc.C) {
 		},
 	}
 	fix.Run(c, func(context *runContext) {
-		tracker, err := environ.NewTracker(environ.Config{
-			Observer:       context,
-			NewEnvironFunc: newMockEnviron,
-		})
+		tracker, err := environ.NewTracker(s.validConfig(context))
 		c.Assert(err, jc.ErrorIsNil)
 		defer workertest.DirtyKill(c, tracker)
 
@@ -145,10 +155,7 @@ func (s *TrackerSuite) TestWatchFails(c *gc.C) {
 func (s *TrackerSuite) TestModelConfigWatchCloses(c *gc.C) {
 	fix := &fixture{}
 	fix.Run(c, func(context *runContext) {
-		tracker, err := environ.NewTracker(environ.Config{
-			Observer:       context,
-			NewEnvironFunc: newMockEnviron,
-		})
+		tracker, err := environ.NewTracker(s.validConfig(context))
 		c.Assert(err, jc.ErrorIsNil)
 		defer workertest.DirtyKill(c, tracker)
 
@@ -162,10 +169,7 @@ func (s *TrackerSuite) TestModelConfigWatchCloses(c *gc.C) {
 func (s *TrackerSuite) TestCloudSpecWatchCloses(c *gc.C) {
 	fix := &fixture{}
 	fix.Run(c, func(context *runContext) {
-		tracker, err := environ.NewTracker(environ.Config{
-			Observer:       context,
-			NewEnvironFunc: newMockEnviron,
-		})
+		tracker, err := environ.NewTracker(s.validConfig(context))
 		c.Assert(err, jc.ErrorIsNil)
 		defer workertest.DirtyKill(c, tracker)
 
@@ -183,10 +187,7 @@ func (s *TrackerSuite) TestWatchedModelConfigFails(c *gc.C) {
 		},
 	}
 	fix.Run(c, func(context *runContext) {
-		tracker, err := environ.NewTracker(environ.Config{
-			Observer:       context,
-			NewEnvironFunc: newMockEnviron,
-		})
+		tracker, err := environ.NewTracker(s.validConfig(context))
 		c.Check(err, jc.ErrorIsNil)
 		defer workertest.DirtyKill(c, tracker)
 
@@ -200,14 +201,13 @@ func (s *TrackerSuite) TestWatchedModelConfigFails(c *gc.C) {
 func (s *TrackerSuite) TestWatchedModelConfigIncompatible(c *gc.C) {
 	fix := &fixture{}
 	fix.Run(c, func(context *runContext) {
-		tracker, err := environ.NewTracker(environ.Config{
-			Observer: context,
-			NewEnvironFunc: func(environs.OpenParams) (environs.Environ, error) {
-				env := &mockEnviron{}
-				env.SetErrors(errors.New("SetConfig is broken"))
-				return env, nil
-			},
-		})
+		config := s.validConfig(context)
+		config.NewEnvironFunc = func(environs.OpenParams) (environs.Environ, error) {
+			env := &mockEnviron{}
+			env.SetErrors(errors.New("SetConfig is broken"))
+			return env, nil
+		}
+		tracker, err := environ.NewTracker(config)
 		c.Check(err, jc.ErrorIsNil)
 		defer workertest.DirtyKill(c, tracker)
 
@@ -225,10 +225,7 @@ func (s *TrackerSuite) TestWatchedModelConfigUpdates(c *gc.C) {
 		},
 	}
 	fix.Run(c, func(context *runContext) {
-		tracker, err := environ.NewTracker(environ.Config{
-			Observer:       context,
-			NewEnvironFunc: newMockEnviron,
-		})
+		tracker, err := environ.NewTracker(s.validConfig(context))
 		c.Check(err, jc.ErrorIsNil)
 		defer workertest.CleanKill(c, tracker)
 
@@ -263,10 +260,7 @@ func (s *TrackerSuite) TestWatchedCloudSpecUpdates(c *gc.C) {
 		initialSpec: environs.CloudSpec{Name: "cloud", Type: "lxd"},
 	}
 	fix.Run(c, func(context *runContext) {
-		tracker, err := environ.NewTracker(environ.Config{
-			Observer:       context,
-			NewEnvironFunc: newMockEnviron,
-		})
+		tracker, err := environ.NewTracker(s.validConfig(context))
 		c.Check(err, jc.ErrorIsNil)
 		defer workertest.CleanKill(c, tracker)
 
