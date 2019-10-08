@@ -13,9 +13,16 @@ import (
 	"github.com/juju/juju/api/base"
 )
 
+// Logger represents the methods used by the worker to log details.
+type Logger interface {
+	Debugf(string, ...interface{})
+	Infof(string, ...interface{})
+	Errorf(string, ...interface{})
+}
+
 // ConnectFunc is responsible for making and validating an API connection
 // on behalf of an agent.
-type ConnectFunc func(agent.Agent, api.OpenFunc) (api.Connection, error)
+type ConnectFunc func(agent.Agent, api.OpenFunc, Logger) (api.Connection, error)
 
 // ManifoldConfig defines a Manifold's dependencies.
 type ManifoldConfig struct {
@@ -50,6 +57,9 @@ type ManifoldConfig struct {
 	// Filter is used to specialize responses to connection errors
 	// made on behalf of different kinds of agent.
 	Filter dependency.FilterFunc
+
+	// Logger is used to write logging statements for the worker.
+	Logger Logger
 }
 
 // Manifold returns a manifold whose worker wraps an API connection
@@ -79,7 +89,7 @@ func (config ManifoldConfig) startFunc() dependency.StartFunc {
 			return nil, err
 		}
 
-		conn, err := config.NewConnection(agent, config.APIOpen)
+		conn, err := config.NewConnection(agent, config.APIOpen, config.Logger)
 		if errors.Cause(err) == ErrChangedPassword {
 			return nil, dependency.ErrBounce
 		} else if err != nil {

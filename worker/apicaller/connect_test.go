@@ -6,6 +6,7 @@ package apicaller_test
 import (
 	"errors"
 
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -55,7 +56,7 @@ func testEntityFine(c *gc.C, life apiagent.Life) {
 			stub:   stub,
 			model:  coretesting.ModelTag,
 			entity: entity,
-		}, apiOpen)
+		}, apiOpen, loggo.GetLogger("test"))
 	}
 
 	conn, err := lifeTest(c, stub, apiagent.Alive, connect)
@@ -84,7 +85,7 @@ func (*ScaryConnectSuite) TestEntityDead(c *gc.C) {
 			stub:   stub,
 			model:  coretesting.ModelTag,
 			entity: entity,
-		}, apiOpen)
+		}, apiOpen, loggo.GetLogger("test"))
 	}
 
 	conn, err := lifeTest(c, stub, apiagent.Dead, connect)
@@ -113,7 +114,7 @@ func (*ScaryConnectSuite) TestEntityDenied(c *gc.C) {
 			stub:   stub,
 			model:  coretesting.ModelTag,
 			entity: entity,
-		}, apiOpen)
+		}, apiOpen, loggo.GetLogger("test"))
 	}
 
 	conn, err := lifeTest(c, stub, apiagent.Dead, connect)
@@ -141,7 +142,7 @@ func (*ScaryConnectSuite) TestEntityUnknownLife(c *gc.C) {
 			stub:   stub,
 			model:  coretesting.ModelTag,
 			entity: entity,
-		}, apiOpen)
+		}, apiOpen, loggo.GetLogger("test"))
 	}
 
 	conn, err := lifeTest(c, stub, apiagent.Life("zombie"), connect)
@@ -255,7 +256,7 @@ func checkChangePassword(c *gc.C, stub *testing.Stub) error {
 			stub:   stub,
 			model:  coretesting.ModelTag,
 			entity: entity,
-		}, apiOpen)
+		}, apiOpen, loggo.GetLogger("test"))
 	}
 
 	conn, err := lifeTest(c, stub, apiagent.Alive, connect)

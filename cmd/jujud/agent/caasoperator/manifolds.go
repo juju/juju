@@ -130,6 +130,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APIOpen:              api.Open,
 			APIConfigWatcherName: apiConfigWatcherName,
 			NewConnection:        apicaller.OnlyConnect,
+			Logger:               loggo.GetLogger("juju.worker.apicaller"),
 		}),
 
 		clockName: clockManifold(config.Clock),

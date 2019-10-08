@@ -5,6 +5,7 @@ package apicaller_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -42,8 +43,9 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		APIOpen: func(*api.Info, api.DialOpts) (api.Connection, error) {
 			panic("just a fake")
 		},
-		NewConnection: func(a agent.Agent, apiOpen api.OpenFunc) (api.Connection, error) {
+		NewConnection: func(a agent.Agent, apiOpen api.OpenFunc, logger apicaller.Logger) (api.Connection, error) {
 			c.Check(apiOpen, gc.NotNil) // uncomparable
+			c.Check(logger, gc.NotNil)  // uncomparable
 			s.AddCall("NewConnection", a)
 			if err := s.NextErr(); err != nil {
 				return nil, err
@@ -53,6 +55,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		Filter: func(err error) error {
 			panic(err)
 		},
+		Logger: loggo.GetLogger("test"),
 	}
 	s.manifold = apicaller.Manifold(s.manifoldConfig)
 	checkFilter := func() {

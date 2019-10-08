@@ -438,6 +438,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APIOpen:              api.Open,
 			NewConnection:        apicaller.ScaryConnect,
 			Filter:               connectFilter,
+			Logger:               loggo.GetLogger("juju.worker.apicaller"),
 		}),
 
 		// The upgrade steps gate is used to coordinate workers which

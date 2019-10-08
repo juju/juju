@@ -145,6 +145,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APIOpen:       api.Open,
 			NewConnection: apicaller.OnlyConnect,
 			Filter:        apiConnectFilter,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.apicaller"),
 		}),
 
 		// The logging config updater listens for logging config updates
