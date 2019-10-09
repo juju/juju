@@ -547,16 +547,11 @@ func (s *ModelSuite) TestAllUnits(c *gc.C) {
 }
 
 func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
-	type mockApplicationEndpointBindings struct {
-		appName string
-		binding map[string]string
-	}
-
-	s.Factory.MakeSpace(c, &factory.SpaceParams{
+	oneSpace := s.Factory.MakeSpace(c, &factory.SpaceParams{
 		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
 	state.AddTestingApplicationWithBindings(
 		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
-		map[string]string{"db": "one"})
+		map[string]string{"db": oneSpace.Id()})
 
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -568,14 +563,15 @@ func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
 	c.Assert(listBindings[0], jc.DeepEquals, state.ApplicationEndpointBindings{
 		AppName: "wordpress",
 		Bindings: map[string]string{
-			"cache":           "",
-			"foo-bar":         "",
-			"db-client":       "",
-			"admin-api":       "",
-			"url":             "",
-			"logging-dir":     "",
-			"monitoring-port": "",
-			"db":              "one",
+			"":                network.DefaultSpaceId,
+			"cache":           network.DefaultSpaceId,
+			"foo-bar":         network.DefaultSpaceId,
+			"db-client":       network.DefaultSpaceId,
+			"admin-api":       network.DefaultSpaceId,
+			"url":             network.DefaultSpaceId,
+			"logging-dir":     network.DefaultSpaceId,
+			"monitoring-port": network.DefaultSpaceId,
+			"db":              oneSpace.Id(),
 		},
 	})
 }

@@ -14,11 +14,11 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type CmdExportBundleSuite struct {
+type cmdExportBundleSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-func (s *CmdExportBundleSuite) setupApplications(c *gc.C) {
+func (s *cmdExportBundleSuite) setupApplications(c *gc.C) {
 	s.Factory.MakeSpace(c, &factory.SpaceParams{Name: "vlan2"})
 	// make an application with 2 endpoints
 	application1 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
@@ -59,7 +59,7 @@ func (s *CmdExportBundleSuite) setupApplications(c *gc.C) {
 	c.Assert(relation2, gc.NotNil)
 }
 
-func (s *CmdExportBundleSuite) TestExportBundle(c *gc.C) {
+func (s *cmdExportBundleSuite) TestExportBundle(c *gc.C) {
 	s.SetFeatureFlags(feature.DeveloperMode)
 
 	s.setupApplications(c)

@@ -131,14 +131,15 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
 			}},
 		Series: "quantal",
 		EndpointBindings: map[string]string{
-			"admin-api":       network.DefaultSpaceName,
-			"cache":           network.DefaultSpaceName,
-			"db":              network.DefaultSpaceName,
-			"db-client":       network.DefaultSpaceName,
-			"foo-bar":         network.DefaultSpaceName,
-			"logging-dir":     network.DefaultSpaceName,
-			"monitoring-port": network.DefaultSpaceName,
-			"url":             network.DefaultSpaceName,
+			"":                network.DefaultSpaceId,
+			"admin-api":       network.DefaultSpaceId,
+			"cache":           network.DefaultSpaceId,
+			"db":              network.DefaultSpaceId,
+			"db-client":       network.DefaultSpaceId,
+			"foo-bar":         network.DefaultSpaceId,
+			"logging-dir":     network.DefaultSpaceId,
+			"monitoring-port": network.DefaultSpaceId,
+			"url":             network.DefaultSpaceId,
 		},
 	})
 }
@@ -231,7 +232,8 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		ApplicationConfig: expectedAppConfig,
 		Series:            "kubernetes",
 		EndpointBindings: map[string]string{
-			"miner": network.DefaultSpaceName,
+			"":      network.DefaultSpaceId,
+			"miner": network.DefaultSpaceId,
 		},
 	})
 }
@@ -297,6 +299,9 @@ var getTests = []struct {
 			},
 		},
 		Series: "quantal",
+		EndpointBindings: map[string]string{
+			"": network.DefaultSpaceId,
+		},
 	},
 }, {
 	about: "deployed application  #2",
@@ -355,6 +360,9 @@ var getTests = []struct {
 			},
 		},
 		Series: "quantal",
+		EndpointBindings: map[string]string{
+			"": network.DefaultSpaceId,
+		},
 	},
 }, {
 	about: "subordinate application",
@@ -372,9 +380,10 @@ var getTests = []struct {
 			},
 		},
 		EndpointBindings: map[string]string{
-			"info":              network.DefaultSpaceName,
-			"logging-client":    network.DefaultSpaceName,
-			"logging-directory": network.DefaultSpaceName,
+			"":                  network.DefaultSpaceId,
+			"info":              network.DefaultSpaceId,
+			"logging-client":    network.DefaultSpaceId,
+			"logging-directory": network.DefaultSpaceId,
 		},
 	},
 }}

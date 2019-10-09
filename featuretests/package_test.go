@@ -34,7 +34,7 @@ func init() {
 	}
 	// Initialize all suites here.
 	gc.Suite(&annotationsSuite{})
-	gc.Suite(&CmdApplicationSuite{})
+	gc.Suite(&cmdApplicationSuite{})
 	gc.Suite(&CloudAPISuite{})
 	gc.Suite(&apiEnvironmentSuite{})
 	gc.Suite(&apiLoggerSuite{})
@@ -73,7 +73,7 @@ func init() {
 	gc.Suite(&CAASOperatorSuite{})
 	gc.Suite(&StatusSuite{})
 	gc.Suite(&cmdSetSeriesSuite{})
-	gc.Suite(&CmdExportBundleSuite{})
+	gc.Suite(&cmdExportBundleSuite{})
 	gc.Suite(&cmdDeploySuite{})
 	gc.Suite(&CredentialManagerSuite{})
 	gc.Suite(&cmdCurrentControllerSuite{})
