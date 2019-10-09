@@ -9,8 +9,7 @@ import (
 	set "github.com/juju/collections/set"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
-	network "github.com/juju/juju/core/network"
-	network0 "github.com/juju/juju/network"
+	network "github.com/juju/juju/network"
 	containerizer "github.com/juju/juju/network/containerizer"
 	state "github.com/juju/juju/state"
 	names_v3 "gopkg.in/juju/names.v3"
@@ -38,6 +37,19 @@ func NewMockMachine(ctrl *gomock.Controller) *MockMachine {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 	return m.recorder
+}
+
+// AllAddresses mocks base method
+func (m *MockMachine) AllAddresses() ([]containerizer.Address, error) {
+	ret := m.ctrl.Call(m, "AllAddresses")
+	ret0, _ := ret[0].([]containerizer.Address)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllAddresses indicates an expected call of AllAddresses
+func (mr *MockMachineMockRecorder) AllAddresses() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllAddresses", reflect.TypeOf((*MockMachine)(nil).AllAddresses))
 }
 
 // AllLinkLayerDevices mocks base method
@@ -127,19 +139,6 @@ func (m *MockMachine) IsManual() (bool, error) {
 // IsManual indicates an expected call of IsManual
 func (mr *MockMachineMockRecorder) IsManual() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsManual", reflect.TypeOf((*MockMachine)(nil).IsManual))
-}
-
-// LinkLayerDevicesForSpaces mocks base method
-func (m *MockMachine) LinkLayerDevicesForSpaces(arg0 network.SpaceInfos) (map[string][]containerizer.LinkLayerDevice, error) {
-	ret := m.ctrl.Call(m, "LinkLayerDevicesForSpaces", arg0)
-	ret0, _ := ret[0].(map[string][]containerizer.LinkLayerDevice)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// LinkLayerDevicesForSpaces indicates an expected call of LinkLayerDevicesForSpaces
-func (mr *MockMachineMockRecorder) LinkLayerDevicesForSpaces(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkLayerDevicesForSpaces", reflect.TypeOf((*MockMachine)(nil).LinkLayerDevicesForSpaces), arg0)
 }
 
 // MachineTag mocks base method
@@ -271,9 +270,9 @@ func (m *MockBridgePolicy) EXPECT() *MockBridgePolicyMockRecorder {
 }
 
 // FindMissingBridgesForContainer mocks base method
-func (m *MockBridgePolicy) FindMissingBridgesForContainer(arg0 containerizer.Machine, arg1 containerizer.Container) ([]network0.DeviceToBridge, int, error) {
+func (m *MockBridgePolicy) FindMissingBridgesForContainer(arg0 containerizer.Machine, arg1 containerizer.Container) ([]network.DeviceToBridge, int, error) {
 	ret := m.ctrl.Call(m, "FindMissingBridgesForContainer", arg0, arg1)
-	ret0, _ := ret[0].([]network0.DeviceToBridge)
+	ret0, _ := ret[0].([]network.DeviceToBridge)
 	ret1, _ := ret[1].(int)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
