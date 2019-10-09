@@ -63,6 +63,11 @@ type relationHookContext interface {
 	// is associated with if it was found, and an error if it was not found or is not
 	// available.
 	RemoteUnitName() (string, error)
+
+	// RemoteApplicationName returns the name of the remote application the hook execution
+	// is associated with if it was found, and an error if it was not found or is not
+	// available.
+	RemoteApplicationName() (string, error)
 }
 
 // ActionHookContext is the context for an action hook.
@@ -365,32 +370,4 @@ func (v *relationIdValue) Set(value string) error {
 	*v.result = id
 	v.value = value
 	return nil
-}
-
-// NewEnumValue returns a gnuflag.Value that can only take on specific strings.
-func NewEnumValue(orig string, accepted []string) *enumValue {
-	return &enumValue{
-		Value:    orig,
-		Accepted: accepted,
-	}
-}
-
-type enumValue struct {
-	Value    string
-	Accepted []string
-}
-
-func (v *enumValue) String() string {
-	return v.Value
-}
-
-func (v *enumValue) Set(value string) error {
-	for _, a := range v.Accepted {
-		if a == value {
-			v.Value = value
-			return nil
-		}
-	}
-	accepted := strings.Join(v.Accepted, ", ")
-	return fmt.Errorf("valid values: %v", accepted)
 }

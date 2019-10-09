@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -79,13 +78,14 @@ key-value arguments. A value of "-" for the filename means <stdin>.
 }
 
 type relationSetInitTest struct {
-	summary  string
-	ctxrelid int
-	args     []string
-	content  string
-	err      string
-	relid    int
-	settings map[string]string
+	summary     string
+	ctxrelid    int
+	args        []string
+	content     string
+	err         string
+	relid       int
+	settings    map[string]string
+	application bool
 }
 
 func (t relationSetInitTest) log(c *gc.C, i int) {
@@ -138,6 +138,7 @@ func (t relationSetInitTest) check(c *gc.C, com cmd.Command, err error) {
 
 		rset := com.(*jujuc.RelationSetCommand)
 		c.Check(rset.RelationId, gc.Equals, t.relid)
+		c.Check(rset.Application, gc.Equals, t.application)
 
 		settings := t.settings
 		if settings == nil {
@@ -323,9 +324,10 @@ var relationSetInitTests = []relationSetInitTest{
 		content:  "{foo: bar}",
 		settings: map[string]string{"foo": "bar"},
 	}, {
-		summary:  "pass --app",
-		args:     []string{"--app", "baz=qux"},
-		settings: map[string]string{"baz": "qux"},
+		summary:     "pass --app",
+		args:        []string{"--app", "baz=qux"},
+		settings:    map[string]string{"baz": "qux"},
+		application: true,
 	},
 }
 
@@ -395,20 +397,4 @@ func (s *RelationSetSuite) TestRunDeprecationWarning(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "--format flag deprecated for command \"relation-set\"")
-}
-
-type EnumValueSuite struct {
-	testing.IsolationSuite
-}
-
-var _ = gc.Suite(&EnumValueSuite{})
-
-func (s *EnumValueSuite) TestEnumSet(c *gc.C) {
-	v := jujuc.NewEnumValue("default", []string{"default", "newval"})
-	c.Check(v.String(), gc.Equals, "default")
-	c.Assert(v.Set("newval"), jc.ErrorIsNil)
-	c.Check(v.String(), gc.Equals, "newval")
-	err := v.Set("otherval")
-	c.Assert(err, gc.NotNil)
-	c.Check(err.Error(), gc.Equals, `valid values: default, newval`)
 }

@@ -11,8 +11,9 @@ import (
 
 // RelationHook holds the values for the hook context.
 type RelationHook struct {
-	HookRelation   jujuc.ContextRelation
-	RemoteUnitName string
+	HookRelation          jujuc.ContextRelation
+	RemoteUnitName        string
+	RemoteApplicationName string
 }
 
 // Reset clears the RelationHook's data.
@@ -41,6 +42,18 @@ func (c *ContextRelationHook) HookRelation() (jujuc.ContextRelation, error) {
 // RemoteUnitName implements jujuc.RelationHookContext.
 func (c *ContextRelationHook) RemoteUnitName() (string, error) {
 	c.stub.AddCall("RemoteUnitName")
+	c.stub.NextErr()
+	var err error
+	if c.info.RemoteUnitName == "" {
+		err = errors.NotFoundf("remote unit")
+	}
+
+	return c.info.RemoteUnitName, err
+}
+
+// RemoteApplicationName implements jujuc.RelationHookContext.
+func (c *ContextRelationHook) RemoteApplicationName() (string, error) {
+	c.stub.AddCall("RemoteApplicationName")
 	c.stub.NextErr()
 	var err error
 	if c.info.RemoteUnitName == "" {

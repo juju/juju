@@ -48,6 +48,13 @@ func (s *InterfaceSuite) TestRemoteUnitName(c *gc.C) {
 	c.Assert(name, gc.Equals, "")
 }
 
+func (s *InterfaceSuite) TestRemoteApplicationName(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	name, err := ctx.RemoteApplicationName()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(name, gc.Equals, "")
+}
+
 func (s *InterfaceSuite) TestRelationIds(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	relIds, err := ctx.RelationIds()

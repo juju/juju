@@ -21,12 +21,11 @@ type RelationGetCommand struct {
 
 	RelationId      int
 	relationIdProxy gnuflag.Value
-	application     bool
+	Application     bool
 
-	Key             string
-	UnitName        string
-	ApplicationName string
-	out             cmd.Output
+	Key      string
+	UnitName string
+	out      cmd.Output
 }
 
 func NewRelationGetCommand(ctx Context) (cmd.Command, error) {
@@ -75,7 +74,7 @@ func (c *RelationGetCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(c.relationIdProxy, "r", "Specify a relation by id")
 	f.Var(c.relationIdProxy, "relation", "")
 
-	f.BoolVar(&c.application, "app", false,
+	f.BoolVar(&c.Application, "app", false,
 		`Get the relation data for the overall application, not just a unit`)
 }
 
@@ -91,14 +90,20 @@ func (c *RelationGetCommand) Init(args []string) error {
 		}
 		args = args[1:]
 	}
-	name, err := c.ctx.RemoteUnitName()
-	if err == nil {
+
+	if name, err := c.ctx.RemoteUnitName(); err == nil {
 		c.UnitName = name
-	} else if cause := errors.Cause(err); !errors.IsNotFound(cause) {
+	} else if !errors.IsNotFound(err) {
 		return errors.Trace(err)
+	} else {
+		// TODO(jam): 2019-10-03 implement RemoteApplicationName
+		// name, err := c.ctx.RemoteApplicationName()
+		if err == nil {
+			c.UnitName = name
+		} else if !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
 	}
-	// TODO(jam): 2019-10-03 implemen RemoteApplicationName
-	// name, err := c.ctx.RemoteApplicationName()
 	if len(args) > 0 {
 		c.UnitName = args[0]
 		args = args[1:]
@@ -118,7 +123,7 @@ func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 	if c.UnitName == c.ctx.UnitName() {
 		var node Settings
 		var err error
-		if c.application {
+		if c.Application {
 			node, err = r.ApplicationSettings()
 		} else {
 			node, err = r.Settings()
@@ -129,8 +134,7 @@ func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 		settings = node.Map()
 	} else {
 		var err error
-		// TODO(jam): 2019-10-03 Handle if UnitName is not set, but ApplicationName is
-		if c.application {
+		if c.Application {
 			settings, err = r.ReadApplicationSettings(c.UnitName)
 		} else {
 			settings, err = r.ReadSettings(c.UnitName)

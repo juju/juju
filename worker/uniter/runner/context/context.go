@@ -180,10 +180,9 @@ type HookContext struct {
 	// or if it is running a relation-broken hook.
 	remoteUnitName string
 
-	// TODO implement remoteApplicationName
-	// This will get set when a hook is invoked because of an application data
-	// change, rather than just a unit data change
-	// remoteApplicationName string
+	// remoteApplicationName identifies the application name in response to
+	// relation-set --app.
+	remoteApplicationName string
 
 	// relations contains the context for every relation the unit is a member
 	// of, keyed on relation id.
@@ -632,6 +631,13 @@ func (ctx *HookContext) RemoteUnitName() (string, error) {
 		return "", errors.NotFoundf("remote unit")
 	}
 	return ctx.remoteUnitName, nil
+}
+
+func (ctx *HookContext) RemoteApplicationName() (string, error) {
+	if ctx.remoteApplicationName == "" {
+		return "", errors.NotFoundf("remote application")
+	}
+	return ctx.remoteApplicationName, nil
 }
 
 func (ctx *HookContext) Relation(id int) (jujuc.ContextRelation, error) {

@@ -33,13 +33,14 @@ func (s *RelationGetSuite) newHookContext(relid int, remote string) (jujuc.Conte
 }
 
 var relationGetTests = []struct {
-	summary  string
-	relid    int
-	unit     string
-	args     []string
-	code     int
-	out      string
-	checkctx func(*gc.C, *cmd.Context)
+	summary     string
+	relid       int
+	unit        string
+	args        []string
+	code        int
+	out         string
+	key         string
+	application bool
 }{
 	{
 		summary: "no default relation",
@@ -299,4 +300,245 @@ func (s *RelationGetSuite) TestOutputPath(c *gc.C) {
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, "pew\npew\n\n")
+}
+
+type relationGetInitTest struct {
+	summary     string
+	ctxrelid    int
+	ctxunit     string
+	ctxapp      string
+	args        []string
+	content     string
+	err         string
+	relid       int
+	key         string
+	unit        string
+	application bool
+}
+
+func (t relationGetInitTest) log(c *gc.C, i int) {
+	var summary string
+	if t.summary != "" {
+		summary = " - " + t.summary
+	}
+	c.Logf("test %d%s", i, summary)
+}
+
+func (t relationGetInitTest) init(c *gc.C, s *RelationGetSuite) (cmd.Command, []string) {
+	args := make([]string, len(t.args))
+	copy(args, t.args)
+
+	remote := ""
+	if t.ctxunit != "" {
+		remote = t.ctxunit
+	}
+	hctx, _ := s.newHookContext(t.ctxrelid, remote)
+	com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	return com, args
+}
+
+func (t relationGetInitTest) check(c *gc.C, com cmd.Command, err error) {
+	if t.err == "" {
+		if !c.Check(err, jc.ErrorIsNil) {
+			return
+		}
+
+		rset := com.(*jujuc.RelationGetCommand)
+		c.Check(rset.RelationId, gc.Equals, t.relid)
+		c.Check(rset.Key, gc.Equals, t.key)
+		c.Check(rset.UnitName, gc.Equals, t.unit)
+		c.Check(rset.Application, gc.Equals, t.application)
+	} else {
+		c.Check(err, gc.ErrorMatches, t.err)
+	}
+}
+
+var relationGetInitTests = []relationGetInitTest{
+	{
+		summary:  "no relation id",
+		ctxrelid: -1,
+		err:      `no relation id specified`,
+	}, {
+		summary:  "invalid relation id",
+		ctxrelid: -1,
+		args:     []string{"-r", "one"},
+		err:      `invalid value "one" for option -r: invalid relation id`,
+	}, {
+		summary:  "invalid relation id with builtin context relation id",
+		ctxrelid: 1,
+		args:     []string{"-r", "one"},
+		err:      `invalid value "one" for option -r: invalid relation id`,
+	}, {
+		summary:  "relation not found",
+		ctxrelid: -1,
+		args:     []string{"-r", "2"},
+		err:      `invalid value "2" for option -r: relation not found`,
+	}, {
+		summary:  "-r overrides context relation id",
+		ctxrelid: 1,
+		ctxunit:  "u/0",
+		unit:     "u/0",
+		args:     []string{"-r", "ignored:0"},
+		relid:    0,
+	}, {
+		summary:  "key=value for relation-get (maybe should be invalid?)",
+		ctxrelid: 1,
+		relid:    1,
+		ctxunit:  "u/0",
+		unit:     "u/0",
+		args:     []string{"key=value"},
+		key:      "key=value",
+	}, {
+		summary:  "key supplied",
+		ctxrelid: 1,
+		relid:    1,
+		ctxunit:  "u/0",
+		unit:     "u/0",
+		args:     []string{"key"},
+		key:      "key",
+	}, {
+		summary: "magic key supplied",
+		ctxunit: "u/0",
+		unit:    "u/0",
+		args:    []string{"-"},
+		key:     "",
+	}, {
+		summary: "override ctxunit with explicit unit",
+		ctxunit: "u/0",
+		args:    []string{"key", "u/1"},
+		key:     "key",
+		unit:    "u/1",
+	}, {
+		summary: "magic key with unit",
+		ctxunit: "u/0",
+		args:    []string{"-", "u/1"},
+		key:     "",
+		unit:    "u/1",
+	}, {
+		summary:     "supply --app",
+		ctxunit:     "u/0",
+		unit:        "u/0",
+		args:        []string{"--app"},
+		application: true,
+	}, {
+		summary:     "supply --app and app name",
+		ctxunit:     "u/0",
+		unit:        "u",
+		args:        []string{"--app", "-", "u"},
+		application: true,
+	}, {
+		summary: "app name but no context unit name",
+		ctxunit: "",
+		ctxapp:  "u",
+		unit:    "u",
+	}, {
+		/// 		ctxrelid: 0,
+		/// 		args:     []string{"-r", "1", "foo=bar"},
+		/// 		relid:    1,
+		/// 		settings: map[string]string{"foo": "bar"},
+		/// 	}, {
+		/// 		ctxrelid: 1,
+		/// 		args:     []string{"foo=123", "bar=true", "baz=4.5", "qux="},
+		/// 		relid:    1,
+		/// 		settings: map[string]string{"foo": "123", "bar": "true", "baz": "4.5", "qux": ""},
+		/// 	}, {
+		/// 		summary:  "file with a valid setting",
+		/// 		args:     []string{"--file", "spam"},
+		/// 		content:  "{foo: bar}",
+		/// 		settings: map[string]string{"foo": "bar"},
+		/// 	}, {
+		/// 		summary:  "file with multiple settings on a line",
+		/// 		args:     []string{"--file", "spam"},
+		/// 		content:  "{foo: bar, spam: eggs}",
+		/// 		settings: map[string]string{"foo": "bar", "spam": "eggs"},
+		/// 	}, {
+		/// 		summary:  "file with multiple lines",
+		/// 		args:     []string{"--file", "spam"},
+		/// 		content:  "{\n  foo: bar,\n  spam: eggs\n}",
+		/// 		settings: map[string]string{"foo": "bar", "spam": "eggs"},
+		/// 	}, {
+		/// 		summary:  "an empty file",
+		/// 		args:     []string{"--file", "spam"},
+		/// 		content:  "",
+		/// 		settings: map[string]string{},
+		/// 	}, {
+		/// 		summary:  "an empty map",
+		/// 		args:     []string{"--file", "spam"},
+		/// 		content:  "{}",
+		/// 		settings: map[string]string{},
+		/// 	}, {
+		/// 		summary: "accidental same format as command-line",
+		/// 		args:    []string{"--file", "spam"},
+		/// 		content: "foo=bar ham=eggs good=bad",
+		/// 		err:     "yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `foo=bar...` into map.*",
+		/// 	}, {
+		/// 		summary: "scalar instead of map",
+		/// 		args:    []string{"--file", "spam"},
+		/// 		content: "haha",
+		/// 		err:     "yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `haha` into map.*",
+		/// 	}, {
+		/// 		summary: "sequence instead of map",
+		/// 		args:    []string{"--file", "spam"},
+		/// 		content: "[haha]",
+		/// 		err:     "yaml: unmarshal errors:\n  line 1: cannot unmarshal !!seq into map.*",
+		/// 	}, {
+		/// 		summary:  "multiple maps",
+		/// 		args:     []string{"--file", "spam"},
+		/// 		content:  "{a: b}\n{c: d}",
+		/// 		settings: map[string]string{"a": "b"},
+		/// 	}, {
+		/// 		summary:  "value with a space",
+		/// 		args:     []string{"--file", "spam"},
+		/// 		content:  "{foo: 'bar baz'}",
+		/// 		settings: map[string]string{"foo": "bar baz"},
+		/// 	}, {
+		/// 		summary:  "value with an equal sign",
+		/// 		args:     []string{"--file", "spam"},
+		/// 		content:  "{foo: foo=bar, base64: YmFzZTY0IGV4YW1wbGU=}",
+		/// 		settings: map[string]string{"foo": "foo=bar", "base64": "YmFzZTY0IGV4YW1wbGU="},
+		/// 	}, {
+		/// 		summary:  "values with brackets",
+		/// 		args:     []string{"--file", "spam"},
+		/// 		content:  "{foo: '[x]', bar: '{y}'}",
+		/// 		settings: map[string]string{"foo": "[x]", "bar": "{y}"},
+		/// 	}, {
+		/// 		summary:  "a messy file",
+		/// 		args:     []string{"--file", "spam"},
+		/// 		content:  "\n {  \n # a comment \n\n  \nfoo: bar,  \nham: eggs,\n\n  good: bad,\nup: down, left: right\n}\n",
+		/// 		settings: map[string]string{"foo": "bar", "ham": "eggs", "good": "bad", "up": "down", "left": "right"},
+		/// 	}, {
+		/// 		summary:  "file + settings",
+		/// 		args:     []string{"--file", "spam", "foo=bar"},
+		/// 		content:  "{ham: eggs}",
+		/// 		settings: map[string]string{"ham": "eggs", "foo": "bar"},
+		/// 	}, {
+		/// 		summary:  "file overridden by settings",
+		/// 		args:     []string{"--file", "spam", "foo=bar"},
+		/// 		content:  "{foo: baz}",
+		/// 		settings: map[string]string{"foo": "bar"},
+		/// 	}, {
+		/// 		summary:  "read from stdin",
+		/// 		args:     []string{"--file", "-"},
+		/// 		content:  "{foo: bar}",
+		/// 		settings: map[string]string{"foo": "bar"},
+		/// 	}, {
+		/// 		summary:     "pass --app",
+		/// 		args:        []string{"--app", "baz=qux"},
+		/// 		settings:    map[string]string{"baz": "qux"},
+		/// 		application: true,
+		ctxunit: "u/0",
+		unit:    "u/0",
+	},
+}
+
+func (s *RelationGetSuite) TestInit(c *gc.C) {
+	for i, t := range relationGetInitTests {
+		t.log(c, i)
+		com, args := t.init(c, s)
+
+		err := cmdtesting.InitCommand(com, args)
+		t.check(c, com, err)
+	}
 }

@@ -21,63 +21,65 @@ var (
 	TryClosePorts     = tryClosePorts
 )
 
-func NewHookContext(
-	unit *uniter.Unit,
-	state *uniter.State,
-	id,
-	uuid,
-	modelName string,
-	relationId int,
-	remoteUnitName string,
-	relations map[int]*ContextRelation,
-	apiAddrs []string,
-	legacyProxySettings proxy.Settings,
-	jujuProxySettings proxy.Settings,
-	canAddMetrics bool,
-	charmMetrics *charm.Metrics,
-	actionData *ActionData,
-	assignedMachineTag names.MachineTag,
-	paths Paths,
-	clock Clock,
-) (*HookContext, error) {
+type HookContextParams struct {
+	Unit                *uniter.Unit
+	State               *uniter.State
+	ID                  string
+	UUID                string
+	ModelName           string
+	RelationID          int
+	RemoteUnitName      string
+	Relations           map[int]*ContextRelation
+	APIAddrs            []string
+	LegacyProxySettings proxy.Settings
+	JujuProxySettings   proxy.Settings
+	CanAddMetrics       bool
+	CharmMetrics        *charm.Metrics
+	ActionData          *ActionData
+	AssignedMachineTag  names.MachineTag
+	Paths               Paths
+	Clock               Clock
+}
+
+func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	ctx := &HookContext{
-		unit:                unit,
-		state:               state,
-		id:                  id,
-		uuid:                uuid,
-		modelName:           modelName,
-		unitName:            unit.Name(),
-		relationId:          relationId,
-		remoteUnitName:      remoteUnitName,
-		relations:           relations,
-		apiAddrs:            apiAddrs,
-		legacyProxySettings: legacyProxySettings,
-		jujuProxySettings:   jujuProxySettings,
-		actionData:          actionData,
+		unit:                hcParams.Unit,
+		state:               hcParams.State,
+		id:                  hcParams.ID,
+		uuid:                hcParams.UUID,
+		modelName:           hcParams.ModelName,
+		unitName:            hcParams.Unit.Name(),
+		relationId:          hcParams.RelationID,
+		remoteUnitName:      hcParams.RemoteUnitName,
+		relations:           hcParams.Relations,
+		apiAddrs:            hcParams.APIAddrs,
+		legacyProxySettings: hcParams.LegacyProxySettings,
+		jujuProxySettings:   hcParams.JujuProxySettings,
+		actionData:          hcParams.ActionData,
 		pendingPorts:        make(map[PortRange]PortRangeInfo),
-		assignedMachineTag:  assignedMachineTag,
-		clock:               clock,
+		assignedMachineTag:  hcParams.AssignedMachineTag,
+		clock:               hcParams.Clock,
 	}
 	// Get and cache the addresses.
 	var err error
-	ctx.publicAddress, err = unit.PublicAddress()
+	ctx.publicAddress, err = hcParams.Unit.PublicAddress()
 	if err != nil && !params.IsCodeNoAddressSet(err) {
 		return nil, err
 	}
-	ctx.privateAddress, err = unit.PrivateAddress()
+	ctx.privateAddress, err = hcParams.Unit.PrivateAddress()
 	if err != nil && !params.IsCodeNoAddressSet(err) {
 		return nil, err
 	}
-	ctx.availabilityzone, err = unit.AvailabilityZone()
+	ctx.availabilityzone, err = hcParams.Unit.AvailabilityZone()
 	if err != nil {
 		return nil, err
 	}
-	ctx.machinePorts, err = state.AllMachinePorts(ctx.assignedMachineTag)
+	ctx.machinePorts, err = hcParams.State.AllMachinePorts(ctx.assignedMachineTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	statusCode, statusInfo, err := unit.MeterStatus()
+	statusCode, statusInfo, err := hcParams.Unit.MeterStatus()
 	if err != nil {
 		return nil, errors.Annotate(err, "could not retrieve meter status for unit")
 	}
