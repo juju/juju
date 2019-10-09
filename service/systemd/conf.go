@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -188,6 +189,15 @@ func serializeUnit(conf common.Conf) []*unit.UnitOption {
 	return unitOptions
 }
 
+func iterSortedKeys(in map[string]string) []string {
+	out := make([]string, 0, len(in))
+	for k := range in {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
 func serializeService(conf common.Conf) []*unit.UnitOption {
 	var unitOptions []*unit.UnitOption
 
@@ -202,7 +212,12 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 		})
 	}
 
-	for k, v := range conf.Limit {
+	for _, k := range iterSortedKeys(conf.Limit) {
+		v := conf.Limit[k]
+		if v == "unlimited" {
+			// In ulimit you pass 'unlimited', but this maps to "infinity" in systemd
+			v = "infinity"
+		}
 		unitOptions = append(unitOptions, &unit.UnitOption{
 			Section: "Service",
 			Name:    limitMap[k],
