@@ -297,7 +297,7 @@ func (n *NetworkInfo) NetworksForRelation(
 		egress = n.defaultEgress
 	}
 
-	boundSpace, err = n.unit.GetSpaceForBinding(binding)
+	boundSpace, err = n.spaceForBinding(binding)
 	if err != nil && !errors.IsNotValid(err) {
 		return "", nil, nil, errors.Trace(err)
 	}
@@ -388,6 +388,20 @@ func (n *NetworkInfo) NetworksForRelation(
 		}
 	}
 	return boundSpace, ingress, egress, nil
+}
+
+// spaceForBinding returns the space name
+// associated with the specified endpoint.
+func (n *NetworkInfo) spaceForBinding(endpoint string) (string, error) {
+	boundSpace, known := n.bindings[endpoint]
+	if !known {
+		// If default binding is not explicitly defined we'll use default space
+		if endpoint == "" {
+			return corenetwork.DefaultSpaceName, nil
+		}
+		return "", errors.NewNotValid(nil, fmt.Sprintf("binding name %q not defined by the unit's charm", endpoint))
+	}
+	return boundSpace, nil
 }
 
 func pollForAddress(fetcher func() (corenetwork.SpaceAddress, error)) (corenetwork.SpaceAddress, error) {
