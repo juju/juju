@@ -1424,7 +1424,7 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 		settings := map[string]interface{}{}
 		_, ingressAddresses, egressSubnets, err := state.NetworksForRelation(relUnit.Endpoint().Name, unit, rel, modelSubnets, false)
 		if err == nil && len(ingressAddresses) > 0 {
-			ingressAddress := ingressAddresses[0]
+			ingressAddress := ingressAddresses[0].Value
 			// private-address is historically a cloud local address for the machine.
 			// Existing charms are built to ask for this attribute from relation
 			// settings to find out what address to use to connect to the app
@@ -2391,37 +2391,58 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		return params.NetworkInfoResults{}, err
 	}
 
+	app, err := unit.Application()
+	if err != nil {
+		return params.NetworkInfoResults{}, err
+	}
+
+	appBindings, err := app.EndpointBindings()
+	if err != nil {
+		return params.NetworkInfoResults{}, err
+	}
+
+	spaces := set.NewStrings()
+	bindings := make(map[string]string)
+	endpointEgressSubnets := make(map[string][]string)
+
 	result := params.NetworkInfoResults{
 		Results: make(map[string]params.NetworkInfoResult),
 	}
 
-	spaces := set.NewStrings()
-	bindingsToSpace := make(map[string]string)
-	bindingsToEgressSubnets := make(map[string][]string)
-
-	for _, binding := range args.Endpoints {
-		if boundSpace, err := unit.GetSpaceForBinding(binding); err != nil {
-			result.Results[binding] = params.NetworkInfoResult{Error: common.ServerError(err)}
+	// For each of the endpoints in the request, get the bound space and
+	// initialise the endpoint egress map with the model's configured
+	// egress subnets. Keep track of the spaces that we observe.
+	for _, endpoint := range args.Endpoints {
+		binding, ok := appBindings[endpoint]
+		if ok {
+			spaces.Add(binding)
+			bindings[endpoint] = binding
 		} else {
-			spaces.Add(boundSpace)
-			bindingsToSpace[binding] = boundSpace
+			if endpoint == "" {
+				bindings[endpoint] = corenetwork.DefaultSpaceName
+			} else {
+				err := errors.NewNotValid(nil, fmt.Sprintf("binding name %q not defined by the unit's charm", endpoint))
+				result.Results[endpoint] = params.NetworkInfoResult{Error: common.ServerError(err)}
+			}
 		}
-		bindingsToEgressSubnets[binding] = egressSubnets
+		endpointEgressSubnets[endpoint] = egressSubnets
 	}
 
-	bindingsToIngressAddresses := make(map[string][]string)
+	endpointIngressAddresses := make(map[string]corenetwork.SpaceAddresses)
 
+	// If we are working in a relation context, get the network information for
+	// the relation and set it for the relation's binding.
 	if args.RelationId != nil {
-		binding, boundSpace, ingress, egress, err := u.getRelationNetworkInfo(*args.RelationId, unit, egressSubnets)
+		endpoint, space, ingress, egress, err := u.getRelationNetworkInfo(*args.RelationId, unit, app, egressSubnets)
 		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
 
-		spaces.Add(boundSpace)
+		spaces.Add(space)
 		if len(egress) > 0 {
-			bindingsToEgressSubnets[binding] = egress
+			endpointEgressSubnets[endpoint] = egress
 		}
-		bindingsToIngressAddresses[binding] = ingress
+		endpointIngressAddresses[endpoint] = ingress
 	}
 
 	var (
@@ -2466,26 +2487,45 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		}
 	}
 
-	for binding, space := range bindingsToSpace {
+	for endpoint, space := range bindings {
 		// The binding address information based on link layer devices.
 		info := networkingcommon.MachineNetworkInfoResultToNetworkInfoResult(networkInfos[space])
 
 		// Set egress and ingress address information.
-		info.EgressSubnets = bindingsToEgressSubnets[binding]
-		info.IngressAddresses = bindingsToIngressAddresses[binding]
+		info.EgressSubnets = endpointEgressSubnets[endpoint]
 
-		// If there is no ingress address explicitly defined for a given binding,
-		// set the ingress addresses to either any defaults set above, or the binding addresses.
-		if len(info.IngressAddresses) == 0 {
-			for _, addr := range defaultIngressAddresses {
-				info.IngressAddresses = append(info.IngressAddresses, addr)
-			}
+		ingressAddrs := make([]string, len(endpointIngressAddresses[endpoint]))
+		for i, addr := range endpointIngressAddresses[endpoint] {
+			ingressAddrs[i] = addr.Value
 		}
+		info.IngressAddresses = ingressAddrs
+
+		// If there is no ingress address explicitly defined for a given
+		// binding, set the ingress addresses to either any defaults set above,
+		// or the binding addresses.
 		if len(info.IngressAddresses) == 0 {
+			info.IngressAddresses = defaultIngressAddresses
+		}
+
+		if len(info.IngressAddresses) == 0 {
+			var ingress corenetwork.SpaceAddresses
 			for _, nwInfo := range info.Info {
-				for _, addr := range nwInfo.Addresses {
-					info.IngressAddresses = append(info.IngressAddresses, addr.Address)
+				// We need to construct sortable addresses from link-layer
+				// devices, which unlike machine addresses do not have this
+				// information. We can at least ensure that fan addresses will
+				// be sorted after other addresses.
+				scope := corenetwork.ScopeCloudLocal
+				if strings.HasPrefix(nwInfo.InterfaceName, "fan-") {
+					scope = corenetwork.ScopeFanLocal
 				}
+				for _, addr := range nwInfo.Addresses {
+					ingress = append(ingress, corenetwork.NewScopedSpaceAddress(addr.Address, scope))
+				}
+			}
+			corenetwork.SortAddresses(ingress)
+			info.IngressAddresses = make([]string, len(ingress))
+			for i, addr := range ingress {
+				info.IngressAddresses[i] = addr.Value
 			}
 		}
 
@@ -2499,7 +2539,7 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 			}
 		}
 
-		result.Results[binding] = info
+		result.Results[endpoint] = info
 	}
 
 	return result, nil
@@ -2521,8 +2561,8 @@ func (u *UniterAPI) getModelEgressSubnets() ([]string, error) {
 // getRelationNetworkInfo returns the endpoint name, network space
 // and ingress/egress addresses for the input unit and relation ID.
 func (u *UniterAPI) getRelationNetworkInfo(
-	relationId int, unit *state.Unit, defaultEgress []string,
-) (string, string, []string, []string, error) {
+	relationId int, unit *state.Unit, app *state.Application, defaultEgress []string,
+) (string, string, corenetwork.SpaceAddresses, []string, error) {
 	rel, err := u.st.Relation(relationId)
 	if err != nil {
 		return "", "", nil, nil, errors.Trace(err)
@@ -2536,11 +2576,6 @@ func (u *UniterAPI) getRelationNetworkInfo(
 	// For k8s services which may have a public
 	// address, we want to poll in case it's not ready yet.
 	if !pollPublic {
-		app, err := unit.Application()
-		if err != nil {
-			return "", "", nil, nil, errors.Trace(err)
-
-		}
 		cfg, err := app.ApplicationConfig()
 		if err != nil {
 			return "", "", nil, nil, errors.Trace(err)

@@ -4270,8 +4270,10 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 				},
 			},
 		},
-		EgressSubnets:    []string{"8.8.8.10/32"},
-		IngressAddresses: []string{"8.8.8.10", "8.8.4.10", "8.8.4.11"},
+		// Addresses are sorted, and egress is based on
+		// the first ingress address.
+		EgressSubnets:    []string{"8.8.4.10/32"},
+		IngressAddresses: []string{"8.8.4.10", "8.8.4.11", "8.8.8.10"},
 	}
 
 	// For the "db-client" extra-binding we expect to see interfaces from default
