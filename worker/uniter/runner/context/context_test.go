@@ -4,9 +4,9 @@
 package context_test
 
 import (
-	"errors"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -37,14 +37,14 @@ func (s *InterfaceSuite) TestUnitName(c *gc.C) {
 func (s *InterfaceSuite) TestHookRelation(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	r, err := ctx.HookRelation()
-	c.Assert(err, gc.ErrorMatches, ".*")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(r, gc.IsNil)
 }
 
 func (s *InterfaceSuite) TestRemoteUnitName(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	name, err := ctx.RemoteUnitName()
-	c.Assert(err, gc.ErrorMatches, ".*")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(name, gc.Equals, "")
 }
 
@@ -58,7 +58,7 @@ func (s *InterfaceSuite) TestRelationIds(c *gc.C) {
 	c.Assert(r.Name(), gc.Equals, "db")
 	c.Assert(r.FakeId(), gc.Equals, "db:0")
 	r, err = ctx.Relation(123)
-	c.Assert(err, gc.ErrorMatches, ".*")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(r, gc.IsNil)
 }
 
