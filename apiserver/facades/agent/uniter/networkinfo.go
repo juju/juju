@@ -43,14 +43,15 @@ var PreferredAddressRetryArgs = func() retry.CallArgs {
 	}
 }
 
-// NetworkInfo is responsible for processing
-// a call to the uniter API NetworkGet method.
+// NetworkInfo is responsible for processing requests for network data for unit
+// endpoint bindings and/or relations.
 type NetworkInfo struct {
 	st            *state.State
 	unit          *state.Unit
 	app           *state.Application
 	defaultEgress []string
 	bindings      map[string]string
+	spaces        []*state.Space
 }
 
 // NewNetworkInfo initialises and returns a new NetworkInfo based on the input
@@ -79,6 +80,10 @@ func (n *NetworkInfo) init(tag names.UnitTag) error {
 	}
 
 	if n.defaultEgress, err = n.getModelEgressSubnets(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if n.spaces, err = n.st.AllSpaces(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -160,7 +165,16 @@ func (n *NetworkInfo) ProcessAPIRequest(args params.NetworkInfoParams) (params.N
 		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
-		networkInfos = machine.GetNetworkInfoForSpaces(spaces)
+
+		spInfos, err := n.lookupSpaces(spaces.Values()...)
+		if err != nil {
+			return params.NetworkInfoResults{}, err
+		}
+
+		// TODO (manadart 2019-09-10): This looks like it might be called
+		// twice in some cases - getRelationNetworkInfo (called above) calls
+		// NetworksForRelation, which also calls this method.
+		networkInfos = machine.GetNetworkInfoForSpaces(spInfos)
 	} else {
 		// For CAAS units, we build up a minimal result struct
 		// based on the default space and unit public/private addresses,
@@ -351,7 +365,11 @@ func (n *NetworkInfo) NetworksForRelation(
 			if err != nil {
 				return "", nil, nil, errors.Trace(err)
 			}
-			networkInfos := machine.GetNetworkInfoForSpaces(set.NewStrings(boundSpace))
+			sp, err := n.lookupSpaces(boundSpace)
+			if err != nil {
+				return "", nil, nil, errors.Trace(err)
+			}
+			networkInfos := machine.GetNetworkInfoForSpaces(sp)
 			// The binding address information based on link layer devices.
 			for _, nwInfo := range networkInfos[boundSpace].NetworkInfos {
 				// We need to construct sortable addresses from link-layer
@@ -395,13 +413,34 @@ func (n *NetworkInfo) NetworksForRelation(
 func (n *NetworkInfo) spaceForBinding(endpoint string) (string, error) {
 	boundSpace, known := n.bindings[endpoint]
 	if !known {
-		// If default binding is not explicitly defined we'll use default space
+		// If default binding is not explicitly defined, use the default space.
 		if endpoint == "" {
 			return corenetwork.DefaultSpaceName, nil
 		}
 		return "", errors.NewNotValid(nil, fmt.Sprintf("binding name %q not defined by the unit's charm", endpoint))
 	}
 	return boundSpace, nil
+}
+
+// TODO (manadart 2019-10-09): Once endpoint bindings use space IDs,
+// we will not need to look up spaces this way. The spaces can be primed with
+// SpaceInfosByID and the retrieval will be a simple map lookup.
+func (n *NetworkInfo) lookupSpaces(names ...string) (corenetwork.SpaceInfos, error) {
+	spaceInfos := make(corenetwork.SpaceInfos, len(names))
+	for i, name := range names {
+		found := false
+		for _, sp := range n.spaces {
+			if sp.Name() == name {
+				spaceInfos[i] = sp.NetworkSpace()
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, errors.NotFoundf("space with name %q", name)
+		}
+	}
+	return spaceInfos, nil
 }
 
 func pollForAddress(fetcher func() (corenetwork.SpaceAddress, error)) (corenetwork.SpaceAddress, error) {
