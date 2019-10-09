@@ -14,6 +14,10 @@ import (
 	"github.com/juju/juju/core/life"
 )
 
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead pass one passed as manifold config.
+var logger interface{}
+
 // ManifoldConfig describes how to configure and construct a Worker,
 // and what registered resources it may depend upon.
 type ManifoldConfig struct {

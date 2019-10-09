@@ -12,6 +12,10 @@ import (
 	"gopkg.in/tomb.v2"
 )
 
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead pass one in.
+var logger interface{}
+
 // RevisionUpdater exposes the "single" capability required by the worker.
 // As the worker gains more responsibilities, it will likely need more; see
 // storageprovisioner for a helpful model to grow towards.

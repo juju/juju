@@ -16,6 +16,10 @@ import (
 	"github.com/juju/juju/worker/charmrevision"
 )
 
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead pass one passed as manifold config.
+var logger interface{}
+
 // ManifoldConfig describes how to create a worker that checks for updates
 // available to deployed charms in an environment.
 type ManifoldConfig struct {

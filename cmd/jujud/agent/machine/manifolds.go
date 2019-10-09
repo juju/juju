@@ -769,10 +769,16 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewStore:             leasemanager.NewStore,
 		})),
 
+		// TODO (thumper): It doesn't really make sense in a machine manifold as
+		// not every machine will have credentials. It is here for the
+		// ifCredentialValid function that is used solely for the machine
+		// storage provisioner. It isn't clear to me why we have a storage
+		// provisioner in the machine agent and the model workers.
 		validCredentialFlagName: credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{
 			APICallerName: apiCallerName,
 			NewFacade:     credentialvalidator.NewFacade,
 			NewWorker:     credentialvalidator.NewWorker,
+			Logger:        loggo.GetLogger("juju.worker.credentialvalidator"),
 		}),
 	}
 

@@ -12,6 +12,12 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 )
 
+// Logger represents the methods used by the worker to log details.
+type Logger interface {
+	Debugf(string, ...interface{})
+	Infof(string, ...interface{})
+}
+
 // ManifoldConfig holds the dependencies and configuration for a
 // Worker manifold.
 type ManifoldConfig struct {
@@ -19,6 +25,7 @@ type ManifoldConfig struct {
 
 	NewFacade func(base.APICaller) (Facade, error)
 	NewWorker func(Config) (worker.Worker, error)
+	Logger    Logger
 }
 
 // Validate is called by start to check for bad configuration.
@@ -31,6 +38,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	return nil
 }
@@ -50,6 +60,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 	w, err := config.NewWorker(Config{
 		Facade: facade,
+		Logger: config.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
