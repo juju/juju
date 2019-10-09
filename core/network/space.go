@@ -59,6 +59,15 @@ func (s SpaceInfos) Names() []string {
 	return names
 }
 
+// IDs returns a string slice with each of the space ids in the collection.
+func (s SpaceInfos) IDs() []string {
+	ids := make([]string, len(s))
+	for i, v := range s {
+		ids[i] = v.ID
+	}
+	return ids
+}
+
 // GetByID returns a reference to the space with the input ID
 // if it exists in the collection. Otherwise nil is returned.
 func (s SpaceInfos) GetByID(id string) *SpaceInfo {
