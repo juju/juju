@@ -4,6 +4,8 @@
 package provider_test
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -20,6 +22,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/testing"
 )
 
 var operatorServiceArg = &core.Service{
@@ -537,6 +540,8 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator==test", IncludeUninitialized: true}).Times(1).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb}}, nil),
 		s.mockRoleBindings.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, &rbUID)).Times(1).Return(nil),
+		s.mockRoleBindings.EXPECT().Get("test-operator", v1.GetOptions{IncludeUninitialized: true}).Times(1).Return(rb, nil),
+		s.mockRoleBindings.EXPECT().Get("test-operator", v1.GetOptions{IncludeUninitialized: true}).Times(1).Return(nil, s.k8sNotFoundError()),
 		s.mockRoleBindings.EXPECT().Create(rb).Times(1).Return(rb, nil),
 
 		s.mockConfigMaps.EXPECT().Create(configMapArg).Times(1).
@@ -551,20 +556,31 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 			Return(statefulSetArg, nil),
 	)
 
-	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
-		OperatorImagePath: "/path/to/image",
-		Version:           version.MustParse("2.99.0"),
-		AgentConf:         []byte("agent-conf-data"),
-		OperatorInfo:      []byte("operator-info-data"),
-		ResourceTags:      map[string]string{"fred": "mary"},
-		CharmStorage: caas.CharmStorageParams{
-			Size:         uint64(10),
-			Provider:     "kubernetes",
-			Attributes:   map[string]interface{}{"storage-class": "operator-storage"},
-			ResourceTags: map[string]string{"foo": "bar"},
-		},
-	})
+	errChan := make(chan error)
+	go func() {
+		errChan <- s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
+			OperatorImagePath: "/path/to/image",
+			Version:           version.MustParse("2.99.0"),
+			AgentConf:         []byte("agent-conf-data"),
+			OperatorInfo:      []byte("operator-info-data"),
+			ResourceTags:      map[string]string{"fred": "mary"},
+			CharmStorage: caas.CharmStorageParams{
+				Size:         uint64(10),
+				Provider:     "kubernetes",
+				Attributes:   map[string]interface{}{"storage-class": "operator-storage"},
+				ResourceTags: map[string]string{"foo": "bar"},
+			},
+		})
+	}()
+	err := s.clock.WaitAdvance(2*time.Second, testing.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case err := <-errChan:
+		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for EnsureOperator return")
+	}
 }
 
 func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C) {

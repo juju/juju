@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	core "k8s.io/api/core/v1"
@@ -427,6 +428,34 @@ func (k *kubernetesClient) updateRoleBinding(rb *rbacv1.RoleBinding) (*rbacv1.Ro
 	return out, errors.Trace(err)
 }
 
+func ensureResourceDeleted(clock jujuclock.Clock, getResource func() error) error {
+	notReadyYetErr := errors.New("resource is still being deleted")
+	deletionChecker := func() error {
+		err := getResource()
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		if err == nil {
+			return notReadyYetErr
+		}
+		return errors.Trace(err)
+	}
+
+	err := retry.Call(retry.CallArgs{
+		Attempts: 10,
+		Delay:    2 * time.Second,
+		Clock:    clock,
+		Func:     deletionChecker,
+		IsFatalError: func(err error) bool {
+			return err != nil && err != notReadyYetErr
+		},
+		NotifyFunc: func(error, int) {
+			logger.Debugf("waiting for resource to be deleted")
+		},
+	})
+	return errors.Trace(err)
+}
+
 func (k *kubernetesClient) ensureRoleBinding(rb *rbacv1.RoleBinding) (out *rbacv1.RoleBinding, cleanups []func(), err error) {
 	isFirstDeploy := false
 	// RoleRef is immutable, so delete first then re-create.
@@ -445,31 +474,14 @@ func (k *kubernetesClient) ensureRoleBinding(rb *rbacv1.RoleBinding) (out *rbacv
 			if err := k.deleteRoleBinding(name, UID); err != nil {
 				return nil, cleanups, errors.Trace(err)
 			}
-			notReadyYetErr := errors.New(fmt.Sprintf("role binding %q is still being deleted", name))
-			deletionChecker := func() error {
-				_, err := k.getRoleBinding(name)
-				if errors.IsNotFound(err) {
-					logger.Debugf("role binding %q deleted", name)
-					return nil
-				}
-				if err == nil {
-					return notReadyYetErr
-				}
-				return errors.Trace(err)
-			}
 
-			if err := retry.Call(retry.CallArgs{
-				Attempts: 10,
-				Delay:    2 * time.Second,
-				Clock:    k.clock,
-				Func:     deletionChecker,
-				IsFatalError: func(err error) bool {
-					return err != nil && err != notReadyYetErr
+			if err := ensureResourceDeleted(
+				k.clock,
+				func() error {
+					_, err := k.getRoleBinding(name)
+					return errors.Trace(err)
 				},
-				NotifyFunc: func(error, int) {
-					logger.Debugf("waiting for role binding %q to be deleted", name)
-				},
-			}); err != nil {
+			); err != nil {
 				return nil, cleanups, errors.Trace(err)
 			}
 			break
