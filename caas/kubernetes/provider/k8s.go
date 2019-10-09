@@ -1033,7 +1033,7 @@ func (k *kubernetesClient) EnsureService(
 			}
 		}
 		if len(ports) == 0 {
-			return errors.Errorf("ports are required for kubernetes service")
+			return errors.Errorf("ports are required for kubernetes service %q", appName)
 		}
 
 		serviceAnnotations := annotations.Copy()

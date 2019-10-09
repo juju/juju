@@ -38,8 +38,6 @@ func (p podSpecV2) ToLatest() *specs.PodSpec {
 	pSpec.Service = p.caaSSpec.Service
 	pSpec.ConfigMaps = p.caaSSpec.ConfigMaps
 	pSpec.ServiceAccount = p.caaSSpec.ServiceAccount
-	// if p.k8sSpec.KubernetesResources != nil {
-	// }
 	pSpec.ProviderPod = &p.k8sSpec
 	return pSpec
 }

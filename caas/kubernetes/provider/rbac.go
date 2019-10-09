@@ -5,8 +5,10 @@ package provider
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -437,10 +439,39 @@ func (k *kubernetesClient) ensureRoleBinding(rb *rbacv1.RoleBinding) (out *rbacv
 
 	for _, v := range rbs {
 		if v.GetName() == rb.GetName() {
-			if err := k.deleteRoleBinding(v.GetName(), v.GetUID()); err != nil {
+			name := v.GetName()
+			UID := v.GetUID()
+
+			if err := k.deleteRoleBinding(name, UID); err != nil {
 				return nil, cleanups, errors.Trace(err)
 			}
-			logger.Debugf("role binding %q deleted", v.GetName())
+			notReadyYetErr := errors.New(fmt.Sprintf("role binding %q is still being deleted", name))
+			deletionChecker := func() error {
+				_, err := k.getRoleBinding(name)
+				if errors.IsNotFound(err) {
+					logger.Debugf("role binding %q deleted", name)
+					return nil
+				}
+				if err == nil {
+					return notReadyYetErr
+				}
+				return errors.Trace(err)
+			}
+
+			if err := retry.Call(retry.CallArgs{
+				Attempts: 10,
+				Delay:    2 * time.Second,
+				Clock:    k.clock,
+				Func:     deletionChecker,
+				IsFatalError: func(err error) bool {
+					return err != nil && err != notReadyYetErr
+				},
+				NotifyFunc: func(error, int) {
+					logger.Debugf("waiting for role binding %q to be deleted", name)
+				},
+			}); err != nil {
+				return nil, cleanups, errors.Trace(err)
+			}
 			break
 		}
 	}

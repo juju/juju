@@ -72,6 +72,9 @@ func (p podSpecLegacy) ToLatest() *specs.PodSpec {
 	pSpec := &specs.PodSpec{}
 	pSpec.Version = specs.CurrentVersion
 	pSpec.OmitServiceFrontend = p.caaSSpec.OmitServiceFrontend
+	if pSpec.OmitServiceFrontend {
+		logger.Warningf("OmitServiceFrontend will be deprecated in v2.")
+	}
 	pSpec.Service = p.caaSSpec.Service
 	pSpec.ConfigMaps = p.caaSSpec.ConfigMaps
 	pSpec.Containers = p.caaSSpec.Containers
@@ -81,7 +84,7 @@ func (p podSpecLegacy) ToLatest() *specs.PodSpec {
 
 	if p.k8sSpec.ServiceAccountName != "" {
 		// we ignore service account stuff in legacy version.
-		logger.Warningf("service account support is dropped in legacy version, please use v2.")
+		logger.Warningf("service account is not supported in legacy version, please use v2.")
 	}
 
 	iPodSpec := &PodSpec{
