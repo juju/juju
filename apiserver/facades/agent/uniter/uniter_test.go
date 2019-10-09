@@ -3985,28 +3985,23 @@ var _ = gc.Suite(&uniterNetworkInfoSuite{})
 func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.uniterSuiteBase.JujuConnSuite.SetUpTest(c)
 
-	// Add the spaces and subnets used by the test.
-	subnetInfos := []network.SubnetInfo{{
-		CIDR:      "8.8.0.0/16",
-		SpaceName: "public",
-	}, {
-		CIDR:      "10.0.0.0/24",
-		SpaceName: "internal",
-	}, {
-		CIDR:      "100.64.0.0/16",
-		SpaceName: "wp-default",
-	}, {
-		CIDR:      "192.168.1.0/24",
-		SpaceName: "database",
-	}, {
-		SpaceName: "layertwo",
-	}}
-	for _, info := range subnetInfos {
-		space, err := s.State.AddSpace(info.SpaceName, "", nil, false)
+	net := map[string][]string{
+		"public":     {"8.8.0.0/16", "1.0.0.0/12"},
+		"internal":   {"10.0.0.0/24"},
+		"wp-default": {"100.64.0.0/16"},
+		"database":   {"192.168.1.0/24"},
+		"layertwo":   nil,
+	}
+
+	for spaceName, cidrs := range net {
+		space, err := s.State.AddSpace(spaceName, "", nil, false)
 		c.Assert(err, jc.ErrorIsNil)
-		if info.CIDR != "" {
-			info.SpaceID = space.Id()
-			_, err = s.State.AddSubnet(info)
+
+		for _, cidr := range cidrs {
+			_, err = s.State.AddSubnet(network.SubnetInfo{
+				CIDR:    cidr,
+				SpaceID: space.Id(),
+			})
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
@@ -4114,6 +4109,10 @@ func (s *uniterNetworkInfoSuite) makeMachineDevicesAndAddressesArgs(addrSuffix i
 			Name:       "eth4",
 			Type:       network.EthernetDevice,
 			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:54", addrSuffix),
+		}, {
+			Name:       "fan-1",
+			Type:       network.EthernetDevice,
+			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:55", addrSuffix),
 		}},
 		[]state.LinkLayerDeviceAddress{{
 			DeviceName:   "eth0",
@@ -4143,6 +4142,10 @@ func (s *uniterNetworkInfoSuite) makeMachineDevicesAndAddressesArgs(addrSuffix i
 			DeviceName:   "eth4",
 			ConfigMethod: state.StaticAddress,
 			CIDRAddress:  fmt.Sprintf("192.168.1.%d/24", addrSuffix),
+		}, {
+			DeviceName:   "fan-1",
+			ConfigMethod: state.StaticAddress,
+			CIDRAddress:  fmt.Sprintf("1.1.1.%d/12", addrSuffix),
 		}}
 }
 
@@ -4269,11 +4272,18 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 					{Address: "8.8.4.11", CIDR: "8.8.0.0/16"},
 				},
 			},
+			{
+				MACAddress:    "00:11:22:33:10:55",
+				InterfaceName: "fan-1",
+				Addresses: []params.InterfaceAddress{
+					{Address: "1.1.1.10", CIDR: "1.0.0.0/12"},
+				},
+			},
 		},
-		// Addresses are sorted, and egress is based on
-		// the first ingress address.
+		// Egress is based on the first ingress address.
+		// Addresses are sorted, with fan always last.
 		EgressSubnets:    []string{"8.8.4.10/32"},
-		IngressAddresses: []string{"8.8.4.10", "8.8.4.11", "8.8.8.10"},
+		IngressAddresses: []string{"8.8.4.10", "8.8.4.11", "8.8.8.10", "1.1.1.10"},
 	}
 
 	// For the "db-client" extra-binding we expect to see interfaces from default
