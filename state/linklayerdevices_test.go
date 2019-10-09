@@ -791,7 +791,7 @@ func (s *linkLayerDevicesStateSuite) TestGetNetworkInfoForSpaces(c *gc.C) {
 	})
 	c.Check(res, gc.HasLen, 4)
 
-	resDefault, ok := res["default"]
+	resDefault, ok := res[s.spaces["default"].ID]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(resDefault.Error, jc.ErrorIsNil)
 	c.Assert(resDefault.NetworkInfos, gc.HasLen, 1)
@@ -800,7 +800,7 @@ func (s *linkLayerDevicesStateSuite) TestGetNetworkInfoForSpaces(c *gc.C) {
 	c.Check(resDefault.NetworkInfos[0].Addresses[0].Address, gc.Equals, "10.0.0.20")
 	c.Check(resDefault.NetworkInfos[0].Addresses[0].CIDR, gc.Equals, "10.0.0.0/24")
 
-	resDMZ, ok := res["dmz"]
+	resDMZ, ok := res[s.spaces["dmz"].ID]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(resDMZ.Error, jc.ErrorIsNil)
 	c.Assert(resDMZ.NetworkInfos, gc.HasLen, 1)
@@ -809,7 +809,7 @@ func (s *linkLayerDevicesStateSuite) TestGetNetworkInfoForSpaces(c *gc.C) {
 	c.Check(resDMZ.NetworkInfos[0].Addresses[0].Address, gc.Equals, "10.10.0.20")
 	c.Check(resDMZ.NetworkInfos[0].Addresses[0].CIDR, gc.Equals, "10.10.0.0/24")
 
-	resEmpty, ok := res[""]
+	resEmpty, ok := res[corenetwork.DefaultSpaceId]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(resEmpty.Error, jc.ErrorIsNil)
 	c.Assert(resEmpty.NetworkInfos, gc.HasLen, 1)
@@ -818,7 +818,7 @@ func (s *linkLayerDevicesStateSuite) TestGetNetworkInfoForSpaces(c *gc.C) {
 	c.Check(resEmpty.NetworkInfos[0].Addresses[0].Address, gc.Equals, "10.20.0.20")
 	c.Check(resEmpty.NetworkInfos[0].Addresses[0].CIDR, gc.Equals, "10.20.0.0/24")
 
-	resDoesNotExists, ok := res["doesnotexist"]
+	resDoesNotExists, ok := res["666"]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(resDoesNotExists.Error, gc.ErrorMatches, `.*machine "0" has no devices in space "doesnotexist".*`)
 	c.Assert(resDoesNotExists.NetworkInfos, gc.HasLen, 0)

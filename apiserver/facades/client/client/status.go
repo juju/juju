@@ -687,6 +687,13 @@ func fetchAllApplicationsAndUnits(
 	}
 	allBindingsByApp := make(map[string]map[string]string)
 	for _, bindings := range endpointBindings {
+		// If the only binding is the default, and it's set to the
+		// default space, no need to print.
+		if len(bindings.Bindings) == 1 {
+			if v, ok := bindings.Bindings[""]; ok && v == network.DefaultSpaceId {
+				continue
+			}
+		}
 		allBindingsByApp[bindings.AppName] = bindings.Bindings
 	}
 

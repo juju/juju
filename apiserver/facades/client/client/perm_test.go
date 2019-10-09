@@ -256,7 +256,8 @@ func opClientServiceExpose(c *gc.C, st api.Connection, mst *state.State) (func()
 	return func() {
 		svc, err := mst.Application("wordpress")
 		c.Assert(err, jc.ErrorIsNil)
-		svc.ClearExposed()
+		err = svc.ClearExposed()
+		c.Assert(err, jc.ErrorIsNil)
 	}, nil
 }
 
@@ -312,7 +313,8 @@ func opClientSetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(
 		setParams := map[string]map[string]string{
 			"application-wordpress": pairs,
 		}
-		annotations.NewClient(st).Set(setParams)
+		_, err := annotations.NewClient(st).Set(setParams)
+		c.Assert(err, jc.ErrorIsNil)
 	}, nil
 }
 
