@@ -5,15 +5,11 @@ package state_test
 
 import (
 	"fmt"
-	"math/rand"
 	"sort"
 	"strconv"
-	"sync"
 	"time"
 
-	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -22,7 +18,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type RUs []*state.RelationUnit
@@ -861,263 +856,6 @@ func (s *RelationUnitSuite) assertNoScopeChange(c *gc.C, ws ...*state.RelationSc
 	}
 }
 
-func (s *RelationUnitSuite) TestNetworksForRelation(c *gc.C) {
-	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
-	err := prr.pu0.AssignToNewMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	id, err := prr.pu0.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.Machine(id)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = machine.SetProviderAddresses(
-		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.pu0, prr.rel, nil, true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(boundSpace, gc.Equals, "")
-	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal)})
-	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
-}
-
-func (s *RelationUnitSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machine, addresses ...string) {
-	for _, address := range addresses {
-		name := fmt.Sprintf("e%x", rand.Int31())
-		deviceArgs := state.LinkLayerDeviceArgs{
-			Name: name,
-			Type: network.EthernetDevice,
-		}
-		err := machine.SetLinkLayerDevices(deviceArgs)
-		c.Assert(err, jc.ErrorIsNil)
-		device, err := machine.LinkLayerDevice(name)
-		c.Assert(err, jc.ErrorIsNil)
-
-		addressesArg := state.LinkLayerDeviceAddress{
-			DeviceName:   name,
-			ConfigMethod: state.StaticAddress,
-			CIDRAddress:  address,
-		}
-		err = machine.SetDevicesAddresses(addressesArg)
-		c.Assert(err, jc.ErrorIsNil)
-		deviceAddresses, err := device.Addresses()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(deviceAddresses, gc.HasLen, 1)
-	}
-}
-
-func (s *RelationUnitSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
-	subnet1, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "1.2.0.0/16"})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("space-1", "pid-1", []string{subnet1.ID()}, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	subnet2, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "2.2.0.0/16"})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("space-2", "pid-2", []string{subnet2.ID()}, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	subnet3, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "3.2.0.0/16"})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("space-3", "pid-3", []string{subnet3.ID()}, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	subnet4, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "4.3.0.0/16"})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("public-4", "pid-4", []string{subnet4.ID()}, true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// We want to have all bindings set so that no actual binding is
-	// really set to the default.
-	bindings := map[string]string{
-		"":             "space-3",
-		"server-admin": "space-1",
-		"server":       "space-2",
-	}
-
-	prr := newProReqRelationWithBindings(c, &s.ConnSuite, charm.ScopeGlobal, bindings, nil)
-	err = prr.pu0.AssignToNewMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	id, err := prr.pu0.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.Machine(id)
-	c.Assert(err, jc.ErrorIsNil)
-
-	addresses := []network.SpaceAddress{
-		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("2.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("3.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
-	}
-	err = machine.SetProviderAddresses(addresses...)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.addDevicesWithAddresses(c, machine, "1.2.3.4/16", "2.2.3.4/16", "3.2.3.4/16", "4.3.2.1/16")
-
-	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.pu0, prr.rel, nil, true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(boundSpace, gc.Equals, "space-3")
-	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("3.2.3.4", network.ScopeCloudLocal)})
-	c.Assert(egress, gc.DeepEquals, []string{"3.2.3.4/32"})
-}
-
-func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
-	prr := newRemoteProReqRelation(c, &s.ConnSuite)
-	err := prr.ru0.AssignToNewMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	id, err := prr.ru0.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.Machine(id)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = machine.SetProviderAddresses(
-		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.ru0, prr.rel, nil, true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(boundSpace, gc.Equals, "")
-	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic)})
-	c.Assert(egress, gc.DeepEquals, []string{"4.3.2.1/32"})
-}
-
-func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *gc.C) {
-	prr := newRemoteProReqRelation(c, &s.ConnSuite)
-	err := prr.ru0.AssignToNewMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	id, err := prr.ru0.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.Machine(id)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = machine.SetProviderAddresses(
-		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.ru0, prr.rel, nil, true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(boundSpace, gc.Equals, "")
-	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal)})
-	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
-}
-
-func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationDelayedPublicAddress(c *gc.C) {
-	clk := testclock.NewClock(time.Now())
-	attemptMade := make(chan struct{}, 10)
-	s.PatchValue(&state.PreferredAddressRetryArgs, func() retry.CallArgs {
-		return retry.CallArgs{
-			Clock:       clk,
-			Delay:       3 * time.Second,
-			MaxDuration: 30 * time.Second,
-			NotifyFunc: func(lastError error, attempt int) {
-				attemptMade <- struct{}{}
-			},
-		}
-	})
-	prr := newRemoteProReqRelation(c, &s.ConnSuite)
-	err := prr.ru0.AssignToNewMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	id, err := prr.ru0.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.Machine(id)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Set up a public address after at least one attempt
-	// is made to get it.We record the err for checking later
-	// as gc.C is not thread safe.
-	var funcErr error
-	wg := sync.WaitGroup{}
-	go func() {
-		wg.Add(1)
-		defer wg.Done()
-		funcErr = clk.WaitAdvance(15*time.Second, time.Second, 1)
-		if funcErr != nil {
-			return
-		}
-		// Ensure we have a failed attempt to get public address.
-		select {
-		case <-attemptMade:
-			funcErr = clk.WaitAdvance(10*time.Second, time.Second, 1)
-			if funcErr != nil {
-				return
-			}
-		case <-time.After(coretesting.LongWait):
-			c.Fatal("waiting for public address attempt")
-		}
-
-		// Now set up the public address.
-		funcErr = machine.SetProviderAddresses(
-			network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
-		)
-		if funcErr != nil {
-			return
-		}
-		funcErr = clk.WaitAdvance(10*time.Second, time.Second, 1)
-		if funcErr != nil {
-			return
-		}
-	}()
-
-	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.ru0, prr.rel, nil, true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure there we no errors in the go routine.
-	wg.Wait()
-	c.Assert(funcErr, jc.ErrorIsNil)
-
-	c.Assert(boundSpace, gc.Equals, "")
-	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic)})
-	c.Assert(egress, gc.DeepEquals, []string{"4.3.2.1/32"})
-}
-
-func (s *RelationUnitSuite) TestNetworksForRelationCAASModel(c *gc.C) {
-	st := s.Factory.MakeCAASModel(c, nil)
-	defer st.Close()
-	f := factory.NewFactory(st, s.StatePool)
-	gitlabch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
-	mysqlch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", Series: "kubernetes"})
-	gitlab := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitlabch})
-	mysql := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mysqlch})
-
-	prr := newProReqRelationForApps(c, st, mysql, gitlab)
-
-	// First no address.
-	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.pu0, prr.rel, nil, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(boundSpace, gc.Equals, "")
-	c.Assert(ingress, gc.HasLen, 0)
-	c.Assert(egress, gc.HasLen, 0)
-
-	// Add a application address.
-	err = mysql.UpdateCloudService("", network.SpaceAddresses{
-		network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = prr.pu0.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	boundSpace, ingress, egress, err = state.NetworksForRelation("", prr.pu0, prr.rel, nil, true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(boundSpace, gc.Equals, "")
-	c.Assert(ingress, gc.DeepEquals,
-		network.SpaceAddresses{network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal)})
-	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
-}
-
 func (s *RelationUnitSuite) TestValidYes(c *gc.C) {
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
 	rus := []*state.RelationUnit{prr.pru0, prr.pru1, prr.rru0, prr.rru1}
@@ -1232,17 +970,6 @@ func newProReqRelation(c *gc.C, s *ConnSuite, scope charm.RelationScope) *ProReq
 		rapp = s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	} else {
 		rapp = s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
-	}
-	return newProReqRelationForApps(c, s.State, papp, rapp)
-}
-
-func newProReqRelationWithBindings(c *gc.C, s *ConnSuite, scope charm.RelationScope, pbindings, rbindings map[string]string) *ProReqRelation {
-	papp := s.AddTestingApplicationWithBindings(c, "mysql", s.AddTestingCharm(c, "mysql"), pbindings)
-	var rapp *state.Application
-	if scope == charm.ScopeGlobal {
-		rapp = s.AddTestingApplicationWithBindings(c, "wordpress", s.AddTestingCharm(c, "wordpress"), rbindings)
-	} else {
-		rapp = s.AddTestingApplicationWithBindings(c, "logging", s.AddTestingCharm(c, "logging"), rbindings)
 	}
 	return newProReqRelationForApps(c, s.State, papp, rapp)
 }

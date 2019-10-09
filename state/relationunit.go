@@ -9,19 +9,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/clock"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/retry"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-
-	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
 )
 
 // RelationUnit holds information about a single unit in a relation, and
@@ -363,8 +357,8 @@ func (ru *RelationUnit) LeaveScope() error {
 }
 
 // leaveScopeForcedOps is an internal method used by other state objects when they just want
-// to get database operations that are involved in leaving scop without
-// the actual immeiate act of leaving scope.
+// to get database operations that are involved in leaving scope without
+// the actual immediate act of leaving scope.
 func (ru *RelationUnit) leaveScopeForcedOps(existingOperation *ForcedOperation) ([]txn.Op, error) {
 	// It does not matter that we are say false to force here- we'll overwrite the whole ForcedOperation.
 	leaveScopeOperation := ru.LeaveScopeOperation(false)
@@ -568,142 +562,6 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 		return nil, errors.Annotatef(err, "unit %q", uname)
 	}
 	return node.Map(), nil
-}
-
-// PreferredAddressRetryArgs returns the retry strategy for getting a unit's preferred address.
-// Override for testing to use a different clock.
-var PreferredAddressRetryArgs = func() retry.CallArgs {
-	return retry.CallArgs{
-		Clock:       clock.WallClock,
-		Delay:       3 * time.Second,
-		MaxDuration: 30 * time.Second,
-	}
-}
-
-// NetworksForRelation returns the ingress and egress addresses for a relation and unit.
-// The ingress addresses depend on if the relation is cross model and whether the
-// relation endpoint is bound to a space.
-func NetworksForRelation(
-	binding string, unit *Unit, rel *Relation, defaultEgress []string, pollPublic bool,
-) (boundSpace string, ingress corenetwork.SpaceAddresses, egress []string, _ error) {
-	st := unit.st
-
-	relEgress := NewRelationEgressNetworks(st)
-	egressSubnets, err := relEgress.Networks(rel.Tag().Id())
-	if err != nil && !errors.IsNotFound(err) {
-		return "", nil, nil, errors.Trace(err)
-	} else if err == nil {
-		egress = egressSubnets.CIDRS()
-	} else {
-		egress = defaultEgress
-	}
-
-	boundSpace, err = unit.GetSpaceForBinding(binding)
-	if err != nil && !errors.IsNotValid(err) {
-		return "", nil, nil, errors.Trace(err)
-	}
-
-	fetchAddr := func(fetcher func() (corenetwork.SpaceAddress, error)) (corenetwork.SpaceAddress, error) {
-		var address corenetwork.SpaceAddress
-		retryArg := PreferredAddressRetryArgs()
-		retryArg.Func = func() error {
-			var err error
-			address, err = fetcher()
-			return err
-		}
-		retryArg.IsFatalError = func(err error) bool {
-			return !network.IsNoAddressError(err)
-		}
-		return address, retry.Call(retryArg)
-	}
-
-	fallbackIngressToPrivateAddr := func() error {
-		// TODO(ycliuhw): lp-1830252 retry here once this is fixed.
-		address, err := unit.PrivateAddress()
-		if err != nil {
-			logger.Warningf("no private address for unit %q in relation %q", unit.Name(), rel)
-		}
-		if address.Value != "" {
-			ingress = append(ingress, address)
-		}
-		return nil
-	}
-
-	// If the endpoint for this relation is not bound to a space, or
-	// is bound to the default space, we need to look up the ingress
-	// address info which is aware of cross model relations.
-	if boundSpace == corenetwork.DefaultSpaceName || err != nil {
-		_, crossModel, err := rel.RemoteApplication()
-		if err != nil {
-			return "", nil, nil, errors.Trace(err)
-		}
-		if crossModel && (unit.ShouldBeAssigned() || pollPublic) {
-			address, err := fetchAddr(unit.PublicAddress)
-			if err != nil {
-				logger.Warningf(
-					"no public address for unit %q in cross model relation %q, will use private address",
-					unit.Name(), rel,
-				)
-			} else if address.Value != "" {
-				ingress = append(ingress, address)
-			}
-			if len(ingress) == 0 {
-				if err := fallbackIngressToPrivateAddr(); err != nil {
-					return "", nil, nil, errors.Trace(err)
-				}
-			}
-		}
-	}
-
-	if len(ingress) == 0 {
-		if unit.ShouldBeAssigned() {
-			// We don't yet have an ingress address, so pick one from the space to
-			// which the endpoint is bound.
-			machineID, err := unit.AssignedMachineId()
-			if err != nil {
-				return "", nil, nil, errors.Trace(err)
-			}
-			machine, err := st.Machine(machineID)
-			if err != nil {
-				return "", nil, nil, errors.Trace(err)
-			}
-			networkInfos := machine.GetNetworkInfoForSpaces(set.NewStrings(boundSpace))
-			// The binding address information based on link layer devices.
-			for _, nwInfo := range networkInfos[boundSpace].NetworkInfos {
-				// We need to construct sortable addresses from link-layer
-				// devices, which unlike machine addresses do not have this
-				// information. We can at least ensure that fan addresses will
-				// be sorted after other addresses.
-				scope := corenetwork.ScopeCloudLocal
-				if strings.HasPrefix(nwInfo.InterfaceName, "fan-") {
-					scope = corenetwork.ScopeFanLocal
-				}
-
-				for _, addr := range nwInfo.Addresses {
-					ingress = append(ingress, corenetwork.NewScopedSpaceAddress(addr.Address, scope))
-				}
-			}
-		} else {
-			// Be be consistent with IAAS behaviour above, we'll return all addresses.
-			addrs, err := unit.AllAddresses()
-			if err != nil {
-				logger.Warningf("no service address for unit %q in relation %q", unit.Name(), rel)
-			} else {
-				ingress = append(ingress, addrs...)
-			}
-		}
-	}
-
-	corenetwork.SortAddresses(ingress)
-
-	// If no egress subnets defined, We default to the ingress address.
-	if len(egress) == 0 && len(ingress) > 0 {
-		egress, err = network.FormatAsCIDR([]string{ingress[0].Value})
-		if err != nil {
-			return "", nil, nil, errors.Trace(err)
-		}
-	}
-	return boundSpace, ingress, egress, nil
 }
 
 // unitKey returns a string, based on the relation and the supplied unit name,
