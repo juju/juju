@@ -1287,7 +1287,6 @@ func (a *MachineAgent) createJujudSymlinks(dataDir string) error {
 	if a.isCaasAgent {
 		// For IAAS, this is done in systemd for for caas we need to do it here.
 		caasJujud := filepath.Join(tools.ToolsDir(dataDir, ""), jujunames.Jujud)
-		logger.Criticalf("creating %v to %v", jujud, caasJujud)
 		if err := a.createSymlink(caasJujud, jujud); err != nil {
 			return errors.Annotatef(err, "failed to create %s symlink", jujud)
 		}

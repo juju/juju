@@ -282,7 +282,7 @@ func (c *runActionCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		d := FormatActionResult(result)
+		d := FormatActionResult(result, false)
 		d["id"] = tag.Id()       // Action ID is required in case we timed out.
 		d["unit"] = unitTag.Id() // Formatted unit is nice to have.
 		out[result.Action.Receiver] = d

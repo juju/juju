@@ -233,7 +233,7 @@ func ConvertActions(ar state.ActionReceiver, fn GetActionsFn) ([]params.ActionRe
 // to params.ActionResult.
 func MakeActionResult(actionReceiverTag names.Tag, action state.Action) params.ActionResult {
 	output, message := action.Results()
-	return params.ActionResult{
+	result := params.ActionResult{
 		Action: &params.Action{
 			Receiver:   actionReceiverTag.String(),
 			Tag:        action.ActionTag().String(),
@@ -247,4 +247,12 @@ func MakeActionResult(actionReceiverTag names.Tag, action state.Action) params.A
 		Started:   action.Started(),
 		Completed: action.Completed(),
 	}
+	for _, m := range action.Messages() {
+		result.Log = append(result.Log, params.ActionMessage{
+			Timestamp: m.Timestamp,
+			Message:   m.Message,
+		})
+	}
+
+	return result
 }

@@ -22,6 +22,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/watcher"
 )
 
 // leaderSnippet is a regular expression for unit ID-like syntax that is used
@@ -34,23 +35,29 @@ var validLeader = regexp.MustCompile("^" + leaderSnippet + "$")
 var nameRule = charm.GetActionNameRule()
 
 func NewCallCommand() cmd.Command {
-	return modelcmd.Wrap(&callCommand{})
+	return modelcmd.Wrap(&callCommand{
+		logMessageHandler: func(ctx *cmd.Context, msg string) {
+			fmt.Fprintln(ctx.Stderr, msg)
+		},
+	})
 }
 
 // callCommand enqueues an Action for running on the given unit with given
 // params
 type callCommand struct {
 	ActionCommandBase
-	api           APIClient
-	unitReceivers []string
-	leaders       map[string]string
-	functionName  string
-	paramsYAML    cmd.FileVar
-	parseStrings  bool
-	background    bool
-	maxWait       time.Duration
-	out           cmd.Output
-	args          [][]string
+	api               APIClient
+	unitReceivers     []string
+	leaders           map[string]string
+	functionName      string
+	paramsYAML        cmd.FileVar
+	parseStrings      bool
+	background        bool
+	maxWait           time.Duration
+	out               cmd.Output
+	args              [][]string
+	utc               bool
+	logMessageHandler func(*cmd.Context, string)
 }
 
 const callDoc = `
@@ -90,6 +97,7 @@ Examples:
     juju call mysql/3 backup --background
     juju call mysql/3 backup --max-wait=2m
     juju call mysql/3 backup --format yaml
+    juju call mysql/3 backup --utc
     juju call mysql/3 backup
     juju call mysql/leader backup
     juju show-task <ID>
@@ -113,6 +121,7 @@ func (c *callCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.parseStrings, "string-args", false, "Use raw string values of CLI args")
 	f.BoolVar(&c.background, "background", false, "Run the function in the background")
 	f.DurationVar(&c.maxWait, "max-wait", 0, "Maximum wait time for a function to complete")
+	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
 }
 
 func (c *callCommand) Info() *cmd.Info {
@@ -176,81 +185,9 @@ func (c *callCommand) Run(ctx *cmd.Context) error {
 	}
 	defer c.api.Close()
 
-	actionParams := map[string]interface{}{}
-	if c.paramsYAML.Path != "" {
-		b, err := c.paramsYAML.Read(ctx)
-		if err != nil {
-			return err
-		}
-
-		err = yaml.Unmarshal(b, &actionParams)
-		if err != nil {
-			return err
-		}
-
-		conformantParams, err := common.ConformYAML(actionParams)
-		if err != nil {
-			return err
-		}
-
-		betterParams, ok := conformantParams.(map[string]interface{})
-		if !ok {
-			return errors.New("params must contain a YAML map with string keys")
-		}
-
-		actionParams = betterParams
-	}
-
-	// If we had explicit args {..., [key, key, key, key, value], ...}
-	// then iterate and set params ..., key.key.key.key=value, ...
-	for _, argSlice := range c.args {
-		valueIndex := len(argSlice) - 1
-		keys := argSlice[:valueIndex]
-		value := argSlice[valueIndex]
-		cleansedValue := interface{}(value)
-		if !c.parseStrings {
-			err := yaml.Unmarshal([]byte(value), &cleansedValue)
-			if err != nil {
-				return err
-			}
-		}
-		// Insert the value in the map.
-		addValueToMap(keys, cleansedValue, actionParams)
-	}
-
-	conformantParams, err := common.ConformYAML(actionParams)
+	results, err := c.enqueueActions(ctx)
 	if err != nil {
-		return err
-	}
-
-	typedConformantParams, ok := conformantParams.(map[string]interface{})
-	if !ok {
-		return errors.Errorf("params must be a map, got %T", typedConformantParams)
-	}
-
-	actions := make([]params.Action, len(c.unitReceivers))
-	for i, unitReceiver := range c.unitReceivers {
-		if strings.HasSuffix(unitReceiver, "leader") {
-			if c.api.BestAPIVersion() < 3 {
-				app := strings.Split(unitReceiver, "/")[0]
-				return errors.Errorf("unable to determine leader for application %q"+
-					"\nleader determination is unsupported by this API"+
-					"\neither upgrade your controller, or explicitly specify a unit", app)
-			}
-			actions[i].Receiver = unitReceiver
-		} else {
-			actions[i].Receiver = names.NewUnitTag(unitReceiver).String()
-		}
-		actions[i].Name = c.functionName
-		actions[i].Parameters = actionParams
-	}
-	results, err := c.api.Enqueue(params.Actions{Actions: actions})
-	if err != nil {
-		return err
-	}
-
-	if len(results.Results) != len(c.unitReceivers) {
-		return errors.New("illegal number of results returned")
+		return errors.Trace(err)
 	}
 
 	var actionTag names.ActionTag
@@ -299,7 +236,21 @@ func (c *callCommand) Run(ctx *cmd.Context) error {
 		wait = time.NewTimer(c.maxWait)
 	}
 
-	for _, result := range results.Results {
+	actionDone := make(chan struct{})
+	var logsWatcher watcher.StringsWatcher
+	haveLogs := false
+	if len(results.Results) == 1 && c.api.BestAPIVersion() >= 5 {
+		logsWatcher, err = c.api.WatchActionProgress(actionTag.Id())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		processLogMessages(logsWatcher, actionDone, ctx, c.utc, func(ctx *cmd.Context, msg string) {
+			haveLogs = true
+			c.logMessageHandler(ctx, msg)
+		})
+	}
+
+	for i, result := range results.Results {
 		tag, err := names.ParseActionTag(result.Action.Tag)
 		if err != nil {
 			return err
@@ -308,16 +259,101 @@ func (c *callCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
+		if i == 0 {
+			close(actionDone)
+			if logsWatcher != nil {
+				logsWatcher.Wait()
+			}
+			if haveLogs {
+				// Make the logs a bit separate in the output.
+				fmt.Fprintln(ctx.Stderr, "")
+			}
+		}
 		unitTag, err := names.ParseUnitTag(result.Action.Receiver)
 		if err != nil {
 			return err
 		}
-		d := FormatActionResult(result)
+		d := FormatActionResult(result, c.utc)
 		d["id"] = tag.Id() // Action ID is required in case we timed out.
 		info[unitTag.Id()] = d
 	}
 
 	return c.out.Write(ctx, info)
+}
+
+func (c *callCommand) enqueueActions(ctx *cmd.Context) (*params.ActionResults, error) {
+	actionParams := map[string]interface{}{}
+	if c.paramsYAML.Path != "" {
+		b, err := c.paramsYAML.Read(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		err = yaml.Unmarshal(b, &actionParams)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		conformantParams, err := common.ConformYAML(actionParams)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		betterParams, ok := conformantParams.(map[string]interface{})
+		if !ok {
+			return nil, errors.New("params must contain a YAML map with string keys")
+		}
+
+		actionParams = betterParams
+	}
+	// If we had explicit args {..., [key, key, key, key, value], ...}
+	// then iterate and set params ..., key.key.key.key=value, ...
+	for _, argSlice := range c.args {
+		valueIndex := len(argSlice) - 1
+		keys := argSlice[:valueIndex]
+		value := argSlice[valueIndex]
+		cleansedValue := interface{}(value)
+		if !c.parseStrings {
+			err := yaml.Unmarshal([]byte(value), &cleansedValue)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		// Insert the value in the map.
+		addValueToMap(keys, cleansedValue, actionParams)
+	}
+	conformantParams, err := common.ConformYAML(actionParams)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	typedConformantParams, ok := conformantParams.(map[string]interface{})
+	if !ok {
+		return nil, errors.Errorf("params must be a map, got %T", typedConformantParams)
+	}
+	actions := make([]params.Action, len(c.unitReceivers))
+	for i, unitReceiver := range c.unitReceivers {
+		if strings.HasSuffix(unitReceiver, "leader") {
+			if c.api.BestAPIVersion() < 3 {
+				app := strings.Split(unitReceiver, "/")[0]
+				return nil, errors.Errorf("unable to determine leader for application %q"+
+					"\nleader determination is unsupported by this API"+
+					"\neither upgrade your controller, or explicitly specify a unit", app)
+			}
+			actions[i].Receiver = unitReceiver
+		} else {
+			actions[i].Receiver = names.NewUnitTag(unitReceiver).String()
+		}
+		actions[i].Name = c.functionName
+		actions[i].Parameters = actionParams
+	}
+	results, err := c.api.Enqueue(params.Actions{Actions: actions})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != len(c.unitReceivers) {
+		return nil, errors.New("illegal number of results returned")
+	}
+	return &results, nil
 }
 
 // filteredOutputKeys are those we don't want to display as part of the

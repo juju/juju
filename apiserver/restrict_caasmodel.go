@@ -28,6 +28,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"CredentialValidator",
 	"CrossController",
 	"CrossModelRelations",
+	"ExternalControllerUpdater",
 	"FilesystemAttachmentsWatcher",
 	"LeadershipService",
 	"LifeFlag",
@@ -43,6 +44,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"NotifyWatcher",
 	"OfferStatusWatcher",
 	"Pinger",
+	"ProxyUpdater",
 	"Resources",
 	"GetResource",
 	"GetResourceInfo",
@@ -50,6 +52,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"RelationUnitsWatcher",
 	"ResourcesHookContext",
 	"RemoteRelations",
+	"Resumer",
 	"RetryStrategy",
 	"Singular",
 	"StatusHistory",
@@ -60,16 +63,6 @@ var commonModelFacadeNames = set.NewStrings(
 	"Uniter",
 	"Upgrader",
 	"VolumeAttachmentsWatcher",
-
-	// for caas controller.
-	// TODO(bootstrap): revisit here to ensure unneeded items are removed.
-	"Provisioner",
-	"Resumer",
-	"MachineActions",
-	"ProxyUpdater",
-	"Machiner",
-	"ExternalControllerUpdater",
-	"FanConfigurer",
 )
 
 // caasModelFacadeNames lists facades that are only used with CAAS

@@ -4,10 +4,15 @@
 package action
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher"
 )
 
 // Client provides access to the action facade.
@@ -117,4 +122,31 @@ func (c *Client) ApplicationCharmActions(arg params.Entity) (map[string]params.A
 		return nil, errors.Errorf("action results received for wrong application %q", result.ApplicationTag)
 	}
 	return result.Actions, nil
+}
+
+// WatchActionProgress returns a watcher that reports on action log messages.
+// The result strings are json formatted core.actions.ActionMessage objects.
+func (c *Client) WatchActionProgress(actionId string) (watcher.StringsWatcher, error) {
+	if c.BestAPIVersion() < 5 {
+		return nil, errors.New("WatchActionProgress not supported by this version of Juju")
+	}
+	var results params.StringsWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewActionTag(actionId).String()},
+		},
+	}
+	err := c.facade.FacadeCall("WatchActionsProgress", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
 }

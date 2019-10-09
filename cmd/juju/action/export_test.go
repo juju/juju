@@ -137,8 +137,10 @@ func NewShowCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ShowComm
 	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &ShowCommand{c}
 }
 
-func NewCallCommandForTest(store jujuclient.ClientStore) (cmd.Command, *CallCommand) {
-	c := &callCommand{}
+func NewCallCommandForTest(store jujuclient.ClientStore, logMessage func(*cmd.Context, string)) (cmd.Command, *CallCommand) {
+	c := &callCommand{
+		logMessageHandler: logMessage,
+	}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &CallCommand{c}
 }

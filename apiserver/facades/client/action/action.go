@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
 )
 
 // ActionAPI implements the client API for interacting with Actions
@@ -37,6 +38,11 @@ type APIv3 struct {
 
 // APIv4 provides the Action API facade for version 4.
 type APIv4 struct {
+	*APIv5
+}
+
+// APIv5 provides the Action API facade for version 5.
+type APIv5 struct {
 	*ActionAPI
 }
 
@@ -60,11 +66,20 @@ func NewActionAPIV3(ctx facade.Context) (*APIv3, error) {
 
 // NewActionAPIV4 returns an initialized ActionAPI for version 4.
 func NewActionAPIV4(ctx facade.Context) (*APIv4, error) {
-	api, err := newActionAPI(ctx.State(), ctx.Resources(), ctx.Auth())
+	api, err := NewActionAPIV5(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &APIv4{api}, nil
+}
+
+// NewActionAPIV5 returns an initialized ActionAPI for version 4.
+func NewActionAPIV5(ctx facade.Context) (*APIv5, error) {
+	api, err := newActionAPI(ctx.State(), ctx.Resources(), ctx.Auth())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv5{api}, nil
 }
 
 func newActionAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ActionAPI, error) {
@@ -464,4 +479,30 @@ func runningActions(ar state.ActionReceiver) ([]params.ActionResult, error) {
 // params.ActionResult.
 func completedActions(ar state.ActionReceiver) ([]params.ActionResult, error) {
 	return common.ConvertActions(ar, ar.CompletedActions)
+}
+
+// WatchActionsProgress creates a watcher that reports on action log messages.
+func (api *ActionAPI) WatchActionsProgress(actions params.Entities) (params.StringsWatchResults, error) {
+	results := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(actions.Entities)),
+	}
+	for i, arg := range actions.Entities {
+		actionTag, err := names.ParseActionTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		w := api.state.WatchActionLogs(actionTag.Id())
+		// Consume the initial event.
+		changes, ok := <-w.Changes()
+		if !ok {
+			results.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
+			continue
+		}
+
+		results.Results[i].Changes = changes
+		results.Results[i].StringsWatcherId = api.resources.Register(w)
+	}
+	return results, nil
 }
