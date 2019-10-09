@@ -501,7 +501,7 @@ func (s *clientSuite) TestCreateVirtualMachineTimesOut(c *gc.C) {
 	case <-time.After(coretesting.ShortWait):
 	}
 
-	err := s.clock.WaitAdvance(35*time.Second, coretesting.LongWait, 1)
+	err := s.clock.WaitAdvance(601*time.Second, coretesting.LongWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
