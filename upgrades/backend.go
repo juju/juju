@@ -74,6 +74,7 @@ type StateBackend interface {
 	EnsureRelationApplicationSettings() error
 	ConvertAddressSpaceIDs() error
 	AddDefaultSpaceSetting() error
+	ReplaceSpaceNameWithIDEndpointBindings() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -298,4 +299,8 @@ func (s stateBackend) EnsureRelationApplicationSettings() error {
 
 func (s stateBackend) ConvertAddressSpaceIDs() error {
 	return state.ConvertAddressSpaceIDs(s.pool)
+}
+
+func (s stateBackend) ReplaceSpaceNameWithIDEndpointBindings() error {
+	return state.ReplaceSpaceNameWithIDEndpointBindings(s.pool)
 }

@@ -69,5 +69,12 @@ func stateStepsFor27() []Step {
 				return context.State().AddDefaultSpaceSetting()
 			},
 		},
+		&upgradeStep{
+			description: "replace space name in endpointBindingDoc bindings with an space ID",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().ReplaceSpaceNameWithIDEndpointBindings()
+			},
+		},
 	}
 }
