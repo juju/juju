@@ -24,7 +24,6 @@ $GOPATH/bin/golangci-lint run \
     --enable=goimports \
     --enable=misspell \
     --enable=unconvert \
-    --deadline=10m \
     &> $OUTPUT_FILE
 
 # go through each golangci-lint error and check to see if it's related 
