@@ -157,24 +157,13 @@ func (n *NetworkInfo) ProcessAPIRequest(args params.NetworkInfoParams) (params.N
 	)
 
 	if n.unit.ShouldBeAssigned() {
-		machineID, err := n.unit.AssignedMachineId()
-		if err != nil {
-			return params.NetworkInfoResults{}, err
-		}
-		machine, err := n.st.Machine(machineID)
-		if err != nil {
-			return params.NetworkInfoResults{}, err
-		}
-
-		spInfos, err := n.lookupSpaces(spaces.Values()...)
-		if err != nil {
-			return params.NetworkInfoResults{}, err
-		}
-
+		var err error
 		// TODO (manadart 2019-09-10): This looks like it might be called
-		// twice in some cases - getRelationNetworkInfo (called above) calls
-		// NetworksForRelation, which also calls this method.
-		networkInfos = machine.GetNetworkInfoForSpaces(spInfos)
+		// twice in some cases - getRelationNetworkInfo (called above)
+		// calls NetworksForRelation, which also calls this method.
+		if networkInfos, err = n.machineNetworkInfos(spaces.Values()...); err != nil {
+			return params.NetworkInfoResults{}, err
+		}
 	} else {
 		// For CAAS units, we build up a minimal result struct
 		// based on the default space and unit public/private addresses,
@@ -357,19 +346,11 @@ func (n *NetworkInfo) NetworksForRelation(
 		if n.unit.ShouldBeAssigned() {
 			// We don't yet have an ingress address, so pick one from the space to
 			// which the endpoint is bound.
-			machineID, err := n.unit.AssignedMachineId()
+			networkInfos, err := n.machineNetworkInfos(boundSpace)
 			if err != nil {
 				return "", nil, nil, errors.Trace(err)
 			}
-			machine, err := n.st.Machine(machineID)
-			if err != nil {
-				return "", nil, nil, errors.Trace(err)
-			}
-			sp, err := n.lookupSpaces(boundSpace)
-			if err != nil {
-				return "", nil, nil, errors.Trace(err)
-			}
-			networkInfos := machine.GetNetworkInfoForSpaces(sp)
+
 			// The binding address information based on link layer devices.
 			for _, nwInfo := range networkInfos[boundSpace].NetworkInfos {
 				// We need to construct sortable addresses from link-layer
@@ -406,6 +387,29 @@ func (n *NetworkInfo) NetworksForRelation(
 		}
 	}
 	return boundSpace, ingress, egress, nil
+}
+
+// machineNetworkInfos returns network info for the unit's machine based on
+// devices with addresses in the input spaces.
+// TODO (manadart 2019-10-10): `GetNetworkInfoForSpaces` is only used here and
+// could be relocated from the state package, reducing cross-cutting concerns
+// there.
+func (n *NetworkInfo) machineNetworkInfos(spaces ...string) (map[string]state.MachineNetworkInfoResult, error) {
+	machineID, err := n.unit.AssignedMachineId()
+	if err != nil {
+		return nil, err
+	}
+	machine, err := n.st.Machine(machineID)
+	if err != nil {
+		return nil, err
+	}
+
+	spInfos, err := n.lookupSpaces(spaces...)
+	if err != nil {
+		return nil, err
+	}
+
+	return machine.GetNetworkInfoForSpaces(spInfos), nil
 }
 
 // spaceForBinding returns the space name
