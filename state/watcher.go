@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"hash"
 	"reflect"
 	"regexp"
 	"sort"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
 
@@ -3976,6 +3978,156 @@ func (w *hashWatcher) loop() error {
 	changesCh := make(chan watcher.Change)
 	w.watcher.Watch(w.collection, w.id, changesCh)
 	defer w.watcher.Unwatch(w.collection, w.id, changesCh)
+
+	lastHash, err := w.hash()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	out := w.out
+	for {
+		select {
+		case <-w.watcher.Dead():
+			return stateWatcherDeadError(w.watcher.Err())
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case change := <-changesCh:
+			if _, ok := collect(change, changesCh, w.tomb.Dying()); !ok {
+				return tomb.ErrDying
+			}
+			newHash, err := w.hash()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if lastHash != newHash {
+				lastHash = newHash
+				out = w.out
+			}
+		case out <- []string{lastHash}:
+			out = nil
+		}
+	}
+}
+
+// WatchMachineAndEndpointAddressesHash returns a StringsWatcher that reports changes to
+// the hash value of the address assignments to the unit's endpoints. The hash
+// is recalculated when any of the following events occurs:
+// - the machine addresses for the unit change.
+// - the endpoint bindings for the unit's application change.
+func (u *Unit) WatchMachineAndEndpointAddressesHash() (StringsWatcher, error) {
+	app, err := u.Application()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	endpointsDoc, err := readEndpointBindingsDoc(app.st, app.globalKey())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	machineId, err := u.AssignedMachineId()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	machine, err := u.st.Machine(machineId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	mCopy := &Machine{st: machine.st, doc: machine.doc}
+
+	// We need to check the hash when either the bindings change or when
+	// the machine doc changes (e.g. machine has new network addresses).
+	w := &hashMultiWatcher{
+		commonWatcher: newCommonWatcher(app.st),
+		out:           make(chan []string),
+		collectionToIDMap: map[string]string{
+			endpointBindingsC: endpointsDoc.DocID,
+			machinesC:         machine.doc.DocID,
+		},
+		hash: func() (string, error) {
+			bindings, err := app.EndpointBindings()
+			if err != nil {
+				return "", err
+			}
+			return hashMachineAddressesForEndpointBindings(mCopy, bindings)
+		},
+	}
+	w.start()
+	return w, nil
+}
+
+func hashMachineAddressesForEndpointBindings(m *Machine, bindings map[string]string) (string, error) {
+	if err := m.Refresh(); err != nil {
+		return "", errors.Trace(err)
+	}
+	hash := sha256.New()
+
+	addresses := m.Addresses()
+	sort.Slice(addresses, func(i, j int) bool { return addresses[i].Value < addresses[j].Value })
+	for _, address := range addresses {
+		hashAddr(hash, address)
+	}
+
+	// Also include endpoint to machine address assignments to the hash
+	addrsBySpaceName, err := m.AddressesBySpaceName()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	sortedEndpoints := make([]string, 0, len(bindings))
+	for epName := range bindings {
+		sortedEndpoints = append(sortedEndpoints, epName)
+	}
+	sort.Strings(sortedEndpoints)
+
+	for _, epName := range sortedEndpoints {
+		if epName == "" {
+			continue
+		}
+		spName := bindings[epName]
+		addresses := addrsBySpaceName[spName]
+		sort.Slice(addresses, func(i, j int) bool { return addresses[i].Value < addresses[j].Value })
+		for _, address := range addresses {
+			hashAddr(hash, address)
+		}
+	}
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+}
+
+func hashAddr(h hash.Hash, addr corenetwork.SpaceAddress) {
+	h.Write([]byte(addr.Value))
+	h.Write([]byte(addr.Type))
+	h.Write([]byte(addr.Scope))
+	h.Write([]byte(addr.SpaceID))
+}
+
+// hashMultiWatcher watches a set of documents for changes, invokes a
+// user-defined hash function and emits changes in the hash value.
+type hashMultiWatcher struct {
+	commonWatcher
+	collectionToIDMap map[string]string
+	hash              func() (string, error)
+	out               chan []string
+}
+
+func (w *hashMultiWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+func (w *hashMultiWatcher) start() {
+	w.tomb.Go(func() error {
+		defer close(w.out)
+		return w.loop()
+	})
+}
+
+func (w *hashMultiWatcher) loop() error {
+	changesCh := make(chan watcher.Change)
+	for collection, id := range w.collectionToIDMap {
+		w.watcher.Watch(collection, id, changesCh)
+	}
+	defer func() {
+		for collection, id := range w.collectionToIDMap {
+			w.watcher.Unwatch(collection, id, changesCh)
+		}
+	}()
 
 	lastHash, err := w.hash()
 	if err != nil {

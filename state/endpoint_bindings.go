@@ -321,19 +321,29 @@ func removeEndpointBindingsOp(key string) txn.Op {
 // readEndpointBindings returns the stored bindings and TxnRevno for the given
 // application global key, or an error satisfying errors.IsNotFound() otherwise.
 func readEndpointBindings(st *State, key string) (map[string]string, int64, error) {
+	doc, err := readEndpointBindingsDoc(st, key)
+	if err != nil {
+		return nil, 0, err
+	}
+	return doc.Bindings, doc.TxnRevno, nil
+}
+
+// readEndpointBindingsDoc returns the endpoint bindings document for the
+// specified key.
+func readEndpointBindingsDoc(st *State, key string) (*endpointBindingsDoc, error) {
 	endpointBindings, closer := st.db().GetCollection(endpointBindingsC)
 	defer closer()
 
 	var doc endpointBindingsDoc
 	err := endpointBindings.FindId(key).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, 0, errors.NotFoundf("endpoint bindings for %q", key)
+		return nil, errors.NotFoundf("endpoint bindings for %q", key)
 	}
 	if err != nil {
-		return nil, 0, errors.Annotatef(err, "cannot get endpoint bindings for %q", key)
+		return nil, errors.Annotatef(err, "cannot get endpoint bindings for %q", key)
 	}
 
-	return doc.Bindings, doc.TxnRevno, nil
+	return &doc, nil
 }
 
 // validateEndpointBindingsForCharm verifies that all endpoint names in bindings

@@ -2257,6 +2257,77 @@ func (s *UnitSuite) TestDestroyWithForceWorksOnDyingUnit(c *gc.C) {
 	c.Assert(needsCleanup, gc.Equals, true)
 }
 
+func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
+	// Create 2 spaces
+	sn1, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "10.0.0.0/24"})
+	c.Assert(err, gc.IsNil)
+	sn2, err := s.State.AddSubnet(corenetwork.SubnetInfo{CIDR: "10.0.254.0/24"})
+
+	_, err = s.State.AddSpace("public", "", []string{sn1.ID()}, false)
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddSpace("private", "", []string{sn2.ID()}, false)
+	c.Assert(err, gc.IsNil)
+
+	// Create machine with 2 interfaces on the above spaces
+	m1, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:      "quantal",
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: constraints.MustParse("spaces=public,private"),
+	})
+	c.Assert(err, gc.IsNil)
+	err = m1.SetLinkLayerDevices(
+		state.LinkLayerDeviceArgs{Name: "enp5s0", Type: corenetwork.EthernetDevice},
+		state.LinkLayerDeviceArgs{Name: "enp5s1", Type: corenetwork.EthernetDevice},
+	)
+	c.Assert(err, gc.IsNil)
+	err = m1.SetDevicesAddresses(
+		state.LinkLayerDeviceAddress{DeviceName: "enp5s0", CIDRAddress: "10.0.0.1/24", ConfigMethod: state.StaticAddress},
+		state.LinkLayerDeviceAddress{DeviceName: "enp5s1", CIDRAddress: "10.0.254.42/24", ConfigMethod: state.StaticAddress},
+	)
+	c.Assert(err, gc.IsNil)
+
+	// Deploy unit to machine
+	ch := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 1)
+	app := state.AddTestingApplicationWithBindings(c, s.State, "mysql", ch, map[string]string{
+		"server": "public",
+		"foo":    "private",
+	})
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, gc.IsNil)
+	err = unit.AssignToMachine(m1)
+	c.Assert(err, gc.IsNil)
+
+	// Create watcher
+	s.State.StartSync()
+	w, err := unit.WatchMachineAndEndpointAddressesHash()
+	c.Assert(err, gc.IsNil)
+	defer func() { _ = w.Stop() }()
+
+	// The watcher will emit the original hash.
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange("790fa771fa9e3a6795fb2b879b0a9530a423256d24ef6ee73b11783878c10ae2")
+
+	// Adding a new machine address should trigger a change
+	err = m1.SetDevicesAddresses(state.LinkLayerDeviceAddress{DeviceName: "enp5s0", CIDRAddress: "10.0.0.100/24", ConfigMethod: state.StaticAddress})
+	c.Assert(err, gc.IsNil)
+	err = m1.SetProviderAddresses(corenetwork.NewSpaceAddress("10.0.0.100"))
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange("5508ff98b2f6c8e945154ef7ae2149dc18bf0ab0eea50bade3a1d875432406f1")
+
+	// Changing the application bindings after an upgrade should trigger a change
+	sch := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 2)
+	cfg := state.SetCharmConfig{
+		Charm:      sch,
+		ForceUnits: true,
+		EndpointBindings: map[string]string{
+			"server": "private",
+		},
+	}
+	err = app.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("1bf261e50e986904497a3712b6b07bf0e3ccb3c12231aa642097485921498e63")
+}
+
 func unitMachine(c *gc.C, st *state.State, u *state.Unit) *state.Machine {
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
