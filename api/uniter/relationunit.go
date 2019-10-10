@@ -121,18 +121,14 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 // a non-Leader generates a NotLeader error.
 func (ru *RelationUnit) ApplicationSettings() (*Settings, error) {
 	var results params.SettingsResults
-	appname, err := names.UnitApplication(ru.unit.Name())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	appTag := names.NewApplicationTag(appname)
+	appTag := ru.unit.ApplicationTag()
 	args := params.RelationUnits{
 		RelationUnits: []params.RelationUnit{{
 			Relation: ru.relation.tag.String(),
 			Unit:     appTag.String(),
 		}},
 	}
-	err = ru.st.facade.FacadeCall("ReadSettings", args, &results)
+	err := ru.st.facade.FacadeCall("ReadSettings", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -155,11 +151,15 @@ func (ru *RelationUnit) ApplicationSettings() (*Settings, error) {
 // unit is not grounds for an error, because the unit settings are
 // guaranteed to persist for the lifetime of the relation, regardless
 // of the lifetime of the unit.
-func (ru *RelationUnit) ReadSettings(uname string) (params.Settings, error) {
-	if !names.IsValidUnit(uname) {
-		return nil, errors.Errorf("%q is not a valid unit", uname)
+func (ru *RelationUnit) ReadSettings(name string) (params.Settings, error) {
+	var tag names.Tag
+	if names.IsValidUnit(name) {
+		tag = names.NewUnitTag(name)
+	} else if names.IsValidApplication(name) {
+		tag = names.NewApplicationTag(name)
+	} else {
+		return nil, errors.Errorf("%q is not a valid unit or application", name)
 	}
-	tag := names.NewUnitTag(uname)
 	var results params.SettingsResults
 	args := params.RelationUnitPairs{
 		RelationUnitPairs: []params.RelationUnitPair{{

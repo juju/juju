@@ -185,6 +185,17 @@ func UpdateCachedSettings(cf0 ContextFactory, relId int, unitName string, settin
 	}
 }
 
+func UpdateCachedAppSettings(cf0 ContextFactory, relId int, appName string, settings params.Settings) {
+	cf := cf0.(*contextFactory)
+	applications := cf.relationCaches[relId].applications
+	if applications[appName] == nil {
+		applications[appName] = params.Settings{}
+	}
+	for key, value := range settings {
+		applications[appName][key] = value
+	}
+}
+
 func CachedSettings(cf0 ContextFactory, relId int, unitName string) (params.Settings, bool) {
 	cf := cf0.(*contextFactory)
 	settings, found := cf.relationCaches[relId].members[unitName]

@@ -7,7 +7,6 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 )
@@ -70,6 +69,10 @@ func (cache *RelationCache) MemberNames() (memberNames []string) {
 // Settings returns the settings of the named remote unit. It's valid to get
 // the settings of any unit that has ever been in the relation.
 func (cache *RelationCache) Settings(unitName string) (params.Settings, error) {
+	logger.Criticalf("Settings %v called", unitName)
+	// TODO(jam): 2019-10-10 We should probably validate that 'unitName' is a valid
+	//  application name and not a unit name. ReadSettings used to validate that
+	//  it was a valid unit name, but now it can be a unitName or appName
 	settings, isMember := cache.members[unitName]
 	if settings == nil {
 		if !isMember {
@@ -92,13 +95,14 @@ func (cache *RelationCache) Settings(unitName string) (params.Settings, error) {
 }
 
 // ApplicationSettings returns the relation settings of the named application.
-func (cache *RelationCache) ApplicationSettings(unitName string) (params.Settings, error) {
-	appName, err := names.UnitApplication(unitName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func (cache *RelationCache) ApplicationSettings(appName string) (params.Settings, error) {
+	// TODO(jam): 2019-10-10 We should probably validate that 'appName' is a valid
+	//  application name and not a unit name. ReadSettings used to validate that
+	//  it was a valid unit name, but now it can be a unitName or appName
+	logger.Criticalf("ApplicationSettings %v called", appName)
 	settings, found := cache.applications[appName]
 	if !found {
+		var err error
 		settings, err = cache.readSettings(appName)
 		if err != nil {
 			return nil, errors.Trace(err)

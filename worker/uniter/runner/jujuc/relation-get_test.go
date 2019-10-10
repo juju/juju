@@ -344,7 +344,7 @@ func (t relationGetInitTest) check(c *gc.C, com cmd.Command, err error) {
 		rset := com.(*jujuc.RelationGetCommand)
 		c.Check(rset.RelationId, gc.Equals, t.relid)
 		c.Check(rset.Key, gc.Equals, t.key)
-		c.Check(rset.UnitName, gc.Equals, t.unit)
+		c.Check(rset.UnitOrAppName, gc.Equals, t.unit)
 		c.Check(rset.Application, gc.Equals, t.application)
 	} else {
 		c.Check(err, gc.ErrorMatches, t.err)

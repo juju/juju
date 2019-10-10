@@ -219,7 +219,7 @@ func (s *RelationCacheSuite) TestApplicationSettings(c *gc.C) {
 		params.Settings{"foo": "bar"}, nil,
 	}}
 	cache := context.NewRelationCache(s.ReadSettings, nil)
-	settings, err := cache.ApplicationSettings("x/2")
+	settings, err := cache.ApplicationSettings("x")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(s.calls, jc.DeepEquals, []string{"x"})
@@ -232,21 +232,20 @@ func (s *RelationCacheSuite) TestInvalidateApplicationSettings(c *gc.C) {
 		params.Settings{"foo": "baz"}, nil,
 	}}
 	cache := context.NewRelationCache(s.ReadSettings, nil)
-	settings, err := cache.ApplicationSettings("x/2")
+	settings, err := cache.ApplicationSettings("x")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(s.calls, jc.DeepEquals, []string{"x"})
 
-	// Calling it a second time returns the value from the cache, even if it is
-	// for a different unit
-	settings, err = cache.ApplicationSettings("x/3")
+	// Calling it a second time returns the value from the cache
+	settings, err = cache.ApplicationSettings("x")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(s.calls, jc.DeepEquals, []string{"x"})
 
 	// Now when we Invalidate the application, it will read it again
 	cache.InvalidateApplication("x")
-	settings, err = cache.ApplicationSettings("x/2")
+	settings, err = cache.ApplicationSettings("x")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "baz"})
 	c.Assert(s.calls, jc.DeepEquals, []string{"x", "x"})

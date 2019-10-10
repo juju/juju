@@ -585,6 +585,16 @@ func (s *ContextFactorySuite) TestNewHookContextRelationBrokenRetainsCaches(c *g
 	c.Assert(member, jc.IsTrue)
 }
 
+func (s *ContextFactorySuite) TestReadApplicationSettings(c *gc.C) {
+	s.setUpCacheMethods(c)
+	ctx, err := s.factory.HookContext(hook.Info{Kind: hooks.Install})
+	c.Assert(err, jc.ErrorIsNil)
+	s.membership[0] = []string{"r/0"}
+	rel, err := ctx.Relation(0)
+	c.Assert(err, jc.ErrorIsNil)
+	rel.ApplicationSettings()
+}
+
 type StubLeadershipContext struct {
 	context.LeadershipContext
 	*testing.Stub

@@ -23,9 +23,9 @@ type RelationGetCommand struct {
 	relationIdProxy gnuflag.Value
 	Application     bool
 
-	Key      string
-	UnitName string
-	out      cmd.Output
+	Key           string
+	UnitOrAppName string
+	out           cmd.Output
 }
 
 func NewRelationGetCommand(ctx Context) (cmd.Command, error) {
@@ -92,21 +92,21 @@ func (c *RelationGetCommand) Init(args []string) error {
 	}
 
 	if name, err := c.ctx.RemoteUnitName(); err == nil {
-		c.UnitName = name
+		c.UnitOrAppName = name
 	} else if !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	} else {
 		if name, err := c.ctx.RemoteApplicationName(); err == nil {
-			c.UnitName = name
+			c.UnitOrAppName = name
 		} else if !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
 	}
 	if len(args) > 0 {
-		c.UnitName = args[0]
+		c.UnitOrAppName = args[0]
 		args = args[1:]
 	}
-	if c.UnitName == "" {
+	if c.UnitOrAppName == "" {
 		return fmt.Errorf("no unit id specified")
 	}
 	return cmd.CheckEmpty(args)
@@ -118,7 +118,7 @@ func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	var settings params.Settings
-	if c.UnitName == c.ctx.UnitName() {
+	if c.UnitOrAppName == c.ctx.UnitName() {
 		var node Settings
 		var err error
 		if c.Application {
@@ -133,9 +133,14 @@ func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 	} else {
 		var err error
 		if c.Application {
-			settings, err = r.ReadApplicationSettings(c.UnitName)
+			// TODO(jam): 2019-10-10 if you call --app - unit/0, should it
+			// auto translate back to the Application?
+			settings, err = r.ReadApplicationSettings(c.UnitOrAppName)
 		} else {
-			settings, err = r.ReadSettings(c.UnitName)
+			// TODO(jam): 2019-10-10 if you call - app, should it
+			// give you the application settings even though you didn't supply
+			// '--app' ?
+			settings, err = r.ReadSettings(c.UnitOrAppName)
 		}
 		if err != nil {
 			return err

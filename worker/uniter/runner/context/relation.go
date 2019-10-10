@@ -6,6 +6,8 @@ package context
 import (
 	"fmt"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/relation"
@@ -64,15 +66,15 @@ func (ctx *ContextRelation) ReadSettings(unit string) (settings params.Settings,
 	return ctx.cache.Settings(unit)
 }
 
-func (ctx *ContextRelation) ReadApplicationSettings(unit string) (settings params.Settings, err error) {
-	return ctx.cache.ApplicationSettings(unit)
+func (ctx *ContextRelation) ReadApplicationSettings(app string) (settings params.Settings, err error) {
+	return ctx.cache.ApplicationSettings(app)
 }
 
 func (ctx *ContextRelation) Settings() (jujuc.Settings, error) {
 	if ctx.settings == nil {
 		node, err := ctx.ru.Settings()
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		ctx.settings = node
 	}
@@ -83,7 +85,7 @@ func (ctx *ContextRelation) ApplicationSettings() (jujuc.Settings, error) {
 	if ctx.applicationSettings == nil {
 		settings, err := ctx.ru.ApplicationSettings()
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		ctx.applicationSettings = settings
 	}
@@ -100,7 +102,7 @@ func (ctx *ContextRelation) WriteSettings() error {
 	if ctx.settings != nil {
 		unitSettings = ctx.settings.FinalResult()
 	}
-	return ctx.ru.UpdateRelationSettings(unitSettings, appSettings)
+	return errors.Trace(ctx.ru.UpdateRelationSettings(unitSettings, appSettings))
 }
 
 // Suspended returns true if the relation is suspended.
@@ -110,5 +112,5 @@ func (ctx *ContextRelation) Suspended() bool {
 
 // SetStatus sets the relation's status.
 func (ctx *ContextRelation) SetStatus(status relation.Status) error {
-	return ctx.ru.Relation().SetStatus(status)
+	return errors.Trace(ctx.ru.Relation().SetStatus(status))
 }

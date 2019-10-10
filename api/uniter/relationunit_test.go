@@ -260,6 +260,33 @@ func (s *relationUnitSuite) TestReadSettings(c *gc.C) {
 	})
 }
 
+func (s *relationUnitSuite) TestReadSettingsApp(c *gc.C) {
+	// First try to read the settings which are not set.
+	myRelUnit, err := s.stateRelation.Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = myRelUnit.EnterScope(nil)
+	// Add Wordpress Application Settings, and see that MySQL can read those App settings.
+	claimer, err := s.LeaseManager.Claimer(lease.ApplicationLeadershipNamespace, s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	appName := s.mysqlUnit.ApplicationName()
+	unitName := s.mysqlUnit.Name()
+	c.Assert(claimer.Claim(appName, unitName, time.Hour), jc.ErrorIsNil)
+	checker, err := s.LeaseManager.Checker("application-leadership", s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	token := checker.Token(appName, unitName)
+	settings := map[string]interface{}{
+		"app": "settings",
+	}
+	err = s.stateRelation.UpdateApplicationSettings(s.mysqlApplication, token, settings)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, myRelUnit, true)
+	_, apiRelUnit := s.getRelationUnits(c)
+	gotSettings, err := apiRelUnit.ReadSettings("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings, gc.DeepEquals, params.Settings{
+		"app": "settings",
+	})
+}
 func (s *relationUnitSuite) TestReadSettingsInvalidUnitTag(c *gc.C) {
 	// First try to read the settings which are not set.
 	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
@@ -268,11 +295,11 @@ func (s *relationUnitSuite) TestReadSettingsInvalidUnitTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, myRelUnit, true)
 
-	// Try reading - should be ok.
 	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
 	s.assertInScope(c, wpRelUnit, false)
-	_, err = apiRelUnit.ReadSettings("mysql")
-	c.Assert(err, gc.ErrorMatches, "\"mysql\" is not a valid unit")
+	// Not a valid unit or application name
+	_, err = apiRelUnit.ReadSettings("0mysql")
+	c.Assert(err, gc.ErrorMatches, "\"0mysql\" is not a valid unit or application")
 }
 
 func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
