@@ -271,6 +271,7 @@ func (s *relationUnitSuite) TestReadApplicationSettings(c *gc.C) {
 	myRelUnit, err := s.stateRelation.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
 	err = myRelUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Set an application setting for mysql, notice that wordpress can read it
 
 	// Add Wordpress Application Settings, and see that MySQL can read those App settings.

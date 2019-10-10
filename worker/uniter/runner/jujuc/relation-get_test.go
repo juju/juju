@@ -445,14 +445,14 @@ var relationGetInitTests = []relationGetInitTest{
 		unit:        "u",
 		application: true,
 	}, {
-		summary:     "app name but overriden by args",
+		summary:     "app name but overridden by args",
 		ctxunit:     "",
 		ctxapp:      "u",
 		unit:        "mysql/0",
 		args:        []string{"-", "mysql/0"},
 		application: false,
 	}, {
-		summary: "app name but overriden by unit args",
+		summary: "app name but overridden by unit args",
 		ctxunit: "",
 		ctxapp:  "u",
 		unit:    "mysql",

@@ -80,7 +80,6 @@ func (c *RelationGetCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *RelationGetCommand) determineUnitOrAppName(args *[]string) error {
-
 	// The logic is as follows:
 	// 1) If a user supplies a unit or app name, that overrides any default
 	//  a) If they supply --app and a unit name, we turn that back into an application name
@@ -180,13 +179,8 @@ func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 	} else {
 		var err error
 		if c.Application {
-			// TODO(jam): 2019-10-10 if you call --app - unit/0, should it
-			// auto translate back to the Application?
 			settings, err = r.ReadApplicationSettings(c.UnitOrAppName)
 		} else {
-			// TODO(jam): 2019-10-10 if you call - app, should it
-			// give you the application settings even though you didn't supply
-			// '--app' ?
 			settings, err = r.ReadSettings(c.UnitOrAppName)
 		}
 		if err != nil {
