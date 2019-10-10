@@ -2219,9 +2219,8 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec)
 				spec.Pod.RestartPolicy = k8sResources.Pod.RestartPolicy
 				spec.Pod.ReadinessGates = k8sResources.Pod.ReadinessGates
 			}
-
-			if k8sResources.ServiceAccount != nil {
-				spec.ServiceAccounts = append(spec.ServiceAccounts, k8sResources.ServiceAccount)
+			for _, ksa := range k8sResources.ServiceAccounts {
+				spec.ServiceAccounts = append(spec.ServiceAccounts, &ksa)
 			}
 		}
 		if podSpec.ServiceAccount != nil {

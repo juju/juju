@@ -91,15 +91,13 @@ type KubernetesResources struct {
 
 	Secrets                   []Secret                                                     `json:"secrets" yaml:"secrets"`
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `json:"customResourceDefinitions,omitempty" yaml:"customResourceDefinitions,omitempty"`
-	ServiceAccount            *K8sServiceAccountSpec                                       `json:"serviceAccount,omitempty" yaml:"serviceAccount,omitempty"`
+	ServiceAccounts           []K8sServiceAccountSpec                                      `json:"serviceAccounts,omitempty" yaml:"serviceAccounts,omitempty"`
 }
 
 // Validate is defined on ProviderPod.
 func (krs *KubernetesResources) Validate() error {
-	if krs.ServiceAccount != nil {
-		if err := krs.ServiceAccount.Validate(); err != nil {
-			return errors.Trace(err)
-		}
+	for _, sa := range krs.ServiceAccounts {
+		return errors.Trace(sa.Validate())
 	}
 	return nil
 }

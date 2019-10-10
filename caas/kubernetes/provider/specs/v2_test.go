@@ -127,8 +127,8 @@ serviceAccount:
     resources: ["pods"]
     verbs: ["get", "watch", "list"]
 kubernetesResources:
-  serviceAccount:
-    name: k8sServiceAccount1
+  serviceAccounts:
+  - name: k8sServiceAccount1
     automountServiceAccountToken: true
     clusterRoleNames: [someClusterRole1, someClusterRole2]
     rules:
@@ -321,7 +321,7 @@ echo "do some stuff here for gitlab-init container"
 			},
 		}
 
-		sa2 := &k8sspecs.K8sServiceAccountSpec{
+		sa2 := k8sspecs.K8sServiceAccountSpec{
 			Name: "k8sServiceAccount1",
 		}
 		sa2.AutomountServiceAccountToken = boolPtr(true)
@@ -337,7 +337,9 @@ echo "do some stuff here for gitlab-init container"
 		}
 		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
 			KubernetesResources: &k8sspecs.KubernetesResources{
-				ServiceAccount: sa2,
+				ServiceAccounts: []k8sspecs.K8sServiceAccountSpec{
+					sa2,
+				},
 				Pod: &k8sspecs.PodSpec{
 					ActiveDeadlineSeconds:         int64Ptr(10),
 					RestartPolicy:                 core.RestartPolicyOnFailure,

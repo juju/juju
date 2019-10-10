@@ -2288,7 +2288,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		},
 	}
 
-	k8sSASpec := &k8sspecs.K8sServiceAccountSpec{
+	k8sSASpec := k8sspecs.K8sServiceAccountSpec{
 		Name: "k8sRBAC1",
 	}
 	k8sSASpec.AutomountServiceAccountToken = boolPtr(true)
@@ -2305,7 +2305,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	}
 	podSpec.ProviderPod = &k8sspecs.K8sPodSpec{
 		KubernetesResources: &k8sspecs.KubernetesResources{
-			ServiceAccount: k8sSASpec,
+			ServiceAccounts: []k8sspecs.K8sServiceAccountSpec{
+				k8sSASpec,
+			},
 		},
 	}
 
