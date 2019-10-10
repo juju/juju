@@ -116,9 +116,9 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 	return newSettings(ru.st, ru.relation.tag.String(), ru.unit.tag.String(), result.Settings), nil
 }
 
-// ApplicationSettings returns a Settings which allows access to the local unit's application settings
-// within the relation. This can only be used from the Leader unit. Calling it from
-// a non-Leader generates a NotLeader error.
+// ApplicationSettings returns a Settings which allows access to this unit's
+// application settings within the relation. This can only be used from the
+// leader unit. Calling it from a non-Leader generates a NotLeader error.
 func (ru *RelationUnit) ApplicationSettings() (*Settings, error) {
 	var results params.SettingsResults
 	appTag := ru.unit.ApplicationTag()
@@ -182,7 +182,7 @@ func (ru *RelationUnit) ReadSettings(name string) (params.Settings, error) {
 	return result.Settings, nil
 }
 
-// UpdateRelationSettings is used to record any changes to settings for this unit and/or application.
+// UpdateRelationSettings is used to record any changes to settings for this unit and application.
 // It is only valid to update application settings if this unit is the leader, otherwise
 // it is a NotLeader error. Note that either unit or application is allowed to be nil.
 func (ru *RelationUnit) UpdateRelationSettings(unit, application params.Settings) error {

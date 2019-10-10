@@ -194,6 +194,19 @@ func (s *relationUnitSuite) TestSettings(c *gc.C) {
 	})
 }
 
+func (s *relationUnitSuite) claimLeadership(c *gc.C, appName, unitName string) lease.Token {
+	claimer, err := s.LeaseManager.Claimer(lease.ApplicationLeadershipNamespace, s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(claimer.Claim(appName, unitName, time.Minute), jc.ErrorIsNil)
+	checker, err := s.LeaseManager.Checker(lease.ApplicationLeadershipNamespace, s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	return checker.Token(appName, unitName)
+}
+
+func (s *relationUnitSuite) claimLeadershipFor(c *gc.C, unit *state.Unit) lease.Token {
+	return s.claimLeadership(c, unit.ApplicationName(), unit.Name())
+}
+
 func (s *relationUnitSuite) TestApplicationSettings(c *gc.C) {
 	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
 	settings := map[string]interface{}{
@@ -203,15 +216,8 @@ func (s *relationUnitSuite) TestApplicationSettings(c *gc.C) {
 	err := wpRelUnit.EnterScope(settings)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, wpRelUnit, true)
-	// XXX: s.State.LeadershipClaimer() is not the same leadership that s.LeadershipManager is using. WTF?
-	claimer, err := s.LeaseManager.Claimer(lease.ApplicationLeadershipNamespace, s.State.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-	unit := s.wordpressUnit
-	c.Assert(claimer.Claim(unit.ApplicationName(), unit.Name(), time.Minute), jc.ErrorIsNil)
+	token := s.claimLeadershipFor(c, s.wordpressUnit)
 
-	checker, err := s.LeaseManager.Checker("application-leadership", s.State.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-	token := checker.Token("wordpress", "wordpress/0")
 	err = s.stateRelation.UpdateApplicationSettings(s.wordpressApplication, token, map[string]interface{}{
 		"foo": "bar",
 		"baz": "1",
@@ -260,20 +266,15 @@ func (s *relationUnitSuite) TestReadSettings(c *gc.C) {
 	})
 }
 
-func (s *relationUnitSuite) TestReadSettingsApp(c *gc.C) {
+func (s *relationUnitSuite) TestReadApplicationSettings(c *gc.C) {
 	// First try to read the settings which are not set.
 	myRelUnit, err := s.stateRelation.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
 	err = myRelUnit.EnterScope(nil)
+	// Set an application setting for mysql, notice that wordpress can read it
+
 	// Add Wordpress Application Settings, and see that MySQL can read those App settings.
-	claimer, err := s.LeaseManager.Claimer(lease.ApplicationLeadershipNamespace, s.State.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-	appName := s.mysqlUnit.ApplicationName()
-	unitName := s.mysqlUnit.Name()
-	c.Assert(claimer.Claim(appName, unitName, time.Hour), jc.ErrorIsNil)
-	checker, err := s.LeaseManager.Checker("application-leadership", s.State.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-	token := checker.Token(appName, unitName)
+	token := s.claimLeadershipFor(c, s.mysqlUnit)
 	settings := map[string]interface{}{
 		"app": "settings",
 	}
@@ -392,11 +393,9 @@ func (s *relationUnitSuite) TestUpdateRelationSettingsForUnitWithDelete(c *gc.C)
 }
 
 func (s *relationUnitSuite) TestUpdateRelationSettingsForApplication(c *gc.C) {
-	// s.LeaseManager.Claimer() != s.State.LeadershipClaimer().... *sigh*
-	// We use s.LeaseManager because that is what is behind API calls, but that means we hard code the "namespace"
-	claimer, err := s.LeaseManager.Claimer(lease.ApplicationLeadershipNamespace, s.State.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(claimer.Claim(s.wordpressUnit.ApplicationName(), s.wordpressUnit.Name(), time.Hour), jc.ErrorIsNil)
+	// Claim the leadership, but we don't need the token right now, we just need
+	// to be the leader to call UpdateRelationSettings
+	_ = s.claimLeadershipFor(c, s.wordpressUnit)
 
 	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
 	c.Assert(wpRelUnit.EnterScope(nil), jc.ErrorIsNil)
@@ -420,14 +419,12 @@ func (s *relationUnitSuite) TestUpdateRelationSettingsForApplication(c *gc.C) {
 }
 
 func (s *relationUnitSuite) TestUpdateRelationSettingsForApplicationNotLeader(c *gc.C) {
-	claimer, err := s.LeaseManager.Claimer(lease.ApplicationLeadershipNamespace, s.State.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-	// s.wordpressUnit is wordpress/0, claim it in the name of a different unit
-	c.Assert(claimer.Claim(s.wordpressUnit.ApplicationName(), "wordpress/2", time.Minute), jc.ErrorIsNil)
+	// s.wordpressUnit is wordpress/0, claim leadership by another unit
+	_ = s.claimLeadership(c, "wordpress", "wordpress/2")
 
 	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
 	c.Assert(wpRelUnit.EnterScope(nil), jc.ErrorIsNil)
-	_, err = apiRelUnit.ApplicationSettings()
+	_, err := apiRelUnit.ApplicationSettings()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 
 	err = apiRelUnit.UpdateRelationSettings(nil, params.Settings{"some": "value"})
@@ -435,9 +432,7 @@ func (s *relationUnitSuite) TestUpdateRelationSettingsForApplicationNotLeader(c 
 }
 
 func (s *relationUnitSuite) TestUpdateRelationSettingsForUnitAndApplication(c *gc.C) {
-	claimer, err := s.LeaseManager.Claimer(lease.ApplicationLeadershipNamespace, s.State.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(claimer.Claim(s.wordpressUnit.ApplicationName(), s.wordpressUnit.Name(), time.Hour), jc.ErrorIsNil)
+	_ = s.claimLeadershipFor(c, s.wordpressUnit)
 
 	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
 	c.Assert(wpRelUnit.EnterScope(map[string]interface{}{
@@ -458,17 +453,14 @@ func (s *relationUnitSuite) TestUpdateRelationSettingsForUnitAndApplication(c *g
 }
 
 func (s *relationUnitSuite) TestUpdateRelationSettingsForUnitAndApplicationNotLeader(c *gc.C) {
-	claimer, err := s.LeaseManager.Claimer(lease.ApplicationLeadershipNamespace, s.State.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-	// Lease is held by a different unit
-	c.Assert(claimer.Claim(s.wordpressUnit.ApplicationName(), "wordpress/2", time.Hour), jc.ErrorIsNil)
+	_ = s.claimLeadership(c, "wordpress", "wordpress/2")
 
 	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
 	c.Assert(wpRelUnit.EnterScope(map[string]interface{}{
 		"foo": "bar",
 	}), jc.ErrorIsNil)
 	s.assertInScope(c, wpRelUnit, true)
-	err = apiRelUnit.UpdateRelationSettings(params.Settings{
+	err := apiRelUnit.UpdateRelationSettings(params.Settings{
 		"foo": "quux",
 	}, params.Settings{
 		"app": "bar",
