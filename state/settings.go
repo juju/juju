@@ -48,6 +48,33 @@ func (m settingsMap) GetBSON() (interface{}, error) {
 	return escapedMap, nil
 }
 
+// SetingsGroup models a list of Settings that can all be atomically written to
+// the backing store.
+type SettingsGroup []*Settings
+
+// Write the changes from all Settings in the group to the backing store in a
+// single transaction.
+func (sg SettingsGroup) Write() error {
+	if len(sg) == 0 {
+		return nil
+	}
+
+	var grpUpdateOps []txn.Op
+	for _, s := range sg {
+		if s == nil {
+			return errors.Errorf("encountered nil Setting value in SettingsGroup")
+		}
+		_, ops := s.settingsUpdateOps()
+		grpUpdateOps = append(grpUpdateOps, ops...)
+	}
+
+	if len(grpUpdateOps) == 0 {
+		return nil
+	}
+
+	return sg[0].write(grpUpdateOps)
+}
+
 // A Settings manages changes to settings as a delta in memory and merges
 // them back in the database when explicitly requested.
 type Settings struct {
