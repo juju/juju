@@ -140,24 +140,11 @@ func acquireMutex(spec mutex.Spec) (func(), error) {
 	return func() { releaser.Release() }, nil
 }
 
-// ensureTemplateVM returns a vSphere template VM
-// that instances can be created from.
-func (c *Client) ensureTemplateVM(
+func (c *Client) getTargetDatastore(
 	ctx context.Context,
+	datacenter *object.Datacenter,
 	args CreateVirtualMachineParams,
-) (vm *object.VirtualMachine, err error) {
-	finder, datacenter, err := c.finder(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	templateVM, err := finder.VirtualMachine(ctx, path.Join(vmTemplatePath(args), vmTemplateName(args)))
-	if err == nil && templateVM != nil {
-		return templateVM, nil
-	}
-	if _, ok := err.(*find.NotFoundError); !ok {
-		return nil, errors.Trace(nil)
-	}
-
+) (*object.Datastore, error) {
 	folders, err := datacenter.Folders(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -169,6 +156,27 @@ func (c *Client) ensureTemplateVM(
 	datastore := object.NewDatastore(c.client.Client, datastoreMo.Reference())
 	datastore.DatacenterPath = datacenter.InventoryPath
 	datastore.SetInventoryPath(path.Join(folders.DatastoreFolder.InventoryPath, datastoreMo.Name))
+	return datastore, nil
+}
+
+// ensureTemplateVM returns a vSphere template VM
+// that instances can be created from.
+func (c *Client) ensureTemplateVM(
+	ctx context.Context,
+	datastore *object.Datastore,
+	args CreateVirtualMachineParams,
+) (vm *object.VirtualMachine, err error) {
+	finder, _, err := c.finder(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	templateVM, err := finder.VirtualMachine(ctx, path.Join(vmTemplatePath(args), vmTemplateName(args)))
+	if err == nil && templateVM != nil {
+		return templateVM, nil
+	}
+	if _, ok := err.(*find.NotFoundError); !ok {
+		return nil, errors.Trace(nil)
+	}
 
 	spec, err := c.createImportSpec(ctx, args, datastore)
 	if err != nil {
@@ -304,16 +312,19 @@ func (c *Client) CreateVirtualMachine(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	datastore, err := c.getTargetDatastore(ctx, datacenter, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	templateVM, err := c.ensureTemplateVM(ctx, args)
+
+	templateVM, err := c.ensureTemplateVM(ctx, datastore, args)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating template VM")
 	}
 
 	args.UpdateProgress("cloning template")
-	vm, err := c.cloneVM(ctx, args, templateVM, vmFolder)
+	vm, err := c.cloneVM(ctx, args, templateVM, vmFolder, datastore)
 	if err != nil {
 		return nil, errors.Annotate(err, "cloning template VM")
 	}
@@ -464,8 +475,8 @@ func (c *Client) selectDatastore(
 
 	if args.Constraints.RootDiskSource != nil {
 		dsName := *args.Constraints.RootDiskSource
-		c.logger.Debugf("desired datasource %q", dsName)
-		c.logger.Debugf("accessible datasources %q", datastoreNames)
+		c.logger.Debugf("desired datastore %q", dsName)
+		c.logger.Debugf("accessible datastores %q", datastoreNames)
 		for _, ds := range datastores {
 			if ds.Name == dsName {
 				c.logger.Infof("selecting datastore %s", ds.Name)

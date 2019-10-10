@@ -23,16 +23,16 @@ __metaclass__ = type
 log = logging.getLogger('assess_model_defaults')
 
 
-def assemble_model_default(model_key, default, controller=None, regions=None):
+def assemble_model_default(model_key, default, controller_value=None, region_values=None):
     """Create a dict that contains the formatted model-defaults data."""
     # Ordering in the regions argument is lost.
     defaults = {'default': default}
-    if controller is not None:
-        defaults['controller'] = controller
-    if regions is not None:
+    if controller_value is not None:
+        defaults['controller'] = controller_value
+    if region_values is not None:
         defaults['regions'] = [
             {'name': region, 'value': region_default}
-            for (region, region_default) in regions.items()]
+            for (region, region_default) in region_values.items()]
     return {model_key: defaults}
 
 
@@ -56,7 +56,10 @@ def get_new_model_config(client, cloud=None, region=None, model_name=None):
     if region is not None:
         new_env.set_region(region)
         cloud_region = client.get_cloud_region(cloud,region)
-    new_model = client.add_model(new_env, cloud_region)
+    # Don't use the bootstrap config, we want to check that the default series
+    # is inherited from the model defaults correctly and the bootstrap config
+    # might override it.
+    new_model = client.add_model(new_env, cloud_region, use_bootstrap_config=False)
     config_data = new_model.get_model_config()
     new_model.destroy_model()
     return config_data
@@ -70,7 +73,7 @@ def assess_model_defaults_case(client, model_key, value, expected_default,
     client.set_model_defaults(model_key, value, cloud, region)
     juju_assert_equal(expected_default, client.get_model_defaults(model_key),
                       'Mismatch after setting model-default.')
-    config = get_new_model_config(client, region)
+    config = get_new_model_config(client, cloud=cloud, region=region)
     juju_assert_equal(value, config[model_key]['value'],
                       'New model did not use the default.')
 
@@ -94,7 +97,7 @@ def assess_model_defaults_region(client, model_key, value,
     assess_model_defaults_case(
         client, model_key, value,
         assemble_model_default(model_key, default, None, {region: str(value)}),
-        cloud, region)
+        cloud=cloud, region=region)
 
 
 def assess_model_defaults(client, other_region):
