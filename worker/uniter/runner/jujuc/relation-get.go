@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
@@ -78,6 +79,67 @@ func (c *RelationGetCommand) SetFlags(f *gnuflag.FlagSet) {
 		`Get the relation data for the overall application, not just a unit`)
 }
 
+func (c *RelationGetCommand) determineUnitOrAppName(args *[]string) error {
+
+	// The logic is as follows:
+	// 1) If a user supplies a unit or app name, that overrides any default
+	//  a) If they supply --app and a unit name, we turn that back into an application name
+	//  b) note, if they *don't* supply --app, and they specify an app name, that should be an error
+	// 2) If no unit/app is supplied then we look at our context
+	//  a) If --app is specified, then we use the context app
+	//  b) If --app is not specified, but we don't have a context unit but do have a context app
+	//     then we set --app, and set the target as the app
+	//  c) If we have a context unit, then that is used
+	if len(*args) > 0 {
+		userSupplied := (*args)[0]
+		*args = (*args)[1:]
+		if c.Application {
+			if names.IsValidApplication(userSupplied) {
+				c.UnitOrAppName = userSupplied
+			} else if names.IsValidUnit(userSupplied) {
+				appName, err := names.UnitApplication(userSupplied)
+				if err != nil {
+					// Shouldn't happen, as we just validated it is a valid unit name
+					return errors.Trace(err)
+				}
+				c.UnitOrAppName = appName
+			}
+		} else {
+			c.UnitOrAppName = userSupplied
+		}
+		return nil
+	}
+	if c.Application {
+		name, err := c.ctx.RemoteApplicationName()
+		if errors.IsNotFound(err) {
+			return fmt.Errorf("no unit or application specified")
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		c.UnitOrAppName = name
+		return nil
+	}
+	// No args, no flags, check if there is a Unit context, or an App context
+	if name, err := c.ctx.RemoteUnitName(); err == nil {
+		c.UnitOrAppName = name
+		return nil
+	} else if !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	// Unit name not found, look for app context
+
+	if name, err := c.ctx.RemoteApplicationName(); err == nil {
+		c.UnitOrAppName = name
+		c.Application = true
+		return nil
+	} else if !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	// If we got this far, there is no default value to give and nothing was
+	// supplied, so it is an error
+	return errors.New("no unit or application specified")
+}
+
 // Init is part of the cmd.Command interface.
 func (c *RelationGetCommand) Init(args []string) error {
 	if c.RelationId == -1 {
@@ -91,23 +153,8 @@ func (c *RelationGetCommand) Init(args []string) error {
 		args = args[1:]
 	}
 
-	if name, err := c.ctx.RemoteUnitName(); err == nil {
-		c.UnitOrAppName = name
-	} else if !errors.IsNotFound(err) {
+	if err := c.determineUnitOrAppName(&args); err != nil {
 		return errors.Trace(err)
-	} else {
-		if name, err := c.ctx.RemoteApplicationName(); err == nil {
-			c.UnitOrAppName = name
-		} else if !errors.IsNotFound(err) {
-			return errors.Trace(err)
-		}
-	}
-	if len(args) > 0 {
-		c.UnitOrAppName = args[0]
-		args = args[1:]
-	}
-	if c.UnitOrAppName == "" {
-		return fmt.Errorf("no unit id specified")
 	}
 	return cmd.CheckEmpty(args)
 }
