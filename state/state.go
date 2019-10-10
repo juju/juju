@@ -1782,7 +1782,37 @@ func (st *State) parsePlacement(placement *instance.Placement) (*placementData, 
 func (st *State) addMachineWithPlacement(unit *Unit, data *placementData) (*Machine, error) {
 	unitCons, err := unit.Constraints()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
+	}
+
+	// Turn any endpoint bindings for the unit's application into machine
+	// constraints. This prevents a possible race condition where the
+	// provisioner can act on a newly created container before the unit is
+	// assigned to it, missing the required spaces for bridging based on
+	// endpoint bindings.
+	// TODO (manadart 2019-10-08): This step is not necessary when a single
+	// transaction is used based on the comment below.
+	app, err := unit.Application()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	bindings, err := app.EndpointBindings()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	spaces := set.NewStrings()
+	for _, space := range bindings {
+		// TODO (manadart 2019-10-08): "" is not a valid space name and so
+		// can not be used as a constraint. This condition will be removed with
+		// the institution of universal mutable spaces.
+		if space != network.DefaultSpaceName {
+			spaces.Add(space)
+		}
+	}
+	spaceCons := constraints.MustParse("spaces=" + strings.Join(spaces.Values(), ","))
+	cons, err := constraints.Merge(*unitCons, spaceCons)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	// Create any new machine marked as dirty so that
@@ -1825,14 +1855,15 @@ func (st *State) addMachineWithPlacement(unit *Unit, data *placementData) (*Mach
 			Series:      unit.Series(),
 			Jobs:        []MachineJob{JobHostUnits},
 			Dirty:       true,
-			Constraints: *unitCons,
+			Constraints: cons,
 		}
 		if mId != "" {
 			return st.AddMachineInsideMachine(template, mId, data.containerType)
 		}
 		return st.AddMachineInsideNewMachine(template, template, data.containerType)
 	case directivePlacement:
-		return nil, errors.NotSupportedf("programming error: directly adding a machine for %s with a non-machine placement directive", unit.Name())
+		return nil, errors.NotSupportedf(
+			"programming error: directly adding a machine for %s with a non-machine placement directive", unit.Name())
 	default:
 		return machine, nil
 	}
