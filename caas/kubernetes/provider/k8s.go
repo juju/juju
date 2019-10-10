@@ -956,8 +956,8 @@ func (k *kubernetesClient) EnsureService(
 		logger.Debugf("created/updated custom resource definition for %q.", appName)
 	}
 
-	if workloadSpec.ServiceAccount != nil {
-		saCleanups, err := k.ensureServiceAccountForApp(appName, workloadSpec.ServiceAccount)
+	for _, sa := range workloadSpec.ServiceAccounts {
+		saCleanups, err := k.ensureServiceAccountForApp(appName, sa)
 		cleanups = append(cleanups, saCleanups...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating service account")
@@ -2143,7 +2143,7 @@ type workloadSpec struct {
 
 	Secrets                   []k8sspecs.Secret
 	ConfigMaps                map[string]specs.ConfigMap
-	ServiceAccount            *specs.ServiceAccountSpec
+	ServiceAccounts           []serviceAccountSpecGetter
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
 }
 
@@ -2197,9 +2197,9 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec)
 	spec.Service = podSpec.Service
 	spec.ConfigMaps = podSpec.ConfigMaps
 	if podSpec.ServiceAccount != nil {
-		spec.ServiceAccount = podSpec.ServiceAccount
 		// use application name for the service account if RBAC was requested.
-		spec.ServiceAccount.SetName(appName)
+		podSpec.ServiceAccount.SetName(appName)
+		spec.ServiceAccounts = append(spec.ServiceAccounts, podSpec.ServiceAccount)
 	}
 	if podSpec.ProviderPod != nil {
 		pSpec, ok := podSpec.ProviderPod.(*k8sspecs.K8sPodSpec)
@@ -2219,10 +2219,14 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec)
 				spec.Pod.RestartPolicy = k8sResources.Pod.RestartPolicy
 				spec.Pod.ReadinessGates = k8sResources.Pod.ReadinessGates
 			}
+
+			if k8sResources.ServiceAccount != nil {
+				spec.ServiceAccounts = append(spec.ServiceAccounts, k8sResources.ServiceAccount)
+			}
 		}
-		if spec.ServiceAccount != nil {
-			spec.Pod.ServiceAccountName = spec.ServiceAccount.GetName()
-			spec.Pod.AutomountServiceAccountToken = spec.ServiceAccount.AutomountServiceAccountToken
+		if podSpec.ServiceAccount != nil {
+			spec.Pod.ServiceAccountName = podSpec.ServiceAccount.GetName()
+			spec.Pod.AutomountServiceAccountToken = podSpec.ServiceAccount.AutomountServiceAccountToken
 		}
 	}
 	return &spec, nil

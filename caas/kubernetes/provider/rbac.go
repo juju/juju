@@ -42,15 +42,21 @@ func getBindingName(sa nameGetter, cR nameGetter) string {
 	return fmt.Sprintf("%s-%s", sa.GetName(), cR.GetName())
 }
 
+type serviceAccountSpecGetter interface {
+	GetName() string
+	GetSpec() specs.RBACSpec
+}
+
 func (k *kubernetesClient) ensureServiceAccountForApp(
-	appName string, caasSpec *specs.ServiceAccountSpec,
+	appName string, rbacDefinition serviceAccountSpecGetter,
 ) (cleanups []func(), err error) {
 
 	labels := k.getRBACLabels(appName)
-
+	rbacStackName := rbacDefinition.GetName()
+	caasSpec := rbacDefinition.GetSpec()
 	saSpec := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      caasSpec.GetName(),
+			Name:      rbacStackName,
 			Namespace: k.namespace,
 			Labels:    labels,
 		},
@@ -68,7 +74,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		// create or update Role.
 		r, rCleanups, err := k.ensureRole(&rbacv1.Role{
 			ObjectMeta: v1.ObjectMeta{
-				Name:      appName,
+				Name:      rbacStackName,
 				Namespace: k.namespace,
 				Labels:    labels,
 			},
@@ -82,7 +88,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		// ensure rolebindings for roles.
 		_, rBCleanups, err := k.ensureRoleBinding(&rbacv1.RoleBinding{
 			ObjectMeta: v1.ObjectMeta{
-				Name:      appName,
+				Name:      rbacStackName,
 				Namespace: k.namespace,
 				Labels:    labels,
 			},

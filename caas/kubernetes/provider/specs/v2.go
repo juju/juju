@@ -61,16 +61,46 @@ func (p *K8sPodSpecV2) Validate() error {
 	return nil
 }
 
+// K8sServiceAccountSpec defines spec for referencing to or creating a service account.
+type K8sServiceAccountSpec struct {
+	Name           string `yaml:"name" json:"name"`
+	specs.RBACSpec `yaml:",inline"`
+}
+
+// GetName returns the service accout name.
+func (sa K8sServiceAccountSpec) GetName() string {
+	return sa.Name
+}
+
+// GetSpec returns the RBAC spec.
+func (sa K8sServiceAccountSpec) GetSpec() specs.RBACSpec {
+	return sa.RBACSpec
+}
+
+// Validate returns an error if the spec is not valid.
+func (sa K8sServiceAccountSpec) Validate() error {
+	if sa.Name == "" {
+		return errors.New("service account name is missing")
+	}
+	return errors.Trace(sa.RBACSpec.Validate())
+}
+
 // KubernetesResources is the k8s related resources.
 type KubernetesResources struct {
 	Pod *PodSpec `json:"pod,omitempty"`
 
 	Secrets                   []Secret                                                     `json:"secrets" yaml:"secrets"`
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `json:"customResourceDefinitions,omitempty" yaml:"customResourceDefinitions,omitempty"`
+	ServiceAccount            *K8sServiceAccountSpec                                       `json:"serviceAccount,omitempty" yaml:"serviceAccount,omitempty"`
 }
 
 // Validate is defined on ProviderPod.
 func (krs *KubernetesResources) Validate() error {
+	if krs.ServiceAccount != nil {
+		if err := krs.ServiceAccount.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return nil
 }
 
