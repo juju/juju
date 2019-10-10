@@ -325,10 +325,10 @@ func (m *mockState) ApplicationOffer(name string) (*jujucrossmodel.ApplicationOf
 	return &offer, nil
 }
 
-func (m *mockState) Space(name string) (applicationoffers.Space, error) {
-	space, ok := m.spaces[name]
+func (m *mockState) SpaceByID(id string) (applicationoffers.Space, error) {
+	space, ok := m.spaces[id]
 	if !ok {
-		return nil, errors.NotFoundf("space %q", name)
+		return nil, errors.NotFoundf("space %q", id)
 	}
 	return space, nil
 }
