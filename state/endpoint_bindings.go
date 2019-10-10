@@ -274,11 +274,9 @@ func validateEndpointBindingsForMachines(a *Application, oldBindings, newBinding
 		}
 	}
 
-	// TODO(achilleasa): support for overriding spaces will
-	// be added via a separate PR.
-	if newDefaultSpace, defined := newBindings[""]; defined {
-		if newDefaultSpace != oldBindings[""] {
-			return errors.NotSupportedf("changing the default application space while upgrading charms")
+	if newDefaultSpace, defined := newBindings[""]; defined && newDefaultSpace != network.DefaultSpaceName {
+		if machineCountInSpace[newDefaultSpace] != len(deployedMachines) {
+			return errors.Errorf("changing default space to %q is not feasible: one or more deployed machines lack an address in this space", newDefaultSpace)
 		}
 	}
 
@@ -286,35 +284,24 @@ func validateEndpointBindingsForMachines(a *Application, oldBindings, newBinding
 		if epName == "" {
 			continue
 		}
-
-		// For new endpoints, make sure that all currently deployed
-		// machines have an address in the requested space
-		if _, isOldEndpoint := oldBindings[epName]; !isOldEndpoint {
-			// TODO(achilleasa): this check is a temporary workaround
-			// to allow upgrading charms that define new endpoints
-			// which we automatically bind to the default space if
-			// the operator does not explicitly try to bind them
-			// to a space.
-			//
-			// If we deploy a charm with a "spaces=xxx" constraint,
-			// it will not have a provider address in the default
-			// space so the machine-count check below would
-			// otherwise fail.
-			if spName == network.DefaultSpaceName {
-				continue
-			}
-
-			if machineCountInSpace[spName] == len(deployedMachines) {
-				continue
-			}
-
-			return errors.Errorf("binding endpoint %q to space %q is not feasible: one or more deployed machines lack an address in this space", epName, spName)
+		// TODO(achilleasa): this check is a temporary workaround
+		// to allow upgrading charms that define new endpoints
+		// which we automatically bind to the default space if
+		// the operator does not explicitly try to bind them
+		// to a space.
+		//
+		// If we deploy a charm with a "spaces=xxx" constraint,
+		// it will not have a provider address in the default
+		// space so the machine-count check below would
+		// otherwise fail.
+		if spName == network.DefaultSpaceName {
+			continue
 		}
 
-		// TODO(achilleasa): support for overriding existing bindings
-		// will be added via a separate PR.
-		if spName != oldBindings[epName] {
-			return errors.NotSupportedf("changing existing endpoint bindings while upgrading charms")
+		// Ensure that all currently deployed machines have an address
+		// in the requested space for this binding
+		if machineCountInSpace[spName] != len(deployedMachines) {
+			return errors.Errorf("binding endpoint %q to space %q is not feasible: one or more deployed machines lack an address in this space", epName, spName)
 		}
 	}
 
