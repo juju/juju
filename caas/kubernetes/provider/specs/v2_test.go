@@ -127,6 +127,14 @@ serviceAccount:
     resources: ["pods"]
     verbs: ["get", "watch", "list"]
 kubernetesResources:
+  serviceAccount:
+    name: k8sServiceAccount1
+    automountServiceAccountToken: true
+    clusterRoleNames: [someClusterRole1, someClusterRole2]
+    rules:
+    - apiGroups: [""]
+      resources: ["pods"]
+      verbs: ["get", "watch", "list"]
   pod:
     restartPolicy: OnFailure
     activeDeadlineSeconds: 10
@@ -187,22 +195,20 @@ kubernetesResources:
 foo: bar
 `[1:]
 
+	sa1 := &specs.ServiceAccountSpec{}
+	sa1.AutomountServiceAccountToken = boolPtr(true)
+	sa1.ClusterRoleNames = []string{
+		"someClusterRole1", "someClusterRole2",
+	}
+	sa1.Rules = []specs.PolicyRule{
+		{
+			APIGroups: []string{""},
+			Resources: []string{"pods"},
+			Verbs:     []string{"get", "watch", "list"},
+		},
+	}
 	getExpectedPodSpecBase := func() *specs.PodSpec {
-		pSpecs := &specs.PodSpec{
-			ServiceAccount: &specs.ServiceAccountSpec{
-				ClusterRoleNames: []string{
-					"someClusterRole1", "someClusterRole2",
-				},
-				AutomountServiceAccountToken: boolPtr(true),
-				Rules: []specs.PolicyRule{
-					{
-						APIGroups: []string{""},
-						Resources: []string{"pods"},
-						Verbs:     []string{"get", "watch", "list"},
-					},
-				},
-			},
-		}
+		pSpecs := &specs.PodSpec{ServiceAccount: sa1}
 		pSpecs.Service = &specs.ServiceSpec{
 			ScalePolicy: "serial",
 			Annotations: map[string]string{"foo": "bar"},
@@ -315,8 +321,23 @@ echo "do some stuff here for gitlab-init container"
 			},
 		}
 
+		sa2 := &k8sspecs.K8sServiceAccountSpec{
+			Name: "k8sServiceAccount1",
+		}
+		sa2.AutomountServiceAccountToken = boolPtr(true)
+		sa2.ClusterRoleNames = []string{
+			"someClusterRole1", "someClusterRole2",
+		}
+		sa2.Rules = []specs.PolicyRule{
+			{
+				APIGroups: []string{""},
+				Resources: []string{"pods"},
+				Verbs:     []string{"get", "watch", "list"},
+			},
+		}
 		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
 			KubernetesResources: &k8sspecs.KubernetesResources{
+				ServiceAccount: sa2,
 				Pod: &k8sspecs.PodSpec{
 					ActiveDeadlineSeconds:         int64Ptr(10),
 					RestartPolicy:                 core.RestartPolicyOnFailure,

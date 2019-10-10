@@ -61,7 +61,7 @@ func (p *K8sPodSpecV2) Validate() error {
 	return nil
 }
 
-// K8sServiceAccountSpec defines spec for referencing to or creating a service account.
+// K8sServiceAccountSpec defines spec for referencing or creating a service account.
 type K8sServiceAccountSpec struct {
 	Name           string `yaml:"name" json:"name"`
 	specs.RBACSpec `yaml:",inline"`

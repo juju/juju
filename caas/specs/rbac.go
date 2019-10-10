@@ -30,7 +30,7 @@ func (rs RBACSpec) Validate() error {
 	return nil
 }
 
-// ServiceAccountSpec defines spec for referencing to or creating a service account.
+// ServiceAccountSpec defines spec for referencing or creating a service account.
 type ServiceAccountSpec struct {
 	name     string
 	RBACSpec `yaml:",inline"`
