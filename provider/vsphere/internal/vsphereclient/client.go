@@ -459,6 +459,7 @@ func (c *Client) cloneVM(
 	args CreateVirtualMachineParams,
 	srcVM *object.VirtualMachine,
 	vmFolder *object.Folder,
+	datastore *object.Datastore,
 ) (*object.VirtualMachine, error) {
 	taskWaiter := &taskWaiter{
 		args.Clock,
@@ -471,10 +472,12 @@ func (c *Client) cloneVM(
 		return nil, errors.Annotate(err, "building clone VM config")
 	}
 
+	datastoreRef := datastore.Reference()
 	task, err := srcVM.Clone(ctx, vmFolder, args.Name, types.VirtualMachineCloneSpec{
 		Config: vmConfigSpec,
 		Location: types.VirtualMachineRelocateSpec{
-			Pool: &args.ResourcePool,
+			Pool:      &args.ResourcePool,
+			Datastore: &datastoreRef,
 		},
 	})
 	if err != nil {
