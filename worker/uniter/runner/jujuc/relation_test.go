@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/testing"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/worker/uniter/runner/jujuc/jujuctesting"
@@ -16,7 +17,7 @@ type relationSuite struct {
 	ContextSuite
 }
 
-func (s *relationSuite) newHookContext(relid int, remote string) (jujuc.Context, *relationInfo) {
+func (s *relationSuite) newHookContext(relid int, remote string, app string) (jujuc.Context, *relationInfo) {
 	hctx, info := s.ContextSuite.NewHookContext()
 	rInfo := &relationInfo{ContextInfo: info, stub: s.Stub}
 	settings := jujuctesting.Settings{
@@ -26,7 +27,14 @@ func (s *relationSuite) newHookContext(relid int, remote string) (jujuc.Context,
 	rInfo.setNextRelation("", s.Unit, settings) // peer1
 	if relid >= 0 {
 		rInfo.SetAsRelationHook(relid, remote)
+		if app == "" {
+			maybeApp, err := names.UnitApplication(remote)
+			if err == nil {
+				app = maybeApp
+			}
+		}
 	}
+	rInfo.SetRemoteApplicationName(app)
 
 	return hctx, rInfo
 }

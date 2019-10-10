@@ -24,8 +24,8 @@ type RelationGetSuite struct {
 
 var _ = gc.Suite(&RelationGetSuite{})
 
-func (s *RelationGetSuite) newHookContext(relid int, remote string) (jujuc.Context, *relationInfo) {
-	hctx, info := s.relationSuite.newHookContext(relid, remote)
+func (s *RelationGetSuite) newHookContext(relid int, remote string, app string) (jujuc.Context, *relationInfo) {
+	hctx, info := s.relationSuite.newHookContext(relid, remote, app)
 	info.rels[0].Units["u/0"]["private-address"] = "foo: bar\n"
 	info.rels[1].SetRelated("m/0", jujuctesting.Settings{"pew": "pew\npew\n"})
 	info.rels[1].SetRelated("u/1", jujuctesting.Settings{"value": "12345"})
@@ -144,7 +144,7 @@ var relationGetTests = []struct {
 func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
 	for i, t := range relationGetTests {
 		c.Logf("test %d: %s", i, t.summary)
-		hctx, _ := s.newHookContext(t.relid, t.unit)
+		hctx, _ := s.newHookContext(t.relid, t.unit, "")
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
@@ -200,7 +200,7 @@ func (s *RelationGetSuite) TestRelationGetFormat(c *gc.C) {
 	testFormat := func(format string, checker gc.Checker) {
 		for i, t := range relationGetFormatTests {
 			c.Logf("test %d: %s %s", i, format, t.summary)
-			hctx, _ := s.newHookContext(t.relid, t.unit)
+			hctx, _ := s.newHookContext(t.relid, t.unit, "")
 			com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
 			c.Assert(err, jc.ErrorIsNil)
 			ctx := cmdtesting.Context(c)
@@ -272,7 +272,7 @@ var relationGetHelpTests = []struct {
 func (s *RelationGetSuite) TestHelp(c *gc.C) {
 	for i, t := range relationGetHelpTests {
 		c.Logf("test %d", i)
-		hctx, _ := s.newHookContext(t.relid, t.unit)
+		hctx, _ := s.newHookContext(t.relid, t.unit, "")
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
@@ -289,7 +289,7 @@ func (s *RelationGetSuite) TestHelp(c *gc.C) {
 }
 
 func (s *RelationGetSuite) TestOutputPath(c *gc.C) {
-	hctx, _ := s.newHookContext(1, "m/0")
+	hctx, _ := s.newHookContext(1, "m/0", "")
 	com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
@@ -328,11 +328,7 @@ func (t relationGetInitTest) init(c *gc.C, s *RelationGetSuite) (cmd.Command, []
 	args := make([]string, len(t.args))
 	copy(args, t.args)
 
-	remote := ""
-	if t.ctxunit != "" {
-		remote = t.ctxunit
-	}
-	hctx, _ := s.newHookContext(t.ctxrelid, remote)
+	hctx, _ := s.newHookContext(t.ctxrelid, t.ctxunit, t.ctxapp)
 	com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
 	c.Assert(err, jc.ErrorIsNil)
 

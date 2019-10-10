@@ -22,7 +22,7 @@ type RelationIdsSuite struct {
 var _ = gc.Suite(&RelationIdsSuite{})
 
 func (s *RelationIdsSuite) newHookContext(relid int, remote string) (jujuc.Context, *relationInfo) {
-	hctx, info := s.relationSuite.newHookContext(-1, "")
+	hctx, info := s.relationSuite.newHookContext(-1, "", "")
 	info.reset()
 	info.addRelatedApplications("x", 3)
 	info.addRelatedApplications("y", 1)

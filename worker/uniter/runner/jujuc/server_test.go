@@ -271,7 +271,7 @@ var newCommandTests = []struct {
 }
 
 func (s *NewCommandSuite) TestNewCommand(c *gc.C) {
-	ctx, _ := s.newHookContext(0, "")
+	ctx, _ := s.newHookContext(0, "", "")
 	for _, t := range newCommandTests {
 		com, err := jujuc.NewCommand(ctx, cmdString(t.name))
 		if t.err == "" {

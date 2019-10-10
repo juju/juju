@@ -96,9 +96,7 @@ func (c *RelationGetCommand) Init(args []string) error {
 	} else if !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	} else {
-		// TODO(jam): 2019-10-03 implement RemoteApplicationName
-		// name, err := c.ctx.RemoteApplicationName()
-		if err == nil {
+		if name, err := c.ctx.RemoteApplicationName(); err == nil {
 			c.UnitName = name
 		} else if !errors.IsNotFound(err) {
 			return errors.Trace(err)

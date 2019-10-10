@@ -110,7 +110,7 @@ var relationListTests = []struct {
 func (s *RelationListSuite) TestRelationList(c *gc.C) {
 	for i, t := range relationListTests {
 		c.Logf("test %d: %s", i, t.summary)
-		hctx, info := s.newHookContext(t.relid, "")
+		hctx, info := s.newHookContext(t.relid, "", "")
 		info.setRelations(0, t.members0)
 		info.setRelations(1, t.members1)
 		c.Logf("%#v %#v", info.rels[t.relid], t.members1)
@@ -158,7 +158,7 @@ Options:
 		0:  {"peer0:0", ""},
 	} {
 		c.Logf("test relid %d", relid)
-		hctx, _ := s.newHookContext(relid, "")
+		hctx, _ := s.newHookContext(relid, "", "")
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-list"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)

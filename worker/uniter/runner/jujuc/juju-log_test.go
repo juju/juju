@@ -26,7 +26,7 @@ type JujuLogSuite struct {
 var _ = gc.Suite(&JujuLogSuite{})
 
 func (s *JujuLogSuite) newJujuLogCommand(c *gc.C) cmd.Command {
-	ctx, _ := s.newHookContext(-1, "")
+	ctx, _ := s.newHookContext(-1, "", "")
 	cmd, err := jujuc.NewJujuLogCommand(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	return jujuc.NewJujucCommandWrappedForTest(cmd)

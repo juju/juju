@@ -20,6 +20,7 @@ type RelationHook struct {
 func (rh *RelationHook) Reset() {
 	rh.HookRelation = nil
 	rh.RemoteUnitName = ""
+	rh.RemoteApplicationName = ""
 }
 
 // ContextRelationHook is a test double for jujuc.RelationHookContext.
@@ -56,9 +57,9 @@ func (c *ContextRelationHook) RemoteApplicationName() (string, error) {
 	c.stub.AddCall("RemoteApplicationName")
 	c.stub.NextErr()
 	var err error
-	if c.info.RemoteUnitName == "" {
-		err = errors.NotFoundf("remote unit")
+	if c.info.RemoteApplicationName == "" {
+		err = errors.NotFoundf("remote application")
 	}
 
-	return c.info.RemoteUnitName, err
+	return c.info.RemoteApplicationName, err
 }
