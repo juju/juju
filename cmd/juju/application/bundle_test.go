@@ -162,7 +162,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 		"mariadb": {charm: "cs:kubernetes/mariadb-42", config: mysqlch.Config().DefaultSettings()},
 		"gitlab":  {charm: "cs:kubernetes/gitlab-47", config: wpch.Config().DefaultSettings(), scale: 1},
 	})
-	s.assertRelationsEstablished(c, "gitlab:db mariadb:server")
+	s.assertRelationsEstablished(c, "gitlab:ring", "gitlab:db mariadb:server")
 }
 
 func (s *BundleDeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
