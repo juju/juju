@@ -488,3 +488,48 @@ serviceAccount:
 	_, err := k8sspecs.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `rules or clusterRoleNames are required`)
 }
+
+func (s *v2SpecsSuite) TestValidateCustomResourceDefinitions(c *gc.C) {
+	specStr := versionHeader + `
+containers:
+  - name: gitlab-helper
+    image: gitlab-helper/latest
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+kubernetesResources:
+  customResourceDefinitions:
+    tfjobs.kubeflow.org:
+      group: kubeflow.org
+      version: v1alpha2
+      scope: Cluster
+      names:
+        plural: "tfjobs"
+        singular: "tfjob"
+        kind: TFJob
+      validation:
+        openAPIV3Schema:
+          properties:
+            tfReplicaSpecs:
+              properties:
+                Worker:
+                  properties:
+                    replicas:
+                      type: integer
+                      minimum: 1
+                PS:
+                  properties:
+                    replicas:
+                      type: integer
+                      minimum: 1
+                Chief:
+                  properties:
+                    replicas:
+                      type: integer
+                      minimum: 1
+                      maximum: 1
+`[1:]
+
+	_, err := k8sspecs.ParsePodSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "Cluster" is not supported, please use "Namespaced" scope`)
+}

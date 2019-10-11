@@ -4,6 +4,7 @@
 package specs
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/juju/errors"
@@ -69,6 +70,14 @@ type KubernetesResources struct {
 
 // Validate is defined on ProviderPod.
 func (krs *KubernetesResources) Validate() error {
+	for k, crd := range krs.CustomResourceDefinitions {
+		if crd.Scope != apiextensionsv1beta1.NamespaceScoped {
+			return errors.NewNotSupported(nil,
+				fmt.Sprintf("custom resource definition %q scope %q is not supported, please use %q scope",
+					k, crd.Scope, apiextensionsv1beta1.NamespaceScoped),
+			)
+		}
+	}
 	return nil
 }
 
