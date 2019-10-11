@@ -32,8 +32,10 @@ func (k *kubernetesClient) ensureCustomResourceDefinitions(appName string, crds 
 	return cleanUps, nil
 }
 
-func (k *kubernetesClient) ensureCustomResourceDefinition(name string, labels map[string]string, spec apiextensionsv1beta1.CustomResourceDefinitionSpec) (
-	crd *apiextensionsv1beta1.CustomResourceDefinition, err error) {
+func (k *kubernetesClient) ensureCustomResourceDefinition(
+	name string, labels map[string]string,
+	spec apiextensionsv1beta1.CustomResourceDefinitionSpec,
+) (crd *apiextensionsv1beta1.CustomResourceDefinition, err error) {
 	crdIn := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      name,
