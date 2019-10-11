@@ -4577,6 +4577,52 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoV6Results(c *gc.C) {
 	c.Check(result, jc.DeepEquals, expectedResult)
 }
 
+func (s *uniterNetworkInfoSuite) TestUpdateNetworkInfo(c *gc.C) {
+	s.addRelationAndAssertInScope(c)
+
+	// Clear network settings from all relation units
+	relList, err := s.wordpressUnit.RelationsJoined()
+	c.Assert(err, gc.IsNil)
+	for _, rel := range relList {
+		relUnit, err := rel.Unit(s.wordpressUnit)
+		c.Assert(err, gc.IsNil)
+		relSettings, err := relUnit.Settings()
+		c.Assert(err, gc.IsNil)
+		relSettings.Delete("private-address")
+		relSettings.Delete("ingress-address")
+		relSettings.Delete("egress-subnets")
+		_, err = relSettings.Write()
+		c.Assert(err, gc.IsNil)
+	}
+
+	// Making an UpdateNetworkInfo call should re-generate them for us.
+	args := params.Entities{
+		Entities: []params.Entity{
+			{
+				Tag: s.wordpressUnit.Tag().String(),
+			},
+		},
+	}
+
+	apiV12, err := uniter.NewUniterAPIV12(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+	res, err := apiV12.UpdateNetworkInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.OneError(), gc.IsNil)
+
+	// Validate settings
+	for _, rel := range relList {
+		relUnit, err := rel.Unit(s.wordpressUnit)
+		c.Assert(err, gc.IsNil)
+		relSettings, err := relUnit.Settings()
+		c.Assert(err, gc.IsNil)
+		relMap := relSettings.Map()
+		c.Assert(relMap["private-address"], gc.Equals, "10.0.0.10")
+		c.Assert(relMap["ingress-address"], gc.Equals, "10.0.0.10")
+		c.Assert(relMap["egress-subnets"], gc.Equals, "10.0.0.10/32")
+	}
+}
+
 func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
 

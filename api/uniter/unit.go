@@ -823,3 +823,22 @@ func (u *Unit) NetworkInfo(bindings []string, relationId *int) (map[string]param
 
 	return results.Results, nil
 }
+
+// UpdateNetworkInfo updates the network settings for the unit's bound
+// endpoints.
+func (u *Unit) UpdateNetworkInfo() error {
+	args := params.Entities{
+		Entities: []params.Entity{
+			{
+				Tag: u.tag.String(),
+			},
+		},
+	}
+
+	var results params.ErrorResults
+	err := u.st.facade.FacadeCall("UpdateNetworkInfo", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+}
