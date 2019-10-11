@@ -5,8 +5,11 @@ package provider
 
 import (
 	"fmt"
+	"time"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -425,6 +428,34 @@ func (k *kubernetesClient) updateRoleBinding(rb *rbacv1.RoleBinding) (*rbacv1.Ro
 	return out, errors.Trace(err)
 }
 
+func ensureResourceDeleted(clock jujuclock.Clock, getResource func() error) error {
+	notReadyYetErr := errors.New("resource is still being deleted")
+	deletionChecker := func() error {
+		err := getResource()
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		if err == nil {
+			return notReadyYetErr
+		}
+		return errors.Trace(err)
+	}
+
+	err := retry.Call(retry.CallArgs{
+		Attempts: 10,
+		Delay:    2 * time.Second,
+		Clock:    clock,
+		Func:     deletionChecker,
+		IsFatalError: func(err error) bool {
+			return err != nil && err != notReadyYetErr
+		},
+		NotifyFunc: func(error, int) {
+			logger.Debugf("waiting for resource to be deleted")
+		},
+	})
+	return errors.Trace(err)
+}
+
 func (k *kubernetesClient) ensureRoleBinding(rb *rbacv1.RoleBinding) (out *rbacv1.RoleBinding, cleanups []func(), err error) {
 	isFirstDeploy := false
 	// RoleRef is immutable, so delete first then re-create.
@@ -437,10 +468,22 @@ func (k *kubernetesClient) ensureRoleBinding(rb *rbacv1.RoleBinding) (out *rbacv
 
 	for _, v := range rbs {
 		if v.GetName() == rb.GetName() {
-			if err := k.deleteRoleBinding(v.GetName(), v.GetUID()); err != nil {
+			name := v.GetName()
+			UID := v.GetUID()
+
+			if err := k.deleteRoleBinding(name, UID); err != nil {
 				return nil, cleanups, errors.Trace(err)
 			}
-			logger.Debugf("role binding %q deleted", v.GetName())
+
+			if err := ensureResourceDeleted(
+				k.clock,
+				func() error {
+					_, err := k.getRoleBinding(name)
+					return errors.Trace(err)
+				},
+			); err != nil {
+				return nil, cleanups, errors.Trace(err)
+			}
 			break
 		}
 	}
