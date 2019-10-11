@@ -212,6 +212,10 @@ func (c *bootstrapCommand) Info() *cmd.Info {
 	})
 }
 
+func (c *bootstrapCommand) setControllerName(controllerName string) {
+	c.controllerName = strings.ToLower(controllerName)
+}
+
 func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set model constraints")
@@ -332,7 +336,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		return errors.NotValidf("cloud name %q", c.Cloud)
 	}
 	if len(args) > 1 {
-		c.controllerName = args[1]
+		c.setControllerName(args[1])
 		return cmd.CheckEmpty(args[2:])
 	}
 	return nil
@@ -594,7 +598,7 @@ to create a new model to deploy k8s workloads.
 		return errors.Trace(err)
 	}
 	if c.controllerName == "" {
-		c.controllerName = defaultControllerName(cloud.Name, region.Name)
+		c.setControllerName(defaultControllerName(cloud.Name, region.Name))
 	}
 
 	// set a Region so it's config can be found below.
@@ -1342,7 +1346,8 @@ func (c *bootstrapCommand) runInteractive(ctx *cmd.Context) error {
 
 	defName := defaultControllerName(c.Cloud, c.Region)
 
-	c.controllerName, err = queryName(defName, scanner, ctx.Stdout)
+	name, err := queryName(defName, scanner, ctx.Stdout)
+	c.setControllerName(name)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1368,7 +1373,7 @@ func handleBootstrapError(ctx *cmd.Context, cleanup func() error) {
 	defer close(ch)
 	go func() {
 		for range ch {
-			fmt.Fprintln(ctx.GetStderr(), "Cleaning up failed bootstrap")
+			_, _ = fmt.Fprintln(ctx.GetStderr(), "Cleaning up failed bootstrap")
 		}
 	}()
 	logger.Debugf("cleaning up after failed bootstrap")
@@ -1381,7 +1386,7 @@ func handleChooseCloudRegionError(ctx *cmd.Context, err error) error {
 	if !common.IsChooseCloudRegionError(err) {
 		return err
 	}
-	fmt.Fprintf(ctx.GetStderr(),
+	_, _ = fmt.Fprintf(ctx.GetStderr(),
 		"%s\n\nSpecify an alternative region, or try %q.\n",
 		err, "juju update-clouds",
 	)
